@@ -913,13 +913,19 @@ impl Shared {
     }
 
     fn reconnect(self: &Arc<Self>) -> Option<Cap> {
-        let photo = self.photo_until.lock().unwrap().is_some_and(|until| Instant::now() < until);
-        if photo {
+        let on_hold = || self.photo_until.lock().unwrap().is_some_and(|until| Instant::now() < until);
+        let mut quiet = on_hold();
+        if quiet {
             self.status("info", &tr("The video is paused while the phone takes a photo"));
         } else {
             self.status("reconnecting", &tr("Stream dropped - reconnecting"));
         }
         while !self.stopped() {
+            // A photo that lost the camera never brings the video back: this has to be reported as a drop after all
+            if quiet && !on_hold() {
+                quiet = false;
+                self.status("reconnecting", &tr("Stream dropped - reconnecting"));
+            }
             let until = Instant::now() + DROP_RETRY_DELAY;
             while Instant::now() < until {
                 if self.stopped() {
@@ -2002,6 +2008,17 @@ mod tests {
         *w.shared.photo_until.lock().unwrap() = None; // the hold ran out: a stop is a dropped stream again
         assert!(w.shared.reconnect().is_some());
         drop(fast);
+        assert_eq!(kinds(&log), ["info", "reconnecting"]);
+        w.stop();
+    }
+
+    #[test]
+    fn a_photo_that_never_brings_the_video_back_is_a_dropped_stream() {
+        let (opener, opens) = scripted(vec![Some(vec![]), None, Some(vec![Step::Frame(1)])]);
+        let (w, _cams, log) = sitting(opener, &opens);
+        log.lock().unwrap().clear();
+        w.hold_for_photo(0.2);
+        assert!(w.shared.reconnect().is_some());
         assert_eq!(kinds(&log), ["info", "reconnecting"]);
         w.stop();
     }

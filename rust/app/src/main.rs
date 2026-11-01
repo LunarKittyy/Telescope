@@ -570,6 +570,8 @@ fn main() {
         refresh_sign_in_entry(source_build, &autostart::launch_command(&app_dir(), true), &autostart::here());
     }
     telescope_shell::preview::use_gpu_painter(Arc::new(|device, queue| {
+        // The second connection to the card opens here, before anything draws: opening it later, from a stream's thread, rescans the Vulkan drivers under the window's rendering
+        let _ = telescope_media::gpu::Gpu::shared();
         Box::new(GpuPreview { gpu: telescope_media::gpu::Gpu::on_device(device, queue), pictures: [None, None], next: 0 })
     }));
     let command = words.first().map(String::as_str);

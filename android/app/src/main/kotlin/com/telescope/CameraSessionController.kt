@@ -1184,6 +1184,7 @@ class CameraSessionController(
     fun stillSession(): CameraCaptureSession? = captureSession
     // The stream's outputs, which a photo's request can feed too so the video doesn't stop for it
     fun stillStreamTargets(): List<Surface> = currentTargetSurfaces()
+    fun stillVideoIsJpeg(): Boolean = imageReader != null
     // Changes with every reopen: a photo started on an older camera stops there
     fun stillGeneration(): Int = cameraGeneration
     fun stillOutputsInSession(outputs: List<StillOutput>): Boolean =

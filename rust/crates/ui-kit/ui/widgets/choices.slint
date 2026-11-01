@@ -84,6 +84,7 @@ export component Segmented inherits Rectangle {
             accessible-label: label + ": " + item;
             accessible-checkable: true;
             accessible-checked: on;
+            accessible-action-default => { if (!off) { pick(i); } }
             if tips[i] != "": Tooltip { TipBody { says: tips[i]; } }
             bold-width := Text { text: item; font-family: Theme.font; font-size: Theme.body; font-weight: 600; visible: false; }
             property <int> asked: arrows;
@@ -208,6 +209,7 @@ export component ChoiceField inherits Rectangle {
     accessible-label: caption;
     accessible-value: items[shown];
     accessible-description: tip;
+    accessible-action-default => { if (root.enabled) { popup.show(); } }
     forward-focus: focus;
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }

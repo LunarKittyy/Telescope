@@ -34,6 +34,7 @@ component Toggles inherits Rectangle {
             accessible-label: item;
             accessible-checkable: true;
             accessible-checked: on;
+            accessible-action-default => { if (root.enabled) { root.toggled(i, !on); } }
             seg-touch := TouchArea {
                 enabled: root.enabled;
                 mouse-cursor: pointer;
