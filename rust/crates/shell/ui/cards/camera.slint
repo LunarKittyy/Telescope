@@ -31,6 +31,7 @@ component LensTile inherits Rectangle {
     accessible-role: button;
     accessible-label: lens.name;
     accessible-checked: on;
+    accessible-action-default => { root.clicked(); }
     touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
     ShortcutMenu { action: "camera.lens"; }
     VerticalLayout {

@@ -13,6 +13,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use str0m::bwe::Bitrate;
 use str0m::change::SdpOffer;
 use str0m::format::Codec as RtcCodec;
 use str0m::media::{KeyframeRequestKind, MediaKind, Mid};
@@ -33,6 +34,8 @@ const TICK: Duration = Duration::from_millis(100);
 const IDLE_NAP: Duration = Duration::from_millis(2);
 /// A keyframe asked for again no sooner than this.
 const KEYFRAME_AGAIN: Duration = Duration::from_secs(1);
+/// How often the sender hears what it may use. Firefox lowers its size without this and never climbs back.
+const REMB_EVERY: Duration = Duration::from_secs(1);
 
 /// The offer couldn't be answered; the text is for the log.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -191,7 +194,7 @@ impl RtcSession for StrSession {
         let (started, ready) = mpsc::channel();
         std::thread::Builder::new().name("browser-rtc".into()).spawn(move || {
             let _ = started.send(());
-            run(rtc, &sockets, &stop, &keyframe, video, audio, opus.as_ref()());
+            run(rtc, &sockets, &stop, &keyframe, video, audio, opus.as_ref()(), max_kbps);
         }).map_err(|e| RtcError(e.to_string()))?;
         ready.recv_timeout(ANSWER_TIMEOUT).map_err(|_| RtcError("the connection's thread didn't start".into()))?;
         Ok(tune_answer(&sdp, max_kbps))
@@ -218,16 +221,25 @@ impl Drop for StrSession {
 
 /// The connection until it's closed or the browser goes.
 fn run(mut rtc: Rtc, sockets: &[UdpSocket], stop: &AtomicBool, keyframe: &AtomicBool, mut video: VideoSink, mut audio: AudioSink,
-       mut opus: Option<Box<dyn AudioDecoder>>) {
+       mut opus: Option<Box<dyn AudioDecoder>>, max_kbps: u32) {
     let mut buf = vec![0u8; 2000];
     let mut video_mid: Option<Mid> = None;
     let (mut frames, mut received, mut since, mut per_frame) = (0u64, 0u64, Instant::now(), 0u64);
     let mut asked = Instant::now() - KEYFRAME_AGAIN;
+    let mut told = Instant::now() - REMB_EVERY;
     while !stop.load(Ordering::SeqCst) && rtc.is_alive() {
         if keyframe.swap(false, Ordering::SeqCst) && asked.elapsed() >= KEYFRAME_AGAIN {
             if let Some(mut writer) = video_mid.and_then(|mid| rtc.writer(mid)) {
                 asked = Instant::now();
                 let _ = writer.request_keyframe(None, KeyframeRequestKind::Pli);
+            }
+        }
+        if told.elapsed() >= REMB_EVERY {
+            if let Some(mid) = video_mid {
+                if let Some(stream) = rtc.direct_api().stream_rx_by_mid(mid, None) {
+                    told = Instant::now();
+                    stream.request_remb(Bitrate::kbps(u64::from(max_kbps)));
+                }
             }
         }
         let timeout = match rtc.poll_output() {

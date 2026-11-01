@@ -24,6 +24,7 @@ component OptionCard inherits Rectangle {
     accessible-label: title;
     accessible-description: note;
     accessible-checked: checked;
+    accessible-action-default => { if (root.enabled) { root.clicked(); } }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: root.enabled ? pointer : default;
