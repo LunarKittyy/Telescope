@@ -94,6 +94,9 @@ fn aligned_row(bytes: u32) -> u32 {
     bytes.div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT) * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT
 }
 
+/// What to ask for, in order: just looking for GL loads Mesa's big GL libraries, about 25 MB, so it waits until there's no Vulkan.
+const BACKENDS: [wgpu::Backends; 2] = [wgpu::Backends::PRIMARY, wgpu::Backends::PRIMARY.union(wgpu::Backends::GL)];
+
 impl Gpu {
     /// The app's one graphics card connection, opened on first use; None when there's no card wgpu can use or
     /// TELESCOPE_NO_GPU is set (for a driver that misbehaves, and for comparing).
@@ -112,13 +115,23 @@ impl Gpu {
     }
 
     fn open() -> Result<Gpu, String> {
-        let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
-        desc.backends = wgpu::Backends::PRIMARY | wgpu::Backends::GL;
-        let instance = wgpu::Instance::new(desc.with_env());
-        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            ..Default::default()
-        })).map_err(|e| e.to_string())?;
+        let (mut found, mut why) = (None, String::new());
+        for backends in BACKENDS {
+            let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
+            desc.backends = backends;
+            let instance = wgpu::Instance::new(desc.with_env());
+            match pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                ..Default::default()
+            })) {
+                Ok(adapter) => {
+                    found = Some(adapter);
+                    break;
+                }
+                Err(e) => why = e.to_string(),
+            }
+        }
+        let adapter = found.ok_or(why)?;
         let info = adapter.get_info();
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("telescope frames"),
@@ -608,6 +621,12 @@ fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gl_is_only_asked_for_after_the_rest() {
+        assert!(!BACKENDS[0].contains(wgpu::Backends::GL));
+        assert!(BACKENDS[1].contains(wgpu::Backends::GL | wgpu::Backends::PRIMARY));
+    }
     use serde_json::json;
 
     fn step(wgsl: &str, uniforms: serde_json::Value) -> ShaderStep {
