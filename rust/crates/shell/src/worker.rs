@@ -194,6 +194,7 @@ impl Settle {
 }
 
 /// frame scaled to fit width x height, keeping its shape, with black bars as needed (the same frame if it fits).
+/// Black in the camera's video range is Y 16, as Python's bars come out.
 pub fn fit_frame(frame: &Frame, width: u32, height: u32) -> Frame {
     if (frame.width, frame.height) == (width, height) || frame.format != PixelFormat::I420 {
         return frame.clone();
@@ -206,6 +207,7 @@ pub fn fit_frame(frame: &Frame, width: u32, height: u32) -> Frame {
     let (cw, ch) = (width.div_ceil(2) as usize, height.div_ceil(2) as usize);
     let (oy, rest) = out.split_at_mut((width * height) as usize);
     let (ou, ov) = rest.split_at_mut(cw * ch);
+    oy.fill(16);
     ou.fill(128);
     ov.fill(128);
     let (fw, fh) = (frame.width as usize, frame.height as usize);
@@ -1223,9 +1225,9 @@ mod tests {
         let fitted = fit_frame(&tinted(8, 4, 255, 40, 200), 8, 8);
         assert_eq!((fitted.width, fitted.height, fitted.format), (8, 8, PixelFormat::I420));
         let (y, u, v) = fitted.i420_planes().unwrap();
-        assert!(y[..16].iter().all(|&p| p == 0));
+        assert!(y[..16].iter().all(|&p| p == 16));
         assert!(y[16..48].iter().all(|&p| p == 255));
-        assert!(y[48..].iter().all(|&p| p == 0));
+        assert!(y[48..].iter().all(|&p| p == 16));
         // Black bars, so no colour in them, and the picture's colour between
         for plane in [(u, 40), (v, 200)] {
             assert_eq!(plane.0.chunks(4).map(|r| r[0]).collect::<Vec<_>>(), [128, plane.1, plane.1, 128]);
@@ -1239,7 +1241,7 @@ mod tests {
         assert_eq!((fitted.width, fitted.height, fitted.format), (8, 8, PixelFormat::I420));
         let (y, u, v) = fitted.i420_planes().unwrap();
         for row in y.chunks(8) {
-            assert_eq!(row, [0, 0, 9, 9, 9, 9, 0, 0]);
+            assert_eq!(row, [16, 16, 9, 9, 9, 9, 16, 16]);
         }
         for (plane, value) in [(u, 40), (v, 200)] {
             for row in plane.chunks(4) {
