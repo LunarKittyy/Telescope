@@ -79,7 +79,7 @@ pub fn thumb(frame: &Rgb) -> Vec<u8> {
         }
     }
     let small = resize_area(&picked, sw, sh, 3, THUMB.0, THUMB.1);
-    small.chunks_exact(3).map(|p| grey_of(p[0], p[1], p[2])).collect()
+    small.as_chunks::<3>().0.iter().map(|p| grey_of(p[0], p[1], p[2])).collect()
 }
 
 /// Whether frames still look like the one last used, from a tiny grey copy (cheap enough for every frame).
