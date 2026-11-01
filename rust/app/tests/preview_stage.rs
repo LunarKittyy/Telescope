@@ -896,13 +896,16 @@ fn the_card_paints_every_second_frame_but_all_of_them_reach_the_slot() {
 fn the_pop_out_shows_every_frame_with_smooth_off() {
     let s = on_air_capped("stage-popout-every");
     let p = s.pop_out();
-    let shown = || {
+    p.window().set_size(slint::PhysicalSize::new(160, 90));
+    let blue_shown = || {
         let SValue::Image(image) = p.get_property("frame").unwrap() else { panic!("no picture") };
-        image.size().width
+        let rgb = image.to_rgb8().expect("the picture's pixels");
+        rgb.as_slice()[0].b > 200
     };
-    for width in [160, 96, 128, 64] {
-        s.show(0, grey(width, width * 9 / 16));
-        assert_eq!(shown(), width);
+    for i in 0..6 {
+        let blue_one = i % 2 == 0;
+        s.show(0, if blue_one { blue(160, 90) } else { grey(160, 90) });
+        assert_eq!(blue_shown(), blue_one, "frame {i}");
     }
 }
 
