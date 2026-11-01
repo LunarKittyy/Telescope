@@ -28,8 +28,9 @@ pub fn rint(v: f64) -> i32 {
 }
 
 thread_local! {
-    // The buffers a frame step lent this thread for one frame. None outside that, so nothing is left behind once the step is gone
-    static SPARES: RefCell<Option<Vec<Vec<u8>>>> = const { RefCell::new(None) };
+    // The buffers a frame step lent this thread for one frame, and how many it has asked for. None outside that, so nothing is left
+    // behind once the step is gone
+    static SPARES: RefCell<Option<(Vec<Vec<u8>>, usize)>> = const { RefCell::new(None) };
 }
 
 /// How many buffers a step keeps, and the size below which one isn't worth keeping.
@@ -37,14 +38,18 @@ const SPARE_BUFFERS: usize = 12;
 const SPARE_ABOVE: usize = 16 * 1024;
 
 /// Runs a frame's work with held's buffers to draw on (spare_bytes) and whatever it finishes with added to them (keep_bytes).
+/// Only as many as the frame asked for stay, the biggest ones, so buffers nothing draws on don't pile up.
 pub fn with_spares<R>(held: &mut Vec<Vec<u8>>, work: impl FnOnce() -> R) -> R {
     struct Back<'a>(&'a mut Vec<Vec<u8>>);
     impl Drop for Back<'_> {
         fn drop(&mut self) {
-            *self.0 = SPARES.with_borrow_mut(Option::take).unwrap_or_default();
+            let (mut kept, asked) = SPARES.with_borrow_mut(Option::take).unwrap_or_default();
+            kept.sort_by_key(|b| std::cmp::Reverse(b.capacity()));
+            kept.truncate(asked);
+            *self.0 = kept;
         }
     }
-    SPARES.with_borrow_mut(|s| *s = Some(std::mem::take(held)));
+    SPARES.with_borrow_mut(|s| *s = Some((std::mem::take(held), 0)));
     let _back = Back(held);
     work()
 }
@@ -52,9 +57,10 @@ pub fn with_spares<R>(held: &mut Vec<Vec<u8>>, work: impl FnOnce() -> R) -> R {
 /// A buffer of len bytes for work that writes every one of them: what's in it is whatever was left there.
 pub fn spare_bytes(len: usize) -> Vec<u8> {
     let found = SPARES.with_borrow_mut(|s| {
-        let s = s.as_mut()?;
-        let (i, _) = s.iter().enumerate().filter(|(_, b)| b.capacity() >= len).min_by_key(|(_, b)| b.capacity())?;
-        Some(s.swap_remove(i))
+        let (held, asked) = s.as_mut()?;
+        *asked += 1;
+        let (i, _) = held.iter().enumerate().filter(|(_, b)| b.capacity() >= len).min_by_key(|(_, b)| b.capacity())?;
+        Some(held.swap_remove(i))
     });
     match found {
         Some(mut buffer) => {
@@ -72,7 +78,7 @@ pub fn keep_bytes(buffer: Vec<u8>) {
     }
     // Nothing to do this late in a thread's life
     let _ = SPARES.try_with(|s| {
-        if let Some(held) = s.borrow_mut().as_mut() {
+        if let Some((held, _)) = s.borrow_mut().as_mut() {
             if held.len() < SPARE_BUFFERS {
                 held.push(buffer);
             } else if let Some(smallest) = held.iter_mut().min_by_key(|b| b.capacity()).filter(|b| b.capacity() < buffer.capacity()) {
@@ -511,6 +517,7 @@ mod tests {
         assert!(held.is_empty());
 
         with_spares(&mut held, || {
+            (0..SPARE_BUFFERS + 3).for_each(|_| drop(spare_bytes(1)));
             keep_bytes(vec![0; SPARE_ABOVE - 1]);
             (0..SPARE_BUFFERS + 3).for_each(|_| keep_bytes(vec![0; SPARE_ABOVE]));
             keep_bytes(vec![0; SPARE_ABOVE * 2]);
@@ -520,9 +527,23 @@ mod tests {
     }
 
     #[test]
+    fn only_what_a_frame_asked_for_stays() {
+        let mut held = vec![vec![0; SPARE_ABOVE * 2], vec![0; SPARE_ABOVE * 3]];
+        with_spares(&mut held, || {
+            let big = spare_bytes(SPARE_ABOVE * 3);
+            (0..4).for_each(|_| keep_bytes(vec![0; SPARE_ABOVE]));
+            keep_bytes(big);
+        });
+        assert_eq!(held.iter().map(Vec::capacity).collect::<Vec<_>>(), [SPARE_ABOVE * 3], "one asked for, so the biggest stays");
+    }
+
+    #[test]
     fn a_step_that_panics_lets_go_of_the_spares() {
-        let mut held = vec![vec![0; SPARE_ABOVE]];
-        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| with_spares(&mut held, || panic!("broken"))));
+        let mut held = Vec::new();
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| with_spares(&mut held, || {
+            keep_bytes(spare_bytes(SPARE_ABOVE));
+            panic!("broken")
+        })));
         assert_eq!(held.len(), 1);
         assert!(SPARES.with_borrow(Option::is_none), "the thread isn't lent anything any more");
     }
