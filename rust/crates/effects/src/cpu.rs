@@ -3,7 +3,7 @@
 //! leave the same picture.
 
 use telescope_core::frame::{Frame, PixelFormat};
-use telescope_core::image::{byte as clamp8, read_420, write_420};
+use telescope_core::image::{byte as clamp8, read_420, read_bgr, write_420};
 
 /// A picture as 8-bit R, G, B, row after row.
 #[derive(Clone, Debug, PartialEq)]
@@ -54,6 +54,10 @@ impl Rgb {
     pub fn from_frame(frame: &Frame) -> Option<Rgb> {
         let (w, h) = (frame.width as usize, frame.height as usize);
         let mut out = Rgb::new(w, h);
+        // The decoder's own BGR, as Python's effects get: the I420 has lost chroma on its way from there
+        if read_bgr(frame, &mut out.data) {
+            return Some(out);
+        }
         let d = &frame.data;
         match frame.format {
             PixelFormat::Rgba | PixelFormat::Bgra => {
@@ -114,6 +118,10 @@ pub fn rgb_at(frame: &Frame, x: usize, y: usize) -> Option<[u8; 3]> {
     if x >= w || y >= h {
         return None;
     }
+    if let Some(bgr) = frame.bgr() {
+        let p = &bgr.row(y, w)[x * 3..];
+        return Some([p[2], p[1], p[0]]);
+    }
     let d = &frame.data;
     Some(match frame.format {
         PixelFormat::Rgba => {
@@ -137,6 +145,8 @@ pub fn rgb_at(frame: &Frame, x: usize, y: usize) -> Option<[u8; 3]> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+    use telescope_core::frame::Bgr;
 
     fn frame(format: PixelFormat, w: u32, h: u32, f: impl Fn(&mut Rgb)) -> Frame {
         let mut img = Rgb::new(w as usize, h as usize);
@@ -164,6 +174,18 @@ mod tests {
             assert!((0..3).all(|c| (back[c] as i32 - [200, 60, 90][c]).abs() <= 2), "{back:?}");
             assert_eq!(rgb_at(&fr, 3, 2), Some(back));
         }
+    }
+
+    #[test]
+    fn effects_read_the_decoders_bgr_until_the_frame_changes() {
+        let bgr = Bgr { data: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], start: 0, stride: 6 };
+        let mut fr = frame(PixelFormat::I420, 2, 2, |img| img.data.fill(128)).with_bgr(Arc::new(bgr));
+        let seen = Rgb::from_frame(&fr).unwrap();
+        assert_eq!(seen.data, [3, 2, 1, 6, 5, 4, 9, 8, 7, 12, 11, 10]);
+        assert_eq!(rgb_at(&fr, 1, 1), Some([12, 11, 10]));
+        seen.write_to(&mut fr);
+        assert_eq!(fr.bgr(), None);
+        assert_ne!(Rgb::from_frame(&fr).unwrap().data, seen.data, "read back through I420");
     }
 
     #[test]

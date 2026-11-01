@@ -305,9 +305,13 @@ impl Codec {
             use ff::AVPixelFormat::*;
             full_range &= ![AV_PIX_FMT_YUVJ422P, AV_PIX_FMT_YUVJ444P, AV_PIX_FMT_YUVJ440P].iter().any(|&j| j as i32 == fmt);
         }
-        let i420 = self.converter.standard(i420, w, h, yuv::Encoding { matrix, full_range });
+        let (i420, bgr) = self.converter.standard(i420, w, h, yuv::Encoding { matrix, full_range });
         ff::av_frame_unref(self.frame);
-        Ok(Frame::new(w as u32, h as u32, PixelFormat::I420, i420))
+        let frame = Frame::new(w as u32, h as u32, PixelFormat::I420, i420);
+        Ok(match bgr {
+            Some(bgr) => frame.with_bgr(bgr),
+            None => frame,
+        })
     }
 }
 
@@ -418,14 +422,19 @@ pub(crate) struct Padded {
     off: usize,
 }
 
+/// Makes buf big enough for len bytes swscale can run on; where they start in it comes back.
+pub(crate) fn aligned_start(buf: &mut Vec<u8>, len: usize) -> usize {
+    let need = len + SIMD_TAIL + SIMD_ALIGN;
+    if buf.len() < need {
+        *buf = vec![0; need];
+    }
+    buf.as_ptr().align_offset(SIMD_ALIGN)
+}
+
 impl Padded {
     /// An aligned pointer to len usable bytes with SIMD_TAIL more behind them.
     pub(crate) fn reserve(&mut self, len: usize) -> *mut u8 {
-        let need = len + SIMD_TAIL + SIMD_ALIGN;
-        if self.buf.len() < need {
-            self.buf = vec![0; need];
-        }
-        self.off = self.buf.as_ptr().align_offset(SIMD_ALIGN);
+        self.off = aligned_start(&mut self.buf, len);
         // SAFETY: off is under SIMD_ALIGN and buf holds len + SIMD_TAIL bytes after it
         unsafe { self.buf.as_mut_ptr().add(self.off) }
     }

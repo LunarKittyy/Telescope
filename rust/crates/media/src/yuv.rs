@@ -3,9 +3,11 @@
 //! which is also what the Python app hands its virtual camera: it converts to BGR with the stream's matrix and range
 //! (PyAV's swscale), and OpenCV's BGR-to-I420 writes BT.601 limited. So the frame carries no matrix or range of its own.
 
-use crate::ffmpeg::{padded_stride, Padded};
+use crate::ffmpeg::{aligned_start, padded_stride, Padded};
 use ffmpeg_sys_next as ff;
 use std::ptr;
+use std::sync::Arc;
+use telescope_core::frame::Bgr;
 
 pub use crate::range::full_to_limited;
 
@@ -89,40 +91,58 @@ pub struct Converter {
     // What the context was made for: size, matrix and range
     made_for: Option<(i32, i32, Encoding)>,
     src: Padded,
-    dst: Padded,
+    // The BGR handed out with frames, to write the next one over once those frames are gone
+    handed_out: Vec<Arc<Bgr>>,
 }
+
+/// How many BGR buffers are kept: a picture being made, the newest frame and the ones still on their way out.
+const KEPT_BGR: usize = 4;
 
 impl Default for Converter {
     fn default() -> Self {
-        Converter { sws: ptr::null_mut(), made_for: None, src: Padded::default(), dst: Padded::default() }
+        Converter { sws: ptr::null_mut(), made_for: None, src: Padded::default(), handed_out: Vec::new() }
     }
 }
 
 impl Converter {
-    /// Packed I420 in this encoding as BT.601 limited I420. A picture that can't be converted is returned as it was.
-    pub fn standard(&mut self, mut i420: Vec<u8>, width: usize, height: usize, enc: Encoding) -> Vec<u8> {
+    /// Packed I420 in this encoding as BT.601 limited I420, with the BGR that went through if it took any. A picture that can't
+    /// be converted is returned as it was.
+    pub fn standard(&mut self, mut i420: Vec<u8>, width: usize, height: usize, enc: Encoding) -> (Vec<u8>, Option<Arc<Bgr>>) {
         if is_bt601(enc.matrix) {
             if enc.full_range {
                 full_to_limited(&mut i420, width, height);
             }
-            return i420;
+            return (i420, None);
         }
         match self.through_bgr(&i420, width, height, enc) {
-            Some(converted) => converted,
+            Some((converted, bgr)) => (converted, Some(bgr)),
             None => {
                 log::warn!("A {width}x{height} picture in matrix {} couldn't be converted; showing it as BT.601", enc.matrix);
-                i420
+                (i420, None)
             }
         }
     }
 
-    fn through_bgr(&mut self, i420: &[u8], width: usize, height: usize, enc: Encoding) -> Option<Vec<u8>> {
+    /// A buffer nothing else holds any more, or a new one.
+    fn free_bgr(&mut self) -> Arc<Bgr> {
+        match self.handed_out.iter().position(|b| Arc::strong_count(b) == 1) {
+            Some(i) => self.handed_out.swap_remove(i),
+            None => Arc::default(),
+        }
+    }
+
+    fn through_bgr(&mut self, i420: &[u8], width: usize, height: usize, enc: Encoding) -> Option<(Vec<u8>, Arc<Bgr>)> {
         let (cw, ch) = (width.div_ceil(2), height.div_ceil(2));
         let (y, rest) = i420.split_at(width * height);
         let (u, v) = rest.split_at(cw * ch);
         let (src, src_stride) = self.src.load_i420(width, height, (y, u, v));
         let stride = padded_stride(width * 3);
-        let out = self.dst.reserve(stride * height);
+        let mut picture = self.free_bgr();
+        let bgr = Arc::get_mut(&mut picture)?;
+        bgr.stride = stride;
+        bgr.start = aligned_start(&mut bgr.data, stride * height);
+        // SAFETY: start and the tail behind it are inside data, as aligned_start says
+        let out = unsafe { bgr.data.as_mut_ptr().add(bgr.start) };
         // SAFETY: src and out are padded as the strides say, and the context is made for exactly this size and encoding before it runs
         unsafe {
             if self.made_for != Some((width as i32, height as i32, enc)) {
@@ -146,7 +166,11 @@ impl Converter {
             let dst_stride = [stride as i32, 0, 0, 0];
             ff::sws_scale(self.sws, src.as_ptr(), src_stride.as_ptr(), 0, height as i32, dst.as_ptr(), dst_stride.as_ptr());
         }
-        Some(bgr_to_i420(self.dst.bytes(0, stride * height), stride, width, height))
+        let i420 = bgr_to_i420(&bgr.data[bgr.start..][..stride * height], stride, width, height);
+        if self.handed_out.len() < KEPT_BGR {
+            self.handed_out.push(picture.clone());
+        }
+        Some((i420, picture))
     }
 }
 
@@ -200,6 +224,47 @@ mod tests {
         let (mut luma, mut u, mut v) = (vec![0; width * height], vec![0; cw * ch], vec![0; cw * ch]);
         i420_rows(&rows, &mut luma, &mut u, &mut v);
         assert_eq!(bgr_to_i420(&bgr, stride, width, height), [luma, u, v].concat());
+    }
+
+    fn bt709() -> Encoding {
+        Encoding { matrix: 1, full_range: false }
+    }
+
+    fn a_picture(w: usize, h: usize) -> Vec<u8> {
+        (0..w * h + 2 * w.div_ceil(2) * h.div_ceil(2)).map(|i| 40 + (i * 7 % 150) as u8).collect()
+    }
+
+    #[test]
+    fn a_picture_that_went_through_bgr_comes_with_it() {
+        let (w, h) = (34, 18);
+        let (i420, bgr) = Converter::default().standard(a_picture(w, h), w, h, bt709());
+        let bgr = bgr.expect("BT.709 goes through BGR");
+        let packed: Vec<u8> = (0..h).flat_map(|y| bgr.row(y, w).to_vec()).collect();
+        assert_eq!(bgr_to_i420(&packed, w * 3, w, h), i420);
+    }
+
+    #[test]
+    fn bt601_pictures_make_no_bgr() {
+        let (_, bgr) = Converter::default().standard(a_picture(34, 18), 34, 18, Encoding { matrix: 5, full_range: false });
+        assert!(bgr.is_none());
+    }
+
+    #[test]
+    fn a_bgr_buffer_is_used_again_once_its_frame_is_gone_and_never_before() {
+        let mut c = Converter::default();
+        let (w, h) = (34, 18);
+        let (_, first) = c.standard(a_picture(w, h), w, h, bt709());
+        let first = first.unwrap();
+        let (_, second) = c.standard(a_picture(w, h), w, h, bt709());
+        let second = second.unwrap();
+        assert!(!Arc::ptr_eq(&first, &second), "a frame still holds the first");
+        let at = Arc::as_ptr(&first);
+        drop(first);
+        let (_, third) = c.standard(a_picture(w, h), w, h, bt709());
+        assert_eq!(Arc::as_ptr(&third.unwrap()), at);
+        // Held for ever by nobody's fault, the kept ones stop growing
+        let held: Vec<_> = (0..KEPT_BGR * 2).map(|_| c.standard(a_picture(w, h), w, h, bt709()).1).collect();
+        assert!(c.handed_out.len() <= KEPT_BGR, "{}", held.len());
     }
 
     #[test]
