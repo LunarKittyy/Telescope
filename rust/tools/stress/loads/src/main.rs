@@ -1,7 +1,7 @@
 //! The moving parts stress.py can't be in Python: a GPU load, a CPU load and a timestamping virtual camera reader.
 //! Each runs for --seconds and prints one line per event to stdout, stamped with CLOCK_MONOTONIC, which the app's own
 //! delivery log uses too.
-//!   stress-loads gpu  --seconds 30 [--width 2560] [--height 1440] [--steps 40] [--vram-mb 3000]    t_ns
+//!   stress-loads gpu  --seconds 30 [--width 2560] [--height 1440] [--steps 40] [--vram-mb 3000] [--slices 1]    t_ns
 //!   stress-loads cpu  --seconds 30 [--threads 6] [--duty 100]                                      t_ns slices worst_us
 //!   stress-loads read --seconds 30 --device /dev/video11 [--tee FIFO]                              t_ns hash
 
@@ -45,6 +45,8 @@ fn main() {
 fn gpu(args: &[String], until: Instant) -> Result<(), String> {
     let (width, height) = (number(args, "--width", 2560) as u32, number(args, "--height", 1440) as u32);
     let steps = number(args, "--steps", 40) as u32;
+    // Bands of the frame, each its own submission: the same work, in the pieces a real game hands the driver
+    let slices = number(args, "--slices", 1).clamp(1, height as u64) as u32;
     // One layer is 2048 x 2048 x 4 = 16 MiB
     let layers = (number(args, "--vram-mb", 3000) / 16).max(1) as u32;
     let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
@@ -157,23 +159,30 @@ fn gpu(args: &[String], until: Instant) -> Result<(), String> {
         uniforms[4..8].copy_from_slice(&steps.to_le_bytes());
         uniforms[8..12].copy_from_slice(&layers.to_le_bytes());
         queue.write_buffer(&params, 0, &uniforms);
-        let mut enc = device.create_command_encoder(&Default::default());
-        {
-            let mut pass = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: None,
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    depth_slice: None,
-                    resolve_target: None,
-                    ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: wgpu::StoreOp::Store },
-                })],
-                ..Default::default()
-            });
-            pass.set_pipeline(&pipeline);
-            pass.set_bind_group(0, &group, &[]);
-            pass.draw(0..3, 0..1);
+        let mut index = None;
+        for slice in 0..slices {
+            let mut enc = device.create_command_encoder(&Default::default());
+            {
+                let load = if slice == 0 { wgpu::LoadOp::Clear(wgpu::Color::BLACK) } else { wgpu::LoadOp::Load };
+                let mut pass = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: None,
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &view,
+                        depth_slice: None,
+                        resolve_target: None,
+                        ops: wgpu::Operations { load, store: wgpu::StoreOp::Store },
+                    })],
+                    ..Default::default()
+                });
+                pass.set_pipeline(&pipeline);
+                pass.set_bind_group(0, &group, &[]);
+                let (top, bottom) = (height * slice / slices, height * (slice + 1) / slices);
+                pass.set_scissor_rect(0, top, width, bottom - top);
+                pass.draw(0..3, 0..1);
+            }
+            index = Some(queue.submit([enc.finish()]));
         }
-        let index = queue.submit([enc.finish()]);
+        let index = index.expect("at least one slice");
         // Waiting on the one before leaves this one running while the next gets built
         if let Some(index) = previous.replace(index) {
             device.poll(wgpu::PollType::Wait { submission_index: Some(index), timeout: None }).map_err(|e| e.to_string())?;

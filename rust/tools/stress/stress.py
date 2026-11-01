@@ -248,7 +248,7 @@ class Cell:
         self.scenario, self.load = name.split("#")[0].split("/")
         self.folder = folder
         folder.mkdir(parents=True)
-        self.loads = ["gpu", "cpu", "obs"] if self.load == "all" else [] if self.load == "idle" else [self.load]
+        self.loads = ["gpu", "cpu", "obs"] if self.load == "all" else [] if self.load == "idle" else ["gpu"] if self.load == "split" else [self.load]
         self.processes = []
         self.app = self.phone = None
         self.obs_lines = []
@@ -275,7 +275,8 @@ class Cell:
         if "gpu" in self.loads:
             a = self.args
             self.processes.append(self.load_program("gpu", "--width", str(a.gpu_width), "--height", str(a.gpu_height),
-                                                    "--steps", str(a.gpu_steps), "--vram-mb", str(a.gpu_vram), file="gpu.log"))
+                                                    "--steps", str(a.gpu_steps), "--vram-mb", str(a.gpu_vram),
+                                                    "--slices", str(a.gpu_slices if self.load == "split" else 1), file="gpu.log"))
             if not self.wait_for_lines("gpu.log", 30):
                 self.result["error"] = "the GPU load never drew a frame"
         if "cpu" in self.loads:
@@ -293,8 +294,6 @@ class Cell:
         plugins = config["plugin_configs"]
         plugins.setdefault("onboarding", {})["streamed"] = True
         plugins.setdefault("setup", {}).update({"language": "en", "hw_decode": args.hw_decode})
-        if not args.hw_decode:
-            plugins["setup"]["hw_decode_from_rust"] = True
         plugins.update(SCENARIOS[self.scenario])
         # An effect's settings can be per phone or global, so they go in both
         config["selected_device"] = phone_id
@@ -318,6 +317,8 @@ class Cell:
         (profile / "telescope_config.json").write_text(json.dumps(self.profile(entry), indent=2))
         env = dict(os.environ, WAYLAND_DISPLAY=self.session.socket, DBUS_SESSION_BUS_ADDRESS=self.session.bus,
                    TELESCOPE_DEV_PROFILE=str(profile), XDG_CONFIG_HOME=str(profile), TELESCOPE_STRESS_LOG=str(self.folder / "delivery.log"))
+        if args.trace:
+            env["TELESCOPE_STRESS_TRACE"] = str(self.folder / "trace.log")
         env.pop("DISPLAY", None)
         if args.vision_pack:
             # A dev profile keeps its vision pack inside it
@@ -499,7 +500,21 @@ class Cell:
             out.update(latency_p50_ms=rounded(percentile(latency, 0.5)), latency_p95_ms=rounded(percentile(latency, 0.95)),
                        latency_p99_ms=rounded(percentile(latency, 0.99)), latency_worst_ms=rounded(max(latency)),
                        camera_step_p99_ms=rounded(percentile(ready, 0.99)), arrival_p99_ms=rounded(percentile(between, 0.99)))
+        if self.args.trace:
+            out["stages_ms"] = self.stages(t0, t1)
         return out
+
+    def stages(self, t0, t1) -> dict:
+        """What each traced stage of a frame took, from TELESCOPE_STRESS_TRACE."""
+        spans = {}
+        path = self.folder / "trace.log"
+        if path.exists():
+            for line in path.read_text().splitlines():
+                parts = line.split()
+                if len(parts) == 3 and t0 <= int(parts[2]) <= t1:
+                    spans.setdefault(parts[0], []).append((int(parts[2]) - int(parts[1])) / 1e6)
+        return {stage: {"count": len(took), "p50": rounded(percentile(took, 0.5), 2), "p99": rounded(percentile(took, 0.99), 2),
+                        "worst": rounded(max(took), 2), "total": rounded(sum(took), 1)} for stage, took in spans.items()}
 
     def load_numbers(self, t0, t1, seconds) -> dict:
         out = {}
@@ -659,13 +674,13 @@ def parse() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--clip", type=Path, help="recorded H.264 (record_clip.py)")
     p.add_argument("--quick", action="store_true", help="a few cells, for use after every change")
-    p.add_argument("--cells", help="comma-separated scenario/load names; scenarios: " + ", ".join(["none", *SCENARIOS]) + "; loads: " + ", ".join(LOADS))
+    p.add_argument("--cells", help="comma-separated scenario/load names; scenarios: " + ", ".join(["none", *SCENARIOS]) + "; loads: " + ", ".join(LOADS) + ", split")
     p.add_argument("--seconds", type=int, default=25, help="measured seconds per cell")
     p.add_argument("--settle", type=int, default=5, help="seconds between the first frame and measuring")
     p.add_argument("--boot-timeout", type=int, default=40)
     p.add_argument("--cpus", type=int, default=6, help="threads the app and loads are confined to, 0 for all")
     p.add_argument("--device", default="/dev/video11", help="virtual camera to use")
-    p.add_argument("--no-hw-decode", dest="hw_decode", action="store_false")
+    p.add_argument("--hw-decode", action="store_true", help="turn on the graphics card decoder, which is off by default")
     p.add_argument("--app", type=Path, default=Path(TARGET_DIR or RUST / "target") / "release" / "telescope-rs")
     p.add_argument("--loads", type=Path, default=Path(TARGET_DIR or HERE / "loads" / "target") / "release" / "stress-loads")
     p.add_argument("--vision-pack", type=Path, default=os.environ.get("TELESCOPE_VISION_PACK"), help="needed for a real person mask in blur and desk")
@@ -676,12 +691,14 @@ def parse() -> argparse.Namespace:
     p.add_argument("--gpu-height", type=int, default=1440)
     p.add_argument("--gpu-steps", type=int, default=20, help="texture reads per pixel, which sets how long one frame holds the card")
     p.add_argument("--gpu-vram", type=int, default=3000, help="MB of textures the load keeps in use")
+    p.add_argument("--gpu-slices", type=int, default=16, help="submissions a frame of the split load comes in")
     p.add_argument("--cpu-threads", type=int, default=0, help="0 for one per confined thread")
     p.add_argument("--cpu-duty", type=int, default=100)
     p.add_argument("--obs-encoder", choices=("x264", "vaapi"), default="x264")
     p.add_argument("--out", type=Path, default=Path("stress-result.json"))
     p.add_argument("--compare", type=Path)
     p.add_argument("--keep-logs", action="store_true")
+    p.add_argument("--trace", action="store_true", help="time each stage of a frame and print the stages under each row")
     args = p.parse_args()
     if not args.real_phone and not args.clip:
         p.error("--clip is needed, or --real-phone")
@@ -712,6 +729,8 @@ def main():
             r = Cell(name, args, session, folder / f"cell{i}", mid_tier, spare).run()
             results.append(r)
             print(row(r, alone_for(r, results)), flush=True)
+            for stage, took in r.get("stages_ms", {}).items():
+                print(f"    {stage:<12} n {took['count']:<5} p50 {took['p50']:7.2f}  p99 {took['p99']:7.2f}  worst {took['worst']:7.2f}", flush=True)
             for text in r.get("warnings", []) + ([r["error"]] if r.get("error") else []):
                 print(f"    ! {text}", flush=True)
             args.out.write_text(json.dumps({"meta": meta, "cells": results, "spread": spread(results)}, indent=1))

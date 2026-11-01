@@ -1068,11 +1068,13 @@ impl Shared {
                 } else if !due {
                     continue;
                 }
+                let began = telescope_core::time::monotonic_ns();
                 if let Err(e) = cam.send(fitted.as_ref().unwrap()) {
                     self.status("warn", &fill(&tr("Virtual camera error: {error}"), &[("error", &e)]));
                     ok = false;
                     break;
                 }
+                telescope_core::time::span("camera", began);
                 if let (true, Some(log)) = (new_frame, delivery_log.as_mut()) {
                     log.delivered(src.number, self.newest_arrival.load(Ordering::Relaxed), src.time_ns);
                 }

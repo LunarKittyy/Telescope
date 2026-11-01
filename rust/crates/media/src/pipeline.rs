@@ -9,7 +9,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::Arc;
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, Touch};
 use telescope_core::media::{FramePipeline, StagedStep};
-use telescope_core::time::monotonic_ns;
+use telescope_core::time::{monotonic_ns, span};
 
 /// A plugin step that fails this many frames in a row is skipped until the next stream.
 pub const STEP_FAILS_BEFORE_SKIP: u32 = 30;
@@ -247,6 +247,7 @@ impl FramePipeline for Pipeline {
         let time = monotonic_ns().saturating_sub(started) as f32 / 1e9;
         // A step that builds a new frame stays on this one: person masks are worked out once per number
         let number = frame.number;
+        let began = monotonic_ns();
         let mut chain = Chain::default();
         for i in 0..self.steps.len() {
             if self.steps[i].skipped() {
@@ -261,6 +262,7 @@ impl FramePipeline for Pipeline {
         self.bring_down(&mut chain, &mut frame, false);
         frame.number = number;
         self.count(chain.ups, chain.downs);
+        span("pipeline", began);
         frame
     }
 

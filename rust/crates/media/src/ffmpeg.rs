@@ -6,6 +6,7 @@ use crate::picture::{exif_orientation, kind, oriented, Kind};
 use crate::transfers;
 use crate::yuv;
 use telescope_core::frame::{Frame, PixelFormat};
+use telescope_core::time::{monotonic_ns, span};
 
 /// A graphics card decoder FFmpeg can open.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -274,7 +275,9 @@ impl Codec {
         unsafe {
             (*self.packet).data = input as *mut u8;
             (*self.packet).size = unit.len() as i32;
+            let began = monotonic_ns();
             let r = ff::avcodec_send_packet(self.ctx, self.packet);
+            span("decode", began);
             (*self.packet).data = ptr::null_mut();
             (*self.packet).size = 0;
             if r == ff::AVERROR_INVALIDDATA {
@@ -284,7 +287,9 @@ impl Codec {
                 return Err(Fault::Broken(err_text(r)));
             }
             loop {
+                let began = monotonic_ns();
                 let r = ff::avcodec_receive_frame(self.ctx, self.frame);
+                span("receive", began);
                 if r == ff::AVERROR(libc::EAGAIN) || r == ff::AVERROR_EOF {
                     break;
                 }
@@ -295,7 +300,10 @@ impl Codec {
                     return Err(Fault::Broken(err_text(r)));
                 }
                 count += 1;
-                done(self.take_frame()?);
+                let began = monotonic_ns();
+                let frame = self.take_frame()?;
+                span("take_frame", began);
+                done(frame);
             }
         }
         Ok(count)
@@ -314,7 +322,9 @@ impl Codec {
         }
         #[cfg(test)]
         let started = std::time::Instant::now();
+        let began = monotonic_ns();
         let mut r = ff::av_hwframe_transfer_data(self.sw_frame, self.frame, 0);
+        span("transfer", began);
         #[cfg(test)]
         if let Some(times) = &mut self.copy_ns {
             let first = started.elapsed().as_nanos() as u64;
