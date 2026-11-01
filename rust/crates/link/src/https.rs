@@ -160,7 +160,21 @@ struct Socket {
     stream: TcpStream,
     aborted: Arc<AtomicBool>,
     timeout: Duration,
+    loopback: bool,
 }
+
+/// adb's forward writes with Nagle on, so the end of a frame can wait on this side's delayed ack, 40 ms; this acks at once.
+#[cfg(target_os = "linux")]
+fn ack_now(stream: &TcpStream) {
+    use std::os::fd::AsRawFd;
+    let on: libc::c_int = 1;
+    let size = std::mem::size_of::<libc::c_int>() as libc::socklen_t;
+    // SAFETY: the option's value is a live c_int of the size given, and the socket is open for as long as stream is
+    unsafe { libc::setsockopt(stream.as_raw_fd(), libc::IPPROTO_TCP, libc::TCP_QUICKACK, (&raw const on).cast(), size) };
+}
+
+#[cfg(not(target_os = "linux"))]
+fn ack_now(_stream: &TcpStream) {}
 
 impl Read for Socket {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
@@ -176,7 +190,12 @@ impl Read for Socket {
                     }
                 }
                 Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
-                other => return other,
+                other => {
+                    if self.loopback {
+                        ack_now(&self.stream);
+                    }
+                    return other;
+                }
             }
         }
     }
@@ -391,7 +410,7 @@ impl PhoneAuth {
         tcp.set_nodelay(true)?;
         let shared = Arc::new(tcp.try_clone()?);
         let aborted = Arc::new(AtomicBool::new(false));
-        let mut socket = Socket { stream: tcp, aborted: aborted.clone(), timeout: req.timeout };
+        let mut socket = Socket { stream: tcp, aborted: aborted.clone(), timeout: req.timeout, loopback: addr.ip().is_loopback() };
         let mut stream: Box<dyn Stream> = if url.tls {
             let name = ServerName::try_from(url.host.clone()).map_err(|e| Error::Bad(e.to_string()))?;
             let mut conn = ClientConnection::new(tls_config(&self.pin), name).map_err(|e| Error::HandshakeFailed(e.to_string()))?;
