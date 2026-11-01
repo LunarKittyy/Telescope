@@ -197,7 +197,9 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
             }
             crate::offscreen::draw(shown.window(), setup.width, setup.height, scale)
         }
-        Page::Dialog { frame, owner } => grown(&w, setup.width, setup.height, scale).and_then(|p| cut_out(&w.ui, &p, frame, owner, scale)),
+        Page::Dialog { frame, owner } => grown(&w, setup.width, setup.height, scale).and_then(|p| {
+            if owner == "ConnectionCard" { cut_out_centred(&w.ui, &p, frame, scale) } else { cut_out(&w.ui, &p, frame, owner, scale) }
+        }),
         Page::ControlMenu { label, size } => {
             use i_slint_backend_testing::{AccessibleRole, ElementHandle};
             use slint::platform::{PointerEventButton, WindowEvent};
@@ -295,6 +297,16 @@ impl Plugin for StandIn {
     fn info(&self) -> PluginInfo {
         self.0.clone()
     }
+}
+
+/// The part of picture the last open element of type frame covers, in a dialog centred on the window (WindowBox).
+fn cut_out_centred(ui: &slint_interpreter::ComponentInstance, picture: &crate::offscreen::Picture, frame: &str, scale: f32) -> Option<crate::offscreen::Picture> {
+    use i_slint_backend_testing::ElementHandle;
+    let found = ElementHandle::find_by_element_type_name(ui, frame).last()?;
+    let size = found.size();
+    let side = |name: &str| match ui.get_global_property("WindowBox", name) { Ok(slint_interpreter::Value::Number(n)) => n as f32, _ => 0.0 };
+    let (x, y) = (((side("width") - size.width) / 2.0).max(8.0), ((side("height") - size.height) / 2.0).max(8.0));
+    crop(picture, x * scale, y * scale, size.width * scale, size.height * scale)
 }
 
 /// The part of picture the last open element of type frame covers, in a popup opened by an element of type owner.

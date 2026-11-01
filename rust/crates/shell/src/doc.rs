@@ -56,7 +56,7 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
             out.push_str(&line);
         }
     }
-    out.push_str("export { Folds, Theme, Reveal, Shortcuts, TextCap }\n");
+    out.push_str("export { Folds, Theme, Reveal, Shortcuts, TextCap, WindowBox }\n");
     out.push_str(&FRAME_TOP.field("three", WIDTH_THREE_COL).field("two", WIDTH_TWO_COL));
 
     // Column geometry for each mode, relative to the body's left edge

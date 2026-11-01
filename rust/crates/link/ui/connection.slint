@@ -575,13 +575,8 @@ export component PhonePicker inherits HorizontalLayout {
 
     phones-popup := PopupWindow {
         close-policy: no-auto-close;
-        x: WindowBox.left(self.width) - root.absolute-position.x;
-        y: WindowBox.top(phones-frame.preferred-height) - root.absolute-position.y;
         width: 460px;
-        phones-frame := DialogFrame {
-            border-width: 1px;
-            border-color: Theme.border-strong;
-            border-radius: 12px;
+        DialogFrame {
             title: @tr("Your phones");
             subtitle: @tr("Each phone keeps its own camera settings, and so does a browser once you change one. Removing a phone also unpairs it on the phone.");
             Card {
