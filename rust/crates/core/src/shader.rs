@@ -4,6 +4,11 @@
 //! assemble() wraps that in PRELUDE and the entry points; the executor compiles the result, binds group 0 (shared) and GROUP_STEP (the step's own)
 //! and draws one full-frame triangle. A step that doesn't compile is logged once and passes frames through, like a failing CPU step.
 //! Colours are RGBA 0..1 in the camera's own (sRGB-encoded) values, uv (0, 0) is the top left. The alpha effect() returns is dropped.
+//!
+//! A shader that calls person_mask(uv) or has_person_mask() gets the person mask of the picture as it reaches that step: how sure the
+//! vision service is that a person is at uv, 0..1, or 0 everywhere while it can't say (has_person_mask() tells the two apart). Only then is a
+//! mask worked out and bound, and it's uploaded only when it changes. Saying nothing about it costs a shader nothing. A mask user that isn't
+//! first on the card sends the picture down once for the vision model; see uses_person_mask.
 
 use crate::frame::ShaderStep;
 use serde_json::Value;
@@ -20,6 +25,8 @@ pub const FRAGMENT_ENTRY: &str = "telescope_fs";
 pub const BINDING_INPUT: u32 = 0;
 pub const BINDING_SAMPLER: u32 = 1;
 pub const BINDING_FRAME: u32 = 2;
+/// The person mask: one channel, 1x1 and 0 when a step doesn't ask for it or there's none.
+pub const BINDING_MASK: u32 = 3;
 /// Group 1, the step's own: Params, then ShaderStep::textures in order.
 pub const GROUP_STEP: u32 = 1;
 pub const BINDING_PARAMS: u32 = 0;
@@ -31,11 +38,13 @@ struct FrameInfo {
     size: vec2<f32>,
     time: f32,
     number: u32,
+    has_mask: u32,
 }
 
 @group(0) @binding(0) var telescope_input: texture_2d<f32>;
 @group(0) @binding(1) var telescope_sampler: sampler;
 @group(0) @binding(2) var<uniform> frame: FrameInfo;
+@group(0) @binding(3) var telescope_mask: texture_2d<f32>;
 
 fn sample(uv: vec2<f32>) -> vec4<f32> {
     return textureSampleLevel(telescope_input, telescope_sampler, uv, 0.0);
@@ -43,6 +52,14 @@ fn sample(uv: vec2<f32>) -> vec4<f32> {
 
 fn sample_texture(t: texture_2d<f32>, uv: vec2<f32>) -> vec4<f32> {
     return textureSampleLevel(t, telescope_sampler, uv, 0.0);
+}
+
+fn person_mask(uv: vec2<f32>) -> f32 {
+    return textureSampleLevel(telescope_mask, telescope_sampler, uv, 0.0).r;
+}
+
+fn has_person_mask() -> bool {
+    return frame.has_mask != 0u;
 }
 ";
 
@@ -217,13 +234,20 @@ pub fn pack_uniforms(wgsl: &str, uniforms: &Value) -> Result<Vec<u8>, String> {
     Ok(buf)
 }
 
-/// FrameInfo's buffer: the frame's size in pixels, the stream's time in seconds and the frame's number.
-pub fn frame_uniform(width: u32, height: u32, time_s: f32, number: u64) -> [u8; 16] {
-    let mut buf = [0u8; 16];
+/// Whether a shader reads the person mask, so the executor only fetches one for those that do.
+pub fn uses_person_mask(wgsl: &str) -> bool {
+    let code = strip_comments(wgsl);
+    find_word(&code, "person_mask", '(').is_some() || find_word(&code, "has_person_mask", '(').is_some()
+}
+
+/// FrameInfo's buffer: the frame's size in pixels, the stream's time in seconds, the frame's number and whether a mask is bound.
+pub fn frame_uniform(width: u32, height: u32, time_s: f32, number: u64, has_mask: bool) -> [u8; 24] {
+    let mut buf = [0u8; 24];
     buf[0..4].copy_from_slice(&(width as f32).to_le_bytes());
     buf[4..8].copy_from_slice(&(height as f32).to_le_bytes());
     buf[8..12].copy_from_slice(&time_s.to_le_bytes());
     buf[12..16].copy_from_slice(&(number as u32).to_le_bytes());
+    buf[16..20].copy_from_slice(&(has_mask as u32).to_le_bytes());
     buf
 }
 
@@ -280,6 +304,17 @@ mod tests {
         let step = ShaderStep { wgsl: wgsl.into(), uniforms: json!({}), textures: Vec::new() };
         let module = assemble(&step).unwrap();
         assert!(!module.contains("var<uniform> params") && module.contains("fn telescope_fs"));
+    }
+
+    #[test]
+    fn only_a_shader_that_calls_for_the_mask_counts_as_using_it() {
+        let plain = "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }";
+        assert!(!uses_person_mask(plain));
+        assert!(!uses_person_mask(&format!("// person_mask(uv)\n{plain}")));
+        assert!(uses_person_mask("fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(person_mask(uv)); }"));
+        assert!(uses_person_mask("fn effect(uv: vec2<f32>) -> vec4<f32> { if has_person_mask() { return sample(uv); } return vec4<f32>(0.0); }"));
+        let buf = frame_uniform(2, 2, 0.0, 1, true);
+        assert_eq!(u32::from_le_bytes(buf[16..20].try_into().unwrap()), 1);
     }
 
     #[test]

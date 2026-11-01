@@ -170,9 +170,24 @@ pub trait FrameContext {
     fn colour_preview(&self, frame: &Frame) -> Frame;
 }
 
+/// What a CpuStep is about to do with a frame: the less it does, the longer the picture can stay on the graphics card.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Touch {
+    /// Skips this frame; process() isn't called, and pixels on the card stay there.
+    Nothing,
+    /// Looks at the pixels and leaves them as they are; they come down, but the card keeps its copy for the next shader.
+    Reads,
+    /// Changes the pixels, or says nothing: the card's copy is dropped and a shader after it has to upload the frame again.
+    Changes,
+}
+
 /// A frame step in Rust, run on the stream's thread.
 pub trait CpuStep: Send {
     fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext);
+    /// Asked right before process. Only a step that's certain may answer less than Changes.
+    fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
+        Touch::Changes
+    }
 }
 
 /// A frame step as a GPU shader, the only kind a Lua or WASM plugin hands over: plain data the host compiles and runs.
