@@ -724,6 +724,80 @@ fn a_step_asking_at_another_size_gets_the_mask_it_can_at_once() {
     assert_eq!(ask(2, 128, 72).unwrap().len(), 128 * 72);
 }
 
+/// Finder until it's told to fail.
+struct Breaks {
+    finder: Finder,
+    broken: Arc<AtomicBool>,
+}
+
+impl Segmenter for Breaks {
+    fn segment(&mut self, frame: &Rgb, ts_ms: i64) -> Result<Gray, VisionError> {
+        if self.broken.load(Ordering::SeqCst) {
+            return Err(VisionError::new("RuntimeError", "broken"));
+        }
+        self.finder.segment(frame, ts_ms)
+    }
+}
+
+struct Breakers(Arc<AtomicBool>);
+
+impl Backend for Breakers {
+    fn version(&self) -> String {
+        "breaks".into()
+    }
+    fn segmenter(&self) -> Result<Box<dyn Segmenter>, VisionError> {
+        Ok(Box::new(Breaks { finder: Finder { took: Duration::from_millis(1), looked: Default::default() }, broken: self.0.clone() }))
+    }
+    fn pose(&self) -> Result<Box<dyn PoseModel>, VisionError> {
+        Err(VisionError::new("Nope", "no pose here"))
+    }
+}
+
+fn age_newest(v: &Vision, by: f64) {
+    v.stream("a").newest.lock().unwrap().mask.as_mut().unwrap().at -= by;
+}
+
+#[test]
+fn a_mask_stops_being_handed_out_once_its_too_old() {
+    let broken: Arc<AtomicBool> = Default::default();
+    let backend: Arc<dyn Backend> = Arc::new(Breakers(broken.clone()));
+    let (v, _, _) = make(Box::new(move || Ok(backend.clone())));
+    v.load();
+    wait(|| v.state() == READY);
+    // A moving picture: with nothing moving the model isn't asked every time
+    let ask = |seq: u64| {
+        let f = someone_at(10 + seq as usize * 30);
+        v.newest_mask("a", seq, 256, 144, Box::new(move || Some(f)))
+    };
+    assert!(ask(1).is_some());
+    broken.store(true, Ordering::SeqCst);
+    assert!(ask(2).is_some(), "one failed frame doesn't show");
+    age_newest(&v, MASK_MAX_AGE_S * 0.9);
+    assert!(ask(3).is_some(), "not yet");
+    age_newest(&v, MASK_MAX_AGE_S * 0.2);
+    assert!(ask(4).is_none(), "too old");
+    broken.store(false, Ordering::SeqCst);
+    assert!(ask(5).is_some(), "the model's back");
+}
+
+#[test]
+fn a_mask_isnt_stretched_onto_a_picture_of_another_shape() {
+    let (v, _) = finder(Duration::from_millis(1));
+    let frame = someone_at(50);
+    let f = frame.clone();
+    assert!(v.newest_mask("a", 1, 256, 144, Box::new(move || Some(f))).is_some());
+    assert!(v.newest_mask("a", 2, 144, 256, Box::new(|| None)).is_none());
+}
+
+#[test]
+fn a_stuck_model_holds_up_one_frame_and_not_every_frame() {
+    let (v, _) = finder(Duration::from_secs(1));
+    assert!(v.newest_mask("a", 1, 256, 144, Box::new(|| Some(someone_at(50)))).is_none());
+    let began = Instant::now();
+    assert!(v.newest_mask("a", 2, 256, 144, Box::new(|| Some(someone_at(50)))).is_none());
+    assert!(began.elapsed() < Duration::from_millis(100), "{:?}", began.elapsed());
+}
+
 #[test]
 fn waiting_for_masks_gives_each_frame_its_own() {
     let (v, _) = finder(Duration::from_millis(1));

@@ -177,41 +177,32 @@ fn apply(frame: &mut Frame, blur: &Blur, view: &Geometry, ctx: &dyn FrameContext
         let shown: Vec<Box4> = list.iter().map(|b| shown_box(grown(*b, by, head), view)).collect();
         boxes_mask(&shown, w, h)
     };
-    if blur.away && blur.mode == "others" {
-        let boxed = (!blur.others.is_empty()).then(|| boxes(&blur.others, GROW, HEAD));
-        let found = mask_of(ctx, frame).map(|m| Weight::from_mask(&m, sw, sh));
-        let weight = match (boxed, found) {
-            (Some(b), Some(p)) => Some(b.with(&p, most)),
-            (b, p) => b.or(p),
-        };
-        if let Some(weight) = weight {
-            // you're away: whoever is there gets blurred, all of them
-            replaced(frame, laid_over(&rgb, &weight));
-            return;
-        }
-    }
-    let Some(you_box) = blur.you.filter(|_| blur.mode != "wait") else {
+    let away = blur.away && blur.mode == "others";
+    if blur.mode == "wait" || (blur.you.is_none() && !away) {
         // nobody to go by (by hand without the vision download), or no wait screen to show
         blurred(&rgb).write_to(frame);
         return;
-    };
-    let mut you = boxes(&[you_box], GROW, HEAD);
-    let found = mask_of(ctx, frame).map(|m| Weight::from_mask(&m, sw, sh));
-    if let Some(p) = &found {
-        // you: the person mask inside your box
-        you = p.clone().with(&you.map(|v| (v * 2.0).min(1.0)), |a, b| a * b);
     }
+    let Some(found) = mask_of(ctx, frame).map(|m| Weight::from_mask(&m, sw, sh)) else {
+        // No mask new enough to tell anyone from the room, and a box around you would show what's behind you
+        blurred(&rgb).write_to(frame);
+        return;
+    };
+    let Some(you_box) = blur.you else {
+        // you're away: whoever is there gets blurred, all of them
+        let weight = if blur.others.is_empty() { found } else { boxes(&blur.others, GROW, HEAD).with(&found, most) };
+        replaced(frame, laid_over(&rgb, &weight));
+        return;
+    };
+    // you: the person mask inside your box
+    let mut you = found.clone().with(&boxes(&[you_box], GROW, HEAD).map(|v| (v * 2.0).min(1.0)), |a, b| a * b);
     if !blur.others.is_empty() {
         // but not someone sitting right next to you
         you = you.with(&boxes(&blur.others, NEAR.0, NEAR.1), |a, b| a * (1.0 - b));
     }
     let weight = if blur.mode == "others" && !blur.others.is_empty() {
-        let mut weight = boxes(&blur.others, GROW, HEAD);
-        if let Some(p) = &found {
-            // anyone the mask finds who isn't you, the whole of them
-            weight = weight.with(p, most);
-        }
-        weight.with(&you, |a, b| a * (1.0 - b))
+        // anyone the mask finds who isn't you, the whole of them
+        boxes(&blur.others, GROW, HEAD).with(&found, most).with(&you, |a, b| a * (1.0 - b))
     } else {
         // all but you (also others with nobody else found yet, from Blur now)
         you.map(|v| 1.0 - v)
