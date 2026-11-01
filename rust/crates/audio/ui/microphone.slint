@@ -204,6 +204,7 @@ export component MicrophoneCard inherits Card {
     action-shortcut: "microphone.mute";
     action => { root.mute-toggled(!muted); }
     has-switch: true;
+    switch-shortcut: "microphone.on";
     switch-checked: on;
     switch-enabled: toggle-enabled;
     switch-label: toggle-name;

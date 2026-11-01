@@ -87,9 +87,7 @@
     <string name="network_unreachable">到達不能</string>
     <string name="network_title">ネットワーク</string>
     <string name="local_only">ローカルのみ - USB</string>
-    <string name="local_only_hint">カメラをネットワークから遮断し、USB接続のみでアクセスできるようにします。</string>
     <string name="wait_for_computer">コンピューターを待機</string>
-    <string name="wait_for_computer_hint">画面がオフのときもTelescopeを実行したままにし、ペアリング済みのコンピューターがカメラを開始できるようにします。</string>
     <string name="stop_streaming">ストリーミング停止</string>
     <string name="status_title">ステータス</string>
     <string name="status_not_streaming">ストリーミング停止中</string>

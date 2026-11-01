@@ -904,6 +904,8 @@ pub struct FakeSource {
     pub waits: bool,
     pub changes_only: bool,
     pub cancels: AtomicU32,
+    /// Its camera makes no more than arrives.
+    pub slow_camera: bool,
 }
 
 impl FakeSource {
@@ -963,6 +965,9 @@ impl StreamSource for FakeSource {
     }
     fn remember_changes_only(&self) -> bool {
         self.changes_only
+    }
+    fn camera_limited(&self, _arrival: f32) -> bool {
+        self.slow_camera
     }
 }
 

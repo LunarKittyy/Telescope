@@ -387,7 +387,7 @@ const scenarios = {
     page.runTimer(page.value("statsTimer"));
     await page.flush();
     assert.deepStrictEqual(page.socket().of("stats")[0], { type: "stats", width: 1280, height: 720, fps: 30, limit: "cpu" });
-    assert.strictEqual(page.element("rate").textContent, "Sending 1280×720 at 30 fps");
+    assert.strictEqual(page.element("rate").textContent, "1280×720 at 30 fps");
   },
 
   // Flip only shows where there's another camera

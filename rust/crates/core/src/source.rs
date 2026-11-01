@@ -54,6 +54,9 @@ pub trait ControlClient: Send + Sync {
     fn has_audio(&self) -> bool;
 }
 
+/// Browser camera in the picker, for Add phone to offer it without knowing its plugin.
+pub const BROWSER_SOURCE: &str = "browser";
+
 /// Something other than a paired phone to stream from, like the Browser camera (StreamSource in plugin.py).
 pub trait StreamSource: Send + Sync {
     /// Also the key its per-device settings are saved under, so it mustn't look like a phone id.
@@ -99,6 +102,10 @@ pub trait StreamSource: Send + Sync {
     /// Why it isn't streaming yet while the stream waits to try again (WebcamReader.waiting_text), "" for the usual.
     fn waiting_text(&self) -> String {
         String::new()
+    }
+    /// Frames reach the computer at this rate, under what was asked for, and that's all its camera makes: it isn't falling behind.
+    fn camera_limited(&self, _arrival: f32) -> bool {
+        false
     }
 }
 

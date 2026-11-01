@@ -23,6 +23,7 @@ export component FaceExposureCard inherits Card {
     opacity: active ? 1 : 0.4;
     enabled: active;
     has-switch: true;
+    switch-shortcut: "face_exposure.on";
     switch-enabled: active;
     switch-checked <=> root.on;
     switch-label: switch-name;

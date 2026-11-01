@@ -154,6 +154,9 @@ export component W inherits Window {
         has-action: true;
         action-text: "Mute";
         action-shortcut: "microphone.mute";
+        has-switch: true;
+        switch-label: "Phone mic";
+        switch-shortcut: "microphone.on";
     }
 }"#;
 
@@ -208,6 +211,19 @@ fn a_card_header_action_offers_a_shortcut_and_its_saved_ones() {
         assert_eq!(*seen.borrow(), [picked]);
         let _ = w.hide();
     }
+}
+
+// The same for the on/off switch in a card's header (microphone.on, chroma_key.on and the others)
+#[test]
+fn a_card_header_switch_offers_a_shortcut() {
+    let (w, seen) = two_actions();
+    let switch = i_slint_backend_testing::ElementHandle::find_by_accessible_label(&w, "Phone mic").next().expect("the switch");
+    let (p, s) = (switch.absolute_position(), switch.size());
+    click(w.window(), p.x + s.width / 2.0, p.y + s.height / 2.0, PointerEventButton::Right);
+    telescope_shell::offscreen::draw(w.window(), 400.0, 200.0, 1.0);
+    pick_item(w.window(), 0);
+    assert_eq!(*seen.borrow(), ["add microphone.on"]);
+    let _ = w.hide();
 }
 
 // test_shortcuts_plugin.py::test_controls_that_come_later_still_get_the_menu

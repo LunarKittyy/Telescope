@@ -46,6 +46,7 @@ export component TransformsCard inherits Card {
     // card_action(tr("Reset"), "reset", …)
     action-text: @tr("Reset");
     action-label: reset-tip;
+    action-shortcut: "transforms.reset";
     action => { root.reset-clicked(); }
 
     FormRow {

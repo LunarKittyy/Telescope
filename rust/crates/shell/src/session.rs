@@ -200,6 +200,10 @@ pub trait SourceKind {
     fn note_unreachable(&self, _shown: bool) -> bool {
         false
     }
+    /// Frames arrive this slowly because its camera makes no more; a phone is asked instead (as_phone).
+    fn camera_limited(&self, _arrival: f32) -> bool {
+        false
+    }
     /// What to do when it can't be reached for a while.
     fn lost_hint(&self) -> String {
         tr("Check that it's still on.")

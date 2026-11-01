@@ -87,9 +87,7 @@
     <string name="network_unreachable">不可达</string>
     <string name="network_title">网络</string>
     <string name="local_only">仅限本地 - USB</string>
-    <string name="local_only_hint">使相机脱离网络，仅允许通过 USB 连接访问。</string>
     <string name="wait_for_computer">等待我的电脑</string>
-    <string name="wait_for_computer_hint">在息屏时保持 Telescope 运行，以便已配对的电脑可以启动相机。</string>
     <string name="stop_streaming">停止串流</string>
     <string name="status_title">状态</string>
     <string name="status_not_streaming">未串流</string>

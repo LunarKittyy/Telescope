@@ -129,9 +129,9 @@
     <!-- Network card -->
     <string name="network_title">Network</string>
     <string name="local_only">Local only - USB</string>
-    <string name="local_only_hint">Keeps the camera off the network, so only a USB connection can reach it.</string>
+    <string name="local_only_hint">Only a USB connection can reach the camera.</string>
     <string name="wait_for_computer">Wait for my computer</string>
-    <string name="wait_for_computer_hint">Keeps Telescope running while the screen is off, so a paired computer can start the camera.</string>
+    <string name="wait_for_computer_hint">Lets a paired computer start the camera while the screen is off.</string>
 
     <!-- Status card. Keep the ● (streaming) or ○ (not streaming) at the start. -->
     <string name="stop_streaming">Stop streaming</string>

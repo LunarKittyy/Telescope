@@ -16,6 +16,8 @@ const token = decodeURIComponent(location.hash.slice(1));
 const browserId = keptId();  // tells the computer it's this browser again (a reload), not another camera
 const video = document.getElementById("video");
 const statusEl = document.getElementById("status");
+const noteEl = document.getElementById("note");
+const LONG_NOTE = noteEl.textContent;
 const rateEl = document.getElementById("rate");
 const dot = document.getElementById("dot");
 const startBtn = document.getElementById("start");
@@ -72,8 +74,7 @@ function keptId() {
 }
 
 function showConnected() {
-  show(config.camera ? `Connected. Your computer streams this camera as ${config.camera}.`
-                     : "Connected. Your computer can use this camera now.", "ok");
+  show(config.camera ? `Streaming as ${config.camera}` : "Connected to your computer", "ok");
 }
 
 function show(text, kind) {
@@ -81,6 +82,7 @@ function show(text, kind) {
   statusEl.className = kind === "err" ? "err" : kind === "warn" ? "warn" : "";
   dot.className = kind || "";
   if (kind !== "ok") rateEl.textContent = "";
+  noteEl.textContent = kind === "ok" ? "Keep this page open." : LONG_NOTE;
 }
 
 function deviceName() {
@@ -465,7 +467,7 @@ async function sendStats() {
   if (!out || sender !== videoSender) return;
   const fps = Math.round(out.framesPerSecond || 0);
   const limit = out.qualityLimitationReason === "cpu" || out.qualityLimitationReason === "bandwidth" ? out.qualityLimitationReason : "";
-  rateEl.textContent = `Sending ${out.frameWidth}×${out.frameHeight}` + (fps ? ` at ${fps} fps` : "");
+  rateEl.textContent = `${out.frameWidth}×${out.frameHeight}` + (fps ? ` at ${fps} fps` : "");
   send({ type: "stats", width: out.frameWidth, height: out.frameHeight, fps, limit });
 }
 

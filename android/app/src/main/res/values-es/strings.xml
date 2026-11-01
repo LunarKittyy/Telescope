@@ -88,9 +88,7 @@
     <string name="network_unreachable">inaccesible</string>
     <string name="network_title">Red</string>
     <string name="local_only">Solo local - USB</string>
-    <string name="local_only_hint">Mantiene la cámara fuera de la red, de modo que solo una conexión USB puede acceder a ella.</string>
     <string name="wait_for_computer">Esperar a mi computadora</string>
-    <string name="wait_for_computer_hint">Mantiene Telescope en ejecución mientras la pantalla está apagada, para que una computadora vinculada pueda iniciar la cámara.</string>
     <string name="stop_streaming">Detener transmisión</string>
     <string name="status_title">Estado</string>
     <string name="status_not_streaming">No está transmitiendo</string>

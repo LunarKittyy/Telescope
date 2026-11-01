@@ -797,6 +797,7 @@ impl Window {
                 Some(limited) => self.show_slow(source, true, limited),
                 None => phone.ask_camera_rate(session.id, arrival),
             },
+            (Some(arrival), None, _) => self.show_slow(source, true, source.kind.camera_limited(arrival)),
             _ => self.show_slow(source, true, false), // nothing to ask, or nothing to say yet
         }
     }
@@ -811,6 +812,8 @@ impl Window {
             fill(&tr("The phone got hot and lowered the frame rate to {fps} fps for now."), &[("fps", &rates.heat.to_string())])
         } else if rates.dynamic > 0 {
             fill(&tr("Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."), &[("fps", &rates.dynamic.to_string())])
+        } else if source.kind.as_phone().is_none() {
+            tr("The camera is making fewer frames than asked for. Dim light slows it down.")
         } else {
             tr("The phone's camera is making fewer frames than asked for. Dim light slows it down.")
         };

@@ -215,6 +215,21 @@ fn shows_a_qr_code_when_the_computer_is_on_a_network() {
 }
 
 #[test]
+fn browser_camera_sits_beside_android_and_picking_it_ends_the_pairing() {
+    let mut r = Rig::open(&[]);
+    r.add_phone();
+    assert_eq!(r.text("other-name"), "", "its plugin is off");
+    r.ui("add-closed", vec![]);
+    let sources = vec![SourceName { id: "browser".into(), name: "Browser camera".into() }];
+    r.plugin.on_event(&mut r.host, &Event::StreamSourcesChanged { sources });
+    r.add_phone();
+    assert_eq!(r.text("other-name"), "Browser camera");
+    r.ui("other-picked", vec![]);
+    assert_eq!(r.prop("add-open"), json!(false));
+    assert_eq!(r.shared.picked_source().as_deref(), Some("browser"));
+}
+
+#[test]
 fn an_unauthorized_phone_asks_for_the_debugging_prompt() {
     let mut r = Rig::open(&["serial-1 unauthorized"]);
     r.add_phone();

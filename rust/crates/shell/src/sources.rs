@@ -1070,6 +1070,9 @@ impl SourceKind for PluginKind {
     fn prepare(&self, interactive: bool) -> bool {
         self.source().prepare(interactive)
     }
+    fn camera_limited(&self, arrival: f32) -> bool {
+        self.source().camera_limited(arrival)
+    }
     fn lost_hint(&self) -> String {
         Some(self.source().lost_hint()).filter(|h| !h.is_empty()).unwrap_or_else(|| tr("Open the Telescope page in it again."))
     }

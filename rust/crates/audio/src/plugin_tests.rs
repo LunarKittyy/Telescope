@@ -808,7 +808,7 @@ fn the_gain_key_steps_sets_and_resets_within_the_range() {
 fn windows_mic(downloaded: Result<std::path::PathBuf, String>, opened: &'static str, calls: &Shared<Vec<String>>) -> Arc<WindowsMic> {
     let (c1, c2) = (calls.clone(), calls.clone());
     Arc::new(WindowsMic::new(
-        Box::new(|| Some(vec![("Speakers (Realtek)".to_string(), 2)])),
+        Box::new(|| vec![("Speakers (Realtek)".to_string(), 2)]),
         Box::new(move || {
             c1.lock().unwrap().push("download".into());
             downloaded.clone()

@@ -2,6 +2,7 @@
 //! phones dialogs, the Start banners and the UDP setting. Its decisions are connection.rs's; its state is shared with
 //! LinkService (shared.rs), which the window's stream flow calls, so the window never reaches into this plugin.
 
+use telescope_core::source::BROWSER_SOURCE;
 use telescope_core::i18n::Fields;
 use crate::adb_download;
 use crate::connection::{self, fix_actions, outdated_action, problem_text, route_text, status_line,
@@ -589,6 +590,7 @@ impl ConnectionPlugin {
             "usb-link-tail": add.licence.as_ref().map(|l| l.1.as_str()).unwrap_or_default(),
             "usb-after": add.licence.as_ref().map(|l| l.2.as_str()).unwrap_or_default(),
             "picks": picks, "paired": paired,
+            "other-name": self.sources.iter().find(|s| s.id == BROWSER_SOURCE).map(|s| s.name.as_str()).unwrap_or_default(),
             "result-text": add.paired.as_ref().map(|n| tr("Paired with {name}").field("name", n)).unwrap_or_default(),
         }));
     }
@@ -1421,6 +1423,10 @@ impl Plugin for ConnectionPlugin {
                 self.set_route_preference(host, route_of_index(i));
             }
             ("card", "add-closed") => self.close_add(host),
+            ("card", "other-picked") => {
+                self.close_add(host);
+                self.select(host, Some(BROWSER_SOURCE), false, true);
+            }
             ("card", "pick") => self.pick_usb(host, &s(0)),
             ("card", "usb-action-clicked") => self.get_adb(host),
             ("card", "usb-link-clicked") => host.open_url(adb_download::LICENSE_URL),

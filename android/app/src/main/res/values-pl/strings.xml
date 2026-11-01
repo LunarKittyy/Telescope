@@ -90,9 +90,7 @@
     <string name="network_unreachable">nieosiągalny</string>
     <string name="network_title">Sieć</string>
     <string name="local_only">Tylko lokalnie - USB</string>
-    <string name="local_only_hint">Odłącza kamerę od sieci, więc dostęp do niej jest możliwy tylko przez połączenie USB.</string>
     <string name="wait_for_computer">Czekaj na mój komputer</string>
-    <string name="wait_for_computer_hint">Utrzymuje działanie Telescope przy wyłączonym ekranie, dzięki czemu sparowany komputer może uruchomić kamerę.</string>
     <string name="stop_streaming">Zatrzymaj strumieniowanie</string>
     <string name="status_title">Status</string>
     <string name="status_not_streaming">Nie przesyła</string>

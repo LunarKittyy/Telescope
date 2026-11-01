@@ -149,6 +149,7 @@ impl Shared {
             }
             Some("offer") => {
                 let sdp = msg.get("sdp")?.as_str()?;
+                feed.note_sent(gen, Sent::default()); // the numbers were the last connection's
                 let reply = self.answer(feed, gen, rtc, sdp);
                 (self.on_change)();
                 Some(reply)
