@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use telescope_core::actions::{self, Choice};
 use telescope_core::event::Event;
-use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep};
+use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, Touch};
 use telescope_core::host::Host;
 use telescope_core::i18n::{n_, tr};
 use telescope_core::image::with_spares;
@@ -228,6 +228,10 @@ struct Step {
 }
 
 impl CpuStep for Step {
+    fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
+        if self.blur.active || self.shown_blurs.load(Ordering::Relaxed) { Touch::Changes } else { Touch::Nothing }
+    }
+
     fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
         let mut spares = std::mem::take(&mut self.spares);
         with_spares(&mut spares, || self.run(frame, ctx));

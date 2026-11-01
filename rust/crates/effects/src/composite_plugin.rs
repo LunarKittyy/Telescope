@@ -18,7 +18,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 use telescope_core::actions::{self, Choice};
 use telescope_core::event::Event;
-use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, StreamFrame};
+use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, StreamFrame, Touch};
 use telescope_core::host::{FrameStore, Host};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::output::Outputs;
@@ -190,6 +190,11 @@ mod editor;
 struct CompositeStep(Arc<Shared>);
 
 impl CpuStep for CompositeStep {
+    fn touch(&self, ctx: &dyn FrameContext) -> Touch {
+        let hub = self.0.hub();
+        if hub.on && hub.target.as_deref() == Some(ctx.source_id()) { Touch::Changes } else { Touch::Nothing }
+    }
+
     fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
         self.0.step(frame, ctx.source_id());
     }

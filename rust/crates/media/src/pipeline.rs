@@ -63,6 +63,8 @@ struct Tally {
     ups: u32,
     downs: u32,
     logged: (u32, u32),
+    /// The app's mask uploads at the last look.
+    masks: u64,
 }
 
 /// Runs one stream's steps. The graphics card is only opened once a shader step comes along.
@@ -191,12 +193,14 @@ impl Pipeline {
         let t = &mut self.tally;
         (t.frames, t.ups, t.downs) = (t.frames + 1, t.ups + ups, t.downs + downs);
         if t.frames == TALLY_FRAMES {
-            if (t.ups, t.downs) != t.logged {
+            let masks = transfers::totals().mask_up;
+            if (t.ups, t.downs) != t.logged || masks != t.masks {
                 let per = |n: u32| n as f32 / TALLY_FRAMES as f32;
-                log::info!("Frame steps cost {:.2} up and {:.2} down per frame, with {} steps", per(t.ups), per(t.downs), self.steps.len());
+                log::info!("Frame steps cost {:.2} up and {:.2} down per frame over {TALLY_FRAMES} frames, with {} steps and {} person masks up",
+                           per(t.ups), per(t.downs), self.steps.len(), masks - t.masks);
                 t.logged = (t.ups, t.downs);
             }
-            (t.frames, t.ups, t.downs) = (0, 0, 0);
+            (t.frames, t.ups, t.downs, t.masks) = (0, 0, 0, masks);
         }
     }
 }

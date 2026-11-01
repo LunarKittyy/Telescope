@@ -154,7 +154,7 @@ fn setup_plugin() -> telescope_setup::setup::SetupPlugin {
     plugin.log_path = HAS_LOG.load(std::sync::atomic::Ordering::Relaxed).then(|| "/tmp/telescope.log".into());
     // translation_scenes' hardware_device: no card, so the picture doesn't depend on this computer
     plugin.panel.hw_looked = true;
-    plugin.show_graphics_card(None);
+    plugin.show_graphics_card(None, false);
     plugin
 }
 

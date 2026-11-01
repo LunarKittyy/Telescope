@@ -131,6 +131,8 @@ pub struct H264 {
     silent: u32,
     /// Tells the stream to ask for a keyframe after a change of decoder.
     ask_keyframe: Option<Box<dyn Fn() + Send>>,
+    /// When the card gave up, until software has a picture.
+    swapped_at: Option<std::time::Instant>,
     /// Tests: the next feed fails as a broken driver would.
     #[cfg(test)]
     break_next: bool,
@@ -182,6 +184,7 @@ impl H264 {
             hw_proven: false,
             silent: 0,
             ask_keyframe: None,
+            swapped_at: None,
             #[cfg(test)]
             break_next: false,
         }
@@ -217,7 +220,10 @@ impl H264 {
         #[cfg(not(test))]
         let result = decode(&mut self.codec, self.steps.as_ref(), &data, strict);
         match result {
-            Ok(fed) if self.codec.hw.is_none() => (fed.newest, fed.count),
+            Ok(fed) if self.codec.hw.is_none() => {
+                self.note_picture_back(fed.count);
+                (fed.newest, fed.count)
+            }
             Ok(fed) => {
                 self.silent = if fed.count > 0 { 0 } else { self.silent + fed.units };
                 self.hw_proven |= fed.count > 0;
@@ -262,7 +268,18 @@ impl H264 {
         }
         // A fresh decoder can't start from a keyframe alone, and TCP sends SPS and PPS only when joining
         let setup = [&self.headers.setup(), data].concat();
-        decode(&mut self.codec, self.steps.as_ref(), &setup, false).map_or((None, 0), |fed| (fed.newest, fed.count))
+        self.swapped_at = Some(std::time::Instant::now());
+        let fed = decode(&mut self.codec, self.steps.as_ref(), &setup, false).map_or((None, 0), |fed| (fed.newest, fed.count));
+        self.note_picture_back(fed.1);
+        fed
+    }
+
+    fn note_picture_back(&mut self, count: u32) {
+        if count > 0 {
+            if let Some(at) = self.swapped_at.take() {
+                log::info!("Software decoding has the picture back after {} ms", at.elapsed().as_millis());
+            }
+        }
     }
 }
 
