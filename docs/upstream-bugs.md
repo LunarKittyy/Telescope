@@ -19,3 +19,12 @@ When a release bumps the pinned version of a dependency listed here, check its e
   - [806-808](../desktop/telescope/widgets/common.py#L806-L808): `_drawn()`
 - **Side effects:** cloaked windows skip Windows' open animation. Opening and closing Settings rapidly can still show the frame now and then.
 - **Fixed when:** with the workaround removed, opening Settings and Your phones on Windows shows no empty frame.
+
+## adb
+
+### adb's forward leaves Nagle on
+
+- **Bug:** the adb server sets no `TCP_NODELAY` on sockets a `forward` listener accepts (seen with strace on 37.0.0).
+- **Symptom:** on USB the end of a Light frame can wait for the desktop's delayed ACK, 40 ms. A frame then arrives 40 ms late with the next one right behind it, which reads as an 80 ms gap and a skipped frame about once a second.
+- **Workaround:** on Linux the desktop sets `TCP_QUICKACK` after each read from a loopback address. Windows has no workaround yet and neither does the Python app.
+- **Code:** `ack_now` in [`rust/crates/link/src/https.rs`](../rust/crates/link/src/https.rs)
