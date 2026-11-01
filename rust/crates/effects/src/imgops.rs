@@ -210,8 +210,7 @@ impl Gray {
     }
 }
 
-/// The picture halved until the next halving would pass w x h: the pixels and their size, or None when it's small enough already.
-/// Each 2 x 2 goes to its rounded average; an odd row or column at the far edge is left out.
+/// The picture halved until the next halving would pass w x h, an odd far row or column left out: None if it's small enough already.
 fn halved_down(src: &[u8], w: usize, h: usize, ch: usize, tw: usize, th: usize) -> (Option<Vec<u8>>, usize, usize) {
     let (mut held, mut iw, mut ih): (Option<Vec<u8>>, _, _) = (None, w, h);
     while iw >= 2 * tw && ih >= 2 * th && tw > 0 && th > 0 {
@@ -422,8 +421,7 @@ avx2_too! {
     }
 }
 
-/// A Gaussian blur of float32 values (`ch` to a pixel) for work that adds pictures up, with 3 sigma either way like the 8-bit blur
-/// and no attempt at OpenCV's last bits, as blur_f32 has.
+/// A Gaussian blur of float32 values (`ch` to a pixel), 3 sigma either way, that doesn't chase OpenCV's last bits as blur_f32 does.
 pub fn blur_quick(src: &[f32], w: usize, h: usize, ch: usize, sigma: f64) -> Vec<f32> {
     let n = ((sigma * 3.0 * 2.0 + 1.0).round_ties_even() as usize) | 1;
     let kernel: Vec<f32> = gaussian_kernel(n, sigma).iter().map(|k| *k as f32).collect();
@@ -505,8 +503,7 @@ avx2_too! {
     }
 }
 
-/// cv2.blur: column sums slide down the picture and each row sums them across in vectors, so a frame costs little whatever the
-/// picture. The rounding is OpenCV's for kernels of an odd area, the only ones used; kw is made of 2s and 3s and kw x kh is at most 196.
+/// cv2.blur by column sums that slide down the picture, for kernels of an odd area with kw made of 2s and 3s and kw x kh at most 196.
 fn boxed(src: &[u8], w: usize, h: usize, ch: usize, kw: usize, kh: usize) -> Vec<u8> {
     let rl = w * ch;
     let (half_w, half_h) = ((kw / 2) as isize, (kh / 2) as isize);
@@ -637,11 +634,9 @@ struct Spot {
     fy: u8,
 }
 
-/// A warp of 3-byte pixels with OpenCV's fixed point: a spot in 32nds of a pixel, the four pixels around it blended with whole-number
-/// weights and rounded once. Past the source's edges it repeats them; a place given as OUTSIDE stays black.
+/// A warp of 3-byte pixels in OpenCV's fixed point (a spot in 32nds of a pixel), repeating the source's edges; OUTSIDE stays black.
 pub struct Remap {
     w: usize,
-    h: usize,
     src_len: usize,
     stride: usize,
     spots: Vec<Spot>,
@@ -685,7 +680,7 @@ impl Remap {
             }
             rows.push((first.min(end) as u32, end as u32, roomy));
         }
-        Remap { w, h, src_len, stride, spots, rows }
+        Remap { w, src_len, stride, spots, rows }
     }
 
     /// The warped picture of src into dst, w x h pixels.
@@ -701,10 +696,6 @@ impl Remap {
             after.fill(0);
             remap_row(src, stride, &self.spots[y * w + first..y * w + end], middle, roomy);
         });
-    }
-
-    pub fn size(&self) -> (usize, usize) {
-        (self.w, self.h)
     }
 }
 

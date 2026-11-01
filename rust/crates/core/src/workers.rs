@@ -1,6 +1,4 @@
-//! A few threads that stay around for the pixel work of every frame, so a frame doesn't start and end threads of its own. They sleep
-//! until there's work, the caller works too, and a part nobody has picked up yet goes to whoever gets there first, so a helper the
-//! system hasn't run yet (a game on every core) holds nothing up.
+//! A few sleeping threads for a frame's pixel work: the caller works too, so a helper a busy system hasn't run yet holds nothing up.
 
 use std::any::Any;
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
@@ -89,9 +87,7 @@ fn start_helpers() {
     });
 }
 
-/// Runs work(0) to work(count - 1), each once, on any mix of this thread and the helpers, and returns when all are done. A panic in
-/// a part comes out here once the others have finished. Work that's already on a helper, or arrives while another stream's frame is
-/// using them, runs on its own thread.
+/// Runs work(0) to work(count - 1) on this thread and any free helpers, and passes on a part's panic once all are done.
 pub fn spread(count: usize, work: &(dyn Fn(usize) + Sync)) {
     if count <= 1 || WORKERS.helpers == 0 {
         (0..count).for_each(work);
@@ -134,18 +130,17 @@ pub fn spread(count: usize, work: &(dyn Fn(usize) + Sync)) {
 /// work(index, part) for every part, spread over the helpers.
 pub fn each_part<T: Send>(parts: &mut [T], work: impl Fn(usize, &mut T) + Sync) {
     struct Parts<T>(*mut T);
-    // SAFETY: the pointer is only used through at below, with an index spread hands out once
+    // SAFETY: the pointer only goes to an index spread hands out once
     unsafe impl<T: Send> Sync for Parts<T> {}
     impl<T> Parts<T> {
-        /// SAFETY: i is inside the slice and no one else has it.
-        unsafe fn at(&self, i: usize) -> &mut T {
-            &mut *self.0.add(i)
+        fn start(&self) -> *mut T {
+            self.0
         }
     }
     let shared = Parts(parts.as_mut_ptr());
     spread(parts.len(), &|i| {
         // SAFETY: spread hands out each index below parts.len() once
-        work(i, unsafe { shared.at(i) });
+        work(i, unsafe { &mut *shared.start().add(i) });
     });
 }
 

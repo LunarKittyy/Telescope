@@ -5,8 +5,7 @@ use crate::frame::{Frame, PixelFormat};
 use crate::workers::each_part;
 use std::cell::RefCell;
 
-/// Defines a function whose loops are built twice, the second time for AVX2, and picks one by what the processor has. The compiler
-/// does the vectorising, so what goes inside is plain safe loops over rows.
+/// A function whose plain row loops are built twice, the second time for AVX2, and picked by what the processor has.
 #[macro_export]
 macro_rules! avx2_too {
     ($(#[$doc:meta])* $vis:vis fn $name:ident($($arg:ident: $ty:ty),* $(,)?) $(-> $ret:ty)? $body:block) => {
@@ -240,8 +239,7 @@ fn luma_run(r: &[u8], g: &[u8], b: &[u8], out: &mut [u8]) {
 }
 
 avx2_too! {
-    /// Two rows of RGB to their luma and the chroma of their 2 x 2 cells. An odd last pixel takes its cell alone, an odd last row
-    /// comes with second as empty and takes its cells from first.
+    /// Two rows of RGB to their luma and the chroma of their 2 x 2 cells; an odd last row comes with second empty.
     fn rows_420(first: &[u8], second: &[u8], luma: &mut [u8], u: &mut [u8], v: &mut [u8]) {
         let w = first.len() / 3;
         let (top, below) = luma.split_at_mut(w);
@@ -273,7 +271,7 @@ avx2_too! {
             }
             at += n;
         }
-        if w % 2 == 1 {
+        if !w.is_multiple_of(2) {
             let last = (w - 1) * 3;
             let luma_of = |px: &[u8]| (((66 * px[0] as u16 + 129 * px[1] as u16 + 25 * px[2] as u16 + 128) >> 8) + 16) as u8;
             top[w - 1] = luma_of(&first[last..]);
@@ -298,7 +296,7 @@ pub fn rgb_to_420(rgb: &[u8], w: usize, h: usize, data: &mut [u8], nv12: bool) {
     // NV12 goes through planes of its own: frames here are mostly I420
     let mut pair = if nv12 { spare_bytes(2 * cw * ch) } else { Vec::new() };
     let (mut us, mut vs) = if nv12 { pair.split_at_mut(cw * ch) } else { chroma.split_at_mut(cw * ch) };
-    let mut parts: Vec<(usize, &mut [u8], &mut [u8], &mut [u8])> = Vec::with_capacity(BANDS);
+    let mut parts = Vec::with_capacity(BANDS);
     let mut luma_left = &mut *luma;
     let mut first = 0;
     while first < ch {
@@ -492,13 +490,11 @@ avx2_too! {
     }
 }
 
-/// Leaves in the front of line the sum of each k values spaced gap apart, starting at that place: the last (k - 1) * gap values end
-/// up meaningless. A vector-friendly running sum, since k stays small and the rows are the long side. spare is as long as line.
+/// Leaves at each place of line the sum of the k values gap apart from there, the last (k - 1) * gap meaningless; k is made of 2s and 3s.
 pub fn sum_runs(line: &mut [u16], spare: &mut [u16], k: usize, gap: usize) {
     let (mut left, mut gap) = (k, gap);
     while left > 1 {
-        let by = if left % 3 == 0 { 3 } else { 2 };
-        debug_assert_eq!(left % by, 0, "only runs of 2s and 3s");
+        let by = if left.is_multiple_of(3) { 3 } else { 2 };
         if by == 3 {
             three_of(line, gap, spare);
         } else {
@@ -525,10 +521,10 @@ fn add_blocks(row: &[u8], kx: usize, ch: usize, sums: &mut [u32]) {
 
 /// Whether k can go through sum_runs.
 fn only_twos_and_threes(mut k: usize) -> bool {
-    while k % 2 == 0 {
+    while k.is_multiple_of(2) {
         k /= 2;
     }
-    while k % 3 == 0 {
+    while k.is_multiple_of(3) {
         k /= 3;
     }
     k == 1

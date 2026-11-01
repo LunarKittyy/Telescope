@@ -226,9 +226,7 @@ fn invert_like_opencv(m: &M3) -> M3 {
 const TAB_BITS: u32 = 5;
 const TAB_SIZE: i32 = 1 << TAB_BITS;
 
-/// Where cv2.warpPerspective(img, matrix, (rw, rh), INTER_LINEAR, BORDER_REPLICATE) looks for each pixel, the way OpenCV works it out:
-/// the inverse matrix is applied in blocks of at most 32 x 32 pixels (so the sums round as they do there) and each position is taken
-/// to the nearest 1/32 pixel. It only changes with the corners, so frames share it.
+/// Where cv2.warpPerspective(.., (rw, rh), INTER_LINEAR, BORDER_REPLICATE) looks for each pixel, for frames to share until the corners move.
 pub fn warp_map(w: usize, h: usize, matrix: &M3, rw: usize, rh: usize) -> Remap {
     let inv = invert_like_opencv(matrix);
     let m = [inv[0][0], inv[0][1], inv[0][2], inv[1][0], inv[1][1], inv[1][2], inv[2][0], inv[2][1], inv[2][2]];
@@ -285,8 +283,7 @@ fn most_nearby(row: &[u8], ch: usize, out: &mut [u8]) {
     most_of_five(at(0), at(1), at(2), at(3), at(4), out);
 }
 
-/// cv2.dilate with the 5 x 5 ellipse OpenCV makes for MORPH_ELLIPSE (three full middle rows and one pixel above and below), on
-/// pictures of `ch` to a pixel.
+/// cv2.dilate with OpenCV's 5 x 5 MORPH_ELLIPSE: three full middle rows and one pixel above and below.
 fn dilate_ellipse(src: &[u8], w: usize, h: usize, ch: usize) -> Vec<u8> {
     let rl = w * ch;
     let mut wide = vec![0u8; rl * h];
@@ -356,7 +353,7 @@ pub fn black_and_white(sheet: &[u8], w: usize, h: usize) -> Vec<u8> {
     let row_at = |y: isize| &grey[y.clamp(0, h as isize - 1) as usize * w..][..w];
     let grey = &grey;
     let mut out = spare_bytes(w * h * 3);
-    // Sums down each column slide along the rows, the edges repeating the pixel they end on, and so does the window across them
+    // Column sums slide down and a window slides across them, the edges repeating the pixel they end on
     telescope_core::image::over_bands(&mut out, w * 3, |first, part| {
         let mut columns = vec![0u32; w];
         for j in 0..block as isize {
