@@ -25,7 +25,7 @@ fn env_nonempty(name: &str) -> Option<String> {
     std::env::var(name).ok().filter(|v| !v.is_empty())
 }
 
-fn home() -> PathBuf {
+pub fn home() -> PathBuf {
     std::env::home_dir().unwrap_or_default()
 }
 

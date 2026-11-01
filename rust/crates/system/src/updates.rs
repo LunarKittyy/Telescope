@@ -452,12 +452,59 @@ fn swap(directory: &Path, journal: Value, mv: Mover) -> Result<Vec<String>> {
     Ok(skipped)
 }
 
+/// Whether exe gets past Windows' loader. Nothing can roll back from an exe that never runs, so this is the only chance to refuse one.
+#[cfg(windows)]
+fn exe_loads(exe: &Path) -> bool {
+    use std::os::windows::process::CommandExt;
+    use std::process::{Command, Stdio};
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn SetErrorMode(mode: u32) -> u32;
+    }
+    const SEM_FAILCRITICALERRORS: u32 = 1;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    // A DLL or an entry point not found, a bad image, a failed start
+    const LOADER_FAILED: [u32; 4] = [0xC000_0135, 0xC000_0139, 0xC000_007B, 0xC000_0142];
+    // The child inherits this, and the loader's message box would otherwise wait for a click
+    // SAFETY: takes and returns plain flags
+    let before = unsafe { SetErrorMode(SEM_FAILCRITICALERRORS) };
+    let spawned = Command::new(exe).arg("build-info").stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).creation_flags(CREATE_NO_WINDOW).spawn();
+    // SAFETY: as above
+    unsafe { SetErrorMode(before) };
+    let Ok(mut child) = spawned else { return false };
+    // Security software can scan a new exe for a while first, and that isn't a failure
+    let deadline = std::time::Instant::now() + Duration::from_secs(45);
+    while std::time::Instant::now() < deadline {
+        match child.try_wait() {
+            Ok(Some(status)) => return !LOADER_FAILED.contains(&(status.code().unwrap_or(0) as u32)),
+            Ok(None) => std::thread::sleep(Duration::from_millis(100)),
+            Err(_) => return true,
+        }
+    }
+    let _ = child.kill();
+    true
+}
+
 pub fn install_windows(archive: &Path, directory: &Path, build: i64, mv: Mover) -> Result<InstallResult> {
+    install_windows_if(archive, directory, build, mv, &|_| true)
+}
+
+fn install_windows_if(archive: &Path, directory: &Path, build: i64, mv: Mover, loads: &dyn Fn(&Path) -> bool) -> Result<InstallResult> {
     let staging = directory.join(STAGING_DIR);
     extract(archive, &staging)?;
     if !staging.join(EXE_NAME).is_file() {
         let _ = std::fs::remove_dir_all(&staging);
         return err("The download doesn't contain Telescope, so it wasn't installed.");
+    }
+    if !loads(&staging.join(EXE_NAME)) {
+        let _ = std::fs::remove_dir_all(&staging);
+        return err("This version can't start on this computer, so it wasn't installed.");
+    }
+    // A stale copy left in place would be what a roll-back restores, as on Linux
+    let previous = directory.join(PREVIOUS_DIR);
+    if previous.exists() && update_guard::remove(&previous).is_err() {
+        let _ = std::fs::remove_dir_all(&staging);
+        return err("The update failed.");
     }
     // A roll-back puts back whatever old exe it finds, so one left from an earlier update must go first
     for leftover in [OLD_EXE_NAME, FAILED_EXE_NAME] {
@@ -515,7 +562,10 @@ pub fn install_linux(archive: &Path, directory: &Path, build: i64, mv: Mover) ->
 /// build: the one being installed, so a roll-back knows not to offer it again.
 pub fn install(archive: &Path, directory: &Path, build: i64) -> Result<InstallResult> {
     let mv: Mover = &mut |a, b| std::fs::rename(a, b);
-    if cfg!(windows) { install_windows(archive, directory, build, mv) } else { install_linux(archive, directory, build, mv) }
+    #[cfg(windows)]
+    return install_windows_if(archive, directory, build, mv, &exe_loads);
+    #[cfg(not(windows))]
+    install_linux(archive, directory, build, mv)
 }
 
 /// Archives made for tests, like the release's.
@@ -1006,6 +1056,37 @@ mod tests {
         let e = install_windows(&zip_of(&root.join("w.zip"), &[("readme.txt", b"hi")]), &app, 0, &mut rename()).unwrap_err();
         assert!(e.0.contains("doesn't contain"));
         assert_eq!(std::fs::read_to_string(app.join(EXE_NAME)).unwrap(), "old exe");
+    }
+
+    #[test]
+    fn windows_install_refuses_an_exe_windows_wont_load() {
+        let root = tmp("noload");
+        let app = root.join("app");
+        std::fs::create_dir_all(&app).unwrap();
+        std::fs::write(app.join(EXE_NAME), "old exe").unwrap();
+        let archive = zip_of(&root.join("w.zip"), &[(EXE_NAME, b"new exe")]);
+        let seen = Mutex::new(None);
+        let e = install_windows_if(&archive, &app, 131, &mut rename(), &|exe| {
+            *seen.lock().unwrap() = Some(std::fs::read_to_string(exe).unwrap());
+            false
+        }).unwrap_err();
+        assert!(e.0.contains("can't start"), "{e}");
+        assert_eq!(seen.lock().unwrap().as_deref(), Some("new exe"));
+        assert_eq!(std::fs::read_to_string(app.join(EXE_NAME)).unwrap(), "old exe");
+        assert!(!app.join(STAGING_DIR).exists());
+        assert!(update_guard::read_journal(&app).is_none());
+    }
+
+    #[test]
+    fn windows_install_replaces_a_stale_previous_folder() {
+        let root = tmp("stale-prev");
+        let app = root.join("app");
+        std::fs::create_dir_all(app.join(PREVIOUS_DIR)).unwrap();
+        std::fs::write(app.join(PREVIOUS_DIR).join("Telescope.apk"), "stale").unwrap();
+        std::fs::write(app.join(EXE_NAME), "old exe").unwrap();
+        std::fs::write(app.join("Telescope.apk"), "old apk").unwrap();
+        install_windows(&zip_of(&root.join("w.zip"), &[(EXE_NAME, b"new exe"), ("Telescope.apk", b"new apk")]), &app, 0, &mut rename()).unwrap();
+        assert_eq!(std::fs::read_to_string(app.join(PREVIOUS_DIR).join("Telescope.apk")).unwrap(), "old apk");
     }
 
     #[test]

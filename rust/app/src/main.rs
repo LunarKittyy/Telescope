@@ -364,6 +364,11 @@ fn app_dir() -> PathBuf {
     std::env::current_exe().ok().and_then(|p| p.parent().map(PathBuf::from)).unwrap_or_default()
 }
 
+/// $XDG_DATA_HOME, or ~/.local/share.
+fn data_home() -> PathBuf {
+    std::env::var_os("XDG_DATA_HOME").filter(|v| !v.is_empty()).map(PathBuf::from).unwrap_or_else(|| telescope_core::config::home().join(".local").join("share"))
+}
+
 /// The new version has started fine this long after its window came up (or once it's closed normally).
 const STARTED_FINE: std::time::Duration = std::time::Duration::from_secs(3);
 
@@ -373,6 +378,10 @@ fn started_fine() {
     DONE.call_once(|| {
         let dir = app_dir();
         telescope_system::update_guard::confirm(&dir);
+        if let Some(venv) = telescope_system::update_guard::python_venv_left(&dir, Some(telescope_system::version::build()), &data_home()) {
+            // Tens of thousands of files, and nothing waits for them
+            std::thread::spawn(move || telescope_system::update_guard::remove(&venv));
+        }
         // Every start, not just after an update: an old version's files can still be locked the first time
         telescope_system::update_guard::clean_up_after_update(&dir, Some(telescope_system::version::build()));
         telescope_system::setup_move::note_installed_version(&dir);

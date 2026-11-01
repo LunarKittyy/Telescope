@@ -19,7 +19,7 @@ pub const JOURNAL: &str = ".update.json";
 /// The build that was rolled back: {"build": n}.
 pub const FAILED: &str = ".update-failed";
 pub const STAGING_DIR: &str = ".update-staging";
-/// Linux: the replaced entries, until the new version is confirmed.
+/// The replaced entries (on Windows, files), until the new version is confirmed.
 pub const PREVIOUS_DIR: &str = ".previous";
 pub const EXE_NAME: &str = "TelescopeDesktop.exe";
 pub const OLD_EXE_NAME: &str = "TelescopeDesktop.old.exe";
@@ -159,6 +159,7 @@ fn finish_windows(directory: &Path, staging: &Path, skipped: &mut Vec<String>, m
         mv(&new_exe, &current)?;
         swapped = true;
     }
+    let previous = directory.join(PREVIOUS_DIR);
     let mut files = Vec::new();
     files_under(staging, &mut files);
     for src in files {
@@ -170,12 +171,42 @@ fn finish_windows(directory: &Path, staging: &Path, skipped: &mut Vec<String>, m
         if let Some(parent) = dst.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        if mv(&src, &dst).is_err() {
-            // e.g. a UnityCapture DLL loaded by OBS right now; it keeps working, just unchanged
+        if !replace_keeping_old(&src, &dst, &previous.join(&rel), mv) {
+            // e.g. a UnityCapture DLL held open by OBS right now; it keeps working, just unchanged
             skipped.push(rel.to_string_lossy().replace('\\', "/"));
         }
     }
     Ok(swapped)
+}
+
+/// Moves dst to prev, then src to dst. A roll-back needs the old file, and a DLL that's loaded right now can be moved but not overwritten.
+fn replace_keeping_old(src: &Path, dst: &Path, prev: &Path, mv: Mover) -> bool {
+    let moved = dst.exists() && !prev.exists();
+    if moved && (prev.parent().is_some_and(|p| std::fs::create_dir_all(p).is_err()) || mv(dst, prev).is_err()) {
+        return false;
+    }
+    if mv(src, dst).is_ok() {
+        return true;
+    }
+    if moved {
+        let _ = mv(prev, dst);
+    }
+    false
+}
+
+/// Puts back what finish_windows moved aside, so the old exe doesn't run on the new version's ui-kit and libraries.
+fn restore_previous(directory: &Path, mv: Mover) -> io::Result<()> {
+    let previous = directory.join(PREVIOUS_DIR);
+    let mut files = Vec::new();
+    files_under(&previous, &mut files);
+    for src in files {
+        let dst = directory.join(src.strip_prefix(&previous).unwrap_or(&src));
+        if let Some(parent) = dst.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        mv(&src, &dst)?;
+    }
+    remove(&previous)
 }
 
 fn finish_linux(directory: &Path, staging: &Path, mv: Mover) -> io::Result<bool> {
@@ -245,6 +276,7 @@ pub fn roll_back(directory: &Path, journal: &Value, remember: bool, mv: Mover) -
                 return Err(e);
             }
         }
+        restore_previous(directory, mv)?;
         // The new lib folder may be the running one; the old version's clean-up deletes it
     } else {
         let previous = directory.join(PREVIOUS_DIR);
@@ -463,8 +495,27 @@ pub fn clean_up_after_update(directory: &Path, this_build: Option<i64>) {
             .filter(|p| is_python_build_lib(p)));
     }
     for p in leftovers {
-        let _ = remove(&p);
+        let _ = if is_python_build_lib(&p) { remove_python_lib(&p) } else { remove(&p) };
     }
+}
+
+/// PyQt6 goes last: it's what says a folder is the Python app's, so a file still held leaves one the next start still recognises.
+fn remove_python_lib(lib: &Path) -> io::Result<()> {
+    let mut failed = None;
+    for entry in sorted_entries(lib)?.iter().filter(|e| !e.ends_with("PyQt6")) {
+        if let Err(e) = remove(entry) {
+            failed = Some(e);
+        }
+    }
+    failed.map_or_else(|| remove(lib), Err)
+}
+
+/// The venv the Python tarball's start.sh made (about 650 MB), once nothing can go back to it. Asked before clean_up_after_update takes
+/// update_guard.py away. Only a folder with start.sh's stamp counts; data_home is $XDG_DATA_HOME or ~/.local/share.
+pub fn python_venv_left(directory: &Path, this_build: Option<i64>, data_home: &Path) -> Option<PathBuf> {
+    let unconfirmed = read_journal(directory).is_some() || this_build.is_some_and(|b| b != 0 && failed_build(directory) == Some(b));
+    let venv = data_home.join("Telescope").join("venv");
+    (!cfg!(windows) && !unconfirmed && directory.join("update_guard.py").is_file() && venv.join(".telescope-requirements").is_file()).then_some(venv)
 }
 
 /// main.py's start: recover first and hand over to the right version when needed. True: carry on starting.
@@ -624,6 +675,8 @@ mod tests {
         assert!(!relaunch.contains(&"--after-update".to_string()));
         assert_eq!(read(&app.join(EXE_NAME)), "exe 130");
         assert_eq!(read(&app.join(FAILED_EXE_NAME)), "exe 131");
+        assert_eq!(read(&app.join("Telescope.apk")), "apk 130"); // and what else the new version replaced
+        assert!(!app.join(PREVIOUS_DIR).exists());
         assert!(read_journal(&app).is_none());
         assert_eq!(failed_build(&app), Some(131));
         let at_130 = Updates { opener: &Offline, build: 130, directory: app.clone() };
@@ -732,7 +785,7 @@ mod tests {
         let counting = updated_windows_app(&base.join("count"));
         let trial = read_journal(&counting).unwrap();
         let total = count_moves(|mv| roll_back(&counting, &trial, true, mv).unwrap());
-        assert_eq!(total, 3, "the journal, the new exe aside, the old one back");
+        assert_eq!(total, 4, "the journal, the new exe aside, the old one back, the old apk back");
         // Move 1 is the journal saying a roll-back began: dying on it, none did
         for k in 2..=total {
             let app = updated_windows_app(&base.join(format!("k{k}")));
@@ -742,8 +795,94 @@ mod tests {
             assert_eq!(read_journal(&app).unwrap()["state"], "rolling_back");
             assert!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO).is_some());
             assert_eq!(read(&app.join(EXE_NAME)), "exe 130", "k={k}");
+            assert_eq!(read(&app.join("Telescope.apk")), "apk 130", "k={k}");
             assert!(read_journal(&app).is_none());
         }
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn a_loaded_dll_is_moved_aside_for_the_new_one_and_comes_back_on_a_roll_back() {
+        let base = root("loaded-dll");
+        let app = windows_app(&base);
+        write(&app.join("ui-kit/ui-kit.slint"), "kit 130");
+        write(&app.join("avcodec-62.dll"), "codec 130");
+        let archive = zip_of(&base.join(WINDOWS_ASSET), &[(EXE_NAME, b"exe 131"), ("ui-kit/ui-kit.slint", b"kit 131"), ("avcodec-62.dll", b"codec 131")]);
+        // What Windows does with a loaded DLL: it can move, but nothing can be written over it
+        let staging = app.join(STAGING_DIR);
+        let mut loaded = |s: &Path, d: &Path| {
+            if s.starts_with(&staging) && d.ends_with("avcodec-62.dll") && d.exists() {
+                return Err(io::Error::from_raw_os_error(if cfg!(windows) { 5 } else { 13 }));
+            }
+            rename(s, d)
+        };
+        let result = install_windows(&archive, &app, 131, &mut loaded).unwrap();
+        assert!(result.skipped.is_empty(), "{:?}", result.skipped);
+        assert_eq!(read(&app.join("avcodec-62.dll")), "codec 131");
+        assert_eq!(read(&app.join(PREVIOUS_DIR).join("avcodec-62.dll")), "codec 130");
+        assert_eq!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO), None);
+        assert!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO).is_some());
+        assert_eq!(read(&app.join("avcodec-62.dll")), "codec 130");
+        assert_eq!(read(&app.join("ui-kit/ui-kit.slint")), "kit 130");
+        assert!(!app.join(PREVIOUS_DIR).exists());
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn a_file_that_cant_be_moved_keeps_its_old_version() {
+        let base = root("held");
+        let app = windows_app(&base);
+        write(&app.join("held.dll"), "held 130");
+        let archive = zip_of(&base.join(WINDOWS_ASSET), &[(EXE_NAME, b"exe 131"), ("held.dll", b"held 131")]);
+        let held = app.join("held.dll");
+        let mut opened_elsewhere = |s: &Path, d: &Path| if s == held || d == held { Err(io::Error::from_raw_os_error(5)) } else { rename(s, d) };
+        let result = install_windows(&archive, &app, 131, &mut opened_elsewhere).unwrap();
+        assert_eq!(result.skipped, vec!["held.dll".to_string()]);
+        assert_eq!(read(&held), "held 130");
+        assert_eq!(read(&app.join(EXE_NAME)), "exe 131");
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_held_file_leaves_a_python_lib_folder_the_next_start_still_recognises() {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+        let base = root("lib-held");
+        if std::fs::metadata(&base).unwrap().uid() == 0 {
+            return; // root removes anything
+        }
+        let lib = base.join("lib-130");
+        write(&lib.join("PyQt6/qt.dll"), "qt");
+        write(&lib.join("VCRUNTIME140.dll"), "goes");
+        write(&lib.join("A/held.dll"), "stays for now");
+        std::fs::set_permissions(lib.join("A"), std::fs::Permissions::from_mode(0o500)).unwrap();
+        clean_up_after_update(&base, None);
+        std::fs::set_permissions(lib.join("A"), std::fs::Permissions::from_mode(0o700)).unwrap();
+        assert!(lib.join("PyQt6/qt.dll").exists(), "the mark goes last");
+        assert!(!lib.join("VCRUNTIME140.dll").exists(), "and one held file doesn't stop the rest");
+        clean_up_after_update(&base, None);
+        assert!(!lib.exists());
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn the_python_venv_counts_as_left_only_beside_a_confirmed_python_update() {
+        let base = root("venv");
+        let (app, data) = (base.join("app"), base.join("data"));
+        write(&data.join("Telescope/venv/.telescope-requirements"), "stamp");
+        write(&app.join("telescope-rs"), "new");
+        assert_eq!(python_venv_left(&app, Some(131), &data), None, "not after a Rust update");
+        write(&app.join("update_guard.py"), "python's");
+        assert_eq!(python_venv_left(&app, Some(131), &data), Some(data.join("Telescope/venv")));
+        write(&app.join(JOURNAL), r#"{"state": "trial"}"#);
+        assert_eq!(python_venv_left(&app, Some(131), &data), None, "not while the update can still roll back");
+        std::fs::remove_file(app.join(JOURNAL)).unwrap();
+        write(&app.join(FAILED), r#"{"build": 131}"#);
+        assert_eq!(python_venv_left(&app, Some(131), &data), None, "not from a copy rolled back underneath it");
+        std::fs::remove_file(app.join(FAILED)).unwrap();
+        std::fs::remove_file(data.join("Telescope/venv/.telescope-requirements")).unwrap();
+        assert_eq!(python_venv_left(&app, Some(131), &data), None, "not someone's own folder");
         std::fs::remove_dir_all(&base).unwrap();
     }
 
