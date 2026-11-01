@@ -82,7 +82,7 @@ impl MicBackend for LinuxMic {
     }
 }
 
-pub type Devices = Box<dyn Fn() -> Option<Vec<(String, u32)>> + Send + Sync>;
+pub type Devices = Box<dyn Fn() -> Vec<(String, u32)> + Send + Sync>;
 pub type Installer = Box<dyn Fn() -> Result<std::path::PathBuf, String> + Send + Sync>;
 pub type Opener = Box<dyn Fn(&std::path::Path) -> String + Send + Sync>;
 
@@ -90,7 +90,7 @@ pub struct WindowsMic {
     /// The setup was opened once: closed without installing, it can be opened again.
     pub setup_opened: AtomicBool,
     device: Mutex<Option<usize>>,
-    /// Every output device with its channels; None when the sound system can't be asked.
+    /// Every output device with its channels.
     devices: Devices,
     download: Installer,
     run_setup: Opener,
@@ -107,13 +107,13 @@ impl Default for WindowsMic {
 }
 
 #[cfg(windows)]
-fn system_devices() -> Option<Vec<(String, u32)>> {
-    Some(crate::sink::output_devices())
+fn system_devices() -> Vec<(String, u32)> {
+    crate::sink::output_devices()
 }
 
 #[cfg(not(windows))]
-fn system_devices() -> Option<Vec<(String, u32)>> {
-    None
+fn system_devices() -> Vec<(String, u32)> {
+    Vec::new()
 }
 
 impl WindowsMic {
@@ -128,10 +128,7 @@ impl MicBackend for WindowsMic {
     }
 
     fn problem(&self) -> Option<Problem> {
-        let Some(devices) = (self.devices)() else {
-            return Some((tr("The sounddevice package isn't installed."), None));
-        };
-        let found = virtual_mic::find_vb_cable(&devices);
+        let found = virtual_mic::find_vb_cable(&(self.devices)());
         *self.device.lock().unwrap_or_else(|e| e.into_inner()) = found;
         if found.is_some() {
             return None;
