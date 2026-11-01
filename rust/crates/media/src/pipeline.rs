@@ -820,8 +820,17 @@ pub(crate) mod tests {
         assert!(!p.steps[0].skipped() && p.steps[0].no_shader);
     }
 
+    // Opening a second connection to the card rescans the Vulkan drivers, and that crashes the loader under other tests' threads
     #[test]
     fn a_lost_card_leaves_a_step_with_two_ways_on_the_cpu_for_the_stream() {
+        let name = "pipeline::tests::lost_card_in_a_process_of_its_own";
+        let run = std::process::Command::new(std::env::current_exe().unwrap()).args(["--ignored", "--exact", name, "--nocapture"]).output().unwrap();
+        assert!(run.status.success(), "{}", String::from_utf8_lossy(&run.stdout));
+    }
+
+    #[test]
+    #[ignore = "a_lost_card_leaves_a_step_with_two_ways_on_the_cpu_for_the_stream runs this"]
+    fn lost_card_in_a_process_of_its_own() {
         let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
         let gpu = Arc::new(gpu);
         let (mut p, _) = either(Place::Card);
