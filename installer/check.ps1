@@ -20,7 +20,7 @@ foreach ($want in "$app\TelescopeDesktop.exe", "$app\unitycapture", "$app\virtua
     if (-not (Test-Path $want)) { $problems += "after install, missing $want" }
 }
 if ($Rust) {
-    foreach ($want in "$app\ui-kit\ui-kit.slint", "$app\rnnoise.dll") {
+    foreach ($want in "$app\ui-kit\ui-kit.slint", "$app\rnnoise.dll", "$app\vcruntime140.dll") {
         if (-not (Test-Path $want)) { $problems += "after install, missing $want" }
     }
     foreach ($dll in "avcodec-*.dll", "avutil-*.dll", "swresample-*.dll", "swscale-*.dll") {

@@ -90,6 +90,7 @@ Type: files; Name: "{app}\avcodec-*.dll"
 Type: files; Name: "{app}\avutil-*.dll"
 Type: files; Name: "{app}\swresample-*.dll"
 Type: files; Name: "{app}\swscale-*.dll"
+Type: files; Name: "{app}\vcruntime140.dll"
 Type: filesandordirs; Name: "{app}\ui-kit"
 #endif
 Type: filesandordirs; Name: "{app}\.update-staging"

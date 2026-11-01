@@ -22,6 +22,18 @@ fn load_ffmpeg_late() {
     println!("cargo::rustc-link-arg-bins=delayimp.lib");
 }
 
+/// Windows N has no Media Foundation until its media pack is added, and a DLL missing at start stops the program before anything can roll it
+/// back. Webcams are all it's used for here (webcams_win::media_foundation_here looks before anything calls it).
+fn load_media_foundation_late() {
+    if std::env::var("CARGO_CFG_TARGET_ENV").as_deref() != Ok("msvc") {
+        return;
+    }
+    for name in ["mfplat.dll", "mf.dll", "mfreadwrite.dll"] {
+        println!("cargo::rustc-link-arg-bins=/DELAYLOAD:{name}");
+    }
+    println!("cargo::rustc-link-arg-bins=delayimp.lib");
+}
+
 /// Windows gives the main thread 1 MB where Linux gives 8, which a window this size goes through while it's built.
 fn main_thread_stack() {
     let bytes = 8 * 1024 * 1024;
@@ -71,6 +83,7 @@ fn main() {
     program_resources();
     main_thread_stack();
     load_ffmpeg_late();
+    load_media_foundation_late();
     find_shipped_ffmpeg();
     let manifest = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").expect("cargo sets it"));
     let folder = manifest.join(LOCALE);

@@ -438,10 +438,10 @@ fn ours(entry: &Path) -> io::Result<bool> {
     Ok(name.strip_prefix(update_guard::LIB_PREFIX).is_some_and(|b| !b.is_empty() && b.bytes().all(|c| c.is_ascii_digit())) && entry.join("PyQt6").is_dir())
 }
 
-/// The libraries a release keeps next to the exe: RNNoise, and FFmpeg's four with their major version in the name.
+/// The libraries a release keeps next to the exe: RNNoise and the runtime it needs, and FFmpeg's four with their major version in the name.
 fn is_our_library(name: &str) -> bool {
     let versioned = |prefix: &str| name.strip_prefix(prefix).and_then(|rest| rest.strip_suffix(".dll")).is_some_and(|v| !v.is_empty() && v.bytes().all(|c| c.is_ascii_digit()));
-    name == "rnnoise.dll" || ["avcodec-", "avutil-", "swresample-", "swscale-"].into_iter().any(versioned)
+    name == "rnnoise.dll" || name == "vcruntime140.dll" || ["avcodec-", "avutil-", "swresample-", "swscale-"].into_iter().any(versioned)
 }
 
 /// Where the adb Telescope downloads goes for this user (adb_download.downloaded_dir): outside the app's folder, so moves leave it alone.

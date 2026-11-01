@@ -135,6 +135,21 @@ mod real {
     const READ_TIMEOUT: Duration = Duration::from_secs(5);
     const STREAM: u32 = MF_SOURCE_READER_FIRST_VIDEO_STREAM.0 as u32;
 
+    /// Windows N has none of these unless its media pack is added; the program loads them late (app/build.rs), so that costs webcams and nothing else.
+    fn media_foundation_here() -> bool {
+        #[link(name = "kernel32")]
+        unsafe extern "system" {
+            fn LoadLibraryW(name: *const u16) -> isize;
+        }
+        static HERE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *HERE.get_or_init(|| {
+            ["mfplat.dll", "mf.dll", "mfreadwrite.dll"].iter().all(|name| {
+                // SAFETY: a NUL-terminated name; staying loaded is what's wanted
+                unsafe { LoadLibraryW(crate::win::wide(name).as_ptr()) != 0 }
+            })
+        })
+    }
+
     fn start() {
         static STARTED: Once = Once::new();
         // SAFETY: COM on this thread (an STA already set up by the window stays one, which Media Foundation takes too)
@@ -177,6 +192,9 @@ mod real {
 
     /// (name, symbolic link) of every camera Media Foundation lists, and its activator.
     fn cameras() -> Vec<(String, String, IMFActivate)> {
+        if !media_foundation_here() {
+            return Vec::new();
+        }
         start();
         let Ok(attrs) = video_attributes(None) else { return Vec::new() };
         let mut list: *mut Option<IMFActivate> = std::ptr::null_mut();
@@ -390,6 +408,9 @@ mod real {
     /// Opens the camera at location (its symbolic link) on the native type that fits choice and reads a first frame,
     /// so one another app holds says so: Err((opened at all, why)) as webcam_capture's Opener wants.
     pub fn open(location: &str, choice: &Choice) -> Result<Box<dyn Capture>, (bool, String)> {
+        if !media_foundation_here() {
+            return Err((false, "Media Foundation isn't installed".into()));
+        }
         start();
         let fail = |e: windows::core::Error| (false, e.to_string());
         // SAFETY: COM calls on objects made here

@@ -51,6 +51,10 @@ Windows 11 camera (virtualcamera/TelescopeCamera.dll, source in desktop/virtualc
     Sample: Copyright (c) Microsoft Corporation. License: MIT.
     Source: https://github.com/microsoft/Windows-Camera/tree/master/Samples/VirtualCamera
 
+Microsoft Visual C++ runtime (vcruntime140.dll)
+    Copyright (c) Microsoft Corporation.
+    Redistributed under the Microsoft Visual Studio license terms, for RNNoise.
+
 Android SDK Platform Tools (not included)
     On Windows, adb.exe is downloaded from Google when you ask for it (Get adb), and kept in
     %LOCALAPPDATA%\\Telescope\\platform-tools with Google's NOTICE.txt.

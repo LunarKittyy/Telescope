@@ -25,7 +25,7 @@ LINUX_FILES = ("start.sh", "main.py", "telescope/_build.py", "telescope-rs", "li
                "lib/fallback/libva.so.2", "lib/fallback/libva-drm.so.2", "lib/fallback/libdrm.so.2")
 LINUX_LIBRARIES = ("lib/libavcodec.so.", "lib/libavutil.so.", "lib/libswresample.so.", "lib/libswscale.so.")
 # Python's windows updater wants the exe; check.ps1 and the rest of Telescope.iss want the other two folders
-WINDOWS_FILES = ("TelescopeDesktop.exe", "rnnoise.dll", "THIRD_PARTY_NOTICES.txt", "ui-kit/ui-kit.slint", "virtualcamera/TelescopeCamera.dll",
+WINDOWS_FILES = ("TelescopeDesktop.exe", "rnnoise.dll", "vcruntime140.dll", "THIRD_PARTY_NOTICES.txt", "ui-kit/ui-kit.slint", "virtualcamera/TelescopeCamera.dll",
                  "unitycapture/UnityCaptureFilter64.dll", "unitycapture/UnityCaptureFilter32.dll", "unitycapture/LICENSE")
 WINDOWS_LIBRARIES = ("avcodec-", "avutil-", "swresample-", "swscale-")
 # What the app asks FFmpeg for (media/src/ffmpeg.rs, opus.rs and h264.rs), so a recipe change that drops one shows up here and not on someone's phone
