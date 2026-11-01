@@ -268,7 +268,7 @@ impl Pipeline {
         let frame = frame.clone();
         let done = Trial(self.balance.clone(), None);
         let trial = move || {
-            // Bound here so the closure owns all of it, or it would only take the field it writes
+            // Taken whole here: a closure would only capture the field it writes, and the rest would drop now
             let mut done = done;
             match gpu.trial(&frame) {
                 Ok(waited) => done.1 = Some(waited),
