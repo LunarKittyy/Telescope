@@ -707,8 +707,18 @@ fn hardware_decoding_is_on_unless_saved_off() {
     assert_eq!(r.plugin.get_config()["hw_decode"], json!(true), "a new install");
     r.plugin.set_config(&json!({})).unwrap();
     assert_eq!(r.plugin.get_config()["hw_decode"], json!(true), "settings from before it was saved");
-    // Python always saved false, so a saved false may be a choice: it stays, and so does anything that isn't plainly true
-    for saved in [json!(false), json!("yes"), json!(1)] {
+    // Python always saved false, so its false means nothing yet and the first read turns it on
+    r.plugin.set_config(&json!({"hw_decode": false})).unwrap();
+    assert_eq!(r.plugin.get_config()["hw_decode"], json!(true), "a Python config");
+    assert_eq!(r.plugin.get_config().get("hw_decode_from_rust"), None, "and it saves what Python would read the same");
+    // Turned off here, it stays off across a save and a read, and Python still reads the plain false
+    r.ui("video", "hw-toggled", vec![json!(false)]);
+    let saved = r.plugin.get_config();
+    assert_eq!(saved["hw_decode"], json!(false));
+    r.plugin.set_config(&saved).unwrap();
+    assert_eq!(r.plugin.get_config()["hw_decode"], json!(false), "a choice made here");
+    // Anything that isn't plainly true stays off, as it always did
+    for saved in [json!("yes"), json!(1)] {
         r.plugin.set_config(&json!({"hw_decode": saved})).unwrap();
         assert_eq!(r.plugin.get_config()["hw_decode"], json!(false), "{saved}");
     }

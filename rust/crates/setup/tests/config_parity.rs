@@ -32,9 +32,9 @@ fn settings_load_and_save_as_python_does() {
         }
         result.unwrap();
         let got = plugin.get_config();
-        // The one place Rust means to differ: with nothing saved, hardware decoding is on
+        // The one place Rust means to differ: with nothing saved, or Python's false, hardware decoding is on
         let mut want = case["output"].clone();
-        if name == "setup" && case["input"].get("hw_decode").is_none() {
+        if name == "setup" && want["hw_decode"] == json!(false) {
             want["hw_decode"] = json!(true);
         }
         assert!(same(&got, &want), "{name} given {}:\n  rust   {got}\n  python {want}", case["input"]);

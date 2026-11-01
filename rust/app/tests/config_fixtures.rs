@@ -34,8 +34,8 @@ fn the_app_ends_up_where_the_fixture_says() {
         assert!(out.status.success(), "{name}: {}", String::from_utf8_lossy(&out.stderr));
         let got = json::loads(&String::from_utf8(out.stdout).unwrap()).unwrap();
         let mut want = json::loads(&std::fs::read_to_string(folder.join("expected.json")).unwrap()).unwrap();
-        // The one place Rust means to differ: with nothing saved, hardware decoding is on
-        if ["cut-off", "fresh-install", "version-1", "version-2"].contains(&name.as_str()) {
+        // The one place Rust means to differ: with nothing saved, or Python's false, hardware decoding is on
+        if want["saved"]["plugin_configs"]["setup"]["hw_decode"] == false.into() {
             want["saved"]["plugin_configs"]["setup"]["hw_decode"] = true.into();
         }
         // As JSON values, so 50 and 50.0 differ: the two apps must save the same text
