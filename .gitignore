@@ -48,3 +48,5 @@ automation/translation/review-renders/
 automation/release-testing/downloads/
 automation/release-testing/linux/.profile/
 desktop/virtualcamera/build/
+rust/tools/aoa_spike/target/
+android/aoaspike/build/

@@ -1,0 +1,22 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Throwaway AOA bench app, separate package so it leaves com.telescope and com.telescope.dev alone
+android {
+    namespace = 'com.telescope.aoaspike'
+    compileSdk 37
+
+    defaultConfig {
+        applicationId "com.telescope.aoaspike"
+        minSdk 26
+        targetSdk 33
+        versionCode 1
+        versionName "0.1"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

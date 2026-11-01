@@ -1,0 +1,14 @@
+[package]
+name = "aoa-spike"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Kept out of the main workspace on purpose: this is a throwaway bench
+[workspace]
+
+[dependencies]
+nusb = "0.2.9"
+
+[profile.release]
+debug = false
