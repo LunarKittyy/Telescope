@@ -16,7 +16,6 @@ export component StartupSettings inherits Card {
         title: @tr("Open Telescope when I sign in");
         keywords: @tr("search" => "autostart login log in boot startup run on startup launch computer starts tray");
         Switch {
-            y: (parent.height - self.height) / 2;
             checked <=> root.open-checked;
             enabled: open-enabled;
             label: @tr("Open Telescope when I sign in");
@@ -54,7 +53,6 @@ export component AutomaticSettings inherits Card {
         title: start-title;
         keywords: @tr("search" => "automatically begin streaming when phone ready app opens the camera auto start");
         ChoiceField {
-            y: (parent.height - self.height) / 2;
             width: 320px;
             compact: true;
             caption: start-title;
@@ -67,7 +65,6 @@ export component AutomaticSettings inherits Card {
         title: stop-title;
         keywords: @tr("search" => "automatically end streaming idle no app uses the camera auto stop");
         ChoiceField {
-            y: (parent.height - self.height) / 2;
             width: 320px;
             compact: true;
             caption: stop-title;
@@ -129,7 +126,6 @@ export component AutomaticSettings inherits Card {
         title: @tr("Tell me when it stops a stream");
         keywords: @tr("search" => "notification notify alert popup message");
         Switch {
-            y: (parent.height - self.height) / 2;
             checked <=> root.notify-checked;
             enabled: stops;
             label: @tr("Tell me when it stops a stream");

@@ -251,7 +251,6 @@ export component ShortcutsSettings inherits VerticalLayout {
             keywords: @tr("search" => "global hotkeys portal kde plasma gnome desktop keys rebind");
             sub: note-text;
             if system-shown: Button {
-                y: (parent.height - self.height) / 2;
                 text: @tr("Open");
                 tip: @tr("Where your desktop lets you change the keys of global shortcuts");
                 clicked => { root.open-system(); }
@@ -262,7 +261,6 @@ export component ShortcutsSettings inherits VerticalLayout {
             keywords: @tr("search" => "notification notify toast confirmation popup");
             sub: @tr("While Telescope is in the background");
             Switch {
-                y: (parent.height - self.height) / 2;
                 checked: notify;
                 label: @tr("Notify when one runs");
                 toggled(on) => { root.notify-toggled(on); }
