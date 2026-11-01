@@ -400,24 +400,19 @@ pub fn resize_linear_fixed(src: &[u8], w: usize, h: usize, ch: usize, w2: usize,
 }
 
 /// resize_linear_fixed into the (x, y, w, h) box of dst, whose rows are `stride` bytes long; what falls outside dst is left off.
-/// Exactly half the size both ways is the area average, as OpenCV makes it.
 pub fn resize_linear_into(src: &[u8], w: usize, h: usize, ch: usize, dst: &mut [u8], stride: usize, (x, y, w2, h2): (usize, usize, usize, usize)) {
     if w == 0 || h == 0 || w2 == 0 || h2 == 0 || stride == 0 {
         return;
     }
-    let (left, from) = (x * ch, (y * stride).min(dst.len()));
-    let copy_rows = |picture: &[u8], dst: &mut [u8]| {
-        for (line, row) in dst.chunks_exact_mut(stride).zip(picture.chunks_exact(w2 * ch)) {
-            let keep = row.len().min(stride.saturating_sub(left));
-            line[left.min(stride)..][..keep].copy_from_slice(&row[..keep]);
-        }
-    };
+    let (left, top) = ((x * ch).min(stride), (y * stride).min(dst.len()));
+    let dst = &mut dst[top..];
     if (w2, h2) == (w, h) {
-        copy_rows(src, &mut dst[from..]);
-    } else if (w2 * 2, h2 * 2) == (w, h) {
-        copy_rows(&resize_area(src, w, h, ch, w2, h2), &mut dst[from..]);
+        for (line, row) in dst.chunks_exact_mut(stride).zip(src.chunks_exact(w * ch)) {
+            let keep = row.len().min(stride - left);
+            line[left..][..keep].copy_from_slice(&row[..keep]);
+        }
     } else {
-        blended(src, (w, ch), &linear_taps(w, w2, false), &linear_taps(h, h2, true), &mut dst[from..], stride, left.min(stride));
+        blended(src, (w, ch), &linear_taps(w, w2, false), &linear_taps(h, h2, true), dst, stride, left);
     }
 }
 
@@ -543,9 +538,8 @@ mod tests {
     }
 
     #[test]
-    fn half_size_linear_is_the_area_average_as_in_cv2() {
+    fn half_size_linear_comes_out_as_the_area_average_as_in_cv2() {
         assert_eq!(resize_linear_fixed(&GREY_6X4, 6, 4, 1, 3, 2), [95, 181, 112, 138, 146, 173]);
-        // The two-tap sums round differently now and then, so it takes a bigger picture to tell
         let noise: Vec<u8> = (0..64 * 64usize).map(|i| (i * i * 31 % 251) as u8).collect();
         assert_eq!(resize_linear_fixed(&noise, 64, 64, 1, 32, 32), resize_area(&noise, 64, 64, 1, 32, 32));
         assert_eq!(resize_linear_fixed(&GREY_6X4, 3, 8, 1, 3, 4)[..3], [190, 122, 147]);
