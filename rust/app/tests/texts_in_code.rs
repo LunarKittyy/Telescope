@@ -10,7 +10,7 @@ use telescope_core::i18n::po;
 const READERS: [&str; 4] = ["source.rs", "texts.rs", "text.rs", "i18n.rs"];
 
 /// What the code says that the template doesn't, and why. A text that's new here is a spelling that stays English in every language.
-const NOT_IN_THE_TEMPLATE: [(&str, &str); 20] = [
+const NOT_IN_THE_TEMPLATE: [(&str, &str); 21] = [
     // Qt's own button texts, which Qt's translations cover in the Python app
     ("OK", "Qt standard button"),
     ("Yes", "Qt standard button"),
@@ -33,6 +33,7 @@ const NOT_IN_THE_TEMPLATE: [(&str, &str); 20] = [
     ("Its {file} has to return the plugin's table at the end.", "a Lua plugin's message"),
     ("Press a key…", "the shortcut editor's hint"),
     ("...", "an example in a comment"),
+    ("Blurs the other people, everything but you, or puts the wait screen up when someone else walks in. A proof of concept that can't guarantee privacy.", "Rust only until the next translation pass"),
 ];
 
 fn root() -> PathBuf {

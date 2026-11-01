@@ -1119,7 +1119,7 @@
 "Blur by hand until you click again" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
 "Blur now" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
 "Blur the others" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
-"Blurs the other people, everything but you, or puts the wait screen up when someone else walks in." = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
+"Blurs the other people, everything but you, or puts the wait screen up when someone else walks in." = { status = "dropped", reason = "Rust adds that it is a proof of concept and can't guarantee privacy" }
 "Privacy blur" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
 "Privacy blur when someone walks in" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
 "Privacy blur: what happens" = { status = "ported", rust = "rust/crates/effects/src/privacy_blur.rs" }
