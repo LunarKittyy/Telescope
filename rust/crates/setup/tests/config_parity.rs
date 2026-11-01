@@ -32,7 +32,12 @@ fn settings_load_and_save_as_python_does() {
         }
         result.unwrap();
         let got = plugin.get_config();
-        assert!(same(&got, &case["output"]), "{name} given {}:\n  rust   {got}\n  python {}", case["input"], case["output"]);
+        // The one place Rust means to differ: with nothing saved, hardware decoding is on
+        let mut want = case["output"].clone();
+        if name == "setup" && case["input"].get("hw_decode").is_none() {
+            want["hw_decode"] = json!(true);
+        }
+        assert!(same(&got, &want), "{name} given {}:\n  rust   {got}\n  python {want}", case["input"]);
         if name == "setup" {
             let (w, h) = canvas::canvas_dims(&got);
             assert_eq!(json!([w, h]), case["canvas"], "the canvas of {}", case["input"]);

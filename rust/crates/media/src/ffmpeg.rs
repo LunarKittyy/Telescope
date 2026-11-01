@@ -129,10 +129,13 @@ pub struct Codec {
     sws: *mut ff::SwsContext,
     pub hw: Option<Hw>,
     /// Whether the card copies its pictures out as I420. Most only give NV12, and asking again would be a failed call per frame.
-    card_gives_i420: bool,
+    pub(crate) card_gives_i420: bool,
     /// What to fail on purpose, and how many pictures have been good so far.
     pub forced: Option<(Forced, u32)>,
     pictures: u32,
+    /// Tests: each picture's copy off the card, first and then again with the decoder surely done, in nanoseconds.
+    #[cfg(test)]
+    pub copy_ns: Option<Vec<(u64, u64)>>,
     /// Tests: this many pictures are refused as a card that can't take the stream would.
     #[cfg(test)]
     pub refusals: u32,
@@ -189,6 +192,8 @@ impl Codec {
                 card_gives_i420: true,
                 forced: if hw.is_some() { Forced::asked() } else { None },
                 pictures: 0,
+                #[cfg(test)]
+                copy_ns: None,
                 #[cfg(test)]
                 refusals: 0,
                 jpeg: id == ff::AVCodecID::AV_CODEC_ID_MJPEG,
@@ -307,7 +312,16 @@ impl Codec {
         if self.card_gives_i420 {
             (*self.sw_frame).format = ff::AVPixelFormat::AV_PIX_FMT_YUV420P as i32;
         }
+        #[cfg(test)]
+        let started = std::time::Instant::now();
         let mut r = ff::av_hwframe_transfer_data(self.sw_frame, self.frame, 0);
+        #[cfg(test)]
+        if let Some(times) = &mut self.copy_ns {
+            let first = started.elapsed().as_nanos() as u64;
+            let again = std::time::Instant::now();
+            ff::av_hwframe_transfer_data(self.sw_frame, self.frame, 0);
+            times.push((first, again.elapsed().as_nanos() as u64));
+        }
         if r < 0 && self.card_gives_i420 {
             ff::av_frame_unref(self.sw_frame);
             r = ff::av_hwframe_transfer_data(self.sw_frame, self.frame, 0);

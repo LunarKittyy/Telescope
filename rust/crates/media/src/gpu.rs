@@ -855,3 +855,76 @@ mod tests {
         assert!((grey[0] as i32 - 128).abs() <= 2 && grey[0] == grey[1] && grey[1] == grey[2], "{:?}", &grey[..4]);
     }
 }
+
+#[cfg(all(test, ffmpeg))]
+mod timing {
+    use super::*;
+    use crate::ffmpeg::{Codec, Hw};
+    use crate::testenc;
+    use std::time::Instant;
+
+    fn line(what: &str, mut ns: Vec<u64>) {
+        ns.sort();
+        let ms = |n: u64| n as f64 / 1e6;
+        println!("  {what:<46} median {:6.2} ms, 95% {:6.2} ms", ms(ns[ns.len() / 2]), ms(ns[ns.len() * 95 / 100]));
+    }
+
+    /// What a picture costs each way, for deciding about importing decoded frames straight into Vulkan. Run with
+    /// cargo test --release -p telescope-media --lib -- --ignored --nocapture what_a_crossing_costs
+    #[test]
+    #[ignore = "a measurement, needs a VA-API card"]
+    fn what_a_crossing_costs() {
+        let gpu = Gpu::shared().expect("a graphics card");
+        println!("on {}", gpu.adapter_name);
+        for (w, h) in [(1920, 1080), (3840, 2160)] {
+            println!("{w}x{h}");
+            let values: Vec<u8> = (0..180).map(|i| 40 + (i % 150) as u8).collect();
+            let packets = testenc::h264_noisy(&values, w, h, 30).expect("an H.264 encoder");
+            let mut frames = Vec::new();
+            for (i420, name) in [(true, "as I420"), (false, "as NV12, the card's own")] {
+                let mut codec = Codec::h264(Some(Hw::Vaapi)).expect("VA-API");
+                codec.card_gives_i420 = i420;
+                codec.copy_ns = Some(Vec::new());
+                let mut decoded = Vec::new();
+                for p in &packets {
+                    codec.parse(p, |c, unit| {
+                        c.decode(unit, |f| decoded.push(f)).unwrap();
+                    });
+                }
+                let times = codec.copy_ns.take().unwrap();
+                let times = &times[30.min(times.len() / 2)..];
+                line(&format!("download {name}, waiting on the decoder"), times.iter().map(|t| t.0).collect());
+                line(&format!("download {name}, decoder already done"), times.iter().map(|t| t.1).collect());
+                frames = decoded;
+            }
+            let (mut written, mut converted, mut landed) = (Vec::new(), Vec::new(), Vec::new());
+            for f in &frames[30..] {
+                let start = Instant::now();
+                let mut used = Vec::new();
+                let mut enc = gpu.device.create_command_encoder(&Default::default());
+                let planes = gpu.upload(f, &mut used);
+                written.push(start.elapsed().as_nanos() as u64);
+                let t = gpu.texture(w, h, WORK);
+                gpu.convert_pass(&mut enc, &planes.views, planes.mode, &t, 1, (w, h));
+                gpu.queue.submit([enc.finish()]);
+                gpu.device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
+                converted.push(start.elapsed().as_nanos() as u64);
+                used.push(t);
+                gpu.give_back(used);
+
+                let mut held = gpu.lift(f).unwrap();
+                let slot = &mut ShaderSlot::new(ShaderStep { wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }".into(), uniforms: serde_json::json!({}), textures: vec![] });
+                slot.prepare(&gpu).unwrap();
+                gpu.shade(&mut held, slot, 0.0, None);
+                gpu.queue.submit([]);
+                let start = Instant::now();
+                gpu.land(&mut held).unwrap();
+                landed.push(start.elapsed().as_nanos() as u64);
+                gpu.put_down(held);
+            }
+            line("upload I420, writing the planes", written);
+            line("upload I420, on the card as RGBA and done", converted);
+            line("back down as I420 after a shader", landed);
+        }
+    }
+}

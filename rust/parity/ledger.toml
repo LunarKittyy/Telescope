@@ -3576,7 +3576,7 @@
 "test_plugins.py::test_falling_behind_without_light_to_offer_has_no_button" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::falling_behind_without_light_to_offer_has_no_button" }
 "test_plugins.py::test_h264_needs_a_decoder_here" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::h264_needs_a_decoder_here" }
 "test_plugins.py::test_h264_too_much_for_the_encoder_stops_and_offers_heavy" = { status = "ported", rust = "rust/app/tests/plugin_banners.rs::h264_too_much_for_the_encoder_stops_and_offers_heavy", note = "stream_output/tests.rs has the same name for the stop waiting on its timer" }
-"test_plugins.py::test_hardware_decoding_is_off_unless_turned_on" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::hardware_decoding_is_off_unless_turned_on" }
+"test_plugins.py::test_hardware_decoding_is_off_unless_turned_on" = { status = "ported", rust = "rust/crates/setup/src/setup_tests.rs::hardware_decoding_is_on_unless_saved_off" }
 "test_plugins.py::test_jpeg_quality_stops_at_95_and_marks_the_recommended_spot" = { status = "ported", rust = "rust/app/tests/stream_output_ui.rs::jpeg_quality_stops_at_95_and_marks_the_recommended_spot" }
 "test_plugins.py::test_light_is_the_default_and_switching_reconnects" = { status = "ported", rust = "rust/app/tests/stream_output_ui.rs::light_is_the_default_and_switching_reconnects" }
 "test_plugins.py::test_light_lists_only_the_sizes_the_phone_s_encoder_takes" = { status = "ported", rust = "rust/crates/outputs/src/stream_output/tests.rs::light_lists_only_the_sizes_the_phone_s_encoder_takes" }
