@@ -1,5 +1,5 @@
 // A dialog as Qt draws one (dialog_layout, dialog_header): the window's background, 20/18 margins, a 14pt title and a dim
-// line under it. A plugin shows it inside a PopupWindow.
+// line under it. A plugin shows it inside a PopupWindow, over the rest of the window, so it carries its own edge.
 
 import { Theme } from "../theme.slint";
 
@@ -16,9 +16,15 @@ export component DialogFrame inherits Rectangle {
     in property <string> title;
     in property <string> subtitle;
     background: Theme.bg;
-    drop-shadow-blur: 24px;
-    drop-shadow-color: #00000080;
+    border-width: 1px;
+    border-color: Theme.border-hover;
+    border-radius: 12px;
+    drop-shadow-blur: 28px;
+    drop-shadow-offset-y: 6px;
+    drop-shadow-color: #000000a0;
+    // From the top: a layout left to fill a popup that's still the old size would spread its rows
     VerticalLayout {
+        alignment: start;
         padding-left: 20px;
         padding-right: 20px;
         padding-top: 18px;

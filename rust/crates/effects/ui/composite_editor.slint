@@ -196,38 +196,6 @@ component SideCard inherits Card {
     hue: Theme.plugin-hue("streaming");
 }
 
-// ColumnScrollbar's look (the window's columns), on a Flickable's viewport-y
-component SideScrollbar inherits Rectangle {
-    in property <length> content;
-    in property <length> viewport;
-    in-out property <length> position;
-    property <length> offset: -position;
-    property <length> range: max(0px, content - viewport);
-    property <length> handle-h: max(32px, viewport * viewport / max(1px, content));
-    width: 10px;
-    TouchArea {
-        clicked => {
-            if (self.mouse-y < handle.y) { position = -max(0px, offset - viewport); }
-            else if (self.mouse-y > handle.y + handle.height) { position = -min(range, offset + viewport); }
-        }
-    }
-    handle := Rectangle {
-        y: range > 0 ? (root.height - self.height) * clamp(offset, 0px, range) / range : 0;
-        height: handle-h;
-        border-radius: 5px;
-        background: drag.has-hover || drag.pressed ? Theme.border-hover : Theme.border-strong;
-        drag := TouchArea {
-            property <length> start-offset;
-            pointer-event(e) => { if (e.kind == PointerEventKind.down) { start-offset = offset; } }
-            moved => {
-                if (self.pressed) {
-                    position = -clamp(start-offset + (self.mouse-y - self.pressed-y) * range / max(1px, root.height - handle.height), 0px, range);
-                }
-            }
-        }
-    }
-}
-
 // _swatch_row: a swatch showing a colour, which opens the sliders under it, and its code
 component SwatchRow inherits HorizontalLayout {
     in property <string> label;
@@ -577,9 +545,10 @@ export component CompositeEditor inherits Window {
                     }
                 }
                 }
-                if overflows: SideScrollbar {
+                if overflows: FlickBar {
                     x: parent.width - self.width;
                     y: 0;
+                    width: 10px;
                     height: parent.height;
                     content: column.preferred-height;
                     viewport: parent.height;

@@ -115,6 +115,23 @@ impl Picture {
     }
 }
 
+/// One frame of the most recently created window at the size it has, as the window would paint right after an event, with no
+/// timers or changed handlers run first (draw lets them settle).
+pub fn frame(width: f32, height: f32, scale: f32) -> Option<Picture> {
+    let adapter = WINDOWS.with(|w| w.borrow().last().cloned())?;
+    let (pw, ph) = ((width * scale).round() as u32, (height * scale).round() as u32);
+    let mut buffer = vec![PremultipliedRgbaColor::default(); (pw * ph) as usize];
+    adapter.request_redraw();
+    adapter.draw_if_needed(|r| {
+        r.render(&mut buffer, pw as usize);
+    });
+    let mut rgba = Vec::with_capacity(buffer.len() * 4);
+    for px in buffer {
+        rgba.extend_from_slice(&[px.red, px.green, px.blue, 255]);
+    }
+    Some(Picture { width: pw, height: ph, rgba })
+}
+
 /// Draws the most recently created window at width x height logical pixels and scale.
 pub fn draw(window: &slint::Window, width: f32, height: f32, scale: f32) -> Option<Picture> {
     let adapter = WINDOWS.with(|w| w.borrow().last().cloned())?;

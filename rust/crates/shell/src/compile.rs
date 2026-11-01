@@ -28,6 +28,8 @@ pub fn compile(name: &str, doc: &str, files: Vec<(String, String)>, component: &
     let known = Rc::new(known);
     let mut compiler = Compiler::default();
     compiler.set_library_paths([(telescope_ui_kit::LIBRARY.to_string(), telescope_ui_kit::library_path())].into_iter().collect());
+    // The kit's menus, in place of the style's (ui/menus/std-widgets-impl.slint)
+    compiler.set_include_paths(vec![telescope_ui_kit::library_path().join("menus")]);
     compiler.set_file_loader(move |path: &Path| {
         let found = known.get(path).cloned().or_else(|| {
             // A real file (the kit, an added plugin's folder): read it here so its texts get translated too

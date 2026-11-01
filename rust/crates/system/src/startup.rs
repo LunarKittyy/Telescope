@@ -578,9 +578,9 @@ impl Plugin for StartupPlugin {
             }
             ("automatic", "delay-committed") => {
                 let typed = event.args.first().and_then(Value::as_str).unwrap_or("").trim();
-                match typed.parse::<i64>() {
-                    Ok(value) => self.set_delay_from_box(host, value),
-                    Err(_) => self.show_automatic(host), // not a number: the box says what it was
+                match telescope_core::names::whole_number(typed) {
+                    Some(value) => self.set_delay_from_box(host, value),
+                    None => self.show_automatic(host), // not a number: the box says what it was
                 }
             }
             ("automatic", "delay-step") => {

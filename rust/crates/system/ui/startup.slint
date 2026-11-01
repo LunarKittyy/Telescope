@@ -1,7 +1,7 @@
 // The Startup plugin (desktop/telescope/plugins/startup.py): the sign-in switch on the General tab and the Automatic
 // streaming card on Streaming. Texts that are lists, or have blanks, come filled from Rust.
 
-import { Theme, Icons, Card, SettingRow, Switch, ChoiceField, TextField } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Card, SettingRow, Switch, ChoiceField, NumberField } from "@ui-kit/ui-kit.slint";
 
 export component StartupSettings inherits Card {
     in-out property <bool> open-checked;
@@ -89,16 +89,14 @@ export component AutomaticSettings inherits Card {
         HorizontalLayout {
             spacing: 8px;
             // Saved once it's typed (on Enter or when the box is left), not at every digit
-            TextField {
+            NumberField {
                 y: (parent.height - self.height) / 2;
                 width: 90px;
-                align-right: true;
                 enabled: stops;
                 label: delay-title;
-                text <=> root.delay-text;
-                accepted => { root.delay-committed(self.text); }
+                value: root.delay-text;
+                committed(text) => { root.delay-committed(text); }
                 step(d) => { root.delay-step(d); }
-                changed has-focus => { if (!self.has-focus) { root.delay-committed(self.text); } }
             }
             // At least 90px and as wide as its longest unit with the field's 41px of padding, as Qt's combo box is
             Rectangle {

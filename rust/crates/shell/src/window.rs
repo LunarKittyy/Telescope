@@ -267,11 +267,17 @@ pub(crate) fn fit_on_screen(size: (u32, u32), screen: (u32, u32), frame: (u32, u
 }
 
 /// raise_ and activateWindow on an open window: not minimized, in front and with the keyboard. show() does nothing on
-/// a window that's already shown.
-pub(crate) fn bring_forward(window: &slint::Window) {
+/// a window that's already shown. A side window only: on Wayland, focus_window does nothing and a compositor grants an
+/// activation only with a fresh input serial, which winit keeps to itself, so it's opened again, which brings it up in front.
+pub(crate) fn bring_forward(ui: &ComponentInstance) {
     use slint::winit_030::WinitWindowAccessor;
+    let window = ui.window();
     window.set_minimized(false);
     window.with_winit_window(|w| w.focus_window());
+    if crate::input::on_wayland(window) {
+        let _ = ui.hide();
+        let _ = ui.show();
+    }
 }
 
 /// _PopoutWindow.resizeEvent: a resized pop-out takes the stream's shape again, by its height, once it's off by over 4 px.
@@ -557,7 +563,7 @@ impl Window {
             }
             SValue::Void
         });
-        crate::keys::watch_scan_codes(ui.window());
+        crate::keys::watch_scan_codes(&ui);
         let weak = Rc::downgrade(self);
         let _ = ui.set_callback("key", move |args| {
             let Some(w) = weak.upgrade() else { return SValue::Bool(false) };
@@ -945,7 +951,7 @@ impl Window {
             self.popout_asks.set(asks);
             if let Some(p) = self.popout.borrow().as_ref() {
                 let _ = p.show();
-                bring_forward(p.window());
+                bring_forward(p);
             }
         }
     }
@@ -999,12 +1005,13 @@ impl Window {
     fn open_plugin_window(self: &Rc<Self>, plugin: &str, id: &str, spec: &telescope_core::ui::WindowSpec) {
         if let Some((_, _, open)) = self.plugin_windows.borrow().iter().find(|(p, i, _)| p == plugin && i == id) {
             let _ = open.show();
+            bring_forward(open);
             return;
         }
         let (file, text) = source_of(plugin, id, &spec.ui);
         let component = &spec.ui.component;
         // Its file goes through the loader as a card's does, so its texts are translated
-        let doc = format!("export {{ {component} }} from \"{file}\";\n");
+        let doc = format!("export {{ {component} }} from \"{file}\";\nexport {{ KeyFocus, WindowBox }} from \"@ui-kit/ui-kit.slint\";\n");
         let files = match &spec.ui.source {
             SlintSource::Text(_) => vec![(file.clone(), text.clone())],
             SlintSource::File(_) => Vec::new(),
@@ -1042,7 +1049,7 @@ impl Window {
             });
             slint::CloseRequestResponse::HideWindow
         });
-        crate::keys::watch_plugin_keys(ui.window(), Rc::downgrade(self));
+        crate::keys::watch_plugin_keys(&ui, Rc::downgrade(self));
         Self::set_window_props(&ui, plugin, id, &spec.ui.props);
         let _ = ui.show();
         self.plugin_windows.borrow_mut().push((plugin.to_string(), id.to_string(), ui));
@@ -1321,10 +1328,7 @@ impl Window {
 }
 
 fn open_url(url: &str) {
-    #[cfg(target_os = "linux")]
-    let _ = std::process::Command::new("xdg-open").arg(url).spawn();
-    #[cfg(target_os = "windows")]
-    let _ = std::process::Command::new("cmd").args(["/C", "start", "", url]).spawn();
+    telescope_core::launch::open_url(url);
 }
 
 pub use crate::tray::{raise, restart};

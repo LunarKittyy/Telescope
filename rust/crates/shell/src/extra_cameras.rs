@@ -113,6 +113,7 @@ impl Window {
             }
             slint::CloseRequestResponse::HideWindow
         });
+        crate::input::watch(&ui, |_, _| slint::winit_030::EventResult::Propagate);
         let _ = ui.show();
         *self.streams.slots.question.borrow_mut() = Some(ui);
     }

@@ -2,7 +2,7 @@
 
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
-import { FocusRing } from "basics.slint";
+import { FocusRing, KeyFocus } from "basics.slint";
 import { TipBody } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 
@@ -45,6 +45,7 @@ export component Slider inherits HorizontalLayout {
     function typing-done(text: string) {
         if (is-typing) {
             is-typing = false;
+            KeyFocus.given-back += 1;
             if (text != typing) { typed(text); }
         }
     }
@@ -129,7 +130,7 @@ export component Slider inherits HorizontalLayout {
                     touched = true;
                     root.moved(local);
                 }
-                if (e.kind == PointerEventKind.up) {
+                if (e.kind == PointerEventKind.up || (e.kind == PointerEventKind.cancel && touched)) {
                     released(shown);
                 }
             }
@@ -190,7 +191,7 @@ export component Slider inherits HorizontalLayout {
             accepted => { root.typing-done(self.text); }
             changed has-focus => { if (!self.has-focus) { root.typing-done(self.text); } }
             key-pressed(e) => {
-                if (e.text == Key.Escape) { root.is-typing = false; return accept; }
+                if (e.text == Key.Escape) { root.is-typing = false; KeyFocus.given-back += 1; return accept; }
                 reject
             }
         }

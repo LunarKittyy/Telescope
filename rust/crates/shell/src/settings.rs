@@ -212,6 +212,8 @@ pub fn open(window: &Rc<Window>, tab: &str) {
     if coming_up {
         settings.keep_on_screen();
         settings.tell_shown();
+    } else {
+        crate::window::bring_forward(&settings.ui);
     }
     let _ = settings.ui.invoke("focus-search", &[]);
 }
@@ -283,6 +285,7 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
     let text = doc::settings(tabs.len(), plugins_tab, &places);
     let def = crate::compile::compile("settings.slint", &text, files, "TelescopeSettings")?;
     let ui = def.create().map_err(|e| e.to_string())?;
+    crate::keys::watch_scan_codes(&ui);
     let settings = Rc::new(Settings {
         ui,
         tabs: tabs.iter().map(|(id, n, _)| (id.clone(), n.clone())).collect(),
@@ -906,10 +909,7 @@ fn s_empty() -> SValue {
 }
 
 fn open_url(url: &str) {
-    #[cfg(target_os = "linux")]
-    let _ = std::process::Command::new("xdg-open").arg(url).spawn();
-    #[cfg(target_os = "windows")]
-    let _ = std::process::Command::new("cmd").args(["/C", "start", "", url]).spawn();
+    telescope_core::launch::open_url(url);
 }
 
 #[cfg(test)]

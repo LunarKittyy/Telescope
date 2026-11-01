@@ -439,8 +439,13 @@ impl PhotosPlugin {
         }
     }
 
-    fn number_left(&mut self, host: &mut dyn Host, which: usize) {
+    /// On Enter or leaving the box: what's in it counts, up to the box's limits, and anything else goes back to the value.
+    fn number_left(&mut self, host: &mut dyn Host, which: usize, text: &str) {
         let which = which.min(1);
+        if let Some(value) = telescope_core::names::whole_number(text) {
+            let (min, max) = self.number_range(which);
+            self.pick_value(host, if which == 0 { "burst" } else { "focus_steps" }, json!(value.clamp(min, max)));
+        }
         self.typing[which] = None;
         let text = self.number_text(which);
         self.restore_number(host, which, text);
@@ -729,7 +734,7 @@ impl Plugin for PhotosPlugin {
                 self.pick_value(host, "quality", json!(value));
             }
             "number-edited" => self.number_edited(host, index(0), event.args.get(1).and_then(Value::as_str).unwrap_or("")),
-            "number-left" => self.number_left(host, index(0)),
+            "number-left" => self.number_left(host, index(0), event.args.get(1).and_then(Value::as_str).unwrap_or("")),
             "timer-picked" => {
                 if let Some(seconds) = TIMERS.get(index(0)) {
                     self.pick_value(host, "timer", json!(seconds));

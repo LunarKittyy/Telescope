@@ -1162,6 +1162,7 @@ impl Plugin for BrowserCameraPlugin {
             when_off: "Without it Browser camera isn't in the phone picker and its card is gone too.".into(),
             category: "streaming".into(),
             icon: "wifi".into(),
+            pinned: true,
             ..Default::default()
         }
     }
@@ -1186,8 +1187,8 @@ impl Plugin for BrowserCameraPlugin {
                 component: "BrowserCameraCard".into(),
                 props: json!({"shown": false}),
             },
-            // where the Camera card is, which hides while this streams
-            region: "right".into(),
+            // Right under Connection: it's what a person picking this came for
+            region: "left".into(),
         })
     }
 
