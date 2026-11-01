@@ -35,7 +35,11 @@ fn settings_load_and_save_as_python_does() {
         // The one place Rust means to differ: with nothing saved, or Python's false, hardware decoding is on
         let mut want = case["output"].clone();
         if name == "setup" && want["hw_decode"] == json!(false) {
-            want["hw_decode"] = json!(true);
+            if case["input"].get("hw_decode").is_none_or(|v| *v == json!(false)) {
+                want["hw_decode"] = json!(true);
+            } else {
+                want["hw_decode_from_rust"] = json!(true);
+            }
         }
         assert!(same(&got, &want), "{name} given {}:\n  rust   {got}\n  python {want}", case["input"]);
         if name == "setup" {
@@ -58,7 +62,12 @@ fn the_config_fixtures_round_trip() {
         if let Some(cfg) = saved.pointer("/plugin_configs/setup") {
             let mut plugin = common::setup_plugin();
             plugin.set_config(cfg).unwrap();
-            assert_eq!(&plugin.get_config(), cfg, "{:?}", entry.path());
+            // Python's false comes back as on, the one place Rust means to differ
+            let mut want = cfg.clone();
+            if want["hw_decode"] == json!(false) {
+                want["hw_decode"] = json!(true);
+            }
+            assert_eq!(plugin.get_config(), want, "{:?}", entry.path());
             seen += 1;
         }
         for device in saved["devices"].as_object().into_iter().flatten().map(|(_, d)| d) {

@@ -309,7 +309,7 @@ class Cell:
         entry = None
         if not args.real_phone:
             self.phone = start([sys.executable, "-I", str(RUST / "tools" / "fake_phone.py"), str(args.clip), "--fps", "30"], self.spare,
-                               stdout=subprocess.PIPE)
+                               env=dict(os.environ, TMPDIR=str(self.folder)), stdout=subprocess.PIPE)
             entry = json.loads(self.phone.stdout.readline())
         if args.python:
             return self.start_python(entry)
