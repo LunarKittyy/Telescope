@@ -12,6 +12,7 @@ use telescope_core::event::Event;
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep};
 use telescope_core::host::{Host, PickKind, Poster, View};
 use telescope_core::i18n::{n_, tr};
+use telescope_core::image::{keep_bytes, with_spares};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 use telescope_core::view::{view_to_shown, Geometry};
@@ -38,6 +39,7 @@ const RESET_HINT: &str = n_("Double-click to reset");
 
 /// The frame step: the sheet, and the warp for the size of frame it saw last.
 struct DeskStep {
+    spares: Vec<Vec<u8>>,
     sheet: Sheet,
     made: Option<((usize, usize), Warp)>,
     poster: Option<Arc<dyn Poster>>,
@@ -45,6 +47,14 @@ struct DeskStep {
 
 impl CpuStep for DeskStep {
     fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+        let mut spares = std::mem::take(&mut self.spares);
+        with_spares(&mut spares, || self.run(frame));
+        self.spares = spares;
+    }
+}
+
+impl DeskStep {
+    fn run(&mut self, frame: &mut Frame) {
         let size = (frame.width as usize, frame.height as usize);
         if size.0 < 2 || size.1 < 2 {
             return;
@@ -61,6 +71,8 @@ impl CpuStep for DeskStep {
         let warp = &self.made.as_ref().expect("made above").1;
         let out = sheet::straighten(&rgb, size.0, size.1, &self.sheet, warp);
         put_rgb(frame, &out);
+        keep_bytes(rgb);
+        keep_bytes(out);
     }
 }
 
@@ -434,7 +446,7 @@ impl Plugin for DeskPlugin {
         if !self.active() {
             return None;
         }
-        Some(FrameStep::Cpu(Box::new(DeskStep { sheet: self.sheet()?, made: None, poster: self.poster.clone() })))
+        Some(FrameStep::Cpu(Box::new(DeskStep { sheet: self.sheet()?, made: None, poster: self.poster.clone(), spares: Vec::new() })))
     }
 
     fn get_config(&self) -> Value {

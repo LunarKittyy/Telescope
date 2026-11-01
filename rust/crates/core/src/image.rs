@@ -187,7 +187,7 @@ pub fn write_420(data: &mut [u8], w: usize, h: usize, nv12: bool, luma: impl Fn(
 /// OpenCV's YUV conversions read it. None for a format that isn't one of the picture formats.
 pub fn frame_rgb(frame: &Frame) -> Option<Vec<u8>> {
     let (w, h) = (frame.width as usize, frame.height as usize);
-    let mut out = vec![0; w * h * 3];
+    let mut out = spare_bytes(w * h * 3);
     if read_bgr(frame, &mut out) {
         return Some(out);
     }

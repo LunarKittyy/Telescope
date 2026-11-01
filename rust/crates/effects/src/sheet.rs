@@ -3,7 +3,7 @@
 
 use crate::imgops::{grey_of, resize_area, Gray};
 use telescope_core::actions::round_half_even;
-use telescope_core::image::{over_rows, rint};
+use telescope_core::image::{over_rows, rint, spare_bytes};
 use telescope_core::view::{view_to_shown, Geometry};
 
 /// Width over height of a paper size, standing up.
@@ -433,7 +433,8 @@ pub fn straighten(rgb: &[u8], w: usize, h: usize, sheet: &Sheet, warp: &Warp) ->
     if (rw, rh) == (w, h) {
         return flat;
     }
-    let mut out = vec![if cleaned { PAPER } else { BACKDROP }; w * h * 3];
+    let mut out = spare_bytes(w * h * 3);
+    out.fill(if cleaned { PAPER } else { BACKDROP });
     for row in 0..rh {
         out[((y + row) * w + x) * 3..][..rw * 3].copy_from_slice(&flat[row * rw * 3..][..rw * 3]);
     }
