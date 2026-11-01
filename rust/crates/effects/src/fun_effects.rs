@@ -571,22 +571,36 @@ impl Crt {
 
     pub fn run(&self, frame: &Rgb) -> Rgb {
         let (w, h) = (self.w, self.h);
-        let at = |x: i32, y: i32, c: usize| -> i32 {
+        let src = &frame.data[..w * h * 3];
+        let at = |x: i32, y: i32, c: usize| -> u32 {
             if x < 0 || y < 0 || x >= w as i32 || y >= h as i32 {
                 0
             } else {
-                frame.data[(y as usize * w + x as usize) * 3 + c] as i32
+                src[(y as usize * w + x as usize) * 3 + c] as u32
             }
         };
         let mut bent = Rgb::new(w, h);
         over_rows(&mut bent.data, w * 3, |y, line| {
             for (o, &(qx, qy)) in line.as_chunks_mut::<3>().0.iter_mut().zip(&self.maps[y * w..]) {
                 // remap's fixed point: a 32nd of a pixel, weights out of 32768
-                let (x0, y0, fx, fy) = (qx >> 5, qy >> 5, qx & 31, qy & 31);
+                let (x0, y0, fx, fy) = (qx >> 5, qy >> 5, (qx & 31) as u32, (qy & 31) as u32);
                 let weights = [(32 - fy) * (32 - fx) * 32, (32 - fy) * fx * 32, fy * (32 - fx) * 32, fy * fx * 32];
-                for (c, v) in o.iter_mut().enumerate() {
-                    let sum = at(x0, y0, c) * weights[0] + at(x0 + 1, y0, c) * weights[1] + at(x0, y0 + 1, c) * weights[2] + at(x0 + 1, y0 + 1, c) * weights[3];
-                    *v = ((sum + (1 << 14)) >> 15).clamp(0, 255) as u8;
+                if x0 >= 0 && y0 >= 0 && x0 + 1 < w as i32 && y0 + 1 < h as i32 {
+                    let top = (y0 as usize * w + x0 as usize) * 3;
+                    let below = top + w * 3;
+                    for (c, v) in o.iter_mut().enumerate() {
+                        // SAFETY: all four taps are inside the picture, checked just above
+                        let sum = unsafe {
+                            *src.get_unchecked(top + c) as u32 * weights[0] + *src.get_unchecked(top + c + 3) as u32 * weights[1]
+                                + *src.get_unchecked(below + c) as u32 * weights[2] + *src.get_unchecked(below + c + 3) as u32 * weights[3]
+                        };
+                        *v = ((sum + (1 << 14)) >> 15) as u8;
+                    }
+                } else {
+                    for (c, v) in o.iter_mut().enumerate() {
+                        let sum = at(x0, y0, c) * weights[0] + at(x0 + 1, y0, c) * weights[1] + at(x0, y0 + 1, c) * weights[2] + at(x0 + 1, y0 + 1, c) * weights[3];
+                        *v = ((sum + (1 << 14)) >> 15) as u8;
+                    }
                 }
             }
         });
