@@ -28,27 +28,58 @@ fn is_bt601(matrix: i32) -> bool {
     coefficients(matrix) == coefficients(5)
 }
 
+const SHIFT: u32 = 20;
+const ROUND: i32 = 1 << (SHIFT - 1);
+
+/// What bgr_to_i420 reads.
+struct Rows<'a> {
+    bgr: &'a [u8],
+    stride: usize,
+    width: usize,
+    height: usize,
+    cw: usize,
+}
+
+#[inline(always)]
+fn i420_rows(p: &Rows, luma: &mut [u8], u: &mut [u8], v: &mut [u8]) {
+    for y in 0..p.height {
+        let row = p.bgr[y * p.stride..y * p.stride + p.width * 3].as_chunks::<3>().0;
+        for (l, px) in luma[y * p.width..(y + 1) * p.width].iter_mut().zip(row) {
+            let (b, g, r) = (px[0] as i32, px[1] as i32, px[2] as i32);
+            *l = ((269_484 * r + 528_482 * g + 102_760 * b + (16 << SHIFT) + ROUND) >> SHIFT) as u8;
+        }
+        if y % 2 == 0 {
+            let (us, vs) = (&mut u[(y / 2) * p.cw..(y / 2 + 1) * p.cw], &mut v[(y / 2) * p.cw..(y / 2 + 1) * p.cw]);
+            for ((a, c), px) in us.iter_mut().zip(vs.iter_mut()).zip(row.iter().step_by(2)) {
+                let (b, g, r) = (px[0] as i32, px[1] as i32, px[2] as i32);
+                *a = ((-155_188 * r - 305_135 * g + 460_324 * b + (128 << SHIFT) + ROUND) >> SHIFT) as u8;
+                *c = ((460_324 * r - 385_875 * g - 74_448 * b + (128 << SHIFT) + ROUND) >> SHIFT) as u8;
+            }
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+fn i420_rows_avx2(p: &Rows, luma: &mut [u8], u: &mut [u8], v: &mut [u8]) {
+    i420_rows(p, luma, u, v);
+}
+
 /// BGR (rows `stride` bytes apart) to I420 the way OpenCV's COLOR_BGR2YUV_I420 does it: BT.601 limited, fixed point
 /// with 20 bits, and a 2 x 2 block's chroma from its top left pixel.
 pub fn bgr_to_i420(bgr: &[u8], stride: usize, width: usize, height: usize) -> Vec<u8> {
-    const SHIFT: u32 = 20;
-    const ROUND: i32 = 1 << (SHIFT - 1);
     let (cw, ch) = (width.div_ceil(2), height.div_ceil(2));
     let mut out = vec![0u8; width * height + 2 * cw * ch];
     let (luma, chroma) = out.split_at_mut(width * height);
     let (u, v) = chroma.split_at_mut(cw * ch);
-    for y in 0..height {
-        let row = &bgr[y * stride..y * stride + width * 3];
-        for (x, px) in row.as_chunks::<3>().0.iter().enumerate() {
-            let (b, g, r) = (px[0] as i32, px[1] as i32, px[2] as i32);
-            luma[y * width + x] = ((269_484 * r + 528_482 * g + 102_760 * b + (16 << SHIFT) + ROUND) >> SHIFT) as u8;
-            if x % 2 == 0 && y % 2 == 0 {
-                let at = (y / 2) * cw + x / 2;
-                u[at] = ((-155_188 * r - 305_135 * g + 460_324 * b + (128 << SHIFT) + ROUND) >> SHIFT) as u8;
-                v[at] = ((460_324 * r - 385_875 * g - 74_448 * b + (128 << SHIFT) + ROUND) >> SHIFT) as u8;
-            }
-        }
+    let rows = Rows { bgr, stride, width, height, cw };
+    #[cfg(target_arch = "x86_64")]
+    if std::arch::is_x86_feature_detected!("avx2") {
+        // SAFETY: the processor was just asked whether it has AVX2
+        unsafe { i420_rows_avx2(&rows, luma, u, v) };
+        return out;
     }
+    i420_rows(&rows, luma, u, v);
     out
 }
 
@@ -157,6 +188,18 @@ mod tests {
             padded.extend_from_slice(&[9; 6]);
         }
         assert_eq!(bgr_to_i420(&padded, 24, 6, 4), want);
+    }
+
+    #[test]
+    fn the_plain_and_avx2_rows_give_the_same_bytes() {
+        let (width, height) = (37usize, 11usize);
+        let stride = width * 3 + 5;
+        let bgr: Vec<u8> = (0..stride * height).map(|i| (i * i % 251) as u8).collect();
+        let (cw, ch) = (width.div_ceil(2), height.div_ceil(2));
+        let rows = Rows { bgr: &bgr, stride, width, height, cw };
+        let (mut luma, mut u, mut v) = (vec![0; width * height], vec![0; cw * ch], vec![0; cw * ch]);
+        i420_rows(&rows, &mut luma, &mut u, &mut v);
+        assert_eq!(bgr_to_i420(&bgr, stride, width, height), [luma, u, v].concat());
     }
 
     #[test]
