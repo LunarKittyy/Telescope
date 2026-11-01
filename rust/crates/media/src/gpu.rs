@@ -1,9 +1,10 @@
 //! Frames on the graphics card through wgpu: plugins' shader steps (core::shader has what a shader may use) and the
-//! preview's scaling and colour conversion. A frame goes up once, through every shader in a run, and comes back once.
+//! preview's scaling and colour conversion. A frame stays up while shader steps follow each other; pipeline.rs decides when it comes down.
 //! wgpu because it's one API over Vulkan, Direct3D 12 and OpenGL, runs WGSL (what Lua and WASM plugins hand over) and
 //! is what Slint 1.18 can take textures from (unstable-wgpu-30), so the preview can later skip the download too.
 
 use crate::pool::Pool;
+use crate::transfers;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 use telescope_core::frame::{Frame, PixelFormat, ShaderStep};
@@ -38,7 +39,7 @@ pub struct Gpu {
     convert_layout: wgpu::BindGroupLayout,
     convert: Mutex<HashMap<wgpu::TextureFormat, Arc<wgpu::RenderPipeline>>>,
     convert_module: wgpu::ShaderModule,
-    /// For plugin shaders: the picture so far, the sampler and the frame's info.
+    /// For plugin shaders: the picture so far, the sampler, the frame's info and the person mask.
     frame_layout: wgpu::BindGroupLayout,
     linear: wgpu::Sampler,
     /// Stands in for planes a format doesn't have.
@@ -156,7 +157,7 @@ impl Gpu {
         });
         let frame_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("frame"),
-            entries: &[tex_entry(0), sampler_entry(1), uniform_entry(2)],
+            entries: &[tex_entry(0), sampler_entry(1), uniform_entry(2), tex_entry(shader::BINDING_MASK)],
         });
         let convert_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("convert"),
@@ -373,8 +374,8 @@ impl Gpu {
         Ok(out)
     }
 
-    /// Runs the shader steps one after the other on frame and hands back the result in the frame's own format.
-    pub fn run_shaders(&self, frame: &Frame, run: &mut [ShaderRun], time: f32) -> Result<Frame, String> {
+    /// Puts a frame on the card, ready for shaders.
+    pub fn lift(&self, frame: &Frame) -> Result<Held, String> {
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) {
             return Err(format!("{:?} frames can't go on the card", frame.format));
         }
@@ -382,50 +383,84 @@ impl Gpu {
         let mut used = Vec::new();
         let mut enc = self.device.create_command_encoder(&Default::default());
         let planes = self.upload(frame, &mut used);
-        let mut a = self.texture(w, h, WORK);
-        let mut b = self.texture(w, h, WORK);
+        let (a, b) = (self.texture(w, h, WORK), self.texture(w, h, WORK));
         self.convert_pass(&mut enc, &planes.views, planes.mode, &a, 1, (planes.width, planes.height));
-        let info = self.uniform(&shader::frame_uniform(w, h, time, frame.number));
-        for r in run.iter_mut() {
-            r.slot.draw(self, &mut enc, &a, &b, &info);
-            std::mem::swap(&mut a, &mut b);
-            *r.fails = 0;
-        }
-        let work = [a.create_view(&Default::default()), self.blank.clone(), self.blank.clone()];
-        let out = match frame.format {
+        Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns })
+    }
+
+    /// One shader step on the held picture. Nothing runs yet; land sends it all to the card in one go.
+    pub fn shade(&self, held: &mut Held, slot: &ShaderSlot, time: f32, mask: Option<&MaskPlane>) {
+        let info = self.uniform(&shader::frame_uniform(held.width, held.height, time, held.number, mask.is_some()));
+        slot.draw(self, &mut held.enc, &held.a, &held.b, &info, mask);
+        std::mem::swap(&mut held.a, &mut held.b);
+    }
+
+    /// The picture so far, read back in the frame's own format. The card keeps its copy, so more shaders can follow without an upload.
+    pub fn land(&self, held: &mut Held) -> Result<Frame, String> {
+        let mut enc = std::mem::replace(&mut held.enc, self.device.create_command_encoder(&Default::default()));
+        let (w, h) = (held.width, held.height);
+        let work = [held.a.create_view(&Default::default()), self.blank.clone(), self.blank.clone()];
+        let mut targets = Vec::new();
+        let mut target = |width: u32, height: u32, format: wgpu::TextureFormat| {
+            let t = self.texture(width, height, format);
+            targets.push(t.clone());
+            t
+        };
+        let out = match held.format {
             PixelFormat::I420 => {
-                let (y, u, v) = (self.texture(w, h, wgpu::TextureFormat::R8Unorm), self.texture(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm),
-                                 self.texture(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm));
+                let (y, u, v) = (target(w, h, wgpu::TextureFormat::R8Unorm), target(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm),
+                                 target(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm));
                 self.convert_pass(&mut enc, &work, Mode::ToY, &y, 1, (w, h));
                 self.convert_pass(&mut enc, &work, Mode::ToU, &u, 1, (w, h));
                 self.convert_pass(&mut enc, &work, Mode::ToV, &v, 1, (w, h));
-                let planes = self.download(enc, &[&y, &u, &v], &[1, 1, 1])?;
-                used.extend([y, u, v]);
-                planes.concat()
+                self.download(enc, &[&y, &u, &v], &[1, 1, 1])?.concat()
             }
             PixelFormat::Nv12 => {
-                let (y, uv) = (self.texture(w, h, wgpu::TextureFormat::R8Unorm), self.texture(chroma(w), chroma(h), wgpu::TextureFormat::Rg8Unorm));
+                let (y, uv) = (target(w, h, wgpu::TextureFormat::R8Unorm), target(chroma(w), chroma(h), wgpu::TextureFormat::Rg8Unorm));
                 self.convert_pass(&mut enc, &work, Mode::ToY, &y, 1, (w, h));
                 self.convert_pass(&mut enc, &work, Mode::ToUv, &uv, 1, (w, h));
-                let planes = self.download(enc, &[&y, &uv], &[1, 2])?;
-                used.extend([y, uv]);
-                planes.concat()
+                self.download(enc, &[&y, &uv], &[1, 2])?.concat()
             }
             PixelFormat::Bgra => {
-                let t = self.texture(w, h, wgpu::TextureFormat::Bgra8Unorm);
+                let t = target(w, h, wgpu::TextureFormat::Bgra8Unorm);
                 self.convert_pass(&mut enc, &work, Mode::Rgba, &t, 1, (w, h));
-                let p = self.download(enc, &[&t], &[4])?;
-                used.push(t);
-                p.concat()
+                self.download(enc, &[&t], &[4])?.concat()
             }
-            _ => self.download(enc, &[&a], &[4])?.concat(),
+            _ => self.download(enc, &[&held.a], &[4])?.concat(),
         };
+        self.give_back(targets);
+        let mut result = Frame::new(w, h, held.format, out);
+        result.number = held.number;
+        result.time_ns = held.time_ns;
+        Ok(result)
+    }
+
+    /// Done with a held picture: its textures go back for the next frame.
+    pub fn put_down(&self, held: Held) {
+        let Held { a, b, mut used, .. } = held;
         used.extend([a, b]);
         self.give_back(used);
-        let mut result = Frame::new(w, h, frame.format, out);
-        result.number = frame.number;
-        result.time_ns = frame.time_ns;
-        Ok(result)
+    }
+
+    /// The person mask on the card in kept, uploaded only if it isn't the one already there. False for a mask of another size than w x h.
+    pub fn keep_mask(&self, kept: &mut Option<MaskPlane>, mask: &Arc<Vec<u8>>, w: u32, h: u32) -> bool {
+        if mask.len() != w as usize * h as usize {
+            return false;
+        }
+        if let Some(k) = kept.as_ref().filter(|k| (k.texture.width(), k.texture.height()) == (w, h)) {
+            if Arc::ptr_eq(&k.source, mask) || *k.source == **mask {
+                return true;
+            }
+        }
+        let texture = match kept.take() {
+            Some(k) if (k.texture.width(), k.texture.height()) == (w, h) => k.texture,
+            _ => self.texture(w, h, wgpu::TextureFormat::R8Unorm),
+        };
+        self.write_plane(&texture, mask, w);
+        transfers::mask_up();
+        let view = texture.create_view(&Default::default());
+        *kept = Some(MaskPlane { source: mask.clone(), texture, view });
+        true
     }
 
     /// The frame scaled and converted into target (RGBA, out_w x out_h), left on the card for whoever draws it.
@@ -437,6 +472,7 @@ impl Gpu {
         let mut used = Vec::new();
         let mut enc = self.device.create_command_encoder(&Default::default());
         let planes = self.upload(frame, &mut used);
+        transfers::preview_up();
         let taps = (frame.width.div_ceil(out_w)).max(frame.height.div_ceil(out_h)).clamp(1, 8);
         self.convert_pass(&mut enc, &planes.views, planes.mode, target, taps, (planes.width, planes.height));
         self.queue.submit([enc.finish()]);
@@ -467,6 +503,8 @@ impl Gpu {
         let mut used = Vec::new();
         let mut enc = self.device.create_command_encoder(&Default::default());
         let planes = self.upload(frame, &mut used);
+        transfers::preview_up();
+        transfers::preview_down();
         let target = self.texture(out_w, out_h, WORK);
         // Enough samples per output pixel that shrinking a lot still averages instead of skipping pixels
         let taps = (frame.width.div_ceil(out_w)).max(frame.height.div_ceil(out_h)).clamp(1, 8);
@@ -507,13 +545,29 @@ fn draw(enc: &mut wgpu::CommandEncoder, pipeline: &wgpu::RenderPipeline, binds: 
 /// A shader step and what it became on the card, built the first time it runs.
 pub struct ShaderSlot {
     step: ShaderStep,
+    wants_mask: bool,
     built: Option<Result<Built, String>>,
 }
 
-/// A shader step while a run uses it.
-pub struct ShaderRun<'a> {
-    pub slot: &'a mut ShaderSlot,
-    pub fails: &'a mut u32,
+/// A picture on the card with shaders recorded on it. land reads it back and it can go on from there.
+pub struct Held {
+    enc: wgpu::CommandEncoder,
+    /// The picture so far, and where the next shader draws.
+    a: wgpu::Texture,
+    b: wgpu::Texture,
+    used: Vec<wgpu::Texture>,
+    width: u32,
+    height: u32,
+    format: PixelFormat,
+    number: u64,
+    time_ns: u64,
+}
+
+/// A stream's person mask on the card, staying there until the mask changes.
+pub struct MaskPlane {
+    source: Arc<Vec<u8>>,
+    texture: wgpu::Texture,
+    view: wgpu::TextureView,
 }
 
 struct Built {
@@ -525,7 +579,12 @@ struct Built {
 
 impl ShaderSlot {
     pub fn new(step: ShaderStep) -> ShaderSlot {
-        ShaderSlot { step, built: None }
+        ShaderSlot { wants_mask: shader::uses_person_mask(&step.wgsl), step, built: None }
+    }
+
+    /// Whether the shader reads the person mask.
+    pub fn wants_mask(&self) -> bool {
+        self.wants_mask
     }
 
     /// Builds the shader the first time; Err for one that won't ever run.
@@ -536,7 +595,7 @@ impl ShaderSlot {
         self.built.as_ref().unwrap().as_ref().map(|_| ()).map_err(Clone::clone)
     }
 
-    fn draw(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, src: &wgpu::Texture, dst: &wgpu::Texture, info: &wgpu::Buffer) {
+    fn draw(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, src: &wgpu::Texture, dst: &wgpu::Texture, info: &wgpu::Buffer, mask: Option<&MaskPlane>) {
         let Some(Ok(built)) = &self.built else { return };
         let src_view = src.create_view(&Default::default());
         let frame_bind = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -546,6 +605,7 @@ impl ShaderSlot {
                 wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&src_view) },
                 wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&gpu.linear) },
                 wgpu::BindGroupEntry { binding: 2, resource: info.as_entire_binding() },
+                wgpu::BindGroupEntry { binding: shader::BINDING_MASK, resource: wgpu::BindingResource::TextureView(mask.map_or(&gpu.blank, |m| &m.view)) },
             ],
         });
         let mut binds = vec![&frame_bind];
@@ -648,12 +708,14 @@ mod tests {
     }
 
     fn run(gpu: &Gpu, frame: &Frame, steps: &mut [ShaderSlot]) -> Frame {
-        let mut fails = vec![0u32; steps.len()];
-        let mut run: Vec<ShaderRun> = steps.iter_mut().zip(fails.iter_mut()).map(|(slot, fails)| {
+        let mut held = gpu.lift(frame).unwrap();
+        for slot in steps {
             slot.prepare(gpu).unwrap();
-            ShaderRun { slot, fails }
-        }).collect();
-        gpu.run_shaders(frame, &mut run, 0.0).unwrap()
+            gpu.shade(&mut held, slot, 0.0, None);
+        }
+        let out = gpu.land(&mut held).unwrap();
+        gpu.put_down(held);
+        out
     }
 
     const IDENTITY: &str = "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }";

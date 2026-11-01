@@ -258,6 +258,10 @@ impl telescope_core::host::Poster for PluginPoster {
 struct KeepBefore(Arc<std::sync::Mutex<BTreeMap<String, telescope_core::Frame>>>);
 
 impl telescope_core::frame::CpuStep for KeepBefore {
+    fn touch(&self, _ctx: &dyn telescope_core::frame::FrameContext) -> telescope_core::frame::Touch {
+        telescope_core::frame::Touch::Reads
+    }
+
     fn process(&mut self, frame: &mut telescope_core::Frame, ctx: &dyn telescope_core::frame::FrameContext) {
         self.0.lock().unwrap().insert(ctx.source_id().to_string(), frame.clone());
     }

@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use telescope_core::actions;
 use telescope_core::event::Event;
-use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep};
+use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, Touch};
 use telescope_core::host::{Host, Poster, PreviewLayer, Shape};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
@@ -347,20 +347,28 @@ struct Reader {
     poster: Arc<dyn Poster>,
 }
 
-impl CpuStep for Reader {
-    fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
-        if !self.shared.on.load(Ordering::SeqCst) || self.shared.busy.load(Ordering::SeqCst) || *self.shared.focused.lock().unwrap() != ctx.source_id() {
-            return;
+impl Reader {
+    /// Whether it's time for another look at this stream.
+    fn due(&self, source_id: &str, now: Instant) -> bool {
+        if !self.shared.on.load(Ordering::SeqCst) || self.shared.busy.load(Ordering::SeqCst) || *self.shared.focused.lock().unwrap() != source_id {
+            return false;
         }
         let every = if self.shared.pending.load(Ordering::SeqCst) { PENDING } else { EVERY };
+        !self.shared.looked_at.lock().unwrap().is_some_and(|at| now.duration_since(at) < every)
+    }
+}
+
+impl CpuStep for Reader {
+    fn touch(&self, ctx: &dyn FrameContext) -> Touch {
+        if self.due(ctx.source_id(), Instant::now()) { Touch::Reads } else { Touch::Nothing }
+    }
+
+    fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
         let now = Instant::now();
-        {
-            let mut looked_at = self.shared.looked_at.lock().unwrap();
-            if looked_at.is_some_and(|at| now.duration_since(at) < every) {
-                return;
-            }
-            *looked_at = Some(now);
+        if !self.due(ctx.source_id(), now) {
+            return;
         }
+        *self.shared.looked_at.lock().unwrap() = Some(now);
         self.shared.busy.store(true, Ordering::SeqCst);
         let (shared, poster, frame) = (self.shared.clone(), self.poster.clone(), frame.clone());
         let spawned = std::thread::Builder::new().name("qr-reader".into()).spawn(move || {

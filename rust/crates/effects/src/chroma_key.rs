@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use telescope_core::actions::{self, Choice, SliderSpec};
 use telescope_core::config::clamped_int;
 use telescope_core::event::Event;
-use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat, ShaderStep};
+use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat, ShaderStep, Touch};
 use telescope_core::host::{FileDialog, FileDialogKind, Host, PickKind, RequestId};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
@@ -140,6 +140,10 @@ pub fn sample(frame: &Frame, u: f64, v: f64) -> [u8; 3] {
 struct Tap(Arc<Mutex<Option<Frame>>>);
 
 impl CpuStep for Tap {
+    fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
+        Touch::Reads
+    }
+
     fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
         // A clone shares the pixels, and a later step that changes them gets a copy of its own
         *self.0.lock().unwrap() = Some(frame.clone());

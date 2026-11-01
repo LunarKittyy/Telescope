@@ -22,6 +22,7 @@ mod plain_scale;
 mod pool;
 mod range;
 pub mod reader;
+pub mod transfers;
 #[cfg(ffmpeg)]
 mod yuv;
 #[cfg(test)]
