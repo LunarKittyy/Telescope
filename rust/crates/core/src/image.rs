@@ -2,6 +2,7 @@
 //! grey, and frames as plain RGB. Moved here from effects, since the vision service shrinks frames the same way.
 
 use crate::frame::{Frame, PixelFormat};
+use std::cell::RefCell;
 
 /// Rounds to a byte. The cast saturates, so this clamps too, and x86-64's baseline has no round instruction: f32::round is a call
 /// to libm for every colour of every pixel, which alone used up a 1080p frame's time.
@@ -24,6 +25,61 @@ pub fn rint(v: f64) -> i32 {
     {
         v.round_ties_even() as i32
     }
+}
+
+thread_local! {
+    // The buffers a frame step lent this thread for one frame. None outside that, so nothing is left behind once the step is gone
+    static SPARES: RefCell<Option<Vec<Vec<u8>>>> = const { RefCell::new(None) };
+}
+
+/// How many buffers a step keeps, and the size below which one isn't worth keeping.
+const SPARE_BUFFERS: usize = 12;
+const SPARE_ABOVE: usize = 16 * 1024;
+
+/// Runs a frame's work with held's buffers to draw on (spare_bytes) and whatever it finishes with added to them (keep_bytes).
+pub fn with_spares<R>(held: &mut Vec<Vec<u8>>, work: impl FnOnce() -> R) -> R {
+    struct Back<'a>(&'a mut Vec<Vec<u8>>);
+    impl Drop for Back<'_> {
+        fn drop(&mut self) {
+            *self.0 = SPARES.with_borrow_mut(Option::take).unwrap_or_default();
+        }
+    }
+    SPARES.with_borrow_mut(|s| *s = Some(std::mem::take(held)));
+    let _back = Back(held);
+    work()
+}
+
+/// A buffer of len bytes for work that writes every one of them: what's in it is whatever was left there.
+pub fn spare_bytes(len: usize) -> Vec<u8> {
+    let found = SPARES.with_borrow_mut(|s| {
+        let s = s.as_mut()?;
+        let (i, _) = s.iter().enumerate().filter(|(_, b)| b.capacity() >= len).min_by_key(|(_, b)| b.capacity())?;
+        Some(s.swap_remove(i))
+    });
+    match found {
+        Some(mut buffer) => {
+            buffer.resize(len, 0);
+            buffer
+        }
+        None => vec![0; len],
+    }
+}
+
+/// Hands a finished buffer back for the frame's other work and the next frame, if a step is lending any.
+pub fn keep_bytes(buffer: Vec<u8>) {
+    if buffer.capacity() < SPARE_ABOVE {
+        return;
+    }
+    // Nothing to do this late in a thread's life
+    let _ = SPARES.try_with(|s| {
+        if let Some(held) = s.borrow_mut().as_mut() {
+            if held.len() < SPARE_BUFFERS {
+                held.push(buffer);
+            } else if let Some(smallest) = held.iter_mut().min_by_key(|b| b.capacity()).filter(|b| b.capacity() < buffer.capacity()) {
+                *smallest = buffer;
+            }
+        }
+    });
 }
 
 /// Rows at or above this are worth spreading over threads.
@@ -254,7 +310,7 @@ pub fn resize_area(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usi
     }
     let (ix, iy) = (w2 as f64 / w as f64, h2 as f64 / h as f64);
     let (sx, sy) = (1.0 / ix, 1.0 / iy);
-    let mut out = vec![0u8; w2 * h2 * ch];
+    let mut out = spare_bytes(w2 * h2 * ch);
     if sx >= 1.0 && sy >= 1.0 {
         let (kx, ky) = (sx.round_ties_even() as usize, sy.round_ties_even() as usize);
         if (sx - kx as f64).abs() < f64::EPSILON && (sy - ky as f64).abs() < f64::EPSILON && w == w2 * kx && h == h2 * ky {
@@ -338,7 +394,7 @@ pub fn resize_linear_fixed(src: &[u8], w: usize, h: usize, ch: usize, w2: usize,
     if (w2, h2) == (w, h) {
         return src.to_vec();
     }
-    let mut out = vec![0u8; w2 * h2 * ch];
+    let mut out = spare_bytes(w2 * h2 * ch);
     resize_linear_into(src, w, h, ch, &mut out, w2 * ch, (0, 0, w2, h2));
     out
 }
@@ -429,6 +485,53 @@ mod tests {
             });
             assert_eq!(calls.into_inner(), w.div_ceil(2) * h.div_ceil(2), "{format:?}");
         }
+    }
+
+    #[test]
+    fn a_step_gets_back_the_buffers_it_finished_with() {
+        let mut held = Vec::new();
+        let at = with_spares(&mut held, || {
+            let buffer = spare_bytes(SPARE_ABOVE);
+            let at = buffer.as_ptr();
+            keep_bytes(buffer);
+            let again = spare_bytes(SPARE_ABOVE / 2);
+            assert_eq!(again.as_ptr(), at, "reused in the same frame");
+            assert_eq!(again.len(), SPARE_ABOVE / 2);
+            keep_bytes(again);
+            at
+        });
+        assert_eq!(held.len(), 1);
+        with_spares(&mut held, || {
+            let buffer = spare_bytes(SPARE_ABOVE);
+            assert_eq!(buffer.as_ptr(), at, "and in the next");
+        });
+        assert!(held.is_empty());
+    }
+
+    #[test]
+    fn nothing_is_kept_outside_a_step_or_past_its_limit() {
+        keep_bytes(vec![0; SPARE_ABOVE]);
+        let mut held = Vec::new();
+        with_spares(&mut held, || {});
+        assert!(held.is_empty());
+
+        with_spares(&mut held, || {
+            keep_bytes(vec![0; SPARE_ABOVE - 1]);
+            (0..SPARE_BUFFERS + 3).for_each(|_| keep_bytes(vec![0; SPARE_ABOVE]));
+            keep_bytes(vec![0; SPARE_ABOVE * 2]);
+        });
+        assert_eq!(held.len(), SPARE_BUFFERS);
+        assert_eq!(held.iter().filter(|b| b.capacity() >= SPARE_ABOVE * 2).count(), 1, "a bigger one replaces the smallest");
+    }
+
+    #[test]
+    fn a_step_that_panics_lets_go_of_the_spares() {
+        let mut held = vec![vec![0; SPARE_ABOVE]];
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| with_spares(&mut held, || panic!("broken"))));
+        assert_eq!(held.len(), 1);
+        let buffer = spare_bytes(SPARE_ABOVE);
+        keep_bytes(buffer);
+        assert_eq!(held.len(), 1, "the thread isn't lent anything any more");
     }
 
     // What cv2.resize(.., INTER_LINEAR) and INTER_AREA make of a 6 x 4 picture of random bytes
