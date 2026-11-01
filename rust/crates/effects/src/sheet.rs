@@ -295,7 +295,7 @@ pub fn whiten(sheet: &[u8], w: usize, h: usize) -> Vec<u8> {
                 }).max().unwrap_or(0);
             }
         }
-        paper_map.push(Gray { w: sw, h: sh, data: dilated }.blur(2.0).linear_exact(w, h).data);
+        paper_map.push(Gray { w: sw, h: sh, data: dilated }.blur(2.0).linear_exact(w, h).into_data());
     }
     // cv2.divide in floats, a zero below giving zero
     let scale = (255.0 * INK) as f32;

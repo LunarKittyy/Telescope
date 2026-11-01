@@ -14,6 +14,7 @@ use telescope_core::event::Event;
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep};
 use telescope_core::host::Host;
 use telescope_core::i18n::{n_, tr};
+use telescope_core::image::with_spares;
 use telescope_core::people::{self, Box4, Track};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::time::monotonic_ns;
@@ -223,10 +224,19 @@ struct Step {
     blur: Blur,
     view: Geometry,
     shown_blurs: Arc<AtomicBool>,
+    spares: Vec<Vec<u8>>,
 }
 
 impl CpuStep for Step {
     fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
+        let mut spares = std::mem::take(&mut self.spares);
+        with_spares(&mut spares, || self.run(frame, ctx));
+        self.spares = spares;
+    }
+}
+
+impl Step {
+    fn run(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
         if self.blur.active {
             // a stream left blurred stays blurred behind the panels
             apply(frame, &self.blur, &self.view, ctx);
@@ -615,7 +625,7 @@ impl Plugin for PrivacyBlurPlugin {
     }
 
     fn frame_step(&mut self) -> Option<FrameStep> {
-        Some(FrameStep::Cpu(Box::new(Step { blur: self.blur.clone(), view: self.view, shown_blurs: self.shown_blurs.clone() })))
+        Some(FrameStep::Cpu(Box::new(Step { spares: Vec::new(), blur: self.blur.clone(), view: self.view, shown_blurs: self.shown_blurs.clone() })))
     }
 
     fn get_config(&self) -> Value {

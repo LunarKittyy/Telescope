@@ -256,3 +256,19 @@ fn the_webcams_height_rounds_halves_to_even_as_pythons_round_does() {
     cam.run(&Rgb::filled(640, 483, [90; 3]));
     assert_eq!(cam.held.as_ref().unwrap().0.h, 242);
 }
+
+#[test]
+fn reused_buffers_leave_nothing_of_the_last_frame_behind() {
+    let busy = |seed: usize| Rgb { w: 320, h: 180, data: (0..320 * 180 * 3).map(|i| (i * (i + seed) % 251) as u8).collect() };
+    for effect in ["crt", "ascii"] {
+        let frames = [busy(1), busy(2), busy(3)];
+        let plain = run(&look(effect), &frames);
+        let mut held = Vec::new();
+        let reused = telescope_core::image::with_spares(&mut held, || run(&look(effect), &frames));
+        assert_eq!(plain, reused, "{effect}");
+    }
+    let frames = [busy(1), busy(2)];
+    let mut held = Vec::new();
+    telescope_core::image::with_spares(&mut held, || run(&look("crt"), &frames));
+    assert!(held.len() >= 2, "the buffers came back: {}", held.len());
+}

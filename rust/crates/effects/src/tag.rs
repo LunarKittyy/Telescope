@@ -346,7 +346,7 @@ pub fn render_with(spec: &Spec, w: u32, h: u32, fonts: &Fonts) -> Option<Tag> {
         alpha.push(to_byte(p[3]));
     }
     if blur > 0.0 {
-        let mut shadow = Gray { w: tw, h: th, data: alpha.clone() }.blur(blur).data;
+        let mut shadow = Gray { w: tw, h: th, data: alpha.clone() }.blur(blur).into_data();
         let shift_rows = (round_half_even(lay.em * 0.05) as usize).max(1);
         // Down by a few rows, the top ones empty: a soft dark halo under the text
         let rows = (shift_rows * tw).min(shadow.len());

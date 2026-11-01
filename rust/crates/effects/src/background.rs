@@ -15,6 +15,7 @@ use telescope_core::event::Event;
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep};
 use telescope_core::host::{FileDialog, FileDialogKind, Host, RequestId};
 use telescope_core::i18n::{n_, tr};
+use telescope_core::image::with_spares;
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
@@ -65,10 +66,19 @@ struct Step {
     settings: Settings,
     /// The picture scaled to cover this frame's size
     covered: Option<Rgb>,
+    spares: Vec<Vec<u8>>,
 }
 
 impl CpuStep for Step {
     fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
+        let mut spares = std::mem::take(&mut self.spares);
+        with_spares(&mut spares, || self.run(frame, ctx));
+        self.spares = spares;
+    }
+}
+
+impl Step {
+    fn run(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
         if self.settings.mode == 0 {
             return;
         }
@@ -337,7 +347,7 @@ impl Plugin for BackgroundPlugin {
             return None;
         }
         let settings = Settings { mode: self.mode, blur: self.blur, edges: self.edges, picture: self.picture.clone() };
-        Some(FrameStep::Cpu(Box::new(Step { settings, covered: None })))
+        Some(FrameStep::Cpu(Box::new(Step { settings, covered: None, spares: Vec::new() })))
     }
 
     fn get_config(&self) -> Value {

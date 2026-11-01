@@ -20,6 +20,7 @@ use telescope_core::event::Event;
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStep, ShaderStep};
 use telescope_core::host::{Host, Poster, View};
 use telescope_core::i18n::{n_, tr};
+use telescope_core::image::with_spares;
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::pose::{Person, BONES, SEEN};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
@@ -176,10 +177,19 @@ struct FunStep {
     frozen: Arc<Look>,
     /// A stream that isn't the shown one starts without anyone else's history
     own: Runner,
+    spares: Vec<Vec<u8>>,
 }
 
 impl CpuStep for FunStep {
     fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
+        let mut spares = std::mem::take(&mut self.spares);
+        with_spares(&mut spares, || self.run(frame, ctx));
+        self.spares = spares;
+    }
+}
+
+impl FunStep {
+    fn run(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
         let (look, shown) = {
             let s = self.hub.state.lock().unwrap();
             let shown = s.focused == ctx.source_id();
@@ -763,7 +773,7 @@ impl Plugin for FunPackPlugin {
             return None;
         }
         let frozen = self.hub.state.lock().unwrap().look.clone();
-        Some(FrameStep::Cpu(Box::new(FunStep { hub: self.hub.clone(), frozen, own: Runner::default() })))
+        Some(FrameStep::Cpu(Box::new(FunStep { hub: self.hub.clone(), frozen, own: Runner::default(), spares: Vec::new() })))
     }
 
     fn get_config(&self) -> Value {

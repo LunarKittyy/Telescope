@@ -471,7 +471,7 @@ impl Vhs {
         let (w, h) = (frame.w, frame.h);
         let (sw, sh) = ((w / 3).max(1), (h / 2).max(1));
         let small = frame.area(sw, sh);
-        let (mut y, mut cr, mut cb) = (Gray::new(sw, sh), Gray::new(sw, sh), Gray::new(sw, sh));
+        let (mut y, mut cr, mut cb) = (Gray::scratch(sw, sh), Gray::scratch(sw, sh), Gray::scratch(sw, sh));
         for (i, p) in small.data.as_chunks::<3>().0.iter().enumerate() {
             let (r, g, b) = (p[0] as i32, p[1] as i32, p[2] as i32);
             let l = (b * 1868 + g * 9617 + r * 4899 + 8192) >> 14;
@@ -501,7 +501,7 @@ impl Vhs {
                 y.data[row * sw + x] = rolled.data[x].saturating_add(40);
             }
         }
-        let mut out = Rgb::new(sw, sh);
+        let mut out = Rgb::scratch(sw, sh);
         for i in 0..sw * sh {
             let (l, r, b) = (y.data[i] as i32, cr.data[i] as i32 - 128, cb.data[i] as i32 - 128);
             let d = |v: i32| (v + (1 << 13)) >> 14;
@@ -521,7 +521,7 @@ impl Default for Vhs {
 
 /// np.roll along the rows: each one slides right by n, the end wrapping round to the start.
 fn roll(g: &Gray, n: usize) -> Gray {
-    let mut out = Gray::new(g.w, g.h);
+    let mut out = Gray::scratch(g.w, g.h);
     for y in 0..g.h {
         for x in 0..g.w {
             out.data[y * g.w + (x + n) % g.w] = g.data[y * g.w + x];
@@ -579,7 +579,7 @@ impl Crt {
                 src[(y as usize * w + x as usize) * 3 + c] as u32
             }
         };
-        let mut bent = Rgb::new(w, h);
+        let mut bent = Rgb::scratch(w, h);
         over_rows(&mut bent.data, w * 3, |y, line| {
             for (o, &(qx, qy)) in line.as_chunks_mut::<3>().0.iter_mut().zip(&self.maps[y * w..]) {
                 // remap's fixed point: a 32nd of a pixel, weights out of 32768
@@ -608,7 +608,7 @@ impl Crt {
         let glow = bent.box_blur(9, 9);
         let quarter: [u32; 256] = std::array::from_fn(|v| (v as f32 * 0.25).round_ties_even() as u32);
         let times = times_table();
-        let mut out = Rgb::new(w, h);
+        let mut out = Rgb::scratch(w, h);
         over_rows(&mut out.data, w * 3, |y, line| {
             for (x, o) in line.as_chunks_mut::<3>().0.iter_mut().enumerate() {
                 let i = y * w + x;

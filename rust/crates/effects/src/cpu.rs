@@ -3,7 +3,7 @@
 //! leave the same picture.
 
 use telescope_core::frame::{Frame, PixelFormat};
-use telescope_core::image::{byte as clamp8, read_420, read_bgr, write_420};
+use telescope_core::image::{byte as clamp8, keep_bytes, read_420, read_bgr, spare_bytes, write_420};
 
 /// A picture as 8-bit R, G, B, row after row.
 #[derive(Clone, Debug, PartialEq)]
@@ -31,9 +31,22 @@ fn to_v(r: f32, g: f32, b: f32) -> f32 {
     128.0 + 0.439216 * r - 0.367788 * g - 0.071427 * b
 }
 
+impl Drop for Rgb {
+    fn drop(&mut self) {
+        keep_bytes(std::mem::take(&mut self.data));
+    }
+}
+
 impl Rgb {
     pub fn new(w: usize, h: usize) -> Rgb {
-        Rgb { w, h, data: vec![0; w * h * 3] }
+        let mut out = Rgb::scratch(w, h);
+        out.data.fill(0);
+        out
+    }
+
+    /// A picture to write every pixel of: until then what's in it is whatever a spare buffer had.
+    pub fn scratch(w: usize, h: usize) -> Rgb {
+        Rgb { w, h, data: spare_bytes(w * h * 3) }
     }
 
     pub fn filled(w: usize, h: usize, rgb: [u8; 3]) -> Rgb {
@@ -53,7 +66,7 @@ impl Rgb {
     /// The picture a frame holds; None for a format this doesn't know.
     pub fn from_frame(frame: &Frame) -> Option<Rgb> {
         let (w, h) = (frame.width as usize, frame.height as usize);
-        let mut out = Rgb::new(w, h);
+        let mut out = Rgb::scratch(w, h);
         // The decoder's own BGR, as Python's effects get: the I420 has lost chroma on its way from there
         if read_bgr(frame, &mut out.data) {
             return Some(out);

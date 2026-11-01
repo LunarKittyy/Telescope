@@ -4,7 +4,7 @@
 
 use crate::cpu::Rgb;
 use std::sync::OnceLock;
-use telescope_core::image::{over_bands, rint};
+use telescope_core::image::{keep_bytes, over_bands, rint, spare_bytes};
 pub use telescope_core::image::{grey_of, resize_area, resize_linear_fixed};
 
 /// A single-channel 8-bit picture: a mask, or brightness.
@@ -15,9 +15,26 @@ pub struct Gray {
     pub data: Vec<u8>,
 }
 
+impl Drop for Gray {
+    fn drop(&mut self) {
+        keep_bytes(std::mem::take(&mut self.data));
+    }
+}
+
 impl Gray {
     pub fn new(w: usize, h: usize) -> Gray {
-        Gray { w, h, data: vec![0; w * h] }
+        let mut out = Gray::scratch(w, h);
+        out.data.fill(0);
+        out
+    }
+
+    /// A picture to write every pixel of: until then what's in it is whatever a spare buffer had.
+    pub fn scratch(w: usize, h: usize) -> Gray {
+        Gray { w, h, data: spare_bytes(w * h) }
+    }
+
+    pub fn into_data(mut self) -> Vec<u8> {
+        std::mem::take(&mut self.data)
     }
 
     pub fn filled(w: usize, h: usize, v: u8) -> Gray {
@@ -40,7 +57,7 @@ fn linear(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usize) -> Ve
         }).collect()
     };
     let (xs, ys) = (axis(w, w2), axis(h, h2));
-    let mut out = vec![0u8; w2 * h2 * ch];
+    let mut out = spare_bytes(w2 * h2 * ch);
     for (y, &(y0, y1, fy)) in ys.iter().enumerate() {
         for (x, &(x0, x1, fx)) in xs.iter().enumerate() {
             for c in 0..ch {
@@ -56,7 +73,7 @@ fn linear(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usize) -> Ve
 
 /// cv2.resize(INTER_NEAREST): each output pixel takes the source pixel its left edge falls in.
 fn nearest(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usize) -> Vec<u8> {
-    let mut out = vec![0u8; w2 * h2 * ch];
+    let mut out = spare_bytes(w2 * h2 * ch);
     for y in 0..h2 {
         let sy = (y * h / h2).min(h - 1);
         for x in 0..w2 {
@@ -273,7 +290,7 @@ fn gauss_exact(src: &[u8], w: usize, h: usize, ch: usize, sigma: f64) -> Vec<u8>
             }
         }
     }
-    let mut out = vec![0u8; width * h];
+    let mut out = spare_bytes(width * h);
     let mut sum = vec![0u32; width];
     for (y, row) in out.chunks_exact_mut(width).enumerate() {
         sum.fill(0);
@@ -355,7 +372,7 @@ fn gauss(src: &[u8], w: usize, h: usize, ch: usize, k: &[f32]) -> Vec<u8> {
             }
         }
     }
-    let mut out = vec![0u8; w * h * ch];
+    let mut out = spare_bytes(w * h * ch);
     for y in 0..h {
         for x in 0..w {
             for c in 0..ch {
@@ -392,7 +409,7 @@ fn boxed(src: &[u8], w: usize, h: usize, ch: usize, kw: usize, kh: usize) -> Vec
             }
         }
     };
-    let mut out = vec![0u8; h * rl];
+    let mut out = spare_bytes(h * rl);
     let table = &table;
     over_bands(&mut out, rl, |first, part| {
         let mut padded = vec![0u8; (w + kw - 1) * ch];
