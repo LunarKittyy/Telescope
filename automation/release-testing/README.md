@@ -6,6 +6,8 @@ Tools and notes for going through [the release checklist](../../docs/release-che
 
 ## The emulator pass
 
+This one and `linux/` drive the Python app from inside through PyQt, so they don't work on a Rust build. `windows_pass.py` goes through UI Automation and does.
+
 `emulator_pass.py` goes through what the release checklist leaves to an Android emulator and the Linux profile below, and prints PASS, FAIL or SKIP with a reason for each check. `--list` shows them. A full run takes about 15 minutes.
 
 ```bash

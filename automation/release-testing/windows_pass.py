@@ -250,12 +250,22 @@ def manifest(build: Path) -> dict:
     return json.loads((build / "manifest.json").read_text())
 
 
+# The build in a Telescope folder: a Rust copy says, a Python one has it in its lib-<build> folder's name
+BUILD_OF = r"""
+function Build-Of([string] $Dir) {
+    if (Test-Path "$Dir\ui-kit") { return ((& "$Dir\TelescopeDesktop.exe" build-info | Out-String) | ConvertFrom-Json).build }
+    $lib = Get-ChildItem $Dir -Directory -Filter "lib-*" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($lib) { $lib.Name.Substring(4) }
+}
+"""
+
+
 def installed(a) -> str:
-    """The installed copy as "4.2.0 build 932", from its uninstall entry and its lib-<build> folder, or ""."""
-    out = a.win.admin(ps(r"""
+    """The installed copy as "4.2.0 build 932", from its uninstall entry and the folder, or ""."""
+    out = a.win.admin(BUILD_OF + ps(r"""
 $v = (Get-ItemProperty <<k>> -ErrorAction SilentlyContinue).DisplayVersion
-$b = Get-ChildItem "$env:LOCALAPPDATA\Programs\Telescope" -Directory -Filter "lib-*" -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($v -and $b) { "$v build $($b.Name.Substring(4))" }""", k=UNINSTALL_KEY))
+$b = Build-Of "$env:LOCALAPPDATA\Programs\Telescope"
+if ($v -and $b) { "$v build $b" }""", k=UNINSTALL_KEY))
     return out.strip()
 
 
@@ -805,11 +815,11 @@ def unzipped_keep_in_place(a):
     running = line(out, "RUNNING")
     need(running.lower().endswith(r"\downloads\telescope-old\telescopedesktop.exe"), f"it came back running from {running}")
     need(line(out, "MONOCHROME") == "True", "the Monochrome setting didn't survive the update")
-    left = a.win.admin(rf'Test-Path "{APP}"; Test-Path "{MENU}"; (Get-ChildItem "$env:USERPROFILE\Downloads\Telescope-old" -Directory -Filter lib-*).Name')
+    left = a.win.admin(BUILD_OF + rf'Test-Path "{APP}"; Test-Path "{MENU}"; Build-Of "$env:USERPROFILE\Downloads\Telescope-old"')
     need(left.split()[:2] == ["False", "False"], "it installed itself anyway")
-    builds = [x for x in left.split()[2:] if x.startswith("lib-")]
-    need(builds and builds != [f"lib-{manifest(a.previous)['build']}"], f"the folder still has {builds}")
-    return f"updated in place to {builds[0]}"
+    builds = left.split()[2:]
+    need(builds and builds != [str(manifest(a.previous)["build"])], f"the folder is still on {builds}")
+    return f"updated in place to build {builds[0]}"
 
 
 @check
@@ -846,7 +856,7 @@ def update_cut_short(a):
     clean(a)
     zip_path = upload(a, a.previous / "Telescope-windows-portable.zip")
     channel = "Nightly" if manifest(a.build)["channel"] == "nightly" else "Stable"
-    out = a.win.desktop(ps(UNZIP_AND_OPEN, dir="$env:USERPROFILE\\Downloads\\Telescope-old", zip=zip_path, channel=channel) + r"""
+    out = a.win.desktop(BUILD_OF + ps(UNZIP_AND_OPEN, dir="$env:USERPROFILE\\Downloads\\Telescope-old", zip=zip_path, channel=channel) + r"""
 Press-Control "Keep this copy where it is" "CheckBox"
 Start-Sleep 1
 Press-Control "Update and restart" "Button" 60
@@ -859,16 +869,14 @@ Start-Sleep 2
 Open-AsUser "$dir\TelescopeDesktop.exe"
 if (-not (Main-Window 300)) { throw "it didn't open again after being cut short" }
 Start-Sleep 10
-"LIBS $((Get-ChildItem $dir -Directory -Filter lib-*).Name -join ',')"
+"BUILD $(Build-Of $dir)"
 "JOURNAL $(Test-Path $journal)"
 Close-Window "Telescope"
 """, timeout=900)
     need("KILLED" in out, out[-300:])
-    libs = line(out, "LIBS").split(",")
-    need(len(libs) == 1, f"it left several library folders: {libs}")
     need(line(out, "JOURNAL") == "False", "the update journal is still there")
-    old = f"lib-{manifest(a.previous)['build']}"
-    return "finished the update on the next start" if libs[0] != old else "came back on the old version"
+    old = str(manifest(a.previous)["build"])
+    return "finished the update on the next start" if line(out, "BUILD") != old else "came back on the old version"
 
 
 def main():
