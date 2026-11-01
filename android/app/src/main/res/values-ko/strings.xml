@@ -87,9 +87,7 @@
     <string name="network_unreachable">연결할 수 없음</string>
     <string name="network_title">네트워크</string>
     <string name="local_only">로컬 전용 - USB</string>
-    <string name="local_only_hint">카메라가 네트워크에 연결되지 않도록 하여 USB 연결로만 접근할 수 있게 해요.</string>
     <string name="wait_for_computer">내 컴퓨터 기다리기</string>
-    <string name="wait_for_computer_hint">화면이 꺼져 있어도 Telescope를 계속 실행하여 페어링된 컴퓨터가 카메라를 시작할 수 있게 해요.</string>
     <string name="stop_streaming">스트리밍 중지</string>
     <string name="status_title">상태</string>
     <string name="status_not_streaming">스트리밍 중 아님</string>

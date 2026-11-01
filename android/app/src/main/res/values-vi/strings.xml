@@ -87,9 +87,7 @@
     <string name="network_unreachable">không thể kết nối</string>
     <string name="network_title">Mạng</string>
     <string name="local_only">Chỉ nội bộ - USB</string>
-    <string name="local_only_hint">Giữ cho camera không vào mạng, để chỉ kết nối USB mới có thể truy cập.</string>
     <string name="wait_for_computer">Chờ máy tính của tôi</string>
-    <string name="wait_for_computer_hint">Giữ cho Telescope tiếp tục chạy khi tắt màn hình, để máy tính đã ghép đôi có thể bật camera.</string>
     <string name="stop_streaming">Dừng truyền phát</string>
     <string name="status_title">Trạng thái</string>
     <string name="status_not_streaming">Không truyền phát</string>

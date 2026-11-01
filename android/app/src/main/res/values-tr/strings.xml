@@ -88,9 +88,7 @@
     <string name="network_unreachable">ulaşılamıyor</string>
     <string name="network_title">Ağ</string>
     <string name="local_only">Sadece yerel - USB</string>
-    <string name="local_only_hint">Kamerayı ağdan uzak tutar, böylece kameraya sadece USB bağlantısıyla ulaşılabilir.</string>
     <string name="wait_for_computer">Bilgisayarımı bekle</string>
-    <string name="wait_for_computer_hint">Ekran kapalıyken Telescope\'un çalışmasını sürdürür, böylece eşleştirilen bir bilgisayar kamerayı başlatabilir.</string>
     <string name="stop_streaming">Yayını durdur</string>
     <string name="status_title">Durum</string>
     <string name="status_not_streaming">Yayın yapmıyor</string>

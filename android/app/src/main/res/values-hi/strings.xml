@@ -88,9 +88,7 @@
     <string name="network_unreachable">पहुंच से बाहर</string>
     <string name="network_title">नेटवर्क</string>
     <string name="local_only">सिर्फ़ लोकल - USB</string>
-    <string name="local_only_hint">कैमरे को नेटवर्क से बाहर रखता है, ताकि सिर्फ़ USB कनेक्शन ही इस तक पहुंच सके.</string>
     <string name="wait_for_computer">कंप्यूटर का इंतज़ार करें</string>
-    <string name="wait_for_computer_hint">स्क्रीन बंद होने पर भी Telescope को चालू रखता है, ताकि पेयर किया गया कंप्यूटर कैमरा शुरू कर सके.</string>
     <string name="stop_streaming">स्ट्रीमिंग रोकें</string>
     <string name="status_title">स्थिति</string>
     <string name="status_not_streaming">स्ट्रीम नहीं हो रहा है</string>
