@@ -24,9 +24,12 @@ fn status(code: u16, headers: &[(&'static str, String)]) -> Answer {
 }
 
 /// Stands in for the network: answers each request with the next answer, and records what was asked.
+/// One request: its address and headers.
+type Asked = (String, Vec<(String, String)>);
+
 struct GitHub {
     answers: Mutex<VecDeque<Answer>>,
-    asked: Mutex<Vec<(String, Vec<(String, String)>)>>,
+    asked: Mutex<Vec<Asked>>,
 }
 
 impl GitHub {
@@ -163,7 +166,7 @@ fn a_429_waits_as_long_as_it_says_within_reason() {
                  (("X-RateLimit-Reset", format!("{}", NOW as i64 + 10 * 24 * 3600)), 24.0 * 3600.0), (("Retry-After", "soon".to_string()), 3600.0)];
     for (header, wait) in cases {
         let mut c = cache();
-        updates::check(&repos(&[REPO]), &mut c, NOW, &GitHub::new(vec![status(429, &[header.clone()])]));
+        updates::check(&repos(&[REPO]), &mut c, NOW, &GitHub::new(vec![status(429, std::slice::from_ref(&header))]));
         assert_eq!(c.wait_until, NOW + wait, "{header:?}");
     }
 }

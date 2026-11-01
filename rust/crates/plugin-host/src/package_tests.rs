@@ -349,7 +349,9 @@ fn a_zip_installs_switched_off() {
 
 #[test]
 fn a_zip_that_could_write_elsewhere_is_refused() {
-    let cases: &[(&[(&str, &[u8])], &[&str], &str)] = &[
+    // The files in the zip, its folders, and a word of the refusal
+    type Case<'a> = (&'a [(&'a str, &'a [u8])], &'a [&'a str], &'a str);
+    let cases: &[Case] = &[
         (&[("black_and_white/../../evil.lua", b"")], &[], "outside"),
         (&[("/abs/evil.lua", b"")], &[], "outside"),
         (&[("black_and_white\\..\\evil.lua", b"")], &[], "outside"),
