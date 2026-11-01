@@ -192,18 +192,10 @@ pub trait StreamFrames: FrameStore {
     fn set_streams(&self, streams: Vec<(String, String, Arc<dyn FrameSlot>)>);
 }
 
-/// Saved next to a false by this app, which is how its choice is told from Python's, which saved false whatever the person wanted.
-pub const HW_DECODE_FROM_RUST: &str = "hw_decode_from_rust";
-
-/// Whether Setup's saved settings ask for the graphics card decoder. On unless they say otherwise, and a false only counts with
-/// HW_DECODE_FROM_RUST next to it: Python never writes that, and the fallback to software now covers a card that can't decode.
+/// Whether Setup's saved settings ask for the graphics card decoder. Off unless turned on, as in Python: beside a heavy game the decoder's
+/// jobs wait for the app's own graphics work, and the picture stutters where the processor holds 30 fps (rust/PLAN.md has the numbers).
 pub fn hardware_decode_on(setup: Option<&serde_json::Value>) -> bool {
-    use serde_json::Value;
-    match setup.and_then(|c| c.get("hw_decode")) {
-        None | Some(Value::Bool(true)) => true,
-        Some(Value::Bool(false)) => setup.and_then(|c| c.get(HW_DECODE_FROM_RUST)) != Some(&Value::Bool(true)),
-        Some(_) => false,
-    }
+    setup.and_then(|c| c.get("hw_decode")) == Some(&serde_json::Value::Bool(true))
 }
 
 /// Decoding as it stands (h264_reader's hardware_device, decoding_backends, hardware_failed).

@@ -263,7 +263,7 @@ impl SetupPlugin {
             max_zoom: DEFAULT_MAX_ZOOM,
             max_gain: json!(DEFAULT_MAX_GAIN),
             limiter: true,
-            hw_decode: true,
+            hw_decode: false,
             power_saving: false,
             plugin_hues: true,
             language: String::new(),
@@ -1192,7 +1192,7 @@ impl Plugin for SetupPlugin {
     }
 
     fn get_config(&self) -> Value {
-        let mut cfg = json!({
+        json!({
             "canvas_preset": self.canvas_preset,
             "custom_canvas_w": self.custom_w,
             "custom_canvas_h": self.custom_h,
@@ -1203,12 +1203,7 @@ impl Plugin for SetupPlugin {
             "power_saving": self.power_saving,
             "plugin_hues": self.plugin_hues,
             "language": self.language,
-        });
-        // Only beside a false, so a setting that's on saves the same text as Python
-        if !self.hw_decode {
-            cfg[telescope_core::media::HW_DECODE_FROM_RUST] = json!(true);
-        }
-        cfg
+        })
     }
 
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
