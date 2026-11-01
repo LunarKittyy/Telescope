@@ -349,6 +349,12 @@ fn find_accessory() -> Option<nusb::DeviceInfo> {
     nusb::list_devices().wait().ok()?.find(|d| d.vendor_id() == 0x18d1 && matches!(d.product_id(), 0x2d00 | 0x2d01))
 }
 
+#[cfg(windows)]
+fn switch_to_accessory() -> Result<Duration, String> {
+    Err("use switch-intf on Windows".into())
+}
+
+#[cfg(not(windows))]
 fn switch_to_accessory() -> Result<Duration, String> {
     let di = nusb::list_devices().wait().map_err(|e| e.to_string())?.find(|d| d.vendor_id() == 0x04e8).ok_or("no phone")?;
     println!("found {:04x}:{:04x}", di.vendor_id(), di.product_id());
@@ -380,6 +386,36 @@ fn switch_to_accessory() -> Result<Duration, String> {
         std::thread::sleep(Duration::from_millis(5));
     }
     Err("no accessory after 10 s".into())
+}
+
+// Windows path: the requests go out through one claimed WinUSB interface of the composite device
+fn switch_via_interface(n: u8) -> Result<(), String> {
+    let di = nusb::list_devices().wait().map_err(|e| e.to_string())?.find(|d| d.vendor_id() == 0x04e8).ok_or("no phone")?;
+    println!("found {:04x}:{:04x}", di.vendor_id(), di.product_id());
+    let dev = di.open().wait().map_err(|e| format!("open: {e}"))?;
+    let intf = dev.claim_interface(n).wait().map_err(|e| format!("claim {n}: {e}"))?;
+    println!("claimed interface {n}");
+    let t = Duration::from_secs(2);
+    let ver = intf
+        .control_in(ControlIn { control_type: ControlType::Vendor, recipient: Recipient::Device, request: 51, value: 0, index: 0, length: 2 }, t)
+        .wait()
+        .map_err(|e| format!("req 51: {e}"))?;
+    println!("AOA protocol {}", u16::from_le_bytes([ver[0], ver[1]]));
+    for (i, s) in ["Telescope", "AoaSpike", "Telescope USB link spike", "0.1", "", "spike0001"].iter().enumerate() {
+        if s.is_empty() {
+            continue;
+        }
+        let mut d = s.as_bytes().to_vec();
+        d.push(0);
+        intf.control_out(ControlOut { control_type: ControlType::Vendor, recipient: Recipient::Device, request: 52, value: 0, index: i as u16, data: &d }, t)
+            .wait()
+            .map_err(|e| format!("req 52: {e}"))?;
+    }
+    intf.control_out(ControlOut { control_type: ControlType::Vendor, recipient: Recipient::Device, request: 53, value: 0, index: 0, data: &[] }, t)
+        .wait()
+        .map_err(|e| format!("req 53: {e}"))?;
+    println!("start sent");
+    Ok(())
 }
 
 fn open_usb() -> Result<Arc<Link>, String> {
@@ -436,9 +472,18 @@ fn main() {
     let usb = || open_usb().unwrap_or_else(|e| panic!("{e}"));
     match cmd {
         "switch" => println!("{:?}", switch_to_accessory()),
+        "list" => {
+            for d in nusb::list_devices().wait().unwrap() {
+                println!("{:04x}:{:04x} {:?} {:?}", d.vendor_id(), d.product_id(), d.product_string(), d.interfaces().map(|i| i.interface_number()).collect::<Vec<_>>());
+            }
+        }
+        "switch-intf" => println!("{:?}", switch_via_interface(num(2, 3) as u8)),
         "reset" => {
             let d = find_accessory().expect("no accessory").open().wait().expect("open");
+            #[cfg(not(windows))]
             println!("{:?}", d.reset().wait());
+            #[cfg(windows)]
+            drop(d);
         }
         "ping" => pings(&usb(), "idle rtt", num(2, 200) as usize, Duration::from_millis(2)),
         "sizes" => sizes(&usb()),
