@@ -20,9 +20,6 @@ pub const PARAMS: &str = "Params";
 /// Entry points assemble() adds, for the executor's pipeline.
 pub const VERTEX_ENTRY: &str = "telescope_vs";
 pub const FRAGMENT_ENTRY: &str = "telescope_fs";
-pub const COMPUTE_ENTRY: &str = "telescope_cs";
-/// A compute pass's workgroup is this many pixels a side.
-pub const WORKGROUP: u32 = 16;
 
 /// Group 0, the same for every step: the picture so far, its sampler (linear, clamped) and FrameInfo.
 pub const BINDING_INPUT: u32 = 0;
@@ -30,8 +27,6 @@ pub const BINDING_SAMPLER: u32 = 1;
 pub const BINDING_FRAME: u32 = 2;
 /// The person mask: one channel, 1x1 and 0 when a step doesn't ask for it or there's none.
 pub const BINDING_MASK: u32 = 3;
-/// Where a compute pass writes the changed picture.
-pub const BINDING_OUTPUT: u32 = 4;
 /// Group 1, the step's own: Params, then ShaderStep::textures in order.
 pub const GROUP_STEP: u32 = 1;
 pub const BINDING_PARAMS: u32 = 0;
@@ -86,20 +81,6 @@ fn telescope_vs(@builtin(vertex_index) i: u32) -> TelescopeVertex {
 @fragment
 fn telescope_fs(v: TelescopeVertex) -> @location(0) vec4<f32> {
     return vec4<f32>(effect(v.uv).rgb, 1.0);
-}
-";
-
-// The same effect() for a card queue that can't draw: no derivatives or discard in a shader that runs here
-const COMPUTE_ENTRY_POINT: &str = "
-@group(0) @binding(4) var telescope_output: texture_storage_2d<rgba8unorm, write>;
-
-@compute @workgroup_size(16, 16)
-fn telescope_cs(@builtin(global_invocation_id) id: vec3<u32>) {
-    let size = textureDimensions(telescope_output);
-    if id.x < size.x && id.y < size.y {
-        let uv = (vec2<f32>(id.xy) + 0.5) / vec2<f32>(size);
-        textureStore(telescope_output, id.xy, vec4<f32>(effect(uv).rgb, 1.0));
-    }
 }
 ";
 
@@ -275,11 +256,6 @@ pub fn assemble(step: &ShaderStep) -> Result<String, String> {
     Ok(assemble_body(step)? + ENTRY_POINTS)
 }
 
-/// assemble for a compute pass.
-pub fn assemble_compute(step: &ShaderStep) -> Result<String, String> {
-    Ok(assemble_body(step)? + COMPUTE_ENTRY_POINT)
-}
-
 fn assemble_body(step: &ShaderStep) -> Result<String, String> {
     let code = strip_comments(&step.wgsl);
     if find_word(&code, &format!("fn {ENTRY}"), '(').is_none() {
@@ -342,14 +318,6 @@ mod tests {
         assert!(uses_person_mask("fn effect(uv: vec2<f32>) -> vec4<f32> { if has_person_mask() { return sample(uv); } return vec4<f32>(0.0); }"));
         let buf = frame_uniform(2, 2, 0.0, 1, true);
         assert_eq!(u32::from_le_bytes(buf[16..20].try_into().unwrap()), 1);
-    }
-
-    #[test]
-    fn a_compute_module_has_its_entry_and_the_plugins_code() {
-        let step = ShaderStep { wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }".into(), uniforms: json!({}), textures: Vec::new() };
-        let module = assemble_compute(&step).unwrap();
-        assert!(module.contains(&format!("fn {COMPUTE_ENTRY}")) && module.contains("fn effect") && !module.contains(FRAGMENT_ENTRY));
-        assert!(module.contains(&format!("@workgroup_size({WORKGROUP}, {WORKGROUP})")) && module.contains(&format!("@binding({BINDING_OUTPUT})")));
     }
 
     #[test]

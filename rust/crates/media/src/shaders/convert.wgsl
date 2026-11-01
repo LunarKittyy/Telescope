@@ -44,49 +44,31 @@ fn rgb_at(uv: vec2<f32>) -> vec3<f32> {
     return textureSampleLevel(p0, smp, uv, 0.0).rgb;
 }
 
-// BT.601 video range from RGB in 0..255
-fn luma(c: vec3<f32>) -> f32 {
-    return (16.0 + 0.256788 * c.r + 0.504129 * c.g + 0.097906 * c.b) / 255.0;
-}
-
-fn chroma_u(c: vec3<f32>) -> f32 {
-    return (128.0 - 0.148223 * c.r - 0.290993 * c.g + 0.439216 * c.b) / 255.0;
-}
-
-fn chroma_v(c: vec3<f32>) -> f32 {
-    return (128.0 + 0.439216 * c.r - 0.367788 * c.g - 0.071427 * c.b) / 255.0;
-}
-
 @fragment
 fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
-    return pixel(in.uv, vec2<f32>(dpdxFine(in.uv.x), dpdyFine(in.uv.y)));
-}
-
-// texel: how much of the picture one output pixel covers
-fn pixel(uv: vec2<f32>, texel: vec2<f32>) -> vec4<f32> {
     let mode = settings.x;
     if mode <= 2u {
         let taps = settings.y;
         if taps <= 1u {
-            return vec4<f32>(source(uv, mode), 1.0);
+            return vec4<f32>(source(in.uv, mode), 1.0);
         }
-        // Average a taps x taps grid inside the output pixel
-        let step = texel / f32(taps);
+        // One output pixel covers this much of the picture; average a taps x taps grid inside it
+        let step = vec2<f32>(dpdxFine(in.uv.x), dpdyFine(in.uv.y)) / f32(taps);
         var sum = vec3<f32>(0.0);
         for (var j = 0u; j < taps; j++) {
             for (var i = 0u; i < taps; i++) {
                 let off = (vec2<f32>(f32(i), f32(j)) + 0.5 - f32(taps) * 0.5) * step;
-                sum += source(uv + off, mode);
+                sum += source(in.uv + off, mode);
             }
         }
         return vec4<f32>(sum / f32(taps * taps), 1.0);
     }
     // Back to YUV from the RGBA picture in p0. The chroma targets are half size, so their uv lands between four pixels
     // and the linear sampler averages them.
-    let c = rgb_at(uv) * 255.0;
-    let y = luma(c);
-    let u = chroma_u(c);
-    let v = chroma_v(c);
+    let c = rgb_at(in.uv) * 255.0;
+    let y = (16.0 + 0.256788 * c.r + 0.504129 * c.g + 0.097906 * c.b) / 255.0;
+    let u = (128.0 - 0.148223 * c.r - 0.290993 * c.g + 0.439216 * c.b) / 255.0;
+    let v = (128.0 + 0.439216 * c.r - 0.367788 * c.g - 0.071427 * c.b) / 255.0;
     if mode == 3u {
         return vec4<f32>(y, 0.0, 0.0, 1.0);
     }
