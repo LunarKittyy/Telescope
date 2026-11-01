@@ -228,6 +228,8 @@ class StillCapture(
         armTimeout(r)
         try {
             if (request.extension != null) { shootExtension(r, device); return }
+            // Two JPEG outputs in one session aren't a combination Camera2 promises, and they brought down an S10+'s camera service
+            if (controller.stillVideoIsJpeg() && request.format != null) { alone(r); return }
             val key = outputsKey(request)
             val refusal = "${controller.stillStreamKey()}|$key"
             val old = kept

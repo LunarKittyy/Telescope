@@ -127,7 +127,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 <!-- due: desktop/telescope/stills.py desktop/telescope/plugins/photos.py desktop/telescope/stream.py android/app/src/main/kotlin/com/telescope/StillCapture.kt android/app/src/main/kotlin/com/telescope/StillCatalog.kt android/app/src/main/kotlin/com/telescope/StillJobs.kt android/app/src/main/kotlin/com/telescope/StillOptions.kt android/app/src/main/kotlin/com/telescope/StillRebuild.kt android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt rust/crates/effects/src/photos.rs -->
 
-- [ ] A JPEG while streaming on Light and on Heavy: the video keeps going (a short hitch the first time only) and the photo is the lens's full size, upright with the desktop's rotation.
+- [ ] A JPEG while streaming on Light: the video keeps going (a short hitch the first time only). On Heavy it pauses for about two seconds and comes back on its own. Either way the photo is the lens's full size, upright with the desktop's rotation.
 - [ ] RAW and JPEG together on a phone that lists RAW: the DNG opens in a raw editor with the right colours and orientation. The same with full resolution on a 50 MP or 200 MP phone, where the file is the sensor's real size.
 - [ ] Night, HDR and Bokeh on a phone whose maker offers them: the video pauses for a few seconds and picks up again without a reconnect, and the photo looks like the phone's own camera app.
 - [ ] A 10 s long exposure in the dark, an exposure bracket and a focus bracket: the brackets really step (brightness, then near to far) and the stream comes back after each.
