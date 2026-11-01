@@ -8,21 +8,20 @@ use crate::image::{byte_of, over_rows};
 use crate::workers::each_part;
 use std::sync::Arc;
 
-/// Fractional bits of a position between two LUT points.
-const WEIGHT_BITS: u32 = 12;
 const BANDS: usize = 8;
 
 /// Where one 8-bit level lands along a side of the cube.
 #[derive(Clone, Copy, Default)]
 struct Spot {
     low: u32,
-    weight: i32,
+    /// How far towards the next point, 0..1 in 15 bits.
+    weight: i16,
 }
 
 struct Cube {
     size: usize,
-    /// [b][g][r], as 16-bit values with a spare to fit a vector.
-    points: Vec<[u16; 4]>,
+    /// [b][g][r] in 15 bits, which is what a vector's rounding multiply takes, with a spare to fill its lanes.
+    points: Vec<[i16; 4]>,
     spots: [Spot; LEVELS],
 }
 
@@ -54,12 +53,13 @@ impl Graded {
                 Tables::Levels(levels)
             }
             Baked::Cube { size, rgb } => {
-                let points = rgb.as_chunks::<3>().0.iter().map(|p| [to_16(p[0]), to_16(p[1]), to_16(p[2]), 0]).collect();
+                let point = |v: f32| (to_16(v) >> 1) as i16;
+                let points = rgb.as_chunks::<3>().0.iter().map(|p| [point(p[0]), point(p[1]), point(p[2]), 0]).collect();
                 let mut spots = [Spot::default(); LEVELS];
                 for (level, spot) in spots.iter_mut().enumerate() {
                     let at = level as f32 / 255.0 * (*size - 1) as f32;
                     let low = (at as usize).min(*size - 2);
-                    *spot = Spot { low: low as u32, weight: ((at - low as f32) * (1 << WEIGHT_BITS) as f32 + 0.5) as i32 };
+                    *spot = Spot { low: low as u32, weight: ((at - low as f32) * 32767.0 + 0.5) as i16 };
                 }
                 Tables::Cube(Box::new(Cube { size: *size, points, spots }))
             }
@@ -164,35 +164,65 @@ crate::avx2_too! {
     }
 }
 
-crate::avx2_too! {
-    /// A row of pixels through the cube, interpolated in three steps as the shader mixes them, four 16-bit lanes at a time.
-    fn cube_row(cube: &Cube, r: &mut [u8], g: &mut [u8], b: &mut [u8]) {
-        #[inline(always)]
-        fn mix(a: [u16; 4], c: [u16; 4], weight: i32) -> [i32; 4] {
-            std::array::from_fn(|i| ((a[i] as i32) << WEIGHT_BITS) + (c[i] as i32 - a[i] as i32) * weight)
-        }
-        // Each of these is 16 + WEIGHT_BITS bits, so differences are moved down a little to fit
-        #[inline(always)]
-        fn blend(a: [i32; 4], c: [i32; 4], weight: i32) -> [i32; 4] {
-            std::array::from_fn(|i| a[i] + ((c[i] - a[i]) >> WEIGHT_BITS) * weight)
-        }
-        let n = cube.size;
-        let points = &cube.points[..];
-        let spots = &cube.spots;
-        let (dg, db) = (n, n * n);
-        for (r, (g, b)) in r.iter_mut().zip(g.iter_mut().zip(b.iter_mut())) {
-            let (sr, sg, sb) = (spots[*r as usize], spots[*g as usize], spots[*b as usize]);
-            let at = sb.low as usize * db + sg.low as usize * dg + sr.low as usize;
-            let corner = &points[at..at + db + dg + 2];
-            let near = blend(mix(corner[0], corner[1], sr.weight), mix(corner[dg], corner[dg + 1], sr.weight), sg.weight);
-            let high = blend(mix(corner[db], corner[db + 1], sr.weight), mix(corner[db + dg], corner[db + dg + 1], sr.weight), sg.weight);
-            let out = blend(near, high, sb.weight);
-            // From 16 + WEIGHT_BITS bits to 8, rounded: x / 257 is about (x * 255 + half) >> 16
-            let down = |v: i32| ((((v + (1 << (WEIGHT_BITS - 1))) >> WEIGHT_BITS) * 255 + 32767) >> 16) as u8;
-            *r = down(out[0]);
-            *g = down(out[1]);
-            *b = down(out[2]);
-        }
+/// From a point's 15 bits to 8, rounded.
+#[inline(always)]
+fn down(v: i32) -> u8 {
+    ((v * 255 + (1 << 14)) >> 15) as u8
+}
+
+/// A row of pixels through the cube, interpolated in three steps as the shader mixes them.
+fn cube_row(cube: &Cube, r: &mut [u8], g: &mut [u8], b: &mut [u8]) {
+    #[cfg(target_arch = "x86_64")]
+    if std::arch::is_x86_feature_detected!("avx2") {
+        // SAFETY: the processor was just asked whether it has AVX2
+        return unsafe { cube_row_wide(cube, r, g, b) };
+    }
+    cube_row_plain(cube, r, g, b);
+}
+
+fn cube_row_plain(cube: &Cube, r: &mut [u8], g: &mut [u8], b: &mut [u8]) {
+    #[inline(always)]
+    fn mix(a: [i16; 4], c: [i16; 4], weight: i16) -> [i16; 4] {
+        std::array::from_fn(|i| a[i].wrapping_add(((c[i].wrapping_sub(a[i]) as i32 * weight as i32 + (1 << 14)) >> 15) as i16))
+    }
+    let n = cube.size;
+    let (dg, db) = (n, n * n);
+    for (r, (g, b)) in r.iter_mut().zip(g.iter_mut().zip(b.iter_mut())) {
+        let (sr, sg, sb) = (cube.spots[*r as usize], cube.spots[*g as usize], cube.spots[*b as usize]);
+        let at = sb.low as usize * db + sg.low as usize * dg + sr.low as usize;
+        let c = &cube.points[at..at + db + dg + 2];
+        let near = mix(mix(c[0], c[1], sr.weight), mix(c[dg], c[dg + 1], sr.weight), sg.weight);
+        let high = mix(mix(c[db], c[db + 1], sr.weight), mix(c[db + dg], c[db + dg + 1], sr.weight), sg.weight);
+        let out = mix(near, high, sb.weight);
+        (*r, *g, *b) = (down(out[0] as i32), down(out[1] as i32), down(out[2] as i32));
+    }
+}
+
+/// The same a third the price, which the compiler doesn't find by itself: four neighbours along red in one go, then a rounding multiply.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+fn cube_row_wide(cube: &Cube, r: &mut [u8], g: &mut [u8], b: &mut [u8]) {
+    use std::arch::x86_64::*;
+    let n = cube.size;
+    let (dg, db) = (n, n * n);
+    let last = cube.points.len() - (db + dg + 2);
+    for (r, (g, b)) in r.iter_mut().zip(g.iter_mut().zip(b.iter_mut())) {
+        let (sr, sg, sb) = (cube.spots[*r as usize], cube.spots[*g as usize], cube.spots[*b as usize]);
+        let at = (sb.low as usize * db + sg.low as usize * dg + sr.low as usize).min(last);
+        // SAFETY: at is at most last, so each load's two points are inside points
+        let pair = |i: usize| unsafe { _mm_loadu_si128(cube.points.as_ptr().add(i).cast()) };
+        let (near, high) = (_mm256_set_m128i(pair(at + dg), pair(at)), _mm256_set_m128i(pair(at + db + dg), pair(at + db)));
+        let weight = _mm256_set1_epi16(sr.weight);
+        let along_red = |v: __m256i| {
+            let (from, to) = (_mm256_unpacklo_epi64(v, v), _mm256_unpackhi_epi64(v, v));
+            _mm256_add_epi16(from, _mm256_mulhrs_epi16(_mm256_sub_epi16(to, from), weight))
+        };
+        let (near, high) = (along_red(near), along_red(high));
+        let lerp = |from: __m128i, to: __m128i, weight: i16| _mm_add_epi16(from, _mm_mulhrs_epi16(_mm_sub_epi16(to, from), _mm_set1_epi16(weight)));
+        let near = lerp(_mm256_castsi256_si128(near), _mm256_extracti128_si256::<1>(near), sg.weight);
+        let high = lerp(_mm256_castsi256_si128(high), _mm256_extracti128_si256::<1>(high), sg.weight);
+        let out = _mm_cvtsi128_si64(lerp(near, high, sb.weight)) as u64;
+        (*r, *g, *b) = (down((out & 0xffff) as i32), down((out >> 16 & 0xffff) as i32), down((out >> 32 & 0xffff) as i32));
     }
 }
 
@@ -351,6 +381,21 @@ mod tests {
                     assert!((have as i32 - want as i32).abs() <= 1, "{p:?}: {:?} and {want:?}", [r[i], g[i], b[i]]);
                 }
             }
+        }
+    }
+
+    #[test]
+    fn the_vector_way_through_the_cube_gives_what_the_plain_way_does() {
+        let Baked::Cube { .. } = cube(|v| v, false) else { panic!("a cube") };
+        let graded = Graded::new(&cube(|v| v.sqrt(), false));
+        let Tables::Cube(tables) = &*graded.tables else { panic!("a cube") };
+        let px = noise(30_000);
+        let (mut r, mut g, mut b) = (px[..10_000].to_vec(), px[10_000..20_000].to_vec(), px[20_000..].to_vec());
+        let (mut r2, mut g2, mut b2) = (r.clone(), g.clone(), b.clone());
+        cube_row(tables, &mut r, &mut g, &mut b);
+        cube_row_plain(tables, &mut r2, &mut g2, &mut b2);
+        for (a, b) in r.iter().chain(&g).chain(&b).zip(r2.iter().chain(&g2).chain(&b2)) {
+            assert!((*a as i32 - *b as i32).abs() <= 1);
         }
     }
 

@@ -36,6 +36,7 @@ SCENARIOS = {
     "plain": {},
     "colour": {"colour_grading": {"on": True, "wheels": {"lift": [0.1, 0.05], "gain": [-0.1, 0.1]},
                                   "masters": {"gamma": 0.15, "gain": 1.1}}},
+    "colour3d": {"colour_grading": {"on": True, "saturation": 1.3, "masters": {"gamma": 0.15, "gain": 1.1}}},
     "crt": {"fun_pack": {"effect": "crt"}},
     "vhs": {"fun_pack": {"effect": "vhs"}},
     "desk": {"desk": {"on": True, "corners": [[0.2, 0.15], [0.8, 0.2], [0.85, 0.85], [0.15, 0.8]]}},
@@ -248,7 +249,7 @@ class Cell:
         self.scenario, self.load = name.split("#")[0].split("/")
         self.folder = folder
         folder.mkdir(parents=True)
-        self.loads = ["gpu", "cpu", "obs"] if self.load == "all" else [] if self.load == "idle" else ["gpu"] if self.load == "split" else [self.load]
+        self.loads = ["gpu", "cpu", "obs"] if self.load == "all" else [] if self.load == "idle" else ["gpu"] if self.load in ("split", "burst") else [self.load]
         self.processes = []
         self.app = self.phone = None
         self.obs_lines = []
@@ -271,14 +272,19 @@ class Cell:
             time.sleep(0.05)
         return False
 
+    def start_gpu(self):
+        a = self.args
+        process = self.load_program("gpu", "--width", str(a.gpu_width), "--height", str(a.gpu_height),
+                                    "--steps", str(a.split_steps if self.load == "split" else a.gpu_steps), "--vram-mb", str(a.gpu_vram),
+                                    "--slices", str(a.gpu_slices if self.load == "split" else 1), file="gpu.log")
+        self.processes.append(process)
+        if not self.wait_for_lines("gpu.log", 30):
+            self.result["error"] = "the GPU load never drew a frame"
+        return process
+
     def start_gpu_cpu(self):
-        if "gpu" in self.loads:
-            a = self.args
-            self.processes.append(self.load_program("gpu", "--width", str(a.gpu_width), "--height", str(a.gpu_height),
-                                                    "--steps", str(a.gpu_steps), "--vram-mb", str(a.gpu_vram),
-                                                    "--slices", str(a.gpu_slices if self.load == "split" else 1), file="gpu.log"))
-            if not self.wait_for_lines("gpu.log", 30):
-                self.result["error"] = "the GPU load never drew a frame"
+        if "gpu" in self.loads and self.load != "burst":
+            self.start_gpu()
         if "cpu" in self.loads:
             self.processes.append(self.load_program("cpu", "--threads", str(self.args.cpu_threads), "--duty", str(self.args.cpu_duty), file="cpu.log"))
 
@@ -408,9 +414,17 @@ class Cell:
             before = self.sample(lists)
             busy, rss, vram = [], [], []
             card = graphics_card()
-            until = time.monotonic() + a.seconds
+            begun = time.monotonic()
+            until = begun + a.seconds
+            burst = None
             while time.monotonic() < until:
                 time.sleep(0.5)
+                if self.load == "burst":
+                    elapsed = (time.monotonic() - begun) / a.seconds
+                    if burst is None and elapsed >= 0.2:
+                        burst = self.start_gpu()
+                    elif burst is not None and elapsed >= 0.5 and burst.poll() is None:
+                        stop(burst)
                 if card:
                     busy.append(int(card.read_text()))
                 rss.append(memory_kb(lists["app"]))
@@ -565,9 +579,12 @@ def matrix(args) -> list:
         return args.cells.split(",")
     if args.quick:
         return list(QUICK)
-    scenes = list(SCENARIOS)
+    scenes = [s for s in SCENARIOS if s != "colour3d"]
     cells = [f"none/{load}" for load in LOADS if load != "idle"]
     cells += [f"{s}/{load}" for s in scenes for load in LOADS]
+    # The one shader step's cell beside a game cut into many draws
+    cells.insert(cells.index("colour/cpu"), "colour/split")
+    cells.insert(0, "none/split")
     # The extra idle runs go in the middle and at the end, so a drift across the run shows up in the spread too
     cells.insert(len(cells) // 2, "plain/idle#2")
     cells.append("plain/idle#3")
@@ -663,6 +680,8 @@ def compare(results, path: Path):
             a, b = (was.get(key) or {}).get(field), (r.get(key) or {}).get(field)
             if a and b:
                 parts.append(f"{key.split('_')[0]} load {a} > {b}")
+        if r.get("swaps"):
+            parts.append(f"{len(r['swaps'])} swaps")
         print(f"  {r['cell']:<14} {', '.join(parts) or 'same'}")
 
 
@@ -698,6 +717,7 @@ def parse() -> argparse.Namespace:
     p.add_argument("--gpu-width", type=int, default=2560)
     p.add_argument("--gpu-height", type=int, default=1440)
     p.add_argument("--gpu-steps", type=int, default=20, help="texture reads per pixel, which sets how long one frame holds the card")
+    p.add_argument("--split-steps", type=int, default=25, help="the same for split, whose bands cost less, so it matches gpu's frame time")
     p.add_argument("--gpu-vram", type=int, default=3000, help="MB of textures the load keeps in use")
     p.add_argument("--gpu-slices", type=int, default=16, help="submissions a frame of the split load comes in")
     p.add_argument("--cpu-threads", type=int, default=0, help="0 for one per confined thread")

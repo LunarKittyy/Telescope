@@ -88,6 +88,7 @@ impl Rig {
             PackInfo::current(),
             Box::new(|_, _| Err(std::io::Error::other("no downloads in tests"))),
         );
+        vision.vision().wait_for_masks();
         let bus = EventBus::new();
         vision.attach(bus.sender());
         let mut host = FakeHost::new();

@@ -154,7 +154,8 @@ impl VisionService for VisionHost {
     }
 
     fn person_mask(&self, source_id: &str, frame: &Frame) -> Option<Arc<Vec<u8>>> {
-        self.shared.vision.person_mask(source_id, frame.number, frame.width as usize, frame.height as usize, &mut || rgb(frame))
+        let shared = frame.clone();
+        self.shared.vision.newest_mask(source_id, frame.number, frame.width as usize, frame.height as usize, Box::new(move || rgb(&shared)))
     }
 
     fn want_people(&self, owner: &str, on: bool) {

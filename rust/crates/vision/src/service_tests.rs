@@ -618,3 +618,118 @@ fn a_downloaded_pack_makes_a_missing_vision_look_again() {
     wait(|| v.state() == READY);
     assert_eq!(*states.lock().unwrap(), [LOADING, MISSING, OFF, LOADING, READY]);
 }
+
+/// A segmenter that takes a while and says where the bright block in the frame is, like a model looking at a person.
+struct Finder {
+    took: Duration,
+    looked: Arc<Mutex<Vec<Instant>>>,
+}
+
+impl Segmenter for Finder {
+    fn segment(&mut self, frame: &Rgb, _ts: i64) -> Result<Gray, VisionError> {
+        self.looked.lock().unwrap().push(Instant::now());
+        std::thread::sleep(self.took);
+        Ok(Gray { w: frame.w, h: frame.h, data: frame.data.as_chunks::<3>().0.iter().map(|p| if p[0] > 128 { 255 } else { 0 }).collect() })
+    }
+}
+
+struct Finders {
+    took: Duration,
+    looked: Arc<Mutex<Vec<Instant>>>,
+}
+
+impl Backend for Finders {
+    fn version(&self) -> String {
+        "finder".into()
+    }
+    fn segmenter(&self) -> Result<Box<dyn Segmenter>, VisionError> {
+        Ok(Box::new(Finder { took: self.took, looked: self.looked.clone() }))
+    }
+    fn pose(&self) -> Result<Box<dyn PoseModel>, VisionError> {
+        Err(VisionError::new("Nope", "no pose here"))
+    }
+}
+
+fn finder(took: Duration) -> (Vision, Arc<Mutex<Vec<Instant>>>) {
+    let looked: Arc<Mutex<Vec<Instant>>> = Default::default();
+    let backend: Arc<dyn Backend> = Arc::new(Finders { took, looked: looked.clone() });
+    let (v, _, _) = make(Box::new(move || Ok(backend.clone())));
+    v.load();
+    wait(|| v.state() == READY);
+    (v, looked)
+}
+
+/// A dark picture with a bright block, a stand-in for a person, with its left edge at x.
+fn someone_at(x: usize) -> Rgb {
+    let mut frame = Rgb::filled(256, 144, 0);
+    for row in 40..120 {
+        frame.data[(row * 256 + x) * 3..(row * 256 + x + 60) * 3].fill(255);
+    }
+    frame
+}
+
+#[test]
+fn a_frame_step_gets_the_newest_mask_without_waiting_for_the_model() {
+    let (v, looked) = finder(Duration::from_millis(30));
+    let frame = someone_at(50);
+    let ask = |seq: u64| {
+        let f = frame.clone();
+        let began = Instant::now();
+        let mask = v.newest_mask("a", seq, 256, 144, Box::new(move || Some(f)));
+        (mask, began.elapsed())
+    };
+    assert!(ask(1).0.is_none(), "nothing yet, and the first frame doesn't wait for the model to load either");
+    wait(|| v.stream("a").newest.lock().unwrap().mask.is_some());
+    let (mask, took) = ask(2);
+    assert!(mask.is_some());
+    assert!(took < Duration::from_millis(10), "{took:?}");
+    // Frames faster than the model: it skips some instead of falling further and further behind
+    (3..30).for_each(|seq| {
+        ask(seq);
+        std::thread::sleep(Duration::from_millis(5));
+    });
+    assert!(looked.lock().unwrap().len() < 15, "{}", looked.lock().unwrap().len());
+    v.drop_stream("a");
+    wait(|| !v.stream("a").newest.lock().unwrap().thread);
+}
+
+#[test]
+fn a_moving_person_is_never_more_than_a_frame_or_so_behind() {
+    let (v, _) = finder(Duration::from_millis(4));
+    const STEP: usize = 3;
+    let mut worst = 0;
+    for seq in 0..50usize {
+        let at = 30 + seq * STEP;
+        let frame = someone_at(at);
+        let mask = v.newest_mask("a", seq as u64, 256, 144, Box::new(move || Some(frame)));
+        if let Some(mask) = mask.filter(|_| seq > 5) {
+            // Where the mask's block starts on a row through it, with the carried part of the last mask counted out
+            let row = &mask[80 * 256..81 * 256];
+            let edge = row.iter().position(|v| *v > 128).unwrap();
+            worst = worst.max(at.abs_diff(edge));
+        }
+        std::thread::sleep(Duration::from_millis(33));
+    }
+    assert!(worst > 0 && worst <= 2 * STEP, "{worst} pixels behind, moving {STEP} a frame");
+}
+
+#[test]
+fn a_step_asking_at_another_size_gets_the_mask_it_can_at_once() {
+    let (v, _) = finder(Duration::from_millis(1));
+    let frame = someone_at(50);
+    let ask = |seq, w, h| {
+        let f = frame.clone();
+        v.newest_mask("a", seq, w, h, Box::new(move || Some(f)))
+    };
+    ask(1, 256, 144);
+    wait(|| v.stream("a").newest.lock().unwrap().mask.is_some());
+    assert_eq!(ask(2, 128, 72).unwrap().len(), 128 * 72);
+}
+
+#[test]
+fn waiting_for_masks_gives_each_frame_its_own() {
+    let (v, _) = finder(Duration::from_millis(1));
+    v.wait_for_masks();
+    let frame = someone_at(50);
+    assert!(v.newest_mask("a", 1, 256, 144, Box::new(move || Some(frame))).is_some());
+}

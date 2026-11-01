@@ -717,6 +717,53 @@ pub(crate) mod tests {
         assert_eq!(ctx.1.load(std::sync::atomic::Ordering::SeqCst), 2);
     }
 
+    /// A shader and a CPU step that do the same, as a step that can run either way, with the balance in the test's hands.
+    fn either(balance: Place) -> (Pipeline, Arc<Balance>) {
+        let balance = Arc::new(Balance::pinned_to(balance));
+        let mut p = Pipeline::with_balance(balance.clone());
+        struct Invert;
+        impl CpuStep for Invert {
+            fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+                frame.data_mut().iter_mut().for_each(|v| *v = 251 - *v + 16);
+            }
+        }
+        let step = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![StagedStep { owner: "either".into(), stage: FrameStage::Effects, step: FrameStep::Either(step, Box::new(Invert)) }]);
+        (p, balance)
+    }
+
+    #[test]
+    fn a_step_with_two_ways_goes_where_the_balance_says() {
+        let (mut p, _) = either(Place::Cpu);
+        let out = p.process(grey(8, 8, 100), &NoContext);
+        assert_eq!(p.last_transfers, (0, 0), "nothing on the card");
+        assert_eq!(out.data[0], 167);
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let (mut p, balance) = either(Place::Card);
+        let out = p.process(grey(8, 8, 100), &NoContext);
+        assert_eq!(p.last_transfers, (1, 1));
+        assert!((out.data[0] as i32 - 151).abs() <= 3, "{}", out.data[0]);
+        assert!(balance.last_wait() > 0, "the balance hears what the frame waited");
+    }
+
+    #[test]
+    fn frames_late_off_the_card_move_a_step_and_trials_watch_the_card_from_then_on() {
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let balance = Arc::new(Balance::free());
+        let (mut p, _) = either(Place::Card);
+        p.balance = balance.clone();
+        p.process(grey(8, 8, 100), &NoContext);
+        assert_eq!(p.last_transfers, (1, 1));
+        (0..8).for_each(|_| balance.note_wait(50_000_000));
+        assert_eq!(balance.place(), Place::Cpu);
+        p.process(grey(8, 8, 100), &NoContext);
+        assert_eq!(p.last_transfers, (0, 0));
+    }
+
     #[test]
     fn a_step_one_short_of_the_limit_that_recovers_starts_counting_again() {
         struct FailsUntil(u32, Arc<std::sync::Mutex<u32>>);
