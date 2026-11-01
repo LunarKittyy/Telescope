@@ -204,13 +204,19 @@ impl PluginFolder {
         plugin.api = m.api();
         plugin.permissions = m.permissions();
         plugin.manifest = m.clone();
+        let too_old = |api: i64| {
+            let api: &dyn std::fmt::Display = if api == 0 { &"?" } else { &api };
+            tr("It was made for an older Telescope (plugin API {api}) and needs an update.", &[("api", api)])
+        };
         match digest(path, dev) {
             Ok(d) => plugin.digest = d,
             Err(e) => {
                 // It was on: say why it didn't start
                 plugin.changed = enabled.contains_key(&name);
                 plugin.enabled = dev;
-                let why = if e.kind() == io::ErrorKind::InvalidData { e.to_string() } else { tr("Its files couldn't be read.", &[]) };
+                // A plugin for the Python app has a __pycache__ next to it, and that isn't what's wrong with it
+                let why = if plugin.api < OLDEST_PLUGIN_API { too_old(plugin.api) }
+                    else if e.kind() == io::ErrorKind::InvalidData { e.to_string() } else { tr("Its files couldn't be read.", &[]) };
                 return problem(plugin, why);
             }
         }
@@ -227,8 +233,7 @@ impl PluginFolder {
             return problem(plugin, tr("It needs a newer Telescope (plugin API {wanted}; this one has {have}).", &[("wanted", &api), ("have", &PLUGIN_API)]));
         }
         if api < OLDEST_PLUGIN_API {
-            let api: &dyn std::fmt::Display = if api == 0 { &"?" } else { &api };
-            return problem(plugin, tr("It was made for an older Telescope (plugin API {api}) and needs an update.", &[("api", api)]));
+            return problem(plugin, too_old(api));
         }
         let Some(main) = m.main() else {
             return problem(plugin, tr("Its {file} isn't valid.", &[("file", &MANIFEST)]));

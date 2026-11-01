@@ -209,6 +209,15 @@ fn compiled_files_next_to_the_source_are_refused() {
 }
 
 #[test]
+fn a_python_plugin_says_its_too_old_not_that_its_compiled() {
+    let p = plugins();
+    let folder = plugin(&p.folder, "thing", SIMPLE, json!({"api": 1}));
+    fs::create_dir(folder.join("__pycache__")).unwrap();
+    fs::write(folder.join("__pycache__/__init__.cpython-312.pyc"), b"\0").unwrap();
+    assert!(one(&p).problem.contains("older Telescope"), "{}", one(&p).problem);
+}
+
+#[test]
 fn one_that_was_on_and_got_a_bad_file_says_why_it_didnt_start() {
     let p = plugins();
     let folder = plugin(&p.folder, "thing", SIMPLE, json!({}));
