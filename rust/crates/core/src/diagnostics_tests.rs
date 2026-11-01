@@ -325,7 +325,9 @@ fn sanitize_gives_what_diagnostics_py_gives() {
         "x\u{2026}y 10.1.1.1/24", "/home/someone/.config and /home/someone2", "",
     ];
     let desktop = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../desktop");
+    // Set here because Windows' Python turns a home folder from the environment into \home\someone
     let script = "import json, sys\nsys.path.insert(0, sys.argv[1])\nfrom telescope import diagnostics\n\
+        diagnostics.Path.home = lambda: '/home/someone'\n\
         print(json.dumps([diagnostics.sanitize(t) for t in json.load(sys.stdin)]))\n";
     let mut cmd = std::process::Command::new("python3");
     cmd.args(["-I", "-X", "utf8", "-c", script]).arg(&desktop).env("HOME", "/home/someone");
