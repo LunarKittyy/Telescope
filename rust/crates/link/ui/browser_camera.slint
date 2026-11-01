@@ -1,7 +1,7 @@
 // The Browser camera card (desktop/telescope/plugins/browser_camera.py): the code to scan, what's connected, and the
 // size and rate the browser is asked to send.
 
-import { Theme, Icons, Button, Card, FormRow, ChoiceField, QrCode } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Button, Card, FormRow, ChoiceField, QrCode, Reveal } from "@ui-kit/ui-kit.slint";
 
 global Status {
     public pure function color(kind: string) -> color {
@@ -50,6 +50,17 @@ export component BrowserCameraCard inherits Card {
     callback size-picked(int);
     callback fps-picked(int);
 
+    // It sits low in its column and has the code to scan, so picking Browser camera brings it into view
+    changed shown => { reveal = shown; }
+    property <bool> reveal;
+    Timer {
+        interval: 50ms;
+        running: reveal;
+        triggered => {
+            reveal = false;
+            Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height);
+        }
+    }
     visible: shown;
     height: shown ? self.preferred-height : 0px;
     title: @tr("Browser camera");

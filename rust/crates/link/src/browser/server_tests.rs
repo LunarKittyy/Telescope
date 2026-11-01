@@ -495,6 +495,18 @@ fn the_pages_stats_reach_the_card_cleaned_up() {
 }
 
 #[test]
+fn a_new_video_connection_forgets_what_the_last_one_sent() {
+    let run = server();
+    let feed = run.feed();
+    let mut b = run.browser("");
+    b.recv_json();
+    b.text(json!({"type": "stats", "width": 1280, "height": 720, "fps": 30}));
+    assert!(wait(|| feed.sent().fps == Some(30), FIVE));
+    b.text(json!({"type": "offer", "sdp": "v=0"}));
+    assert!(wait(|| feed.sent() == Sent::default(), FIVE));
+}
+
+#[test]
 fn fragmented_messages_and_pings_are_handled() {
     let run = server();
     let feed = run.feed();

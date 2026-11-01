@@ -227,6 +227,16 @@ fn camera(feed: &BrowserFeed) -> Value {
 }
 
 #[test]
+fn a_camera_that_is_simply_slow_is_not_falling_behind() {
+    let sent = |fps, limit: &str| Sent { width: Some(1280), height: Some(720), fps, limit: limit.into() };
+    assert!(camera_limited(&sent(Some(20), ""), 19.5));
+    assert!(!camera_limited(&sent(Some(30), ""), 20.0), "the page sends 30 and 20 arrive");
+    assert!(!camera_limited(&sent(Some(20), "cpu"), 20.0), "the device can't keep up");
+    assert!(!camera_limited(&sent(Some(20), "bandwidth"), 20.0));
+    assert!(!camera_limited(&sent(None, ""), 20.0), "the page hasn't said yet");
+}
+
+#[test]
 fn offers_a_picker_entry_that_waits_for_a_browser() {
     let mut r = Rig::new();
     let launcher = r.launcher();

@@ -100,6 +100,10 @@ pub trait StreamSource: Send + Sync {
     fn waiting_text(&self) -> String {
         String::new()
     }
+    /// Frames reach the computer at this rate, under what was asked for, and that's all its camera makes: it isn't falling behind.
+    fn camera_limited(&self, _arrival: f32) -> bool {
+        false
+    }
 }
 
 /// The Connection section, read field by field so whatever else it holds (route, udp, newer keys) is written back as it was.

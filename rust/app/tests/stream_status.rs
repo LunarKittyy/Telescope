@@ -182,6 +182,24 @@ fn a_camera_making_fewer_frames_is_not_called_a_slow_link() {
 }
 
 #[test]
+fn a_browser_whose_camera_makes_no_more_is_not_behind() {
+    for (slow_camera, behind) in [(true, Vec::<String>::new()), (false, vec!["true".to_string()])] {
+        let r = Rig::new(if slow_camera { "slow-browser" } else { "behind-browser" });
+        r.offer(FakeSource { slow_camera, ..FakeSource::new("browser") });
+        r.pick("browser");
+        r.start();
+        r.worker(0).says("ok", "Streaming");
+        r.pump();
+        *r.worker(0).arrival.lock().unwrap() = 20.0;
+        report_slow(&r);
+        let heard: Vec<String> = r.heard().into_iter().filter_map(|l| l.strip_prefix("panel behind browser ").map(String::from)).collect();
+        assert_eq!(heard, behind, "camera {slow_camera}");
+        assert_eq!(r.text("net-tone"), if slow_camera { "" } else { "warn" });
+        assert_eq!(r.text("fps-tip").contains("Dim light"), slow_camera);
+    }
+}
+
+#[test]
 fn frames_lost_between_camera_and_computer_are_a_slow_link() {
     let r = streaming("link-rate");
     arrives(&r, 12.0, json!({"camera_fps": 30.0}));

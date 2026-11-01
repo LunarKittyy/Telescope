@@ -124,7 +124,7 @@
 "Browser camera" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
 "Browser camera isn't available" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
 "Browser, last connected {date}" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
-"Can't keep up" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"Can't keep up" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs", note = "Differs on purpose: a browser that sends all it makes and has no cpu or bandwidth limit is not behind (StreamSource::camera_limited)" }
 "Cancel" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Connected" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
 "Copy" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
@@ -689,7 +689,7 @@
 "Switch while held (push to talk while muted)" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
 "Takes out typing, fans and room hiss." = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
 "The phone's mic needs VB-Audio Virtual Cable on Windows." = { status = "ported", rust = "rust/crates/audio/ui/microphone.slint" }
-"The sounddevice package isn't installed." = { status = "ported", rust = "rust/crates/audio/src/backend.rs" }
+"The sounddevice package isn't installed." = { status = "dropped", reason = "the Windows backend lists outputs through cpal, built in, so this state can't happen" }
 "This camera's microphone isn't passed on. Pick it in your call app instead." = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
 "Unmute" = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
 "Use the browser's microphone on this computer while streaming. Apps list it as “{name}”." = { status = "ported", rust = "rust/crates/audio/src/plugin.rs" }
@@ -5082,7 +5082,7 @@
 "stream-streaming-usb" = { status = "todo" }
 # ── dialogs
 "dialog-adb-licence" = { status = "ported", rust = "rust/app/src/scenes.rs" }
-"dialog-add-phone" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"dialog-add-phone" = { status = "ported", rust = "rust/app/src/scenes.rs", note = "Differs on purpose: Browser camera sits beside Android when its plugin is on, and the dialog is centred on the window" }
 "dialog-add-phone-done" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "dialog-add-phone-usb" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "dialog-already-running" = { status = "todo" }

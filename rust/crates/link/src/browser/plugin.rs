@@ -45,6 +45,8 @@ const DEFAULT_FPS: u32 = 30;
 const MAX_SLOTS: i64 = 4;
 /// Waiting this long with nothing reaching the server is worth a hint: scanning and loading the page take seconds.
 pub const HINT_AFTER: Duration = Duration::from_secs(30);
+/// How much of what the page sends has to arrive for the link to be fine (sources.rs has the same for a phone).
+const CAMERA_LIMITED_SHARE: f32 = 0.9;
 const CPU_LIMIT: &str = n_("The device's processor can't keep up, so the browser is sending less. Try a lower resolution or frame rate.");
 const BANDWIDTH_LIMIT: &str = n_("The browser is lowering the picture to fit the connection or the bitrate for this resolution.");
 // Translators: Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons:
@@ -406,6 +408,14 @@ impl StreamSource for BrowserSource {
     fn waiting_text(&self) -> String {
         waiting_text()
     }
+    fn camera_limited(&self, arrival: f32) -> bool {
+        camera_limited(&self.feed.sent(), arrival)
+    }
+}
+
+/// The page says what it sends and what holds it back: nothing holding it back and all of that arriving means the camera makes no more.
+fn camera_limited(sent: &Sent, arrival: f32) -> bool {
+    sent.limit.is_empty() && sent.fps.is_some_and(|fps| fps > 0 && arrival >= fps as f32 * CAMERA_LIMITED_SHARE)
 }
 
 /// A browser the plugin knows: its source (made again when its name changes) and what it runs on.

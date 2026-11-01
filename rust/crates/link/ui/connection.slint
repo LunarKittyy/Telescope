@@ -1,7 +1,7 @@
 // The Connection plugin (desktop/telescope/plugins/connection.py): the card, the phone picker in the header, the Add
 // phone and Your phones dialogs (as popups) and the UDP row in Settings. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, TipBody, Button, IconButton, LinkText, Card, FormRow, Segmented, ChoiceField, TextField, TextCap, Switch, SettingRow, Tag, DialogFrame } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, TipBody, Button, IconButton, LinkText, Card, FormRow, Segmented, ChoiceField, TextField, TextCap, Switch, SettingRow, Tag, DialogFrame, WindowBox } from "@ui-kit/ui-kit.slint";
 
 // A plugged-in phone the Add phone dialog can pair over USB.
 export struct UsbPick {
@@ -191,6 +191,10 @@ export component ConnectionCard inherits Card {
     in property <[UsbPick]> picks;
     in property <string> result-text;
     in property <bool> paired;
+    // A source that needs no pairing (Browser camera), offered beside Android; "" without one
+    in property <string> other-name;
+    in-out property <int> add-page;
+    callback other-picked;
     callback add-closed;
     callback pick(string);
     callback usb-action-clicked;
@@ -218,6 +222,7 @@ export component ConnectionCard inherits Card {
 
     changed add-open => {
         if (self.add-open) {
+            self.add-page = 0;
             add-popup.show();
         } else {
             add-popup.close();
@@ -350,17 +355,35 @@ export component ConnectionCard inherits Card {
 
     add-popup := PopupWindow {
         close-policy: no-auto-close;
-        x: 0px;
-        y: 0px;
+        x: WindowBox.left(self.width) - root.absolute-position.x;
+        y: WindowBox.top(add-frame.preferred-height) - root.absolute-position.y;
         width: max(root.width, 460px);
-        DialogFrame {
+        add-frame := DialogFrame {
+            border-width: 1px;
+            border-color: Theme.border-strong;
+            border-radius: 12px;
+            property <bool> on-source: other-name != "" && !paired && add-page == 1;
             title: @tr("Add a phone");
-            subtitle: add-subtitle;
-            if qr-size > 0 && !paired: HorizontalLayout {
+            subtitle: on-source ? "" : add-subtitle;
+            if other-name != "" && !paired: Segmented {
+                label: @tr("What to add");
+                margin: 0px;
+                items: ["Android", other-name];
+                has-icons: [false, false];
+                icons: [Icons.x, Icons.x];
+                current: root.add-page;
+                picked(i) => { root.add-page = i; }
+            }
+            if on-source: Note { text: @tr("Works on an iPhone or anything else with a browser, with nothing to install."); kind: ""; }
+            if on-source: HorizontalLayout {
+                alignment: start;
+                Button { text: @tr("Use it"); role: "primary"; accessible-label: other-name; clicked => { root.other-picked(); } }
+            }
+            if qr-size > 0 && !paired && !on-source: HorizontalLayout {
                 alignment: center;
                 QrCode { cells: qr-cells; size: qr-size; }
             }
-            if wifi-shown && !paired: FormRow {
+            if wifi-shown && !paired && !add-frame.on-source: FormRow {
                 label: "Wi-Fi";
                 // Qt's label fills the row and centres its lines
                 VerticalLayout {
@@ -369,7 +392,7 @@ export component ConnectionCard inherits Card {
                     Note { text: wifi-text; }
                 }
             }
-            if usb-shown && !paired: FormRow {
+            if usb-shown && !paired && !add-frame.on-source: FormRow {
                 label: "USB";
                 VerticalLayout {
                     horizontal-stretch: 1;
@@ -424,10 +447,13 @@ export component ConnectionCard inherits Card {
 
     vcam-popup := PopupWindow {
         close-policy: no-auto-close;
-        x: 0px;
-        y: 0px;
+        x: WindowBox.left(self.width) - root.absolute-position.x;
+        y: WindowBox.top(vcam-frame.preferred-height) - root.absolute-position.y;
         width: max(root.width, 460px);
-        DialogFrame {
+        vcam-frame := DialogFrame {
+            border-width: 1px;
+            border-color: Theme.border-strong;
+            border-radius: 12px;
             title: @tr("Set up the virtual camera");
             Note { text: @tr("Telescope needs to switch on its virtual camera first. This asks for your password."); kind: ""; }
             HorizontalLayout {
@@ -549,8 +575,13 @@ export component PhonePicker inherits HorizontalLayout {
 
     phones-popup := PopupWindow {
         close-policy: no-auto-close;
+        x: WindowBox.left(self.width) - root.absolute-position.x;
+        y: WindowBox.top(phones-frame.preferred-height) - root.absolute-position.y;
         width: 460px;
-        DialogFrame {
+        phones-frame := DialogFrame {
+            border-width: 1px;
+            border-color: Theme.border-strong;
+            border-radius: 12px;
             title: @tr("Your phones");
             subtitle: @tr("Each phone keeps its own camera settings, and so does a browser once you change one. Removing a phone also unpairs it on the phone.");
             Card {
