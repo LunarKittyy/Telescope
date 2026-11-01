@@ -33,7 +33,7 @@ use telescope_core::ui::{CardSpec, Issue, IssueAction, IssueDoes, SlintSource, U
 use telescope_core::web::{ServerStats, Step, Web};
 
 pub const NAME: &str = "browser_camera";
-pub const SOURCE_ID: &str = "browser";
+pub const SOURCE_ID: &str = telescope_core::source::BROWSER_SOURCE;
 /// Then the id the browser's page keeps.
 pub const BROWSER_PREFIX: &str = "browser:";
 pub const REMEMBER_DAYS: f64 = 60.0;

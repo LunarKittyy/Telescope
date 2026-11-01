@@ -54,6 +54,9 @@ pub trait ControlClient: Send + Sync {
     fn has_audio(&self) -> bool;
 }
 
+/// Browser camera in the picker, for Add phone to offer it without knowing its plugin.
+pub const BROWSER_SOURCE: &str = "browser";
+
 /// Something other than a paired phone to stream from, like the Browser camera (StreamSource in plugin.py).
 pub trait StreamSource: Send + Sync {
     /// Also the key its per-device settings are saved under, so it mustn't look like a phone id.

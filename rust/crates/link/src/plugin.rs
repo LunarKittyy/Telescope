@@ -2,6 +2,7 @@
 //! phones dialogs, the Start banners and the UDP setting. Its decisions are connection.rs's; its state is shared with
 //! LinkService (shared.rs), which the window's stream flow calls, so the window never reaches into this plugin.
 
+use telescope_core::source::BROWSER_SOURCE;
 use telescope_core::i18n::Fields;
 use crate::adb_download;
 use crate::connection::{self, fix_actions, outdated_action, problem_text, route_text, status_line,
@@ -42,8 +43,6 @@ const P_USB: &str = "usb";
 const P_UPDATED: &str = "updated";
 const P_USB_STATE: &str = "usb_state";
 const P_USB_FORWARD: &str = "usb_forward";
-/// Add phone offers it beside Android, once its plugin has put it in the picker.
-const BROWSER_SOURCE: &str = crate::browser::plugin::SOURCE_ID;
 const P_EARLIER: &str = "earlier";
 const P_ADB: &str = "adb";
 const P_ADB_PROGRESS: &str = "adb_progress";

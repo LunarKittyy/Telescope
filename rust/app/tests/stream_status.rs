@@ -1,7 +1,7 @@
 // What the footer says about a running stream: a size on its way, frames arriving slowly, and whose fault that is.
 mod rig;
 
-use rig::{Listener, Rig};
+use rig::{FakeSource, Listener, Rig};
 use serde_json::json;
 use slint::ComponentHandle;
 use slint_interpreter::Value as SValue;
