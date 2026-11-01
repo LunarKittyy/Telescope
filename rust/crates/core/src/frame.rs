@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -41,17 +41,58 @@ pub struct Frame {
     pub number: u64,
     /// When the stream made it, monotonic nanoseconds (crate::time::monotonic_ns).
     pub time_ns: u64,
+    decoded: Option<Decoded>,
+}
+
+/// A picture as 8-bit B, G, R, rows `stride` bytes apart from `start`: what a decoder's colour conversion made.
+#[derive(Debug, Default, PartialEq)]
+pub struct Bgr {
+    pub data: Vec<u8>,
+    pub start: usize,
+    pub stride: usize,
+}
+
+impl Bgr {
+    pub fn row(&self, y: usize, width: usize) -> &[u8] {
+        &self.data[self.start + y * self.stride..][..width * 3]
+    }
+}
+
+/// The BGR a frame's pixels were made from. `of` names those pixels, so anything that gives the frame others leaves this behind.
+#[derive(Clone, Debug)]
+struct Decoded {
+    of: Weak<Vec<u8>>,
+    picture: Arc<Bgr>,
+}
+
+/// The same picture as the frame's pixels, so it never decides whether two frames are equal.
+impl PartialEq for Decoded {
+    fn eq(&self, _: &Decoded) -> bool {
+        true
+    }
 }
 
 impl Frame {
     pub fn new(width: u32, height: u32, format: PixelFormat, data: Vec<u8>) -> Frame {
         debug_assert_eq!(data.len(), format.size(width, height));
-        Frame { width, height, format, data: Arc::new(data), number: 0, time_ns: crate::time::monotonic_ns() }
+        Frame { width, height, format, data: Arc::new(data), number: 0, time_ns: crate::time::monotonic_ns(), decoded: None }
     }
 
     /// The pixels to change, copied first if anything else still holds them.
     pub fn data_mut(&mut self) -> &mut Vec<u8> {
+        self.decoded = None;
         Arc::make_mut(&mut self.data)
+    }
+
+    /// The frame with the BGR its pixels were converted from, which effects read in place of the lossier pixels.
+    pub fn with_bgr(mut self, picture: Arc<Bgr>) -> Frame {
+        self.decoded = Some(Decoded { of: Arc::downgrade(&self.data), picture });
+        self
+    }
+
+    /// The BGR this picture was made from, while the pixels are still that picture.
+    pub fn bgr(&self) -> Option<&Bgr> {
+        self.decoded.as_ref().filter(|d| Weak::as_ptr(&d.of) == Arc::as_ptr(&self.data)).map(|d| &*d.picture)
     }
 
     /// The I420 planes (Y, U, V); None for other formats.
@@ -202,6 +243,27 @@ mod tests {
         assert_eq!(a.data[0], 1);
         assert_eq!(b.data[0], 9);
         assert_eq!(b.i420_planes().unwrap().1, &[1]);
+    }
+
+    #[test]
+    fn the_decoders_bgr_stays_only_while_the_pixels_are_its_picture() {
+        let picture = Arc::new(Bgr { data: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], start: 1, stride: 6 });
+        let frame = Frame::new(2, 2, PixelFormat::I420, vec![1; 6]).with_bgr(picture.clone());
+        assert_eq!(frame.bgr().unwrap().row(1, 2), [8, 9, 10, 11, 12, 13]);
+        let shared = frame.clone();
+        assert_eq!(shared.bgr(), Some(&*picture), "a clone is the same picture");
+
+        let mut changed = frame.clone();
+        changed.data_mut()[0] = 9;
+        assert_eq!(changed.bgr(), None);
+        assert_eq!(frame.bgr(), Some(&*picture), "the other holders still see the old pixels");
+
+        let mut replaced = frame.clone();
+        replaced.data = Arc::new(vec![2; 6]);
+        assert_eq!(replaced.bgr(), None, "even if it went round data_mut");
+        let mut alone = Frame::new(2, 2, PixelFormat::I420, vec![1; 6]).with_bgr(picture.clone());
+        Arc::make_mut(&mut alone.data)[0] = 9;
+        assert_eq!(alone.bgr(), None, "the only holder, changed in place");
     }
 
     #[test]

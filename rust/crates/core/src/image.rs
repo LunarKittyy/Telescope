@@ -93,6 +93,18 @@ pub fn read_420(frame: &Frame, out: &mut [u8], pixel: impl Fn(u8, u8, u8) -> [u8
     Some(())
 }
 
+/// Reads the BGR the frame came with into out, as R, G, B. False when it has none.
+pub fn read_bgr(frame: &Frame, out: &mut [u8]) -> bool {
+    let Some(bgr) = frame.bgr() else { return false };
+    let w = frame.width as usize;
+    over_rows(out, w * 3, |y, line| {
+        for (o, p) in line.as_chunks_mut::<3>().0.iter_mut().zip(bgr.row(y, w).as_chunks::<3>().0) {
+            *o = [p[2], p[1], p[0]];
+        }
+    });
+    true
+}
+
 /// Writes a 4:2:0 picture of w x h into data: luma(x, y) for each pixel, chroma(cx, cy) as (u, v) for each 2 x 2.
 pub fn write_420(data: &mut [u8], w: usize, h: usize, nv12: bool, luma: impl Fn(usize, usize) -> u8 + Sync, chroma: impl Fn(usize, usize) -> (u8, u8) + Sync) {
     let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
@@ -120,6 +132,9 @@ pub fn write_420(data: &mut [u8], w: usize, h: usize, nv12: bool, luma: impl Fn(
 pub fn frame_rgb(frame: &Frame) -> Option<Vec<u8>> {
     let (w, h) = (frame.width as usize, frame.height as usize);
     let mut out = vec![0; w * h * 3];
+    if read_bgr(frame, &mut out) {
+        return Some(out);
+    }
     match frame.format {
         PixelFormat::Rgba => out.as_chunks_mut::<3>().0.iter_mut().zip(frame.data.as_chunks::<4>().0).for_each(|(o, p)| *o = [p[0], p[1], p[2]]),
         PixelFormat::Bgra => out.as_chunks_mut::<3>().0.iter_mut().zip(frame.data.as_chunks::<4>().0).for_each(|(o, p)| *o = [p[2], p[1], p[0]]),
@@ -392,6 +407,15 @@ mod tests {
             over_bands(&mut data, 3, |first, part| part.chunks_exact_mut(3).enumerate().for_each(|(i, line)| line.iter_mut().for_each(|v| *v += first + i + 1)));
             assert_eq!(data, (0..rows).flat_map(|r| [r + 1; 3]).collect::<Vec<_>>(), "{rows}");
         }
+    }
+
+    #[test]
+    fn frame_rgb_takes_the_decoders_bgr_when_the_frame_has_it() {
+        let bgr = crate::frame::Bgr { data: vec![0, 1, 2, 3, 4, 5, 6, 0, 0, 7, 8, 9, 10, 11, 12, 0, 0], start: 1, stride: 8 };
+        let plain = picture(2, 2, PixelFormat::I420);
+        let frame = plain.clone().with_bgr(std::sync::Arc::new(bgr));
+        assert_eq!(frame_rgb(&frame).unwrap(), [3, 2, 1, 6, 5, 4, 9, 8, 7, 12, 11, 10]);
+        assert_ne!(frame_rgb(&plain), frame_rgb(&frame));
     }
 
     #[test]

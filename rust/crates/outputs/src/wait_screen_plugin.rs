@@ -202,7 +202,10 @@ impl CpuStep for CoverStep {
                 }
             }
         };
-        *frame = Frame { number: frame.number, time_ns: frame.time_ns, ..picture };
+        let (number, time_ns) = (frame.number, frame.time_ns);
+        *frame = picture;
+        frame.number = number;
+        frame.time_ns = time_ns;
     }
 }
 
