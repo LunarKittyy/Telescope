@@ -36,26 +36,6 @@ pub fn use_gpu_painter(factory: GpuPainterFactory) {
     let _ = GPU_PAINTER.set(factory);
 }
 
-/// What to ask for, in order: just looking for GL loads Mesa's big GL libraries, about 25 MB, so it waits until there's no Vulkan.
-const BACKENDS: [wgpu::Backends; 2] = [wgpu::Backends::PRIMARY, wgpu::Backends::all()];
-
-fn first_adapter() -> Result<(wgpu::Instance, wgpu::Adapter), String> {
-    let mut why = String::new();
-    for backends in BACKENDS {
-        let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
-        desc.backends = backends;
-        let instance = wgpu::Instance::new(desc.with_env());
-        match block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            ..Default::default()
-        })) {
-            Ok(adapter) => return Ok((instance, adapter)),
-            Err(e) => why = e.to_string(),
-        }
-    }
-    Err(why)
-}
-
 /// Opens a graphics card for Slint's wgpu renderer when there's a GPU painter to share it with, and makes the painter on
 /// the same device: every window (the pop-out too) then renders with it, so their textures go anywhere. None keeps the
 /// default renderer (no painter, TELESCOPE_NO_GPU set, or no card wgpu can use).
@@ -65,7 +45,18 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
         return None;
     }
     let opened = (|| {
-        let (instance, adapter) = first_adapter()?;
+        // Not GL: looking for it loads Mesa's big GL libraries, about 25 MB, and a GL adapter found here can't present to the window
+        let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
+        desc.backends = wgpu::Backends::PRIMARY;
+        let instance = wgpu::Instance::new(desc.with_env());
+        let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            ..Default::default()
+        })).map_err(|e| e.to_string())?;
+        // WGPU_BACKEND can still pick it
+        if adapter.get_info().backend == wgpu::Backend::Gl {
+            return Err("GL can't draw this window".to_string());
+        }
         let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("telescope window"),
             required_limits: adapter.limits(),
@@ -195,12 +186,6 @@ mod tests {
         assert_eq!(painted(&mut c, 1..4, false), [1, 3]);
         assert!(c.due(4, false, true));
         assert_eq!(painted(&mut c, 5..8, false), [6]);
-    }
-
-    #[test]
-    fn gl_is_only_asked_for_after_the_rest() {
-        assert!(!BACKENDS[0].contains(wgpu::Backends::GL));
-        assert!(BACKENDS[1].contains(wgpu::Backends::GL | wgpu::Backends::PRIMARY));
     }
 
     #[test]
