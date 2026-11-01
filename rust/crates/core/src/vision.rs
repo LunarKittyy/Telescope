@@ -127,7 +127,8 @@ pub trait VisionService: Send + Sync {
     /// Start loading in the background, once; after no pack was found, again every few seconds.
     fn load(&self);
     /// From a frame step: how sure it is each pixel of source_id's frame is a person (0..255, the frame's size), or None
-    /// while it can't say. The same frame (by number) asked twice is worked out once.
+    /// while it can't say. The same frame (by number) asked twice is worked out once. The model runs elsewhere and this hands over
+    /// the newest mask it has, about a frame behind; only a stream's first mask is waited for.
     fn person_mask(&self, source_id: &str, frame: &Frame) -> Option<Arc<Vec<u8>>>;
     /// While any owner wants people, fed frames are looked at and people_seen and people_tracked follow.
     fn want_people(&self, owner: &str, on: bool);

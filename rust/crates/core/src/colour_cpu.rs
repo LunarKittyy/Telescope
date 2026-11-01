@@ -3,7 +3,7 @@
 //! average of each 2 x 2. Keeping to read_420 and rgb_to_420 would be cheaper, but their chroma is blockier and a swap would show.
 
 use crate::colour::{Baked, LEVELS};
-use crate::frame::{CpuStep, Frame, FrameContext, PixelFormat, Touch};
+use crate::frame::{CpuStep, Frame, FrameContext, PixelFormat};
 use crate::image::{byte_of, over_rows};
 use crate::workers::each_part;
 use std::sync::Arc;
@@ -30,7 +30,7 @@ enum Tables {
     Cube(Box<Cube>),
 }
 
-/// A baked LUT made ready for pixels, a table per transform so a swap doesn't have to wait for anything.
+/// A baked LUT made ready for pixels, up front so a swap doesn't have to wait for anything.
 pub struct Graded {
     tables: Arc<Tables>,
 }
@@ -317,10 +317,6 @@ impl CpuStep for Graded {
             PixelFormat::Rgba => self.packed(frame.data_mut(), w, 0),
             PixelFormat::Bgra => self.packed(frame.data_mut(), w, 2),
         }
-    }
-
-    fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
-        Touch::Changes
     }
 }
 

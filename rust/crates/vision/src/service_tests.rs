@@ -678,8 +678,7 @@ fn a_frame_step_gets_the_newest_mask_without_waiting_for_the_model() {
         let mask = v.newest_mask("a", seq, 256, 144, Box::new(move || Some(f)));
         (mask, began.elapsed())
     };
-    assert!(ask(1).0.is_none(), "nothing yet, and the first frame doesn't wait for the model to load either");
-    wait(|| v.stream("a").newest.lock().unwrap().mask.is_some());
+    assert!(ask(1).0.is_some(), "a stream's first frame waits for its mask");
     let (mask, took) = ask(2);
     assert!(mask.is_some());
     assert!(took < Duration::from_millis(10), "{took:?}");
@@ -722,7 +721,6 @@ fn a_step_asking_at_another_size_gets_the_mask_it_can_at_once() {
         v.newest_mask("a", seq, w, h, Box::new(move || Some(f)))
     };
     ask(1, 256, 144);
-    wait(|| v.stream("a").newest.lock().unwrap().mask.is_some());
     assert_eq!(ask(2, 128, 72).unwrap().len(), 128 * 72);
 }
 
@@ -732,4 +730,12 @@ fn waiting_for_masks_gives_each_frame_its_own() {
     v.wait_for_masks();
     let frame = someone_at(50);
     assert!(v.newest_mask("a", 1, 256, 144, Box::new(move || Some(frame))).is_some());
+}
+
+#[test]
+fn a_first_mask_that_doesnt_come_doesnt_hold_the_stream_up_for_long() {
+    let (v, _) = finder(Duration::from_millis(1));
+    let began = Instant::now();
+    assert!(v.newest_mask("a", 1, 256, 144, Box::new(|| None)).is_none());
+    assert!(began.elapsed() < Duration::from_millis(100), "{:?}", began.elapsed());
 }

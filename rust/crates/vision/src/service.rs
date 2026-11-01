@@ -26,6 +26,8 @@ pub const MASK_STILL_EVERY_S: f64 = 1.0 / 15.0;
 /// Power-saving effects (Settings > Video): the mask at most this often even while something moves, people this often.
 pub const SAVING_PEOPLE_EVERY_S: f64 = 0.16;
 pub const SAVING_PEOPLE_STILL_EVERY_S: f64 = 0.5;
+/// How long a stream's first frame waits for its mask, so the picture doesn't go out without one when a stream starts.
+pub const FIRST_MASK_WAIT_S: f64 = 0.5;
 /// Without a pack, how often asking looks for one again (a download may have finished).
 pub const LOOK_AGAIN_S: f64 = 5.0;
 /// A model nothing has asked for this long is closed and its memory given back; switched back on sooner, it's still there.
@@ -134,6 +136,8 @@ pub(crate) struct NewestMask {
     /// What was last asked for, so a second step on one frame doesn't ask again.
     asked: Option<(u64, usize, usize)>,
     mask: Option<(usize, usize, Arc<Vec<u8>>)>,
+    /// How many frames the thread has finished, with a mask or without.
+    done: u64,
     thread: bool,
 }
 
@@ -155,6 +159,7 @@ pub(crate) struct StreamVision {
     pub(crate) mask: Mutex<MaskState>,
     pub(crate) newest: Mutex<NewestMask>,
     mask_wanted: Condvar,
+    mask_done: Condvar,
     pub(crate) people: Mutex<PeopleState>,
     pub(crate) woken: Condvar,
     pub(crate) stopping: AtomicBool,
@@ -167,6 +172,7 @@ impl StreamVision {
                                          motion: Motion::default(), asked: 0.0 }),
             newest: Mutex::default(),
             mask_wanted: Condvar::new(),
+            mask_done: Condvar::new(),
             people: Mutex::new(PeopleState { frame: None, at: 0.0, motion: Motion::default(), thread: None, quit: None, wake: false, fed: 0.0 }),
             woken: Condvar::new(),
             stopping: AtomicBool::new(false),
@@ -338,6 +344,13 @@ impl Vision {
                 n.thread = std::thread::Builder::new().name("vision-mask".into()).spawn(move || mask_loop(inner, backend, sv2)).is_ok();
             }
             sv.mask_wanted.notify_all();
+        }
+        if n.mask.is_none() {
+            let (done, until) = (n.done, std::time::Instant::now() + std::time::Duration::from_secs_f64(FIRST_MASK_WAIT_S));
+            while n.mask.is_none() && n.done == done {
+                let Some(left) = until.checked_duration_since(std::time::Instant::now()) else { break };
+                n = sv.mask_done.wait_timeout(n, left).unwrap().0;
+            }
         }
         match &n.mask {
             Some((mw, mh, mask)) if (*mw, *mh) == (w, h) => Some(mask.clone()),
@@ -667,9 +680,10 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
         m.asked = monotonic();
         let mask = vision.mask(&mut m, &*backend, seq, w, h, &mut || picture.take().and_then(|p| p()));
         drop(m);
-        if let Some(mask) = mask {
-            sv.newest.lock().unwrap().mask = Some((w, h, mask));
-        }
+        let mut n = sv.newest.lock().unwrap();
+        n.done += 1;
+        n.mask = mask.map(|mask| (w, h, mask)).or(n.mask.take());
+        sv.mask_done.notify_all();
     }
 }
 

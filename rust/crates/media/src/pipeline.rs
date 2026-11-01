@@ -1,7 +1,8 @@
 //! A stream's frame steps, run in FRAME_STAGES order (stream_flow.pipeline and StreamWorker._process), which is never changed. CPU
 //! steps run on the stream's thread and shader steps on the graphics card. The picture goes up at the first shader and stays there
 //! for as long as the order allows: a skipped or idle CPU step doesn't bring it down, one that only reads brings a copy down, and
-//! only one that changes the pixels makes the next shader upload again. Transfers are counted here; see transfers.rs.
+//! only one that changes the pixels makes the next shader upload again. Transfers are counted here; see transfers.rs. A step that can
+//! run either way goes where core::balance says, which hears from here what each frame waited for the card.
 
 use crate::gpu::{self, Gpu, Held, MaskPlane};
 use crate::transfers;
@@ -749,7 +750,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn frames_late_off_the_card_move_a_step_and_trials_watch_the_card_from_then_on() {
+    fn a_busy_card_moves_the_step_from_the_next_frame_on() {
         if Gpu::shared().is_none() {
             return eprintln!("no graphics card; skipped");
         }

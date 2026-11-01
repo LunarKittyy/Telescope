@@ -84,6 +84,29 @@ def graphics_card():
     return next(iter(sorted(Path("/sys/class/drm").glob("card*/device/gpu_busy_percent"))), None)
 
 
+def read_number(path) -> float:
+    try:
+        return float(Path(path).read_text())
+    except (OSError, ValueError):
+        return math.nan
+
+
+def card_sensors() -> dict:
+    """amdgpu's sensors, readable without root: watts in the card's own rolling average, and core and memory clocks in MHz."""
+    card = graphics_card()
+    folder = next(iter(sorted(card.parent.glob("hwmon/hwmon*"))), None) if card else None
+    if not folder:
+        return {}
+    return {"gpu_w": read_number(folder / "power1_average") / 1e6, "core_mhz": read_number(folder / "freq1_input") / 1e6, "memory_mhz": read_number(folder / "freq2_input") / 1e6}
+
+
+def package_joules():
+    """(joules so far, where the counter wraps) of the CPU package from RAPL, None where that isn't readable."""
+    folder = Path("/sys/class/powercap/intel-rapl:0")
+    used, wraps = read_number(folder / "energy_uj"), read_number(folder / "max_energy_range_uj")
+    return None if math.isnan(used) or math.isnan(wraps) else (used / 1e6, wraps / 1e6)
+
+
 def die_with_parent():
     # PR_SET_PDEATHSIG: nothing lingers if this script is killed
     import ctypes
@@ -417,8 +440,11 @@ class Cell:
             begun = time.monotonic()
             until = begun + a.seconds
             burst = None
+            sensors, energy = [], package_joules()
+            energy_at = time.monotonic()
             while time.monotonic() < until:
                 time.sleep(0.5)
+                sensors.append(card_sensors())
                 if self.load == "burst":
                     elapsed = (time.monotonic() - begun) / a.seconds
                     if burst is None and elapsed >= 0.2:
@@ -430,11 +456,27 @@ class Cell:
                 rss.append(memory_kb(lists["app"]))
             after = self.sample(lists)
             self.result.update(self.measure(before, after, busy, rss))
+            self.result["power"] = self.power(sensors, energy, energy_at)
         except OSError as e:
             self.result["error"] = str(e)
         finally:
             self.stop_all()
         return self.result
+
+    def power(self, sensors, energy, energy_at) -> dict:
+        """Mean sensor values over the window. The first few of the card's are dropped, since its figure is a rolling average."""
+        out = {}
+        settled = sensors[len(sensors) // 5:]
+        for key in ("gpu_w", "core_mhz", "memory_mhz"):
+            values = [row[key] for row in settled if not math.isnan(row.get(key, math.nan))]
+            if values:
+                out[key] = rounded(statistics.mean(values), 1)
+                out[f"{key}_spread"] = rounded(statistics.pstdev(values), 1)
+        finish = package_joules()
+        if energy and finish:
+            used = finish[0] - energy[0] + (energy[1] if finish[0] < energy[0] else 0)
+            out["cpu_w"] = rounded(used / (time.monotonic() - energy_at), 1)
+        return out
 
     def stop_all(self):
         for process in [self.app, *reversed(self.processes), self.phone]:
@@ -597,7 +639,7 @@ def cell(value, width, digits=1):
 
 
 COLUMNS = (("cell", 14), ("fps", 5), ("p50", 5), ("p95", 5), ("p99", 6), ("worst", 6), ("stut", 4), ("lat50", 6), ("lat99", 6), ("cpu%", 5), ("3d%", 4), ("dec%", 4),
-           ("mem", 4), ("gpuL", 5), ("cpuL", 5), ("obsL", 5), ("", 1))
+           ("mem", 4), ("gpuL", 5), ("cpuL", 5), ("obsL", 5), ("gpuW", 5), ("cpuW", 5), ("", 1))
 
 
 def row(r, alone) -> str:
@@ -613,6 +655,7 @@ def row(r, alone) -> str:
               r.get("cpu_pct"), sum(v for k, v in engines.items() if k.startswith(("gfx", "compute"))) if engines else None,
               sum(v for k, v in engines.items() if k.startswith(("dec", "vcn", "enc", "jpeg"))) if engines else None,
               r.get("rss_mb"), share("gpu_load", "fps", "gpu"), share("cpu_load", "slices_per_s", "cpu"), share("obs_load", "fps", "obs"),
+              (r.get("power") or {}).get("gpu_w"), (r.get("power") or {}).get("cpu_w"),
               "!" if r.get("warnings") or r.get("error") else ""]
     return " ".join(cell(v, w[1]) if i else str(v).ljust(w[1]) for i, (v, w) in enumerate(zip(values, COLUMNS)))
 
