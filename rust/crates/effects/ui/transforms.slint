@@ -24,6 +24,8 @@ export component TransformsCard inherits Card {
     in property <string> stretch-y-text;
     in property <string> reset-tip;
     in property <string> pan-tip;
+    in property <string> pan-add-x;
+    in property <string> pan-add-y;
     in property <string> reset-hint;
     in property <[string]> stretch-tips: ["", ""];
     callback reset-clicked;
@@ -137,6 +139,8 @@ export component TransformsCard inherits Card {
                 hue: root.hue;
                 tip: root.pan-tip;
                 label: @tr("Pan");
+                shortcut: "transforms.pan_x transforms.pan_y";
+                shortcut-adds: [{ id: "transforms.pan_x", text: root.pan-add-x }, { id: "transforms.pan_y", text: root.pan-add-y }];
                 pointer(x, y) => { root.pad-pointer(x, y); }
                 key(k, s) => { root.pad-key(k, s); }
                 reset => { root.pad-reset(); }

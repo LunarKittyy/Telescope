@@ -24,6 +24,39 @@ export component FocusRing inherits Rectangle {
     border-color: Theme.accent;
 }
 
+// A link the person can click: the text in the accent colour, which opens its address.
+export component LinkText inherits Rectangle {
+    in property <string> text;
+    in property <string> url;
+    in property <length> font-size: 12px;
+    callback opened(string);
+    height: 18px;
+    width: label.preferred-width;
+    accessible-role: button;
+    accessible-label: text;
+    accessible-description: url;
+    accessible-action-default => { root.opened(url); }
+    forward-focus: focus;
+    focus := FocusScope {
+        key-pressed(e) => {
+            if (e.text == " " || e.text == "\n") {
+                if (!e.repeat) { root.opened(url); }
+                return accept;
+            }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: 4px; width: parent.width + 4px; height: parent.height + 4px; }
+    TouchArea { mouse-cursor: pointer; clicked => { root.opened(url); } }
+    label := Text {
+        text: root.text;
+        font-family: Theme.font;
+        font-size: root.font-size;
+        color: Theme.accent-soft;
+        vertical-alignment: center;
+    }
+}
+
 // QPushButton: raised fill, strong border, 600 weight. role "primary" is the filled lavender one and "danger" the dark red one.
 export component Button inherits Rectangle {
     in property <string> text;

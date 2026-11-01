@@ -645,7 +645,7 @@ fn h264_needs_a_decoder_here() {
     let mut host = FakeHost::new();
     p.on_phone_state(&mut host, &json!({"cameras": [], "codecs": ["mjpeg", "h264"]}));
     assert_eq!(p.props()["h264-enabled"], false);
-    assert!(p.props()["light-tip"].as_str().unwrap().contains("PyAV"));
+    assert!(p.props()["light-tip"].as_str().unwrap().contains("FFmpeg"));
     assert_eq!(p.stream_format(), "mjpeg");
     assert_eq!(p.props()["h264"], false);
 }

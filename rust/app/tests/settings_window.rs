@@ -177,6 +177,9 @@ fn the_main_window_answers_the_right_click_menu() {
     assert_eq!(r.w.ui.get_global_property("Shortcuts", "available"), Ok(SValue::Bool(true)));
     let SValue::Model(rows) = r.w.ui.invoke_global("Shortcuts", "bindings-for", &[SValue::String("mute".into()), SValue::Number(0.0)]).unwrap() else { panic!("the rows") };
     assert_eq!(slint::Model::row_count(&rows), 1);
+    // A control with two actions lists what either one has
+    let SValue::Model(rows) = r.w.ui.invoke_global("Shortcuts", "bindings-for", &[SValue::String("pan mute".into()), SValue::Number(0.0)]).unwrap() else { panic!("the rows") };
+    assert_eq!(slint::Model::row_count(&rows), 1);
     r.w.ui.invoke_global("Shortcuts", "add", &[SValue::String("mute".into())]).unwrap();
     assert_eq!(*heard.lock().unwrap(), ["shortcut-menu add \"mute\""]);
 }

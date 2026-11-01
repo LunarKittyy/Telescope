@@ -63,6 +63,8 @@ struct AddPhone {
     paired: Option<String>,
     /// Get adb was pressed: the licence question shows until they agree.
     confirming: bool,
+    /// The licence question's parts after usb_text: the link's words, the rest of its sentence and the line under it.
+    licence: Option<(String, String, String)>,
 }
 
 impl Drop for AddPhone {
@@ -512,7 +514,7 @@ impl ConnectionPlugin {
         let mut add = AddPhone {
             offer: None, qr: (Vec::new(), 0), wifi_text: String::new(), usb_text: String::new(), usb_kind: "status_dim",
             usb_action: String::new(), usb_pick_action: String::new(), usb_states: Vec::new(), chosen: None, last_offer: HashMap::new(), paired: None,
-            confirming: false,
+            confirming: false, licence: None,
         };
         match self.link.pair(&cid, &cname) {
             Ok(offer) => {
@@ -583,6 +585,9 @@ impl ConnectionPlugin {
             "add-subtitle": if paired { tr("You can start streaming now.") } else { tr("Open Telescope on the phone first.") },
             "qr-cells": add.qr.0, "qr-size": add.qr.1,
             "wifi-text": add.wifi_text, "usb-text": add.usb_text, "usb-kind": add.usb_kind, "usb-action": add.usb_action, "usb-pick-action": add.usb_pick_action,
+            "usb-link-text": add.licence.as_ref().map(|l| l.0.as_str()).unwrap_or_default(), "usb-link-url": adb_download::LICENSE_URL,
+            "usb-link-tail": add.licence.as_ref().map(|l| l.1.as_str()).unwrap_or_default(),
+            "usb-after": add.licence.as_ref().map(|l| l.2.as_str()).unwrap_or_default(),
             "picks": picks, "paired": paired,
             "result-text": add.paired.as_ref().map(|n| tr("Paired with {name}").field("name", n)).unwrap_or_default(),
         }));
@@ -647,17 +652,23 @@ impl ConnectionPlugin {
             return;
         }
         if !add.confirming {
-            // confirm(): Google's software, so their licence applies
+            // confirm(): Google's software, so their licence applies. Slint's Text has no links, so it's cut around its link
             add.confirming = true;
-            add.usb_text = format!("{} {}", tr("USB needs adb, Google's tool for talking to Android phones."),
-                                   tr("Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: {url}")
-                                       .field("size", adb_download::APPROX_SIZE).field("url", adb_download::LICENSE_URL));
+            let question = tr("Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it.")
+                .field("size", adb_download::APPROX_SIZE).field("url", adb_download::LICENSE_URL);
+            let (before, licence) = match around_link(&question, adb_download::LICENSE_URL) {
+                Some((before, link, tail, after)) => (before, Some((link, tail, after))),
+                None => (without_links(&question), None),
+            };
+            add.usb_text = format!("{} {}", tr("USB needs adb, Google's tool for talking to Android phones."), before.trim_end());
+            add.licence = licence;
             add.usb_kind = "status_dim";
             add.usb_action = tr("Agree and download");
             self.render_add(host, true);
             return;
         }
         add.confirming = false;
+        add.licence = None;
         add.usb_action.clear();
         add.usb_pick_action.clear();
         add.usb_text = tr("Getting adb from Google…");
@@ -1158,6 +1169,14 @@ fn link_label(text: &str, target: &str) -> Option<String> {
     Some(text[start..].split("</a>").next()?.to_string())
 }
 
+/// A text cut around its <a href="target">: what's before it, its words, the rest of that line and what's after a <br><br>.
+fn around_link(text: &str, target: &str) -> Option<(String, String, String, String)> {
+    let (before, rest) = text.split_once(&format!("<a href=\"{target}\">"))?;
+    let (link, rest) = rest.split_once("</a>")?;
+    let (tail, after) = rest.split_once("<br><br>").unwrap_or((rest, ""));
+    Some((before.to_string(), link.to_string(), tail.to_string(), after.to_string()))
+}
+
 /// The first letter in capitals: a link from the middle of a sentence, shown as a button.
 fn capitalised(text: &str) -> String {
     let mut chars = text.chars();
@@ -1404,6 +1423,7 @@ impl Plugin for ConnectionPlugin {
             ("card", "add-closed") => self.close_add(host),
             ("card", "pick") => self.pick_usb(host, &s(0)),
             ("card", "usb-action-clicked") => self.get_adb(host),
+            ("card", "usb-link-clicked") => host.open_url(adb_download::LICENSE_URL),
             ("card", "usb-pick-clicked") => self.pick_adb(host),
             ("card", "vcam-answered") => {
                 let answer = |i: usize| event.args.get(i).and_then(Value::as_bool).unwrap_or(false);
@@ -3073,9 +3093,15 @@ mod tests {
         e.ui("card", "add-phone", vec![]);
         e.ui("card", "usb-action-clicked", vec![]);
         assert_eq!(e.props("card")["usb-action"], "Agree and download");
-        assert!(e.props("card")["usb-text"].as_str().unwrap().contains("Android SDK License"));
+        let props = e.props("card");
+        assert!(props["usb-text"].as_str().unwrap().ends_with("their Android SDK License applies to it:"), "{}", props["usb-text"]);
+        assert_eq!((props["usb-link-text"].as_str(), props["usb-link-tail"].as_str(), props["usb-after"].as_str()), (Some("read it here"), Some("."), Some("Wi-Fi works without it.")));
+        assert!(!format!("{props:?}").contains("<a") && !format!("{props:?}").contains("<br"));
+        e.ui("card", "usb-link-clicked", vec![]);
+        assert!(e.host.calls.iter().any(|c| c == &format!("open_url {}", adb_download::LICENSE_URL)));
         e.plugin.on_ui(&mut e.host, &UiEvent { ui: "card".into(), callback: "usb-action-clicked".into(), args: vec![] });
         assert_eq!(e.props("card")["usb-text"], "Getting adb from Google…");
+        assert_eq!((e.props("card")["usb-link-text"].as_str(), e.props("card")["usb-after"].as_str()), (Some(""), Some("")), "the link goes with the question");
         *e.link.adb.lock().unwrap() = true;
         release.send(()).unwrap();
         e.settle_until(|e| e.host.is_scheduled(T_PAIR_USB));

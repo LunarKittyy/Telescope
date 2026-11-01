@@ -179,6 +179,11 @@ pub fn keys_from_slint(text: &str, ctrl: bool, alt: bool, shift: bool, meta: boo
     Combo { ctrl, alt, shift, meta, key }.text()
 }
 
+/// Whether a key press from Slint is Ctrl, Alt, Shift or Meta alone (Caps Lock isn't one).
+pub fn is_bare_modifier(text: &str) -> bool {
+    matches!(text, "\u{10}" | "\u{11}" | "\u{12}" | "\u{13}" | "\u{15}" | "\u{16}" | "\u{17}" | "\u{18}")
+}
+
 /// What this system calls the Windows/Super key.
 pub const META_NAME: &str = if cfg!(windows) { "Win" } else { "Meta" };
 

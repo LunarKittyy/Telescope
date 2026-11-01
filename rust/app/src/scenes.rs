@@ -186,7 +186,20 @@ impl telescope_audio::backend::MicBackend for SceneMic {
     fn teardown(&self) {}
 }
 
+/// What a scene changes in the plugins services() loads.
+#[derive(Clone, Copy, Default)]
+struct Changes {
+    /// RNNoise's library isn't there (translation_scenes_audio.rnnoise_problem).
+    no_rnnoise: bool,
+    /// Stream output is there, on a computer that can't decode H.264 (translation_scenes_camera.stream_no_pyav).
+    no_h264: bool,
+}
+
 fn services(link: SceneLink) -> Arc<Services> {
+    services_with(link, Changes::default())
+}
+
+fn services_with(link: SceneLink, changes: Changes) -> Arc<Services> {
     HAS_LOG.store(false, std::sync::atomic::Ordering::Relaxed);
     let link: Arc<dyn Link> = Arc::new(link);
     let connection = link.clone();
@@ -205,8 +218,13 @@ fn services(link: SceneLink) -> Arc<Services> {
         plugins: Box::new(move || {
             let shared = telescope_link::shared::Shared::new(Arc::new(NoTunnels));
             let pictures = telescope_effects::shared::picture_reader(Arc::new(telescope_media::FfmpegMedia));
+            let denoise: Box<dyn Fn() -> String + Send> = if changes.no_rnnoise {
+                Box::new(|| telescope_audio::denoise::problem_text(&("missing", String::new())))
+            } else {
+                Box::new(String::new)
+            };
             // The effects as main.rs has them; the ones that reach this computer's desktop or cameras are left out
-            vec![
+            let mut plugins = vec![
                 Box::new(setup_plugin()) as Box<dyn telescope_core::plugin::Plugin>,
                 Box::new(telescope_setup::monitoring::MonitoringPlugin::new()),
                 Box::new(telescope_link::plugin::ConnectionPlugin::new(connection.clone(), shared)),
@@ -219,13 +237,17 @@ fn services(link: SceneLink) -> Arc<Services> {
                 Box::new(telescope_effects::desk::DeskPlugin::new()),
                 Box::new(telescope_effects::name_tag::NameTagPlugin::new()),
                 Box::new(telescope_effects::notes::NotesPlugin::new()),
-                Box::new(telescope_audio::plugin::MicrophonePlugin::new(Arc::new(SceneMic), None).with_denoise_problem(Box::new(String::new))),
+                Box::new(telescope_audio::plugin::MicrophonePlugin::new(Arc::new(SceneMic), None).with_denoise_problem(denoise)),
                 Box::new(UpdatesPlugin::new(Arc::new(NoUpdates), "stable")),
                 // No global shortcuts: the scenes stay away from this computer's desktop
                 Box::new(ShortcutsPlugin::with_backend(RemoteActions::default(), Box::new(|_| None))),
                 Box::new(telescope_effects::photos::PhotosPlugin::new()),
                 Box::new(telescope_effects::qr_reader::QrReaderPlugin::new()),
-            ]
+            ];
+            if changes.no_h264 {
+                plugins.push(Box::new(telescope_outputs::stream_output::StreamOutputPlugin::new(false)));
+            }
+            plugins
         }),
     })
 }
@@ -348,6 +370,28 @@ fn add_phone_pairing(adb: bool, network: bool, pairs: bool) -> Setup {
     }
 }
 
+/// translation_scenes.adb_licence: on Windows without adb, Get adb from Google pressed. Here the question is in Add phone.
+fn adb_licence() -> Setup {
+    let link = SceneLink { answer: Some(Resolution::new(PhoneStatus::Unreachable)), adb: false, network: true, pairs: false };
+    let mut setup = add_phone(false, true);
+    setup.services = Some(services(link));
+    setup.then = Some(Box::new(|w| {
+        telescope_link::platform::set_windows(Some(true));
+        w.call_ui("connection", "card", "add-phone");
+        w.call_ui("connection", "card", "usb-action-clicked");
+        telescope_link::platform::set_windows(None);
+    }));
+    setup
+}
+
+/// The window with the mic on, as translation_scenes_audio.main_with_mic has it.
+fn mic_config() -> Value {
+    let mut config = main_window_config(true);
+    config["selected_device"] = json!("phone-1");
+    config["devices"] = json!({"phone-1": {"plugin_configs": {"microphone": {"enabled": true}}}});
+    config
+}
+
 /// settings_window._SIZE.
 const SETTINGS_SIZE: (f32, f32) = (940.0, 680.0);
 
@@ -366,17 +410,34 @@ pub fn all() -> Vec<Scene> {
         Scene::new("banner-plugins-off-two", || turned_off(&["monitoring", "transforms"])),
         Scene::new("banner-plugins-off-several", || turned_off(&["monitoring", "transforms", "presets"])),
         // translation_scenes_audio.main_with_mic: the Pixel 8's settings have the mic on
-        Scene::new("main-microphone", || {
-            let mut config = main_window_config(true);
-            config["selected_device"] = json!("phone-1");
-            config["devices"] = json!({"phone-1": {"plugin_configs": {"microphone": {"enabled": true}}}});
-            Setup::window(Some(services(quiet())), config, WIDTH_THREE_COL, 900.0)
-        }),
+        Scene::new("main-microphone", || Setup::window(Some(services(quiet())), mic_config(), WIDTH_THREE_COL, 900.0)),
     ];
     // translation_scenes_audio.mic_scene: the Microphone card alone, switched off (the worked example of a card scene)
     scenes.push(Scene::new("mic-off", || Setup {
         page: Page::Card { plugin: "microphone".into() },
         ..Setup::window(Some(services(quiet())), main_window_config(true), CARD_WIDTH, 400.0)
+    }));
+    scenes.push(Scene::new("mic-no-rnnoise", || Setup {
+        page: Page::Card { plugin: "microphone".into() },
+        ..Setup::window(Some(services_with(quiet(), Changes { no_rnnoise: true, ..Changes::default() })), mic_config(), CARD_WIDTH, 400.0)
+    }));
+    scenes.push(Scene::new("stream-no-pyav", || Setup {
+        page: Page::Card { plugin: "stream_output".into() },
+        ..Setup::window(Some(services_with(quiet(), Changes { no_h264: true, ..Changes::default() })), main_window_config(true), CARD_WIDTH, 400.0)
+    }));
+    // translation_scenes_audio.control_menu: right-clicks on a control with its shortcuts saved
+    scenes.push(Scene::new("menu-control-mute", || {
+        let mut config = mic_config();
+        let mute = |id: &str, keys: &str, mode: &str| json!({"id": id, "keys": keys, "action": "microphone.mute", "params": {"mode": mode}});
+        config["plugin_configs"]["shortcuts"]["bindings"] = json!([mute("a", "Ctrl+Alt+M", "toggle"), mute("b", "Ctrl+Alt+P", "hold")]);
+        Setup {
+            page: Page::ControlMenu { label: "Mute".into(), size: (420.0, 130.0) },
+            ..Setup::window(Some(services(quiet())), config, WIDTH_THREE_COL, 900.0)
+        }
+    }));
+    scenes.push(Scene::new("menu-control-pan", || Setup {
+        page: Page::ControlMenu { label: "Pan".into(), size: (300.0, 90.0) },
+        ..Setup::window(Some(services(quiet())), main_window_config(true), WIDTH_THREE_COL, 900.0)
     }));
     for (id, answer, route, adb, windows) in card_states() {
         scenes.push(Scene::new(format!("connection-{id}"), move || {
@@ -389,6 +450,7 @@ pub fn all() -> Vec<Scene> {
         scenes.push(Scene::new(id, move || add_phone(adb, network)));
     }
     scenes.push(Scene::new("dialog-add-phone-done", || add_phone_pairing(true, true, true)));
+    scenes.push(Scene::new("dialog-adb-licence", adb_licence));
     // translation_scenes.phones_dialog: Pixel 8 on Studio PC, and a browser remembered as a camera
     scenes.push(Scene::new("dialog-phones", || {
         let mut config = main_window_config(true);
@@ -440,10 +502,26 @@ pub fn all() -> Vec<Scene> {
         page: Page::SettingsDialog {
             tab: "shortcuts".into(),
             call: ("shortcuts".into(), "shortcuts".into(), "add".into()),
+            then: Vec::new(),
             frame: "DialogFrame".into(),
             owner: "ShortcutsSettings".into(),
         },
         ..Setup::window(Some(services(quiet())), main_window_config(true), SETTINGS_SIZE.0, SETTINGS_SIZE.1)
+    }));
+    // translation_scenes_audio's modifier editor scene: Mute picked and Ctrl pressed alone
+    scenes.push(Scene::new("dialog-shortcut-modifier", || {
+        let search = |words: &str| ("search".to_string(), vec![json!(words)]);
+        let ctrl = vec![json!("\u{11}"), json!(true), json!(false), json!(false), json!(false)];
+        Setup {
+            page: Page::SettingsDialog {
+                tab: "shortcuts".into(),
+                call: ("shortcuts".into(), "shortcuts".into(), "add".into()),
+                then: vec![search("Mute"), search(""), ("key-pressed".into(), ctrl)],
+                frame: "DialogFrame".into(),
+                owner: "ShortcutsSettings".into(),
+            },
+            ..Setup::window(Some(services(quiet())), main_window_config(true), SETTINGS_SIZE.0, SETTINGS_SIZE.1)
+        }
     }));
     // translation_scenes_setup's pages: the settings window on a tab as Setup leaves it
     for (id, tab) in [("setup-about", "about"), ("setup-module-not-loaded", "devices")] {

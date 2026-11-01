@@ -493,8 +493,13 @@ impl Settings {
 
     /// Runs a callback of a plugin's settings section as if it had been clicked (scene renders open its dialogs this way).
     pub fn call(&self, plugin: &str, ui: &str, callback: &str) -> bool {
+        self.call_with(plugin, ui, callback, &[])
+    }
+
+    /// call with the callback's arguments.
+    pub fn call_with(&self, plugin: &str, ui: &str, callback: &str, args: &[SValue]) -> bool {
         let Some((_, _, id)) = self.pieces.iter().find(|p| p.0 == plugin && p.1 == ui) else { return false };
-        let done = self.ui.invoke(&format!("{id}-{callback}"), &[]).is_ok();
+        let done = self.ui.invoke(&format!("{id}-{callback}"), args).is_ok();
         if let Some(w) = self.window.upgrade() {
             w.process();
         }

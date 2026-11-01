@@ -85,6 +85,8 @@ export component Card inherits Rectangle {
     in property <string> action-text;
     // The action icon's colour (the Microphone card's Mute turns red while muted)
     in property <color> action-tint: Theme.text-dim;
+    // The action a key can stand in for: a right-click on the header button offers a keyboard shortcut
+    in property <string> action-shortcut;
     callback action;
     // The action greys out (New link on a sign that's switched off)
     in property <bool> action-enabled: true;
@@ -181,6 +183,7 @@ export component Card inherits Rectangle {
                 quiet-when-disabled: true;
                 tip: action-label;
                 accessible-label: action-text;
+                shortcut: root.action-shortcut;
                 clicked => { root.action(); }
             }
             if has-action && action-text == "": Button {
@@ -196,6 +199,7 @@ export component Card inherits Rectangle {
                 quiet-when-disabled: true;
                 tip: action-label;
                 accessible-label: action-label;
+                shortcut: root.action-shortcut;
                 clicked => { root.action(); }
             }
             if has-switch: Rectangle {

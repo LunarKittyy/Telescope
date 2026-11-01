@@ -1,7 +1,7 @@
 // The Connection plugin (desktop/telescope/plugins/connection.py): the card, the phone picker in the header, the Add
 // phone and Your phones dialogs (as popups) and the UDP row in Settings. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, TipBody, Button, IconButton, Card, FormRow, Segmented, ChoiceField, TextField, TextCap, Switch, SettingRow, Tag, DialogFrame } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, TipBody, Button, IconButton, LinkText, Card, FormRow, Segmented, ChoiceField, TextField, TextCap, Switch, SettingRow, Tag, DialogFrame } from "@ui-kit/ui-kit.slint";
 
 // A plugged-in phone the Add phone dialog can pair over USB.
 export struct UsbPick {
@@ -180,6 +180,11 @@ export component ConnectionCard inherits Card {
     in property <bool> usb-shown: true;
     in property <string> usb-text;
     in property <string> usb-kind: "status_dim";
+    // The licence question's link, the rest of its sentence and the line under it
+    in property <string> usb-link-text;
+    in property <string> usb-link-url;
+    in property <string> usb-link-tail;
+    in property <string> usb-after;
     in property <string> usb-action;
     // A second way out next to it: pick an adb already here
     in property <string> usb-pick-action;
@@ -189,6 +194,7 @@ export component ConnectionCard inherits Card {
     callback add-closed;
     callback pick(string);
     callback usb-action-clicked;
+    callback usb-link-clicked;
     callback usb-pick-clicked;
 
     // The question before the virtual camera's password prompt
@@ -370,6 +376,17 @@ export component ConnectionCard inherits Card {
                     spacing: 6px;
                     alignment: center;
                     Note { text: usb-text; kind: usb-kind; }
+                    if usb-link-text != "": HorizontalLayout {
+                        alignment: start;
+                        LinkText {
+                            text: usb-link-text;
+                            url: usb-link-url;
+                            font-size: Theme.body;
+                            opened => { root.usb-link-clicked(); }
+                        }
+                        Note { text: usb-link-tail; width: self.preferred-width; }
+                    }
+                    if usb-after != "": Note { text: usb-after; }
                     if usb-action != "": HorizontalLayout {
                         alignment: start;
                         spacing: 8px;

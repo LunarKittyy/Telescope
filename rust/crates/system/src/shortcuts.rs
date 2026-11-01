@@ -889,6 +889,8 @@ struct Editor {
     action: Option<String>,
     params: Map<String, Value>,
     keys: String,
+    /// The last key pressed was a modifier alone, which changes nothing.
+    bare_modifier: bool,
     global: bool,
     copied: bool,
 }
@@ -916,7 +918,7 @@ impl ShortcutsPlugin {
         let action = self.action(&binding.action).map(|(_, a)| a.clone());
         let params = action.as_ref().map_or_else(|| binding.params.clone(), |a| self.start_params(a, &binding.params));
         let action = (!binding.action.is_empty()).then(|| binding.action.clone());
-        self.editor = Some(Editor { id: binding.id, query: String::new(), action, params, keys: binding.keys, global: binding.global, copied: false });
+        self.editor = Some(Editor { id: binding.id, query: String::new(), action, params, keys: binding.keys, bare_modifier: false, global: binding.global, copied: false });
         // A new shortcut starts on the first control
         if self.editor.as_ref().is_some_and(|e| e.action.is_none()) {
             if let Some(first) = self.actions.first().map(|(_, a)| a.id.clone()) {
@@ -970,13 +972,19 @@ impl ShortcutsPlugin {
         if e.action.is_none() || (listed == 0 && !e.query.is_empty() && !self.action_listed(e)) {
             return (if listed == 0 { tr("No control matches that search.") } else { tr("Pick a control.") }, true);
         }
+        let bare = || tr("A modifier can't be a shortcut on its own. Add a key to it.");
         if e.keys.is_empty() {
-            return (tr("Press a key, with Ctrl, Alt, Shift or {meta} if you like.").field("meta", meta), true);
+            let text = if e.bare_modifier { bare() } else { tr("Press a key, with Ctrl, Alt, Shift or {meta} if you like.").field("meta", meta) };
+            return (text, true);
         }
         if let Some(other) = self.bindings.iter().find(|b| b.keys == e.keys && b.id != e.id) {
             let text = tr("{keys} already does \"{action}\". Pick another key.")
                 .field("keys", keys::native_keys(&e.keys)).field("action", self.describe(other));
             return (text, true);
+        }
+        // The key it had still stands, so it can be saved as it is
+        if e.bare_modifier {
+            return (bare(), false);
         }
         if e.global && keys::edits_text(&e.keys) {
             let text = tr("Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer.")
@@ -1226,18 +1234,23 @@ impl ShortcutsPlugin {
             }
             "key-pressed" => {
                 let keys = keys::keys_from_slint(&text(0), flag(1), flag(2), flag(3), flag(4));
-                // A bare modifier waits for the key that comes with it
-                if keys.is_empty() {
+                // A bare modifier waits for the key that comes with it; anything else without a name changes nothing
+                let bare = keys::is_bare_modifier(&text(0));
+                if keys.is_empty() && !bare {
                     return;
                 }
                 if let Some(e) = self.editor.as_mut() {
-                    e.keys = keys;
+                    e.bare_modifier = bare;
+                    if !bare {
+                        e.keys = keys;
+                    }
                 }
                 self.refresh(host);
             }
             "key-cleared" => {
                 if let Some(e) = self.editor.as_mut() {
                     e.keys.clear();
+                    e.bare_modifier = false;
                 }
                 self.refresh(host);
             }
@@ -1560,6 +1573,27 @@ mod tests {
     }
 
     #[test]
+    fn a_bare_modifier_leaves_a_saved_key_alone_and_says_why() {
+        let (mut plugin, mut host, _) = make(json!([{"id": "a", "keys": "Ctrl+T", "action": "camera.torch", "params": {"mode": "toggle"}}]), false, true);
+        plugin.settings_sections();
+        ui(&mut plugin, &mut host, "edit", json!([0]));
+        for key in ["\u{14}", "\u{F8FF}"] {
+            ui(&mut plugin, &mut host, "key-pressed", json!([key, false, false, false, false]));
+            assert_eq!(plugin.section_props()["problem"], json!(""), "Caps Lock and the like are no modifiers");
+        }
+        ui(&mut plugin, &mut host, "key-pressed", json!(["\u{11}", true, false, false, false]));
+        let props = plugin.section_props();
+        assert_eq!((props["keys-text"].clone(), props["save-enabled"].clone()), (json!("Ctrl+T"), json!(true)));
+        assert_eq!(props["problem"], json!("A modifier can't be a shortcut on its own. Add a key to it."));
+        ui(&mut plugin, &mut host, "key-pressed", json!(["k", true, false, false, false]));
+        let props = plugin.section_props();
+        assert_eq!((props["keys-text"].clone(), props["problem"].clone()), (json!("Ctrl+K"), json!("")));
+        ui(&mut plugin, &mut host, "key-pressed", json!(["\u{11}", true, false, false, false]));
+        ui(&mut plugin, &mut host, "key-cleared", json!([]));
+        assert!(plugin.section_props()["problem"].as_str().unwrap().starts_with("Press a key"));
+    }
+
+    #[test]
     fn editor_saves_a_binding_and_a_bare_modifier_waits_for_its_key() {
         let (mut plugin, mut host, seen) = make(json!([]), false, true);
         plugin.settings_sections();
@@ -1574,7 +1608,9 @@ mod tests {
         ui(&mut plugin, &mut host, "param-picked", json!([0, 3]));
         assert_eq!(plugin.section_props()["copy-enabled"], json!(false), "a command can't hold a key down");
         ui(&mut plugin, &mut host, "key-pressed", json!(["\u{11}", true, false, false, false]));
-        assert_eq!(plugin.section_props()["keys-text"], json!(""), "a bare modifier waits for its key");
+        let props = plugin.section_props();
+        assert_eq!(props["keys-text"], json!(""), "a bare modifier waits for its key");
+        assert_eq!((props["problem"].clone(), props["save-enabled"].clone()), (json!("A modifier can't be a shortcut on its own. Add a key to it."), json!(false)));
         ui(&mut plugin, &mut host, "key-pressed", json!([" ", true, false, false, false]));
         let props = plugin.section_props();
         assert_eq!((props["keys-text"].clone(), props["problem"].clone(), props["save-enabled"].clone()), (json!("Ctrl+Space"), json!(""), json!(true)));

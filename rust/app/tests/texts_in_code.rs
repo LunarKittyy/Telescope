@@ -10,7 +10,7 @@ use telescope_core::i18n::po;
 const READERS: [&str; 4] = ["source.rs", "texts.rs", "text.rs", "i18n.rs"];
 
 /// What the code says that the template doesn't, and why. A text that's new here is a spelling that stays English in every language.
-const NOT_IN_THE_TEMPLATE: [(&str, &str); 16] = [
+const NOT_IN_THE_TEMPLATE: [(&str, &str); 17] = [
     // Qt's own button texts, which Qt's translations cover in the Python app
     ("OK", "Qt standard button"),
     ("Yes", "Qt standard button"),
@@ -25,7 +25,8 @@ const NOT_IN_THE_TEMPLATE: [(&str, &str); 16] = [
     ("That source has gone.", "only in the Rust app"),
     ("The browser has gone.", "only in the Rust app"),
     ("Get adb from Google", "the Add phone link as a button"),
-    ("Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: {url}", "the adb question without its link"),
+    ("H.264. Needs FFmpeg, which is missing from this copy of Telescope. Reinstall to get it back.", "Rust's decoder, which pip can't fix"),
+    ("RNNoise is missing from this copy of Telescope. Reinstall to get it back.", "Rust's RNNoise, which pip can't fix"),
     ("Its {file} has to return the plugin's table at the end.", "a Lua plugin's message"),
     ("Press a key…", "the shortcut editor's hint"),
     ("...", "an example in a comment"),

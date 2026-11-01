@@ -99,7 +99,7 @@ fn problem_of<T>(loaded: Option<&Result<T, Problem>>) -> String {
 
 pub fn problem_text((kind, error): &Problem) -> String {
     if *kind == "missing" {
-        return tr("The pyrnnoise package isn't installed.");
+        return tr("RNNoise is missing from this copy of Telescope. Reinstall to get it back.");
     }
     tr("Couldn't load RNNoise: {error}").field("error", error)
 }
@@ -349,9 +349,9 @@ mod tests {
 
     #[test]
     fn problem_explains_each_case() {
-        assert!(problem_text(&("missing", String::new())).contains("pyrnnoise"));
+        assert!(problem_text(&("missing", String::new())).contains("Reinstall"));
         assert!(problem_text(&("failed", "bad ELF".into())).contains("bad ELF"));
-        assert!(problem_of::<()>(Some(&Err(("missing", String::new())))).contains("pyrnnoise"));
+        assert!(problem_of::<()>(Some(&Err(("missing", String::new())))).contains("Reinstall"));
         assert!(problem_of::<()>(Some(&Err(("failed", "bad ELF".into())))).contains("bad ELF"));
         assert_eq!(problem_of(Some(&Ok(()))), "");
         // whatever this machine has, what it says is what load found

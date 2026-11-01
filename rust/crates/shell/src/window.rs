@@ -440,7 +440,7 @@ impl Window {
         let _ = self.ui.set_global_callback("Shortcuts", "bindings-for", move |args| {
             let action = match args.first() { Some(SValue::String(s)) => s.to_string(), _ => String::new() };
             let st = state.borrow();
-            let listed = st.shortcut_menu.iter().flat_map(|(_, b)| b).filter(|b| b.action == action)
+            let listed = st.shortcut_menu.iter().flat_map(|(_, b)| b).filter(|b| action.split(' ').any(|a| a == b.action))
                 .map(|b| crate::source::from_json(&serde_json::json!({"id": b.id, "text": b.text}))).collect::<Vec<_>>();
             SValue::Model(slint::ModelRc::new(slint::VecModel::from(listed)))
         });

@@ -74,6 +74,9 @@ component PanPad inherits Rectangle {
     in property <color> hue: Theme.accent;
     in property <string> tip;
     in property <string> label;
+    // The two actions the pad stands for, with spaces between, and an add item for each in the right-click menu
+    in property <string> shortcut;
+    in property <[ShortcutEntry]> shortcut-adds;
     callback pointer(float, float);
     callback key(string, bool);
     callback reset();
@@ -122,4 +125,5 @@ component PanPad inherits Rectangle {
         double-clicked => { root.reset(); }
     }
     if tip != "": Tooltip { TipBody { says: root.tip; } }
+    ShortcutMenu { action: root.shortcut; adds: root.shortcut-adds; }
 }

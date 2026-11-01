@@ -526,7 +526,7 @@
 "{source}, no phone needed" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 # ── denoise
 "Couldn't load RNNoise: {error}" = { status = "ported", rust = "rust/crates/audio/src/denoise.rs" }
-"The pyrnnoise package isn't installed." = { status = "ported", rust = "rust/crates/audio/src/denoise.rs" }
+"The pyrnnoise package isn't installed." = { status = "dropped", reason = "pip can't fix the Rust app's RNNoise; the note says to reinstall instead" }
 # ── desk
 "A4" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
 "Auto works the shape out from the corners" = { status = "ported", rust = "rust/crates/effects/src/desk.rs" }
@@ -1303,10 +1303,10 @@
 " stops" = { status = "ported", rust = "rust/crates/core/src/actions.rs" }
 "A command can't hold a key down; pick another choice to copy one" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "A command line that does the same, for your desktop's own keyboard settings" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
-"A modifier can't be a shortcut on its own. Add a key to it." = { status = "dropped", reason = "The Rust editor ignores a bare modifier until a key comes with it, so it never holds one alone" }
+"A modifier can't be a shortcut on its own. Add a key to it." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Add" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Add keyboard shortcut…" = { status = "ported", rust = "rust/crates/ui-kit/ui/widgets/shortcut-menu.slint" }
-"Add shortcut for {action}…" = { status = "dropped", reason = "Only for a control two actions share. No built-in control is (checked over every action's controls() on the Python window), and a Slint control names one action through its shortcut property, so the Rust app has no such control." }
+"Add shortcut for {action}…" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
 "Already streaming" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Also works while another app is in front" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "By" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
@@ -1500,7 +1500,7 @@
 "H.264 at {size} stopped the camera on this phone" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "H.264 from the phone's hardware encoder, like video calls use." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "H.264 isn't available at {size} on this phone" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
-"H.264. Needs PyAV on this computer (pip install av)." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
+"H.264. Needs PyAV on this computer (pip install av)." = { status = "dropped", reason = "pip can't fix the Rust decoder; the tooltip says to reinstall instead" }
 "H.264. This phone has no H.264 encoder." = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "Heavy" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "JPEG quality" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
@@ -1834,7 +1834,7 @@
 "Switch parts of Telescope on or off. A change takes effect the next time Telescope starts, and settings are kept either way." = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
 "Switching one of these on downloads about {mb} MB first, once for all of them." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Tab" = { status = "ported", rust = "rust/crates/shell/src/search.rs" }
-"Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it." = { status = "dropped", reason = "The card's label takes no link or line breaks, so the licence address shows as text in a msgid of its own and Wi-Fi works without it goes." }
+"Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Telescope can't work without this one, so it can't be switched off" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Telescope couldn't delete it: {error}" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Telescope couldn't delete its folder: {error}" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
@@ -4735,14 +4735,14 @@
 "dialog-shortcut-iso-up" = { status = "todo" }
 "dialog-shortcut-lens-next" = { status = "todo" }
 "dialog-shortcut-lens-pick" = { status = "todo" }
-"dialog-shortcut-modifier" = { status = "todo" }
+"dialog-shortcut-modifier" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "dialog-shortcut-mute-hold" = { status = "todo" }
 "dialog-shortcut-no-match" = { status = "todo" }
 "dialog-shortcut-plain-key" = { status = "todo" }
 "dialog-shortcut-unknown" = { status = "todo" }
 "main-microphone" = { status = "ported", rust = "rust/app/src/scenes.rs" }
-"menu-control-mute" = { status = "todo" }
-"menu-control-pan" = { status = "todo" }
+"menu-control-mute" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"menu-control-pan" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "menu-shortcut-row" = { status = "todo" }
 "menu-tray-microphone" = { status = "todo" }
 "mic-browser" = { status = "todo" }
@@ -4765,7 +4765,7 @@
 "mic-elsewhere" = { status = "todo" }
 "mic-linux-tools" = { status = "todo" }
 "mic-muted" = { status = "todo" }
-"mic-no-rnnoise" = { status = "todo" }
+"mic-no-rnnoise" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "mic-off" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "mic-ready" = { status = "todo" }
 "mic-rnnoise-broken" = { status = "todo" }
@@ -4783,7 +4783,7 @@
 "mic-webcam" = { status = "todo" }
 "mic-win-cable-opened" = { status = "todo" }
 "mic-win-no-cable" = { status = "todo" }
-"mic-win-no-sounddevice" = { status = "todo" }
+"mic-win-no-sounddevice" = { status = "dropped", reason = "the Windows backend lists outputs through cpal, built in, so this state can't happen" }
 "notify-shortcut-camera-off" = { status = "todo" }
 "notify-shortcut-camera-on" = { status = "todo" }
 "notify-shortcut-gain" = { status = "todo" }
@@ -4811,8 +4811,8 @@
 "browser-connected" = { status = "todo" }
 "browser-hint-certificate" = { status = "todo" }
 "browser-hint-nothing-arrived" = { status = "todo" }
-"browser-problem-1" = { status = "todo" }
-"browser-problem-2" = { status = "todo" }
+"browser-problem-1" = { status = "dropped", reason = "the certificate is made with ring, built into the Rust app" }
+"browser-problem-2" = { status = "dropped", reason = "WebRTC is built into the Rust app (str0m)" }
 "browser-problem-3" = { status = "todo" }
 "browser-slow-connection" = { status = "todo" }
 "browser-slow-processor" = { status = "todo" }
@@ -4953,7 +4953,7 @@
 "stream-encoder-h264-unavailable" = { status = "todo" }
 "stream-encoder-no-fallback" = { status = "todo" }
 "stream-no-encoder" = { status = "todo" }
-"stream-no-pyav" = { status = "todo" }
+"stream-no-pyav" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "stream-switched-to-heavy" = { status = "todo" }
 "transforms-cropped-here" = { status = "todo" }
 "transforms-framing-moves-zoom" = { status = "todo" }
@@ -5013,7 +5013,7 @@
 "dialog-add-phone-adb-failed" = { status = "todo" }
 "dialog-add-phone-copying-adb" = { status = "todo" }
 "dialog-add-phone-getting-adb" = { status = "todo" }
-"dialog-add-phone-no-network" = { status = "todo" }
+"dialog-add-phone-no-network" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "dialog-add-phone-usb-pairing" = { status = "todo" }
 "dialog-add-phone-usb-pick" = { status = "todo" }
 "dialog-add-phone-usb-unauthorized" = { status = "todo" }
@@ -5075,25 +5075,25 @@
 "stream-connecting" = { status = "todo" }
 "stream-crashed" = { status = "todo" }
 "stream-dropped" = { status = "todo" }
-"stream-loading-video" = { status = "todo" }
+"stream-loading-video" = { status = "dropped", reason = "FFmpeg is linked, so a stream never waits for PyAV to import" }
 "stream-no-first-frame" = { status = "todo" }
 "stream-no-stream" = { status = "todo" }
 "stream-streaming" = { status = "todo" }
 "stream-streaming-usb" = { status = "todo" }
 # ── dialogs
-"dialog-adb-licence" = { status = "todo" }
+"dialog-adb-licence" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "dialog-add-phone" = { status = "ported", rust = "rust/app/src/scenes.rs" }
-"dialog-add-phone-done" = { status = "todo" }
-"dialog-add-phone-usb" = { status = "todo" }
+"dialog-add-phone-done" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"dialog-add-phone-usb" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "dialog-already-running" = { status = "todo" }
 "dialog-lock-held" = { status = "todo" }
 "dialog-phone-remove" = { status = "todo" }
 "dialog-phone-rename" = { status = "todo" }
-"dialog-phones" = { status = "todo" }
+"dialog-phones" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "dialog-preset-replace" = { status = "todo" }
 "dialog-preset-save" = { status = "todo" }
-"dialog-shortcut" = { status = "todo" }
-"dialog-vaapi" = { status = "todo" }
+"dialog-shortcut" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"dialog-vaapi" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
 "dialog-vb-cable" = { status = "todo" }
 "menu-presets" = { status = "todo" }
 "menu-tray" = { status = "todo" }
@@ -5102,16 +5102,16 @@
 "hot" = { status = "todo" }
 "main-empty" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "main-medium" = { status = "ported", rust = "rust/app/src/scenes.rs" }
-"main-narrow" = { status = "todo" }
+"main-narrow" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "main-wide" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "warm" = { status = "todo" }
 # ── settings
 "settings-about" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "settings-audio" = { status = "ported", rust = "rust/app/src/scenes.rs" }
-"settings-devices" = { status = "todo" }
-"settings-general" = { status = "todo" }
+"settings-devices" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"settings-general" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "settings-on_air" = { status = "todo" }
-"settings-plugins" = { status = "todo" }
+"settings-plugins" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "settings-shortcuts" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "settings-streaming" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "settings-video" = { status = "ported", rust = "rust/app/src/scenes.rs" }
@@ -5145,7 +5145,7 @@
 "mic-vb-cable-refused" = { status = "todo" }
 "mic-vb-cable-setup-changed" = { status = "todo" }
 "mic-vb-cable-unreadable" = { status = "todo" }
-"setup-about" = { status = "todo" }
+"setup-about" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "setup-about-copied" = { status = "todo" }
 "setup-adb-bad-zip" = { status = "todo" }
 "setup-adb-blocked" = { status = "todo" }
@@ -5242,31 +5242,31 @@
 "shortcuts-windows" = { status = "todo" }
 "sign-in-off-failed" = { status = "todo" }
 "sign-in-on-failed" = { status = "todo" }
-"vaapi-build-failed" = { status = "todo" }
-"vaapi-build-no-load" = { status = "todo" }
-"vaapi-build-no-vaapi" = { status = "todo" }
-"vaapi-built" = { status = "todo" }
-"vaapi-built-broken" = { status = "todo" }
-"vaapi-can-build" = { status = "todo" }
-"vaapi-distro-no-load" = { status = "todo" }
-"vaapi-distro-no-open" = { status = "todo" }
-"vaapi-distro-no-vaapi" = { status = "todo" }
-"vaapi-distro-ok" = { status = "todo" }
-"vaapi-distro-old" = { status = "todo" }
-"vaapi-ffmpeg-missing" = { status = "todo" }
-"vaapi-not-in-use-no-load" = { status = "todo" }
-"vaapi-not-in-use-no-open" = { status = "todo" }
-"vaapi-not-in-use-no-vaapi" = { status = "todo" }
-"vaapi-not-in-use-old" = { status = "todo" }
-"vaapi-not-in-use-other-version" = { status = "todo" }
-"vaapi-old-pyav" = { status = "todo" }
-"vaapi-picked" = { status = "todo" }
-"vaapi-pkg-config-missing" = { status = "todo" }
-"vaapi-starting" = { status = "todo" }
-"vaapi-tools-missing" = { status = "todo" }
-"vaapi-tools-unknown-distro" = { status = "todo" }
-"vaapi-using-built" = { status = "todo" }
-"vaapi-using-distro" = { status = "todo" }
+"vaapi-build-failed" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-build-no-load" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-build-no-vaapi" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-built" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-built-broken" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-can-build" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-distro-no-load" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-distro-no-open" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-distro-no-vaapi" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-distro-ok" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-distro-old" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-ffmpeg-missing" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-not-in-use-no-load" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-not-in-use-no-open" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-not-in-use-no-vaapi" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-not-in-use-old" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-not-in-use-other-version" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-old-pyav" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-picked" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-pkg-config-missing" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-starting" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-tools-missing" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-tools-unknown-distro" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-using-built" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
+"vaapi-using-distro" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
 "vcam-waiting" = { status = "todo" }
 "vision-downloading" = { status = "todo" }
 "vision-downloading-percent" = { status = "todo" }
@@ -5319,7 +5319,7 @@
 "updates-found-readonly" = { status = "todo" }
 "updates-found-source" = { status = "todo" }
 "updates-found-streaming" = { status = "todo" }
-"updates-found-unpackaged" = { status = "todo" }
+"updates-found-unpackaged" = { status = "dropped", reason = "a Rust build is always the packaged app" }
 "updates-held-back" = { status = "todo" }
 "updates-install-empty" = { status = "todo" }
 "updates-install-files" = { status = "todo" }
@@ -5386,7 +5386,7 @@
 "notify-save-failed" = { status = "todo" }
 "notify-still-running-streaming" = { status = "todo" }
 "notify-still-running-waiting" = { status = "todo" }
-"on-air-cryptography-missing" = { status = "todo" }
+"on-air-cryptography-missing" = { status = "dropped", reason = "the certificate is made with ring, built into the Rust app" }
 "on-air-header-and-banner" = { status = "todo" }
 "on-air-problems" = { status = "todo" }
 "on-air-test-no-address" = { status = "todo" }
@@ -5411,7 +5411,7 @@
 "plugins-search" = { status = "todo" }
 "plugins-search-empty" = { status = "todo" }
 "plugins-update-out" = { status = "todo" }
-"settings-legacy-plugin" = { status = "todo" }
+"settings-legacy-plugin" = { status = "dropped", reason = "the Rust plugin API never had create_menu_actions" }
 "state-camera-turning-on" = { status = "todo" }
 "state-canvas-by-hand" = { status = "todo" }
 "state-canvas-failed" = { status = "todo" }

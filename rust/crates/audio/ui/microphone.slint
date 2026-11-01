@@ -201,6 +201,7 @@ export component MicrophoneCard inherits Card {
     action-icon: muted ? Icons.v-mic-off : Icons.v-mic;
     action-tint: muted ? Theme.err : Theme.text-dim;
     action-label: mute-tip;
+    action-shortcut: "microphone.mute";
     action => { root.mute-toggled(!muted); }
     has-switch: true;
     switch-checked: on;
