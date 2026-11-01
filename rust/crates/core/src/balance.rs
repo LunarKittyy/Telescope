@@ -211,7 +211,7 @@ mod tests {
     #[test]
     fn frames_come_back_only_after_a_clear_stretch() {
         let mut w = Watch::new();
-        let mut t = frames(&mut w, 3600_000 * MS, 4, 25 * MS) + FRAME;
+        let mut t = frames(&mut w, 3_600_000 * MS, 4, 25 * MS) + FRAME;
         for _ in 0..(CLEAR_FOR / TRIAL_EVERY) {
             w.note(2 * MS, t);
             t += TRIAL_EVERY;
@@ -235,7 +235,7 @@ mod tests {
     #[test]
     fn a_return_that_fails_waits_longer_next_time_and_a_stay_clears_that() {
         let mut w = Watch::new();
-        let mut t = 3600_000 * MS;
+        let mut t = 3_600_000 * MS;
         let mut waits = Vec::new();
         for _ in 0..6 {
             t = frames(&mut w, t, 4, 25 * MS);

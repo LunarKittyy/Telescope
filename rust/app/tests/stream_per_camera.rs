@@ -117,7 +117,7 @@ fn through(r: &Rig, worker: usize) -> Vec<u8> {
     for staged in w.staged.lock().unwrap().iter_mut() {
         match &mut staged.step {
             FrameStep::Cpu(step) => step.process(&mut frame, &Plain),
-            FrameStep::Shader(_) => assert_ne!(staged.owner, "fun_pack", "pick a CPU effect"),
+            FrameStep::Shader(_) | FrameStep::Either(..) => assert_ne!(staged.owner, "fun_pack", "pick a CPU effect"),
         }
     }
     frame.data.to_vec()
