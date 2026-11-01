@@ -55,6 +55,8 @@ pub enum WorkerEvent {
     VcamOpened(u32, u32),
     /// A picture for the preview, RGB24 at the size set_preview_size() asked for.
     Preview(Vec<u8>, u32, u32),
+    /// The decoder changed mid-stream and has nothing to start from until a keyframe.
+    NeedsKeyframe,
 }
 
 pub type Events = Arc<dyn Fn(WorkerEvent) + Send + Sync>;
@@ -643,10 +645,12 @@ impl Shared {
         match codec {
             Codec::Mjpeg => Ok(Cap::Jpegs { feed, decoder: self.media.decoder(codec, &options)?, own: false }),
             _ => {
-                let decoder = match &self.tap {
+                let mut decoder = match &self.tap {
                     Some(tap) => self.media.decoder_with_tap(codec, &options, tap.clone())?,
                     None => self.media.decoder(codec, &options)?,
                 };
+                let events = self.events.clone();
+                decoder.on_keyframe_needed(Box::new(move || events(WorkerEvent::NeedsKeyframe)));
                 Ok(Cap::Frames(self.media.frame_reader(feed, decoder)?))
             }
         }

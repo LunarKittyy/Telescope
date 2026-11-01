@@ -3,6 +3,7 @@
 use ffmpeg_sys_next as ff;
 use std::ptr;
 use crate::picture::{exif_orientation, kind, oriented, Kind};
+use crate::transfers;
 use crate::yuv;
 use telescope_core::frame::{Frame, PixelFormat};
 
@@ -41,6 +42,48 @@ impl Hw {
 
     fn from_pixel_format(fmt: i32) -> Option<Hw> {
         [Hw::Vaapi, Hw::D3d11va, Hw::Cuda].into_iter().find(|h| h.pixel_format() as i32 == fmt)
+    }
+}
+
+/// A failure to force on a card decoder, so the fallback can be seen working on a real stream:
+/// TELESCOPE_HW_FAULT=open or TELESCOPE_HW_FAULT=<kind>@<frames>, after that many good frames (0 when left out).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Forced {
+    /// The device doesn't open.
+    Open,
+    /// Every packet is refused as bad data.
+    Reject,
+    /// The decoder itself errors.
+    Broken,
+    /// The picture can't be copied off the card.
+    Copy,
+    /// The copied picture has no size.
+    Empty,
+    /// The copied picture is a surface nobody wrote to: all zeros.
+    Blank,
+    /// Packets go in and nothing comes out.
+    Silent,
+}
+
+impl Forced {
+    /// What TELESCOPE_HW_FAULT asks for.
+    pub fn asked() -> Option<(Forced, u32)> {
+        Forced::parse(&std::env::var("TELESCOPE_HW_FAULT").ok()?)
+    }
+
+    fn parse(text: &str) -> Option<(Forced, u32)> {
+        let (kind, after) = text.split_once('@').unwrap_or((text, "0"));
+        let kind = match kind {
+            "open" => Forced::Open,
+            "reject" => Forced::Reject,
+            "broken" => Forced::Broken,
+            "copy" => Forced::Copy,
+            "empty" => Forced::Empty,
+            "blank" => Forced::Blank,
+            "silent" => Forced::Silent,
+            _ => return None,
+        };
+        Some((kind, after.parse().ok()?))
     }
 }
 
@@ -85,6 +128,11 @@ pub struct Codec {
     hw_device: *mut ff::AVBufferRef,
     sws: *mut ff::SwsContext,
     pub hw: Option<Hw>,
+    /// Whether the card copies its pictures out as I420. Most only give NV12, and asking again would be a failed call per frame.
+    card_gives_i420: bool,
+    /// What to fail on purpose, and how many pictures have been good so far.
+    pub forced: Option<(Forced, u32)>,
+    pictures: u32,
     /// Tests: this many pictures are refused as a card that can't take the stream would.
     #[cfg(test)]
     pub refusals: u32,
@@ -138,6 +186,9 @@ impl Codec {
                 hw_device: ptr::null_mut(),
                 sws: ptr::null_mut(),
                 hw,
+                card_gives_i420: true,
+                forced: if hw.is_some() { Forced::asked() } else { None },
+                pictures: 0,
                 #[cfg(test)]
                 refusals: 0,
                 jpeg: id == ff::AVCodecID::AV_CODEC_ID_MJPEG,
@@ -205,6 +256,12 @@ impl Codec {
             self.refusals -= 1;
             return Err(Fault::Invalid);
         }
+        match self.forced_now() {
+            Some(Forced::Reject) => return Err(Fault::Invalid),
+            Some(Forced::Broken) => return Err(Fault::Broken("forced by TELESCOPE_HW_FAULT".into())),
+            Some(Forced::Silent) => return Ok(0),
+            _ => {}
+        }
         let mut count = 0;
         let input = padded(&mut self.unit_buf, unit).as_ptr();
         // SAFETY: the packet points at a padded copy of unit for the length of send_packet, which copies it (the packet
@@ -239,22 +296,51 @@ impl Codec {
         Ok(count)
     }
 
+    fn forced_now(&self) -> Option<Forced> {
+        self.forced.filter(|(_, after)| self.pictures >= *after).map(|(kind, _)| kind)
+    }
+
+    /// The card's picture in sw_frame, in main memory.
+    unsafe fn copy_off_the_card(&mut self) -> Result<(), Fault> {
+        ff::av_frame_unref(self.sw_frame);
+        // Ask for I420 so the driver converts while it copies; one that only gives NV12 is split in take_frame
+        if self.card_gives_i420 {
+            (*self.sw_frame).format = ff::AVPixelFormat::AV_PIX_FMT_YUV420P as i32;
+        }
+        let mut r = ff::av_hwframe_transfer_data(self.sw_frame, self.frame, 0);
+        if r < 0 && self.card_gives_i420 {
+            ff::av_frame_unref(self.sw_frame);
+            r = ff::av_hwframe_transfer_data(self.sw_frame, self.frame, 0);
+            self.card_gives_i420 = r < 0;
+        }
+        if self.forced_now() == Some(Forced::Copy) {
+            r = ff::AVERROR(libc::EIO);
+        }
+        if r < 0 {
+            return Err(Fault::Broken(format!("couldn't copy the picture off the card: {}", err_text(r))));
+        }
+        transfers::decoded_down();
+        Ok(())
+    }
+
     /// The decoded picture as one packed I420 frame (NV12 from the card is split into U and V).
     unsafe fn take_frame(&mut self) -> Result<Frame, Fault> {
         let mut src = self.frame;
         if Hw::from_pixel_format((*src).format).is_some() {
-            ff::av_frame_unref(self.sw_frame);
-            // Ask for I420 so the driver converts while it copies; one that only gives NV12 is split below
-            (*self.sw_frame).format = ff::AVPixelFormat::AV_PIX_FMT_YUV420P as i32;
-            let mut r = ff::av_hwframe_transfer_data(self.sw_frame, src, 0);
-            if r < 0 {
-                ff::av_frame_unref(self.sw_frame);
-                r = ff::av_hwframe_transfer_data(self.sw_frame, src, 0);
-            }
-            if r < 0 {
-                return Err(Fault::Broken(format!("couldn't copy the picture off the card: {}", err_text(r))));
-            }
+            self.copy_off_the_card()?;
             src = self.sw_frame;
+            match self.forced_now() {
+                Some(Forced::Empty) => (*src).width = 0,
+                Some(Forced::Blank) => {
+                    for (plane, rows) in [(0, (*src).height), (1, (*src).height / 2)] {
+                        ptr::write_bytes((*src).data[plane], 0, ((*src).linesize[plane] * rows) as usize);
+                    }
+                }
+                _ => {}
+            }
+            if (*src).width > 0 && unwritten(src) {
+                return Err(Fault::Invalid);
+            }
         }
         let (w, h) = ((*src).width as usize, (*src).height as usize);
         if w == 0 || h == 0 {
@@ -307,12 +393,25 @@ impl Codec {
         }
         let (i420, bgr) = self.converter.standard(i420, w, h, yuv::Encoding { matrix, full_range });
         ff::av_frame_unref(self.frame);
+        self.pictures = self.pictures.saturating_add(1);
         let frame = Frame::new(w as u32, h as u32, PixelFormat::I420, i420);
         Ok(match bgr {
             Some(bgr) => frame.with_bgr(bgr),
             None => frame,
         })
     }
+}
+
+/// Whether a picture copied off the card is a surface the driver never wrote: all zeros, which no camera gives, since even
+/// black has chroma at the middle. A few samples down the first two planes, so it costs nothing.
+unsafe fn unwritten(f: *const ff::AVFrame) -> bool {
+    let (w, h) = ((*f).width as isize, (*f).height as isize);
+    (0..16).all(|i| {
+        let (x, y) = (w * i / 16, h * i / 16);
+        let luma = *(*f).data[0].offset(y * (*f).linesize[0] as isize + x);
+        let chroma = *(*f).data[1].offset(y / 2 * (*f).linesize[1] as isize + x / 2);
+        luma == 0 && chroma == 0
+    })
 }
 
 impl Drop for Codec {

@@ -143,6 +143,8 @@ pub struct Panel {
     pub hw_looked: bool,
     pub hw_enabled: bool,
     pub hw_line: String,
+    /// The card's name, once looked for.
+    pub hw_found: Option<String>,
     pub canvas_current: usize,
     pub custom_w: u32,
     pub custom_h: u32,
@@ -190,6 +192,7 @@ impl Panel {
             hw_looked: false,
             hw_enabled: false,
             hw_line: String::new(),
+            hw_found: None,
             canvas_current: 0,
             custom_w: canvas::CUSTOM_DEFAULT.0,
             custom_h: canvas::CUSTOM_DEFAULT.1,
@@ -260,7 +263,7 @@ impl SetupPlugin {
             max_zoom: DEFAULT_MAX_ZOOM,
             max_gain: json!(DEFAULT_MAX_GAIN),
             limiter: true,
-            hw_decode: false,
+            hw_decode: true,
             power_saving: false,
             plugin_hues: true,
             language: String::new(),
@@ -374,7 +377,7 @@ impl SetupPlugin {
             (tr("Apply"), tr("Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."))
         };
         json!({
-            "hw-enabled": p.hw_enabled, "hw-checked": self.hw_decode, "hw-line": p.hw_line,
+            "hw-enabled": p.hw_enabled, "hw-checked": self.hw_decode && (p.hw_enabled || p.hw_line.is_empty()), "hw-line": p.hw_line,
             "saving-checked": self.power_saving,
             "zoom-text": format!("{}×", self.max_zoom),
             "canvas-items": self.canvas_items(), "canvas-current": p.canvas_current,
@@ -477,17 +480,31 @@ impl SetupPlugin {
     /// Fills in the Hardware acceleration row, once: finding the card opens a decoder, so off the host thread.
     pub fn look_for_graphics_card(&mut self, host: &mut dyn Host) {
         if self.panel.hw_looked {
+            // Finding the card is done by now, and it may have failed since
+            if self.panel.hw_found.is_some() {
+                self.show_hardware_failed(self.media.decoding_status().hardware_failed);
+            }
             return;
         }
         self.panel.hw_looked = true;
         let media = self.media.clone();
-        self.spawn(host, "hw-found", move |_| json!({"device": media.decoding_status().hardware_device}));
+        self.spawn(host, "hw-found", move |_| {
+            let status = media.decoding_status();
+            json!({"device": status.hardware_device, "failed": status.hardware_failed})
+        });
     }
 
-    pub fn show_graphics_card(&mut self, device: Option<&str>) {
+    pub fn show_graphics_card(&mut self, device: Option<&str>, failed: bool) {
         self.panel.hw_enabled = device.is_some();
-        self.panel.hw_line = match device {
-            Some(d) => tr("Found {device}").field("device", hw_name(d)),
+        self.panel.hw_found = device.map(hw_name);
+        self.show_hardware_failed(failed);
+    }
+
+    /// The line under the switch. It stays on when the card fails, since that's only for this run, and the line says so.
+    fn show_hardware_failed(&mut self, failed: bool) {
+        self.panel.hw_line = match &self.panel.hw_found {
+            Some(_) if failed => tr("The graphics card failed, so the processor decodes until you restart Telescope"),
+            Some(name) => tr("Found {device}").field("device", name),
             None => tr("No graphics card Telescope can use"),
         };
     }
@@ -895,7 +912,11 @@ impl SetupPlugin {
         let status = self.media.decoding_status();
         let chosen = if self.hw_decode { "graphics card" } else { "processor" };
         if status.backends.is_empty() {
-            return format!("not streaming ({chosen} selected)");
+            return if self.hw_decode && status.hardware_failed {
+                "not streaming (graphics card failed; processor until restart)".to_string()
+            } else {
+                format!("not streaming ({chosen} selected)")
+            };
         }
         let mut text = status.backends.iter()
             .map(|b| if b == "processor" { "processor".to_string() } else { format!("graphics card ({b})") })
@@ -916,7 +937,7 @@ impl SetupPlugin {
         let command = data.get("command").and_then(Value::as_str).unwrap_or("");
         match token {
             "hw-found" => {
-                self.show_graphics_card(data.get("device").and_then(Value::as_str));
+                self.show_graphics_card(data.get("device").and_then(Value::as_str), data.get("failed") == Some(&Value::Bool(true)));
                 vec!["video"]
             }
             "v4l-status" => {
@@ -1196,7 +1217,7 @@ impl Plugin for SetupPlugin {
             _ => json!(DEFAULT_MAX_GAIN),
         };
         self.limiter = cfg.get("limiter") != Some(&Value::Bool(false)); // only an explicit off turns it off
-        self.hw_decode = cfg.get("hw_decode") == Some(&Value::Bool(true)); // off unless turned on
+        self.hw_decode = telescope_core::media::hardware_decode_on(Some(cfg));
         self.power_saving = cfg.get("power_saving") == Some(&Value::Bool(true));
         self.plugin_hues = cfg.get("plugin_hues") != Some(&Value::Bool(false));
         self.language = cfg.get("language").and_then(Value::as_str).unwrap_or("").to_string();

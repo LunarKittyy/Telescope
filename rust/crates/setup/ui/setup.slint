@@ -174,7 +174,7 @@ export component VideoSettings inherits Card {
                 checked <=> root.hw-checked;
                 enabled: root.hw-enabled;
                 label: @tr("Hardware acceleration");
-                tip: @tr("Decodes the Light format on the graphics card from the next stream on.");
+                tip: @tr("Decodes the Light format on the graphics card from the next stream on. If the card fails, the processor takes over by itself until you restart Telescope.");
                 toggled(on) => { root.hw-toggled(on); }
             }
         }

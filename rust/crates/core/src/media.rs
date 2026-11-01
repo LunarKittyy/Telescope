@@ -72,6 +72,10 @@ pub trait Decoder: Send {
     fn decode(&mut self, packet: &Packet) -> Decoded;
     /// Whether it really ended up on the graphics card.
     fn hardware(&self) -> bool;
+    /// For a decoder that may change horses mid-stream: ask gets the stream a keyframe, so a new decoder has something to start from.
+    fn on_keyframe_needed(&mut self, ask: Box<dyn Fn() + Send>) {
+        let _ = ask;
+    }
 }
 
 /// Turns a frame into RGB at another size, for the preview.
@@ -186,6 +190,12 @@ pub trait StreamFrames: FrameStore {
     fn new_slot(&self) -> Arc<dyn FrameSlot>;
     /// The streams running now as (source id, name, slot), in the order they started; a stream with the camera off is left out.
     fn set_streams(&self, streams: Vec<(String, String, Arc<dyn FrameSlot>)>);
+}
+
+/// Whether Setup's saved settings ask for the graphics card decoder. On unless they say otherwise. Python always saved this
+/// value, off by default, so a saved false can't be told from a choice and stays off; only a missing value means nobody said.
+pub fn hardware_decode_on(setup: Option<&serde_json::Value>) -> bool {
+    setup.and_then(|c| c.get("hw_decode")).is_none_or(|v| *v == serde_json::Value::Bool(true))
 }
 
 /// Decoding as it stands (h264_reader's hardware_device, decoding_backends, hardware_failed).

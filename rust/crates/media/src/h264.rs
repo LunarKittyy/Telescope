@@ -1,8 +1,9 @@
 //! H.264 (Annex-B, in chunks of any size) to I420 (h264_reader.Decoder): on the graphics card when that's on and works,
-//! else in software. A card decoder that errors is swapped for software on the spot (the picture resumes at the next
-//! keyframe) and not tried again this run.
+//! else in software. A card decoder that errors, or takes in pieces of the stream and gives no picture for a moment, is swapped
+//! for software on the spot without ending the stream, and not tried again this run. The stream is asked for a keyframe, so the
+//! picture resumes right away instead of at the next one the phone was going to send.
 
-use crate::ffmpeg::{Codec, Fault, Hw};
+use crate::ffmpeg::{Codec, Fault, Forced, Hw};
 use crate::packets::{Steps, Tap};
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -15,6 +16,9 @@ use telescope_core::media::{Decoded, Decoder, DecodingStatus, Packet};
 const HW_TYPES: [Hw; 2] = [Hw::D3d11va, Hw::Cuda];
 #[cfg(not(windows))]
 const HW_TYPES: [Hw; 2] = [Hw::Vaapi, Hw::Cuda];
+
+/// Pieces of the stream a card decoder may take in a row without a picture before software takes over: half a second at 30 fps.
+const SILENT_UNITS: u32 = 15;
 
 /// A card decoder errored this run: software from then on.
 static HW_FAILED: AtomicBool = AtomicBool::new(false);
@@ -123,6 +127,10 @@ pub struct H264 {
     step_generation: u64,
     /// Decoded a frame: from then on a bad packet is the stream's fault, not the card's.
     hw_proven: bool,
+    /// Pieces of the stream the card has taken since its last picture.
+    silent: u32,
+    /// Tells the stream to ask for a keyframe after a change of decoder.
+    ask_keyframe: Option<Box<dyn Fn() + Send>>,
     /// Tests: the next feed fails as a broken driver would.
     #[cfg(test)]
     break_next: bool,
@@ -136,10 +144,27 @@ impl H264 {
 
     /// new, with how a computer finds its card decoder and opens a codec.
     fn opening(hardware: bool, device: impl FnOnce() -> Option<Hw>, open: impl Fn(Option<Hw>) -> Result<Codec, String>, tap: Option<Arc<Tap>>) -> Result<H264, String> {
+        if hardware && hardware_failed() {
+            log::info!("Decoding this stream in software: the graphics card failed earlier this run");
+        }
         let wanted = if hardware && !hardware_failed() { device() } else { None };
-        let codec = match wanted.map(|h| open(Some(h))) {
+        let opened = wanted.map(|h| {
+            let forced = matches!(Forced::asked(), Some((Forced::Open, _)));
+            open(Some(h)).and_then(|c| if forced { Err("forced by TELESCOPE_HW_FAULT".to_string()) } else { Ok(c) }).map_err(|why| (h, why))
+        });
+        let codec = match opened {
             Some(Ok(c)) => c,
-            _ => open(None)?,
+            Some(Err((h, why))) => {
+                HW_FAILED.store(true, Ordering::SeqCst);
+                log::warn!("Hardware decoding ({}) didn't start ({why}); decoding in software from now on", h.name());
+                open(None)?
+            }
+            None => {
+                if hardware && !hardware_failed() {
+                    log::info!("Decoding this stream in software: no graphics card decoder here");
+                }
+                open(None)?
+            }
         };
         Ok(H264::with_codec(codec, tap))
     }
@@ -155,6 +180,8 @@ impl H264 {
             steps,
             step_generation,
             hw_proven: false,
+            silent: 0,
+            ask_keyframe: None,
             #[cfg(test)]
             break_next: false,
         }
@@ -179,7 +206,8 @@ impl H264 {
                 }
             }
         }
-        let strict = self.codec.hw.is_some() && !self.hw_proven;
+        // Joined the stream before its headers: nothing can decode that, so it says nothing about the card
+        let strict = self.codec.hw.is_some() && !self.hw_proven && self.headers.sps.is_some() && self.headers.pps.is_some();
         #[cfg(test)]
         let result = if std::mem::take(&mut self.break_next) {
             Err("the driver failed after receiving setup".to_string())
@@ -189,38 +217,52 @@ impl H264 {
         #[cfg(not(test))]
         let result = decode(&mut self.codec, self.steps.as_ref(), &data, strict);
         match result {
-            Ok((frame, count)) => {
-                self.hw_proven |= count > 0;
-                (frame, count)
-            }
-            Err(why) => {
-                let Some(hw) = self.codec.hw else {
-                    log::warn!("H.264 decoding failed ({why}); skipping this data");
-                    return (None, 0);
-                };
-                HW_FAILED.store(true, Ordering::SeqCst);
-                log::warn!("Hardware decoding ({}) failed ({why}); decoding in software from now on", hw.name());
-                let codec = match Codec::h264(None) {
-                    Ok(c) => c,
-                    Err(e) => {
-                        log::error!("The software decoder didn't open either: {e}");
-                        return (None, 0);
-                    }
-                };
-                count_live(Some(hw), -1);
-                count_live(None, 1);
-                self.codec = codec;
-                // The old steps have already seen this data
-                if let Some(tap) = &self.tap {
-                    let steps = tap.open();
-                    self.step_generation = steps.generation();
-                    self.steps = Some(steps);
+            Ok(fed) if self.codec.hw.is_none() => (fed.newest, fed.count),
+            Ok(fed) => {
+                self.silent = if fed.count > 0 { 0 } else { self.silent + fed.units };
+                self.hw_proven |= fed.count > 0;
+                if self.silent >= SILENT_UNITS {
+                    let why = format!("no picture from the last {} pieces of the stream", self.silent);
+                    return self.fall_back(why, &data);
                 }
-                // A fresh decoder can't start from a keyframe alone, and TCP sends SPS and PPS only when joining
-                let setup = [self.headers.setup(), data.into_owned()].concat();
-                decode(&mut self.codec, self.steps.as_ref(), &setup, false).unwrap_or((None, 0))
+                (fed.newest, fed.count)
             }
+            Err(why) if self.codec.hw.is_none() => {
+                log::warn!("H.264 decoding failed ({why}); skipping this data");
+                (None, 0)
+            }
+            Err(why) => self.fall_back(why, &data),
         }
+    }
+
+    /// Swaps the card for software mid-stream and retries data on it.
+    fn fall_back(&mut self, why: String, data: &[u8]) -> (Option<Frame>, u32) {
+        let hw = self.codec.hw.expect("only a card decoder falls back");
+        HW_FAILED.store(true, Ordering::SeqCst);
+        log::warn!("Hardware decoding ({}) failed ({why}); decoding in software from now on", hw.name());
+        let codec = match Codec::h264(None) {
+            Ok(c) => c,
+            Err(e) => {
+                log::error!("The software decoder didn't open either: {e}");
+                return (None, 0);
+            }
+        };
+        count_live(Some(hw), -1);
+        count_live(None, 1);
+        self.codec = codec;
+        // The old steps have already seen this data
+        if let Some(tap) = &self.tap {
+            let steps = tap.open();
+            self.step_generation = steps.generation();
+            self.steps = Some(steps);
+        }
+        // Without this the picture waits for the phone's next keyframe, up to ten seconds with intra refresh
+        if let Some(ask) = &self.ask_keyframe {
+            ask();
+        }
+        // A fresh decoder can't start from a keyframe alone, and TCP sends SPS and PPS only when joining
+        let setup = [&self.headers.setup(), data].concat();
+        decode(&mut self.codec, self.steps.as_ref(), &setup, false).map_or((None, 0), |fed| (fed.newest, fed.count))
     }
 }
 
@@ -230,11 +272,19 @@ impl Drop for H264 {
     }
 }
 
+/// What feeding the decoder gave: the newest frame, how many finished and how many access units went in.
+struct Fed {
+    newest: Option<Frame>,
+    count: u32,
+    units: u32,
+}
+
 /// Parses data into access units, runs them through the packet steps and decodes them. strict: data the decoder
 /// refuses is the decoder's fault (a card that can't take the stream), not something to skip.
-fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool) -> Result<(Option<Frame>, u32), String> {
+fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool) -> Result<Fed, String> {
     let mut newest = None;
     let mut count = 0;
+    let mut units_in = 0;
     let mut fault = None;
     let steps = steps.filter(|s| s.on());
     codec.parse(data, |codec, unit| {
@@ -246,6 +296,7 @@ fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool) -
             None => vec![unit.to_vec()],
         };
         for u in units {
+            units_in += 1;
             match codec.decode(&u, |f| newest = Some(f)) {
                 Ok(n) => count += n,
                 // Joined mid-GOP, say: skip until a keyframe
@@ -260,7 +311,7 @@ fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool) -
     });
     match fault {
         Some(why) => Err(why),
-        None => Ok((newest, count)),
+        None => Ok(Fed { newest, count, units: units_in }),
     }
 }
 
@@ -275,6 +326,10 @@ impl Decoder for H264 {
 
     fn hardware(&self) -> bool {
         self.codec.hw.is_some()
+    }
+
+    fn on_keyframe_needed(&mut self, ask: Box<dyn Fn() + Send>) {
+        self.ask_keyframe = Some(ask);
     }
 }
 
@@ -539,8 +594,113 @@ pub(crate) mod tests {
             Codec::h264(None)
         }, None).unwrap();
         assert_eq!(tried.load(Ordering::SeqCst), 1);
-        assert!(dec.hw().is_none() && !hardware_failed());
+        assert!(dec.hw().is_none() && hardware_failed(), "and it isn't tried again this run");
         assert!(dec.feed(&packets.concat()).0.is_some());
+    }
+
+    #[test]
+    fn a_computer_without_a_card_decoder_isnt_a_card_that_failed() {
+        let _turn = card_test();
+        let dec = H264::opening(true, || None, Codec::h264, None).unwrap();
+        assert!(dec.hw().is_none() && !hardware_failed());
+    }
+
+    /// Runs a real stream through a card decoder that goes wrong in the given way after two good frames.
+    fn fails_mid_stream(kind: Forced) {
+        let Some(packets) = testenc::h264(&(60..90).collect::<Vec<u8>>(), 64, 48, 5) else { return };
+        let _turn = card_test();
+        let mut dec = pretend_hardware(None);
+        dec.codec.forced = Some((kind, 2));
+        let asked = Arc::new(AtomicUsize::new(0));
+        let a = asked.clone();
+        dec.on_keyframe_needed(Box::new(move || {
+            a.fetch_add(1, Ordering::SeqCst);
+        }));
+        let shown = packets.iter().filter(|p| dec.feed(p).0.is_some()).count();
+        assert!(dec.hw().is_none() && hardware_failed(), "{kind:?} left it on the card");
+        assert_eq!(asked.load(Ordering::SeqCst), 1, "{kind:?}");
+        assert!(shown > 2, "{kind:?}: the picture came back after the swap, {shown} shown");
+        assert!(status().backends.contains(&"processor".to_string()));
+    }
+
+    #[test]
+    fn a_card_that_stops_giving_pictures_hands_over_mid_stream() {
+        fails_mid_stream(Forced::Silent);
+    }
+
+    #[test]
+    fn a_card_that_starts_refusing_every_packet_hands_over_mid_stream() {
+        fails_mid_stream(Forced::Reject);
+    }
+
+    #[test]
+    fn a_card_that_errors_mid_stream_hands_over() {
+        fails_mid_stream(Forced::Broken);
+    }
+
+    #[test]
+    fn a_moment_with_no_picture_shorter_than_the_limit_stays_on_the_card() {
+        let Some(packets) = testenc::h264(&(60..90).collect::<Vec<u8>>(), 64, 48, 5) else { return };
+        let _turn = card_test();
+        let mut dec = pretend_hardware(None);
+        for p in &packets[..2] {
+            dec.feed(p);
+        }
+        dec.codec.forced = Some((Forced::Silent, 0));
+        for p in &packets[2..2 + SILENT_UNITS as usize - 1] {
+            dec.feed(p);
+        }
+        assert_eq!(dec.hw(), Some(Hw::Cuda));
+        dec.codec.forced = None;
+        dec.feed(&packets[2 + SILENT_UNITS as usize - 1]);
+        assert_eq!(dec.silent, 0, "a picture clears the count");
+        assert!(dec.hw() == Some(Hw::Cuda) && !hardware_failed());
+    }
+
+    #[test]
+    fn joining_before_the_headers_says_nothing_about_the_card() {
+        let Some(packets) = testenc::h264(&[60, 61], 64, 48, 5) else { return };
+        let _turn = card_test();
+        let mut dec = pretend_hardware(None);
+        // A slice with no SPS or PPS seen yet: nothing could decode this
+        dec.feed(b"\x00\x00\x00\x01\x41\x9a\x00\x00\x00\x01\x09\xf0");
+        assert!(dec.hw() == Some(Hw::Cuda) && !hardware_failed());
+        assert!(dec.feed(&packets.concat()).0.is_some());
+    }
+
+    /// Every way a real card goes wrong while copying its picture out: only VA-API can get here, so this skips elsewhere.
+    #[test]
+    fn a_real_card_that_gives_bad_pictures_hands_over() {
+        let Some(packets) = testenc::h264(&(60..90).collect::<Vec<u8>>(), 320, 240, 5) else { return };
+        for kind in [Forced::Copy, Forced::Empty, Forced::Blank, Forced::Silent, Forced::Reject, Forced::Broken] {
+            let _turn = card_test();
+            let mut dec = H264::new(true, None).unwrap();
+            if dec.hw().is_none() {
+                return eprintln!("no graphics card decoder; skipped");
+            }
+            dec.codec.forced = Some((kind, 3));
+            assert!(packets[..3].iter().all(|p| dec.feed(p).0.is_some()) && dec.hw().is_some(), "{kind:?}: good frames first, on the card");
+            let shown = packets[3..].iter().filter(|p| dec.feed(p).0.is_some()).count();
+            assert!(dec.hw().is_none() && hardware_failed(), "{kind:?} left it on the card");
+            assert!(shown > 0, "{kind:?}: no picture after the swap");
+        }
+    }
+
+    #[test]
+    fn a_real_card_gives_the_same_picture_as_software() {
+        let Some(packets) = testenc::h264(&[40, 90, 140, 200], 320, 240, 5) else { return };
+        let _turn = card_test();
+        let mut card = H264::new(true, None).unwrap();
+        if card.hw().is_none() {
+            return eprintln!("no graphics card decoder; skipped");
+        }
+        let mut soft = H264::new(false, None).unwrap();
+        for p in &packets {
+            let (a, b) = (card.feed(p).0.unwrap(), soft.feed(p).0.unwrap());
+            let worst = a.data.iter().zip(b.data.iter()).map(|(x, y)| (*x as i32 - *y as i32).abs()).max().unwrap();
+            assert!(worst <= 2, "off by {worst}");
+        }
+        assert!(card.hw().is_some(), "still on the card");
     }
 
     #[test]

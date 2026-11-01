@@ -668,6 +668,7 @@ impl Window {
         match event {
             WorkerEvent::Status(kind, msg) => self.worker_status(&source, &kind, &msg),
             WorkerEvent::Reconnected => self.with_flow(|flow, host| flow.stream_reconnected(host, &source)),
+            WorkerEvent::NeedsKeyframe => ask_keyframe(&source),
             WorkerEvent::Moved(url) => self.moved_over(&source, Some(&worker), &url),
             WorkerEvent::MoveFailed(url) => {
                 if let Some(phone) = source.kind.as_phone() {
@@ -1563,7 +1564,7 @@ impl FlowHost for Host<'_> {
         let services = self.w.services.clone().expect("streams need services");
         // Setup's switch counts from the next stream on, as h264_reader.set_hardware does; --vaapi turns it on for a run
         let setup = self.w.state.borrow().plugin_config("setup");
-        let chosen = setup.is_some_and(|c| c.get("hw_decode") == Some(&Value::Bool(true)));
+        let chosen = telescope_core::media::hardware_decode_on(setup.as_ref());
         let hardware = chosen || self.w.opts.as_ref().is_some_and(|o| o.hardware_decode);
         let id = self.w.streams.next_worker.get() + 1;
         self.w.streams.next_worker.set(id);

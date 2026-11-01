@@ -654,6 +654,22 @@ fn the_graphics_card_row_waits_for_settings_and_fills_in_after() {
     assert!(r.plugin.panel.hw_line.contains("NVIDIA CUDA"));
 }
 
+#[test]
+fn the_graphics_card_row_says_what_really_happens() {
+    let mut r = Rig::linux();
+    let checked = |r: &Rig| r.plugin.video_props()["hw-checked"] == json!(true);
+    assert!(checked(&r), "on, while the card is being looked for");
+    r.plugin.show_graphics_card(None, false);
+    assert!(!checked(&r), "nothing to decode on, so it doesn't look on");
+    assert_eq!(r.plugin.get_config()["hw_decode"], json!(true), "and the setting isn't touched");
+    r.plugin.show_graphics_card(Some("vaapi"), false);
+    assert!(checked(&r) && r.plugin.panel.hw_line.contains("Found"));
+    r.plugin.show_graphics_card(Some("vaapi"), true);
+    assert!(checked(&r) && r.plugin.panel.hw_line.contains("until you restart"));
+    r.plugin.on_hw_decode(&mut r.host, false);
+    assert!(!checked(&r));
+}
+
 // test_plugins.py
 
 #[test]
@@ -686,16 +702,24 @@ fn setup_plugin_config_round_trip() {
 }
 
 #[test]
-fn hardware_decoding_is_off_unless_turned_on() {
+fn hardware_decoding_is_on_unless_saved_off() {
     let mut r = Rig::linux();
-    r.plugin.set_config(&json!({"hw_decode": "yes"})).unwrap();
-    assert_eq!(r.plugin.get_config()["hw_decode"], json!(false));
+    assert_eq!(r.plugin.get_config()["hw_decode"], json!(true), "a new install");
+    r.plugin.set_config(&json!({})).unwrap();
+    assert_eq!(r.plugin.get_config()["hw_decode"], json!(true), "settings from before it was saved");
+    // Python always saved false, so a saved false may be a choice: it stays, and so does anything that isn't plainly true
+    for saved in [json!(false), json!("yes"), json!(1)] {
+        r.plugin.set_config(&json!({"hw_decode": saved})).unwrap();
+        assert_eq!(r.plugin.get_config()["hw_decode"], json!(false), "{saved}");
+    }
     r.ui("video", "hw-toggled", vec![json!(true)]);
     assert_eq!(r.plugin.get_config()["hw_decode"], json!(true));
     assert_eq!(r.plugin.diagnostics(), vec![("Decoding".to_string(), "not streaming (graphics card selected)".to_string())]);
     r.media.status.lock().unwrap().backends = vec!["processor".into()];
     r.media.status.lock().unwrap().hardware_failed = true;
     assert_eq!(r.plugin.diagnostics()[0].1, "processor (graphics card failed; processor until restart)");
+    r.media.status.lock().unwrap().backends = vec![];
+    assert_eq!(r.plugin.diagnostics()[0].1, "not streaming (graphics card failed; processor until restart)");
 }
 
 #[test]
