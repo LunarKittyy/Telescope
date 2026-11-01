@@ -8,7 +8,7 @@ on:
       - 'desktop/**'
       - '.github/workflows/rust-parity.yml'
   push:
-    branches: [oxidized-telescope]
+    branches: [master]
     paths:
       - 'rust/**'
       - 'desktop/**'

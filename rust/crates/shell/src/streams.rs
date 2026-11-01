@@ -1606,8 +1606,13 @@ impl FlowHost for Host<'_> {
             }
             st.motion.drop_stream(id);
         }
-        // Off the UI thread, so a stalled read can't freeze the window.
-        std::thread::spawn(move || inner.stop());
+        // Off the UI thread, so a stalled read can't freeze the window, but a stop that goes normally ends before the next worker opens the camera
+        let (stopped, wait) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            inner.stop();
+            let _ = stopped.send(());
+        });
+        let _ = wait.recv_timeout(Duration::from_millis(250));
     }
     fn packet_steps(&self) -> Vec<String> {
         self.w.streams.packet_makers.borrow().owners()

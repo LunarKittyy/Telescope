@@ -39,6 +39,7 @@ impl Autostart for Never {
 /// One test, because Slint's platform lives on the thread that first builds an instance.
 #[test]
 fn the_sections_have_what_the_plugin_uses() {
+    i_slint_backend_testing::init_no_event_loop();
     let mut plugin = StartupPlugin::new(Arc::new(Never));
     let sections = plugin.settings_sections();
     assert_eq!(sections.len(), 2);

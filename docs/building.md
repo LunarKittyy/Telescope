@@ -102,7 +102,7 @@ A build is stable (`3.0.0`), nightly (`3.0.0-nightly.123`) or a source checkout 
 
 ## Package the Rust app
 
-The Rust rewrite in `rust/` packages into the same shape as the Python release, which lets the Python app's updater install it. `master` still ships Python, so none of this runs in `release.yml` yet.
+The desktop app in `rust/` packages into the same shape as the old Python release, which lets the Python app's updater install it. `release.yml` runs everything below through `rust-package.yml`.
 
 FFmpeg comes first. `rust/tools/build_ffmpeg.sh` makes a small LGPL build with only the decoders the app opens (about 5 MB instead of about 170 MB) and it wants Ubuntu 22.04 for both targets, Windows' through mingw:
 
@@ -118,7 +118,7 @@ The GPL build with libx264 is only for the tests, which need an H.264 encoder.
 
 On Linux `rust/tools/package_linux.sh --ffmpeg DIR --channel nightly --build 123 --commit <sha>` writes the folder that becomes `Telescope-linux.tar.gz`. Build it on Ubuntu 22.04 as well, because the machine it's built on sets the oldest Linux it runs on. Besides the program it holds a `start.sh`, a `main.py` that only hands over to `start.sh` and a `telescope/` folder with the stamp, because the Python updater turns down a tarball without the last two. FFmpeg is in `lib/`, and `lib/fallback/` has libva for a system that has none (`start.sh` only uses it then, a system's own libva knows where its video drivers are).
 
-On Windows `rust/tools/build_windows.ps1 -Channel nightly -Build 123 -Commit <sha>` with `FFMPEG_DIR` set writes the folder that becomes `Telescope-windows-portable.zip`: `TelescopeDesktop.exe`, `ui-kit`, FFmpeg's and RNNoise's DLLs and both cameras. The camera DLL's wait screen comes from `telescope-rs camera-wait-screen`, so no Python app is needed for it. `installer/build.ps1 -Bundle <folder> -Out setup -Rust` packs that folder into the setup.
+On Windows `rust/tools/build_windows.ps1 -Channel nightly -Build 123 -Commit <sha>` with `FFMPEG_DIR` set writes the folder that becomes `Telescope-windows-portable.zip`: `TelescopeDesktop.exe`, `ui-kit`, FFmpeg's and RNNoise's DLLs and both cameras. The C runtime is linked into the program, so it starts on a Windows without the VC++ redistributable. The camera DLL's wait screen comes from `telescope-rs camera-wait-screen`, so no Python app is needed for it. `installer/build.ps1 -Bundle <folder> -Out setup -Rust` packs that folder into the setup.
 
 A stamped build (channel `stable` or `nightly`) uses the real settings folder, like the Python app it replaces, where a `dev` build keeps to a profile of its own.
 
@@ -137,18 +137,20 @@ Each release holds `Telescope.apk`, `Telescope-windows-portable.zip`, `Telescope
 
 The APK is signed with the release key from the repository secrets `TELESCOPE_KEYSTORE` (base64), `TELESCOPE_KEYSTORE_PASSWORD`, `TELESCOPE_KEY_ALIAS` and `TELESCOPE_KEY_PASSWORD`. A release fails rather than publish a debug-signed APK, because Android only installs an update signed with the same key as the installed app.
 
-Before publishing, `.github/check_release.py` checks the files it's about to upload: the APK's certificate is the release key's (pinned in the script), the APK, the Linux bundle's stamp and the Windows bundle's `lib-<build>` folder all carry this version and build, both bundles hold the notices and the APK, and `manifest.json`'s checksums match.
+Before publishing, `.github/check_release.py` checks the files it's about to upload: the APK's certificate is the release key's (pinned in the script), the APK and the Linux bundle's stamp carry this version and build, both bundles hold the notices and the APK, and `manifest.json`'s checksums match. `rust/tools/check_package.py --no-run` then looks through both bundles once more. The Windows stamp is compiled in, so that one is checked where the program can run, in `rust-package.yml`.
 
-### The three build workflows
+### The workflows for pull requests
 
-They also run on every pull request without publishing. Their checks are called `android`, `windows` and `linux`, and `master` only takes a pull request once all three pass (the maintainer can push past it). Each has a small `changes` job that skips the check when nothing it covers changed, which GitHub counts as passing, so a docs-only pull request never waits on a check that doesn't run. A new push cancels checks still running.
+These run on pull requests without publishing, and `release.yml` calls them for the real thing. The checks called `android`, `windows` and `linux` have to pass before `master` takes a pull request (the maintainer can push past it). `build-apk.yml` and `rust.yml` each have a small `changes` job that skips the check when nothing it covers changed, which GitHub counts as passing, so a docs-only pull request never waits on a check that doesn't run. A new push cancels checks still running.
 
 | Workflow | Runs for | What it does |
 |---|---|---|
 | `build-apk.yml` | `android/**` | `./gradlew lintDebug testDebugUnitTest`, then `assembleRelease`. In a release it checks the APK isn't debug-signed |
-| `build-windows.yml` | `desktop/**`, `installer/**` | Builds the Windows 11 camera's DLL, installs dependencies, runs `pytest` and `smoke_check.py`, checks the UnityCapture install for real on the runner (its Windows Server is older than Windows 11, so the Windows 11 camera can't be registered there), builds the app folder with PyInstaller (`telescope.spec`) and a launcher of its own (`scripts/build_bootloader.py`, which says to extract the zip first when opened from inside it), and on pull requests builds a quick `TelescopeSetup.exe` with Inno Setup and checks the installer, update and uninstall paths. A release does those last two in `release.yml`, on the setup it publishes |
-| `build-linux.yml` | `desktop/**` | Runs `pytest` (with the Inter and Noto fonts installed, which `test_text_fit.py` measures with) and `smoke_check.py`, then assembles the source bundle: `main.py`, `update_guard.py`, the `telescope/` package, the requirements files, `start.sh` and the notices. There's no compiled build step since `start.sh` makes its own venv on first run |
-| `rust-package.yml` | `rust/tools/**`, `installer/**`, `desktop/virtualcamera/**` | Builds both FFmpegs and both Rust packages, runs `check_package.py` and on Windows the installer checks with `-Rust`. It is not a required check and `release.yml` doesn't call it until the switch |
+| `rust.yml` | `rust/**`, `desktop/**` | The `linux` and `windows` checks: builds the workspace and runs its tests, with the fonts and the Python desktop app's dependencies some of them compare against. Its `changes` job also checks `VERSION` and that the release checklist names every file. On `master` it runs inside `release.yml`, so it doesn't start a second time |
+| `rust-parity.yml` | `rust/**`, `desktop/**` | The parity tools' tests and the ledger check, on pull requests and on `master` |
+| `rust-package.yml` | `rust/tools/**`, `installer/**`, `desktop/virtualcamera/**` | Builds both FFmpegs and both packages and runs `check_package.py`. On pull requests it also builds a quick `TelescopeSetup.exe` and checks the installer, update and uninstall paths and an unzipped copy moving to the installed one. A release does those on the setup it publishes, in `release.yml` |
+
+`build-linux.yml` and `build-windows.yml` are the Python desktop app's tests and bundles. They only run by hand now. `desktop/` stays in the repository because the parity tools and some Rust tests read it.
 
 The Windows setup (`installer/Telescope.iss`) is per-user: it installs to `%LOCALAPPDATA%\Programs\Telescope` without admin, because the app updates itself in place and needs its folder writable. It doesn't touch the camera driver (the first-run checklist installs that). Uninstalling closes a running Telescope, deletes the log, the downloaded adb and the vision download, asks before deleting settings and pairings, and offers to remove the camera driver and firewall rules (one UAC prompt). Keep its `AppId` as it is since Windows finds an existing install by it.
 
@@ -158,4 +160,4 @@ Publishes `site/`, the landing page, to GitHub Pages on pushes to `master` that 
 
 ### `desktop/scripts/smoke_check.py`
 
-Runs in both desktop workflows before the bundle is assembled. It builds the full app with every plugin, exercises adb discovery and virtual camera detection, does a real authenticated MJPEG round trip against a local test server (including that an unauthenticated request is rejected), and serves a Browser camera page over TLS with an aiortc peer sending video through the WebSocket. A bundle missing `cryptography`, aiortc or the `web/` files fails here. It's no substitute for testing on a real phone, see the [release checklist](release-checklist.md) and [device compatibility](device-compatibility.md).
+Runs in the two Python workflows before the bundle is assembled. It builds the full app with every plugin, exercises adb discovery and virtual camera detection, does a real authenticated MJPEG round trip against a local test server (including that an unauthenticated request is rejected), and serves a Browser camera page over TLS with an aiortc peer sending video through the WebSocket. A bundle missing `cryptography`, aiortc or the `web/` files fails here. It's no substitute for testing on a real phone, see the [release checklist](release-checklist.md) and [device compatibility](device-compatibility.md).

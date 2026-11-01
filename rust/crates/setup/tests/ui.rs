@@ -18,6 +18,8 @@ fn spin_on<F: std::future::Future>(f: F) -> F::Output {
     }
 }
 
+thread_local!(static INIT: std::sync::Once = const { std::sync::Once::new() });
+
 /// Builds a piece of UI's component on its own and checks it has every property set and every callback listened for.
 fn ui_has(ui: &UiSpec, callbacks: &[&str]) {
     let SlintSource::Text(source) = ui.source.clone() else { panic!("source text") };
@@ -31,6 +33,7 @@ fn ui_has(ui: &UiSpec, callbacks: &[&str]) {
     let result = spin_on(compiler.build_from_source(doc, Path::new("/root/card.slint").to_path_buf()));
     let errors: Vec<String> = result.diagnostics().filter(|d| d.level() == slint_interpreter::DiagnosticLevel::Error).map(|d| d.to_string()).collect();
     assert!(errors.is_empty(), "{}", errors.join("\n"));
+    INIT.with(|once| once.call_once(i_slint_backend_testing::init_no_event_loop));
     let instance = result.component(&ui.component).expect("the component").create().expect("an instance");
     for name in ui.props.as_object().expect("props").keys() {
         assert!(instance.get_property(name).is_ok(), "{} has no property {name}", ui.component);

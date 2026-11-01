@@ -79,11 +79,13 @@ fn font_files() -> &'static [(String, PathBuf)] {
     })
 }
 
-/// The bytes of the first of these file names the system has (the names in order, whichever folder it is in).
+/// The bytes of the first of these file names the system has (the names in order, whichever folder it is in). A .ttf name also finds
+/// the same name as .otf, which is how Debian and Ubuntu package Inter.
 pub fn find_font_file(names: &[&str]) -> Option<Vec<u8>> {
+    let found = |wanted: &str| font_files().iter().find(|(file, _)| file == wanted);
     names.iter().find_map(|name| {
         let wanted = name.to_ascii_lowercase();
-        font_files().iter().find(|(file, _)| *file == wanted).and_then(|(_, path)| std::fs::read(path).ok())
+        found(&wanted).or_else(|| found(&wanted.replace(".ttf", ".otf"))).and_then(|(_, path)| std::fs::read(path).ok())
     })
 }
 

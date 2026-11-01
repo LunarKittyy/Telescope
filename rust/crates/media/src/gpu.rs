@@ -818,7 +818,9 @@ mod tests {
                 let mut cpu = frame.clone();
                 Graded::new(lut).process(&mut cpu, &Nothing);
                 let worst = card.data.iter().zip(cpu.data.iter()).map(|(a, b)| (*a as i32 - *b as i32).abs()).max();
-                assert!(worst <= Some(2), "{w}x{h} {}: {worst:?}", lut.kind());
+                // A CI runner's software GL filters a 3D texture a touch coarser than any graphics card
+                let limit = if gpu.adapter_name.contains("llvmpipe") { 3 } else { 2 };
+                assert!(worst <= Some(limit), "{w}x{h} {} on {}: {worst:?}", lut.kind(), gpu.adapter_name);
             }
         }
     }

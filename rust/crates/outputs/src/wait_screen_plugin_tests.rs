@@ -723,6 +723,7 @@ fn the_card_compiles_and_has_what_the_plugin_uses() {
             }
         }
     };
+    i_slint_backend_testing::init_no_event_loop();
     let instance = result.component("WaitScreenSettings").expect("the component").create().expect("an instance");
     // What the plugin sets, to start with and as it refreshes
     let mut r = Rig::new();

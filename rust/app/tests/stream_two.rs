@@ -249,7 +249,7 @@ fn stop_stops_every_camera() {
     let r = two_streams("two-stop-all");
     r.w.toggle_stream();
     r.pump();
-    assert!(r.streaming().is_empty() && r.worker(0).is_stopped() && r.worker(1).is_stopped());
+    assert!(r.streaming().is_empty() && r.worker(0).stops() && r.worker(1).stops());
     assert_eq!(r.heard().iter().filter(|l| *l == "microphone stop").count(), 1);
 }
 
@@ -292,7 +292,7 @@ fn picking_another_source_with_two_streaming_replaces_the_one_shown() {
     let mut streaming = r.streaming();
     streaming.sort();
     assert_eq!(streaming, ["pixel", "third"]);
-    assert!(r.worker(1).is_stopped());
+    assert!(r.worker(1).stops());
     assert_eq!(r.worker(2).camera_slot, 1, "it takes over that camera");
     assert_eq!(r.shown().as_deref(), Some("third"));
     r.w.with_flow(|flow, host| assert!(flow.pick_source(host, Some("pixel"))));
@@ -372,7 +372,7 @@ fn re_pairing_a_phone_while_another_starts_restarts_it_after() {
     r.until("the restart too", |r| r.workers_made() == 4);
     r.pump();
     assert_eq!(r.streaming().len(), 3);
-    assert!(r.worker(0).is_stopped());
+    assert!(r.worker(0).stops());
     assert_eq!(r.link.logged("open pixel with new-token"), 1, "on the new pairing");
 }
 

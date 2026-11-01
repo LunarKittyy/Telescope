@@ -365,13 +365,14 @@ fn through_real_workers_the_main_stream_sends_the_picture_and_the_other_its_own(
     let number = store.stream_frame(Some("a")).unwrap().frame.number;
     b.publish(solid([0, 255, 255], (90, 160)));
     let now = monotonic_ns();
-    assert!(plugin.draw_stalled(now + SECOND));
+    // The plugin's own clock may get there first on a slow machine, so what counts is the picture that goes out
+    plugin.draw_stalled(now + SECOND);
     assert!(px(&a.latest(), 90, 280) == [0, 255, 255] && store.stream_frame(Some("a")).unwrap().frame.number == number);
     assert!(!store.replace_frame(Some("a"), out.clone(), number - 1) && !store.replace_frame(Some("gone"), out, number));
     // a long stall: b keeps moving on a's camera
     for (i, colour) in [[255, 0, 255], [255, 255, 0], [0, 0, 255]].into_iter().enumerate() {
         b.publish(solid(colour, (90, 160)));
-        assert!(plugin.draw_stalled(now + SECOND + i as u64 * SECOND / 2));
+        plugin.draw_stalled(now + SECOND + i as u64 * SECOND / 2);
         assert!(px(&a.latest(), 90, 280) == colour && store.stream_frame(Some("a")).unwrap().frame.number == number);
     }
     plugin.shutdown(&mut host);

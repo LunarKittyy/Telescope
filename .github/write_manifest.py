@@ -19,8 +19,8 @@ OLD_NAMES = {"Telescope-windows-portable.zip": "Telescope-windows.zip"}
 
 def session_protocol() -> int:
     """The desktop's SESSION_PROTOCOL; the phone's SessionServer.PROTOCOL_VERSION must match it."""
-    source = (ROOT / "desktop" / "telescope" / "session_client.py").read_text()
-    desktop = int(re.search(r"^SESSION_PROTOCOL = (\d+)", source, re.M).group(1))
+    source = (ROOT / "rust" / "crates" / "link" / "src" / "session_client.rs").read_text()
+    desktop = int(re.search(r"^pub const SESSION_PROTOCOL: i64 = (\d+)", source, re.M).group(1))
     kotlin = (ROOT / "android" / "app" / "src" / "main" / "kotlin" / "com" / "telescope" / "SessionServer.kt").read_text()
     phone = int(re.search(r"PROTOCOL_VERSION = (\d+)", kotlin).group(1))
     if desktop != phone:

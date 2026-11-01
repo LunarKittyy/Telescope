@@ -84,7 +84,7 @@ fn the_camera_goes_off_and_on_while_the_stream_and_mic_carry_on() {
     r.w.set_camera_on(false, false);
     r.pump();
     assert_eq!(sent(&r), [json!(0)]);
-    assert!(r.worker(0).is_stopped() && r.source("pixel").session().unwrap().worker.is_none());
+    assert!(r.worker(0).stops() && r.source("pixel").session().unwrap().worker.is_none());
     assert_eq!(r.streaming(), ["pixel"]);
     assert!(!r.host_says_camera_on());
     assert_eq!(mic_calls(&r), ["starting", "off"]);
@@ -189,7 +189,7 @@ fn a_camera_that_wont_come_back_on_stays_off_and_says_why() {
                                            state: Some(json!({"camera_toggle": true, "camera_off": true, "camera_error": "Another app may be using it."})) });
     r.pump();
     assert!(!r.host_says_camera_on());
-    assert!(r.source("pixel").session().unwrap().worker.is_none() && r.worker(1).is_stopped());
+    assert!(r.source("pixel").session().unwrap().worker.is_none() && r.worker(1).stops());
     assert_eq!(changes(&r), ["false", "true", "false"]);
     assert!(r.banner("camera").is_some());
 }

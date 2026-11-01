@@ -146,6 +146,12 @@ def check_windows(name: str, folder: Path, args):
     names = files_in(folder)
     check_common(name, folder, names, WINDOWS_FILES)
     check_libraries(name, folder, names, WINDOWS_LIBRARIES)
+    # The Python app brought its own, but a clean Windows may have no VC++ redistributable, and then the program can't start or roll back
+    if (folder / "TelescopeDesktop.exe").is_file():
+        program = (folder / "TelescopeDesktop.exe").read_bytes().lower()
+        for dll in (b"vcruntime140.dll", b"vcruntime140_1.dll", b"msvcp140.dll"):
+            if dll in program:
+                problems.append(f"{name}'s program needs {dll.decode()}")
     if not (folder / "TelescopeDesktop.exe").is_file() or args.no_run or sys.platform != "win32":
         return
     check_stamp(f"{name}'s exe", run_info(folder / "TelescopeDesktop.exe"), args)
