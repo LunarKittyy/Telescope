@@ -1204,6 +1204,20 @@ mod tests {
         assert!(y.iter().all(|&p| p == 17) && u.iter().all(|&p| p == 40) && v.iter().all(|&p| p == 200));
     }
 
+    // What cv2.resize(.., INTER_LINEAR) makes of each plane of a 6 x 4 picture
+    #[test]
+    fn a_stretched_frame_is_each_plane_through_cv2s_linear_resize() {
+        let y = [139, 74, 229, 241, 169, 65, 6, 160, 149, 106, 38, 175, 188, 205, 175, 229, 98, 249, 10, 148, 95, 86, 147, 198];
+        let u = [10, 60, 200, 90, 30, 250];
+        let frame = Frame::new(6, 4, PixelFormat::I420, [&y[..], &u, &u].concat());
+        let out = stretch(&frame, 4, 3);
+        let (oy, ou, ov) = out.i420_planes().unwrap();
+        assert_eq!(oy, [110, 184, 201, 99, 118, 167, 143, 176, 69, 120, 117, 189]);
+        assert_eq!((ou, ov), (&[23, 165, 75, 195][..], &[23, 165, 75, 195][..]));
+        let wide = fit_frame(&frame, 9, 6);
+        assert_eq!(wide.data, stretch(&frame, 9, 6).data, "a fitted one is the same resize");
+    }
+
     #[test]
     fn fit_frame_letterboxes() {
         let fitted = fit_frame(&tinted(8, 4, 255, 40, 200), 8, 8);
