@@ -261,14 +261,19 @@ impl Pipeline {
 
     /// While frames stay off the card, sends one of them there now and then to see what it would have waited.
     fn try_card(&mut self, frame: &Frame) {
+        let Some(gpu) = self.gpu() else { return };
         if !self.balance.trial_due() {
             return;
         }
-        let Some(gpu) = self.gpu() else { return };
-        let (frame, balance) = (frame.clone(), self.balance.clone());
-        let trial = move || match gpu.trial(&frame) {
-            Ok(waited) => balance.note_wait(waited),
-            Err(why) => log::warn!("Couldn't try the graphics card: {why}"),
+        let frame = frame.clone();
+        let done = Trial(self.balance.clone(), None);
+        let trial = move || {
+            // Bound here so the closure owns all of it, or it would only take the field it writes
+            let mut done = done;
+            match gpu.trial(&frame) {
+                Ok(waited) => done.1 = Some(waited),
+                Err(why) => log::warn!("Couldn't try the graphics card: {why}"),
+            }
         };
         if let Err(why) = std::thread::Builder::new().name("card-trial".into()).spawn(trial) {
             log::warn!("Couldn't try the graphics card: {why}");
@@ -290,6 +295,15 @@ impl Pipeline {
             }
             (t.frames, t.ups, t.downs, t.masks) = (0, 0, 0, masks);
         }
+    }
+}
+
+/// A trial out on the card, however it ends: a panic or a thread that wouldn't start still lets the next one go.
+struct Trial(Arc<Balance>, Option<u64>);
+
+impl Drop for Trial {
+    fn drop(&mut self) {
+        self.0.trial_done(self.1);
     }
 }
 
