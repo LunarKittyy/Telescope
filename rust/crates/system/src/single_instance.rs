@@ -469,8 +469,8 @@ mod tests {
         if cfg!(target_os = "linux") {
             Address::Abstract(format!("telescope-test-{}-{name}", std::process::id()))
         } else {
-            let digest = ring::digest::digest(&ring::digest::SHA256, format!("{}{name}", std::process::id()).as_bytes());
-            Address::Port(47900 + u16::from_be_bytes([digest.as_ref()[0], digest.as_ref()[1]]) % 2000)
+            // One the system hands out: Windows reserves whole ranges of ports, and which ones changes from machine to machine
+            Address::Port(std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap().local_addr().unwrap().port())
         }
     }
 

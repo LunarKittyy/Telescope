@@ -472,7 +472,7 @@ fn sent_each(r: &Ready, frames: &[(&Rgb, f64)]) -> Vec<bool> {
         let s = sv(&r.v, "a");
         let mut p = s.people.lock().unwrap();
         let sent = p.frame.take().is_some();
-        p.at -= ago + TICK;
+        p.at = monotonic() - (ago + TICK); // from now, so a slow machine's time between frames doesn't count
         sent
     }).collect()
 }

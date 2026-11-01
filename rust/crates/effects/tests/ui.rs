@@ -66,9 +66,9 @@ fn has_what_the_plugin_uses(plugin: &mut dyn Plugin, callbacks: &[&str]) {
     ui_has(&card.ui, callbacks);
 }
 
-/// The same for any piece of UI a plugin hands over (a header button, a settings section).
 thread_local!(static INIT: std::sync::Once = const { std::sync::Once::new() });
 
+/// The same for any piece of UI a plugin hands over (a header button, a settings section).
 fn ui_has(ui: &UiSpec, callbacks: &[&str]) {
     let SlintSource::Text(source) = ui.source.clone() else { panic!("source text") };
     // A file with two exported components (a card and its settings) hands over only the last one, so ask for this one by name

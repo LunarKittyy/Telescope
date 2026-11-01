@@ -108,6 +108,11 @@ jobs:
       run:
         working-directory: rust
     steps:
+      # Tests read the sources, fixtures and installer script as text, with the line endings they have in the repository
+      - name: Keep line endings as they are
+        working-directory: .
+        run: git config --global core.autocrlf false
+
       - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v7

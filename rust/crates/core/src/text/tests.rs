@@ -459,7 +459,9 @@ fn emoji_go_to_the_colour_font_even_when_the_main_font_has_them() {
     assert_eq!(painted(&face, "\u{1f600}").1, 0);
     // Joined up, one picture
     assert_eq!(face.advance("\u{1f469}\u{200d}\u{1f4bb}"), moon);
-    assert_eq!(face.advance("\u{1f1f3}\u{1f1f1}"), moon);
+    if !cfg!(windows) { // Segoe UI Emoji has no flags: Windows draws the two letters
+        assert_eq!(face.advance("\u{1f1f3}\u{1f1f1}"), moon);
+    }
     // Asked to stay text, it does
     assert!(!emoji_ranges("\u{2764}").iter().any(|_| true));
     assert!(emoji_ranges("\u{1f600}\u{fe0e}").is_empty());

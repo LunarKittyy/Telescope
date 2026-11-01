@@ -280,6 +280,7 @@ mod tests {
         while Instant::now() < deadline {
             flip += 1;
             frames.set_streams(all(if flip % 2 == 1 { 3 } else { 1 }));
+            std::thread::sleep(Duration::from_millis(1)); // a reader gets a look at each, however its thread is scheduled
         }
         stop.store(true, Ordering::SeqCst);
         let problems: Vec<_> = threads.into_iter().flat_map(|t| t.join().unwrap()).collect();

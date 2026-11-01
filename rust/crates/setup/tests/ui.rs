@@ -18,9 +18,9 @@ fn spin_on<F: std::future::Future>(f: F) -> F::Output {
     }
 }
 
-/// Builds a piece of UI's component on its own and checks it has every property set and every callback listened for.
 thread_local!(static INIT: std::sync::Once = const { std::sync::Once::new() });
 
+/// Builds a piece of UI's component on its own and checks it has every property set and every callback listened for.
 fn ui_has(ui: &UiSpec, callbacks: &[&str]) {
     let SlintSource::Text(source) = ui.source.clone() else { panic!("source text") };
     let doc = format!("import {{ {c} }} from \"plugin/card.slint\";\nexport {{ {c} }}", c = ui.component);

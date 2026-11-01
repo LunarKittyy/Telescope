@@ -73,6 +73,7 @@ fn same(python: &serde_json::Value, key: &str, ours: &Path, what: &str) {
     assert_eq!(slashes(ours), python[key].as_str().unwrap(), "{key} ({what})");
 }
 
+#[cfg(not(windows))] // Python on Windows has no os.getuid to stand in for Linux with; the other way round works
 #[test]
 fn the_real_profile_keeps_everything_where_the_python_app_does_on_linux() {
     let _guard = ENV.lock().unwrap_or_else(|e| e.into_inner());

@@ -87,10 +87,23 @@ fn start_helpers() {
     });
 }
 
+/// Every part on this thread, for when no helper can take any. A panic waits for the rest, as it does with helpers.
+fn in_turn(count: usize, work: &(dyn Fn(usize) + Sync)) {
+    let mut panic = None;
+    for part in 0..count {
+        if let Err(caught) = catch_unwind(AssertUnwindSafe(|| work(part))) {
+            panic = Some(caught);
+        }
+    }
+    if let Some(panic) = panic {
+        resume_unwind(panic);
+    }
+}
+
 /// Runs work(0) to work(count - 1) on this thread and any free helpers, and passes on a part's panic once all are done.
 pub fn spread(count: usize, work: &(dyn Fn(usize) + Sync)) {
     if count <= 1 || WORKERS.helpers == 0 {
-        (0..count).for_each(work);
+        in_turn(count, work);
         return;
     }
     start_helpers();
@@ -102,7 +115,7 @@ pub fn spread(count: usize, work: &(dyn Fn(usize) + Sync)) {
         let mut slot = workers.slot.lock().unwrap();
         if slot.job.is_some() {
             drop(slot);
-            (0..count).for_each(work);
+            in_turn(count, work);
             return;
         }
         slot.job = Some(job.clone());
