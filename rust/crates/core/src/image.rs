@@ -30,18 +30,47 @@ pub fn rint(v: f64) -> i32 {
 const BANDED_ROWS: usize = 256;
 const BANDS: usize = 4;
 
-/// row(index, its elements) for every row of data, in a few bands of rows on threads of their own when the picture is big.
-pub fn over_rows<T: Send>(data: &mut [T], row_len: usize, row: impl Fn(usize, &mut [T]) + Sync) {
+/// band(its first row's index, its rows) over all of data, in a few bands of rows on threads of their own when the picture is big.
+/// For work that keeps what it found on one row for the next.
+pub fn over_bands<T: Send>(data: &mut [T], row_len: usize, band: impl Fn(usize, &mut [T]) + Sync) {
     let rows = data.len() / row_len.max(1);
     if rows < BANDED_ROWS {
-        data.chunks_exact_mut(row_len.max(1)).enumerate().for_each(|(i, line)| row(i, line));
+        band(0, data);
         return;
     }
     let per_band = rows.div_ceil(BANDS);
     std::thread::scope(|s| {
-        for (b, band) in data.chunks_mut(per_band * row_len).enumerate() {
-            let row = &row;
-            s.spawn(move || band.chunks_exact_mut(row_len).enumerate().for_each(|(i, line)| row(b * per_band + i, line)));
+        for (b, part) in data.chunks_mut(per_band * row_len).enumerate() {
+            let band = &band;
+            s.spawn(move || band(b * per_band, part));
+        }
+    });
+}
+
+/// row(index, its elements) for every row of data, in a few bands of rows on threads of their own when the picture is big.
+pub fn over_rows<T: Send>(data: &mut [T], row_len: usize, row: impl Fn(usize, &mut [T]) + Sync) {
+    over_bands(data, row_len, |first, part| part.chunks_exact_mut(row_len.max(1)).enumerate().for_each(|(i, line)| row(first + i, line)));
+}
+
+/// over_rows on two planes of the same size at once.
+fn over_row_pairs(a: &mut [u8], b: &mut [u8], row_len: usize, row: impl Fn(usize, &mut [u8], &mut [u8]) + Sync) {
+    if row_len == 0 {
+        return;
+    }
+    let rows = a.len() / row_len;
+    let per_band = if rows < BANDED_ROWS { rows.max(1) } else { rows.div_ceil(BANDS) };
+    let band = |n: usize, a: &mut [u8], b: &mut [u8]| {
+        a.chunks_exact_mut(row_len).zip(b.chunks_exact_mut(row_len)).enumerate().for_each(|(i, (x, y))| row(n * per_band + i, x, y));
+    };
+    let parts = a.chunks_mut(per_band * row_len).zip(b.chunks_mut(per_band * row_len)).enumerate();
+    if rows < BANDED_ROWS {
+        parts.for_each(|(n, (a, b))| band(n, a, b));
+        return;
+    }
+    std::thread::scope(|s| {
+        for (n, (a, b)) in parts {
+            let band = &band;
+            s.spawn(move || band(n, a, b));
         }
     });
 }
@@ -78,8 +107,11 @@ pub fn write_420(data: &mut [u8], w: usize, h: usize, nv12: bool, luma: impl Fn(
         });
     } else {
         let (u_plane, v_plane) = rest.split_at_mut(cw * ch);
-        over_rows(u_plane, cw, |cy, line| line.iter_mut().enumerate().for_each(|(cx, u)| *u = chroma(cx, cy).0));
-        over_rows(&mut v_plane[..cw * ch], cw, |cy, line| line.iter_mut().enumerate().for_each(|(cx, v)| *v = chroma(cx, cy).1));
+        over_row_pairs(u_plane, &mut v_plane[..cw * ch], cw, |cy, us, vs| {
+            for (cx, (u, v)) in us.iter_mut().zip(vs).enumerate() {
+                (*u, *v) = chroma(cx, cy);
+            }
+        });
     }
 }
 
@@ -289,6 +321,28 @@ mod tests {
             let mut data = vec![0usize; rows * 3];
             over_rows(&mut data, 3, |row, line| line.iter_mut().for_each(|v| *v += row + 1));
             assert_eq!(data, (0..rows).flat_map(|r| [r + 1; 3]).collect::<Vec<_>>(), "{rows}");
+        }
+    }
+
+    #[test]
+    fn over_bands_hands_out_every_row_once_with_its_place() {
+        for rows in [1, 255, 256, 257, 1081] {
+            let mut data = vec![0usize; rows * 3];
+            over_bands(&mut data, 3, |first, part| part.chunks_exact_mut(3).enumerate().for_each(|(i, line)| line.iter_mut().for_each(|v| *v += first + i + 1)));
+            assert_eq!(data, (0..rows).flat_map(|r| [r + 1; 3]).collect::<Vec<_>>(), "{rows}");
+        }
+    }
+
+    #[test]
+    fn write_420_works_out_each_chroma_cell_once() {
+        for (w, h, format) in [(33usize, 301usize, PixelFormat::I420), (33, 301, PixelFormat::Nv12), (6, 4, PixelFormat::I420)] {
+            let calls = std::sync::atomic::AtomicUsize::new(0);
+            let mut data = vec![0; format.size(w as u32, h as u32)];
+            write_420(&mut data, w, h, format == PixelFormat::Nv12, |_, _| 0, |_, _| {
+                calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                (1, 2)
+            });
+            assert_eq!(calls.into_inner(), w.div_ceil(2) * h.div_ceil(2), "{format:?}");
         }
     }
 
