@@ -41,6 +41,7 @@ pub mod version;
 pub mod view;
 pub mod view_step;
 pub mod vision;
+pub mod workers;
 pub mod web;
 
 pub use bus::{BusSender, EventBus};

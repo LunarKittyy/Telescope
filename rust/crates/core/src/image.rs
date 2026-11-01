@@ -2,7 +2,32 @@
 //! grey, and frames as plain RGB. Moved here from effects, since the vision service shrinks frames the same way.
 
 use crate::frame::{Frame, PixelFormat};
+use crate::workers::each_part;
 use std::cell::RefCell;
+
+/// Defines a function whose loops are built twice, the second time for AVX2, and picks one by what the processor has. The compiler
+/// does the vectorising, so what goes inside is plain safe loops over rows.
+#[macro_export]
+macro_rules! avx2_too {
+    ($(#[$doc:meta])* $vis:vis fn $name:ident($($arg:ident: $ty:ty),* $(,)?) $(-> $ret:ty)? $body:block) => {
+        $(#[$doc])*
+        $vis fn $name($($arg: $ty),*) $(-> $ret)? {
+            #[inline(always)]
+            fn plain($($arg: $ty),*) $(-> $ret)? $body
+            #[cfg(target_arch = "x86_64")]
+            #[target_feature(enable = "avx2")]
+            fn wide($($arg: $ty),*) $(-> $ret)? {
+                plain($($arg),*)
+            }
+            #[cfg(target_arch = "x86_64")]
+            if std::arch::is_x86_feature_detected!("avx2") {
+                // SAFETY: the processor was just asked whether it has AVX2
+                return unsafe { wide($($arg),*) };
+            }
+            plain($($arg),*)
+        }
+    };
+}
 
 /// Rounds to a byte. The cast saturates, so this clamps too, and x86-64's baseline has no round instruction: f32::round is a call
 /// to libm for every colour of every pixel, which alone used up a 1080p frame's time.
@@ -88,53 +113,32 @@ pub fn keep_bytes(buffer: Vec<u8>) {
     });
 }
 
-/// Rows at or above this are worth spreading over threads.
+/// Rows at or above this are worth spreading over threads, on a picture of at least this many bytes.
 const BANDED_ROWS: usize = 256;
-const BANDS: usize = 4;
+const BANDED_BYTES: usize = 512 * 1024;
+/// More bands than threads, so a helper the system holds back only delays a little of the frame.
+const BANDS: usize = 8;
 
-/// band(its first row's index, its rows) over all of data, in a few bands of rows on threads of their own when the picture is big.
+fn banded<T>(rows: usize, data: &[T]) -> bool {
+    rows >= BANDED_ROWS && size_of_val(data) >= BANDED_BYTES
+}
+
+/// band(its first row's index, its rows) over all of data, in a few bands of rows spread over the workers when the picture is big.
 /// For work that keeps what it found on one row for the next.
 pub fn over_bands<T: Send>(data: &mut [T], row_len: usize, band: impl Fn(usize, &mut [T]) + Sync) {
     let rows = data.len() / row_len.max(1);
-    if rows < BANDED_ROWS {
+    if !banded(rows, data) {
         band(0, data);
         return;
     }
     let per_band = rows.div_ceil(BANDS);
-    std::thread::scope(|s| {
-        for (b, part) in data.chunks_mut(per_band * row_len).enumerate() {
-            let band = &band;
-            s.spawn(move || band(b * per_band, part));
-        }
-    });
+    let mut parts: Vec<&mut [T]> = data.chunks_mut(per_band * row_len).collect();
+    each_part(&mut parts, |b, part| band(b * per_band, part));
 }
 
-/// row(index, its elements) for every row of data, in a few bands of rows on threads of their own when the picture is big.
+/// row(index, its elements) for every row of data, in a few bands of rows spread over the workers when the picture is big.
 pub fn over_rows<T: Send>(data: &mut [T], row_len: usize, row: impl Fn(usize, &mut [T]) + Sync) {
     over_bands(data, row_len, |first, part| part.chunks_exact_mut(row_len.max(1)).enumerate().for_each(|(i, line)| row(first + i, line)));
-}
-
-/// over_rows on two planes of the same size at once.
-fn over_row_pairs(a: &mut [u8], b: &mut [u8], row_len: usize, row: impl Fn(usize, &mut [u8], &mut [u8]) + Sync) {
-    if row_len == 0 {
-        return;
-    }
-    let rows = a.len() / row_len;
-    let per_band = if rows < BANDED_ROWS { rows.max(1) } else { rows.div_ceil(BANDS) };
-    let band = |n: usize, a: &mut [u8], b: &mut [u8]| {
-        a.chunks_exact_mut(row_len).zip(b.chunks_exact_mut(row_len)).enumerate().for_each(|(i, (x, y))| row(n * per_band + i, x, y));
-    };
-    let parts = a.chunks_mut(per_band * row_len).zip(b.chunks_mut(per_band * row_len)).enumerate();
-    if rows < BANDED_ROWS {
-        parts.for_each(|(n, (a, b))| band(n, a, b));
-        return;
-    }
-    std::thread::scope(|s| {
-        for (n, (a, b)) in parts {
-            let band = &band;
-            s.spawn(move || band(n, a, b));
-        }
-    });
 }
 
 /// Reads a 4:2:0 frame into out, 3 bytes a pixel, through pixel(y, u, v). None when the frame is too short for its size.
@@ -155,37 +159,131 @@ pub fn read_420(frame: &Frame, out: &mut [u8], pixel: impl Fn(u8, u8, u8) -> [u8
     Some(())
 }
 
+avx2_too! {
+    /// B, G, R into R, G, B or back.
+    fn swap_red_blue(from: &[u8], to: &mut [u8]) {
+        for (o, p) in to.as_chunks_mut::<3>().0.iter_mut().zip(from.as_chunks::<3>().0) {
+            *o = [p[2], p[1], p[0]];
+        }
+    }
+}
+
 /// Reads the BGR the frame came with into out, as R, G, B. False when it has none.
 pub fn read_bgr(frame: &Frame, out: &mut [u8]) -> bool {
     let Some(bgr) = frame.bgr() else { return false };
     let w = frame.width as usize;
-    over_rows(out, w * 3, |y, line| {
-        for (o, p) in line.as_chunks_mut::<3>().0.iter_mut().zip(bgr.row(y, w).as_chunks::<3>().0) {
-            *o = [p[2], p[1], p[0]];
-        }
-    });
+    over_rows(out, w * 3, |y, line| swap_red_blue(bgr.row(y, w), line));
     true
 }
 
-/// Writes a 4:2:0 picture of w x h into data: luma(x, y) for each pixel, chroma(cx, cy) as (u, v) for each 2 x 2.
-pub fn write_420(data: &mut [u8], w: usize, h: usize, nv12: bool, luma: impl Fn(usize, usize) -> u8 + Sync, chroma: impl Fn(usize, usize) -> (u8, u8) + Sync) {
+/// How many pixels the 4:2:0 row loop takes at a time, split into planes on the stack.
+const PLANAR_RUN: usize = 64;
+
+#[inline(always)]
+fn split_rgb(px: &[u8], r: &mut [u8; PLANAR_RUN], g: &mut [u8; PLANAR_RUN], b: &mut [u8; PLANAR_RUN]) {
+    for (i, p) in px.as_chunks::<3>().0.iter().take(PLANAR_RUN).enumerate() {
+        r[i] = p[0];
+        g[i] = p[1];
+        b[i] = p[2];
+    }
+}
+
+/// BT.601 limited in 8 fractional bits, small enough for 16-bit lanes.
+#[inline(always)]
+fn luma_run(r: &[u8], g: &[u8], b: &[u8], out: &mut [u8]) {
+    for (o, ((r, g), b)) in out.iter_mut().zip(r.iter().zip(g).zip(b)) {
+        let (r, g, b) = (*r as u16, *g as u16, *b as u16);
+        *o = (((66 * r + 129 * g + 25 * b + 128) >> 8) + 16) as u8;
+    }
+}
+
+avx2_too! {
+    /// Two rows of RGB to their luma and the chroma of their 2 x 2 cells. An odd last pixel takes its cell alone, an odd last row
+    /// comes with second as empty and takes its cells from first.
+    fn rows_420(first: &[u8], second: &[u8], luma: &mut [u8], u: &mut [u8], v: &mut [u8]) {
+        let w = first.len() / 3;
+        let (top, below) = luma.split_at_mut(w);
+        let lower = if second.is_empty() { first } else { second };
+        let even = w & !1;
+        let (mut ra, mut ga, mut ba) = ([0u8; PLANAR_RUN], [0u8; PLANAR_RUN], [0u8; PLANAR_RUN]);
+        let (mut rb, mut gb, mut bb) = ([0u8; PLANAR_RUN], [0u8; PLANAR_RUN], [0u8; PLANAR_RUN]);
+        let (mut rc, mut gc, mut bc) = ([0i16; PLANAR_RUN / 2], [0i16; PLANAR_RUN / 2], [0i16; PLANAR_RUN / 2]);
+        let mut at = 0;
+        while at < even {
+            let n = PLANAR_RUN.min(even - at);
+            split_rgb(&first[at * 3..(at + n) * 3], &mut ra, &mut ga, &mut ba);
+            split_rgb(&lower[at * 3..(at + n) * 3], &mut rb, &mut gb, &mut bb);
+            luma_run(&ra[..n], &ga[..n], &ba[..n], &mut top[at..at + n]);
+            if !second.is_empty() {
+                luma_run(&rb[..n], &gb[..n], &bb[..n], &mut below[at..at + n]);
+            }
+            for (out, (a, b)) in [(&mut rc, (&ra, &rb)), (&mut gc, (&ga, &gb)), (&mut bc, (&ba, &bb))] {
+                for (o, (a, b)) in out.iter_mut().zip(a.as_chunks::<2>().0.iter().zip(b.as_chunks::<2>().0)) {
+                    *o = ((a[0] as u16 + a[1] as u16 + b[0] as u16 + b[1] as u16 + 2) >> 2) as i16;
+                }
+            }
+            let cell = at / 2;
+            for (o, (r, (g, b))) in u[cell..cell + n / 2].iter_mut().zip(rc.iter().zip(gc.iter().zip(&bc))) {
+                *o = (((-38 * *r - 74 * *g + 112 * *b + 128) >> 8) + 128) as u8;
+            }
+            for (o, (r, (g, b))) in v[cell..cell + n / 2].iter_mut().zip(rc.iter().zip(gc.iter().zip(&bc))) {
+                *o = (((112 * *r - 94 * *g - 18 * *b + 128) >> 8) + 128) as u8;
+            }
+            at += n;
+        }
+        if w % 2 == 1 {
+            let last = (w - 1) * 3;
+            let luma_of = |px: &[u8]| (((66 * px[0] as u16 + 129 * px[1] as u16 + 25 * px[2] as u16 + 128) >> 8) + 16) as u8;
+            top[w - 1] = luma_of(&first[last..]);
+            if !second.is_empty() {
+                below[w - 1] = luma_of(&second[last..]);
+            }
+            let [r, g, b] = [0, 1, 2].map(|c| ((first[last + c] as u16 + lower[last + c] as u16 + 1) >> 1) as i16);
+            u[w / 2] = (((-38 * r - 74 * g + 112 * b + 128) >> 8) + 128) as u8;
+            v[w / 2] = (((112 * r - 94 * g - 18 * b + 128) >> 8) + 128) as u8;
+        }
+    }
+}
+
+/// RGB (3 bytes a pixel, packed) as 4:2:0 in data: BT.601 limited, each chroma sample the average of its 2 x 2.
+pub fn rgb_to_420(rgb: &[u8], w: usize, h: usize, data: &mut [u8], nv12: bool) {
+    if w == 0 || h == 0 {
+        return;
+    }
     let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
-    let (y_plane, rest) = data.split_at_mut(w * h);
-    over_rows(y_plane, w, |y, line| line.iter_mut().enumerate().for_each(|(x, l)| *l = luma(x, y)));
+    let (luma, chroma) = data.split_at_mut(w * h);
+    let per_band = if banded(h, rgb) { ch.div_ceil(BANDS) } else { ch };
+    // NV12 goes through planes of its own: frames here are mostly I420
+    let mut pair = if nv12 { spare_bytes(2 * cw * ch) } else { Vec::new() };
+    let (mut us, mut vs) = if nv12 { pair.split_at_mut(cw * ch) } else { chroma.split_at_mut(cw * ch) };
+    let mut parts: Vec<(usize, &mut [u8], &mut [u8], &mut [u8])> = Vec::with_capacity(BANDS);
+    let mut luma_left = &mut *luma;
+    let mut first = 0;
+    while first < ch {
+        let cells = per_band.min(ch - first);
+        let (y, rest) = luma_left.split_at_mut(w * (cells * 2).min(h - first * 2));
+        luma_left = rest;
+        let (u, urest) = us.split_at_mut(cells * cw);
+        let (v, vrest) = vs.split_at_mut(cells * cw);
+        (us, vs) = (urest, vrest);
+        parts.push((first, y, u, v));
+        first += cells;
+    }
+    each_part(&mut parts, |_, (first, y, u, v)| {
+        for (i, ((lines, u), v)) in y.chunks_mut(2 * w).zip(u.chunks_exact_mut(cw)).zip(v.chunks_exact_mut(cw)).enumerate() {
+            let at = (*first + i) * 2;
+            let top = &rgb[at * w * 3..(at + 1) * w * 3];
+            let lower: &[u8] = if at + 1 < h { &rgb[(at + 1) * w * 3..(at + 2) * w * 3] } else { &[] };
+            rows_420(top, lower, lines, u, v);
+        }
+    });
+    drop(parts);
     if nv12 {
-        over_rows(&mut rest[..2 * cw * ch], cw * 2, |cy, line| {
-            for (cx, cell) in line.as_chunks_mut::<2>().0.iter_mut().enumerate() {
-                let (u, v) = chroma(cx, cy);
-                *cell = [u, v];
-            }
-        });
-    } else {
-        let (u_plane, v_plane) = rest.split_at_mut(cw * ch);
-        over_row_pairs(u_plane, &mut v_plane[..cw * ch], cw, |cy, us, vs| {
-            for (cx, (u, v)) in us.iter_mut().zip(vs).enumerate() {
-                (*u, *v) = chroma(cx, cy);
-            }
-        });
+        let (us, vs) = pair.split_at(cw * ch);
+        for (cell, (u, v)) in chroma.as_chunks_mut::<2>().0.iter_mut().zip(us.iter().zip(vs)) {
+            *cell = [*u, *v];
+        }
+        keep_bytes(pair);
     }
 }
 
@@ -235,13 +333,62 @@ fn area_table(n: usize, m: usize, scale: f64) -> Vec<Vec<(usize, f32)>> {
 /// One output cell of a two-tap blend: first source, second source, their weights out of 2048.
 type Tap = (usize, usize, i32, i32);
 
+/// A Tap as the row loops read it: small enough that a 4K row's stay in the fastest cache, the weights side by side.
+#[derive(Clone, Copy)]
+#[repr(C)]
+struct Across {
+    first: u32,
+    second: u32,
+    p: i16,
+    q: i16,
+}
+
 /// Blends one row across into `into`, kept in the 15 bits OpenCV keeps it in. Inlined with a known ch so the channels don't loop.
 #[inline(always)]
-fn blend_across(row: &[u8], xs: &[Tap], ch: usize, into: &mut [i16]) {
-    for (o, &(x0, x1, p, q)) in into.chunks_exact_mut(ch).zip(xs) {
-        let (a, b) = (&row[x0 * ch..][..ch], &row[x1 * ch..][..ch]);
+fn blend_across(row: &[u8], xs: &[Across], ch: usize, into: &mut [i16]) {
+    for (o, t) in into.chunks_exact_mut(ch).zip(xs) {
+        let (a, b) = (&row[t.first as usize * ch..][..ch], &row[t.second as usize * ch..][..ch]);
         for c in 0..ch {
-            o[c] = ((a[c] as i32 * p + b[c] as i32 * q) >> 4) as i16;
+            o[c] = ((a[c] as i32 * t.p as i32 + b[c] as i32 * t.q as i32) >> 4) as i16;
+        }
+    }
+}
+
+/// blend_across for 3 channels in one go per pixel: a pixel can't be vectorised over, its neighbours aren't next to it in the source.
+#[cfg(target_arch = "x86_64")]
+fn blend_across_rgb(row: &[u8], xs: &[Across], into: &mut [i16]) {
+    use std::arch::x86_64::*;
+    // A pixel is read as 4 bytes and written as 4 lanes, so the last ones go the slow way
+    let fast = xs.partition_point(|t| (t.second as usize + 1) * 3 < row.len()).min(xs.len().saturating_sub(1)).min(into.len() / 3);
+    // SAFETY: SSE2 is part of x86-64
+    let zero = unsafe { _mm_setzero_si128() };
+    let out = into.as_mut_ptr();
+    let from = row.as_ptr();
+    for (i, t) in xs[..fast].iter().enumerate() {
+        // SAFETY: second is the larger, and fast keeps 4 bytes from it inside row and 4 lanes from i inside into. SSE2 is part of x86-64
+        unsafe {
+            let a = _mm_cvtsi32_si128(from.add(t.first as usize * 3).cast::<i32>().read_unaligned());
+            let b = _mm_cvtsi32_si128(from.add(t.second as usize * 3).cast::<i32>().read_unaligned());
+            let pairs = _mm_unpacklo_epi16(_mm_unpacklo_epi8(a, zero), _mm_unpacklo_epi8(b, zero));
+            let sums = _mm_madd_epi16(pairs, _mm_set1_epi32((t.p as u16 as i32) | ((t.q as i32) << 16)));
+            let kept = _mm_srai_epi32::<4>(sums);
+            _mm_storel_epi64(out.add(i * 3).cast(), _mm_packs_epi32(kept, kept));
+        }
+    }
+    blend_across(row, &xs[fast..], 3, &mut into[fast * 3..]);
+}
+
+#[cfg(not(target_arch = "x86_64"))]
+fn blend_across_rgb(row: &[u8], xs: &[Across], into: &mut [i16]) {
+    blend_across(row, xs, 3, into);
+}
+
+avx2_too! {
+    /// Two rows blended across, blended down and rounded as OpenCV does it.
+    fn blend_down(top: &[i16], bottom: &[i16], p: i16, q: i16, out: &mut [u8]) {
+        for (o, (a, b)) in out.iter_mut().zip(top.iter().zip(bottom)) {
+            let (a, b) = (((*a as i32 * p as i32) >> 16) as i16, ((*b as i32 * q as i32) >> 16) as i16);
+            *o = ((a + b + 2) >> 2) as u8;
         }
     }
 }
@@ -250,11 +397,13 @@ fn blend_across(row: &[u8], xs: &[Tap], ch: usize, into: &mut [i16]) {
 /// and start `left` elements in. Rows stop at the end of ys or dst, whichever comes first; a band keeps the two rows it has blended.
 fn blended(src: &[u8], (w, ch): (usize, usize), xs: &[Tap], ys: &[Tap], dst: &mut [u8], stride: usize, left: usize) {
     let rowlen = xs.len() * ch;
+    let xs: Vec<Across> = xs.iter().map(|t| Across { first: t.0 as u32, second: t.1 as u32, p: t.2 as i16, q: t.3 as i16 }).collect();
+    let xs = &xs[..];
     let across = |y: usize, into: &mut [i16]| {
         let row = &src[y * w * ch..][..w * ch];
         match ch {
             1 => blend_across(row, xs, 1, into),
-            3 => blend_across(row, xs, 3, into),
+            3 => blend_across_rgb(row, xs, into),
             _ => blend_across(row, xs, ch, into),
         }
     };
@@ -274,11 +423,54 @@ fn blended(src: &[u8], (w, ch): (usize, usize), xs: &[Tap], ys: &[Tap], dst: &mu
                 across(y1, &mut bottom);
                 have_bottom = y1;
             }
-            for ((o, &a), &b) in line[left..].iter_mut().zip(&top).zip(&bottom) {
-                *o = ((((a as i32 * p) >> 16) + ((b as i32 * q) >> 16) + 2) >> 2) as u8;
-            }
+            blend_down(&top, &bottom, p as i16, q as i16, &mut line[left..]);
         }
     });
+}
+
+avx2_too! {
+    /// sums[i] gets row[i].
+    pub fn add_row(row: &[u8], sums: &mut [u16]) {
+        for (s, v) in sums.iter_mut().zip(row) {
+            *s += *v as u16;
+        }
+    }
+}
+
+avx2_too! {
+    fn three_of(from: &[u16], gap: usize, to: &mut [u16]) {
+        let (a, b, c) = (&from[..from.len() - 2 * gap], &from[gap..from.len() - gap], &from[2 * gap..]);
+        for (o, (a, (b, c))) in to.iter_mut().zip(a.iter().zip(b.iter().zip(c))) {
+            *o = *a + *b + *c;
+        }
+    }
+}
+
+avx2_too! {
+    fn two_of(from: &[u16], gap: usize, to: &mut [u16]) {
+        for (o, (a, b)) in to.iter_mut().zip(from.iter().zip(&from[gap..])) {
+            *o = *a + *b;
+        }
+    }
+}
+
+/// Leaves in the front of line the sum of each k values spaced gap apart, starting at that place: the last (k - 1) * gap values end
+/// up meaningless. A vector-friendly running sum, since k stays small and the rows are the long side. spare is as long as line.
+pub fn sum_runs(line: &mut [u16], spare: &mut [u16], k: usize, gap: usize) {
+    let (mut left, mut gap) = (k, gap);
+    while left > 1 {
+        let by = if left % 3 == 0 { 3 } else { 2 };
+        debug_assert_eq!(left % by, 0, "only runs of 2s and 3s");
+        if by == 3 {
+            three_of(line, gap, spare);
+        } else {
+            two_of(line, gap, spare);
+        }
+        let done = line.len() - (by - 1) * gap;
+        line[..done].copy_from_slice(&spare[..done]);
+        left /= by;
+        gap *= by;
+    }
 }
 
 /// Adds each block of kx pixels of a source row into its output cell's sums. Inlined with a known ch so the channels don't loop.
@@ -291,6 +483,17 @@ fn add_blocks(row: &[u8], kx: usize, ch: usize, sums: &mut [u32]) {
             }
         }
     }
+}
+
+/// Whether k can go through sum_runs.
+fn only_twos_and_threes(mut k: usize) -> bool {
+    while k % 2 == 0 {
+        k /= 2;
+    }
+    while k % 3 == 0 {
+        k /= 3;
+    }
+    k == 1
 }
 
 /// The two taps of OpenCV's area-mode bilinear along an axis: (first source, second source, their weights out of 2048).
@@ -325,6 +528,25 @@ pub fn resize_area(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usi
             let table: Vec<u8> = (0..=255 * (kx * ky) as u32).map(|sum| if kx == 2 && ky == 2 { ((sum + 2) >> 2) as u8 } else { rint((sum as f32 * recip) as f64).clamp(0, 255) as u8 }).collect();
             let rowlen = w2 * ch;
             let table = &table;
+            // Everything fits 16 bits for the block sizes used, which lets rows add up a vector at a time
+            if kx * ky * 255 <= u16::MAX as usize && only_twos_and_threes(kx) {
+                let width = w2 * kx * ch;
+                over_bands(&mut out, rowlen, |first, part| {
+                    let (mut line, mut spare) = (vec![0u16; width], vec![0u16; width]);
+                    for (i, row) in part.chunks_exact_mut(rowlen).enumerate() {
+                        line.fill(0);
+                        for j in 0..ky {
+                            add_row(&src[((first + i) * ky + j) * w * ch..][..width], &mut line);
+                        }
+                        sum_runs(&mut line, &mut spare, kx, ch);
+                        match ch {
+                            3 => row.as_chunks_mut::<3>().0.iter_mut().zip(line.chunks_exact(kx * 3)).for_each(|(o, s)| *o = [table[s[0] as usize], table[s[1] as usize], table[s[2] as usize]]),
+                            _ => row.chunks_exact_mut(ch).zip(line.chunks_exact(kx * ch)).for_each(|(o, s)| o.iter_mut().zip(s).for_each(|(o, s)| *o = table[*s as usize])),
+                        }
+                    }
+                });
+                return out;
+            }
             over_bands(&mut out, rowlen, |first, part| {
                 let mut sums = vec![0u32; rowlen];
                 for (i, line) in part.chunks_exact_mut(rowlen).enumerate() {
@@ -450,7 +672,7 @@ mod tests {
 
     #[test]
     fn over_rows_visits_every_row_once_with_its_own_index() {
-        for rows in [1, 255, 256, 257, 1081] {
+        for rows in [1, 255, 256, 257, 1081, 100_000] {
             let mut data = vec![0usize; rows * 3];
             over_rows(&mut data, 3, |row, line| line.iter_mut().for_each(|v| *v += row + 1));
             assert_eq!(data, (0..rows).flat_map(|r| [r + 1; 3]).collect::<Vec<_>>(), "{rows}");
@@ -459,7 +681,7 @@ mod tests {
 
     #[test]
     fn over_bands_hands_out_every_row_once_with_its_place() {
-        for rows in [1, 255, 256, 257, 1081] {
+        for rows in [1, 255, 256, 257, 1081, 100_000] {
             let mut data = vec![0usize; rows * 3];
             over_bands(&mut data, 3, |first, part| part.as_chunks_mut::<3>().0.iter_mut().enumerate().for_each(|(i, line)| line.iter_mut().for_each(|v| *v += first + i + 1)));
             assert_eq!(data, (0..rows).flat_map(|r| [r + 1; 3]).collect::<Vec<_>>(), "{rows}");
@@ -473,19 +695,6 @@ mod tests {
         let frame = plain.clone().with_bgr(std::sync::Arc::new(bgr));
         assert_eq!(frame_rgb(&frame).unwrap(), [3, 2, 1, 6, 5, 4, 9, 8, 7, 12, 11, 10]);
         assert_ne!(frame_rgb(&plain), frame_rgb(&frame));
-    }
-
-    #[test]
-    fn write_420_works_out_each_chroma_cell_once() {
-        for (w, h, format) in [(33usize, 301usize, PixelFormat::I420), (33, 301, PixelFormat::Nv12), (6, 4, PixelFormat::I420)] {
-            let calls = std::sync::atomic::AtomicUsize::new(0);
-            let mut data = vec![0; format.size(w as u32, h as u32)];
-            write_420(&mut data, w, h, format == PixelFormat::Nv12, |_, _| 0, |_, _| {
-                calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                (1, 2)
-            });
-            assert_eq!(calls.into_inner(), w.div_ceil(2) * h.div_ceil(2), "{format:?}");
-        }
     }
 
     #[test]
@@ -590,7 +799,7 @@ mod tests {
 
     #[test]
     fn a_tall_picture_scales_the_same_across_its_bands() {
-        let (w, h, w2, h2) = (64usize, 300usize, 96usize, 601usize);
+        let (w, h, w2, h2) = (640usize, 300usize, 960usize, 601usize);
         let src: Vec<u8> = (0..w * h).map(|i| (i * i % 253) as u8).collect();
         let (xs, ys) = (linear_taps(w, w2, false), linear_taps(h, h2, true));
         let mut want = vec![0u8; w2 * h2];
@@ -624,21 +833,21 @@ mod tests {
         }
     }
 
-    // Tall enough for bands, odd sizes for the rounded up chroma
+    // Odd sizes for the rounded up chroma, tall enough for bands in a_big_frame_reads_the_same_as_pixel_by_pixel
     fn picture(w: usize, h: usize, format: PixelFormat) -> Frame {
         let data = (0..format.size(w as u32, h as u32)).map(|i| (i * 7 % 251) as u8).collect();
         Frame::new(w as u32, h as u32, format, data)
     }
 
     #[test]
-    fn a_tall_frame_reads_the_same_as_pixel_by_pixel() {
-        let (w, h) = (33usize, 301usize);
+    fn a_big_frame_reads_the_same_as_pixel_by_pixel() {
+        let (w, h) = (1001usize, 301usize);
         let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
         for format in [PixelFormat::I420, PixelFormat::Nv12] {
             let frame = picture(w, h, format);
             let mut out = vec![0; w * h * 3];
             read_420(&frame, &mut out, |y, u, v| [y, u, v]).unwrap();
-            for (y, x) in [(0, 0), (150, 32), (149, 3), (300, 17), (300, 32)] {
+            for (y, x) in [(0, 0), (150, 1000), (149, 3), (300, 17), (300, 1000)] {
                 let cell = (y / 2) * cw + x / 2;
                 let chroma = &frame.data[w * h..];
                 let (u, v) = if format == PixelFormat::Nv12 { (chroma[cell * 2], chroma[cell * 2 + 1]) } else { (chroma[cell], chroma[cw * ch + cell]) };
@@ -647,27 +856,71 @@ mod tests {
         }
     }
 
+    /// BT.601 limited of one pixel in floats, what the row loops round.
+    fn exact_yuv(p: &[u8]) -> [f32; 3] {
+        let (r, g, b) = (p[0] as f32, p[1] as f32, p[2] as f32);
+        [16.0 + 0.256788 * r + 0.504129 * g + 0.097906 * b, 128.0 - 0.148223 * r - 0.290993 * g + 0.439216 * b, 128.0 + 0.439216 * r - 0.367788 * g - 0.071427 * b]
+    }
+
     #[test]
-    fn a_tall_picture_lands_in_the_right_places_of_both_formats() {
-        let (w, h) = (33usize, 301usize);
-        let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
-        for format in [PixelFormat::I420, PixelFormat::Nv12] {
-            let mut data = vec![0; format.size(w as u32, h as u32)];
-            let luma = |x: usize, y: usize| ((x + y) % 200) as u8;
-            let chroma = |cx: usize, cy: usize| ((cx + cy) as u8, (cx * 2 + cy) as u8);
-            write_420(&mut data, w, h, format == PixelFormat::Nv12, luma, chroma);
-            for y in 0..h {
-                for x in 0..w {
-                    assert_eq!(data[y * w + x], luma(x, y));
+    fn rgb_lands_in_the_right_places_of_both_formats_at_any_size() {
+        for (w, h) in [(33usize, 301usize), (34, 300), (6, 4), (5, 3), (1, 1), (2, 1), (1, 2), (65, 2), (127, 5), (640, 481)] {
+            let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+            let rgb: Vec<u8> = (0..w * h * 3).map(|i| ((i * i / 7 + i) % 256) as u8).collect();
+            for nv12 in [false, true] {
+                let format = if nv12 { PixelFormat::Nv12 } else { PixelFormat::I420 };
+                let mut data = vec![0; format.size(w as u32, h as u32)];
+                rgb_to_420(&rgb, w, h, &mut data, nv12);
+                for y in 0..h {
+                    for x in 0..w {
+                        let want = exact_yuv(&rgb[(y * w + x) * 3..][..3])[0];
+                        assert!((data[y * w + x] as f32 - want).abs() <= 1.5, "{w}x{h} {x},{y}");
+                    }
+                }
+                for cy in 0..ch {
+                    for cx in 0..cw {
+                        let cell = cy * cw + cx;
+                        let got = if nv12 { [data[w * h + cell * 2], data[w * h + cell * 2 + 1]] } else { [data[w * h + cell], data[w * h + cw * ch + cell]] };
+                        // A cell's average, the far edges repeated
+                        let at = |dx: usize, dy: usize| exact_yuv(&rgb[(((cy * 2 + dy).min(h - 1)) * w + (cx * 2 + dx).min(w - 1)) * 3..][..3]);
+                        let mean = |c: usize| [(0, 0), (1, 0), (0, 1), (1, 1)].iter().map(|&(x, y)| at(x, y)[c]).sum::<f32>() / 4.0;
+                        assert!((got[0] as f32 - mean(1)).abs() <= 2.5 && (got[1] as f32 - mean(2)).abs() <= 2.5, "{w}x{h} {cx},{cy}: {got:?} against {} {}", mean(1), mean(2));
+                    }
                 }
             }
-            for cy in 0..ch {
-                for cx in 0..cw {
-                    let cell = cy * cw + cx;
-                    let got = if format == PixelFormat::Nv12 { (data[w * h + cell * 2], data[w * h + cell * 2 + 1]) } else { (data[w * h + cell], data[w * h + cw * ch + cell]) };
-                    assert_eq!(got, chroma(cx, cy), "{format:?}");
+        }
+    }
+
+    #[test]
+    fn black_and_white_land_at_the_ends_of_video_range() {
+        let (mut data, grey) = (vec![0; 6], [255u8, 255, 255].repeat(4));
+        rgb_to_420(&grey, 2, 2, &mut data, false);
+        assert_eq!(data, [235, 235, 235, 235, 128, 128]);
+        rgb_to_420(&[0; 12], 2, 2, &mut data, false);
+        assert_eq!(data, [16, 16, 16, 16, 128, 128]);
+    }
+
+    #[test]
+    fn runs_sum_what_they_say() {
+        for k in [2, 3, 4, 6, 8, 9] {
+            for gap in [1, 3] {
+                let values: Vec<u16> = (0..64).map(|i| i * i % 37).collect();
+                let (mut line, mut spare) = (values.clone(), vec![0; 64]);
+                sum_runs(&mut line, &mut spare, k, gap);
+                for i in 0..64 - (k - 1) * gap {
+                    assert_eq!(line[i], (0..k).map(|j| values[i + j * gap]).sum::<u16>(), "{k} {gap} {i}");
                 }
             }
+        }
+    }
+
+    #[test]
+    fn swapping_red_and_blue_takes_every_pixel() {
+        for w in [1, 2, 31, 32, 33, 100] {
+            let bgr: Vec<u8> = (0..w * 3).map(|i| i as u8).collect();
+            let mut rgb = vec![0; w * 3];
+            swap_red_blue(&bgr, &mut rgb);
+            assert_eq!(rgb, (0..w).flat_map(|x| [x * 3 + 2, x * 3 + 1, x * 3].map(|v| v as u8)).collect::<Vec<_>>());
         }
     }
 }

@@ -1,7 +1,7 @@
 //! Frames as plain RGB, for Desk mode.
 
 use telescope_core::frame::{Frame, PixelFormat};
-use telescope_core::image::{byte, write_420};
+use telescope_core::image::rgb_to_420;
 
 pub use telescope_core::image::frame_rgb as to_rgb;
 
@@ -13,27 +13,7 @@ pub fn put_rgb(frame: &mut Frame, rgb: &[u8]) {
     match format {
         PixelFormat::Rgba => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(d, p)| d[..3].copy_from_slice(p)),
         PixelFormat::Bgra => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(d, p)| d[..3].copy_from_slice(&[p[2], p[1], p[0]])),
-        PixelFormat::I420 | PixelFormat::Nv12 => {
-            let px = |x: usize, y: usize| (rgb[(y * w + x) * 3] as f32, rgb[(y * w + x) * 3 + 1] as f32, rgb[(y * w + x) * 3 + 2] as f32);
-            let luma = |x: usize, y: usize| {
-                let (r, g, b) = px(x, y);
-                byte(16.0 + 0.257 * r + 0.504 * g + 0.098 * b)
-            };
-            let chroma = |cx: usize, cy: usize| {
-                let (mut su, mut sv, mut n) = (0.0, 0.0, 0.0);
-                for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-                    let (x, y) = (cx * 2 + dx, cy * 2 + dy);
-                    if x < w && y < h {
-                        let (r, g, b) = px(x, y);
-                        su += 128.0 - 0.148 * r - 0.291 * g + 0.439 * b;
-                        sv += 128.0 + 0.439 * r - 0.368 * g - 0.071 * b;
-                        n += 1.0;
-                    }
-                }
-                (byte(su / n), byte(sv / n))
-            };
-            write_420(data, w, h, format == PixelFormat::Nv12, luma, chroma);
-        }
+        PixelFormat::I420 | PixelFormat::Nv12 => rgb_to_420(rgb, w, h, data, format == PixelFormat::Nv12),
         _ => {}
     }
 }

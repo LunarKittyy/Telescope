@@ -3,7 +3,7 @@
 //! leave the same picture.
 
 use telescope_core::frame::{Frame, PixelFormat};
-use telescope_core::image::{byte as clamp8, keep_bytes, read_420, read_bgr, spare_bytes, write_420};
+use telescope_core::image::{byte as clamp8, keep_bytes, read_420, read_bgr, rgb_to_420, spare_bytes};
 
 /// A picture as 8-bit R, G, B, row after row.
 #[derive(Clone, Debug, PartialEq)]
@@ -17,18 +17,6 @@ fn from_yuv(y: u8, u: u8, v: u8) -> [u8; 3] {
     let c = 1.164383 * (y as f32 - 16.0);
     let (d, e) = (u as f32 - 128.0, v as f32 - 128.0);
     [clamp8(c + 1.596027 * e), clamp8(c - 0.391762 * d - 0.812968 * e), clamp8(c + 2.017232 * d)]
-}
-
-fn to_y(r: f32, g: f32, b: f32) -> f32 {
-    16.0 + 0.256788 * r + 0.504129 * g + 0.097906 * b
-}
-
-fn to_u(r: f32, g: f32, b: f32) -> f32 {
-    128.0 - 0.148223 * r - 0.290993 * g + 0.439216 * b
-}
-
-fn to_v(r: f32, g: f32, b: f32) -> f32 {
-    128.0 + 0.439216 * r - 0.367788 * g - 0.071427 * b
 }
 
 impl Drop for Rgb {
@@ -101,25 +89,7 @@ impl Rgb {
                     p[3] = 255;
                 }
             }
-            PixelFormat::I420 | PixelFormat::Nv12 => {
-                let luma = |x: usize, y: usize| {
-                    let p = self.at(x, y);
-                    clamp8(to_y(p[0] as f32, p[1] as f32, p[2] as f32))
-                };
-                let chroma = |cx: usize, cy: usize| {
-                    let (mut u, mut v, mut n) = (0.0, 0.0, 0.0);
-                    for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-                        let (x, y) = ((cx * 2 + dx).min(w - 1), (cy * 2 + dy).min(h - 1));
-                        let p = self.at(x, y);
-                        let (r, g, b) = (p[0] as f32, p[1] as f32, p[2] as f32);
-                        u += to_u(r, g, b);
-                        v += to_v(r, g, b);
-                        n += 1.0;
-                    }
-                    (clamp8(u / n), clamp8(v / n))
-                };
-                write_420(d, w, h, format == PixelFormat::Nv12, luma, chroma);
-            }
+            PixelFormat::I420 | PixelFormat::Nv12 => rgb_to_420(&self.data, w, h, d, format == PixelFormat::Nv12),
             _ => {}
         }
     }
