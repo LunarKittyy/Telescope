@@ -318,6 +318,8 @@ struct Shared {
     slot: Arc<dyn FrameSlot>,
     tap: Option<Arc<dyn PacketTap>>,
     bytes_total: AtomicU64,
+    // When the newest published frame's packet came in, for the delivery log; publish overwrites the frame's own time
+    newest_arrival: AtomicU64,
     frames_arrived: AtomicU64,
     last_arrival_fps: Mutex<f32>,
     camera_size: Mutex<Option<(u32, u32)>>,
@@ -436,7 +438,7 @@ impl StreamWorker {
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
             photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_colour: Mutex::new(None), gate: setup.gate,
-            seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), frames_arrived: AtomicU64::new(0),
+            seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0),
             last_arrival_fps: Mutex::new(0.0), camera_size: Mutex::new(None), stopper: Mutex::new(None),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
             handover_thread: Mutex::new(None),
@@ -680,10 +682,12 @@ impl Shared {
             return false;
         }
         let pipeline = publish.0.as_mut();
+        let arrived = frame.time_ns;
         let Ok(out) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.prepare(pipeline, seq, frame))) else {
             log::error!("Frame processing failed; dropping this frame");
             return false;
         };
+        self.newest_arrival.store(arrived, Ordering::Relaxed);
         self.slot.publish(out);
         publish.1 = seq;
         true
@@ -1041,6 +1045,7 @@ impl Shared {
         let (mut seen, mut fitted): (u64, Option<Frame>) = (0, None);
         let mut scaler = None;
         let mut ok = true;
+        let mut delivery_log = telescope_core::time::DeliveryLog::from_env();
         while !self.stopped() && !self.restart_vcam.is_set() && !self.parked.load(Ordering::SeqCst) && !reader_done.is_set() {
             // A new frame goes out as soon as it's ready. The last one is resent only after two periods without one,
             // so a frame that's a little late isn't held back behind a resend.
@@ -1055,7 +1060,8 @@ impl Shared {
             }
             if let Some((src, count)) = self.slot.latest() {
                 let due = last_sent.is_none_or(|t| t.elapsed() >= 2 * period);
-                if count != seen || fitted.is_none() {
+                let new_frame = count != seen || fitted.is_none();
+                if new_frame {
                     seen = count;
                     let fit = fit_frame(&src, cam_w, cam_h);
                     fitted = Some(if nv12 { to_nv12(&fit) } else { fit });
@@ -1066,6 +1072,9 @@ impl Shared {
                     self.status("warn", &fill(&tr("Virtual camera error: {error}"), &[("error", &e)]));
                     ok = false;
                     break;
+                }
+                if let (true, Some(log)) = (new_frame, delivery_log.as_mut()) {
+                    log.delivered(src.number, self.newest_arrival.load(Ordering::Relaxed), src.time_ns);
                 }
                 last_sent = Some(Instant::now());
                 let preview = self.preview_size.load(Ordering::Relaxed);

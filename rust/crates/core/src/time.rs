@@ -30,3 +30,37 @@ pub fn monotonic_ns() -> u64 {
         START.get_or_init(std::time::Instant::now).elapsed().as_nanos() as u64
     }
 }
+
+/// One line per new frame the virtual camera got, for rust/tools/stress: its number, when its packet arrived, when it was ready and when it went out.
+/// TELESCOPE_STRESS_LOG names the file; without it there's nothing here to pay for but a None to check.
+pub struct DeliveryLog(std::fs::File);
+
+impl DeliveryLog {
+    pub fn from_env() -> Option<Self> {
+        let path = std::env::var_os("TELESCOPE_STRESS_LOG").filter(|p| !p.is_empty())?;
+        std::fs::OpenOptions::new().create(true).append(true).open(path).ok().map(Self)
+    }
+
+    pub fn delivered(&mut self, number: u64, arrived_ns: u64, ready_ns: u64) {
+        use std::io::Write;
+        let _ = writeln!(self.0, "{number} {arrived_ns} {ready_ns} {}", monotonic_ns());
+    }
+}
+
+#[cfg(test)]
+mod delivery_tests {
+    use super::*;
+
+    #[test]
+    fn delivery_log_writes_a_line_per_frame() {
+        let path = std::env::temp_dir().join(format!("telescope-delivery-{}", std::process::id()));
+        let mut log = DeliveryLog(std::fs::File::create(&path).unwrap());
+        let before = monotonic_ns();
+        log.delivered(7, 123, 456);
+        let text = std::fs::read_to_string(&path).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        let fields: Vec<u64> = text.split_whitespace().map(|f| f.parse().unwrap()).collect();
+        assert_eq!(fields[..3], [7, 123, 456]);
+        assert!(fields[3] >= before);
+    }
+}
