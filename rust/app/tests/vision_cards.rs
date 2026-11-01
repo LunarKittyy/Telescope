@@ -109,6 +109,7 @@ fn background_and_privacy_blur_work_on_the_real_models() {
         PackInfo::current(),
         Box::new(|_, _| Err(std::io::Error::other("no downloads in tests"))),
     );
+    host.vision().wait_for_masks();
     let ctx = Ctx(Arc::new(host));
     let mask = mask_of(&ctx);
     assert_eq!(mask.len(), SIZE.0 * SIZE.1);
@@ -139,4 +140,60 @@ fn background_and_privacy_blur_work_on_the_real_models() {
     let (person, room) = changed(&out, &mask, 250);
     eprintln!("Privacy blur: the person moved {person} levels and the room {room}");
     assert!(room > 1.0 && person < room / 2.0, "the person stays and the room is blurred: {person} against {room}");
+}
+
+/// The astronaut slid x pixels to the right, what leaves on one side coming back on the other.
+fn slid(x: usize) -> Frame {
+    let mut picture = frame();
+    let row = SIZE.0 * 4;
+    let data = picture.data_mut();
+    data.chunks_exact_mut(row).for_each(|line| line.rotate_right(x * 4));
+    picture
+}
+
+/// Where the mask's person is, left to right.
+fn middle(mask: &[u8]) -> f64 {
+    let (mut sum, mut count) = (0u64, 0u64);
+    for (i, m) in mask.iter().enumerate() {
+        if *m > 128 {
+            sum += (i % SIZE.0) as u64;
+            count += 1;
+        }
+    }
+    sum as f64 / count.max(1) as f64
+}
+
+#[test]
+fn the_real_models_mask_keeps_up_with_someone_moving_across() {
+    let Some(folder) = folder() else {
+        eprintln!("no vision pack here: set TELESCOPE_VISION_PACK to a pack folder");
+        return;
+    };
+    let backend: Arc<MediaPipe> = Arc::new(MediaPipe::load(&folder).unwrap_or_else(|e| panic!("{e:?}")));
+    let host = VisionHost::with(
+        Box::new(move || Ok(backend.clone() as Arc<dyn Backend>)),
+        Some(Box::new(|| true)),
+        telescope_core::testing::scratch_dir("vision-moving"),
+        PackInfo::current(),
+        Box::new(|_, _| Err(std::io::Error::other("no downloads in tests"))),
+    );
+    let ctx = Ctx(Arc::new(host));
+    mask_of(&ctx);
+    let still = mask_of(&ctx);
+    let start = middle(&still);
+    // A step a frame of 1/64 of the picture is someone crossing it in about two seconds
+    const STEP: usize = 6;
+    let mut behind = Vec::new();
+    for (i, number) in (0..24).zip(2_000_000u64..) {
+        let mut f = slid(i * STEP);
+        f.number = number;
+        let began = Instant::now();
+        if let Some(mask) = ctx.person_mask(&f).filter(|_| i >= 8) {
+            behind.push((start + (i * STEP) as f64 - middle(&mask)) / STEP as f64);
+        }
+        std::thread::sleep(Duration::from_millis(33).saturating_sub(began.elapsed()));
+    }
+    let worst = behind.iter().cloned().fold(0.0, f64::max);
+    eprintln!("Frames behind, moving {STEP} of {} pixels a frame: {behind:.1?}", SIZE.0);
+    assert!(worst < 3.0, "the mask is {worst:.1} frames behind");
 }

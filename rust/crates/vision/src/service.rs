@@ -1,6 +1,7 @@
 //! Person masks and people's positions, once per stream, for the plugins that ask (vision.py's Vision). MediaPipe loads on first
-//! use; every call is safe before it's ready (None, nothing). Masks are worked out on the stream's own thread inside the frame
-//! steps; people come from a thread per stream, about 12 times a second while something moves and 3 while nothing does.
+//! use; every call is safe before it's ready (None, nothing). A frame step gets the newest mask at once and leaves its frame for a
+//! thread of the stream's own, so the model and the work around it never hold a frame up, and a mask is a frame or so behind the
+//! picture; people come from another such thread, about 12 times a second while something moves and 3 while nothing does.
 
 use crate::ops::{add_weighted, mask_resized, model_input, people_size, turned, Motion, Rgb, MODEL_SIZE};
 use std::collections::{BTreeSet, HashMap};
@@ -25,6 +26,8 @@ pub const MASK_STILL_EVERY_S: f64 = 1.0 / 15.0;
 /// Power-saving effects (Settings > Video): the mask at most this often even while something moves, people this often.
 pub const SAVING_PEOPLE_EVERY_S: f64 = 0.16;
 pub const SAVING_PEOPLE_STILL_EVERY_S: f64 = 0.5;
+/// How long a stream's first frame waits for its mask, so the picture doesn't go out without one when a stream starts.
+pub const FIRST_MASK_WAIT_S: f64 = 0.5;
 /// Without a pack, how often asking looks for one again (a download may have finished).
 pub const LOOK_AGAIN_S: f64 = 5.0;
 /// A model nothing has asked for this long is closed and its memory given back; switched back on sooner, it's still there.
@@ -85,6 +88,8 @@ pub trait Backend: Send + Sync {
 pub type Find = Box<dyn Fn() -> Result<Arc<dyn Backend>, LoadError> + Send + Sync>;
 pub type OnPeople = Box<dyn Fn(&str, Vec<Person>) + Send + Sync>;
 pub type OnState = Box<dyn Fn(&str) + Send + Sync>;
+/// Makes the RGB picture of a frame, on the thread that needs it.
+pub type Picture = Box<dyn FnOnce() -> Option<Rgb> + Send>;
 
 /// VIDEO mode wants each task's timestamps to go up, strictly.
 #[derive(Debug)]
@@ -117,6 +122,25 @@ pub(crate) struct MaskState {
     pub(crate) asked: f64,
 }
 
+/// A frame the mask thread hasn't got to: only the newest one waits.
+struct MaskJob {
+    seq: u64,
+    size: (usize, usize),
+    picture: Picture,
+}
+
+/// What a frame step and the mask thread pass each other, so neither waits for the other's work.
+#[derive(Default)]
+pub(crate) struct NewestMask {
+    job: Option<MaskJob>,
+    /// What was last asked for, so a second step on one frame doesn't ask again.
+    asked: Option<(u64, usize, usize)>,
+    mask: Option<(usize, usize, Arc<Vec<u8>>)>,
+    /// How many frames the thread has finished, with a mask or without.
+    done: u64,
+    thread: bool,
+}
+
 pub(crate) struct PeopleState {
     /// The newest small frame waiting for the pose model, and how to turn it upright.
     pub(crate) frame: Option<(Rgb, Upright)>,
@@ -131,7 +155,11 @@ pub(crate) struct PeopleState {
 
 /// One stream's models and its people thread.
 pub(crate) struct StreamVision {
+    /// The model's state: the mask thread holds this while the model runs, a frame step never waits for it.
     pub(crate) mask: Mutex<MaskState>,
+    pub(crate) newest: Mutex<NewestMask>,
+    mask_wanted: Condvar,
+    mask_done: Condvar,
     pub(crate) people: Mutex<PeopleState>,
     pub(crate) woken: Condvar,
     pub(crate) stopping: AtomicBool,
@@ -142,6 +170,9 @@ impl StreamVision {
         StreamVision {
             mask: Mutex::new(MaskState { segment: None, clock: Timestamps::new(), seq: None, mask: None, small: None, at: 0.0,
                                          motion: Motion::default(), asked: 0.0 }),
+            newest: Mutex::default(),
+            mask_wanted: Condvar::new(),
+            mask_done: Condvar::new(),
             people: Mutex::new(PeopleState { frame: None, at: 0.0, motion: Motion::default(), thread: None, quit: None, wake: false, fed: 0.0 }),
             woken: Condvar::new(),
             stopping: AtomicBool::new(false),
@@ -151,6 +182,8 @@ impl StreamVision {
     fn wake(&self) {
         self.people.lock().unwrap().wake = true;
         self.woken.notify_all();
+        let _held = self.newest.lock().unwrap();
+        self.mask_wanted.notify_all();
     }
 }
 
@@ -174,6 +207,8 @@ pub(crate) struct Inner {
     pub(crate) give_back: Mutex<Box<dyn Fn() + Send + Sync>>,
     /// Tests: frames for people wait in the slot instead of going to a thread.
     pub(crate) hold_people: AtomicBool,
+    /// Tests with a real model: a frame step waits for its own mask.
+    masks_wait: AtomicBool,
 }
 
 /// The vision service's core, shared with its threads.
@@ -218,6 +253,7 @@ impl Vision {
             saving: AtomicBool::new(false),
             give_back: Mutex::new(Box::new(give_back_memory)),
             hold_people: AtomicBool::new(false),
+            masks_wait: AtomicBool::new(false),
         }) }
     }
 
@@ -285,7 +321,49 @@ impl Vision {
         self.inner.backend.lock().unwrap().clone()
     }
 
-    // Person masks (the stream's thread, inside the plugin steps)
+    // Person masks
+
+    /// A frame step's way in: how sure the model was about each pixel of the newest frame it has done, at w x h, or None when there's
+    /// nothing yet. Frame seq goes to the mask thread, and picture() runs there.
+    pub fn newest_mask(&self, key: &str, seq: u64, w: usize, h: usize, picture: Picture) -> Option<Arc<Vec<u8>>> {
+        if self.inner.masks_wait.load(Ordering::SeqCst) {
+            let mut picture = Some(picture);
+            return self.person_mask(key, seq, w, h, &mut || picture.take().and_then(|p| p()));
+        }
+        let Some(backend) = self.ready() else {
+            self.load();
+            return None;
+        };
+        let sv = self.stream(key);
+        let mut n = sv.newest.lock().unwrap();
+        if n.asked != Some((seq, w, h)) {
+            n.asked = Some((seq, w, h));
+            n.job = Some(MaskJob { seq, size: (w, h), picture });
+            if !n.thread {
+                let (inner, sv2) = (self.inner.clone(), sv.clone());
+                n.thread = std::thread::Builder::new().name("vision-mask".into()).spawn(move || mask_loop(inner, backend, sv2)).is_ok();
+            }
+            sv.mask_wanted.notify_all();
+        }
+        if n.mask.is_none() {
+            let (done, until) = (n.done, std::time::Instant::now() + std::time::Duration::from_secs_f64(FIRST_MASK_WAIT_S));
+            while n.mask.is_none() && n.done == done {
+                let Some(left) = until.checked_duration_since(std::time::Instant::now()) else { break };
+                n = sv.mask_done.wait_timeout(n, left).unwrap().0;
+            }
+        }
+        match &n.mask {
+            Some((mw, mh, mask)) if (*mw, *mh) == (w, h) => Some(mask.clone()),
+            // One of another size until the thread has this size's: the picture changed size, or two steps look at different ones
+            Some((mw, mh, mask)) => Some(Arc::new(mask_resized(mask, *mw, *mh, w, h))),
+            None => None,
+        }
+    }
+
+    /// From now on a frame step waits for its own mask, as a test with a real model wants.
+    pub fn wait_for_masks(&self) {
+        self.inner.masks_wait.store(true, Ordering::SeqCst);
+    }
 
     /// How sure the model is each pixel of frame `seq` (w x h) is a person, or None when it can't say yet. picture() gives the
     /// frame as RGB and is only called when the model needs it.
@@ -438,6 +516,7 @@ impl Vision {
                     m.small = None;
                     m.seq = None;
                     m.motion = Motion::default();
+                    sv.newest.lock().unwrap().mask = None;
                     freed = true;
                 }
             }
@@ -575,6 +654,36 @@ fn tidy_loop(inner: Weak<Inner>) {
             waited = 0.0;
             Vision { inner: strong }.tidy(None);
         }
+    }
+}
+
+/// A stream's masks: only ever the newest frame waiting, so when the model falls behind it skips frames instead of queueing them.
+fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>) {
+    let vision = Vision { inner };
+    loop {
+        let job = {
+            let mut n = sv.newest.lock().unwrap();
+            loop {
+                if sv.stopping.load(Ordering::SeqCst) {
+                    n.thread = false;
+                    return;
+                }
+                match n.job.take() {
+                    Some(job) => break job,
+                    None => n = sv.mask_wanted.wait(n).unwrap(),
+                }
+            }
+        };
+        let MaskJob { seq, size: (w, h), picture } = job;
+        let mut picture = Some(picture);
+        let mut m = sv.mask.lock().unwrap();
+        m.asked = monotonic();
+        let mask = vision.mask(&mut m, &*backend, seq, w, h, &mut || picture.take().and_then(|p| p()));
+        drop(m);
+        let mut n = sv.newest.lock().unwrap();
+        n.done += 1;
+        n.mask = mask.map(|mask| (w, h, mask)).or(n.mask.take());
+        sv.mask_done.notify_all();
     }
 }
 

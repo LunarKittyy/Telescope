@@ -18,7 +18,6 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use telescope_core::colour::Baked;
 use telescope_core::event::Event;
-use telescope_core::frame::FrameStep;
 use telescope_core::i18n::tr;
 use telescope_core::media::FrameSlot;
 use telescope_core::source::{RouteSpec, StreamSource};
@@ -447,7 +446,7 @@ impl Window {
                 _ => false,
             };
             if !same {
-                w.inner.set_colour(lut.iter().map(|l| FrameStep::Shader(l.shader())).collect());
+                w.inner.set_colour(lut.iter().map(|l| l.frame_step()).collect());
                 *w.lut.borrow_mut() = lut;
             }
         }

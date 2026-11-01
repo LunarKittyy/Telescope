@@ -119,7 +119,7 @@ impl PluginTest {
     /// The plugin's frame step now, as the GPU executor gets it.
     pub fn shader(&mut self) -> Option<ShaderStep> {
         match self.plugin.frame_step()? {
-            FrameStep::Shader(s) => Some(s),
+            FrameStep::Shader(s) | FrameStep::Either(s, _) => Some(s),
             FrameStep::Cpu(_) => None,
         }
     }

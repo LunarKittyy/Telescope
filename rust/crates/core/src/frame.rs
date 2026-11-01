@@ -164,7 +164,8 @@ impl FrameStage {
 pub trait FrameContext {
     /// The source id of the stream this frame is from.
     fn source_id(&self) -> &str;
-    /// How sure the vision service is each pixel is a person (0..255, the frame's size), or None while it can't say.
+    /// How sure the vision service is each pixel is a person (0..255, the frame's size), or None while it can't say. It never waits for the
+    /// model, so this is the newest mask there is, about a frame behind the picture.
     fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>>;
     /// For a final-stage step: the frame as the preview shows it, with a colour_split drawn in.
     fn colour_preview(&self, frame: &Frame) -> Frame;
@@ -235,6 +236,8 @@ impl<'de> Deserialize<'de> for Frame {
 pub enum FrameStep {
     Cpu(Box<dyn CpuStep>),
     Shader(ShaderStep),
+    /// The same change two ways: the shader while the card has room, the CPU step while core::balance says it hasn't.
+    Either(ShaderStep, Box<dyn CpuStep>),
 }
 
 impl std::fmt::Debug for FrameStep {
@@ -242,6 +245,7 @@ impl std::fmt::Debug for FrameStep {
         match self {
             FrameStep::Cpu(_) => f.write_str("FrameStep::Cpu"),
             FrameStep::Shader(s) => f.debug_tuple("FrameStep::Shader").field(&s.wgsl.len()).finish(),
+            FrameStep::Either(s, _) => f.debug_tuple("FrameStep::Either").field(&s.wgsl.len()).finish(),
         }
     }
 }

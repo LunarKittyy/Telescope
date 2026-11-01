@@ -795,7 +795,7 @@ impl State {
                 let keep = KeepBefore(self.colour_before.clone());
                 steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step: telescope_core::frame::FrameStep::Cpu(Box::new(keep)) });
             }
-            steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step: telescope_core::frame::FrameStep::Shader(step) });
+            steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step });
         }
         for i in 0..self.slots.len() {
             let (owner, stage) = (self.slots[i].info.name.clone(), self.slots[i].info.frame_stage);

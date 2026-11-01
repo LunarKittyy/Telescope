@@ -492,8 +492,12 @@ impl Gpu {
         buf
     }
 
-    /// Copies textures into one buffer, waits for the card and hands back each one's rows without padding.
-    fn download(&self, mut enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<Vec<Vec<u8>>, String> {
+    fn download(&self, enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<Vec<Vec<u8>>, String> {
+        self.download_timed(enc, textures, bpp).map(|(planes, _)| planes)
+    }
+
+    /// Copies textures into one buffer, waits for the card and hands back each one's rows without padding, and how long the wait was in ns.
+    fn download_timed(&self, mut enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<(Vec<Vec<u8>>, u64), String> {
         let mut offsets = Vec::new();
         let mut size = 0u64;
         for (t, b) in textures.iter().zip(bpp) {
@@ -528,6 +532,7 @@ impl Gpu {
         self.device.poll(wgpu::PollType::wait_indefinitely()).map_err(|e| e.to_string())?;
         rx.recv().map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
         span("gpu_wait", began);
+        let waited = monotonic_ns().saturating_sub(began);
         let began = monotonic_ns();
         let mapped = slice.get_mapped_range().map_err(|e| e.to_string())?;
         let mut out = Vec::new();
@@ -549,7 +554,7 @@ impl Gpu {
         }
         kept.push(buf);
         span("readback", began);
-        Ok(out)
+        Ok((out, waited))
     }
 
     /// Puts a frame on the card, ready for shaders.
@@ -565,7 +570,7 @@ impl Gpu {
         let (a, b) = (self.texture(w, h, WORK), self.texture(w, h, WORK));
         self.convert_pass(&mut enc, &planes.views, planes.mode, &a, 1, (planes.width, planes.height));
         span("upload", began);
-        Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns })
+        Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, waited_ns: 0 })
     }
 
     /// One shader step on the held picture. Nothing runs yet; land sends it all to the card in one go.
@@ -586,7 +591,7 @@ impl Gpu {
             targets.push(t.clone());
             t
         };
-        let out = match held.format {
+        let (out, waited) = match held.format {
             PixelFormat::I420 => {
                 let (y, u, v) = (target(w, h, wgpu::TextureFormat::R8Unorm), target(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm),
                                  target(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm));
@@ -597,23 +602,24 @@ impl Gpu {
                     self.convert_pass(&mut enc, &work, Mode::ToU, &u, 1, (w, h));
                     self.convert_pass(&mut enc, &work, Mode::ToV, &v, 1, (w, h));
                 }
-                self.download(enc, &[&y, &u, &v], &[1, 1, 1])?.concat()
+                self.download_timed(enc, &[&y, &u, &v], &[1, 1, 1])?
             }
             PixelFormat::Nv12 => {
                 let (y, uv) = (target(w, h, wgpu::TextureFormat::R8Unorm), target(chroma(w), chroma(h), wgpu::TextureFormat::Rg8Unorm));
                 self.convert_pass(&mut enc, &work, Mode::ToY, &y, 1, (w, h));
                 self.convert_pass(&mut enc, &work, Mode::ToUv, &uv, 1, (w, h));
-                self.download(enc, &[&y, &uv], &[1, 2])?.concat()
+                self.download_timed(enc, &[&y, &uv], &[1, 2])?
             }
             PixelFormat::Bgra => {
                 let t = target(w, h, wgpu::TextureFormat::Bgra8Unorm);
                 self.convert_pass(&mut enc, &work, Mode::Rgba, &t, 1, (w, h));
-                self.download(enc, &[&t], &[4])?.concat()
+                self.download_timed(enc, &[&t], &[4])?
             }
-            _ => self.download(enc, &[&held.a], &[4])?.concat(),
+            _ => self.download_timed(enc, &[&held.a], &[4])?,
         };
+        held.waited_ns += waited;
         self.give_back(targets);
-        let mut result = Frame::new(w, h, held.format, out);
+        let mut result = Frame::new(w, h, held.format, out.concat());
         result.number = held.number;
         result.time_ns = held.time_ns;
         Ok(result)
@@ -662,6 +668,23 @@ impl Gpu {
         self.queue.submit([enc.finish()]);
         self.give_back(used);
         Ok(())
+    }
+
+    /// How long the card would make a frame wait right now, in ns: the frame up and a pass over it and back, as big as a real one, and
+    /// nothing kept. core::balance's way of looking at the card while frames stay off it.
+    pub fn trial(&self, frame: &Frame) -> Result<u64, String> {
+        if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) {
+            return Err(format!("{:?} frames can't go on the card", frame.format));
+        }
+        let mut used = Vec::new();
+        let mut enc = self.device.create_command_encoder(&Default::default());
+        let planes = self.upload(frame, &mut used);
+        let target = self.texture(frame.width, frame.height, WORK);
+        self.convert_pass(&mut enc, &planes.views, planes.mode, &target, 1, (planes.width, planes.height));
+        let (_, waited) = self.download_timed(enc, &[&target], &[4])?;
+        used.push(target);
+        self.give_back(used);
+        Ok(waited)
     }
 
     /// A texture paint() can draw into and Slint can show.
@@ -795,6 +818,14 @@ pub struct Held {
     format: PixelFormat,
     number: u64,
     time_ns: u64,
+    /// What reading it back has waited for the card since this was last asked.
+    waited_ns: u64,
+}
+
+impl Held {
+    pub fn take_waited(&mut self) -> u64 {
+        std::mem::take(&mut self.waited_ns)
+    }
 }
 
 /// A stream's person mask on the card, staying there until the mask changes.
@@ -965,6 +996,57 @@ mod tests {
     }
 
     const IDENTITY: &str = "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }";
+
+    #[test]
+    fn the_colour_lut_on_the_cpu_gives_the_picture_the_shader_does() {
+        use telescope_core::colour::{bake, lattice};
+        use telescope_core::colour_cpu::Graded;
+        use telescope_core::frame::{CpuStep, FrameContext};
+        use telescope_core::host::ColourStage;
+        struct Nothing;
+        impl FrameContext for Nothing {
+            fn source_id(&self) -> &str {
+                ""
+            }
+            fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
+                None
+            }
+            fn colour_preview(&self, frame: &Frame) -> Frame {
+                frame.clone()
+            }
+        }
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let mut rgb = lattice(33);
+        for px in rgb.as_chunks_mut::<3>().0 {
+            *px = [px[0].sqrt(), 0.3 * px[1] + 0.7 * px[2], 1.0 - px[0] * px[2]];
+        }
+        let cube = bake(&[&ColourStage::new(33, Arc::new(rgb), None)], None).unwrap();
+        let table = bake(&[&ColourStage::new(33, Arc::new(lattice(33).iter().map(|v| v * v).collect()),
+                                             Some(Arc::new((0..256).flat_map(|i| [(i as f32 / 255.0).powi(2); 3]).collect())))], None).unwrap();
+        let mut x = 5u32;
+        let mut next = move || {
+            x = x.wrapping_mul(1664525).wrapping_add(1013904223);
+            (x >> 24) as u8
+        };
+        for (w, h) in [(64u32, 36u32), (320, 180)] {
+            let data: Vec<u8> = (0..PixelFormat::I420.size(w, h)).map(|_| next()).collect();
+            let frame = Frame::new(w, h, PixelFormat::I420, data);
+            for lut in [&cube, &table] {
+                let mut slots = [ShaderSlot::new(lut.shader())];
+                let card = run(&gpu, &frame, &mut slots);
+                let mut cpu = frame.clone();
+                Graded::new(lut).process(&mut cpu, &Nothing);
+                let worst = card.data.iter().zip(cpu.data.iter()).map(|(a, b)| (*a as i32 - *b as i32).abs()).max();
+                assert!(worst <= Some(2), "{w}x{h} {}: {worst:?}", lut.kind());
+            }
+        }
+    }
+
+    #[test]
+    fn a_trial_says_how_long_the_card_took() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        assert!(gpu.trial(&yuv_frame(64, 36, |_, _| 100, 128, 128)).unwrap() > 0);
+    }
 
     #[test]
     fn a_handed_device_paints_the_preview_into_a_texture_it_keeps() {

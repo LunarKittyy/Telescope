@@ -566,7 +566,7 @@ fn blank(w: u32, h: u32, format: PixelFormat) -> Frame {
 fn step_of(plugin: &mut WaitScreenPlugin) -> Option<Box<dyn CpuStep>> {
     match plugin.frame_step()? {
         FrameStep::Cpu(step) => Some(step),
-        FrameStep::Shader(_) => panic!("a shader"),
+        FrameStep::Shader(_) | FrameStep::Either(..) => panic!("a shader"),
     }
 }
 
