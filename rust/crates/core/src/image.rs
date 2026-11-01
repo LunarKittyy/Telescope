@@ -461,7 +461,7 @@ mod tests {
     fn over_bands_hands_out_every_row_once_with_its_place() {
         for rows in [1, 255, 256, 257, 1081] {
             let mut data = vec![0usize; rows * 3];
-            over_bands(&mut data, 3, |first, part| part.chunks_exact_mut(3).enumerate().for_each(|(i, line)| line.iter_mut().for_each(|v| *v += first + i + 1)));
+            over_bands(&mut data, 3, |first, part| part.as_chunks_mut::<3>().0.iter_mut().enumerate().for_each(|(i, line)| line.iter_mut().for_each(|v| *v += first + i + 1)));
             assert_eq!(data, (0..rows).flat_map(|r| [r + 1; 3]).collect::<Vec<_>>(), "{rows}");
         }
     }
