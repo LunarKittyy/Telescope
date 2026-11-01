@@ -155,8 +155,69 @@ fn area_table(n: usize, m: usize, scale: f64) -> Vec<Vec<(usize, f32)>> {
     }).collect()
 }
 
+/// One output cell of a two-tap blend: first source, second source, their weights out of 2048.
+type Tap = (usize, usize, i32, i32);
+
+/// Blends one row across into `into`, kept in the 15 bits OpenCV keeps it in. Inlined with a known ch so the channels don't loop.
+#[inline(always)]
+fn blend_across(row: &[u8], xs: &[Tap], ch: usize, into: &mut [i16]) {
+    for (o, &(x0, x1, p, q)) in into.chunks_exact_mut(ch).zip(xs) {
+        let (a, b) = (&row[x0 * ch..][..ch], &row[x1 * ch..][..ch]);
+        for c in 0..ch {
+            o[c] = ((a[c] as i32 * p + b[c] as i32 * q) >> 4) as i16;
+        }
+    }
+}
+
+/// OpenCV's fixed-point two-tap resize of a picture w wide with `ch` channels, row by row into dst, whose rows are `stride` long
+/// and start `left` elements in. Rows stop at the end of ys or dst, whichever comes first; a band keeps the two rows it has blended.
+fn blended(src: &[u8], (w, ch): (usize, usize), xs: &[Tap], ys: &[Tap], dst: &mut [u8], stride: usize, left: usize) {
+    let rowlen = xs.len() * ch;
+    let across = |y: usize, into: &mut [i16]| {
+        let row = &src[y * w * ch..][..w * ch];
+        match ch {
+            1 => blend_across(row, xs, 1, into),
+            3 => blend_across(row, xs, 3, into),
+            _ => blend_across(row, xs, ch, into),
+        }
+    };
+    over_bands(dst, stride, |first, part| {
+        let (mut top, mut bottom) = (vec![0i16; rowlen], vec![0i16; rowlen]);
+        let (mut have_top, mut have_bottom) = (usize::MAX, usize::MAX);
+        for (line, &(y0, y1, p, q)) in part.chunks_exact_mut(stride).zip(&ys[first.min(ys.len())..]) {
+            if have_bottom == y0 {
+                std::mem::swap(&mut top, &mut bottom);
+                std::mem::swap(&mut have_top, &mut have_bottom);
+            }
+            if have_top != y0 {
+                across(y0, &mut top);
+                have_top = y0;
+            }
+            if have_bottom != y1 {
+                across(y1, &mut bottom);
+                have_bottom = y1;
+            }
+            for ((o, &a), &b) in line[left..].iter_mut().zip(&top).zip(&bottom) {
+                *o = ((((a as i32 * p) >> 16) + ((b as i32 * q) >> 16) + 2) >> 2) as u8;
+            }
+        }
+    });
+}
+
+/// Adds each block of kx pixels of a source row into its output cell's sums. Inlined with a known ch so the channels don't loop.
+#[inline(always)]
+fn add_blocks(row: &[u8], kx: usize, ch: usize, sums: &mut [u32]) {
+    for (s, block) in sums.chunks_exact_mut(ch).zip(row.chunks_exact(kx * ch)) {
+        for px in block.chunks_exact(ch) {
+            for c in 0..ch {
+                s[c] += px[c] as u32;
+            }
+        }
+    }
+}
+
 /// The two taps of OpenCV's area-mode bilinear along an axis: (first source, second source, their weights out of 2048).
-fn area_taps(n: usize, m: usize, inv: f64, scale: f64, horizontal: bool) -> Vec<(usize, usize, i64, i64)> {
+fn area_taps(n: usize, m: usize, inv: f64, scale: f64, horizontal: bool) -> Vec<Tap> {
     (0..m).map(|d| {
         let d = d as f64;
         let s = (d * scale).floor() as i64;
@@ -166,7 +227,7 @@ fn area_taps(n: usize, m: usize, inv: f64, scale: f64, horizontal: bool) -> Vec<
             f = 0.0;
         }
         let (p, q) = ((1.0f32 - f) * 2048.0f32, f * 2048.0f32);
-        ((s.clamp(0, n as i64 - 1)) as usize, ((s + 1).clamp(0, n as i64 - 1)) as usize, p.round_ties_even() as i64, q.round_ties_even() as i64)
+        ((s.clamp(0, n as i64 - 1)) as usize, ((s + 1).clamp(0, n as i64 - 1)) as usize, rint(p as f64), rint(q as f64))
     }).collect()
 }
 
@@ -182,69 +243,61 @@ pub fn resize_area(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usi
     if sx >= 1.0 && sy >= 1.0 {
         let (kx, ky) = (sx.round_ties_even() as usize, sy.round_ties_even() as usize);
         if (sx - kx as f64).abs() < f64::EPSILON && (sy - ky as f64).abs() < f64::EPSILON && w == w2 * kx && h == h2 * ky {
-            // whole blocks: integer sums
+            // whole blocks: integer sums, and a table so the rounding isn't a call per byte
             let recip = 1.0f32 / (kx * ky) as f32;
-            for y in 0..h2 {
-                for x in 0..w2 {
-                    for c in 0..ch {
-                        let mut sum = 0i32;
-                        for j in 0..ky {
-                            for i in 0..kx {
-                                sum += src[((y * ky + j) * w + x * kx + i) * ch + c] as i32;
-                            }
+            let table: Vec<u8> = (0..=255 * (kx * ky) as u32).map(|sum| if kx == 2 && ky == 2 { ((sum + 2) >> 2) as u8 } else { rint((sum as f32 * recip) as f64).clamp(0, 255) as u8 }).collect();
+            let rowlen = w2 * ch;
+            let table = &table;
+            over_bands(&mut out, rowlen, |first, part| {
+                let mut sums = vec![0u32; rowlen];
+                for (i, line) in part.chunks_exact_mut(rowlen).enumerate() {
+                    sums.fill(0);
+                    for j in 0..ky {
+                        let row = &src[((first + i) * ky + j) * w * ch..][..w2 * kx * ch];
+                        match ch {
+                            1 => add_blocks(row, kx, 1, &mut sums),
+                            3 => add_blocks(row, kx, 3, &mut sums),
+                            _ => add_blocks(row, kx, ch, &mut sums),
                         }
-                        out[(y * w2 + x) * ch + c] = if kx == 2 && ky == 2 { ((sum + 2) >> 2) as u8 } else { (sum as f32 * recip).round_ties_even().clamp(0.0, 255.0) as u8 };
                     }
+                    line.iter_mut().zip(&sums).for_each(|(o, s)| *o = table[*s as usize]);
                 }
-            }
+            });
         } else {
             // every multiply and add rounded to f32 on its own, as OpenCV does them
             let (tx, ty) = (area_table(w, w2, sx), area_table(h, h2, sy));
             let mut across = vec![0f32; h * w2 * ch];
-            for y in 0..h {
-                for (dx, row) in tx.iter().enumerate() {
-                    for c in 0..ch {
+            over_rows(&mut across, w2 * ch, |y, line| {
+                for (cell, row) in line.chunks_exact_mut(ch).zip(&tx) {
+                    for (c, o) in cell.iter_mut().enumerate() {
                         let mut acc = 0f32;
                         for &(x, alpha) in row {
                             acc += src[(y * w + x) * ch + c] as f32 * alpha;
                         }
-                        across[(y * w2 + dx) * ch + c] = acc;
+                        *o = acc;
                     }
                 }
-            }
-            for (dy, row) in ty.iter().enumerate() {
-                for i in 0..w2 * ch {
+            });
+            over_rows(&mut out, w2 * ch, |dy, line| {
+                for (i, o) in line.iter_mut().enumerate() {
                     let mut acc = 0f32;
-                    for &(y, beta) in row {
+                    for &(y, beta) in &ty[dy] {
                         acc += across[y * w2 * ch + i] * beta;
                     }
-                    out[dy * w2 * ch + i] = acc.round_ties_even().clamp(0.0, 255.0) as u8;
+                    *o = rint(acc as f64).clamp(0, 255) as u8;
                 }
-            }
+            });
         }
         return out;
     }
     let (xs, ys) = (area_taps(w, w2, ix, sx, true), area_taps(h, h2, iy, sy, false));
-    let mut across = vec![0i64; h * w2 * ch];
-    for y in 0..h {
-        for (dx, &(x0, x1, p, q)) in xs.iter().enumerate() {
-            for c in 0..ch {
-                across[(y * w2 + dx) * ch + c] = src[(y * w + x0) * ch + c] as i64 * p + src[(y * w + x1) * ch + c] as i64 * q;
-            }
-        }
-    }
-    for (dy, &(y0, y1, p, q)) in ys.iter().enumerate() {
-        for i in 0..w2 * ch {
-            let v = (((across[y0 * w2 * ch + i] >> 4) * p) >> 16) + (((across[y1 * w2 * ch + i] >> 4) * q) >> 16);
-            out[dy * w2 * ch + i] = ((v + 2) >> 2) as u8;
-        }
-    }
+    blended(src, (w, ch), &xs, &ys, &mut out, w2 * ch, 0);
     out
 }
 
 /// The two taps of OpenCV's INTER_LINEAR along an axis for 8-bit pictures: (first source, second source, their weights out of 2048).
 /// Across, a tap past either edge takes the edge pixel whole; down, the weights stay and only the rows are clamped, as OpenCV does.
-fn linear_taps(n: usize, m: usize, vertical: bool) -> Vec<(usize, usize, i64, i64)> {
+fn linear_taps(n: usize, m: usize, vertical: bool) -> Vec<Tap> {
     let scale = n as f64 / m as f64;
     let last = n as i64 - 1;
     (0..m).map(|d| {
@@ -260,7 +313,7 @@ fn linear_taps(n: usize, m: usize, vertical: bool) -> Vec<(usize, usize, i64, i6
             s = last;
         }
         let (p, q) = ((1.0f32 - f) * 2048.0f32, f * 2048.0f32);
-        (s.clamp(0, last) as usize, (s + 1).clamp(0, last) as usize, p.round_ties_even() as i64, q.round_ties_even() as i64)
+        (s.clamp(0, last) as usize, (s + 1).clamp(0, last) as usize, rint(p as f64), rint(q as f64))
     }).collect()
 }
 
@@ -270,23 +323,31 @@ pub fn resize_linear_fixed(src: &[u8], w: usize, h: usize, ch: usize, w2: usize,
     if (w2, h2) == (w, h) {
         return src.to_vec();
     }
-    let (xs, ys) = (linear_taps(w, w2, false), linear_taps(h, h2, true));
-    let mut across = vec![0i64; h * w2 * ch];
-    for y in 0..h {
-        for (dx, &(x0, x1, p, q)) in xs.iter().enumerate() {
-            for c in 0..ch {
-                across[(y * w2 + dx) * ch + c] = src[(y * w + x0) * ch + c] as i64 * p + src[(y * w + x1) * ch + c] as i64 * q;
-            }
-        }
-    }
     let mut out = vec![0u8; w2 * h2 * ch];
-    for (dy, &(y0, y1, p, q)) in ys.iter().enumerate() {
-        for i in 0..w2 * ch {
-            let v = (((across[y0 * w2 * ch + i] >> 4) * p) >> 16) + (((across[y1 * w2 * ch + i] >> 4) * q) >> 16);
-            out[dy * w2 * ch + i] = ((v + 2) >> 2) as u8;
-        }
-    }
+    resize_linear_into(src, w, h, ch, &mut out, w2 * ch, (0, 0, w2, h2));
     out
+}
+
+/// resize_linear_fixed into the (x, y, w, h) box of dst, whose rows are `stride` bytes long; what falls outside dst is left off.
+/// Exactly half the size both ways is the area average, as OpenCV makes it.
+pub fn resize_linear_into(src: &[u8], w: usize, h: usize, ch: usize, dst: &mut [u8], stride: usize, (x, y, w2, h2): (usize, usize, usize, usize)) {
+    if w == 0 || h == 0 || w2 == 0 || h2 == 0 || stride == 0 {
+        return;
+    }
+    let (left, from) = (x * ch, (y * stride).min(dst.len()));
+    let copy_rows = |picture: &[u8], dst: &mut [u8]| {
+        for (line, row) in dst.chunks_exact_mut(stride).zip(picture.chunks_exact(w2 * ch)) {
+            let keep = row.len().min(stride.saturating_sub(left));
+            line[left.min(stride)..][..keep].copy_from_slice(&row[..keep]);
+        }
+    };
+    if (w2, h2) == (w, h) {
+        copy_rows(src, &mut dst[from..]);
+    } else if (w2 * 2, h2 * 2) == (w, h) {
+        copy_rows(&resize_area(src, w, h, ch, w2, h2), &mut dst[from..]);
+    } else {
+        blended(src, (w, ch), &linear_taps(w, w2, false), &linear_taps(h, h2, true), &mut dst[from..], stride, left.min(stride));
+    }
 }
 
 /// One pixel's cv2.cvtColor(RGB2GRAY) / BGR2GRAY: OpenCV 4.13's 15-bit weights 9798, 19235 and 3735, rounded by the shift.
@@ -343,6 +404,81 @@ mod tests {
                 (1, 2)
             });
             assert_eq!(calls.into_inner(), w.div_ceil(2) * h.div_ceil(2), "{format:?}");
+        }
+    }
+
+    // What cv2.resize(.., INTER_LINEAR) and INTER_AREA make of a 6 x 4 picture of random bytes
+    const GREY_6X4: [u8; 24] = [139, 74, 229, 241, 169, 65, 6, 160, 149, 106, 38, 175, 188, 205, 175, 229, 98, 249, 10, 148, 95, 86, 147, 198];
+
+    #[test]
+    fn linear_matches_cv2_on_all_sizes() {
+        assert_eq!(resize_linear_fixed(&GREY_6X4, 6, 4, 1, 4, 3), [110, 184, 201, 99, 118, 167, 143, 176, 69, 120, 117, 189]);
+        assert_eq!(resize_linear_fixed(&GREY_6X4, 6, 4, 1, 9, 6), [139, 106, 100, 203, 235, 229, 181, 117, 65, 73, 95, 129, 177, 181, 162, 115, 112, 120, 36, 102, 165, 155, 140, 113, 61, 118, 187, 157, 178, 193, 175, 189, 188, 108, 162, 237, 99, 138, 170, 142, 146, 152, 128, 173, 224, 10, 79, 139, 104, 90, 96, 137, 172, 198]);
+        assert_eq!(resize_linear_fixed(&GREY_6X4, 2, 12, 1, 3, 5), [202, 196, 191, 20, 87, 154, 113, 152, 190, 106, 176, 247, 111, 115, 119]);
+    }
+
+    #[test]
+    fn half_size_linear_is_the_area_average_as_in_cv2() {
+        assert_eq!(resize_linear_fixed(&GREY_6X4, 6, 4, 1, 3, 2), [95, 181, 112, 138, 146, 173]);
+        assert_eq!(resize_linear_fixed(&GREY_6X4, 6, 4, 1, 3, 2), resize_area(&GREY_6X4, 6, 4, 1, 3, 2));
+        assert_eq!(resize_linear_fixed(&GREY_6X4, 3, 8, 1, 3, 4)[..3], [190, 122, 147]);
+    }
+
+    #[test]
+    fn area_matches_cv2_on_all_three_paths() {
+        assert_eq!(resize_area(&GREY_6X4, 6, 4, 1, 2, 2), [126, 132, 137, 168]);
+        assert_eq!(resize_area(&GREY_6X4, 6, 4, 1, 4, 3), [102, 171, 184, 107, 126, 169, 134, 164, 90, 131, 126, 185]);
+        assert_eq!(resize_area(&GREY_6X4, 6, 4, 1, 8, 3), [106, 99, 133, 209, 207, 160, 121, 93, 97, 154, 175, 162, 168, 101, 116, 212, 55, 126, 146, 115, 122, 130, 160, 211]);
+        assert_eq!(resize_area(&GREY_6X4, 2, 4, 3, 1, 2), [123, 110, 155, 128, 150, 179]);
+    }
+
+    #[test]
+    fn three_channels_scale_like_each_channel_alone() {
+        for (w2, h2) in [(4, 3), (9, 6), (3, 2), (2, 2)] {
+            let (w, h) = (6, 4);
+            let colour: Vec<u8> = GREY_6X4.iter().flat_map(|&v| [v, v.wrapping_mul(3), 255 - v]).collect();
+            let one: Vec<Vec<u8>> = (0..3).map(|c| colour.iter().skip(c).step_by(3).copied().collect()).collect();
+            let want: Vec<u8> = (0..w2 * h2).flat_map(|i| {
+                let at = |c: usize| resize_linear_fixed(&one[c], w, h, 1, w2, h2)[i];
+                [at(0), at(1), at(2)]
+            }).collect();
+            assert_eq!(resize_linear_fixed(&colour, w, h, 3, w2, h2), want, "{w2}x{h2}");
+        }
+    }
+
+    #[test]
+    fn a_tall_picture_scales_the_same_across_its_bands() {
+        let (w, h, w2, h2) = (64usize, 600usize, 96usize, 301usize);
+        let src: Vec<u8> = (0..w * h).map(|i| (i * i % 253) as u8).collect();
+        let (xs, ys) = (linear_taps(w, w2, false), linear_taps(h, h2, true));
+        let mut want = vec![0u8; w2 * h2];
+        for (dy, &(y0, y1, p, q)) in ys.iter().enumerate() {
+            for (dx, &(x0, x1, r, s)) in xs.iter().enumerate() {
+                let across = |y: usize| (src[y * w + x0] as i32 * r + src[y * w + x1] as i32 * s) >> 4;
+                want[dy * w2 + dx] = ((((across(y0) * p) >> 16) + ((across(y1) * q) >> 16) + 2) >> 2) as u8;
+            }
+        }
+        assert_eq!(resize_linear_fixed(&src, w, h, 1, w2, h2), want);
+    }
+
+    #[test]
+    fn a_box_is_filled_and_nothing_else_is_touched() {
+        let want = resize_linear_fixed(&GREY_6X4, 6, 4, 1, 4, 3);
+        let mut dst = vec![7u8; 8 * 5];
+        resize_linear_into(&GREY_6X4, 6, 4, 1, &mut dst, 8, (2, 1, 4, 3));
+        for y in 0..5 {
+            for x in 0..8 {
+                let inside = (2..6).contains(&x) && (1..4).contains(&y);
+                assert_eq!(dst[y * 8 + x], if inside { want[(y - 1) * 4 + x - 2] } else { 7 }, "{x},{y}");
+            }
+        }
+        // A box past the plane's edge loses what doesn't fit, whichever way it got its pixels
+        for (w2, h2) in [(4, 3), (3, 2), (6, 4)] {
+            let mut small = vec![7u8; 4 * 2];
+            resize_linear_into(&GREY_6X4, 6, 4, 1, &mut small, 4, (2, 1, w2, h2));
+            let want = resize_linear_fixed(&GREY_6X4, 6, 4, 1, w2, h2);
+            assert_eq!(small[..6], [7; 6], "{w2}x{h2}");
+            assert_eq!(small[6..], want[..2], "{w2}x{h2}");
         }
     }
 
