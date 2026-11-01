@@ -420,7 +420,7 @@ fn stop_requests_worker_closes_client_and_notifies_plugins() {
     r.forget_heard();
     r.w.toggle_stream();
     r.pump();
-    assert!(r.worker(0).is_stopped());
+    assert!(r.worker(0).stops());
     assert!(r.link.control("pixel").closed.load(Ordering::SeqCst));
     assert!(r.source("pixel").session().is_none());
     assert_eq!((r.times_heard("panel stop"), r.times_heard("panel stream_stopped")), (1, 1));

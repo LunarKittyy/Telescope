@@ -2,7 +2,7 @@
 # Builds the Linux package folder, the shape Telescope-linux.tar.gz has: what the Python app's updater and start.sh expect.
 # Usage: package_linux.sh --ffmpeg DIR [--out DIR] [--channel stable|nightly|dev] [--build N] [--commit SHA]
 # DIR comes from build_ffmpeg.sh. What it's built on sets the oldest Linux it runs on, so a release builds on Ubuntu 22.04 (rust-package.yml).
-# build-linux.yml's python tarball adds Telescope.apk afterwards; the same goes for this folder.
+# release.yml adds Telescope.apk afterwards and packs this folder into the tarball.
 set -euo pipefail
 
 rust=$(cd "$(dirname "$0")/.." && pwd)

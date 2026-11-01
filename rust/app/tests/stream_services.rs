@@ -204,7 +204,7 @@ fn re_pairing_a_background_phone_restarts_it_with_the_new_token() {
     r.until("it's back", |r| r.workers_made() == 3);
     r.pump();
     assert_eq!(r.shown().as_deref(), Some("pixel"));
-    assert!(r.worker(0).is_stopped());
+    assert!(r.worker(0).stops());
     assert!(!r.worker(1).is_stopped(), "the other stream stays");
     assert_eq!(r.link.logged("open pixel with new-token"), 1);
 }

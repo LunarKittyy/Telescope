@@ -5749,6 +5749,7 @@ name = "telescope-effects"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "i-slint-backend-testing",
  "log",
  "ring",
  "rqrr",
@@ -5808,6 +5809,7 @@ dependencies = [
 name = "telescope-outputs"
 version = "0.1.0"
 dependencies = [
+ "i-slint-backend-testing",
  "image",
  "libc",
  "log",
@@ -5841,6 +5843,7 @@ dependencies = [
 name = "telescope-setup"
 version = "0.1.0"
 dependencies = [
+ "i-slint-backend-testing",
  "log",
  "serde_json",
  "slint-interpreter",
@@ -5871,6 +5874,7 @@ name = "telescope-system"
 version = "0.1.0"
 dependencies = [
  "flate2",
+ "i-slint-backend-testing",
  "libc",
  "log",
  "ring",

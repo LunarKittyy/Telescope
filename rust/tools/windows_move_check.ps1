@@ -6,6 +6,8 @@ param(
     [Parameter(Mandatory)] [string] $Bundle
 )
 $ErrorActionPreference = 'Stop'
+$Setup = (Resolve-Path $Setup).Path
+$Bundle = (Resolve-Path $Bundle).Path
 $problems = @()
 $downloads = Join-Path ([IO.Path]::GetTempPath()) "Downloads-$PID"
 New-Item -ItemType Directory $downloads | Out-Null

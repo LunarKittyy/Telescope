@@ -294,7 +294,7 @@ fn starts_streams_and_quits(left_out: Option<&str>) {
     w.stop_all_streams();
     w.process();
     assert!(!w.is_streaming());
-    assert!(worker.is_stopped());
+    assert!(worker.stops());
     w.shut_down();
 }
 

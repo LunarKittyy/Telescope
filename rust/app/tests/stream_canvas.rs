@@ -49,7 +49,7 @@ fn finish(r: &Rig) {
 #[test]
 fn a_canvas_resize_starts_the_stream_it_stopped_again() {
     let r = resizing("canvas-restarts");
-    assert!(r.worker(0).is_stopped());
+    assert!(r.worker(0).stops());
     finish(&r);
     assert_eq!(done(&r).unwrap(), "panel done true  ");
     r.until("the stream's back", |r| r.workers_made() == 2);

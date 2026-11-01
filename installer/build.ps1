@@ -1,4 +1,4 @@
-# Builds TelescopeSetup.exe from an assembled bundle folder (build-windows.yml's bundle/, with Telescope.apk in it
+# Builds TelescopeSetup.exe from an assembled bundle folder (rust-package.yml's bundle/, with Telescope.apk in it
 # for a release). Installs Inno Setup first when it isn't there, which needs Chocolatey (GitHub's runners have it).
 param(
     [Parameter(Mandatory)] [string] $Bundle,

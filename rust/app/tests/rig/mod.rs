@@ -389,6 +389,15 @@ impl FakeWorker {
     pub fn is_stopped(&self) -> bool {
         self.stopped.load(Ordering::SeqCst)
     }
+
+    /// The window stops a worker on a thread of its own, so this gives that thread time to get there.
+    pub fn stops(&self) -> bool {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !self.is_stopped() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        self.is_stopped()
+    }
 }
 
 impl VideoWorker for FakeWorker {

@@ -11,6 +11,8 @@ param(
 $ErrorActionPreference = 'Stop'
 if (-not $env:FFMPEG_DIR) { throw 'Set FFMPEG_DIR to a shared FFmpeg build' }
 & "$PSScriptRoot\ffmpeg_libs.ps1"
+# Against where it was called from, before the build moves into rust/
+$Out = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Out)
 
 $rust = (Resolve-Path "$PSScriptRoot\..").Path
 $repo = Split-Path $rust -Parent
@@ -20,6 +22,8 @@ Push-Location $rust
 $env:TELESCOPE_BUILD = $Build
 $env:TELESCOPE_CHANNEL = $Channel
 $env:TELESCOPE_COMMIT = $Commit
+# The C runtime goes into the program, as with the camera's DLL: a clean Windows may not have the VC++ redistributable
+$env:RUSTFLAGS = '-C target-feature=+crt-static'
 cargo build --release --locked -p telescope-app --features ffmpeg-windows
 if ($LASTEXITCODE) { throw 'cargo build failed' }
 $exe = "$target\release\telescope-rs.exe"
