@@ -69,22 +69,20 @@ jobs:
       channel: ${{ needs.meta.outputs.channel }}
     secrets: inherit
 
-  windows:
-    needs: meta
-    uses: ./.github/workflows/build-windows.yml
-    with:
-      build: ${{ needs.meta.outputs.build }}
-      channel: ${{ needs.meta.outputs.channel }}
+  # The desktop app's tests on Linux and Windows. Nothing publishes unless they pass
+  tests:
+    uses: ./.github/workflows/rust.yml
 
-  linux:
+  # Both desktop bundles, with FFmpeg and the package checks
+  packages:
     needs: meta
-    uses: ./.github/workflows/build-linux.yml
+    uses: ./.github/workflows/rust-package.yml
     with:
       build: ${{ needs.meta.outputs.build }}
       channel: ${{ needs.meta.outputs.channel }}
 
   # MediaPipe and its models for the optional plugins, downloaded by the app when one is switched on. Both platforms
-  # build here (pip fetches the Windows wheels too), and they have to match telescope/vision_pack.json.
+  # build here (pip fetches the Windows wheels too), and they have to match desktop/telescope/vision_pack.json, which the app builds in.
   vision:
     runs-on: ubuntu-latest
     steps:
@@ -105,17 +103,13 @@ jobs:
           retention-days: 7
 
   # The setup holds the same files as Telescope-windows-portable.zip, APK included, so it's built once both are ready.
-  # Its install, uninstall and unzipped-copy checks (which build-windows.yml runs on pull requests) run here, on the
+  # Its install, uninstall and unzipped-copy checks (which rust-package.yml runs on pull requests) run here, on the
   # file that gets published.
   windows-setup:
-    needs: [meta, apk, windows]
+    needs: [meta, apk, packages]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
-
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.14'
 
       - uses: actions/download-artifact@v8
         with:
@@ -125,15 +119,15 @@ jobs:
         shell: pwsh
         run: |
           Copy-Item dist/apk/Telescope.apk dist/windows-bundle/
-          ./installer/build.ps1 -Bundle dist/windows-bundle -Out setup -Build "${{ needs.meta.outputs.build }}"
+          ./installer/build.ps1 -Bundle dist/windows-bundle -Out setup -Build "${{ needs.meta.outputs.build }}" -Rust
 
       - name: Check the installer
         shell: pwsh
-        run: ./installer/check.ps1 -Setup setup/TelescopeSetup.exe
+        run: ./installer/check.ps1 -Setup setup/TelescopeSetup.exe -Rust
 
       - name: Check an unzipped copy moves to the installed one
-        working-directory: desktop
-        run: python scripts/windows_move_check.py ../setup/TelescopeSetup.exe ../dist/windows-bundle
+        shell: pwsh
+        run: ./rust/tools/windows_move_check.ps1 -Setup setup/TelescopeSetup.exe -Bundle dist/windows-bundle
 
       - uses: actions/upload-artifact@v7
         with:
@@ -142,7 +136,7 @@ jobs:
           retention-days: 7
 
   publish:
-    needs: [meta, apk, windows, linux, windows-setup, vision]
+    needs: [meta, tests, apk, packages, windows-setup, vision]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -168,7 +162,7 @@ jobs:
           cp dist/apk/Telescope.apk dist/windows-bundle/
           (cd dist/windows-bundle && zip -qr ../../out/Telescope-windows-portable.zip .)
           cp dist/apk/Telescope.apk dist/linux-bundle/
-          chmod +x dist/linux-bundle/start.sh  # artifacts don't keep file modes
+          chmod +x dist/linux-bundle/start.sh dist/linux-bundle/telescope-rs  # artifacts don't keep file modes
           tar -czf out/Telescope-linux.tar.gz -C dist/linux-bundle .
           cp dist/vision/*.zip out/  # not in manifest.json: the app finds its pack by name (vision_pack.json)
 
@@ -180,7 +174,9 @@ jobs:
           out/Telescope.apk out/Telescope-windows-portable.zip out/TelescopeSetup.exe out/Telescope-linux.tar.gz
 
       - name: Check the release files
-        run: python3 .github/check_release.py --version "$VERSION" --build "$BUILD" --channel "$CHANNEL" out
+        run: |
+          python3 .github/check_release.py --version "$VERSION" --build "$BUILD" --channel "$CHANNEL" out
+          python3 rust/tools/check_package.py --version "$VERSION" --build "$BUILD" --channel "$CHANNEL" --no-run out/Telescope-linux.tar.gz out/Telescope-windows-portable.zip
 
       - name: Publish the stable release
         if: needs.meta.outputs.channel == 'stable'

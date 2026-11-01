@@ -1,56 +1,16 @@
 name: Build Windows EXE
 
-# Checks pull requests; release.yml calls it with a build number and channel to make the release bundle.
+# The Python desktop app's tests and bundle, run by hand. Releases ship the Rust app (rust-package.yml); desktop/ stays for the parity tools.
 on:
-  pull_request:
   workflow_dispatch:
-  workflow_call:
-    inputs:
-      build:
-        type: string
-        required: true
-      channel:
-        type: string
-        required: true
 
 permissions:
   contents: read
 
 jobs:
-  # "windows" runs on every pull request so it can be a required check, and skips itself when nothing it covers changed
-  changes:
-    name: changes (windows)
-    runs-on: ubuntu-latest
-    outputs:
-      run: ${{ steps.diff.outputs.run || 'true' }}
-    steps:
-      # A pull request checks out its merge into master, whose first parent is master: the diff is what it changes
-      - uses: actions/checkout@v7
-        if: github.event_name == 'pull_request'
-        with:
-          fetch-depth: 2
-
-      - id: diff
-        if: github.event_name == 'pull_request'
-        run: |
-          files=$(git diff --name-only HEAD^1 HEAD)
-          echo "$files"
-          if echo "$files" | grep -qE '^(desktop/|installer/|\.github/workflows/build-windows\.yml$)'; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          fi
-
   build:
     name: windows
-    needs: changes
-    # Runs unless changes said there's nothing to check, so a changes job that failed doesn't pass this silently
-    if: ${{ !cancelled() && needs.changes.outputs.run != 'false' }}
     runs-on: windows-latest
-    # A new push to a pull request cancels the check still running for the old one.
-    concurrency:
-      group: windows-${{ github.event.pull_request.number || github.run_id }}
-      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -87,11 +47,6 @@ jobs:
         working-directory: desktop
         run: python -m pytest -q -n auto
 
-      - name: Stamp the version
-        if: inputs.channel
-        working-directory: desktop
-        run: python scripts/write_build_info.py --build "${{ inputs.build }}" --channel "${{ inputs.channel }}" --commit "${{ github.sha }}"
-
       - name: Packaging smoke checks
         working-directory: desktop
         run: python scripts/smoke_check.py
@@ -108,8 +63,7 @@ jobs:
         working-directory: desktop
         run: pyinstaller telescope.spec
 
-      # release.yml adds Telescope.apk and packs this into Telescope-windows-portable.zip.
-      - name: Assemble release bundle
+      - name: Assemble the bundle
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path bundle
@@ -119,7 +73,7 @@ jobs:
           New-Item -ItemType Directory -Path bundle/virtualcamera | Out-Null
           Copy-Item desktop/virtualcamera/build/Release/TelescopeCamera.dll bundle/virtualcamera/
 
-      - name: Verify release bundle
+      - name: Verify the bundle
         shell: pwsh
         run: |
           $required = @(
@@ -160,9 +114,7 @@ jobs:
           Write-Host "Release bundle verified."
 
       # A per-user install, a look at what it made, then an uninstall that has to leave nothing behind.
-      # A release skips these two: release.yml builds the published setup with Telescope.apk inside and runs both on it.
       - name: Build and check the installer
-        if: ${{ !inputs.channel }}
         shell: pwsh
         run: |
           ./installer/build.ps1 -Bundle bundle -Out setup -Build "0" -Fast
@@ -170,7 +122,6 @@ jobs:
 
       # The update path for people who unzipped Telescope: the real setup, registry entry and clean-up.
       - name: Check an unzipped copy moves to the installed one
-        if: ${{ !inputs.channel }}
         working-directory: desktop
         run: python scripts/windows_move_check.py ../setup/TelescopeSetup.exe ../bundle
 

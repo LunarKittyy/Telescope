@@ -1,8 +1,7 @@
 name: Rust packages
 
-# The Rust app in the same shape as the Python release, so the Python app's updater can install it (rust/PLAN.md, "The update path").
-# Master still ships Python, so release.yml doesn't call this yet. At the switch its windows and linux jobs use this file instead of
-# build-windows.yml and build-linux.yml: the artifacts have the same names, and windows-setup passes -Rust to installer/build.ps1 and check.ps1.
+# The desktop packages, in the same shape as the Python release so the Python app's updater can install them (rust/PLAN.md, "The update path").
+# Checks pull requests that touch the packaging; release.yml calls it with a build number and channel to make the release bundles.
 on:
   pull_request:
     paths:

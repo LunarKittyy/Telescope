@@ -79,10 +79,10 @@ def main():
 
     with zipfile.ZipFile(out / "Telescope-windows-portable.zip") as z:
         names = set(z.namelist())
+    # The Windows app's stamp is compiled into it: rust/tools/check_package.py asks the program itself before this runs
     check_bundle("Telescope-windows-portable.zip", names, None, args.build, args.version, args.channel)
-    # The Windows app's stamp is compiled into it, but its folder carries the build number
-    if not any(n.startswith(f"lib-{args.build}/") for n in names):
-        problems.append(f"Telescope-windows-portable.zip has no lib-{args.build} folder")
+    if "TelescopeDesktop.exe" not in names:
+        problems.append("Telescope-windows-portable.zip has no TelescopeDesktop.exe")
 
     manifest = json.loads((out / "manifest.json").read_text())
     if (manifest.get("versionName"), manifest.get("build")) != (version_name, args.build):
