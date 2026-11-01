@@ -138,6 +138,8 @@ impl Rig {
         rig.plugin.setup(&mut rig.host);
         rig.plugin.set_config(&json!({})).unwrap();
         rig.event(Event::PhonesChanged { count: 1 });
+        // You, where your box is
+        rig.mask_of_columns(&[(64, 256)]);
         rig
     }
 
@@ -432,6 +434,7 @@ fn while_you_are_away_the_mode_decides_what_gets_blurred() {
     rig.switch_on();
     rig.see(&[you, other.clone()], 0.5);
     rig.see(&[other], 0.5);
+    rig.mask_of_columns(&[]);
     let out = rig.process();
     // Blur the others: whoever is there, the room stays
     assert!(sharp(&out, 100, 220) && !sharp(&out, 450, 560));
@@ -445,6 +448,25 @@ fn while_you_are_away_the_mode_decides_what_gets_blurred() {
 }
 
 // ── Beyond Python's tests ─────────────────────────────────────────────
+
+#[test]
+fn with_no_mask_to_go_by_nothing_shows_in_any_mode() {
+    for mode in ["others", "background"] {
+        let mut rig = Rig::new();
+        let (you, other) = (rig.you.clone(), rig.other.clone());
+        rig.switch_on();
+        rig.set_mode(mode);
+        rig.see(&[you, other.clone()], 0.5);
+        assert!(sharp(&rig.process(), 100, 220), "{mode}: you, with a mask");
+        // Python leaves a box around you here, and the room inside it
+        rig.ctx.0 = None;
+        let out = rig.process();
+        let whole = blurred(&stripes());
+        assert_eq!(out, whole, "{mode}");
+        rig.see(&[other], 0.5);
+        assert_eq!(rig.process(), whole, "{mode}: away");
+    }
+}
 
 #[test]
 fn keys_do_what_the_card_does() {
@@ -527,6 +549,11 @@ fn each_state_makes_the_picture_python_makes() {
         }
         let mut step = rig.step();
         let out = rig.through(&mut step, &pattern(w, h));
+        if rig.ctx.0.is_none() && rig.plugin.blur.active {
+            // Deliberately not Python: without a mask it shows a box of the room around you
+            assert_eq!(out, blurred(&pattern(w, h)), "{case}");
+            continue;
+        }
         assert_eq!(sha(&out.data), case["sha"], "{case}");
     }
 }

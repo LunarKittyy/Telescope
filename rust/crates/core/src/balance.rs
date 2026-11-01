@@ -21,6 +21,8 @@ const TRIAL_EVERY: u64 = 500 * MS;
 /// How long every trial has to come back clear before frames return, at first and at most.
 const CLEAR_FOR: u64 = 8_000 * MS;
 const CLEAR_FOR_MOST: u64 = 120_000 * MS;
+/// What a trial that failed counts as: far from clear.
+const TRIAL_FAILED: u64 = u64::MAX;
 /// A stay on the card at least this long counts as having worked.
 const STAYED: u64 = 45_000 * MS;
 
@@ -47,12 +49,14 @@ struct Watch {
     clear_for: u64,
     moved_at: u64,
     next_trial: u64,
+    /// One is out, and nothing has come back from it yet.
+    trial_out: bool,
     swaps: u32,
 }
 
 impl Watch {
     fn new() -> Watch {
-        Watch { place: Place::Card, recent: [false; LOOKED_AT], next: 0, clear_since: None, clear_for: CLEAR_FOR, moved_at: 0, next_trial: 0, swaps: 0 }
+        Watch { place: Place::Card, recent: [false; LOOKED_AT], next: 0, clear_since: None, clear_for: CLEAR_FOR, moved_at: 0, next_trial: 0, trial_out: false, swaps: 0 }
     }
 
     fn note(&mut self, wait: u64, now: u64) -> Option<Place> {
@@ -91,11 +95,17 @@ impl Watch {
     }
 
     fn trial_due(&mut self, now: u64) -> bool {
-        let due = self.place == Place::Cpu && now >= self.next_trial;
-        if due {
-            self.next_trial = now + TRIAL_EVERY;
+        if self.place != Place::Cpu || now < self.next_trial {
+            return false;
         }
-        due
+        self.next_trial = now + TRIAL_EVERY;
+        if self.trial_out {
+            // Still out when the next was due, so the card isn't clear; a stuck card gets no second one
+            self.note(TRIAL_FAILED, now);
+            return false;
+        }
+        self.trial_out = true;
+        true
     }
 }
 
@@ -153,9 +163,15 @@ impl Balance {
         }
     }
 
-    /// True once for each trial that should run now.
+    /// True once for each trial that should run now, which has to end with trial_done. Only one is out at a time.
     pub fn trial_due(&self) -> bool {
         self.pin == Pin::Free && self.watch.lock().unwrap().trial_due(monotonic_ns())
+    }
+
+    /// A trial came back: what it waited, or None when it failed.
+    pub fn trial_done(&self, wait_ns: Option<u64>) {
+        self.watch.lock().unwrap().trial_out = false;
+        self.note_wait(wait_ns.unwrap_or(TRIAL_FAILED));
     }
 
     /// The newest wait heard, in ns.
@@ -264,7 +280,38 @@ mod tests {
         assert!(!w.trial_due(t));
         assert!(w.trial_due(t + TRIAL_EVERY));
         assert!(!w.trial_due(t + TRIAL_EVERY + MS));
+        w.trial_out = false;
         assert!(w.trial_due(t + 2 * TRIAL_EVERY));
+    }
+
+    #[test]
+    fn a_trial_that_doesnt_finish_is_the_only_one_and_counts_as_failed() {
+        let mut w = Watch::new();
+        let t = frames(&mut w, 0, 4, 25 * MS);
+        assert!(w.trial_due(t + TRIAL_EVERY));
+        w.clear_since = Some(t);
+        for i in 2..1000 {
+            assert!(!w.trial_due(t + i * TRIAL_EVERY), "one at a time");
+        }
+        assert_eq!((w.clear_since, w.place), (None, Place::Cpu), "the stretch starts over");
+        w.trial_out = false;
+        assert!(w.trial_due(t + 1000 * TRIAL_EVERY), "the next once it's back");
+    }
+
+    #[test]
+    fn a_trial_that_comes_back_lets_the_next_one_go_and_a_failed_one_isnt_clear() {
+        let b = Balance::free();
+        (0..4).for_each(|_| b.note_wait(25 * MS));
+        b.watch.lock().unwrap().next_trial = 0;
+        assert!(b.trial_due());
+        b.trial_done(Some(2 * MS));
+        assert!(b.watch.lock().unwrap().clear_since.is_some());
+        b.watch.lock().unwrap().next_trial = 0;
+        assert!(b.trial_due());
+        b.trial_done(None);
+        assert_eq!(b.watch.lock().unwrap().clear_since, None);
+        b.watch.lock().unwrap().next_trial = 0;
+        assert!(b.trial_due());
     }
 
     #[test]

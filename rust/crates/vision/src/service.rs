@@ -1,7 +1,8 @@
 //! Person masks and people's positions, once per stream, for the plugins that ask (vision.py's Vision). MediaPipe loads on first
 //! use; every call is safe before it's ready (None, nothing). A frame step gets the newest mask at once and leaves its frame for a
 //! thread of the stream's own, so the model and the work around it never hold a frame up, and a mask is a frame or so behind the
-//! picture; people come from another such thread, about 12 times a second while something moves and 3 while nothing does.
+//! picture and never over MASK_MAX_AGE_S behind (past that a step gets None). People come from another such thread, about 12 times a second
+//! while something moves and 3 while nothing does.
 
 use crate::ops::{add_weighted, mask_resized, model_input, people_size, turned, Motion, Rgb, MODEL_SIZE};
 use std::collections::{BTreeSet, HashMap};
@@ -26,8 +27,12 @@ pub const MASK_STILL_EVERY_S: f64 = 1.0 / 15.0;
 /// Power-saving effects (Settings > Video): the mask at most this often even while something moves, people this often.
 pub const SAVING_PEOPLE_EVERY_S: f64 = 0.16;
 pub const SAVING_PEOPLE_STILL_EVERY_S: f64 = 0.5;
-/// How long a stream's first frame waits for its mask, so the picture doesn't go out without one when a stream starts.
+/// How long a frame waits for its mask when there's none it can use, so the picture doesn't go out without one when a stream starts.
 pub const FIRST_MASK_WAIT_S: f64 = 0.5;
+/// A mask of a frame further back than this is of a picture that's gone: frame steps hear there's none, not an old silhouette.
+pub const MASK_MAX_AGE_S: f64 = 0.5;
+/// How far apart two sizes' shapes can be for a mask of one to stand in for the other, as a share.
+const MASK_SHAPE_SLACK: f64 = 0.02;
 /// Without a pack, how often asking looks for one again (a download may have finished).
 pub const LOOK_AGAIN_S: f64 = 5.0;
 /// A model nothing has asked for this long is closed and its memory given back; switched back on sooner, it's still there.
@@ -127,6 +132,25 @@ struct MaskJob {
     seq: u64,
     size: (usize, usize),
     picture: Picture,
+    /// When the frame was handed over.
+    at: f64,
+}
+
+/// The newest mask a frame step can get at once.
+struct MadeMask {
+    w: usize,
+    h: usize,
+    mask: Arc<Vec<u8>>,
+    /// When its frame was handed over.
+    at: f64,
+}
+
+impl MadeMask {
+    /// Whether it still says where a person is in a picture of w x h: new enough, and of a picture the same shape.
+    fn usable(&self, w: usize, h: usize) -> bool {
+        let (ours, theirs) = ((self.w * h) as f64, (self.h * w) as f64);
+        monotonic() - self.at <= MASK_MAX_AGE_S && (ours - theirs).abs() <= MASK_SHAPE_SLACK * ours.max(theirs)
+    }
 }
 
 /// What a frame step and the mask thread pass each other, so neither waits for the other's work.
@@ -135,9 +159,11 @@ pub(crate) struct NewestMask {
     job: Option<MaskJob>,
     /// What was last asked for, so a second step on one frame doesn't ask again.
     asked: Option<(u64, usize, usize)>,
-    mask: Option<(usize, usize, Arc<Vec<u8>>)>,
+    mask: Option<MadeMask>,
     /// How many frames the thread has finished, with a mask or without.
     done: u64,
+    /// The last wait for a mask ran out: frames don't wait again until the model answers.
+    gave_up: bool,
     thread: bool,
 }
 
@@ -338,24 +364,28 @@ impl Vision {
         let mut n = sv.newest.lock().unwrap();
         if n.asked != Some((seq, w, h)) {
             n.asked = Some((seq, w, h));
-            n.job = Some(MaskJob { seq, size: (w, h), picture });
+            n.job = Some(MaskJob { seq, size: (w, h), picture, at: monotonic() });
             if !n.thread {
                 let (inner, sv2) = (self.inner.clone(), sv.clone());
                 n.thread = std::thread::Builder::new().name("vision-mask".into()).spawn(move || mask_loop(inner, backend, sv2)).is_ok();
             }
             sv.mask_wanted.notify_all();
         }
-        if n.mask.is_none() {
+        let usable = |n: &NewestMask| n.mask.as_ref().is_some_and(|m| m.usable(w, h));
+        if !usable(&n) && !n.gave_up {
             let (done, until) = (n.done, std::time::Instant::now() + std::time::Duration::from_secs_f64(FIRST_MASK_WAIT_S));
-            while n.mask.is_none() && n.done == done {
-                let Some(left) = until.checked_duration_since(std::time::Instant::now()) else { break };
+            while !usable(&n) && n.done == done {
+                let Some(left) = until.checked_duration_since(std::time::Instant::now()) else {
+                    n.gave_up = true;
+                    break;
+                };
                 n = sv.mask_done.wait_timeout(n, left).unwrap().0;
             }
         }
-        match &n.mask {
-            Some((mw, mh, mask)) if (*mw, *mh) == (w, h) => Some(mask.clone()),
+        match n.mask.as_ref().filter(|m| m.usable(w, h)) {
+            Some(m) if (m.w, m.h) == (w, h) => Some(m.mask.clone()),
             // One of another size until the thread has this size's: the picture changed size, or two steps look at different ones
-            Some((mw, mh, mask)) => Some(Arc::new(mask_resized(mask, *mw, *mh, w, h))),
+            Some(m) => Some(Arc::new(mask_resized(&m.mask, m.w, m.h, w, h))),
             None => None,
         }
     }
@@ -411,7 +441,8 @@ impl Vision {
                     return None;
                 }
             };
-            if let Some(last) = m.small.as_ref().filter(|s| (s.w, s.h) == (mask.w, mask.h)) {
+            // After a long gap the last mask is of another moment
+            if let Some(last) = m.small.as_ref().filter(|s| (s.w, s.h) == (mask.w, mask.h) && now - m.at <= MASK_MAX_AGE_S) {
                 let carry = if moved { MASK_CARRY } else { MASK_CARRY_STILL };
                 mask.data = add_weighted(&mask.data, 1.0 - carry, &last.data, carry);
             }
@@ -516,7 +547,9 @@ impl Vision {
                     m.small = None;
                     m.seq = None;
                     m.motion = Motion::default();
-                    sv.newest.lock().unwrap().mask = None;
+                    let mut n = sv.newest.lock().unwrap();
+                    n.mask = None;
+                    n.gave_up = false;
                     freed = true;
                 }
             }
@@ -674,7 +707,7 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
                 }
             }
         };
-        let MaskJob { seq, size: (w, h), picture } = job;
+        let MaskJob { seq, size: (w, h), picture, at } = job;
         let mut picture = Some(picture);
         let mut m = sv.mask.lock().unwrap();
         m.asked = monotonic();
@@ -682,7 +715,11 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
         drop(m);
         let mut n = sv.newest.lock().unwrap();
         n.done += 1;
-        n.mask = mask.map(|mask| (w, h, mask)).or(n.mask.take());
+        // Without one the last stays until it's too old: a failed frame now and then doesn't show
+        if let Some(mask) = mask {
+            n.mask = Some(MadeMask { w, h, mask, at });
+            n.gave_up = false;
+        }
         sv.mask_done.notify_all();
     }
 }

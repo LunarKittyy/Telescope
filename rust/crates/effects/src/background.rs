@@ -8,6 +8,7 @@ use crate::shared::{no_pictures, Paired, PictureReader};
 use crate::vision_row;
 use serde_json::{json, Map, Value};
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use telescope_core::actions::{self, Choice, SliderSpec};
 use telescope_core::config::clamped_int;
@@ -73,6 +74,8 @@ struct Step {
     /// The picture scaled to cover this frame's size
     covered: Option<Rgb>,
     spares: Vec<Vec<u8>>,
+    /// A mask has come since the app started, so vision works and having none now means it lost track: the room stays hidden.
+    had_mask: Arc<AtomicBool>,
 }
 
 impl CpuStep for Step {
@@ -88,18 +91,36 @@ impl Step {
         if self.settings.mode == 0 {
             return;
         }
-        let Some(mask) = mask_of(ctx, frame) else { return };
+        let mask = mask_of(ctx, frame);
+        if mask.is_none() && !self.had_mask.load(Ordering::Relaxed) {
+            return;
+        }
         let Some(rgb) = Rgb::from_frame(frame) else { return };
+        let Some(mask) = mask else { return self.hide_all(frame, &rgb) };
+        self.had_mask.store(true, Ordering::Relaxed);
         let edges = mask.soften(self.settings.edges);
         match (MODES[self.settings.mode].0, &self.settings.picture) {
             ("blur", _) => compose(&rgb, &edges, &blurred(&rgb, self.settings.blur, Some(&mask))).write_to(frame),
             ("picture", Some(picture)) => {
-                if self.covered.as_ref().is_some_and(|c| (c.w, c.h) != (rgb.w, rgb.h)) {
-                    self.covered = None;
-                }
-                let covered = self.covered.get_or_insert_with(|| cover(picture, rgb.w, rgb.h));
-                compose(&rgb, &edges, covered).write_to(frame);
+                let picture = picture.clone();
+                compose(&rgb, &edges, self.covering(&picture, &rgb)).write_to(frame);
             }
+            _ => {}
+        }
+    }
+
+    fn covering(&mut self, picture: &Rgb, rgb: &Rgb) -> &Rgb {
+        if self.covered.as_ref().is_some_and(|c| (c.w, c.h) != (rgb.w, rgb.h)) {
+            self.covered = None;
+        }
+        self.covered.get_or_insert_with(|| cover(picture, rgb.w, rgb.h))
+    }
+
+    /// No telling the person from the room right now: the whole picture gets what the room would.
+    fn hide_all(&mut self, frame: &mut Frame, rgb: &Rgb) {
+        match (MODES[self.settings.mode].0, self.settings.picture.clone()) {
+            ("blur", _) => blurred(rgb, self.settings.blur, None).write_to(frame),
+            ("picture", Some(picture)) => self.covering(&picture, rgb).write_to(frame),
             _ => {}
         }
     }
@@ -117,6 +138,7 @@ pub struct BackgroundPlugin {
     asked: Option<RequestId>,
     /// set_config has no host: the card hears the settings with the next hook that has one.
     pending: bool,
+    had_mask: Arc<AtomicBool>,
 }
 
 impl Default for BackgroundPlugin {
@@ -147,6 +169,7 @@ impl BackgroundPlugin {
             reader,
             asked: None,
             pending: true,
+            had_mask: Arc::default(),
         }
     }
 
@@ -353,7 +376,7 @@ impl Plugin for BackgroundPlugin {
             return None;
         }
         let settings = Settings { mode: self.mode, blur: self.blur, edges: self.edges, picture: self.picture.clone() };
-        Some(FrameStep::Cpu(Box::new(Step { settings, covered: None, spares: Vec::new() })))
+        Some(FrameStep::Cpu(Box::new(Step { settings, covered: None, spares: Vec::new(), had_mask: self.had_mask.clone() })))
     }
 
     fn get_config(&self) -> Value {

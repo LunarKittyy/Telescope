@@ -195,6 +195,23 @@ fn without_a_mask_yet_the_frame_goes_out_as_it_is() {
 }
 
 #[test]
+fn a_mask_that_goes_away_leaves_the_room_hidden() {
+    let mut rig = Rig::new(Some(half_mask(320, 180)), vision::READY);
+    rig.set_mode("blur");
+    let frame = stripes(320, 180);
+    rig.process(&frame);
+    rig.ctx.0 = None;
+    assert_eq!(rig.process(&frame), blurred(&frame, 6, None), "a new step knows too, and the person goes with it");
+    let mut rig = Rig::with(BackgroundPlugin::with_reader(reader_of([0, 0, 255])), Some(half_mask(64, 36)), vision::READY);
+    rig.plugin.load_picture("/pics/beach.png");
+    rig.set_mode("picture");
+    let frame = Rgb::filled(64, 36, [200, 200, 200]);
+    rig.process(&frame);
+    rig.ctx.0 = None;
+    assert!(rig.process(&frame).data.as_chunks::<3>().0.iter().all(|p| *p == [0, 0, 255]));
+}
+
+#[test]
 fn a_frozen_step_keeps_its_settings() {
     let mut rig = Rig::new(Some(Gray::new(64, 36)), vision::READY);
     rig.set_mode("blur");
