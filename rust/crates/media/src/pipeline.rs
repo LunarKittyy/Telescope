@@ -7,6 +7,7 @@ use crate::gpu::{self, Gpu, Held, MaskPlane};
 use crate::transfers;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::Arc;
+use telescope_core::balance::{Balance, Place};
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, Touch};
 use telescope_core::media::{FramePipeline, StagedStep};
 use telescope_core::time::{monotonic_ns, span};
@@ -17,6 +18,31 @@ pub const STEP_FAILS_BEFORE_SKIP: u32 = 30;
 enum Kind {
     Cpu(Box<dyn CpuStep>),
     Shader(gpu::ShaderSlot),
+    Either(gpu::ShaderSlot, Box<dyn CpuStep>),
+}
+
+impl Kind {
+    fn of(step: FrameStep) -> Kind {
+        match step {
+            FrameStep::Cpu(c) => Kind::Cpu(c),
+            FrameStep::Shader(s) => Kind::Shader(gpu::ShaderSlot::new(s)),
+            FrameStep::Either(s, c) => Kind::Either(gpu::ShaderSlot::new(s), c),
+        }
+    }
+
+    fn cpu(&mut self) -> &mut Box<dyn CpuStep> {
+        match self {
+            Kind::Cpu(step) | Kind::Either(_, step) => step,
+            Kind::Shader(_) => unreachable!("a shader has no CPU step"),
+        }
+    }
+
+    fn slot(&mut self) -> &mut gpu::ShaderSlot {
+        match self {
+            Kind::Shader(slot) | Kind::Either(slot, _) => slot,
+            Kind::Cpu(_) => unreachable!("a CPU step has no shader"),
+        }
+    }
 }
 
 struct Entry {
@@ -54,6 +80,8 @@ struct Chain {
     downs: u32,
     /// The person mask this frame asked for and the size it was asked at: a second shader using it needn't bring the picture down.
     mask: Option<(u32, u32, Option<Arc<Vec<u8>>>)>,
+    /// What it has waited for the card so far.
+    waited_ns: u64,
 }
 
 /// Transfers over the last TALLY_FRAMES frames.
@@ -68,7 +96,6 @@ struct Tally {
 }
 
 /// Runs one stream's steps. The graphics card is only opened once a shader step comes along.
-#[derive(Default)]
 pub struct Pipeline {
     steps: Vec<Entry>,
     gpu: Option<Option<Arc<Gpu>>>,
@@ -77,11 +104,23 @@ pub struct Pipeline {
     tally: Tally,
     /// What the last frame cost: (up, down).
     last_transfers: (u32, u32),
+    balance: Arc<Balance>,
+}
+
+impl Default for Pipeline {
+    fn default() -> Self {
+        Pipeline::with_balance(Balance::shared())
+    }
 }
 
 impl Pipeline {
     pub fn new() -> Pipeline {
         Pipeline::default()
+    }
+
+    /// One that listens to this balance, for tests.
+    fn with_balance(balance: Arc<Balance>) -> Pipeline {
+        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance }
     }
 
     /// The stages in the order their steps run, for tests and diagnostics.
@@ -101,6 +140,7 @@ impl Pipeline {
             match gpu.land(held) {
                 Ok(out) => {
                     *frame = out;
+                    chain.waited_ns += held.take_waited();
                     for i in chain.ahead.drain(..) {
                         self.steps[i].fails = 0;
                     }
@@ -122,7 +162,7 @@ impl Pipeline {
     }
 
     fn run_cpu(&mut self, i: usize, frame: &mut Frame, chain: &mut Chain, ctx: &dyn FrameContext) {
-        let Kind::Cpu(step) = &self.steps[i].kind else { unreachable!() };
+        let step = self.steps[i].kind.cpu();
         // One that panics here will panic in process too, where that's dealt with
         let touch = catch_unwind(AssertUnwindSafe(|| step.touch(ctx))).unwrap_or(Touch::Changes);
         if touch == Touch::Nothing {
@@ -130,7 +170,7 @@ impl Pipeline {
         }
         self.bring_down(chain, frame, touch == Touch::Reads);
         let entry = &mut self.steps[i];
-        let Kind::Cpu(step) = &mut entry.kind else { unreachable!() };
+        let step = entry.kind.cpu();
         // A clone shares the pixels, so keeping the frame to fall back on only costs a copy if the step changes it
         let before = frame.clone();
         match catch_unwind(AssertUnwindSafe(|| step.process(frame, ctx))) {
@@ -153,7 +193,7 @@ impl Pipeline {
     fn run_shader(&mut self, i: usize, frame: &mut Frame, chain: &mut Chain, ctx: &dyn FrameContext, time: f32) {
         let Some(gpu) = self.gpu() else { return self.steps[i].failed("no graphics card to run shaders on") };
         let entry = &mut self.steps[i];
-        let Kind::Shader(slot) = &mut entry.kind else { unreachable!() };
+        let slot = entry.kind.slot();
         if let Err(why) = slot.prepare(&gpu) {
             // A shader that doesn't build never will: say so once and leave it out
             log::error!("Plugin {}'s shader can't run ({why}); leaving it out", entry.owner);
@@ -173,7 +213,6 @@ impl Pipeline {
             }
         }
         let entry = &mut self.steps[i];
-        let Kind::Shader(slot) = &entry.kind else { unreachable!() };
         if chain.held.is_none() {
             match gpu.lift(frame) {
                 Ok(held) => {
@@ -183,8 +222,31 @@ impl Pipeline {
                 Err(why) => return entry.failed(&why),
             }
         }
-        gpu.shade(chain.held.as_mut().unwrap(), slot, time, self.mask.as_ref().filter(|_| masked));
+        gpu.shade(chain.held.as_mut().unwrap(), entry.kind.slot(), time, self.mask.as_ref().filter(|_| masked));
         chain.ahead.push(i);
+    }
+
+    /// Keeps a step that's off the card ready for coming back, so that doesn't cost a frame later.
+    fn ready_on_card(&mut self, i: usize) {
+        if let Some(gpu) = self.gpu() {
+            let _ = self.steps[i].kind.slot().prepare(&gpu);
+        }
+    }
+
+    /// While frames stay off the card, sends one of them there now and then to see what it would have waited.
+    fn try_card(&mut self, frame: &Frame) {
+        if !self.balance.trial_due() {
+            return;
+        }
+        let Some(gpu) = self.gpu() else { return };
+        let (frame, balance) = (frame.clone(), self.balance.clone());
+        let trial = move || match gpu.trial(&frame) {
+            Ok(waited) => balance.note_wait(waited),
+            Err(why) => log::warn!("Couldn't try the graphics card: {why}"),
+        };
+        if let Err(why) = std::thread::Builder::new().name("card-trial".into()).spawn(trial) {
+            log::warn!("Couldn't try the graphics card: {why}");
+        }
     }
 
     fn count(&mut self, ups: u32, downs: u32) {
@@ -212,15 +274,7 @@ fn sound(frame: &Frame) -> bool {
 
 impl FramePipeline for Pipeline {
     fn set_steps(&mut self, steps: Vec<StagedStep>) {
-        let mut entries: Vec<Entry> = steps.into_iter().map(|s| Entry {
-            owner: s.owner,
-            stage: s.stage,
-            kind: match s.step {
-                FrameStep::Cpu(c) => Kind::Cpu(c),
-                FrameStep::Shader(sh) => Kind::Shader(gpu::ShaderSlot::new(sh)),
-            },
-            fails: 0,
-        }).collect();
+        let mut entries: Vec<Entry> = steps.into_iter().map(|s| Entry { owner: s.owner, stage: s.stage, kind: Kind::of(s.step), fails: 0 }).collect();
         // Stable: as registered within a stage
         entries.sort_by_key(|e| e.stage);
         self.steps = entries;
@@ -228,15 +282,7 @@ impl FramePipeline for Pipeline {
 
     fn replace_steps(&mut self, owner: &str, stage: FrameStage, steps: Vec<FrameStep>) {
         self.steps.retain(|e| e.owner != owner);
-        let fresh = steps.into_iter().map(|step| Entry {
-            owner: owner.to_string(),
-            stage,
-            kind: match step {
-                FrameStep::Cpu(c) => Kind::Cpu(c),
-                FrameStep::Shader(sh) => Kind::Shader(gpu::ShaderSlot::new(sh)),
-            },
-            fails: 0,
-        });
+        let fresh = steps.into_iter().map(|step| Entry { owner: owner.to_string(), stage, kind: Kind::of(step), fails: 0 });
         // First within the stage, where the window's own steps go
         let at = self.steps.iter().position(|e| e.stage >= stage).unwrap_or(self.steps.len());
         self.steps.splice(at..at, fresh);
@@ -249,18 +295,33 @@ impl FramePipeline for Pipeline {
         let number = frame.number;
         let began = monotonic_ns();
         let mut chain = Chain::default();
+        // Asked once, so a frame doesn't change its mind halfway
+        let on_card = self.balance.place() == Place::Card;
+        let mut off_card = false;
         for i in 0..self.steps.len() {
             if self.steps[i].skipped() {
                 continue;
             }
-            match self.steps[i].kind {
-                Kind::Cpu(_) => self.run_cpu(i, &mut frame, &mut chain, ctx),
-                Kind::Shader(_) => self.run_shader(i, &mut frame, &mut chain, ctx, time),
+            let either = matches!(self.steps[i].kind, Kind::Either(..));
+            if either && !(on_card && self.gpu().is_some()) {
+                self.ready_on_card(i);
+                self.run_cpu(i, &mut frame, &mut chain, ctx);
+                off_card = true;
+            } else if either || matches!(self.steps[i].kind, Kind::Shader(_)) {
+                self.run_shader(i, &mut frame, &mut chain, ctx, time);
+            } else {
+                self.run_cpu(i, &mut frame, &mut chain, ctx);
             }
             frame.number = number;
         }
         self.bring_down(&mut chain, &mut frame, false);
         frame.number = number;
+        if chain.downs > 0 {
+            self.balance.note_wait(chain.waited_ns);
+        }
+        if off_card {
+            self.try_card(&frame);
+        }
         self.count(chain.ups, chain.downs);
         span("pipeline", began);
         frame

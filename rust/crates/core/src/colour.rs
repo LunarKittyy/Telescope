@@ -1,5 +1,6 @@
 //! The colour pipeline (telescope.colour.ColourPipeline): every colour change plugins ask for, put one after the other into a
-//! single LUT per stream and run on the graphics card as one shader step in the Colour stage.
+//! single LUT per stream and run on the graphics card as one shader step in the Colour stage, or on the CPU while the card is busy
+//! (colour_cpu.rs).
 //!
 //! A plugin hands over each change already baked (ColourStage: a 3D lattice, and 256 exact entries per channel when each
 //! channel only depends on itself). A pipeline of only such stages becomes exact tables, anything else a 3D LUT of 33 or 65
@@ -7,7 +8,8 @@
 //! RGBA pictures holding each value as 16 bits (high byte, low byte), read with textureLoad, so the lattice isn't rounded
 //! to whole levels before it's interpolated.
 
-use crate::frame::{Frame, PixelFormat, ShaderStep};
+use crate::colour_cpu::Graded;
+use crate::frame::{Frame, FrameStep, PixelFormat, ShaderStep};
 use crate::host::ColourStage;
 use serde_json::json;
 use std::collections::{BTreeSet, HashMap};
@@ -224,6 +226,11 @@ fn pictures(values: &[f32], w: u32, h: u32) -> (Frame, Frame) {
 }
 
 impl Baked {
+    /// The step that applies it, on the card or off it.
+    pub fn frame_step(&self) -> FrameStep {
+        FrameStep::Either(self.shader(), Box::new(Graded::new(self)))
+    }
+
     /// The shader step that applies it. A cube is laid out as one picture with y the green and x the blue * n + red.
     pub fn shader(&self) -> ShaderStep {
         match self {
@@ -533,15 +540,15 @@ impl ColourPipeline {
         true
     }
 
-    /// What Copy diagnostics says about it, once frames have had a LUT. The LUT runs as a shader, so unlike Python's there's
-    /// no time of its own to report.
+    /// What Copy diagnostics says about it, once frames have had a LUT. The LUT runs as a shader or next to it on the CPU, so unlike
+    /// Python's there's no time of its own to report.
     pub fn diagnostics(&self) -> Vec<(String, String)> {
         self.kind.iter().map(|kind| ("Colour pipeline".to_string(), format!("{kind}, as a shader step"))).collect()
     }
 
     /// The step the stream's frames go through in the Colour stage; None without stages (frames go through untouched).
-    pub fn step(&mut self, source_id: Option<&str>) -> Option<ShaderStep> {
-        self.lut(source_id).map(|b| b.shader())
+    pub fn step(&mut self, source_id: Option<&str>) -> Option<FrameStep> {
+        self.lut(source_id).map(|b| b.frame_step())
     }
 }
 
@@ -865,7 +872,7 @@ mod tests {
     fn a_stream_behind_the_panels_keeps_the_stages_it_had() {
         let mut p = ColourPipeline::inline();
         p.set_stage("grade", Some(stage(|v| 1.0 - v, true, 33)), 0, None);
-        let frozen = p.step(None).unwrap();
+        let Some(FrameStep::Either(frozen, _)) = p.step(None) else { panic!("no step") };
         p.set_stage("grade", None, 0, None); // the panels moved on to a phone without a grade
         assert!(p.step(None).is_none());
         let (_, lo) = (&frozen.textures[0], &frozen.textures[1]);

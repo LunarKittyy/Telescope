@@ -145,7 +145,7 @@ pub fn over_rows<T: Send>(data: &mut [T], row_len: usize, row: impl Fn(usize, &m
 
 /// byte() for a value that can't be NaN, which lets the rounding go a vector at a time.
 #[inline(always)]
-fn byte_of(v: f32) -> u8 {
+pub(crate) fn byte_of(v: f32) -> u8 {
     // SAFETY: clamped to 0..255.5 here, so it fits
     unsafe { (v + 0.5).clamp(0.0, 255.5).to_int_unchecked::<i32>() as u8 }
 }

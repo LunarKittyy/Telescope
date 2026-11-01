@@ -492,8 +492,12 @@ impl Gpu {
         buf
     }
 
-    /// Copies textures into one buffer, waits for the card and hands back each one's rows without padding.
-    fn download(&self, mut enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<Vec<Vec<u8>>, String> {
+    fn download(&self, enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<Vec<Vec<u8>>, String> {
+        self.download_timed(enc, textures, bpp).map(|(planes, _)| planes)
+    }
+
+    /// Copies textures into one buffer, waits for the card and hands back each one's rows without padding, and how long the wait was in ns.
+    fn download_timed(&self, mut enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<(Vec<Vec<u8>>, u64), String> {
         let mut offsets = Vec::new();
         let mut size = 0u64;
         for (t, b) in textures.iter().zip(bpp) {
@@ -528,6 +532,7 @@ impl Gpu {
         self.device.poll(wgpu::PollType::wait_indefinitely()).map_err(|e| e.to_string())?;
         rx.recv().map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
         span("gpu_wait", began);
+        let waited = monotonic_ns().saturating_sub(began);
         let began = monotonic_ns();
         let mapped = slice.get_mapped_range().map_err(|e| e.to_string())?;
         let mut out = Vec::new();
@@ -549,7 +554,7 @@ impl Gpu {
         }
         kept.push(buf);
         span("readback", began);
-        Ok(out)
+        Ok((out, waited))
     }
 
     /// Puts a frame on the card, ready for shaders.
@@ -565,7 +570,7 @@ impl Gpu {
         let (a, b) = (self.texture(w, h, WORK), self.texture(w, h, WORK));
         self.convert_pass(&mut enc, &planes.views, planes.mode, &a, 1, (planes.width, planes.height));
         span("upload", began);
-        Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns })
+        Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, waited_ns: 0 })
     }
 
     /// One shader step on the held picture. Nothing runs yet; land sends it all to the card in one go.
@@ -586,7 +591,7 @@ impl Gpu {
             targets.push(t.clone());
             t
         };
-        let out = match held.format {
+        let (out, waited) = match held.format {
             PixelFormat::I420 => {
                 let (y, u, v) = (target(w, h, wgpu::TextureFormat::R8Unorm), target(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm),
                                  target(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm));
@@ -597,23 +602,24 @@ impl Gpu {
                     self.convert_pass(&mut enc, &work, Mode::ToU, &u, 1, (w, h));
                     self.convert_pass(&mut enc, &work, Mode::ToV, &v, 1, (w, h));
                 }
-                self.download(enc, &[&y, &u, &v], &[1, 1, 1])?.concat()
+                self.download_timed(enc, &[&y, &u, &v], &[1, 1, 1])?
             }
             PixelFormat::Nv12 => {
                 let (y, uv) = (target(w, h, wgpu::TextureFormat::R8Unorm), target(chroma(w), chroma(h), wgpu::TextureFormat::Rg8Unorm));
                 self.convert_pass(&mut enc, &work, Mode::ToY, &y, 1, (w, h));
                 self.convert_pass(&mut enc, &work, Mode::ToUv, &uv, 1, (w, h));
-                self.download(enc, &[&y, &uv], &[1, 2])?.concat()
+                self.download_timed(enc, &[&y, &uv], &[1, 2])?
             }
             PixelFormat::Bgra => {
                 let t = target(w, h, wgpu::TextureFormat::Bgra8Unorm);
                 self.convert_pass(&mut enc, &work, Mode::Rgba, &t, 1, (w, h));
-                self.download(enc, &[&t], &[4])?.concat()
+                self.download_timed(enc, &[&t], &[4])?
             }
-            _ => self.download(enc, &[&held.a], &[4])?.concat(),
+            _ => self.download_timed(enc, &[&held.a], &[4])?,
         };
+        held.waited_ns += waited;
         self.give_back(targets);
-        let mut result = Frame::new(w, h, held.format, out);
+        let mut result = Frame::new(w, h, held.format, out.concat());
         result.number = held.number;
         result.time_ns = held.time_ns;
         Ok(result)
@@ -662,6 +668,23 @@ impl Gpu {
         self.queue.submit([enc.finish()]);
         self.give_back(used);
         Ok(())
+    }
+
+    /// How long the card would make a frame wait right now, in ns: the frame up and a pass over it and back, as big as a real one, and
+    /// nothing kept. core::balance's way of looking at the card while frames stay off it.
+    pub fn trial(&self, frame: &Frame) -> Result<u64, String> {
+        if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) {
+            return Err(format!("{:?} frames can't go on the card", frame.format));
+        }
+        let mut used = Vec::new();
+        let mut enc = self.device.create_command_encoder(&Default::default());
+        let planes = self.upload(frame, &mut used);
+        let target = self.texture(frame.width, frame.height, WORK);
+        self.convert_pass(&mut enc, &planes.views, planes.mode, &target, 1, (planes.width, planes.height));
+        let (_, waited) = self.download_timed(enc, &[&target], &[4])?;
+        used.push(target);
+        self.give_back(used);
+        Ok(waited)
     }
 
     /// A texture paint() can draw into and Slint can show.
@@ -795,6 +818,14 @@ pub struct Held {
     format: PixelFormat,
     number: u64,
     time_ns: u64,
+    /// What reading it back has waited for the card since this was last asked.
+    waited_ns: u64,
+}
+
+impl Held {
+    pub fn take_waited(&mut self) -> u64 {
+        std::mem::take(&mut self.waited_ns)
+    }
 }
 
 /// A stream's person mask on the card, staying there until the mask changes.

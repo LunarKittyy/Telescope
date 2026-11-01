@@ -450,6 +450,7 @@ class Cell:
             out["rss_mb"] = rounded(max(rss) / 1024, 0)
             out["kwin_cpu_pct"] = rounded((after["ticks"]["kwin"] - before["ticks"]["kwin"]) * 100 / TICK / seconds)
             out["steps_log"] = self.steps_line()
+            out["swaps"] = self.swaps()
         out.update(self.load_numbers(t0, t1, seconds))
         out["gpu_busy_pct"] = rounded(statistics.mean(busy)) if busy else None
         out["warnings"] = self.noise(before, after, seconds, out)
@@ -462,6 +463,13 @@ class Cell:
                 if "Frame steps cost" in text:
                     line = text.split("Frame steps cost")[1].strip()
         return line
+
+    def swaps(self) -> list:
+        """Where frame steps moved between the card and the CPU over the whole run, newest last."""
+        lines = []
+        for path in (self.folder / "profile").rglob("telescope.log"):
+            lines += [text.split("Frame steps moved to the ")[1].strip() for text in path.read_text(errors="replace").splitlines() if "Frame steps moved to the " in text]
+        return lines
 
     def camera_numbers(self, t0, t1, seconds) -> dict:
         frames, previous = [], None

@@ -235,6 +235,8 @@ impl<'de> Deserialize<'de> for Frame {
 pub enum FrameStep {
     Cpu(Box<dyn CpuStep>),
     Shader(ShaderStep),
+    /// The same change two ways: the shader while the card has room, the CPU step while core::balance says it hasn't.
+    Either(ShaderStep, Box<dyn CpuStep>),
 }
 
 impl std::fmt::Debug for FrameStep {
@@ -242,6 +244,7 @@ impl std::fmt::Debug for FrameStep {
         match self {
             FrameStep::Cpu(_) => f.write_str("FrameStep::Cpu"),
             FrameStep::Shader(s) => f.debug_tuple("FrameStep::Shader").field(&s.wgsl.len()).finish(),
+            FrameStep::Either(s, _) => f.debug_tuple("FrameStep::Either").field(&s.wgsl.len()).finish(),
         }
     }
 }
