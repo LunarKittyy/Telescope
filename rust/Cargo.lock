@@ -5790,6 +5790,7 @@ dependencies = [
 name = "telescope-media"
 version = "0.1.0"
 dependencies = [
+ "ash",
  "ffmpeg-sys-next",
  "image",
  "libc",

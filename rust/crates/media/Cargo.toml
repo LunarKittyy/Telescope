@@ -23,6 +23,7 @@ image = { workspace = true, features = ["png", "bmp", "webp"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 ffmpeg-sys-next.workspace = true
+ash.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 ffmpeg-sys-next = { workspace = true, optional = true }

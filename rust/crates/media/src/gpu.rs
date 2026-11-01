@@ -9,9 +9,52 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 use telescope_core::frame::{Frame, PixelFormat, ShaderStep};
 use telescope_core::shader;
+use telescope_core::time::{monotonic_ns, span};
 use wgpu::naga;
 
 const CONVERT: &str = include_str!("shaders/convert.wgsl");
+/// The convert shader for a compute pass; FORMAT is the target's.
+const CONVERT_COMPUTE: &str = "
+@group(0) @binding(5) var target_plane: texture_storage_2d<FORMAT, write>;
+
+@compute @workgroup_size(16, 16)
+fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(target_plane);
+    if id.x < size.x && id.y < size.y {
+        let texel = 1.0 / vec2<f32>(size);
+        textureStore(target_plane, id.xy, pixel((vec2<f32>(id.xy) + 0.5) * texel, texel));
+    }
+}
+";
+
+/// All three planes of I420 from one pass: beside a game every pass waits for its own turn on the card.
+const CONVERT_I420: &str = "
+@group(0) @binding(5) var plane_y: texture_storage_2d<r8unorm, write>;
+@group(0) @binding(6) var plane_u: texture_storage_2d<r8unorm, write>;
+@group(0) @binding(7) var plane_v: texture_storage_2d<r8unorm, write>;
+
+@compute @workgroup_size(16, 16)
+fn cs_i420(@builtin(global_invocation_id) id: vec3<u32>) {
+    let half = textureDimensions(plane_u);
+    let size = textureDimensions(plane_y);
+    if id.x >= half.x || id.y >= half.y {
+        return;
+    }
+    // The chroma texel lands between four pixels and the linear sampler averages them
+    let c = rgb_at((vec2<f32>(id.xy) + 0.5) / vec2<f32>(half)) * 255.0;
+    textureStore(plane_u, id.xy, vec4<f32>(chroma_u(c), 0.0, 0.0, 1.0));
+    textureStore(plane_v, id.xy, vec4<f32>(chroma_v(c), 0.0, 0.0, 1.0));
+    for (var j = 0u; j < 2u; j++) {
+        for (var i = 0u; i < 2u; i++) {
+            let at = id.xy * 2u + vec2<u32>(i, j);
+            if at.x < size.x && at.y < size.y {
+                let p = rgb_at((vec2<f32>(at) + 0.5) / vec2<f32>(size)) * 255.0;
+                textureStore(plane_y, at, vec4<f32>(luma(p), 0.0, 0.0, 1.0));
+            }
+        }
+    }
+}
+";
 
 /// What a working picture on the card is kept as: gamma-encoded RGBA, like the camera's own values.
 const WORK: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
@@ -31,6 +74,7 @@ enum Mode {
 
 /// The most memory the kept textures take: a few 4K pictures' worth, with the sizes least recently used dropped first.
 const POOL_BUDGET: usize = 256 * 1024 * 1024;
+const KEPT_DOWNLOADS: usize = 4;
 
 pub struct Gpu {
     device: wgpu::Device,
@@ -39,6 +83,12 @@ pub struct Gpu {
     convert_layout: wgpu::BindGroupLayout,
     convert: Mutex<HashMap<wgpu::TextureFormat, Arc<wgpu::RenderPipeline>>>,
     convert_module: wgpu::ShaderModule,
+    /// On a queue that can't draw: every pass is a compute pass. See open_compute.
+    computes: bool,
+    convert_compute: Mutex<HashMap<wgpu::TextureFormat, Arc<ComputeConvert>>>,
+    convert_i420: OnceLock<ComputeConvert>,
+    /// Download buffers to use again: mapping a new one each frame costs the card a flush.
+    downloads: Mutex<Vec<wgpu::Buffer>>,
     /// For plugin shaders: the picture so far, the sampler, the frame's info and the person mask.
     frame_layout: wgpu::BindGroupLayout,
     linear: wgpu::Sampler,
@@ -46,6 +96,11 @@ pub struct Gpu {
     blank: wgpu::TextureView,
     pool: Mutex<Pool<(u32, u32, wgpu::TextureFormat), wgpu::Texture>>,
     pub adapter_name: String,
+}
+
+struct ComputeConvert {
+    pipeline: wgpu::ComputePipeline,
+    layout: wgpu::BindGroupLayout,
 }
 
 /// One picture on the card in its own format, ready for the convert shader.
@@ -56,10 +111,25 @@ struct Planes {
     height: u32,
 }
 
+const STAGES: wgpu::ShaderStages = wgpu::ShaderStages::FRAGMENT.union(wgpu::ShaderStages::COMPUTE);
+
+fn storage_entry(binding: u32, format: wgpu::TextureFormat) -> wgpu::BindGroupLayoutEntry {
+    wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::StorageTexture {
+            access: wgpu::StorageTextureAccess::WriteOnly,
+            format,
+            view_dimension: wgpu::TextureViewDimension::D2,
+        },
+        count: None,
+    }
+}
+
 fn tex_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
     wgpu::BindGroupLayoutEntry {
         binding,
-        visibility: wgpu::ShaderStages::FRAGMENT,
+        visibility: STAGES,
         ty: wgpu::BindingType::Texture {
             sample_type: wgpu::TextureSampleType::Float { filterable: true },
             view_dimension: wgpu::TextureViewDimension::D2,
@@ -72,7 +142,7 @@ fn tex_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
 fn sampler_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
     wgpu::BindGroupLayoutEntry {
         binding,
-        visibility: wgpu::ShaderStages::FRAGMENT,
+        visibility: STAGES,
         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
         count: None,
     }
@@ -81,7 +151,7 @@ fn sampler_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
 fn uniform_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
     wgpu::BindGroupLayoutEntry {
         binding,
-        visibility: wgpu::ShaderStages::FRAGMENT,
+        visibility: STAGES,
         ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None },
         count: None,
     }
@@ -116,6 +186,11 @@ impl Gpu {
     }
 
     fn open() -> Result<Gpu, String> {
+        Gpu::open_on(true)
+    }
+
+    /// compute: a compute queue where that's worth having; see open_compute.
+    fn open_on(compute: bool) -> Result<Gpu, String> {
         let (mut found, mut why) = (None, String::new());
         for backends in BACKENDS {
             let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
@@ -134,20 +209,24 @@ impl Gpu {
         }
         let adapter = found.ok_or(why)?;
         let info = adapter.get_info();
+        #[cfg(target_os = "linux")]
+        if let Some((device, queue)) = open_compute(&adapter).filter(|_| compute) {
+            return Ok(Gpu::on(device, queue, format!("{} ({:?}, compute queue)", info.name, info.backend), true));
+        }
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("telescope frames"),
             required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
             ..Default::default()
         })).map_err(|e| e.to_string())?;
-        Ok(Gpu::on(device, queue, format!("{} ({:?})", info.name, info.backend)))
+        Ok(Gpu::on(device, queue, format!("{} ({:?})", info.name, info.backend), false))
     }
 
     /// The same shaders on a device someone else opened (the window's, so the preview can hand its texture to Slint).
     pub fn on_device(device: wgpu::Device, queue: wgpu::Queue) -> Gpu {
-        Gpu::on(device, queue, "the window's device".into())
+        Gpu::on(device, queue, "the window's device".into(), false)
     }
 
-    fn on(device: wgpu::Device, queue: wgpu::Queue, adapter_name: String) -> Gpu {
+    fn on(device: wgpu::Device, queue: wgpu::Queue, adapter_name: String, computes: bool) -> Gpu {
         // Without this a mistake in a plugin's shader that slips past the checks would end the app
         device.on_uncaptured_error(Arc::new(|e: wgpu::Error| log::error!("Graphics card error: {e}")));
 
@@ -155,10 +234,11 @@ impl Gpu {
             label: Some("convert"),
             entries: &[tex_entry(0), tex_entry(1), tex_entry(2), sampler_entry(3), uniform_entry(4)],
         });
-        let frame_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("frame"),
-            entries: &[tex_entry(0), sampler_entry(1), uniform_entry(2), tex_entry(shader::BINDING_MASK)],
-        });
+        let mut frame_entries = vec![tex_entry(0), sampler_entry(1), uniform_entry(2), tex_entry(shader::BINDING_MASK)];
+        if computes {
+            frame_entries.push(storage_entry(shader::BINDING_OUTPUT, WORK));
+        }
+        let frame_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: Some("frame"), entries: &frame_entries });
         let convert_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("convert"),
             source: wgpu::ShaderSource::Wgsl(CONVERT.into()),
@@ -176,7 +256,8 @@ impl Gpu {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::R8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING,
+            // COPY_DST or wgpu clears it with a render pass, which a compute queue can't run
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         }).create_view(&Default::default());
         Gpu {
@@ -185,6 +266,10 @@ impl Gpu {
             convert_layout,
             convert: Mutex::default(),
             convert_module,
+            computes,
+            convert_compute: Mutex::default(),
+            convert_i420: OnceLock::new(),
+            downloads: Mutex::default(),
             frame_layout,
             linear,
             blank,
@@ -203,6 +288,80 @@ impl Gpu {
             });
             Arc::new(self.render_pipeline("convert", &layout, &self.convert_module, ("vs_main", "fs_main"), target))
         }).clone()
+    }
+
+    fn convert_compute(&self, target: wgpu::TextureFormat) -> Arc<ComputeConvert> {
+        let mut cache = self.convert_compute.lock().unwrap();
+        cache.entry(target).or_insert_with(|| {
+            let name = match target {
+                wgpu::TextureFormat::R8Unorm => "r8unorm",
+                wgpu::TextureFormat::Rg8Unorm => "rg8unorm",
+                wgpu::TextureFormat::Bgra8Unorm => "bgra8unorm",
+                _ => "rgba8unorm",
+            };
+            let source = format!("{CONVERT}{}", CONVERT_COMPUTE.replace("FORMAT", name));
+            let module = self.device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("convert"), source: wgpu::ShaderSource::Wgsl(source.into()) });
+            let layout = self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("convert"),
+                entries: &[tex_entry(0), tex_entry(1), tex_entry(2), sampler_entry(3), uniform_entry(4), storage_entry(5, target)],
+            });
+            let pipeline_layout = self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("convert"),
+                bind_group_layouts: &[Some(&layout)],
+                immediate_size: 0,
+            });
+            let pipeline = self.compute_pipeline("convert", &pipeline_layout, &module, "cs_main");
+            Arc::new(ComputeConvert { pipeline, layout })
+        }).clone()
+    }
+
+    /// The picture in work written to all three planes in one compute pass.
+    fn i420_pass(&self, enc: &mut wgpu::CommandEncoder, work: &wgpu::Texture, planes: [&wgpu::Texture; 3]) {
+        let convert = self.convert_i420.get_or_init(|| {
+            let plane = |binding| storage_entry(binding, wgpu::TextureFormat::R8Unorm);
+            let layout = self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("i420"),
+                entries: &[tex_entry(0), tex_entry(1), tex_entry(2), sampler_entry(3), uniform_entry(4), plane(5), plane(6), plane(7)],
+            });
+            let pipeline_layout = self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("i420"),
+                bind_group_layouts: &[Some(&layout)],
+                immediate_size: 0,
+            });
+            let source = format!("{CONVERT}{CONVERT_I420}");
+            let module = self.device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("i420"), source: wgpu::ShaderSource::Wgsl(source.into()) });
+            ComputeConvert { pipeline: self.compute_pipeline("i420", &pipeline_layout, &module, "cs_i420"), layout }
+        });
+        let settings = self.uniform(bytemuck_u32(&[Mode::ToY as u32, 1, work.width(), work.height()]));
+        let work = work.create_view(&Default::default());
+        let [y, u, v] = planes.map(|p| p.create_view(&Default::default()));
+        let view = wgpu::BindingResource::TextureView;
+        let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("i420"),
+            layout: &convert.layout,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: view(&work) },
+                wgpu::BindGroupEntry { binding: 1, resource: view(&self.blank) },
+                wgpu::BindGroupEntry { binding: 2, resource: view(&self.blank) },
+                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Sampler(&self.linear) },
+                wgpu::BindGroupEntry { binding: 4, resource: settings.as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 5, resource: view(&y) },
+                wgpu::BindGroupEntry { binding: 6, resource: view(&u) },
+                wgpu::BindGroupEntry { binding: 7, resource: view(&v) },
+            ],
+        });
+        dispatch(enc, &convert.pipeline, &[&bind], planes[1]);
+    }
+
+    fn compute_pipeline(&self, label: &str, layout: &wgpu::PipelineLayout, module: &wgpu::ShaderModule, entry: &str) -> wgpu::ComputePipeline {
+        self.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some(label),
+            layout: Some(layout),
+            module,
+            entry_point: Some(entry),
+            compilation_options: Default::default(),
+            cache: None,
+        })
     }
 
     fn render_pipeline(&self, label: &str, layout: &wgpu::PipelineLayout, module: &wgpu::ShaderModule, entries: (&str, &str), target: wgpu::TextureFormat) -> wgpu::RenderPipeline {
@@ -235,8 +394,8 @@ impl Gpu {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT
-                | wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::COPY_DST,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::COPY_DST
+                | if self.computes { wgpu::TextureUsages::STORAGE_BINDING } else { wgpu::TextureUsages::RENDER_ATTACHMENT },
             view_formats: &[],
         })
     }
@@ -303,20 +462,23 @@ impl Gpu {
     fn convert_pass(&self, enc: &mut wgpu::CommandEncoder, planes: &[wgpu::TextureView; 3], mode: Mode, target: &wgpu::Texture, taps: u32, src_size: (u32, u32)) {
         let settings: [u32; 4] = [mode as u32, taps.max(1), src_size.0, src_size.1];
         let buf = self.uniform(bytemuck_u32(&settings));
-        let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("convert"),
-            layout: &self.convert_layout,
-            entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&planes[0]) },
-                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&planes[1]) },
-                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(&planes[2]) },
-                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Sampler(&self.linear) },
-                wgpu::BindGroupEntry { binding: 4, resource: buf.as_entire_binding() },
-            ],
-        });
-        let pipeline = self.convert_pipeline(target.format());
         let view = target.create_view(&Default::default());
-        draw(enc, &pipeline, &[&bind], &view);
+        let mut entries = vec![
+            wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&planes[0]) },
+            wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&planes[1]) },
+            wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(&planes[2]) },
+            wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Sampler(&self.linear) },
+            wgpu::BindGroupEntry { binding: 4, resource: buf.as_entire_binding() },
+        ];
+        if self.computes {
+            let convert = self.convert_compute(target.format());
+            entries.push(wgpu::BindGroupEntry { binding: 5, resource: wgpu::BindingResource::TextureView(&view) });
+            let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("convert"), layout: &convert.layout, entries: &entries });
+            dispatch(enc, &convert.pipeline, &[&bind], target);
+        } else {
+            let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("convert"), layout: &self.convert_layout, entries: &entries });
+            draw(enc, &self.convert_pipeline(target.format()), &[&bind], &view);
+        }
     }
 
     fn uniform(&self, bytes: &[u8]) -> wgpu::Buffer {
@@ -338,19 +500,26 @@ impl Gpu {
             offsets.push(size);
             size += aligned_row(t.width() * b) as u64 * t.height() as u64;
         }
-        let buf = self.device.create_buffer(&wgpu::BufferDescriptor {
+        let kept = {
+            let mut kept = self.downloads.lock().unwrap();
+            kept.iter().position(|b| b.size() == size).map(|i| kept.swap_remove(i))
+        };
+        let buf = kept.unwrap_or_else(|| self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("download"),
             size,
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
             mapped_at_creation: false,
-        });
+        }));
         for ((t, b), off) in textures.iter().zip(bpp).zip(&offsets) {
             enc.copy_texture_to_buffer(t.as_image_copy(), wgpu::TexelCopyBufferInfo {
                 buffer: &buf,
                 layout: wgpu::TexelCopyBufferLayout { offset: *off, bytes_per_row: Some(aligned_row(t.width() * b)), rows_per_image: None },
             }, t.size());
         }
+        let began = monotonic_ns();
         self.queue.submit([enc.finish()]);
+        span("submit", began);
+        let began = monotonic_ns();
         let slice = buf.slice(..);
         let (tx, rx) = std::sync::mpsc::channel();
         slice.map_async(wgpu::MapMode::Read, move |r| {
@@ -358,6 +527,8 @@ impl Gpu {
         });
         self.device.poll(wgpu::PollType::wait_indefinitely()).map_err(|e| e.to_string())?;
         rx.recv().map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
+        span("gpu_wait", began);
+        let began = monotonic_ns();
         let mapped = slice.get_mapped_range().map_err(|e| e.to_string())?;
         let mut out = Vec::new();
         for ((t, b), off) in textures.iter().zip(bpp).zip(&offsets) {
@@ -371,6 +542,13 @@ impl Gpu {
         }
         drop(mapped);
         buf.unmap();
+        let mut kept = self.downloads.lock().unwrap();
+        // Only what a few sizes of picture need stays; the newest is at the end
+        if kept.len() == KEPT_DOWNLOADS {
+            kept.remove(0);
+        }
+        kept.push(buf);
+        span("readback", began);
         Ok(out)
     }
 
@@ -380,11 +558,13 @@ impl Gpu {
             return Err(format!("{:?} frames can't go on the card", frame.format));
         }
         let (w, h) = (frame.width, frame.height);
+        let began = monotonic_ns();
         let mut used = Vec::new();
         let mut enc = self.device.create_command_encoder(&Default::default());
         let planes = self.upload(frame, &mut used);
         let (a, b) = (self.texture(w, h, WORK), self.texture(w, h, WORK));
         self.convert_pass(&mut enc, &planes.views, planes.mode, &a, 1, (planes.width, planes.height));
+        span("upload", began);
         Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns })
     }
 
@@ -410,9 +590,13 @@ impl Gpu {
             PixelFormat::I420 => {
                 let (y, u, v) = (target(w, h, wgpu::TextureFormat::R8Unorm), target(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm),
                                  target(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm));
-                self.convert_pass(&mut enc, &work, Mode::ToY, &y, 1, (w, h));
-                self.convert_pass(&mut enc, &work, Mode::ToU, &u, 1, (w, h));
-                self.convert_pass(&mut enc, &work, Mode::ToV, &v, 1, (w, h));
+                if self.computes {
+                    self.i420_pass(&mut enc, &held.a, [&y, &u, &v]);
+                } else {
+                    self.convert_pass(&mut enc, &work, Mode::ToY, &y, 1, (w, h));
+                    self.convert_pass(&mut enc, &work, Mode::ToU, &u, 1, (w, h));
+                    self.convert_pass(&mut enc, &work, Mode::ToV, &v, 1, (w, h));
+                }
                 self.download(enc, &[&y, &u, &v], &[1, 1, 1])?.concat()
             }
             PixelFormat::Nv12 => {
@@ -521,6 +705,56 @@ fn bytemuck_u32(v: &[u32]) -> &[u8] {
     unsafe { std::slice::from_raw_parts(v.as_ptr() as *const u8, std::mem::size_of_val(v)) }
 }
 
+/// The frame steps on a compute queue where the card has one that runs beside graphics. A job on the graphics queue waits behind everything
+/// a game has queued (the kernel schedules first come, first served, and raising a queue's priority takes a capability this app hasn't), which
+/// is 30 to 90 ms beside a heavy game, against under a millisecond here. AMD only, since that's where this was measured: everything else
+/// stays on the graphics queue. TELESCOPE_GPU_QUEUE=graphics does that here too, for comparing. Off Vulkan or short of a format, None.
+#[cfg(target_os = "linux")]
+fn open_compute(adapter: &wgpu::Adapter) -> Option<(wgpu::Device, wgpu::Queue)> {
+    use wgpu::hal::api::Vulkan;
+    const AMD: u32 = 0x1002;
+    let info = adapter.get_info();
+    let features = wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES | wgpu::Features::BGRA8UNORM_STORAGE;
+    if info.backend != wgpu::Backend::Vulkan || info.vendor != AMD || !adapter.features().contains(features)
+        || std::env::var_os("TELESCOPE_GPU_QUEUE").is_some_and(|q| q == "graphics") {
+        return None;
+    }
+    let storable = |f: wgpu::TextureFormat| adapter.get_texture_format_features(f).allowed_usages.contains(wgpu::TextureUsages::STORAGE_BINDING);
+    if ![wgpu::TextureFormat::R8Unorm, wgpu::TextureFormat::Rg8Unorm, wgpu::TextureFormat::Rgba8Unorm, wgpu::TextureFormat::Bgra8Unorm].into_iter().all(storable) {
+        return None;
+    }
+    let limits = wgpu::Limits::downlevel_defaults().using_resolution(adapter.limits());
+    // SAFETY: the device comes from this adapter, with the extensions and features wgpu-hal asked for and the queue family it's told about
+    let opened = unsafe {
+        let hal = adapter.as_hal::<Vulkan>()?;
+        let vulkan = hal.shared_instance().raw_instance();
+        let physical = hal.raw_physical_device();
+        let family = vulkan.get_physical_device_queue_family_properties(physical).iter()
+            .position(|f| f.queue_flags.contains(ash::vk::QueueFlags::COMPUTE) && !f.queue_flags.contains(ash::vk::QueueFlags::GRAPHICS))? as u32;
+        let extensions = hal.required_device_extensions(features);
+        let mut wanted = hal.physical_device_features(&extensions, features);
+        let names: Vec<_> = extensions.iter().map(|e| e.as_ptr()).collect();
+        let queues = [ash::vk::DeviceQueueCreateInfo::default().queue_family_index(family).queue_priorities(&[1.0])];
+        let create = wanted.add_to_device_create(ash::vk::DeviceCreateInfo::default().queue_create_infos(&queues).enabled_extension_names(&names));
+        let device = vulkan.create_device(physical, &create, None).map_err(|e| log::warn!("No compute queue for frame steps: {e}")).ok()?;
+        hal.device_from_raw(device, None, &extensions, features, &limits, &wgpu::MemoryHints::Performance, family, 0)
+            .map_err(|e| log::warn!("No compute queue for frame steps: {e}")).ok()?
+    };
+    // SAFETY: opened is from this adapter's hal side, and the descriptor asks for what it was opened with
+    let desc = wgpu::DeviceDescriptor { label: Some("telescope frames"), required_features: features, required_limits: limits, ..Default::default() };
+    unsafe { adapter.create_device_from_hal(opened, &desc) }.map_err(|e| log::warn!("No compute queue for frame steps: {e}")).ok()
+}
+
+/// Runs a compute shader over every pixel of target.
+fn dispatch(enc: &mut wgpu::CommandEncoder, pipeline: &wgpu::ComputePipeline, binds: &[&wgpu::BindGroup], target: &wgpu::Texture) {
+    let mut pass = enc.begin_compute_pass(&Default::default());
+    pass.set_pipeline(pipeline);
+    for (i, b) in binds.iter().enumerate() {
+        pass.set_bind_group(i as u32, *b, &[]);
+    }
+    pass.dispatch_workgroups(target.width().div_ceil(shader::WORKGROUP), target.height().div_ceil(shader::WORKGROUP), 1);
+}
+
 fn draw(enc: &mut wgpu::CommandEncoder, pipeline: &wgpu::RenderPipeline, binds: &[&wgpu::BindGroup], view: &wgpu::TextureView) {
     let mut pass = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
         label: None,
@@ -570,8 +804,13 @@ pub struct MaskPlane {
     view: wgpu::TextureView,
 }
 
+enum Pipeline {
+    Render(wgpu::RenderPipeline),
+    Compute(wgpu::ComputePipeline),
+}
+
 struct Built {
-    pipeline: wgpu::RenderPipeline,
+    pipeline: Pipeline,
     /// Group 1: the plugin's uniforms and textures, or None when it has neither.
     extras: Option<wgpu::BindGroup>,
     _keep: Vec<wgpu::Texture>,
@@ -597,20 +836,23 @@ impl ShaderSlot {
 
     fn draw(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, src: &wgpu::Texture, dst: &wgpu::Texture, info: &wgpu::Buffer, mask: Option<&MaskPlane>) {
         let Some(Ok(built)) = &self.built else { return };
-        let src_view = src.create_view(&Default::default());
-        let frame_bind = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("frame"),
-            layout: &gpu.frame_layout,
-            entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&src_view) },
-                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&gpu.linear) },
-                wgpu::BindGroupEntry { binding: 2, resource: info.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: shader::BINDING_MASK, resource: wgpu::BindingResource::TextureView(mask.map_or(&gpu.blank, |m| &m.view)) },
-            ],
-        });
+        let (src_view, dst_view) = (src.create_view(&Default::default()), dst.create_view(&Default::default()));
+        let mut entries = vec![
+            wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&src_view) },
+            wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&gpu.linear) },
+            wgpu::BindGroupEntry { binding: 2, resource: info.as_entire_binding() },
+            wgpu::BindGroupEntry { binding: shader::BINDING_MASK, resource: wgpu::BindingResource::TextureView(mask.map_or(&gpu.blank, |m| &m.view)) },
+        ];
+        if gpu.computes {
+            entries.push(wgpu::BindGroupEntry { binding: shader::BINDING_OUTPUT, resource: wgpu::BindingResource::TextureView(&dst_view) });
+        }
+        let frame_bind = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("frame"), layout: &gpu.frame_layout, entries: &entries });
         let mut binds = vec![&frame_bind];
         binds.extend(built.extras.as_ref());
-        draw(enc, &built.pipeline, &binds, &dst.create_view(&Default::default()));
+        match &built.pipeline {
+            Pipeline::Render(pipeline) => draw(enc, pipeline, &binds, &dst_view),
+            Pipeline::Compute(pipeline) => dispatch(enc, pipeline, &binds, dst),
+        }
     }
 }
 
@@ -625,7 +867,7 @@ fn validate(src: &str) -> Result<(), String> {
 
 fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
     // The contract lives in core::shader, shared with plugin-host's checks
-    let src = shader::assemble(step)?;
+    let src = if gpu.computes { shader::assemble_compute(step)? } else { shader::assemble(step)? };
     let params = shader::pack_uniforms(&step.wgsl, &step.uniforms)?;
     let has_uniforms = !params.is_empty();
     validate(&src)?;
@@ -645,7 +887,11 @@ fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
     }));
     let layouts: Vec<Option<&wgpu::BindGroupLayout>> = [Some(&gpu.frame_layout), extras_layout.as_ref()].into_iter().take(if extras_layout.is_some() { 2 } else { 1 }).collect();
     let layout = gpu.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("plugin"), bind_group_layouts: &layouts, immediate_size: 0 });
-    let pipeline = gpu.render_pipeline("plugin", &layout, &module, (shader::VERTEX_ENTRY, shader::FRAGMENT_ENTRY), WORK);
+    let pipeline = if gpu.computes {
+        Pipeline::Compute(gpu.compute_pipeline("plugin", &layout, &module, shader::COMPUTE_ENTRY))
+    } else {
+        Pipeline::Render(gpu.render_pipeline("plugin", &layout, &module, (shader::VERTEX_ENTRY, shader::FRAGMENT_ENTRY), WORK))
+    };
 
     // The plugin's pictures go up once, as RGBA whatever they came as
     let mut keep = Vec::new();
@@ -722,7 +968,7 @@ mod tests {
 
     #[test]
     fn a_handed_device_paints_the_preview_into_a_texture_it_keeps() {
-        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let Ok(gpu) = Gpu::open_on(false) else { return eprintln!("no graphics card; skipped") };
         let window = Gpu::on_device(gpu.device.clone(), gpu.queue.clone());
         let frame = yuv_frame(64, 36, |x, _| (16 + x * 3) as u8, 128, 128);
         let target = window.picture(32, 18);
@@ -730,6 +976,27 @@ mod tests {
         let enc = window.device.create_command_encoder(&Default::default());
         let painted = window.download(enc, &[&target], &[4]).unwrap().pop().unwrap();
         assert_eq!(painted, gpu.rgba(&frame, 32, 18).unwrap());
+    }
+
+    #[test]
+    fn a_compute_queue_gives_the_picture_the_graphics_queue_does() {
+        let Some(compute) = Gpu::shared().filter(|g| g.computes) else { return eprintln!("no compute queue here; skipped") };
+        let graphics = Gpu::open_on(false).unwrap();
+        let invert = || ShaderSlot::new(step("fn effect(uv: vec2<f32>) -> vec4<f32> { let c = sample(uv); return vec4<f32>(1.0 - c.bgr, 1.0); }", json!({})));
+        // A pixel can round the other way between a draw and a store
+        let close = |a: &[u8], b: &[u8]| {
+            assert_eq!(a.len(), b.len());
+            let worst = a.iter().zip(b).map(|(x, y)| x.abs_diff(*y)).max().unwrap();
+            assert!(worst <= 1, "off by {worst}");
+        };
+        // Odd sizes, so the last chroma column and row are covered too
+        let frame = yuv_frame(37, 21, |x, y| (40 + x * 3 + y * 2) as u8, 115, 140);
+        close(&run(&compute, &frame, &mut [invert()]).data, &run(&graphics, &frame, &mut [invert()]).data);
+        let nv12 = Frame::new(4, 2, PixelFormat::Nv12, vec![50, 60, 70, 80, 90, 100, 110, 120, 110, 140, 120, 130]);
+        close(&run(&compute, &nv12, &mut [invert()]).data, &run(&graphics, &nv12, &mut [invert()]).data);
+        let bgra = Frame::new(2, 1, PixelFormat::Bgra, vec![10, 20, 30, 255, 40, 50, 60, 255]);
+        close(&run(&compute, &bgra, &mut [invert()]).data, &run(&graphics, &bgra, &mut [invert()]).data);
+        close(&compute.rgba(&frame, 12, 7).unwrap(), &graphics.rgba(&frame, 12, 7).unwrap());
     }
 
     #[test]
