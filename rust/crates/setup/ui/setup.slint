@@ -200,7 +200,7 @@ export component VideoSettings inherits Card {
         StripTop {
             title: @tr("Max zoom");
             SpinChip {
-                text <=> root.zoom-text;
+                value: root.zoom-text;
                 label: @tr("Max zoom");
                 tip: @tr("How far the Zoom slider goes. Past what the phone can zoom itself, the rest is cropped on this computer.");
                 committed(t) => { root.zoom-committed(t); }

@@ -429,7 +429,7 @@ impl MonitoringPlugin {
     /// What a spin box typed reads as: its digits, with or without the suffix.
     fn typed(text: &str) -> Option<i64> {
         let digits: String = text.trim().chars().take_while(|c| c.is_ascii_digit()).collect();
-        digits.parse().ok()
+        telescope_core::names::whole_number(&digits)
     }
 }
 
