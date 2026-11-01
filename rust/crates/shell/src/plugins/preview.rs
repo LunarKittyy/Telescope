@@ -92,6 +92,7 @@ pub struct Preview {
     boxes_opacity: f32,
     /// The Skeleton button, and the people it draws.
     skeleton: bool,
+    smooth: bool,
     people: Vec<Person>,
     /// A click focuses there, and a drag pans (FrameLabel).
     pickable: bool,
@@ -212,6 +213,7 @@ impl Preview {
         self.skeleton &= Self::skeleton_there(host);
         host.want_people(SKELETON_OWNER, self.skeleton);
         self.show_skeleton(host);
+        self.show_smooth(host);
         self.show_boxes(host);
     }
 
@@ -223,6 +225,16 @@ impl Preview {
     fn toggle_lenses(&mut self, host: &mut dyn Host) {
         self.lens_boxes = !self.lens_boxes;
         self.show_boxes(host);
+    }
+
+    fn toggle_smooth(&mut self, host: &mut dyn Host) {
+        self.smooth = !self.smooth;
+        self.show_smooth(host);
+        host.schedule_save();
+    }
+
+    fn show_smooth(&self, host: &mut dyn Host) {
+        host.set_ui_props("card", &json!({"smooth-on": self.smooth}));
     }
 
     fn stage_cursor(&self) -> &'static str {
@@ -450,6 +462,7 @@ impl Plugin for Preview {
             "popout-closed" => self.popout_closed(host),
             "lenses-clicked" => self.toggle_lenses(host),
             "skeleton-clicked" => self.set_skeleton(host, !self.skeleton),
+            "smooth-clicked" => self.toggle_smooth(host),
             "view-pointer" => {
                 let n = |i: usize| event.args.get(i).and_then(Value::as_f64).unwrap_or(0.0);
                 let kind = event.args.first().and_then(Value::as_str).unwrap_or("");
@@ -469,13 +482,19 @@ impl Plugin for Preview {
     }
 
     fn get_config(&self) -> Value {
-        json!({"lens_boxes": self.lens_boxes, "skeleton": self.skeleton})
+        let mut cfg = json!({"lens_boxes": self.lens_boxes, "skeleton": self.skeleton});
+        // Python has no such setting, so its settings files stay as they were unless someone turns this on
+        if self.smooth {
+            cfg["smooth"] = json!(true);
+        }
+        cfg
     }
 
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
         self.lens_boxes = cfg.get("lens_boxes") == Some(&Value::Bool(true));
         // Whether vision can back it comes in settle, which has the host
         self.skeleton = cfg.get("skeleton") == Some(&Value::Bool(true));
+        self.smooth = cfg.get("smooth") == Some(&Value::Bool(true));
         Ok(())
     }
 }
@@ -780,6 +799,26 @@ mod tests {
 
         p.on_event(&mut host, &Event::LensBoxes { boxes: vec![], moved: false });
         assert_eq!(card(&host)["lenses-enabled"], false);
+    }
+
+    #[test]
+    fn smooth_is_off_until_clicked_and_comes_back_after_a_restart() {
+        let (mut p, mut host) = ready();
+        assert_eq!(card(&host)["smooth-on"], false);
+        assert_eq!(p.get_config(), json!({"lens_boxes": false, "skeleton": false}), "nothing new in the file until it's used");
+        click(&mut p, &mut host, "smooth-clicked");
+        assert_eq!(card(&host)["smooth-on"], true);
+        assert_eq!(host.calls.iter().filter(|c| *c == "schedule_save").count(), 1, "saved when it's clicked");
+        let saved = p.get_config();
+        assert_eq!(saved["smooth"], true);
+
+        let (mut next, mut host) = ready();
+        next.set_config(&saved).unwrap();
+        next.on_profile_applied(&mut host);
+        assert_eq!(card(&host)["smooth-on"], true);
+        next.set_config(&json!({})).unwrap();
+        next.on_profile_applied(&mut host);
+        assert_eq!(card(&host)["smooth-on"], false);
     }
 
     #[test]

@@ -133,9 +133,69 @@ pub fn wants_frames(popout: bool, card: bool, window_seen: bool) -> bool {
     popout || (card && window_seen)
 }
 
+/// Which of a stream's new frames the window's card paints: every second one, counted in frames so the gaps stay even at any
+/// rate, or all of them.
+#[derive(Default)]
+pub struct Cadence {
+    seen: u64,
+    skip_next: bool,
+}
+
+impl Cadence {
+    /// Whether to paint the newest frame. `always` is for a frame that has to be shown whatever the count, or all of them.
+    pub fn due(&mut self, number: u64, every_frame: bool, always: bool) -> bool {
+        if every_frame || always {
+            self.seen = number;
+            self.skip_next = true;
+            return true;
+        }
+        if number == self.seen {
+            return false;
+        }
+        self.seen = number;
+        self.skip_next = !self.skip_next;
+        self.skip_next
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Frames as the 15 ms timer sees them: each new one a few times
+    fn painted(cadence: &mut Cadence, frames: std::ops::Range<u64>, every_frame: bool) -> Vec<u64> {
+        frames.filter(|&n| (0..3).map(|_| cadence.due(n, every_frame, false)).filter(|d| *d).count() > 0).collect()
+    }
+
+    #[test]
+    fn the_card_paints_every_second_frame_however_often_it_looks() {
+        let mut c = Cadence::default();
+        assert!(c.due(1, false, true), "a new stream's first frame shows at once");
+        assert_eq!(painted(&mut c, 2..10, false), [3, 5, 7, 9]);
+    }
+
+    #[test]
+    fn numbers_needn_t_be_neighbours() {
+        // Frame numbers are shared by all the streams
+        let mut c = Cadence::default();
+        let got: Vec<u64> = [10, 13, 14, 20, 21, 30].into_iter().filter(|&n| c.due(n, false, false)).collect();
+        assert_eq!(got.len(), 3, "{got:?}");
+    }
+
+    #[test]
+    fn smooth_paints_every_frame_and_going_back_keeps_the_gaps_even() {
+        let mut c = Cadence::default();
+        assert_eq!(painted(&mut c, 1..5, true), [1, 2, 3, 4]);
+        assert_eq!(painted(&mut c, 5..9, false), [6, 8]);
+    }
+
+    #[test]
+    fn a_frame_that_has_to_show_doesn_t_upset_the_count() {
+        let mut c = Cadence::default();
+        assert_eq!(painted(&mut c, 1..4, false), [1, 3]);
+        assert!(c.due(4, false, true));
+        assert_eq!(painted(&mut c, 5..8, false), [6]);
+    }
 
     #[test]
     fn gl_is_only_asked_for_after_the_rest() {

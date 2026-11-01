@@ -70,10 +70,18 @@ fn stage(name: &str) -> Stage {
     Stage { r, heard }
 }
 
-fn on_air(name: &str) -> Stage {
+fn on_air_capped(name: &str) -> Stage {
     let s = stage(name);
     s.r.start();
     s.r.worker(0).says("ok", "Streaming");
+    s.r.pump();
+    s
+}
+
+/// On air with Smooth on: these tests come from Python's, which paints every frame.
+fn on_air(name: &str) -> Stage {
+    let s = on_air_capped(name);
+    assert!(s.r.w.call_ui("preview", "card", "smooth-clicked"));
     s.r.pump();
     s
 }
@@ -855,6 +863,47 @@ fn second_popout_request_reuses_visible_window() {
     p.window().set_minimized(true);
     s.r.w.paint_preview();
     assert!(p.window().is_minimized(), "only when asked");
+}
+
+#[test]
+fn the_card_paints_every_second_frame_but_all_of_them_reach_the_slot() {
+    let s = on_air_capped("stage-half");
+    s.show(0, blue(32, 18));
+    assert_eq!(s.image_size(), (32, 18), "the first one shows at once");
+    s.show(0, grey(64, 36));
+    assert_eq!(s.image_size(), (32, 18), "the second is skipped");
+    assert_eq!(s.r.worker(0).slot().latest().map(|(f, _)| f.width), Some(64), "only by the card");
+    s.r.w.paint_preview();
+    assert_eq!(s.image_size(), (32, 18), "and stays skipped however often the timer looks");
+    s.show(0, blue(48, 27));
+    assert_eq!(s.image_size(), (48, 27), "the third shows");
+
+    assert!(s.r.w.call_ui("preview", "card", "smooth-clicked"));
+    s.r.pump();
+    assert!(s.on("smooth-on"));
+    s.show(0, grey(64, 36));
+    assert_eq!(s.image_size(), (64, 36), "Smooth shows every frame");
+    s.show(0, blue(32, 18));
+    assert_eq!(s.image_size(), (32, 18));
+
+    assert!(s.r.w.call_ui("preview", "card", "smooth-clicked"));
+    s.r.pump();
+    s.show(0, grey(64, 36));
+    assert_eq!(s.image_size(), (32, 18), "and off again halves them again");
+}
+
+#[test]
+fn the_pop_out_shows_every_frame_with_smooth_off() {
+    let s = on_air_capped("stage-popout-every");
+    let p = s.pop_out();
+    let shown = || {
+        let SValue::Image(image) = p.get_property("frame").unwrap() else { panic!("no picture") };
+        image.size().width
+    };
+    for width in [160, 96, 128, 64] {
+        s.show(0, grey(width, width * 9 / 16));
+        assert_eq!(shown(), width);
+    }
 }
 
 #[test]

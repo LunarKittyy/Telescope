@@ -83,6 +83,7 @@ pub struct Window {
     logged: Cell<bool>,
     /// The preview's pop-out window while it's open, and the card's popout-asks it last answered.
     popout: RefCell<Option<ComponentInstance>>,
+    cadence: RefCell<crate::preview::Cadence>,
     /// It's been fitted to the screen, which it only is as it first opens.
     pub(crate) fitted: Cell<bool>,
     /// Windows plugins opened of their own (HostUi::open_window): (plugin, id, window).
@@ -396,6 +397,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         layers_drawn: RefCell::default(),
         logged: Cell::new(false),
         popout: RefCell::default(),
+        cadence: RefCell::default(),
         fitted: Cell::new(false),
         plugin_windows: RefCell::default(),
         popout_asks: Cell::new(0),
@@ -747,6 +749,10 @@ impl Window {
             self.painted.set(0);
         }
         if number == self.painted.get() {
+            return;
+        }
+        // Half the frames on the card unless Smooth is on; what it skips only changes what's painted here
+        if !self.cadence.borrow_mut().due(number, popout.is_some() || on("smooth-on"), self.painted.get() == 0) {
             return;
         }
         let stage = match &popout {

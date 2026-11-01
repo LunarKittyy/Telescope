@@ -58,6 +58,7 @@ export component PreviewCard inherits Rectangle {
     in property <bool> lenses-on;
     in property <bool> skeleton-shown;
     in property <bool> skeleton-on;
+    in property <bool> smooth-on;
     // Clicks and drags on the picture (FrameLabel): what the mouse would do here, and the square where it last focused
     in property <string> stage-cursor;
     in property <bool> marker-shown;
@@ -73,6 +74,7 @@ export component PreviewCard inherits Rectangle {
     callback popout-closed;
     callback lenses-clicked;
     callback skeleton-clicked;
+    callback smooth-clicked;
 
     visible: visible-card;
     preferred-height: 240px + 2px + 55px;
@@ -263,6 +265,16 @@ export component PreviewCard inherits Rectangle {
                     tip: @tr("Keep showing what the phone's longer lenses see. Doesn't show in the camera output.");
                     accessible-label: @tr("Lens outlines");
                     clicked => { root.lenses-clicked(); }
+                }
+                Button {
+                    text: @tr("Smooth");
+                    role: "quiet";
+                    has-icon: true;
+                    icon: Icons.video;
+                    icon-tint: smooth-on ? Theme.accent-soft : Theme.text-dim;
+                    enabled: !popout;
+                    tip: @tr("Show every frame in the preview. Uses a bit more CPU.");
+                    clicked => { root.smooth-clicked(); }
                 }
                 Button {
                     text: @tr("Pop out");
