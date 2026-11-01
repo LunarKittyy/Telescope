@@ -55,10 +55,9 @@ struct Workers {
     helpers: usize,
 }
 
-/// How many threads help: a quarter of what this process may run on, at most 3. Four share a frame's work well enough on anything
-/// that can stream at all, and more only take cores from a game.
+/// How many threads help: a quarter of what this process may run on, at most 3, as more only take cores from a game.
 fn helpers_for(cpus: usize) -> usize {
-    (cpus / 4).clamp(1, 3).min(cpus.saturating_sub(1))
+    (cpus / 4).min(3)
 }
 
 static WORKERS: LazyLock<Workers> = LazyLock::new(|| {
@@ -157,7 +156,7 @@ mod tests {
 
     #[test]
     fn helpers_leave_most_of_the_machine_alone() {
-        assert_eq!([1, 2, 3, 4, 6, 8, 12, 16, 64].map(helpers_for), [0, 1, 1, 1, 1, 2, 3, 3, 3]);
+        assert_eq!([1, 2, 3, 4, 6, 8, 12, 16, 64].map(helpers_for), [0, 0, 0, 1, 1, 2, 3, 3, 3]);
     }
 
     #[test]

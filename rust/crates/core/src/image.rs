@@ -113,6 +113,9 @@ pub fn keep_bytes(buffer: Vec<u8>) {
     });
 }
 
+/// How many pixels the 4:2:0 row loops take at a time, split into planes on the stack.
+const PLANAR_RUN: usize = 64;
+
 /// Rows at or above this are worth spreading over threads, on a picture of at least this many bytes.
 const BANDED_ROWS: usize = 256;
 const BANDED_BYTES: usize = 512 * 1024;
@@ -141,19 +144,61 @@ pub fn over_rows<T: Send>(data: &mut [T], row_len: usize, row: impl Fn(usize, &m
     over_bands(data, row_len, |first, part| part.chunks_exact_mut(row_len.max(1)).enumerate().for_each(|(i, line)| row(first + i, line)));
 }
 
-/// Reads a 4:2:0 frame into out, 3 bytes a pixel, through pixel(y, u, v). None when the frame is too short for its size.
-pub fn read_420(frame: &Frame, out: &mut [u8], pixel: impl Fn(u8, u8, u8) -> [u8; 3] + Sync) -> Option<()> {
+/// byte() for a value that can't be NaN, which lets the rounding go a vector at a time.
+#[inline(always)]
+fn byte_of(v: f32) -> u8 {
+    // SAFETY: clamped to 0..255.5 here, so it fits
+    unsafe { (v + 0.5).clamp(0.0, 255.5).to_int_unchecked::<i32>() as u8 }
+}
+
+avx2_too! {
+    /// A run of luma with its chroma, one value a pixel, as R, G, B. Luma below `black` counts as that.
+    fn run_to_rgb(y: &[u8], u: &[u8], v: &[u8], black: f32, out: &mut [u8]) {
+        let (mut r, mut g, mut b) = ([0u8; PLANAR_RUN], [0u8; PLANAR_RUN], [0u8; PLANAR_RUN]);
+        let n = y.len().min(PLANAR_RUN);
+        let (y, u, v) = (&y[..n], &u[..n], &v[..n]);
+        for i in 0..n {
+            let c = (y[i] as f32 - 16.0).max(black) * 1.164_383;
+            let (d, e) = (u[i] as f32 - 128.0, v[i] as f32 - 128.0);
+            r[i] = byte_of(c + 1.596_027 * e);
+            g[i] = byte_of(c - 0.391_762 * d - 0.812_968 * e);
+            b[i] = byte_of(c + 2.017_232 * d);
+        }
+        for (o, (r, (g, b))) in out.as_chunks_mut::<3>().0.iter_mut().zip(r.iter().zip(g.iter().zip(&b))) {
+            *o = [*r, *g, *b];
+        }
+    }
+}
+
+avx2_too! {
+    /// Chroma samples `step` apart, each given to its two pixels.
+    fn doubled(from: &[u8], step: usize, out: &mut [u8; PLANAR_RUN]) {
+        if step == 1 {
+            out.as_chunks_mut::<2>().0.iter_mut().zip(from).for_each(|(o, v)| *o = [*v, *v]);
+        } else {
+            out.as_chunks_mut::<2>().0.iter_mut().zip(from.iter().step_by(step)).for_each(|(o, v)| *o = [*v, *v]);
+        }
+    }
+}
+
+/// Reads a 4:2:0 frame into out as R, G, B, BT.601 video range. None when the frame is too short for its size. Luma under black counts as black when floored is set.
+pub fn read_420(frame: &Frame, out: &mut [u8], floored: bool) -> Option<()> {
     let (w, h) = (frame.width as usize, frame.height as usize);
     let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
     if frame.data.len() < w * h + 2 * cw * ch {
         return None;
     }
+    let black = if floored { 0.0 } else { -16.0 };
     let (y, chroma) = frame.data.split_at(w * h);
     let (u, v, step) = if frame.format == PixelFormat::Nv12 { (chroma, &chroma[1..], 2) } else { (chroma, &chroma[cw * ch..], 1) };
     over_rows(out, w * 3, |row, line| {
         let (ys, us, vs) = (&y[row * w..][..w], &u[(row / 2) * cw * step..], &v[(row / 2) * cw * step..]);
-        for (col, (p, l)) in line.as_chunks_mut::<3>().0.iter_mut().zip(ys).enumerate() {
-            *p = pixel(*l, us[(col / 2) * step], vs[(col / 2) * step]);
+        let (mut each_u, mut each_v) = ([0u8; PLANAR_RUN], [0u8; PLANAR_RUN]);
+        for (i, (ys, line)) in ys.chunks(PLANAR_RUN).zip(line.chunks_mut(PLANAR_RUN * 3)).enumerate() {
+            let cell = i * (PLANAR_RUN / 2) * step;
+            doubled(&us[cell..], step, &mut each_u);
+            doubled(&vs[cell..], step, &mut each_v);
+            run_to_rgb(ys, &each_u, &each_v, black, line);
         }
     });
     Some(())
@@ -175,9 +220,6 @@ pub fn read_bgr(frame: &Frame, out: &mut [u8]) -> bool {
     over_rows(out, w * 3, |y, line| swap_red_blue(bgr.row(y, w), line));
     true
 }
-
-/// How many pixels the 4:2:0 row loop takes at a time, split into planes on the stack.
-const PLANAR_RUN: usize = 64;
 
 #[inline(always)]
 fn split_rgb(px: &[u8], r: &mut [u8; PLANAR_RUN], g: &mut [u8; PLANAR_RUN], b: &mut [u8; PLANAR_RUN]) {
@@ -298,11 +340,7 @@ pub fn frame_rgb(frame: &Frame) -> Option<Vec<u8>> {
     match frame.format {
         PixelFormat::Rgba => out.as_chunks_mut::<3>().0.iter_mut().zip(frame.data.as_chunks::<4>().0).for_each(|(o, p)| *o = [p[0], p[1], p[2]]),
         PixelFormat::Bgra => out.as_chunks_mut::<3>().0.iter_mut().zip(frame.data.as_chunks::<4>().0).for_each(|(o, p)| *o = [p[2], p[1], p[0]]),
-        PixelFormat::I420 | PixelFormat::Nv12 => read_420(frame, &mut out, |y, u, v| {
-            let c = (y as f32 - 16.0).max(0.0) * 1.164_383;
-            let (du, dv) = (u as f32 - 128.0, v as f32 - 128.0);
-            [byte(c + 1.596_027 * dv), byte(c - 0.391_762 * du - 0.812_968 * dv), byte(c + 2.017_232 * du)]
-        })?,
+        PixelFormat::I420 | PixelFormat::Nv12 => read_420(frame, &mut out, true)?,
     }
     Some(out)
 }
@@ -843,15 +881,19 @@ mod tests {
     fn a_big_frame_reads_the_same_as_pixel_by_pixel() {
         let (w, h) = (1001usize, 301usize);
         let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+        let pixel = |y: u8, u: u8, v: u8| {
+            let c = (y as f32 - 16.0).max(0.0) * 1.164_383;
+            let (du, dv) = (u as f32 - 128.0, v as f32 - 128.0);
+            [byte(c + 1.596_027 * dv), byte(c - 0.391_762 * du - 0.812_968 * dv), byte(c + 2.017_232 * du)]
+        };
         for format in [PixelFormat::I420, PixelFormat::Nv12] {
             let frame = picture(w, h, format);
-            let mut out = vec![0; w * h * 3];
-            read_420(&frame, &mut out, |y, u, v| [y, u, v]).unwrap();
-            for (y, x) in [(0, 0), (150, 1000), (149, 3), (300, 17), (300, 1000)] {
+            let out = frame_rgb(&frame).unwrap();
+            for (y, x) in [(0, 0), (150, 1000), (149, 3), (300, 17), (300, 1000), (7, 63), (7, 64), (7, 65)] {
                 let cell = (y / 2) * cw + x / 2;
                 let chroma = &frame.data[w * h..];
                 let (u, v) = if format == PixelFormat::Nv12 { (chroma[cell * 2], chroma[cell * 2 + 1]) } else { (chroma[cell], chroma[cw * ch + cell]) };
-                assert_eq!(out[(y * w + x) * 3..][..3], [frame.data[y * w + x], u, v], "{format:?} {x},{y}");
+                assert_eq!(out[(y * w + x) * 3..][..3], pixel(frame.data[y * w + x], u, v), "{format:?} {x},{y}");
             }
         }
     }

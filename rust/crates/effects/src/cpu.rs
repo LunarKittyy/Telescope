@@ -67,7 +67,7 @@ impl Rgb {
                     o.copy_from_slice(&[p[r], p[1], p[b]]);
                 }
             }
-            PixelFormat::I420 | PixelFormat::Nv12 => read_420(frame, &mut out.data, from_yuv)?,
+            PixelFormat::I420 | PixelFormat::Nv12 => read_420(frame, &mut out.data, false)?,
             _ => return None,
         }
         Some(out)
