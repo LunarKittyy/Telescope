@@ -1616,7 +1616,7 @@ mod tests {
         assert_eq!(cams.opened.lock().unwrap()[0], (0, 4, 4, 24));
         let sent = cams.frames.lock().unwrap()[0].clone();
         assert_eq!((sent.width, sent.height, sent.format, sent.data.len()), (4, 4, PixelFormat::I420, 24), "the 4x2 frame fitted to the square canvas");
-        assert_eq!(sent.i420_planes().unwrap().0[..4], [0; 4], "with its bar");
+        assert_eq!(sent.i420_planes().unwrap().0[..4], [16; 4], "with its bar");
         assert_eq!(opens.gone(), 1);
         assert_eq!(*cams.life.lock().unwrap().last().unwrap(), "close");
         let log = log.lock().unwrap();

@@ -18,8 +18,8 @@ const NOT_IN_THE_TEMPLATE: [(&str, &str); 16] = [
     // Texts that only the Rust app has: Slint has no inline links, and its accessibility labels and Lua plugins are new
     ("Smooth", "the preview cap, Rust only"),
     ("Show every frame in the preview. Uses a bit more CPU.", "the preview cap, Rust only"),
-    ("If the card fails, the processor takes over by itself until you restart Telescope.", "hardware decoding's fallback, Rust only"),
-    ("The graphics card failed, so the processor decodes until you restart Telescope", "hardware decoding's fallback, Rust only"),
+    ("If the card fails the processor takes over until you restart Telescope.", "hardware decoding's fallback, Rust only"),
+    ("The graphics card failed and the processor is decoding until you restart Telescope", "hardware decoding's fallback, Rust only"),
     ("Pairing code", "an accessibility label"),
     ("Page", "an accessibility label"),
     ("That source has gone.", "only in the Rust app"),
