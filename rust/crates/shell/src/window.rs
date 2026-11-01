@@ -23,6 +23,13 @@ use telescope_core::source::Phones;
 use telescope_core::ui::{SlintSource, UiEvent, UiSpec};
 use telescope_core::{BusSender, Frame, PixelFormat};
 
+static APP_ID: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// The binary says which desktop entry its windows belong to before they open (autostart::APP_ID, on a dev copy with -dev).
+pub fn use_app_id(id: String) {
+    let _ = APP_ID.set(id);
+}
+
 /// Called once when the window has been shown (or put in the tray), before the event loop runs.
 #[derive(Clone)]
 pub struct ShownHook(pub Arc<dyn Fn() + Send + Sync>);
@@ -1402,6 +1409,12 @@ pub fn build_app(file: ConfigFile, services: Arc<Services>, opts: Option<WindowO
 
 pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     let gpu_painter = crate::preview::select_wgpu_backend();
+    // Wayland takes a window's icon from the desktop entry named like this, not from the window
+    if let Some(id) = APP_ID.get() {
+        if let Err(e) = slint::set_xdg_app_id(id.as_str()) {
+            log::info!("Couldn't set the window's app id: {e}");
+        }
+    }
     let window = build_app(ConfigFile::default(), services.clone(), Some(opts.clone()))?;
     *window.painter.borrow_mut() = gpu_painter;
     if let Some(t0) = std::env::var("TELESCOPE_T0").ok().and_then(|v| v.parse::<u64>().ok()) {

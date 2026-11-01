@@ -16,6 +16,8 @@ pub struct TrayItem {
 pub trait Tray: Send {
     fn set_items(&mut self, items: &[TrayItem]);
     fn set_tooltip(&mut self, text: &str);
+    /// What the icon shows: the camera streaming, and the mic streaming as Some(muted) (create_tray_icon).
+    fn set_state(&mut self, _camera: bool, _mic: Option<bool>) {}
     /// The tray item clicked since last asked, or the icon itself as "".
     fn poll_click(&mut self) -> Option<String>;
 }

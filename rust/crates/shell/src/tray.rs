@@ -76,9 +76,14 @@ impl Window {
     pub fn refresh_tray_tip(&self) {
         let tip = {
             let st = self.state.borrow();
-            tooltip(st.streams.streaming, !st.streams.camera_off, st.mic)
+            let (streaming, camera_on) = (st.streams.streaming, !st.streams.camera_off);
+            let mic = (streaming && st.mic.0).then_some(st.mic.1);
+            (tooltip(streaming, camera_on, st.mic), streaming && camera_on, mic)
         };
-        self.with_tray(|t| t.set_tooltip(&tip));
+        self.with_tray(|t| {
+            t.set_tooltip(&tip.0);
+            t.set_state(tip.1, tip.2);
+        });
     }
 
     /// What was clicked in the tray since last asked: the icon toggles the window, the menu does what it says.

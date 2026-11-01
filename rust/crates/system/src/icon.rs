@@ -19,6 +19,13 @@ pub struct TrayShows {
     pub mic: Mic,
 }
 
+impl TrayShows {
+    /// mic: whether it streams, as Some(muted).
+    pub fn from_stream(camera: bool, mic: Option<bool>) -> TrayShows {
+        TrayShows { camera, mic: mic.map_or(Mic::Off, |muted| if muted { Mic::Muted } else { Mic::On }) }
+    }
+}
+
 /// The mic on the tray icon.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Mic {

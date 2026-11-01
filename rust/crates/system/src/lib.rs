@@ -2,6 +2,7 @@
 
 pub mod autostart;
 pub mod hotkeys;
+pub mod icon;
 #[cfg(target_os = "linux")]
 pub mod hotkeys_portal;
 pub mod hotkeys_windows;

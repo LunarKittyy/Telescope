@@ -121,7 +121,7 @@
 "A browser reached this computer but hasn't accepted its certificate yet. Tap through the warning." = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
 "Address" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
 "Browser" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
-"Browser camera" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"Browser camera" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs", note = "Differs on purpose: its card sits right under Connection, where Qt has it in the right column." }
 "Browser camera isn't available" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
 "Browser, last connected {date}" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
 "Can't keep up" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs", note = "Differs on purpose: a browser that sends all it makes and has no cpu or bandwidth limit is not behind (StreamSource::camera_limited)" }
@@ -5082,17 +5082,17 @@
 "stream-streaming-usb" = { status = "todo" }
 # ── dialogs
 "dialog-adb-licence" = { status = "ported", rust = "rust/app/src/scenes.rs" }
-"dialog-add-phone" = { status = "ported", rust = "rust/app/src/scenes.rs", note = "Differs on purpose: Browser camera sits beside Android when its plugin is on, and the dialog is centred on the window" }
+"dialog-add-phone" = { status = "ported", rust = "rust/app/src/scenes.rs", note = "Differs on purpose: Browser camera sits beside Android when its plugin is on, and the dialog is centred on the window The QR code shrinks in whole device pixels to fit a smaller window, Qt keeps 6px modules." }
 "dialog-add-phone-done" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "dialog-add-phone-usb" = { status = "ported", rust = "rust/app/src/scenes.rs" }
 "dialog-already-running" = { status = "todo" }
 "dialog-lock-held" = { status = "todo" }
 "dialog-phone-remove" = { status = "todo" }
 "dialog-phone-rename" = { status = "todo" }
-"dialog-phones" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"dialog-phones" = { status = "ported", rust = "rust/app/src/scenes.rs", note = "Differs on purpose: an in-window pop-up with the shared dialog edge, centred in the window. Rename and Remove replace it and bring it back, and Add phone replaces it, since pop-ups do not stack." }
 "dialog-preset-replace" = { status = "todo" }
 "dialog-preset-save" = { status = "todo" }
-"dialog-shortcut" = { status = "ported", rust = "rust/app/src/scenes.rs" }
+"dialog-shortcut" = { status = "ported", rust = "rust/app/src/scenes.rs", note = "Differs on purpose: an in-window pop-up with the shared dialog edge, centred in the window." }
 "dialog-vaapi" = { status = "dropped", reason = "Rust opens FFmpeg's hardware decoders directly, so there's no PyAV build to set up" }
 "dialog-vb-cable" = { status = "todo" }
 "menu-presets" = { status = "todo" }
