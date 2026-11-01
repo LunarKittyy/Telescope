@@ -4,7 +4,7 @@
 
 use crate::cpu::Rgb;
 use std::sync::OnceLock;
-use telescope_core::image::{over_rows, rint};
+use telescope_core::image::{over_bands, rint};
 pub use telescope_core::image::{grey_of, resize_area, resize_linear_fixed};
 
 /// A single-channel 8-bit picture: a mask, or brightness.
@@ -366,30 +366,52 @@ fn gauss(src: &[u8], w: usize, h: usize, ch: usize, k: &[f32]) -> Vec<u8> {
     out
 }
 
+/// cv2.blur with running sums, so a big kernel costs the same as a small one. The rounding is OpenCV's for kernels of an odd area,
+/// the only ones used.
 fn boxed(src: &[u8], w: usize, h: usize, ch: usize, kw: usize, kh: usize) -> Vec<u8> {
-    let kx = vec![1.0 / kw as f32; kw];
-    let ky = vec![1.0 / kh as f32; kh];
-    let across = {
-        let mut a = vec![0f32; w * h * ch];
-        let half = (kw / 2) as isize;
-        // Where each column's kernel reads, once: reflect is the slow part
-        let columns: Vec<usize> = (0..w).flat_map(|x| (0..kw).map(move |j| reflect(x as isize + j as isize - half, w))).collect();
-        over_rows(&mut a, w * ch, |y, line| {
-            let row = &src[y * w * ch..][..w * ch];
-            for x in 0..w {
-                for c in 0..ch {
-                    line[x * ch + c] = columns[x * kw..][..kw].iter().zip(&kx).map(|(at, wt)| row[at * ch + c] as f32 * wt).sum();
-                }
+    let n = (kw * kh) as u32;
+    let table: Vec<u8> = (0..=255 * n).map(|s| ((2 * s + n) / (2 * n)) as u8).collect();
+    let rl = w * ch;
+    let (half_w, half_h) = ((kw / 2) as isize, (kh / 2) as isize);
+    // Where the pixels each side of a row come from, once: reflect is the slow part
+    let edges: Vec<usize> = (-half_w..0).chain(w as isize..(w + kw) as isize - half_w - 1).map(|x| reflect(x, w) * ch).collect();
+    let across = |y: usize, padded: &mut [u8], line: &mut [u32]| {
+        let row = &src[y * rl..][..rl];
+        let (before, rest) = padded.split_at_mut(half_w as usize * ch);
+        let (middle, after) = rest.split_at_mut(rl);
+        middle.copy_from_slice(row);
+        for (p, &at) in before.chunks_exact_mut(ch).chain(after.chunks_exact_mut(ch)).zip(&edges) {
+            p.copy_from_slice(&row[at..at + ch]);
+        }
+        for c in 0..ch {
+            let mut sum: u32 = (0..kw).map(|i| padded[i * ch + c] as u32).sum();
+            line[c] = sum;
+            for x in 1..w {
+                sum = sum + padded[(x + kw - 1) * ch + c] as u32 - padded[(x - 1) * ch + c] as u32;
+                line[x * ch + c] = sum;
             }
-        });
-        a
+        }
     };
-    let half = (kh / 2) as isize;
-    let mut out = vec![0u8; w * h * ch];
-    over_rows(&mut out, w * ch, |y, line| {
-        let rows: Vec<&[f32]> = (0..kh).map(|j| &across[reflect(y as isize + j as isize - half, h) * w * ch..][..w * ch]).collect();
-        for (i, o) in line.iter_mut().enumerate() {
-            *o = round8(rows.iter().zip(&ky).map(|(row, wt)| row[i] * wt).sum());
+    let mut out = vec![0u8; h * rl];
+    let table = &table;
+    over_bands(&mut out, rl, |first, part| {
+        let mut padded = vec![0u8; (w + kw - 1) * ch];
+        // The kernel's rows, the one a step down replaces at index (row's place) % kh
+        let mut window = vec![0u32; kh * rl];
+        let mut sums = vec![0u32; rl];
+        for (j, line) in window.chunks_exact_mut(rl).enumerate() {
+            across(reflect(first as isize + j as isize - half_h, h), &mut padded, line);
+            sums.iter_mut().zip(&*line).for_each(|(s, v)| *s += v);
+        }
+        let rows = part.len() / rl;
+        for (i, line) in part.chunks_exact_mut(rl).enumerate() {
+            line.iter_mut().zip(&sums).for_each(|(o, s)| *o = table[*s as usize]);
+            if i + 1 < rows {
+                let oldest = &mut window[(i % kh) * rl..][..rl];
+                sums.iter_mut().zip(&*oldest).for_each(|(s, v)| *s -= v);
+                across(reflect((first + i + kh) as isize - half_h, h), &mut padded, oldest);
+                sums.iter_mut().zip(&*oldest).for_each(|(s, v)| *s += v);
+            }
         }
     });
     out
@@ -514,6 +536,31 @@ mod tests {
     fn nearest_takes_the_pixel_the_left_edge_is_in() {
         let a = Rgb { w: 2, h: 1, data: vec![1, 1, 1, 2, 2, 2] };
         assert_eq!(a.nearest(4, 1).data, vec![1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2]);
+    }
+
+    // cv2.blur of small pictures, kernels wider than the picture included, so the edges reflect more than once
+    #[test]
+    fn box_blur_matches_cv2_to_the_byte() {
+        let grey = Gray { w: 6, h: 5, data: (0..30usize).map(|i| (i * i * 7 % 251) as u8).collect() };
+        assert_eq!(grey.box_blur(9, 9).data, [96, 93, 101, 94, 99, 108, 87, 86, 93, 88, 92, 100, 91, 88, 94, 89, 91, 101, 94, 91, 99, 92, 97, 106, 86, 85, 91, 87, 90, 98]);
+        assert_eq!(grey.box_blur(9, 1).data, [47, 54, 59, 63, 65, 66, 123, 111, 126, 111, 123, 133, 89, 87, 83, 78, 71, 91, 58, 65, 71, 75, 77, 78, 140, 129, 143, 129, 141, 151]);
+        assert_eq!(grey.box_blur(3, 1).data, [5, 12, 33, 68, 117, 133, 62, 97, 118, 153, 119, 163, 121, 100, 122, 74, 40, 28, 14, 22, 44, 80, 130, 146, 77, 113, 135, 171, 138, 183]);
+        let colour = Rgb { w: 7, h: 4, data: (0..84usize).map(|i| (i * i * 11 % 253) as u8).collect() };
+        assert_eq!(colour.box_blur(9, 9).data, [83, 82, 83, 78, 81, 83, 81, 81, 84, 84, 84, 81, 96, 90, 89, 89, 101, 89, 93, 103, 101, 83, 79, 86, 79, 80, 88, 81, 79, 87, 82, 84, 85, 93, 88, 93, 87, 101, 94, 93, 102, 105, 83, 82, 88, 81, 82, 91, 82, 83, 89, 83, 87, 87, 92, 90, 94, 89, 102, 97, 96, 101, 109, 82, 80, 90, 82, 81, 96, 82, 81, 92, 81, 86, 92, 89, 88, 97, 88, 103, 102, 96, 100, 113]);
+        assert_eq!(colour.box_blur(3, 1).data, [66, 121, 29, 81, 73, 88, 125, 99, 95, 114, 70, 132, 132, 70, 114, 95, 99, 125, 139, 81, 128, 22, 33, 66, 77, 26, 81, 73, 88, 125, 99, 95, 114, 70, 132, 132, 70, 114, 95, 70, 136, 139, 66, 33, 22, 77, 66, 77, 26, 81, 73, 88, 125, 99, 95, 114, 70, 132, 132, 70, 88, 110, 70, 114, 37, 66, 81, 26, 77, 66, 77, 26, 81, 73, 88, 125, 99, 95, 114, 70, 132, 110, 88, 88]);
+    }
+
+    #[test]
+    fn a_tall_picture_blurs_the_same_across_its_bands() {
+        let (w, h, k) = (40usize, 300usize, 9usize);
+        let data: Vec<u8> = (0..w * h).map(|i| (i * i % 253) as u8).collect();
+        let half = (k / 2) as isize;
+        let want: Vec<u8> = (0..w * h).map(|i| {
+            let (x, y) = ((i % w) as isize, (i / w) as isize);
+            let sum: u32 = (-half..=half).flat_map(|a| (-half..=half).map(move |b| (a, b))).map(|(a, b)| data[reflect(y + a, h) * w + reflect(x + b, w)] as u32).sum();
+            ((2 * sum + 81) / 162) as u8
+        }).collect();
+        assert_eq!(Gray { w, h, data }.box_blur(k, k).data, want);
     }
 
     #[test]
