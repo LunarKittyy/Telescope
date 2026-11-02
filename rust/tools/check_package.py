@@ -186,16 +186,39 @@ def check_appimage(image: Path, args):
     check_stamp(f"{name}'s program", run_info(image.resolve(), flags=("--appimage-extract-and-run",)), args)
 
 
+def pe_imports(data: bytes) -> set[str]:
+    """The DLLs a 64-bit Windows program loads at start, lower case. The program's own text may name others without needing them."""
+    u16 = lambda at: int.from_bytes(data[at:at + 2], "little")
+    u32 = lambda at: int.from_bytes(data[at:at + 4], "little")
+    header = u32(0x3C)
+    optional = header + 24
+    sections = [optional + u16(header + 20) + 40 * i for i in range(u16(header + 6))]
+
+    def offset(rva: int) -> int:
+        for at in sections:
+            start, size, raw = u32(at + 12), u32(at + 16), u32(at + 20)
+            if start <= rva < start + size:
+                return rva - start + raw
+        raise ValueError(f"nothing is mapped at {rva:#x}")
+
+    names, entry = set(), offset(u32(optional + 120))
+    while u32(entry + 12):
+        at = offset(u32(entry + 12))
+        names.add(data[at:data.index(b"\0", at)].decode("ascii").lower())
+        entry += 20
+    return names
+
+
 def check_windows(name: str, folder: Path, args):
     names = files_in(folder)
     check_common(name, folder, names, WINDOWS_FILES)
     check_libraries(name, folder, names, WINDOWS_LIBRARIES)
     # The Python app brought its own, but a clean Windows may have no VC++ redistributable, and then the program can't start or roll back
     if (folder / "TelescopeDesktop.exe").is_file():
-        program = (folder / "TelescopeDesktop.exe").read_bytes().lower()
-        for dll in (b"vcruntime140.dll", b"vcruntime140_1.dll", b"msvcp140.dll"):
-            if dll in program:
-                problems.append(f"{name}'s program needs {dll.decode()}")
+        needs = pe_imports((folder / "TelescopeDesktop.exe").read_bytes())
+        for dll in ("vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll"):
+            if dll in needs:
+                problems.append(f"{name}'s program needs {dll}")
     if not (folder / "TelescopeDesktop.exe").is_file() or args.no_run or sys.platform != "win32":
         return
     check_stamp(f"{name}'s exe", run_info(folder / "TelescopeDesktop.exe"), args)
