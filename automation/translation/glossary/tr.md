@@ -89,6 +89,7 @@ Avoid: aplikasyon, download etmek, upload etmek, restart etmek, aktif etmek, dea
 | stabilization / Optical image stabilization | sabitleme / Optik görüntü sabitleme |
 | torch / noise reduction / sharpening | El feneri / Gürültü azaltma / Keskinleştirme |
 | gain / Max gain / limiter / Auto level | kazanç / Maksimum kazanç / Sınırlayıcı / Otomatik seviye |
+| gain (colour grading: Lift / Gamma / Gain / Offset) | gain (not the audio or sensor gain term; the wheel names are used like the other three) |
 | stops (exposure unit) | durak |
 | Automatic / USB only / Wi-Fi only / Local only - USB | Otomatik / Sadece USB / Sadece Wi-Fi / Sadece yerel - USB |
 | Allow from this source (Android) | Bu kaynaktan izin ver |

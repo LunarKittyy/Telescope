@@ -90,6 +90,7 @@ Avoid: kamu, kau, gawai, peranti, mengalirkan, aliran, bungkam, aplikasikan, pen
 | torch / noise reduction / sharpening | Lampu senter / Pengurangan noise / Penajaman |
 | sharpness (a camera setting) | Ketajaman |
 | gain / Max gain / limiter / Auto level | gain / Gain maks. / limiter / Level otomatis |
+| gain (colour grading: Lift / Gamma / Gain / Offset) | Gain (not the audio or sensor gain term; the wheel names are used like the other three) |
 | stops (exposure unit) | stop |
 | Automatic / USB only / Wi-Fi only / Local only - USB | Otomatis / Hanya USB / Hanya Wi-Fi / Hanya lokal - USB |
 | Allow from this source (Android) | Izinkan dari sumber ini |

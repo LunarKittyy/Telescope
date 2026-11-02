@@ -91,6 +91,7 @@ Avoid: संगणक, दूरभाष, चलभाष, अनुप्र�
 | stabilization / Optical image stabilization | स्टेबलाइज़ेशन / ऑप्टिकल इमेज स्टेबलाइज़ेशन |
 | torch / noise reduction / sharpening | टॉर्च / नॉइज़ रिडक्शन / शार्पनेस |
 | gain / Max gain / limiter / Auto level | गेन / अधिकतम गेन / लिमिटर / ऑटो लेवल |
+| gain (colour grading: Lift / Gamma / Gain / Offset) | गेन (not the audio or sensor gain term; the wheel names are used like the other three) |
 | stops (exposure unit) | स्टॉप्स |
 | Automatic / USB only / Wi-Fi only / Local only - USB | ऑटोमैटिक / सिर्फ़ USB / सिर्फ़ Wi-Fi / सिर्फ़ लोकल - USB |
 | Allow from this source (Android) | इस स्रोत से अनुमति दें |

@@ -91,6 +91,7 @@ Avoid: utilizador, ecrã, ficheiro, telemóvel, rato, descarregar, descarregamen
 | stabilization / Optical image stabilization | estabilização / Estabilização óptica de imagem |
 | torch / noise reduction / sharpening | Lanterna / Redução de ruído / Nitidez |
 | gain / Max gain / limiter / Auto level | ganho / Ganho máximo / Limitador / Nível automático |
+| gain (colour grading: Lift / Gamma / Gain / Offset) | Gain (not the audio or sensor gain term; the wheel names are used like the other three) |
 | stops (exposure unit) | pontos |
 | Automatic / USB only / Wi-Fi only / Local only - USB | Automático / Apenas USB / Apenas Wi-Fi / Apenas local - USB |
 | Allow from this source (Android) | Permitir desta fonte |

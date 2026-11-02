@@ -89,6 +89,7 @@ Avoid: данный, настоящий, осуществлять, произв�
 | stabilization / Optical image stabilization | стабилизация / Оптическая стабилизация изображения |
 | torch / noise reduction / sharpening | Фонарик / Шумоподавление / Резкость |
 | gain / Max gain / limiter / Auto level | усиление / Макс. усиление / Лимитер / Автоуровень |
+| gain (colour grading: Lift / Gamma / Gain / Offset) | гейн (not the audio or sensor gain term; the wheel names are used like the other three) |
 | stops (exposure unit) | ступени |
 | Automatic / USB only / Wi-Fi only / Local only - USB | Автоматически / Только USB / Только Wi-Fi / Только локально — USB |
 | Allow from this source (Android) | Разрешить для этого источника |

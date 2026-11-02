@@ -89,6 +89,7 @@ Avoid: ladda ned, mick, endast, denna, detta, dessa, erhålla, tillhandahålla, 
 | stabilization / Optical image stabilization | stabilisering / Optisk bildstabilisering |
 | torch / noise reduction / sharpening | Ficklampa / Brusreducering / Skärpning |
 | gain / Max gain / limiter / Auto level | förstärkning / Max förstärkning / Begränsare / Automatisk nivå |
+| gain (colour grading: Lift / Gamma / Gain / Offset) | Gain (not the audio or sensor gain term; the wheel names are used like the other three) |
 | stops (exposure unit) | steg |
 | Automatic / USB only / Wi-Fi only / Local only - USB | Automatiskt / Bara USB / Bara Wi-Fi / Bara lokalt - USB |
 | Allow from this source (Android) | Tillåt från den här källan |

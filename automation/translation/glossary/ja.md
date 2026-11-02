@@ -92,6 +92,7 @@ Avoid: あなた, 貴方, 〜を行う, 〜して下さい, 〜する事がで�
 | stabilization / Optical image stabilization | 手ぶれ補正 / 光学式手ぶれ補正 |
 | torch / noise reduction / sharpening | ライト / ノイズ低減 / シャープ化 |
 | gain / Max gain / limiter / Auto level | ゲイン / 最大ゲイン / リミッター / 自動レベル調整 |
+| gain (colour grading: Lift / Gamma / Gain / Offset) | ゲイン (not the audio or sensor gain term; the wheel names are used like the other three) |
 | stops (exposure unit) | 段 |
 | Automatic / USB only / Wi-Fi only / Local only - USB | 自動 / USBのみ / Wi-Fiのみ / ローカルのみ - USB |
 | Allow from this source (Android) | この提供元のアプリを許可 |

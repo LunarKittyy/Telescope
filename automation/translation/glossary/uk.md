@@ -90,6 +90,7 @@ Avoid: скачувати, закачати, включити, виключит�
 | stabilization / Optical image stabilization | стабілізація / Оптична стабілізація зображення |
 | torch / noise reduction / sharpening | Ліхтарик / Шумозаглушення / Різкість |
 | gain / Max gain / limiter / Auto level | підсилення / Макс. підсилення / Лімітер / Авторівень |
+| gain (colour grading: Lift / Gamma / Gain / Offset) | гейн (not the audio or sensor gain term; the wheel names are used like the other three) |
 | stops (exposure unit) | ступені |
 | Automatic / USB only / Wi-Fi only / Local only - USB | Автоматично / Лише USB / Лише Wi-Fi / Лише локально - USB |
 | Allow from this source (Android) | Дозволити для цього джерела |

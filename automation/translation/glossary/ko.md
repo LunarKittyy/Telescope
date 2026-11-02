@@ -91,6 +91,7 @@ Avoid: 당신, 귀하, 너, 어플, 핸드폰, 셋팅, 유저, 다운로드 받�
 | stabilization / Optical image stabilization | 손떨림 보정 / 광학 손떨림 보정 |
 | torch / noise reduction / sharpening | 손전등 / 노이즈 감소 / 선명도 |
 | gain / Max gain / limiter / Auto level | 게인 / 최대 게인 / 리미터 / 자동 레벨 |
+| gain (colour grading: Lift / Gamma / Gain / Offset) | 게인 (not the audio or sensor gain term; the wheel names are used like the other three) |
 | stops (exposure unit) | 스톱 |
 | Automatic / USB only / Wi-Fi only / Local only - USB | 자동 / USB 전용 / Wi-Fi 전용 / 로컬 전용 - USB |
 | Allow from this source (Android) | 이 출처 허용 |

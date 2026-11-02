@@ -92,6 +92,7 @@ Avoid: 您, 该, 进行, 被 (unnatural passive), 软体, 硬体, 荧幕, 影片
 | stabilization / Optical image stabilization | 防抖 / 光学防抖 |
 | torch / noise reduction / sharpening | 手电筒 / 降噪 / 锐化 |
 | gain / Max gain / limiter / Auto level | 增益 / 最大增益 / 限制器 / 自动电平 |
+| gain (colour grading: Lift / Gamma / Gain / Offset) | 增益 (not the audio or sensor gain term; the wheel names are used like the other three) |
 | stops (exposure unit) | 档 |
 | Automatic / USB only / Wi-Fi only / Local only - USB | 自动 / 仅限 USB / 仅限 Wi-Fi / 仅限本地 - USB |
 | Allow from this source (Android) | 允许来自此来源的应用 |

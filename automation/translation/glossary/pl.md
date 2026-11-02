@@ -90,6 +90,7 @@ Avoid: aplikować, wspierać, niniejszy, dokonać, ściągać, kamerka, zdeinsta
 | stabilization / Optical image stabilization | stabilizacja / optyczna stabilizacja obrazu |
 | torch / noise reduction / sharpening | Latarka / Redukcja szumów / Wyostrzanie |
 | gain / Max gain / limiter / Auto level | wzmocnienie / Maksymalne wzmocnienie / Ogranicznik / Automatyczny poziom |
+| gain (colour grading: Lift / Gamma / Gain / Offset) | Gain (not the audio or sensor gain term; the wheel names are used like the other three) |
 | stops (exposure unit) | działki EV (stopnie) |
 | Automatic / USB only / Wi-Fi only / Local only - USB | Automatycznie / Tylko USB / Tylko Wi-Fi / Tylko lokalnie - USB |
 | Allow from this source (Android) | Zezwalaj z tego źródła |

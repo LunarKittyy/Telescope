@@ -90,6 +90,7 @@ Avoid: downloaden, lediglich, mittels, zwecks, Präferenzen, Applikation, selekt
 | stabilization / Optical image stabilization | Stabilisierung / Optische Bildstabilisierung |
 | torch / noise reduction / sharpening | Taschenlampe / Rauschunterdrückung / Schärfen |
 | gain / Max gain / limiter / Auto level | Verstärkung / Max. Verstärkung / Limiter / Automatischer Pegel |
+| gain (colour grading: Lift / Gamma / Gain / Offset) | Gain (not the audio or sensor gain term; the wheel names are used like the other three) |
 | stops (exposure unit) | Blendenstufen |
 | Automatic / USB only / Wi-Fi only / Local only - USB | Automatisch / Nur USB / Nur Wi-Fi / Nur lokal - USB |
 | Allow from this source (Android) | Aus dieser Quelle zulassen |

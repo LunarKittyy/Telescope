@@ -90,6 +90,7 @@ Avoid: remover, salvar, soportar, librería, customizar, resetear, accesar, perf
 | stabilization / Optical image stabilization | estabilización / Estabilización óptica de imagen |
 | torch / noise reduction / sharpening | Linterna / Reducción de ruido / Nitidez |
 | gain / Max gain / limiter / Auto level | ganancia / Ganancia máxima / limitador / Nivel automático |
+| gain (colour grading: Lift / Gamma / Gain / Offset) | Gain (not the audio or sensor gain term; the wheel names are used like the other three) |
 | stops (exposure unit) | pasos |
 | Automatic / USB only / Wi-Fi only / Local only - USB | Automático / Solo USB / Solo Wi-Fi / Solo local - USB |
 | Allow from this source (Android) | Permitir desde esta fuente |

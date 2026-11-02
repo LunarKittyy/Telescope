@@ -89,6 +89,7 @@ Avoid: tải xuống, kích chuột, nhắp chuột, tiến hành, thực hiện
 | stabilization / Optical image stabilization | chống rung / Chống rung quang học |
 | torch / noise reduction / sharpening | Đèn pin / Giảm nhiễu / Tăng độ nét |
 | gain / Max gain / limiter / Auto level | độ khuếch đại / Độ khuếch đại tối đa / Bộ giới hạn / Mức tự động |
+| gain (colour grading: Lift / Gamma / Gain / Offset) | Gain (not the audio or sensor gain term; the wheel names are used like the other three) |
 | stops (exposure unit) | bước sáng |
 | Automatic / USB only / Wi-Fi only / Local only - USB | Tự động / Chỉ USB / Chỉ Wi-Fi / Chỉ nội bộ - USB |
 | Allow from this source (Android) | Cho phép từ nguồn này |

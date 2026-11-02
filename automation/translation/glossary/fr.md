@@ -92,6 +92,7 @@ Avoid: digital, supporter, customiser, sauver, initier, processer, délivrer, ch
 | stabilization / Optical image stabilization | stabilisation / Stabilisation optique de l'image |
 | torch / noise reduction / sharpening | Lampe torche / Réduction du bruit / Netteté |
 | gain / Max gain / limiter / Auto level | gain / Gain maximal / limiteur / Niveau automatique |
+| gain (colour grading: Lift / Gamma / Gain / Offset) | Gain (not the audio or sensor gain term; the wheel names are used like the other three) |
 | stops (exposure unit) | IL (indices de lumination) |
 | Automatic / USB only / Wi-Fi only / Local only - USB | Automatique / USB uniquement / Wi-Fi uniquement / Local uniquement - USB |
 | Allow from this source (Android) | Autoriser cette source |
