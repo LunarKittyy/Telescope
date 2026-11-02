@@ -427,7 +427,7 @@ fn ours(entry: &Path) -> io::Result<bool> {
     }
     if name == "ui-kit" {
         let inside = std::fs::read_dir(entry)?.map(|e| e.map(|e| e.file_name().to_string_lossy().into_owned())).collect::<io::Result<BTreeSet<String>>>()?;
-        return Ok(inside.contains("ui-kit.slint") && inside.iter().all(|n| ["ui-kit.slint", "theme.slint", "icons.slint", "icons", "widgets"].contains(&n.as_str())));
+        return Ok(["ui-kit.slint", "theme.slint", "icons.slint"].iter().all(|n| inside.contains(*n))); // the kit gains files, so what it holds beyond these isn't checked
     }
     if let Some(allowed) = folders.get(name.as_str()) {
         // A folder that can't be looked into is an error, not an empty one
@@ -754,10 +754,13 @@ mod tests {
         write(&old.join("lib-12/PyQt6/qt.dll"), "qt");
         write(&old.join("lib-project/main.rs"), "the user's");
         write(&old.join("notes.txt"), "the user's");
+        for file in ["ui-kit.slint", "theme.slint", "icons.slint", "menus/any.slint"] {
+            write(&old.join("ui-kit").join(file), "kit");
+        }
         write(&new.join(PENDING_MOVE), &old.to_string_lossy());
         let done = remove_unzipped_copy(&old, &new, 1, Duration::ZERO, &[]);
         assert!(done, "Telescope's part of it is gone, the rest is left to the user");
-        assert!(!old.join("Telescope.apk").exists() && !old.join("lib-12").exists());
+        assert!(!old.join("Telescope.apk").exists() && !old.join("lib-12").exists() && !old.join("ui-kit").exists());
         assert!(old.join("platform-tools/mine.txt").exists() && old.join("lib-project/main.rs").exists() && old.join("notes.txt").exists());
         // Once the exe is gone there is nothing left to try again, so the marker goes
         assert!(!old.join(EXE_NAME).exists() && new.join(PENDING_MOVE).exists());
