@@ -46,6 +46,8 @@ SCENARIOS = [
     "a_dropped_wake_lock_is_asked_for_again",
     "a_lock_dropped_straight_away_is_not_asked_for_again",
     "a_third_tap_after_waking_does_not_press_stop",
+    "firefox_has_its_step_downs_cleared",
+    "chrome_has_nothing_cleared",
 ]
 
 

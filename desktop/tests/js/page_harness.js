@@ -662,6 +662,41 @@ const scenarios = {
     await page.click("stop");
     assert.strictEqual(page.value("running"), false);
   },
+
+  // Firefox's encoder steps the frame rate down for good, so its step-downs are cleared by a switch to balanced and back until Stop
+  async firefox_has_its_step_downs_cleared() {
+    const page = await connectedPage();
+    const sender = videoSender(page.peer()), seen = [], set = sender.setParameters.bind(sender);
+    sender.setParameters = async (p) => { seen.push(p.degradationPreference); return set(p); };
+    page.runTimers();
+    await page.flush();
+    assert.deepStrictEqual(seen, ["balanced", "maintain-resolution"]);
+    assert.strictEqual(sender.set.degradationPreference, "maintain-resolution");
+    await page.click("stop");
+    page.runTimers();
+    await page.flush();
+    assert.strictEqual(seen.length, 2, "cleared again after Stop");
+  },
+
+  // Chrome goes by the track's content hint and is left alone
+  async chrome_has_nothing_cleared() {
+    const page = makePage();
+    page.value("MediaStreamTrack = class { get contentHint() { return ''; } }");
+    await page.click("start");
+    const socket = page.socket();
+    socket.open();
+    await page.flush();
+    socket.message({ type: "config", width: 1280, height: 720, fps: 30, audio: false, max_kbps: 4000 });
+    socket.message({ type: "answer", sdp: "answer" });
+    await page.flush();
+    page.peer().state("connected");
+    const sender = videoSender(page.peer()), seen = [], set = sender.setParameters.bind(sender);
+    sender.setParameters = async (p) => { seen.push(p.degradationPreference); return set(p); };
+    page.runTimers();
+    await page.flush();
+    assert.deepStrictEqual(seen, []);
+    assert.strictEqual(sender.set.degradationPreference, undefined);
+  },
 };
 
 (async () => {
