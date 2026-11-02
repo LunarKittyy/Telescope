@@ -26,11 +26,10 @@
 <details>
 <summary>What Linux needs</summary>
 
-- **Python 3.12 or newer**
 - **`v4l2loopback`** from your distro, for the virtual camera (`sudo apt install v4l2loopback-dkms` on Debian and Ubuntu, `sudo dnf install v4l2loopback` on Fedora with [RPM Fusion](https://rpmfusion.org/))
 - **`adb`** only if you want USB. Wi-Fi works without it
 
-[Manual setup](docs/setup.md#linux) has the rest, including Ubuntu 22.04's older Python.
+[Manual setup](docs/setup.md#linux) has the rest.
 </details>
 
 No Android phone? [Browser camera](docs/features.md#browser-camera) streams from an iPhone, a tablet or an old laptop straight from its browser with nothing to install.
@@ -91,7 +90,7 @@ It needs Android 8 or newer. [Device compatibility](docs/device-compatibility.md
 <details>
 <summary><b>Rather not install anything on Windows?</b></summary>
 
-`Telescope-windows-portable.zip` on the [releases page](../../releases) has the same app. Extract it and run `TelescopeDesktop.exe`, keeping it in its folder since the `lib-...` folder next to it is part of the app.
+`Telescope-windows-portable.zip` on the [releases page](../../releases) has the same app. Extract it and run `TelescopeDesktop.exe`, keeping everything in its folder since the files next to it are part of the app.
 </details>
 
 <details>

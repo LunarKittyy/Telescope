@@ -16,9 +16,9 @@ Find your problem below. Nothing there? Ask in [Q&A](https://github.com/LunarKit
 ## Starting Telescope
 
 **"Telescope can't start"**
-Another program is using port 47823, or an earlier Telescope didn't close properly and still holds it. Close that program (or end `TelescopeDesktop` in Task Manager on Windows, `main.py` on Linux) and open Telescope again.
+Another program is using port 47823, or an earlier Telescope didn't close properly and still holds it. Close that program (or end `TelescopeDesktop` in Task Manager on Windows, `telescope-rs` on Linux) and open Telescope again.
 
-**"Already running for another user" (Windows)**
+**"Telescope is already running" (Windows)**
 Another account on this PC has Telescope open and both use the same local port. Close it there. Linux accounts don't share it.
 
 **"Your settings couldn't be read"**
@@ -36,7 +36,7 @@ Apps only look for cameras when they start. Restart the app if it was already op
 The `v4l2loopback` package isn't installed or loaded. Install it (`v4l2loopback-dkms` on Debian, Ubuntu and Arch, `v4l2loopback` on Fedora and Nobara through RPM Fusion, see [Manual setup](setup.md#linux)) and click **Start streaming** again. **Virtual camera & phone** in Settings can load it by hand.
 
 **Linux: `/dev/video11` is gone after a reboot**
-The module isn't loaded at boot. Starting a stream loads it again. Leave **Also switch it on at every startup** ticked in the password prompt, or switch on **Load when the computer starts** under Virtual camera & phone in Settings.
+The module isn't loaded at boot. Starting a stream loads it again. Leave **Also switch it on at every startup** ticked in the dialog that comes up when a stream starts, or switch on **Load when the computer starts** under Virtual camera & phone in Settings.
 
 **Linux: "Virtual camera is set up differently"**
 Another app (OBS's own virtual camera, for example) already loaded the module with different settings. Close that app, click **Unload** under Virtual camera & phone in Settings (or run `sudo modprobe -r v4l2loopback`) and click **Start streaming** again.
@@ -142,7 +142,7 @@ Most of it isn't Telescope's own. Measured on a Linux laptop, streaming 1080p at
 | Streaming with Background and Auto framing | 470 MB |
 
 Where it goes:
-- **Libraries, about 130 MB**: Qt draws the window, OpenCV and NumPy handle the pictures, FFmpeg decodes the video. They're loaded once and don't grow.
+- **Libraries, about 130 MB**: Slint draws the window, wgpu runs the picture steps on the graphics card and FFmpeg decodes the video. They're loaded once and don't grow.
 - **Frames from the camera, about 100 MB at 1080p**: a few copies of each picture on its way from the phone to the virtual camera. Lower resolutions need less.
 - **The vision models, about 150 MB**: only while Background, Auto framing, Expose for my face or Privacy blur is on. About 10 seconds after you switch them all off most of it is given back, and restarting Telescope frees the rest.
 - **Telescope itself, about 50 MB**: its code, settings and the wait screen.
@@ -150,13 +150,7 @@ Where it goes:
 Task managers count memory in different ways (Windows Task Manager, for one, leaves out memory other apps could share), so your numbers may not match these.
 
 **"No graphics card Telescope can use" in Video settings**
-On Linux, Telescope's decoder only uses NVIDIA cards. For AMD and Intel click **Set up VA-API…** next to it. Without a usable card Light still decodes on the processor.
-
-**VA-API setup says an existing build no longer works**
-A system update changed FFmpeg or Python. Install any packages setup lists, click **Rebuild** and restart Telescope.
-
-**VA-API setup asks for PyAV 14 or newer**
-Telescope's Python environment has an older PyAV. Upgrade it there, restart Telescope and open setup again.
+On Linux the decoder is VA-API or NVIDIA's CUDA. On Windows it's Direct3D 11. Without a usable card Light still decodes on the processor.
 
 ## Camera controls
 
@@ -180,8 +174,8 @@ The video goes over WebRTC on UDP ports picked each time, which a strict firewal
 **It stops when the phone locks or you switch apps**
 Phones pause the camera for pages in the background. Keep the page open with the screen on. Going back to it starts it again.
 
-**Firefox lowers the frame rate**
-Telescope asks Firefox to hold the resolution you picked and drop frames when the phone or Wi-Fi can't keep up. The card shows what Firefox really sends and if the frame rate gets too low a smaller resolution or a lower frame rate usually helps. Firefox older than 138 ignores the request and can still step the size down as far as 176×320. Update it or use Chrome.
+**Firefox jumps around in size or frame rate**
+Firefox can still drop frames or change size a bit when the phone or Wi-Fi struggles, but it now mostly holds the resolution you picked at about the frame rate you asked for. The card shows what Firefox really sends. If the frame rate gets too low, a smaller resolution or a lower frame rate usually helps.
 
 ## Webcams
 
@@ -214,7 +208,7 @@ Your desktop has no global shortcuts portal (only Plasma 5.27+, GNOME 48+ and Hy
 ## Plugins and extra downloads
 
 **A card or menu entry is gone**
-That part of Telescope is switched off in **Plugins**. Open Settings and go to the Plugins tab (it reads **Plugins (N off)** when something is off), switch it back on or click **Turn all back on**, then click **Restart now**.
+That part of Telescope is switched off in **Plugins**. Open Settings and go to the Plugins tab (it reads **Plugins (N off)** when something is off), switch it back on or click **Reset to defaults** (every built-in plugin goes on and the optional ones go off), then click **Restart now**.
 
 **A plugin that finds people asks for a one-time download**
 The vision download hasn't happened yet or was removed. A new Telescope version can need a newer one too. Click **Download** on the card. If it fails check that GitHub is reachable from this computer.

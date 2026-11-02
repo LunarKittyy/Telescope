@@ -135,7 +135,7 @@ An optional plugin for the look of the picture, switched on in Plugins (it needs
 
 **LUT** puts a `.cube` file on top of the grade (1D or 3D, up to 65 points per side) with a Strength slider. **Export grade…** saves the whole grade, LUT included, as a 33 or 65 point `.cube` to get the same look in other software.
 
-**Compare** splits the preview with the picture before the grade left of the line. Apps always get the graded picture. The switch in the card's header turns the grade off without losing it.
+**Compare** splits the preview with the picture before the grade left of the line. Apps always get the graded picture. The switch in the card's header turns the grade off without losing it. Each wheel, slider, the Compare button, the switch and the LUT strength can go on a key in Keyboard shortcuts.
 
 ## Notes next to the lens
 
@@ -187,7 +187,7 @@ A phone that can't do Light switches to Heavy automatically.
 
 - **Heavy** has a JPEG quality slider
 - **Light** has a bitrate slider with **Auto**, a fixed 1-100 Mbps or **Dynamic**. Dynamic sends as much as the connection can carry and backs off before the video starts to lag. If that's still too much it lowers the frame rate too (down to 15) and climbs back once there's room
-- **Hardware acceleration** under Video in Settings decodes Light on the graphics card instead of the processor, which matters most at 4K or on a laptop. It's off by default. It works on Windows with any graphics card and on Linux with NVIDIA. For AMD and Intel on Linux, **Set up VA-API…** next to it gets it working
+- **Hardware acceleration** under Video in Settings decodes Light on the graphics card instead of the processor, which matters most at 4K or on a laptop. It's off by default. It works on Windows with any graphics card and on Linux through VA-API or NVIDIA's CUDA. The line under the switch says which one it found
 - Light only lists resolutions the phone's encoder can take
 
 <details>
