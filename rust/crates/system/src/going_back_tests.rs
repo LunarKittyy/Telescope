@@ -5,7 +5,6 @@ use crate::updates::archives::{tarball, zip_of};
 use crate::updates::{Reply, Updates};
 use serde_json::json;
 use std::cell::Cell;
-use std::time::Duration;
 use telescope_core::config::ConfigFile;
 use telescope_core::testing::scratch_dir;
 
@@ -17,21 +16,21 @@ const MANIFEST: &str = r#"{"schema": 1, "version": "4.4.2", "build": 1441, "chan
     {"name": "Telescope-linux.tar.gz", "url": "https://github.com/LunarKittyy/Telescope/releases/download/v4.4.2/Telescope-linux.tar.gz",
      "sha256": "6acbc37dd8cb8fdf494ca02978a92d679129e3571a707c6124754d1b1bfcf909", "size": 7108274}]}"#;
 
-fn write(path: &Path, data: &[u8]) {
+pub(super) fn write(path: &Path, data: &[u8]) {
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(path, data).unwrap();
 }
 
-fn read(path: &Path) -> String {
+pub(super) fn read(path: &Path) -> String {
     std::fs::read_to_string(path).unwrap()
 }
 
-fn rename() -> impl FnMut(&Path, &Path) -> io::Result<()> {
+pub(super) fn rename() -> impl FnMut(&Path, &Path) -> io::Result<()> {
     |a: &Path, b: &Path| std::fs::rename(a, b)
 }
 
 /// This version's Linux package folder.
-fn rust_folder(root: &Path) -> PathBuf {
+pub(super) fn rust_folder(root: &Path) -> PathBuf {
     let app = root.join("app");
     write(&app.join("telescope-rs"), b"rust binary");
     write(&app.join("start.sh"), b"rust start");
@@ -48,9 +47,17 @@ const PYTHON_LINUX: [(&str, &[u8]); 9] = [
     ("THIRD_PARTY_NOTICES.txt", b"notices"),
 ];
 
-/// What 4.4.2's main.py does first: update_guard.recover().
+/// What 4.4.2's main.py does first, update_guard.recover(), for a trial: the first start marks it started, the next one rolls it back
+/// (this app's own guard would hand over to the Python build instead; going_back_python_tests runs the real one).
 fn python_start(app: &Path) -> Option<Vec<String>> {
-    update_guard::recover(app, Duration::ZERO, &|| false, Duration::ZERO)
+    let mut journal = update_guard::read_journal(app)?;
+    if journal["started"] == true {
+        update_guard::roll_back(app, &journal, true, &mut rename()).unwrap();
+        return Some(vec![app.join("start.sh").to_string_lossy().into_owned()]);
+    }
+    journal["started"] = json!(true);
+    update_guard::write_journal(app, &journal).unwrap();
+    None
 }
 
 #[test]
@@ -133,9 +140,9 @@ fn the_confirmation_says_what_happens_what_is_lost_and_what_the_phone_needs() {
                    "uninstall Telescope on the phone", "won't check for updates", "brings this version back"] {
         assert!(text.contains(wanted), "missing {wanted:?}: {text}");
     }
-    assert!(!text.contains("Python's libraries"));
+    assert!(!text.contains("Python libraries"));
     let first_start = dialog(Plan::Swap { python_setup: true }, folder);
-    assert!(first_start.text.contains("sets up Python's libraries again") && first_start.enabled && first_start.action == "Go back");
+    assert!(first_start.text.contains("sets up the Python libraries 4.4.2 needs") && first_start.text.contains("nothing is changed") && first_start.enabled && first_start.action == "Go back");
     let appimage = dialog(Plan::Download { appimage: true }, folder);
     assert!(appimage.text.contains("Telescope-linux.tar.gz") && appimage.text.contains("Python 3.12") && appimage.text.contains("phone app has to match"));
     assert!(appimage.enabled && appimage.action == "Open download page");
@@ -180,7 +187,7 @@ fn going_back_on_linux_swaps_the_python_files_in_and_keeps_this_version_to_roll_
     let root = scratch_dir("going-back-linux");
     let app = rust_folder(&root);
     let archive = tarball(&root.join("Telescope-linux.tar.gz"), &PYTHON_LINUX);
-    let result = install_from(&archive, &app, false, &mut rename()).unwrap();
+    let result = install_from(&archive, &app, false, &|_| Ok(()), &mut rename()).unwrap();
     assert_eq!(read(&app.join("main.py")), "python main");
     assert_eq!(read(&app.join("telescope/app.py")), "python app");
     assert!(!app.join("telescope/_build.py").exists());
@@ -202,7 +209,7 @@ fn going_back_on_windows_swaps_the_exe_and_the_libraries_without_starting_the_ne
     write(&app.join(update_guard::EXE_NAME), b"rust exe");
     write(&app.join("ffmpeg.dll"), b"rust only");
     let archive = zip_of(&root.join(updates::WINDOWS_ASSET), &[(update_guard::EXE_NAME, b"this is not a program"), ("lib-1441/PyQt6/Qt6Core.dll", b"qt"), ("Telescope.apk", b"apk")]);
-    let result = install_from(&archive, &app, true, &mut rename()).unwrap();
+    let result = install_from(&archive, &app, true, &|_| Ok(()), &mut rename()).unwrap();
     assert_eq!(read(&app.join(update_guard::EXE_NAME)), "this is not a program");
     assert_eq!(read(&app.join(update_guard::OLD_EXE_NAME)), "rust exe");
     assert!(app.join("lib-1441/PyQt6/Qt6Core.dll").exists());
@@ -228,7 +235,7 @@ fn a_swap_that_fails_midway_leaves_this_version_working() {
         }
         std::fs::rename(a, b)
     };
-    let e = install_from(&archive, &app, false, &mut flaky).unwrap_err();
+    let e = install_from(&archive, &app, false, &|_| Ok(()), &mut flaky).unwrap_err();
     assert!(e.0.contains("No space left"), "{e}");
     assert!(moved.get() >= 4);
     assert_eq!(read(&app.join("main.py")), "rust stub");
@@ -246,8 +253,8 @@ fn a_python_version_that_never_starts_is_rolled_back_by_its_own_guard_and_the_se
     let root = scratch_dir("going-back-rollback");
     let (app, config) = (rust_folder(&root), root.join("config"));
     std::fs::create_dir_all(&config).unwrap();
-    install_from(&tarball(&root.join("l.tar.gz"), &PYTHON_LINUX), &app, false, &mut rename()).unwrap();
-    remember(&config, "nightly", true, Some(&config.join("telescope_config.json.rust-1"))).unwrap();
+    install_from(&tarball(&root.join("l.tar.gz"), &PYTHON_LINUX), &app, false, &|_| Ok(()), &mut rename()).unwrap();
+    remember(&config, "nightly", true, Some(&config.join("telescope_config.json.rust-1")), 5000).unwrap();
     // 4.4.2's first start takes the trial and dies before its window; the next start gives up on it
     assert_eq!(python_start(&app), None);
     assert_eq!(read(&app.join("main.py")), "python main");
@@ -259,10 +266,10 @@ fn a_python_version_that_never_starts_is_rolled_back_by_its_own_guard_and_the_se
     assert!(!app.join("update_guard.py").exists());
     assert_eq!(update_guard::failed_build(&app), Some(BUILD));
     // This version starts again and finds out
-    assert_eq!(settle(&config, &app), Some(("nightly".to_string(), true)));
+    assert_eq!(settle(&config, &app, 5000), Some(("nightly".to_string(), true, true)));
     assert_eq!(update_guard::failed_build(&app), None, "a later try isn't held back");
     assert!(!config.join(MARKER).exists());
-    assert_eq!(settle(&config, &app), None);
+    assert_eq!(settle(&config, &app, 5000), None);
 }
 
 #[test]
@@ -270,17 +277,19 @@ fn a_going_back_that_started_fine_stays_and_this_versions_guard_does_not_undo_it
     let root = scratch_dir("going-back-stays");
     let (app, config) = (rust_folder(&root), root.join("config"));
     std::fs::create_dir_all(&config).unwrap();
-    install_from(&tarball(&root.join("l.tar.gz"), &PYTHON_LINUX), &app, false, &mut rename()).unwrap();
-    remember(&config, "stable", true, None).unwrap();
+    install_from(&tarball(&root.join("l.tar.gz"), &PYTHON_LINUX), &app, false, &|_| Ok(()), &mut rename()).unwrap();
+    remember(&config, "stable", true, None, 5000).unwrap();
     assert_eq!(python_start(&app), None);
+    // 4.4.2's confirm() is clearing the journal; this app's own never does it for a Python build on trial
     update_guard::confirm(&app);
-    assert!(update_guard::read_journal(&app).is_none());
+    assert!(update_guard::read_journal(&app).is_some());
+    update_guard::clear_journal(&app).unwrap();
     // Any later start of either version finds nothing to undo
     assert_eq!(python_start(&app), None);
     assert!(update_guard::guard_start(&app, false));
     assert_eq!(read(&app.join("main.py")), "python main");
-    // Months later the person updates to Rust through 4.4.2's Update button: the old note is just dropped
-    assert_eq!(settle(&config, &app), None);
+    // Months later the person updates to a newer Rust build through 4.4.2's Update button: the old note is just dropped
+    assert_eq!(settle(&config, &app, 6000), None);
     assert!(!config.join(MARKER).exists());
 }
 
@@ -292,13 +301,13 @@ fn the_note_survives_what_a_hand_edit_would_break() {
     std::fs::create_dir_all(&config).unwrap();
     std::fs::write(app.join(update_guard::FAILED), json!({"build": BUILD}).to_string()).unwrap();
     std::fs::write(config.join(MARKER), r#"{"channel": "nope", "auto_check": "x"}"#).unwrap();
-    assert_eq!(settle(&config, &app), None);
+    assert_eq!(settle(&config, &app, 5000), None);
     std::fs::write(app.join(update_guard::FAILED), json!({"build": BUILD}).to_string()).unwrap();
     std::fs::write(config.join(MARKER), "not json").unwrap();
-    assert_eq!(settle(&config, &app), None);
+    assert_eq!(settle(&config, &app, 5000), None);
     // Rolled back, but for another build: not ours to answer
     std::fs::write(app.join(update_guard::FAILED), json!({"build": 99999}).to_string()).unwrap();
     std::fs::write(config.join(MARKER), r#"{"channel": "stable", "auto_check": false}"#).unwrap();
-    assert_eq!(settle(&config, &app), None);
+    assert_eq!(settle(&config, &app, 5000), None);
     assert_eq!(update_guard::failed_build(&app), Some(99999));
 }
