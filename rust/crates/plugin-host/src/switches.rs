@@ -75,10 +75,10 @@ impl Switches {
         self.save(cfg, off.clone(), None, Some(off), None)
     }
 
-    /// Turn every built-in plugin back on, from the next start (not the optional ones).
-    pub fn all_builtin_on(&self) -> io::Result<()> {
+    /// The standard selection from the next start: every built-in plugin on, the optional ones off.
+    pub fn reset_to_defaults(&self) -> io::Result<()> {
         let cfg = self.file.load_strict()?;
-        self.save(cfg, BTreeSet::new(), None, None, None)
+        self.save(cfg, BTreeSet::new(), None, Some(BTreeSet::new()), Some(BTreeSet::new()))
     }
 
     /// The optional built-in plugins the user switched on (they start out off).
@@ -174,8 +174,9 @@ mod tests {
         assert!(s.unnoticed_off().is_empty());
         s.set_builtin_off("monitoring", true).unwrap();
         assert_eq!(s.unnoticed_off(), set(&["monitoring"]));
-        s.all_builtin_on().unwrap();
-        assert!(s.builtin_off().is_empty());
+        s.set_optional_on("framing", true).unwrap();
+        s.reset_to_defaults().unwrap();
+        assert!(s.builtin_off().is_empty() && s.optional_on().is_empty());
     }
 
     // test_plugin_loader.py::test_the_switches_survive_a_settings_save

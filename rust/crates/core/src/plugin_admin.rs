@@ -55,8 +55,8 @@ pub trait PluginAdmin: Send + Sync {
     /// The built-in plugins the person turned off.
     fn builtin_off(&self) -> BTreeSet<String>;
     fn set_builtin_off(&self, name: &str, off: bool) -> io::Result<()>;
-    /// Every built-in plugin back on (not the optional ones).
-    fn all_builtin_on(&self) -> io::Result<()>;
+    /// The standard selection: every built-in plugin on, the optional ones off (added plugins stay as they are).
+    fn reset_to_defaults(&self) -> io::Result<()>;
     /// The optional built-in plugins the person switched on.
     fn optional_on(&self) -> BTreeSet<String>;
     fn set_optional_on(&self, name: &str, on: bool) -> io::Result<()>;

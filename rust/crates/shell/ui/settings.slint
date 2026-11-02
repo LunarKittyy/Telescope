@@ -387,11 +387,11 @@ export component PluginsPanel inherits VerticalLayout {
         VerticalLayout {
             alignment: start;
             CardAction {
-                text: @tr("Turn all back on");
+                text: @tr("Reset to defaults");
                 icon: Icons.reset;
                 enabled: all-on-enabled;
                 clicked => { root.all-on(); }
-                tip: @tr("Switch every built-in plugin back on");
+                tip: @tr("Switch the built-in plugins back to the standard selection: the optional ones off, the rest on");
             }
         }
     }

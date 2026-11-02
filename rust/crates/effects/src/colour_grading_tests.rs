@@ -374,12 +374,23 @@ fn pages_show_one_at_a_time_and_the_channel_row_only_for_rgb() {
 fn shortcuts_reach_the_main_controls() {
     let mut r = Rig::new();
     let ids: Vec<String> = r.plugin.actions().into_iter().map(|a| a.id).collect();
-    assert_eq!(ids, ["colour_grading.on", "colour_grading.compare", "colour_grading.temperature", "colour_grading.tint", "colour_grading.saturation", "colour_grading.contrast"]);
+    assert_eq!(ids, ["colour_grading.on", "colour_grading.compare", "colour_grading.temperature", "colour_grading.tint", "colour_grading.saturation", "colour_grading.contrast",
+                    "colour_grading.pivot", "colour_grading.shadows", "colour_grading.highlights", "colour_grading.lift_master", "colour_grading.gamma_master",
+                    "colour_grading.gain_master", "colour_grading.offset_master", "colour_grading.lut_strength"]);
     assert_eq!(r.plugin.run_action(&mut r.host, "colour_grading.temperature", &json!({"op": "up", "amount": 5})), Some("Temperature: +5".into()));
     assert_eq!(r.plugin.run_action(&mut r.host, "colour_grading.saturation", &json!({"op": "set", "value": 150})), Some("Saturation: 150%".into()));
     assert_eq!(r.plugin.grade().saturation, 1.5);
     assert_eq!(r.plugin.run_action(&mut r.host, "colour_grading.contrast", &json!({"op": "up", "amount": 0.05})), Some("Contrast: 1.05".into()));
     assert_eq!(r.plugin.run_action(&mut r.host, "colour_grading.contrast", &json!({"op": "reset"})), Some("Contrast: 1.00".into()));
+    assert_eq!(r.plugin.run_action(&mut r.host, "colour_grading.shadows", &json!({"op": "set", "value": -20})), Some("Shadows: -20".into()));
+    assert_eq!(r.plugin.run_action(&mut r.host, "colour_grading.pivot", &json!({"op": "set", "value": 0.25})), Some("Pivot: 0.250".into()));
+    assert_eq!(r.plugin.run_action(&mut r.host, "colour_grading.gain_master", &json!({"op": "up", "amount": 0.1})), Some("Gain master: 1.10".into()));
+    assert_eq!(r.plugin.grade().masters[2], 1.1);
+    assert_eq!(r.shown("master-value")[2], json!(1.1));
+    assert_eq!(r.plugin.run_action(&mut r.host, "colour_grading.lift_master", &json!({"op": "down", "amount": 0.05})), Some("Lift master: -0.05".into()));
+    assert_eq!(r.plugin.run_action(&mut r.host, "colour_grading.lift_master", &json!({"op": "reset"})), Some("Lift master: 0.00".into()));
+    // the strength has no slider before a LUT is loaded
+    assert_eq!(r.plugin.run_action(&mut r.host, "colour_grading.lut_strength", &json!({"op": "set", "value": 50})), None);
     assert_eq!(r.plugin.run_action(&mut r.host, "colour_grading.on", &json!({"mode": "off"})), Some("Colour grading: off".into()));
     assert!(!r.plugin.is_on());
     assert_eq!(r.plugin.run_action(&mut r.host, "colour_grading.compare", &json!({})), Some("Compare before and after: on".into()));

@@ -190,6 +190,7 @@ export component ConnectionCard inherits Card {
     action-icon: Icons.plus;
     action-text: @tr("Add phone");
     action-label: @tr("Pair a phone over Wi-Fi or USB");
+    action-shortcut: "connection.add_phone";
     action => { root.add-phone(); }
     has-extra: true;
     extra-icon: Icons.help;
@@ -604,6 +605,7 @@ export component PhonePicker inherits HorizontalLayout {
                     action-icon: Icons.plus;
                     action-text: @tr("Add phone");
                     action-label: @tr("Pair another phone");
+                    action-shortcut: "connection.add_phone";
                     // In its place: pop-ups don't stack
                     action => {
                         root.phones-closed();

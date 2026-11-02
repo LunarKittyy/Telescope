@@ -1810,8 +1810,8 @@ mod tests {
         assert!(s.banners.issue("plugins_off").is_none());
         let mut cfg = s.file.load();
         switches::set_optional_on(&mut cfg, "framing", true);
-        switches::all_builtin_on(&mut cfg); // Turn all back on keeps it
-        assert_eq!(switches::optional_on(&cfg).into_iter().collect::<Vec<_>>(), ["framing"]);
+        switches::reset_to_defaults(&mut cfg);
+        assert!(switches::optional_on(&cfg).is_empty());
     }
 
     /// The plugin host's answer to "which plugins are added": these, all switched on.
@@ -1820,7 +1820,7 @@ mod tests {
     impl telescope_core::plugin_admin::PluginAdmin for Added {
         fn builtin_off(&self) -> std::collections::BTreeSet<String> { Default::default() }
         fn set_builtin_off(&self, _: &str, _: bool) -> std::io::Result<()> { Ok(()) }
-        fn all_builtin_on(&self) -> std::io::Result<()> { Ok(()) }
+        fn reset_to_defaults(&self) -> std::io::Result<()> { Ok(()) }
         fn optional_on(&self) -> std::collections::BTreeSet<String> { Default::default() }
         fn set_optional_on(&self, _: &str, _: bool) -> std::io::Result<()> { Ok(()) }
         fn switch(&self, _: &str, default: bool) -> bool { default }

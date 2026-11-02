@@ -44,6 +44,10 @@ const SWITCH_TIP: &str = n_("Switch the grade off to see the camera's own colour
 /// .cube files kept parsed, so switching phones doesn't read a 65-point LUT again.
 const KEEP_PARSED: usize = 4;
 const MASTER_STEPS: [f64; 4] = [1000.0, 100.0, 100.0, 1000.0];
+/// What a wheel's master slider is called as a shortcut.
+const MASTER_LABELS: [&str; 4] = [n_("Lift master"), n_("Gamma master"), n_("Gain master"), n_("Offset master")];
+/// How far one press of a master shortcut moves it.
+const MASTER_ACTION_STEPS: [f64; 4] = [0.05, 0.1, 0.1, 0.05];
 
 /// A slider under the wheels: key, label, lowest, highest, steps per unit, decimals, signed, tooltip.
 struct SliderDef {
@@ -729,16 +733,32 @@ impl Plugin for ColourGradingPlugin {
             actions::toggle_action("colour_grading.on", &tr("Colour grading"), &group, "", &[]),
             actions::toggle_action("colour_grading.compare", &tr("Compare before and after"), &group, "", &[]),
         ];
-        for key in ["temperature", "tint", "saturation", "contrast"] {
+        for key in ["temperature", "tint", "saturation", "contrast", "pivot", "shadows", "highlights"] {
             let def = SLIDERS.iter().find(|d| d.key == key).expect("a slider by that key");
             let (scale, decimals, suffix) = if key == "saturation" { (100.0 / def.steps, 0, "%") } else { (1.0 / def.steps, def.decimals, "") };
-            let step = if key == "saturation" { 10.0 } else if key == "contrast" { 0.05 } else { 5.0 };
+            let step = match key {
+                "saturation" => 10.0,
+                "contrast" | "pivot" => 0.05,
+                _ => 5.0,
+            };
             let label = tr(def.label);
             let id = format!("colour_grading.{key}");
             let spec = SliderSpec { id: &id, label: &label, group: &group, keywords: "", minimum: def.lo * def.steps * scale, maximum: def.hi * def.steps * scale,
                                     step, decimals, suffix, has_default: true };
             out.push(actions::slider_action(&spec, slider_value(&self.grade, key) * def.steps * scale));
         }
+        for (i, name) in WHEELS.iter().enumerate() {
+            let label = tr(MASTER_LABELS[i]);
+            let id = format!("colour_grading.{name}_master");
+            let (lo, hi) = MASTER_RANGE[i];
+            let spec = SliderSpec { id: &id, label: &label, group: &group, keywords: "", minimum: lo, maximum: hi, step: MASTER_ACTION_STEPS[i], decimals: 2, suffix: "",
+                                    has_default: true };
+            out.push(actions::slider_action(&spec, self.grade.masters[i]));
+        }
+        let label = tr("LUT strength");
+        let spec = SliderSpec { id: "colour_grading.lut_strength", label: &label, group: &group, keywords: "", minimum: 0.0, maximum: 100.0, step: 10.0, decimals: 0,
+                                suffix: "%", has_default: true };
+        out.push(actions::slider_action(&spec, self.grade.lut_strength * 100.0));
         out
     }
 
@@ -761,7 +781,32 @@ impl Plugin for ColourGradingPlugin {
             }
             _ => {
                 let key = id.strip_prefix("colour_grading.")?;
-                let def = SLIDERS.iter().find(|d| d.key == key && matches!(key, "temperature" | "tint" | "saturation" | "contrast"))?;
+                if key == "lut_strength" {
+                    // only where the Strength slider is: the LUT page, with a LUT loaded
+                    if self.page != 2 || self.lut_path.is_empty() {
+                        return None;
+                    }
+                    let current = (self.grade.lut_strength * 100.0).round_ties_even() as i64;
+                    let target = actions::slider_target(params, current, 1.0, 0, 100, Some(100))?;
+                    self.set_grade(host, |g| g.lut_strength = target as f64 / 100.0);
+                    self.show(host, &self.lut_props());
+                    return Some(actions::slider_text(&tr("LUT strength"), &percent(target as f64, 0, false)));
+                }
+                if let Some(i) = WHEELS.iter().position(|w| key.strip_suffix("_master") == Some(*w)) {
+                    if self.page != 0 {
+                        return None;
+                    }
+                    let steps = MASTER_STEPS[i];
+                    let (lo, hi) = MASTER_RANGE[i];
+                    let current = (self.grade.masters[i] * steps).round_ties_even() as i64;
+                    let default = (MASTER_DEFAULT[i] * steps).round_ties_even() as i64;
+                    let target = actions::slider_target(params, current, 1.0 / steps, (lo * steps) as i64, (hi * steps) as i64, Some(default))?;
+                    let value = target as f64 / steps;
+                    self.set_grade(host, |g| g.masters[i] = value);
+                    self.show(host, &self.wheel_props());
+                    return Some(actions::slider_text(&tr(MASTER_LABELS[i]), &Self::master_text(i, value)));
+                }
+                let def = SLIDERS.iter().find(|d| d.key == key)?;
                 if self.page != 0 {
                     return None;
                 }

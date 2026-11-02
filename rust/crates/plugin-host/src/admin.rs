@@ -52,8 +52,8 @@ impl PluginAdmin for Admin {
     fn set_builtin_off(&self, name: &str, off: bool) -> io::Result<()> {
         self.folder.switches.set_builtin_off(name, off)
     }
-    fn all_builtin_on(&self) -> io::Result<()> {
-        self.folder.switches.all_builtin_on()
+    fn reset_to_defaults(&self) -> io::Result<()> {
+        self.folder.switches.reset_to_defaults()
     }
     fn optional_on(&self) -> BTreeSet<String> {
         self.folder.switches.optional_on()

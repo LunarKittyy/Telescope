@@ -345,7 +345,7 @@ impl Panel {
         let (off, on) = (self.admin.builtin_off(), self.admin.optional_on());
         self.pending.clear();
         self.installed = self.admin.find_installed();
-        self.all_on_enabled = self.builtins.iter().any(|p| off.contains(&p.name) && !p.required && !p.optional);
+        self.all_on_enabled = self.builtins.iter().any(|p| !p.required && if p.optional { on.contains(&p.name) } else { off.contains(&p.name) });
         let mut tiles: Vec<(String, Vec<Tile>)> = PLUGIN_CATEGORIES.iter().map(|(id, _)| (id.to_string(), vec![])).collect();
         let add = |tiles: &mut Vec<(String, Vec<Tile>)>, tile: Tile| {
             if let Some((_, list)) = tiles.iter_mut().find(|(id, _)| *id == tile.group) {
@@ -721,7 +721,7 @@ impl Panel {
             Commit::Added { name, on } => {
                 self.save(|a| a.set_enabled(&name, on))
             }
-            Commit::AllOn => self.save(|a| a.all_builtin_on()),
+            Commit::AllOn => self.save(|a| a.reset_to_defaults()),
             Commit::Remove { name } => {
                 let mut outcome = Outcome::default();
                 if let Err(e) = self.admin.remove(&name) {

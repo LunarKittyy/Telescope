@@ -57,7 +57,7 @@ struct Tested {
 impl PluginAdmin for Tested {
     fn builtin_off(&self) -> BTreeSet<String> { self.inner.builtin_off() }
     fn set_builtin_off(&self, name: &str, off: bool) -> io::Result<()> { self.inner.set_builtin_off(name, off) }
-    fn all_builtin_on(&self) -> io::Result<()> { self.inner.all_builtin_on() }
+    fn reset_to_defaults(&self) -> io::Result<()> { self.inner.reset_to_defaults() }
     fn optional_on(&self) -> BTreeSet<String> { self.inner.optional_on() }
     fn set_optional_on(&self, name: &str, on: bool) -> io::Result<()> { self.inner.set_optional_on(name, on) }
     fn switch(&self, key: &str, default: bool) -> bool { self.inner.switch(key, default) }
@@ -262,6 +262,18 @@ fn turn_all_back_on() {
     assert!(r.panel.all_on_enabled);
     r.panel.run(Request::AllOn, &mut yes);
     assert!(r.admin.builtin_off().is_empty() && !r.panel.all_on_enabled);
+}
+
+#[test]
+fn reset_to_defaults_also_puts_an_optional_plugin_back_off() {
+    let mut list = builtins();
+    list.push(optional("framing", "Auto framing"));
+    let mut r = rig(list, &["connection", "camera_control"]);
+    r.admin.set_optional_on("framing", true).unwrap();
+    r.panel.refresh();
+    assert!(r.panel.all_on_enabled, "an optional plugin that is on is off the standard selection");
+    r.panel.run(Request::AllOn, &mut yes);
+    assert!(r.admin.optional_on().is_empty() && !r.panel.all_on_enabled);
 }
 
 #[test]
@@ -707,7 +719,7 @@ fn the_filter_shows_the_ones_on_or_off() {
     assert_eq!(r.panel.shown_tiles("", Filter::Off), ["Echo", "Presets"]);
     assert_eq!(r.panel.shown_tiles("", Filter::On), ["Alpha", "Zoom tool", "Camera", "Connection", "Lost"]); // a required one is on
     assert!(r.panel.shown_tiles("echo", Filter::On).is_empty() && Panel::empty_note("echo", Filter::On) == "No plugins match “echo”.");
-    r.admin.all_builtin_on().unwrap();
+    r.admin.reset_to_defaults().unwrap();
     r.panel.refresh();
     assert!(r.panel.shown_tiles("", Filter::Off).is_empty());
     assert_eq!(Panel::empty_note("", Filter::Off), "Every plugin is switched on.");

@@ -30,8 +30,8 @@ impl PluginAdmin for ShellAdmin {
     fn set_builtin_off(&self, name: &str, off: bool) -> io::Result<()> {
         self.change(|cfg| switches::set_builtin_off(cfg, name, off))
     }
-    fn all_builtin_on(&self) -> io::Result<()> {
-        self.change(switches::all_builtin_on)
+    fn reset_to_defaults(&self) -> io::Result<()> {
+        self.change(switches::reset_to_defaults)
     }
     fn optional_on(&self) -> BTreeSet<String> {
         switches::optional_on(&self.file.load())

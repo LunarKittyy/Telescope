@@ -1827,7 +1827,7 @@
 "Streaming stops while Telescope restarts. It takes a few seconds." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Streams" = { status = "ported", rust = "rust/crates/effects/ui/composite_editor.slint" }
 "Stretch" = { status = "ported", rust = "rust/crates/effects/src/composite_editor.rs" }
-"Switch every built-in plugin back on" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
+"Switch every built-in plugin back on" = { status = "dropped", reason = "the Rust app's button resets the plugin selection to its defaults, with its own tip" }
 "Switch off" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Switch off {plugin}?" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Switch on {plugin}?" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
@@ -1851,7 +1851,7 @@
 "There's already a layout called \"{name}\". Replace it?" = { status = "ported", rust = "rust/crates/effects/src/composite_editor.rs" }
 "There's no download of what it needs for this computer yet, so it can't be switched on." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "There's no vision download for this computer yet." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
-"Turn all back on" = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
+"Turn all back on" = { status = "dropped", reason = "now Reset to defaults, which also puts the optional plugins back off" }
 "USB needs adb, Google's tool for talking to Android phones." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Updated to {version} automatically. The new version runs after Telescope restarts." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Use it" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }

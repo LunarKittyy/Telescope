@@ -10,7 +10,7 @@ use telescope_core::i18n::po;
 const READERS: [&str; 4] = ["source.rs", "texts.rs", "text.rs", "i18n.rs"];
 
 /// What the code says that the template doesn't, and why. A text that's new here is a spelling that stays English in every language.
-const NOT_IN_THE_TEMPLATE: [(&str, &str); 32] = [
+const NOT_IN_THE_TEMPLATE: [(&str, &str); 39] = [
     // Qt's own button texts, which Qt's translations cover in the Python app
     ("OK", "Qt standard button"),
     ("Yes", "Qt standard button"),
@@ -46,6 +46,14 @@ const NOT_IN_THE_TEMPLATE: [(&str, &str); 32] = [
     ("Nothing's in the picture yet.", "the One picture card's empty note, shortened"),
     ("Type or paste your notes.", "the notes placeholder, shortened"),
     ("Blurs the other people, everything but you, or puts the wait screen up when someone else walks in. It's a proof of concept and can't guarantee privacy.", "Rust only until the next translation pass"),
+    // Rust only until the next translation pass: the plugins tab's reset button and the colour grading shortcuts
+    ("Reset to defaults", "the plugins tab's reset button, replaces Turn all back on"),
+    ("Switch the built-in plugins back to the standard selection: the optional ones off, the rest on", "the plugins tab's reset tip"),
+    ("LUT strength", "a colour grading shortcut"),
+    ("Lift master", "a colour grading shortcut"),
+    ("Gamma master", "a colour grading shortcut"),
+    ("Gain master", "a colour grading shortcut"),
+    ("Offset master", "a colour grading shortcut"),
 ];
 
 fn root() -> PathBuf {

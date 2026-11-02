@@ -75,10 +75,9 @@ pub fn notice_off(cfg: &mut Value) {
     save_state(cfg, &off, &off.clone(), &on);
 }
 
-/// Every built-in plugin back on (not the optional ones).
-pub fn all_builtin_on(cfg: &mut Value) {
-    let on = optional_on(cfg);
-    save_state(cfg, &BTreeSet::new(), &BTreeSet::new(), &on);
+/// The standard selection: every built-in plugin on, the optional ones off.
+pub fn reset_to_defaults(cfg: &mut Value) {
+    save_state(cfg, &BTreeSet::new(), &BTreeSet::new(), &BTreeSet::new());
 }
 
 /// load_plugins: whether a built-in plugin starts this run.
@@ -109,8 +108,8 @@ mod tests {
         set_optional_on(&mut cfg, "browser_camera", true);
         assert!(starts(&cfg, "browser_camera", false, true));
         assert_eq!(cfg["plugins"]["on"], json!(["browser_camera"]));
-        all_builtin_on(&mut cfg);
-        assert!(starts(&cfg, "browser_camera", false, true));
+        reset_to_defaults(&mut cfg);
+        assert!(!starts(&cfg, "browser_camera", false, true));
     }
 
     #[test]
