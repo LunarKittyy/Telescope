@@ -201,6 +201,13 @@ pub fn find_vb_cable(devices: &[(String, u32)]) -> Option<usize> {
     devices.iter().position(|(name, outs)| name.to_lowercase().contains(&VB_CABLE_PLAYBACK.to_lowercase()) && *outs > 0)
 }
 
+/// VB-Cable's playback end out of one snapshot of the outputs (name, channels, handle), never another output.
+pub fn pick_vb_cable<T>(devices: Vec<(String, u32, T)>) -> Option<T> {
+    let names: Vec<(String, u32)> = devices.iter().map(|(n, c, _)| (n.clone(), *c)).collect();
+    let index = find_vb_cable(&names)?;
+    devices.into_iter().nth(index).map(|d| d.2)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -322,6 +329,15 @@ mod tests {
         let p = Pactl::new("", false);
         let (ids, err) = linux_setup_at(&|c| p.run(c), || fifo_path_in(None, &temp));
         assert!(ids.is_empty() && err.contains("private folder"), "{err}");
+    }
+
+    #[test]
+    fn a_vanished_cable_never_hands_over_another_output() {
+        let with = vec![("Speakers".to_string(), 2, "speakers"), ("CABLE Input (VB-Audio Virtual Cable)".to_string(), 2, "cable")];
+        assert_eq!(pick_vb_cable(with), Some("cable"));
+        let without = vec![("Speakers".to_string(), 2, "speakers"), ("Headphones".to_string(), 2, "headphones")];
+        assert_eq!(pick_vb_cable(without), None);
+        assert_eq!(pick_vb_cable(Vec::<(String, u32, ())>::new()), None);
     }
 
     #[test]

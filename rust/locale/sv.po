@@ -7,24 +7,24 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: rust/crates/audio/src/backend.rs:52
+#: rust/crates/audio/src/backend.rs:80
 #, python-brace-format
 msgid "Needs {tools} (in pulseaudio-utils; PipeWire systems use it too)."
 msgstr "Behöver {tools} (i pulseaudio-utils; PipeWire-system använder det också)."
 
-#: rust/crates/audio/src/backend.rs:137
+#: rust/crates/audio/src/backend.rs:166
 msgid "Once VB-Cable's setup says it's done, restart the computer, then switch this off and on."
 msgstr "När VB-Cables installation säger att den är klar: starta om datorn och stäng sedan av och slå på det här igen."
 
-#: rust/crates/audio/src/backend.rs:138
+#: rust/crates/audio/src/backend.rs:167
 msgid "Open setup again"
 msgstr "Öppna installationen igen"
 
-#: rust/crates/audio/src/backend.rs:140
+#: rust/crates/audio/src/backend.rs:169
 msgid "Needs VB-Audio Virtual Cable, a free virtual audio cable by VB-Audio."
 msgstr "Behöver VB-Audio Virtual Cable, en gratis virtuell ljudkabel från VB-Audio."
 
-#: rust/crates/audio/src/backend.rs:140 rust/crates/audio/ui/microphone.slint:325
+#: rust/crates/audio/src/backend.rs:169 rust/crates/audio/ui/microphone.slint:325
 msgid "Install VB-Cable"
 msgstr "Installera VB-Cable"
 
@@ -133,7 +133,7 @@ msgstr "Gör webbläsarmikrofonen högre eller tystare för andra appar. Omfång
 msgid "Setting up…"
 msgstr "Ställer in…"
 
-#: rust/crates/audio/src/plugin.rs:683 rust/crates/audio/src/virtual_mic.rs:157 rust/crates/audio/src/virtual_mic.rs:179
+#: rust/crates/audio/src/plugin.rs:683 rust/crates/audio/src/virtual_mic.rs:168 rust/crates/audio/src/virtual_mic.rs:190
 #, python-brace-format
 msgid "Couldn't create the virtual microphone: {error}"
 msgstr "Kunde inte skapa den virtuella mikrofonen: {error}"
@@ -300,16 +300,16 @@ msgstr "Windows fick inte behörighet att installera VB-Cable."
 msgid "Couldn't open VB-Cable's setup. Try again, or get it from their site."
 msgstr "Kunde inte öppna VB-Cables installationsprogram. Försök igen, eller hämta det från deras webbplats."
 
-#: rust/crates/audio/src/virtual_mic.rs:152
+#: rust/crates/audio/src/virtual_mic.rs:163
 msgid "The sound server didn't answer (pactl list failed)."
 msgstr "Ljudservern svarade inte (pactl list misslyckades)."
 
-#: rust/crates/audio/src/worker.rs:353
+#: rust/crates/audio/src/worker.rs:355
 #, python-brace-format
 msgid "Couldn't open the virtual microphone: {error}"
 msgstr "Kunde inte öppna den virtuella mikrofonen: {error}"
 
-#: rust/crates/audio/src/worker.rs:371
+#: rust/crates/audio/src/worker.rs:373
 msgid "The virtual microphone stopped taking audio."
 msgstr "Den virtuella mikrofonen slutade ta emot ljud."
 
@@ -2685,7 +2685,7 @@ msgstr "Ersätt layout"
 msgid "Name:"
 msgstr "Namn:"
 
-#: rust/crates/effects/ui/composite_editor.slint:586 rust/crates/link/ui/connection.slint:492 rust/crates/link/ui/connection.slint:692 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:813 rust/crates/shell/ui/settings.slint:604
+#: rust/crates/effects/ui/composite_editor.slint:586 rust/crates/link/ui/connection.slint:492 rust/crates/link/ui/connection.slint:692 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:812 rust/crates/shell/ui/settings.slint:604
 msgid "OK"
 msgstr "OK"
 
@@ -3012,7 +3012,7 @@ msgstr "Telefonen nekade mikrofonen (HTTP {code})."
 msgid "No microphone"
 msgstr "Ingen mikrofon"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:673 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:556 rust/crates/shell/src/streams.rs:1568 rust/crates/shell/src/window.rs:1294 rust/crates/shell/src/worker.rs:458 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:673 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:556 rust/crates/shell/src/streams.rs:1568 rust/crates/shell/src/window.rs:1292 rust/crates/shell/src/worker.rs:458 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "Strömmar inte"
 
@@ -4374,7 +4374,7 @@ msgstr "Manuell"
 msgid "It isn't turned on."
 msgstr "Det är inte påslaget."
 
-#: rust/crates/plugin-host/src/lua.rs:230
+#: rust/crates/plugin-host/src/lua.rs:251
 #, python-brace-format
 msgid "Its {file} has to return the plugin's table at the end."
 msgstr "Filen {file} måste returnera tilläggets tabell i slutet."
@@ -5584,7 +5584,7 @@ msgstr "Stäng av telefonens kamera. Mikrofonen fortsätter strömma."
 msgid "Start with the phone's camera off, streaming just its mic."
 msgstr "Starta med telefonens kamera avstängd och strömma bara mikrofonen."
 
-#: rust/crates/shell/src/plugins/preview.rs:138 rust/crates/shell/src/tray.rs:60
+#: rust/crates/shell/src/plugins/preview.rs:138 rust/crates/shell/src/tray.rs:76
 msgid "Show"
 msgstr "Visa"
 
@@ -5882,54 +5882,54 @@ msgstr "Flik"
 msgid "Check that it's still on."
 msgstr "Kontrollera att den fortfarande är på."
 
-#: rust/crates/shell/src/settings.rs:669
+#: rust/crates/shell/src/settings.rs:668
 msgid "Nothing matches every word. These match some of them."
 msgstr "Inget matchar alla ord. De här matchar några av dem."
 
-#: rust/crates/shell/src/settings.rs:671
+#: rust/crates/shell/src/settings.rs:670
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)."
 msgstr "Inget matchar “{text}”. Prova med färre ord eller beskriv vad det gör (upplösning, mikrofon, start)."
 
-#: rust/crates/shell/src/settings.rs:673 rust/crates/shell/ui/settings.slint:195
+#: rust/crates/shell/src/settings.rs:672 rust/crates/shell/ui/settings.slint:195
 msgid "Search results"
 msgstr "Sökresultat"
 
-#: rust/crates/shell/src/settings.rs:734
+#: rust/crates/shell/src/settings.rs:733
 #, python-brace-format
 msgid "Remove {plugin}"
 msgstr "Ta bort {plugin}"
 
-#: rust/crates/shell/src/settings.rs:753
+#: rust/crates/shell/src/settings.rs:752
 msgid "Check for updates"
 msgstr "Sök efter uppdateringar"
 
-#: rust/crates/shell/src/settings.rs:754
+#: rust/crates/shell/src/settings.rs:753
 msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
 msgstr "Söker en gång om dagen efter nya versioner av tillagda tillägg som publicerar releaser på GitHub och nämner dem här. Ingenting laddas ner."
 
-#: rust/crates/shell/src/settings.rs:755
+#: rust/crates/shell/src/settings.rs:754
 msgid "Install updates without asking"
 msgstr "Installera uppdateringar utan att fråga"
 
-#: rust/crates/shell/src/settings.rs:755
+#: rust/crates/shell/src/settings.rs:754
 msgid "Installs new versions of the plugins you switched on and switches them on again."
 msgstr "Installerar nya versioner av tilläggen du har slagit på och slår på dem igen."
 
-#: rust/crates/shell/src/settings.rs:756
+#: rust/crates/shell/src/settings.rs:755
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "Farligt! Den som kontrollerar ett tilläggs repo kan då köra ny kod på den här datorn varje gång de publicerar en release."
 
-#: rust/crates/shell/src/settings.rs:759
+#: rust/crates/shell/src/settings.rs:758
 #, python-brace-format
 msgid "Show: {which}"
 msgstr "Visa: {which}"
 
-#: rust/crates/shell/src/settings.rs:846
+#: rust/crates/shell/src/settings.rs:845
 msgid "Install a plugin"
 msgstr "Installera ett tillägg"
 
-#: rust/crates/shell/src/settings.rs:848
+#: rust/crates/shell/src/settings.rs:847
 msgid "Plugins (*.zip)"
 msgstr "Tillägg (*.zip)"
 
@@ -5983,16 +5983,16 @@ msgstr "Dina inställningar kunde inte läsas"
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescope startade med standardinställningarna, så parkopplade telefoner måste parkopplas igen."
 
-#: rust/crates/shell/src/shell.rs:870
+#: rust/crates/shell/src/shell.rs:883
 msgid "Telescope - Save failed"
 msgstr "Telescope - Kunde inte spara"
 
-#: rust/crates/shell/src/shell.rs:871
+#: rust/crates/shell/src/shell.rs:884
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "Kunde inte spara inställningarna. Kontrollera diskutrymme och behörigheter."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1304 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1302 rust/crates/system/src/shortcuts.rs:441
 msgid "Start"
 msgstr "Starta"
 
@@ -6230,43 +6230,43 @@ msgstr "Tappade kontakten med telefonen - återansluter"
 msgid "Couldn't reach the phone."
 msgstr "Kunde inte nå telefonen."
 
-#: rust/crates/shell/src/tray.rs:38
+#: rust/crates/shell/src/tray.rs:54
 msgid "Telescope: streaming the camera"
 msgstr "Telescope: strömmar kameran"
 
-#: rust/crates/shell/src/tray.rs:39
+#: rust/crates/shell/src/tray.rs:55
 msgid "Telescope: streaming the camera and mic"
 msgstr "Telescope: strömmar kameran och mikrofonen"
 
-#: rust/crates/shell/src/tray.rs:40
+#: rust/crates/shell/src/tray.rs:56
 msgid "Telescope: streaming the camera, mic muted"
 msgstr "Telescope: strömmar kameran, mikrofonen tystad"
 
-#: rust/crates/shell/src/tray.rs:41
+#: rust/crates/shell/src/tray.rs:57
 msgid "Telescope: streaming the mic, camera off (muted)"
 msgstr "Telescope: strömmar mikrofonen, kameran avstängd (tystad)"
 
-#: rust/crates/shell/src/tray.rs:42
+#: rust/crates/shell/src/tray.rs:58
 msgid "Telescope: streaming the mic, camera off"
 msgstr "Telescope: strömmar mikrofonen, kameran avstängd"
 
-#: rust/crates/shell/src/tray.rs:72
+#: rust/crates/shell/src/tray.rs:88
 msgid "Quit"
 msgstr "Avsluta"
 
-#: rust/crates/shell/src/tray.rs:218
+#: rust/crates/shell/src/tray.rs:237
 msgid "Streaming continues in the background."
 msgstr "Strömningen fortsätter i bakgrunden."
 
-#: rust/crates/shell/src/tray.rs:218
+#: rust/crates/shell/src/tray.rs:237
 msgid "It starts streaming by itself when it needs to."
 msgstr "Det börjar strömma av sig självt när det behövs."
 
-#: rust/crates/shell/src/tray.rs:219
+#: rust/crates/shell/src/tray.rs:238
 msgid "Right-click the tray icon to quit."
 msgstr "Högerklicka på ikonen i meddelandefältet för att avsluta."
 
-#: rust/crates/shell/src/tray.rs:220
+#: rust/crates/shell/src/tray.rs:239
 msgid "Telescope is still running"
 msgstr "Telescope körs fortfarande"
 
@@ -6278,20 +6278,20 @@ msgstr "Telescope - Videoförhandsvisning"
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/window.rs:1304
+#: rust/crates/shell/src/window.rs:1301 rust/crates/shell/src/window.rs:1302
 msgid "Start mic only"
 msgstr "Starta bara mikrofonen"
 
-#: rust/crates/shell/src/window.rs:1303
+#: rust/crates/shell/src/window.rs:1301
 msgid "Start streaming"
 msgstr "Starta strömning"
 
-#: rust/crates/shell/src/window.rs:1309
+#: rust/crates/shell/src/window.rs:1307
 msgid "Stop streaming"
 msgstr "Stoppa strömning"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1310 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/window.rs:1308 rust/crates/system/src/shortcuts.rs:441
 msgid "Stop"
 msgstr "Stoppa"
 
@@ -6472,12 +6472,16 @@ msgstr "Öppna tilläggsmappen"
 msgid "Start Telescope again to apply your changes"
 msgstr "Starta Telescope igen för att verkställa ändringarna"
 
-#: rust/crates/system/src/autostart.rs:227
+#: rust/crates/system/src/autostart.rs:231
+msgid "Couldn't set Telescope to open at sign-in: its folder path is too long for Windows. Move Telescope somewhere shorter."
+msgstr ""
+
+#: rust/crates/system/src/autostart.rs:236
 #, python-brace-format
 msgid "Couldn't set Telescope to open at sign-in: {error}"
 msgstr "Kunde inte ställa in Telescope att öppnas vid inloggning: {error}"
 
-#: rust/crates/system/src/autostart.rs:253
+#: rust/crates/system/src/autostart.rs:262
 #, python-brace-format
 msgid "Couldn't stop Telescope opening at sign-in: {error}"
 msgstr "Kunde inte stänga av att Telescope öppnas vid inloggning: {error}"

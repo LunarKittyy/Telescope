@@ -405,10 +405,14 @@ mod windows {
     unsafe impl Send for SoundDeviceSink {}
 
     impl SoundDeviceSink {
-        /// Opens the output device at index (as output_devices lists them).
-        pub fn open(index: usize) -> Result<SoundDeviceSink, String> {
-            let device = cpal::default_host().output_devices().map_err(|e| e.to_string())?.nth(index)
-                .ok_or_else(|| "the device is gone".to_string())?;
+        /// Opens VB-Cable's playback end, found by name in one list of the outputs; no other output stands in.
+        pub fn open() -> Result<SoundDeviceSink, String> {
+            let listed = cpal::default_host().output_devices().map_err(|e| e.to_string())?.map(|d| {
+                let name = d.description().map(|desc| desc.name().to_string()).unwrap_or_default();
+                let channels = d.supported_output_configs().map(|c| c.map(|r| r.channels() as u32).max().unwrap_or(0)).unwrap_or(0);
+                (name, channels, d)
+            });
+            let device = crate::virtual_mic::pick_vb_cable(listed.collect()).ok_or_else(|| "VB-Cable isn't there".to_string())?;
             let shared = Arc::new(Shared::default());
             let default = device.default_output_config().map_err(|e| e.to_string())?;
             let channels = default.channels() as usize;

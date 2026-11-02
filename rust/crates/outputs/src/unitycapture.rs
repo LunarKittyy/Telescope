@@ -74,17 +74,30 @@ impl VideoOutput for UcCamera {
     }
 }
 
+/// One go at opening the filter's objects while holding its mutex. The Want event is made once and kept in want
+/// across goes: dropping it while the filter's Sent event isn't there yet would take away what the filter opens to answer.
+pub fn open_objects<W, S, V>(want: &mut Option<W>, make_want: impl FnOnce() -> Option<W>, open_sent: impl FnOnce() -> Option<S>,
+                             open_view: impl FnOnce() -> Option<V>) -> Option<(S, V)> {
+    if want.is_none() {
+        *want = Some(make_want()?);
+    }
+    let sent = open_sent()?;
+    Some((sent, open_view()?))
+}
+
 /// The filter's mutex, events and shared image for camera number num, as the sending side of shared.inl opens them.
 #[cfg(windows)]
 pub struct Shared {
     num: u32,
+    /// Made on the first try and kept while the filter has yet to answer it.
+    want: Option<crate::win::Owned>,
     open: Option<(crate::win::Owned, crate::win::Owned, crate::win::Owned, crate::win::View)>,
 }
 
 #[cfg(windows)]
 impl Shared {
     pub fn new(num: u32) -> Shared {
-        Shared { num, open: None }
+        Shared { num, want: None, open: None }
     }
 
     fn try_open(&mut self) -> bool {
@@ -94,15 +107,17 @@ impl Shared {
         }
         let Some(mutex) = crate::win::open_mutex(&name("Mutx", self.num)) else { return false };
         crate::win::wait(&mutex, crate::win::INFINITE);
-        let opened = (|| {
-            let want = crate::win::create_event(&name("Want", self.num))?;
-            let sent = crate::win::open_event(&name("Sent", self.num), crate::win::EVENT_MODIFY_STATE)?;
-            let view = crate::win::View::open(&name("Data", self.num), crate::win::FILE_MAP_WRITE)?;
-            Some((want, sent, view))
-        })();
+        let num = self.num;
+        let opened = open_objects(
+            &mut self.want,
+            || crate::win::create_event(&name("Want", num)),
+            || crate::win::open_event(&name("Sent", num), crate::win::EVENT_MODIFY_STATE),
+            || crate::win::View::open(&name("Data", num), crate::win::FILE_MAP_WRITE),
+        );
         crate::win::release_mutex(&mutex);
         match opened {
-            Some((want, sent, view)) => {
+            Some((sent, view)) => {
+                let want = self.want.take().unwrap();
                 self.open = Some((mutex, want, sent, view));
                 true
             }
@@ -139,6 +154,19 @@ mod tests {
         let mut b = vec![0u8; HEADER + max as usize];
         b[0..4].copy_from_slice(&max.to_le_bytes());
         b
+    }
+
+    #[test]
+    fn want_is_made_once_and_kept_while_sent_is_still_missing() {
+        let mut want: Option<u32> = None;
+        let mut made = 0;
+        for _ in 0..3 {
+            let got = open_objects(&mut want, || { made += 1; Some(7) }, || None::<u8>, || Some(()));
+            assert!(got.is_none());
+            assert_eq!(want, Some(7), "dropped between tries");
+        }
+        assert_eq!(made, 1);
+        assert_eq!(open_objects(&mut want, || unreachable!(), || Some(1u8), || Some(())), Some((1, ())));
     }
 
     #[test]

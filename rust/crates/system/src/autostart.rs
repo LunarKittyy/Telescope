@@ -207,6 +207,9 @@ pub fn run_line(command: &[String]) -> String {
     command.iter().map(|a| if a.contains(' ') { format!("\"{a}\"") } else { a.clone() }).collect::<Vec<_>>().join(" ")
 }
 
+/// Windows doesn't start a Run key command past this many characters (260 with its end mark).
+const RUN_LINE_MAX: usize = 259;
+
 pub fn is_enabled(place: &Place) -> bool {
     match place {
         Place::Xdg(home) => desktop_file(home).exists(),
@@ -222,7 +225,13 @@ pub fn enable(command: &[String], place: &Place) -> Result<(), String> {
                 .and_then(|_| std::fs::write(&path, desktop_entry(command, false)))
                 .map_err(|e| e.to_string())
         }
-        Place::Registry(key) => key.set(&run_line(command)),
+        Place::Registry(key) => {
+            let line = run_line(command);
+            if line.encode_utf16().count() > RUN_LINE_MAX {
+                return Err(tr("Couldn't set Telescope to open at sign-in: its folder path is too long for Windows. Move Telescope somewhere shorter."));
+            }
+            key.set(&line)
+        }
     };
     done.map_err(|e| tr("Couldn't set Telescope to open at sign-in: {error}").field("error", &e))
 }
@@ -307,6 +316,16 @@ mod tests {
 
     fn argv(a: &[&str]) -> Vec<String> {
         a.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn a_run_line_past_windows_limit_is_refused_not_saved() {
+        let key = FakeKey::default();
+        let long = argv(&[&format!("C:\\{}\\telescope.exe", "a".repeat(260))]);
+        assert!(enable(&long, &Place::Registry(&key)).is_err());
+        assert!(!is_enabled(&Place::Registry(&key)));
+        assert_eq!(enable(&argv(&["C:\\Telescope\\telescope.exe"]), &Place::Registry(&key)), Ok(()));
+        assert!(is_enabled(&Place::Registry(&key)));
     }
 
     #[test]

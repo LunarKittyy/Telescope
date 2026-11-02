@@ -8,24 +8,24 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 "X-Telescope-Draft: yes\n"
 
-#: rust/crates/audio/src/backend.rs:52
+#: rust/crates/audio/src/backend.rs:80
 #, python-brace-format
 msgid "Needs {tools} (in pulseaudio-utils; PipeWire systems use it too)."
 msgstr "Cần {tools} (nằm trong pulseaudio-utils; các hệ thống PipeWire cũng dùng gói này)."
 
-#: rust/crates/audio/src/backend.rs:137
+#: rust/crates/audio/src/backend.rs:166
 msgid "Once VB-Cable's setup says it's done, restart the computer, then switch this off and on."
 msgstr "Khi trình cài đặt VB-Cable báo hoàn tất, hãy khởi động lại máy tính, sau đó tắt rồi bật lại tùy chọn này."
 
-#: rust/crates/audio/src/backend.rs:138
+#: rust/crates/audio/src/backend.rs:167
 msgid "Open setup again"
 msgstr "Mở lại trình cài đặt"
 
-#: rust/crates/audio/src/backend.rs:140
+#: rust/crates/audio/src/backend.rs:169
 msgid "Needs VB-Audio Virtual Cable, a free virtual audio cable by VB-Audio."
 msgstr "Cần có VB-Audio Virtual Cable, một cáp âm thanh ảo miễn phí của VB-Audio."
 
-#: rust/crates/audio/src/backend.rs:140 rust/crates/audio/ui/microphone.slint:325
+#: rust/crates/audio/src/backend.rs:169 rust/crates/audio/ui/microphone.slint:325
 msgid "Install VB-Cable"
 msgstr "Cài đặt VB-Cable"
 
@@ -134,7 +134,7 @@ msgstr "Làm mic trình duyệt to hơn hoặc nhỏ hơn đối với các ứn
 msgid "Setting up…"
 msgstr "Đang thiết lập…"
 
-#: rust/crates/audio/src/plugin.rs:683 rust/crates/audio/src/virtual_mic.rs:157 rust/crates/audio/src/virtual_mic.rs:179
+#: rust/crates/audio/src/plugin.rs:683 rust/crates/audio/src/virtual_mic.rs:168 rust/crates/audio/src/virtual_mic.rs:190
 #, python-brace-format
 msgid "Couldn't create the virtual microphone: {error}"
 msgstr "Không thể tạo mic ảo: {error}"
@@ -301,16 +301,16 @@ msgstr "Windows không nhận được quyền để cài đặt VB-Cable."
 msgid "Couldn't open VB-Cable's setup. Try again, or get it from their site."
 msgstr "Không thể mở bộ cài đặt VB-Cable. Hãy thử lại hoặc tải từ trang web của họ."
 
-#: rust/crates/audio/src/virtual_mic.rs:152
+#: rust/crates/audio/src/virtual_mic.rs:163
 msgid "The sound server didn't answer (pactl list failed)."
 msgstr "Máy chủ âm thanh không phản hồi (lệnh pactl list thất bại)."
 
-#: rust/crates/audio/src/worker.rs:353
+#: rust/crates/audio/src/worker.rs:355
 #, python-brace-format
 msgid "Couldn't open the virtual microphone: {error}"
 msgstr "Không thể mở mic ảo: {error}"
 
-#: rust/crates/audio/src/worker.rs:371
+#: rust/crates/audio/src/worker.rs:373
 msgid "The virtual microphone stopped taking audio."
 msgstr "Mic ảo đã dừng nhận âm thanh."
 
@@ -2686,7 +2686,7 @@ msgstr "Thay thế bố cục"
 msgid "Name:"
 msgstr "Tên:"
 
-#: rust/crates/effects/ui/composite_editor.slint:586 rust/crates/link/ui/connection.slint:492 rust/crates/link/ui/connection.slint:692 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:813 rust/crates/shell/ui/settings.slint:604
+#: rust/crates/effects/ui/composite_editor.slint:586 rust/crates/link/ui/connection.slint:492 rust/crates/link/ui/connection.slint:692 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:812 rust/crates/shell/ui/settings.slint:604
 msgid "OK"
 msgstr "OK"
 
@@ -3013,7 +3013,7 @@ msgstr "Điện thoại đã từ chối quyền micrô (HTTP {code})."
 msgid "No microphone"
 msgstr "Không có micrô"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:673 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:556 rust/crates/shell/src/streams.rs:1568 rust/crates/shell/src/window.rs:1294 rust/crates/shell/src/worker.rs:458 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:673 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:556 rust/crates/shell/src/streams.rs:1568 rust/crates/shell/src/window.rs:1292 rust/crates/shell/src/worker.rs:458 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "Không truyền phát"
 
@@ -4375,7 +4375,7 @@ msgstr "Tay"
 msgid "It isn't turned on."
 msgstr "Tiện ích chưa được bật."
 
-#: rust/crates/plugin-host/src/lua.rs:230
+#: rust/crates/plugin-host/src/lua.rs:251
 #, python-brace-format
 msgid "Its {file} has to return the plugin's table at the end."
 msgstr "Tệp {file} phải trả về bảng của tiện ích bổ sung ở cuối."
@@ -5585,7 +5585,7 @@ msgstr "Tắt camera điện thoại. Mic vẫn tiếp tục truyền phát."
 msgid "Start with the phone's camera off, streaming just its mic."
 msgstr "Bắt đầu khi camera điện thoại đang tắt, chỉ truyền phát mic."
 
-#: rust/crates/shell/src/plugins/preview.rs:138 rust/crates/shell/src/tray.rs:60
+#: rust/crates/shell/src/plugins/preview.rs:138 rust/crates/shell/src/tray.rs:76
 msgid "Show"
 msgstr "Hiển thị"
 
@@ -5882,54 +5882,54 @@ msgstr "Thẻ"
 msgid "Check that it's still on."
 msgstr "Kiểm tra xem thiết bị vẫn đang bật."
 
-#: rust/crates/shell/src/settings.rs:669
+#: rust/crates/shell/src/settings.rs:668
 msgid "Nothing matches every word. These match some of them."
 msgstr "Không có mục nào khớp với mọi từ. Dưới đây là các mục khớp với một số từ."
 
-#: rust/crates/shell/src/settings.rs:671
+#: rust/crates/shell/src/settings.rs:670
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)."
 msgstr "Không có mục nào khớp với “{text}”. Hãy thử dùng ít từ hơn, hoặc tìm theo chức năng (độ phân giải, micrô, khởi động)."
 
-#: rust/crates/shell/src/settings.rs:673 rust/crates/shell/ui/settings.slint:195
+#: rust/crates/shell/src/settings.rs:672 rust/crates/shell/ui/settings.slint:195
 msgid "Search results"
 msgstr "Kết quả tìm kiếm"
 
-#: rust/crates/shell/src/settings.rs:734
+#: rust/crates/shell/src/settings.rs:733
 #, python-brace-format
 msgid "Remove {plugin}"
 msgstr "Gỡ bỏ {plugin}"
 
-#: rust/crates/shell/src/settings.rs:753
+#: rust/crates/shell/src/settings.rs:752
 msgid "Check for updates"
 msgstr "Kiểm tra bản cập nhật"
 
-#: rust/crates/shell/src/settings.rs:754
+#: rust/crates/shell/src/settings.rs:753
 msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
 msgstr "Kiểm tra mỗi ngày một lần các phiên bản mới của tiện ích bổ sung đã thêm có phát hành trên GitHub và thông báo tại đây. Không có gì được tải về."
 
-#: rust/crates/shell/src/settings.rs:755
+#: rust/crates/shell/src/settings.rs:754
 msgid "Install updates without asking"
 msgstr "Cài đặt bản cập nhật mà không cần hỏi"
 
-#: rust/crates/shell/src/settings.rs:755
+#: rust/crates/shell/src/settings.rs:754
 msgid "Installs new versions of the plugins you switched on and switches them on again."
 msgstr "Cài đặt các phiên bản mới của các tiện ích bổ sung bạn đã bật và tự động bật lại chúng."
 
-#: rust/crates/shell/src/settings.rs:756
+#: rust/crates/shell/src/settings.rs:755
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "Nguy hiểm! Bất kỳ ai kiểm soát kho lưu trữ của tiện ích đều có thể chạy mã mới trên máy tính này mỗi khi họ xuất bản bản phát hành mới."
 
-#: rust/crates/shell/src/settings.rs:759
+#: rust/crates/shell/src/settings.rs:758
 #, python-brace-format
 msgid "Show: {which}"
 msgstr "Hiển thị: {which}"
 
-#: rust/crates/shell/src/settings.rs:846
+#: rust/crates/shell/src/settings.rs:845
 msgid "Install a plugin"
 msgstr "Cài đặt tiện ích bổ sung"
 
-#: rust/crates/shell/src/settings.rs:848
+#: rust/crates/shell/src/settings.rs:847
 msgid "Plugins (*.zip)"
 msgstr "Tiện ích bổ sung (*.zip)"
 
@@ -5978,16 +5978,16 @@ msgstr "Không thể đọc cài đặt của bạn"
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescope đã khởi động với cài đặt mặc định, vì vậy các điện thoại đã ghép đôi cần được ghép đôi lại."
 
-#: rust/crates/shell/src/shell.rs:870
+#: rust/crates/shell/src/shell.rs:883
 msgid "Telescope - Save failed"
 msgstr "Telescope - Lưu thất bại"
 
-#: rust/crates/shell/src/shell.rs:871
+#: rust/crates/shell/src/shell.rs:884
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "Không thể lưu cài đặt. Kiểm tra dung lượng đĩa và quyền truy cập."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1304 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1302 rust/crates/system/src/shortcuts.rs:441
 msgid "Start"
 msgstr "Bắt đầu"
 
@@ -6225,43 +6225,43 @@ msgstr "Mất kết nối với điện thoại - đang kết nối lại"
 msgid "Couldn't reach the phone."
 msgstr "Không thể kết nối với điện thoại."
 
-#: rust/crates/shell/src/tray.rs:38
+#: rust/crates/shell/src/tray.rs:54
 msgid "Telescope: streaming the camera"
 msgstr "Telescope: đang truyền phát camera"
 
-#: rust/crates/shell/src/tray.rs:39
+#: rust/crates/shell/src/tray.rs:55
 msgid "Telescope: streaming the camera and mic"
 msgstr "Telescope: đang truyền phát camera và mic"
 
-#: rust/crates/shell/src/tray.rs:40
+#: rust/crates/shell/src/tray.rs:56
 msgid "Telescope: streaming the camera, mic muted"
 msgstr "Telescope: đang truyền phát camera, mic đã tắt tiếng"
 
-#: rust/crates/shell/src/tray.rs:41
+#: rust/crates/shell/src/tray.rs:57
 msgid "Telescope: streaming the mic, camera off (muted)"
 msgstr "Telescope: đang truyền phát mic, đã tắt camera (đã tắt tiếng)"
 
-#: rust/crates/shell/src/tray.rs:42
+#: rust/crates/shell/src/tray.rs:58
 msgid "Telescope: streaming the mic, camera off"
 msgstr "Telescope: đang truyền phát mic, đã tắt camera"
 
-#: rust/crates/shell/src/tray.rs:72
+#: rust/crates/shell/src/tray.rs:88
 msgid "Quit"
 msgstr "Thoát"
 
-#: rust/crates/shell/src/tray.rs:218
+#: rust/crates/shell/src/tray.rs:237
 msgid "Streaming continues in the background."
 msgstr "Quá trình truyền phát tiếp tục ở chế độ nền."
 
-#: rust/crates/shell/src/tray.rs:218
+#: rust/crates/shell/src/tray.rs:237
 msgid "It starts streaming by itself when it needs to."
 msgstr "Ứng dụng sẽ tự động bắt đầu truyền phát khi cần."
 
-#: rust/crates/shell/src/tray.rs:219
+#: rust/crates/shell/src/tray.rs:238
 msgid "Right-click the tray icon to quit."
 msgstr "Nhấp chuột phải vào biểu tượng khay hệ thống để thoát."
 
-#: rust/crates/shell/src/tray.rs:220
+#: rust/crates/shell/src/tray.rs:239
 msgid "Telescope is still running"
 msgstr "Telescope vẫn đang chạy"
 
@@ -6273,20 +6273,20 @@ msgstr "Telescope - Xem trước video"
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/window.rs:1304
+#: rust/crates/shell/src/window.rs:1301 rust/crates/shell/src/window.rs:1302
 msgid "Start mic only"
 msgstr "Chỉ bật mic"
 
-#: rust/crates/shell/src/window.rs:1303
+#: rust/crates/shell/src/window.rs:1301
 msgid "Start streaming"
 msgstr "Bắt đầu truyền phát"
 
-#: rust/crates/shell/src/window.rs:1309
+#: rust/crates/shell/src/window.rs:1307
 msgid "Stop streaming"
 msgstr "Dừng truyền phát"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1310 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/window.rs:1308 rust/crates/system/src/shortcuts.rs:441
 msgid "Stop"
 msgstr "Dừng"
 
@@ -6467,12 +6467,16 @@ msgstr "Mở thư mục tiện ích bổ sung"
 msgid "Start Telescope again to apply your changes"
 msgstr "Khởi động lại Telescope để áp dụng các thay đổi của bạn"
 
-#: rust/crates/system/src/autostart.rs:227
+#: rust/crates/system/src/autostart.rs:231
+msgid "Couldn't set Telescope to open at sign-in: its folder path is too long for Windows. Move Telescope somewhere shorter."
+msgstr ""
+
+#: rust/crates/system/src/autostart.rs:236
 #, python-brace-format
 msgid "Couldn't set Telescope to open at sign-in: {error}"
 msgstr "Không thể đặt Telescope tự mở khi đăng nhập: {error}"
 
-#: rust/crates/system/src/autostart.rs:253
+#: rust/crates/system/src/autostart.rs:262
 #, python-brace-format
 msgid "Couldn't stop Telescope opening at sign-in: {error}"
 msgstr "Không thể dừng việc Telescope tự mở khi đăng nhập: {error}"

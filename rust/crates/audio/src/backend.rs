@@ -121,7 +121,6 @@ pub type Opener = Box<dyn Fn(&std::path::Path) -> String + Send + Sync>;
 pub struct WindowsMic {
     /// The setup was opened once: closed without installing, it can be opened again.
     pub setup_opened: AtomicBool,
-    device: Mutex<Option<usize>>,
     /// Every output device with its channels.
     devices: Devices,
     download: Installer,
@@ -150,7 +149,7 @@ fn system_devices() -> Vec<(String, u32)> {
 
 impl WindowsMic {
     pub fn new(devices: Devices, download: Installer, run_setup: Opener) -> WindowsMic {
-        WindowsMic { setup_opened: AtomicBool::new(false), device: Mutex::new(None), devices, download, run_setup }
+        WindowsMic { setup_opened: AtomicBool::new(false), devices, download, run_setup }
     }
 }
 
@@ -160,9 +159,7 @@ impl MicBackend for WindowsMic {
     }
 
     fn problem(&self) -> Option<Problem> {
-        let found = virtual_mic::find_vb_cable(&(self.devices)());
-        *self.device.lock().unwrap_or_else(|e| e.into_inner()) = found;
-        if found.is_some() {
+        if virtual_mic::find_vb_cable(&(self.devices)()).is_some() {
             return None;
         }
         if self.setup_opened.load(Ordering::SeqCst) {
@@ -186,17 +183,13 @@ impl MicBackend for WindowsMic {
     }
 
     fn open_sink(&self) -> OpenSink {
-        let device = *self.device.lock().unwrap_or_else(|e| e.into_inner());
         #[cfg(windows)]
         {
-            Arc::new(move || {
-                let index = device.ok_or_else(|| "VB-Cable isn't there".to_string())?;
-                crate::sink::SoundDeviceSink::open(index).map(|s| Box::new(s) as Box<dyn crate::worker::MicSink>)
-            })
+            // Each try looks VB-Cable up again by name, so a shifted device list can't land on the speakers
+            Arc::new(|| crate::sink::SoundDeviceSink::open().map(|s| Box::new(s) as Box<dyn crate::worker::MicSink>))
         }
         #[cfg(not(windows))]
         {
-            let _ = device;
             Arc::new(|| Err("VB-Cable is only on Windows".to_string()))
         }
     }
