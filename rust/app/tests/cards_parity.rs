@@ -9,6 +9,7 @@ use telescope_effects::name_tag::NameTagPlugin;
 use telescope_effects::desk::DeskPlugin;
 use telescope_effects::notes::NotesPlugin;
 use telescope_effects::sheet::{self, Sheet};
+#[cfg(not(windows))]
 use telescope_effects::tag::{self, Spec};
 
 fn fixtures() -> PathBuf {
@@ -55,11 +56,13 @@ fn settings_load_and_save_as_python_does() {
     assert!(checked > 10);
 }
 
+#[cfg(not(windows))]
 fn rect(v: &Value) -> [f64; 4] {
     let a = v.as_array().unwrap();
     [a[0].as_f64().unwrap(), a[1].as_f64().unwrap(), a[2].as_f64().unwrap(), a[3].as_f64().unwrap()]
 }
 
+#[cfg(not(windows))]
 fn spec_of(v: &Value) -> Spec {
     let s = |k: &str| v[k].as_str().unwrap().to_string();
     Spec { name: s("name"), pronouns: s("pronouns"), second: s("second"), style: s("style"), position: s("position"), size: s("size") }

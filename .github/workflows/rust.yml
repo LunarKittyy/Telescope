@@ -15,6 +15,8 @@ env:
   RUST_MIN_STACK: 8388608
   # Debug info only costs a runner's disk here
   CARGO_PROFILE_DEV_DEBUG: 0
+  # A warning fails the check. Unlike RUSTFLAGS this leaves build fingerprints alone, so it needs no cache of its own
+  CARGO_BUILD_WARNINGS: deny
 
 jobs:
   # "linux" and "windows" run on every pull request so they can be required checks, and skip themselves when nothing they cover changed
@@ -89,12 +91,13 @@ jobs:
         with:
           workspaces: rust
 
-      - name: Build
-        run: cargo build --workspace --locked
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.150
 
-      # Every failure in one run, so a second run doesn't go on finding the next one
+      # Tests run side by side and only failures print. rust/.config/nextest.toml has what can't share a machine
       - name: Test
-        run: cargo test --workspace --locked --no-fail-fast
+        run: cargo nextest run --workspace --locked
 
   windows:
     name: windows
@@ -141,8 +144,9 @@ jobs:
         with:
           workspaces: rust
 
-      - name: Build
-        run: cargo build --workspace --locked --features telescope-app/ffmpeg-windows
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.150
 
       - name: Test
-        run: cargo test --workspace --locked --no-fail-fast --features telescope-app/ffmpeg-windows
+        run: cargo nextest run --workspace --locked --features telescope-app/ffmpeg-windows

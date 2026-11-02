@@ -116,11 +116,10 @@ mod imp {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(windows)))]
 mod tests {
     use super::*;
 
-    #[cfg(not(windows))]
     #[test]
     fn the_windows_job_fails_softly_elsewhere() {
         let mut child = std::process::Command::new("true").spawn().unwrap();

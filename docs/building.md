@@ -154,7 +154,7 @@ These run on pull requests without publishing, and `release.yml` calls them for 
 | Workflow | Runs for | What it does |
 |---|---|---|
 | `build-apk.yml` | `android/**` | `./gradlew lintDebug testDebugUnitTest`, then `assembleRelease`. In a release it checks the APK isn't debug-signed |
-| `rust.yml` | `rust/**`, `desktop/**` | The `linux` and `windows` checks: builds the workspace and runs its tests, with the fonts and the Python desktop app's dependencies some of them compare against. Its `changes` job also checks `VERSION` and that the release checklist names every file. On `master` it runs inside `release.yml`, so it doesn't start a second time |
+| `rust.yml` | `rust/**`, `desktop/**` | The `linux` and `windows` checks: builds the workspace and runs its tests with `cargo nextest`, and any compiler warning fails them, with the fonts and the Python desktop app's dependencies some of them compare against. Its `changes` job also checks `VERSION` and that the release checklist names every file. On `master` it runs inside `release.yml`, so it doesn't start a second time |
 | `rust-parity.yml` | `rust/**`, `desktop/**` | The parity tools' tests and the ledger check, on pull requests and on `master` |
 | `rust-package.yml` | `rust/tools/**`, `installer/**`, `desktop/virtualcamera/**` | Builds both FFmpegs and both packages and an AppImage and runs `check_package.py` on them. On pull requests it also builds a quick `TelescopeSetup.exe` and checks the installer, update and uninstall paths and an unzipped copy moving to the installed one. A release does those on the setup it publishes, in `release.yml` |
 
