@@ -227,7 +227,7 @@ pub fn start_command() -> std::io::Result<Vec<String>> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod appimage_tests {
     use super::*;
 

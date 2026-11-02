@@ -379,6 +379,7 @@ mod tests {
         assert!(is_dev_checkout("dev"));
     }
 
+    #[cfg(unix)]
     #[test]
     fn menu_entry_follows_this_copy_and_only_writes_on_change() {
         let dir = tmp("menu");

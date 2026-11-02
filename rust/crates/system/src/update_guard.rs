@@ -548,7 +548,7 @@ pub fn guard_start(directory: &Path, after_update: bool) -> bool {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod appimage_tests {
     use super::*;
     use crate::updates::install_appimage;

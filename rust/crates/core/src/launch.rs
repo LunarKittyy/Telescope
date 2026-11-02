@@ -87,6 +87,7 @@ mod tests {
         assert!(set.is_empty());
     }
 
+    #[cfg(unix)]
     #[test]
     fn only_the_bundles_part_of_a_path_goes() {
         let private = [PathBuf::from("/tmp/.mount_tele123")];
