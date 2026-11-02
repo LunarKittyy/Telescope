@@ -806,8 +806,7 @@ const FROM_MENU_MS: u64 = 150;
 /// Starts a program that carries on without us; false when it can't be started.
 fn spawn_detached(cmd: &[&str]) -> bool {
     let Some((program, args)) = cmd.split_first() else { return false };
-    std::process::Command::new(program).args(args)
-        .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn().is_ok()
+    telescope_core::launch::detached(program, args).is_ok()
 }
 
 /// The command line that runs this action in the running Telescope (for a desktop's own shortcut settings).
@@ -1204,7 +1203,7 @@ impl ShortcutsPlugin {
                 }
                 self.refresh(host);
             }
-            "param-picked" | "param-edited" => {
+            "param-picked" | "param-edited" | "param-committed" => {
                 let Some(e) = self.editor.as_ref() else { return };
                 let Some((_, action)) = e.action.as_deref().and_then(|id| self.action(id)).cloned() else { return };
                 let Some(p) = usize::try_from(int(0)).ok().and_then(|i| action.params.get(i)) else { return };
@@ -1220,7 +1219,12 @@ impl ShortcutsPlugin {
                         None => return,
                     }
                 } else {
-                    let Some(n) = number(&json!(text(1))) else { return };
+                    let Some(n) = number(&json!(text(1))) else {
+                        if callback == "param-committed" {
+                            self.refresh(host);
+                        }
+                        return;
+                    };
                     clean_value(p, Some(&json!(n)))
                 };
                 let name = name.to_string();
@@ -1228,7 +1232,7 @@ impl ShortcutsPlugin {
                     e.params.insert(name, value);
                 }
                 // A number being typed keeps its box as it is; a pick can show or hide other settings
-                if callback == "param-picked" {
+                if callback != "param-edited" {
                     self.refresh(host);
                 }
             }

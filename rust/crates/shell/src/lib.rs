@@ -32,6 +32,7 @@ pub mod texts;
 pub mod tray;
 pub mod shell;
 pub mod host;
+pub mod input;
 pub mod keys;
 pub mod view;
 pub mod view_control;

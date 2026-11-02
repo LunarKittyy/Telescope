@@ -23,6 +23,13 @@ use telescope_core::source::Phones;
 use telescope_core::ui::{SlintSource, UiEvent, UiSpec};
 use telescope_core::{BusSender, Frame, PixelFormat};
 
+static APP_ID: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// The binary says which desktop entry its windows belong to before they open (autostart::APP_ID, on a dev copy with -dev).
+pub fn use_app_id(id: String) {
+    let _ = APP_ID.set(id);
+}
+
 /// Called once when the window has been shown (or put in the tray), before the event loop runs.
 #[derive(Clone)]
 pub struct ShownHook(pub Arc<dyn Fn() + Send + Sync>);
@@ -73,6 +80,7 @@ pub struct Window {
     /// Draws the preview's frames: on Slint's device once it says which, else on the CPU (preview.rs).
     painter: RefCell<Option<Box<dyn crate::preview::Painter>>>,
     preview_timer: slint::Timer,
+    thumb_timer: slint::Timer,
     /// The number of the frame the preview shows, so a frame isn't painted twice.
     painted: Cell<u64>,
     /// What passes on the preview (tint, analyse, paint) have in hand.
@@ -267,11 +275,17 @@ pub(crate) fn fit_on_screen(size: (u32, u32), screen: (u32, u32), frame: (u32, u
 }
 
 /// raise_ and activateWindow on an open window: not minimized, in front and with the keyboard. show() does nothing on
-/// a window that's already shown.
-pub(crate) fn bring_forward(window: &slint::Window) {
+/// a window that's already shown. A side window only: on Wayland, focus_window does nothing and a compositor grants an
+/// activation only with a fresh input serial, which winit keeps to itself, so it's opened again, which brings it up in front.
+pub(crate) fn bring_forward(ui: &ComponentInstance) {
     use slint::winit_030::WinitWindowAccessor;
+    let window = ui.window();
     window.set_minimized(false);
     window.with_winit_window(|w| w.focus_window());
+    if crate::input::on_wayland(window) {
+        let _ = ui.hide();
+        let _ = ui.show();
+    }
 }
 
 /// _PopoutWindow.resizeEvent: a resized pop-out takes the stream's shape again, by its height, once it's off by over 4 px.
@@ -392,6 +406,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         timers: RefCell::default(),
         painter: RefCell::default(),
         preview_timer: slint::Timer::default(),
+        thumb_timer: slint::Timer::default(),
         painted: Cell::new(0),
         passes: RefCell::default(),
         layers_drawn: RefCell::default(),
@@ -557,7 +572,7 @@ impl Window {
             }
             SValue::Void
         });
-        crate::keys::watch_scan_codes(ui.window());
+        crate::keys::watch_scan_codes(ui);
         let weak = Rc::downgrade(self);
         let _ = ui.set_callback("key", move |args| {
             let Some(w) = weak.upgrade() else { return SValue::Bool(false) };
@@ -945,7 +960,7 @@ impl Window {
             self.popout_asks.set(asks);
             if let Some(p) = self.popout.borrow().as_ref() {
                 let _ = p.show();
-                bring_forward(p.window());
+                bring_forward(p);
             }
         }
     }
@@ -999,12 +1014,13 @@ impl Window {
     fn open_plugin_window(self: &Rc<Self>, plugin: &str, id: &str, spec: &telescope_core::ui::WindowSpec) {
         if let Some((_, _, open)) = self.plugin_windows.borrow().iter().find(|(p, i, _)| p == plugin && i == id) {
             let _ = open.show();
+            bring_forward(open);
             return;
         }
         let (file, text) = source_of(plugin, id, &spec.ui);
         let component = &spec.ui.component;
         // Its file goes through the loader as a card's does, so its texts are translated
-        let doc = format!("export {{ {component} }} from \"{file}\";\n");
+        let doc = format!("export {{ {component} }} from \"{file}\";\nexport {{ KeyFocus, WindowBox }} from \"@ui-kit/ui-kit.slint\";\n");
         let files = match &spec.ui.source {
             SlintSource::Text(_) => vec![(file.clone(), text.clone())],
             SlintSource::File(_) => Vec::new(),
@@ -1042,7 +1058,7 @@ impl Window {
             });
             slint::CloseRequestResponse::HideWindow
         });
-        crate::keys::watch_plugin_keys(ui.window(), Rc::downgrade(self));
+        crate::keys::watch_plugin_keys(&ui, Rc::downgrade(self));
         Self::set_window_props(&ui, plugin, id, &spec.ui.props);
         let _ = ui.show();
         self.plugin_windows.borrow_mut().push((plugin.to_string(), id.to_string(), ui));
@@ -1324,10 +1340,7 @@ impl Window {
 }
 
 fn open_url(url: &str) {
-    #[cfg(target_os = "linux")]
-    let _ = std::process::Command::new("xdg-open").arg(url).spawn();
-    #[cfg(target_os = "windows")]
-    let _ = std::process::Command::new("cmd").args(["/C", "start", "", url]).spawn();
+    telescope_core::launch::open_url(url);
 }
 
 pub use crate::tray::{raise, restart};
@@ -1399,6 +1412,12 @@ pub fn build_app(file: ConfigFile, services: Arc<Services>, opts: Option<WindowO
 
 pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     let gpu_painter = crate::preview::select_wgpu_backend();
+    // Wayland takes a window's icon from the desktop entry named like this, not from the window
+    if let Some(id) = APP_ID.get() {
+        if let Err(e) = slint::set_xdg_app_id(id.as_str()) {
+            log::info!("Couldn't set the window's app id: {e}");
+        }
+    }
     let window = build_app(ConfigFile::default(), services.clone(), Some(opts.clone()))?;
     *window.painter.borrow_mut() = gpu_painter;
     if let Some(t0) = std::env::var("TELESCOPE_T0").ok().and_then(|v| v.parse::<u64>().ok()) {
@@ -1418,6 +1437,13 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
             w.paint_pick();
             w.paint_layers();
             w.watch_focus();
+        }
+    });
+    // Tiny pictures, so 10 fps costs next to nothing
+    let weak = Rc::downgrade(&window);
+    window.thumb_timer.start(slint::TimerMode::Repeated, Duration::from_millis(100), move || {
+        if let Some(w) = weak.upgrade() {
+            w.update_thumbnails();
         }
     });
     if opts.autostart {

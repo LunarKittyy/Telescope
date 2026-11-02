@@ -1,0 +1,86 @@
+// Scroll bars. The one TouchArea covers the whole bar and never moves, so a drag reads the pointer in the bar's own
+// coordinates and the thumb stays under it (a TouchArea on the thumb would measure from something that moves with it).
+
+import { Theme } from "../theme.slint";
+
+// A thumb over a trough, in `offset` terms (0 at the top); a drag or a click in the trough says where to go with scrolled.
+export component ScrollBar inherits Rectangle {
+    in property <length> content;
+    in property <length> viewport;
+    in property <length> offset;
+    in property <length> least-thumb: 32px;
+    in property <length> thumb-radius: 5px;
+    // A click in the trough goes a page up or down
+    in property <bool> pages: true;
+    callback scrolled(length);
+    property <length> range: max(0px, content - viewport);
+    property <length> thumb-h: min(root.height, max(least-thumb, viewport * viewport / max(1px, content)));
+    property <length> travel: max(1px, root.height - thumb-h);
+    property <length> thumb-y: range > 0 ? travel * clamp(offset, 0px, range) / range : 0px;
+    property <bool> over-thumb: touch.mouse-y >= thumb-y && touch.mouse-y < thumb-y + thumb-h;
+    property <bool> dragging;
+    property <length> start-offset;
+    Rectangle {
+        y: thumb-y;
+        height: thumb-h;
+        border-radius: thumb-radius;
+        background: dragging || (touch.has-hover && over-thumb) ? Theme.border-hover : Theme.border-strong;
+    }
+    touch := TouchArea {
+        pointer-event(e) => {
+            if (e.button == PointerEventButton.left && e.kind == PointerEventKind.down) {
+                start-offset = clamp(offset, 0px, range);
+                dragging = over-thumb;
+                if (!over-thumb && pages) {
+                    root.scrolled(clamp(self.mouse-y < thumb-y ? start-offset - viewport : start-offset + viewport, 0px, range));
+                }
+            }
+            if (e.kind == PointerEventKind.up || e.kind == PointerEventKind.cancel) {
+                dragging = false;
+            }
+        }
+        moved => {
+            if (dragging && self.pressed) {
+                root.scrolled(clamp(start-offset + (self.mouse-y - self.pressed-y) * range / travel, 0px, range));
+            }
+        }
+    }
+}
+
+// QScrollBar:vertical in theme.py: an 11px groove with a rounded handle, dragged or clicked to page.
+export component ColumnScrollbar {
+    in property <length> content;
+    in-out property <length> offset;
+    in property <length> viewport;
+    width: 11px;
+    y: 0;
+    ScrollBar {
+        width: parent.width;
+        height: parent.height;
+        content: root.content;
+        viewport: root.viewport;
+        offset: root.offset;
+        scrolled(to) => { root.offset = to; }
+    }
+}
+
+// The same bar on a Flickable's viewport-y, which counts down from 0.
+export component FlickBar {
+    in property <length> content;
+    in-out property <length> position;
+    in property <length> viewport;
+    in property <length> least-thumb: 32px;
+    in property <length> thumb-radius: 5px;
+    in property <bool> pages: true;
+    ScrollBar {
+        width: parent.width;
+        height: parent.height;
+        content: root.content;
+        viewport: root.viewport;
+        least-thumb: root.least-thumb;
+        thumb-radius: root.thumb-radius;
+        pages: root.pages;
+        offset: -root.position;
+        scrolled(to) => { root.position = -to; }
+    }
+}

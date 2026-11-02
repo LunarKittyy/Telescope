@@ -58,8 +58,33 @@ pub fn py_str(value: &Value) -> String {
     }
 }
 
+/// A whole number typed into a box, for a value that's about to be held to its limits: None for anything else. More digits
+/// than an i64 holds come back as the largest or smallest one, so a huge number still ends at the limit.
+pub fn whole_number(text: &str) -> Option<i64> {
+    let text = text.trim();
+    let digits = text.strip_prefix(['+', '-']).unwrap_or(text);
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let negative = text.starts_with('-');
+    Some(text.trim_start_matches('+').parse::<i64>().unwrap_or(if negative { i64::MIN } else { i64::MAX }))
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_typed_whole_number() {
+        use super::whole_number;
+        assert_eq!(whole_number(" 12 "), Some(12));
+        assert_eq!(whole_number("+6"), Some(6));
+        assert_eq!(whole_number("-30"), Some(-30));
+        assert_eq!(whole_number("99999999999999999999999"), Some(i64::MAX));
+        assert_eq!(whole_number("-99999999999999999999999"), Some(i64::MIN));
+        for bad in ["", " ", "-", "+", "abc", "1.5", "1e3", "NaN", "12 px"] {
+            assert_eq!(whole_number(bad), None, "{bad}");
+        }
+    }
+
     use super::*;
     use serde_json::json;
 

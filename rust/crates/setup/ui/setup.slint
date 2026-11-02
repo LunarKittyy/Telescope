@@ -200,7 +200,7 @@ export component VideoSettings inherits Card {
         StripTop {
             title: @tr("Max zoom");
             SpinChip {
-                text <=> root.zoom-text;
+                value: root.zoom-text;
                 label: @tr("Max zoom");
                 tip: @tr("How far the Zoom slider goes. Past what the phone can zoom itself, the rest is cropped on this computer.");
                 committed(t) => { root.zoom-committed(t); }
@@ -225,24 +225,20 @@ export component VideoSettings inherits Card {
         }
         if custom-shown: HorizontalLayout {
             spacing: 8px;
-            TextField {
+            NumberField {
                 horizontal-stretch: 1;
-                align-right: true;
                 label: @tr("Canvas size");
-                text <=> root.custom-w-text;
-                accepted => { root.custom-committed("w", self.text); }
+                value: root.custom-w-text;
+                committed(text) => { root.custom-committed("w", text); }
                 step(d) => { root.custom-step("w", -d); }
-                changed has-focus => { if (!self.has-focus) { root.custom-committed("w", self.text); } }
             }
             Text { text: "×"; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; }
-            TextField {
+            NumberField {
                 horizontal-stretch: 1;
-                align-right: true;
                 label: @tr("Canvas size");
-                text <=> root.custom-h-text;
-                accepted => { root.custom-committed("h", self.text); }
+                value: root.custom-h-text;
+                committed(text) => { root.custom-committed("h", text); }
                 step(d) => { root.custom-step("h", -d); }
-                changed has-focus => { if (!self.has-focus) { root.custom-committed("h", self.text); } }
             }
         }
         HorizontalLayout {

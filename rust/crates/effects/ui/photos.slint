@@ -31,22 +31,21 @@ component NumberRow inherits FormRow {
     in property <int> sync;
     in property <string> tip;
     callback edited(string);
-    callback left;
-    changed sync => { field.text = root.restore; }
+    callback left(string);
+    changed sync => { field.show-text(root.restore); }
     HorizontalLayout {
         alignment: start;
         Rectangle {
             width: 78px;
-            field := TextField {
+            field := NumberField {
                 enabled: root.enabled;
                 width: parent.width;
                 height: 32px;
                 y: 2px;
                 label: root.label;
-                text: root.text;
-                align-right: true;
+                value: root.text;
                 edited(t) => { root.edited(t); }
-                changed has-focus => { if (!self.has-focus) { root.left(); } }
+                committed(t) => { root.left(t); }
             }
             if tip != "": Tooltip { TipBody { says: root.tip; } }
         }
@@ -115,7 +114,7 @@ export component PhotosCard inherits Card {
     callback choice-picked(int, int);
     callback quality-moved(float);
     callback number-edited(int, string);
-    callback number-left(int);
+    callback number-left(int, string);
     callback timer-picked(int);
     callback best-toggled(bool);
     callback folder-clicked;
@@ -192,7 +191,7 @@ export component PhotosCard inherits Card {
         restore: burst-restore;
         sync: burst-sync;
         edited(t) => { root.number-edited(0, t); }
-        left => { root.number-left(0); }
+        left(t) => { root.number-left(0, t); }
     }
     if bracket-shown: PickRow {
         enabled: active;
@@ -209,7 +208,7 @@ export component PhotosCard inherits Card {
         sync: focus-sync;
         tip: focus-tip;
         edited(t) => { root.number-edited(1, t); }
-        left => { root.number-left(1); }
+        left(t) => { root.number-left(1, t); }
     }
     if exposure-shown: PickRow {
         enabled: active;

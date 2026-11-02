@@ -570,6 +570,12 @@ fn main() {
         use telescope_system::autostart;
         let source_build = cfg!(debug_assertions) || autostart::is_dev_checkout(telescope_system::version::channel());
         refresh_menu_entry(source_build, &autostart::launch_command(&app_dir(), false), None);
+        // A copy that doesn't own the menu entry still needs a hidden one for Wayland to find the window's icon
+        let app_id = telescope_system::shortcuts::portal_app_id();
+        if cfg!(target_os = "linux") {
+            autostart::ensure_portal_entry(&app_id, &autostart::launch_command(&app_dir(), false), None);
+        }
+        telescope_shell::window::use_app_id(app_id);
         refresh_sign_in_entry(source_build, &autostart::launch_command(&app_dir(), true), &autostart::here());
     }
     telescope_shell::preview::use_gpu_painter(Arc::new(|device, queue| {

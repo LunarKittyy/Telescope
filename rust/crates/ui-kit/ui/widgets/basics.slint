@@ -13,14 +13,22 @@ export component Icon inherits Image {
     image-rendering: smooth;
 }
 
-// theme.focus_ring: an accent outline drawn just outside a control while it has keyboard focus.
+// What the focus last came from: true after Tab or an arrow key, false after a pointer press. The window's input watch
+// sets it (shell's input.rs). A window that holds a scope for shortcuts takes the focus back when given-back goes up.
+export global KeyFocus {
+    in-out property <bool> keyboard;
+    in-out property <int> given-back;
+}
+
+// theme.focus_ring: an accent outline drawn just outside a control while it has focus from the keyboard. A click can
+// leave a control focused, and the ring stays away for that (theme.keyboard_focus).
 export component FocusRing inherits Rectangle {
     in property <bool> shown;
     in property <length> radius: 7px;
     x: -2px;
     y: -2px;
     border-radius: radius + 2px;
-    border-width: shown ? 2px : 0px;
+    border-width: shown && KeyFocus.keyboard ? 2px : 0px;
     border-color: Theme.accent;
 }
 

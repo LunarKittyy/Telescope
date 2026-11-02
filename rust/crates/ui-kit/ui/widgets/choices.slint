@@ -3,6 +3,8 @@
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { Icon, FocusRing } from "basics.slint";
+import { WindowBox } from "dialog.slint";
+import { FlickBar } from "scroll.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { TipBody } from "tip.slint";
 import { SearchWords } from "setting.slint";
@@ -28,9 +30,7 @@ export component Segmented inherits Rectangle {
         touched = true;
         picked(i);
     }
-    // Every option is a Tab stop of its own, as in reading_order; Space picks it. keyed: Tab or an arrow brought the focus
-    // here, so it shows the ring; a click gives it without one (theme.keyboard_focus)
-    property <bool> keyed;
+    // Every option is a Tab stop of its own, as in reading_order; Space picks it
     // The option an arrow key sends the focus to, with how often that was asked so the same one can be asked again
     property <int> arrow-to;
     property <int> arrows;
@@ -42,7 +42,6 @@ export component Segmented inherits Rectangle {
         if (from == shown) {
             pick(to);
         }
-        keyed = true;
         arrow-to = to;
         arrows += 1;
     }
@@ -97,7 +96,6 @@ export component Segmented inherits Rectangle {
                 enabled: !off;
                 focus-gained(reason) => {
                     if (reason == FocusReason.tab-navigation) {
-                        keyed = true;
                         Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height);
                     }
                 }
@@ -108,12 +106,11 @@ export component Segmented inherits Rectangle {
                     reject
                 }
             }
-            FocusRing { shown: seg-focus.has-focus && keyed; radius: 6px; width: parent.width + 4px; height: parent.height + 4px; }
+            FocusRing { shown: seg-focus.has-focus; radius: 6px; width: parent.width + 4px; height: parent.height + 4px; }
             seg-touch := TouchArea {
                 mouse-cursor: off ? default : pointer;
                 pointer-event(e) => {
                     if (e.kind == PointerEventKind.down && !off) {
-                        keyed = false;
                         seg-focus.focus();
                     }
                 }
@@ -151,15 +148,15 @@ export component Segmented inherits Rectangle {
 }
 
 // controls.ChoiceTile in "field" style: small caption over the value, chevron on the right, a list when clicked.
-// compact: a plain combo box (NoScrollComboBox in a control_row), 32px with the value alone.
+// compact, or no caption to show: a plain combo box (NoScrollComboBox in a control_row), 32px with the value alone.
 export component ChoiceField inherits Rectangle {
     // Whether its list is open
     out property <bool> open;
     // Items that went away while the list was open, by index: greyed out and can't be picked
     in property <[bool]> gone;
-    property <bool> clicked-open;
     in property <string> caption;
     in property <bool> compact;
+    property <bool> plain: compact || caption == "";
     // A small icon before the text (the header's phone picker), and its text in bold
     in property <image> icon;
     in property <bool> has-icon;
@@ -195,16 +192,16 @@ export component ChoiceField inherits Rectangle {
         if ((headings[next] || gone[next]) && past >= 0 && past < items.length && !headings[past] && !gone[past]) { return past; }
         return shown;
     }
-    height: compact ? 32px : 48px;
+    height: plain ? 32px : 48px;
     horizontal-stretch: 1;
     for item in items: SearchWords { words: item; control: true; }
     min-width: 0px;
     preferred-width: 0px;
-    border-radius: compact ? 7px : 10px;
+    border-radius: plain ? 7px : 10px;
     border-width: 1px;
     background: !enabled ? Theme.bg : touch.has-hover ? Theme.surface-hover : Theme.surface-raise;
     // Qt's plain combo box has the strong border; the tile its quiet one
-    border-color: !enabled ? Theme.border : touch.has-hover ? Theme.border-hover : compact ? Theme.border-strong : Theme.border;
+    border-color: !enabled ? Theme.border : touch.has-hover ? Theme.border-hover : plain ? Theme.border-strong : Theme.border;
     accessible-role: combobox;
     accessible-label: caption;
     accessible-value: items[shown];
@@ -220,15 +217,13 @@ export component ChoiceField inherits Rectangle {
             if (e.text == " " || e.text == "\n") { popup.show(); return accept; }
             reject
         }
-        focus-lost => { clicked-open = root.open; }
     }
-    FocusRing { shown: focus.has-focus && !clicked-open; radius: compact ? 7px : 10px; width: parent.width + 4px; height: parent.height + 4px; }
+    FocusRing { shown: focus.has-focus; radius: plain ? 7px : 10px; width: parent.width + 4px; height: parent.height + 4px; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
         clicked => {
             // Something has to hold the focus for the list's own to go back to when it closes (see `watch`)
-            clicked-open = true;
             focus.focus();
             popup.show();
         }
@@ -243,7 +238,7 @@ export component ChoiceField inherits Rectangle {
         height: 14px;
         accessible-role: none;
     }
-    if compact: VerticalLayout {
+    if plain: VerticalLayout {
         padding-left: has-icon ? 33px : 11px; // the phone picker's 32px padding sits inside its border
         padding-right: 30px;
         alignment: center;
@@ -259,7 +254,7 @@ export component ChoiceField inherits Rectangle {
     // _two_lines: the caption's capitals and the value's read as one block centred top to bottom, the value's capitals
     // 9px under the caption's baseline (stacked_baselines, with Inter's capitals 8px tall at 11px and 9px at 13px)
     property <length> first-baseline: round((root.height / 1px - 26) / 2 + 8) * 1px;
-    if !compact: Text {
+    if !plain: Text {
         x: has-icon ? 32px : 12px;
         y: first-baseline - 11px * 1984 / 2048;
         width: root.width - self.x - 30px;
@@ -269,7 +264,7 @@ export component ChoiceField inherits Rectangle {
         color: enabled ? Theme.text-faint : Theme.text-disabled;
         overflow: elide;
     }
-    if !compact: Text {
+    if !plain: Text {
         x: has-icon ? 32px : 12px;
         y: first-baseline + 18px - 13px * 1984 / 2048;
         width: root.width - self.x - 30px;
@@ -283,13 +278,19 @@ export component ChoiceField inherits Rectangle {
     Icon {
         source: @image-url("../icons/chevron.svg");
         x: parent.width - 12px - self.width;
-        width: compact ? 10px : 14px;
-        height: compact ? 10px : 14px;
+        width: plain ? 10px : 14px;
+        height: plain ? 10px : 14px;
     }
     popup := PopupWindow {
+        // Wide enough for its longest option, and inside the window: a longer one wraps, Slint moves it in from the edge
+        property <length> room-w: WindowBox.width > 0 ? WindowBox.width - 16px : 4000px;
+        property <length> room-h: WindowBox.height > 0 ? WindowBox.height - 16px : 4000px;
+        // By rows alone: a bar narrowing the list changes how many wrap, so this can't follow the list's real height
+        property <bool> popup-tall: items.length * 26px + 10px > room-h;
         x: 0;
         y: root.height + 4px;
-        width: root.width;
+        width: min(room-w, max(root.width, longest.preferred-width + 26px));
+        height: min(room-h, rows.preferred-height + 2px);
         // Slint doesn't say when a popup closes, but its focus goes back to the field then. Taken a moment after it
         // opens, since opening clears the focus
         watch := FocusScope {
@@ -303,6 +304,16 @@ export component ChoiceField inherits Rectangle {
                 watch.focus();
             }
         }
+        longest := VerticalLayout {
+            visible: false;
+            height: 0px;
+            for item[i] in items: Text {
+                text: item;
+                font-family: Theme.font;
+                font-size: headings[i] ? Theme.body * 0.85 : Theme.body;
+                font-weight: headings[i] ? 700 : 400;
+            }
+        }
         Rectangle {
             background: Theme.surface-raise;
             border-width: 1px;
@@ -310,34 +321,56 @@ export component ChoiceField inherits Rectangle {
             border-radius: 7px;
             drop-shadow-blur: 12px;
             drop-shadow-color: #00000080;
-            VerticalLayout {
-                padding: 4px;
-                for item[i] in items: Rectangle {
-                    property <bool> is-gone: gone[i];
-                    height: headings[i] ? 32px : 26px;
-                    border-radius: 5px;
-                    background: headings[i] || is-gone ? transparent : i == shown ? Theme.fill : item-touch.has-hover ? Theme.surface-hover : transparent;
-                    if headings[i]: Rectangle {
-                        y: 2px;
-                        height: parent.height - 3px;
-                        background: Theme.accent.with-alpha(0.12);
-                    }
-                    item-touch := TouchArea {
-                        enabled: !headings[i] && !is-gone;
-                        clicked => {
-                            pick(i);
+            list := Flickable {
+                x: 1px;
+                y: 1px;
+                width: parent.width - 2px;
+                height: parent.height - 2px;
+                viewport-height: rows.preferred-height;
+                rows := VerticalLayout {
+                    width: list.width - (popup-tall ? 10px : 0px);
+                    padding: 4px;
+                    for item[i] in items: Rectangle {
+                        property <bool> is-gone: gone[i];
+                        height: headings[i] ? 32px : max(26px, line.preferred-height + 10px);
+                        border-radius: 5px;
+                        background: headings[i] || is-gone ? transparent : i == shown ? Theme.fill : item-touch.has-hover ? Theme.surface-hover : transparent;
+                        if headings[i]: Rectangle {
+                            y: 2px;
+                            height: parent.height - 3px;
+                            background: Theme.accent.with-alpha(0.12);
+                        }
+                        item-touch := TouchArea {
+                            enabled: !headings[i] && !is-gone;
+                            clicked => {
+                                pick(i);
+                            }
+                        }
+                        line := Text {
+                            x: headings[i] ? 10px : 8px;
+                            width: parent.width - self.x - 8px;
+                            text: item;
+                            font-family: Theme.font;
+                            font-size: headings[i] ? Theme.body * 0.85 : Theme.body;
+                            font-weight: headings[i] ? 700 : 400;
+                            color: headings[i] ? Theme.accent : is-gone ? Theme.text-disabled : i == shown ? white : Theme.text;
+                            vertical-alignment: center;
+                            wrap: word-wrap;
                         }
                     }
-                    Text {
-                        x: headings[i] ? 10px : 8px;
-                        text: item;
-                        font-family: Theme.font;
-                        font-size: headings[i] ? Theme.body * 0.85 : Theme.body;
-                        font-weight: headings[i] ? 700 : 400;
-                        color: headings[i] ? Theme.accent : is-gone ? Theme.text-disabled : i == shown ? white : Theme.text;
-                        vertical-alignment: center;
-                    }
                 }
+            }
+            if popup-tall: FlickBar {
+                x: parent.width - 10px;
+                y: 3px;
+                width: 7px;
+                height: parent.height - 6px;
+                content: list.viewport-height;
+                viewport: list.height;
+                position <=> list.viewport-y;
+                least-thumb: 24px;
+                thumb-radius: 3px;
+                pages: false;
             }
         }
     }

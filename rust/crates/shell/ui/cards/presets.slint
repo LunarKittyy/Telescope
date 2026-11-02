@@ -1,7 +1,7 @@
 // The Presets button in the header (plugins/presets.py): a menu of the saved presets with Save, Rename and Delete under
 // them, and the two questions those ask (a name, and whether to replace a preset). The plugin says which question is open.
 
-import { Theme, Icons, Button, TextField, DialogFrame } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Button, TextField, DialogFrame, WindowBox } from "@ui-kit/ui-kit.slint";
 
 // One line of the menu: a QAction, or a QMenu that opens to the side (the arrow)
 component MenuRow inherits Rectangle {
@@ -180,8 +180,8 @@ export component PresetsHeader inherits HorizontalLayout {
     }
 
     name-popup := PopupWindow {
-        x: 0;
-        y: root.below + 2px;
+        x: WindowBox.left(self.width) - root.absolute-position.x;
+        y: WindowBox.top(name-frame.preferred-height) - root.absolute-position.y;
         width: 380px;
         close-policy: no-auto-close;
         FocusScope {
@@ -189,7 +189,7 @@ export component PresetsHeader inherits HorizontalLayout {
                 if (e.text == Key.Escape) { root.dialog-cancelled(); return accept; }
                 reject
             }
-            DialogFrame {
+            name-frame := DialogFrame {
                 title: dialog-title;
                 VerticalLayout {
                     spacing: 6px;
@@ -217,8 +217,8 @@ export component PresetsHeader inherits HorizontalLayout {
     }
 
     replace-popup := PopupWindow {
-        x: 0;
-        y: root.below + 2px;
+        x: WindowBox.left(self.width) - root.absolute-position.x;
+        y: WindowBox.top(replace-frame.preferred-height) - root.absolute-position.y;
         width: 400px;
         close-policy: no-auto-close;
         FocusScope {
@@ -226,7 +226,7 @@ export component PresetsHeader inherits HorizontalLayout {
                 if (e.text == Key.Escape) { root.replace-answered(false); return accept; }
                 reject
             }
-            DialogFrame {
+            replace-frame := DialogFrame {
                 title: replace-title;
                 subtitle: confirm-text;
                 HorizontalLayout {

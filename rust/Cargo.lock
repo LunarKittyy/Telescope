@@ -5865,6 +5865,7 @@ dependencies = [
  "telescope-ui-kit",
  "unicode-normalization",
  "windows",
+ "x11-dl",
  "zbus",
 ]
 

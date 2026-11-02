@@ -198,7 +198,7 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
             crate::offscreen::draw(shown.window(), setup.width, setup.height, scale)
         }
         Page::Dialog { frame, owner } => grown(&w, setup.width, setup.height, scale).and_then(|p| {
-            if owner == "ConnectionCard" { cut_out_centred(&w.ui, &p, frame, scale) } else { cut_out(&w.ui, &p, frame, owner, scale) }
+            if owner == "ConnectionCard" || owner == "PhonePicker" { cut_out_centred(&w.ui, &p, frame, scale) } else { cut_out(&w.ui, &p, frame, owner, scale) }
         }),
         Page::ControlMenu { label, size } => {
             use i_slint_backend_testing::{AccessibleRole, ElementHandle};

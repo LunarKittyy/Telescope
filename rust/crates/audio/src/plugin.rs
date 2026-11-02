@@ -246,13 +246,7 @@ impl JobThread {
 
 /// Opens a link in the browser: a stand-in until the window offers this to plugins.
 pub fn open_url(url: &str) {
-    #[cfg(windows)]
-    let result = std::process::Command::new("rundll32").args(["url.dll,FileProtocolHandler", url]).spawn();
-    #[cfg(not(windows))]
-    let result = std::process::Command::new("xdg-open").arg(url).spawn();
-    if let Err(e) = result {
-        log::warn!("Couldn't open {url}: {e}");
-    }
+    telescope_core::launch::open_url(url);
 }
 
 /// The source picked: a browser's mic is called by what it is, and a webcam's isn't brought over.
@@ -899,11 +893,11 @@ impl MicrophonePlugin {
             "mute-toggled" => self.set_muted(h, b(0)),
             "gain-moved" => self.set_gain(h, n(0).round() as i32),
             "gain-typed" => {
-                // takes +6, 6, "6 dB" or "+6 dB"
+                // takes +6, 6, "6 dB" or "+6 dB"; set_gain holds it to the limits
                 let text = event.args.first().and_then(Value::as_str).unwrap_or_default();
-                match text.replace("dB", "").trim().trim_start_matches('+').parse::<i32>() {
-                    Ok(db) => self.set_gain(h, db),
-                    Err(_) => self.show_gain(h),
+                match telescope_core::names::whole_number(&text.replace("dB", "")) {
+                    Some(db) => self.set_gain(h, db.clamp(i32::MIN as i64, i32::MAX as i64) as i32),
+                    None => self.show_gain(h),
                 }
             }
             "auto-toggled" => self.set_auto_level(h, b(0)),

@@ -17,6 +17,7 @@ pub mod host;
 pub mod i18n;
 pub mod image;
 pub mod json;
+pub mod launch;
 pub mod lens;
 pub mod link;
 pub mod media;

@@ -102,11 +102,16 @@ pub fn desktop_entry(command: &[String], menu: bool) -> String {
     )
 }
 
+/// A menu entry naming the icon by its file: it works without the icon theme picking the file up, which KDE's window icons were seen to miss.
+fn with_icon_file(entry: String, icon: &Path) -> String {
+    entry.replace(&format!("Icon={APP_ID}\n"), &format!("Icon={}\n", icon.display()))
+}
+
 /// Linux: points the app menu's entry at this copy, writing it only when it changed; save_icon writes the icon when it's missing. Returns whether it wrote.
 pub fn update_menu_entry(save_icon: impl FnOnce(&Path) -> bool, command: &[String], data: Option<&Path>) -> bool {
-    let text = desktop_entry(command, true);
-    let path = menu_file(data);
     let icon = icon_file(data);
+    let text = with_icon_file(desktop_entry(command, true), &icon);
+    let path = menu_file(data);
     let write = || -> std::io::Result<bool> {
         if !icon.exists() {
             std::fs::create_dir_all(icon.parent().unwrap_or(Path::new(".")))?;
@@ -125,39 +130,7 @@ pub fn update_menu_entry(save_icon: impl FnOnce(&Path) -> bool, command: &[Strin
     })
 }
 
-/// The app icon (create_app_icon): an accent-coloured disc with a dark centre, as straight RGBA rows, edges smoothed by 4x4 sampling.
-pub fn app_icon_rgba(size: u32) -> Vec<u8> {
-    const ACCENT: [f64; 3] = [0xaa as f64, 0x9c as f64, 0xf5 as f64];
-    const BG: [f64; 3] = [0x0f as f64, 0x12 as f64, 0x16 as f64];
-    let s = size as f64;
-    let margin = s / 22.0;
-    let (outer_r, inner_r, c) = ((s - 2.0 * margin) / 2.0, s * 8.0 / 22.0 / 2.0, s / 2.0);
-    let mut raw = Vec::with_capacity((size * size * 4) as usize);
-    for y in 0..size {
-        for x in 0..size {
-            let (mut accent, mut dark) = (0u32, 0u32);
-            for sy in 0..4 {
-                for sx in 0..4 {
-                    let (px, py) = (x as f64 + (sx as f64 + 0.5) / 4.0 - c, y as f64 + (sy as f64 + 0.5) / 4.0 - c);
-                    let d = (px * px + py * py).sqrt();
-                    if d <= inner_r {
-                        dark += 1;
-                    } else if d <= outer_r {
-                        accent += 1;
-                    }
-                }
-            }
-            let covered = accent + dark;
-            if covered == 0 {
-                raw.extend_from_slice(&[0, 0, 0, 0]);
-                continue;
-            }
-            let mix = |i: usize| ((ACCENT[i] * accent as f64 + BG[i] * dark as f64) / covered as f64).round() as u8;
-            raw.extend_from_slice(&[mix(0), mix(1), mix(2), (covered as f64 * 255.0 / 16.0).round() as u8]);
-        }
-    }
-    raw
-}
+pub use crate::icon::app_icon_rgba;
 
 /// app_icon_rgba as PNG bytes.
 pub fn app_icon_png(size: u32) -> Vec<u8> {
@@ -204,13 +177,23 @@ fn has_entry(app_id: &str, data: Option<&Path>) -> bool {
         .any(|d| d.join("applications").join(format!("{app_id}.desktop")).exists())
 }
 
-/// Linux: makes sure there's a menu entry named app_id, which the portal wants before it lets Telescope register global shortcuts; a copy without its own gets a hidden one.
+/// Linux: makes sure there's a menu entry named app_id, which the portal wants before it lets Telescope register global shortcuts and
+/// which is where Wayland desktops look up a window's icon; a copy without its own gets a hidden one, and the icon it names.
 pub fn ensure_portal_entry(app_id: &str, command: &[String], data: Option<&Path>) -> bool {
-    if has_entry(app_id, data) {
+    let icon = icon_file(data);
+    if !icon.exists() {
+        let saved = std::fs::create_dir_all(icon.parent().unwrap_or(Path::new("."))).and_then(|_| std::fs::write(&icon, app_icon_png(256)));
+        if let Err(e) = saved {
+            log::info!("Couldn't save the app icon: {e}");
+        }
+    }
+    let text = with_icon_file(desktop_entry(command, true), &icon) + "NoDisplay=true\n";
+    let path = data_home(data).join("applications").join(format!("{app_id}.desktop"));
+    // One of our hidden ones is kept up to date, anyone else's stays
+    let ours = std::fs::read_to_string(&path).is_ok_and(|t| t.contains("NoDisplay=true") && t != text);
+    if !ours && has_entry(app_id, data) {
         return true;
     }
-    let text = desktop_entry(command, true) + "NoDisplay=true\n";
-    let path = data_home(data).join("applications").join(format!("{app_id}.desktop"));
     let written = std::fs::create_dir_all(path.parent().unwrap_or(Path::new("."))).and_then(|_| std::fs::write(&path, text));
     if let Err(e) = written {
         log::info!("Couldn't write a menu entry for the desktop portal: {e}");
@@ -408,7 +391,8 @@ mod tests {
         assert!(update_menu_entry(save_icon, &command, Some(&dir)));
         let text = std::fs::read_to_string(dir.join("applications/telescope.desktop")).unwrap();
         assert!(text.contains("Exec=\"/home/someone/My Apps/Telescope/start.sh\"\n"));
-        assert!(text.contains("Icon=telescope\n") && text.contains("Categories=") && !text.contains("Autostart"));
+        assert!(text.contains(&format!("Icon={}\n", dir.join("icons/hicolor/256x256/apps/telescope.png").display())));
+        assert!(text.contains("Categories=") && !text.contains("Autostart"));
         assert_eq!(*icons.borrow(), vec![dir.join("icons/hicolor/256x256/apps/telescope.png")]);
         assert!(!update_menu_entry(save_icon, &command, Some(&dir)));
         assert!(update_menu_entry(save_icon, &argv(&["/elsewhere/start.sh"]), Some(&dir)));

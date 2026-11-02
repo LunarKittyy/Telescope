@@ -26,8 +26,25 @@ pub fn compile(name: &str, doc: &str, files: Vec<(String, String)>, component: &
         known.insert(Path::new(ROOT).join(path), translate(&text));
     }
     let known = Rc::new(known);
+    // A plugin may use Slint's own widgets, which need the style's std-widgets-impl and can't have the kit's menus in its place: that
+    // window keeps Slint's menus. A file only the loader reads shows it by failing, or by a panic for the widgets that are built in
+    let stock = doc.contains("std-widgets") || known.values().any(|text| text.contains("std-widgets"));
+    if !stock {
+        let with_menus = std::panic::AssertUnwindSafe(|| build(name, doc, known.clone(), component, true));
+        if let Ok(Ok(def)) = std::panic::catch_unwind(with_menus) {
+            return Ok(def);
+        }
+    }
+    build(name, doc, known, component, false)
+}
+
+fn build(name: &str, doc: &str, known: Rc<HashMap<PathBuf, String>>, component: &str, kit_menus: bool) -> Result<ComponentDefinition, String> {
     let mut compiler = Compiler::default();
     compiler.set_library_paths([(telescope_ui_kit::LIBRARY.to_string(), telescope_ui_kit::library_path())].into_iter().collect());
+    if kit_menus {
+        // The kit's menus, in place of the style's (ui/menus/std-widgets-impl.slint)
+        compiler.set_include_paths(vec![telescope_ui_kit::library_path().join("menus")]);
+    }
     compiler.set_file_loader(move |path: &Path| {
         let found = known.get(path).cloned().or_else(|| {
             // A real file (the kit, an added plugin's folder): read it here so its texts get translated too

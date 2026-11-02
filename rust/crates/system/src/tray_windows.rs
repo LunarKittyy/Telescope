@@ -85,7 +85,8 @@ pub use real::{balloon, WindowsTray};
 #[cfg(windows)]
 mod real {
     use super::*;
-    use std::cell::RefCell;
+    use crate::icon::TrayShows;
+    use std::cell::{Cell, RefCell};
     use std::collections::VecDeque;
     use std::ffi::c_void;
     use std::sync::{Arc, Mutex};
@@ -100,6 +101,8 @@ mod real {
     const WM_ICON: u32 = WM_APP + 1;
     const WM_TIP: u32 = WM_APP + 2;
     const WM_BALLOON: u32 = WM_APP + 3;
+    const WM_SHOWS: u32 = WM_APP + 4;
+    const SM_CXSMICON: i32 = 49;
     const NIM_ADD: u32 = 0;
     const NIM_MODIFY: u32 = 1;
     const NIM_DELETE: u32 = 2;
@@ -190,6 +193,9 @@ mod real {
         fn SetForegroundWindow(hwnd: Hwnd) -> i32;
         fn GetCursorPos(point: *mut Point) -> i32;
         fn LoadIconW(instance: *mut c_void, name: *const u16) -> *mut c_void;
+        fn CreateIcon(instance: *mut c_void, width: i32, height: i32, planes: u8, bits: u8, and_mask: *const u8, xor_mask: *const u8) -> *mut c_void;
+        fn DestroyIcon(icon: *mut c_void) -> i32;
+        fn GetSystemMetrics(index: i32) -> i32;
     }
 
     #[link(name = "shell32")]
@@ -212,6 +218,7 @@ mod real {
         tooltip: String,
         clicks: VecDeque<String>,
         balloons: VecDeque<(String, String, bool)>,
+        shows: TrayShows,
     }
 
     type Shared = Arc<Mutex<State>>;
@@ -219,7 +226,10 @@ mod real {
     /// What the window procedure needs, on the tray's own thread.
     struct Here {
         shared: Shared,
-        icon: *mut c_void,
+        instance: *mut c_void,
+        icon: Cell<*mut c_void>,
+        // Whether icon is one this made, for destroying; LoadIconW's isn't
+        drawn: Cell<bool>,
         taskbar_created: u32,
     }
 
@@ -236,8 +246,19 @@ mod real {
         d.size = std::mem::size_of::<NotifyIconData>() as u32;
         d.hwnd = hwnd;
         d.id = 1;
-        d.icon = here.icon;
+        d.icon = here.icon.get();
         d
+    }
+
+    /// The tray's picture at the size Windows draws it, from the same pixels as Linux; null if Windows won't take it.
+    fn icon_for(instance: *mut c_void, shows: TrayShows) -> *mut c_void {
+        // SAFETY: a plain query
+        let size = unsafe { GetSystemMetrics(SM_CXSMICON) }.max(16);
+        let bgra: Vec<u8> = crate::icon::tray_rgba(size as u32, shows).as_chunks::<4>().0.iter().flat_map(|p| [p[2], p[1], p[0], p[3]]).collect();
+        // Zeros: with 32-bit colour the alpha says what shows
+        let mask = vec![0u8; (size as usize).div_ceil(16) * 2 * size as usize];
+        // SAFETY: both masks are the size the width and height ask for and live through the call, which copies them
+        unsafe { CreateIcon(instance, size, size, 1, 32, mask.as_ptr(), bgra.as_ptr()) }
     }
 
     fn add_icon(hwnd: Hwnd, here: &Here) {
@@ -289,6 +310,24 @@ mod real {
                     IconEvent::Menu => show_menu(hwnd, here),
                     IconEvent::Other => {}
                 },
+                WM_SHOWS => {
+                    let shows = here.shared.lock().unwrap().shows;
+                    let icon = icon_for(here.instance, shows);
+                    if !icon.is_null() {
+                        let mut d = data(hwnd, here);
+                        d.flags = NIF_ICON;
+                        d.icon = icon;
+                        // SAFETY: a filled NOTIFYICONDATAW, and the old icon isn't used once the new one is in
+                        unsafe {
+                            Shell_NotifyIconW(NIM_MODIFY, &mut d);
+                            if here.drawn.replace(true) {
+                                DestroyIcon(here.icon.replace(icon));
+                            } else {
+                                here.icon.set(icon);
+                            }
+                        }
+                    }
+                }
                 WM_TIP => {
                     let mut d = data(hwnd, here);
                     d.flags = NIF_TIP | NIF_SHOWTIP;
@@ -355,13 +394,14 @@ mod real {
                     let hwnd = CreateWindowExW(0, class.as_ptr(), title.as_ptr(), 0, 0, 0, 0, 0, std::ptr::null_mut(),
                                                std::ptr::null_mut(), instance, std::ptr::null_mut());
                     if !hwnd.is_null() {
-                        // The app's own icon (resource 1) when the build has one, else Windows' generic one
-                        let mut icon = LoadIconW(instance, std::ptr::without_provenance::<u16>(1));
-                        if icon.is_null() {
+                        // Drawn as on Linux; Windows' generic one if that fails
+                        let mut icon = icon_for(instance, TrayShows::default());
+                        let drawn = !icon.is_null();
+                        if !drawn {
                             icon = LoadIconW(std::ptr::null_mut(), IDI_APPLICATION as *const u16);
                         }
                         let taskbar_created = RegisterWindowMessageW(wide("TaskbarCreated").as_ptr());
-                        let here = Here { shared: theirs, icon, taskbar_created };
+                        let here = Here { shared: theirs, instance, icon: Cell::new(icon), drawn: Cell::new(drawn), taskbar_created };
                         add_icon(hwnd, &here);
                         HERE.with(|h| *h.borrow_mut() = Some(here));
                     }
@@ -412,6 +452,18 @@ mod real {
                 st.tooltip = text.into();
             }
             self.post(WM_TIP);
+        }
+
+        fn set_state(&mut self, camera: bool, mic: Option<bool>) {
+            let shows = TrayShows::from_stream(camera, mic);
+            {
+                let mut st = self.shared.lock().unwrap();
+                if st.shows == shows {
+                    return;
+                }
+                st.shows = shows;
+            }
+            self.post(WM_SHOWS);
         }
 
         fn poll_click(&mut self) -> Option<String> {

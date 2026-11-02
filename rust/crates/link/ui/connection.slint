@@ -1,7 +1,7 @@
 // The Connection plugin (desktop/telescope/plugins/connection.py): the card, the phone picker in the header, the Add
 // phone and Your phones dialogs (as popups) and the UDP row in Settings. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, TipBody, Button, IconButton, LinkText, Card, FormRow, Segmented, ChoiceField, TextField, TextCap, Switch, SettingRow, Tag, DialogFrame, WindowBox } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, TipBody, Button, IconButton, LinkText, Card, FormRow, Segmented, ChoiceField, TextField, TextCap, Switch, SettingRow, Tag, DialogFrame, WindowBox, FlickBar, QrCode } from "@ui-kit/ui-kit.slint";
 
 // A plugged-in phone the Add phone dialog can pair over USB.
 export struct UsbPick {
@@ -50,25 +50,6 @@ component Note inherits Text {
     height: shown ? self.preferred-height : 0px;
 }
 
-component QrCode inherits Rectangle {
-    in property <[int]> cells;
-    in property <int> size;
-    // QRCodeWidget: 6px modules and a quiet zone of four
-    property <length> cell: 6px;
-    width: (size + 8) * cell;
-    height: (size + 8) * cell;
-    background: white;
-    accessible-role: image;
-    accessible-label: @tr("Pairing code");
-    for i in cells: Rectangle {
-        x: (mod(i, size) + 4) * cell;
-        y: (floor(i / size) + 4) * cell;
-        width: cell;
-        height: cell;
-        background: black;
-    }
-}
-
 // A QScrollArea: as tall as what's in it up to cap, then a scroll bar. gutter keeps room for the bar beside the rows; it
 // can't follow the height, which follows the rows' width.
 component ScrollList inherits Rectangle {
@@ -90,22 +71,16 @@ component ScrollList inherits Rectangle {
             @children
         }
     }
-    if scrolls: Rectangle {
-        property <length> room: flick.height - self.height;
+    if scrolls: FlickBar {
         x: parent.width - self.width;
-        y: room * flick.viewport-y / (flick.height - flick.viewport-height);
         width: 6px;
-        height: max(24px, flick.height * flick.height / flick.viewport-height);
-        border-radius: 3px;
-        background: drag.has-hover || drag.pressed ? Theme.border-hover : Theme.border-strong;
-        drag := TouchArea {
-            moved => {
-                if (self.pressed) {
-                    flick.viewport-y = clamp(flick.viewport-y - (self.mouse-y - self.pressed-y) * (flick.viewport-height - flick.height) / room,
-                                             flick.height - flick.viewport-height, 0px);
-                }
-            }
-        }
+        height: flick.height;
+        content: flick.viewport-height;
+        viewport: flick.height;
+        position <=> flick.viewport-y;
+        least-thumb: 24px;
+        thumb-radius: 3px;
+        pages: false;
     }
 }
 
@@ -356,12 +331,11 @@ export component ConnectionCard inherits Card {
     add-popup := PopupWindow {
         close-policy: no-auto-close;
         x: WindowBox.left(self.width) - root.absolute-position.x;
-        y: WindowBox.top(add-frame.preferred-height) - root.absolute-position.y;
+        y: WindowBox.top(self.height) - root.absolute-position.y;
         width: max(root.width, 460px);
+        // The window's height caps the dialog, and the code is what gives way
+        height: WindowBox.cap(add-frame.preferred-height);
         add-frame := DialogFrame {
-            border-width: 1px;
-            border-color: Theme.border-strong;
-            border-radius: 12px;
             property <bool> on-source: other-name != "" && !paired && add-page == 1;
             title: @tr("Add a phone");
             subtitle: on-source ? "" : add-subtitle;
@@ -379,9 +353,24 @@ export component ConnectionCard inherits Card {
                 alignment: start;
                 Button { text: @tr("Use it"); role: "primary"; accessible-label: other-name; clicked => { root.other-picked(); } }
             }
-            if qr-size > 0 && !paired && !on-source: HorizontalLayout {
-                alignment: center;
-                QrCode { cells: qr-cells; size: qr-size; }
+            if qr-size > 0 && !paired && !on-source: Rectangle {
+                property <int> modules: qr-size + 8;
+                // A long payload makes more modules than the dialog's width holds at 6px. Whole device pixels each, or the
+                // white gaps between dark cells show on a scaled screen
+                function fit(room: length) -> length {
+                    return min(6px, max(1phx, floor(room / modules / 1phx) * 1phx));
+                }
+                property <length> full: modules * fit(self.width);
+                min-height: 0px;
+                preferred-height: full;
+                max-height: full;
+                vertical-stretch: 1;
+                QrCode {
+                    cells: qr-cells;
+                    size: qr-size;
+                    cell: fit(min(parent.width, parent.height));
+                    label: @tr("Pairing code");
+                }
             }
             if wifi-shown && !paired && !add-frame.on-source: FormRow {
                 label: "Wi-Fi";
@@ -451,9 +440,6 @@ export component ConnectionCard inherits Card {
         y: WindowBox.top(vcam-frame.preferred-height) - root.absolute-position.y;
         width: max(root.width, 460px);
         vcam-frame := DialogFrame {
-            border-width: 1px;
-            border-color: Theme.border-strong;
-            border-radius: 12px;
             title: @tr("Set up the virtual camera");
             Note { text: @tr("Telescope needs to switch on its virtual camera first. This asks for your password."); kind: ""; }
             HorizontalLayout {
@@ -558,147 +544,153 @@ export component PhonePicker inherits HorizontalLayout {
         picked(i) => { root.picked(i); }
         changed open => { root.picker-open(self.open); }
     }
-    Button {
+    // A plain element around these: a popup directly under a layout ignores its x and y
+    phones-anchor := Rectangle {
         width: 34px;
         height: 34px;
         y: (parent.height - self.height) / 2;
-        role: "quiet";
-        padding-x: 0px;
-        has-icon: true;
-        icon: Icons.v-devices;
-        icon-size: 18px;
-        icon-tint: Theme.text-dim;
-        tip: @tr("Your phones: add, rename, remove");
-        accessible-label: @tr("Your phones");
-        clicked => { root.manage(); }
-    }
+        Button {
+            width: 34px;
+            height: 34px;
+            role: "quiet";
+            padding-x: 0px;
+            has-icon: true;
+            icon: Icons.v-devices;
+            icon-size: 18px;
+            icon-tint: Theme.text-dim;
+            tip: @tr("Your phones: add, rename, remove");
+            accessible-label: @tr("Your phones");
+            clicked => { root.manage(); }
+        }
 
-    phones-popup := PopupWindow {
-        close-policy: no-auto-close;
-        width: 460px;
-        DialogFrame {
-            title: @tr("Your phones");
-            subtitle: @tr("Each phone keeps its own camera settings, and so does a browser once you change one. Removing a phone also unpairs it on the phone.");
-            Card {
-                title: @tr("Phones");
-                icon: Icons.phone;
-                hue: Theme.plugin-hue("streaming");
-                has-action: true;
-                action-icon: Icons.plus;
-                action-text: @tr("Add phone");
-                action-label: @tr("Pair another phone");
-                action => { root.add-phone(); }
-                if rows.length == 0: Note { text: @tr("No phones yet. Add one to pair it with this computer."); }
-                if rows.length > 0: PhoneList {
-                    rows-shown: rows;
-                    rename(row) => {
-                        root.ask-name(row.id, @tr("Rename phone"), @tr("Name"), row.name);
-                        name-popup.show();
+            phones-popup := PopupWindow {
+            close-policy: no-auto-close;
+            x: WindowBox.left(self.width) - phones-anchor.absolute-position.x;
+            y: WindowBox.top(phones-frame.preferred-height) - phones-anchor.absolute-position.y;
+            width: 460px;
+            phones-frame := DialogFrame {
+                title: @tr("Your phones");
+                subtitle: @tr("Each phone keeps its own camera settings, and so does a browser once you change one. Removing a phone also unpairs it on the phone.");
+                Card {
+                    title: @tr("Phones");
+                    icon: Icons.phone;
+                    hue: Theme.plugin-hue("streaming");
+                    has-action: true;
+                    action-icon: Icons.plus;
+                    action-text: @tr("Add phone");
+                    action-label: @tr("Pair another phone");
+                    // In its place: pop-ups don't stack
+                    action => {
+                        root.phones-closed();
+                        root.add-phone();
                     }
-                    remove(row) => {
-                        root.removing = row;
-                        confirm-popup.show();
-                    }
-                }
-            }
-            Card {
-                title: @tr("This computer");
-                icon: Icons.monitor;
-                hue: Theme.plugin-hue("streaming");
-                SettingRow {
-                    title: computer-name;
-                    sub: @tr("What your phones call it");
-                    Button {
-                        text: @tr("Change name");
-                        tip: @tr("The name your phones show for this computer");
-                        accessible-label: @tr("Change this computer's name");
-                        clicked => {
-                            root.ask-name("", @tr("Rename this computer"), @tr("Name your phones show (applies to phones you pair from now on)"), computer-name);
+                    if rows.length == 0: Note { text: @tr("No phones yet. Add one to pair it with this computer."); }
+                    if rows.length > 0: PhoneList {
+                        rows-shown: rows;
+                        rename(row) => {
+                            root.ask-name(row.id, @tr("Rename phone"), @tr("Name"), row.name);
                             name-popup.show();
                         }
-                    }
-                }
-            }
-            HorizontalLayout {
-                alignment: end;
-                padding-top: 4px;
-                Button { width: 96px; height: 32px; text: @tr("Close"); clicked => { root.phones-closed(); } }
-            }
-
-            // Inside this one: showing a popup closes any other under the same parent
-            name-popup := PopupWindow {
-                close-policy: no-auto-close;
-                x: 30px;
-                y: 140px;
-                width: 400px;
-                DialogFrame {
-                    border-width: 1px;
-                    border-color: Theme.border-strong;
-                    border-radius: 12px;
-                    title: name-title;
-                    Note { text: name-label; kind: ""; }
-                    name-field := TextField {
-                        // setMaxLength(MAX_NAME_CHARS)
-                        property <string> kept: name-text;
-                        text: name-text;
-                        label: name-label;
-                        init => { self.focus-all(); }
-                        edited(text) => {
-                            if (text.character-count > 64) {
-                                let fitted = TextCap.fit(self.kept, text, 64);
-                                self.text = fitted != "" ? fitted : self.kept;
-                            }
-                            self.kept = self.text;
-                        }
-                        accepted => { ok.clicked(); }
-                    }
-                    HorizontalLayout {
-                        alignment: end;
-                        spacing: 8px;
-                        Button { width: 96px; height: 32px; text: @tr("Cancel"); clicked => { name-popup.close(); } }
-                        ok := Button {
-                            width: 96px;
-                            height: 32px;
-                            text: @tr("OK");
-                            role: "primary";
-                            clicked => {
-                                if (naming == "") {
-                                    root.rename-computer(name-field.text);
-                                } else {
-                                    root.rename(naming, name-field.text);
-                                }
-                                name-popup.close();
-                            }
+                        remove(row) => {
+                            root.removing = row;
+                            confirm-popup.show();
                         }
                     }
                 }
-            }
-
-            confirm-popup := PopupWindow {
-                close-policy: no-auto-close;
-                x: 30px;
-                y: 140px;
-                width: 400px;
-                DialogFrame {
-                    border-width: 1px;
-                    border-color: Theme.border-strong;
-                    border-radius: 12px;
-                    title: removing.confirm-title;
-                    Note { text: removing.confirm; kind: ""; }
-                    HorizontalLayout {
-                        alignment: end;
-                        spacing: 8px;
+                Card {
+                    title: @tr("This computer");
+                    icon: Icons.monitor;
+                    hue: Theme.plugin-hue("streaming");
+                    SettingRow {
+                        title: computer-name;
+                        sub: @tr("What your phones call it");
                         Button {
-                            width: 96px;
-                            height: 32px;
-                            text: @tr("Yes");
+                            text: @tr("Change name");
+                            tip: @tr("The name your phones show for this computer");
+                            accessible-label: @tr("Change this computer's name");
                             clicked => {
-                                root.remove(removing.id);
-                                confirm-popup.close();
+                                root.ask-name("", @tr("Rename this computer"), @tr("Name your phones show (applies to phones you pair from now on)"), computer-name);
+                                name-popup.show();
                             }
                         }
-                        Button { width: 96px; height: 32px; text: @tr("No"); role: "primary"; clicked => { confirm-popup.close(); } }
                     }
+                }
+                HorizontalLayout {
+                    alignment: end;
+                    padding-top: 4px;
+                    Button { width: 96px; height: 32px; text: @tr("Close"); clicked => { root.phones-closed(); } }
+                }
+            }
+        }
+
+        // Beside it: only one popup is open at a time. Showing any of these closes whichever other one is open, so Your
+        // phones gives way to the question and comes back after it
+        name-popup := PopupWindow {
+            close-policy: no-auto-close;
+            x: WindowBox.left(self.width) - phones-anchor.absolute-position.x;
+            y: WindowBox.top(name-frame.preferred-height) - phones-anchor.absolute-position.y;
+            width: 400px;
+            name-frame := DialogFrame {
+                title: name-title;
+                Note { text: name-label; kind: ""; }
+                name-field := TextField {
+                    // setMaxLength(MAX_NAME_CHARS)
+                    property <string> kept: name-text;
+                    text: name-text;
+                    label: name-label;
+                    init => { self.focus-all(); }
+                    edited(text) => {
+                        if (text.character-count > 64) {
+                            let fitted = TextCap.fit(self.kept, text, 64);
+                            self.text = fitted != "" ? fitted : self.kept;
+                        }
+                        self.kept = self.text;
+                    }
+                    accepted => { ok.clicked(); }
+                }
+                HorizontalLayout {
+                    alignment: end;
+                    spacing: 8px;
+                    Button { width: 96px; height: 32px; text: @tr("Cancel"); clicked => { phones-popup.show(); } }
+                    ok := Button {
+                        width: 96px;
+                        height: 32px;
+                        text: @tr("OK");
+                        role: "primary";
+                        clicked => {
+                            if (naming == "") {
+                                root.rename-computer(name-field.text);
+                            } else {
+                                root.rename(naming, name-field.text);
+                            }
+                            phones-popup.show();
+                        }
+                    }
+                }
+            }
+        }
+
+        confirm-popup := PopupWindow {
+            close-policy: no-auto-close;
+            x: WindowBox.left(self.width) - phones-anchor.absolute-position.x;
+            y: WindowBox.top(confirm-frame.preferred-height) - phones-anchor.absolute-position.y;
+            width: 400px;
+            confirm-frame := DialogFrame {
+                title: removing.confirm-title;
+                Note { text: removing.confirm; kind: ""; }
+                HorizontalLayout {
+                    alignment: end;
+                    spacing: 8px;
+                    Button {
+                        width: 96px;
+                        height: 32px;
+                        text: @tr("Yes");
+                        clicked => {
+                            root.remove(removing.id);
+                            phones-popup.show();
+                        }
+                    }
+                    Button { width: 96px; height: 32px; text: @tr("No"); role: "primary"; clicked => { phones-popup.show(); } }
                 }
             }
         }

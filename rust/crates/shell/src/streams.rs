@@ -68,6 +68,9 @@ impl Worker for ShellWorker {
     }
 }
 
+/// The picture on a stream's tile, in logical pixels (tiles.THUMB_W and THUMB_H).
+const THUMB: (f32, f32) = (128.0, 72.0);
+
 /// Everything the window keeps about streams.
 #[derive(Default)]
 pub struct Streams {
@@ -93,6 +96,9 @@ pub struct Streams {
     packet_makers: Rc<RefCell<crate::shell::PacketMakers>>,
     /// Starts workers in place of StreamWorker (tests).
     pub maker: RefCell<Option<WorkerMaker>>,
+    /// Each tile's picture by source, with the number of the frame it's from.
+    thumbs: RefCell<std::collections::HashMap<String, (slint::Image, u64)>>,
+    thumb_scaler: RefCell<Option<Box<dyn telescope_core::media::Scaler>>>,
 }
 
 impl Streams {
@@ -904,6 +910,7 @@ impl Window {
         let rows: Vec<SValue> = if entries.len() > 1 {
             entries.iter().map(|(src, slot, state, kind)| {
                 let name = src.kind.name();
+                let thumb = self.streams.thumbs.borrow().get(src.id_str()).map(|(image, _)| image.clone());
                 SValue::Struct(Struct::from_iter([
                     ("id".to_string(), SValue::String(src.id_str().into())),
                     ("name".to_string(), SValue::String(name.as_str().into())),
@@ -913,13 +920,56 @@ impl Window {
                     ("state".to_string(), SValue::String(state.as_str().into())),
                     ("kind".to_string(), SValue::String((*kind).into())),
                     ("focused".to_string(), SValue::Bool(crate::session::same(&s.focus, src))),
-                    ("has-thumb".to_string(), SValue::Bool(false)),
+                    ("has-thumb".to_string(), SValue::Bool(thumb.is_some())),
+                    ("thumb".to_string(), SValue::Image(thumb.unwrap_or_default())),
                 ]))
             }).collect()
         } else {
             Vec::new()
         };
+        let ids: Vec<String> = entries.iter().map(|(src, ..)| src.id_str().to_string()).collect();
+        self.streams.thumbs.borrow_mut().retain(|id, _| ids.contains(id));
         let _ = self.ui.set_property("tiles", SValue::Model(ModelRc::new(VecModel::from(rows))));
+    }
+
+    /// _update_thumbnails: each tile gets its stream's newest frame, small, while there are tiles and someone can see them.
+    pub fn update_thumbnails(&self) {
+        use slint::Model;
+        let Ok(SValue::Model(tiles)) = self.ui.get_property("tiles") else { return };
+        let window = self.ui.window();
+        if tiles.row_count() == 0 || !window.is_visible() || window.is_minimized() {
+            return;
+        }
+        let Some(services) = &self.services else { return };
+        let mut scaler = self.streams.thumb_scaler.borrow_mut();
+        let scaler = scaler.get_or_insert_with(|| services.media.scaler());
+        let flow = self.streams.flow.borrow();
+        for src in &flow.sessions.streams {
+            let Some(worker) = self.worker_of(src) else { continue };
+            let Some((frame, number)) = worker.inner.slot().latest() else { continue };
+            let id = src.id_str().to_string();
+            let mut thumbs = self.streams.thumbs.borrow_mut();
+            if thumbs.get(&id).is_some_and(|(_, shown)| *shown == number) {
+                continue;
+            }
+            let scale = window.scale_factor();
+            let room = ((THUMB.0 * scale).round() as u32, (THUMB.1 * scale).round() as u32);
+            let (w, h) = crate::preview::fit_within((frame.width, frame.height), room);
+            let rgb = scaler.rgb(&frame, w, h);
+            if rgb.len() != (w * h * 3) as usize {
+                continue;
+            }
+            let image = slint::Image::from_rgb8(slint::SharedPixelBuffer::<slint::Rgb8Pixel>::clone_from_slice(&rgb, w, h));
+            thumbs.insert(id.clone(), (image.clone(), number));
+            for row in 0..tiles.row_count() {
+                let Some(SValue::Struct(mut tile)) = tiles.row_data(row) else { continue };
+                if tile.get_field("id") == Some(&SValue::String(id.as_str().into())) {
+                    tile.set_field("has-thumb".into(), SValue::Bool(true));
+                    tile.set_field("thumb".into(), SValue::Image(image.clone()));
+                    tiles.set_row_data(row, SValue::Struct(tile));
+                }
+            }
+        }
     }
 
     fn show_issue(self: &Rc<Self>, key: &str, title: &str, text: &str, actions: Vec<IssueAction>) {

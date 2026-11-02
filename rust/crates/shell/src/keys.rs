@@ -19,9 +19,9 @@ fn scan_code(key: slint::winit_030::winit::keyboard::PhysicalKey) -> u32 {
 }
 
 /// Makes the scan code of each key event available to key_input: winit's event comes first, then Slint's own KeyEvent for it.
-pub fn watch_scan_codes(window: &slint::Window) {
-    use slint::winit_030::{winit::event::WindowEvent, EventResult, WinitWindowAccessor};
-    window.on_winit_window_event(|_, event| {
+pub fn watch_scan_codes(ui: &slint_interpreter::ComponentInstance) {
+    use slint::winit_030::{winit::event::WindowEvent, EventResult};
+    crate::input::watch(ui, |_, event| {
         if let WindowEvent::KeyboardInput { event, .. } = event {
             LAST_SCAN.with(|s| s.set(scan_code(event.physical_key)));
         }
@@ -57,12 +57,12 @@ fn key_text(key: &slint::winit_030::winit::keyboard::Key, typed: Option<&str>) -
 
 /// A plugin's own window: its component is the plugin's, so nothing in it can catch keys first as the main window's
 /// FocusScope does, and they're taken here, before Slint gives them to the control with focus.
-pub fn watch_plugin_keys(window: &slint::Window, owner: std::rc::Weak<Window>) {
+pub fn watch_plugin_keys(ui: &slint_interpreter::ComponentInstance, owner: std::rc::Weak<Window>) {
     use slint::winit_030::winit::event::{ElementState, WindowEvent};
     use slint::winit_030::winit::keyboard::ModifiersState;
-    use slint::winit_030::{EventResult, WinitWindowAccessor};
+    use slint::winit_030::EventResult;
     let held = std::cell::Cell::new(ModifiersState::empty());
-    window.on_winit_window_event(move |window, event| {
+    crate::input::watch(ui, move |window, event| {
         match event {
             WindowEvent::ModifiersChanged(m) => held.set(m.state()),
             WindowEvent::KeyboardInput { event, .. } => {

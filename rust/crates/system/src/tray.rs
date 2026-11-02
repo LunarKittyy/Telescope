@@ -2,6 +2,7 @@
 //! AppIndicator and most panels show. Without a StatusNotifierWatcher on the bus there's no tray, as with Qt's
 //! isSystemTrayAvailable(). The menu's entries come from the shell through Tray::set_items.
 
+use crate::icon::{TrayShows, TRAY_SIZES};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use telescope_core::system::{Tray, TrayItem};
@@ -17,13 +18,20 @@ type ToolTip = (String, Vec<Pixmap>, String, String);
 const ITEM_PATH: &str = "/StatusNotifierItem";
 const MENU_PATH: &str = "/MenuBar";
 const WATCHER: &str = "org.kde.StatusNotifierWatcher";
-/// A themed icon every desktop has, until the app has an icon of its own to draw.
-const ICON: &str = "camera-web";
+
+/// create_tray_icon for the protocol: every size, in ARGB bytes.
+fn pixmaps(shows: TrayShows) -> Vec<Pixmap> {
+    TRAY_SIZES.iter().map(|&size| {
+        let argb = crate::icon::tray_rgba(size, shows).as_chunks::<4>().0.iter().flat_map(|p| [p[3], p[0], p[1], p[2]]).collect();
+        (size as i32, size as i32, argb)
+    }).collect()
+}
 
 #[derive(Default)]
 struct State {
     items: Vec<TrayItem>,
     tooltip: String,
+    shows: TrayShows,
     revision: u32,
     /// Tray item ids clicked, "" for the icon itself.
     clicks: VecDeque<String>,
@@ -57,11 +65,11 @@ impl Item {
     }
     #[zbus(property)]
     fn icon_name(&self) -> String {
-        ICON.into()
+        String::new()
     }
     #[zbus(property)]
     fn icon_pixmap(&self) -> Vec<Pixmap> {
-        Vec::new()
+        pixmaps(self.0.lock().unwrap().shows)
     }
     #[zbus(property)]
     fn tool_tip(&self) -> ToolTip {
@@ -87,6 +95,8 @@ impl Item {
 
     #[zbus(signal)]
     async fn new_tool_tip(emitter: &SignalEmitter<'_>) -> zbus::Result<()>;
+    #[zbus(signal)]
+    async fn new_icon(emitter: &SignalEmitter<'_>) -> zbus::Result<()>;
 }
 
 struct Menu(Shared);
@@ -252,6 +262,20 @@ impl Tray for SniTray {
         }
         if let Ok(item) = self.conn.object_server().interface::<_, Item>(ITEM_PATH) {
             let _ = zbus::block_on(Item::new_tool_tip(item.signal_emitter()));
+        }
+    }
+
+    fn set_state(&mut self, camera: bool, mic: Option<bool>) {
+        let shows = TrayShows::from_stream(camera, mic);
+        {
+            let mut st = self.shared.lock().unwrap();
+            if st.shows == shows {
+                return;
+            }
+            st.shows = shows;
+        }
+        if let Ok(item) = self.conn.object_server().interface::<_, Item>(ITEM_PATH) {
+            let _ = zbus::block_on(Item::new_icon(item.signal_emitter()));
         }
     }
 

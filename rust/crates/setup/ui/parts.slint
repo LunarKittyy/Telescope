@@ -1,7 +1,7 @@
 // What this crate's cards are built from. The plugins join this file and their card into one source (Rust's concat!),
 // so it holds the only import line.
 
-import { Theme, Icons, Icon, FocusRing, Button, Card, SearchWords, Section, SectionHeading, Switch, Segmented, ChoiceField, TextField, TipBody } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, Button, Card, SearchWords, Section, SectionHeading, Switch, Segmented, ChoiceField, TextField, NumberField, KeyFocus, TipBody } from "@ui-kit/ui-kit.slint";
 
 global Status {
     public pure function color(kind: string) -> color {
@@ -132,14 +132,22 @@ component CommandBox inherits HorizontalLayout {
 }
 
 // NoScrollSpinBox#chip_spin: an 80x32 number box with its suffix and no arrows drawn, stepped by the keys or the wheel. What's
-// typed is said on Enter or when the box is left.
+// typed is said on Enter or when the box is left, and the box then shows its value again whatever was made of it (NumberField).
 component SpinChip inherits Rectangle {
-    in-out property <string> text;
+    in property <string> value;
     in property <string> label;
     in property <bool> enabled: true;
     in property <string> tip;
     callback committed(string);
     callback step(int);
+    changed value => { input.text = root.value; }
+    function commit() {
+        let typed = input.text;
+        if (typed != root.value) {
+            root.committed(typed);
+        }
+        input.text = root.value;
+    }
     width: 80px;
     height: 32px;
     border-radius: 7px;
@@ -148,7 +156,7 @@ component SpinChip inherits Rectangle {
     border-color: !enabled ? Theme.border : input.has-focus ? Theme.accent : touch.has-hover ? Theme.border-hover : Theme.border-strong;
     accessible-role: spinbox;
     accessible-label: label;
-    accessible-value: text;
+    accessible-value: input.text;
     forward-focus: input;
     touch := TouchArea {
         enabled: root.enabled;
@@ -165,7 +173,7 @@ component SpinChip inherits Rectangle {
         x: 11px;
         width: parent.width - 22px;
         height: parent.height;
-        text <=> root.text;
+        text: root.value;
         enabled: root.enabled;
         font-family: Theme.font;
         font-size: Theme.body;
@@ -173,11 +181,18 @@ component SpinChip inherits Rectangle {
         color: !root.enabled ? Theme.text-disabled : Theme.text;
         vertical-alignment: center;
         single-line: true;
-        accepted => { root.committed(self.text); }
-        changed has-focus => { if (!self.has-focus) { root.committed(self.text); } }
+        accepted => {
+            root.commit();
+            if (!KeyFocus.keyboard) {
+                self.clear-focus();
+                KeyFocus.given-back += 1;
+            }
+        }
+        changed has-focus => { if (!self.has-focus) { root.commit(); } }
         key-pressed(e) => {
             if (e.text == Key.UpArrow) { root.step(1); return accept; }
             if (e.text == Key.DownArrow) { root.step(-1); return accept; }
+            if (e.text == Key.Escape) { self.text = root.value; return accept; }
             reject
         }
     }

@@ -286,6 +286,27 @@ fn packet_steps_stay_with_the_panels_and_both_streams_get_a_keyframe() {
 }
 
 #[test]
+fn each_tile_shows_its_own_streams_picture() {
+    let r = Rig::new("tile-pictures");
+    slint::ComponentHandle::show(&r.w.ui).unwrap();
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    r.add("oneplus");
+    r.until("the second stream", |r| r.workers_made() == 2);
+    r.pump();
+    let shown = |id: &str| r.tile(id).unwrap()["has-thumb"].clone();
+    r.w.update_thumbnails();
+    assert_eq!(shown("pixel"), "false", "nothing to show yet");
+    r.worker(0).slot().publish(rig::frame());
+    r.worker(1).slot().publish(rig::frame());
+    r.w.update_thumbnails();
+    assert_eq!((shown("pixel"), shown("oneplus")), ("true".to_string(), "true".to_string()), "the stream the panels don't show has one too");
+    r.w.refresh_tiles();
+    assert_eq!(shown("pixel"), "true", "a tile that's written again keeps its picture");
+}
+
+#[test]
 fn a_preview_frame_from_the_last_stream_isnt_shown_on_the_next() {
     let r = Rig::new("preview-last");
     r.start();

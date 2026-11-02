@@ -2,6 +2,7 @@
 
 pub mod autostart;
 pub mod hotkeys;
+pub mod icon;
 #[cfg(target_os = "linux")]
 pub mod hotkeys_portal;
 pub mod hotkeys_windows;
@@ -41,14 +42,7 @@ pub fn app_dir() -> std::path::PathBuf {
 
 /// Opens a link in the default browser.
 pub fn open_url(url: &str) {
-    let spawned = if cfg!(windows) {
-        std::process::Command::new("rundll32").args(["url.dll,FileProtocolHandler", url]).spawn()
-    } else {
-        std::process::Command::new("xdg-open").arg(url).spawn()
-    };
-    if let Err(e) = spawned {
-        log::warn!("Couldn't open {url}: {e}");
-    }
+    telescope_core::launch::open_url(url);
 }
 
 /// This computer's desktop.
@@ -107,9 +101,8 @@ impl Notifier for Desktop {
                                  TRAY_SHOWN.load(std::sync::atomic::Ordering::SeqCst));
         if route == NotifyRoute::NotifySend {
             let cmd = notify_command(title, body, urgent);
-            let spawned = std::process::Command::new(&cmd[0]).args(&cmd[1..])
-                .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn();
-            match spawned {
+            let args: Vec<&str> = cmd[1..].iter().map(String::as_str).collect();
+            match telescope_core::launch::detached(&cmd[0], &args) {
                 // Reaped on a thread of its own, so it doesn't linger as a zombie
                 Ok(mut child) => drop(std::thread::Builder::new().name("notify-send".into()).spawn(move || child.wait())),
                 Err(e) => log::warn!("Couldn't show a notification: {e}"),

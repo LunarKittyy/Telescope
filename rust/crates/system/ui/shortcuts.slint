@@ -1,7 +1,7 @@
 // The Shortcuts page (plugins/shortcuts.py's ShortcutsSection and BindingEditor): the list of shortcuts, the Everywhere
 // card and the editor for one shortcut, as a popup. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Button, IconButton, Card, FormRow, ChoiceField, TextField, Switch, SettingRow, DialogFrame } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, IconButton, Card, FormRow, ChoiceField, TextField, NumberField, Switch, SettingRow, DialogFrame, WindowBox } from "@ui-kit/ui-kit.slint";
 
 export struct BindingRow {
     keys: string,
@@ -203,6 +203,7 @@ export component ShortcutsSettings inherits VerticalLayout {
     callback control-picked(int);
     callback param-picked(int, int);
     callback param-edited(int, string);
+callback param-committed(int, string);
     callback param-step(int, int);
     callback key-pressed(string, bool, bool, bool, bool);
     callback key-cleared;
@@ -270,11 +271,17 @@ export component ShortcutsSettings inherits VerticalLayout {
 
     editor := PopupWindow {
         close-policy: no-auto-close;
-        x: 0px;
-        y: 0px;
+        x: WindowBox.left(self.width) - root.absolute-position.x;
+        // By a typical height, not its own: each search can change its rows, and it mustn't hop up and down while typing
+        y: WindowBox.top(460px) - root.absolute-position.y;
         // BindingEditor's minimum width
         width: min(root.width, 520px);
-        DialogFrame {
+        // A popup takes on a new size a frame after its content changes, which showed as a flicker. So this one stays the
+        // window's height, see-through, and the frame inside follows its rows in the same frame
+        height: WindowBox.height > 0 ? WindowBox.height - WindowBox.top(460px) - 8px : editor-frame.preferred-height;
+        editor-frame := DialogFrame {
+            y: 0;
+            height: self.preferred-height;
             title: @tr("Keyboard shortcut");
             subtitle: @tr("Pick a control, what the key does to it, then press the key.");
             VerticalLayout {
@@ -315,12 +322,14 @@ export component ShortcutsSettings inherits VerticalLayout {
                         current: p.current;
                         picked(c) => { root.param-picked(p.at, c); }
                     }
-                    if p.number: TextField {
+                    if p.number: NumberField {
                         y: (parent.height - self.height) / 2;
                         horizontal-stretch: 1;
-                        text: p.text;
+                        value: p.text;
+                        keeps-focus: true;
                         label: p.label;
                         edited(t) => { root.param-edited(p.at, t); }
+                        committed(t) => { root.param-committed(p.at, t); }
                         step(d) => { root.param-step(p.at, d); }
                     }
                 }

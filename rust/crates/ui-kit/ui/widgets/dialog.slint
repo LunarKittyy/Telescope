@@ -1,5 +1,5 @@
 // A dialog as Qt draws one (dialog_layout, dialog_header): the window's background, 20/18 margins, a 14pt title and a dim
-// line under it. A plugin shows it inside a PopupWindow.
+// line under it. A plugin shows it inside a PopupWindow, over the rest of the window, so it carries its own edge.
 
 import { Theme } from "../theme.slint";
 
@@ -10,15 +10,23 @@ export global WindowBox {
     // Where a dialog this big goes
     public pure function left(w: length) -> length { max(8px, (self.width - w) / 2) }
     public pure function top(h: length) -> length { max(8px, (self.height - h) / 2) }
+    // A dialog's height, held to the window where the window's size is known
+    public pure function cap(h: length) -> length { self.height > 0 ? min(h, self.height - 16px) : h }
 }
 
 export component DialogFrame inherits Rectangle {
     in property <string> title;
     in property <string> subtitle;
     background: Theme.bg;
-    drop-shadow-blur: 24px;
-    drop-shadow-color: #00000080;
+    border-width: 1px;
+    border-color: Theme.border-hover;
+    border-radius: 12px;
+    drop-shadow-blur: 28px;
+    drop-shadow-offset-y: 6px;
+    drop-shadow-color: #000000a0;
+    // From the top: a layout left to fill a popup that's still the old size would spread its rows
     VerticalLayout {
+        alignment: start;
         padding-left: 20px;
         padding-right: 20px;
         padding-top: 18px;

@@ -1,7 +1,7 @@
 // The Microphone card (desktop/telescope/plugins/microphone.py and widgets/level_meter.py). Texts with blanks come
 // filled from Rust; the Install VB-Cable question is a popup inside the card.
 
-import { Theme, Icons, Icon, Button, Card, FormRow, Slider, Switch, TextField, TipBody } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, Card, FormRow, Slider, Switch, NumberField, TipBody, DialogFrame, WindowBox } from "@ui-kit/ui-kit.slint";
 
 // The meter's numbers from the plugin: bar ends and the held marker as 0..1 along it, and which light is on.
 export struct MeterState {
@@ -122,28 +122,6 @@ component LevelMeter inherits Rectangle {
     }
 }
 
-component DialogFrame inherits Rectangle {
-    in property <string> title;
-    background: Theme.surface-raise;
-    border-width: 1px;
-    border-color: Theme.border-strong;
-    border-radius: 12px;
-    drop-shadow-blur: 24px;
-    drop-shadow-color: #00000080;
-    VerticalLayout {
-        padding: 20px;
-        spacing: 12px;
-        Text {
-            text: title;
-            font-family: Theme.font;
-            font-size: Theme.card-title;
-            font-weight: 600;
-            color: Theme.text;
-        }
-        @children
-    }
-}
-
 export component MicrophoneCard inherits Card {
     // Greyed out until a phone is paired
     in property <bool> active;
@@ -251,13 +229,12 @@ export component MicrophoneCard inherits Card {
                 tip: @tr("Double-click to reset");
                 moved(v) => { root.gain-moved(v); }
             }
-            gain-box := TextField {
+            gain-box := NumberField {
                 width: 78px;
                 y: 2px;
-                text: gain-text;
-                align-right: true;
+                value: gain-text;
                 label: @tr("Gain");
-                accepted => { root.gain-typed(self.text); }
+                committed(text) => { root.gain-typed(text); }
                 step(d) => { root.gain-moved(gain - d); }
             }
         }
@@ -290,23 +267,34 @@ export component MicrophoneCard inherits Card {
                     toggled(v) => { root.nr-toggled(v); }
                 }
             }
-            Note {
-                text: nr-note;
-                visible: nr-note != "";
-                max-width: nr-note != "" ? 10000px : 0px;
-                vertical-alignment: center;
+            // A layout around it, for the row to grow with the lines the text wraps to
+            VerticalLayout {
+                alignment: center;
+                padding-top: 8px;
+                padding-bottom: 8px;
                 horizontal-stretch: nr-note != "" ? 1 : 0;
+                max-width: nr-note != "" ? 10000px : 0px;
+                Note {
+                    text: nr-note;
+                    visible: nr-note != "";
+                    height: nr-note != "" ? self.preferred-height : 0px;
+                }
             }
         }
     }
     // Left out with `if`: a row hidden at 0px still takes the card's spacing
     if status-text != "": FormRow {
         label: "";
-        Note {
-            text: status-text;
-            kind: status-kind;
-            vertical-alignment: center;
+        VerticalLayout {
+            alignment: center;
+            padding-top: 8px;
+            padding-bottom: 8px;
             horizontal-stretch: 1;
+            Note {
+                text: status-text;
+                kind: status-kind;
+                height: self.preferred-height;
+            }
         }
     }
     if fix-shown: FormRow {
@@ -320,11 +308,11 @@ export component MicrophoneCard inherits Card {
     }
 
     question := PopupWindow {
-        x: 0px;
-        y: 40px;
-        width: root.width;
+        x: WindowBox.left(self.width) - root.absolute-position.x;
+        y: WindowBox.top(question-frame.preferred-height) - root.absolute-position.y;
+        width: max(root.width, 460px);
         close-policy: close-on-click-outside;
-        DialogFrame {
+        question-frame := DialogFrame {
             title: @tr("Install VB-Cable");
             Note { text: @tr("The phone's mic needs VB-Audio Virtual Cable on Windows."); kind: "status_none"; }
             Note { text: @tr("VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."); }
