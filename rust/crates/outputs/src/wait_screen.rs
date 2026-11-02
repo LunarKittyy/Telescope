@@ -495,7 +495,12 @@ impl ScreenJob {
         let filter_open = self.deps.filter_probe.as_ref().and_then(|probe| probe());
         let mut i = 0;
         let mut checked = Instant::now();
-        while !stop.is_set() {
+        loop {
+            // Cleared before the stop is looked at: a stop and its wake coming after that leave the wake set
+            self.nudge.clear();
+            if stop.is_set() {
+                break;
+            }
             if checked.elapsed() >= pace.idle {
                 checked = Instant::now();
                 if cam.outdated() {
@@ -503,7 +508,6 @@ impl ScreenJob {
                 }
             }
             let (frame, seconds) = &frames[i];
-            self.nudge.clear();
             cam.send(frame)?;
             if self.watched.load(Ordering::SeqCst) {
                 i = (i + 1) % frames.len();
@@ -1285,6 +1289,41 @@ mod tests {
         assert_eq!(fmt, PixelFormat::I420);
         assert_eq!(frames.iter().map(|f| f.1).collect::<Vec<_>>(), [0.1, 0.3]);
         assert!(frames.iter().all(|f| f.0.data.len() == 8 * 4 * 3 / 2));
+    }
+
+    /// A camera whose check for being outdated is the moment a stop lands: after the feed looked at the stop flag.
+    struct StopsDuringCheck(Arc<Stop>, Arc<ScreenJob>);
+
+    impl VideoOutput for StopsDuringCheck {
+        fn send(&mut self, _frame: &Frame) -> Result<(), String> {
+            Ok(())
+        }
+        fn size(&self) -> (u32, u32) {
+            (4, 4)
+        }
+        fn device(&self) -> String {
+            "fake".into()
+        }
+        fn outdated(&self) -> bool {
+            self.0.set();
+            self.1.wake();
+            false
+        }
+    }
+
+    #[test]
+    fn a_stop_landing_between_the_check_and_the_wait_still_wakes_a_long_frame() {
+        let deps = Deps {
+            open_camera: Arc::new(|_, _, _, _| Err("none".into())), loader: Arc::new(|_, _, _, _| Err("none".into())),
+            locked: Arc::new(|| None), filter_probe: None, i420: false, pace: Pace { idle: Duration::ZERO, ..Pace::default() },
+        };
+        let job = Arc::new(ScreenJob { deps, shown: Mutex::new((DEFAULT_SIZE, None, false)), watched: AtomicBool::new(true), nudge: Nudge::default() });
+        let stop = Arc::new(Stop::default());
+        let mut cam = StopsDuringCheck(stop.clone(), job.clone());
+        let frames = vec![(Frame::new(4, 4, PixelFormat::Rgba, vec![0; 64]), 10.0)];
+        let started = Instant::now();
+        job.feed(&mut cam, &frames, &stop).unwrap();
+        assert!(started.elapsed() < Duration::from_secs(5), "slept out the frame's ten seconds");
     }
 
     #[test]
