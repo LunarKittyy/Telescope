@@ -28,11 +28,10 @@
 <details>
 <summary>Что нужно для Linux</summary>
 
-- **Python 3.12 или новее**
 - **`v4l2loopback`** из твоего дистрибутива для виртуальной камеры (`sudo apt install v4l2loopback-dkms` в Debian и Ubuntu, `sudo dnf install v4l2loopback` в Fedora с [RPM Fusion](https://rpmfusion.org/))
 - **`adb`** нужен только для USB. По Wi-Fi всё работает без него
 
-Остальные подробности есть в [инструкции по ручной настройке](docs/setup.md#linux), в том числе о старой версии Python в Ubuntu 22.04.
+Остальные подробности есть в [инструкции по ручной настройке](docs/setup.md#linux).
 </details>
 
 Нет телефона на Android? [Камера в браузере](docs/features.md#browser-camera) передаёт видео с iPhone, планшета или старого ноутбука прямо из браузера, без установки приложений.

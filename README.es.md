@@ -28,11 +28,10 @@
 <details>
 <summary>Qué necesita Linux</summary>
 
-- **Python 3.12 o posterior**
 - **`v4l2loopback`** de tu distribución, para la cámara virtual (`sudo apt install v4l2loopback-dkms` en Debian y Ubuntu, `sudo dnf install v4l2loopback` en Fedora con [RPM Fusion](https://rpmfusion.org/))
 - **`adb`** solo si quieres usar USB. Por Wi-Fi no hace falta
 
-La [guía de configuración manual](docs/setup.md#linux) explica el resto, incluido qué hacer con la versión antigua de Python que trae Ubuntu 22.04.
+La [guía de configuración manual](docs/setup.md#linux) explica el resto.
 </details>
 
 ¿No tienes un teléfono Android? La [cámara del navegador](docs/features.md#browser-camera) transmite desde un iPhone, una tablet o una laptop vieja directamente desde su navegador, sin instalar nada.
