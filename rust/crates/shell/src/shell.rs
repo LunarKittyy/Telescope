@@ -567,7 +567,7 @@ impl State {
     /// apply_saved_config: the saved settings into every plugin, then on_plugins_ready, then a banner if the file
     /// had to be set aside.
     pub fn apply_saved_config(&mut self) {
-        let mut cfg = self.file.load();
+        let mut cfg = self.file.load_at_start();
         self.apply_config(&mut cfg);
         self.each(|p, host| p.on_plugins_ready(host));
         if let Some(backup) = self.file.take_reset_notice() {

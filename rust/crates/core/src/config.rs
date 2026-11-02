@@ -105,6 +105,14 @@ struct SetAside {
     unread: bool,
 }
 
+/// How a read treats a file that stays unreadable: an error, an empty start, or an empty start that closes saving.
+#[derive(Clone, Copy, PartialEq)]
+enum Mode {
+    Strict,
+    Lenient,
+    Start,
+}
+
 static SET_ASIDE: Mutex<Option<HashMap<PathBuf, SetAside>>> = Mutex::new(None);
 
 fn with_set_aside<T>(path: &Path, f: impl FnOnce(&mut SetAside) -> T) -> T {
@@ -123,7 +131,12 @@ impl ConfigFile {
 
     /// load_config(): the settings, or a fresh start when the file is missing, unreadable or unusable (set aside first).
     pub fn load(&self) -> Value {
-        self.read(false).unwrap_or_else(|_| empty())
+        self.read(Mode::Lenient).unwrap_or_else(|_| empty())
+    }
+
+    /// load() for the start, when what the app holds comes from this read: a file that can't be read then isn't saved over later.
+    pub fn load_at_start(&self) -> Value {
+        self.read(Mode::Start).unwrap_or_else(|_| empty())
     }
 
     /// load_config(strict=True): an error when the file is there but can't be read, for callers about to save over it.
@@ -131,7 +144,7 @@ impl ConfigFile {
         if with_set_aside(&self.path, |s| s.unread) {
             return Err(io::Error::other("the settings file couldn't be read when Telescope started"));
         }
-        self.read(true)
+        self.read(Mode::Strict)
     }
 
     /// After a start that couldn't read the file: None if it did read it, else the file read again, for the app to take in instead of
@@ -140,19 +153,19 @@ impl ConfigFile {
         if !with_set_aside(&self.path, |s| s.unread) {
             return None;
         }
-        let read = self.read(true);
+        let read = self.read(Mode::Strict);
         if read.is_ok() {
             with_set_aside(&self.path, |s| s.unread = false);
         }
         Some(read)
     }
 
-    fn read(&self, strict: bool) -> io::Result<Value> {
-        self.read_with(strict, &|path| fs::read(path), &std::thread::sleep)
+    fn read(&self, mode: Mode) -> io::Result<Value> {
+        self.read_with(mode, &|path| fs::read(path), &std::thread::sleep)
     }
 
     // The file read and the wait between tries are passed in so a test can make the file briefly locked
-    fn read_with(&self, strict: bool, read: &dyn Fn(&Path) -> io::Result<Vec<u8>>, sleep: &dyn Fn(Duration)) -> io::Result<Value> {
+    fn read_with(&self, mode: Mode, read: &dyn Fn(&Path) -> io::Result<Vec<u8>>, sleep: &dyn Fn(Duration)) -> io::Result<Value> {
         let mut attempt = 0;
         let data = loop {
             match read(&self.path) {
@@ -160,10 +173,13 @@ impl ConfigFile {
                 Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(empty()),
                 // Often brief (a virus scanner or sync app holding the file); starting fresh would save over it later
                 Err(e) if attempt == 2 => {
-                    if strict {
+                    if mode == Mode::Strict {
                         return Err(e);
                     }
-                    with_set_aside(&self.path, |s| s.unread = true);
+                    // Only the start's read leaves the app holding defaults; any later one (the Plugins panel's) just sees an empty file
+                    if mode == Mode::Start {
+                        with_set_aside(&self.path, |s| s.unread = true);
+                    }
                     log::error!("Failed to read config from {} - starting fresh: {e}", self.path.display());
                     return Ok(empty());
                 }

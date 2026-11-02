@@ -318,7 +318,7 @@ fn a_briefly_locked_config_is_read_again_not_reset() {
         }
         fs::read(path)
     };
-    let loaded = f.read_with(false, &flaky, &|_| {}).unwrap();
+    let loaded = f.read_with(Mode::Lenient, &flaky, &|_| {}).unwrap();
     assert_eq!(loaded["selected_device"], json!("Phone1"));
     assert_eq!(calls.get(), 2);
 }
@@ -330,7 +330,7 @@ fn a_config_that_stays_locked_at_start_is_never_saved_over_and_is_taken_in_once_
     cfg["selected_device"] = json!("Phone1");
     f.save(&mut cfg);
     let locked = |_: &Path| Err(io::Error::new(io::ErrorKind::PermissionDenied, "locked"));
-    assert_eq!(f.read_with(false, &locked, &|_| {}).unwrap(), empty());
+    assert_eq!(f.read_with(Mode::Start, &locked, &|_| {}).unwrap(), empty());
     // Readable again, but what the app holds is defaults: every save that reads first refuses
     assert!(f.load_strict().is_err());
     assert!(!f.update(|c| c["selected_device"] = Value::Null));
