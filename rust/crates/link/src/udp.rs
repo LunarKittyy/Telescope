@@ -2,7 +2,7 @@
 //! (udp_reader.py). Each packet handed on is one whole frame, in order.
 
 use crate::feeds::{H264Feed, StopHandle};
-use crate::https::{PhoneAuth, Request, Url};
+use crate::https::{Aborter, PhoneAuth, Request, Url};
 use base64::Engine;
 use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM};
 use serde_json::Value;
@@ -451,12 +451,12 @@ impl UdpFeed {
         sock.set_read_timeout(Some(Duration::from_millis(5))).map_err(|e| e.to_string())?;
         let port = sock.local_addr().map_err(|e| e.to_string())?.port();
         let url = format!("{}?port={port}", self.url);
-        let mut resp = self.auth.open(Request::get(&url, self.timeout)).map_err(|e| e.to_string())?;
+        let watch = |a: Aborter| self.stop.watch(a);
+        let mut resp = self.auth.open(Request::get(&url, self.timeout).watched(&watch)).map_err(|e| e.to_string())?;
         // Dropping resp on the way out closes it: the phone holds the session (and a stream slot) while it's open
         if !resp.content_type().contains("application/x-telescope-udp") {
             return Err("not a UDP session".into());
         }
-        self.stop.watch(resp.aborter());
         let line = resp.readline(4096).map_err(|e| e.to_string())?;
         let hello: Value = serde_json::from_slice(&line).map_err(|e| e.to_string())?;
         let key = hello.get("key").and_then(Value::as_str)
