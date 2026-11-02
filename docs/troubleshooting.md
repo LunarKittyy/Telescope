@@ -180,8 +180,8 @@ The video goes over WebRTC on UDP ports picked each time, which a strict firewal
 **It stops when the phone locks or you switch apps**
 Phones pause the camera for pages in the background. Keep the page open with the screen on. Going back to it starts it again.
 
-**Firefox keeps lowering the resolution**
-Firefox can step the picture down while the frame rate holds, on a phone as far as 176×320, and it doesn't always climb back. That's Firefox's own encoder deciding this and the page can't stop it (the hint Chrome listens to doesn't exist in Firefox). If you need the full size use Chrome instead.
+**Firefox lowers the frame rate**
+Telescope asks Firefox to hold the resolution you picked and drop frames when the phone or Wi-Fi can't keep up. The card shows what Firefox really sends and if the frame rate gets too low a smaller resolution or a lower frame rate usually helps. Firefox older than 138 ignores the request and can still step the size down as far as 176×320. Update it or use Chrome.
 
 ## Webcams
 

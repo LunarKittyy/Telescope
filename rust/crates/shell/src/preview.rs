@@ -153,7 +153,7 @@ impl Cadence {
 mod tests {
     use super::*;
 
-    // Frames as the 15 ms timer sees them: each new one a few times
+    // Frames as a timer that looks several times sees them: each new one a few times
     fn painted(cadence: &mut Cadence, frames: std::ops::Range<u64>, every_frame: bool) -> Vec<u64> {
         frames.filter(|&n| (0..3).map(|_| cadence.due(n, every_frame, false)).filter(|d| *d).count() > 0).collect()
     }

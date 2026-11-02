@@ -451,8 +451,12 @@ async function applyLimits() {
     enc.maxBitrate = config.max_kbps * 1000;
     enc.maxFramerate = config.fps;
     enc.scaleResolutionDownBy = long > 0 ? Math.max(1, long / Math.max(config.width, config.height)) : 1;
+    params.degradationPreference = "maintain-resolution";  // Firefox steps a camera's size down by itself otherwise and doesn't climb back
     await sender.setParameters(params);
-  } catch (_) { /* some browsers refuse some of these; their defaults are fine */ }
+    console.log("Encoder limits set:", JSON.stringify(sender.getParameters()));
+  } catch (err) {
+    console.warn("The browser refused the encoder limits:", err);  // its defaults are fine
+  }
 }
 
 async function sendStats() {

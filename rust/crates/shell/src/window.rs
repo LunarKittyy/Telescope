@@ -80,7 +80,6 @@ pub struct Window {
     /// Draws the preview's frames: on Slint's device once it says which, else on the CPU (preview.rs).
     painter: RefCell<Option<Box<dyn crate::preview::Painter>>>,
     preview_timer: slint::Timer,
-    thumb_timer: slint::Timer,
     /// The number of the frame the preview shows, so a frame isn't painted twice.
     painted: Cell<u64>,
     /// What passes on the preview (tint, analyse, paint) have in hand.
@@ -407,7 +406,6 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         timers: RefCell::default(),
         painter: RefCell::default(),
         preview_timer: slint::Timer::default(),
-        thumb_timer: slint::Timer::default(),
         painted: Cell::new(0),
         passes: RefCell::default(),
         layers_drawn: RefCell::default(),
@@ -710,6 +708,14 @@ impl Window {
         self.sync_camera();
         self.show_add_button();
         self.show_banners();
+        self.paint_pick();
+        self.paint_layers();
+    }
+
+    /// A stream's slot got a frame (WakingSlot): paints the newest one now, and any that came after the wake was asked for with it.
+    pub fn frame_ready(self: &Rc<Self>) {
+        self.streams.frame_wake.store(false, std::sync::atomic::Ordering::SeqCst);
+        self.paint_preview();
         self.paint_pick();
         self.paint_layers();
     }
@@ -1440,20 +1446,15 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
             }
         });
     }
-    // Frames are pulled at the display's pace rather than pushed by the stream, so a slow paint never holds it up
+    // A new frame wakes the window (frame_ready), so this only covers what has no frame to say it changed: focus, a picture that wants
+    // drawing again with the stream stalled, and the tiles' tiny pictures, so 10 fps costs next to nothing
     let weak = Rc::downgrade(&window);
-    window.preview_timer.start(slint::TimerMode::Repeated, Duration::from_millis(15), move || {
+    window.preview_timer.start(slint::TimerMode::Repeated, Duration::from_millis(100), move || {
         if let Some(w) = weak.upgrade() {
             w.paint_preview();
             w.paint_pick();
             w.paint_layers();
             w.watch_focus();
-        }
-    });
-    // Tiny pictures, so 10 fps costs next to nothing
-    let weak = Rc::downgrade(&window);
-    window.thumb_timer.start(slint::TimerMode::Repeated, Duration::from_millis(100), move || {
-        if let Some(w) = weak.upgrade() {
             w.update_thumbnails();
         }
     });

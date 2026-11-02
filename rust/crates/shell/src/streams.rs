@@ -99,6 +99,8 @@ pub struct Streams {
     /// Each tile's picture by source, with the number of the frame it's from.
     thumbs: RefCell<std::collections::HashMap<String, (slint::Image, u64)>>,
     thumb_scaler: RefCell<Option<Box<dyn telescope_core::media::Scaler>>>,
+    /// Whether a wake for a new frame is waiting on the event loop (WakingSlot): a frame that comes meanwhile adds none.
+    pub(crate) frame_wake: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl Streams {
@@ -1628,6 +1630,7 @@ impl FlowHost for Host<'_> {
                                   plugin_source: source.kind.as_phone().is_none(), waiting_text: source.kind.waiting_text(),
                                   vision: self.w.state.borrow().vision_feed(), steps, gate: Some(self.w.state.borrow().vc.gate()) };
         let slot: Arc<dyn FrameSlot> = services.media.stream_frames().map(|f| f.new_slot()).unwrap_or_else(local_slot);
+        let slot: Arc<dyn FrameSlot> = Arc::new(WakingSlot { inner: slot, pending: self.w.streams.frame_wake.clone() });
         let weak = self.w.ui.as_weak();
         let events: crate::worker::Events = Arc::new(move |e| {
             if matches!(e, WorkerEvent::Preview(..)) {
@@ -1687,6 +1690,54 @@ fn ask_keyframe(source: &SourceRef) {
     }
 }
 
+/// A stream's slot that wakes the window when a frame lands in it, so the preview paints on arrival instead of looking on a timer.
+/// One wake waits at a time: a frame that lands before the window gets to it is simply the one painted (frames drop, never queue).
+struct WakingSlot {
+    inner: Arc<dyn FrameSlot>,
+    pending: Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl WakingSlot {
+    fn wake(&self) {
+        self.wake_with(|| slint::invoke_from_event_loop(|| with_window(|w| w.frame_ready())).is_ok());
+    }
+
+    /// `send` asks the event loop to run frame_ready, and says whether it took the job.
+    fn wake_with(&self, send: impl FnOnce() -> bool) {
+        use std::sync::atomic::Ordering::SeqCst;
+        if self.pending.swap(true, SeqCst) {
+            return;
+        }
+        if !send() {
+            self.pending.store(false, SeqCst);
+        }
+    }
+}
+
+impl FrameSlot for WakingSlot {
+    fn publish(&self, frame: telescope_core::frame::Frame) -> u64 {
+        let number = self.inner.publish(frame);
+        self.wake();
+        number
+    }
+    fn published(&self) -> Option<telescope_core::frame::Frame> {
+        self.inner.published()
+    }
+    fn replace(&self, frame: telescope_core::frame::Frame, number: u64) -> bool {
+        let done = self.inner.replace(frame, number);
+        if done {
+            self.wake();
+        }
+        done
+    }
+    fn latest(&self) -> Option<(telescope_core::frame::Frame, u64)> {
+        self.inner.latest()
+    }
+    fn wait_newer(&self, seen: u64, timeout: Duration) -> bool {
+        self.inner.wait_newer(seen, timeout)
+    }
+}
+
 /// A frame slot for a media that keeps none (tests, builds without media): the newest frame only.
 fn local_slot() -> Arc<dyn FrameSlot> {
     #[derive(Default)]
@@ -1715,4 +1766,37 @@ fn local_slot() -> Arc<dyn FrameSlot> {
         }
     }
     Arc::new(S::default())
+}
+
+#[cfg(test)]
+mod wake_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering::SeqCst};
+
+    fn waking() -> WakingSlot {
+        WakingSlot { inner: local_slot(), pending: Arc::new(AtomicBool::new(false)) }
+    }
+
+    #[test]
+    fn frames_that_come_while_a_wake_waits_add_none() {
+        let slot = waking();
+        let sent = AtomicUsize::new(0);
+        for _ in 0..5 {
+            slot.wake_with(|| { sent.fetch_add(1, SeqCst); true });
+        }
+        assert_eq!(sent.load(SeqCst), 1);
+        // The window ran it: the next frame wakes it again
+        slot.pending.store(false, SeqCst);
+        slot.wake_with(|| { sent.fetch_add(1, SeqCst); true });
+        assert_eq!(sent.load(SeqCst), 2);
+    }
+
+    #[test]
+    fn a_wake_the_event_loop_refused_doesn_t_block_the_next() {
+        let slot = waking();
+        slot.wake_with(|| false);
+        let sent = AtomicUsize::new(0);
+        slot.wake_with(|| { sent.fetch_add(1, SeqCst); true });
+        assert_eq!(sent.load(SeqCst), 1);
+    }
 }
