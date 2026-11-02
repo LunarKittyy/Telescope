@@ -232,6 +232,26 @@ cargo build --release
 
 `--device /dev/videoN` picks the v4l2loopback camera (default: the one named "Phone Camera"), `--route usb|wifi` skips the other route and `--package com.telescope` aims USB pairing at the real app. The config lives in `~/.config/telescope-rs`, or wherever `TELESCOPE_RS_PROFILE` points, so it never touches the Python app's pairings.
 
+## On a real phone (2 November 2026)
+
+Galaxy S10+ (Android 12, Exynos encoder), dev app and the release build of the dev desktop with a 1080p30 stream. Numbers come from the desktop's own delivery log (one line per frame sent to the virtual camera), socket byte counts and the phone's `/v1/state`; no picture was looked at.
+
+| | Wi-Fi (5 GHz) | USB |
+|---|---|---|
+| Light (H.264) 1080p30 | 8.0 Mbps, 30.0 fps | 8.0 Mbps, 30.0 fps |
+| Heavy (MJPEG, q85) 1080p30 | 69 to 113 Mbps, 30.0 fps | 113 Mbps, 30.0 fps |
+| Light 4K (3840x2160) | 29.6 Mbps, 30.0 fps | |
+| Light 720p / 360p | 3.6 / 1.2 Mbps, 30.0 fps | |
+| Switch Light to Heavy, picture back after | about 2 s (debug build) | about 0.9 s |
+| Switch Heavy to Light, picture back after | about 2 s (debug build) | about 1.2 s |
+| Desktop pipeline, packet in to frame out | 6 ms median, 10 ms at p99 | 6 ms median, 9 ms at p99 |
+
+- A 30-minute Light stream on Wi-Fi (debug build, so the pessimistic case): 55,174 frames, 29.95 fps, no gap over 250 ms (longest 204 ms), the phone went from 31 to 36 degrees.
+- The window in a private compositor, 1080p30 Light: about 24% of one core, 270 MB RSS, 242 MB PSS.
+- A 5 second Wi-Fi drop recovers by itself: about 12 s without picture (3 s to notice, about 3 s for the phone to rejoin, the rest the desktop reconnecting).
+- Freezing the desktop while UDP streams: the phone stopped sending after 5.3 and 5.8 s (its feedback timeout is 5 s).
+- Debug builds mislead here: the same stream delivered 19 fps at 720p and Heavy to Light took 7 s over USB. The release build has neither.
+
 ## Side issues found on the way
 
 - The emulator's virtual camera tops out at 1280x720. A 1080p start on it quietly runs at 720p.
