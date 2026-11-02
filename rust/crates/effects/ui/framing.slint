@@ -11,10 +11,14 @@ component FramingRow inherits FormRow {
     in property <string> readout;
     in property <color> hue;
     in property <length> readout-width;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
     callback moved(float);
     Rectangle {
         horizontal-stretch: 1;
         Slider {
+            tip: root.tip + "\n" + root.hint;
+            shortcut: root.shortcut;
             width: parent.width;
             height: parent.height;
             hue: root.hue;
@@ -29,7 +33,6 @@ component FramingRow inherits FormRow {
             default-value: root.default-value;
             moved(v) => { root.moved(v); }
         }
-        Tooltip { TipBody { says: root.tip + "\n" + root.hint; } }
     }
 }
 
@@ -90,6 +93,7 @@ export component FramingCard inherits Card {
             readout: framing-text;
             readout-width: column;
             tip: framing-tip;
+            shortcut: "framing.framing";
             hint: reset-hint;
             hue: root.hue;
             moved(v) => { root.framing-moved(v); }
@@ -116,6 +120,7 @@ export component FramingCard inherits Card {
         readout: speed-text;
         readout-width: column;
         tip: speed-tip;
+        shortcut: "framing.speed";
         hint: reset-hint;
         hue: root.hue;
         moved(v) => { root.speed-moved(v); }

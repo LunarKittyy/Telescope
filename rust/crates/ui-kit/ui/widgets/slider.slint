@@ -3,7 +3,7 @@
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { FocusRing, KeyFocus } from "basics.slint";
-import { TipBody } from "tip.slint";
+import { TipBody, TipUse } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 
 // The theme's QSlider: a quiet 4px groove and a handle in the card's hue; value_label reads it out on the right.
@@ -42,6 +42,10 @@ export component Slider inherits HorizontalLayout {
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     property <bool> is-typing;
+    // The button that is down on the groove is the left one: a right-click opens the shortcut menu and leaves the value
+    property <bool> dragging;
+    // The pointer is on the readout when it takes typing
+    property <bool> readout-over;
     function typing-done(text: string) {
         if (is-typing) {
             is-typing = false;
@@ -116,26 +120,31 @@ export component Slider inherits HorizontalLayout {
             background: !enabled ? Theme.text-disabled : (touch.has-hover || touch.pressed) ? hue.brighter(0.15) : hue;
             FocusRing { shown: slider-focus.has-focus; radius: 7px; width: parent.width + 4px; height: parent.height + 4px; }
         }
+        usage := TipUse { hover: touch.has-hover || readout-over; }
         touch := TouchArea {
             enabled: root.enabled;
             property <float> picked: clamp((self.mouse-x - track.inset) / (track.width - 2 * track.inset), 0, 1);
+            scroll-event(e) => { usage.wheel(); reject }
             pointer-event(e) => {
-                if (e.kind == PointerEventKind.down) {
+                if (e.kind == PointerEventKind.down) { usage.press(); }
+                if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                    dragging = true;
                     local = round((minimum + picked * (maximum - minimum)) / step) * step;
                     touched = true;
                     root.moved(local);
                 }
-                if (e.kind == PointerEventKind.move && self.pressed) {
+                if (e.kind == PointerEventKind.move && dragging && self.pressed) {
                     local = snapped(round((minimum + picked * (maximum - minimum)) / step) * step);
                     touched = true;
                     root.moved(local);
                 }
-                if (e.kind == PointerEventKind.up || (e.kind == PointerEventKind.cancel && touched)) {
+                if (dragging && ((e.kind == PointerEventKind.up && e.button == PointerEventButton.left) || e.kind == PointerEventKind.cancel)) {
+                    dragging = false;
                     released(shown);
                 }
             }
             moved => {
-                if (self.pressed) {
+                if (self.pressed && dragging) {
                     local = snapped(round((minimum + picked * (maximum - minimum)) / step) * step);
                     touched = true;
                     root.moved(local);
@@ -151,13 +160,15 @@ export component Slider inherits HorizontalLayout {
             }
         }
         if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-        if tip != "": Tooltip { TipBody { says: tip; } }
+        if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
     }
     if has-readout: Rectangle {
         width: readout-width;
-        if typing != "": TouchArea {
+        if typing != "": typing-touch := TouchArea {
             enabled: root.enabled;
             mouse-cursor: MouseCursor.text;
+            pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
+            changed has-hover => { readout-over = self.has-hover; }
             clicked => { is-typing = true; }
         }
         if !is-typing: Text {
@@ -171,7 +182,7 @@ export component Slider inherits HorizontalLayout {
             color: enabled ? hue : Theme.accent-soft;
             horizontal-alignment: right;
             vertical-alignment: center;
-            if tip != "": Tooltip { TipBody { says: tip; } }
+            if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
         }
         if is-typing: TextInput {
             width: parent.width;

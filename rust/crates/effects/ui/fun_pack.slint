@@ -56,6 +56,7 @@ export component FunPackCard inherits Card {
             items: effect-items;
             current: effect;
             caption: @tr("Effect");
+            shortcut: "fun_pack.effect";
             picked(i) => { root.effect-picked(i); }
         }
     }
@@ -67,6 +68,7 @@ export component FunPackCard inherits Card {
         Button {
             text: plate-text;
             tip: plate-tip;
+            shortcut: "fun_pack.plate";
             enabled: active && (plate-enabled);
             clicked => { root.plate-clicked(); }
         }
@@ -77,6 +79,7 @@ export component FunPackCard inherits Card {
         if show-clone: Button {
             text: clone-text;
             tip: clone-tip;
+            shortcut: "fun_pack.clone";
             enabled: active && (clone-enabled);
             clicked => { root.clone-clicked(); }
         }
@@ -84,6 +87,7 @@ export component FunPackCard inherits Card {
             enabled: active;
             text: @tr("Clean up");
             tip: clean-tip;
+            shortcut: "fun_pack.clean";
             clicked => { root.clean-clicked(); }
         }
         if show-clear: Button {
@@ -154,6 +158,7 @@ export component FunPackCard inherits Card {
         enabled: active;
         label: @tr("Smear");
         tip: slider-tips[4];
+        shortcut: "fun_pack.smear";
         minimum: slider-min[4];
         maximum: slider-max[4];
         value: slider-value[4];

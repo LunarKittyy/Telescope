@@ -225,6 +225,7 @@ export component PreviewCard inherits Rectangle {
                     icon-tint: Theme.text-dim;
                     enabled: !popout;
                     tip: @tr("Stop drawing this preview. The camera output doesn't change.");
+                    shortcut: "show_hide";
                     clicked => { root.toggle(); }
                 }
                 Button {
@@ -238,6 +239,7 @@ export component PreviewCard inherits Rectangle {
                     enabled: camera-enabled;
                     tip: camera-tip;
                     accessible-label: @tr("Phone camera");
+                    shortcut: "streaming.camera";
                     clicked => { root.camera-clicked(); }
                 }
                 Rectangle { horizontal-stretch: 1; }
@@ -251,6 +253,7 @@ export component PreviewCard inherits Rectangle {
                     icon-tint: skeleton-on ? Theme.accent-soft : Theme.text-dim;
                     tip: @tr("Draw the skeleton MediaPipe finds. Doesn't show in the camera output.");
                     accessible-label: @tr("Skeleton");
+                    shortcut: "skeleton";
                     clicked => { root.skeleton-clicked(); }
                 }
                 Button {
@@ -264,6 +267,7 @@ export component PreviewCard inherits Rectangle {
                     enabled: lenses-enabled;
                     tip: @tr("Keep showing what the phone's longer lenses see. Doesn't show in the camera output.");
                     accessible-label: @tr("Lens outlines");
+                    shortcut: "lens_outlines";
                     clicked => { root.lenses-clicked(); }
                 }
                 Button {
@@ -283,6 +287,7 @@ export component PreviewCard inherits Rectangle {
                     has-icon: true;
                     icon: Icons.pop-out;
                     icon-tint: Theme.text-dim;
+                    shortcut: "pop_out";
                     clicked => { root.pop-out(); }
                 }
             }

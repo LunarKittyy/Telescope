@@ -68,6 +68,7 @@ export component ChromaKeyCard inherits Card {
                     has-icons: [false, false, false];
                     icons: [Icons.eyedropper, Icons.eyedropper, Icons.eyedropper];
                     label: @tr("Screen");
+                    shortcut: "chroma_key.screen";
                     current: screen;
                     picked(i) => { root.screen-picked(i); }
                 }
@@ -83,6 +84,7 @@ export component ChromaKeyCard inherits Card {
         enabled: active;
         label: name;
         tip: slider-tips[i];
+        shortcut: i == 0 ? "chroma_key.tolerance" : "";
         minimum: 0;
         maximum: 100;
         value: slider-value[i];

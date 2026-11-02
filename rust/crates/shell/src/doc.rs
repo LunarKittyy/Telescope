@@ -377,6 +377,7 @@ const HEADER: &str = r#"
                 y: (parent.height - self.height) / 2;
                 text: root.mode == 2 ? start-short : start-text;
                 streaming: root.streaming;
+                shortcut: "streaming.start_stop";
                 enabled: start-enabled;
                 clicked => { root.start-clicked(); }
             }

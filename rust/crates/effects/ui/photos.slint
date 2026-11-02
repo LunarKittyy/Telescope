@@ -17,9 +17,9 @@ component PickRow inherits FormRow {
             items: root.items;
             current: root.current;
             shortcut: root.shortcut;
+            tip: root.tip;
             picked(i) => { root.picked(i); }
         }
-        if tip != "": Tooltip { TipBody { says: root.tip; } }
     }
 }
 

@@ -102,6 +102,7 @@ export component PresetsHeader inherits HorizontalLayout {
         height: 34px;
         y: (parent.height - self.height) / 2;
         tip: root.tip;
+        shortcut: "presets.apply";
         clicked => {
             root.sub = "";
             menu.show();

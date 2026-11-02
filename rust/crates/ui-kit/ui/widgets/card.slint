@@ -4,7 +4,7 @@ import { Theme } from "../theme.slint";
 import { Icon, FocusRing, Button } from "basics.slint";
 import { Folds, FoldText, Reveal } from "folds.slint";
 import { Switch } from "switch.slint";
-import { TipBody } from "tip.slint";
+import { TipBody, TipUse } from "tip.slint";
 import { SearchWords } from "setting.slint";
 
 // collapse.py's _FoldButton: the title as a named keyboard toggle that folds what's under it. A blank key: no folding.
@@ -45,12 +45,15 @@ component FoldTitle inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus; radius: 6px; x: 0; y: -3px; width: parent.width; height: parent.height + 6px; }
+    usage := TipUse { hover: touch.has-hover; }
     touch := TouchArea {
         enabled: foldable;
         mouse-cursor: foldable ? pointer : default;
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
+        scroll-event(e) => { usage.wheel(); reject }
         clicked => { Folds.toggle(key); }
     }
-    if foldable: Tooltip { TipBody { says: folded ? FoldText.collapsed : FoldText.expanded; } }
+    if foldable && !usage.used: Tooltip { TipBody { says: folded ? FoldText.collapsed : FoldText.expanded; } }
     // Qt indents a QSS-styled label's text by 6px; a settings card's title (which doesn't fold) sits right by its chip
     label := Text {
         x: foldable ? 6px : 0px;

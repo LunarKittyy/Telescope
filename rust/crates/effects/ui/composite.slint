@@ -35,6 +35,8 @@ export component CompositeCard inherits Card {
                 items: layout-items;
                 current: layout-current;
                 enabled: layout-enabled;
+                tip: root.layout-tip;
+                shortcut: "composite.layout";
                 picked(i) => { root.layout-picked(i); }
             }
             // The combo box's placeholder while no saved layout is picked
@@ -48,7 +50,6 @@ export component CompositeCard inherits Card {
                 vertical-alignment: center;
                 overflow: elide;
             }
-            Tooltip { TipBody { says: root.layout-tip; } }
         }
     }
     if edit-shown: Button {

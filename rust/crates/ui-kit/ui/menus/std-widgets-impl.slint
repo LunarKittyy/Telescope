@@ -8,24 +8,12 @@ import { WindowBox } from "../widgets/dialog.slint";
 // Slint asks this file for these too, and its own can't be imported. The app has no menu bar.
 export component MenuBarImpl { }
 
-// A tooltip's frame, under the kit's TipBody
+// A tooltip's popup: the kit's TipBody is its whole look, so this only gives the popup the size of what's inside
 export component ToolTipImpl inherits Rectangle {
     in property <styled-text> text;
-    background: Theme.surface-raise;
-    border-radius: 6px;
-    border-width: 1px;
-    border-color: Theme.border-hover;
     VerticalLayout {
-        padding-left: 9px;
-        padding-right: 9px;
-        padding-top: 6px;
-        padding-bottom: 6px;
-        StyledText {
-            text: root.text;
-            default-color: Theme.text;
-        }
+        @children
     }
-    @children
 }
 
 component MenuRow {

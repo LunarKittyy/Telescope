@@ -1,7 +1,7 @@
 // What both cards of this crate are built from. The plugins join this file and their card into one source (Rust's concat!),
 // so it holds the only import line.
 
-import { Theme, Icons, Icon, FocusRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, TextField, NumberField, FlickBar, TipBody, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, TextField, NumberField, FlickBar, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu } from "@ui-kit/ui-kit.slint";
 
 global Status {
     public pure function color(kind: string) -> color {
@@ -53,10 +53,14 @@ component SliderRow inherits LabelRow {
     in property <[float]> marks;
     // "Double-click to reset", added to the tip of a slider that has a default
     in property <string> hint;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
     callback moved(float);
     Rectangle {
         horizontal-stretch: 1;
         Slider {
+            tip: root.tip != "" && has-default && hint != "" ? root.tip + "\n" + hint : root.tip;
+            shortcut: root.shortcut;
             width: parent.width;
             height: parent.height;
             hue: root.hue;
@@ -72,7 +76,6 @@ component SliderRow inherits LabelRow {
             marks: root.marks;
             moved(v) => { root.moved(v); }
         }
-        if tip != "": Tooltip { TipBody { says: has-default && hint != "" ? root.tip + "\n" + hint : root.tip; } }
     }
 }
 
@@ -229,12 +232,15 @@ component Wheel inherits Rectangle {
         height: 2 * (radius + 13px);
         radius: radius + 13px;
     }
+    usage := TipUse { hover: touch.has-hover; }
     touch := TouchArea {
         enabled: root.enabled;
         property <length> from-x;
         property <length> from-y;
         mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
+        scroll-event(e) => { usage.wheel(); reject }
         pointer-event(e) => {
+            if (e.kind == PointerEventKind.down) { usage.press(); }
             if (e.button == PointerEventButton.left && e.kind == PointerEventKind.down) {
                 self.from-x = self.mouse-x;
                 self.from-y = self.mouse-y;
@@ -244,11 +250,11 @@ component Wheel inherits Rectangle {
             if (e.kind == PointerEventKind.move && self.pressed) {
                 root.dragged((self.mouse-x - self.from-x) / radius, (self.mouse-y - self.from-y) / radius, e.modifiers.shift);
             }
-            if (e.kind == PointerEventKind.up) { root.released(); }
+            if (e.kind == PointerEventKind.up && e.button == PointerEventButton.left) { root.released(); }
         }
         double-clicked => { root.reset(); }
     }
-    if tip != "": Tooltip { TipBody { says: root.tip; } }
+    if tip != "" && !usage.used: Tooltip { TipBody { says: root.tip; } }
 }
 
 export struct CurvePoint {

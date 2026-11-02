@@ -7,6 +7,8 @@ component Toggles inherits Rectangle {
     in property <[bool]> checked;
     in property <string> label;
     in property <bool> enabled: true;
+    // The action each one stands for: a right-click on it offers a keyboard shortcut
+    in property <[string]> shortcuts;
     callback toggled(int, bool);
     height: 36px;
     horizontal-stretch: 1;
@@ -40,6 +42,7 @@ component Toggles inherits Rectangle {
                 mouse-cursor: pointer;
                 clicked => { root.toggled(i, !on); }
             }
+            if shortcuts[i] != "": ShortcutMenu { action: shortcuts[i]; }
             HorizontalLayout {
                 alignment: center;
                 spacing: 6px;
@@ -114,10 +117,13 @@ component PanPad inherits Rectangle {
         background: enabled ? hue : Theme.text-disabled;
     }
     FocusRing { shown: focus.has-focus; radius: 9px; width: parent.width + 4px; height: parent.height + 4px; }
+    usage := TipUse { hover: touch.has-hover; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
+        scroll-event(e) => { usage.wheel(); reject }
         pointer-event(e) => {
+            if (e.kind == PointerEventKind.down) { usage.press(); }
             if ((e.kind == PointerEventKind.down && e.button == PointerEventButton.left) || (e.kind == PointerEventKind.move && self.pressed)) {
                 if (e.kind == PointerEventKind.down) { focus.focus(); }
                 root.pointer((self.mouse-x - root.width / 2) / (inner-w / 2), (self.mouse-y - root.height / 2) / (inner-h / 2));
@@ -125,6 +131,6 @@ component PanPad inherits Rectangle {
         }
         double-clicked => { root.reset(); }
     }
-    if tip != "": Tooltip { TipBody { says: root.tip; } }
+    if tip != "" && !usage.used: Tooltip { TipBody { says: root.tip; } }
     ShortcutMenu { action: root.shortcut; adds: root.shortcut-adds; }
 }
