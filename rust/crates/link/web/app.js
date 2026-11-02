@@ -9,6 +9,7 @@ const LOCK_RETRY_SECONDS = 5;  // a wake lock dropped sooner than this isn't ask
 const ICE_WAIT_MS = 2500;  // the offer goes with every address found by then; on a home network that's well under a second
 const STATS_SECONDS = 2;
 const DISCONNECTED_SECONDS = 5;  // a connection that says disconnected this long is set up again
+const ADAPT_RESET_SECONDS = 3;  // Firefox: how often its encoder's step-downs are cleared again (see resetAdaptation)
 // A raw mic, like a USB one: the app on the computer does its own echo cancellation, noise suppression and levels
 const MIC = { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false };
 
@@ -47,6 +48,7 @@ let videoSender = null;
 let micSender = null;
 let downTimer = null;  // a disconnected peer connection gets this long to come back
 let statsTimer = null;
+let adaptTimer = null;
 let wakeLock = null;
 let hintTimer = null;
 let tapped = false;  // one tap on the black screen, waiting for the second
@@ -424,6 +426,8 @@ function onPeerState(peer) {
 function closePeer() {
   clearTimeout(downTimer);
   clearInterval(statsTimer);
+  clearInterval(adaptTimer);
+  adaptTimer = null;
   const peer = pc;
   pc = videoSender = micSender = null;
   if (peer) {
@@ -452,12 +456,27 @@ async function applyLimits() {
     enc.maxFramerate = config.fps;
     enc.scaleResolutionDownBy = long > 0 ? Math.max(1, long / Math.max(config.width, config.height)) : 1;
     // Firefox has no contentHint and steps a camera's size down by itself. Chrome goes by the hint
-    if (typeof MediaStreamTrack === "undefined" || !("contentHint" in MediaStreamTrack.prototype)) params.degradationPreference = "maintain-resolution";
+    const noHint = typeof MediaStreamTrack === "undefined" || !("contentHint" in MediaStreamTrack.prototype);
+    if (noHint) params.degradationPreference = "maintain-resolution";
     await sender.setParameters(params);
+    if (noHint && sender === videoSender && !adaptTimer) adaptTimer = setInterval(resetAdaptation, ADAPT_RESET_SECONDS * 1000);
     console.log("Encoder limits set:", JSON.stringify(sender.getParameters()));
   } catch (err) {
     console.warn("The browser refused the encoder limits:", err);  // its defaults are fine
   }
+}
+
+// Firefox reads its encoder's one frame of delay as overload and steps the rate down for good; a switch to balanced and back clears that
+async function resetAdaptation() {
+  const sender = videoSender;
+  if (!sender) return;
+  try {
+    for (const preference of ["balanced", "maintain-resolution"]) {
+      const params = sender.getParameters();
+      params.degradationPreference = preference;
+      await sender.setParameters(params);
+    }
+  } catch (_) { /* a limit being set at the same moment: the next round does it */ }
 }
 
 async function sendStats() {

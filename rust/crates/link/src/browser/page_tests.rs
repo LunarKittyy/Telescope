@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-const SCENARIOS: [&str; 34] = [
+const SCENARIOS: [&str; 36] = [
     "the_page_offers_and_applies_the_answer", "a_superseded_offer_is_not_sent", "a_failed_connection_offers_again",
     "flip_keeps_the_mic", "the_mirror_follows_the_camera_not_the_request", "the_mic_follows_the_computer", "a_lost_mic_comes_back",
     "a_mic_that_recovers_clears_its_error_on_the_computer", "a_refused_mic_leaves_the_camera_working",
@@ -15,7 +15,7 @@ const SCENARIOS: [&str; 34] = [
     "a_failing_black_video_leaves_start_working", "the_player_works_again_after_ios_paused_the_video", "pausing_in_the_player_resumes",
     "stop_closes_the_iphone_player", "no_black_video_where_the_page_can_go_full_screen", "stop_wakes_the_black_screen",
     "a_dropped_wake_lock_is_asked_for_again", "a_lock_dropped_straight_away_is_not_asked_for_again",
-    "a_third_tap_after_waking_does_not_press_stop",
+    "a_third_tap_after_waking_does_not_press_stop", "firefox_has_its_step_downs_cleared", "chrome_has_nothing_cleared",
 ];
 
 fn harness() -> PathBuf {
