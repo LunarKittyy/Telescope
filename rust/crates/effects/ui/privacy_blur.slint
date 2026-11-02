@@ -38,9 +38,9 @@ export component PrivacyBlurCard inherits Card {
             items: [@tr("Blur the others"), @tr("Blur all but me"), @tr("Show the wait screen")];
             current: mode;
             shortcut: "privacy_blur.mode";
+            tip: mode-tip;
             picked(i) => { root.mode-picked(i); }
         }
-        if mode-tip != "": Tooltip { TipBody { says: mode-tip; } }
     }
     HorizontalLayout {
         alignment: start;

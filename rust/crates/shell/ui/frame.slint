@@ -1,7 +1,7 @@
 // The window around the cards (app.py _build_header, _build_footer, widgets/banner.py, widgets/tiles.py). The window
 // itself is written by the shell at startup (doc.rs), which places every plugin's card between these.
 
-import { Theme, Icons, Icon, FocusRing, Button, TipBody } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, Button, TipBody, TipUse, ShortcutMenu } from "@ui-kit/ui-kit.slint";
 
 export struct BannerData {
     key: string,
@@ -61,8 +61,15 @@ export component HeaderIconButton inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus; radius: 8px; width: parent.width + 4px; height: parent.height + 4px; }
-    touch := TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { root.clicked(); } }
-    if tip != "": Tooltip { TipBody { says: tip; } }
+    usage := TipUse { hover: touch.has-hover; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
+        scroll-event(e) => { usage.wheel(); reject }
+        clicked => { root.clicked(); }
+    }
+    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
     Icon { source: icon; tint: enabled ? Theme.text-dim : Theme.text-disabled; width: icon-size; height: icon-size; accessible-role: none; }
 }
 
@@ -71,6 +78,8 @@ export component StartButton inherits Rectangle {
     in property <string> text;
     in property <bool> streaming;
     in property <bool> enabled: true;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
     callback clicked;
     height: 40px;
     width: lay.preferred-width;
@@ -93,6 +102,7 @@ export component StartButton inherits Rectangle {
     }
     FocusRing { shown: focus.has-focus; radius: 8px; width: parent.width + 4px; height: parent.height + 4px; }
     touch := TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { root.clicked(); } }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
     lay := HorizontalLayout {
         padding-left: 23.5px;
         padding-right: 23.5px;

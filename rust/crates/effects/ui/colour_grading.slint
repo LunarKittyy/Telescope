@@ -160,6 +160,7 @@ export component ColourGradingCard inherits Card {
             y: (parent.height - self.height) / 2;
             checked: compare;
             label: @tr("Compare");
+            shortcut: "colour_grading.compare";
             tip: @tr("Left of the line the preview shows the picture without the grade (apps always get it graded)");
             toggled(v) => { root.compare-toggled(v); }
         }
@@ -293,6 +294,7 @@ export component ColourGradingCard inherits Card {
             enabled: active;
             label: name;
             tip: slider-tips[i];
+            shortcut: ["colour_grading.temperature", "colour_grading.tint", "colour_grading.contrast", "", "colour_grading.saturation", "", ""][i];
             minimum: slider-min[i];
             maximum: slider-max[i];
             step: slider-step[i];

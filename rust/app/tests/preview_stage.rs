@@ -786,6 +786,9 @@ fn the_stage_says_the_camera_is_off_and_why() {
 fn camera_tip(s: &Stage, text: &str) -> bool {
     let e = s.element("Phone camera").expect("the camera button");
     let (p, size) = (e.absolute_position(), e.size());
+    // A control just pressed shows no tip until the pointer has left it and come back
+    s.send(WindowEvent::PointerMoved { position: LogicalPosition::new(600.0, 200.0) });
+    s.r.skip(20);
     s.send(WindowEvent::PointerMoved { position: LogicalPosition::new(p.x + size.width / 2.0, p.y + size.height / 2.0) });
     s.r.skip(600);
     let shown = s.says(text);

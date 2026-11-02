@@ -3,7 +3,7 @@
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { Icon, FocusRing } from "basics.slint";
-import { TipBody } from "tip.slint";
+import { TipBody, TipUse } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 
 // common.Switch: a 36x20 track at the row's end.
@@ -67,10 +67,12 @@ export component Switch inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus && keyed; radius: 10px; width: parent.width + 4px; height: parent.height + 4px; }
+    usage := TipUse { hover: touch.has-hover; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
-        pointer-event(e) => { if (e.kind == PointerEventKind.down) { take-focus(); } }
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { take-focus(); usage.press(); } }
+        scroll-event(e) => { usage.wheel(); reject }
         clicked => { flip(); }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
@@ -83,7 +85,7 @@ export component Switch inherits Rectangle {
         background: !enabled ? Theme.text-disabled : shown ? white : Theme.text-dim;
         animate x { duration: 90ms; }
     }
-    if tip != "": Tooltip { TipBody { says: tip; } }
+    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
 }
 
 // controls.SwitchTile: icon, name and switch in a small raised tile; the icon takes the card's hue while on.
@@ -106,14 +108,16 @@ export component SwitchTile inherits Rectangle {
     border-width: 1px;
     border-color: Theme.border;
     border-radius: 9px;
-    TouchArea {
+    usage := TipUse { hover: tile-touch.has-hover; }
+    tile-touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
-        pointer-event(e) => { if (e.kind == PointerEventKind.down) { sw.take-focus(); } }
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { sw.take-focus(); usage.press(); } }
+        scroll-event(e) => { usage.wheel(); reject }
         clicked => { sw.flip(); }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    if root.tip != "": Tooltip { TipBody { says: root.tip; } }
+    if root.tip != "" && !usage.used: Tooltip { TipBody { says: root.tip; } }
     // The QSS border sits outside the layout's 10px margins
     HorizontalLayout {
         padding-left: 11px;

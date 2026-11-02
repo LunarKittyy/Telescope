@@ -183,6 +183,7 @@ export component NotesCard inherits Card {
     if show-auto: SliderRow {
         enabled: active;
         label: @tr("Speed");
+        shortcut: "notes.speed";
         hint: reset-hint;
         minimum: 1;
         maximum: 10;
@@ -201,6 +202,7 @@ export component NotesCard inherits Card {
             min-width: 0px;
             text: back-text;
             tip: back-tip;
+            shortcut: "notes.previous";
             enabled: active && (nav-enabled);
             clicked => { root.back-clicked(); }
         }
@@ -210,6 +212,7 @@ export component NotesCard inherits Card {
             min-width: 0px;
             text: play-text;
             tip: play-tip;
+            shortcut: "notes.play";
             role: playing ? "primary" : "";
             enabled: active && (nav-enabled);
             clicked => { root.play-toggled(!root.playing); }
@@ -220,6 +223,7 @@ export component NotesCard inherits Card {
             min-width: 0px;
             text: next-text;
             tip: next-tip;
+            shortcut: "notes.next";
             enabled: active && (nav-enabled);
             clicked => { root.next-clicked(); }
         }
@@ -231,6 +235,7 @@ export component NotesCard inherits Card {
             preferred-width: 0px;
             min-width: 0px;
             text: send-text;
+            shortcut: "notes.send";
             role: "primary";
             enabled: active && (send-enabled);
             clicked => { root.send-clicked(); }
@@ -240,6 +245,7 @@ export component NotesCard inherits Card {
             preferred-width: 0px;
             min-width: 0px;
             text: clear-text;
+            shortcut: "notes.clear";
             enabled: active && (clear-enabled);
             clicked => { root.clear-clicked(); }
         }

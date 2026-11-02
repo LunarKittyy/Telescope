@@ -224,6 +224,7 @@ export component MicrophoneCard inherits Card {
                 maximum: gain-max;
                 value: gain;
                 label: @tr("Gain");
+                shortcut: "microphone.gain";
                 has-default: true;
                 default-value: 0;
                 tip: @tr("Double-click to reset");
@@ -234,6 +235,7 @@ export component MicrophoneCard inherits Card {
                 y: 2px;
                 value: gain-text;
                 label: @tr("Gain");
+                shortcut: "microphone.gain";
                 committed(text) => { root.gain-typed(text); }
                 step(d) => { root.gain-moved(gain - d); }
             }

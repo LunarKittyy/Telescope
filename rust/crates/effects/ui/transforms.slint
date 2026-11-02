@@ -57,6 +57,7 @@ export component TransformsCard inherits Card {
             checked: flips;
             enabled: active;
             label: @tr("Flip");
+            shortcuts: ["transforms.flip_horizontal", "transforms.flip_vertical"];
             toggled(i, on) => { root.flip-toggled(i, on); }
         }
     }
@@ -68,6 +69,7 @@ export component TransformsCard inherits Card {
             has-icons: [false, false, false, false];
             icons: [Icons.colour, Icons.colour, Icons.colour, Icons.colour];
             label: @tr("Rotation");
+            shortcut: "transforms.rotation";
             current: rotation;
             picked(i) => { root.rotation-picked(i); }
         }
@@ -86,6 +88,8 @@ export component TransformsCard inherits Card {
                     hue: root.hue;
                     enabled: active && zoom-free;
                     label: @tr("Zoom");
+                    tip: root.zoom-tip;
+                    shortcut: "transforms.zoom";
                     minimum: 1;
                     maximum: zoom-max;
                     step: 0.01;
@@ -95,7 +99,6 @@ export component TransformsCard inherits Card {
                     default-value: 1;
                     moved(v) => { root.zoom-moved(v); }
                 }
-                Tooltip { TipBody { says: root.zoom-tip; } }
             }
             Rectangle {
                 width: 56px;
@@ -162,6 +165,7 @@ export component TransformsCard inherits Card {
         enabled: active;
         label: @tr("Width");
         tip: stretch-tips[0];
+        shortcut: "transforms.stretch_x";
         hint: reset-hint;
         minimum: 50;
         maximum: 200;
@@ -176,6 +180,7 @@ export component TransformsCard inherits Card {
         enabled: active;
         label: @tr("Height");
         tip: stretch-tips[1];
+        shortcut: "transforms.stretch_y";
         hint: reset-hint;
         minimum: 50;
         maximum: 200;

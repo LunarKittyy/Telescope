@@ -4,6 +4,7 @@
 import { Theme } from "../theme.slint";
 import { Icon, KeyFocus } from "basics.slint";
 import { Icons } from "../icons.slint";
+import { ShortcutMenu } from "shortcut-menu.slint";
 
 // setMaxLength: what of new text over a cap stays, given the text before (telescope_core::names::fit_to_cap). Slint can't
 // cut a string, so the window answers; with nobody to ask it gives "".
@@ -107,6 +108,8 @@ export component NumberField inherits Rectangle {
     in property <bool> enabled: true;
     // Inside a popup: Enter leaves the focus here, the window's scope can't take it from a popup
     in property <bool> keeps-focus;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
     out property <bool> has-focus: box.has-focus;
     // Each change of the text, for a box that applies its value while it's typed
     callback edited(string);
@@ -151,4 +154,5 @@ export component NumberField inherits Rectangle {
             }
         }
     }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
 }

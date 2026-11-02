@@ -6,7 +6,7 @@ import { Icon, FocusRing } from "basics.slint";
 import { WindowBox } from "dialog.slint";
 import { FlickBar } from "scroll.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
-import { TipBody } from "tip.slint";
+import { TipBody, TipUse } from "tip.slint";
 import { SearchWords } from "setting.slint";
 
 // segmented_row: equal segments in one track, the picked one a filled pill.
@@ -84,7 +84,6 @@ export component Segmented inherits Rectangle {
             accessible-checkable: true;
             accessible-checked: on;
             accessible-action-default => { if (!off) { pick(i); } }
-            if tips[i] != "": Tooltip { TipBody { says: tips[i]; } }
             bold-width := Text { text: item; font-family: Theme.font; font-size: Theme.body; font-weight: 600; visible: false; }
             property <int> asked: arrows;
             changed asked => {
@@ -107,9 +106,14 @@ export component Segmented inherits Rectangle {
                 }
             }
             FocusRing { shown: seg-focus.has-focus; radius: 6px; width: parent.width + 4px; height: parent.height + 4px; }
+            usage := TipUse { hover: seg-touch.has-hover; }
             seg-touch := TouchArea {
                 mouse-cursor: off ? default : pointer;
+                scroll-event(e) => { usage.wheel(); reject }
                 pointer-event(e) => {
+                    if (e.kind == PointerEventKind.down) {
+                        usage.press();
+                    }
                     if (e.kind == PointerEventKind.down && !off) {
                         seg-focus.focus();
                     }
@@ -120,6 +124,8 @@ export component Segmented inherits Rectangle {
                     }
                 }
             }
+            // Above the touch area, which would otherwise take the pointer before the tooltip sees it
+            if tips[i] != "" && !usage.used: Tooltip { TipBody { says: tips[i]; } }
             HorizontalLayout {
                 alignment: center;
                 spacing: 6px;
@@ -219,9 +225,12 @@ export component ChoiceField inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus; radius: plain ? 7px : 10px; width: parent.width + 4px; height: parent.height + 4px; }
+    usage := TipUse { hover: touch.has-hover; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
+        scroll-event(e) => { usage.wheel(); reject }
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
         clicked => {
             // Something has to hold the focus for the list's own to go back to when it closes (see `watch`)
             focus.focus();
@@ -229,7 +238,7 @@ export component ChoiceField inherits Rectangle {
         }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    if root.tip != "": Tooltip { TipBody { says: root.tip; } }
+    if root.tip != "" && !usage.used: Tooltip { TipBody { says: root.tip; } }
     if has-icon: Icon {
         source: icon;
         tint: icon-tint;

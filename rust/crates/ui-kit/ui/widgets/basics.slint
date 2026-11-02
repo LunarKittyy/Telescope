@@ -2,7 +2,7 @@
 
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
-import { TipBody } from "tip.slint";
+import { TipBody, TipUse } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 
 // A line icon (widgets/line_icons.py), white in the file and tinted here.
@@ -119,12 +119,15 @@ export component Button inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus; radius: root.border-radius; width: parent.width + 4px; height: parent.height + 4px; }
+    usage := TipUse { hover: touch.has-hover; }
     touch := TouchArea {
         mouse-cursor: pointer;
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
+        scroll-event(e) => { usage.wheel(); reject }
         clicked => { if (enabled) { root.clicked(); } }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    if tip != "": Tooltip { TipBody { says: tip; } }
+    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
     lay := HorizontalLayout {
         padding-left: padding-x;
         padding-right: padding-x;
@@ -182,8 +185,14 @@ export component IconButton inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus; radius: 8px; width: parent.width + 4px; height: parent.height + 4px; }
-    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    usage := TipUse { hover: touch.has-hover; }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
+        scroll-event(e) => { usage.wheel(); reject }
+        clicked => { root.clicked(); }
+    }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    if tip != "": Tooltip { TipBody { says: tip; } }
+    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
     Icon { source: icon; tint: Theme.text-dim; width: icon-size; height: icon-size; }
 }

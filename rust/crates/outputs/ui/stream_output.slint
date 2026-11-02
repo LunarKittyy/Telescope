@@ -1,7 +1,7 @@
 // The Stream output card (desktop/telescope/plugins/stream_output.py): resolution, frame rate and shape as three
 // tiles, Light or Heavy, then JPEG quality or bitrate. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Card, FormRow, Slider, ChoiceField, TipBody } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Card, FormRow, Slider, ChoiceField, TipBody, TipUse, ShortcutMenu } from "@ui-kit/ui-kit.slint";
 
 // One of the two format buttons (widgets.controls.OptionCard): a title, a plain note and an icon.
 component OptionCard inherits Rectangle {
@@ -12,6 +12,8 @@ component OptionCard inherits Rectangle {
     in property <bool> enabled: true;
     in property <string> tip;
     in property <color> hue: Theme.accent;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
     callback clicked;
     horizontal-stretch: 1;
     min-height: 54px;
@@ -25,11 +27,15 @@ component OptionCard inherits Rectangle {
     accessible-description: note;
     accessible-checked: checked;
     accessible-action-default => { if (root.enabled) { root.clicked(); } }
+    usage := TipUse { hover: touch.has-hover; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: root.enabled ? pointer : default;
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
+        scroll-event(e) => { usage.wheel(); reject }
         clicked => { root.clicked(); }
     }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
     HorizontalLayout {
         padding-left: 12px;
         padding-right: 12px;
@@ -42,7 +48,7 @@ component OptionCard inherits Rectangle {
             Text { text: note; font-family: Theme.font; font-size: 11px; color: Theme.text-dim; }
         }
     }
-    if tip != "" && touch.has-hover: TipBody { says: tip; x: 0; y: parent.height + 4px; }
+    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
 }
 
 export component StreamOutputCard inherits Card {
@@ -91,6 +97,7 @@ export component StreamOutputCard inherits Card {
         ChoiceField {
             horizontal-stretch: 3;
             caption: @tr("Resolution");
+            shortcut: "stream.resolution";
             items: root.res-items;
             current <=> root.res-current;
             enabled: root.res-enabled;
@@ -99,6 +106,7 @@ export component StreamOutputCard inherits Card {
         ChoiceField {
             horizontal-stretch: 2;
             caption: @tr("Frame rate");
+            shortcut: "stream.fps";
             items: root.fps-items;
             current <=> root.fps-current;
             gone: root.fps-gone;
@@ -108,6 +116,7 @@ export component StreamOutputCard inherits Card {
         ChoiceField {
             horizontal-stretch: 2;
             caption: @tr("Shape");
+            shortcut: "stream.aspect_ratio";
             items: root.ar-items;
             current <=> root.ar-current;
             enabled: root.ar-enabled;
@@ -124,6 +133,7 @@ export component StreamOutputCard inherits Card {
             checked: root.h264;
             enabled: root.h264-enabled;
             tip: root.light-tip;
+            shortcut: "stream.format";
             clicked => { root.format-picked(true); }
         }
         OptionCard {
@@ -133,6 +143,7 @@ export component StreamOutputCard inherits Card {
             hue: root.hue;
             checked: !root.h264;
             tip: root.heavy-tip;
+            shortcut: "stream.format";
             clicked => { root.format-picked(false); }
         }
     }
@@ -148,6 +159,7 @@ export component StreamOutputCard inherits Card {
             readout: root.quality-readout;
             readout-width: root.readout-width;
             label: @tr("JPEG quality");
+            shortcut: "stream.quality";
             hue: root.hue;
             tip: root.quality-tip + "\n" + @tr("Double-click to reset");
             marks: [85];
@@ -168,6 +180,7 @@ export component StreamOutputCard inherits Card {
             readout: root.bitrate-readout;
             readout-width: root.readout-width;
             label: @tr("Bitrate");
+            shortcut: "stream.bitrate";
             hue: root.hue;
             tip: root.bitrate-tip + "\n" + @tr("Double-click to reset");
             has-default: true;

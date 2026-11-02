@@ -100,9 +100,9 @@ export component CinemaCard inherits Card {
                 current <=> root.guide-current;
                 caption: @tr("Guides");
                 shortcut: "cinema.guides";
+                tip: guides-tip;
                 picked(i) => { root.guide-picked(i); }
             }
-            if guides-tip != "": Tooltip { TipBody { says: guides-tip; } }
         }
     }
     FormRow {
