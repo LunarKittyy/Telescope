@@ -13,18 +13,16 @@ Raw material, not finished notes. Every item is one line. (check) marks somethin
 
 ## 2. Measured gains
 
-Both apps measured the same way on 2 November 2026 on the same machine: an 8-core Ryzen 7 9800X3D with AMD graphics, KDE on Wayland, FFmpeg 8.1.3. A fake phone played a 1080p30 clip at about 8 Mbps, 30 s sampled after 10 s of streaming, with ffmpeg reading the virtual camera throughout. Python app from commit 33c61fc4, Rust app from 041af64b, every default plugin loaded in both, medians of 4 runs (8 for start). Source for all of it: rust/FINDINGS.md, The finished app against Python.
+Most of these predate the finished app. Re-measure both apps the same way before quoting any comparison.
 
-- Start to first painted window: 941 ms in the Python app, 297 ms in the Rust app (median of 8, two batches agree). The 65 ms of the prototype had no plugins and no longer applies. Neither app shows a splash on Linux.
-- CPU while streaming 1080p30 (percent of one core): 23.2% in the Python app, 17.1% in the Rust window with the preview, 12.1% without a window. With hardware decoding: 17.9% in Python (its own VA-API build of PyAV), 7.0% in the Rust window, 3.2% without a window.
-- Memory while streaming 1080p30: the Rust window is not smaller. RSS 249 MB against 226 MB in Python, PSS 216 MB against 213 MB. Without a window the Rust app uses 71 MB RSS. Don't claim a memory win for the window.
-- Frames: both delivered 1066 frames in 35 s (1065 once in Python), so neither dropped any.
-- On disk: the Rust binary is 61.7 MB stripped (about 68 MB with the bundled FFmpeg, estimated), the Python app's packages 651 MB plus 13 MB of app files.
-- Not measured: Background blur and Auto framing (they need the vision pack in both apps), start on a cold file cache, Windows.
+- Start to first painted window: 1,072 ms in the Python app, 65 ms in the Rust prototype (median of 5). Source: rust/FINDINGS.md, Measurements. The prototype had the window only, no plugins.
+- Memory while streaming 1080p30 (RSS): 287 MB in the Python app, 145 MB in the Rust prototype window, 194 to 199 MB in the merged build with the preview drawn. Source: rust/FINDINGS.md, Measurements and With the preview drawn.
+- CPU while streaming 1080p30: 21.4% in the Python app, 15.2% in the merged window with the preview on the graphics card, 7.0% with VA-API. Source: rust/FINDINGS.md, With the preview drawn. Same 8-core Ryzen with AMD graphics, KDE on Wayland, FFmpeg 8.1.
+- Frames: the Python app and the Rust version both delivered 1066 frames in 35 s from the fake phone, so neither dropped any. Source: rust/FINDINGS.md.
 - Memory on a Linux laptop at 1080p30: about 240 MB with Telescope open, 360 MB streaming, 470 MB streaming with Background and Auto framing. Source: docs/troubleshooting.md (check: no Python figure on the same laptop, so no before and after).
 - Effects: VHS, CRT, Desk mode and Background blur ran at 16 to 20 fps on a real stream. They now keep the full frame rate at 1080p. Source: commit 1580ca70 (check: the after figure isn't in the message).
 - Firefox's Browser camera used to drop to 2 fps and stay there. Source: commit 93215dab (check: no new number).
-- Preview on the graphics card costs about 4 points of CPU over no preview at all. Source: rust/FINDINGS.md, With the preview drawn (the finished app's window costs 5 points over no window, 17.1% against 12.1%).
+- Preview on the graphics card costs about 4 points of CPU over no preview at all. Source: rust/FINDINGS.md, With the preview drawn.
 
 ## 3. New for users
 
@@ -83,7 +81,7 @@ Both apps measured the same way on 2 November 2026 on the same machine: an 8-cor
 - Plugins written in Python for the old Telescope (plugin API 1) don't run any more. Added plugins have to be rewritten in Lua. Source: docs/writing-plugins.md, rust/FINDINGS.md.
 - Linux no longer needs Python 3.12 or the Python environment. It only needs v4l2loopback, and adb is optional. Source: docs/setup.md.
 - The VA-API setup button is gone. Hardware decoding just finds the card. Source: docs/troubleshooting.md.
-- You can go back to the Python version, 4.4.2, the last one: Settings, Updates, Go back to the Python version. It saves a dated copy of your settings first, keeps your phones, and turns off 4.4.2's daily update check so it doesn't offer Rust back. Lua plugins and settings added since 4.4.2 don't carry over, and the phone app has to be 4.4.2 too (uninstall the newer one first, Android won't downgrade it). An AppImage can't be swapped, so it opens the 4.4.2 page instead, and on Linux it needs Python 3.12 or newer. Source: rust/crates/system/src/going_back.rs, rust/PLAN.md. (check: Windows not run yet)
+- Going back to the Python version isn't built yet, and the roadmap says it has to be in before the stable release (check: needs a decision). Source: docs/roadmap/next.md, rust/PLAN.md.
 - The first start removes what the Python build left behind: the lib-<build> folders, .previous and the old requirements and guard files. Source: rust/PLAN.md, rust/crates/system/src/update_guard.rs.
 - Before it removes the old Python environment (about 650 MB), the updater asks first (check). Source: rust/crates/system/src/update_guard.rs.
 - Existing settings from the Python version are read as they are (check). Source: rust/crates/setup/tests/config_parity.rs.
