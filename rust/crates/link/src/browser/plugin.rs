@@ -473,7 +473,7 @@ impl BrowserCameraPlugin {
         let taken = room.clone();
         let hub = Arc::new(BrowserHub::new(move |_| {
             // Server thread: whether a browser that isn't known yet gets a feed (there's a camera left for it)
-            taken.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |r| (r > 0).then_some(r - 1)).is_ok()
+            taken.try_update(Ordering::SeqCst, Ordering::SeqCst, |r| (r > 0).then_some(r - 1)).is_ok()
         }));
         let shared = Arc::new(Shared { fps: AtomicU32::new(DEFAULT_FPS), ..Shared::default() });
         BrowserCameraPlugin {

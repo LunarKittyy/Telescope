@@ -86,3 +86,15 @@ lto = "thin"
 codegen-units = 1
 strip = true
 # No panic = "abort": the host catches a panicking plugin and carries on, as the Python app catches its exceptions
+
+# Every test window goes through Slint's compiler, and unoptimised it spends over a second on each one
+[profile.dev.package.i-slint-compiler]
+opt-level = 2
+[profile.dev.package.rowan]
+opt-level = 2
+[profile.dev.package.i-slint-common]
+opt-level = 2
+[profile.dev.package.slint-interpreter]
+opt-level = 2
+[profile.dev.package.i-slint-core]
+opt-level = 2
