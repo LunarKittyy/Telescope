@@ -432,6 +432,9 @@ const scenarios = {
     assert.strictEqual(page.world.applied.advanced[0].torch, true);
     assert.strictEqual(page.world.applied.width.ideal, 1280, "turning the flash on dropped the size");
     assert.strictEqual(page.element("screen-light").hidden, true);
+    await page.click("light");
+    assert.strictEqual(page.world.applied.advanced[0].torch, false, "the flash stayed on");
+    await page.click("light");
     page.socket().message({ type: "config", width: 854, height: 480, fps: 30, audio: false, max_kbps: 1800 });
     await page.flush();
     assert.strictEqual(page.world.applied.width.ideal, 854);

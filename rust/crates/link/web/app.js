@@ -212,9 +212,9 @@ function frontCamera() {
   return s.facingMode !== "environment";
 }
 
-// What the camera is asked for, flash included: applyConstraints replaces everything asked before
+// What the camera is asked for, flash included: applyConstraints replaces everything asked before, but leaving the flash out doesn't turn it off
 function cameraConstraints() {
-  return torchOn ? Object.assign(videoConstraints(), { advanced: [{ torch: true }] }) : videoConstraints();
+  return hasTorch() ? Object.assign(videoConstraints(), { advanced: [{ torch: torchOn }] }) : videoConstraints();
 }
 
 function showLight() {
