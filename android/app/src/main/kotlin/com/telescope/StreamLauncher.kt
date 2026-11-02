@@ -3,6 +3,7 @@ package com.telescope
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 
 // Single start point for CameraStreamService, opening with the selection the computer last picked.
@@ -33,6 +34,12 @@ object StreamLauncher {
         ) {
             return Result.Rejected("no_camera_permission")
         }
+
+        if (remote && !RemoteStartPolicy.allowed(
+                foreground = SessionEndpoint.isHeldBy(SessionEndpoint.OWNER_ACTIVITY),
+                notificationsShown = NotificationManagerCompat.from(context).areNotificationsEnabled(),
+            )
+        ) return Result.Rejected(RemoteStartPolicy.REFUSED)
 
         val covered = WaitingService.covering
         val intent = Intent(context, CameraStreamService::class.java).apply {
@@ -72,6 +79,14 @@ object StreamLauncher {
         else remembered
         return start(context, selection, remote = true, fps = opening?.fps, cameraOff = opening?.cameraOff == true, owner = owner)
     }
+}
+
+// A computer's start with the app out of sight and no notification to show the camera is on is refused, since nothing
+// would tell the owner. The desktop words start_refused as "bring Telescope to the front".
+object RemoteStartPolicy {
+    const val REFUSED = "start_refused"
+
+    fun allowed(foreground: Boolean, notificationsShown: Boolean): Boolean = foreground || notificationsShown
 }
 
 // What a computer's start asks for, so a size that just failed (too much for the encoder) isn't what opens again.

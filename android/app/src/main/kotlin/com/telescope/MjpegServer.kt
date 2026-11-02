@@ -70,6 +70,7 @@ class MjpegServer(
     private val sensorClients = CopyOnWriteArrayList<SensorClient>()
     private val lastSeenByToken = java.util.concurrent.ConcurrentHashMap<String, Long>()  // token: its last authorized request
     private val running = AtomicBoolean(false)
+    private val fileSockets = java.util.concurrent.ConcurrentHashMap.newKeySet<Socket>()  // photo downloads in flight, closed by stop()
     private val wifiViewers = mutableSetOf<Socket>()
 
     private fun trackViewer(socket: Socket, watching: Boolean) = synchronized(wifiViewers) {
@@ -225,6 +226,7 @@ class MjpegServer(
         }
         sensorClients.forEach { it.close() }
         sensorClients.clear()
+        fileSockets.forEach { try { it.close() } catch (_: Exception) {} }
         try { serverSocket?.close() } catch (_: Exception) {}
     }
 
@@ -392,7 +394,7 @@ class MjpegServer(
                     val found = if (id != null && n != null) stillFile(id, n) else null
                     if (found == null) { HttpWire.sendError(socket.getOutputStream(), 404, "Not Found"); return }
                     if (!takeStreamSlot()) return
-                    try { sendFile(socket, found.first, found.second) } finally { streamSlots.release() }
+                    try { sendFile(socket, found.first, found.second) { running.get() && stillPaired(request) } } finally { streamSlots.release() }
                 }
                 else -> HttpWire.sendError(socket.getOutputStream(), 404, "Not Found")
             }
@@ -428,18 +430,25 @@ class MjpegServer(
     private fun pollMs(): Long = minOf(2_000L, viewerGiveUpMs)
 
     // A photo, which can be 50 MB and more: streamed in TLS-record-sized pieces with its length up front
-    private fun sendFile(socket: Socket, file: java.io.File, name: String) {
+    private fun sendFile(socket: Socket, file: java.io.File, name: String, stillAllowed: () -> Boolean) {
+        fileSockets.add(socket)
+        if (!running.get()) { try { socket.close() } catch (_: Exception) {}; fileSockets.remove(socket); return }  // stopped since the slot was taken
         socket.soTimeout = fileTimeoutMs
         val out = socket.getOutputStream()
         // A write blocked on a computer that went away never times out on its own, so the socket is closed instead
         val lastWrite = java.util.concurrent.atomic.AtomicLong(System.nanoTime())
         val guard = fileGuards.scheduleWithFixedDelay({
-            if (System.nanoTime() - lastWrite.get() > fileTimeoutMs * 1_000_000L) try { socket.close() } catch (_: Exception) {}
+            if (!stillAllowed() || System.nanoTime() - lastWrite.get() > fileTimeoutMs * 1_000_000L) try { socket.close() } catch (_: Exception) {}
         }, fileTimeoutMs / 2L, fileTimeoutMs / 2L, TimeUnit.MILLISECONDS)
-        try { sendFileBody(file, name, out) { lastWrite.set(System.nanoTime()) } } finally { guard.cancel(false) }
+        try {
+            sendFileBody(file, name, out, stillAllowed) { lastWrite.set(System.nanoTime()) }
+        } finally {
+            guard.cancel(false)
+            fileSockets.remove(socket)
+        }
     }
 
-    private fun sendFileBody(file: java.io.File, name: String, out: java.io.OutputStream, wrote: () -> Unit) {
+    private fun sendFileBody(file: java.io.File, name: String, out: java.io.OutputStream, stillAllowed: () -> Boolean, wrote: () -> Unit) {
         file.inputStream().use { input ->
             val length = file.length()
             out.write(("HTTP/1.1 200 OK\r\nContent-Type: ${StillJobs.type(name)}\r\nContent-Length: $length\r\n" +
@@ -448,6 +457,7 @@ class MjpegServer(
             val buf = ByteArray(WRITE_CHUNK)
             var left = length
             while (left > 0) {
+                if (!stillAllowed()) return  // stopped or its computer removed: the socket closes without the rest
                 val n = input.read(buf, 0, minOf(buf.size.toLong(), left).toInt())
                 if (n <= 0) break
                 out.write(buf, 0, n)

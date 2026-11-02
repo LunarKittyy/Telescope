@@ -258,7 +258,7 @@ Also on 8766. JSON body `{"action": "start"}` or `{"action": "stop"}`; same auth
 | `start` | Start the camera service, reproducing the camera/resolution/OIS selection last used on the phone. Optional `width` and `height` (both or neither) and `fps` open it at that size and rate instead, so a size that just failed isn't what opens again; the size is fitted to the lens like a `resolution` control. `camera: "off"` starts with the camera off, just the mic, until a `camera_on` control. `{"ok": true}` if a stream is already running. |
 | `stop` | Stop the camera service. `{"ok": true}` if nothing was running. |
 
-Refusal reasons, all reported with HTTP `200` and `"ok": false` (the request was fine, the camera wouldn't open): `no_camera_permission`, `busy` (a start is already in flight), `start_refused` (Android declined the foreground-service start), `busy_other` (the stream belongs to another paired computer, named in `computer`: `{"ok": false, "error": "busy_other", "computer": "desk"}`). A `stop` from a computer the stream doesn't belong to is refused with `busy_other` too, and the stream carries on.
+Refusal reasons, all reported with HTTP `200` and `"ok": false` (the request was fine, the camera wouldn't open): `no_camera_permission`, `busy` (a start is already in flight), `start_refused` (Android declined the foreground-service start, or the app is in the background with notifications turned off, so nothing would show the camera is on), `busy_other` (the stream belongs to another paired computer, named in `computer`: `{"ok": false, "error": "busy_other", "computer": "desk"}`). A `stop` from a computer the stream doesn't belong to is refused with `busy_other` too, and the stream carries on.
 
 ### One computer per stream
 
