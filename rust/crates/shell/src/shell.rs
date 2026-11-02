@@ -844,6 +844,19 @@ impl State {
     /// save_now. False when the file couldn't be read (saving over it would lose every other phone's settings) or
     /// written; the window tries again shortly.
     pub fn save_now(&mut self) -> bool {
+        // The start couldn't read the file, so this app holds defaults: it takes in what's there instead of saving over it
+        if let Some(read) = self.file.reread_after_unread_start() {
+            return match read {
+                Ok(mut cfg) => {
+                    self.apply_config(&mut cfg);
+                    true
+                }
+                Err(e) => {
+                    log::error!("Couldn't read the settings file; not saving over it: {e}");
+                    false
+                }
+            };
+        }
         let Ok(mut cfg) = self.file.load_strict() else {
             log::error!("Couldn't read the settings file; not saving over it");
             return false;

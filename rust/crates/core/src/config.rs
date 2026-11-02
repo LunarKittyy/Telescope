@@ -101,6 +101,8 @@ impl Default for ConfigFile {
 struct SetAside {
     last: Option<Vec<u8>>,
     notice: Option<String>,
+    /// The file was there but never read, so what the app holds is defaults and must not be saved over it.
+    unread: bool,
 }
 
 static SET_ASIDE: Mutex<Option<HashMap<PathBuf, SetAside>>> = Mutex::new(None);
@@ -126,7 +128,23 @@ impl ConfigFile {
 
     /// load_config(strict=True): an error when the file is there but can't be read, for callers about to save over it.
     pub fn load_strict(&self) -> io::Result<Value> {
+        if with_set_aside(&self.path, |s| s.unread) {
+            return Err(io::Error::other("the settings file couldn't be read when Telescope started"));
+        }
         self.read(true)
+    }
+
+    /// After a start that couldn't read the file: None if it did read it, else the file read again, for the app to take in instead of
+    /// saving its defaults over it. Saving is open again once this has read it.
+    pub fn reread_after_unread_start(&self) -> Option<io::Result<Value>> {
+        if !with_set_aside(&self.path, |s| s.unread) {
+            return None;
+        }
+        let read = self.read(true);
+        if read.is_ok() {
+            with_set_aside(&self.path, |s| s.unread = false);
+        }
+        Some(read)
     }
 
     fn read(&self, strict: bool) -> io::Result<Value> {
@@ -145,6 +163,7 @@ impl ConfigFile {
                     if strict {
                         return Err(e);
                     }
+                    with_set_aside(&self.path, |s| s.unread = true);
                     log::error!("Failed to read config from {} - starting fresh: {e}", self.path.display());
                     return Ok(empty());
                 }
