@@ -26,8 +26,11 @@ roll_back() {
     done
     journal_list entries | while read -r name; do
         if [ -n "$name" ] && [ -e ".previous/$name" ]; then
-            rm -rf "./$name"
-            mv ".previous/$name" "./$name"
+            # A file is replaced by the rename itself, so start.sh is never missing; only a folder has to go first
+            if [ -d "./$name" ] && [ ! -L "./$name" ]; then
+                rm -rf "./$name"
+            fi
+            mv -f ".previous/$name" "./$name"
         fi
     done
     [ -n "$build" ] && [ "$build" != 0 ] && printf '{"build":%s}' "$build" > .update-failed

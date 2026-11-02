@@ -50,6 +50,20 @@ fn a_save_asked_for_while_the_file_cant_be_read_tries_again() {
     assert_eq!(zoom(&r), 2);
 }
 
+#[cfg(unix)]
+#[test]
+fn a_file_that_couldnt_be_read_at_start_is_taken_in_not_saved_over() {
+    let r = zoomed("start-locked");
+    r.w.state.borrow().file.save(&mut json!({"selected_device": "pixel", "devices": {"pixel": {"plugin_configs": {"panel": {"zoom": 5}}}}}));
+    lock(&r, 0o000);
+    r.w.state.borrow_mut().apply_saved_config();
+    lock(&r, 0o600);
+    assert!(r.w.state.borrow_mut().save_now());
+    let zoom = r.w.state.borrow().file.load()["devices"]["pixel"]["plugin_configs"]["panel"]["zoom"].clone();
+    assert_eq!(zoom, json!(5), "the real settings stay");
+    assert_eq!(r.w.state.borrow().selected.as_deref(), Some("pixel"), "and the app takes them in");
+}
+
 #[test]
 fn the_virtual_camera_a_source_went_to_is_saved_and_comes_back() {
     let r = Rig::new("slots-saved");

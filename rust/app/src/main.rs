@@ -552,17 +552,23 @@ fn main() {
     let (minimized, wait_for_lock, after_update) = (launch.minimized, launch.after_update || launch.restarted, launch.after_update);
     let _ = MOVED_FROM.set(launch.moved_from);
     let remote = telescope_system::shortcuts::RemoteActions::default();
-    // A release that lost its folder, like an exe dragged out of the zip, can't draw anything (the launcher's check in build_bootloader.py)
-    #[cfg(windows)]
-    if words.is_empty() && telescope_system::winapp::left_its_folder(&app_dir(), telescope_system::version::channel()) {
-        use_own_profile();
-        start_language();
-        telescope_system::winapp::warn_running_from_archive();
-        std::process::exit(1);
-    }
-    // Before the window: an update cut short is finished, or one that never started is rolled back
-    if words.is_empty() && !telescope_system::update_guard::guard_start(&app_dir(), after_update) {
-        return;
+    if words.is_empty() {
+        let (dir, channel) = (app_dir(), telescope_system::version::channel());
+        let guard = || telescope_system::update_guard::guard_start(&dir, after_update);
+        let left = || cfg!(windows) && telescope_system::winapp::left_its_folder(&dir, channel);
+        match settle_start(guard, left) {
+            Start::Done => return,
+            Start::LeftItsFolder => {
+                #[cfg(windows)]
+                {
+                    use_own_profile();
+                    start_language();
+                    telescope_system::winapp::warn_running_from_archive();
+                }
+                std::process::exit(1);
+            }
+            Start::Go => {}
+        }
     }
     // Once an update is settled, and before the rest loads, which is most of a first start's wait
     let splash = if words.is_empty() { start_splash() } else { None };
@@ -669,9 +675,44 @@ fn main() {
     }
 }
 
+/// What a start finds out before anything draws.
+#[derive(Debug, PartialEq)]
+enum Start {
+    Go,
+    /// A copy of the update guard started another one, or there is nothing more to do here.
+    Done,
+    /// A release without the folder it ships in.
+    LeftItsFolder,
+}
+
+/// An update cut short is finished or rolled back first: it may be what left the folder without its ui-kit, and a release that
+/// lost its folder (the launcher's check in build_bootloader.py) can't draw anything.
+fn settle_start(guard: impl FnOnce() -> bool, left_its_folder: impl FnOnce() -> bool) -> Start {
+    if !guard() {
+        return Start::Done;
+    }
+    if left_its_folder() { Start::LeftItsFolder } else { Start::Go }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_cut_short_update_is_settled_before_the_missing_ui_kit_is_held_against_the_folder() {
+        // The guard's finishing the swap is what brings the ui-kit back, so the folder check must not run first
+        let order = std::cell::RefCell::new(Vec::new());
+        let start = settle_start(|| {
+            order.borrow_mut().push("guard");
+            false
+        }, || {
+            order.borrow_mut().push("folder");
+            true
+        });
+        assert_eq!((start, order.take()), (Start::Done, vec!["guard"]));
+        assert_eq!(settle_start(|| true, || true), Start::LeftItsFolder);
+        assert_eq!(settle_start(|| true, || false), Start::Go);
+    }
 
     // main.py: no refresh for a dev checkout or a dev profile, and this app is on a profile of its own unless asked not to be
     #[test]

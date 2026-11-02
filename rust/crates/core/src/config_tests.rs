@@ -324,6 +324,23 @@ fn a_briefly_locked_config_is_read_again_not_reset() {
 }
 
 #[test]
+fn a_config_that_stays_locked_at_start_is_never_saved_over_and_is_taken_in_once_readable() {
+    let f = file_in(&scratch_dir("config"));
+    let mut cfg = f.load();
+    cfg["selected_device"] = json!("Phone1");
+    f.save(&mut cfg);
+    let locked = |_: &Path| Err(io::Error::new(io::ErrorKind::PermissionDenied, "locked"));
+    assert_eq!(f.read_with(false, &locked, &|_| {}).unwrap(), empty());
+    // Readable again, but what the app holds is defaults: every save that reads first refuses
+    assert!(f.load_strict().is_err());
+    assert!(!f.update(|c| c["selected_device"] = Value::Null));
+    assert_eq!(f.load()["selected_device"], json!("Phone1"));
+    assert_eq!(f.reread_after_unread_start().unwrap().unwrap()["selected_device"], json!("Phone1"));
+    assert!(f.reread_after_unread_start().is_none());
+    assert!(f.load_strict().is_ok());
+}
+
+#[test]
 fn a_config_nested_too_deep_is_backed_up_not_fatal() {
     let text = format!("{}{}", "[".repeat(100_000), "]".repeat(100_000));
     let (dir, f) = file_with(text.as_bytes());

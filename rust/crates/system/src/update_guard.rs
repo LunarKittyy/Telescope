@@ -1264,3 +1264,97 @@ mod tests {
         std::fs::remove_dir_all(&base).unwrap();
     }
 }
+
+/// The launcher scripts in a folder, run for real.
+#[cfg(all(test, unix))]
+mod launcher_tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+    use std::process::Command;
+    use telescope_core::testing::scratch_dir;
+
+    const STUB: &str = include_str!("../../../tools/main_stub.py");
+    const START_SH: &str = include_str!("../../../tools/start.sh");
+    const UPDATE_GUARD_PY: &[u8] = include_bytes!("../../../fixtures/python-4.4.2/update_guard.py");
+    /// The Python app's launcher: runs main.py, and gives up after a few rounds so a loop ends the test instead of hanging it.
+    const OLD_START: &str = "#!/usr/bin/env bash\ncd \"$(dirname \"$0\")\"\nn=$(cat count 2>/dev/null || echo 0)\necho $((n+1)) > count\n\
+[ \"$n\" -lt 5 ] || { echo LOOPED; exit 7; }\nexec python3 main.py \"$@\"\n";
+
+    fn python() -> bool {
+        Command::new("python3").arg("-c").arg("").status().is_ok_and(|s| s.success())
+    }
+
+    fn executable(path: &Path, text: &str) {
+        std::fs::write(path, text).unwrap();
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    fn run(dir: &Path, path: Option<String>) -> (i32, String) {
+        let mut cmd = Command::new(dir.join("start.sh"));
+        cmd.current_dir(dir).env_remove("DISPLAY").env_remove("WAYLAND_DISPLAY");
+        if let Some(path) = path {
+            cmd.env("PATH", path);
+        }
+        let out = cmd.output().unwrap();
+        (out.status.code().unwrap_or(-1), format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)))
+    }
+
+    /// A folder where the Python app's updater has put this package's main.py and not yet its start.sh.
+    fn cut_short(label: &str, journal: bool) -> PathBuf {
+        let dir = scratch_dir(label);
+        std::fs::write(dir.join("main.py"), STUB).unwrap();
+        std::fs::write(dir.join("update_guard.py"), UPDATE_GUARD_PY).unwrap();
+        executable(&dir.join("start.sh"), OLD_START);
+        if journal {
+            std::fs::create_dir(dir.join(STAGING_DIR)).unwrap();
+            std::fs::write(dir.join(STAGING_DIR).join("start.sh"), "#!/usr/bin/env bash\necho telescope-rs started\n").unwrap();
+            write_journal(&dir, &json!({"state": "swapping", "platform": "linux", "to_build": 5000, "entries": ["start.sh"], "added": []})).unwrap();
+        }
+        dir
+    }
+
+    #[test]
+    fn a_stub_run_by_the_old_launcher_finishes_the_cut_short_update_instead_of_looping() {
+        if !python() {
+            return eprintln!("skipped: no python3");
+        }
+        let dir = cut_short("stub-finishes", true);
+        let (code, out) = run(&dir, None);
+        assert!(code == 0 && out.contains("telescope-rs started") && !out.contains("LOOPED"), "{code} {out}");
+        assert_eq!(read_journal(&dir).unwrap()["state"], "trial");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_stub_that_cant_finish_anything_says_so_instead_of_looping() {
+        if !python() {
+            return eprintln!("skipped: no python3");
+        }
+        let dir = cut_short("stub-stuck", false);
+        let (code, out) = run(&dir, None);
+        assert!(code != 0 && out.contains("cut short") && !out.contains("LOOPED"), "{code} {out}");
+        assert_eq!(std::fs::read_to_string(dir.join("count")).unwrap().trim(), "1");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn going_back_from_a_launcher_that_cant_run_replaces_start_sh_in_one_step() {
+        let dir = scratch_dir("start-sh-rollback");
+        std::fs::create_dir(dir.join(PREVIOUS_DIR)).unwrap();
+        // The new version can't start, so its launcher puts the old one back
+        executable(&dir.join("start.sh"), START_SH);
+        executable(&dir.join(PREVIOUS_DIR).join("start.sh"), "#!/usr/bin/env bash\necho old launcher\n");
+        executable(&dir.join("telescope-rs"), "#!/usr/bin/env bash\nexit 1\n");
+        write_journal(&dir, &json!({"state": "trial", "started": false, "to_build": 5000, "entries": ["start.sh"], "added": []})).unwrap();
+        // A power cut after an rm would leave no launcher, so this rm records being asked to remove it
+        let tools = dir.join("tools");
+        std::fs::create_dir(&tools).unwrap();
+        let log = dir.join("removed");
+        let spy = format!("#!/usr/bin/env bash\nfor a in \"$@\"; do [ \"$a\" = ./start.sh ] && echo \"$a\" >> {}; done\nexec /bin/rm \"$@\"\n", log.display());
+        executable(&tools.join("rm"), &spy);
+        let (_, out) = run(&dir, Some(format!("{}:{}", tools.display(), std::env::var("PATH").unwrap_or_default())));
+        assert!(out.contains("old launcher"), "{out}");
+        assert!(!log.exists(), "start.sh was removed before it was replaced");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+}
