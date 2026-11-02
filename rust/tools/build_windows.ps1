@@ -1,6 +1,6 @@
 # Builds the Windows package folder, the shape of Telescope-windows-portable.zip: TelescopeDesktop.exe with everything next to it.
 # Needs MSVC, LLVM (bindgen), CMake, NASM, Python, and FFMPEG_DIR pointing at build_ffmpeg.sh's windows build (or any shared FFmpeg 8.x with include, lib and bin).
-# Run it from a shell where those are on PATH. -Channel, -Build and -Commit stamp a release, as write_build_info.py does for Python.
+# Run it from a shell where those are on PATH. -Channel, -Build and -Commit stamp a release.
 param(
     [string]$Out = "$PSScriptRoot\..\target\dist-windows",
     [ValidateSet('stable', 'nightly', 'dev')] [string]$Channel = 'dev',
@@ -15,7 +15,6 @@ if (-not $env:FFMPEG_DIR) { throw 'Set FFMPEG_DIR to a shared FFmpeg build' }
 $Out = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Out)
 
 $rust = (Resolve-Path "$PSScriptRoot\..").Path
-$repo = Split-Path $rust -Parent
 $target = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { "$rust\target" }
 Push-Location $rust
 
@@ -34,7 +33,7 @@ New-Item -ItemType Directory -Force $work | Out-Null
 $wait = "$work\wait_screen.bin"
 $p = Start-Process -FilePath $exe -ArgumentList 'camera-wait-screen', "`"$wait`"" -Wait -PassThru -NoNewWindow
 if ($p.ExitCode) { throw "camera-wait-screen failed with $($p.ExitCode)" }
-cmake -S "$repo\desktop\virtualcamera" -B "$work\build" -A x64 "-DTELESCOPE_WAIT_SCREEN=$wait"
+cmake -S "$rust\windows\virtualcamera" -B "$work\build" -A x64 "-DTELESCOPE_WAIT_SCREEN=$wait"
 if ($LASTEXITCODE) { throw 'cmake failed' }
 cmake --build "$work\build" --config Release
 if ($LASTEXITCODE) { throw 'The camera DLL failed to build' }
@@ -48,7 +47,7 @@ Copy-Item -Recurse crates\ui-kit\ui "$Out\ui-kit"
 foreach ($dll in 'avcodec', 'avutil', 'swresample', 'swscale') {
     Copy-Item "$env:FFMPEG_DIR\bin\$dll-*.dll" $Out
 }
-Copy-Item -Recurse "$repo\desktop\unitycapture" "$Out\unitycapture"
+Copy-Item -Recurse "$rust\windows\unitycapture" "$Out\unitycapture"
 Copy-Item "$work\build\Release\TelescopeCamera.dll" "$Out\virtualcamera\"
 python tools\fetch_rnnoise.py windows $Out
 if ($LASTEXITCODE) { throw 'fetch_rnnoise failed' }

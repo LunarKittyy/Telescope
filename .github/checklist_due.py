@@ -17,7 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CHECKLIST = ROOT / "docs" / "release-checklist.md"
-REQUIREMENTS = re.compile(r"^desktop/(requirements[\w-]*|constraints)\.txt$")
+REQUIREMENTS = re.compile(r"^rust/tools/vision-pack-requirements\.txt$")
 
 
 def git(*args) -> str:
@@ -53,8 +53,8 @@ def matches(path, patterns) -> bool:
 
 
 def changed_packages(since, until) -> set:
-    """Packages whose pin changed in the desktop's requirements and constraints files."""
-    diff = git("diff", "-U0", since, until, "--", "desktop/requirements*.txt", "desktop/constraints.txt")
+    """Packages whose pin changed in the vision pack's requirements."""
+    diff = git("diff", "-U0", since, until, "--", "rust/tools/vision-pack-requirements.txt")
     names = set()
     for line in diff.splitlines():
         if line[:1] in "+-" and not line.startswith(("+++", "---")):

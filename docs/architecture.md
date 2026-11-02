@@ -1,6 +1,6 @@
 # Architecture
 
-How Telescope fits together, for contributors. The wire format is in [protocol.md](protocol.md), the desktop's plugin rules in [desktop/ARCHITECTURE.md](../desktop/ARCHITECTURE.md) and every desktop module in [desktop/MODULES.md](../desktop/MODULES.md).
+How Telescope fits together, for contributors. The wire format is in [protocol.md](protocol.md), and the desktop's crates and plugin rules in [rust/ARCHITECTURE.md](../rust/ARCHITECTURE.md).
 
 ## Overview
 
@@ -10,7 +10,7 @@ Android phone  (Telescope app, HTTPS on port 8080, session responder on 8766)
       |  USB:   adb forward tcp:0 tcp:8080 (adb picks the local port)
       |  Wi-Fi: HTTPS, certificate pinned at pairing, address from mDNS or stored
       v
-Desktop  (Python, PyQt6)
+Desktop  (Rust, Slint)
       |
       |-- StreamWorker       reads MJPEG, H.264 or H.264 over UDP,
       |                      runs every frame through the plugin pipeline,
@@ -19,7 +19,7 @@ Desktop  (Python, PyQt6)
 ```
 
 - **Linux:** two `v4l2loopback` devices (`/dev/video10` and `/dev/video11`). Telescope writes to `video11` and leaves `video10` free for other software like OBS
-- **Windows 11:** Telescope's own camera, a Media Foundation media source (`desktop/virtualcamera/`) that every app can see. See [The Windows 11 camera](#the-windows-11-camera) below
+- **Windows 11:** Telescope's own camera, a Media Foundation media source (`rust/windows/virtualcamera/`) that every app can see. See [The Windows 11 camera](#the-windows-11-camera) below
 - **Windows 10:** a standalone DirectShow filter (UnityCapture), no OBS needed. Windows 11 falls back to it when its own camera can't be installed
 
 ## Repository layout
@@ -27,7 +27,7 @@ Desktop  (Python, PyQt6)
 | Folder | What's in it |
 |---|---|
 | `android/` | The phone app (Kotlin, Camera2). Gradle project, sources in `app/src/main/kotlin/com/telescope/` |
-| `desktop/` | The desktop app (Python, PyQt6). `main.py` is the entry point, `telescope/` the package, `tests/` the pytest suite, `scripts/` dev and CI tools |
+| `rust/` | The desktop app (Rust, Slint). `app/` is the program (`telescope-rs`), `crates/` has one crate per area, `locale/` the translations, `fixtures/` test files shared by the crates, `tools/` packaging and dev scripts and `windows/` the Windows cameras |
 | `docs/` | Everything past the README's Quick Start. `docs/README.md` is the index |
 | `installer/` | The Windows setup (Inno Setup) |
 | `site/` | The landing page, published to GitHub Pages |
@@ -36,36 +36,36 @@ Desktop  (Python, PyQt6)
 
 ## Where to change what
 
-Desktop paths are under `desktop/telescope/` and phone files under `android/app/src/main/`. [desktop/MODULES.md](../desktop/MODULES.md) has the full story for any desktop file.
+Desktop paths are under `rust/crates/` and phone files under `android/app/src/main/`. [rust/ARCHITECTURE.md](../rust/ARCHITECTURE.md) lists what each crate holds.
 
 | To change | Start in |
 |---|---|
-| A desktop card or its settings | Its plugin in `plugins/`, one file per card. Read the rules in [desktop/ARCHITECTURE.md](../desktop/ARCHITECTURE.md) first |
-| The main window or the Settings window | `app.py`, `widgets/settings_window.py` |
-| Colours and styling | `theme.py`. Shared controls are in `widgets/common.py` |
-| Pairing and reaching the phone | `plugins/connection.py`, `pairing.py`, `phones.py` (`RouteResolver`) |
-| Receiving and decoding video | `stream.py`, `mjpeg_reader.py`, `h264_reader.py`, `udp_reader.py` |
-| The virtual camera | `vcam.py`, plus `platform/linux.py` or `platform/windows.py`. The Windows 11 camera's DLL is `desktop/virtualcamera/` |
-| The microphone | `audio.py`, `denoise.py`, `platform/virtual_mic.py`, `plugins/microphone.py` |
-| Saved settings | `config.py` |
-| Desktop wording | The `tr()` call in the code, then `python scripts/i18n.py extract`. See [translating.md](translating.md) |
-| Messages between the apps | `kotlin/com/telescope/Protocol.kt` and `phone_client.py`, written up in [protocol.md](protocol.md) |
+| A desktop card or its settings | Its plugin: `shell/src/plugins/` for the Camera and Preview cards, `effects/` for the picture cards, `setup/`, `audio/`, `outputs/`, `link/` and `system/` for theirs, each with its `.slint` file in `ui/`. Read the rules in [rust/ARCHITECTURE.md](../rust/ARCHITECTURE.md) first |
+| The main window or the Settings window | `shell/src/window.rs`, `doc.rs`, `settings.rs` |
+| Colours and styling | `ui-kit/ui/theme.slint`. Shared controls are in `ui-kit/ui/widgets/` |
+| Pairing and reaching the phone | `link/src/plugin.rs` (Connection), `pairing.rs`, `phones.rs` (`RouteResolver`) |
+| Receiving and decoding video | `link/src/feeds.rs`, `media/src/mjpeg.rs`, `h264.rs`, `reader.rs`, and `shell/src/worker.rs` for the stream worker |
+| The virtual camera | `outputs/src/v4l2.rs` and `linux_setup.rs` on Linux, `mf.rs`, `wincam.rs` and `wininstall.rs` on Windows. The Windows 11 camera's DLL is `rust/windows/virtualcamera/` |
+| The microphone | `audio/src/` (`worker.rs`, `denoise.rs`, `virtual_mic.rs`, `plugin.rs`) |
+| Saved settings | `core/src/config.rs` |
+| Desktop wording | The `tr()` call in the code, then `python tools/i18n.py extract` in `rust/`. See [translating.md](translating.md) |
+| Messages between the apps | `kotlin/com/telescope/Protocol.kt` and `link/src/phone_client.rs`, written up in [protocol.md](protocol.md) |
 | The phone's camera and encoding | `CameraSessionController.kt`, `CameraStreamService.kt`, `H264Encoder.kt`, `MjpegServer.kt` |
 | Phone pairing and TLS | `Pairing.kt`, `PairedComputers.kt`, `TlsIdentity.kt` |
 | The phone's screen and Get set up | `MainActivity.kt`, `SetupSteps.kt`, `res/layout/activity_main.xml` |
 | Phone wording | `res/values/strings.xml` |
 | The Windows installer | `installer/` |
 
-Desktop tests are in `desktop/tests/` and phone unit tests in `android/app/src/test/`.
+Desktop tests sit next to the code in each crate, with the ones that need several crates together in `rust/app/tests/`. Phone unit tests are in `android/app/src/test/`.
 
 ## The Windows 11 camera
 
-Windows 11 added `MFCreateVirtualCamera`, which registers a camera backed by a media source DLL. Windows' Frame Server service loads that DLL and shares the camera with every app, Media Foundation and DirectShow ones alike, which UnityCapture's DirectShow filter can't do. Telescope's DLL is in `desktop/virtualcamera/` (C++, built with CMake and MSVC, its structure following Microsoft's VirtualCamera sample).
+Windows 11 added `MFCreateVirtualCamera`, which registers a camera backed by a media source DLL. Windows' Frame Server service loads that DLL and shares the camera with every app, Media Foundation and DirectShow ones alike, which UnityCapture's DirectShow filter can't do. Telescope's DLL is in `rust/windows/virtualcamera/` (C++, built with CMake and MSVC, its structure following Microsoft's VirtualCamera sample).
 
-- **Registering:** `regsvr32 /n /i:<count> TelescopeCamera.dll` as admin registers one COM class per camera slot (`MF_CLSIDS` in `platform/windows.py`) and calls `MFCreateVirtualCamera` for each. The cameras last across restarts and are there for every account. If Windows refuses one (Frame Server switched off, say) the DLL removes them all again and Telescope sets up UnityCapture instead. `regsvr32 /u` removes them. Camera access switched off for the whole computer is different: adding a camera fails but still makes it, and Windows won't remove any camera. The DLL then keeps the COM class of each camera it couldn't remove, so none is left without its media source, and regsvr32 fails. The app says to turn camera access on rather than adding UnityCapture on top, and the uninstaller keeps `VirtualCamera` and offers to try again. `platform/windows.install_camera()` does it from the first-run checklist or Settings with the same Program Files checks as UnityCapture. The uninstaller unregisters it
-- **Frames:** Frame Server runs as Local Service in session 0 where the DLL can't see anything in the signed-in user's session. When an app starts reading a camera the DLL creates the shared memory `Global\TelescopeCamera<slot>` (a normal account can open a Global name but not create one) and writes the size and frame rate the app picked into its header. Telescope's `vcam.MFCamera` opens it, fits each frame to that size, converts it to NV12 and writes it after the header. A frame counter that's odd while a write is under way lets the DLL skip a half-written frame. The header layout is in `virtualcamera/shared_frame.h`
-- **In use:** that shared memory only exists while an app reads the camera and the DLL bumps a heartbeat for every frame it hands over. `vcam.CameraWatch` reads both to feed `camera_watched` on the bus, which Automatic streaming and the wait screen use
-- **Without Telescope:** the camera stays listed and shows the default wait screen until frames arrive, and again once no frame has come for 3 seconds. The Windows build renders it with `vcam.py` (`scripts/write_camera_wait_screen.py`) and builds it into the DLL as the lens in NV12 and the name as a mask, which `wait_screen.cpp` resizes for the size an app picks. It has no "Waiting for camera" line, as the camera can't know the user's language
+- **Registering:** `regsvr32 /n /i:<count> TelescopeCamera.dll` as admin registers one COM class per camera slot (`MF_CLSIDS` in `crates/outputs/src/wincam.rs`) and calls `MFCreateVirtualCamera` for each. The cameras last across restarts and are there for every account. If Windows refuses one (Frame Server switched off, say) the DLL removes them all again and Telescope sets up UnityCapture instead. `regsvr32 /u` removes them. Camera access switched off for the whole computer is different: adding a camera fails but still makes it, and Windows won't remove any camera. The DLL then keeps the COM class of each camera it couldn't remove, so none is left without its media source, and regsvr32 fails. The app says to turn camera access on rather than adding UnityCapture on top, and the uninstaller keeps `VirtualCamera` and offers to try again. `wininstall.rs` does it from the first-run checklist or Settings with the same Program Files checks as UnityCapture. The uninstaller unregisters it
+- **Frames:** Frame Server runs as Local Service in session 0 where the DLL can't see anything in the signed-in user's session. When an app starts reading a camera the DLL creates the shared memory `Global\TelescopeCamera<slot>` (a normal account can open a Global name but not create one) and writes the size and frame rate the app picked into its header. Telescope's `MfCamera` (`mf.rs`) opens it, fits each frame to that size, converts it to NV12 and writes it after the header. A frame counter that's odd while a write is under way lets the DLL skip a half-written frame. The header layout is in `shared_frame.h`
+- **In use:** that shared memory only exists while an app reads the camera and the DLL bumps a heartbeat for every frame it hands over. `CameraWatch` (`watch.rs`) reads both to feed `camera_watched` on the bus, which Automatic streaming and the wait screen use
+- **Without Telescope:** the camera stays listed and shows the default wait screen until frames arrive, and again once no frame has come for 3 seconds. `telescope-rs camera-wait-screen` renders it (`wait_screen.rs`) and `rust/tools/build_windows.ps1` builds it into the DLL as the lens in NV12 and the name as a mask, which `wait_screen.cpp` resizes for the size an app picks. It has no "Waiting for camera" line, as the camera can't know the user's language
 - **Sizes:** the DLL offers NV12 at 1080p (30 and 60 fps), 720p (30 and 60), 4K, 1440p, 540p, 480p, 360p and portrait 1080x1920 and 720x1280. Windows adds YUY2 versions of those for DirectShow apps
 
 ## The phone app
@@ -116,22 +116,24 @@ Copies the app version, device info, current stream state, recent transitions an
 
 | Part | Library |
 |---|---|
-| UI | PyQt6 |
-| MJPEG decode | opencv-python-headless via `mjpeg_reader.py`, not `cv2.VideoCapture` (it can't send the bearer token) |
-| H.264 decode | PyAV (bundles FFmpeg) via `h264_reader.py`. Without it only MJPEG is offered |
-| Virtual camera | pyvirtualcam |
-| Frames | numpy |
-| QR code | qrcode, drawn with QPainter |
-| Finding phones | zeroconf (mDNS), ifaddr (network adapters) |
-| Virtual mic | `pactl` on Linux, sounddevice into VB-Cable on Windows |
+| UI | Slint, with the cards interpreted at start-up |
+| MJPEG decode | zune-jpeg, in `media/src/mjpeg.rs` |
+| H.264 decode | FFmpeg's libavcodec (VA-API on Linux, D3D11VA on Windows). Without it only MJPEG is offered |
+| Frame steps and the preview | wgpu |
+| Virtual camera | v4l2loopback on Linux, the Windows 11 camera's shared memory and UnityCapture on Windows |
+| Browser camera | str0m (WebRTC) |
+| QR code | qrcode |
+| Finding phones | mdns-sd, if-addrs (network adapters) |
+| Plugins people add | Lua 5.4 through mlua |
+| Virtual mic | `pactl` on Linux, cpal into VB-Cable on Windows |
 
 ### How it works
 
-- **Plugins.** The window is a thin host. Everything with a card is a `TelescopePlugin` and plugins never call each other, they use the `EventBus` and the host. The rules are in [desktop/ARCHITECTURE.md](../desktop/ARCHITECTURE.md)
-- **Layout.** A plugin names a `panel_region` (`left`, `right` or `center`) and the window decides where it lands. Wide windows get three columns, below about 1300 px the rails merge and below about 900 px everything stacks
-- **Frame pipeline.** Each frame (BGR) runs through every plugin's `process_frame` on a decoder thread, then `_fit_frame()` letterboxes it to the canvas. A stream the panels aren't showing uses each plugin's `frame_step()` instead, which is the same work frozen at the settings it had when the panels left
-- **Several streams.** Each streaming source has its own `StreamSession` and worker, feeding one of up to four virtual cameras. One is focused (the panels show it). `Sessions` holds the bookkeeping and `StreamFlow` does the starting, stopping and focus changes
-- **Canvas.** The virtual camera size is independent of the phone's resolution and set at stream start. Changing it restarts the stream (and reloads v4l2loopback on Linux). FPS changes recreate the pyvirtualcam context but keep the phone connection up. Resolution changes need no restart
+- **Plugins.** The window is a thin host. Everything with a card is a `Plugin` and plugins never call each other, they use the event bus and the host. The rules are in [rust/ARCHITECTURE.md](../rust/ARCHITECTURE.md)
+- **Layout.** A plugin names a column (left, right or center) and the window decides where it lands. Wide windows get three columns, below about 1300 px the rails merge and below about 900 px everything stacks
+- **Frame pipeline.** Each frame runs through every plugin's frame step, in the order of the stages, on the stream's own thread, each on the graphics card or the processor as the step needs. The last step letterboxes it to the canvas. A plugin hands out a new step when its settings change, so every stream (shown or not) runs the settings it had when the step was made
+- **Several streams.** Each streaming source has its own session and `StreamWorker`, feeding one of up to four virtual cameras. One is focused (the panels show it). `Sessions` holds the bookkeeping and the stream flow does the starting, stopping and focus changes
+- **Canvas.** The virtual camera size is independent of the phone's resolution and set at stream start. Changing it restarts the stream (and reloads v4l2loopback on Linux). FPS changes reopen the virtual camera but keep the phone connection up. Resolution changes need no restart
 - **Reaching the phone.** `RouteResolver` decides on every connect and status check, from scratch each time: USB first (it asks `/v1/hello` which phone is on the cable), then Wi-Fi addresses probed in parallel. A failed route becomes the reason shown on the Connection card
 - **Reconnecting.** A dropped stream retries every second and re-resolves the route every 3 seconds, so a pulled cable falls back to Wi-Fi. The virtual camera stays open meanwhile and every setting is resent after reconnecting
 - **Control client.** One background thread posts commands to `/v1/control` in order. Queued requests for the same action collapse to the latest value, except camera switches. Failed requests retry for up to 15 seconds
@@ -139,4 +141,4 @@ Copies the app version, device info, current stream state, recent transitions an
 - **Linux root commands.** Every v4l2loopback operation is one `pkexec sh -c "..."` call so there's one password prompt. Without pkexec or an agent it tries `sudo -n`, and otherwise hands back a command to paste. `sudo` never runs where it could wait for a password
 - **Single instance.** A local lock (a Unix socket on Linux, port 47823 on Windows). A second launch raises the first window
 - **Bitrate.** Auto is about 8 Mbps at 1080p30 scaled by size and fps and capped at 30 Mbps. Dynamic goes up to about 2.5 times that and follows the link. An encoder that fails mid-stream falls back to Heavy
-- **Phone address discovery.** `ip_utils.get_pairing_addresses()` lists the machine's real network adapters instead of asking the routing table, since under a VPN the default route belongs to the VPN. Containers and VM adapters are dropped, the rest are ranked LAN first then Tailscale, and the QR code carries at most 8
+- **Phone address discovery.** `pairing_addresses()` in `link/src/net.rs` lists the machine's real network adapters instead of asking the routing table, since under a VPN the default route belongs to the VPN. Containers and VM adapters are dropped, the rest are ranked LAN first then Tailscale, and the QR code carries at most 8

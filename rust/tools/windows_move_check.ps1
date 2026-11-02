@@ -1,6 +1,6 @@
 # An unzipped copy of the Rust app moving to the installed one, for real: unpacks the bundle into a fake Downloads that already holds the
 # user's own things, runs the setup as the app does, starts the installed copy as the app would and checks that only Telescope's files went.
-# desktop/scripts/windows_move_check.py is the same check for the Python app. Run it as the user Telescope is for, in a signed-in session.
+# Run it as the user Telescope is for, in a signed-in session.
 param(
     [Parameter(Mandatory)] [string] $Setup,
     [Parameter(Mandatory)] [string] $Bundle

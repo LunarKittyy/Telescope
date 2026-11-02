@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use telescope_core::json;
 
 fn fixtures() -> Vec<PathBuf> {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../desktop/tests/fixtures/configs");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/configs");
     let mut folders: Vec<PathBuf> = std::fs::read_dir(root).unwrap().flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect();
     folders.sort();
     folders

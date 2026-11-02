@@ -524,7 +524,7 @@ impl Panel {
         tile
     }
 
-    /// A plugin dev_desktop.py --plugin loads from where it's written: always on, nothing to switch or remove.
+    /// A plugin telescope-rs dev --plugin loads from where it's written: always on, nothing to switch or remove.
     fn dev_tile(&self, item: &AddedPlugin) -> Tile {
         let title = format!("{} {}", item.title, item.version).trim().to_string();
         let mut tile = self.base(title, item.description.clone(), "plug", category_of(&item.category), true);
@@ -532,14 +532,14 @@ impl Panel {
         tile.locked = true;
         tile.enabled = false;
         tile.added = false;
-        tile.tooltip = tr("dev_desktop.py --plugin loads this one, so it's always on");
+        tile.tooltip = tr("telescope-rs dev --plugin loads this one, so it's always on");
         tile.badges.push(Badge { text: tr("Being written"), kind: "added".into() });
         if !item.problem.is_empty() || self.problems.contains_key(&item.name) {
             let why = if item.problem.is_empty() { &self.problems[&item.name] } else { &item.problem };
             tile.note = fill(&tr("It didn't start ({problem})."), &[("problem", why.trim_end_matches('.'))]);
             tile.note_kind = "status_err".into();
         } else {
-            tile.note = fill(&tr("Loaded from {folder} by dev_desktop.py. Telescope restarts by itself when you save one of its files."), &[("folder", &item.folder.to_string_lossy())]);
+            tile.note = fill(&tr("Loaded from {folder} by telescope-rs dev. Telescope restarts by itself when you save one of its files."), &[("folder", &item.folder.to_string_lossy())]);
         }
         tile
     }

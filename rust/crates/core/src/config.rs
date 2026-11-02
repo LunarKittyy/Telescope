@@ -1,4 +1,4 @@
-//! The settings file, read and saved exactly as desktop/telescope/config.py does, so updating keeps everyone's setup.
+//! The settings file, read and saved exactly as the Python app's config.py did, so updating keeps everyone's setup.
 
 use crate::json::{self, Style};
 use serde_json::{json, Map, Value};

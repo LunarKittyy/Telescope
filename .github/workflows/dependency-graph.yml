@@ -1,13 +1,13 @@
 name: Dependency graph
 
-# Sends the resolved Gradle tree and the pinned Python versions to GitHub so Dependabot alerts cover them.
+# Sends the resolved Gradle tree and the vision pack's pinned Python versions to GitHub so Dependabot alerts cover them.
+# GitHub reads rust/Cargo.lock on its own.
 on:
   push:
     branches: [master]
     paths:
       - android/**
-      - desktop/requirements*.txt
-      - desktop/constraints.txt
+      - rust/tools/vision-pack-requirements.txt
       - .github/python_dependency_snapshot.py
       - .github/workflows/dependency-graph.yml
   workflow_dispatch:

@@ -1,6 +1,6 @@
 # plugin-host
 
-Plugins people add, behind core's `Plugin` trait. A plugin is a folder with a `plugin.json`, a `main.lua`, usually a `card.slint` and a shader or two. [rust/docs/writing-plugins.md](../../docs/writing-plugins.md) is the guide for plugin authors and [rust/docs/plugin-wasm.md](../../docs/plugin-wasm.md) shows how a WASM runtime fits the same boundary later.
+Plugins people add, behind core's `Plugin` trait. A plugin is a folder with a `plugin.json`, a `main.lua`, usually a `card.slint` and a shader or two. [docs/writing-plugins.md](../../../docs/writing-plugins.md) is the guide for plugin authors and [rust/docs/plugin-wasm.md](../../docs/plugin-wasm.md) shows how a WASM runtime fits the same boundary later.
 
 | File | What's in it |
 |---|---|
@@ -34,7 +34,7 @@ The shortest path to a working effect:
    ```
    Call `host.refresh_frame_step()` whenever a setting changes and the shell asks again. `PluginInfo::frame_stage` decides where the step runs (`effects` by default, `background` for chroma key, `geometry` for warps, `overlay` for things drawn on top). A Lua plugin returns `{ shader = "mirror.wgsl", uniforms = { amount = 0.5 } }` from `plugin.frame_step()` instead.
 3. **Check that it compiles** in a unit test, without a GPU: `telescope_plugin_host::testing::validate_shader(&step, "mirror.wgsl")` assembles it the way media will and validates it with naga, with errors pointing at the shader's own lines. For a Lua plugin `cargo run -p telescope-plugin-host --bin check-plugin -- path/to/plugin` does that and more.
-4. **Compare it with Python on the same frames.** `Media::pipeline()` gives a `FramePipeline`. `set_steps(vec![StagedStep { owner, stage, step }])` and then `process(frame, &ctx)` runs your step on a real I420 frame on the GPU, which is how the plugin-host session checked the example turning a coloured frame grey. Only the binary may depend on media, which puts a test like that where both are available (the `app` crate, or media's own tests with the WGSL inlined).
+4. **Try it on real frames.** `Media::pipeline()` gives a `FramePipeline`. `set_steps(vec![StagedStep { owner, stage, step }])` and then `process(frame, &ctx)` runs your step on a real I420 frame on the GPU, which is how the plugin-host session checked the example turning a coloured frame grey. Only the binary may depend on media, which puts a test like that where both are available (the `app` crate, or media's own tests with the WGSL inlined).
 
 Things that trip you up:
 

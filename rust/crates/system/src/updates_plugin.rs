@@ -1359,7 +1359,7 @@ mod tests {
     // The four saved keys against what Python saved for every config fixture
     #[test]
     fn what_python_saved_in_the_config_fixtures_comes_back_the_same() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../desktop/tests/fixtures/configs");
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/configs");
         let mut seen = 0;
         for fixture in std::fs::read_dir(root).unwrap().flatten() {
             let Ok(text) = std::fs::read_to_string(fixture.path().join("expected.json")) else { continue };

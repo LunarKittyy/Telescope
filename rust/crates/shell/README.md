@@ -31,27 +31,22 @@ Measured with `card-startup-bench` (a throwaway crate: 30 renamed copies of `ui/
 | Interpreted | 212 ms (compile 120, create 45, paint 47) |
 | Python app | about 1070 ms |
 
-## Comparing with Qt
+## Drawing scenes
 
 ```bash
-python crates/shell/parity/scenes.py OUT [ids] [--mark]   # from rust/: Qt and Rust with the same ported plugins, compared
+cargo run -p telescope-app -- scenes OUT [ids]     # from rust/; --list shows the ids, --scale 1 1.5 picks the scales
 ```
 
-That's the one command a card session needs. It asks `telescope-rs scenes --list` which plugins the Rust scene window loads and which scenes it can draw, renders those scenes with the Python app's own scene builders on a Qt window that registers only those plugins (`OUT/qt`), renders them from Rust (`OUT/rust`) and runs `parity/compare_scenes.py --reduced` (`OUT/review/index.html`). A scene matches when, after a light blur (a Gaussian of one logical pixel, so glyph antialiasing drops out but a missing button doesn't), no more than 0.5% of its pixels differ at both scales; `--mark` marks those `ported` in the ledger. Up to 2% it's listed as close for a person to judge on the review page, and nothing marks it. `verified` is for matching the full Qt scene (`parity/render_scenes.py`) once every card exists, so the ledger never claims more than was checked.
+`telescope-rs scenes` (`app/src/scenes.rs`) builds the real window offscreen for every card, dialog and Settings page and writes each as `OUT/<scale>x/<id>.png`. Each scene has a stand-in link that answers the phone check and pairing as the scene needs and a virtual camera check that never answers. `scenes.rs` here does the drawing: a fresh profile per scene, waiting until plugins' threads have come back, then growing the window to fit its columns. A dialog scene opens its popup through the card's own callback (`Window::call_ui`) and cuts it out of the window (`Page::Dialog`).
 
-`telescope-rs scenes` (`app/src/scenes.rs`) builds the real window offscreen for each scene, with a stand-in link that answers the phone check and pairing as the scene needs and a virtual camera check that never answers, the same way `desktop/scripts/translation_scenes*.py` patch the Python window. `scenes.rs` here does the drawing: a fresh profile per scene, waiting until plugins' threads have come back, then growing the window to its columns like `text_fit._grow_to_content`. A dialog scene opens its popup through the card's own callback (`Window::call_ui`) and cuts it out of the window (`Page::Dialog`), since Qt draws dialogs as windows of their own.
-
-Today it draws `main-*`, Connection's card states (but the two that need Windows), the Add phone dialogs and `settings-*`.
+The pictures are for looking at a card in every state it has, with real texts and layout, without a phone. `shell-scenes OUT` draws a few window states on their own, for checking the shell's layout.
 
 ### Adding a card's scenes
 
-1. Find the scene in `desktop/scripts/translation_scenes*.py` and read what its builder patches and sets.
-2. Add a `Scene::new("<same id>", || Setup { ... })` to `all()` in `app/src/scenes.rs`. `Setup` holds the services (give `SceneLink` the answer the phone should give), `telescope_config.json` as the window should find it (`main_window_config(true)` is `main_window`'s Pixel 8), the width (`WIDTH_THREE_COL` for `picture()`), the starting height (700 for `picture()`, 900 for `grow(win, ..., 900)`), `Page::Settings(tab)` for a settings page and `then` for anything to do once the window has settled.
-3. If the plugin needs something only the app sees (another crate's stand-in), add it next to `SceneLink`.
-4. Run `scenes.py OUT <id>`, look at it next to the Qt one in the review page and fix what differs in your card.
-5. Once it matches, `scenes.py OUT <id> --mark` marks it `ported` in `rust/parity/ledger.toml`. From then on `compare_scenes.py --reduced` fails if it drifts.
-6. A card on its own (Qt's card scenes, a plugin's panel 480 px wide with 16 px around it): `Page::Card { plugin }` with `CARD_WIDTH`. The window hides every other card and the card is cut out with its margin. `mic-off` is the example.
-7. A popup: `Page::Dialog { frame, owner }` with the type names of the component that frames it and the one that opens it, and `then` calling the callback that opens it.
+1. Add a `Scene::new("<id>", || Setup { ... })` to `all()` in `app/src/scenes.rs`. `Setup` holds the services (give `SceneLink` the answer the phone should give), `telescope_config.json` as the window should find it (`main_window_config(true)` is a paired Pixel 8), the width (`WIDTH_THREE_COL` for `picture()`), the starting height (700 for `picture()`, 900 for `grow(win, ..., 900)`), `Page::Settings(tab)` for a settings page and `then` for anything to do once the window has settled.
+2. If the plugin needs something only the app sees (another crate's stand-in), add it next to `SceneLink`.
+3. A card on its own (a plugin's panel 480 px wide with 16 px around it): `Page::Card { plugin }` with `CARD_WIDTH`. The window hides every other card and the card is cut out with its margin. `mic-off` is the example.
+4. A popup: `Page::Dialog { frame, owner }` with the type names of the component that frames it and the one that opens it, and `then` calling the callback that opens it.
 
 ### Slint traps for card sessions
 
@@ -60,5 +55,3 @@ Today it draws `main-*`, Connection's card states (but the two that need Windows
 - Wrapped text drifts a pixel every few lines unless the `Text` has `line-height-factor: Theme.line-factor(self.font-size)`. Qt rounds the line pitch to whole pixels (16px for 13px Inter, where Slint's own line is 15.73px).
 - A card that waits for a phone (Python's `dim_until_paired`) is faded to 0.4 and disabled as well. Give `Card` `enabled: false` and its controls `enabled`/`disabled` too, so they take Qt's disabled colours.
 - A card's `out` properties are readable from the window (`p<slot>-<name>`), but only `in` and `in-out` ones can be set.
-
-`shell-scenes` and `parity/qt_shell_scenes.py` are the older pair: a few window states rendered by both sides with only the ported plugins, for checking the shell's layout on its own (`parity/region_diff.py` compares them by region).

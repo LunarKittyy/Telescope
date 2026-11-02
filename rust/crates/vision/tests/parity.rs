@@ -1,4 +1,4 @@
-//! The vision crate against what the Python app made of the same frames (fixtures/make_vision_fixtures.py): every step before
+//! The vision crate against what the Python app made of the same frames (recorded from the Python app): every step before
 //! and after the models to the byte, and the real models within float tolerance when a pack is there (TELESCOPE_VISION_PACK, or
 //! this version's pack in the Python app's folder).
 
@@ -194,7 +194,7 @@ fn test_the_real_models_find_a_person_shaped_blob() {
 #[test]
 fn test_the_real_pack_has_no_address_to_report_usage_to() {
     let Some(folder) = pack() else { return };
-    let script = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../desktop/scripts/build_vision_pack.py")).unwrap();
+    let script = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tools/build_vision_pack.py")).unwrap();
     let report_to = script.split("TELEMETRY_URL = b\"").nth(1).and_then(|rest| rest.split('"').next()).expect("the address").as_bytes();
     fn libraries(dir: &std::path::Path, found: &mut Vec<std::path::PathBuf>) {
         for entry in std::fs::read_dir(dir).unwrap().flatten() {

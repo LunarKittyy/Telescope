@@ -58,7 +58,7 @@ android {
         debug {
             debuggable true
         }
-        // Installs next to the real app (its own data, pairings and identity), for desktop/scripts/dev_desktop.py
+        // Installs next to the real app (its own data, pairings and identity), for `telescope-rs dev`
         dev {
             initWith debug
             applicationIdSuffix ".dev"

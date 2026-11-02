@@ -1,5 +1,5 @@
 //! Transforms and Colour grading against what the Python app does on the same pictures. crates/effects/tests/fixtures holds the
-//! pictures Python made (make_fixtures.py): the same test frame through the window's view and through each grade, and what
+//! pictures Python made (recorded from the Python app): the same test frame through the window's view and through each grade, and what
 //! each plugin saves after loading odd settings. The effects run on the graphics card through media's frame pipeline, so
 //! they're checked without one only for what doesn't need it.
 

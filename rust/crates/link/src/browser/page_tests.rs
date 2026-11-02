@@ -1,4 +1,4 @@
-//! tests/test_browser_page.py: the page's script run in Node against stand-ins for the browser, on the app.js served here.
+//! The Browser camera page's script run in Node against stand-ins for the browser (tests/page_harness.js), on the app.js served here.
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -19,13 +19,17 @@ const SCENARIOS: [&str; 36] = [
 ];
 
 fn harness() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../desktop/tests/js/page_harness.js")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/page_harness.js")
 }
 
-/// The harness's output for these arguments, or None without Node (the Python test skips then too).
+/// The harness's output for these arguments. None without Node, which skips the test, unless CI is set: there a missing Node is a failure.
 fn run(args: &[&str]) -> Option<std::process::Output> {
     let served = concat!(env!("CARGO_MANIFEST_DIR"), "/web/app.js");
-    Command::new("node").arg(harness()).args(args).env("TELESCOPE_PAGE_SCRIPT", served).output().ok()
+    let out = Command::new("node").arg(harness()).args(args).env("TELESCOPE_PAGE_SCRIPT", served).output();
+    if out.is_err() && std::env::var_os("CI").is_some() {
+        panic!("the page scenarios need Node.js, and CI is set");
+    }
+    out.ok()
 }
 
 #[test]

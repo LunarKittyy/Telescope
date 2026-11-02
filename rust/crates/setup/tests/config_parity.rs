@@ -1,5 +1,5 @@
 //! Setup and Monitoring against what the Python app does. fixtures/setup_configs.json holds what each plugin saves after loading odd
-//! settings (make_setup_fixtures.py), and the config fixtures what it ends up saving from real files.
+//! settings (recorded from the Python app), and the config fixtures what it ends up saving from real files.
 
 mod common;
 
@@ -46,7 +46,7 @@ fn settings_load_and_save_as_python_does() {
 /// What every real settings file saves for Setup, and for Monitoring on each phone, comes out of the plugins unchanged.
 #[test]
 fn the_config_fixtures_round_trip() {
-    let folder = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../desktop/tests/fixtures/configs");
+    let folder = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/configs");
     let mut seen = 0;
     for entry in std::fs::read_dir(folder).unwrap().flatten().filter(|e| e.path().is_dir()) {
         let expected = loaded(entry.path().join("expected.json"));

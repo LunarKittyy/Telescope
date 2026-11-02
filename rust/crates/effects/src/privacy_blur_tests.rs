@@ -1,4 +1,4 @@
-//! test_privacy_blur.py, by name, and the pictures Python recorded (tests/fixtures/make_vision_cards_fixtures.py).
+//! test_privacy_blur.py, by name, and the pictures Python recorded (recorded from the Python app).
 
 use super::*;
 use crate::background::tests::{pattern, recorded, sha, soft_mask, Ctx};

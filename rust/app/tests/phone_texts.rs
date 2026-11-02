@@ -19,7 +19,7 @@ struct Swedish(#[allow(dead_code)] MutexGuard<'static, ()>);
 
 fn swedish() -> Swedish {
     let guard = LANGUAGE.lock().unwrap_or_else(|e| e.into_inner());
-    i18n::use_folder(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../desktop/telescope/locale"));
+    i18n::use_folder(Path::new(env!("CARGO_MANIFEST_DIR")).join("../locale"));
     assert_eq!(i18n::load(Some("sv")), "sv");
     Swedish(guard)
 }

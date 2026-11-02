@@ -7,7 +7,7 @@
   python automation/translation/kit.py check sv [done.json] [--accept]  mechanical problems, whole language or one file;
                                                                        --accept marks what's left as looked at
 
-Run from the repo root (or anywhere: paths are found from this file). `todo` runs `scripts/i18n.py extract` first.
+Run from the repo root (or anywhere: paths are found from this file). `todo` runs `rust/tools/i18n.py extract` first.
 """
 
 import argparse
@@ -21,12 +21,12 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 
 REPO = Path(__file__).resolve().parents[2]
-DESKTOP = REPO / "desktop"
+RUST = REPO / "rust"
 RES = REPO / "android/app/src/main/res"
 KIT = REPO / "automation/translation"
-sys.path.insert(0, str(DESKTOP))
+sys.path.insert(0, str(RUST / "tools"))
 
-from telescope import i18n  # noqa: E402
+import i18n  # noqa: E402
 
 # Texts that are the same in every language; a translation equal to the English is fine for these
 SAME_EVERYWHERE = re.compile(r"^(Telescope|OBS|adb|USB|Wi-Fi|JPEG|MJPEG|H\.264|VA-API|PyAV|FFmpeg|Nightly|Zoom|"
@@ -73,7 +73,7 @@ def source_line(where: str) -> str:
     """The code line a short text is on, so a model can tell a button from a heading without opening the repo."""
     try:
         path, line = where.rsplit(":", 1)
-        return (DESKTOP / path).read_text(encoding="utf-8").splitlines()[int(line) - 1].strip()[:200]
+        return (REPO / path).read_text(encoding="utf-8").splitlines()[int(line) - 1].strip()[:200]
     except (ValueError, OSError, IndexError):
         return ""
 
@@ -163,7 +163,7 @@ def android_units(lang: str, everything: bool) -> list:
 
 
 def todo(args) -> int:
-    subprocess.run([sys.executable, "scripts/i18n.py", "extract"], cwd=DESKTOP, check=True, capture_output=True)
+    subprocess.run([sys.executable, "tools/i18n.py", "extract"], cwd=RUST, check=True, capture_output=True)
     units = android_units(args.lang, args.all) + desktop_units(args.lang, args.all)
     text = json.dumps(units, ensure_ascii=False, indent=1)
     if args.out:
@@ -185,7 +185,7 @@ def apply(args) -> int:
     used = set()
 
     po = i18n.LOCALE_DIR / f"{args.lang}.po"
-    entries, header = i18n.read_po(po)
+    entries, header = i18n.read_po(po, obsolete=True)
     for e in entries:
         text = done.get(desktop_id(e.ctx, e.msgid))
         if text is None or e.obsolete:
@@ -338,7 +338,7 @@ def check(args) -> int:
 def draft(args) -> int:
     """The .po header's X-Telescope-Draft and Android's translation_is_draft bool, which both apps show."""
     po = i18n.LOCALE_DIR / f"{args.lang}.po"
-    entries, header = i18n.read_po(po)
+    entries, header = i18n.read_po(po, obsolete=True)
     lines = [line for line in header.splitlines() if not line.lower().startswith(i18n.DRAFT_FIELD.lower() + ":")]
     if args.state == "on":
         lines.append(f"{i18n.DRAFT_FIELD}: yes")

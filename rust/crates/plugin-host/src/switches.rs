@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     fn the_python_apps_switches_carry_over_from_every_fixture() {
-        let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../desktop/tests/fixtures/configs");
+        let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/configs");
         let mut seen = 0;
         for entry in std::fs::read_dir(fixtures).unwrap().flatten() {
             let (input, expected) = (entry.path().join("telescope_config.json"), entry.path().join("expected.json"));

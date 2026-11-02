@@ -25,7 +25,7 @@ fn texts() -> Vec<String> {
 #[test]
 fn slint_and_rust_texts_follow_the_language_loaded() {
     i_slint_backend_testing::init_no_event_loop();
-    i18n::use_folder(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../desktop/telescope/locale"));
+    i18n::use_folder(Path::new(env!("CARGO_MANIFEST_DIR")).join("../locale"));
     // English: what the code says
     assert_eq!(i18n::load(Some("en")), "en");
     let english = texts();

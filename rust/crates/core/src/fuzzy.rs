@@ -173,7 +173,7 @@ impl Doc {
 mod tests {
     use super::*;
 
-    /// What Python's matcher made of these (parity/record_fuzzy.py).
+    /// What Python's matcher made of these (recorded from the Python app).
     fn recorded() -> serde_json::Value {
         serde_json::from_str(include_str!("../fixtures/fuzzy.json")).unwrap()
     }

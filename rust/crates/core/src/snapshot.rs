@@ -1,4 +1,4 @@
-//! `telescope-rs config-snapshot`: what this app makes of a fixture's settings file, in the shape of desktop/scripts/config_fixtures.py's expected.json.
+//! `telescope-rs config-snapshot`: what this app makes of a fixture's settings file, in the shape of the fixtures' expected.json.
 
 use crate::config::{self, ConfigFile, PluginSection, WindowState, CONFIG_FILENAME};
 use crate::json::{self, Style};
@@ -76,7 +76,7 @@ mod tests {
     use std::path::PathBuf;
 
     fn fixtures() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../desktop/tests/fixtures/configs")
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/configs")
     }
 
     fn sections(v: &Value) -> Vec<String> {

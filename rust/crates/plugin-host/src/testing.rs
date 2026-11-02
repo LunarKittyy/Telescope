@@ -330,7 +330,7 @@ pub fn check_repo(installed: &Installed, report: &mut Report) {
     } else if installed.version.is_empty() {
         report.notes.push("Give it a \"version\" in plugin.json, so Telescope can tell people when a new release is out.".into());
     } else {
-        report.notes.push("Telescope can tell people when a new release of it is out on GitHub (rust/docs/writing-plugins.md, Sharing it).".into());
+        report.notes.push("Telescope can tell people when a new release of it is out on GitHub (docs/writing-plugins.md, Sharing it).".into());
     }
 }
 

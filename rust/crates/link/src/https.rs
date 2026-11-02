@@ -501,7 +501,7 @@ pub fn pin_rejected(e: &Error) -> bool {
 
 #[cfg(test)]
 pub(crate) mod testing {
-    //! A local HTTPS server presenting desktop/tests/fixtures' test certificates, as the Python tests use.
+    //! A local HTTPS server presenting rust/fixtures' test certificates.
 
     use rustls::pki_types::pem::PemObject;
     use rustls::pki_types::{CertificateDer, PrivateKeyDer};
@@ -511,7 +511,7 @@ pub(crate) mod testing {
     use std::sync::{Arc, Mutex};
 
     pub fn fixture(name: &str) -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../desktop/tests/fixtures").join(name)
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures").join(name)
     }
 
     pub fn pin_of(name: &str) -> String {

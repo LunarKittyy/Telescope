@@ -11,7 +11,7 @@ use telescope_core::config::ConfigFile;
 use telescope_core::plugin::{Plugin, PluginInfo};
 use telescope_core::services::Services;
 
-/// (scene id, window width) of the main window scenes parity/qt_shell_scenes.py makes.
+/// (scene id, window width) of the main window scenes the old comparison with Qt made.
 pub const SHELL_SCENES: &[(&str, f32)] = &[("shell-wide", 1300.0), ("shell-medium", 900.0), ("shell-narrow", 560.0)];
 
 pub use crate::layout::{WIDTH_THREE_COL, WIDTH_TWO_COL};
@@ -83,7 +83,7 @@ impl Setup {
     }
 }
 
-/// One of parity/render_scenes.py's scenes: its id and how to build it.
+/// One of the scenes: its id and how to build it.
 pub struct Scene {
     pub id: String,
     pub build: Box<dyn Fn() -> Setup>,
@@ -261,7 +261,7 @@ fn settle(w: &std::rc::Rc<window::Window>) {
     }
 }
 
-/// Renders the scenes parity/qt_shell_scenes.py makes into out/<scale>x; how many it wrote.
+/// Renders the scenes the old comparison with Qt made into out/<scale>x; how many it wrote.
 pub fn render_all(out: &Path, scale: f32) -> Result<usize, String> {
     let mut scenes: Vec<Scene> = SHELL_SCENES.iter()
         .map(|&(id, width)| Scene::new(id, move || Setup::window(None, json!({}), width, 900.0)))
@@ -278,10 +278,10 @@ pub fn render_all(out: &Path, scale: f32) -> Result<usize, String> {
     }
 }
 
-/// The Python app's built-in plugins as they describe themselves (parity/builtins.json), standing in for the ones
+/// The Python app's built-in plugins as they describe themselves (data/builtins.json), standing in for the ones
 /// not ported yet; the ported ones are the real thing.
 pub fn stand_ins(bus: &telescope_core::BusSender) -> Vec<Box<dyn Plugin>> {
-    let infos: Vec<PluginInfo> = serde_json::from_str(include_str!("../parity/builtins.json")).unwrap_or_default();
+    let infos: Vec<PluginInfo> = serde_json::from_str(include_str!("../data/builtins.json")).unwrap_or_default();
     let mut real = crate::plugins::builtins(None, bus);
     infos.into_iter().map(|info| {
         match real.iter().position(|p| p.info().name == info.name) {

@@ -26,7 +26,7 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
 WORK = r"C:\TelescopeTest"
 TASK = "TelescopeTestJob"
-PLUGIN = REPO / "desktop" / "examples" / "plugins" / "black_and_white"
+PLUGIN = REPO / "rust" / "crates" / "plugin-host" / "example-plugins" / "black_and_white"
 
 CHECKS = []
 
@@ -161,7 +161,7 @@ foreach ($view in 'HKLM:\SOFTWARE\Classes', 'HKLM:\SOFTWARE\WOW6432Node\Classes'
     Get-ChildItem "$view\CLSID\{860BB310-5D01-11d0-BD3B-00A0C911CE86}\Instance" -ErrorAction SilentlyContinue |
         ForEach-Object { "$bits " + (Get-ItemProperty $_.PSPath).FriendlyName }
 }
-# The Windows 11 camera (desktop/virtualcamera): a software device per camera, named in its device interface (Windows
+# The Windows 11 camera (rust/windows/virtualcamera): a software device per camera, named in its device interface (Windows
 # adds " (Windows Virtual Camera)" to the name it was given)
 Get-ChildItem 'HKLM:\SYSTEM\CurrentControlSet\Control\DeviceClasses\{e5323777-f976-4f5b-9b55-b94699c46e44}' -ErrorAction SilentlyContinue |
     Where-Object PSChildName -like '*VCAMDEVAPI*' | ForEach-Object { Get-ChildItem -LiteralPath $_.PSPath -ErrorAction SilentlyContinue } |
@@ -400,7 +400,7 @@ for ($x = 0; $x -lt $exe.Width; $x++) { for ($y = 0; $y -lt $exe.Height; $y++) {
     $diff += [Math]::Abs($p.R - $q.R) + [Math]::Abs($p.G - $q.G) + [Math]::Abs($p.B - $q.B) + [Math]::Abs($p.A - $q.A)
 } }
 [Math]::Round($diff / ($exe.Width * $exe.Height * 4), 1)
-""", ico=upload(a, REPO / "desktop" / "resources" / "telescope.ico")).replace('"<<app>>', f'"{APP}'))
+""", ico=upload(a, REPO / "rust" / "app" / "resources" / "telescope.ico")).replace('"<<app>>', f'"{APP}'))
     need(float(out.strip().replace(",", ".")) < 8, f"TelescopeDesktop.exe's icon isn't Telescope's (off by {out.strip()} per channel)")
 
 

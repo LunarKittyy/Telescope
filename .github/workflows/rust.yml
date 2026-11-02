@@ -32,13 +32,12 @@ jobs:
         with:
           fetch-depth: 2
 
-      # The tests read desktop/'s config fixtures and plugin.py
       - id: diff
         if: github.event_name == 'pull_request'
         run: |
           files=$(git diff --name-only HEAD^1 HEAD)
           echo "$files"
-          if echo "$files" | grep -qE '^(rust/|desktop/|\.github/workflows/rust\.yml$)'; then
+          if echo "$files" | grep -qE '^(rust/|\.github/workflows/rust\.yml$)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -77,16 +76,6 @@ jobs:
             libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libfontconfig1-dev libxkbcommon-dev \
             fonts-inter fonts-noto-core fonts-noto-cjk libegl1 libgl1 libdbus-1-3
 
-      # real_profile.rs asks the Python app where it keeps things, which needs what that app imports
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-          cache: pip
-
-      - name: Install the Python app's dependencies
-        working-directory: desktop
-        run: pip install -r requirements.txt -c constraints.txt
-
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
@@ -117,15 +106,6 @@ jobs:
         run: git config --global core.autocrlf false
 
       - uses: actions/checkout@v7
-
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.14'
-          cache: pip
-
-      - name: Install the Python app's dependencies
-        working-directory: desktop
-        run: pip install -r requirements.txt -c constraints.txt
 
       # The full GPL build for the tests' H.264 encoder (libx264). Nothing built here ships: packages use rust-package.yml's small one
       - name: Install FFmpeg

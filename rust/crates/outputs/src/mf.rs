@@ -1,4 +1,4 @@
-//! The Windows 11 camera (desktop/virtualcamera; how it works is in docs/architecture.md): each frame goes to the shared
+//! The Windows 11 camera (rust/windows/virtualcamera; how it works is in docs/architecture.md): each frame goes to the shared
 //! memory the camera reads, as NV12 at the size the app reading it picked. While no app reads it there's nowhere to send,
 //! so frames are dropped. The layout is virtualcamera/shared_frame.h's.
 
@@ -411,7 +411,7 @@ pub(crate) mod tests {
     // test_vcam.py::test_the_python_side_matches_the_dlls_shared_memory_layout
     #[test]
     fn the_layout_matches_the_dlls_shared_memory() {
-        let header = include_str!("../../../../desktop/virtualcamera/shared_frame.h");
+        let header = include_str!("../../../windows/virtualcamera/shared_frame.h");
         assert!(header.contains(&format!("kMagic = 0x{MAGIC:08X}")));
         assert!(header.contains(&format!("kVersion = {PROTOCOL};")) && header.contains(&format!("kFormatNV12 = {NV12};")));
         assert!(header.contains("kDataOffset = 64;") && HEADER_SIZE == 64);

@@ -1,4 +1,4 @@
-//! Which Windows camera a slot goes to (platform/windows.py): the Windows 11 one (desktop/virtualcamera) where it's
+//! Which Windows camera a slot goes to (platform/windows.py): the Windows 11 one (rust/windows/virtualcamera) where it's
 //! registered and Windows really has it, else UnityCapture. The registry is behind a trait so this runs anywhere.
 
 /// MFCreateVirtualCamera arrived with Windows 11.

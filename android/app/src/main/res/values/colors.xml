@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Same tokens as the desktop theme (desktop/telescope/theme.py); keep the two in step. -->
+    <!-- Same tokens as the desktop theme (rust/crates/ui-kit/ui/theme.slint); keep the two in step. -->
     <color name="colorBackground">#0f1216</color>
     <color name="colorHeader">#121519</color>
     <color name="colorSurface">#161a20</color>

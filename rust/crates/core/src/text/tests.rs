@@ -374,7 +374,7 @@ fn a_wrapped_labels_hint_guesses_at_80_then_40_then_20_characters() {
     assert_eq!(face.qt_hint_lines("", BODY_AVERAGE_CHAR), 0);
 }
 
-// Worked out from Qt's own QFontMetricsF and QTextLayout on the same fonts (rust/PLAN.md, the text review).
+// Worked out from Qt's own QFontMetricsF and QTextLayout on the same fonts.
 
 /// A space, a comma or a bang between letters of a fallback font is the main font's when it has one.
 #[test]

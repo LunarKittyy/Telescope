@@ -18,7 +18,7 @@ const SLACK: f64 = 1.1;
 const CHUNK: usize = 256 * 1024;
 const REPO: &str = "LunarKittyy/Telescope";
 /// What scripts/build_vision_pack.py --write recorded for this version.
-pub const PACK_INFO: &str = include_str!("../../../../desktop/telescope/vision_pack.json");
+pub const PACK_INFO: &str = include_str!("../vision_pack.json");
 
 /// Why the pack couldn't be downloaded or unpacked, said for the person who clicked Download.
 #[derive(Clone, Debug, PartialEq, Eq)]

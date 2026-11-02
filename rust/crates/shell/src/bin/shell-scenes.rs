@@ -1,5 +1,5 @@
-//! shell-scenes OUT [--scale 1]: the window in the states parity/qt_shell_scenes.py renders Qt in, drawn offscreen as
-//! OUT/<scale>x/<scene>.png for rust/parity/compare_scenes.py.
+//! shell-scenes OUT [--scale 1]: the window in a few window states, drawn offscreen as
+//! OUT/<scale>x/<scene>.png.
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();

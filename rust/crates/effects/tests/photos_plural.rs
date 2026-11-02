@@ -11,7 +11,7 @@ use telescope_effects::photos::PhotosPlugin;
 /// "Saved {name} and {n} more" has plural forms: Russian says снимок, снимка or снимков by the number.
 #[test]
 fn saved_photos_are_counted_in_the_languages_plural_form() {
-    telescope_core::i18n::use_folder(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../desktop/telescope/locale"));
+    telescope_core::i18n::use_folder(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../locale"));
     assert_eq!(telescope_core::i18n::load(Some("ru")), "ru");
     let (mut plugin, mut host) = (PhotosPlugin::new(), FakeHost::new());
     host.still_caps = Some(json!({"formats": ["jpeg"], "burst_max": 1}));

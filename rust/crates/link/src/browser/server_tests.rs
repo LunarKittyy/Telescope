@@ -349,16 +349,6 @@ fn serves_the_page_and_its_script() {
 }
 
 #[test]
-fn the_page_is_the_python_apps_own() {
-    // The page tests run on desktop/telescope/web; the copy served here has to be the same
-    let desktop = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../desktop/telescope/web");
-    for name in ["index.html", "app.js"] {
-        let ours = std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("web").join(name)).unwrap();
-        assert_eq!(ours, std::fs::read(desktop.join(name)).unwrap(), "{name} differs from the desktop app's");
-    }
-}
-
-#[test]
 fn url_carries_the_token_after_the_hash() {
     let run = server();
     assert_eq!(run.server.url_for("10.0.0.2"), format!("https://10.0.0.2:{}/#{}", run.server.port(), run.server.token()));

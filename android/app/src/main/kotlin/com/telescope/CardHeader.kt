@@ -12,7 +12,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.graphics.ColorUtils
 
-// A card's title row as the desktop draws it (add_card_header in desktop/telescope/widgets/common.py): the icon in
+// A card's title row as the desktop draws it (the kit's card header, rust/crates/ui-kit/ui/widgets): the icon in
 // the card's hue on a square of the same hue, then the title
 class CardHeader @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : LinearLayout(context, attrs) {
 

@@ -1,10 +1,10 @@
-//! Puts the translations in the program: every <lang>.po and the template from the desktop app's locale folder, as bytes the language
+//! Puts the translations in the program: every <lang>.po and the template from the locale folder, as bytes the language
 //! loader reads (OUT_DIR/locale.rs). One file to ship and update, with no folder next to it to lose.
 
 use std::path::{Path, PathBuf};
 
 /// Where the catalogs live in the repository.
-const LOCALE: &str = "../../desktop/telescope/locale";
+const LOCALE: &str = "../locale";
 
 /// With MSVC, FFmpeg's DLLs load on first use instead of at start, so losing one costs H.264 and not the whole program
 /// (telescope_media::ffmpeg_available looks before anything calls them).
@@ -59,7 +59,7 @@ fn program_resources() {
     if std::env::var("CARGO_CFG_TARGET_ENV").as_deref() != Ok("msvc") {
         return;
     }
-    println!("cargo:rerun-if-changed=../../desktop/resources/telescope.ico");
+    println!("cargo:rerun-if-changed=resources/telescope.ico");
     println!("cargo:rerun-if-changed=../../VERSION");
     println!("cargo:rerun-if-env-changed=TELESCOPE_BUILD");
     let version = std::fs::read_to_string("../../VERSION").expect("the repo's VERSION file");
@@ -69,7 +69,7 @@ fn program_resources() {
     let dotted = numbers.map(|n| n.to_string()).join(".");
     let packed = numbers.iter().fold(0u64, |all, n| (all << 16) | (n & 0xffff));
     let mut resources = winresource::WindowsResource::new();
-    resources.set_icon("../../desktop/resources/telescope.ico")
+    resources.set_icon("resources/telescope.ico")
         .set("ProductName", "Telescope").set("FileDescription", "Telescope").set("CompanyName", "LunarKittyy")
         .set("InternalName", "TelescopeDesktop").set("OriginalFilename", "TelescopeDesktop.exe")
         .set("FileVersion", &dotted).set("ProductVersion", &dotted)

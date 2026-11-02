@@ -1,17 +1,17 @@
 # Telescope
 
-Android app (`android/`, Kotlin) streams the phone camera to a Python/PyQt6 desktop app (`desktop/`) that feeds a virtual webcam. README.md is the landing page and Quick Start; everything else for users and contributors (features, troubleshooting, protocol, architecture, CI) is in `docs/`, indexed by `docs/README.md`; `desktop/MODULES.md` describes each desktop module.
+Android app (`android/`, Kotlin) streams the phone camera to a Rust/Slint desktop app (`rust/`) that feeds a virtual webcam. README.md is the landing page and Quick Start; everything else for users and contributors (features, troubleshooting, protocol, architecture, CI) is in `docs/`, indexed by `docs/README.md`.
 
-Before changing how desktop plugins, sources or the window talk to each other, read `desktop/ARCHITECTURE.md`. It explains why plugins don't depend on each other and why every plugin but Connection has to cope with being switched off. `tests/test_architecture.py` and `tests/test_plugin_removal.py` check both.
+Before changing how desktop plugins, sources or the window talk to each other, read `rust/ARCHITECTURE.md`. It explains why plugins don't depend on each other and why every plugin but Connection has to cope with being switched off. `rust/app/tests/architecture.rs` and `rust/app/tests/plugin_removal.rs` check both.
 
 ## Texts people see
-Both apps are translatable: new UI text goes in `android/.../res/values/strings.xml` on the phone and through `tr()` on the desktop, then `python scripts/i18n.py extract` in `desktop/`. `docs/translating.md` has the rules. Don't translate new texts, even though the `.po` and `values-*` entries look unfinished. They wait for the next translation pass (`automation/translation/`), which only runs when the owner asks for one. When you change an English text, its old translations must not keep showing the old meaning: on the phone delete that string from every `values-*/strings.xml` so it falls back to English (the desktop's `extract` already does this, since a changed text is a new entry).
+Both apps are translatable: new UI text goes in `android/.../res/values/strings.xml` on the phone and through `tr()` (or `@tr()` in Slint) on the desktop, then `python tools/i18n.py extract` in `rust/`. `docs/translating.md` has the rules. Don't translate new texts, even though the `.po` and `values-*` entries look unfinished. They wait for the next translation pass (`automation/translation/`), which only runs when the owner asks for one. When you change an English text, its old translations must not keep showing the old meaning: on the phone delete that string from every `values-*/strings.xml` so it falls back to English (the desktop's `extract` already does this, since a changed text is a new entry and the old one stays behind as an obsolete entry).
 
 ## Trying a change on a real phone
-`./gradlew installDev` in `android/` and `python scripts/dev_desktop.py --keep` in `desktop/` give a dev app and dev desktop that pair with each other and leave the real installs alone (see `docs/building.md`).
+`./gradlew installDev` in `android/` and `cargo run -p telescope-app -- dev --keep` in `rust/` give a dev app and dev desktop that pair with each other and leave the real installs alone (see `docs/building.md`).
 
 ## Checks
-- Desktop: `python -m pytest -q` and `python scripts/smoke_check.py` in `desktop/`
+- Desktop: `cargo nextest run --workspace --locked` in `rust/`
 - Android: `./gradlew lintDebug testDebugUnitTest` in `android/`
 
 ## Commits and PRs
