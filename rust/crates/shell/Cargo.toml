@@ -26,8 +26,8 @@ telescope-ui-kit.workspace = true
 zbus.workspace = true
 
 [target.'cfg(windows)'.dependencies]
-# Host::pick_file through the system's own file dialog, as Qt shows on Windows
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Com", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Shell", "Win32_UI_Shell_Common"] }
+# Host::pick_file through the system's own file dialog, as Qt shows on Windows, and the screen's work area (screen.rs)
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_System_Com", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Shell", "Win32_UI_Shell_Common"] }
 
 [target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
 # XQueryPointer, for whether a drag still has its button down (winit doesn't say); already in the tree through winit

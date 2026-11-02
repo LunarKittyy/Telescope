@@ -265,14 +265,6 @@ pub(crate) fn set_app_icon(window: &ComponentInstance) {
     }
 }
 
-/// The window's size so all of it fits on a screen of this size, given what the frame adds around it (Windows clamped Python's
-/// window to about the screen; winit opens one larger), or None when it fits. Never under the window's minimum.
-pub(crate) fn fit_on_screen(size: (u32, u32), screen: (u32, u32), frame: (u32, u32), least: (u32, u32)) -> Option<(u32, u32)> {
-    let room = |side: u32, screen: u32, frame: u32, least: u32| side.min(screen.saturating_sub(frame)).max(least);
-    let fitted = (room(size.0, screen.0, frame.0, least.0), room(size.1, screen.1, frame.1, least.1));
-    (fitted != size).then_some(fitted)
-}
-
 /// raise_ and activateWindow on an open window that has no parent: not minimized, in front and with the keyboard. show() does
 /// nothing on a window that's already shown. On Wayland, focus_window does nothing and a compositor grants an activation only
 /// with a fresh input serial, which winit keeps to itself, so it's opened again, which brings it up in front (and puts it back
@@ -1071,6 +1063,8 @@ impl Window {
         Self::set_window_props(&ui, plugin, id, &spec.ui.props);
         let _ = ui.show();
         crate::parent::attach(&ui, &self.ui);
+        let scale = ui.window().scale_factor();
+        crate::screen::keep_inside(&ui, ((320.0 * scale) as u32, (200.0 * scale) as u32));
         self.plugin_windows.borrow_mut().push((plugin.to_string(), id.to_string(), ui));
     }
 
@@ -1522,15 +1516,6 @@ mod popout_tests {
     fn the_pop_out_compiles() {
         i_slint_backend_testing::init_no_event_loop();
         crate::compile::compile("popout.slint", super::POPOUT, Vec::new(), "PreviewPopout").unwrap();
-    }
-
-    #[test]
-    fn a_window_opens_on_the_screen_it_opens_on() {
-        let frame = (16, 39);
-        assert_eq!(super::fit_on_screen((1380, 900), (1280, 800), frame, (560, 520)), Some((1264, 761)));
-        assert_eq!(super::fit_on_screen((1380, 900), (1920, 1080), frame, (560, 520)), None);
-        assert_eq!(super::fit_on_screen((1380, 900), (1920, 800), frame, (560, 520)), Some((1380, 761)));
-        assert_eq!(super::fit_on_screen((1380, 900), (500, 400), frame, (560, 520)), Some((560, 520)), "never under its minimum");
     }
 
     #[test]
