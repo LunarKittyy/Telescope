@@ -160,7 +160,7 @@ msgstr "VB-Cable पाएं"
 msgid "Takes out typing, fans and room hiss."
 msgstr "टाइपिंग, पंखों की आवाज़ और कमरे के शोर को हटाता है."
 
-#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:638 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/outputs/src/stream_output.rs:873 rust/crates/system/src/shortcuts.rs:655 rust/crates/system/src/shortcuts.rs:657
+#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:638 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/outputs/src/stream_output.rs:873 rust/crates/system/src/shortcuts.rs:659 rust/crates/system/src/shortcuts.rs:661
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -448,7 +448,7 @@ msgstr "ऑडियो"
 msgid "Virtual camera & phone"
 msgstr "वर्चुअल कैमरा और फ़ोन"
 
-#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1304
+#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1308
 msgid "Keyboard shortcuts"
 msgstr "कीबोर्ड शॉर्टकट"
 
@@ -3584,7 +3584,7 @@ msgstr "USB से फ़ोन ऐप को अपडेट किया ज�
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "{phone} पर मौजूद Telescope ऐप इससे पुराना है."
 
-#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:833 rust/crates/shell/src/extra_cameras.rs:154 rust/crates/shell/src/streams.rs:559 rust/crates/system/src/shortcuts.rs:1054
+#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:833 rust/crates/shell/src/extra_cameras.rs:154 rust/crates/shell/src/streams.rs:559 rust/crates/system/src/shortcuts.rs:1058
 msgid "Copy command"
 msgstr "कमांड कॉपी करें"
 
@@ -4613,7 +4613,7 @@ msgstr "<a href=\"{url}\">LunarKittyy</a> द्वारा निर्मि�
 msgid "Version {version}"
 msgstr "वर्शन {version}"
 
-#: rust/crates/setup/src/setup.rs:428 rust/crates/system/src/shortcuts.rs:1054
+#: rust/crates/setup/src/setup.rs:428 rust/crates/system/src/shortcuts.rs:1058
 msgid "Copied"
 msgstr "कॉपी हो गया"
 
@@ -6646,143 +6646,147 @@ msgstr "{label}: {amount} घटाएं"
 
 #: rust/crates/system/src/shortcuts.rs:643
 #, python-brace-format
-msgid "{label}: raise by {stops} stop"
-msgstr "{label}: {stops} स्टॉप बढ़ाएं"
+msgid "{label}: raise by {n} stop"
+msgid_plural "{label}: raise by {n} stops"
+msgstr[0] "{label}: {n} स्टॉप बढ़ाएं"
+msgstr[1] "{label}: {n} स्टॉप्स बढ़ाएं"
 
-#: rust/crates/system/src/shortcuts.rs:644
+#: rust/crates/system/src/shortcuts.rs:645
+#, python-brace-format
+msgid "{label}: lower by {n} stop"
+msgid_plural "{label}: lower by {n} stops"
+msgstr[0] "{label}: {n} स्टॉप घटाएं"
+msgstr[1] "{label}: {n} स्टॉप्स घटाएं"
+
+#: rust/crates/system/src/shortcuts.rs:650
 #, python-brace-format
 msgid "{label}: raise by {stops} stops"
 msgstr "{label}: {stops} स्टॉप्स बढ़ाएं"
 
-#: rust/crates/system/src/shortcuts.rs:645
-#, python-brace-format
-msgid "{label}: lower by {stops} stop"
-msgstr "{label}: {stops} स्टॉप घटाएं"
-
-#: rust/crates/system/src/shortcuts.rs:646
+#: rust/crates/system/src/shortcuts.rs:650
 #, python-brace-format
 msgid "{label}: lower by {stops} stops"
 msgstr "{label}: {stops} स्टॉप्स घटाएं"
 
-#: rust/crates/system/src/shortcuts.rs:657
+#: rust/crates/system/src/shortcuts.rs:661
 msgid "next"
 msgstr "अगला"
 
-#: rust/crates/system/src/shortcuts.rs:657
+#: rust/crates/system/src/shortcuts.rs:661
 msgid "previous"
 msgstr "पिछला"
 
-#: rust/crates/system/src/shortcuts.rs:709
+#: rust/crates/system/src/shortcuts.rs:713
 #, python-brace-format
 msgid "{name} has to be a number, not {value}."
 msgstr "{name} एक संख्या होनी चाहिए, {value} नहीं."
 
-#: rust/crates/system/src/shortcuts.rs:714
+#: rust/crates/system/src/shortcuts.rs:718
 msgid "nothing right now"
 msgstr "अभी कुछ नहीं"
 
-#: rust/crates/system/src/shortcuts.rs:717
+#: rust/crates/system/src/shortcuts.rs:721
 #, python-brace-format
 msgid "{name} can be {options}, not {value}."
 msgstr "{name} {options} हो सकता है, {value} नहीं."
 
 #. hold, toggle, on and off are values typed on the command line: keep them in English
-#: rust/crates/system/src/shortcuts.rs:722
+#: rust/crates/system/src/shortcuts.rs:726
 msgid "hold needs a key to let go of; use toggle, on or off with --action."
 msgstr "hold के लिए एक की (key) छोड़ना ज़रूरी है; --action के साथ toggle, on या off का इस्तेमाल करें."
 
-#: rust/crates/system/src/shortcuts.rs:729
+#: rust/crates/system/src/shortcuts.rs:733
 #, python-brace-format
 msgid "{action} needs {name}=… for that."
 msgstr "उसके लिए {action} को {name}=… की ज़रूरत है."
 
-#: rust/crates/system/src/shortcuts.rs:764
+#: rust/crates/system/src/shortcuts.rs:768
 msgid "That failed; Copy diagnostics has the details."
 msgstr "वह विफल रहा; विवरण डायग्नोस्टिक्स कॉपी करें में है."
 
-#: rust/crates/system/src/shortcuts.rs:777
+#: rust/crates/system/src/shortcuts.rs:781
 #, python-brace-format
 msgid "No action called {action}. telescope --list-actions lists them."
 msgstr "{action} नाम का कोई ऐक्शन नहीं है. telescope --list-actions उनकी सूची देता है."
 
-#: rust/crates/system/src/shortcuts.rs:783
+#: rust/crates/system/src/shortcuts.rs:787
 #, python-brace-format
 msgid "{action} has no setting {name}."
 msgstr "{action} में {name} सेटिंग नहीं है."
 
-#: rust/crates/system/src/shortcuts.rs:795
+#: rust/crates/system/src/shortcuts.rs:799
 #, python-brace-format
 msgid "{action} can't be used right now (no phone, or the control is off)."
 msgstr "{action} का इस्तेमाल अभी नहीं किया जा सकता (फ़ोन नहीं है, या कंट्रोल बंद है)."
 
-#: rust/crates/system/src/shortcuts.rs:972
+#: rust/crates/system/src/shortcuts.rs:976
 msgid "No control matches that search."
 msgstr "उस खोज से कोई कंट्रोल मेल नहीं खाता."
 
-#: rust/crates/system/src/shortcuts.rs:972
+#: rust/crates/system/src/shortcuts.rs:976
 msgid "Pick a control."
 msgstr "एक कंट्रोल चुनें."
 
-#: rust/crates/system/src/shortcuts.rs:974
+#: rust/crates/system/src/shortcuts.rs:978
 msgid "A modifier can't be a shortcut on its own. Add a key to it."
 msgstr "मॉडिफ़ायर अपने आप में शॉर्टकट नहीं हो सकता. इसके साथ कोई की जोड़ें."
 
-#: rust/crates/system/src/shortcuts.rs:976
+#: rust/crates/system/src/shortcuts.rs:980
 #, python-brace-format
 msgid "Press a key, with Ctrl, Alt, Shift or {meta} if you like."
 msgstr "कोई की दबाएं, चाहें तो Ctrl, Alt, Shift या {meta} के साथ."
 
-#: rust/crates/system/src/shortcuts.rs:980
+#: rust/crates/system/src/shortcuts.rs:984
 #, python-brace-format
 msgid "{keys} already does \"{action}\". Pick another key."
 msgstr "{keys} पहले से \"{action}\" करता है. कोई दूसरी की चुनें."
 
-#: rust/crates/system/src/shortcuts.rs:989
+#: rust/crates/system/src/shortcuts.rs:993
 #, python-brace-format
 msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
 msgstr "'हर जगह' होने पर, {keys} अन्य ऐप में टाइप होना बंद हो जाएगा. Ctrl, Alt या {meta} जोड़ना ज़्यादा सुरक्षित है."
 
-#: rust/crates/system/src/shortcuts.rs:1010
+#: rust/crates/system/src/shortcuts.rs:1014
 #, python-brace-format
 msgid "Unknown ({action})"
 msgstr "अज्ञात ({action})"
 
-#: rust/crates/system/src/shortcuts.rs:1031
+#: rust/crates/system/src/shortcuts.rs:1035
 #, python-brace-format
 msgid "{value} (not there now)"
 msgstr "{value} (अभी मौजूद नहीं)"
 
-#: rust/crates/system/src/shortcuts.rs:1055
+#: rust/crates/system/src/shortcuts.rs:1059
 msgid "A command can't hold a key down; pick another choice to copy one"
 msgstr "कमांड किसी की को दबाकर नहीं रख सकती; कमांड कॉपी करने के लिए कोई दूसरा विकल्प चुनें"
 
-#: rust/crates/system/src/shortcuts.rs:1056
+#: rust/crates/system/src/shortcuts.rs:1060
 msgid "A command line that does the same, for your desktop's own keyboard settings"
 msgstr "वही काम करने वाली एक कमांड लाइन, आपके डेस्कटॉप की अपनी कीबोर्ड सेटिंग्स के लिए"
 
-#: rust/crates/system/src/shortcuts.rs:1066
+#: rust/crates/system/src/shortcuts.rs:1070
 #, python-brace-format
 msgid "Edit {shortcut}"
 msgstr "{shortcut} एडिट करें"
 
-#: rust/crates/system/src/shortcuts.rs:1067
+#: rust/crates/system/src/shortcuts.rs:1071
 #, python-brace-format
 msgid "Remove {shortcut}"
 msgstr "{shortcut} हटाएं"
 
-#: rust/crates/system/src/shortcuts.rs:1072
+#: rust/crates/system/src/shortcuts.rs:1076
 msgid "Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings."
 msgstr "इस डेस्कटॉप पर ग्लोबल शॉर्टकट उपलब्ध नहीं हैं, इसलिए ये Telescope के अंदर काम करते हैं. हर जगह काम करने वाली कीज़ के लिए, अपने डेस्कटॉप की कीबोर्ड सेटिंग्स में शॉर्टकट की 'कमांड लाइन कॉपी करें' को बाइंड करें."
 
-#: rust/crates/system/src/shortcuts.rs:1175
+#: rust/crates/system/src/shortcuts.rs:1179
 msgid "Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings."
 msgstr "आपके डेस्कटॉप की शॉर्टकट सेटिंग्स नहीं खोली जा सकीं. इसकी सिस्टम सेटिंग्स में 'शॉर्टकट' देखें."
 
-#: rust/crates/system/src/shortcuts.rs:1305
+#: rust/crates/system/src/shortcuts.rs:1309
 msgid "Keys for Telescope's controls, including ones that work in other apps."
 msgstr "Telescope के कंट्रोल्स के लिए कीज़, जिनमें वे भी शामिल हैं जो अन्य ऐप में काम करती हैं."
 
-#: rust/crates/system/src/shortcuts.rs:1306
+#: rust/crates/system/src/shortcuts.rs:1310
 msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
 msgstr "इसके बिना कोई शॉर्टकट काम नहीं करता और सेटिंग्स में 'कीबोर्ड शॉर्टकट' नहीं होता (आपके शॉर्टकट इसके वापस आने तक सुरक्षित रखे जाते हैं)."
 
@@ -7616,6 +7620,14 @@ msgstr "रीस्टार्ट नहीं किया जा सका"
 #: rust/crates/shell/src/sources.rs:1694
 msgid "In use"
 msgstr "इस्तेमाल में"
+
+#, python-brace-format
+#~ msgid "{label}: raise by {stops} stop"
+#~ msgstr "{label}: {stops} स्टॉप बढ़ाएं"
+
+#, python-brace-format
+#~ msgid "{label}: lower by {stops} stop"
+#~ msgstr "{label}: {stops} स्टॉप घटाएं"
 
 #~ msgid "dev_desktop.py --plugin loads this one, so it's always on"
 #~ msgstr "dev_desktop.py --plugin इसे लोड करता है, इसलिए यह हमेशा चालू रहता है"

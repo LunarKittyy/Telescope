@@ -635,17 +635,21 @@ fn builder_summary(action: &ActionSpec, params: &Map<String, Value>) -> Option<S
             "set" => fill(tr("{label}: set to {value}"), &[("label", label), ("value", &value_text("value"))]),
             op => {
                 let stops = params.get("stops").and_then(Value::as_f64).unwrap_or(0.0);
-                let whole = stops.fract() == 0.0;
-                // gettext plurals take whole numbers and 1.5 counts as plural; only the English rule until core knows plurals
-                let one = stops == 1.0;
-                let amount = telescope_core::i18n::number(stops, if whole { 0 } else { 1 }, false);
-                let template = match (op == "up", one) {
-                    (true, true) => tr("{label}: raise by {stops} stop"),
-                    (true, false) => tr("{label}: raise by {stops} stops"),
-                    (false, true) => tr("{label}: lower by {stops} stop"),
-                    (false, false) => tr("{label}: lower by {stops} stops"),
-                };
-                fill(template, &[("label", label), ("stops", &amount)])
+                let up = op == "up";
+                if stops.fract() == 0.0 {
+                    // Whole counts take the plural form of the language
+                    let n = stops as i64;
+                    if up {
+                        telescope_core::i18n::trn_with("{label}: raise by {n} stop", "{label}: raise by {n} stops", n, "", &[("label", &label)])
+                    } else {
+                        telescope_core::i18n::trn_with("{label}: lower by {n} stop", "{label}: lower by {n} stops", n, "", &[("label", &label)])
+                    }
+                } else {
+                    // gettext plurals take whole numbers, so a fraction like 1.5 keeps its own text
+                    let amount = telescope_core::i18n::number(stops, 1, false);
+                    let template = if up { tr("{label}: raise by {stops} stops") } else { tr("{label}: lower by {stops} stops") };
+                    fill(template, &[("label", label), ("stops", &amount)])
+                }
             }
         }),
         ["op", "option"] => Some(match text("op") {

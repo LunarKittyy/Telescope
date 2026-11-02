@@ -160,7 +160,7 @@ msgstr "VB-Cable'ı edin"
 msgid "Takes out typing, fans and room hiss."
 msgstr "Klavye seslerini, fanları ve oda cızırtısını temizler."
 
-#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:638 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/outputs/src/stream_output.rs:873 rust/crates/system/src/shortcuts.rs:655 rust/crates/system/src/shortcuts.rs:657
+#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:638 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/outputs/src/stream_output.rs:873 rust/crates/system/src/shortcuts.rs:659 rust/crates/system/src/shortcuts.rs:661
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -448,7 +448,7 @@ msgstr "Ses"
 msgid "Virtual camera & phone"
 msgstr "Sanal kamera ve telefon"
 
-#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1304
+#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1308
 msgid "Keyboard shortcuts"
 msgstr "Klavye kısayolları"
 
@@ -3584,7 +3584,7 @@ msgstr "Telefon uygulaması USB üzerinden güncelleniyor…"
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "{phone} üzerindeki Telescope uygulaması bu sürümden daha eski."
 
-#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:833 rust/crates/shell/src/extra_cameras.rs:154 rust/crates/shell/src/streams.rs:559 rust/crates/system/src/shortcuts.rs:1054
+#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:833 rust/crates/shell/src/extra_cameras.rs:154 rust/crates/shell/src/streams.rs:559 rust/crates/system/src/shortcuts.rs:1058
 msgid "Copy command"
 msgstr "Komutu kopyala"
 
@@ -4613,7 +4613,7 @@ msgstr "<a href=\"{url}\">LunarKittyy</a> tarafından yapıldı"
 msgid "Version {version}"
 msgstr "Sürüm {version}"
 
-#: rust/crates/setup/src/setup.rs:428 rust/crates/system/src/shortcuts.rs:1054
+#: rust/crates/setup/src/setup.rs:428 rust/crates/system/src/shortcuts.rs:1058
 msgid "Copied"
 msgstr "Kopyalandı"
 
@@ -6646,143 +6646,147 @@ msgstr "{label}: {amount} azalt"
 
 #: rust/crates/system/src/shortcuts.rs:643
 #, python-brace-format
-msgid "{label}: raise by {stops} stop"
-msgstr "{label}: {stops} durak yükselt"
+msgid "{label}: raise by {n} stop"
+msgid_plural "{label}: raise by {n} stops"
+msgstr[0] "{label}: {n} durak yükselt"
+msgstr[1] "{label}: {n} durak artır"
 
-#: rust/crates/system/src/shortcuts.rs:644
+#: rust/crates/system/src/shortcuts.rs:645
+#, python-brace-format
+msgid "{label}: lower by {n} stop"
+msgid_plural "{label}: lower by {n} stops"
+msgstr[0] "{label}: {n} durak düşür"
+msgstr[1] "{label}: {n} durak azalt"
+
+#: rust/crates/system/src/shortcuts.rs:650
 #, python-brace-format
 msgid "{label}: raise by {stops} stops"
 msgstr "{label}: {stops} durak artır"
 
-#: rust/crates/system/src/shortcuts.rs:645
-#, python-brace-format
-msgid "{label}: lower by {stops} stop"
-msgstr "{label}: {stops} durak düşür"
-
-#: rust/crates/system/src/shortcuts.rs:646
+#: rust/crates/system/src/shortcuts.rs:650
 #, python-brace-format
 msgid "{label}: lower by {stops} stops"
 msgstr "{label}: {stops} durak azalt"
 
-#: rust/crates/system/src/shortcuts.rs:657
+#: rust/crates/system/src/shortcuts.rs:661
 msgid "next"
 msgstr "sonraki"
 
-#: rust/crates/system/src/shortcuts.rs:657
+#: rust/crates/system/src/shortcuts.rs:661
 msgid "previous"
 msgstr "önceki"
 
-#: rust/crates/system/src/shortcuts.rs:709
+#: rust/crates/system/src/shortcuts.rs:713
 #, python-brace-format
 msgid "{name} has to be a number, not {value}."
 msgstr "{name} bir sayı olmalıdır, {value} değil."
 
-#: rust/crates/system/src/shortcuts.rs:714
+#: rust/crates/system/src/shortcuts.rs:718
 msgid "nothing right now"
 msgstr "şu anda hiçbir şey"
 
-#: rust/crates/system/src/shortcuts.rs:717
+#: rust/crates/system/src/shortcuts.rs:721
 #, python-brace-format
 msgid "{name} can be {options}, not {value}."
 msgstr "{name} {value} değil, {options} olabilir."
 
 #. hold, toggle, on and off are values typed on the command line: keep them in English
-#: rust/crates/system/src/shortcuts.rs:722
+#: rust/crates/system/src/shortcuts.rs:726
 msgid "hold needs a key to let go of; use toggle, on or off with --action."
 msgstr "hold bırakılacak bir tuş gerektirir; --action ile toggle, on veya off kullan."
 
-#: rust/crates/system/src/shortcuts.rs:729
+#: rust/crates/system/src/shortcuts.rs:733
 #, python-brace-format
 msgid "{action} needs {name}=… for that."
 msgstr "{action} bunun için {name}=… gerektirir."
 
-#: rust/crates/system/src/shortcuts.rs:764
+#: rust/crates/system/src/shortcuts.rs:768
 msgid "That failed; Copy diagnostics has the details."
 msgstr "Bu işlem başarısız oldu; ayrıntılar Tanılama bilgilerini kopyala seçeneğinde."
 
-#: rust/crates/system/src/shortcuts.rs:777
+#: rust/crates/system/src/shortcuts.rs:781
 #, python-brace-format
 msgid "No action called {action}. telescope --list-actions lists them."
 msgstr "{action} adında bir eylem yok. telescope --list-actions bunları listeler."
 
-#: rust/crates/system/src/shortcuts.rs:783
+#: rust/crates/system/src/shortcuts.rs:787
 #, python-brace-format
 msgid "{action} has no setting {name}."
 msgstr "{action} eyleminin {name} ayarı yok."
 
-#: rust/crates/system/src/shortcuts.rs:795
+#: rust/crates/system/src/shortcuts.rs:799
 #, python-brace-format
 msgid "{action} can't be used right now (no phone, or the control is off)."
 msgstr "{action} şu anda kullanılamaz (telefon yok veya denetim kapalı)."
 
-#: rust/crates/system/src/shortcuts.rs:972
+#: rust/crates/system/src/shortcuts.rs:976
 msgid "No control matches that search."
 msgstr "Bu aramayla eşleşen hiçbir denetim yok."
 
-#: rust/crates/system/src/shortcuts.rs:972
+#: rust/crates/system/src/shortcuts.rs:976
 msgid "Pick a control."
 msgstr "Bir denetim seç."
 
-#: rust/crates/system/src/shortcuts.rs:974
+#: rust/crates/system/src/shortcuts.rs:978
 msgid "A modifier can't be a shortcut on its own. Add a key to it."
 msgstr "Niteleyici tuş tek başına bir kısayol olamaz. Yanına bir tuş ekle."
 
-#: rust/crates/system/src/shortcuts.rs:976
+#: rust/crates/system/src/shortcuts.rs:980
 #, python-brace-format
 msgid "Press a key, with Ctrl, Alt, Shift or {meta} if you like."
 msgstr "İstersen Ctrl, Alt, Shift veya {meta} ile birlikte bir tuşa bas."
 
-#: rust/crates/system/src/shortcuts.rs:980
+#: rust/crates/system/src/shortcuts.rs:984
 #, python-brace-format
 msgid "{keys} already does \"{action}\". Pick another key."
 msgstr "{keys} zaten \"{action}\" işlemini yapıyor. Başka bir tuş seç."
 
-#: rust/crates/system/src/shortcuts.rs:989
+#: rust/crates/system/src/shortcuts.rs:993
 #, python-brace-format
 msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
 msgstr "Her yerde kullanıldığında, {keys} diğer uygulamalarda bu tuşun yazılmasını engeller. Ctrl, Alt veya {meta} eklemek daha güvenlidir."
 
-#: rust/crates/system/src/shortcuts.rs:1010
+#: rust/crates/system/src/shortcuts.rs:1014
 #, python-brace-format
 msgid "Unknown ({action})"
 msgstr "Bilinmeyen ({action})"
 
-#: rust/crates/system/src/shortcuts.rs:1031
+#: rust/crates/system/src/shortcuts.rs:1035
 #, python-brace-format
 msgid "{value} (not there now)"
 msgstr "{value} (şu an mevcut değil)"
 
-#: rust/crates/system/src/shortcuts.rs:1055
+#: rust/crates/system/src/shortcuts.rs:1059
 msgid "A command can't hold a key down; pick another choice to copy one"
 msgstr "Bir komut bir tuşu basılı tutamaz; komut kopyalamak için başka bir seçenek seç"
 
-#: rust/crates/system/src/shortcuts.rs:1056
+#: rust/crates/system/src/shortcuts.rs:1060
 msgid "A command line that does the same, for your desktop's own keyboard settings"
 msgstr "Masaüstü ortamının kendi klavye ayarları için aynı işlemi yapan bir komut satırı"
 
-#: rust/crates/system/src/shortcuts.rs:1066
+#: rust/crates/system/src/shortcuts.rs:1070
 #, python-brace-format
 msgid "Edit {shortcut}"
 msgstr "{shortcut} kısayolunu düzenle"
 
-#: rust/crates/system/src/shortcuts.rs:1067
+#: rust/crates/system/src/shortcuts.rs:1071
 #, python-brace-format
 msgid "Remove {shortcut}"
 msgstr "{shortcut} kısayolunu kaldır"
 
-#: rust/crates/system/src/shortcuts.rs:1072
+#: rust/crates/system/src/shortcuts.rs:1076
 msgid "Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings."
 msgstr "Bu masaüstü ortamında genel kısayollar kullanılamıyor, bu yüzden bunlar sadece Telescope içinde çalışır. Her yerde çalışan tuşlar için, masaüstü ortamının klavye ayarlarında bir kısayolun Komut satırını kopyala seçeneğini ata."
 
-#: rust/crates/system/src/shortcuts.rs:1175
+#: rust/crates/system/src/shortcuts.rs:1179
 msgid "Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings."
 msgstr "Masaüstü ortamının kısayol ayarları açılamadı. Sistem Ayarları'nda Kısayollar bölümüne bak."
 
-#: rust/crates/system/src/shortcuts.rs:1305
+#: rust/crates/system/src/shortcuts.rs:1309
 msgid "Keys for Telescope's controls, including ones that work in other apps."
 msgstr "Diğer uygulamalarda da çalışanlar dahil, Telescope'un denetimleri için tuşlar."
 
-#: rust/crates/system/src/shortcuts.rs:1306
+#: rust/crates/system/src/shortcuts.rs:1310
 msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
 msgstr "Bu olmadan hiçbir kısayol çalışmaz ve Ayarlar'da Klavye kısayolları yer almaz (kısayolların tekrar açıldığında kullanılmak üzere saklanır)."
 
@@ -7616,6 +7620,14 @@ msgstr "Yeniden başlatılamadı"
 #: rust/crates/shell/src/sources.rs:1694
 msgid "In use"
 msgstr "Kullanımda"
+
+#, python-brace-format
+#~ msgid "{label}: raise by {stops} stop"
+#~ msgstr "{label}: {stops} durak yükselt"
+
+#, python-brace-format
+#~ msgid "{label}: lower by {stops} stop"
+#~ msgstr "{label}: {stops} durak düşür"
 
 #~ msgid "dev_desktop.py --plugin loads this one, so it's always on"
 #~ msgstr "dev_desktop.py --plugin bunu yükler, bu yüzden her zaman açıktır"

@@ -160,7 +160,7 @@ msgstr "Pobierz VB-Cable"
 msgid "Takes out typing, fans and room hiss."
 msgstr "Usuwa dźwięki klawiatury, wentylatory i szum otoczenia."
 
-#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:638 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/outputs/src/stream_output.rs:873 rust/crates/system/src/shortcuts.rs:655 rust/crates/system/src/shortcuts.rs:657
+#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:638 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/outputs/src/stream_output.rs:873 rust/crates/system/src/shortcuts.rs:659 rust/crates/system/src/shortcuts.rs:661
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -448,7 +448,7 @@ msgstr "Audio"
 msgid "Virtual camera & phone"
 msgstr "Wirtualna kamera i telefon"
 
-#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1304
+#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1308
 msgid "Keyboard shortcuts"
 msgstr "Skróty klawiszowe"
 
@@ -3584,7 +3584,7 @@ msgstr "Aktualizowanie aplikacji na telefon przez USB…"
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Aplikacja Telescope na {phone} jest starsza niż ta."
 
-#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:833 rust/crates/shell/src/extra_cameras.rs:154 rust/crates/shell/src/streams.rs:559 rust/crates/system/src/shortcuts.rs:1054
+#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:833 rust/crates/shell/src/extra_cameras.rs:154 rust/crates/shell/src/streams.rs:559 rust/crates/system/src/shortcuts.rs:1058
 msgid "Copy command"
 msgstr "Skopiuj polecenie"
 
@@ -4613,7 +4613,7 @@ msgstr "Autor: <a href=\"{url}\">LunarKittyy</a>"
 msgid "Version {version}"
 msgstr "Wersja {version}"
 
-#: rust/crates/setup/src/setup.rs:428 rust/crates/system/src/shortcuts.rs:1054
+#: rust/crates/setup/src/setup.rs:428 rust/crates/system/src/shortcuts.rs:1058
 msgid "Copied"
 msgstr "Skopiowano"
 
@@ -6652,143 +6652,149 @@ msgstr "{label}: zmniejsz o {amount}"
 
 #: rust/crates/system/src/shortcuts.rs:643
 #, python-brace-format
-msgid "{label}: raise by {stops} stop"
-msgstr "{label}: podnieś o {stops} działkę EV"
+msgid "{label}: raise by {n} stop"
+msgid_plural "{label}: raise by {n} stops"
+msgstr[0] "{label}: podnieś o {n} działkę EV"
+msgstr[1] "{label}: zwiększ o {n} działki EV"
+msgstr[2] "{label}: zwiększ o {n} działek EV"
 
-#: rust/crates/system/src/shortcuts.rs:644
+#: rust/crates/system/src/shortcuts.rs:645
+#, python-brace-format
+msgid "{label}: lower by {n} stop"
+msgid_plural "{label}: lower by {n} stops"
+msgstr[0] "{label}: obniż o {n} działkę EV"
+msgstr[1] "{label}: zmniejsz o {n} działki EV"
+msgstr[2] "{label}: zmniejsz o {n} działek EV"
+
+#: rust/crates/system/src/shortcuts.rs:650
 #, python-brace-format
 msgid "{label}: raise by {stops} stops"
 msgstr "{label}: zwiększ o {stops} działki EV"
 
-#: rust/crates/system/src/shortcuts.rs:645
-#, python-brace-format
-msgid "{label}: lower by {stops} stop"
-msgstr "{label}: obniż o {stops} działkę EV"
-
-#: rust/crates/system/src/shortcuts.rs:646
+#: rust/crates/system/src/shortcuts.rs:650
 #, python-brace-format
 msgid "{label}: lower by {stops} stops"
 msgstr "{label}: zmniejsz o {stops} działki EV"
 
-#: rust/crates/system/src/shortcuts.rs:657
+#: rust/crates/system/src/shortcuts.rs:661
 msgid "next"
 msgstr "następny"
 
-#: rust/crates/system/src/shortcuts.rs:657
+#: rust/crates/system/src/shortcuts.rs:661
 msgid "previous"
 msgstr "poprzedni"
 
-#: rust/crates/system/src/shortcuts.rs:709
+#: rust/crates/system/src/shortcuts.rs:713
 #, python-brace-format
 msgid "{name} has to be a number, not {value}."
 msgstr "Wartość parametru {name} musi być liczbą, a nie {value}."
 
-#: rust/crates/system/src/shortcuts.rs:714
+#: rust/crates/system/src/shortcuts.rs:718
 msgid "nothing right now"
 msgstr "obecnie brak"
 
-#: rust/crates/system/src/shortcuts.rs:717
+#: rust/crates/system/src/shortcuts.rs:721
 #, python-brace-format
 msgid "{name} can be {options}, not {value}."
 msgstr "Parametr {name} może przyjmować wartości: {options}, a nie {value}."
 
 #. hold, toggle, on and off are values typed on the command line: keep them in English
-#: rust/crates/system/src/shortcuts.rs:722
+#: rust/crates/system/src/shortcuts.rs:726
 msgid "hold needs a key to let go of; use toggle, on or off with --action."
 msgstr "opcja hold wymaga klawisza do zwolnienia; użyj toggle, on lub off z parametrem --action."
 
-#: rust/crates/system/src/shortcuts.rs:729
+#: rust/crates/system/src/shortcuts.rs:733
 #, python-brace-format
 msgid "{action} needs {name}=… for that."
 msgstr "Działanie {action} wymaga do tego parametru {name}=…."
 
-#: rust/crates/system/src/shortcuts.rs:764
+#: rust/crates/system/src/shortcuts.rs:768
 msgid "That failed; Copy diagnostics has the details."
 msgstr "To się nie powiodło; opcja Skopiuj dane diagnostyczne zawiera szczegóły."
 
-#: rust/crates/system/src/shortcuts.rs:777
+#: rust/crates/system/src/shortcuts.rs:781
 #, python-brace-format
 msgid "No action called {action}. telescope --list-actions lists them."
 msgstr "Brak działania o nazwie {action}. Polecenie telescope --list-actions wyświetla ich listę."
 
-#: rust/crates/system/src/shortcuts.rs:783
+#: rust/crates/system/src/shortcuts.rs:787
 #, python-brace-format
 msgid "{action} has no setting {name}."
 msgstr "Działanie {action} nie ma ustawienia {name}."
 
-#: rust/crates/system/src/shortcuts.rs:795
+#: rust/crates/system/src/shortcuts.rs:799
 #, python-brace-format
 msgid "{action} can't be used right now (no phone, or the control is off)."
 msgstr "Nie można teraz użyć działania {action} (brak telefonu lub element sterujący jest wyłączony)."
 
-#: rust/crates/system/src/shortcuts.rs:972
+#: rust/crates/system/src/shortcuts.rs:976
 msgid "No control matches that search."
 msgstr "Żaden element sterujący nie pasuje do wyszukiwania."
 
-#: rust/crates/system/src/shortcuts.rs:972
+#: rust/crates/system/src/shortcuts.rs:976
 msgid "Pick a control."
 msgstr "Wybierz element sterujący."
 
-#: rust/crates/system/src/shortcuts.rs:974
+#: rust/crates/system/src/shortcuts.rs:978
 msgid "A modifier can't be a shortcut on its own. Add a key to it."
 msgstr "Klawisz modyfikatora nie może być samodzielnym skrótem. Dodaj do niego inny klawisz."
 
-#: rust/crates/system/src/shortcuts.rs:976
+#: rust/crates/system/src/shortcuts.rs:980
 #, python-brace-format
 msgid "Press a key, with Ctrl, Alt, Shift or {meta} if you like."
 msgstr "Naciśnij klawisz, opcjonalnie z klawiszem Ctrl, Alt, Shift lub {meta}."
 
-#: rust/crates/system/src/shortcuts.rs:980
+#: rust/crates/system/src/shortcuts.rs:984
 #, python-brace-format
 msgid "{keys} already does \"{action}\". Pick another key."
 msgstr "{keys} wykonuje już działanie „{action}”. Wybierz inny klawisz."
 
-#: rust/crates/system/src/shortcuts.rs:989
+#: rust/crates/system/src/shortcuts.rs:993
 #, python-brace-format
 msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
 msgstr "Skrót {keys} w trybie Wszędzie uniemożliwiłby wpisywanie tego znaku w innych aplikacjach. Bezpieczniej jest dodać Ctrl, Alt lub {meta}."
 
-#: rust/crates/system/src/shortcuts.rs:1010
+#: rust/crates/system/src/shortcuts.rs:1014
 #, python-brace-format
 msgid "Unknown ({action})"
 msgstr "Nieznane ({action})"
 
-#: rust/crates/system/src/shortcuts.rs:1031
+#: rust/crates/system/src/shortcuts.rs:1035
 #, python-brace-format
 msgid "{value} (not there now)"
 msgstr "{value} (obecnie niedostępne)"
 
-#: rust/crates/system/src/shortcuts.rs:1055
+#: rust/crates/system/src/shortcuts.rs:1059
 msgid "A command can't hold a key down; pick another choice to copy one"
 msgstr "Polecenie nie może przytrzymywać klawisza; wybierz inną opcję, aby je skopiować"
 
-#: rust/crates/system/src/shortcuts.rs:1056
+#: rust/crates/system/src/shortcuts.rs:1060
 msgid "A command line that does the same, for your desktop's own keyboard settings"
 msgstr "Wiersz poleceń robiący to samo, do użycia w ustawieniach klawiatury twojego środowiska graficznego"
 
-#: rust/crates/system/src/shortcuts.rs:1066
+#: rust/crates/system/src/shortcuts.rs:1070
 #, python-brace-format
 msgid "Edit {shortcut}"
 msgstr "Edytuj {shortcut}"
 
-#: rust/crates/system/src/shortcuts.rs:1067
+#: rust/crates/system/src/shortcuts.rs:1071
 #, python-brace-format
 msgid "Remove {shortcut}"
 msgstr "Usuń {shortcut}"
 
-#: rust/crates/system/src/shortcuts.rs:1072
+#: rust/crates/system/src/shortcuts.rs:1076
 msgid "Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings."
 msgstr "Skróty globalne nie są dostępne w tym środowisku graficznym, więc działają tylko w programie Telescope. Aby klawisze działały wszędzie, przypisz polecenie ze skrótu (Kopiuj wiersz poleceń) w ustawieniach klawiatury swojego środowiska graficznego."
 
-#: rust/crates/system/src/shortcuts.rs:1175
+#: rust/crates/system/src/shortcuts.rs:1179
 msgid "Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings."
 msgstr "Nie udało się otworzyć ustawień skrótów środowiska graficznego. Poszukaj sekcji Skróty w Ustawieniach systemowych."
 
-#: rust/crates/system/src/shortcuts.rs:1305
+#: rust/crates/system/src/shortcuts.rs:1309
 msgid "Keys for Telescope's controls, including ones that work in other apps."
 msgstr "Klawisze dla elementów sterujących programu Telescope, w tym działające w innych aplikacjach."
 
-#: rust/crates/system/src/shortcuts.rs:1306
+#: rust/crates/system/src/shortcuts.rs:1310
 msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
 msgstr "Bez niej żaden skrót nie działa, a sekcja Skróty klawiszowe znika z Ustawień (twoje skróty zostaną zachowane na przyszłość)."
 
@@ -7623,6 +7629,14 @@ msgstr "Nie udało się uruchomić ponownie"
 #: rust/crates/shell/src/sources.rs:1694
 msgid "In use"
 msgstr "W użyciu"
+
+#, python-brace-format
+#~ msgid "{label}: raise by {stops} stop"
+#~ msgstr "{label}: podnieś o {stops} działkę EV"
+
+#, python-brace-format
+#~ msgid "{label}: lower by {stops} stop"
+#~ msgstr "{label}: obniż o {stops} działkę EV"
 
 #~ msgid "dev_desktop.py --plugin loads this one, so it's always on"
 #~ msgstr "dev_desktop.py --plugin ładuje tę wtyczkę, więc jest zawsze włączona"

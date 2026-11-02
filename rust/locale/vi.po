@@ -160,7 +160,7 @@ msgstr "Tải VB-Cable"
 msgid "Takes out typing, fans and room hiss."
 msgstr "Loại bỏ tiếng gõ phím, tiếng quạt và tiếng rít trong phòng."
 
-#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:638 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/outputs/src/stream_output.rs:873 rust/crates/system/src/shortcuts.rs:655 rust/crates/system/src/shortcuts.rs:657
+#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:638 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/outputs/src/stream_output.rs:873 rust/crates/system/src/shortcuts.rs:659 rust/crates/system/src/shortcuts.rs:661
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -448,7 +448,7 @@ msgstr "Âm thanh"
 msgid "Virtual camera & phone"
 msgstr "Camera ảo & điện thoại"
 
-#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1304
+#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1308
 msgid "Keyboard shortcuts"
 msgstr "Phím tắt"
 
@@ -3584,7 +3584,7 @@ msgstr "Đang cập nhật ứng dụng điện thoại qua USB…"
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Ứng dụng Telescope trên {phone} cũ hơn bản này."
 
-#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:833 rust/crates/shell/src/extra_cameras.rs:154 rust/crates/shell/src/streams.rs:559 rust/crates/system/src/shortcuts.rs:1054
+#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:833 rust/crates/shell/src/extra_cameras.rs:154 rust/crates/shell/src/streams.rs:559 rust/crates/system/src/shortcuts.rs:1058
 msgid "Copy command"
 msgstr "Sao chép lệnh"
 
@@ -4613,7 +4613,7 @@ msgstr "Được phát triển bởi <a href=\"{url}\">LunarKittyy</a>"
 msgid "Version {version}"
 msgstr "Phiên bản {version}"
 
-#: rust/crates/setup/src/setup.rs:428 rust/crates/system/src/shortcuts.rs:1054
+#: rust/crates/setup/src/setup.rs:428 rust/crates/system/src/shortcuts.rs:1058
 msgid "Copied"
 msgstr "Đã sao chép"
 
@@ -6640,143 +6640,145 @@ msgstr "{label}: giảm bớt {amount}"
 
 #: rust/crates/system/src/shortcuts.rs:643
 #, python-brace-format
-msgid "{label}: raise by {stops} stop"
-msgstr "{label}: tăng thêm {stops} bước sáng"
+msgid "{label}: raise by {n} stop"
+msgid_plural "{label}: raise by {n} stops"
+msgstr[0] "{label}: tăng {n} bước sáng"
 
-#: rust/crates/system/src/shortcuts.rs:644
+#: rust/crates/system/src/shortcuts.rs:645
+#, python-brace-format
+msgid "{label}: lower by {n} stop"
+msgid_plural "{label}: lower by {n} stops"
+msgstr[0] "{label}: giảm {n} bước sáng"
+
+#: rust/crates/system/src/shortcuts.rs:650
 #, python-brace-format
 msgid "{label}: raise by {stops} stops"
 msgstr "{label}: tăng {stops} bước sáng"
 
-#: rust/crates/system/src/shortcuts.rs:645
-#, python-brace-format
-msgid "{label}: lower by {stops} stop"
-msgstr "{label}: giảm bớt {stops} bước sáng"
-
-#: rust/crates/system/src/shortcuts.rs:646
+#: rust/crates/system/src/shortcuts.rs:650
 #, python-brace-format
 msgid "{label}: lower by {stops} stops"
 msgstr "{label}: giảm {stops} bước sáng"
 
-#: rust/crates/system/src/shortcuts.rs:657
+#: rust/crates/system/src/shortcuts.rs:661
 msgid "next"
 msgstr "tiếp theo"
 
-#: rust/crates/system/src/shortcuts.rs:657
+#: rust/crates/system/src/shortcuts.rs:661
 msgid "previous"
 msgstr "trước đó"
 
-#: rust/crates/system/src/shortcuts.rs:709
+#: rust/crates/system/src/shortcuts.rs:713
 #, python-brace-format
 msgid "{name} has to be a number, not {value}."
 msgstr "{name} phải là một số, không phải {value}."
 
-#: rust/crates/system/src/shortcuts.rs:714
+#: rust/crates/system/src/shortcuts.rs:718
 msgid "nothing right now"
 msgstr "hiện không có gì"
 
-#: rust/crates/system/src/shortcuts.rs:717
+#: rust/crates/system/src/shortcuts.rs:721
 #, python-brace-format
 msgid "{name} can be {options}, not {value}."
 msgstr "{name} có thể là {options}, không phải {value}."
 
 #. hold, toggle, on and off are values typed on the command line: keep them in English
-#: rust/crates/system/src/shortcuts.rs:722
+#: rust/crates/system/src/shortcuts.rs:726
 msgid "hold needs a key to let go of; use toggle, on or off with --action."
 msgstr "hold cần một phím để nhả; hãy dùng toggle, on hoặc off với --action."
 
-#: rust/crates/system/src/shortcuts.rs:729
+#: rust/crates/system/src/shortcuts.rs:733
 #, python-brace-format
 msgid "{action} needs {name}=… for that."
 msgstr "{action} cần {name}=… cho thao tác đó."
 
-#: rust/crates/system/src/shortcuts.rs:764
+#: rust/crates/system/src/shortcuts.rs:768
 msgid "That failed; Copy diagnostics has the details."
 msgstr "Thao tác thất bại; Sao chép chẩn đoán có thông tin chi tiết."
 
-#: rust/crates/system/src/shortcuts.rs:777
+#: rust/crates/system/src/shortcuts.rs:781
 #, python-brace-format
 msgid "No action called {action}. telescope --list-actions lists them."
 msgstr "Không có hành động nào tên là {action}. Dùng lệnh telescope --list-actions để xem danh sách."
 
-#: rust/crates/system/src/shortcuts.rs:783
+#: rust/crates/system/src/shortcuts.rs:787
 #, python-brace-format
 msgid "{action} has no setting {name}."
 msgstr "{action} không có cài đặt {name}."
 
-#: rust/crates/system/src/shortcuts.rs:795
+#: rust/crates/system/src/shortcuts.rs:799
 #, python-brace-format
 msgid "{action} can't be used right now (no phone, or the control is off)."
 msgstr "Không thể dùng {action} lúc này (không có điện thoại, hoặc nút điều khiển đang tắt)."
 
-#: rust/crates/system/src/shortcuts.rs:972
+#: rust/crates/system/src/shortcuts.rs:976
 msgid "No control matches that search."
 msgstr "Không có nút điều khiển nào khớp với tìm kiếm đó."
 
-#: rust/crates/system/src/shortcuts.rs:972
+#: rust/crates/system/src/shortcuts.rs:976
 msgid "Pick a control."
 msgstr "Chọn một nút điều khiển."
 
-#: rust/crates/system/src/shortcuts.rs:974
+#: rust/crates/system/src/shortcuts.rs:978
 msgid "A modifier can't be a shortcut on its own. Add a key to it."
 msgstr "Phím bổ trợ không thể tự đứng một mình làm phím tắt. Hãy kết hợp thêm một phím khác."
 
-#: rust/crates/system/src/shortcuts.rs:976
+#: rust/crates/system/src/shortcuts.rs:980
 #, python-brace-format
 msgid "Press a key, with Ctrl, Alt, Shift or {meta} if you like."
 msgstr "Nhấn một phím, có thể kết hợp với Ctrl, Alt, Shift hoặc {meta} nếu bạn muốn."
 
-#: rust/crates/system/src/shortcuts.rs:980
+#: rust/crates/system/src/shortcuts.rs:984
 #, python-brace-format
 msgid "{keys} already does \"{action}\". Pick another key."
 msgstr "{keys} đã được gán cho \"{action}\". Hãy chọn phím khác."
 
-#: rust/crates/system/src/shortcuts.rs:989
+#: rust/crates/system/src/shortcuts.rs:993
 #, python-brace-format
 msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
 msgstr "Ở Mọi nơi, {keys} sẽ khiến bạn không thể gõ phím này trong ứng dụng khác. Kết hợp thêm Ctrl, Alt hoặc {meta} sẽ an toàn hơn."
 
-#: rust/crates/system/src/shortcuts.rs:1010
+#: rust/crates/system/src/shortcuts.rs:1014
 #, python-brace-format
 msgid "Unknown ({action})"
 msgstr "Không xác định ({action})"
 
-#: rust/crates/system/src/shortcuts.rs:1031
+#: rust/crates/system/src/shortcuts.rs:1035
 #, python-brace-format
 msgid "{value} (not there now)"
 msgstr "{value} (hiện không có)"
 
-#: rust/crates/system/src/shortcuts.rs:1055
+#: rust/crates/system/src/shortcuts.rs:1059
 msgid "A command can't hold a key down; pick another choice to copy one"
 msgstr "Lệnh không thể giữ phím nhấn xuống; hãy chọn tùy chọn khác để sao chép"
 
-#: rust/crates/system/src/shortcuts.rs:1056
+#: rust/crates/system/src/shortcuts.rs:1060
 msgid "A command line that does the same, for your desktop's own keyboard settings"
 msgstr "Dòng lệnh có cùng tác dụng, dùng cho cài đặt bàn phím của hệ thống"
 
-#: rust/crates/system/src/shortcuts.rs:1066
+#: rust/crates/system/src/shortcuts.rs:1070
 #, python-brace-format
 msgid "Edit {shortcut}"
 msgstr "Sửa {shortcut}"
 
-#: rust/crates/system/src/shortcuts.rs:1067
+#: rust/crates/system/src/shortcuts.rs:1071
 #, python-brace-format
 msgid "Remove {shortcut}"
 msgstr "Gỡ bỏ {shortcut}"
 
-#: rust/crates/system/src/shortcuts.rs:1072
+#: rust/crates/system/src/shortcuts.rs:1076
 msgid "Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings."
 msgstr "Phím tắt toàn hệ thống không khả dụng trên môi trường máy tính để bàn này, vì vậy các phím này chỉ hoạt động bên trong Telescope. Để dùng phím ở mọi nơi, hãy gán lệnh từ Sao chép lệnh trong cài đặt bàn phím của hệ thống."
 
-#: rust/crates/system/src/shortcuts.rs:1175
+#: rust/crates/system/src/shortcuts.rs:1179
 msgid "Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings."
 msgstr "Không thể mở cài đặt phím tắt của hệ thống. Hãy tìm mục Phím tắt trong Cài đặt hệ thống."
 
-#: rust/crates/system/src/shortcuts.rs:1305
+#: rust/crates/system/src/shortcuts.rs:1309
 msgid "Keys for Telescope's controls, including ones that work in other apps."
 msgstr "Phím tắt cho các nút điều khiển của Telescope, bao gồm cả các phím hoạt động trong ứng dụng khác."
 
-#: rust/crates/system/src/shortcuts.rs:1306
+#: rust/crates/system/src/shortcuts.rs:1310
 msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
 msgstr "Nếu không có tiện ích này, phím tắt sẽ không hoạt động và mục Phím tắt sẽ không có trong Cài đặt (các phím tắt của bạn được lưu lại khi tiện ích bật lại)."
 
@@ -7609,6 +7611,14 @@ msgstr "Không thể khởi động lại"
 #: rust/crates/shell/src/sources.rs:1694
 msgid "In use"
 msgstr "Đang dùng"
+
+#, python-brace-format
+#~ msgid "{label}: raise by {stops} stop"
+#~ msgstr "{label}: tăng thêm {stops} bước sáng"
+
+#, python-brace-format
+#~ msgid "{label}: lower by {stops} stop"
+#~ msgstr "{label}: giảm bớt {stops} bước sáng"
 
 #~ msgid "dev_desktop.py --plugin loads this one, so it's always on"
 #~ msgstr "dev_desktop.py --plugin tải tiện ích này, nên tiện ích luôn bật"
