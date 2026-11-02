@@ -4,7 +4,6 @@ use super::*;
 use crate::updates::archives::{tarball, zip_of};
 use crate::updates::{Reply, Updates};
 use serde_json::json;
-use std::cell::Cell;
 use telescope_core::config::ConfigFile;
 use telescope_core::testing::scratch_dir;
 
@@ -224,7 +223,7 @@ fn a_swap_that_fails_midway_leaves_this_version_working() {
     let root = scratch_dir("going-back-midway");
     let app = rust_folder(&root);
     let archive = tarball(&root.join("Telescope-linux.tar.gz"), &PYTHON_LINUX);
-    let moved = Cell::new(0);
+    let moved = std::cell::Cell::new(0);
     // The disk fills up after some of the Python files are in
     let mut flaky = |a: &Path, b: &Path| {
         if a.to_string_lossy().contains(update_guard::STAGING_DIR) {
