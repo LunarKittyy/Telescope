@@ -227,20 +227,161 @@ mod fifo {
     }
 }
 
-#[cfg(windows)]
-mod windows {
+/// What the output's callback and the worker's writes share (the Windows output, and tests on any system).
+#[cfg(any(windows, test))]
+mod queue {
     use crate::jitter::RATE;
-    use crate::worker::MicSink;
-    use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
     use std::collections::VecDeque;
     use std::io;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Condvar, Mutex};
     use std::time::{Duration, Instant};
 
     /// What may wait for the output before a write blocks (about 40 ms, like the Linux pipe).
     const QUEUE: usize = RATE * 40 / 1000;
     /// An output that takes nothing for this long isn't playing: drop the chunk.
-    const STALL: Duration = Duration::from_millis(200);
+    pub const STALL: Duration = Duration::from_millis(200);
+    /// This many dropped chunks in a row, and the output is dead (a restarted audio service stops calling back).
+    const MAX_STALLS: u32 = 25;
+
+    #[derive(Default)]
+    pub struct Shared {
+        samples: Mutex<VecDeque<i16>>,
+        changed: Condvar,
+        failed: AtomicBool,
+    }
+
+    impl Shared {
+        /// The output reported an error: the next write says so.
+        pub fn fail(&self) {
+            self.failed.store(true, Ordering::SeqCst);
+            self.changed.notify_all();
+        }
+
+        /// The callback: each mono sample to every channel, silence when nothing is queued.
+        pub fn fill<T: Copy + Default>(&self, out: &mut [T], channels: usize, convert: impl Fn(i16) -> T) {
+            let mut queue = self.samples.lock().unwrap_or_else(|e| e.into_inner());
+            for frame in out.chunks_mut(channels.max(1)) {
+                let v = queue.pop_front().map(&convert).unwrap_or_default();
+                frame.iter_mut().for_each(|s| *s = v);
+            }
+            self.changed.notify_all();
+        }
+    }
+
+    pub struct Writer {
+        shared: Arc<Shared>,
+        stall: Duration,
+        stalls: u32,
+    }
+
+    impl Writer {
+        pub fn new(shared: Arc<Shared>) -> Writer {
+            Writer { shared, stall: STALL, stalls: 0 }
+        }
+
+        /// Blocks at the output's pace; an error once the output failed or has taken nothing for a long while.
+        pub fn write(&mut self, samples: &[i16]) -> io::Result<()> {
+            let until = Instant::now() + self.stall;
+            let mut queue = self.shared.samples.lock().unwrap_or_else(|e| e.into_inner());
+            while queue.len() > QUEUE && !self.shared.failed.load(Ordering::SeqCst) {
+                let left = until.saturating_duration_since(Instant::now());
+                if left.is_zero() {
+                    self.stalls += 1;
+                    if self.stalls >= MAX_STALLS {
+                        return Err(io::Error::new(io::ErrorKind::TimedOut, "the output stopped taking audio"));
+                    }
+                    return Ok(()); // nothing plays it: drop the chunk rather than queue up delay
+                }
+                queue = self.shared.changed.wait_timeout(queue, left).unwrap_or_else(|e| e.into_inner()).0;
+            }
+            if self.shared.failed.load(Ordering::SeqCst) {
+                return Err(io::Error::other("the output failed"));
+            }
+            self.stalls = 0;
+            queue.extend(samples);
+            Ok(())
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        fn writer(stall_ms: u64) -> (Arc<Shared>, Writer) {
+            let shared = Arc::new(Shared::default());
+            let mut w = Writer::new(shared.clone());
+            w.stall = Duration::from_millis(stall_ms);
+            (shared, w)
+        }
+
+        #[test]
+        fn a_write_fails_once_the_output_reported_an_error() {
+            let (shared, mut w) = writer(5);
+            w.write(&[1; 480]).unwrap();
+            shared.fail();
+            assert!(w.write(&[1; 480]).is_err());
+        }
+
+        #[test]
+        fn an_error_ends_a_write_already_waiting_for_room() {
+            let (shared, mut w) = writer(10_000);
+            w.write(&[1; QUEUE + 100]).unwrap();
+            let s2 = shared.clone();
+            let failer = std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(50));
+                s2.fail();
+            });
+            let started = Instant::now();
+            assert!(w.write(&[1; 480]).is_err());
+            assert!(started.elapsed() < Duration::from_secs(5));
+            failer.join().unwrap();
+        }
+
+        #[test]
+        fn an_output_that_stays_silent_is_dropped_chunks_then_an_error() {
+            let (_shared, mut w) = writer(1);
+            w.write(&[1; QUEUE + 100]).unwrap();
+            for _ in 0..MAX_STALLS - 1 {
+                assert!(w.write(&[1; 480]).is_ok());
+            }
+            assert!(w.write(&[1; 480]).is_err());
+        }
+
+        #[test]
+        fn a_callback_that_runs_again_clears_the_stall_count() {
+            let (shared, mut w) = writer(1);
+            w.write(&[1; QUEUE + 100]).unwrap();
+            for _ in 0..MAX_STALLS - 1 {
+                w.write(&[1; 480]).unwrap();
+            }
+            shared.fill(&mut vec![0i16; QUEUE + 200], 1, |s| s);
+            w.write(&[1; 480]).unwrap();
+            w.write(&[1; QUEUE + 100]).unwrap();
+            for _ in 0..MAX_STALLS - 1 {
+                assert!(w.write(&[1; 480]).is_ok());
+            }
+        }
+
+        #[test]
+        fn the_callback_plays_each_sample_on_every_channel() {
+            let (shared, mut w) = writer(5);
+            w.write(&[3, 4]).unwrap();
+            let mut out = [0i16; 8];
+            shared.fill(&mut out, 2, |s| s);
+            assert_eq!(out, [3, 3, 4, 4, 0, 0, 0, 0]);
+        }
+    }
+}
+
+#[cfg(windows)]
+mod windows {
+    use super::queue::{Shared, Writer};
+    use crate::jitter::RATE;
+    use crate::worker::MicSink;
+    use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+    use std::io;
+    use std::sync::Arc;
 
     /// Every output device with how many channels it plays, for find_vb_cable.
     pub fn output_devices() -> Vec<(String, u32)> {
@@ -254,11 +395,9 @@ mod windows {
             .collect()
     }
 
-    type Queue = Arc<(Mutex<VecDeque<i16>>, Condvar)>;
-
     /// VB-Cable's playback end through the system's sound output (WASAPI).
     pub struct SoundDeviceSink {
-        queue: Queue,
+        writer: Writer,
         _stream: cpal::Stream,
     }
 
@@ -270,51 +409,33 @@ mod windows {
         pub fn open(index: usize) -> Result<SoundDeviceSink, String> {
             let device = cpal::default_host().output_devices().map_err(|e| e.to_string())?.nth(index)
                 .ok_or_else(|| "the device is gone".to_string())?;
-            let queue: Queue = Arc::new((Mutex::new(VecDeque::new()), Condvar::new()));
+            let shared = Arc::new(Shared::default());
             let default = device.default_output_config().map_err(|e| e.to_string())?;
             let channels = default.channels() as usize;
             let config = cpal::StreamConfig { channels: default.channels(), sample_rate: RATE as u32, buffer_size: cpal::BufferSize::Default };
-            let q = queue.clone();
-            let err = |e: cpal::Error| log::warn!("Microphone output: {e}");
+            let (q, failed) = (shared.clone(), shared.clone());
+            // A stream that errored (the audio service restarted, the device went) stops calling back: the next write fails
+            let err = move |e: cpal::Error| {
+                log::warn!("Microphone output: {e}");
+                failed.fail();
+            };
             let stream = match default.sample_format() {
                 cpal::SampleFormat::I16 => device.build_output_stream(config, move |out: &mut [i16], _: &cpal::OutputCallbackInfo| {
-                    fill(&q, out, channels, |s| s);
+                    q.fill(out, channels, |s| s);
                 }, err, None),
                 _ => device.build_output_stream(config, move |out: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                    fill(&q, out, channels, |s| s as f32 / 32768.0);
+                    q.fill(out, channels, |s| s as f32 / 32768.0);
                 }, err, None),
             }
             .map_err(|e| e.to_string())?;
             stream.play().map_err(|e| e.to_string())?;
-            Ok(SoundDeviceSink { queue, _stream: stream })
+            Ok(SoundDeviceSink { writer: Writer::new(shared), _stream: stream })
         }
-    }
-
-    /// The callback: each mono sample to every channel, silence when nothing is queued.
-    fn fill<T: Copy + Default>(q: &Queue, out: &mut [T], channels: usize, convert: impl Fn(i16) -> T) {
-        let (lock, cv) = &**q;
-        let mut queue = lock.lock().unwrap_or_else(|e| e.into_inner());
-        for frame in out.chunks_mut(channels.max(1)) {
-            let v = queue.pop_front().map(&convert).unwrap_or_default();
-            frame.iter_mut().for_each(|s| *s = v);
-        }
-        cv.notify_all();
     }
 
     impl MicSink for SoundDeviceSink {
         fn write(&mut self, samples: &[i16]) -> io::Result<()> {
-            let (lock, cv) = &*self.queue;
-            let until = Instant::now() + STALL;
-            let mut queue = lock.lock().unwrap_or_else(|e| e.into_inner());
-            while queue.len() > QUEUE {
-                let left = until.saturating_duration_since(Instant::now());
-                if left.is_zero() {
-                    return Ok(()); // nothing plays it: drop the chunk rather than queue up delay
-                }
-                queue = cv.wait_timeout(queue, left).unwrap_or_else(|e| e.into_inner()).0;
-            }
-            queue.extend(samples);
-            Ok(())
+            self.writer.write(samples)
         }
     }
 }
