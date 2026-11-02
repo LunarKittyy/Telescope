@@ -7,11 +7,13 @@ Raw material, not finished notes. Every item is one line. (check) marks somethin
 - The desktop app is now written in Rust with the Slint toolkit instead of Python and PyQt6. The phone app and the protocol don't change.
 - Code size: the Python desktop has about 64,000 lines plus about 43,000 lines of tests. The Rust version has about 175,000 lines of Rust (about 25,600 of them in test folders) plus about 11,700 lines of Slint (check: many Rust tests sit inside the code files, so the split is rough).
 - Tests: about 2,700 test functions in the Python version and about 3,760 `#[test]` functions in the Rust version (check: counted with grep, parametrised tests not counted).
-- Linux tarball 45 MB, AppImage 41 MB, Windows setup 37 MB (check: taken from the figures given for this list, not built here).
+- Linux tarball 45 MB, AppImage 41 MB, Windows setup 37 MB, in MiB. Source: release run 41496854076.
 - The last Python release for Windows was a 104 MB installer and a 141 MB portable zip (rust/FINDINGS.md).
 - The Python Linux packages took about 565 MB on disk (rust/FINDINGS.md). The size of the Python Linux tarball itself was not found (check).
 
 ## 2. Measured gains
+
+Most of these predate the finished app. Re-measure both apps the same way before quoting any comparison.
 
 - Start to first painted window: 1,072 ms in the Python app, 65 ms in the Rust prototype (median of 5). Source: rust/FINDINGS.md, Measurements. The prototype had the window only, no plugins.
 - Memory while streaming 1080p30 (RSS): 287 MB in the Python app, 145 MB in the Rust prototype window, 194 to 199 MB in the merged build with the preview drawn. Source: rust/FINDINGS.md, Measurements and With the preview drawn.
