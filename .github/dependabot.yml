@@ -11,3 +11,10 @@ updates:
     directory: /rust
     schedule:
       interval: monthly
+    groups:
+      cargo:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: fontique
+      - dependency-name: skrifa
+      - dependency-name: harfrust
