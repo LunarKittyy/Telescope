@@ -16,65 +16,59 @@ This is a self-signed debug build for development.
 
 ## Run the desktop app from source
 
-Use Python 3.12 or newer. From the repository root, create a development environment:
+The desktop app is a Rust workspace in `rust/`. You need a recent stable Rust (from [rustup](https://rustup.rs)). On Linux it also wants FFmpeg's headers (bindgen reads them, so `clang` too), fontconfig and a few fonts. On Debian and Ubuntu:
 
 ```bash
-cd desktop
-python -m venv .venv
+sudo apt-get install clang pkg-config libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
+  libavfilter-dev libavdevice-dev libfontconfig1-dev libxkbcommon-dev fonts-inter fonts-noto-core fonts-noto-cjk libegl1 libgl1 libdbus-1-3
 ```
 
-Activate it with `source .venv/bin/activate` on Linux or `.venv\Scripts\Activate.ps1` in Windows PowerShell. Then install the same requirements as CI:
+Then, from the repository root:
 
 ```bash
-python -m pip install -r requirements-dev.txt -c constraints.txt
-python -m pip install --no-deps -r requirements-nodeps.txt -c constraints.txt
-python scripts/dev_desktop.py --keep
+cd rust
+cargo run -p telescope-app                      # the app (a build from source keeps its settings in a profile of its own)
+cargo nextest run --workspace --locked          # the tests, run side by side as CI does (cargo install cargo-nextest)
+python tools/i18n.py extract                    # after adding or changing a text, see translating.md
 ```
 
-The second install handles the video dependency whose declared version range conflicts with the version Telescope uses. Keep both steps. In the same activated environment, run:
+Windows needs MSVC and an FFmpeg build, see [Package the app](#package-the-app). The tests need `RUST_MIN_STACK=8388608`, since building a window this size can overflow the 2 MB a test thread gets. Add `CARGO_BUILD_WARNINGS=deny` to build the way CI does, where a compiler warning fails the check. Some tests start a real copy of the app. `a_new_copy_cleans_up_once_it_has_the_lock` fails while another copy of Telescope is running on the machine.
 
-```bash
-python -m pytest -q              # tests (add -n auto to run them in parallel, as CI does)
-python scripts/smoke_check.py    # packaging smoke checks
-python scripts/bench_frames.py   # what each plugin costs a frame
-```
+The page of the Browser camera is checked in Node (`rust/crates/link/tests/page_harness.js`), so the tests want `node` on the path. Without it they skip, and on CI (where `CI` is set) they fail.
 
-A test fails at teardown when it leaves a thread or an active `QTimer` behind or when an exception happens in a Qt callback during it (without the suite's hook PyQt aborts the whole process for those). Left running they fire into whichever test comes next, and that's where Qt crashes, in a different test every run. Stop what the test started in its fixture (a plugin's `shutdown()` usually does it). Timing checks compare against reference work measured in the same run with the `timing` fixture rather than against milliseconds, because a busy CI runner can easily be several times slower than a desktop.
-
-`bench_frames.py` builds the window offscreen with every plugin and runs synthetic 1080p frames through the real frame path: each plugin idle and at its heaviest settings, a session with several on, the stream worker, the preview, Several cameras in one picture and decoding. It prints each one's time per frame, its share of a 30 and a 60 fps frame and how much memory it allocates. `--profile` lists the costliest calls under each row and `--only fun_pack` keeps to one plugin. The vision model is swapped for a stand-in that costs nothing, which leaves only what Telescope's own code adds (Copy diagnostics has the real model's times).
-
-For normal use from source, Linux can run `./start.sh` and Windows `start.bat`. Those launchers create their own environment for running the app; they don't install the test dependencies or activate it in your terminal. Linux still needs the [virtual camera setup](setup.md) for a real stream.
+Linux still needs the [virtual camera setup](setup.md) for a real stream. Plugins are Lua, see [Writing a plugin](writing-plugins.md).
 
 ## The Windows 11 camera
 
-The camera Telescope installs on Windows 11 is a small C++ DLL in `desktop/virtualcamera/` (how it works is in [Architecture](architecture.md#the-windows-11-camera)). Builds need Visual Studio 2022 or its Build Tools with the C++ workload, a Windows 11 SDK, CMake (the C++ workload ships one) and Python with the desktop's requirements, since the build renders the camera's wait screen with the app's own code (`scripts/write_camera_wait_screen.py`). From `desktop/` in a Developer PowerShell:
+The camera Telescope installs on Windows 11 is a small C++ DLL in `rust/windows/virtualcamera/` (how it works is in [Architecture](architecture.md#the-windows-11-camera)). Builds need Visual Studio 2022 or its Build Tools with the C++ workload, a Windows 11 SDK and CMake (the C++ workload ships one). The DLL has the camera's wait screen built in, which the app draws itself, so `rust/tools/build_windows.ps1` first runs `telescope-rs camera-wait-screen` and hands the file to CMake. To build the DLL alone from `rust/` in a Developer PowerShell:
 
 ```powershell
-cmake -S virtualcamera -B virtualcamera/build -A x64
-cmake --build virtualcamera/build --config Release
+cargo run -p telescope-app -- camera-wait-screen target\wait_screen.bin
+cmake -S windows\virtualcamera -B target\camera -A x64 -DTELESCOPE_WAIT_SCREEN=target\wait_screen.bin
+cmake --build target\camera --config Release
 ```
 
-That writes `virtualcamera/build/Release/TelescopeCamera.dll`, where a source checkout looks for it. **Install driver** then copies it into Program Files and registers it. CI builds the same way and puts the DLL in `virtualcamera\` next to `TelescopeDesktop.exe`.
+That writes `target\camera\Release\TelescopeCamera.dll`. **Install driver** copies it into Program Files and registers it, from the `virtualcamera\` folder next to `TelescopeDesktop.exe`.
 
-Change the DLL in a way an installed copy has to be replaced for (anything but comments) and raise `kCameraVersion` in `camera.h` and `MF_VERSION` in `platform/windows.py` together. Settings then offers **Update** to people who have the old one.
+Change the DLL in a way an installed copy has to be replaced for (anything but comments) and raise `kCameraVersion` in `camera.h` and `MF_VERSION` in `crates/outputs/src/wincam.rs` together. Settings then offers **Update** to people who have the old one.
 
 ## Try a change without touching your real install
 
 A dev phone app and a dev desktop run next to the real ones and pair only with each other.
 
 ```bash
-(cd android && ./gradlew installDev)      # "Telescope (dev)", package com.telescope.dev
-cd desktop && python scripts/dev_desktop.py --keep
+(cd android && ./gradlew installDev)                 # "Telescope (dev)", package com.telescope.dev
+(cd rust && cargo run -p telescope-app -- dev --keep)
 ```
 
-Run both from the repository root, with the development environment above activated.
+Run both from the repository root.
 
 - The dev app has its own data, pairings and phone identity. The dev desktop keeps its config and log in a profile folder in your temp dir, runs alongside the real desktop, never writes menu or sign-in entries and uses its own virtual mic ("Telescope Microphone (dev)")
 - **Install over USB** installs the dev APK once `assembleDev` or `installDev` has built it
-- Without `--keep` the profile is fresh on every run, so you pair again each time. With it the profile stays (in `telescope-dev-profile-<user>` under your temp dir) until `python scripts/dev_desktop.py --reset`
-- `--plugin FOLDER` loads a plugin you're writing straight from its folder and restarts the dev desktop on every save. See [Writing a plugin](writing-plugins.md#trying-out-changes)
+- Without `--keep` the profile is fresh on every run, so you pair again each time. With it the profile stays (in `telescope-dev-profile-<user>` under your temp dir) until `telescope-rs dev --reset`
+- `--plugin FOLDER` loads a plugin you're writing straight from its folder and restarts the dev desktop on every save. See [Writing a plugin](writing-plugins.md#checking-your-plugin)
 
-`python scripts/phone_check.py` runs a quick check against the paired dev phone: how long a start takes and how steady the stream is. `--wifi-drop 5` also turns the phone's Wi-Fi off for 5 seconds and times the recovery, and `--handover` checks the automatic Wi-Fi to USB handover. Both need the cable plugged in. It only prints numbers, so the output is fine to paste into an issue or PR.
+`rust/tools/measure.py` times the first painted window and the CPU, memory and delivered frame rate of a streaming desktop, and `rust/tools/stress/` runs it beside game-like loads. `rust/tools/fake_phone.py` is a stand-in phone that serves a recorded clip, for measuring without a phone.
 
 To try the Webcam plugin without a webcam, add a spare v4l2loopback device, feed it a test picture and start the dev desktop with `TELESCOPE_WEBCAM_LOOPBACK=1`, which lists loopback cameras. Telescope's own and ones named as virtual cameras (like OBS Virtual Camera on `/dev/video10`) stay out, so don't use those:
 
@@ -100,9 +94,9 @@ Both apps share one version, the `VERSION` file at the repo root. The build numb
 
 A build is stable (`3.0.0`), nightly (`3.0.0-nightly.123`) or a source checkout (`3.0.0 dev`). The version shows under Updates & About in Settings and in both apps' Copy diagnostics.
 
-## Package the Rust app
+## Package the app
 
-The desktop app in `rust/` packages into the same shape as the old Python release, which lets the Python app's updater install it. `release.yml` runs everything below through `rust-package.yml`.
+The desktop app packages into the shape the old Python release had, which lets the Python app's updater install it ([the update path](../rust/PLAN.md#the-update-path)). `release.yml` runs everything below through `rust-package.yml`.
 
 FFmpeg comes first. `rust/tools/build_ffmpeg.sh` makes a small LGPL build with only the decoders the app opens (about 5 MB instead of about 170 MB) and it wants Ubuntu 22.04 for both targets, Windows' through mingw:
 
@@ -126,11 +120,17 @@ An update replaces the file beside itself in one rename and leaves its permissio
 
 Whatever it's built on sets the oldest Linux it runs on. Ubuntu 22.04 has glibc 2.35, which covers Debian 12, Fedora 36 and anything newer.
 
-On Windows `rust/tools/build_windows.ps1 -Channel nightly -Build 123 -Commit <sha>` with `FFMPEG_DIR` set writes the folder that becomes `Telescope-windows-portable.zip`: `TelescopeDesktop.exe`, `ui-kit`, FFmpeg's and RNNoise's DLLs and both cameras. Because the C runtime is linked into the program, it starts on a Windows without the VC++ redistributable. No Python app is needed for the camera DLL's wait screen, which comes from `telescope-rs camera-wait-screen`. `installer/build.ps1 -Bundle <folder> -Out setup -Rust` packs that folder into the setup.
+On Windows `rust/tools/build_windows.ps1 -Channel nightly -Build 123 -Commit <sha>` with `FFMPEG_DIR` set writes the folder that becomes `Telescope-windows-portable.zip`: `TelescopeDesktop.exe`, `ui-kit`, FFmpeg's and RNNoise's DLLs and both cameras. Because the C runtime is linked into the program, it starts on a Windows without the VC++ redistributable. The camera DLL's wait screen comes from `telescope-rs camera-wait-screen`. `installer/build.ps1 -Bundle <folder> -Out setup -Rust` packs that folder into the setup.
 
-A stamped build (channel `stable` or `nightly`) uses the real settings folder, like the Python app it replaces, where a `dev` build uses a profile of its own.
+A stamped build (channel `stable` or `nightly`) uses the real settings folder, where a `dev` build uses a profile of its own.
 
 `python rust/tools/check_package.py --version 4.2.0 --build 123 --channel nightly <folder, archive or AppImage>` is the package's smoke check.
+
+The packaging scripts use Python 3 for two small jobs, `tools/fetch_rnnoise.py` (RNNoise out of a pinned wheel) and `tools/write_notices.py` (the notices file).
+
+### The vision pack
+
+MediaPipe and its two models come as a separate download that the optional plugins switch on (Auto framing, Background, Expose for my face). `python tools/build_vision_pack.py --check --out ../vision` from `rust/` builds the pack for both systems (pip fetches the other one's wheels) and checks it against `crates/vision/vision_pack.json`, which the app is built with. After changing a pin in `tools/vision-pack-requirements.txt`, run it with `--write` and commit the result. `release.yml` publishes the zips next to the other files.
 
 ## CI
 
@@ -154,18 +154,11 @@ These run on pull requests without publishing. `release.yml` calls them for the 
 | Workflow | Runs for | What it does |
 |---|---|---|
 | `build-apk.yml` | `android/**` | `./gradlew lintDebug testDebugUnitTest`, then `assembleRelease`. In a release it checks the APK isn't debug-signed |
-| `rust.yml` | `rust/**`, `desktop/**` | The `linux` and `windows` checks: builds the workspace and runs its tests with `cargo nextest`, and any compiler warning fails them, with the fonts and the Python desktop app's dependencies some of them compare against. Its `changes` job also checks `VERSION` and that the release checklist names every file. On `master` it runs inside `release.yml` and doesn't start a second time |
-| `rust-parity.yml` | `rust/**`, `desktop/**` | The parity tools' tests and the ledger check, on pull requests and on `master` |
-| `rust-package.yml` | `rust/tools/**`, `installer/**`, `desktop/virtualcamera/**` | Builds both FFmpegs and both packages and an AppImage and runs `check_package.py` on them. On pull requests it also builds a quick `TelescopeSetup.exe` and checks the installer, update and uninstall paths and an unzipped copy moving to the installed one. A release does those on the setup it publishes, in `release.yml` |
-
-`build-linux.yml` and `build-windows.yml` are the Python desktop app's tests and bundles. They only run by hand now. `desktop/` stays in the repository because the parity tools and some Rust tests read it.
+| `rust.yml` | `rust/**` | The `linux` and `windows` checks: builds the workspace and runs its tests with `cargo nextest`, and any compiler warning fails them. Its `changes` job also checks `VERSION` and that the release checklist names every file. On `master` it runs inside `release.yml` and doesn't start a second time |
+| `rust-package.yml` | `rust/tools/**`, `rust/windows/**`, `installer/**` | Builds both FFmpegs and both packages and an AppImage and runs `check_package.py` on them. On pull requests it also builds a quick `TelescopeSetup.exe` and checks the installer, update and uninstall paths and an unzipped copy moving to the installed one. A release does those on the setup it publishes, in `release.yml` |
 
 The Windows setup (`installer/Telescope.iss`) is per-user: it installs to `%LOCALAPPDATA%\Programs\Telescope` without admin, because the app updates itself in place and needs its folder writable. It doesn't touch the camera driver (the first-run checklist installs that). Uninstalling closes a running Telescope, deletes the log, the downloaded adb and the vision download, asks before deleting settings and pairings, and offers to remove the camera driver and firewall rules (one UAC prompt). Keep its `AppId` as it is since Windows finds an existing install by it.
 
 ### `pages.yml`
 
 Publishes `site/`, the landing page, to GitHub Pages on pushes to `master` that touch `site/**`. There's no build step. The repository's Pages source has to be set to **GitHub Actions**. The page is served at `telescope.webcam`, set under Settings → Pages (not a `CNAME` file, which Actions deploys ignore), with DNS in Cloudflare as an unproxied CNAME to `lunarkittyy.github.io`.
-
-### `desktop/scripts/smoke_check.py`
-
-Runs in the two Python workflows before the bundle is assembled. It builds the full app with every plugin, exercises adb discovery and virtual camera detection, does a real authenticated MJPEG round trip against a local test server (including that an unauthenticated request is rejected) and serves a Browser camera page over TLS with an aiortc peer sending video through the WebSocket. A bundle missing `cryptography`, aiortc or the `web/` files fails here. It's no substitute for testing on a real phone, see the [release checklist](release-checklist.md) and [device compatibility](device-compatibility.md).

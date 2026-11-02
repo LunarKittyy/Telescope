@@ -1,6 +1,6 @@
 # Writing a plugin
 
-This page is for the Rust version of Telescope, where plugins are written in Lua with GPU shaders for anything that changes the picture. Plugins written in Python for the current app don't run here (the Python version is in [docs/writing-plugins.md](../../docs/writing-plugins.md)).
+Plugins are written in Lua, with GPU shaders for anything that changes the picture. To switch plugins on and off or install ones other people made, see [Plugins](plugins.md). Plugins written in Python for the old Telescope (API 1) don't run any more.
 
 - [Start from an example](#start-from-an-example)
 - [Checking your plugin](#checking-your-plugin)
@@ -18,7 +18,7 @@ A plugin is a folder. It needs a `plugin.json` describing it and a `main.lua` wi
 
 ## Start from an example
 
-Two small plugins live in [`crates/plugin-host/example-plugins`](../crates/plugin-host/example-plugins):
+Two small plugins live in [`rust/crates/plugin-host/example-plugins`](../rust/crates/plugin-host/example-plugins):
 
 - **black_and_white** has a card with a switch and a slider, saves both and turns the picture grey with a shader. Each phone remembers its own setting.
 - **stream_alerts** has no card. It listens for a stream dropping and coming back and shows a desktop notification each time. It also adds a keyboard shortcut action.
@@ -215,15 +215,15 @@ function plugin.events.stream_lost(e)
 end
 ```
 
-Each function gets the event as a table with its fields (`e.source_id` here). The names and fields are the same as the bus signals in the [Python plugin API](../../desktop/telescope/plugin.py), from `stream_started` and `phone_state_updated` to `people_tracked` and `still_saved`. Your plugin can also send events of its own with `host.emit("my_plugin.something", { ... })` and listen for them under the same name, as long as the name starts with your plugin's name and a dot.
+Each function gets the event as a table with its fields (`e.source_id` here). The names and fields are the ones listed as `event` in [`tests/plugin_api.txt`](../rust/crates/plugin-host/tests/plugin_api.txt), from `stream_started` and `phone_state_updated` to `people_tracked` and `still_saved`. Your plugin can also send events of its own with `host.emit("my_plugin.something", { ... })` and listen for them under the same name, as long as the name starts with your plugin's name and a dot.
 
-`host` has everything else a plugin may ask of Telescope. The full list with each function's arguments is in [`tests/plugin_api.txt`](../crates/plugin-host/tests/plugin_api.txt) and it follows the Python API closely. A few you'll use most:
+`host` has everything else a plugin may ask of Telescope. The full list with each function's arguments is in [`tests/plugin_api.txt`](../rust/crates/plugin-host/tests/plugin_api.txt). A few you'll use most:
 
 | Call | What it does |
 |---|---|
 | `host.schedule_save()` | Save your settings soon |
 | `host.is_streaming()`, `host.focused_source_id()` | Whether a stream runs, and which one the window shows |
-| `host.phone_control({ action = "torch", value = 1 })` | Send a control to the phone ([the control API](../../docs/protocol.md)) |
+| `host.phone_control({ action = "torch", value = 1 })` | Send a control to the phone ([the control API](protocol.md)) |
 | `host.show_issue(key, { title = "...", text = "..." })`, `host.clear_issue(key)` | A banner above the window's body |
 | `host.view()`, `host.set_view({ zoom = 2 })` | The window's zoom, pan, flip and rotation |
 | `host.take_view()`, `host.steer_view(zoom, pan_x, pan_y)`, `host.release_view()` | Moving the view yourself, like Auto framing does |
@@ -267,7 +267,7 @@ cargo run -p telescope-plugin-host --bin plugin-texts -- extract path/to/my_plug
 cargo run -p telescope-plugin-host --bin plugin-texts -- new sv path/to/my_plugin      # starts locale/sv.po
 ```
 
-Run `extract` again after changing a text. New texts are added to every `.po` file and translations still in use stay as they are. `status` shows how far each language is. A text is looked up in your plugin's catalog first, then in Telescope's own (common words like "Camera" arrive translated already) and then it stays as you wrote it. `sv_SE` uses `sv.po` when there's no `sv_SE.po`. Texts in your `.slint` file use Slint's `@tr()`. [Translating](../../docs/translating.md) explains the `.po` format.
+Run `extract` again after changing a text. New texts are added to every `.po` file and translations still in use stay as they are. `status` shows how far each language is. A text is looked up in your plugin's catalog first, then in Telescope's own (common words like "Camera" arrive translated already) and then it stays as you wrote it. `sv_SE` uses `sv.po` when there's no `sv_SE.po`. Texts in your `.slint` file use Slint's `@tr()`. [Translating](translating.md) explains the `.po` format.
 
 A `.po` file that can't be read never stops your plugin from loading. The plugin stays in English and the log names the file. `check-plugin` lists broken catalogs, along with translations that have a `{field}` the English doesn't (those show in English). Catalogs count as part of your plugin's files, so people have to switch it on again after you change one.
 

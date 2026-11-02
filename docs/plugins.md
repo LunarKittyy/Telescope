@@ -12,7 +12,7 @@ Want to write one? That's in [Writing a plugin](writing-plugins.md).
 
 The tiles are grouped by what the plugins are for: Camera, Look, People, Preview tools, On screen, Sound, Streaming and devices and Extras. Each group has its own colour, and its plugins' cards in the main window take that colour too. Within a group they're in alphabetical order. Type in **Search plugins** to find one by its name or description. **All**, **On** and **Off** next to it show every plugin, only the ones switched on or only the ones switched off.
 
-Switching a plugin off deletes nothing. Its settings stay saved and everything is back once you switch it on again. **Turn all back on** does that for every built-in plugin. The restart bar counts every change still waiting, which lets you flip several switches and restart just once.
+Switching a plugin off deletes nothing. Its settings stay saved and everything is back once you switch it on again. **Reset to defaults** puts the built-in plugins back to the standard selection, with the optional ones off and the rest on. The restart bar counts every change still waiting, which lets you flip several switches and restart just once.
 
 Some tiles carry a badge:
 
@@ -33,7 +33,7 @@ Shared plugins come as a `.zip` file.
 4. Click **Restart now** in the bar at the bottom
 
 > [!WARNING]
-> A plugin is Python code that runs inside Telescope with no sandbox. It can read and change your files, use the network and start programs, like anything else running as you. Only install plugins from a source you trust.
+> A plugin is a Lua script that runs inside Telescope. It can't open files, start programs or reach the network, but it can change what your camera shows, control the phone and show notifications. Only install plugins from a source you trust.
 
 Good to know:
 
@@ -64,4 +64,4 @@ Its tile on the Plugins tab says why:
 | A plugin that comes with Telescope already has that name | The plugin needs renaming |
 | Other users on this computer could change it | Fix the folder's permissions or install it again with **Install** |
 | It contains a link to somewhere else | Plugins have to be plain files and folders |
-| It contains compiled code | Plugins have to be readable Python, with no `.pyc`, `.so` or `.pyd` files |
+| It contains compiled code | Plugins have to be source code, with no `.so`, `.dll`, `.pyc` or other compiled files |

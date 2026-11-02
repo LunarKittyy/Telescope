@@ -1,15 +1,9 @@
 # Translation review records
 
-Each language's JSON file belongs with its `.po` catalogue in `telescope/locale/`. Together they preserve translation progress without Firebase.
+One JSON file per language, from the translation workbench: a hosted editor that drew Telescope's Qt screens and collected wordings from contributors. It went with the Python app, and nothing in this repository reads these files now. They keep who approved which wording.
 
-- `machine` records the fingerprints of the initial AI translations. It grants no approval.
+- `machine` records the fingerprints of the initial machine translations. It grants no approval.
 - `contributions` records the author and fingerprint of imported or accepted human wording.
 - `approvals` records the reviewer, timestamp and fingerprint of explicitly approved wording.
 
-A fingerprint covers the source text, context, plural, notes and all translated forms. An approval counts only when that fingerprint still matches a complete, non-fuzzy translation. Source locations are excluded to avoid losing approvals when lines move. Missing records mean unapproved, never implicitly human-reviewed.
-
-The initial files have machine provenance and no approvals. `scripts/translation_preview.py --record-machine-baseline` is an explicit setup operation; don't run it after human work as a general refresh command.
-
-The shared project's admin language export includes the `.po` and review JSON in one ZIP. Copy both into the checkout and commit them together. Pending suggestions and import conflicts belong in the separate whole-project backup. The `.po` format alone can't preserve the approval history.
-
-The [workbench guide](../../docs/translation-preview.md) covers local review, project imports, conflict handling and Firebase setup.
+A fingerprint covers the source text, context, plural, notes and all translated forms. An approval counts only when that fingerprint still matches a complete, non-fuzzy translation. Source locations are left out so approvals survive lines moving. A missing record means unapproved, never implicitly reviewed.

@@ -1,7 +1,7 @@
 package com.telescope
 
 // Black screen's taps, kept apart from the views so it runs on the JVM. Same rules as Browser camera's page
-// (desktop/telescope/web/app.js): the first tap brings the hint back, a second one while it shows wakes the screen.
+// (rust/crates/link/web/app.js): the first tap brings the hint back, a second one while it shows wakes the screen.
 class BlackScreenState {
     var black = false
         private set

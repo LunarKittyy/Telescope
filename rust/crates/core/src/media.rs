@@ -193,7 +193,7 @@ pub trait StreamFrames: FrameStore {
 }
 
 /// Whether Setup's saved settings ask for the graphics card decoder. Off unless turned on, as in Python: beside a heavy game the decoder's
-/// jobs wait for the app's own graphics work, and the picture stutters where the processor holds 30 fps (rust/PLAN.md has the numbers).
+/// jobs wait for the app's own graphics work, and the picture stutters where the processor holds 30 fps.
 pub fn hardware_decode_on(setup: Option<&serde_json::Value>) -> bool {
     setup.and_then(|c| c.get("hw_decode")) == Some(&serde_json::Value::Bool(true))
 }

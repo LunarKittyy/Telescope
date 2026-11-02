@@ -1,4 +1,4 @@
--- Stream alerts: an example of a plugin that follows events and uses a host service. rust/docs/writing-plugins.md explains it.
+-- Stream alerts: an example of a plugin that follows events and uses a host service. docs/writing-plugins.md explains it.
 
 local plugin = { events = {} }
 

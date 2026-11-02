@@ -10,7 +10,7 @@ A small Rust version of the desktop app, built to find out whether a full rewrit
 
 ## What was tested and how
 
-Nothing in `desktop/` or `android/` changed. The owner's phone wasn't plugged in and its app wasn't reachable over Wi-Fi. Two stand-ins did the work instead.
+Nothing in the Python app or `android/` changed. The owner's phone wasn't plugged in and its app wasn't reachable over Wi-Fi. Two stand-ins did the work instead.
 
 - **The real Android app on the emulator** (`./gradlew assembleDev` and the dev app installed on the `tscope_api36` emulator). `telescope-rs pair --usb` paired over adb (reverse tunnel plus the pairing broadcast), and both the headless stream and the window streamed its camera at 1280x720, 30 fps, into `/dev/video0`. `ffmpeg -f v4l2 -i /dev/video0` read the picture back. Three controls went through and showed up in `/v1/state` (`ae_comp` 0 to 3, `ois` on to off, `nr_mode` 1 to 2). The emulator's camera stops at 720p.
 - **A fake phone** (`tools/fake_phone.py`) for the 1080p30 numbers. It serves the session and stream ports over TLS like the phone does, answers `/v1/state` with `docs/state.json` (minus the error and heat fields) and plays a 60 s 1080p30 High-profile clip at about 8 Mbps as `/v1/video.h264`. Both apps used it as an already-paired phone at `127.0.0.2` and got the same bytes. Python ran as the dev desktop (`main.py` with `TELESCOPE_DEV_PROFILE`, resuming the stream on start).
@@ -90,7 +90,7 @@ A Windows build would land around 20 to 25 MB unpacked. That's the binary (a bit
 
 ![Camera card at 1.5x: Qt and Slint](docs/camera-card-1.5x.png)
 
-The Qt pictures come from the real window built by `desktop/scripts/translation_scenes.py` offscreen (Pixel 8 paired, not streaming). The Slint ones come from `telescope-rs snapshot`, which puts the window in the same state and saves what it drew. The mean difference across the card is 2.3 out of 255 per pixel and what's left is mostly glyph edges a pixel apart.
+The Qt pictures come from the real window built by the Python app's translation scenes offscreen (Pixel 8 paired, not streaming). The Slint ones come from `telescope-rs snapshot`, which puts the window in the same state and saves what it drew. The mean difference across the card is 2.3 out of 255 per pixel and what's left is mostly glyph edges a pixel apart.
 
 How it got there: the first try was already close because the sizes and colours came straight from `theme.py` and `widgets/common.py`. Measuring every widget's geometry in the Qt window (`QWidget.mapTo` on each child) then fixed the rest in a few rounds. The things that needed noticing rather than reading:
 
@@ -111,7 +111,7 @@ What doesn't match or wasn't checked:
 
 ## Plugins
 
-Built-in plugins become Rust modules compiled in, each implementing a `Plugin` trait with the same hooks and an event bus like `plugin.py`'s. The rules in `desktop/ARCHITECTURE.md` carry over as they are. Rust's module privacy makes "no plugin imports another" something the compiler checks.
+Built-in plugins become Rust modules compiled in, each implementing a `Plugin` trait with the same hooks and an event bus like `plugin.py`'s. The rules in `ARCHITECTURE.md` carry over as they are. Rust's module privacy makes "no plugin imports another" something the compiler checks.
 
 Plugins people add are the real problem, because today's are Python and can use numpy and OpenCV. The options:
 
@@ -123,7 +123,7 @@ WASM for frames plus `.slint` for cards fits best. Either way every existing add
 
 ## What a Windows build needs
 
-- The virtual camera stays the C++ DLL in `desktop/virtualcamera/`. Rust writes NV12 into its `Global\TelescopeCamera<slot>` shared memory with the 64-byte header from `shared_frame.h` (odd frame counter while writing) through the `windows` crate, plus the Media Foundation registration that `vcam.py` and the Windows platform code do now. UnityCapture's shared memory for Windows 10 is the same kind of work.
+- The virtual camera stays the C++ DLL in `windows/virtualcamera/`. Rust writes NV12 into its `Global\TelescopeCamera<slot>` shared memory with the 64-byte header from `shared_frame.h` (odd frame counter while writing) through the `windows` crate, plus the Media Foundation registration that `vcam.py` and the Windows platform code do now. UnityCapture's shared memory for Windows 10 is the same kind of work.
 - Decoding through D3D11VA in FFmpeg or Media Foundation's H.264 decoder.
 - femtovg wants OpenGL. Slint's skia or software renderer is the fallback for machines whose drivers don't manage that.
 - The adb download flow, the installer and code signing, which should all get simpler with one executable.

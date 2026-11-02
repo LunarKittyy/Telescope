@@ -3,8 +3,7 @@
 Everything that has to hold before a version gets tagged. Most of it is checked by something other than a person now:
 
 - **The Release workflow** runs the desktop tests on both systems, the Android unit tests, the package checks, the installer checks (install, update, uninstall, an unzipped copy moving to the installed one) and `.github/check_release.py` (the APK's signing key, the version in every file, what the bundles carry and the manifest's checksums). It won't publish when one of them fails.
-- **`automation/release-testing/emulator_pass.py`** goes through what an Android emulator and an isolated Linux profile can do against the nightly: a fresh phone install and Get set up, USB pairing, streaming with the phone's Status card and Live Update, transforms and the wait screen in the virtual camera, the remote start toast, re-pairing and removing from either side, the Start failure banner, the heat step, plugins (install, the warning, black and white output, changed files, a plugin that crashes, a built-in switched off, Remove), a broken config, single instance, the Linux menu entry and sign-in entry, Copy diagnostics and updating an older phone app over USB. Its [README](../automation/release-testing/README.md) has the setup.
-- **`automation/release-testing/windows_pass.py`** does the same on a Windows VM, driving the app the way a user would: opening the exe from inside the zip, an install without an admin prompt, the first start (splash, never Not Responding), the icon, Install driver with one prompt for Windows PowerShell and the camera's name in DirectShow, Settings and the other dialogs opening centred with nothing flashing up, the security fix and Rename for a driver an older version registered, installing a plugin with Install and by dragging it from Explorer, Get adb and adb gone after quitting, uninstalling, updating the installed previous release, an unzipped copy updating into the installed one or in place, a copy on a network drive (the same rule as a USB stick) and an update cut short.
+- **`automation/release-testing/windows_pass.py`** does the Windows part against the nightly on a Windows 11 VM, driving the app the way a user would: opening the exe from inside the zip, an install without an admin prompt, the first start (splash, never Not Responding), the icon, Install driver with one prompt for Windows PowerShell and the camera's name in DirectShow, Settings and the other dialogs opening centred with nothing flashing up, the security fix and Rename for a driver an older version registered, installing a plugin with Install and by dragging it from Explorer, Get adb and adb gone after quitting, uninstalling, updating the installed previous release, an unzipped copy updating into the installed one or in place, a copy on a network drive (the same rule as a USB stick) and an update cut short.
 - **`rust/tools/check_package.py`** looks into the desktop packages: what the updater and the setup need, FFmpeg's size and licence, and that the program in them runs and knows its stamp. `rust-package.yml` runs it on each package and `release.yml` runs it again on the archives it publishes, next to `installer/check.ps1 -Rust` and `rust/tools/windows_move_check.ps1`.
 - **`.github/checklist_due.py`** lists which of the sections below the changes since the last release can reach.
 
@@ -13,7 +12,7 @@ That leaves a short pass on a real phone every release plus whatever sections ar
 ## Cutting a stable release
 
 1. Set `VERSION` to the new version (e.g. `3.1.0`) and merge that to `master`.
-2. Against that commit's nightly: run `emulator_pass.py` and `windows_pass.py`, go through [Every release](#every-release), then run `python3 .github/checklist_due.py` and go through each section it lists.
+2. Against that commit's nightly: run `windows_pass.py`, go through [Every release](#every-release), then run `python3 .github/checklist_due.py` and go through each section it lists.
 3. Tag it and push the tag: `git tag v3.1.0 <commit> && git push origin v3.1.0`.
 4. `release.yml` builds everything and publishes the release. It refuses a tag that doesn't match `VERSION`.
 5. Merge the draft PRs held for the release: README and website screenshots or text that show what's new. Until the release is out they would advertise the nightly.
@@ -23,28 +22,27 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 ## Every release
 
-- [ ] `emulator_pass.py` passes against the nightly (a skip needs a reason that holds, like an emulator camera without 1080p).
 - [ ] `windows_pass.py` passes against the nightly on a VM restored to a clean snapshot.
-- [ ] `python scripts/phone_check.py --wifi-drop 5 --handover` in `desktop/` passes against the dev app on a real phone (it exits with 1 when something didn't work).
+- [ ] With the dev app and `telescope-rs dev --keep` on a real phone, a 5 second Wi-Fi drop while streaming recovers by itself and plugging in the cable moves the stream to USB without a gap.
 - [ ] What this release's notes promise works on a real phone and on both desktops.
 - [ ] Camera controls (lens, exposure, WB, OIS) apply live on a real phone and match what the desktop shows.
 - [ ] A call or OBS on Linux and on Windows picks up the Telescope camera and the Telescope microphone and still has them after a Stop and Start.
-- [ ] `desktop/constraints.txt` hasn't drifted out of date and for every dependency bumped since the last release its entries in [Upstream bugs](upstream-bugs.md) are checked (fixed ones have their workaround dropped).
+- [ ] `rust/Cargo.lock` and the vision pack's pins haven't drifted out of date and for every dependency bumped since the last release its entries in [Upstream bugs](upstream-bugs.md) are checked (fixed ones have their workaround dropped).
 - [ ] Device-compatibility matrix updated with test results.
-- [ ] Decided whether to translate this release's new texts first (`python scripts/i18n.py status` in `desktop/` shows what's left).
+- [ ] Decided whether to translate this release's new texts first (`python tools/i18n.py status` in `rust/` shows what's left).
 - [ ] Release notes written in `.github/release-notes/<VERSION>.md` (the release uses them; without one it falls back to generated notes).
 
 ## Only when due
 
 `checklist_due.py` reads the comment under each heading below: the files and packages that section depends on. A section is due when one of them changed since the last release. Code that everything leans on (the main window, the stream service, the protocol) is listed as shared and a change there brings up every section as worth a look along with how big the change is. How far it reaches is for a person to judge. Any other file that's in no section makes the script fail until someone puts it in one, which keeps the lists from going stale. When unsure where a file goes, put it in more than one section.
 
-<!-- shared: desktop/main.py desktop/telescope/app.py desktop/telescope/models.py desktop/telescope/plugin.py desktop/telescope/plugin_loader.py desktop/telescope/session.py desktop/telescope/theme.py desktop/telescope/i18n.py desktop/telescope/version.py desktop/telescope/__init__.py desktop/telescope/plugins/__init__.py desktop/telescope/widgets/__init__.py desktop/telescope/widgets/common.py desktop/telescope/widgets/tiles.py desktop/telescope/widgets/banner.py desktop/telescope/widgets/line_icons.py desktop/requirements.txt desktop/constraints.txt android/app/src/main/kotlin/com/telescope/MainActivity.kt android/app/src/main/kotlin/com/telescope/CameraStreamService.kt android/app/src/main/kotlin/com/telescope/Protocol.kt android/app/src/main/kotlin/com/telescope/Strings.kt android/app/src/main/kotlin/com/telescope/StreamPrefs.kt android/app/src/main/kotlin/com/telescope/CardHeader.kt android/app/src/main/kotlin/com/telescope/SystemBars.kt android/app/src/main/AndroidManifest.xml android/app/src/main/res/layout/** android/app/src/main/res/values/** android/app/src/main/res/xml/** android/app/src/main/res/menu/** android/app/src/main/res/resources.properties android/app/build.gradle android/build.gradle android/settings.gradle android/gradle.properties android/gradle/** android/gradlew android/gradlew.bat .github/workflows/build-apk.yml VERSION rust/Cargo.toml rust/Cargo.lock rust/app/Cargo.toml rust/app/build.rs rust/app/src/** rust/crates/core/** rust/crates/shell/** rust/crates/ui-kit/** rust/crates/plugin-host/** rust/crates/*/Cargo.toml ; packages: pyqt6 pyqt6-qt6 pyqt6-sip -->
+<!-- shared: android/app/src/main/kotlin/com/telescope/MainActivity.kt android/app/src/main/kotlin/com/telescope/CameraStreamService.kt android/app/src/main/kotlin/com/telescope/Protocol.kt android/app/src/main/kotlin/com/telescope/Strings.kt android/app/src/main/kotlin/com/telescope/StreamPrefs.kt android/app/src/main/kotlin/com/telescope/CardHeader.kt android/app/src/main/kotlin/com/telescope/SystemBars.kt android/app/src/main/AndroidManifest.xml android/app/src/main/res/layout/** android/app/src/main/res/values/** android/app/src/main/res/xml/** android/app/src/main/res/menu/** android/app/src/main/res/resources.properties android/app/build.gradle android/build.gradle android/settings.gradle android/gradle.properties android/gradle/** android/gradlew android/gradlew.bat .github/workflows/build-apk.yml VERSION rust/Cargo.toml rust/Cargo.lock rust/app/Cargo.toml rust/app/build.rs rust/app/src/** rust/crates/core/** rust/crates/shell/** rust/crates/ui-kit/** rust/crates/plugin-host/** rust/crates/*/Cargo.toml -->
 
-<!-- ignore: desktop/tests/** rust/.config/nextest.toml rust/tools/stress/** desktop/scripts/check_plugin.py desktop/scripts/dev_desktop.py desktop/scripts/i18n.py desktop/scripts/translation_*.py desktop/scripts/translation_preview/** desktop/translation-state/** desktop/scripts/phone_check.py desktop/scripts/smoke_check.py desktop/scripts/bench_frames.py desktop/scripts/text_fit.py desktop/scripts/windows_move_check.py desktop/scripts/write_build_info.py desktop/examples/** desktop/telescope/locale/** desktop/MODULES.md desktop/ARCHITECTURE.md desktop/pytest.ini desktop/requirements-dev.txt android/app/src/test/** android/app/proguard-rules.pro docs/** site/** automation/** README.md CONTRIBUTING.md CLAUDE.md LICENSE .gitignore .github/release-notes/** .github/pull_request_template.md .github/ISSUE_TEMPLATE/** .github/NIGHTLY_NOTES.md .github/dependabot.yml .github/check_release.py .github/checklist_due.py .github/workflows/pages.yml .github/workflows/dependency-graph.yml .github/DISCUSSION_TEMPLATE/** .github/FUNDING.yml .github/python_dependency_snapshot.py desktop/THIRD_PARTY_NOTICES.txt android/app/src/main/res/drawable*/** android/app/src/main/res/mipmap*/** android/app/src/main/res/color/** android/app/src/main/res/values-*/** rust/app/tests/** rust/crates/*/tests/** rust/crates/**/*_tests.rs rust/parity/** rust/docs/** rust/tools/fake_*.py rust/tools/measure.py rust/tools/python_probe/** rust/PLAN.md rust/ARCHITECTURE.md rust/FINDINGS.md rust/.gitignore .github/workflows/rust.yml .github/workflows/rust-parity.yml desktop/scripts/config_fixtures.py rust/tools/check_package.py rust/tools/write_notices.py ; packages: pytest pytest-xdist execnet iniconfig pluggy pygments -->
+<!-- ignore: rust/.config/nextest.toml rust/tools/stress/** android/app/src/test/** android/app/proguard-rules.pro docs/** site/** automation/** README.md CONTRIBUTING.md CLAUDE.md LICENSE .gitignore .github/release-notes/** .github/pull_request_template.md .github/ISSUE_TEMPLATE/** .github/NIGHTLY_NOTES.md .github/dependabot.yml .github/check_release.py .github/checklist_due.py .github/workflows/pages.yml .github/workflows/dependency-graph.yml .github/DISCUSSION_TEMPLATE/** .github/FUNDING.yml .github/python_dependency_snapshot.py android/app/src/main/res/drawable*/** android/app/src/main/res/mipmap*/** android/app/src/main/res/color/** android/app/src/main/res/values-*/** rust/app/tests/** rust/crates/*/tests/** rust/crates/**/*_tests.rs rust/parity/** rust/docs/** rust/tools/fake_*.py rust/tools/measure.py rust/tools/python_probe/** rust/PLAN.md rust/ARCHITECTURE.md rust/FINDINGS.md rust/.gitignore .github/workflows/rust.yml rust/tools/check_package.py rust/tools/write_notices.py rust/fixtures/** rust/locale/** rust/tools/i18n.py -->
 
 ### Windows packaging
 
-<!-- due: installer/** desktop/telescope.spec desktop/scripts/build_bootloader.py desktop/scripts/write_camera_wait_screen.py desktop/resources/** desktop/unitycapture/** desktop/virtualcamera/** desktop/start.bat desktop/update_guard.py desktop/telescope/splash.py desktop/telescope/platform/windows.py desktop/telescope/platform/winjob.py desktop/telescope/platform/__init__.py desktop/telescope/platform/adb_download.py desktop/telescope/vcam.py desktop/telescope/single_instance.py desktop/telescope/widgets/adb.py desktop/scripts/write_splash.py desktop/scripts/write_icon.py desktop/scripts/windows_driver_check.ps1 .github/workflows/build-windows.yml .github/workflows/release.yml .github/workflows/rust-package.yml rust/tools/build_windows.ps1 rust/tools/build_ffmpeg.sh rust/tools/ffmpeg_libs.ps1 rust/tools/fetch_rnnoise.py rust/tools/windows_move_check.ps1 rust/crates/outputs/src/win*.rs rust/crates/outputs/src/mf.rs rust/crates/outputs/src/unitycapture.rs rust/crates/outputs/src/wait_screen.rs rust/crates/outputs/src/webcams_win.rs rust/crates/system/src/splash*.rs rust/crates/system/src/winapp.rs rust/crates/system/src/registry.rs rust/crates/system/src/single_instance.rs rust/crates/system/src/update_guard.rs rust/crates/system/src/setup_move*.rs rust/crates/system/src/*_windows.rs rust/crates/link/src/winjob.rs rust/crates/link/src/adb_download.rs ; packages: pyinstaller pyinstaller-hooks-contrib altgraph packaging setuptools jinja2 markupsafe pywin32 -->
+<!-- due: installer/** .github/workflows/release.yml .github/workflows/rust-package.yml rust/tools/build_windows.ps1 rust/tools/build_ffmpeg.sh rust/tools/ffmpeg_libs.ps1 rust/tools/fetch_rnnoise.py rust/tools/windows_move_check.ps1 rust/crates/outputs/src/win*.rs rust/crates/outputs/src/mf.rs rust/crates/outputs/src/unitycapture.rs rust/crates/outputs/src/wait_screen.rs rust/crates/outputs/src/webcams_win.rs rust/crates/system/src/splash*.rs rust/crates/system/src/winapp.rs rust/crates/system/src/registry.rs rust/crates/system/src/single_instance.rs rust/crates/system/src/update_guard.rs rust/crates/system/src/setup_move*.rs rust/crates/system/src/*_windows.rs rust/crates/link/src/winjob.rs rust/crates/link/src/adb_download.rs rust/windows/** rust/app/resources/** -->
 
 `windows_pass.py` checks the rest of Windows packaging. These need a real phone:
 
@@ -55,7 +53,7 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 ### Linux system setup
 
-<!-- due: desktop/start.sh desktop/telescope/platform/linux.py desktop/telescope/platform/autostart.py desktop/telescope/vcam.py .github/workflows/build-linux.yml .github/workflows/rust-package.yml rust/tools/package_linux.sh rust/tools/package_appimage.sh rust/tools/AppRun rust/tools/fonts.conf rust/tools/start.sh rust/tools/main_stub.py rust/tools/build_ffmpeg.sh rust/crates/outputs/src/linux_setup.rs rust/crates/outputs/src/v4l2.rs rust/crates/system/src/autostart.rs rust/crates/system/src/hotkeys_portal.rs ; packages: pyvirtualcam jeepney -->
+<!-- due: .github/workflows/rust-package.yml rust/tools/package_linux.sh rust/tools/package_appimage.sh rust/tools/AppRun rust/tools/fonts.conf rust/tools/start.sh rust/tools/main_stub.py rust/tools/build_ffmpeg.sh rust/crates/outputs/src/linux_setup.rs rust/crates/outputs/src/v4l2.rs rust/crates/system/src/autostart.rs rust/crates/system/src/hotkeys_portal.rs -->
 
 - [ ] Module not loaded: Start asks once with the startup box ticked and after a reboot Start doesn't ask. Unticked, it asks again after a reboot.
 - [ ] Without pkexec (or with no polkit agent): Start shows the command banner, Copy command works and running it then Start streams.
@@ -64,7 +62,7 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 ### Updates and settings from older versions
 
-<!-- due: desktop/telescope/updates.py desktop/update_guard.py desktop/telescope/plugins/updates.py desktop/telescope/config.py android/app/src/main/kotlin/com/telescope/Updater.kt android/app/src/main/kotlin/com/telescope/UpdateLogic.kt android/app/src/main/kotlin/com/telescope/UpdateHttp.kt .github/write_manifest.py .github/workflows/release.yml installer/** rust/crates/system/src/updates.rs rust/crates/system/src/updates_plugin.rs rust/crates/system/ui/updates.slint rust/crates/system/src/update_guard.rs -->
+<!-- due: android/app/src/main/kotlin/com/telescope/Updater.kt android/app/src/main/kotlin/com/telescope/UpdateLogic.kt android/app/src/main/kotlin/com/telescope/UpdateHttp.kt .github/write_manifest.py .github/workflows/release.yml installer/** rust/crates/system/src/updates.rs rust/crates/system/src/updates_plugin.rs rust/crates/system/ui/updates.slint rust/crates/system/src/update_guard.rs -->
 
 - [ ] Desktop on the previous nightly on Linux: the Update button appears, Update and restart replaces the app and it comes back on the new version with the stream working. On Windows `windows_pass.py` does the update and what's left is checking that the stream works after it.
 - [ ] AppImage on the previous nightly: Update and restart replaces the file in place, it comes back on the new version and the app menu entry still starts it.
@@ -77,7 +75,7 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
-<!-- due: desktop/telescope/pairing.py desktop/telescope/discovery.py desktop/telescope/ip_utils.py desktop/telescope/pinned_https.py desktop/telescope/session_client.py desktop/telescope/phones.py desktop/telescope/phone_client.py desktop/telescope/dev_profile.py desktop/telescope/plugins/connection.py desktop/telescope/plugins/setup.py desktop/telescope/plugins/onboarding.py desktop/telescope/platform/adb_download.py desktop/telescope/widgets/adb.py desktop/telescope/widgets/qr.py android/app/src/main/kotlin/com/telescope/Pairing.kt android/app/src/main/kotlin/com/telescope/PairedComputers.kt android/app/src/main/kotlin/com/telescope/SessionServer.kt android/app/src/main/kotlin/com/telescope/SessionEndpoint.kt android/app/src/main/kotlin/com/telescope/LanAnnouncer.kt android/app/src/main/kotlin/com/telescope/WifiLink.kt android/app/src/main/kotlin/com/telescope/TlsIdentity.kt android/app/src/main/kotlin/com/telescope/PhoneTls.kt android/app/src/main/kotlin/com/telescope/ScanActivity.kt android/app/src/main/kotlin/com/telescope/SetupSteps.kt android/app/src/main/kotlin/com/telescope/WaitingService.kt android/app/src/main/kotlin/com/telescope/RemoteStartNotice.kt rust/crates/link/** ; packages: zeroconf ifaddr cryptography cffi pycparser pyopenssl truststore certifi qrcode -->
+<!-- due: android/app/src/main/kotlin/com/telescope/Pairing.kt android/app/src/main/kotlin/com/telescope/PairedComputers.kt android/app/src/main/kotlin/com/telescope/SessionServer.kt android/app/src/main/kotlin/com/telescope/SessionEndpoint.kt android/app/src/main/kotlin/com/telescope/LanAnnouncer.kt android/app/src/main/kotlin/com/telescope/WifiLink.kt android/app/src/main/kotlin/com/telescope/TlsIdentity.kt android/app/src/main/kotlin/com/telescope/PhoneTls.kt android/app/src/main/kotlin/com/telescope/ScanActivity.kt android/app/src/main/kotlin/com/telescope/SetupSteps.kt android/app/src/main/kotlin/com/telescope/WaitingService.kt android/app/src/main/kotlin/com/telescope/RemoteStartNotice.kt rust/crates/link/** ; packages: certifi -->
 
 - [ ] Add phone by QR over Wi-Fi on Linux and on Windows and by plugging in over USB on Windows.
 - [ ] The setup guide ticks each step as it's done and the video stage replaces it after the first stream. The APK installs through its QR download link and through its own Install over USB button.
@@ -101,7 +99,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Streaming
 
-<!-- due: desktop/telescope/stream.py desktop/telescope/stream_flow.py desktop/telescope/sources.py desktop/telescope/h264_reader.py desktop/telescope/mjpeg_reader.py desktop/telescope/udp_reader.py desktop/telescope/packets.py desktop/telescope/h264_mosh.py desktop/telescope/jpeg_guard.py desktop/telescope/pyav_vaapi.py desktop/telescope/widgets/vaapi_setup.py desktop/telescope/plugins/stream_output.py desktop/telescope/plugins/transforms.py desktop/telescope/plugins/monitoring.py desktop/telescope/diagnostics.py android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/StreamStateMachine.kt android/app/src/main/kotlin/com/telescope/StreamLauncher.kt android/app/src/main/kotlin/com/telescope/H264Encoder.kt android/app/src/main/kotlin/com/telescope/H264Stream.kt android/app/src/main/kotlin/com/telescope/CodecFailure.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt android/app/src/main/kotlin/com/telescope/UdpVideo.kt android/app/src/main/kotlin/com/telescope/HttpWire.kt android/app/src/main/kotlin/com/telescope/DynamicBitrate.kt android/app/src/main/kotlin/com/telescope/DynamicFrameRate.kt android/app/src/main/kotlin/com/telescope/FrameRate.kt android/app/src/main/kotlin/com/telescope/FrameGate.kt android/app/src/main/kotlin/com/telescope/PendingLimiter.kt android/app/src/main/kotlin/com/telescope/RecentRuns.kt rust/crates/media/** rust/crates/outputs/src/lib.rs rust/crates/outputs/src/convert.rs rust/crates/outputs/src/held.rs rust/crates/outputs/src/stream_output.rs rust/crates/outputs/src/stream_output/** rust/crates/outputs/src/ui_check.rs rust/crates/outputs/src/watch.rs rust/crates/outputs/ui/stream_output.slint ; packages: av numpy opencv-python-headless pyee -->
+<!-- due: android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/StreamStateMachine.kt android/app/src/main/kotlin/com/telescope/StreamLauncher.kt android/app/src/main/kotlin/com/telescope/H264Encoder.kt android/app/src/main/kotlin/com/telescope/H264Stream.kt android/app/src/main/kotlin/com/telescope/CodecFailure.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt android/app/src/main/kotlin/com/telescope/UdpVideo.kt android/app/src/main/kotlin/com/telescope/HttpWire.kt android/app/src/main/kotlin/com/telescope/DynamicBitrate.kt android/app/src/main/kotlin/com/telescope/DynamicFrameRate.kt android/app/src/main/kotlin/com/telescope/FrameRate.kt android/app/src/main/kotlin/com/telescope/FrameGate.kt android/app/src/main/kotlin/com/telescope/PendingLimiter.kt android/app/src/main/kotlin/com/telescope/RecentRuns.kt rust/crates/media/** rust/crates/outputs/src/lib.rs rust/crates/outputs/src/convert.rs rust/crates/outputs/src/held.rs rust/crates/outputs/src/stream_output.rs rust/crates/outputs/src/stream_output/** rust/crates/outputs/src/ui_check.rs rust/crates/outputs/src/watch.rs rust/crates/outputs/ui/stream_output.slint -->
 
 - [ ] H.264 on a real phone: a fresh phone starts on Light and switching Format between Light and Heavy reconnects and streams on Wi-Fi and USB. Compare latency (a clock on screen) and the Mbps readout with MJPEG at the same size. A 30-minute run stays smooth, a reconnect (unplug, Wi-Fi off and on) recovers and changing resolution or lens mid-stream keeps working.
 - [ ] H.264 fallback: a size the encoder refuses (4:3 4K on most phones) stops with a banner to try a lower resolution or FPS and its Switch to Heavy button streams on Heavy. A phone without an encoder switches to Heavy automatically, with no banner.
@@ -109,7 +107,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Plugging in mid-stream over Wi-Fi (Connect via Automatic) moves the stream to USB a few seconds later without a gap in the video and the mic moves with it.
 - [ ] UDP, mic off: the phone says Streaming. Removing the computer on the phone stops its video within a second and a lost desktop releases its UDP session within 5 seconds.
 - [ ] UDP to Dynamic and the UDP switch both reconnect onto the right transport and changing to Heavy leaves no UDP session behind.
-- [ ] Linux, AMD or Intel card: **Set up VA-API…** under Video uses the distro's PyAV or builds one and after **Restart now** Hardware acceleration says it found VA-API.
+- [ ] Linux, AMD or Intel card: with Hardware acceleration on, the card decodes the stream and Copy diagnostics says it found VA-API.
 - [ ] Hardware acceleration: a driver failure resumes in software without missing setup headers and Copy diagnostics reflects the decoder still running if the preference changes mid-stream.
 - [ ] On a phone that runs hot (Android 11+) stream for 15 minutes or more. The frame rate drops to 24 fps shortly before Android itself reports severe heat, the FPS readout's tooltip says the phone got hot and it goes back up once the phone cools.
 - [ ] Battery and temperature alerts fire once per threshold cross, not repeatedly.
@@ -117,7 +115,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Camera controls and preview
 
-<!-- due: desktop/telescope/plugins/camera_control.py desktop/telescope/plugins/preview.py desktop/telescope/plugins/presets.py desktop/telescope/view.py desktop/telescope/view_controller.py desktop/telescope/widgets/lens_panel.py desktop/telescope/widgets/controls.py android/app/src/main/kotlin/com/telescope/CameraCatalog.kt android/app/src/main/kotlin/com/telescope/LensLabel.kt android/app/src/main/kotlin/com/telescope/PreviewActivity.kt rust/crates/effects/src/transforms.rs -->
+<!-- due: android/app/src/main/kotlin/com/telescope/CameraCatalog.kt android/app/src/main/kotlin/com/telescope/LensLabel.kt android/app/src/main/kotlin/com/telescope/PreviewActivity.kt rust/crates/effects/src/transforms.rs -->
 
 - [ ] Phone in the foreground: the desktop's Start and Stop control the camera, also with the screen dark. A lens, size and OIS setting picked on the desktop come back after Stop and Start and the phone's Stop streaming stops the stream.
 - [ ] Zoom on the Auto lens: the lens marks on the zoom slider switch to the telephoto (the dot turns lavender) and panning out of its view falls back (red dot). Sliding the zoom back and forth quickly on the telephoto never turns the dot red. Scrolling the preview zooms around the mouse, dragging pans and the lens outlines show and fade.
@@ -127,7 +125,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Photos
 
-<!-- due: desktop/telescope/stills.py desktop/telescope/plugins/photos.py desktop/telescope/stream.py android/app/src/main/kotlin/com/telescope/StillCapture.kt android/app/src/main/kotlin/com/telescope/StillCatalog.kt android/app/src/main/kotlin/com/telescope/StillJobs.kt android/app/src/main/kotlin/com/telescope/StillOptions.kt android/app/src/main/kotlin/com/telescope/StillRebuild.kt android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt rust/crates/effects/src/photos.rs -->
+<!-- due: android/app/src/main/kotlin/com/telescope/StillCapture.kt android/app/src/main/kotlin/com/telescope/StillCatalog.kt android/app/src/main/kotlin/com/telescope/StillJobs.kt android/app/src/main/kotlin/com/telescope/StillOptions.kt android/app/src/main/kotlin/com/telescope/StillRebuild.kt android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt rust/crates/effects/src/photos.rs -->
 
 - [ ] A JPEG while streaming on Light: the video keeps going (a short hitch the first time only). On Heavy it pauses for about two seconds and comes back on its own. Either way the photo is the lens's full size, upright with the desktop's rotation.
 - [ ] RAW and JPEG together on a phone that lists RAW: the DNG opens in a raw editor with the right colours and orientation. The same with full resolution on a 50 MP or 200 MP phone, where the file is the sensor's real size.
@@ -137,7 +135,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Microphone
 
-<!-- due: desktop/telescope/audio.py desktop/telescope/denoise.py desktop/telescope/plugins/microphone.py desktop/telescope/platform/virtual_mic.py desktop/telescope/widgets/level_meter.py android/app/src/main/kotlin/com/telescope/AudioStream.kt android/app/src/main/kotlin/com/telescope/AudioStreamer.kt android/app/src/main/kotlin/com/telescope/MicProblem.kt rust/crates/audio/** ; packages: sounddevice pyrnnoise -->
+<!-- due: android/app/src/main/kotlin/com/telescope/AudioStream.kt android/app/src/main/kotlin/com/telescope/AudioStreamer.kt android/app/src/main/kotlin/com/telescope/MicProblem.kt rust/crates/audio/**  ; packages: pyrnnoise -->
 
 - [ ] Linux (PipeWire): switching it on while streaming makes "Telescope Microphone" appear, a call records the phone and switching off or quitting removes it. Lip-sync looks right by eye. A 30-minute run doesn't drift and unplugging and replugging recovers.
 - [ ] Windows: without VB-Cable the card offers Install VB-Cable. It asks first (naming VB-Audio), opens VB-Audio's setup through UAC and after a restart and an off/on apps record from CABLE Output.
@@ -149,14 +147,14 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Phone sensors
 
-<!-- due: desktop/telescope/sensors.py android/app/src/main/kotlin/com/telescope/PhoneSensors.kt android/app/src/main/kotlin/com/telescope/SensorStream.kt -->
+<!-- due: android/app/src/main/kotlin/com/telescope/PhoneSensors.kt android/app/src/main/kotlin/com/telescope/SensorStream.kt -->
 
 - [ ] With a plugin using the phone's sensors, tilting the phone shows on the desktop within a moment with the back and the front camera, held upright and in landscape both ways round. Switching to another phone's stream moves the sensors there and an older phone app is reported as one.
 - [ ] The phone's sensors stop once nothing uses them or the stream ends (the `sensors` thread goes away in `adb shell top -H -p $(adb shell pidof com.telescope)`), and the video doesn't stutter while they run.
 
 ### Starting, stopping and the camera button
 
-<!-- due: desktop/telescope/plugins/startup.py desktop/telescope/plugins/wait_screen.py desktop/telescope/vcam.py desktop/telescope/single_instance.py desktop/telescope/plugins/microphone.py android/app/src/main/kotlin/com/telescope/BlackScreen.kt android/app/src/main/kotlin/com/telescope/BlackScreenState.kt rust/crates/outputs/src/wait_screen*.rs rust/crates/outputs/ui/wait_screen.slint rust/crates/system/src/startup.rs rust/crates/system/ui/startup.slint rust/crates/system/src/single_instance.rs -->
+<!-- due: android/app/src/main/kotlin/com/telescope/BlackScreen.kt android/app/src/main/kotlin/com/telescope/BlackScreenState.kt rust/crates/outputs/src/wait_screen*.rs rust/crates/outputs/ui/wait_screen.slint rust/crates/system/src/startup.rs rust/crates/system/ui/startup.slint rust/crates/system/src/single_instance.rs -->
 
 - [ ] Start set to "When the phone is ready": opening the phone app (or plugging it in) starts the stream, Stop keeps it stopped until the phone leaves and comes back and closing the window keeps it in the tray.
 - [ ] Start set to "When an app opens the camera" and Stop to "When no app uses the camera, if it started the stream" (Linux and Windows): opening the camera in OBS or a call starts the stream and closing it stops it 15 s later.
@@ -171,7 +169,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Browser camera
 
-<!-- due: desktop/telescope/browser_rtc.py desktop/telescope/browser_server.py desktop/telescope/web.py desktop/telescope/web/** desktop/telescope/plugins/browser_camera.py desktop/requirements-nodeps.txt rust/crates/link/src/browser/** rust/crates/link/web/** ; packages: aiortc aioice av pylibsrtp pyee google-crc32c dnspython typing-extensions cryptography pyopenssl -->
+<!-- due: rust/crates/link/src/browser/** rust/crates/link/web/** -->
 
 - [ ] iPhone in Safari: scan the code, tap through the certificate warning, Start. Video and mic reach the virtual camera and mic, the screen stays on and after locking the phone and coming back to the page the stream picks up again. Flip camera flips lenses.
 - [ ] Black screen (portrait and landscape): the page goes black and, on Android, full screen without the status and nav bars. One tap shows the hint and fades again, a double tap brings the page back and the stream keeps going the whole time.
@@ -181,7 +179,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Webcams
 
-<!-- due: desktop/telescope/webcams.py desktop/telescope/webcams_win.py desktop/telescope/webcam_controls.py desktop/telescope/plugins/webcam.py rust/crates/outputs/src/webcam*.rs rust/crates/outputs/src/webcam/** rust/crates/outputs/src/webcams/** rust/crates/outputs/ui/webcam.slint -->
+<!-- due: rust/crates/outputs/src/webcam*.rs rust/crates/outputs/src/webcam/** rust/crates/outputs/src/webcams/** rust/crates/outputs/ui/webcam.slint -->
 
 - [ ] A USB webcam shows in the phone picker under its own name, and Telescope's own cameras (Phone Camera, Telescope, OBS Virtual Camera) never do. Start streams it to the virtual camera and Background, Chroma key and Transforms work on it.
 - [ ] Resolution and Frame rate on the Webcam card change what arrives. 1080p at 30 fps on a USB 2 webcam shows MJPEG on the card.
@@ -192,7 +190,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### On Air sign
 
-<!-- due: desktop/telescope/on_air.py desktop/telescope/plugins/on_air.py desktop/telescope/browser_server.py desktop/telescope/web/** rust/crates/effects/src/on_air*.rs rust/crates/link/src/web.rs ; packages: cryptography -->
+<!-- due: rust/crates/effects/src/on_air*.rs rust/crates/link/src/web.rs -->
 
 - [ ] With On Air sign switched on, a tablet or phone opens the sign from its code, taps through the certificate warning and goes full screen with the screen staying on. Joining a call turns it red within about a second and leaving turns it back about six seconds later.
 - [ ] A webhook to Home Assistant (or any hub) switches a light on and off with the default POST and with a GET payload. Stopping the hub gives one banner, not one per change.
@@ -200,7 +198,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Settings, keyboard and folding
 
-<!-- due: desktop/telescope/widgets/settings_window.py desktop/telescope/widgets/settings_search.py desktop/telescope/widgets/collapse.py desktop/telescope/fuzzy.py desktop/telescope/shortcuts.py desktop/telescope/plugins/shortcuts.py desktop/telescope/platform/hotkeys.py desktop/telescope/platform/hotkeys_portal.py desktop/telescope/platform/hotkeys_windows.py desktop/telescope/phones.py desktop/telescope/widgets/plugins_panel.py desktop/telescope/plugin_updates.py desktop/telescope/widgets/plugin_updater.py rust/crates/system/src/shortcuts.rs rust/crates/system/ui/shortcuts.slint rust/crates/system/src/hotkeys*.rs rust/crates/system/src/keys.rs rust/crates/system/src/tray*.rs rust/crates/system/src/icon.rs rust/crates/system/src/memory.rs rust/crates/system/src/lib.rs rust/crates/system/src/version.rs rust/crates/system/src/test_bus.rs rust/crates/setup/** ; packages: jeepney -->
+<!-- due: rust/crates/system/src/shortcuts.rs rust/crates/system/ui/shortcuts.slint rust/crates/system/src/hotkeys*.rs rust/crates/system/src/keys.rs rust/crates/system/src/tray*.rs rust/crates/system/src/icon.rs rust/crates/system/src/memory.rs rust/crates/system/src/lib.rs rust/crates/system/src/version.rs rust/crates/system/src/test_bus.rs rust/crates/setup/** -->
 
 - [ ] Every Settings tab opens and the settings button brings the window back on the tab it was left on.
 - [ ] Folding: clicking a card title and a section title folds and unfolds them, Tab reaches the titles and Space or Enter toggles them. A shortcut for a control in a folded card still works. Folds come back after a restart.
@@ -210,14 +208,14 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Several cameras in one picture
 
-<!-- due: desktop/telescope/frames.py desktop/telescope/composite.py desktop/telescope/pictures.py desktop/telescope/plugins/composite.py desktop/telescope/widgets/composite_editor.py desktop/telescope/stream.py desktop/telescope/stream_flow.py rust/crates/effects/src/compos*.rs ; packages: opencv-python-headless numpy -->
+<!-- due: rust/crates/effects/src/compos*.rs -->
 
 - [ ] Two real phones streaming (Linux and Windows): switching on **Several cameras in one picture** under **Streaming and devices** shows the One picture card. **Start from** Big and small, then drag, resize (plain, Shift to stretch, Alt to crop), zoom and right-drag a stream in **Edit picture…** while the call app shows the picture on the Telescope camera. Borders, corners and a background picture show there too and the second phone's own camera still works.
 - [ ] Save two layouts, bind one to a key, save a preset with each and switch between them by key and preset. After stopping the second phone the camera shows the first alone within 3 seconds. The second one is in the picture again once it's restarted. Turning off the first phone's Wi-Fi doesn't freeze the second in the picture. With an upright phone on Telescope and a landscape one on Telescope 2, moving the mic to the second leaves the picture upright on Telescope.
 
 ### Vision effects
 
-<!-- due: desktop/telescope/vision.py desktop/telescope/pose.py desktop/telescope/vision_pack.py desktop/telescope/vision_pack.json desktop/telescope/plugins/background.py desktop/telescope/plugins/framing.py desktop/telescope/plugins/fun_pack.py desktop/telescope/fun_effects.py desktop/telescope/people.py desktop/telescope/motion.py desktop/telescope/plugins/face_exposure.py desktop/telescope/plugins/privacy_blur.py desktop/telescope/widgets/vision_download.py desktop/telescope/widgets/vision_status.py desktop/scripts/build_vision_pack.py desktop/requirements-vision.txt rust/crates/vision/** rust/crates/effects/src/background.rs rust/crates/effects/src/framing.rs rust/crates/effects/src/fun_*.rs rust/crates/effects/src/face_exposure.rs rust/crates/effects/src/privacy_blur.rs rust/crates/effects/src/vision_row.rs ; packages: mediapipe opencv-python-headless numpy desktop/telescope/pictures.py -->
+<!-- due: rust/crates/vision/** rust/crates/effects/src/background.rs rust/crates/effects/src/framing.rs rust/crates/effects/src/fun_*.rs rust/crates/effects/src/face_exposure.rs rust/crates/effects/src/privacy_blur.rs rust/crates/effects/src/vision_row.rs rust/tools/build_vision_pack.py rust/tools/vision-pack-requirements.txt ; packages: mediapipe absl-py flatbuffers certifi -->
 
 - [ ] Auto framing and Background (Linux and Windows): switching one on under **People** asks before downloading, shows the progress and after **Restart now** its card shows. Auto framing follows you while streaming from a real phone, widens when you hold a hand out and zooms back out when you leave, also at 90, 180 and 270 degrees and flipped. Zoom and Pan in Transforms grey out while it's on. Background blurs and puts a picture behind you. With both off **Remove download** deletes the download.
 - [ ] Fun pack with a real phone: clones, the cloak and the stick figure follow you, light painting draws with a torch, and the retro looks hold 30 fps at 1080p. Datamosh on Light smears when you move, **Clean up** and switching it off bring the picture back within a second, and on Heavy the card says it needs Light.
@@ -226,7 +224,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Preview tools and picture plugins
 
-<!-- due: desktop/telescope/overlays.py desktop/telescope/scopes.py desktop/telescope/plugins/cinema.py desktop/telescope/plugins/desk.py desktop/telescope/plugins/chroma_key.py desktop/telescope/pictures.py desktop/telescope/plugins/qr_reader.py desktop/telescope/plugins/preview.py desktop/telescope/sensors.py rust/crates/effects/** -->
+<!-- due: rust/crates/effects/** -->
 
 - [ ] Cinema tools on a real phone with manual focus: peaking sits on what's sharp and moves as you turn focus, zebras and false colour show on a bright window and clipped highlights, each scope shows and none of it reaches a call or OBS. Also in the pop-out.
 - [ ] Level on a real phone with the back and the front camera: tilting it turns the line the same way the picture turns, it sits still on a table and turns green when level, pitch goes up as the camera looks up, and flipping or rotating under Picture keeps it right. An older phone app shows why it can't.
@@ -237,14 +235,14 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Name tag
 
-<!-- due: desktop/telescope/name_tag.py desktop/telescope/plugins/name_tag.py rust/crates/effects/src/name_tag.rs rust/crates/effects/src/tag.rs -->
+<!-- due: rust/crates/effects/src/name_tag.rs rust/crates/effects/src/tag.rs -->
 
 - [ ] With Name tag switched on, a name, pronouns and second line show in a call on Linux and Windows in each style, position and size, and a preset brings back the tag it saved. Mirror in Transforms flips the picture but never the text.
 - [ ] A name in Arabic or Hebrew, one in Chinese or Japanese and one in Hindi show with the right letters on both desktops (no empty boxes), and the right-to-left one starts from the right.
 
 ### Colour grading
 
-<!-- due: desktop/telescope/colour.py desktop/telescope/grade.py desktop/telescope/plugins/colour_grading.py desktop/telescope/widgets/colour_wheel.py desktop/telescope/widgets/curve_editor.py rust/crates/effects/src/colour_grading.rs rust/crates/effects/src/grade.rs rust/crates/effects/src/cube.rs ; packages: opencv-python-headless numpy -->
+<!-- due: rust/crates/effects/src/colour_grading.rs rust/crates/effects/src/grade.rs rust/crates/effects/src/cube.rs -->
 
 - [ ] Linux and Windows, streaming 1080p60 from a real phone: switch Colour grading on under **Look**, drag the wheels and curves and load a `.cube` LUT. The frame rate in the footer stays at 60 and Copy diagnostics shows the colour pipeline's time a frame.
 - [ ] Compare shows the ungraded picture left of the line on the preview while a call sees the whole picture graded. The header switch takes the grade off and puts it back.
@@ -252,7 +250,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Notes next to the lens
 
-<!-- due: desktop/telescope/plugins/notes.py android/app/src/main/kotlin/com/telescope/Notes.kt android/app/src/main/kotlin/com/telescope/NotesActivity.kt android/app/src/main/kotlin/com/telescope/NotesPlacement.kt rust/crates/effects/src/notes.rs -->
+<!-- due: android/app/src/main/kotlin/com/telescope/Notes.kt android/app/src/main/kotlin/com/telescope/NotesActivity.kt android/app/src/main/kotlin/com/telescope/NotesPlacement.kt rust/crates/effects/src/notes.rs -->
 
 - [ ] Switch Notes on under **On screen**, stream from the front camera and send a few lines. They open on the phone right under the camera (on a notch, a punch hole and a phone without either), Play scrolls them, Next and Previous step a line and a shortcut or presenter clicker bound to Next works. Turn the phone sideways and the text moves beside the lens. The stream doesn't stutter while they scroll.
 - [ ] With Telescope in the background on the phone the card asks you to open it and opening it shows the notes. Back closes them until you send again, and stopping the stream takes them away.

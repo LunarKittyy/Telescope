@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test
 import java.io.File
 
 // docs/state.json is one /v1/state both apps' tests read: this one checks the phone still sends exactly that, and
-// desktop/tests/test_state_example.py checks the desktop still reads it. Run with UPDATE_STATE_EXAMPLE=1 to rewrite it.
+// rust/app/tests/state_example.rs checks the desktop still reads it. Run with UPDATE_STATE_EXAMPLE=1 to rewrite it.
 class StateExampleTest {
     // Every field off its default, so none is left out of the JSON
     private val example = V1State(

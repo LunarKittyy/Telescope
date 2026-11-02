@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The desktop's "monitor" line icon (desktop/telescope/widgets/line_icons.py) -->
+<!-- The desktop's "monitor" line icon (rust/crates/ui-kit/ui/icons/monitor.svg) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"

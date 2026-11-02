@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Same rules as the desktop app (desktop/telescope/widgets/common.py): one type scale (styles.xml), cards with
+<!-- Same rules as the desktop app (rust/crates/ui-kit/ui): one type scale (styles.xml), cards with
      a hue each and the icon on a square of it (CardHeader), the desktop's line icons, labels above fields on a
      phone, one primary button, on/off settings as switches, 10dp button radius, 14dp cards. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"

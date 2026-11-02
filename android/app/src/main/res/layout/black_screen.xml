@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Black screen (BlackScreen): pure black for OLED, with a dim hint that fades so nothing stays lit.
-     Same colours as Browser camera's black screen (desktop/telescope/web/index.html). -->
+     Same colours as Browser camera's black screen (rust/crates/link/web/index.html). -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"

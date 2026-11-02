@@ -228,7 +228,7 @@ fn merge(po: &Path, template: &[PoEntry]) -> Result<(), String> {
 pub fn extract(target: &Target) -> Result<String, String> {
     let entries = find_texts(target);
     std::fs::create_dir_all(target.folder.join(LOCALE)).map_err(|e| e.to_string())?;
-    let comments = vec![format!("Texts of the {} plugin. See rust/docs/writing-plugins.md.", target.name)];
+    let comments = vec![format!("Texts of the {} plugin. See docs/writing-plugins.md.", target.name)];
     std::fs::write(target.template(), write_po(&comments, &header(""), &entries)).map_err(|e| e.to_string())?;
     let catalogs = target.catalogs();
     for po in &catalogs {

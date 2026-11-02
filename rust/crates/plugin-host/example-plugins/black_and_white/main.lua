@@ -1,4 +1,4 @@
--- Black and white: an example plugin. rust/docs/writing-plugins.md walks through it.
+-- Black and white: an example plugin. docs/writing-plugins.md walks through it.
 
 local plugin = {}
 
