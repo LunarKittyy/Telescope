@@ -12,11 +12,21 @@ export global WindowBox {
     public pure function top(h: length) -> length { max(8px, (self.height - h) / 2) }
     // A dialog's height, held to the window where the window's size is known
     public pure function cap(h: length) -> length { self.height > 0 ? min(h, self.height - 16px) : h }
+    // The size of a pop-up that covers the window, for a dialog that takes a click beside it as its Cancel
+    public pure function cover-w(w: length) -> length { self.width > 0 ? self.width : max(w + 16px, 4000px) }
+    public pure function cover-h(h: length) -> length { self.height > 0 ? self.height : max(h + 16px, 4000px) }
 }
+
+// A dialog that sets `dismissable` goes by its x and y in a pop-up covering the whole window (WindowBox.cover-w and cover-h),
+// and a press on the window beside it calls `dismissed`, to do what Cancel does. A pop-up swallows every press outside itself,
+// so it has to be the window's size for the dialog to see them. A press that starts inside the dialog never gets there, so a
+// slider dragged or text selected out past the edge leaves it open.
 
 export component DialogFrame inherits Rectangle {
     in property <string> title;
     in property <string> subtitle;
+    in property <bool> dismissable;
+    callback dismissed();
     background: Theme.bg;
     border-width: 1px;
     border-color: Theme.border-hover;
@@ -24,6 +34,17 @@ export component DialogFrame inherits Rectangle {
     drop-shadow-blur: 28px;
     drop-shadow-offset-y: 6px;
     drop-shadow-color: #000000a0;
+    if dismissable: TouchArea {
+        x: -5000px;
+        y: -5000px;
+        width: 10000px;
+        height: 10000px;
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) { root.dismissed(); }
+        }
+    }
+    // The dialog's own face takes its clicks, so the one behind it only gets what lands beside the dialog
+    if dismissable: TouchArea { }
     // From the top: a layout left to fill a popup that's still the old size would spread its rows
     VerticalLayout {
         alignment: start;

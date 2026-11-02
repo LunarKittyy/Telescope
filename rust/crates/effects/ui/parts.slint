@@ -102,9 +102,11 @@ component Wheel inherits Rectangle {
     height: 124px;
     horizontal-stretch: 1;
     min-width: 88px;
-    property <length> radius: min(self.width, self.height) / 2 - 11px;
-    property <length> cx: self.width / 2;
-    property <length> cy: self.height / 2;
+    // Whole pixels: the software renderer rounds a rectangle's edges but draws the ring's arcs where they fall, so a centre
+    // on a half pixel left the disc a pixel short on one side of the ring
+    property <length> radius: floor((min(self.width, self.height) / 2 - 11px) / 1px) * 1px;
+    property <length> cx: floor(self.width / 2 / 1px) * 1px;
+    property <length> cy: floor(self.height / 2 / 1px) * 1px;
     property <length> px: cx + puck-x * radius;
     property <length> py: cy - puck-y * radius;
     forward-focus: focus;
@@ -165,11 +167,12 @@ component Wheel inherits Rectangle {
     }
     // The well, lighter towards the middle: rings of solid colour, as the software renderer doesn't clip a gradient either
     for t[i] in [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1] : Rectangle {
-        x: cx - radius * t;
-        y: cy - radius * t;
-        width: 2 * radius * t;
-        height: 2 * radius * t;
-        border-radius: radius * t;
+        property <length> r: round(radius * t / 1px) * 1px;
+        x: cx - r;
+        y: cy - r;
+        width: 2 * r;
+        height: 2 * r;
+        border-radius: r;
         background: Theme.surface-raise.mix(Theme.surface-hover, t - 0.05);
     }
     Rectangle {
@@ -181,22 +184,26 @@ component Wheel inherits Rectangle {
         border-width: 1px;
         border-color: Theme.border-strong;
     }
-    Rectangle { x: cx - radius; y: cy - 0.5px; width: 2 * radius; height: 1px; background: Theme.border-strong; }
-    Rectangle { x: cx - 0.5px; y: cy - radius; width: 1px; height: 2 * radius; background: Theme.border-strong; }
-    for r in [0.33, 0.66]: Rectangle {
-        x: cx - radius * r;
-        y: cy - radius * r;
-        width: 2 * radius * r;
-        height: 2 * radius * r;
-        border-radius: radius * r;
+    Rectangle { x: cx - radius; y: cy; width: 2 * radius; height: 1px; background: Theme.border-strong; }
+    Rectangle { x: cx; y: cy - radius; width: 1px; height: 2 * radius; background: Theme.border-strong; }
+    for t in [0.33, 0.66]: Rectangle {
+        property <length> r: round(radius * t / 1px) * 1px;
+        x: cx - r;
+        y: cy - r;
+        width: 2 * r;
+        height: 2 * r;
+        border-radius: r;
         border-width: 1px;
         border-color: Theme.border-strong;
     }
     if puck-x != 0 || puck-y != 0: Path {
-        x: 0px;
-        y: 0px;
-        width: root.width;
-        height: root.height;
+        x: -0.6px;
+        y: -0.6px;
+        width: root.width + 1.2px;
+        height: root.height + 1.2px;
+        viewbox-width: root.width / 1px;
+        viewbox-height: root.height / 1px;
+        fit: ImageFit.fill;
         commands: "M \{cx / 1px} \{cy / 1px} L \{px / 1px} \{py / 1px}";
         stroke: Theme.text-dim;
         stroke-width: 1.2px;
@@ -256,7 +263,6 @@ component CurveBox inherits Rectangle {
     in property <[CurvePoint]> points: [{ x: 0, y: 0 }];
     in property <int> picked: -1;
     in property <color> colour: Theme.text;
-    in property <string> tip;
     in property <string> label;
     callback pressed(float, float, float, float, bool);
     callback moved(float, float, float, float);
@@ -304,13 +310,15 @@ component CurveBox inherits Rectangle {
     for i in [1, 2, 3]: Rectangle { x: pad + area-w * i / 4; y: pad; width: 1px; height: area-h; background: Theme.border; }
     for i in [1, 2, 3]: Rectangle { x: pad; y: pad + area-h * i / 4; width: area-w; height: 1px; background: Theme.border; }
     // The line nothing changes along
+    // fill: a path keeps its viewbox's shape by default, and this box isn't square. A stroke sits half out of a path's box
     Path {
-        x: pad;
-        y: pad;
-        width: area-w;
-        height: area-h;
+        x: pad - 0.5px;
+        y: pad - 0.5px;
+        width: area-w + 1px;
+        height: area-h + 1px;
         viewbox-width: 100;
         viewbox-height: 100;
+        fit: ImageFit.fill;
         commands: hue-curve ? "M 0 50 L 100 50" : "M 0 100 L 100 0";
         stroke: Theme.border-strong;
         stroke-width: 1px;
@@ -322,12 +330,13 @@ component CurveBox inherits Rectangle {
         height: area-h + 4px;
         clip: true;
         Path {
-            x: 2px;
-            y: 2px;
-            width: area-w;
-            height: area-h;
+            x: 1px;
+            y: 1px;
+            width: area-w + 2px;
+            height: area-h + 2px;
             viewbox-width: 1000;
             viewbox-height: 1000;
+            fit: ImageFit.fill;
             commands: line;
             stroke: tone;
             stroke-width: 2px;
@@ -359,5 +368,4 @@ component CurveBox inherits Rectangle {
         }
         double-clicked => { root.double-clicked(self.mouse-x / 1px, self.mouse-y / 1px, root.width / 1px, root.height / 1px); }
     }
-    if tip != "": Tooltip { TipBody { says: root.tip; } }
 }

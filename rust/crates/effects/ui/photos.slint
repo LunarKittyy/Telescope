@@ -237,7 +237,7 @@ export component PhotosCard inherits Card {
                 width: 36px;
                 Switch {
                     enabled: active;
-                    y: 8px;
+                    y: (parent.height - self.height) / 2;
                     checked: best;
                     label: best-name;
                     tip: best-tip;

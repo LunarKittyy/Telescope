@@ -271,17 +271,21 @@ callback param-committed(int, string);
 
     editor := PopupWindow {
         close-policy: no-auto-close;
-        x: WindowBox.left(self.width) - root.absolute-position.x;
-        // By a typical height, not its own: each search can change its rows, and it mustn't hop up and down while typing
-        y: WindowBox.top(460px) - root.absolute-position.y;
-        // BindingEditor's minimum width
-        width: min(root.width, 520px);
+        x: -root.absolute-position.x;
+        y: -root.absolute-position.y;
         // A popup takes on a new size a frame after its content changes, which showed as a flicker. So this one stays the
-        // window's height, see-through, and the frame inside follows its rows in the same frame
-        height: WindowBox.height > 0 ? WindowBox.height - WindowBox.top(460px) - 8px : editor-frame.preferred-height;
+        // window's size, see-through, and the frame inside follows its rows in the same frame
+        width: WindowBox.cover-w(min(root.width, 520px));
+        height: WindowBox.cover-h(editor-frame.preferred-height);
         editor-frame := DialogFrame {
-            y: 0;
+            // BindingEditor's minimum width
+            x: WindowBox.left(self.width);
+            // By a typical height, not its own: each search can change its rows, and it mustn't hop up and down while typing
+            y: WindowBox.top(460px);
+            width: min(root.width, 520px);
             height: self.preferred-height;
+            dismissable: true;
+            dismissed => { root.cancel(); }
             title: @tr("Keyboard shortcut");
             subtitle: @tr("Pick a control, what the key does to it, then press the key.");
             VerticalLayout {

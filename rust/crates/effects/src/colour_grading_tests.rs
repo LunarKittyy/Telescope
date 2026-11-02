@@ -368,9 +368,6 @@ fn pages_show_one_at_a_time_and_the_channel_row_only_for_rgb() {
     r.ui("curve-picked-by-hand", vec![json!(1)]);
     assert_eq!(r.shown("curve"), json!(1));
     assert_eq!(r.plugin.editor.points, crate::grade::neutral_hue());
-    assert!(r.shown("curve-note").as_str().unwrap().starts_with("Up gives a hue more colour"));
-    r.ui("curve-picked-by-hand", vec![json!(0)]);
-    assert_eq!(r.shown("curve-note"), json!(""));
 }
 
 #[test]

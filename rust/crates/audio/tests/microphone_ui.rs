@@ -80,14 +80,14 @@ export component Wrapper inherits Window {
     assert!(!shown("Download and install"), "nothing is asked yet");
     ask(1.0);
     assert!(shown("Download and install") && shown("Made by VB-Audio\nDonationware"));
-    // A click outside closes it, and that answers nothing
+    // A click outside is its Cancel
     use slint::platform::{PointerEventButton, WindowEvent};
     let outside = slint::LogicalPosition::new(390.0, 590.0);
     ui.window().dispatch_event(WindowEvent::PointerPressed { position: outside, button: PointerEventButton::Left });
     ui.window().dispatch_event(WindowEvent::PointerReleased { position: outside, button: PointerEventButton::Left });
     slint::platform::update_timers_and_animations();
     assert!(!shown("Download and install"));
-    assert!(answers.borrow().is_empty());
+    assert_eq!(answers.borrow().as_slice(), [Value::Bool(false)], "it says no, as Cancel does");
     // And the next try asks again
     ask(2.0);
     assert!(shown("Download and install"), "the card went dead after a click outside");

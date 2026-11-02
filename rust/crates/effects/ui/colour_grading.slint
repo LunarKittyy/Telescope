@@ -105,8 +105,6 @@ export component ColourGradingCard inherits Card {
     in property <[CurvePoint]> curve-points: [{ x: 0, y: 0 }];
     in property <int> curve-picked: -1;
     in property <color> curve-colour: #e7eaef;
-    in property <string> curve-tip;
-    in property <string> curve-note;
     // The LUT page
     in property <string> lut-text: @tr("No LUT loaded");
     in property <string> lut-path;
@@ -338,16 +336,12 @@ export component ColourGradingCard inherits Card {
             points: curve-points;
             picked: curve-picked;
             colour: curve-colour;
-            tip: curve-tip;
             label: @tr("Curve");
             pressed(x, y, w, h, right) => { root.curve-pressed(x, y, w, h, right); }
             moved(x, y, w, h) => { root.curve-moved(x, y, w, h); }
             released => { root.curve-released(); }
             double-clicked(x, y, w, h) => { root.curve-double-clicked(x, y, w, h); }
             key(k, s) => { root.curve-key(k, s); }
-        }
-        if curve-note != "": Note {
-            text: curve-note;
         }
     }
 

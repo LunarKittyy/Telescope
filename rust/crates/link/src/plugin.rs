@@ -101,6 +101,8 @@ pub struct ConnectionPlugin {
     update_note: Option<(String, String)>,
     add: Option<AddPhone>,
     phones_open: bool,
+    /// Add phone was opened from Your phones, which Back goes to.
+    add_from_phones: bool,
     same_phone: Option<SamePhone>,
     /// Ids in the picker's order, phones then sources.
     picker_ids: Vec<String>,
@@ -133,7 +135,7 @@ impl ConnectionPlugin {
     pub fn new(link: Arc<dyn Link>, shared: Arc<Shared>) -> ConnectionPlugin {
         ConnectionPlugin {
             link, shared, poster: None, sources: Vec::new(), remembered: Vec::new(), active_key: None, no_phone_issue: None,
-            updating_phone: false, update_note: None, add: None, phones_open: false, same_phone: None, picker_ids: Vec::new(),
+            updating_phone: false, update_note: None, add: None, phones_open: false, add_from_phones: false, same_phone: None, picker_ids: Vec::new(),
             picker_open: false, picker_stale: false, stale: true, adb_available: false, apk_bundled: false, downloader: adb_download::AdbDownloader::system(),
             outputs: None, vcam_source: None, adb_asked: None,
         }
@@ -1410,7 +1412,17 @@ impl Plugin for ConnectionPlugin {
         self.catch_up(host);
         let s = |i: usize| event.args.get(i).and_then(Value::as_str).unwrap_or_default().to_string();
         match (event.ui.as_str(), event.callback.as_str()) {
-            ("card", "add-phone") | ("header", "add-phone") => self.open_add_phone(host),
+            ("card", "add-phone") | ("header", "add-phone") => {
+                self.add_from_phones = event.ui == "header";
+                self.open_add_phone(host);
+            }
+            ("card", "add-back") => {
+                self.close_add(host);
+                if self.add_from_phones {
+                    self.phones_open = true;
+                    self.refresh_phones_dialog(host);
+                }
+            }
             ("card", "guide") => host.emit(Event::SetupGuideRequested),
             ("card", "switch-usb") => {
                 self.conn().switch_usb_visible = false;
@@ -2314,6 +2326,23 @@ mod tests {
         assert_eq!(e.shared.phones().len(), 1);
         e.ui("card", "add-closed", vec![]);
         assert_eq!(e.props("card")["add-open"], false);
+    }
+
+    #[test]
+    fn back_goes_to_your_phones_when_add_phone_came_from_there_and_closes_otherwise() {
+        let mut e = env();
+        e.ui("header", "manage", vec![]);
+        e.ui("header", "phones-closed", vec![]);
+        e.ui("header", "add-phone", vec![]);
+        assert_eq!(e.props("card")["add-open"], true);
+        e.ui("card", "add-back", vec![]);
+        assert_eq!(e.props("card")["add-open"], false);
+        assert_eq!(e.props("header")["phones-open"], true, "back to Your phones");
+        e.ui("header", "phones-closed", vec![]);
+        e.ui("card", "add-phone", vec![]);
+        e.ui("card", "add-back", vec![]);
+        assert_eq!(e.props("card")["add-open"], false);
+        assert_eq!(e.props("header")["phones-open"], false, "opened from the card: Back just closes it");
     }
 
     #[test]
