@@ -157,6 +157,42 @@ fn the_curve_spans_the_box_and_passes_through_its_points() {
     }
 }
 
+/// How many strongly coloured pixels the ring has on each side of a wheel's centre: left, right, top and bottom.
+fn ring_sides(rgba: &[u8], wide: usize, at: (usize, usize), radius: usize, scale: f32) -> [usize; 4] {
+    let coloured = |x: usize, y: usize| {
+        let p = &rgba[(y * wide + x) * 4..][..3];
+        p.iter().max().unwrap() - p.iter().min().unwrap() > 90
+    };
+    let (cx, cy) = at;
+    let (near, far) = (radius - (15.0 * scale) as usize, radius + (15.0 * scale) as usize);
+    [
+        (cx - far..cx - near).filter(|&x| coloured(x, cy)).count(),
+        (cx + near..cx + far).filter(|&x| coloured(x, cy)).count(),
+        (cy - far..cy - near).filter(|&y| coloured(cx, y)).count(),
+        (cy + near..cy + far).filter(|&y| coloured(cx, y)).count(),
+    ]
+}
+
+#[test]
+fn the_ring_is_as_thick_on_every_side_of_the_disc() {
+    // The ring and the disc used to be placed from different pixel rules, and the ring came out a pixel thicker on some sides
+    let (mut plugin, host) = card();
+    let w = window(&mut plugin);
+    for (card_width, scale) in [(460.0, 1.0), (461.0, 1.0), (520.0, 1.0), (460.0, 2.0), (461.0, 2.0)] {
+        w.window().dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged { scale_factor: scale });
+        feed(&w, &host);
+        let rgba = offscreen::draw(w.window(), card_width, HEIGHT, scale).expect("a picture").rgba;
+        let wide = (card_width * scale).round() as usize;
+        for found in ElementHandle::find_by_element_type_name(&w, "Wheel") {
+            let (at, size) = (found.absolute_position(), found.size());
+            let (cx, cy) = (((at.x + size.width / 2.0) * scale).round() as usize, ((at.y + size.height / 2.0) * scale).round() as usize);
+            let radius = ((size.height.min(size.width) / 2.0 - 11.0) * scale) as usize;
+            let sides = ring_sides(&rgba, wide, (cx, cy), radius, scale);
+            assert!(sides.iter().all(|&n| n == sides[0]) && sides[0] >= (5.0 * scale) as usize - 1, "ring thickness left, right, top, bottom at width {card_width}, scale {scale}: {sides:?}");
+        }
+    }
+}
+
 #[test]
 fn the_curve_drawn_is_the_one_applied() {
     let points = [(0.0, 0.1), (0.3, 0.2), (1.0, 0.9)];
