@@ -29,17 +29,21 @@ pub enum Place<'a> {
 
 /// How to start this copy, minimized to the tray unless minimized is false.
 pub fn launch_command(directory: &Path, minimized: bool) -> Vec<String> {
+    let mut argv = telescope_core::system::appimage().map_or_else(|| vec![plain_program(directory)], |image| image.command());
+    if minimized {
+        argv.push(MINIMIZED.into());
+    }
+    argv
+}
+
+fn plain_program(directory: &Path) -> String {
     let start_sh = directory.join("start.sh");
     let program = if !cfg!(windows) && start_sh.exists() {
         start_sh
     } else {
         std::env::current_exe().map(|p| plain_path(p.canonicalize().unwrap_or(p))).unwrap_or_else(|_| directory.join("telescope-rs"))
     };
-    let mut argv = vec![program.to_string_lossy().into_owned()];
-    if minimized {
-        argv.push(MINIMIZED.into());
-    }
-    argv
+    program.to_string_lossy().into_owned()
 }
 
 /// A build from source, whose copy mustn't take over the menu and sign-in entries. A release unpacked inside a git-tracked

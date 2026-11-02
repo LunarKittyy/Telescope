@@ -55,6 +55,10 @@ pub trait Backend: Send + Sync {
     fn windows(&self) -> bool {
         cfg!(windows)
     }
+    /// The release file this copy updates from.
+    fn asset<'m>(&self, manifest: &'m Manifest) -> Option<&'m Asset> {
+        updates::platform_asset_on(manifest, self.windows())
+    }
     /// Whether checks and installs run on a thread of their own (tests run them straight away).
     fn threaded(&self) -> bool {
         true
@@ -158,6 +162,10 @@ impl Backend for RealBackend {
     fn install(&self, manifest: &Manifest, asset: &Asset, progress: Progress, cancelled: &dyn Fn() -> bool, streaming: &dyn Fn() -> bool)
         -> Result<(i64, InstallResult), String> {
         self.download_and(manifest, asset, progress, cancelled, streaming, |archive, build| updates::install(archive, &self.directory, build))
+    }
+
+    fn asset<'m>(&self, manifest: &'m Manifest) -> Option<&'m Asset> {
+        if telescope_core::system::appimage().is_some() { updates::appimage_asset(manifest) } else { updates::platform_asset_on(manifest, self.windows()) }
     }
 
     fn blocker(&self) -> Option<String> {
@@ -519,7 +527,7 @@ impl UpdatesPlugin {
                 self.checked = true;
                 self.last_check = now();
                 host.schedule_save();
-                let newer = self.backend.is_newer(manifest.as_ref()) && manifest.as_ref().is_some_and(|m| updates::platform_asset_on(m, self.backend.windows()).is_some());
+                let newer = self.backend.is_newer(manifest.as_ref()) && manifest.as_ref().is_some_and(|m| self.backend.asset(m).is_some());
                 self.available = if newer { manifest.clone() } else { None };
                 self.rolled_back = if self.backend.was_rolled_back(manifest.as_ref()) { manifest.clone() } else { None };
                 self.latest = manifest;
@@ -547,7 +555,7 @@ impl UpdatesPlugin {
             return;
         }
         let via_setup = self.moves_on_update();
-        let chosen = if via_setup { updates::setup_asset(&manifest) } else { updates::platform_asset_on(&manifest, self.backend.windows()) };
+        let chosen = if via_setup { updates::setup_asset(&manifest) } else { self.backend.asset(&manifest) };
         let Some(asset) = chosen.cloned() else { return };
         self.phase = Phase::Downloading;
         self.progress = (0, asset.size);

@@ -2,8 +2,8 @@
 """The Rust packages' smoke check: what's in them, what the updater needs, and that the program in them starts and knows its own stamp.
 Tests run from the source tree, so only this notices something the package left out.
 
-Usage: check_package.py [--version 4.2.0 --build 123 --channel nightly] [--no-run] <folder, .tar.gz or .zip>...
-A folder or a .tar.gz on Linux and a folder or a .zip on Windows also run; --no-run looks at a package from the other system.
+Usage: check_package.py [--version 4.2.0 --build 123 --channel nightly] [--no-run] <folder, .tar.gz, .zip or .AppImage>...
+A folder or a .tar.gz on Linux and a folder or a .zip on Windows also run, as does an AppImage on Linux; --no-run looks at a package from the other system.
 """
 
 import argparse
@@ -21,8 +21,13 @@ from pathlib import Path
 
 
 # The Python updater turns a Linux tarball without main.py and telescope/ away (telescope/updates.py's install_linux)
-LINUX_FILES = ("start.sh", "main.py", "telescope/_build.py", "telescope-rs", "librnnoise.so", "THIRD_PARTY_NOTICES.txt", "ui-kit/ui-kit.slint",
-               "lib/fallback/libva.so.2", "lib/fallback/libva-drm.so.2", "lib/fallback/libdrm.so.2")
+LINUX_FILES = ("start.sh", "main.py", "telescope/_build.py", "telescope-rs", "librnnoise.so", "THIRD_PARTY_NOTICES.txt", "ui-kit/ui-kit.slint", "telescope.png",
+               "lib/fallback/libva.so.2", "lib/fallback/libva-drm.so.2", "lib/fallback/libdrm.so.2", "lib/fallback-fonts/libfontconfig.so.1",
+               "lib/fallback-fonts/libfreetype.so.6", "lib/fallback-fonts/fonts.conf")
+# What makes an AppImage one, and what the program needs at run time; the tarball's start.sh and Python files stay out of it
+APPIMAGE_FILES = ("AppRun", "telescope.desktop", "telescope.png", "telescope-rs", "librnnoise.so", "THIRD_PARTY_NOTICES.txt", "ui-kit/ui-kit.slint",
+                  "lib/fallback/libva.so.2", "lib/fallback/libva-drm.so.2", "lib/fallback/libdrm.so.2", "lib/fallback-fonts/libfontconfig.so.1",
+                  "lib/fallback-fonts/libfreetype.so.6", "lib/fallback-fonts/fonts.conf")
 LINUX_LIBRARIES = ("lib/libavcodec.so.", "lib/libavutil.so.", "lib/libswresample.so.", "lib/libswscale.so.")
 # Python's windows updater wants the exe; check.ps1 and the rest of Telescope.iss want the other two folders
 WINDOWS_FILES = ("TelescopeDesktop.exe", "rnnoise.dll", "vcruntime140.dll", "THIRD_PARTY_NOTICES.txt", "ui-kit/ui-kit.slint", "virtualcamera/TelescopeCamera.dll",
@@ -111,8 +116,8 @@ def build_py_stamp(folder: Path) -> dict:
     return {key.lower(): stamp.get(key) for key in ("VERSION", "BUILD", "CHANNEL", "COMMIT")}
 
 
-def run_info(program: Path, env=None) -> dict:
-    result = subprocess.run([str(program), "build-info"], capture_output=True, text=True, timeout=60, env=env)
+def run_info(program: Path, env=None, flags=()) -> dict:
+    result = subprocess.run([str(program), *flags, "build-info"], capture_output=True, text=True, timeout=60, env=env)
     if result.returncode != 0:
         problems.append(f"{program.name} build-info exited with {result.returncode}: {result.stderr.strip()}")
         return {}
@@ -142,6 +147,45 @@ def check_linux(name: str, folder: Path, args):
     check_ffmpeg_holds(name, va + [next(lib.glob("libavutil.so.*")), next(lib.glob("libavcodec.so.*"))])
 
 
+def check_appimage(image: Path, args):
+    name = image.name
+    with image.open("rb") as f:
+        head = f.read(1 << 20)
+    if head[:4] != b"\x7fELF" or head[8:11] != b"AI\x02":
+        problems.append(f"{name} isn't a type 2 AppImage")
+        return
+    # A static runtime asks for no loader and no libfuse2, the whole point of it
+    if b"ld-linux" in head or b"libfuse.so.2" in head:
+        problems.append(f"{name}'s runtime isn't the static one")
+    os.chmod(image, 0o755)
+    with tempfile.TemporaryDirectory(prefix="telescope-appimage-") as work:
+        # Unpacking needs no FUSE, which CI's containers don't have
+        unpacked_in = subprocess.run([str(image.resolve()), "--appimage-extract"], cwd=work, capture_output=True, text=True, timeout=120)
+        if unpacked_in.returncode != 0:
+            problems.append(f"{name} won't unpack: {unpacked_in.stderr.strip()}")
+            return
+        folder = Path(work) / "squashfs-root"
+        names = files_in(folder)
+        check_common(name, folder, names, APPIMAGE_FILES)
+        check_libraries(name, folder, names, LINUX_LIBRARIES)
+        for entry in ("AppRun", "telescope-rs"):
+            if not os.access(folder / entry, os.X_OK):
+                problems.append(f"{name}'s {entry} can't run")
+        if not (folder / ".DirIcon").exists():
+            problems.append(f"{name} has no .DirIcon")
+        desktop = (folder / "telescope.desktop").read_text(encoding="utf-8")
+        for needed in ("Icon=telescope", "StartupWMClass=telescope"):
+            if needed not in desktop:
+                problems.append(f"{name}'s desktop entry has no {needed}")
+        if args.no_run or sys.platform != "linux":
+            return
+        linked = subprocess.run(["ldd", str(folder / "telescope-rs")], capture_output=True, text=True).stdout
+        for lib in ("libavcodec", "libavutil", "libswresample", "libswscale"):
+            if not re.search(rf"{lib}\.so\.\d+ => {re.escape(str(folder.resolve()))}/lib/", linked):
+                problems.append(f"{name}'s program doesn't find its own {lib}: {linked}")
+    check_stamp(f"{name}'s program", run_info(image.resolve(), flags=("--appimage-extract-and-run",)), args)
+
+
 def check_windows(name: str, folder: Path, args):
     names = files_in(folder)
     check_common(name, folder, names, WINDOWS_FILES)
@@ -169,6 +213,9 @@ def main():
     args = parser.parse_args()
     keep = []
     for package in args.packages:
+        if package.suffix == ".AppImage":
+            check_appimage(package, args)
+            continue
         folder = unpacked(package, keep)
         windows = (folder / "TelescopeDesktop.exe").is_file() or package.suffix == ".zip"
         (check_windows if windows else check_linux)(package.name, folder, args)

@@ -39,6 +39,12 @@ if missing | grep -q 'libva\|libdrm'; then
     export LD_LIBRARY_PATH="$PWD/lib/fallback${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi
 
+# In a folder of its own, since libva's being wanted mustn't put these ahead of the system's
+if missing | grep -q 'libfontconfig\|libfreetype\|libexpat'; then
+    export LD_LIBRARY_PATH="$PWD/lib/fallback-fonts${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    [ -e /etc/fonts/fonts.conf ] || export FONTCONFIG_FILE="$PWD/lib/fallback-fonts/fonts.conf"
+fi
+
 gone="$(missing)"
 if [ -n "$gone" ]; then
     echo "Telescope can't start because this system lacks what it needs:"

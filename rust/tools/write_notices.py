@@ -67,6 +67,17 @@ LINUX = """
 libva and libdrm (lib/fallback/, used only on a system without its own)
     Reach the graphics card for hardware decoding.
     License: MIT. Source: https://github.com/intel/libva, https://gitlab.freedesktop.org/mesa/drm
+
+fontconfig, FreeType, Expat, libpng, Brotli, libuuid and zlib (lib/fallback-fonts/, used only on a system without its own)
+    Find the system's fonts. As Ubuntu 22.04 ships them.
+    License: MIT (fontconfig, Expat, Brotli), FreeType License, libpng License, BSD 3-Clause (libuuid), zlib License.
+    Source: https://gitlab.freedesktop.org/fontconfig/fontconfig, https://freetype.org, https://libexpat.github.io,
+    http://www.libpng.org, https://github.com/google/brotli, https://github.com/util-linux/util-linux, https://zlib.net
+
+AppImage runtime (Telescope-x86_64.AppImage only)
+    Mounts the AppImage. Statically linked with libfuse, squashfuse and zstd.
+    License: MIT, with libfuse under the LGPL 2.1 and squashfuse under a BSD licence. One message is reworded, nothing else.
+    Source: https://github.com/AppImage/type2-runtime
 """
 
 CRATES = """

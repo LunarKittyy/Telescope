@@ -284,7 +284,8 @@ pub fn roll_back(directory: &Path, journal: &Value, remember: bool, mv: Mover) -
         for name in names(journal, "entries") {
             let (dst, prev) = (directory.join(&name), previous.join(&name));
             if prev.exists() {
-                if dst.exists() {
+                // A file goes back over the new one in one step, so an AppImage's path never stands empty
+                if dst.exists() && (is_real_dir(&dst) || is_real_dir(&prev)) {
                     remove(&dst)?;
                 }
                 mv(&prev, &dst)?;
@@ -328,7 +329,7 @@ pub fn recover(directory: &Path, wait: Duration, running_elsewhere: &dyn Fn() ->
 
 pub fn recover_with(directory: &Path, wait: Duration, running_elsewhere: &dyn Fn() -> bool, grace: Duration,
                     mv: Mover) -> Option<Vec<String>> {
-    let journal = read_journal(directory)?;
+    let journal = read_journal(directory).filter(|j| is_ours(j, appimage_name().as_deref()))?;
     let deadline = Instant::now() + wait;
     while running_elsewhere() {
         if Instant::now() >= deadline {
@@ -367,6 +368,16 @@ pub fn recover_with(directory: &Path, wait: Duration, running_elsewhere: &dyn Fn
     result.unwrap_or(None)
 }
 
+/// This copy's AppImage file name, which tells its update apart in a folder other things share.
+fn appimage_name() -> Option<String> {
+    telescope_core::system::appimage().map(|image| image.name())
+}
+
+/// Whether a journal is this copy's. An AppImage's lies in whatever folder holds the file, which can also hold another AppImage or an unpacked tarball.
+fn is_ours(journal: &Value, appimage: Option<&str>) -> bool {
+    journal["appimage"].as_str() == appimage
+}
+
 /// A started trial with no running copy usually means it crashed, unless it's still loading before it takes the lock.
 fn first_start_still_loading(journal: &Value, running_elsewhere: &dyn Fn() -> bool, grace: Duration) -> bool {
     let Some(started_at) = journal["started_at"].as_f64() else { return false };
@@ -381,7 +392,7 @@ fn first_start_still_loading(journal: &Value, running_elsewhere: &dyn Fn() -> bo
 
 /// The new version started fine: stop being ready to roll it back. Its leftovers go with the next clean-up.
 pub fn confirm(directory: &Path) {
-    if read_journal(directory).is_some_and(|j| j["state"] == "trial") {
+    if read_journal(directory).is_some_and(|j| j["state"] == "trial" && is_ours(&j, appimage_name().as_deref())) {
         let _ = clear_journal(directory);
     }
 }
@@ -433,7 +444,7 @@ pub fn confirm_on_terminate(directory: PathBuf) {
 #[cfg(not(unix))]
 pub fn confirm_on_terminate(_directory: PathBuf) {}
 
-/// The command that starts the version in place: the exe on Windows, start.sh (else this program) on Linux.
+/// The command that starts the version in place: the exe on Windows, the AppImage, or start.sh (else this program) on Linux.
 pub fn relaunch_command(directory: &Path, after_update: bool) -> Vec<String> {
     let start = if cfg!(windows) {
         directory.join(EXE_NAME)
@@ -442,7 +453,7 @@ pub fn relaunch_command(directory: &Path, after_update: bool) -> Vec<String> {
     } else {
         std::env::current_exe().unwrap_or_else(|_| directory.join("telescope-rs"))
     };
-    let mut argv = vec![start.to_string_lossy().to_string()];
+    let mut argv = telescope_core::system::appimage().map_or_else(|| vec![start.to_string_lossy().to_string()], |image| image.command());
     if after_update {
         argv.push("--after-update".into());
     }
@@ -484,6 +495,12 @@ pub fn clean_up_after_update(directory: &Path, this_build: Option<i64>) {
     if this_build.is_some_and(|b| b != 0 && failed_build(directory) == Some(b)) {
         return; // this copy was rolled back underneath it: the version in place needs these
     }
+    // An AppImage's folder is the user's own, so only what its update made there goes
+    if telescope_core::system::appimage().is_some() {
+        let _ = remove(&directory.join(STAGING_DIR));
+        let _ = remove(&directory.join(PREVIOUS_DIR));
+        return;
+    }
     let mut leftovers: Vec<PathBuf> = [OLD_EXE_NAME, FAILED_EXE_NAME, STAGING_DIR, PREVIOUS_DIR].iter().map(|n| directory.join(n)).collect();
     // What the Python tarball had and this one doesn't, which an update leaves in place. Only beside its update_guard.py, since the
     // others are common names in a folder a tarball was unpacked into
@@ -515,7 +532,7 @@ fn remove_python_lib(lib: &Path) -> io::Result<()> {
 pub fn python_venv_left(directory: &Path, this_build: Option<i64>, data_home: &Path) -> Option<PathBuf> {
     let unconfirmed = read_journal(directory).is_some() || this_build.is_some_and(|b| b != 0 && failed_build(directory) == Some(b));
     let venv = data_home.join("Telescope").join("venv");
-    (!cfg!(windows) && !unconfirmed && directory.join("update_guard.py").is_file() && venv.join(".telescope-requirements").is_file()).then_some(venv)
+    (!cfg!(windows) && telescope_core::system::appimage().is_none() && !unconfirmed && directory.join("update_guard.py").is_file() && venv.join(".telescope-requirements").is_file()).then_some(venv)
 }
 
 /// main.py's start: recover first and hand over to the right version when needed. True: carry on starting.
@@ -528,6 +545,107 @@ pub fn guard_start(directory: &Path, after_update: bool) -> bool {
             let _ = launch(&argv);
             false
         }
+    }
+}
+
+#[cfg(test)]
+mod appimage_tests {
+    use super::*;
+    use crate::updates::install_appimage;
+
+    fn image(body: &str) -> Vec<u8> {
+        let mut bytes = b"\x7fELF\x02\x01\x01\x00AI\x02".to_vec();
+        bytes.extend_from_slice(body.as_bytes());
+        bytes
+    }
+
+    fn folder(name: &str) -> PathBuf {
+        let p = std::env::temp_dir().join(format!("telescope-appimage-guard-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&p);
+        std::fs::create_dir_all(&p).unwrap();
+        p
+    }
+
+    /// old.AppImage in a folder, a download beside it, and the folder it's in.
+    fn placed(name: &str) -> (PathBuf, PathBuf, PathBuf) {
+        let dir = folder(name);
+        let (current, new) = (dir.join("Telescope.AppImage"), dir.join("download"));
+        std::fs::write(&current, image("old")).unwrap();
+        std::fs::write(&new, image("new")).unwrap();
+        (dir, current, new)
+    }
+
+    #[test]
+    fn a_new_appimage_replaces_the_file_keeps_the_old_one_and_can_go_back() {
+        use std::os::unix::fs::PermissionsExt;
+        let (dir, current, new) = placed("swap");
+        std::fs::set_permissions(&current, std::fs::Permissions::from_mode(0o750)).unwrap();
+        let tried = std::cell::RefCell::new(Vec::new());
+        let result = install_appimage(&new, &current, false, 131, &mut rename, &|argv| {
+            tried.borrow_mut().push(argv.to_vec());
+            true
+        }).unwrap();
+        assert_eq!(tried.borrow()[0], [dir.join(STAGING_DIR).join("Telescope.AppImage").to_string_lossy().into_owned()]);
+        assert_eq!(result.relaunch, [current.to_string_lossy().into_owned(), "--after-update".into()]);
+        assert_eq!(std::fs::read(&current).unwrap(), image("new"));
+        assert_eq!(std::fs::metadata(&current).unwrap().permissions().mode() & 0o777, 0o750);
+        assert_eq!(std::fs::read(dir.join(PREVIOUS_DIR).join("Telescope.AppImage")).unwrap(), image("old"));
+        assert!(!dir.join(STAGING_DIR).exists());
+        let journal = read_journal(&dir).unwrap();
+        assert_eq!((journal["state"].as_str(), journal["appimage"].as_str()), (Some("trial"), Some("Telescope.AppImage")));
+
+        roll_back(&dir, &journal, true, &mut rename).unwrap();
+        assert_eq!(std::fs::read(&current).unwrap(), image("old"));
+        assert_eq!(std::fs::metadata(&current).unwrap().permissions().mode() & 0o777, 0o750);
+        assert_eq!(failed_build(&dir), Some(131));
+        assert!(read_journal(&dir).is_none());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn an_appimage_that_cant_start_here_is_refused_before_anything_changes() {
+        let (dir, current, new) = placed("refused");
+        let e = install_appimage(&new, &current, false, 131, &mut rename, &|_| false).unwrap_err();
+        assert!(e.0.contains("can't start"), "{e}");
+        assert_eq!(std::fs::read(&current).unwrap(), image("old"));
+        assert!(!dir.join(STAGING_DIR).exists() && !dir.join(PREVIOUS_DIR).exists() && read_journal(&dir).is_none());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_download_that_isnt_an_appimage_is_refused() {
+        let (dir, current, new) = placed("notimage");
+        std::fs::write(&new, "<html>not one</html>").unwrap();
+        assert!(install_appimage(&new, &current, false, 131, &mut rename, &|_| panic!("never run")).is_err());
+        assert_eq!(std::fs::read(&current).unwrap(), image("old"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_swap_that_fails_leaves_the_old_file_in_place() {
+        let (dir, current, new) = placed("fails");
+        let mut mv = |a: &Path, b: &Path| if b == current { Err(io::Error::other("no")) } else { std::fs::rename(a, b) };
+        assert!(install_appimage(&new, &current, false, 131, &mut mv, &|_| true).is_err());
+        assert_eq!(std::fs::read(&current).unwrap(), image("old"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_copy_that_cant_mount_passes_its_flag_on() {
+        let (dir, current, new) = placed("extracted");
+        let result = install_appimage(&new, &current, true, 131, &mut rename, &|argv| argv[1] == "--appimage-extract-and-run").unwrap();
+        assert_eq!(result.relaunch[1..], ["--appimage-extract-and-run", "--after-update"]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_journal_belongs_to_the_copy_that_wrote_it() {
+        let image = json!({"state": "trial", "appimage": "Telescope.AppImage"});
+        assert!(is_ours(&image, Some("Telescope.AppImage")));
+        assert!(!is_ours(&image, Some("Telescope-old.AppImage")), "another AppImage in the folder");
+        assert!(!is_ours(&image, None), "a tarball unpacked in the same folder");
+        assert!(is_ours(&json!({"state": "trial"}), None));
+        assert!(!is_ours(&json!({"state": "trial"}), Some("Telescope.AppImage")));
     }
 }
 

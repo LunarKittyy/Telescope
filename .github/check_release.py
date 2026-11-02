@@ -84,9 +84,15 @@ def main():
     if "TelescopeDesktop.exe" not in names:
         problems.append("Telescope-windows-portable.zip has no TelescopeDesktop.exe")
 
+    if not (out / "Telescope-x86_64.AppImage").is_file():
+        problems.append("There's no Telescope-x86_64.AppImage")
+
     manifest = json.loads((out / "manifest.json").read_text())
     if (manifest.get("versionName"), manifest.get("build")) != (version_name, args.build):
         problems.append(f"manifest.json is for {manifest.get('versionName')} build {manifest.get('build')}")
+    # An AppImage updates from this entry; everything else looks its own asset up by name and passes over it
+    if not any(asset["name"] == "Telescope-x86_64.AppImage" for asset in manifest.get("assets", [])):
+        problems.append("manifest.json doesn't list Telescope-x86_64.AppImage")
     for asset in manifest.get("assets", []):
         f = out / asset["url"].rsplit("/", 1)[-1]
         if not f.is_file() or sha256(f) != asset["sha256"]:

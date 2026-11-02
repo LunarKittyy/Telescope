@@ -1309,8 +1309,11 @@ impl Window {
             self.quit("Restarting");
             return true;
         }
-        let exe = std::env::current_exe().map(|p| p.to_string_lossy().into_owned());
-        match exe.and_then(|exe| (app_hooks().relaunch)(&[exe, "--restarted".to_string()])) {
+        let again = telescope_core::system::start_command().and_then(|mut argv| {
+            argv.push("--restarted".to_string());
+            (app_hooks().relaunch)(&argv)
+        });
+        match again {
             Ok(()) => {
                 self.quit("Restarting");
                 true
