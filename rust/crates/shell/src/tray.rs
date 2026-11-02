@@ -6,6 +6,7 @@ use crate::shell::Effect;
 use crate::window::{with_window, Window};
 use slint::ComponentHandle;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use telescope_core::event::Event;
 use telescope_core::i18n::tr;
 use telescope_core::system::TrayItem;
@@ -13,10 +14,25 @@ use telescope_core::system::TrayItem;
 const SHOW: &str = "show";
 const QUIT: &str = "quit";
 
+/// A raise that came before Slint's backend existed, kept for the window to honour once the event loop is up.
+static RAISE_WAITING: AtomicBool = AtomicBool::new(false);
+
 /// A second start asked for the window (Python's _sig_raise); any thread.
 pub fn raise() {
+    raise_with(|| slint::invoke_from_event_loop(|| with_window(|w| w.show_window())).is_ok());
+}
+
+/// raise() with how to reach the event loop; a request it can't reach is kept for take_raise.
+fn raise_with(send: impl FnOnce() -> bool) {
     log::info!("Another start asked this window to show itself");
-    let _ = slint::invoke_from_event_loop(|| with_window(|w| w.show_window()));
+    if !send() {
+        RAISE_WAITING.store(true, Ordering::SeqCst);
+    }
+}
+
+/// Whether a raise is waiting from before the event loop could take it; asking clears it.
+pub fn take_raise() -> bool {
+    RAISE_WAITING.swap(false, Ordering::SeqCst)
 }
 
 /// Starts this copy again, from any thread (win.restart_app()).
@@ -94,6 +110,9 @@ impl Window {
                 clicks.push(c);
             }
         });
+        if take_raise() {
+            self.show_window();
+        }
         for click in clicks {
             match click.as_str() {
                 "" if self.ui.window().is_visible() => self.hide_window(),
@@ -252,5 +271,15 @@ mod tests {
         assert_eq!(tooltip(true, true, (true, true)), "Telescope: streaming the camera, mic muted");
         assert_eq!(tooltip(true, false, (true, true)), "Telescope: streaming the mic, camera off (muted)");
         assert_eq!(tooltip(true, false, (true, false)), "Telescope: streaming the mic, camera off");
+    }
+
+    #[test]
+    fn a_raise_before_the_event_loop_is_kept() {
+        assert!(!take_raise());
+        raise_with(|| false);
+        assert!(take_raise());
+        assert!(!take_raise(), "taken once");
+        raise_with(|| true);
+        assert!(!take_raise(), "one that went through isn't kept");
     }
 }

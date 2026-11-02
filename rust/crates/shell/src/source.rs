@@ -431,6 +431,9 @@ pub fn to_json(value: &Value) -> Json {
 /// "#rgb", "#rrggbb" or "#rrggbbaa".
 pub fn parse_color(s: &str) -> Option<slint::Color> {
     let hex = s.strip_prefix('#')?;
+    if !hex.is_ascii() {
+        return None;
+    }
     let n = |i: usize| u8::from_str_radix(hex.get(i..i + 2)?, 16).ok();
     match hex.len() {
         3 => {
@@ -538,6 +541,14 @@ export component CameraCard inherits Card {
     fn field(row: &Value, name: &str) -> Value {
         let Value::Struct(s) = row else { panic!("not a struct: {row:?}") };
         s.get_field(name).cloned().unwrap_or_else(|| panic!("no {name} in {s:?}"))
+    }
+
+    #[test]
+    fn a_colour_with_non_ascii_text_is_no_colour() {
+        for text in ["#\u{e9}a", "#\u{e9}ab", "#\u{e9}abcde", "#abc\u{e9}", "#\u{e9}"] {
+            assert!(parse_color(text).is_none(), "{text}");
+        }
+        assert!(parse_color("#0f8").is_some());
     }
 
     #[test]
