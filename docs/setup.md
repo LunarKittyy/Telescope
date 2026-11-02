@@ -8,7 +8,7 @@ You need three things: the `v4l2loopback` package, Python 3.12 or newer and opti
 
 ### The AppImage
 
-`Telescope-x86_64.AppImage` is one file that holds the whole app. Make it executable (`chmod +x Telescope-x86_64.AppImage`, or Properties in your file manager) and run it. It needs Ubuntu 22.04, Debian 12, Fedora 36 or something newer, and `libfuse2` doesn't have to be installed. The first start adds Telescope to your app menu and starting the file from a new place points the entry there.
+`Telescope-x86_64.AppImage` is one file that holds the whole app. Make it executable (`chmod +x Telescope-x86_64.AppImage`, or Properties in your file manager) and run it. It needs Ubuntu 22.04, Debian 12, Fedora 36 or something newer. `libfuse2` doesn't have to be installed. The first start adds Telescope to your app menu and starting the file from a new place points the entry there.
 
 Put it somewhere you can write to, like `~/Applications`. Updating replaces the file in that folder and keeps the old one until the new one has started. In a folder you can't write to, Update opens the download page instead.
 
