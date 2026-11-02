@@ -49,7 +49,7 @@ ring = "0.17"
 str0m = { version = "0.24.1", default-features = false, features = ["rust-crypto"] }
 mdns-sd = { version = "0.21", default-features = false }
 if-addrs = "0.15"
-ffmpeg-sys-next = { version = "8", default-features = false, features = ["avcodec", "swscale"] }
+ffmpeg-sys-next = { version = "9", default-features = false, features = ["avcodec", "swscale"] }
 # GPU frame steps: 30 is the version Slint 1.18's unstable-wgpu-30 takes, so the preview can share textures later
 wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "wgsl", "vulkan", "gles", "dx12"] }
 pollster = "1"
@@ -70,7 +70,7 @@ zbus = { version = "5", default-features = false, features = ["async-io", "block
 # Reading Google's SDK index for the adb download on Windows
 roxmltree = "0.21"
 # The microphone: loading RNNoise as Python did, and the Windows sound output VB-Cable is played into
-libloading = "0.8"
+libloading = "0.9"
 zune-jpeg = "0.5"
 zune-core = "0.5"
 image = { version = "0.25", default-features = false }
