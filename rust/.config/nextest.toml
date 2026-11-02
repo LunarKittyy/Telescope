@@ -1,0 +1,23 @@
+# Each test runs in its own process, so a Mutex in a test file no longer keeps two of them apart. What's shared across processes goes here.
+[profile.default]
+# A flaky test should fail, not hide
+retries = 0
+status-level = "fail"
+final-status-level = "slow"
+failure-output = "immediate"
+success-output = "never"
+fail-fast = false
+
+[test-groups]
+# The virtual mic's source name is claimed machine-wide, so a copy that finds it taken leaves it alone
+real-starts = { max-threads = 1 }
+# The pairing server takes a fixed port first
+pairing-port = { max-threads = 1 }
+
+[[profile.default.overrides]]
+filter = "binary(commands)"
+test-group = "real-starts"
+
+[[profile.default.overrides]]
+filter = "binary(integration)"
+test-group = "pairing-port"

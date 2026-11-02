@@ -1,4 +1,7 @@
 // test_frames.py's window half: real streams through the real window, on a platform of our own that a test can pump.
+// Linux only: the fixed canvas; on Windows a camera opens at the stream's size
+#![cfg(target_os = "linux")]
+
 use serde_json::{json, Value};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -209,7 +212,6 @@ fn frames(w: &Rc<window::Window>) -> Vec<(String, String)> {
     ask(w, |host| host.frames().stream_frames().into_iter().map(|f| (f.source_id, f.name)).collect())
 }
 
-#[cfg(target_os = "linux")] // the fixed canvas; on Windows a camera opens at the stream's size
 #[test]
 fn the_window_shares_its_streams_says_which_goes_to_each_camera_and_when_it_opens() {
     assert!(offscreen::install());

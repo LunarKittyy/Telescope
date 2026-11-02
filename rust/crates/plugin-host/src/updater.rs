@@ -42,9 +42,13 @@ fn zip_version(path: &Path, name: &str) -> String {
 /// first is never used (mkdtemp).
 fn private_dir_in(base: &Path, name: &str) -> std::io::Result<PathBuf> {
     let dir = base.join(name);
-    let mut builder = std::fs::DirBuilder::new();
+    let builder = std::fs::DirBuilder::new();
     #[cfg(unix)]
-    std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+    let builder = {
+        let mut builder = builder;
+        std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+        builder
+    };
     builder.create(&dir)?;
     Ok(dir)
 }

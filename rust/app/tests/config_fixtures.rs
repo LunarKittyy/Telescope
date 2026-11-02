@@ -1,5 +1,8 @@
 // test_config_fixtures.py::test_the_app_ends_up_where_the_fixture_says: `telescope-rs config-snapshot` starts the real window offscreen with every
 // built-in plugin in a throwaway profile, applies the fixture's settings, saves and prints what came of it. Nothing is left out of the comparison.
+// Linux only: the expected files are recorded there
+#![cfg(target_os = "linux")]
+
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 use telescope_core::json;
@@ -22,8 +25,6 @@ fn first_difference(path: &str, want: &Value, got: &Value) -> Option<String> {
     })
 }
 
-// The expected files are recorded on Linux
-#[cfg(target_os = "linux")]
 #[test]
 fn the_app_ends_up_where_the_fixture_says() {
     let folders = fixtures();

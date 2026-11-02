@@ -575,6 +575,7 @@ mod appimage_tests {
         (dir, current, new)
     }
 
+    #[cfg(unix)]
     #[test]
     fn a_new_appimage_replaces_the_file_keeps_the_old_one_and_can_go_back() {
         use std::os::unix::fs::PermissionsExt;
