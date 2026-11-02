@@ -567,7 +567,7 @@ impl State {
     /// apply_saved_config: the saved settings into every plugin, then on_plugins_ready, then a banner if the file
     /// had to be set aside.
     pub fn apply_saved_config(&mut self) {
-        let mut cfg = self.file.load();
+        let mut cfg = self.file.load_at_start();
         self.apply_config(&mut cfg);
         self.each(|p, host| p.on_plugins_ready(host));
         if let Some(backup) = self.file.take_reset_notice() {
@@ -849,6 +849,8 @@ impl State {
             return match read {
                 Ok(mut cfg) => {
                     self.apply_config(&mut cfg);
+                    // As at the start: Connection takes the restored selection as the one whose settings the panels hold
+                    self.each(|p, host| p.on_plugins_ready(host));
                     true
                 }
                 Err(e) => {
@@ -1293,6 +1295,34 @@ mod tests {
         assert!(!s.save_now(), "the window tries again");
         locked(&s, 0o600);
         assert_eq!(s.file.load()["devices"]["PhoneB"]["plugin_configs"]["transforms"]["zoom"], 3);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn taking_in_a_file_that_was_unreadable_at_start_tells_plugins_they_are_ready_again() {
+        struct Ready(Arc<Mutex<Vec<&'static str>>>);
+        impl Plugin for Ready {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "watcher".into(), ..Default::default() }
+            }
+            fn set_config(&mut self, _cfg: &Value) -> Result<(), ConfigRejected> {
+                self.0.lock().unwrap().push("config");
+                Ok(())
+            }
+            fn on_plugins_ready(&mut self, _host: &mut dyn telescope_core::host::Host) {
+                self.0.lock().unwrap().push("ready");
+            }
+        }
+        let mut s = state();
+        s.file.save(&mut json!({"plugin_configs": {"watcher": {"a": 1}}}));
+        let heard = Arc::new(Mutex::new(Vec::new()));
+        s.register(Box::new(Ready(heard.clone()))).unwrap();
+        locked(&s, 0o000);
+        s.apply_saved_config();
+        locked(&s, 0o600);
+        heard.lock().unwrap().clear();
+        assert!(s.save_now());
+        assert_eq!(*heard.lock().unwrap(), ["config", "ready"]);
     }
 
     #[test]

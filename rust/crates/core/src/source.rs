@@ -68,6 +68,10 @@ pub trait StreamSource: Send + Sync {
     fn prepare(&self, interactive: bool) -> bool;
     /// A fresh feed of its video, and what codec it's in.
     fn open_feed(&self) -> Result<(Codec, Box<dyn VideoFeed>), String>;
+    /// open_feed, which `open.stop()` ends while it's still opening; a source that can't be stopped there just opens.
+    fn open_feed_stoppable(&self, _open: &crate::media::OpenStop) -> Result<(Codec, Box<dyn VideoFeed>), String> {
+        self.open_feed()
+    }
     fn control_client(&self) -> Option<Box<dyn ControlClient>>;
     /// The rate the virtual camera runs at.
     fn fps(&self) -> u32;

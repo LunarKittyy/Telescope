@@ -273,14 +273,22 @@ impl Response {
         self.aborter.clone()
     }
 
+    /// One chunk-size line, refused past the length a head line may have.
+    fn chunk_line(reader: &mut BufReader<Box<dyn Stream>>) -> io::Result<String> {
+        let mut line = Vec::new();
+        reader.take(MAX_HEAD_LINE as u64 + 1).read_until(b'\n', &mut line)?;
+        if line.len() > MAX_HEAD_LINE {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "chunk size line too long"));
+        }
+        Ok(String::from_utf8_lossy(&line).into_owned())
+    }
+
     fn next_chunk(&mut self) -> io::Result<()> {
         if let Body::Chunked { left, done } = &mut self.body {
             if *left == 0 && !*done {
-                let mut line = String::new();
-                self.reader.read_line(&mut line)?;
+                let mut line = Self::chunk_line(&mut self.reader)?;
                 if line.trim().is_empty() {
-                    line.clear();
-                    self.reader.read_line(&mut line)?;
+                    line = Self::chunk_line(&mut self.reader)?;
                 }
                 let size = line.trim().split(';').next().unwrap_or("");
                 *left = u64::from_str_radix(size, 16).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "bad chunk"))?;
@@ -838,6 +846,24 @@ mod tests {
         let started = Instant::now();
         let err = PhoneAuth::new("t", "").open(Request::get(&format!("http://127.0.0.1:{port}/"), Duration::from_secs(30))).err().unwrap();
         assert!(matches!(err, Error::Bad(_)), "{err}");
+        assert!(started.elapsed() < Duration::from_secs(5));
+    }
+
+    #[test]
+    fn a_chunk_size_line_that_never_ends_is_refused_by_size() {
+        let port = odd_peer(|conn| {
+            let _ = conn.write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n");
+            let chunk = [b'a'; 4096];
+            for _ in 0..64 {
+                if conn.write_all(&chunk).is_err() {
+                    break;
+                }
+            }
+        });
+        let mut resp = PhoneAuth::new("t", "").open(Request::get(&format!("http://127.0.0.1:{port}/"), Duration::from_secs(30))).unwrap();
+        let started = Instant::now();
+        let err = resp.read_capped(1024).err().unwrap();
+        assert!(err.to_string().contains("too long"), "{err}");
         assert!(started.elapsed() < Duration::from_secs(5));
     }
 

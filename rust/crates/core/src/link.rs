@@ -51,6 +51,10 @@ pub trait PhoneSession: ControlClient {
     fn start(&self, request: StreamRequest) -> Result<(), String>;
     fn stop(&self) -> Result<(), String>;
     fn open_video(&self) -> Result<(Codec, Box<dyn VideoFeed>), String>;
+    /// open_video, which `open.stop()` ends while it's still connecting; a session that can't be stopped there just opens.
+    fn open_video_stoppable(&self, _open: &crate::media::OpenStop) -> Result<(Codec, Box<dyn VideoFeed>), String> {
+        self.open_video()
+    }
     /// Lets go of what the route holds (adb forwards); the session isn't used after.
     fn release(&self);
     /// The video URL it opens ("https://127.0.0.1:40001/v1/video.h264"), which says the route and format.

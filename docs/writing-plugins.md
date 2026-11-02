@@ -215,7 +215,7 @@ function plugin.events.stream_lost(e)
 end
 ```
 
-Each function gets the event as a table with its fields (`e.source_id` here). The names and fields are the ones listed as `event` in [`tests/plugin_api.txt`](../rust/crates/plugin-host/tests/plugin_api.txt), from `stream_started` and `phone_state_updated` to `people_tracked` and `still_saved`. Your plugin can also send events of its own with `host.emit("my_plugin.something", { ... })` and listen for them under the same name, as long as the name starts with your plugin's name and a dot.
+Each function gets the event as a table with its fields (`e.source_id` here). The names and fields are the ones listed as `event` in [`tests/plugin_api.txt`](../rust/crates/plugin-host/tests/plugin_api.txt), from `stream_started` and `phone_state_updated` to `people_tracked` and `still_saved`. Your plugin can also send events of its own with `host.emit("my_plugin.something", { ... })` and listen for them under the same name, as long as the name starts with your plugin's name and a dot. The app's own events (`stream_stopped` and the like) are the app's to send, so `host.emit` refuses them.
 
 `host` has everything else a plugin may ask of Telescope. The full list with each function's arguments is in [`tests/plugin_api.txt`](../rust/crates/plugin-host/tests/plugin_api.txt). A few you'll use most:
 

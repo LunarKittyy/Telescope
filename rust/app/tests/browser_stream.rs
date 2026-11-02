@@ -101,7 +101,7 @@ fn stream_worker_sends_browser_frames_to_the_virtual_camera() {
     let sent: Arc<Mutex<Vec<Frame>>> = Arc::default();
     let flipped = Arc::new(AtomicUsize::new(0));
     let reader = feed.clone();
-    let opener: Opener = Arc::new(move || {
+    let opener: Opener = Arc::new(move |_| {
         let (codec, video) = BrowserVideo::open(reader.clone()).ok_or("no browser")?;
         Ok((codec, Box::new(video) as Box<dyn VideoFeed>).into())
     });
