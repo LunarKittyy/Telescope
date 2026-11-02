@@ -75,6 +75,45 @@ The binary links the system's FFmpeg (Fedora's `libavcodec` alone is 14 MB becau
 
 A Windows build would land around 20 to 25 MB unpacked. That's the binary (a bit smaller than on Linux without the Wayland and X11 clients) plus either a minimal static FFmpeg with just the H.264 decoder, swscale and D3D11VA (2 to 4 MB) or Windows' own H.264 decoder through Media Foundation (nothing extra), plus the existing camera DLL and UnityCapture. An installer for that should be 10 to 15 MB against today's 104 MB. That doesn't count the parts the prototype leaves out, like the Browser camera's WebRTC stack and the vision pack (which is already a separate download).
 
+## The finished app against Python
+
+Measured on 2 November 2026 with the Rust app built from `041af64b` (the tip of `oxidized-telescope`) and the Python app from `33c61fc4` (the tip of `origin/master`). The machine is the same 8-core Ryzen 7 9800X3D with AMD graphics, KDE on Wayland and FFmpeg 8.1.3. Same method as above: the fake phone at `127.0.0.2` playing the 60 s 1080p30 High clip (8.4 Mbps), each streaming row 30 s sampled after 10 s of streaming, `ffmpeg` reading `/dev/video11` the whole time, CPU as percent of one core. Both apps ran as dev desktops with every default plugin loaded (Background and Auto framing are off in both, since neither vision pack was installed).
+
+Four runs per streaming row, median and then the range. The machine was nearly idle (load average 0.1 to 1.0 around every run), and the runs agree to a point or two.
+
+| | Rust window | Rust window, VA-API | Rust, no window | Rust, no window, VA-API | Python app | Python app, VA-API |
+|---|---|---|---|---|---|---|
+| CPU at 1080p30 | 17.1% (16.9 to 17.3) | 7.0% (7.0 to 7.2) | 12.1% (12.1 to 12.2) | 3.2% (2.5 to 4.1) | 23.2% (23.0 to 23.7) | 17.9% (17.7 to 18.4) |
+| Memory, RSS | 249 MB (249 to 258) | 263 MB (261 to 270) | 71 MB (71 to 71) | 106 MB (106 to 106) | 226 MB (225 to 233) | 310 MB (306 to 316) |
+| Memory, PSS | 216 MB (216 to 225) | 226 MB (224 to 233) | 58 MB (58 to 58) | 70 MB (70 to 70) | 213 MB (212 to 220) | 252 MB (248 to 258) |
+| Frames the camera delivered in 35 s | 1066 | 1066 | 1066 | 1066 or 1067 | 1066 (1065 to 1066) | 1066 |
+
+| | Rust | Python |
+|---|---|---|
+| Start to first painted window, median of 8 (two batches of 8: 296.6 and 296.6 ms) | 297 ms (292 to 323) | 941 ms (925 to 968; batches 938.0 and 943.3 ms) |
+| On disk | binary 61.7 MB stripped, plus about 5 MB for the bundled FFmpeg (not built here, taken from `docs/building.md`) and 1 MB of `.slint` files | 651 MB of packages without pip, plus 13 MB of the app's own files |
+
+What it says, plainly:
+
+- **CPU:** the Rust window uses 6 points less than the Python app (17.1% against 23.2%). With VA-API it's 7.0% against 17.9%, so hardware decoding takes about 10 points off the Rust app and only 5 off the Python one, which fits the Python app spending most of its time on the per-frame BGR conversion and plugin pipeline, not on decoding (not profiled). Without a window Rust is at 12.1% (3.2% with VA-API).
+- **Memory got worse than the prototype and isn't better than Python's.** The window with every plugin loaded is at 249 MB RSS against Python's 226 MB. PSS is level (216 MB against 213 MB). The prototype's 145 MB and the Phase 2 window's 194 to 199 MB are both gone. One idle sample of the window (nothing streaming) read 219 MB RSS, of which 103 MB was heap, 40 MB the binary itself and 23 MB `libLLVM`, which is Mesa's software Vulkan driver loaded when wgpu looks for adapters. The headless app is the real memory win: 71 MB, a third of either window.
+- **Start to first paint:** 297 ms against 941 ms, about 3 times faster, but not the 65 ms of the prototype, which had no plugins. Where the 230 ms goes was not profiled.
+- **Frames:** nobody drops one. 1066 in 35 s is the reader's own timing (30.5 fps), the same as before.
+- **Size:** the Rust binary is 61.7 MB where the prototype's was 18.4 MB. Even so, a Rust install is about a tenth of the Python one (about 68 MB against about 664 MB).
+
+How far the comparison is fair:
+
+- Each pipeline does different work per frame. The Python app converts every frame to BGR, runs it through the plugin pipeline on the CPU and writes it out with pyvirtualcam, and draws the preview through Qt. The Rust app keeps frame steps on the graphics card where it can and draws the preview as a texture. The comparison is fair on what a person gets, not on code paths.
+- On Linux neither app shows a splash, so the start times are both window against window. Rust's mark is Slint's first rendering notification and Python's is the first paint event of the main window (`tools/python_probe.py`); a compositor shows each of them a moment after.
+- The start was run with the file cache warm, not dropped (that needs root), and with the dev profile's phone paired but nothing else going on. A first start after boot will be slower for both.
+- Python's VA-API row uses the app's own build of PyAV 19.0.2 against the system FFmpeg (what Advanced's VA-API setup does; the pip wheel has no VA-API). Most Python users will never have that. Its memory goes up, probably because that PyAV loads the system's FFmpeg libraries (not checked).
+- Rust was built with the system FFmpeg, as in the earlier sections. The packaged builds use the small bundled FFmpeg, which wasn't built here, so the CPU and memory could differ a little.
+- The Python venv is today's pins on Python 3.12 (PyQt6, PyAV 19.0.2, OpenCV 5.0.0, no mediapipe). Its 226 MB is lower than the 287 MB measured earlier, so the old Python figure was partly an older environment.
+- The python-vaapi runs came as their own batch after the others. The other five rows ran round after round, so a busy minute would have touched all of them.
+- Background blur and Auto framing weren't measured. They need the vision pack (MediaPipe and two models) in both apps, which means downloads this run didn't make.
+
+To run it again: build with `CARGO_BUILD_JOBS=3 CARGO_INCREMENTAL=0 cargo build --release --locked -p telescope-app` in `rust/`, make a Python 3.12 venv from `desktop/requirements.txt` plus `requirements-nodeps.txt`, encode the clip with the command in `tools/fake_phone.py`'s header, then `python tools/compare_python.py --rust ... --python VENV/bin/python --python-desktop desktop --clip clip.h264 --rounds 4` for the streaming rows and `--startup --runs 8 --rows rust-window,python` for the start. It prints one JSON line per run, with the load average around it, and a table of medians and ranges. `python-vaapi` wants the app's PyAV build (`telescope/pyav_vaapi.py`) in `SCRATCH/xdg-data-vaapi/Telescope/pyav-vaapi` with a `choice.json`.
+
 ## How the pieces were chosen
 
 - **Decoding: FFmpeg's libavcodec** through `ffmpeg-sys-next`, the same decoder PyAV wraps, with the same low-delay flag. It handles every profile phones send, and VA-API comes with it (`--vaapi`, which took the window from 18.5% to 11.8% CPU). Talking to VA-API directly would mean writing a bitstream parser and the H.264 setup ourselves for little gain. OpenH264 would be smaller to ship but only promises Constrained Baseline, and phones send High. Frames come out as I420 and go to v4l2loopback with plain `write()` calls, with no BGR round trip.
