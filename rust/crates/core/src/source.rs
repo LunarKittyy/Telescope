@@ -103,6 +103,10 @@ pub trait StreamSource: Send + Sync {
     fn waiting_text(&self) -> String {
         String::new()
     }
+    /// Its H.264 may go to the graphics card when that's on.
+    fn card_decoding(&self) -> bool {
+        true
+    }
     /// Frames reach the computer at this rate, under what was asked for, and that's all its camera makes: it isn't falling behind.
     fn camera_limited(&self, _arrival: f32) -> bool {
         false

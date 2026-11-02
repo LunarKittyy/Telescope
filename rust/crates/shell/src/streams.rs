@@ -1617,7 +1617,7 @@ impl FlowHost for Host<'_> {
         // Setup's switch counts from the next stream on, as h264_reader.set_hardware does; --vaapi turns it on for a run
         let setup = self.w.state.borrow().plugin_config("setup");
         let chosen = telescope_core::media::hardware_decode_on(setup.as_ref());
-        let hardware = chosen || self.w.opts.as_ref().is_some_and(|o| o.hardware_decode);
+        let hardware = source.kind.card_decoding() && (chosen || self.w.opts.as_ref().is_some_and(|o| o.hardware_decode));
         let id = self.w.streams.next_worker.get() + 1;
         self.w.streams.next_worker.set(id);
         let opener = source.kind.opener().unwrap_or_else(|| Arc::new(|| Err(tr("Couldn't reach the phone."))));
@@ -1679,9 +1679,10 @@ impl FlowHost for Host<'_> {
     }
 }
 
-/// Steps came on or off source's H.264: a keyframe gives a new one a start and brings back a picture they broke.
+/// Steps came on or off source's H.264, or its decoder changed: a keyframe gives the new one a start and brings back a picture they broke.
+/// A phone only has them on H.264; a plugin's source decides for itself in its client.
 fn ask_keyframe(source: &SourceRef) {
-    if let Some(session) = source.session().filter(|s| s.url.ends_with(".h264") || s.url.ends_with(".udp")) {
+    if let Some(session) = source.session().filter(|s| source.kind.as_phone().is_none() || s.url.ends_with(".h264") || s.url.ends_with(".udp")) {
         session.client.send(&serde_json::json!({"action": "keyframe"}));
     }
 }

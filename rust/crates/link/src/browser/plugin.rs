@@ -317,6 +317,24 @@ impl ControlClient for NoControl {
     }
 }
 
+/// A connected browser takes one order: the stream lost its place and wants a keyframe.
+struct BrowserControl(Arc<BrowserFeed>);
+
+impl ControlClient for BrowserControl {
+    fn send(&self, body: &Value) -> Result<(), String> {
+        if body["action"] == "keyframe" {
+            self.0.ask_keyframe();
+        }
+        Ok(())
+    }
+    fn state(&self) -> Result<Value, String> {
+        NoControl.state()
+    }
+    fn has_audio(&self) -> bool {
+        NoControl.has_audio()
+    }
+}
+
 /// Browser camera in the picker: Start streams a browser that's there, or waits for one to connect.
 struct Launcher {
     shared: Arc<Shared>,
@@ -397,7 +415,11 @@ impl StreamSource for BrowserSource {
         Ok((codec, Box::new(video)))
     }
     fn control_client(&self) -> Option<Box<dyn ControlClient>> {
-        Some(Box::new(NoControl))
+        Some(Box::new(BrowserControl(self.feed.clone())))
+    }
+    // Phones' browsers often send plain Baseline, which VA-API refuses, and that would take the card from every stream this run
+    fn card_decoding(&self) -> bool {
+        false
     }
     fn fps(&self) -> u32 {
         self.shared.fps.load(Ordering::SeqCst)

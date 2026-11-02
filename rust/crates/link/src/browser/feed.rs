@@ -3,7 +3,8 @@
 //!
 //! Python kept only the newest decoded frame, since aiortc had decoded it already. Here the frames are still encoded
 //! and an H.264 frame can't be skipped without breaking the ones after it, so they queue in order; a reader that falls
-//! too far behind drops the queue and waits for the next keyframe, which the connection is asked for.
+//! too far behind drops the queue and waits for the next keyframe, which the connection is asked for. They leave here
+//! by the sender's own timestamps, since Firefox sends in bursts.
 
 use serde_json::{json, Value};
 use std::collections::VecDeque;
@@ -12,6 +13,7 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 use telescope_core::audio::{AudioFeed, AudioPacket};
 use telescope_core::media::{Codec, FeedEnd, FeedStopper, Packet, VideoFeed};
+use telescope_core::pace::EvenTiming;
 
 /// A page that sends no id of its own (an older one).
 pub const DEFAULT_ID: &str = "default";
@@ -22,6 +24,8 @@ const MAX_AUDIO_BYTES: usize = 48_000 * 2;
 /// How long the video waits for a browser to be there, and for its next frame before the stream reconnects.
 pub const OPEN_WAIT: Duration = Duration::from_secs(1);
 pub const FRAME_WAIT: Duration = Duration::from_secs(3);
+/// The longest a held frame sleeps before looking for a stop.
+const HOLD_NAP: Duration = Duration::from_millis(20);
 
 /// What the page says it sends: its size and rate, and what holds it back ("cpu", "bandwidth" or "").
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -38,6 +42,10 @@ pub struct Frame {
     pub seq: u64,
     pub codec: Codec,
     pub data: Vec<u8>,
+    /// When the sender made it, on the sender's clock.
+    pub made_ns: u64,
+    /// When it got here.
+    pub arrived_ns: u64,
 }
 
 /// Whether the stream can start decoding at this frame.
@@ -127,7 +135,7 @@ impl BrowserFeed {
         self.lock().gen == gen
     }
 
-    pub fn put_video(&self, gen: u64, codec: Codec, data: Vec<u8>, frame_bytes: u64) {
+    pub fn put_video(&self, gen: u64, codec: Codec, data: Vec<u8>, frame_bytes: u64, made_ns: u64) {
         let mut s = self.lock();
         if gen != s.gen {
             return;
@@ -148,7 +156,7 @@ impl BrowserFeed {
         }
         s.frame_seq += 1;
         let seq = s.frame_seq;
-        s.frames.push_back(Frame { seq, codec, data });
+        s.frames.push_back(Frame { seq, codec, data, made_ns, arrived_ns: telescope_core::time::monotonic_ns() });
         if frame_bytes > 0 {
             s.frame_bytes = frame_bytes;
         }
@@ -166,6 +174,11 @@ impl BrowserFeed {
         for stream in streams {
             stream.push(pcm);
         }
+    }
+
+    /// A keyframe, soon: the stream lost its place.
+    pub fn ask_keyframe(&self) {
+        self.keyframe.store(true, Ordering::SeqCst);
     }
 
     /// Whether the stream asked for a keyframe since this was last asked.
@@ -488,6 +501,8 @@ pub struct BrowserVideo {
     feed: Arc<BrowserFeed>,
     gen: u64,
     stopped: Arc<AtomicBool>,
+    pace: EvenTiming,
+    told: bool,
 }
 
 impl BrowserVideo {
@@ -495,7 +510,21 @@ impl BrowserVideo {
     pub fn open(feed: Arc<BrowserFeed>) -> Option<(Codec, BrowserVideo)> {
         let gen = feed.wait_connected(OPEN_WAIT)?;
         let codec = feed.wait_codec(gen, super::rtc::ANSWER_TIMEOUT)?;
-        Some((codec, BrowserVideo { feed, gen, stopped: Arc::default() }))
+        Some((codec, BrowserVideo { feed, gen, stopped: Arc::default(), pace: EvenTiming::new(), told: false }))
+    }
+
+    /// Waits until a frame is due, in short sleeps so a stop is noticed soon. False if the stream stopped.
+    fn hold_until(&self, due_ns: u64) -> bool {
+        loop {
+            let left = due_ns.saturating_sub(telescope_core::time::monotonic_ns());
+            if left == 0 {
+                return true;
+            }
+            if self.stopped.load(Ordering::SeqCst) {
+                return false;
+            }
+            std::thread::sleep(Duration::from_nanos(left).min(HOLD_NAP));
+        }
     }
 }
 
@@ -516,7 +545,14 @@ impl VideoFeed for BrowserVideo {
             }
             // In short waits, so a stop is noticed soon
             if let Some(frame) = self.feed.next_frame(self.gen, Duration::from_millis(200)) {
-                return Ok(Packet { data: frame.data, time_ns: telescope_core::time::monotonic_ns() });
+                let due = self.pace.due(frame.made_ns, frame.arrived_ns);
+                if self.pace.hold_ns() > 0 && !std::mem::replace(&mut self.told, true) {
+                    log::info!("Browser camera: frames come in bursts, holding them back a little to even them out");
+                }
+                if !self.hold_until(due) {
+                    return Err(FeedEnd::Stopped);
+                }
+                return Ok(Packet { data: frame.data, time_ns: frame.arrived_ns });
             }
             if !self.feed.current(self.gen) || !self.feed.connected() || Instant::now() >= deadline {
                 return Err(FeedEnd::Closed);

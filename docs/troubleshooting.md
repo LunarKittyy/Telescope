@@ -180,6 +180,9 @@ The video goes over WebRTC on UDP ports picked each time, which a strict firewal
 **It stops when the phone locks or you switch apps**
 Phones pause the camera for pages in the background. Keep the page open with the screen on. Going back to it starts it again.
 
+**Firefox keeps lowering the resolution**
+Firefox can step the picture down while the frame rate holds, on a phone as far as 176×320, and it doesn't always climb back. That's Firefox's own encoder deciding this and the page can't stop it (the hint Chrome listens to doesn't exist in Firefox). If you need the full size use Chrome instead.
+
 ## Webcams
 
 **A webcam isn't in the phone picker**

@@ -130,7 +130,7 @@ fn stream_worker_sends_browser_frames_to_the_virtual_camera() {
                 if stop.load(Ordering::SeqCst) {
                     break;
                 }
-                feed.put_video(gen, Codec::H264, [unit.as_slice(), AUD].concat(), 1000);
+                feed.put_video(gen, Codec::H264, [unit.as_slice(), AUD].concat(), 1000, 0);
                 std::thread::sleep(Duration::from_millis(20));
             }
         })

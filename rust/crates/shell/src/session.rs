@@ -200,6 +200,10 @@ pub trait SourceKind {
     fn note_unreachable(&self, _shown: bool) -> bool {
         false
     }
+    /// Its H.264 may go to the graphics card when that's on.
+    fn card_decoding(&self) -> bool {
+        true
+    }
     /// Frames arrive this slowly because its camera makes no more; a phone is asked instead (as_phone).
     fn camera_limited(&self, _arrival: f32) -> bool {
         false

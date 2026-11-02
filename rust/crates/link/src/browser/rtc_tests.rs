@@ -8,6 +8,7 @@ m=audio 9 UDP/TLS/RTP/SAVPF 111\r\na=rtpmap:111 opus/48000/2\r\na=fmtp:111 minpt
 m=video 9 UDP/TLS/RTP/SAVPF 102 103 96\r\n\
 a=rtpmap:102 H264/90000\r\na=fmtp:102 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f\r\n\
 a=rtpmap:103 rtx/90000\r\na=fmtp:103 apt=102\r\n\
+a=rtcp-fb:102 transport-cc\r\na=rtcp-fb:102 nack pli\r\n\
 a=rtpmap:96 VP8/90000\r\n";
 
 #[test]
@@ -28,6 +29,7 @@ x-google-start-bitrate=4000;x-google-max-bitrate=6000"));
     assert_eq!(lines[vp8 + 1], "a=fmtp:96 x-google-start-bitrate=4000;x-google-max-bitrate=6000");
     assert!(lines.contains(&"a=fmtp:111 minptime=10;useinbandfec=1") && lines.contains(&"a=fmtp:103 apt=102"));
     assert_eq!(*lines.last().unwrap(), ""); // still ends in a line break
+    assert!(lines.contains(&"a=rtcp-fb:102 nack pli") && !out.contains("transport-cc"));
 }
 
 #[test]
@@ -39,6 +41,6 @@ fn max_kbps_follows_size_and_rate_within_bounds() {
 
 #[test]
 fn an_offer_without_a_codec_this_computer_decodes_is_refused() {
-    let mut session = StrSession::new(vec![], Arc::new(|| None), Box::new(|_, _, _| {}), Box::new(|_| {}));
+    let mut session = StrSession::new(vec![], Arc::new(|| None), Box::new(|_, _, _, _| {}), Box::new(|_| {}));
     assert!(session.answer("v=0\r\nnot an offer\r\n", 4000).is_err());
 }

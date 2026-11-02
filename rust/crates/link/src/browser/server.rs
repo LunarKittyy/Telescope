@@ -172,7 +172,7 @@ impl Shared {
             old.close();
         }
         let (video, audio) = (feed.clone(), feed.clone());
-        let mut session = (self.rtc)(Box::new(move |codec, data, size| video.put_video(gen, codec, data, size)),
+        let mut session = (self.rtc)(Box::new(move |codec, data, size, made| video.put_video(gen, codec, data, size, made)),
                                      Box::new(move |pcm| audio.put_audio(gen, &pcm)));
         let answered = session.answer(offer, feed.max_kbps());
         let codec = session.codec();
