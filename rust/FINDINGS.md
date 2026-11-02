@@ -114,6 +114,45 @@ How far the comparison is fair:
 
 To run it again: build with `CARGO_BUILD_JOBS=3 CARGO_INCREMENTAL=0 cargo build --release --locked -p telescope-app` in `rust/`, make a Python 3.12 venv from `desktop/requirements.txt` plus `requirements-nodeps.txt`, encode the clip with the command in `tools/fake_phone.py`'s header, then `python tools/compare_python.py --rust ... --python VENV/bin/python --python-desktop desktop --clip clip.h264 --rounds 4` for the streaming rows and `--startup --runs 8 --rows rust-window,python` for the start. It prints one JSON line per run, with the load average around it, and a table of medians and ranges. `python-vaapi` wants the app's PyAV build (`telescope/pyav_vaapi.py`) in `SCRATCH/xdg-data-vaapi/Telescope/pyav-vaapi` with a `choice.json`.
 
+### Where the window's memory and start go
+
+Measured on 2 November 2026 on the same build, with temporary time and heap marks (glibc's `mallinfo2`, not committed), `/proc/PID/smaps` per mapping and the fake phone. The machine was busier than for the table above (load 5), so start times are ranges. Nothing was changed in the app: the two things tried made no clear gain (below).
+
+Memory, window streaming 1080p30, about 246 to 265 MB RSS:
+
+| Part | RSS | Notes |
+|---|---|---|
+| Slint's compiled window, live heap | about 73 MB after compile, 91 MB after creating it | 456 KB of `.slint` text in 58 files. The interpreter keeps the compiler's whole object tree (`type_loader`, a pre-pass copy `raw_type_loader` and the `originals`) inside every definition and instance, only for its highlight and LSP API |
+| First paint (font atlas, glyph and texture caches) | about 11 MB | |
+| Streaming (frames, pools, decoder) | about 30 MB heap, 7 MB anonymous | |
+| The binary | 42 to 44 MB | clean file pages, not private |
+| Mesa: `libLLVM` 23, `libvulkan_radeon` 10, `lvp` 2.5, `dzn` 1.2 | about 37 MB (about 20 PSS) | confirmed loaded when wgpu creates its Vulkan instance. `libLLVM` comes with radv itself, so hiding lvp and dzn (`VK_LOADER_DRIVERS_SELECT`) saved only 3 MB RSS |
+| glibc holding freed memory | 8 MB idle, 16 MB streaming | not the problem: live heap is 123 of 148 MB. `malloc_trim` 2 s after the window shows changed nothing measurable at idle (RSS 202 to 204 either way) |
+
+Start to first paint, quiet machine, about 290 to 300 ms (the marks, in ms after launch):
+
+| Step | ms |
+|---|---|
+| Process start to `main` | 10 to 45 (a 61 MB binary, file cache dependent) |
+| Opening the graphics card for wgpu (Vulkan instance 68, adapter 10, device 3, Slint's backend 21, the media `Gpu::shared` second instance 24) | about 125 |
+| Plugins made and loaded | about 8 |
+| Compiling the window (once; the menus fallback isn't taken) | about 115 |
+| Creating the window | 20 |
+| First render | 85 to 90 |
+
+With `TELESCOPE_NO_GPU=1` it paints at 286 ms against 419 in the same session, so the card costs about 130 ms now and pays it back while streaming. Fonts weren't a lead: only the 25 Inter files on this machine were opened, no big system scan. Mesa's `drirc.d` was read 520 times and the Vulkan ICD folder 168 times during start-up (under strace, not timed on its own).
+
+Tried and not kept:
+- Opening the card on a thread beside the compile (about 60 lines in `preview.rs` and `window.rs`, the backend chosen just before `create()`): median start 296 ms against 331 ms in the same batch, but RSS went up about 9 MB because the helper thread gets a malloc arena of its own.
+- `release_memory` (`malloc_trim`) 2 s after the window shows: no change.
+
+Bigger options, not done:
+- **Patch `slint-interpreter`** (vendor it with `type_loader`, `raw_type_loader` and `originals` left empty, 3 lines in `component.rs`). Measured with a throw-away patch: live heap after compile 79 to 37 MB, idle RSS 214 to 182 MB, streaming RSS 246 to 218 MB. About 30 MB, no change in behaviour found, but it means carrying a copy of Slint's crate until upstream lets the interpreter drop them.
+- **Compile less at start**: cards of hidden tabs and plugins that are off compiled when first shown. Memory and the 115 ms scale with the text, so maybe half of both, but the window is one document today and `ui-kit` types would have to be shared across compiles.
+- **Compile Slint ahead of time** for the built-in cards and keep the interpreter for added plugins' cards: removes most of the 73 MB and the 115 ms, large change.
+- **One Vulkan instance**: reuse the window's instance for `Gpu::shared`, saving about 24 ms and one driver scan. It touches how the media pipeline owns its device.
+- **Overlap the card with the compile** with the arena problem solved (for example `M_ARENA_MAX` handling or doing the whole open on the main thread's allocator): about 40 to 80 ms.
+
 ## How the pieces were chosen
 
 - **Decoding: FFmpeg's libavcodec** through `ffmpeg-sys-next`, the same decoder PyAV wraps, with the same low-delay flag. It handles every profile phones send, and VA-API comes with it (`--vaapi`, which took the window from 18.5% to 11.8% CPU). Talking to VA-API directly would mean writing a bitstream parser and the H.264 setup ourselves for little gain. OpenH264 would be smaller to ship but only promises Constrained Baseline, and phones send High. Frames come out as I420 and go to v4l2loopback with plain `write()` calls, with no BGR round trip.
