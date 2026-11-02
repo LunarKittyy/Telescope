@@ -61,11 +61,11 @@ pub struct H264Feed {
 impl H264Feed {
     /// None when it doesn't open or the phone answers with something other than H.264.
     pub fn open(url: &str, auth: &PhoneAuth, timeout: Duration, stop: StopHandle) -> Result<H264Feed, String> {
-        let resp = auth.open(Request::get(url, timeout)).map_err(|e| format!("Couldn't open the video: {e}"))?;
+        let watch = |a: Aborter| stop.watch(a);
+        let resp = auth.open(Request::get(url, timeout).watched(&watch)).map_err(|e| format!("Couldn't open the video: {e}"))?;
         if !resp.content_type().contains("video/h264") {
             return Err(format!("The phone answered with {} instead of H.264", resp.content_type()));
         }
-        stop.watch(resp.aborter());
         Ok(H264Feed { resp, buf: vec![0; CHUNK], stop })
     }
 }
@@ -95,10 +95,10 @@ pub struct MjpegFeed {
 
 impl MjpegFeed {
     pub fn open(url: &str, auth: &PhoneAuth, timeout: Duration, stop: StopHandle) -> Result<MjpegFeed, String> {
-        let resp = auth.open(Request::get(url, timeout)).map_err(|e| format!("Couldn't open the video: {e}"))?;
+        let watch = |a: Aborter| stop.watch(a);
+        let resp = auth.open(Request::get(url, timeout).watched(&watch)).map_err(|e| format!("Couldn't open the video: {e}"))?;
         let kind = resp.content_type().to_string();
         let boundary = boundary_of(&kind).ok_or_else(|| format!("The phone answered with {kind} instead of MJPEG"))?;
-        stop.watch(resp.aborter());
         Ok(MjpegFeed::from_reader(Box::new(resp), boundary, stop))
     }
 

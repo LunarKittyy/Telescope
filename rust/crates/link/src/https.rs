@@ -17,6 +17,10 @@ use std::time::{Duration, Instant};
 pub const MAX_REPLY_BYTES: usize = 256 * 1024;
 /// How often a blocked read looks whether it was aborted (Windows doesn't wake a read on shutdown).
 const ABORT_CHECK: Duration = Duration::from_millis(100);
+/// Longest status or header line taken from whoever answers.
+const MAX_HEAD_LINE: usize = 16 * 1024;
+/// Most bytes of status and headers together, over any number of interim 100 answers.
+const MAX_HEAD_BYTES: usize = 64 * 1024;
 
 #[derive(Debug)]
 pub enum Error {
@@ -354,15 +358,22 @@ pub struct Request<'a> {
     /// Sends the bearer token (everything but /v1/hello).
     pub token: bool,
     pub timeout: Duration,
+    /// Called with the connection's aborter as soon as it exists, so a stop can reach a connect, handshake or head still pending.
+    pub on_open: Option<&'a dyn Fn(Aborter)>,
 }
 
 impl<'a> Request<'a> {
     pub fn get(url: &'a str, timeout: Duration) -> Request<'a> {
-        Request { method: "GET", url, body: None, token: true, timeout }
+        Request { method: "GET", url, body: None, token: true, timeout, on_open: None }
     }
 
     pub fn post(url: &'a str, body: &'a [u8], timeout: Duration) -> Request<'a> {
-        Request { method: "POST", url, body: Some(body), token: true, timeout }
+        Request { method: "POST", url, body: Some(body), token: true, timeout, on_open: None }
+    }
+
+    pub fn watched(mut self, on_open: &'a dyn Fn(Aborter)) -> Request<'a> {
+        self.on_open = Some(on_open);
+        self
     }
 
     pub fn without_token(mut self) -> Request<'a> {
@@ -411,6 +422,10 @@ impl PhoneAuth {
         let shared = Arc::new(tcp.try_clone()?);
         let aborted = Arc::new(AtomicBool::new(false));
         let mut socket = Socket { stream: tcp, aborted: aborted.clone(), timeout: req.timeout, loopback: addr.ip().is_loopback() };
+        let aborter = Aborter { aborted, socket: Some(Arc::downgrade(&shared)) };
+        if let Some(on_open) = req.on_open {
+            on_open(aborter.clone());
+        }
         let mut stream: Box<dyn Stream> = if url.tls {
             let name = ServerName::try_from(url.host.clone()).map_err(|e| Error::Bad(e.to_string()))?;
             let mut conn = ClientConnection::new(tls_config(&self.pin), name).map_err(|e| Error::HandshakeFailed(e.to_string()))?;
@@ -440,15 +455,18 @@ impl PhoneAuth {
         stream.flush()?;
 
         let mut reader = BufReader::with_capacity(64 * 1024, stream);
+        let deadline = Instant::now() + req.timeout;
+        let mut head_bytes = 0;
         let (status, headers) = loop {
-            let mut line = String::new();
-            reader.read_line(&mut line)?;
+            let line = read_head_line(&mut reader, deadline, &mut head_bytes)?;
+            let line = String::from_utf8_lossy(&line);
             let status: u16 = line.split_whitespace().nth(1).filter(|_| line.starts_with("HTTP/")).and_then(|s| s.parse().ok())
                 .ok_or_else(|| Error::Bad(format!("not HTTP: {:?}", line.chars().take(40).collect::<String>())))?;
             let mut headers = Vec::new();
             loop {
-                let mut h = String::new();
-                if reader.read_line(&mut h)? == 0 || h.trim().is_empty() {
+                let h = read_head_line(&mut reader, deadline, &mut head_bytes)?;
+                let h = String::from_utf8_lossy(&h);
+                if h.is_empty() || h.trim().is_empty() {
                     break;
                 }
                 if let Some((k, v)) = h.split_once(':') {
@@ -467,13 +485,43 @@ impl PhoneAuth {
         } else {
             Body::UntilClose
         };
-        let aborter = Aborter { aborted, socket: Some(Arc::downgrade(&shared)) };
         Ok(Response { status, headers, reader, body, aborter, _socket: shared })
     }
 
     /// A GET or POST whose answer is a capped JSON body.
     pub fn json(&self, req: Request<'_>) -> Result<Value, Error> {
         self.open(req)?.json()
+    }
+}
+
+/// One line of the status or headers with its "\n" (empty at the end of the stream), cut off at a size and a deadline.
+fn read_head_line(reader: &mut impl BufRead, deadline: Instant, head_bytes: &mut usize) -> Result<Vec<u8>, Error> {
+    let mut line = Vec::new();
+    loop {
+        if Instant::now() >= deadline {
+            return Err(Error::Io(io::Error::new(io::ErrorKind::TimedOut, "the answer's head took too long")));
+        }
+        let (done, used) = {
+            let buf = reader.fill_buf()?;
+            match buf.iter().position(|&b| b == b'\n') {
+                Some(i) => {
+                    line.extend_from_slice(&buf[..=i]);
+                    (true, i + 1)
+                }
+                None => {
+                    line.extend_from_slice(buf);
+                    (buf.is_empty(), buf.len())
+                }
+            }
+        };
+        reader.consume(used);
+        *head_bytes += used;
+        if line.len() > MAX_HEAD_LINE || *head_bytes > MAX_HEAD_BYTES {
+            return Err(Error::Bad("the answer's head is too long".into()));
+        }
+        if done {
+            return Ok(line);
+        }
     }
 }
 
@@ -761,6 +809,64 @@ mod tests {
         });
         let started = Instant::now();
         assert!(resp.readline(100).map(|l| l.is_empty()).unwrap_or(true));
+        assert!(started.elapsed() < Duration::from_secs(2));
+    }
+
+    /// A listener that writes what the closure says to its one connection, then holds the socket open.
+    fn odd_peer(write: impl Fn(&mut std::net::TcpStream) + Send + 'static) -> u16 {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            let (mut conn, _) = listener.accept().unwrap();
+            write(&mut conn);
+            std::thread::sleep(Duration::from_secs(10));
+        });
+        port
+    }
+
+    #[test]
+    fn a_line_that_never_ends_is_refused_by_size() {
+        let port = odd_peer(|conn| {
+            let _ = conn.write_all(b"HTTP/1.1 200 OK\r\nX-Long: ");
+            let chunk = [b'a'; 4096];
+            for _ in 0..64 {
+                if conn.write_all(&chunk).is_err() {
+                    break;
+                }
+            }
+        });
+        let started = Instant::now();
+        let err = PhoneAuth::new("t", "").open(Request::get(&format!("http://127.0.0.1:{port}/"), Duration::from_secs(30))).err().unwrap();
+        assert!(matches!(err, Error::Bad(_)), "{err}");
+        assert!(started.elapsed() < Duration::from_secs(5));
+    }
+
+    #[test]
+    fn a_head_dribbled_forever_runs_out_of_time() {
+        let port = odd_peer(|conn| {
+            let _ = conn.write_all(b"HTTP/1.1 200 OK\r\nX: ");
+            while conn.write_all(b"a").is_ok() {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+        });
+        let started = Instant::now();
+        let err = PhoneAuth::new("t", "").open(Request::get(&format!("http://127.0.0.1:{port}/"), Duration::from_millis(500))).err().unwrap();
+        assert!(matches!(&err, Error::Io(e) if e.kind() == io::ErrorKind::TimedOut), "{err}");
+        assert!(started.elapsed() < Duration::from_secs(3));
+    }
+
+    #[test]
+    fn a_stop_reaches_a_request_still_waiting_for_its_head() {
+        let port = odd_peer(|_| {});
+        let (tx, rx) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let watch = move |a: Aborter| tx.send(a).unwrap();
+            let url = format!("http://127.0.0.1:{port}/");
+            PhoneAuth::new("t", "").open(Request::get(&url, Duration::from_secs(30)).watched(&watch)).err().map(|e| e.to_string())
+        });
+        rx.recv().unwrap().abort();
+        let started = Instant::now();
+        assert!(worker.join().unwrap().is_some());
         assert!(started.elapsed() < Duration::from_secs(2));
     }
 }
