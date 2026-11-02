@@ -289,7 +289,7 @@ fn a_drop_shows_one_notification() {
 }
 ```
 
-`t.ui("card", "toggled", vec![json!(true)])` presses something on your card, `t.config()` and `t.set_config(...)` save and load, `t.shader()` gives your current frame step and `testing::validate_shader` compiles it. `PluginTest::open_in(folder, "sv")` loads it in another language. The tests for the two examples in [`tests/lua.rs`](../crates/plugin-host/tests/lua.rs) show the rest.
+`t.ui("card", "toggled", vec![json!(true)])` presses something on your card, `t.config()` and `t.set_config(...)` save and load, `t.shader()` gives your current frame step and `testing::validate_shader` compiles it. `PluginTest::open_in(folder, "sv")` loads it in another language. The tests for the two examples in [`tests/lua.rs`](../rust/crates/plugin-host/tests/lua.rs) show the rest.
 
 ## Ground rules
 
