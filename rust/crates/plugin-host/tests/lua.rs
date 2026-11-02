@@ -129,6 +129,30 @@ fn a_metamethod_on_the_plugin_table_cant_hang_hook_lookup() {
 }
 
 #[test]
+fn a_plugin_that_inherits_its_hooks_and_handlers_from_a_base_module_still_has_them() {
+    let folder = plugin("heir", r#"
+        local base = require("base")
+        return setmetatable({ own = function() return "own" end }, { __index = base })"#, json!({}));
+    std::fs::write(folder.join("base.lua"), r#"return {
+        inherited = function() return "inherited" end,
+        events = { stream_stopped = function() host.emit("heir.stopped", {}) end },
+    }"#).unwrap();
+    let mut t = PluginTest::open(&folder).unwrap();
+    assert!(t.defines("inherited"));
+    assert_eq!(t.call("inherited", vec![]).unwrap(), json!("inherited"));
+    t.event(Event::StreamStopped);
+    assert_eq!(t.take_events(), [Event::Custom { name: "heir.stopped".into(), data: json!({}) }]);
+}
+
+#[test]
+fn a_looping_inherited_lookup_is_stopped_for_hooks_and_events_alike() {
+    let folder = plugin("loopy", r#"return setmetatable({}, { __index = function() while true do end end })"#, json!({}));
+    let mut t = PluginTest::open(&folder).unwrap();
+    assert!(!t.defines("anything"));
+    t.event(Event::StreamStopped);
+}
+
+#[test]
 fn a_table_that_shares_itself_into_billions_of_nodes_is_refused() {
     let folder = plugin("blowup", r#"return {
         bomb = function() local t = "x"; for i = 1, 30 do t = { t, t } end; return json.encode(t) end,

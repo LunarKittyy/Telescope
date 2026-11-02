@@ -311,13 +311,30 @@ impl LuaGuest {
         self.lua.registry_value(&self.plugin).ok()
     }
 
+    /// Runs a lookup that may go through a metatable (a plugin that inherits from a base) under the deadline, so a looping __index is stopped.
+    fn looked_up<R>(&self, f: impl FnOnce() -> mlua::Result<Option<R>>) -> Option<R> {
+        let started = {
+            let mut at = self.deadline.lock().unwrap_or_else(|e| e.into_inner());
+            at.is_none().then(|| *at = Some(Instant::now() + HOOK_LIMIT)).is_some()
+        };
+        let found = f().ok().flatten();
+        if started {
+            *self.deadline.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        }
+        found
+    }
+
     fn function(&self, hook: &str) -> Option<Function> {
-        self.table()?.raw_get::<Option<Function>>(hook).ok().flatten()
+        let table = self.table()?;
+        self.looked_up(|| table.get::<Option<Function>>(hook))
     }
 
     fn handler(&self, event: &str) -> Option<Function> {
-        let events: Table = self.table()?.raw_get::<Option<Table>>("events").ok().flatten()?;
-        events.raw_get::<Option<Function>>(event).ok().flatten()
+        let table = self.table()?;
+        self.looked_up(|| {
+            let Some(events) = table.get::<Option<Table>>("events")? else { return Ok(None) };
+            events.get::<Option<Function>>(event)
+        })
     }
 
     /// Whether get_config() fails on a value that can't be saved, for check-plugin.
