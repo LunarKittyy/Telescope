@@ -42,5 +42,6 @@
  "d:ffa12a2ea5 same as the English": "Gamma master",
  "d:4080c8aa55 same as the English": "Gain master",
  "d:1a1d75a179 same as the English": "Offset master",
- "d:fff1650e91 much longer than the English": "Vad du vill lägga till"
+ "d:fff1650e91 much longer than the English": "Vad du vill lägga till",
+ "d:aa7e3a8a83 ends differently": "Återställ de inbyggda tilläggen till standardurvalet: stäng av de valfria och slå på resten."
 }

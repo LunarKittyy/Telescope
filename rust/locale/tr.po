@@ -3948,7 +3948,7 @@ msgstr "Dinamik"
 
 #: rust/crates/outputs/src/stream_output.rs:298
 msgid "Light needs FFmpeg but it's missing from this copy of Telescope. Reinstalling brings it back."
-msgstr "Hafif için FFmpeg gerekiyor ancak Telescope'un bu kopyasında eksik. Yeniden yüklemek geri getirir."
+msgstr "Hafif biçimi için FFmpeg gerekiyor ama Telescope'un bu kopyasında yok. Yeniden yükleyince geri gelir."
 
 #: rust/crates/outputs/src/stream_output.rs:300
 msgid "H.264. This phone has no H.264 encoder."

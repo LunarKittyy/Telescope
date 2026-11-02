@@ -2181,7 +2181,7 @@ msgstr "もう一度クリックするまで手動でぼかします"
 
 #: rust/crates/effects/src/privacy_blur.rs:463
 msgid "Blurs the other people, everything but you, or puts the wait screen up when someone else walks in. It's a proof of concept and can't guarantee privacy."
-msgstr "他の人や自分以外のすべてをぼかしたり、他の人が入ってきたときに待機画面を表示したりします。概念実証のため、プライバシーを保証することはできません。"
+msgstr "他の人をぼかす、自分以外をすべてぼかす、または他の人が入ってきたときに待機画面を表示します。概念実証のため、プライバシーは保証されません。"
 
 #: rust/crates/effects/src/privacy_blur.rs:464
 msgid "Without it there's no Privacy blur card and nothing gets hidden when someone walks in."
@@ -3716,7 +3716,7 @@ msgstr "追加する項目"
 
 #: rust/crates/link/ui/connection.slint:361
 msgid "Works on an iPhone or anything else with a browser and there's nothing to install."
-msgstr "iPhoneやブラウザーを搭載したあらゆるデバイスで動作し、何もインストールする必要はありません。"
+msgstr "iPhoneなど、ブラウザーが使えるデバイスで動作し、インストールも不要です。"
 
 #: rust/crates/link/ui/connection.slint:364
 msgid "Use it"
@@ -6171,7 +6171,7 @@ msgstr "接続が遅いため、「ダイナミック」がフレームレート
 
 #: rust/crates/shell/src/streams.rs:824
 msgid "The camera is making fewer frames than asked for. Dim light slows it down."
-msgstr "カメラのフレーム数が要求より少なくなっています。暗い場所では動作が遅くなります。"
+msgstr "カメラのフレームレートが指定より低くなっています。暗い場所では速度が落ちます。"
 
 #: rust/crates/shell/src/streams.rs:826
 msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."

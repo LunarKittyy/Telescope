@@ -30,7 +30,7 @@ msgstr "Installera VB-Cable"
 
 #: rust/crates/audio/src/denoise.rs:102
 msgid "RNNoise is missing from this copy of Telescope. Reinstalling brings it back."
-msgstr "RNNoise saknas i den här kopian av Telescope. Installera om för att få tillbaka det."
+msgstr "RNNoise saknas i den här kopian av Telescope. Installera om Telescope för att få tillbaka RNNoise."
 
 #: rust/crates/audio/src/denoise.rs:104
 #, python-brace-format
@@ -2180,7 +2180,7 @@ msgstr "Gör oskarp manuellt tills du klickar igen"
 
 #: rust/crates/effects/src/privacy_blur.rs:463
 msgid "Blurs the other people, everything but you, or puts the wait screen up when someone else walks in. It's a proof of concept and can't guarantee privacy."
-msgstr "Lägger oskärpa på andra personer, allt utom dig, eller visar väntebilden när någon annan kommer in. Det är ett koncepttest och kan inte garantera integritet."
+msgstr "Gör andra personer eller allt utom dig suddigt, eller visar väntebilden när någon annan kommer in. Det är ett koncepttest och kan inte garantera integritet."
 
 #: rust/crates/effects/src/privacy_blur.rs:464
 msgid "Without it there's no Privacy blur card and nothing gets hidden when someone walks in."
@@ -3060,7 +3060,7 @@ msgstr "Inget har nått den här datorn än. Kontrollera att enheten är på sam
 
 #: rust/crates/link/src/browser/plugin.rs:137
 msgid "The browser disconnected."
-msgstr "Webbläsaren kopplade från."
+msgstr "Webbläsaren kopplades från."
 
 #: rust/crates/link/src/browser/plugin.rs:348 rust/crates/link/ui/browser_camera.slint:66
 msgid "Browser camera"
@@ -3715,7 +3715,7 @@ msgstr "Vad du vill lägga till"
 
 #: rust/crates/link/ui/connection.slint:361
 msgid "Works on an iPhone or anything else with a browser and there's nothing to install."
-msgstr "Fungerar på en iPhone eller vad som helst med en webbläsare, och det finns inget att installera."
+msgstr "Fungerar på iPhone och andra enheter med en webbläsare. Inget behöver installeras."
 
 #: rust/crates/link/ui/connection.slint:364
 msgid "Use it"
@@ -3808,7 +3808,7 @@ msgstr "nätverk lagg fördröjning fryser frysningar hackar hack wi-fi udp tcp 
 
 #: rust/crates/link/ui/connection.slint:751
 msgid "It can stutter more than TCP, so try it and see."
-msgstr "Det kan hacka mer än TCP, så prova och se."
+msgstr "Det kan hacka mer än med TCP, så prova och se."
 
 #: rust/crates/link/ui/connection.slint:752
 msgid "Experimental"
@@ -3947,7 +3947,7 @@ msgstr "Dynamisk"
 
 #: rust/crates/outputs/src/stream_output.rs:298
 msgid "Light needs FFmpeg but it's missing from this copy of Telescope. Reinstalling brings it back."
-msgstr "Lätt behöver FFmpeg, men det saknas i den här kopian av Telescope. Installera om för att få tillbaka det."
+msgstr "Formatet Lätt kräver FFmpeg, men det saknas i den här kopian av Telescope. Installera om för att få tillbaka det."
 
 #: rust/crates/outputs/src/stream_output.rs:300
 msgid "H.264. This phone has no H.264 encoder."
@@ -4377,7 +4377,7 @@ msgstr "Det är inte påslaget."
 #: rust/crates/plugin-host/src/lua.rs:230
 #, python-brace-format
 msgid "Its {file} has to return the plugin's table at the end."
-msgstr "Dess {file} måste returnera tilläggets tabell i slutet."
+msgstr "Filen {file} måste returnera tilläggets tabell i slutet."
 
 #: rust/crates/plugin-host/src/package.rs:181
 msgid "It's a link to another folder, which plugins can't be."
@@ -6411,7 +6411,7 @@ msgstr "Återställ till standard"
 
 #: rust/crates/shell/ui/settings.slint:394
 msgid "Switch the built-in plugins back to the standard selection: the optional ones off, the rest on"
-msgstr "Återställ de inbyggda tilläggen till standardurvalet: de valfria av, resten på"
+msgstr "Återställ de inbyggda tilläggen till standardurvalet: stäng av de valfria och slå på resten"
 
 #: rust/crates/shell/ui/settings.slint:404 rust/crates/shell/ui/settings.slint:405
 msgid "Search plugins"
@@ -7066,7 +7066,7 @@ msgstr "Tryck på en tangent…"
 
 #: rust/crates/system/ui/shortcuts.slint:224
 msgid "Right-click most controls to add one for it."
-msgstr "Högerklicka på de flesta reglage för att lägga till ett."
+msgstr "Högerklicka på de flesta reglage för att lägga till ett kortkommando."
 
 #: rust/crates/system/ui/shortcuts.slint:227
 msgid "Shortcuts"

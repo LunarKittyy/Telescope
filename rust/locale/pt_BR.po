@@ -31,7 +31,7 @@ msgstr "Instalar o VB-Cable"
 
 #: rust/crates/audio/src/denoise.rs:102
 msgid "RNNoise is missing from this copy of Telescope. Reinstalling brings it back."
-msgstr "O RNNoise está ausente nesta cópia do Telescope. Reinstalar o traz de volta."
+msgstr "O RNNoise não está disponível nesta cópia do Telescope. Reinstale o Telescope para recuperá-lo."
 
 #: rust/crates/audio/src/denoise.rs:104
 #, python-brace-format
@@ -891,7 +891,7 @@ msgstr "Lift master"
 
 #: rust/crates/effects/src/colour_grading.rs:48
 msgid "Gamma master"
-msgstr "Gama master"
+msgstr "Gamma master"
 
 #: rust/crates/effects/src/colour_grading.rs:48
 msgid "Gain master"
@@ -2181,7 +2181,7 @@ msgstr "Desfocar manualmente até você clicar novamente"
 
 #: rust/crates/effects/src/privacy_blur.rs:463
 msgid "Blurs the other people, everything but you, or puts the wait screen up when someone else walks in. It's a proof of concept and can't guarantee privacy."
-msgstr "Desfoca as outras pessoas, tudo exceto você, ou exibe a tela de espera quando outra pessoa entra. É uma prova de conceito e não pode garantir privacidade."
+msgstr "Desfoca as outras pessoas, tudo exceto você, ou exibe a tela de espera quando outra pessoa entra. É uma prova de conceito e não garante privacidade."
 
 #: rust/crates/effects/src/privacy_blur.rs:464
 msgid "Without it there's no Privacy blur card and nothing gets hidden when someone walks in."
@@ -6973,7 +6973,7 @@ msgstr "A atualização falhou."
 
 #: rust/crates/system/src/updates.rs:637
 msgid "This update wasn't installed because it can't start on this computer."
-msgstr "Esta atualização não foi instalada porque não consegue iniciar neste computador."
+msgstr "Esta atualização não foi instalada porque não pode ser executada neste computador."
 
 #: rust/crates/system/src/updates_plugin.rs:29
 msgid "Stable"

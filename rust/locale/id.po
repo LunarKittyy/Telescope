@@ -3061,7 +3061,7 @@ msgstr "Belum ada yang menjangkau komputer ini. Pastikan perangkat berada di jar
 
 #: rust/crates/link/src/browser/plugin.rs:137
 msgid "The browser disconnected."
-msgstr "Browser terputus."
+msgstr "Koneksi browser terputus."
 
 #: rust/crates/link/src/browser/plugin.rs:348 rust/crates/link/ui/browser_camera.slint:66
 msgid "Browser camera"

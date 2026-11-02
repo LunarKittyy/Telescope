@@ -88,7 +88,7 @@
     <string name="network_unreachable">kan inte nås</string>
     <string name="network_title">Nätverk</string>
     <string name="local_only">Bara lokalt - USB</string>
-    <string name="local_only_hint">Bara en USB-anslutning kan nå kameran.</string>
+    <string name="local_only_hint">Bara en USB-anslutning kan komma åt kameran.</string>
     <string name="wait_for_computer">Vänta på min dator</string>
     <string name="wait_for_computer_hint">Låter en parkopplad dator starta kameran medan skärmen är avstängd.</string>
     <string name="stop_streaming">Stoppa strömning</string>

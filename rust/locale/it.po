@@ -31,7 +31,7 @@ msgstr "Installa VB-Cable"
 
 #: rust/crates/audio/src/denoise.rs:102
 msgid "RNNoise is missing from this copy of Telescope. Reinstalling brings it back."
-msgstr "RNNoise manca in questa copia di Telescope. Reinstallando verrà ripristinato."
+msgstr "RNNoise non è incluso in questa copia di Telescope. Reinstallalo per ripristinarlo."
 
 #: rust/crates/audio/src/denoise.rs:104
 #, python-brace-format

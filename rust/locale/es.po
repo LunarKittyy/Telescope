@@ -31,7 +31,7 @@ msgstr "Instalar VB-Cable"
 
 #: rust/crates/audio/src/denoise.rs:102
 msgid "RNNoise is missing from this copy of Telescope. Reinstalling brings it back."
-msgstr "Falta RNNoise en esta copia de Telescope. Reinstalar el programa lo recupera."
+msgstr "Falta RNNoise en esta copia de Telescope. Reinstala Telescope para recuperarlo."
 
 #: rust/crates/audio/src/denoise.rs:104
 #, python-brace-format
@@ -3948,7 +3948,7 @@ msgstr "Dinámico"
 
 #: rust/crates/outputs/src/stream_output.rs:298
 msgid "Light needs FFmpeg but it's missing from this copy of Telescope. Reinstalling brings it back."
-msgstr "Ligero necesita FFmpeg, pero falta en esta copia de Telescope. Reinstalar el programa lo recupera."
+msgstr "El formato Ligero necesita FFmpeg, pero falta en esta copia de Telescope. Reinstala Telescope para recuperarlo."
 
 #: rust/crates/outputs/src/stream_output.rs:300
 msgid "H.264. This phone has no H.264 encoder."

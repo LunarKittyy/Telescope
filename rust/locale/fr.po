@@ -31,7 +31,7 @@ msgstr "Installer VB-Cable"
 
 #: rust/crates/audio/src/denoise.rs:102
 msgid "RNNoise is missing from this copy of Telescope. Reinstalling brings it back."
-msgstr "RNNoise est absent de cette copie de Telescope. Une réinstallation permet de le récupérer."
+msgstr "RNNoise manque à cette copie de Telescope. Réinstallez Telescope pour le rétablir."
 
 #: rust/crates/audio/src/denoise.rs:104
 #, python-brace-format
@@ -2181,7 +2181,7 @@ msgstr "Flouter manuellement jusqu'à ce que vous cliquiez à nouveau"
 
 #: rust/crates/effects/src/privacy_blur.rs:463
 msgid "Blurs the other people, everything but you, or puts the wait screen up when someone else walks in. It's a proof of concept and can't guarantee privacy."
-msgstr "Floute les autres personnes, tout sauf vous, ou affiche l'écran d'attente quand quelqu'un d'autre entre. C'est une preuve de concept qui ne peut pas garantir la confidentialité."
+msgstr "Floute les autres personnes, floute tout sauf vous ou affiche l'écran d'attente quand quelqu'un d'autre entre. C'est une preuve de concept qui ne peut pas garantir la confidentialité."
 
 #: rust/crates/effects/src/privacy_blur.rs:464
 msgid "Without it there's no Privacy blur card and nothing gets hidden when someone walks in."
@@ -3809,7 +3809,7 @@ msgstr "udp tcp transport réseau latence blocages saccades wifi udp tcp transpo
 
 #: rust/crates/link/ui/connection.slint:751
 msgid "It can stutter more than TCP, so try it and see."
-msgstr "Il peut saccader davantage que TCP, essayez pour voir."
+msgstr "La connexion peut être plus saccadée qu'en TCP. Faites un essai pour voir."
 
 #: rust/crates/link/ui/connection.slint:752
 msgid "Experimental"
@@ -3948,7 +3948,7 @@ msgstr "Dynamique"
 
 #: rust/crates/outputs/src/stream_output.rs:298
 msgid "Light needs FFmpeg but it's missing from this copy of Telescope. Reinstalling brings it back."
-msgstr "Léger a besoin de FFmpeg, mais il est absent de cette copie de Telescope. Une réinstallation permet de le récupérer."
+msgstr "Le mode Léger nécessite FFmpeg, absent de cette copie de Telescope. Réinstallez Telescope pour le rétablir."
 
 #: rust/crates/outputs/src/stream_output.rs:300
 msgid "H.264. This phone has no H.264 encoder."
@@ -6177,7 +6177,7 @@ msgstr "Le profil Dynamique a réduit la fréquence d'images à {fps} fps pour s
 
 #: rust/crates/shell/src/streams.rs:824
 msgid "The camera is making fewer frames than asked for. Dim light slows it down."
-msgstr "La caméra produit moins d'images que demandé. Une faible luminosité la ralentit."
+msgstr "La caméra produit moins d'images que le nombre demandé. Une faible luminosité la ralentit."
 
 #: rust/crates/shell/src/streams.rs:826
 msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
@@ -6412,7 +6412,7 @@ msgstr "Réinitialiser par défaut"
 
 #: rust/crates/shell/ui/settings.slint:394
 msgid "Switch the built-in plugins back to the standard selection: the optional ones off, the rest on"
-msgstr "Rétablir la sélection standard des plugins intégrés : les optionnels désactivés, les autres activés"
+msgstr "Rétablir la sélection standard des plugins intégrés : les plugins facultatifs désactivés, les autres activés"
 
 #: rust/crates/shell/ui/settings.slint:404 rust/crates/shell/ui/settings.slint:405
 msgid "Search plugins"
@@ -7067,7 +7067,7 @@ msgstr "Appuyez sur une touche…"
 
 #: rust/crates/system/ui/shortcuts.slint:224
 msgid "Right-click most controls to add one for it."
-msgstr "Cliquez avec le bouton droit sur la plupart des réglages pour en ajouter un."
+msgstr "Cliquez avec le bouton droit sur la plupart des réglages pour leur attribuer un raccourci."
 
 #: rust/crates/system/ui/shortcuts.slint:227
 msgid "Shortcuts"

@@ -3712,7 +3712,7 @@ msgstr "Ein Gerät hinzufügen"
 
 #: rust/crates/link/ui/connection.slint:353
 msgid "What to add"
-msgstr "Gerätetyp"
+msgstr "Was hinzufügen"
 
 #: rust/crates/link/ui/connection.slint:361
 msgid "Works on an iPhone or anything else with a browser and there's nothing to install."

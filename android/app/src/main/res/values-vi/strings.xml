@@ -87,7 +87,7 @@
     <string name="network_unreachable">không thể kết nối</string>
     <string name="network_title">Mạng</string>
     <string name="local_only">Chỉ nội bộ - USB</string>
-    <string name="local_only_hint">Chỉ kết nối USB mới có thể kết nối với camera.</string>
+    <string name="local_only_hint">Chỉ có thể truy cập camera qua kết nối USB.</string>
     <string name="wait_for_computer">Chờ máy tính của tôi</string>
     <string name="wait_for_computer_hint">Cho phép máy tính đã ghép đôi bật camera khi màn hình tắt.</string>
     <string name="stop_streaming">Dừng truyền phát</string>

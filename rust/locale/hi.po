@@ -3809,7 +3809,7 @@ msgstr "नेटवर्क लैग अटकना फ़्रीज़ �
 
 #: rust/crates/link/ui/connection.slint:751
 msgid "It can stutter more than TCP, so try it and see."
-msgstr "यह TCP से ज़्यादा अटक सकता है, इसलिए इसे आज़माकर देखें."
+msgstr "यह TCP से ज़्यादा रुक-रुककर चल सकता है, इसलिए इसे आज़माकर देखें."
 
 #: rust/crates/link/ui/connection.slint:752
 msgid "Experimental"
@@ -7063,11 +7063,11 @@ msgstr "की"
 
 #: rust/crates/system/ui/shortcuts.slint:158
 msgid "Press a key…"
-msgstr "कोई की दबाएं…"
+msgstr "कोई कुंजी दबाएं…"
 
 #: rust/crates/system/ui/shortcuts.slint:224
 msgid "Right-click most controls to add one for it."
-msgstr "शॉर्टकट जोड़ने के लिए ज़्यादातर कंट्रोल पर राइट-क्लिक करें."
+msgstr "ज़्यादातर कंट्रोल के लिए शॉर्टकट जोड़ने हेतु राइट-क्लिक करें."
 
 #: rust/crates/system/ui/shortcuts.slint:227
 msgid "Shortcuts"

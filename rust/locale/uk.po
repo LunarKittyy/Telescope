@@ -31,7 +31,7 @@ msgstr "Встановити VB-Cable"
 
 #: rust/crates/audio/src/denoise.rs:102
 msgid "RNNoise is missing from this copy of Telescope. Reinstalling brings it back."
-msgstr "У цій копії Telescope відсутній RNNoise. Перевстановлення поверне його."
+msgstr "У цій копії Telescope немає RNNoise. Після перевстановлення він з'явиться знову."
 
 #: rust/crates/audio/src/denoise.rs:104
 #, python-brace-format
@@ -3809,7 +3809,7 @@ msgstr "транспорт мережа затримка лаги зависан
 
 #: rust/crates/link/ui/connection.slint:751
 msgid "It can stutter more than TCP, so try it and see."
-msgstr "Може затинатися більше, ніж TCP, тож спробуйте й подивіться."
+msgstr "Може працювати менш плавно, ніж через TCP, тож спробуйте й перевірте."
 
 #: rust/crates/link/ui/connection.slint:752
 msgid "Experimental"
@@ -3948,7 +3948,7 @@ msgstr "Динамічний"
 
 #: rust/crates/outputs/src/stream_output.rs:298
 msgid "Light needs FFmpeg but it's missing from this copy of Telescope. Reinstalling brings it back."
-msgstr "Формату «Легкий» потрібен FFmpeg, але він відсутній у цій копії Telescope. Перевстановлення поверне його."
+msgstr "Для формату «Легкий» потрібен FFmpeg, але в цій копії Telescope його немає. Після перевстановлення він з'явиться знову."
 
 #: rust/crates/outputs/src/stream_output.rs:300
 msgid "H.264. This phone has no H.264 encoder."
@@ -6981,7 +6981,7 @@ msgstr "Оновлення не вдалося."
 
 #: rust/crates/system/src/updates.rs:637
 msgid "This update wasn't installed because it can't start on this computer."
-msgstr "Це оновлення не було встановлено, оскільки воно не може запуститися на цьому комп'ютері."
+msgstr "Не вдалося встановити це оновлення, бо воно не запускається на цьому комп'ютері."
 
 #: rust/crates/system/src/updates_plugin.rs:29
 msgid "Stable"

@@ -4378,7 +4378,7 @@ msgstr "它未开启。"
 #: rust/crates/plugin-host/src/lua.rs:230
 #, python-brace-format
 msgid "Its {file} has to return the plugin's table at the end."
-msgstr "{file} 末尾必须返回插件的表。"
+msgstr "{file} 的末尾必须返回插件表。"
 
 #: rust/crates/plugin-host/src/package.rs:181
 msgid "It's a link to another folder, which plugins can't be."

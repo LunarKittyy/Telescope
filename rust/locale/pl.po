@@ -2181,7 +2181,7 @@ msgstr "Rozmywaj ręcznie do momentu ponownego kliknięcia"
 
 #: rust/crates/effects/src/privacy_blur.rs:463
 msgid "Blurs the other people, everything but you, or puts the wait screen up when someone else walks in. It's a proof of concept and can't guarantee privacy."
-msgstr "Rozmywa inne osoby, wszystko poza tobą lub wyświetla ekran oczekiwania, gdy ktoś inny wejdzie. To funkcja eksperymentalna i nie gwarantuje prywatności."
+msgstr "Rozmywa pozostałe osoby, wszystko poza tobą albo wyświetla ekran oczekiwania, gdy ktoś inny wejdzie. To funkcja eksperymentalna i nie gwarantuje prywatności."
 
 #: rust/crates/effects/src/privacy_blur.rs:464
 msgid "Without it there's no Privacy blur card and nothing gets hidden when someone walks in."
@@ -3809,7 +3809,7 @@ msgstr "udp tcp transport sieć opóźnienie lag zacięcia zacinanie ścinki wif
 
 #: rust/crates/link/ui/connection.slint:751
 msgid "It can stutter more than TCP, so try it and see."
-msgstr "Może zacinać się bardziej niż TCP, więc wypróbuj i zobacz."
+msgstr "To połączenie może działać mniej płynnie niż TCP, więc sprawdź, jak działa."
 
 #: rust/crates/link/ui/connection.slint:752
 msgid "Experimental"
@@ -6410,7 +6410,7 @@ msgstr "Karty ustawień"
 
 #: rust/crates/shell/ui/settings.slint:381
 msgid "A change takes effect the next time Telescope starts, and settings are kept either way."
-msgstr "Zmiana zostanie zastosowana przy następnym uruchomieniu Telescope, a ustawienia i tak zostaną zachowane."
+msgstr "Zmiana zostanie zastosowana przy następnym uruchomieniu Telescope, a ustawienia pozostaną zachowane."
 
 #: rust/crates/shell/ui/settings.slint:390
 msgid "Reset to defaults"

@@ -1071,7 +1071,7 @@ msgstr "Одна картинка"
 
 #: rust/crates/effects/src/composite_plugin.rs:419
 msgid "Nothing's in the picture yet."
-msgstr "На картинке пока ничего нет."
+msgstr "В кадре пока ничего нет."
 
 #: rust/crates/effects/src/composite_plugin.rs:421
 msgid "It takes over once two of its streams are running."

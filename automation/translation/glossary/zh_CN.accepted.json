@@ -630,7 +630,7 @@
  "d:71196f688a ends differently": "适用于 iPhone 或任何带浏览器的设备，无需安装任何内容。",
  "d:5cb3aae6a5 ends differently": "可能比 TCP 更容易卡顿，不妨试试看。",
  "d:9f7fc1cd45 ends differently": "“轻量”格式需要 FFmpeg，但此应用副本缺少 FFmpeg。重新安装即可恢复。",
- "d:0baecc59f0 ends differently": "{file} 末尾必须返回插件的表。",
+ "d:0baecc59f0 ends differently": "{file} 的末尾必须返回插件表。",
  "d:c428dde4b4 ends differently": "如果显卡发生故障，在重启 Telescope 前将由处理器接管。",
  "d:249a428d6c ends differently": "由 telescope-rs dev 从 {folder} 加载。保存其中的文件时，Telescope 会自动重启。",
  "d:64893fbf8c ends differently": "相机输出的帧数低于设定值。光线不足会降低帧率。",
