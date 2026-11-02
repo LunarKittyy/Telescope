@@ -255,8 +255,13 @@ function Open-AsUser([string] $Path) {
 }
 
 function Main-Window([double] $Seconds = 120) {
-    Wait-Until { Get-AppWindows | Where-Object { $_.Current.Name -eq "Telescope" -and $_.Current.AutomationId -like "*TelescopeWindow*" } |
-                 Select-Object -First 1 } $Seconds 500
+    # The Python app named its window's AutomationId; the Rust one has none, so it's the window with a Settings button in it
+    $settings = New-Object Windows.Automation.AndCondition (
+        (New-Object Windows.Automation.PropertyCondition ([Windows.Automation.AutomationElement]::NameProperty), "Settings"),
+        (New-Object Windows.Automation.PropertyCondition ([Windows.Automation.AutomationElement]::ControlTypeProperty), ([Windows.Automation.ControlType]::Button)))
+    Wait-Until { Get-AppWindows | Where-Object {
+                     $_.Current.Name -eq "Telescope" -and ($_.Current.AutomationId -like "*TelescopeWindow*" -or $_.FindFirst($Scope::Descendants, $settings))
+                 } | Select-Object -First 1 } $Seconds 500
 }
 
 # Do something that restarts Telescope (an update, Restart now) and wait for its window to be back
