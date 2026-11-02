@@ -1,0 +1,136 @@
+// Transforms' own controls, joined after parts.slint.
+
+// Segments that switch on and off on their own (two SegmentButtons side by side in segmented_row, each checkable)
+component Toggles inherits Rectangle {
+    in property <[string]> items;
+    in property <[image]> icons;
+    in property <[bool]> checked;
+    in property <string> label;
+    in property <bool> enabled: true;
+    // The action each one stands for: a right-click on it offers a keyboard shortcut
+    in property <[string]> shortcuts;
+    callback toggled(int, bool);
+    height: 36px;
+    horizontal-stretch: 1;
+    Rectangle {
+        y: 2px;
+        height: 32px;
+        background: Theme.surface-raise;
+        border-width: 1px;
+        border-color: Theme.border;
+        border-radius: 8px;
+    }
+    HorizontalLayout {
+        y: 2px;
+        height: 32px;
+        padding: 3px;
+        spacing: 2px;
+        for item[i] in items: Rectangle {
+            property <bool> on: checked[i];
+            horizontal-stretch: 1;
+            min-width: 0px;
+            preferred-width: 0px;
+            border-radius: 6px;
+            background: on ? (seg-touch.has-hover ? Theme.fill-hover : Theme.fill) : (seg-touch.has-hover ? Theme.surface-hover : transparent);
+            accessible-role: checkbox;
+            accessible-label: item;
+            accessible-checkable: true;
+            accessible-checked: on;
+            accessible-action-default => { if (root.enabled) { root.toggled(i, !on); } }
+            seg-touch := TouchArea {
+                enabled: root.enabled;
+                mouse-cursor: pointer;
+                clicked => { root.toggled(i, !on); }
+            }
+            if shortcuts[i] != "": ShortcutMenu { action: shortcuts[i]; }
+            HorizontalLayout {
+                alignment: center;
+                spacing: 6px;
+                Icon {
+                    y: (parent.height - 13px) / 2;
+                    source: icons[i];
+                    tint: on ? white : Theme.text-dim;
+                    width: 13px;
+                    height: 13px;
+                    accessible-role: none;
+                }
+                Text {
+                    text: item;
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    font-weight: on ? 600 : 400;
+                    color: on ? white : seg-touch.has-hover ? Theme.text : Theme.text-dim;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+            }
+        }
+    }
+}
+
+// PanPad: where the view sits inside the zoomed-in frame. Drag the dot, double-click to centre. The pointer goes out as
+// -1..1 across the pad (right and down positive), unclamped.
+component PanPad inherits Rectangle {
+    in property <float> pan-x;
+    in property <float> pan-y;
+    in property <bool> enabled: true;
+    in property <color> hue: Theme.accent;
+    in property <string> tip;
+    in property <string> label;
+    // The two actions the pad stands for, with spaces between, and an add item for each in the right-click menu
+    in property <string> shortcut;
+    in property <[ShortcutEntry]> shortcut-adds;
+    callback pointer(float, float);
+    callback key(string, bool);
+    callback reset();
+    height: 72px;
+    min-width: 96px;
+    horizontal-stretch: 1;
+    border-radius: 9px;
+    border-width: 1px;
+    border-color: Theme.border;
+    background: Theme.surface-raise;
+    property <length> inner-w: self.width - 24px;
+    property <length> inner-h: self.height - 24px;
+    forward-focus: focus;
+    accessible-role: slider;
+    accessible-label: label;
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (Keys.name(e.text) != "" && Keys.name(e.text) != "[" && Keys.name(e.text) != "]") {
+                root.key(Keys.name(e.text), e.modifiers.shift);
+                return accept;
+            }
+            reject
+        }
+    }
+    Rectangle { x: root.width / 2 - 0.5px; y: 8px; width: 1px; height: root.height - 16px; background: Theme.border-strong; }
+    Rectangle { x: 8px; y: root.height / 2 - 0.5px; width: root.width - 16px; height: 1px; background: Theme.border-strong; }
+    Rectangle {
+        x: root.width / 2 + pan-x * inner-w / 2 - 7px;
+        y: root.height / 2 + pan-y * inner-h / 2 - 7px;
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        background: enabled ? hue : Theme.text-disabled;
+    }
+    FocusRing { shown: focus.has-focus; radius: 9px; width: parent.width + 4px; height: parent.height + 4px; }
+    usage := TipUse { hover: touch.has-hover; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
+        scroll-event(e) => { usage.wheel(); reject }
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down) { usage.press(); }
+            if ((e.kind == PointerEventKind.down && e.button == PointerEventButton.left) || (e.kind == PointerEventKind.move && self.pressed)) {
+                if (e.kind == PointerEventKind.down) { focus.focus(); }
+                root.pointer((self.mouse-x - root.width / 2) / (inner-w / 2), (self.mouse-y - root.height / 2) / (inner-h / 2));
+            }
+        }
+        double-clicked => { root.reset(); }
+    }
+    if tip != "" && !usage.used: Tooltip { TipBody { says: root.tip; } }
+    ShortcutMenu { action: root.shortcut; adds: root.shortcut-adds; }
+}

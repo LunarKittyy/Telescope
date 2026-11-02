@@ -1,0 +1,145 @@
+// The icons (the v- ones are the older vector icons), white in the files and tinted by Icon. Cards pick one by
+// property or by name.
+
+export global Icons {
+    out property <image> battery: @image-url("icons/battery.svg");
+    out property <image> battery-charging: @image-url("icons/battery_charging.svg");
+    out property <image> bell: @image-url("icons/bell.svg");
+    out property <image> bolt: @image-url("icons/bolt.svg");
+    out property <image> bookmark: @image-url("icons/bookmark.svg");
+    out property <image> camera: @image-url("icons/camera.svg");
+    out property <image> check: @image-url("icons/check.svg");
+    out property <image> chevron: @image-url("icons/chevron.svg");
+    out property <image> chip: @image-url("icons/chip.svg");
+    out property <image> colour: @image-url("icons/colour.svg");
+    out property <image> copy: @image-url("icons/copy.svg");
+    out property <image> crop: @image-url("icons/crop.svg");
+    out property <image> download: @image-url("icons/download.svg");
+    out property <image> eye: @image-url("icons/eye.svg");
+    out property <image> eye-off: @image-url("icons/eye_off.svg");
+    out property <image> eyedropper: @image-url("icons/eyedropper.svg");
+    out property <image> focus: @image-url("icons/focus.svg");
+    out property <image> framing: @image-url("icons/framing.svg");
+    out property <image> heavy: @image-url("icons/heavy.svg");
+    out property <image> help: @image-url("icons/help.svg");
+    out property <image> image: @image-url("icons/image.svg");
+    out property <image> keyboard: @image-url("icons/keyboard.svg");
+    out property <image> layout: @image-url("icons/layout.svg");
+    out property <image> lock: @image-url("icons/lock.svg");
+    out property <image> mic: @image-url("icons/mic.svg");
+    out property <image> mirror: @image-url("icons/mirror.svg");
+    out property <image> monitor: @image-url("icons/monitor.svg");
+    out property <image> moon: @image-url("icons/moon.svg");
+    out property <image> notes: @image-url("icons/notes.svg");
+    out property <image> pencil: @image-url("icons/pencil.svg");
+    out property <image> phone: @image-url("icons/phone.svg");
+    out property <image> photo: @image-url("icons/photo.svg");
+    out property <image> plug: @image-url("icons/plug.svg");
+    out property <image> plus: @image-url("icons/plus.svg");
+    out property <image> pop-out: @image-url("icons/pop_out.svg");
+    out property <image> qr: @image-url("icons/qr.svg");
+    out property <image> reset: @image-url("icons/reset.svg");
+    out property <image> search: @image-url("icons/search.svg");
+    out property <image> skeleton: @image-url("icons/skeleton.svg");
+    out property <image> sliders: @image-url("icons/sliders.svg");
+    out property <image> snapshot: @image-url("icons/snapshot.svg");
+    out property <image> sparkle: @image-url("icons/sparkle.svg");
+    out property <image> stabilize: @image-url("icons/stabilize.svg");
+    out property <image> stop: @image-url("icons/stop.svg");
+    out property <image> sun: @image-url("icons/sun.svg");
+    out property <image> thermometer: @image-url("icons/thermometer.svg");
+    out property <image> torch: @image-url("icons/torch.svg");
+    out property <image> trash: @image-url("icons/trash.svg");
+    out property <image> upside-down: @image-url("icons/upside_down.svg");
+    out property <image> usb: @image-url("icons/usb.svg");
+    out property <image> v-alert: @image-url("icons/v_alert.svg");
+    out property <image> v-battery: @image-url("icons/v_battery.svg");
+    out property <image> v-battery-charging: @image-url("icons/v_battery_charging.svg");
+    out property <image> v-bell: @image-url("icons/v_bell.svg");
+    out property <image> v-camera: @image-url("icons/v_camera.svg");
+    out property <image> v-camera-off: @image-url("icons/v_camera_off.svg");
+    out property <image> v-check: @image-url("icons/v_check.svg");
+    out property <image> v-close: @image-url("icons/v_close.svg");
+    out property <image> v-connection: @image-url("icons/v_connection.svg");
+    out property <image> v-devices: @image-url("icons/v_devices.svg");
+    out property <image> v-expand: @image-url("icons/v_expand.svg");
+    out property <image> v-gear: @image-url("icons/v_gear.svg");
+    out property <image> v-help: @image-url("icons/v_help.svg");
+    out property <image> v-lenses: @image-url("icons/v_lenses.svg");
+    out property <image> v-mic: @image-url("icons/v_mic.svg");
+    out property <image> v-mic-off: @image-url("icons/v_mic_off.svg");
+    out property <image> v-play: @image-url("icons/v_play.svg");
+    out property <image> v-plus: @image-url("icons/v_plus.svg");
+    out property <image> v-preset: @image-url("icons/v_preset.svg");
+    out property <image> v-qr: @image-url("icons/v_qr.svg");
+    out property <image> v-reset: @image-url("icons/v_reset.svg");
+    out property <image> v-status: @image-url("icons/v_status.svg");
+    out property <image> v-stop: @image-url("icons/v_stop.svg");
+    out property <image> v-stream: @image-url("icons/v_stream.svg");
+    out property <image> v-thermometer: @image-url("icons/v_thermometer.svg");
+    out property <image> v-transforms: @image-url("icons/v_transforms.svg");
+    out property <image> v-update: @image-url("icons/v_update.svg");
+    out property <image> v-usb: @image-url("icons/v_usb.svg");
+    out property <image> v-wifi: @image-url("icons/v_wifi.svg");
+    out property <image> video: @image-url("icons/video.svg");
+    out property <image> wifi: @image-url("icons/wifi.svg");
+    out property <image> x: @image-url("icons/x.svg");
+
+    // An icon by its name in PluginInfo.icon, for cards described as data
+    public pure function named(name: string) -> image {
+        name == "battery" ? battery
+            : name == "battery_charging" ? battery-charging
+            : name == "bell" ? bell
+            : name == "bolt" ? bolt
+            : name == "bookmark" ? bookmark
+            : name == "camera" ? camera
+            : name == "check" ? check
+            : name == "chevron" ? chevron
+            : name == "chip" ? chip
+            : name == "colour" ? colour
+            : name == "copy" ? copy
+            : name == "crop" ? crop
+            : name == "download" ? download
+            : name == "eye" ? eye
+            : name == "eye_off" ? eye-off
+            : name == "eyedropper" ? eyedropper
+            : name == "focus" ? focus
+            : name == "framing" ? framing
+            : name == "heavy" ? heavy
+            : name == "help" ? help
+            : name == "image" ? image
+            : name == "keyboard" ? keyboard
+            : name == "layout" ? layout
+            : name == "lock" ? lock
+            : name == "mic" ? mic
+            : name == "mirror" ? mirror
+            : name == "monitor" ? monitor
+            : name == "moon" ? moon
+            : name == "notes" ? notes
+            : name == "pencil" ? pencil
+            : name == "phone" ? phone
+            : name == "photo" ? photo
+            : name == "plug" ? plug
+            : name == "plus" ? plus
+            : name == "pop_out" ? pop-out
+            : name == "qr" ? qr
+            : name == "reset" ? reset
+            : name == "search" ? search
+            : name == "skeleton" ? skeleton
+            : name == "sliders" ? sliders
+            : name == "snapshot" ? snapshot
+            : name == "sparkle" ? sparkle
+            : name == "stabilize" ? stabilize
+            : name == "stop" ? stop
+            : name == "sun" ? sun
+            : name == "thermometer" ? thermometer
+            : name == "torch" ? torch
+            : name == "trash" ? trash
+            : name == "upside_down" ? upside-down
+            : name == "usb" ? usb
+            : name == "video" ? video
+            : name == "wifi" ? wifi
+            : name == "x" ? x
+            : sliders
+    }
+}

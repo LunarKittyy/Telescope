@@ -39,6 +39,9 @@ import androidx.core.content.ContextCompat
 import java.util.concurrent.Executor
 
 // Fullscreen live preview; attaches to running stream or opens standalone Camera2 session
+// One lens tile in the preview: its id, its label split for the tile, and its whole name for screen readers
+private data class LensTile(val id: String, val label: Pair<String, String>, val name: String)
+
 private enum class AspectOption(val label: String, val ratio: Float) {
         R16_9("16:9", 9f / 16f),
         R4_3("4:3", 3f / 4f),
@@ -111,6 +114,7 @@ class PreviewActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_preview)
+        SystemBars.pad(findViewById(R.id.root))
         // The screen stays on while the app is open (the Wi-Fi locks only work with it on); the power button still turns it off
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
@@ -235,7 +239,8 @@ class PreviewActivity : AppCompatActivity() {
         val svc = service ?: return
         currentCameraId = svc.getCurrentCameraId()
         applyPreviewTransform(currentCameraId, bufferSize)
-        buildLensPills(svc.getCameras().map { it.id to LensLabel.local(strings(), it.facing, it.focalMm, it.hasOis, it.lensKind) }) { id ->
+        buildLensPills(svc.getCameras().map { LensTile(it.id, LensLabel.tile(strings(), it.facing, it.focalMm, it.hasOis, it.lensKind),
+            LensLabel.local(strings(), it.facing, it.focalMm, it.hasOis, it.lensKind)) }) { id ->
             currentCameraId = id
             svc.switchCamera(id)
             applyPreviewTransform(id, bufferSize)
@@ -254,7 +259,8 @@ class PreviewActivity : AppCompatActivity() {
         handlerThread = HandlerThread("PreviewCamThread").also { it.start() }
         handler = Handler(handlerThread!!.looper)
 
-        buildLensPills(cameras.map { it.id to LensLabel.local(strings(), it.facing, it.focalMm, it.hasOis, it.kind) }) { id -> switchStandaloneCamera(id, surface) }
+        buildLensPills(cameras.map { LensTile(it.id, LensLabel.tile(strings(), it.facing, it.focalMm, it.hasOis, it.kind),
+            LensLabel.local(strings(), it.facing, it.focalMm, it.hasOis, it.kind)) }) { id -> switchStandaloneCamera(id, surface) }
         switchStandaloneCamera(cameras.first().id, surface)
     }
 
@@ -430,32 +436,58 @@ class PreviewActivity : AppCompatActivity() {
         textureView.layoutParams = lp
     }
 
-    private fun buildLensPills(entries: List<Pair<String, String>>, onSelect: (String) -> Unit) {
+    private fun buildLensPills(entries: List<LensTile>, onSelect: (String) -> Unit) {
         lensContainer.removeAllViews()
-        entries.forEach { (id, label) ->
-            val pill = TextView(this).apply {
-                text = label
-                tag = id
-                textSize = 13f
-                setPadding(28, 16, 28, 16)
-                setOnClickListener { onSelect(id) }
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { marginEnd = 10 }
+        val density = resources.displayMetrics.density
+        fun dp(v: Int) = (v * density).toInt()
+        entries.forEach { lens ->
+            val tile = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                tag = lens.id
+                contentDescription = lens.name
+                isClickable = true
+                isFocusable = true
+                minimumWidth = dp(76)
+                setPadding(dp(14), dp(6), dp(14), dp(6))
+                setOnClickListener { onSelect(lens.id) }
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(58))
+                    .apply { marginEnd = dp(8) }
             }
-            lensContainer.addView(pill)
+            tile.addView(TextView(this).apply {
+                text = lens.label.first
+                textSize = 16f
+                typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            })
+            if (lens.label.second.isNotEmpty()) tile.addView(TextView(this).apply {
+                text = lens.label.second
+                textSize = 11f
+                setTextColor(resources.getColor(R.color.colorOnSurfaceDim, theme))
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            })
+            lensContainer.addView(tile)
         }
         refreshPillSelection()
     }
 
+    // The picked lens is drawn like the desktop's picked tile: a wash of the Camera card's mint and a mint border
     private fun refreshPillSelection() {
+        val density = resources.displayMetrics.density
+        val hue = resources.getColor(R.color.hueMint, theme)
         for (i in 0 until lensContainer.childCount) {
-            val v = lensContainer.getChildAt(i) as? TextView ?: continue
+            val v = lensContainer.getChildAt(i) as? LinearLayout ?: continue
             val selected = v.tag == currentCameraId
-            v.setTextColor(resources.getColor(
-                if (selected) R.color.colorOnPrimary else R.color.colorOnSurface, theme))
-            v.background = resources.getDrawable(
-                if (selected) R.drawable.pill_lens_selected else R.drawable.pill_lens, theme)
+            v.isSelected = selected
+            v.background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = 12 * density
+                setColor(if (selected) androidx.core.graphics.ColorUtils.compositeColors(
+                    androidx.core.graphics.ColorUtils.setAlphaComponent(hue, 46),
+                    resources.getColor(R.color.colorOverlay, theme)) else resources.getColor(R.color.colorOverlay, theme))
+                setStroke((1 * density).toInt(), if (selected) hue else 0x33FFFFFF)
+            }
+            (v.getChildAt(0) as? TextView)?.setTextColor(
+                if (selected) hue else resources.getColor(R.color.colorOnSurface, theme))
         }
     }
 

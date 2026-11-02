@@ -1,0 +1,35 @@
+// The Black and white card. Telescope sets its colour; the title and icon are the card's own, like every card's.
+
+import { Card, FormRow, Icons, Slider, SwitchTile } from "@ui-kit/ui-kit.slint";
+
+export component BlackAndWhiteCard inherits Card {
+    in-out property <bool> on;
+    in-out property <float> strength: 100;
+    callback toggled(bool);
+    callback strength-moved(float);
+
+    title: @tr("Black and white");
+    icon: Icons.colour;
+
+    SwitchTile {
+        icon: Icons.colour;
+        text: @tr("Black and white picture");
+        hue: root.hue;
+        checked <=> root.on;
+        toggled(value) => { root.toggled(value); }
+    }
+    FormRow {
+        label: @tr("Strength");
+        enabled: root.on;
+        Slider {
+            label: @tr("Strength");
+            minimum: 0;
+            maximum: 100;
+            value <=> root.strength;
+            readout: round(root.strength) + " %";
+            hue: root.hue;
+            enabled: root.on;
+            moved(value) => { root.strength-moved(value); }
+        }
+    }
+}

@@ -1,7 +1,10 @@
 # Installs TelescopeSetup.exe for this user, looks at what it made, plays a self-update and "Open at sign-in", then
-# uninstalls and checks it took everything with it. CI runs it on a fresh runner: build-windows.yml on pull requests,
+# uninstalls and checks it took everything with it. CI runs it on a fresh runner: rust-package.yml on pull requests,
 # release.yml on the setup it publishes.
-param([Parameter(Mandatory)] [string] $Setup)
+param(
+    [Parameter(Mandatory)] [string] $Setup,
+    [switch] $Rust  # a setup of the Rust app, whose folder holds ui-kit and FFmpeg instead of lib-<build>
+)
 $ErrorActionPreference = "Stop"
 
 $app = "$env:LOCALAPPDATA\Programs\Telescope"
@@ -13,10 +16,18 @@ $problems = @()
 $p = Start-Process -FilePath $Setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
 if ($p.ExitCode -ne 0) { throw "Setup exited with $($p.ExitCode)" }
 
-foreach ($want in "$app\TelescopeDesktop.exe", "$app\unitycapture", "$app\unins000.exe", $menu) {
+foreach ($want in "$app\TelescopeDesktop.exe", "$app\unitycapture", "$app\virtualcamera\TelescopeCamera.dll", "$app\unins000.exe", $menu) {
     if (-not (Test-Path $want)) { $problems += "after install, missing $want" }
 }
-if (-not (Get-ChildItem $app -Directory -Filter "lib-*")) { $problems += "after install, no lib-<build> folder" }
+if ($Rust) {
+    foreach ($want in "$app\ui-kit\ui-kit.slint", "$app\rnnoise.dll", "$app\vcruntime140.dll") {
+        if (-not (Test-Path $want)) { $problems += "after install, missing $want" }
+    }
+    foreach ($dll in "avcodec-*.dll", "avutil-*.dll", "swresample-*.dll", "swscale-*.dll") {
+        if (-not (Get-ChildItem $app -Filter $dll)) { $problems += "after install, no $dll" }
+    }
+}
+elseif (-not (Get-ChildItem $app -Directory -Filter "lib-*")) { $problems += "after install, no lib-<build> folder" }
 if (Test-Path "$env:ProgramFiles\Telescope\TelescopeDesktop.exe") { $problems += "installed into Program Files" }
 if (Get-ChildItem $app -Recurse -Filter "adb*.exe") { $problems += "adb is in the install; it's downloaded on request" }
 
@@ -26,12 +37,19 @@ Set-Content "$app\lib-999999\PyQt6\x.dll" "x"
 New-Item -ItemType Directory -Force "$app\.update-staging" | Out-Null
 Set-Content "$app\.update.json" "{}"
 Set-Content "$app\TelescopeDesktop.old.exe" "x"
+if ($Rust) {
+    # The next FFmpeg and a new ui-kit file, as an update would leave them
+    Set-Content "$app\avcodec-99.dll" "x"
+    Set-Content "$app\ui-kit\new.slint" "x"
+}
 $adb = "$env:LOCALAPPDATA\Telescope\platform-tools"  # adb as Get adb downloads it
 New-Item -ItemType Directory -Force "$env:TEMP\Telescope" | Out-Null
 Set-Content "$env:TEMP\Telescope\telescope.log" "x"  # the log (diagnostics.py)
 New-NetFirewallRule -DisplayName "telescopedesktop.exe" -Direction Inbound -Program "$app\TelescopeDesktop.exe" -Action Allow | Out-Null
 New-Item -ItemType Directory -Force $adb | Out-Null
 Set-Content "$adb\adb.exe" "x"
+New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\Telescope\vision\pack\mediapipe" | Out-Null  # the vision download
+Set-Content "$env:LOCALAPPDATA\Telescope\vision\pack\.verified" "x"
 Set-ItemProperty $runKey -Name "Telescope" -Value "`"$app\TelescopeDesktop.exe`" --minimized"
 
 $p = Start-Process -FilePath "$app\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
@@ -44,7 +62,7 @@ if (Test-Path $app) {
     $problems += "after uninstall, the folder is still there with: $($left -join ', ')"
 }
 if (Test-Path $menu) { $problems += "after uninstall, the Start menu entry is still there" }
-if (Test-Path "$env:LOCALAPPDATA\Telescope") { $problems += "after uninstall, the downloaded adb is still there" }
+if (Test-Path "$env:LOCALAPPDATA\Telescope") { $problems += "after uninstall, the downloaded adb or vision files are still there" }
 if (Test-Path "$env:TEMP\Telescope") { $problems += "after uninstall, the log folder is still there" }
 # The runner is admin, so the silent uninstall takes the camera the driver check installed, and its firewall rules
 if (Test-Path "$env:ProgramFiles\Telescope") { $problems += "after uninstall, Program Files\Telescope (the camera) is still there" }

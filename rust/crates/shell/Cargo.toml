@@ -1,0 +1,36 @@
+[package]
+name = "telescope-shell"
+description = "The window: cards, the stream flow, settings, banners and onboarding"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+telescope-core.workspace = true
+serde_json.workspace = true
+log.workspace = true
+# unstable-wgpu-30 and femtovg on wgpu: the preview hands Slint textures media painted on its device; unstable-winit-030 for the keys' scan codes
+slint = { workspace = true, features = ["renderer-software", "software-renderer-systemfonts", "software-renderer-path", "unstable-wgpu-30", "renderer-femtovg-wgpu", "unstable-winit-030"] }
+png = "0.18"
+unicode-normalization = "0.1"
+# Finds where things are in a window for scenes and tests (pinned: its API follows Slint's internals)
+i-slint-backend-testing = "=1.18.1"
+i-slint-core = "=1.18.1"
+slint-interpreter = { workspace = true }
+telescope-ui-kit.workspace = true
+
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+# Host::pick_file through the system's own file dialog, as Qt shows on Windows
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Com", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Shell", "Win32_UI_Shell_Common"] }
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+# XQueryPointer, for whether a drag still has its button down (winit doesn't say); already in the tree through winit
+x11-dl = "2.21"
+# A side window's parent on Wayland (xdg_toplevel.set_parent, which winit has no call for) through winit's own toplevels; versions as winit's
+wayland-backend = { version = "0.3.10", default-features = false, features = ["client_system"] }
+wayland-client = "0.31.10"
+wayland-protocols = { version = "0.32.8", default-features = false, features = ["client", "staging"] }

@@ -1,152 +1,256 @@
-# Manual release checklist
+# Release checklist
 
-Run before tagging. CI covers pytest, Android unit tests, and packaging smoke checks; everything here needs a real phone and desktop.
+Everything that has to hold before a version gets tagged. Most of it is checked by something other than a person now:
+
+- **The Release workflow** runs the desktop tests on both systems, the Android unit tests, the package checks, the installer checks (install, update, uninstall, an unzipped copy moving to the installed one) and `.github/check_release.py` (the APK's signing key, the version in every file, what the bundles carry and the manifest's checksums). It won't publish when one of them fails.
+- **`automation/release-testing/windows_pass.py`** does the Windows part against the nightly on a Windows 11 VM, driving the app the way a user would: opening the exe from inside the zip, an install without an admin prompt, the first start (splash, never Not Responding), the icon, Install driver with one prompt for Windows PowerShell and the camera's name in DirectShow, Settings and the other dialogs opening centred with nothing flashing up, the security fix and Rename for a driver an older version registered, installing a plugin with Install and by dragging it from Explorer, Get adb and adb gone after quitting, uninstalling, updating the installed previous release, an unzipped copy updating into the installed one or in place, a copy on a network drive (the same rule as a USB stick) and an update cut short.
+- **`rust/tools/check_package.py`** looks into the desktop packages: what the updater and the setup need, FFmpeg's size and licence, and that the program in them runs and knows its stamp. `rust-package.yml` runs it on each package and `release.yml` runs it again on the archives it publishes, next to `installer/check.ps1 -Rust` and `rust/tools/windows_move_check.ps1`.
+- **`.github/checklist_due.py`** lists which of the sections below the changes since the last release can reach.
+
+That leaves a short pass on a real phone every release plus whatever sections are due.
 
 ## Cutting a stable release
 
 1. Set `VERSION` to the new version (e.g. `3.1.0`) and merge that to `master`.
-2. Run through this checklist against that commit's nightly build.
+2. Against that commit's nightly: run `windows_pass.py`, go through [Every release](#every-release), then run `python3 .github/checklist_due.py` and go through each section it lists.
 3. Tag it and push the tag: `git tag v3.1.0 <commit> && git push origin v3.1.0`.
 4. `release.yml` builds everything and publishes the release. It refuses a tag that doesn't match `VERSION`.
 5. Merge the draft PRs held for the release: README and website screenshots or text that show what's new. Until the release is out they would advertise the nightly.
 6. Rename `docs/roadmap/next.md` after the release (for example `3.6.md`), add it to the list in `docs/roadmap/README.md` and start a fresh `next.md` with whatever didn't make it. Patch releases go into the file of the release they patch.
 
-The APK signing key lives in the repository secrets (see [Building and CI](building.md#ci)). Keep a backup of the keystore outside GitHub: without it, no future APK can install as an update over the current one.
+The APK signing key lives in the repository secrets (see [Building and CI](building.md#ci)). Keep a backup of the keystore outside GitHub. Without it no future APK can install as an update over the current one.
 
-## Before starting
+## Every release
 
-- [ ] `desktop` pytest suite passes locally and in CI for the release commit.
-- [ ] Android JVM unit tests pass locally and in CI for the release commit.
-- [ ] `desktop/scripts/smoke_check.py` passes on both Linux and Windows CI runners.
-- [ ] `python scripts/phone_check.py --wifi-drop 5 --handover` in `desktop/` passes against the dev app on a real phone (it exits with 1 when something didn't work).
-- [ ] `desktop/constraints.txt` installs cleanly in clean venv and versions haven't drifted out of date.
-
-## Packaging
-
-- [ ] Windows: `TelescopeDesktop.exe` launches with the Telescope icon, the first-run checklist's Install driver registers UnityCapture, the **get from Google** link in Add phone (or **Get adb** under Virtual camera & phone in Settings) downloads adb and USB pairing then works, and no `adb.exe` is left running after quitting.
-- [ ] Windows, upgrading from a version that registered the driver from the app folder: Settings shows **Reinstall for a security fix** under Virtual camera & phone, the camera still works until then, and Reinstall puts the DLLs in `C:\Program Files\Telescope\UnityCapture` and shows Ready.
-- [ ] Windows: `TelescopeSetup.exe` installs without a UAC prompt, the Start menu entry opens Telescope, Update and restart works on the installed copy, and uninstalling (from Settings → Apps) removes it, asks before deleting settings, and after one UAC prompt takes the Telescope camera out of the camera list in Zoom or Discord.
-- [ ] Windows, an unzipped copy of the previous release: Updates says updating installs it, **Update and restart** comes back as the installed copy (Start menu entry there, settings and phones kept), and the unzipped folder is gone a few seconds later. With **Keep this copy where it is** ticked it updates in place instead. Windows asks about the firewall once more for the installed copy, and Add phone over Wi-Fi works after allowing it. A copy run from a USB stick doesn't offer the move.
-- [ ] Windows: opening `TelescopeDesktop.exe` from inside the zip without extracting says to extract it first.
-- [ ] Linux: Telescope shows up in the app menu after the first launch, and still opens after moving the folder and launching once from the new place.
-- [ ] Windows: OBS and Zoom list the camera as **Telescope**. On a machine registered by an older version, Virtual camera & phone in Settings offers Rename, and streaming works before and after.
-- [ ] Linux: `start.sh` creates venv at `$XDG_DATA_HOME/Telescope/venv` on clean machine/account and launches successfully.
-- [ ] Both bundles contain `THIRD_PARTY_NOTICES.txt` and `Telescope.apk`.
-- [ ] `manifest.json` checksums match the downloaded files (`sha256sum`).
-- [ ] The new APK installs over the previous release's APK with `adb install -r` (same signing key).
-- [ ] Updates & About in Settings (desktop) and the About card (phone) show the release's version. Copy diagnostics works on both.
-- [ ] APK installs via `adb install`, via the checklist's QR link, and via Install over USB (checklist and Settings).
-
-## Updates
-
-- [ ] Desktop on the previous nightly (Windows and Linux): the Update button appears, Update and restart replaces the app, and it comes back on the new version with the stream working.
-- [ ] Update is refused while streaming, on both apps.
-- [ ] Phone on the previous nightly: the update card offers the new build, asks once to allow installs from Telescope, and the installed app shows the new version.
-- [ ] Phone app older than the desktop, plugged in: the Connection panel says so and Update over USB installs the bundled APK.
-- [ ] Switching the channel to Stable on a nightly build doesn't offer a downgrade.
-- [ ] Desktop update cut short (kill the app mid-install): the next launch finishes it, or comes back on the old version.
-
-## Functional pass (see [device-compatibility.md](device-compatibility.md) for the per-device matrix)
-
-- [ ] Phone fresh install: nothing is asked on launch; Get set up allows camera, notifications and battery in order; the card goes when all are allowed. Deny camera twice: its button becomes Open settings.
-- [ ] Fresh install: the checklist shows, each step ticks as it's done, and the video stage replaces it after the first stream.
-- [ ] Add phone works by QR over Wi-Fi and by plugging in over USB (no scan), on at least one device per platform (Linux + Windows).
-- [ ] USB with the debugging prompt not yet accepted: Add phone says to allow it, and pairs once it's accepted.
-- [ ] Re-pairing from the same computer replaces its token (old token gets 401; verify with curl) and doesn't add a second entry on the phone.
-- [ ] One phone paired with two computers: both stream (one at a time); removing one computer on the phone leaves the other working.
-- [ ] Removing the phone on the desktop unpairs it on the phone too (it disappears from the phone's list).
-
-### Pairing across networks and VPNs
-
-QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-check when network setup changes:
-
-- [ ] Offline router (no WAN uplink at all): pairing still works, and the QR code lists the LAN address.
-- [ ] Desktop VPN only (LAN access permitted): pairing works over LAN address (QR lists it, not just VPN).
-- [ ] Phone VPN only (LAN access permitted): pairing works (tests Wi-Fi-bound first attempt).
-- [ ] Both devices VPN (both LAN-accessible): pairing works.
-- [ ] Tailscale on both (no shared LAN): pairing works over `100.64/10`.
-- [ ] VPN blocking local-network traffic: pairing fails (phone dialog lists each address). USB pairing works.
-- [ ] Desktop with Docker/libvirt/VirtualBox installed: the QR code does not advertise `docker0`/`virbr0`/`vboxnet0` addresses.
-- [ ] Phone on tailnet desktop is not on: after Wi-Fi pairing, the line under the Connection status shows the phone's Wi-Fi address (not `100.64/10`), stream works.
-- [ ] Removing the computer on the phone revokes access (requests get 401; desktop shows Needs pairing again).
-- [ ] Automatic route: plugged in uses USB, unplugged uses Wi-Fi. Plugged in with the app closed, or with a different phone on the cable, uses Wi-Fi and the card says why.
-- [ ] Plugging in mid-stream over Wi-Fi (Connect via Automatic) moves the stream to USB a few seconds later without a gap in the video. The mic moves with it.
-- [ ] Pulling the cable mid-stream on USB carries on over Wi-Fi; plugging it back in can use USB again.
-- [ ] Connect via USB only / Wi-Fi only is honoured, including reporting a missing cable instead of falling back.
-- [ ] Local only on, no cable: the desktop says the phone accepts USB only and Start doesn't open the camera. Plug in and it streams over USB.
-- [ ] Phone gets a new IP from the router: the desktop finds it again (mDNS) without re-pairing.
-- [ ] Phone foreground: desktop Start/Stop controls camera; test with screen dark too.
-- [ ] A lens, size and OIS setting picked on the desktop come back after Stop and Start. The phone shows Stop streaming only while streaming, and it stops the stream.
-- [ ] Local-only mode blocks Wi-Fi access (verify from second machine on network).
-- [ ] Camera controls (lens, exposure, WB, OIS) apply live and match what's shown on the desktop UI.
-- [ ] Stream transforms (flip, rotate, zoom/pan) apply without restart.
-- [ ] Zoom on the Auto lens: the lens marks on the zoom slider switch to the telephoto (the dot turns lavender); panning out of its view falls back (red dot). Sliding the zoom back and forth quickly on the telephoto never turns the dot red. Scrolling the preview zooms around the mouse, dragging pans, and the lens outlines show and fade.
-- [ ] Zoom and Brightness sliders and the pan pad stick at their neutral spots and marks when dragged, never with the arrow keys; Temperature and Tint never stick. A double-click resets them all.
-- [ ] Point focus: clicking a near and a far object in the preview focuses each (with and without zoom, flip and rotation), exposure follows the point in auto, and Auto returns to continuous. The pop-out works the same.
-- [ ] Presets: switching between two presets while streaming changes lens, exposure, WB, zoom and fps together. A second phone doesn't see the first one's presets.
-- [ ] H.264: on a real phone, a fresh phone starts on Light (H.264), switching Format between Light and Heavy reconnects and streams on Wi-Fi and USB. Compare latency (a clock on screen) and the Mbps readout with MJPEG at the same size. A 30-minute run stays smooth, a reconnect (unplug, Wi-Fi off and on) recovers, and changing resolution or lens mid-stream keeps working.
-- [ ] H.264 fallback: a size the encoder refuses (4:3 4K on most phones) stops with a banner to try a lower resolution or FPS, and its Switch to Heavy button streams on Heavy. A phone without an encoder switches to Heavy by itself, with no banner.
-- [ ] FPS: the dropdown grays out rates the camera doesn't list (48 and 60 on a 30 fps phone). On a phone that lists 60, picking 60 shows about 60 in the footer; Copy diagnostics shows what the camera actually did.
-- [ ] Microphone, Linux (Fedora/Nobara, PipeWire): switching it on while streaming makes "Telescope Microphone" appear; Audacity or a call records the phone; switching off or quitting removes it. Lip-sync looks right by eye. A 30-minute run doesn't drift, and unplugging and replugging recovers.
-- [ ] Microphone, Windows: without VB-Cable the card offers Install VB-Cable; it asks first (naming VB-Audio), opens VB-Audio's setup through UAC, and after a restart and an off/on, apps record from CABLE Output.
-- [ ] Microphone card: the meter moves with your voice even when no app is recording, and its dot goes yellow on a loud clap (red with the limiter off under Audio in Settings). Mute (card and tray) gives silence without the mic disappearing from the call app. Gain changes and typed values are audible without crackle, and Max gain under Audio in Settings changes the slider's range. On Windows too.
-- [ ] Microphone permission: the first request makes the phone's Get set up card show Microphone; allowing it there starts the audio within a few seconds, without restarting the stream. Recording keeps going with the phone's screen off.
-- [ ] Canvas size change (Linux and Windows) restarts cleanly.
-- [ ] Linux, module not loaded: Start asks once, with the startup box ticked; after a reboot Start doesn't ask. Unticked: it asks again after a reboot.
-- [ ] Linux without pkexec (or with no polkit agent): Start shows the command banner, Copy command works, and running it then Start streams.
-- [ ] Each Start failure shows a banner with a working button: no phone (Add phone), phone app closed (Try again), USB only without a cable (Switch to Automatic), app versions differ (Update).
-- [ ] Battery/temp alerts fire once per threshold cross, not repeatedly.
-- [ ] On a phone that runs hot (Android 11+), stream for 15 minutes or more. The frame rate drops to 24 fps shortly before Android itself reports severe heat, the FPS readout's tooltip says the phone got hot, and it goes back up once the phone cools.
-- [ ] Config persists across app restart, including per-phone settings after switching. A config from the previous version keeps global settings and asks to pair again.
-- [ ] Corrupted `telescope_config.json` backs up (`.invalid-<timestamp>`) and app starts with defaults.
-- [ ] Tray minimize/restore and single-instance behaviour both work.
-- [ ] Start set to "When the phone is ready": opening the phone app (or plugging it in) starts the stream; Stop keeps it stopped until the phone leaves and comes back; closing the window keeps it in the tray.
-- [ ] Windows, Stop set to "when no app uses the camera, even if you started it": start a stream by hand before any app has opened the camera. It stops after the wait.
-- [ ] Camera off: in a call using both Telescope devices, press the camera button under the preview. The call shows the wait screen and still hears the mic, the phone's camera light goes out, and the tray icon loses its red dot. Press it again and the picture comes back.
-- [ ] Mic only from the start: with the mic on, press the camera button, then **Start mic only**. The phone opens no camera, and the call hears the mic.
-- [ ] With the mic on and Stop set to "when no app uses the camera": turn the camera off in the call. After the wait only the camera turns off. Turn it back on in the call and the picture returns.
-- [ ] Camera off on a phone in the background (screen off, **Wait for my computer** on): turn it off and on again. It comes back; if another app holds the camera, it stays off with a banner saying so.
-- [ ] Open Telescope when I sign in (Linux and Windows): after signing out and in, Telescope is in the tray; unticking removes the entry.
-- [ ] Close the window to the tray with a phone waiting and Automatic streaming off: the phone stops getting checked (no new `/v1/ping` in its logs), and opening the window checks it straight away.
-- [ ] Start set to "When an app opens the camera" and Stop to "When no app uses the camera, if it started the stream" (Linux and Windows): opening the camera in OBS or a call starts the stream, closing it stops it 15 s later.
-- [ ] Browser camera, iPhone in Safari: scan the code, tap through the certificate warning, Start. Video and mic reach the virtual camera and mic, the screen stays on, and after locking the phone and coming back to the page the stream picks up again. Flip camera flips lenses.
-- [ ] Browser camera, Black screen (portrait and landscape): the page goes black and, on Android, full screen without the status and nav bars. One tap shows the hint and fades again, a double tap brings the page back, and the stream keeps going the whole time.
-- [ ] Browser camera, Black screen on iPhone: a black video opens in the system player and hides the status bar, the stream keeps going behind it, and closing the player brings the page back.
-- [ ] Browser camera, Android in Chrome, and from a second computer's browser: the same. Resolution and Frame rate on the card change what arrives. New link drops the browser and the old code stops working. Opening the link in a second tab takes over from the first.
-- [ ] Browser camera, Windows: the firewall prompt (or a rule) lets port 8767 through, and picking a phone again stops the server.
-- [ ] Wait screen: with nothing streaming, apps see the default screen, then a chosen image and a GIF; Mirror flips it. Starting and stopping a stream while a call has the camera open keeps the picture in the call.
-
-### Stream recovery and controls
-
-- [ ] UDP, mic off: the phone says Streaming. Remove the computer on the phone: its video stops within a second. A lost desktop releases its UDP session within 5 seconds.
-- [ ] UDP to Dynamic and the UDP switch both reconnect onto the right transport; changing to Heavy leaves no UDP session behind.
-- [ ] Automatic routing, mic only: plugging in USB moves the microphone too. Rapid mic off/on leaves no recording held.
-- [ ] Linux, AMD or Intel card: **Set up VA-API…** under Video in Settings uses the distro's PyAV or builds one, and after **Restart now** Hardware acceleration says it found VA-API.
-- [ ] Hardware acceleration: a driver failure resumes in software without missing setup headers; Copy diagnostics reflects the decoder still running if the preference changes mid-stream.
-- [ ] Auto level: beginning in silence or recovering from a gap does not turn up steady room noise.
-- [ ] Tab through the tiles and switches, use rotation/pan shortcuts saved before this release, pan with arrow keys and Home, and inspect labels with a screen reader.
-- [ ] USB-only viewers hold no Wi-Fi performance lock.
-
-### Settings, folding and optional plugins
-
-- [ ] Settings: every tab opens and the settings button brings the window back on the tab it was left on. Searching "gpu", "resolutoin" and "login" finds Hardware acceleration, Canvas size and Open Telescope when I sign in, and picking a result goes to it and outlines it. Enter in the search box doesn't click anything on the tab it opens.
-- [ ] Folding: clicking a card title and a section title folds and unfolds them, Tab reaches the titles and Space or Enter toggles them. A shortcut for a control in a folded card still works. Folds come back after a restart.
-- [ ] Your phones: the rows list the paired phones and saved browsers, Rename and Remove work, and Change name changes what a newly paired phone shows.
-- [ ] Auto framing and Background (Linux and Windows): switching one on under **Optional** asks before downloading, shows the progress, and after **Restart now** its card shows. Auto framing follows you while streaming from a real phone, widens when you hold a hand out and zooms back out when you leave, also at 90, 180 and 270 degrees and flipped. Zoom and Pan in Transforms grey out while it's on. Background blurs and puts a picture behind you. With both off **Remove download** deletes the download.
-
-### Plugins
-
-Make a `.zip` of `desktop/examples/plugins/black_and_white` (the folder itself inside it) to try these with.
-
-- [ ] Windows exe and Linux bundle: **Install** on the Plugins tab installs the `.zip`, and so does dragging it onto the tab. It shows under **Added**, switched off.
-- [ ] Switching it on asks first with the warning. After **Restart now** its card shows and the picture turns black and white while streaming from a real phone.
-- [ ] Changing one of its files in the plugins folder (**Open plugins folder**) switches it off on the next start until you switch it on again.
-- [ ] A plugin that raises in `setup()` is left out with a banner naming it, and the rest of Telescope starts and streams.
-- [ ] Switching a built-in plugin off (Transforms, Microphone) and restarting: its card is gone, streaming works, and switching it back on brings its settings back.
-- [ ] **Remove** deletes the plugin and it's gone after a restart.
-
-## Sign-off
-
+- [ ] `windows_pass.py` passes against the nightly on a VM restored to a clean snapshot.
+- [ ] With the dev app and `telescope-rs dev --keep` on a real phone, a 5 second Wi-Fi drop while streaming recovers by itself and plugging in the cable moves the stream to USB without a gap.
+- [ ] What this release's notes promise works on a real phone and on both desktops.
+- [ ] Camera controls (lens, exposure, WB, OIS) apply live on a real phone and match what the desktop shows.
+- [ ] A call or OBS on Linux and on Windows picks up the Telescope camera and the Telescope microphone and still has them after a Stop and Start.
+- [ ] `rust/Cargo.lock` and the vision pack's pins haven't drifted out of date and for every dependency bumped since the last release its entries in [Upstream bugs](upstream-bugs.md) are checked (fixed ones have their workaround dropped).
 - [ ] Device-compatibility matrix updated with test results.
+- [ ] Decided whether to translate this release's new texts first (`python tools/i18n.py status` in `rust/` shows what's left).
 - [ ] Release notes written in `.github/release-notes/<VERSION>.md` (the release uses them; without one it falls back to generated notes).
-- [ ] Tag pushed; the Release workflow published the assets.
+
+## Only when due
+
+`checklist_due.py` reads the comment under each heading below: the files and packages that section depends on. A section is due when one of them changed since the last release. Code that everything leans on (the main window, the stream service, the protocol) is listed as shared and a change there brings up every section as worth a look along with how big the change is. How far it reaches is for a person to judge. Any other file that's in no section makes the script fail until someone puts it in one, which keeps the lists from going stale. When unsure where a file goes, put it in more than one section.
+
+<!-- shared: android/app/src/main/kotlin/com/telescope/MainActivity.kt android/app/src/main/kotlin/com/telescope/CameraStreamService.kt android/app/src/main/kotlin/com/telescope/Protocol.kt android/app/src/main/kotlin/com/telescope/Strings.kt android/app/src/main/kotlin/com/telescope/StreamPrefs.kt android/app/src/main/kotlin/com/telescope/CardHeader.kt android/app/src/main/kotlin/com/telescope/SystemBars.kt android/app/src/main/AndroidManifest.xml android/app/src/main/res/layout/** android/app/src/main/res/values/** android/app/src/main/res/xml/** android/app/src/main/res/menu/** android/app/src/main/res/resources.properties android/app/build.gradle android/build.gradle android/settings.gradle android/gradle.properties android/gradle/** android/gradlew android/gradlew.bat .github/workflows/build-apk.yml VERSION rust/Cargo.toml rust/Cargo.lock rust/app/Cargo.toml rust/app/build.rs rust/app/src/** rust/crates/core/** rust/crates/shell/** rust/crates/ui-kit/** rust/crates/plugin-host/** rust/crates/*/Cargo.toml -->
+
+<!-- ignore: rust/.config/nextest.toml rust/tools/stress/** android/app/src/test/** android/app/proguard-rules.pro docs/** site/** automation/** README.md README.es.md README.ru.md CONTRIBUTING.md CLAUDE.md LICENSE .gitignore .github/release-notes/** .github/pull_request_template.md .github/ISSUE_TEMPLATE/** .github/NIGHTLY_NOTES.md .github/DOWNLOADS.md .github/dependabot.yml .github/check_release.py .github/checklist_due.py .github/workflows/pages.yml .github/workflows/dependency-graph.yml .github/DISCUSSION_TEMPLATE/** .github/FUNDING.yml .github/python_dependency_snapshot.py android/app/src/main/res/drawable*/** android/app/src/main/res/mipmap*/** android/app/src/main/res/color/** android/app/src/main/res/values-*/** rust/app/tests/** rust/crates/*/tests/** rust/crates/**/*_tests.rs rust/parity/** rust/docs/** rust/tools/fake_*.py rust/tools/measure.py rust/tools/python_probe/** rust/PLAN.md rust/ARCHITECTURE.md rust/FINDINGS.md rust/.gitignore .github/workflows/rust.yml rust/tools/check_package.py rust/tools/write_notices.py rust/fixtures/** rust/locale/** rust/tools/i18n.py -->
+
+### Windows packaging
+
+<!-- due: installer/** .github/workflows/release.yml .github/workflows/rust-package.yml rust/tools/build_windows.ps1 rust/tools/build_ffmpeg.sh rust/tools/ffmpeg_libs.ps1 rust/tools/fetch_rnnoise.py rust/tools/windows_move_check.ps1 rust/crates/outputs/src/win*.rs rust/crates/outputs/src/mf.rs rust/crates/outputs/src/unitycapture.rs rust/crates/outputs/src/wait_screen.rs rust/crates/outputs/src/webcams_win.rs rust/crates/system/src/splash*.rs rust/crates/system/src/winapp.rs rust/crates/system/src/registry.rs rust/crates/system/src/single_instance.rs rust/crates/system/src/update_guard.rs rust/crates/system/src/setup_move*.rs rust/crates/system/src/*_windows.rs rust/crates/link/src/winjob.rs rust/crates/link/src/adb_download.rs rust/windows/** rust/app/resources/** -->
+
+`windows_pass.py` checks the rest of Windows packaging. These need a real phone:
+
+- [ ] After **Get adb**, plugging a phone in and clicking its **Pair** button pairs it over USB.
+- [ ] After an unzipped copy updated into the installed one, Windows asks about the firewall once more and Add phone over Wi-Fi works after allowing it.
+- [ ] On a machine an older version registered the driver on, streaming works before and after **Rename** or **Reinstall for a security fix**.
+- [ ] Windows 11: after **Install driver** (or **Update** over UnityCapture) the phone's picture shows in the Windows Camera app and in OBS, Automatic streaming starts and stops with the app, and uninstalling removes the camera from both.
+
+### Linux system setup
+
+<!-- due: .github/workflows/rust-package.yml rust/tools/package_linux.sh rust/tools/package_appimage.sh rust/tools/AppRun rust/tools/fonts.conf rust/tools/start.sh rust/tools/main_stub.py rust/tools/build_ffmpeg.sh rust/crates/outputs/src/linux_setup.rs rust/crates/outputs/src/v4l2.rs rust/crates/system/src/autostart.rs rust/crates/system/src/hotkeys_portal.rs -->
+
+- [ ] Module not loaded: Start asks once with the startup box ticked and after a reboot Start doesn't ask. Unticked, it asks again after a reboot.
+- [ ] Without pkexec (or with no polkit agent): Start shows the command banner, Copy command works and running it then Start streams.
+- [ ] Open Telescope when I sign in (Linux and Windows): after a real sign-out and sign-in Telescope is in the tray.
+- [ ] AppImage on a real desktop: a double click starts it, the app menu entry and icon work, and the password prompt for the virtual camera appears and loads it.
+
+### Updates and settings from older versions
+
+<!-- due: android/app/src/main/kotlin/com/telescope/Updater.kt android/app/src/main/kotlin/com/telescope/UpdateLogic.kt android/app/src/main/kotlin/com/telescope/UpdateHttp.kt .github/write_manifest.py .github/workflows/release.yml installer/** rust/crates/system/src/updates.rs rust/crates/system/src/updates_plugin.rs rust/crates/system/ui/updates.slint rust/crates/system/src/update_guard.rs -->
+
+- [ ] Desktop on the previous nightly on Linux: the Update button appears, Update and restart replaces the app and it comes back on the new version with the stream working. On Windows `windows_pass.py` does the update and what's left is checking that the stream works after it.
+- [ ] AppImage on the previous nightly: Update and restart replaces the file in place, it comes back on the new version and the app menu entry still starts it.
+- [ ] Update is refused while streaming, on both apps.
+- [ ] Phone on the previous nightly: the update card offers the new build, asks once to allow installs from Telescope and the installed app shows the new version.
+- [ ] Phone app older than the desktop with a different session protocol, plugged in: the Connection panel says so and Update over USB installs the bundled APK.
+- [ ] Settings stay across a restart, including each phone's own after switching between phones. A config from the previous version keeps the global settings and asks to pair again.
+
+### Pairing and networks
+
+QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
+
+<!-- due: android/app/src/main/kotlin/com/telescope/Pairing.kt android/app/src/main/kotlin/com/telescope/PairedComputers.kt android/app/src/main/kotlin/com/telescope/SessionServer.kt android/app/src/main/kotlin/com/telescope/SessionEndpoint.kt android/app/src/main/kotlin/com/telescope/LanAnnouncer.kt android/app/src/main/kotlin/com/telescope/WifiLink.kt android/app/src/main/kotlin/com/telescope/TlsIdentity.kt android/app/src/main/kotlin/com/telescope/PhoneTls.kt android/app/src/main/kotlin/com/telescope/ScanActivity.kt android/app/src/main/kotlin/com/telescope/SetupSteps.kt android/app/src/main/kotlin/com/telescope/WaitingService.kt android/app/src/main/kotlin/com/telescope/RemoteStartNotice.kt rust/crates/link/** ; packages: certifi -->
+
+- [ ] Add phone by QR over Wi-Fi on Linux and on Windows and by plugging in over USB on Windows.
+- [ ] The setup guide ticks each step as it's done and the video stage replaces it after the first stream. The APK installs through its QR download link and through its own Install over USB button.
+- [ ] USB with the debugging prompt not yet accepted: Add phone says to allow it and pairs once it's accepted.
+- [ ] One phone paired with two computers: both stream (one at a time) and removing one computer on the phone leaves the other working.
+- [ ] Offline router (no WAN uplink at all): pairing still works and the QR code lists the LAN address.
+- [ ] Desktop VPN only (LAN access permitted): pairing works over the LAN address (QR lists it, not just the VPN).
+- [ ] Phone VPN only (LAN access permitted): pairing works (tests the Wi-Fi-bound first attempt).
+- [ ] Both devices on a VPN (both LAN-accessible): pairing works.
+- [ ] Tailscale on both (no shared LAN): pairing works over `100.64/10`.
+- [ ] VPN blocking local-network traffic: pairing fails (the phone's dialog lists each address) and USB pairing works.
+- [ ] Desktop with Docker, libvirt or VirtualBox installed: the QR code doesn't advertise `docker0`/`virbr0`/`vboxnet0` addresses.
+- [ ] Phone on a tailnet the desktop isn't on: after Wi-Fi pairing the line under the Connection status shows the phone's Wi-Fi address (not `100.64/10`) and the stream works.
+- [ ] Automatic route: plugged in uses USB, unplugged uses Wi-Fi. Plugged in with the app closed, or with a different phone on the cable, uses Wi-Fi and the card says why.
+- [ ] Pulling the cable mid-stream on USB carries on over Wi-Fi and plugging it back in can use USB again.
+- [ ] Connect via USB only / Wi-Fi only is honoured, including reporting a missing cable instead of falling back (the banner's Switch to Automatic works).
+- [ ] Local only on, no cable: the desktop says the phone accepts USB only and Start doesn't open the camera. Plug in and it streams over USB. A second machine on the network can't reach the phone.
+- [ ] Phone gets a new IP from the router: the desktop finds it again (mDNS) without re-pairing.
+- [ ] USB-only viewers hold no Wi-Fi performance lock.
+- [ ] Close the window to the tray with a phone waiting and Automatic streaming off: the phone stops getting checked (no new `/v1/ping` in its logs) and opening the window checks it straight away.
+
+### Streaming
+
+<!-- due: android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/StreamStateMachine.kt android/app/src/main/kotlin/com/telescope/StreamLauncher.kt android/app/src/main/kotlin/com/telescope/H264Encoder.kt android/app/src/main/kotlin/com/telescope/H264Stream.kt android/app/src/main/kotlin/com/telescope/CodecFailure.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt android/app/src/main/kotlin/com/telescope/UdpVideo.kt android/app/src/main/kotlin/com/telescope/HttpWire.kt android/app/src/main/kotlin/com/telescope/DynamicBitrate.kt android/app/src/main/kotlin/com/telescope/DynamicFrameRate.kt android/app/src/main/kotlin/com/telescope/FrameRate.kt android/app/src/main/kotlin/com/telescope/FrameGate.kt android/app/src/main/kotlin/com/telescope/PendingLimiter.kt android/app/src/main/kotlin/com/telescope/RecentRuns.kt rust/crates/media/** rust/crates/outputs/src/lib.rs rust/crates/outputs/src/convert.rs rust/crates/outputs/src/held.rs rust/crates/outputs/src/stream_output.rs rust/crates/outputs/src/stream_output/** rust/crates/outputs/src/ui_check.rs rust/crates/outputs/src/watch.rs rust/crates/outputs/ui/stream_output.slint -->
+
+- [ ] H.264 on a real phone: a fresh phone starts on Light and switching Format between Light and Heavy reconnects and streams on Wi-Fi and USB. Compare latency (a clock on screen) and the Mbps readout with MJPEG at the same size. A 30-minute run stays smooth, a reconnect (unplug, Wi-Fi off and on) recovers and changing resolution or lens mid-stream keeps working.
+- [ ] H.264 fallback: a size the encoder refuses (4:3 4K on most phones) stops with a banner to try a lower resolution or FPS and its Switch to Heavy button streams on Heavy. A phone without an encoder switches to Heavy automatically, with no banner.
+- [ ] FPS: the dropdown greys out rates the camera doesn't list. On a phone that lists 60, picking 60 shows about 60 in the footer and Copy diagnostics shows what the camera actually did.
+- [ ] Plugging in mid-stream over Wi-Fi (Connect via Automatic) moves the stream to USB a few seconds later without a gap in the video and the mic moves with it.
+- [ ] UDP, mic off: the phone says Streaming. Removing the computer on the phone stops its video within a second and a lost desktop releases its UDP session within 5 seconds.
+- [ ] UDP to Dynamic and the UDP switch both reconnect onto the right transport and changing to Heavy leaves no UDP session behind.
+- [ ] Linux, AMD or Intel card: with Hardware acceleration on, the card decodes the stream and Copy diagnostics says it found VA-API.
+- [ ] Hardware acceleration: a driver failure resumes in software without missing setup headers and Copy diagnostics reflects the decoder still running if the preference changes mid-stream.
+- [ ] On a phone that runs hot (Android 11+) stream for 15 minutes or more. The frame rate drops to 24 fps shortly before Android itself reports severe heat, the FPS readout's tooltip says the phone got hot and it goes back up once the phone cools.
+- [ ] Battery and temperature alerts fire once per threshold cross, not repeatedly.
+- [ ] Canvas size change (Linux and Windows) restarts cleanly.
+
+### Camera controls and preview
+
+<!-- due: android/app/src/main/kotlin/com/telescope/CameraCatalog.kt android/app/src/main/kotlin/com/telescope/LensLabel.kt android/app/src/main/kotlin/com/telescope/PreviewActivity.kt rust/crates/effects/src/transforms.rs -->
+
+- [ ] Phone in the foreground: the desktop's Start and Stop control the camera, also with the screen dark. A lens, size and OIS setting picked on the desktop come back after Stop and Start and the phone's Stop streaming stops the stream.
+- [ ] Zoom on the Auto lens: the lens marks on the zoom slider switch to the telephoto (the dot turns lavender) and panning out of its view falls back (red dot). Sliding the zoom back and forth quickly on the telephoto never turns the dot red. Scrolling the preview zooms around the mouse, dragging pans and the lens outlines show and fade.
+- [ ] Zoom and Brightness sliders and the pan pad stick at their neutral spots and marks when dragged, never with the arrow keys and Temperature and Tint never stick. A double-click resets them all.
+- [ ] Point focus: clicking a near and a far object in the preview focuses each (with and without zoom, flip and rotation), exposure follows the point in auto and Auto returns to continuous. The pop-out works the same.
+- [ ] Presets: switching between two presets while streaming changes lens, exposure, WB, zoom and fps together. A second phone doesn't see the first one's presets.
+
+### Photos
+
+<!-- due: android/app/src/main/kotlin/com/telescope/StillCapture.kt android/app/src/main/kotlin/com/telescope/StillCatalog.kt android/app/src/main/kotlin/com/telescope/StillJobs.kt android/app/src/main/kotlin/com/telescope/StillOptions.kt android/app/src/main/kotlin/com/telescope/StillRebuild.kt android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt rust/crates/effects/src/photos.rs -->
+
+- [ ] A JPEG while streaming on Light: the video keeps going (a short hitch the first time only). On Heavy it pauses for about two seconds and comes back on its own. Either way the photo is the lens's full size, upright with the desktop's rotation.
+- [ ] RAW and JPEG together on a phone that lists RAW: the DNG opens in a raw editor with the right colours and orientation. The same with full resolution on a 50 MP or 200 MP phone, where the file is the sensor's real size.
+- [ ] Night, HDR and Bokeh on a phone whose maker offers them: the video pauses for a few seconds and picks up again without a reconnect, and the photo looks like the phone's own camera app.
+- [ ] A 10 s long exposure in the dark, an exposure bracket and a focus bracket: the brackets really step (brightness, then near to far) and the stream comes back after each.
+- [ ] Switching the lens or the size during a timer, and turning the camera off during one: the photo fails or goes ahead cleanly and the next one works.
+
+### Microphone
+
+<!-- due: android/app/src/main/kotlin/com/telescope/AudioStream.kt android/app/src/main/kotlin/com/telescope/AudioStreamer.kt android/app/src/main/kotlin/com/telescope/MicProblem.kt rust/crates/audio/**  ; packages: pyrnnoise -->
+
+- [ ] Linux (PipeWire): switching it on while streaming makes "Telescope Microphone" appear, a call records the phone and switching off or quitting removes it. Lip-sync looks right by eye. A 30-minute run doesn't drift and unplugging and replugging recovers.
+- [ ] Windows: without VB-Cable the card offers Install VB-Cable. It asks first (naming VB-Audio), opens VB-Audio's setup through UAC and after a restart and an off/on apps record from CABLE Output.
+- [ ] The meter moves with your voice even when no app is recording and its dot goes yellow on a loud clap (red with the limiter off under Audio). Mute (card and tray) gives silence without the mic disappearing from the call app. Gain changes and typed values are audible without crackle and Max gain changes the slider's range. On Windows too.
+- [ ] Permission: the first request makes the phone's Get set up card show Microphone and allowing it there starts the audio within a few seconds without restarting the stream. Recording keeps going with the phone's screen off.
+- [ ] Automatic routing, mic only: plugging in USB moves the microphone too and rapid mic off and on leaves no recording held.
+- [ ] Auto level: beginning in silence or recovering from a gap doesn't turn up steady room noise.
+- [ ] Noise reduction, on Linux and Windows: with a fan going and some typing a call recording loses both while speech still sounds natural and switching it mid-sentence doesn't click.
+
+### Phone sensors
+
+<!-- due: android/app/src/main/kotlin/com/telescope/PhoneSensors.kt android/app/src/main/kotlin/com/telescope/SensorStream.kt -->
+
+- [ ] With a plugin using the phone's sensors, tilting the phone shows on the desktop within a moment with the back and the front camera, held upright and in landscape both ways round. Switching to another phone's stream moves the sensors there and an older phone app is reported as one.
+- [ ] The phone's sensors stop once nothing uses them or the stream ends (the `sensors` thread goes away in `adb shell top -H -p $(adb shell pidof com.telescope)`), and the video doesn't stutter while they run.
+
+### Starting, stopping and the camera button
+
+<!-- due: android/app/src/main/kotlin/com/telescope/BlackScreen.kt android/app/src/main/kotlin/com/telescope/BlackScreenState.kt rust/crates/outputs/src/wait_screen*.rs rust/crates/outputs/ui/wait_screen.slint rust/crates/system/src/startup.rs rust/crates/system/ui/startup.slint rust/crates/system/src/single_instance.rs -->
+
+- [ ] Start set to "When the phone is ready": opening the phone app (or plugging it in) starts the stream, Stop keeps it stopped until the phone leaves and comes back and closing the window keeps it in the tray.
+- [ ] Start set to "When an app opens the camera" and Stop to "When no app uses the camera, if it started the stream" (Linux and Windows): opening the camera in OBS or a call starts the stream and closing it stops it 15 s later.
+- [ ] Windows, Stop set to "when no app uses the camera, even if you started it": a stream started by hand before any app opened the camera stops after the wait.
+- [ ] Camera off: in a call using both Telescope devices, press the camera button under the preview. The call shows the wait screen and still hears the mic, the phone's camera light goes out and the tray icon loses its red dot. Press it again and the picture comes back.
+- [ ] Mic only from the start: with the mic on, press the camera button, then **Start mic only**. The phone opens no camera and the call hears the mic.
+- [ ] With the mic on and Stop set to "when no app uses the camera": turn the camera off in the call. After the wait only the camera turns off and turning it back on in the call brings the picture back.
+- [ ] Camera off on a phone in the background (screen off, **Wait for my computer** on): turn it off and on again. It comes back and if another app holds the camera it stays off with a banner saying so.
+- [ ] Wait screen: a chosen image and a GIF reach apps and Mirror flips them. Starting and stopping a stream while a call has the camera open keeps the picture in the call.
+- [ ] Tray minimise and restore work.
+- [ ] Phone app Black screen: while streaming, tap it next to Preview. The screen goes pure black at the lowest brightness without the status and nav bars and the stream doesn't stutter going in or out. One tap shows the hint, a double tap or Back brings the app back and the brightness returns. Stopping the stream from the computer, the power button or the Home button also bring it back.
+
+### Browser camera
+
+<!-- due: rust/crates/link/src/browser/** rust/crates/link/web/** -->
+
+- [ ] iPhone in Safari: scan the code, tap through the certificate warning, Start. Video and mic reach the virtual camera and mic, the screen stays on and after locking the phone and coming back to the page the stream picks up again. Flip camera flips lenses.
+- [ ] Black screen (portrait and landscape): the page goes black and, on Android, full screen without the status and nav bars. One tap shows the hint and fades again, a double tap brings the page back and the stream keeps going the whole time.
+- [ ] Black screen on iPhone: a black video opens in the system player and hides the status bar, the stream keeps going behind it and closing the player brings the page back.
+- [ ] Android in Chrome and a second computer's browser: the same. Resolution and Frame rate on the card change what arrives. New link drops the browser and the old code stops working. Opening the link in a second tab takes over from the first.
+- [ ] Windows: the firewall prompt (or a rule) lets port 8767 through and picking a phone again stops the server.
+
+### Webcams
+
+<!-- due: rust/crates/outputs/src/webcam*.rs rust/crates/outputs/src/webcam/** rust/crates/outputs/src/webcams/** rust/crates/outputs/ui/webcam.slint -->
+
+- [ ] A USB webcam shows in the phone picker under its own name, and Telescope's own cameras (Phone Camera, Telescope, OBS Virtual Camera) never do. Start streams it to the virtual camera and Background, Chroma key and Transforms work on it.
+- [ ] Resolution and Frame rate on the Webcam card change what arrives. 1080p at 30 fps on a USB 2 webcam shows MJPEG on the card.
+- [ ] With the webcam open in another app (a browser's camera test page will do) Start gives a banner naming the app on Linux. Closing it there lets the stream start without pressing anything.
+- [ ] Unplugging the webcam mid-stream shows the wait screen and plugging it back in picks the stream up again. Plugging one in while Telescope runs adds it to the picker within a few seconds.
+- [ ] The Webcam card shows only the settings the camera has. Exposure on Manual makes Exposure time work, the change shows in the picture, and after an unplug and replug (or a Stop and Start) the camera has it again. Reset puts the defaults back.
+- [ ] Windows: the same, plus a camera with a built-in webcam mode or an HDMI capture card shows up and streams.
+
+### On Air sign
+
+<!-- due: rust/crates/effects/src/on_air*.rs rust/crates/link/src/web.rs -->
+
+- [ ] With On Air sign switched on, a tablet or phone opens the sign from its code, taps through the certificate warning and goes full screen with the screen staying on. Joining a call turns it red within about a second and leaving turns it back about six seconds later.
+- [ ] A webhook to Home Assistant (or any hub) switches a light on and off with the default POST and with a GET payload. Stopping the hub gives one banner, not one per change.
+- [ ] Windows: the firewall prompt (or a rule) lets port 8768 through. New link makes an open sign say its link doesn't work any more.
+
+### Settings, keyboard and folding
+
+<!-- due: rust/crates/system/src/shortcuts.rs rust/crates/system/ui/shortcuts.slint rust/crates/system/src/hotkeys*.rs rust/crates/system/src/keys.rs rust/crates/system/src/tray*.rs rust/crates/system/src/icon.rs rust/crates/system/src/memory.rs rust/crates/system/src/lib.rs rust/crates/system/src/version.rs rust/crates/system/src/test_bus.rs rust/crates/setup/** -->
+
+- [ ] Every Settings tab opens and the settings button brings the window back on the tab it was left on.
+- [ ] Folding: clicking a card title and a section title folds and unfolds them, Tab reaches the titles and Space or Enter toggles them. A shortcut for a control in a folded card still works. Folds come back after a restart.
+- [ ] Tab through the tiles and switches, use rotation and pan shortcuts saved before this release, pan with arrow keys and Home and inspect labels with a screen reader.
+- [ ] Your phones: Rename works, Change name changes what a newly paired phone shows and saved browsers are listed with the phones.
+- [ ] Plugins: installing a newer `.zip` of an added plugin asks, replaces it with its settings kept and leaves it switched off. One with a GitHub `repo` shows its link and, once a release is newer, a line about it on its tile. **Install updates without asking** asks before it goes on.
+
+### Several cameras in one picture
+
+<!-- due: rust/crates/effects/src/compos*.rs -->
+
+- [ ] Two real phones streaming (Linux and Windows): switching on **Several cameras in one picture** under **Streaming and devices** shows the One picture card. **Start from** Big and small, then drag, resize (plain, Shift to stretch, Alt to crop), zoom and right-drag a stream in **Edit picture…** while the call app shows the picture on the Telescope camera. Borders, corners and a background picture show there too and the second phone's own camera still works.
+- [ ] Save two layouts, bind one to a key, save a preset with each and switch between them by key and preset. After stopping the second phone the camera shows the first alone within 3 seconds. The second one is in the picture again once it's restarted. Turning off the first phone's Wi-Fi doesn't freeze the second in the picture. With an upright phone on Telescope and a landscape one on Telescope 2, moving the mic to the second leaves the picture upright on Telescope.
+
+### Vision effects
+
+<!-- due: rust/crates/vision/** rust/crates/effects/src/background.rs rust/crates/effects/src/framing.rs rust/crates/effects/src/fun_*.rs rust/crates/effects/src/face_exposure.rs rust/crates/effects/src/privacy_blur.rs rust/crates/effects/src/vision_row.rs rust/tools/build_vision_pack.py rust/tools/vision-pack-requirements.txt ; packages: mediapipe absl-py flatbuffers certifi -->
+
+- [ ] Auto framing and Background (Linux and Windows): switching one on under **People** asks before downloading, shows the progress and after **Restart now** its card shows. Auto framing follows you while streaming from a real phone, widens when you hold a hand out and zooms back out when you leave, also at 90, 180 and 270 degrees and flipped. Zoom and Pan in Transforms grey out while it's on. Background blurs and puts a picture behind you. With both off **Remove download** deletes the download.
+- [ ] Fun pack with a real phone: clones, the cloak and the stick figure follow you, light painting draws with a torch, and the retro looks hold 30 fps at 1080p. Datamosh on Light smears when you move, **Clean up** and switching it off bring the picture back within a second, and on Heavy the card says it needs Light.
+- [ ] Expose for my face with a real phone and a bright window behind you: the face gets lit right within a couple of seconds, a small head move doesn't change the exposure, walking out holds it and a tap on the preview takes over until **Follow my face**.
+- [ ] Privacy blur with a real phone: a second person walking in gets blurred within a second, you stay sharp, and it stops a few seconds after they leave. Try each choice in the dropdown (**Show the wait screen** with your own wait screen image too) and **Blur now** from a keyboard shortcut.
+
+### Preview tools and picture plugins
+
+<!-- due: rust/crates/effects/** -->
+
+- [ ] Cinema tools on a real phone with manual focus: peaking sits on what's sharp and moves as you turn focus, zebras and false colour show on a bright window and clipped highlights, each scope shows and none of it reaches a call or OBS. Also in the pop-out.
+- [ ] Level on a real phone with the back and the front camera: tilting it turns the line the same way the picture turns, it sits still on a table and turns green when level, pitch goes up as the camera looks up, and flipping or rotating under Picture keeps it right. An older phone app shows why it can't.
+- [ ] Desk mode on a real phone pointed at a sheet of paper: marking the corners straightens it in a call, a standing page keeps its shape (Width and Height fix what Auto gets wrong), Contrast and Black and white make handwriting readable and moving between phones keeps each one's corners.
+- [ ] Chroma key with a real green screen and a real phone: Green keys it cleanly with even light, Picked keys the colour clicked on the preview, Spill takes the green off hair and skin and a picture fills the frame in a call.
+- [ ] QR codes with a real phone: a Wi-Fi code from another phone's share screen puts the password on the clipboard (Linux with the window in front and behind, where Copy has to step in, and Windows) and a printed link code reads from arm's length.
+- [ ] A pick on the preview (Desk mode's corners or Chroma key's colour): the clicks go to the pick instead of focusing or panning, Esc and a right click cancel it, scrolling still zooms and the corners stay on the same spot while zoomed, flipped and rotated.
+
+### Name tag
+
+<!-- due: rust/crates/effects/src/name_tag.rs rust/crates/effects/src/tag.rs -->
+
+- [ ] With Name tag switched on, a name, pronouns and second line show in a call on Linux and Windows in each style, position and size, and a preset brings back the tag it saved. Mirror in Transforms flips the picture but never the text.
+- [ ] A name in Arabic or Hebrew, one in Chinese or Japanese and one in Hindi show with the right letters on both desktops (no empty boxes), and the right-to-left one starts from the right.
+
+### Colour grading
+
+<!-- due: rust/crates/effects/src/colour_grading.rs rust/crates/effects/src/grade.rs rust/crates/effects/src/cube.rs -->
+
+- [ ] Linux and Windows, streaming 1080p60 from a real phone: switch Colour grading on under **Look**, drag the wheels and curves and load a `.cube` LUT. The frame rate in the footer stays at 60 and Copy diagnostics shows the colour pipeline's time a frame.
+- [ ] Compare shows the ungraded picture left of the line on the preview while a call sees the whole picture graded. The header switch takes the grade off and puts it back.
+- [ ] Export grade… writes a `.cube` that gives the same look in another program (OBS's LUT filter or Resolve). Two phones keep their own grades and a preset brings its grade back.
+
+### Notes next to the lens
+
+<!-- due: android/app/src/main/kotlin/com/telescope/Notes.kt android/app/src/main/kotlin/com/telescope/NotesActivity.kt android/app/src/main/kotlin/com/telescope/NotesPlacement.kt rust/crates/effects/src/notes.rs -->
+
+- [ ] Switch Notes on under **On screen**, stream from the front camera and send a few lines. They open on the phone right under the camera (on a notch, a punch hole and a phone without either), Play scrolls them, Next and Previous step a line and a shortcut or presenter clicker bound to Next works. Turn the phone sideways and the text moves beside the lens. The stream doesn't stutter while they scroll.
+- [ ] With Telescope in the background on the phone the card asks you to open it and opening it shows the notes. Back closes them until you send again, and stopping the stream takes them away.

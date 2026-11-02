@@ -1,45 +1,41 @@
 # Writing a plugin
 
-This page is for people who write Python. To switch plugins on and off or install ones other people made, see [Plugins](plugins.md).
+Plugins are written in Lua, with GPU shaders for anything that changes the picture. To switch plugins on and off or install ones other people made, see [Plugins](plugins.md). Plugins written in Python for the old Telescope (API 1) don't run any more.
 
-- [Start from the example](#start-from-the-example)
-- [Trying out changes](#trying-out-changes)
+- [Start from an example](#start-from-an-example)
+- [Checking your plugin](#checking-your-plugin)
 - [plugin.json](#pluginjson)
-- [__init__.py](#__init__py)
-- [Folding the card](#folding-the-card)
-- [What else a plugin can do](#what-else-a-plugin-can-do)
-- [The view and people in the picture](#the-view-and-people-in-the-picture)
+- [main.lua](#mainlua)
+- [The card](#the-card)
+- [Changing the picture](#changing-the-picture)
+- [Events and the host](#events-and-the-host)
 - [Translating your plugin](#translating-your-plugin)
-- [Ground rules](#a-few-ground-rules)
+- [Testing it](#testing-it)
+- [Ground rules](#ground-rules)
 - [Sharing it](#sharing-it)
 
-A plugin is a folder with two files in it. `plugin.json` describes the plugin and `__init__.py` holds its Python code. If you've written a little Python before you can write a plugin and you don't need to understand the rest of Telescope first.
+A plugin is a folder. It needs a `plugin.json` describing it and a `main.lua` with its code. Most plugins also add a `card.slint` for their card in the window and a `.wgsl` shader or two. You don't need to know Rust or anything about how Telescope works inside to write one. If you've written a bit of Lua, JavaScript or Python before you'll recognise most of it.
 
-## Start from the example
+## Start from an example
 
-The repository has a small example plugin in [`desktop/examples/plugins/black_and_white`](../desktop/examples/plugins/black_and_white). It adds a card with one checkbox that turns the picture black and white and each phone remembers its own setting. Copying it is the quickest way to start.
+Two small plugins live in [`rust/crates/plugin-host/example-plugins`](../rust/crates/plugin-host/example-plugins):
 
-To try it, set up the desktop app from source (see [Building and CI](building.md)) and run this in `desktop/`:
+- **black_and_white** has a card with a switch and a slider, saves both and turns the picture grey with a shader. Each phone remembers its own setting.
+- **stream_alerts** has no card. It listens for a stream dropping and coming back and shows a desktop notification each time. It also adds a keyboard shortcut action.
 
-```bash
-python scripts/dev_desktop.py --plugin examples/plugins/black_and_white
-```
+Copy whichever is closer to what you want, rename the folder and change `name` in `plugin.json` to match. The folder name and `name` have to be the same.
 
-That starts a dev copy of Telescope with its own settings, which keeps your normal Telescope safe from whatever you try. The plugin is loaded straight from its folder and always switched on. Its Black and white card shows up in the right column.
+## Checking your plugin
 
-For your own plugin copy the folder somewhere, rename it and change `name` in both files to match. Then point `--plugin` at your copy. You can give `--plugin` more than once to load several plugins.
-
-## Trying out changes
-
-Leave the dev copy running while you work. Every time you save a file in your plugin's folder Telescope restarts by itself with the new code. If it was streaming it starts streaming again once it's back. Errors from your plugin show up with their tracebacks in the terminal you started it from and if your plugin didn't start at all the Plugins tab says why under its name.
-
-For a quick check that doesn't open Telescope run this:
+From `rust/` in a Telescope checkout:
 
 ```bash
-python scripts/check_plugin.py path/to/my_plugin
+cargo run -p telescope-plugin-host --bin check-plugin -- path/to/my_plugin
 ```
 
-It loads your plugin next to the built-in ones in a throwaway profile and builds its card. Then it sends it a test frame, saves and restores its settings and takes it through a stream starting and stopping. Anything that goes wrong is listed with a traceback pointing into your code. It also tells you when `process_frame()` is slow enough to make a stream fall behind.
+It loads your plugin outside Telescope with a stand-in for the window, builds its card, compiles its shaders the way the GPU will, saves and restores its settings and takes it through a stream starting, dropping and stopping. Every problem gets a line with the file and line number it came from. It also gives you a note about your `repo` and `version` when update checks can't follow them.
+
+Telescope loads a plugin you're working on straight from its folder when it runs with a dev profile (`TELESCOPE_DEV_PROFILE` set to a throwaway folder) and `TELESCOPE_DEV_PLUGINS` pointing at your plugin's folder. Several folders go in one variable separated like `PATH`. A plugin loaded that way is always on and stays on when you change its files.
 
 ## plugin.json
 
@@ -50,166 +46,275 @@ It loads your plugin next to the built-in ones in a throwaway profile and builds
   "version": "1.0",
   "author": "Telescope",
   "description": "Turns the picture black and white. An example to start your own plugin from.",
-  "api": 1,
-  "class": "BlackAndWhitePlugin"
+  "api": 2,
+  "category": "look",
+  "icon": "colour",
+  "when_off": "Without it there's no Black and white card and the picture keeps its colours.",
+  "device_local": true
 }
 ```
 
-- `name` is your plugin's id. It has to match the folder's name and the `name` in your class, using only lowercase letters, digits and `_` (like `my_overlay`). Your settings are saved under it, so don't change it later.
-- `title`, `version`, `author` and `description` are what people see in the Plugins tab. Write the description for someone who has never heard of your plugin.
-- `api` is the version of the plugin API you wrote it for, which is `1` for now. Telescope only raises it for a change that would break existing plugins and everything in `plugin.py` keeps working until then (Telescope's own tests check that). A plugin with the wrong number isn't loaded.
-- `class` is the name of your plugin class in `__init__.py`.
+- `name` is your plugin's id, made of lowercase letters, digits and `_` and starting with a letter. Your settings are saved under it. Don't change it once people use your plugin or their settings won't find their way back.
+- `title`, `version`, `author` and `description` show on the Plugins tab. Write the description for someone who has never heard of your plugin.
+- `api` is the plugin API you wrote it for, which is `2` (Python plugins were `1`). It only goes up for a change that would break existing plugins.
+- `category` picks the group on the Plugins tab: `camera`, `look`, `vision` (People), `preview`, `on_screen`, `sound` or `streaming`. Anything else lands under Extras.
+- `when_off` tells people what goes missing when they switch your plugin off.
+- `repo` is an optional `https://` link to your plugin's source, shown next to the author. A GitHub address also lets Telescope tell people about new versions (see [Sharing it](#sharing-it)).
+- `permissions` lists the parts of the host API your plugin needs that could surprise someone. See the table under [Events and the host](#events-and-the-host).
 
-## __init__.py
+These are optional and work like the class attributes of a built-in plugin:
 
-Here's the example's code with what each part is for:
+| Key | What it does |
+|---|---|
+| `icon` | The plugin's icon on the Plugins tab, one of the kit's icon names like `colour` or `bell` |
+| `main` | The script to start from, if it isn't `main.lua` |
+| `device_local` | Each phone gets its own copy of your settings |
+| `in_presets` | Presets save your settings and bring them back through `apply_preset` |
+| `frame_stage` | Where your shader runs: `geometry`, `background`, `effects` (the default), `colour`, `privacy`, `overlay` and others, in the order the frame goes through them |
+| `follows_focus` | With several phones streaming, follow the one the window shows (the default) or `false` for the main one |
+| `header_side` | Where a header widget goes, `left` or `right` |
+| `needs_vision` | Switching your plugin on downloads the vision pack first |
 
-```python
-class BlackAndWhitePlugin(TelescopePlugin):
-    name = "black_and_white"  # the same as "name" in plugin.json
-    when_off = "Without it there's no Black and white card and the picture keeps its colours."
-    panel_region = "right"  # which column the card goes in: "left", "right" or "center"
-    device_local = True  # each phone remembers its own setting
+## main.lua
 
-    def setup(self, host, bus):
-        self._host = host  # how you talk to Telescope
-        self._on = False
-        self._box = None
+`main.lua` runs once when Telescope starts and returns a table. Telescope calls the functions in that table at the right moments, using the same names the built-in plugins use. Leave out whatever you don't need.
 
-    def create_panel(self):
-        ...  # build and return the card (a QWidget)
+```lua
+local plugin = {}
 
-    def process_frame(self, frame):
-        return _grey(frame) if self._on else frame
+local on = false
 
-    def frame_step(self):
-        return _grey if self._on else None
+function plugin.get_config()
+  return { on = on }
+end
 
-    def get_config(self):
-        return {"on": self._on}
+function plugin.set_config(cfg)
+  on = cfg.on == true
+end
 
-    def set_config(self, cfg):
-        self._on = cfg.get("on") is True
-        ...  # and update the checkbox to match
+return plugin
 ```
 
-`setup()` runs once at the start and gets two things. `host` is the window and has everything a plugin may ask of it, like saving settings, starting or stopping a stream or showing a banner. `bus` is the event bus where you can listen for things happening, like a stream starting or a phone being paired. Both are described in [`desktop/telescope/plugin.py`](../desktop/telescope/plugin.py), which is the whole plugin API in one file.
-
-`process_frame()` gets every frame of the stream as a NumPy array (BGR, height × width × 3) and returns the frame to send on. Plugins get the frame in the order they're registered, built-in ones first and the preview always shows it after every plugin had its turn. When several phones stream at once, `frame_step()` hands Telescope a frozen copy of that for the streams the panels aren't showing. Return `None` there if your plugin shouldn't touch those.
-
-`get_config()` and `set_config()` are how settings get saved. Return a plain dict of what you want remembered and read it back in `set_config()`. Telescope calls `get_config()` whenever it saves and `host.schedule_save()` asks it to save after something changed. `set_config()` might also get a dict saved by an older version of your plugin (or edited by hand) so read it carefully, the way the example checks `cfg.get("on") is True`.
-
-## Folding the card
-
-People can click a card's title to fold the card down to its header and a section title inside it to fold just that section. There's nothing for you to write. After `create_panel()` returns Telescope looks at the card and makes it foldable if you built it with the helpers in `telescope/widgets/common.py`:
-
-- `create_card()` and `card_layout(card)` make the card and its layout
-- `add_card_header(layout, "Title", "icon")` adds the header and its title is what people click. A card without one is left alone
-- `add_section_heading(layout, "Section", "icon")` starts a section that runs until the next heading or the end of the card
-
-What to keep in mind while building the card:
-
-- **Add every row inside `create_panel()`.** The rows get grouped once it returns. One you add to the card's own layout afterwards lands outside the fold and is still visible when the card is folded. Changing things inside a layout or widget you already added is fine at any time.
-- **Show and hide your own rows as you like.** A fold hides a container around the rows and never changes a row's own visibility, so a row you hid stays hidden when the card is opened again.
-- **Hiding the whole card still works.** `setVisible()` on the card is yours and a fold doesn't touch it.
-- **The titles make up the saved name.** A fold is saved under your plugin's `name`, the card title and the section title. If you rename a title it starts out open again for people who had it folded. Two sections with the same title in one card are told apart by their order.
-- **Only headings placed straight in the card's layout fold.** One inside a nested layout or widget is drawn like any other widget.
-
-## What else a plugin can do
-
-All of these are optional and you only override what you need.
-
-| Method | What it's for |
+| Function | When it's called |
 |---|---|
-| `create_panel()` | A card in the main window |
-| `create_header_widget()` | A small control in the header bar next to the phone picker (or on the right with `header_side = "right"`) |
-| `create_settings_sections()` | Settings of your own as `SettingsSection`s, a card each for a tab in the Settings window (see below) |
-| `create_tray_actions()` | Entries in the tray icon's menu |
-| `create_actions()` | Things people can bind keyboard shortcuts to |
-| `process_frame()`, `frame_step()` | Changing the picture |
-| `on_stream_start()`, `on_stream_stop()` | A stream really started or ended (`ctrl` lets you send commands to the phone) |
-| `on_focus_gained()`, `on_focus_lost()` | The window switched to or away from a stream that keeps running (with several phones streaming) |
-| `on_phone_state()` | The phone sent its current state with its lenses, battery and so on |
-| `on_plugins_ready()` | Every plugin is set up and the settings are loaded |
-| `diagnostics()` | A few lines for Copy diagnostics (no tokens, addresses or names) |
-| `shutdown()` | Telescope is quitting and you should stop anything you started |
+| `setup()` | Once, after every plugin is loaded |
+| `on_plugins_ready()` | Every plugin is set up and the saved settings are in |
+| `card()` | Your card in the window (see below) |
+| `header_widget()`, `settings_sections()` | A small control in the header bar, or blocks of your own on a Settings tab |
+| `on_ui(event)` | Something happened on your card: `event.ui`, `event.callback` and `event.args` |
+| `actions()`, `run_action(id, params)` | Things people can bind keyboard shortcuts to, and doing one (return a short text to show, like `"Torch: on"`) |
+| `tray_actions()`, `on_tray_action(id)` | Entries in the tray menu |
+| `on_stream_start(stream)`, `on_stream_stop()` | A stream really started or ended. `stream.source_id` names it |
+| `on_focus_gained(stream)`, `on_focus_lost()` | With several phones, the window moved to or away from a stream that keeps running. Without these you get `on_stream_start` and `on_stream_stop` |
+| `on_phone_state(state)` | The phone sent its state, with its lenses, battery and so on |
+| `frame_step()` | Your shader and its settings, or `nil` to leave the picture alone |
+| `get_config()`, `set_config(cfg)` | Saving and loading your settings |
+| `apply_preset(cfg)` | A preset is applied (calls `set_config` if you don't have it) |
+| `diagnostics()` | A few `{ "Label", "value" }` pairs for Copy diagnostics, with no names, addresses or tokens |
+| `shutdown()` | Telescope is quitting |
 
-You can also set `title`, `about` and `when_off` on your class. `title` and `about` fall back to your `plugin.json`. `when_off` says what's missing without your plugin (like "Without it there's no Black and white card") and the Plugins tab shows it when someone switches your plugin off. With `in_presets = True` your settings get saved in presets along with the camera and the transforms and come back through `apply_preset()` (which calls `set_config()` unless you override it).
+`get_config()` returns a plain table of what you want remembered and `set_config()` gets it back on the next start. It might also get a table saved by an older version of your plugin or edited by hand. Check each value the way the example checks `cfg.on == true`. Raising an error in `set_config()` turns those settings down and Telescope keeps the values that do load on their own, with your defaults for the rest. Call `host.schedule_save()` after something changes and Telescope saves a moment later along with everything else.
 
-#### Settings of your own
+Lua's own `table`, `string`, `math`, `utf8` and `coroutine` libraries are there, along with `os.time`, `os.clock`, `os.date` and `os.difftime`. Your plugin can't open files, start programs or reach the network. On top of Lua's own you get:
 
-`create_settings_sections()` returns a list of `SettingsSection(tab, widget)`, one for each block of controls you want in the Settings window. The tab is the id of one Telescope already has (`general`, `streaming`, `video`, `audio`, `devices`, `shortcuts`, `about`) or a new one, which gets its own tab named by `tab_title` and sits just above Plugins. Build the widget the way you would a card and let its controls save as they change, since the window has no OK button. The Settings search finds what's in your section by reading its widgets, so most of it needs nothing from you. To help people find it by other words, pass `keywords="..."` to `SettingsSection` (or set a `keywords` property on a widget). `on_show` is called each time your tab comes up, which is the place to bring the controls in line with your plugin's state. The old `create_menu_actions()` still works: its actions and submenus appear under the plugin's name in Settings → General, behind **Open settings**. Telescope logs a deprecation warning at start. Move to `create_settings_sections()` when you update the plugin.
+- `host`, Telescope's side of things (see [Events and the host](#events-and-the-host))
+- `tr`, `trn` and `N_` for texts people read
+- `require("name")`, which loads `name.lua` from your plugin's folder (`require("lib.colours")` loads `lib/colours.lua`)
+- `files.read("path")` for reading a file of your own plugin as text
+- `json.encode(value)` and `json.decode(text)`
+- `log.info(...)`, `log.warn(...)`, `log.error(...)` and `log.debug(...)`. `print` goes to `log.info`
 
-## The view and people in the picture
+## The card
 
-Zoom, pan, flip and rotation belong to the window, not to the Transforms card, so a plugin can work with them even when Transforms is switched off. `host.view()` is the shown stream's view as it is now and `bus.view_changed` fires when it changes. `host.set_view(zoom=2.0)` changes it the way the Transforms controls do. A plugin that wants to move the zoom and pan by itself (like Auto framing) calls `host.take_view("My plugin")` first, then `host.steer_view(...)` as often as it likes and `host.release_view(...)` when it's done. Only one plugin can have the view at a time and the Transforms card shows who has it.
+`card()` returns where your card's `.slint` file is, the component to build from it and the values it starts with:
 
-The vision service runs MediaPipe for plugins that ask. `host.person_mask(frame)` in `process_frame()` gives a mask of where the people are (`None` while it's still loading or if the download isn't there). `host.want_people("My plugin", True)` makes `bus.people_seen` report the people on each stream with their landmarks (eyes, shoulders, wrists, hips and so on) a dozen or so times a second while anything in the picture moves, and about 3 times a second while nothing does. `host.vision_state()` and `bus.vision_state_changed` tell you whether it's ready. Plugins someone adds can use all of this, but only once the vision download is there, which right now only happens by switching on Auto framing or Background.
+```lua
+function plugin.card()
+  return {
+    file = "card.slint",
+    component = "BlackAndWhiteCard",
+    region = "right",
+    props = { on = on, strength = strength },
+  }
+end
+```
+
+`region` is the column the card goes in (`left`, `right` or `center`). The `.slint` file is written in [Slint](https://slint.dev/), the toolkit the window is built with. It can use the same widgets as Telescope's own cards:
+
+```slint
+import { Card, FormRow, Icons, Slider, SwitchTile } from "@ui-kit/ui-kit.slint";
+
+export component BlackAndWhiteCard inherits Card {
+    in-out property <bool> on;
+    in-out property <float> strength: 100;
+    callback toggled(bool);
+    callback strength-moved(float);
+
+    title: @tr("Black and white");
+    icon: Icons.colour;
+
+    SwitchTile {
+        icon: Icons.colour;
+        text: @tr("Black and white picture");
+        hue: root.hue;
+        checked <=> root.on;
+        toggled(value) => { root.toggled(value); }
+    }
+    ...
+}
+```
+
+Inherit `Card` and give it a `title` and an `icon` from the kit's `Icons`, the way the example does. Telescope sets the card's colour from your plugin's group and makes it foldable. A control's `label` is only what screen readers announce, so put a visible name on a row with `FormRow` or use a `SwitchTile`. Each `callback` your component declares reaches `on_ui()` with the callback's name and its arguments, written with `_` instead of `-` (`strength-moved` arrives as `strength_moved`). To change what the card shows later, set its properties with `host.set_ui_props("card", { on = true })`.
+
+`header_widget()` and each entry of `settings_sections()` work the same way. A settings section also takes an `id` (used as `event.ui` and in `set_ui_props`), a `tab` (`general`, `streaming`, `video`, `audio`, `devices`, `shortcuts`, `about` or a new one with a `tab_title`), `order` and `keywords` for the Settings search.
+
+## Changing the picture
+
+Plugins change the picture with a shader written in [WGSL](https://www.w3.org/TR/WGSL/), the GPU language that runs everywhere Telescope does. Your Lua code never touches pixels. It hands Telescope the shader and its values from `frame_step()` and calls `host.refresh_frame_step()` whenever they change:
+
+```lua
+function plugin.frame_step()
+  if not on then
+    return nil
+  end
+  return { shader = "shaders/grey.wgsl", uniforms = { strength = strength / 100 } }
+end
+```
+
+The shader has one function, `effect`, which gets a position in the picture and returns the colour that goes there. `sample(uv)` reads the picture as it came in:
+
+```wgsl
+struct Params {
+    strength: f32,
+}
+
+fn effect(uv: vec2<f32>) -> vec4<f32> {
+    let c = sample(uv);
+    let grey = dot(c.rgb, vec3<f32>(0.299, 0.587, 0.114));
+    return vec4<f32>(mix(c.rgb, vec3<f32>(grey), params.strength), c.a);
+}
+```
+
+- `uv` goes from `(0, 0)` at the top left to `(1, 1)` at the bottom right. Sampling somewhere else than `uv` moves things around (a mirror is `sample(vec2<f32>(1.0 - uv.x, uv.y))`).
+- Colours are 0 to 1 in the camera's own values. Whatever alpha you return is ignored.
+- `struct Params` holds your settings. Each field gets the value of the same name from `uniforms` (a missing one is 0). Fields can be `f32`, `i32`, `u32`, `vec2`, `vec3` and `vec4` of `f32`, or a `mat4x4<f32>`. Give a vector as a list, like `tint = { 1, 0.5, 0 }`, a matrix as 16 numbers column by column, and a `true` or `false` arrives as 1 or 0.
+- `frame` has the picture's `size` in pixels, the stream's `time` in seconds and the frame's `number`, for effects that move.
+- Don't declare bindings of your own. Telescope adds those around your code.
+
+The shader runs on the GPU for every frame of every stream your plugin is on. Keeping up with 60 fps costs your Lua code nothing because it isn't involved per frame at all. `check-plugin` compiles every `.wgsl` file in your plugin and points at the line of any error.
+
+## Events and the host
+
+Things happening in Telescope reach your plugin through `plugin.events`, a table of functions named after the events you want:
+
+```lua
+local plugin = { events = {} }
+
+function plugin.events.stream_lost(e)
+  host.send_notification(tr("Stream dropped"), tr("Telescope is looking for a way back to the phone."))
+end
+```
+
+Each function gets the event as a table with its fields (`e.source_id` here). The names and fields are the ones listed as `event` in [`tests/plugin_api.txt`](../rust/crates/plugin-host/tests/plugin_api.txt), from `stream_started` and `phone_state_updated` to `people_tracked` and `still_saved`. Your plugin can also send events of its own with `host.emit("my_plugin.something", { ... })` and listen for them under the same name, as long as the name starts with your plugin's name and a dot.
+
+`host` has everything else a plugin may ask of Telescope. The full list with each function's arguments is in [`tests/plugin_api.txt`](../rust/crates/plugin-host/tests/plugin_api.txt). A few you'll use most:
+
+| Call | What it does |
+|---|---|
+| `host.schedule_save()` | Save your settings soon |
+| `host.is_streaming()`, `host.focused_source_id()` | Whether a stream runs, and which one the window shows |
+| `host.phone_control({ action = "torch", value = 1 })` | Send a control to the phone ([the control API](protocol.md)) |
+| `host.show_issue(key, { title = "...", text = "..." })`, `host.clear_issue(key)` | A banner above the window's body |
+| `host.view()`, `host.set_view({ zoom = 2 })` | The window's zoom, pan, flip and rotation |
+| `host.take_view()`, `host.steer_view(zoom, pan_x, pan_y)`, `host.release_view()` | Moving the view yourself, like Auto framing does |
+| `host.want_people(true)` | Hear `people_seen` and `people_tracked` events (needs the vision download) |
+| `host.watch_motion({ { 0.6, 0, 1, 1 } }, 5)` | Hear `motion_seen` when something moves in those parts of the picture |
+| `host.add_preview_layer({ shapes = { ... } })` | Draw on the preview only, never in the camera output |
+| `host.want_sensors({ "orientation" })`, `host.sensor_reading()` | The phone's motion and light sensors |
+| `host.schedule(1000, "tick")`, `host.cancel_schedule("tick")` | A timer: `plugin.events.timer_fired` gets `{ token = "tick" }` once after a second. Schedule it again from there to repeat |
+
+Methods that need an owner (the view, preview layers, motion zones) use your plugin's title, which is also what the window shows when your plugin has the view.
+
+Some calls need a permission in `plugin.json`. People see the permissions on the Plugins tab before they switch your plugin on.
+
+| Permission | What it allows |
+|---|---|
+| `phone` | Changing the phone's camera settings and taking photos (`phone_control`, `take_still`) |
+| `streams` | Starting and stopping streams and changing the virtual camera |
+| `app` | Quitting or restarting Telescope, showing and hiding its window |
+| `settings` | Reading other plugins' settings, applying presets and moving a phone's settings |
+| `notifications` | Desktop notifications |
+
+A call without its permission raises an error naming the one it needs.
+
+`card()`, `frame_step()`, `get_config()`, `set_config()` and the other functions that describe your plugin run without the host because the window can ask for them at any time. Asking the host something there raises an error, but `set_ui_props`, `refresh_frame_step`, `schedule_save`, `update_tray_action`, `emit`, `schedule` and `cancel_schedule` still work. They're sent once the next event or hook comes along. That's how the example updates its card from `set_config()`.
 
 ## Translating your plugin
 
-Telescope can be set to other languages and your plugin's texts can follow in any language you add. Texts without a translation show as you wrote them. Wrap each one in `tr()` from `telescope.i18n`:
+Wrap every text people read in `tr()`:
 
-```python
-from telescope.i18n import N_, tr, trn
-
-label.setText(tr("Strength"))
-label.setText(tr("Blurring {name}", name=phone_name))   # {fields} instead of f-strings or + between pieces
-count.setText(trn("{n} face", "{n} faces", faces))      # anything with a number in it
-TITLE = N_("My overlay")                                # at import time: mark it, then tr(TITLE) where it shows
+```lua
+tr("Strength")
+tr("Blurring {name}", { name = phone_name })   -- {fields} instead of joining strings
+trn("{n} face", "{n} faces", faces)            -- anything with a number in it
+local TITLE = N_("My overlay")                 -- marked here, translated with tr(TITLE) where it shows
 ```
 
-`tr()`, `trn()` and `N_()` work the same as in Telescope's own code and they're part of the plugin API. The docstring at the top of [`i18n.py`](../desktop/telescope/i18n.py) has the rules. The one to remember is that `tr()` must not run while your module is being imported (module level, class bodies, default arguments) because the language isn't loaded yet. Import it as `from telescope.i18n import tr`, since the extractor looks for calls named `tr`.
-
-Each language is a `.po` file in a `locale` folder inside your plugin:
-
-```
-my_overlay/
-├── plugin.json
-├── __init__.py
-└── locale/
-    ├── my_overlay.pot
-    └── sv.po
-```
-
-Run these in `desktop/` of a Telescope checkout:
+Each language is a `.po` file in a `locale` folder inside your plugin, like `locale/sv.po` for Swedish. From `rust/` in a Telescope checkout:
 
 ```bash
-python scripts/i18n.py extract --plugin path/to/my_overlay       # finds your texts and writes locale/my_overlay.pot
-python scripts/i18n.py new sv --plugin path/to/my_overlay        # starts locale/sv.po
+cargo run -p telescope-plugin-host --bin plugin-texts -- extract path/to/my_plugin     # finds your texts and writes locale/my_plugin.pot
+cargo run -p telescope-plugin-host --bin plugin-texts -- new sv path/to/my_plugin      # starts locale/sv.po
 ```
 
-Run `extract` again after changing a text. New texts are added to every `.po` file and translations still in use are left alone. `status` and `todo` take `--plugin` as well, and [Translating](translating.md) explains the `.po` format.
+Run `extract` again after changing a text. New texts are added to every `.po` file and translations still in use stay as they are. `status` shows how far each language is. A text is looked up in your plugin's catalog first, then in Telescope's own (common words like "Camera" arrive translated already) and then it stays as you wrote it. `sv_SE` uses `sv.po` when there's no `sv_SE.po`. Texts in your `.slint` file use Slint's `@tr()`. [Translating](translating.md) explains the `.po` format.
 
-A text is looked up in your plugin's catalog first, then in Telescope's own (common words like "Camera" arrive translated already) and then it stays as you wrote it. A language you only half translated works fine. `sv_SE` uses `sv.po` when there's no `sv_SE.po`.
+A `.po` file that can't be read never stops your plugin from loading. The plugin stays in English and the log names the file. `check-plugin` lists broken catalogs, along with translations that have a `{field}` the English doesn't (those show in English). Catalogs count as part of your plugin's files, so people have to switch it on again after you change one.
 
-Your plugin follows the language Telescope shows, which is the one picked in Settings > General or the system's. That means you can add your texts to a language Telescope has but a `de.po` does nothing while Telescope has no German. Which plugin a `tr()` call belongs to is decided by the module it's written in, so it works from every file of your plugin.
+## Testing it
 
-A `.po` file that can't be read never stops your plugin from loading. The plugin stays in English and the log tells you which file it was. `check_plugin.py` goes through your catalogs and lists the broken ones, along with translations that have a `{field}` the English text doesn't (those show in English). Catalogs count as part of the plugin's files, so after changing one people have to switch the plugin on again like after any other change.
+`check-plugin` covers the basics. For anything more specific the plugin host has a test harness in Rust, `telescope_plugin_host::testing::PluginTest`, which runs your plugin exactly the way Telescope does against a stand-in host that writes down every call:
 
-## A few ground rules
+```rust
+use telescope_plugin_host::testing::PluginTest;
+use telescope_core::Event;
 
-These keep plugins from breaking each other or Telescope. The [architecture notes](../desktop/ARCHITECTURE.md) explain why.
+#[test]
+fn a_drop_shows_one_notification() {
+    let mut t = PluginTest::open("path/to/stream_alerts").unwrap();
+    t.start_stream("phone");
+    t.event(Event::StreamLost { source_id: "phone".into() });
+    t.event(Event::StreamLost { source_id: "phone".into() });
+    assert_eq!(t.take_calls(), ["send_notification Stream dropped"]);
+}
+```
 
-- **Don't reach into other plugins.** Use the bus and the host instead. Other plugins might be switched off and yours has to work without them.
-- **Only call the public host methods** (the ones listed in `plugin.py`). Anything starting with `_` can change without warning.
-- **Keep the window responsive.** Hooks run on the window's thread, so don't wait for the network or the disk there. Do slow work in a thread and come back with a Qt signal.
-- **Keep `process_frame()` quick.** It runs for every frame on a decoding thread and the stream falls behind if it takes too long. A frame it raises on goes through unchanged. If it keeps failing Telescope skips it until the next stream.
-- **Don't write files into your plugin's folder.** Any new or changed file there counts as a change and your plugin would be switched off at the next start. Keep settings in `get_config()` and put anything else outside the plugins folder.
-- **Ship source code.** A plugin with compiled files in it (`.pyc`, `.so`, `.pyd`) isn't loaded. Telescope also clears `__pycache__` before loading one to make sure what runs is the code people can read.
-- **Use what Telescope comes with.** That's PyQt6, NumPy, OpenCV and Python's standard library. Telescope can't install anything else for your plugin. The Windows app only carries the parts of the standard library that Telescope itself uses, so try your plugin there too. If an import is missing there the Plugins tab shows it as the reason the plugin didn't start. A plugin with more than one file imports its own modules relatively (`from . import helpers`).
+`t.ui("card", "toggled", vec![json!(true)])` presses something on your card, `t.config()` and `t.set_config(...)` save and load, `t.shader()` gives your current frame step and `testing::validate_shader` compiles it. `PluginTest::open_in(folder, "sv")` loads it in another language. The tests for the two examples in [`tests/lua.rs`](../crates/plugin-host/tests/lua.rs) show the rest.
 
-When something in your plugin raises an exception Telescope logs it and carries on and the other plugins still hear about everything. In the dev copy you see it in the terminal. A normal install writes it to `telescope.log` in Telescope's temp folder (`/tmp/telescope-<user>` on Linux, `%TEMP%\Telescope` on Windows).
+## Ground rules
+
+- **Don't reach into other plugins.** Use events and the host. Other plugins can be switched off and yours has to work without them.
+- **Keep your functions quick.** They run on the window's thread. One that takes longer than 3 seconds is stopped with an error. A plugin can use up to 64 MB of memory.
+- **Don't count on the order of a table's keys.** Lua doesn't keep it and neither does `json.encode`.
+- **Don't write files into your plugin's folder.** Telescope doesn't let your code do that anyway. If you or anyone else changes a file there by hand it counts as a new version, which stays off until it's switched on again.
+- **Ship source code.** A plugin with compiled files in it (Lua bytecode, `.so`, `.dll` and the like) isn't loaded.
+
+When something in your plugin raises an error Telescope logs it with the file and line and carries on. The other plugins still hear about everything. An error while loading shows on your plugin's tile on the Plugins tab.
 
 ## Sharing it
 
-Run `check_plugin.py` one more time first. Then zip your plugin's folder so the `.zip` holds that one folder and not just the files inside it (leave out `.git` and the like):
+Run `check-plugin` one more time first. Then zip your plugin's folder with the `.zip` holding that one folder rather than the files inside it (leave out `.git` and the like):
 
 ```
 black_and_white.zip
 └── black_and_white/
     ├── plugin.json
-    └── __init__.py
+    ├── main.lua
+    ├── card.slint
+    └── shaders/
+        └── grey.wgsl
 ```
 
-Bump `version` in `plugin.json` whenever you share a new one. People install it with **Install** on the Plugins tab and have to switch your plugin on again after each update.
+Bump `version` in `plugin.json` whenever you share a new one. People install it with **Install** on the Plugins tab, which replaces the old version and leaves its settings as they were. They have to switch your plugin on again after each update.
+
+If `repo` points at GitHub you can publish each version as a GitHub Release with the `.zip` attached, tagged with the version number (`v1.3` or `1.3`, matching `"version": "1.3"`). Telescope compares the tag of your latest release with the installed `version` once a day and mentions a newer one on the Plugins tab. Name the file after your plugin (`black_and_white.zip`) when a release has more than one `.zip`. People who switched on **Install updates without asking** get your release installed and running from their next start without seeing it first. Treat your GitHub account like the keys to their computers.

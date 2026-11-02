@@ -16,5 +16,6 @@
         <item name="materialButtonStyle">@style/Widget.Telescope.Button</item>
         <item name="materialButtonOutlinedStyle">@style/Widget.Telescope.Button.Outlined</item>
         <item name="materialCardViewStyle">@style/Widget.Telescope.Card</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Telescope.Dialog</item>
     </style>
 </resources>

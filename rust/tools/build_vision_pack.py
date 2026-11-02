@@ -1,0 +1,176 @@
+#!/usr/bin/env python3
+"""Build the vision pack (MediaPipe and the two models) for Linux and Windows, from vision-pack-requirements.txt.
+
+    python tools/build_vision_pack.py --check            # CI: both packs still match crates/vision/vision_pack.json
+    python tools/build_vision_pack.py --write            # after changing a pin: update vision_pack.json
+    python tools/build_vision_pack.py --out dist/vision  # also write the release zips there
+
+Works from any OS (pip downloads the other platform's wheels). The pack's folder tree is hashed the way crates/vision/src/pack.rs does.
+"""
+import argparse
+import hashlib
+import json
+import shutil
+import subprocess
+import sys
+import tempfile
+import urllib.request
+import zipfile
+from pathlib import Path
+
+TOOLS = Path(__file__).resolve().parent
+PACK_INFO = TOOLS.parent / "crates" / "vision" / "vision_pack.json"
+SEGMENTER_MODEL = "selfie_segmenter_landscape.tflite"
+POSE_MODEL = "pose_landmarker_lite.task"
+_DONE = ".verified"  # written last by the app, holding the pack's id: it is not part of the hash
+
+
+def tree_hash(folder: Path) -> str:
+    """What's in a folder, as one sha256 over each file's path and sha256 (the zip itself can differ by zlib)."""
+    lines = []
+    # WindowsPath sorts without case; use the same case-sensitive component order as PosixPath.
+    for path in sorted((p for p in folder.rglob("*") if p.is_file()), key=lambda p: p.relative_to(folder).parts):
+        rel = path.relative_to(folder).as_posix()
+        if rel == _DONE:
+            continue
+        digest = hashlib.sha256()
+        with path.open("rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                digest.update(chunk)
+        lines.append(f"{rel}\0{digest.hexdigest()}\n")
+    return hashlib.sha256("".join(lines).encode()).hexdigest()
+
+
+PLATFORMS = {"linux": "manylinux_2_28_x86_64", "windows": "win_amd64"}
+_MODELS = "https://storage.googleapis.com/mediapipe-models"
+MODELS = {  # name: (url, sha256); version 1 of each, as tested
+    SEGMENTER_MODEL: (f"{_MODELS}/image_segmenter/selfie_segmenter_landscape/float16/1/"
+                             f"selfie_segmenter_landscape.tflite",
+                             "490e9ea734313e0de10fa0cd9e3c6133e36ea4db2b7a49bde9ef019f72796b8e"),
+    POSE_MODEL: (f"{_MODELS}/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+                        "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a"),
+}
+NOTICES = """Telescope's vision pack, used by the Auto framing and Background plugins.
+
+MediaPipe (https://github.com/google-ai-edge/mediapipe), Apache License 2.0
+The selfie segmenter and pose landmarker models from MediaPipe, Apache License 2.0
+absl-py (https://github.com/abseil/abseil-py), Apache License 2.0
+flatbuffers (https://github.com/google/flatbuffers), Apache License 2.0
+certifi (https://github.com/certifi/python-certifi), Mozilla Public License 2.0
+
+Each package's full licence text is in its .dist-info folder under site/.
+"""
+_EPOCH = (1980, 1, 1, 0, 0, 0)
+# MediaPipe 1.1.1 reports usage to this address from inside its native library and has no switch for it.
+# Same length, so nothing in the library moves; curl refuses the made-up scheme before it opens a socket.
+TELEMETRY_URL = b"https://play.googleapis.com/log"
+TELEMETRY_OFF = b"invalid://telescope.invalid/log"
+assert len(TELEMETRY_URL) == len(TELEMETRY_OFF)
+
+
+def pins() -> list:
+    lines = (TOOLS / "vision-pack-requirements.txt").read_text().splitlines()
+    return [ln.strip() for ln in lines if ln.strip() and not ln.startswith("#")]
+
+
+def fetch_models(folder: Path, cache: Path):
+    folder.mkdir(parents=True)
+    for name, (url, sha256) in MODELS.items():
+        cached = cache / name
+        if not cached.is_file() or hashlib.sha256(cached.read_bytes()).hexdigest() != sha256:
+            with urllib.request.urlopen(url, timeout=60) as r:
+                cached.write_bytes(r.read())
+        data = cached.read_bytes()
+        if hashlib.sha256(data).hexdigest() != sha256:
+            sys.exit(f"{name} from {url} doesn't match its pinned sha256")
+        (folder / name).write_bytes(data)
+
+
+def silence_telemetry(site: Path) -> int:
+    """Point MediaPipe's usage report at an address that can't be reached; how many libraries had it."""
+    found = 0
+    for lib in sorted((site / "mediapipe").rglob("*")):
+        if lib.suffix not in (".so", ".dll", ".dylib") or not lib.is_file():
+            continue
+        data = lib.read_bytes()
+        if TELEMETRY_URL in data:
+            lib.write_bytes(data.replace(TELEMETRY_URL, TELEMETRY_OFF))
+            found += 1
+    return found
+
+
+def build(key: str, work: Path, cache: Path) -> Path:
+    """The pack for one platform, unpacked into work/key."""
+    wheels = cache / f"wheels-{key}"
+    subprocess.run([sys.executable, "-m", "pip", "download", "--quiet", "--disable-pip-version-check", "--no-deps",
+                    "--only-binary=:all:", "--platform", PLATFORMS[key], "--platform", "any",
+                    "--python-version", "3.12", "--implementation", "py", "-d", str(wheels), *pins()], check=True)
+    root = work / key
+    site = root / "site"
+    site.mkdir(parents=True)
+    # The cache keeps wheels of older pins too, so match the version as well as the name
+    wanted = {tuple(p.lower().replace("-", "_").split("==")) for p in pins()}
+    for wheel in sorted(wheels.glob("*.whl")):
+        if tuple(wheel.name.lower().split("-")[:2]) not in wanted:
+            continue
+        with zipfile.ZipFile(wheel) as z:
+            z.extractall(site)
+    if (site / "mediapipe").is_dir() and not silence_telemetry(site):
+        sys.exit("Couldn't find MediaPipe's usage report address in the pack. A new MediaPipe may send it from "
+                 "somewhere else: check with strace before releasing.")
+    fetch_models(root / "models", cache)
+    (root / "NOTICES.txt").write_text(NOTICES, encoding="utf-8", newline="\n")
+    return root
+
+
+def write_zip(root: Path, dest: Path):
+    """Same files in the same order with the same dates, so it only changes when what's in it does."""
+    with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+        for path in sorted((p for p in root.rglob("*") if p.is_file()),
+                           key=lambda p: p.relative_to(root).parts):
+            info = zipfile.ZipInfo(path.relative_to(root).as_posix(), _EPOCH)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            z.writestr(info, path.read_bytes(), compresslevel=9)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--check", action="store_true", help="fail when a pack doesn't match vision_pack.json")
+    ap.add_argument("--write", action="store_true", help="write vision_pack.json from what was built")
+    ap.add_argument("--out", type=Path, help="write the release zips into this folder")
+    ap.add_argument("--cache", type=Path, default=TOOLS.parent / "target" / "vision-cache")
+    args = ap.parse_args()
+    args.cache.mkdir(parents=True, exist_ok=True)
+    info, problems = {}, []
+    try:
+        known = json.loads(PACK_INFO.read_text())
+    except (OSError, ValueError):
+        known = {}
+    with tempfile.TemporaryDirectory() as tmp:
+        work = Path(tmp)
+        for key in PLATFORMS:
+            root = build(key, work, args.cache)
+            tree = tree_hash(root)
+            zipped = work / f"{key}.zip"
+            write_zip(root, zipped)
+            files = sum(1 for p in root.rglob("*") if p.is_file())
+            info[key] = {"id": tree, "size": zipped.stat().st_size, "files": files}
+            print(f"{key}: id {tree[:16]}, {files} files, {zipped.stat().st_size / 1e6:.1f} MB zipped")
+            if args.check and known.get(key, {}).get("id") != tree:
+                problems.append(key)
+            if args.out:
+                args.out.mkdir(parents=True, exist_ok=True)
+                name = f"Telescope-vision-{key}-{tree[:16]}.zip"
+                shutil.move(zipped, args.out / name)  # the temp folder can be on another filesystem
+                print(f"  wrote {args.out / name}")
+    if args.write:
+        PACK_INFO.write_text(json.dumps(info, indent=2, sort_keys=True) + "\n")
+        print(f"wrote {PACK_INFO}")
+    if problems:
+        sys.exit(f"The {' and '.join(problems)} pack doesn't match crates/vision/vision_pack.json. If a pin in "
+                 f"vision-pack-requirements.txt changed on purpose, run this with --write and commit the result.")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,13 @@
+// VisionStatus: why nothing's happening yet, with a Download button when that's why.
+component VisionStatus inherits HorizontalLayout {
+    in property <string> text;
+    in property <bool> download;
+    callback download-clicked;
+    spacing: 8px;
+    alignment: stretch;
+    Note { text: root.text; kind: "status_warn"; horizontal-stretch: 1; }
+    if download: VerticalLayout {
+        alignment: start;
+        Button { text: @tr("Download"); clicked => { root.download-clicked(); } }
+    }
+}

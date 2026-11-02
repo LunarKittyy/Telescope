@@ -1,0 +1,16 @@
+# The load generators and camera reader for stress.py. Outside the workspace: nothing in the app needs them.
+[package]
+name = "stress-loads"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+libc = "0.2"
+pollster = "1"
+wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "wgsl", "vulkan"] }
+
+[profile.release]
+opt-level = 3

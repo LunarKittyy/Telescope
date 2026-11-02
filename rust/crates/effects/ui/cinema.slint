@@ -1,0 +1,192 @@
+// The Cinema tools card and its settings. Joined after parts.slint, which has the imports.
+
+// A Switch with its name on the left and the track at the row's end (common.Switch with text)
+component SwitchLine inherits HorizontalLayout {
+    in property <string> name;
+    in property <string> tip;
+    in property <string> shortcut;
+    in-out property <bool> checked;
+    callback toggled(bool);
+    min-height: 32px;
+    spacing: 10px;
+    Text {
+        text: name;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: Theme.text;
+        vertical-alignment: center;
+        horizontal-stretch: 1;
+        overflow: elide;
+    }
+    Rectangle {
+        width: 36px;
+        Switch {
+            y: (parent.height - self.height) / 2;
+            checked <=> root.checked;
+            label: name;
+            tip: root.tip;
+            shortcut: root.shortcut;
+            toggled(v) => { root.toggled(v); }
+        }
+    }
+}
+
+export component CinemaCard inherits Card {
+    // Greyed out until a phone is paired
+    in property <bool> active: true;
+    in-out property <bool> peaking;
+    in-out property <bool> zebras;
+    in-out property <bool> false-colour;
+    in-out property <bool> level;
+    in property <[string]> switch-names: ["", "", "", ""];
+    in property <[string]> switch-tips: ["", "", "", ""];
+    // Why the level can't show
+    in property <string> level-note;
+    in property <bool> level-note-shown;
+    in property <string> guides-tip;
+    in property <[string]> guide-items;
+    in-out property <int> guide-current;
+    in property <[string]> scope-items;
+    in-out property <int> scope-current;
+    callback tool-toggled(int, bool);
+    callback guide-picked(int);
+    callback scope-picked(int);
+
+    title: @tr("Cinema tools");
+    icon: Icons.focus;
+    opacity: active ? 1 : 0.4;
+
+    SwitchLine {
+        name: switch-names[0];
+        tip: switch-tips[0];
+        shortcut: "cinema.peaking";
+        checked <=> root.peaking;
+        toggled(v) => { root.tool-toggled(0, v); }
+    }
+    SwitchLine {
+        name: switch-names[1];
+        tip: switch-tips[1];
+        shortcut: "cinema.zebras";
+        checked <=> root.zebras;
+        toggled(v) => { root.tool-toggled(1, v); }
+    }
+    SwitchLine {
+        name: switch-names[2];
+        tip: switch-tips[2];
+        shortcut: "cinema.false_colour";
+        checked <=> root.false-colour;
+        toggled(v) => { root.tool-toggled(2, v); }
+    }
+    SwitchLine {
+        name: switch-names[3];
+        tip: switch-tips[3];
+        shortcut: "cinema.level";
+        checked <=> root.level;
+        toggled(v) => { root.tool-toggled(3, v); }
+    }
+    Note {
+        text: level-note;
+        visible: level-note-shown;
+        height: level-note-shown ? self.preferred-height : 0px;
+    }
+    FormRow {
+        label: @tr("Guides");
+        Rectangle {
+            horizontal-stretch: 1;
+            ChoiceField {
+                width: parent.width;
+                compact: true;
+                items: guide-items;
+                current <=> root.guide-current;
+                caption: @tr("Guides");
+                shortcut: "cinema.guides";
+                tip: guides-tip;
+                picked(i) => { root.guide-picked(i); }
+            }
+        }
+    }
+    FormRow {
+        label: @tr("Scope");
+        ChoiceField {
+            compact: true;
+            items: scope-items;
+            current <=> root.scope-current;
+            caption: @tr("Scope");
+            shortcut: "cinema.scope";
+            picked(i) => { root.scope-picked(i); }
+        }
+    }
+    // Nothing to touch until a phone is paired
+    if !active: TouchArea { }
+}
+
+export component CinemaSettings inherits Card {
+    in-out property <int> colour-current;
+    in-out property <int> size-current: 1;
+    in property <float> peaking-level: 5;
+    in property <string> peaking-readout: "5";
+    in property <string> peaking-tip;
+    in property <float> zebra-level: 95;
+    in property <string> zebra-readout: "95%";
+    in property <string> zebra-tip;
+    in property <string> reset-hint;
+    callback colour-picked(int);
+    callback peaking-moved(float);
+    callback zebra-moved(float);
+    callback size-picked(int);
+
+    title: @tr("Cinema tools");
+    icon: Icons.focus;
+    hue: Theme.plugin-hue("preview");
+
+    FormRow {
+        label: @tr("Peaking colour");
+        Segmented {
+            items: [@tr("Red"), @tr("Green"), @tr("Blue"), @tr("White")];
+            disabled: [false, false, false, false];
+            has-icons: [false, false, false, false];
+            icons: [Icons.eyedropper, Icons.eyedropper, Icons.eyedropper, Icons.eyedropper];
+            label: @tr("Peaking colour");
+            current <=> root.colour-current;
+            picked(i) => { root.colour-picked(i); }
+        }
+    }
+    SliderRow {
+        label: @tr("Peaking sensitivity");
+        tip: peaking-tip;
+        minimum: 1;
+        maximum: 10;
+        value: peaking-level;
+        readout: peaking-readout;
+        hue: root.hue;
+        has-default: true;
+        default-value: 5;
+        hint: reset-hint;
+        moved(v) => { root.peaking-moved(v); }
+    }
+    SliderRow {
+        label: @tr("Zebras from");
+        tip: zebra-tip;
+        minimum: 70;
+        maximum: 100;
+        value: zebra-level;
+        readout: zebra-readout;
+        hue: root.hue;
+        has-default: true;
+        default-value: 95;
+        hint: reset-hint;
+        moved(v) => { root.zebra-moved(v); }
+    }
+    FormRow {
+        label: @tr("Scope size");
+        Segmented {
+            items: [@tr("Small"), @tr("Medium"), @tr("Large")];
+            disabled: [false, false, false];
+            has-icons: [false, false, false];
+            icons: [Icons.eyedropper, Icons.eyedropper, Icons.eyedropper];
+            label: @tr("Scope size");
+            current <=> root.size-current;
+            picked(i) => { root.size-picked(i); }
+        }
+    }
+}

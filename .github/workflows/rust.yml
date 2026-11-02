@@ -1,0 +1,132 @@
+name: Rust desktop
+
+# Checks pull requests; release.yml calls it for every release, so master gets it there and only once.
+on:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # Test threads get 2 MB, which building a window this size can overflow
+  RUST_MIN_STACK: 8388608
+  # Debug info only costs a runner's disk here
+  CARGO_PROFILE_DEV_DEBUG: 0
+  # A warning fails the check. Unlike RUSTFLAGS this leaves build fingerprints alone, so it needs no cache of its own
+  CARGO_BUILD_WARNINGS: deny
+
+jobs:
+  # "linux" and "windows" run on every pull request so they can be required checks, and skip themselves when nothing they cover changed
+  changes:
+    name: changes (desktop)
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.diff.outputs.run || 'true' }}
+    steps:
+      # A pull request checks out its merge into master, whose first parent is master: the diff is what it changes
+      - uses: actions/checkout@v7
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 2
+
+      - id: diff
+        if: github.event_name == 'pull_request'
+        run: |
+          files=$(git diff --name-only HEAD^1 HEAD)
+          echo "$files"
+          if echo "$files" | grep -qE '^(rust/|\.github/workflows/rust\.yml$)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Every build reads VERSION, but a version bump alone doesn't need them all: the release rebuilds everything
+      - name: VERSION is a version
+        if: github.event_name == 'pull_request'
+        run: grep -qxE '[0-9]+\.[0-9]+\.[0-9]+' VERSION || { echo "VERSION should look like 1.2.3, not '$(cat VERSION)'"; exit 1; }
+
+      - name: The release checklist knows every file
+        if: github.event_name == 'pull_request'
+        run: python3 .github/checklist_due.py --check-map
+
+  linux:
+    name: linux
+    needs: changes
+    # Runs unless changes said there's nothing to check, so a changes job that failed doesn't pass this silently
+    if: ${{ !cancelled() && needs.changes.outputs.run != 'false' }}
+    runs-on: ubuntu-latest
+    # A new push to a pull request cancels the check still running for the old one.
+    concurrency:
+      group: rust-linux-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v7
+
+      # FFmpeg's headers for the decoder (bindgen needs clang to read them) and fontconfig for Slint's text
+      - name: Install system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang pkg-config libavcodec-dev libavformat-dev \
+            libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libfontconfig1-dev libxkbcommon-dev \
+            fonts-inter fonts-noto-core fonts-noto-cjk libegl1 libgl1 libdbus-1-3
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.150
+
+      # Tests run side by side and only failures print. rust/.config/nextest.toml has what can't share a machine
+      - name: Test
+        run: cargo nextest run --workspace --locked
+
+  windows:
+    name: windows
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.run != 'false' }}
+    runs-on: windows-latest
+    concurrency:
+      group: rust-windows-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      # Tests read the sources, fixtures and installer script as text, with the line endings they have in the repository
+      - name: Keep line endings as they are
+        working-directory: .
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v7
+
+      # The full GPL build for the tests' H.264 encoder (libx264). Nothing built here ships: packages use rust-package.yml's small one
+      - name: Install FFmpeg
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://github.com/GyanD/codexffmpeg/releases/download/8.1/ffmpeg-8.1-full_build-shared.7z -OutFile "$env:RUNNER_TEMP\ffmpeg.7z"
+          if ((Get-FileHash "$env:RUNNER_TEMP\ffmpeg.7z" -Algorithm SHA256).Hash -ne 'E57F02CEA8B22B7FF81FB0B2EC9F6D7EDB6144E84E3C0026CEA0FE6DFB28E03D') { throw 'FFmpeg changed' }
+          7z x "$env:RUNNER_TEMP\ffmpeg.7z" "-o$env:RUNNER_TEMP" | Out-Null
+          $env:FFMPEG_DIR = "$env:RUNNER_TEMP\ffmpeg-8.1-full_build-shared"
+          ./tools/ffmpeg_libs.ps1
+          "FFMPEG_DIR=$env:FFMPEG_DIR" >> $env:GITHUB_ENV
+          "LIBCLANG_PATH=C:\Program Files\LLVM\bin" >> $env:GITHUB_ENV
+          "$env:FFMPEG_DIR\bin" >> $env:GITHUB_PATH
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.150
+
+      - name: Test
+        run: cargo nextest run --workspace --locked --features telescope-app/ffmpeg-windows

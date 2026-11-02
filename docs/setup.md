@@ -4,7 +4,13 @@ The first-run checklist covers this for most people. This page is for doing it b
 
 ## Linux
 
-You need three things: the `v4l2loopback` package, Python 3.12 or newer and optionally `adb`.
+You need the `v4l2loopback` package. `adb` is optional.
+
+### The AppImage
+
+`Telescope-x86_64.AppImage` is one file that holds the whole app. Make it executable (`chmod +x Telescope-x86_64.AppImage`, or Properties in your file manager) and run it. It needs Ubuntu 22.04, Debian 12, Fedora 36 or something newer. `libfuse2` doesn't have to be installed. The first start adds Telescope to your app menu and starting the file from a new place points the entry there.
+
+Put it somewhere you can write to, like `~/Applications`. Updating replaces the file in that folder and keeps the old one until the new one has started. In a folder you can't write to, Update opens the download page instead.
 
 ### 1. The virtual camera package
 
@@ -21,7 +27,7 @@ sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-releas
 sudo dnf install v4l2loopback
 ```
 
-Once it's installed Telescope loads the module when you start streaming and asks for your password once. **Also switch it on at every startup** is ticked in that prompt so later boots won't ask again. Without a graphical password prompt (no pkexec or polkit agent) it shows the command to run in a terminal, with a Copy button.
+Once it's installed Telescope loads the module when you start streaming. A dialog says it needs your password, and **Also switch it on at every startup** is ticked there by default so later boots won't ask again. Without a graphical password prompt (no pkexec or polkit agent) it shows the command to run in a terminal, with a Copy button.
 
 **Virtual camera & phone** in Settings can load and unload the module too. To do it yourself:
 
@@ -30,23 +36,7 @@ sudo modprobe v4l2loopback devices=2 video_nr=10,11 \
   card_label="OBS Virtual Camera,Phone Camera" exclusive_caps=1
 ```
 
-### 2. Python 3.12 or newer
-
-`start.sh` checks this first and prefers `python3.14`, `python3.13` or `python3.12` over plain `python3` when one is installed. Ubuntu 22.04 has Python 3.10, so install a newer one from the deadsnakes PPA:
-
-```bash
-sudo add-apt-repository ppa:deadsnakes/ppa
-sudo apt update
-sudo apt install python3.12 python3.12-venv
-```
-
-Debian 12 ships Python 3.11, which is too old now. Debian 13 has 3.13.
-
-An environment Telescope made earlier with an older Python gets set up again with the newer one the next time `start.sh` runs. If there's no newer Python yet it lists what to install.
-
-`start.sh` installs the pip dependencies itself and only goes online for them on the first run and after an update.
-
-### 3. adb (optional)
+### 2. adb (optional)
 
 Only needed for pairing or installing the phone app over USB. Wi-Fi works without it.
 
@@ -83,6 +73,11 @@ flatpak override --user --device=all com.obsproject.Studio
 
 ## Windows
 
-The first-run checklist registers the virtual camera driver with one click (Windows asks for admin). It's copied into `C:\Program Files\Telescope\UnityCapture` where only an admin can change it.
+The first-run checklist installs the virtual camera with one click (Windows asks for admin). Which camera you get depends on the Windows version:
 
-Running from a source checkout instead? `start.bat` installs the pip dependencies and downloads and registers the driver on first run. The release zip doesn't need it.
+- **Windows 11:** Telescope's own camera. Every app can see it, including ones like the Windows Camera app that older virtual cameras never show up in. Apps list it as "Telescope (Windows Virtual Camera)" because Windows adds the part in brackets itself. It goes into `C:\Program Files\Telescope\VirtualCamera`
+- **Windows 10:** the UnityCapture driver, which apps using DirectShow (OBS, for example) can see but apps that only use Media Foundation can't. It goes into `C:\Program Files\Telescope\UnityCapture`
+
+Only an admin can change either folder. Upgraded to Windows 11 with the older driver installed, or installed it with an older Telescope? **Virtual camera & phone** in Settings shows **Update**, which puts the Windows 11 camera in and takes UnityCapture out so apps don't list Telescope twice.
+
+Building from source instead? [Building](building.md) explains it. The zip and the installer already include both drivers.

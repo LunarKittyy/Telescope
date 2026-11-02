@@ -1,0 +1,123 @@
+// How a ContextMenuArea draws. compile.rs puts this folder on Slint's include path, which it searches before its own
+// style, so right-click menus get the app's colours and the width of their longest entry (Slint's own draw in the style's
+// palette and at least 280px wide). A document with Slint's std-widgets goes without this file, see compile.rs.
+
+import { Theme } from "../theme.slint";
+import { WindowBox } from "../widgets/dialog.slint";
+
+// Slint asks this file for these too, and its own can't be imported. The app has no menu bar.
+export component MenuBarImpl { }
+
+// A tooltip's popup: the kit's TipBody is its whole look, so this only gives the popup the size of what's inside
+export component ToolTipImpl inherits Rectangle {
+    in property <styled-text> text;
+    VerticalLayout {
+        @children
+    }
+}
+
+component MenuRow {
+    in property <MenuEntry> entry;
+    in property <bool> current;
+    callback hovered;
+    callback left;
+    callback activate;
+    // The release of the right-click that opened the menu can land on a row, and isn't a pick
+    property <duration> opened;
+    property <bool> had-press;
+    init => { opened = animation-tick(); }
+    height: entry.is-separator ? 9px : 26px;
+    if entry.is-separator: Rectangle {
+        y: 4px;
+        height: 1px;
+        background: Theme.border;
+    }
+    if !entry.is-separator: Rectangle {
+        border-radius: 5px;
+        background: root.current && entry.enabled ? Theme.surface-hover : transparent;
+        touch := TouchArea {
+            enabled: entry.enabled;
+            pointer-event(e) => {
+                if (e.kind == PointerEventKind.move && !root.current) {
+                    root.hovered();
+                } else if (e.kind == PointerEventKind.down) {
+                    root.had-press = true;
+                } else if (e.kind == PointerEventKind.up && (root.had-press || animation-tick() - root.opened > 300ms)
+                        && self.mouse-x > 0 && self.mouse-x < self.width && self.mouse-y > 0 && self.mouse-y < self.height) {
+                    root.activate();
+                }
+            }
+            changed has-hover => {
+                if (!self.has-hover && root.current) {
+                    root.left();
+                }
+            }
+        }
+        Text {
+            x: 8px;
+            width: parent.width - 16px;
+            text: entry.title;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: entry.enabled ? Theme.text : Theme.text-disabled;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+}
+
+export component PopupMenuImpl inherits Window {
+    in property <[MenuEntry]> entries: [];
+    callback sub-menu(menu-entry: MenuEntry) -> [MenuEntry];
+    callback activated(menu-entry: MenuEntry);
+    callback close-popup();
+    property <int> current: -1;
+    function pick(entry: MenuEntry) {
+        root.activated(entry);
+        root.close-popup();
+    }
+    function step(by: int) {
+        let next = current < 0 && by < 0 ? entries.length - 1 : mod(current + by + entries.length, entries.length);
+        current = entries[next].is-separator ? mod(next + by + entries.length, entries.length) : next;
+    }
+    forward-focus: scope;
+    background: transparent;
+    max-width: WindowBox.width > 0 ? WindowBox.width - 16px : 4000px;
+    scope := FocusScope {
+        key-pressed(e) => {
+            if (e.text == Key.UpArrow) { step(-1); return accept; }
+            if (e.text == Key.DownArrow) { step(1); return accept; }
+            if (e.text == Key.Return && current >= 0 && entries[current].enabled) { pick(entries[current]); return accept; }
+            if (e.text == Key.Escape) { root.close-popup(); return accept; }
+            reject
+        }
+        Rectangle {
+            background: Theme.surface-raise;
+            border-width: 1px;
+            border-color: Theme.border-hover;
+            border-radius: 7px;
+            drop-shadow-blur: 12px;
+            drop-shadow-color: #00000080;
+            VerticalLayout {
+                padding: 5px;
+                widest := VerticalLayout {
+                    height: 0px;
+                    visible: false;
+                    for entry in entries: Text {
+                        text: entry.title;
+                        font-family: Theme.font;
+                        font-size: Theme.body;
+                    }
+                }
+                for entry[i] in entries: MenuRow {
+                    preferred-width: widest.preferred-width + 16px;
+                    entry: entry;
+                    current: root.current == i;
+                    hovered => { root.current = i; }
+                    left => { root.current = -1; }
+                    activate => { root.pick(entry); }
+                }
+            }
+        }
+    }
+}

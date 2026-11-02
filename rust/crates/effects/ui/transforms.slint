@@ -1,0 +1,196 @@
+// The Transforms card. Joined after parts.slint and pad.slint.
+
+export component TransformsCard inherits Card {
+    // Greyed out until a phone is paired
+    in property <bool> active: true;
+    in property <[bool]> flips: [false, false];
+    in property <int> rotation: 0;
+    in property <float> zoom: 1;
+    in property <float> zoom-max: 10;
+    in property <[float]> zoom-marks;
+    in property <bool> zoom-free: true;
+    in property <string> zoom-text: "1.0\u{d7}";
+    in property <string> zoom-tip;
+    // The lens dot beside the zoom: "" for none, "on" for a longer lens and "off" for not the lens this zoom would get
+    in property <string> dot-level;
+    in property <string> dot-tip;
+    in property <float> pan-x;
+    in property <float> pan-y;
+    in property <bool> pan-enabled;
+    in property <string> pan-text;
+    in property <float> stretch-x: 100;
+    in property <float> stretch-y: 100;
+    in property <string> stretch-x-text;
+    in property <string> stretch-y-text;
+    in property <string> reset-tip;
+    in property <string> pan-tip;
+    in property <string> pan-add-x;
+    in property <string> pan-add-y;
+    in property <string> reset-hint;
+    in property <[string]> stretch-tips: ["", ""];
+    callback reset-clicked;
+    callback flip-toggled(int, bool);
+    callback rotation-picked(int);
+    callback zoom-moved(float);
+    callback pad-pointer(float, float);
+    callback pad-key(string, bool);
+    callback pad-reset();
+    callback stretch-moved(int, float);
+
+    title: @tr("Transforms");
+    icon: Icons.crop;
+    opacity: active ? 1 : 0.4;
+    enabled: active;
+    has-action: true;
+    action-icon: Icons.reset;
+    // card_action(tr("Reset"), "reset", …)
+    action-text: @tr("Reset");
+    action-label: reset-tip;
+    action-shortcut: "transforms.reset";
+    action => { root.reset-clicked(); }
+
+    FormRow {
+        label: @tr("Flip");
+        Toggles {
+            items: [@tr("Mirror"), @tr("Upside down")];
+            icons: [Icons.mirror, Icons.upside-down];
+            checked: flips;
+            enabled: active;
+            label: @tr("Flip");
+            shortcuts: ["transforms.flip_horizontal", "transforms.flip_vertical"];
+            toggled(i, on) => { root.flip-toggled(i, on); }
+        }
+    }
+    FormRow {
+        label: @tr("Rotation");
+        Segmented {
+            items: ["0\u{b0}", "90\u{b0}", "180\u{b0}", "270\u{b0}"];
+            disabled: [!active, !active, !active, !active];
+            has-icons: [false, false, false, false];
+            icons: [Icons.colour, Icons.colour, Icons.colour, Icons.colour];
+            label: @tr("Rotation");
+            shortcut: "transforms.rotation";
+            current: rotation;
+            picked(i) => { root.rotation-picked(i); }
+        }
+    }
+    FormRow {
+        label: @tr("Zoom");
+        enabled: zoom-free;
+        HorizontalLayout {
+            spacing: 8px;
+            Rectangle {
+                horizontal-stretch: 1;
+                Slider {
+                    width: parent.width;
+                    height: parent.height;
+                    has-readout: false;
+                    hue: root.hue;
+                    enabled: active && zoom-free;
+                    label: @tr("Zoom");
+                    tip: root.zoom-tip;
+                    shortcut: "transforms.zoom";
+                    minimum: 1;
+                    maximum: zoom-max;
+                    step: 0.01;
+                    value: zoom;
+                    marks: zoom-marks;
+                    has-default: true;
+                    default-value: 1;
+                    moved(v) => { root.zoom-moved(v); }
+                }
+            }
+            Rectangle {
+                width: 56px;
+                HorizontalLayout {
+                    alignment: end;
+                    spacing: 4px;
+                    if dot-level != "": Rectangle {
+                        width: 6px;
+                        y: (parent.height - 6px) / 2;
+                        height: 6px;
+                        Rectangle {
+                            width: 6px;
+                            height: 6px;
+                            border-radius: 3px;
+                            background: dot-level == "on" ? Theme.accent : Theme.err;
+                        }
+                        Tooltip { TipBody { says: root.dot-tip; } }
+                    }
+                    Text {
+                        text: zoom-text;
+                        font-family: Theme.font;
+                        font-size: Theme.body;
+                        font-weight: 600;
+                        color: !active ? Theme.accent-soft : zoom-free ? root.hue : Theme.text-disabled;
+                        horizontal-alignment: right;
+                        vertical-alignment: center;
+                    }
+                }
+                Tooltip { TipBody { says: root.zoom-tip; } }
+            }
+        }
+    }
+    FormRow {
+        label: @tr("Pan");
+        min-height: 72px;
+        HorizontalLayout {
+            spacing: 8px;
+            PanPad {
+                pan-x: root.pan-x;
+                pan-y: root.pan-y;
+                enabled: active && pan-enabled;
+                hue: root.hue;
+                tip: root.pan-tip;
+                label: @tr("Pan");
+                shortcut: "transforms.pan_x transforms.pan_y";
+                shortcut-adds: [{ id: "transforms.pan_x", text: root.pan-add-x }, { id: "transforms.pan_y", text: root.pan-add-y }];
+                pointer(x, y) => { root.pad-pointer(x, y); }
+                key(k, s) => { root.pad-key(k, s); }
+                reset => { root.pad-reset(); }
+            }
+            Text {
+                width: 56px;
+                text: pan-text;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                font-weight: 600;
+                color: !active ? Theme.accent-soft : pan-enabled ? root.hue : Theme.text-disabled;
+                horizontal-alignment: right;
+                vertical-alignment: center;
+            }
+        }
+    }
+    SliderRow {
+        enabled: active;
+        label: @tr("Width");
+        tip: stretch-tips[0];
+        shortcut: "transforms.stretch_x";
+        hint: reset-hint;
+        minimum: 50;
+        maximum: 200;
+        value: stretch-x;
+        readout: stretch-x-text;
+        hue: root.hue;
+        has-default: true;
+        default-value: 100;
+        moved(v) => { root.stretch-moved(0, v); }
+    }
+    SliderRow {
+        enabled: active;
+        label: @tr("Height");
+        tip: stretch-tips[1];
+        shortcut: "transforms.stretch_y";
+        hint: reset-hint;
+        minimum: 50;
+        maximum: 200;
+        value: stretch-y;
+        readout: stretch-y-text;
+        hue: root.hue;
+        has-default: true;
+        default-value: 100;
+        moved(v) => { root.stretch-moved(1, v); }
+    }
+    // Nothing to touch until a phone is paired
+    blocked: !active;
+}

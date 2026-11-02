@@ -1,0 +1,86 @@
+{
+  "plugins": [
+    "browser_camera",
+    "camera_control",
+    "connection",
+    "microphone",
+    "monitoring",
+    "onboarding",
+    "presets",
+    "preview",
+    "setup",
+    "shortcuts",
+    "startup",
+    "stream_output",
+    "transforms",
+    "updates",
+    "wait_screen",
+    "webcam"
+  ],
+  "saved": {
+    "collapsed": [],
+    "devices": {},
+    "plugin_configs": {
+      "browser_camera": {
+        "address": "",
+        "fps": 30,
+        "known": {},
+        "size": "720p"
+      },
+      "connection": {
+        "computer_id": "<new>",
+        "computer_name": "<new>",
+        "phones": [],
+        "route": "auto",
+        "selected_phone": null,
+        "udp": false
+      },
+      "onboarding": {
+        "streamed": false
+      },
+      "preview": {
+        "lens_boxes": false,
+        "skeleton": false
+      },
+      "setup": {
+        "canvas_preset": "720p 16:9 - 1280 x 720",
+        "custom_canvas_h": 1080,
+        "custom_canvas_w": 1920,
+        "hw_decode": false,
+        "language": "",
+        "limiter": true,
+        "max_gain": 12,
+        "max_zoom": 8,
+        "plugin_hues": true,
+        "power_saving": false
+      },
+      "shortcuts": {
+        "bindings": [],
+        "notify": false
+      },
+      "startup": {
+        "notify_stop": true,
+        "start_on": "off",
+        "stop_delay_s": 15,
+        "stop_idle": "off"
+      },
+      "updates": {
+        "auto_check": true,
+        "channel": "nightly",
+        "keep_portable": false,
+        "last_check": 0.0
+      },
+      "wait_screen": {
+        "image": null,
+        "last_size": null,
+        "mirror": false
+      },
+      "webcam": {
+        "cameras": {}
+      }
+    },
+    "selected_device": null,
+    "version": 3
+  },
+  "set_aside": false
+}

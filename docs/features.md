@@ -1,6 +1,6 @@
 # Features
 
-Jump to: [Camera](#camera-control) · [Picture](#stream-transforms) · [Auto framing](#auto-framing) · [Quality](#resolution-and-fps) · [Microphone](#microphone) · [Browser camera](#browser-camera) · [Several cameras](#several-cameras-at-once) · [Connection](#phones-pairing-and-connection) · [Privacy](#privacy) · [Updates](#updates) · [Automation](#system-integration) · [Shortcuts](#keyboard-shortcuts) · [Plugins](#plugins)
+Jump to: [Camera](#camera-control) · [Picture](#stream-transforms) · [Auto framing](#auto-framing) · [Fun pack](#fun-pack) · [Chroma key](#chroma-key) · [Cinema tools](#cinema-tools) · [Name tag](#name-tag) · [Notes](#notes-next-to-the-lens) · [Desk mode](#desk-and-document-mode) · [Quality](#resolution-and-fps) · [Microphone](#microphone) · [Browser camera](#browser-camera) · [Webcams](#webcams-and-capture-cards) · [Several cameras](#several-cameras-at-once) · [On Air](#on-air-sign) · [Connection](#phones-pairing-and-connection) · [Privacy](#privacy) · [Updates](#updates) · [Automation](#system-integration) · [Shortcuts](#keyboard-shortcuts) · [Plugins](#plugins)
 
 ## Camera control
 
@@ -20,13 +20,14 @@ These apply live without restarting the camera.
 - Flip horizontally or vertically
 - Rotate 90° CW, 180° or 90° CCW
 - **Zoom 1-10x** with pan. **Max zoom** under Video in Settings goes up to 30x. Scroll over the preview to zoom and drag to pan
+- **Width** and **Height** stretch or squish the picture from 50% to 200%, each on its own. Whatever goes past the edge is cut off and a squish leaves black bars, like a rotated picture gets
 - Double-click any slider to reset it. The pan pad takes arrow keys (Shift for bigger steps) and Home to centre
 
 Zooming crops from the full sensor first and hops to the telephoto lens once your framing fits inside it, which is why zooming in gets sharper. Dots on the zoom slider mark where a longer lens takes over.
 
 ## Auto framing
 
-Optional. It finds you in the picture and moves zoom and pan to keep you framed. Switch it on under **Optional** in the Plugins tab of Settings (it needs [the vision download](#the-vision-download)).
+Optional. It finds you in the picture and moves zoom and pan to keep you framed. Switch it on under **People** in the Plugins tab of Settings (it needs [the vision download](#the-vision-download)).
 
 - **Framing** sets how much of you is in the shot, from just your head to your whole body. Two people get framed together. With nobody in view for two seconds it zooms back out
 - **Speed** goes from **Sloth** to **Zippy**. **Easy** is the default
@@ -39,17 +40,135 @@ Optional. It finds you in the picture and moves zoom and pan to keep you framed.
 
 Optional and it shares the vision download. **Blur** blurs everything behind you and **Picture** puts an image there instead (PNG, JPEG, WebP or BMP). **Edges** sets how soft the outline around you is. It runs on the computer so it works with any phone and with Browser camera.
 
+## Expose for my face
+
+Optional and it shares the vision download too. It moves the phone's metering point (the same one **Tap a point** on the Camera card uses) to your face, which helps with a bright window behind you. It moves the point slowly and leaves it alone for small head moves, since every move makes the phone meter and focus again. When you leave the picture the point stays where your face was instead of chasing the empty room.
+
+Picking a point on the preview or a focus mode on the Camera card takes over from it until you click **Follow my face** or switch it off and on. It also waits while focus is on Manual (moving the point would undo that) until you click **Follow my face**. The phone only meters on the point while exposure is automatic. With manual exposure the point sets the focus and nothing else. On a front camera that can't focus on a point it only meters there and leaves the focus alone. A few lenses can't do either.
+
+## Privacy blur
+
+Optional. It hides other people who walk into the picture, in one of three ways picked on its card. **Blur the others** blurs everyone but you, **Blur all but me** blurs the room as well and **Show the wait screen** puts the wait screen up in place of the whole picture. "You" is whoever has been in the picture longest when blurring starts. If you step out while it blurs, nobody else gets taken for you: they stay blurred until you come back to about where you were. Blurring starts once a second person has been found a couple of times in a row and only stops after there has been only one person (or nobody) for about five seconds. Someone walking past or the model losing track for a moment won't make it flicker.
+
+Treat this as a proof of concept and not a guarantee of privacy. It takes a moment to react and MediaPipe doesn't always spot people. Don't count on it to keep anything private.
+
+**Blur now** does the same by hand until you click it again and you can bind it to a key in Keyboard shortcuts. It works without the vision download too, in which case it blurs the whole picture since there's nobody to tell apart. Switching the card on for automatic blurring does need the download.
+
+With several cameras streaming it watches the one shown in the panels, and whenever it blurs or covers that one the others get blurred all over too until it stops. A camera you clicked away from while it was blurred stays blurred.
+
 Background and Auto framing work less while nothing in the picture moves. **Power-saving effects** under Video in Settings slows them down while you move too, which uses less of the processor and battery but follows quick moves a little later.
+
+## Fun pack
+
+Optional, off until you switch it on under **Extras** in the Plugins tab. Its card has one **Effect** picker:
+
+- **Clone party** copies you into the picture after a three second countdown. Move somewhere else and add another, up to eight. With the vision download your outline comes from MediaPipe, otherwise take the empty room first and the clones are cut out by how much the picture differs from it
+- **Invisibility cloak** fills in the empty room wherever you are. Take the empty room, step back in and you're gone. A plain wall behind you works better than one the same colour as your clothes. Edges are cleaner with the vision download
+- **Light painting** leaves trails behind anything bright. Wave a torch or a phone screen around in a dark room. **Trails** sets how long they hang around and **Brightness** how bright a light has to be to paint
+- **Slit-scan** shows each band of the picture a little later than the one before, which stretches and bends anything that moves. **Spread** is how many frames the picture spans from one end to the other
+- **Stick figure** draws you as a stick figure on the empty room, or on paper if you haven't taken one. It needs the vision download
+- **Game Boy**, **1998 webcam**, **VHS**, **CRT** and **ASCII** are retro looks with nothing to set
+- **Datamosh** drops keyframes from the video before it's decoded. The motion in the frames after them then smears over the old picture instead of refreshing it. **Smear** plays each frame's motion up to three extra times and **Clean up** lets one keyframe through to get a clear picture back. It only works on Light (Heavy sends whole pictures with no keyframes to drop) and not with Browser camera. Phones that refresh the picture gradually instead of sending keyframes heal a mosh within about a second, so it's more of a flicker there
+
+The empty room isn't saved and needs taking again after the phone moves. Switching the effect off or to another one gets the phone to send a keyframe and the picture is back right away.
+
+## Chroma key
+
+Optional, for anyone with a green or blue screen. It swaps the screen behind you for a colour or a picture and needs no download. Next to Background it gives a sharper edge (hair included, as long as the screen is lit evenly) and uses a lot less of the computer. Switch it on under **Look** in the Plugins tab of Settings.
+
+- **Screen** is **Green**, **Blue** or **Picked**. **Picked** asks you to click the screen on the preview and keys whatever colour is there, which helps with a screen that isn't quite the usual green or with uneven light
+- **Tolerance** sets how many shades of the screen go (raise it for creases and shadows, lower it if bits of you vanish). **Edges** softens the outline and **Spill** takes the green or blue glow off your edges and skin without touching colours far from the screen's
+- **Behind you** is a **Colour** you pick or a **Picture** (PNG, JPEG, WebP or BMP) scaled to cover the frame
+- Presets save it like the other picture settings
+
+## Cinema tools
+
+Optional, for judging focus and exposure while you set ISO, shutter and focus by hand. It also has framing guides and a level for getting the horizon straight. Switch it on under **Preview tools** in the Plugins tab of Settings. Everything it draws stays on the preview and apps using the virtual camera never get any of it.
+
+- **Focus peaking** outlines what's sharp in red (or green, blue or white). Turn the focus until the outline sits on the thing you care about
+- **Zebras** stripe the parts of the picture that are about to clip to white. They start at 95% brightness and **Zebras from** under Video in Settings moves that between 70 and 100%
+- **False colour** paints the picture by brightness: purple and blue for crushed and too dark, green for middle grey, pink for skin about a stop over it, yellow for nearly clipped and red for clipped. Everything well exposed in between turns grey. A small legend shows in the corner
+- **Guides** draws thin lines over the preview to frame the shot by: **Thirds**, a **Centre cross**, a **4 × 4** grid or the **Golden ratio** (like thirds, with the lines at 38% and 62%)
+- **Scope** puts a histogram, waveform, RGB parade or vectorscope in the bottom right of the preview. The waveform and parade show brightness from 0 at the bottom to 100% at the top, with a line every 25%. The vectorscope marks the colour bar targets and has a line for skin tones
+- **Level** draws the horizon from the phone's motion sensors as a line between two fixed marks for level. Line it up with the marks and the guide turns green. The number next to it is how many degrees the picture is tilted and the one underneath is how far the camera looks up or down. It knows which camera is streaming and follows the flip and rotation under Picture. The phone only reads its motion sensors while the guide is on screen. Its app has to be up to date for it (an older one gets a note on the card instead)
+
+Peaking colour and sensitivity and how big the scope is are under Video in Settings. The tools work on the preview's own smaller copy of the picture and the scopes are worked out on their own thread about 12 times a second, which keeps the stream itself as fast as before.
+
+## Desk and document mode
+
+Optional. Point the phone down at a sheet of paper, mark the sheet's four corners on the preview and Telescope straightens it so calls see it flat and head-on (good for homework help, a sketch or signing something). Switch it on under **Camera** in the Plugins tab of Settings.
+
+- **Mark the sheet** puts four corners on the preview. Drag each one onto a corner of the sheet (or drag the middle to move all four) and press Enter or **Done**. Esc or **Cancel** leaves things as they were. While you're marking, the preview shows the camera's real picture. Corners left bunched up or in a line aren't used. Mark the sheet again with one on each corner
+- The corners are tied to the camera's picture. Zooming, flipping or rotating afterwards leaves them on the sheet, but moving the phone or the paper doesn't and then **Mark the sheet again** starts from where they were
+- **Writing** can make the text stand out. **Contrast** evens out the light across the paper so it turns white and the ink stays dark. **Black and white** turns everything into pure black ink on white paper, which works best for printed text and pen
+- Clicking the straightened picture still works the way you'd expect: **Tap a point** focuses on the word you clicked, scrolling zooms around it and other plugins' picks land where you clicked. The lens outlines and the skeleton aren't drawn while the sheet is straightened
+- If zooming or Auto framing pushes part of the sheet off the picture the card warns about it. Zoom out or mark it again
+- The sheet keeps its own shape, centred with dark bars beside it (white ones with **Contrast** or **Black and white**), so a standing page stays a standing page in a wide call. **Shape** set to **Auto** works the real shape out from the corners, undoing the tilt. **A4**, **Letter** and **Square** use that size instead, turned the way the sheet lies. **Fill the picture** stretches it over the whole frame
+- If the page still looks a bit squashed, **Width** and **Height** stretch it by eye from 50% to 200%. A double-click on a slider or **Reset** puts them back to 100%
+- Each phone remembers its own corners and presets save them too
+
+## QR codes
+
+Optional. Switch on the QR codes card and hold a code up to the camera to get it on the clipboard. A Wi-Fi code gives you its password (or the network's name when it has none), handy for joining a café's Wi-Fi on the computer. A link or any other text is copied as it is. Once the code has read steadily for a moment it gets a green outline on the preview, and a notification says what was copied (**Notify me when a code is read** turns that off).
+
+Telescope looks about three times a second at a smaller copy away from the stream itself and the picture doesn't slow down for it. The same code isn't copied again until it's been out of view for a few seconds. On Linux with Wayland a window in the background isn't allowed to change the clipboard. When that happens the card says so and **Copy** puts the code there with one click.
+
+## Photos
+
+Optional. Switch it on under **Camera** in the Plugins tab of Settings and the Photos card takes a real photo on the phone, at the camera's full quality instead of a frame of the video. It uses the lens, zoom, focus and manual settings the video has at that moment and turns the photo the same way as the preview. The card only shows what the current lens can do. On a lot of phones that's JPEG and a burst, while a flagship gets everything below:
+
+- **Format** is JPEG with a quality setting, HEIC, Ultra HDR (Android 14) or RAW as a DNG, alone or together with a JPEG
+- **Full resolution** under **Mode** uses the sensor's real size (the 50 or 200 MP on sensors that normally give 12). **Night**, **HDR** and **Bokeh** are the phone maker's own modes and show up if the maker lets other apps use them (Android 12)
+- **Shots** can be a burst of up to 60, an exposure bracket for HDR merging or a focus bracket from near to far for focus stacking
+- **Exposure** takes a long exposure up to what the sensor allows (30 s or more on some phones) at the video's ISO
+- There's a 3 or 10 second **Timer**, best quality noise reduction and sharpening, and distortion correction can be turned on or off where the phone allows it
+
+Photos go to the folder under **Save in** (a Telescope folder in your Pictures by default) with the phone's file name. **Open folder** shows the last ones. A plain photo is taken next to the video, which hitches for a moment the first time only. Night, HDR, Bokeh, long exposures and full resolution on some phones pause the video for a few seconds instead and the stream picks up again afterwards without a reconnect. **Take photo** also works as a [keyboard shortcut](#keyboard-shortcuts), even with Telescope in the background, and a photo taken that way pops up a notification once it's saved.
+
+## Colour grading
+
+An optional plugin for the look of the picture, switched on in Plugins (it needs no download). Like Background it runs on the computer and works with any phone and with Browser camera. Each phone gets its own grade and grades are saved in presets.
+
+**Primaries** has four colour wheels. Lift is the shadows, Gamma the midtones, Gain the highlights and Offset all of it. Drag a wheel towards a colour to push the picture that way and use the slider under it for the level. Below them are Temperature and Tint, Contrast with its Pivot, Saturation and then Shadows and Highlights for brightening or darkening only the darker or brighter parts. A double-click puts any wheel, slider or curve back where it started. With the keyboard the arrows move a wheel's dot and Home centres it.
+
+**Curves** has the RGB curves (all channels together, or red, green and blue on their own) plus Hue vs sat and Hue vs hue. On those two you pull a hue up to give it more colour or turn it towards the next hue along. Pulling it down does the opposite. Click to add a point and drag it, or double-click a point to take it off. In a curve that has keyboard focus **[** and **]** pick a point, the arrows move it and Delete removes it.
+
+**LUT** puts a `.cube` file on top of the grade (1D or 3D, up to 65 points per side) with a Strength slider. **Export grade…** saves the whole grade, LUT included, as a 33 or 65 point `.cube` to get the same look in other software.
+
+**Compare** splits the preview with the picture before the grade left of the line. Apps always get the graded picture. The switch in the card's header turns the grade off without losing it. Each wheel, slider, the Compare button, the switch and the LUT strength can go on a key in Keyboard shortcuts.
+
+## Notes next to the lens
+
+Optional, switched on under **On screen** in the Plugins tab of Settings. Type your notes on the Notes card and **Send to phone** puts them on the phone's screen in big text right under the front camera. Reading them there keeps your eyes almost on the lens and the people on the call see you looking at them. It needs the front camera and the phone facing you, and the phone app from the same release (with an older one the card asks you to update it).
+
+- Each line you type is one step for **Next** and **Previous**. Both can go on a key in Keyboard shortcuts. A presenter clicker works too because it sends keys like a keyboard does
+- **Auto** scrolls at the **Speed** you set once you press **Play**. **By hand** only moves with Next and Previous or when you drag the text on the phone
+- **Text size** changes the size on the phone straight away. Edits to the text itself only show after you send again
+- The card keeps a few sets of notes, named after their first line
+- On the phone the screen stays on and black behind the text while the notes are up, which is easy on the battery with an OLED screen. Back closes them until you send again and stopping the stream takes them away
+
+Android only lets an app open a screen while it's in front. With Telescope in the background the card asks you to open it on the phone and the notes appear once you do. With Preview open on the phone they wait until you close it, since opening them over it would make the stream stutter. Turned sideways in a holder, the text sits next to the lens instead of under it.
 
 ## The vision download
 
-Auto framing and Background use MediaPipe to find people. MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch either plugin on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). Both plugins share the download and **Remove download** on the Optional card deletes it again.
+Auto framing, Background, Expose for my face and Privacy blur use MediaPipe to find people (the Fun pack can use it too). MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch one of them on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). They share the download and **Remove download** next to the People and vision heading on the Plugins tab deletes it again.
 
 It only works on 64-bit Intel and AMD computers for now.
 
+## Name tag
+
+Optional. It puts your name and pronouns in a corner of the picture, with a smaller second line under them if you want one (like your role). Switch it on under **On screen** in the Plugins tab of Settings and fill in the **Name tag** card. With several cameras each one has its own tag (or none), so the desk camera doesn't have to show your name too.
+
+- **Style** is **Bar** (a dark box with a coloured edge), **Pill**, **Light** or **Shadow**, which has no box at all and only a soft shadow behind the text
+- **Position** can be any bottom corner, bottom centre or the top corners. **Size** is measured against the picture's height and the tag looks the same at 720p and 4K
+- Presets save the tag too. One preset can have it on for a talk and another can leave it off for a chat
+- Names in any script work (Arabic and Hebrew ones start from the right) and anything too long for the picture is cut short with "…"
+- The tag goes on the picture before Telescope fits it to the virtual camera's canvas. With a **Canvas size** of another shape it sits in the corner of the picture rather than of the canvas. A low-resolution stream on a bigger canvas makes its text a little soft too (a higher resolution on the Stream output card helps)
+- **Mirror** on the Transforms card never mirrors the text. If your own preview in a video call shows it backwards, that's the call app mirroring your self view while everyone else sees it the right way round
+
 ## Presets
 
-The **Presets** button saves your camera, output and transform settings (lens included) under a name and brings them back in one click. Auto framing and Background are saved too when they're on. Each phone has its own presets and each preset can have its own shortcut.
+The **Presets** button saves your camera, output and transform settings (lens included) under a name and brings them back in one click. The optional picture plugins (Auto framing, Background, Fun pack, Colour grading and the others) are saved too when they're on. Each phone has its own presets and each preset can have its own shortcut.
 
 ## Resolution and FPS
 
@@ -68,13 +187,15 @@ A phone that can't do Light switches to Heavy automatically.
 
 - **Heavy** has a JPEG quality slider
 - **Light** has a bitrate slider with **Auto**, a fixed 1-100 Mbps or **Dynamic**. Dynamic sends as much as the connection can carry and backs off before the video starts to lag. If that's still too much it lowers the frame rate too (down to 15) and climbs back once there's room
-- **Hardware acceleration** under Video in Settings decodes Light on the graphics card instead of the processor, which matters most at 4K or on a laptop. It's off by default. It works on Windows with any graphics card and on Linux with NVIDIA. For AMD and Intel on Linux, **Set up VA-API…** next to it gets it working
+- **Hardware acceleration** under Video in Settings decodes Light on the graphics card instead of the processor, which matters most at 4K or on a laptop. It's off by default. It works on Windows with any graphics card and on Linux through VA-API or NVIDIA's CUDA. The line under the switch says which one it found
 - Light only lists resolutions the phone's encoder can take
 
 <details>
 <summary><b>UDP on Wi-Fi (experimental)</b></summary>
 
-Under the connection settings. It sends Light over UDP instead of TCP while the phone is on Wi-Fi. On a busy network a lost packet then only costs a resend of that one piece instead of holding up the whole stream, which can cut lag spikes. It's encrypted and if the video doesn't get through (usually a firewall) it goes back to TCP. It isn't used over USB, for Heavy or with Dynamic.
+In Settings on the Streaming tab, off by default. It sends Light over UDP instead of TCP while the phone is on Wi-Fi. The idea is that a lost packet only costs that one piece instead of holding up the whole stream, but it can also stutter more than TCP. If Light keeps freezing on Wi-Fi give it a try and switch it back off if it doesn't help. It's encrypted and goes back to TCP if the video doesn't get through (usually a firewall). It isn't used over USB or for Heavy.
+
+Dynamic works over UDP too. The computer tells the phone how many packets went missing and how long they took to arrive, which shows a thinning link earlier than waiting for video to pile up on the phone. If the phone app is older than the desktop app, Dynamic still runs over TCP.
 </details>
 
 ## Microphone
@@ -85,6 +206,7 @@ The phone's mic can be a microphone on your computer while you stream.
 - **Windows:** needs [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) (free). The card's **Install VB-Cable** downloads and opens VB-Audio's setup for you (Windows asks for admin and VB-Audio asks for a restart). Afterwards pick **CABLE Output** as the microphone in other apps and switch the mic off and on again in Telescope
 - **Gain** goes from -24 to +12 dB (**Max gain** under Audio in Settings raises the top). The level meter turns yellow while the limiter is holding loud moments down and red when the sound clips. The limiter is on by default
 - **Auto level** (off by default) evens out quiet and loud speech and stops adjusting while nobody talks
+- **Noise reduction** (off by default) takes typing, fans and room hiss out of the mic with RNNoise running on your computer. It cleans up the same way for every phone and for a browser's mic, which helps most with phones whose own noise suppression is weak or missing. It adds about 20 ms of delay and switches in or out at the next pause in speech. With Discord, Zoom or a similar app turn off the app's own noise suppression while this is on (both at once can make voices sound thin). The level meter shows the mic as it arrives, before noise reduction
 - **Mute** sends silence without disconnecting. It's in the card and the tray menu and resets when Telescope restarts
 - **Mic only:** the camera button under the preview turns the phone's camera off while the mic stays on. Apps see the wait screen. Press it before starting and Start becomes **Start mic only**
 - The tray icon shows what's live: a red dot for the camera and a mic for the mic (crossed out when muted)
@@ -106,16 +228,59 @@ Stream from anything with a browser (an iPhone, a tablet, another laptop) with n
 - The card shows what the browser really sends, like "H.264, 1280×720 at 30 fps". It can be lower than what you picked when the device or Wi-Fi can't keep up. If the device's processor is the limit the card warns and a lower resolution or frame rate usually helps
 - On Linux the virtual camera is 1920x1080 unless you set another canvas under Video in Settings
 
+## Webcams and capture cards
+
+A webcam plugged into the computer streams just like a phone. It shows up in the phone picker under its own name and every effect works on it (Background, Chroma key, Colour grading, Auto framing, Transforms, One picture and the rest). The result goes out on Telescope's virtual camera like a phone's would. With **+** it can stream next to a phone or another webcam (see [Several cameras](#several-cameras-at-once)).
+
+- **Cameras with a webcam mode** show up here too. Many mirrorless cameras and some DSLRs have a USB webcam (UVC) mode. Any camera with a clean HDMI output works through an HDMI capture card too, since computers see the card as a webcam. Telescope doesn't talk to cameras over their own USB protocols (no gphoto2 or maker software yet)
+- **Plugging in and out** is noticed while Telescope runs. A webcam that's unplugged while it streams keeps its place, apps see the wait screen and the stream carries on once it's plugged back in. One that isn't streaming just leaves the picker
+- **Resolution and Frame rate** are on the Webcam card, kept for each camera. **Auto** takes the largest size up to 1080p the camera can send at the frame rate picked. The card shows what the camera really sends, like "1920×1080, MJPEG, 30 fps"
+- **Picture settings** the webcam itself offers are on the Webcam card too: exposure (time shown as a shutter speed like 1/60), gain, white balance, focus, zoom, anti-flicker and the like. Only what the camera has shows up, with its own range, and a manual slider stays greyed out while its Auto is on. Each camera keeps its own and gets them back every time it's opened, since most webcams forget them when unplugged. **Reset** puts the camera's defaults back. Anti-flicker starts on your mains frequency (50 or 60 Hz, guessed from the time zone) so lights don't flicker or band. On Windows some cameras don't offer anti-flicker or the frame-rate switch, and those rows are left out
+- **MJPEG or raw:** Telescope asks for raw video when the camera can send it at that size and rate and for MJPEG when it can't. A USB 2 webcam usually can't fit raw 1080p at 30 fps through the cable, which is why the bigger sizes tend to come as MJPEG
+- **In use somewhere else:** a webcam can only stream to one app at a time on Linux (Windows sometimes shares it). With another app holding it a banner names that app (where Telescope can tell) and the stream starts as soon as the app lets go
+- Telescope's own virtual cameras are never listed, which keeps a stream from looping back into itself. Other virtual cameras (OBS Virtual Camera and similar) are left out too
+- A webcam's microphone isn't passed through the Microphone card. Pick it in your call app instead
+- The phone's Camera card, Stream output and the phone's alerts don't apply to webcams. Switching off **Webcams** in Plugins takes them out of the picker
+
 ## Several cameras at once
 
-Click the **+** next to Stop while streaming to add another phone (or Browser camera), up to four in total. Each gets its own virtual camera: **Phone Camera 2** to **4** on Linux and **Telescope #2** to **#4** on Windows.
+Click the **+** next to Stop while streaming to add another phone (or Browser camera, or a webcam), up to four in total. Each gets its own virtual camera: **Phone Camera 2** to **4** on Linux and **Telescope #2** to **#4** on Windows.
 
 - The first time Telescope adds those cameras and asks for your password (Linux) or permission (Windows). **Extra cameras** under Virtual camera & phone in Settings removes them again
 - A row of tiles shows every stream, which camera it goes to and whether it's live. Click a tile to bring its settings into the panels. The **x** on a tile stops only that stream and Stop stops them all
+- Picture effects belong to the camera you set them on. Turning on a Fun pack look, Background, Chroma key, Auto framing, Expose for my face or a Name tag for one stream leaves the others as they were, just like Transforms, Desk mode and Colour grading always did
 - A phone gets the same virtual camera slot as last time if it's free, to lower the need for redoing OBS scenes
 - Only one stream has the mic at a time (the first to start). To move it, click another tile and turn on **Phone mic**
 - With more than one stream mic only isn't available, the canvas can't be resized and Automatic streaming won't stop anything until all of them have stopped
 - Extra cameras are always the size set in **Canvas size** under Video in Settings (1920x1080 on Auto). Other shapes get black bars
+
+## Several cameras in one picture
+
+Optional (switch it on under **Streaming and devices** in the Plugins tab of Settings). It puts the streams you run into one picture for call apps that take only one camera, like your face big with the desk small in a corner, two phones side by side or a grid of up to four.
+
+- The switch on the **One picture** card turns it on and **Edit picture…** opens the editor with a live preview
+- Drag a stream to move it. Arrow keys nudge it a pixel at a time
+- The handles on the corners and sides resize it the way OBS does. A plain drag scales it without changing its shape. Hold Shift to stretch or squash it into any shape and Alt to crop the side you're dragging instead (each side remembers its own crop)
+- Edges snap to the picture's edges and middle and to the other streams. Hold Ctrl to place one freely
+- Scroll over a stream to zoom into it and drag it with the right mouse button to pick which part shows
+- **Fit its shape** puts a stream back to its own shape with nothing cropped, stretched or zoomed
+- Each stream can get a border and rounded corners. Behind them goes a colour or a picture
+- **Start from** lays out the running streams **Side by side**, **Big and small** or in a **Grid** to tweak from there
+- Layouts can be saved under a name and picked on the card. A keyboard shortcut can switch to one and a preset brings back the picture it was saved with (without touching your saved layouts)
+- The picture goes out on the **Telescope** camera, the one call apps use, whichever stream goes there (usually the first you started). The other streams still go to their own cameras as well, for OBS scenes that use them one by one. While no stream goes to Telescope, or the one there has its camera off, the picture waits
+- It only takes over while at least two of its streams are running. A stream that drops leaves the picture after 3 seconds and is back in it once it reconnects. The others don't freeze with it, even when it's the one on Telescope
+- The picture runs at the frame rate of the stream going to Telescope. Its size is the canvas size under Video in Settings, or on Auto the size the Telescope camera opened at
+
+## On Air sign
+
+Optional. It lets the people you live with know you're on a call without you having to tell them. Switch it on under **On screen** in the Plugins tab of Settings and it gets an **On Air** tab of its own.
+
+- **On air when** decides what counts. By default it's an app using the virtual camera, even while it only sees the wait screen. It can also count Telescope's mic being live (streaming and not muted), the mic alone or any stream at all
+- It waits a second before going on air and six before going off again, because apps like to close and reopen the camera when you change their settings
+- **Sign on another device** shows a big On air or Off air page in any browser on your network. Scan the code with an old tablet or phone and tap the page to make it full screen. The screen stays on where the browser allows that. The link stays the same after Telescope restarts until you click **New link** and the page only answers to that link. The browser warns about the certificate the first time, the same as with [Browser camera](#browser-camera)
+- **Webhook** sends a request every time you go on or off air, for Home Assistant or a smart plug or anything else that takes one. POST sends what's in **Going on air** or **Going off air** as the body (`{"on_air": true}` when left empty) and GET adds it to the address instead. **Test on** and **Test off** send one right away
+- If the webhook stops answering you get one quiet banner about it and no more of them until it has worked again. Meanwhile Telescope tries the latest state again after 5 seconds, 15 seconds and a minute, then every 5 minutes, which puts the light right after a Wi-Fi blip or a hub restart. It also sends the current state when it starts. Quitting while on air sends the off request first
+- While you're on air an **On air** button shows next to the settings button and takes you to the tab
 
 ## Monitoring
 
@@ -126,14 +291,15 @@ Click the **+** next to Stop while streaming to add another phone (or Browser ca
 
 ## Phones, pairing and connection
 
-- **Add phone** pairs by QR code or by plugging the phone in over USB (USB needs adb, which Windows downloads from Google after asking)
+- **Add phone** pairs by QR code or by plugging the phone in over USB and clicking its **Pair** button (USB needs adb, which Windows downloads from Google after asking). A plugged-in phone never pairs by itself, so you can scan the code with a different phone while one is on the cable. Pairing while the shown card streams leaves that stream running: the new phone waits in the list, ready to pick or add as another stream
 - The **?** next to it brings the setup checklist back. Click it again to close it
 - You can pair several phones to one computer and one phone to several computers
 - Telescope uses USB when the phone is plugged in and answering and Wi-Fi otherwise. If a cable is plugged in but isn't used the Connection panel says why. **Connect via** can force either one
 - A new IP address from the router breaks nothing, since the phone announces itself on the network
 - On a slow Wi-Fi stream the note tells you when a weak signal or 2.4 GHz is the cause, since moving closer, a 5 GHz network or a cable fixes that better than lowering quality
 - The phone's screen stays on while the app is open because Android only runs Wi-Fi at full speed with the screen on. You can press the power button and the stream keeps going
-- Camera, output, transform and alert settings are saved per phone. Connection settings and the canvas are shared
+- **Black screen** next to Preview in the phone app turns the screen black while the stream carries on, and turns the brightness all the way down once its status text has faded. It saves battery on an OLED screen and some phones are less likely to close Telescope while it's on screen than with the screen off. Double tap or press Back to get the app back. A single tap shows the stream's status for a few seconds, at normal brightness so it's readable
+- Camera, output, transform and alert settings are saved per phone and so are picture effects like Background or the Fun pack. Connection settings and the canvas are shared
 
 ## Privacy
 
@@ -142,6 +308,7 @@ Click the **+** next to Stop while streaming to add another phone (or Browser ca
 - Someone on the network can still see that a stream is running and roughly how much data it moves. **Local only - USB** in the Android app takes the stream and controls off the network entirely
 - **Wait for my computer** (off by default) lets you start the camera from your PC with the phone's screen off or the app closed. Tap **Stop waiting** in its notification to end it
 - Browser camera only listens on port 8767 while it is picked or a browser is streaming. Anyone can load the page but sending video needs the token in the code, which changes on every start and on **New link**. Its certificate isn't pinned like a phone's, so on a network you don't trust use a phone
+- The On Air sign listens on port 8768 while it's switched on. It serves nothing but the sign page and whether you're on air (that part only to its link's token)
 - The apps only go online to check GitHub for updates. On Windows the desktop also fetches adb from Google and VB-Cable from VB-Audio, but only after you click to get them
 - On Linux only your user can read the config folder with the pairing tokens. On Windows the camera driver sits in Program Files where other programs can't swap it
 

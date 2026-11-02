@@ -1,0 +1,102 @@
+// The Name tag card. Joined after parts.slint, which has the imports.
+
+// control_row with a one-line text box, and the tooltip the box has in Qt
+component TextRow inherits FormRow {
+    in-out property <string> text;
+    in property <string> tip;
+    callback edited(string);
+    Rectangle {
+        horizontal-stretch: 1;
+        TextField {
+            width: parent.width;
+            height: 32px;
+            label: root.label;
+            text <=> root.text;
+            edited(t) => { root.edited(t); }
+        }
+        if tip != "": Tooltip { TipBody { says: root.tip; } }
+    }
+}
+
+// control_row with a combo box
+component ChoiceRow inherits FormRow {
+    in property <[string]> items;
+    in property <int> current;
+    callback picked(int);
+    Rectangle {
+        horizontal-stretch: 1;
+        ChoiceField {
+            width: parent.width;
+            compact: true;
+            caption: root.label;
+            items: root.items;
+            current: root.current;
+            picked(i) => { root.picked(i); }
+        }
+    }
+}
+
+export component NameTagCard inherits Card {
+    in property <bool> on;
+    in-out property <string> name;
+    in-out property <string> pronouns;
+    in-out property <string> second;
+    in property <string> switch-name;
+    in property <string> switch-help;
+    in property <string> pronouns-tip;
+    in property <string> second-tip;
+    in property <[string]> style-items: ["", "", "", ""];
+    in property <int> style-current: 0;
+    in property <[string]> position-items: ["", "", "", "", ""];
+    in property <int> position-current: 0;
+    in property <[string]> size-items: ["", "", ""];
+    in property <int> size-current: 1;
+    callback switch-toggled-by-hand(bool);
+    callback text-edited(int, string);
+    callback choice-picked(int, int);
+
+    title: @tr("Name tag");
+    icon: Icons.bookmark;
+    has-switch: true;
+    switch-shortcut: "name_tag.on";
+    switch-checked: on;
+    switch-label: switch-name;
+    switch-tip: switch-help;
+    switch-toggled(v) => { root.switch-toggled-by-hand(v); }
+
+    TextRow {
+        label: @tr("Name");
+        text <=> root.name;
+        edited(t) => { root.text-edited(0, t); }
+    }
+    TextRow {
+        label: @tr("Pronouns");
+        tip: pronouns-tip;
+        text <=> root.pronouns;
+        edited(t) => { root.text-edited(1, t); }
+    }
+    TextRow {
+        label: @tr("Second line");
+        tip: second-tip;
+        text <=> root.second;
+        edited(t) => { root.text-edited(2, t); }
+    }
+    ChoiceRow {
+        label: @tr("Style");
+        items: style-items;
+        current: style-current;
+        picked(i) => { root.choice-picked(0, i); }
+    }
+    ChoiceRow {
+        label: @tr("Position");
+        items: position-items;
+        current: position-current;
+        picked(i) => { root.choice-picked(1, i); }
+    }
+    ChoiceRow {
+        label: @tr("Size");
+        items: size-items;
+        current: size-current;
+        picked(i) => { root.choice-picked(2, i); }
+    }
+}

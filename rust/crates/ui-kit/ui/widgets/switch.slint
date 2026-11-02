@@ -1,0 +1,153 @@
+// On and off: the switch, and the icon tile that holds one (widgets/controls.py).
+
+import { Theme } from "../theme.slint";
+import { Reveal } from "folds.slint";
+import { Icon, FocusRing } from "basics.slint";
+import { TipBody, TipUse } from "tip.slint";
+import { ShortcutMenu } from "shortcut-menu.slint";
+
+// common.Switch: a 36x20 track at the row's end.
+export component Switch inherits Rectangle {
+    // Where the parent says it is. A click never writes here, so a parent's `checked: on` keeps following on.
+    in-out property <bool> checked;
+    // What the person last chose, shown until the parent says something new
+    property <bool> local;
+    property <bool> touched;
+    out property <bool> shown: touched ? local : checked;
+    changed checked => { touched = false; }
+    // What a click does, and what a key does; SwitchTile calls it for a click on the tile
+    public function flip() {
+        if (enabled) {
+            local = !shown;
+            touched = true;
+            toggled(local);
+        }
+    }
+    // Got here by Tab, so it shows the ring; a click gives it the focus without one (theme.keyboard_focus)
+    property <bool> keyed;
+    public function take-focus() {
+        if (enabled) {
+            keyed = false;
+            focus.focus();
+        }
+    }
+    in property <string> label;
+    in property <bool> enabled: true;
+    // A tooltip, when there's something to say beyond the label
+    in property <string> tip;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
+    // A switch that's risky to leave on stays red while it is
+    in property <bool> danger;
+    callback toggled(bool);
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    background: !enabled ? (shown ? Theme.border-strong : Theme.surface-raise)
+        : shown && danger ? Theme.err
+        : shown ? (touch.has-hover ? Theme.fill-hover : Theme.fill)
+        : (touch.has-hover ? Theme.border-hover : Theme.border-strong);
+    accessible-role: switch;
+    accessible-label: label;
+    accessible-checkable: true;
+    accessible-checked: shown;
+    accessible-action-default => { flip(); }
+    forward-focus: focus;
+    focus := FocusScope {
+        focus-gained(reason) => {
+            if (reason == FocusReason.tab-navigation) {
+                keyed = true;
+                Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height);
+            }
+        }
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (e.text == " ") { flip(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus && keyed; radius: 10px; width: parent.width + 4px; height: parent.height + 4px; }
+    usage := TipUse { hover: touch.has-hover; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { take-focus(); usage.press(); } }
+        scroll-event(e) => { usage.wheel(); reject }
+        clicked => { flip(); }
+    }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+    Rectangle {
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        y: 3px;
+        x: shown ? parent.width - 17px : 3px;
+        background: !enabled ? Theme.text-disabled : shown ? white : Theme.text-dim;
+        animate x { duration: 90ms; }
+    }
+    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
+}
+
+// controls.SwitchTile: icon, name and switch in a small raised tile; the icon takes the card's hue while on.
+export component SwitchTile inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <color> hue: Theme.accent;
+    in-out property <bool> checked;
+    in property <bool> enabled: true;
+    // A tooltip for the whole tile, say why it can't be used
+    in property <string> tip;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
+    callback toggled(bool);
+    height: 40px;
+    horizontal-stretch: 1;
+    min-width: 0px;
+    preferred-width: 0px;
+    background: Theme.surface-raise;
+    border-width: 1px;
+    border-color: Theme.border;
+    border-radius: 9px;
+    usage := TipUse { hover: tile-touch.has-hover; }
+    tile-touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { sw.take-focus(); usage.press(); } }
+        scroll-event(e) => { usage.wheel(); reject }
+        clicked => { sw.flip(); }
+    }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+    if root.tip != "" && !usage.used: Tooltip { TipBody { says: root.tip; } }
+    // The QSS border sits outside the layout's 10px margins
+    HorizontalLayout {
+        padding-left: 11px;
+        padding-right: 11px;
+        spacing: 9px;
+        Icon {
+            source: icon;
+            tint: sw.shown && enabled ? hue : Theme.text-dim;
+            width: 15px;
+            height: 15px;
+            y: (parent.height - self.height) / 2;
+        }
+        Text {
+            text: root.text;
+            horizontal-stretch: 1;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: enabled ? Theme.text : Theme.text-disabled;
+            vertical-alignment: center;
+            wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
+        }
+        Rectangle {
+            width: 36px;
+            sw := Switch {
+                y: (parent.height - self.height) / 2;
+                checked <=> root.checked;
+                enabled: root.enabled;
+                label: root.text;
+                toggled(on) => { root.toggled(on); }
+            }
+        }
+    }
+}

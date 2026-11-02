@@ -1,0 +1,158 @@
+// QLineEdit as theme.py styles it: raised fill, strong border that lightens on hover and turns accent with focus. With
+// a leading icon (the search fields) and Qt's clear button once there's text.
+
+import { Theme } from "../theme.slint";
+import { Icon, KeyFocus } from "basics.slint";
+import { Icons } from "../icons.slint";
+import { ShortcutMenu } from "shortcut-menu.slint";
+
+// setMaxLength: what of new text over a cap stays, given the text before (telescope_core::names::fit_to_cap). Slint can't
+// cut a string, so the window answers; with nobody to ask it gives "".
+export global TextCap {
+    pure callback fit(string, string, int) -> string;
+}
+
+export component TextField inherits Rectangle {
+    in-out property <string> text;
+    in property <string> placeholder;
+    in property <string> label;
+    in property <image> icon;
+    in property <bool> has-icon;
+    in property <bool> clearable;
+    in property <bool> enabled: true;
+    // A number box's text sits at the right (QSpinBox with AlignRight)
+    in property <bool> align-right;
+    // False: Escape doesn't empty it (a number box goes back to its value instead)
+    in property <bool> escape-clears: true;
+    out property <bool> has-focus: input.has-focus;
+    callback edited(string);
+    callback accepted;
+    // Up and Down arrows, for stepping through a list under the field
+    callback step(int);
+    callback escape-empty;
+    callback escaped;
+    public function focus-all() {
+        input.focus();
+        input.select-all();
+    }
+    public function let-go() {
+        input.clear-focus();
+    }
+    height: 32px;
+    border-radius: 7px;
+    border-width: 1px;
+    background: enabled ? Theme.surface-raise : Theme.bg;
+    border-color: !enabled ? Theme.border : input.has-focus ? Theme.accent : touch.has-hover ? Theme.border-hover : Theme.border-strong;
+    forward-focus: input;
+    accessible-role: text-input;
+    accessible-label: label;
+    accessible-value: text;
+    accessible-placeholder-text: placeholder;
+    touch := TouchArea { mouse-cursor: MouseCursor.text; clicked => { input.focus(); } }
+    if has-icon: Icon { x: 7px; source: icon; tint: Theme.text-dim; width: 16px; height: 16px; accessible-role: none; }
+    if text == "" && placeholder != "": Text {
+        x: input.x;
+        text: placeholder;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: Theme.text-faint;
+        vertical-alignment: center;
+        height: parent.height;
+    }
+    // The 1px border, QSS's 10px padding and QLineEdit's own 2px margin
+    input := TextInput {
+        x: has-icon ? 39px : 13px;
+        width: parent.width - self.x - (clearable && text != "" ? 30px : 13px);
+        height: parent.height;
+        text <=> root.text;
+        enabled: root.enabled;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: self.has-focus ? white : Theme.text;
+        selection-background-color: Theme.fill;
+        selection-foreground-color: white;
+        vertical-alignment: center;
+        single-line: true;
+        horizontal-alignment: root.align-right ? right : left;
+        accessible-role: none;
+        edited => { root.edited(self.text); }
+        accepted => { root.accepted(); }
+        key-pressed(e) => {
+            if (e.text == Key.DownArrow) { root.step(1); return accept; }
+            if (e.text == Key.UpArrow) { root.step(-1); return accept; }
+            if (e.text == Key.Escape && !root.escape-clears) { root.escaped(); return accept; }
+            if (e.text == Key.Escape && root.text != "") { root.text = ""; root.edited(""); return accept; }
+            reject
+        }
+    }
+    if clearable && text != "": Rectangle {
+        x: parent.width - 26px;
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        background: clear-touch.has-hover ? Theme.surface-hover : transparent;
+        accessible-role: button;
+        accessible-label: @tr("Clear");
+        clear-touch := TouchArea { clicked => { root.text = ""; root.edited(""); input.focus(); } }
+        Icon { source: Icons.x; tint: Theme.text-dim; width: 12px; height: 12px; accessible-role: none; }
+    }
+}
+
+// A box holding a number (a QSpinBox without buttons). Its text follows `value` whatever was typed before. On Enter or on
+// leaving the box the typed text goes out through committed and whoever holds the value keeps what makes sense of it,
+// held to its limits, and the box then shows `value` again, so empty or nonsense text can't stay.
+export component NumberField inherits Rectangle {
+    // The current value as the box shows it
+    in property <string> value;
+    in property <string> label;
+    in property <bool> enabled: true;
+    // Inside a popup: Enter leaves the focus here, the window's scope can't take it from a popup
+    in property <bool> keeps-focus;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
+    out property <bool> has-focus: box.has-focus;
+    // Each change of the text, for a box that applies its value while it's typed
+    callback edited(string);
+    callback committed(string);
+    // Up and Down arrows
+    callback step(int);
+    changed value => { box.text = root.value; }
+    // Puts the box to this text without waiting for `value`
+    public function show-text(text: string) {
+        box.text = text;
+    }
+    function commit() {
+        let typed = box.text;
+        if (typed != root.value) {
+            root.committed(typed);
+        }
+        box.text = root.value;
+    }
+    height: 32px;
+    box := TextField {
+        width: parent.width;
+        height: parent.height;
+        text: root.value;
+        enabled: root.enabled;
+        label: root.label;
+        align-right: true;
+        escape-clears: false;
+        edited(text) => { root.edited(text); }
+        escaped => { self.text = root.value; }
+        step(d) => { root.step(d); }
+        accepted => {
+            root.commit();
+            // After a click into it Enter is the end of it; with the keyboard the focus stays for the next Tab
+            if (!KeyFocus.keyboard && !root.keeps-focus) {
+                self.let-go();
+                KeyFocus.given-back += 1;
+            }
+        }
+        changed has-focus => {
+            if (!self.has-focus) {
+                root.commit();
+            }
+        }
+    }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+}

@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="open_preview">Abrir vista previa de la cámara</string>
+    <string name="preview_button">Vista previa</string>
     <string name="close_preview">Cerrar vista previa</string>
+    <string name="black_screen_button">Pantalla negra</string>
+    <string name="black_screen_description">Pon la pantalla en negro mientras la cámara sigue funcionando</string>
+    <string name="black_screen_hint">Toca dos veces para activar</string>
     <string name="update_available">Actualización disponible</string>
     <string name="update_failed_title">La actualización no finalizó</string>
     <string name="update">Actualizar</string>
@@ -31,8 +35,10 @@
     <string name="setup_title">Configuración inicial</string>
     <string name="setup_camera">Cámara</string>
     <string name="setup_camera_reason">Para transmitir desde las cámaras de este teléfono.</string>
+    <string name="setup_local_network">Red local</string>
+    <string name="setup_local_network_reason">Permite que tu computadora encuentre este teléfono y se conecte a él por Wi-Fi. No hace falta para USB.</string>
     <string name="setup_notifications">Notificaciones</string>
-    <string name="setup_notifications_reason">Muestra cuándo la cámara está transmitiendo y la detiene desde allí.</string>
+    <string name="setup_notifications_reason">Muestra cuándo la cámara está transmitiendo y te permite detenerla desde allí.</string>
     <string name="setup_microphone">Micrófono</string>
     <string name="setup_microphone_reason">Para el micrófono de Telescope en tu computadora.</string>
     <string name="setup_battery">Batería</string>
@@ -48,10 +54,15 @@
     <string name="paired_computers_title">Computadoras vinculadas</string>
     <string name="paired_on">Vinculado el %1$s</string>
     <string name="remove">Quitar</string>
+    <string name="show_all_computers">Mostrar las %1$d</string>
+    <string name="show_fewer">Mostrar menos</string>
     <string name="cancel">Cancelar</string>
     <string name="ok">Aceptar</string>
     <string name="remove_computer_title">¿Quieres quitar %1$s?</string>
     <string name="remove_computer_message">No podrá usar la cámara de este teléfono hasta que la vincules de nuevo.</string>
+    <string name="remove_all">Quitar todas</string>
+    <string name="remove_all_title">¿Quieres quitar todas las computadoras?</string>
+    <string name="remove_all_message">Ninguna podrá usar la cámara de este teléfono hasta que las vincules de nuevo.</string>
     <string name="scan_prompt">Apunta la cámara al código de vinculación en tu computadora</string>
     <string name="scan_download_link">Ese código descarga la app. Escanea el que está en Agregar teléfono en la computadora.</string>
     <string name="scan_not_pairing_code">Ese no es un código de vinculación de Telescope.</string>
@@ -77,17 +88,16 @@
     <string name="network_unreachable">inaccesible</string>
     <string name="network_title">Red</string>
     <string name="local_only">Solo local - USB</string>
-    <string name="local_only_hint">Mantiene la cámara fuera de la red, de modo que solo una conexión USB puede acceder a ella.</string>
     <string name="wait_for_computer">Esperar a mi computadora</string>
-    <string name="wait_for_computer_hint">Mantiene Telescope en ejecución mientras la pantalla está apagada, para que una computadora vinculada pueda iniciar la cámara.</string>
     <string name="stop_streaming">Detener transmisión</string>
     <string name="status_title">Estado</string>
-    <string name="status_not_streaming">○ No está transmitiendo</string>
-    <string name="status_starting">○ Iniciando…</string>
-    <string name="status_streaming">● Transmitiendo</string>
-    <string name="status_waiting_for_computer">● Esperando a la computadora</string>
-    <string name="status_mic_only">● Transmitiendo el micrófono, cámara desactivada</string>
-    <string name="status_camera_taken">● Otra app está usando la cámara. La transmisión continuará cuando esté libre.</string>
+    <string name="status_not_streaming">No está transmitiendo</string>
+    <string name="status_starting">Iniciando…</string>
+    <string name="status_streaming">Transmitiendo</string>
+    <string name="status_quality">A %1$dp y %2$d fps</string>
+    <string name="status_waiting_for_computer">Esperando a la computadora</string>
+    <string name="status_mic_only">Transmitiendo el micrófono, cámara desactivada</string>
+    <string name="status_camera_taken">Otra app está usando la cámara. La transmisión continuará cuando esté libre.</string>
     <string name="streaming_started_remotely">Transmisión iniciada desde tu computadora</string>
     <string name="about_title">Acerca de</string>
     <string name="copy_diagnostics">Copiar diagnóstico</string>
@@ -96,6 +106,7 @@
     <string name="troubleshooting">Solución de problemas</string>
     <string name="nightly_updates">Actualizaciones Nightly</string>
     <string name="nightly_updates_hint">Compiladas a partir de cada cambio: las correcciones llegan antes, con menos pruebas.</string>
+    <string name="updates_section">Actualizaciones</string>
     <string name="check_for_updates">Buscar actualizaciones</string>
     <string name="translation_draft">Esta traducción es un primer borrador y algunos textos pueden sonar un poco raros.</string>
     <string name="made_by">Creado por &lt;a href=\"%1$s\"&gt;LunarKittyy&lt;/a&gt;</string>
@@ -109,11 +120,15 @@
     <string name="preview_stream_starting">La transmisión se está iniciando. Intenta de nuevo en un momento.</string>
     <string name="preview_no_cameras">No se encontraron cámaras.</string>
     <string name="preview_may_stretch">La vista previa puede verse estirada - no se pudo leer la información de la cámara.</string>
+    <string name="notes_close">Cerrar las notas</string>
     <string name="notif_channel_streaming">Transmisión</string>
     <string name="notif_channel_streaming_desc">Se muestra mientras la cámara está transmitiendo a tu computadora</string>
     <string name="notif_channel_waiting">Esperando a la computadora</string>
     <string name="notif_channel_waiting_desc">Se muestra mientras Telescope sigue esperando a que una computadora vinculada inicie la cámara</string>
+    <string name="notif_streaming_title">Transmitiendo</string>
     <string name="notif_camera_streaming">La cámara está transmitiendo</string>
+    <string name="notif_streaming_usb">A %1$s por USB</string>
+    <string name="notif_streaming_wifi">A %1$s por Wi-Fi</string>
     <string name="notif_mic_streaming">El micrófono está transmitiendo, cámara desactivada</string>
     <string name="notif_waiting">Esperando a tu computadora</string>
     <string name="notif_stop_waiting">Dejar de esperar</string>

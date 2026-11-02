@@ -1,0 +1,386 @@
+// Picking one of a few (segmented_row) or one of many (a QComboBox).
+
+import { Theme } from "../theme.slint";
+import { Reveal } from "folds.slint";
+import { Icon, FocusRing } from "basics.slint";
+import { WindowBox } from "dialog.slint";
+import { FlickBar } from "scroll.slint";
+import { ShortcutMenu } from "shortcut-menu.slint";
+import { TipBody, TipUse } from "tip.slint";
+import { SearchWords } from "setting.slint";
+
+// segmented_row: equal segments in one track, the picked one a filled pill.
+export component Segmented inherits Rectangle {
+    in property <[string]> items;
+    in property <[bool]> disabled;
+    // What to say on hover over each item, where there's something to say (why it can't be picked)
+    in property <[string]> tips;
+    // A 13px line icon before each item's text, where has-icons says so
+    in property <[image]> icons;
+    in property <[bool]> has-icons;
+    in property <string> label;
+    // Where the parent says it is. Picking never writes here, so a parent's `current: mode` keeps following mode.
+    in-out property <int> current: 0;
+    property <int> local;
+    property <bool> touched;
+    out property <int> shown: touched ? local : current;
+    changed current => { touched = false; }
+    function pick(i: int) {
+        local = i;
+        touched = true;
+        picked(i);
+    }
+    // Every option is a Tab stop of its own, as in reading_order; Space picks it
+    // The option an arrow key sends the focus to, with how often that was asked so the same one can be asked again
+    property <int> arrow-to;
+    property <int> arrows;
+    // QAbstractButton's moveFocus: an arrow moves the focus along the group, and picks with it from the picked option
+    function step(from: int, to: int) {
+        if (to < 0 || to >= items.length || disabled[to]) {
+            return;
+        }
+        if (from == shown) {
+            pick(to);
+        }
+        arrow-to = to;
+        arrows += 1;
+    }
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
+    // Room above and below the 32px track, to sit in a 36px form row; 0 for a row of its own (segmented_row alone)
+    in property <length> margin: 2px;
+    callback picked(int);
+    height: 32px + 2 * margin;
+    horizontal-stretch: 1;
+    preferred-width: 0px;
+    accessible-role: tab-list;
+    accessible-label: label;
+    track := Rectangle {
+        y: margin;
+        height: 32px;
+        background: Theme.surface-raise;
+        border-width: 1px;
+        border-color: Theme.border;
+        border-radius: 8px;
+    }
+    HorizontalLayout {
+        y: margin;
+        height: 32px;
+        padding: 3px;
+        spacing: 2px;
+        for item[i] in items: seg := Rectangle {
+            property <bool> on: i == shown;
+            property <bool> off: disabled[i];
+            horizontal-stretch: 1;
+            // A picked segment is bold, so every one keeps room for its bold text and the picked one never loses its end.
+            // All too wide at first, so the layout takes the same off each: equal widths, as Qt's equal stretches give
+            min-width: bold-width.preferred-width + 16px;
+            preferred-width: 1000px;
+            border-radius: 6px;
+            background: on ? (off ? Theme.border-strong : seg-touch.has-hover ? Theme.fill-hover : Theme.fill)
+                : (seg-touch.has-hover && !off ? Theme.surface-hover : transparent);
+            accessible-role: tab;
+            accessible-label: label + ": " + item;
+            accessible-checkable: true;
+            accessible-checked: on;
+            accessible-action-default => { if (!off) { pick(i); } }
+            bold-width := Text { text: item; font-family: Theme.font; font-size: Theme.body; font-weight: 600; visible: false; }
+            property <int> asked: arrows;
+            changed asked => {
+                if (arrow-to == i) {
+                    seg-focus.focus();
+                }
+            }
+            seg-focus := FocusScope {
+                enabled: !off;
+                focus-gained(reason) => {
+                    if (reason == FocusReason.tab-navigation) {
+                        Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height);
+                    }
+                }
+                key-pressed(e) => {
+                    if (e.text == " ") { pick(i); return accept; }
+                    if (e.text == Key.LeftArrow) { step(i, i - 1); return accept; }
+                    if (e.text == Key.RightArrow) { step(i, i + 1); return accept; }
+                    reject
+                }
+            }
+            FocusRing { shown: seg-focus.has-focus; radius: 6px; width: parent.width + 4px; height: parent.height + 4px; }
+            usage := TipUse { hover: seg-touch.has-hover; }
+            seg-touch := TouchArea {
+                mouse-cursor: off ? default : pointer;
+                scroll-event(e) => { usage.wheel(); reject }
+                pointer-event(e) => {
+                    if (e.kind == PointerEventKind.down) {
+                        usage.press();
+                    }
+                    if (e.kind == PointerEventKind.down && !off) {
+                        seg-focus.focus();
+                    }
+                }
+                clicked => {
+                    if (!off) {
+                        pick(i);
+                    }
+                }
+            }
+            // Above the touch area, which would otherwise take the pointer before the tooltip sees it
+            if tips[i] != "" && !usage.used: Tooltip { TipBody { says: tips[i]; } }
+            HorizontalLayout {
+                alignment: center;
+                spacing: 6px;
+                if has-icons[i]: Icon {
+                    y: (parent.height - 13px) / 2;
+                    source: icons[i];
+                    tint: off ? Theme.text-disabled : on ? white : Theme.text-dim;
+                    width: 13px;
+                    height: 13px;
+                    accessible-role: none;
+                }
+                Text {
+                    text: item;
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    font-weight: on ? 600 : 400;
+                    color: off ? Theme.text-disabled : on ? white : seg-touch.has-hover ? Theme.text : Theme.text-dim;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+            }
+        }
+    }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+}
+
+// controls.ChoiceTile in "field" style: small caption over the value, chevron on the right, a list when clicked.
+// compact, or no caption to show: a plain combo box (NoScrollComboBox in a control_row), 32px with the value alone.
+export component ChoiceField inherits Rectangle {
+    // Whether its list is open
+    out property <bool> open;
+    // Items that went away while the list was open, by index: greyed out and can't be picked
+    in property <[bool]> gone;
+    in property <string> caption;
+    in property <bool> compact;
+    property <bool> plain: compact || caption == "";
+    // A small icon before the text (the header's phone picker), and its text in bold
+    in property <image> icon;
+    in property <bool> has-icon;
+    in property <color> icon-tint: Theme.text-dim;
+    in property <bool> bold;
+    in property <[string]> items;
+    // Rows that are a group's title among its items (ComboItemDelegate's "heading"): not picked, and the arrows skip them
+    in property <[bool]> headings;
+    // Shown while nothing is picked (current is -1)
+    in property <string> placeholder;
+    // Where the parent says it is. Picking never writes here, so a parent's `current: mode` keeps following mode.
+    in-out property <int> current;
+    property <int> local;
+    property <bool> touched;
+    out property <int> shown: touched ? local : current;
+    changed current => { touched = false; }
+    function pick(i: int) {
+        local = i;
+        touched = true;
+        picked(i);
+    }
+    in property <bool> enabled: true;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
+    // A tooltip, when there's something to say beyond the label
+    in property <string> tip;
+    callback picked(int);
+    // The row the arrows move to from where it is, or there when there's none that way
+    function step(by: int) -> int {
+        let next = shown + by;
+        let past = next + by;
+        if (next >= 0 && next < items.length && !headings[next] && !gone[next]) { return next; }
+        if ((headings[next] || gone[next]) && past >= 0 && past < items.length && !headings[past] && !gone[past]) { return past; }
+        return shown;
+    }
+    height: plain ? 32px : 48px;
+    horizontal-stretch: 1;
+    for item in items: SearchWords { words: item; control: true; }
+    min-width: 0px;
+    preferred-width: 0px;
+    border-radius: plain ? 7px : 10px;
+    border-width: 1px;
+    background: !enabled ? Theme.bg : touch.has-hover ? Theme.surface-hover : Theme.surface-raise;
+    // Qt's plain combo box has the strong border; the tile its quiet one
+    border-color: !enabled ? Theme.border : touch.has-hover ? Theme.border-hover : plain ? Theme.border-strong : Theme.border;
+    accessible-role: combobox;
+    accessible-label: caption;
+    accessible-value: items[shown];
+    accessible-description: tip;
+    accessible-action-default => { if (root.enabled) { popup.show(); } }
+    forward-focus: focus;
+    focus := FocusScope {
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (e.text == Key.UpArrow && step(-1) != shown) { pick(step(-1)); return accept; }
+            if (e.text == Key.DownArrow && step(1) != shown) { pick(step(1)); return accept; }
+            if (e.text == " " || e.text == "\n") { popup.show(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: plain ? 7px : 10px; width: parent.width + 4px; height: parent.height + 4px; }
+    usage := TipUse { hover: touch.has-hover; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        scroll-event(e) => { usage.wheel(); reject }
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
+        clicked => {
+            // Something has to hold the focus for the list's own to go back to when it closes (see `watch`)
+            focus.focus();
+            popup.show();
+        }
+    }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+    if root.tip != "" && !usage.used: Tooltip { TipBody { says: root.tip; } }
+    if has-icon: Icon {
+        source: icon;
+        tint: icon-tint;
+        x: 11px;
+        width: 14px;
+        height: 14px;
+        accessible-role: none;
+    }
+    if plain: VerticalLayout {
+        padding-left: has-icon ? 33px : 11px; // the phone picker's 32px padding sits inside its border
+        padding-right: 30px;
+        alignment: center;
+        Text {
+            text: shown < 0 ? placeholder : items[shown];
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: bold ? 600 : 400;
+            color: shown < 0 ? Theme.text-faint : enabled ? Theme.text : Theme.text-disabled;
+            overflow: elide;
+        }
+    }
+    // _two_lines: the caption's capitals and the value's read as one block centred top to bottom, the value's capitals
+    // 9px under the caption's baseline (stacked_baselines, with Inter's capitals 8px tall at 11px and 9px at 13px)
+    property <length> first-baseline: round((root.height / 1px - 26) / 2 + 8) * 1px;
+    if !plain: Text {
+        x: has-icon ? 32px : 12px;
+        y: first-baseline - 11px * 1984 / 2048;
+        width: root.width - self.x - 30px;
+        text: caption;
+        font-family: Theme.font;
+        font-size: 11px; // 0.88 of the body size, 11.44px, which Qt draws at 11
+        color: enabled ? Theme.text-faint : Theme.text-disabled;
+        overflow: elide;
+    }
+    if !plain: Text {
+        x: has-icon ? 32px : 12px;
+        y: first-baseline + 18px - 13px * 1984 / 2048;
+        width: root.width - self.x - 30px;
+        text: items[shown];
+        font-family: Theme.font;
+        font-size: Theme.body;
+        font-weight: 600;
+        color: enabled ? Theme.text : Theme.text-disabled;
+        overflow: elide;
+    }
+    Icon {
+        source: @image-url("../icons/chevron.svg");
+        x: parent.width - 12px - self.width;
+        width: plain ? 10px : 14px;
+        height: plain ? 10px : 14px;
+    }
+    popup := PopupWindow {
+        // Wide enough for its longest option, and inside the window: a longer one wraps, Slint moves it in from the edge
+        property <length> room-w: WindowBox.width > 0 ? WindowBox.width - 16px : 4000px;
+        property <length> room-h: WindowBox.height > 0 ? WindowBox.height - 16px : 4000px;
+        // By rows alone: a bar narrowing the list changes how many wrap, so this can't follow the list's real height
+        property <bool> popup-tall: items.length * 26px + 10px > room-h;
+        x: 0;
+        y: root.height + 4px;
+        width: min(room-w, max(root.width, longest.preferred-width + 26px));
+        height: min(room-h, rows.preferred-height + 2px);
+        // Slint doesn't say when a popup closes, but its focus goes back to the field then. Taken a moment after it
+        // opens, since opening clears the focus
+        watch := FocusScope {
+            focus-lost => { root.open = false; }
+        }
+        Timer {
+            interval: 1ms;
+            running: !root.open;
+            triggered => {
+                root.open = true;
+                watch.focus();
+            }
+        }
+        longest := VerticalLayout {
+            visible: false;
+            height: 0px;
+            for item[i] in items: Text {
+                text: item;
+                font-family: Theme.font;
+                font-size: headings[i] ? Theme.body * 0.85 : Theme.body;
+                font-weight: headings[i] ? 700 : 400;
+            }
+        }
+        Rectangle {
+            background: Theme.surface-raise;
+            border-width: 1px;
+            border-color: Theme.border-hover;
+            border-radius: 7px;
+            drop-shadow-blur: 12px;
+            drop-shadow-color: #00000080;
+            list := Flickable {
+                x: 1px;
+                y: 1px;
+                width: parent.width - 2px;
+                height: parent.height - 2px;
+                viewport-height: rows.preferred-height;
+                rows := VerticalLayout {
+                    width: list.width - (popup-tall ? 10px : 0px);
+                    padding: 4px;
+                    for item[i] in items: Rectangle {
+                        property <bool> is-gone: gone[i];
+                        height: headings[i] ? 32px : max(26px, line.preferred-height + 10px);
+                        border-radius: 5px;
+                        background: headings[i] || is-gone ? transparent : i == shown ? Theme.fill : item-touch.has-hover ? Theme.surface-hover : transparent;
+                        if headings[i]: Rectangle {
+                            y: 2px;
+                            height: parent.height - 3px;
+                            background: Theme.accent.with-alpha(0.12);
+                        }
+                        item-touch := TouchArea {
+                            enabled: !headings[i] && !is-gone;
+                            clicked => {
+                                pick(i);
+                            }
+                        }
+                        line := Text {
+                            x: headings[i] ? 10px : 8px;
+                            width: parent.width - self.x - 8px;
+                            text: item;
+                            font-family: Theme.font;
+                            font-size: headings[i] ? Theme.body * 0.85 : Theme.body;
+                            font-weight: headings[i] ? 700 : 400;
+                            color: headings[i] ? Theme.accent : is-gone ? Theme.text-disabled : i == shown ? white : Theme.text;
+                            vertical-alignment: center;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+            }
+            if popup-tall: FlickBar {
+                x: parent.width - 10px;
+                y: 3px;
+                width: 7px;
+                height: parent.height - 6px;
+                content: list.viewport-height;
+                viewport: list.height;
+                position <=> list.viewport-y;
+                least-thumb: 24px;
+                thumb-radius: 3px;
+                pages: false;
+            }
+        }
+    }
+}

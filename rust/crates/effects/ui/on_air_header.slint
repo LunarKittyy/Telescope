@@ -1,0 +1,19 @@
+// The On Air sign's button in the header, there while it's on. Joined after parts.slint.
+
+// The header's "On air": only there while the sign is on
+export component OnAirButton inherits Rectangle {
+    in property <bool> shown;
+    in property <string> tip;
+    callback clicked;
+    visible: shown;
+    height: 36px;
+    width: shown ? button.min-width : 0px;
+    button := Button {
+        width: parent.width;
+        height: parent.height;
+        text: @tr("On air");
+        role: "danger";
+        tip: root.tip;
+        clicked => { root.clicked(); }
+    }
+}

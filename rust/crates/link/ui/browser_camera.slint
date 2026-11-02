@@ -1,0 +1,150 @@
+// The Browser camera card: the code to scan, what's connected, and the
+// size and rate the browser is asked to send.
+
+import { Theme, Icons, Button, Card, FormRow, ChoiceField, QrCode, Reveal } from "@ui-kit/ui-kit.slint";
+
+global Status {
+    public pure function color(kind: string) -> color {
+        kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
+            : kind == "status_dim" ? Theme.text-dim : Theme.text
+    }
+}
+
+// wrapped_note: a QLabel#dim, so body size
+component Note inherits Text {
+    in property <string> kind: "status_dim";
+    // False takes it out of its layout, height and all
+    in property <bool> shown: true;
+    visible: shown;
+    font-family: Theme.font;
+    font-size: Theme.body;
+    color: Status.color(kind);
+    wrap: word-wrap;
+    line-height-factor: Theme.line-factor(self.font-size);
+    height: shown ? self.preferred-height : 0px;
+}
+
+export component BrowserCameraCard inherits Card {
+    // Only while Browser camera or one of its browsers is picked
+    in property <bool> shown;
+    in property <string> status-text;
+    in property <string> status-kind: "status_dim";
+    in property <string> status-tip;
+    in property <string> list-text;
+    in property <bool> show-list;
+    in property <string> mic-text;
+    in property <string> hint-text;
+    in property <string> url;
+    in property <[int]> qr-cells;
+    in property <int> qr-size;
+    in property <[string]> addresses;
+    in property <int> address-index;
+    in property <bool> show-addresses;
+    in property <int> size-index: 1;
+    in property <int> fps-index: 2;
+    in property <string> note-text;
+    in property <bool> new-link-enabled;
+    callback new-link;
+    callback address-picked(int);
+    callback copy;
+    callback size-picked(int);
+    callback fps-picked(int);
+
+    // It has the code to scan, and the column can be scrolled away from the top when Browser camera is picked in the header
+    changed shown => { reveal = shown; }
+    property <bool> reveal;
+    Timer {
+        interval: 50ms;
+        running: reveal;
+        triggered => {
+            reveal = false;
+            Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height);
+        }
+    }
+    visible: shown;
+    height: shown ? self.preferred-height : 0px;
+    title: @tr("Browser camera");
+    icon: Icons.wifi;
+    has-action: true;
+    action-icon: Icons.reset;
+    action-text: @tr("New link");
+    action-label: @tr("Make a new code; the old one stops working");
+    action-enabled: new-link-enabled;
+    action => { root.new-link(); }
+
+    FormRow {
+        label: @tr("Browser");
+        Text {
+            text: status-text;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: Status.color(status-kind);
+            overflow: elide;
+            vertical-alignment: center;
+            accessible-description: status-tip;
+        }
+    }
+    Note { text: list-text; shown: show-list; }
+    Note { text: mic-text; kind: "status_warn"; shown: mic-text != ""; }
+    Note { text: hint-text; kind: "status_warn"; shown: hint-text != ""; }
+    if url != "": FormRow {
+        label: @tr("Scan");
+        HorizontalLayout {
+            alignment: start;
+            padding-top: 4px;
+            padding-bottom: 4px;
+            QrCode { cells: qr-cells; size: qr-size; cell: 4px; label: url; }
+        }
+    }
+    if show-addresses: FormRow {
+        label: @tr("Address");
+        ChoiceField {
+            y: (parent.height - self.height) / 2;
+            items: addresses;
+            tip: @tr("Which of this computer's addresses the code points to");
+            current: address-index;
+            picked(i) => { root.address-picked(i); }
+        }
+    }
+    if url != "": FormRow {
+        label: @tr("Link");
+        HorizontalLayout {
+            spacing: 8px;
+            Text {
+                text: url;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                color: Theme.text;
+                overflow: elide;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+            Button {
+                y: (parent.height - self.height) / 2;
+                text: @tr("Copy");
+                tip: @tr("Copy the link, to open it on a device that can't scan the code");
+                clicked => { root.copy(); }
+            }
+        }
+    }
+    FormRow {
+        label: @tr("Resolution");
+        ChoiceField {
+            y: (parent.height - self.height) / 2;
+            items: ["480p", "720p", "1080p"];
+            tip: @tr("The size the browser sends; a camera that can't do it sends what it can");
+            current: size-index;
+            picked(i) => { root.size-picked(i); }
+        }
+    }
+    FormRow {
+        label: @tr("Frame rate");
+        ChoiceField {
+            y: (parent.height - self.height) / 2;
+            items: ["15 fps", "24 fps", "30 fps"];
+            current: fps-index;
+            picked(i) => { root.fps-picked(i); }
+        }
+    }
+    Note { text: note-text; }
+}

@@ -1,0 +1,8 @@
+[package]
+name = "telescope-ui-kit"
+description = "The Slint theme and the shared widgets every card is built from"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]

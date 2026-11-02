@@ -1,0 +1,31 @@
+[package]
+name = "telescope-system"
+description = "Tray, notifications, autostart, one running copy, global shortcuts and updates"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+telescope-core.workspace = true
+log.workspace = true
+serde_json.workspace = true
+ring.workspace = true
+libc.workspace = true
+ureq = { workspace = true, features = ["platform-verifier"] }
+zip.workspace = true
+tar.workspace = true
+flate2.workspace = true
+serde.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus.workspace = true
+
+[dev-dependencies]
+i-slint-backend-testing = "=1.18.1"
+slint-interpreter.workspace = true
+telescope-ui-kit.workspace = true
+
+# Its own main: confirm_on_terminate has to run before any other thread starts, as at the top of the app's main
+[[test]]
+name = "terminate"
+harness = false

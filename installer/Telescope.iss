@@ -1,8 +1,9 @@
 ; Telescope's Windows setup: a per-user install of the same folder Telescope-windows.zip holds.
 ; Build: installer/build.ps1 (it passes the defines below), or by hand:
 ;   iscc /DAppVersion=3.3.1 /DBuild=0 /DSourceDir=..\bundle /DOutputDir=..\out installer\Telescope.iss
+; /DRust=1 packs rust/tools/build_windows.ps1's folder and adds the clean-up of what in-app updates bring.
 ;
-; Per-user on purpose: the app updates itself by swapping files in its own folder (desktop/updates.py), so the
+; Per-user on purpose: the app updates itself by swapping files in its own folder (rust/crates/system/src/updates.rs), so the
 ; folder has to be writable without admin. {autopf} is %LOCALAPPDATA%\Programs here. Program Files\Telescope
 ; belongs to the camera driver, which the app's first-run checklist installs with its own UAC prompt.
 
@@ -48,7 +49,7 @@ ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 #endif
 MinVersion=10.0
-SetupIconFile=..\desktop\resources\telescope.ico
+SetupIconFile=..\rust\app\resources\telescope.ico
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName=Telescope
 WizardStyle=modern
@@ -80,9 +81,18 @@ Name: "{autodesktop}\Telescope"; Filename: "{app}\{#AppExe}"; AppUserModelID: "L
 Filename: "{app}\{#AppExe}"; Description: "Open Telescope"; Flags: nowait postinstall skipifsilent
 
 ; What the app adds after setup, which the uninstall log can't know about: libraries from in-app updates, the updater's
-; working files (desktop/update_guard.py) and the log shortcut (desktop/telescope/diagnostics.py).
+; working files (rust/crates/system/src/update_guard.rs) and the log shortcut (rust/crates/core/src/diagnostics.rs).
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\lib-*"
+#ifdef Rust
+; An in-app update can bring FFmpeg's next major version and new ui-kit files, which the uninstall log doesn't know
+Type: files; Name: "{app}\avcodec-*.dll"
+Type: files; Name: "{app}\avutil-*.dll"
+Type: files; Name: "{app}\swresample-*.dll"
+Type: files; Name: "{app}\swscale-*.dll"
+Type: files; Name: "{app}\vcruntime140.dll"
+Type: filesandordirs; Name: "{app}\ui-kit"
+#endif
 Type: filesandordirs; Name: "{app}\.update-staging"
 Type: filesandordirs; Name: "{app}\.previous"
 Type: files; Name: "{app}\.update.json"
@@ -93,9 +103,11 @@ Type: files; Name: "{app}\.moved-from.tmp"
 Type: files; Name: "{app}\TelescopeDesktop.old.exe"
 Type: files; Name: "{app}\TelescopeDesktop.failed.exe"
 Type: files; Name: "{app}\telescope.log"
-; adb as the app downloads it (desktop/telescope/platform/adb_download.py), and a download cut short
+; adb as the app downloads it (rust/crates/link/src/adb_download.rs), and a download cut short
 Type: filesandordirs; Name: "{localappdata}\Telescope\platform-tools"
 Type: filesandordirs; Name: "{localappdata}\Telescope\.adb-*"
+; The vision download (rust/crates/vision/src/pack.rs), which can be fetched again
+Type: filesandordirs; Name: "{localappdata}\Telescope\vision"
 Type: dirifempty; Name: "{localappdata}\Telescope"
 Type: filesandordirs; Name: "{app}\unitycapture"
 Type: dirifempty; Name: "{app}"
@@ -103,7 +115,7 @@ Type: dirifempty; Name: "{app}"
 [Code]
 const
   RunKey = 'Software\Microsoft\Windows\CurrentVersion\Run';
-  RunValue = 'Telescope';  // desktop/telescope/platform/autostart.py
+  RunValue = 'Telescope';  // rust/crates/system/src/autostart.rs
 
 // "Open at sign-in" points the Run key at this copy's exe. Once it's gone that entry would only fail at every
 // sign-in, so take it out, but leave one that points at some other copy of Telescope alone.
@@ -166,14 +178,17 @@ begin
   Result := '''' + Value + '''';
 end;
 
-// The virtual camera the app installs for every account (desktop/telescope/platform/windows.py)
+// The virtual camera the app installs for every account (rust/crates/outputs/src/wininstall.rs): UnityCapture, or on
+// Windows 11 its own (rust/windows/virtualcamera)
 function CameraInstalled(): Boolean;
 begin
   Result := DirExists(ExpandConstant('{commonpf64}\Telescope\UnityCapture')) or
-            RegKeyExists(HKLM64, 'SOFTWARE\Classes\CLSID\{5C2CD55C-92AD-4999-8666-912BD3E70010}');
+            DirExists(ExpandConstant('{commonpf64}\Telescope\VirtualCamera')) or
+            RegKeyExists(HKLM64, 'SOFTWARE\Classes\CLSID\{5C2CD55C-92AD-4999-8666-912BD3E70010}') or
+            RegKeyExists(HKLM64, 'SOFTWARE\Classes\CLSID\{D1063481-2B46-4750-8A9D-85F69573355A}');
 end;
 
-// As admin: unregister the camera and delete Program Files\Telescope (Camera), and this copy's firewall rules
+// As admin: unregister the cameras and delete Program Files\Telescope (Camera), and this copy's firewall rules
 procedure RunAsAdmin(Camera: Boolean);
 var
   Script: String;
@@ -181,16 +196,21 @@ var
 begin
   Script := '';
   if Camera then
-    // Files a camera app still has open go at the next restart, the way setups replace locked files
-    Script := '$uc = ' + PsQuote(ExpandConstant('{commonpf64}\Telescope')) + '; ' +
+    // Files a camera app still has open go at the next restart, the way setups replace locked files. A Windows 11 camera
+    // Windows wouldn't remove (camera access off) keeps its folder so it still works, and the script exits with 21
+    Script := '$uc = ' + PsQuote(ExpandConstant('{commonpf64}\Telescope')) + '; $keep = $null; ' +
       '$rs = Join-Path $env:windir ''Sysnative\regsvr32.exe''; if (-not (Test-Path -LiteralPath $rs)) { $rs = Join-Path $env:windir ''System32\regsvr32.exe'' }; ' +
-      'foreach ($n in ''UnityCaptureFilter64.dll'', ''UnityCaptureFilter32.dll'') { ' +
-      '$d = Join-Path (Join-Path $uc ''UnityCapture'') $n; if (Test-Path -LiteralPath $d) { & $rs /s /u $d | Out-Null } }; ' +
-      'Remove-Item -LiteralPath $uc -Recurse -Force -ErrorAction SilentlyContinue; ' +
-      'if (Test-Path -LiteralPath $uc) { ' +
+      'foreach ($n in ''UnityCapture\UnityCaptureFilter64.dll'', ''UnityCapture\UnityCaptureFilter32.dll'', ''VirtualCamera\TelescopeCamera.dll'') { ' +
+      '$d = Join-Path $uc $n; if (Test-Path -LiteralPath $d) { ' +
+      '$r = Start-Process $rs -ArgumentList ''/s'', ''/u'', ([char]34 + $d + [char]34) -Wait -PassThru; ' +
+      'if ($r.ExitCode -and $n -like ''VirtualCamera\*'') { $keep = Split-Path $d } } }; ' +
+      '$gone = if ($keep) { @(Get-ChildItem -LiteralPath $uc -Force | Where-Object { $_.FullName -ne $keep }) } else { @(Get-Item -LiteralPath $uc) }; ' +
+      'foreach ($g in $gone) { Remove-Item -LiteralPath $g.FullName -Recurse -Force -ErrorAction SilentlyContinue }; ' +
+      '$left = @(foreach ($g in $gone) { if (Test-Path -LiteralPath $g.FullName) { ' +
+      '@(Get-ChildItem -LiteralPath $g.FullName -Recurse -Force | Sort-Object { $_.FullName.Length } -Descending) + @(Get-Item -LiteralPath $g.FullName) } }); ' +
+      'if ($left) { ' +
       '$k = ''HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager''; $p = @(); ' +
       '$old = (Get-ItemProperty -LiteralPath $k -ErrorAction SilentlyContinue).PendingFileRenameOperations; if ($old) { $p += $old }; ' +
-      '$left = @(Get-ChildItem -LiteralPath $uc -Recurse -Force | Sort-Object { $_.FullName.Length } -Descending) + @(Get-Item -LiteralPath $uc); ' +
       'foreach ($i in $left) { $p += ''\??\'' + $i.FullName; $p += '''' }; ' +
       'Set-ItemProperty -LiteralPath $k -Name PendingFileRenameOperations -Type MultiString -Value ([string[]]$p) }; ';
   Script := Script +
@@ -198,17 +218,33 @@ begin
     PsQuote(ExpandConstant('{localappdata}\Telescope\platform-tools\adb.exe')) + '); ' +
     'Get-NetFirewallApplicationFilter | Where-Object { $ours -contains $_.Program } | Get-NetFirewallRule | ' +
     'Remove-NetFirewallRule';
+  if Camera then
+    Script := Script + '; if ($keep) { exit 21 }';
   // Not {sysnative}: UAC can't find that path. This PowerShell is 32-bit like the uninstaller, hence {commonpf64} and Sysnative regsvr32
   repeat
     if ShellExec('runas', ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
                  '-NoProfile -NonInteractive -Command "' + Script + '"', '', SW_HIDE, ewWaitUntilTerminated,
                  ResultCode) then
-      Exit;
-    Log('The admin clean-up didn''t run: ' + SysErrorMessage(ResultCode));
-  until not Camera or UninstallSilent() or
-        (MsgBox('The Telescope camera is still installed because Windows didn''t get admin permission to remove it.' + #13#10#13#10 +
-                'You can try again, or remove it later by installing Telescope again and uninstalling it.',
-                mbError, MB_RETRYCANCEL) <> IDRETRY);
+    begin
+      if not Camera or (ResultCode <> 21) then
+        Exit;
+      Log('Windows didn''t remove the Windows 11 camera');
+      if UninstallSilent() or
+         (MsgBox('Windows didn''t remove the Telescope camera. That happens when camera access is off in Settings > Privacy & security > Camera.' + #13#10#13#10 +
+                 'Turn it on and try again, or remove the camera later by installing Telescope again and uninstalling it.',
+                 mbError, MB_RETRYCANCEL) <> IDRETRY) then
+        Exit;
+    end
+    else
+    begin
+      Log('The admin clean-up didn''t run: ' + SysErrorMessage(ResultCode));
+      if not Camera or UninstallSilent() or
+         (MsgBox('The Telescope camera is still installed because Windows didn''t get admin permission to remove it.' + #13#10#13#10 +
+                 'You can try again, or remove it later by installing Telescope again and uninstalling it.',
+                 mbError, MB_RETRYCANCEL) <> IDRETRY) then
+        Exit;
+    end;
+  until False;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
@@ -235,7 +271,7 @@ begin
   end;
   if CurUninstallStep = usPostUninstall then
   begin
-    DelTree(GetEnv('TEMP') + '\Telescope', True, True, True);  // the log (desktop/telescope/diagnostics.py)
+    DelTree(GetEnv('TEMP') + '\Telescope', True, True, True);  // the log (rust/crates/core/src/diagnostics.rs)
     // adb still locked (a server that outlived Telescope): delete it at the next sign-in, which needs no admin
     Adb := ExpandConstant('{localappdata}\Telescope');
     if DirExists(Adb + '\platform-tools') then

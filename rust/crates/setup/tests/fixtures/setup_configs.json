@@ -1,0 +1,1214 @@
+[
+ {
+  "plugin": "setup",
+  "input": {},
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "canvas_preset": "720p 16:9 - 1280 x 720"
+  },
+  "output": {
+   "canvas_preset": "720p 16:9 - 1280 x 720",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   1280,
+   720
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "canvas_preset": "1280 × 720"
+  },
+  "output": {
+   "canvas_preset": "1280 × 720",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "canvas_preset": "Custom...",
+   "custom_canvas_w": 1111,
+   "custom_canvas_h": 777
+  },
+  "output": {
+   "canvas_preset": "Custom...",
+   "custom_canvas_w": 1112,
+   "custom_canvas_h": 778,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   1112,
+   778
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "canvas_preset": "Custom...",
+   "custom_canvas_w": 7680,
+   "custom_canvas_h": 4319
+  },
+  "output": {
+   "canvas_preset": "Custom...",
+   "custom_canvas_w": 7680,
+   "custom_canvas_h": 4320,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   7680,
+   4320
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "canvas_preset": "Custom...",
+   "custom_canvas_w": 7679,
+   "custom_canvas_h": 4320
+  },
+  "output": {
+   "canvas_preset": "Custom...",
+   "custom_canvas_w": 7680,
+   "custom_canvas_h": 4320,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   7680,
+   4320
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "canvas_preset": "Custom...",
+   "custom_canvas_w": "1920",
+   "custom_canvas_h": 1080
+  },
+  "output": {
+   "canvas_preset": "Custom...",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   1920,
+   1080
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "canvas_preset": "Custom...",
+   "custom_canvas_w": 0,
+   "custom_canvas_h": 720
+  },
+  "output": {
+   "canvas_preset": "Custom...",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   1920,
+   1080
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "canvas_preset": "Custom...",
+   "custom_canvas_w": 63,
+   "custom_canvas_h": 64
+  },
+  "output": {
+   "canvas_preset": "Custom...",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   1920,
+   1080
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "canvas_preset": "Custom...",
+   "custom_canvas_w": 64,
+   "custom_canvas_h": 4321
+  },
+  "output": {
+   "canvas_preset": "Custom...",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   1920,
+   1080
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "canvas_preset": "Custom...",
+   "custom_canvas_w": 1920.0,
+   "custom_canvas_h": 1080
+  },
+  "output": {
+   "canvas_preset": "Custom...",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   1920,
+   1080
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "canvas_preset": "Custom...",
+   "custom_canvas_w": true,
+   "custom_canvas_h": 1080
+  },
+  "output": {
+   "canvas_preset": "Custom...",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   1920,
+   1080
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "canvas_preset": 5
+  },
+  "output": {
+   "canvas_preset": 5,
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "canvas_preset": null
+  },
+  "output": {
+   "canvas_preset": null,
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "max_zoom": 2
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 2,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "max_zoom": 30
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 30,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "max_zoom": 1
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "max_zoom": 31
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "max_zoom": "8"
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "max_zoom": true
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "max_zoom": 12.0
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "max_gain": 12
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "max_gain": 48
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 48,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "max_gain": 30
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "max_gain": 24.0
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 24.0,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "max_gain": "36"
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "max_gain": true
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "max_gain": null
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "limiter": false
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": false,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "limiter": 0
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "limiter": null
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "limiter": "off"
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "hw_decode": true
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": true,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "hw_decode": 1
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "hw_decode": "yes"
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "power_saving": true
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": true,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "power_saving": 1
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "plugin_hues": false
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": false,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "plugin_hues": 0
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "plugin_hues": null
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "language": "sv"
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": "sv"
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "language": 5
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "language": null
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": ""
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "setup",
+  "input": {
+   "language": "xx"
+  },
+  "output": {
+   "canvas_preset": "Auto (from first frame)",
+   "custom_canvas_w": 1920,
+   "custom_canvas_h": 1080,
+   "max_zoom": 10,
+   "max_gain": 12,
+   "limiter": true,
+   "hw_decode": false,
+   "power_saving": false,
+   "plugin_hues": true,
+   "language": "xx"
+  },
+  "canvas": [
+   null,
+   null
+  ]
+ },
+ {
+  "plugin": "monitoring",
+  "input": {},
+  "output": {
+   "battery_alert": 20,
+   "temp_alert": 45,
+   "battery_notify": true,
+   "battery_stop": false,
+   "temp_notify": true,
+   "temp_stop": false
+  }
+ },
+ {
+  "plugin": "monitoring",
+  "input": {
+   "battery_alert": 30,
+   "temp_alert": 50,
+   "battery_notify": false,
+   "battery_stop": true,
+   "temp_notify": false,
+   "temp_stop": true
+  },
+  "output": {
+   "battery_alert": 30,
+   "temp_alert": 50,
+   "battery_notify": false,
+   "battery_stop": true,
+   "temp_notify": false,
+   "temp_stop": true
+  }
+ },
+ {
+  "plugin": "monitoring",
+  "input": {
+   "battery_alert": 1,
+   "temp_alert": 1
+  },
+  "output": {
+   "battery_alert": 5,
+   "temp_alert": 35,
+   "battery_notify": true,
+   "battery_stop": false,
+   "temp_notify": true,
+   "temp_stop": false
+  }
+ },
+ {
+  "plugin": "monitoring",
+  "input": {
+   "battery_alert": 100,
+   "temp_alert": 100
+  },
+  "output": {
+   "battery_alert": 95,
+   "temp_alert": 65,
+   "battery_notify": true,
+   "battery_stop": false,
+   "temp_notify": true,
+   "temp_stop": false
+  }
+ },
+ {
+  "plugin": "monitoring",
+  "input": {
+   "battery_alert": 0,
+   "temp_alert": 0
+  },
+  "output": {
+   "battery_alert": 20,
+   "temp_alert": 45,
+   "battery_notify": true,
+   "battery_stop": false,
+   "temp_notify": true,
+   "temp_stop": false
+  }
+ },
+ {
+  "plugin": "monitoring",
+  "input": {
+   "battery_alert": "40",
+   "temp_alert": " 50 "
+  },
+  "output": {
+   "battery_alert": 40,
+   "temp_alert": 50,
+   "battery_notify": true,
+   "battery_stop": false,
+   "temp_notify": true,
+   "temp_stop": false
+  }
+ },
+ {
+  "plugin": "monitoring",
+  "input": {
+   "battery_alert": 30.9,
+   "temp_alert": 50.9
+  },
+  "output": {
+   "battery_alert": 30,
+   "temp_alert": 50,
+   "battery_notify": true,
+   "battery_stop": false,
+   "temp_notify": true,
+   "temp_stop": false
+  }
+ },
+ {
+  "plugin": "monitoring",
+  "input": {
+   "battery_alert": true,
+   "temp_alert": true
+  },
+  "output": {
+   "battery_alert": 5,
+   "temp_alert": 35,
+   "battery_notify": true,
+   "battery_stop": false,
+   "temp_notify": true,
+   "temp_stop": false
+  }
+ },
+ {
+  "plugin": "monitoring",
+  "input": {
+   "battery_alert": "lots"
+  },
+  "output": null
+ },
+ {
+  "plugin": "monitoring",
+  "input": {
+   "temp_alert": "1.5"
+  },
+  "output": null
+ },
+ {
+  "plugin": "monitoring",
+  "input": {
+   "battery_alert": [
+    1
+   ]
+  },
+  "output": null
+ },
+ {
+  "plugin": "monitoring",
+  "input": {
+   "temp_alert": {
+    "x": 1
+   }
+  },
+  "output": null
+ },
+ {
+  "plugin": "monitoring",
+  "input": {
+   "battery_alert": null,
+   "temp_alert": null
+  },
+  "output": {
+   "battery_alert": 20,
+   "temp_alert": 45,
+   "battery_notify": true,
+   "battery_stop": false,
+   "temp_notify": true,
+   "temp_stop": false
+  }
+ },
+ {
+  "plugin": "monitoring",
+  "input": {
+   "battery_alert": "",
+   "temp_alert": []
+  },
+  "output": {
+   "battery_alert": 20,
+   "temp_alert": 45,
+   "battery_notify": true,
+   "battery_stop": false,
+   "temp_notify": true,
+   "temp_stop": false
+  }
+ },
+ {
+  "plugin": "monitoring",
+  "input": {
+   "battery_notify": 0,
+   "temp_notify": null
+  },
+  "output": {
+   "battery_alert": 20,
+   "temp_alert": 45,
+   "battery_notify": true,
+   "battery_stop": false,
+   "temp_notify": true,
+   "temp_stop": false
+  }
+ },
+ {
+  "plugin": "monitoring",
+  "input": {
+   "battery_stop": "yes",
+   "temp_stop": 1
+  },
+  "output": {
+   "battery_alert": 20,
+   "temp_alert": 45,
+   "battery_notify": true,
+   "battery_stop": false,
+   "temp_notify": true,
+   "temp_stop": false
+  }
+ },
+ {
+  "plugin": "monitoring",
+  "input": {
+   "battery_stop": true,
+   "temp_stop": true
+  },
+  "output": {
+   "battery_alert": 20,
+   "temp_alert": 45,
+   "battery_notify": true,
+   "battery_stop": true,
+   "temp_notify": true,
+   "temp_stop": true
+  }
+ }
+]

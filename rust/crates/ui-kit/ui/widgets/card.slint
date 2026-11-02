@@ -1,0 +1,352 @@
+// The card frame and its rows (widgets/common.py: create_card, add_card_header, add_section_heading, control_row).
+
+import { Theme } from "../theme.slint";
+import { Icon, FocusRing, Button } from "basics.slint";
+import { Folds, FoldText, Reveal } from "folds.slint";
+import { Switch } from "switch.slint";
+import { TipBody, TipUse } from "tip.slint";
+import { SearchWords } from "setting.slint";
+
+// collapse.py's _FoldButton: the title as a named keyboard toggle that folds what's under it. A blank key: no folding.
+component FoldTitle inherits Rectangle {
+    in property <string> key;
+    in property <string> text;
+    in property <length> font-size;
+    in property <int> font-weight: 600;
+    in property <color> text-color;
+    in property <color> hot-color;
+    in property <bool> folded;
+    // Hovering the icon chip or rule beside it counts too
+    in property <bool> hovered-elsewhere;
+    // A title in a dimmed card never looks hovered, though it still folds
+    in property <bool> card-enabled: true;
+    out property <bool> hot: card-enabled && (touch.has-hover || hovered-elsewhere);
+    property <bool> foldable: key != "";
+    height: 30px;
+    width: label.preferred-width + (foldable ? 12px : 0px);
+    accessible-role: button;
+    accessible-label: text;
+    accessible-checkable: foldable;
+    accessible-checked: foldable && !folded;
+    accessible-description: !foldable ? "" : folded ? FoldText.collapsed : FoldText.expanded;
+    accessible-action-default => { if (foldable) { Folds.toggle(key); } }
+    forward-focus: focus;
+    // Folding moves keyboard focus out of the rows it hides, onto the title
+    public function take-focus() { focus.focus(); }
+    focus := FocusScope {
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+        enabled: foldable;
+        key-pressed(e) => {
+            if (e.text == " " || e.text == "\n") {
+                if (!e.repeat) { Folds.toggle(key); }
+                return accept;
+            }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: 6px; x: 0; y: -3px; width: parent.width; height: parent.height + 6px; }
+    usage := TipUse { hover: touch.has-hover; }
+    touch := TouchArea {
+        enabled: foldable;
+        mouse-cursor: foldable ? pointer : default;
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
+        scroll-event(e) => { usage.wheel(); reject }
+        clicked => { Folds.toggle(key); }
+    }
+    if foldable && !usage.used: Tooltip { TipBody { says: folded ? FoldText.collapsed : FoldText.expanded; } }
+    // Qt indents a QSS-styled label's text by 6px; a settings card's title (which doesn't fold) sits right by its chip
+    label := Text {
+        x: foldable ? 6px : 0px;
+        text: root.text;
+        font-family: Theme.font;
+        font-size: root.font-size;
+        font-weight: root.font-weight;
+        color: root.hot && foldable ? hot-color : root.text-color;
+        vertical-alignment: center;
+    }
+}
+
+// The standard card: QFrame#card with card_layout's margins and add_card_header's icon chip and title.
+export component Card inherits Rectangle {
+    in property <string> title;
+    in property <string> keywords;
+    in property <image> icon;
+    in property <color> hue: Theme.accent;
+    // A disabled card's chip icon greys out, as Qt draws a disabled QLabel's pixmap
+    in property <bool> enabled: true;
+    // Nothing in the card takes a click or a key (a plugin's card before a phone is paired)
+    in property <bool> blocked;
+    in property <string> note;
+    // "<plugin>/<title in English>", set by the window; blank leaves the card unfoldable
+    in property <string> fold-key;
+    out property <bool> folded: fold-key != "" && Folds.is-folded(fold-key, Folds.version);
+    // The card's one header button, top right (add_card_header's action): a quiet icon button
+    in property <bool> has-action;
+    in property <image> action-icon;
+    in property <string> action-label;
+    // Shown next to the action's icon when set (card_action with text, like Connection's Add phone)
+    in property <string> action-text;
+    // The action icon's colour (the Microphone card's Mute turns red while muted)
+    in property <color> action-tint: Theme.text-dim;
+    // The action a key can stand in for: a right-click on the header button offers a keyboard shortcut
+    in property <string> action-shortcut;
+    callback action;
+    // The action greys out (New link on a sign that's switched off)
+    in property <bool> action-enabled: true;
+    // An on/off switch at the far right of the header (the Microphone card's)
+    in property <bool> has-switch;
+    in-out property <bool> switch-checked;
+    in property <bool> switch-enabled: true;
+    in property <string> switch-label;
+    in property <string> switch-tip;
+    // The action a key can stand in for: a right-click on the switch offers a keyboard shortcut
+    in property <string> switch-shortcut;
+    callback switch-toggled(bool);
+    // A second icon button before the action (Connection's setup guide)
+    in property <bool> has-extra;
+    in property <image> extra-icon;
+    in property <string> extra-label;
+    in property <string> extra-name: extra-label;
+    callback extra;
+    // A folding card's title is a styled label 6px taller than the 30px chip, a header switch's row 2px (its 32px size hint)
+    property <length> lift: fold-key != "" ? 3px : has-switch ? 1px : 0px;
+    // The header stays out of `blocked`'s cover, so its buttons go off by themselves; the title still folds
+    property <bool> live: enabled && !blocked;
+    // What Settings' search finds a card by, and the settings under it
+    accessible-role: groupbox;
+    accessible-id: "card";
+    accessible-label: title;
+    if keywords != "": SearchWords { words: keywords; card: true; }
+    background: Theme.surface;
+    border-width: 1px;
+    border-color: Theme.border;
+    border-radius: 14px;
+    VerticalLayout {
+        padding-left: 17px;
+        padding-right: 17px;
+        padding-top: 15px;
+        padding-bottom: 17px;
+        // Qt skips a layout with nothing shown in it, spacing and all; a folding card's is a widget of its own, which stays
+        spacing: folded || (fold-key == "" && body.preferred-height == 0) ? 0 : 8px;
+        HorizontalLayout {
+            spacing: 10px;
+            padding-bottom: 2px;
+            height: 32px + 2 * lift;
+            Rectangle {
+                y: lift;
+                width: 30px;
+                height: 30px;
+                border-radius: 9px;
+                background: hue.with-alpha(0.14);
+                chip-touch := TouchArea {
+                    enabled: fold-key != "";
+                    mouse-cursor: fold-key != "" ? pointer : default;
+                    clicked => { Folds.toggle(fold-key); }
+                }
+                Icon { source: icon; tint: enabled ? hue : Theme.text-disabled; width: 16px; height: 16px; accessible-role: none; }
+            }
+            fold-title := FoldTitle {
+                y: lift;
+                key: fold-key;
+                text: title;
+                font-size: Theme.card-title;
+                text-color: Theme.text;
+                hot-color: Theme.text-hover;
+                folded: root.folded;
+                card-enabled: root.enabled;
+                hovered-elsewhere: chip-touch.has-hover;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            // card_action with no text: Qt keeps room for the text either side of the icon
+            if has-extra: Button {
+                y: lift;
+                // card_action with only an icon: 10px each side of it inside a 1px border
+                height: 30px;
+                width: 40px;
+                role: "quiet";
+                padding-x: 0px;
+                has-icon: true;
+                icon: extra-icon;
+                icon-tint: Theme.text-dim;
+                enabled: live;
+                tip: extra-label;
+                accessible-label: extra-name;
+                clicked => { root.extra(); }
+            }
+            if has-action && action-text != "": Button {
+                y: lift;
+                height: 30px;
+                role: "quiet";
+                // card_action's 10px padding sits inside its 1px border; here the border is inside the padding
+                padding-x: 11px;
+                gap: 6px;
+                text: action-text;
+                has-icon: true;
+                icon: action-icon;
+                icon-tint: action-tint;
+                enabled: live && action-enabled;
+                quiet-when-disabled: true;
+                tip: action-label;
+                accessible-label: action-text;
+                shortcut: root.action-shortcut;
+                clicked => { root.action(); }
+            }
+            if has-action && action-text == "": Button {
+                y: lift;
+                height: 30px;
+                width: 30px;
+                role: "quiet";
+                padding-x: 0px;
+                has-icon: true;
+                icon: action-icon;
+                icon-tint: Theme.text-dim;
+                enabled: live && action-enabled;
+                quiet-when-disabled: true;
+                tip: action-label;
+                accessible-label: action-label;
+                shortcut: root.action-shortcut;
+                clicked => { root.action(); }
+            }
+            if has-switch: Rectangle {
+                width: 36px;
+                // Centred on the 30px chip, as Qt's header row centres it
+                Switch {
+                    y: lift + 5px;
+                    checked <=> root.switch-checked;
+                    enabled: live && root.switch-enabled;
+                    label: root.switch-label;
+                    tip: root.switch-tip;
+                    shortcut: root.switch-shortcut;
+                    toggled(on) => { root.switch-toggled(on); }
+                }
+            }
+            if note != "": Text {
+                text: note;
+                font-family: Theme.font;
+                font-size: Theme.small;
+                color: Theme.text-faint;
+                vertical-alignment: center;
+            }
+        }
+        // The rows sit in a box that is as tall as they are, or no taller than nothing while folded
+        body := Rectangle {
+            min-height: 0px;
+            preferred-height: folded ? 0px : rows.preferred-height;
+            max-height: folded ? 0px : 100000px;
+            vertical-stretch: folded ? 0 : 1;
+            clip: folded;
+            rows := VerticalLayout {
+                width: parent.width;
+                height: parent.height;
+                spacing: 8px;
+                visible: !folded;
+                @children
+            }
+        }
+    }
+    changed folded => { if (folded) { fold-title.take-focus(); } }
+    // dim_until_paired's setEnabled(False): over the rows and outside the layout, so it takes no row of its own. The
+    // header stays out of it: a dimmed card still folds.
+    if blocked: TouchArea {
+        y: 15px + (fold-key != "" ? 38px : 32px);
+        height: root.height - self.y;
+    }
+}
+
+// add_section_heading: a small icon, the name and a hairline to the card's edge.
+export component SectionHeading inherits HorizontalLayout {
+    in property <string> text;
+    in property <image> icon;
+    height: 25px;
+    padding-top: 4px;
+    spacing: 14px;
+    Rectangle {
+        width: 13px;
+        Icon { source: icon; tint: Theme.text-faint; width: 13px; height: 13px; }
+    }
+    Text {
+        text: root.text;
+        font-family: Theme.font;
+        font-size: Theme.small;
+        font-weight: 600;
+        color: Theme.text-faint;
+        vertical-alignment: center;
+    }
+    Rectangle {
+        horizontal-stretch: 1;
+        Rectangle { height: 1px; width: parent.width; background: Theme.border; }
+    }
+}
+
+// control_row: the dim label in a 96px column, then the control, 36px tall at least.
+export component FormRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> keywords;
+    in property <bool> enabled: true;
+    spacing: 10px;
+    min-height: 36px;
+    Text {
+        text: label;
+        width: 96px;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: enabled ? Theme.text-dim : Theme.text-disabled;
+        vertical-alignment: center;
+        // control_row's label is what the settings search finds
+        accessible-id: "setting";
+        if keywords != "": SearchWords { words: keywords; }
+    }
+    @children
+}
+
+// A section of a card that folds by its heading (add_section_heading plus collapse.py). key is the heading in English,
+// scope the card's fold-key.
+export component Section inherits VerticalLayout {
+    in property <string> key;
+    in property <string> title;
+    in property <image> icon;
+    in property <string> scope;
+    property <string> fold-key: scope == "" ? "" : scope + "/" + key;
+    out property <bool> folded: fold-key != "" && Folds.is-folded(fold-key, Folds.version);
+    spacing: folded ? 0 : 8px;
+    changed folded => { if (folded) { section-title.take-focus(); } }
+    HorizontalLayout {
+        height: 25px;
+        padding-top: 4px;
+        spacing: 8px;
+        Rectangle {
+            width: 13px;
+            icon-touch := TouchArea { enabled: fold-key != ""; clicked => { Folds.toggle(fold-key); } }
+            Icon { source: icon; tint: Theme.text-faint; width: 13px; height: 13px; accessible-role: none; }
+        }
+        section-title := FoldTitle {
+            key: fold-key;
+            text: title;
+            height: 21px;
+            font-size: Theme.small;
+            text-color: Theme.text-faint;
+            hot-color: Theme.text;
+            folded: root.folded;
+            hovered-elsewhere: icon-touch.has-hover || rule-touch.has-hover;
+        }
+        Rectangle {
+            horizontal-stretch: 1;
+            rule-touch := TouchArea { enabled: fold-key != ""; clicked => { Folds.toggle(fold-key); } }
+            Rectangle { height: 1px; width: parent.width; background: Theme.border; }
+        }
+    }
+    Rectangle {
+        min-height: 0px;
+        preferred-height: folded ? 0px : rows.preferred-height;
+        max-height: folded ? 0px : 100000px;
+        vertical-stretch: folded ? 0 : 1;
+        clip: folded;
+        rows := VerticalLayout {
+            width: parent.width;
+            height: parent.height;
+            spacing: 8px;
+            visible: !folded;
+            @children
+        }
+    }
+}

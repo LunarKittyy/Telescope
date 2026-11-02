@@ -1,0 +1,167 @@
+name: Rust packages
+
+# The desktop packages, in the same shape as the Python release so the Python app's updater can install them (rust/PLAN.md, "The update path").
+# Checks pull requests that touch the packaging; release.yml calls it with a build number and channel to make the release bundles.
+on:
+  pull_request:
+    paths:
+      - 'rust/tools/**'
+      - 'rust/windows/**'
+      - 'installer/**'
+      - '.github/workflows/rust-package.yml'
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      build:
+        type: string
+        required: true
+      channel:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # The small LGPL FFmpeg. Both come from the same recipe on the same old Ubuntu, Windows' through mingw
+  ffmpeg:
+    name: ffmpeg (${{ matrix.target }})
+    strategy:
+      matrix:
+        target: [linux, windows]
+    runs-on: ubuntu-latest
+    container: ubuntu:22.04
+    steps:
+      - name: Install what it builds with
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends build-essential curl ca-certificates xz-utils nasm patchelf pkg-config \
+            libva-dev libdrm-dev zlib1g-dev gcc-mingw-w64-x86-64-win32 libz-mingw-w64-dev
+
+      - uses: actions/checkout@v7
+
+      - id: cached
+        uses: actions/cache@v4
+        with:
+          path: ffmpeg
+          key: ffmpeg-${{ matrix.target }}-${{ hashFiles('rust/tools/build_ffmpeg.sh') }}
+
+      - name: Build FFmpeg
+        if: steps.cached.outputs.cache-hit != 'true'
+        run: bash rust/tools/build_ffmpeg.sh ${{ matrix.target }} ffmpeg
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ffmpeg-${{ matrix.target }}
+          path: ffmpeg/
+          retention-days: 1
+
+  linux:
+    name: package (linux)
+    needs: ffmpeg
+    runs-on: ubuntu-latest
+    # What it's built on sets the oldest Linux it runs on
+    container: ubuntu:22.04
+    env:
+      RUST_MIN_STACK: 8388608
+    steps:
+      - name: Install what it builds with
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends build-essential curl ca-certificates git cmake nasm clang libclang-dev pkg-config \
+            python3 python3-pip libfontconfig1-dev libxkbcommon-dev libva-dev libdrm-dev zlib1g-dev squashfs-tools
+          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: ffmpeg-linux
+          path: ffmpeg
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Build the package
+        run: rust/tools/package_linux.sh --ffmpeg ffmpeg --out bundle --channel "${{ inputs.channel || 'dev' }}" --build "${{ inputs.build || '0' }}" --commit "$GITHUB_SHA"
+
+      - name: Check the package
+        run: |
+          version=$(tr -d '[:space:]' < VERSION)
+          python3 rust/tools/check_package.py --version "$version" --build "${{ inputs.build || '0' }}" --channel "${{ inputs.channel || 'dev' }}" bundle
+
+      # The one that ships is made in release.yml with the APK inside; this catches a problem before that
+      - name: Build and check an AppImage
+        run: |
+          version=$(tr -d '[:space:]' < VERSION)
+          rust/tools/package_appimage.sh bundle Telescope-x86_64.AppImage
+          python3 rust/tools/check_package.py --version "$version" --build "${{ inputs.build || '0' }}" --channel "${{ inputs.channel || 'dev' }}" Telescope-x86_64.AppImage
+          rm Telescope-x86_64.AppImage
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-bundle
+          path: bundle/
+          retention-days: 7
+
+  windows:
+    name: package (windows)
+    needs: ffmpeg
+    runs-on: windows-latest
+    env:
+      RUST_MIN_STACK: 8388608
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: ffmpeg-windows
+          path: ffmpeg
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Build the package
+        shell: pwsh
+        run: |
+          choco install nasm -y --no-progress
+          $env:PATH += ';C:\Program Files\NASM'
+          $env:FFMPEG_DIR = (Resolve-Path ffmpeg).Path
+          $env:LIBCLANG_PATH = 'C:\Program Files\LLVM\bin'
+          ./rust/tools/build_windows.ps1 -Out bundle -Channel "${{ inputs.channel || 'dev' }}" -Build "${{ inputs.build || '0' }}" -Commit "$env:GITHUB_SHA"
+
+      - name: Check the package
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          python rust/tools/check_package.py --version $version --build "${{ inputs.build || '0' }}" --channel "${{ inputs.channel || 'dev' }}" bundle
+          if ($LASTEXITCODE) { exit 1 }
+
+      # A release skips these two: release.yml's windows-setup builds the published setup with Telescope.apk inside and runs both on it
+      - name: Build and check the installer
+        if: ${{ !inputs.channel }}
+        shell: pwsh
+        run: |
+          ./installer/build.ps1 -Bundle bundle -Out setup -Build "0" -Fast -Rust
+          ./installer/check.ps1 -Setup setup/TelescopeSetup.exe -Rust
+
+      - name: Check an unzipped copy moves to the installed one
+        if: ${{ !inputs.channel }}
+        shell: pwsh
+        run: ./rust/tools/windows_move_check.ps1 -Setup setup/TelescopeSetup.exe -Bundle bundle
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-bundle
+          path: bundle/
+          retention-days: 7

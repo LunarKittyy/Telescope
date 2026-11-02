@@ -1,0 +1,30 @@
+[package]
+name = "telescope-outputs"
+description = "Virtual cameras (v4l2loopback on Linux, the Windows 11 camera and UnityCapture), the Stream output card and webcams"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+telescope-core.workspace = true
+log.workspace = true
+serde_json.workspace = true
+# The wait screen: pictures and GIFs people pick, in the formats its file dialog lists (Python's list of Qt's, less the ones with no decoder here), and the default screen drawn the way vcam.py paints it
+image = { workspace = true, features = ["png", "jpeg", "gif", "bmp", "ico", "pnm", "tga", "webp"] }
+tiny-skia = "0.12"
+
+ring.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc.workspace = true
+
+# Webcams through Media Foundation (windows is already in the tree through Slint's winit backend); downloading and
+# checking UnityCapture for the camera install
+[target.'cfg(windows)'.dependencies]
+ureq.workspace = true
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Media_MediaFoundation", "Win32_System_Com"] }
+
+[dev-dependencies]
+i-slint-backend-testing = "=1.18.1"
+slint-interpreter.workspace = true
+telescope-ui-kit.workspace = true

@@ -8,6 +8,7 @@ Find your problem below. Nothing there? Ask in [Q&A](https://github.com/LunarKit
 - [Video and quality](#video-and-quality)
 - [Camera controls](#camera-controls)
 - [Browser camera](#browser-camera)
+- [Webcams](#webcams)
 - [Shortcuts](#shortcuts)
 - [Plugins and extra downloads](#plugins-and-extra-downloads)
 - [Updates](#updates)
@@ -15,13 +16,16 @@ Find your problem below. Nothing there? Ask in [Q&A](https://github.com/LunarKit
 ## Starting Telescope
 
 **"Telescope can't start"**
-Another program is using port 47823, or an earlier Telescope didn't close properly and still holds it. Close that program (or end `TelescopeDesktop` in Task Manager on Windows, `main.py` on Linux) and open Telescope again.
+Another program is using port 47823, or an earlier Telescope didn't close properly and still holds it. Close that program (or end `TelescopeDesktop` in Task Manager on Windows, `telescope-rs` on Linux) and open Telescope again.
 
-**"Already running for another user" (Windows)**
+**"Telescope is already running" (Windows)**
 Another account on this PC has Telescope open and both use the same local port. Close it there. Linux accounts don't share it.
 
 **"Your settings couldn't be read"**
 `telescope_config.json` was damaged or edited wrongly, so Telescope started with defaults and paired phones need pairing again. The banner shows where the old file was copied (`telescope_config.json.invalid-...`). Fix it and put it back, or pair again.
+
+**"Cannot mount AppImage" (Linux)**
+The AppImage needs `fusermount` or `fusermount3`, which nearly every desktop has. Install `fuse3` from your distro, or start it with `./Telescope-x86_64.AppImage --appimage-extract-and-run`, which unpacks it into your temp folder and needs no FUSE at all. It starts slower that way and the unpacked copy stays in the temp folder until it's cleared.
 
 ## Virtual camera
 
@@ -32,7 +36,7 @@ Apps only look for cameras when they start. Restart the app if it was already op
 The `v4l2loopback` package isn't installed or loaded. Install it (`v4l2loopback-dkms` on Debian, Ubuntu and Arch, `v4l2loopback` on Fedora and Nobara through RPM Fusion, see [Manual setup](setup.md#linux)) and click **Start streaming** again. **Virtual camera & phone** in Settings can load it by hand.
 
 **Linux: `/dev/video11` is gone after a reboot**
-The module isn't loaded at boot. Starting a stream loads it again. Leave **Also switch it on at every startup** ticked in the password prompt, or switch on **Load when the computer starts** under Virtual camera & phone in Settings.
+The module isn't loaded at boot. Starting a stream loads it again. Leave **Also switch it on at every startup** ticked in the dialog that comes up when a stream starts, or switch on **Load when the computer starts** under Virtual camera & phone in Settings.
 
 **Linux: "Virtual camera is set up differently"**
 Another app (OBS's own virtual camera, for example) already loaded the module with different settings. Close that app, click **Unload** under Virtual camera & phone in Settings (or run `sudo modprobe -r v4l2loopback`) and click **Start streaming** again.
@@ -42,6 +46,15 @@ OBS or another app still holds the device. Close everything using the virtual ca
 
 **Windows: the virtual camera won't open**
 The driver isn't registered. Open **Virtual camera & phone** in Settings and reinstall it.
+
+**Windows 11: an app doesn't list Telescope**
+Open **Virtual camera & phone** in Settings. If the Driver row says **Some apps can't see it** you still have the older driver, which apps that only use Media Foundation (the Windows Camera app, for one) never see. Click **Update**. An app that was already open may need restarting before it lists the new camera.
+
+**Windows 11: the camera shows Telescope's lens while Telescope is closed**
+Telescope isn't running, or it's still starting. The camera stays in every app's list even with Telescope closed and shows the default wait screen without that line until Telescope sends it something. Open Telescope and your wait screen or your phone takes over.
+
+**Windows 11: keep using the older driver**
+Set the environment variable `TELESCOPE_VCAM` to `unitycapture` before starting Telescope (in System Properties under Environment Variables) and click **Install driver**. Telescope then streams to UnityCapture like on Windows 10. Apps list both cameras while the Windows 11 one is still installed, and the one Telescope uses is the one without "(Windows Virtual Camera)". Remove the variable to go back.
 
 **Windows: the camera is called "Unity Video Capture"**
 An older Telescope installed the driver before it had its own name. Click **Rename** under **Virtual camera & phone** in Settings.
@@ -64,7 +77,7 @@ Those networks usually block devices from talking to each other. Nothing can wor
 The VPN is blocking local network traffic. Turn on its "allow local network access" option, pause it while pairing or use USB. Streaming over Wi-Fi needs the same.
 
 **Plugged in but USB pairing doesn't happen**
-The USB line in the Add phone dialog says which of these is in the way: adb isn't installed, USB debugging isn't allowed on the phone, or the app isn't on screen. Install `adb` (Linux) or click **get from Google** in that line (Windows), accept the USB debugging prompt and keep Telescope open on the phone.
+Click the phone's **Pair** button under USB in the Add phone dialog first, it doesn't pair by itself. If it still doesn't, the USB line says which of these is in the way: adb isn't installed, USB debugging isn't allowed on the phone, or the app isn't on screen. Install `adb` (Linux) or click **get from Google** in that line (Windows), accept the USB debugging prompt and keep Telescope open on the phone.
 
 **"Google wouldn't send adb to this computer" (Windows)**
 Google blocks these downloads in some countries. Get Google's platform-tools for Windows another way, then click **pick one you already have** in Add phone (or **Use my own adb…** under Virtual camera & phone in Settings) and choose `adb.exe` or the zip. Wi-Fi works without adb.
@@ -80,6 +93,9 @@ A reinstall (or Clear data) gives the phone a new identity. Click **Add phone** 
 
 **"Can't reach <phone>" banner while streaming**
 The phone app was closed or killed, or the phone left the network. Open Telescope on the phone. If the stream is still running the picture comes back without you doing anything. Otherwise click **Start streaming**.
+
+**The stream stops on its own after a while with the phone's screen off**
+Android's power saving closed Telescope. Tap **Allow** next to Battery in the phone app's Get set up card if it's still there (that turns battery optimisation off for Telescope). Some phones close apps anyway and on those it helps to leave Telescope on screen and tap **Black screen** next to Preview instead of turning the screen off.
 
 **"Needs pairing again"**
 The phone removed this computer. Click **Add phone** and pair again. Its settings on this computer stay.
@@ -102,7 +118,7 @@ The update moved an unzipped copy to the installed one and Windows treats it as 
 Heavy (MJPEG) sends several times the data of Light. Switch Format to Light, use USB, lower JPEG quality or reduce FPS.
 
 **Light freezes for a moment now and then over Wi-Fi**
-A busy network loses a packet and TCP holds everything up until the resend. Try **UDP on Wi-Fi** in the Connection card (experimental).
+A busy network loses a packet and TCP holds everything up until the resend. Try Dynamic bitrate or USB first. **UDP on Wi-Fi** in Settings on the Streaming tab is experimental and worth a try here, though it can also stutter more than TCP.
 
 **FPS stays at 30 with 60 picked**
 Some phone makers keep their camera's faster modes for their own camera app. The phone lists 60 fps and accepts the request, then gives other apps 30. Telescope can't change that. **Copy diagnostics** while streaming shows it: the "Camera did" line reads 33.4 ms with range [60, 60]. Rates a camera doesn't list at all are greyed out.
@@ -126,21 +142,15 @@ Most of it isn't Telescope's own. Measured on a Linux laptop, streaming 1080p at
 | Streaming with Background and Auto framing | 470 MB |
 
 Where it goes:
-- **Libraries, about 130 MB**: Qt draws the window, OpenCV and NumPy handle the pictures, FFmpeg decodes the video. They're loaded once and don't grow.
+- **Libraries, about 130 MB**: Slint draws the window, wgpu runs the picture steps on the graphics card and FFmpeg decodes the video. They're loaded once and don't grow.
 - **Frames from the camera, about 100 MB at 1080p**: a few copies of each picture on its way from the phone to the virtual camera. Lower resolutions need less.
-- **The vision models, about 150 MB**: only while Background or Auto framing is on. About 10 seconds after you switch both off most of it is given back, and restarting Telescope frees the rest.
+- **The vision models, about 150 MB**: only while Background, Auto framing, Expose for my face or Privacy blur is on. About 10 seconds after you switch them all off most of it is given back, and restarting Telescope frees the rest.
 - **Telescope itself, about 50 MB**: its code, settings and the wait screen.
 
 Task managers count memory in different ways (Windows Task Manager, for one, leaves out memory other apps could share), so your numbers may not match these.
 
 **"No graphics card Telescope can use" in Video settings**
-On Linux, Telescope's decoder only uses NVIDIA cards. For AMD and Intel click **Set up VA-API…** next to it. Without a usable card Light still decodes on the processor.
-
-**VA-API setup says an existing build no longer works**
-A system update changed FFmpeg or Python. Install any packages setup lists, click **Rebuild** and restart Telescope.
-
-**VA-API setup asks for PyAV 14 or newer**
-Telescope's Python environment has an older PyAV. Upgrade it there, restart Telescope and open setup again.
+On Linux the decoder is VA-API or NVIDIA's CUDA. On Windows it's Direct3D 11. Without a usable card Light still decodes on the processor.
 
 ## Camera controls
 
@@ -164,6 +174,26 @@ The video goes over WebRTC on UDP ports picked each time, which a strict firewal
 **It stops when the phone locks or you switch apps**
 Phones pause the camera for pages in the background. Keep the page open with the screen on. Going back to it starts it again.
 
+**Firefox jumps around in size or frame rate**
+Firefox can still drop frames or change size a bit when the phone or Wi-Fi struggles, but it now mostly holds the resolution you picked at about the frame rate you asked for. The card shows what Firefox really sends. If the frame rate gets too low, a smaller resolution or a lower frame rate usually helps.
+
+## Webcams
+
+**A webcam isn't in the phone picker**
+Check that **Webcams** is on in Plugins and that the camera works in another app. On Linux your user needs access to `/dev/video*` (usually the `video` group). A camera that only offers H.264 or another format OpenCV can't read is left out. Virtual cameras, like OBS Virtual Camera, are left out on purpose. On Windows a camera only Media Foundation apps can open (a phone through Phone Link, for one) isn't listed either.
+
+**"Can't open" and the webcam's name**
+On Linux only one app can stream from a webcam at a time. Close the camera in the app named in the banner (a browser tab with a call or a camera test page counts too). Telescope keeps trying and starts streaming the moment it's free. On Windows the banner can't name the app, so check what has the camera open.
+
+**The picture is choppy or the frame rate is low**
+Try a lower resolution or frame rate on the Webcam card. In dim light many webcams slow down to get a brighter picture: more light helps, and on Linux `v4l2-ctl -d /dev/video0 -c exposure_dynamic_framerate=0` (with your camera's device) keeps the full rate at the cost of a darker picture (**Slow down in the dark** on the Webcam card does the same). A camera behind a USB hub shared with other busy devices can also run out of bandwidth. Plugging it straight into the computer helps then.
+
+**A setting on the Webcam card does nothing**
+Some webcams list a setting they ignore, or only take it in some modes: pan and tilt usually only move once you've zoomed in, and exposure time only works with Exposure on Manual. **Reset** puts the camera's own defaults back.
+
+**A camera in webcam mode or behind a capture card shows a black picture**
+Check its HDMI output is clean (no menus on top) and set to a resolution the capture card takes, then pick that resolution on the card.
+
 ## Shortcuts
 
 **A shortcut does nothing**
@@ -178,12 +208,12 @@ Your desktop has no global shortcuts portal (only Plasma 5.27+, GNOME 48+ and Hy
 ## Plugins and extra downloads
 
 **A card or menu entry is gone**
-That part of Telescope is switched off in **Plugins**. Open Settings and go to the Plugins tab (it reads **Plugins (N off)** when something is off), switch it back on or click **Turn all back on**, then click **Restart now**.
+That part of Telescope is switched off in **Plugins**. Open Settings and go to the Plugins tab (it reads **Plugins (N off)** when something is off), switch it back on or click **Reset to defaults** (every built-in plugin goes on and the optional ones go off), then click **Restart now**.
 
-**Auto framing or Background asks for a one-time download**
+**A plugin that finds people asks for a one-time download**
 The vision download hasn't happened yet or was removed. A new Telescope version can need a newer one too. Click **Download** on the card. If it fails check that GitHub is reachable from this computer.
 
-**Auto framing or Background says MediaPipe didn't load**
+**A plugin that finds people says MediaPipe didn't load**
 The download is there but MediaPipe won't start here (it only works on 64-bit Intel and AMD). On Linux it also needs the EGL and OpenGL ES libraries, which graphics drivers normally bring. If **Copy diagnostics** says `libEGL.so.1 missing` or `libGLESv2.so.2 missing`, install `libegl1` and `libgles2` (Debian and Ubuntu) or `libglvnd-egl` and `libglvnd-gles` (Fedora) and restart Telescope. Otherwise open an issue with your **Copy diagnostics** report.
 
 ## Updates

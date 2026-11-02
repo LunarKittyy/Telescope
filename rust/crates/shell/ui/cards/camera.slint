@@ -1,0 +1,438 @@
+// The Camera card, built from ui-kit's widgets.
+
+import { Theme, Icons, Icon, Button, Card, Section, FormRow, Segmented, Slider, SwitchTile, ChoiceField, ShortcutMenu } from "@ui-kit/ui-kit.slint";
+
+export struct Lens {
+    id: string,
+    number: string,
+    unit: string,
+    rest: string,
+    name: string,
+}
+
+// A switch tile as the card holds it: on or off, usable, and why not.
+export struct TileState {
+    checked: bool,
+    enabled: bool,
+    tip: string,
+}
+
+component LensTile inherits Rectangle {
+    in property <Lens> lens;
+    in property <bool> on;
+    in property <color> hue;
+    callback clicked;
+    height: 54px;
+    horizontal-stretch: 1;
+    border-radius: 7px;
+    border-width: 1px;
+    background: on ? hue.with-alpha(0.12) : touch.has-hover ? #2c333e : Theme.surface-raise;
+    border-color: on ? hue : touch.has-hover ? Theme.border-hover : Theme.border-strong;
+    accessible-role: button;
+    accessible-label: lens.name;
+    accessible-checked: on;
+    accessible-action-default => { root.clicked(); }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    ShortcutMenu { action: "camera.lens"; }
+    VerticalLayout {
+        alignment: center;
+        spacing: 2px;
+        HorizontalLayout {
+            alignment: center;
+            spacing: 1px;
+            Text {
+                text: lens.number;
+                font-family: Theme.font;
+                font-size: 16px; // 1.25 of the body size, 16.25px, which Qt draws at 16
+                font-weight: 600;
+                color: on ? hue : Theme.text;
+            }
+            Text {
+                text: lens.unit;
+                font-family: Theme.font;
+                font-size: 11px;
+                font-weight: 500;
+                color: on ? hue : Theme.text;
+                vertical-alignment: bottom;
+                height: 18px;
+            }
+        }
+        if lens.rest != "": Text {
+            text: lens.rest;
+            font-family: Theme.font;
+            font-size: 11px;
+            color: on ? hue : Theme.text-faint;
+            horizontal-alignment: center;
+            overflow: elide;
+        }
+    }
+}
+
+export component CameraCard inherits Card {
+    in property <bool> active;
+    // A source that isn't a phone is picked: the card has nothing to do then
+    in property <bool> phone-only-hidden;
+    in property <[Lens]> lenses;
+    in property <int> current-lens: -1;
+    // Up to five tiles in a row, more lenses in rows as even as they can be
+    in property <int> lens-columns: 1;
+    // Why a segment can't be picked, shown when it's hovered
+    in property <[string]> exposure-tips;
+    in property <[string]> wb-tips;
+    in property <[string]> focus-tips;
+    in property <string> lens-placeholder;
+    // What the lens can do, quietly in the header ("Full manual control"), with the details for a tooltip
+    in property <string> info;
+    in property <string> info-tip;
+    in property <int> exposure-mode;
+    in property <[bool]> exposure-disabled: [false, false];
+    in property <bool> show-manual-exposure;
+    in property <float> iso-pos;
+    in property <string> iso-text;
+    in property <string> iso-spin;
+    in property <bool> iso-enabled;
+    in property <float> shutter-pos;
+    in property <string> shutter-text;
+    in property <string> shutter-spin;
+    in property <bool> shutter-enabled;
+    in property <int> ae-comp;
+    in property <int> ae-min: -8;
+    in property <int> ae-max: 8;
+    in property <string> ae-text: "0.0 EV";
+    in property <int> wb-mode;
+    in property <[bool]> wb-disabled: [false, false];
+    in property <bool> show-manual-wb;
+    in property <int> kelvin: 5500;
+    in property <string> kelvin-text: "5500 K";
+    in property <int> tint;
+    in property <string> tint-text: "+0";
+    in property <bool> wb-enabled;
+    in property <int> focus-mode;
+    in property <[bool]> focus-disabled: [false, true, false];
+    in property <bool> show-manual-focus;
+    in property <int> focus-pos;
+    in property <string> focus-text: "∞";
+    in property <bool> focus-enabled;
+    in property <TileState> ois: { checked: true, enabled: true };
+    in property <TileState> low-light;
+    in property <bool> show-low-light;
+    in property <TileState> black-level-lock: { enabled: true };
+    in property <TileState> torch: { enabled: true };
+    in property <int> noise-reduction: 1;
+    in property <int> sharpening: 1;
+
+    callback lens-picked(int);
+    callback exposure-picked(int);
+    callback iso-moved(float);
+    callback iso-typed(string);
+    callback shutter-moved(float);
+    callback shutter-typed(string);
+    callback ae-moved(float);
+    callback wb-picked(int);
+    callback kelvin-moved(float);
+    callback tint-moved(float);
+    callback focus-picked(int);
+    callback focus-moved(float);
+    callback ois-toggled(bool);
+    callback low-light-toggled(bool);
+    callback bll-toggled(bool);
+    callback torch-toggled(bool);
+    callback nr-picked(int);
+    callback edge-picked(int);
+
+    title: @tr("Camera");
+    icon: Icons.camera;
+    note: info;
+    // dim_until_paired: faded and disabled until there's a phone
+    opacity: active ? 1 : 0.4;
+    enabled: active;
+    visible: !phone-only-hidden;
+
+    if lenses.length == 0: Text {
+        text: lens-placeholder;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: Theme.text-dim;
+        height: 16px;
+        vertical-alignment: center;
+    }
+    if lenses.length > 0: Rectangle {
+        property <length> tile-width: (self.width - (lens-columns - 1) * 6px) / lens-columns;
+        height: ceil(lenses.length / lens-columns) * 60px - 6px;
+        for lens[i] in lenses: LensTile {
+            x: mod(i, lens-columns) * (parent.tile-width + 6px);
+            y: floor(i / lens-columns) * 60px;
+            width: parent.tile-width;
+            lens: lens;
+            hue: root.hue;
+            on: i == current-lens;
+            clicked => { lens-picked(i); }
+        }
+    }
+
+    Section {
+        key: "Light";
+        title: @tr("camera section" => "Light");
+        icon: Icons.sun;
+        scope: root.fold-key;
+        FormRow {
+            label: @tr("Exposure");
+            Segmented {
+                shortcut: "camera.exposure_mode";
+                label: @tr("Exposure");
+                items: [@tr("Auto"), @tr("Manual")];
+                disabled: [!active || exposure-disabled[0], !active || exposure-disabled[1]];
+                tips: exposure-tips;
+                current: exposure-mode;
+                picked(i) => { exposure-picked(i); }
+            }
+        }
+        if show-manual-exposure: FormRow {
+            label: "ISO";
+            Slider {
+                shortcut: "camera.iso";
+                label: "ISO";
+                hue: root.hue;
+                enabled: active && iso-enabled;
+                minimum: 0;
+                maximum: 2000;
+                step: 1;
+                value: iso-pos;
+                readout: iso-text;
+                typing: iso-spin;
+                moved(v) => { iso-moved(v); }
+                typed(t) => { iso-typed(t); }
+            }
+        }
+        if show-manual-exposure: FormRow {
+            label: @tr("Shutter");
+            Slider {
+                shortcut: "camera.shutter";
+                label: @tr("Shutter");
+                hue: root.hue;
+                enabled: active && shutter-enabled;
+                minimum: 0;
+                maximum: 2000;
+                step: 1;
+                value: shutter-pos;
+                readout: shutter-text;
+                typing: shutter-spin;
+                moved(v) => { shutter-moved(v); }
+                typed(t) => { shutter-typed(t); }
+            }
+        }
+        FormRow {
+            label: @tr("Brightness");
+            Slider {
+                shortcut: "camera.compensation";
+                label: @tr("Brightness");
+                hue: root.hue;
+                enabled: active;
+                minimum: ae-min;
+                maximum: ae-max;
+                step: 1;
+                value: ae-comp;
+                readout: ae-text;
+                marks: [0];
+                has-default: true;
+                default-value: 0;
+                tip: @tr("Double-click to reset");
+                moved(v) => { ae-moved(v); }
+            }
+        }
+        FormRow {
+            label: @tr("White balance");
+            Segmented {
+                shortcut: "camera.wb_mode";
+                label: @tr("White balance");
+                items: [@tr("Auto"), @tr("Manual")];
+                disabled: [!active || wb-disabled[0], !active || wb-disabled[1]];
+                tips: wb-tips;
+                current: wb-mode;
+                picked(i) => { wb-picked(i); }
+            }
+        }
+        if show-manual-wb: FormRow {
+            label: @tr("Temperature");
+            Slider {
+                shortcut: "camera.temperature";
+                label: @tr("Temperature");
+                hue: root.hue;
+                enabled: active && wb-enabled;
+                minimum: 2000;
+                maximum: 10000;
+                step: 100;
+                value: kelvin;
+                readout: kelvin-text;
+                has-default: true;
+                default-value: 5500;
+                tip: @tr("Double-click to reset");
+                moved(v) => { kelvin-moved(v); }
+            }
+        }
+        if show-manual-wb: FormRow {
+            label: @tr("Tint G–M");
+            Slider {
+                shortcut: "camera.tint";
+                label: @tr("Tint G–M");
+                hue: root.hue;
+                enabled: active && wb-enabled;
+                minimum: -150;
+                maximum: 150;
+                step: 1;
+                value: tint;
+                readout: tint-text;
+                has-default: true;
+                default-value: 0;
+                tip: @tr("Double-click to reset");
+                moved(v) => { tint-moved(v); }
+            }
+        }
+    }
+
+    Section {
+        key: "Focus";
+        title: @tr("Focus");
+        icon: Icons.focus;
+        scope: root.fold-key;
+        FormRow {
+            label: @tr("Focus");
+            Segmented {
+                shortcut: "camera.focus_mode";
+                label: @tr("Focus");
+                items: [@tr("Auto"), @tr("Tap a point"), @tr("focus" => "Manual")];
+                disabled: [!active || focus-disabled[0], !active || focus-disabled[1], !active || focus-disabled[2]];
+                tips: focus-tips;
+                current: focus-mode;
+                picked(i) => { focus-picked(i); }
+            }
+        }
+        if show-manual-focus: FormRow {
+            label: @tr("Distance");
+            Slider {
+                shortcut: "camera.focus";
+                label: @tr("Distance");
+                hue: root.hue;
+                enabled: active && focus-enabled;
+                minimum: 0;
+                maximum: 1000;
+                step: 1;
+                value: focus-pos;
+                readout: focus-text;
+                moved(v) => { focus-moved(v); }
+            }
+        }
+    }
+
+    Section {
+        key: "Image";
+        title: @tr("Image");
+        icon: Icons.image;
+        scope: root.fold-key;
+        // Two tiles a row, closing the gap when the phone has no low light mode
+        if show-low-light: GridLayout {
+            spacing: 8px;
+            Row {
+                SwitchTile {
+                    icon: Icons.stabilize;
+                    shortcut: "camera.stabilization";
+                    text: @tr("Stabilization");
+                    tip: ois.tip;
+                    hue: root.hue;
+                    enabled: active && ois.enabled;
+                    checked: ois.checked;
+                    toggled(on) => { ois-toggled(on); }
+                }
+                SwitchTile {
+                    icon: Icons.moon;
+                    shortcut: "camera.low_light";
+                    text: @tr("Low light");
+                    tip: low-light.tip;
+                    hue: root.hue;
+                    enabled: active && low-light.enabled;
+                    checked: low-light.checked;
+                    toggled(on) => { low-light-toggled(on); }
+                }
+            }
+            Row {
+                SwitchTile {
+                    icon: Icons.lock;
+                    shortcut: "camera.black_level_lock";
+                    text: @tr("Black level lock");
+                    tip: black-level-lock.tip;
+                    hue: root.hue;
+                    enabled: active && black-level-lock.enabled;
+                    checked: black-level-lock.checked;
+                    toggled(on) => { bll-toggled(on); }
+                }
+                SwitchTile {
+                    icon: Icons.torch;
+                    shortcut: "camera.torch";
+                    text: @tr("Torch");
+                    tip: torch.tip;
+                    hue: root.hue;
+                    enabled: active && torch.enabled;
+                    checked: torch.checked;
+                    toggled(on) => { torch-toggled(on); }
+                }
+            }
+        }
+        if !show-low-light: GridLayout {
+            spacing: 8px;
+            Row {
+                SwitchTile {
+                    icon: Icons.stabilize;
+                    shortcut: "camera.stabilization";
+                    text: @tr("Stabilization");
+                    tip: ois.tip;
+                    hue: root.hue;
+                    enabled: active && ois.enabled;
+                    checked: ois.checked;
+                    toggled(on) => { ois-toggled(on); }
+                }
+                SwitchTile {
+                    icon: Icons.lock;
+                    shortcut: "camera.black_level_lock";
+                    text: @tr("Black level lock");
+                    tip: black-level-lock.tip;
+                    hue: root.hue;
+                    enabled: active && black-level-lock.enabled;
+                    checked: black-level-lock.checked;
+                    toggled(on) => { bll-toggled(on); }
+                }
+            }
+            Row {
+                SwitchTile {
+                    col: 0;
+                    icon: Icons.torch;
+                    shortcut: "camera.torch";
+                    text: @tr("Torch");
+                    tip: torch.tip;
+                    hue: root.hue;
+                    enabled: active && torch.enabled;
+                    checked: torch.checked;
+                    toggled(on) => { torch-toggled(on); }
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            ChoiceField {
+                shortcut: "camera.noise_reduction";
+                caption: @tr("Noise reduction");
+                items: [@tr("Off"), @tr("Fast"), @tr("High Quality")];
+                enabled: active;
+                current: noise-reduction;
+                picked(i) => { nr-picked(i); }
+            }
+            ChoiceField {
+                shortcut: "camera.sharpening";
+                caption: @tr("Sharpening");
+                items: [@tr("Off"), @tr("Fast"), @tr("High Quality")];
+                enabled: active;
+                current: sharpening;
+                picked(i) => { edge-picked(i); }
+            }
+        }
+    }
+}

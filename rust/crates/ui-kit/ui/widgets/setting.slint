@@ -1,0 +1,110 @@
+// One setting as a raised strip, and the small tag that marks one (widgets/controls.py: setting_row, Tag).
+
+import { Theme } from "../theme.slint";
+
+// settings_search.keywords: words a setting is found by on top of what it says. They sit on an element of their own
+// because no accessible property keeps them from screen readers, and role none does.
+export component SearchWords inherits Rectangle {
+    in property <string> words;
+    // A card's words are for what's under it too
+    in property <bool> card;
+    // What a control offers: a row is found by the choices in it too
+    in property <bool> control;
+    width: 0px;
+    height: 0px;
+    accessible-role: none;
+    accessible-id: card ? "card-words" : control ? "control-words" : "setting-words";
+    accessible-label: words;
+}
+
+// setting_row: its name with a short line under it on the left, its controls on the right. The settings search finds
+// it by name and small print.
+export component SettingRow inherits Rectangle {
+    in property <string> title;
+    in property <string> sub;
+    in property <string> keywords;
+    // A disabled row greys its text, as Qt greys a disabled strip's labels
+    in property <bool> enabled: true;
+    // setting_row's below: a note across the row's width under the name and the controls
+    in property <string> note;
+    in property <color> note-color: Theme.text-dim;
+    min-height: 46px;
+    border-radius: 9px;
+    border-width: 1px;
+    border-color: Theme.border;
+    background: Theme.surface-raise;
+    accessible-role: groupbox;
+    accessible-id: "setting";
+    accessible-label: title;
+    accessible-description: sub;
+    if keywords != "": SearchWords { words: keywords; }
+    // The QSS border sits outside the layout's 12px and 8px margins
+    VerticalLayout {
+        padding-left: 13px;
+        padding-right: 13px;
+        padding-top: 9px;
+        padding-bottom: 9px;
+        spacing: 8px;
+        HorizontalLayout {
+            spacing: 12px;
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: 1px;
+                alignment: center;
+                Text {
+                    text: title;
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    color: enabled ? Theme.text : Theme.text-disabled;
+                    wrap: word-wrap;
+                    line-height-factor: Theme.line-factor(self.font-size);
+                }
+                if sub != "": Text {
+                    text: sub;
+                    font-family: Theme.font;
+                    font-size: Theme.small;
+                    color: enabled ? Theme.text-faint : Theme.text-disabled;
+                    wrap: word-wrap;
+                    line-height-factor: Theme.line-factor(self.font-size);
+                }
+            }
+            // Qt centres the controls on the strip
+            VerticalLayout {
+                alignment: center;
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: end;
+                    @children
+                }
+            }
+        }
+        if note != "": Text {
+            text: note;
+            font-family: Theme.font;
+            font-size: Theme.small;
+            color: note-color;
+            wrap: word-wrap;
+            line-height-factor: Theme.line-factor(self.font-size);
+        }
+    }
+}
+
+// Tag: a pill in a colour at 14% under its text in that colour ("Experimental")
+export component Tag inherits Rectangle {
+    in property <string> text;
+    in property <color> tint: Theme.warn;
+    height: 20px;
+    width: label.preferred-width + 16px;
+    border-radius: self.height / 2;
+    background: tint.with-alpha(0.14);
+    accessible-role: AccessibleRole.text;
+    accessible-label: text;
+    label := Text {
+        text: root.text;
+        font-family: Theme.font;
+        font-size: floor(Theme.body * 0.88 / 1px) * 1px; // 0.88 of the body size, which Qt draws at 11
+        font-weight: 600;
+        color: root.tint.brighter(0.08);
+        accessible-role: none;
+    }
+}

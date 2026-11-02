@@ -1,0 +1,75 @@
+// The Wait screen plugin: its card on the Streaming tab, with a picture of what
+// apps see, the choice of another one and Mirror. The picture is set from Rust (Host::set_ui_image). Texts with blanks come
+// filled from Rust.
+
+import { Theme, Icons, Card, Button, Switch } from "@ui-kit/ui-kit.slint";
+
+export component WaitScreenSettings inherits Card {
+    in property <image> preview;
+    // The picture's size in logical px: 384 wide, as tall as the camera's shape makes it
+    in property <length> preview-width: 384px;
+    in property <length> preview-height: 216px;
+    in property <string> picture-note;
+    in property <bool> default-enabled;
+    in-out property <bool> mirror-checked;
+    callback choose-clicked;
+    callback default-clicked;
+    callback mirror-toggled(bool);
+    title: @tr("Wait screen");
+    icon: Icons.moon;
+    Text {
+        text: @tr("What video calls see while the phone isn't streaming.");
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: Theme.text-dim;
+        wrap: word-wrap;
+        line-height-factor: Theme.line-factor(self.font-size);
+    }
+    HorizontalLayout {
+        alignment: center;
+        Image {
+            source: preview;
+            width: preview-width;
+            height: preview-height;
+            image-fit: fill;
+            image-rendering: smooth;
+            accessible-role: image;
+            accessible-label: @tr("Wait screen");
+        }
+    }
+    Text {
+        text: picture-note;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: Theme.text-dim;
+        wrap: word-wrap;
+        line-height-factor: Theme.line-factor(self.font-size);
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        alignment: start;
+        Button { text: @tr("Choose image…"); role: "primary"; clicked => { root.choose-clicked(); } }
+        Button { text: @tr("Use default"); enabled: default-enabled; clicked => { root.default-clicked(); } }
+    }
+    Rectangle {
+        height: 36px;
+        Text {
+            x: 0;
+            width: parent.width - 48px;
+            height: parent.height;
+            text: @tr("Mirror it, for apps that flip the camera");
+            accessible-id: "setting";
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: Theme.text;
+            vertical-alignment: center;
+        }
+        Switch {
+            x: parent.width - self.width;
+            y: 8px;
+            checked <=> root.mirror-checked;
+            label: @tr("Mirror it, for apps that flip the camera");
+            toggled(on) => { root.mirror-toggled(on); }
+        }
+    }
+}

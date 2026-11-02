@@ -1,0 +1,100 @@
+[workspace]
+resolver = "2"
+members = [
+    "app",
+    "crates/core",
+    "crates/ui-kit",
+    "crates/link",
+    "crates/media",
+    "crates/outputs",
+    "crates/audio",
+    "crates/shell",
+    "crates/system",
+    "crates/plugin-host",
+    "crates/effects",
+    "crates/setup",
+    "crates/vision",
+]
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+publish = false
+
+# One place for versions, so two crates never pull in two copies of the same thing
+[workspace.dependencies]
+telescope-core = { path = "crates/core" }
+telescope-ui-kit = { path = "crates/ui-kit" }
+telescope-link = { path = "crates/link" }
+telescope-media = { path = "crates/media" }
+telescope-outputs = { path = "crates/outputs" }
+telescope-audio = { path = "crates/audio" }
+telescope-shell = { path = "crates/shell" }
+telescope-system = { path = "crates/system" }
+telescope-plugin-host = { path = "crates/plugin-host" }
+telescope-effects = { path = "crates/effects" }
+telescope-setup = { path = "crates/setup" }
+telescope-vision = { path = "crates/vision" }
+
+# preserve_order: settings keep the key order Python saved them in
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+log = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+libc = "0.2"
+base64 = "0.22"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+ring = "0.17"
+# The Browser camera's WebRTC, sans-IO on our own UDP sockets, with pure-Rust DTLS and SRTP
+str0m = { version = "0.24.1", default-features = false, features = ["rust-crypto"] }
+mdns-sd = { version = "0.21", default-features = false }
+if-addrs = "0.15"
+ffmpeg-sys-next = { version = "8", default-features = false, features = ["avcodec", "swscale"] }
+# GPU frame steps: 30 is the version Slint 1.18's unstable-wgpu-30 takes, so the preview can share textures later
+wgpu = { version = "30", default-features = false, features = ["std", "parking_lot", "wgsl", "vulkan", "gles", "dx12"] }
+pollster = "1"
+qrcode = { version = "0.14", default-features = false }
+# Reading QR codes off the picture (QR codes), without the image crate it can use for files
+rqrr = { version = "0.11", default-features = false }
+slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "accessibility"] }
+slint-build = "1.18"
+# Plugins people add: Lua 5.4 built from source, .zip packages, update checks over HTTPS, WGSL checks without a GPU
+mlua = { version = "0.12", features = ["lua54", "vendored", "send", "serialize"] }
+zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+ureq = { version = "3", default-features = false, features = ["rustls"] }
+# Unpacking the Linux update's .tar.gz, on the same zlib as zip
+tar = { version = "0.4", default-features = false }
+flate2 = { version = "1", default-features = false, features = ["zlib-rs"] }
+# The global shortcuts portal on Linux, already in the tree through Slint's accessibility
+zbus = { version = "5", default-features = false, features = ["async-io", "blocking-api"] }
+# Reading Google's SDK index for the adb download on Windows
+roxmltree = "0.21"
+# The microphone: loading RNNoise as Python did, and the Windows sound output VB-Cable is played into
+libloading = "0.8"
+zune-jpeg = "0.5"
+zune-core = "0.5"
+image = { version = "0.25", default-features = false }
+# The program's own icon and name on Windows, for Explorer, the tray and the firewall's question
+winresource = "0.1"
+cpal = "0.18"
+naga = { version = "30", default-features = false, features = ["wgsl-in"] }
+slint-interpreter = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "accessibility"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+# No panic = "abort": the host catches a panicking plugin and carries on, as the Python app catches its exceptions
+
+# Every test window goes through Slint's compiler, and unoptimised it spends over a second on each one
+[profile.dev.package.i-slint-compiler]
+opt-level = 2
+[profile.dev.package.rowan]
+opt-level = 2
+[profile.dev.package.i-slint-common]
+opt-level = 2
+[profile.dev.package.slint-interpreter]
+opt-level = 2
+[profile.dev.package.i-slint-core]
+opt-level = 2

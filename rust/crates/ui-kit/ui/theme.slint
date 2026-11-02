@@ -1,0 +1,55 @@
+// Palette and type, sized as Qt drew them: points at 96 dpi, so 1pt = 4/3 px.
+
+export global Theme {
+    out property <color> bg: #0f1216;
+    out property <color> surface: #161a20;
+    out property <color> surface-raise: #1d222a;
+    out property <color> surface-hover: #242a33;
+    out property <color> surface-sunk: #0a0c0f;
+    out property <color> chrome: #121519;
+    out property <color> border: #232932;
+    out property <color> border-strong: #2f3641;
+    out property <color> border-hover: #4a5462;
+    out property <color> text: #e7eaef;
+    out property <color> text-hover: #74777a;
+    out property <color> text-dim: #a1abb8;
+    out property <color> text-faint: #7a8491;
+    out property <color> text-disabled: #525b67;
+    out property <color> accent: #aa9cf5;
+    out property <color> accent-soft: #cdc4fa;
+    out property <color> fill: #6a58cf;
+    out property <color> fill-hover: #7867dc;
+    out property <color> fill-press: #5b4bb8;
+    out property <color> ok: #5fc98c;
+    out property <color> warn: #f0b65c;
+    out property <color> err: #ef6f6b;
+    // PLUGIN_HUES["camera"], the Camera card's mint
+    out property <color> hue-camera: #7fd3c4;
+    out property <color> dim: #8792a0;
+    // theme.set_plugin_hues: off puts every card back in the accent colour
+    in-out property <bool> own-hues: true;
+    out property <length> mono-size: 13px;
+    out property <string> mono: "monospace";
+
+    // theme.hue: a plugin group's colour (PLUGIN_HUES), the accent for an unknown group or with plugin colours off
+    // Qt lays wrapped lines out its font's ascent and descent apart, each rounded to whole pixels (16px for 13px Inter,
+    // where Slint's natural line is 15.73px): a wrapped Text's line-height-factor, so a paragraph doesn't drift off Qt's
+    public pure function line-factor(size: length) -> float {
+        (round(size * 1984 / 2048 / 1px) + round(size * 494 / 2048 / 1px)) / (size * 2478 / 2048 / 1px)
+    }
+
+    public pure function plugin-hue(group: string) -> color {
+        !own-hues ? accent
+            : group == "camera" ? #7fd3c4 : group == "look" ? #e6a6e0 : group == "vision" ? #bcd98c
+            : group == "preview" ? #f2b48c : group == "on_screen" ? #f2a0bf : group == "sound" ? #e8d08a
+            : group == "streaming" ? #8cc4f2 : group == "extras" ? #b9bdcc : accent
+    }
+
+    out property <string> font: "Inter";
+    // font-size: 9.75pt for everything unless a rule says otherwise. Qt draws text at whole logical pixels (the point size
+    // times 4/3, rounded), so each size here is that whole number: a fraction would lay lines out a pixel off Qt's
+    in-out property <length> body: 13px;
+    out property <length> small: 12px;        // 9pt
+    out property <length> card-title: 15px;   // 11pt is 14.67px, drawn at 15
+    out property <length> start: 13px;        // 10pt is 13.33px, drawn at 13
+}

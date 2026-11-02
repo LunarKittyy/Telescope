@@ -1,0 +1,558 @@
+//! Text drawn on pictures: finding the fonts the app uses, measuring a line and putting its glyphs on pixels. The wait screen and
+//! the name tag both draw this way; where the pixels go (a pixmap, a tile) is left to the caller through `Face::draw`.
+//!
+//! A line is split into runs by direction (unicode-bidi) and by which font covers its characters (the primary font first, then the
+//! system's font for the character's script, then the list of names below for a character it lacks), each run is shaped with its font (harfrust, so Arabic joins, Indic marks land where
+//! they belong and kerning applies) and the glyphs are placed from the shaped advances and offsets, runs in visual order.
+
+mod colour;
+mod shape;
+mod system;
+
+pub use shape::FontArc;
+use ab_glyph::{Font, GlyphId, PxScale, ScaleFont};
+use std::ops::Range;
+use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
+use unicode_bidi::{bidi_class, BidiClass, BidiInfo, Level};
+use unicode_script::{Script, UnicodeScript};
+use unicode_segmentation::UnicodeSegmentation;
+
+/// The two weights the app draws with.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Weight {
+    Regular,
+    /// Qt's DemiBold (600).
+    SemiBold,
+}
+
+/// Fonts to fall back on for a character neither the main font nor the system's fonts for its script have, by the start of the file
+/// name (lower case), most likely first.
+const FALLBACKS: &[&str] = &[
+    "notosans[", "notosans-regular", "dejavusans.", "notosanscjk", "notosansjp", "notosanskr", "notosanssc", "notosansarabic",
+    "notosansdevanagari", "notosanshebrew", "notosansthai", "notosansbengali", "notosanstamil", "notosansgreek", "segoeui.",
+    "msyh", "yugoth", "malgun", "nirmala", "arial.",
+];
+
+/// Colour fonts by file name, in lower case, for a system that doesn't name one.
+const EMOJI_FILES: [&str; 3] = ["seguiemj.ttf", "notocoloremoji.ttf", "noto-colrv1.ttf"];
+
+fn font_dirs() -> Vec<PathBuf> {
+    let mut dirs: Vec<PathBuf> = vec!["/usr/share/fonts".into(), "/usr/local/share/fonts".into()];
+    if let Some(home) = std::env::home_dir() {
+        dirs.push(home.join(".local/share/fonts"));
+        dirs.push(home.join(".fonts"));
+    }
+    if let Some(windir) = std::env::var_os("WINDIR") {
+        dirs.push(PathBuf::from(windir).join("Fonts"));
+    }
+    dirs
+}
+
+fn collect(dir: &Path, depth: u32, out: &mut Vec<(String, PathBuf)>) {
+    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    let mut paths: Vec<PathBuf> = entries.flatten().map(|e| e.path()).collect();
+    paths.sort();
+    for path in paths {
+        if path.is_dir() {
+            if depth > 0 {
+                collect(&path, depth - 1, out);
+            }
+        } else if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            let lower = name.to_ascii_lowercase();
+            if lower.contains(".tt") || lower.ends_with(".otf") {
+                out.push((lower, path.clone()));
+            }
+        }
+    }
+}
+
+/// Every font file under the usual folders, by lower-case file name, in folder order.
+fn font_files() -> &'static [(String, PathBuf)] {
+    static FILES: OnceLock<Vec<(String, PathBuf)>> = OnceLock::new();
+    FILES.get_or_init(|| {
+        let mut out = Vec::new();
+        for dir in font_dirs() {
+            collect(&dir, 3, &mut out);
+        }
+        out
+    })
+}
+
+/// The bytes of the first of these file names the system has (the names in order, whichever folder it is in). A .ttf name also finds
+/// the same name as .otf, which is how Debian and Ubuntu package Inter.
+pub fn find_font_file(names: &[&str]) -> Option<Vec<u8>> {
+    let found = |wanted: &str| font_files().iter().find(|(file, _)| file == wanted);
+    names.iter().find_map(|name| {
+        let wanted = name.to_ascii_lowercase();
+        found(&wanted).or_else(|| found(&wanted.replace(".ttf", ".otf"))).and_then(|(_, path)| std::fs::read(path).ok())
+    })
+}
+
+/// A font from its bytes; a variable one is set to this weight (400 regular, 600 demi-bold), else its default look.
+fn load(bytes: Vec<u8>, weight: f32) -> Option<FontArc> {
+    FontArc::from_bytes(bytes, weight)
+}
+
+/// The first of these file names the system has, as a font.
+pub fn font_named(names: &[&str]) -> Option<FontArc> {
+    load(find_font_file(names)?, 400.0)
+}
+
+/// QFontMetrics.averageCharWidth for the app's font at the body size (13px).
+pub const BODY_AVERAGE_CHAR: f32 = 8.0;
+
+/// The font files the app looks for in this weight, best first: Inter, as the stylesheet asks for first, then a sans the system has.
+pub fn app_font_files(weight: Weight) -> &'static [&'static str] {
+    match weight {
+        Weight::Regular => &["Inter-Regular.ttf", "Inter.ttf", "DejaVuSans.ttf", "segoeui.ttf", "arial.ttf"],
+        Weight::SemiBold => &["Inter-SemiBold.ttf", "Inter-Bold.ttf", "DejaVuSans-Bold.ttf", "seguisb.ttf", "segoeuib.ttf", "arialbd.ttf"],
+    }
+}
+
+/// The app's own font in this weight (app_font_files).
+pub fn app_font(weight: Weight) -> Option<FontArc> {
+    static CACHE: [OnceLock<Option<FontArc>>; 2] = [OnceLock::new(), OnceLock::new()];
+    let (slot, wght) = if weight == Weight::SemiBold { (1, 600.0) } else { (0, 400.0) };
+    CACHE[slot].get_or_init(|| load(find_font_file(app_font_files(weight))?, wght)).clone()
+}
+
+/// The font that covers a character the main one doesn't, if the system has one: what it offers for the character's script (fontconfig
+/// on Linux, DirectWrite on Windows), else the first of the list above that has it.
+fn fallback_for(ch: char, heavy: bool) -> Option<FontArc> {
+    system::font_for(ch, if heavy { 600.0 } else { 400.0 }).or_else(|| listed_fallback(ch, heavy))
+}
+
+fn listed_fallback(ch: char, heavy: bool) -> Option<FontArc> {
+    static LOADED: [OnceLock<Vec<OnceLock<Option<FontArc>>>>; 2] = [OnceLock::new(), OnceLock::new()];
+    let loaded = LOADED[usize::from(heavy)].get_or_init(|| FALLBACKS.iter().map(|_| OnceLock::new()).collect());
+    for (i, prefix) in FALLBACKS.iter().enumerate() {
+        let font = loaded[i].get_or_init(|| {
+            let (_, path) = font_files().iter().find(|(file, _)| file.starts_with(prefix))?;
+            load(std::fs::read(path).ok()?, if heavy { 600.0 } else { 400.0 })
+        });
+        if let Some(font) = font {
+            if font.glyph_id(ch).0 != 0 {
+                return Some(font.clone());
+            }
+        }
+    }
+    None
+}
+
+/// One glyph of a measured line.
+#[derive(Clone)]
+struct Placed {
+    font: FontArc,
+    scale: PxScale,
+    glyph: GlyphId,
+    /// Pen position along the line, from its start, with the glyph's own offset (a mark over its base) in.
+    x: f32,
+    /// How far the glyph sits below the baseline (negative: above).
+    y: f32,
+    /// Where its cluster starts in the text (a byte offset).
+    cluster: usize,
+    /// How far the pen moved for it, before any letter spacing.
+    advance: f32,
+}
+
+/// A line of text worked out for one face: where each glyph goes (left to right, whatever the text's direction), and how wide it is.
+#[derive(Clone)]
+pub struct Line {
+    placed: Vec<Placed>,
+    pub width: f32,
+}
+
+impl Line {
+    /// Where in the text each glyph's cluster starts, left to right as drawn.
+    pub fn clusters(&self) -> Vec<usize> {
+        self.placed.iter().map(|p| p.cluster).collect()
+    }
+
+    /// The glyph ids, left to right as drawn.
+    pub fn glyph_ids(&self) -> Vec<u16> {
+        self.placed.iter().map(|p| p.glyph.0).collect()
+    }
+}
+
+/// A font at a size, with the fallbacks for the characters it lacks.
+#[derive(Clone)]
+pub struct Face {
+    font: FontArc,
+    size: f32,
+    /// `size` is the em (every font gets the same), else ab_glyph's own height-based scale.
+    em: bool,
+    fallbacks: bool,
+    /// Fallbacks for other scripts are demi-bold too.
+    heavy: bool,
+}
+
+/// Characters that are emoji on their own, without a variation selector (Unicode's Emoji_Presentation).
+fn shows_as_emoji(ch: char) -> bool {
+    matches!(ch as u32,
+        0x231a | 0x231b | 0x23e9..=0x23ec | 0x23f0 | 0x23f3 | 0x25fd | 0x25fe | 0x2614 | 0x2615 | 0x2648..=0x2653 | 0x267f | 0x2693 | 0x26a1
+        | 0x26aa | 0x26ab | 0x26bd | 0x26be | 0x26c4 | 0x26c5 | 0x26ce | 0x26d4 | 0x26ea | 0x26f2 | 0x26f3 | 0x26f5 | 0x26fa | 0x26fd | 0x2705
+        | 0x270a | 0x270b | 0x2728 | 0x274c | 0x274e | 0x2753..=0x2755 | 0x2757 | 0x2795..=0x2797 | 0x27b0 | 0x27bf | 0x2b1b | 0x2b1c | 0x2b50
+        | 0x2b55 | 0x1f004 | 0x1f0cf | 0x1f18e | 0x1f191..=0x1f19a | 0x1f1e6..=0x1f1ff | 0x1f300..=0x1faff)
+}
+
+/// Which bytes of `text` belong to an emoji, in ranges: Qt's itemizer gives those to the emoji font, even when the main font has the
+/// character as a plain symbol. A variation selector says which way a character goes.
+fn emoji_ranges(text: &str) -> Vec<Range<usize>> {
+    text.grapheme_indices(true).filter(|(_, g)| !g.contains('\u{fe0e}') && (g.contains('\u{fe0f}') || g.chars().next().is_some_and(shows_as_emoji))).map(|(at, g)| at..at + g.len()).collect()
+}
+
+/// The system's colour font: what a character the main font lacks would go to anyway, else the usual ones by name. One font for every
+/// weight, since emoji have just the one.
+fn emoji_font() -> Option<FontArc> {
+    static FONT: OnceLock<Option<FontArc>> = OnceLock::new();
+    FONT.get_or_init(|| fallback_for('\u{1f319}', false).filter(FontArc::is_colour).or_else(|| {
+        font_files().iter().find(|(file, _)| EMOJI_FILES.contains(&file.as_str())).and_then(|(_, path)| load(std::fs::read(path).ok()?, 400.0))
+    })).clone()
+}
+
+/// The script each character is written in: spaces, punctuation, digits and marks (Common and Inherited) take the script of the
+/// letter before them, or of the first letter after them when the text starts with some.
+fn script_runs(chars: impl Iterator<Item = char>) -> Vec<Script> {
+    let mut scripts: Vec<Script> = chars.map(|c| c.script()).collect();
+    let plain = |s: Script| s == Script::Common || s == Script::Inherited;
+    let mut before = scripts.iter().copied().find(|&s| !plain(s)).unwrap_or(Script::Common);
+    for s in scripts.iter_mut() {
+        if plain(*s) {
+            *s = before;
+        } else {
+            before = *s;
+        }
+    }
+    scripts
+}
+
+impl Face {
+    /// `px` is the size of the em, which is what Qt's setPixelSize means.
+    pub fn em(font: FontArc, px: f32) -> Face {
+        Face { font, size: px, em: true, fallbacks: true, heavy: false }
+    }
+
+    /// The fallbacks for other scripts in demi-bold, like the font this face was made from.
+    pub fn heavy(mut self) -> Face {
+        self.heavy = true;
+        self
+    }
+
+    /// `px` from the top of the tallest letter to the bottom of the lowest, ab_glyph's own idea of a size; no fallbacks.
+    pub fn tall(font: FontArc, px: f32) -> Face {
+        Face { font, size: px, em: false, fallbacks: false, heavy: false }
+    }
+
+    /// Characters this font lacks come from the fallbacks for other scripts, at the same em.
+    pub fn with_fallbacks(mut self) -> Face {
+        self.fallbacks = true;
+        self
+    }
+
+    /// The scale that makes this face's size in a font: the same em in every font, so a fallback matches its neighbours.
+    fn scale_in(&self, font: &FontArc) -> PxScale {
+        if self.em {
+            PxScale::from(self.size * font.height_unscaled() / font.units_per_em().unwrap_or(1000.0))
+        } else {
+            // A tall size is this face's font's own; a fallback gets the same em
+            let em = |f: &FontArc| f.units_per_em().unwrap_or(1000.0) / f.height_unscaled();
+            PxScale::from(self.size * em(&self.font) / em(font))
+        }
+    }
+
+    /// Pixels to the em in a font.
+    fn em_px(&self, font: &FontArc) -> f32 {
+        self.scale_in(font).x * font.units_per_em().unwrap_or(1000.0) / font.height_unscaled()
+    }
+
+    fn scaled(&self) -> ab_glyph::PxScaleFont<&ab_glyph::FontArc> {
+        self.font.as_scaled(self.scale_in(&self.font))
+    }
+
+    /// Qt keeps sizes in 64ths of a pixel, dropping what's left over; a face sized its own way keeps all of it.
+    fn fixed(&self, v: f32) -> f32 {
+        if self.em { (v * 64.0).floor() / 64.0 } else { v }
+    }
+
+    /// Above the baseline, in pixels.
+    pub fn ascent(&self) -> f32 {
+        self.fixed(self.scaled().ascent())
+    }
+
+    /// Below the baseline, in pixels (positive).
+    pub fn descent(&self) -> f32 {
+        self.fixed(-self.scaled().descent())
+    }
+
+    /// Ascent plus descent.
+    pub fn height(&self) -> f32 {
+        self.ascent() + self.descent()
+    }
+
+    /// The font that has this character: the main one, else a fallback.
+    fn pick(&self, ch: char) -> Option<FontArc> {
+        if self.font.glyph_id(ch).0 != 0 {
+            return Some(self.font.clone());
+        }
+        if self.fallbacks { fallback_for(ch, self.heavy) } else { None }
+    }
+
+    /// `run` split into stretches that one font covers and one script writes, in text order (Qt itemizes by script too, so Hebrew
+    /// followed by Arabic is shaped as each, not both as the first). As in QFontEngineMulti each character goes on its own: the main
+    /// font when it has it, so a space or a comma between Hebrew letters is Inter's; only a joiner stays with the fallback before it.
+    fn pieces(&self, text: &str, run: Range<usize>) -> Vec<(Range<usize>, FontArc)> {
+        let chars: Vec<(usize, char)> = text[run.clone()].char_indices().map(|(i, c)| (run.start + i, c)).collect();
+        let scripts = script_runs(chars.iter().map(|&(_, c)| c));
+        let mut out: Vec<(Range<usize>, FontArc)> = Vec::new();
+        let mut last_script = None;
+        let mut fallback: Option<FontArc> = None;
+        let emoji = emoji_ranges(&text[run.clone()]);
+        let colour = if emoji.is_empty() || !self.fallbacks { None } else { emoji_font() };
+        for (i, &(at, ch)) in chars.iter().enumerate() {
+            let joiner = matches!(ch, '\u{200c}' | '\u{200d}');
+            let stay = fallback.as_ref().filter(|f| joiner && f.glyph_id(ch).0 != 0).cloned();
+            let wanted = colour.as_ref().filter(|f| (f.glyph_id(ch).0 != 0 || matches!(ch, '\u{fe0f}' | '\u{200d}')) && emoji.iter().any(|r| r.contains(&(at - run.start)))).cloned();
+            // Nothing has it: the main font's box
+            let font = stay.or(wanted).or_else(|| self.pick(ch)).unwrap_or_else(|| self.font.clone());
+            fallback = (!font.same(&self.font)).then(|| font.clone());
+            let end = at + ch.len_utf8();
+            match out.last_mut() {
+                Some((range, last)) if last.same(&font) && last_script == Some(scripts[i]) => range.end = end,
+                _ => out.push((at..end, font)),
+            }
+            last_script = Some(scripts[i]);
+        }
+        out
+    }
+
+    /// The text on one line, in the order it reads (right to left when it starts with a right-to-left letter, with the
+    /// Latin and digits inside it still left to right); `spacing` is added after each letter (negative to tighten).
+    pub fn layout(&self, text: &str, spacing: f32) -> Line {
+        let mut placed = Vec::new();
+        let mut x = 0.0;
+        if !text.is_empty() {
+            let base = if qt_right_to_left(text) { Level::rtl() } else { Level::ltr() };
+            let bidi = BidiInfo::new(text, Some(base));
+            for para in &bidi.paragraphs {
+                let (levels, runs) = bidi.visual_runs(para, para.range.clone());
+                for run in runs {
+                    let rtl = levels[run.start].is_rtl();
+                    let mut pieces = self.pieces(text, run);
+                    if rtl {
+                        pieces.reverse();
+                    }
+                    for (range, font) in pieces {
+                        let scale = self.scale_in(&font);
+                        let per_unit = scale.x / font.height_unscaled();
+                        let mut last = None;
+                        for g in font.shape(text, range, rtl, spacing != 0.0) {
+                            // Letters are spaced apart by cluster (the space after the one before); a mark rides on its base
+                            if last != Some(g.cluster) && !placed.is_empty() {
+                                x += spacing;
+                            }
+                            last = Some(g.cluster);
+                            let advance = self.fixed(g.x_advance as f32 * per_unit);
+                            placed.push(Placed {
+                                font: font.clone(),
+                                scale,
+                                glyph: GlyphId(g.glyph),
+                                x: x + g.x_offset as f32 * per_unit,
+                                y: -(g.y_offset as f32) * per_unit,
+                                cluster: g.cluster,
+                                advance,
+                            });
+                            x += advance;
+                        }
+                    }
+                }
+            }
+        }
+        // Qt spaces the last letter too, which only shows in how wide the line is
+        if !placed.is_empty() {
+            x += spacing;
+        }
+        Line { placed, width: x }
+    }
+
+    /// Whether the font, or a fallback for it, has a glyph for this character.
+    pub fn has_glyph(&self, ch: char) -> bool {
+        self.pick(ch).is_some()
+    }
+
+    /// How wide the text is on one line.
+    pub fn advance(&self, text: &str) -> f32 {
+        self.layout(text, 0.0).width
+    }
+
+    /// The text word-wrapped at `width`: how many lines, and how wide the widest is.
+    fn wrapped(&self, text: &str, width: f32) -> (u32, f32) {
+        let space = self.advance(" ");
+        let (mut lines, mut line, mut widest) = (u32::from(!text.is_empty()), 0.0f32, 0.0f32);
+        for word in text.split_whitespace() {
+            let w = self.advance(word);
+            if line > 0.0 && line + space + w > width {
+                lines += 1;
+                widest = widest.max(line);
+                line = w;
+            } else {
+                line += if line > 0.0 { space + w } else { w };
+            }
+        }
+        (lines, widest.max(line))
+    }
+
+    /// How many lines a word-wrapped QLabel's sizeHint gives the text, which it has to guess a width for: 80 average characters,
+    /// half that when it fits in under 4 lines, half again under 2 (QLabelPrivate::sizeForWidth). average_char is
+    /// QFontMetrics.averageCharWidth.
+    pub fn qt_hint_lines(&self, text: &str, average_char: f32) -> u32 {
+        let mut width = average_char * 80.0;
+        let (mut lines, mut widest) = self.wrapped(text, width);
+        if lines < 4 && widest > width / 2.0 {
+            width /= 2.0;
+            (lines, widest) = self.wrapped(text, width);
+        }
+        if lines < 2 && widest > width / 2.0 {
+            (lines, _) = self.wrapped(text, width / 2.0);
+        }
+        lines
+    }
+
+    /// How wide the ellipsis is: the main font's own glyph, else a fallback's.
+    fn ellipsis_width(&self) -> f32 {
+        self.advance("\u{2026}")
+    }
+
+    /// The text cut short with an ellipsis so it fits in `width` (QFontMetricsF.elidedText with ElideRight, which is
+    /// QStackTextEngine::elidedText): the end of the text goes, which is the left side of a right-to-left line. It is cut between
+    /// graphemes, never through a letter and its marks. Qt adds up the width each grapheme has in the whole line (kerning and
+    /// joining included) until the sum reaches what is left after the ellipsis, and keeps what came before the grapheme that reached it.
+    pub fn elide(&self, text: &str, width: f32) -> String {
+        let line = self.layout(text, 0.0);
+        // Qt leaves a text of one UTF-16 unit whole, however narrow
+        if line.width <= width || text.encode_utf16().count() <= 1 {
+            return text.to_string();
+        }
+        // and drops all of it when not even the ellipsis fits
+        let available = width - self.ellipsis_width();
+        if available < 0.0 {
+            return String::new();
+        }
+        let starts: Vec<usize> = text.grapheme_indices(true).map(|(i, _)| i).collect();
+        // A glyph's advance goes to the grapheme its cluster starts in; a ligature's other graphemes have no width of their own
+        let mut widths = vec![0.0f32; starts.len()];
+        for p in &line.placed {
+            let grapheme = starts.partition_point(|&s| s <= p.cluster).saturating_sub(1);
+            widths[grapheme] += p.advance;
+        }
+        let (mut taken, mut sum) = (0, 0.0);
+        let at = loop {
+            let at = taken;
+            sum += widths[at];
+            taken += 1;
+            if taken >= starts.len() || sum >= available {
+                break at;
+            }
+        };
+        // When the first letter cut off would have joined to the one before, a joiner keeps that letter in its joining form
+        let joiner = if next_char_joins(text, starts[at]) { "\u{200d}" } else { "" };
+        // Direction controls that were cut off still close what the kept text opened (stringMidRetainingBidiCC)
+        let controls: String = text[starts[at]..].chars().filter(|c| matches!(c, '\u{202a}'..='\u{202e}' | '\u{200e}' | '\u{200f}' | '\u{2066}'..='\u{2069}')).collect();
+        format!("{}{joiner}\u{2026}{controls}", &text[..starts[at]])
+    }
+
+    /// Calls `cover(x, y, coverage)` for each pixel the line touches, with its start at `x` and its baseline at `baseline`.
+    /// Pixels may be reported more than once where glyphs overlap. Colour glyphs are left out: `draw_coloured` has them.
+    pub fn draw(&self, line: &Line, x: f32, baseline: f32, cover: impl FnMut(i32, i32, f32)) {
+        self.draw_coloured(line, x, baseline, [0; 3], cover, |_, _, _| {});
+    }
+
+    /// `draw`, with emoji: `painted(x, y, [r, g, b, a])`, premultiplied, for each pixel of a colour glyph, in line order among the
+    /// others. `ink` is the colour of the text.
+    pub fn draw_coloured(&self, line: &Line, x: f32, baseline: f32, ink: [u8; 3], mut cover: impl FnMut(i32, i32, f32), mut painted: impl FnMut(i32, i32, [u8; 4])) {
+        for p in &line.placed {
+            let em = self.em_px(&p.font);
+            if let Some(tile) = p.font.colour_tile(p.glyph.0, em, ink) {
+                let (left, top) = ((x + p.x).round() as i32 + tile.left, (baseline + p.y).round() as i32 + tile.top);
+                for (i, px) in tile.rgba.as_chunks::<4>().0.iter().enumerate() {
+                    if px[3] != 0 {
+                        painted(left + (i % tile.width) as i32, top + (i / tile.width) as i32, *px);
+                    }
+                }
+                continue;
+            }
+            let glyph = p.glyph.with_scale_and_position(p.scale, ab_glyph::point(x + p.x, baseline + p.y));
+            let Some(outlined) = p.font.outline_glyph(glyph) else { continue };
+            let bounds = outlined.px_bounds();
+            outlined.draw(|gx, gy, c| cover(bounds.min.x as i32 + gx as i32, bounds.min.y as i32 + gy as i32, c));
+        }
+    }
+}
+
+/// Whether the letter at `pos`, past any marks, joins to the one before it (Qt's nextCharJoins).
+fn next_char_joins(text: &str, pos: usize) -> bool {
+    use unicode_joining_type::{get_joining_type, JoiningType};
+    let Some(ch) = text[pos..].chars().find(|&c| bidi_class(c) != BidiClass::NSM) else { return false };
+    !matches!(get_joining_type(ch), JoiningType::NonJoining | JoiningType::Transparent)
+}
+
+/// str.isspace(): Unicode's whitespace and the four separators Python counts too.
+pub fn py_space(ch: char) -> bool {
+    ch.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&ch)
+}
+
+/// str.strip().
+pub fn py_strip(text: &str) -> &str {
+    text.trim_matches(py_space)
+}
+
+/// str.splitlines(): every line break Python knows, \r\n as one, with no empty line after a last break.
+pub fn py_lines(text: &str) -> Vec<&str> {
+    let mut lines = Vec::new();
+    let mut start = 0;
+    let mut chars = text.char_indices().peekable();
+    while let Some((at, ch)) = chars.next() {
+        if matches!(ch, '\n' | '\r' | '\u{b}' | '\u{c}' | '\u{1c}' | '\u{1d}' | '\u{1e}' | '\u{85}' | '\u{2028}' | '\u{2029}') {
+            lines.push(&text[start..at]);
+            if ch == '\r' && chars.peek().is_some_and(|&(_, next)| next == '\n') {
+                chars.next();
+            }
+            start = chars.peek().map_or(text.len(), |&(i, _)| i);
+        }
+    }
+    if start < text.len() {
+        lines.push(&text[start..]);
+    }
+    lines
+}
+
+/// QString::isRightToLeft: as right_to_left, leaving out what's inside an isolate. What a line is drawn by.
+fn qt_right_to_left(text: &str) -> bool {
+    let mut isolates = 0;
+    for ch in text.chars() {
+        match bidi_class(ch) {
+            BidiClass::RLI | BidiClass::LRI | BidiClass::FSI => isolates += 1,
+            BidiClass::PDI if isolates > 0 => isolates -= 1,
+            BidiClass::R | BidiClass::AL if isolates == 0 => return true,
+            BidiClass::L if isolates == 0 => return false,
+            _ => {}
+        }
+    }
+    false
+}
+
+/// Whether text starts out right to left (its first strongly directional character is Arabic, Hebrew and the like), by bidi class
+/// like Python's unicodedata.bidirectional: an Arabic comma or digit is not strong.
+pub fn right_to_left(text: &str) -> bool {
+    for ch in text.chars() {
+        match bidi_class(ch) {
+            BidiClass::R | BidiClass::AL => return true,
+            BidiClass::L => return false,
+            _ => {}
+        }
+    }
+    false
+}
+
+#[cfg(test)]
+mod tests;

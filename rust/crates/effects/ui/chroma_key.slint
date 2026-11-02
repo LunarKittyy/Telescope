@@ -1,0 +1,175 @@
+// The Chroma key card. Joined after parts.slint, which has the imports.
+
+// A small square of a colour, for a button (chroma_key.swatch)
+component Swatch inherits Rectangle {
+    in property <color> colour;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border-width: 1px;
+    border-color: Theme.border-strong;
+    background: colour;
+}
+
+export component ChromaKeyCard inherits Card {
+    // Greyed out until a phone is paired
+    in property <bool> active: true;
+    in property <bool> on: false;
+    in property <string> switch-name;
+    in property <string> switch-help;
+    in property <int> screen: 0;
+    in property <string> screen-tip;
+    in property <bool> has-picked;
+    in property <color> picked-colour: #808080;
+    in property <[float]> slider-value: [40, 30, 60];
+    in property <[string]> slider-tips: ["", "", ""];
+    in property <[string]> slider-text: ["40", "30", "60"];
+    in property <string> reset-hint;
+    in property <int> behind: 0;
+    in property <color> backdrop-colour: #1e222a;
+    in property <bool> editing-colour: false;
+    in property <[float]> channel-value: [0, 0, 0];
+    in property <string> colour-tip;
+    in property <string> colour-title;
+    in property <string> picture-text;
+    in property <string> picture-tip;
+    in property <string> picture-choose-tip;
+    in property <string> status;
+    in property <string> status-kind: "status_dim";
+    callback switch-toggled-by-hand(bool);
+    callback screen-picked(int);
+    callback slider-moved(int, float);
+    callback background-picked(int);
+    callback colour-clicked;
+    callback channel-moved(int, float);
+    callback picture-clicked;
+
+    title: @tr("Chroma key");
+    icon: Icons.eyedropper;
+    opacity: active ? 1 : 0.4;
+    enabled: active;
+    has-switch: true;
+    switch-shortcut: "chroma_key.on";
+    switch-enabled: active;
+    switch-checked: on;
+    switch-label: switch-name;
+    switch-tip: switch-help;
+    switch-toggled(v) => { root.switch-toggled-by-hand(v); }
+
+    FormRow {
+        label: @tr("Screen");
+        Rectangle {
+            horizontal-stretch: 1;
+            HorizontalLayout {
+                spacing: 8px;
+                Segmented {
+                    items: [@tr("Green"), @tr("Blue"), @tr("Picked")];
+                    disabled: [!active, !active, !active];
+                    has-icons: [false, false, false];
+                    icons: [Icons.eyedropper, Icons.eyedropper, Icons.eyedropper];
+                    label: @tr("Screen");
+                    shortcut: "chroma_key.screen";
+                    current: screen;
+                    picked(i) => { root.screen-picked(i); }
+                }
+                if has-picked: Rectangle {
+                    width: 14px;
+                    Swatch { colour: picked-colour; }
+                }
+            }
+            if screen-tip != "": Tooltip { TipBody { says: screen-tip; } }
+        }
+    }
+    for name[i] in [@tr("Tolerance"), @tr("Edges"), @tr("Spill")]: SliderRow {
+        enabled: active;
+        label: name;
+        tip: slider-tips[i];
+        shortcut: i == 0 ? "chroma_key.tolerance" : "";
+        minimum: 0;
+        maximum: 100;
+        value: slider-value[i];
+        readout: slider-text[i];
+        hue: root.hue;
+        has-default: true;
+        default-value: i == 0 ? 40 : i == 1 ? 30 : 60;
+        hint: root.reset-hint;
+        moved(v) => { root.slider-moved(i, v); }
+    }
+    FormRow {
+        label: @tr("Behind you");
+        Segmented {
+            items: [@tr("Colour"), @tr("Picture")];
+            disabled: [!active, !active];
+            has-icons: [false, false];
+            icons: [Icons.image, Icons.image];
+            label: @tr("Behind you");
+            current: behind;
+            picked(i) => { root.background-picked(i); }
+        }
+    }
+    if behind == 0: FormRow {
+        label: @tr("Colour");
+        // control_row(stretch=True): the button fills the row, with the colour as its icon
+        Button {
+            enabled: active;
+            horizontal-stretch: 1;
+            text: @tr("Choose…");
+            tip: colour-tip;
+            has-swatch: true;
+            swatch: backdrop-colour;
+            gap: 4px;
+            clicked => { root.colour-clicked(); }
+        }
+    }
+    if behind == 0 && editing-colour: VerticalLayout {
+        Text {
+            text: colour-title;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: Theme.text-dim;
+        }
+        for name[i] in [@tr("Red"), @tr("Green"), @tr("Blue")]: SliderRow {
+            enabled: active;
+            label: name;
+            minimum: 0;
+            maximum: 255;
+            value: channel-value[i];
+            readout: "\{Math.round(channel-value[i])}";
+            hue: root.hue;
+            moved(v) => { root.channel-moved(i, v); }
+        }
+    }
+    if behind == 1: FormRow {
+        label: @tr("Picture");
+        HorizontalLayout {
+            spacing: 8px;
+            Button {
+                enabled: active;
+                text: @tr("Choose…");
+                tip: picture-choose-tip;
+                clicked => { root.picture-clicked(); }
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+                shown-picture-text := Text {
+                    width: parent.width;
+                    height: parent.height;
+                    text: picture-text;
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    color: Theme.text-dim;
+                    vertical-alignment: center;
+                    overflow: elide;
+                    if shown-picture-text.preferred-width > shown-picture-text.width: Tooltip { TipBody { says: shown-picture-text.text; } }
+                }
+                if picture-tip != "": Tooltip { TipBody { says: picture-tip; } }
+            }
+        }
+    }
+    if status != "": Note {
+        text: status;
+        kind: status-kind;
+    }
+    // Nothing to touch until a phone is paired
+    blocked: !active;
+}

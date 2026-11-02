@@ -1,0 +1,28 @@
+[package]
+name = "telescope-link"
+description = "Reaching phones: discovery, pairing, routes over USB and Wi-Fi, sessions and the video feed"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+telescope-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true
+rustls.workspace = true
+ring.workspace = true
+str0m.workspace = true
+base64.workspace = true
+mdns-sd.workspace = true
+libc.workspace = true
+if-addrs.workspace = true
+zip.workspace = true
+ureq = { workspace = true, features = ["platform-verifier"] }
+roxmltree.workspace = true
+
+[dev-dependencies]
+# real video through the real decoder and reader
+telescope-media.workspace = true
+slint-interpreter.workspace = true
+telescope-ui-kit.workspace = true

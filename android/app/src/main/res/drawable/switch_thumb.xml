@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The knob, 3dp inside the track: white when on, dim when off -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="false">
+        <layer-list>
+            <item><shape android:shape="oval"><size android:width="24dp" android:height="24dp" /><solid android:color="@android:color/transparent" /></shape></item>
+            <item android:top="3dp" android:bottom="3dp" android:left="3dp" android:right="3dp"><shape android:shape="oval"><solid android:color="@color/colorOnSurfaceDisabled" /></shape></item>
+        </layer-list>
+    </item>
+    <item android:state_checked="true">
+        <layer-list>
+            <item><shape android:shape="oval"><size android:width="24dp" android:height="24dp" /><solid android:color="@android:color/transparent" /></shape></item>
+            <item android:top="3dp" android:bottom="3dp" android:left="3dp" android:right="3dp"><shape android:shape="oval"><solid android:color="@color/colorOnPrimary" /></shape></item>
+        </layer-list>
+    </item>
+    <item>
+        <layer-list>
+            <item><shape android:shape="oval"><size android:width="24dp" android:height="24dp" /><solid android:color="@android:color/transparent" /></shape></item>
+            <item android:top="3dp" android:bottom="3dp" android:left="3dp" android:right="3dp"><shape android:shape="oval"><solid android:color="@color/colorOnSurfaceDim" /></shape></item>
+        </layer-list>
+    </item>
+</selector>

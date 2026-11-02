@@ -23,6 +23,7 @@ object UdpWire {
     const val NACK: Byte = 1      // + frame (u32) + indexes (u16 each); none means the whole frame
     const val KEYFRAME: Byte = 2
     const val HELLO: Byte = 3     // the desktop's keepalive, which also keeps its firewall open for the replies
+    const val REPORT: Byte = 4    // what got through, for Dynamic (UdpReport)
 
     // One frame cut into datagram-sized plaintexts
     fun fragments(frame: Int, data: ByteArray, key: Boolean): List<ByteArray> {
@@ -40,6 +41,173 @@ object UdpWire {
 
     fun nonce(direction: Byte, counter: Long): ByteArray =
         ByteBuffer.allocate(12).put(direction).put(0).put(0).put(0).putLong(counter).array()
+}
+
+// The desktop's report on what got through. Its counts only ever grow (wrapping at 32 bits), so a lost report costs nothing.
+data class UdpReport(
+    val received: Long,  // datagrams it took
+    val highest: Long,   // the highest datagram counter it saw, low 32 bits: received short of this were lost
+    val bytes: Long,     // bytes of video it took
+    val clockMs: Long,   // its own clock, for the rate those bytes came in at
+    val frame: Int,      // the newest frame it has whole
+    val sinceMs: Int,    // how long ago that frame became whole
+    val gaveUp: Int,     // frames it gave up on (16 bits)
+) {
+    companion object {
+        const val SIZE = 25
+        private const val U32 = 0xFFFFFFFFL
+
+        // A report, or null for anything else; longer ones are fine (fields added later go at the end)
+        fun parse(plain: ByteArray): UdpReport? {
+            if (plain.size < SIZE || plain[0] != UdpWire.REPORT) return null
+            val b = ByteBuffer.wrap(plain, 1, SIZE - 1)
+            return UdpReport(b.int.toLong() and U32, b.int.toLong() and U32, b.int.toLong() and U32, b.int.toLong() and U32,
+                b.int, b.short.toInt() and 0xFFFF, b.short.toInt() and 0xFFFF)
+        }
+    }
+}
+
+// What one desktop's reports say about the UDP link (lost datagrams, slower trips), taken each link sample; pure, so a JVM test
+class UdpLink {
+    data class Take(val queueMs: Long, val sentBytes: Long, val loss: Double, val routerMs: Long = 0, val lossLately: Double = loss)
+
+    companion object {
+        const val FLOOR_MS = 10_000L  // a frame's usual trip is the quickest one over this long
+        const val GAVE_UP_LOSS = 0.1  // a frame given up on counts as at least this much loss
+        const val LOSS_DATAGRAMS = 50  // loss counts once this many were sent: at low bitrates one lost in 8 isn't 12%
+        const val GAP_MS = 500L        // no report for this long: nothing gets through, like a stall over TCP
+        const val LATELY_MS = 2_000L   // lossLately is over this long
+        const val PEAK_MS = 5_000L     // peakBps is the fastest the video came in over this long...
+        const val PEAK_QUEUE_MS = 20L  // ...while every frame that came in meanwhile queued at least this long on the way
+        const val PEAK_SPAN_MS = 250L  // over at least this long, so a report that came late doesn't read as a burst
+        private const val U32 = 0xFFFFFFFFL
+        private const val KEEP = 120  // frames whose send time is kept, for the reports about them
+    }
+
+    private val sentAt = object : LinkedHashMap<Int, Long>() {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, Long>) = size > KEEP
+    }
+    private var last: UdpReport? = null
+    private val trips = ArrayDeque<LongArray>()  // (when, trip ms), rising: its first is the quickest lately
+    // Since the last take
+    private var expected = 0L
+    private var got = 0L
+    private var bytes = 0L
+    private var clockMs = 0L
+    private var gaveUp = 0
+    private var fresh = false
+    private var extraMs = Long.MAX_VALUE  // the shortest a trip took past the quickest one
+    private var waitMs = Long.MAX_VALUE   // the shortest a frame waited on the phone
+    private var lastTakeMs = -1L
+    private var lastReportMs = 0L
+    private var batchExpected = 0L  // datagrams towards the next loss share (LOSS_DATAGRAMS)
+    private var batchGot = 0L
+    private val batches = ArrayDeque<LongArray>()  // (when, sent, got) per loss share, for lossLately
+    private var batchLoss = 0.0  // the last loss share, which samples carry until the next one (or LATELY_MS)
+    private var batchLossMs = Long.MIN_VALUE / 2
+    private var peakBytes = 0L
+    private var peakClockMs = 0L
+    private var peakQueueMs = Long.MAX_VALUE  // the shortest a newly whole frame's trip took past the quickest, meanwhile
+    private var tripFrame = -1
+    private val peaks = ArrayDeque<DoubleArray>()  // (when, bps), falling: its first is the fastest lately
+
+    /** Whether this desktop sends reports at all (an older one doesn't). */
+    @Volatile var reporting = false
+        private set
+
+    /** A frame's last datagram went out at nowMs, after waiting since queuedMs. */
+    @Synchronized
+    fun sent(frame: Int, queuedMs: Long, nowMs: Long) {
+        sentAt[frame] = nowMs
+        waitMs = minOf(waitMs, nowMs - queuedMs)
+    }
+
+    @Synchronized
+    fun report(r: UdpReport, nowMs: Long) {
+        val prev = last
+        if (prev != null) {
+            val more = (r.highest - prev.highest) and U32
+            if (more > U32 / 2) return  // an older report that arrived late
+            expected += more
+            got += (r.received - prev.received) and U32
+            bytes += (r.bytes - prev.bytes) and U32
+            clockMs += (r.clockMs - prev.clockMs) and U32
+            gaveUp += (r.gaveUp - prev.gaveUp) and 0xFFFF
+            peakBytes += (r.bytes - prev.bytes) and U32
+            peakClockMs += (r.clockMs - prev.clockMs) and U32
+        }
+        last = r
+        reporting = true
+        fresh = true
+        lastReportMs = nowMs
+        trip(r, nowMs)
+        if (peakClockMs >= PEAK_SPAN_MS) {
+            // Only a stretch whose frames all queued on the way went as fast as the link goes; otherwise it has room
+            if (peakQueueMs != Long.MAX_VALUE && peakQueueMs >= PEAK_QUEUE_MS) {
+                val bps = peakBytes * 8_000.0 / peakClockMs
+                while (peaks.isNotEmpty() && peaks.last()[1] <= bps) peaks.removeLast()
+                peaks.addLast(doubleArrayOf(nowMs.toDouble(), bps))
+            }
+            peakBytes = 0; peakClockMs = 0; peakQueueMs = Long.MAX_VALUE
+        }
+    }
+
+    private fun trip(r: UdpReport, nowMs: Long) {
+        val at = sentAt[r.frame] ?: return
+        val trip = nowMs - at - r.sinceMs
+        if (trip < 0) return
+        while (trips.isNotEmpty() && trips.last()[1] >= trip) trips.removeLast()
+        trips.addLast(longArrayOf(nowMs, trip))
+        while (nowMs - trips.first()[0] > FLOOR_MS) trips.removeFirst()
+        extraMs = minOf(extraMs, trip - trips.first()[1])
+        if (r.frame != tripFrame) peakQueueMs = minOf(peakQueueMs, trip - trips.first()[1])  // a frame reported again says nothing new
+        tripFrame = r.frame
+    }
+
+    /** The fastest video came in lately while it queued on the way: a burst that filled the link shows its speed. 0 = not known. */
+    @Synchronized
+    fun peakBps(nowMs: Long): Double {
+        while (peaks.isNotEmpty() && nowMs - peaks.first()[0] > PEAK_MS) peaks.removeFirst()
+        return peaks.firstOrNull()?.get(1) ?: 0.0
+    }
+
+    /** How the link did since the last take (waitingMs: the head of the phone's queue), or null with no new report. */
+    @Synchronized
+    fun take(nowMs: Long, waitingMs: Long): Take? {
+        if (!fresh) {
+            // No reports for a while: nothing got through, which DynamicBitrate treats as a stall like over TCP
+            if (!reporting || lastTakeMs < 0 || nowMs - lastReportMs <= GAP_MS) return null
+            lastTakeMs = nowMs
+            return Take(nowMs - lastReportMs, 0, 0.0)
+        }
+        val span = nowMs - lastTakeMs
+        val first = lastTakeMs < 0
+        lastTakeMs = nowMs
+        // The bytes came in over the desktop's clock; spread over this sample's span they're what got through
+        val sent = if (clockMs > 0) bytes * span / clockMs else 0L
+        batchExpected += expected
+        batchGot += got
+        if (batchExpected >= LOSS_DATAGRAMS) {
+            batchLoss = (batchExpected - batchGot).coerceAtLeast(0).toDouble() / batchExpected
+            batchLossMs = nowMs
+            batches.addLast(longArrayOf(nowMs, batchExpected, batchGot))
+            batchExpected = 0; batchGot = 0
+        }
+        // At low bitrates a share takes a few samples: those in between carry it rather than looking clear
+        var loss = if (nowMs - batchLossMs <= LATELY_MS) batchLoss else 0.0
+        while (batches.isNotEmpty() && nowMs - batches.first()[0] > LATELY_MS) batches.removeFirst()
+        val lately = batches.sumOf { it[1] }.let { sentLately ->
+            if (sentLately > 0) (sentLately - batches.sumOf { it[2] }).coerceAtLeast(0).toDouble() / sentLately else 0.0
+        }
+        val gave = gaveUp > 0
+        if (gave) loss = maxOf(loss, GAVE_UP_LOSS)
+        val wait = maxOf(if (waitMs == Long.MAX_VALUE) 0L else waitMs, waitingMs)
+        val router = if (extraMs == Long.MAX_VALUE) 0L else extraMs
+        val queue = maxOf(wait, router)
+        expected = 0; got = 0; bytes = 0; clockMs = 0; gaveUp = 0; fresh = false
+        extraMs = Long.MAX_VALUE; waitMs = Long.MAX_VALUE
+        return if (first) null else Take(queue, sent, loss, router, if (gave) maxOf(lately, GAVE_UP_LOSS) else lately)  // the first one only starts the count
+    }
 }
 
 // AES-GCM for one direction: each datagram is its counter (8 bytes) then the sealed plaintext
@@ -82,6 +250,44 @@ class UdpSeal(key: ByteArray, private val direction: Byte) {
     }
 }
 
+// UdpVideoClient's pacing on a schedule, so an oversleep (Android's timer slack) is caught up rather than lost; pure, a JVM test
+class UdpPacer(private val burst: Int = UdpVideoClient.PACE_BURST) {
+    private var nextNs = Long.MIN_VALUE  // when the next datagram is due at the pace
+    private var wakeNs = Long.MIN_VALUE  // when the sleep it last asked for should end
+    private var lastNs = 0L              // the last call or wake, so sends straight after a wake can be told from ones after idle
+    private var overNs = 0L              // how far the last sleep overran, still to catch up
+
+    /** How long to wait before sending bytes at bps; 0 or less is no pacing, and nothing builds up meanwhile. */
+    fun waitNs(bytes: Int, bps: Int, nowNs: Long): Long {
+        if (bps <= 0) { nextNs = Long.MIN_VALUE; wakeNs = Long.MIN_VALUE; overNs = 0; return 0 }
+        val burstNs = (burst * 8e9 / bps).toLong()
+        // An oversleep is caught up by the sends right after it, never by ones after idle
+        if (overNs > 0 && (nowNs - lastNs > MIN_SLEEP_NS || nextNs >= nowNs - burstNs)) overNs = 0
+        lastNs = nowNs
+        val floor = nowNs - maxOf(burstNs, overNs)  // idle banks at most a burst
+        if (nextNs < floor) nextNs = floor
+        val wait = nextNs - nowNs
+        nextNs += (bytes * 8e9 / bps).toLong()
+        if (wait < MIN_SLEEP_NS) return 0  // short waits add up until one is worth a sleep
+        wakeNs = nowNs + wait
+        overNs = 0
+        return wait
+    }
+
+    /** The sleep waitNs asked for ended at nowNs: how late it woke (Android's timer slack) is caught up next. */
+    fun woke(nowNs: Long) {
+        if (wakeNs == Long.MIN_VALUE) return
+        overNs = (nowNs - wakeNs).coerceIn(0, CATCH_UP_NS)
+        wakeNs = Long.MIN_VALUE
+        lastNs = nowNs
+    }
+
+    companion object {
+        const val MIN_SLEEP_NS = 1_000_000L
+        const val CATCH_UP_NS = 100_000_000L
+    }
+}
+
 // One desktop watching over UDP. Its HTTPS request stays open as the session: when that ends, so does this.
 class UdpVideoClient(
     private val socket: Socket,
@@ -93,10 +299,16 @@ class UdpVideoClient(
     private val key = UdpSeal.newKey()
     private val out = UdpSeal(key, UdpWire.TO_DESKTOP)
     private val back = UdpSeal(key, UdpWire.TO_PHONE)
-    private val udp = DatagramSocket().apply { sendBufferSize = 1 shl 20 }
+    private val udp = DatagramSocket().apply { sendBufferSize = SEND_BUFFER }
     @Volatile private var peer = peer
     @Volatile private var closed = false
-    private val frames = ArrayBlockingQueue<Pair<ByteArray, Boolean>>(QUEUE)  // (frame, is a keyframe)
+    private class Queued(val frame: ByteArray, val key: Boolean, val atMs: Long)
+    private val frames = ArrayBlockingQueue<Queued>(QUEUE)
+    private val link = UdpLink()
+    private var sendBuffer = 0  // what Dynamic last limited the socket's send buffer to; 0 = not limited
+    /** Bits per second Dynamic spreads datagrams out at (paceFor), 0 for as fast as they go. */
+    @Volatile var paceBps = 0
+    private val pacer = UdpPacer()
     private val sent = object : LinkedHashMap<Int, List<ByteArray>>() {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, List<ByteArray>>) = size > KEEP_FRAMES
     }
@@ -118,7 +330,7 @@ class UdpVideoClient(
     fun offer(frame: ByteArray, key: Boolean) {
         if (closed) return
         if (waitingForKey && !key) return
-        if (!frames.offer(frame to key)) {
+        if (!frames.offer(Queued(frame, key, nowMs()))) {
             frames.clear()
             waitingForKey = true
             requestKeyFrame()
@@ -148,13 +360,14 @@ class UdpVideoClient(
     private fun sendLoop(config: () -> ByteArray?) {
         try {
             while (!closed) {
-                val (frame, key) = frames.poll(500, TimeUnit.MILLISECONDS) ?: continue
+                val next = frames.poll(500, TimeUnit.MILLISECONDS) ?: continue
                 // A keyframe carries the encoder's setup, so a desktop can start from any of them
-                val data = if (key) (config() ?: ByteArray(0)) + frame else frame
+                val data = if (next.key) (config() ?: ByteArray(0)) + next.frame else next.frame
                 val seq = frameSeq++
-                val parts = UdpWire.fragments(seq, H264Stream.withDelimiter(data), key)
+                val parts = UdpWire.fragments(seq, H264Stream.withDelimiter(data), next.key)
                 synchronized(sent) { sent[seq] = parts }
-                parts.forEach { send(it) }
+                parts.forEach { pace(it.size); send(it) }
+                link.sent(seq, next.atMs, nowMs())
             }
         } catch (_: InterruptedException) {
         } catch (_: Exception) { close() }
@@ -189,6 +402,7 @@ class UdpVideoClient(
                 if (!b.hasRemaining()) parts.forEach { send(it) }
                 while (b.remaining() >= 2) parts.getOrNull(b.short.toInt() and 0xFFFF)?.let { send(it) }
             }
+            UdpWire.REPORT -> UdpReport.parse(plain)?.let { link.report(it, nowMs()) }
             UdpWire.KEYFRAME -> {
                 val now = System.currentTimeMillis()
                 if (now - lastKeyAskMs >= KEY_ASK_GAP_MS) { lastKeyAskMs = now; requestKeyFrame() }
@@ -196,10 +410,34 @@ class UdpVideoClient(
         }
     }
 
+    // A keyframe going out in one burst can overflow a router's buffer on a thin link, which then loses it
+    private fun pace(bytes: Int) {
+        val waitNs = pacer.waitNs(bytes, paceBps, System.nanoTime())
+        if (waitNs <= 0) return
+        Thread.sleep(waitNs / 1_000_000, (waitNs % 1_000_000).toInt())
+        pacer.woke(System.nanoTime())
+    }
+
     private fun send(plain: ByteArray) {
         if (closed) return
         val sealed = out.seal(plain)
         try { udp.send(DatagramPacket(sealed, sealed.size, peer)) } catch (_: Exception) {}
+    }
+
+    /** Whether this desktop reports how its link does (an older one doesn't). */
+    val reporting: Boolean get() = link.reporting
+
+    /** How the link to this desktop did since the last call, for Dynamic; null while it sends no reports. */
+    fun takeLink(): UdpLink.Take? = link.take(nowMs(), frames.peek()?.let { nowMs() - it.atMs } ?: 0L)
+
+    /** The fastest video reached this desktop lately while it queued on the way (UdpLink.peakBps), 0 when not known. */
+    fun peakBps(): Double = link.peakBps(nowMs())
+
+    /** Dynamic keeps the send buffer short (bytes, 0 = the default) like H264Client's, so a full link shows as a queue. */
+    fun limitBuffer(bytes: Int) {
+        if (bytes == sendBuffer || (bytes > 0 && sendBuffer > 0 && bytes in sendBuffer * 4 / 5..sendBuffer * 5 / 4)) return
+        sendBuffer = bytes
+        try { udp.sendBufferSize = if (bytes > 0) bytes else SEND_BUFFER } catch (_: Exception) {}
     }
 
     fun close() {
@@ -209,6 +447,21 @@ class UdpVideoClient(
     }
 
     companion object {
+        const val SEND_BUFFER = 1 shl 20
+        const val PACE = 2.5             // Dynamic sends this many times as fast as the video comes...
+        const val PACE_MIN_BPS = 2_000_000  // ...but never slower than this
+        const val PACE_BURST = 16 * 1024 // and lets this much go at once
+        // Once Dynamic found the wall, only a little faster than the link went (UdpLink.peakBps): 2.5 times a big
+        // keyframe overflows a router that buffers 100 ms, and the loss then cuts the bitrate to about half the link
+        const val PACE_OVER_LINK = 1.1
+        const val PACE_FLOOR = 1.2       // yet always this much faster than the video
+        // Dynamic's bitrate too: a still scene that starts moving spends its whole budget at once
+        fun paceFor(encodedBps: Double, dynamicBps: Int = 0, peakBps: Double = 0.0): Int {
+            val video = maxOf(encodedBps, dynamicBps.toDouble())
+            val pace = maxOf(PACE_MIN_BPS.toDouble(), video * PACE)
+            if (peakBps <= 0) return pace.toInt()
+            return minOf(pace, maxOf(video * PACE_FLOOR, peakBps * PACE_OVER_LINK)).toInt()
+        }
         const val QUEUE = 8              // frames waiting to go out; more and the link (or the phone) is stuck
         const val KEEP_FRAMES = 90       // about three seconds at 30 fps for a NACK to ask for again
         const val KEEPALIVE_MS = 1000L

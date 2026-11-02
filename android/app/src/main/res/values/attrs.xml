@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="CardHeader">
+        <attr name="headerIcon" format="reference" />
+        <attr name="headerHue" format="color" />
+        <attr name="headerTitle" format="string" />
+    </declare-styleable>
+</resources>

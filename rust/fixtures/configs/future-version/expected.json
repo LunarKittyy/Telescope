@@ -1,0 +1,788 @@
+{
+  "plugins": [
+    "background",
+    "browser_camera",
+    "camera_control",
+    "chroma_key",
+    "cinema",
+    "colour_grading",
+    "composite",
+    "connection",
+    "desk",
+    "face_exposure",
+    "framing",
+    "fun_pack",
+    "microphone",
+    "monitoring",
+    "name_tag",
+    "notes",
+    "on_air",
+    "onboarding",
+    "photos",
+    "presets",
+    "preview",
+    "privacy_blur",
+    "qr_reader",
+    "setup",
+    "shortcuts",
+    "startup",
+    "stream_output",
+    "transforms",
+    "updates",
+    "wait_screen",
+    "webcam"
+  ],
+  "saved": {
+    "collapsed": [],
+    "devices": {
+      "00000000-0000-4000-8000-000000000001": {
+        "plugin_configs": {
+          "background": {
+            "blur": 4,
+            "edges": 4,
+            "mode": "off",
+            "picture": "/home/sam/Downloads/beach.png"
+          },
+          "camera_control": {
+            "ae_comp": 0,
+            "bll": false,
+            "edge_mode": 2,
+            "exp_manual": false,
+            "focus_diopters": 0.0,
+            "focus_manual": false,
+            "iso": 651.1545480563475,
+            "lens": "3",
+            "low_light": true,
+            "nr_mode": 2,
+            "ois": true,
+            "shutter_ns": 27542287.033381663,
+            "wb_kelvin": 3250,
+            "wb_manual": false,
+            "wb_tint": -28
+          },
+          "chroma_key": {
+            "background": "colour",
+            "colour": [
+              0,
+              0,
+              245
+            ],
+            "on": false,
+            "picked": [
+              219,
+              205,
+              129
+            ],
+            "picture": "",
+            "screen": "green",
+            "softness": 19,
+            "spill": 35,
+            "tolerance": 38
+          },
+          "colour_grading": {
+            "contrast": 1.0,
+            "curves": {
+              "all": [
+                [
+                  0.0,
+                  0.0
+                ],
+                [
+                  1.0,
+                  1.0
+                ]
+              ],
+              "b": [
+                [
+                  0.0,
+                  0.0
+                ],
+                [
+                  1.0,
+                  1.0
+                ]
+              ],
+              "g": [
+                [
+                  0.0,
+                  0.0
+                ],
+                [
+                  1.0,
+                  1.0
+                ]
+              ],
+              "r": [
+                [
+                  0.0,
+                  0.0
+                ],
+                [
+                  1.0,
+                  1.0
+                ]
+              ]
+            },
+            "highlights": 0.0,
+            "hue_hue": [
+              [
+                0.0,
+                0.5
+              ],
+              [
+                0.16666666666666666,
+                0.5
+              ],
+              [
+                0.3333333333333333,
+                0.5
+              ],
+              [
+                0.5,
+                0.5
+              ],
+              [
+                0.6666666666666666,
+                0.5
+              ],
+              [
+                0.8333333333333334,
+                0.5
+              ]
+            ],
+            "hue_sat": [
+              [
+                0.0,
+                0.5
+              ],
+              [
+                0.16666666666666666,
+                0.5
+              ],
+              [
+                0.3333333333333333,
+                0.5
+              ],
+              [
+                0.5,
+                0.5
+              ],
+              [
+                0.6666666666666666,
+                0.5
+              ],
+              [
+                0.8333333333333334,
+                0.5
+              ]
+            ],
+            "lut": "/home/sam/Downloads/Halloween.cube",
+            "lut_strength": 1.0,
+            "masters": {
+              "gain": 1.0,
+              "gamma": 0.0,
+              "lift": 0.0,
+              "offset": 0.0
+            },
+            "on": false,
+            "pivot": 0.435,
+            "saturation": 1.0,
+            "shadows": 0.0,
+            "temperature": 0.0,
+            "tint": 0.0,
+            "wheels": {
+              "gain": [
+                0.0,
+                0.0
+              ],
+              "gamma": [
+                0.0,
+                0.0
+              ],
+              "lift": [
+                0.0,
+                0.0
+              ],
+              "offset": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "desk": {
+            "cleanup": "off",
+            "corners": [
+              [
+                0.3673469387755102,
+                0.4759871931696905
+              ],
+              [
+                0.6452581032412965,
+                0.4898612593383138
+              ],
+              [
+                0.7010804321728692,
+                0.1398078975453575
+              ],
+              [
+                0.32292917166866747,
+                0.1323372465314835
+              ]
+            ],
+            "on": false,
+            "shape": "auto",
+            "stretch": [
+              100,
+              100
+            ]
+          },
+          "face_exposure": {
+            "on": false
+          },
+          "framing": {
+            "framing": 0.0,
+            "hand": false,
+            "on": false,
+            "room": 0,
+            "speed": 10
+          },
+          "fun_pack": {
+            "across": false,
+            "brightness": 8,
+            "edges": 3,
+            "effect": "off",
+            "fade": 10,
+            "smear": 1,
+            "spread": 45
+          },
+          "microphone": {
+            "auto_level": true,
+            "enabled": false,
+            "gain_db": 0,
+            "noise_reduction": false
+          },
+          "monitoring": {
+            "battery_alert": 20,
+            "battery_notify": true,
+            "battery_stop": false,
+            "temp_alert": 45,
+            "temp_notify": true,
+            "temp_stop": false
+          },
+          "name_tag": {
+            "name": "Sam",
+            "on": false,
+            "position": "bottom_left",
+            "pronouns": "they/them",
+            "second": "Streaming tonight",
+            "size": "medium",
+            "style": "bar"
+          },
+          "presets": {
+            "presets": []
+          },
+          "stream_output": {
+            "bitrate_mbps": -1,
+            "format": "h264",
+            "fps": 30,
+            "jpeg_quality": 95,
+            "resolution": "1920 x 1080"
+          },
+          "transforms": {
+            "flip_h": false,
+            "flip_v": true,
+            "pan_x": 0.0,
+            "pan_y": 0.0,
+            "rotation": "None",
+            "stretch_x": 1.0,
+            "stretch_y": 1.0,
+            "zoom": 1.0
+          }
+        }
+      },
+      "00000000-0000-4000-8000-000000000002": {
+        "plugin_configs": {
+          "background": {
+            "blur": 4,
+            "edges": 4,
+            "mode": "off",
+            "picture": "/home/sam/Downloads/beach.png"
+          },
+          "camera_control": {
+            "ae_comp": 0,
+            "bll": false,
+            "edge_mode": 1,
+            "exp_manual": false,
+            "focus_diopters": 0.0,
+            "focus_manual": false,
+            "iso": 71.05460215906797,
+            "lens": "0",
+            "low_light": false,
+            "nr_mode": 1,
+            "ois": true,
+            "shutter_ns": 100009.73820385852,
+            "wb_kelvin": 5500,
+            "wb_manual": false,
+            "wb_tint": 0
+          },
+          "chroma_key": {
+            "background": "colour",
+            "colour": [
+              40,
+              34,
+              30
+            ],
+            "on": false,
+            "picked": null,
+            "picture": "",
+            "screen": "green",
+            "softness": 30,
+            "spill": 60,
+            "tolerance": 40
+          },
+          "colour_grading": {
+            "contrast": 1.0,
+            "curves": {
+              "all": [
+                [
+                  0.0,
+                  0.0
+                ],
+                [
+                  1.0,
+                  1.0
+                ]
+              ],
+              "b": [
+                [
+                  0.0,
+                  0.0
+                ],
+                [
+                  1.0,
+                  1.0
+                ]
+              ],
+              "g": [
+                [
+                  0.0,
+                  0.0
+                ],
+                [
+                  1.0,
+                  1.0
+                ]
+              ],
+              "r": [
+                [
+                  0.0,
+                  0.0
+                ],
+                [
+                  1.0,
+                  1.0
+                ]
+              ]
+            },
+            "highlights": 0.0,
+            "hue_hue": [
+              [
+                0.0,
+                0.5
+              ],
+              [
+                0.16666666666666666,
+                0.5
+              ],
+              [
+                0.3333333333333333,
+                0.5
+              ],
+              [
+                0.5,
+                0.5
+              ],
+              [
+                0.6666666666666666,
+                0.5
+              ],
+              [
+                0.8333333333333334,
+                0.5
+              ]
+            ],
+            "hue_sat": [
+              [
+                0.0,
+                0.5
+              ],
+              [
+                0.16666666666666666,
+                0.5
+              ],
+              [
+                0.3333333333333333,
+                0.5
+              ],
+              [
+                0.5,
+                0.5
+              ],
+              [
+                0.6666666666666666,
+                0.5
+              ],
+              [
+                0.8333333333333334,
+                0.5
+              ]
+            ],
+            "lut": "",
+            "lut_strength": 1.0,
+            "masters": {
+              "gain": 1.0,
+              "gamma": 0.0,
+              "lift": 0.0,
+              "offset": 0.0
+            },
+            "on": true,
+            "pivot": 0.435,
+            "saturation": 1.0,
+            "shadows": 0.0,
+            "temperature": 0.0,
+            "tint": 0.0,
+            "wheels": {
+              "gain": [
+                0.0,
+                0.0
+              ],
+              "gamma": [
+                0.0,
+                0.0
+              ],
+              "lift": [
+                0.0,
+                0.0
+              ],
+              "offset": [
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "desk": {
+            "cleanup": "off",
+            "corners": [
+              [
+                1.0,
+                0.0
+              ],
+              [
+                0.0,
+                0.0
+              ],
+              [
+                0.0,
+                1.0
+              ],
+              [
+                1.0,
+                1.0
+              ]
+            ],
+            "on": false,
+            "shape": "auto",
+            "stretch": [
+              100,
+              100
+            ]
+          },
+          "face_exposure": {
+            "on": false
+          },
+          "framing": {
+            "framing": 0.3,
+            "hand": false,
+            "on": false,
+            "room": 0,
+            "speed": 6
+          },
+          "fun_pack": {
+            "across": false,
+            "brightness": 6,
+            "edges": 3,
+            "effect": "off",
+            "fade": 6,
+            "smear": 1,
+            "spread": 45
+          },
+          "microphone": {
+            "auto_level": false,
+            "enabled": false,
+            "gain_db": 0,
+            "noise_reduction": false
+          },
+          "monitoring": {
+            "battery_alert": 20,
+            "battery_notify": true,
+            "battery_stop": false,
+            "temp_alert": 45,
+            "temp_notify": true,
+            "temp_stop": false
+          },
+          "name_tag": {
+            "name": "",
+            "on": false,
+            "position": "bottom_left",
+            "pronouns": "",
+            "second": "",
+            "size": "medium",
+            "style": "bar"
+          },
+          "presets": {
+            "presets": []
+          },
+          "stream_output": {
+            "bitrate_mbps": -1,
+            "format": "h264",
+            "fps": 30,
+            "jpeg_quality": 85,
+            "resolution": "1280 x 720"
+          },
+          "transforms": {
+            "flip_h": true,
+            "flip_v": false,
+            "pan_x": 0.0,
+            "pan_y": 0.0,
+            "rotation": "None",
+            "stretch_x": 1.0,
+            "stretch_y": 1.0,
+            "zoom": 1.0
+          }
+        }
+      }
+    },
+    "output_slots": {
+      "00000000-0000-4000-8000-000000000002": 1,
+      "browser:000000000000000000000003": 1
+    },
+    "plugin_configs": {
+      "browser_camera": {
+        "address": "192.168.1.10",
+        "fps": 30,
+        "known": {},
+        "size": "720p"
+      },
+      "cinema": {
+        "false_colour": false,
+        "guides": "off",
+        "level": false,
+        "peaking": false,
+        "peaking_colour": "red",
+        "peaking_level": 5,
+        "scope": "off",
+        "scope_size": "medium",
+        "zebra_level": 95,
+        "zebras": false
+      },
+      "composite": {
+        "layout": {
+          "background": "#15151a",
+          "name": "",
+          "picture": "",
+          "tiles": [
+            {
+              "border": 0,
+              "border_colour": "#ffffff",
+              "crop_b": 0.0,
+              "crop_l": 0.0,
+              "crop_r": 0.0,
+              "crop_t": 0.0,
+              "cx": 0.5,
+              "cy": 0.5,
+              "h": 1.0,
+              "name": "Pixel 8",
+              "radius": 0,
+              "source_id": "00000000-0000-4000-8000-000000000001",
+              "stretch": false,
+              "w": 1.0,
+              "x": 0.0,
+              "y": 0.0,
+              "zoom": 1.0
+            },
+            {
+              "border": 0,
+              "border_colour": "#ffffff",
+              "crop_b": 0.0,
+              "crop_l": 0.0,
+              "crop_r": 0.0,
+              "crop_t": 0.0,
+              "cx": 0.5,
+              "cy": 0.5,
+              "h": 0.3168086621336531,
+              "name": "Galaxy S10+",
+              "radius": 14,
+              "source_id": "00000000-0000-4000-8000-000000000002",
+              "stretch": false,
+              "w": 0.3168086621336531,
+              "x": 0.0,
+              "y": 0.6831913378663469,
+              "zoom": 1.0
+            }
+          ]
+        },
+        "layouts": [],
+        "on": false
+      },
+      "connection": {
+        "computer_id": "00000000000000000000000000000008",
+        "computer_name": "desk-pc",
+        "phones": [
+          {
+            "active_ip": "192.168.1.20",
+            "cert_sha256": "0505050505050505050505050505050505050505050505050505050505050505",
+            "id": "00000000-0000-4000-8000-000000000002",
+            "ips": [
+              "192.168.1.20"
+            ],
+            "name": "Galaxy S10+",
+            "token": "fake-pairing-token-04xxxxxxxxxxxxxxxxxxxxxx"
+          },
+          {
+            "active_ip": "192.168.1.21",
+            "cert_sha256": "0707070707070707070707070707070707070707070707070707070707070707",
+            "id": "00000000-0000-4000-8000-000000000001",
+            "ips": [
+              "192.168.1.21",
+              "100.64.0.7"
+            ],
+            "name": "Pixel 8",
+            "token": "fake-pairing-token-06xxxxxxxxxxxxxxxxxxxxxx"
+          }
+        ],
+        "route": "auto",
+        "selected_phone": "00000000-0000-4000-8000-000000000001",
+        "udp": false
+      },
+      "hologram": {
+        "depth": 3,
+        "on": true
+      },
+      "notes": {
+        "current": 0,
+        "scroll": "auto",
+        "sets": [
+          ""
+        ],
+        "size": 44,
+        "speed": 3
+      },
+      "on_air": {
+        "address": "192.168.1.20",
+        "page": true,
+        "token": "fake-on-air-09xxxxxxxxxx",
+        "trigger": "camera",
+        "webhook_method": "POST",
+        "webhook_off": "",
+        "webhook_on": "",
+        "webhook_url": ""
+      },
+      "onboarding": {
+        "streamed": true
+      },
+      "photos": {
+        "best": true,
+        "bracket": "3x1",
+        "burst": 5,
+        "distortion": "camera",
+        "exposure_s": 0,
+        "focus_steps": 5,
+        "folder": "/home/sam/Pictures/Telescope",
+        "format": "jpeg",
+        "mode": "normal",
+        "quality": 95,
+        "shots": "single",
+        "timer": 0
+      },
+      "preview": {
+        "lens_boxes": false,
+        "skeleton": false
+      },
+      "privacy_blur": {
+        "mode": "wait",
+        "on": false
+      },
+      "qr_reader": {
+        "notify": true,
+        "on": true
+      },
+      "setup": {
+        "canvas_preset": "1080p 16:9 - 1920 x 1080",
+        "custom_canvas_h": 1080,
+        "custom_canvas_w": 1920,
+        "hw_decode": true,
+        "language": "sv",
+        "limiter": true,
+        "max_gain": 12,
+        "max_zoom": 10,
+        "plugin_hues": true,
+        "power_saving": false
+      },
+      "shortcuts": {
+        "bindings": [],
+        "notify": false
+      },
+      "startup": {
+        "notify_stop": true,
+        "start_on": "off",
+        "stop_delay_s": 15,
+        "stop_idle": "off"
+      },
+      "updates": {
+        "auto_check": true,
+        "channel": "nightly",
+        "keep_portable": false,
+        "last_check": 1793208492.7474077
+      },
+      "wait_screen": {
+        "image": null,
+        "last_size": [
+          1920,
+          1080
+        ],
+        "mirror": false
+      },
+      "webcam": {
+        "cameras": {}
+      }
+    },
+    "plugins": {
+      "added": {},
+      "noticed": [],
+      "off": [],
+      "on": [
+        "background",
+        "chroma_key",
+        "cinema",
+        "colour_grading",
+        "composite",
+        "desk",
+        "face_exposure",
+        "framing",
+        "fun_pack",
+        "name_tag",
+        "notes",
+        "on_air",
+        "photos",
+        "privacy_blur",
+        "qr_reader"
+      ]
+    },
+    "selected_device": "00000000-0000-4000-8000-000000000001",
+    "something_new": {
+      "keep": "me"
+    },
+    "version": 3
+  },
+  "set_aside": false
+}

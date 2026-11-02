@@ -3,8 +3,8 @@
 
 ## Checks
 <!-- Tick what you ran, delete what doesn't apply to your change. -->
-- [ ] Desktop: `python -m pytest -q` in `desktop/`
+- [ ] Desktop: `cargo nextest run --workspace --locked` in `rust/`
 - [ ] Android: `./gradlew lintDebug testDebugUnitTest` in `android/`
-- [ ] README, `docs/` or `desktop/MODULES.md` updated, if something users see, the protocol or a module changed
+- [ ] README, `docs/` or `rust/ARCHITECTURE.md` updated, if something users see, the protocol or a crate's job changed
 
 **Still needs a check on a real device:** <!-- what to try by hand before merging, or "nothing". If you did try it, say on what -->

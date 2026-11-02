@@ -7,7 +7,14 @@
 
     <!-- Main screen -->
     <string name="open_preview">Open camera preview</string>
+    <!-- The header button that opens the camera preview, kept short -->
+    <string name="preview_button">Preview</string>
     <string name="close_preview">Close preview</string>
+    <!-- The header button next to Preview that turns the screen black while streaming, kept short -->
+    <string name="black_screen_button">Black screen</string>
+    <string name="black_screen_description">Turn the screen black while the camera keeps going</string>
+    <!-- Shown on the black screen for a few seconds, then it fades -->
+    <string name="black_screen_hint">Double tap to wake</string>
 
     <!-- Update card -->
     <string name="update_available">Update available</string>
@@ -52,6 +59,8 @@
     <string name="setup_title">Get set up</string>
     <string name="setup_camera">Camera</string>
     <string name="setup_camera_reason">To stream from this phone\'s cameras.</string>
+    <string name="setup_local_network">Local network</string>
+    <string name="setup_local_network_reason">Lets your computer find and connect to this phone over Wi-Fi. Not needed for USB.</string>
     <string name="setup_notifications">Notifications</string>
     <string name="setup_notifications_reason">Shows when the camera is streaming, and stops it from there.</string>
     <string name="setup_microphone">Microphone</string>
@@ -74,11 +83,17 @@
     <!-- %1$s is a date, already written the phone's way -->
     <string name="paired_on">Paired %1$s</string>
     <string name="remove">Remove</string>
+    <!-- Under the first few paired computers: unfolds the rest. %1$d is how many there are, always more than 3 -->
+    <string name="show_all_computers">Show all %1$d</string>
+    <string name="show_fewer">Show fewer</string>
     <string name="cancel">Cancel</string>
     <string name="ok">OK</string>
     <!-- %1$s is the computer's name -->
     <string name="remove_computer_title">Remove %1$s?</string>
     <string name="remove_computer_message">It won\'t be able to use this phone\'s camera until you pair it again.</string>
+    <string name="remove_all">Remove all</string>
+    <string name="remove_all_title">Remove all computers?</string>
+    <string name="remove_all_message">None of them will be able to use this phone\'s camera until you pair them again.</string>
     <string name="scan_prompt">Point the camera at the pairing code on your computer</string>
     <string name="scan_download_link">That code downloads the app. Scan the one under Add phone on the computer.</string>
     <string name="scan_not_pairing_code">That\'s not a Telescope pairing code.</string>
@@ -114,19 +129,21 @@
     <!-- Network card -->
     <string name="network_title">Network</string>
     <string name="local_only">Local only - USB</string>
-    <string name="local_only_hint">Keeps the camera off the network, so only a USB connection can reach it.</string>
+    <string name="local_only_hint">Only a USB connection can reach the camera.</string>
     <string name="wait_for_computer">Wait for my computer</string>
-    <string name="wait_for_computer_hint">Keeps Telescope running while the screen is off, so a paired computer can start the camera.</string>
+    <string name="wait_for_computer_hint">Lets a paired computer start the camera while the screen is off.</string>
 
     <!-- Status card. Keep the ● (streaming) or ○ (not streaming) at the start. -->
     <string name="stop_streaming">Stop streaming</string>
     <string name="status_title">Status</string>
-    <string name="status_not_streaming">○ Not streaming</string>
-    <string name="status_starting">○ Starting…</string>
-    <string name="status_streaming">● Streaming</string>
-    <string name="status_waiting_for_computer">● Waiting for the computer</string>
-    <string name="status_mic_only">● Streaming the mic, camera off</string>
-    <string name="status_camera_taken">● Another app is using the camera. Streaming goes on when it\'s free.</string>
+    <string name="status_not_streaming">Not streaming</string>
+    <string name="status_starting">Starting…</string>
+    <string name="status_streaming">Streaming</string>
+    <!-- Under Streaming: the picture's short side and the frame rate, like "At 1080p 30 fps" -->
+    <string name="status_quality">At %1$dp %2$d fps</string>
+    <string name="status_waiting_for_computer">Waiting for the computer</string>
+    <string name="status_mic_only">Streaming the mic, camera off</string>
+    <string name="status_camera_taken">Another app is using the camera. Streaming goes on when it\'s free.</string>
     <string name="streaming_started_remotely">Streaming started from your computer</string>
 
     <!-- About card -->
@@ -137,6 +154,7 @@
     <string name="troubleshooting">Troubleshooting</string>
     <string name="nightly_updates">Nightly updates</string>
     <string name="nightly_updates_hint">Built from every change: fixes arrive sooner, with less testing.</string>
+    <string name="updates_section">Updates</string>
     <string name="check_for_updates">Check for updates</string>
     <!-- Shown in About only while this language's translation is a first draft -->
     <string name="translation_draft">This translation is a first draft and some texts might read a bit oddly.</string>
@@ -159,12 +177,18 @@
     <string name="preview_no_cameras">No cameras found.</string>
     <string name="preview_may_stretch">Preview may look stretched - couldn\'t read camera info.</string>
 
+    <!-- Notes screen: the notes sent from the computer, shown right under the front camera -->
+    <string name="notes_close">Close the notes</string>
+
     <!-- Notifications -->
     <string name="notif_channel_streaming">Streaming</string>
     <string name="notif_channel_streaming_desc">Shown while the camera is streaming to your computer</string>
     <string name="notif_channel_waiting">Waiting for the computer</string>
     <string name="notif_channel_waiting_desc">Shown while Telescope keeps waiting for a paired computer to start the camera</string>
+    <string name="notif_streaming_title">Streaming</string>
     <string name="notif_camera_streaming">Camera is streaming</string>
+    <string name="notif_streaming_usb">To %1$s over USB</string>
+    <string name="notif_streaming_wifi">To %1$s over Wi-Fi</string>
     <string name="notif_mic_streaming">Microphone is streaming, camera off</string>
     <string name="notif_waiting">Waiting for your computer</string>
     <string name="notif_stop_waiting">Stop waiting</string>

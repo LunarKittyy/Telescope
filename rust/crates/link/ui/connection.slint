@@ -1,0 +1,759 @@
+// The Connection plugin: the card, the phone picker in the header, the Add
+// phone and Your phones dialogs (as popups) and the UDP row in Settings. Texts with blanks come filled from Rust.
+
+import { Theme, Icons, Icon, TipBody, Button, IconButton, LinkText, Card, FormRow, Segmented, ChoiceField, TextField, TextCap, Switch, SettingRow, Tag, DialogFrame, WindowBox, FlickBar, QrCode } from "@ui-kit/ui-kit.slint";
+
+// A plugged-in phone the Add phone dialog can pair over USB.
+export struct UsbPick {
+    serial: string,
+    label: string,
+    enabled: bool,
+}
+
+// One row of Your phones: a phone, a remembered browser, or this computer.
+export struct PhoneRow {
+    id: string,
+    name: string,
+    sub: string,
+    renamable: bool,
+    // Screen readers' names for its buttons
+    rename-label: string,
+    remove-label: string,
+    // The question Remove asks first, filled in
+    confirm-title: string,
+    confirm: string,
+}
+
+global Status {
+    public pure function color(kind: string) -> color {
+        kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
+            : kind == "status_dim" ? Theme.text-dim : Theme.text
+    }
+
+    public pure function icon(name: string) -> image {
+        name == "usb" ? Icons.usb : name == "wifi" ? Icons.wifi : Icons.x
+    }
+}
+
+// wrapped_note: a QLabel#dim, so body size
+component Note inherits Text {
+    in property <string> kind: "status_dim";
+    // False takes it out of its layout, height and all
+    in property <bool> shown: true;
+    visible: shown;
+    font-family: Theme.font;
+    font-size: Theme.body;
+    color: Status.color(kind);
+    wrap: word-wrap;
+    // Qt's line pitch, so a wrapped note lines up line by line
+    line-height-factor: Theme.line-factor(self.font-size);
+    height: shown ? self.preferred-height : 0px;
+}
+
+// A QScrollArea: as tall as what's in it up to cap, then a scroll bar. gutter keeps room for the bar beside the rows; it
+// can't follow the height, which follows the rows' width.
+component ScrollList inherits Rectangle {
+    in property <length> cap;
+    in property <length> gap;
+    in property <bool> gutter;
+    out property <length> wanted: rows.preferred-height;
+    out property <bool> scrolls: wanted > cap;
+    height: min(wanted, cap);
+    changed wanted => {
+        flick.viewport-y = max(flick.viewport-y, min(0px, cap - wanted));
+    }
+    flick := Flickable {
+        viewport-height: wanted;
+        rows := VerticalLayout {
+            width: flick.width - (gutter ? 14px : 0px);
+            spacing: gap;
+            alignment: start;
+            @children
+        }
+    }
+    if scrolls: FlickBar {
+        x: parent.width - self.width;
+        width: 6px;
+        height: flick.height;
+        content: flick.viewport-height;
+        viewport: flick.height;
+        position <=> flick.viewport-y;
+        least-thumb: 24px;
+        thumb-radius: 3px;
+        pages: false;
+    }
+}
+
+// Add phone's Pair buttons: scrolling past four, so a pile of phones can't grow the dialog.
+export component UsbPicks inherits ScrollList {
+    in property <[UsbPick]> picks;
+    callback pick(string);
+    cap: 4 * 32px + 3 * 6px;
+    gap: 6px;
+    gutter: picks.length > 4;
+    for p in picks: HorizontalLayout {
+        alignment: start;
+        Button { text: p.label; enabled: p.enabled; clicked => { root.pick(p.serial); } }
+    }
+}
+
+// Your phones' strips: about six, then a scroll bar instead of a dialog that grows off the screen (_PhoneRows).
+export component PhoneList inherits ScrollList {
+    in property <[PhoneRow]> rows-shown;
+    callback rename(PhoneRow);
+    callback remove(PhoneRow);
+    cap: 320px;
+    gap: 8px;
+    gutter: rows-shown.length > 6;
+    for row in rows-shown: SettingRow {
+        title: row.name;
+        sub: row.sub;
+        if row.renamable: IconButton {
+            icon: Icons.pencil;
+            label: row.rename-label;
+            tip: @tr("Rename");
+            clicked => { root.rename(row); }
+        }
+        IconButton {
+            icon: Icons.trash;
+            label: row.remove-label;
+            tip: @tr("Remove");
+            clicked => { root.remove(row); }
+        }
+    }
+}
+
+export component ConnectionCard inherits Card {
+    // The link block: how the phone is doing, over what, and what to do about it
+    in property <string> status-text;
+    in property <string> status-kind;
+    in property <string> using-text;
+    in property <bool> using-shown;
+    in property <string> route-icon: "x";
+    in property <string> note-text;
+    in property <string> note-kind: "status_dim";
+    in property <bool> switch-usb-shown;
+    in property <bool> update-shown;
+    in property <string> update-text;
+    in property <bool> update-enabled: true;
+    in property <bool> route-shown;
+    // 0 Automatic, 1 USB, 2 Wi-Fi
+    in-out property <int> route-current;
+    callback add-phone;
+    callback guide;
+    callback switch-usb;
+    callback update;
+    callback route-picked(int);
+
+    // Add phone
+    in property <bool> add-open;
+    in property <string> add-subtitle;
+    in property <[int]> qr-cells;
+    in property <int> qr-size;
+    in property <bool> wifi-shown: true;
+    in property <string> wifi-text;
+    in property <bool> usb-shown: true;
+    in property <string> usb-text;
+    in property <string> usb-kind: "status_dim";
+    // The licence question's link, the rest of its sentence and the line under it
+    in property <string> usb-link-text;
+    in property <string> usb-link-url;
+    in property <string> usb-link-tail;
+    in property <string> usb-after;
+    in property <string> usb-action;
+    // A second way out next to it: pick an adb already here
+    in property <string> usb-pick-action;
+    in property <[UsbPick]> picks;
+    in property <string> result-text;
+    in property <bool> paired;
+    // A source that needs no pairing (Browser camera), offered beside Android; "" without one
+    in property <string> other-name;
+    in-out property <int> add-page;
+    callback other-picked;
+    callback add-closed;
+    // Back: closes it, and Your phones comes up again if that is where it was opened from
+    callback add-back;
+    callback pick(string);
+    callback usb-action-clicked;
+    callback usb-link-clicked;
+    callback usb-pick-clicked;
+
+    // The question before the virtual camera's password prompt
+    in property <bool> vcam-open;
+    property <bool> vcam-persist: true;
+    callback vcam-answered(bool, bool);
+
+    title: @tr("Connection");
+    icon: Icons.v-connection;
+    has-action: true;
+    // card_action takes line icons for help and plus
+    action-icon: Icons.plus;
+    action-text: @tr("Add phone");
+    action-label: @tr("Pair a phone over Wi-Fi or USB");
+    action-shortcut: "connection.add_phone";
+    action => { root.add-phone(); }
+    has-extra: true;
+    extra-icon: Icons.help;
+    extra-label: @tr("Open or close the setup guide: the virtual camera, the phone app and pairing");
+    extra-name: @tr("Setup guide");
+    extra => { root.guide(); }
+
+    changed add-open => {
+        if (self.add-open) {
+            self.add-page = 0;
+            add-popup.show();
+        } else {
+            add-popup.close();
+        }
+    }
+
+    changed vcam-open => {
+        if (self.vcam-open) {
+            vcam-popup.show();
+        } else {
+            vcam-popup.close();
+        }
+    }
+
+    // QFrame#subsection
+    Rectangle {
+        background: Theme.surface-raise;
+        border-width: 1px;
+        border-color: Theme.border;
+        border-radius: 8px;
+        // Qt's 12/8/12/6 margins sit inside the frame's 1px border
+        VerticalLayout {
+            padding-left: 13px;
+            padding-right: 13px;
+            padding-top: 9px;
+            padding-bottom: 7px;
+            spacing: 0px;
+            HorizontalLayout {
+                spacing: 12px;
+                // RoundIcon: the card's hue at 14% under the icon in that hue
+                Rectangle {
+                    width: 35px;
+                    height: 35px;
+                    border-radius: 17.5px;
+                    background: root.hue.with-alpha(0.14);
+                    Icon { source: Status.icon(route-icon); tint: root.hue; width: 17px; height: 17px; accessible-role: none; }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 1px;
+                    // Qt's two lines fit the icon's 35px; Slint's line boxes would make them a pixel taller
+                    max-height: 35px;
+                    shown-status-text := Text {
+                        text: status-text;
+                        font-family: Theme.font;
+                        font-size: Theme.start * 1.08;
+                        font-weight: 600;
+                        color: Status.color(status-kind);
+                        overflow: elide;
+                        if shown-status-text.preferred-width > shown-status-text.width: Tooltip { TipBody { says: shown-status-text.text; } }
+                    }
+                    if using-shown: shown-using-text := Text {
+                        text: using-text;
+                        font-family: Theme.font;
+                        font-size: Theme.body;
+                        color: Theme.text-dim;
+                        overflow: elide;
+                        if shown-using-text.preferred-width > shown-using-text.width: Tooltip { TipBody { says: shown-using-text.text; } }
+                    }
+                }
+            }
+            // Not under an `if`: Slint measures wrapped text in a conditional layout as one line, so the box would come up short
+            HorizontalLayout {
+                property <bool> shown: note-text != "" || switch-usb-shown || update-shown;
+                visible: shown;
+                max-height: shown ? 100000px : 0px;
+                padding-top: shown ? 4px : 0px;
+                // Lined up with the status: the 35px icon and the 12px after it
+                Rectangle { width: 47px; }
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    padding-bottom: parent.shown ? 2px : 0px;
+                    Note {
+                        text: note-text;
+                        kind: note-kind;
+                        shown: note-text != "";
+                    }
+                    if switch-usb-shown: HorizontalLayout {
+                        alignment: start;
+                        // Qt's 8px from the label's box, which ends a pixel above Slint's
+                        padding-top: note-text != "" ? 7px : 0px;
+                        // action_button: 160 wide; Qt's push buttons are 32 tall
+                        Button {
+                            width: 160px;
+                            height: 32px;
+                            text: @tr("Switch to USB");
+                            role: "primary";
+                            tip: @tr("The phone was plugged in; reconnect over the cable");
+                            clicked => { root.switch-usb(); }
+                        }
+                    }
+                    if update-shown: HorizontalLayout {
+                        alignment: start;
+                        padding-top: switch-usb-shown ? 8px : note-text != "" ? 7px : 0px;
+                        // action_button: 160 wide; Qt's push buttons are 32 tall
+                        Button {
+                            width: 160px;
+                            height: 32px;
+                            text: update-text;
+                            role: "primary";
+                            enabled: update-enabled;
+                            clicked => { root.update(); }
+                        }
+                    }
+                }
+            }
+            // Qt's 4px spacing, a 4px spacer and 4px again above the hairline
+            // A note with nothing under it: Qt's label box ends 4px above Slint's there
+            VerticalLayout {
+                // Qt keeps the note box when there's nothing in it, so its 2px bottom margin still counts
+                padding-top: switch-usb-shown || update-shown ? 9px : note-text != "" ? 8px : 14px;
+                spacing: 4px;
+                // Stays with no route to choose from: only the row under it goes
+                Rectangle { height: 1px; background: Theme.border; }
+                if route-shown: FormRow {
+                    label: @tr("Connect via");
+                    Segmented {
+                        horizontal-stretch: 1;
+                        items: [@tr("Auto"), "USB", "Wi-Fi"];
+                        icons: [Icons.x, Icons.usb, Icons.wifi];
+                        has-icons: [false, true, true];
+                        current <=> root.route-current;
+                        accessible-description: @tr("Automatic: USB when the phone's plugged in, Wi-Fi otherwise.");
+                        picked(i) => { root.route-picked(i); }
+                    }
+                }
+            }
+        }
+    }
+
+    add-popup := PopupWindow {
+        close-policy: no-auto-close;
+        x: -root.absolute-position.x;
+        y: -root.absolute-position.y;
+        width: WindowBox.cover-w(max(root.width, 460px));
+        height: WindowBox.cover-h(add-frame.preferred-height);
+        add-frame := DialogFrame {
+            x: WindowBox.left(self.width);
+            y: WindowBox.top(self.height);
+            width: max(root.width, 460px);
+            // The window's height caps the dialog, and the code is what gives way
+            height: WindowBox.cap(self.preferred-height);
+            dismissable: true;
+            // A pairing with its code showing isn't lost to a stray click: that takes Back or Done
+            dismissed => { if (paired || qr-size == 0) { root.add-closed(); } }
+            property <bool> on-source: other-name != "" && !paired && add-page == 1;
+            title: @tr("Add a phone");
+            subtitle: on-source ? "" : add-subtitle;
+            if other-name != "" && !paired: Segmented {
+                label: @tr("What to add");
+                margin: 0px;
+                items: ["Android", other-name];
+                has-icons: [false, false];
+                icons: [Icons.x, Icons.x];
+                current: root.add-page;
+                picked(i) => { root.add-page = i; }
+            }
+            if on-source: Note { text: @tr("Works on an iPhone or anything else with a browser and there's nothing to install."); kind: ""; }
+            if on-source: HorizontalLayout {
+                alignment: start;
+                Button { text: @tr("Use it"); role: "primary"; accessible-label: other-name; clicked => { root.other-picked(); } }
+            }
+            if qr-size > 0 && !paired && !on-source: Rectangle {
+                property <int> modules: qr-size + 8;
+                // A long payload makes more modules than the dialog's width holds at 6px. Whole device pixels each, or the
+                // white gaps between dark cells show on a scaled screen
+                function fit(room: length) -> length {
+                    return min(6px, max(1phx, floor(room / modules / 1phx) * 1phx));
+                }
+                property <length> full: modules * fit(self.width);
+                min-height: 0px;
+                preferred-height: full;
+                max-height: full;
+                vertical-stretch: 1;
+                QrCode {
+                    cells: qr-cells;
+                    size: qr-size;
+                    cell: fit(min(parent.width, parent.height));
+                    label: @tr("Pairing code");
+                }
+            }
+            if wifi-shown && !paired && !add-frame.on-source: FormRow {
+                label: "Wi-Fi";
+                // Qt's label fills the row and centres its lines
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    alignment: center;
+                    Note { text: wifi-text; }
+                }
+            }
+            if usb-shown && !paired && !add-frame.on-source: FormRow {
+                label: "USB";
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 6px;
+                    alignment: center;
+                    Note { text: usb-text; kind: usb-kind; }
+                    if usb-link-text != "": HorizontalLayout {
+                        alignment: start;
+                        LinkText {
+                            text: usb-link-text;
+                            url: usb-link-url;
+                            font-size: Theme.body;
+                            opened => { root.usb-link-clicked(); }
+                        }
+                        Note { text: usb-link-tail; width: self.preferred-width; }
+                    }
+                    if usb-after != "": Note { text: usb-after; }
+                    if usb-action != "": HorizontalLayout {
+                        alignment: start;
+                        spacing: 8px;
+                        Button { text: usb-action; clicked => { root.usb-action-clicked(); } }
+                        if usb-pick-action != "": Button { text: usb-pick-action; clicked => { root.usb-pick-clicked(); } }
+                    }
+                    if picks.length > 0: UsbPicks {
+                        picks: root.picks;
+                        pick(serial) => { root.pick(serial); }
+                    }
+                }
+            }
+            if paired: Text {
+                text: result-text;
+                font-family: Theme.font;
+                font-size: Theme.card-title;
+                font-weight: 600;
+                color: Theme.text;
+                horizontal-alignment: center;
+            }
+            // dialog_buttons: 4px above, 96px wide
+            HorizontalLayout {
+                alignment: end;
+                padding-top: 4px;
+                Button {
+                    width: 96px;
+                    height: 32px;
+                    text: paired ? @tr("Done") : @tr("Back");
+                    role: paired ? "primary" : "";
+                    clicked => {
+                        if (paired) { root.add-closed(); } else { root.add-back(); }
+                    }
+                }
+            }
+        }
+    }
+
+    vcam-popup := PopupWindow {
+        close-policy: no-auto-close;
+        x: -root.absolute-position.x;
+        y: -root.absolute-position.y;
+        width: WindowBox.cover-w(max(root.width, 460px));
+        height: WindowBox.cover-h(vcam-frame.preferred-height);
+        vcam-frame := DialogFrame {
+            x: WindowBox.left(self.width);
+            y: WindowBox.top(self.height);
+            width: max(root.width, 460px);
+            height: self.preferred-height;
+            dismissable: true;
+            dismissed => { root.vcam-answered(false, false); }
+            title: @tr("Set up the virtual camera");
+            Note { text: @tr("Telescope needs to switch on its virtual camera first. This asks for your password."); kind: ""; }
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: start;
+                Switch {
+                    checked: root.vcam-persist;
+                    toggled(on) => { root.vcam-persist = on; }
+                    label: @tr("Also switch it on at every startup");
+                }
+                Text {
+                    text: @tr("Also switch it on at every startup");
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    color: Theme.text;
+                    vertical-alignment: center;
+                }
+            }
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                Button {
+                    width: 96px;
+                    height: 32px;
+                    text: @tr("Cancel");
+                    clicked => { root.vcam-answered(false, false); }
+                }
+                Button {
+                    width: 96px;
+                    height: 32px;
+                    text: @tr("OK");
+                    role: "primary";
+                    clicked => { root.vcam-answered(true, root.vcam-persist); }
+                }
+            }
+        }
+    }
+}
+
+// The phone picker and the Your phones button, next to the window's title.
+export component PhonePicker inherits HorizontalLayout {
+    in property <[string]> names;
+    in-out property <int> current: -1;
+    callback picked(int);
+    callback manage;
+
+    // Your phones
+    in property <bool> phones-open;
+    in property <[PhoneRow]> rows;
+    in property <string> computer-name;
+    callback phones-closed;
+    callback rename(string, string);
+    callback remove(string);
+    callback rename-computer(string);
+    callback add-phone;
+    // The picker's list opened or closed
+    in property <[bool]> gone;
+    callback picker-open(bool);
+
+    // _ask_name: whose name it asks for ("" for this computer's)
+    property <string> naming;
+    property <string> name-title;
+    property <string> name-label;
+    property <string> name-text;
+    // The row Remove asks about
+    property <PhoneRow> removing;
+    spacing: 8px;
+
+    function ask-name(id: string, title: string, label: string, text: string) {
+        naming = id;
+        name-title = title;
+        name-label = label;
+        name-text = text;
+    }
+
+    changed phones-open => {
+        if (self.phones-open) {
+            phones-popup.show();
+        } else {
+            phones-popup.close();
+        }
+    }
+
+    // The header bar is taller than these; Qt centres them in it
+    ChoiceField {
+        min-width: 180px;
+        height: 34px;
+        y: (parent.height - self.height) / 2;
+        compact: true;
+        bold: true;
+        has-icon: true;
+        shortcut: "phone.pick";
+        icon: Icons.phone;
+        icon-tint: Theme.plugin-hue("streaming");
+        caption: names.length == 0 ? @tr("No phone yet") : "";
+        placeholder: names.length == 0 ? @tr("No phone yet") : "";
+        items: names;
+        gone: root.gone;
+        current <=> root.current;
+        accessible-label: @tr("Phone");
+        accessible-description: @tr("Which phone to stream from");
+        picked(i) => { root.picked(i); }
+        changed open => { root.picker-open(self.open); }
+    }
+    // A plain element around these: a popup directly under a layout ignores its x and y
+    phones-anchor := Rectangle {
+        width: 34px;
+        height: 34px;
+        y: (parent.height - self.height) / 2;
+        Button {
+            width: 34px;
+            height: 34px;
+            role: "quiet";
+            padding-x: 0px;
+            has-icon: true;
+            icon: Icons.v-devices;
+            icon-size: 18px;
+            icon-tint: Theme.text-dim;
+            tip: @tr("Your phones: add, rename, remove");
+            accessible-label: @tr("Your phones");
+            clicked => { root.manage(); }
+        }
+
+            phones-popup := PopupWindow {
+            close-policy: no-auto-close;
+            x: -phones-anchor.absolute-position.x;
+            y: -phones-anchor.absolute-position.y;
+            width: WindowBox.cover-w(460px);
+            height: WindowBox.cover-h(phones-frame.preferred-height);
+            phones-frame := DialogFrame {
+                x: WindowBox.left(self.width);
+                y: WindowBox.top(self.height);
+                width: 460px;
+                height: self.preferred-height;
+                dismissable: true;
+                dismissed => { root.phones-closed(); }
+                title: @tr("Your phones");
+                subtitle: @tr("Each phone keeps its own camera settings, and so does a browser once you change one. Removing a phone also unpairs it on the phone.");
+                Card {
+                    title: @tr("Phones");
+                    icon: Icons.phone;
+                    hue: Theme.plugin-hue("streaming");
+                    has-action: true;
+                    action-icon: Icons.plus;
+                    action-text: @tr("Add phone");
+                    action-label: @tr("Pair another phone");
+                    action-shortcut: "connection.add_phone";
+                    // In its place: pop-ups don't stack
+                    action => {
+                        root.phones-closed();
+                        root.add-phone();
+                    }
+                    if rows.length == 0: Note { text: @tr("No phones yet. Add one to pair it with this computer."); }
+                    if rows.length > 0: PhoneList {
+                        rows-shown: rows;
+                        rename(row) => {
+                            root.ask-name(row.id, @tr("Rename phone"), @tr("Name"), row.name);
+                            name-popup.show();
+                        }
+                        remove(row) => {
+                            root.removing = row;
+                            confirm-popup.show();
+                        }
+                    }
+                }
+                Card {
+                    title: @tr("This computer");
+                    icon: Icons.monitor;
+                    hue: Theme.plugin-hue("streaming");
+                    SettingRow {
+                        title: computer-name;
+                        sub: @tr("What your phones call it");
+                        Button {
+                            text: @tr("Change name");
+                            tip: @tr("The name your phones show for this computer");
+                            accessible-label: @tr("Change this computer's name");
+                            clicked => {
+                                root.ask-name("", @tr("Rename this computer"), @tr("Name your phones show (applies to phones you pair from now on)"), computer-name);
+                                name-popup.show();
+                            }
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    alignment: end;
+                    padding-top: 4px;
+                    Button { width: 96px; height: 32px; text: @tr("Close"); clicked => { root.phones-closed(); } }
+                }
+            }
+        }
+
+        // Beside it: only one popup is open at a time. Showing any of these closes whichever other one is open, so Your
+        // phones gives way to the question and comes back after it
+        name-popup := PopupWindow {
+            close-policy: no-auto-close;
+            x: -phones-anchor.absolute-position.x;
+            y: -phones-anchor.absolute-position.y;
+            width: WindowBox.cover-w(400px);
+            height: WindowBox.cover-h(name-frame.preferred-height);
+            name-frame := DialogFrame {
+                x: WindowBox.left(self.width);
+                y: WindowBox.top(self.height);
+                width: 400px;
+                height: self.preferred-height;
+                dismissable: true;
+                dismissed => { phones-popup.show(); }
+                title: name-title;
+                Note { text: name-label; kind: ""; }
+                name-field := TextField {
+                    // setMaxLength(MAX_NAME_CHARS)
+                    property <string> kept: name-text;
+                    text: name-text;
+                    label: name-label;
+                    init => { self.focus-all(); }
+                    edited(text) => {
+                        if (text.character-count > 64) {
+                            let fitted = TextCap.fit(self.kept, text, 64);
+                            self.text = fitted != "" ? fitted : self.kept;
+                        }
+                        self.kept = self.text;
+                    }
+                    accepted => { ok.clicked(); }
+                }
+                HorizontalLayout {
+                    alignment: end;
+                    spacing: 8px;
+                    Button { width: 96px; height: 32px; text: @tr("Cancel"); clicked => { phones-popup.show(); } }
+                    ok := Button {
+                        width: 96px;
+                        height: 32px;
+                        text: @tr("OK");
+                        role: "primary";
+                        clicked => {
+                            if (naming == "") {
+                                root.rename-computer(name-field.text);
+                            } else {
+                                root.rename(naming, name-field.text);
+                            }
+                            phones-popup.show();
+                        }
+                    }
+                }
+            }
+        }
+
+        confirm-popup := PopupWindow {
+            close-policy: no-auto-close;
+            x: -phones-anchor.absolute-position.x;
+            y: -phones-anchor.absolute-position.y;
+            width: WindowBox.cover-w(400px);
+            height: WindowBox.cover-h(confirm-frame.preferred-height);
+            confirm-frame := DialogFrame {
+                x: WindowBox.left(self.width);
+                y: WindowBox.top(self.height);
+                width: 400px;
+                height: self.preferred-height;
+                dismissable: true;
+                // No, the button that is already the default
+                dismissed => { phones-popup.show(); }
+                title: removing.confirm-title;
+                Note { text: removing.confirm; kind: ""; }
+                HorizontalLayout {
+                    alignment: end;
+                    spacing: 8px;
+                    Button {
+                        width: 96px;
+                        height: 32px;
+                        text: @tr("Yes");
+                        clicked => {
+                            root.remove(removing.id);
+                            phones-popup.show();
+                        }
+                    }
+                    Button { width: 96px; height: 32px; text: @tr("No"); role: "primary"; clicked => { phones-popup.show(); } }
+                }
+            }
+        }
+    }
+}
+
+// Settings, Streaming tab: UDP on Wi-Fi.
+export component ConnectionSettings inherits Card {
+    in property <bool> udp;
+    callback udp-toggled(bool);
+    title: @tr("Connection");
+    icon: Icons.v-connection;
+    SettingRow {
+        title: @tr("UDP on Wi-Fi");
+        keywords: @tr("search" => "udp tcp transport network lag freezes stutter wifi");
+        sub: @tr("It can stutter more than TCP, so try it and see.");
+        Tag { text: @tr("Experimental"); }
+        Switch {
+            checked: udp;
+            label: @tr("UDP on Wi-Fi");
+            toggled(on) => { root.udp-toggled(on); }
+        }
+    }
+}

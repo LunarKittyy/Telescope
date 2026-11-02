@@ -25,9 +25,13 @@ class UdpVideoTest {
         private val out = UdpSeal(key, UdpWire.TO_PHONE)
         val runner = Thread { client.run { null } }.apply { start() }
 
-        fun hello() {
-            val sealed = out.seal(byteArrayOf(UdpWire.HELLO))
+        fun tell(plain: ByteArray) {
+            val sealed = out.seal(plain)
             desktop.send(java.net.DatagramPacket(sealed, sealed.size, java.net.InetAddress.getLoopbackAddress(), port))
+        }
+
+        fun hello() {
+            tell(byteArrayOf(UdpWire.HELLO))
             val deadline = System.nanoTime() + 1_000_000_000L
             while (!client.hasActiveViewer() && System.nanoTime() < deadline) Thread.sleep(5)
             assertTrue(client.hasActiveViewer())
@@ -49,6 +53,74 @@ class UdpVideoTest {
             assertFalse(session.runner.isAlive)
             assertFalse(session.client.hasActiveViewer())
         }
+    }
+
+    @Test
+    fun `the desktop's reports reach Dynamic, and an older desktop's silence counts as nothing measured`() {
+        fun report(received: Int, highest: Int) = ByteBuffer.allocate(UdpReport.SIZE).put(UdpWire.REPORT)
+            .putInt(received).putInt(highest).putInt(0).putInt(0).putInt(-1).putShort(0).putShort(0).array()
+        Session().use { session ->
+            session.hello()
+            assertFalse(session.client.reporting)
+            assertNull(session.client.takeLink())
+            session.tell(report(0, 0))
+            val deadline = System.nanoTime() + 1_000_000_000L
+            while (!session.client.reporting && System.nanoTime() < deadline) Thread.sleep(5)
+            assertTrue(session.client.reporting)
+            assertNull(session.client.takeLink())  // the first one only starts the count
+            session.tell(report(90, 100))
+            var take: UdpLink.Take? = null
+            while (take == null && System.nanoTime() < deadline + 1_000_000_000L) { Thread.sleep(5); take = session.client.takeLink() }
+            assertEquals(0.1, take!!.loss, 1e-9)
+        }
+    }
+
+    @Test
+    fun `pacing spreads bytes at the rate, catches up an oversleep, and banks no more than a burst`() {
+        val pacer = UdpPacer(burst = 10_000)  // 8 Mbps below: 1000 bytes a millisecond
+        assertEquals(0L, pacer.waitNs(10_000, 8_000_000, 0))  // the burst goes at once
+        assertEquals(0L, pacer.waitNs(1_000, 8_000_000, 0))  // under a millisecond owed: no sleep yet
+        assertEquals(1_000_000L, pacer.waitNs(1_000, 8_000_000, 0))
+        // It asked for 1 ms and the phone slept 40: the time it's behind goes out now, not lost to the cap
+        pacer.woke(40_000_000)
+        repeat(39) { assertEquals(0L, pacer.waitNs(1_000, 8_000_000, 40_000_000)) }
+        assertTrue(pacer.waitNs(1_000, 8_000_000, 40_000_000) > 0)
+        assertEquals(0L, pacer.waitNs(5_000, 0, 41_000_000))  // off
+        assertEquals(0L, pacer.waitNs(10_000, 8_000_000, 600_000_000_000L))  // on again ten minutes later: one burst
+        assertEquals(0L, pacer.waitNs(1_000, 8_000_000, 600_000_000_000L))
+        assertEquals(1_000_000L, pacer.waitNs(1_000, 8_000_000, 600_000_000_000L))  // not ten minutes' worth
+        val steady = UdpPacer(burst = 10_000)
+        steady.waitNs(10_000, 100_000_000, 0)
+        assertEquals(0L, steady.waitNs(1_000, 100_000_000, 900_000_000_000L))  // minutes at one rate: no overflow
+    }
+
+    @Test
+    fun `a frame whose last datagram overslept doesn't bank the idle after it`() {
+        val pacer = UdpPacer(burst = 10_000)  // 8 Mbps: 1000 bytes a millisecond
+        pacer.waitNs(10_000, 8_000_000, 0)
+        pacer.waitNs(1_000, 8_000_000, 0)
+        assertEquals(1_000_000L, pacer.waitNs(1_000, 8_000_000, 0))  // the frame's last datagram sleeps
+        pacer.woke(5_000_000)  // 4 ms late
+        // The next frame, a big keyframe, comes 33 ms later: a burst goes at once and the rest is paced
+        var atOnce = 0
+        while (pacer.waitNs(1_000, 8_000_000, 33_000_000) <= 0) atOnce++
+        assertTrue(atOnce * 1_000 <= 10_000 + 1_000, "$atOnce datagrams at once")
+    }
+
+    @Test
+    fun `pacing follows Dynamic's bitrate as well as what the encoder made`() {
+        assertEquals(UdpVideoClient.PACE_MIN_BPS, UdpVideoClient.paceFor(100_000.0))
+        assertEquals((6_000_000 * UdpVideoClient.PACE).toInt(), UdpVideoClient.paceFor(500_000.0, 6_000_000))
+        assertEquals((8_000_000 * UdpVideoClient.PACE).toInt(), UdpVideoClient.paceFor(8_000_000.0, 6_000_000))
+    }
+
+    @Test
+    fun `once the link's speed is known pacing stays a little over it`() {
+        // 3 Mbps video on a 4 Mbps link: 2.5 times would overflow a short router buffer with each keyframe
+        assertEquals((4_000_000 * UdpVideoClient.PACE_OVER_LINK).toInt(), UdpVideoClient.paceFor(2_500_000.0, 3_000_000, 4_000_000.0))
+        // never slower than a little over the video, nor faster than without it
+        assertEquals((3_000_000 * UdpVideoClient.PACE_FLOOR).toInt(), UdpVideoClient.paceFor(2_500_000.0, 3_000_000, 1_000_000.0))
+        assertEquals((3_000_000 * UdpVideoClient.PACE).toInt(), UdpVideoClient.paceFor(2_500_000.0, 3_000_000, 50_000_000.0))
     }
 
     @Test

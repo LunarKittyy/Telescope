@@ -1,0 +1,28 @@
+[package]
+name = "telescope-effects"
+description = "Transforms and Colour grading: the picture's zoom, flips and turns, and its colour wheels, curves and LUT files"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+telescope-core.workspace = true
+log.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rustls.workspace = true
+rqrr.workspace = true
+ring.workspace = true
+base64.workspace = true
+ureq = { workspace = true, features = ["platform-verifier"] }
+
+[dev-dependencies]
+i-slint-backend-testing = "=1.18.1"
+# the pipeline frame steps run on in the app, so tests run the real shaders
+telescope-media.workspace = true
+slint-interpreter.workspace = true
+telescope-ui-kit.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+# Photos asks for the Pictures known folder, as Qt does
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Com", "Win32_UI_Shell"] }

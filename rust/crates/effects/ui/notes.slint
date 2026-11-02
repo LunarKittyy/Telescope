@@ -1,0 +1,256 @@
+// The Notes card. Joined after parts.slint, which has the imports.
+
+// QPlainTextEdit: several lines that wrap, scrolling to keep the cursor in sight
+component NotesEditor inherits Rectangle {
+    in-out property <string> text;
+    in property <string> placeholder;
+    in property <string> label;
+    in property <bool> enabled: true;
+    callback edited(string);
+    min-height: 140px;
+    // QAbstractScrollArea's size hint
+    preferred-height: 192px;
+    vertical-stretch: 1;
+    border-radius: 7px;
+    border-width: 1px;
+    background: Theme.surface-raise;
+    border-color: input.has-focus ? Theme.accent : Theme.border-strong;
+    accessible-role: text-input;
+    accessible-label: label;
+    accessible-value: text;
+    accessible-placeholder-text: placeholder;
+    forward-focus: input;
+    flick := Flickable {
+        x: 1px;
+        y: 1px;
+        width: parent.width - 2px;
+        height: parent.height - 2px;
+        viewport-height: max(self.height, input.preferred-height + 14px);
+        TouchArea { width: flick.viewport-width; height: flick.viewport-height; mouse-cursor: MouseCursor.text; clicked => { input.focus(); } }
+        if text == "" && placeholder != "": Text {
+            x: 10px;
+            y: 7px;
+            width: flick.width - 20px;
+            text: placeholder;
+            wrap: word-wrap;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: Theme.text-faint;
+        }
+        input := TextInput {
+            x: 10px;
+            y: 7px;
+            width: flick.width - 20px;
+            text <=> root.text;
+            single-line: false;
+            wrap: word-wrap;
+            enabled: root.enabled;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: self.has-focus ? white : Theme.text;
+            selection-background-color: Theme.fill;
+            selection-foreground-color: white;
+            edited => { root.edited(self.text); }
+            cursor-position-changed(p) => {
+                if (p.y + flick.viewport-y < 0) { flick.viewport-y = -p.y; }
+                else if (p.y + 22px + flick.viewport-y > flick.height - 7px) { flick.viewport-y = -(p.y + 22px - flick.height + 7px); }
+            }
+        }
+    }
+}
+
+export component NotesCard inherits Card {
+    // Greyed out until a phone is paired
+    in property <bool> active: true;
+    // The saved sets: how the picker names each, which is open and what its buttons say
+    in property <[string]> set-items: [""];
+    in property <int> set-current: 0;
+    in property <string> set-tip;
+    in property <string> new-tip;
+    in property <string> delete-tip;
+    in property <bool> new-enabled: true;
+    in property <bool> delete-enabled;
+    // What the editor holds; set when a set is opened, typing edits it from inside
+    in-out property <string> text;
+    in property <string> placeholder;
+    in property <string> editor-label;
+    in property <int> size: 44;
+    in property <string> size-text;
+    in property <string> size-tip;
+    in property <int> scroll;
+    in property <[string]> scroll-items: ["", ""];
+    in property <int> speed: 3;
+    in property <string> speed-text;
+    in property <string> reset-hint;
+    // By hand has no speed and no Play
+    in property <bool> show-auto: true;
+    in property <bool> playing;
+    in property <string> back-text;
+    in property <string> back-tip;
+    in property <string> play-text;
+    in property <string> play-tip;
+    in property <string> next-text;
+    in property <string> next-tip;
+    in property <string> send-text;
+    in property <string> clear-text;
+    in property <bool> send-enabled;
+    in property <bool> clear-enabled;
+    in property <bool> nav-enabled;
+    in property <string> status;
+    in property <string> status-kind: "status_dim";
+    callback set-picked(int);
+    callback new-clicked;
+    callback delete-clicked;
+    callback text-edited(string);
+    callback size-moved(float);
+    callback scroll-picked(int);
+    callback speed-moved(float);
+    callback back-clicked;
+    callback play-toggled(bool);
+    callback next-clicked;
+    callback send-clicked;
+    callback clear-clicked;
+
+    title: @tr("Notes");
+    icon: Icons.notes;
+    opacity: active ? 1 : 0.4;
+    enabled: active;
+
+    HorizontalLayout {
+        spacing: 6px;
+        ChoiceField {
+            enabled: active;
+            compact: true;
+            caption: set-tip;
+            items: set-items;
+            current: set-current;
+            picked(i) => { root.set-picked(i); }
+        }
+        IconButton {
+            width: 30px;
+            height: 30px;
+            y: 1px;
+            icon: Icons.plus;
+            icon-size: 15px;
+            label: new-tip;
+            opacity: new-enabled ? 1 : 0.4;
+            clicked => { if (new-enabled) { root.new-clicked(); } }
+        }
+        IconButton {
+            width: 30px;
+            height: 30px;
+            y: 1px;
+            icon: Icons.trash;
+            icon-size: 15px;
+            label: delete-tip;
+            opacity: delete-enabled ? 1 : 0.4;
+            clicked => { if (delete-enabled) { root.delete-clicked(); } }
+        }
+    }
+    NotesEditor {
+        enabled: active;
+        text <=> root.text;
+        placeholder: root.placeholder;
+        label: editor-label;
+        edited(t) => { root.text-edited(t); }
+    }
+    SliderRow {
+        enabled: active;
+        label: @tr("Text size");
+        tip: size-tip;
+        hint: reset-hint;
+        minimum: 16;
+        maximum: 120;
+        value: size;
+        readout: size-text;
+        hue: root.hue;
+        has-default: true;
+        default-value: 44;
+        moved(v) => { root.size-moved(v); }
+    }
+    FormRow {
+        label: @tr("Scroll");
+        Segmented {
+            items: scroll-items;
+            disabled: [!active, !active];
+            has-icons: [false, false];
+            icons: [Icons.colour, Icons.colour];
+            label: @tr("Scroll");
+            current: scroll;
+            picked(i) => { root.scroll-picked(i); }
+        }
+    }
+    if show-auto: SliderRow {
+        enabled: active;
+        label: @tr("Speed");
+        shortcut: "notes.speed";
+        hint: reset-hint;
+        minimum: 1;
+        maximum: 10;
+        value: speed;
+        readout: speed-text;
+        hue: root.hue;
+        has-default: true;
+        default-value: 3;
+        moved(v) => { root.speed-moved(v); }
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        Button {
+            horizontal-stretch: 1;
+            preferred-width: 0px;
+            min-width: 0px;
+            text: back-text;
+            tip: back-tip;
+            shortcut: "notes.previous";
+            enabled: active && (nav-enabled);
+            clicked => { root.back-clicked(); }
+        }
+        if show-auto: Button {
+            horizontal-stretch: 1;
+            preferred-width: 0px;
+            min-width: 0px;
+            text: play-text;
+            tip: play-tip;
+            shortcut: "notes.play";
+            role: playing ? "primary" : "";
+            enabled: active && (nav-enabled);
+            clicked => { root.play-toggled(!root.playing); }
+        }
+        Button {
+            horizontal-stretch: 1;
+            preferred-width: 0px;
+            min-width: 0px;
+            text: next-text;
+            tip: next-tip;
+            shortcut: "notes.next";
+            enabled: active && (nav-enabled);
+            clicked => { root.next-clicked(); }
+        }
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        Button {
+            horizontal-stretch: 1;
+            preferred-width: 0px;
+            min-width: 0px;
+            text: send-text;
+            shortcut: "notes.send";
+            role: "primary";
+            enabled: active && (send-enabled);
+            clicked => { root.send-clicked(); }
+        }
+        Button {
+            horizontal-stretch: 1;
+            preferred-width: 0px;
+            min-width: 0px;
+            text: clear-text;
+            shortcut: "notes.clear";
+            enabled: active && (clear-enabled);
+            clicked => { root.clear-clicked(); }
+        }
+    }
+    if status != "": Note { text: status; kind: status-kind; }
+    // Nothing to touch until a phone is paired
+    blocked: !active;
+}

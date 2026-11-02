@@ -1,0 +1,39 @@
+[package]
+name = "telescope-core"
+description = "What every other crate agrees on: the plugin API, the event bus, frames, sources, the traits between crates and the settings file"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true
+chrono.workspace = true
+ab_glyph = "0.2"
+harfrust = "0.12"
+# Emoji: walking a font's colour layers, and painting them
+skrifa = "0.44"
+tiny-skia = "0.12"
+unicode-bidi = "0.3"
+qrcode.workspace = true
+unicode-segmentation = "1"
+unicode-joining-type = "1"
+unicode-script = "0.5"
+# Finding what to hide in the log: URLs, addresses and tokens
+regex = { version = "1", default-features = false, features = ["std", "unicode"] }
+unicode-normalization = "0.1"
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
+# What the system offers for a script when the app's fonts lack a character: Qt asks fontconfig on Linux and DirectWrite on Windows
+[target.'cfg(all(unix, not(target_vendor = "apple")))'.dependencies]
+yeslogic-fontconfig-sys = "6"
+
+[target.'cfg(not(all(unix, not(target_vendor = "apple"))))'.dependencies]
+fontique = "0.11"
+
+[target.'cfg(windows)'.dependencies]
+# The language list in Windows' settings, which Qt reads and only WinRT has
+windows = { version = "0.62", features = ["Foundation_Collections", "System_UserProfile"] }

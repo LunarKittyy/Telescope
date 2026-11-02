@@ -1,0 +1,290 @@
+{
+ "width": 320,
+ "height": 180,
+ "clone_rect": [
+  20,
+  40,
+  80,
+  160
+ ],
+ "cases": [
+  {
+   "name": "the cloak",
+   "effect": "cloak",
+   "frames": [
+    "fun_person.rgba"
+   ],
+   "file": "fun_00.rgba",
+   "edges": 3,
+   "fade": 5,
+   "brightness": 6,
+   "spread": 20,
+   "across": false,
+   "plate": true,
+   "clones": false,
+   "lines": [],
+   "heads": []
+  },
+  {
+   "name": "the cloak with hard edges",
+   "effect": "cloak",
+   "frames": [
+    "fun_person.rgba"
+   ],
+   "file": "fun_01.rgba",
+   "edges": 0,
+   "fade": 5,
+   "brightness": 6,
+   "spread": 20,
+   "across": false,
+   "plate": true,
+   "clones": false,
+   "lines": [],
+   "heads": []
+  },
+  {
+   "name": "clones",
+   "effect": "clones",
+   "frames": [
+    "fun_person.rgba"
+   ],
+   "file": "fun_02.rgba",
+   "edges": 3,
+   "fade": 5,
+   "brightness": 6,
+   "spread": 20,
+   "across": false,
+   "plate": true,
+   "clones": true,
+   "lines": [],
+   "heads": []
+  },
+  {
+   "name": "slit-scan down",
+   "effect": "slit",
+   "frames": [
+    "fun_seq_0.rgba",
+    "fun_seq_1.rgba",
+    "fun_seq_2.rgba",
+    "fun_seq_3.rgba",
+    "fun_seq_4.rgba",
+    "fun_seq_5.rgba"
+   ],
+   "file": "fun_03.rgba",
+   "edges": 3,
+   "fade": 5,
+   "brightness": 6,
+   "spread": 12,
+   "across": false,
+   "plate": false,
+   "clones": false,
+   "lines": [],
+   "heads": []
+  },
+  {
+   "name": "slit-scan across",
+   "effect": "slit",
+   "frames": [
+    "fun_seq_0.rgba",
+    "fun_seq_1.rgba",
+    "fun_seq_2.rgba",
+    "fun_seq_3.rgba",
+    "fun_seq_4.rgba",
+    "fun_seq_5.rgba"
+   ],
+   "file": "fun_04.rgba",
+   "edges": 3,
+   "fade": 5,
+   "brightness": 6,
+   "spread": 12,
+   "across": true,
+   "plate": false,
+   "clones": false,
+   "lines": [],
+   "heads": []
+  },
+  {
+   "name": "light painting",
+   "effect": "light",
+   "frames": [
+    "fun_light_0.rgba",
+    "fun_light_1.rgba",
+    "fun_light_2.rgba",
+    "fun_light_3.rgba"
+   ],
+   "file": "fun_05.rgba",
+   "edges": 3,
+   "fade": 5,
+   "brightness": 6,
+   "spread": 20,
+   "across": false,
+   "plate": false,
+   "clones": false,
+   "lines": [],
+   "heads": []
+  },
+  {
+   "name": "light painting, long trails",
+   "effect": "light",
+   "frames": [
+    "fun_light_0.rgba",
+    "fun_light_1.rgba",
+    "fun_light_2.rgba",
+    "fun_light_3.rgba"
+   ],
+   "file": "fun_06.rgba",
+   "edges": 3,
+   "fade": 10,
+   "brightness": 1,
+   "spread": 20,
+   "across": false,
+   "plate": false,
+   "clones": false,
+   "lines": [],
+   "heads": []
+  },
+  {
+   "name": "a CRT",
+   "effect": "crt",
+   "frames": [
+    "fun_person.rgba"
+   ],
+   "file": "fun_07.rgba",
+   "edges": 3,
+   "fade": 5,
+   "brightness": 6,
+   "spread": 20,
+   "across": false,
+   "plate": false,
+   "clones": false,
+   "lines": [],
+   "heads": []
+  },
+  {
+   "name": "ascii",
+   "effect": "ascii",
+   "frames": [
+    "fun_person.rgba"
+   ],
+   "file": "fun_08.rgba",
+   "edges": 3,
+   "fade": 5,
+   "brightness": 6,
+   "spread": 20,
+   "across": false,
+   "plate": false,
+   "clones": false,
+   "lines": [],
+   "heads": []
+  },
+  {
+   "name": "a stick figure on paper",
+   "effect": "stick",
+   "frames": [
+    "fun_person.rgba"
+   ],
+   "file": "fun_09.rgba",
+   "edges": 3,
+   "fade": 5,
+   "brightness": 6,
+   "spread": 20,
+   "across": false,
+   "plate": false,
+   "clones": false,
+   "lines": [
+    [
+     [
+      0.2,
+      0.2
+     ],
+     [
+      0.8,
+      0.8
+     ]
+    ],
+    [
+     [
+      0.5,
+      0.5
+     ],
+     [
+      0.3,
+      0.9
+     ]
+    ]
+   ],
+   "heads": [
+    [
+     [
+      0.5,
+      0.3
+     ],
+     0.1
+    ]
+   ]
+  },
+  {
+   "name": "a stick figure on the room",
+   "effect": "stick",
+   "frames": [
+    "fun_person.rgba"
+   ],
+   "file": "fun_10.rgba",
+   "edges": 3,
+   "fade": 5,
+   "brightness": 6,
+   "spread": 20,
+   "across": false,
+   "plate": true,
+   "clones": false,
+   "lines": [
+    [
+     [
+      0.2,
+      0.2
+     ],
+     [
+      0.8,
+      0.8
+     ]
+    ],
+    [
+     [
+      0.5,
+      0.5
+     ],
+     [
+      0.3,
+      0.9
+     ]
+    ]
+   ],
+   "heads": [
+    [
+     [
+      0.5,
+      0.3
+     ],
+     0.1
+    ]
+   ]
+  },
+  {
+   "name": "game boy",
+   "effect": "game_boy",
+   "frames": [
+    "fun_person.rgba"
+   ],
+   "file": "fun_11.rgba",
+   "edges": 3,
+   "fade": 5,
+   "brightness": 6,
+   "spread": 20,
+   "across": false,
+   "plate": false,
+   "clones": false,
+   "lines": [],
+   "heads": []
+  }
+ ]
+}

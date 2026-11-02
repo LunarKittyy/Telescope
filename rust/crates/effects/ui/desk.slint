@@ -1,0 +1,138 @@
+// The Desk mode card. Joined after parts.slint, which has the imports.
+
+export component DeskCard inherits Card {
+    // Greyed out until a phone is paired
+    in property <bool> active: true;
+    in property <bool> on;
+    in property <string> switch-name;
+    in property <string> switch-help;
+    // The corners are being placed: Done and Cancel in place of Mark
+    in property <bool> picking;
+    in property <string> mark-text;
+    in property <string> mark-tip;
+    in property <string> done-text;
+    in property <string> cancel-text;
+    in property <bool> reset-shown;
+    in property <string> reset-text;
+    in property <string> reset-tip;
+    in property <[string]> clean-items: ["", "", ""];
+    in property <int> clean-current;
+    in property <string> clean-tip;
+    in property <[string]> shape-items: ["", "", "", "", ""];
+    in property <int> shape-current;
+    in property <string> shape-tip;
+    // Filling the picture leaves nothing to stretch
+    in property <bool> stretch-enabled: true;
+    in property <[float]> stretch: [100, 100];
+    in property <[string]> stretch-text: ["100%", "100%"];
+    in property <[string]> stretch-tips: ["", ""];
+    in property <string> reset-hint;
+    in property <string> status;
+    in property <string> status-kind: "status_dim";
+    callback switch-toggled-by-hand(bool);
+    callback mark-clicked;
+    callback done-clicked;
+    callback cancel-clicked;
+    callback reset-clicked;
+    callback clean-picked(int);
+    callback shape-picked(int);
+    callback stretch-moved(int, float);
+
+    title: @tr("Desk mode");
+    icon: Icons.pencil;
+    opacity: active ? 1 : 0.4;
+    enabled: active;
+    has-switch: true;
+    switch-shortcut: "desk.on";
+    switch-enabled: active;
+    switch-checked: on;
+    switch-label: switch-name;
+    switch-tip: switch-help;
+    switch-toggled(v) => { root.switch-toggled-by-hand(v); }
+
+    HorizontalLayout {
+        spacing: 8px;
+        if !picking: Button { enabled: active; text: mark-text; tip: mark-tip; shortcut: "desk.mark"; clicked => { root.mark-clicked(); } }
+        if picking: Button { text: done-text; clicked => { root.done-clicked(); } }
+        if picking: Button { text: cancel-text; clicked => { root.cancel-clicked(); } }
+        Rectangle { horizontal-stretch: 1; }
+        if reset-shown: Button {
+            enabled: active;
+            text: reset-text;
+            tip: reset-tip;
+            role: "quiet";
+            has-icon: true;
+            icon: Icons.reset;
+            icon-tint: Theme.text-dim;
+            quiet-when-disabled: true;
+            clicked => { root.reset-clicked(); }
+        }
+    }
+    FormRow {
+        label: @tr("Writing");
+        Rectangle {
+            horizontal-stretch: 1;
+            ChoiceField {
+                enabled: active;
+                width: parent.width;
+                compact: true;
+                caption: @tr("Writing");
+                items: clean-items;
+                current: clean-current;
+                tip: root.clean-tip;
+                shortcut: "desk.writing";
+                picked(i) => { root.clean-picked(i); }
+            }
+        }
+    }
+    FormRow {
+        label: @tr("Shape");
+        Rectangle {
+            horizontal-stretch: 1;
+            ChoiceField {
+                enabled: active;
+                width: parent.width;
+                compact: true;
+                caption: @tr("Shape");
+                items: shape-items;
+                current: shape-current;
+                tip: root.shape-tip;
+                shortcut: "desk.shape";
+                picked(i) => { root.shape-picked(i); }
+            }
+        }
+    }
+    SliderRow {
+        label: @tr("Width");
+        enabled: active && (stretch-enabled);
+        tip: stretch-tips[0];
+        hint: reset-hint;
+        minimum: 50;
+        maximum: 200;
+        value: stretch[0];
+        readout: stretch-text[0];
+        hue: root.hue;
+        has-default: true;
+        default-value: 100;
+        marks: [100];
+        moved(v) => { root.stretch-moved(0, v); }
+    }
+    SliderRow {
+        label: @tr("Height");
+        enabled: active && (stretch-enabled);
+        tip: stretch-tips[1];
+        hint: reset-hint;
+        minimum: 50;
+        maximum: 200;
+        value: stretch[1];
+        readout: stretch-text[1];
+        hue: root.hue;
+        has-default: true;
+        default-value: 100;
+        marks: [100];
+        moved(v) => { root.stretch-moved(1, v); }
+    }
+    if status != "": Note { text: status; kind: status-kind; }
+    // Nothing to touch until a phone is paired
+    blocked: !active;
+}

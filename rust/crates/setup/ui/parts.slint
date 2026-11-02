@@ -1,0 +1,237 @@
+// What this crate's cards are built from. The plugins join this file and their card into one source (Rust's concat!),
+// so it holds the only import line.
+
+import { Theme, Icons, Icon, FocusRing, Button, Card, SearchWords, Section, SectionHeading, Switch, Segmented, ChoiceField, TextField, NumberField, KeyFocus, TipBody } from "@ui-kit/ui-kit.slint";
+
+global Status {
+    public pure function color(kind: string) -> color {
+        kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
+            : kind == "status_dim" ? Theme.dim : Theme.text
+    }
+}
+
+// wrapped_note: a QLabel#dim with a status colour, body size
+component Note inherits Text {
+    in property <string> kind: "status_dim";
+    font-family: Theme.font;
+    font-size: Theme.body;
+    color: Status.color(kind);
+    wrap: word-wrap;
+    line-height-factor: Theme.line-factor(self.font-size);
+}
+
+// A button in a setting_row: as wide as its words, plain until it's the primary one
+component StripButton inherits Button {
+    strip: true;
+    font-weight: self.role == "primary" ? 600 : 400;
+    gap: 6px;
+}
+
+// setting_row's raised strip: what goes in it is the top row (StripTop) and anything below it
+component Strip inherits Rectangle {
+    in property <string> title;
+    in property <string> sub;
+    // strip.setToolTip
+    in property <string> tip;
+    in property <string> keywords;
+    min-height: 46px;
+    border-radius: 9px;
+    border-width: 1px;
+    border-color: Theme.border;
+    background: Theme.surface-raise;
+    accessible-role: groupbox;
+    accessible-id: "setting";
+    accessible-label: title;
+    accessible-description: sub;
+    if keywords != "": SearchWords { words: keywords; }
+    if tip != "": Tooltip { TipBody { says: tip; } }
+    VerticalLayout {
+        padding-left: 13px;
+        padding-right: 13px;
+        padding-top: 9px;
+        padding-bottom: 9px;
+        spacing: 8px;
+        @children
+    }
+}
+
+// setting_row's top: the name with its line under it (in a status colour) on the left, the controls on the right
+component StripTop inherits HorizontalLayout {
+    in property <string> title;
+    in property <string> sub;
+    in property <string> sub-kind;
+    in property <bool> enabled: true;
+    // A row with a control is as tall as Qt's 32px controls, a heading over segments as tall as its text
+    in property <bool> bare;
+    min-height: bare ? 0px : 32px;
+    spacing: 12px;
+    VerticalLayout {
+        horizontal-stretch: 1;
+        spacing: 1px;
+        alignment: center;
+        Text {
+            // A QLabel's 17px line, a pixel under Slint's
+            max-height: bare ? 17px : 100000px;
+            text: title;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: enabled ? Theme.text : Theme.text-disabled;
+            wrap: word-wrap;
+            line-height-factor: Theme.line-factor(self.font-size);
+        }
+        Text {
+            visible: sub != "";
+            height: sub != "" ? max(self.preferred-height, 16px) : 0px;
+            text: sub;
+            font-family: Theme.font;
+            font-size: Theme.small;
+            color: !enabled ? Theme.text-disabled : sub-kind == "" ? Theme.text-faint : Status.color(sub-kind);
+            wrap: word-wrap;
+            line-height-factor: Theme.line-factor(self.font-size);
+        }
+    }
+    VerticalLayout {
+        alignment: center;
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: end;
+            @children
+        }
+    }
+}
+
+// CommandBox: a command to run by hand, monospaced, with a button that copies it. Hidden while there's none.
+component CommandBox inherits HorizontalLayout {
+    in property <string> command;
+    callback copy(string);
+    spacing: 8px;
+    Text {
+        horizontal-stretch: 1;
+        text: command;
+        font-family: Theme.mono;
+        font-size: Theme.mono-size;
+        color: Theme.text;
+        wrap: word-wrap;
+        vertical-alignment: center;
+    }
+    VerticalLayout {
+        alignment: start;
+        Button {
+            height: 30px;
+            role: "quiet";
+            padding-x: 11px;
+            gap: 6px;
+            text: @tr("Copy");
+            has-icon: true;
+            icon: Icons.copy;
+            icon-tint: Theme.text-dim;
+            tip: @tr("Copy the command, to paste in a terminal");
+            clicked => { root.copy(root.command); }
+        }
+    }
+}
+
+// NoScrollSpinBox#chip_spin: an 80x32 number box with its suffix and no arrows drawn, stepped by the keys or the wheel. What's
+// typed is said on Enter or when the box is left, and the box then shows its value again whatever was made of it (NumberField).
+component SpinChip inherits Rectangle {
+    in property <string> value;
+    in property <string> label;
+    in property <bool> enabled: true;
+    in property <string> tip;
+    callback committed(string);
+    callback step(int);
+    changed value => { input.text = root.value; }
+    function commit() {
+        let typed = input.text;
+        if (typed != root.value) {
+            root.committed(typed);
+        }
+        input.text = root.value;
+    }
+    width: 80px;
+    height: 32px;
+    border-radius: 7px;
+    border-width: 1px;
+    background: Theme.bg;
+    border-color: !enabled ? Theme.border : input.has-focus ? Theme.accent : touch.has-hover ? Theme.border-hover : Theme.border-strong;
+    accessible-role: spinbox;
+    accessible-label: label;
+    accessible-value: input.text;
+    forward-focus: input;
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: MouseCursor.text;
+        clicked => { input.focus(); }
+        scroll-event(e) => {
+            if (e.delta-y > 0) { root.step(1); return accept; }
+            if (e.delta-y < 0) { root.step(-1); return accept; }
+            reject
+        }
+    }
+    if tip != "": Tooltip { TipBody { says: tip; } }
+    input := TextInput {
+        x: 11px;
+        width: parent.width - 22px;
+        height: parent.height;
+        text: root.value;
+        enabled: root.enabled;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        font-weight: 600;
+        color: !root.enabled ? Theme.text-disabled : Theme.text;
+        vertical-alignment: center;
+        single-line: true;
+        accepted => {
+            root.commit();
+            if (!KeyFocus.keyboard) {
+                self.clear-focus();
+                KeyFocus.given-back += 1;
+            }
+        }
+        changed has-focus => { if (!self.has-focus) { root.commit(); } }
+        key-pressed(e) => {
+            if (e.text == Key.UpArrow) { root.step(1); return accept; }
+            if (e.text == Key.DownArrow) { root.step(-1); return accept; }
+            if (e.text == Key.Escape) { self.text = root.value; return accept; }
+            reject
+        }
+    }
+}
+
+// A switch with its words before it (common.Switch with text): the whole row toggles it
+component LabelledSwitch inherits HorizontalLayout {
+    horizontal-stretch: 1;
+    in-out property <bool> checked;
+    in property <string> text;
+    in property <string> tip;
+    in property <bool> enabled: true;
+    // The choices under a warning read quieter than the warning itself
+    in property <bool> dim;
+    callback toggled(bool);
+    spacing: 8px;
+    height: 32px;
+    Text {
+        horizontal-stretch: 1;
+        text: root.text;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: !enabled ? Theme.text-disabled : dim ? Theme.text-dim : Theme.text;
+        vertical-alignment: center;
+        TouchArea {
+            enabled: root.enabled;
+            mouse-cursor: MouseCursor.pointer;
+            clicked => {
+                sw.checked = !sw.checked;
+                root.toggled(sw.checked);
+            }
+        }
+    }
+    sw := Switch {
+        y: (parent.height - self.height) / 2;
+        checked <=> root.checked;
+        enabled: root.enabled;
+        label: root.text;
+        tip: root.tip;
+        toggled(on) => { root.toggled(on); }
+    }
+}

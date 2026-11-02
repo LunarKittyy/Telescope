@@ -1,0 +1,49 @@
+[package]
+name = "telescope-app"
+description = "telescope-rs: wires every crate together into the desktop app"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "telescope-rs"
+path = "src/main.rs"
+
+[features]
+# H.264 on Windows, with FFmpeg's DLLs next to the program (telescope-media's feature); build.rs loads them on first use
+ffmpeg-windows = ["telescope-media/ffmpeg-windows"]
+
+[dependencies]
+telescope-core.workspace = true
+telescope-link.workspace = true
+telescope-media.workspace = true
+telescope-outputs.workspace = true
+telescope-audio.workspace = true
+telescope-effects.workspace = true
+telescope-setup.workspace = true
+telescope-vision.workspace = true
+telescope-shell.workspace = true
+telescope-system.workspace = true
+telescope-plugin-host.workspace = true
+serde_json.workspace = true
+log.workspace = true
+libc.workspace = true
+qrcode.workspace = true
+
+[target.'cfg(windows)'.build-dependencies]
+winresource.workspace = true
+
+[dev-dependencies]
+base64.workspace = true
+# test_architecture reads paths from tokens rather than text
+proc-macro2 = "1"
+flate2.workspace = true
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+# The fake browser in tests/browser_rtc.rs
+str0m.workspace = true
+zip.workspace = true
+# The settings window's tests drive it through Slint's testing backend (pinned like the shell's)
+i-slint-backend-testing = "=1.18.1"
+slint-interpreter.workspace = true
+slint.workspace = true
+telescope-ui-kit.workspace = true

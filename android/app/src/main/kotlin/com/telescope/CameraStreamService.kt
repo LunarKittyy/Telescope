@@ -63,6 +63,7 @@ data class CameraEntry(
     val facing: String = "",  // LensLabel.BACK, FRONT or EXTERNAL
     val focalMm: Int = 0,      // 35 mm equivalent; 0 = not known
     val lensKind: String = "", // LensLabel.PHYSICAL for one lens of a multi-lens camera, AUTO for the camera itself
+    val sensorOrientation: Int = 0,  // SENSOR_ORIENTATION: the clockwise turn that makes the picture upright on the screen
 )
 
 // The sensor's active pixel array (SENSOR_INFO_ACTIVE_ARRAY_SIZE), kept free of android.graphics.Rect so
@@ -235,6 +236,7 @@ class CameraStreamService : Service() {
         const val EXTRA_OWNER      = "owner"
         const val CHANNEL_ID       = "telescope_stream"
         const val NOTIF_ID         = 1
+        private const val ACTION_STOP = "com.telescope.action.STOP_STREAMING"
         const val DEFAULT_PORT     = 8080
         private const val TAG      = "CameraStreamService"
         // Permission -> asked once already; also mic_wanted, set once the desktop asked for the mic without permission
@@ -248,8 +250,47 @@ class CameraStreamService : Service() {
         private const val BUSY_STUCK_MS = 20_000L
         private const val WAKE_LOCK_MS = 12 * 60 * 60 * 1000L
 
-        fun streamingText(context: Context, cameraOff: Boolean): String =
-            context.getString(if (cameraOff) R.string.notif_mic_streaming else R.string.notif_camera_streaming)
+        fun streamingText(context: Context, cameraOff: Boolean): String = when {
+            cameraOff -> context.getString(R.string.notif_mic_streaming)
+            else -> routeText(context) ?: context.getString(R.string.notif_camera_streaming)
+        }
+
+        // "To newmoon over USB", once a computer is watching
+        fun routeText(context: Context): String? {
+            val to = viewer ?: return null
+            return context.getString(if (to.second) R.string.notif_streaming_usb else R.string.notif_streaming_wifi, to.first)
+        }
+
+        // The computer watching the stream and whether it's over USB, once one is; null before that
+        @Volatile
+        var viewer: Pair<String, Boolean>? = null
+            private set
+
+        // When this run first reached Streaming (a recovery keeps it), or 0 while not streaming
+        @Volatile
+        var streamingSinceMs = 0L
+            private set
+
+        // Android 16+ shows the streaming notification as a Live Update: on the lock screen and as a status bar chip
+        // counting the stream's time. Older versions ignore all of it except the time next to the notification.
+        fun asLiveUpdate(context: Context, builder: NotificationCompat.Builder): NotificationCompat.Builder {
+            builder.setRequestPromotedOngoing(true)
+            val since = streamingSinceMs
+            if (since > 0) builder.setWhen(since).setShowWhen(true).setUsesChronometer(true)
+            val stop = PendingIntent.getService(context, 1,
+                Intent(context, CameraStreamService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
+            builder.addAction(0, context.getString(R.string.stop_streaming), stop)
+            // A progress card is what a tap on the chip opens (with Stop streaming) instead of the app; a stream has no
+            // progress, so the bar is one full segment in the app's colour
+            builder.setStyle(NotificationCompat.ProgressStyle().setStyledByProgress(false)
+                .setProgressSegments(listOf(NotificationCompat.ProgressStyle.Segment(100)
+                    .setColor(ContextCompat.getColor(context, R.color.colorPrimary))))
+                .setProgress(100))
+            builder.setContentTitle(context.getString(R.string.notif_streaming_title))
+            // The chip's text; without it the chip shows the app's name
+            builder.setShortCriticalText(context.getString(R.string.notif_streaming_title))
+            return builder
+        }
         private val BUSY_STATES = setOf(
             StreamState.StartingServer, StreamState.OpeningCamera, StreamState.ConfiguringSession, StreamState.Recovering)
 
@@ -406,7 +447,8 @@ class CameraStreamService : Service() {
                             aeFpsRanges, afModes, nrModes, edgeModes, supportedSizes,
                             maxAfRegions, maxAeRegions, activeArray,
                             zoomRatioMax.coerceAtLeast(1f), cropZoomMax.coerceAtLeast(1f), freeformCrop, lensZooms,
-                            highSpeed = highSpeed, facing = facing, focalMm = focalEq, lensKind = kind)
+                            highSpeed = highSpeed, facing = facing, focalMm = focalEq, lensKind = kind,
+                            sensorOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0)
             }.getOrNull()
 
             manager.cameraIdList.forEach { id ->
@@ -436,8 +478,19 @@ class CameraStreamService : Service() {
     private val binder = LocalBinder()
 
     @Volatile private var controller: CameraSessionController? = null
+    @Volatile private var stills: StillCapture? = null
+    private val stillJobs by lazy { StillJobs(java.io.File(cacheDir, "stills")) }
+    // What each lens can do for photos, read once in the background when the stream starts (StillCatalog)
+    private val stillCaps = java.util.concurrent.ConcurrentHashMap<String, StillCaps>()
+    private val stillCapsRead = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()  // lenses read, photos or not
     private var server: MjpegServer? = null
     private var audio: AudioStreamer? = null
+    private val sensorsMade = lazy {
+        PhoneSensors(this) {
+            controller?.getCurrentCamera()?.let { PhoneSensors.Lens(it.id, it.facing, it.sensorOrientation) }
+        }
+    }
+    private val sensors by sensorsMade
     @Volatile private var micForeground = false
     // In the foreground on its own; false while running under WaitingService.
     private var inForeground = false
@@ -483,6 +536,9 @@ class CameraStreamService : Service() {
     var startedRemotely: Boolean = false
         private set
 
+    // Whether MainActivity still has to toast about this remote start; kept here so a new MainActivity doesn't toast again
+    val remoteStartNotice = RemoteStartNotice()
+
     // The paired computer this stream belongs to (StreamOwner): set by its start, or by the first computer to watch a
     // stream started on the phone. Another computer's start or stop is refused and its viewer can't switch the codec.
     @Volatile
@@ -510,8 +566,10 @@ class CameraStreamService : Service() {
         val transition = stateMachine.transition(newState, op, error)
         if (old == StreamState.StartingServer && newState != StreamState.StartingServer) SessionStartWindow.settle()
         if (newState == StreamState.Streaming) {
+            if (streamingSinceMs == 0L) streamingSinceMs = System.currentTimeMillis()
             rememberSelection()
             mainHandler.post(::showStreamNotification)  // the camera may have gone off or come back on
+            mainHandler.post(::showNotes)  // notes that came while Recovering or while Preview had the surface
         }
         android.util.Log.i(
             TAG,
@@ -539,7 +597,8 @@ class CameraStreamService : Service() {
         sb.appendLine("Stream started: ${timeText(startedAt)}")
         sb.appendLine("Current state: $state")
         val size = getStreamSize()
-        sb.appendLine("Stream: ${size.width}x${size.height}")
+        val asked = controller?.getAskedSize() ?: size
+        sb.appendLine("Stream: ${size.width}x${size.height}" + if (asked != size) " (asked ${asked.width}x${asked.height}, the heat)" else "")
         val cur = controller?.snapshot()?.currentCamera
         sb.appendLine("Current camera: ${cur?.id ?: "none"} (${cur?.label ?: "-"})")
         controller?.let { sb.append(it.frameReport()) }
@@ -565,6 +624,15 @@ class CameraStreamService : Service() {
     fun getCameras(): List<CameraEntry> = allCameras
     fun getCurrentCameraId(): String? = controller?.getCurrentCameraId()
 
+    // The picture's short side (1080 for 1920x1080) and the rate the camera runs at now, Dynamic's or the heat's step
+    // included; null with no camera running
+    fun liveQuality(): Pair<Int, Int>? {
+        val snap = controller?.snapshot() ?: return null
+        val size = getStreamSize()
+        val fps = listOf(snap.phoneFps, snap.dynamicFps, snap.heatFps).filter { it > 0 }.minOrNull() ?: return null
+        return minOf(size.width, size.height) to fps
+    }
+
     fun getStreamSize(): android.util.Size =
         controller?.getStreamSize() ?: android.util.Size(streamWidth, streamHeight)
 
@@ -575,9 +643,10 @@ class CameraStreamService : Service() {
 
     // A lens that doesn't list the current size gets the closest one it does, or its session would fail
     private fun selectCamera(ctrl: CameraSessionController, entry: CameraEntry) {
-        val size = ctrl.getStreamSize()
+        val size = ctrl.getAskedSize()
         val (w, h) = fitSize(entry, size.width, size.height)
         ctrl.switchTo(entry)
+        stills?.lensChanged()
         if (w != size.width || h != size.height) ctrl.switchResolution(w, h)
     }
 
@@ -585,7 +654,7 @@ class CameraStreamService : Service() {
     private fun rememberSelection() {
         val ctrl = controller ?: return
         val cam = ctrl.snapshot().currentCamera ?: return
-        val size = ctrl.getStreamSize()
+        val size = ctrl.getAskedSize()
         StreamPrefs.updateSelection(this) {
             it.copy(cameraId = cam.id, logicalId = cam.logicalId ?: "", width = size.width, height = size.height)
         }
@@ -609,6 +678,11 @@ class CameraStreamService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            // The notification's Stop streaming button
+            if (controller != null) stopStreaming("notificationStop") else stopSelf()
+            return START_NOT_STICKY
+        }
         if (controller != null) {
             // A second start raced the first: keep the running stream rather than rebind its port and fail both.
             if (inForeground) try { startForegroundCompat() } catch (_: Exception) {}
@@ -625,6 +699,7 @@ class CameraStreamService : Service() {
         val localOnly = intent?.getBooleanExtra(EXTRA_LOCAL_ONLY, false) ?: false
         bindAddr      = if (localOnly) "127.0.0.1" else "0.0.0.0"
         startedRemotely = intent?.getBooleanExtra(EXTRA_REMOTE, false) ?: false
+        remoteStartNotice.started(startedRemotely)
         ownerId = intent?.getStringExtra(EXTRA_OWNER)
         val startOff  = intent?.getBooleanExtra(EXTRA_CAMERA_OFF, false) ?: false
         covered = (intent?.getBooleanExtra(EXTRA_COVERED, false) ?: false) && WaitingService.covering
@@ -695,6 +770,9 @@ class CameraStreamService : Service() {
             onCodecFailed  = { server?.closeH264Clients() },
         )
         controller = ctrl
+        stills = StillCapture(this, ctrl, stillJobs,
+            onBusy = { busy -> server?.holdViewers(busy) },
+            onError = { op, error -> recordControlError(op, error) })
         watchThermalStatus()
 
         if (startOff) {
@@ -723,7 +801,16 @@ class CameraStreamService : Service() {
         CameraRequestSelection.closestSize(w, h, entry.supportedSizes.map { it.width to it.height })
 
     private fun enumerateAllCameras() {
-        allCameras = enumerateCameras(getSystemService(CAMERA_SERVICE) as CameraManager)
+        val manager = getSystemService(CAMERA_SERVICE) as CameraManager
+        allCameras = enumerateCameras(manager)
+        val cameras = allCameras
+        // Reading the maker's modes can take a moment per lens; the state lists photos for each lens once it's read
+        kotlin.concurrent.thread(name = "still-caps", isDaemon = true) {
+            for (cam in cameras) {
+                StillCatalog.read(manager, cam)?.let { stillCaps[cam.id] = it }
+                stillCapsRead.add(cam.id)
+            }
+        }
         startServer()
     }
 
@@ -738,14 +825,20 @@ class CameraStreamService : Service() {
             onVideoClient  = ::onVideoClient,
             requestKeyFrame = { controller?.requestKeyFrame() },
             onH264Link     = { controller?.onLinkSample(it) },
+            dynamicBitrate = { controller?.dynamicBitrate ?: 0 },
+            dynamicFull    = { controller?.dynamicFull ?: false },
             startAudio     = ::startAudio,
             stopAudio      = { audio?.stop() },
+            sensors        = sensors,
             socketFactory  = PhoneTls.identity(this).serverSocketFactory(),
             onWifiViewersChanged = { watching -> mainHandler.post {
                 if (server === serving) {
                     if (watching) acquireWifiLock() else releaseWifiLocks()
                 }
             } },
+            handleStill    = ::handleStill,
+            stillStatus    = { id -> stillJobs.status(id)?.let { Json.encodeToString(StillStatus.serializer(), it) } },
+            stillFile      = { id, n -> stillJobs.file(id, n)?.let { it to stillJobs.publicName(it) } },
         )
         server = serving
         serving.start()
@@ -774,11 +867,15 @@ class CameraStreamService : Service() {
     }
 
     // The newest viewer's route picks the codec; viewers of the other one lose their stream.
-    private fun onVideoClient(codec: String, token: String?) {
+    private fun onVideoClient(codec: String, token: String?, usb: Boolean) {
         val ctrl = controller ?: return
         // Another computer watching this one's stream gets it as it is
         val caller = PairedComputers.list(this).matchToken(token)
         if (caller != null && !claim(caller)) return
+        if (caller != null && viewer != caller.name to usb) {
+            viewer = caller.name to usb
+            mainHandler.post { showStreamNotification() }
+        }
         if (codec == H264Stream.CODEC_H264 && !h264Available) return  // the reader sees no data and gives up
         // Failed once this stream: stay on MJPEG rather than reopen, fail and reopen as the reader reconnects.
         if (codec == H264Stream.CODEC_H264 && ctrl.snapshot().codecFailure != null) return
@@ -851,13 +948,16 @@ class CameraStreamService : Service() {
                     .map { CameraSize(it.width, it.height) } else null,
                 supportsFocusPoint = e.maxAfRegions > 0 && e.activeArray != null &&
                     CaptureRequest.CONTROL_AF_MODE_AUTO in e.afModes,
+                supportsMeterPoint = e.maxAeRegions > 0 && e.activeArray != null,
                 zoomRatioMax = e.zoomRatioMax, cropZoomMax = e.cropZoomMax, freeformCrop = e.freeformCrop,
                 lensZooms = e.lensZooms,
                 maxFps = e.aeFpsRanges.maxOfOrNull { it.upper } ?: 0,
+                stills = stillCaps[e.id]?.capability(),
             )
         }
         val (battLevel, battCharging, battTempC) = getBatteryInfo()
-        val liveSize = controller?.getStreamSize() ?: android.util.Size(streamWidth, streamHeight)
+        // The size the computer asked for, even while the heat streams a smaller one (heat_width), so it keeps its pick
+        val liveSize = controller?.getAskedSize() ?: android.util.Size(streamWidth, streamHeight)
         val wifi = WifiLink.current(this)
         val state = V1State(
             cameras = cams,
@@ -889,6 +989,8 @@ class CameraStreamService : Service() {
             intra_refresh = snap?.intraRefresh == true,
             wifi_band = wifi?.band, wifi_rssi = wifi?.rssi, wifi_mbps = wifi?.mbps,
             heat_fps = snap?.heatFps ?: 0,
+            heat_width = snap?.heatWidth ?: 0,
+            heat_height = snap?.heatHeight ?: 0,
             low_light_toggle = true,
             codec_error = snap?.codecFailure?.text,
             codec_error_code = snap?.codecFailure?.code,
@@ -901,6 +1003,13 @@ class CameraStreamService : Service() {
             camera_error_code = if (controller?.cameraError != null) "camera_in_use" else null,
             camera_taken = controller?.isCameraTaken() ?: false,
             camera_toggle = true,
+            takes_notes = true,
+            notes = NotesBoard.hasNotes,
+            notes_shown = NotesBoard.hasNotes && NotesBoard.shown,
+            notes_closed = NotesBoard.hasNotes && NotesBoard.dismissed,
+            notes_preview = NotesBoard.wantsScreen && !NotesBoard.shown && controller?.hasPreviewSurface() == true,
+            stills = 1,
+            sensors = sensors.available(),
             stream_width = liveSize.width,
             stream_height = liveSize.height,
             battery = battLevel,
@@ -911,6 +1020,7 @@ class CameraStreamService : Service() {
     }
 
     private fun handleControlCommand(params: Map<String, String>): String {
+        NotesCommand.parse(params)?.let { return notesControl(it) }
         val ctrl = controller ?: return err("camera not ready")
         return try {
             when (params["action"]) {
@@ -995,6 +1105,14 @@ class CameraStreamService : Service() {
                     if (!ctrl.setFocusPoint(x, y, size)) return err("this lens can't focus on a point")
                     ok()
                 }
+                "meter_point" -> {
+                    // like focus_point, but only exposure is metered there and focus is left alone
+                    val x = params["x"].finite() ?: return err("bad x")
+                    val y = params["y"].finite() ?: return err("bad y")
+                    val size = params["size"].finite() ?: 0.1f
+                    if (!ctrl.setMeterPoint(x, y, size)) return err("this lens can't meter on a point")
+                    ok()
+                }
                 "zoom" -> {
                     // ratio: centred zoom; crop: extra zoom inside that; x, y: the crop's centre, 0..1 of the view
                     val ratio = params["ratio"].finite() ?: return err("bad ratio")
@@ -1046,9 +1164,58 @@ class CameraStreamService : Service() {
                     ctrl.setCameraOn(params["value"] == "1")
                     ok()
                 }
+                "keyframe" -> {
+                    // A desktop plugin that changed the H.264 before decoding it stopped: this brings the picture back
+                    ctrl.requestKeyFrame()
+                    ok()
+                }
                 else -> err("unknown action '${params["action"]}'")
             }
         } catch (e: Exception) { err(e.message ?: "exception") }
+    }
+
+    // Notes don't touch the camera, so they work with it off too
+    private fun notesControl(command: NotesCommand): String {
+        if (command is NotesCommand.Refused) return err(command.error)
+        if (NotesBoard.apply(command)) mainHandler.post { showNotes() }
+        return ok()
+    }
+
+    // Runs on new text and on every return to Streaming (Preview closing ends in one too); MainActivity.onStart covers the app coming to the front
+    private fun showNotes() {
+        val info = android.app.ActivityManager.RunningAppProcessInfo()
+        android.app.ActivityManager.getMyMemoryState(info)
+        val inFront = info.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+        if (!NotesBoard.opensNow(isStreaming, controller?.hasPreviewSurface() == true, inFront)) return
+        try {
+            startActivity(NotesActivity.intent(this))
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "Couldn't open the notes", e)
+        }
+    }
+
+    // POST /v1/still: {"action": "take", ...StillOptions} starts a photo, {"action": "forget", "id"} deletes its files
+    private fun handleStill(params: Map<String, String>): String {
+        fun answer(started: StillStarted) = Json.encodeToString(StillStarted.serializer(), started)
+        fun refuse(code: String, text: String) = answer(StillStarted(ok = false, error = text, code = code))
+        when (params["action"] ?: "take") {
+            "forget" -> { params["id"]?.let(stillJobs::forget); return answer(StillStarted(ok = true)) }
+            "take" -> {}
+            else -> return refuse("bad_option", "unknown action '${params["action"]}'")
+        }
+        val ctrl = controller ?: return refuse("camera_off", "The camera isn't running")
+        val capture = stills ?: return refuse("camera_off", "The camera isn't running")
+        if (ctrl.isCameraOff() || ctrl.isCameraTaken()) return refuse("camera_off", "The camera isn't running")
+        val cam = ctrl.snapshot().currentCamera ?: return refuse("camera_off", "The camera isn't running")
+        val caps = stillCaps[cam.id] ?: return if (cam.id in stillCapsRead) refuse("unsupported", "This lens can't take photos")
+            else refuse("not_ready", "The phone is still finding out what this lens can do")
+        val request = when (val parsed = StillOptions.parse(params, caps, ctrl.streamExposure(), ctrl.manualShutterNs())) {
+            is StillOptions.Parsed.Refused -> return refuse(parsed.code, parsed.text)
+            is StillOptions.Parsed.Ok -> parsed.request
+        }
+        val id = stillJobs.start(request.shots.size, request.timerMs, StillTiming.backstopMs(request)) ?: return refuse("busy", "The phone is already taking a photo")
+        capture.start(id, request, caps, cam.id)
+        return answer(StillStarted(ok = true, id = id))
     }
 
     private fun ok()             = Json.encodeToString(ControlResult.serializer(), ControlResult(ok = true))
@@ -1058,12 +1225,19 @@ class CameraStreamService : Service() {
         stopIdleWatchdog()
         setState(StreamState.Stopping, op)
         controller?.stop()
+        stills?.stop()
+        stills = null
+        stillJobs.clear()
         server?.stop()
+        if (sensorsMade.isInitialized()) sensors.stopAll()
         audio?.stop()
         wakeLock?.let { if (it.isHeld) it.release() }
         releaseWifiLocks()
         stopWatchingThermalStatus()
         controller = null; server = null
+        NotesBoard.clear()
+        streamingSinceMs = 0L
+        viewer = null
         setState(StreamState.Idle, op)
         // Release session; endpoint stays bound if MainActivity holds a reference.
         SessionEndpoint.holdAfterStop(this)
@@ -1096,12 +1270,12 @@ class CameraStreamService : Service() {
     private fun buildNotification(): android.app.Notification {
         val pi = PendingIntent.getActivity(this, 0,
             Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        return asLiveUpdate(this, NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Telescope").setContentText(streamingText(this, cameraOff))
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(ContextCompat.getColor(this, R.color.colorPrimary))
             .setColorized(false)
-            .setContentIntent(pi).setOngoing(true).build()
+            .setContentIntent(pi).setOngoing(true)).build()
     }
 
     // Says whether the camera is on: only a notify, since startForeground again from the background is refused.

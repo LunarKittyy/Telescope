@@ -17,6 +17,8 @@ data class SessionSnapshot(
     val phoneName: String,
     // The other paired computer a running or starting stream belongs to, when it isn't the one asking.
     val streamingFor: String? = null,
+    // Runs Dynamic over UDP from the desktop's reports (UdpLink); a desktop keeps Dynamic on TCP for a phone without it.
+    val udpDynamic: Boolean = false,
 )
 
 // appVersion/build: lets the desktop say which app needs updating instead of just "unreachable".
@@ -216,6 +218,7 @@ private class ServiceSessionCommands(private val context: Context) : SessionComm
             phoneId = PairedComputers.phoneId(context),
             phoneName = PairedComputers.phoneName(context),
             streamingFor = service?.otherOwner(computer)?.name,
+            udpDynamic = true,
         )
     }
 

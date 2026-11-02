@@ -1,0 +1,594 @@
+﻿{
+  "version": 3,
+  "selected_device": "00000000-0000-4000-8000-000000000001",
+  "plugin_configs": {
+    "setup": {
+      "canvas_preset": "Custom",
+      "custom_canvas_w": 1280,
+      "custom_canvas_h": 720,
+      "max_zoom": 10,
+      "max_gain": 12,
+      "limiter": true,
+      "hw_decode": false,
+      "power_saving": false,
+      "plugin_hues": true,
+      "language": "es"
+    },
+    "preview": {
+      "lens_boxes": false,
+      "skeleton": false
+    },
+    "onboarding": {
+      "streamed": true
+    },
+    "updates": {
+      "channel": "stable",
+      "auto_check": false,
+      "last_check": 1793208492.7474077,
+      "keep_portable": true
+    },
+    "startup": {
+      "start_on": "watched",
+      "stop_idle": "own",
+      "stop_delay_s": 30,
+      "notify_stop": true
+    },
+    "wait_screen": {
+      "image": null,
+      "mirror": false,
+      "last_size": [
+        1920,
+        1080
+      ]
+    },
+    "connection": {
+      "computer_id": "00000000000000000000000000000008",
+      "computer_name": "GAMING-PC",
+      "route": "usb",
+      "udp": true,
+      "phones": [
+        {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "name": "Pixel 8",
+          "token": "fake-pairing-token-06xxxxxxxxxxxxxxxxxxxxxx",
+          "ips": [
+            "192.168.1.21",
+            "100.64.0.7"
+          ],
+          "active_ip": "192.168.1.21",
+          "cert_sha256": "0707070707070707070707070707070707070707070707070707070707070707"
+        }
+      ],
+      "selected_phone": "00000000-0000-4000-8000-000000000001"
+    },
+    "browser_camera": {
+      "size": "720p",
+      "fps": 30,
+      "address": "192.168.1.10",
+      "known": {
+        "aaaaaaaaaaaaaaaaaaaaaaaa": {
+          "name": "Safari on iPad",
+          "seen": 1793000000.0
+        },
+        "bbbbbbbbbbbbbbbbbbbbbbbb": {
+          "name": "Chrome on an old phone",
+          "seen": 1785000000.0
+        },
+        "cccccccccccccccccccccccc": {
+          "name": "Firefox on a laptop",
+          "seen": 1793100000.0
+        },
+        "dddddddddddddddddddddddd": {
+          "name": 42,
+          "seen": 1
+        }
+      }
+    },
+    "shortcuts": {
+      "notify": true,
+      "bindings": [
+        {
+          "id": "mute1",
+          "keys": "Ctrl+Alt+M",
+          "action": "microphone.mute",
+          "params": {
+            "verb": "toggle"
+          },
+          "global": true
+        },
+        {
+          "id": "flip1",
+          "keys": "Ctrl+Alt+F",
+          "action": "transforms.flip_horizontal",
+          "params": {},
+          "global": false
+        },
+        {
+          "id": "flip2",
+          "keys": "Ctrl+Alt+F",
+          "action": "transforms.flip_vertical",
+          "params": {},
+          "global": false
+        },
+        {
+          "id": "nokeys",
+          "keys": "",
+          "action": "microphone.mute",
+          "params": {},
+          "global": true
+        },
+        {
+          "id": "gone1",
+          "keys": "Ctrl+Shift+G",
+          "action": "someone_elses_plugin.go",
+          "params": {},
+          "global": false
+        }
+      ]
+    },
+    "cinema": {
+      "peaking": false,
+      "zebras": false,
+      "false_colour": false,
+      "level": false,
+      "scope": "off",
+      "guides": "off",
+      "peaking_colour": "red",
+      "peaking_level": 5,
+      "zebra_level": 95,
+      "scope_size": "medium"
+    },
+    "composite": {
+      "on": false,
+      "layout": {
+        "name": "",
+        "background": "#15151a",
+        "picture": "",
+        "tiles": [
+          {
+            "source_id": "00000000-0000-4000-8000-000000000001",
+            "name": "Pixel 8",
+            "x": 0.0,
+            "y": 0.0,
+            "w": 1.0,
+            "h": 1.0,
+            "zoom": 1.0,
+            "cx": 0.5,
+            "cy": 0.5,
+            "border": 0,
+            "border_colour": "#ffffff",
+            "radius": 0,
+            "crop_l": 0.0,
+            "crop_t": 0.0,
+            "crop_r": 0.0,
+            "crop_b": 0.0,
+            "stretch": false
+          },
+          {
+            "source_id": "00000000-0000-4000-8000-000000000002",
+            "name": "Galaxy S10+",
+            "x": 0.0,
+            "y": 0.6831913378663469,
+            "w": 0.3168086621336531,
+            "h": 0.3168086621336531,
+            "zoom": 1.0,
+            "cx": 0.5,
+            "cy": 0.5,
+            "border": 0,
+            "border_colour": "#ffffff",
+            "radius": 14,
+            "crop_l": 0.0,
+            "crop_t": 0.0,
+            "crop_r": 0.0,
+            "crop_b": 0.0,
+            "stretch": false
+          }
+        ]
+      },
+      "layouts": []
+    },
+    "on_air": {
+      "trigger": "camera",
+      "page": true,
+      "token": "fake-on-air-09xxxxxxxxxx",
+      "address": "192.168.1.10",
+      "webhook_url": "",
+      "webhook_method": "POST",
+      "webhook_on": "",
+      "webhook_off": ""
+    },
+    "privacy_blur": {
+      "on": false,
+      "mode": "wait"
+    },
+    "photos": {
+      "format": "jpeg",
+      "quality": 95,
+      "mode": "normal",
+      "shots": "single",
+      "burst": 5,
+      "bracket": "3x1",
+      "focus_steps": 5,
+      "exposure_s": 0,
+      "timer": 0,
+      "best": true,
+      "distortion": "camera",
+      "folder": "D:\\Fotos\\Telescope"
+    },
+    "notes": {
+      "sets": [
+        ""
+      ],
+      "current": 0,
+      "size": 44,
+      "speed": 3,
+      "scroll": "auto"
+    },
+    "qr_reader": {
+      "on": true,
+      "notify": true
+    },
+    "webcam": {
+      "cameras": {
+        "usb:046d:085c": {
+          "size": [
+            1920,
+            1080
+          ],
+          "fps": 30,
+          "controls": {
+            "brightness": 140
+          }
+        },
+        "usb:1234:abcd": {
+          "size": [
+            0,
+            0
+          ],
+          "fps": 999
+        }
+      }
+    }
+  },
+  "devices": {
+    "00000000-0000-4000-8000-000000000001": {
+      "plugin_configs": {
+        "camera_control": {
+          "exp_manual": false,
+          "iso": 651.1545480563475,
+          "shutter_ns": 27542287.033381663,
+          "ois": true,
+          "focus_manual": false,
+          "focus_diopters": 0.0,
+          "wb_manual": false,
+          "wb_kelvin": 3250,
+          "wb_tint": -28,
+          "ae_comp": 0,
+          "nr_mode": 2,
+          "edge_mode": 2,
+          "bll": false,
+          "low_light": true,
+          "lens": "3"
+        },
+        "stream_output": {
+          "fps": 30,
+          "jpeg_quality": 95,
+          "format": "h264",
+          "bitrate_mbps": -1,
+          "resolution": "1920 x 1080"
+        },
+        "transforms": {
+          "flip_h": false,
+          "flip_v": true,
+          "rotation": "None",
+          "zoom": 1.0,
+          "pan_x": 0.0,
+          "pan_y": 0.0,
+          "stretch_x": 1.0,
+          "stretch_y": 1.0
+        },
+        "microphone": {
+          "enabled": true,
+          "gain_db": 6,
+          "auto_level": true,
+          "noise_reduction": true
+        },
+        "presets": {
+          "presets": [
+            {
+              "name": "Meetings",
+              "transforms": {
+                "zoom": 1.4,
+                "pan_x": 0.0,
+                "pan_y": -0.1
+              },
+              "stream_output": {
+                "fps": 30
+              }
+            },
+            {
+              "name": "Streaming",
+              "stream_output": {
+                "fps": 60,
+                "resolution": "1920 x 1080"
+              }
+            },
+            {
+              "name": "Meetings",
+              "transforms": {
+                "zoom": 2.0
+              }
+            },
+            {
+              "name": "",
+              "transforms": {}
+            }
+          ]
+        },
+        "monitoring": {
+          "battery_alert": 20,
+          "temp_alert": 45,
+          "battery_notify": true,
+          "battery_stop": false,
+          "temp_notify": true,
+          "temp_stop": false
+        },
+        "desk": {
+          "on": false,
+          "corners": [
+            [
+              0.3673469387755102,
+              0.4759871931696905
+            ],
+            [
+              0.6452581032412965,
+              0.4898612593383138
+            ],
+            [
+              0.7010804321728692,
+              0.1398078975453575
+            ],
+            [
+              0.32292917166866747,
+              0.1323372465314835
+            ]
+          ],
+          "cleanup": "off",
+          "shape": "auto",
+          "stretch": [
+            100,
+            100
+          ]
+        },
+        "colour_grading": {
+          "on": false,
+          "wheels": {
+            "lift": [
+              0.0,
+              0.0
+            ],
+            "gamma": [
+              0.0,
+              0.0
+            ],
+            "gain": [
+              0.0,
+              0.0
+            ],
+            "offset": [
+              0.0,
+              0.0
+            ]
+          },
+          "masters": {
+            "lift": 0.0,
+            "gamma": 0.0,
+            "gain": 1.0,
+            "offset": 0.0
+          },
+          "curves": {
+            "all": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                1.0,
+                1.0
+              ]
+            ],
+            "r": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                1.0,
+                1.0
+              ]
+            ],
+            "g": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                1.0,
+                1.0
+              ]
+            ],
+            "b": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                1.0,
+                1.0
+              ]
+            ]
+          },
+          "hue_sat": [
+            [
+              0.0,
+              0.5
+            ],
+            [
+              0.16666666666666666,
+              0.5
+            ],
+            [
+              0.3333333333333333,
+              0.5
+            ],
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.6666666666666666,
+              0.5
+            ],
+            [
+              0.8333333333333334,
+              0.5
+            ]
+          ],
+          "hue_hue": [
+            [
+              0.0,
+              0.5
+            ],
+            [
+              0.16666666666666666,
+              0.5
+            ],
+            [
+              0.3333333333333333,
+              0.5
+            ],
+            [
+              0.5,
+              0.5
+            ],
+            [
+              0.6666666666666666,
+              0.5
+            ],
+            [
+              0.8333333333333334,
+              0.5
+            ]
+          ],
+          "lut": "C:\\Users\\Sam\\Documents\\LUTs\\Warm Film.cube",
+          "lut_strength": 1.0,
+          "temperature": 0.0,
+          "tint": 0.0,
+          "contrast": 1.0,
+          "pivot": 0.435,
+          "saturation": 1.0,
+          "shadows": 0.0,
+          "highlights": 0.0
+        },
+        "background": {
+          "mode": "off",
+          "blur": 4,
+          "edges": 4,
+          "picture": "C:\\Users\\Sam\\Pictures\\Wallpapers\\café.jpg"
+        },
+        "framing": {
+          "on": false,
+          "framing": 0.0,
+          "speed": 10,
+          "room": 0,
+          "hand": false
+        },
+        "face_exposure": {
+          "on": false
+        },
+        "chroma_key": {
+          "on": false,
+          "screen": "green",
+          "picked": [
+            219,
+            205,
+            129
+          ],
+          "tolerance": 38,
+          "softness": 19,
+          "spill": 35,
+          "background": "colour",
+          "colour": [
+            0,
+            0,
+            245
+          ],
+          "picture": ""
+        },
+        "fun_pack": {
+          "effect": "off",
+          "across": false,
+          "edges": 3,
+          "fade": 10,
+          "brightness": 8,
+          "spread": 45,
+          "smear": 1
+        },
+        "name_tag": {
+          "on": false,
+          "name": "Sam",
+          "pronouns": "they/them",
+          "second": "Streaming tonight",
+          "style": "bar",
+          "position": "bottom_left",
+          "size": "medium"
+        }
+      }
+    },
+    "browser:aaaaaaaaaaaaaaaaaaaaaaaa": {
+      "plugin_configs": {
+        "transforms": {
+          "flip_h": true,
+          "flip_v": false,
+          "rotation": "None",
+          "zoom": 1.2,
+          "pan_x": 0.0,
+          "pan_y": 0.0,
+          "stretch_x": 1.0,
+          "stretch_y": 1.0
+        }
+      }
+    },
+    "browser:bbbbbbbbbbbbbbbbbbbbbbbb": {
+      "plugin_configs": {
+        "transforms": {
+          "flip_h": true
+        }
+      }
+    }
+  },
+  "output_slots": {
+    "00000000-0000-4000-8000-000000000001": 0
+  },
+  "plugins": {
+    "off": [
+      "monitoring"
+    ],
+    "noticed": [
+      "monitoring"
+    ],
+    "added": {
+      "lower_thirds": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    "on": [
+      "colour_grading",
+      "background",
+      "name_tag",
+      "photos"
+    ]
+  },
+  "collapsed": [
+    "camera_control/Camera/Focus",
+    "microphone/Microphone"
+  ]
+}
