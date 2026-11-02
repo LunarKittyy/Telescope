@@ -186,9 +186,10 @@ jobs:
         if: needs.meta.outputs.channel == 'stable'
         run: |
           notes=".github/release-notes/$VERSION.md"
-          if [ -f "$notes" ]; then notes_args=(--notes-file "$notes"); else notes_args=(--generate-notes); fi
+          if [ -f "$notes" ]; then cat "$notes" > notes.md; notes_args=(); else : > notes.md; notes_args=(--generate-notes); fi
+          sed "s|REPO|$GITHUB_REPOSITORY|g; s|TAG|$TAG|g" .github/DOWNLOADS.md >> notes.md
           gh release create "$TAG" out/* --verify-tag --latest \
-            --title "Telescope $VERSION" "${notes_args[@]}"
+            --title "Telescope $VERSION" --notes-file notes.md "${notes_args[@]}"
 
       # Delete and recreate nightly so its tag moves to the commit this build came from.
       - name: Publish nightly
@@ -198,6 +199,7 @@ jobs:
             echo "Telescope $VERSION nightly $BUILD, built from \`${GITHUB_SHA::7}\`."
             echo
             cat .github/NIGHTLY_NOTES.md
+            sed "s|REPO|$GITHUB_REPOSITORY|g; s|TAG|nightly|g" .github/DOWNLOADS.md
           } > notes.md
           gh release delete nightly --yes --cleanup-tag || true
           gh release create nightly out/* --prerelease --latest=false \
