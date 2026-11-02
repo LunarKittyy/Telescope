@@ -103,14 +103,28 @@ mod unix {
 }
 
 #[cfg(unix)]
+const TESTS: [(&str, fn()); 3] = [
+    ("sigterm_during_the_first_start_confirms_instead_of_rolling_back", unix::sigterm_during_the_first_start_confirms_instead_of_rolling_back),
+    ("a_start_that_dies_with_no_signal_still_rolls_back", unix::a_start_that_dies_with_no_signal_still_rolls_back),
+    ("sigterm_with_no_update_in_progress_leaves_no_journal_behind", unix::sigterm_with_no_update_in_progress_leaves_no_journal_behind),
+];
+
+#[cfg(unix)]
 fn main() {
     if let Some(app) = std::env::var_os("TELESCOPE_TERMINATE_APP") {
         return unix::child(app.into());
     }
-    unix::sigterm_during_the_first_start_confirms_instead_of_rolling_back();
-    unix::a_start_that_dies_with_no_signal_still_rolls_back();
-    unix::sigterm_with_no_update_in_progress_leaves_no_journal_behind();
-    println!("test result: ok. 3 passed");
+    // Nextest lists the tests with --list, then runs each by name
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "--list") {
+        if !args.iter().any(|a| a == "--ignored") {
+            TESTS.iter().for_each(|(name, _)| println!("{name}: test"));
+        }
+        return;
+    }
+    let only = args.iter().find(|a| !a.starts_with('-'));
+    TESTS.iter().filter(|(name, _)| only.is_none_or(|o| o == name)).for_each(|(_, test)| test());
+    println!("test result: ok");
 }
 
 #[cfg(not(unix))]
