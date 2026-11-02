@@ -22,7 +22,7 @@ work=$out.work
 
 fetch() {
     local url=$1 file=$downloads/$2 sum=$3
-    [ -f "$file" ] || curl -fsSL -o "$file" "$url"
+    [ -f "$file" ] || curl -fsSL --connect-timeout 30 --retry 5 --retry-all-errors --retry-delay 10 -o "$file" "$url"
     echo "$sum  $file" | sha256sum -c --quiet -
 }
 

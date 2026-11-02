@@ -14,7 +14,7 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 runtime=${APPIMAGE_RUNTIME:-$work/runtime}
-[ -f "$runtime" ] || curl -fsSL -o "$runtime" "https://github.com/AppImage/type2-runtime/releases/download/$RUNTIME_RELEASE/runtime-x86_64"
+[ -f "$runtime" ] || curl -fsSL --connect-timeout 30 --retry 5 --retry-all-errors --retry-delay 10 -o "$runtime" "https://github.com/AppImage/type2-runtime/releases/download/$RUNTIME_RELEASE/runtime-x86_64"
 echo "$RUNTIME_SHA256  $runtime" | sha256sum -c --quiet -
 
 # Its own message when it can't mount suggests --appimage-extract, which only unpacks. Same length, so nothing else in the file moves
