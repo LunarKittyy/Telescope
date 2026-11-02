@@ -217,7 +217,11 @@ fn finish_linux(directory: &Path, staging: &Path, mv: Mover) -> io::Result<bool>
     if !previous.exists() {
         std::fs::create_dir(&previous)?;
     }
-    for src in sorted_entries(staging)? {
+    let mut entries = sorted_entries(staging)?;
+    // The launcher goes last, as the commit point: a start.sh that's in place finds everything it runs (main.py, update_guard.py) already there,
+    // and one that isn't yet still starts the old version, whose start-up finishes this swap
+    entries.sort_by_key(|p| p.file_name().is_some_and(|n| n == "start.sh"));
+    for src in entries {
         let name = src.file_name().unwrap_or_default().to_os_string();
         let (dst, prev) = (directory.join(&name), previous.join(&name));
         if is_real_dir(&src) {
@@ -349,8 +353,13 @@ pub fn recover_with(directory: &Path, wait: Duration, running_elsewhere: &dyn Fn
                 }
             };
             write_journal_with(directory, &with(&journal, json!({"state": "trial", "started": false})), mv)?;
-            // Windows: a copy that just renamed itself out of the way is the old version, so start the new one
-            return Ok(swapped.then(|| relaunch_command(directory, true)));
+            // Windows: a copy that just renamed itself out of the way is the old version, so start the new one. Going back: this copy
+            // finished the swap for the Python build, which its own launcher starts and whose guard then confirms or rolls back that trial
+            return Ok((swapped || goes_to_python(&journal)).then(|| relaunch_command(directory, true)));
+        }
+        if state == "trial" && !started && goes_to_python(&journal) && cfg!(unix) && directory.join("update_guard.py").is_file() {
+            // This binary was started directly while the Python build is on trial: that build is the one to start, and not this copy's to confirm
+            return Ok(Some(relaunch_command(directory, true)));
         }
         if state == "trial" && started && first_start_still_loading(&journal, running_elsewhere, grace) {
             return Ok(None); // a second launch while the new version was still starting up: that one takes the lock
@@ -366,6 +375,11 @@ pub fn recover_with(directory: &Path, wait: Duration, running_elsewhere: &dyn Fn
     })();
     // Can't fix it from here: start what's there, and try again next time
     result.unwrap_or(None)
+}
+
+/// Whether a journal is for going back to the Python build (going_back::BUILD), whose own guard is what confirms or rolls that back.
+fn goes_to_python(journal: &Value) -> bool {
+    journal["to_build"].as_i64() == Some(crate::going_back::BUILD)
 }
 
 /// This copy's AppImage file name, which tells its update apart in a folder other things share.
@@ -392,7 +406,7 @@ fn first_start_still_loading(journal: &Value, running_elsewhere: &dyn Fn() -> bo
 
 /// The new version started fine: stop being ready to roll it back. Its leftovers go with the next clean-up.
 pub fn confirm(directory: &Path) {
-    if read_journal(directory).is_some_and(|j| j["state"] == "trial" && is_ours(&j, appimage_name().as_deref())) {
+    if read_journal(directory).is_some_and(|j| j["state"] == "trial" && is_ours(&j, appimage_name().as_deref()) && !goes_to_python(&j)) {
         let _ = clear_journal(directory);
     }
 }
