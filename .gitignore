@@ -5,19 +5,9 @@ android/build/
 android/app/build/
 android/local.properties
 
-# Desktop
-desktop/telescope_config.json
-desktop/__pycache__/
-desktop/*.pyc
-desktop/build/
-desktop/dist/
-desktop/*.egg-info/
-desktop/.venv/
-desktop/Telescope.apk
+# Python (the build and automation scripts)
 venv/
 .venv/
-
-# Python
 __pycache__/
 *.py[cod]
 *.pyo
@@ -36,15 +26,8 @@ temp/
 .DS_Store
 Thumbs.db
 
-# Written by CI (desktop/scripts/write_build_info.py)
-desktop/telescope/_build.py
-
-# Link to the log in the temp folder (desktop/telescope/diagnostics.py)
-desktop/telescope.log
-
 # Made by the scripts in automation/
 automation/translation/work/
-automation/translation/review-renders/
 automation/release-testing/downloads/
 automation/release-testing/linux/.profile/
-desktop/virtualcamera/build/
+rust/windows/virtualcamera/build/

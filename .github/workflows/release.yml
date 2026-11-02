@@ -82,7 +82,7 @@ jobs:
       channel: ${{ needs.meta.outputs.channel }}
 
   # MediaPipe and its models for the optional plugins, downloaded by the app when one is switched on. Both platforms
-  # build here (pip fetches the Windows wheels too), and they have to match desktop/telescope/vision_pack.json, which the app builds in.
+  # build here (pip fetches the Windows wheels too), and they have to match rust/crates/vision/vision_pack.json, which the app builds in.
   vision:
     runs-on: ubuntu-latest
     steps:
@@ -93,8 +93,8 @@ jobs:
           python-version: '3.12'
 
       - name: Build the vision packs
-        working-directory: desktop
-        run: python scripts/build_vision_pack.py --check --out ../vision
+        working-directory: rust
+        run: python tools/build_vision_pack.py --check --out ../vision
 
       - uses: actions/upload-artifact@v7
         with:

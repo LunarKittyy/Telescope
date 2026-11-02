@@ -6,8 +6,8 @@ on:
   pull_request:
     paths:
       - 'rust/tools/**'
+      - 'rust/windows/**'
       - 'installer/**'
-      - 'desktop/virtualcamera/**'
       - '.github/workflows/rust-package.yml'
   workflow_dispatch:
   workflow_call:
