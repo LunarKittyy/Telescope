@@ -1,6 +1,6 @@
 # Telescope docs
 
-New here? The [Quick Start](../README.md#quick-start) is all most people need.
+New here? The [Quick Start](../README.md#up-and-running-in-about-two-minutes) is all most people need.
 
 ## For users
 
