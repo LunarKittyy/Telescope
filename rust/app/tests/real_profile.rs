@@ -3,7 +3,9 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use telescope_core::config::{PathEnv, DEV_PROFILE_ENV};
+use telescope_core::config::PathEnv;
+#[cfg(not(windows))]
+use telescope_core::config::DEV_PROFILE_ENV;
 
 /// The paths come from the environment on each call, and the tests here change it.
 static ENV: Mutex<()> = Mutex::new(());
