@@ -13,11 +13,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use str0m::bwe::Bitrate;
 use str0m::change::SdpOffer;
 use str0m::format::Codec as RtcCodec;
 use str0m::media::{KeyframeRequestKind, MediaKind, Mid};
 use str0m::net::{Protocol, Receive};
+use str0m::rtp::Extension;
 use str0m::{Candidate, Event, IceConnectionState, Input, Output, Rtc, RtcConfig};
 use telescope_core::media::{AudioDecoder, Codec};
 
@@ -28,14 +28,14 @@ pub const ANSWER_TIMEOUT: Duration = Duration::from_secs(10);
 const STATS_EVERY: Duration = Duration::from_secs(1);
 /// What the page is asked to prefer, in order: what this computer decodes.
 pub const VIDEO_CODECS: [&str; 2] = ["H264", "VP8"];
+/// H.264 as (payload type, its resend type, profile-level-id), best first.
+const H264_ANSWERS: [(u8, u8, u32); 2] = [(108, 109, 0x42e01f), (127, 121, 0x42001f)];
 /// The longest the connection's thread sleeps, so close() is noticed soon.
 const TICK: Duration = Duration::from_millis(100);
 /// How long the thread sleeps when no socket has anything.
 const IDLE_NAP: Duration = Duration::from_millis(2);
-/// A keyframe asked for again no sooner than this.
+/// A keyframe is asked for this often until one comes.
 const KEYFRAME_AGAIN: Duration = Duration::from_secs(1);
-/// How often the sender hears what it may use. Firefox lowers its size without this and never climbs back.
-const REMB_EVERY: Duration = Duration::from_secs(1);
 
 /// The offer couldn't be answered; the text is for the log.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -71,7 +71,7 @@ pub fn answer_codec(sdp: &str) -> String {
 }
 
 /// Tells Chrome to start near max_kbps instead of 300 kbps (it would take half a minute to get there) and not to go
-/// over it. Browsers that don't know these parameters ignore them.
+/// over it. Browsers that don't know these parameters ignore them. str0m lists transport-cc whatever it's set up for, so that goes.
 pub fn tune_answer(sdp: &str, max_kbps: u32) -> String {
     let start = 300.max(max_kbps * 2 / 3);
     let extra = format!("x-google-start-bitrate={start};x-google-max-bitrate={max_kbps}");
@@ -81,6 +81,9 @@ pub fn tune_answer(sdp: &str, max_kbps: u32) -> String {
     let has_fmtp = |pt: &str| lines.iter().any(|l| l.starts_with(&format!("a=fmtp:{pt} ")));
     let mut out = Vec::new();
     for line in &lines {
+        if line.starts_with("a=rtcp-fb:") && line.ends_with(" transport-cc") {
+            continue;
+        }
         let mut line = line.to_string();
         let kind_pt = line.strip_prefix("a=").and_then(|r| {
             let (kind, rest) = r.split_once(':')?;
@@ -112,8 +115,8 @@ pub fn max_kbps_for(width: u32, height: u32, fps: u32) -> u32 {
 // ── A browser's connection ───────────────────────────────────────────────────
 
 /// One encoded video frame from the page: (codec, Annex B H.264 or a VP8 frame, what each frame took on the network
-/// lately). Called on the connection's thread, so it must only hand the data on.
-pub type VideoSink = Box<dyn FnMut(Codec, Vec<u8>, u64) + Send>;
+/// lately, when the page made it on its own clock in ns). Called on the connection's thread, so it must only hand the data on.
+pub type VideoSink = Box<dyn FnMut(Codec, Vec<u8>, u64, u64) + Send>;
 /// 20 ms or so of the page's mic as 48 kHz mono s16le, on the connection's thread.
 pub type AudioSink = Box<dyn FnMut(Vec<u8>) + Send>;
 
@@ -149,14 +152,22 @@ impl StrSession {
         StrSession { addresses, opus, sinks: Some((video, audio)), codec: String::new(), stop: Arc::default(), keyframe: Arc::default() }
     }
 
+    /// What aiortc answered with, which the same browsers send evenly to: Constrained Baseline first, as the page asks, since a
+    /// browser takes the first entry of the answer. No transport-cc, so the sender doesn't run on our feedback, and no
+    /// video-orientation, so it turns the picture itself.
     fn config() -> RtcConfig {
-        RtcConfig::new()
+        let mut config = RtcConfig::new()
             .set_crypto_provider(Arc::new(str0m::crypto::from_feature_flags()))
             .clear_codecs()
-            .enable_h264(true)
-            .enable_vp8(true)
-            .enable_opus(true, false)
-            .set_reordering_size_video(JITTER_PACKETS)
+            .clear_extension_map()
+            .set_extension(1, Extension::RtpMid)
+            .set_extension(2, Extension::AbsoluteSendTime)
+            .set_extension(3, Extension::AudioLevel)
+            .set_reordering_size_video(JITTER_PACKETS);
+        for (pt, resend, profile) in H264_ANSWERS {
+            config.codec_config().add_h264(pt.into(), Some(resend.into()), true, profile);
+        }
+        config.enable_vp8(true).enable_opus(true, false)
     }
 }
 
@@ -194,7 +205,7 @@ impl RtcSession for StrSession {
         let (started, ready) = mpsc::channel();
         std::thread::Builder::new().name("browser-rtc".into()).spawn(move || {
             let _ = started.send(());
-            run(rtc, &sockets, &stop, &keyframe, video, audio, opus.as_ref()(), max_kbps);
+            run(rtc, &sockets, &stop, &keyframe, video, audio, opus.as_ref()());
         }).map_err(|e| RtcError(e.to_string()))?;
         ready.recv_timeout(ANSWER_TIMEOUT).map_err(|_| RtcError("the connection's thread didn't start".into()))?;
         Ok(tune_answer(&sdp, max_kbps))
@@ -221,24 +232,18 @@ impl Drop for StrSession {
 
 /// The connection until it's closed or the browser goes.
 fn run(mut rtc: Rtc, sockets: &[UdpSocket], stop: &AtomicBool, keyframe: &AtomicBool, mut video: VideoSink, mut audio: AudioSink,
-       mut opus: Option<Box<dyn AudioDecoder>>, max_kbps: u32) {
+       mut opus: Option<Box<dyn AudioDecoder>>) {
     let mut buf = vec![0u8; 2000];
     let mut video_mid: Option<Mid> = None;
     let (mut frames, mut received, mut since, mut per_frame) = (0u64, 0u64, Instant::now(), 0u64);
     let mut asked = Instant::now() - KEYFRAME_AGAIN;
-    let mut told = Instant::now() - REMB_EVERY;
     while !stop.load(Ordering::SeqCst) && rtc.is_alive() {
-        if keyframe.swap(false, Ordering::SeqCst) && asked.elapsed() >= KEYFRAME_AGAIN {
+        // The wish stands until a keyframe comes: a request can be lost, or too early for the stream to be known yet
+        if keyframe.load(Ordering::SeqCst) && asked.elapsed() >= KEYFRAME_AGAIN {
             if let Some(mut writer) = video_mid.and_then(|mid| rtc.writer(mid)) {
-                asked = Instant::now();
-                let _ = writer.request_keyframe(None, KeyframeRequestKind::Pli);
-            }
-        }
-        if told.elapsed() >= REMB_EVERY {
-            if let Some(mid) = video_mid {
-                if let Some(stream) = rtc.direct_api().stream_rx_by_mid(mid, None) {
-                    told = Instant::now();
-                    stream.request_remb(Bitrate::kbps(u64::from(max_kbps)));
+                match writer.request_keyframe(None, KeyframeRequestKind::Pli) {
+                    Ok(()) => asked = Instant::now(),
+                    Err(e) => log::debug!("Browser camera: no keyframe request yet: {e}"),
                 }
             }
         }
@@ -260,12 +265,15 @@ fn run(mut rtc: Rtc, sockets: &[UdpSocket], stop: &AtomicBool, keyframe: &Atomic
                             if !data.contiguous {
                                 keyframe.store(true, Ordering::SeqCst); // a gap: the frames after it need a keyframe
                             }
+                            if super::feed::is_keyframe(codec, &data.data) {
+                                keyframe.store(false, Ordering::SeqCst);
+                            }
                             frames += 1;
                             if since.elapsed() >= STATS_EVERY {
                                 per_frame = received.checked_div(frames).unwrap_or(per_frame);
                                 (frames, received, since) = (0, 0, Instant::now());
                             }
-                            video(codec, data.data.to_vec(), per_frame);
+                            video(codec, data.data.to_vec(), per_frame, data.time.as_micros() * 1000);
                         }
                         RtcCodec::Opus => {
                             if let Some(decoder) = opus.as_mut() {

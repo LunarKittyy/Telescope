@@ -628,9 +628,9 @@ fn feed_drops_frames_from_a_replaced_browser() {
     let feed = BrowserFeed::new();
     let old = feed.connect();
     let new = feed.connect();
-    feed.put_video(old, Codec::H264, b"old".to_vec(), 0);
+    feed.put_video(old, Codec::H264, b"old".to_vec(), 0, 0);
     assert!(feed.next_frame(new, Duration::from_millis(10)).is_none());
-    feed.put_video(new, Codec::H264, b"new".to_vec(), 0);
+    feed.put_video(new, Codec::H264, b"new".to_vec(), 0, 0);
     let frame = feed.next_frame(new, Duration::from_millis(10)).unwrap();
     assert_eq!((frame.seq, frame.data), (1, b"new".to_vec()));
 }
@@ -724,4 +724,24 @@ fn spin<F: std::future::Future>(f: F) -> F::Output {
             return v;
         }
     }
+}
+
+#[test]
+fn a_stream_that_lost_its_place_reaches_the_browser_for_a_keyframe() {
+    let mut r = Rig::new();
+    r.select(SOURCE_ID);
+    let (feed, _) = r.arrive("pixel-aaaaaaaa", "Pixel");
+    let client = r.host.sources["browser:pixel-aaaaaaaa"].control_client().unwrap();
+    client.send(&json!({"action": "torch", "value": 1})).unwrap();
+    assert!(!feed.take_keyframe_wish());
+    client.send(&json!({"action": "keyframe"})).unwrap();
+    assert!(feed.take_keyframe_wish() && !feed.take_keyframe_wish());
+}
+
+#[test]
+fn a_browser_stays_off_the_graphics_card() {
+    let mut r = Rig::new();
+    r.select(SOURCE_ID);
+    r.arrive("pixel-aaaaaaaa", "Pixel");
+    assert!(!r.host.sources["browser:pixel-aaaaaaaa"].card_decoding());
 }

@@ -38,7 +38,7 @@ struct Made {
 impl Made {
     fn video(&self, data: &[u8], size: u64) {
         if let Some((video, _)) = self.sinks.lock().unwrap().as_mut().filter(|_| !self.closed.load(Ordering::SeqCst)) {
-            video(Codec::H264, data.to_vec(), size);
+            video(Codec::H264, data.to_vec(), size, 0);
         }
     }
 
@@ -720,10 +720,10 @@ fn a_reader_that_falls_behind_starts_again_at_a_keyframe() {
     feed.note_rtc(gen, "H264", "");
     let (_, mut reader) = BrowserVideo::open(feed.clone()).unwrap();
     for n in 0..200u32 {
-        feed.put_video(gen, Codec::H264, vec![0, 0, 0, 1, 0x41, n as u8], 0);
+        feed.put_video(gen, Codec::H264, vec![0, 0, 0, 1, 0x41, n as u8], 0, 0);
     }
     assert!(feed.take_keyframe_wish());
-    feed.put_video(gen, Codec::H264, vec![0, 0, 0, 1, 0x65, 9], 0);
+    feed.put_video(gen, Codec::H264, vec![0, 0, 0, 1, 0x65, 9], 0, 0);
     let first = reader.read().unwrap().data;
     assert_eq!(first, [0, 0, 0, 1, 0x65, 9], "the old frames went and the keyframe is next");
     assert!(feed.next_frame(gen, Duration::from_millis(50)).is_none()); // nothing newer

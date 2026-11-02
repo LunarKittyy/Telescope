@@ -1070,6 +1070,9 @@ impl SourceKind for PluginKind {
     fn prepare(&self, interactive: bool) -> bool {
         self.source().prepare(interactive)
     }
+    fn card_decoding(&self) -> bool {
+        self.source().card_decoding()
+    }
     fn camera_limited(&self, arrival: f32) -> bool {
         self.source().camera_limited(arrival)
     }
