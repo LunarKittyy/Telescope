@@ -221,8 +221,20 @@ begin
       '$old = (Get-ItemProperty -LiteralPath $k -ErrorAction SilentlyContinue).PendingFileRenameOperations; if ($old) { $p += $old }; ' +
       'foreach ($i in $left) { $p += ''\??\'' + $i.FullName; $p += '''' }; ' +
       'Set-ItemProperty -LiteralPath $k -Name PendingFileRenameOperations -Type MultiString -Value ([string[]]$p) }; ';
+  if Camera then
+    // A camera an older Telescope (3.1.1 and before) registered from the app's own folder, which the user can write to: that DLL
+    // is never run as admin, so its registration goes by key in both views (a 32-bit PowerShell sees only one by path)
+    Script := Script + '$mine = ' + PsQuote(ExpandConstant('{app}\unitycapture') + '\') + '; ' +
+      'foreach ($v in ''Registry64'', ''Registry32'') { ' +
+      '$hk = [Microsoft.Win32.RegistryKey]::OpenBaseKey(''LocalMachine'', $v); ' +
+      '$cl = $hk.OpenSubKey(''SOFTWARE\Classes\CLSID'', $true); if (-not $cl) { continue }; ' +
+      '$in = $hk.OpenSubKey(''SOFTWARE\Classes\CLSID\{860BB310-5D01-11d0-BD3B-00A0C911CE86}\Instance'', $true); ' +
+      'foreach ($n in @($cl.GetSubKeyNames() | Where-Object { $_ -like ''{5C2CD55C-92AD-4999-8666-912BD3E7*'' })) { ' +
+      '$s = $cl.OpenSubKey($n + ''\InprocServer32''); $d = if ($s) { $s.GetValue('''') } else { $null }; ' +
+      'if ($d -and ([string]$d).StartsWith($mine, [StringComparison]::OrdinalIgnoreCase)) { ' +
+      'if ($in) { $in.DeleteSubKeyTree($n, $false) }; $cl.DeleteSubKeyTree($n, $false) } } }; ';
   Script := Script +
-    '$ours = @(' + PsQuote(ExpandConstant('{app}\{#AppExe}')) + ', ' +
+    '$ours = @('+ PsQuote(ExpandConstant('{app}\{#AppExe}')) + ', ' +
     PsQuote(ExpandConstant('{localappdata}\Telescope\platform-tools\adb.exe')) + '); ' +
     'Get-NetFirewallApplicationFilter | Where-Object { $ours -contains $_.Program } | Get-NetFirewallRule | ' +
     'Remove-NetFirewallRule';
