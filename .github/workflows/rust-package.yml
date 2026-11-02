@@ -72,7 +72,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends build-essential curl ca-certificates git cmake nasm clang libclang-dev pkg-config \
-            python3 python3-pip libfontconfig1-dev libxkbcommon-dev libva-dev libdrm-dev zlib1g-dev
+            python3 python3-pip libfontconfig1-dev libxkbcommon-dev libva-dev libdrm-dev zlib1g-dev squashfs-tools
           curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
@@ -94,6 +94,14 @@ jobs:
         run: |
           version=$(tr -d '[:space:]' < VERSION)
           python3 rust/tools/check_package.py --version "$version" --build "${{ inputs.build || '0' }}" --channel "${{ inputs.channel || 'dev' }}" bundle
+
+      # The one that ships is made in release.yml with the APK inside; this catches a problem before that
+      - name: Build and check an AppImage
+        run: |
+          version=$(tr -d '[:space:]' < VERSION)
+          rust/tools/package_appimage.sh bundle Telescope-x86_64.AppImage
+          python3 rust/tools/check_package.py --version "$version" --build "${{ inputs.build || '0' }}" --channel "${{ inputs.channel || 'dev' }}" Telescope-x86_64.AppImage
+          rm Telescope-x86_64.AppImage
 
       - uses: actions/upload-artifact@v7
         with:

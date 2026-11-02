@@ -812,8 +812,8 @@ fn spawn_detached(cmd: &[&str]) -> bool {
 
 /// The command line that runs this action in the running Telescope (for a desktop's own shortcut settings).
 pub fn action_command(action: &str, params: &Map<String, Value>) -> Vec<String> {
-    let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_else(|_| "telescope-rs".into());
-    let mut out = vec![exe, "--action".into(), action.into()];
+    let mut out = telescope_core::system::start_command().unwrap_or_else(|_| vec!["telescope-rs".into()]);
+    out.extend(["--action".into(), action.into()]);
     for (k, v) in params {
         let v = match v {
             Value::Null => continue,

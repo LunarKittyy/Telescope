@@ -276,7 +276,9 @@ fn start_logging() {
 /// Log to the desktop log file and keep panics in it (diagnostics.install), once the profile is settled.
 fn start_diagnostics() {
     let version = telescope_system::version::display_version();
-    telescope_core::diagnostics::start(telescope_core::diagnostics::events(), &telescope_core::diagnostics::log_dir(), Some(&app_dir()), &version);
+    // An AppImage's folder is often Downloads, where nobody expects a log link to turn up
+    let link_folder = telescope_core::system::appimage().is_none().then(app_dir);
+    telescope_core::diagnostics::start(telescope_core::diagnostics::events(), &telescope_core::diagnostics::log_dir(), link_folder.as_deref(), &version);
 }
 
 /// The preview's frames painted by media's GPU scaler on the window's own device, two textures taking turns so the one
@@ -361,7 +363,7 @@ fn remove_stale_mic() {
 
 /// The folder this program runs from, which an update replaces (main.py's APP_DIR).
 fn app_dir() -> PathBuf {
-    std::env::current_exe().ok().and_then(|p| p.parent().map(PathBuf::from)).unwrap_or_default()
+    telescope_system::app_dir()
 }
 
 /// $XDG_DATA_HOME, or ~/.local/share.
@@ -490,6 +492,7 @@ fn use_window_apartment() {
 }
 
 fn main() {
+    telescope_core::system::leave_appimage_environment();
     #[cfg(windows)]
     {
         use_parent_console();
@@ -585,6 +588,14 @@ fn main() {
     if command == Some("build-info") {
         use telescope_system::version;
         println!("{}", serde_json::json!({"version": version::version(), "build": version::build(), "channel": version::channel(), "commit": version::commit()}));
+        return;
+    }
+    if command == Some("app-icon") {
+        let out = words.get(1).map(PathBuf::from).unwrap_or_else(|| PathBuf::from("telescope.png"));
+        if let Err(e) = std::fs::write(&out, telescope_system::autostart::app_icon_png(256)) {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
         return;
     }
     if command == Some("camera-wait-screen") {

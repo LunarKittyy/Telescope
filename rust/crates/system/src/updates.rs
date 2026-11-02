@@ -19,6 +19,7 @@ pub const CHANNELS: [&str; 2] = ["stable", "nightly"];
 pub const WINDOWS_ASSET: &str = "Telescope-windows-portable.zip";
 pub const WINDOWS_SETUP_ASSET: &str = "TelescopeSetup.exe";
 pub const LINUX_ASSET: &str = "Telescope-linux.tar.gz";
+pub const APPIMAGE_ASSET: &str = "Telescope-x86_64.AppImage";
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 pub const MAX_MANIFEST_BYTES: usize = 256 * 1024;
 const CHUNK: usize = 256 * 1024;
@@ -320,6 +321,11 @@ pub fn platform_asset_on(manifest: &Manifest, windows: bool) -> Option<&Asset> {
     manifest.assets.get(if windows { WINDOWS_ASSET } else { LINUX_ASSET })
 }
 
+/// The release file an AppImage updates from. Older copies look assets up by name, so one more in the list changes nothing for them.
+pub fn appimage_asset(manifest: &Manifest) -> Option<&Asset> {
+    manifest.assets.get(APPIMAGE_ASSET)
+}
+
 pub fn setup_asset(manifest: &Manifest) -> Option<&Asset> {
     manifest.assets.get(WINDOWS_SETUP_ASSET)
 }
@@ -338,7 +344,11 @@ pub fn self_update_blocker(directory: &Path, channel: &str) -> Option<String> {
         return Some(tr("This is a source checkout. Update it with git."));
     }
     if !writable(directory) {
-        return Some(tr("Telescope's folder isn't writable, so it can't update itself."));
+        return Some(if telescope_core::system::appimage().is_some() {
+            tr("The folder holding this AppImage isn't writable, so it can't update itself.")
+        } else {
+            tr("Telescope's folder isn't writable, so it can't update itself.")
+        });
     }
     None
 }
@@ -559,13 +569,89 @@ pub fn install_linux(archive: &Path, directory: &Path, build: i64, mv: Mover) ->
     Ok(InstallResult { relaunch: vec![program.to_string_lossy().into_owned(), "--after-update".into()], skipped: Vec::new() })
 }
 
+/// Whether a file is a type 2 AppImage: an ELF file with the format's mark at byte 8.
+fn is_appimage(file: &Path) -> bool {
+    let mut start = [0u8; 11];
+    std::fs::File::open(file).and_then(|mut f| f.read_exact(&mut start)).is_ok() && start.starts_with(b"\x7fELF") && start[8..] == *b"AI\x02"
+}
+
+/// Whether a new AppImage gets as far as answering build-info here: through its runtime, its mount, AppRun and the program.
+/// A file that fails here would have nothing left to roll back from, so this is the only chance to refuse one.
+#[cfg(unix)]
+fn appimage_starts(image: &[String]) -> bool {
+    use std::process::{Command, Stdio};
+    const TEXT_BUSY: i32 = 26;
+    let Some((program, flags)) = image.split_first() else { return false };
+    let spawn = || Command::new(program).args(flags).arg("build-info").stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+    let mut spawned = spawn();
+    // Another thread forking just then can hold the file open for writing for a moment
+    for _ in 0..5 {
+        if !spawned.as_ref().is_err_and(|e| e.raw_os_error() == Some(TEXT_BUSY)) {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+        spawned = spawn();
+    }
+    let Ok(mut child) = spawned else { return false };
+    let deadline = std::time::Instant::now() + Duration::from_secs(45);
+    while std::time::Instant::now() < deadline {
+        match child.try_wait() {
+            Ok(Some(status)) => return status.success(),
+            Ok(None) => std::thread::sleep(Duration::from_millis(100)),
+            Err(_) => return false,
+        }
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+    false
+}
+
+/// Puts a downloaded AppImage in current's place in one rename, through the same journal and .previous as the tarball, keeping the old
+/// file's permissions. extracted: current runs with --appimage-extract-and-run. The running copy is unharmed, since its mount holds the old file open.
+pub fn install_appimage(new: &Path, current: &Path, extracted: bool, build: i64, mv: Mover, starts: &dyn Fn(&[String]) -> bool) -> Result<InstallResult> {
+    use telescope_core::system::AppImage;
+    let failed = || UpdateError(tr("The update failed."));
+    let (Some(directory), Some(name)) = (current.parent(), current.file_name()) else { return Err(failed()) };
+    if !is_appimage(new) {
+        return err("The download doesn't contain Telescope, so it wasn't installed.");
+    }
+    let name = name.to_string_lossy().into_owned();
+    let staging = directory.join(STAGING_DIR);
+    let staged = staging.join(&name);
+    let refused = |e: UpdateError| {
+        let _ = std::fs::remove_dir_all(&staging);
+        e
+    };
+    // Beside the old one and not in the temp folder, which is often another filesystem that a rename can't cross
+    let _ = std::fs::remove_dir_all(&staging);
+    let placed = std::fs::create_dir_all(&staging).and_then(|_| std::fs::copy(new, &staged)).and_then(|_| {
+        std::fs::set_permissions(&staged, std::fs::metadata(current)?.permissions())?;
+        std::fs::File::open(&staged)?.sync_all()
+    });
+    placed.map_err(|_| refused(failed()))?;
+    if !starts(&AppImage { file: staged.clone(), extracted }.command()) {
+        return Err(refused(UpdateError(tr("This version can't start on this computer, so it wasn't installed."))));
+    }
+    let previous = directory.join(PREVIOUS_DIR);
+    if previous.exists() && update_guard::remove(&previous).is_err() {
+        return Err(refused(failed()));
+    }
+    swap(directory, json!({"platform": "linux", "to_build": build, "entries": [name], "added": [], "appimage": name}), mv)?;
+    let mut relaunch = AppImage { file: current.to_path_buf(), extracted }.command();
+    relaunch.push("--after-update".into());
+    Ok(InstallResult { relaunch, skipped: Vec::new() })
+}
+
 /// build: the one being installed, so a roll-back knows not to offer it again.
 pub fn install(archive: &Path, directory: &Path, build: i64) -> Result<InstallResult> {
     let mv: Mover = &mut |a, b| std::fs::rename(a, b);
     #[cfg(windows)]
     return install_windows_if(archive, directory, build, mv, &exe_loads);
     #[cfg(not(windows))]
-    install_linux(archive, directory, build, mv)
+    match telescope_core::system::appimage() {
+        Some(image) => install_appimage(archive, &image.file, image.extracted, build, mv, &appimage_starts),
+        None => install_linux(archive, directory, build, mv),
+    }
 }
 
 /// Archives made for tests, like the release's.
@@ -726,6 +812,17 @@ mod tests {
         assert!(!at(130).is_newer(Some(&m)));
         assert!(!at(0).is_newer(Some(&m)));
         assert!(!at(100).is_newer(None));
+    }
+
+    #[test]
+    fn each_kind_of_copy_finds_its_own_file_in_a_release_with_an_appimage() {
+        let asset = |name: &str| json!({"name": name, "url": format!("https://h/{name}"), "sha256": "a".repeat(64), "size": 1});
+        let m = parse_manifest(&manifest_json(120, "nightly", Some(json!([asset(LINUX_ASSET), asset(APPIMAGE_ASSET), asset(WINDOWS_ASSET)])))).unwrap();
+        assert_eq!(platform_asset_on(&m, false).unwrap().name, LINUX_ASSET);
+        assert_eq!(platform_asset_on(&m, true).unwrap().name, WINDOWS_ASSET);
+        assert_eq!(appimage_asset(&m).unwrap().name, APPIMAGE_ASSET);
+        let older = parse_manifest(&manifest_json(120, "nightly", None)).unwrap();
+        assert_eq!(appimage_asset(&older), None, "a release from before the AppImage offers an AppImage nothing");
     }
 
     #[test]

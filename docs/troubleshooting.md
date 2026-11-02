@@ -24,6 +24,9 @@ Another account on this PC has Telescope open and both use the same local port. 
 **"Your settings couldn't be read"**
 `telescope_config.json` was damaged or edited wrongly, so Telescope started with defaults and paired phones need pairing again. The banner shows where the old file was copied (`telescope_config.json.invalid-...`). Fix it and put it back, or pair again.
 
+**"Cannot mount AppImage" (Linux)**
+The AppImage needs `fusermount` or `fusermount3`, which nearly every desktop has. Install `fuse3` from your distro, or start it with `./Telescope-x86_64.AppImage --appimage-extract-and-run`, which unpacks it into your temp folder and needs no FUSE at all. It starts slower that way and the unpacked copy stays in the temp folder until it's cleared.
+
 ## Virtual camera
 
 **Telescope or Phone Camera isn't listed in OBS, Discord or Zoom**

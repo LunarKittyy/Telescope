@@ -1,0 +1,82 @@
+#!/bin/sh
+# The AppImage's entry point, what start.sh is to the tarball. The runtime sets APPDIR and APPIMAGE and starts this from the read-only mount.
+# It stays in the user's working folder and writes nothing inside the mount. The program clears what this and the runtime add to the environment (leave_appimage_environment).
+
+here=${APPDIR:-$(dirname "$(readlink -f "$0")")}
+program=$here/telescope-rs
+users_library_path=${LD_LIBRARY_PATH-}
+
+missing() {
+    ldd "$program" 2>/dev/null | grep 'not found'
+}
+
+# On screen too, since a double click has no terminal to read
+tell() {
+    printf '%s\n' "$1" >&2
+    [ -t 2 ] && return
+    if command -v zenity >/dev/null; then
+        LD_LIBRARY_PATH=$users_library_path zenity --error --title=Telescope --no-markup --text="$1"
+    elif command -v kdialog >/dev/null; then
+        LD_LIBRARY_PATH=$users_library_path kdialog --title Telescope --error "$1"
+    fi
+}
+
+journal=
+if [ -n "$APPIMAGE" ]; then
+    folder=$(dirname "$APPIMAGE")
+    name=$(basename "$APPIMAGE")
+    journal=$folder/.update.json
+fi
+
+# The new AppImage is on trial and can't run, so its own guard (update_guard.rs) never will: this puts the old file back in one rename
+roll_back() {
+    [ -n "$journal" ] && grep -q '"state": *"trial"' "$journal" 2>/dev/null && [ -f "$folder/.previous/$name" ] || return 1
+    build=$(sed -n 's/.*"to_build": *\([0-9]*\).*/\1/p' "$journal")
+    mv -f "$folder/.previous/$name" "$APPIMAGE" || return 1
+    [ -n "$build" ] && [ "$build" != 0 ] && printf '{"build":%s}' "$build" > "$folder/.update-failed"
+    rm -rf "$folder/.previous" "$folder/.update-staging" "$journal"
+}
+
+start_the_old_one() {
+    if [ -n "$users_library_path" ]; then export LD_LIBRARY_PATH="$users_library_path"; else unset LD_LIBRARY_PATH; fi
+    exec "$APPIMAGE" "$@"
+}
+
+# The system's own go first, since its libva knows where its video drivers are. These folders are for a system without them, and only then
+gone=$(missing)
+case $gone in
+    *libva*|*libdrm*) export LD_LIBRARY_PATH="$here/lib/fallback${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ;;
+esac
+case $gone in
+    *libfontconfig*|*libfreetype*|*libexpat*)
+        export LD_LIBRARY_PATH="$here/lib/fallback-fonts${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+        [ -e /etc/fonts/fonts.conf ] || export FONTCONFIG_FILE="$here/lib/fallback-fonts/fonts.conf"
+        ;;
+esac
+
+gone=$(missing)
+if [ -n "$gone" ]; then
+    if roll_back; then
+        echo "Telescope can't start on this version. Going back to the one before this update." >&2
+        start_the_old_one "$@"
+    fi
+    tell "Telescope can't start because this system lacks what it needs:
+$gone"
+    exit 1
+fi
+
+if [ -z "$journal" ] || [ ! -f "$journal" ]; then
+    exec "$program" "$@"
+fi
+
+# A first start that fails shouldn't wait for someone to try again: the next run's guard rolls it back, or this does if the guard never ran
+"$program" "$@"
+code=$?
+if [ "$code" -ne 0 ] && [ -f "$journal" ]; then
+    if grep -q '"started": *true' "$journal"; then
+        exec "$program"
+    elif roll_back; then
+        start_the_old_one "$@"
+    fi
+fi
+exit "$code"
