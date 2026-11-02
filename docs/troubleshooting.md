@@ -67,7 +67,7 @@ Click **Retry**. If it fails again open an issue with your **Copy diagnostics** 
 
 ## Pairing and connecting
 
-**QR pairing fails ("Could not reach the desktop")**
+**QR pairing fails ("Couldn't reach your computer.")**
 The phone and computer aren't on the same network, or the computer's firewall blocks port 8765. The dialog on the phone lists every address it tried and how each failed. Make sure both are on the same Wi-Fi and the Add phone dialog is still open (the pairing server only runs while it is). Or plug the phone in and pair over USB.
 
 **QR pairing fails on guest or public Wi-Fi**
