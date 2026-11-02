@@ -55,17 +55,19 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 ### Linux system setup
 
-<!-- due: desktop/start.sh desktop/telescope/platform/linux.py desktop/telescope/platform/autostart.py desktop/telescope/vcam.py .github/workflows/build-linux.yml .github/workflows/rust-package.yml rust/tools/package_linux.sh rust/tools/start.sh rust/tools/main_stub.py rust/tools/build_ffmpeg.sh rust/crates/outputs/src/linux_setup.rs rust/crates/outputs/src/v4l2.rs rust/crates/system/src/autostart.rs rust/crates/system/src/hotkeys_portal.rs ; packages: pyvirtualcam jeepney -->
+<!-- due: desktop/start.sh desktop/telescope/platform/linux.py desktop/telescope/platform/autostart.py desktop/telescope/vcam.py .github/workflows/build-linux.yml .github/workflows/rust-package.yml rust/tools/package_linux.sh rust/tools/package_appimage.sh rust/tools/AppRun rust/tools/fonts.conf rust/tools/start.sh rust/tools/main_stub.py rust/tools/build_ffmpeg.sh rust/crates/outputs/src/linux_setup.rs rust/crates/outputs/src/v4l2.rs rust/crates/system/src/autostart.rs rust/crates/system/src/hotkeys_portal.rs ; packages: pyvirtualcam jeepney -->
 
 - [ ] Module not loaded: Start asks once with the startup box ticked and after a reboot Start doesn't ask. Unticked, it asks again after a reboot.
 - [ ] Without pkexec (or with no polkit agent): Start shows the command banner, Copy command works and running it then Start streams.
 - [ ] Open Telescope when I sign in (Linux and Windows): after a real sign-out and sign-in Telescope is in the tray.
+- [ ] AppImage on a real desktop: a double click starts it, the app menu entry and icon work, and the password prompt for the virtual camera appears and loads it.
 
 ### Updates and settings from older versions
 
 <!-- due: desktop/telescope/updates.py desktop/update_guard.py desktop/telescope/plugins/updates.py desktop/telescope/config.py android/app/src/main/kotlin/com/telescope/Updater.kt android/app/src/main/kotlin/com/telescope/UpdateLogic.kt android/app/src/main/kotlin/com/telescope/UpdateHttp.kt .github/write_manifest.py .github/workflows/release.yml installer/** rust/crates/system/src/updates.rs rust/crates/system/src/updates_plugin.rs rust/crates/system/ui/updates.slint rust/crates/system/src/update_guard.rs -->
 
 - [ ] Desktop on the previous nightly on Linux: the Update button appears, Update and restart replaces the app and it comes back on the new version with the stream working. On Windows `windows_pass.py` does the update and what's left is checking that the stream works after it.
+- [ ] AppImage on the previous nightly: Update and restart replaces the file in place, it comes back on the new version and the app menu entry still starts it.
 - [ ] Update is refused while streaming, on both apps.
 - [ ] Phone on the previous nightly: the update card offers the new build, asks once to allow installs from Telescope and the installed app shows the new version.
 - [ ] Phone app older than the desktop with a different session protocol, plugged in: the Connection panel says so and Update over USB installs the bundled APK.

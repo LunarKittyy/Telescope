@@ -31,8 +31,11 @@ pub mod winapp;
 
 use telescope_core::system::{Autostart, Notifier, Release, Updater};
 
-/// The folder this program runs from (autostart.app_dir).
+/// The folder this copy lives in (autostart.app_dir): where the program runs from, or for an AppImage the folder holding the file, since an update replaces that.
 pub fn app_dir() -> std::path::PathBuf {
+    if let Some(image) = telescope_core::system::appimage() {
+        return image.folder();
+    }
     std::env::current_exe().ok().and_then(|p| p.parent().map(std::path::PathBuf::from)).unwrap_or_default()
 }
 

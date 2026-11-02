@@ -164,6 +164,10 @@ jobs:
           cp dist/apk/Telescope.apk dist/linux-bundle/
           chmod +x dist/linux-bundle/start.sh dist/linux-bundle/telescope-rs  # artifacts don't keep file modes
           tar -czf out/Telescope-linux.tar.gz -C dist/linux-bundle .
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends squashfs-tools
+          chmod +x rust/tools/package_appimage.sh rust/tools/AppRun
+          rust/tools/package_appimage.sh dist/linux-bundle out/Telescope-x86_64.AppImage
           cp dist/vision/*.zip out/  # not in manifest.json: the app finds its pack by name (vision_pack.json)
 
       - name: Write manifest.json
@@ -171,12 +175,12 @@ jobs:
           python3 .github/write_manifest.py
           --version "$VERSION" --build "$BUILD" --channel "$CHANNEL" --commit "$GITHUB_SHA"
           --tag "$TAG" --repo "$GITHUB_REPOSITORY" --out out/manifest.json
-          out/Telescope.apk out/Telescope-windows-portable.zip out/TelescopeSetup.exe out/Telescope-linux.tar.gz
+          out/Telescope.apk out/Telescope-windows-portable.zip out/TelescopeSetup.exe out/Telescope-linux.tar.gz out/Telescope-x86_64.AppImage
 
       - name: Check the release files
         run: |
           python3 .github/check_release.py --version "$VERSION" --build "$BUILD" --channel "$CHANNEL" out
-          python3 rust/tools/check_package.py --version "$VERSION" --build "$BUILD" --channel "$CHANNEL" --no-run out/Telescope-linux.tar.gz out/Telescope-windows-portable.zip
+          python3 rust/tools/check_package.py --version "$VERSION" --build "$BUILD" --channel "$CHANNEL" --no-run out/Telescope-linux.tar.gz out/Telescope-windows-portable.zip out/Telescope-x86_64.AppImage
 
       - name: Publish the stable release
         if: needs.meta.outputs.channel == 'stable'

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds the Linux package folder, the shape Telescope-linux.tar.gz has: what the Python app's updater and start.sh expect.
 # Usage: package_linux.sh --ffmpeg DIR [--out DIR] [--channel stable|nightly|dev] [--build N] [--commit SHA]
+# package_appimage.sh makes the AppImage from the same folder.
 # DIR comes from build_ffmpeg.sh. What it's built on sets the oldest Linux it runs on, so a release builds on Ubuntu 22.04 (rust-package.yml).
 # release.yml adds Telescope.apk afterwards and packs this folder into the tarball.
 set -euo pipefail
@@ -48,6 +49,13 @@ done
 for lib in libva.so.2 libva-drm.so.2 libdrm.so.2; do
     cp -L "$(ldconfig -p | awk -v l="$lib" '$1 == l && /x86-64/ { print $NF; exit }')" "$out/lib/fallback/$lib"
 done
+# The same for fontconfig, in a folder of its own: libva's being wanted mustn't put these ahead of a system's own
+mkdir "$out/lib/fallback-fonts"
+for lib in libfontconfig.so.1 libfreetype.so.6 libexpat.so.1 libpng16.so.16 libbrotlidec.so.1 libbrotlicommon.so.1 libuuid.so.1 libz.so.1; do
+    cp -L "$(ldconfig -p | awk -v l="$lib" '$1 == l && /x86-64/ { print $NF; exit }')" "$out/lib/fallback-fonts/$lib"
+done
+cp tools/fonts.conf "$out/lib/fallback-fonts/fonts.conf"
+"$out/telescope-rs" app-icon "$out/telescope.png"
 python3 tools/fetch_rnnoise.py linux "$out"
 python3 tools/write_notices.py linux "$ffmpeg" "$out/THIRD_PARTY_NOTICES.txt"
 echo "Telescope $version $channel $build is in $out"

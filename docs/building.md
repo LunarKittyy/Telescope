@@ -116,13 +116,21 @@ docker run --rm -v "$PWD:/src" -w /src ubuntu:22.04 bash -c '
 
 The GPL build with libx264 is only for the tests, which need an H.264 encoder.
 
-On Linux `rust/tools/package_linux.sh --ffmpeg DIR --channel nightly --build 123 --commit <sha>` writes the folder that becomes `Telescope-linux.tar.gz`. Build it on Ubuntu 22.04 as well, because the machine it's built on sets the oldest Linux it runs on. Besides the program it holds a `start.sh`, a `main.py` that only hands over to `start.sh` and a `telescope/` folder with the stamp, because the Python updater turns down a tarball without the last two. FFmpeg is in `lib/`, and `lib/fallback/` has libva for a system that has none (`start.sh` only uses it then, a system's own libva knows where its video drivers are).
+On Linux `rust/tools/package_linux.sh --ffmpeg DIR --channel nightly --build 123 --commit <sha>` writes the folder that becomes `Telescope-linux.tar.gz`. Build it on Ubuntu 22.04 as well, because the machine it's built on sets the oldest Linux it runs on. Besides the program it holds a `start.sh`, a `main.py` that only hands over to `start.sh` and a `telescope/` folder with the stamp, because the Python updater turns down a tarball without the last two. FFmpeg is in `lib/`, and `lib/fallback/` has libva for a system that has none (`start.sh` only uses it then, a system's own libva knows where its video drivers are). `lib/fallback-fonts/` does the same for fontconfig and what it needs, in a folder of its own so that a missing libva can't put those ahead of the system's.
+
+`rust/tools/package_appimage.sh BUNDLE OUT` turns that folder into `Telescope-x86_64.AppImage`. It needs `squashfs-tools` 4.5 or newer and `curl` for the runtime, which is the pinned static type 2 runtime from `AppImage/type2-runtime` with its checksum in the script. `APPIMAGE_RUNTIME=<file>` uses a copy you already have. The static runtime has no use for `libfuse2`, it only needs a `fusermount` or `fusermount3` on the system, and without one `--appimage-extract-and-run` still starts the program. The AppImage holds the folder without `start.sh`, `main.py` and `telescope/` and adds `rust/tools/AppRun` as its entry point, a `.desktop` file and the icon from `telescope-rs app-icon`. Change the runtime release and `RUNTIME_SHA256` together.
+
+The mount is read-only and the program writes nothing inside it. Settings, plugins, vision packs and logs live in the user's folders as they do for the tarball. Its first lines in `main` note the AppImage and clear `APPIMAGE`, `APPDIR`, `ARGV0`, `OWD` and `AppRun`'s folders in `LD_LIBRARY_PATH` from the process, which covers every program it starts from then on (other apps, adb, pkexec, browsers). `FONTCONFIG_FILE` is the exception, because fontconfig loads it late and `AppRun` only sets it on a system with no fontconfig of its own. The mount goes when the process quits, so anything that starts Telescope again or writes a menu, sign-in or shortcut entry has to use the file's path and not `current_exe` (`telescope_core::system::start_command`).
+
+An update replaces the file beside itself in one rename and keeps its permissions. The journal, `.previous` and `.update-failed` are the tarball's and sit in the file's folder, and `.previous` is gone once the new version has started fine. Before the swap the new file has to answer `build-info`, since a file whose runtime or `AppRun` is broken would have nothing left to roll back from. After the swap `update_guard` and `AppRun` undo a start that fails, the same way as `start.sh`.
+
+What it's built on sets the oldest Linux it runs on: Ubuntu 22.04's glibc 2.35, so Debian 12, Fedora 36 and anything newer.
 
 On Windows `rust/tools/build_windows.ps1 -Channel nightly -Build 123 -Commit <sha>` with `FFMPEG_DIR` set writes the folder that becomes `Telescope-windows-portable.zip`: `TelescopeDesktop.exe`, `ui-kit`, FFmpeg's and RNNoise's DLLs and both cameras. The C runtime is linked into the program, so it starts on a Windows without the VC++ redistributable. The camera DLL's wait screen comes from `telescope-rs camera-wait-screen`, so no Python app is needed for it. `installer/build.ps1 -Bundle <folder> -Out setup -Rust` packs that folder into the setup.
 
 A stamped build (channel `stable` or `nightly`) uses the real settings folder, like the Python app it replaces, where a `dev` build keeps to a profile of its own.
 
-`python rust/tools/check_package.py --version 4.2.0 --build 123 --channel nightly <folder or archive>` is the package's smoke check.
+`python rust/tools/check_package.py --version 4.2.0 --build 123 --channel nightly <folder, archive or AppImage>` is the package's smoke check.
 
 ## CI
 
@@ -133,11 +141,11 @@ Runs on every push to `master` that changes more than docs or the website, and o
 - a push to `master` replaces the rolling **`nightly`** pre-release
 - a tag `vX.Y.Z` creates the stable release `Telescope X.Y.Z` (the tag must match `VERSION`)
 
-Each release holds `Telescope.apk`, `Telescope-windows-portable.zip`, `TelescopeSetup.exe`, `Telescope-linux.tar.gz` and `manifest.json` (version, build number, channel, commit, session protocol, and each file's URL, size and SHA-256). The desktop bundles include the APK for Install over USB. The zip is also listed as `Telescope-windows.zip`, its old name, so older copies still find their update. The apps' update check reads the manifest: the phone compares `android.versionCode` and the desktop compares `build`.
+Each release holds `Telescope.apk`, `Telescope-windows-portable.zip`, `TelescopeSetup.exe`, `Telescope-linux.tar.gz`, `Telescope-x86_64.AppImage` and `manifest.json` (version, build number, channel, commit, session protocol, and each file's URL, size and SHA-256). The desktop bundles include the APK for Install over USB. The zip is also listed as `Telescope-windows.zip`, its old name, so older copies still find their update. The apps' update check reads the manifest: the phone compares `android.versionCode` and the desktop compares `build`. Every copy looks its own asset up by name, so the Python app and older Rust copies pass over the AppImage and keep updating from the tarball.
 
 The APK is signed with the release key from the repository secrets `TELESCOPE_KEYSTORE` (base64), `TELESCOPE_KEYSTORE_PASSWORD`, `TELESCOPE_KEY_ALIAS` and `TELESCOPE_KEY_PASSWORD`. A release fails rather than publish a debug-signed APK, because Android only installs an update signed with the same key as the installed app.
 
-Before publishing, `.github/check_release.py` checks the files it's about to upload: the APK's certificate is the release key's (pinned in the script), the APK and the Linux bundle's stamp carry this version and build, both bundles hold the notices and the APK, and `manifest.json`'s checksums match. `rust/tools/check_package.py --no-run` then looks through both bundles once more. The Windows stamp is compiled in, so that one is checked where the program can run, in `rust-package.yml`.
+Before publishing, `.github/check_release.py` checks the files it's about to upload: the APK's certificate is the release key's (pinned in the script), the APK and the Linux bundle's stamp carry this version and build, both bundles hold the notices and the APK, the AppImage is there and listed, and `manifest.json`'s checksums match. `rust/tools/check_package.py --no-run` then looks through both bundles and the AppImage once more. The Windows stamp is compiled in, so that one is checked where the program can run, in `rust-package.yml`.
 
 ### The workflows for pull requests
 
@@ -148,7 +156,7 @@ These run on pull requests without publishing, and `release.yml` calls them for 
 | `build-apk.yml` | `android/**` | `./gradlew lintDebug testDebugUnitTest`, then `assembleRelease`. In a release it checks the APK isn't debug-signed |
 | `rust.yml` | `rust/**`, `desktop/**` | The `linux` and `windows` checks: builds the workspace and runs its tests, with the fonts and the Python desktop app's dependencies some of them compare against. Its `changes` job also checks `VERSION` and that the release checklist names every file. On `master` it runs inside `release.yml`, so it doesn't start a second time |
 | `rust-parity.yml` | `rust/**`, `desktop/**` | The parity tools' tests and the ledger check, on pull requests and on `master` |
-| `rust-package.yml` | `rust/tools/**`, `installer/**`, `desktop/virtualcamera/**` | Builds both FFmpegs and both packages and runs `check_package.py`. On pull requests it also builds a quick `TelescopeSetup.exe` and checks the installer, update and uninstall paths and an unzipped copy moving to the installed one. A release does those on the setup it publishes, in `release.yml` |
+| `rust-package.yml` | `rust/tools/**`, `installer/**`, `desktop/virtualcamera/**` | Builds both FFmpegs and both packages and an AppImage and runs `check_package.py` on them. On pull requests it also builds a quick `TelescopeSetup.exe` and checks the installer, update and uninstall paths and an unzipped copy moving to the installed one. A release does those on the setup it publishes, in `release.yml` |
 
 `build-linux.yml` and `build-windows.yml` are the Python desktop app's tests and bundles. They only run by hand now. `desktop/` stays in the repository because the parity tools and some Rust tests read it.
 
