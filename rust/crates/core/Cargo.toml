@@ -13,7 +13,7 @@ chrono.workspace = true
 ab_glyph = "0.2"
 harfrust = "0.12"
 # Emoji: walking a font's colour layers, and painting them
-skrifa = "0.44"
+skrifa = "0.49"
 tiny-skia = "0.12"
 unicode-bidi = "0.3"
 qrcode.workspace = true
