@@ -1,7 +1,7 @@
 // The Updates plugin: the green Update button in the header and the Telescope card on
 // Updates & About. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Button, Card, FormRow, ChoiceField, Switch } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, Card, FormRow, ChoiceField, Switch, DialogFrame, WindowBox } from "@ui-kit/ui-kit.slint";
 
 global Status {
     public pure function color(kind: string) -> color {
@@ -69,6 +69,23 @@ export component UpdatesSettings inherits Card {
     in property <bool> retry-shown;
     in property <string> update-text;
     in property <bool> update-enabled;
+    // Going back to the Python version: a plain button, and a question before anything happens
+    in property <bool> back-shown;
+    in property <bool> back-enabled;
+    in property <string> back-tip;
+    in property <bool> back-open;
+    in property <string> back-text;
+    in property <string> back-action;
+    in property <bool> back-action-enabled;
+    callback back-asked;
+    callback back-answered(bool);
+    changed back-open => {
+        if (self.back-open) {
+            back-popup.show();
+        } else {
+            back-popup.close();
+        }
+    }
     callback check-now;
     callback channel-picked(int);
     callback auto-toggled(bool);
@@ -154,6 +171,45 @@ export component UpdatesSettings inherits Card {
             visible: retry-shown;
             alignment: start;
             Button { text: @tr("Try again"); enabled: !busy; clicked => { root.retry(); } }
+        }
+    }
+    if back-shown: FormRow {
+        label: @tr("Older version");
+        keywords: @tr("search" => "go back downgrade python previous old version revert undo rust");
+        enabled: !busy;
+        HorizontalLayout {
+            alignment: start;
+            Button {
+                text: @tr("Go back to the Python version…");
+                tip: back-tip;
+                enabled: back-enabled;
+                clicked => { root.back-asked(); }
+            }
+        }
+    }
+
+    back-popup := PopupWindow {
+        close-policy: no-auto-close;
+        x: -root.absolute-position.x;
+        y: -root.absolute-position.y;
+        width: WindowBox.cover-w(max(root.width, 460px));
+        height: WindowBox.cover-h(back-frame.preferred-height);
+        back-frame := DialogFrame {
+            x: WindowBox.left(self.width);
+            y: WindowBox.top(self.height);
+            width: max(root.width, 460px);
+            height: self.preferred-height;
+            dismissable: true;
+            dismissed => { root.back-answered(false); }
+            title: @tr("Go back to the Python version?");
+            Note { text: back-text; kind: ""; }
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                // The way out is the highlighted one: going back is the thing to be sure about
+                Button { height: 32px; text: back-action; enabled: back-action-enabled; clicked => { root.back-answered(true); } }
+                Button { width: 96px; height: 32px; text: @tr("Cancel"); role: "primary"; clicked => { root.back-answered(false); } }
+            }
         }
     }
 }

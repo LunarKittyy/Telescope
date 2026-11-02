@@ -1,6 +1,7 @@
 //! The desktop around the window, behind core's system traits: a skeleton (tray, notifications, autostart, single instance, global shortcuts, updater and update guard to come).
 
 pub mod autostart;
+pub mod going_back;
 pub mod hotkeys;
 pub mod icon;
 #[cfg(target_os = "linux")]

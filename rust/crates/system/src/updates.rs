@@ -331,7 +331,7 @@ pub fn setup_asset(manifest: &Manifest) -> Option<&Asset> {
 }
 
 /// Can this folder take a new file (os.access(W_OK) in Python)?
-fn writable(directory: &Path) -> bool {
+pub(crate) fn writable(directory: &Path) -> bool {
     let probe = directory.join(format!(".write-check-{}", std::process::id()));
     let ok = std::fs::File::create(&probe).is_ok();
     let _ = std::fs::remove_file(&probe);
@@ -499,7 +499,7 @@ pub fn install_windows(archive: &Path, directory: &Path, build: i64, mv: Mover) 
     install_windows_if(archive, directory, build, mv, &|_| true)
 }
 
-fn install_windows_if(archive: &Path, directory: &Path, build: i64, mv: Mover, loads: &dyn Fn(&Path) -> bool) -> Result<InstallResult> {
+pub(crate) fn install_windows_if(archive: &Path, directory: &Path, build: i64, mv: Mover, loads: &dyn Fn(&Path) -> bool) -> Result<InstallResult> {
     let staging = directory.join(STAGING_DIR);
     extract(archive, &staging)?;
     if !staging.join(EXE_NAME).is_file() {

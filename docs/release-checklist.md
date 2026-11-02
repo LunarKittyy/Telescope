@@ -62,11 +62,12 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 ### Updates and settings from older versions
 
-<!-- due: android/app/src/main/kotlin/com/telescope/Updater.kt android/app/src/main/kotlin/com/telescope/UpdateLogic.kt android/app/src/main/kotlin/com/telescope/UpdateHttp.kt .github/write_manifest.py .github/workflows/release.yml installer/** rust/crates/system/src/updates.rs rust/crates/system/src/updates_plugin.rs rust/crates/system/ui/updates.slint rust/crates/system/src/update_guard.rs -->
+<!-- due: android/app/src/main/kotlin/com/telescope/Updater.kt android/app/src/main/kotlin/com/telescope/UpdateLogic.kt android/app/src/main/kotlin/com/telescope/UpdateHttp.kt .github/write_manifest.py .github/workflows/release.yml installer/** rust/crates/system/src/updates.rs rust/crates/system/src/updates_plugin.rs rust/crates/system/ui/updates.slint rust/crates/system/src/update_guard.rs rust/crates/system/src/going_back.rs rust/crates/system/src/going_back_tests.rs -->
 
 - [ ] Desktop on the previous nightly on Linux: the Update button appears, Update and restart replaces the app and it comes back on the new version with the stream working. On Windows `windows_pass.py` does the update and what's left is checking that the stream works after it.
 - [ ] AppImage on the previous nightly: Update and restart replaces the file in place, it comes back on the new version and the app menu entry still starts it.
 - [ ] Update is refused while streaming, on both apps.
+- [ ] Go back to the Python version, on a Linux tarball, on an installed Windows copy and on an unzipped one: the question names what's lost, Go back restarts into 4.4.2 with the stream and a phone working, a dated copy of the settings sits next to the settings and Check daily is off in 4.4.2. A source build doesn't show the button, an AppImage only opens the 4.4.2 page, and a Linux box without Python 3.12 gets the question with Go back switched off.
 - [ ] Phone on the previous nightly: the update card offers the new build, asks once to allow installs from Telescope and the installed app shows the new version.
 - [ ] Phone app older than the desktop with a different session protocol, plugged in: the Connection panel says so and Update over USB installs the bundled APK.
 - [ ] Settings stay across a restart, including each phone's own after switching between phones. A config from the previous version keeps the global settings and asks to pair again.

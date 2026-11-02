@@ -231,6 +231,31 @@ impl ConfigFile {
         }
     }
 
+    /// A private copy of the file as it is now, named `<file>.<label>-<time>`; None when there's no file yet. Never replaces an earlier copy.
+    pub fn copy_aside(&self, label: &str) -> io::Result<Option<PathBuf>> {
+        let original = match fs::read(&self.path) {
+            Ok(bytes) => bytes,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(e),
+        };
+        let stamp = (self.clock)();
+        let name = self.path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+        for n in 1..100 {
+            let suffix = if n == 1 { String::new() } else { format!("-{n}") };
+            let copy = self.path.with_file_name(format!("{name}.{label}-{stamp}{suffix}"));
+            if copy.exists() {
+                continue;
+            }
+            let written = open_private(&copy, &set_mode).and_then(|mut f| f.write_all(&original).and_then(|_| f.sync_all()));
+            if let Err(e) = written {
+                let _ = fs::remove_file(&copy);
+                return Err(e);
+            }
+            return Ok(Some(copy));
+        }
+        Err(io::Error::from(io::ErrorKind::AlreadyExists))
+    }
+
     /// take_reset_notice(): once, after the file was set aside, where the copy went ("" when it couldn't be kept).
     pub fn take_reset_notice(&self) -> Option<String> {
         with_set_aside(&self.path, |s| s.notice.take())
