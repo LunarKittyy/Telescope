@@ -254,7 +254,7 @@ mod real {
     fn icon_for(instance: *mut c_void, shows: TrayShows) -> *mut c_void {
         // SAFETY: a plain query
         let size = unsafe { GetSystemMetrics(SM_CXSMICON) }.max(16);
-        let bgra: Vec<u8> = crate::icon::tray_rgba(size as u32, shows).chunks_exact(4).flat_map(|p| [p[2], p[1], p[0], p[3]]).collect();
+        let bgra: Vec<u8> = crate::icon::tray_rgba(size as u32, shows).as_chunks::<4>().0.iter().flat_map(|p| [p[2], p[1], p[0], p[3]]).collect();
         // Zeros: with 32-bit colour the alpha says what shows
         let mask = vec![0u8; ((size as usize + 15) / 16 * 2) * size as usize];
         // SAFETY: both masks are the size the width and height ask for and live through the call, which copies them
@@ -320,7 +320,7 @@ mod real {
                         // SAFETY: a filled NOTIFYICONDATAW, and the old icon isn't used once the new one is in
                         unsafe {
                             Shell_NotifyIconW(NIM_MODIFY, &mut d);
-                            if here.drawn.replace(icon) {
+                            if here.drawn.replace(true) {
                                 DestroyIcon(here.icon.replace(icon));
                             } else {
                                 here.icon.set(icon);

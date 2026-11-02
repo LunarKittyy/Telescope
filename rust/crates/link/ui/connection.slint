@@ -334,7 +334,7 @@ export component ConnectionCard inherits Card {
         y: WindowBox.top(self.height) - root.absolute-position.y;
         width: max(root.width, 460px);
         // The window's height caps the dialog, and the code is what gives way
-        height: min(add-frame.preferred-height, WindowBox.height - 16px);
+        height: WindowBox.cap(add-frame.preferred-height);
         add-frame := DialogFrame {
             property <bool> on-source: other-name != "" && !paired && add-page == 1;
             title: @tr("Add a phone");

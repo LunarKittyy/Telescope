@@ -10,6 +10,8 @@ export global WindowBox {
     // Where a dialog this big goes
     public pure function left(w: length) -> length { max(8px, (self.width - w) / 2) }
     public pure function top(h: length) -> length { max(8px, (self.height - h) / 2) }
+    // A dialog's height, held to the window where the window's size is known
+    public pure function cap(h: length) -> length { self.height > 0 ? min(h, self.height - 16px) : h }
 }
 
 export component DialogFrame inherits Rectangle {

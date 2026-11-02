@@ -2,13 +2,14 @@
 use slint::platform::{Key, PointerEventButton, WindowEvent};
 use slint::{ComponentHandle, LogicalPosition, SharedString};
 use slint_interpreter::{ComponentInstance, Value};
-use telescope_shell::{compile, offscreen};
+use telescope_shell::{compile, input, offscreen};
 
 const WIDTH: f32 = 300.0;
 const HEIGHT: f32 = 200.0;
 
 const DOC: &str = r#"
 import { Theme, Icons, Icon, Slider, Switch, Button, ChoiceField } from "@ui-kit/ui-kit.slint";
+export { KeyFocus } from "@ui-kit/ui-kit.slint";
 export component Test inherits Window {
     width: 300px;
     height: 200px;
@@ -181,9 +182,11 @@ fn focus_ring_shows_after_tab_and_not_after_a_click() {
     tab(&ui); // the slider
     tab(&ui); // the button
     tab(&ui);
+    input::focus_key(&ui);
     assert!(ringed(110, 106), "Tab reached the dropdown: its ring is just outside its left edge");
     let position = LogicalPosition::new(22.0, 160.0);
     ui.window().dispatch_event(WindowEvent::PointerMoved { position });
+    input::pressed_at(&ui, position);
     ui.window().dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
     ui.window().dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
     assert_eq!(ui.get_property("switched"), Ok(Value::Number(1.0)));

@@ -221,6 +221,13 @@ fn settle(w: &ComponentInstance) {
     }
 }
 
+/// Clicks the middle of what's called this, as a person would, wherever the dialog sits.
+fn press(w: &ComponentInstance, label: &str) {
+    let found = ElementHandle::find_by_accessible_label(w, label).next().unwrap_or_else(|| panic!("nothing called {label}"));
+    let (at, size) = (found.absolute_position(), found.size());
+    click(w, at.x + size.width / 2.0, at.y + size.height / 2.0);
+}
+
 fn click(w: &ComponentInstance, x: f32, y: f32) {
     let position = slint::LogicalPosition::new(x, y);
     let button = slint::platform::PointerEventButton::Left;
@@ -255,18 +262,18 @@ export component W inherits Window {
     w.set_property("rows", phones(2)).unwrap();
     w.set_property("open", Value::Bool(true)).unwrap();
     settle(&w);
-    click(&w, 357.0, 185.0); // Phone 0's pencil
-    click(&w, 395.0, 243.0); // the question is in the way
-    click(&w, 362.0, 287.0); // OK
+    press(&w, RENAME_0);
+    assert!(ElementHandle::find_by_accessible_label(&w, REMOVE_1).next().is_none(), "the question takes the dialog's place");
+    press(&w, "OK");
     assert_eq!(*said.borrow(), [format!("{:?}", [Value::String("id-0".into()), Value::String("Phone 0".into())])]);
-    click(&w, 395.0, 243.0); // Phone 1's bin
-    click(&w, 362.0, 273.0); // No
+    press(&w, REMOVE_1); // it came back
+    press(&w, "No");
     assert_eq!(said.borrow().len(), 1);
-    click(&w, 395.0, 243.0);
-    click(&w, 258.0, 273.0); // Yes
+    press(&w, REMOVE_1);
+    press(&w, "Yes");
     assert_eq!(said.borrow()[1], format!("{:?}", [Value::String("remove".into()), Value::String("id-1".into())]));
-    click(&w, 353.0, 379.0); // Change name
-    click(&w, 362.0, 287.0);
+    press(&w, "Change this computer's name");
+    press(&w, "OK");
     assert_eq!(said.borrow()[2], format!("{:?}", [Value::String("computer".into()), Value::String("Desk".into())]));
 }
 
@@ -311,6 +318,9 @@ fn press_key(w: &ComponentInstance, text: &str) {
     window.dispatch_event(slint::platform::WindowEvent::KeyReleased { text: text.into() });
 }
 
+const RENAME_0: &str = "Rename Phone 0";
+const REMOVE_1: &str = "Remove Phone 1";
+
 const YOUR_PHONES: &str = r#"import { PhonePicker, PhoneRow } from "plugin/connection.slint";
 import { TextCap } from "@ui-kit/ui-kit.slint";
 export { TextCap }
@@ -342,12 +352,12 @@ fn rename_dialog_line_edit_has_a_length_cap() {
     w.set_property("rows", phones(2)).unwrap();
     w.set_property("open", Value::Bool(true)).unwrap();
     settle(&w);
-    click(&w, 357.0, 185.0); // Phone 0's pencil
+    press(&w, RENAME_0);
     for _ in 0..70 {
         press_key(&w, "x");
     }
     settle(&w);
-    click(&w, 362.0, 287.0); // OK
+    press(&w, "OK");
     assert_eq!(*said.borrow(), ["x".repeat(telescope_link::util::MAX_NAME_CHARS)]);
 }
 
@@ -367,7 +377,7 @@ fn a_paste_past_the_length_cap_is_cut_as_a_line_edit_cuts_it() {
     w.set_property("open", Value::Bool(true)).unwrap();
     settle(&w);
     w.invoke("copy-long-text", &[]).unwrap();
-    click(&w, 357.0, 185.0); // Phone 0's pencil
+    press(&w, RENAME_0);
     press_key(&w, "a");
     press_key(&w, "b");
     let control: slint::SharedString = slint::platform::Key::Control.into();
@@ -376,7 +386,7 @@ fn a_paste_past_the_length_cap_is_cut_as_a_line_edit_cuts_it() {
     press_key(&w, "v");
     window.dispatch_event(slint::platform::WindowEvent::KeyReleased { text: control });
     settle(&w);
-    click(&w, 362.0, 287.0); // OK
+    press(&w, "OK");
     assert_eq!(*said.borrow(), [format!("ab{}", "y".repeat(62))]);
 }
 
@@ -392,6 +402,34 @@ fn a_browser_row_has_a_bin_but_no_pencil() {
     click(&w, 357.0, 185.0); // where a phone's pencil is
     click(&w, 362.0, 287.0); // and the OK of the name question it would open
     assert_eq!(*said.borrow(), 0);
+}
+
+fn add_phone_takes_the_place_of_your_phones() {
+    let w = window(r#"import { PhonePicker, PhoneRow } from "plugin/connection.slint";
+export component W inherits Window {
+    width: 600px;
+    height: 620px;
+    in property <[PhoneRow]> rows;
+    in-out property <bool> open;
+    callback said(string);
+    PhonePicker {
+        x: 0; y: 0; width: 300px; height: 40px;
+        rows: root.rows;
+        phones-open: open;
+        phones-closed => { root.said("closed"); root.open = false; }
+        add-phone => { root.said("add"); }
+    }
+}"#);
+    let said = Rc::new(RefCell::new(Vec::new()));
+    let s = said.clone();
+    w.set_callback("said", move |args| { s.borrow_mut().push(format!("{:?}", args[0])); Value::Void }).unwrap();
+    w.set_property("rows", phones(1)).unwrap();
+    w.set_property("open", Value::Bool(true)).unwrap();
+    settle(&w);
+    press(&w, "Pair another phone");
+    assert_eq!(said.borrow().len(), 2);
+    assert!(said.borrow()[0].contains("closed") && said.borrow()[1].contains("add"), "{:?}", said.borrow());
+    assert!(ElementHandle::find_by_accessible_label(&w, "Pair another phone").next().is_none(), "Your phones is gone");
 }
 
 fn the_virtual_camera_question_comes_with_the_startup_choice() {
@@ -425,6 +463,7 @@ fn connection_dialogs() {
     the_choice_field_says_when_its_list_opens_and_closes();
     your_phones_asks_before_it_renames_or_removes();
     the_virtual_camera_question_comes_with_the_startup_choice();
+    add_phone_takes_the_place_of_your_phones();
     header_holds_the_phone_picker_and_manage_button();
     the_help_button_is_named_setup_guide();
     rename_dialog_line_edit_has_a_length_cap();

@@ -22,7 +22,7 @@ const WATCHER: &str = "org.kde.StatusNotifierWatcher";
 /// create_tray_icon for the protocol: every size, in ARGB bytes.
 fn pixmaps(shows: TrayShows) -> Vec<Pixmap> {
     TRAY_SIZES.iter().map(|&size| {
-        let argb = crate::icon::tray_rgba(size, shows).chunks_exact(4).flat_map(|p| [p[3], p[0], p[1], p[2]]).collect();
+        let argb = crate::icon::tray_rgba(size, shows).as_chunks::<4>().0.iter().flat_map(|p| [p[3], p[0], p[1], p[2]]).collect();
         (size as i32, size as i32, argb)
     }).collect()
 }

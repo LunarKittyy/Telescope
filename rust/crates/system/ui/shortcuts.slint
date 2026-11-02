@@ -278,7 +278,7 @@ callback param-committed(int, string);
         width: min(root.width, 520px);
         // A popup takes on a new size a frame after its content changes, which showed as a flicker. So this one stays the
         // window's height, see-through, and the frame inside follows its rows in the same frame
-        height: WindowBox.height - WindowBox.top(460px) - 8px;
+        height: WindowBox.height > 0 ? WindowBox.height - WindowBox.top(460px) - 8px : editor-frame.preferred-height;
         editor-frame := DialogFrame {
             y: 0;
             height: self.preferred-height;
