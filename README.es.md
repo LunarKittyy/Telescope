@@ -92,7 +92,7 @@ Necesita Android 8 o posterior. En [Compatibilidad de dispositivos](docs/device-
 <details>
 <summary><b>¿Prefieres no instalar nada en Windows?</b></summary>
 
-`Telescope-windows-portable.zip` en la [página de versiones](../../releases) contiene la misma app. Descomprime el archivo y ejecuta `TelescopeDesktop.exe` sin moverlo de su carpeta, porque la carpeta `lib-...` que tiene al lado también forma parte de la app.
+`Telescope-windows-portable.zip` en la [página de versiones](../../releases) contiene la misma app. Descomprime el archivo y ejecuta `TelescopeDesktop.exe` sin moverlo de su carpeta, porque las carpetas que tiene al lado también forman parte de la app.
 </details>
 
 <details>

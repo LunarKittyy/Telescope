@@ -92,7 +92,7 @@
 <details>
 <summary><b>Не хочешь ничего устанавливать в Windows?</b></summary>
 
-В `Telescope-windows-portable.zip` на [странице релизов](../../releases) лежит то же приложение. Распакуй архив и запусти `TelescopeDesktop.exe`, не перемещая его из папки. Папка `lib-...` рядом с ним тоже нужна для работы приложения.
+В `Telescope-windows-portable.zip` на [странице релизов](../../releases) лежит то же приложение. Распакуй архив и запусти `TelescopeDesktop.exe`, не перемещая его из папки. Папки рядом с ним тоже нужны для работы приложения.
 </details>
 
 <details>
