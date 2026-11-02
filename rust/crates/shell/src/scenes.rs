@@ -1,4 +1,4 @@
-//! The window in the same states as the Qt scene renders, drawn offscreen (offscreen.rs). Each scene gets a fresh
+//! The window in each scene state, drawn offscreen (offscreen.rs). Each scene gets a fresh
 //! settings file in a scratch folder, like translation_scenes.use_scratch_profile.
 
 use crate::window;
@@ -11,7 +11,7 @@ use telescope_core::config::ConfigFile;
 use telescope_core::plugin::{Plugin, PluginInfo};
 use telescope_core::services::Services;
 
-/// (scene id, window width) of the main window scenes the old comparison with Qt made.
+/// (scene id, window width) of the main window scenes checked against the reference renders.
 pub const SHELL_SCENES: &[(&str, f32)] = &[("shell-wide", 1300.0), ("shell-medium", 900.0), ("shell-narrow", 560.0)];
 
 pub use crate::layout::{WIDTH_THREE_COL, WIDTH_TWO_COL};
@@ -261,7 +261,7 @@ fn settle(w: &std::rc::Rc<window::Window>) {
     }
 }
 
-/// Renders the scenes the old comparison with Qt made into out/<scale>x; how many it wrote.
+/// Renders the reference scenes into out/<scale>x; how many it wrote.
 pub fn render_all(out: &Path, scale: f32) -> Result<usize, String> {
     let mut scenes: Vec<Scene> = SHELL_SCENES.iter()
         .map(|&(id, width)| Scene::new(id, move || Setup::window(None, json!({}), width, 900.0)))

@@ -6,17 +6,17 @@ Ideas worth keeping that nobody is about to work on. Move one to [next.md](next.
 
 Presets already save Auto framing and Background, so a preset can be a scene: one that frames you while you talk, another with the framing off and the zoom parked on a whiteboard or a desk, each on its own key. A teacher, someone running a workshop or anyone drawing on paper could switch between them mid-call.
 
-The bigger part is the board itself. Desk mode already straightens a sheet once you mark its corners and makes the writing stand out. What's missing is Telescope finding the corners itself, following a board as the phone moves and evening out shadows and glare. It's plain OpenCV rather than MediaPipe. Tuning it so it works in real rooms on real boards is most of the work. A Whiteboard source or card could follow the board the way Auto framing follows you.
+The bigger part is the board itself. Desk mode already straightens a sheet once you mark its corners and makes the writing stand out. What's missing is Telescope finding the corners itself, following a board as the phone moves and evening out shadows and glare. It's classical image processing rather than MediaPipe. Tuning it so it works in real rooms on real boards is most of the work. A Whiteboard source or card could follow the board the way Auto framing follows you.
 
 Big, mostly the corner finding and the clean-up. Worth seeing first whether people use presets as scenes.
 
 ## Optional plugins
 
-More ideas for plugins that start out off, for people who want more out of their webcam than a picture. Most of them need no new dependencies (numpy, OpenCV, PyAV and Qt are already there and the vision download already exists). Same rule as the Camera card. If the phone's camera exposes something, Telescope uses it.
+More ideas for plugins that start out off, for people who want more out of their webcam than a picture. Most of them need no new dependencies (FFmpeg is already there and the vision download already exists). Same rule as the Camera card. If the phone's camera exposes something, Telescope uses it.
 
 Most of what they need underneath got built as host services along with the plugins in [4.3](4.3.md). One is still open:
 
-- **Lining up and stacking frames.** OpenCV's `phaseCorrelate` and friends. Used by the stargazer and maybe a denoised "hold still" scan in document mode
+- **Lining up and stacking frames.** Phase correlation and friends. Used by the stargazer and maybe a denoised "hold still" scan in document mode
 
 ### Colour matching and 10-bit
 
@@ -59,7 +59,7 @@ Big. It needs capture times through the phone app and the protocol, the calibrat
 
 ## Older DSLRs over USB
 
-Cameras with a webcam mode or clean HDMI out already work as webcams from 4.4. Older DSLRs have neither but can still send live view over USB, which gphoto2 speaks for most of them. A Nikon D5100 tested in October 2026 sent 640×426 MJPEG at a steady 30 fps for 15 minutes through `gphoto2 --capture-movie --stdout`. A source could read that same stream from the `gphoto2` command most distros ship, without a new Python package. The picture looks like a decent 480p webcam with real background blur.
+Cameras with a webcam mode or clean HDMI out already work as webcams from 4.4. Older DSLRs have neither but can still send live view over USB, which gphoto2 speaks for most of them. A Nikon D5100 tested in October 2026 sent 640×426 MJPEG at a steady 30 fps for 15 minutes through `gphoto2 --capture-movie --stdout`. A source could read that same stream from the `gphoto2` command most distros ship, so the app adds no library. The picture looks like a decent 480p webcam with real background blur.
 
 The camera ends live view every few minutes and gphoto2 starts it again (the mirror clicks and about a second of frames goes missing). The source has to hold the last frame through that gap. Some desktops also open a camera as a drive the moment it's plugged in, and gphoto2 can't reach it until that lets go. It would be Linux only. Windows has no gphoto2 and the vendor SDKs come with licences and one SDK per brand. Not every camera can do it either (a Samsung NX300 only shows up as a USB drive).
 

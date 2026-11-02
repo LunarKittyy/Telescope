@@ -24,13 +24,12 @@ fn folder(name: &str) -> PathBuf {
     dir
 }
 
-/// A dev profile with the parity offer file on (Add phone writes its QR content there) and no adb, so a phone on this
-/// computer's cable stays out of it. Every test sets the same values, so it doesn't matter which runs first.
+/// A dev profile with the test offer file on and no adb, so a phone on this computer's cable stays out of it.
 fn environment() -> PathBuf {
     let base = std::env::temp_dir().join(format!("telescope-integration-{}", std::process::id()));
     std::fs::create_dir_all(&base).unwrap();
     std::env::set_var(telescope_core::config::DEV_PROFILE_ENV, &base);
-    std::env::set_var("TELESCOPE_PARITY_OFFER", base.join("offer.json"));
+    std::env::set_var("TELESCOPE_TEST_OFFER", base.join("offer.json"));
     std::env::set_var("TELESCOPE_ADB", base.join("no-adb"));
     base
 }
