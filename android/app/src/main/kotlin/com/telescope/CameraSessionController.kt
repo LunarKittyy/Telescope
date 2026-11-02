@@ -720,9 +720,12 @@ class CameraSessionController(
     private fun buildOutputs() {
         if (codec == H264Stream.CODEC_H264) {
             try {
-                encoder = H264Encoder(streamWidth, streamHeight, streamFps(), currentBitrate(),
-                    onPacket = onH264, onError = { e -> post { encoderFailed(e) } },
-                    onReorder = { post { if (codec == H264Stream.CODEC_H264) reopen("h264Reorders") } })
+                lateinit var built: H264Encoder
+                // Queued behind a size change, a report from the old encoder must not count against the new one
+                built = H264Encoder(streamWidth, streamHeight, streamFps(), currentBitrate(),
+                    onPacket = onH264, onError = { e -> post { if (encoder === built) encoderFailed(e) } },
+                    onReorder = { post { if (encoder === built && codec == H264Stream.CODEC_H264) reopen("h264Reorders") } })
+                encoder = built
                 // An encoder known to ignore the cap gets a FrameGate straight away; Dynamic's step is then its job
                 if (encoderCapWorks == false && addGate() && frameRate?.cap != null) {
                     gate?.maxFps = frameRate?.cap

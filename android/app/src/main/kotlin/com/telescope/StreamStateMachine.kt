@@ -5,6 +5,10 @@ enum class StreamState {
     Idle, StartingServer, OpeningCamera, ConfiguringSession, Streaming, Recovering, Failed, Stopping
 }
 
+// A session exists, settled or not: a start or a lens switch in flight still has a server and a camera to take down.
+val StreamState.holdsSession: Boolean
+    get() = this != StreamState.Idle && this != StreamState.Failed && this != StreamState.Stopping
+
 data class StateTransition(
     val timestampMs: Long,
     val from: StreamState,

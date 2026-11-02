@@ -128,6 +128,13 @@ class StreamStateMachineTest {
     }
 
     @Test
+    fun `every state with a session to take down holds one`() {
+        val holding = StreamState.values().filter { it.holdsSession }.toSet()
+        assertEquals(setOf(StreamState.StartingServer, StreamState.OpeningCamera, StreamState.ConfiguringSession,
+            StreamState.Streaming, StreamState.Recovering), holding)
+    }
+
+    @Test
     fun `timestamps come from the injected clock`() {
         var t = 1_000L
         val m = StreamStateMachine(now = { t })
