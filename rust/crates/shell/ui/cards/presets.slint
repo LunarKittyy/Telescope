@@ -180,9 +180,10 @@ export component PresetsHeader inherits HorizontalLayout {
     }
 
     name-popup := PopupWindow {
-        x: WindowBox.left(self.width) - root.absolute-position.x;
-        y: WindowBox.top(name-frame.preferred-height) - root.absolute-position.y;
-        width: 380px;
+        x: -root.absolute-position.x;
+        y: -root.absolute-position.y;
+        width: WindowBox.cover-w(380px);
+        height: WindowBox.cover-h(name-frame.preferred-height);
         close-policy: no-auto-close;
         FocusScope {
             key-pressed(e) => {
@@ -190,6 +191,12 @@ export component PresetsHeader inherits HorizontalLayout {
                 reject
             }
             name-frame := DialogFrame {
+                x: WindowBox.left(self.width);
+                y: WindowBox.top(self.height);
+                width: 380px;
+                height: self.preferred-height;
+                dismissable: true;
+                dismissed => { root.dialog-cancelled(); }
                 title: dialog-title;
                 VerticalLayout {
                     spacing: 6px;
@@ -217,9 +224,10 @@ export component PresetsHeader inherits HorizontalLayout {
     }
 
     replace-popup := PopupWindow {
-        x: WindowBox.left(self.width) - root.absolute-position.x;
-        y: WindowBox.top(replace-frame.preferred-height) - root.absolute-position.y;
-        width: 400px;
+        x: -root.absolute-position.x;
+        y: -root.absolute-position.y;
+        width: WindowBox.cover-w(400px);
+        height: WindowBox.cover-h(replace-frame.preferred-height);
         close-policy: no-auto-close;
         FocusScope {
             key-pressed(e) => {
@@ -227,6 +235,12 @@ export component PresetsHeader inherits HorizontalLayout {
                 reject
             }
             replace-frame := DialogFrame {
+                x: WindowBox.left(self.width);
+                y: WindowBox.top(self.height);
+                width: 400px;
+                height: self.preferred-height;
+                dismissable: true;
+                dismissed => { root.replace-answered(false); }
                 title: replace-title;
                 subtitle: confirm-text;
                 HorizontalLayout {

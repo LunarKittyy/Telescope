@@ -57,10 +57,10 @@ export component W inherits Window {
     let side = code.size();
     assert!(side.width == side.height && side.width > 0.0, "{side:?}");
     assert_eq!(side.width, (size as f32 + 8.0) * 6.0);
-    assert!(ElementHandle::find_by_accessible_label(&w, "Cancel").next().is_some());
+    assert!(ElementHandle::find_by_accessible_label(&w, "Back").next().is_some());
     w.set_property("paired", Value::Bool(true)).unwrap();
     offscreen::pump();
     offscreen::draw(w.window(), 600.0, 700.0, 1.0);
     assert!(ElementHandle::find_by_accessible_label(&w, "Pairing code").next().is_none());
-    assert!(ElementHandle::find_by_accessible_label(&w, "Done").next().is_some() && ElementHandle::find_by_accessible_label(&w, "Cancel").next().is_none());
+    assert!(ElementHandle::find_by_accessible_label(&w, "Done").next().is_some() && ElementHandle::find_by_accessible_label(&w, "Back").next().is_none());
 }

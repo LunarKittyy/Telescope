@@ -363,8 +363,8 @@
 "Telescope can't open that file." = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
 "Telescope couldn't save the LUT there." = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
 "The level contrast turns around" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
-"Up gives a hue more colour, down takes it out." = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
-"Up turns a hue towards the next one along, down towards the one before." = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
+"Up gives a hue more colour, down takes it out." = { status = "dropped", reason = "the owner removed it" }
+"Up turns a hue towards the next one along, down towards the one before." = { status = "dropped", reason = "the owner removed it" }
 "Warmer or cooler" = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
 "Where the line between before and after is" = { status = "ported", rust = "rust/crates/effects/ui/colour_grading.slint" }
 "Without it there's no Colour grading card and the picture keeps the camera's colours." = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
@@ -1704,9 +1704,9 @@
 "Check for updates" = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
 "Checking the existing build..." = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "Cleaner edges with a one-time download (about {mb} MB)." = { status = "ported", rust = "rust/crates/core/src/vision.rs::status_text", note = "The row's text; each card that uses vision draws the row" }
-"Click a hue to add a point and drag it. Double-click a point to remove it, or the curve to reset." = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
+"Click a hue to add a point and drag it. Double-click a point to remove it, or the curve to reset." = { status = "dropped", reason = "the owner removed it" }
 "Click a stream in the picture to change it." = { status = "ported", rust = "rust/crates/effects/ui/composite_editor.slint" }
-"Click to add a point and drag it. Double-click a point to remove it, or the curve to reset." = { status = "ported", rust = "rust/crates/effects/src/colour_grading.rs" }
+"Click to add a point and drag it. Double-click a point to remove it, or the curve to reset." = { status = "dropped", reason = "the owner removed it" }
 "Collapsed. Press Space or Enter to expand." = { status = "ported", rust = "rust/crates/ui-kit/ui/widgets/folds.slint" }
 "Copy the command, to paste in a terminal" = { status = "ported", rust = "rust/crates/setup/ui/parts.slint" }
 "Corners" = { status = "ported", rust = "rust/crates/effects/ui/composite_editor.slint" }

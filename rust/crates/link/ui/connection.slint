@@ -171,6 +171,8 @@ export component ConnectionCard inherits Card {
     in-out property <int> add-page;
     callback other-picked;
     callback add-closed;
+    // Back: closes it, and Your phones comes up again if that is where it was opened from
+    callback add-back;
     callback pick(string);
     callback usb-action-clicked;
     callback usb-link-clicked;
@@ -330,12 +332,19 @@ export component ConnectionCard inherits Card {
 
     add-popup := PopupWindow {
         close-policy: no-auto-close;
-        x: WindowBox.left(self.width) - root.absolute-position.x;
-        y: WindowBox.top(self.height) - root.absolute-position.y;
-        width: max(root.width, 460px);
-        // The window's height caps the dialog, and the code is what gives way
-        height: WindowBox.cap(add-frame.preferred-height);
+        x: -root.absolute-position.x;
+        y: -root.absolute-position.y;
+        width: WindowBox.cover-w(max(root.width, 460px));
+        height: WindowBox.cover-h(add-frame.preferred-height);
         add-frame := DialogFrame {
+            x: WindowBox.left(self.width);
+            y: WindowBox.top(self.height);
+            width: max(root.width, 460px);
+            // The window's height caps the dialog, and the code is what gives way
+            height: WindowBox.cap(self.preferred-height);
+            dismissable: true;
+            // A pairing with its code showing isn't lost to a stray click: that takes Back or Done
+            dismissed => { if (paired || qr-size == 0) { root.add-closed(); } }
             property <bool> on-source: other-name != "" && !paired && add-page == 1;
             title: @tr("Add a phone");
             subtitle: on-source ? "" : add-subtitle;
@@ -426,9 +435,11 @@ export component ConnectionCard inherits Card {
                 Button {
                     width: 96px;
                     height: 32px;
-                    text: paired ? @tr("Done") : @tr("Cancel");
+                    text: paired ? @tr("Done") : @tr("Back");
                     role: paired ? "primary" : "";
-                    clicked => { root.add-closed(); }
+                    clicked => {
+                        if (paired) { root.add-closed(); } else { root.add-back(); }
+                    }
                 }
             }
         }
@@ -436,10 +447,17 @@ export component ConnectionCard inherits Card {
 
     vcam-popup := PopupWindow {
         close-policy: no-auto-close;
-        x: WindowBox.left(self.width) - root.absolute-position.x;
-        y: WindowBox.top(vcam-frame.preferred-height) - root.absolute-position.y;
-        width: max(root.width, 460px);
+        x: -root.absolute-position.x;
+        y: -root.absolute-position.y;
+        width: WindowBox.cover-w(max(root.width, 460px));
+        height: WindowBox.cover-h(vcam-frame.preferred-height);
         vcam-frame := DialogFrame {
+            x: WindowBox.left(self.width);
+            y: WindowBox.top(self.height);
+            width: max(root.width, 460px);
+            height: self.preferred-height;
+            dismissable: true;
+            dismissed => { root.vcam-answered(false, false); }
             title: @tr("Set up the virtual camera");
             Note { text: @tr("Telescope needs to switch on its virtual camera first. This asks for your password."); kind: ""; }
             HorizontalLayout {
@@ -565,10 +583,17 @@ export component PhonePicker inherits HorizontalLayout {
 
             phones-popup := PopupWindow {
             close-policy: no-auto-close;
-            x: WindowBox.left(self.width) - phones-anchor.absolute-position.x;
-            y: WindowBox.top(phones-frame.preferred-height) - phones-anchor.absolute-position.y;
-            width: 460px;
+            x: -phones-anchor.absolute-position.x;
+            y: -phones-anchor.absolute-position.y;
+            width: WindowBox.cover-w(460px);
+            height: WindowBox.cover-h(phones-frame.preferred-height);
             phones-frame := DialogFrame {
+                x: WindowBox.left(self.width);
+                y: WindowBox.top(self.height);
+                width: 460px;
+                height: self.preferred-height;
+                dismissable: true;
+                dismissed => { root.phones-closed(); }
                 title: @tr("Your phones");
                 subtitle: @tr("Each phone keeps its own camera settings, and so does a browser once you change one. Removing a phone also unpairs it on the phone.");
                 Card {
@@ -627,10 +652,17 @@ export component PhonePicker inherits HorizontalLayout {
         // phones gives way to the question and comes back after it
         name-popup := PopupWindow {
             close-policy: no-auto-close;
-            x: WindowBox.left(self.width) - phones-anchor.absolute-position.x;
-            y: WindowBox.top(name-frame.preferred-height) - phones-anchor.absolute-position.y;
-            width: 400px;
+            x: -phones-anchor.absolute-position.x;
+            y: -phones-anchor.absolute-position.y;
+            width: WindowBox.cover-w(400px);
+            height: WindowBox.cover-h(name-frame.preferred-height);
             name-frame := DialogFrame {
+                x: WindowBox.left(self.width);
+                y: WindowBox.top(self.height);
+                width: 400px;
+                height: self.preferred-height;
+                dismissable: true;
+                dismissed => { phones-popup.show(); }
                 title: name-title;
                 Note { text: name-label; kind: ""; }
                 name-field := TextField {
@@ -672,10 +704,18 @@ export component PhonePicker inherits HorizontalLayout {
 
         confirm-popup := PopupWindow {
             close-policy: no-auto-close;
-            x: WindowBox.left(self.width) - phones-anchor.absolute-position.x;
-            y: WindowBox.top(confirm-frame.preferred-height) - phones-anchor.absolute-position.y;
-            width: 400px;
+            x: -phones-anchor.absolute-position.x;
+            y: -phones-anchor.absolute-position.y;
+            width: WindowBox.cover-w(400px);
+            height: WindowBox.cover-h(confirm-frame.preferred-height);
             confirm-frame := DialogFrame {
+                x: WindowBox.left(self.width);
+                y: WindowBox.top(self.height);
+                width: 400px;
+                height: self.preferred-height;
+                dismissable: true;
+                // No, the button that is already the default
+                dismissed => { phones-popup.show(); }
                 title: removing.confirm-title;
                 Note { text: removing.confirm; kind: ""; }
                 HorizontalLayout {

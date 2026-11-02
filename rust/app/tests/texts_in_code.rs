@@ -10,7 +10,7 @@ use telescope_core::i18n::po;
 const READERS: [&str; 4] = ["source.rs", "texts.rs", "text.rs", "i18n.rs"];
 
 /// What the code says that the template doesn't, and why. A text that's new here is a spelling that stays English in every language.
-const NOT_IN_THE_TEMPLATE: [(&str, &str); 23] = [
+const NOT_IN_THE_TEMPLATE: [(&str, &str); 24] = [
     // Qt's own button texts, which Qt's translations cover in the Python app
     ("OK", "Qt standard button"),
     ("Yes", "Qt standard button"),
@@ -27,6 +27,7 @@ const NOT_IN_THE_TEMPLATE: [(&str, &str); 23] = [
     ("Works on an iPhone or anything else with a browser, with nothing to install.", "Add phone's Browser camera page, Rust only"),
     ("The camera is making fewer frames than asked for. Dim light slows it down.", "a browser that is simply slow, Rust only"),
     ("Page", "an accessibility label"),
+    ("Back", "Add phone's way back to Your phones"),
     ("That source has gone.", "only in the Rust app"),
     ("The browser has gone.", "only in the Rust app"),
     ("Get adb from Google", "the Add phone link as a button"),

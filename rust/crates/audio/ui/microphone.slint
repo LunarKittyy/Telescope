@@ -259,7 +259,7 @@ export component MicrophoneCard inherits Card {
             Rectangle {
                 width: 36px;
                 Switch {
-                    y: 8px;
+                    y: (parent.height - self.height) / 2;
                     checked: nr;
                     enabled: nr-enabled;
                     label: @tr("Noise reduction");
@@ -308,11 +308,18 @@ export component MicrophoneCard inherits Card {
     }
 
     question := PopupWindow {
-        x: WindowBox.left(self.width) - root.absolute-position.x;
-        y: WindowBox.top(question-frame.preferred-height) - root.absolute-position.y;
-        width: max(root.width, 460px);
-        close-policy: close-on-click-outside;
+        x: -root.absolute-position.x;
+        y: -root.absolute-position.y;
+        width: WindowBox.cover-w(max(root.width, 460px));
+        height: WindowBox.cover-h(question-frame.preferred-height);
+        close-policy: no-auto-close;
         question-frame := DialogFrame {
+            x: WindowBox.left(self.width);
+            y: WindowBox.top(self.height);
+            width: max(root.width, 460px);
+            height: self.preferred-height;
+            dismissable: true;
+            dismissed => { question.close(); root.confirm-answered(false); }
             title: @tr("Install VB-Cable");
             Note { text: @tr("The phone's mic needs VB-Audio Virtual Cable on Windows."); kind: "status_none"; }
             Note { text: @tr("VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."); }

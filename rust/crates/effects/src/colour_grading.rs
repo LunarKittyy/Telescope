@@ -36,12 +36,6 @@ const WHEEL_TIPS: [&str; 4] = [
     n_("Everything: colour and level"),
 ];
 const WHEEL_HINT: &str = n_("Drag towards a colour to add it. Double-click to reset.");
-const CURVE_HINTS: [&str; 2] = [
-    n_("Click to add a point and drag it. Double-click a point to remove it, or the curve to reset."),
-    n_("Click a hue to add a point and drag it. Double-click a point to remove it, or the curve to reset."),
-];
-const HUE_SAT_NOTE: &str = n_("Up gives a hue more colour, down takes it out.");
-const HUE_HUE_NOTE: &str = n_("Up turns a hue towards the next one along, down towards the one before.");
 const NO_LUT: &str = n_("No LUT loaded");
 const CANT_OPEN: &str = n_("Telescope can't open that file.");
 const CANT_SAVE: &str = n_("Telescope couldn't save the LUT there.");
@@ -393,11 +387,6 @@ impl ColourGradingPlugin {
 
     fn curve_props(&self) -> Value {
         let tone = self.curve == 0;
-        let (note, tip) = match self.curve {
-            0 => (String::new(), tr(CURVE_HINTS[0])),
-            1 => (tr(HUE_SAT_NOTE), tr(CURVE_HINTS[1])),
-            _ => (tr(HUE_HUE_NOTE), tr(CURVE_HINTS[1])),
-        };
         let line: String = self.editor.line(200).iter().enumerate()
             .map(|(i, (x, y))| format!("{} {:.1} {:.1}", if i == 0 { "M" } else { "L" }, x * 1000.0, (1.0 - y) * 1000.0)).collect::<Vec<_>>().join(" ");
         json!({
@@ -407,8 +396,6 @@ impl ColourGradingPlugin {
             "curve-points": self.editor.points.iter().map(|p| json!({"x": p.0, "y": p.1})).collect::<Vec<_>>(),
             "curve-picked": self.editor.picked,
             "curve-colour": if tone { CHANNEL_COLOURS[self.channel] } else { LOOK_HUE },
-            "curve-tip": tip,
-            "curve-note": note,
         })
     }
 
