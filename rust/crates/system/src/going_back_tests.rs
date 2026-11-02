@@ -122,7 +122,7 @@ fn the_launchers_own_checks_decide_the_python_state() {
     assert_eq!(with(&["python3.13", "python3"], true), PythonState::NeedsSetup);
     assert_eq!(with(&["python3.13", "python3"], false), PythonState::Missing);
     // The environment from before, if it still runs
-    let venv = data.join("Telescope/venv/bin/python3");
+    let venv = data.join("Telescope").join("venv").join("bin").join("python3");
     write(&venv, b"#!/bin/sh");
     let venv_name = venv.to_str().unwrap();
     assert_eq!(with(&[venv_name], false), PythonState::Ready);

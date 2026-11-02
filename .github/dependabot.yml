@@ -18,3 +18,6 @@ updates:
       - dependency-name: fontique
       - dependency-name: skrifa
       - dependency-name: harfrust
+      # Follows the FFmpeg version build_ffmpeg.sh builds
+      - dependency-name: ffmpeg-sys-next
+        update-types: ["version-update:semver-major"]
