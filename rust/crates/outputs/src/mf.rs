@@ -1,4 +1,4 @@
-//! The Windows 11 camera (desktop/virtualcamera; how it works is in docs/architecture.md): each frame goes to the shared
+//! The Windows 11 camera (rust/windows/virtualcamera; how it works is in docs/architecture.md): each frame goes to the shared
 //! memory the camera reads, as NV12 at the size the app reading it picked. While no app reads it there's nowhere to send,
 //! so frames are dropped. The layout is virtualcamera/shared_frame.h's.
 

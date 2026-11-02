@@ -1,5 +1,5 @@
 //! The Cinema tools and their scopes against what the Python app does on the same pictures. crates/effects/tests/fixtures/cinema.json
-//! has a checksum of everything Python made from a few test pictures (make_cinema_fixtures.py): the scopes' counts and pictures, false
+//! has a checksum of everything Python made from a few test pictures (recorded from the Python app): the scopes' counts and pictures, false
 //! colour, focus peaking, zebras and the tools together, plus what the level filter answers and what the plugin saves after loading odd
 //! settings. A checksum that differs names the picture, and for a scope picture the first row that does.
 
@@ -22,7 +22,7 @@ fn crc32(bytes: &[u8]) -> u32 {
     !bytes.iter().fold(!0u32, |c, &b| table[((c ^ b as u32) & 0xff) as usize] ^ (c >> 8))
 }
 
-/// The picture make_cinema_fixtures.py makes, from integer arithmetic alone.
+/// The picture the fixtures were made from, from integer arithmetic alone.
 fn picture(w: usize, h: usize) -> Rgb {
     let mut img = Rgb::new(w, h);
     for y in 0..h {

@@ -1,4 +1,4 @@
-// The shared memory the camera reads its frames from. desktop/telescope/vcam.py writes the same layout.
+// The shared memory the camera reads its frames from. crates/outputs/src/mf.rs writes the same layout.
 #pragma once
 #include <stdint.h>
 

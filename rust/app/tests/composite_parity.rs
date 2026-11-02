@@ -1,5 +1,5 @@
 //! Several cameras against what the Python app does. crates/effects/tests/fixtures holds what Python made
-//! (make_composite_fixtures.py): the test streams, each layout the Compositor drew from them, and what the plugin saves after
+//! (recorded from the Python app): the test streams, each layout the Compositor drew from them, and what the plugin saves after
 //! loading odd settings. The two "through real workers" tests run the plugin's step on the app's own stream worker, with a decoder
 //! that hands it the test's frames. Background pictures here are real PNG files through the app's own picture reader.
 

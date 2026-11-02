@@ -1,5 +1,5 @@
 //! Setup and Monitoring against what the Python app does. fixtures/setup_configs.json holds what each plugin saves after loading odd
-//! settings (make_setup_fixtures.py), and the config fixtures what it ends up saving from real files.
+//! settings (recorded from the Python app), and the config fixtures what it ends up saving from real files.
 
 mod common;
 

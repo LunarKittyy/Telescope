@@ -3,7 +3,7 @@
 to its session and stream ports, and takes reverse and the pairing broadcast. It reads what's plugged in from the
 file FAKE_ADB_STATE names (the fake phone writes it) and adds each command it gets to the phone's recording.
 
-phone_session.py puts it first on PATH as `adb` for the desktop it drives (TELESCOPE_ADB also points at it).
+Put it first on PATH as `adb` for the desktop under test (TELESCOPE_ADB also points at it).
 """
 
 import base64

@@ -1,4 +1,4 @@
-//! desktop/tests/test_move_to_installed.py, test by test.
+//! test_move_to_installed.py, test by test.
 
 use super::*;
 use crate::update_guard::{failed_build, read_journal, write_journal};

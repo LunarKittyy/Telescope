@@ -125,7 +125,7 @@ pub struct ConnectionPlugin {
 
 /// rust/parity's pair script: in a dev profile with TELESCOPE_PARITY_OFFER set, Add phone opens from
 /// `--action connection.add_phone` and writes its QR code's content to that file for the fake phone to "scan"
-/// (parity/python_desktop.py adds the same two to the Python app).
+/// (the Python app had the same two).
 fn parity_offer_file() -> Option<std::path::PathBuf> {
     telescope_core::config::dev_profile()?;
     std::env::var_os("TELESCOPE_PARITY_OFFER").filter(|v| !v.is_empty()).map(std::path::PathBuf::from)

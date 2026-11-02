@@ -1,5 +1,5 @@
 //! Presets, Startup and the Wait screen against what the Python app does. tests/fixtures/cards3_configs.json holds what each
-//! plugin saves after loading odd settings (make_cards3_fixtures.py).
+//! plugin saves after loading odd settings (recorded from the Python app).
 
 use serde_json::Value;
 use std::path::PathBuf;

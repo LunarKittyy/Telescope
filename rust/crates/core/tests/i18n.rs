@@ -1,5 +1,5 @@
 //! core::i18n against telescope/i18n.py and tests/test_i18n.py: the catalogs load as Python loads them, a translation can't break a
-//! text, and the language follows the system unless one was picked. fixtures/i18n.json (parity/record_i18n.py) is what Python made
+//! text, and the language follows the system unless one was picked. fixtures/i18n.json is what Python made
 //! of the real catalogs. The language is global, so every test holds the lock.
 
 use serde_json::Value;

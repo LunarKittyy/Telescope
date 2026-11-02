@@ -1,6 +1,6 @@
-//! telescope-rs scenes OUT [ids] [--scale 1 1.5] (or --list): parity/render_scenes.py's scenes from the Rust window, drawn offscreen
-//! as OUT/<scale>x/<id>.png for parity/compare_scenes.py. Each scene is the real window with stand-ins for the phone
-//! and the virtual camera, like the Python ones (desktop/scripts/translation_scenes*.py).
+//! telescope-rs scenes OUT [ids] [--scale 1 1.5] (or --list): every card, dialog and Settings page from the Rust window, drawn offscreen
+//! as OUT/<scale>x/<id>.png. Each scene is the real window with stand-ins for the phone
+//! and the virtual camera.
 
 use serde_json::{json, Value};
 use std::sync::Arc;

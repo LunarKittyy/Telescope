@@ -512,7 +512,7 @@ fn a_plugin_being_written_shows_where_its_from_with_nothing_to_switch() {
     let panel = Panel::new(list, running, Default::default(), admin, Box::new(NoDownload));
     let mine_tile = tile(&panel, "Mine");
     assert!(!mine_tile.enabled && mine_tile.locked && !mine_tile.added);
-    assert!(mine_tile.note.starts_with(&format!("Loaded from {} by dev_desktop.py.", mine.display())));
+    assert!(mine_tile.note.starts_with(&format!("Loaded from {} by telescope-rs dev.", mine.display())));
     assert_eq!(mine_tile.badges[0].text, "Being written");
     assert_eq!(panel.pending_changes(), 0);
 }

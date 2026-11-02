@@ -1,4 +1,4 @@
-//! The vision crate against what the Python app made of the same frames (fixtures/make_vision_fixtures.py): every step before
+//! The vision crate against what the Python app made of the same frames (recorded from the Python app): every step before
 //! and after the models to the byte, and the real models within float tolerance when a pack is there (TELESCOPE_VISION_PACK, or
 //! this version's pack in the Python app's folder).
 

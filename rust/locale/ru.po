@@ -5703,8 +5703,8 @@ msgid "Added"
 msgstr "Добавлен"
 
 #: rust/crates/shell/src/plugins_tab.rs:535
-msgid "dev_desktop.py --plugin loads this one, so it's always on"
-msgstr "dev_desktop.py --plugin загружает этот плагин, поэтому он всегда включен"
+msgid "telescope-rs dev --plugin loads this one, so it's always on"
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:536
 msgid "Being written"
@@ -5712,8 +5712,8 @@ msgstr "В разработке"
 
 #: rust/crates/shell/src/plugins_tab.rs:542
 #, python-brace-format
-msgid "Loaded from {folder} by dev_desktop.py. Telescope restarts by itself when you save one of its files."
-msgstr "Загружено из {folder} через dev_desktop.py. Telescope перезапускается сам при сохранении любого файла."
+msgid "Loaded from {folder} by telescope-rs dev. Telescope restarts by itself when you save one of its files."
+msgstr ""
 
 #. next to a group's name on the Plugins tab, how many of its plugins are switched on
 #: rust/crates/shell/src/plugins_tab.rs:556
@@ -7623,6 +7623,13 @@ msgstr "Не удалось перезапустить"
 #: rust/crates/shell/src/sources.rs:1694
 msgid "In use"
 msgstr "Используется"
+
+#~ msgid "dev_desktop.py --plugin loads this one, so it's always on"
+#~ msgstr "dev_desktop.py --plugin загружает этот плагин, поэтому он всегда включен"
+
+#, python-brace-format
+#~ msgid "Loaded from {folder} by dev_desktop.py. Telescope restarts by itself when you save one of its files."
+#~ msgstr "Загружено из {folder} через dev_desktop.py. Telescope перезапускается сам при сохранении любого файла."
 
 #~ msgid "The pyrnnoise package isn't installed."
 #~ msgstr "Пакет pyrnnoise не установлен."

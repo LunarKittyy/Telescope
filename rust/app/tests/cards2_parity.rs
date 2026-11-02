@@ -1,5 +1,5 @@
 //! On Air, QR codes and Photos against what the Python app does. crates/effects/tests/fixtures holds what Python made
-//! (make_cards2_fixtures.py): what each plugin saves after loading odd settings, the webhook each address, method and payload makes,
+//! (recorded from the Python app): what each plugin saves after loading odd settings, the webhook each address, method and payload makes,
 //! the options each Photos pick sends, and what the QR reader finds in a set of pictures.
 
 use serde_json::{json, Value};

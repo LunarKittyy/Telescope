@@ -21,7 +21,7 @@ python3 stress.py --clip clip.h264 --cells crt/gpu,crt/idle --seconds 25
 
 A cell is `scenario/load`. Scenarios are `plain`, `colour`, `crt`, `vhs`, `desk`, `blur`, and `none` for the load with no Telescope, and `none/idle` is the machine with nothing running. `colour3d` is a grade that needs a 3D LUT, only by name. Loads are `idle`, `gpu`, `cpu`, `obs` and `all`, `split` (in the full matrix for `colour`), and `burst`, by name, which is the `gpu` load starting a fifth of the way in and stopping halfway, to watch frame steps leave the card and come back: give it `--seconds 50`. `--vision-pack` is a downloaded pack's folder, the one named after its hash; without it `blur` does nothing. If an effect costs no more than plain you get a warning, because it probably never switched on.
 
-`--compare old.json` lists what moved in each cell. `--python` runs the Python desktop through `dev_desktop.py --keep`, and `--hw-decode` turns on the graphics card decoder, which the app leaves off. `--real-phone --profile FOLDER` streams from the phone paired in that folder's settings instead of the clip, for a check on the real path. Two of those runs won't match frame for frame. `--keep-logs` keeps each cell's app log, delivery log and raw timestamps. `--trace` prints what each stage of a frame took under each row and adds it to the JSON (`TELESCOPE_STRESS_TRACE` is the file the app writes).
+`--compare old.json` lists what moved in each cell. `--hw-decode` turns on the graphics card decoder, which the app leaves off. `--real-phone --profile FOLDER` streams from the phone paired in that folder's settings instead of the clip, for a check on the real path. Two of those runs won't match frame for frame. `--keep-logs` keeps each cell's app log, delivery log and raw timestamps. `--trace` prints what each stage of a frame took under each row and adds it to the JSON (`TELESCOPE_STRESS_TRACE` is the file the app writes).
 
 It needs Linux, the virtual camera with nothing else reading it (`/dev/video11` unless you pass `--device`), `kwin_wayland`, `dbus-run-session` and `ffmpeg` with libx264. A Telescope already using that camera will spoil the run.
 
@@ -56,7 +56,7 @@ With no Telescope running, `none/obs` encodes the clip instead, which adds a sof
 | `fps` | Different frames per second at the camera, by a hash of the picture. Resends of the same frame don't count. |
 | `p50` to `worst` | Time between different frames in ms, stamped as they come off the camera. |
 | `stut` | Intervals over 1.5 times the median. Even dropping holds this near zero at any frame rate. Watch this one first. |
-| `lat50`, `lat99` | Ms from a packet being read off the socket to its frame reaching the camera, from `TELESCOPE_STRESS_LOG`. Python has no such log. |
+| `lat50`, `lat99` | Ms from a packet being read off the socket to its frame reaching the camera, from `TELESCOPE_STRESS_LOG`. |
 | `cpu%` | Percent of one core, including worker threads that came and went. |
 | `3d%`, `dec%` | Telescope's share of the 3D and compute engines and of the video engine, from `/proc/PID/fdinfo`. amdgpu counts decoding under `enc`. |
 | `mem` | Peak resident memory in MB. VRAM is in the JSON. |

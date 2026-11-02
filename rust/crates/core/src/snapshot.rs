@@ -1,4 +1,4 @@
-//! `telescope-rs config-snapshot`: what this app makes of a fixture's settings file, in the shape of desktop/scripts/config_fixtures.py's expected.json.
+//! `telescope-rs config-snapshot`: what this app makes of a fixture's settings file, in the shape of the fixtures' expected.json.
 
 use crate::config::{self, ConfigFile, PluginSection, WindowState, CONFIG_FILENAME};
 use crate::json::{self, Style};

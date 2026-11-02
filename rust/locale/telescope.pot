@@ -5684,7 +5684,7 @@ msgid "Added"
 msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:535
-msgid "dev_desktop.py --plugin loads this one, so it's always on"
+msgid "telescope-rs dev --plugin loads this one, so it's always on"
 msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:536
@@ -5693,7 +5693,7 @@ msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:542
 #, python-brace-format
-msgid "Loaded from {folder} by dev_desktop.py. Telescope restarts by itself when you save one of its files."
+msgid "Loaded from {folder} by telescope-rs dev. Telescope restarts by itself when you save one of its files."
 msgstr ""
 
 #. next to a group's name on the Plugins tab, how many of its plugins are switched on

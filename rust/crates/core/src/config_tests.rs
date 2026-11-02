@@ -1,4 +1,4 @@
-//! desktop/tests/test_config.py, test by test.
+//! test_config.py, test by test.
 
 use super::*;
 use crate::testing::scratch_dir;
@@ -356,19 +356,17 @@ fn a_reset_is_reported_once_with_where_the_copy_went() {
 }
 
 #[test]
-fn the_config_path_matches_config_py_on_linux_and_windows() {
-    // desktop/telescope/config.py asked for each of these, with sys.platform and the environment set to match
-    let cases = [(false, false, false), (false, true, false), (true, false, false), (true, true, false), (false, true, true), (true, true, true)];
-    let script = "import json, os, sys\nfrom pathlib import Path\n\
-        sys.path.insert(0, sys.argv[1])\n\
-        home = sys.argv[2]\n\
-        Path.home = classmethod(lambda cls: Path(home))\n\
-        sys.platform = sys.argv[3]\n\
-        from telescope import config\n\
-        print(str(config.config_path()).replace(chr(92), '/'))\n";
-    let desktop = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../desktop");
-    let mut asked = 0;
-    for (windows, env_set, dev) in cases {
+fn the_config_path_is_where_the_python_app_kept_it_on_linux_and_windows() {
+    // What the Python app's config_path() gave for each of these, with sys.platform and the environment set to match
+    let cases = [
+        (false, false, false, "/home/someone/.config/telescope/telescope_config.json"),
+        (false, true, false, "/xdg/telescope/telescope_config.json"),
+        (true, false, false, "/home/someone/Telescope/telescope_config.json"),
+        (true, true, false, "/appdata/Roaming/Telescope/telescope_config.json"),
+        (false, true, true, "/tmp/dev-profile/telescope_config.json"),
+        (true, true, true, "/tmp/dev-profile/telescope_config.json"),
+    ];
+    for (windows, env_set, dev, expected) in cases {
         let want = PathEnv {
             windows,
             dev_profile: dev.then(|| PathBuf::from("/tmp/dev-profile")),
@@ -376,23 +374,6 @@ fn the_config_path_matches_config_py_on_linux_and_windows() {
             xdg_config_home: env_set.then(|| "/xdg".to_string()),
             home: PathBuf::from("/home/someone"),
         };
-        let mut cmd = std::process::Command::new("python3");
-        cmd.args(["-I", "-c", script]).arg(&desktop).arg("/home/someone").arg(if windows { "win32" } else { "linux" });
-        cmd.env_remove("APPDATA").env_remove("XDG_CONFIG_HOME").env_remove(DEV_PROFILE_ENV);
-        if env_set {
-            cmd.env("APPDATA", "/appdata/Roaming").env("XDG_CONFIG_HOME", "/xdg");
-        }
-        if dev {
-            cmd.env(DEV_PROFILE_ENV, "/tmp/dev-profile");
-        }
-        let Ok(out) = cmd.output() else {
-            eprintln!("no python3 here, so config_path() isn't compared with config.py");
-            return;
-        };
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-        let python = String::from_utf8_lossy(&out.stdout).trim().to_string();
-        assert_eq!(want.config_path().to_string_lossy().replace('\\', "/"), python, "windows {windows}, env {env_set}, dev {dev}");
-        asked += 1;
+        assert_eq!(want.config_path().to_string_lossy().replace('\\', "/"), expected, "windows {windows}, env {env_set}, dev {dev}");
     }
-    assert_eq!(asked, cases.len());
 }

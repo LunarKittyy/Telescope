@@ -5,14 +5,12 @@ Prints a table and writes JSON that --compare can diff. README.md beside this fi
   stress.py --clip CLIP.h264 [--quick] [--out result.json] [--compare old.json]
   stress.py --clip CLIP.h264 --cells plain/idle,crt/gpu,none/all
   stress.py --real-phone --profile FOLDER_WITH_A_PAIRED_PHONE
-  stress.py --clip CLIP.h264 --python --cells plain/idle,crt/idle
 
 The app and the loads run on a private bus in a nested virtual KWin, confined to --cpus threads. The fake phone, the
 camera reader and this script stay on the other cores, so they measure the load without suffering it.
 """
 
 import argparse
-import getpass
 import json
 import math
 import os
@@ -339,8 +337,6 @@ class Cell:
             self.phone = start([sys.executable, "-I", str(RUST / "tools" / "fake_phone.py"), str(args.clip), "--fps", "30"], self.spare,
                                env=dict(os.environ, TMPDIR=str(self.folder)), stdout=subprocess.PIPE)
             entry = json.loads(self.phone.stdout.readline())
-        if args.python:
-            return self.start_python(entry)
         profile = self.folder / "profile"
         profile.mkdir()
         (profile / "telescope_config.json").write_text(json.dumps(self.profile(entry), indent=2))
@@ -364,31 +360,6 @@ class Cell:
         self.app = start([str(args.app), "--autostart", "--device", args.device, "--width", "1920", "--height", "1080", "--fps", "30"],
                          self.mid_tier, env=env, stdout=log, stderr=log)
         return self.wait_for_lines("delivery.log", args.boot_timeout)
-
-    def start_python(self, entry) -> bool:
-        """The Python desktop through dev_desktop.py --keep, with the kept profile under this cell's own TMPDIR. It has no delivery log and no autostart."""
-        temp = self.folder / "tmp"
-        profile = temp / f"telescope-dev-profile-{getpass.getuser()}"
-        profile.mkdir(parents=True)
-        config = self.profile(entry)
-        config["plugin_configs"]["setup"]["hw_decode"] = False
-        (profile / "telescope_config.json").write_text(json.dumps(config, indent=2))
-        env = dict(os.environ, WAYLAND_DISPLAY=self.session.socket, DBUS_SESSION_BUS_ADDRESS=self.session.bus, QT_QPA_PLATFORM="wayland", TMPDIR=str(temp),
-                   XDG_CONFIG_HOME=str(profile), PYTHONDONTWRITEBYTECODE="1")
-        env.pop("DISPLAY", None)
-        log = (self.folder / "app.log").open("w")
-        desktop = REPO / "desktop"
-        self.app = start([sys.executable, str(desktop / "scripts" / "dev_desktop.py"), "--keep"], self.mid_tier, env=env, stdout=log, stderr=log, cwd=desktop)
-        action = dict(env, TELESCOPE_DEV_PROFILE=str(profile))
-        deadline = time.monotonic() + self.args.boot_timeout
-        while time.monotonic() < deadline:
-            done = subprocess.run([sys.executable, str(desktop / "main.py"), "--action", "streaming.start_stop"], env=action, capture_output=True, text=True, cwd=desktop)
-            if done.returncode == 0:
-                break
-            time.sleep(1)
-        # The camera only offers its size once the app has started writing
-        time.sleep(6)
-        return self.app.poll() is None
 
     def start_obs(self):
         a = self.args
@@ -754,7 +725,6 @@ def parse() -> argparse.Namespace:
     p.add_argument("--app", type=Path, default=Path(TARGET_DIR or RUST / "target") / "release" / "telescope-rs")
     p.add_argument("--loads", type=Path, default=Path(TARGET_DIR or HERE / "loads" / "target") / "release" / "stress-loads")
     p.add_argument("--vision-pack", type=Path, default=os.environ.get("TELESCOPE_VISION_PACK"), help="needed for a real person mask in blur and desk")
-    p.add_argument("--python", action="store_true", help="measure the Python desktop instead")
     p.add_argument("--real-phone", action="store_true", help="stream from the phone paired in --profile instead of the clip")
     p.add_argument("--profile", type=Path, help="with --real-phone: a folder with a telescope_config.json that has the phone paired")
     p.add_argument("--gpu-width", type=int, default=2560)
@@ -784,7 +754,7 @@ def main():
     mid_tier, spare = cpu_set(args.cpus) if args.cpus else (sorted(os.sched_getaffinity(0)),) * 2
     args.cpu_threads = args.cpu_threads or len(mid_tier)
     cells = matrix(args)
-    meta = {"commit": git_commit(), "desktop": "python" if args.python else "rust", "date": time.strftime("%Y-%m-%d %H:%M"), "clip": str(args.clip), "real_phone": args.real_phone, "device": args.device,
+    meta = {"commit": git_commit(), "desktop": "rust", "date": time.strftime("%Y-%m-%d %H:%M"), "clip": str(args.clip), "real_phone": args.real_phone, "device": args.device,
             "budget_cpus": mid_tier, "seconds": args.seconds, "settle": args.settle, "hw_decode": args.hw_decode,
             "levels": {"gpu": f"{args.gpu_width}x{args.gpu_height} Rgba16Float, {args.gpu_steps} reads per pixel, {args.gpu_vram} MB of textures, two frames in flight",
                        "cpu": f"{args.cpu_threads} threads of hashing, pointer chasing, float maths and sorting at {args.cpu_duty}% duty",

@@ -1,4 +1,4 @@
-//! desktop/tests/test_diagnostics.py, test by test.
+//! test_diagnostics.py, test by test.
 
 use super::*;
 use crate::testing::scratch_dir;
@@ -285,67 +285,56 @@ fn the_os_name_comes_from_os_release() {
 }
 
 #[test]
-fn the_log_folder_matches_diagnostics_py_on_linux_and_windows() {
-    let script = "import sys, tempfile\n\
-        sys.path.insert(0, sys.argv[1])\n\
-        from telescope import diagnostics\n\
-        tempfile.tempdir = '/the/temp'\n\
-        sys.platform = sys.argv[2]\n\
-        print(str(diagnostics.log_dir()).replace(chr(92), '/'))\n";
-    let desktop = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../desktop");
-    for (windows, dev) in [(false, false), (true, false), (false, true)] {
-        let mut cmd = std::process::Command::new("python3");
-        cmd.args(["-I", "-c", script]).arg(&desktop).arg(if windows { "win32" } else { "linux" });
-        cmd.env_remove(crate::config::DEV_PROFILE_ENV).env("LOGNAME", "luna");
-        if dev {
-            cmd.env(crate::config::DEV_PROFILE_ENV, "/work/profile");
-        }
-        let Ok(out) = cmd.output() else {
-            eprintln!("no python3 here, so log_dir() isn't compared with diagnostics.py");
-            return;
-        };
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-        let python = String::from_utf8_lossy(&out.stdout).trim().to_string();
+fn the_log_folder_is_where_the_python_app_kept_it_on_linux_and_windows() {
+    // What the Python app's log_dir() gave, with the temp folder at /the/temp and the user luna
+    let cases = [(false, false, "/the/temp/telescope-luna"), (true, false, "/the/temp/Telescope"), (false, true, "/work/profile/logs")];
+    for (windows, dev, expected) in cases {
         let ours = log_dir_for(dev.then(|| "/work/profile".into()), Path::new("/the/temp"), windows, "luna");
-        assert_eq!(ours.to_string_lossy().replace('\\', "/"), python, "windows {windows}, dev {dev}");
+        assert_eq!(ours.to_string_lossy().replace('\\', "/"), expected, "windows {windows}, dev {dev}");
     }
 }
 
 #[test]
-fn sanitize_gives_what_diagnostics_py_gives() {
-    use std::io::Write as _;
-    let samples = [
-        "GET http://192.168.1.20:8765/v1/state failed", "see HTTPS://Example.com/a?b=c, then", "ftp+x://host/path next",
-        "phone at 10.0.0.5:8766 didn't answer", "1.2.3 and 1.2.3.4.5 and 999.999.999.999", "v1.2.3.4x", "a.b.c.d",
-        "reached fe80::1c2:3aff:fe44:5566 over wifi", "1:2:3:4:5:6:7:8 here", "1:2:3:4:5:6:7:8:9 here", "12:30:45 time", "a :: b",
-        "std::vec::Vec and Foo::bar", "x::1 and ::1 and 1::", "fe80::1zz", "abc:def: ok", "AB:CD::EF!",
-        "Authorization: Bearer abc123def456", "token=Zx9_kq2-LmN8pQrS7tUvWxYz0aBcDeF", "pairing payload had nonce: 55aa55aa",
-        "SECRET \"quoted\", rest", "bearer\t\tx", "token: 'a b'", "key QWERTYUIOPASDFGHJKLZXCVBNM1234== end",
-        "short ABCDEFGHIJKLMNOPQRSTUV end", "path /usr/local/share/telescope/very/long/path/name/here", "Café 192.168.0.1 ünï",
-        "x\u{2026}y 10.1.1.1/24", "/home/someone/.config and /home/someone2", "",
+fn sanitize_gives_what_the_python_app_gave() {
+    // What diagnostics.sanitize() made of each, with the home folder at /home/someone
+    let samples: [(&str, &str); 30] = [
+        ("GET http://192.168.1.20:8765/v1/state failed", "GET <url> failed"),
+        ("see HTTPS://Example.com/a?b=c, then", "see <url> then"),
+        ("ftp+x://host/path next", "<url> next"),
+        ("phone at 10.0.0.5:8766 didn't answer", "phone at <ip> didn't answer"),
+        ("1.2.3 and 1.2.3.4.5 and 999.999.999.999", "1.2.3 and <ip>.5 and <ip>"),
+        ("v1.2.3.4x", "v1.2.3.4x"),
+        ("a.b.c.d", "a.b.c.d"),
+        ("reached fe80::1c2:3aff:fe44:5566 over wifi", "reached <ip> over wifi"),
+        ("1:2:3:4:5:6:7:8 here", "<ip> here"),
+        ("1:2:3:4:5:6:7:8:9 here", "1:2:3:4:5:6:7:8:9 here"),
+        ("12:30:45 time", "12:30:45 time"),
+        ("a :: b", "a <ip> b"),
+        ("std::vec::Vec and Foo::bar", "std::vec::Vec and Foo::bar"),
+        ("x::1 and ::1 and 1::", "x::1 and <ip> and <ip>"),
+        ("fe80::1zz", "fe80::1zz"),
+        ("abc:def: ok", "abc:def: ok"),
+        ("AB:CD::EF!", "<ip>!"),
+        ("Authorization: Bearer abc123def456", "Authorization: Bearer <redacted>"),
+        ("token=Zx9_kq2-LmN8pQrS7tUvWxYz0aBcDeF", "token=<redacted>"),
+        ("pairing payload had nonce: 55aa55aa", "pairing payload had nonce: <redacted>"),
+        ("SECRET \"quoted\", rest", "SECRET \"<redacted>\", rest"),
+        ("bearer\t\tx", "bearer\t\tx"),
+        ("token: 'a b'", "token: '<redacted> b'"),
+        ("key QWERTYUIOPASDFGHJKLZXCVBNM1234== end", "key <redacted> end"),
+        ("short ABCDEFGHIJKLMNOPQRSTUV end", "short ABCDEFGHIJKLMNOPQRSTUV end"),
+        ("path /usr/local/share/telescope/very/long/path/name/here", "path /<redacted>"),
+        ("Caf\u{e9} 192.168.0.1 \u{fc}n\u{ef}", "Caf\u{e9} <ip> \u{fc}n\u{ef}"),
+        ("x\u{2026}y 10.1.1.1/24", "x\u{2026}y <ip>/24"),
+        ("/home/someone/.config and /home/someone2", "~/.config and ~2"),
+        ("", ""),
     ];
-    let desktop = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../desktop");
-    // Set here because Windows' Python turns a home folder from the environment into \home\someone
-    let script = "import json, sys\nsys.path.insert(0, sys.argv[1])\nfrom telescope import diagnostics\n\
-        diagnostics.Path.home = lambda: '/home/someone'\n\
-        print(json.dumps([diagnostics.sanitize(t) for t in json.load(sys.stdin)]))\n";
-    let mut cmd = std::process::Command::new("python3");
-    cmd.args(["-I", "-X", "utf8", "-c", script]).arg(&desktop).env("HOME", "/home/someone");
-    cmd.stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::piped());
-    let Ok(mut child) = cmd.spawn() else {
-        eprintln!("no python3 here, so sanitize() isn't compared with diagnostics.py");
-        return;
-    };
-    child.stdin.take().unwrap().write_all(serde_json::to_string(&samples).unwrap().as_bytes()).unwrap();
-    let out = child.wait_with_output().unwrap();
-    assert!(out.status.success());
-    let python: Vec<String> = serde_json::from_slice(&out.stdout).unwrap();
-    for (text, want) in samples.iter().zip(python) {
+    for (text, want) in samples {
         assert_eq!(sanitize_at(text, Some(Path::new("/home/someone"))), want, "{text:?}");
     }
 }
 
-/// What Python's sanitize() did with text around zero-width, combining and other odd characters (parity/record_sanitize.py).
+/// What Python's sanitize() did with text around zero-width, combining and other odd characters (recorded from the Python app).
 fn recorded() -> serde_json::Value {
     serde_json::from_str(include_str!("../fixtures/sanitize.json")).unwrap()
 }

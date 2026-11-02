@@ -9,8 +9,8 @@
 //!   telescope-rs control JSON             send one /v1/control body to a streaming phone and show the state it changed
 //!   telescope-rs snapshot OUT             save the window as a PPM once it has drawn, for comparing with the Qt one
 //!   telescope-rs config-snapshot FOLDER   what this app makes of a config fixture, in the shape of its expected.json
-//!   telescope-rs scenes OUT [ids]         parity/render_scenes.py's scenes, drawn offscreen for compare_scenes.py
-//!   telescope-rs camera-wait-screen OUT   the Windows 11 camera's built-in wait screen (scripts/write_camera_wait_screen.py)
+//!   telescope-rs scenes OUT [ids]         every card, dialog and Settings page, drawn offscreen
+//!   telescope-rs camera-wait-screen OUT   the Windows 11 camera's built-in wait screen (build_windows.ps1 builds it into the DLL)
 //!   telescope-rs build-info               version, build, channel and commit as JSON, for the package checks
 //!   telescope-rs dev [--keep] [--reset] [--plugin FOLDER ...]   the dev desktop, in a profile of its own (dev.rs)
 //!
@@ -409,7 +409,7 @@ fn own_the_lock(take: impl FnOnce() -> Option<()>, clean_up: impl FnOnce()) -> O
     Some(())
 }
 
-/// dev_desktop.py --plugin: calls changed when one of the plugin's files is saved, so the change shows right away (_watch_dev_plugins).
+/// dev --plugin: calls changed when one of the plugin's files is saved, so the change shows right away (_watch_dev_plugins).
 fn watch_dev_plugins(folders: Vec<PathBuf>, every: std::time::Duration, changed: impl FnOnce() + Send + 'static) {
     use telescope_core::dev_profile::files_stamp;
     if folders.is_empty() {

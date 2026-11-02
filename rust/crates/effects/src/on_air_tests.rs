@@ -461,16 +461,6 @@ fn serves_the_sign_and_its_script_and_nothing_else() {
 }
 
 #[test]
-fn the_page_and_script_are_the_python_apps() {
-    // Until desktop/ goes, a change there has to come here too
-    let web = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../desktop/telescope/web");
-    if web.exists() {
-        assert_eq!(std::fs::read(web.join("on-air.html")).unwrap(), PAGE);
-        assert_eq!(std::fs::read(web.join("on-air.js")).unwrap(), SCRIPT);
-    }
-}
-
-#[test]
 fn the_state_needs_the_token() {
     let (sign, stats) = sign();
     sign.publish(json!({"on": true, "text": "On air"}));

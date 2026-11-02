@@ -17,7 +17,7 @@ use std::path::{Component, Path, PathBuf};
 pub const MAX_FILES: usize = 500;
 /// A plugin folder, or what a .zip unpacks to.
 pub const MAX_BYTES: u64 = 20 * 1024 * 1024;
-/// TELESCOPE_DEV_PLUGINS: folders `dev_desktop --plugin` loads straight from where they're written, only in a dev profile.
+/// TELESCOPE_DEV_PLUGINS: folders `telescope-rs dev --plugin` loads straight from where they're written, only in a dev profile.
 pub const DEV_PLUGINS_ENV: &str = "TELESCOPE_DEV_PLUGINS";
 
 const SHARED: &str = "Other users on this computer could change it, so it isn't loaded.";

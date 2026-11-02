@@ -1,4 +1,4 @@
-//! core::view against what telescope/view.py works out on the same numbers (fixtures/make_view_fixtures.py): how the zoom is shared
+//! core::view against what telescope/view.py works out on the same numbers (recorded from the Python app): how the zoom is shared
 //! between the phone and this computer, the points mapped between the picture as shown and the phone's frame, the lens boxes.
 
 use serde_json::Value;

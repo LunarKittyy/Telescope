@@ -1,4 +1,4 @@
-//! core::motion against what telescope/motion.py does on the same pictures (fixtures/make_motion_fixtures.py), and test_motion.py's checks.
+//! core::motion against what telescope/motion.py does on the same pictures (recorded from the Python app), and test_motion.py's checks.
 
 use serde_json::Value;
 use std::sync::{Arc, Mutex};

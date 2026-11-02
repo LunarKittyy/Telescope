@@ -1,4 +1,4 @@
-// The camera's wait screen: scripts/write_camera_wait_screen.py renders it with vcam.py and it's built into the DLL.
+// The camera's wait screen: `telescope-rs camera-wait-screen` renders it and it's built into the DLL.
 #pragma once
 #include <stddef.h>
 #include <stdint.h>

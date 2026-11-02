@@ -1,4 +1,4 @@
-//! Everything on the event bus: one variant per EventBus signal in desktop/telescope/plugin.py, same name, same meaning.
+//! Everything on the event bus: one variant per EventBus signal of the Python app's plugin.py, same name, same meaning.
 
 use crate::host::{Pick, RequestId, View};
 use serde::{Deserialize, Serialize};
@@ -215,17 +215,24 @@ mod tests {
         assert_eq!(Event::StreamStopped.name(), "stream_stopped");
     }
 
+    // The EventBus signals of the Python app's plugin.py; each has an Event of the same name
+    const PYTHON_SIGNALS: [&str; 58] = [
+        "stream_started", "stream_stopped", "stream_start_failed", "stream_transport_changed", "stream_connected", "stream_lost",
+        "phone_state_updated", "device_changed", "phones_changed", "add_phone_requested", "setup_guide_requested", "setup_needed",
+        "camera_switched", "resolution_change_requested", "focus_point_picked", "focus_point", "focus_point_available", "meter_point_picked",
+        "meter_point", "meter_point_available", "focus_mode_picked", "focus_mode_changed", "phone_ready", "view_dragged", "view_scrolled",
+        "view_pannable", "lens_boxes", "view_changed", "view_taken", "people_seen", "people_tracked", "motion_seen", "vision_state_changed",
+        "sensors_changed", "view_status", "max_zoom_changed", "max_gain_changed", "limiter_changed", "update_requested", "vcam_opened",
+        "camera_opened", "camera_watched", "cover_requested", "stream_covered", "window_shown", "phone_wanted", "camera_on_changed",
+        "mic_changed", "stream_sources_changed", "source_selected", "idle_outputs", "streams_changed", "remembered_sources",
+        "forget_source_requested", "preview_pick_changed", "still_busy_changed", "still_saved", "stream_behind",
+    ];
+
     #[test]
     fn every_python_signal_has_an_event() {
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../desktop/telescope/plugin.py");
-        let source = std::fs::read_to_string(path).expect("desktop/telescope/plugin.py");
-        let signals: Vec<&str> = source.lines()
-            .filter(|l| l.contains("= pyqtSignal("))
-            .filter_map(|l| l.split('=').next().map(str::trim))
-            .collect();
-        assert!(signals.len() > 50);
-        for signal in signals {
-            assert!(Event::NAMES.contains(&signal), "plugin.py's {signal} has no Event");
+        assert!(PYTHON_SIGNALS.len() > 50);
+        for signal in PYTHON_SIGNALS {
+            assert!(Event::NAMES.contains(&signal), "the Python app's {signal} has no Event");
         }
     }
 

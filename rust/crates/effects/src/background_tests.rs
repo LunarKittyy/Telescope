@@ -1,4 +1,4 @@
-//! test_background.py, by name, and the pictures Python recorded (tests/fixtures/make_vision_cards_fixtures.py).
+//! test_background.py, by name, and the pictures Python recorded (recorded from the Python app).
 
 use super::*;
 use crate::imgops::blur_f32;

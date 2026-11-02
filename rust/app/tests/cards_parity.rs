@@ -1,5 +1,5 @@
 //! Notes, Name tag and Desk mode against what the Python app does. crates/effects/tests/fixtures holds what Python made
-//! (make_cards_fixtures.py): what each plugin saves after loading odd settings, the layout and rendered tile of a set of name
+//! (recorded from the Python app): what each plugin saves after loading odd settings, the layout and rendered tile of a set of name
 //! tags, and the desk picture put through each desk setting.
 
 use serde_json::Value;

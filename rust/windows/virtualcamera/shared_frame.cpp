@@ -15,7 +15,7 @@ constexpr BYTE kIdleY = 31, kIdleU = 130, kIdleV = 126;
 // Full access for the system, Frame Server's account and admins; read and write for people signed in at the computer
 constexpr wchar_t kSecurity[] = L"D:P(A;;GA;;;SY)(A;;GA;;;LS)(A;;GA;;;BA)(A;;GRGW;;;IU)S:(ML;;NW;;;ME)";
 
-// The wait screen built in by write_camera_wait_screen.py, laid out for width x height; empty if it isn't there
+// The wait screen built in from `telescope-rs camera-wait-screen`, laid out for width x height; empty if it isn't there
 std::vector<BYTE> WaitScreen(UINT32 width, UINT32 height) {
     std::vector<BYTE> nv12;
     HRSRC found = FindResourceW(g_module, MAKEINTRESOURCEW(kWaitScreenResource), RT_RCDATA);

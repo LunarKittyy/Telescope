@@ -225,7 +225,7 @@ fn under_dev_desktop_a_restart_is_left_to_it() {
         std::env::remove_var(telescope_core::dev_profile::SUPERVISED_ENV);
         std::env::remove_var(telescope_core::dev_profile::ENV);
     }
-    assert_eq!((idle, streaming), (75, 76), "and dev_desktop.py has the next one start streaming");
+    assert_eq!((idle, streaming), (75, 76), "and the dev launcher has the next one start streaming");
 }
 
 #[test]

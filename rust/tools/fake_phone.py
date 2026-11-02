@@ -2,7 +2,7 @@
 """A stand-in phone for measuring desktops: the session and stream ports of docs/protocol.md over TLS, serving a
 pre-encoded Annex-B clip at its frame rate as /v1/video.h264. It's already paired: it accepts one token and prints
 the phone entry (id, token, certificate pin) to put in a desktop's config. With --record it writes every request a
-desktop sends, one JSON line each (rust/parity/phone_session.py drives a desktop against it).
+desktop sends, one JSON line each.
 
 For scripted sessions it can also pair from a desktop's QR offer (pair()), switch between its two lenses, drop off
 the network for a while (drop()) and be plugged in over USB (plug()), which fake_adb.py answers for.
@@ -103,7 +103,7 @@ ULTRA_WIDE = {"id": "3", "label": "Back ~13mm [phys]", "focalMm": 13, "current":
 
 
 def pairing_proof(token: str, nonce: str, phone_id: str, cert_sha256: str) -> str:
-    """What the phone's pairingProof() sends (desktop/telescope/pairing.py checks it)."""
+    """What the phone's pairingProof() sends (rust/crates/link/src/pairing.rs checks it)."""
     message = f"telescope-pair-v4\n{nonce}\n{phone_id}\n{cert_sha256}".encode()
     return hmac.new(token.encode(), message, hashlib.sha256).hexdigest()
 

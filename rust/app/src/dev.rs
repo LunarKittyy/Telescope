@@ -1,4 +1,4 @@
-//! `telescope-rs dev [--keep] [--reset] [--plugin FOLDER ...]`: this checkout as a dev desktop next to the real one (dev_desktop.py).
+//! `telescope-rs dev [--keep] [--reset] [--plugin FOLDER ...]`: this checkout as a dev desktop next to the real one.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
