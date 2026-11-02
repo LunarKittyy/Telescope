@@ -255,6 +255,8 @@ fn read_loop(s: &Arc<Shared>) {
         let mut ended = false;
         for w in wakes {
             match w {
+                // The route moved on since this one connected (a newer hand-over, say): it lets go
+                Wake::Ready(_, _, url) if s.route.lock().unwrap_or_else(|e| e.into_inner()).url != url => {}
                 Wake::Ready(feed, first, url) => {
                     next_id += 1;
                     s.current.store(next_id, Ordering::SeqCst);
@@ -569,6 +571,23 @@ pub(crate) mod tests {
         assert!(until(|| contains(&sink.data.lock().unwrap(), 200, 8), 3.0));
         w.stop();
         assert!(until(|| usb_closed.load(Ordering::SeqCst), 3.0));
+    }
+
+    #[test]
+    fn a_hand_over_overtaken_by_a_newer_route_is_dropped() {
+        let (wifi_closed, stale_closed) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicBool::new(false)));
+        let sink = Sink::default();
+        let (mut w, _) = worker("https://wifi/v1/audio", endless(100, &wifi_closed), sink_opener(&sink));
+        w.start();
+        assert!(until(|| contains(&sink.data.lock().unwrap(), 100, 8), 3.0));
+        // The route moved on to usb, whose connection never comes up, while an older hand-over was already on its way
+        w.hand_over("https://usb/v1/audio", Arc::new(|| Err("refused".into())));
+        let first = AudioPacket { data: bytes(&chunk(300)), time_ns: 0 };
+        w.shared.wake(Wake::Ready(Box::new(Endless(300, stale_closed.clone())), first, "https://old/v1/audio".into()));
+        assert!(until(|| stale_closed.load(Ordering::SeqCst), 3.0));
+        assert!(!wifi_closed.load(Ordering::SeqCst)); // the connection in use stayed
+        assert!(!contains(&sink.data.lock().unwrap(), 300, 8));
+        w.stop();
     }
 
     #[test]
