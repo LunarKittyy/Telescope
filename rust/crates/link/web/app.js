@@ -451,7 +451,8 @@ async function applyLimits() {
     enc.maxBitrate = config.max_kbps * 1000;
     enc.maxFramerate = config.fps;
     enc.scaleResolutionDownBy = long > 0 ? Math.max(1, long / Math.max(config.width, config.height)) : 1;
-    params.degradationPreference = "maintain-resolution";  // Firefox steps a camera's size down by itself otherwise and doesn't climb back
+    // Firefox has no contentHint and steps a camera's size down by itself. Chrome goes by the hint
+    if (typeof MediaStreamTrack === "undefined" || !("contentHint" in MediaStreamTrack.prototype)) params.degradationPreference = "maintain-resolution";
     await sender.setParameters(params);
     console.log("Encoder limits set:", JSON.stringify(sender.getParameters()));
   } catch (err) {
