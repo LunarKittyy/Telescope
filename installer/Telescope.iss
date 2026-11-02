@@ -80,6 +80,14 @@ Name: "{autodesktop}\Telescope"; Filename: "{app}\{#AppExe}"; AppUserModelID: "L
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "Open Telescope"; Flags: nowait postinstall skipifsilent
 
+#ifdef Rust
+[InstallDelete]
+; A started trial journal and the old exe left by a migration that crashed would have the next start restore the version before it over this install
+Type: files; Name: "{app}\.update.json"
+Type: files; Name: "{app}\.update.json.tmp"
+Type: files; Name: "{app}\TelescopeDesktop.old.exe"
+#endif
+
 ; What the app adds after setup, which the uninstall log can't know about: libraries from in-app updates, the updater's
 ; working files (rust/crates/system/src/update_guard.rs) and the log shortcut (rust/crates/core/src/diagnostics.rs).
 [UninstallDelete]
