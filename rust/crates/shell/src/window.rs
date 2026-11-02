@@ -1287,8 +1287,8 @@ impl Window {
         self.show_idle_button();
         self.set("status", tr("Not streaming"));
         self.set("status-kind", "status_dim");
-        self.set("fps", "—");
-        self.set("net", "—");
+        self.set("fps", "-");
+        self.set("net", "-");
     }
 
     /// _set_start_button(streaming=False).

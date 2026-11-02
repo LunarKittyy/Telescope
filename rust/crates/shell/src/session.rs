@@ -86,8 +86,8 @@ impl SourceState {
     /// What the footer shows for this stream while the panels show another, back to before it started.
     pub fn forget_stream_status(&mut self) {
         self.status = (tr("Not streaming"), "dim".into());
-        self.fps_text = "—".into();
-        self.net_text = "—".into();
+        self.fps_text = "-".into();
+        self.net_text = "-".into();
         self.connected = false;
     }
 

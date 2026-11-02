@@ -94,8 +94,8 @@ fn monitoring_stream_lifecycle() {
     r.plugin.on_stream_stop(&mut r.host);
     assert!(!r.plugin.polling && r.host.scheduled.is_empty());
     assert!(r.plugin.shown.is_none());
-    assert_eq!(r.plugin.battery.value, "—");
-    assert_eq!(r.plugin.temp.value, "—");
+    assert_eq!(r.plugin.battery.value, "-");
+    assert_eq!(r.plugin.temp.value, "-");
 }
 
 #[test]
@@ -203,14 +203,14 @@ fn monitoring_warns_afresh_about_a_stream_that_ended() {
 fn monitoring_skips_a_reading_it_cant_read() {
     let mut r = Rig::new();
     r.event(Event::PhoneStateUpdated { state: json!({"battery": "full", "battery_temp_c": null}) });
-    assert_eq!(r.plugin.battery.value, "—");
+    assert_eq!(r.plugin.battery.value, "-");
 }
 
 #[test]
 fn monitoring_ignores_state_without_battery() {
     let mut r = Rig::new();
     r.event(Event::PhoneStateUpdated { state: json!({"battery_temp_c": 99}) });
-    assert_eq!(r.plugin.battery.value, "—");
+    assert_eq!(r.plugin.battery.value, "-");
 }
 
 #[test]
@@ -289,7 +289,7 @@ fn monitoring_fetch_emits_only_valid_battery_state() {
     let mut r = Rig::new();
     r.event(Event::PhoneStateUpdated { state: json!({"cameras": []}) });
     r.event(Event::PhoneStateUpdated { state: json!(null) });
-    assert_eq!(r.plugin.battery.value, "—");
+    assert_eq!(r.plugin.battery.value, "-");
     r.event(Event::PhoneStateUpdated { state: json!({"battery": 80}) });
     assert_eq!(r.plugin.battery.value, "80%");
     assert_eq!(reading(&json!({"battery": 80})), Some((80, true, 0.0)));
@@ -302,7 +302,7 @@ fn monitoring_drops_a_reading_from_a_stream_that_ended() {
     let mut r = Rig::new();
     r.start("url");
     r.other("phone-old", json!({"battery": 3, "charging": false}));
-    assert!(r.plugin.battery.value == "—" && r.host.notifications.is_empty());
+    assert!(r.plugin.battery.value == "-" && r.host.notifications.is_empty());
     r.event(Event::PhoneStateUpdated { state: json!({"battery": 60, "charging": false}) });
     assert_eq!(r.plugin.battery.value, "60%");
 }

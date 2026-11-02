@@ -768,9 +768,9 @@ impl Window {
             }
             "idle" => {
                 self.clear_pending_resolution(source);
-                self.set("fps", "—");
+                self.set("fps", "-");
                 self.set("net-tone", "");
-                self.set("net", "—");
+                self.set("net", "-");
                 self.set_status(msg, "dim");
                 if source.has_session() {
                     // Stop takes the worker out first, so this is a worker that ended by itself: tidy up like a Stop.
@@ -1559,17 +1559,17 @@ impl FlowHost for Host<'_> {
         self.w.set_status(&msg, &kind);
     }
     fn show_stopped(&mut self) {
-        self.w.set("fps", "—");
+        self.w.set("fps", "-");
         self.w.set("fps-tip", "");
         self.w.set("net-tone", "");
-        self.w.set("net", "—");
+        self.w.set("net", "-");
         self.w.set_status(&tr("Not streaming"), "dim");
     }
     fn show_camera_off(&mut self) {
-        self.w.set("fps", "—");
+        self.w.set("fps", "-");
         self.w.set("fps-tip", "");
         self.w.set("net-tone", "");
-        self.w.set("net", "—");
+        self.w.set("net", "-");
     }
     fn refresh_tiles(&mut self) {}
     fn clear_pending_resolution(&mut self, source: &SourceRef) {

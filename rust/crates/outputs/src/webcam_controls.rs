@@ -108,7 +108,7 @@ pub fn apply_order(names: &[String]) -> Vec<String> {
 /// An exposure time the way cameras show it: 1/60, or 0.5 s for long ones.
 pub fn shutter_text(seconds: f64) -> String {
     if seconds <= 0.0 {
-        return "–".into();
+        return "-".into();
     }
     if seconds >= 0.4 {
         return format!("{seconds:.1} s").replace(".0 s", " s");

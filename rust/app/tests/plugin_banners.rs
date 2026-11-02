@@ -96,7 +96,7 @@ fn monitoring_drops_a_reading_from_a_stream_that_ended() {
     // Read before the restart, landed after
     r.w.phone_report(Report::State { source_id: "pixel".into(), session_id: old, state: reads(3, false, 25.0) });
     r.pump();
-    assert_eq!(battery(&r), "—");
+    assert_eq!(battery(&r), "-");
     assert_eq!(notes(&r), 0);
     r.phone_says("pixel", reads(60, false, 25.0));
     r.pump();

@@ -611,7 +611,7 @@ fn worker_fps_and_idle_status() {
     assert_eq!(r.text("fps"), "29.9");
     r.worker(0).says("idle", "Not streaming"); // the worker ended by itself: tidied up like a Stop
     r.pump();
-    assert_eq!(r.text("fps"), "—");
+    assert_eq!(r.text("fps"), "-");
     assert!(r.source("pixel").session().is_none());
     assert_eq!(r.text("start-text"), "Start streaming");
     assert_eq!(r.times_heard("panel stream_stopped"), 1);

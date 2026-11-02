@@ -85,7 +85,7 @@ pub struct Pill {
 
 impl Pill {
     fn empty(icon: &str) -> Pill {
-        Pill { value: "—".into(), note: String::new(), kind: "status_dim".into(), icon: icon.into() }
+        Pill { value: "-".into(), note: String::new(), kind: "status_dim".into(), icon: icon.into() }
     }
 }
 

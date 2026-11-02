@@ -847,7 +847,7 @@ pub fn not_using_usb(res: &Resolution) -> Option<String> {
 
 pub fn route_text(route: Option<&RouteSpec>) -> String {
     match route {
-        None => "—".into(),
+        None => "-".into(),
         Some(RouteSpec::Usb { .. }) => tr("USB cable"),
         Some(RouteSpec::Network { address }) => format!("Wi-Fi · {address}"),
     }
@@ -1159,7 +1159,7 @@ mod tests {
     fn route_text_names_the_live_route() {
         assert_eq!(route_text(Some(&usb())), "USB cable");
         assert_eq!(route_text(Some(&wifi())), "Wi-Fi · 10.0.0.5");
-        assert_eq!(route_text(None), "—");
+        assert_eq!(route_text(None), "-");
     }
 
     #[test]

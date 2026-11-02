@@ -123,7 +123,7 @@ impl Sizes {
         self.res.get(self.res_current).copied()
     }
     fn current_text(&self) -> String {
-        self.current().map_or("—".into(), |(w, h)| size_label(w, h))
+        self.current().map_or("-".into(), |(w, h)| size_label(w, h))
     }
     fn find_by_label(&self, label: &str) -> Option<(u32, u32)> {
         self.by_ratio.values().flatten().copied().find(|(w, h)| size_label(*w, *h) == label)
@@ -305,7 +305,7 @@ impl StreamOutputPlugin {
 
     pub fn props(&self) -> Value {
         let (res_items, ar_items) = if self.sizes.ratios.is_empty() {
-            (vec!["—".to_string()], vec!["—".to_string()])
+            (vec!["-".to_string()], vec!["-".to_string()])
         } else {
             (self.sizes.res.iter().map(|(w, h)| size_label(*w, *h)).collect(),
              self.sizes.ratios.iter().map(|(a, b)| format!("{a}:{b}")).collect())

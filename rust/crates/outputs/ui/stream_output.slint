@@ -49,7 +49,7 @@ export component StreamOutputCard inherits Card {
     // dim_until_paired: faded and disabled until there's a phone, and gone for a source that isn't one
     in property <bool> active: true;
     in property <bool> phone-only-hidden;
-    in property <[string]> res-items: ["—"];
+    in property <[string]> res-items: ["-"];
     in-out property <int> res-current;
     in property <bool> res-enabled;
     in property <[string]> fps-items;
@@ -57,7 +57,7 @@ export component StreamOutputCard inherits Card {
     in property <string> fps-tip;
     // Rates past what the lens can do: greyed out and can't be picked
     in property <[bool]> fps-gone;
-    in property <[string]> ar-items: ["—"];
+    in property <[string]> ar-items: ["-"];
     in-out property <int> ar-current;
     in property <bool> ar-enabled;
     in property <bool> h264: true;

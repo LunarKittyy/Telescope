@@ -279,7 +279,7 @@ fn stopped_after(p: &mut StreamOutputPlugin, host: &mut FakeHost, state: &Value)
 fn stream_output_defaults_and_resolution_placeholder() {
     let p = plugin();
     assert_eq!(p.stream_params(), (None, None, 30));
-    assert_eq!(p.props()["res-items"], json!(["—"]));
+    assert_eq!(p.props()["res-items"], json!(["-"]));
     assert_eq!(p.props()["res-enabled"], false);
 }
 
@@ -455,7 +455,7 @@ fn another_phone_does_not_keep_this_one_s_sizes() {
     let (mut p, mut host) = phone_a();
     stopped_after(&mut p, &mut host, &on_lens(&TWO_SIZES, 4096, 3072));
     p.on_event(&mut host, &Event::DeviceChanged { source_id: "other phone".into() });
-    assert_eq!(p.sizes.current_text(), "—");
+    assert_eq!(p.sizes.current_text(), "-");
     assert_eq!(p.props()["res-enabled"], false);
 }
 

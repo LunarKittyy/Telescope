@@ -1115,7 +1115,7 @@ impl Shared {
                 let net_kind = if weak_streak >= 2 { "net_warn" } else { "net" };
                 // Frames but no bytes means the reader can't tell
                 let counted = bytes_now > bytes0 || recv_now == recv0;
-                self.status(net_kind, &if counted { format!("{mbps:.1} Mbps") } else { "—".into() });
+                self.status(net_kind, &if counted { format!("{mbps:.1} Mbps") } else { "-".into() });
                 (t0, bytes0, recv0) = (Instant::now(), bytes_now, recv_now);
             }
         }

@@ -107,11 +107,11 @@ export component MonitoringCard inherits Card {
     // dim_until_paired: faded and disabled until there's a phone, and gone for a source that isn't one
     in property <bool> active: true;
     in property <bool> phone-only-hidden;
-    in property <string> battery-value: "—";
+    in property <string> battery-value: "-";
     in property <string> battery-note;
     in property <string> battery-kind: "status_dim";
     in property <string> battery-icon: "battery";
-    in property <string> temp-value: "—";
+    in property <string> temp-value: "-";
     in property <string> temp-note;
     in property <string> temp-kind: "status_dim";
     in-out property <string> batt-text: "20%";
