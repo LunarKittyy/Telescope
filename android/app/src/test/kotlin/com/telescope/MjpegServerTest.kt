@@ -600,6 +600,31 @@ class MjpegServerTest {
         }
     }
 
+    @Test
+    fun `a stopped server's audio listener ending doesn't stop the mic`() {
+        val stops = java.util.concurrent.atomic.AtomicInteger()
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") },
+            startAudio = { null }, stopAudio = { stops.incrementAndGet() }, viewerGiveUpMs = 200)
+        server.start()
+        val socket = Socket("127.0.0.1", actualPort(server))
+        try {
+            socket.soTimeout = 2_000
+            socket.getOutputStream().write("GET /v1/audio HTTP/1.1\r\nAuthorization: Bearer t\r\n\r\n"
+                .toByteArray(StandardCharsets.ISO_8859_1))
+            val input = socket.getInputStream()
+            val head = StringBuilder()
+            while (!head.endsWith("\r\n\r\n")) head.append(input.read().toChar())
+            server.stop()
+            // The listener's worker ends once the stop closes it; the mic by then belongs to the next stream
+            assertTrue(try { input.read() < 0 } catch (_: java.io.IOException) { true })
+            Thread.sleep(800)
+            assertEquals(0, stops.get())
+        } finally {
+            socket.close()
+            server.stop()
+        }
+    }
+
     // A feed that counts what's started and hands out a new reading of each kind on every latest()
     private class FakeFeed(private val has: List<String>, private val width: Int = 1) : SensorFeed {
         val running = java.util.concurrent.ConcurrentHashMap<String, Int>()

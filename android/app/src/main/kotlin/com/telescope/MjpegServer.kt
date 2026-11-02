@@ -332,7 +332,8 @@ class MjpegServer(
                         } finally {
                             synchronized(audioLock) {
                                 audioClients.remove(client)
-                                if (audioClients.isEmpty()) stopAudio()
+                                // A stopped server's worker must not stop the mic a newer stream is using
+                                if (audioClients.isEmpty() && running.get()) stopAudio()
                             }
                         }
                     } finally { streamSlots.release() }
