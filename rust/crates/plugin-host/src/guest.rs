@@ -111,7 +111,7 @@ const APP: Option<&str> = Some("app");
 const SETTINGS: Option<&str> = Some("settings");
 
 /// Everything a guest may ask of the host. Frozen in tests/host_api.txt: add, never change or remove (ARCHITECTURE.md's rule for core).
-/// Methods that take an owner (take_view, watch_motion, add_preview_layer...) use the plugin's title, so one plugin can't act as another.
+/// Methods that take an owner (take_view, watch_motion, add_preview_layer...) use the plugin's id (a title can be set to a built-in's), so one plugin can't act as another.
 pub const HOST_API: &[HostMethod] = &[
     // Settings
     later("schedule_save", &[]),
@@ -288,6 +288,9 @@ impl PluginContext {
                 return Err(format!("host.{method} needs \"{p}\" in the \"permissions\" of plugin.json"));
             }
         }
+        if method == "emit" {
+            self.check_emit(&args)?;
+        }
         match host {
             Some(host) => call_host(host, &self.info, method, &args),
             None if spec.deferrable => {
@@ -295,6 +298,30 @@ impl PluginContext {
                 Ok(Value::Null)
             }
             None => Err(format!("host.{method} can't be called here: this hook runs without the host")),
+        }
+    }
+
+    /// Holds an emitted built-in event to the permission of the host operation it triggers; events that name an owner are never a plugin's to send.
+    fn check_emit(&self, args: &Value) -> Result<(), String> {
+        let name = args.get("name").and_then(Value::as_str).unwrap_or("");
+        if !Event::NAMES.contains(&name) || name == "custom" {
+            return Ok(());
+        }
+        let needs = match name {
+            "focus_point" | "meter_point" | "resolution_change_requested" => PHONE,
+            "select_source" => STREAMS,
+            "update_requested" | "add_phone_requested" | "setup_guide_requested" => APP,
+            "forget_source_requested" => SETTINGS,
+            "cover_requested" | "timer_fired" | "posted" | "preview_picked" | "view_taken" => {
+                return Err(format!("host.emit can't send {name}: it speaks for one plugin, and that isn't an added plugin"));
+            }
+            _ => None,
+        };
+        match needs {
+            Some(p) if !self.permissions.iter().any(|have| have == p) => {
+                Err(format!("host.emit(\"{name}\") needs \"{p}\" in the \"permissions\" of plugin.json"))
+            }
+            _ => Ok(()),
         }
     }
 
@@ -334,7 +361,7 @@ pub fn call_host(host: &mut dyn Host, info: &PluginInfo, method: &str, args: &Va
     let s = |k: &str| args.get(k).and_then(Value::as_str).map(str::to_string);
     let src = s("source_id");
     let src = src.as_deref();
-    let owner = info.title.as_str();
+    let owner = info.name.as_str();
     let done = Ok(Value::Null);
     match method {
         "schedule_save" => host.schedule_save(),
@@ -796,6 +823,29 @@ mod tests {
         assert!(call_host(&mut host, &info, "emit", &json!({"name": "other.ping"})).is_err());
         assert_eq!(host.events[0], Event::CoverRequested { owner: "Echo".into(), on: true });
         assert_eq!(host.events[1], Event::Custom { name: "echo.ping".into(), data: json!([1]) });
+    }
+
+    #[test]
+    fn emitting_a_built_in_event_needs_the_permission_of_what_it_triggers() {
+        let mut host = FakeHost::new();
+        let mut none = PluginContext::new(info(), ".", vec![]);
+        let err = none.call(Some(&mut host), "emit", json!({"name": "focus_point", "data": {"x": 0.2, "y": 0.2}})).unwrap_err();
+        assert!(err.contains("\"phone\""), "{err}");
+        assert!(none.call(Some(&mut host), "emit", json!({"name": "timer_fired", "data": {"owner": "x", "token": "t"}})).is_err());
+        assert!(host.events.is_empty());
+        none.call(Some(&mut host), "emit", json!({"name": "echo.ping"})).unwrap();
+        none.call(Some(&mut host), "emit", json!({"name": "stream_stopped"})).unwrap();
+        let mut phone = PluginContext::new(info(), ".", vec!["phone".into()]);
+        phone.call(Some(&mut host), "emit", json!({"name": "focus_point", "data": {"x": 0.2, "y": 0.2}})).unwrap();
+        assert_eq!(host.events.len(), 3);
+    }
+
+    #[test]
+    fn view_ownership_follows_the_id_not_the_title() {
+        let mut host = FakeHost::new();
+        let sly = PluginInfo { name: "sly".into(), title: "Auto framing".into(), ..Default::default() };
+        call_host(&mut host, &sly, "take_view", &json!({})).unwrap();
+        assert_eq!(host.calls, ["take_view sly"]);
     }
 
     #[test]

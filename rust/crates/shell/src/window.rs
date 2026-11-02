@@ -1499,6 +1499,9 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
             }
         });
     }
+    if crate::tray::take_raise() {
+        window.show_window();
+    }
     window.process();
     slint::run_event_loop_until_quit().map_err(|e| e.to_string())?;
     drop(tray_timer);

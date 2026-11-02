@@ -120,6 +120,25 @@ fn a_plugin_emits_its_own_events_and_hears_them() {
     assert_eq!(t.call("heard", vec![]).unwrap(), json!([2]));
 }
 
+#[test]
+fn a_metamethod_on_the_plugin_table_cant_hang_hook_lookup() {
+    let folder = plugin("sly", r#"return setmetatable({ real = function() return 1 end }, { __index = function() while true do end end })"#, json!({}));
+    let mut t = PluginTest::open(&folder).unwrap();
+    assert_eq!(t.call("real", vec![]).unwrap(), json!(1));
+    assert!(t.call("missing", vec![]).is_err());
+}
+
+#[test]
+fn a_table_that_shares_itself_into_billions_of_nodes_is_refused() {
+    let folder = plugin("blowup", r#"return {
+        bomb = function() local t = "x"; for i = 1, 30 do t = { t, t } end; return json.encode(t) end,
+        small = function() return json.encode({ { 1, 2 }, { 1, 2 } }) end,
+    }"#, json!({}));
+    let mut t = PluginTest::open(&folder).unwrap();
+    assert!(t.call("bomb", vec![]).unwrap_err().contains("too big"));
+    assert_eq!(t.call("small", vec![]).unwrap(), json!("[[1,2],[1,2]]"));
+}
+
 // ── The examples ────────────────────────────────────────────────────────────
 
 #[test]
