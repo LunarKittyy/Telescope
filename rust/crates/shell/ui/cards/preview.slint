@@ -273,7 +273,7 @@ export component PreviewCard inherits Rectangle {
                     icon: Icons.video;
                     icon-tint: smooth-on ? Theme.accent-soft : Theme.text-dim;
                     enabled: !popout;
-                    tip: @tr("Show every frame in the preview. Uses a bit more CPU.");
+                    tip: @tr("Shows every frame in the preview but uses a bit more CPU.");
                     clicked => { root.smooth-clicked(); }
                 }
                 Button {

@@ -747,10 +747,10 @@ fn noise_reduction_reaches_the_worker_and_is_saved_per_phone() {
 
 #[test]
 fn without_rnnoise_the_switch_is_greyed_out_with_the_reason_and_the_audio_runs_as_before() {
-    let mut r = Rig::build(backend(), true, "RNNoise is missing from this copy of Telescope. Reinstall to get it back.");
+    let mut r = Rig::build(backend(), true, "RNNoise is missing from this copy of Telescope. Reinstalling brings it back.");
     r.set_config(json!({"enabled": true, "noise_reduction": true}));
     assert!(!r.h.on("nr-enabled") && !r.h.on("nr"));
-    assert_eq!(r.h.text("nr-note"), "RNNoise is missing from this copy of Telescope. Reinstall to get it back.");
+    assert_eq!(r.h.text("nr-note"), "RNNoise is missing from this copy of Telescope. Reinstalling brings it back.");
     r.start("phone");
     let w = r.worker();
     assert!(w.lock().unwrap().started && !w.lock().unwrap().noise_reduction);

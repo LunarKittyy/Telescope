@@ -151,7 +151,7 @@ impl AudioRoutes for WithSources {
             return self.rest.as_ref()?.audio(source_id);
         }
         let (sources, sid) = (self.sources.clone(), source_id.to_string());
-        let open: Opener = Arc::new(move || sources.open(&sid).unwrap_or_else(|| Err(tr("That source has gone."))));
+        let open: Opener = Arc::new(move || sources.open(&sid).unwrap_or_else(|| Err(tr("That source isn't available anymore."))));
         Some((self.sources.key(source_id), open))
     }
 }

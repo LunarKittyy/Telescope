@@ -345,7 +345,7 @@ pub fn self_update_blocker(directory: &Path, channel: &str) -> Option<String> {
     }
     if !writable(directory) {
         return Some(if telescope_core::system::appimage().is_some() {
-            tr("The folder holding this AppImage isn't writable, so it can't update itself.")
+            tr("Telescope can't update itself because the folder holding this AppImage isn't writable.")
         } else {
             tr("Telescope's folder isn't writable, so it can't update itself.")
         });
@@ -508,7 +508,7 @@ fn install_windows_if(archive: &Path, directory: &Path, build: i64, mv: Mover, l
     }
     if !loads(&staging.join(EXE_NAME)) {
         let _ = std::fs::remove_dir_all(&staging);
-        return err("This version can't start on this computer, so it wasn't installed.");
+        return err("This update wasn't installed because it can't start on this computer.");
     }
     // A stale copy left in place would be what a roll-back restores, as on Linux
     let previous = directory.join(PREVIOUS_DIR);
@@ -630,7 +630,7 @@ pub fn install_appimage(new: &Path, current: &Path, extracted: bool, build: i64,
     });
     placed.map_err(|_| refused(failed()))?;
     if !starts(&AppImage { file: staged.clone(), extracted }.command()) {
-        return Err(refused(UpdateError(tr("This version can't start on this computer, so it wasn't installed."))));
+        return Err(refused(UpdateError(tr("This update wasn't installed because it can't start on this computer."))));
     }
     let previous = directory.join(PREVIOUS_DIR);
     if previous.exists() && update_guard::remove(&previous).is_err() {

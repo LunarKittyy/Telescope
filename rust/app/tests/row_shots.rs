@@ -42,7 +42,7 @@ fn shots() {
     let Ok(dir) = std::env::var("SHOTS") else { return };
     let dir = PathBuf::from(dir);
     std::fs::create_dir_all(&dir).unwrap();
-    let missing = "RNNoise is missing from this copy of Telescope. Reinstall to get it back.";
+    let missing = "RNNoise is missing from this copy of Telescope. Reinstalling brings it back.";
     let mic = "active: true; here: true; on: true; nr-enabled: false;";
     shoot(&dir, "mic-note", "crates/audio/ui/microphone.slint", "MicrophoneCard", &format!("{mic} nr-note: \"{missing}\";"), (460.0, 330.0));
     shoot(&dir, "mic-plain", "crates/audio/ui/microphone.slint", "MicrophoneCard", &format!("{mic} nr: true;"), (460.0, 330.0));

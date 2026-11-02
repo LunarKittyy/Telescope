@@ -357,7 +357,7 @@ export component ConnectionCard inherits Card {
                 current: root.add-page;
                 picked(i) => { root.add-page = i; }
             }
-            if on-source: Note { text: @tr("Works on an iPhone or anything else with a browser, with nothing to install."); kind: ""; }
+            if on-source: Note { text: @tr("Works on an iPhone or anything else with a browser and there's nothing to install."); kind: ""; }
             if on-source: HorizontalLayout {
                 alignment: start;
                 Button { text: @tr("Use it"); role: "primary"; accessible-label: other-name; clicked => { root.other-picked(); } }

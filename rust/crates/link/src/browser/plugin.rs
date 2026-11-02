@@ -134,7 +134,7 @@ pub struct BrowserMics {
 impl SourceAudio for BrowserMics {
     fn open(&self, source_id: &str) -> Option<Result<Box<dyn AudioFeed>, String>> {
         let bid = source_id.strip_prefix(BROWSER_PREFIX)?;
-        let Some(feed) = self.hub.feed(bid) else { return Some(Err(tr("The browser has gone."))) };
+        let Some(feed) = self.hub.feed(bid) else { return Some(Err(tr("The browser disconnected."))) };
         Some(feed.open_audio().map(|mic| Box::new(mic) as Box<dyn AudioFeed>))
     }
     fn has(&self, source_id: &str) -> bool {

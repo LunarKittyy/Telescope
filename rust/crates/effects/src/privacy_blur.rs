@@ -460,7 +460,7 @@ impl Plugin for PrivacyBlurPlugin {
         PluginInfo {
             name: NAME.into(),
             title: TITLE.into(),
-            about: n_("Blurs the other people, everything but you, or puts the wait screen up when someone else walks in. A proof of concept that can't guarantee privacy.").into(),
+            about: n_("Blurs the other people, everything but you, or puts the wait screen up when someone else walks in. It's a proof of concept and can't guarantee privacy.").into(),
             when_off: n_("Without it there's no Privacy blur card and nothing gets hidden when someone walks in.").into(),
             category: "vision".into(),
             icon: "eye_off".into(),

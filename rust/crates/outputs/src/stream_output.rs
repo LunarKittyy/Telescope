@@ -295,7 +295,7 @@ impl StreamOutputPlugin {
 
     fn light_tip(&self) -> String {
         if !self.h264_available {
-            tr("H.264. Needs FFmpeg, which is missing from this copy of Telescope. Reinstall to get it back.")
+            tr("Light needs FFmpeg but it's missing from this copy of Telescope. Reinstalling brings it back.")
         } else if !self.phone_codecs.is_empty() && !self.phone_codecs.iter().any(|c| c == FORMAT_H264) {
             tr("H.264. This phone has no H.264 encoder.")
         } else {
