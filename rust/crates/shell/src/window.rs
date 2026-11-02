@@ -274,9 +274,10 @@ pub(crate) fn fit_on_screen(size: (u32, u32), screen: (u32, u32), frame: (u32, u
     (fitted != size).then_some(fitted)
 }
 
-/// raise_ and activateWindow on an open window: not minimized, in front and with the keyboard. show() does nothing on
-/// a window that's already shown. A side window only: on Wayland, focus_window does nothing and a compositor grants an
-/// activation only with a fresh input serial, which winit keeps to itself, so it's opened again, which brings it up in front.
+/// raise_ and activateWindow on an open window that has no parent: not minimized, in front and with the keyboard. show() does
+/// nothing on a window that's already shown. On Wayland, focus_window does nothing and a compositor grants an activation only
+/// with a fresh input serial, which winit keeps to itself, so it's opened again, which brings it up in front (and puts it back
+/// where the compositor likes, so a window that has a parent goes through parent::raise instead).
 pub(crate) fn bring_forward(ui: &ComponentInstance) {
     use slint::winit_030::WinitWindowAccessor;
     let window = ui.window();
@@ -1014,7 +1015,8 @@ impl Window {
     fn open_plugin_window(self: &Rc<Self>, plugin: &str, id: &str, spec: &telescope_core::ui::WindowSpec) {
         if let Some((_, _, open)) = self.plugin_windows.borrow().iter().find(|(p, i, _)| p == plugin && i == id) {
             let _ = open.show();
-            bring_forward(open);
+            crate::parent::attach(open, &self.ui);
+            crate::parent::raise(open, &self.ui);
             return;
         }
         let (file, text) = source_of(plugin, id, &spec.ui);
@@ -1025,8 +1027,9 @@ impl Window {
             SlintSource::Text(_) => vec![(file.clone(), text.clone())],
             SlintSource::File(_) => Vec::new(),
         };
+        // Under the main window, as Python gives a plugin's window the host as its parent
         let built = crate::compile::compile(&format!("{plugin}-{id}-window.slint"), &doc, files, component)
-            .and_then(|d| d.create().map_err(|e| e.to_string()));
+            .and_then(|d| crate::parent::make(&self.ui, || d.create()).map_err(|e| e.to_string()));
         let ui = match built {
             Ok(ui) => ui,
             Err(e) => {
@@ -1061,6 +1064,7 @@ impl Window {
         crate::keys::watch_plugin_keys(&ui, Rc::downgrade(self));
         Self::set_window_props(&ui, plugin, id, &spec.ui.props);
         let _ = ui.show();
+        crate::parent::attach(&ui, &self.ui);
         self.plugin_windows.borrow_mut().push((plugin.to_string(), id.to_string(), ui));
     }
 
@@ -1412,6 +1416,13 @@ pub fn build_app(file: ConfigFile, services: Arc<Services>, opts: Option<WindowO
 
 pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     let gpu_painter = crate::preview::select_wgpu_backend();
+    // Without the graphics card's backend the default one is chosen here, so Windows can make a side window owned by the main one
+    #[cfg(windows)]
+    if gpu_painter.is_none() {
+        if let Err(e) = crate::parent::selector().select() {
+            log::warn!("The window backend couldn't be chosen: {e}");
+        }
+    }
     // Wayland takes a window's icon from the desktop entry named like this, not from the window
     if let Some(id) = APP_ID.get() {
         if let Err(e) = slint::set_xdg_app_id(id.as_str()) {

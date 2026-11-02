@@ -63,7 +63,7 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
             ..Default::default()
         })).map_err(|e| e.to_string())?;
         let config = slint::wgpu_30::WGPUConfiguration::Manual { instance, adapter, device: device.clone(), queue: queue.clone() };
-        slint::BackendSelector::new().require_wgpu_30(config).select().map_err(|e| e.to_string())?;
+        crate::parent::selector().require_wgpu_30(config).select().map_err(|e| e.to_string())?;
         Ok::<_, String>((device, queue))
     })();
     match opened {

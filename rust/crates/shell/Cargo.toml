@@ -30,3 +30,7 @@ windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Com"
 [target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
 # XQueryPointer, for whether a drag still has its button down (winit doesn't say); already in the tree through winit
 x11-dl = "2.21"
+# A side window's parent on Wayland (xdg_toplevel.set_parent, which winit has no call for) through winit's own toplevels; versions as winit's
+wayland-backend = { version = "0.3.10", default-features = false, features = ["client_system"] }
+wayland-client = "0.31.10"
+wayland-protocols = { version = "0.32.8", default-features = false, features = ["client", "staging"] }

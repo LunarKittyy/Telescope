@@ -209,11 +209,12 @@ pub fn open(window: &Rc<Window>, tab: &str) {
     }
     crate::window::set_app_icon(&settings.ui);
     let _ = settings.ui.show();
+    crate::parent::attach(&settings.ui, &window.ui);
     if coming_up {
         settings.keep_on_screen();
         settings.tell_shown();
     } else {
-        crate::window::bring_forward(&settings.ui);
+        crate::parent::raise(&settings.ui, &window.ui);
     }
     let _ = settings.ui.invoke("focus-search", &[]);
 }
@@ -284,7 +285,8 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
     }
     let text = doc::settings(tabs.len(), plugins_tab, &places);
     let def = crate::compile::compile("settings.slint", &text, files, "TelescopeSettings")?;
-    let ui = def.create().map_err(|e| e.to_string())?;
+    // Under the main window, as Python's dialog has it as its parent
+    let ui = crate::parent::make(&window.ui, || def.create()).map_err(|e| e.to_string())?;
     crate::keys::watch_scan_codes(&ui);
     let settings = Rc::new(Settings {
         ui,

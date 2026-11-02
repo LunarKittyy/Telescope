@@ -13,6 +13,7 @@ pub mod layout;
 pub mod notice;
 pub mod offscreen;
 pub mod overlays;
+pub(crate) mod parent;
 pub mod preview_passes;
 pub mod plugins;
 pub mod preview;

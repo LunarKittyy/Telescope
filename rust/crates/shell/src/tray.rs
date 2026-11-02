@@ -120,6 +120,20 @@ impl Window {
         self.ui.window().with_winit_window(|w| w.focus_window());
         self.keep_on_screen();
         self.report_shown();
+        self.reattach_children();
+    }
+
+    /// The windows open under this one go back under it: on Wayland they left it when its toplevel went with the window's hiding.
+    fn reattach_children(&self) {
+        if let Some(settings) = crate::settings::window() {
+            crate::parent::attach(&settings, &self.ui);
+        }
+        for (_, _, open) in self.plugin_windows.borrow().iter() {
+            crate::parent::attach(open, &self.ui);
+        }
+        if let Some(question) = self.slots_question() {
+            crate::parent::attach(&question, &self.ui);
+        }
     }
 
     /// As it first opens: a window taller or wider than the screen is cut down to it.

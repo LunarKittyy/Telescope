@@ -28,3 +28,13 @@ When a release bumps the pinned version of a dependency listed here, check its e
 - **Symptom:** on USB the end of a Light frame can wait for the desktop's delayed ACK, 40 ms. A frame then arrives 40 ms late with the next one right behind it, which reads as an 80 ms gap and a skipped frame about once a second.
 - **Workaround:** on Linux the desktop sets `TCP_QUICKACK` after each read from a loopback address. Windows has no workaround yet and neither does the Python app.
 - **Code:** `ack_now` in [`rust/crates/link/src/https.rs`](../rust/crates/link/src/https.rs)
+
+## winit
+
+### winit 0.30 has no parent window on Wayland or X11
+
+- **Bug:** a window can't be given a parent after it's made, or at all on Wayland and X11. Only Windows has a call (`with_owner_window`), and `focus_window` does nothing on Wayland.
+- **Symptom:** the Rust app's Settings could go underneath the main window, and bringing it up again meant hiding and showing it, which lost where the person had put it.
+- **Workaround:** Windows owns the window when it's made. X11 sets `WM_TRANSIENT_FOR` through Xlib. Wayland sends `xdg_toplevel.set_parent`, and `xdg_activation` for the keyboard, on a second connection to winit's own display, with winit's toplevel and surface pointers wrapped. Nothing in winit is patched.
+- **Code:** [`rust/crates/shell/src/parent.rs`](../rust/crates/shell/src/parent.rs)
+- **Fixed when:** a winit release has a parent and an activation call for Wayland and X11, and `parent.rs` can be a few lines.
