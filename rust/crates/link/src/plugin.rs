@@ -2450,9 +2450,7 @@ mod tests {
         *e.link.install.lock().unwrap() = Err("The phone said no".into());
         e.add("id-a", "Pixel");
         e.ui("card", "update", vec![]);
-        std::thread::sleep(Duration::from_millis(50));
-        e.settle();
-        assert_eq!(e.props("card")["note-text"], "The phone said no");
+        e.settle_until(|e| e.props("card")["note-text"] == "The phone said no");
         assert_eq!(e.props("card")["note-kind"], "status_err");
     }
 

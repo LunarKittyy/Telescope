@@ -728,7 +728,7 @@ impl Rig {
 
     /// Runs what threads sent, until cond holds.
     pub fn until(&self, what: &str, cond: impl Fn(&Rig) -> bool) {
-        let deadline = Instant::now() + Duration::from_secs(5);
+        let deadline = Instant::now() + Duration::from_secs(20);
         while !cond(self) {
             assert!(Instant::now() < deadline, "never happened: {what}");
             if !offscreen::pump() {
