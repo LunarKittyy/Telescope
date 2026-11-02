@@ -97,7 +97,9 @@ impl Gate {
         Released::new(move || {
             let resume = gate.released.fetch_sub(1, Ordering::SeqCst) == 1;
             if resume {
-                for h in &holders {
+                // Whatever is registered now, not only what was when this began: one made during the reload starts too
+                let now: Vec<Arc<dyn Suspend>> = gate.holders.lock().unwrap().iter().filter_map(Weak::upgrade).collect();
+                for h in &now {
                     h.resume();
                 }
             }
@@ -239,5 +241,35 @@ impl<J: Job> Drop for Held<J> {
             let mut st = self.inner.state.lock().unwrap();
             self.inner.join(&mut st);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A job that runs until stopped.
+    struct Idle;
+
+    impl Job for Idle {
+        fn run(&self, stop: &Stop) {
+            stop.wait(Duration::from_secs(30));
+        }
+    }
+
+    #[test]
+    fn a_holder_made_during_a_reload_starts_when_it_ends() {
+        let gate = Arc::new(Gate::default());
+        let before = Held::new(Idle, &gate);
+        before.start();
+        assert!(before.running());
+        let released = gate.release();
+        assert!(!before.running());
+        let during = Held::new(Idle, &gate);
+        during.start();
+        assert!(!during.running()); // the cameras are let go
+        drop(released);
+        assert!(before.running());
+        assert!(during.running());
     }
 }
