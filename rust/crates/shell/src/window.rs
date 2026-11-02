@@ -4,7 +4,7 @@
 use crate::doc::{self, CardPlace, HeaderPlace, Piece};
 use crate::layout::Region;
 use crate::shell::{Effect, State};
-use crate::source::{scan, to_json, to_slint};
+use crate::source::{scan, to_json, to_property};
 use serde_json::Value;
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use slint_interpreter::{ComponentInstance, Struct, Value as SValue};
@@ -1094,8 +1094,7 @@ impl Window {
 
     fn set_window_props(ui: &ComponentInstance, plugin: &str, id: &str, props: &Value) {
         for (k, v) in props.as_object().into_iter().flatten() {
-            let like = ui.get_property(k).unwrap_or(SValue::Void);
-            if let Err(e) = ui.set_property(k, to_slint(v, &like)) {
+            if let Err(e) = ui.set_property(k, to_property(ui, k, v)) {
                 log::warn!("{plugin} set {k} on its window {id}: {e:?}");
             }
         }
@@ -1114,8 +1113,7 @@ impl Window {
         };
         for (k, v) in props.as_object().into_iter().flatten() {
             let name = format!("{}-{k}", r.id);
-            let like = self.ui.get_property(&name).unwrap_or(SValue::Void);
-            if let Err(e) = self.ui.set_property(&name, to_slint(v, &like)) {
+            if let Err(e) = self.ui.set_property(&name, to_property(&self.ui, &name, v)) {
                 log::warn!("{plugin} set {k} on its {ui}: {e:?}");
             }
         }
