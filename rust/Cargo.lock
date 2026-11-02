@@ -573,12 +573,6 @@ checksum = "4c7f02d4ea65f2c1853089ffd8d2787bdbc63de2f0d29dedbcf8ccdfa0ccd4cf"
 
 [[package]]
 name = "base64"
-version = "0.22.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
-
-[[package]]
-name = "base64"
 version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
@@ -5671,7 +5665,7 @@ dependencies = [
 name = "telescope-app"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
+ "base64",
  "flate2",
  "i-slint-backend-testing",
  "image",
@@ -5748,7 +5742,7 @@ dependencies = [
 name = "telescope-effects"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
+ "base64",
  "i-slint-backend-testing",
  "log",
  "ring",
@@ -5768,7 +5762,7 @@ dependencies = [
 name = "telescope-link"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
+ "base64",
  "if-addrs",
  "libc",
  "log",
@@ -6354,7 +6348,7 @@ version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cde93ff05758a36a851a398a772b0b79a82fbe3c186a46f2696baaeaf84c966b"
 dependencies = [
- "base64 0.23.1",
+ "base64",
  "log",
  "percent-encoding",
  "rustls",
@@ -6371,7 +6365,7 @@ version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "841583fc36089d7d59419568ae157f43a5a03a2e5a81ba87c77d1596ef46e922"
 dependencies = [
- "base64 0.23.1",
+ "base64",
  "http",
  "httparse",
  "log",
@@ -6395,7 +6389,7 @@ version = "0.48.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "977d0a4abdef933f424a99fe09f95576e089b90aebc6f016a3bc813762493e91"
 dependencies = [
- "base64 0.23.1",
+ "base64",
  "data-url",
  "flate2",
  "fontdb",
