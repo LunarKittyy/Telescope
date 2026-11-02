@@ -218,6 +218,7 @@ const scenarios = {
     assert.strictEqual(enc.maxBitrate, 4_000_000);
     assert.strictEqual(enc.maxFramerate, 30);
     assert.strictEqual(enc.scaleResolutionDownBy, 1);
+    assert.strictEqual(videoSender(peer).set.degradationPreference, "maintain-resolution", "Firefox steps the size down without it");
     assert.strictEqual(page.element("status").className, "");
     assert.ok(page.element("status").textContent.startsWith("Connected"));
   },
