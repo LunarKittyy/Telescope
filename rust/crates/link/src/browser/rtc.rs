@@ -13,6 +13,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use str0m::bwe::Bitrate;
 use str0m::change::SdpOffer;
 use str0m::format::Codec as RtcCodec;
 use str0m::media::{KeyframeRequestKind, MediaKind, Mid};
@@ -36,6 +37,8 @@ const TICK: Duration = Duration::from_millis(100);
 const IDLE_NAP: Duration = Duration::from_millis(2);
 /// A keyframe is asked for this often until one comes.
 const KEYFRAME_AGAIN: Duration = Duration::from_secs(1);
+/// How often the sender hears what it may use.
+const REMB_EVERY: Duration = Duration::from_secs(1);
 
 /// The offer couldn't be answered; the text is for the log.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -153,7 +156,7 @@ impl StrSession {
     }
 
     /// What aiortc answered with, which the same browsers send evenly to: Constrained Baseline first, as the page asks, since a
-    /// browser takes the first entry of the answer. No transport-cc, so the sender doesn't run on our feedback, and no
+    /// browser takes the first entry of the answer. No transport-cc, so the sender doesn't run on our feedback (REMB tells it its limit), and no
     /// video-orientation, so it turns the picture itself.
     fn config() -> RtcConfig {
         let mut config = RtcConfig::new()
@@ -205,7 +208,7 @@ impl RtcSession for StrSession {
         let (started, ready) = mpsc::channel();
         std::thread::Builder::new().name("browser-rtc".into()).spawn(move || {
             let _ = started.send(());
-            run(rtc, &sockets, &stop, &keyframe, video, audio, opus.as_ref()());
+            run(rtc, &sockets, &stop, &keyframe, video, audio, opus.as_ref()(), max_kbps);
         }).map_err(|e| RtcError(e.to_string()))?;
         ready.recv_timeout(ANSWER_TIMEOUT).map_err(|_| RtcError("the connection's thread didn't start".into()))?;
         Ok(tune_answer(&sdp, max_kbps))
@@ -232,11 +235,12 @@ impl Drop for StrSession {
 
 /// The connection until it's closed or the browser goes.
 fn run(mut rtc: Rtc, sockets: &[UdpSocket], stop: &AtomicBool, keyframe: &AtomicBool, mut video: VideoSink, mut audio: AudioSink,
-       mut opus: Option<Box<dyn AudioDecoder>>) {
+       mut opus: Option<Box<dyn AudioDecoder>>, max_kbps: u32) {
     let mut buf = vec![0u8; 2000];
     let mut video_mid: Option<Mid> = None;
     let (mut frames, mut received, mut since, mut per_frame) = (0u64, 0u64, Instant::now(), 0u64);
     let mut asked = Instant::now() - KEYFRAME_AGAIN;
+    let mut told = Instant::now() - REMB_EVERY;
     while !stop.load(Ordering::SeqCst) && rtc.is_alive() {
         // The wish stands until a keyframe comes: a request can be lost, or too early for the stream to be known yet
         if keyframe.load(Ordering::SeqCst) && asked.elapsed() >= KEYFRAME_AGAIN {
@@ -244,6 +248,15 @@ fn run(mut rtc: Rtc, sockets: &[UdpSocket], stop: &AtomicBool, keyframe: &Atomic
                 match writer.request_keyframe(None, KeyframeRequestKind::Pli) {
                     Ok(()) => asked = Instant::now(),
                     Err(e) => log::debug!("Browser camera: no keyframe request yet: {e}"),
+                }
+            }
+        }
+        // As aiortc does: without transport-cc this is all Firefox hears about what it may send, and it steps its rate down and climbs back slowly otherwise
+        if told.elapsed() >= REMB_EVERY {
+            if let Some(mid) = video_mid {
+                if let Some(stream) = rtc.direct_api().stream_rx_by_mid(mid, None) {
+                    told = Instant::now();
+                    stream.request_remb(Bitrate::kbps(u64::from(max_kbps)));
                 }
             }
         }

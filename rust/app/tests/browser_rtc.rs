@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use str0m::bwe::BweKind;
 use str0m::change::SdpAnswer;
 use str0m::format::Codec as RtcCodec;
 use str0m::media::{Direction, Frequency, MediaKind, MediaTime};
@@ -22,12 +23,12 @@ const PEAK: f64 = 8000.0;
 
 /// A str0m peer on loopback sending a moving grey picture and a tone every 20 ms, the way the page sends its camera and mic; it runs until stop.
 fn fake_browser(video_units: Vec<Vec<u8>>, mic_packets: Vec<Vec<u8>>, answered: Receiver<String>, stop: Arc<AtomicBool>) -> String {
-    fake_browser_counting(Arc::new(Mutex::new(video_units)), mic_packets, answered, stop, Arc::default())
+    fake_browser_counting(Arc::new(Mutex::new(video_units)), mic_packets, answered, stop, Arc::default(), Arc::default())
 }
 
-/// The same, sending whatever video_units holds now and counting the keyframes it's asked for.
+/// The same, sending whatever video_units holds now, counting the keyframes it's asked for and keeping the last bitrate (kbps) it's told to stay under.
 fn fake_browser_counting(video_units: Arc<Mutex<Vec<Vec<u8>>>>, mic_packets: Vec<Vec<u8>>, answered: Receiver<String>, stop: Arc<AtomicBool>,
-                         asked: Arc<AtomicUsize>) -> String {
+                         asked: Arc<AtomicUsize>, told: Arc<AtomicUsize>) -> String {
     let mut rtc = RtcConfig::new().set_crypto_provider(Arc::new(str0m::crypto::from_feature_flags())).build(Instant::now());
     let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
     let local = socket.local_addr().unwrap();
@@ -70,6 +71,10 @@ fn fake_browser_counting(video_units: Arc<Mutex<Vec<Vec<u8>>>>, mic_packets: Vec
                     asked.fetch_add(1, Ordering::SeqCst);
                     continue;
                 }
+                Ok(Output::Event(Event::EgressBitrateEstimate(BweKind::Remb { estimate, .. }))) => {
+                    told.store((estimate.as_f64() / 1000.0) as usize, Ordering::SeqCst);
+                    continue;
+                }
                 Ok(Output::Event(_)) => continue,
                 Err(_) => return,
             };
@@ -100,6 +105,25 @@ fn the_answer_matches_what_browsers_send_evenly_to() {
     let profiles: Vec<&str> = answer.lines().filter_map(|l| l.split("profile-level-id=").nth(1)).map(|p| &p[..6]).collect();
     assert_eq!(profiles, ["42e01f", "42001f"], "{answer}");
     assert!(!answer.contains("transport-cc") && !answer.contains("video-orientation"), "{answer}");
+    assert!(answer.contains("goog-remb"), "{answer}");
+}
+
+/// Firefox has no transport-cc feedback to go on, and aiortc told it what it may use: it lowered its rate and climbed back slowly without that.
+#[test]
+fn the_sender_is_told_what_it_may_use() {
+    let (tell, answered) = channel();
+    let (stop, told) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicUsize::new(0)));
+    let offer = fake_browser_counting(Arc::new(Mutex::new(vec![vec![0; 100]])), vec![vec![0]], answered, stop.clone(), Arc::default(), told.clone());
+    let loopback: Vec<IpAddr> = vec![[127, 0, 0, 1].into()];
+    let mut session = StrSession::new(loopback, Arc::new(|| None), Box::new(|_, _, _, _| {}), Box::new(|_| {}));
+    tell.send(session.answer(&offer, 4000).unwrap()).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(8);
+    while told.load(Ordering::SeqCst) == 0 && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert_eq!(told.load(Ordering::SeqCst), 4000);
+    session.close();
+    stop.store(true, Ordering::SeqCst);
 }
 
 /// The decoder changed mid-stream and has nothing to start from until a keyframe comes, and WebRTC doesn't resend the first one.
@@ -114,7 +138,7 @@ fn a_keyframe_is_asked_for_until_one_comes() {
     let others = Arc::new(Mutex::new(units[1..].to_vec()));
     let (tell, answered) = channel();
     let (stop, asked) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicUsize::new(0)));
-    let offer = fake_browser_counting(others.clone(), packets, answered, stop.clone(), asked.clone());
+    let offer = fake_browser_counting(others.clone(), packets, answered, stop.clone(), asked.clone(), Arc::default());
     let feed = Arc::new(BrowserFeed::new());
     let gen = feed.connect();
     let (video, audio) = (feed.clone(), feed.clone());
