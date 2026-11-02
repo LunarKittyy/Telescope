@@ -3,7 +3,8 @@
 
 use serde_json::{Map, Value as Json};
 use slint::{Model, ModelRc, SharedString, VecModel};
-use slint_interpreter::{Struct, Value};
+use i_slint_compiler::langtype::{ConstantExpression, Struct as StructType, Type};
+use slint_interpreter::{ComponentInstance, Struct, Value};
 use telescope_core::i18n::{tr, tr_ctx};
 
 /// What the shell can reach on a plugin's component: what it may set and the callbacks it forwards as UiEvents.
@@ -309,6 +310,93 @@ pub fn to_slint(json: &Json, like: &Value) -> Value {
     }
 }
 
+/// Plugin data for the property `name` of `ui`. Lists, structs and null are filled out to the property's declared type, so a
+/// row that leaves a field out (or sends null) gets that field's default: Slint panics on a field a struct doesn't have.
+pub fn to_property(ui: &ComponentInstance, name: &str, json: &Json) -> Value {
+    let like = ui.get_property(name).unwrap_or(Value::Void);
+    if matches!(json, Json::Array(_) | Json::Object(_) | Json::Null) {
+        let same = |n: &str| n.replace('_', "-") == name.replace('_', "-");
+        if let Some((_, (ty, _))) = ui.definition().properties_and_callbacks().find(|(n, _)| same(n)) {
+            return fill(json, &ty, &like);
+        }
+    }
+    to_slint(json, &like)
+}
+
+/// Plugin data as a value of exactly the type `ty`: every field its structs declare is there, a missing or null one is
+/// the default, one of the wrong kind is the default too, and one it doesn't declare is dropped. `like` is the property's
+/// current value: a struct sent partly keeps its other fields, a colour that doesn't parse stays, a picture stays.
+fn fill(json: &Json, ty: &Type, like: &Value) -> Value {
+    match (ty, json) {
+        (Type::Bool, Json::Bool(b)) => Value::Bool(*b),
+        (Type::String, Json::String(s)) => Value::String(SharedString::from(s.as_str())),
+        (Type::Float32 | Type::Int32 | Type::Duration | Type::Angle | Type::PhysicalLength | Type::LogicalLength | Type::Rem | Type::Percent | Type::UnitProduct(_), Json::Number(n)) => {
+            Value::Number(n.as_f64().unwrap_or(0.0))
+        }
+        (Type::Color | Type::Brush, Json::String(s)) => match (parse_color(s), like) {
+            (Some(c), _) => Value::Brush(slint::Brush::SolidColor(c)),
+            (None, Value::Brush(_)) => like.clone(),
+            _ => default_of(ty),
+        },
+        // JSON has no pictures: they come through Host::set_ui_image
+        (Type::Image, json) if !json.is_null() && matches!(like, Value::Image(_)) => like.clone(),
+        (Type::Enumeration(e), Json::String(name)) => {
+            let hit = e.values.iter().find(|v| v.replace('_', "-") == name.replace('_', "-"));
+            hit.map_or_else(|| default_of(ty), |v| Value::EnumerationValue(e.name.to_string(), v.to_string()))
+        }
+        (Type::Enumeration(e), Json::Number(n)) => {
+            let hit = n.as_u64().and_then(|i| e.values.get(i as usize));
+            hit.map_or_else(|| default_of(ty), |v| Value::EnumerationValue(e.name.to_string(), v.to_string()))
+        }
+        (Type::Array(inner), Json::Array(items)) => Value::Model(ModelRc::new(VecModel::from(items.iter().map(|i| fill(i, inner, &Value::Void)).collect::<Vec<_>>()))),
+        (Type::Model, json @ Json::Array(_)) => from_json(json),
+        (Type::Struct(s), Json::Object(map)) => {
+            let current = match like {
+                Value::Struct(c) => Some(c),
+                _ => None,
+            };
+            let fields = s.fields.iter().map(|(name, field_ty)| {
+                let before = current.and_then(|c| c.get_field(name)).cloned();
+                let sent = map.get(name.as_str()).or_else(|| map.get(&name.replace('-', "_")));
+                let value = match (sent, before) {
+                    (Some(json), before) => fill(json, field_ty, &before.unwrap_or_default()),
+                    (None, Some(before)) => before,
+                    (None, None) => field_default(s, name, field_ty),
+                };
+                (name.to_string(), value)
+            });
+            Value::Struct(fields.collect::<Struct>())
+        }
+        _ => default_of(ty),
+    }
+}
+
+/// What a property or struct field of type `ty` holds before anything is set.
+fn default_of(ty: &Type) -> Value {
+    match ty {
+        Type::Float32 | Type::Int32 | Type::Duration | Type::Angle | Type::PhysicalLength | Type::LogicalLength | Type::Rem | Type::Percent | Type::UnitProduct(_) => Value::Number(0.0),
+        Type::String => Value::String(SharedString::new()),
+        Type::Color | Type::Brush => Value::Brush(slint::Brush::default()),
+        Type::Bool => Value::Bool(false),
+        Type::Image => Value::Image(slint::Image::default()),
+        Type::Struct(s) => Value::Struct(s.fields.iter().map(|(name, field_ty)| (name.to_string(), field_default(s, name, field_ty))).collect::<Struct>()),
+        Type::Array(_) | Type::Model => Value::Model(ModelRc::default()),
+        Type::Enumeration(e) => Value::EnumerationValue(e.name.to_string(), e.values.get(e.default_value).map(|v| v.to_string()).unwrap_or_default()),
+        _ => Value::Void,
+    }
+}
+
+/// A struct field's default: the one the struct declares (`checked: bool = true`) when it is a plain literal, else its type's.
+fn field_default(s: &StructType, name: &str, ty: &Type) -> Value {
+    match s.field_defaults.get(name) {
+        Some(ConstantExpression::StringLiteral(t)) => Value::String(SharedString::from(t.as_str())),
+        Some(ConstantExpression::NumberLiteral(n, _)) => Value::Number(*n),
+        Some(ConstantExpression::BoolLiteral(b)) => Value::Bool(*b),
+        Some(ConstantExpression::EnumerationValue(v)) => Value::EnumerationValue(v.enumeration.name.to_string(), v.to_string()),
+        _ => default_of(ty),
+    }
+}
+
 /// Plugin data as a Slint value with nothing to go by.
 pub fn from_json(json: &Json) -> Value {
     match json {
@@ -359,6 +447,7 @@ pub fn parse_color(s: &str) -> Option<slint::Color> {
 mod tests {
     use super::*;
     use serde_json::json;
+    use slint_interpreter::ComponentHandle;
 
     const CARD: &str = r#"
 import { Card } from "@ui-kit/ui-kit.slint";
@@ -415,6 +504,81 @@ export component CameraCard inherits Card {
         assert_eq!(to_json(&from_json(&v)), v);
         let like = Value::Brush(slint::Brush::SolidColor(slint::Color::from_rgb_u8(0, 0, 0)));
         assert_eq!(to_json(&to_slint(&json!("#7fd3c4"), &like)), json!("#7fd3c4ff"));
+    }
+
+    const SPARSE: &str = r#"
+        export enum Mood { calm, loud }
+        export struct Inner { n: int, label: string }
+        export struct Item { name: string, on: bool, size: length, ratio: float, tags: [string], inner: Inner, mood: Mood, tint: color, fill: brush, pic: image, subs: [Inner], seen: bool }
+        export component Probe inherits Window {
+            width: 200px;
+            height: 200px;
+            in property <[Item]> items;
+            in property <Item> one;
+            in property <string> note;
+            VerticalLayout {
+                for item in root.items: Rectangle {
+                    background: item.tint;
+                    Text { text: item.name + item.inner.label + (item.mood == Mood.loud ? "!" : "") + item.tags.length + item.subs.length + item.inner.n; }
+                    Image { source: item.pic; width: item.size; opacity: item.ratio; }
+                    Rectangle { background: item.fill; visible: item.on || item.seen; }
+                }
+            }
+        }
+    "#;
+
+    fn probe() -> slint_interpreter::ComponentInstance {
+        crate::offscreen::install();
+        let def = crate::compile::compile("probe.slint", SPARSE, vec![], "Probe").expect("the probe compiles");
+        let ui = def.create().unwrap();
+        ui.show().unwrap();
+        ui
+    }
+
+    fn field(row: &Value, name: &str) -> Value {
+        let Value::Struct(s) = row else { panic!("not a struct: {row:?}") };
+        s.get_field(name).cloned().unwrap_or_else(|| panic!("no {name} in {s:?}"))
+    }
+
+    #[test]
+    fn rows_that_leave_fields_out_get_their_types_defaults() {
+        let ui = probe();
+        let sent = json!([{"name": "a"}, {"on": true, "inner": {"label": "x"}, "mood": "loud", "tint": "#ff0000"}, {"name": null, "size": null, "tags": null, "inner": null, "mood": 7, "extra": 1}, {}]);
+        ui.set_property("items", to_property(&ui, "items", &sent)).unwrap();
+        // Bindings run over every row: a field a row lacked would panic here
+        assert!(crate::offscreen::draw(ui.window(), 200.0, 200.0, 1.0).is_some());
+        let Ok(Value::Model(rows)) = ui.get_property("items") else { panic!("not a list") };
+        let row = |i| slint::Model::row_data(&rows, i).unwrap();
+        assert_eq!(slint::Model::row_count(&rows), 4);
+        assert_eq!(field(&row(0), "name"), Value::String("a".into()));
+        assert_eq!(field(&row(0), "on"), Value::Bool(false));
+        assert_eq!(field(&row(0), "size"), Value::Number(0.0));
+        assert_eq!(field(&row(0), "mood"), Value::EnumerationValue("Mood".into(), "calm".into()));
+        assert_eq!(field(&field(&row(0), "inner"), "n"), Value::Number(0.0));
+        assert!(matches!(field(&row(0), "tags"), Value::Model(m) if slint::Model::row_count(&m) == 0));
+        assert!(matches!(field(&row(0), "pic"), Value::Image(_)) && matches!(field(&row(0), "tint"), Value::Brush(_)));
+        assert_eq!(field(&field(&row(1), "inner"), "label"), Value::String("x".into()));
+        assert_eq!(field(&row(1), "mood"), Value::EnumerationValue("Mood".into(), "loud".into()));
+        // Null, a value of the wrong kind and an undeclared field all end up as defaults or nothing
+        assert_eq!(field(&row(2), "name"), Value::String("".into()));
+        assert_eq!(field(&row(2), "mood"), Value::EnumerationValue("Mood".into(), "calm".into()));
+        let Value::Struct(third) = row(2) else { panic!("not a struct") };
+        assert!(third.get_field("extra").is_none());
+        assert_eq!(field(&row(3), "ratio"), Value::Number(0.0));
+    }
+
+    #[test]
+    fn a_struct_sent_in_part_keeps_the_rest_of_what_it_had() {
+        let ui = probe();
+        ui.set_property("one", to_property(&ui, "one", &json!({"name": "first", "on": true}))).unwrap();
+        ui.set_property("one", to_property(&ui, "one", &json!({"name": "second"}))).unwrap();
+        assert_eq!(field(&ui.get_property("one").unwrap(), "name"), Value::String("second".into()));
+        assert_eq!(field(&ui.get_property("one").unwrap(), "on"), Value::Bool(true));
+        // Null is the default, and something else where a list belongs is an empty list
+        ui.set_property("one", to_property(&ui, "one", &json!(null))).unwrap();
+        assert_eq!(field(&ui.get_property("one").unwrap(), "on"), Value::Bool(false));
+        ui.set_property("items", to_property(&ui, "items", &json!({"not": "a list"}))).unwrap();
+        assert!(matches!(ui.get_property("items"), Ok(Value::Model(m)) if slint::Model::row_count(&m) == 0));
     }
 
     #[test]

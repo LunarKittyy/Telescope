@@ -5,7 +5,7 @@
 use crate::doc::{self, Piece, SectionPlace};
 use crate::plugins_tab::{self, group_icon, Commit, Download, Filter, NoticeKind, Notice, Outcome, Panel, Question, Request, Step, VisionDownload};
 use crate::search::{search_ex, Entry};
-use crate::source::{scan, to_json, to_slint};
+use crate::source::{scan, to_json, to_property};
 use crate::window::Window;
 use crate::texts::fill;
 use i_slint_core::accessibility::AccessibleStringProperty;
@@ -471,8 +471,7 @@ impl Settings {
         let Some((_, _, id)) = self.pieces.iter().find(|p| p.0 == plugin && p.1 == ui) else { return };
         for (k, v) in props.as_object().into_iter().flatten() {
             let name = format!("{id}-{k}");
-            let like = self.ui.get_property(&name).unwrap_or(SValue::Void);
-            let _ = self.ui.set_property(&name, to_slint(v, &like));
+            let _ = self.ui.set_property(&name, to_property(&self.ui, &name, v));
         }
     }
 
