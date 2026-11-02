@@ -37,7 +37,8 @@ fn changes(env: &[(OsString, OsString)], private: &[PathBuf]) -> (Vec<OsString>,
 /// The folders holding what only this program should load: the mounted AppImage, and start.sh's fallback libraries.
 fn private_folders(appdir: Option<OsString>, exe: Option<&Path>) -> Vec<PathBuf> {
     let appdir = appdir.filter(|d| !d.is_empty()).map(PathBuf::from);
-    let fallback = exe.and_then(Path::parent).map(|dir| dir.join("lib").join("fallback"));
+    let lib = exe.and_then(Path::parent).map(|dir| dir.join("lib"));
+    let fallback = lib.iter().flat_map(|lib| [lib.join("fallback"), lib.join("fallback-fonts")]);
     appdir.into_iter().chain(fallback).collect()
 }
 
@@ -110,7 +111,7 @@ mod tests {
     #[test]
     fn the_private_folders_are_the_appimage_and_the_fallback_libraries() {
         let found = private_folders(Some("/tmp/.mount_x".into()), Some(Path::new("/opt/telescope/telescope-rs")));
-        assert_eq!(found, [PathBuf::from("/tmp/.mount_x"), PathBuf::from("/opt/telescope/lib/fallback")]);
+        assert_eq!(found, [PathBuf::from("/tmp/.mount_x"), PathBuf::from("/opt/telescope/lib/fallback"), PathBuf::from("/opt/telescope/lib/fallback-fonts")]);
         assert_eq!(private_folders(Some("".into()), None), Vec::<PathBuf>::new());
     }
 }

@@ -10,7 +10,7 @@ use telescope_core::i18n::po;
 const READERS: [&str; 4] = ["source.rs", "texts.rs", "text.rs", "i18n.rs"];
 
 /// What the code says that the template doesn't, and why. A text that's new here is a spelling that stays English in every language.
-const NOT_IN_THE_TEMPLATE: [(&str, &str); 24] = [
+const NOT_IN_THE_TEMPLATE: [(&str, &str); 25] = [
     // Qt's own button texts, which Qt's translations cover in the Python app
     ("OK", "Qt standard button"),
     ("Yes", "Qt standard button"),
@@ -18,6 +18,7 @@ const NOT_IN_THE_TEMPLATE: [(&str, &str); 24] = [
     // Texts that only the Rust app has: Slint has no inline links, and its accessibility labels and Lua plugins are new
     ("Smooth", "the preview cap, Rust only"),
     ("Telescope can't update itself because the folder holding this AppImage isn't writable.", "the AppImage, Rust only"),
+    ("Another copy of Telescope in this folder is still finishing an update.", "the AppImage, Rust only"),
     ("This update wasn't installed because it can't start on this computer.", "updates checked before they go in, Rust only"),
     ("Shows every frame in the preview but uses a bit more CPU.", "the preview cap, Rust only"),
     ("If the card fails the processor takes over until you restart Telescope.", "hardware decoding's fallback, Rust only"),

@@ -616,6 +616,10 @@ pub fn install_appimage(new: &Path, current: &Path, extracted: bool, build: i64,
         return err("The download doesn't contain Telescope, so it wasn't installed.");
     }
     let name = name.to_string_lossy().into_owned();
+    // Installing would take the backup and journal another AppImage here may still need to roll back
+    if update_guard::read_journal(directory).is_some_and(|journal| journal["appimage"].as_str() != Some(name.as_str())) {
+        return err("Another copy of Telescope in this folder is still finishing an update.");
+    }
     let staging = directory.join(STAGING_DIR);
     let staged = staging.join(&name);
     let refused = |e: UpdateError| {

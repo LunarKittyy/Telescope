@@ -614,6 +614,17 @@ mod appimage_tests {
     }
 
     #[test]
+    fn another_appimage_still_finishing_its_update_keeps_its_way_back() {
+        let (dir, current, new) = placed("sibling");
+        std::fs::create_dir_all(dir.join(PREVIOUS_DIR)).unwrap();
+        write_journal(&dir, &json!({"appimage": "Other.AppImage", "state": "swapped"})).unwrap();
+        assert!(install_appimage(&new, &current, false, 131, &mut rename, &|_| panic!("never run")).is_err());
+        assert_eq!(read_journal(&dir).unwrap()["appimage"], "Other.AppImage");
+        assert!(dir.join(PREVIOUS_DIR).exists());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
     fn a_download_that_isnt_an_appimage_is_refused() {
         let (dir, current, new) = placed("notimage");
         std::fs::write(&new, "<html>not one</html>").unwrap();
