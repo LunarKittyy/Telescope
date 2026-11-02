@@ -17,6 +17,7 @@ use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::ui::{SettingsSection, SlintSource, UiEvent, UiSpec};
 
+use crate::going_back::{self, Plan};
 use crate::setup_move::{self, SetupRun};
 use crate::updates::{self, Asset, InstallResult, Manifest, Opener, UpdateError, Updates, Web};
 use crate::version;
@@ -78,6 +79,28 @@ pub trait Backend: Send + Sync {
     }
     /// The installed copy is being started from here (mark_started_elsewhere).
     fn started_elsewhere(&self, _build: i64) {}
+    /// What going back to the Python version does in this copy (going_back::plan); asked when the person asks, since it runs Python.
+    fn go_back_plan(&self) -> Plan {
+        Plan::Hidden
+    }
+    /// Where the settings live, which the confirmation names.
+    fn settings_folder(&self) -> PathBuf {
+        PathBuf::new()
+    }
+    /// A dated copy of the settings next to them (None when there are none yet), before anything changes.
+    fn back_up_settings(&self) -> Result<Option<PathBuf>, String> {
+        Ok(None)
+    }
+    /// Downloads the pinned Python release, checks it against the checksum written in the code and swaps it in. The build that went in and what starts it.
+    fn go_back(&self, _progress: Progress, _cancelled: &dyn Fn() -> bool, _streaming: &dyn Fn() -> bool) -> Result<(i64, InstallResult), String> {
+        Err(tr("The update failed."))
+    }
+    /// Notes the update settings this copy had, for settle_going_back if the Python version never starts.
+    fn remember_going_back(&self, _channel: &str, _auto_check: bool, _backup: Option<&Path>) {}
+    /// Some((channel, auto_check)) when a going back was undone at the Python version's first starts: the settings to have again.
+    fn settle_going_back(&self) -> Option<(String, bool)> {
+        None
+    }
 }
 
 /// Runs the installer and waits for it.
@@ -195,6 +218,46 @@ impl Backend for RealBackend {
         setup_move::mark_started_elsewhere(build, &self.directory);
     }
 
+    fn go_back_plan(&self) -> Plan {
+        let python = || going_back::python_state(&going_back::data_home(), &going_back::run_python);
+        going_back::plan(&self.channel, &self.directory, telescope_core::system::appimage().is_some(), self.windows(), &python)
+    }
+
+    fn settings_folder(&self) -> PathBuf {
+        telescope_core::config::config_path().parent().map(Path::to_path_buf).unwrap_or_default()
+    }
+
+    fn back_up_settings(&self) -> Result<Option<PathBuf>, String> {
+        going_back::back_up_settings(&telescope_core::config::ConfigFile::default()).map_err(|e| e.0)
+    }
+
+    fn go_back(&self, progress: Progress, cancelled: &dyn Fn() -> bool, streaming: &dyn Fn() -> bool) -> Result<(i64, InstallResult), String> {
+        let asset = going_back::pinned_asset(self.windows());
+        let folder = download_folder().map_err(|_| tr("The update failed."))?;
+        let done = self.with(|u| u.download(&asset, &folder, &mut |d, t| progress(Some((d, t))), cancelled)).and_then(|file| {
+            progress(None);
+            if !streaming() {
+                if let Some(stop) = &self.stop_adb {
+                    stop();
+                }
+            }
+            let mv: crate::update_guard::Mover = &mut |a, b| std::fs::rename(a, b);
+            going_back::install_from(&file, &self.directory, self.windows(), mv).map(|r| (going_back::BUILD, r))
+        });
+        let _ = std::fs::remove_dir_all(&folder);
+        done.map_err(|e| e.0)
+    }
+
+    fn remember_going_back(&self, channel: &str, auto_check: bool, backup: Option<&Path>) {
+        if let Err(e) = going_back::remember(&self.settings_folder(), channel, auto_check, backup) {
+            log::warn!("Couldn't note the update settings before going back: {e}");
+        }
+    }
+
+    fn settle_going_back(&self) -> Option<(String, bool)> {
+        going_back::settle(&self.settings_folder(), &self.directory)
+    }
+
     fn is_newer(&self, manifest: Option<&Manifest>) -> bool {
         self.with(|u| u.is_newer(manifest))
     }
@@ -263,6 +326,14 @@ pub struct UpdatesPlugin {
     streaming: Arc<AtomicBool>,
     /// When the camera driver was last looked for in this folder, and what was found: reading the registry once is enough for a while.
     driver_here: Mutex<Option<(std::time::Instant, bool)>>,
+    /// What going back asks and says while its confirmation is open: the plan it was asked with and the question's texts.
+    back_asked: Option<(Plan, going_back::Dialog)>,
+    /// The install running now is a going back (the pinned Python release, not an update).
+    going_back: bool,
+    /// Where the settings copy taken for it went.
+    back_backup: Option<PathBuf>,
+    /// A going back was undone because the Python version didn't start.
+    back_failed: bool,
 }
 
 impl Default for UpdatesPlugin {
@@ -301,6 +372,10 @@ impl UpdatesPlugin {
             install_build: 0,
             streaming: Arc::new(AtomicBool::new(false)),
             driver_here: Mutex::new(None),
+            back_asked: None,
+            going_back: false,
+            back_backup: None,
+            back_failed: false,
         }
     }
 
@@ -361,6 +436,9 @@ impl UpdatesPlugin {
         if !self.error.is_empty() {
             return (self.error.clone(), "status_err");
         }
+        if self.back_failed {
+            return (tr("Going back to the Python version didn't work because it didn't start, so this version is back."), "status_warn");
+        }
         if let Some(m) = &self.available {
             let mut text = with_version("Telescope {version} is available.", m);
             if self.moves_on_update() {
@@ -419,7 +497,86 @@ impl UpdatesPlugin {
             "retry-shown": self.rolled_back.is_some() && !available,
             "update-text": if blocker.is_some() { tr("Open download page") } else { tr("Update and restart") },
             "update-enabled": !self.busy() && (blocker.is_some() || !streaming),
+            "back-shown": self.built_channel != "dev",
+            "back-enabled": !self.busy() && !streaming,
+            "back-tip": if streaming { tr("Stop streaming to go back.") } else { tr("Swaps this version for the last Python one, {version}.").field("version", going_back::VERSION) },
+            "back-open": self.back_asked.is_some(),
+            "back-text": self.back_asked.as_ref().map(|(_, d)| d.text.clone()).unwrap_or_default(),
+            "back-action": self.back_asked.as_ref().map(|(_, d)| d.action.clone()).unwrap_or_default(),
+            "back-action-enabled": self.back_asked.as_ref().is_some_and(|(_, d)| d.enabled),
         })
+    }
+
+    /// The button: works out what going back does in this copy (it runs Python on Linux) and opens the question.
+    pub fn ask_go_back(&mut self, host: &mut dyn Host) {
+        if self.busy() || self.built_channel == "dev" {
+            return;
+        }
+        let plan = self.backend.go_back_plan();
+        if plan.offered() {
+            self.back_asked = Some((plan, going_back::dialog(plan, &self.backend.settings_folder())));
+        }
+        self.refresh(host);
+    }
+
+    pub fn answer_go_back(&mut self, host: &mut dyn Host, yes: bool) {
+        let asked = self.back_asked.take();
+        match asked {
+            Some((Plan::Swap { .. }, _)) if yes => self.go_back_now(host),
+            Some((Plan::Download { .. }, _)) if yes => self.backend.open_url(&going_back::release_url()),
+            _ => {}
+        }
+        self.refresh(host);
+    }
+
+    /// Backs the settings up, then downloads and swaps in the pinned Python release; the restart is the update's.
+    fn go_back_now(&mut self, host: &mut dyn Host) {
+        if self.busy() {
+            return;
+        }
+        if host.is_streaming() {
+            self.refresh(host);
+            return;
+        }
+        self.error.clear();
+        self.back_failed = false;
+        // What's on disk is what's copied: write what's open now first
+        host.save_now();
+        match self.backend.back_up_settings() {
+            Ok(copy) => self.back_backup = copy,
+            Err(error) => {
+                self.error = error;
+                self.refresh(host);
+                return;
+            }
+        }
+        self.going_back = true;
+        self.phase = Phase::Downloading;
+        self.progress = (0, going_back::pinned_asset(self.backend.windows()).size);
+        self.cancel.store(false, Ordering::SeqCst);
+        self.streaming.store(false, Ordering::SeqCst);
+        self.refresh(host);
+        let (backend, cancel, stream) = (self.backend.clone(), self.cancel.clone(), self.streaming.clone());
+        self.run(host, move |push| {
+            let mut progress = |p: Option<(u64, u64)>| push(p.map_or(Done::Installing, |(d, t)| Done::Progress(d, t)));
+            let cancelled = || cancel.load(Ordering::SeqCst);
+            let streaming = || stream.load(Ordering::SeqCst);
+            let result = catch_unwind(AssertUnwindSafe(|| backend.go_back(&mut progress, &cancelled, &streaming))).unwrap_or_else(|_| {
+                log::error!("Going back failed");
+                Err(tr("The update failed."))
+            });
+            push(Done::Installed(result));
+        });
+    }
+
+    /// The swap is in: 4.4.2 is told not to look for updates, which would only offer this version back, and the old settings are noted
+    /// for the case that it never starts.
+    fn finish_going_back(&mut self, host: &mut dyn Host) {
+        self.going_back = false;
+        self.backend.remember_going_back(&self.channel, self.auto_check, self.back_backup.as_deref());
+        self.channel = "stable".into();
+        self.auto_check = false;
+        host.save_now();
     }
 
     pub fn open_updates(&mut self, host: &mut dyn Host) {
@@ -590,11 +747,15 @@ impl UpdatesPlugin {
             }
             Err(error) => {
                 self.phase = Phase::Idle;
+                self.going_back = false;
                 self.error = error;
                 self.refresh(host);
                 return;
             }
         };
+        if self.going_back {
+            self.finish_going_back(host);
+        }
         if !result.skipped.is_empty() {
             log::warn!("Files in use kept their old version: {}", result.skipped.join(", "));
         }
@@ -653,6 +814,17 @@ impl Plugin for UpdatesPlugin {
         self.poster = host.poster();
         host.schedule(FIRST_CHECK_MS, "first");
         host.schedule(TICK_MS, "tick");
+    }
+
+    fn on_plugins_ready(&mut self, host: &mut dyn Host) {
+        // After the saved settings are in: a going back that the Python version's guard undid gets its update settings back
+        if let Some((channel, auto_check)) = self.backend.settle_going_back() {
+            self.channel = channel;
+            self.auto_check = auto_check;
+            self.back_failed = true;
+            host.schedule_save();
+            self.refresh(host);
+        }
     }
 
     fn shutdown(&mut self, host: &mut dyn Host) {
@@ -727,6 +899,8 @@ impl Plugin for UpdatesPlugin {
             (SECTION, "update") => self.update_now(host),
             (SECTION, "notes") => self.open_notes(),
             (SECTION, "retry") => self.try_again(host),
+            (SECTION, "back-asked") => self.ask_go_back(host),
+            (SECTION, "back-answered") => self.answer_go_back(host, event.args.first().and_then(Value::as_bool).unwrap_or(false)),
             _ => {}
         }
     }
@@ -785,6 +959,12 @@ mod tests {
         /// (asset name, through the installer) for each install.
         asked_for: Mutex<Vec<(String, bool)>>,
         started_from: Mutex<Vec<i64>>,
+        /// What going back does here, and what it was asked to do.
+        back_plan: Mutex<Option<Plan>>,
+        back_events: Mutex<Vec<String>>,
+        backup_fails: AtomicBool,
+        go_back_result: Mutex<Option<Result<(i64, InstallResult), String>>>,
+        settled: Mutex<Option<(String, bool)>>,
     }
 
     static NO_NETWORK: Served = Served(Vec::new());
@@ -850,6 +1030,29 @@ mod tests {
         }
         fn started_elsewhere(&self, build: i64) {
             self.started_from.lock().unwrap().push(build);
+        }
+        fn go_back_plan(&self) -> Plan {
+            self.back_plan.lock().unwrap().unwrap_or(Plan::Swap { python_setup: false })
+        }
+        fn settings_folder(&self) -> PathBuf {
+            PathBuf::from("/settings")
+        }
+        fn back_up_settings(&self) -> Result<Option<PathBuf>, String> {
+            self.back_events.lock().unwrap().push("backup".into());
+            if self.backup_fails.load(Ordering::SeqCst) {
+                return Err("Couldn't save a copy of your settings, so nothing was changed.".into());
+            }
+            Ok(Some(PathBuf::from("/settings/telescope_config.json.rust-1")))
+        }
+        fn go_back(&self, _p: Progress, _c: &dyn Fn() -> bool, _s: &dyn Fn() -> bool) -> Result<(i64, InstallResult), String> {
+            self.back_events.lock().unwrap().push("go_back".into());
+            self.go_back_result.lock().unwrap().take().unwrap_or_else(|| Ok((1441, InstallResult { relaunch: vec!["start.sh".into(), "--after-update".into()], skipped: vec![] })))
+        }
+        fn remember_going_back(&self, channel: &str, auto_check: bool, backup: Option<&Path>) {
+            self.back_events.lock().unwrap().push(format!("remember {channel} {auto_check} {}", backup.map(|b| b.display().to_string()).unwrap_or_default()));
+        }
+        fn settle_going_back(&self) -> Option<(String, bool)> {
+            self.settled.lock().unwrap().take()
         }
     }
 
@@ -1430,5 +1633,141 @@ mod tests {
         }
         assert!(!plugin.busy());
         assert!(plugin.available.is_some());
+    }
+
+    fn ui(plugin: &mut UpdatesPlugin, host: &mut FakeHost, callback: &str, args: Vec<Value>) {
+        plugin.on_ui(host, &UiEvent { ui: SECTION.into(), callback: callback.into(), args });
+    }
+
+    fn back_events(fake: &Fake) -> Vec<String> {
+        fake.back_events.lock().unwrap().clone()
+    }
+
+    #[test]
+    fn a_source_checkout_doesnt_offer_going_back() {
+        let fake = Arc::new(Fake { directory: telescope_core::testing::scratch_dir("back-dev"), ..Fake::default() });
+        let mut plugin = UpdatesPlugin::new(fake.clone(), "dev");
+        let mut host = FakeHost::default();
+        assert_eq!(plugin.section_props(false)["back-shown"], false);
+        ui(&mut plugin, &mut host, "back-asked", vec![]);
+        assert_eq!(plugin.section_props(false)["back-open"], false);
+        assert!(back_events(&fake).is_empty());
+        assert_eq!(UpdatesPlugin::new(fake, "nightly").section_props(false)["back-shown"], true);
+    }
+
+    #[test]
+    fn going_back_asks_first_and_cancelling_changes_nothing() {
+        let (mut plugin, mut host, fake) = env();
+        ui(&mut plugin, &mut host, "back-asked", vec![]);
+        let props = last_props(&host, SECTION);
+        assert_eq!(props["back-open"], true);
+        assert!(props["back-text"].as_str().unwrap().contains("/settings") && props["back-text"].as_str().unwrap().contains("Lua"));
+        assert_eq!((props["back-action"].as_str(), props["back-action-enabled"].as_bool()), (Some("Go back"), Some(true)));
+        ui(&mut plugin, &mut host, "back-answered", vec![json!(false)]);
+        assert_eq!(last_props(&host, SECTION)["back-open"], false);
+        assert!(back_events(&fake).is_empty());
+        assert_eq!((plugin.channel.as_str(), plugin.auto_check), ("nightly", true));
+        assert_eq!(quits(&host), 0);
+    }
+
+    #[test]
+    fn going_back_backs_up_swaps_turns_updates_off_and_restarts_into_the_python_version() {
+        let (mut plugin, mut host, fake) = env();
+        ui(&mut plugin, &mut host, "back-asked", vec![]);
+        ui(&mut plugin, &mut host, "back-answered", vec![json!(true)]);
+        // The copy is made from what was just saved, before the swap; the old update settings are noted before they change
+        assert_eq!(back_events(&fake), ["backup", "go_back", "remember nightly true /settings/telescope_config.json.rust-1"]);
+        assert!(host.calls.iter().position(|c| c == "save_now").unwrap() < host.calls.len());
+        assert_eq!((plugin.channel.as_str(), plugin.auto_check), ("stable", false));
+        assert_eq!(plugin.get_config()["auto_check"], false);
+        assert_eq!(*fake.relaunched.lock().unwrap(), vec![vec!["start.sh".to_string(), "--after-update".to_string()]]);
+        assert_eq!(quits(&host), 1);
+        assert_eq!(*fake.installs.lock().unwrap(), 0, "it isn't an update");
+    }
+
+    #[test]
+    fn a_settings_copy_that_cant_be_made_changes_nothing_else() {
+        let (mut plugin, mut host, fake) = env();
+        fake.backup_fails.store(true, Ordering::SeqCst);
+        ui(&mut plugin, &mut host, "back-asked", vec![]);
+        ui(&mut plugin, &mut host, "back-answered", vec![json!(true)]);
+        assert_eq!(back_events(&fake), ["backup"]);
+        assert!(plugin.status_while(false).0.contains("nothing was changed"));
+        assert_eq!((plugin.channel.as_str(), plugin.auto_check, plugin.busy()), ("nightly", true, false));
+        assert_eq!(quits(&host), 0);
+    }
+
+    #[test]
+    fn a_swap_that_fails_leaves_the_settings_and_the_app_as_they_were() {
+        let (mut plugin, mut host, fake) = env();
+        *fake.go_back_result.lock().unwrap() = Some(Err("Couldn't replace Telescope's files: No space left on device".into()));
+        ui(&mut plugin, &mut host, "back-asked", vec![]);
+        ui(&mut plugin, &mut host, "back-answered", vec![json!(true)]);
+        assert_eq!(back_events(&fake), ["backup", "go_back"]);
+        assert_eq!(plugin.status_while(false), ("Couldn't replace Telescope's files: No space left on device".to_string(), "status_err"));
+        assert_eq!((plugin.channel.as_str(), plugin.auto_check, plugin.busy()), ("nightly", true, false));
+        assert!(fake.relaunched.lock().unwrap().is_empty());
+        assert_eq!(quits(&host), 0);
+        // And it can be tried again
+        ui(&mut plugin, &mut host, "back-asked", vec![]);
+        ui(&mut plugin, &mut host, "back-answered", vec![json!(true)]);
+        assert_eq!(quits(&host), 1);
+    }
+
+    #[test]
+    fn going_back_waits_while_a_stream_runs_and_restarts_after_it() {
+        let (mut plugin, mut host, fake) = env();
+        host.streaming = true;
+        assert_eq!(plugin.section_props(true)["back-enabled"], false);
+        ui(&mut plugin, &mut host, "back-asked", vec![]);
+        ui(&mut plugin, &mut host, "back-answered", vec![json!(true)]);
+        assert!(back_events(&fake).is_empty(), "nothing is touched while streaming");
+        host.streaming = false;
+        ui(&mut plugin, &mut host, "back-asked", vec![]);
+        ui(&mut plugin, &mut host, "back-answered", vec![json!(true)]);
+        assert_eq!(quits(&host), 1);
+    }
+
+    #[test]
+    fn a_copy_that_cant_swap_gets_the_release_page_and_nothing_changes() {
+        let (mut plugin, mut host, fake) = env();
+        *fake.back_plan.lock().unwrap() = Some(Plan::Download { appimage: true });
+        ui(&mut plugin, &mut host, "back-asked", vec![]);
+        assert_eq!(last_props(&host, SECTION)["back-action"], "Open download page");
+        ui(&mut plugin, &mut host, "back-answered", vec![json!(true)]);
+        assert_eq!(*fake.opened.lock().unwrap(), vec![going_back::release_url()]);
+        assert!(back_events(&fake).is_empty());
+        assert_eq!((plugin.channel.as_str(), plugin.auto_check), ("nightly", true));
+        assert_eq!(quits(&host), 0);
+    }
+
+    #[test]
+    fn without_a_usable_python_the_button_in_the_question_is_off_and_nothing_happens() {
+        let (mut plugin, mut host, fake) = env();
+        *fake.back_plan.lock().unwrap() = Some(Plan::NoPython);
+        ui(&mut plugin, &mut host, "back-asked", vec![]);
+        assert_eq!(last_props(&host, SECTION)["back-action-enabled"], false);
+        // Even a click that got through changes nothing
+        ui(&mut plugin, &mut host, "back-answered", vec![json!(true)]);
+        assert!(back_events(&fake).is_empty());
+        assert!(fake.opened.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_going_back_that_was_undone_says_so_and_has_its_update_settings_back() {
+        let (mut plugin, mut host, fake) = env();
+        plugin.channel = "stable".into();
+        plugin.auto_check = false;
+        *fake.settled.lock().unwrap() = Some(("nightly".to_string(), true));
+        plugin.on_plugins_ready(&mut host);
+        assert_eq!((plugin.channel.as_str(), plugin.auto_check), ("nightly", true));
+        let (text, kind) = plugin.status_while(false);
+        assert!(text.contains("didn't start") && text.contains("this version is back"), "{text}");
+        assert_eq!(kind, "status_warn");
+        assert!(host.calls.iter().any(|c| c == "schedule_save"));
+        // Starting again later finds nothing to settle
+        let (mut again, mut host2, _) = env();
+        again.on_plugins_ready(&mut host2);
+        assert!(!again.status_while(false).0.contains("didn't start"));
     }
 }

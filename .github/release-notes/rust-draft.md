@@ -83,7 +83,7 @@ Both apps measured the same way on 2 November 2026 on the same machine: an 8-cor
 - Plugins written in Python for the old Telescope (plugin API 1) don't run any more. Added plugins have to be rewritten in Lua. Source: docs/writing-plugins.md, rust/FINDINGS.md.
 - Linux no longer needs Python 3.12 or the Python environment. It only needs v4l2loopback, and adb is optional. Source: docs/setup.md.
 - The VA-API setup button is gone. Hardware decoding just finds the card. Source: docs/troubleshooting.md.
-- Going back to the Python version isn't built yet, and the roadmap says it has to be in before the stable release (check: needs a decision). Source: docs/roadmap/next.md, rust/PLAN.md.
+- You can go back to the Python version, 4.4.2, the last one: Settings, Updates, Go back to the Python version. It saves a dated copy of your settings first, keeps your phones, and turns off 4.4.2's daily update check so it doesn't offer Rust back. Lua plugins and settings added since 4.4.2 don't carry over, and the phone app has to be 4.4.2 too (uninstall the newer one first, Android won't downgrade it). An AppImage can't be swapped, so it opens the 4.4.2 page instead, and on Linux it needs Python 3.12 or newer. Source: rust/crates/system/src/going_back.rs, rust/PLAN.md. (check: Windows not run yet)
 - The first start removes what the Python build left behind: the lib-<build> folders, .previous and the old requirements and guard files. Source: rust/PLAN.md, rust/crates/system/src/update_guard.rs.
 - Before it removes the old Python environment (about 650 MB), the updater asks first (check). Source: rust/crates/system/src/update_guard.rs.
 - Existing settings from the Python version are read as they are (check). Source: rust/crates/setup/tests/config_parity.rs.
