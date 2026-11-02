@@ -218,7 +218,7 @@ fn the_curve_drawn_is_the_one_applied() {
 
 #[test]
 fn it_is_an_optional_built_in_that_rides_in_presets_per_phone() {
-    let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../desktop/tests/fixtures/configs/linux-two-phones");
+    let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../fixtures/configs/linux-two-phones");
     let out = std::process::Command::new(env!("CARGO_BIN_EXE_telescope-rs")).arg("config-snapshot").arg(fixture).output().unwrap();
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
     let snapshot: Json = serde_json::from_slice(&out.stdout).unwrap();

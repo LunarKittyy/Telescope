@@ -1,0 +1,7 @@
+# What Auto framing and Background need: MediaPipe and the packages it loads at run time, for build_vision_pack.py.
+# They go into the vision pack the app downloads when one of those plugins is switched on, not into the app.
+# mediapipe asks for opencv-contrib-python and matplotlib, which the pack doesn't need, so pip runs with --no-deps.
+mediapipe==1.1.1
+absl-py==2.5.1
+flatbuffers==25.12.19
+certifi==2026.10.23

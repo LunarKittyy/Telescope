@@ -194,7 +194,7 @@ fn test_the_real_models_find_a_person_shaped_blob() {
 #[test]
 fn test_the_real_pack_has_no_address_to_report_usage_to() {
     let Some(folder) = pack() else { return };
-    let script = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../desktop/scripts/build_vision_pack.py")).unwrap();
+    let script = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tools/build_vision_pack.py")).unwrap();
     let report_to = script.split("TELEMETRY_URL = b\"").nth(1).and_then(|rest| rest.split('"').next()).expect("the address").as_bytes();
     fn libraries(dir: &std::path::Path, found: &mut Vec<std::path::PathBuf>) {
         for entry in std::fs::read_dir(dir).unwrap().flatten() {

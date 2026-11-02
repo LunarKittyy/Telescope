@@ -411,7 +411,7 @@ pub(crate) mod tests {
     // test_vcam.py::test_the_python_side_matches_the_dlls_shared_memory_layout
     #[test]
     fn the_layout_matches_the_dlls_shared_memory() {
-        let header = include_str!("../../../../desktop/virtualcamera/shared_frame.h");
+        let header = include_str!("../../../windows/virtualcamera/shared_frame.h");
         assert!(header.contains(&format!("kMagic = 0x{MAGIC:08X}")));
         assert!(header.contains(&format!("kVersion = {PROTOCOL};")) && header.contains(&format!("kFormatNV12 = {NV12};")));
         assert!(header.contains("kDataOffset = 64;") && HEADER_SIZE == 64);

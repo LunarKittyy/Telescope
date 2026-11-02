@@ -1,6 +1,6 @@
-//! Every text the Rust code shows through tr(), n_(), trn() and Slint's @tr is a text of the template (desktop/telescope/locale/
-//! telescope.pot), so it has the translations the Python app's catalogs hold, and none is spelled a little differently and stays
-//! English everywhere. The other way round is the ledger's job: inventory.py lists every text of the template and what ports it.
+//! Every text the Rust code shows through tr(), n_(), trn() and Slint's @tr is a text of the template (locale/telescope.pot), so it is
+//! translated where a catalog has it, and the template holds nothing the code has lost. `python tools/i18n.py extract` in rust/ writes
+//! the template from the code; this scans the code on its own to check it did.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -8,53 +8,6 @@ use telescope_core::i18n::po;
 
 /// The files that read or write the calls themselves, so their examples aren't texts.
 const READERS: [&str; 4] = ["source.rs", "texts.rs", "text.rs", "i18n.rs"];
-
-/// What the code says that the template doesn't, and why. A text that's new here is a spelling that stays English in every language.
-const NOT_IN_THE_TEMPLATE: [(&str, &str); 39] = [
-    // Qt's own button texts, which Qt's translations cover in the Python app
-    ("OK", "Qt standard button"),
-    ("Yes", "Qt standard button"),
-    ("No", "Qt standard button"),
-    // Texts that only the Rust app has: Slint has no inline links, and its accessibility labels and Lua plugins are new
-    ("Smooth", "the preview cap, Rust only"),
-    ("Telescope can't update itself because the folder holding this AppImage isn't writable.", "the AppImage, Rust only"),
-    ("Another copy of Telescope in this folder is still finishing an update.", "the AppImage, Rust only"),
-    ("This update wasn't installed because it can't start on this computer.", "updates checked before they go in, Rust only"),
-    ("Shows every frame in the preview but uses a bit more CPU.", "the preview cap, Rust only"),
-    ("If the card fails the processor takes over until you restart Telescope.", "hardware decoding's fallback, Rust only"),
-    ("The graphics card failed and the processor is decoding until you restart Telescope", "hardware decoding's fallback, Rust only"),
-    ("Pairing code", "an accessibility label"),
-    ("What to add", "an accessibility label"),
-    ("Works on an iPhone or anything else with a browser and there's nothing to install.", "Add phone's Browser camera page, Rust only"),
-    ("The camera is making fewer frames than asked for. Dim light slows it down.", "a browser that is simply slow, Rust only"),
-    ("Page", "an accessibility label"),
-    ("Back", "Add phone's way back to Your phones"),
-    ("That source isn't available anymore.", "only in the Rust app"),
-    ("The browser disconnected.", "only in the Rust app"),
-    ("Get adb from Google", "the Add phone link as a button"),
-    ("Light needs FFmpeg but it's missing from this copy of Telescope. Reinstalling brings it back.", "Rust's decoder, which pip can't fix"),
-    ("RNNoise is missing from this copy of Telescope. Reinstalling brings it back.", "Rust's RNNoise, which pip can't fix"),
-    ("Its {file} has to return the plugin's table at the end.", "a Lua plugin's message"),
-    ("Press a key…", "the shortcut editor's hint"),
-    ("...", "an example in a comment"),
-    // Shortened on the owner's request by dropping their helper sentence; the Python app still has the full text
-    ("Right-click most controls to add one for it.", "the shortcut list's hint, shortened"),
-    ("A change takes effect the next time Telescope starts, and settings are kept either way.", "the plugins tab's note, shortened"),
-    ("No plugins added yet. Plugins people share come as .zip files. Added plugins start out switched off.", "the plugins tab's empty note, shortened"),
-    ("It can stutter more than TCP, so try it and see.", "the UDP setting's note, shortened"),
-    ("Scan the code on the Browser camera card with the device to use.", "the browser camera's waiting note, shortened"),
-    ("Nothing's in the picture yet.", "the One picture card's empty note, shortened"),
-    ("Type or paste your notes.", "the notes placeholder, shortened"),
-    ("Blurs the other people, everything but you, or puts the wait screen up when someone else walks in. It's a proof of concept and can't guarantee privacy.", "Rust only until the next translation pass"),
-    // Rust only until the next translation pass: the plugins tab's reset button and the colour grading shortcuts
-    ("Reset to defaults", "the plugins tab's reset button, replaces Turn all back on"),
-    ("Switch the built-in plugins back to the standard selection: the optional ones off, the rest on", "the plugins tab's reset tip"),
-    ("LUT strength", "a colour grading shortcut"),
-    ("Lift master", "a colour grading shortcut"),
-    ("Gamma master", "a colour grading shortcut"),
-    ("Gain master", "a colour grading shortcut"),
-    ("Offset master", "a colour grading shortcut"),
-];
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("..")
@@ -132,8 +85,9 @@ fn texts_in(path: &Path, text: &str) -> Vec<(String, String, String)> {
     for (name, ctx_first) in calls {
         for (at, _) in text.match_indices(name) {
             let before = text[..at].chars().next_back();
-            // Not the end of another name (`str(`, `fn_tr(`), nor a definition
-            if before.is_some_and(|c| c.is_alphanumeric() || c == '_') || text[..at].trim_end().ends_with("fn") {
+            // Not the end of another name (`str(`, `fn_tr(`), nor a definition, nor an example in a comment
+            let line = text[..at].rsplit('\n').next().unwrap_or("");
+            if before.is_some_and(|c| c.is_alphanumeric() || c == '_') || text[..at].trim_end().ends_with("fn") || line.contains("//") {
                 continue;
             }
             let Some((mut ctx, english)) = after_call(&text[at + name.len()..], *ctx_first) else { continue };
@@ -152,7 +106,7 @@ fn texts_in(path: &Path, text: &str) -> Vec<(String, String, String)> {
 
 #[test]
 fn every_text_in_the_code_is_in_the_template() {
-    let template = std::fs::read_to_string(root().join("../desktop/telescope/locale/telescope.pot")).unwrap();
+    let template = std::fs::read_to_string(root().join("locale/telescope.pot")).unwrap();
     let (entries, _) = po::read_po(&template).unwrap();
     let known: BTreeSet<(String, String)> = entries.iter().map(|e| (e.ctx.clone(), e.msgid.clone())).chain(entries.iter().filter(|e| !e.plural.is_empty()).map(|e| (e.ctx.clone(), e.plural.clone()))).collect();
     let mut files = Vec::new();
@@ -164,16 +118,13 @@ fn every_text_in_the_code_is_in_the_template() {
         let text = std::fs::read_to_string(&file).unwrap();
         for (place, ctx, english) in texts_in(&file, &text) {
             seen += 1;
-            if !known.contains(&(ctx.clone(), english.clone())) && !NOT_IN_THE_TEMPLATE.iter().any(|(t, _)| *t == english) {
+            if !known.contains(&(ctx.clone(), english.clone())) {
                 missing.push(format!("{place}: {ctx:?} {english:?}"));
             }
         }
     }
     assert!(seen > 500, "found only {seen} texts, so the scan is wrong");
-    for (text, why) in NOT_IN_THE_TEMPLATE {
-        assert!(!known.iter().any(|(_, m)| m == text), "{text:?} ({why}) is in the template now, so it can come off the list");
-    }
-    assert!(missing.is_empty(), "{} texts that aren't in telescope.pot:\n{}", missing.len(), missing.join("\n"));
+    assert!(missing.is_empty(), "{} texts that aren't in telescope.pot, run `python tools/i18n.py extract` in rust/:\n{}", missing.len(), missing.join("\n"));
 }
 
 // test_i18n.py::test_every_text_can_be_found: a text built with format!() can't be found by an extractor, and so can't be translated
@@ -297,22 +248,10 @@ fn every_text_can_be_found() {
     assert!(bad.is_empty(), "{} texts can't be found or filled in:\n{}", bad.len(), bad.join("\n"));
 }
 
-/// What the ledger says of each text of the template, by its key there.
-fn ledger_texts() -> std::collections::BTreeMap<String, String> {
-    let ledger = std::fs::read_to_string(root().join("parity/ledger.toml")).unwrap();
-    let section = ledger.split("\n[text]\n").nth(1).unwrap().split("\n[").next().unwrap();
-    section.lines().filter_map(|line| {
-        let (key, len) = literal(line)?;
-        let (status, _) = literal(line[len..].split("status = ").nth(1)?)?;
-        Some((key, status))
-    }).collect()
-}
-
-// test_i18n.py::test_the_template_has_every_text_in_the_code, the other way round: until the rewrite has every text, what the template
-// holds and the code doesn't has to be one the ledger doesn't call done; and a plural is the template's plural
+// test_i18n.py::test_the_template_has_every_text_in_the_code: what the template holds is in the code, and a plural is the template's plural
 #[test]
-fn the_template_has_nothing_the_ledger_calls_done_that_the_code_lacks() {
-    let template = std::fs::read_to_string(root().join("../desktop/telescope/locale/telescope.pot")).unwrap();
+fn the_template_has_nothing_the_code_lacks() {
+    let template = std::fs::read_to_string(root().join("locale/telescope.pot")).unwrap();
     let (entries, _) = po::read_po(&template).unwrap();
     let mut files = Vec::new();
     sources(&root().join("crates"), &mut files);
@@ -346,11 +285,8 @@ fn the_template_has_nothing_the_ledger_calls_done_that_the_code_lacks() {
             found.insert((String::new(), plural));
         }
     }
-    let ledger = ledger_texts();
-    let missing: Vec<String> = entries.iter().filter(|e| !found.contains(&(e.ctx.clone(), e.msgid.clone())) && !literals.contains(&e.msgid)).filter_map(|e| {
-        let key = if e.ctx.is_empty() { e.msgid.clone() } else { format!("{}|{}", e.ctx, e.msgid) };
-        (ledger.get(&key).map(String::as_str) != Some("todo") && ledger.get(&key).map(String::as_str) != Some("dropped")).then_some(key)
-    }).collect();
+    let missing: Vec<String> = entries.iter().filter(|e| !found.contains(&(e.ctx.clone(), e.msgid.clone())) && !literals.contains(&e.msgid))
+        .map(|e| if e.ctx.is_empty() { e.msgid.clone() } else { format!("{}|{}", e.ctx, e.msgid) }).collect();
     assert!(wrong.is_empty(), "plurals the template doesn't have:\n{}", wrong.join("\n"));
-    assert!(missing.is_empty(), "{} texts marked done that the code doesn't have:\n{}", missing.len(), missing.join("\n"));
+    assert!(missing.is_empty(), "{} texts in the template that the code doesn't have, run `python tools/i18n.py extract` in rust/:\n{}", missing.len(), missing.join("\n"));
 }

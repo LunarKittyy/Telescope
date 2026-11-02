@@ -147,7 +147,7 @@ static HAS_LOG: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::n
 
 /// Setup as the scenes have it.
 fn setup_plugin() -> telescope_setup::setup::SetupPlugin {
-    let locale = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../desktop/telescope/locale"));
+    let locale = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../locale"));
     let mut plugin = telescope_setup::setup::SetupPlugin::new(Arc::new(SetupOutputs), Arc::new(SetupLink), Arc::new(telescope_media::FfmpegMedia),
                                                               &telescope_system::version::display_version(),
                                                               telescope_setup::setup::Language::found(&[locale]));

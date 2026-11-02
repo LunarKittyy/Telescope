@@ -76,7 +76,7 @@ mod tests {
     use std::path::PathBuf;
 
     fn fixtures() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../desktop/tests/fixtures/configs")
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/configs")
     }
 
     fn sections(v: &Value) -> Vec<String> {

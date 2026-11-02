@@ -641,7 +641,7 @@ int main(int, char** argv) {
 "#;
 
     fn camera() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../desktop/virtualcamera")
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../windows/virtualcamera")
     }
 
     fn read(name: &str) -> String {
@@ -674,29 +674,16 @@ int main(int, char** argv) {
         find_font(true).map(|_| camera_wait_screen().unwrap())
     }
 
-    /// What goes into the DLL: its CMake build still calls scripts/write_camera_wait_screen.py. None where that can't run (no PyQt).
-    fn built_into_the_dll(scratch: &Path) -> Option<Vec<u8>> {
-        let (desktop, out) = (camera().join(".."), scratch.join("from_python.bin"));
-        let ran = ["python3", "python"].iter().find_map(|python| {
-            Command::new(python).current_dir(&desktop).arg("scripts/write_camera_wait_screen.py").arg(&out).env("QT_QPA_PLATFORM", "offscreen").output().ok()
-        });
-        if !ran.is_some_and(|r| r.status.success()) {
-            eprintln!("write_camera_wait_screen.py didn't run here; only this app's resource was checked");
-            return None;
-        }
-        std::fs::read(out).ok()
-    }
-
     /// The resources to check: (what it is, its bytes).
-    fn resources(scratch: &Path) -> Vec<(&'static str, Vec<u8>)> {
-        resource().map(|r| ("this app's", r)).into_iter().chain(built_into_the_dll(scratch).map(|r| ("the DLL's", r))).collect()
+    fn resources() -> Vec<(&'static str, Vec<u8>)> {
+        resource().map(|r| ("this app's", r)).into_iter().collect()
     }
 
     // test_camera_wait_screen.py::test_the_header_is_the_one_the_dll_reads
     #[test]
     fn the_header_is_the_one_the_dll_reads() {
         let fields = header_fields();
-        for (what, resource) in resources(&telescope_core::testing::scratch_dir("camera-header")) {
+        for (what, resource) in resources() {
             let value = |name: &str| {
                 let at = fields.iter().position(|f| f == name).unwrap_or_else(|| panic!("{name}"));
                 u32::from_le_bytes(resource[at * 4..at * 4 + 4].try_into().unwrap())
@@ -731,7 +718,7 @@ int main(int, char** argv) {
         let dir = telescope_core::testing::scratch_dir("camera-layout");
         let exe = harness(&dir, &["-std=c++17", "-O2"]).unwrap();
         let sizes = [(1280u32, 720u32), (640, 480), (1080, 1920)];
-        for (what, (w, h)) in resources(&dir).into_iter().flat_map(|(what, resource)| {
+        for (what, (w, h)) in resources().into_iter().flat_map(|(what, resource)| {
             std::fs::write(dir.join(format!("{}.bin", what.len())), resource).unwrap();
             sizes.map(|size| (what, size))
         }) {

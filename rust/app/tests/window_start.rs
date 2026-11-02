@@ -35,7 +35,7 @@ fn the_window_comes_up_without_loading_the_vision_pack() {
 #[cfg(target_os = "linux")]
 #[test]
 fn the_programs_own_window_comes_up_without_loading_the_vision_pack() {
-    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../desktop/tests/fixtures/configs/fresh-install");
+    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/configs/fresh-install");
     let out = std::process::Command::new(env!("CARGO_BIN_EXE_telescope-rs")).arg("config-snapshot").arg(fixture).env("RUST_LOG", "info").output().unwrap();
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
     let log = String::from_utf8_lossy(&out.stderr);

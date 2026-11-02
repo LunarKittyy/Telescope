@@ -732,7 +732,7 @@ mod tests {
     fn the_translations_are_in_the_program() {
         use telescope_core::i18n::Source;
         let embedded = Source::Embedded { template: locale::TEMPLATE, catalogs: locale::CATALOGS };
-        let folder = Source::Folder(std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../desktop/telescope/locale")).to_path_buf());
+        let folder = Source::Folder(std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../locale")).to_path_buf());
         assert_eq!(embedded.available(), folder.available());
         assert_eq!(embedded.available().len(), 16);
         for lang in embedded.available().iter().map(String::as_str).chain(["pseudo"]) {

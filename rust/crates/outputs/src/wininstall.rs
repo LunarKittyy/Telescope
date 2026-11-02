@@ -662,7 +662,7 @@ mod tests {
 
     /// Where the pieces of the Windows 11 camera sit in the Python app's virtualcamera folder.
     fn virtualcamera() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../desktop/virtualcamera")
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../windows/virtualcamera")
     }
 
     // test_platform_windows.py::test_unitycapture_dir_frozen_and_source

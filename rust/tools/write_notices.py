@@ -45,7 +45,7 @@ UnityCapture (unitycapture/)
     License: MIT (see unitycapture/LICENSE).
     Source: https://github.com/schellingb/UnityCapture
 
-Windows 11 camera (virtualcamera/TelescopeCamera.dll, source in desktop/virtualcamera/)
+Windows 11 camera (virtualcamera/TelescopeCamera.dll, source in rust/windows/virtualcamera/)
     Telescope's own code, under Telescope's license. Its structure follows
     Microsoft's VirtualCamera sample.
     Sample: Copyright (c) Microsoft Corporation. License: MIT.

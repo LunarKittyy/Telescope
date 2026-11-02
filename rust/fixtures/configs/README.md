@@ -1,6 +1,6 @@
 # Settings files
 
-Real and made-up `telescope_config.json` files, each next to an `expected.json` that says what the app does with it: whether it sets the file aside as unreadable, which plugins come up and what it saves straight after starting. `scripts/config_fixtures.py` writes the expected files and `tests/test_config_fixtures.py` checks the app still matches them. Anything that replaces the desktop app has to end up in the same place, so updating never costs anyone their pairings or settings.
+Real and made-up `telescope_config.json` files, each next to an `expected.json` that says what the app does with it: whether it sets the file aside as unreadable, which plugins come up and what it saves straight after starting. The expected files were recorded from the last Python app, and `app/tests/config_fixtures.rs` checks that `telescope-rs config-snapshot` still prints the same for each. Updating must never cost anyone their pairings or settings, so change an expected file only when the app is meant to save something different.
 
 | Folder | What it is |
 |---|---|

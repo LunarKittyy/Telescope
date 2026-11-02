@@ -1,9 +1,9 @@
 ; Telescope's Windows setup: a per-user install of the same folder Telescope-windows.zip holds.
 ; Build: installer/build.ps1 (it passes the defines below), or by hand:
 ;   iscc /DAppVersion=3.3.1 /DBuild=0 /DSourceDir=..\bundle /DOutputDir=..\out installer\Telescope.iss
-; /DRust=1 packs rust/tools/build_windows.ps1's folder instead of PyInstaller's. It only adds the clean-up below, so a Python setup comes out the same.
+; /DRust=1 packs rust/tools/build_windows.ps1's folder and adds the clean-up of what in-app updates bring.
 ;
-; Per-user on purpose: the app updates itself by swapping files in its own folder (desktop/updates.py), so the
+; Per-user on purpose: the app updates itself by swapping files in its own folder (rust/crates/system/src/updates.rs), so the
 ; folder has to be writable without admin. {autopf} is %LOCALAPPDATA%\Programs here. Program Files\Telescope
 ; belongs to the camera driver, which the app's first-run checklist installs with its own UAC prompt.
 
@@ -49,7 +49,7 @@ ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 #endif
 MinVersion=10.0
-SetupIconFile=..\desktop\resources\telescope.ico
+SetupIconFile=..\rust\app\resources\telescope.ico
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName=Telescope
 WizardStyle=modern
@@ -81,7 +81,7 @@ Name: "{autodesktop}\Telescope"; Filename: "{app}\{#AppExe}"; AppUserModelID: "L
 Filename: "{app}\{#AppExe}"; Description: "Open Telescope"; Flags: nowait postinstall skipifsilent
 
 ; What the app adds after setup, which the uninstall log can't know about: libraries from in-app updates, the updater's
-; working files (desktop/update_guard.py) and the log shortcut (desktop/telescope/diagnostics.py).
+; working files (rust/crates/system/src/update_guard.rs) and the log shortcut (rust/crates/core/src/diagnostics.rs).
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\lib-*"
 #ifdef Rust
@@ -103,10 +103,10 @@ Type: files; Name: "{app}\.moved-from.tmp"
 Type: files; Name: "{app}\TelescopeDesktop.old.exe"
 Type: files; Name: "{app}\TelescopeDesktop.failed.exe"
 Type: files; Name: "{app}\telescope.log"
-; adb as the app downloads it (desktop/telescope/platform/adb_download.py), and a download cut short
+; adb as the app downloads it (rust/crates/link/src/adb_download.rs), and a download cut short
 Type: filesandordirs; Name: "{localappdata}\Telescope\platform-tools"
 Type: filesandordirs; Name: "{localappdata}\Telescope\.adb-*"
-; The vision download (desktop/telescope/vision_pack.py), which can be fetched again
+; The vision download (rust/crates/vision/src/pack.rs), which can be fetched again
 Type: filesandordirs; Name: "{localappdata}\Telescope\vision"
 Type: dirifempty; Name: "{localappdata}\Telescope"
 Type: filesandordirs; Name: "{app}\unitycapture"
@@ -115,7 +115,7 @@ Type: dirifempty; Name: "{app}"
 [Code]
 const
   RunKey = 'Software\Microsoft\Windows\CurrentVersion\Run';
-  RunValue = 'Telescope';  // desktop/telescope/platform/autostart.py
+  RunValue = 'Telescope';  // rust/crates/system/src/autostart.rs
 
 // "Open at sign-in" points the Run key at this copy's exe. Once it's gone that entry would only fail at every
 // sign-in, so take it out, but leave one that points at some other copy of Telescope alone.
@@ -178,8 +178,8 @@ begin
   Result := '''' + Value + '''';
 end;
 
-// The virtual camera the app installs for every account (desktop/telescope/platform/windows.py): UnityCapture, or on
-// Windows 11 its own (desktop/virtualcamera)
+// The virtual camera the app installs for every account (rust/crates/outputs/src/wininstall.rs): UnityCapture, or on
+// Windows 11 its own (rust/windows/virtualcamera)
 function CameraInstalled(): Boolean;
 begin
   Result := DirExists(ExpandConstant('{commonpf64}\Telescope\UnityCapture')) or
@@ -271,7 +271,7 @@ begin
   end;
   if CurUninstallStep = usPostUninstall then
   begin
-    DelTree(GetEnv('TEMP') + '\Telescope', True, True, True);  // the log (desktop/telescope/diagnostics.py)
+    DelTree(GetEnv('TEMP') + '\Telescope', True, True, True);  // the log (rust/crates/core/src/diagnostics.rs)
     // adb still locked (a server that outlived Telescope): delete it at the next sign-in, which needs no admin
     Adb := ExpandConstant('{localappdata}\Telescope');
     if DirExists(Adb + '\platform-tools') then

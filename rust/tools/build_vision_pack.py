@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Build the vision pack (MediaPipe and the two models) for Linux and Windows, from requirements-vision.txt.
+"""Build the vision pack (MediaPipe and the two models) for Linux and Windows, from vision-pack-requirements.txt.
 
-    python scripts/build_vision_pack.py --check            # CI: both packs still match telescope/vision_pack.json
-    python scripts/build_vision_pack.py --write            # after changing a pin: update vision_pack.json
-    python scripts/build_vision_pack.py --out dist/vision  # also write the release zips there
-    python scripts/build_vision_pack.py --install          # running from source: unpack this computer's pack
+    python tools/build_vision_pack.py --check            # CI: both packs still match crates/vision/vision_pack.json
+    python tools/build_vision_pack.py --write            # after changing a pin: update vision_pack.json
+    python tools/build_vision_pack.py --out dist/vision  # also write the release zips there
 
-Works from any OS (pip downloads the other platform's wheels).
+Works from any OS (pip downloads the other platform's wheels). The pack's folder tree is hashed the way crates/vision/src/pack.rs does.
 """
 import argparse
 import hashlib
@@ -19,18 +18,36 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-DESKTOP = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(DESKTOP))
+TOOLS = Path(__file__).resolve().parent
+PACK_INFO = TOOLS.parent / "crates" / "vision" / "vision_pack.json"
+SEGMENTER_MODEL = "selfie_segmenter_landscape.tflite"
+POSE_MODEL = "pose_landmarker_lite.task"
+_DONE = ".verified"  # written last by the app, holding the pack's id: it is not part of the hash
 
-from telescope import vision_pack  # noqa: E402  (no OpenCV: the release runs this on a bare Python)
+
+def tree_hash(folder: Path) -> str:
+    """What's in a folder, as one sha256 over each file's path and sha256 (the zip itself can differ by zlib)."""
+    lines = []
+    # WindowsPath sorts without case; use the same case-sensitive component order as PosixPath.
+    for path in sorted((p for p in folder.rglob("*") if p.is_file()), key=lambda p: p.relative_to(folder).parts):
+        rel = path.relative_to(folder).as_posix()
+        if rel == _DONE:
+            continue
+        digest = hashlib.sha256()
+        with path.open("rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                digest.update(chunk)
+        lines.append(f"{rel}\0{digest.hexdigest()}\n")
+    return hashlib.sha256("".join(lines).encode()).hexdigest()
+
 
 PLATFORMS = {"linux": "manylinux_2_28_x86_64", "windows": "win_amd64"}
 _MODELS = "https://storage.googleapis.com/mediapipe-models"
 MODELS = {  # name: (url, sha256); version 1 of each, as tested
-    vision_pack.SEGMENTER_MODEL: (f"{_MODELS}/image_segmenter/selfie_segmenter_landscape/float16/1/"
+    SEGMENTER_MODEL: (f"{_MODELS}/image_segmenter/selfie_segmenter_landscape/float16/1/"
                              f"selfie_segmenter_landscape.tflite",
                              "490e9ea734313e0de10fa0cd9e3c6133e36ea4db2b7a49bde9ef019f72796b8e"),
-    vision_pack.POSE_MODEL: (f"{_MODELS}/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+    POSE_MODEL: (f"{_MODELS}/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
                         "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a"),
 }
 NOTICES = """Telescope's vision pack, used by the Auto framing and Background plugins.
@@ -52,7 +69,7 @@ assert len(TELEMETRY_URL) == len(TELEMETRY_OFF)
 
 
 def pins() -> list:
-    lines = (DESKTOP / "requirements-vision.txt").read_text().splitlines()
+    lines = (TOOLS / "vision-pack-requirements.txt").read_text().splitlines()
     return [ln.strip() for ln in lines if ln.strip() and not ln.startswith("#")]
 
 
@@ -122,20 +139,19 @@ def main():
     ap.add_argument("--check", action="store_true", help="fail when a pack doesn't match vision_pack.json")
     ap.add_argument("--write", action="store_true", help="write vision_pack.json from what was built")
     ap.add_argument("--out", type=Path, help="write the release zips into this folder")
-    ap.add_argument("--install", action="store_true", help="unpack this computer's pack where Telescope looks")
-    ap.add_argument("--cache", type=Path, default=DESKTOP / "build" / "vision-cache")
+    ap.add_argument("--cache", type=Path, default=TOOLS.parent / "target" / "vision-cache")
     args = ap.parse_args()
     args.cache.mkdir(parents=True, exist_ok=True)
     info, problems = {}, []
     try:
-        known = json.loads(vision_pack.PACK_INFO.read_text())
+        known = json.loads(PACK_INFO.read_text())
     except (OSError, ValueError):
         known = {}
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         for key in PLATFORMS:
             root = build(key, work, args.cache)
-            tree = vision_pack.tree_hash(root)
+            tree = tree_hash(root)
             zipped = work / f"{key}.zip"
             write_zip(root, zipped)
             files = sum(1 for p in root.rglob("*") if p.is_file())
@@ -148,20 +164,12 @@ def main():
                 name = f"Telescope-vision-{key}-{tree[:16]}.zip"
                 shutil.move(zipped, args.out / name)  # the temp folder can be on another filesystem
                 print(f"  wrote {args.out / name}")
-            if args.install and key == vision_pack.platform_key():
-                dest = vision_pack.default_dir() / tree[:16]
-                if dest.exists():
-                    shutil.rmtree(dest)
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(root, dest)
-                (dest / ".verified").write_text(tree[:16])
-                print(f"  installed in {dest}")
     if args.write:
-        vision_pack.PACK_INFO.write_text(json.dumps(info, indent=2, sort_keys=True) + "\n")
-        print(f"wrote {vision_pack.PACK_INFO}")
+        PACK_INFO.write_text(json.dumps(info, indent=2, sort_keys=True) + "\n")
+        print(f"wrote {PACK_INFO}")
     if problems:
-        sys.exit(f"The {' and '.join(problems)} pack doesn't match telescope/vision_pack.json. If a pin in "
-                 f"requirements-vision.txt changed on purpose, run this with --write and commit the result.")
+        sys.exit(f"The {' and '.join(problems)} pack doesn't match crates/vision/vision_pack.json. If a pin in "
+                 f"vision-pack-requirements.txt changed on purpose, run this with --write and commit the result.")
 
 
 if __name__ == "__main__":
