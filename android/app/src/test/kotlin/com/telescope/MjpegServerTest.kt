@@ -961,4 +961,55 @@ class MjpegServerTest {
             file.delete()
         }
     }
+
+    private fun startDownload(socket: Socket, token: String) {
+        socket.receiveBufferSize = 4096
+        socket.getOutputStream().write("GET /v1/still/file?id=a&n=0 HTTP/1.1\r\nAuthorization: Bearer $token\r\n\r\n".toByteArray())
+    }
+
+    private fun drained(socket: Socket): Long {
+        socket.soTimeout = 10_000
+        return try { socket.getInputStream().readBytes().size.toLong() } catch (_: java.io.IOException) { 0L }
+    }
+
+    @Test
+    fun `a download stops when its computer is removed part way`() {
+        val file = java.io.File.createTempFile("still", ".dng").apply { java.io.RandomAccessFile(this, "rw").use { it.setLength(64L shl 20) } }
+        val tokens = java.util.concurrent.atomic.AtomicReference(listOf("t"))
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { tokens.get() },
+            stillFile = { _, _ -> file to "IMG_1.dng" })
+        server.start()
+        try {
+            Socket("127.0.0.1", actualPort(server)).use { socket ->
+                startDownload(socket, "t")
+                Thread.sleep(500)  // the phone is mid-copy, its writes waiting on this side
+                tokens.set(emptyList())
+                val read = drained(socket)
+                assertTrue(read < file.length(), "read $read of ${file.length()}")
+            }
+        } finally {
+            server.stop()
+            file.delete()
+        }
+    }
+
+    @Test
+    fun `stopping the server cuts off a download in flight`() {
+        val file = java.io.File.createTempFile("still", ".dng").apply { java.io.RandomAccessFile(this, "rw").use { it.setLength(64L shl 20) } }
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") },
+            stillFile = { _, _ -> file to "IMG_1.dng" })
+        server.start()
+        try {
+            Socket("127.0.0.1", actualPort(server)).use { socket ->
+                startDownload(socket, "t")
+                Thread.sleep(500)
+                server.stop()
+                val read = drained(socket)
+                assertTrue(read < file.length(), "read $read of ${file.length()}")
+            }
+        } finally {
+            server.stop()
+            file.delete()
+        }
+    }
 }

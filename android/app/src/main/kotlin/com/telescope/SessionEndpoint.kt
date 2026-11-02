@@ -145,6 +145,9 @@ object SessionEndpoint {
         announcer = null
     }
 
+    @Synchronized
+    fun isHeldBy(owner: String): Boolean = owner in owners
+
     // Test seam: drive refcount without binding port.
     @Synchronized
     fun isBound(): Boolean = server != null
