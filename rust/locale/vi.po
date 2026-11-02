@@ -342,7 +342,7 @@ msgstr "Mic điện thoại cần có VB-Audio Virtual Cable trên Windows."
 msgid "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."
 msgstr "VB-Cable do VB-Audio phát triển, không phải Telescope. Telescope có thể tải về tệp cài đặt từ vb-audio.com và mở trình thiết lập của chính VB-Audio, yêu cầu quyền quản trị. Hãy khởi động lại máy tính khi hoàn tất."
 
-#: rust/crates/audio/ui/microphone.slint:339 rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/colour_grading.slint:429 rust/crates/effects/ui/composite_editor.slint:585 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:603 rust/crates/system/ui/shortcuts.slint:374
+#: rust/crates/audio/ui/microphone.slint:339 rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/colour_grading.slint:429 rust/crates/effects/ui/composite_editor.slint:585 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:603 rust/crates/system/ui/shortcuts.slint:374 rust/crates/system/ui/updates.slint:211
 msgid "Cancel"
 msgstr "Hủy"
 
@@ -497,7 +497,7 @@ msgstr "Mở rộng"
 msgid "Downloading… {percent}%"
 msgstr "Đang tải về… {percent} %"
 
-#: rust/crates/core/src/vision.rs:103 rust/crates/shell/src/plugins_tab.rs:433 rust/crates/system/src/updates_plugin.rs:352
+#: rust/crates/core/src/vision.rs:103 rust/crates/shell/src/plugins_tab.rs:433 rust/crates/system/src/updates_plugin.rs:427
 msgid "Downloading…"
 msgstr "Đang tải về…"
 
@@ -2498,7 +2498,7 @@ msgstr "Đường cong"
 msgid "All"
 msgstr "Tất cả"
 
-#: rust/crates/effects/ui/colour_grading.slint:337 rust/crates/system/ui/updates.slint:94 rust/crates/system/ui/updates.slint:100
+#: rust/crates/effects/ui/colour_grading.slint:337 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
 msgid "Channel"
 msgstr "Kênh"
 
@@ -3105,7 +3105,7 @@ msgstr "Không theo kịp"
 msgid "Browser"
 msgstr "Trình duyệt"
 
-#: rust/crates/link/src/browser/plugin.rs:920 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:336 rust/crates/link/src/plugin.rs:372 rust/crates/link/src/plugin.rs:398 rust/crates/link/src/plugin.rs:732 rust/crates/setup/src/setup.rs:724 rust/crates/shell/src/plugins/onboarding.rs:139 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1529 rust/crates/system/ui/updates.slint:156
+#: rust/crates/link/src/browser/plugin.rs:920 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:336 rust/crates/link/src/plugin.rs:372 rust/crates/link/src/plugin.rs:398 rust/crates/link/src/plugin.rs:732 rust/crates/setup/src/setup.rs:724 rust/crates/shell/src/plugins/onboarding.rs:139 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1529 rust/crates/system/ui/updates.slint:173
 msgid "Try again"
 msgstr "Thử lại"
 
@@ -3186,7 +3186,7 @@ msgstr "Chỉ Wi-Fi"
 msgid "Computer"
 msgstr "Máy tính"
 
-#: rust/crates/link/src/connection.rs:801 rust/crates/shell/src/plugins/onboarding.rs:126 rust/crates/system/src/updates_plugin.rs:359
+#: rust/crates/link/src/connection.rs:801 rust/crates/shell/src/plugins/onboarding.rs:126 rust/crates/system/src/updates_plugin.rs:434
 msgid "Checking…"
 msgstr "Đang kiểm tra…"
 
@@ -6477,6 +6477,61 @@ msgstr "Không thể đặt Telescope tự mở khi đăng nhập: {error}"
 msgid "Couldn't stop Telescope opening at sign-in: {error}"
 msgstr "Không thể dừng việc Telescope tự mở khi đăng nhập: {error}"
 
+#: rust/crates/system/src/going_back.rs:144
+#, python-brace-format
+msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones come with it, and a copy of your current settings is saved first in {folder}."
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:146
+#, python-brace-format
+msgid "You lose what's new since then. Plugins written in Lua don't run in {version}, and settings that didn't exist then are ignored."
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:148
+#, python-brace-format
+msgid "{version} won't check for updates by itself, so it doesn't offer this version back. You can turn that on again in its settings."
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:151
+msgid "On the first start it sets up Python's libraries again. That needs the internet and takes a few minutes."
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:153
+msgid "If it doesn't start, opening Telescope again brings this version back."
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:155 rust/crates/system/src/going_back.rs:168
+msgid "Go back"
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:159
+#, python-brace-format
+msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack it and run start.sh in it. It needs Python 3.12 or newer and finds your settings in the same place."
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:161
+#, python-brace-format
+msgid "Telescope can't swap its own files here, because its folder isn't writable. Download {version} from its release page and install it yourself."
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:164 rust/crates/system/src/updates_plugin.rs:498
+msgid "Open download page"
+msgstr "Mở trang tải về"
+
+#: rust/crates/system/src/going_back.rs:167
+#, python-brace-format
+msgid "{version} needs Python 3.12 or newer with venv, and this computer doesn't have it. Install it first (python3 and python3-venv on Debian or Ubuntu), then try again. Nothing was changed."
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:175
+#, python-brace-format
+msgid "The phone app has to match. A newer one may not connect to {version}. Android won't install an older app over a newer one, so uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:194
+msgid "Couldn't save a copy of your settings, so nothing was changed."
+msgstr ""
+
 #: rust/crates/system/src/hotkeys_portal.rs:117
 msgid "Not available on this desktop"
 msgstr "Không khả dụng trên môi trường máy tính để bàn này"
@@ -6959,7 +7014,7 @@ msgstr "Không thể thay thế các tệp của Telescope: {error}"
 msgid "{file} is in use, so the update wasn't installed. Try again after a restart."
 msgstr "{file} đang được sử dụng, nên bản cập nhật chưa được cài đặt. Hãy thử lại sau khi khởi động lại máy."
 
-#: rust/crates/system/src/updates.rs:613 rust/crates/system/src/updates_plugin.rs:141 rust/crates/system/src/updates_plugin.rs:579
+#: rust/crates/system/src/updates.rs:613 rust/crates/system/src/updates_plugin.rs:96 rust/crates/system/src/updates_plugin.rs:164 rust/crates/system/src/updates_plugin.rs:236 rust/crates/system/src/updates_plugin.rs:566 rust/crates/system/src/updates_plugin.rs:736
 msgid "The update failed."
 msgstr "Cập nhật thất bại."
 
@@ -6967,77 +7022,86 @@ msgstr "Cập nhật thất bại."
 msgid "This update wasn't installed because it can't start on this computer."
 msgstr "Bản cập nhật này không được cài đặt vì không thể khởi động trên máy tính này."
 
-#: rust/crates/system/src/updates_plugin.rs:29
+#: rust/crates/system/src/updates_plugin.rs:30
 msgid "Stable"
 msgstr "Ổn định"
 
-#: rust/crates/system/src/updates_plugin.rs:29
+#: rust/crates/system/src/updates_plugin.rs:30
 msgid "Nightly"
 msgstr "Nightly"
 
-#: rust/crates/system/src/updates_plugin.rs:350
+#: rust/crates/system/src/updates_plugin.rs:425
 #, python-brace-format
 msgid "Downloading {percent}%…"
 msgstr "Đang tải về {percent} %…"
 
-#: rust/crates/system/src/updates_plugin.rs:354
+#: rust/crates/system/src/updates_plugin.rs:429
 msgid "Installing…"
 msgstr "Đang cài đặt…"
 
-#: rust/crates/system/src/updates_plugin.rs:355
+#: rust/crates/system/src/updates_plugin.rs:430
 msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "Đã cập nhật. Telescope sẽ khởi động lại khi bạn dừng truyền phát."
 
-#: rust/crates/system/src/updates_plugin.rs:367
+#: rust/crates/system/src/updates_plugin.rs:440
+msgid "Going back to the Python version didn't work because it didn't start, so this version is back."
+msgstr ""
+
+#: rust/crates/system/src/updates_plugin.rs:445
 msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along."
 msgstr "Việc cập nhật cũng sẽ cài đặt ứng dụng cho người dùng của bạn, tạo mục trong menu Start và xóa bản sao đã giải nén này. Các cài đặt và điện thoại vẫn được giữ lại."
 
-#: rust/crates/system/src/updates_plugin.rs:373
+#: rust/crates/system/src/updates_plugin.rs:451
 msgid "Stop streaming to update."
 msgstr "Dừng truyền phát để cập nhật."
 
-#: rust/crates/system/src/updates_plugin.rs:385
+#: rust/crates/system/src/updates_plugin.rs:463
 msgid "This is a source checkout, so it doesn't update itself."
 msgstr "Đây là bản cài đặt từ mã nguồn, nên sẽ không tự cập nhật."
 
-#: rust/crates/system/src/updates_plugin.rs:393
+#: rust/crates/system/src/updates_plugin.rs:471
 msgid "There's no nightly release yet."
 msgstr "Chưa có bản phát hành nightly nào."
 
-#: rust/crates/system/src/updates_plugin.rs:393
+#: rust/crates/system/src/updates_plugin.rs:471
 msgid "There's no stable release yet."
 msgstr "Chưa có bản phát hành ổn định nào."
 
-#: rust/crates/system/src/updates_plugin.rs:395
+#: rust/crates/system/src/updates_plugin.rs:473
 msgid "You have the latest version."
 msgstr "Bạn đang có phiên bản mới nhất."
 
-#: rust/crates/system/src/updates_plugin.rs:399
+#: rust/crates/system/src/updates_plugin.rs:477
 #, python-brace-format
 msgid "Telescope {version} is available"
 msgstr "Đã có Telescope {version}"
 
-#: rust/crates/system/src/updates_plugin.rs:420
-msgid "Open download page"
-msgstr "Mở trang tải về"
-
-#: rust/crates/system/src/updates_plugin.rs:420
+#: rust/crates/system/src/updates_plugin.rs:498
 msgid "Update and restart"
 msgstr "Cập nhật và khởi động lại"
 
-#: rust/crates/system/src/updates_plugin.rs:476
+#: rust/crates/system/src/updates_plugin.rs:502
+msgid "Stop streaming to go back."
+msgstr ""
+
+#: rust/crates/system/src/updates_plugin.rs:502
+#, python-brace-format
+msgid "Swaps this version for the last Python one, {version}."
+msgstr ""
+
+#: rust/crates/system/src/updates_plugin.rs:633
 msgid "Couldn't check for updates."
 msgstr "Không thể kiểm tra bản cập nhật."
 
-#: rust/crates/system/src/updates_plugin.rs:626
+#: rust/crates/system/src/updates_plugin.rs:787
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "Đã cập nhật. Hãy đóng và mở lại Telescope để hoàn tất."
 
-#: rust/crates/system/src/updates_plugin.rs:642
+#: rust/crates/system/src/updates_plugin.rs:803
 msgid "Updates"
 msgstr "Bản cập nhật"
 
-#: rust/crates/system/src/updates_plugin.rs:643
+#: rust/crates/system/src/updates_plugin.rs:804
 msgid "Checking for new versions of Telescope and installing them."
 msgstr "Kiểm tra các phiên bản mới của Telescope và cài đặt chúng."
 
@@ -7192,62 +7256,79 @@ msgctxt "search"
 msgid "notification notify alert popup message"
 msgstr "thông báo cảnh báo tin nhắn bật lên notification notify alert popup message"
 
-#: rust/crates/system/ui/updates.slint:80
+#: rust/crates/system/ui/updates.slint:97
 msgctxt "search"
 msgid "update upgrade new version release download install latest"
 msgstr "cập nhật nâng cấp phiên bản mới bản phát hành tải về cài đặt mới nhất update upgrade new version release download install latest"
 
-#: rust/crates/system/ui/updates.slint:85 rust/crates/system/ui/updates.slint:86
+#: rust/crates/system/ui/updates.slint:102 rust/crates/system/ui/updates.slint:103
 msgid "Check now"
 msgstr "Kiểm tra ngay"
 
-#: rust/crates/system/ui/updates.slint:89
+#: rust/crates/system/ui/updates.slint:106
 msgid "This version"
 msgstr "Phiên bản này"
 
-#: rust/crates/system/ui/updates.slint:90
+#: rust/crates/system/ui/updates.slint:107
 msgctxt "search"
 msgid "current build number"
 msgstr "số bản dựng hiện tại current build number"
 
-#: rust/crates/system/ui/updates.slint:95
+#: rust/crates/system/ui/updates.slint:112
 msgctxt "search"
 msgid "stable nightly beta release track builds testing"
 msgstr "ổn định nightly beta bản phát hành kênh bản dựng kiểm thử stable nightly beta release track builds testing"
 
-#: rust/crates/system/ui/updates.slint:104
+#: rust/crates/system/ui/updates.slint:121
 msgid "Nightly: built from every change. Fixes first, less tested."
 msgstr "Nightly: được xây dựng từ mỗi thay đổi. Có bản sửa lỗi sớm nhất, nhưng ít được kiểm thử hơn."
 
-#: rust/crates/system/ui/updates.slint:109 rust/crates/system/ui/updates.slint:116
+#: rust/crates/system/ui/updates.slint:126 rust/crates/system/ui/updates.slint:133
 msgid "Check daily"
 msgstr "Kiểm tra hằng ngày"
 
-#: rust/crates/system/ui/updates.slint:110
+#: rust/crates/system/ui/updates.slint:127
 msgctxt "search"
 msgid "automatic updates auto check every day background"
 msgstr "cập nhật tự động tự kiểm tra mỗi ngày chạy ngầm automatic updates auto check every day background"
 
-#: rust/crates/system/ui/updates.slint:122
+#: rust/crates/system/ui/updates.slint:139
 msgid "Unzipped copy"
 msgstr "Bản sao đã giải nén"
 
-#: rust/crates/system/ui/updates.slint:123
+#: rust/crates/system/ui/updates.slint:140
 msgctxt "search"
 msgid "portable keep this copy where it is zip folder in place windows"
 msgstr "di động giữ bản sao này ở vị trí hiện tại thư mục zip trực tiếp windows portable keep this copy where it is zip folder in place windows"
 
-#: rust/crates/system/ui/updates.slint:129 rust/crates/system/ui/updates.slint:133
+#: rust/crates/system/ui/updates.slint:146 rust/crates/system/ui/updates.slint:150
 msgid "Keep this copy where it is"
 msgstr "Giữ bản sao này ở vị trí hiện tại"
 
-#: rust/crates/system/ui/updates.slint:130
+#: rust/crates/system/ui/updates.slint:147
 msgid "Updates this unzipped folder in place instead of installing Telescope for your user."
 msgstr "Cập nhật trực tiếp thư mục đã giải nén này thay vì cài đặt Telescope cho người dùng của bạn."
 
-#: rust/crates/system/ui/updates.slint:147
+#: rust/crates/system/ui/updates.slint:164
 msgid "What's new"
 msgstr "Có gì mới"
+
+#: rust/crates/system/ui/updates.slint:177
+msgid "Older version"
+msgstr ""
+
+#: rust/crates/system/ui/updates.slint:178
+msgctxt "search"
+msgid "go back downgrade python previous old version revert undo rust"
+msgstr ""
+
+#: rust/crates/system/ui/updates.slint:183
+msgid "Go back to the Python version…"
+msgstr ""
+
+#: rust/crates/system/ui/updates.slint:204
+msgid "Go back to the Python version?"
+msgstr ""
 
 #: rust/crates/ui-kit/ui/widgets/folds.slint:12
 msgid "Collapsed. Press Space or Enter to expand."
@@ -7488,22 +7569,22 @@ msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "kéo giãn ép tỷ lệ cao stretch squish aspect tall"
 
-#: rust/crates/system/src/updates_plugin.rs:365
+#: rust/crates/system/src/updates_plugin.rs:443
 #, python-brace-format
 msgid "Telescope {version} is available."
 msgstr "Đã có Telescope {version}."
 
-#: rust/crates/system/src/updates_plugin.rs:381
+#: rust/crates/system/src/updates_plugin.rs:459
 #, python-brace-format
 msgid "Telescope {version} didn't start after updating, so it's held back. Try again?"
 msgstr "Telescope {version} không khởi động được sau khi cập nhật, nên đã bị giữ lại. Bạn có muốn thử lại không?"
 
-#: rust/crates/system/src/updates_plugin.rs:387
+#: rust/crates/system/src/updates_plugin.rs:465
 #, python-brace-format
 msgid "The latest nightly build is {version}."
 msgstr "Bản dựng nightly mới nhất là {version}."
 
-#: rust/crates/system/src/updates_plugin.rs:387
+#: rust/crates/system/src/updates_plugin.rs:465
 #, python-brace-format
 msgid "The latest stable build is {version}."
 msgstr "Bản dựng ổn định mới nhất là {version}."

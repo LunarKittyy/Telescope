@@ -342,7 +342,7 @@ msgstr "Windows에서 휴대폰 마이크를 사용하려면 VB-Audio Virtual Ca
 msgid "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."
 msgstr "VB-Cable은 Telescope가 아닌 VB-Audio에서 제작한 프로그램이에요. Telescope에서 vb-audio.com을 통해 다운로드하고 VB-Audio 설치 프로그램을 열 수 있으며, 관리자 권한이 필요해요. 설치가 끝나면 컴퓨터를 다시 시작하세요."
 
-#: rust/crates/audio/ui/microphone.slint:339 rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/colour_grading.slint:429 rust/crates/effects/ui/composite_editor.slint:585 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:603 rust/crates/system/ui/shortcuts.slint:374
+#: rust/crates/audio/ui/microphone.slint:339 rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/colour_grading.slint:429 rust/crates/effects/ui/composite_editor.slint:585 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:603 rust/crates/system/ui/shortcuts.slint:374 rust/crates/system/ui/updates.slint:211
 msgid "Cancel"
 msgstr "취소"
 
@@ -497,7 +497,7 @@ msgstr "기타 기능"
 msgid "Downloading… {percent}%"
 msgstr "다운로드 중… {percent}%"
 
-#: rust/crates/core/src/vision.rs:103 rust/crates/shell/src/plugins_tab.rs:433 rust/crates/system/src/updates_plugin.rs:352
+#: rust/crates/core/src/vision.rs:103 rust/crates/shell/src/plugins_tab.rs:433 rust/crates/system/src/updates_plugin.rs:427
 msgid "Downloading…"
 msgstr "다운로드 중…"
 
@@ -2498,7 +2498,7 @@ msgstr "커브"
 msgid "All"
 msgstr "전체"
 
-#: rust/crates/effects/ui/colour_grading.slint:337 rust/crates/system/ui/updates.slint:94 rust/crates/system/ui/updates.slint:100
+#: rust/crates/effects/ui/colour_grading.slint:337 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
 msgid "Channel"
 msgstr "채널"
 
@@ -3105,7 +3105,7 @@ msgstr "속도를 따라갈 수 없음"
 msgid "Browser"
 msgstr "브라우저"
 
-#: rust/crates/link/src/browser/plugin.rs:920 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:336 rust/crates/link/src/plugin.rs:372 rust/crates/link/src/plugin.rs:398 rust/crates/link/src/plugin.rs:732 rust/crates/setup/src/setup.rs:724 rust/crates/shell/src/plugins/onboarding.rs:139 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1529 rust/crates/system/ui/updates.slint:156
+#: rust/crates/link/src/browser/plugin.rs:920 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:336 rust/crates/link/src/plugin.rs:372 rust/crates/link/src/plugin.rs:398 rust/crates/link/src/plugin.rs:732 rust/crates/setup/src/setup.rs:724 rust/crates/shell/src/plugins/onboarding.rs:139 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1529 rust/crates/system/ui/updates.slint:173
 msgid "Try again"
 msgstr "다시 시도"
 
@@ -3186,7 +3186,7 @@ msgstr "Wi-Fi 전용"
 msgid "Computer"
 msgstr "컴퓨터"
 
-#: rust/crates/link/src/connection.rs:801 rust/crates/shell/src/plugins/onboarding.rs:126 rust/crates/system/src/updates_plugin.rs:359
+#: rust/crates/link/src/connection.rs:801 rust/crates/shell/src/plugins/onboarding.rs:126 rust/crates/system/src/updates_plugin.rs:434
 msgid "Checking…"
 msgstr "확인 중…"
 
@@ -6477,6 +6477,61 @@ msgstr "Telescope를 로그인 시 자동 시작하도록 설정하지 못했어
 msgid "Couldn't stop Telescope opening at sign-in: {error}"
 msgstr "Telescope가 로그인 시 자동 시작되지 않도록 설정하지 못했어요: {error}"
 
+#: rust/crates/system/src/going_back.rs:144
+#, python-brace-format
+msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones come with it, and a copy of your current settings is saved first in {folder}."
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:146
+#, python-brace-format
+msgid "You lose what's new since then. Plugins written in Lua don't run in {version}, and settings that didn't exist then are ignored."
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:148
+#, python-brace-format
+msgid "{version} won't check for updates by itself, so it doesn't offer this version back. You can turn that on again in its settings."
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:151
+msgid "On the first start it sets up Python's libraries again. That needs the internet and takes a few minutes."
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:153
+msgid "If it doesn't start, opening Telescope again brings this version back."
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:155 rust/crates/system/src/going_back.rs:168
+msgid "Go back"
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:159
+#, python-brace-format
+msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack it and run start.sh in it. It needs Python 3.12 or newer and finds your settings in the same place."
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:161
+#, python-brace-format
+msgid "Telescope can't swap its own files here, because its folder isn't writable. Download {version} from its release page and install it yourself."
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:164 rust/crates/system/src/updates_plugin.rs:498
+msgid "Open download page"
+msgstr "다운로드 페이지 열기"
+
+#: rust/crates/system/src/going_back.rs:167
+#, python-brace-format
+msgid "{version} needs Python 3.12 or newer with venv, and this computer doesn't have it. Install it first (python3 and python3-venv on Debian or Ubuntu), then try again. Nothing was changed."
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:175
+#, python-brace-format
+msgid "The phone app has to match. A newer one may not connect to {version}. Android won't install an older app over a newer one, so uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
+msgstr ""
+
+#: rust/crates/system/src/going_back.rs:194
+msgid "Couldn't save a copy of your settings, so nothing was changed."
+msgstr ""
+
 #: rust/crates/system/src/hotkeys_portal.rs:117
 msgid "Not available on this desktop"
 msgstr "이 데스크톱 환경에서는 지원되지 않음"
@@ -6959,7 +7014,7 @@ msgstr "Telescope 파일을 교체할 수 없었어요: {error}"
 msgid "{file} is in use, so the update wasn't installed. Try again after a restart."
 msgstr "{file}이(가) 사용 중이어서 업데이트가 설치되지 않았어요. 컴퓨터를 다시 시작한 후 다시 시도하세요."
 
-#: rust/crates/system/src/updates.rs:613 rust/crates/system/src/updates_plugin.rs:141 rust/crates/system/src/updates_plugin.rs:579
+#: rust/crates/system/src/updates.rs:613 rust/crates/system/src/updates_plugin.rs:96 rust/crates/system/src/updates_plugin.rs:164 rust/crates/system/src/updates_plugin.rs:236 rust/crates/system/src/updates_plugin.rs:566 rust/crates/system/src/updates_plugin.rs:736
 msgid "The update failed."
 msgstr "업데이트에 실패했어요."
 
@@ -6967,77 +7022,86 @@ msgstr "업데이트에 실패했어요."
 msgid "This update wasn't installed because it can't start on this computer."
 msgstr "이 업데이트는 이 컴퓨터에서 실행할 수 없어 설치되지 않았어요."
 
-#: rust/crates/system/src/updates_plugin.rs:29
+#: rust/crates/system/src/updates_plugin.rs:30
 msgid "Stable"
 msgstr "안정"
 
-#: rust/crates/system/src/updates_plugin.rs:29
+#: rust/crates/system/src/updates_plugin.rs:30
 msgid "Nightly"
 msgstr "Nightly"
 
-#: rust/crates/system/src/updates_plugin.rs:350
+#: rust/crates/system/src/updates_plugin.rs:425
 #, python-brace-format
 msgid "Downloading {percent}%…"
 msgstr "다운로드 중 {percent}%…"
 
-#: rust/crates/system/src/updates_plugin.rs:354
+#: rust/crates/system/src/updates_plugin.rs:429
 msgid "Installing…"
 msgstr "설치 중…"
 
-#: rust/crates/system/src/updates_plugin.rs:355
+#: rust/crates/system/src/updates_plugin.rs:430
 msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "업데이트되었어요. 스트리밍을 중지하면 Telescope가 다시 시작돼요."
 
-#: rust/crates/system/src/updates_plugin.rs:367
+#: rust/crates/system/src/updates_plugin.rs:440
+msgid "Going back to the Python version didn't work because it didn't start, so this version is back."
+msgstr ""
+
+#: rust/crates/system/src/updates_plugin.rs:445
 msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along."
 msgstr "업데이트하면 시작 메뉴 항목과 함께 사용자 계정에 설치되며, 현재 압축 해제된 복사본은 삭제돼요. 설정과 휴대폰 정보는 그대로 유지돼요."
 
-#: rust/crates/system/src/updates_plugin.rs:373
+#: rust/crates/system/src/updates_plugin.rs:451
 msgid "Stop streaming to update."
 msgstr "업데이트하려면 스트리밍을 중지하세요."
 
-#: rust/crates/system/src/updates_plugin.rs:385
+#: rust/crates/system/src/updates_plugin.rs:463
 msgid "This is a source checkout, so it doesn't update itself."
 msgstr "소스 코드 체크아웃 버전이므로 자동 업데이트되지 않아요."
 
-#: rust/crates/system/src/updates_plugin.rs:393
+#: rust/crates/system/src/updates_plugin.rs:471
 msgid "There's no nightly release yet."
 msgstr "아직 Nightly 릴리스가 없어요."
 
-#: rust/crates/system/src/updates_plugin.rs:393
+#: rust/crates/system/src/updates_plugin.rs:471
 msgid "There's no stable release yet."
 msgstr "아직 안정 릴리스가 없어요."
 
-#: rust/crates/system/src/updates_plugin.rs:395
+#: rust/crates/system/src/updates_plugin.rs:473
 msgid "You have the latest version."
 msgstr "최신 버전을 사용하고 있어요."
 
-#: rust/crates/system/src/updates_plugin.rs:399
+#: rust/crates/system/src/updates_plugin.rs:477
 #, python-brace-format
 msgid "Telescope {version} is available"
 msgstr "Telescope {version} 사용 가능"
 
-#: rust/crates/system/src/updates_plugin.rs:420
-msgid "Open download page"
-msgstr "다운로드 페이지 열기"
-
-#: rust/crates/system/src/updates_plugin.rs:420
+#: rust/crates/system/src/updates_plugin.rs:498
 msgid "Update and restart"
 msgstr "업데이트 및 다시 시작"
 
-#: rust/crates/system/src/updates_plugin.rs:476
+#: rust/crates/system/src/updates_plugin.rs:502
+msgid "Stop streaming to go back."
+msgstr ""
+
+#: rust/crates/system/src/updates_plugin.rs:502
+#, python-brace-format
+msgid "Swaps this version for the last Python one, {version}."
+msgstr ""
+
+#: rust/crates/system/src/updates_plugin.rs:633
 msgid "Couldn't check for updates."
 msgstr "업데이트를 확인할 수 없었어요."
 
-#: rust/crates/system/src/updates_plugin.rs:626
+#: rust/crates/system/src/updates_plugin.rs:787
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "업데이트되었어요. 완료하려면 Telescope를 닫았다가 다시 여세요."
 
-#: rust/crates/system/src/updates_plugin.rs:642
+#: rust/crates/system/src/updates_plugin.rs:803
 msgid "Updates"
 msgstr "업데이트"
 
-#: rust/crates/system/src/updates_plugin.rs:643
+#: rust/crates/system/src/updates_plugin.rs:804
 msgid "Checking for new versions of Telescope and installing them."
 msgstr "Telescope의 새 버전을 확인하고 설치해요."
 
@@ -7192,62 +7256,79 @@ msgctxt "search"
 msgid "notification notify alert popup message"
 msgstr "알림 알림창 팝업 메시지 경고 notification notify alert popup message"
 
-#: rust/crates/system/ui/updates.slint:80
+#: rust/crates/system/ui/updates.slint:97
 msgctxt "search"
 msgid "update upgrade new version release download install latest"
 msgstr "업데이트 업그레이드 새 버전 릴리스 다운로드 설치 최신 update upgrade new version release download install latest"
 
-#: rust/crates/system/ui/updates.slint:85 rust/crates/system/ui/updates.slint:86
+#: rust/crates/system/ui/updates.slint:102 rust/crates/system/ui/updates.slint:103
 msgid "Check now"
 msgstr "지금 확인"
 
-#: rust/crates/system/ui/updates.slint:89
+#: rust/crates/system/ui/updates.slint:106
 msgid "This version"
 msgstr "현재 버전"
 
-#: rust/crates/system/ui/updates.slint:90
+#: rust/crates/system/ui/updates.slint:107
 msgctxt "search"
 msgid "current build number"
 msgstr "현재 빌드 번호 버전 current build number"
 
-#: rust/crates/system/ui/updates.slint:95
+#: rust/crates/system/ui/updates.slint:112
 msgctxt "search"
 msgid "stable nightly beta release track builds testing"
 msgstr "안정 nightly 베타 릴리스 트랙 빌드 테스트 stable nightly beta release track builds testing"
 
-#: rust/crates/system/ui/updates.slint:104
+#: rust/crates/system/ui/updates.slint:121
 msgid "Nightly: built from every change. Fixes first, less tested."
 msgstr "Nightly: 모든 변경 사항을 반영해 빌드돼요. 수정 사항이 가장 먼저 적용되지만 테스트는 덜 거친 버전이에요."
 
-#: rust/crates/system/ui/updates.slint:109 rust/crates/system/ui/updates.slint:116
+#: rust/crates/system/ui/updates.slint:126 rust/crates/system/ui/updates.slint:133
 msgid "Check daily"
 msgstr "매일 확인"
 
-#: rust/crates/system/ui/updates.slint:110
+#: rust/crates/system/ui/updates.slint:127
 msgctxt "search"
 msgid "automatic updates auto check every day background"
 msgstr "자동 업데이트 자동 확인 매일 백그라운드 automatic updates auto check every day background"
 
-#: rust/crates/system/ui/updates.slint:122
+#: rust/crates/system/ui/updates.slint:139
 msgid "Unzipped copy"
 msgstr "압축 해제된 복사본"
 
-#: rust/crates/system/ui/updates.slint:123
+#: rust/crates/system/ui/updates.slint:140
 msgctxt "search"
 msgid "portable keep this copy where it is zip folder in place windows"
 msgstr "포터블 무설치 압축 폴더 현재 위치 그대로 윈도우 portable keep this copy where it is zip folder in place windows"
 
-#: rust/crates/system/ui/updates.slint:129 rust/crates/system/ui/updates.slint:133
+#: rust/crates/system/ui/updates.slint:146 rust/crates/system/ui/updates.slint:150
 msgid "Keep this copy where it is"
 msgstr "현재 위치에 그대로 유지"
 
-#: rust/crates/system/ui/updates.slint:130
+#: rust/crates/system/ui/updates.slint:147
 msgid "Updates this unzipped folder in place instead of installing Telescope for your user."
 msgstr "사용자 계정에 Telescope를 설치하는 대신 이 압축 해제된 폴더에서 바로 업데이트해요."
 
-#: rust/crates/system/ui/updates.slint:147
+#: rust/crates/system/ui/updates.slint:164
 msgid "What's new"
 msgstr "새로운 기능"
+
+#: rust/crates/system/ui/updates.slint:177
+msgid "Older version"
+msgstr ""
+
+#: rust/crates/system/ui/updates.slint:178
+msgctxt "search"
+msgid "go back downgrade python previous old version revert undo rust"
+msgstr ""
+
+#: rust/crates/system/ui/updates.slint:183
+msgid "Go back to the Python version…"
+msgstr ""
+
+#: rust/crates/system/ui/updates.slint:204
+msgid "Go back to the Python version?"
+msgstr ""
 
 #: rust/crates/ui-kit/ui/widgets/folds.slint:12
 msgid "Collapsed. Press Space or Enter to expand."
@@ -7488,22 +7569,22 @@ msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "늘리기 줄이기 세로 화면비 세로형 stretch squish aspect tall"
 
-#: rust/crates/system/src/updates_plugin.rs:365
+#: rust/crates/system/src/updates_plugin.rs:443
 #, python-brace-format
 msgid "Telescope {version} is available."
 msgstr "Telescope {version}을(를) 사용할 수 있어요."
 
-#: rust/crates/system/src/updates_plugin.rs:381
+#: rust/crates/system/src/updates_plugin.rs:459
 #, python-brace-format
 msgid "Telescope {version} didn't start after updating, so it's held back. Try again?"
 msgstr "Telescope {version}이(가) 업데이트 후 시작되지 않아 이전 상태로 유지되었어요. 다시 시도할까요?"
 
-#: rust/crates/system/src/updates_plugin.rs:387
+#: rust/crates/system/src/updates_plugin.rs:465
 #, python-brace-format
 msgid "The latest nightly build is {version}."
 msgstr "최신 Nightly 빌드는 {version}이에요."
 
-#: rust/crates/system/src/updates_plugin.rs:387
+#: rust/crates/system/src/updates_plugin.rs:465
 #, python-brace-format
 msgid "The latest stable build is {version}."
 msgstr "최신 안정 빌드는 {version}이에요."
