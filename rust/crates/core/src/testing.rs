@@ -10,13 +10,36 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+#[cfg(unix)]
+use std::sync::Once;
 
-/// A new empty folder under the system's temp folder, unique to this call.
+/// Folders scratch_dir made in this process; removed when it exits.
+static SCRATCH: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+
+#[cfg(unix)]
+extern "C" fn remove_scratch_dirs() {
+    if let Ok(mut dirs) = SCRATCH.lock() {
+        for dir in dirs.drain(..) {
+            let _ = std::fs::remove_dir_all(&dir);
+        }
+    }
+}
+
+/// A new empty folder under the system's temp folder, unique to this call, removed when the test process exits.
 pub fn scratch_dir(label: &str) -> PathBuf {
     static N: AtomicU64 = AtomicU64::new(0);
+    #[cfg(unix)]
+    static REGISTER: Once = Once::new();
     let dir = std::env::temp_dir().join(format!("telescope-test-{}-{label}-{}", std::process::id(), N.fetch_add(1, Ordering::SeqCst)));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
+    #[cfg(unix)]
+    REGISTER.call_once(|| unsafe {
+        libc::atexit(remove_scratch_dirs);
+    });
+    if let Ok(mut dirs) = SCRATCH.lock() {
+        dirs.push(dir.clone());
+    }
     dir
 }
 
