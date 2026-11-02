@@ -82,7 +82,28 @@ fn to_lua(lua: &Lua, v: &Value) -> mlua::Result<mlua::Value> {
     lua.to_value_with(v, ser())
 }
 
+/// Most values and depth a table handed to the host may have, counting a shared table every time it is reached.
+const MAX_NODES: usize = 200_000;
+const MAX_DEPTH: usize = 64;
+
+/// Walks v the way from_value will, so a table that shares itself over and over (a DAG that expands to billions of nodes) is refused first.
+fn check_size(v: &mlua::Value, nodes: &mut usize, depth: usize) -> mlua::Result<()> {
+    *nodes += 1;
+    if *nodes > MAX_NODES || depth > MAX_DEPTH {
+        return Err(lua_err("a value passed to the host is too big or nested too deep"));
+    }
+    if let mlua::Value::Table(t) = v {
+        for pair in t.pairs::<mlua::Value, mlua::Value>() {
+            let (k, v) = pair?;
+            check_size(&k, nodes, depth + 1)?;
+            check_size(&v, nodes, depth + 1)?;
+        }
+    }
+    Ok(())
+}
+
 fn from_lua(lua: &Lua, v: mlua::Value) -> mlua::Result<Value> {
+    check_size(&v, &mut 0, 0)?;
     lua.from_value_with(v, de())
 }
 
@@ -291,12 +312,12 @@ impl LuaGuest {
     }
 
     fn function(&self, hook: &str) -> Option<Function> {
-        self.table()?.get::<Option<Function>>(hook).ok().flatten()
+        self.table()?.raw_get::<Option<Function>>(hook).ok().flatten()
     }
 
     fn handler(&self, event: &str) -> Option<Function> {
-        let events: Table = self.table()?.get::<Option<Table>>("events").ok().flatten()?;
-        events.get::<Option<Function>>(event).ok().flatten()
+        let events: Table = self.table()?.raw_get::<Option<Table>>("events").ok().flatten()?;
+        events.raw_get::<Option<Function>>(event).ok().flatten()
     }
 
     /// Whether get_config() fails on a value that can't be saved, for check-plugin.
@@ -327,6 +348,7 @@ impl Guest for LuaGuest {
             let lua_args = args.iter().map(|a| to_lua(lua, a)).collect::<mlua::Result<Vec<_>>>()?;
             let returned: mlua::Value = func.call(MultiValue::from_vec(lua_args))?;
             if hook == "get_config" && self.strict_config.load(Ordering::SeqCst) {
+                check_size(&returned, &mut 0, 0)?;
                 return lua.from_value_with(returned, de().deny_unsupported_types(true))
                     .map_err(|e| lua_err(format!("get_config() has to return what JSON can hold (tables, text, numbers, true/false): {e}")));
             }
