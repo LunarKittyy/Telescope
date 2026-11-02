@@ -22,14 +22,16 @@ work=$out.work
 
 fetch() {
     local url=$1 file=$downloads/$2 sum=$3
-    [ -f "$file" ] || curl -fsSL --connect-timeout 30 --retry 5 --retry-all-errors --retry-delay 10 -o "$file" "$url"
+    [ -f "$file" ] || curl -fsSL --connect-timeout 30 --retry 3 --retry-all-errors --retry-delay 10 -o "$file" "$url" \
+        || { [ -z "${4:-}" ] || curl -fsSL --connect-timeout 30 --retry 3 --retry-all-errors --retry-delay 10 -o "$file" "$4"; }
     echo "$sum  $file" | sha256sum -c --quiet -
 }
 
 mkdir -p "$downloads"
 rm -rf "$work" "$out"
 mkdir -p "$work" "$out"
-fetch "https://ffmpeg.org/releases/ffmpeg-$FFMPEG_VERSION.tar.xz" "ffmpeg-$FFMPEG_VERSION.tar.xz" "$FFMPEG_SHA256"
+fetch "https://ffmpeg.org/releases/ffmpeg-$FFMPEG_VERSION.tar.xz" "ffmpeg-$FFMPEG_VERSION.tar.xz" "$FFMPEG_SHA256" \
+    "https://distfiles.alpinelinux.org/distfiles/edge/ffmpeg-$FFMPEG_VERSION.tar.xz"
 fetch "https://github.com/FFmpeg/nv-codec-headers/archive/refs/tags/n$NVCODEC_VERSION.tar.gz" "nv-codec-headers-$NVCODEC_VERSION.tar.gz" "$NVCODEC_SHA256"
 tar -xf "$downloads/ffmpeg-$FFMPEG_VERSION.tar.xz" -C "$work"
 tar -xf "$downloads/nv-codec-headers-$NVCODEC_VERSION.tar.gz" -C "$work"
