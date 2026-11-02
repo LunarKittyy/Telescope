@@ -494,10 +494,8 @@ export component AboutSettings inherits Card {
     Strip {
         title: @tr("Bug reports");
         keywords: @tr("search" => "bug report diagnostics logs debug support problem issue help copy log file");
-        sub: @tr("Paste the diagnostics into the report.");
         StripTop {
             title: @tr("Bug reports");
-            sub: @tr("Paste the diagnostics into the report.");
             // Natural widths: three buttons sharing the row equally squeeze the text next to them onto extra lines
             if log-shown: StripButton { text: @tr("Open log"); tip: @tr("The full log, in the temp folder (the system clears it)."); clicked => { root.log-clicked(); } }
             StripButton {
@@ -514,10 +512,8 @@ export component AboutSettings inherits Card {
     Strip {
         title: @tr("Need help?");
         keywords: @tr("search" => "help support troubleshooting question faq problem not working stuck ask");
-        sub: @tr("Fixes for common problems, and where to ask if yours isn't there.");
         StripTop {
             title: @tr("Need help?");
-            sub: @tr("Fixes for common problems, and where to ask if yours isn't there.");
             StripButton { text: @tr("Troubleshooting"); clicked => { root.help-clicked(); } }
         }
     }

@@ -11,10 +11,10 @@ use telescope_core::view::{upright_to_shown, Geometry};
 use telescope_core::{vision, Event, Host};
 
 // Translators: the preview area doesn't wrap lines, so keep the line breaks and each line about as long as this one
-const IDLE_TEXT: &str = "Not streaming\n\nPress Start streaming and the phone's camera comes up on its own.";
-const IDLE_BROWSER_TEXT: &str = "Not streaming\n\nPress Start streaming and the browser's camera comes up once it connects.";
-const IDLE_WEBCAM_TEXT: &str = "Not streaming\n\nPress Start streaming to use this camera.";
-const IDLE_MIC_TEXT: &str = "Not streaming\n\nStart mic only streams the phone's mic with its camera off.";
+const IDLE_TEXT: &str = "Not streaming";
+const IDLE_BROWSER_TEXT: &str = "Not streaming";
+const IDLE_WEBCAM_TEXT: &str = "Not streaming";
+const IDLE_MIC_TEXT: &str = "Not streaming";
 const WAITING_TEXT: &str = "Waiting for the first frame\u{2026}";
 const CAMERA_OFF_TEXT: &str = "Camera off\n\nThe phone's mic is still streaming.\nStop streaming ends it.";
 // Broken by hand like the rest: the stage doesn't wrap, and these are its longest lines

@@ -45,7 +45,6 @@ const POST_FOUND: &str = "found";
 
 const SWITCH_TIP: &str = n_("Look for QR codes in the picture");
 const COPY_TIP: &str = n_("Put the last code on the clipboard again");
-const HOLD_UP: &str = n_("Hold a QR code up to the camera.");
 
 /// A code's four corners as fractions of the frame, in the order the detector gave them.
 pub type Corners = [[f64; 2]; 4];
@@ -440,7 +439,7 @@ impl QrReaderPlugin {
             copied_line: String::new(),
             note: String::new(),
             copy_shown: false,
-            status: (tr(HOLD_UP), "status_dim"),
+            status: (String::new(), "status_dim"),
             held: None,
             outline: None,
             pending: false,
@@ -536,8 +535,7 @@ impl QrReaderPlugin {
         } else {
             host.remove_preview_layer(NAME);
         }
-        let (text, kind) = if on { (tr(HOLD_UP), "") } else { (String::new(), "") };
-        self.show(host, &text, kind);
+        self.show(host, "", "");
         host.schedule_save();
     }
 

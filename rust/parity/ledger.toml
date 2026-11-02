@@ -141,7 +141,7 @@
 "Nothing has reached this computer yet. Check that the device is on the same network as the address in the code, and that the firewall allows port {port}." = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
 "Resolution" = { status = "ported", rust = "rust/crates/outputs/src/stream_output.rs" }
 "Scan" = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
-"Scan the code on the Browser camera card with the device to use. It starts streaming as soon as it connects." = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
+"Scan the code on the Browser camera card with the device to use. It starts streaming as soon as it connects." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
 "Streaming from any device's web browser, by scanning a code." = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
 "The browser is lowering the picture to fit the connection or the bitrate for this resolution." = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
 "The browser warns that the connection isn't private: it's this computer's own certificate. On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed." = { status = "ported", rust = "rust/crates/link/src/browser/plugin.rs" }
@@ -273,7 +273,7 @@
 "Medium" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
 "Middle grey" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
 "Nearly clipped" = { status = "ported", rust = "rust/crates/effects/src/cinema_tools.rs" }
-"Only on the preview. Apps never see these." = { status = "ported", rust = "rust/crates/effects/ui/cinema.slint" }
+"Only on the preview. Apps never see these." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
 "Outline what's sharp" = { status = "ported", rust = "rust/crates/effects/src/cinema.rs" }
 "Peaking colour" = { status = "ported", rust = "rust/crates/effects/ui/cinema.slint" }
 "Peaking sensitivity" = { status = "ported", rust = "rust/crates/effects/ui/cinema.slint" }
@@ -379,7 +379,7 @@
 "It takes over once two of its streams are running." = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
 "Layout" = { status = "ported", rust = "rust/crates/effects/ui/composite.slint" }
 "Not saved" = { status = "ported", rust = "rust/crates/effects/ui/composite.slint" }
-"Nothing's in the picture yet. Put streams in it with Edit picture." = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
+"Nothing's in the picture yet. Put streams in it with Edit picture." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
 "One picture" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
 "Picture layout" = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
 "Puts the streams you run side by side or one inside another, out on one virtual camera." = { status = "ported", rust = "rust/crates/effects/src/composite_plugin.rs" }
@@ -466,7 +466,7 @@
 "Rename this computer" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Rename {name}" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Same phone?" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
-"Sends Light over UDP instead of TCP while the phone is on Wi-Fi. It can stutter more than TCP, so try it and see." = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
+"Sends Light over UDP instead of TCP while the phone is on Wi-Fi. It can stutter more than TCP, so try it and see." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
 "Set up the virtual camera" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Setup guide" = { status = "ported", rust = "rust/crates/link/ui/connection.slint" }
 "Starting the phone's camera..." = { status = "ported", rust = "rust/crates/link/src/connection.rs" }
@@ -784,7 +784,7 @@
 "Send again to show your changes on the phone." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
 "Send notes" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
 "Send to phone" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
-"Send to phone puts them on its screen right under the camera." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Send to phone puts them on its screen right under the camera." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
 "Shows your notes on the phone's screen right under the camera, to read while looking people in the eye." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
 "Start or pause scrolling on the phone" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
 "Start streaming to send the notes to the phone." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
@@ -795,7 +795,7 @@
 "The notes show up on the phone once you close its preview." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
 "The notes were closed on the phone. Send again to show them." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
 "These notes are too long to send to the phone." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
-"Type or paste your notes. Next and Previous move one line at a time." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
+"Type or paste your notes. Next and Previous move one line at a time." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
 "Update Telescope on the phone to show notes there." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
 "Without it there's no Notes card and the phone never shows notes." = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
 "Your saved notes" = { status = "ported", rust = "rust/crates/effects/src/notes.rs" }
@@ -1094,10 +1094,10 @@
 "Hide" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
 "Keep showing what the phone's longer lenses see. Doesn't show in the camera output." = { status = "ported", rust = "rust/crates/shell/ui/cards/preview.slint" }
 "Lens outlines" = { status = "ported", rust = "rust/crates/shell/ui/cards/preview.slint" }
-"Not streaming\n\nPress Start streaming and the browser's camera comes up once it connects." = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
-"Not streaming\n\nPress Start streaming and the phone's camera comes up on its own." = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
-"Not streaming\n\nPress Start streaming to use this camera." = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
-"Not streaming\n\nStart mic only streams the phone's mic with its camera off." = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
+"Not streaming\n\nPress Start streaming and the browser's camera comes up once it connects." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
+"Not streaming\n\nPress Start streaming and the phone's camera comes up on its own." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
+"Not streaming\n\nPress Start streaming to use this camera." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
+"Not streaming\n\nStart mic only streams the phone's mic with its camera off." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
 "Phone camera" = { status = "ported", rust = "rust/crates/shell/ui/cards/preview.slint" }
 "Pop out" = { status = "ported", rust = "rust/crates/shell/ui/cards/preview.slint" }
 "Pop out the preview" = { status = "ported", rust = "rust/crates/shell/src/plugins/preview.rs" }
@@ -1147,7 +1147,7 @@
 "Copied {link}" = { status = "ported", rust = "rust/crates/effects/src/qr_reader.rs" }
 "Copies a QR code you hold up to the camera, or the password from a Wi-Fi code." = { status = "ported", rust = "rust/crates/effects/src/qr_reader.rs" }
 "Found a code. Click Copy to put it on the clipboard." = { status = "ported", rust = "rust/crates/effects/src/qr_reader.rs" }
-"Hold a QR code up to the camera." = { status = "ported", rust = "rust/crates/effects/src/qr_reader.rs" }
+"Hold a QR code up to the camera." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
 "Look for QR codes in the picture" = { status = "ported", rust = "rust/crates/effects/src/qr_reader.rs" }
 "Notify me when a code is read" = { status = "ported", rust = "rust/crates/effects/src/qr_reader.rs" }
 "Put the last code on the clipboard again" = { status = "ported", rust = "rust/crates/effects/src/qr_reader.rs" }
@@ -1202,7 +1202,7 @@
 "Failed: module is still in use. Close OBS and any other app using the virtual camera, then try again." = { status = "ported", rust = "rust/crates/setup/src/setup.rs" }
 "Failed: {message}" = { status = "ported", rust = "rust/crates/setup/src/setup.rs" }
 "Fix a text or add a language, no coding needed" = { status = "ported", rust = "rust/crates/setup/ui/setup.slint" }
-"Fixes for common problems, and where to ask if yours isn't there." = { status = "ported", rust = "rust/crates/setup/ui/setup.slint" }
+"Fixes for common problems, and where to ask if yours isn't there." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
 "Found {device}" = { status = "ported", rust = "rust/crates/setup/src/setup.rs" }
 "Get adb" = { status = "ported", rust = "rust/crates/setup/src/setup.rs" }
 "Hardware acceleration" = { status = "ported", rust = "rust/crates/setup/src/setup.rs" }
@@ -1238,7 +1238,7 @@
 "Not installed (Install driver downloads it first)" = { status = "ported", rust = "rust/crates/setup/src/setup.rs" }
 "Not loaded - click Load" = { status = "ported", rust = "rust/crates/setup/src/setup.rs" }
 "Open log" = { status = "ported", rust = "rust/crates/setup/src/setup.rs" }
-"Paste the diagnostics into the report." = { status = "ported", rust = "rust/crates/setup/ui/setup.slint" }
+"Paste the diagnostics into the report." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
 "Pick an adb.exe or platform-tools zip you already have" = { status = "ported", rust = "rust/crates/setup/ui/setup.slint" }
 "Power-saving effects" = { status = "ported", rust = "rust/crates/setup/ui/setup.slint" }
 "Ready (adb {version})" = { status = "ported", rust = "rust/crates/setup/src/setup.rs" }
@@ -1330,7 +1330,7 @@
 "Key used by a shortcut above" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs::where_works" }
 "Keyboard shortcut" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
 "Keys for Telescope's controls, including ones that work in other apps." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
-"Keys for Telescope's controls, with how much each one changes. Right-click most controls to add one for it." = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Keys for Telescope's controls, with how much each one changes. Right-click most controls to add one for it." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
 "Lower by" = { status = "ported", rust = "rust/crates/core/src/actions.rs" }
 "No action called {action}. telescope --list-actions lists them." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "No control matches that search." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
@@ -1343,7 +1343,7 @@
 "Phone camera: on" = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Pick" = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }
 "Pick a control and the key for it" = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
-"Pick a control, what the key does to it, then press the key." = { status = "ported", rust = "rust/crates/system/ui/shortcuts.slint" }
+"Pick a control, what the key does to it, then press the key." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
 "Pick a control." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Press a key, with Ctrl, Alt, Shift or {meta} if you like." = { status = "ported", rust = "rust/crates/system/src/shortcuts.rs" }
 "Raise by" = { status = "ported", rust = "rust/crates/core/src/actions.rs" }
@@ -1432,7 +1432,7 @@
 "This can take a minute while Windows runs a security scan." = { status = "ported", rust = "rust/crates/system/src/splash.rs::show_text" }
 # ── startup
 "Automatic streaming" = { status = "ported", rust = "rust/crates/system/ui/startup.slint" }
-"How long no app can use the camera before the stream stops." = { status = "ported", rust = "rust/crates/system/src/startup.rs" }
+"How long no app can use the camera before the stream stops." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
 "No app used the camera for {time}." = { status = "ported", rust = "rust/crates/system/src/startup.rs" }
 "Not in a dev profile" = { status = "ported", rust = "rust/crates/system/src/startup.rs" }
 "Only when I press Start" = { status = "ported", rust = "rust/crates/system/src/startup.rs" }
@@ -1705,7 +1705,7 @@
 "Checking the existing build..." = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "Cleaner edges with a one-time download (about {mb} MB)." = { status = "ported", rust = "rust/crates/core/src/vision.rs::status_text", note = "The row's text; each card that uses vision draws the row" }
 "Click a hue to add a point and drag it. Double-click a point to remove it, or the curve to reset." = { status = "dropped", reason = "the owner removed it" }
-"Click a stream in the picture to change it." = { status = "ported", rust = "rust/crates/effects/ui/composite_editor.slint" }
+"Click a stream in the picture to change it." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
 "Click to add a point and drag it. Double-click a point to remove it, or the curve to reset." = { status = "dropped", reason = "the owner removed it" }
 "Collapsed. Press Space or Enter to expand." = { status = "ported", rust = "rust/crates/ui-kit/ui/widgets/folds.slint" }
 "Copy the command, to paste in a terminal" = { status = "ported", rust = "rust/crates/setup/ui/parts.slint" }
@@ -1764,7 +1764,7 @@
 "No cameras available" = { status = "ported", rust = "rust/crates/shell/src/plugins/camera_control.rs" }
 "No picture" = { status = "ported", rust = "rust/crates/effects/ui/composite_editor.slint" }
 "No plugin is switched on." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
-"No plugins added yet. Plugins people share come as .zip files. Click Install and pick one or drop it onto this window. Added plugins start out switched off." = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
+"No plugins added yet. Plugins people share come as .zip files. Click Install and pick one or drop it onto this window. Added plugins start out switched off." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
 "No plugins match “{text}”." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "None" = { status = "ported", rust = "rust/crates/effects/src/transforms.rs" }
 "None installed" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
@@ -1779,7 +1779,7 @@
 "Picture preview" = { status = "ported", rust = "rust/crates/effects/ui/composite_editor.slint" }
 "Picture…" = { status = "ported", rust = "rust/crates/effects/ui/composite_editor.slint" }
 "Plugins (*.zip)" = { status = "ported", rust = "rust/crates/shell/src/settings.rs" }
-"Plugins you add are listed with the others, marked Added." = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
+"Plugins you add are listed with the others, marked Added." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
 "Put a picture behind the streams instead of the colour" = { status = "ported", rust = "rust/crates/effects/ui/composite_editor.slint" }
 "PyAV {version} is built" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
 "PyAV {version}, with VA-API" = { status = "dropped", reason = "the PyAV VA-API shim goes away: the Rust app links FFmpeg directly and VA-API comes with it, so Advanced has nothing to set up" }
@@ -1831,7 +1831,7 @@
 "Switch off" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Switch off {plugin}?" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Switch on {plugin}?" = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
-"Switch parts of Telescope on or off. A change takes effect the next time Telescope starts, and settings are kept either way." = { status = "ported", rust = "rust/crates/shell/ui/settings.slint" }
+"Switch parts of Telescope on or off. A change takes effect the next time Telescope starts, and settings are kept either way." = { status = "dropped", reason = "Removed on the owner's request, helper text nobody needs" }
 "Switching one of these on downloads about {mb} MB first, once for all of them." = { status = "ported", rust = "rust/crates/shell/src/plugins_tab.rs" }
 "Tab" = { status = "ported", rust = "rust/crates/shell/src/search.rs" }
 "Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it." = { status = "ported", rust = "rust/crates/link/src/plugin.rs" }

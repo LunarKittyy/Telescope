@@ -378,7 +378,7 @@ export component PluginsPanel inherits VerticalLayout {
         spacing: 12px;
         Text {
             horizontal-stretch: 1;
-            text: @tr("Switch parts of Telescope on or off. A change takes effect the next time Telescope starts, and settings are kept either way.");
+            text: @tr("A change takes effect the next time Telescope starts, and settings are kept either way.");
             wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
             font-family: Theme.font;
             font-size: Theme.body;
@@ -510,8 +510,8 @@ export component PluginsPanel inherits VerticalLayout {
                 tip: @tr("Pick a plugin's .zip file. You can also drop one onto this window.");
             }
         }
-        Text {
-            text: has-added ? @tr("Plugins you add are listed with the others, marked Added.") : @tr("No plugins added yet. Plugins people share come as .zip files. Click Install and pick one or drop it onto this window. Added plugins start out switched off.");
+        if !has-added: Text {
+            text: @tr("No plugins added yet. Plugins people share come as .zip files. Added plugins start out switched off.");
             wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
             font-family: Theme.font;
             font-size: Theme.body;

@@ -10,7 +10,7 @@ use telescope_core::i18n::po;
 const READERS: [&str; 4] = ["source.rs", "texts.rs", "text.rs", "i18n.rs"];
 
 /// What the code says that the template doesn't, and why. A text that's new here is a spelling that stays English in every language.
-const NOT_IN_THE_TEMPLATE: [(&str, &str); 25] = [
+const NOT_IN_THE_TEMPLATE: [(&str, &str); 32] = [
     // Qt's own button texts, which Qt's translations cover in the Python app
     ("OK", "Qt standard button"),
     ("Yes", "Qt standard button"),
@@ -37,6 +37,14 @@ const NOT_IN_THE_TEMPLATE: [(&str, &str); 25] = [
     ("Its {file} has to return the plugin's table at the end.", "a Lua plugin's message"),
     ("Press a key…", "the shortcut editor's hint"),
     ("...", "an example in a comment"),
+    // Shortened on the owner's request by dropping their helper sentence; the Python app still has the full text
+    ("Right-click most controls to add one for it.", "the shortcut list's hint, shortened"),
+    ("A change takes effect the next time Telescope starts, and settings are kept either way.", "the plugins tab's note, shortened"),
+    ("No plugins added yet. Plugins people share come as .zip files. Added plugins start out switched off.", "the plugins tab's empty note, shortened"),
+    ("It can stutter more than TCP, so try it and see.", "the UDP setting's note, shortened"),
+    ("Scan the code on the Browser camera card with the device to use.", "the browser camera's waiting note, shortened"),
+    ("Nothing's in the picture yet.", "the One picture card's empty note, shortened"),
+    ("Type or paste your notes.", "the notes placeholder, shortened"),
     ("Blurs the other people, everything but you, or puts the wait screen up when someone else walks in. It's a proof of concept and can't guarantee privacy.", "Rust only until the next translation pass"),
 ];
 

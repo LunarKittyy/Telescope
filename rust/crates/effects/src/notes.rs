@@ -41,7 +41,7 @@ const RESEND_AFTER_S: f64 = 8.0;
 /// The scroll modes by the names saved settings use, with their texts.
 const SCROLLS: [(&str, &str); 2] = [("auto", n_("Auto")), ("hand", n_("By hand"))];
 
-const PLACEHOLDER: &str = n_("Type or paste your notes. Next and Previous move one line at a time.");
+const PLACEHOLDER: &str = n_("Type or paste your notes.");
 const SET_TIP: &str = n_("Your saved notes");
 const NEW_TIP: &str = n_("New notes");
 const DELETE_TIP: &str = n_("Delete these notes");
@@ -119,7 +119,7 @@ pub fn notes_status(f: &StatusFacts) -> (String, &'static str) {
         if f.front == Some(false) {
             return (tr("Switch to the front camera to have the phone's screen facing you."), "status_warn");
         }
-        return (tr("Send to phone puts them on its screen right under the camera."), "dim");
+        return (String::new(), "dim");
     }
     if !f.shown {
         if f.closed {

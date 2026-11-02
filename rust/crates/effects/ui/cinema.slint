@@ -116,7 +116,6 @@ export component CinemaCard inherits Card {
             picked(i) => { root.scope-picked(i); }
         }
     }
-    Note { text: @tr("Only on the preview. Apps never see these."); }
     // Nothing to touch until a phone is paired
     if !active: TouchArea { }
 }

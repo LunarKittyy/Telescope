@@ -449,7 +449,7 @@ impl StartupPlugin {
             "stop-current": position(&STOP_CHOICES, self.stop_idle),
             "stops": stops,
             "delay-title": tr("Wait before stopping"),
-            "delay-sub": tr("How long no app can use the camera before the stream stops."),
+            "delay-sub": "",
             "delay-text": self.delay_value.to_string(),
             "unit-items": UNITS.iter().map(|(t, _)| tr(t)).collect::<Vec<_>>(),
             "unit-current": self.unit,

@@ -244,7 +244,7 @@ export component NotesCard inherits Card {
             clicked => { root.clear-clicked(); }
         }
     }
-    Note { text: status; kind: status-kind; }
+    if status != "": Note { text: status; kind: status-kind; }
     // Nothing to touch until a phone is paired
     blocked: !active;
 }

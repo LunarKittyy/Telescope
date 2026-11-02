@@ -416,7 +416,7 @@ impl CompositePlugin {
         self.note = if !self.on {
             String::new()
         } else if self.layout.tiles.is_empty() {
-            tr("Nothing's in the picture yet. Put streams in it with Edit picture.")
+            tr("Nothing's in the picture yet.")
         } else if live < 2 {
             tr("It takes over once two of its streams are running.")
         } else if self.target.is_none() {

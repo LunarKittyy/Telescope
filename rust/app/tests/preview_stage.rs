@@ -694,8 +694,8 @@ fn layers_tint_the_preview_copy_and_not_the_frame_apps_get() {
     assert!(s.r.worker(0).slot().latest().unwrap().0.data.chunks(4).all(|p| p == [0, 0, 0, 255]), "what the stream still holds");
 }
 
-const IDLE: &str = "Not streaming\n\nPress Start streaming and the phone's camera comes up on its own.";
-const IDLE_MIC: &str = "Not streaming\n\nStart mic only streams the phone's mic with its camera off.";
+const IDLE: &str = "Not streaming";
+const IDLE_MIC: &str = "Not streaming";
 const WAITING: &str = "Waiting for the first frame\u{2026}";
 const CAMERA_OFF: &str = "Camera off\n\nThe phone's mic is still streaming.\nStop streaming ends it.";
 const CAMERA_OFF_AUTO: &str = "Camera off\n\nNo app was using the camera, so it turned off.\nThe phone's mic is still streaming, and the camera\ncomes back when an app opens it.";
@@ -730,12 +730,11 @@ fn preview_starts_active_and_toggles_off_and_back_on() {
 #[test]
 fn the_idle_text_names_the_browser_while_a_browser_source_is_picked() {
     let s = stage("stage-idle");
-    let browser = "Not streaming\n\nPress Start streaming and the browser's camera comes up once it connects.";
-    for (source, text) in [("browser", browser), ("browser:b1", browser), ("webcam:usb-c920", "Not streaming\n\nPress Start streaming to use this camera."), ("", IDLE)] {
+    let browser = "Not streaming";
+    for (source, text) in [("browser", browser), ("browser:b1", browser), ("webcam:usb-c920", "Not streaming"), ("", IDLE)] {
         s.r.w.emit(Event::SourceSelected { source_id: source.into() });
         assert!(s.says(text), "{source}");
     }
-    assert!(!browser.contains("phone"));
 }
 
 #[test]

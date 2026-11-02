@@ -221,7 +221,7 @@ callback param-committed(int, string);
         }
     }
 
-    Note { text: @tr("Keys for Telescope's controls, with how much each one changes. Right-click most controls to add one for it."); }
+    Note { text: @tr("Right-click most controls to add one for it."); }
 
     Card {
         title: @tr("Shortcuts");
@@ -287,7 +287,6 @@ callback param-committed(int, string);
             dismissable: true;
             dismissed => { root.cancel(); }
             title: @tr("Keyboard shortcut");
-            subtitle: @tr("Pick a control, what the key does to it, then press the key.");
             VerticalLayout {
                 spacing: 14px;
                 FormRow {

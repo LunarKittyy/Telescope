@@ -929,7 +929,7 @@ impl BrowserCameraPlugin {
             let cancel = IssueAction { label: tr("Cancel"), does: IssueDoes::Plugin { id: POST_CANCEL.into() } };
             h.show_issue("start", Issue {
                 title: tr("Waiting for a browser"),
-                text: tr("Scan the code on the Browser camera card with the device to use. It starts streaming as soon as it connects."),
+                text: tr("Scan the code on the Browser camera card with the device to use."),
                 actions: vec![cancel], kind: "warn".into(), tell_dismiss: true, ..issue()
             });
         }

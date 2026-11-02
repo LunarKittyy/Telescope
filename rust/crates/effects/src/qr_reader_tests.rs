@@ -522,7 +522,6 @@ fn the_card_starts_with_the_hint_and_wakes_with_a_phone() {
     rig.event(Event::PhonesChanged { count: 0 });
     assert_eq!(rig.props()["active"], false);
     rig.set_config(json!({"on": true}));
-    assert_eq!(rig.props()["status"], "Hold a QR code up to the camera.");
     rig.set_config(json!({"on": false}));
     assert_eq!(rig.props()["status"], "");
 }
