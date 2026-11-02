@@ -128,6 +128,17 @@ pub fn stale_modules(out: &str) -> Vec<u32> {
         .collect()
 }
 
+/// Whether every one of these modules is still loaded as one of ours (a restarted sound server forgets them, and may
+/// number others the same).
+pub fn modules_loaded(ids: &[u32], run: Run) -> bool {
+    let (ok, out) = run(&strings(&["pactl", "list", "short", "modules"]));
+    if !ok {
+        return false;
+    }
+    let ours = stale_modules(&out);
+    ids.iter().all(|id| ours.contains(id))
+}
+
 fn strings(parts: &[&str]) -> Vec<String> {
     parts.iter().map(|s| s.to_string()).collect()
 }
