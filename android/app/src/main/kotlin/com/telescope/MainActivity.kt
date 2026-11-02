@@ -152,10 +152,14 @@ class MainActivity : AppCompatActivity() {
             StreamPrefs.setLocalOnly(this, checked)
             SessionEndpoint.refreshAnnouncement()
             checkPermissions()
-            if (service?.isStreaming == true) {
-                service?.stopStreaming()
+            val svc = service
+            // Any live session, not just a settled stream: a lens or size change in flight is still bound to the old address
+            if (svc != null && svc.state.holdsSession) {
+                val cameraOff = svc.cameraOff
+                val owner = svc.owner
+                svc.stopStreaming()
                 unbind(); service = null
-                starting = restartStream()
+                starting = restartStream(cameraOff, owner)
                 updateStatusText()
             }
         }
@@ -798,9 +802,10 @@ class MainActivity : AppCompatActivity() {
         return state != StreamState.Idle && state != StreamState.Streaming && state != StreamState.Failed
     }
 
-    // Reopens the stream after Local only changes, with what the computer last picked.
-    private fun restartStream(): Boolean {
-        if (StreamLauncher.start(this, StreamPrefs.lastSelection(this)) !is StreamLauncher.Result.Started) return false
+    // Reopens the stream after Local only changes, with what the computer last picked and whether the camera was off.
+    private fun restartStream(cameraOff: Boolean, owner: String?): Boolean {
+        if (StreamLauncher.start(this, StreamPrefs.lastSelection(this), cameraOff = cameraOff, owner = owner)
+            !is StreamLauncher.Result.Started) return false
         rebindToService()
         return true
     }

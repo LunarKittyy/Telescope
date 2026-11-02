@@ -155,8 +155,26 @@ object SessionEndpoint {
 // waits out its whole timeout instead of saying the camera stopped before it finished starting.
 open class StartWindow(private val clock: () -> Long) {
     @Volatile private var until = 0L
+    private var issued = 0L
+    @Volatile private var abortedUpTo = 0L
 
-    fun begin() { until = clock() + PENDING_MS }
+    // The ticket goes to the service with the start, so abort() can tell it which starts were stopped before they ran.
+    @Synchronized
+    fun begin(): Long {
+        until = clock() + PENDING_MS
+        return ++issued
+    }
+
+    // A stop arrived while a start was still queued: every start so far is cancelled and the window closes.
+    @Synchronized
+    fun abort(): Boolean {
+        if (!open()) return false
+        abortedUpTo = issued
+        until = 0L
+        return true
+    }
+
+    fun aborted(ticket: Long): Boolean = ticket in 1..abortedUpTo
 
     // The service left StartingServer: stay busy just long enough for one poll to see it, then report its own state.
     fun settle() { until = minOf(until, clock() + SETTLE_MS) }
@@ -195,6 +213,8 @@ private class ServiceSessionCommands(private val context: Context) : SessionComm
     }
 
     override fun stop(computer: PairedComputer?): ControlResult {
+        // A start still queued (no instance yet, or one before onStartCommand) must not open the camera after this stop
+        SessionStartWindow.abort()
         val service = CameraStreamService.instance ?: return ControlResult(ok = true)
         // Another computer's stream carries on
         service.otherOwner(computer)?.let { return StreamOwner.busyOther(it) }

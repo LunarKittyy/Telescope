@@ -234,6 +234,8 @@ class CameraStreamService : Service() {
         const val EXTRA_COVERED    = "covered"
         // The id of the paired computer whose start this is; absent for a start on the phone.
         const val EXTRA_OWNER      = "owner"
+        // Which start this is (SessionStartWindow), so a stop that came before it ran can cancel it.
+        const val EXTRA_START_TICKET = "start_ticket"
         const val CHANNEL_ID       = "telescope_stream"
         const val NOTIF_ID         = 1
         private const val ACTION_STOP = "com.telescope.action.STOP_STREAMING"
@@ -544,6 +546,9 @@ class CameraStreamService : Service() {
     @Volatile
     private var ownerId: String? = null
 
+    // The id of the computer this stream belongs to, for a restart that has to keep it.
+    val owner: String? get() = ownerId
+
     // The paired computer that has this stream instead of caller, while there is a stream; null when caller may have it.
     fun otherOwner(caller: PairedComputer?): PairedComputer? {
         if (state == StreamState.Idle || state == StreamState.Failed) return null
@@ -687,6 +692,15 @@ class CameraStreamService : Service() {
             // A second start raced the first: keep the running stream rather than rebind its port and fail both.
             if (inForeground) try { startForegroundCompat() } catch (_: Exception) {}
             stateMachine.record("duplicateStart")
+            return START_NOT_STICKY
+        }
+        if (SessionStartWindow.aborted(intent?.getLongExtra(EXTRA_START_TICKET, 0L) ?: 0L)) {
+            // The computer was told its stop worked before this start ran; Android still wants a foreground promotion first.
+            stateMachine.record("startAborted")
+            if (intent?.getBooleanExtra(EXTRA_COVERED, false) != true) {
+                try { startForegroundCompat(); stopForeground(STOP_FOREGROUND_REMOVE); inForeground = false } catch (_: Exception) {}
+            }
+            stopSelf()
             return START_NOT_STICKY
         }
         started = true
