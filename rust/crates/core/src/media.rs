@@ -41,6 +41,41 @@ pub trait FeedStopper: Send + Sync {
     fn stop(&self);
 }
 
+/// Lets a stop reach a feed that is still being opened (connecting, handshaking, waiting for the head), before there is a
+/// FeedStopper to ask. The opener registers what ends its blocked step with `watch`; a stop before that ends it at once.
+#[derive(Clone, Default)]
+pub struct OpenStop {
+    state: Arc<std::sync::Mutex<(bool, Option<Box<dyn Fn() + Send>>)>>,
+}
+
+impl OpenStop {
+    pub fn stop(&self) {
+        let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        st.0 = true;
+        if let Some(abort) = st.1.take() {
+            abort();
+        }
+    }
+
+    pub fn stopped(&self) -> bool {
+        self.state.lock().unwrap_or_else(|e| e.into_inner()).0
+    }
+
+    /// What ends the open's blocked step, called at once when it's stopped already.
+    pub fn watch(&self, abort: impl Fn() + Send + 'static) {
+        let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        if st.0 {
+            abort();
+        }
+        st.1 = Some(Box::new(abort));
+    }
+
+    /// Whether both are the same open.
+    pub fn is(&self, other: &OpenStop) -> bool {
+        Arc::ptr_eq(&self.state, &other.state)
+    }
+}
+
 /// Encoded video from a phone or another source, read on the stream's thread.
 pub trait VideoFeed: Send {
     fn read(&mut self) -> Result<Packet, FeedEnd>;

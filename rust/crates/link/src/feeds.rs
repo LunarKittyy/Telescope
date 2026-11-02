@@ -5,7 +5,7 @@ use crate::https::{Aborter, PhoneAuth, Request, Response};
 use std::io::Read;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use telescope_core::media::{Codec, FeedEnd, FeedStopper, Packet, VideoFeed};
+use telescope_core::media::{Codec, FeedEnd, FeedStopper, OpenStop, Packet, VideoFeed};
 
 const CHUNK: usize = 64 * 1024;
 const MJPEG_CHUNK: usize = 4096;
@@ -184,9 +184,16 @@ impl VideoFeed for MjpegFeed {
 
 /// The feed for a video URL, by its path: UDP (falling back to TCP), H.264 over TCP, or MJPEG.
 pub fn open_feed(url: &str, auth: &PhoneAuth, timeout: Duration) -> Result<(Codec, Box<dyn VideoFeed>), String> {
+    open_feed_stoppable(url, auth, timeout, &OpenStop::default())
+}
+
+/// open_feed, which `open.stop()` ends wherever it is, including a connect, handshake or head still pending.
+pub fn open_feed_stoppable(url: &str, auth: &PhoneAuth, timeout: Duration, open: &OpenStop) -> Result<(Codec, Box<dyn VideoFeed>), String> {
     let path = crate::https::Url::parse(url).map(|u| u.target).unwrap_or_default();
     let path = path.split('?').next().unwrap_or("");
     let stop = StopHandle::default();
+    let handle = stop.clone();
+    open.watch(move || handle.stop());
     if path.ends_with(".udp") {
         Ok((Codec::H264, Box::new(crate::udp::UdpFeed::open(url, auth, timeout, stop)?)))
     } else if path.ends_with(".h264") {
@@ -360,5 +367,42 @@ mod tests {
         assert_eq!(feed.read().unwrap().data, [0, 0, 0, 1, 9, 0xf0]);
         feed.stopper().stop();
         assert_eq!(feed.read().err(), Some(FeedEnd::Stopped));
+    }
+
+    /// A phone that takes the connection and then says nothing, so the open sits waiting for the head; tells when it has accepted.
+    fn stalled_phone() -> (String, std::sync::mpsc::Receiver<()>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://127.0.0.1:{}/v1/video.h264", listener.local_addr().unwrap().port());
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let (_conn, _) = listener.accept().unwrap();
+            tx.send(()).unwrap();
+            std::thread::sleep(Duration::from_secs(10));
+        });
+        (url, rx)
+    }
+
+    #[test]
+    fn a_stop_reaches_a_feed_whose_phone_accepted_and_then_stalled() {
+        let (url, accepted) = stalled_phone();
+        let open = OpenStop::default();
+        let stop = open.clone();
+        let opening = std::thread::spawn(move || open_feed_stoppable(&url, &PhoneAuth::new("t", ""), Duration::from_secs(30), &open).err());
+        // Accepted means the client is connected, so its aborter is registered already
+        accepted.recv().unwrap();
+        let started = std::time::Instant::now();
+        stop.stop();
+        assert!(opening.join().unwrap().is_some());
+        assert!(started.elapsed() < Duration::from_secs(5));
+    }
+
+    #[test]
+    fn a_stop_before_the_open_has_begun_ends_it_at_once() {
+        let (url, _accepted) = stalled_phone();
+        let open = OpenStop::default();
+        open.stop();
+        let started = std::time::Instant::now();
+        assert!(open_feed_stoppable(&url, &PhoneAuth::new("t", ""), Duration::from_secs(30), &open).is_err());
+        assert!(started.elapsed() < Duration::from_secs(5));
     }
 }

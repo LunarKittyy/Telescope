@@ -52,7 +52,7 @@ fn a_browser_camera_streams_with_its_camera_on() {
     r.start();
     r.pump();
     assert_eq!(r.workers_made(), 1);
-    assert!((r.worker(0).opener.lock().unwrap())().is_ok(), "it reads from the source itself");
+    assert!((r.worker(0).opener.lock().unwrap())(&Default::default()).is_ok(), "it reads from the source itself");
     assert!(!r.w.state.borrow().streams.can_turn_off.0);
 }
 

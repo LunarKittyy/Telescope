@@ -1071,7 +1071,7 @@ impl Window {
                     return;
                 }
                 let url = session.video_url();
-                let opener: crate::worker::Opener = { let s = session.clone(); Arc::new(move || s.open_video().map(crate::worker::Opened::from)) };
+                let opener: crate::worker::Opener = { let s = session.clone(); Arc::new(move |stop| s.open_video_stoppable(stop).map(crate::worker::Opened::from)) };
                 let tries = current.worker.as_ref().map_or(0, |w| w.failed_tries());
                 phone.moved(route, session, tries);
                 let worker = current.worker.as_ref().and_then(|w| self.shell_worker(w));
@@ -1133,7 +1133,7 @@ impl Window {
         log::info!("{} moved to {url}", source.kind.name());
         if let Some(worker) = worker {
             let s = session.clone();
-            worker.inner.set_opener(Arc::new(move || s.open_video().map(crate::worker::Opened::from)));
+            worker.inner.set_opener(Arc::new(move |stop| s.open_video_stoppable(stop).map(crate::worker::Opened::from)));
         }
         let mut moved = current.clone();
         moved.url = session.video_url();
@@ -1622,7 +1622,7 @@ impl FlowHost for Host<'_> {
         let hardware = source.kind.card_decoding() && (chosen || self.w.opts.as_ref().is_some_and(|o| o.hardware_decode));
         let id = self.w.streams.next_worker.get() + 1;
         self.w.streams.next_worker.set(id);
-        let opener = source.kind.opener().unwrap_or_else(|| Arc::new(|| Err(tr("Couldn't reach the phone."))));
+        let opener = source.kind.opener().unwrap_or_else(|| Arc::new(|_| Err(tr("Couldn't reach the phone."))));
         // Before the thread starts, so no frame goes out without them
         let steps = self.w.state.borrow_mut().pipeline_steps(source.id.as_deref().filter(|id| !id.is_empty()));
         let setup = WorkerSetup { url: url.into(), opener, width: params.0, height: params.1, fps: params.2, canvas,

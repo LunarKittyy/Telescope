@@ -61,8 +61,9 @@ pub enum WorkerEvent {
 
 pub type Events = Arc<dyn Fn(WorkerEvent) + Send + Sync>;
 
-/// Opens a fresh feed of the stream's video (a phone session's open_video, or a StreamSource's open_feed).
-pub type Opener = Arc<dyn Fn() -> Result<Opened, String> + Send + Sync>;
+/// Opens a fresh feed of the stream's video (a phone session's open_video, or a StreamSource's open_feed). A stop of the
+/// worker ends the open through the OpenStop it gets.
+pub type Opener = Arc<dyn Fn(&telescope_core::media::OpenStop) -> Result<Opened, String> + Send + Sync>;
 
 /// A feed an opener opened: its codec, and a decoder of the source's own for packets media can't decode (a webcam's
 /// raw YUYV or NV12 frames, StreamSource::decoder).
@@ -324,6 +325,8 @@ struct Shared {
     last_arrival_fps: Mutex<f32>,
     camera_size: Mutex<Option<(u32, u32)>>,
     stopper: Mutex<Option<Box<dyn FeedStopper>>>,
+    /// The feeds being opened right now, which a stop has to reach before they have a stopper.
+    opening: Mutex<Vec<telescope_core::media::OpenStop>>,
     /// The preview's size, (width << 32) | height; 0 while nobody shows this stream.
     preview_size: AtomicU64,
     handover_busy: AtomicBool,
@@ -439,7 +442,7 @@ impl StreamWorker {
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
             photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_colour: Mutex::new(None), gate: setup.gate,
             seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0),
-            last_arrival_fps: Mutex::new(0.0), camera_size: Mutex::new(None), stopper: Mutex::new(None),
+            last_arrival_fps: Mutex::new(0.0), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
             handover_thread: Mutex::new(None),
         });
@@ -522,6 +525,9 @@ impl StreamWorker {
         s.restart_vcam.set();
         if let Some(stopper) = s.stopper.lock().unwrap().as_ref() {
             stopper.stop();
+        }
+        for open in s.opening.lock().unwrap().iter() {
+            open.stop();
         }
     }
 
@@ -638,7 +644,15 @@ impl Shared {
     }
 
     fn open_cap_with(&self, opener: &Opener) -> Result<Cap, String> {
-        let Opened { codec, feed, own_decoder } = opener()?;
+        // Listed before the stop flag is looked at, so a stop either sees this open in the list or is seen here
+        let open = telescope_core::media::OpenStop::default();
+        self.opening.lock().unwrap().push(open.clone());
+        if self.stopped() {
+            open.stop();
+        }
+        let opened = opener(&open);
+        self.opening.lock().unwrap().retain(|o| !o.is(&open));
+        let Opened { codec, feed, own_decoder } = opened?;
         let options = DecodeOptions { hardware: self.hardware };
         // Packets only the source understands go through its decoder, one at a time like JPEGs, newest first
         if let Some(decoder) = own_decoder {
@@ -1494,7 +1508,7 @@ mod tests {
 
     fn worker_from(packets: Arc<Mutex<VecDeque<Option<u8>>>>, cams: Arc<Cams>, log: Arc<Mutex<Vec<WorkerEvent>>>,
                    plugin_source: bool, endless: Option<u8>) -> StreamWorker {
-        let opener: Opener = Arc::new(move || {
+        let opener: Opener = Arc::new(move |_| {
             Ok((Codec::Mjpeg, Box::new(Feed { packets: packets.clone(), stop: Arc::default(), endless }) as Box<dyn VideoFeed>).into())
         });
         worker_with(opener, None, cams, log, plugin_source)
@@ -1600,7 +1614,7 @@ mod tests {
             }
         }
         let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
-        let opener: Opener = Arc::new(|| Ok(Opened {
+        let opener: Opener = Arc::new(|_| Ok(Opened {
             codec: Codec::Mjpeg,
             feed: Box::new(Feed { packets: Arc::new(Mutex::new(VecDeque::from([Some(40)]))), stop: Arc::default(), endless: None }),
             own_decoder: Some(Box::new(Raw)),
@@ -1614,7 +1628,7 @@ mod tests {
     #[test]
     fn a_source_says_why_it_isnt_streaming_while_it_waits() {
         let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
-        let opener: Opener = Arc::new(|| Err("busy".into()));
+        let opener: Opener = Arc::new(|_| Err("busy".into()));
         let waiting: WaitingText = Arc::new(|| "Another app is using this camera.".into());
         let w = worker_with(opener, Some(waiting), cams, log.clone(), true);
         wait_for(|| log.lock().unwrap().iter().any(|e| matches!(e, WorkerEvent::Status(k, _) if k == "waiting")));
@@ -1740,7 +1754,7 @@ mod tests {
         let packets = Arc::new(Mutex::new(VecDeque::new()));
         let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
         let w = worker_from(packets, cams, log, true, None);
-        assert!(!w.hand_over("x", Arc::new(|| Err("no".into()))));
+        assert!(!w.hand_over("x", Arc::new(|_| Err("no".into()))));
         w.stop();
     }
 
@@ -1753,7 +1767,7 @@ mod tests {
         let packets = Arc::new(Mutex::new(VecDeque::from([Some(1)])));
         let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
         let w = worker(packets, cams, log.clone());
-        assert!(w.hand_over("https://usb/v1/video", Arc::new(|| Err("refused".into()))));
+        assert!(w.hand_over("https://usb/v1/video", Arc::new(|_| Err("refused".into()))));
         wait_for(|| log.lock().unwrap().contains(&WorkerEvent::MoveFailed("https://usb/v1/video".into())));
         assert_eq!(moves(&log), [WorkerEvent::MoveFailed("https://usb/v1/video".into())], "and it didn't move");
         assert_eq!(w.url(), "http://phone/v1/video");
@@ -1847,7 +1861,7 @@ mod tests {
     fn scripted(tries: Vec<Option<Vec<Step>>>) -> (Opener, Opens) {
         let (opens, tries) = (Opens::default(), Mutex::new(VecDeque::from(tries)));
         let seen = opens.clone();
-        let opener: Opener = Arc::new(move || {
+        let opener: Opener = Arc::new(move |_| {
             seen.calls.fetch_add(1, Ordering::SeqCst);
             let steps = tries.lock().unwrap().pop_front().flatten().ok_or("refused")?;
             let feed = Script { steps: steps.into(), stop: Arc::default(), gone: seen.gone.clone() };
@@ -1960,7 +1974,7 @@ mod tests {
         let worker: Arc<std::sync::OnceLock<(Arc<StreamWorker>, Opener)>> = Arc::default();
         let (tries, inner) = (Arc::new(AtomicU32::new(0)), worker.clone());
         let counted = tries.clone();
-        let opener: Opener = Arc::new(move || {
+        let opener: Opener = Arc::new(move |_| {
             let n = counted.fetch_add(1, Ordering::SeqCst);
             if n == 2 {
                 // Moved while the second try was out
@@ -2174,11 +2188,34 @@ mod tests {
     #[test]
     fn a_crash_in_the_worker_ends_with_an_error_and_idle() {
         let (cams, log) = (Arc::new(Cams::default()), Log::default());
-        let opener: Opener = Arc::new(|| panic!("boom"));
+        let opener: Opener = Arc::new(|_| panic!("boom"));
         let w = started(setup(opener), &cams, &log);
         wait_for(|| log.lock().unwrap().last() == Some(&WorkerEvent::Status("idle".into(), "Not streaming".into())));
         assert!(log.lock().unwrap().contains(&WorkerEvent::Status("error".into(), "Stream error: boom".into())));
         w.stop();
+    }
+
+    #[test]
+    fn a_stop_reaches_a_feed_that_is_still_being_opened() {
+        let (began_tx, began) = std::sync::mpsc::channel();
+        let began_tx = Mutex::new(began_tx);
+        let opener: Opener = Arc::new(move |open| {
+            let (tx, released) = std::sync::mpsc::channel();
+            open.watch(move || {
+                let _ = tx.send(());
+            });
+            let _ = began_tx.lock().unwrap().send(());
+            // Stalled like a phone that took the connection and never answers, until the stop gets here
+            released.recv_timeout(Duration::from_secs(10)).map_err(|_| "never stopped".to_string())?;
+            Err("stopped".into())
+        });
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = started(setup(opener), &cams, &log);
+        began.recv().unwrap();
+        let at = Instant::now();
+        w.stop();
+        assert!(at.elapsed() < Duration::from_secs(3), "the stop waited for the open to give up");
+        assert!(w.shared.opening.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -2224,7 +2261,7 @@ mod tests {
     fn a_slow_decoder_skips_to_the_newest_packet() {
         let steps = VecDeque::from([1, 2, 3, 4, 5].map(Step::Frame));
         let steps = Mutex::new(Some(steps));
-        let opener: Opener = Arc::new(move || {
+        let opener: Opener = Arc::new(move |_| {
             let steps = steps.lock().unwrap().take().unwrap_or_default();
             Ok(Opened { codec: Codec::Mjpeg, feed: Box::new(Script { steps, stop: Arc::default(), gone: Arc::default() }), own_decoder: Some(Box::new(Slow)) })
         });
@@ -2276,7 +2313,7 @@ mod tests {
 
     #[test]
     fn frames_that_arrived_together_all_count_as_arrived() {
-        let (opener, _opens) = (Arc::new(|| {
+        let (opener, _opens) = (Arc::new(|_: &telescope_core::media::OpenStop| {
             let feed = Script { steps: VecDeque::new(), stop: Arc::default(), gone: Arc::default() };
             Ok((Codec::H264, Box::new(feed) as Box<dyn VideoFeed>).into())
         }) as Opener, ());
@@ -2331,7 +2368,7 @@ mod tests {
         assert_eq!(w.shared.slot.latest().unwrap().0.data[0], 1);
         let received = w.shared.slot.latest().unwrap().1;
         wait_for(|| w.shared.slot.latest().unwrap().1 > received);
-        assert!(w.hand_over(url, Arc::new(|| Err("no".into()))), "it can try again later");
+        assert!(w.hand_over(url, Arc::new(|_| Err("no".into()))), "it can try again later");
         w.stop();
     }
 
@@ -2471,7 +2508,7 @@ mod tests {
 
     fn watched_as(source: &str, url: &str, codec: Codec) -> Arc<Seen> {
         let seen = Arc::new(Seen::default());
-        let opener: Opener = Arc::new(move || {
+        let opener: Opener = Arc::new(move |_| {
             Ok((codec, Box::new(Feed { packets: Arc::new(Mutex::new(VecDeque::from([Some(5)]))), stop: Arc::default(), endless: None }) as Box<dyn VideoFeed>).into())
         });
         let setup = WorkerSetup { url: url.into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0, waiting_text: None,
@@ -2549,7 +2586,7 @@ mod tests {
     }
 
     fn running(seen: &Arc<Seen>, steps: Vec<StagedStep>, vision: Option<VisionFeed>, gate: Option<Arc<crate::handover::ViewGate>>) -> StreamWorker {
-        let opener: Opener = Arc::new(|| {
+        let opener: Opener = Arc::new(|_| {
             Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }) as Box<dyn VideoFeed>).into())
         });
         let setup = WorkerSetup { url: "https://phone/v1/video".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0,

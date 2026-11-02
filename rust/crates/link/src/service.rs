@@ -336,6 +336,10 @@ impl PhoneSession for Session {
         crate::feeds::open_feed(&self.video_url, &self.auth, VIDEO_TIMEOUT)
     }
 
+    fn open_video_stoppable(&self, open: &telescope_core::media::OpenStop) -> Result<(Codec, Box<dyn VideoFeed>), String> {
+        crate::feeds::open_feed_stoppable(&self.video_url, &self.auth, VIDEO_TIMEOUT, open)
+    }
+
     fn release(&self) {
         if let Some(serial) = &self.forward {
             self.tunnels.release(serial, STREAM_PORT);

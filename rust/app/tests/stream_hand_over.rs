@@ -35,7 +35,7 @@ fn hand_over(r: &Rig) -> bool {
 /// The worker opens the new route, as it does before it says how it went.
 fn opens_the_new_route(r: &Rig) {
     let opener = r.worker(0).handed.lock().unwrap().clone().unwrap();
-    assert!(opener().is_err(), "the fake has no video, but the session is open");
+    assert!(opener(&Default::default()).is_err(), "the fake has no video, but the session is open");
 }
 
 fn url(r: &Rig) -> String {

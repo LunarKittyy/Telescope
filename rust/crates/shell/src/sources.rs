@@ -572,7 +572,7 @@ impl PhoneKind {
             });
             return None;
         }
-        Some(Arc::new(move || open()?.open_video().map(Opened::from)))
+        Some(Arc::new(move |stop| open()?.open_video_stoppable(stop).map(Opened::from)))
     }
 
     /// The hand-over to url worked for session_id: the session it opened is the stream's now, and link lets the old
@@ -998,7 +998,7 @@ impl SourceKind for PhoneKind {
 
     fn opener(&self) -> Option<Opener> {
         let session = self.session()?;
-        Some(Arc::new(move || session.open_video().map(Opened::from)))
+        Some(Arc::new(move |stop| session.open_video_stoppable(stop).map(Opened::from)))
     }
 
     fn mic_alone(&self) -> bool {
@@ -1108,9 +1108,9 @@ impl SourceKind for PluginKind {
     fn opener(&self) -> Option<Opener> {
         // The source as it is at each open: one offered again under the same id takes over a stream that reconnects
         let shared = self.source.clone();
-        Some(Arc::new(move || {
+        Some(Arc::new(move |stop| {
             let source = shared.lock().unwrap().clone();
-            let (codec, feed) = source.open_feed()?;
+            let (codec, feed) = source.open_feed_stoppable(stop)?;
             Ok(Opened { codec, feed, own_decoder: source.decoder() })
         }))
     }
@@ -1243,7 +1243,7 @@ mod tests {
         let shared: SharedSource = Arc::new(Mutex::new(first));
         let opener = PluginKind::new(shared.clone(), None).opener().unwrap();
         *shared.lock().unwrap() = Arc::new(Offered("second"));
-        assert_eq!(opener().err().as_deref(), Some("second"));
+        assert_eq!(opener(&Default::default()).err().as_deref(), Some("second"));
     }
 
     use telescope_core::link::{PairingOffer, RoutePrefs, Unreachable};
@@ -1454,7 +1454,7 @@ mod tests {
         let (phone, link, wifi, _) = wifi_phone();
         let opener = phone.begin_hand_over(1, usb(), USB_URL.into(), false).unwrap();
         assert!(phone.handing_over());
-        assert!(opener().is_err()); // the fake has no video, but the session on the new route is open
+        assert!(opener(&Default::default()).is_err()); // the fake has no video, but the session on the new route is open
         assert_eq!(phone.url(), "https://192.168.1.20:8080/v1/video"); // still Wi-Fi until it's moved
         let moved = phone.moved_over(1, USB_URL).unwrap();
         assert_eq!(moved.video_url(), "https://127.0.0.1:41000/v1/video#SER");
@@ -1470,7 +1470,7 @@ mod tests {
     fn a_failed_hand_over_leaves_the_stream_where_it_was() {
         let (phone, link, wifi, _) = wifi_phone();
         let opener = phone.begin_hand_over(1, usb(), USB_URL.into(), false).unwrap();
-        let _ = opener();
+        let _ = opener(&Default::default());
         phone.hand_over_failed(USB_URL, true);
         assert_eq!(*link.dropped.lock().unwrap(), [("p1".to_string(), true)]);
         assert!(link.committed.lock().unwrap().is_empty());
@@ -1487,7 +1487,7 @@ mod tests {
     fn a_move_for_a_stream_thats_been_replaced_lets_go_of_the_route() {
         let (phone, link, _, _) = wifi_phone();
         let opener = phone.begin_hand_over(1, usb(), USB_URL.into(), false).unwrap();
-        let _ = opener();
+        let _ = opener(&Default::default());
         assert!(phone.moved_over(2, USB_URL).is_none());
         assert_eq!(*link.dropped.lock().unwrap(), [("p1".to_string(), false)]);
         assert!(link.committed.lock().unwrap().is_empty());

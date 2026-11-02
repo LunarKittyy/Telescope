@@ -240,7 +240,7 @@ fn start_streams_from_the_source_without_waking_a_phone() {
 
     assert!(!did(&r, "wake"));
     let worker = r.worker(0);
-    assert!((worker.opener.lock().unwrap())().is_ok());
+    assert!((worker.opener.lock().unwrap())(&Default::default()).is_ok());
     assert_eq!(offered.opened.load(Ordering::SeqCst), 1, "it reads from the source");
     assert_eq!((worker.fps, worker.width), (24, None));
 

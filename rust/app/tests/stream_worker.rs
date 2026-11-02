@@ -114,7 +114,7 @@ impl Media for Plain {
 }
 
 fn flowing(grey: u8) -> Opener {
-    Arc::new(move || Ok((Codec::Mjpeg, Box::new(Packets(grey, Arc::default())) as Box<dyn VideoFeed>).into()))
+    Arc::new(move |_| Ok((Codec::Mjpeg, Box::new(Packets(grey, Arc::default())) as Box<dyn VideoFeed>).into()))
 }
 
 struct Maths(Box<dyn Fn(u8) -> u8 + Send>);
@@ -200,7 +200,7 @@ fn phone(token: &'static str) -> (String, Arc<Mutex<Vec<String>>>) {
 
 // Session::open_video is this one line on top of a pinned HTTPS connection, which link's https tests cover
 fn opener(url: String, token: &'static str) -> Opener {
-    Arc::new(move || open_feed(&url, &PhoneAuth::new(token, ""), Duration::from_secs(3)).map(Opened::from))
+    Arc::new(move |_| open_feed(&url, &PhoneAuth::new(token, ""), Duration::from_secs(3)).map(Opened::from))
 }
 
 #[test]
