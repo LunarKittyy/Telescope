@@ -20,7 +20,6 @@ const statusEl = document.getElementById("status");
 const noteEl = document.getElementById("note");
 const LONG_NOTE = noteEl.textContent;
 const rateEl = document.getElementById("rate");
-const dot = document.getElementById("dot");
 const startBtn = document.getElementById("start");
 const flipBtn = document.getElementById("flip");
 const stopBtn = document.getElementById("stop");
@@ -82,7 +81,6 @@ function showConnected() {
 function show(text, kind) {
   statusEl.textContent = text;
   statusEl.className = kind === "err" ? "err" : kind === "warn" ? "warn" : "";
-  dot.className = kind || "";
   if (kind !== "ok") rateEl.textContent = "";
   noteEl.textContent = kind === "ok" ? "Keep this page open." : LONG_NOTE;
 }
