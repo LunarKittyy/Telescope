@@ -197,5 +197,6 @@ fn focus_ring_shows_after_tab_and_not_after_a_click() {
     // By keyboard the same switch does get its ring
     tab(&ui);
     press(&ui, Key::Backtab.into());
+    input::focus_key(&ui);
     assert!(ringed(10, 160), "Tab back to it rings it");
 }

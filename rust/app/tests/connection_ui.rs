@@ -426,10 +426,10 @@ export component W inherits Window {
     w.set_property("rows", phones(1)).unwrap();
     w.set_property("open", Value::Bool(true)).unwrap();
     settle(&w);
-    press(&w, "Pair another phone");
+    press(&w, "Add phone");
     assert_eq!(said.borrow().len(), 2);
     assert!(said.borrow()[0].contains("closed") && said.borrow()[1].contains("add"), "{:?}", said.borrow());
-    assert!(ElementHandle::find_by_accessible_label(&w, "Pair another phone").next().is_none(), "Your phones is gone");
+    assert!(ElementHandle::find_by_accessible_label(&w, "Your phones").count() == 1, "only the button is left, Your phones is gone");
 }
 
 fn the_virtual_camera_question_comes_with_the_startup_choice() {

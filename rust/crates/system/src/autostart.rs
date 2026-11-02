@@ -387,7 +387,8 @@ mod tests {
         assert!(update_menu_entry(save_icon, &command, Some(&dir)));
         let text = std::fs::read_to_string(dir.join("applications/telescope.desktop")).unwrap();
         assert!(text.contains("Exec=\"/home/someone/My Apps/Telescope/start.sh\"\n"));
-        assert!(text.contains("Icon=telescope\n") && text.contains("Categories=") && !text.contains("Autostart"));
+        assert!(text.contains(&format!("Icon={}\n", dir.join("icons/hicolor/256x256/apps/telescope.png").display())));
+        assert!(text.contains("Categories=") && !text.contains("Autostart"));
         assert_eq!(*icons.borrow(), vec![dir.join("icons/hicolor/256x256/apps/telescope.png")]);
         assert!(!update_menu_entry(save_icon, &command, Some(&dir)));
         assert!(update_menu_entry(save_icon, &argv(&["/elsewhere/start.sh"]), Some(&dir)));
