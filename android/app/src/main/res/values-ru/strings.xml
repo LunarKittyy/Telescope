@@ -90,7 +90,9 @@
     <string name="network_unreachable">узел недоступен</string>
     <string name="network_title">Сеть</string>
     <string name="local_only">Только локально - USB</string>
+    <string name="local_only_hint">К камере можно подключиться только по USB.</string>
     <string name="wait_for_computer">Ждать мой компьютер</string>
+    <string name="wait_for_computer_hint">Позволяет сопряженному компьютеру запустить камеру при выключенном экране.</string>
     <string name="stop_streaming">Остановить трансляцию</string>
     <string name="status_title">Статус</string>
     <string name="status_not_streaming">Нет трансляции</string>

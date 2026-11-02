@@ -121,5 +121,10 @@
  "a:default_computer_name same as the English": "Computer",
  "a:pairing_failed much longer than the English": "Associazione non riuscita",
  "a:lens_auto same as the English": "[auto]",
- "a:notif_channel_streaming same as the English": "Streaming"
+ "a:notif_channel_streaming same as the English": "Streaming",
+ "d:732902a518 same as the English": "Lift master",
+ "d:ffa12a2ea5 same as the English": "Gamma master",
+ "d:4080c8aa55 same as the English": "Gain master",
+ "d:1a1d75a179 same as the English": "Offset master",
+ "d:bfb29c352c much longer than the English": "Codice di associazione"
 }

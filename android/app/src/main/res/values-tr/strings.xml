@@ -88,7 +88,9 @@
     <string name="network_unreachable">ulaşılamıyor</string>
     <string name="network_title">Ağ</string>
     <string name="local_only">Sadece yerel - USB</string>
+    <string name="local_only_hint">Kameraya sadece bir USB bağlantısı erişebilir.</string>
     <string name="wait_for_computer">Bilgisayarımı bekle</string>
+    <string name="wait_for_computer_hint">Eşleştirilmiş bir bilgisayarın ekran kapalıyken kamerayı başlatmasını sağlar.</string>
     <string name="stop_streaming">Yayını durdur</string>
     <string name="status_title">Durum</string>
     <string name="status_not_streaming">Yayın yapmıyor</string>

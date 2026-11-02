@@ -88,7 +88,9 @@
     <string name="network_unreachable">पहुंच से बाहर</string>
     <string name="network_title">नेटवर्क</string>
     <string name="local_only">सिर्फ़ लोकल - USB</string>
+    <string name="local_only_hint">सिर्फ़ USB कनेक्शन ही कैमरे तक पहुंच सकता है.</string>
     <string name="wait_for_computer">कंप्यूटर का इंतज़ार करें</string>
+    <string name="wait_for_computer_hint">स्क्रीन बंद होने पर भी पेयर किए गए कंप्यूटर को कैमरा शुरू करने देता है.</string>
     <string name="stop_streaming">स्ट्रीमिंग रोकें</string>
     <string name="status_title">स्थिति</string>
     <string name="status_not_streaming">स्ट्रीम नहीं हो रहा है</string>

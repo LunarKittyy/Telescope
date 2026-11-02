@@ -90,7 +90,9 @@
     <string name="network_unreachable">недосяжний</string>
     <string name="network_title">Мережа</string>
     <string name="local_only">Лише локально - USB</string>
+    <string name="local_only_hint">Доступ до камери можливий лише через підключення USB.</string>
     <string name="wait_for_computer">Очікувати на комп\'ютер</string>
+    <string name="wait_for_computer_hint">Дозволяє комп\'ютеру, з яким створено пару, запускати камеру, коли екран вимкнено.</string>
     <string name="stop_streaming">Зупинити трансляцію</string>
     <string name="status_title">Стан</string>
     <string name="status_not_streaming">Не транслює</string>

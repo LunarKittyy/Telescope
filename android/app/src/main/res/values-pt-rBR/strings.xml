@@ -88,7 +88,9 @@
     <string name="network_unreachable">inacessível</string>
     <string name="network_title">Rede</string>
     <string name="local_only">Apenas local - USB</string>
+    <string name="local_only_hint">Apenas uma conexão USB pode acessar a câmera.</string>
     <string name="wait_for_computer">Aguardar meu computador</string>
+    <string name="wait_for_computer_hint">Permite que um computador pareado inicie a câmera com a tela desligada.</string>
     <string name="stop_streaming">Parar transmissão</string>
     <string name="status_title">Status</string>
     <string name="status_not_streaming">Não está transmitindo</string>

@@ -87,7 +87,9 @@
     <string name="network_unreachable">不可达</string>
     <string name="network_title">网络</string>
     <string name="local_only">仅限本地 - USB</string>
+    <string name="local_only_hint">只有通过 USB 连接才能访问相机。</string>
     <string name="wait_for_computer">等待我的电脑</string>
+    <string name="wait_for_computer_hint">允许已配对的电脑在屏幕关闭时开启相机。</string>
     <string name="stop_streaming">停止串流</string>
     <string name="status_title">状态</string>
     <string name="status_not_streaming">未串流</string>

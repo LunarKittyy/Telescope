@@ -90,7 +90,9 @@
     <string name="network_unreachable">nieosiągalny</string>
     <string name="network_title">Sieć</string>
     <string name="local_only">Tylko lokalnie - USB</string>
+    <string name="local_only_hint">Z kamerą można połączyć się tylko przez USB.</string>
     <string name="wait_for_computer">Czekaj na mój komputer</string>
+    <string name="wait_for_computer_hint">Pozwala sparowanemu komputerowi włączyć kamerę przy wyłączonym ekranie.</string>
     <string name="stop_streaming">Zatrzymaj strumieniowanie</string>
     <string name="status_title">Status</string>
     <string name="status_not_streaming">Nie przesyła</string>

@@ -133,5 +133,7 @@
  "a:scan_pairing_code much longer than the English": "Scanner le code d'association",
  "a:pairing_tried much longer than the English": "Adresses essayées :",
  "a:network_timed_out much longer than the English": "délai d'attente dépassé",
- "a:lens_auto same as the English": "[auto]"
+ "a:lens_auto same as the English": "[auto]",
+ "d:e92d1d629d same as the English": "Page",
+ "d:9194471da0 much longer than the English": "Appuyez sur une touche…"
 }

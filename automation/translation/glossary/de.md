@@ -97,7 +97,7 @@ Avoid: downloaden, lediglich, mittels, zwecks, Präferenzen, Applikation, selekt
 | USB debugging | USB-Debugging |
 | tray icon (Windows) | Symbol im Infobereich |
 | Linux desktop (GNOME, KDE) | Desktop-Umgebung |
-| this copy (of Telescope) / a new copy of itself | diese Instanz / eine neue Instanz |
+| this copy (of Telescope) / a new copy of itself | diese Installation / eine neue Kopie |
 | distro | Distribution |
 | UI control a shortcut can change | Steuerelement |
 | Get adb / Set up VA-API… | adb holen / VA-API einrichten… |
