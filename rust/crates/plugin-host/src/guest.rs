@@ -315,7 +315,8 @@ impl PluginContext {
             "cover_requested" | "timer_fired" | "posted" | "preview_picked" | "view_taken" => {
                 return Err(format!("host.emit can't send {name}: it speaks for one plugin, and that isn't an added plugin"));
             }
-            _ => None,
+            // The rest is the app telling plugins what happened (stream_stopped, phone_state_updated...), which a plugin can't fake
+            _ => return Err(format!("host.emit can't send {name}: the app sends it itself. A plugin's own events are called \"{}.<what>\"", self.info.name)),
         };
         match needs {
             Some(p) if !self.permissions.iter().any(|have| have == p) => {
@@ -834,10 +835,21 @@ mod tests {
         assert!(none.call(Some(&mut host), "emit", json!({"name": "timer_fired", "data": {"owner": "x", "token": "t"}})).is_err());
         assert!(host.events.is_empty());
         none.call(Some(&mut host), "emit", json!({"name": "echo.ping"})).unwrap();
-        none.call(Some(&mut host), "emit", json!({"name": "stream_stopped"})).unwrap();
         let mut phone = PluginContext::new(info(), ".", vec!["phone".into()]);
         phone.call(Some(&mut host), "emit", json!({"name": "focus_point", "data": {"x": 0.2, "y": 0.2}})).unwrap();
-        assert_eq!(host.events.len(), 3);
+        assert_eq!(host.events.len(), 2);
+    }
+
+    #[test]
+    fn a_plugin_cant_send_the_apps_own_events_whatever_it_is_allowed() {
+        let mut host = FakeHost::new();
+        let everything = ["phone", "streams", "app", "settings", "notifications"].map(String::from).to_vec();
+        let mut ctx = PluginContext::new(info(), ".", everything);
+        for name in ["stream_stopped", "stream_started", "stream_lost", "phone_state_updated", "people_tracked"] {
+            let err = ctx.call(Some(&mut host), "emit", json!({"name": name, "data": {}})).unwrap_err();
+            assert!(err.contains("the app sends it itself"), "{name}: {err}");
+        }
+        assert!(host.events.is_empty());
     }
 
     #[test]
