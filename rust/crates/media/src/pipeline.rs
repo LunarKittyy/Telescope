@@ -651,6 +651,19 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_zoomed_or_stretched_view_never_visits_the_card() {
+        use telescope_core::host::View;
+        for view in [View { zoom: 2.0, ..View::default() }, View { stretch_x: 0.5, ..View::default() }, View { rotation: Some(90), zoom: 1.5, stretch_y: 1.2, ..View::default() }] {
+            let mut p = Pipeline::new();
+            let steps = telescope_core::view_step::steps(&view);
+            p.set_steps(steps.into_iter().map(|step| StagedStep { owner: "view".into(), stage: FrameStage::View, step }).collect());
+            let out = p.process(grey(8, 8, 10), &NoContext);
+            assert_eq!(p.last_transfers, (0, 0), "{view:?}: a busy card can't hold the frame up");
+            assert_eq!(out.data.len(), out.format.size(out.width, out.height), "{view:?}: a whole picture comes out");
+        }
+    }
+
+    #[test]
     fn a_skipped_step_doesnt_split_a_run_either() {
         if Gpu::shared().is_none() {
             return eprintln!("no graphics card; skipped");

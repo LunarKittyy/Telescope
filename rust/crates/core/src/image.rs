@@ -367,7 +367,7 @@ fn area_table(n: usize, m: usize, scale: f64) -> Vec<Vec<(usize, f32)>> {
 }
 
 /// One output cell of a two-tap blend: first source, second source, their weights out of 2048.
-type Tap = (usize, usize, i32, i32);
+pub type Tap = (usize, usize, i32, i32);
 
 /// A Tap as the row loops read it: small enough that a 4K row's stay in the fastest cache, the weights side by side.
 #[derive(Clone, Copy)]
@@ -676,6 +676,16 @@ pub fn resize_linear_into(src: &[u8], w: usize, h: usize, ch: usize, dst: &mut [
     } else {
         blended(src, (w, ch), &linear_taps(w, w2, false), &linear_taps(h, h2, true), dst, stride, left);
     }
+}
+
+/// A picture of `xs.len()` x `ys.len()` pixels, each blended from the two source columns of its x tap and the two rows of its y tap
+/// as resize_linear_fixed does it, for a view that picks its own sample points (a crop that isn't whole pixels).
+pub fn resample_linear(src: &[u8], w: usize, h: usize, ch: usize, xs: &[Tap], ys: &[Tap]) -> Vec<u8> {
+    let mut out = spare_bytes(xs.len() * ys.len() * ch);
+    if w > 0 && h > 0 && !xs.is_empty() && !ys.is_empty() && src.len() >= w * h * ch {
+        blended(src, (w, ch), xs, ys, &mut out, xs.len() * ch, 0);
+    }
+    out
 }
 
 /// One pixel's cv2.cvtColor(RGB2GRAY) / BGR2GRAY: OpenCV 4.13's 15-bit weights 9798, 19235 and 3735, rounded by the shift.
