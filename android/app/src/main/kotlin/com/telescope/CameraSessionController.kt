@@ -91,6 +91,8 @@ class CameraSessionController(
     private var handlerThread: HandlerThread? = null
     private var handler: Handler? = null
     @Volatile private var previewSurface: Surface? = null
+    // Told the lens and stream size each time a session is set up with the preview, so its buffer is the right size first
+    @Volatile private var previewSized: ((String, android.util.Size) -> Unit)? = null
 
     @Volatile private var currentIso:       Int?  = null  // null = auto AE
     @Volatile private var currentShutterNs: Long? = null  // null = auto AE
@@ -121,7 +123,7 @@ class CameraSessionController(
     @Volatile private var currentJpegQuality: Int = 85
     @Volatile private var currentPhoneFps:    Int = initialPhoneFps
     // Mutable so switchResolution() can change live; sized by openCamera(). What the camera and encoder run at, which
-    // is the asked size unless the phone's heat dropped it (heatSize)
+    // is the asked size unless the phone's heat dropped it (effectiveSize)
     @Volatile private var streamWidth:  Int = initialStreamWidth
     @Volatile private var streamHeight: Int = initialStreamHeight
     // The size the computer asked for, which the state keeps reporting so a hot spell doesn't change its pick
@@ -219,10 +221,11 @@ class CameraSessionController(
 
     private fun heated() = streamWidth != askedWidth || streamHeight != askedHeight
 
-    // The smaller size the heat calls for, or null to stream at the asked size
-    private fun heatSize(): Pair<Int, Int>? {
-        val sizes = currentCamera?.supportedSizes?.map { it.width to it.height } ?: return null
-        return HeatStep.size(thermalStatus, askedWidth to askedHeight, sizes) { w, h ->
+    // The size to stream at on this lens: the asked size, or the smaller one the heat calls for
+    private fun effectiveSize(): Pair<Int, Int> {
+        val asked = askedWidth to askedHeight
+        val sizes = currentCamera?.supportedSizes?.map { it.width to it.height } ?: return asked
+        return HeatStep.effective(thermalStatus, asked, sizes) { w, h ->
             codec != H264Stream.CODEC_H264 || H264Encoder.supportsSize(w, h)
         }
     }
@@ -355,7 +358,7 @@ class CameraSessionController(
         val before = cameraFps() to streamFps()
         thermalStatus = status
         // A new size needs a new reader or encoder, so the camera reopens, which picks up the new rate too
-        val (w, h) = heatSize() ?: (askedWidth to askedHeight)
+        val (w, h) = effectiveSize()
         if (w != streamWidth || h != streamHeight) {
             android.util.Log.i(TAG, "Thermal status $status: ${w}x$h at ${streamFps()} fps")
             streamWidth = w
@@ -656,8 +659,8 @@ class CameraSessionController(
     }
 
     // Adds extra output surface for live preview without interrupting MJPEG stream
-    fun attachPreviewSurface(surface: Surface) {
-        post { previewSurface = surface; reconfigureSession() }
+    fun attachPreviewSurface(surface: Surface, sized: ((String, android.util.Size) -> Unit)? = null) {
+        post { previewSurface = surface; previewSized = sized; reconfigureSession() }
     }
 
     // onDetached fires after surface is dropped and session rebuilt
@@ -665,9 +668,10 @@ class CameraSessionController(
         val h = handler
         val posted = !stopped && h != null && h.post {
             previewSurface = null
+            previewSized = null
             if (stopped) onDetached?.invoke() else reconfigureSession(onDetached)
         }
-        if (!posted) { previewSurface = null; onDetached?.invoke() }
+        if (!posted) { previewSurface = null; previewSized = null; onDetached?.invoke() }
     }
 
     // Everything on the camera thread runs through here: an uncaught throw ends the stream, recorded, not the whole app.
@@ -860,7 +864,12 @@ class CameraSessionController(
         return true
     }
 
-    private fun currentTargetSurfaces(): List<Surface> = listOfNotNull(outputSurface(), previewSurface)
+    private fun currentTargetSurfaces(): List<Surface> {
+        // The preview's buffer follows a lens or size change, or this lens may not offer the old one
+        val cam = currentCamera
+        if (previewSurface != null && cam != null) previewSized?.invoke(cam.id, android.util.Size(streamWidth, streamHeight))
+        return listOfNotNull(outputSurface(), previewSurface)
+    }
 
     // physId: a lens of a logical camera, streamed on its own; null for the camera as opened.
     private fun createSession(
@@ -1325,6 +1334,11 @@ class CameraSessionController(
         meterPoint = null
         dropFrameRate()  // its rungs came from the old lens's ranges; the next link sample builds the new lens's
         currentCamera = entry
+        // The heat's smaller size may not exist on this lens, or may now: the reader is rebuilt if the size moves
+        val (w, h) = effectiveSize()
+        val resized = w != streamWidth || h != streamHeight
+        streamWidth = w
+        streamHeight = h
         if (cameraOff) return  // the lens it opens with when the camera comes back on
         onStateChanged(StreamState.Recovering, "switchCameraTo", null)
         stillRebuilding(StillRebuild.Cause.LENS)
@@ -1333,6 +1347,7 @@ class CameraSessionController(
         try { captureSession?.close() } catch (_: Exception) {}
         try { cameraDevice?.close()   } catch (_: Exception) {}
         captureSession = null; cameraDevice = null
+        if (resized) releaseOutputs()  // onOpened builds them again at the new size
         // The old lens's photo outputs wouldn't fit the new one: StillCapture makes them again for it
         stillOutputs = emptyList()
         stillPaused = false
@@ -1380,7 +1395,7 @@ class CameraSessionController(
     private fun switchResolutionInternal(width: Int, height: Int) {
         askedWidth = width
         askedHeight = height
-        val (w, h) = heatSize() ?: (width to height)
+        val (w, h) = effectiveSize()
         if (w == streamWidth && h == streamHeight) return
         streamWidth = w
         streamHeight = h

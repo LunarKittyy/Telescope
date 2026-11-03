@@ -665,8 +665,9 @@ class CameraStreamService : Service() {
         }
     }
 
-    fun attachPreviewSurface(surface: Surface) {
-        controller?.attachPreviewSurface(surface)
+    // sized: told (on the camera thread) the lens and stream size whenever the preview's session is set up
+    fun attachPreviewSurface(surface: Surface, sized: ((String, android.util.Size) -> Unit)? = null) {
+        controller?.attachPreviewSurface(surface, sized)
     }
 
     fun detachPreviewSurface(onDetached: (() -> Unit)? = null) {
@@ -867,7 +868,8 @@ class CameraStreamService : Service() {
             getSharedPreferences(PREFS_SETUP, MODE_PRIVATE).edit().putBoolean(KEY_MIC_WANTED, true).apply()
             return MicProblem.PERMISSION
         }
-        if (!micForeground) {
+        // Under WaitingService the mic type can arrive after the stream started, so read it fresh.
+        if (!(if (covered) WaitingService.hasMic else micForeground)) {
             // Recording in the background needs the microphone service type, added now the permission is there.
             // Under WaitingService it can't be added from here; it picks the mic up the next time the app opens.
             try {

@@ -62,6 +62,7 @@
         <activity
             android:name=".PreviewActivity"
             android:exported="false"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.Telescope" />
 
