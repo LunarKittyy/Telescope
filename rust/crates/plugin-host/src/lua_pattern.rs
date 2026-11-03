@@ -6,6 +6,8 @@
 
 use crate::lua::MEMORY_LIMIT;
 use mlua::{Function, Lua, MultiValue, Table, Value};
+use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
+use std::sync::Arc;
 
 /// How much work of the matcher one call may do: a call of find or match, a whole gsub, one step of a gmatch loop. About 0.3 s at worst.
 pub const STEP_BUDGET: u64 = 70_000_000;
@@ -289,7 +291,7 @@ impl<'a> Matcher<'a> {
         let cap = self.caps[l];
         // A position capture has no text, so it never matches (Lua reads its length as a huge unsigned number)
         let Ok(len) = usize::try_from(cap.len) else { return Ok(None) };
-        self.tick(len as u64)?;
+        self.tick((len as u64).max(1))?;
         if s <= self.src.len() && self.src.len() - s >= len && self.src[cap.init..cap.init + len] == self.src[s..s + len] {
             Ok(Some(s + len))
         } else {
@@ -623,18 +625,31 @@ fn gmatch(lua: &Lua, args: MultiValue) -> Run<MultiValue> {
     Ok(MultiValue::from_vec(vec![Value::Function(guarded(lua, step)?)]))
 }
 
-/// Adds bytes to a gsub's result, unless that would make it more than Lua's memory limit allows, and without aborting if the allocator can't.
-fn append(out: &mut Vec<u8>, bytes: &[u8]) -> Result<(), Fail> {
-    if bytes.len() > MEMORY_LIMIT.saturating_sub(out.len()) {
+/// Adds bytes to a gsub's result, unless that would make all the gsub results alive at once more than Lua's memory limit allows, and without aborting if the allocator can't.
+fn append(out: &mut Out, bytes: &[u8]) -> Result<(), Fail> {
+    if bytes.len() > MEMORY_LIMIT.saturating_sub(out.total.load(Relaxed)) {
         return Err(Fail::Memory);
     }
-    out.try_reserve(bytes.len()).map_err(|_| Fail::Memory)?;
-    out.extend_from_slice(bytes);
+    out.buf.try_reserve(bytes.len()).map_err(|_| Fail::Memory)?;
+    out.buf.extend_from_slice(bytes);
+    out.total.fetch_add(bytes.len(), Relaxed);
     Ok(())
 }
 
+/// A gsub's result so far. What it holds counts against the limit shared by every gsub running in the state, until it is dropped.
+struct Out {
+    buf: Vec<u8>,
+    total: Arc<AtomicUsize>,
+}
+
+impl Drop for Out {
+    fn drop(&mut self) {
+        self.total.fetch_sub(self.buf.len(), Relaxed);
+    }
+}
+
 /// A replacement string's `%0` to `%9` and `%%` filled in. Costs a unit for each byte of it and one for 16 bytes copied.
-fn add_replacement(m: &mut Matcher, out: &mut Vec<u8>, news: &[u8], whole: (usize, usize)) -> Result<(), Fail> {
+fn add_replacement(m: &mut Matcher, out: &mut Out, news: &[u8], whole: (usize, usize)) -> Result<(), Fail> {
     m.tick(news.len() as u64)?;
     let mut i = 0;
     while i < news.len() {
@@ -680,6 +695,7 @@ fn call_kept(pcall: &Function, f: &Function, args: MultiValue) -> Run<Value> {
 struct Calls {
     pcall: Function,
     index: Function,
+    held: Arc<AtomicUsize>,
 }
 
 fn gsub(lua: &Lua, args: MultiValue, calls: &Calls) -> Run<MultiValue> {
@@ -696,7 +712,7 @@ fn gsub(lua: &Lua, args: MultiValue, calls: &Calls) -> Run<MultiValue> {
     let repl_bytes = repl.as_ref().map(|r| r.as_bytes());
     let anchor = pat.first() == Some(&b'^');
     let mut m = Matcher::new(src, &pat[usize::from(anchor)..], STEP_BUDGET);
-    let mut out: Vec<u8> = Vec::new();
+    let mut out = Out { buf: Vec::new(), total: calls.held.clone() };
     let (mut at, mut last_match, mut n, mut changed) = (0usize, None, 0i64, false);
     while n < max {
         m.reset();
@@ -746,7 +762,7 @@ fn gsub(lua: &Lua, args: MultiValue, calls: &Calls) -> Run<MultiValue> {
     }
     let result = if changed {
         append(&mut out, &src[at..]).map_err(|f| failed(lua, "gsub", f))?;
-        Value::String(lua.create_string(&out)?)
+        Value::String(lua.create_string(&out.buf)?)
     } else {
         Value::String(s.clone())
     };
@@ -755,7 +771,7 @@ fn gsub(lua: &Lua, args: MultiValue, calls: &Calls) -> Run<MultiValue> {
 
 /// Puts the budgeted find, match, gmatch and gsub into a Lua state's string table.
 pub fn install(lua: &Lua, string: &Table) -> mlua::Result<()> {
-    let calls = Calls { pcall: lua.globals().get("pcall")?, index: lua.load("local t, k = ... return t[k]").set_name("=string").into_function()? };
+    let calls = Calls { pcall: lua.globals().get("pcall")?, index: lua.load("local t, k = ... return t[k]").set_name("=string").into_function()?, held: Arc::new(AtomicUsize::new(0)) };
     let put = |name: &str, f: Function| -> mlua::Result<()> { string.set(name, guarded(lua, f)?) };
     put("find", lua.create_function(|lua, args: MultiValue| reply(lua, find_aux(lua, args, true)))?)?;
     put("match", lua.create_function(|lua, args: MultiValue| reply(lua, find_aux(lua, args, false)))?)?;

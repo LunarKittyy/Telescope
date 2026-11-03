@@ -91,6 +91,7 @@ fn patterns_that_would_run_for_ages_are_stopped_with_an_error() {
         ("long_bracket", r#"return string.rep("a", 1000000):match("[" .. string.rep("x", 5000) .. "]b")"#),
         ("long_bracket_loop", r#"return string.rep("a", 1000000):match("[" .. string.rep("x", 5000) .. "]*b")"#),
         ("back_reference", r#"return string.rep("a", 100000):match("(a*)%1b")"#),
+        ("empty_back_references", r#"return string.match(string.rep("a", 1000000), "(x*)" .. string.rep("%1", 100000) .. "b")"#),
         ("frontier", r#"return string.rep("a", 1000000):match("%f[" .. string.rep("x", 5000) .. "]b")"#),
         ("long_replacement", r#"return (string.rep("x", 1000000)):gsub("", string.rep("%0", 1000000))"#),
         ("find", r#"return string.find(string.rep("a", 3000), "a*a*a*b")"#),
@@ -220,6 +221,23 @@ fn a_gsub_that_would_build_a_huge_string_fails_before_it_does() {
         }
     "#).unwrap();
     assert_eq!(got, json!([true, true, true, "abbc"]));
+}
+
+#[test]
+fn nested_gsubs_share_one_output_limit() {
+    let (answer, took) = timed("nested_gsub", r#"
+        local big = string.rep("x", 16 * 1024 * 1024)
+        local function f(c) if c == "a" then return big end return ("ab"):gsub(".", f) end
+        local ok, e = pcall(function() return ("ab"):gsub(".", f) end)
+        return { ok, type(e), type(e) == "string" and e:find("not enough memory", 1, true) ~= nil }
+    "#);
+    assert_eq!(answer.unwrap(), json!([false, "string", true]));
+    assert!(took < std::time::Duration::from_secs(20), "took {took:?}");
+    let got = answer_soon("nested_gsub_after", r#"
+        local function f(c) if c == "a" then return "xx" end return ("ab"):gsub("a", "y") end
+        return ("ab"):gsub(".", f)
+    "#).unwrap();
+    assert_eq!(got, json!("xxyb"));
 }
 
 #[test]
