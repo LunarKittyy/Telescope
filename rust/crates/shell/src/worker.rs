@@ -2394,8 +2394,8 @@ mod tests {
         let (old, old_opens) = scripted(vec![Some(flowing(1, 3000))]); // the old route keeps going
         let w = started(setup(old), &cams, &log);
         wait_for(|| cams.opened.lock().unwrap().len() == 1);
-        // Never HANDOVER_HEALTHY without a gap past HANDOVER_GAP
-        let steps: Vec<Step> = (0..8).flat_map(|_| flowing(2, 150).into_iter().chain([Step::Pause(HANDOVER_GAP + Duration::from_millis(200))])).collect();
+        // Never HANDOVER_HEALTHY without a gap past HANDOVER_GAP: a run of frames takes about a quarter of it, so a slow timer can't stretch one past, and enough of them to run past HANDOVER_TIMEOUT
+        let steps: Vec<Step> = (0..12).flat_map(|_| flowing(2, 50).into_iter().chain([Step::Pause(HANDOVER_GAP + Duration::from_millis(200))])).collect();
         let (new, opens) = scripted(vec![Some(steps)]);
         let url = "https://127.0.0.1:41000/v1/video";
         assert!(w.hand_over(url, new));
