@@ -19,10 +19,11 @@ const UNFINISHED: isize = -1;
 const POSITION: isize = -2;
 const SPECIALS: &[u8] = b"^$*+?.([%-";
 
-/// Why a match stopped: Lua's own error text, or the budget.
+/// Why a match stopped: Lua's own error text, the budget, or the memory a result may take.
 enum Fail {
     Message(Box<String>),
     Budget,
+    Memory,
 }
 
 type Found = Result<Option<usize>, Fail>;
@@ -418,6 +419,7 @@ fn raise(lua: &Lua, message: impl std::fmt::Display) -> mlua::Error {
 fn failed(lua: &Lua, function: &str, fail: Fail) -> mlua::Error {
     match fail {
         Fail::Message(m) => raise(lua, *m),
+        Fail::Memory => mlua::Error::MemoryError("a string that big".into()),
         Fail::Budget => raise(
             lua,
             format!("string.{function}: this pattern took too many steps on this text and was stopped. Use a simpler pattern (fewer *, +, - and ? with more pattern after them), cut the text down first, or look for plain text with string.find(text, what, 1, true)"),
@@ -550,26 +552,41 @@ fn gmatch(lua: &Lua, args: MultiValue) -> mlua::Result<Function> {
     })
 }
 
-/// A replacement string's `%0` to `%9` and `%%` filled in.
-fn add_replacement(m: &Matcher, out: &mut Vec<u8>, news: &[u8], whole: (usize, usize)) -> Result<(), Fail> {
+/// Adds bytes to a gsub's result, unless that would make it more than Lua's memory limit allows, and without aborting if the allocator can't.
+fn append(out: &mut Vec<u8>, bytes: &[u8]) -> Result<(), Fail> {
+    if bytes.len() > MEMORY_LIMIT.saturating_sub(out.len()) {
+        return Err(Fail::Memory);
+    }
+    out.try_reserve(bytes.len()).map_err(|_| Fail::Memory)?;
+    out.extend_from_slice(bytes);
+    Ok(())
+}
+
+/// A replacement string's `%0` to `%9` and `%%` filled in. Costs a unit for each byte of it and one for 16 bytes copied.
+fn add_replacement(m: &mut Matcher, out: &mut Vec<u8>, news: &[u8], whole: (usize, usize)) -> Result<(), Fail> {
+    m.tick(news.len() as u64)?;
     let mut i = 0;
     while i < news.len() {
         let c = news[i];
         i += 1;
         if c != b'%' {
-            out.push(c);
+            append(out, &[c])?;
             continue;
         }
         let d = news.get(i).copied().unwrap_or(0);
         i += 1;
         if d == b'%' {
-            out.push(b'%');
+            append(out, b"%")?;
         } else if d == b'0' {
-            out.extend_from_slice(&m.src[whole.0..whole.1]);
+            m.tick((whole.1 - whole.0) as u64 / 16)?;
+            append(out, &m.src[whole.0..whole.1])?;
         } else if d.is_ascii_digit() {
             match m.one_capture(usize::from(d - b'1'), whole)? {
-                Capture::Text(a, b) => out.extend_from_slice(&m.src[a..b]),
-                Capture::Position(p) => out.extend_from_slice(p.to_string().as_bytes()),
+                Capture::Text(a, b) => {
+                    m.tick((b - a) as u64 / 16)?;
+                    append(out, &m.src[a..b])?;
+                }
+                Capture::Position(p) => append(out, p.to_string().as_bytes())?,
             }
         } else {
             return bad("invalid use of '%' in replacement string");
@@ -594,7 +611,6 @@ fn gsub(lua: &Lua, args: MultiValue) -> mlua::Result<MultiValue> {
     let mut m = Matcher::new(src, &pat[usize::from(anchor)..], STEP_BUDGET);
     let mut out: Vec<u8> = Vec::new();
     let (mut at, mut last_match, mut n, mut changed) = (0usize, None, 0i64, false);
-    let too_big = || mlua::Error::MemoryError("a string that big".into());
     while n < max {
         m.reset();
         let found = m.do_match(at, 0).map_err(|f| failed(lua, "gsub", f))?;
@@ -603,7 +619,7 @@ fn gsub(lua: &Lua, args: MultiValue) -> mlua::Result<MultiValue> {
                 n += 1;
                 let whole = (at, end);
                 if let Some(news) = &repl_bytes {
-                    add_replacement(&m, &mut out, news, whole).map_err(|f| failed(lua, "gsub", f))?;
+                    add_replacement(&mut m, &mut out, news, whole).map_err(|f| failed(lua, "gsub", f))?;
                     changed = true;
                 } else {
                     let value = match args.get(2) {
@@ -620,9 +636,9 @@ fn gsub(lua: &Lua, args: MultiValue) -> mlua::Result<MultiValue> {
                         _ => unreachable!("the replacement is a function or a table here"),
                     };
                     match value {
-                        Value::Nil | Value::Boolean(false) => out.extend_from_slice(&src[at..end]),
+                        Value::Nil | Value::Boolean(false) => append(&mut out, &src[at..end]).map_err(|f| failed(lua, "gsub", f))?,
                         v @ (Value::String(_) | Value::Integer(_) | Value::Number(_)) => {
-                            out.extend_from_slice(&lua.coerce_string(v)?.expect("a string or number has a text").as_bytes());
+                            append(&mut out, &lua.coerce_string(v)?.expect("a string or number has a text").as_bytes()).map_err(|f| failed(lua, "gsub", f))?;
                             changed = true;
                         }
                         other => return Err(raise(lua, format!("invalid replacement value (a {})", other.type_name()))),
@@ -632,23 +648,17 @@ fn gsub(lua: &Lua, args: MultiValue) -> mlua::Result<MultiValue> {
                 last_match = Some(end);
             }
             None if at < src.len() => {
-                out.push(src[at]);
+                append(&mut out, &src[at..=at]).map_err(|f| failed(lua, "gsub", f))?;
                 at += 1;
             }
             None => break,
-        }
-        if out.len() > MEMORY_LIMIT {
-            return Err(too_big());
         }
         if anchor {
             break;
         }
     }
     let result = if changed {
-        out.extend_from_slice(&src[at..]);
-        if out.len() > MEMORY_LIMIT {
-            return Err(too_big());
-        }
+        append(&mut out, &src[at..]).map_err(|f| failed(lua, "gsub", f))?;
         Value::String(lua.create_string(&out)?)
     } else {
         Value::String(s.clone())

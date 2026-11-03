@@ -92,6 +92,7 @@ fn patterns_that_would_run_for_ages_are_stopped_with_an_error() {
         ("long_bracket_loop", r#"return string.rep("a", 1000000):match("[" .. string.rep("x", 5000) .. "]*b")"#),
         ("back_reference", r#"return string.rep("a", 100000):match("(a*)%1b")"#),
         ("frontier", r#"return string.rep("a", 1000000):match("%f[" .. string.rep("x", 5000) .. "]b")"#),
+        ("long_replacement", r#"return (string.rep("x", 1000000)):gsub("", string.rep("%0", 1000000))"#),
         ("find", r#"return string.find(string.rep("a", 3000), "a*a*a*b")"#),
         ("gsub", r#"return (string.rep("a", 3000)):gsub("a*a*a*b", "x")"#),
         ("gmatch", r#"for _ in string.gmatch(string.rep("a", 3000), "a*a*a*b") do end"#),
@@ -199,6 +200,14 @@ fn no_pattern_shape_runs_for_long_whatever_the_text() {
         slowest = slowest.max(took);
     }
     eprintln!("120 stress calls, {stopped} stopped by an error, the slowest took {slowest:?}");
+}
+
+#[test]
+fn a_gsub_that_would_build_a_huge_string_fails_before_it_does() {
+    let (answer, took) = timed("huge", r#"return (string.rep("a", 1000000):gsub("^.*$", string.rep("%0", 1000000)))"#);
+    let err = answer.unwrap_err();
+    assert!(err.contains("memory"), "{err}"); // the host words an uncaught one its own way
+    assert!(took < std::time::Duration::from_secs(5), "took {took:?}");
 }
 
 // ── The pattern matcher against Lua's own ───────────────────────────────────
