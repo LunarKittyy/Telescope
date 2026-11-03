@@ -10,7 +10,7 @@ use telescope_core::media::{Codec, FeedEnd, FeedStopper, OpenStop, Packet, Video
 const CHUNK: usize = 64 * 1024;
 const MJPEG_CHUNK: usize = 4096;
 const MAX_PART_HEADER_BYTES: usize = 4096;
-const MAX_FRAME_BYTES: usize = 32 * 1024 * 1024;
+pub(crate) const MAX_FRAME_BYTES: usize = 32 * 1024 * 1024;
 
 fn packet(data: Vec<u8>) -> Packet {
     Packet { data, time_ns: telescope_core::time::monotonic_ns() }
