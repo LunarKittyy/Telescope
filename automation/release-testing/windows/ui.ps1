@@ -87,7 +87,9 @@ public static class Watch {
 
     public static void Click(int x, int y) {
         SetCursorPos(x, y);
+        Thread.Sleep(150);  // the app has to see the pointer arrive first, or a button under it may ignore the press
         mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);  // left down
+        Thread.Sleep(50);
         mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);  // left up
     }
 
@@ -119,6 +121,12 @@ public static class Watch {
         }
         Thread.Sleep(300);
         mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+    }
+
+    // Turn the wheel at a point: positive notches go down the page
+    public static void Wheel(int x, int y, int notches) {
+        SetCursorPos(x, y);
+        mouse_event(0x0800, 0, 0, unchecked((uint)(-120 * notches)), UIntPtr.Zero);
     }
 
     public static void Place(long hwnd, int x, int y, int w, int h) { MoveWindow(new IntPtr(hwnd), x, y, w, h, true); }
@@ -219,7 +227,11 @@ function Press-Control([string] $Name, [string] $Type = "", [double] $Seconds = 
     Press (Need-Control $Name $Type $Seconds $Prefix)
 }
 
+# A switch or check box that's on, or a tab (the Card colours choice) that's the one picked
 function Is-On($Element) {
+    if ($Element.GetSupportedPatterns() | Where-Object { $_.ProgrammaticName -eq "SelectionItemPatternIdentifiers.Pattern" }) {
+        return $Element.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected
+    }
     $Element.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -eq "On"
 }
 
@@ -227,11 +239,72 @@ function Set-Text($Element, [string] $Text) {
     $Element.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue($Text)
 }
 
-# Pick $Item in a combo box
+# Pick $Item in a combo box: its value says what's picked, and clicking it lists the choices as texts below it (they aren't
+# list items, and Expand isn't valid on it)
 function Choose([string] $Combo, [string] $Item) {
     $c = Need-Control $Combo "ComboBox"
-    $c.GetCurrentPattern([Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
-    Press (Need-Control $Item "ListItem" 5)
+    if ($c.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).Current.Value -eq $Item) { return }
+    Click $c
+    $bottom = $c.Current.BoundingRectangle.Bottom
+    $named = New-Object Windows.Automation.PropertyCondition ([Windows.Automation.AutomationElement]::NameProperty), $Item
+    $choice = Wait-Until {
+        foreach ($w in Get-AppWindows) {
+            $found = $w.FindAll($Scope::Descendants, $named) |
+                Where-Object { $_.Current.ControlType.ProgrammaticName -eq "ControlType.Text" -and $_.Current.BoundingRectangle.Top -gt $bottom } |
+                Select-Object -First 1
+            if ($found) { return $found }
+        }
+    } 5
+    if (-not $choice) { throw "'$Item' isn't one of the choices in '$Combo'" }
+    Click $choice
+    Start-Sleep -Milliseconds 500
+}
+
+# The button of the Driver row in Settings, Virtual camera & phone: it's named for what it does (Install driver, Update,
+# Reinstall, Rename, Retry)
+function Press-Driver {
+    $group = Need-Control "Driver" "Group"
+    $button = $group.FindFirst($Scope::Descendants, (New-Object Windows.Automation.PropertyCondition (
+        [Windows.Automation.AutomationElement]::ControlTypeProperty), ([Windows.Automation.ControlType]::Button)))
+    if (-not $button) { throw "the Driver row has no button" }
+    Press $button
+}
+
+# Scroll a Settings page, from the top, until the control called $Name is on it: what's off the page isn't in the UI tree yet
+function Scroll-To([string] $Name, [string] $Type = "", [int] $Notches = 4) {
+    $page = (Need-Control "Settings" "Window").Current.BoundingRectangle
+    $x = [int]($page.X + $page.Width * 0.65); $y = [int]($page.Y + $page.Height * 0.6)
+    [Watch]::Wheel($x, $y, -60)
+    Start-Sleep -Milliseconds 500
+    for ($i = 0; $i -lt 40; $i++) {
+        $found = Find-Control $Name $Type 1
+        if ($found -and -not $found.Current.IsOffscreen) { return $found }
+        [Watch]::Wheel($x, $y, $Notches)
+        Start-Sleep -Milliseconds 300
+    }
+    throw "nothing called '$Name' $(if ($Type) { "($Type) " })came on the page when scrolling"
+}
+
+# What the Driver row says (its status line), without the rest of the window's texts
+function Driver-Texts {
+    $group = Find-Control "Driver" "Group" 5
+    if ($group) {
+        $group.FindAll($Scope::Descendants, (New-Object Windows.Automation.PropertyCondition (
+            [Windows.Automation.AutomationElement]::ControlTypeProperty), ([Windows.Automation.ControlType]::Text))) |
+            ForEach-Object { $_.Current.Name } | Where-Object { $_ -and $_ -ne "Driver" }
+    }
+}
+
+# Open Settings (or go back to it) on one of its pages, from the main window
+function Open-Settings([string] $Page = "") {
+    if (Find-Control "Settings" "Window" 1) { Close-Window "Settings"; Start-Sleep 1 }
+    # The first click on a window that isn't in front may only bring it there
+    for ($i = 0; $i -lt 3; $i++) {
+        Press-Control "Settings" "Button"
+        if (Find-Control "Settings" "Window" 6) { break }
+    }
+    Need-Control "Settings" "Window" 5 | Out-Null
+    if ($Page) { Press-Control $Page "ListItem" }
 }
 
 # Names of every text, button and other named control in the app's windows, for "does it say X" checks
@@ -254,14 +327,38 @@ function Open-AsUser([string] $Path) {
     Start-Process explorer.exe -ArgumentList "`"$Path`""
 }
 
-function Main-Window([double] $Seconds = 120) {
+# The main window moved inside the screen's work area, so its controls can be clicked. Whether it opened inside is the
+# window_fits_screen check's business, which looks at where it first showed up.
+function Bring-In($Window) {
+    $screen = [Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+    $r = $Window.Current.BoundingRectangle
+    if ($r.Left -ge $screen.Left -and $r.Top -ge $screen.Top -and $r.Right -le $screen.Right -and $r.Bottom -le $screen.Bottom) { return }
+    $h = [Watch]::Windows("TelescopeDesktop") | Where-Object { $_.Split('|')[2] -eq "Telescope" } | Select-Object -First 1
+    if ($h) {
+        [Watch]::Place([long]$h.Split('|')[0], $screen.Left, $screen.Top, [Math]::Min([int]$r.Width, $screen.Width), [Math]::Min([int]$r.Height, $screen.Height))
+        Start-Sleep -Milliseconds 700
+    }
+}
+
+# Where the main window is, as "left,top,right,bottom" (the biggest window called Telescope: the splash has the same name)
+function Main-Rect {
+    $rects = foreach ($w in [Watch]::Windows("TelescopeDesktop")) {
+        $f = $w.Split('|')
+        if ($f[2] -eq "Telescope") { $r = [int[]]($f[3] -split ','); [pscustomobject]@{ Area = ($r[2] - $r[0]) * ($r[3] - $r[1]); Rect = $f[3] } }
+    }
+    ($rects | Sort-Object Area -Descending | Select-Object -First 1).Rect
+}
+
+function Main-Window([double] $Seconds = 120, [switch] $Stay) {
     # The Python app named its window's AutomationId; the Rust one has none, so it's the window with a Settings button in it
     $settings = New-Object Windows.Automation.AndCondition (
         (New-Object Windows.Automation.PropertyCondition ([Windows.Automation.AutomationElement]::NameProperty), "Settings"),
         (New-Object Windows.Automation.PropertyCondition ([Windows.Automation.AutomationElement]::ControlTypeProperty), ([Windows.Automation.ControlType]::Button)))
-    Wait-Until { Get-AppWindows | Where-Object {
+    $main = Wait-Until { Get-AppWindows | Where-Object {
                      $_.Current.Name -eq "Telescope" -and ($_.Current.AutomationId -like "*TelescopeWindow*" -or $_.FindFirst($Scope::Descendants, $settings))
                  } | Select-Object -First 1 } $Seconds 500
+    if ($main -and -not $Stay) { Bring-In $main }
+    $main
 }
 
 # Do something that restarts Telescope (an update, Restart now) and wait for its window to be back
