@@ -655,6 +655,11 @@ impl WebcamPlugin {
         rows
     }
 
+    /// What each row reads out, in the order of `rows` ("" for the rows that read nothing).
+    fn readouts(&self) -> Vec<String> {
+        self.rows().iter().map(|r| r["readout"].as_str().unwrap_or("").to_string()).collect()
+    }
+
     pub fn props(&self, streaming: bool) -> Value {
         let key = &self.selected_key;
         let src = self.sources.get(key);
@@ -684,7 +689,7 @@ impl WebcamPlugin {
             "size-tip": tr("The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"),
             "fps-items": fps.iter().map(|f| format!("{f} fps")).collect::<Vec<_>>(), "fps-current": fps_i, "fps-enabled": !key.is_empty(),
             "has-controls": !rows.is_empty(),
-            "rows": rows,
+            "rows": rows, "readouts": self.readouts(),
         })
     }
 
@@ -785,6 +790,11 @@ impl Plugin for WebcamPlugin {
                     c.clamp(v.round() as i64)
                 };
                 self.set_control(host, &name, value);
+                if !AUTOS.contains(&name.as_str()) {
+                    // Only the readouts: new rows would rebuild the slider being dragged and break the drag off
+                    host.set_ui_props("card", &json!({"readouts": self.readouts()}));
+                    return;
+                }
             }
             "action" => self.reset_controls(host),
             _ => return,

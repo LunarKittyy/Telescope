@@ -520,3 +520,128 @@ fn exposure_moves_in_stops() {
     assert_eq!(val_to_log_pos(2047.0, LOG_STEPS, 3.0, 2047.0), 1000.0);
     assert!((log_pos_to_val(500.0, LOG_STEPS, 3.0, 2047.0) - (3.0f64 * 2047.0).sqrt()).abs() < 0.01);
 }
+
+mod card_ui {
+    use super::*;
+    use i_slint_backend_testing::ElementHandle;
+    use slint::platform::{PointerEventButton, WindowEvent};
+    use slint::{LogicalPosition, ModelRc, VecModel};
+    use slint_interpreter::{ComponentHandle, ComponentInstance, Struct, Value as SValue};
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    const WRAPPER: &str = r#"import { WebcamCard, ControlRow } from "plugin/webcam.slint";
+export component Wrapper inherits Window {
+    width: 520px;
+    height: 900px;
+    in property <[ControlRow]> rows;
+    in property <[string]> readouts;
+    callback control-set(string, float);
+    VerticalLayout {
+        alignment: start;
+        WebcamCard { rows: root.rows; readouts: root.readouts; control-set(n, v) => { root.control-set(n, v); } }
+    }
+}"#;
+
+    fn row_value(json: &Value) -> SValue {
+        let mut row = json!({"name": "", "label": "", "kind": "", "icon": "", "checked": false, "options": [], "index": 0, "minimum": 0, "maximum": 0,
+                             "step": 0, "position": 0, "reset-to": 0, "tip": "", "enabled": true});
+        for (k, v) in json.as_object().unwrap() {
+            row[k] = v.clone();
+        }
+        let field = |v: &Value| match v {
+            Value::String(s) => SValue::String(s.as_str().into()),
+            Value::Bool(b) => SValue::Bool(*b),
+            Value::Number(n) => SValue::Number(n.as_f64().unwrap()),
+            Value::Array(a) => SValue::Model(ModelRc::new(VecModel::from(a.iter().map(|s| SValue::String(s.as_str().unwrap().into())).collect::<Vec<_>>()))),
+            other => panic!("{other}"),
+        };
+        SValue::Struct(Struct::from_iter(row.as_object().unwrap().iter().filter(|(k, _)| *k != "readout").map(|(k, v)| (k.clone(), field(v)))))
+    }
+
+    /// The card on a plugin's props the way the shell applies them: every list is a new model.
+    struct Card {
+        ui: ComponentInstance,
+        env: Rc<RefCell<(Env, usize)>>,
+        asked: Rc<RefCell<Vec<(String, f64)>>>,
+        backend: Backend,
+    }
+
+    impl Card {
+        fn new() -> Card {
+            i_slint_backend_testing::init_no_event_loop();
+            let (env, backend) = card();
+            let ui = crate::ui_check::built(UI, "webcam.slint", WRAPPER.into()).create().expect("an instance");
+            let asked: Rc<RefCell<Vec<(String, f64)>>> = Rc::default();
+            let a = asked.clone();
+            ui.set_callback("control-set", move |args| {
+                let (SValue::String(name), SValue::Number(v)) = (&args[0], &args[1]) else { panic!("{args:?}") };
+                a.borrow_mut().push((name.to_string(), *v));
+                SValue::Void
+            })
+            .unwrap();
+            let card = Card { ui, env: Rc::new(RefCell::new((env, 0))), asked, backend };
+            card.show();
+            card
+        }
+
+        // Hands the plugin what the card asked since last time, then shows what the plugin said
+        fn show(&self) {
+            let asked: Vec<(String, f64)> = self.asked.borrow_mut().drain(..).collect();
+            let mut guard = self.env.borrow_mut();
+            let (env, seen) = &mut *guard;
+            for (name, v) in asked {
+                let event = UiEvent { ui: "card".into(), callback: "control-set".into(), args: vec![json!(name), json!(v)] };
+                env.plugin.on_ui(&mut env.host, &event);
+            }
+            if *seen == 0 {
+                env.plugin.render(&mut env.host);
+            }
+            for call in &env.host.calls[*seen..] {
+                let Some(props) = call.strip_prefix("set_ui_props card ") else { continue };
+                let props: Value = serde_json::from_str(props).unwrap();
+                if let Some(rows) = props.get("rows").and_then(Value::as_array) {
+                    self.ui.set_property("rows", SValue::Model(ModelRc::new(VecModel::from(rows.iter().map(row_value).collect::<Vec<_>>())))).unwrap();
+                }
+                if let Some(readouts) = props.get("readouts").and_then(Value::as_array) {
+                    let list = readouts.iter().map(|s| SValue::String(s.as_str().unwrap().into())).collect::<Vec<_>>();
+                    self.ui.set_property("readouts", SValue::Model(ModelRc::new(VecModel::from(list)))).unwrap();
+                }
+            }
+            *seen = env.host.calls.len();
+        }
+
+        fn pointer(&self, event: WindowEvent) {
+            self.ui.window().dispatch_event(event);
+            self.show();
+        }
+    }
+
+    // A drag on a slider must keep going: the plugin answering each move must not rebuild the slider under the hand
+    #[test]
+    fn a_picture_slider_keeps_following_a_drag() {
+        let card = Card::new();
+        let slider = ElementHandle::find_by_accessible_label(&card.ui, "Gain").find(|e| e.accessible_value().is_some()).expect("the Gain slider");
+        let (p, s) = (slider.absolute_position(), slider.size());
+        let y = p.y + s.height / 2.0;
+        let at = |x: f32| LogicalPosition::new(p.x + x, y);
+        card.pointer(WindowEvent::PointerMoved { position: at(30.0) });
+        card.pointer(WindowEvent::PointerPressed { position: at(30.0), button: PointerEventButton::Left });
+        let mut seen = vec![card.backend.v("gain")];
+        for x in [50.0, 70.0, 90.0, 110.0] {
+            card.pointer(WindowEvent::PointerMoved { position: at(x) });
+            seen.push(card.backend.v("gain"));
+        }
+        card.pointer(WindowEvent::PointerReleased { position: at(110.0), button: PointerEventButton::Left });
+        assert!(seen.windows(2).all(|w| w[1] > w[0]), "each move carried the value on: {seen:?}");
+    }
+
+    // The tile for a yes/no setting is as tall as the kit makes it, whatever the hidden controls around it say
+    #[test]
+    fn a_switch_row_is_a_whole_tile_tall() {
+        let card = Card::new();
+        let tiles: Vec<_> = ElementHandle::find_by_element_type_name(&card.ui, "SwitchTile").filter(|t| t.size().height > 0.0).collect();
+        assert_eq!(tiles.len(), 1, "frame_rate_drop is the one switch here");
+        assert!(tiles.iter().all(|t| t.size().height == 40.0), "{:?}", tiles.iter().map(|t| t.size().height).collect::<Vec<_>>());
+    }
+}

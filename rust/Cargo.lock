@@ -5818,6 +5818,7 @@ dependencies = [
  "log",
  "ring",
  "serde_json",
+ "slint",
  "slint-interpreter",
  "telescope-core",
  "telescope-ui-kit",

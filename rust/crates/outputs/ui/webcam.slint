@@ -18,7 +18,6 @@ export struct ControlRow {
     position: float,
     // Where a double-click puts the slider back
     reset-to: float,
-    readout: string,
     tip: string,
     enabled: bool,
 }
@@ -42,6 +41,8 @@ export component WebcamCard inherits Card {
     in-out property <int> fps-current;
     in property <bool> fps-enabled;
     in property <[ControlRow]> rows;
+    // What each slider row reads out, by row. Apart from rows because rows are replaced whole (and every control in them rebuilt), which would break off a drag in progress.
+    in property <[string]> readouts;
     in property <bool> has-controls;
     has-action: has-controls;
     callback size-picked(int);
@@ -89,7 +90,7 @@ export component WebcamCard inherits Card {
             picked(i) => { root.fps-current = i; root.fps-picked(i); }
         }
     }
-    for row in root.rows: VerticalLayout {
+    for row[i] in root.rows: VerticalLayout {
         SectionHeading {
             visible: row.kind == "heading";
             height: row.kind == "heading" ? self.preferred-height : 0;
@@ -110,7 +111,8 @@ export component WebcamCard inherits Card {
         }
         SwitchTile {
             visible: row.kind == "switch";
-            height: row.kind == "switch" ? self.preferred-height : 0;
+            // Not its preferred-height: that is only the text's, and drops the tile's own 40px
+            height: row.kind == "switch" ? 40px : 0;
             icon: Pick.icon(row.icon);
             text: row.label;
             hue: root.hue;
@@ -142,7 +144,7 @@ export component WebcamCard inherits Card {
                 maximum: row.maximum;
                 step: row.step;
                 value: row.position;
-                readout: row.readout;
+                readout: root.readouts[i];
                 label: row.label;
                 hue: root.hue;
                 enabled: row.enabled;

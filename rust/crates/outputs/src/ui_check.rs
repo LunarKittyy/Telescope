@@ -14,6 +14,11 @@ fn spin_on<F: std::future::Future>(f: F) -> F::Output {
 
 pub fn compiles(source: &'static str, file: &str, component: &str) {
     let doc = format!("import {{ {component} }} from \"plugin/{file}\";\nexport component Wrapper inherits Window {{ VerticalLayout {{ {component} {{}} }} }}");
+    built(source, file, doc);
+}
+
+/// Compiles `doc`, which imports the card from "plugin/<file>", and returns its `Wrapper` component.
+pub fn built(source: &'static str, file: &str, doc: String) -> slint_interpreter::ComponentDefinition {
     let mut compiler = slint_interpreter::Compiler::default();
     compiler.set_library_paths([(telescope_ui_kit::LIBRARY.to_string(), telescope_ui_kit::library_path())].into_iter().collect());
     let want = format!("plugin/{file}");
@@ -24,5 +29,5 @@ pub fn compiles(source: &'static str, file: &str, component: &str) {
     let result = spin_on(compiler.build_from_source(doc, Path::new("/root/wrapper.slint").to_path_buf()));
     let errors: Vec<String> = result.diagnostics().filter(|d| d.level() == slint_interpreter::DiagnosticLevel::Error).map(|d| d.to_string()).collect();
     assert!(errors.is_empty(), "{}", errors.join("\n"));
-    assert!(result.component("Wrapper").is_some());
+    result.component("Wrapper").expect("the Wrapper component")
 }

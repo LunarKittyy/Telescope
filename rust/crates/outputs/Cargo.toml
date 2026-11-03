@@ -28,3 +28,4 @@ windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Media_Media
 i-slint-backend-testing = "=1.18.1"
 slint-interpreter.workspace = true
 telescope-ui-kit.workspace = true
+slint.workspace = true
