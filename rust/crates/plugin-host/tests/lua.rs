@@ -72,19 +72,294 @@ fn answer_soon(name: &str, body: &str) -> Result<Value, String> {
     rx.recv_timeout(std::time::Duration::from_secs(5)).expect("the pattern froze the plugin's thread")
 }
 
+/// How long a call takes, with its answer, for the patterns that must be stopped quickly.
+fn timed(name: &str, body: &str) -> (Result<Value, String>, std::time::Duration) {
+    let started = std::time::Instant::now();
+    let answer = answer_soon(name, body);
+    (answer, started.elapsed())
+}
+
 #[test]
-fn a_pattern_that_backtracks_for_ever_is_refused_before_it_freezes_the_thread() {
-    // Lua's matcher runs this for hours without a Lua instruction in between, so the deadline hook never gets a turn
-    let err = answer_soon("backtrack", r#"return string.rep("a", 40):match("^" .. string.rep("a?", 40) .. string.rep("a", 40) .. "b")"#).unwrap_err();
-    assert!(err.contains("string.match") && err.contains("too long"), "{err}");
-    // The same through every function and the method form
-    for call in [r#"string.find(s, p)"#, r#"s:match(p)"#, r#"s:gsub(p, "x")"#, r#"s:gmatch(p)"#] {
-        let body = format!(r#"local s, p = string.rep("a", 3000), "a*a*b" return {call}"#);
-        let err = answer_soon("backtrack_all", &body).unwrap_err();
-        assert!(err.contains("far too long"), "{call}: {err}");
+fn patterns_that_would_run_for_ages_are_stopped_with_an_error() {
+    // Lua's own matcher runs each of these for seconds to hours without a Lua instruction in between, so the deadline hook never gets a turn
+    let attacks = [
+        ("nested_stars", r#"return string.rep("a", 10):match(string.rep("a*", 60) .. "b")"#),
+        ("balanced", r#"return string.rep("(", 1000000):match("%b()")"#),
+        ("optionals", r#"return string.rep("a", 40):match("^" .. string.rep("a?", 40) .. string.rep("a", 40) .. "b")"#),
+        ("plain_needle", r#"return string.rep("a", 1000000):find(string.rep("a", 500000) .. "b", 1, true)"#),
+        ("find", r#"return string.find(string.rep("a", 3000), "a*a*a*b")"#),
+        ("gsub", r#"return (string.rep("a", 3000)):gsub("a*a*a*b", "x")"#),
+        ("gmatch", r#"for _ in string.gmatch(string.rep("a", 3000), "a*a*a*b") do end"#),
+    ];
+    for (name, body) in attacks {
+        let (answer, took) = timed(name, body);
+        let err = answer.unwrap_err();
+        assert!(err.contains("too many steps") && err.contains("simpler pattern"), "{name}: {err}");
+        eprintln!("{name}: {took:?}");
+        assert!(took < std::time::Duration::from_secs(1), "{name} took {took:?}");
     }
-    let err = answer_soon("long_pattern", r#"return string.find("x", string.rep("a", 200))"#).unwrap_err();
-    assert!(err.contains("at most 128 bytes"), "{err}");
+}
+
+#[test]
+fn a_pattern_that_was_stopped_leaves_the_plugin_working() {
+    let folder = plugin("after", r#"return {
+        slow = function() return string.rep("a", 10):match(string.rep("a*", 60) .. "b") end,
+        fine = function() return ("key=value"):match("(%w+)=(%w+)") end }
+    "#, json!({}));
+    let mut t = PluginTest::open(&folder).unwrap();
+    assert!(t.call("slow", vec![]).unwrap_err().contains("too many steps"));
+    assert_eq!(t.call("fine", vec![]).unwrap(), json!("key"));
+}
+
+// ── The pattern matcher against Lua's own ───────────────────────────────────
+
+const SUBJECTS: &[&str] = &[
+    "", "a", "hello world", "  padded  ", "THE (quick) [brown] {fox}", "key = value", "2024-05-06", "aaa", "abc123def456", "f(a(b)c)d",
+    "x\0y\0z", "one,two,,three", "%d+ literal", "tab\tand\nnewline", "\u{ff}\u{fe} high \u{80} bytes", "THE END the end", "abababababab", "((()))",
+    "a.b*c-d", "[x]", "snake_case_name = 10", "<b>bold</b> and <i>it</i>",
+];
+
+const PATTERNS: &[&str] = &[
+    "", "a", "^", "$", "^a", "a$", "^$", ".", ".-", ".*", ".+", "a*", "a+", "a-", "a?", "a*b", "a-b", "a?b?c", "ab*", "(ab)*", "(ab)+", "[ab]*c", "a.-b",
+    "a.*b", "^(.-)b", "a-$", ".-$", "^.-$", "x*", "%a+", "%A+", "%d+", "%D+", "%s+", "%S+", "%w+", "%W+", "%l+", "%u+", "%p+", "%c", "%x+", "%g+", "%z",
+    "%a%d", "%w+%s", "%s*", "%s-", "[abc]", "[^abc]", "[a-c]+", "[%a_][%w_]*", "[%d%s]+", "[a-]", "[]]", "[^]]", "[]a]", "[%]]", "[%a-z]", "[z-a]",
+    "[+-]", "[%w%-]+", "[^%s]+", "[a-cx-z]", "[%d-9]", "[\u{80}-\u{ff}]+", "[\0]", "%f[%w]%w+", "%f[%W]", "%f[%a]", "%f[^%s]", "%f[%z]", "%f[%l]%l*",
+    "%f[%u]%u+", "%b()", "%b[]", "%b{}", "%bxy", "%b<>", "(%b())", "%b()%b[]", "(a)(b)", "(a*)(b)", "()", "()a()", "(a)()", "((a))", "(((a)))",
+    "(.)%1", "(.)(.)%2%1", "(a+)b%1", "(ab)%1", "(%w)%1", "(a)%1%1", "%1", "%2", "%0", "(a", "a)", "(a)(", "[a", "%", "a%", "%f", "%fa", "%b", "%b(", "%ba",
+    "(.-)%s*=%s*(.*)", "^(%w+)", "(%d+)-(%d+)-(%d+)", "^%s*(.-)%s*$", "([^,]*)", "[^,]+", ",", "%.", "%%", "%(", "%[", "\0", "(%w+)=(%w+)", "(a?)(b?)",
+    "(%a+)(%d*)", "<(%w+)>(.-)</%1>", "(%w+)_(%w+)", "%d+%.?%d*", "^%d", "%$", "a^", "^^", "$$", "(^a)", "(a$)", "()%d+()", "(()a)", "(.)(.)(.)(.)",
+    "^(a-)(b?)$", "(h)(e)(l)(l)(o)", "[%a%d]+", "%s*(%w+)%s*", "(.*)(.*)", "(.-)(.-)", ".?.?.?", "-", "+", "*", "?", "a**", "a+?", "[a-z]-%d", "%w-%d",
+    "(%d)(%d)(%d)(%d)(%d)(%d)(%d)(%d)(%d)(%d)", "[%%]", "[%a%A]+", "[^%a%A]", "[a-a]", "[%z]", "\u{ff}", "%\0",
+];
+
+/// Calls every string function on every subject and pattern in a state, as one text per call.
+const RUNNER: &str = r##"
+local subjects, patterns, extra = ...
+local out = {}
+local function ser(...)
+  local t = table.pack(...)
+  local o = {}
+  for i = 1, t.n do o[i] = type(t[i]) .. ":" .. tostring(t[i]) end
+  return table.concat(o, "|")
+end
+local function rec(...) out[#out + 1] = ser(pcall(...)) end
+local table_repl = setmetatable({ a = "A", b = false, [""] = "E", hello = "H", ["1"] = "ONE", [1] = "int" }, { __index = function(_, k) return #k > 3 and "<" .. k .. ">" or nil end })
+local function fn_repl(a, b, c)
+  if a == "a" then return false elseif a == "b" then return nil elseif a == "c" then return 42 elseif a == "d" then return {} end
+  return "<" .. tostring(a) .. "," .. tostring(b) .. "," .. tostring(c) .. ">"
+end
+local function loop(s, p, init)
+  local r = {}
+  for a, b in string.gmatch(s, p, init) do
+    r[#r + 1] = tostring(a) .. "," .. tostring(b)
+    if #r > 60 then break end
+  end
+  return table.concat(r, ";")
+end
+local function method(s, p) return s:find(p), s:match(p), s:gsub(p, "%0%0") end
+for _, s in ipairs(subjects) do
+  for _, p in ipairs(patterns) do
+    rec(string.find, s, p)
+    rec(string.find, s, p, 2)
+    rec(string.find, s, p, -3)
+    rec(string.find, s, p, 0)
+    rec(string.find, s, p, 100)
+    rec(string.find, s, p, -100)
+    rec(string.find, s, p, 1, true)
+    rec(string.find, s, p, 3, 1)
+    rec(string.match, s, p)
+    rec(string.match, s, p, -4)
+    rec(string.match, s, p, 2)
+    rec(loop, s, p)
+    rec(loop, s, p, 3)
+    rec(loop, s, p, -2)
+    rec(loop, s, p, 50)
+    rec(string.gsub, s, p, "<%0>")
+    rec(string.gsub, s, p, "%1")
+    rec(string.gsub, s, p, "%1|%2")
+    rec(string.gsub, s, p, "%%x%")
+    rec(string.gsub, s, p, "")
+    rec(string.gsub, s, p, 5)
+    rec(string.gsub, s, p, "x", 2)
+    rec(string.gsub, s, p, "x", 0)
+    rec(string.gsub, s, p, "x", -1)
+    rec(string.gsub, s, p, table_repl)
+    rec(string.gsub, s, p, fn_repl)
+    rec(string.gsub, s, p, function(...) return select("#", ...) end)
+    rec(method, s, p)
+  end
+end
+for i, code in ipairs(extra) do
+  local f, err = load(code, "=extra" .. i)
+  rec(f or function() error(err, 0) end)
+end
+return out
+"##;
+
+const EXTRA: &[&str] = &[
+    "return string.find()",
+    "return string.find('a')",
+    "return string.find(nil, 'a')",
+    "return string.find('a', {})",
+    "return string.find('a', 'a', 'x')",
+    "return string.find('a', 'a', 1.5)",
+    "return string.find('abc', 'b', '2')",
+    "return string.find('abc', 'b', 2.0)",
+    "return string.find(12345, 34)",
+    "return string.find(1.5, '%.')",
+    "return string.match(true, 'a')",
+    "return ('abc'):find({})",
+    "return ('abc'):gsub('b')",
+    "return ('abc'):gsub('b', nil)",
+    "return ('abc'):gsub('b', true)",
+    "return ('abc'):gsub('b', 'x', 'y')",
+    "return ('abc'):gsub('b', 'x', 1.5)",
+    "return ('abc'):gsub('b', {}, 1)",
+    "return ('abc'):gsub('(b)', '%2')",
+    "return ('abc'):gsub('b', '%')",
+    "return ('abc'):gsub('b', '%a')",
+    "return ('abc'):gsub('()b', '%1')",
+    "return ('abc'):gsub('b', function() return {} end)",
+    "return ('abc'):gsub('b', function() return true end)",
+    "return ('abc'):gsub('b', function() return 1.5 end)",
+    "return ('abc'):gsub('b', function() return 7 end)",
+    "return ('abc'):gsub('b', function() error('boom', 0) end)",
+    "return string.gsub(123, 2, 9)",
+    "return string.gsub('abc', 'b', 'x', math.maxinteger)",
+    "return string.gsub('abc', 'b', 'x', math.mininteger)",
+    "return string.gsub('abc', '', '-')",
+    "return string.gsub('', '', '-')",
+    "return string.gsub('abc', '^', '>')",
+    "return string.gsub('abc', '$', '<')",
+    "return string.gsub('hello world', '%w+', '%0 %0', 1)",
+    "return string.gsub('abc def', '(%w+) (%w+)', '%2 %1')",
+    "return string.gsub('abc', '.', {a = 1, b = true})",
+    "return string.gsub('abc', '.', setmetatable({}, {__index = function(_, k) return k:upper() end}))",
+    "return string.gsub('abc', '()', '%1')",
+    "return string.gmatch('abc')",
+    "return string.gmatch()",
+    "local it = string.gmatch('abc', '.') it() it() it() return it(), it()",
+    "local it = string.gmatch('a1b2', '%a(%d)') return it(), it(), it()",
+    "local r = {} for a in string.gmatch('abc', '') do r[#r+1] = a end return #r",
+    "local r = {} for w in ('one two  three'):gmatch('%S+') do r[#r+1] = w end return table.concat(r, ',')",
+    "local r = {} for k, v in ('a=1, b=2'):gmatch('(%w+)=(%w+)') do r[#r+1] = k .. v end return table.concat(r, ',')",
+    "local r = {} for p in ('abc'):gmatch('()') do r[#r+1] = p end return table.concat(r, ',')",
+    "return string.find(string.rep('(', 33) .. string.rep(')', 33), string.rep('(', 33) .. string.rep(')', 33))",
+    "return string.find('a', string.rep('()', 32) .. 'a')",
+    "return string.find('a', string.rep('()', 33) .. 'a')",
+    "return string.find(string.rep('a', 300), string.rep('a?', 250))",
+    "return string.find(string.rep('a', 300), string.rep('a?', 150))",
+    "return string.find(string.rep('a', 300), string.rep('a', 250))",
+    "return string.find(string.rep('ab', 50), string.rep('(a)(b)', 20))",
+    "return string.find('abc', 'b', math.maxinteger)",
+    "return string.find('abc', 'b', math.mininteger)",
+    "return string.find('abc', '', 4)",
+    "return string.find('abc', '', 5)",
+    "return string.find('abc', '', -1)",
+    "return string.find('abc', '', 3, true)",
+    "return string.find('a\\0b', '\\0')",
+    "return string.find('a\\0b', 'b', 1, true)",
+    "return string.find('a.b', '.', 1, true)",
+    "return string.find('a.b', '.', 2, true)",
+    "return string.find('a.b', 'b')",
+    "return string.find('aXb', 'X', -2)",
+    "return string.find('abc', 'abcd', 1, true)",
+    "return string.find('abc', 'c', 1, true)",
+    "return string.find('abcabc', 'ca', 1, true)",
+    "return string.find('abcabc', 'cab', 1, true)",
+    "return string.find(string.rep('a', 100) .. 'b', string.rep('a', 50) .. 'b', 1, true)",
+    "return string.match('  x  ', '^%s*(.-)%s*$')",
+    "return string.match('key = a b c', '^(%w+)%s*=%s*(.-)%s*$')",
+    "return string.match('2024-05-06T07:08', '(%d+)-(%d+)-(%d+)T(%d+):(%d+)')",
+    "return string.match('THE (quick) fox', '%((%a+)%)')",
+    "return string.match('f(a(b)c)d', '%b()')",
+    "return string.match('abc', '()b()')",
+    "return string.match('hello', '.', -1)",
+    "return string.match('hello', '.', -10)",
+    "return string.match('x', '(x)(y?)')",
+    "return string.format('%q', string.match('\\255\\254', '[\\128-\\255]+'))",
+    "return string.match(('x'):rep(5000), '^(x*)$') == ('x'):rep(5000)",
+    "return #string.gsub(('word '):rep(20000), '%s+', ', ')",
+    "return select('#', string.find('abc', '(a)(b)(c)'))",
+    "return string.gsub('abc', '%w', '%%')",
+    "return string.gsub('abc', 'b', '%0%0%0')",
+    "return string.gsub('a b', '(%w)', '%1%1')",
+    "return string.gsub('abc', '(a)(b)(c)', '%3%2%1')",
+    "return string.gsub('abc', 'x*', '-')",
+    "return string.gsub('abc', 'b*', '-')",
+    "return string.gsub('a,b,,c', ',', ';')",
+    "return string.gsub('\\195\\164\\195\\182', '[\\128-\\255][\\128-\\255]', '?')",
+    "return string.gsub('abc', '(', 'x')",
+];
+
+/// Runs the runner on these in Lua's own string library and in the port, and fails with the first results that differ. Gives how many results it compared.
+fn compare_with_lua(subjects: &[String], patterns: &[String], extra: &[&str]) -> usize {
+    use mlua::{Lua, LuaOptions, MultiValue, StdLib};
+    let run = |ported: bool| -> Vec<String> {
+        let lua = Lua::new_with(StdLib::STRING | StdLib::TABLE | StdLib::MATH, LuaOptions::default()).unwrap();
+        if ported {
+            telescope_plugin_host::lua_pattern::install(&lua, &lua.globals().get("string").unwrap()).unwrap();
+        }
+        let strings = |list: &[String]| lua.create_sequence_from(list.iter().map(|s| lua.create_string(s).unwrap())).unwrap();
+        let runner: mlua::Function = lua.load(RUNNER).set_name("=runner").into_function().unwrap();
+        let out: mlua::Table = runner.call(MultiValue::from_vec(vec![
+            mlua::Value::Table(strings(subjects)),
+            mlua::Value::Table(strings(patterns)),
+            mlua::Value::Table(lua.create_sequence_from(extra.iter().map(|s| lua.create_string(s).unwrap())).unwrap()),
+        ])).unwrap();
+        out.sequence_values::<mlua::LuaString>().map(|v| v.unwrap().to_string_lossy().to_string()).collect()
+    };
+    let (native, ported) = (run(false), run(true));
+    assert_eq!(native.len(), ported.len());
+    let pairs = subjects.len() * patterns.len();
+    let per_pair = (native.len() - extra.len()) / pairs;
+    let mut different = Vec::new();
+    for (i, (a, b)) in native.iter().zip(&ported).enumerate() {
+        // An error the host raises reaches Lua as a userdata that shows as its message, with the traceback after it
+        let b = b.replacen("|userdata:", "|string:", 1).replacen("runtime error: ", "", 1);
+        let b = b.split("\nstack traceback:").next().unwrap().to_string();
+        if *a != b {
+            let at = if i < pairs * per_pair {
+                let pair = i / per_pair;
+                format!("subject {:?} pattern {:?} variant {}", subjects[pair / patterns.len()], patterns[pair % patterns.len()], i % per_pair)
+            } else {
+                format!("extra {:?}", extra[i - pairs * per_pair])
+            };
+            different.push(format!("{at}\n   lua:  {a}\n   port: {b}"));
+        }
+    }
+    assert!(different.is_empty(), "{} of {} results differ from Lua's:\n{}", different.len(), native.len(), different.iter().take(15).cloned().collect::<Vec<_>>().join("\n"));
+    native.len()
+}
+
+#[test]
+fn the_matcher_gives_the_results_of_luas_own() {
+    let subjects: Vec<String> = SUBJECTS.iter().map(|s| s.to_string()).collect();
+    let patterns: Vec<String> = PATTERNS.iter().map(|s| s.to_string()).collect();
+    let compared = compare_with_lua(&subjects, &patterns, EXTRA);
+    eprintln!("{} patterns, {} subjects, {} extra scripts, {compared} results compared", PATTERNS.len(), SUBJECTS.len(), EXTRA.len());
+}
+
+#[test]
+fn the_matcher_agrees_with_luas_on_made_up_patterns() {
+    // A fixed pseudo-random walk, so a failure can be reproduced
+    let mut state = 0x9e37_79b9_7f4a_7c15u64;
+    let mut pick = |n: usize| {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        (state >> 11) as usize % n
+    };
+    const PIECES: &[&str] = &["a", "b", "c", ".", "%a", "%d", "%s", "%w", "%A", "%.", "%%", "[ab]", "[^a]", "[a-c]", "[%d%s]", "(", ")", "()", "%1", "%2", "%b()", "%bab",
+                              "%f[%w]", "%f[%s]", "%f[^%w]", "^", "$", "-", "x", "1", " ", "[", "]", "%", "(.)", "(a)", "(%w+)"];
+    const SUFFIXES: &[&str] = &["", "", "", "*", "+", "-", "?"];
+    const LETTERS: &[u8] = b"aabbc1 2()  .%";
+    let patterns: Vec<String> = (0..700)
+        .map(|_| (0..1 + pick(7)).map(|_| format!("{}{}", PIECES[pick(PIECES.len())], SUFFIXES[pick(SUFFIXES.len())])).collect::<String>())
+        .collect();
+    let subjects: Vec<String> = (0..12).map(|_| (0..pick(12)).map(|_| LETTERS[pick(LETTERS.len())] as char).collect()).collect();
+    let compared = compare_with_lua(&subjects, &patterns, &[]);
+    eprintln!("{} made-up patterns on {} subjects, {compared} results compared", patterns.len(), subjects.len());
 }
 
 #[test]
@@ -99,9 +374,11 @@ fn everyday_patterns_still_work_on_long_texts() {
         local year = ("2024-05-06"):match("^(%d+)-(%d+)-(%d+)$")
         local malformed = pcall(string.find, "x", "[a")
         local never = string.find(string.rep("a", 100000), "a*a*b", 1, true) == nil
-        return { k, v, words, #squeezed, n, plain, year, malformed, never }
+        local long_pattern = string.find("x", string.rep("a", 200)) == nil
+        local line = (string.rep("x", 200000) .. "\n"):match("^(.-)\n$")
+        return { k, v, words, #squeezed, n, plain, year, malformed, never, long_pattern, #line }
     "#).unwrap();
-    assert_eq!(got, json!(["name", "Telescope", 1000, 500000, 100000, 4, "2024", false, true]));
+    assert_eq!(got, json!(["name", "Telescope", 1000, 500000, 100000, 4, "2024", false, true, true, 200000]));
 }
 
 #[test]

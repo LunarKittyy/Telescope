@@ -8,6 +8,7 @@ pub mod guest;
 pub mod i18n;
 pub mod load;
 pub mod lua;
+pub mod lua_pattern;
 pub mod manifest;
 pub mod package;
 pub mod switches;

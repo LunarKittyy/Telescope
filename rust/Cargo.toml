@@ -98,3 +98,7 @@ opt-level = 2
 opt-level = 2
 [profile.dev.package.i-slint-core]
 opt-level = 2
+
+# The pattern matcher plugins use counts its steps, and unoptimised the tests that wear it out take seconds
+[profile.dev.package.telescope-plugin-host]
+opt-level = 2
