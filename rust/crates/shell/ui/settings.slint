@@ -99,11 +99,23 @@ component NavItem inherits Rectangle {
     }
 }
 
-// The tab column: one focus stop, arrows move between tabs like QListWidget.
+// The tab column: one focus stop, arrows move between tabs like QListWidget. A short window scrolls it: by the wheel, and
+// by itself to keep the picked tab in sight. Its Flickable never moves itself (the rows shift by `offset`), as in ScrollPage.
 export component SettingsNav inherits Rectangle {
     in property <[NavTab]> tabs;
     in-out property <int> current;
     callback picked(int);
+    in-out property <length> offset;
+    out property <length> content: 8px + tabs.length * 38px;
+    property <length> range: max(0px, content - root.height);
+    // Keeps the picked tab inside, whichever way it was picked
+    function show-current() {
+        let top = 4px + current * 38px;
+        if (top < min(offset, range) + 4px) { offset = max(0px, top - 4px); }
+        else if (top + 38px + 4px > min(offset, range) + root.height) { offset = min(range, top + 38px + 4px - root.height); }
+    }
+    changed current => { show-current(); }
+    changed height => { show-current(); }
     accessible-role: list;
     accessible-label: @tr("Settings tabs");
     forward-focus: focus;
@@ -117,16 +129,33 @@ export component SettingsNav inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus; radius: 7px; width: parent.width + 4px; height: min(parent.height + 4px, tabs.length * 38px + 12px); }
-    VerticalLayout {
-        padding-top: 4px;
-        alignment: start;
-        for tab[i] in tabs: NavItem {
-            tab: tab;
-            selected: i == current;
-            clicked => {
-                current = i;
-                focus.focus();
-                picked(i);
+    Flickable {
+        width: parent.width;
+        height: parent.height;
+        interactive: false;
+        viewport-width: self.width;
+        viewport-height: self.height;
+        TouchArea {
+            scroll-event(e) => {
+                if (root.range <= 0px) { return reject; }
+                offset = clamp(min(offset, range) - e.delta-y, 0px, range);
+                accept
+            }
+        }
+        VerticalLayout {
+            y: -min(root.offset, root.range);
+            width: parent.width;
+            height: self.preferred-height;
+            padding-top: 4px;
+            alignment: start;
+            for tab[i] in tabs: NavItem {
+                tab: tab;
+                selected: i == current;
+                clicked => {
+                    current = i;
+                    focus.focus();
+                    picked(i);
+                }
             }
         }
     }

@@ -215,3 +215,67 @@ fn a_control_out_of_sight_is_scrolled_into_view_when_tab_reaches_it() {
     key(&ui, "\t");
     assert_eq!(scroll(&ui), 0.0, "Tab round to the first control scrolls back up to it");
 }
+
+const NAV: &str = r#"
+import { SettingsNav, NavTab } from "shell/settings.slint";
+export component Nav inherits Window {
+    width: 300px;
+    height: 200px;
+    in-out property <int> current;
+    out property <length> offset: nav.offset;
+    out property <length> content: nav.content;
+    nav := SettingsNav {
+        x: 10px;
+        y: 0px;
+        width: 215px;
+        height: root.height;
+        tabs: [
+            { id: "a", name: "A" }, { id: "b", name: "B" }, { id: "c", name: "C" }, { id: "d", name: "D" }, { id: "e", name: "E" },
+            { id: "f", name: "F" }, { id: "g", name: "G" }, { id: "h", name: "H" }, { id: "i", name: "I" }, { id: "j", name: "J" },
+        ];
+        current <=> root.current;
+    }
+}
+"#;
+
+fn number(ui: &ComponentInstance, name: &str) -> f64 {
+    match ui.get_property(name).unwrap() {
+        Value::Number(n) => n,
+        other => panic!("{name}: {other:?}"),
+    }
+}
+
+#[test]
+fn the_settings_tab_column_scrolls_in_a_short_window_and_keeps_the_picked_tab_in_sight() {
+    telescope_shell::offscreen::install();
+    let ui = telescope_shell::compile::compile("nav.slint", NAV, vec![], "Nav").expect("the document compiles").create().unwrap();
+    ui.window().set_size(slint::LogicalSize::new(300.0, 200.0));
+    ui.show().unwrap();
+    telescope_shell::offscreen::draw(ui.window(), 300.0, 200.0, 1.0);
+    // Ten 38px rows don't fit in 200px
+    assert!(number(&ui, "content") > 200.0);
+    assert_eq!(number(&ui, "offset"), 0.0);
+    key(&ui, "\t");
+    let content = number(&ui, "content");
+    let named = |k: slint::platform::Key| slint::SharedString::from(k);
+    key(&ui, &named(slint::platform::Key::End));
+    assert_eq!(number(&ui, "current"), 9.0);
+    assert!((number(&ui, "offset") - (content - 200.0)).abs() < 0.5, "the last tab is brought into view: {}", number(&ui, "offset"));
+    key(&ui, &named(slint::platform::Key::Home));
+    assert_eq!(number(&ui, "current"), 0.0);
+    assert_eq!(number(&ui, "offset"), 0.0, "and the first one back");
+    // Arrowing down past the bottom edge scrolls only as far as it takes
+    for _ in 0..6 {
+        key(&ui, &named(slint::platform::Key::DownArrow));
+    }
+    let offset = number(&ui, "offset");
+    assert!(offset > 0.0 && offset < content - 200.0, "{offset}");
+    assert!(4.0 + 6.0 * 38.0 + 38.0 <= offset + 200.0, "tab 6 is in view at offset {offset}");
+    // The wheel scrolls it too, and not past its ends
+    let at = slint::LogicalPosition::new(100.0, 100.0);
+    ui.window().dispatch_event(WindowEvent::PointerMoved { position: at });
+    ui.window().dispatch_event(WindowEvent::PointerScrolled { position: at, delta_x: 0.0, delta_y: 500.0 });
+    assert_eq!(number(&ui, "offset"), 0.0);
+    ui.window().dispatch_event(WindowEvent::PointerScrolled { position: at, delta_x: 0.0, delta_y: -500.0 });
+    assert!((number(&ui, "offset") - (content - 200.0)).abs() < 0.5, "wheel down stops at the end");
+}
