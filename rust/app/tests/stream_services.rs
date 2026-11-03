@@ -180,7 +180,7 @@ fn auto_framing_on_one_camera_doesnt_zoom_the_next_one_out() {
     r.w.state.borrow_mut().ui_event("framing", UiEvent { ui: "card".into(), callback: "switch-toggled-by-hand".into(), args: vec![json!(true)] });
     r.pump();
     asks(&r, |host| host.steer_view("Auto framing", 1.5, 0.0, 0.0)); // framing someone on the face camera
-    r.pump();
+    // no pump here: it would let the framing tick ease the zoom on, and a slow machine gets that tick in
     assert_eq!(zoom(&r), 1.5, "{:?}", r.w.state.borrow().plugin_config("framing"));
     focus(&r, "oneplus");
     assert_eq!(r.w.state.borrow().plugin_config("framing").unwrap()["on"], false);
