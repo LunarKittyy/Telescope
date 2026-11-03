@@ -118,3 +118,11 @@ Only H.264 decoding uses the graphics card now. Everything after it (transforms,
 It only pays off if a frame stays on the card from the decoder to one copy back at the end, which is no more copies than now. The virtual camera on both systems needs the frame in RAM anyway, and so do plugins that read it (people tracking, QR codes, Desk mode's corners), which would force a copy back in the middle. Laptops whose GPU shares memory with the CPU copy almost for free and they're also the ones whose CPU struggles first.
 
 Measure before building anything. Run `scripts/bench_frames.py` with a heavy stack (1080p60 with Colour grading, Privacy blur and two cameras in one picture) on a weak laptop. If that stays well under the 16 ms a frame gets at 60 fps there's nothing to do. If not, move only the biggest cost to the GPU as one step that copies back once and measure that. Big if it goes further than one step.
+
+## ARM64
+
+A maybe. Every build is x86_64 only for now, so ARM Linux machines (a Raspberry Pi, Asahi on a Mac, ARM laptops) can't run Telescope at all. Windows on ARM laptops would probably run the x64 build through Windows' own emulation, but the Windows 11 camera there runs in a native ARM64 system service that can't load our x64 DLL, so the virtual camera likely wouldn't work.
+
+Most of the desktop is plain Rust and Slint and should build for ARM as it is, and v4l2loopback on Linux comes from the distro. The parts that need real work are an ARM64 build of the Windows camera DLL and ARM builds of the vision pack's libraries. Without the vision pack, Background, Auto framing and the other people features stay off, the way `platform_key()` in `crates/vision/src/pack.rs` already handles it.
+
+Start with GitHub's free ARM64 runners for Linux and Windows 11: build the workspace and run the tests there to see how much just works before deciding on the rest.
