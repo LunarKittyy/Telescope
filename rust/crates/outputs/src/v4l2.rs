@@ -4,6 +4,7 @@
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::os::fd::AsRawFd;
+use telescope_core::i18n::{tr, Fields};
 
 const V4L2_BUF_TYPE_VIDEO_OUTPUT: u32 = 2;
 const V4L2_PIX_FMT_YUV420: u32 = u32::from_le_bytes(*b"YU12");
@@ -150,6 +151,26 @@ pub fn camera_holders(device: &str, own_pid: u32, proc_root: &str) -> Vec<u32> {
     found
 }
 
+fn fourcc(code: u32) -> String {
+    String::from_utf8_lossy(&code.to_le_bytes()).trim_end().to_string()
+}
+
+/// Whether the driver took the format asked for (width, height, pixel format, bytes per line). An app holding the device,
+/// or a loopback with keep_format, leaves its own, and writing frames in ours to it would show as corrupt pictures.
+fn check_format(device: &str, want: (u32, u32, u32, u32), got: &PixFormat) -> std::io::Result<()> {
+    let (width, height, pixelformat, bytesperline) = want;
+    let fail = |text: String| Err(std::io::Error::other(text));
+    if got.width != width || got.height != height {
+        let (w, h) = (got.width.to_string(), got.height.to_string());
+        return fail(tr("{device} is held at {width}x{height} by an app reading it").field("device", device).field("width", w).field("height", h));
+    }
+    if got.pixelformat != pixelformat || got.bytesperline != bytesperline {
+        return fail(tr("{device} is set to the {format} pixel format, which Telescope can't write to it. Close the apps using it, or reload v4l2loopback without keep_format.")
+            .field("device", device).field("format", fourcc(got.pixelformat)));
+    }
+    Ok(())
+}
+
 impl VirtualCamera {
     pub fn open(device: &str, width: u32, height: u32, fps: u32) -> std::io::Result<VirtualCamera> {
         let file = OpenOptions::new().read(true).write(true).open(device)?;
@@ -170,10 +191,7 @@ impl VirtualCamera {
             parm.numerator = 1;
             parm.denominator = fps;
             libc::ioctl(file.as_raw_fd(), VIDIOC_S_PARM, &mut parm); // only a hint for readers; fine if refused
-            if fmt.pix.width != width || fmt.pix.height != height {
-                return Err(std::io::Error::other(format!(
-                    "{device} is held at {}x{} by an app reading it", fmt.pix.width, fmt.pix.height)));
-            }
+            check_format(device, (width, height, pixelformat, bytesperline), &fmt.pix)?;
         }
         Ok(VirtualCamera { file, device: device.to_string(), width, height })
     }
@@ -240,6 +258,22 @@ mod tests {
             assert_eq!(locked_size_in(&dir.to_string_lossy(), "/dev/video11"), size, "{text}");
         }
         assert_eq!(locked_size_in("/nonexistent", "/dev/video11"), None);
+    }
+
+    fn pix(width: u32, height: u32, pixelformat: u32, bytesperline: u32) -> PixFormat {
+        PixFormat { width, height, pixelformat, field: 1, bytesperline, sizeimage: 0, colorspace: 0, priv_: 0, flags: 0,
+                    ycbcr_enc: 0, quantization: 0, xfer_func: 0 }
+    }
+
+    #[test]
+    fn a_device_kept_in_another_pixel_format_is_refused() {
+        let (yuyv, want) = (u32::from_le_bytes(*b"YUYV"), (4, 2, V4L2_PIX_FMT_YUV420, 4));
+        assert!(check_format("/dev/video11", want, &pix(4, 2, V4L2_PIX_FMT_YUV420, 4)).is_ok());
+        let why = check_format("/dev/video11", want, &pix(4, 2, yuyv, 8)).unwrap_err().to_string();
+        assert!(why.contains("/dev/video11") && why.contains("YUYV"), "{why}");
+        assert!(check_format("/dev/video11", want, &pix(4, 2, V4L2_PIX_FMT_YUV420, 8)).is_err());
+        let why = check_format("/dev/video11", want, &pix(8, 4, V4L2_PIX_FMT_YUV420, 8)).unwrap_err().to_string();
+        assert!(why.contains("8x4"), "{why}");
     }
 
     // test_vcam.py::test_camera_holders_skips_this_process
