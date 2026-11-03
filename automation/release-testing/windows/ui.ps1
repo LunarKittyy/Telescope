@@ -235,6 +235,29 @@ function Is-On($Element) {
     $Element.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -eq "On"
 }
 
+# The Monochrome choice of Card colours: a tab in the Rust app's Settings, a check box in the Python app's (which a Rust
+# release is updated from)
+function Monochrome-Control([double] $Seconds = 20) {
+    $end = (Get-Date).AddSeconds($Seconds)
+    do {
+        $e = Find-Control "Card colours: Monochrome" "TabItem" 1
+        if (-not $e) { $e = Find-Control "Monochrome" "CheckBox" 1 }
+        if ($e) { return $e }
+    } while ((Get-Date) -lt $end)
+    throw "no Monochrome choice for the card colours showed up"
+}
+
+# A switch by its name: a button in the Rust app's tree, a check box in the Python app's
+function Press-Switch([string] $Name, [double] $Seconds = 20) {
+    $end = (Get-Date).AddSeconds($Seconds)
+    do {
+        $e = Find-Control $Name "Button" 1
+        if (-not $e) { $e = Find-Control $Name "CheckBox" 1 }
+        if ($e) { Press $e; return }
+    } while ((Get-Date) -lt $end)
+    throw "nothing called '$Name' (switch) showed up"
+}
+
 function Set-Text($Element, [string] $Text) {
     $Element.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue($Text)
 }
@@ -247,10 +270,12 @@ function Choose([string] $Combo, [string] $Item) {
     Click $c
     $bottom = $c.Current.BoundingRectangle.Bottom
     $named = New-Object Windows.Automation.PropertyCondition ([Windows.Automation.AutomationElement]::NameProperty), $Item
+    # The Rust app lists the choices as texts below the box, the Python app's (Qt) popup as list items
     $choice = Wait-Until {
         foreach ($w in Get-AppWindows) {
             $found = $w.FindAll($Scope::Descendants, $named) |
-                Where-Object { $_.Current.ControlType.ProgrammaticName -eq "ControlType.Text" -and $_.Current.BoundingRectangle.Top -gt $bottom } |
+                Where-Object { ($_.Current.ControlType.ProgrammaticName -eq "ControlType.Text" -and $_.Current.BoundingRectangle.Top -gt $bottom) -or
+                               $_.Current.ControlType.ProgrammaticName -eq "ControlType.ListItem" } |
                 Select-Object -First 1
             if ($found) { return $found }
         }
@@ -283,6 +308,24 @@ function Scroll-To([string] $Name, [string] $Type = "", [int] $Notches = 4) {
         Start-Sleep -Milliseconds 300
     }
     throw "nothing called '$Name' $(if ($Type) { "($Type) " })came on the page when scrolling"
+}
+
+# Scroll the main window's column of cards, from the top, until the control called $Name is in view: a window that fits a
+# small screen has the cards further down below its edge, and what's off the window isn't in the UI tree
+function Scroll-Main-To([string] $Name, [string] $Type = "", [int] $Notches = 4) {
+    $window = Main-Window 20 -Stay
+    if (-not $window) { throw "the main window isn't up" }
+    $r =$window.Current.BoundingRectangle
+    $x = [int]($r.X + $r.Width * 0.2); $y = [int]($r.Y + $r.Height * 0.6)
+    [Watch]::Wheel($x, $y, -60)
+    Start-Sleep -Milliseconds 500
+    for ($i = 0; $i -lt 40; $i++) {
+        $found = Find-Control $Name $Type 1
+        if ($found -and -not $found.Current.IsOffscreen) { return $found }
+        [Watch]::Wheel($x, $y, $Notches)
+        Start-Sleep -Milliseconds 300
+    }
+    throw "nothing called '$Name' $(if ($Type) { "($Type) " })came into the main window when scrolling it"
 }
 
 # What the Driver row says (its status line), without the rest of the window's texts

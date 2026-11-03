@@ -380,8 +380,11 @@ Wait-Until { ((Get-Date) - $t0).TotalSeconds -gt 75 } 90 | Out-Null
     rows = a.last_start_rows
     shown = [r for r in rows if not r["gone"]]
     need(shown, "no window showed up at all")
-    splash = shown[0]
-    need(splash["title"] != "Telescope" or seconds < 10, f"no splash: the first window was the main one, after {seconds:.0f} s")
+    # The splash is a small window called Telescope, like the main one; it goes when the main one shows
+    small = [r for r in shown if r["title"] == "Telescope" and r["rect"][2] - r["rect"][0] <= 500 and r["rect"][3] - r["rect"][1] <= 250]
+    need(small, f"no splash: the first window was the main one, after {seconds:.0f} s")
+    splash = small[0]
+    need(splash["t"] <= min([r["t"] for r in shown if r["title"] == "Telescope" and r not in small], default=1e9), "the main window came up before the splash")
     need(splash["t"] < 15, f"the splash took {splash['t']:.0f} s to show up")
     hung = hung_seconds(rows)
     need(hung < 2, f"the window stopped responding for {hung:.1f} s")
@@ -723,7 +726,7 @@ try { Wait-Restart { Press-Control "Restart now" "Button" 20 } 90 } catch { thro
 """, zip=zip_path).replace("<<title>>", info["title"]).replace("<<version>>", info["version"]), timeout=400)
         need("OK" in out, out[-300:])
         shown = a.win.desktop(ps(r"""
-if (-not (Find-Control "<<title>>" "" 30)) { throw "no <<title>> card in the window after the restart" }
+try { Scroll-Main-To "<<title>>" | Out-Null } catch { throw "no <<title>> card in the window after the restart: $_" }
 "OK"
 """).replace("<<title>>", info["title"]))
         need("OK" in shown, shown[-300:])
@@ -915,7 +918,7 @@ Expand-Archive <<zip>> $dir
 Open-AsUser "$dir\TelescopeDesktop.exe"
 if (-not (Main-Window 300)) { throw "the unzipped copy didn't open" }
 Open-Settings "General"
-Press-Control "Card colours: Monochrome" "TabItem"  # a setting to look for after the update
+Press (Monochrome-Control)  # a setting to look for after the update
 Press-Control "Updates & About" "ListItem"
 Choose "Channel" <<channel>>
 Press-Control "Check now" "Button"
@@ -935,7 +938,7 @@ Wait-Restart { Press-Control "Update and restart" "Button" 60 }
 $p = Get-Process TelescopeDesktop | Select-Object -First 1
 "RUNNING $($p.Path)"
 Open-Settings "General"
-"MONOCHROME $(Is-On (Need-Control 'Card colours: Monochrome' 'TabItem'))"
+"MONOCHROME $(Is-On (Monochrome-Control))"
 Close-Window "Settings"
 """, timeout=900)
 
@@ -972,7 +975,7 @@ def unzipped_keep_in_place(a):
         raise Skip("no --previous release to update from")
     clean(a)
     out = unzipped_previous(a, "$env:USERPROFILE\\Downloads\\Telescope-old",
-                            before_update='\nPress-Control "Keep this copy where it is" "Button"\nStart-Sleep 1\n')
+                            before_update='\nPress-Switch "Keep this copy where it is"\nStart-Sleep 1\n')
     running = line(out, "RUNNING")
     need(running.lower().endswith(r"\downloads\telescope-old\telescopedesktop.exe"), f"it came back running from {running}")
     need(line(out, "MONOCHROME") == "True", "the Monochrome setting didn't survive the update")
@@ -1018,7 +1021,7 @@ def update_cut_short(a):
     zip_path = upload(a, a.previous / "Telescope-windows-portable.zip")
     channel = "Nightly" if manifest(a.build)["channel"] == "nightly" else "Stable"
     out = a.win.desktop(BUILD_OF + ps(UNZIP_AND_OPEN, dir="$env:USERPROFILE\\Downloads\\Telescope-old", zip=zip_path, channel=channel) + r"""
-Press-Control "Keep this copy where it is" "Button"
+Press-Switch "Keep this copy where it is"
 Start-Sleep 1
 Press-Control "Update and restart" "Button" 60
 # Pull the plug the moment the swap starts
