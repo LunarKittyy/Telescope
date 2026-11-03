@@ -3,6 +3,7 @@
 The next release follows 5.0.
 
 - [ ] [Auto colour grading](#auto-colour-grading)
+- [ ] [Stats](#stats)
 
 ## Auto colour grading
 
@@ -17,3 +18,17 @@ What it would measure, all as numbers from the frames:
 - Saturation towards a target, held back by the skin so faces never go orange.
 
 Later, maybe a whole-look button that also turns on auto framing and a light background blur, and an always-on mode. That one would need heavy smoothing to stop the picture from pumping when the light changes.
+
+## Stats
+
+A Stats panel that shows everything about a stream as it happens, for anyone who wants to know why a picture stutters or likes numbers. OBS has one and people check it first when something drops, but it can only see what reaches it.
+
+It follows a frame from the phone to the virtual camera and shows where the time goes:
+
+- On the phone: the camera's frame rate, encoding time, temperature and whether it's throttling
+- On the link: Wi-Fi or USB, the Wi-Fi band and signal, round-trip time, jitter, lost packets and the bitrate against what was asked for
+- On the computer: decoding time and whether the graphics card does it, each frame step's time and whether it runs on the card or the CPU, the card's waits, frames copied to the card and back, and when the balancer moved the steps and why
+- At the end: frames in, frames out, frames dropped and the reason for each, and which apps read the virtual camera
+
+Each number gets a small graph of the last minute that still shows a spike after it passed, and Copy diagnostics adds a summary of all of it.
+
