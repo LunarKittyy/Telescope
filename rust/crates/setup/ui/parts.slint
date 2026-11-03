@@ -154,9 +154,6 @@ component SpinChip inherits Rectangle {
     border-width: 1px;
     background: Theme.bg;
     border-color: !enabled ? Theme.border : input.has-focus ? Theme.accent : touch.has-hover ? Theme.border-hover : Theme.border-strong;
-    accessible-role: spinbox;
-    accessible-label: label;
-    accessible-value: input.text;
     forward-focus: input;
     touch := TouchArea {
         enabled: root.enabled;
@@ -181,6 +178,8 @@ component SpinChip inherits Rectangle {
         color: !root.enabled ? Theme.text-disabled : Theme.text;
         vertical-alignment: center;
         single-line: true;
+        accessible-label: root.label;
+        accessible-description: root.tip;
         accepted => {
             root.commit();
             if (!KeyFocus.keyboard) {
@@ -205,6 +204,8 @@ component LabelledSwitch inherits HorizontalLayout {
     horizontal-stretch: 1;
     in-out property <bool> checked;
     in property <string> text;
+    // What it is about, said before its words to a screen reader when the words repeat ("Battery under: Notify me")
+    in property <string> within;
     in property <string> tip;
     in property <bool> enabled: true;
     // The choices under a warning read quieter than the warning itself
@@ -232,7 +233,7 @@ component LabelledSwitch inherits HorizontalLayout {
         y: (parent.height - self.height) / 2;
         checked <=> root.checked;
         enabled: root.enabled;
-        label: root.text;
+        label: root.within == "" ? root.text : root.within + ": " + root.text;
         tip: root.tip;
         toggled(on) => { root.toggled(on); }
     }

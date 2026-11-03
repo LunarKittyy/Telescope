@@ -407,11 +407,11 @@ fn manual(name: &str, min: i64, max: i64) -> Rig {
 #[test]
 fn integer_log_slider_syncs_slider_spin_and_signal() {
     let r = manual("log-sync", 10, 1000);
-    assert_eq!(slider(&r, "ISO").accessible_value().as_deref(), Some("1000"), "100 is half way along 10 to 1000");
+    assert_eq!(slider(&r, "ISO").accessible_value().as_deref(), Some("ISO 100"), "a screen reader hears the readout, not the place on the slider");
     assert!(found(&r, "ISO 100").is_some(), "the readout says it");
     forget_sent(&r, "pixel");
     to_the_top(&r, "ISO");
-    assert_eq!(slider(&r, "ISO").accessible_value().as_deref(), Some("2000"));
+    assert_eq!(slider(&r, "ISO").accessible_value().as_deref(), Some("ISO 1000"));
     assert_eq!(iso_sent(&r), [999], "the value and not the place on the slider, cut to a whole number as Python's int() does");
     assert!(found(&r, "ISO 1000").is_some(), "and the readout follows the hand");
     r.w.stop_all_streams();

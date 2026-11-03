@@ -68,6 +68,7 @@ component StepRow inherits HorizontalLayout {
                 height: self.width;
                 background: white;
                 accessible-role: image;
+                accessible-label: @tr("QR code that downloads the phone app");
                 for i in qr-cells: Rectangle {
                     x: (mod(i, qr-size) + 4) * qr.cell;
                     y: (floor(i / qr-size) + 4) * qr.cell;

@@ -85,8 +85,10 @@ component PictureView inherits Rectangle {
     border-width: 1px;
     border-color: Theme.border;
     background: Theme.surface-sunk;
-    accessible-role: image;
+    accessible-role: slider;
     accessible-label: @tr("Picture preview");
+    accessible-value: selected < 0 ? @tr("no picture picked") : @tr("picked") + " " + selected-tile.name + ", " + Spoken.percent(selected-tile.x) + "% " + @tr("from the left") + ", " + Spoken.percent(selected-tile.y) + "% " + @tr("from the top");
+    accessible-description: @tr("Arrow keys move the picked picture a little, Shift with an arrow moves it further.");
     Rectangle {
         x: area-x;
         y: area-y;

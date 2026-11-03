@@ -74,16 +74,21 @@ export component Slider inherits HorizontalLayout {
         }
         accessible-role: slider;
         accessible-label: label;
-        accessible-value: shown;
+        // The readout carries the unit ("30%", "+1.0 EV"), which the bare number would lose
+        accessible-value: readout != "" && has-readout ? readout : shown;
         accessible-value-minimum: minimum;
         accessible-value-maximum: maximum;
         accessible-value-step: step;
         accessible-description: tip;
+        accessible-action-increment => { if (enabled) { local = min(maximum, shown + step); touched = true; moved(local); released(local); } }
+        accessible-action-decrement => { if (enabled) { local = max(minimum, shown - step); touched = true; moved(local); released(local); } }
         forward-focus: slider-focus;
         slider-focus := FocusScope {
             focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
             enabled: root.enabled;
             key-pressed(e) => {
+                if (e.text == Key.UpArrow) { local = min(maximum, shown + step); touched = true; moved(local); released(local); return accept; }
+                if (e.text == Key.DownArrow) { local = max(minimum, shown - step); touched = true; moved(local); released(local); return accept; }
                 if (e.text == Key.LeftArrow) { local = max(minimum, shown - step); touched = true; moved(local); released(local); return accept; }
                 if (e.text == Key.RightArrow) { local = min(maximum, shown + step); touched = true; moved(local); released(local); return accept; }
                 reject

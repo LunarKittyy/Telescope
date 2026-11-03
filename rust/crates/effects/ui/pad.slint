@@ -96,6 +96,8 @@ component PanPad inherits Rectangle {
     forward-focus: focus;
     accessible-role: slider;
     accessible-label: label;
+    accessible-value: Spoken.pan(pan-x, pan-y);
+    accessible-description: @tr("Arrow keys move the view, Shift with an arrow moves it further. Home centres it.");
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: root.enabled;

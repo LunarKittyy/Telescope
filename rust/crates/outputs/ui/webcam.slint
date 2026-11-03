@@ -72,6 +72,7 @@ export component WebcamCard inherits Card {
     FormRow {
         label: @tr("Resolution");
         ChoiceField {
+            name: @tr("Resolution");
             horizontal-stretch: 1;
             items: root.size-items;
             current <=> root.size-current;
@@ -83,6 +84,7 @@ export component WebcamCard inherits Card {
     FormRow {
         label: @tr("Frame rate");
         ChoiceField {
+            name: @tr("Frame rate");
             horizontal-stretch: 1;
             items: root.fps-items;
             current <=> root.fps-current;
@@ -126,6 +128,7 @@ export component WebcamCard inherits Card {
             label: row.label;
             enabled: row.enabled;
             ChoiceField {
+                name: row.label;
                 horizontal-stretch: 1;
                 items: row.options;
                 current: row.index;

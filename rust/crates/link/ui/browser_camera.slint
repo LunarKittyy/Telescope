@@ -99,6 +99,7 @@ export component BrowserCameraCard inherits Card {
     if show-addresses: FormRow {
         label: @tr("Address");
         ChoiceField {
+            name: @tr("Address");
             y: (parent.height - self.height) / 2;
             items: addresses;
             tip: @tr("Which of this computer's addresses the code points to");
@@ -130,6 +131,7 @@ export component BrowserCameraCard inherits Card {
     FormRow {
         label: @tr("Resolution");
         ChoiceField {
+            name: @tr("Resolution");
             y: (parent.height - self.height) / 2;
             items: ["480p", "720p", "1080p"];
             tip: @tr("The size the browser sends; a camera that can't do it sends what it can");
@@ -140,6 +142,7 @@ export component BrowserCameraCard inherits Card {
     FormRow {
         label: @tr("Frame rate");
         ChoiceField {
+            name: @tr("Frame rate");
             y: (parent.height - self.height) / 2;
             items: ["15 fps", "24 fps", "30 fps"];
             current: fps-index;

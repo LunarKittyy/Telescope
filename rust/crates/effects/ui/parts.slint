@@ -88,6 +88,33 @@ global Keys {
     }
 }
 
+// What the hand-drawn controls say to a screen reader, in plain words instead of coordinates
+global Spoken {
+    // The hue the puck points at, from the ring's top clockwise in 30 degree steps (the wedges' colours)
+    public pure function hue-name(x: float, y: float) -> string {
+        [@tr("pink"), @tr("magenta"), @tr("purple"), @tr("blue"), @tr("sky blue"), @tr("cyan"), @tr("spring green"), @tr("green"), @tr("lime"), @tr("yellow"), @tr("orange"), @tr("red")][Math.floor(Math.mod(Math.atan2(x, y) / 1deg + 375, 360) / 30)]
+    }
+    public pure function percent(v: float) -> int {
+        Math.round(v * 100)
+    }
+    public pure function wheel(x: float, y: float) -> string {
+        Spoken.percent(Math.sqrt(x * x + y * y)) == 0 ? @tr("neutral") : @tr("towards") + " " + Spoken.hue-name(x, y) + ", " + Spoken.percent(Math.sqrt(x * x + y * y)) + "%"
+    }
+    public pure function curve(count: int, picked: int, x: float, y: float) -> string {
+        picked < 0 ? count + " " + @tr("points, none picked") : @tr("point") + " " + (picked + 1) + "/" + count + ", " + @tr("in") + " " + Spoken.percent(x) + "%, " + @tr("out") + " " + Spoken.percent(y) + "%"
+    }
+    public pure function side(n: int, negative: string, positive: string) -> string {
+        n < 0 ? -n + "% " + negative : n + "% " + positive
+    }
+    // pan-x and pan-y run from -1 to 1, right and down positive
+    public pure function pan(x: float, y: float) -> string {
+        Spoken.percent(x) == 0 && Spoken.percent(y) == 0 ? @tr("centred")
+            : Spoken.percent(y) == 0 ? Spoken.side(Spoken.percent(x), @tr("left"), @tr("right"))
+            : Spoken.percent(x) == 0 ? Spoken.side(Spoken.percent(y), @tr("up"), @tr("down"))
+            : Spoken.side(Spoken.percent(x), @tr("left"), @tr("right")) + ", " + Spoken.side(Spoken.percent(y), @tr("up"), @tr("down"))
+    }
+}
+
 // ColourWheel: a puck on a ring of hues. Drag anywhere (it doesn't jump to the pointer), arrows move it, Home or a
 // double-click puts it back. The pointer is reported in radii of the area the puck moves in.
 component Wheel inherits Rectangle {
@@ -115,6 +142,8 @@ component Wheel inherits Rectangle {
     forward-focus: focus;
     accessible-role: slider;
     accessible-label: label;
+    accessible-value: Spoken.wheel(puck-x, puck-y);
+    accessible-description: @tr("Arrow keys move the puck a little, Shift with an arrow moves it further. Home puts it back in the middle.");
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: root.enabled;
@@ -287,6 +316,8 @@ component CurveBox inherits Rectangle {
     forward-focus: focus;
     accessible-role: slider;
     accessible-label: label;
+    accessible-value: Spoken.curve(points.length, picked, picked >= 0 && picked < points.length ? points[picked].x : 0, picked >= 0 && picked < points.length ? points[picked].y : 0);
+    accessible-description: @tr("Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve.");
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: root.enabled;
