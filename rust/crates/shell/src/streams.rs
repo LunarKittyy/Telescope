@@ -101,6 +101,8 @@ pub struct Streams {
     thumb_scaler: RefCell<Option<Box<dyn telescope_core::media::Scaler>>>,
     /// Whether a wake for a new frame is waiting on the event loop (WakingSlot): a frame that comes meanwhile adds none.
     pub(crate) frame_wake: Arc<std::sync::atomic::AtomicBool>,
+    /// How many ended workers have stopped and let go of their stream's state, for a test to wait for before it checks what they left.
+    pub cleaned: Arc<std::sync::atomic::AtomicU32>,
 }
 
 impl Streams {
@@ -1661,6 +1663,7 @@ impl FlowHost for Host<'_> {
             (id.to_string(), st.vision.clone(), st.motion.clone(), st.state_owners.clone())
         });
         let owner = w.id;
+        let cleaned = self.w.streams.cleaned.clone();
         // Off the UI thread, so a stalled read can't freeze the window, but a stop that goes normally ends before the next worker opens the camera
         let (stopped, wait) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
@@ -1673,6 +1676,7 @@ impl FlowHost for Host<'_> {
                     motion.drop_stream(&id);
                 });
             }
+            cleaned.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let _ = stopped.send(());
         });
         let _ = wait.recv_timeout(Duration::from_millis(250));

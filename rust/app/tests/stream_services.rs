@@ -453,6 +453,8 @@ fn a_stream_that_takes_long_to_stop_doesnt_forget_what_its_restart_saw() {
     assert_eq!(motion.moving("pixel", "watcher"), [0], "something moved");
     old.hang_stop.store(false, Ordering::SeqCst);
     assert!(old.stops(), "the old worker ends");
+    // Its cleanup runs on the stopping thread after that, which pumping the window doesn't wait for
+    r.until("the old worker has let go of the stream's state", |r| r.w.streams.cleaned.load(Ordering::SeqCst) >= 1);
     r.pump();
     assert_eq!(motion.moving("pixel", "watcher"), [0], "the old worker's end took the new stream's state with it");
     r.stop(Some("pixel"));
