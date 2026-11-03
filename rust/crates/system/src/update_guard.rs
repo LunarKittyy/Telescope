@@ -241,15 +241,25 @@ fn finish_linux(directory: &Path, staging: &Path, mv: Mover) -> io::Result<bool>
                 std::fs::set_permissions(&src, std::fs::Permissions::from_mode(0o755))?;
             }
             if dst.exists() && !prev.exists() {
-                std::fs::copy(&dst, &prev)?;
-                if let Ok(m) = std::fs::metadata(&dst) {
-                    let _ = std::fs::set_permissions(&prev, m.permissions());
-                }
+                backup_file(&dst, &prev, mv)?;
             }
             mv(&src, &dst)?;
         }
     }
     Ok(false)
+}
+
+/// Copies src to prev so that a prev that exists is always whole: a roll-back trusts it over the file in place. It's written under another name, synced, then renamed in, so a full disk or a kill leaves only the other name.
+fn backup_file(src: &Path, prev: &Path, mv: Mover) -> io::Result<()> {
+    let mut name = prev.file_name().unwrap_or_default().to_os_string();
+    name.push(".partial");
+    let tmp = prev.with_file_name(name);
+    // The copy keeps src's permissions
+    let result = std::fs::copy(src, &tmp).and_then(|_| std::fs::File::open(&tmp)?.sync_all()).and_then(|_| mv(&tmp, prev));
+    if result.is_err() {
+        let _ = remove(&tmp);
+    }
+    result
 }
 
 fn same(a: &Path, b: &Path) -> bool {
@@ -653,6 +663,30 @@ mod appimage_tests {
         let mut mv = |a: &Path, b: &Path| if b == current { Err(io::Error::other("no")) } else { std::fs::rename(a, b) };
         assert!(install_appimage(&new, &current, false, 131, &mut mv, &|_| true).is_err());
         assert_eq!(std::fs::read(&current).unwrap(), image("old"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_backup_that_cant_be_finished_stops_the_update_with_the_current_file_whole() {
+        let (dir, current, new) = placed("full-disk");
+        let old = image(&"old".repeat(4000));
+        std::fs::write(&current, &old).unwrap();
+        // A size limit makes the copy stop part-way, like a full disk; nextest gives each test a process of its own
+        let mut limit = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
+        // SAFETY: plain system calls on locals; the signal is ignored so the failed write comes back as an error
+        let before = unsafe {
+            libc::getrlimit(libc::RLIMIT_FSIZE, &mut limit);
+            libc::signal(libc::SIGXFSZ, libc::SIG_IGN);
+            libc::setrlimit(libc::RLIMIT_FSIZE, &libc::rlimit { rlim_cur: 4096, rlim_max: limit.rlim_max });
+            limit
+        };
+        let result = install_appimage(&new, &current, false, 131, &mut rename, &|_| true);
+        // SAFETY: puts the limit back
+        unsafe { libc::setrlimit(libc::RLIMIT_FSIZE, &before) };
+        assert!(result.is_err());
+        assert!(std::fs::read(&current).unwrap() == old, "the rollback copied a partial backup over the intact file");
+        assert!(!dir.join(PREVIOUS_DIR).join("Telescope.AppImage").exists(), "a .previous that exists must be whole");
+        assert!(read_journal(&dir).is_none());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
