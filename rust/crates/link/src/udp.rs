@@ -1,7 +1,7 @@
 //! Experimental H.264 over UDP for Wi-Fi (/v1/video.udp, docs/protocol.md), falling back to the TCP stream
 //! (udp_reader.py). Each packet handed on is one whole frame, in order.
 
-use crate::feeds::{H264Feed, StopHandle};
+use crate::feeds::{H264Feed, StopHandle, MAX_FRAME_BYTES};
 use crate::https::{Aborter, PhoneAuth, Request, Url};
 use base64::Engine;
 use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM};
@@ -39,6 +39,12 @@ pub const GIVE_UP_S: f64 = 0.25;
 pub const KEY_ASK_S: f64 = 0.3;
 /// In reassembly at once.
 pub const MAX_FRAMES: usize = 300;
+/// The most video bytes a datagram carries (the phone's fragment size).
+pub const MAX_PAYLOAD: usize = 1100;
+/// A frame declaring more pieces than a frame of the TCP feeds' largest size could need is bogus.
+pub const MAX_PARTS: usize = MAX_FRAME_BYTES.div_ceil(MAX_PAYLOAD);
+/// Bytes held across all frames in reassembly.
+pub const MAX_HELD_BYTES: usize = 64 * 1024 * 1024;
 
 /// Phones UDP didn't get through from, for the rest of this run.
 static UDP_FAILED: Mutex<Option<HashSet<String>>> = Mutex::new(None);
@@ -141,6 +147,10 @@ impl Frame {
         self.count > 0 && self.parts.len() == self.count as usize
     }
 
+    fn bytes(&self) -> usize {
+        self.parts.values().map(Vec::len).sum()
+    }
+
     fn missing(&self) -> Vec<u16> {
         (0..self.count).filter(|i| !self.parts.contains_key(i)).collect()
     }
@@ -165,6 +175,8 @@ pub struct Reassembler {
     /// The next frame to hand on; None while waiting for a keyframe.
     next: Option<u32>,
     newest: i64,
+    /// Bytes of pieces held across all frames.
+    held: usize,
     /// Frames given up on.
     pub dropped: u32,
     /// Video taken, each piece once.
@@ -187,6 +199,10 @@ impl Reassembler {
         self.frames.len()
     }
 
+    pub fn held_bytes(&self) -> usize {
+        self.held
+    }
+
     pub fn add(&mut self, plain: &[u8], now: f64) {
         if plain.len() < HEADER_LEN {
             return;
@@ -197,6 +213,29 @@ impl Reassembler {
         let flags = plain[8];
         if count == 0 || idx >= count || self.next.is_some_and(|n| seq < n) {
             return;
+        }
+        if count as usize > MAX_PARTS {
+            return;
+        }
+        let incoming = plain.len() - HEADER_LEN;
+        let replaced = self.frames.get(&seq).and_then(|f| f.parts.get(&idx)).map_or(0, Vec::len);
+        if self.held - replaced + incoming > MAX_HELD_BYTES {
+            // Only a keyframe may push older frames out; the stream resyncs on it
+            if flags & FLAG_KEY == 0 {
+                return;
+            }
+            let mut evicted = false;
+            while self.held - replaced + incoming > MAX_HELD_BYTES {
+                let Some(oldest) = self.frames.keys().copied().find(|s| *s != seq) else { break };
+                self.held -= self.frames.remove(&oldest).map_or(0, |f| f.bytes());
+                evicted = true;
+            }
+            if evicted {
+                self.next = None;
+            }
+            if self.held - replaced + incoming > MAX_HELD_BYTES {
+                return;
+            }
         }
         if !self.frames.contains_key(&seq) {
             if self.frames.len() >= MAX_FRAMES {
@@ -218,7 +257,10 @@ impl Reassembler {
         if !f.parts.contains_key(&idx) {
             self.bytes += (plain.len() - HEADER_LEN) as u64;
         }
-        f.parts.insert(idx, plain[HEADER_LEN..].to_vec());
+        if let Some(old) = f.parts.insert(idx, plain[HEADER_LEN..].to_vec()) {
+            self.held -= old.len();
+        }
+        self.held += incoming;
         self.newest = self.newest.max(seq as i64);
         if seq as i64 > self.whole && f.complete() {
             self.whole = seq as i64;
@@ -243,6 +285,7 @@ impl Reassembler {
             return None;
         }
         let f = self.frames.remove(&next).unwrap();
+        self.held -= f.bytes();
         self.next = Some(next + 1);
         Some((f.parts.into_values().flatten().collect(), 1 + skipped))
     }
@@ -306,7 +349,9 @@ impl Reassembler {
     }
 
     fn forget_before(&mut self, seq: u32) {
-        self.frames = self.frames.split_off(&seq);
+        let kept = self.frames.split_off(&seq);
+        let gone = std::mem::replace(&mut self.frames, kept);
+        self.held -= gone.values().map(Frame::bytes).sum::<usize>();
     }
 }
 
@@ -674,6 +719,63 @@ mod tests {
         assert_eq!(r.chase(1.1), (vec![(0, vec![pieces.len() as u16 - 1])], false));
         r.add(pieces.last().unwrap(), 0.0);
         assert_eq!(r.take(), Some((data, 1)));
+    }
+
+    #[test]
+    fn a_frame_declaring_too_many_pieces_is_dropped() {
+        let mut r = Reassembler::new();
+        let mut p = header(0, 0, (MAX_PARTS + 1) as u16, FLAG_KEY).to_vec();
+        p.extend_from_slice(b"x");
+        r.add(&p, 0.0);
+        assert_eq!(r.frames_held(), 0);
+        assert_eq!(r.held_bytes(), 0);
+        let mut p = header(1, 0, MAX_PARTS as u16, 0).to_vec();
+        p.extend_from_slice(b"x");
+        r.add(&p, 0.0);
+        assert_eq!(r.frames_held(), 1);
+    }
+
+    #[test]
+    fn a_flood_of_large_incomplete_frames_stays_under_the_byte_cap() {
+        let mut r = Reassembler::new();
+        let big = vec![0u8; 1024 * 1024];
+        for seq in 0..200u32 {
+            let mut p = header(seq, 0, 2, (seq % 50 == 0) as u8).to_vec();
+            p.extend_from_slice(&big);
+            r.add(&p, 0.0);
+            assert!(r.held_bytes() <= MAX_HELD_BYTES, "held {} after frame {seq}", r.held_bytes());
+            assert_eq!(r.held_bytes(), r.frames.values().map(Frame::bytes).sum::<usize>());
+        }
+        let key = fragments(1000, b"fresh keyframe", true, 10);
+        for p in &key {
+            r.add(p, 0.0);
+        }
+        assert!(r.take().is_some_and(|(data, _)| data == b"fresh keyframe"));
+        assert_eq!(r.held_bytes(), r.frames.values().map(Frame::bytes).sum::<usize>());
+        let next = fragments(1001, b"delta", false, 10);
+        r.add(&next[0], 0.0);
+        assert_eq!(r.take(), Some((b"delta".to_vec(), 1)));
+    }
+
+    #[test]
+    fn the_byte_total_follows_frames_that_complete_expire_or_repeat() {
+        let mut r = Reassembler::new();
+        let pieces = fragments(0, &[7u8; 50], true, 10);
+        r.add(&pieces[0], 0.0);
+        r.add(&pieces[0], 0.0);
+        assert_eq!(r.held_bytes(), 10);
+        for p in &pieces[1..] {
+            r.add(p, 0.0);
+        }
+        assert_eq!(r.held_bytes(), 50);
+        assert!(r.take().is_some());
+        assert_eq!(r.held_bytes(), 0);
+        r.add(&fragments(1, &[1u8; 30], false, 10)[0], 0.0);
+        r.add(&fragments(2, &[1u8; 30], false, 10)[0], 0.0);
+        assert_eq!(r.held_bytes(), 20);
+        r.chase(0.0);
+        r.chase(GIVE_UP_S + 0.1);
+        assert_eq!(r.held_bytes(), r.frames.values().map(Frame::bytes).sum::<usize>());
     }
 
     #[test]
