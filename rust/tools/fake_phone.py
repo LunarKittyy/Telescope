@@ -314,6 +314,7 @@ def serve(clip, host="127.0.0.2", fps=30.0, token="", record=None, adb_state=Non
     cert, key, pin = make_cert(folder)
     phone.pin = pin
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     ctx.load_cert_chain(cert, key)
     servers = []
     listens = [(host, port, port, "wifi") for port in (8766, 8080)]
