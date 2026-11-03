@@ -457,6 +457,7 @@ impl StreamWorker {
                 s.status("error", &fill(&tr("Stream error: {error}"), &[("error", &what.unwrap_or_default())]));
             }
             s.join_handover();
+            s.forget_in_vision();
             (crate::window::app_hooks().release_memory)();
             s.status("idle", &tr("Not streaming"));
         }).map_err(|e| e.to_string())?;
@@ -749,6 +750,16 @@ impl Shared {
 
     fn next_seq(&self) -> u64 {
         self.seq.fetch_add(1, Ordering::SeqCst)
+    }
+
+    /// The stream's vision and motion state goes once no frame can ask for it any more: dropped earlier, an in-flight frame's mask request
+    /// makes it again, with a thread that stays. This is the thread that does the asking, so it holds even when stop() gave up waiting for it.
+    fn forget_in_vision(&self) {
+        let Some(feed) = self.vision.as_ref().filter(|_| !self.source_id.is_empty()) else { return };
+        feed.service.drop_stream(&self.source_id);
+        if let Some(motion) = &feed.motion {
+            motion.drop_stream(&self.source_id);
+        }
     }
 
     fn run(self: &Arc<Self>) {
@@ -2522,9 +2533,9 @@ mod tests {
     }
 
     /// A person mask that says which frame it was worked out for, once per number as the service does; with a list, it
-    /// wants people and notes what it's fed.
+    /// wants people and notes what it's fed. Its second part makes the first mask request wait, and the third lists the streams dropped.
     #[derive(Default)]
-    struct Masks(Option<Fed>);
+    struct Masks(Option<Fed>, Mutex<Option<(std::sync::mpsc::Sender<()>, std::sync::mpsc::Receiver<()>)>>, Mutex<Vec<String>>);
 
     /// What a vision service was fed.
     type Fed = Arc<Mutex<Vec<(Frame, telescope_core::vision::Upright)>>>;
@@ -2536,6 +2547,11 @@ mod tests {
         }
         fn load(&self) {}
         fn person_mask(&self, _source_id: &str, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+            let hold = self.1.lock().unwrap().take();
+            if let Some((entered, hold)) = hold {
+                let _ = entered.send(());
+                let _ = hold.recv_timeout(Duration::from_secs(10));
+            }
             Some(Arc::new(vec![frame.number as u8]))
         }
         fn want_people(&self, _owner: &str, _on: bool) {}
@@ -2551,7 +2567,9 @@ mod tests {
             (Vec::new(), 0)
         }
         fn view_turned(&self, _old: telescope_core::vision::Turn, _new: telescope_core::vision::Turn) {}
-        fn drop_stream(&self, _source_id: &str) {}
+        fn drop_stream(&self, source_id: &str) {
+            self.2.lock().unwrap().push(source_id.to_string());
+        }
         fn set_power_saving(&self, _on: bool) {}
         fn diagnostics(&self) -> Vec<(String, String)> {
             Vec::new()
@@ -2632,6 +2650,23 @@ mod tests {
         assert!(masks.len() >= 2 && masks[0] != masks[1], "the mask of the first frame stuck: {masks:?}");
     }
 
+    #[test]
+    fn a_stream_forgets_its_vision_state_only_after_its_last_frame() {
+        let (entered_tx, entered) = std::sync::mpsc::channel();
+        let (hold, held) = std::sync::mpsc::channel();
+        let masks = Arc::new(Masks(None, Mutex::new(Some((entered_tx, held))), Mutex::default()));
+        let vision = VisionFeed { service: masks.clone(), upright: Arc::default(), frame_sizes: Arc::default(), motion: None };
+        let seen = Arc::new(Seen::default());
+        let w = running(&seen, Vec::new(), Some(vision), None);
+        entered.recv_timeout(Duration::from_secs(10)).expect("a frame asks for its mask");
+        let stopping = std::thread::spawn(move || w.stop());
+        std::thread::sleep(Duration::from_millis(150));
+        assert!(masks.2.lock().unwrap().is_empty(), "dropped while a frame's mask request was still running, which would make it again");
+        hold.send(()).unwrap();
+        stopping.join().unwrap();
+        assert_eq!(*masks.2.lock().unwrap(), ["phone-1"]);
+    }
+
     // test_view_controller.py::test_people_are_found_in_the_picture_as_shown_through_the_phone_share
     #[test]
     fn people_are_found_in_the_picture_as_shown_through_the_phone_share() {
@@ -2639,7 +2674,7 @@ mod tests {
         let path = telescope_core::testing::scratch_dir("people-share").join("telescope_config.json");
         let mut s = crate::shell::State::new(telescope_core::config::ConfigFile::at(path));
         let fed = Fed::default();
-        s.vision = Some(Arc::new(Masks(Some(fed.clone()))));
+        s.vision = Some(Arc::new(Masks(Some(fed.clone()), Mutex::new(None), Mutex::default())));
         s.streams.source_id = Some("phone-1".into());
         let zooms = serde_json::json!({"cameras": [{"id": "0", "current": true, "zoomRatioMax": 10.0, "cropZoomMax": 4.0, "freeformCrop": true}]});
         let said = s.vc.stream_start(&s.view, "phone-1", 1, 0.0);

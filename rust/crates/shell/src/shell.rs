@@ -304,6 +304,8 @@ pub struct State {
     /// Sources only remembered once their settings change (a browser).
     pub changes_only: Vec<String>,
     pub save_failure_notified: bool,
+    /// Settings of phones that were switched away from while the file couldn't be written: saved again with the next save, and handed back if their phone comes back first.
+    unsaved_profiles: Vec<PluginSection>,
     /// Posts from plugins' threads (host.poster), delivered to their owner after the bus's events.
     pub posts: Arc<Posts>,
     /// Built-in plugins that are off this run (not the optional ones never switched on), by name.
@@ -388,6 +390,7 @@ impl State {
             slot_memory: Rc::default(),
             changes_only: Vec::new(),
             save_failure_notified: false,
+            unsaved_profiles: Vec::new(),
             posts: Arc::default(),
             off: Vec::new(),
             builtins: Vec::new(),
@@ -463,7 +466,7 @@ impl State {
             let card = p.card();
             let header = p.header_widget();
             let tray = p.tray_actions();
-            let defaults = p.get_config();
+            let defaults = Some(p.get_config()).filter(Value::is_object).unwrap_or_else(|| json!({}));
             (card, header, tray, defaults)
         });
         let Some((card, header, tray, defaults)) = made else {
@@ -494,7 +497,8 @@ impl State {
             let info = plugin.info();
             if added.contains(&info.name) {
                 // One that can't start is left out and says why (load_plugins)
-                match self.register(plugin) {
+                let registered = self.register(plugin).and_then(|()| self.take_out_if_ui_broken());
+                match registered {
                     Ok(()) => self.added.push(info),
                     Err(e) => broke.push(PluginProblem { title: if info.title.is_empty() { info.name.clone() } else { info.title.clone() }, name: info.name, error: e }),
                 }
@@ -516,6 +520,24 @@ impl State {
         crate::settings::start_plugin_updates(self.admin.clone());
         self.remind_plugins_off(&cfg);
         Ok(())
+    }
+
+    /// An added plugin's card and header widget, each compiled on its own: one that doesn't compile would otherwise break the
+    /// shared window and stop the app starting. The plugin just registered (the last slot) is taken back out and says why.
+    fn take_out_if_ui_broken(&mut self) -> Result<(), String> {
+        let i = self.slots.len() - 1;
+        let slot = &self.slots[i];
+        let name = &slot.info.name;
+        let pieces = slot.card.iter().map(|c| ("card", &c.ui)).chain(slot.header.iter().map(|h| ("header", h)));
+        let broken = pieces.filter_map(|(ui, spec)| {
+            let (file, text) = crate::window::source_of(name, ui, spec);
+            crate::compile::compile(&file, &text, vec![(file.clone(), text.clone())], &spec.component).err().map(|e| format!("{ui}: {}", e.trim_end()))
+        }).next();
+        let Some(error) = broken else { return Ok(()) };
+        log::error!("Plugin {name}: {error}");
+        self.panels.remove(i);
+        self.slots.pop();
+        Err(error)
     }
 
     /// Added plugins that are on but didn't start: remembered for the Plugins tab, with a warning banner saying which (load_plugins).
@@ -870,24 +892,31 @@ impl State {
                 let name = self.slots[i].info.name.clone();
                 self.config_of(i, global.get(&name)).map(|config| PluginSection { plugin: name, device: None, config })
             }).collect();
+        sections.extend(self.unsaved_profiles.iter().cloned());
         sections.extend(self.profile_sections(&cfg, self.selected.as_deref()));
         let window = WindowState { selected_device: self.selected.clone(), collapsed: self.collapse.keys(), output_slots: self.slot_memory.borrow().iter().map(|(id, slot)| (id.clone(), json!(slot))).collect() };
         merge_for_save(&mut cfg, &window, &sections);
         profiles::drop_unchanged(&mut cfg, &self.changes_only, &self.defaults());
         if self.file.save(&mut cfg) {
             self.save_failure_notified = false;
+            self.unsaved_profiles.clear();
             true
         } else {
-            if !self.save_failure_notified {
-                self.save_failure_notified = true;
-                log::error!("Failed to save settings");
-                self.effects.push(Effect::Notify {
-                    title: tr("Telescope - Save failed"),
-                    body: tr("Could not save settings. Check disk space and permissions."),
-                    urgent: true,
-                });
-            }
+            self.note_save_failure();
             false
+        }
+    }
+
+    /// The notice that settings couldn't be written, once until a save works again.
+    fn note_save_failure(&mut self) {
+        if !self.save_failure_notified {
+            self.save_failure_notified = true;
+            log::error!("Failed to save settings");
+            self.effects.push(Effect::Notify {
+                title: tr("Telescope - Save failed"),
+                body: tr("Could not save settings. Check disk space and permissions."),
+                urgent: true,
+            });
         }
     }
 
@@ -899,12 +928,19 @@ impl State {
     /// on the new one (by the stream flow, from the effects). Streams stop first: stopping saves what the panels show
     /// under the stream that had it, and the new phone's settings would be filed there.
     pub fn switch_device(&mut self, prev: Option<&str>, new: Option<&str>) {
-        if let Ok(mut cfg) = self.file.load_strict() {
-            let sections = self.profile_sections(&cfg, prev);
+        let loaded = self.file.load_strict();
+        let sections = self.profile_sections(loaded.as_ref().unwrap_or(&json!({})), prev);
+        let saved = loaded.is_ok_and(|mut cfg| {
             let window = WindowState::from_config(&cfg);
             merge_for_save(&mut cfg, &window, &sections);
             profiles::drop_unchanged(&mut cfg, &self.changes_only, &self.defaults());
-            self.file.save(&mut cfg);
+            self.file.save(&mut cfg)
+        });
+        self.unsaved_profiles.retain(|u| !sections.iter().any(|s| (&s.plugin, &s.device) == (&u.plugin, &u.device)));
+        if !saved && !sections.is_empty() {
+            // The old phone's settings are about to be replaced by the new one's: keep them here until a save works
+            self.unsaved_profiles.extend(sections);
+            self.note_save_failure();
         }
         if self.streams.streaming || self.streams.starting {
             self.effects.push(Effect::StopAll);
@@ -921,7 +957,14 @@ impl State {
             self.file.save(&mut cfg);
         }
         self.selected = new.map(String::from);
-        let cfg = self.file.load();
+        let mut cfg = self.file.load();
+        // A phone that was switched away from while saving failed gets back what it had, not the older file's
+        let (back, rest): (Vec<_>, Vec<_>) = std::mem::take(&mut self.unsaved_profiles).into_iter().partition(|s| s.device.is_some() && s.device.as_deref() == new);
+        self.unsaved_profiles = rest;
+        if !back.is_empty() {
+            let window = WindowState::from_config(&cfg);
+            merge_for_save(&mut cfg, &window, &back);
+        }
         self.apply_device_profile(new, &cfg);
         self.bus.emit(Event::DeviceChanged { source_id: new.unwrap_or("").to_string() });
         if start {
@@ -931,6 +974,7 @@ impl State {
 
     pub fn forget_device_settings(&mut self, id: &str) {
         self.slot_memory.borrow_mut().remove(id);
+        self.unsaved_profiles.retain(|s| s.device.as_deref() != Some(id));
         if let Ok(mut cfg) = self.file.load_strict() {
             if profiles::forget_device(&mut cfg, id) {
                 self.file.save(&mut cfg);
@@ -944,6 +988,9 @@ impl State {
             memory.insert(new.to_string(), slot);
         }
         drop(memory);
+        for section in self.unsaved_profiles.iter_mut().filter(|s| s.device.as_deref() == Some(old)) {
+            section.device = Some(new.to_string());
+        }
         if let Ok(mut cfg) = self.file.load_strict() {
             profiles::move_device(&mut cfg, old, new);
             self.file.save(&mut cfg);
@@ -1109,7 +1156,7 @@ impl State {
     /// A plugin's current settings, if it's running.
     pub fn plugin_config(&self, name: &str) -> Option<Value> {
         let i = self.index(name)?;
-        self.slots[i].plugin.as_ref().map(|p| p.get_config())
+        self.slots[i].plugin.as_ref().map(|p| p.get_config()).filter(Value::is_object)
     }
 
     /// The built-in plugins off this run, the way the Plugins tab and diagnostics count them.
@@ -1582,6 +1629,39 @@ mod tests {
         assert!(matches!(s.bus.next(), Some(Event::DeviceChanged { source_id }) if source_id == "B"));
     }
 
+    /// Makes saving fail by putting a folder where the file is written first, until the returned path is removed.
+    fn block_saving(s: &State) -> std::path::PathBuf {
+        let mut name = s.file.path().file_name().unwrap().to_os_string();
+        name.push(".tmp");
+        let tmp = s.file.path().with_file_name(name);
+        std::fs::create_dir(&tmp).unwrap();
+        tmp
+    }
+
+    #[test]
+    fn a_phone_left_while_saving_fails_is_saved_later_and_handed_back_if_it_returns_first() {
+        let mut s = state();
+        s.register(stub("transforms", json!({"zoom": 2}), true).0).unwrap();
+        s.file.save(&mut json!({"devices": {"B": {"plugin_configs": {"transforms": {"zoom": 7}}}}}));
+        s.selected = Some("A".into());
+        s.with_plugin(0, |p| p.set_config(&json!({"zoom": 5})).unwrap());
+        let blocked = block_saving(&s);
+        s.switch_device(Some("A"), Some("B"));
+        assert_eq!(s.plugin_config("transforms").unwrap()["zoom"], 7);
+        assert!(s.effects.iter().any(|e| matches!(e, Effect::Notify { .. })), "the save-failure notice");
+        // Back on A before any save works: its changes are still there
+        s.switch_device(Some("B"), Some("A"));
+        assert_eq!(s.plugin_config("transforms").unwrap()["zoom"], 5);
+        s.with_plugin(0, |p| p.set_config(&json!({"zoom": 6})).unwrap());
+        s.switch_device(Some("A"), Some("B"));
+        std::fs::remove_dir(&blocked).unwrap();
+        assert!(s.save_now(), "the next save takes the kept settings along");
+        let devices = s.file.load()["devices"].clone();
+        assert_eq!(devices["A"]["plugin_configs"]["transforms"]["zoom"], 6);
+        assert_eq!(devices["B"]["plugin_configs"]["transforms"]["zoom"], 7);
+        assert!(s.unsaved_profiles.is_empty());
+    }
+
     #[test]
     fn a_switch_files_a_plugin_that_stays_with_the_main_stream_under_that_stream() {
         let mut s = state();
@@ -1917,6 +1997,17 @@ mod tests {
         assert_eq!(s.banners.issue("plugins").unwrap().title, "Quitter didn't start");
         assert!(s.problems["quitter"].contains("quitter"));
         assert_eq!(s.diagnostics().into_iter().find(|(k, _)| k == "Added plugins").unwrap().1, "quitter (didn't start)");
+    }
+
+    #[test]
+    fn a_plugin_whose_settings_hook_fails_keeps_what_was_saved() {
+        let mut s = state();
+        s.register(stub("shaky", Value::Null, false).0).unwrap();
+        assert_eq!(s.slots[0].defaults, json!({}));
+        assert!(s.plugin_config("shaky").is_none());
+        let saved = json!({"zoom": 2});
+        assert_eq!(s.config_of(0, Some(&saved)), Some(saved));
+        assert_eq!(s.config_of(0, None), None);
     }
 
     fn broken(name: &str, title: &str) -> PluginProblem {

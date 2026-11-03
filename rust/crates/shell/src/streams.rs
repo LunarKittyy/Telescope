@@ -1652,17 +1652,21 @@ impl FlowHost for Host<'_> {
         let Some(w) = self.w.shell_worker(&worker) else { return };
         self.w.streams.workers.borrow_mut().retain(|x| x.id != w.id);
         let inner = w.inner.clone();
-        if let Some(id) = inner.source_id() {
+        // Vision and motion state goes after the worker has stopped, not before: a frame still in flight would make it again
+        let forget = inner.source_id().map(|id| {
             let st = self.w.state.borrow();
-            if let Some(vision) = &st.vision {
-                vision.drop_stream(id);
-            }
-            st.motion.drop_stream(id);
-        }
+            (id.to_string(), st.vision.clone(), st.motion.clone())
+        });
         // Off the UI thread, so a stalled read can't freeze the window, but a stop that goes normally ends before the next worker opens the camera
         let (stopped, wait) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
             inner.stop();
+            if let Some((id, vision, motion)) = forget {
+                if let Some(vision) = vision {
+                    vision.drop_stream(&id);
+                }
+                motion.drop_stream(&id);
+            }
             let _ = stopped.send(());
         });
         let _ = wait.recv_timeout(Duration::from_millis(250));
