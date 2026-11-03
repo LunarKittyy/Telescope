@@ -548,13 +548,22 @@ def driver_row(a) -> str:
     """Settings, Virtual camera & phone: what the Driver row says, read fresh."""
     out = a.win.desktop(r"""
 Open-Settings "Virtual camera & phone"
+$known = "Ready", "Reinstall for a security fix", "Some apps can't see it", "Update ready", "Not installed"
+# The row says something else for a moment while the page checks the driver
 $texts = @()
-for ($i = 0; $i -lt 20 -and -not $texts; $i++) { Start-Sleep 1; $texts = @(Driver-Texts) }  # the row fills in a moment after the page opens
-foreach ($t in "Ready", "Reinstall for a security fix", "Some apps can't see it", "Update ready", "Not installed") { if ($texts -contains $t) { "ROW $t" } }
+for ($i = 0; $i -lt 25; $i++) {
+    Start-Sleep 1
+    $texts = @(Driver-Texts)
+    if ($texts | Where-Object { $known -contains $_ -or $_ -like "Apps list it as*" }) { break }
+}
+foreach ($t in $known) { if ($texts -contains $t) { "ROW $t" } }
 $texts | Where-Object { $_ -like "Apps list it as*" } | ForEach-Object { "ROW $_" }
+"TEXTS $($texts -join ' / ')"
 """)
     rows = [line[4:] for line in out.splitlines() if line.startswith("ROW ")]
-    return rows[0] if rows else ""
+    if not rows:
+        raise Fail(f"the Driver row never said anything known: {line(out, 'TEXTS')!r}")
+    return rows[0]
 
 
 def register_driver(a, folder: str, name: str):
@@ -674,7 +683,17 @@ PLUGIN_FOLDER = r'$env:APPDATA\Telescope\plugins\black_and_white'
 
 def drop_plugin(a):
     """Quit Telescope and take the added example plugin away, so a plugin that stops it starting doesn't spoil the checks after."""
-    a.win.admin(f'Get-Process TelescopeDesktop* -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 1; Remove-Item -Recurse -Force "{PLUGIN_FOLDER}" -ErrorAction SilentlyContinue')
+    # Its switch is kept in the settings: left on, the app would try to load it again from wherever it's put back
+    a.win.admin(rf'''Get-Process TelescopeDesktop* -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 1
+Remove-Item -Recurse -Force "{PLUGIN_FOLDER}" -ErrorAction SilentlyContinue
+$f = "$env:APPDATA\Telescope\telescope_config.json"
+if (Test-Path $f) {{
+    $c = Get-Content $f -Raw | ConvertFrom-Json
+    if ($c.plugins -and $c.plugins.added -and $c.plugins.added.PSObject.Properties['black_and_white']) {{
+        $c.plugins.added.PSObject.Properties.Remove('black_and_white')
+        [IO.File]::WriteAllText($f, ($c | ConvertTo-Json -Depth 20), (New-Object Text.UTF8Encoding $false))
+    }}
+}}''')
 
 
 def log_tail(a, lines=6) -> str:

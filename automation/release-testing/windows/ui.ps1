@@ -303,8 +303,19 @@ function Open-Settings([string] $Page = "") {
         Press-Control "Settings" "Button"
         if (Find-Control "Settings" "Window" 6) { break }
     }
-    Need-Control "Settings" "Window" 5 | Out-Null
-    if ($Page) { Press-Control $Page "ListItem" }
+    $window = Need-Control "Settings" "Window" 5
+    # A press on the list can miss like the one on the button, and the window reopens on the page it was left on: look at the
+    # page's heading (a text called as the list item is, but beside it) before going on
+    for ($i = 0; $Page -and $i -lt 3; $i++) {
+        Press-Control $Page "ListItem"
+        $left = $window.Current.BoundingRectangle.Left + 250
+        $shown = Wait-Until {
+            foreach ($e in $window.FindAll($Scope::Descendants, [Windows.Automation.Condition]::TrueCondition)) {
+                try { if ($e.Current.Name -eq $Page -and $e.Current.ControlType.ProgrammaticName -eq "ControlType.Text" -and $e.Current.BoundingRectangle.Left -gt $left) { return $true } } catch { }
+            }
+        } 4
+        if ($shown) { break }
+    }
 }
 
 # Names of every text, button and other named control in the app's windows, for "does it say X" checks
