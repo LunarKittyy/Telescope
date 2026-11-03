@@ -390,7 +390,7 @@ fn stopping_a_stream_forgets_who_it_was_tracking() {
     r.worker(0).says("ok", "Streaming");
     r.pump();
     r.stop(Some("pixel"));
-    r.pump();
+    r.until("the vision service is told", |_| !vision.0.lock().unwrap().is_empty());
     assert_eq!(*vision.0.lock().unwrap(), ["pixel"]);
 }
 
@@ -418,6 +418,5 @@ fn stopping_a_stream_forgets_what_moved_on_it() {
     motion.feed(&room(true), "pixel", None, 1.1);
     assert_eq!(motion.moving("pixel", "watcher"), [0], "something moved");
     r.stop(Some("pixel"));
-    r.pump();
-    assert!(motion.moving("pixel", "watcher").is_empty());
+    r.until("what moved is forgotten", |_| motion.moving("pixel", "watcher").is_empty());
 }
