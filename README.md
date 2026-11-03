@@ -13,7 +13,7 @@
 
 <p align="center">
   <a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/TelescopeSetup.exe"><img src="docs/assets/download-windows.svg" alt="Download for Windows" height="56"></a>
-  <a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope-linux.tar.gz"><img src="docs/assets/download-linux.svg" alt="Download for Linux" height="56"></a>
+  <a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope-x86_64.AppImage"><img src="docs/assets/download-linux.svg" alt="Download for Linux" height="56"></a>
   <a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope.apk"><img src="docs/assets/download-android.svg" alt="Download for Android" height="56"></a>
 </p>
 
@@ -21,7 +21,7 @@
 
 <p align="center"><img src="site/media/setup.avif" alt="The desktop app's checklist, the phone scanning the pairing code and a video call picking Telescope as its camera" width="800"></p>
 
-1. **Get the desktop app.** On Windows run `TelescopeSetup.exe` (it installs only for your user and needs no admin). On Linux extract the tarball and run `./start.sh`, or run `Telescope-x86_64.AppImage` from the [releases page](../../releases).
+1. **Get the desktop app.** On Windows run `TelescopeSetup.exe` (it installs only for your user and needs no admin). On Linux allow `Telescope-x86_64.AppImage` to run as a program (in its Properties, or `chmod +x`) and open it. The tarball on the [releases page](../../releases) works too: extract it and run `./start.sh`.
 2. **Follow the checklist it opens with.** It sets up the virtual camera, puts the phone app on your phone with a QR code and pairs the two.
 3. **Pick the camera in your app.** It's called **Telescope** on Windows and **Phone Camera** on Linux, in Discord, Zoom, OBS or anything else that takes a webcam.
 
