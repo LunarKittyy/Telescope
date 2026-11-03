@@ -210,6 +210,8 @@ fn the_clock_rests_while_no_stream_goes_to_the_telescope_camera() {
 #[test]
 fn while_the_telescope_stream_stalls_the_others_keep_moving() {
     let mut r = rig();
+    // the real clock would draw first on a slow machine; this test moves the time itself
+    r.plugin.shutdown(&mut r.host);
     r.two_streams(0.0);
     let main = solid([255, 0, 0], (90, 160));
     let t0 = monotonic_ns();
