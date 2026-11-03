@@ -16,6 +16,9 @@ const TIMEOUT: Duration = Duration::from_secs(30);
 /// Zips of the same files can come out a little bigger on another machine's zlib.
 const SLACK: f64 = 1.1;
 const CHUNK: usize = 256 * 1024;
+/// Most bytes a pack may unpack to (the Linux pack is 135 MB, the Windows one smaller), so a small zip that expands to gigabytes is stopped
+/// while it's unpacked and not after. Raise it when a pin bump makes the pack grow (build_vision_pack.py prints the unpacked size).
+pub const MAX_UNPACKED: u64 = 160 * 1024 * 1024;
 const REPO: &str = "LunarKittyy/Telescope";
 /// What scripts/build_vision_pack.py --write recorded for this version.
 pub const PACK_INFO: &str = include_str!("../vision_pack.json");
@@ -194,6 +197,11 @@ impl From<io::Error> for Failed {
 /// Download this version's pack, check it and unpack it; older packs go.
 pub fn download(info: &PackInfo, vision_dir: &Path, progress: &mut dyn FnMut(u64, u64), cancelled: &dyn Fn() -> bool,
                 opener: Opener, url: Option<&str>) -> Result<PathBuf, PackError> {
+    download_capped(info, vision_dir, progress, cancelled, opener, url, MAX_UNPACKED)
+}
+
+fn download_capped(info: &PackInfo, vision_dir: &Path, progress: &mut dyn FnMut(u64, u64), cancelled: &dyn Fn() -> bool,
+                   opener: Opener, url: Option<&str>, max_unpacked: u64) -> Result<PathBuf, PackError> {
     let (Some(id), Some(name), Some(pid)) = (info.id.clone(), info.asset_name(), info.pack_id()) else {
         return Err(PackError(tr("There's no download for this computer yet.")));
     };
@@ -223,7 +231,7 @@ pub fn download(info: &PackInfo, vision_dir: &Path, progress: &mut dyn FnMut(u64
             progress(done, size);
         }
         drop(f);
-        unpack(&archive, &staging)?;
+        unpack(&archive, &staging, max_unpacked)?;
         if tree_hash(&staging)? != id {
             return Err(Failed::Pack(PackError(tr("The download didn't match what this version of Telescope expects, so it wasn't used."))));
         }
@@ -283,19 +291,37 @@ fn inside(name: &str) -> Option<PathBuf> {
     (!out.as_os_str().is_empty()).then_some(out)
 }
 
-fn unpack(archive: &Path, staging: &Path) -> Result<(), Failed> {
+/// Unpacks the zip into staging, which is gone again if it fails. Stops at `max_bytes` written in all, whatever the zip says it holds.
+fn unpack(archive: &Path, staging: &Path, max_bytes: u64) -> Result<(), Failed> {
+    let result = unpack_into(archive, staging, max_bytes);
+    if result.is_err() {
+        let _ = std::fs::remove_dir_all(staging);
+    }
+    result
+}
+
+fn unpack_into(archive: &Path, staging: &Path, max_bytes: u64) -> Result<(), Failed> {
     let _ = std::fs::remove_dir_all(staging);
     std::fs::create_dir_all(staging)?;
     let broken = |_| Failed::Pack(PackError(tr("The download couldn't be unpacked.")));
+    let too_big = || Failed::Pack(PackError(tr("The download unpacks to more than it should, so it wasn't used.")));
     let mut zip = zip::ZipArchive::new(std::fs::File::open(archive)?).map_err(broken)?;
     let mut targets = Vec::new();
+    let mut claimed = 0u64;
     for i in 0..zip.len() {
-        let name = zip.by_index_raw(i).map_err(broken)?.name().map_err(broken)?.to_string();
+        let entry = zip.by_index_raw(i).map_err(broken)?;
+        let name = entry.name().map_err(broken)?.to_string();
+        claimed = claimed.saturating_add(entry.size());
         let Some(rel) = inside(&name) else {
             return Err(Failed::Pack(PackError(tr("The download contains unexpected paths, so it wasn't used."))));
         };
         targets.push((rel, name.ends_with('/')));
     }
+    // What the zip says it holds is checked before anything is written, and what's really written below, since the sizes can lie
+    if claimed > max_bytes {
+        return Err(too_big());
+    }
+    let mut written = 0u64;
     for (i, (rel, dir)) in targets.into_iter().enumerate() {
         let target = staging.join(rel);
         if dir {
@@ -307,7 +333,10 @@ fn unpack(archive: &Path, staging: &Path) -> Result<(), Failed> {
         }
         let mut entry = zip.by_index(i).map_err(broken)?;
         let mut out = std::fs::File::create(&target)?;
-        io::copy(&mut entry, &mut out)?;
+        written += io::copy(&mut (&mut entry).take(max_bytes - written + 1), &mut out)?;
+        if written > max_bytes {
+            return Err(too_big());
+        }
     }
     Ok(())
 }

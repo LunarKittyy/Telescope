@@ -5,11 +5,11 @@ use crate::net::{self, PairingAddress};
 use crate::util;
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufReader, Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub const PAIRING_PORT: u16 = 8765;
 /// Desktop and app ship together.
@@ -231,14 +231,23 @@ fn drain(reader: &mut impl Read, length: Option<i64>) {
 fn handle(conn: &TcpStream, source_ip: &str, shared: &Shared) -> std::io::Result<()> {
     conn.set_read_timeout(Some(shared.limits.request_timeout))?;
     let mut reader = BufReader::new(conn.try_clone()?);
-    let mut line = String::new();
-    reader.read_line(&mut line)?;
+    // The request line and headers are cut off at the same sizes as an answer from a phone (https.rs)
+    let (deadline, mut head_bytes) = (Instant::now() + shared.limits.deadline, 0usize);
+    let line = match crate::https::read_head_line(&mut reader, deadline, &mut head_bytes) {
+        Ok(line) => String::from_utf8_lossy(&line).into_owned(),
+        Err(crate::https::Error::Bad(_)) => return respond(conn, "431 Request Header Fields Too Large", b""),
+        Err(_) => return Ok(()),
+    };
     let mut parts = line.split_whitespace();
     let (method, path) = (parts.next().unwrap_or("").to_string(), parts.next().unwrap_or("").to_string());
     let mut length_header: Option<String> = None;
     loop {
-        let mut header = String::new();
-        if reader.read_line(&mut header)? == 0 || header.trim().is_empty() {
+        let header = match crate::https::read_head_line(&mut reader, deadline, &mut head_bytes) {
+            Ok(header) => String::from_utf8_lossy(&header).into_owned(),
+            Err(crate::https::Error::Bad(_)) => return respond(conn, "431 Request Header Fields Too Large", b""),
+            Err(_) => return Ok(()),
+        };
+        if header.is_empty() || header.trim().is_empty() {
             break;
         }
         if let Some((k, v)) = header.split_once(':') {
@@ -428,6 +437,52 @@ mod tests {
     fn oversized_body_is_rejected() {
         let (server, _) = server();
         assert_eq!(post(server.offer.port, &format!("/pair/{}", server.offer.nonce), &vec![b'x'; 17 * 1024]), 413);
+    }
+
+    /// Sends `request`, ignoring a reset from the server cutting in before the end, and gives the status it answered with.
+    fn raw_cut_off(port: u16, request: &[u8]) -> u16 {
+        let mut conn = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        conn.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        for chunk in request.chunks(4096) {
+            if conn.write_all(chunk).is_err() {
+                break;
+            }
+        }
+        let mut reply = String::new();
+        let _ = conn.read_to_string(&mut reply);
+        reply.split_whitespace().nth(1).and_then(|s| s.parse().ok()).unwrap_or(0)
+    }
+
+    #[test]
+    fn a_request_line_without_an_end_is_cut_off() {
+        let (server, _) = server();
+        let request = [b"GET /".as_slice(), &vec![b'a'; 200 * 1024]].concat();
+        assert_eq!(raw_cut_off(server.offer.port, &request), 431);
+    }
+
+    #[test]
+    fn a_header_line_past_the_limit_is_cut_off() {
+        let (server, _) = server();
+        let request = format!("GET / HTTP/1.1\r\nX-Long: {}\r\n\r\n", "a".repeat(20 * 1024));
+        assert_eq!(raw_cut_off(server.offer.port, request.as_bytes()), 431);
+    }
+
+    #[test]
+    fn a_head_made_of_many_short_headers_is_cut_off() {
+        let (server, _) = server();
+        let headers: String = (0..200).map(|i| format!("X-{i}: {}\r\n", "a".repeat(1000))).collect();
+        let request = format!("GET / HTTP/1.1\r\n{headers}\r\n");
+        assert_eq!(raw_cut_off(server.offer.port, request.as_bytes()), 431);
+    }
+
+    #[test]
+    fn a_head_near_the_limit_still_pairs() {
+        let (server, paired) = server();
+        let offer = server.offer.clone();
+        let body = pair_body(&offer);
+        let request = [format!("POST /pair/{} HTTP/1.1\r\nX-Pad: {}\r\nContent-Length: {}\r\n\r\n", offer.nonce, "a".repeat(15 * 1024), body.len()).into_bytes(), body].concat();
+        assert_eq!(raw(offer.port, &request), 200);
+        wait_until(|| !paired.lock().unwrap().is_empty());
     }
 
     #[test]

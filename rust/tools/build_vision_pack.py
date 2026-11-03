@@ -156,7 +156,8 @@ def main():
             write_zip(root, zipped)
             files = sum(1 for p in root.rglob("*") if p.is_file())
             info[key] = {"id": tree, "size": zipped.stat().st_size, "files": files}
-            print(f"{key}: id {tree[:16]}, {files} files, {zipped.stat().st_size / 1e6:.1f} MB zipped")
+            unpacked = sum(p.stat().st_size for p in root.rglob("*") if p.is_file())
+            print(f"{key}: id {tree[:16]}, {files} files, {zipped.stat().st_size / 1e6:.1f} MB zipped, {unpacked / 1e6:.1f} MB unpacked")
             if args.check and known.get(key, {}).get("id") != tree:
                 problems.append(key)
             if args.out:
