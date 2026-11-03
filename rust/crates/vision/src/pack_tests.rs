@@ -166,3 +166,73 @@ fn the_pack_folder_is_the_python_apps() {
         assert_eq!(info.folder(Path::new("/v")), PathBuf::from("/v").join(info.pack_id().unwrap()));
     }
 }
+
+/// A deflated zip of one file of zeros, which is a few KB for megabytes.
+fn zeros_zipped(megabytes: usize) -> Vec<u8> {
+    let mut z = zip::ZipWriter::new(Cursor::new(Vec::new()));
+    z.start_file("models/bomb.bin", zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated)).unwrap();
+    for _ in 0..megabytes {
+        z.write_all(&vec![0u8; 1 << 20]).unwrap();
+    }
+    z.finish().unwrap().into_inner()
+}
+
+/// The same zip with the size it says the file has (in the local header and the directory) changed to `claim`.
+fn claiming(mut data: Vec<u8>, claim: u32) -> Vec<u8> {
+    for (signature, at) in [([0x50, 0x4b, 0x03, 0x04], 22), ([0x50, 0x4b, 0x01, 0x02], 24)] {
+        let start = data.windows(4).position(|w| w == signature).unwrap();
+        data[start + at..start + at + 4].copy_from_slice(&claim.to_le_bytes());
+    }
+    data
+}
+
+fn download_capped_with(f: &mut Fixture, served: Vec<u8>, cap: u64) -> Result<PathBuf, PackError> {
+    f.info.size = served.len() as u64;
+    let opener = move |_url: &str, _t: Duration| -> io::Result<Box<dyn Read>> { Ok(Box::new(Cursor::new(served.clone()))) };
+    download_capped(&f.info, &f.folder, &mut |_, _| {}, &|| false, &opener, Some("http://x"), cap)
+}
+
+#[test]
+fn a_small_zip_that_says_it_is_big_is_refused_before_anything_is_written() {
+    let mut f = Fixture::new();
+    let bomb = zeros_zipped(8);
+    assert!(bomb.len() < 100_000, "the zip is small: {}", bomb.len());
+    let e = download_capped_with(&mut f, bomb, 1 << 20).unwrap_err();
+    assert!(e.0.contains("unpacks to more"), "{e}");
+    assert!(names(&f.folder).is_empty());
+}
+
+#[test]
+fn a_zip_that_lies_about_its_size_is_stopped_while_unpacking_and_leaves_nothing() {
+    // The zip crate reads no more of an entry than the zip says it has, so what's written can't pass what the first check added up
+    let mut f = Fixture::new();
+    let bomb = claiming(zeros_zipped(8), 10);
+    assert!(download_capped_with(&mut f, bomb, 1 << 20).is_err());
+    assert!(names(&f.folder).is_empty(), "the unpacking folder is gone: {:?}", names(&f.folder));
+}
+
+#[test]
+fn unpack_cleans_up_after_itself_and_takes_what_fits_under_the_ceiling() {
+    let tmp = scratch_dir("vision-bomb");
+    let (archive, staging) = (tmp.join("bomb.zip"), tmp.join("staging"));
+    std::fs::write(&archive, claiming(zeros_zipped(8), 10)).unwrap();
+    assert!(unpack(&archive, &staging, 1 << 20).is_err());
+    assert!(!staging.exists());
+    std::fs::write(&archive, zeros_zipped(8)).unwrap();
+    assert!(matches!(unpack(&archive, &staging, 1 << 20), Err(Failed::Pack(_))));
+    assert!(!staging.exists());
+    // Under the ceiling the same files unpack as before
+    std::fs::write(&archive, zipped(FILES)).unwrap();
+    assert!(unpack(&archive, &staging, 1 << 20).is_ok());
+    assert_eq!(std::fs::read(staging.join("models").join("a.task")).unwrap(), b"model");
+    // A ceiling of exactly what's in it is enough and one byte less isn't
+    let exact: u64 = FILES.iter().map(|(_, d)| d.len() as u64).sum();
+    assert!(unpack(&archive, &staging, exact).is_ok());
+    assert!(matches!(unpack(&archive, &staging, exact - 1), Err(Failed::Pack(_))));
+}
+
+#[test]
+fn the_ceiling_leaves_room_for_the_real_packs() {
+    // The Linux pack unpacks to 135,048,734 bytes
+    assert!(MAX_UNPACKED > 135_048_734 && MAX_UNPACKED < 256 * 1024 * 1024);
+}

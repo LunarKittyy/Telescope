@@ -3013,7 +3013,7 @@ msgstr "휴대폰에서 마이크 연결을 거부했어요(HTTP {code})."
 msgid "No microphone"
 msgstr "마이크 없음"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:673 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:556 rust/crates/shell/src/streams.rs:1568 rust/crates/shell/src/window.rs:1292 rust/crates/shell/src/worker.rs:458 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:673 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:556 rust/crates/shell/src/streams.rs:1568 rust/crates/shell/src/window.rs:1292 rust/crates/shell/src/worker.rs:461 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "스트리밍 중 아님"
 
@@ -4375,7 +4375,7 @@ msgstr "수동"
 msgid "It isn't turned on."
 msgstr "켜져 있지 않아요."
 
-#: rust/crates/plugin-host/src/lua.rs:251
+#: rust/crates/plugin-host/src/lua.rs:363
 #, python-brace-format
 msgid "Its {file} has to return the plugin's table at the end."
 msgstr "{file}의 마지막에서 플러그인 테이블을 반환해야 해요."
@@ -5978,11 +5978,11 @@ msgstr "설정을 읽을 수 없어요"
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescope가 기본값으로 시작되어, 페어링된 휴대폰을 다시 페어링해야 해요."
 
-#: rust/crates/shell/src/shell.rs:883
+#: rust/crates/shell/src/shell.rs:885
 msgid "Telescope - Save failed"
 msgstr "Telescope - 저장 실패"
 
-#: rust/crates/shell/src/shell.rs:884
+#: rust/crates/shell/src/shell.rs:886
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "설정을 저장하지 못했어요. 디스크 공간과 권한을 확인하세요."
 
@@ -6088,7 +6088,7 @@ msgstr "휴대폰 카메라 시작 중…"
 msgid "Couldn't start the phone's camera"
 msgstr "휴대폰 카메라를 시작할 수 없었어요"
 
-#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:742
+#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:756
 msgid "Connecting..."
 msgstr "연결 중..."
 
@@ -6290,43 +6290,43 @@ msgstr "스트리밍 중지"
 msgid "Stop"
 msgstr "중지"
 
-#: rust/crates/shell/src/worker.rs:454
+#: rust/crates/shell/src/worker.rs:457
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "스트림 오류: {error}"
 
-#: rust/crates/shell/src/worker.rs:742
+#: rust/crates/shell/src/worker.rs:756
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "{url}에 연결 중..."
 
-#: rust/crates/shell/src/worker.rs:752
+#: rust/crates/shell/src/worker.rs:766
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "휴대폰의 스트림에 연결할 수 없어요. {seconds}초 후 다시 시도하는 중…"
 
-#: rust/crates/shell/src/worker.rs:764
+#: rust/crates/shell/src/worker.rs:778
 msgid "Waiting for the first frame…"
 msgstr "첫 프레임 대기 중…"
 
-#: rust/crates/shell/src/worker.rs:850
+#: rust/crates/shell/src/worker.rs:864
 msgid "Stream reconnected"
 msgstr "스트림이 다시 연결됨"
 
-#: rust/crates/shell/src/worker.rs:919
+#: rust/crates/shell/src/worker.rs:933
 msgid "The video is paused while the phone takes a photo"
 msgstr "휴대폰에서 사진을 촬영하는 동안 비디오가 일시 정지됨"
 
-#: rust/crates/shell/src/worker.rs:921 rust/crates/shell/src/worker.rs:927
+#: rust/crates/shell/src/worker.rs:935 rust/crates/shell/src/worker.rs:941
 msgid "Stream dropped - reconnecting"
 msgstr "스트림 끊김 - 다시 연결 중"
 
-#: rust/crates/shell/src/worker.rs:1033 rust/crates/shell/src/worker.rs:1079
+#: rust/crates/shell/src/worker.rs:1047 rust/crates/shell/src/worker.rs:1093
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "가상 카메라 오류: {error}"
 
-#: rust/crates/shell/src/worker.rs:1044
+#: rust/crates/shell/src/worker.rs:1058
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{camera}에 {size}, {fps} fps로 스트리밍 중"
@@ -6994,7 +6994,7 @@ msgstr "끄면 자동 스트리밍이 중지되고 설정에서 자동 스트리
 msgid "Couldn't check for updates (HTTP {code})."
 msgstr "업데이트를 확인할 수 없었어요(HTTP {code})."
 
-#: rust/crates/system/src/updates.rs:239 rust/crates/vision/src/pack.rs:249
+#: rust/crates/system/src/updates.rs:239 rust/crates/vision/src/pack.rs:257
 msgid "The download failed. Check the internet connection and try again."
 msgstr "다운로드하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 보세요."
 
@@ -7010,7 +7010,7 @@ msgstr "이 AppImage가 있는 폴더에 쓰기 권한이 없어 Telescope를 �
 msgid "Telescope's folder isn't writable, so it can't update itself."
 msgstr "Telescope 폴더에 쓰기 권한이 없어 자체 업데이트할 수 없어요."
 
-#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:289
+#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:306
 msgid "The download couldn't be unpacked."
 msgstr "다운로드 파일의 압축을 풀 수 없었어요."
 
@@ -7356,23 +7356,27 @@ msgstr "확장됨. 축소하려면 스페이스바 또는 Enter를 누르세요.
 msgid "Add keyboard shortcut…"
 msgstr "키보드 단축키 추가…"
 
-#: rust/crates/vision/src/pack.rs:198
+#: rust/crates/vision/src/pack.rs:206
 msgid "There's no download for this computer yet."
 msgstr "이 컴퓨터용 다운로드가 아직 제공되지 않아요."
 
-#: rust/crates/vision/src/pack.rs:212
+#: rust/crates/vision/src/pack.rs:220
 msgid "Cancelled."
 msgstr "취소되었어요."
 
-#: rust/crates/vision/src/pack.rs:220
+#: rust/crates/vision/src/pack.rs:228
 msgid "The download is bigger than it should be."
 msgstr "다운로드한 파일 크기가 예상보다 커요."
 
-#: rust/crates/vision/src/pack.rs:228
+#: rust/crates/vision/src/pack.rs:236
 msgid "The download didn't match what this version of Telescope expects, so it wasn't used."
 msgstr "다운로드 파일이 이 Telescope 버전에서 요구하는 내용과 일치하지 않아 사용되지 않았어요."
 
-#: rust/crates/vision/src/pack.rs:295
+#: rust/crates/vision/src/pack.rs:307
+msgid "The download unpacks to more than it should, so it wasn't used."
+msgstr ""
+
+#: rust/crates/vision/src/pack.rs:316
 msgid "The download contains unexpected paths, so it wasn't used."
 msgstr "다운로드 파일에 예기치 않은 경로가 포함되어 있어 사용되지 않았어요."
 

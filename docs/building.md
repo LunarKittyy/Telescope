@@ -130,7 +130,7 @@ The packaging scripts use Python 3 for two small jobs, `tools/fetch_rnnoise.py` 
 
 ### The vision pack
 
-MediaPipe and its two models come as a separate download that the optional plugins switch on (Auto framing, Background, Expose for my face). `python tools/build_vision_pack.py --check --out ../vision` from `rust/` builds the pack for both systems (pip fetches the other one's wheels) and checks it against `crates/vision/vision_pack.json`, which the app is built with. After changing a pin in `tools/vision-pack-requirements.txt`, run it with `--write` and commit the result. `release.yml` publishes the zips next to the other files.
+MediaPipe and its two models come as a separate download that the optional plugins switch on (Auto framing, Background, Expose for my face). `python tools/build_vision_pack.py --check --out ../vision` from `rust/` builds the pack for both systems (pip fetches the other one's wheels) and checks it against `crates/vision/vision_pack.json`, which the app is built with. After changing a pin in `tools/vision-pack-requirements.txt`, run it with `--write` and commit the result. It also prints how big each pack is unpacked, which has to stay under `MAX_UNPACKED` in `crates/vision/src/pack.rs` (160 MiB, with the Linux pack at 135 MB), because the app stops unpacking a download at that size. Raise it if a pin bump makes the pack grow past it. `release.yml` publishes the zips next to the other files.
 
 ## CI
 

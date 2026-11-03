@@ -3013,7 +3013,7 @@ msgstr "手机拒绝了麦克风请求（HTTP {code}）。"
 msgid "No microphone"
 msgstr "无麦克风"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:673 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:556 rust/crates/shell/src/streams.rs:1568 rust/crates/shell/src/window.rs:1292 rust/crates/shell/src/worker.rs:458 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:673 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:556 rust/crates/shell/src/streams.rs:1568 rust/crates/shell/src/window.rs:1292 rust/crates/shell/src/worker.rs:461 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "未串流"
 
@@ -4375,7 +4375,7 @@ msgstr "手动"
 msgid "It isn't turned on."
 msgstr "它未开启。"
 
-#: rust/crates/plugin-host/src/lua.rs:251
+#: rust/crates/plugin-host/src/lua.rs:363
 #, python-brace-format
 msgid "Its {file} has to return the plugin's table at the end."
 msgstr "{file} 的末尾必须返回插件表。"
@@ -5978,11 +5978,11 @@ msgstr "无法读取你的设置"
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescope 已按默认设置启动，因此已配对的手机需要重新配对。"
 
-#: rust/crates/shell/src/shell.rs:883
+#: rust/crates/shell/src/shell.rs:885
 msgid "Telescope - Save failed"
 msgstr "Telescope - 保存失败"
 
-#: rust/crates/shell/src/shell.rs:884
+#: rust/crates/shell/src/shell.rs:886
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "无法保存设置。请检查磁盘空间和权限。"
 
@@ -6088,7 +6088,7 @@ msgstr "正在启动手机相机…"
 msgid "Couldn't start the phone's camera"
 msgstr "无法启动手机相机"
 
-#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:742
+#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:756
 msgid "Connecting..."
 msgstr "正在连接..."
 
@@ -6290,43 +6290,43 @@ msgstr "停止串流"
 msgid "Stop"
 msgstr "停止"
 
-#: rust/crates/shell/src/worker.rs:454
+#: rust/crates/shell/src/worker.rs:457
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "串流错误：{error}"
 
-#: rust/crates/shell/src/worker.rs:742
+#: rust/crates/shell/src/worker.rs:756
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "正在连接到 {url}..."
 
-#: rust/crates/shell/src/worker.rs:752
+#: rust/crates/shell/src/worker.rs:766
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "无法连接到手机的串流。将在 {seconds} 秒后重试…"
 
-#: rust/crates/shell/src/worker.rs:764
+#: rust/crates/shell/src/worker.rs:778
 msgid "Waiting for the first frame…"
 msgstr "正在等待首帧…"
 
-#: rust/crates/shell/src/worker.rs:850
+#: rust/crates/shell/src/worker.rs:864
 msgid "Stream reconnected"
 msgstr "串流已重新连接"
 
-#: rust/crates/shell/src/worker.rs:919
+#: rust/crates/shell/src/worker.rs:933
 msgid "The video is paused while the phone takes a photo"
 msgstr "手机拍照期间视频已暂停"
 
-#: rust/crates/shell/src/worker.rs:921 rust/crates/shell/src/worker.rs:927
+#: rust/crates/shell/src/worker.rs:935 rust/crates/shell/src/worker.rs:941
 msgid "Stream dropped - reconnecting"
 msgstr "串流中断 - 正在重新连接"
 
-#: rust/crates/shell/src/worker.rs:1033 rust/crates/shell/src/worker.rs:1079
+#: rust/crates/shell/src/worker.rs:1047 rust/crates/shell/src/worker.rs:1093
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "虚拟相机错误：{error}"
 
-#: rust/crates/shell/src/worker.rs:1044
+#: rust/crates/shell/src/worker.rs:1058
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "正在以 {size}、{fps} fps 串流至 {camera}"
@@ -6994,7 +6994,7 @@ msgstr "关闭后自动串流将停止，且自动串流与开机登录选项都
 msgid "Couldn't check for updates (HTTP {code})."
 msgstr "无法检查更新（HTTP {code}）。"
 
-#: rust/crates/system/src/updates.rs:239 rust/crates/vision/src/pack.rs:249
+#: rust/crates/system/src/updates.rs:239 rust/crates/vision/src/pack.rs:257
 msgid "The download failed. Check the internet connection and try again."
 msgstr "下载失败。请检查网络连接并重试。"
 
@@ -7010,7 +7010,7 @@ msgstr "Telescope 无法自动更新，因为存放此 AppImage 的文件夹不�
 msgid "Telescope's folder isn't writable, so it can't update itself."
 msgstr "Telescope 所在的文件夹不可写，因此无法自动更新。"
 
-#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:289
+#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:306
 msgid "The download couldn't be unpacked."
 msgstr "无法解压下载的内容。"
 
@@ -7356,23 +7356,27 @@ msgstr "已展开。按空格键或回车键折叠。"
 msgid "Add keyboard shortcut…"
 msgstr "添加快捷键…"
 
-#: rust/crates/vision/src/pack.rs:198
+#: rust/crates/vision/src/pack.rs:206
 msgid "There's no download for this computer yet."
 msgstr "尚无可用于这台电脑的下载项。"
 
-#: rust/crates/vision/src/pack.rs:212
+#: rust/crates/vision/src/pack.rs:220
 msgid "Cancelled."
 msgstr "已取消。"
 
-#: rust/crates/vision/src/pack.rs:220
+#: rust/crates/vision/src/pack.rs:228
 msgid "The download is bigger than it should be."
 msgstr "下载的文件超出预期大小。"
 
-#: rust/crates/vision/src/pack.rs:228
+#: rust/crates/vision/src/pack.rs:236
 msgid "The download didn't match what this version of Telescope expects, so it wasn't used."
 msgstr "下载的内容与此版本 Telescope 的预期不符，因此未使用。"
 
-#: rust/crates/vision/src/pack.rs:295
+#: rust/crates/vision/src/pack.rs:307
+msgid "The download unpacks to more than it should, so it wasn't used."
+msgstr ""
+
+#: rust/crates/vision/src/pack.rs:316
 msgid "The download contains unexpected paths, so it wasn't used."
 msgstr "下载的内容包含异常路径，因此未使用。"
 

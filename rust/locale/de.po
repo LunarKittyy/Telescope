@@ -3013,7 +3013,7 @@ msgstr "Das Smartphone hat das Mikrofon verweigert (HTTP {code})."
 msgid "No microphone"
 msgstr "Kein Mikrofon"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:673 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:556 rust/crates/shell/src/streams.rs:1568 rust/crates/shell/src/window.rs:1292 rust/crates/shell/src/worker.rs:458 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:673 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:556 rust/crates/shell/src/streams.rs:1568 rust/crates/shell/src/window.rs:1292 rust/crates/shell/src/worker.rs:461 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "Streamt nicht"
 
@@ -4375,7 +4375,7 @@ msgstr "Manuell"
 msgid "It isn't turned on."
 msgstr "Es ist nicht eingeschaltet."
 
-#: rust/crates/plugin-host/src/lua.rs:251
+#: rust/crates/plugin-host/src/lua.rs:363
 #, python-brace-format
 msgid "Its {file} has to return the plugin's table at the end."
 msgstr "Die Datei {file} muss am Ende die Tabelle des Plugins zurückgeben."
@@ -5984,11 +5984,11 @@ msgstr "Deine Einstellungen konnten nicht gelesen werden"
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescope wurde mit Standardwerten gestartet, daher müssen gekoppelte Smartphones erneut gekoppelt werden."
 
-#: rust/crates/shell/src/shell.rs:883
+#: rust/crates/shell/src/shell.rs:885
 msgid "Telescope - Save failed"
 msgstr "Telescope - Speichern fehlgeschlagen"
 
-#: rust/crates/shell/src/shell.rs:884
+#: rust/crates/shell/src/shell.rs:886
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "Einstellungen konnten nicht gespeichert werden. Prüfe Speicherplatz und Berechtigungen."
 
@@ -6094,7 +6094,7 @@ msgstr "Smartphone-Kamera wird gestartet…"
 msgid "Couldn't start the phone's camera"
 msgstr "Smartphone-Kamera konnte nicht gestartet werden"
 
-#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:742
+#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:756
 msgid "Connecting..."
 msgstr "Verbindet..."
 
@@ -6296,43 +6296,43 @@ msgstr "Streaming stoppen"
 msgid "Stop"
 msgstr "Stopp"
 
-#: rust/crates/shell/src/worker.rs:454
+#: rust/crates/shell/src/worker.rs:457
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "Stream-Fehler: {error}"
 
-#: rust/crates/shell/src/worker.rs:742
+#: rust/crates/shell/src/worker.rs:756
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "Verbindet mit {url}..."
 
-#: rust/crates/shell/src/worker.rs:752
+#: rust/crates/shell/src/worker.rs:766
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "Der Stream des Smartphones kann nicht erreicht werden. Neuer Versuch in {seconds} s…"
 
-#: rust/crates/shell/src/worker.rs:764
+#: rust/crates/shell/src/worker.rs:778
 msgid "Waiting for the first frame…"
 msgstr "Warten auf das erste Bild…"
 
-#: rust/crates/shell/src/worker.rs:850
+#: rust/crates/shell/src/worker.rs:864
 msgid "Stream reconnected"
 msgstr "Stream wieder verbunden"
 
-#: rust/crates/shell/src/worker.rs:919
+#: rust/crates/shell/src/worker.rs:933
 msgid "The video is paused while the phone takes a photo"
 msgstr "Das Video ist pausiert, während das Smartphone ein Foto aufnimmt"
 
-#: rust/crates/shell/src/worker.rs:921 rust/crates/shell/src/worker.rs:927
+#: rust/crates/shell/src/worker.rs:935 rust/crates/shell/src/worker.rs:941
 msgid "Stream dropped - reconnecting"
 msgstr "Stream abgebrochen - verbindet erneut"
 
-#: rust/crates/shell/src/worker.rs:1033 rust/crates/shell/src/worker.rs:1079
+#: rust/crates/shell/src/worker.rs:1047 rust/crates/shell/src/worker.rs:1093
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "Fehler der virtuellen Kamera: {error}"
 
-#: rust/crates/shell/src/worker.rs:1044
+#: rust/crates/shell/src/worker.rs:1058
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Streamt {size} mit {fps} fps an {camera}"
@@ -7002,7 +7002,7 @@ msgstr "Ohne dieses Plugin hört das automatische Streaming auf, und es sowie di
 msgid "Couldn't check for updates (HTTP {code})."
 msgstr "Nach Updates konnte nicht gesucht werden (HTTP {code})."
 
-#: rust/crates/system/src/updates.rs:239 rust/crates/vision/src/pack.rs:249
+#: rust/crates/system/src/updates.rs:239 rust/crates/vision/src/pack.rs:257
 msgid "The download failed. Check the internet connection and try again."
 msgstr "Der Download ist fehlgeschlagen. Prüfe die Internetverbindung und versuche es erneut."
 
@@ -7018,7 +7018,7 @@ msgstr "Telescope kann sich nicht selbst aktualisieren, weil der Ordner mit dies
 msgid "Telescope's folder isn't writable, so it can't update itself."
 msgstr "Der Ordner von Telescope ist schreibgeschützt, daher kann es sich nicht selbst aktualisieren."
 
-#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:289
+#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:306
 msgid "The download couldn't be unpacked."
 msgstr "Der Download konnte nicht entpackt werden."
 
@@ -7364,23 +7364,27 @@ msgstr "Ausgeklappt. Leertaste oder Eingabetaste zum Einklappen drücken."
 msgid "Add keyboard shortcut…"
 msgstr "Tastenkombination hinzufügen…"
 
-#: rust/crates/vision/src/pack.rs:198
+#: rust/crates/vision/src/pack.rs:206
 msgid "There's no download for this computer yet."
 msgstr "Für diesen Computer ist noch kein Download verfügbar."
 
-#: rust/crates/vision/src/pack.rs:212
+#: rust/crates/vision/src/pack.rs:220
 msgid "Cancelled."
 msgstr "Abgebrochen."
 
-#: rust/crates/vision/src/pack.rs:220
+#: rust/crates/vision/src/pack.rs:228
 msgid "The download is bigger than it should be."
 msgstr "Der Download ist größer als erwartet."
 
-#: rust/crates/vision/src/pack.rs:228
+#: rust/crates/vision/src/pack.rs:236
 msgid "The download didn't match what this version of Telescope expects, so it wasn't used."
 msgstr "Der Download entsprach nicht den Erwartungen der aktuellen Version von Telescope und wurde daher nicht verwendet."
 
-#: rust/crates/vision/src/pack.rs:295
+#: rust/crates/vision/src/pack.rs:307
+msgid "The download unpacks to more than it should, so it wasn't used."
+msgstr ""
+
+#: rust/crates/vision/src/pack.rs:316
 msgid "The download contains unexpected paths, so it wasn't used."
 msgstr "Der Download enthält unerwartete Pfade und wurde daher nicht verwendet."
 
