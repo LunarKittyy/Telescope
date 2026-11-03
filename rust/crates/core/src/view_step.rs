@@ -111,6 +111,68 @@ impl CpuStep for Turn {
     }
 }
 
+/// A mirror, a flip or a half turn: the planes copied across in another order, so the picture never has to visit the graphics card.
+struct Flip {
+    horizontal: bool,
+    vertical: bool,
+}
+
+/// `plane` (w x h, `bpp` bytes a pixel) flipped left to right and/or top to bottom, in place.
+fn flip_plane(plane: &mut [u8], w: usize, h: usize, bpp: usize, horizontal: bool, vertical: bool) {
+    let row = w * bpp;
+    if horizontal && row > 0 {
+        for line in plane.chunks_exact_mut(row) {
+            if bpp == 1 {
+                line.reverse();
+            } else {
+                for x in 0..w / 2 {
+                    for b in 0..bpp {
+                        line.swap(x * bpp + b, (w - 1 - x) * bpp + b);
+                    }
+                }
+            }
+        }
+    }
+    if vertical {
+        for y in 0..h / 2 {
+            let (top, bottom) = plane.split_at_mut((h - 1 - y) * row);
+            top[y * row..(y + 1) * row].swap_with_slice(&mut bottom[..row]);
+        }
+    }
+}
+
+/// The frame flipped in place.
+pub fn flip_frame(frame: &mut Frame, horizontal: bool, vertical: bool) {
+    if !horizontal && !vertical {
+        return;
+    }
+    let (w, h) = (frame.width as usize, frame.height as usize);
+    let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+    let format = frame.format;
+    let data = frame.data_mut();
+    match format {
+        PixelFormat::Rgba | PixelFormat::Bgra => flip_plane(data, w, h, 4, horizontal, vertical),
+        PixelFormat::I420 => {
+            let (y, rest) = data.split_at_mut(w * h);
+            let (u, v) = rest.split_at_mut(cw * ch);
+            flip_plane(y, w, h, 1, horizontal, vertical);
+            flip_plane(u, cw, ch, 1, horizontal, vertical);
+            flip_plane(v, cw, ch, 1, horizontal, vertical);
+        }
+        PixelFormat::Nv12 => {
+            let (y, uv) = data.split_at_mut(w * h);
+            flip_plane(y, w, h, 1, horizontal, vertical);
+            flip_plane(uv, cw, ch, 2, horizontal, vertical);
+        }
+    }
+}
+
+impl CpuStep for Flip {
+    fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+        flip_frame(frame, self.horizontal, self.vertical);
+    }
+}
+
 /// The uniforms of a shader pass for the picture as given (turned by `done` quarters already): `zoom` the crop, flips and half turn of
 /// `view`, `stretch` its stretch. Python does these in two resamplings, the stretch of the 8-bit result of the crop, and so does
 /// this, so thin lines blur the same amount.
@@ -132,7 +194,8 @@ fn stretch_needed(view: &View) -> bool {
 }
 
 /// The frame steps of a view, in order: a CPU quarter turn when the picture changes shape, a shader for the crop, flips and half
-/// turn, and one for the stretch. No steps for a view that changes nothing.
+/// turn, and one for the stretch. No steps for a view that changes nothing. A view that only mirrors, flips or half turns is a CPU
+/// copy instead: a busy card (OBS encoding) would hold up every frame for a shader, and a shader step can't move to the CPU.
 pub fn steps(view: &View) -> Vec<FrameStep> {
     let q = quarters(view.rotation);
     let mut out: Vec<FrameStep> = Vec::new();
@@ -141,7 +204,11 @@ pub fn steps(view: &View) -> Vec<FrameStep> {
     if done != 0 {
         out.push(FrameStep::Cpu(Box::new(Turn { quarters: done })));
     }
-    if crop_needed(view) {
+    if crop_needed(view) && done == 0 && view.zoom <= 1.0 && !stretch_needed(view) {
+        // A half turn is both flips, and a second flip undoes the first
+        let half = quarters(view.rotation) == 2;
+        out.push(FrameStep::Cpu(Box::new(Flip { horizontal: view.flip_h != half, vertical: view.flip_v != half })));
+    } else if crop_needed(view) {
         out.push(FrameStep::Shader(ShaderStep { wgsl: WGSL.into(), uniforms: uniforms(view, done, true, false), textures: Vec::new() }));
     }
     if stretch_needed(view) {
@@ -166,12 +233,66 @@ mod tests {
     }
 
     #[test]
-    fn zoom_flip_stretch_and_a_half_turn_are_one_shader() {
-        for view in [View { zoom: 2.0, ..View::default() }, View { flip_h: true, ..View::default() }, View { flip_v: true, ..View::default() },
-                     View { stretch_x: 0.8, ..View::default() }, View { rotation: Some(180), ..View::default() }] {
+    fn zoom_and_stretch_are_one_shader() {
+        for view in [View { zoom: 2.0, ..View::default() }, View { stretch_x: 0.8, ..View::default() }, View { flip_h: true, zoom: 2.0, ..View::default() }] {
             let s = steps(&view);
             assert!(s.len() == 1 && matches!(s[0], FrameStep::Shader(_)), "{view:?}");
         }
+    }
+
+    #[test]
+    fn a_mirror_a_flip_or_a_half_turn_alone_never_needs_the_graphics_card() {
+        for view in [View { flip_h: true, ..View::default() }, View { flip_v: true, ..View::default() }, View { rotation: Some(180), ..View::default() },
+                     View { rotation: Some(180), flip_h: true, flip_v: true, ..View::default() }] {
+            let s = steps(&view);
+            assert!(s.len() == 1 && matches!(s[0], FrameStep::Cpu(_)), "{view:?}");
+        }
+    }
+
+    struct NoCtx;
+
+    impl FrameContext for NoCtx {
+        fn source_id(&self) -> &str {
+            ""
+        }
+        fn person_mask(&self, _frame: &Frame) -> Option<std::sync::Arc<Vec<u8>>> {
+            None
+        }
+        fn colour_preview(&self, frame: &Frame) -> Frame {
+            frame.clone()
+        }
+    }
+
+    fn through(view: &View, mut frame: Frame) -> Frame {
+        for step in steps(view) {
+            let FrameStep::Cpu(mut cpu) = step else { panic!("a CPU step") };
+            cpu.process(&mut frame, &NoCtx);
+        }
+        frame
+    }
+
+    #[test]
+    fn the_cpu_flips_move_pixels_like_opencv_flip() {
+        // 3 wide, 2 tall: [[0, 1, 2], [3, 4, 5]]
+        let f = rgba(3, 2);
+        let reds = |f: &Frame| f.data.chunks(4).map(|p| p[0]).collect::<Vec<_>>();
+        assert_eq!(reds(&through(&View { flip_h: true, ..View::default() }, f.clone())), [2, 1, 0, 5, 4, 3]);
+        assert_eq!(reds(&through(&View { flip_v: true, ..View::default() }, f.clone())), [3, 4, 5, 0, 1, 2]);
+        assert_eq!(reds(&through(&View { rotation: Some(180), ..View::default() }, f.clone())), [5, 4, 3, 2, 1, 0]);
+        assert_eq!(reds(&through(&View { rotation: Some(180), flip_h: true, ..View::default() }, f.clone())), [3, 4, 5, 0, 1, 2], "a half turn and a mirror is a flip");
+    }
+
+    #[test]
+    fn a_flipped_yuv_picture_flips_each_plane() {
+        let mut data: Vec<u8> = (0..4 * 2).collect();
+        data.extend([100, 101]);
+        data.extend([200, 201]);
+        let f = through(&View { flip_h: true, ..View::default() }, Frame::new(4, 2, PixelFormat::I420, data));
+        let (y, u, v) = f.i420_planes().unwrap();
+        assert_eq!(y, [3, 2, 1, 0, 7, 6, 5, 4]);
+        assert_eq!((u, v), (&[101, 100][..], &[201, 200][..]));
+        let nv = through(&View { flip_h: true, flip_v: true, ..View::default() }, Frame::new(4, 2, PixelFormat::Nv12, vec![0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13]));
+        assert_eq!(*nv.data, vec![7, 6, 5, 4, 3, 2, 1, 0, 12, 13, 10, 11], "a pair of chroma bytes stays a pair");
     }
 
     #[test]

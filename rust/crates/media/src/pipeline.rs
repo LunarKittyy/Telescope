@@ -31,6 +31,15 @@ impl Kind {
         }
     }
 
+    /// Where it can run, for the log.
+    fn label(&self) -> &'static str {
+        match self {
+            Kind::Cpu(_) => "cpu",
+            Kind::Shader(_) => "card only",
+            Kind::Either(..) => "either",
+        }
+    }
+
     fn cpu(&mut self) -> &mut Box<dyn CpuStep> {
         match self {
             Kind::Cpu(step) | Kind::Either(_, step) => step,
@@ -289,8 +298,9 @@ impl Pipeline {
             let masks = transfers::totals().mask_up;
             if (t.ups, t.downs) != t.logged || masks != t.masks {
                 let per = |n: u32| n as f32 / TALLY_FRAMES as f32;
-                log::info!("Frame steps cost {:.2} up and {:.2} down per frame over {TALLY_FRAMES} frames, with {} steps and {} person masks up",
-                           per(t.ups), per(t.downs), self.steps.len(), masks - t.masks);
+                let names: Vec<String> = self.steps.iter().map(|e| format!("{} {}", e.owner, e.kind.label())).collect();
+                log::info!("Frame steps cost {:.2} up and {:.2} down per frame over {TALLY_FRAMES} frames, with {} steps and {} person masks up ({})",
+                           per(t.ups), per(t.downs), self.steps.len(), masks - t.masks, names.join(", "));
                 t.logged = (t.ups, t.downs);
             }
             (t.frames, t.ups, t.downs, t.masks) = (0, 0, 0, masks);
@@ -625,6 +635,19 @@ pub(crate) mod tests {
             p.process(grey(8, 8, 126), &NoContext);
             assert_eq!(p.last_transfers, want, "{what}");
         }
+    }
+
+    #[test]
+    fn a_mirrored_view_never_visits_the_card() {
+        use telescope_core::host::View;
+        let mut p = Pipeline::new();
+        let view = telescope_core::view_step::steps(&View { flip_h: true, ..View::default() });
+        p.set_steps(view.into_iter().map(|step| StagedStep { owner: "view".into(), stage: FrameStage::View, step }).collect());
+        let mut frame = grey(8, 8, 10);
+        frame.data_mut()[0] = 99;
+        let out = p.process(frame, &NoContext);
+        assert_eq!(p.last_transfers, (0, 0), "a busy card can't hold the frame up");
+        assert_eq!(out.data[7], 99, "and the picture is still mirrored");
     }
 
     #[test]
