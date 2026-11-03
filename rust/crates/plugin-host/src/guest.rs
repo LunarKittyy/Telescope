@@ -698,9 +698,13 @@ impl<G: Guest> Plugin for GuestPlugin<G> {
     }
 
     fn get_config(&self) -> Value {
+        if !self.guest.borrow().defines("get_config") {
+            return json!({});
+        }
+        // A hook that threw, timed out or gave no table is not an empty section: null makes the host keep what it saved
         match self.hook(None, "get_config", vec![]) {
             Some(v @ Value::Object(_)) => v,
-            _ => json!({}),
+            _ => Value::Null,
         }
     }
 

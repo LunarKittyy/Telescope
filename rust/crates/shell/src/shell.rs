@@ -463,7 +463,7 @@ impl State {
             let card = p.card();
             let header = p.header_widget();
             let tray = p.tray_actions();
-            let defaults = p.get_config();
+            let defaults = Some(p.get_config()).filter(Value::is_object).unwrap_or_else(|| json!({}));
             (card, header, tray, defaults)
         });
         let Some((card, header, tray, defaults)) = made else {
@@ -1128,7 +1128,7 @@ impl State {
     /// A plugin's current settings, if it's running.
     pub fn plugin_config(&self, name: &str) -> Option<Value> {
         let i = self.index(name)?;
-        self.slots[i].plugin.as_ref().map(|p| p.get_config())
+        self.slots[i].plugin.as_ref().map(|p| p.get_config()).filter(Value::is_object)
     }
 
     /// The built-in plugins off this run, the way the Plugins tab and diagnostics count them.
@@ -1936,6 +1936,17 @@ mod tests {
         assert_eq!(s.banners.issue("plugins").unwrap().title, "Quitter didn't start");
         assert!(s.problems["quitter"].contains("quitter"));
         assert_eq!(s.diagnostics().into_iter().find(|(k, _)| k == "Added plugins").unwrap().1, "quitter (didn't start)");
+    }
+
+    #[test]
+    fn a_plugin_whose_settings_hook_fails_keeps_what_was_saved() {
+        let mut s = state();
+        s.register(stub("shaky", Value::Null, false).0).unwrap();
+        assert_eq!(s.slots[0].defaults, json!({}));
+        assert!(s.plugin_config("shaky").is_none());
+        let saved = json!({"zoom": 2});
+        assert_eq!(s.config_of(0, Some(&saved)), Some(saved));
+        assert_eq!(s.config_of(0, None), None);
     }
 
     fn broken(name: &str, title: &str) -> PluginProblem {

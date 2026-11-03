@@ -63,6 +63,19 @@ fn a_hook_that_never_ends_is_stopped() {
 }
 
 #[test]
+fn a_get_config_that_fails_is_not_an_empty_section() {
+    let folder = plugin("shaky", "local broken = false\n\
+        return { get_config = function() if broken then error('no') end return { zoom = 2 } end,\n\
+                 set_config = function(c) broken = c.fail end }\n", json!({}));
+    let mut t = PluginTest::open(&folder).unwrap();
+    assert_eq!(t.config(), json!({"zoom": 2}));
+    t.set_config(json!({"fail": true})).unwrap();
+    assert!(!t.config().is_object(), "a hook that threw gives nothing, so the host keeps what it saved");
+    let folder = plugin("plain", "return {}\n", json!({}));
+    assert_eq!(PluginTest::open(&folder).unwrap().config(), json!({}), "a plugin with no settings has an empty section");
+}
+
+#[test]
 fn a_plugin_that_takes_too_much_memory_is_stopped() {
     let folder = plugin("hungry", "return { setup = function() local t = {} for i = 1, 1e9 do t[i] = string.rep('x', 4096) .. i end end }\n", json!({}));
     let err = PluginTest::open(&folder).unwrap().call("setup", vec![]).unwrap_err();
