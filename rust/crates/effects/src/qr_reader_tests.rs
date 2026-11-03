@@ -591,6 +591,13 @@ fn a_new_step_keeps_to_the_same_pace() {
     let frame = video_frame("https://example.com");
     let mut step = cpu(rig.plugin.frame_step());
     look(&mut *step, &frame, &rig.host);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while rig.plugin.shared.busy.load(Ordering::SeqCst) {
+        assert!(Instant::now() < deadline, "the look never finished");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    // a slow machine can take longer than the pace to get here, so the last look is dated now
+    *rig.plugin.shared.looked_at.lock().unwrap() = Some(Instant::now());
     let mut next = cpu(rig.plugin.frame_step());
     let mut copy = frame.clone();
     next.process(&mut copy, &NoContext);

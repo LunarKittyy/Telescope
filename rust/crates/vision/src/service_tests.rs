@@ -220,10 +220,11 @@ fn test_more_of_the_last_mask_carries_over_while_nothing_moves() {
     *r.backend.values.lock().unwrap() = vec![200, 0, 0];
     let still = Rgb::filled(1280, 720, 80);
     mask(&r.v, "a", 1, &still);
-    sv(&r.v, "a").mask.lock().unwrap().at -= MASK_STILL_EVERY_S + TICK;
+    sv(&r.v, "a").mask.lock().unwrap().at = monotonic() - (MASK_STILL_EVERY_S + TICK);
     let calm = mask(&r.v, "a", 2, &still).unwrap();
     assert_eq!(calm[0], (200.0 * MASK_CARRY_STILL).round() as u8);
     let moved = with_arm(&still, (400, 700), (200, 500), 200);
+    sv(&r.v, "a").mask.lock().unwrap().at = monotonic();
     let quick = mask(&r.v, "a", 3, &moved).unwrap();
     assert_eq!(quick[0], (calm[0] as f64 * MASK_CARRY).round() as u8);
 }
@@ -462,6 +463,8 @@ fn test_frames_for_people_are_spaced_out_and_made_small() {
         if let Some((small, _)) = sv(&r.v, "a").people.lock().unwrap().frame.take() {
             sizes.push((small.w, small.h));
         }
+        // from now, so a slow machine's time between frames doesn't count
+        sv(&r.v, "a").people.lock().unwrap().at = monotonic();
     }
     assert_eq!(sizes, [(640, 360)]);
 }
