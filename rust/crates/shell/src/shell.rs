@@ -331,6 +331,8 @@ pub struct State {
     pub upright: Arc<std::sync::Mutex<telescope_core::vision::Upright>>,
     /// Motion in zones of the shown stream's picture, for the plugins that watch it; the workers feed it.
     pub motion: Arc<telescope_core::motion::Motion>,
+    /// Which worker each stream's vision and motion state belongs to, so a slow-ending one leaves a replacement's alone.
+    pub state_owners: Arc<crate::worker::StateOwners>,
     /// Each stream's frames before the view, as (width, height), from its worker (view_controller._frame_size).
     pub frame_sizes: Arc<std::sync::Mutex<std::collections::HashMap<String, (u32, u32)>>>,
     /// One of Telescope's windows is in front (keys.rs watches it).
@@ -405,6 +407,7 @@ impl State {
                 sender.emit(Event::MotionSeen { source_id: key.to_string(), owner: owner.to_string(), zones: zones.to_vec() });
             }))),
             frame_sizes: Arc::default(),
+            state_owners: Arc::default(),
             keep_in_tray: false,
             link: None,
             window_active: false,
@@ -745,7 +748,7 @@ impl State {
     /// What the view controller asked for: events on the bus, the phone's zoom, a new view step.
     /// What a new worker hands the vision service.
     pub fn vision_feed(&self) -> Option<crate::worker::VisionFeed> {
-        self.vision.clone().map(|service| crate::worker::VisionFeed { service, upright: self.upright.clone(), frame_sizes: self.frame_sizes.clone(), motion: Some(self.motion.clone()) })
+        self.vision.clone().map(|service| crate::worker::VisionFeed { service, upright: self.upright.clone(), frame_sizes: self.frame_sizes.clone(), motion: Some(self.motion.clone()), owners: self.state_owners.clone(), owner: 0 })
     }
 
     /// The shown stream's frames before the view, (0, 0) before its first one.

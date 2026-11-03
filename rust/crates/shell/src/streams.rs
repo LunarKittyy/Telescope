@@ -1625,10 +1625,13 @@ impl FlowHost for Host<'_> {
         let opener = source.kind.opener().unwrap_or_else(|| Arc::new(|_| Err(tr("Couldn't reach the phone."))));
         // Before the thread starts, so no frame goes out without them
         let steps = self.w.state.borrow_mut().pipeline_steps(source.id.as_deref().filter(|id| !id.is_empty()));
+        // This worker now owns the stream's vision and motion state: an older one for the same source that's slow to end leaves it alone
+        self.w.state.borrow().state_owners.claim(source.id_str(), id);
+        let vision = self.w.state.borrow().vision_feed().map(|feed| crate::worker::VisionFeed { owner: id, ..feed });
         let setup = WorkerSetup { url: url.into(), opener, width: params.0, height: params.1, fps: params.2, canvas,
                                   slot: source.slot(), source_id: source.id_str().into(), hardware_decode: hardware,
                                   plugin_source: source.kind.as_phone().is_none(), waiting_text: source.kind.waiting_text(),
-                                  vision: self.w.state.borrow().vision_feed(), steps, gate: Some(self.w.state.borrow().vc.gate()) };
+                                  vision, steps, gate: Some(self.w.state.borrow().vc.gate()) };
         let slot: Arc<dyn FrameSlot> = services.media.stream_frames().map(|f| f.new_slot()).unwrap_or_else(local_slot);
         let slot: Arc<dyn FrameSlot> = Arc::new(WakingSlot { inner: slot, pending: self.w.streams.frame_wake.clone() });
         let weak = self.w.ui.as_weak();
@@ -1655,17 +1658,20 @@ impl FlowHost for Host<'_> {
         // Vision and motion state goes after the worker has stopped, not before: a frame still in flight would make it again
         let forget = inner.source_id().map(|id| {
             let st = self.w.state.borrow();
-            (id.to_string(), st.vision.clone(), st.motion.clone())
+            (id.to_string(), st.vision.clone(), st.motion.clone(), st.state_owners.clone())
         });
+        let owner = w.id;
         // Off the UI thread, so a stalled read can't freeze the window, but a stop that goes normally ends before the next worker opens the camera
         let (stopped, wait) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
             inner.stop();
-            if let Some((id, vision, motion)) = forget {
-                if let Some(vision) = vision {
-                    vision.drop_stream(&id);
-                }
-                motion.drop_stream(&id);
+            if let Some((id, vision, motion, owners)) = forget {
+                owners.release(&id, owner, || {
+                    if let Some(vision) = vision {
+                        vision.drop_stream(&id);
+                    }
+                    motion.drop_stream(&id);
+                });
             }
             let _ = stopped.send(());
         });
