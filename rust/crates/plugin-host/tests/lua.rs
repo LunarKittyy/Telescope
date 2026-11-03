@@ -87,6 +87,11 @@ fn patterns_that_would_run_for_ages_are_stopped_with_an_error() {
         ("balanced", r#"return string.rep("(", 1000000):match("%b()")"#),
         ("optionals", r#"return string.rep("a", 40):match("^" .. string.rep("a?", 40) .. string.rep("a", 40) .. "b")"#),
         ("plain_needle", r#"return string.rep("a", 1000000):find(string.rep("a", 500000) .. "b", 1, true)"#),
+        ("long_literal", r#"return string.rep("a", 1000000):match(string.rep("a", 500000) .. "b")"#),
+        ("long_bracket", r#"return string.rep("a", 1000000):match("[" .. string.rep("x", 5000) .. "]b")"#),
+        ("long_bracket_loop", r#"return string.rep("a", 1000000):match("[" .. string.rep("x", 5000) .. "]*b")"#),
+        ("back_reference", r#"return string.rep("a", 100000):match("(a*)%1b")"#),
+        ("frontier", r#"return string.rep("a", 1000000):match("%f[" .. string.rep("x", 5000) .. "]b")"#),
         ("find", r#"return string.find(string.rep("a", 3000), "a*a*a*b")"#),
         ("gsub", r#"return (string.rep("a", 3000)):gsub("a*a*a*b", "x")"#),
         ("gmatch", r#"for _ in string.gmatch(string.rep("a", 3000), "a*a*a*b") do end"#),
@@ -109,6 +114,91 @@ fn a_pattern_that_was_stopped_leaves_the_plugin_working() {
     let mut t = PluginTest::open(&folder).unwrap();
     assert!(t.call("slow", vec![]).unwrap_err().contains("too many steps"));
     assert_eq!(t.call("fine", vec![]).unwrap(), json!("key"));
+}
+
+/// The first few kinds of subjects and shapes of pattern that make a matcher slow, for the stress test to mix.
+fn stress_case(pick: &mut impl FnMut(usize) -> usize) -> (Vec<u8>, Vec<u8>, usize, String) {
+    const SIZES: &[usize] = &[1_000, 20_000, 300_000, 1_000_000, 2_000_000];
+    let n = SIZES[pick(SIZES.len())];
+    let subject: Vec<u8> = match pick(6) {
+        0 => vec![b'a'; n],
+        1 => b"ab".iter().copied().cycle().take(n).collect(),
+        2 => vec![b'('; n],
+        3 => std::iter::repeat_n(b'a', n - 1).chain([b'b']).collect(),
+        4 => (0..n).map(|_| b"ab (x\n"[pick(6)]).collect(),
+        _ => b"word ".iter().copied().cycle().take(n).collect(),
+    };
+    const RUNS: &[usize] = &[1, 2, 10, 1_000, 100_000, 500_000];
+    const SUFFIXES: &[&str] = &["", "", "*", "+", "-", "?"];
+    let mut pattern = String::new();
+    if pick(5) == 0 {
+        pattern.push('^');
+    }
+    for _ in 0..1 + pick(6) {
+        let suffix = SUFFIXES[pick(SUFFIXES.len())];
+        match pick(14) {
+            0 => pattern.push_str(&"a".repeat(RUNS[pick(RUNS.len())])),
+            1 => pattern.push_str(&format!("a{suffix}")),
+            2 => pattern.push_str(&format!(".{suffix}")),
+            3 => pattern.push_str(&format!("[ab]{suffix}")),
+            4 => pattern.push_str(&format!("[{}a]{suffix}", "xyz".repeat(1 + pick(4000)))),
+            5 => pattern.push_str(&format!("[^{}]{suffix}", "xyz".repeat(1 + pick(4000)))),
+            6 => pattern.push_str(&format!("(a{suffix})")),
+            7 => pattern.push_str(&format!("(.{suffix})")),
+            8 => pattern.push_str(["%1", "%2"][pick(2)]),
+            9 => pattern.push_str(["%b()", "%bab", "%b()%b()"][pick(3)]),
+            10 => pattern.push_str(["%f[%w]", "%f[%s]", "%f[^a]"][pick(3)]),
+            11 => pattern.push_str(&format!("%w{suffix}")),
+            12 => pattern.push_str(["b", "()", "$", "x", "%s"][pick(5)]),
+            _ => pattern.push_str(&"(a)".repeat(1 + pick(10))),
+        }
+    }
+    let repl = ["x", "%0%0", "%1", &"%0".repeat(1 + pick(1000)), "<%0>%1"][pick(5)].to_string();
+    (subject, pattern.into_bytes(), pick(4), repl)
+}
+
+#[test]
+fn no_pattern_shape_runs_for_long_whatever_the_text() {
+    use mlua::{Lua, LuaOptions, MultiValue, StdLib, Value};
+    let mut state = 0x2545_f491_4f6c_dd1du64;
+    let mut pick = |n: usize| {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        (state >> 11) as usize % n
+    };
+    const RUNNER: &str = r#"
+        local subject, pattern, mode, repl = ...
+        if mode == 0 then return pcall(string.find, subject, pattern)
+        elseif mode == 1 then return pcall(string.match, subject, pattern)
+        elseif mode == 2 then return pcall(function() local n = 0 for _ in string.gmatch(subject, pattern) do n = n + 1 if n >= 3 then break end end return n end)
+        else return pcall(string.gsub, subject, pattern, repl, 50) end
+    "#;
+    let (mut slowest, mut stopped) = (std::time::Duration::ZERO, 0);
+    for round in 0..120 {
+        let (subject, pattern, mode, repl) = stress_case(&mut pick);
+        let shown = format!("round {round}: mode {mode}, {} byte subject starting {:?}, pattern {:?}", subject.len(), String::from_utf8_lossy(&subject[..subject.len().min(6)]),
+                            String::from_utf8_lossy(&pattern[..pattern.len().min(60)]));
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let lua = Lua::new_with(StdLib::STRING | StdLib::TABLE | StdLib::MATH, LuaOptions::default()).unwrap();
+            lua.set_memory_limit(telescope_plugin_host::lua::MEMORY_LIMIT).unwrap();
+            let string: mlua::Table = lua.globals().get("string").unwrap();
+            telescope_plugin_host::lua_pattern::install(&lua, &string).unwrap();
+            let args = MultiValue::from_vec(vec![Value::String(lua.create_string(&subject).unwrap()), Value::String(lua.create_string(&pattern).unwrap()),
+                                                 Value::Integer(mode as i64), Value::String(lua.create_string(&repl).unwrap())]);
+            let started = std::time::Instant::now();
+            let answer: MultiValue = lua.load(RUNNER).call(args).unwrap();
+            let ok = matches!(answer.front(), Some(Value::Boolean(true)));
+            let _ = tx.send((started.elapsed(), ok));
+        });
+        let (took, ok) = rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap_or_else(|_| panic!("ran for over 5 s: {shown}"));
+        if !ok {
+            stopped += 1;
+        }
+        slowest = slowest.max(took);
+    }
+    eprintln!("120 stress calls, {stopped} stopped by an error, the slowest took {slowest:?}");
 }
 
 // ── The pattern matcher against Lua's own ───────────────────────────────────

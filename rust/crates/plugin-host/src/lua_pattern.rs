@@ -166,17 +166,19 @@ impl<'a> Matcher<'a> {
         !sig
     }
 
-    fn single_match(&self, s: usize, p: usize, ep: usize) -> bool {
+    /// Whether the subject's byte at s is in the class at p..ep. A bracket class costs as many units as it has bytes, anything else 1.
+    fn single_match(&mut self, s: usize, p: usize, ep: usize) -> Result<bool, Fail> {
+        self.tick(if self.p(p) == b'[' { (ep - p) as u64 } else { 1 })?;
         if s >= self.src.len() {
-            return false;
+            return Ok(false);
         }
         let c = self.src[s];
-        match self.p(p) {
+        Ok(match self.p(p) {
             b'.' => true,
             b'%' => match_class(c, self.p(p + 1)),
             b'[' => self.match_bracket_class(c, p, ep - 1),
             other => other == c,
-        }
+        })
     }
 
     fn match_balance(&mut self, mut s: usize, p: usize) -> Found {
@@ -207,8 +209,7 @@ impl<'a> Matcher<'a> {
 
     fn max_expand(&mut self, s: usize, p: usize, ep: usize) -> Found {
         let mut i = 0usize;
-        while self.single_match(s + i, p, ep) {
-            self.tick(1)?;
+        while self.single_match(s + i, p, ep)? {
             i += 1;
         }
         loop {
@@ -227,10 +228,9 @@ impl<'a> Matcher<'a> {
             if let Some(res) = self.do_match(s, ep + 1)? {
                 return Ok(Some(res));
             }
-            if !self.single_match(s, p, ep) {
+            if !self.single_match(s, p, ep)? {
                 return Ok(None);
             }
-            self.tick(1)?;
             s += 1;
         }
     }
@@ -258,11 +258,12 @@ impl<'a> Matcher<'a> {
         Ok(res)
     }
 
-    fn match_capture(&self, s: usize, l: u8) -> Found {
+    fn match_capture(&mut self, s: usize, l: u8) -> Found {
         let l = self.check_capture(l)?;
         let cap = self.caps[l];
         // A position capture has no text, so it never matches (Lua reads its length as a huge unsigned number)
         let Ok(len) = usize::try_from(cap.len) else { return Ok(None) };
+        self.tick(len as u64)?;
         if s <= self.src.len() && self.src.len() - s >= len && self.src[cap.init..cap.init + len] == self.src[s..s + len] {
             Ok(Some(s + len))
         } else {
@@ -300,6 +301,7 @@ impl<'a> Matcher<'a> {
                         return bad("missing '[' after '%f' in pattern");
                     }
                     let ep = self.class_end(p)?;
+                    self.tick(2 * (ep - p) as u64)?;
                     let previous = if s == 0 { 0 } else { self.src[s - 1] };
                     if !self.match_bracket_class(previous, p, ep - 1) && self.match_bracket_class(self.s(s), p, ep - 1) {
                         p = ep;
@@ -316,8 +318,9 @@ impl<'a> Matcher<'a> {
                 },
                 _ => {
                     let ep = self.class_end(p)?;
+                    self.tick((ep - p - 1) as u64)?;
                     let suffix = self.p(ep);
-                    if !self.single_match(s, p, ep) {
+                    if !self.single_match(s, p, ep)? {
                         if matches!(suffix, b'*' | b'?' | b'-') {
                             p = ep + 1;
                             continue;
