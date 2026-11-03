@@ -17,9 +17,10 @@ journal_list() {
     echo
 }
 
-# The new version is on trial and can't run, so its own guard (update_guard.rs) never will: this puts the old one back the same way
+# The new version can't run, so its own guard (update_guard.rs) never will: this puts the old one back the same way. It's on trial, or an
+# install or a roll-back was cut short with something like lib/ moved aside, which the program can't run without
 roll_back() {
-    grep -q '"state": *"trial"' .update.json 2>/dev/null && [ -d .previous ] || return 1
+    grep -q '"state": *"\(trial\|swapping\|rolling_back\)"' .update.json 2>/dev/null && [ -d .previous ] || return 1
     build=$(sed -n 's/.*"to_build": *\([0-9]*\).*/\1/p' .update.json)
     journal_list added | while read -r name; do
         [ -n "$name" ] && rm -rf "./$name"
@@ -33,7 +34,8 @@ roll_back() {
             mv -f ".previous/$name" "./$name"
         fi
     done
-    [ -n "$build" ] && [ "$build" != 0 ] && printf '{"build":%s}' "$build" > .update-failed
+    # Only a trial is the new build's fault; a cut-short install or roll-back says nothing about it
+    grep -q '"state": *"trial"' .update.json && [ -n "$build" ] && [ "$build" != 0 ] && printf '{"build":%s}' "$build" > .update-failed
     rm -rf .previous .update-staging .update.json
 }
 

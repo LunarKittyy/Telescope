@@ -1371,6 +1371,71 @@ mod launcher_tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    const PROGRAM: &str = "#!/usr/bin/env bash\necho \"telescope-rs started $(cat lib/marker)\"\n";
+
+    /// A packaged install: start.sh, a program that says it started, and a lib folder the program can't run without.
+    fn packaged(dir: &Path, version: &str) -> PathBuf {
+        let app = dir.join("app");
+        std::fs::create_dir_all(app.join("lib")).unwrap();
+        executable(&app.join("start.sh"), START_SH);
+        executable(&app.join("telescope-rs"), PROGRAM);
+        std::fs::write(app.join("lib/marker"), version).unwrap();
+        app
+    }
+
+    /// A PATH whose ldd reports a missing library whenever lib/marker is gone, as the real one does for a program that needs lib/.
+    fn needs_lib(dir: &Path) -> String {
+        let tools = dir.join("tools");
+        std::fs::create_dir_all(&tools).unwrap();
+        executable(&tools.join("ldd"), "#!/usr/bin/env bash\n[ -f lib/marker ] || echo 'libva.so.2 => not found'\n");
+        format!("{}:{}", tools.display(), std::env::var("PATH").unwrap_or_default())
+    }
+
+    #[test]
+    fn a_launch_after_an_install_cut_short_anywhere_ends_with_a_working_app() {
+        use crate::updates::archives::tarball;
+        use crate::updates::install_linux;
+        use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
+        let base = scratch_dir("launch-cut");
+        let archive = |dir: &Path| tarball(&dir.join("u.tar.gz"), &[("start.sh", START_SH.as_bytes()), ("telescope-rs", PROGRAM.as_bytes()), ("lib/marker", b"131")]);
+        let mut total = 0;
+        let counted = packaged(&base.join("count"), "130");
+        install_linux(&archive(&base.join("count")), &counted, 131, &mut |s: &Path, d: &Path| {
+            total += 1;
+            rename(s, d)
+        }).unwrap();
+        assert!(total >= 5, "{total}");
+        for k in 1..=total {
+            let dir = base.join(format!("k{k}"));
+            let app = packaged(&dir, "130");
+            let mut seen = 0;
+            let _ = catch_unwind(AssertUnwindSafe(|| install_linux(&archive(&dir), &app, 131, &mut |s: &Path, d: &Path| {
+                seen += 1;
+                if seen == k {
+                    resume_unwind(Box::new("killed"));
+                }
+                rename(s, d)
+            })));
+            let (code, out) = run(&app, Some(needs_lib(&dir)));
+            assert!(code == 0 && out.contains("telescope-rs started 13"), "k={k} {code} {out}");
+        }
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn a_roll_back_cut_short_between_removing_and_restoring_lib_is_finished_by_the_launcher() {
+        let dir = scratch_dir("launch-rolling-back");
+        let app = packaged(&dir, "131");
+        std::fs::create_dir_all(app.join(PREVIOUS_DIR)).unwrap();
+        std::fs::rename(app.join("lib"), app.join(PREVIOUS_DIR).join("lib")).unwrap();
+        std::fs::write(app.join(PREVIOUS_DIR).join("lib/marker"), "130").unwrap();
+        write_journal(&app, &json!({"state": "rolling_back", "to_build": 131, "entries": ["lib"], "added": []})).unwrap();
+        let (code, out) = run(&app, Some(needs_lib(&dir)));
+        assert!(code == 0 && out.contains("telescope-rs started 130"), "{code} {out}");
+        assert!(!app.join(JOURNAL).exists());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn going_back_from_a_launcher_that_cant_run_replaces_start_sh_in_one_step() {
         let dir = scratch_dir("start-sh-rollback");
