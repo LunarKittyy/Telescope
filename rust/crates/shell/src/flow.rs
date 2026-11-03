@@ -4,7 +4,8 @@ use serde_json::Value;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use telescope_core::frame::Frame;
+use crate::worker::{fit_frame, to_nv12};
+use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::link::PhoneSession;
 use telescope_core::media::{DecodeOptions, FeedEnd, FeedStopper, Media};
 use telescope_core::output::{Outputs, VideoOutput};
@@ -121,8 +122,7 @@ impl Pipeline {
             Ok(d) => d,
             Err(e) => return e,
         };
-        let mut camera: Option<Box<dyn VideoOutput>> = None;
-        let mut camera_error = String::new();
+        let mut camera = Camera::default();
         let mut scaler = self.media.scaler();
         let mut stats = Stats { hardware: decoder.hardware(), ..Stats::default() };
         let (mut last_preview, mut window_start) = (Instant::now() - PREVIEW_PERIOD, Instant::now());
@@ -144,15 +144,7 @@ impl Pipeline {
             let Some(mut frame) = decoded.newest else { continue };
             feed.decoded();
             frame.number = FRAME_NUMBER.fetch_add(1, Ordering::Relaxed) + 1;
-            if camera.as_ref().is_none_or(|c| c.size() != (frame.width, frame.height)) {
-                camera = self.outputs.open(self.opts.slot, frame.width, frame.height, self.opts.fps).map_err(|e| camera_error = e).ok();
-            }
-            if let Some(cam) = camera.as_mut() {
-                if let Err(e) = cam.send(&frame) {
-                    camera_error = e;
-                    camera = None;
-                }
-            }
+            camera.send(self.outputs.as_ref(), self.opts.slot, self.opts.fps, &frame);
             let size = preview_size.load(Ordering::Relaxed);
             if size != 0 && last_preview.elapsed() >= PREVIEW_PERIOD {
                 last_preview = Instant::now();
@@ -166,8 +158,8 @@ impl Pipeline {
                 stats.mbps = window_bytes as f32 * 8.0 / secs / 1e6;
                 stats.decode_ms = decode_time.as_secs_f32() * 1000.0 / window_frames.max(1) as f32;
                 (stats.width, stats.height) = (frame.width, frame.height);
-                stats.camera = camera.as_ref().map(|c| c.device()).unwrap_or_default();
-                stats.error = camera_error.clone();
+                stats.camera = camera.cam.as_ref().map(|c| c.device()).unwrap_or_default();
+                stats.error = camera.error.clone();
                 events.stats(stats.clone());
                 (window_start, window_frames, window_bytes, decode_time) = (Instant::now(), 0, 0, Duration::ZERO);
             }
@@ -176,9 +168,121 @@ impl Pipeline {
     }
 }
 
+/// The virtual camera the stream writes to, opened at the first frame's size and again when the phone's size changes.
+#[derive(Default)]
+struct Camera {
+    cam: Option<Box<dyn VideoOutput>>,
+    /// The frame size the camera was last opened for, which isn't the camera's own when an app holds it at another.
+    opened_for: (u32, u32),
+    error: String,
+}
+
+impl Camera {
+    /// Writes frame out, opening the camera first when there is none or the frame's size changed. Like the window's
+    /// worker, it lets go of the old camera before opening and, when an app reading the camera holds it at a size,
+    /// opens at that size and fits the frame into it.
+    fn send(&mut self, outputs: &dyn Outputs, slot: u32, fps: u32, frame: &Frame) {
+        if self.cam.is_none() || self.opened_for != (frame.width, frame.height) {
+            self.cam = None;
+            let (w, h) = outputs.locked_size(slot).unwrap_or((frame.width, frame.height));
+            self.opened_for = (frame.width, frame.height);
+            self.cam = outputs.open(slot, w, h, fps).map_err(|e| self.error = e).ok();
+        }
+        let Some(cam) = self.cam.as_mut() else { return };
+        let (w, h) = cam.size();
+        let fitted = fit_frame(frame, w, h);
+        let nv12 = !outputs.formats().contains(&PixelFormat::I420) && outputs.formats().contains(&PixelFormat::Nv12);
+        let result = cam.send(&if nv12 { to_nv12(&fitted) } else { fitted });
+        if let Err(e) = result {
+            self.error = e;
+            self.cam = None;
+        }
+    }
+}
+
 /// The largest size with the frame's shape that fits in (w, h), even on both sides.
 fn fit(w: u32, h: u32, frame: &Frame) -> (u32, u32) {
     let (fw, fh) = (frame.width, frame.height);
     let scale = (w as f32 / fw as f32).min(h as f32 / fh as f32).min(1.0);
     (((fw as f32 * scale) as u32 & !1).max(2), ((fh as f32 * scale) as u32 & !1).max(2))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Default)]
+    struct Log {
+        life: Mutex<Vec<String>>,
+        sent: Mutex<Vec<(u32, u32)>>,
+        locked: Mutex<Option<(u32, u32)>>,
+    }
+
+    struct Cam(Arc<Log>, (u32, u32));
+
+    impl VideoOutput for Cam {
+        fn send(&mut self, frame: &Frame) -> Result<(), String> {
+            self.0.sent.lock().unwrap().push((frame.width, frame.height));
+            Ok(())
+        }
+        fn size(&self) -> (u32, u32) {
+            self.1
+        }
+        fn device(&self) -> String {
+            "/dev/video9".into()
+        }
+    }
+
+    impl Drop for Cam {
+        fn drop(&mut self) {
+            self.0.life.lock().unwrap().push("close".into());
+        }
+    }
+
+    struct Fake(Arc<Log>);
+
+    impl Outputs for Fake {
+        fn slots(&self) -> Vec<telescope_core::output::Slot> {
+            Vec::new()
+        }
+        fn formats(&self) -> Vec<PixelFormat> {
+            vec![PixelFormat::I420]
+        }
+        fn open(&self, _slot: u32, width: u32, height: u32, _fps: u32) -> Result<Box<dyn VideoOutput>, String> {
+            self.0.life.lock().unwrap().push(format!("open {width}x{height}"));
+            Ok(Box::new(Cam(self.0.clone(), (width, height))))
+        }
+        fn locked_size(&self, _slot: u32) -> Option<(u32, u32)> {
+            *self.0.locked.lock().unwrap()
+        }
+    }
+
+    fn frame(w: u32, h: u32) -> Frame {
+        let chroma = 2 * (w.div_ceil(2) * h.div_ceil(2)) as usize;
+        Frame::new(w, h, PixelFormat::I420, vec![100; (w * h) as usize + chroma])
+    }
+
+    #[test]
+    fn a_size_change_keeps_the_size_an_app_holds_and_closes_the_old_camera_first() {
+        let log = Arc::new(Log::default());
+        let outputs = Fake(log.clone());
+        let mut camera = Camera::default();
+        camera.send(&outputs, 0, 30, &frame(8, 4));
+        *log.locked.lock().unwrap() = Some((8, 4));
+        camera.send(&outputs, 0, 30, &frame(4, 8));
+        camera.send(&outputs, 0, 30, &frame(4, 8));
+        assert_eq!(*log.life.lock().unwrap(), ["open 8x4", "close", "open 8x4"]);
+        assert_eq!(*log.sent.lock().unwrap(), [(8, 4), (8, 4), (8, 4)]);
+    }
+
+    #[test]
+    fn a_size_change_without_a_holder_opens_at_the_new_size() {
+        let log = Arc::new(Log::default());
+        let outputs = Fake(log.clone());
+        let mut camera = Camera::default();
+        camera.send(&outputs, 0, 30, &frame(8, 4));
+        camera.send(&outputs, 0, 30, &frame(4, 8));
+        assert_eq!(*log.life.lock().unwrap(), ["open 8x4", "close", "open 4x8"]);
+        assert_eq!(*log.sent.lock().unwrap(), [(8, 4), (4, 8)]);
+    }
 }
