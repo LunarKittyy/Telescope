@@ -78,6 +78,8 @@ component StripTop inherits HorizontalLayout {
             color: enabled ? Theme.text : Theme.text-disabled;
             wrap: word-wrap;
             line-height-factor: Theme.line-factor(self.font-size);
+            // The strip is named by it already, and so is a switch in it
+            accessible-role: none;
         }
         Text {
             visible: sub != "";
@@ -220,6 +222,7 @@ component LabelledSwitch inherits HorizontalLayout {
         font-size: Theme.body;
         color: !enabled ? Theme.text-disabled : dim ? Theme.text-dim : Theme.text;
         vertical-alignment: center;
+        accessible-role: none;
         TouchArea {
             enabled: root.enabled;
             mouse-cursor: MouseCursor.pointer;

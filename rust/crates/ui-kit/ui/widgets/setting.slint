@@ -58,6 +58,8 @@ export component SettingRow inherits Rectangle {
                     color: enabled ? Theme.text : Theme.text-disabled;
                     wrap: word-wrap;
                     line-height-factor: Theme.line-factor(self.font-size);
+                    // The row is named by it already, and so is a switch in it
+                    accessible-role: none;
                 }
                 if sub != "": Text {
                     text: sub;
@@ -87,6 +89,17 @@ export component SettingRow inherits Rectangle {
             line-height-factor: Theme.line-factor(self.font-size);
         }
     }
+}
+
+// What the settings search finds a row by, for a row whose own text a screen reader skips (its switch says it). It covers the
+// text it sits in (give it that size) and, like SearchWords, is not announced.
+export component SettingMark inherits Rectangle {
+    in property <string> name;
+    in property <string> keywords;
+    accessible-role: none;
+    accessible-id: "setting";
+    accessible-label: name;
+    if keywords != "": SearchWords { words: keywords; }
 }
 
 // Tag: a pill in a colour at 14% under its text in that colour ("Experimental")

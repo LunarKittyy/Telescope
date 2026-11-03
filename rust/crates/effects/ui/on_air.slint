@@ -112,22 +112,29 @@ export component OnAirSettings inherits VerticalLayout {
         action-text: @tr("New link");
         action-enabled: page;
         action => { root.new-link-clicked(); }
-        HorizontalLayout {
-            spacing: 10px;
-            alignment: start;
-            Switch {
-                y: (parent.height - self.height) / 2;
-                checked: page;
-                label: page-name;
-                toggled(v) => { root.page-toggled(v); }
-            }
-            Text {
-                text: @tr("Show the sign on a web page");
-                accessible-id: "setting";
-                font-family: Theme.font;
-                font-size: Theme.body;
-                color: Theme.text;
-                vertical-alignment: center;
+        // The row is named as a whole, so the text in it is skipped by screen readers (the switch says it) and the search finds the row
+        Rectangle {
+            height: page-row.preferred-height;
+            accessible-role: groupbox;
+            accessible-id: "setting";
+            accessible-label: @tr("Show the sign on a web page");
+            page-row := HorizontalLayout {
+                spacing: 10px;
+                alignment: start;
+                Switch {
+                    y: (parent.height - self.height) / 2;
+                    checked: page;
+                    label: page-name;
+                    toggled(v) => { root.page-toggled(v); }
+                }
+                Text {
+                    text: @tr("Show the sign on a web page");
+                    accessible-role: none;
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    color: Theme.text;
+                    vertical-alignment: center;
+                }
             }
         }
         if problem != "": Note { text: problem; kind: "status_err"; }

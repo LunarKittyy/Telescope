@@ -318,6 +318,8 @@ component PluginTile inherits Rectangle {
                 font-weight: 600;
                 color: tile.on ? Theme.text : Theme.text-dim;
                 vertical-alignment: center;
+                // The tile and its switch are named by it already
+                accessible-role: none;
             }
             if tile.removable: IconButton {
                 y: 1px;

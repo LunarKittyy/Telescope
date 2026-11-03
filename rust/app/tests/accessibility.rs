@@ -335,6 +335,24 @@ fn problems(ui: &slint_interpreter::ComponentInstance, window: &str) -> Vec<Stri
             found.push(format!("{at}: a number with no range"));
         }
     }
+    // A switch is named by its own label, so a text beside it that says the same thing would be heard twice
+    for sw in all.iter().filter(|e| e.accessible_role() == Some(AccessibleRole::Switch)) {
+        let name = sw.accessible_label().unwrap_or_default().trim().to_lowercase();
+        let (sp, ss) = (sw.absolute_position(), sw.size());
+        if name.is_empty() {
+            continue;
+        }
+        let twice = all.iter().any(|t| {
+            let (tp, ts) = (t.absolute_position(), t.size());
+            t.accessible_role() == Some(AccessibleRole::Text)
+                && t.accessible_label().unwrap_or_default().trim().to_lowercase() == name
+                && tp.y < sp.y + ss.height && sp.y < tp.y + ts.height
+                && (tp.x - sp.x).abs() < 700.0
+        });
+        if twice {
+            found.push(format!("{window}, {} Switch \"{}\": its text beside it is read as well, so the name is heard twice", card_of(sw), sw.accessible_label().unwrap_or_default()));
+        }
+    }
     for ((card, role, label), n) in seen {
         if n > 1 {
             found.push(format!("{window}, {card} {role} \"{label}\": {n} of them in one card, which one is it?"));
@@ -447,8 +465,8 @@ fn a_real_cards_dropdown_works_from_the_keyboard_and_says_so() {
     let items = w.ui.root_element().query_descendants().match_predicate(|e| e.accessible_role() == Some(AccessibleRole::ListItem)).find_all();
     assert!(items.len() >= 2, "{name}: its list items are exposed");
     assert_eq!(items.iter().filter(|i| i.accessible_item_selected() == Some(true)).count(), 1, "{name}: one item is the highlighted one");
-    // (a dropdown with nothing picked yet reads empty)
-    assert_eq!(items.iter().filter(|i| i.accessible_label().as_deref() == Some(before.as_str())).count(), usize::from(!before.is_empty()), "{name}: the current choice {before:?} is among them ({:?})", items.iter().map(|i| i.accessible_label()).collect::<Vec<_>>());
+    // (a dropdown with nothing picked yet reads empty, or its placeholder, which isn't one of the items)
+    assert_eq!(items.iter().filter(|i| i.accessible_label().as_deref() == Some(before.as_str())).count(), usize::from(!before.is_empty() && before != "Pick a phone"), "{name}: the current choice {before:?} is among them ({:?})", items.iter().map(|i| i.accessible_label()).collect::<Vec<_>>());
     keys(&w, Key::Escape.into());
     assert_eq!(dropdown.accessible_expanded(), Some(false), "{name}: Esc closes it");
     assert_eq!(dropdown.accessible_value().unwrap_or_default(), before, "{name}: and keeps the choice");

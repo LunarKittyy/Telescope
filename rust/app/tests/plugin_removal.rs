@@ -440,6 +440,7 @@ const FINDS: &[(&str, &str, usize)] = &[
     ("zomm", "Max zoom", 2),
     ("notificaton", "Tell me when it stops a stream", 3),
     ("mirorr", "Mirror it, for apps that flip the camera", 2),
+    ("web page", "Show the sign on a web page", 3),
     // what it does, in other words
     ("gpu", "Hardware acceleration", 1),
     ("nvidia", "Hardware acceleration", 2),

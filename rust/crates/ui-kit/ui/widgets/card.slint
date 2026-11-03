@@ -5,7 +5,7 @@ import { Icon, FocusRing, Button } from "basics.slint";
 import { Folds, FoldText, Reveal } from "folds.slint";
 import { Switch } from "switch.slint";
 import { TipBody, TipUse } from "tip.slint";
-import { SearchWords } from "setting.slint";
+import { SearchWords, SettingMark } from "setting.slint";
 
 // collapse.py's _FoldButton: the title as a named keyboard toggle that folds what's under it. A blank key: no folding.
 component FoldTitle inherits Rectangle {
@@ -63,6 +63,8 @@ component FoldTitle inherits Rectangle {
         font-weight: root.font-weight;
         color: root.hot && foldable ? hot-color : root.text-color;
         vertical-alignment: center;
+        // The button around it already says it
+        accessible-role: none;
     }
 }
 
@@ -283,9 +285,11 @@ export component FormRow inherits HorizontalLayout {
     in property <string> label;
     in property <string> keywords;
     in property <bool> enabled: true;
+    // A switch in the row says the label itself, so a screen reader skips the text
+    in property <bool> quiet;
     spacing: 10px;
     min-height: 36px;
-    Text {
+    if !quiet: Text {
         text: label;
         width: 96px;
         font-family: Theme.font;
@@ -295,6 +299,16 @@ export component FormRow inherits HorizontalLayout {
         // control_row's label is what the settings search finds
         accessible-id: "setting";
         if keywords != "": SearchWords { words: keywords; }
+    }
+    if quiet: Text {
+        text: label;
+        width: 96px;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: enabled ? Theme.text-dim : Theme.text-disabled;
+        vertical-alignment: center;
+        accessible-role: none;
+        SettingMark { width: parent.width; height: parent.height; name: label; keywords: keywords; }
     }
     @children
 }

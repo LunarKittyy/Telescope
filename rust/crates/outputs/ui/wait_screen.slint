@@ -53,16 +53,20 @@ export component WaitScreenSettings inherits Card {
     }
     Rectangle {
         height: 36px;
+        // The row is named as a whole, so the text in it is skipped by screen readers (the switch says it) and the search finds the row
+        accessible-role: groupbox;
+        accessible-id: "setting";
+        accessible-label: @tr("Mirror it, for apps that flip the camera");
         Text {
             x: 0;
             width: parent.width - 48px;
             height: parent.height;
             text: @tr("Mirror it, for apps that flip the camera");
-            accessible-id: "setting";
             font-family: Theme.font;
             font-size: Theme.body;
             color: Theme.text;
             vertical-alignment: center;
+            accessible-role: none;
         }
         Switch {
             x: parent.width - self.width;

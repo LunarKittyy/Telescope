@@ -138,6 +138,8 @@ export component SwitchTile inherits Rectangle {
             color: enabled ? Theme.text : Theme.text-disabled;
             vertical-alignment: center;
             wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
+            // The switch beside it carries this text as its name
+            accessible-role: none;
         }
         Rectangle {
             width: 36px;

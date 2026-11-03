@@ -183,7 +183,7 @@ msgstr "bật"
 msgid "off"
 msgstr "tắt"
 
-#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:217 rust/crates/audio/ui/microphone.slint:227 rust/crates/audio/ui/microphone.slint:238 rust/crates/effects/src/colour_grading.rs:31 rust/crates/effects/ui/colour_grading.slint:261 rust/crates/outputs/src/webcam.rs:41
+#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:217 rust/crates/audio/ui/microphone.slint:227 rust/crates/audio/ui/microphone.slint:238 rust/crates/effects/src/colour_grading.rs:31 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/outputs/src/webcam.rs:41
 msgid "Gain"
 msgstr "Gain"
 
@@ -342,7 +342,7 @@ msgstr "Mic điện thoại cần có VB-Audio Virtual Cable trên Windows."
 msgid "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."
 msgstr "VB-Cable do VB-Audio phát triển, không phải Telescope. Telescope có thể tải về tệp cài đặt từ vb-audio.com và mở trình thiết lập của chính VB-Audio, yêu cầu quyền quản trị. Hãy khởi động lại máy tính khi hoàn tất."
 
-#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/colour_grading.slint:429 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:608 rust/crates/system/ui/shortcuts.slint:374 rust/crates/system/ui/updates.slint:211
+#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/colour_grading.slint:430 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:639 rust/crates/system/ui/shortcuts.slint:374 rust/crates/system/ui/updates.slint:212
 msgid "Cancel"
 msgstr "Hủy"
 
@@ -576,11 +576,11 @@ msgstr "Nếu không có tiện ích này, sẽ không có thẻ Nền và phầ
 msgid "Background blur"
 msgstr "Làm mờ nền"
 
-#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:145 rust/crates/effects/ui/colour_grading.slint:333 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
+#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:334 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
 msgid "Green"
 msgstr "Xanh lục"
 
-#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:145 rust/crates/effects/ui/colour_grading.slint:333 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
+#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:334 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
 msgid "Blue"
 msgstr "Xanh lam"
 
@@ -696,7 +696,7 @@ msgstr "Màu giả"
 msgid "Level"
 msgstr "Thước thủy"
 
-#: rust/crates/effects/src/cinema.rs:317 rust/crates/effects/src/cinema.rs:412 rust/crates/effects/ui/cinema.slint:55 rust/crates/effects/ui/cinema.slint:138
+#: rust/crates/effects/src/cinema.rs:317 rust/crates/effects/src/cinema.rs:412 rust/crates/effects/ui/cinema.slint:56 rust/crates/effects/ui/cinema.slint:139
 msgid "Cinema tools"
 msgstr "Công cụ điện ảnh"
 
@@ -713,11 +713,11 @@ msgctxt "search"
 msgid "focus peaking zebras false colour color scopes waveform parade vectorscope histogram exposure monitor grid guides rule of thirds golden ratio composition framing"
 msgstr "lấy nét focus peaking sọc ngựa vằn màu giả biểu đồ đo waveform parade vectorscope histogram phơi sáng giám sát lưới đường căn khung quy tắc một phần ba tỷ lệ vàng bố cục căn khung focus peaking zebras false colour color scopes waveform parade vectorscope histogram exposure monitor grid guides rule of thirds golden ratio composition framing"
 
-#: rust/crates/effects/src/cinema.rs:414 rust/crates/effects/src/cinema.rs:433 rust/crates/effects/ui/cinema.slint:93 rust/crates/effects/ui/cinema.slint:101
+#: rust/crates/effects/src/cinema.rs:414 rust/crates/effects/src/cinema.rs:433 rust/crates/effects/ui/cinema.slint:94 rust/crates/effects/ui/cinema.slint:102
 msgid "Guides"
 msgstr "Đường căn khung"
 
-#: rust/crates/effects/src/cinema.rs:415 rust/crates/effects/src/cinema.rs:434 rust/crates/effects/ui/cinema.slint:109 rust/crates/effects/ui/cinema.slint:114
+#: rust/crates/effects/src/cinema.rs:415 rust/crates/effects/src/cinema.rs:434 rust/crates/effects/ui/cinema.slint:110 rust/crates/effects/ui/cinema.slint:115
 msgid "Scope"
 msgstr "Scope"
 
@@ -737,11 +737,11 @@ msgstr "RGB parade"
 msgid "Vectorscope"
 msgstr "Vectorscope"
 
-#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:145 rust/crates/effects/ui/colour_grading.slint:333 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
+#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:334 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
 msgid "Red"
 msgstr "Đỏ"
 
-#: rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/cinema.slint:145
+#: rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/cinema.slint:146
 msgid "White"
 msgstr "Trắng"
 
@@ -764,15 +764,15 @@ msgstr "4 × 4"
 msgid "Golden ratio"
 msgstr "Tỷ lệ vàng"
 
-#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:183
+#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:184
 msgid "Small"
 msgstr "Nhỏ"
 
-#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:183
+#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:184
 msgid "Medium"
 msgstr "Vừa"
 
-#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:183
+#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:184
 msgid "Large"
 msgstr "Lớn"
 
@@ -832,15 +832,15 @@ msgstr "LUT 33 điểm (*.cube)"
 msgid "65-point LUT (*.cube)"
 msgstr "LUT 65 điểm (*.cube)"
 
-#: rust/crates/effects/src/colour_grading.rs:31 rust/crates/effects/ui/colour_grading.slint:220
+#: rust/crates/effects/src/colour_grading.rs:31 rust/crates/effects/ui/colour_grading.slint:221
 msgid "Lift"
 msgstr "Lift"
 
-#: rust/crates/effects/src/colour_grading.rs:31 rust/crates/effects/ui/colour_grading.slint:239 rust/crates/outputs/src/webcam.rs:46
+#: rust/crates/effects/src/colour_grading.rs:31 rust/crates/effects/ui/colour_grading.slint:240 rust/crates/outputs/src/webcam.rs:46
 msgid "Gamma"
 msgstr "Gamma"
 
-#: rust/crates/effects/src/colour_grading.rs:31 rust/crates/effects/ui/colour_grading.slint:280
+#: rust/crates/effects/src/colour_grading.rs:31 rust/crates/effects/ui/colour_grading.slint:281
 msgid "Offset"
 msgstr "Offset"
 
@@ -901,7 +901,7 @@ msgstr "Gain tổng"
 msgid "Offset master"
 msgstr "Offset tổng"
 
-#: rust/crates/effects/src/colour_grading.rs:65 rust/crates/effects/ui/colour_grading.slint:299 rust/crates/outputs/src/webcam.rs:44 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:256 rust/crates/shell/ui/cards/camera.slint:259
+#: rust/crates/effects/src/colour_grading.rs:65 rust/crates/effects/ui/colour_grading.slint:300 rust/crates/outputs/src/webcam.rs:44 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:256 rust/crates/shell/ui/cards/camera.slint:259
 msgid "Temperature"
 msgstr "Nhiệt độ màu"
 
@@ -909,7 +909,7 @@ msgstr "Nhiệt độ màu"
 msgid "Warmer or cooler"
 msgstr "Ấm hơn hoặc lạnh hơn"
 
-#: rust/crates/effects/src/colour_grading.rs:66 rust/crates/effects/ui/colour_grading.slint:299 rust/crates/shell/src/plugins/camera_control.rs:1373 rust/crates/shell/src/plugins/camera_control.rs:1608
+#: rust/crates/effects/src/colour_grading.rs:66 rust/crates/effects/ui/colour_grading.slint:300 rust/crates/shell/src/plugins/camera_control.rs:1373 rust/crates/shell/src/plugins/camera_control.rs:1608
 msgid "Tint"
 msgstr "Sắc thái"
 
@@ -918,7 +918,7 @@ msgid "More magenta or more green"
 msgstr "Nghiêng hồng tím hoặc nghiêng xanh lá hơn"
 
 #. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
-#: rust/crates/effects/src/colour_grading.rs:67 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:299 rust/crates/outputs/src/webcam.rs:45
+#: rust/crates/effects/src/colour_grading.rs:67 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:300 rust/crates/outputs/src/webcam.rs:45
 msgid "Contrast"
 msgstr "Độ tương phản"
 
@@ -926,7 +926,7 @@ msgstr "Độ tương phản"
 msgid "Spreads the tones apart around the pivot"
 msgstr "Mở rộng khoảng cách các sắc độ quanh điểm trục"
 
-#: rust/crates/effects/src/colour_grading.rs:68 rust/crates/effects/ui/colour_grading.slint:299
+#: rust/crates/effects/src/colour_grading.rs:68 rust/crates/effects/ui/colour_grading.slint:300
 msgid "Pivot"
 msgstr "Điểm trục"
 
@@ -934,7 +934,7 @@ msgstr "Điểm trục"
 msgid "The level contrast turns around"
 msgstr "Mức sáng làm mốc xoay cho độ tương phản"
 
-#: rust/crates/effects/src/colour_grading.rs:69 rust/crates/effects/ui/colour_grading.slint:299 rust/crates/outputs/src/webcam.rs:45
+#: rust/crates/effects/src/colour_grading.rs:69 rust/crates/effects/ui/colour_grading.slint:300 rust/crates/outputs/src/webcam.rs:45
 msgid "Saturation"
 msgstr "Độ bão hòa"
 
@@ -942,7 +942,7 @@ msgstr "Độ bão hòa"
 msgid "How colourful the picture is"
 msgstr "Độ rực rỡ màu sắc của hình ảnh"
 
-#: rust/crates/effects/src/colour_grading.rs:70 rust/crates/effects/ui/colour_grading.slint:299
+#: rust/crates/effects/src/colour_grading.rs:70 rust/crates/effects/ui/colour_grading.slint:300
 msgid "Shadows"
 msgstr "Vùng tối"
 
@@ -950,7 +950,7 @@ msgstr "Vùng tối"
 msgid "Brightens or darkens the darker parts"
 msgstr "Làm sáng hoặc làm tối các vùng tối hơn"
 
-#: rust/crates/effects/src/colour_grading.rs:71 rust/crates/effects/ui/colour_grading.slint:299
+#: rust/crates/effects/src/colour_grading.rs:71 rust/crates/effects/ui/colour_grading.slint:300
 msgid "Highlights"
 msgstr "Vùng sáng"
 
@@ -1916,15 +1916,15 @@ msgstr "Không thể bắt đầu: {error}"
 msgid "The address has to start with http:// or https://"
 msgstr "Địa chỉ phải bắt đầu bằng http:// hoặc https://"
 
-#: rust/crates/effects/src/on_air_plugin.rs:443 rust/crates/effects/ui/on_air.slint:125
+#: rust/crates/effects/src/on_air_plugin.rs:443 rust/crates/effects/ui/on_air.slint:120 rust/crates/effects/ui/on_air.slint:131
 msgid "Show the sign on a web page"
 msgstr "Hiển thị biển báo trên một trang web"
 
-#: rust/crates/effects/src/on_air_plugin.rs:443 rust/crates/effects/ui/on_air.slint:135 rust/crates/link/ui/browser_camera.slint:91
+#: rust/crates/effects/src/on_air_plugin.rs:443 rust/crates/effects/ui/on_air.slint:142 rust/crates/link/ui/browser_camera.slint:91
 msgid "Scan"
 msgstr "Quét"
 
-#: rust/crates/effects/src/on_air_plugin.rs:444 rust/crates/effects/src/qr_reader.rs:473 rust/crates/link/ui/browser_camera.slint:125 rust/crates/setup/ui/parts.slint:124
+#: rust/crates/effects/src/on_air_plugin.rs:444 rust/crates/effects/src/qr_reader.rs:473 rust/crates/link/ui/browser_camera.slint:125 rust/crates/setup/ui/parts.slint:126
 msgid "Copy"
 msgstr "Sao chép"
 
@@ -2426,115 +2426,115 @@ msgstr "Khử ám màu"
 msgid "Behind you"
 msgstr "Phía sau bạn"
 
-#: rust/crates/effects/ui/cinema.slint:143 rust/crates/effects/ui/cinema.slint:149
+#: rust/crates/effects/ui/cinema.slint:144 rust/crates/effects/ui/cinema.slint:150
 msgid "Peaking colour"
 msgstr "Màu viền nét"
 
-#: rust/crates/effects/ui/cinema.slint:155
+#: rust/crates/effects/ui/cinema.slint:156
 msgid "Peaking sensitivity"
 msgstr "Độ nhạy viền nét"
 
-#: rust/crates/effects/ui/cinema.slint:168
+#: rust/crates/effects/ui/cinema.slint:169
 msgid "Zebras from"
 msgstr "Sọc vằn từ"
 
-#: rust/crates/effects/ui/cinema.slint:181 rust/crates/effects/ui/cinema.slint:187
+#: rust/crates/effects/ui/cinema.slint:182 rust/crates/effects/ui/cinema.slint:188
 msgid "Scope size"
 msgstr "Kích thước scope"
 
-#: rust/crates/effects/ui/colour_grading.slint:158 rust/crates/effects/ui/colour_grading.slint:164
+#: rust/crates/effects/ui/colour_grading.slint:158 rust/crates/effects/ui/colour_grading.slint:165
 msgid "Compare"
 msgstr "So sánh"
 
-#: rust/crates/effects/ui/colour_grading.slint:166
+#: rust/crates/effects/ui/colour_grading.slint:167
 msgid "Left of the line the preview shows the picture without the grade (apps always get it graded)"
 msgstr "Phía bên trái đường phân cách hiển thị hình ảnh chưa chỉnh màu (các ứng dụng khác luôn nhận hình đã chỉnh màu)"
 
-#: rust/crates/effects/ui/colour_grading.slint:173
+#: rust/crates/effects/ui/colour_grading.slint:174
 msgid "Split"
 msgstr "Phân tách"
 
-#: rust/crates/effects/ui/colour_grading.slint:174
+#: rust/crates/effects/ui/colour_grading.slint:175
 msgid "Where the line between before and after is"
 msgstr "Vị trí của đường phân cách giữa trước và sau"
 
-#: rust/crates/effects/ui/colour_grading.slint:189
+#: rust/crates/effects/ui/colour_grading.slint:190
 msgid "Primaries"
 msgstr "Màu cơ bản"
 
-#: rust/crates/effects/ui/colour_grading.slint:189
+#: rust/crates/effects/ui/colour_grading.slint:190
 msgid "Curves"
 msgstr "Đường cong"
 
-#: rust/crates/effects/ui/colour_grading.slint:189 rust/crates/effects/ui/colour_grading.slint:361
+#: rust/crates/effects/ui/colour_grading.slint:190 rust/crates/effects/ui/colour_grading.slint:362
 msgid "LUT"
 msgstr "LUT"
 
-#: rust/crates/effects/ui/colour_grading.slint:193
+#: rust/crates/effects/ui/colour_grading.slint:194
 msgid "Page"
 msgstr "Trang"
 
-#: rust/crates/effects/ui/colour_grading.slint:202 rust/crates/effects/ui/colour_grading.slint:205
+#: rust/crates/effects/ui/colour_grading.slint:203 rust/crates/effects/ui/colour_grading.slint:206
 msgid "Reset the grade"
 msgstr "Đặt lại hiệu ứng chỉnh màu"
 
-#: rust/crates/effects/ui/colour_grading.slint:323
+#: rust/crates/effects/ui/colour_grading.slint:324
 msgid "RGB"
 msgstr "RGB"
 
-#: rust/crates/effects/ui/colour_grading.slint:323
+#: rust/crates/effects/ui/colour_grading.slint:324
 msgid "Hue vs sat"
 msgstr "Hue theo sat"
 
-#: rust/crates/effects/ui/colour_grading.slint:323
+#: rust/crates/effects/ui/colour_grading.slint:324
 msgid "Hue vs hue"
 msgstr "Hue theo hue"
 
-#: rust/crates/effects/ui/colour_grading.slint:327 rust/crates/effects/ui/colour_grading.slint:347
+#: rust/crates/effects/ui/colour_grading.slint:328 rust/crates/effects/ui/colour_grading.slint:348
 msgid "Curve"
 msgstr "Đường cong"
 
-#: rust/crates/effects/ui/colour_grading.slint:333
+#: rust/crates/effects/ui/colour_grading.slint:334
 msgid "All"
 msgstr "Tất cả"
 
-#: rust/crates/effects/ui/colour_grading.slint:337 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
+#: rust/crates/effects/ui/colour_grading.slint:338 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
 msgid "Channel"
 msgstr "Kênh"
 
-#: rust/crates/effects/ui/colour_grading.slint:366
+#: rust/crates/effects/ui/colour_grading.slint:367
 msgid "Load…"
 msgstr "Nạp…"
 
-#: rust/crates/effects/ui/colour_grading.slint:367
+#: rust/crates/effects/ui/colour_grading.slint:368
 msgid "Pick a .cube LUT to put on top of the grade"
 msgstr "Chọn tệp LUT .cube để áp dụng lên trên lớp chỉnh màu"
 
-#: rust/crates/effects/ui/colour_grading.slint:384 rust/crates/effects/ui/colour_grading.slint:387
+#: rust/crates/effects/ui/colour_grading.slint:385 rust/crates/effects/ui/colour_grading.slint:388
 msgid "Take the LUT off"
 msgstr "Bỏ LUT"
 
-#: rust/crates/effects/ui/colour_grading.slint:393
+#: rust/crates/effects/ui/colour_grading.slint:394
 msgid "Strength"
 msgstr "Cường độ"
 
-#: rust/crates/effects/ui/colour_grading.slint:394
+#: rust/crates/effects/ui/colour_grading.slint:395
 msgid "How much of the LUT's look goes on the picture"
 msgstr "Mức độ áp dụng hiệu ứng LUT lên hình ảnh"
 
-#: rust/crates/effects/ui/colour_grading.slint:411
+#: rust/crates/effects/ui/colour_grading.slint:412
 msgid "Export"
 msgstr "Xuất"
 
-#: rust/crates/effects/ui/colour_grading.slint:415
+#: rust/crates/effects/ui/colour_grading.slint:416
 msgid "Export grade…"
 msgstr "Xuất chỉnh màu…"
 
-#: rust/crates/effects/ui/colour_grading.slint:416
+#: rust/crates/effects/ui/colour_grading.slint:417
 msgid "Save the grade, LUT included, as a .cube file for other apps"
 msgstr "Lưu thiết lập chỉnh màu, bao gồm cả LUT, thành tệp .cube cho các ứng dụng khác"
 
-#: rust/crates/effects/ui/colour_grading.slint:428 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:680
+#: rust/crates/effects/ui/colour_grading.slint:429 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:680
 msgid "Replace"
 msgstr "Thay thế"
 
@@ -2706,7 +2706,7 @@ msgstr "Thay thế bố cục"
 msgid "Name:"
 msgstr "Tên:"
 
-#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:492 rust/crates/link/ui/connection.slint:692 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:849 rust/crates/shell/ui/settings.slint:609
+#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:492 rust/crates/link/ui/connection.slint:692 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:849 rust/crates/shell/ui/settings.slint:640
 msgid "OK"
 msgstr "OK"
 
@@ -2839,44 +2839,44 @@ msgstr "máy tính bảng điện thoại màn hình trang liên kết mã qr ta
 msgid "New link"
 msgstr "Liên kết mới"
 
-#: rust/crates/effects/ui/on_air.slint:147 rust/crates/effects/ui/on_air.slint:153 rust/crates/effects/ui/on_air.slint:186 rust/crates/link/ui/browser_camera.slint:100 rust/crates/link/ui/browser_camera.slint:102
+#: rust/crates/effects/ui/on_air.slint:154 rust/crates/effects/ui/on_air.slint:160 rust/crates/effects/ui/on_air.slint:193 rust/crates/link/ui/browser_camera.slint:100 rust/crates/link/ui/browser_camera.slint:102
 msgid "Address"
 msgstr "Địa chỉ"
 
-#: rust/crates/effects/ui/on_air.slint:162 rust/crates/link/ui/browser_camera.slint:111
+#: rust/crates/effects/ui/on_air.slint:169 rust/crates/link/ui/browser_camera.slint:111
 msgid "Link"
 msgstr "Liên kết"
 
-#: rust/crates/effects/ui/on_air.slint:180
+#: rust/crates/effects/ui/on_air.slint:187
 msgid "Webhook"
 msgstr "Webhook"
 
-#: rust/crates/effects/ui/on_air.slint:181
+#: rust/crates/effects/ui/on_air.slint:188
 msgctxt "search"
 msgid "smart home light home assistant url http request automation"
 msgstr "nhà thông minh đèn trợ lý nhà url yêu cầu http tự động hóa smart home light home assistant url http request automation"
 
-#: rust/crates/effects/ui/on_air.slint:184
+#: rust/crates/effects/ui/on_air.slint:191
 msgid "Sends a request each time you go on or off air, for a smart home hub or anything else that takes one."
 msgstr "Gửi một yêu cầu mỗi khi bạn bắt đầu hoặc dừng lên sóng, dùng cho bộ điều khiển nhà thông minh hoặc bất kỳ thiết bị nào tiếp nhận yêu cầu."
 
-#: rust/crates/effects/ui/on_air.slint:193 rust/crates/effects/ui/on_air.slint:196
+#: rust/crates/effects/ui/on_air.slint:200 rust/crates/effects/ui/on_air.slint:203
 msgid "Method"
 msgstr "Phương thức"
 
-#: rust/crates/effects/ui/on_air.slint:202
+#: rust/crates/effects/ui/on_air.slint:209
 msgid "Going on air"
 msgstr "Khi bắt đầu lên sóng"
 
-#: rust/crates/effects/ui/on_air.slint:209
+#: rust/crates/effects/ui/on_air.slint:216
 msgid "Going off air"
 msgstr "Khi dừng lên sóng"
 
-#: rust/crates/effects/ui/on_air.slint:217
+#: rust/crates/effects/ui/on_air.slint:224
 msgid "Test on"
 msgstr "Thử bật"
 
-#: rust/crates/effects/ui/on_air.slint:218
+#: rust/crates/effects/ui/on_air.slint:225
 msgid "Test off"
 msgstr "Thử tắt"
 
@@ -3229,7 +3229,7 @@ msgstr "Không theo kịp"
 msgid "Browser"
 msgstr "Trình duyệt"
 
-#: rust/crates/link/src/browser/plugin.rs:920 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:336 rust/crates/link/src/plugin.rs:372 rust/crates/link/src/plugin.rs:398 rust/crates/link/src/plugin.rs:732 rust/crates/setup/src/setup.rs:724 rust/crates/shell/src/plugins/onboarding.rs:139 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1531 rust/crates/system/ui/updates.slint:173
+#: rust/crates/link/src/browser/plugin.rs:920 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:336 rust/crates/link/src/plugin.rs:372 rust/crates/link/src/plugin.rs:398 rust/crates/link/src/plugin.rs:732 rust/crates/setup/src/setup.rs:724 rust/crates/shell/src/plugins/onboarding.rs:139 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1531 rust/crates/system/ui/updates.slint:174
 msgid "Try again"
 msgstr "Thử lại"
 
@@ -3794,7 +3794,7 @@ msgstr "Tốc độ khung"
 msgid "Rename"
 msgstr "Đổi tên"
 
-#: rust/crates/link/ui/connection.slint:120 rust/crates/setup/ui/setup.slint:127 rust/crates/shell/src/plugins_tab.rs:607 rust/crates/shell/src/plugins_tab.rs:612 rust/crates/shell/ui/settings.slint:297
+#: rust/crates/link/ui/connection.slint:120 rust/crates/setup/ui/setup.slint:127 rust/crates/shell/src/plugins_tab.rs:607 rust/crates/shell/src/plugins_tab.rs:612 rust/crates/shell/ui/settings.slint:328
 msgid "Remove"
 msgstr "Gỡ bỏ"
 
@@ -4493,7 +4493,7 @@ msgstr "Chọn ảnh…"
 msgid "Use default"
 msgstr "Dùng mặc định"
 
-#: rust/crates/outputs/ui/wait_screen.slint:60 rust/crates/outputs/ui/wait_screen.slint:71
+#: rust/crates/outputs/ui/wait_screen.slint:59 rust/crates/outputs/ui/wait_screen.slint:64 rust/crates/outputs/ui/wait_screen.slint:75
 msgid "Mirror it, for apps that flip the camera"
 msgstr "Lật gương ảnh này, dành cho các ứng dụng tự lật camera"
 
@@ -5023,7 +5023,7 @@ msgstr "Hiển thị thông báo khi điện thoại quá nóng"
 msgid "Stop the stream when the phone gets too hot, and at every restart until it's fine again"
 msgstr "Dừng truyền phát khi điện thoại quá nóng và ở mỗi lần khởi động lại cho đến khi máy nguội bớt"
 
-#: rust/crates/setup/ui/parts.slint:128
+#: rust/crates/setup/ui/parts.slint:130
 msgid "Copy the command, to paste in a terminal"
 msgstr "Sao chép lệnh để dán vào terminal"
 
@@ -5266,7 +5266,7 @@ msgstr "Sửa bản dịch hoặc thêm ngôn ngữ mới, không cần biết l
 msgid "Restart Telescope to switch to it."
 msgstr "Khởi động lại Telescope để áp dụng."
 
-#: rust/crates/setup/ui/setup.slint:439 rust/crates/shell/ui/settings.slint:564
+#: rust/crates/setup/ui/setup.slint:439 rust/crates/shell/ui/settings.slint:595
 msgid "Restart now"
 msgstr "Khởi động lại ngay"
 
@@ -6029,7 +6029,7 @@ msgstr "Không có mục nào khớp với mọi từ. Dưới đây là các m�
 msgid "Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)."
 msgstr "Không có mục nào khớp với “{text}”. Hãy thử dùng ít từ hơn, hoặc tìm theo chức năng (độ phân giải, micrô, khởi động)."
 
-#: rust/crates/shell/src/settings.rs:709 rust/crates/shell/ui/settings.slint:200
+#: rust/crates/shell/src/settings.rs:709 rust/crates/shell/ui/settings.slint:229
 msgid "Search results"
 msgstr "Kết quả tìm kiếm"
 
@@ -6534,78 +6534,78 @@ msgstr "Đóng"
 msgid "Show this one's settings"
 msgstr "Hiển thị cài đặt của mục này"
 
-#: rust/crates/shell/ui/settings.slint:108
+#: rust/crates/shell/ui/settings.slint:120
 msgid "Settings tabs"
 msgstr "Các thẻ cài đặt"
 
-#: rust/crates/shell/ui/settings.slint:386
+#: rust/crates/shell/ui/settings.slint:417
 msgid "A change takes effect the next time Telescope starts, and settings are kept either way."
 msgstr "Thay đổi sẽ có hiệu lực vào lần tới khi Telescope khởi động và các cài đặt đều được giữ nguyên."
 
-#: rust/crates/shell/ui/settings.slint:395
+#: rust/crates/shell/ui/settings.slint:426
 msgid "Reset to defaults"
 msgstr "Đặt lại về mặc định"
 
-#: rust/crates/shell/ui/settings.slint:399
+#: rust/crates/shell/ui/settings.slint:430
 msgid "Switch the built-in plugins back to the standard selection: the optional ones off, the rest on"
 msgstr "Chuyển các tiện ích bổ sung tích hợp sẵn về lựa chọn tiêu chuẩn: tắt các tiện ích tùy chọn, bật các tiện ích còn lại"
 
-#: rust/crates/shell/ui/settings.slint:409 rust/crates/shell/ui/settings.slint:410
+#: rust/crates/shell/ui/settings.slint:440 rust/crates/shell/ui/settings.slint:441
 msgid "Search plugins"
 msgstr "Tìm kiếm tiện ích bổ sung"
 
-#: rust/crates/shell/ui/settings.slint:426
+#: rust/crates/shell/ui/settings.slint:457
 msgctxt "plugins"
 msgid "All"
 msgstr "Tất cả"
 
-#: rust/crates/shell/ui/settings.slint:426
+#: rust/crates/shell/ui/settings.slint:457
 msgctxt "plugins"
 msgid "On"
 msgstr "Đang bật"
 
-#: rust/crates/shell/ui/settings.slint:426
+#: rust/crates/shell/ui/settings.slint:457
 msgctxt "plugins"
 msgid "Off"
 msgstr "Đã tắt"
 
-#: rust/crates/shell/ui/settings.slint:464
+#: rust/crates/shell/ui/settings.slint:495
 msgid "Remove download"
 msgstr "Xóa bản tải về"
 
-#: rust/crates/shell/ui/settings.slint:467
+#: rust/crates/shell/ui/settings.slint:498
 msgid "Delete the download the plugins here use. Switching one on gets it again."
 msgstr "Xóa bản tải về mà các tiện ích bổ sung ở đây sử dụng. Khi bật một tiện ích, ứng dụng sẽ tải lại."
 
-#: rust/crates/shell/ui/settings.slint:500
+#: rust/crates/shell/ui/settings.slint:531
 msgid "Show all plugins"
 msgstr "Hiển thị tất cả tiện ích bổ sung"
 
-#: rust/crates/shell/ui/settings.slint:509
+#: rust/crates/shell/ui/settings.slint:540
 msgid "Added plugins"
 msgstr "Tiện ích bổ sung đã thêm"
 
-#: rust/crates/shell/ui/settings.slint:512
+#: rust/crates/shell/ui/settings.slint:543
 msgid "Install"
 msgstr "Cài đặt"
 
-#: rust/crates/shell/ui/settings.slint:515
+#: rust/crates/shell/ui/settings.slint:546
 msgid "Pick a plugin's .zip file. You can also drop one onto this window."
 msgstr "Chọn tệp .zip của tiện ích bổ sung. Bạn cũng có thể kéo thả tệp vào cửa sổ này."
 
-#: rust/crates/shell/ui/settings.slint:519
+#: rust/crates/shell/ui/settings.slint:550
 msgid "No plugins added yet. Plugins people share come as .zip files. Added plugins start out switched off."
 msgstr "Chưa có tiện ích bổ sung nào được thêm. Tiện ích bổ sung được chia sẻ có dạng tệp .zip. Tiện ích bổ sung mới thêm ban đầu sẽ tắt."
 
-#: rust/crates/shell/ui/settings.slint:541
+#: rust/crates/shell/ui/settings.slint:572
 msgid "How plugins work"
 msgstr "Cách tiện ích bổ sung hoạt động"
 
-#: rust/crates/shell/ui/settings.slint:542
+#: rust/crates/shell/ui/settings.slint:573
 msgid "Open plugins folder"
 msgstr "Mở thư mục tiện ích bổ sung"
 
-#: rust/crates/shell/ui/settings.slint:568
+#: rust/crates/shell/ui/settings.slint:599
 msgid "Start Telescope again to apply your changes"
 msgstr "Khởi động lại Telescope để áp dụng các thay đổi của bạn"
 
@@ -7439,50 +7439,50 @@ msgstr "ổn định nightly beta bản phát hành kênh bản dựng kiểm th
 msgid "Nightly: built from every change. Fixes first, less tested."
 msgstr "Nightly: được xây dựng từ mỗi thay đổi. Có bản sửa lỗi sớm nhất, nhưng ít được kiểm thử hơn."
 
-#: rust/crates/system/ui/updates.slint:126 rust/crates/system/ui/updates.slint:133
+#: rust/crates/system/ui/updates.slint:126 rust/crates/system/ui/updates.slint:134
 msgid "Check daily"
 msgstr "Kiểm tra hằng ngày"
 
-#: rust/crates/system/ui/updates.slint:127
+#: rust/crates/system/ui/updates.slint:128
 msgctxt "search"
 msgid "automatic updates auto check every day background"
 msgstr "cập nhật tự động tự kiểm tra mỗi ngày chạy ngầm automatic updates auto check every day background"
 
-#: rust/crates/system/ui/updates.slint:139
+#: rust/crates/system/ui/updates.slint:140
 msgid "Unzipped copy"
 msgstr "Bản sao đã giải nén"
 
-#: rust/crates/system/ui/updates.slint:140
+#: rust/crates/system/ui/updates.slint:141
 msgctxt "search"
 msgid "portable keep this copy where it is zip folder in place windows"
 msgstr "di động giữ bản sao này ở vị trí hiện tại thư mục zip trực tiếp windows portable keep this copy where it is zip folder in place windows"
 
-#: rust/crates/system/ui/updates.slint:146 rust/crates/system/ui/updates.slint:150
+#: rust/crates/system/ui/updates.slint:147 rust/crates/system/ui/updates.slint:151
 msgid "Keep this copy where it is"
 msgstr "Giữ bản sao này ở vị trí hiện tại"
 
-#: rust/crates/system/ui/updates.slint:147
+#: rust/crates/system/ui/updates.slint:148
 msgid "Updates this unzipped folder in place instead of installing Telescope for your user."
 msgstr "Cập nhật trực tiếp thư mục đã giải nén này thay vì cài đặt Telescope cho người dùng của bạn."
 
-#: rust/crates/system/ui/updates.slint:164
+#: rust/crates/system/ui/updates.slint:165
 msgid "What's new"
 msgstr "Có gì mới"
 
-#: rust/crates/system/ui/updates.slint:177
+#: rust/crates/system/ui/updates.slint:178
 msgid "Older version"
 msgstr ""
 
-#: rust/crates/system/ui/updates.slint:178
+#: rust/crates/system/ui/updates.slint:179
 msgctxt "search"
 msgid "go back downgrade python previous old version revert undo rust"
 msgstr ""
 
-#: rust/crates/system/ui/updates.slint:183
+#: rust/crates/system/ui/updates.slint:184
 msgid "Go back to the Python version…"
 msgstr ""
 
-#: rust/crates/system/ui/updates.slint:204
+#: rust/crates/system/ui/updates.slint:205
 msgid "Go back to the Python version?"
 msgstr ""
 
