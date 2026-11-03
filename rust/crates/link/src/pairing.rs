@@ -19,6 +19,9 @@ pub const PAIRING_PROTOCOL_VERSION: u32 = 4;
 const MAX_BODY_BYTES: i64 = 16 * 1024;
 /// Read before closing an error response: Windows can reset a socket that still has unread bytes.
 const DRAIN_LIMIT: i64 = 1024 * 1024;
+/// How much a refused connection may still send, and for how long, before it is closed anyway.
+const LINGER_BYTES: u64 = 1024 * 1024;
+const LINGER_TIME: Duration = Duration::from_secs(2);
 
 /// How many connections it takes and how long it waits, like the phone's PendingLimiter.
 #[derive(Clone, Copy, Debug)]
@@ -222,6 +225,27 @@ fn respond(mut conn: &TcpStream, status: &str, body: &[u8]) -> std::io::Result<(
     conn.flush()
 }
 
+/// Answers an early refusal, then reads and drops what the client is still sending before closing. Closing with unread
+/// bytes makes Windows reset the connection, which throws away the answer before the client has read it.
+fn refuse(conn: &TcpStream, status: &str) -> std::io::Result<()> {
+    respond(conn, status, b"")?;
+    let _ = conn.shutdown(Shutdown::Write);
+    let end = Instant::now() + LINGER_TIME;
+    let (mut reader, mut left) = (conn, LINGER_BYTES);
+    let mut buf = [0u8; 8192];
+    while left > 0 {
+        let Some(wait) = end.checked_duration_since(Instant::now()).filter(|d| !d.is_zero()) else { break };
+        if conn.set_read_timeout(Some(wait)).is_err() {
+            break;
+        }
+        match reader.read(&mut buf) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => left = left.saturating_sub(n as u64),
+        }
+    }
+    Ok(())
+}
+
 fn drain(reader: &mut impl Read, length: Option<i64>) {
     if let Some(n) = length.filter(|n| (0..=DRAIN_LIMIT).contains(n)) {
         let _ = std::io::copy(&mut reader.take(n as u64), &mut std::io::sink());
@@ -235,7 +259,7 @@ fn handle(conn: &TcpStream, source_ip: &str, shared: &Shared) -> std::io::Result
     let (deadline, mut head_bytes) = (Instant::now() + shared.limits.deadline, 0usize);
     let line = match crate::https::read_head_line(&mut reader, deadline, &mut head_bytes) {
         Ok(line) => String::from_utf8_lossy(&line).into_owned(),
-        Err(crate::https::Error::Bad(_)) => return respond(conn, "431 Request Header Fields Too Large", b""),
+        Err(crate::https::Error::Bad(_)) => return refuse(conn, "431 Request Header Fields Too Large"),
         Err(_) => return Ok(()),
     };
     let mut parts = line.split_whitespace();
@@ -244,7 +268,7 @@ fn handle(conn: &TcpStream, source_ip: &str, shared: &Shared) -> std::io::Result
     loop {
         let header = match crate::https::read_head_line(&mut reader, deadline, &mut head_bytes) {
             Ok(header) => String::from_utf8_lossy(&header).into_owned(),
-            Err(crate::https::Error::Bad(_)) => return respond(conn, "431 Request Header Fields Too Large", b""),
+            Err(crate::https::Error::Bad(_)) => return refuse(conn, "431 Request Header Fields Too Large"),
             Err(_) => return Ok(()),
         };
         if header.is_empty() || header.trim().is_empty() {
@@ -259,17 +283,17 @@ fn handle(conn: &TcpStream, source_ip: &str, shared: &Shared) -> std::io::Result
     match method.as_str() {
         "GET" => return respond(conn, "200 OK", b"Telescope pairing server"),
         "POST" => {}
-        _ => return respond(conn, "501 Not Implemented", b""),
+        _ => return refuse(conn, "501 Not Implemented"),
     }
     let length: Option<i64> = length_header.and_then(|v| v.parse().ok());
     if path != format!("/pair/{}", shared.nonce) {
         drain(&mut reader, length);
-        return respond(conn, "404 Not Found", b"");
+        return refuse(conn, "404 Not Found");
     }
-    let Some(length) = length else { return respond(conn, "411 Length Required", b"") };
+    let Some(length) = length else { return refuse(conn, "411 Length Required") };
     if !(0..=MAX_BODY_BYTES).contains(&length) {
         drain(&mut reader, Some(length));
-        return respond(conn, "413 Payload Too Large", b"");
+        return refuse(conn, "413 Payload Too Large");
     }
     let mut body = vec![0u8; length as usize];
     reader.read_exact(&mut body)?;
