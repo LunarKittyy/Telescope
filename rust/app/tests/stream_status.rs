@@ -281,7 +281,9 @@ fn a_slow_stream_waits_for_the_phone_and_a_late_answer_after_it_caught_up_says_n
     let control = r.link.control("pixel");
     control.stalled.store(true, Ordering::SeqCst);
     report_slow(&r);
+    r.until("the phone was asked", |r| asked(r) == 1); // the ask goes out on its own thread
     report_slow(&r);
+    r.pump();
     assert_eq!(asked(&r), 1, "asked once");
     assert!(behind_events(&r).is_empty(), "it waits for the phone");
     r.worker(0).says("net", "8 Mbps");
