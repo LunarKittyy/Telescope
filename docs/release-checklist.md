@@ -203,7 +203,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 - [ ] Every Settings tab opens and the settings button brings the window back on the tab it was left on.
 - [ ] Folding: clicking a card title and a section title folds and unfolds them, Tab reaches the titles and Space or Enter toggles them. A shortcut for a control in a folded card still works. Folds come back after a restart.
-- [ ] Tab through the tiles and switches, use rotation and pan shortcuts saved before this release, pan with arrow keys and Home and inspect labels with a screen reader.
+- [ ] Tab through the tiles and switches, use rotation and pan shortcuts saved before this release, pan with arrow keys and Home on the pan pad, open and pick from a dropdown with the keyboard and inspect labels with a screen reader.
 - [ ] Your phones: Rename works, Change name changes what a newly paired phone shows and saved browsers are listed with the phones.
 - [ ] Plugins: installing a newer `.zip` of an added plugin asks, replaces it with its settings kept and leaves it switched off. One with a GitHub `repo` shows its link and, once a release is newer, a line about it on its tile. **Install updates without asking** asks before it goes on.
 
