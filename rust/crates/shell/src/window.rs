@@ -325,7 +325,7 @@ fn image_of(frame: &Frame) -> Option<slint::Image> {
 }
 
 /// Where a UiSpec's text comes from and the file the document imports it as.
-fn source_of(plugin: &str, ui: &str, spec: &UiSpec) -> (String, String) {
+pub(crate) fn source_of(plugin: &str, ui: &str, spec: &UiSpec) -> (String, String) {
     match &spec.source {
         SlintSource::Text(text) => (format!("plugins/{plugin}/{ui}.slint"), text.clone()),
         SlintSource::File(path) => (path.clone(), std::fs::read_to_string(path).unwrap_or_default()),

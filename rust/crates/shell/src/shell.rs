@@ -494,7 +494,8 @@ impl State {
             let info = plugin.info();
             if added.contains(&info.name) {
                 // One that can't start is left out and says why (load_plugins)
-                match self.register(plugin) {
+                let registered = self.register(plugin).and_then(|()| self.take_out_if_ui_broken());
+                match registered {
                     Ok(()) => self.added.push(info),
                     Err(e) => broke.push(PluginProblem { title: if info.title.is_empty() { info.name.clone() } else { info.title.clone() }, name: info.name, error: e }),
                 }
@@ -516,6 +517,24 @@ impl State {
         crate::settings::start_plugin_updates(self.admin.clone());
         self.remind_plugins_off(&cfg);
         Ok(())
+    }
+
+    /// An added plugin's card and header widget, each compiled on its own: one that doesn't compile would otherwise break the
+    /// shared window and stop the app starting. The plugin just registered (the last slot) is taken back out and says why.
+    fn take_out_if_ui_broken(&mut self) -> Result<(), String> {
+        let i = self.slots.len() - 1;
+        let slot = &self.slots[i];
+        let name = &slot.info.name;
+        let pieces = slot.card.iter().map(|c| ("card", &c.ui)).chain(slot.header.iter().map(|h| ("header", h)));
+        let broken = pieces.filter_map(|(ui, spec)| {
+            let (file, text) = crate::window::source_of(name, ui, spec);
+            crate::compile::compile(&file, &text, vec![(file.clone(), text.clone())], &spec.component).err().map(|e| format!("{ui}: {}", e.trim_end()))
+        }).next();
+        let Some(error) = broken else { return Ok(()) };
+        log::error!("Plugin {name}: {error}");
+        self.panels.remove(i);
+        self.slots.pop();
+        Err(error)
     }
 
     /// Added plugins that are on but didn't start: remembered for the Plugins tab, with a warning banner saying which (load_plugins).
