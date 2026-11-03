@@ -304,6 +304,8 @@ pub struct State {
     /// Sources only remembered once their settings change (a browser).
     pub changes_only: Vec<String>,
     pub save_failure_notified: bool,
+    /// Settings of phones that were switched away from while the file couldn't be written: saved again with the next save, and handed back if their phone comes back first.
+    unsaved_profiles: Vec<PluginSection>,
     /// Posts from plugins' threads (host.poster), delivered to their owner after the bus's events.
     pub posts: Arc<Posts>,
     /// Built-in plugins that are off this run (not the optional ones never switched on), by name.
@@ -388,6 +390,7 @@ impl State {
             slot_memory: Rc::default(),
             changes_only: Vec::new(),
             save_failure_notified: false,
+            unsaved_profiles: Vec::new(),
             posts: Arc::default(),
             off: Vec::new(),
             builtins: Vec::new(),
@@ -889,24 +892,31 @@ impl State {
                 let name = self.slots[i].info.name.clone();
                 self.config_of(i, global.get(&name)).map(|config| PluginSection { plugin: name, device: None, config })
             }).collect();
+        sections.extend(self.unsaved_profiles.iter().cloned());
         sections.extend(self.profile_sections(&cfg, self.selected.as_deref()));
         let window = WindowState { selected_device: self.selected.clone(), collapsed: self.collapse.keys(), output_slots: self.slot_memory.borrow().iter().map(|(id, slot)| (id.clone(), json!(slot))).collect() };
         merge_for_save(&mut cfg, &window, &sections);
         profiles::drop_unchanged(&mut cfg, &self.changes_only, &self.defaults());
         if self.file.save(&mut cfg) {
             self.save_failure_notified = false;
+            self.unsaved_profiles.clear();
             true
         } else {
-            if !self.save_failure_notified {
-                self.save_failure_notified = true;
-                log::error!("Failed to save settings");
-                self.effects.push(Effect::Notify {
-                    title: tr("Telescope - Save failed"),
-                    body: tr("Could not save settings. Check disk space and permissions."),
-                    urgent: true,
-                });
-            }
+            self.note_save_failure();
             false
+        }
+    }
+
+    /// The notice that settings couldn't be written, once until a save works again.
+    fn note_save_failure(&mut self) {
+        if !self.save_failure_notified {
+            self.save_failure_notified = true;
+            log::error!("Failed to save settings");
+            self.effects.push(Effect::Notify {
+                title: tr("Telescope - Save failed"),
+                body: tr("Could not save settings. Check disk space and permissions."),
+                urgent: true,
+            });
         }
     }
 
@@ -918,12 +928,19 @@ impl State {
     /// on the new one (by the stream flow, from the effects). Streams stop first: stopping saves what the panels show
     /// under the stream that had it, and the new phone's settings would be filed there.
     pub fn switch_device(&mut self, prev: Option<&str>, new: Option<&str>) {
-        if let Ok(mut cfg) = self.file.load_strict() {
-            let sections = self.profile_sections(&cfg, prev);
+        let loaded = self.file.load_strict();
+        let sections = self.profile_sections(loaded.as_ref().unwrap_or(&json!({})), prev);
+        let saved = loaded.is_ok_and(|mut cfg| {
             let window = WindowState::from_config(&cfg);
             merge_for_save(&mut cfg, &window, &sections);
             profiles::drop_unchanged(&mut cfg, &self.changes_only, &self.defaults());
-            self.file.save(&mut cfg);
+            self.file.save(&mut cfg)
+        });
+        self.unsaved_profiles.retain(|u| !sections.iter().any(|s| (&s.plugin, &s.device) == (&u.plugin, &u.device)));
+        if !saved && !sections.is_empty() {
+            // The old phone's settings are about to be replaced by the new one's: keep them here until a save works
+            self.unsaved_profiles.extend(sections);
+            self.note_save_failure();
         }
         if self.streams.streaming || self.streams.starting {
             self.effects.push(Effect::StopAll);
@@ -940,7 +957,14 @@ impl State {
             self.file.save(&mut cfg);
         }
         self.selected = new.map(String::from);
-        let cfg = self.file.load();
+        let mut cfg = self.file.load();
+        // A phone that was switched away from while saving failed gets back what it had, not the older file's
+        let (back, rest): (Vec<_>, Vec<_>) = std::mem::take(&mut self.unsaved_profiles).into_iter().partition(|s| s.device.is_some() && s.device.as_deref() == new);
+        self.unsaved_profiles = rest;
+        if !back.is_empty() {
+            let window = WindowState::from_config(&cfg);
+            merge_for_save(&mut cfg, &window, &back);
+        }
         self.apply_device_profile(new, &cfg);
         self.bus.emit(Event::DeviceChanged { source_id: new.unwrap_or("").to_string() });
         if start {
@@ -950,6 +974,7 @@ impl State {
 
     pub fn forget_device_settings(&mut self, id: &str) {
         self.slot_memory.borrow_mut().remove(id);
+        self.unsaved_profiles.retain(|s| s.device.as_deref() != Some(id));
         if let Ok(mut cfg) = self.file.load_strict() {
             if profiles::forget_device(&mut cfg, id) {
                 self.file.save(&mut cfg);
@@ -963,6 +988,9 @@ impl State {
             memory.insert(new.to_string(), slot);
         }
         drop(memory);
+        for section in self.unsaved_profiles.iter_mut().filter(|s| s.device.as_deref() == Some(old)) {
+            section.device = Some(new.to_string());
+        }
         if let Ok(mut cfg) = self.file.load_strict() {
             profiles::move_device(&mut cfg, old, new);
             self.file.save(&mut cfg);
@@ -1599,6 +1627,39 @@ mod tests {
         assert_eq!(s.plugin_config("transforms").unwrap()["zoom"], 7);
         assert_eq!(s.effects, vec![Effect::Start { interactive: true }]);
         assert!(matches!(s.bus.next(), Some(Event::DeviceChanged { source_id }) if source_id == "B"));
+    }
+
+    /// Makes saving fail by putting a folder where the file is written first, until the returned path is removed.
+    fn block_saving(s: &State) -> std::path::PathBuf {
+        let mut name = s.file.path().file_name().unwrap().to_os_string();
+        name.push(".tmp");
+        let tmp = s.file.path().with_file_name(name);
+        std::fs::create_dir(&tmp).unwrap();
+        tmp
+    }
+
+    #[test]
+    fn a_phone_left_while_saving_fails_is_saved_later_and_handed_back_if_it_returns_first() {
+        let mut s = state();
+        s.register(stub("transforms", json!({"zoom": 2}), true).0).unwrap();
+        s.file.save(&mut json!({"devices": {"B": {"plugin_configs": {"transforms": {"zoom": 7}}}}}));
+        s.selected = Some("A".into());
+        s.with_plugin(0, |p| p.set_config(&json!({"zoom": 5})).unwrap());
+        let blocked = block_saving(&s);
+        s.switch_device(Some("A"), Some("B"));
+        assert_eq!(s.plugin_config("transforms").unwrap()["zoom"], 7);
+        assert!(s.effects.iter().any(|e| matches!(e, Effect::Notify { .. })), "the save-failure notice");
+        // Back on A before any save works: its changes are still there
+        s.switch_device(Some("B"), Some("A"));
+        assert_eq!(s.plugin_config("transforms").unwrap()["zoom"], 5);
+        s.with_plugin(0, |p| p.set_config(&json!({"zoom": 6})).unwrap());
+        s.switch_device(Some("A"), Some("B"));
+        std::fs::remove_dir(&blocked).unwrap();
+        assert!(s.save_now(), "the next save takes the kept settings along");
+        let devices = s.file.load()["devices"].clone();
+        assert_eq!(devices["A"]["plugin_configs"]["transforms"]["zoom"], 6);
+        assert_eq!(devices["B"]["plugin_configs"]["transforms"]["zoom"], 7);
+        assert!(s.unsaved_profiles.is_empty());
     }
 
     #[test]
