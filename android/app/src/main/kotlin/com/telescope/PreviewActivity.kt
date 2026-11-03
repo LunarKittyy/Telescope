@@ -16,6 +16,7 @@ import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.params.OutputConfiguration
 import android.hardware.camera2.params.SessionConfiguration
+import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -167,11 +168,16 @@ class PreviewActivity : AppCompatActivity() {
         bindService(Intent(this, CameraStreamService::class.java), serviceConnection, Context.BIND_AUTO_CREATE)
         registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
         receiverRegistered = true
+        (getSystemService(DISPLAY_SERVICE) as DisplayManager).registerDisplayListener(displayListener, null)
     }
 
     override fun onStop() {
         // onStart can finish early (no camera permission) before registering or binding
-        if (receiverRegistered) { unregisterReceiver(screenOffReceiver); receiverRegistered = false }
+        if (receiverRegistered) {
+            unregisterReceiver(screenOffReceiver)
+            (getSystemService(DISPLAY_SERVICE) as DisplayManager).unregisterDisplayListener(displayListener)
+            receiverRegistered = false
+        }
         tearDownPreview()
         unbind()
         service = null
@@ -365,19 +371,12 @@ class PreviewActivity : AppCompatActivity() {
             val manager = getSystemService(CAMERA_SERVICE) as CameraManager
             val sensorOrientation = manager.getCameraCharacteristics(cameraId)
                 .get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
-            // TextureView auto-rotates for sensor orientation; app is portrait-locked.
-            val axesSwapped = sensorOrientation == 90 || sensorOrientation == 270
-
-            val bufW = bufferSize.width.toFloat()
-            val bufH = bufferSize.height.toFloat()
-            val scaleX = if (axesSwapped) viewWidth  / bufH else viewWidth  / bufW
-            val scaleY = if (axesSwapped) viewHeight / bufW else viewHeight / bufH
-            // Standalone has crop box (use cover/max); bound mode (use contain/min) would crop stream.
-            val finalScale = if (boundToRunningStream) minOf(scaleX, scaleY) else maxOf(scaleX, scaleY)
-
+            // Standalone crops to its box (cover); a running stream shows whole (contain)
+            val r = PreviewTransform.compute(viewWidth, viewHeight, bufferSize.width.toFloat(), bufferSize.height.toFloat(),
+                sensorOrientation, displayDegrees(), cover = !boundToRunningStream)
             val matrix = Matrix()
-            matrix.setScale(finalScale / scaleX, finalScale / scaleY,
-                viewWidth / 2f, viewHeight / 2f)
+            matrix.setScale(r.scaleX, r.scaleY, viewWidth / 2f, viewHeight / 2f)
+            if (r.rotateDegrees != 0f) matrix.postRotate(r.rotateDegrees, viewWidth / 2f, viewHeight / 2f)
             textureView.setTransform(matrix)
         } catch (e: Exception) {
             Log.w(TAG, "Preview transform failed for camera $cameraId (attempt ${retryCount + 1})", e)
@@ -395,6 +394,24 @@ class PreviewActivity : AppCompatActivity() {
                     Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    // Phones stay portrait, but on a screen of 600dp or more Android 16 ignores the lock and the display can turn
+    private fun displayDegrees(): Int {
+        val rotation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display?.rotation
+            else @Suppress("DEPRECATION") windowManager.defaultDisplay.rotation
+        return when (rotation) {
+            Surface.ROTATION_90 -> 90
+            Surface.ROTATION_180 -> 180
+            Surface.ROTATION_270 -> 270
+            else -> 0
+        }
+    }
+
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayChanged(displayId: Int) { textureView.post { applyPreviewTransform(lastCameraId, lastBufferSize) } }
+        override fun onDisplayAdded(displayId: Int) {}
+        override fun onDisplayRemoved(displayId: Int) {}
     }
 
     private fun beginStandaloneAspectLayout() {
