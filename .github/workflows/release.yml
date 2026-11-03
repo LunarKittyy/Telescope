@@ -186,8 +186,13 @@ jobs:
         if: needs.meta.outputs.channel == 'stable'
         run: |
           notes=".github/release-notes/$VERSION.md"
-          if [ -f "$notes" ]; then cat "$notes" > notes.md; notes_args=(); else : > notes.md; notes_args=(--generate-notes); fi
-          sed "s|REPO|$GITHUB_REPOSITORY|g; s|TAG|$TAG|g" .github/DOWNLOADS.md >> notes.md
+          buttons=$(sed "s|REPO|$GITHUB_REPOSITORY|g; s|TAG|$TAG|g" .github/DOWNLOADS.md)
+          # The download buttons go right after the opening paragraph
+          if [ -f "$notes" ]; then
+            { sed '/^$/q' "$notes"; echo "$buttons"; echo; sed '1,/^$/d' "$notes"; } > notes.md; notes_args=()
+          else
+            echo "$buttons" > notes.md; notes_args=(--generate-notes)
+          fi
           gh release create "$TAG" out/* --verify-tag --latest \
             --title "Telescope $VERSION" --notes-file notes.md "${notes_args[@]}"
 
@@ -197,9 +202,9 @@ jobs:
         run: |
           {
             echo "Telescope $VERSION nightly $BUILD, built from \`${GITHUB_SHA::7}\`."
+            sed "s|REPO|$GITHUB_REPOSITORY|g; s|TAG|nightly|g" .github/DOWNLOADS.md
             echo
             cat .github/NIGHTLY_NOTES.md
-            sed "s|REPO|$GITHUB_REPOSITORY|g; s|TAG|nightly|g" .github/DOWNLOADS.md
           } > notes.md
           gh release delete nightly --yes --cleanup-tag || true
           gh release create nightly out/* --prerelease --latest=false \
