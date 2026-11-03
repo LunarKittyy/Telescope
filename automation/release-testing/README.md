@@ -24,6 +24,7 @@ Things to know:
 - On a freshly restored snapshot the first start check sometimes never gets past finding Telescope's window, though the window is up and responding (more often than not). The desktop job is stuck in UI Automation, not Telescope. Run `--only clean_install first_start` again.
 - The update checks land on whatever the channel's newest build is, which isn't necessarily the build being checked once newer nightlies are out. A run that overlaps a nightly being published can fail them; run those checks again with `--only`.
 - On Windows 11 the camera checks expect Telescope's own camera (`rust/windows/virtualcamera`), not UnityCapture. The older-driver check registers UnityCapture the way older versions did and expects Update to replace it. On Windows 10 they check UnityCapture as before.
+- The checks move the main window inside the screen before clicking it, after `window_fits_screen` has read where it opened. Controls scrolled out of view aren't in UI Automation's tree at all, so the checks turn the mouse wheel until they appear.
 - **Get adb** stays skipped unless you pass `--agree-adb-licence`, since it means accepting Google's SDK licence in the app.
 - Windows' firewall question can't be reached through UI Automation and it swallows clicks elsewhere. The script closes it whenever it comes up, like dismissing it would.
 

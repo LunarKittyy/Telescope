@@ -522,18 +522,18 @@ impl Settings {
         true
     }
 
-    /// The first time it opens: _fit_to_screen, from the screen it came up on.
+    /// The first time it opens: _fit_to_screen, from the work area of the screen it came up on (once the system has made the
+    /// window), and moved back in where it sticks out.
     fn keep_on_screen(&self) {
-        use slint::winit_030::WinitWindowAccessor;
         if self.fitted.replace(true) {
             return;
         }
-        let window = self.ui.window();
-        let scale = window.scale_factor();
-        let screen = window.with_winit_window(|w| w.current_monitor().or_else(|| w.primary_monitor()).map(|m| m.size().to_logical::<f32>(scale as f64))).flatten();
-        if let Some(screen) = screen {
-            self.fit_to_screen((screen.width, screen.height));
-        }
+        crate::screen::when_made(&self.ui, |w| crate::screen::work_area(w).filter(|_| w.inner_size().width > 0), |ui, area| {
+            let Some(settings) = SETTINGS.with(|s| s.borrow().clone()) else { return };
+            let scale = ui.window().scale_factor();
+            settings.fit_to_screen((area.width as f32 / scale, area.height as f32 / scale));
+            crate::screen::keep_inside(ui, ((320.0 * scale) as u32, (240.0 * scale) as u32));
+        });
     }
 
     /// Opens at its usual size unless the screen is smaller, keeping clear of its edges; a small screen also wins over

@@ -51,6 +51,13 @@ Set-Content "$adb\adb.exe" "x"
 New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\Telescope\vision\pack\mediapipe" | Out-Null  # the vision download
 Set-Content "$env:LOCALAPPDATA\Telescope\vision\pack\.verified" "x"
 Set-ItemProperty $runKey -Name "Telescope" -Value "`"$app\TelescopeDesktop.exe`" --minimized"
+# A camera registered from the app's own folder, the way Telescope 3.1.1 and older did, and one that isn't ours
+$ucKey = "HKLM:\SOFTWARE\Classes\CLSID\{5C2CD55C-92AD-4999-8666-912BD3E70099}"
+$otherKey = "HKLM:\SOFTWARE\Classes\CLSID\{5C2CD55C-92AD-4999-8666-912BD3E70098}"
+New-Item "$ucKey\InprocServer32" -Force | Out-Null
+Set-ItemProperty "$ucKey\InprocServer32" "(default)" "$app\unitycapture\UnityCaptureFilter64.dll"
+New-Item "$otherKey\InprocServer32" -Force | Out-Null
+Set-ItemProperty "$otherKey\InprocServer32" "(default)" "C:\Tools\UnityCapture\UnityCaptureFilter64.dll"
 
 $p = Start-Process -FilePath "$app\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
 if ($p.ExitCode -ne 0) { $problems += "uninstall exited with $($p.ExitCode)" }
@@ -69,6 +76,9 @@ if (Test-Path "$env:ProgramFiles\Telescope") { $problems += "after uninstall, Pr
 if (Get-NetFirewallApplicationFilter | Where-Object { $_.Program -eq "$app\TelescopeDesktop.exe" }) {
     $problems += "after uninstall, a firewall rule for Telescope is still there"
 }
+if (Test-Path $ucKey) { $problems += "after uninstall, the camera an older Telescope registered from its folder is still there" }
+if (-not (Test-Path $otherKey)) { $problems += "uninstall took away a camera that isn't Telescope's" }
+Remove-Item $ucKey, $otherKey -Recurse -Force -ErrorAction SilentlyContinue
 if ((Get-ItemProperty $runKey -ErrorAction SilentlyContinue).PSObject.Properties.Name -contains "Telescope") {
     $problems += "after uninstall, Telescope still opens at sign-in"
 }

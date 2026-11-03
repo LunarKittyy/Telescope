@@ -292,12 +292,14 @@ def zip_launch(a):
 Open-AsUser (<<zip>> + "\TelescopeDesktop.exe")  # what a double-click on the exe in Explorer's view of the zip does
 $run = Find-Control "Run" "Pane" 15 ""
 if ($run) { Press $run }  # Windows asks whether to run it or extract everything first
-Start-Sleep 20
-$texts = @(Get-Texts) | Sort-Object -Unique
+# The exe is unpacked on its own and scanned by Defender before it runs, which takes a while the first time
+Wait-Until { [Watch]::Windows("TelescopeDesktop") | Where-Object { $_ -like "*|Extract Telescope first|*" } } 90 | Out-Null
+Start-Sleep 3
+$texts = @(Get-Texts "TelescopeDesktop") | Sort-Object -Unique
 [Watch]::Stop() | ForEach-Object { "WATCH $_" }
 $texts | ForEach-Object { "TEXT $_" }
 Get-Process TelescopeDesktop* -ErrorAction SilentlyContinue | Stop-Process -Force
-""", zip=zip_path), timeout=120)
+""", zip=zip_path), timeout=180)
     titles = sorted({r["title"] for r in watch_log(out) if not r["gone"]})
     texts = [line[5:] for line in out.splitlines() if line.startswith("TEXT ")]
     need("Extract Telescope first" in titles,
@@ -312,16 +314,22 @@ def first_start_time(a, more="") -> float:
 [Watch]::Start("TelescopeDesktop")
 $t0 = Get-Date
 Open-AsUser "<<menu>>"
-$main = Main-Window 300
+$main = Main-Window 300 -Stay
 if (-not $main) { [Watch]::Stop() | ForEach-Object { "WATCH $_" }; throw "the window didn't open within 5 minutes" }
 Wait-Until { Find-Control "Settings" "Button" 1 } 60 | Out-Null
 "READY $(((Get-Date) - $t0).TotalSeconds)"
+$area = [Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+"WORK $($area.Left),$($area.Top),$($area.Right),$($area.Bottom)"
+"SETTLED $(Main-Rect)"
+Bring-In (Main-Window 5 -Stay) | Out-Null
 <<more>>
 [Watch]::Stop() | ForEach-Object { "WATCH $_" }
 """).replace('"<<menu>>"', f'"{MENU}"').replace("<<more>>", more), timeout=420)
     a.last_start_rows = watch_log(out)
     a.last_start_out = out
-    return float(re.search(r"READY ([\d.,]+)", out).group(1).replace(",", "."))
+    ready = re.search(r"READY ([\d.,]+)", out)
+    need(ready, f"the window never got ready: {out[-300:]}")
+    return float(ready.group(1).replace(",", "."))
 
 
 @check
@@ -365,7 +373,7 @@ def first_start(a):
     need_installed(a, a.build, "clean_install")
     # Add phone and Settings during the first minute, while it may still be finishing loading
     seconds = first_start_time(a, more=r"""
-Press-Control "Add phone" "Button"; Need-Control "Add phone" "Window" 20 | Out-Null; Start-Sleep 2; Close-Window "Add phone"
+Press-Control "Add phone" "Button"; Need-Control "Pairing code" "" 20 | Out-Null; Start-Sleep 2; Press-Control "Back" "Button"
 Press-Control "Settings" "Button"; Need-Control "Settings" "Window" 20 | Out-Null; Start-Sleep 2; Close-Window "Settings"
 Wait-Until { ((Get-Date) - $t0).TotalSeconds -gt 75 } 90 | Out-Null
 """)
@@ -380,6 +388,23 @@ Wait-Until { ((Get-Date) - $t0).TotalSeconds -gt 75 } 90 | Out-Null
     # Most of a first start is Defender scanning files it hasn't seen, so the time only means something on a fresh VM
     need(seconds < 90, f"the window took {seconds:.0f} s")
     return f"splash after {splash['t']:.1f} s, window ready after {seconds:.0f} s"
+
+
+@check
+def window_fits_screen(a):
+    """The main window, as it settled after opening (the test moves it inside afterwards, to click it), is inside the work area."""
+    rows = getattr(a, "last_start_rows", None)
+    area = re.search(r"WORK (-?\d+),(-?\d+),(-?\d+),(-?\d+)", getattr(a, "last_start_out", "") or "")
+    if not rows or not area:
+        raise Skip("first_start didn't open the window")
+    left, top, right, bottom = map(int, area.groups())
+    settled = re.search(r"SETTLED (-?\d+),(-?\d+),(-?\d+),(-?\d+)", a.last_start_out)
+    need(settled, "the window's place wasn't read")
+    main = {"rect": tuple(map(int, settled.groups()))}
+    l, t, r, b = main["rect"]
+    need(l >= left and t >= top and r <= right and b <= bottom,
+         f"the window opened at {main['rect']} on a screen whose usable area is {(left, top, right, bottom)}")
+    return f"opened at {main['rect']} inside {(left, top, right, bottom)}"
 
 
 @check
@@ -429,54 +454,89 @@ if (-not (Wait-Until { (Get-Texts) -match "^Installed" } 120 1)) { throw "the ch
     return "every app sees it as Telescope" if windows_11(a) else "OBS, Zoom and browsers see it as Telescope"
 
 
-def open_dialog_watched(a, opener: str, title: str) -> list:
+def watched_open(a, opener: str, marker: str, closer: str) -> tuple:
+    """Run opener with the app's windows watched, wait for the control called marker, close it again; (watch rows, work area)."""
     out = a.win.desktop(ps(r"""
 [Watch]::Start("TelescopeDesktop")
 Start-Sleep -Milliseconds 300
 <<opener>>
-Need-Control <<title>> "Window" 20 | Out-Null
+if (-not (Find-Control <<marker>> "" 6)) { <<opener>> }  # a click on a window that isn't in front may only bring it there
+Need-Control <<marker>> "" 20 | Out-Null
 Start-Sleep 2
 [Watch]::Stop() | ForEach-Object { "WATCH $_" }
-Close-Window <<title>>
-""", title=title).replace("<<opener>>", opener), timeout=120)
-    return watch_log(out)
+$area = [Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+"WORK $($area.Left),$($area.Top),$($area.Right),$($area.Bottom)"
+<<closer>>
+""", marker=marker).replace("<<opener>>", opener).replace("<<closer>>", closer), timeout=120)
+    area = re.search(r"WORK (-?\d+),(-?\d+),(-?\d+),(-?\d+)", out)
+    return watch_log(out), tuple(map(int, area.groups()))
+
+
+def strays(rows: list, allowed: tuple) -> list:
+    """Windows that showed up in the watch beyond the ones the dialog is meant to have (the app always has a 16 px one of
+    its own at the corner, which isn't one)."""
+    return [r for r in rows if not r["gone"] and r["title"] not in allowed and r["rect"] != (0, 0, 16, 16)]
 
 
 @check
-def dialogs_centred(a):
+def settings_centred(a):
+    """Settings is a window of its own: it opens once, where it stays, over the middle of the main window, inside the screen."""
     need_installed(a, a.build, "clean_install")
-    a.win.desktop(r'if (-not (Main-Window 1)) { Open-AsUser "$env:LOCALAPPDATA\Programs\Telescope\TelescopeDesktop.exe"; Main-Window 120 | Out-Null }')
+    open_app(a)
+    problems = []
+    for _ in range(3):
+        a.win.desktop('if (Find-Control "Settings" "Window" 1) { Close-Window "Settings"; Start-Sleep 1 }')
+        rows, (left, top, right, bottom) = watched_open(a, 'Press-Control "Settings" "Button"', "Search settings", 'Close-Window "Settings"')
+        mine = [r for r in rows if not r["gone"] and r["title"] == "Settings"]
+        main = next((r for r in reversed(rows) if not r["gone"] and r["title"] == "Telescope"), None)
+        flashes = strays(rows, ("Settings", "Telescope"))
+        if not mine:
+            problems.append("Settings never showed as a window")
+            continue
+        first, last = mine[0]["rect"], mine[-1]["rect"]
+        if first != last:
+            problems.append(f"Settings moved from {first} to {last}")
+        if flashes:
+            problems.append(f"Settings flashed {[(r['title'], r['rect']) for r in flashes][:2]}")
+        l, t, r, b = last
+        if l < left or t < top or r > right or b > bottom:
+            problems.append(f"Settings at {last} sticks out of the usable screen {(left, top, right, bottom)}")
+        if main:
+            ml, mt, mr, mb = main["rect"]
+            if abs((l + r) - (ml + mr)) > 160 or abs((t + b) - (mt + mb)) > 160:
+                problems.append(f"Settings at {last} isn't centred on the window at {main['rect']}")
+    need(not problems, "; ".join(dict.fromkeys(problems)))
+    return "opened 3 times, in one place, centred, inside the screen"
+
+
+@check
+def dialogs_stay_in_window(a):
+    """Add phone, Your phones and the shortcut editor are drawn in the window: no window of their own comes up and the window stays put."""
+    need_installed(a, a.build, "clean_install")
+    open_app(a)
     dialogs = {
-        "Settings": 'Press-Control "Settings" "Button"',
-        "Add phone": 'Press-Control "Add phone" "Button"',
-        "Your phones": 'Press-Control "Your phones" "Button"',
-        "Keyboard shortcut": 'Press-Control "Settings" "Button"; Press-Control "Keyboard shortcuts" "ListItem"; '
-                             'Press-Control "Add" "Button"',
+        "Add phone": ('Press-Control "Add phone" "Button"', "Pairing code", 'Press-Control "Back" "Button"'),
+        "Your phones": ('Press-Control "Your phones" "Button"', "Change name", 'Press-Control "Close" "Button"'),
+        "Keyboard shortcut": ('Open-Settings "Keyboard shortcuts"; Press-Control "Add" "Button"', "Press shortcut", 'Close-Window "Settings"'),
     }
-    problems, flashes = [], 0
-    for title, opener in dialogs.items():
+    problems = []
+    for title, (opener, marker, closer) in dialogs.items():
         for _ in range(3):
-            rows = open_dialog_watched(a, opener, title)
-            if title == "Keyboard shortcut":
-                a.win.desktop('Close-Window "Settings"')
-            mine = [r for r in rows if not r["gone"] and r["title"] == title]
-            main = next((r for r in rows if not r["gone"] and r["title"] == "Telescope"), None)
-            strays = [r for r in rows if not r["gone"] and r["title"] not in (title, "Telescope", "Settings")]
-            if not mine:
-                problems.append(f"{title} never showed")
+            try:
+                rows, _area = watched_open(a, opener, marker, closer)
+            except Fail as e:
+                problems.append(f"{title}: {e}")
+                a.win.desktop('if (Find-Control "Settings" "Window" 1) { Close-Window "Settings" }')
                 continue
-            first, last = mine[0]["rect"], mine[-1]["rect"]
-            if first != last:
-                problems.append(f"{title} moved from {first} to {last}")
-            if strays:
-                flashes += 1
-                problems.append(f"{title} flashed {[(r['title'], r['rect']) for r in strays][:2]}")
-            if main:
-                (ml, mt, mr, mb), (l, t, r, b) = main["rect"], last
-                if abs((l + r) - (ml + mr)) > 80 or (abs((t + b) - (mt + mb)) > 80 and t > 0):
-                    problems.append(f"{title} at {last} isn't centred on the window at {main['rect']}")
-    need(not problems, "; ".join(problems))
-    return "4 dialogs opened 3 times each"
+            shown = [r for r in rows if not r["gone"]]
+            main = [r["rect"] for r in shown if r["title"] == "Telescope"]
+            others = sorted({r["title"] for r in strays(rows, ("Telescope", "Settings" if title == "Keyboard shortcut" else "Telescope"))})
+            if others:
+                problems.append(f"{title} came up as a window of its own: {others}")
+            if main and len(set(main)) > 1:
+                problems.append(f"{title} moved the window from {main[0]} to {main[-1]}")
+    need(not problems, "; ".join(dict.fromkeys(problems)))
+    return "3 dialogs opened 3 times each without a window of their own"
 
 
 def open_app(a):
@@ -487,16 +547,23 @@ def open_app(a):
 def driver_row(a) -> str:
     """Settings, Virtual camera & phone: what the Driver row says, read fresh."""
     out = a.win.desktop(r"""
-if (Find-Control "Settings" "Window" 1) { Close-Window "Settings"; Start-Sleep 1 }
-Press-Control "Settings" "Button"
-Press-Control "Virtual camera & phone" "ListItem"
-Start-Sleep 3
-$texts = Get-Texts
-foreach ($t in "Ready", "Reinstall for a security fix", "Some apps can't see it", "Update ready", "Not installed") { if ($texts -contains $t) { "ROW $t" } }
+Open-Settings "Virtual camera & phone"
+$known = "Ready", "Reinstall for a security fix", "Some apps can't see it", "Update ready", "Not installed"
+# The row says something else for a moment while the page checks the driver
+$texts = @()
+for ($i = 0; $i -lt 25; $i++) {
+    Start-Sleep 1
+    $texts = @(Driver-Texts)
+    if ($texts | Where-Object { $known -contains $_ -or $_ -like "Apps list it as*" }) { break }
+}
+foreach ($t in $known) { if ($texts -contains $t) { "ROW $t" } }
 $texts | Where-Object { $_ -like "Apps list it as*" } | ForEach-Object { "ROW $_" }
+"TEXTS $($texts -join ' / ')"
 """)
     rows = [line[4:] for line in out.splitlines() if line.startswith("ROW ")]
-    return rows[0] if rows else ""
+    if not rows:
+        raise Fail(f"the Driver row never said anything known: {line(out, 'TEXTS')!r}")
+    return rows[0]
 
 
 def register_driver(a, folder: str, name: str):
@@ -512,6 +579,16 @@ foreach ($pair in @(@("$env:windir\System32\regsvr32.exe", 'UnityCaptureFilter64
     if ($p.ExitCode -ne 0) { "REGSVR32 $($pair[1]) $($p.ExitCode)" }
 }""", name=name).replace("<<folder>>", folder))
     need("REGSVR32" not in out, f"couldn't register UnityCapture from {folder}: {out}")
+
+
+def drop_unitycapture(a):
+    """Unregister any UnityCapture left over, so a check that failed half way doesn't leave a camera for the ones after."""
+    a.win.admin(r"""
+foreach ($view in 'HKLM:\SOFTWARE\Classes', 'HKLM:\SOFTWARE\WOW6432Node\Classes') {
+    Get-ChildItem "$view\CLSID" -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -like '{5C2CD55C-92AD-4999-8666-912BD3E7*' } | Remove-Item -Recurse -Force
+    Get-ChildItem "$view\CLSID\{860BB310-5D01-11d0-BD3B-00A0C911CE86}\Instance" -ErrorAction SilentlyContinue |
+        Where-Object { $_.PSChildName -like '{5C2CD55C-92AD-4999-8666-912BD3E7*' } | Remove-Item -Recurse -Force
+}""")
 
 
 def remove_mf_camera(a):
@@ -539,7 +616,7 @@ Get-ChildItem $dir -Filter "UnityCaptureFilter*.dll" | ForEach-Object { "$($_.Na
         need(row == "Some apps can't see it",
              f"with UnityCapture registered {note} the row says {row!r} and apps see {a.win.admin(CAMERAS).splitlines()}")
         since = win_now(a)
-        a.win.desktop('Press-Control "Driver" "Button"; Wait-Until { (Get-Texts) -contains "Ready" } 120 1 | Out-Null')
+        a.win.desktop('Press-Driver; Wait-Until { (Driver-Texts) -contains "Ready" } 120 1 | Out-Null')
         asked = elevations(a, since)
         need(asked == ["powershell.exe from TelescopeDesktop.exe"], f"Update asked for admin {len(asked)} times: {asked}")
         row = driver_row(a)
@@ -555,6 +632,13 @@ Get-ChildItem $dir -Filter "UnityCaptureFilter*.dll" | ForEach-Object { "$($_.Na
 def driver_older_versions(a):
     need_installed(a, a.build, "clean_install")
     open_app(a)
+    try:
+        return driver_older_versions_checked(a)
+    finally:
+        drop_unitycapture(a)
+
+
+def driver_older_versions_checked(a):
     if windows_11(a):
         return driver_older_versions_11(a)
     notes = []
@@ -563,7 +647,7 @@ def driver_older_versions(a):
     row = driver_row(a)
     need(row == "Reinstall for a security fix", f"with the driver in the app folder the row says {row!r}")
     since = win_now(a)
-    a.win.desktop('Press-Control "Driver" "Button"; Wait-Until { (Get-Texts) -contains "Ready" } 120 1 | Out-Null')
+    a.win.desktop('Press-Driver; Wait-Until { (Driver-Texts) -contains "Ready" } 120 1 | Out-Null')
     asked = elevations(a, since)
     need(asked == ["powershell.exe from TelescopeDesktop.exe"], f"Reinstall asked for admin {len(asked)} times: {asked}")
     row = driver_row(a)
@@ -573,7 +657,7 @@ def driver_older_versions(a):
     register_driver(a, r"$env:ProgramFiles\Telescope\UnityCapture", "Unity Video Capture")
     row = driver_row(a)
     need(row.startswith("Apps list it as"), f"with the old name the row says {row!r}")
-    a.win.desktop('Press-Control "Driver" "Button"; Wait-Until { (Get-Texts) -contains "Ready" } 120 1 | Out-Null')
+    a.win.desktop('Press-Driver; Wait-Until { (Driver-Texts) -contains "Ready" } 120 1 | Out-Null')
     row = driver_row(a)
     cameras = a.win.admin(CAMERAS).splitlines()
     need(row == "Ready" and "64 Telescope" in cameras, f"after Rename the row says {row!r} and DirectShow lists {cameras}")
@@ -594,44 +678,72 @@ def plugin_zip(a) -> str:
         return upload(a, path)
 
 
+PLUGIN_FOLDER = r'$env:APPDATA\Telescope\plugins\black_and_white'
+
+
+def drop_plugin(a):
+    """Quit Telescope and take the added example plugin away, so a plugin that stops it starting doesn't spoil the checks after."""
+    # Its switch is kept in the settings: left on, the app would try to load it again from wherever it's put back
+    a.win.admin(rf'''Get-Process TelescopeDesktop* -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 1
+Remove-Item -Recurse -Force "{PLUGIN_FOLDER}" -ErrorAction SilentlyContinue
+$f = "$env:APPDATA\Telescope\telescope_config.json"
+if (Test-Path $f) {{
+    $c = Get-Content $f -Raw | ConvertFrom-Json
+    if ($c.plugins -and $c.plugins.added -and $c.plugins.added.PSObject.Properties['black_and_white']) {{
+        $c.plugins.added.PSObject.Properties.Remove('black_and_white')
+        [IO.File]::WriteAllText($f, ($c | ConvertTo-Json -Depth 20), (New-Object Text.UTF8Encoding $false))
+    }}
+}}''')
+
+
+def log_tail(a, lines=6) -> str:
+    return a.win.admin(rf'Get-Content "$env:TEMP\Telescope\telescope.log" -Tail {lines} -ErrorAction SilentlyContinue | ForEach-Object {{ $_.Substring(0, [Math]::Min(200, $_.Length)) }}').replace("\n", " | ")
+
+
 @check
 def plugin_install(a):
     need_installed(a, a.build, "clean_install")
     open_app(a)
     zip_path = plugin_zip(a)
     info = json.loads((PLUGIN / "plugin.json").read_text())
-    a.win.admin(r'Remove-Item -Recurse -Force "$env:APPDATA\Telescope\plugins\black_and_white" -ErrorAction SilentlyContinue')
-    out = a.win.desktop(ps(r"""
-if (Find-Control "Settings" "Window" 1) { Close-Window "Settings"; Start-Sleep 1 }
-Press-Control "Settings" "Button"
-Press-Control "Plugins" "ListItem"
-Press-Control "Install" "Button"
+    drop_plugin(a)
+    open_app(a)
+    try:
+        out = a.win.desktop(ps(r"""
+Open-Settings "Plugins"
+Press (Scroll-To "Install" "Button")
 Need-Control "Install a plugin" "Window" 20 | Out-Null
 if (-not [Watch]::OpenInFileDialog("Install a plugin", <<zip>>)) { throw "couldn't fill in the file dialog" }
-Press-Control "OK" "Button" 20
-Press-Control "<<title>> <<version>>" "CheckBox" 10
-Press-Control "Switch on" "Button" 10
-Wait-Restart { Press-Control "Restart now" "Button" 20 }
-if (-not (Find-Control "<<title>>" "CheckBox" 30)) { throw "no <<title>> card after the restart" }
+Press-Control "OK" "Button" 20  # the "Installed" note
+# Its tile sits in the group of its category, switched off, and a switch is a button in the tree
+Press (Scroll-To "<<title>> <<version>>" "Button")
+Press-Control "Switch on" "Button" 10  # the question about trusting it
+try { Wait-Restart { Press-Control "Restart now" "Button" 20 } 90 } catch { throw "after Restart now: $_" }
 "OK"
 """, zip=zip_path).replace("<<title>>", info["title"]).replace("<<version>>", info["version"]), timeout=400)
-    need("OK" in out, out[-300:])
+        need("OK" in out, out[-300:])
+        shown = a.win.desktop(ps(r"""
+if (-not (Find-Control "<<title>>" "" 30)) { throw "no <<title>> card in the window after the restart" }
+"OK"
+""").replace("<<title>>", info["title"]))
+        need("OK" in shown, shown[-300:])
+    except Fail as e:
+        raise Fail(f"{e}; the log ends: {log_tail(a)}")
+    finally:
+        drop_plugin(a)
     return "Install picks the zip, switching on and Restart now shows its card"
 
 
 @check
 def plugin_drag(a):
     need_installed(a, a.build, "clean_install")
-    open_app(a)
     zip_path = plugin_zip(a)
     info = json.loads((PLUGIN / "plugin.json").read_text())
-    out = a.win.desktop(ps(r"""
-if (Find-Control "Settings" "Window" 1) { Close-Window "Settings"; Start-Sleep 1 }
-Press-Control "Settings" "Button"
-Press-Control "Plugins" "ListItem"
-$remove = Find-Control "Remove <<title>>" "Button" 5
-if ($remove) { Press $remove; Press-Control "Remove" "Button" 10; Start-Sleep 2 }
-if (Find-Control "<<title>> <<version>>" "CheckBox" 2) { throw "Remove left it in the list" }
+    drop_plugin(a)
+    open_app(a)
+    try:
+        out = a.win.desktop(ps(r"""
+Open-Settings "Plugins"
 # Explorer showing the zip, in the top-left corner, and the zip dragged onto the plugins page
 Open-AsUser (Split-Path <<zip>>)
 $item = Need-Control (Split-Path -Leaf <<zip>>) "ListItem" 30 "explorer"
@@ -641,13 +753,45 @@ $item = Need-Control (Split-Path -Leaf <<zip>>) "ListItem" 10 "explorer"
 $from = $item.Current.BoundingRectangle
 $page = (Need-Control "Settings" "Window").Current.BoundingRectangle
 [Watch]::Drag([int]($from.X + 20), [int]($from.Y + $from.Height / 2), [int]($page.Right - 200), [int]($page.Bottom - 120))
-Press-Control "OK" "Button" 20
-$ok = [bool](Find-Control "<<title>> <<version>>" "CheckBox" 10)
+if (-not (Find-Control "OK" "Button" 20)) { throw "dropping the zip onto the plugins page did nothing: no Installed note came up" }
+Press-Control "OK" "Button" 5  # the "Installed" note
+$added =[bool](Scroll-To "<<title>> <<version>>" "Button")
 if ($win) { (New-Object -ComObject Shell.Application).Windows() | Where-Object { $_.LocationName -eq "plugins" } | ForEach-Object { $_.Quit() } }
-"LISTED $ok"
+"LISTED $added"
 """, zip=zip_path).replace("<<title>>", info["title"]).replace("<<version>>", info["version"]), timeout=300)
+    finally:
+        drop_plugin(a)
     need(line(out, "LISTED") == "True", f"dragging the zip in from Explorer didn't add it: {out[-200:]}")
-    return "Remove takes it out, dragging the zip in from Explorer adds it back"
+    return "dragging the zip in from Explorer adds it"
+
+
+@check
+def plugin_remove(a):
+    need_installed(a, a.build, "clean_install")
+    zip_path = plugin_zip(a)
+    info = json.loads((PLUGIN / "plugin.json").read_text())
+    drop_plugin(a)
+    # Put in the plugins folder as the Install button would, switched off, so there's a tile for the bin to take out
+    a.win.admin(ps(r"""
+$plugins = "$env:APPDATA\Telescope\plugins"
+New-Item -ItemType Directory -Force $plugins | Out-Null
+Expand-Archive <<zip>> $plugins -Force""", zip=zip_path))
+    open_app(a)
+    try:
+        out = a.win.desktop(ps(r"""
+Open-Settings "Plugins"
+Scroll-To "<<title>> <<version>>" "Button" | Out-Null  # it's there, switched off
+Press-Control "Remove <<title>> <<version>>" "Button" 10  # the bin on its tile
+Press-Control "Remove" "Button" 10  # the question
+Start-Sleep 2
+"GONE $(-not (Find-Control "<<title>> <<version>>" "Button" 2))"
+""").replace("<<title>>", info["title"]).replace("<<version>>", info["version"]), timeout=300)
+        on_disk = a.win.admin(f'Test-Path "{PLUGIN_FOLDER}"').strip() == "True"
+    finally:
+        drop_plugin(a)
+    need(line(out, "GONE") == "True", f"Remove left it in the list: {out[-200:]}")
+    need(not on_disk, "Remove left the plugin's folder behind")
+    return "Remove takes an added plugin out of the list and off the disk"
 
 
 @check
@@ -657,15 +801,14 @@ def get_adb(a):
         raise Skip("Get adb needs Google's SDK licence accepted: pass --agree-adb-licence")
     open_app(a)
     out = a.win.desktop(r"""
-if (Find-Control "Settings" "Window" 1) { Close-Window "Settings"; Start-Sleep 1 }
-Press-Control "Settings" "Button"
-Press-Control "Virtual camera & phone" "ListItem"
-Press-Control "Get adb" "Button"
+# The Add phone panel's USB row asks about Google's licence first (Settings, Virtual camera & phone downloads without asking)
+Press-Control "Add phone" "Button"
+Press-Control "Get adb from Google" "Button"
 Press-Control "Agree and download" "Button" 20
 $adb = "$env:LOCALAPPDATA\Telescope\platform-tools\adb.exe"
 if (-not (Wait-Until { Test-Path $adb } 180 2)) { throw "adb.exe didn't show up" }
 Start-Sleep 5
-Close-Window "Settings"
+Press-Control "Back" "Button"
 Close-Window "Telescope"  # with nothing streaming, closing the window quits
 if (-not (Wait-Until { -not (Get-Process TelescopeDesktop -ErrorAction SilentlyContinue) } 30 1)) { throw "Telescope didn't quit" }
 Start-Sleep 3
@@ -719,6 +862,26 @@ if (-not (Test-Path "$env:APPDATA\Telescope")) {{ "settings were deleted" }}
 
 
 @check
+def uninstall_older_camera(a):
+    """A camera an older Telescope registered from the app's own folder goes with the uninstall (admin already, so no prompt)."""
+    setup = upload(a, a.build / "TelescopeSetup.exe")
+    clean(a)
+    a.win.admin(ps("Start-Process <<s>> '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait", s=setup))
+    need_installed(a, a.build, "the setup")
+    register_driver(a, r"$env:LOCALAPPDATA\Programs\Telescope\unitycapture", "Telescope")
+    before = a.win.admin(CAMERAS).splitlines()
+    need("64 Telescope" in before, f"couldn't set the camera up as an older version left it: {before}")
+    a.win.admin(rf'''
+Get-Process TelescopeDesktop* -ErrorAction SilentlyContinue | Stop-Process -Force
+$app = "{APP}"
+Start-Process "$app\unins000.exe" '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+for ($i = 0; $i -lt 60 -and (Test-Path "$app\unins000.exe"); $i++) {{ Start-Sleep 1 }}''')
+    left = a.win.admin(CAMERAS).splitlines()
+    need(not left, f"the uninstall left the cameras {left}")
+    return "an older version's camera is gone after the uninstall"
+
+
+@check
 def update_installed(a):
     if not a.previous:
         raise Skip("no --previous release to update from")
@@ -731,8 +894,7 @@ def update_installed(a):
     channel = "Nightly" if manifest(a.build)["channel"] == "nightly" else "Stable"
     out = a.win.desktop(r"""
 if (-not (Main-Window 120)) { throw "Telescope isn't running" }
-if (-not (Find-Control "Settings" "Window" 1)) { Press-Control "Settings" "Button" }
-Press-Control "Updates & About" "ListItem"
+Open-Settings "Updates & About"
 Choose "Channel" "<<channel>>"
 """.replace("<<channel>>", channel) + r"""
 Press-Control "Check now" "Button"
@@ -752,8 +914,8 @@ Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
 Expand-Archive <<zip>> $dir
 Open-AsUser "$dir\TelescopeDesktop.exe"
 if (-not (Main-Window 300)) { throw "the unzipped copy didn't open" }
-Press-Control "Settings" "Button"
-Press-Control "Monochrome" "CheckBox"  # a setting to look for after the update
+Open-Settings "General"
+Press-Control "Card colours: Monochrome" "TabItem"  # a setting to look for after the update
 Press-Control "Updates & About" "ListItem"
 Choose "Channel" <<channel>>
 Press-Control "Check now" "Button"
@@ -772,9 +934,8 @@ def unzipped_previous(a, folder: str, before_update: str = "") -> str:
 Wait-Restart { Press-Control "Update and restart" "Button" 60 }
 $p = Get-Process TelescopeDesktop | Select-Object -First 1
 "RUNNING $($p.Path)"
-Press-Control "Settings" "Button"
-Press-Control "General" "ListItem"
-"MONOCHROME $(Is-On (Need-Control 'Monochrome' 'CheckBox'))"
+Open-Settings "General"
+"MONOCHROME $(Is-On (Need-Control 'Card colours: Monochrome' 'TabItem'))"
 Close-Window "Settings"
 """, timeout=900)
 
@@ -811,7 +972,7 @@ def unzipped_keep_in_place(a):
         raise Skip("no --previous release to update from")
     clean(a)
     out = unzipped_previous(a, "$env:USERPROFILE\\Downloads\\Telescope-old",
-                            before_update='\nPress-Control "Keep this copy where it is" "CheckBox"\nStart-Sleep 1\n')
+                            before_update='\nPress-Control "Keep this copy where it is" "Button"\nStart-Sleep 1\n')
     running = line(out, "RUNNING")
     need(running.lower().endswith(r"\downloads\telescope-old\telescopedesktop.exe"), f"it came back running from {running}")
     need(line(out, "MONOCHROME") == "True", "the Monochrome setting didn't survive the update")
@@ -857,7 +1018,7 @@ def update_cut_short(a):
     zip_path = upload(a, a.previous / "Telescope-windows-portable.zip")
     channel = "Nightly" if manifest(a.build)["channel"] == "nightly" else "Stable"
     out = a.win.desktop(BUILD_OF + ps(UNZIP_AND_OPEN, dir="$env:USERPROFILE\\Downloads\\Telescope-old", zip=zip_path, channel=channel) + r"""
-Press-Control "Keep this copy where it is" "CheckBox"
+Press-Control "Keep this copy where it is" "Button"
 Start-Sleep 1
 Press-Control "Update and restart" "Button" 60
 # Pull the plug the moment the swap starts
