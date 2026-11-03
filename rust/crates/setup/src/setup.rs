@@ -199,7 +199,7 @@ impl Panel {
             canvas_status: None,
             apply_enabled: true,
             canvas_command: String::new(),
-            apk: Line::new(if apk_bundled { tr("Comes with this app") } else { tr("None came with this app") }, "status_dim"),
+            apk: Line::new(if apk_bundled { tr("Included with this app") } else { tr("Not included with this app") }, "status_dim"),
             apk_enabled: true,
             apk_choices: Vec::new(),
             apk_path: String::new(),

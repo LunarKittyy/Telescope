@@ -43,8 +43,8 @@ msgid "The phone's microphone stopped."
 msgstr "Telefonun mikrofonu durdu."
 
 #: rust/crates/audio/src/plugin.rs:28
-msgid "This camera's microphone isn't passed on. Pick it in your call app instead."
-msgstr "Bu kameranın mikrofonu aktarılmaz. Bunun yerine arama uygulamanda onu seç."
+msgid "Telescope doesn't pass on this camera's microphone. To use it, choose it as the microphone in your call app."
+msgstr ""
 
 #: rust/crates/audio/src/plugin.rs:38
 #, python-brace-format
@@ -85,8 +85,8 @@ msgid "Muted"
 msgstr "Ses kapalı"
 
 #: rust/crates/audio/src/plugin.rs:556
-msgid "Starts with the stream."
-msgstr "Yayınla birlikte başlar."
+msgid "Off until the stream starts."
+msgstr ""
 
 #: rust/crates/audio/src/plugin.rs:607
 msgid "Camera mic"
@@ -318,7 +318,7 @@ msgstr "Sanal mikrofon ses almayı durdurdu."
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "Sarı renk, sınırlayıcının yüksek ses tepe noktalarını baskıladığını; kırmızı renk ise seste kırpılma olduğunu gösterir (temizlemek için tıkla)."
 
-#: rust/crates/audio/ui/microphone.slint:230 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:476 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:385 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:446 rust/crates/effects/ui/composite_editor.slint:462 rust/crates/effects/ui/composite_editor.slint:496 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:151 rust/crates/outputs/ui/webcam.slint:151 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
+#: rust/crates/audio/ui/microphone.slint:230 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:476 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:385 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:446 rust/crates/effects/ui/composite_editor.slint:462 rust/crates/effects/ui/composite_editor.slint:496 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:153 rust/crates/outputs/ui/webcam.slint:153 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
 msgid "Double-click to reset"
 msgstr "Sıfırlamak için çift tıkla"
 
@@ -460,7 +460,7 @@ msgstr "Eklentiler"
 msgid "Updates & About"
 msgstr "Güncellemeler ve Hakkında"
 
-#: rust/crates/core/src/plugin.rs:25 rust/crates/outputs/ui/webcam.slint:58 rust/crates/shell/src/plugins/camera_control.rs:1580 rust/crates/shell/ui/cards/camera.slint:143
+#: rust/crates/core/src/plugin.rs:25 rust/crates/outputs/ui/webcam.slint:59 rust/crates/shell/src/plugins/camera_control.rs:1580 rust/crates/shell/ui/cards/camera.slint:143
 msgid "Camera"
 msgstr "Kamera"
 
@@ -1155,7 +1155,7 @@ msgid "Black and white"
 msgstr "Siyah beyaz"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:676 rust/crates/outputs/ui/webcam.slint:106 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:681 rust/crates/outputs/ui/webcam.slint:107 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
 msgid "Auto"
 msgstr "Otomatik"
 
@@ -1230,7 +1230,7 @@ msgstr "Masa modu"
 msgid "Done"
 msgstr "Bitti"
 
-#: rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/transforms.slint:47 rust/crates/outputs/ui/webcam.slint:55
+#: rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/transforms.slint:47 rust/crates/outputs/ui/webcam.slint:56
 msgid "Reset"
 msgstr "Sıfırla"
 
@@ -3013,7 +3013,7 @@ msgstr "Telefon mikrofonu reddetti (HTTP {code})."
 msgid "No microphone"
 msgstr "Mikrofon yok"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:673 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1301 rust/crates/shell/src/worker.rs:490 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:678 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1301 rust/crates/shell/src/worker.rs:490 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "Yayın yapmıyor"
 
@@ -3654,7 +3654,7 @@ msgstr "Yeni bir kod oluştur; eskisi çalışmayı durdurur"
 msgid "Which of this computer's addresses the code points to"
 msgstr "Kodun bu bilgisayarın hangi adresini işaret ettiği"
 
-#: rust/crates/link/ui/browser_camera.slint:131 rust/crates/outputs/src/stream_output.rs:792 rust/crates/outputs/src/stream_output.rs:976 rust/crates/outputs/src/stream_output.rs:979 rust/crates/outputs/ui/stream_output.slint:99 rust/crates/outputs/ui/webcam.slint:72
+#: rust/crates/link/ui/browser_camera.slint:131 rust/crates/outputs/src/stream_output.rs:792 rust/crates/outputs/src/stream_output.rs:976 rust/crates/outputs/src/stream_output.rs:979 rust/crates/outputs/ui/stream_output.slint:99 rust/crates/outputs/ui/webcam.slint:73
 msgid "Resolution"
 msgstr "Çözünürlük"
 
@@ -3662,7 +3662,7 @@ msgstr "Çözünürlük"
 msgid "The size the browser sends; a camera that can't do it sends what it can"
 msgstr "Tarayıcının gönderdiği boyut; bunu sağlayamayan bir kamera gönderebildiğini gönderir"
 
-#: rust/crates/link/ui/browser_camera.slint:141 rust/crates/outputs/ui/stream_output.slint:108 rust/crates/outputs/ui/webcam.slint:83
+#: rust/crates/link/ui/browser_camera.slint:141 rust/crates/outputs/ui/stream_output.slint:108 rust/crates/outputs/ui/webcam.slint:84
 msgid "Frame rate"
 msgstr "Kare hızı"
 
@@ -4218,49 +4218,49 @@ msgstr "Kamerayı {app} kullanıyor. Orada kapattığında burada başlar."
 msgid "Can't open {name}"
 msgstr "{name} açılamıyor"
 
-#: rust/crates/outputs/src/webcam.rs:665
+#: rust/crates/outputs/src/webcam.rs:670
 msgid "Not plugged in"
 msgstr "Takılı değil"
 
-#: rust/crates/outputs/src/webcam.rs:667
+#: rust/crates/outputs/src/webcam.rs:672
 msgid "In use by another app"
 msgstr "Başka bir uygulama tarafından kullanılıyor"
 
-#: rust/crates/outputs/src/webcam.rs:667
+#: rust/crates/outputs/src/webcam.rs:672
 #, python-brace-format
 msgid "In use by {app}"
 msgstr "{app} tarafından kullanılıyor"
 
-#: rust/crates/outputs/src/webcam.rs:669
+#: rust/crates/outputs/src/webcam.rs:674
 msgid "Not sending anything"
 msgstr "Hiçbir şey göndermiyor"
 
-#: rust/crates/outputs/src/webcam.rs:671
+#: rust/crates/outputs/src/webcam.rs:676
 msgid "Starting…"
 msgstr "Başlatılıyor…"
 
-#: rust/crates/outputs/src/webcam.rs:684
+#: rust/crates/outputs/src/webcam.rs:689
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
 msgstr "Web kamerasının gönderdiği boyut; Otomatik, kare hızını koruyan 1080p'ye kadarki en büyük boyutu seçer"
 
-#: rust/crates/outputs/src/webcam.rs:701
+#: rust/crates/outputs/src/webcam.rs:706
 msgid "Webcams"
 msgstr "Web kameraları"
 
-#: rust/crates/outputs/src/webcam.rs:702
+#: rust/crates/outputs/src/webcam.rs:707
 msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "Bu bilgisayara bağlı web kameralarından ve yakalama kartlarından yayın yapma."
 
-#: rust/crates/outputs/src/webcam.rs:703
+#: rust/crates/outputs/src/webcam.rs:708
 msgid "Without it webcams aren't in the phone picker and the Webcam card is gone too."
 msgstr "Bu olmadan web kameraları telefon seçicide yer almaz ve Web kamerası kartı da görünmez."
 
-#: rust/crates/outputs/src/webcam.rs:741
+#: rust/crates/outputs/src/webcam.rs:746
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name} takılı değil"
 
-#: rust/crates/outputs/src/webcam.rs:742
+#: rust/crates/outputs/src/webcam.rs:747
 msgid "Plug it in, or pick another camera."
 msgstr "Cihazı tak veya başka bir kamera seç."
 
@@ -4369,15 +4369,15 @@ msgstr "Varsayılanı kullan"
 msgid "Mirror it, for apps that flip the camera"
 msgstr "Kamerayı ters çeviren uygulamalar için aynala"
 
-#: rust/crates/outputs/ui/webcam.slint:51
+#: rust/crates/outputs/ui/webcam.slint:52
 msgid "Webcam"
 msgstr "Web kamerası"
 
-#: rust/crates/outputs/ui/webcam.slint:54
+#: rust/crates/outputs/ui/webcam.slint:55
 msgid "Put the webcam's picture settings back to its defaults"
 msgstr "Web kamerasının görüntü ayarlarını varsayılanlarına döndür"
 
-#: rust/crates/outputs/ui/webcam.slint:106 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248
+#: rust/crates/outputs/ui/webcam.slint:107 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248
 msgid "Manual"
 msgstr "Manuel"
 
@@ -4560,12 +4560,12 @@ msgid "Get adb"
 msgstr "adb'yi edin"
 
 #: rust/crates/setup/src/setup.rs:202
-msgid "Comes with this app"
-msgstr "Bu uygulamayla birlikte gelir"
+msgid "Included with this app"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:202
-msgid "None came with this app"
-msgstr "Bu uygulamayla birlikte gelen yok"
+msgid "Not included with this app"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:342
 msgid "Same as the system"
@@ -5645,8 +5645,8 @@ msgid "Telescope couldn't start a new copy of itself. Close it and open it again
 msgstr "Telescope kendisinin yeni bir örneğini başlatamadı. Değişikliklerini uygulamak için uygulamayı kapat ve tekrar aç."
 
 #: rust/crates/shell/src/plugins_tab.rs:402
-msgid "Waits for a restart"
-msgstr "Yeniden başlatma bekliyor"
+msgid "Restart required"
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:411
 msgid "Telescope can't work without this one, so it can't be switched off"
@@ -7729,6 +7729,21 @@ msgstr "Yeniden başlatılamadı"
 #: rust/crates/shell/src/sources.rs:1694
 msgid "In use"
 msgstr "Kullanımda"
+
+#~ msgid "This camera's microphone isn't passed on. Pick it in your call app instead."
+#~ msgstr "Bu kameranın mikrofonu aktarılmaz. Bunun yerine arama uygulamanda onu seç."
+
+#~ msgid "Starts with the stream."
+#~ msgstr "Yayınla birlikte başlar."
+
+#~ msgid "Comes with this app"
+#~ msgstr "Bu uygulamayla birlikte gelir"
+
+#~ msgid "None came with this app"
+#~ msgstr "Bu uygulamayla birlikte gelen yok"
+
+#~ msgid "Waits for a restart"
+#~ msgstr "Yeniden başlatma bekliyor"
 
 #, python-brace-format
 #~ msgid "{label}: raise by {stops} stop"

@@ -25,7 +25,7 @@ use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, TrayAction, UiEvent,
 
 pub const NAME: &str = "microphone";
 const UI: &str = include_str!("../ui/microphone.slint");
-const NO_MIC_NOTE: &str = n_("This camera's microphone isn't passed on. Pick it in your call app instead.");
+const NO_MIC_NOTE: &str = n_("Telescope doesn't pass on this camera's microphone. To use it, choose it as the microphone in your call app.");
 pub const METER_MS: u64 = 33;
 pub const GAIN_MIN_DB: i32 = -24;
 /// Until Advanced says otherwise (max_gain_changed).
@@ -553,7 +553,7 @@ impl MicrophonePlugin {
         if let Some((text, action)) = self.backend.problem() {
             self.show(h, &text, "warn", action);
         } else if self.worker.is_none() && !self.preparing {
-            self.show(h, &tr("Starts with the stream."), "dim", None);
+            self.show(h, &tr("Off until the stream starts."), "dim", None);
         }
     }
 

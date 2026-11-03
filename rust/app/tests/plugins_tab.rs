@@ -237,7 +237,7 @@ fn switching_off_asks_first_names_what_goes_and_waits_for_a_restart() {
     assert!(last.title == "Switch off Presets?" && last.text.contains("The Presets card goes away.") && last.text.contains("settings stay saved"));
     assert_eq!(r.panel.pending_changes(), 1);
     assert_eq!(r.panel.footer_note(), "Restart to apply 1 change");
-    assert!(labels(&r.panel).contains(&"Waits for a restart".to_string()));
+    assert!(labels(&r.panel).contains(&"Restart required".to_string()));
     flip(&mut r, "presets", true, &mut yes);
     assert!(r.admin.builtin_off().is_empty() && r.panel.pending_changes() == 0);
 }
@@ -612,7 +612,7 @@ fn installing_a_plugin_thats_there_asks_then_replaces_it() {
     let note = &outcome.notices[0];
     assert!(note.kind == NoticeKind::Info && note.title == "Replaced" && note.text.contains("Extra 1.1"));
     assert!(!tile(&r.panel, "Extra 1.1").on);
-    assert!(labels(&r.panel).contains(&"Waits for a restart".to_string()) && r.panel.pending_changes() == 1); // the old one still runs
+    assert!(labels(&r.panel).contains(&"Restart required".to_string()) && r.panel.pending_changes() == 1); // the old one still runs
 }
 
 #[test]

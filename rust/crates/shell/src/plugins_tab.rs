@@ -399,7 +399,7 @@ impl Panel {
     /// _tile's pending: the plugin waits on a restart.
     fn waits(&mut self, tile: &mut Tile) {
         self.pending.insert(tile.name.clone());
-        tile.badges.push(Badge { text: tr("Waits for a restart"), kind: "restart".into() });
+        tile.badges.push(Badge { text: tr("Restart required"), kind: "restart".into() });
     }
 
     fn builtin_tile(&mut self, p: &PluginInfo, on: bool) -> Tile {
