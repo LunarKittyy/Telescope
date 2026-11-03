@@ -113,11 +113,11 @@ Small to write. The testing is the work.
 
 ## Doing the picture work on the GPU
 
-Only H.264 decoding uses the graphics card now. Everything after it (transforms, Colour grading, Chroma key, the combined picture, the wait screen and the conversion for the virtual camera) runs on the CPU with NumPy and OpenCV. An earlier GPU rewrite measured slower than this, since every step that copied a frame up to the card and back cost more than it saved. 4.3 added a lot of per-pixel work though, and the colour pipeline went with OpenCV after an OpenGL path measured 2.8 ms a 1080p frame against about 5 ms (the Windows VM only got a broken GL context).
+Much of this is in 5.0. Decoding uses the graphics card (VA-API on Linux, D3D11VA on Windows), plugin shaders and the preview run there through wgpu, and `core::balance` picks the card or the CPU for steps that can run either way, and moves them off the card while a game keeps it busy. A frame goes up at the first shader and stays there until a step on the CPU needs it.
 
-It only pays off if a frame stays on the card from the decoder to one copy back at the end, which is no more copies than now. The virtual camera on both systems needs the frame in RAM anyway, and so do plugins that read it (people tracking, QR codes, Desk mode's corners), which would force a copy back in the middle. Laptops whose GPU shares memory with the CPU copy almost for free and they're also the ones whose CPU struggles first.
+What's left is the steps still written for the CPU that change the picture partway through, like Background, Chroma key, Privacy blur, the combined picture, Desk mode, the Fun pack, Name tag and the wait screen. Each one brings the frame down and makes the next shader send it up again. Turning the heaviest of them into shaders, or into steps that can run either way, would leave one trip up and one down, which is all the virtual camera needs.
 
-Measure before building anything. Run `scripts/bench_frames.py` with a heavy stack (1080p60 with Colour grading, Privacy blur and two cameras in one picture) on a weak laptop. If that stays well under the 16 ms a frame gets at 60 fps there's nothing to do. If not, move only the biggest cost to the GPU as one step that copies back once and measure that. Big if it goes further than one step.
+Measure first. The pipeline already counts its transfers (`crates/media/src/transfers.rs`), so run a heavy stack on a weak laptop and see where the time goes before moving anything. Laptops whose GPU shares memory with the CPU copy almost for free and they're also the ones whose CPU struggles first.
 
 ## ARM64
 
