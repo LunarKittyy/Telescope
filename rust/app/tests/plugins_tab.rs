@@ -884,3 +884,54 @@ fn an_added_plugin_with_a_broken_settings_section_is_left_out_and_the_rest_of_se
     assert!(!labelled(&s.ui, "Fine section").is_empty(), "the working plugin's section is there");
     settings::forget();
 }
+
+/// An added plugin with a card and a header widget made of the given texts and components.
+struct WithCard(PluginInfo, Option<(&'static str, &'static str)>, Option<(&'static str, &'static str)>);
+
+impl Plugin for WithCard {
+    fn info(&self) -> PluginInfo {
+        self.0.clone()
+    }
+    fn card(&mut self) -> Option<telescope_core::ui::CardSpec> {
+        self.1.map(|(text, component)| telescope_core::ui::CardSpec {
+            ui: telescope_core::ui::UiSpec { source: telescope_core::ui::SlintSource::Text(text.into()), component: component.into(), props: json!({}) },
+            region: "left".into(),
+        })
+    }
+    fn header_widget(&mut self) -> Option<telescope_core::ui::UiSpec> {
+        self.2.map(|(text, component)| telescope_core::ui::UiSpec { source: telescope_core::ui::SlintSource::Text(text.into()), component: component.into(), props: json!({}) })
+    }
+}
+
+#[test]
+fn an_added_plugin_whose_ui_only_breaks_inside_the_shared_window_is_left_out() {
+    i_slint_backend_testing::init_no_event_loop();
+    // Each compiles on its own and fails once the window or Settings puts it in its wrapper
+    let rect = "export component Broken inherits Rectangle {}\n";
+    let timer = "export component Broken inherits Timer {}\n";
+    let no_hue = "component Card inherits Rectangle {}\nexport component Broken inherits Card {}\n";
+    let good = "import { Card } from \"@ui-kit/ui-kit.slint\";\nexport component Fine inherits Card { title: \"Fine card\"; }\n";
+    let root = scratch_dir("plugins-broken-wrapped");
+    let (plugins, admin) = admin_in(&root, Vec::new(), None, Arc::default());
+    for name in ["fine", "card", "header", "section", "hueless"] {
+        added(&plugins, name, json!({}));
+    }
+    let w = window::build(ConfigFile::at(root.join("telescope_config.json")), |_| Vec::new(), None, None).unwrap();
+    w.state.borrow_mut().admin = admin;
+    let plugins: Vec<Box<dyn Plugin>> = vec![
+        Box::new(WithCard(info("fine", "Fine"), Some((good, "Fine")), None)),
+        Box::new(WithCard(info("card", "Bare card"), Some((rect, "Broken")), None)),
+        Box::new(WithCard(info("header", "Bad header"), None, Some((timer, "Broken")))),
+        Box::new(WithSection(info("section", "Bad section"), timer, "Broken")),
+        Box::new(WithSection(info("hueless", "Hueless"), no_hue, "Broken")),
+    ];
+    w.state.borrow_mut().load_builtins(plugins).unwrap();
+    let state = w.state.borrow();
+    let names: Vec<String> = state.slots.iter().map(|s| s.info.name.clone()).collect();
+    assert_eq!(names, ["fine"]);
+    for name in ["card", "header", "section", "hueless"] {
+        assert!(state.problems.contains_key(name), "{name} is named in the Plugins tab");
+    }
+    assert!(state.problems["card"].starts_with("card:"), "{}", state.problems["card"]);
+    assert!(state.problems["hueless"].starts_with("settings mine"), "{}", state.problems["hueless"]);
+}
