@@ -121,7 +121,7 @@ class CameraSessionController(
     @Volatile private var currentJpegQuality: Int = 85
     @Volatile private var currentPhoneFps:    Int = initialPhoneFps
     // Mutable so switchResolution() can change live; sized by openCamera(). What the camera and encoder run at, which
-    // is the asked size unless the phone's heat dropped it (heatSize)
+    // is the asked size unless the phone's heat dropped it (effectiveSize)
     @Volatile private var streamWidth:  Int = initialStreamWidth
     @Volatile private var streamHeight: Int = initialStreamHeight
     // The size the computer asked for, which the state keeps reporting so a hot spell doesn't change its pick
@@ -219,10 +219,11 @@ class CameraSessionController(
 
     private fun heated() = streamWidth != askedWidth || streamHeight != askedHeight
 
-    // The smaller size the heat calls for, or null to stream at the asked size
-    private fun heatSize(): Pair<Int, Int>? {
-        val sizes = currentCamera?.supportedSizes?.map { it.width to it.height } ?: return null
-        return HeatStep.size(thermalStatus, askedWidth to askedHeight, sizes) { w, h ->
+    // The size to stream at on this lens: the asked size, or the smaller one the heat calls for
+    private fun effectiveSize(): Pair<Int, Int> {
+        val asked = askedWidth to askedHeight
+        val sizes = currentCamera?.supportedSizes?.map { it.width to it.height } ?: return asked
+        return HeatStep.effective(thermalStatus, asked, sizes) { w, h ->
             codec != H264Stream.CODEC_H264 || H264Encoder.supportsSize(w, h)
         }
     }
@@ -355,7 +356,7 @@ class CameraSessionController(
         val before = cameraFps() to streamFps()
         thermalStatus = status
         // A new size needs a new reader or encoder, so the camera reopens, which picks up the new rate too
-        val (w, h) = heatSize() ?: (askedWidth to askedHeight)
+        val (w, h) = effectiveSize()
         if (w != streamWidth || h != streamHeight) {
             android.util.Log.i(TAG, "Thermal status $status: ${w}x$h at ${streamFps()} fps")
             streamWidth = w
@@ -1325,6 +1326,11 @@ class CameraSessionController(
         meterPoint = null
         dropFrameRate()  // its rungs came from the old lens's ranges; the next link sample builds the new lens's
         currentCamera = entry
+        // The heat's smaller size may not exist on this lens, or may now: the reader is rebuilt if the size moves
+        val (w, h) = effectiveSize()
+        val resized = w != streamWidth || h != streamHeight
+        streamWidth = w
+        streamHeight = h
         if (cameraOff) return  // the lens it opens with when the camera comes back on
         onStateChanged(StreamState.Recovering, "switchCameraTo", null)
         stillRebuilding(StillRebuild.Cause.LENS)
@@ -1333,6 +1339,7 @@ class CameraSessionController(
         try { captureSession?.close() } catch (_: Exception) {}
         try { cameraDevice?.close()   } catch (_: Exception) {}
         captureSession = null; cameraDevice = null
+        if (resized) releaseOutputs()  // onOpened builds them again at the new size
         // The old lens's photo outputs wouldn't fit the new one: StillCapture makes them again for it
         stillOutputs = emptyList()
         stillPaused = false
@@ -1380,7 +1387,7 @@ class CameraSessionController(
     private fun switchResolutionInternal(width: Int, height: Int) {
         askedWidth = width
         askedHeight = height
-        val (w, h) = heatSize() ?: (width to height)
+        val (w, h) = effectiveSize()
         if (w == streamWidth && h == streamHeight) return
         streamWidth = w
         streamHeight = h

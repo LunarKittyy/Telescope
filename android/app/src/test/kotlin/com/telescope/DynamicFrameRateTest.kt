@@ -180,4 +180,12 @@ class HeatStepTest {
     fun `it skips sizes the encoder can't take`() {
         assertEquals(null, HeatStep.size(HeatStep.CRITICAL, 1920 to 1080, sizes) { w, _ -> w != 1280 })
     }
+
+    @Test
+    fun `the size on a new lens follows what that lens offers`() {
+        val without720 = listOf(1920 to 1080, 960 to 720)
+        assertEquals(1280 to 720, HeatStep.effective(HeatStep.CRITICAL, 1920 to 1080, sizes))
+        assertEquals(1920 to 1080, HeatStep.effective(HeatStep.CRITICAL, 1920 to 1080, without720))
+        assertEquals(1920 to 1080, HeatStep.effective(HeatStep.SEVERE, 1920 to 1080, sizes))
+    }
 }

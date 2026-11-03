@@ -102,6 +102,11 @@ object HeatStep {
         }.maxByOrNull { (w, h) -> w * h }
     }
 
+    /** What the stream runs at on a lens offering [sizes]: the heat's smaller size if it has one, else [asked] as it is. */
+    fun effective(status: Int, asked: Pair<Int, Int>, sizes: List<Pair<Int, Int>>,
+                  fits: (Int, Int) -> Boolean = { _, _ -> true }): Pair<Int, Int> =
+        size(status, asked, sizes, fits) ?: asked
+
     const val FORECAST_S = 30  // how far ahead to ask Android about (Android 11 and newer)
     const val FORECAST_EVERY_MS = 10_000L  // Android wants at most one ask a second; this is plenty
 
