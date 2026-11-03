@@ -96,7 +96,7 @@ fn patterns_that_would_run_for_ages_are_stopped_with_an_error() {
         let err = answer.unwrap_err();
         assert!(err.contains("too many steps") && err.contains("simpler pattern"), "{name}: {err}");
         eprintln!("{name}: {took:?}");
-        assert!(took < std::time::Duration::from_secs(1), "{name} took {took:?}");
+        assert!(took < std::time::Duration::from_secs(5), "{name} took {took:?}"); // about 0.3 s here, 1.4 s on a CI runner
     }
 }
 
