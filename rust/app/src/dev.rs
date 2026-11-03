@@ -248,7 +248,7 @@ mod tests {
         let plugin = launch.temp.join("my_plugin");
         std::fs::create_dir(&plugin).unwrap();
         std::fs::write(plugin.join("plugin.json"), "{}").unwrap();
-        let plugin = std::fs::canonicalize(plugin).unwrap();
+        let plugin = telescope_core::system::plain_path(std::fs::canonicalize(plugin).unwrap());
         let runs: RefCell<Vec<(Vec<String>, String, Option<String>, String)>> = RefCell::new(Vec::new());
         let codes = RefCell::new(vec![76, 75, 3].into_iter());
         let mut run = |args: &[String], env: &Env| {
