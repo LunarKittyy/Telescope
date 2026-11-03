@@ -900,3 +900,21 @@ fn size_shortcuts_are_listed_again_once_the_phone_reports_its_sizes() {
     p.on_event(&mut host, &Event::DeviceChanged { source_id: String::new() });
     assert_eq!(asked(&host), 2, "the sizes of the old phone are gone");
 }
+
+#[test]
+fn size_shortcuts_are_listed_again_when_a_ratio_pick_or_a_ratio_shortcut_changes_the_sizes() {
+    let (mut p, mut host) = phone_a();
+    let asked = |h: &FakeHost| h.calls.iter().filter(|c| *c == "refresh_actions").count();
+    start(&mut p, &mut host, "https://phone/v1/video.h264");
+    p.on_phone_state(&mut host, &aspects());
+    let after_report = asked(&host);
+    let before = p.sizes.res.clone();
+    pick_ratio_of(&mut p, &mut host, (4, 3));
+    assert_ne!(p.sizes.res, before, "the other ratio has other sizes");
+    assert_eq!(asked(&host), after_report + 1, "picked on the card");
+    let second = p.sizes.res[1];
+    pick_size(&mut p, &mut host, second);
+    assert_eq!(asked(&host), after_report + 1, "a size inside the ratio moves no list");
+    p.run_action(&mut host, "stream.aspect_ratio", &json!({"op": "set", "option": "16:9"}));
+    assert_eq!(asked(&host), after_report + 2, "picked by a shortcut");
+}
