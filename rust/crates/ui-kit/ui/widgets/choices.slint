@@ -418,6 +418,9 @@ export component ChoiceField inherits Rectangle {
                     for item[i] in items: Rectangle {
                         property <bool> is-gone: gone[i];
                         property <bool> lit: i == hl;
+                        property <bool> hovered: item-touch.has-hover && !headings[i] && !is-gone;
+                        // The mouse and the keys share one highlight, so hovering moves it
+                        changed hovered => { if (hovered) { hl = i; } }
                         // Scrolls the list to keep the highlighted row in sight
                         changed lit => {
                             if (lit) {

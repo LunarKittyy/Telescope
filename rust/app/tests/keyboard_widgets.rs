@@ -191,6 +191,23 @@ fn open_dropdown_moves_a_highlight_and_picks_it() {
 }
 
 #[test]
+fn hovering_a_row_moves_the_highlight() {
+    let ui = rig();
+    focus(&ui, "Fruit", AccessibleRole::Combobox);
+    typed(&ui, " ");
+    assert_eq!(lit(&ui), vec![0]);
+    let row = rows(&ui).into_iter().find(|r| r.accessible_item_index() == Some(2)).expect("third row");
+    let (p, s) = (row.absolute_position(), row.size());
+    // A row's position is inside the popup, which opens 4px under the dropdown
+    let (dd, h) = (dropdown(&ui).absolute_position(), dropdown(&ui).size().height);
+    let (x, y) = (dd.x + p.x + s.width / 2.0, dd.y + h + 4.0 + p.y + s.height / 2.0);
+    ui.window().dispatch_event(WindowEvent::PointerMoved { position: slint::LogicalPosition::new(x, y) });
+    assert_eq!(lit(&ui), vec![2], "hover moves the highlight");
+    key(&ui, Key::DownArrow);
+    assert_eq!(lit(&ui), vec![3], "the keys carry on from where the mouse left it");
+}
+
+#[test]
 fn escape_closes_without_changing_and_tab_moves_on() {
     let ui = rig();
     focus(&ui, "Fruit", AccessibleRole::Combobox);
