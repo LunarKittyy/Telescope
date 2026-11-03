@@ -22,14 +22,39 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [actions, c-cpp, java-kotlin, javascript-typescript, python, rust]
+        include:
+          - { language: actions, build-mode: none }
+          - { language: c-cpp, build-mode: none }
+          # Kotlin can only be read from a real build
+          - { language: java-kotlin, build-mode: manual }
+          - { language: javascript-typescript, build-mode: none }
+          - { language: python, build-mode: none }
+          - { language: rust, build-mode: none }
     steps:
       - uses: actions/checkout@v7
+      - if: matrix.build-mode == 'manual'
+        uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: temurin
+      - if: matrix.build-mode == 'manual'
+        uses: android-actions/setup-android@v4
+        with:
+          packages: >-
+            platform-tools
+            platforms;android-34
+            build-tools;34.0.0
       - uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
-          build-mode: none
+          build-mode: ${{ matrix.build-mode }}
           config-file: ./.github/codeql/codeql-config.yml
+      - if: matrix.build-mode == 'manual'
+        working-directory: android
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          chmod +x gradlew
+          ./gradlew --no-daemon --no-build-cache assembleDebug
       - uses: github/codeql-action/analyze@v4
         with:
           category: /language:${{ matrix.language }}
