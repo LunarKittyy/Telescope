@@ -39,6 +39,32 @@ pub(crate) fn fit_in(position: Option<(i32, i32)>, inner: (u32, u32), frame: (u3
     (position.is_some() || size.is_some()).then_some(Fit { position, size })
 }
 
+/// Where a window of outer size `child` starts to sit in the middle of a parent whose frame starts at `parent` and measures `parent_size`.
+pub(crate) fn centred_over(parent: (i32, i32), parent_size: (u32, u32), child: (u32, u32)) -> (i32, i32) {
+    let middle = |at: i32, outer: u32, inner: u32| at.saturating_add((outer as i64 - inner as i64).div_euclid(2) as i32);
+    (middle(parent.0, parent_size.0, child.0), middle(parent.1, parent_size.1, child.1))
+}
+
+/// Puts the window in the middle of its parent once the system has made it, then keeps it inside the screen. Where the system
+/// won't say where the parent is (Wayland), the compositor's own placement stays.
+pub(crate) fn centre_over(ui: &ComponentInstance, parent: &ComponentInstance, least: (u32, u32)) {
+    let parent = parent.as_weak();
+    when_made(ui, move |w| {
+        let (inner, outer) = (w.inner_size(), w.outer_size());
+        if inner.width == 0 || inner.height == 0 {
+            return None;
+        }
+        let parent = parent.upgrade()?;
+        let found = parent.window().with_winit_window(|p| p.outer_position().ok().map(|at| ((at.x, at.y), p.outer_size())));
+        Some(found.flatten().map(|(at, size)| centred_over(at, (size.width, size.height), (outer.width, outer.height))))
+    }, move |ui, at| {
+        if let Some((x, y)) = at {
+            ui.window().set_position(slint::PhysicalPosition::new(x, y));
+        }
+        keep_inside(ui, least);
+    });
+}
+
 /// The work area of the screen the window is on, as a window the system made.
 pub(crate) fn work_area(w: &winit::window::Window) -> Option<Area> {
     #[cfg(windows)]
@@ -124,6 +150,13 @@ mod tests {
         // What the VM showed: 1380x900 inside, opened at 104,104 on a 1280x800 screen with a taskbar of 48
         let fit = fit_in(Some((104, 104)), (1380, 900), FRAME, SCREEN, (560, 520)).unwrap();
         assert_eq!(fit, Fit { position: Some((0, 0)), size: Some((1264, 713)) });
+    }
+
+    #[test]
+    fn a_dialog_sits_in_the_middle_of_its_parent() {
+        assert_eq!(centred_over((100, 50), (1000, 700), (800, 600)), (200, 100));
+        assert_eq!(centred_over((-1920, 40), (1000, 700), (1002, 700)), (-1921, 40));
+        assert_eq!(centred_over((0, 0), (500, 400), (900, 700)), (-200, -150));
     }
 
     #[test]
