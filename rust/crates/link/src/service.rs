@@ -510,7 +510,7 @@ mod tests {
         let (log, gate) = (Mutex::new(log), Arc::new(Mutex::new(Some(gate))));
         let adb = move || {
             let (log, gate) = (Mutex::new(log.lock().unwrap().clone()), gate.clone());
-            Adb { exe: Some("adb".into()), runner: Box::new(move |cmd, _| {
+            Adb { exe: Some("adb".into()), runner: Box::new(move |cmd, _, _| {
                 let _ = log.lock().unwrap().send(cmd.to_vec());
                 if cmd.iter().any(|a| a == stalls) {
                     if let Some(gate) = gate.lock().unwrap().take() {
@@ -542,11 +542,11 @@ mod tests {
 
     #[test]
     fn revoking_during_a_stalled_broadcast_shuts_the_offer_at_once() {
-        let (adb, seen, free) = stalling_adb("broadcast");
+        let (adb, seen, free) = stalling_adb("shell");
         let offer = Arc::new(Offer::start("computer", "desk", adb).unwrap());
         let sending = offer.clone();
         let thread = std::thread::spawn(move || sending.offer_to(&(sending.adb)(), "serial-1", "app"));
-        assert!(seen.iter().any(|cmd| cmd.iter().any(|a| a == "broadcast")));
+        assert!(seen.iter().any(|cmd| cmd.iter().any(|a| a == "shell")));
         let started = std::time::Instant::now();
         PairingOffer::revoke(&*offer);
         assert!(started.elapsed() < Duration::from_millis(300), "revoke waited {:?} for adb", started.elapsed());
@@ -629,7 +629,7 @@ mod tests {
         let tx = Mutex::new(tx);
         let tunnels = adb_tunnels(Arc::new(move || {
             let tx = Mutex::new(tx.lock().unwrap().clone());
-            Adb { exe: Some("adb".into()), runner: Box::new(move |cmd, _| {
+            Adb { exe: Some("adb".into()), runner: Box::new(move |cmd, _, _| {
                 if cmd.iter().any(|a| a == "--remove") {
                     std::thread::sleep(Duration::from_millis(800)); // a stalled adb
                 }
