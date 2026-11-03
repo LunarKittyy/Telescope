@@ -208,6 +208,41 @@ fn a_gsub_that_would_build_a_huge_string_fails_before_it_does() {
     let err = answer.unwrap_err();
     assert!(err.contains("memory"), "{err}"); // the host words an uncaught one its own way
     assert!(took < std::time::Duration::from_secs(5), "took {took:?}");
+    // Also with captures, with a function and with a table that hand back big pieces
+    let got = answer_soon("huge_more", r#"
+        local big = string.rep("a", 1000000)
+        local function failure(f) local ok, e = pcall(f) return ok == false and type(e) == "string" and e:find("not enough memory", 1, true) ~= nil end
+        return {
+            failure(function() return big:gsub("(.*)", string.rep("%1", 1000000)) end),
+            failure(function() return big:gsub(".", function(c) return string.rep(c, 1000000) end) end),
+            failure(function() return big:gsub("^.*$", { [big] = string.rep(big, 100) }) end),
+            (("abc"):gsub("b", "%0%0")),
+        }
+    "#).unwrap();
+    assert_eq!(got, json!([true, true, true, "abbc"]));
+}
+
+#[test]
+fn errors_from_the_string_functions_are_plain_strings_as_in_lua() {
+    let got = answer_soon("plain_errors", r#"
+        local function caught(f, ...) local ok, e = pcall(f, ...) return ok, e end
+        local _, bad = caught(function() for _ in string.gmatch("x", "(") do end end)
+        local _, malformed = caught(function() return ("x"):find("[a") end)
+        local _, budget = caught(function() return string.rep("a", 3000):match("a*a*a*b") end)
+        local _, argument = caught(function() return ("x"):rep({}) .. string.find() end)
+        local _, thrown = caught(function() return ("abc"):gsub("b", function() error({ code = 7 }) end) end)
+        local _, indexed = caught(function() return ("abc"):gsub("b", setmetatable({}, { __index = function() error("no index", 0) end })) end)
+        local _, tail = caught(function() return string.find("x", "[a") end)
+        return {
+            type(bad), bad:match("unfinished capture") ~= nil, bad:match("^%S+:%d+: ") ~= nil,
+            type(malformed), malformed:match("malformed pattern %(missing ']'%)$") ~= nil,
+            type(budget), budget:match("too many steps") ~= nil,
+            type(argument),
+            type(thrown), thrown.code, indexed,
+            tail:match("^%S+:%d+: malformed") ~= nil,
+        }
+    "#).unwrap();
+    assert_eq!(got, json!(["string", true, true, "string", true, "string", true, "string", "table", 7, "no index", true]));
 }
 
 // ── The pattern matcher against Lua's own ───────────────────────────────────
@@ -414,10 +449,7 @@ fn compare_with_lua(subjects: &[String], patterns: &[String], extra: &[&str]) ->
     let per_pair = (native.len() - extra.len()) / pairs;
     let mut different = Vec::new();
     for (i, (a, b)) in native.iter().zip(&ported).enumerate() {
-        // An error the host raises reaches Lua as a userdata that shows as its message, with the traceback after it
-        let b = b.replacen("|userdata:", "|string:", 1).replacen("runtime error: ", "", 1);
-        let b = b.split("\nstack traceback:").next().unwrap().to_string();
-        if *a != b {
+        if a != b {
             let at = if i < pairs * per_pair {
                 let pair = i / per_pair;
                 format!("subject {:?} pattern {:?} variant {}", subjects[pair / patterns.len()], patterns[pair % patterns.len()], i % per_pair)

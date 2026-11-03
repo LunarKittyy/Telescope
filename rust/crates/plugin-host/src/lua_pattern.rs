@@ -26,6 +26,31 @@ enum Fail {
     Memory,
 }
 
+/// Why a call of the string functions stops. Lua code must see what native Lua would raise, and a Rust callback can only raise mlua's error
+/// userdata, so these are handed back to a small Lua wrapper that raises them with error().
+enum Stop {
+    /// A plain string error, with its position in front where Lua puts one.
+    Raise(String),
+    /// An error value that came out of the plugin's own replacement function or table, passed on as it was.
+    Rethrow(Value),
+    /// Anything else, which the host deals with as before (the deadline hook's error, say).
+    Other(mlua::Error),
+}
+
+impl From<mlua::Error> for Stop {
+    fn from(e: mlua::Error) -> Self {
+        match e {
+            mlua::Error::MemoryError(_) => Stop::Raise(NO_MEMORY.into()),
+            other => Stop::Other(other),
+        }
+    }
+}
+
+type Run<T> = Result<T, Stop>;
+
+/// What Lua's allocator raises when it can't give more.
+const NO_MEMORY: &str = "not enough memory";
+
 type Found = Result<Option<usize>, Fail>;
 
 fn bad<T>(message: impl Into<String>) -> Result<T, Fail> {
@@ -407,30 +432,72 @@ fn plain_find(hay: &[u8], needle: &[u8], left: &mut u64) -> Result<Option<usize>
 
 // ── The Lua side ────────────────────────────────────────────────────────────
 
+/// Every function below runs inside a C function made by `guarded`, so the Lua code that called it is two levels up and the C function, which
+/// Lua names by how it was called, one.
+const CALLER: usize = 2;
+const WRAPPER: usize = 1;
+
+/// The C function that wraps a Rust one (its upvalue): calls it and turns the (true, results...) or (false, error value) it answers with into
+/// its results or a plain error, as luaL_error gives. Being a C function, it keeps its caller's frame and name even when tail-called.
+unsafe extern "C-unwind" fn guard(state: *mut mlua::ffi::lua_State) -> std::os::raw::c_int {
+    use mlua::ffi::*;
+    // SAFETY: only Lua's own stack functions, on the stack Lua gave this function, and nothing with a destructor alive when lua_error unwinds
+    unsafe {
+        let given = lua_gettop(state);
+        lua_pushvalue(state, lua_upvalueindex(1));
+        lua_insert(state, 1);
+        lua_call(state, given, LUA_MULTRET);
+        if lua_toboolean(state, 1) != 0 {
+            return lua_gettop(state) - 1;
+        }
+        lua_pushvalue(state, 2);
+        lua_error(state)
+    }
+}
+
+/// `inner` (a function that answers as `reply` does) as a function that raises its errors as Lua's string functions do.
+fn guarded(lua: &Lua, inner: Function) -> mlua::Result<Function> {
+    // SAFETY: the closure leaves one value on the stack, the C function with `inner` as its upvalue
+    unsafe { lua.exec_raw::<Function>(inner, |state| mlua::ffi::lua_pushcclosure(state, guard, 1)) }
+}
+
 /// Where the Lua code that called the running function is, as "file:line: " (what luaL_error puts in front of its message).
 fn whereabouts(lua: &Lua) -> String {
-    lua.inspect_stack(1, |d| d.current_line().map(|line| format!("{}:{line}: ", d.source().short_src.as_deref().unwrap_or("?")))).flatten().unwrap_or_default()
+    lua.inspect_stack(CALLER, |d| d.current_line().map(|line| format!("{}:{line}: ", d.source().short_src.as_deref().unwrap_or("?")))).flatten().unwrap_or_default()
 }
 
-fn raise(lua: &Lua, message: impl std::fmt::Display) -> mlua::Error {
-    mlua::Error::RuntimeError(format!("{}{message}", whereabouts(lua)))
+fn raise(lua: &Lua, message: impl std::fmt::Display) -> Stop {
+    Stop::Raise(format!("{}{message}", whereabouts(lua)))
 }
 
-fn failed(lua: &Lua, function: &str, fail: Fail) -> mlua::Error {
+fn failed(lua: &Lua, function: &str, fail: Fail) -> Stop {
     match fail {
         Fail::Message(m) => raise(lua, *m),
-        Fail::Memory => mlua::Error::MemoryError("a string that big".into()),
         Fail::Budget => raise(
             lua,
             format!("string.{function}: this pattern took too many steps on this text and was stopped. Use a simpler pattern (fewer *, +, - and ? with more pattern after them), cut the text down first, or look for plain text with string.find(text, what, 1, true)"),
         ),
+        Fail::Memory => Stop::Raise(NO_MEMORY.into()),
+    }
+}
+
+/// What a function hands to its wrapper: (true, results...) or (false, the error to raise).
+fn reply(lua: &Lua, run: Run<MultiValue>) -> mlua::Result<MultiValue> {
+    match run {
+        Ok(mut values) => {
+            values.push_front(Value::Boolean(true));
+            Ok(values)
+        }
+        Err(Stop::Raise(message)) => Ok(MultiValue::from_vec(vec![Value::Boolean(false), Value::String(lua.create_string(message)?)])),
+        Err(Stop::Rethrow(value)) => Ok(MultiValue::from_vec(vec![Value::Boolean(false), value])),
+        Err(Stop::Other(e)) => Err(e),
     }
 }
 
 /// luaL_argerror: "bad argument #n to 'name' (what)".
-fn arg_error(lua: &Lua, function: &str, mut arg: usize, what: &str) -> mlua::Error {
+fn arg_error(lua: &Lua, function: &str, mut arg: usize, what: &str) -> Stop {
     let (name, method) = lua
-        .inspect_stack(0, |d| {
+        .inspect_stack(WRAPPER, |d| {
             let names = d.names();
             (names.name.map(|n| n.to_string()), names.name_what == Some("method"))
         })
@@ -450,7 +517,7 @@ fn type_name(v: Option<&Value>) -> &'static str {
 }
 
 /// luaL_checklstring: a string, or a number as the text Lua shows it as.
-fn check_str(lua: &Lua, args: &MultiValue, i: usize, function: &str) -> mlua::Result<mlua::LuaString> {
+fn check_str(lua: &Lua, args: &MultiValue, i: usize, function: &str) -> Run<mlua::LuaString> {
     match args.get(i) {
         Some(Value::String(s)) => Ok(s.clone()),
         Some(v @ (Value::Integer(_) | Value::Number(_))) => Ok(lua.coerce_string(v.clone())?.expect("a number has a text")),
@@ -459,7 +526,7 @@ fn check_str(lua: &Lua, args: &MultiValue, i: usize, function: &str) -> mlua::Re
 }
 
 /// luaL_optinteger.
-fn opt_integer(lua: &Lua, args: &MultiValue, i: usize, function: &str, default: i64) -> mlua::Result<i64> {
+fn opt_integer(lua: &Lua, args: &MultiValue, i: usize, function: &str, default: i64) -> Run<i64> {
     let Some(v) = args.get(i).filter(|v| !matches!(v, Value::Nil)) else { return Ok(default) };
     if let Some(n) = lua.coerce_integer(v.clone())? {
         return Ok(n);
@@ -487,7 +554,7 @@ fn capture_value(lua: &Lua, src: &[u8], c: Capture) -> mlua::Result<Value> {
     })
 }
 
-fn find_aux(lua: &Lua, args: MultiValue, find: bool) -> mlua::Result<MultiValue> {
+fn find_aux(lua: &Lua, args: MultiValue, find: bool) -> Run<MultiValue> {
     let function = if find { "find" } else { "match" };
     let (s, p) = (check_str(lua, &args, 0, function)?, check_str(lua, &args, 1, function)?);
     let (src, pat) = (s.as_bytes(), p.as_bytes());
@@ -528,28 +595,32 @@ fn find_aux(lua: &Lua, args: MultiValue, find: bool) -> mlua::Result<MultiValue>
     }
 }
 
-fn gmatch(lua: &Lua, args: MultiValue) -> mlua::Result<Function> {
+/// One call of a gmatch loop's iterator: the next match at or after `at` that isn't the empty match right after the last one.
+fn gmatch_step(lua: &Lua, s: &mlua::LuaString, p: &mlua::LuaString, at: &mut usize, last_match: &mut Option<usize>) -> Run<MultiValue> {
+    let (src, pat) = (s.as_bytes(), p.as_bytes());
+    let (src, pat): (&[u8], &[u8]) = (&src, &pat);
+    let mut m = Matcher::new(src, pat, STEP_BUDGET);
+    for start in *at..=src.len() {
+        m.reset();
+        if let Some(end) = m.do_match(start, 0).map_err(|f| failed(lua, "gmatch", f))? {
+            if Some(end) != *last_match {
+                *at = end;
+                *last_match = Some(end);
+                let values = m.captures((start, end), true).map_err(|f| failed(lua, "gmatch", f))?;
+                return Ok(values.into_iter().map(|c| capture_value(lua, src, c)).collect::<mlua::Result<MultiValue>>()?);
+            }
+        }
+    }
+    Ok(MultiValue::new())
+}
+
+fn gmatch(lua: &Lua, args: MultiValue) -> Run<MultiValue> {
     let (s, p) = (check_str(lua, &args, 0, "gmatch")?, check_str(lua, &args, 1, "gmatch")?);
     let len = s.as_bytes().len();
     let mut at = (start_position(opt_integer(lua, &args, 2, "gmatch", 1)?, len) - 1).min(len + 1);
     let mut last_match = None;
-    lua.create_function_mut(move |lua, _: MultiValue| {
-        let (src, pat) = (s.as_bytes(), p.as_bytes());
-        let (src, pat): (&[u8], &[u8]) = (&src, &pat);
-        let mut m = Matcher::new(src, pat, STEP_BUDGET);
-        for start in at..=src.len() {
-            m.reset();
-            if let Some(end) = m.do_match(start, 0).map_err(|f| failed(lua, "gmatch", f))? {
-                if Some(end) != last_match {
-                    at = end;
-                    last_match = Some(end);
-                    let values = m.captures((start, end), true).map_err(|f| failed(lua, "gmatch", f))?;
-                    return values.into_iter().map(|c| capture_value(lua, src, c)).collect::<mlua::Result<MultiValue>>();
-                }
-            }
-        }
-        Ok(MultiValue::new())
-    })
+    let step = lua.create_function_mut(move |lua, _: MultiValue| reply(lua, gmatch_step(lua, &s, &p, &mut at, &mut last_match)))?;
+    Ok(MultiValue::from_vec(vec![Value::Function(guarded(lua, step)?)]))
 }
 
 /// Adds bytes to a gsub's result, unless that would make it more than Lua's memory limit allows, and without aborting if the allocator can't.
@@ -595,7 +666,23 @@ fn add_replacement(m: &mut Matcher, out: &mut Vec<u8>, news: &[u8], whole: (usiz
     Ok(())
 }
 
-fn gsub(lua: &Lua, args: MultiValue) -> mlua::Result<MultiValue> {
+/// Calls f the way Lua's own gsub does, but keeps what it raises (any value, not only text) to be raised again as it was. Gives its first result.
+fn call_kept(pcall: &Function, f: &Function, args: MultiValue) -> Run<Value> {
+    let mut all = args;
+    all.push_front(Value::Function(f.clone()));
+    let mut answer = pcall.call::<MultiValue>(all)?;
+    let ok = matches!(answer.pop_front(), Some(Value::Boolean(true)));
+    let first = answer.pop_front().unwrap_or(Value::Nil);
+    if ok { Ok(first) } else { Err(Stop::Rethrow(first)) }
+}
+
+/// What gsub calls of the plugin's own: pcall to keep what a replacement function raises, and a Lua function that indexes a table (it may have an __index).
+struct Calls {
+    pcall: Function,
+    index: Function,
+}
+
+fn gsub(lua: &Lua, args: MultiValue, calls: &Calls) -> Run<MultiValue> {
     let (s, p) = (check_str(lua, &args, 0, "gsub")?, check_str(lua, &args, 1, "gsub")?);
     let (src, pat) = (s.as_bytes(), p.as_bytes());
     let (src, pat): (&[u8], &[u8]) = (&src, &pat);
@@ -626,12 +713,12 @@ fn gsub(lua: &Lua, args: MultiValue) -> mlua::Result<MultiValue> {
                         Some(Value::Function(f)) => {
                             let caps = m.captures(whole, true).map_err(|f| failed(lua, "gsub", f))?;
                             let values = caps.into_iter().map(|c| capture_value(lua, src, c)).collect::<mlua::Result<MultiValue>>()?;
-                            f.call::<Value>(values)?
+                            call_kept(&calls.pcall, f, values)?
                         }
                         Some(Value::Table(t)) => {
                             let first = m.one_capture(0, whole).map_err(|f| failed(lua, "gsub", f))?;
                             let first = capture_value(lua, src, first)?;
-                            t.get::<Value>(first)?
+                            call_kept(&calls.pcall, &calls.index, MultiValue::from_vec(vec![Value::Table(t.clone()), first]))?
                         }
                         _ => unreachable!("the replacement is a function or a table here"),
                     };
@@ -668,9 +755,11 @@ fn gsub(lua: &Lua, args: MultiValue) -> mlua::Result<MultiValue> {
 
 /// Puts the budgeted find, match, gmatch and gsub into a Lua state's string table.
 pub fn install(lua: &Lua, string: &Table) -> mlua::Result<()> {
-    string.set("find", lua.create_function(|lua, args: MultiValue| find_aux(lua, args, true))?)?;
-    string.set("match", lua.create_function(|lua, args: MultiValue| find_aux(lua, args, false))?)?;
-    string.set("gmatch", lua.create_function(gmatch)?)?;
-    string.set("gsub", lua.create_function(gsub)?)?;
+    let calls = Calls { pcall: lua.globals().get("pcall")?, index: lua.load("local t, k = ... return t[k]").set_name("=string").into_function()? };
+    let put = |name: &str, f: Function| -> mlua::Result<()> { string.set(name, guarded(lua, f)?) };
+    put("find", lua.create_function(|lua, args: MultiValue| reply(lua, find_aux(lua, args, true)))?)?;
+    put("match", lua.create_function(|lua, args: MultiValue| reply(lua, find_aux(lua, args, false)))?)?;
+    put("gmatch", lua.create_function(|lua, args: MultiValue| reply(lua, gmatch(lua, args)))?)?;
+    put("gsub", lua.create_function(move |lua, args: MultiValue| reply(lua, gsub(lua, args, &calls)))?)?;
     Ok(())
 }
