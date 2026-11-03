@@ -245,7 +245,7 @@ Some calls need a permission in `plugin.json`. People see the permissions on the
 | `settings` | Reading other plugins' settings, applying presets and moving a phone's settings |
 | `notifications` | Desktop notifications |
 
-A call without its permission raises an error naming the one it needs.
+A call without its permission raises an error naming the one it needs. A banner button from `host.show_issue` is held to the same rule: one that starts a stream or turns the camera on needs `streams`, and a button that opens a link only takes an `http` or `https` address.
 
 `card()`, `frame_step()`, `get_config()`, `set_config()` and the other functions that describe your plugin run without the host because the window can ask for them at any time. Asking the host something there raises an error, but `set_ui_props`, `refresh_frame_step`, `schedule_save`, `update_tray_action`, `emit`, `schedule` and `cancel_schedule` still work. They're sent once the next event or hook comes along. That's how the example updates its card from `set_config()`.
 

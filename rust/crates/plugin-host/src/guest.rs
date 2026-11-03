@@ -14,7 +14,7 @@ use telescope_core::frame::{FrameStep, ShaderStep};
 use telescope_core::host::{ColourStage, Host, OutputChange, PickKind, PreviewLayer, ViewChange};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::source::RouteSpec;
-use telescope_core::ui::{ActionSpec, CardSpec, Issue, SettingsSection, SlintSource, TrayAction, UiEvent, UiSpec};
+use telescope_core::ui::{ActionSpec, CardSpec, Issue, IssueDoes, SettingsSection, SlintSource, TrayAction, UiEvent, UiSpec};
 use telescope_core::Event;
 
 /// A plugin running in a runtime. Hooks are Plugin's method names; args is a JSON array of the hook's arguments.
@@ -291,6 +291,9 @@ impl PluginContext {
         if method == "emit" {
             self.check_emit(&args)?;
         }
+        if method == "show_issue" {
+            self.check_issue(&args)?;
+        }
         match host {
             Some(host) => call_host(host, &self.info, method, &args),
             None if spec.deferrable => {
@@ -299,6 +302,24 @@ impl PluginContext {
             }
             None => Err(format!("host.{method} can't be called here: this hook runs without the host")),
         }
+    }
+
+    /// Holds a banner's buttons to what they'd do when clicked: a button that starts a stream or turns the camera on needs "streams"
+    /// like the calls do, and a link can only be a web page or text to copy (the system would open any other as a file or a program).
+    fn check_issue(&self, args: &Value) -> Result<(), String> {
+        let Some(issue) = args.get("issue").and_then(|i| serde_json::from_value::<Issue>(i.clone()).ok()) else { return Ok(()) };
+        for action in &issue.actions {
+            match &action.does {
+                IssueDoes::StartAgain { .. } | IssueDoes::CameraOnAgain { .. } if !self.permissions.iter().any(|have| have == "streams") => {
+                    return Err("host.show_issue has a button that starts a stream or turns the camera on, which needs \"streams\" in the \"permissions\" of plugin.json".into());
+                }
+                IssueDoes::OpenUrl { url } if !["https://", "http://", "copy:"].iter().any(|scheme| url.starts_with(scheme)) => {
+                    return Err("host.show_issue can only have a button that opens an http or https link".into());
+                }
+                _ => {}
+            }
+        }
+        Ok(())
     }
 
     /// Holds an emitted built-in event to the permission of the host operation it triggers; events that name an owner are never a plugin's to send.
@@ -838,6 +859,51 @@ mod tests {
         let mut phone = PluginContext::new(info(), ".", vec!["phone".into()]);
         phone.call(Some(&mut host), "emit", json!({"name": "focus_point", "data": {"x": 0.2, "y": 0.2}})).unwrap();
         assert_eq!(host.events.len(), 2);
+    }
+
+    fn banner(does: Value) -> Value {
+        json!({"key": "k", "issue": {"title": "T", "actions": [{"label": "Go", "does": does}]}})
+    }
+
+    #[test]
+    fn a_banner_button_needs_the_permission_of_what_it_does() {
+        let mut host = FakeHost::new();
+        let mut none = PluginContext::new(info(), ".", vec![]);
+        for does in [json!({"kind": "start_again"}), json!({"kind": "start_again", "source_id": "a", "before": "x"}), json!({"kind": "camera_on_again"})] {
+            let err = none.call(Some(&mut host), "show_issue", banner(does)).unwrap_err();
+            assert!(err.contains("\"streams\""), "{err}");
+        }
+        assert!(host.issues.is_empty());
+        // A button among others is held to it too
+        let two = json!({"key": "k", "issue": {"title": "T", "actions": [
+            {"label": "A", "does": {"kind": "plugin", "id": "a"}}, {"label": "B", "does": {"kind": "camera_on_again"}}]}});
+        assert!(none.call(Some(&mut host), "show_issue", two).is_err());
+        let mut streams = PluginContext::new(info(), ".", vec!["streams".into()]);
+        streams.call(Some(&mut host), "show_issue", banner(json!({"kind": "start_again"}))).unwrap();
+        streams.call(Some(&mut host), "show_issue", banner(json!({"kind": "camera_on_again"}))).unwrap();
+        assert_eq!(host.issues.len(), 1);
+    }
+
+    #[test]
+    fn a_banner_button_that_changes_nothing_needs_no_permission() {
+        let mut host = FakeHost::new();
+        let mut none = PluginContext::new(info(), ".", vec![]);
+        for does in [json!({"kind": "plugin", "id": "a"}), json!({"kind": "open_settings", "tab": "video"}),
+                     json!({"kind": "open_url", "url": "https://example.com/help"}), json!({"kind": "open_url", "url": "copy:ls"})] {
+            none.call(Some(&mut host), "show_issue", banner(does)).unwrap();
+        }
+    }
+
+    #[test]
+    fn a_banner_link_is_a_web_page_or_text_to_copy() {
+        let mut host = FakeHost::new();
+        let everything = ["phone", "streams", "app", "settings", "notifications"].map(String::from).to_vec();
+        let mut ctx = PluginContext::new(info(), ".", everything);
+        for url in ["file:///etc/passwd", "/usr/bin/xcalc", r"C:\\Windows\\notepad.exe", "smb://host/share", "javascript:alert(1)"] {
+            let err = ctx.call(Some(&mut host), "show_issue", banner(json!({"kind": "open_url", "url": url}))).unwrap_err();
+            assert!(err.contains("http"), "{url}: {err}");
+        }
+        assert!(host.issues.is_empty());
     }
 
     #[test]
