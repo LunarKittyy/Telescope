@@ -739,41 +739,9 @@ impl Plugin for StreamOutputPlugin {
     }
 
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
-        match event {
-            Event::CameraSwitched { camera } => {
-                // A lens switch reuses the phone's reader, so the size carries over
-                let live = self.sizes.current().map_or((None, None), |(w, h)| (Some(w), Some(h)));
-                self.apply_camera(host, camera, live);
-                self.render(host);
-            }
-            Event::DeviceChanged { .. } => {
-                self.forget_sizes();
-                self.phone_codecs.clear();
-                self.phone_dynamic = None;
-                self.h264_profile = None;
-                self.intra_refresh = false;
-                self.wifi = (None, None, None);
-                self.render(host);
-            }
-            Event::StreamBehind { source_id, behind } => self.on_stream_behind(host, source_id, *behind),
-            Event::SourceSelected { source_id } => {
-                self.phone_picked = source_id.is_empty();
-                self.render(host);
-            }
-            Event::PhonesChanged { count } => {
-                self.phones = *count;
-                self.render(host);
-            }
-            Event::TimerFired { owner, token } if owner == NAME => {
-                if token == T_INITIAL {
-                    self.push_initial_settings(host);
-                } else if token == T_STOP {
-                    let sid = self.stop_for.take().flatten();
-                    host.stop_stream(sid.as_deref());
-                }
-            }
-            _ => {}
-        }
+        let before = self.sizes_key();
+        self.on_event_inner(host, event);
+        self.refresh_if_sizes_moved(host, before);
     }
 
     fn on_stream_start(&mut self, host: &mut dyn Host, stream: &StreamInfo) {
@@ -796,8 +764,10 @@ impl Plugin for StreamOutputPlugin {
     }
 
     fn on_phone_state(&mut self, host: &mut dyn Host, state: &Value) {
+        let before = self.sizes_key();
         self.on_phone_state_inner(host, state);
         self.render(host);
+        self.refresh_if_sizes_moved(host, before);
     }
 
     fn on_ui(&mut self, host: &mut dyn Host, event: &UiEvent) {
@@ -1053,6 +1023,56 @@ impl Plugin for StreamOutputPlugin {
 }
 
 impl StreamOutputPlugin {
+    /// The sizes and ratios the shortcut choices list, to tell when the shell's copy of the actions is stale.
+    fn sizes_key(&self) -> (Vec<(u32, u32)>, Vec<(u32, u32)>) {
+        (self.sizes.res.clone(), self.sizes.ratios.clone())
+    }
+
+    /// The shell lists the actions once and keeps them, so the size choices are asked for again when the sizes move.
+    fn refresh_if_sizes_moved(&mut self, host: &mut dyn Host, before: (Vec<(u32, u32)>, Vec<(u32, u32)>)) {
+        if self.sizes_key() != before {
+            host.refresh_actions();
+        }
+    }
+
+    fn on_event_inner(&mut self, host: &mut dyn Host, event: &Event) {
+        match event {
+            Event::CameraSwitched { camera } => {
+                // A lens switch reuses the phone's reader, so the size carries over
+                let live = self.sizes.current().map_or((None, None), |(w, h)| (Some(w), Some(h)));
+                self.apply_camera(host, camera, live);
+                self.render(host);
+            }
+            Event::DeviceChanged { .. } => {
+                self.forget_sizes();
+                self.phone_codecs.clear();
+                self.phone_dynamic = None;
+                self.h264_profile = None;
+                self.intra_refresh = false;
+                self.wifi = (None, None, None);
+                self.render(host);
+            }
+            Event::StreamBehind { source_id, behind } => self.on_stream_behind(host, source_id, *behind),
+            Event::SourceSelected { source_id } => {
+                self.phone_picked = source_id.is_empty();
+                self.render(host);
+            }
+            Event::PhonesChanged { count } => {
+                self.phones = *count;
+                self.render(host);
+            }
+            Event::TimerFired { owner, token } if owner == NAME => {
+                if token == T_INITIAL {
+                    self.push_initial_settings(host);
+                } else if token == T_STOP {
+                    let sid = self.stop_for.take().flatten();
+                    host.stop_stream(sid.as_deref());
+                }
+            }
+            _ => {}
+        }
+    }
+
     fn pick_ratio(&mut self, host: &mut dyn Host, i: usize) {
         let ratio = self.sizes.ratios[i];
         let current = self.sizes.current();

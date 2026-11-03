@@ -886,3 +886,17 @@ fn quality_label_boundaries() {
         assert_eq!(quality_label(quality), format!("{quality}%: {suffix}"));
     }
 }
+
+#[test]
+fn size_shortcuts_are_listed_again_once_the_phone_reports_its_sizes() {
+    let (mut p, mut host) = phone_a();
+    let asked = |h: &FakeHost| h.calls.iter().filter(|c| *c == "refresh_actions").count();
+    start(&mut p, &mut host, "https://phone/v1/video.h264");
+    assert_eq!(asked(&host), 0);
+    p.on_phone_state(&mut host, &on_lens(&[(1920, 1080), (1280, 720)], 1920, 1080));
+    assert_eq!(asked(&host), 1, "the shell keeps the choices it was given, so it has to ask again");
+    p.on_phone_state(&mut host, &on_lens(&[(1920, 1080), (1280, 720)], 1920, 1080));
+    assert_eq!(asked(&host), 1, "nothing moved");
+    p.on_event(&mut host, &Event::DeviceChanged { source_id: String::new() });
+    assert_eq!(asked(&host), 2, "the sizes of the old phone are gone");
+}
