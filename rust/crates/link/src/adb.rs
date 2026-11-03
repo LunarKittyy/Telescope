@@ -18,7 +18,8 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 /// What a command came back with: (exit code, stdout, stderr); -1 couldn't run, -2 timed out.
 pub type Outcome = (i32, String, String);
-pub type Runner = Box<dyn Fn(&[String], Duration) -> Outcome + Send + Sync>;
+/// The third argument is what goes to the command's stdin (none: stdin is closed).
+pub type Runner = Box<dyn Fn(&[String], Duration, Option<&[u8]>) -> Outcome + Send + Sync>;
 
 /// The package the pairing broadcast goes to: the dev app in a dev profile.
 pub fn pair_broadcast_package() -> &'static str {
@@ -83,8 +84,8 @@ pub fn adb_exe() -> Option<PathBuf> {
 }
 
 /// Runs a command, never failing: a program that's missing, can't run or hangs comes back as a failed outcome.
-pub fn run(cmd: &[String], timeout: Duration) -> Outcome {
-    server_first(cmd, &ensure_adb_server, &|cmd| execute(cmd, timeout))
+pub fn run(cmd: &[String], timeout: Duration, input: Option<&[u8]>) -> Outcome {
+    server_first(cmd, &ensure_adb_server, &|cmd| execute(cmd, timeout, input))
 }
 
 /// Anything run through adb goes after a check that its server is up.
@@ -95,16 +96,23 @@ fn server_first(cmd: &[String], ensure_server: &dyn Fn(), execute: &dyn Fn(&[Str
     execute(cmd)
 }
 
-fn execute(cmd: &[String], timeout: Duration) -> Outcome {
+fn execute(cmd: &[String], timeout: Duration, input: Option<&[u8]>) -> Outcome {
     let Some((program, args)) = cmd.split_first() else { return (-1, String::new(), "nothing to run".into()) };
     let mut command = Command::new(program);
-    command.args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    command.args(args).stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() }).stdout(Stdio::piped()).stderr(Stdio::piped());
     hide_window(&mut command);
     let mut child = match command.spawn() {
         Ok(c) => c,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return (-1, String::new(), format!("Not found: {program}")),
         Err(e) => return (-1, String::new(), e.to_string()),
     };
+    // Feed stdin on its own thread too, then close it so the command sees the end
+    if let (Some(input), Some(mut stdin)) = (input, child.stdin.take()) {
+        let input = input.to_vec();
+        std::thread::spawn(move || {
+            let _ = std::io::Write::write_all(&mut stdin, &input);
+        });
+    }
     // Read both pipes on their own threads so a chatty command can't fill one and stall
     let mut stdout = child.stdout.take();
     let mut stderr = child.stderr.take();
@@ -240,10 +248,14 @@ impl Adb {
     }
 
     fn run(&self, serial: Option<&str>, args: &[&str], timeout: Duration) -> Outcome {
+        self.run_with_input(serial, args, timeout, None)
+    }
+
+    fn run_with_input(&self, serial: Option<&str>, args: &[&str], timeout: Duration, input: Option<&[u8]>) -> Outcome {
         match self.command(serial, args) {
             // No adb: subprocess would have nothing to run, so this is a failed command, not a crash
             None => (-1, String::new(), "adb not found".into()),
-            Some(cmd) => (self.runner)(&cmd, timeout),
+            Some(cmd) => (self.runner)(&cmd, timeout, input),
         }
     }
 
@@ -316,9 +328,11 @@ impl Adb {
     }
 
     /// Pushes the base64 pairing offer to the Telescope app only; whether adb managed, not whether the phone got it.
+    /// The offer holds the phone's token, so it goes to the phone's shell on stdin, not in adb's arguments, which any
+    /// user on this machine can read.
     pub fn broadcast_pair(&self, payload_b64: &str, serial: Option<&str>, package: &str) -> (bool, String) {
-        let (rc, _, err) = self.run(serial, &["shell", "am", "broadcast", "-a", PAIR_BROADCAST_ACTION, "-p", package,
-                                             "--es", "payload", payload_b64], RUN_TIMEOUT);
+        let line = format!("am broadcast -a {PAIR_BROADCAST_ACTION} -p '{package}' --es payload '{payload_b64}'\n");
+        let (rc, _, err) = self.run_with_input(serial, &["shell"], RUN_TIMEOUT, Some(line.as_bytes()));
         if rc == 0 { (true, "Broadcast sent".into()) } else { (false, err) }
     }
 
@@ -381,7 +395,7 @@ mod tests {
     fn fake(outcome: Outcome) -> (Adb, Arc<Mutex<Vec<Vec<String>>>>) {
         let calls: Arc<Mutex<Vec<Vec<String>>>> = Arc::default();
         let seen = calls.clone();
-        let adb = Adb { exe: Some("adb".into()), runner: Box::new(move |cmd, _| {
+        let adb = Adb { exe: Some("adb".into()), runner: Box::new(move |cmd, _, _| {
             seen.lock().unwrap().push(cmd.to_vec());
             outcome.clone()
         }) };
@@ -396,7 +410,7 @@ mod tests {
     fn run_returns_process_result() {
         let script = if cfg!(windows) { words(&["cmd", "/C", "echo out & echo err 1>&2 & exit 7"]) }
                      else { words(&["sh", "-c", "printf out; printf err >&2; exit 7"]) };
-        let (rc, out, err) = run(&script, Duration::from_secs(5));
+        let (rc, out, err) = run(&script, Duration::from_secs(5), None);
         assert_eq!(rc, 7);
         assert_eq!((out.trim(), err.trim()), ("out", "err"));
     }
@@ -410,11 +424,11 @@ mod tests {
 
     #[test]
     fn run_normalizes_expected_subprocess_failures() {
-        assert_eq!(run(&words(&["no-such-program-anywhere"]), Duration::from_secs(1)),
+        assert_eq!(run(&words(&["no-such-program-anywhere"]), Duration::from_secs(1), None),
                    (-1, String::new(), "Not found: no-such-program-anywhere".into()));
         let waits = lingers();
         let waits: Vec<String> = std::iter::once(waits.get_program()).chain(waits.get_args()).map(|a| a.to_string_lossy().into_owned()).collect();
-        assert_eq!(run(&waits, Duration::from_millis(100)), (-2, String::new(), "Timed out".into()));
+        assert_eq!(run(&waits, Duration::from_millis(100), None), (-2, String::new(), "Timed out".into()));
     }
 
     #[test]
@@ -422,13 +436,13 @@ mod tests {
         let dir = telescope_core::testing::scratch_dir("adb-run");
         let file = dir.join("not-executable");
         std::fs::write(&file, "x").unwrap();
-        assert_eq!(run(&[file.to_string_lossy().into_owned()], Duration::from_secs(1)).0, -1);
+        assert_eq!(run(&[file.to_string_lossy().into_owned()], Duration::from_secs(1), None).0, -1);
         // Output that isn't text
         let noise = dir.join("noise");
         std::fs::write(&noise, b"\xff").unwrap();
         let shows = if cfg!(windows) { ["cmd", "/C", "type"] } else { ["sh", "-c", "cat \"$0\""] };
         let cmd: Vec<String> = shows.iter().map(|s| s.to_string()).chain([noise.to_string_lossy().into_owned()]).collect();
-        assert_eq!(run(&cmd, Duration::from_secs(5)).0, -1);
+        assert_eq!(run(&cmd, Duration::from_secs(5), None).0, -1);
     }
 
     #[test]
@@ -444,10 +458,10 @@ mod tests {
         let dir = telescope_core::testing::scratch_dir("adb-path");
         let exe = adb_exe_in(&dir, Some(&dir), |name| Some(format!("/usr/bin/{name}").into()));
         assert_eq!(exe, Some("/usr/bin/adb".into()));
-        let found = Adb { exe: exe.map(|p| p.to_string_lossy().into_owned()), runner: Box::new(|_, _| (0, String::new(), String::new())) };
+        let found = Adb { exe: exe.map(|p| p.to_string_lossy().into_owned()), runner: Box::new(|_, _, _| (0, String::new(), String::new())) };
         assert!(found.available());
         let missing = adb_exe_in(&dir, Some(&dir), |_| None);
-        assert!(!Adb { exe: missing.map(|p| p.to_string_lossy().into_owned()), runner: Box::new(|_, _| (0, String::new(), String::new())) }.available());
+        assert!(!Adb { exe: missing.map(|p| p.to_string_lossy().into_owned()), runner: Box::new(|_, _, _| (0, String::new(), String::new())) }.available());
     }
 
     #[test]
@@ -557,11 +571,27 @@ mod tests {
     }
 
     #[test]
-    fn adb_broadcast_pair_builds_serial_specific_command() {
-        let (adb, calls) = fake((0, String::new(), String::new()));
+    fn adb_broadcast_pair_keeps_the_offer_out_of_the_arguments() {
+        let seen: Arc<Mutex<Vec<(Vec<String>, Option<Vec<u8>>)>>> = Arc::default();
+        let log = seen.clone();
+        let adb = Adb { exe: Some("adb".into()), runner: Box::new(move |cmd, _, input| {
+            log.lock().unwrap().push((cmd.to_vec(), input.map(<[u8]>::to_vec)));
+            (0, String::new(), String::new())
+        }) };
         assert_eq!(adb.broadcast_pair("cGF5bG9hZA==", Some("phone"), "com.telescope"), (true, "Broadcast sent".into()));
-        assert_eq!(*calls.lock().unwrap(), [words(&["adb", "-s", "phone", "shell", "am", "broadcast", "-a", "com.telescope.action.PAIR",
-                                                    "-p", "com.telescope", "--es", "payload", "cGF5bG9hZA=="])]);
+        let calls = seen.lock().unwrap();
+        assert_eq!(calls[0].0, words(&["adb", "-s", "phone", "shell"]));
+        assert!(!calls[0].0.iter().any(|a| a.contains("cGF5bG9hZA==")));
+        let line = String::from_utf8(calls[0].1.clone().unwrap()).unwrap();
+        assert_eq!(line, "am broadcast -a com.telescope.action.PAIR -p 'com.telescope' --es payload 'cGF5bG9hZA=='\n");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn execute_feeds_stdin_and_closes_it() {
+        let cmd = words(&["cat"]);
+        assert_eq!(execute(&cmd, Duration::from_secs(5), Some(b"hello\n")), (0, "hello\n".into(), String::new()));
+        assert_eq!(execute(&cmd, Duration::from_secs(5), None), (0, String::new(), String::new()));
     }
 
     #[test]
@@ -572,7 +602,7 @@ mod tests {
 
     #[test]
     fn adb_helpers_degrade_when_adb_is_missing() {
-        let adb = Adb { exe: None, runner: Box::new(|_, _| panic!("ran without adb")) };
+        let adb = Adb { exe: None, runner: Box::new(|_, _, _| panic!("ran without adb")) };
         assert!(adb.devices().is_empty());
         let (ok, err) = adb.forward(8766, None);
         assert!(!ok && err.contains("adb"));

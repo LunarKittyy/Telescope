@@ -32,16 +32,23 @@ struct FakeAdb {
     /// What `getprop ro.product.model` says, by serial.
     models: Mutex<HashMap<String, String>>,
     calls: Mutex<Vec<Vec<String>>>,
+    /// The serials a shell line with `am broadcast` was sent to (on stdin, where the offer must stay), in order.
+    sent: Mutex<Vec<String>>,
 }
 
 impl FakeAdb {
     fn adb(self: &Arc<FakeAdb>) -> Adb {
         let me = self.clone();
-        Adb { exe: Some("adb".into()), runner: Box::new(move |cmd, _| me.answer(cmd)) }
+        Adb { exe: Some("adb".into()), runner: Box::new(move |cmd, _, input| me.answer(cmd, input)) }
     }
 
-    fn answer(&self, cmd: &[String]) -> Outcome {
+    fn answer(&self, cmd: &[String], input: Option<&[u8]>) -> Outcome {
         self.calls.lock().unwrap().push(cmd.to_vec());
+        if let Some(input) = input.filter(|i| String::from_utf8_lossy(i).contains("am broadcast")) {
+            assert!(!cmd.iter().any(|a| a.contains("payload")), "the offer is in adb's arguments: {cmd:?}");
+            assert!(String::from_utf8_lossy(input).contains("payload"));
+            self.sent.lock().unwrap().push(cmd[2].clone());
+        }
         if cmd.iter().any(|c| c == "devices") {
             return (0, format!("List of devices attached\n{}\n", self.devices.lock().unwrap().join("\n")), String::new());
         }
@@ -53,7 +60,7 @@ impl FakeAdb {
 
     /// The serials `am broadcast` went to, in order.
     fn broadcasts(&self) -> Vec<String> {
-        self.calls.lock().unwrap().iter().filter(|c| c.iter().any(|a| a == "broadcast")).map(|c| c[2].clone()).collect()
+        self.sent.lock().unwrap().clone()
     }
 
     /// How many times this command went to this phone, as (adb -s serial ) + words.
