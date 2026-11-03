@@ -89,7 +89,7 @@ class WaitingService : Service() {
 
     companion object {
         private const val TAG = "WaitingService"
-        private const val CHANNEL_ID = "telescope_waiting"
+        const val CHANNEL_ID = "telescope_waiting"
         private const val NOTIF_ID = 2  // CameraStreamService uses 1; both can show at once
         private const val ACTION_STOP = "com.telescope.action.STOP_WAITING"
 

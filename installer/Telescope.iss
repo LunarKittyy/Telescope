@@ -186,11 +186,33 @@ begin
   Result := '''' + Value + '''';
 end;
 
+// A camera an older Telescope (3.1.1 and before) registered from the app's own folder, in the given registry view
+function LegacyCameraIn(Root: Integer): Boolean;
+var
+  Names: TArrayOfString;
+  I: Integer;
+  Dll, Mine: String;
+begin
+  Result := False;
+  Mine := ExpandConstant('{app}\unitycapture') + '\';
+  if not RegGetSubkeyNames(Root, 'SOFTWARE\Classes\CLSID', Names) then
+    Exit;
+  for I := 0 to GetArrayLength(Names) - 1 do
+    if (Pos('{5C2CD55C-92AD-4999-8666-912BD3E7', Uppercase(Names[I])) = 1) and
+       RegQueryStringValue(Root, 'SOFTWARE\Classes\CLSID\' + Names[I] + '\InprocServer32', '', Dll) and
+       (CompareText(Copy(Dll, 1, Length(Mine)), Mine) = 0) then
+    begin
+      Result := True;
+      Exit;
+    end;
+end;
+
 // The virtual camera the app installs for every account (rust/crates/outputs/src/wininstall.rs): UnityCapture, or on
 // Windows 11 its own (rust/windows/virtualcamera)
 function CameraInstalled(): Boolean;
 begin
-  Result := DirExists(ExpandConstant('{commonpf64}\Telescope\UnityCapture')) or
+  Result := LegacyCameraIn(HKLM64) or LegacyCameraIn(HKLM32) or
+            DirExists(ExpandConstant('{commonpf64}\Telescope\UnityCapture')) or
             DirExists(ExpandConstant('{commonpf64}\Telescope\VirtualCamera')) or
             RegKeyExists(HKLM64, 'SOFTWARE\Classes\CLSID\{5C2CD55C-92AD-4999-8666-912BD3E70010}') or
             RegKeyExists(HKLM64, 'SOFTWARE\Classes\CLSID\{D1063481-2B46-4750-8A9D-85F69573355A}');

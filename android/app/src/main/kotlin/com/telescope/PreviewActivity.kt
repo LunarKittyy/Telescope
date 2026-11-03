@@ -417,6 +417,14 @@ class PreviewActivity : AppCompatActivity() {
     private fun beginStandaloneAspectLayout() {
         // Deferred; calling synchronously would no-op against zero-sized view.
         textureView.post { applyAspectOption() }
+        // The activity stays through a rotation, so a new root size needs its own box and transform
+        (textureView.parent as? View)?.addOnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
+            val resized = right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop
+            if (resized && oldRight - oldLeft > 0) {
+                setAspectRatio(AspectOption.entries[aspectIndex])
+                textureView.post { applyPreviewTransform(lastCameraId, lastBufferSize) }
+            }
+        }
         // post{} insufficient: wait for layout bounds to match before opening camera.
         textureView.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
             override fun onLayoutChange(
