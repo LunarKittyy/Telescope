@@ -402,3 +402,72 @@ fn a_colour_wheel_says_where_its_puck_is_in_words() {
     assert_eq!(value("Lift colour"), "towards yellow, 20%");
     w.shut_down();
 }
+
+fn keys(w: &Window, text: slint::SharedString) {
+    w.ui.window().dispatch_event(slint::platform::WindowEvent::KeyPressed { text: text.clone() });
+    w.ui.window().dispatch_event(slint::platform::WindowEvent::KeyReleased { text });
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(20));
+}
+
+#[test]
+fn a_real_cards_dropdown_works_from_the_keyboard_and_says_so() {
+    use slint::platform::Key;
+    let w = build(&telescope_core::testing::scratch_dir("a11y-dropdown"));
+    w.ui.window().set_size(slint::LogicalSize::new(1300.0, 9000.0));
+    w.ui.show().unwrap();
+    for name in ["browser_camera", "webcam"] {
+        w.state.borrow_mut().effects.push(telescope_shell::shell::Effect::Props { plugin: name.into(), ui: "card".into(), props: serde_json::json!({"visible": true}) });
+    }
+    w.process();
+    let boxes = || w.ui.root_element().query_descendants().match_predicate(|e| e.accessible_role() == Some(AccessibleRole::Combobox)).find_all();
+    let all = boxes();
+    assert!(all.len() > 5, "{} dropdowns", all.len());
+    for e in &all {
+        assert_eq!(e.accessible_expandable(), Some(true), "{:?} says it can open", e.accessible_label());
+        assert_eq!(e.accessible_expanded(), Some(false), "{:?} says it is closed", e.accessible_label());
+    }
+    // Tab to the first dropdown a person can use
+    let mut got = None;
+    for _ in 0..400 {
+        keys(&w, Key::Tab.into());
+        let Some((x, y, fw, fh)) = telescope_shell::input::focused_box(&w.ui) else { continue };
+        got = boxes().into_iter().find(|e| {
+            let (p, s) = (e.absolute_position(), e.size());
+            e.accessible_enabled() != Some(false) && (p.x - x).abs() < 1.0 && (p.y - y).abs() < 1.0 && (s.width - fw).abs() < 1.0 && (s.height - fh).abs() < 1.0
+        });
+        if got.is_some() {
+            break;
+        }
+    }
+    let dropdown = got.expect("Tab reaches a dropdown");
+    let name = dropdown.accessible_label().unwrap_or_default().to_string();
+    let before = dropdown.accessible_value().unwrap_or_default().to_string();
+    keys(&w, " ".into());
+    assert_eq!(dropdown.accessible_expanded(), Some(true), "{name}: Space opens it");
+    let items = w.ui.root_element().query_descendants().match_predicate(|e| e.accessible_role() == Some(AccessibleRole::ListItem)).find_all();
+    assert!(items.len() >= 2, "{name}: its list items are exposed");
+    assert_eq!(items.iter().filter(|i| i.accessible_item_selected() == Some(true)).count(), 1, "{name}: one item is the highlighted one");
+    // (a dropdown with nothing picked yet reads empty)
+    assert_eq!(items.iter().filter(|i| i.accessible_label().as_deref() == Some(before.as_str())).count(), usize::from(!before.is_empty()), "{name}: the current choice {before:?} is among them ({:?})", items.iter().map(|i| i.accessible_label()).collect::<Vec<_>>());
+    keys(&w, Key::Escape.into());
+    assert_eq!(dropdown.accessible_expanded(), Some(false), "{name}: Esc closes it");
+    assert_eq!(dropdown.accessible_value().unwrap_or_default(), before, "{name}: and keeps the choice");
+    keys(&w, Key::Return.into());
+    assert_eq!(dropdown.accessible_expanded(), Some(true), "{name}: focus came back, so Enter opens it again");
+    w.shut_down();
+}
+
+#[test]
+fn the_zoom_slider_reads_its_value_with_units() {
+    let w = build(&telescope_core::testing::scratch_dir("a11y-zoom"));
+    w.ui.window().set_size(slint::LogicalSize::new(1300.0, 9000.0));
+    w.ui.show().unwrap();
+    w.process();
+    let zoom: Vec<_> = w.ui.root_element().query_descendants().match_predicate(|e| e.accessible_role() == Some(AccessibleRole::Slider) && e.accessible_label().as_deref() == Some("Zoom")).find_all();
+    assert!(!zoom.is_empty(), "a Zoom slider");
+    for z in zoom {
+        let value = z.accessible_value().unwrap_or_default().to_string();
+        assert!(value.contains('\u{d7}') || value.contains('%'), "Zoom reads {value:?}, with its unit");
+    }
+    w.shut_down();
+}
