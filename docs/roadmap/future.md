@@ -53,6 +53,14 @@ Some phones can stream two of their own rear cameras at once from one camera ses
 
 Big. It needs capture times through the phone app and the protocol, the calibration sheet and its guidance, the rectifying warp and the WebXR page (frames from other streams are there now).
 
+### AI models in plugins
+
+A maybe. A plugin could bundle a small `.onnx` model and use it as a frame stage the same way it uses a shader now, with Telescope running it on the GPU. The model is only data, so plugins still can't reach files, programs or the network. Real-time models fit here, for example low-light boost (Zero-DCE is tiny and suits weak laptop cameras), denoising, light upscaling and style transfer.
+
+It needs a model runtime like ONNX Runtime, which is large with GPU support, so it would be an optional download like the vision pack. Live captions below would need one too. Running the model after auto framing's crop keeps it cheaper, and edits made frame by frame need smoothing so faces don't shimmer.
+
+Heavy generative edits (StreamDiffusion and the like) would need Telescope to send frames to a program the user runs themselves. That crosses the line plugins aren't allowed to cross and mostly needs a high-end GPU, so it's not part of this.
+
 ### Not for now
 
 - **Live captions** would be the most useful accessibility plugin on this list but need Whisper or Vosk and a model. That means a second optional download like the vision one. Worth deciding on its own
