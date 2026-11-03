@@ -25,7 +25,7 @@ msgstr "Открыть установку снова"
 msgid "Needs VB-Audio Virtual Cable, a free virtual audio cable by VB-Audio."
 msgstr "Требуется VB-Audio Virtual Cable - бесплатный виртуальный аудиокабель от VB-Audio."
 
-#: rust/crates/audio/src/backend.rs:169 rust/crates/audio/ui/microphone.slint:325
+#: rust/crates/audio/src/backend.rs:169 rust/crates/audio/ui/microphone.slint:326
 msgid "Install VB-Cable"
 msgstr "Установить VB-Cable"
 
@@ -183,7 +183,7 @@ msgstr "вкл."
 msgid "off"
 msgstr "выкл."
 
-#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:217 rust/crates/audio/ui/microphone.slint:226 rust/crates/audio/ui/microphone.slint:237 rust/crates/effects/src/colour_grading.rs:31 rust/crates/effects/ui/colour_grading.slint:261 rust/crates/outputs/src/webcam.rs:41
+#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:217 rust/crates/audio/ui/microphone.slint:227 rust/crates/audio/ui/microphone.slint:238 rust/crates/effects/src/colour_grading.rs:31 rust/crates/effects/ui/colour_grading.slint:261 rust/crates/outputs/src/webcam.rs:41
 msgid "Gain"
 msgstr "Усиление"
 
@@ -318,35 +318,35 @@ msgstr "Виртуальный микрофон перестал принима�
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "Желтый цвет означает, что лимитер сглаживает громкие пики, а красный - перегрузку звука (нажми, чтобы сбросить)."
 
-#: rust/crates/audio/ui/microphone.slint:230 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:476 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:385 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:156 rust/crates/outputs/ui/webcam.slint:156 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
+#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:476 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:385 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:156 rust/crates/outputs/ui/webcam.slint:156 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
 msgid "Double-click to reset"
 msgstr "Двойной щелчок для сброса"
 
-#: rust/crates/audio/ui/microphone.slint:245 rust/crates/audio/ui/microphone.slint:250
+#: rust/crates/audio/ui/microphone.slint:246 rust/crates/audio/ui/microphone.slint:251
 msgid "Auto level"
 msgstr "Автоуровень"
 
-#: rust/crates/audio/ui/microphone.slint:251
+#: rust/crates/audio/ui/microphone.slint:252
 msgid "Evens out quiet and loud speech."
 msgstr "Выравнивает громкость тихой и громкой речи."
 
-#: rust/crates/audio/ui/microphone.slint:256 rust/crates/audio/ui/microphone.slint:267 rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1614 rust/crates/shell/ui/cards/camera.slint:422
+#: rust/crates/audio/ui/microphone.slint:257 rust/crates/audio/ui/microphone.slint:268 rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1614 rust/crates/shell/ui/cards/camera.slint:422
 msgid "Noise reduction"
 msgstr "Шумоподавление"
 
-#: rust/crates/audio/ui/microphone.slint:326
+#: rust/crates/audio/ui/microphone.slint:327
 msgid "The phone's mic needs VB-Audio Virtual Cable on Windows."
 msgstr "Для микрофона телефона в Windows требуется VB-Audio Virtual Cable."
 
-#: rust/crates/audio/ui/microphone.slint:327
+#: rust/crates/audio/ui/microphone.slint:328
 msgid "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."
 msgstr "VB-Cable разработан компанией VB-Audio, а не Telescope. Telescope может скачать его с сайта vb-audio.com и запустить установщик VB-Audio, запрашивающий права администратора. После завершения перезагрузи компьютер."
 
-#: rust/crates/audio/ui/microphone.slint:339 rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/colour_grading.slint:429 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:603 rust/crates/system/ui/shortcuts.slint:374 rust/crates/system/ui/updates.slint:211
+#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/colour_grading.slint:429 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:608 rust/crates/system/ui/shortcuts.slint:374 rust/crates/system/ui/updates.slint:211
 msgid "Cancel"
 msgstr "Отмена"
 
-#: rust/crates/audio/ui/microphone.slint:343
+#: rust/crates/audio/ui/microphone.slint:344
 msgid "Download and install"
 msgstr "Скачать и установить"
 
@@ -1012,7 +1012,7 @@ msgstr "Растяжение"
 msgid "Crop"
 msgstr "Обрезка"
 
-#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:135 rust/crates/effects/ui/transforms.slint:145 rust/crates/outputs/src/webcam.rs:48
+#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:136 rust/crates/effects/ui/transforms.slint:146 rust/crates/outputs/src/webcam.rs:48
 msgid "Pan"
 msgstr "Панорамирование"
 
@@ -1746,7 +1746,7 @@ msgstr "Заметки отображаются на экране телефон
 msgid "Notes {n}"
 msgstr "Заметки {n}"
 
-#: rust/crates/effects/src/notes.rs:258 rust/crates/effects/src/notes.rs:517 rust/crates/effects/src/notes.rs:596 rust/crates/effects/ui/notes.slint:112
+#: rust/crates/effects/src/notes.rs:258 rust/crates/effects/src/notes.rs:517 rust/crates/effects/src/notes.rs:596 rust/crates/effects/ui/notes.slint:113
 msgid "Notes"
 msgstr "Заметки"
 
@@ -1903,7 +1903,7 @@ msgstr "Вебхук «В эфире» не прошел"
 msgid "It answered: {error}"
 msgstr "Ответ: {error}"
 
-#: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:364 rust/crates/shell/src/doc.rs:365 rust/crates/shell/src/doc.rs:719
+#: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:364 rust/crates/shell/src/doc.rs:365 rust/crates/shell/src/doc.rs:724
 msgid "Settings"
 msgstr "Настройки"
 
@@ -2366,7 +2366,7 @@ msgstr "Масштабируй, панорамируй, отражай, пово
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "Без него карточки «Трансформация» не будет, и картинка будет выводиться ровно так, как ее передает телефон."
 
-#: rust/crates/effects/src/transforms.rs:614 rust/crates/effects/src/transforms.rs:667 rust/crates/effects/ui/composite_editor.slint:447 rust/crates/effects/ui/transforms.slint:78 rust/crates/effects/ui/transforms.slint:90 rust/crates/outputs/src/webcam.rs:48
+#: rust/crates/effects/src/transforms.rs:614 rust/crates/effects/src/transforms.rs:667 rust/crates/effects/ui/composite_editor.slint:447 rust/crates/effects/ui/transforms.slint:78 rust/crates/effects/ui/transforms.slint:91 rust/crates/outputs/src/webcam.rs:48
 msgid "Zoom"
 msgstr "Масштаб"
 
@@ -2378,11 +2378,11 @@ msgstr "Панорамировать влево/вправо"
 msgid "Pan up/down"
 msgstr "Панорамировать вверх/вниз"
 
-#: rust/crates/effects/src/transforms.rs:617 rust/crates/effects/src/transforms.rs:685 rust/crates/effects/ui/desk.slint:106 rust/crates/effects/ui/transforms.slint:166
+#: rust/crates/effects/src/transforms.rs:617 rust/crates/effects/src/transforms.rs:685 rust/crates/effects/ui/desk.slint:106 rust/crates/effects/ui/transforms.slint:167
 msgid "Width"
 msgstr "Ширина"
 
-#: rust/crates/effects/src/transforms.rs:618 rust/crates/effects/src/transforms.rs:685 rust/crates/effects/ui/desk.slint:121 rust/crates/effects/ui/transforms.slint:181
+#: rust/crates/effects/src/transforms.rs:618 rust/crates/effects/src/transforms.rs:685 rust/crates/effects/ui/desk.slint:121 rust/crates/effects/ui/transforms.slint:182
 msgid "Height"
 msgstr "Высота"
 
@@ -2706,7 +2706,7 @@ msgstr "Заменить макет"
 msgid "Name:"
 msgstr "Название:"
 
-#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:492 rust/crates/link/ui/connection.slint:692 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:848 rust/crates/shell/ui/settings.slint:604
+#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:492 rust/crates/link/ui/connection.slint:692 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:849 rust/crates/shell/ui/settings.slint:609
 msgid "OK"
 msgstr "ОК"
 
@@ -2734,7 +2734,7 @@ msgstr "Следить за лицом"
 msgid "Framing"
 msgstr "Кадрирование"
 
-#: rust/crates/effects/ui/framing.slint:115 rust/crates/effects/ui/notes.slint:183
+#: rust/crates/effects/ui/framing.slint:115 rust/crates/effects/ui/notes.slint:184
 msgid "Speed"
 msgstr "Скорость"
 
@@ -2750,7 +2750,7 @@ msgstr "Эффект"
 msgid "Clean up"
 msgstr "Очистить"
 
-#: rust/crates/effects/ui/fun_pack.slint:94 rust/crates/system/ui/shortcuts.slint:170 rust/crates/ui-kit/ui/widgets/field.slint:95
+#: rust/crates/effects/ui/fun_pack.slint:94 rust/crates/system/ui/shortcuts.slint:170 rust/crates/ui-kit/ui/widgets/field.slint:98
 msgid "Clear"
 msgstr "Очистить"
 
@@ -2806,11 +2806,11 @@ msgstr "Положение"
 msgid "Size"
 msgstr "Размер"
 
-#: rust/crates/effects/ui/notes.slint:157
+#: rust/crates/effects/ui/notes.slint:158
 msgid "Text size"
 msgstr "Размер текста"
 
-#: rust/crates/effects/ui/notes.slint:170 rust/crates/effects/ui/notes.slint:176
+#: rust/crates/effects/ui/notes.slint:171 rust/crates/effects/ui/notes.slint:177
 msgid "Scroll"
 msgstr "Прокрутка"
 
@@ -2980,7 +2980,7 @@ msgstr ""
 msgid "Arrow keys move the puck a little, Shift with an arrow moves it further. Home puts it back in the middle."
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:319
+#: rust/crates/effects/ui/parts.slint:320
 msgid "Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve."
 msgstr ""
 
@@ -3137,7 +3137,7 @@ msgstr "Телефон отклонил доступ к микрофону (HTTP
 msgid "No microphone"
 msgstr "Нет микрофона"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:678 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1301 rust/crates/shell/src/worker.rs:490 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:678 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/worker.rs:490 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "Нет трансляции"
 
@@ -3794,7 +3794,7 @@ msgstr "Кадров/с"
 msgid "Rename"
 msgstr "Переименовать"
 
-#: rust/crates/link/ui/connection.slint:120 rust/crates/setup/ui/setup.slint:127 rust/crates/shell/src/plugins_tab.rs:607 rust/crates/shell/src/plugins_tab.rs:612 rust/crates/shell/ui/settings.slint:292
+#: rust/crates/link/ui/connection.slint:120 rust/crates/setup/ui/setup.slint:127 rust/crates/shell/src/plugins_tab.rs:607 rust/crates/shell/src/plugins_tab.rs:612 rust/crates/shell/ui/settings.slint:297
 msgid "Remove"
 msgstr "Убрать"
 
@@ -3861,6 +3861,10 @@ msgstr "Сначала Telescope нужно включить виртуальн�
 #: rust/crates/link/ui/connection.slint:470 rust/crates/link/ui/connection.slint:473
 msgid "Also switch it on at every startup"
 msgstr "Также включать при каждом запуске"
+
+#: rust/crates/link/ui/connection.slint:557
+msgid "Pick a phone"
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:562
 msgid "Which phone to stream from"
@@ -5262,7 +5266,7 @@ msgstr "Исправить текст или добавить язык - нав�
 msgid "Restart Telescope to switch to it."
 msgstr "Перезапусти Telescope, чтобы переключиться на него."
 
-#: rust/crates/setup/ui/setup.slint:439 rust/crates/shell/ui/settings.slint:559
+#: rust/crates/setup/ui/setup.slint:439 rust/crates/shell/ui/settings.slint:564
 msgid "Restart now"
 msgstr "Перезапустить сейчас"
 
@@ -5334,7 +5338,7 @@ msgstr "Добавить камеру"
 msgid "Stream another camera at the same time, to a virtual camera of its own"
 msgstr "Транслировать еще одну камеру одновременно - в отдельную виртуальную камеру"
 
-#: rust/crates/shell/src/doc.rs:758 rust/crates/shell/src/doc.rs:759
+#: rust/crates/shell/src/doc.rs:763 rust/crates/shell/src/doc.rs:764
 msgid "Search settings"
 msgstr "Поиск по настройкам"
 
@@ -6018,54 +6022,54 @@ msgstr "Вкладка"
 msgid "Check that it's still on."
 msgstr "Проверь, включено ли устройство."
 
-#: rust/crates/shell/src/settings.rs:704
+#: rust/crates/shell/src/settings.rs:705
 msgid "Nothing matches every word. These match some of them."
 msgstr "Ничего не найдено по всем словам сразу. Вот совпадения по некоторым из них."
 
-#: rust/crates/shell/src/settings.rs:706
+#: rust/crates/shell/src/settings.rs:707
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)."
 msgstr "По запросу «{text}» ничего не найдено. Попробуй меньше слов или опиши функцию (разрешение, микрофон, автозапуск)."
 
-#: rust/crates/shell/src/settings.rs:708 rust/crates/shell/ui/settings.slint:195
+#: rust/crates/shell/src/settings.rs:709 rust/crates/shell/ui/settings.slint:200
 msgid "Search results"
 msgstr "Результаты поиска"
 
-#: rust/crates/shell/src/settings.rs:769
+#: rust/crates/shell/src/settings.rs:770
 #, python-brace-format
 msgid "Remove {plugin}"
 msgstr "Удалить {plugin}"
 
-#: rust/crates/shell/src/settings.rs:788
+#: rust/crates/shell/src/settings.rs:789
 msgid "Check for updates"
 msgstr "Проверять обновления"
 
-#: rust/crates/shell/src/settings.rs:789
+#: rust/crates/shell/src/settings.rs:790
 msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
 msgstr "Раз в день проверяет новые версии добавленных плагинов, публикующих релизы на GitHub, и сообщает о них здесь. Ничего не скачивается."
 
-#: rust/crates/shell/src/settings.rs:790
+#: rust/crates/shell/src/settings.rs:791
 msgid "Install updates without asking"
 msgstr "Устанавливать обновления без запроса"
 
-#: rust/crates/shell/src/settings.rs:790
+#: rust/crates/shell/src/settings.rs:791
 msgid "Installs new versions of the plugins you switched on and switches them on again."
 msgstr "Устанавливает новые версии включенных тобой плагинов и снова включает их."
 
-#: rust/crates/shell/src/settings.rs:791
+#: rust/crates/shell/src/settings.rs:792
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "Опасно! Владелец репозитория плагина сможет выполнять новый код на этом компьютере при каждой публикации релиза."
 
-#: rust/crates/shell/src/settings.rs:794
+#: rust/crates/shell/src/settings.rs:795
 #, python-brace-format
 msgid "Show: {which}"
 msgstr "Показать: {which}"
 
-#: rust/crates/shell/src/settings.rs:881
+#: rust/crates/shell/src/settings.rs:882
 msgid "Install a plugin"
 msgstr "Установить плагин"
 
-#: rust/crates/shell/src/settings.rs:883
+#: rust/crates/shell/src/settings.rs:884
 msgid "Plugins (*.zip)"
 msgstr "Плагины (*.zip)"
 
@@ -6133,7 +6137,7 @@ msgid "Could not save settings. Check disk space and permissions."
 msgstr "Не удалось сохранить настройки. Проверь свободное место на диске и права доступа."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1311 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1313 rust/crates/system/src/shortcuts.rs:441
 msgid "Start"
 msgstr "Старт"
 
@@ -6419,20 +6423,20 @@ msgstr "Telescope - предпросмотр видео"
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: rust/crates/shell/src/window.rs:1310 rust/crates/shell/src/window.rs:1311
+#: rust/crates/shell/src/window.rs:1312 rust/crates/shell/src/window.rs:1313
 msgid "Start mic only"
 msgstr "Запустить только микрофон"
 
-#: rust/crates/shell/src/window.rs:1310
+#: rust/crates/shell/src/window.rs:1312
 msgid "Start streaming"
 msgstr "Начать трансляцию"
 
-#: rust/crates/shell/src/window.rs:1316
+#: rust/crates/shell/src/window.rs:1318
 msgid "Stop streaming"
 msgstr "Остановить трансляцию"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1317 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/window.rs:1319 rust/crates/system/src/shortcuts.rs:441
 msgid "Stop"
 msgstr "Стоп"
 
@@ -6546,74 +6550,74 @@ msgstr "Показать настройки этого источника"
 msgid "Settings tabs"
 msgstr "Вкладки настроек"
 
-#: rust/crates/shell/ui/settings.slint:381
+#: rust/crates/shell/ui/settings.slint:386
 msgid "A change takes effect the next time Telescope starts, and settings are kept either way."
 msgstr "Изменения вступят в силу при следующем запуске Telescope, а настройки сохранятся в любом случае."
 
-#: rust/crates/shell/ui/settings.slint:390
+#: rust/crates/shell/ui/settings.slint:395
 msgid "Reset to defaults"
 msgstr "Сбросить по умолчанию"
 
-#: rust/crates/shell/ui/settings.slint:394
+#: rust/crates/shell/ui/settings.slint:399
 msgid "Switch the built-in plugins back to the standard selection: the optional ones off, the rest on"
 msgstr "Вернуть встроенные плагины к стандартному набору: необязательные выключены, остальные включены"
 
-#: rust/crates/shell/ui/settings.slint:404 rust/crates/shell/ui/settings.slint:405
+#: rust/crates/shell/ui/settings.slint:409 rust/crates/shell/ui/settings.slint:410
 msgid "Search plugins"
 msgstr "Поиск плагинов"
 
-#: rust/crates/shell/ui/settings.slint:421
+#: rust/crates/shell/ui/settings.slint:426
 msgctxt "plugins"
 msgid "All"
 msgstr "Все"
 
-#: rust/crates/shell/ui/settings.slint:421
+#: rust/crates/shell/ui/settings.slint:426
 msgctxt "plugins"
 msgid "On"
 msgstr "Вкл."
 
-#: rust/crates/shell/ui/settings.slint:421
+#: rust/crates/shell/ui/settings.slint:426
 msgctxt "plugins"
 msgid "Off"
 msgstr "Выкл."
 
-#: rust/crates/shell/ui/settings.slint:459
+#: rust/crates/shell/ui/settings.slint:464
 msgid "Remove download"
 msgstr "Удалить загрузку"
 
-#: rust/crates/shell/ui/settings.slint:462
+#: rust/crates/shell/ui/settings.slint:467
 msgid "Delete the download the plugins here use. Switching one on gets it again."
 msgstr "Удалить файлы, которые используют эти плагины. При включении любого из них файлы скачаются снова."
 
-#: rust/crates/shell/ui/settings.slint:495
+#: rust/crates/shell/ui/settings.slint:500
 msgid "Show all plugins"
 msgstr "Показать все плагины"
 
-#: rust/crates/shell/ui/settings.slint:504
+#: rust/crates/shell/ui/settings.slint:509
 msgid "Added plugins"
 msgstr "Добавленные плагины"
 
-#: rust/crates/shell/ui/settings.slint:507
+#: rust/crates/shell/ui/settings.slint:512
 msgid "Install"
 msgstr "Установить"
 
-#: rust/crates/shell/ui/settings.slint:510
+#: rust/crates/shell/ui/settings.slint:515
 msgid "Pick a plugin's .zip file. You can also drop one onto this window."
 msgstr "Выбери .zip-файл плагина. Также можно перетащить его в это окно."
 
-#: rust/crates/shell/ui/settings.slint:514
+#: rust/crates/shell/ui/settings.slint:519
 msgid "No plugins added yet. Plugins people share come as .zip files. Added plugins start out switched off."
 msgstr "Плагины пока не добавлены. Плагины, которыми делятся другие, распространяются как .zip-файлы. Добавленные плагины изначально выключены."
 
-#: rust/crates/shell/ui/settings.slint:536
+#: rust/crates/shell/ui/settings.slint:541
 msgid "How plugins work"
 msgstr "Как работают плагины"
 
-#: rust/crates/shell/ui/settings.slint:537
+#: rust/crates/shell/ui/settings.slint:542
 msgid "Open plugins folder"
 msgstr "Открыть папку плагинов"
 
-#: rust/crates/shell/ui/settings.slint:563
+#: rust/crates/shell/ui/settings.slint:568
 msgid "Start Telescope again to apply your changes"
 msgstr "Запусти Telescope снова, чтобы применить изменения"
 

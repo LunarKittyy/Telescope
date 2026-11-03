@@ -554,7 +554,7 @@ export component PhonePicker inherits HorizontalLayout {
         icon: Icons.phone;
         icon-tint: Theme.plugin-hue("streaming");
         caption: names.length == 0 ? @tr("No phone yet") : "";
-        placeholder: names.length == 0 ? @tr("No phone yet") : "";
+        placeholder: names.length == 0 ? @tr("No phone yet") : @tr("Pick a phone");
         items: names;
         gone: root.gone;
         current <=> root.current;

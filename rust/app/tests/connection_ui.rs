@@ -266,6 +266,27 @@ export component W inherits Window {
     assert_eq!(*managed.borrow(), 1);
 }
 
+fn the_phone_picker_shows_a_placeholder_while_no_phone_is_picked() {
+    let w = window(r#"import { PhonePicker } from "plugin/connection.slint";
+export component W inherits Window {
+    width: 600px;
+    height: 100px;
+    in property <[string]> names: ["Pixel"];
+    in property <int> current: -1;
+    PhonePicker { x: 0; y: 0; width: 300px; height: 40px; names: root.names; current: root.current; }
+}"#);
+    let value = |w: &ComponentInstance| ElementHandle::find_by_accessible_label(w, "Phone").find_map(|e| e.accessible_value()).map(|v| v.to_string());
+    offscreen::draw(w.window(), 600.0, 100.0, 1.0);
+    assert_eq!(value(&w).as_deref(), Some("Pick a phone"), "phones to pick from, none picked");
+    w.set_property("names", Value::Model(Rc::new(slint::VecModel::from(Vec::<Value>::new())).into())).unwrap();
+    offscreen::draw(w.window(), 600.0, 100.0, 1.0);
+    assert_eq!(value(&w).as_deref(), Some("No phone yet"), "no phones at all");
+    w.set_property("names", Value::Model(Rc::new(slint::VecModel::from(vec![Value::String("Pixel".into())])).into())).unwrap();
+    w.set_property("current", Value::Number(0.0)).unwrap();
+    offscreen::draw(w.window(), 600.0, 100.0, 1.0);
+    assert_eq!(value(&w).as_deref(), Some("Pixel"));
+}
+
 fn the_help_button_is_named_setup_guide() {
     let w = window(r#"import { ConnectionCard } from "plugin/connection.slint";
 export component W inherits Window {
@@ -434,6 +455,7 @@ fn connection_dialogs() {
     the_virtual_camera_question_comes_with_the_startup_choice();
     add_phone_takes_the_place_of_your_phones();
     header_holds_the_phone_picker_and_manage_button();
+    the_phone_picker_shows_a_placeholder_while_no_phone_is_picked();
     the_help_button_is_named_setup_guide();
     rename_dialog_line_edit_has_a_length_cap();
     a_paste_past_the_length_cap_is_cut_as_a_line_edit_cuts_it();
