@@ -522,14 +522,23 @@ impl State {
         Ok(())
     }
 
-    /// An added plugin's card and header widget, each compiled on its own: one that doesn't compile would otherwise break the
-    /// shared window and stop the app starting. The plugin just registered (the last slot) is taken back out and says why.
+    /// An added plugin's card, header widget and settings sections (with their footers), each compiled on its own: one that
+    /// doesn't compile would otherwise break a shared window (the main one, or Settings). The plugin just registered (the
+    /// last slot) is taken back out and says why.
     fn take_out_if_ui_broken(&mut self) -> Result<(), String> {
         let i = self.slots.len() - 1;
+        let sections = self.call(i, |p, _| p.settings_sections()).unwrap_or_default();
         let slot = &self.slots[i];
         let name = &slot.info.name;
-        let pieces = slot.card.iter().map(|c| ("card", &c.ui)).chain(slot.header.iter().map(|h| ("header", h)));
-        let broken = pieces.filter_map(|(ui, spec)| {
+        let mut pieces: Vec<(String, &UiSpec)> = slot.card.iter().map(|c| ("card".to_string(), &c.ui))
+            .chain(slot.header.iter().map(|h| ("header".to_string(), h))).collect();
+        for s in &sections {
+            pieces.push((format!("settings {}", s.id), &s.ui));
+            if let Some(f) = &s.footer {
+                pieces.push((format!("settings {} footer", s.id), f));
+            }
+        }
+        let broken = pieces.iter().filter_map(|(ui, spec)| {
             let (file, text) = crate::window::source_of(name, ui, spec);
             crate::compile::compile(&file, &text, vec![(file.clone(), text.clone())], &spec.component).err().map(|e| format!("{ui}: {}", e.trim_end()))
         }).next();

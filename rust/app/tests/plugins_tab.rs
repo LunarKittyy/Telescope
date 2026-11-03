@@ -835,3 +835,52 @@ fn a_link_is_split_out_of_a_text() {
     assert_eq!(link, Some(Link { text: "a thing".into(), url: "https://x.test/".into() }));
     assert_eq!(split_link("No link."), ("No link.".to_string(), None));
 }
+
+/// An added plugin with one settings section made of the given text and component.
+struct WithSection(PluginInfo, &'static str, &'static str);
+
+impl Plugin for WithSection {
+    fn info(&self) -> PluginInfo {
+        self.0.clone()
+    }
+    fn settings_sections(&mut self) -> Vec<telescope_core::ui::SettingsSection> {
+        vec![telescope_core::ui::SettingsSection {
+            id: "mine".into(), tab: "general".into(), order: 0, tab_title: String::new(), keywords: String::new(), footer: None,
+            ui: telescope_core::ui::UiSpec { source: telescope_core::ui::SlintSource::Text(self.1.into()), component: self.2.into(), props: json!({}) },
+        }]
+    }
+}
+
+#[test]
+fn an_added_plugin_with_a_broken_settings_section_is_left_out_and_the_rest_of_settings_works() {
+    i_slint_backend_testing::init_no_event_loop();
+    let good = "import { Card } from \"@ui-kit/ui-kit.slint\";\nexport component Fine inherits Card { title: \"Fine section\"; }\n";
+    let syntax = "import { Card } from \"@ui-kit/ui-kit.slint\";\nexport component Fine inherits Card { title: \"x\" ;; } }\n";
+    let root = scratch_dir("plugins-broken-section");
+    let (plugins, admin) = admin_in(&root, Vec::new(), None, Arc::default());
+    for name in ["fine", "syntax", "missing"] {
+        added(&plugins, name, json!({}));
+    }
+    let w = window::build(ConfigFile::at(root.join("telescope_config.json")), |_| Vec::new(), None, None).unwrap();
+    w.state.borrow_mut().admin = admin;
+    let plugins: Vec<Box<dyn Plugin>> = vec![
+        Box::new(WithSection(info("fine", "Fine"), good, "Fine")),
+        Box::new(WithSection(info("syntax", "Syntax"), syntax, "Fine")),
+        Box::new(WithSection(info("missing", "Missing"), good, "NotThere")),
+    ];
+    w.state.borrow_mut().load_builtins(plugins).unwrap();
+    {
+        let state = w.state.borrow();
+        let names: Vec<String> = state.slots.iter().map(|s| s.info.name.clone()).collect();
+        assert_eq!(names, ["fine"]);
+        let banner = state.banners.issue("plugins").expect("the didn't start banner");
+        assert!(banner.title.contains("Syntax") && banner.title.contains("Missing"), "{}", banner.title);
+        assert!(state.problems.contains_key("syntax") && state.problems.contains_key("missing"));
+    }
+    settings::forget();
+    settings::open(&w, "general");
+    let s = settings::current().expect("the settings window");
+    s.ui.window().set_size(slint::LogicalSize::new(700.0, 6000.0));
+    assert!(!labelled(&s.ui, "Fine section").is_empty(), "the working plugin's section is there");
+    settings::forget();
+}
