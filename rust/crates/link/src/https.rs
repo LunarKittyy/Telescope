@@ -503,7 +503,7 @@ impl PhoneAuth {
 }
 
 /// One line of the status or headers with its "\n" (empty at the end of the stream), cut off at a size and a deadline.
-fn read_head_line(reader: &mut impl BufRead, deadline: Instant, head_bytes: &mut usize) -> Result<Vec<u8>, Error> {
+pub(crate) fn read_head_line(reader: &mut impl BufRead, deadline: Instant, head_bytes: &mut usize) -> Result<Vec<u8>, Error> {
     let mut line = Vec::new();
     loop {
         if Instant::now() >= deadline {
