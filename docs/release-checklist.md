@@ -116,7 +116,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Camera controls and preview
 
-<!-- due: android/app/src/main/kotlin/com/telescope/CameraCatalog.kt android/app/src/main/kotlin/com/telescope/LensLabel.kt android/app/src/main/kotlin/com/telescope/PreviewActivity.kt rust/crates/effects/src/transforms.rs -->
+<!-- due: android/app/src/main/kotlin/com/telescope/CameraCatalog.kt android/app/src/main/kotlin/com/telescope/LensLabel.kt android/app/src/main/kotlin/com/telescope/PreviewActivity.kt android/app/src/main/kotlin/com/telescope/PreviewTransform.kt rust/crates/effects/src/transforms.rs -->
 
 - [ ] Phone in the foreground: the desktop's Start and Stop control the camera, also with the screen dark. A lens, size and OIS setting picked on the desktop come back after Stop and Start and the phone's Stop streaming stops the stream.
 - [ ] Zoom on the Auto lens: the lens marks on the zoom slider switch to the telephoto (the dot turns lavender) and panning out of its view falls back (red dot). Sliding the zoom back and forth quickly on the telephoto never turns the dot red. Scrolling the preview zooms around the mouse, dragging pans and the lens outlines show and fade.
