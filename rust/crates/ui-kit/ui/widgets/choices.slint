@@ -161,6 +161,8 @@ export component ChoiceField inherits Rectangle {
     // Items that went away while the list was open, by index: greyed out and can't be picked
     in property <[bool]> gone;
     in property <string> caption;
+    // What a screen reader calls it when there's no caption to show (a plain box in a row that names it)
+    in property <string> name;
     in property <bool> compact;
     property <bool> plain: compact || caption == "";
     // A small icon before the text (the header's phone picker), and its text in bold
@@ -209,7 +211,7 @@ export component ChoiceField inherits Rectangle {
     // Qt's plain combo box has the strong border; the tile its quiet one
     border-color: !enabled ? Theme.border : touch.has-hover ? Theme.border-hover : plain ? Theme.border-strong : Theme.border;
     accessible-role: combobox;
-    accessible-label: caption;
+    accessible-label: caption != "" ? caption : name;
     accessible-value: items[shown];
     accessible-description: tip;
     accessible-action-default => { if (root.enabled) { popup.show(); } }

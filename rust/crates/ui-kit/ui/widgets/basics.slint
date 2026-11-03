@@ -11,6 +11,8 @@ export component Icon inherits Image {
     colorize: tint;
     image-fit: contain;
     image-rendering: smooth;
+    // A picture beside words, never something to announce
+    accessible-role: none;
 }
 
 // What the focus last came from: true after Tab or an arrow key, false after a pointer press. The window's input watch
@@ -108,6 +110,7 @@ export component Button inherits Rectangle {
         : (touch.has-hover ? Theme.border-hover : Theme.border-strong);
     accessible-role: button;
     accessible-label: text;
+    accessible-description: tip == text ? "" : tip;
     accessible-action-default => { if (enabled) { clicked(); } }
     forward-focus: focus;
     focus := FocusScope {
@@ -176,6 +179,7 @@ export component IconButton inherits Rectangle {
     background: touch.has-hover ? Theme.surface-raise : transparent;
     accessible-role: button;
     accessible-label: label;
+    accessible-description: tip == label ? "" : tip;
     forward-focus: focus;
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }

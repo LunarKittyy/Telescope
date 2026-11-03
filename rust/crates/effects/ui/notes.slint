@@ -15,10 +15,6 @@ component NotesEditor inherits Rectangle {
     border-width: 1px;
     background: Theme.surface-raise;
     border-color: input.has-focus ? Theme.accent : Theme.border-strong;
-    accessible-role: text-input;
-    accessible-label: label;
-    accessible-value: text;
-    accessible-placeholder-text: placeholder;
     forward-focus: input;
     flick := Flickable {
         x: 1px;
@@ -43,6 +39,8 @@ component NotesEditor inherits Rectangle {
             width: flick.width - 20px;
             text <=> root.text;
             single-line: false;
+            accessible-label: root.label;
+            accessible-placeholder-text: root.placeholder;
             wrap: word-wrap;
             enabled: root.enabled;
             font-family: Theme.font;

@@ -86,6 +86,7 @@ component AlertBlock inherits VerticalLayout {
         spacing: 24px;
         LabelledSwitch {
             text: @tr("Notify me");
+            within: root.label;
             tip: root.notify-tip;
             dim: true;
             enabled: root.enabled;
@@ -94,6 +95,7 @@ component AlertBlock inherits VerticalLayout {
         }
         LabelledSwitch {
             text: @tr("Stop the stream");
+            within: root.label;
             tip: root.stop-tip;
             dim: true;
             enabled: root.enabled;
