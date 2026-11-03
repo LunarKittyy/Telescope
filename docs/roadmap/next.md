@@ -23,12 +23,23 @@ Later, maybe a whole-look button that also turns on auto framing and a light bac
 
 A Stats panel that shows everything about a stream as it happens, for anyone who wants to know why a picture stutters or likes numbers. OBS has one and people check it first when something drops, but it can only see what reaches it.
 
-It follows a frame from the phone to the virtual camera and shows where the time goes:
+It has two views.
 
-- On the phone: the camera's frame rate, encoding time, temperature and whether it's throttling
-- On the link: Wi-Fi or USB, the Wi-Fi band and signal, round-trip time, jitter, lost packets and the bitrate against what was asked for
-- On the computer: decoding time and whether the graphics card does it, each frame step's time and whether it runs on the card or the CPU, the card's waits, frames copied to the card and back, and when the balancer moved the steps and why
-- At the end: frames in, frames out, frames dropped and the reason for each, and which apps read the virtual camera
+**Standard** has what people usually expect from a stats panel, enough to tell whether the phone, the link or the computer is the slow part:
 
-Each number gets a small graph of the last minute that still shows a spike after it passed, and Copy diagnostics adds a summary of all of it.
+- Frames per second in and out, dropped frames and the reason for each
+- The delay from the phone's camera to the virtual camera
+- Wi-Fi or USB, the Wi-Fi band and signal and the bitrate against what was asked for
+- The phone's temperature and whether it's throttling
+- Which apps read the virtual camera
+
+**Nerd** adds every number that can sensibly be measured, following a frame from the phone to the virtual camera:
+
+- On the phone: the camera's frame rate, encoding time, the encoder's queue and what the phone was asked for against what it does
+- On the link: round-trip time, jitter, lost and resent packets, the clock offset between phone and computer and each part's share of the delay
+- On the computer: decoding time and where it runs, each frame step's time and whether it runs on the card or the CPU, the card's waits, frames copied to the card and back, when the balancer moved the steps and why, and the time to hand a frame to the virtual camera
+- Per plugin: the time its frame step, Lua events and card updates take, so a slow plugin can be found
+- For the app itself: CPU and memory, the window's redraw time and the vision pack's time per frame
+
+Each number gets a small graph of the last minute that still shows a spike after it passed. Copy diagnostics adds a summary of the Nerd view.
 
