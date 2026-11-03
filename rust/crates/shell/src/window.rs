@@ -17,10 +17,10 @@ use telescope_core::config::ConfigFile;
 use telescope_core::event::Event;
 use telescope_core::i18n::tr;
 use telescope_core::link::{RoutePrefs, StreamRequest};
-use telescope_core::plugin::Plugin;
+use telescope_core::plugin::{Plugin, PluginInfo};
 use telescope_core::services::Services;
 use telescope_core::source::Phones;
-use telescope_core::ui::{SlintSource, UiEvent, UiSpec};
+use telescope_core::ui::{CardSpec, SlintSource, UiEvent, UiSpec};
 use telescope_core::{BusSender, Frame, PixelFormat};
 
 static APP_ID: std::sync::OnceLock<String> = std::sync::OnceLock::new();
@@ -324,6 +324,30 @@ pub(crate) fn source_of(plugin: &str, ui: &str, spec: &UiSpec) -> (String, Strin
     }
 }
 
+/// A plugin's card as the window's document places it, with the file it imports. The real window and the check that an
+/// added plugin's card fits in it both use this.
+pub(crate) fn card_place(info: &PluginInfo, card: &CardSpec, id: &str) -> (CardPlace, (String, String)) {
+    let (file, text) = source_of(&info.name, "card", &card.ui);
+    let title = if info.title.is_empty() { info.name.clone() } else { info.title.clone() };
+    let place = CardPlace {
+        piece: Piece { id: id.into(), file: file.clone(), component: card.ui.component.clone(), iface: scan(&text, &card.ui.component) },
+        region: Region::from_name(&card.region),
+        fold_key: format!("{}/{}", info.name, crate::source::heading(&text, &card.ui.component).unwrap_or(title)),
+        category: info.category.clone(),
+    };
+    (place, (file, text))
+}
+
+/// A plugin's header widget as the window's document places it, with the file it imports.
+pub(crate) fn header_place(info: &PluginInfo, header: &UiSpec, id: &str) -> (HeaderPlace, (String, String)) {
+    let (file, text) = source_of(&info.name, "header", header);
+    let place = HeaderPlace {
+        piece: Piece { id: id.into(), file: file.clone(), component: header.component.clone(), iface: scan(&text, &header.component) },
+        right: info.header_side == "right",
+    };
+    (place, (file, text))
+}
+
 /// Registers plugins into a fresh state and builds their window. services is None for scene renders.
 pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn Plugin>>, services: Option<Arc<Services>>,
              opts: Option<WindowOptions>) -> Result<Rc<Window>, String> {
@@ -352,26 +376,17 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
     for (i, slot) in state.slots.iter().enumerate() {
         let name = &slot.info.name;
         if let Some(card) = &slot.card {
-            let (file, text) = source_of(name, "card", &card.ui);
             let id = format!("p{i}");
-            let title = if slot.info.title.is_empty() { name.clone() } else { slot.info.title.clone() };
-            cards.push(CardPlace {
-                piece: Piece { id: id.clone(), file: file.clone(), component: card.ui.component.clone(), iface: scan(&text, &card.ui.component) },
-                region: Region::from_name(&card.region),
-                fold_key: format!("{name}/{}", crate::source::heading(&text, &card.ui.component).unwrap_or(title)),
-                category: slot.info.category.clone(),
-            });
-            files.push((file, text));
+            let (place, file) = card_place(&slot.info, card, &id);
+            cards.push(place);
+            files.push(file);
             pieces.push(PieceRef { plugin: name.clone(), ui: "card".into(), id });
         }
         if let Some(header) = &slot.header {
-            let (file, text) = source_of(name, "header", header);
             let id = format!("h{i}");
-            headers.push(HeaderPlace {
-                piece: Piece { id: id.clone(), file: file.clone(), component: header.component.clone(), iface: scan(&text, &header.component) },
-                right: slot.info.header_side == "right",
-            });
-            files.push((file, text));
+            let (place, file) = header_place(&slot.info, header, &id);
+            headers.push(place);
+            files.push(file);
             pieces.push(PieceRef { plugin: name.clone(), ui: "header".into(), id });
         }
     }

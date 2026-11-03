@@ -331,6 +331,8 @@ pub struct State {
     pub upright: Arc<std::sync::Mutex<telescope_core::vision::Upright>>,
     /// Motion in zones of the shown stream's picture, for the plugins that watch it; the workers feed it.
     pub motion: Arc<telescope_core::motion::Motion>,
+    /// Which worker each stream's vision and motion state belongs to, so a slow-ending one leaves a replacement's alone.
+    pub state_owners: Arc<crate::worker::StateOwners>,
     /// Each stream's frames before the view, as (width, height), from its worker (view_controller._frame_size).
     pub frame_sizes: Arc<std::sync::Mutex<std::collections::HashMap<String, (u32, u32)>>>,
     /// One of Telescope's windows is in front (keys.rs watches it).
@@ -405,6 +407,7 @@ impl State {
                 sender.emit(Event::MotionSeen { source_id: key.to_string(), owner: owner.to_string(), zones: zones.to_vec() });
             }))),
             frame_sizes: Arc::default(),
+            state_owners: Arc::default(),
             keep_in_tray: false,
             link: None,
             window_active: false,
@@ -522,26 +525,34 @@ impl State {
         Ok(())
     }
 
-    /// An added plugin's card, header widget and settings sections (with their footers), each compiled on its own: one that
-    /// doesn't compile would otherwise break a shared window (the main one, or Settings). The plugin just registered (the
-    /// last slot) is taken back out and says why.
+    /// An added plugin's card, header widget and settings sections (with their footers), each compiled inside the document it
+    /// really goes into, wrapper and all: a piece that compiles on its own can still break the shared window (the main one, or
+    /// Settings) by lacking what the wrapper sets. The plugin just registered (the last slot) is taken back out and says why.
     fn take_out_if_ui_broken(&mut self) -> Result<(), String> {
         let i = self.slots.len() - 1;
         let sections = self.call(i, |p, _| p.settings_sections()).unwrap_or_default();
         let slot = &self.slots[i];
         let name = &slot.info.name;
-        let mut pieces: Vec<(String, &UiSpec)> = slot.card.iter().map(|c| ("card".to_string(), &c.ui))
-            .chain(slot.header.iter().map(|h| ("header".to_string(), h))).collect();
-        for s in &sections {
-            pieces.push((format!("settings {}", s.id), &s.ui));
-            if let Some(f) = &s.footer {
-                pieces.push((format!("settings {} footer", s.id), f));
-            }
+        let mut tried: Vec<(String, Result<(), String>)> = Vec::new();
+        if let Some(card) = &slot.card {
+            let (place, file) = crate::window::card_place(&slot.info, card, "p0");
+            let mut panels = Panels::default();
+            panels.place(place.region, 0, false, &place.category);
+            let text = crate::doc::window(&[place], &panels, &[]);
+            tried.push(("card".into(), crate::compile::compile("window.slint", &text, vec![file], "TelescopeWindow").map(drop)));
         }
-        let broken = pieces.iter().filter_map(|(ui, spec)| {
-            let (file, text) = crate::window::source_of(name, ui, spec);
-            crate::compile::compile(&file, &text, vec![(file.clone(), text.clone())], &spec.component).err().map(|e| format!("{ui}: {}", e.trim_end()))
-        }).next();
+        if let Some(header) = &slot.header {
+            let (place, file) = crate::window::header_place(&slot.info, header, "h0");
+            let text = crate::doc::window(&[], &Panels::default(), &[place]);
+            tried.push(("header".into(), crate::compile::compile("window.slint", &text, vec![file], "TelescopeWindow").map(drop)));
+        }
+        for s in &sections {
+            let (place, files) = crate::settings::section_place(name, s, 0, 0, &slot.info.category);
+            let text = crate::doc::settings(1, None, &[place]);
+            let ui = format!("settings {}{}", s.id, if s.footer.is_some() { " (or its footer)" } else { "" });
+            tried.push((ui, crate::compile::compile("settings.slint", &text, files, "TelescopeSettings").map(drop)));
+        }
+        let broken = tried.into_iter().find_map(|(ui, result)| result.err().map(|e| format!("{ui}: {}", e.trim_end())));
         let Some(error) = broken else { return Ok(()) };
         log::error!("Plugin {name}: {error}");
         self.panels.remove(i);
@@ -737,7 +748,7 @@ impl State {
     /// What the view controller asked for: events on the bus, the phone's zoom, a new view step.
     /// What a new worker hands the vision service.
     pub fn vision_feed(&self) -> Option<crate::worker::VisionFeed> {
-        self.vision.clone().map(|service| crate::worker::VisionFeed { service, upright: self.upright.clone(), frame_sizes: self.frame_sizes.clone(), motion: Some(self.motion.clone()) })
+        self.vision.clone().map(|service| crate::worker::VisionFeed { service, upright: self.upright.clone(), frame_sizes: self.frame_sizes.clone(), motion: Some(self.motion.clone()), owners: self.state_owners.clone(), owner: 0 })
     }
 
     /// The shown stream's frames before the view, (0, 0) before its first one.

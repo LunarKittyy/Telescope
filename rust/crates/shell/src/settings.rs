@@ -260,22 +260,13 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
     for (t, (_, _, mine)) in tabs.iter().enumerate() {
         for &i in mine {
             let (plugin, section) = &sections[i];
-            let id = format!("s{i}");
-            let (file, text) = source_of(plugin, &section.id, &section.ui.source);
-            files.push((file.clone(), text.clone()));
-            pieces.push((plugin.clone(), section.id.clone(), id.clone()));
-            let footer = section.footer.as_ref().map(|f| {
-                let fid = format!("f{i}");
-                let (ffile, ftext) = source_of(plugin, &format!("{}-footer", section.id), &f.source);
-                files.push((ffile.clone(), ftext.clone()));
-                pieces.push((plugin.clone(), format!("{}-footer", section.id), fid.clone()));
-                Piece { id: fid, file: ffile, component: f.component.clone(), iface: scan(&ftext, &f.component) }
-            });
-            let card = text.contains(&format!("component {} inherits Card", section.ui.component));
-            // A card takes its plugin's colour unless it says another group's (add_card_header's hue=)
-            let own_group = section.ui.props.get("card-group").and_then(|g| g.as_str()).map(String::from);
-            let hue = card.then(|| own_group.unwrap_or_else(|| categories.get(plugin).cloned().unwrap_or_default()));
-            places.push(SectionPlace { piece: Piece { id, file, component: section.ui.component.clone(), iface: scan(&text, &section.ui.component) }, tab: t, footer, hue });
+            let (place, made) = section_place(plugin, section, i, t, categories.get(plugin).map_or("", |c| c.as_str()));
+            pieces.push((plugin.clone(), section.id.clone(), place.piece.id.clone()));
+            if let Some(f) = &place.footer {
+                pieces.push((plugin.clone(), format!("{}-footer", section.id), f.id.clone()));
+            }
+            files.extend(made);
+            places.push(place);
         }
     }
     let section_words = tabs.iter().map(|(_, _, mine)| mine.iter().filter(|&&i| !sections[i].1.keywords.is_empty())
@@ -369,6 +360,24 @@ fn controls_of(element: &ItemRc, name: &str) -> String {
         .map(|e| say(e, AccessibleStringProperty::Label)).filter(|l| !l.trim().is_empty() && l != name).collect();
     said.dedup();
     said.join(" ")
+}
+
+/// Section number i of the plugins' sections as the settings document places it on tab `tab`, with the files it and its footer
+/// import (the same for the real window and the check that an added plugin's section fits in it). category is its plugin's.
+pub(crate) fn section_place(plugin: &str, section: &SettingsSection, i: usize, tab: usize, category: &str) -> (SectionPlace, Vec<(String, String)>) {
+    let (file, text) = source_of(plugin, &section.id, &section.ui.source);
+    let mut files = vec![(file.clone(), text.clone())];
+    let footer = section.footer.as_ref().map(|f| {
+        let (ffile, ftext) = source_of(plugin, &format!("{}-footer", section.id), &f.source);
+        files.push((ffile.clone(), ftext.clone()));
+        Piece { id: format!("f{i}"), file: ffile, component: f.component.clone(), iface: scan(&ftext, &f.component) }
+    });
+    let card = text.contains(&format!("component {} inherits Card", section.ui.component));
+    // A card takes its plugin's colour unless it says another group's (add_card_header's hue=)
+    let own_group = section.ui.props.get("card-group").and_then(|g| g.as_str()).map(String::from);
+    let hue = card.then(|| own_group.unwrap_or_else(|| category.to_string()));
+    let piece = Piece { id: format!("s{i}"), file, component: section.ui.component.clone(), iface: scan(&text, &section.ui.component) };
+    (SectionPlace { piece, tab, footer, hue }, files)
 }
 
 fn source_of(plugin: &str, ui: &str, source: &SlintSource) -> (String, String) {

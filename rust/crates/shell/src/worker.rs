@@ -113,6 +113,34 @@ pub struct VisionFeed {
     pub frame_sizes: Arc<Mutex<std::collections::HashMap<String, (u32, u32)>>>,
     /// Motion in zones of the picture, looked for in the same frames while a plugin watches.
     pub motion: Option<Arc<telescope_core::motion::Motion>>,
+    /// Who owns each stream's state, and which worker this one is (what it gives back when it ends).
+    pub owners: Arc<StateOwners>,
+    pub owner: u64,
+}
+
+/// Which worker each stream's vision and motion state belongs to: the newest one started for that source id. A worker that is
+/// slow to finish then only forgets the state it made, not a replacement's that started for the same source in the meantime.
+#[derive(Default)]
+pub struct StateOwners(Mutex<std::collections::HashMap<String, u64>>);
+
+impl StateOwners {
+    /// `owner` is the worker now streaming `source_id`.
+    pub fn claim(&self, source_id: &str, owner: u64) {
+        if source_id.is_empty() {
+            return;
+        }
+        self.0.lock().unwrap().insert(source_id.to_string(), owner);
+    }
+
+    /// Runs `forget` unless a newer worker has claimed `source_id` since. A claim waits until it's done.
+    pub fn release(&self, source_id: &str, owner: u64, forget: impl FnOnce()) {
+        let mut owners = self.0.lock().unwrap();
+        if owners.get(source_id).is_some_and(|&o| o != owner) {
+            return;
+        }
+        owners.remove(source_id);
+        forget();
+    }
 }
 
 /// StreamSource::waiting_text, asked each time opening the stream fails.
@@ -756,10 +784,12 @@ impl Shared {
     /// makes it again, with a thread that stays. This is the thread that does the asking, so it holds even when stop() gave up waiting for it.
     fn forget_in_vision(&self) {
         let Some(feed) = self.vision.as_ref().filter(|_| !self.source_id.is_empty()) else { return };
-        feed.service.drop_stream(&self.source_id);
-        if let Some(motion) = &feed.motion {
-            motion.drop_stream(&self.source_id);
-        }
+        feed.owners.release(&self.source_id, feed.owner, || {
+            feed.service.drop_stream(&self.source_id);
+            if let Some(motion) = &feed.motion {
+                motion.drop_stream(&self.source_id);
+            }
+        });
     }
 
     fn run(self: &Arc<Self>) {
@@ -2644,7 +2674,7 @@ mod tests {
 
     #[test]
     fn each_frame_of_a_stream_gets_a_person_mask_of_its_own() {
-        let vision = VisionFeed { service: Arc::<Masks>::default(), upright: Arc::default(), frame_sizes: Arc::default(), motion: None };
+        let vision = VisionFeed { service: Arc::<Masks>::default(), upright: Arc::default(), frame_sizes: Arc::default(), motion: None, owners: Arc::default(), owner: 1 };
         let seen = with_steps(Vec::new(), Some(vision), 2);
         let masks = seen.masks.lock().unwrap();
         assert!(masks.len() >= 2 && masks[0] != masks[1], "the mask of the first frame stuck: {masks:?}");
@@ -2655,7 +2685,7 @@ mod tests {
         let (entered_tx, entered) = std::sync::mpsc::channel();
         let (hold, held) = std::sync::mpsc::channel();
         let masks = Arc::new(Masks(None, Mutex::new(Some((entered_tx, held))), Mutex::default()));
-        let vision = VisionFeed { service: masks.clone(), upright: Arc::default(), frame_sizes: Arc::default(), motion: None };
+        let vision = VisionFeed { service: masks.clone(), upright: Arc::default(), frame_sizes: Arc::default(), motion: None, owners: Arc::default(), owner: 1 };
         let seen = Arc::new(Seen::default());
         let w = running(&seen, Vec::new(), Some(vision), None);
         entered.recv_timeout(Duration::from_secs(10)).expect("a frame asks for its mask");
@@ -2665,6 +2695,27 @@ mod tests {
         hold.send(()).unwrap();
         stopping.join().unwrap();
         assert_eq!(*masks.2.lock().unwrap(), ["phone-1"]);
+    }
+
+    #[test]
+    fn a_worker_that_ends_late_leaves_its_replacements_vision_state_alone() {
+        let (entered_tx, entered) = std::sync::mpsc::channel();
+        let (hold, held) = std::sync::mpsc::channel();
+        let masks = Arc::new(Masks(None, Mutex::new(Some((entered_tx, held))), Mutex::default()));
+        let owners = Arc::new(StateOwners::default());
+        let vision = VisionFeed { service: masks.clone(), upright: Arc::default(), frame_sizes: Arc::default(), motion: None, owners: owners.clone(), owner: 1 };
+        owners.claim("phone-1", 1);
+        let w = running(&Arc::new(Seen::default()), Vec::new(), Some(vision), None);
+        entered.recv_timeout(Duration::from_secs(10)).expect("a frame asks for its mask");
+        let stopping = std::thread::spawn(move || w.stop());
+        // The same source starts again while the old worker is still finishing
+        owners.claim("phone-1", 2);
+        hold.send(()).unwrap();
+        stopping.join().unwrap();
+        assert!(masks.2.lock().unwrap().is_empty(), "the old worker dropped the new one's state: {:?}", masks.2.lock().unwrap());
+        let mut forgot = false;
+        owners.release("phone-1", 2, || forgot = true);
+        assert!(forgot, "the new worker forgets its own state when it ends");
     }
 
     // test_view_controller.py::test_people_are_found_in_the_picture_as_shown_through_the_phone_share

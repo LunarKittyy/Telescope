@@ -420,3 +420,41 @@ fn stopping_a_stream_forgets_what_moved_on_it() {
     r.stop(Some("pixel"));
     r.until("what moved is forgotten", |_| motion.moving("pixel", "watcher").is_empty());
 }
+
+#[test]
+fn a_stream_that_takes_long_to_stop_doesnt_forget_what_its_restart_saw() {
+    let room = |square: bool| {
+        let mut data = vec![100u8; 320 * 180 * 4];
+        data.chunks_mut(4).for_each(|p| p[3] = 255);
+        if square {
+            for y in 60..120 {
+                data[(y * 320 + 220) * 4..(y * 320 + 280) * 4].chunks_mut(4).for_each(|p| p[..3].fill(230));
+            }
+        }
+        telescope_core::Frame::new(320, 180, telescope_core::PixelFormat::Rgba, data)
+    };
+    let r = Rig::new("motion-restart");
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    let old = r.worker(0);
+    old.hang_stop.store(true, Ordering::SeqCst);
+    r.stop(Some("pixel"));
+    // The same phone streams again while the old worker is still stopping
+    r.start();
+    r.worker(1).says("ok", "Streaming");
+    r.pump();
+    let motion = r.w.state.borrow().motion.clone();
+    motion.watch("watcher", &telescope_core::motion::widen(&[[0.0, 0.0, 1.0, 1.0]]), 5);
+    for i in 1..=10 {
+        motion.feed(&room(false), "pixel", None, i as f64 * 0.1);
+    }
+    motion.feed(&room(true), "pixel", None, 1.1);
+    assert_eq!(motion.moving("pixel", "watcher"), [0], "something moved");
+    old.hang_stop.store(false, Ordering::SeqCst);
+    assert!(old.stops(), "the old worker ends");
+    r.pump();
+    assert_eq!(motion.moving("pixel", "watcher"), [0], "the old worker's end took the new stream's state with it");
+    r.stop(Some("pixel"));
+    r.until("what moved is forgotten when the new stream ends", |_| motion.moving("pixel", "watcher").is_empty());
+}

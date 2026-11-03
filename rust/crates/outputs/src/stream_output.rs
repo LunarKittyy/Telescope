@@ -771,6 +771,132 @@ impl Plugin for StreamOutputPlugin {
     }
 
     fn on_ui(&mut self, host: &mut dyn Host, event: &UiEvent) {
+        let before = self.sizes_key();
+        self.on_ui_inner(host, event);
+        self.refresh_if_sizes_moved(host, before);
+    }
+
+    fn on_issue_action(&mut self, host: &mut dyn Host, key: &str, id: &str) {
+        let before = self.sizes_key();
+        self.on_issue_action_inner(host, key, id);
+        self.refresh_if_sizes_moved(host, before);
+    }
+
+    fn actions(&mut self) -> Vec<ActionSpec> {
+        let ratios: Vec<(String, String)> = self.sizes.ratios.iter().map(|(a, b)| (format!("{a}:{b}"), format!("{a}:{b}"))).collect();
+        let sizes: Vec<(String, String)> = self.sizes.res.iter().map(|(w, h)| (format!("{w} x {h}"), size_label(*w, *h))).collect();
+        let fps: Vec<(String, String)> = FPS_CHOICES.iter().map(|f| (format!("{f} fps"), format!("{f} fps"))).collect();
+        let formats = vec![("Light".to_string(), tr("Light")), ("Heavy".to_string(), tr("Heavy"))];
+        vec![
+            Self::choice_spec("stream.aspect_ratio", tr("Aspect ratio"), ratios, true),
+            Self::choice_spec("stream.resolution", tr("Resolution"), sizes, true),
+            Self::choice_spec("stream.fps", tr("FPS"), fps, false),
+            Self::choice_spec("stream.format", tr("Format"), formats, true),
+            Self::slider_spec("stream.quality", tr("JPEG quality"), 5.0, MAX_QUALITY as f64, "", self.quality, true),
+            Self::slider_spec("stream.bitrate", tr("Bitrate"), 1.0, DYNAMIC_POS as f64, " Mbps", self.bitrate, true),
+        ]
+    }
+
+    fn run_action(&mut self, host: &mut dyn Host, id: &str, params: &Value) -> Option<String> {
+        let before = self.sizes_key();
+        let out = self.run_action_inner(host, id, params);
+        self.refresh_if_sizes_moved(host, before);
+        out
+    }
+
+    fn get_config(&self) -> Value {
+        let mut cfg = json!({
+            "fps": self.wanted_fps,
+            "jpeg_quality": self.quality,
+            "format": self.format,
+            "bitrate_mbps": if self.dynamic() { DYNAMIC } else { self.bitrate },
+        });
+        let mut saved = self.saved_resolution_text.clone();
+        if self.stream.is_some() && self.sizes.current().is_some() {
+            saved = Some(self.sizes.current_text()); // stopped, a pick or preset already set it
+        }
+        if let Some(text) = saved.filter(|t| !t.is_empty()) {
+            cfg["resolution"] = json!(text.replace(" × ", " x ")); // saved the way older versions read it
+        }
+        cfg
+    }
+
+    fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
+        // Always overwrite: the host applies defaults before each device's own config
+        let mut res = cfg.get("resolution").and_then(|r| match r {
+            Value::String(s) if !s.is_empty() => Some(s.clone()),
+            Value::Null => None,
+            Value::Bool(false) => None,
+            other if !truthy(Some(other)) => None,
+            other => Some(other.to_string()),
+        });
+        if let Some((w, h)) = res.as_deref().and_then(parse_size_label) {
+            res = Some(size_label(w, h));
+        }
+        self.pending_resolution_text = res.clone();
+        self.saved_resolution_text = res.clone();
+        self.had_saved_resolution = res.is_some();
+        if let Some(fps) = cfg.get("fps").filter(|v| truthy(Some(v))) {
+            self.wanted_fps = Self::nearest_fps(fps);
+            self.show_fps();
+        }
+        if let Some(q) = cfg.get("jpeg_quality").filter(|v| truthy(Some(v))) {
+            let q = q.as_f64().map(|f| f as i64).or_else(|| q.as_str().and_then(|s| s.parse().ok()))
+                .ok_or_else(|| ConfigRejected("jpeg_quality isn't a number".into()))?;
+            self.quality = q.clamp(1, MAX_QUALITY);
+        }
+        self.format = if cfg.get("format").and_then(Value::as_str) == Some(FORMAT_MJPEG) { FORMAT_MJPEG } else { FORMAT_H264 };
+        let mbps = match cfg.get("bitrate_mbps") {
+            None | Some(Value::Null) | Some(Value::Bool(false)) => 0,
+            Some(v) => v.as_f64().map(|f| f as i64).or_else(|| v.as_str().and_then(|s| s.trim().parse().ok()))
+                .ok_or_else(|| ConfigRejected("bitrate_mbps isn't a number".into()))?,
+        };
+        self.bitrate = if mbps == DYNAMIC { DYNAMIC_POS } else { mbps.clamp(0, MAX_BITRATE_MBPS) };
+        Ok(())
+    }
+
+    fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
+        let before = self.sizes_key();
+        let out = self.apply_preset_inner(host, cfg);
+        self.refresh_if_sizes_moved(host, before);
+        out
+    }
+
+    fn diagnostics(&self) -> Vec<(String, String)> {
+        let fmt = self.stream_format();
+        let mut out = vec![
+            ("Format".into(), format!("{fmt}{}", if self.format != fmt { " (H.264 chosen)" } else { "" })),
+            ("Phone codecs".into(), if self.phone_codecs.is_empty() { "unknown".into() } else { self.phone_codecs.join(", ") }),
+            ("Resolution".into(), self.sizes.current_text()),
+            ("FPS".into(), format!("{}{}", self.fps(), if self.fps() != self.wanted_fps { format!(" ({} chosen)", self.wanted_fps) } else { String::new() })),
+            ("Bitrate".into(), format!("{}{}", if self.dynamic() { "Dynamic".to_string() } else if self.bitrate > 0 { format!("{} Mbps", self.bitrate) } else { "Auto".into() },
+                                      if self.dynamic() && self.phone_dynamic == Some(false) { " (phone uses Auto)" } else { "" })),
+        ];
+        if let Some(profile) = self.h264_profile.as_ref().filter(|p| !p.is_empty()) {
+            out.push(("H.264 profile".into(), profile.clone()));
+            out.push(("H.264 refresh".into(), if self.intra_refresh { "intra refresh" } else { "keyframes" }.into()));
+        }
+        if self.wifi.0.is_some() || self.wifi.1.is_some() || self.wifi.2.is_some() {
+            out.push(("Phone Wi-Fi".into(), self.wifi_text()));
+        }
+        out
+    }
+}
+
+impl StreamOutputPlugin {
+    /// The sizes and ratios the shortcut choices list, to tell when the shell's copy of the actions is stale.
+    fn sizes_key(&self) -> (Vec<(u32, u32)>, Vec<(u32, u32)>) {
+        (self.sizes.res.clone(), self.sizes.ratios.clone())
+    }
+
+    /// The shell lists the actions once and keeps them, so the size choices are asked for again when the sizes move.
+    fn refresh_if_sizes_moved(&mut self, host: &mut dyn Host, before: (Vec<(u32, u32)>, Vec<(u32, u32)>)) {
+        if self.sizes_key() != before {
+            host.refresh_actions();
+        }
+    }
+
+    fn on_ui_inner(&mut self, host: &mut dyn Host, event: &UiEvent) {
         let arg = |i: usize| event.args.get(i).cloned().unwrap_or(Value::Null);
         match event.callback.as_str() {
             "res-picked" => {
@@ -811,7 +937,8 @@ impl Plugin for StreamOutputPlugin {
         self.render(host);
     }
 
-    fn on_issue_action(&mut self, host: &mut dyn Host, _key: &str, id: &str) {
+
+    fn on_issue_action_inner(&mut self, host: &mut dyn Host, _key: &str, id: &str) {
         match id {
             A_HEAVY => self.set_format(host, FORMAT_MJPEG),
             A_LIGHT => {
@@ -824,22 +951,8 @@ impl Plugin for StreamOutputPlugin {
         self.render(host);
     }
 
-    fn actions(&mut self) -> Vec<ActionSpec> {
-        let ratios: Vec<(String, String)> = self.sizes.ratios.iter().map(|(a, b)| (format!("{a}:{b}"), format!("{a}:{b}"))).collect();
-        let sizes: Vec<(String, String)> = self.sizes.res.iter().map(|(w, h)| (format!("{w} x {h}"), size_label(*w, *h))).collect();
-        let fps: Vec<(String, String)> = FPS_CHOICES.iter().map(|f| (format!("{f} fps"), format!("{f} fps"))).collect();
-        let formats = vec![("Light".to_string(), tr("Light")), ("Heavy".to_string(), tr("Heavy"))];
-        vec![
-            Self::choice_spec("stream.aspect_ratio", tr("Aspect ratio"), ratios, true),
-            Self::choice_spec("stream.resolution", tr("Resolution"), sizes, true),
-            Self::choice_spec("stream.fps", tr("FPS"), fps, false),
-            Self::choice_spec("stream.format", tr("Format"), formats, true),
-            Self::slider_spec("stream.quality", tr("JPEG quality"), 5.0, MAX_QUALITY as f64, "", self.quality, true),
-            Self::slider_spec("stream.bitrate", tr("Bitrate"), 1.0, DYNAMIC_POS as f64, " Mbps", self.bitrate, true),
-        ]
-    }
 
-    fn run_action(&mut self, host: &mut dyn Host, id: &str, params: &Value) -> Option<String> {
+    fn run_action_inner(&mut self, host: &mut dyn Host, id: &str, params: &Value) -> Option<String> {
         let said = |label: String, value: String| Some(tr("{label}: {value}").field("label", &label).field("value", &value));
         let out = match id {
             "stream.aspect_ratio" | "stream.resolution" if !self.sizes.enabled => return None,
@@ -917,58 +1030,8 @@ impl Plugin for StreamOutputPlugin {
         out
     }
 
-    fn get_config(&self) -> Value {
-        let mut cfg = json!({
-            "fps": self.wanted_fps,
-            "jpeg_quality": self.quality,
-            "format": self.format,
-            "bitrate_mbps": if self.dynamic() { DYNAMIC } else { self.bitrate },
-        });
-        let mut saved = self.saved_resolution_text.clone();
-        if self.stream.is_some() && self.sizes.current().is_some() {
-            saved = Some(self.sizes.current_text()); // stopped, a pick or preset already set it
-        }
-        if let Some(text) = saved.filter(|t| !t.is_empty()) {
-            cfg["resolution"] = json!(text.replace(" × ", " x ")); // saved the way older versions read it
-        }
-        cfg
-    }
 
-    fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
-        // Always overwrite: the host applies defaults before each device's own config
-        let mut res = cfg.get("resolution").and_then(|r| match r {
-            Value::String(s) if !s.is_empty() => Some(s.clone()),
-            Value::Null => None,
-            Value::Bool(false) => None,
-            other if !truthy(Some(other)) => None,
-            other => Some(other.to_string()),
-        });
-        if let Some((w, h)) = res.as_deref().and_then(parse_size_label) {
-            res = Some(size_label(w, h));
-        }
-        self.pending_resolution_text = res.clone();
-        self.saved_resolution_text = res.clone();
-        self.had_saved_resolution = res.is_some();
-        if let Some(fps) = cfg.get("fps").filter(|v| truthy(Some(v))) {
-            self.wanted_fps = Self::nearest_fps(fps);
-            self.show_fps();
-        }
-        if let Some(q) = cfg.get("jpeg_quality").filter(|v| truthy(Some(v))) {
-            let q = q.as_f64().map(|f| f as i64).or_else(|| q.as_str().and_then(|s| s.parse().ok()))
-                .ok_or_else(|| ConfigRejected("jpeg_quality isn't a number".into()))?;
-            self.quality = q.clamp(1, MAX_QUALITY);
-        }
-        self.format = if cfg.get("format").and_then(Value::as_str) == Some(FORMAT_MJPEG) { FORMAT_MJPEG } else { FORMAT_H264 };
-        let mbps = match cfg.get("bitrate_mbps") {
-            None | Some(Value::Null) | Some(Value::Bool(false)) => 0,
-            Some(v) => v.as_f64().map(|f| f as i64).or_else(|| v.as_str().and_then(|s| s.trim().parse().ok()))
-                .ok_or_else(|| ConfigRejected("bitrate_mbps isn't a number".into()))?,
-        };
-        self.bitrate = if mbps == DYNAMIC { DYNAMIC_POS } else { mbps.clamp(0, MAX_BITRATE_MBPS) };
-        Ok(())
-    }
-
-    fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
+    fn apply_preset_inner(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
         let old_format = self.stream_format();
         self.set_config(cfg)?;
         if !self.phone_codecs.is_empty() && !self.phone_codecs.iter().any(|c| c == FORMAT_H264) {
@@ -999,40 +1062,6 @@ impl Plugin for StreamOutputPlugin {
         }
         self.render(host);
         Ok(())
-    }
-
-    fn diagnostics(&self) -> Vec<(String, String)> {
-        let fmt = self.stream_format();
-        let mut out = vec![
-            ("Format".into(), format!("{fmt}{}", if self.format != fmt { " (H.264 chosen)" } else { "" })),
-            ("Phone codecs".into(), if self.phone_codecs.is_empty() { "unknown".into() } else { self.phone_codecs.join(", ") }),
-            ("Resolution".into(), self.sizes.current_text()),
-            ("FPS".into(), format!("{}{}", self.fps(), if self.fps() != self.wanted_fps { format!(" ({} chosen)", self.wanted_fps) } else { String::new() })),
-            ("Bitrate".into(), format!("{}{}", if self.dynamic() { "Dynamic".to_string() } else if self.bitrate > 0 { format!("{} Mbps", self.bitrate) } else { "Auto".into() },
-                                      if self.dynamic() && self.phone_dynamic == Some(false) { " (phone uses Auto)" } else { "" })),
-        ];
-        if let Some(profile) = self.h264_profile.as_ref().filter(|p| !p.is_empty()) {
-            out.push(("H.264 profile".into(), profile.clone()));
-            out.push(("H.264 refresh".into(), if self.intra_refresh { "intra refresh" } else { "keyframes" }.into()));
-        }
-        if self.wifi.0.is_some() || self.wifi.1.is_some() || self.wifi.2.is_some() {
-            out.push(("Phone Wi-Fi".into(), self.wifi_text()));
-        }
-        out
-    }
-}
-
-impl StreamOutputPlugin {
-    /// The sizes and ratios the shortcut choices list, to tell when the shell's copy of the actions is stale.
-    fn sizes_key(&self) -> (Vec<(u32, u32)>, Vec<(u32, u32)>) {
-        (self.sizes.res.clone(), self.sizes.ratios.clone())
-    }
-
-    /// The shell lists the actions once and keeps them, so the size choices are asked for again when the sizes move.
-    fn refresh_if_sizes_moved(&mut self, host: &mut dyn Host, before: (Vec<(u32, u32)>, Vec<(u32, u32)>)) {
-        if self.sizes_key() != before {
-            host.refresh_actions();
-        }
     }
 
     fn on_event_inner(&mut self, host: &mut dyn Host, event: &Event) {
