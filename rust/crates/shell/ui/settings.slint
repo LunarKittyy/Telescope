@@ -132,8 +132,11 @@ export component SettingsNav inherits Rectangle {
     }
 }
 
-// A tab's page: its sections stacked, scrolling on its own, with Qt's 11px scrollbar beside the cards.
-export component ScrollPage inherits Rectangle {
+// A tab's page: its sections stacked, scrolling on its own, with Qt's 11px scrollbar beside the cards. A Flickable's clip
+// lets Tab reach a control that has scrolled out of sight (a plain clip makes Slint skip it, and the cycle would be
+// whatever is in view). It never moves itself: the page scrolls by `offset`, and a control that takes the focus asks
+// for that through Reveal.
+export component ScrollPage inherits Flickable {
     in-out property <length> offset;
     out property <length> content: lay.preferred-height;
     property <length> range: max(0px, content - root.height);
@@ -143,7 +146,9 @@ export component ScrollPage inherits Rectangle {
     out property <length> inner-width: root.width - 8px - (bar ? 11px : 0px);
     changed content => { bar = content > root.height; }
     changed height => { bar = content > root.height; }
-    clip: true;
+    interactive: false;
+    viewport-width: self.width;
+    viewport-height: self.height;
     // How the settings search tells the pages apart
     in property <int> index;
     SearchWords { words: "page \{index}"; }
