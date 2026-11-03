@@ -62,6 +62,48 @@ fn a_hook_that_never_ends_is_stopped() {
     assert_eq!(t.call_without_host("get_config", vec![]).unwrap_or_default(), Value::Null, "the plugin still answers afterwards");
 }
 
+/// Runs `run` of a plugin with this body on another thread and gives its answer, or fails if it hasn't one after a few seconds.
+fn answer_soon(name: &str, body: &str) -> Result<Value, String> {
+    let folder = plugin(name, &format!("return {{ run = function() {body} end }}\n"), json!({}));
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(PluginTest::open(&folder).and_then(|mut t| t.call("run", vec![])));
+    });
+    rx.recv_timeout(std::time::Duration::from_secs(5)).expect("the pattern froze the plugin's thread")
+}
+
+#[test]
+fn a_pattern_that_backtracks_for_ever_is_refused_before_it_freezes_the_thread() {
+    // Lua's matcher runs this for hours without a Lua instruction in between, so the deadline hook never gets a turn
+    let err = answer_soon("backtrack", r#"return string.rep("a", 40):match("^" .. string.rep("a?", 40) .. string.rep("a", 40) .. "b")"#).unwrap_err();
+    assert!(err.contains("string.match") && err.contains("too long"), "{err}");
+    // The same through every function and the method form
+    for call in [r#"string.find(s, p)"#, r#"s:match(p)"#, r#"s:gsub(p, "x")"#, r#"s:gmatch(p)"#] {
+        let body = format!(r#"local s, p = string.rep("a", 3000), "a*a*b" return {call}"#);
+        let err = answer_soon("backtrack_all", &body).unwrap_err();
+        assert!(err.contains("far too long"), "{call}: {err}");
+    }
+    let err = answer_soon("long_pattern", r#"return string.find("x", string.rep("a", 200))"#).unwrap_err();
+    assert!(err.contains("at most 128 bytes"), "{err}");
+}
+
+#[test]
+fn everyday_patterns_still_work_on_long_texts() {
+    let got = answer_soon("everyday", r#"
+        local big = string.rep("word  ", 100000)
+        local k, v = ("  name = Telescope  "):match("^%s*(.-)%s*=%s*(.-)%s*$")
+        local words = 0
+        for _ in string.gmatch(string.rep("a b ", 500), "%a+") do words = words + 1 end
+        local squeezed, n = big:gsub("%s+", " ")
+        local plain = string.find(big, "d  w", 1, true)
+        local year = ("2024-05-06"):match("^(%d+)-(%d+)-(%d+)$")
+        local malformed = pcall(string.find, "x", "[a")
+        local never = string.find(string.rep("a", 100000), "a*a*b", 1, true) == nil
+        return { k, v, words, #squeezed, n, plain, year, malformed, never }
+    "#).unwrap();
+    assert_eq!(got, json!(["name", "Telescope", 1000, 500000, 100000, 4, "2024", false, true]));
+}
+
 #[test]
 fn a_plugin_that_takes_too_much_memory_is_stopped() {
     let folder = plugin("hungry", "return { setup = function() local t = {} for i = 1, 1e9 do t[i] = string.rep('x', 4096) .. i end end }\n", json!({}));

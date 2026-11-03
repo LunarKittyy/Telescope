@@ -115,7 +115,7 @@ return plugin
 
 `get_config()` returns a plain table of what you want remembered and `set_config()` gets it back on the next start. It might also get a table saved by an older version of your plugin or edited by hand. Check each value the way the example checks `cfg.on == true`. Raising an error in `set_config()` turns those settings down and Telescope keeps the values that do load on their own, with your defaults for the rest. Call `host.schedule_save()` after something changes and Telescope saves a moment later along with everything else.
 
-Lua's own `table`, `string`, `math`, `utf8` and `coroutine` libraries are there, along with `os.time`, `os.clock`, `os.date` and `os.difftime`. Your plugin can't open files, start programs or reach the network. On top of Lua's own you get:
+Lua's own `table`, `string`, `math`, `utf8` and `coroutine` libraries are there, along with `os.time`, `os.clock`, `os.date` and `os.difftime`. Your plugin can't open files, start programs or reach the network. Lua's pattern matching can get stuck backtracking, and nothing can stop it halfway, so `string.find`, `string.match`, `string.gmatch` and `string.gsub` refuse a pattern longer than 128 bytes, or one that could take far too long on the text it's given (many `*`, `+`, `-` and `?` with more pattern after them, on a long text), and say so in the error. Ordinary patterns on ordinary texts are fine, and `string.find(text, what, 1, true)` for plain text is never held back. On top of Lua's own you get:
 
 - `host`, Telescope's side of things (see [Events and the host](#events-and-the-host))
 - `tr`, `trn` and `N_` for texts people read
