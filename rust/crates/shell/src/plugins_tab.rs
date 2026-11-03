@@ -790,3 +790,24 @@ impl Panel {
     }
 }
 
+
+/// The files of one drop. winit reports each file as an event of its own, so they're gathered until the window has seen them all.
+#[derive(Default)]
+pub struct DropBatch {
+    paths: std::cell::RefCell<Vec<PathBuf>>,
+}
+
+impl DropBatch {
+    /// Adds a file. True for the first of a drop, which is the one that has to schedule take().
+    pub fn add(&self, path: PathBuf) -> bool {
+        let mut paths = self.paths.borrow_mut();
+        paths.push(path);
+        paths.len() == 1
+    }
+
+    /// The .zip the drop was, if it was exactly one; the batch is empty afterwards either way.
+    pub fn take(&self) -> Option<PathBuf> {
+        let paths = std::mem::take(&mut *self.paths.borrow_mut());
+        Panel::dropped_zip(&paths.iter().map(PathBuf::as_path).collect::<Vec<_>>())
+    }
+}
