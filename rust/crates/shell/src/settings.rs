@@ -508,7 +508,8 @@ impl Settings {
         let (offset, height) = (num(&format!("page{t}-offset")), num(&format!("page{t}-height")));
         let (top, margin) = (53.0, 40.0);
         let to = if y < top { offset - (top - y) - margin } else if y + h > top + height { offset + (y + h - top - height) + margin } else { return };
-        let _ = self.ui.set_property(&format!("page{t}-offset"), SValue::Number(to.max(0.0) as f64));
+        let to = if to < margin { 0.0 } else { to };
+        let _ = self.ui.set_property(&format!("page{t}-offset"), SValue::Number(f64::from(to)));
     }
 
     /// The tab ids shown, top to bottom.

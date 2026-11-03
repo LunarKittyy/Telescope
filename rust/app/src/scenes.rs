@@ -692,4 +692,93 @@ mod tests {
         assert!(found > 15, "{found} cards");
         assert!(wrong.is_empty(), "{wrong:#?}");
     }
+
+    use super::{main_window_config, quiet, services, Scene, Setup};
+    use slint_interpreter::{ComponentHandle, ComponentInstance, Value};
+
+    fn number(ui: &ComponentInstance, name: &str) -> f64 {
+        match ui.get_property(name) {
+            Ok(Value::Number(n)) => n,
+            other => panic!("{name} is {other:?}"),
+        }
+    }
+
+    /// Presses `key` that many times in a window of this size, noting `read()` after each (what the window scrolls to says
+    /// where the focus went).
+    fn pressed(ui: &ComponentInstance, key: slint::platform::Key, times: usize, read: impl Fn() -> String) -> Vec<String> {
+        use slint::platform::WindowEvent;
+        let text: slint::SharedString = key.into();
+        (0..times)
+            .map(|_| {
+                ui.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+                ui.window().dispatch_event(WindowEvent::KeyReleased { text: text.clone() });
+                slint::platform::update_timers_and_animations();
+                read()
+            })
+            .collect()
+    }
+
+    /// The length of the cycle: the number of presses after which the same stops come round again, three times over (the first round starts from where the window was, so it isn't counted).
+    fn cycle(stops: &[String]) -> Option<usize> {
+        (10..=stops.len() / 4).find(|&p| stops[p..2 * p] == stops[2 * p..3 * p] && stops[2 * p..3 * p] == stops[3 * p..4 * p])
+    }
+
+    // The columns scroll by an offset of their own and Slint skips what a plain clip hides, so Tab used to walk only the
+    // controls in view: the cycle changed with the scroll, and never reached the rest
+    #[test]
+    fn tab_walks_the_whole_main_window_in_one_cycle_that_comes_round_the_same() {
+        use slint::platform::Key;
+        let size = (1240.0, 420.0);
+        let scene = Scene::new("tab-main", move || Setup {
+            then: Some(Box::new(move |w| {
+                w.ui.window().set_size(slint::LogicalSize::new(size.0, size.1));
+                telescope_shell::offscreen::draw(w.ui.window(), size.0, size.1, 1.0);
+                let reads = || format!("{:?} {}", telescope_shell::input::focused_box(&w.ui), (0..3).map(|c| number(&w.ui, &format!("scroll{c}")).to_string()).collect::<Vec<_>>().join("/"));
+                let (content, view) = (number(&w.ui, "content-height"), number(&w.ui, "view-height"));
+                assert!(content > 3.0 * view, "the window has to be longer than its view: {content} in {view}");
+                let forward = pressed(&w.ui, Key::Tab, 600, reads);
+                let round = cycle(&forward).unwrap_or_else(|| panic!("Tab comes round to nothing it has been to: {forward:?}"));
+                // The first pass starts with the columns at the top and the others from wherever the last one left them, which is
+                // all the header's stops can show of it; from the first card on it is the same list of places each time
+                assert!(forward[6..round] == forward[round + 6..2 * round], "the first pass went another way than the second");
+                let scrolled = forward[..round].iter().filter_map(|s| s.rsplit(' ').next()?.split('/').next()?.parse::<f64>().ok()).fold(0.0, f64::max);
+                assert!(scrolled > view * 3.0, "Tab brought the column up to {scrolled}, so it stayed in what was in view");
+                // And back the way it came, from wherever it is
+                let ahead = pressed(&w.ui, Key::Tab, 1, reads).remove(0);
+                let back = pressed(&w.ui, Key::Backtab, 1, reads).remove(0);
+                assert_eq!(back, forward[forward.len() - 1], "Shift+Tab undoes a Tab (after {ahead})");
+            })),
+            ..Setup::window(Some(services(quiet())), main_window_config(true), size.0, size.1)
+        });
+        let scenes = [scene];
+        let out = std::env::temp_dir().join("telescope-tab-scenes");
+        let (_, failed) = telescope_shell::scenes::render(&scenes, &[1.0], &out).unwrap();
+        assert!(failed.is_empty() || failed.iter().all(|f| f.contains("nothing drawn")), "{failed:?}");
+    }
+
+    #[test]
+    fn tab_walks_a_settings_page_in_one_cycle_and_scrolls_to_what_it_reaches() {
+        use slint::platform::Key;
+        let size = (940.0, 300.0);
+        let scene = Scene::new("tab-settings", move || Setup {
+            then: Some(Box::new(move |w| {
+                for tab in ["video"] {
+                    telescope_shell::settings::open(w, tab);
+                    let settings = telescope_shell::settings::current().expect("the settings window");
+                    settings.ui.window().set_size(slint::LogicalSize::new(size.0, size.1));
+                    telescope_shell::offscreen::draw(settings.ui.window(), size.0, size.1, 1.0);
+                    let page = format!("page{}-offset", settings.tabs().iter().position(|t| t == tab).unwrap());
+                    let reads = || format!("{:?} {}", telescope_shell::input::focused_box(&settings.ui), number(&settings.ui, &page));
+                    let forward = pressed(&settings.ui, Key::Tab, 400, reads);
+                    let far = forward.iter().filter_map(|s| s.rsplit(' ').next()?.parse::<f64>().ok()).fold(0.0, f64::max);
+                    assert!(cycle(&forward).is_some(), "{tab}: Tab comes round to nothing it has been to: {forward:?}");
+                    assert!(far > 0.0, "{tab}: Tab reached what was out of sight and left the page where it was");
+                }
+            })),
+            ..Setup::window(Some(services(quiet())), main_window_config(true), size.0, size.1)
+        });
+        let out = std::env::temp_dir().join("telescope-tab-scenes");
+        let (_, failed) = telescope_shell::scenes::render(&[scene], &[1.0], &out).unwrap();
+        assert!(failed.is_empty() || failed.iter().all(|f| f.contains("nothing drawn")), "{failed:?}");
+    }
 }

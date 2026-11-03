@@ -45,6 +45,7 @@ component NotesEditor inherits Rectangle {
             single-line: false;
             wrap: word-wrap;
             enabled: root.enabled;
+            changed has-focus => { if (self.has-focus) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
             font-family: Theme.font;
             font-size: Theme.body;
             color: self.has-focus ? white : Theme.text;

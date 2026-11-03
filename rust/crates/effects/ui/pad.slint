@@ -97,6 +97,7 @@ component PanPad inherits Rectangle {
     accessible-role: slider;
     accessible-label: label;
     focus := FocusScope {
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: root.enabled;
         key-pressed(e) => {
             if (Keys.name(e.text) != "" && Keys.name(e.text) != "[" && Keys.name(e.text) != "]") {

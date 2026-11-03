@@ -1,6 +1,7 @@
 // QLineEdit as theme.py styles it: raised fill, strong border that lightens on hover and turns accent with focus. With
 // a leading icon (the search fields) and Qt's clear button once there's text.
 
+import { Reveal } from "folds.slint";
 import { Theme } from "../theme.slint";
 import { Icon, KeyFocus } from "basics.slint";
 import { Icons } from "../icons.slint";
@@ -77,6 +78,8 @@ export component TextField inherits Rectangle {
         accessible-role: none;
         edited => { root.edited(self.text); }
         accepted => { root.accepted(); }
+        // Tab (or a click) into a box that has scrolled half out of sight brings it in
+        changed has-focus => { if (self.has-focus) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         key-pressed(e) => {
             if (e.text == Key.DownArrow) { root.step(1); return accept; }
             if (e.text == Key.UpArrow) { root.step(-1); return accept; }

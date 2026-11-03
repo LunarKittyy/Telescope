@@ -1,7 +1,7 @@
 // What both cards of this crate are built from. The plugins join this file and their card into one source (Rust's concat!),
 // so it holds the only import line.
 
-import { Theme, Icons, Icon, FocusRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, TextField, NumberField, FlickBar, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, TextField, NumberField, FlickBar, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu, Reveal } from "@ui-kit/ui-kit.slint";
 
 global Status {
     public pure function color(kind: string) -> color {
@@ -116,6 +116,7 @@ component Wheel inherits Rectangle {
     accessible-role: slider;
     accessible-label: label;
     focus := FocusScope {
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: root.enabled;
         key-pressed(e) => {
             if (Keys.name(e.text) != "" && Keys.name(e.text) != "[" && Keys.name(e.text) != "]") {
@@ -287,6 +288,7 @@ component CurveBox inherits Rectangle {
     accessible-role: slider;
     accessible-label: label;
     focus := FocusScope {
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: root.enabled;
         key-pressed(e) => {
             if (Keys.name(e.text) != "") {

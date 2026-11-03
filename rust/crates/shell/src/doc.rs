@@ -403,13 +403,18 @@ const HEADER: &str = r#"
     }
 "#;
 
+// A Flickable and not a clipping Rectangle: Slint's Tab skips whatever a plain clip hides, so the cycle would be only the
+// controls in view and change with the scroll. A Flickable's clip still lets the focus in (it is told to scroll the
+// column through Reveal). It never moves itself: the viewport is as big as the view and the columns scroll by `scroll{c}`.
 const BODY_TOP: &str = r#"
-    Rectangle {
+    Flickable {
         x: 16px;
         y: body-top + 16px;
         width: body-w;
         height: view-h;
-        clip: true;
+        interactive: false;
+        viewport-width: self.width;
+        viewport-height: self.height;
         TouchArea {
             scroll-event(e) => {
                 if (self.mouse-x >= root.c2x && root.c2w > 0) {

@@ -82,6 +82,13 @@ fn outside_text_box(window: &slint::Window, at: LogicalPosition) -> bool {
     !(x >= 0.0 && y >= 0.0 && x < size.width && y < size.height)
 }
 
+/// Where the control with the keyboard focus is in the window (x, y, width, height), for tests that follow Tab round.
+pub fn focused_box(ui: &ComponentInstance) -> Option<(f32, f32, f32, f32)> {
+    let item = WindowInner::from_pub(ui.window()).focus_item.borrow().upgrade()?;
+    let (corner, size) = (item.map_to_window(i_slint_core::lengths::LogicalPoint::default()), item.geometry().size);
+    Some((corner.x, corner.y, size.width, size.height))
+}
+
 /// Whether Wayland carries this window, where leaving during a press means the press is gone.
 pub(crate) fn on_wayland(window: &slint::Window) -> bool {
     use slint::winit_030::winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};

@@ -631,7 +631,9 @@ impl Window {
         let scroll = self.number(&name);
         let margin = 10.0;
         let to = if y < top + margin { scroll - (top + margin - y) } else if y + h > top + height - margin { scroll + (y + h - (top + height - margin)) } else { return };
-        let _ = self.ui.set_property(&name, SValue::Number(to.max(0.0) as f64));
+        // Near the top it goes to the top: the card's own margin is part of what's brought into view
+        let to = if to < margin { 0.0 } else { to };
+        let _ = self.ui.set_property(&name, SValue::Number(f64::from(to)));
     }
 
     fn banner_pressed(self: &Rc<Self>, key: &str, pressed: crate::banners::Pressed) {
