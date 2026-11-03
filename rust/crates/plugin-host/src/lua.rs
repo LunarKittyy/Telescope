@@ -21,118 +21,6 @@ pub const HOOK_LIMIT: Duration = Duration::from_secs(3);
 /// The same for running main.lua the first time.
 pub const LOAD_LIMIT: Duration = Duration::from_secs(5);
 
-/// Longest pattern string.find, match, gmatch and gsub take from a plugin.
-pub const MAX_PATTERN: usize = 128;
-/// How many steps of Lua's matcher those four let a pattern take at worst on a text.
-pub const MAX_PATTERN_WORK: f64 = 1e8;
-
-/// What matching `pattern` on a text of `len` bytes could cost at worst, in steps of Lua's matcher, or None if the pattern is cut short
-/// or broken (Lua then reports that itself). Lua's matcher backtracks without running Lua code, so the deadline hook never gets to stop it.
-/// Each `*`, `+` or `-` with more pattern after it can be tried at every length, each `?` both ways, and a pattern that isn't anchored
-/// with `^` is tried from every position.
-fn pattern_work(pattern: &[u8], len: usize) -> Option<f64> {
-    let anchored = pattern.first() == Some(&b'^');
-    let mut i = usize::from(anchored);
-    // Every piece that has to match, with the repetition it carries
-    let mut pieces: Vec<Option<u8>> = Vec::new();
-    while i < pattern.len() {
-        match pattern[i] {
-            b'(' => i += if pattern.get(i + 1) == Some(&b')') { 2 } else { 1 },
-            b')' => i += 1,
-            b'$' if i + 1 == pattern.len() => {
-                i += 1;
-                pieces.push(None);
-            }
-            b'%' if matches!(pattern.get(i + 1), Some(b'b')) => {
-                i += 4;
-                pieces.push(None);
-            }
-            b'%' if matches!(pattern.get(i + 1), Some(b'f')) => {
-                i = set_end(pattern, i + 2)?;
-                pieces.push(None);
-            }
-            b'%' if matches!(pattern.get(i + 1), Some(b'0'..=b'9')) => {
-                i += 2;
-                pieces.push(None);
-            }
-            first => {
-                i = match first {
-                    b'%' => {
-                        pattern.get(i + 1)?;
-                        i + 2
-                    }
-                    b'[' => set_end(pattern, i)?,
-                    _ => i + 1,
-                };
-                let repeat = pattern.get(i).copied().filter(|c| b"*+-?".contains(c));
-                i += usize::from(repeat.is_some());
-                pieces.push(repeat);
-            }
-        }
-    }
-    let (mut stars, mut options) = (0i32, 0i32);
-    // A repetition at the very end has nothing after it that could fail, so it never gives anything back
-    for repeat in pieces.iter().rev().skip(1) {
-        match repeat {
-            Some(b'?') => options += 1,
-            Some(_) => stars += 1,
-            None => {}
-        }
-    }
-    let tries = stars + i32::from(!anchored);
-    let orderings: f64 = (1..=tries).map(f64::from).product();
-    Some((len as f64 + 1.0).powi(tries) / orderings * 2f64.powi(options))
-}
-
-/// Where a [set] starting at `start` ends, as Lua's matcher reads it (the first character after the bracket is part of it whatever it is).
-fn set_end(pattern: &[u8], start: usize) -> Option<usize> {
-    let mut i = start + 1;
-    if pattern.get(i) == Some(&b'^') {
-        i += 1;
-    }
-    loop {
-        let c = *pattern.get(i)?;
-        i += 1;
-        if c == b'%' {
-            i += 1;
-        }
-        if *pattern.get(i)? == b']' {
-            return Some(i + 1);
-        }
-    }
-}
-
-/// How many bytes a string or number argument has, the way Lua's string functions read it.
-fn text_len(arg: Option<&mlua::Value>) -> Option<usize> {
-    match arg? {
-        mlua::Value::String(s) => Some(s.as_bytes().len()),
-        v @ (mlua::Value::Integer(_) | mlua::Value::Number(_)) => Some(shown(v).len()),
-        _ => None,
-    }
-}
-
-/// Refuses a call of string.find, match, gmatch or gsub whose pattern could keep Lua's matcher busy for longer than a hook may run.
-fn check_pattern(name: &str, args: &MultiValue) -> mlua::Result<()> {
-    // find(s, pattern, init, true) takes the pattern as plain text, which is a single scan
-    if name == "find" && args.get(3).is_some_and(|plain| !matches!(plain, mlua::Value::Nil | mlua::Value::Boolean(false))) {
-        return Ok(());
-    }
-    let (Some(subject), Some(pattern)) = (text_len(args.front()), args.get(1)) else { return Ok(()) };
-    let pattern = match pattern {
-        mlua::Value::String(s) => s.as_bytes().to_vec(),
-        v @ (mlua::Value::Integer(_) | mlua::Value::Number(_)) => shown(v).into_bytes(),
-        _ => return Ok(()),
-    };
-    if pattern.len() > MAX_PATTERN {
-        return Err(lua_err(format!("string.{name}: a pattern can be at most {MAX_PATTERN} bytes long")));
-    }
-    if pattern_work(&pattern, subject).is_some_and(|work| work > MAX_PATTERN_WORK) {
-        return Err(lua_err(format!(
-            "string.{name}: this pattern could take far too long on a text this long. Use a simpler pattern (fewer *, +, - and ? with more pattern after them), cut the text down first, or look for plain text with string.find(text, what, 1, true)")));
-    }
-    Ok(())
-}
-
 /// The globals a plugin's Lua code gets beyond Lua's own table, string, math, utf8 and coroutine libraries. Frozen in tests/plugin_api.txt.
 pub const GLOBALS: &[&str] = &["host", "tr", "trn", "N_", "files.read", "log.debug", "log.info", "log.warn", "log.error", "print", "json.encode",
                                "json.decode", "require", "load", "os.time", "os.clock", "os.date", "os.difftime"];
@@ -379,14 +267,8 @@ impl LuaGuest {
         }
         let string: Table = g.get("string")?;
         string.set("dump", mlua::Value::Nil)?;
-        // Lua's pattern matcher can backtrack for ages without running a Lua instruction, which the deadline can't interrupt
-        for name in ["find", "match", "gmatch", "gsub"] {
-            let original: Function = string.get(name)?;
-            string.set(name, lua.create_function(move |_, args: MultiValue| {
-                check_pattern(name, &args)?;
-                original.call::<MultiValue>(args)
-            })?)?;
-        }
+        // Lua's own pattern matcher can run for ages without a Lua instruction, which the deadline can't interrupt
+        crate::lua_pattern::install(lua, &string)?;
         let json = lua.create_table()?;
         json.set("encode", lua.create_function(|lua, v: mlua::Value| {
             serde_json::to_string(&from_lua(lua, v)?).map_err(lua_err)
