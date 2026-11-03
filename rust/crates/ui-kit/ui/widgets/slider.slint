@@ -75,7 +75,7 @@ export component Slider inherits HorizontalLayout {
         accessible-role: slider;
         accessible-label: label;
         // The readout carries the unit ("30%", "+1.0 EV"), which the bare number would lose
-        accessible-value: readout != "" && has-readout ? readout : shown;
+        accessible-value: readout != "" ? readout : shown;
         accessible-value-minimum: minimum;
         accessible-value-maximum: maximum;
         accessible-value-step: step;

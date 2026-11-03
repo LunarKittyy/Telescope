@@ -99,7 +99,7 @@ export component Segmented inherits Rectangle {
                     }
                 }
                 key-pressed(e) => {
-                    if (e.text == " ") { pick(i); return accept; }
+                    if (e.text == " " || e.text == "\n") { pick(i); return accept; }
                     if (e.text == Key.LeftArrow) { step(i, i - 1); return accept; }
                     if (e.text == Key.RightArrow) { step(i, i + 1); return accept; }
                     reject
@@ -192,13 +192,68 @@ export component ChoiceField inherits Rectangle {
     // A tooltip, when there's something to say beyond the label
     in property <string> tip;
     callback picked(int);
-    // The row the arrows move to from where it is, or there when there's none that way
-    function step(by: int) -> int {
-        let next = shown + by;
+    // The row the arrows move to from `from`, or there when there's none that way
+    function step-from(from: int, by: int) -> int {
+        let next = from + by;
         let past = next + by;
         if (next >= 0 && next < items.length && !headings[next] && !gone[next]) { return next; }
-        if ((headings[next] || gone[next]) && past >= 0 && past < items.length && !headings[past] && !gone[past]) { return past; }
-        return shown;
+        if (next >= 0 && next < items.length && (headings[next] || gone[next]) && past >= 0 && past < items.length && !headings[past] && !gone[past]) { return past; }
+        return from;
+    }
+    function step(by: int) -> int { return step-from(shown, by); }
+    // The row the keys have highlighted while the list is open
+    property <int> hl: -1;
+    // Looking for a row by keyboard: what kind (0 a letter, 1 the first, 2 the last), the letter, and where a letter starts
+    // looking. Every row says whether it fits and how far along that is; the nearest one wins, and is taken a moment later
+    property <int> scan-kind;
+    property <string> scan-letter;
+    property <int> scan-from;
+    property <int> scans;
+    property <int> best-rank: 1000000;
+    property <int> best: -1;
+    property <bool> settling;
+    function scan(kind: int, letter: string) {
+        scan-kind = kind;
+        scan-letter = letter.to-lowercase();
+        scan-from = (open ? hl : shown) + 1;
+        best-rank = 1000000;
+        best = -1;
+        scans += 1;
+        settling = true;
+    }
+    // Close the list from the keyboard and hand the focus back
+    function close-list() {
+        popup.close();
+        root.open = false;
+        focus.focus();
+    }
+    function choose(i: int) {
+        pick(i);
+        close-list();
+    }
+    Timer {
+        interval: 1ms;
+        running: settling;
+        triggered => {
+            settling = false;
+            if (best >= 0) {
+                if (open) { hl = best; } else if (best != shown) { pick(best); }
+            }
+        }
+    }
+    for item[i] in items: Rectangle {
+        visible: false;
+        width: 0px;
+        height: 0px;
+        property <int> asked: scans;
+        changed asked => {
+            let fits = !headings[i] && !gone[i] && (scan-kind != 0 || item.to-lowercase().starts-with(scan-letter));
+            let rank = scan-kind == 0 ? mod(i - scan-from + items.length, items.length) : scan-kind == 1 ? i : items.length - 1 - i;
+            if (fits && rank < best-rank) {
+                best-rank = rank;
+                best = i;
+            }
+        }
     }
     height: plain ? 32px : 48px;
     horizontal-stretch: 1;
@@ -212,7 +267,9 @@ export component ChoiceField inherits Rectangle {
     border-color: !enabled ? Theme.border : touch.has-hover ? Theme.border-hover : plain ? Theme.border-strong : Theme.border;
     accessible-role: combobox;
     accessible-label: caption != "" ? caption : name;
-    accessible-value: items[shown];
+    accessible-value: shown < 0 ? placeholder : items[shown];
+    accessible-expandable: true;
+    accessible-expanded: open;
     accessible-description: tip;
     accessible-action-default => { if (root.enabled) { popup.show(); } }
     forward-focus: focus;
@@ -220,9 +277,14 @@ export component ChoiceField inherits Rectangle {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: root.enabled;
         key-pressed(e) => {
+            if (e.modifiers.control || e.modifiers.meta) { return reject; }
+            if ((e.modifiers.alt && (e.text == Key.DownArrow || e.text == Key.UpArrow)) || e.text == " " || e.text == "\n") { popup.show(); return accept; }
             if (e.text == Key.UpArrow && step(-1) != shown) { pick(step(-1)); return accept; }
             if (e.text == Key.DownArrow && step(1) != shown) { pick(step(1)); return accept; }
-            if (e.text == " " || e.text == "\n") { popup.show(); return accept; }
+            if (e.text == Key.UpArrow || e.text == Key.DownArrow) { return accept; }
+            if (e.text == Key.Home) { scan(1, ""); return accept; }
+            if (e.text == Key.End) { scan(2, ""); return accept; }
+            if (e.text.character-count == 1 && e.text != Key.Tab && e.text != Key.Backtab && e.text != Key.Escape && !e.modifiers.alt) { scan(0, e.text); return accept; }
             reject
         }
     }
@@ -305,7 +367,18 @@ export component ChoiceField inherits Rectangle {
         // Slint doesn't say when a popup closes, but its focus goes back to the field then. Taken a moment after it
         // opens, since opening clears the focus
         watch := FocusScope {
-            focus-lost => { root.open = false; }
+            focus-lost => { root.open = false; hl = -1; }
+            key-pressed(e) => {
+                if (e.text == Key.Escape) { close-list(); return accept; }
+                if (e.text == Key.Tab || e.text == Key.Backtab) { close-list(); return reject; }
+                if (e.text == Key.UpArrow) { hl = step-from(hl, -1); return accept; }
+                if (e.text == Key.DownArrow) { hl = step-from(hl, 1); return accept; }
+                if (e.text == Key.Home) { scan(1, ""); return accept; }
+                if (e.text == Key.End) { scan(2, ""); return accept; }
+                if (e.text == " " || e.text == "\n") { if (hl >= 0) { choose(hl); } else { close-list(); } return accept; }
+                if (e.text.character-count == 1 && !e.modifiers.control && !e.modifiers.alt && !e.modifiers.meta) { scan(0, e.text); return accept; }
+                reject
+            }
         }
         Timer {
             interval: 1ms;
@@ -313,6 +386,7 @@ export component ChoiceField inherits Rectangle {
             triggered => {
                 root.open = true;
                 watch.focus();
+                hl = shown >= 0 ? shown : step-from(-1, 1);
             }
         }
         longest := VerticalLayout {
@@ -343,9 +417,26 @@ export component ChoiceField inherits Rectangle {
                     padding: 4px;
                     for item[i] in items: Rectangle {
                         property <bool> is-gone: gone[i];
+                        property <bool> lit: i == hl;
+                        // Scrolls the list to keep the highlighted row in sight
+                        changed lit => {
+                            if (lit) {
+                                if (self.y < 5px) { list.viewport-y = 0px; }
+                                else if (self.y - 4px < -list.viewport-y) { list.viewport-y = -(self.y - 4px); }
+                                else if (self.y + self.height + 4px > -list.viewport-y + list.height) { list.viewport-y = min(0px, list.height - self.y - self.height - 4px); }
+                            }
+                        }
+                        accessible-role: list-item;
+                        accessible-label: item;
+                        accessible-item-selectable: !headings[i] && !is-gone;
+                        accessible-item-selected: lit;
+                        accessible-item-index: i;
+                        accessible-item-count: items.length;
+                        accessible-enabled: !headings[i] && !is-gone;
+                        accessible-action-default => { if (!headings[i] && !is-gone) { choose(i); } }
                         height: headings[i] ? 32px : max(26px, line.preferred-height + 10px);
                         border-radius: 5px;
-                        background: headings[i] || is-gone ? transparent : i == shown ? Theme.fill : item-touch.has-hover ? Theme.surface-hover : transparent;
+                        background: headings[i] || is-gone ? transparent : lit ? Theme.fill : item-touch.has-hover ? Theme.surface-hover : transparent;
                         if headings[i]: Rectangle {
                             y: 2px;
                             height: parent.height - 3px;
@@ -354,7 +445,7 @@ export component ChoiceField inherits Rectangle {
                         item-touch := TouchArea {
                             enabled: !headings[i] && !is-gone;
                             clicked => {
-                                pick(i);
+                                choose(i);
                             }
                         }
                         line := Text {
@@ -364,7 +455,7 @@ export component ChoiceField inherits Rectangle {
                             font-family: Theme.font;
                             font-size: headings[i] ? Theme.body * 0.85 : Theme.body;
                             font-weight: headings[i] ? 700 : 400;
-                            color: headings[i] ? Theme.accent : is-gone ? Theme.text-disabled : i == shown ? white : Theme.text;
+                            color: headings[i] ? Theme.accent : is-gone ? Theme.text-disabled : lit ? white : Theme.text;
                             vertical-alignment: center;
                             wrap: word-wrap;
                         }
