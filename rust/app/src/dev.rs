@@ -40,7 +40,7 @@ pub fn take_plugins(argv: &[String]) -> Result<(Vec<PathBuf>, Vec<String>), Stri
             None => words.next().cloned().unwrap_or_default(),
         };
         let folder = expand_home(&value);
-        let folder = std::fs::canonicalize(&folder).unwrap_or(folder);
+        let folder = telescope_core::system::plain_path(std::fs::canonicalize(&folder).unwrap_or(folder));
         if value.is_empty() || !folder.join("plugin.json").is_file() {
             return Err(format!("--plugin needs a plugin's folder (the one with plugin.json in it), not '{value}'"));
         }

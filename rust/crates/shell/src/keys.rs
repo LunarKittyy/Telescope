@@ -20,11 +20,17 @@ fn scan_code(key: slint::winit_030::winit::keyboard::PhysicalKey) -> u32 {
 
 /// Makes the scan code of each key event available to key_input: winit's event comes first, then Slint's own KeyEvent for it.
 pub fn watch_scan_codes(ui: &slint_interpreter::ComponentInstance) {
+    watch_scan_codes_and(ui, |_| {});
+}
+
+/// watch_scan_codes, and `also` hears every winit event of the window too (a window has one filter, so it hangs off this one).
+pub fn watch_scan_codes_and(ui: &slint_interpreter::ComponentInstance, mut also: impl FnMut(&slint::winit_030::winit::event::WindowEvent) + 'static) {
     use slint::winit_030::{winit::event::WindowEvent, EventResult};
-    crate::input::watch(ui, |_, event| {
+    crate::input::watch(ui, move |_, event| {
         if let WindowEvent::KeyboardInput { event, .. } = event {
             LAST_SCAN.with(|s| s.set(scan_code(event.physical_key)));
         }
+        also(event);
         EventResult::Propagate
     });
 }

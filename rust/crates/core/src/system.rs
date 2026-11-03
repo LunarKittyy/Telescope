@@ -109,6 +109,25 @@ mod tests {
     }
 }
 
+/// A path without the `\\?\` that canonicalize puts in front on Windows, which Slint, a Run key or a shortcut can't use. A `\\?\UNC\` path stays as it is.
+pub fn plain_path(path: PathBuf) -> PathBuf {
+    let plain = path.to_string_lossy().strip_prefix(r"\\?\").filter(|rest| !rest.starts_with("UNC\\")).map(PathBuf::from);
+    plain.unwrap_or(path)
+}
+
+#[cfg(test)]
+mod plain_path_tests {
+    use super::plain_path;
+    use std::path::PathBuf;
+
+    #[test]
+    fn a_path_loses_its_verbatim_prefix() {
+        assert_eq!(plain_path(PathBuf::from(r"\\?\C:\b\telescope.exe")), PathBuf::from(r"C:\b\telescope.exe"));
+        assert_eq!(plain_path(PathBuf::from(r"\\?\UNC\pc\share\t.exe")), PathBuf::from(r"\\?\UNC\pc\share\t.exe"));
+        assert_eq!(plain_path(PathBuf::from("/usr/bin/telescope")), PathBuf::from("/usr/bin/telescope"));
+    }
+}
+
 /// An io error in the system's words, like Python's strerror: no "(os error N)", and none of the full stop Windows ends them with.
 pub fn os_words(e: &std::io::Error) -> String {
     let text = e.to_string();

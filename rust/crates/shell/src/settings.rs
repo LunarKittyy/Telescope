@@ -211,6 +211,9 @@ pub fn open(window: &Rc<Window>, tab: &str) {
     let _ = settings.ui.show();
     crate::parent::attach(&settings.ui, &window.ui);
     if coming_up {
+        if settings.fitted.get() {
+            settings.centre(&settings.ui);
+        }
         settings.keep_on_screen();
         settings.tell_shown();
     } else {
@@ -287,7 +290,21 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
     let def = crate::compile::compile("settings.slint", &text, files, "TelescopeSettings")?;
     // Under the main window, as Python's dialog has it as its parent
     let ui = crate::parent::make(&window.ui, || def.create()).map_err(|e| e.to_string())?;
-    crate::keys::watch_scan_codes(&ui);
+    // A .zip dropped anywhere on the window installs like the Install button does
+    let drops = Rc::new(plugins_tab::DropBatch::default());
+    crate::keys::watch_scan_codes_and(&ui, move |event| {
+        if let slint::winit_030::winit::event::WindowEvent::DroppedFile(path) = event {
+            if drops.add(path.clone()) {
+                let drops = drops.clone();
+                slint::Timer::single_shot(std::time::Duration::ZERO, move || {
+                    let zip = drops.take();
+                    if let (Some(zip), Some(settings)) = (zip, current()) {
+                        settings.install(zip);
+                    }
+                });
+            }
+        }
+    });
     let settings = Rc::new(Settings {
         ui,
         tabs: tabs.iter().map(|(id, n, _)| (id.clone(), n.clone())).collect(),
@@ -532,8 +549,18 @@ impl Settings {
             let Some(settings) = SETTINGS.with(|s| s.borrow().clone()) else { return };
             let scale = ui.window().scale_factor();
             settings.fit_to_screen((area.width as f32 / scale, area.height as f32 / scale));
-            crate::screen::keep_inside(ui, ((320.0 * scale) as u32, (240.0 * scale) as u32));
+            settings.centre(ui);
         });
+    }
+
+    /// In the middle of the main window (a window owned by another opens wherever the system likes, the corner on Windows).
+    fn centre(&self, ui: &ComponentInstance) {
+        let scale = ui.window().scale_factor();
+        let least = ((320.0 * scale) as u32, (240.0 * scale) as u32);
+        match self.window.upgrade() {
+            Some(main) => crate::screen::centre_over(ui, &main.ui, least),
+            None => crate::screen::keep_inside(ui, least),
+        }
     }
 
     /// Opens at its usual size unless the screen is smaller, keeping clear of its edges; a small screen also wins over

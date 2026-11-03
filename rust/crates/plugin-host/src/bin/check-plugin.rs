@@ -9,7 +9,7 @@ fn main() -> ExitCode {
         return ExitCode::from(2);
     };
     let folder = std::path::Path::new(folder);
-    let folder = folder.canonicalize().unwrap_or_else(|_| folder.to_path_buf());
+    let folder = telescope_core::system::plain_path(folder.canonicalize().unwrap_or_else(|_| folder.to_path_buf()));
     let report = telescope_plugin_host::testing::check(&folder);
     print!("{}", report.text());
     if report.problems() == 0 { ExitCode::SUCCESS } else { ExitCode::FAILURE }

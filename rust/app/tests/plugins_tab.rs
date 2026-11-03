@@ -794,6 +794,19 @@ fn a_dropped_file_has_to_be_one_zip() {
 }
 
 #[test]
+fn the_files_of_one_drop_are_judged_together() {
+    let batch = telescope_shell::plugins_tab::DropBatch::default();
+    assert!(batch.add(PathBuf::from("/home/me/Plugin.zip")));
+    assert_eq!(batch.take(), Some(PathBuf::from("/home/me/Plugin.zip")));
+    assert!(batch.add(PathBuf::from("/home/me/a.zip")));
+    assert!(!batch.add(PathBuf::from("/home/me/b.zip")));
+    assert_eq!(batch.take(), None);
+    assert!(batch.add(PathBuf::from("/home/me/notes.txt")));
+    assert_eq!(batch.take(), None);
+    assert_eq!(batch.take(), None);
+}
+
+#[test]
 fn removing_one_asks_and_deletes_its_folder() {
     let mut r = rig_with(builtins(), &[], &[], |_| {}, None, |plugins, _| { added(plugins, "extra", json!({})); });
     let mut asked = vec![];

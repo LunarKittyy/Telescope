@@ -273,7 +273,8 @@ impl PluginContext {
         if !real.starts_with(&root) {
             return Err(format!("{relative:?} leads outside the plugin"));
         }
-        Ok(real)
+        // Slint can't import from the \\?\ form canonicalize gives on Windows
+        Ok(telescope_core::system::plain_path(real))
     }
 
     pub fn read_text(&self, relative: &str) -> Result<String, String> {

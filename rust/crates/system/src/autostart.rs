@@ -4,6 +4,7 @@ use telescope_core::i18n::Fields;
 use std::path::{Path, PathBuf};
 
 use telescope_core::i18n::tr;
+use telescope_core::system::plain_path;
 
 /// The menu entry's file name, its icon's name, and the window's app id.
 pub const APP_ID: &str = "telescope";
@@ -50,12 +51,6 @@ fn plain_program(directory: &Path) -> String {
 /// folder is still a release, so it goes by the channel.
 pub fn is_dev_checkout(channel: &str) -> bool {
     channel == "dev"
-}
-
-/// A path without the \\?\ that canonicalize puts in front on Windows, which a Run key or a shortcut can't start.
-fn plain_path(path: PathBuf) -> PathBuf {
-    let plain = path.to_string_lossy().strip_prefix(r"\\?\").filter(|rest| !rest.starts_with("UNC\\")).map(PathBuf::from);
-    plain.unwrap_or(path)
 }
 
 fn config_home() -> PathBuf {
@@ -360,13 +355,6 @@ mod tests {
         assert_eq!(exec_arg("/usr/bin/python3"), "/usr/bin/python3");
         assert_eq!(exec_arg("/a b/\"x\"$y"), "\"/a b/\\\"x\\\"\\$y\"");
         assert!(desktop_entry(&argv(&["/x/100%", "--minimized"]), false).contains("100%%"));
-    }
-
-    #[test]
-    fn a_path_loses_its_verbatim_prefix() {
-        assert_eq!(plain_path(PathBuf::from(r"\\?\C:\b\telescope.exe")), PathBuf::from(r"C:\b\telescope.exe"));
-        assert_eq!(plain_path(PathBuf::from(r"\\?\UNC\pc\share\t.exe")), PathBuf::from(r"\\?\UNC\pc\share\t.exe"));
-        assert_eq!(plain_path(PathBuf::from("/usr/bin/telescope")), PathBuf::from("/usr/bin/telescope"));
     }
 
     #[cfg(windows)]
