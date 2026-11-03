@@ -5678,6 +5678,7 @@ dependencies = [
  "base64",
  "flate2",
  "i-slint-backend-testing",
+ "i-slint-core",
  "image",
  "libc",
  "log",
