@@ -35,13 +35,14 @@ object StreamLauncher {
             return Result.Rejected("no_camera_permission")
         }
 
+        val covered = WaitingService.covering
         if (remote && !RemoteStartPolicy.allowed(
                 foreground = SessionEndpoint.isHeldBy(SessionEndpoint.OWNER_ACTIVITY),
-                notificationsShown = NotificationManagerCompat.from(context).areNotificationsEnabled(),
+                notificationsShown = NotificationManagerCompat.from(context).areNotificationsEnabled() &&
+                    channelShown(context, if (covered) WaitingService.CHANNEL_ID else CameraStreamService.CHANNEL_ID),
             )
         ) return Result.Rejected(RemoteStartPolicy.REFUSED)
 
-        val covered = WaitingService.covering
         val intent = Intent(context, CameraStreamService::class.java).apply {
             putExtra(CameraStreamService.EXTRA_LOCAL_ONLY, StreamPrefs.localOnly(context))
             putExtra(CameraStreamService.EXTRA_REMOTE, remote)
@@ -70,6 +71,12 @@ object StreamLauncher {
         }
     }
 
+    // False when the user turned off this notification channel (API 26+), which hides the notification as well
+    private fun channelShown(context: Context, id: String): Boolean {
+        val channel = NotificationManagerCompat.from(context).getNotificationChannel(id)
+        return RemoteStartPolicy.channelShown(channel?.importance)
+    }
+
     // Remote start using the remembered selection, at the size and rate the computer asks for when it says.
     // owner: the id of the paired computer asking, which the stream then belongs to (StreamOwner).
     fun startFromPrefs(context: Context, opening: StreamOpening? = null, owner: String? = null): Result {
@@ -85,6 +92,9 @@ object StreamLauncher {
 // would tell the owner. The desktop words start_refused as "bring Telescope to the front".
 object RemoteStartPolicy {
     const val REFUSED = "start_refused"
+
+    // A channel not made yet (null) will be made on the start, and below API 26 there are none
+    fun channelShown(importance: Int?): Boolean = importance == null || importance != NotificationManagerCompat.IMPORTANCE_NONE
 
     fun allowed(foreground: Boolean, notificationsShown: Boolean): Boolean = foreground || notificationsShown
 }
