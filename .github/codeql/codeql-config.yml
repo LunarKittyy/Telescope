@@ -1,0 +1,8 @@
+# Test code and the test tools use fixed keys, passwords and weak TLS on purpose
+paths-ignore:
+  - '**/*_tests.rs'
+  - '**/tests/**'
+  - 'rust/tools/**'
+  - 'automation/**'
+  - 'android/app/src/test/**'
+  - 'android/app/src/androidTest/**'
