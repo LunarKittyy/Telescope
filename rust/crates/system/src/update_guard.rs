@@ -254,8 +254,14 @@ fn backup_file(src: &Path, prev: &Path, mv: Mover) -> io::Result<()> {
     let mut name = prev.file_name().unwrap_or_default().to_os_string();
     name.push(".partial");
     let tmp = prev.with_file_name(name);
-    // The copy keeps src's permissions
-    let result = std::fs::copy(src, &tmp).and_then(|_| std::fs::File::open(&tmp)?.sync_all()).and_then(|_| mv(&tmp, prev));
+    // The copy keeps src's permissions, so a read-only copy can't be opened to flush and is only copied
+    let flush = |_| {
+        if let Ok(file) = std::fs::OpenOptions::new().write(true).open(&tmp) {
+            file.sync_all()?;
+        }
+        Ok(())
+    };
+    let result = std::fs::copy(src, &tmp).and_then(flush).and_then(|_| mv(&tmp, prev));
     if result.is_err() {
         let _ = remove(&tmp);
     }
