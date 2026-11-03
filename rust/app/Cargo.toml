@@ -44,6 +44,8 @@ str0m.workspace = true
 zip.workspace = true
 # The settings window's tests drive it through Slint's testing backend (pinned like the shell's)
 i-slint-backend-testing = "=1.18.1"
+# The accessibility test walks the tree the way the screen reader backends do
+i-slint-core = "=1.18.1"
 slint-interpreter.workspace = true
 slint.workspace = true
 telescope-ui-kit.workspace = true

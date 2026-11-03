@@ -2,8 +2,7 @@
 
 import { Theme } from "../theme.slint";
 
-// settings_search.keywords: words a setting is found by on top of what it says. They sit on an element of their own
-// because no accessible property keeps them from screen readers, and role none does.
+// settings_search.keywords: carried as a zero-size Text with accessible-role none, which is no accessible node at all (the search reads "kind", a unit separator, then the words)
 export component SearchWords inherits Rectangle {
     in property <string> words;
     // A card's words are for what's under it too
@@ -12,9 +11,13 @@ export component SearchWords inherits Rectangle {
     in property <bool> control;
     width: 0px;
     height: 0px;
-    accessible-role: none;
-    accessible-id: card ? "card-words" : control ? "control-words" : "setting-words";
-    accessible-label: words;
+    Text {
+        width: 0px;
+        height: 0px;
+        color: transparent;
+        accessible-role: none;
+        text: (card ? "card-words" : control ? "control-words" : "setting-words") + "\u{1f}" + words;
+    }
 }
 
 // setting_row: its name with a short line under it on the left, its controls on the right. The settings search finds

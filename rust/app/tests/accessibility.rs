@@ -379,6 +379,51 @@ fn every_control_in_every_card_says_what_it_is() {
     assert!(found.is_empty(), "{} things a screen reader can't make sense of:\n{}", found.len(), found.join("\n"));
 }
 
+/// Every piece of text the accessibility tree of this window carries, as the screen reader backends build it: only items
+/// with an accessible property are nodes (the testing backend's ElementHandle also shows plain text items).
+fn spoken(ui: &slint_interpreter::ComponentInstance) -> Vec<String> {
+    use i_slint_core::accessibility::{accessible_descendents, AccessibleStringProperty as P};
+    use i_slint_core::item_tree::ItemRc;
+    fn walk(item: &ItemRc, said: &mut Vec<String>) {
+        for node in accessible_descendents(item) {
+            for p in [P::Label, P::Value, P::Description, P::Id, P::PlaceholderText] {
+                said.extend(node.accessible_string_property(p).map(|s| s.to_string()));
+            }
+            walk(&node, said);
+        }
+    }
+    let root = ItemRc::new_root(i_slint_core::window::WindowInner::from_pub(ui.window()).component());
+    let mut said = Vec::new();
+    walk(&root, &mut said);
+    said
+}
+
+#[test]
+fn search_keywords_never_reach_a_screen_reader() {
+    let w = build(&telescope_core::testing::scratch_dir("a11y-keywords"));
+    w.ui.window().set_size(slint::LogicalSize::new(1300.0, 9000.0));
+    w.ui.show().unwrap();
+    w.process();
+    let mut tree = spoken(&w.ui);
+    telescope_shell::settings::open(&w, "general");
+    let settings = telescope_shell::settings::current().expect("the settings window");
+    settings.ui.window().set_size(slint::LogicalSize::new(940.0, 9000.0));
+    for tab in settings.tabs() {
+        assert!(settings.show_tab(&tab), "{tab}");
+        w.process();
+        tree.extend(spoken(&settings.ui));
+    }
+    let keywords: Vec<String> = settings.entries().into_iter().flat_map(|e| [e.keywords, e.card_keywords, e.tab_keywords]).map(|k| k.trim().to_string()).filter(|k| !k.is_empty()).collect();
+    assert!(keywords.len() > 20, "the search has keywords to hide: {}", keywords.len());
+    assert!(tree.len() > 200, "the tree was read: {} strings", tree.len());
+    let mut leaked: Vec<String> = tree.iter().filter(|t| t.contains('\u{1f}') || t.contains("-words") || keywords.contains(&t.trim().to_string())).cloned().collect();
+    leaked.sort();
+    leaked.dedup();
+    telescope_shell::settings::forget();
+    w.shut_down();
+    assert!(leaked.is_empty(), "search keywords in the accessibility tree: {leaked:?}");
+}
+
 #[test]
 fn a_colour_wheel_says_where_its_puck_is_in_words() {
     let w = build(&telescope_core::testing::scratch_dir("a11y-wheel"));

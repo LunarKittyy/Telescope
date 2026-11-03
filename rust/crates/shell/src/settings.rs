@@ -10,7 +10,7 @@ use crate::window::Window;
 use crate::texts::fill;
 use i_slint_core::accessibility::AccessibleStringProperty;
 use i_slint_core::item_tree::{ItemRc, ParentItemTraversalMode};
-use i_slint_core::items::{AccessibleRole, Clip};
+use i_slint_core::items::{AccessibleRole, Clip, ComplexText, SimpleText};
 use i_slint_core::window::WindowInner;
 use slint::{ComponentHandle, Image, ModelRc, VecModel};
 use slint_interpreter::{ComponentInstance, Struct, Value as SValue};
@@ -347,17 +347,29 @@ fn hidden(item: &ItemRc, page: &ItemRc) -> bool {
     false
 }
 
+/// The kind and words of a search marker (the ui-kit's SearchWords): a zero-size text that is no accessible node.
+fn marker(item: &ItemRc) -> Option<(String, String)> {
+    let text = if let Some(t) = item.downcast::<SimpleText>() {
+        t.as_pin_ref().text().to_string()
+    } else {
+        item.downcast::<ComplexText>()?.as_pin_ref().text().to_string()
+    };
+    let (kind, words) = text.split_once('\u{1f}')?;
+    Some((kind.to_string(), words.to_string()))
+}
+
 /// The words on the marker of this kind under a row or a card.
 fn words_of(element: &ItemRc, kind: &str) -> String {
-    let marker = under(element).into_iter().find(|e| say(e, AccessibleStringProperty::Id) == kind);
-    marker.map(|m| say(&m, AccessibleStringProperty::Label)).unwrap_or_default()
+    under(element).iter().filter_map(marker).find(|(k, _)| k == kind).map(|(_, w)| w).unwrap_or_default()
 }
 
 /// What the controls in a row say (settings_search._row_texts' extra).
 fn controls_of(element: &ItemRc, name: &str) -> String {
     let mut said: Vec<String> = under(element).iter()
-        .filter(|e| say(e, AccessibleStringProperty::Id) == "control-words" || !matches!(e.accessible_role(), AccessibleRole::None | AccessibleRole::Text))
-        .map(|e| say(e, AccessibleStringProperty::Label)).filter(|l| !l.trim().is_empty() && l != name).collect();
+        .filter_map(|e| match marker(e) {
+            Some((kind, words)) => (kind == "control-words").then_some(words),
+            None => (!matches!(e.accessible_role(), AccessibleRole::None | AccessibleRole::Text)).then(|| say(e, AccessibleStringProperty::Label)),
+        }).filter(|l| !l.trim().is_empty() && l != name).collect();
     said.dedup();
     said.join(" ")
 }
@@ -640,8 +652,8 @@ impl Settings {
                 card_entry: true, tab_entry: true, target: (0.0, 0.0, 0.0, 0.0),
             };
             out.push(base.clone());
-            let mark = items.iter().find(|i| say(i, AccessibleStringProperty::Label) == format!("page {t}") && say(i, AccessibleStringProperty::Id) == "setting-words");
-            let Some(page) = mark.and_then(|m| m.parent_item(ParentItemTraversalMode::StopAtPopups)) else { continue };
+            let mark = items.iter().find(|i| marker(i).is_some_and(|(k, w)| k == "setting-words" && w == format!("page {t}")));
+            let Some(page) = mark.and_then(|m| m.parent_item(ParentItemTraversalMode::StopAtPopups)).and_then(|w| w.parent_item(ParentItemTraversalMode::StopAtPopups)) else { continue };
             let page = &page;
             let origin = page.map_to_window(page.geometry().origin);
             let number = |name: &str| match self.ui.get_property(name) { Ok(SValue::Number(n)) => n as f32, _ => 0.0 };
