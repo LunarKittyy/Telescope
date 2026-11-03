@@ -665,8 +665,9 @@ class CameraStreamService : Service() {
         }
     }
 
-    fun attachPreviewSurface(surface: Surface) {
-        controller?.attachPreviewSurface(surface)
+    // sized: told (on the camera thread) the lens and stream size whenever the preview's session is set up
+    fun attachPreviewSurface(surface: Surface, sized: ((String, android.util.Size) -> Unit)? = null) {
+        controller?.attachPreviewSurface(surface, sized)
     }
 
     fun detachPreviewSurface(onDetached: (() -> Unit)? = null) {

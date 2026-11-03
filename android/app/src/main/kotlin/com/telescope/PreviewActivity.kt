@@ -211,7 +211,11 @@ class PreviewActivity : AppCompatActivity() {
             val streamSize = svc.getStreamSize()
             // Must be set before attaching: Camera2 needs buffer size fixed to supported size
             textureView.surfaceTexture?.setDefaultBufferSize(streamSize.width, streamSize.height)
-            svc.attachPreviewSurface(surface)
+            // The stream's size or lens can change under the preview, so its buffer and crop follow each new session
+            svc.attachPreviewSurface(surface) { id, size ->
+                try { textureView.surfaceTexture?.setDefaultBufferSize(size.width, size.height) } catch (_: Exception) {}
+                textureView.post { if (boundToRunningStream) applyPreviewTransform(id, size) }
+            }
             setupLensPillsFromService(streamSize)
         } else {
             unbind()
@@ -243,7 +247,7 @@ class PreviewActivity : AppCompatActivity() {
             LensLabel.local(strings(), it.facing, it.focalMm, it.hasOis, it.lensKind)) }) { id ->
             currentCameraId = id
             svc.switchCamera(id)
-            applyPreviewTransform(id, bufferSize)
+            applyPreviewTransform(id, lastBufferSize ?: bufferSize)
             refreshPillSelection()
         }
     }

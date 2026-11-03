@@ -91,6 +91,8 @@ class CameraSessionController(
     private var handlerThread: HandlerThread? = null
     private var handler: Handler? = null
     @Volatile private var previewSurface: Surface? = null
+    // Told the lens and stream size each time a session is set up with the preview, so its buffer is the right size first
+    @Volatile private var previewSized: ((String, android.util.Size) -> Unit)? = null
 
     @Volatile private var currentIso:       Int?  = null  // null = auto AE
     @Volatile private var currentShutterNs: Long? = null  // null = auto AE
@@ -657,8 +659,8 @@ class CameraSessionController(
     }
 
     // Adds extra output surface for live preview without interrupting MJPEG stream
-    fun attachPreviewSurface(surface: Surface) {
-        post { previewSurface = surface; reconfigureSession() }
+    fun attachPreviewSurface(surface: Surface, sized: ((String, android.util.Size) -> Unit)? = null) {
+        post { previewSurface = surface; previewSized = sized; reconfigureSession() }
     }
 
     // onDetached fires after surface is dropped and session rebuilt
@@ -666,9 +668,10 @@ class CameraSessionController(
         val h = handler
         val posted = !stopped && h != null && h.post {
             previewSurface = null
+            previewSized = null
             if (stopped) onDetached?.invoke() else reconfigureSession(onDetached)
         }
-        if (!posted) { previewSurface = null; onDetached?.invoke() }
+        if (!posted) { previewSurface = null; previewSized = null; onDetached?.invoke() }
     }
 
     // Everything on the camera thread runs through here: an uncaught throw ends the stream, recorded, not the whole app.
@@ -861,7 +864,12 @@ class CameraSessionController(
         return true
     }
 
-    private fun currentTargetSurfaces(): List<Surface> = listOfNotNull(outputSurface(), previewSurface)
+    private fun currentTargetSurfaces(): List<Surface> {
+        // The preview's buffer follows a lens or size change, or this lens may not offer the old one
+        val cam = currentCamera
+        if (previewSurface != null && cam != null) previewSized?.invoke(cam.id, android.util.Size(streamWidth, streamHeight))
+        return listOfNotNull(outputSurface(), previewSurface)
+    }
 
     // physId: a lens of a logical camera, streamed on its own; null for the camera as opened.
     private fun createSession(
