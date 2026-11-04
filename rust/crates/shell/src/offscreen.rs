@@ -18,6 +18,9 @@ static PROXY_TAKEN: AtomicBool = AtomicBool::new(false);
 /// How far skip() has moved the clock on, in milliseconds.
 static SKIPPED_MS: AtomicU64 = AtomicU64::new(0);
 
+/// While set, the clock stops following real time and only skip() moves it on, in nanoseconds since start.
+static FROZEN_AT: Mutex<Option<Duration>> = Mutex::new(None);
+
 thread_local! {
     static WINDOWS: std::cell::RefCell<Vec<Rc<MinimalSoftwareWindow>>> = const { std::cell::RefCell::new(Vec::new()) };
 }
@@ -41,7 +44,8 @@ impl Platform for Offscreen {
 
     fn duration_since_start(&self) -> Duration {
         static START: Mutex<Option<Instant>> = Mutex::new(None);
-        let elapsed = START.lock().unwrap().get_or_insert_with(Instant::now).elapsed();
+        let real = START.lock().unwrap().get_or_insert_with(Instant::now).elapsed();
+        let elapsed = FROZEN_AT.lock().unwrap().unwrap_or(real);
         elapsed + Duration::from_millis(SKIPPED_MS.load(Ordering::SeqCst))
     }
 
@@ -78,6 +82,22 @@ pub fn pump() -> bool {
     }
     slint::platform::update_timers_and_animations();
     ran
+}
+
+/// Stops real time from moving the clock until the guard is dropped, so a test can check a timer's edges exactly.
+pub fn freeze_clock() -> FrozenClock {
+    let now = Platform::duration_since_start(&Offscreen);
+    *FROZEN_AT.lock().unwrap() = Some(now - Duration::from_millis(SKIPPED_MS.load(Ordering::SeqCst)));
+    FrozenClock
+}
+
+pub struct FrozenClock;
+
+impl Drop for FrozenClock {
+    fn drop(&mut self) {
+        let mut frozen = FROZEN_AT.lock().unwrap();
+        *frozen = None;
+    }
 }
 
 /// Moves the clock timers go by on, and runs the ones that came due.
