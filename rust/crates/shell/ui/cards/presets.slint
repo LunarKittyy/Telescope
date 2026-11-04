@@ -121,8 +121,9 @@ export component PresetsHeader inherits HorizontalLayout {
                 for name in names: MenuRow {
                     text: name;
                     clicked => {
-                        menu.close();
+                        // Before closing: the row goes with the menu, and what follows the close doesn't run
                         root.apply(name);
+                        menu.close();
                     }
                 }
                 if names.length > 0: Rectangle {
@@ -167,13 +168,13 @@ export component PresetsHeader inherits HorizontalLayout {
                 for name in names: MenuRow {
                     text: name;
                     clicked => {
-                        sub-popup.close();
-                        menu.close();
                         if (root.sub == "rename") {
                             root.rename-clicked(name);
                         } else {
                             root.delete-clicked(name);
                         }
+                        sub-popup.close();
+                        menu.close();
                     }
                 }
             }
