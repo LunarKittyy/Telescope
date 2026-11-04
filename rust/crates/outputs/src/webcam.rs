@@ -411,6 +411,10 @@ impl WebcamPlugin {
             };
             host.show_issue(&issue_key, Issue { title: tr("Can't open {name}").field("name", src.name()), text, actions: Vec::new(),
                                                 kind: "warn".into(), details: String::new(), tell_dismiss: false });
+        } else if state == "denied" && host.is_streaming_from(Some(&src.id())) {
+            host.show_issue(&issue_key, Issue { title: tr("Can't open {name}").field("name", src.name()),
+                                                text: tr(webcam_capture::DENIED_TEXT),
+                                                actions: Vec::new(), kind: "warn".into(), details: String::new(), tell_dismiss: false });
         } else {
             host.clear_issue(Some(&issue_key), None);
         }
@@ -669,6 +673,8 @@ impl WebcamPlugin {
             ("status_dim", String::new())
         } else if state == "gone" || self.shared.device(key).is_none() {
             ("status_warn", tr("Not plugged in"))
+        } else if state == "denied" {
+            ("status_err", tr("Blocked by Windows or security software"))
         } else if state == "busy" {
             ("status_err", if detail.is_empty() { tr("In use by another app") } else { tr("In use by {app}").field("app", &detail) })
         } else if state == "silent" {

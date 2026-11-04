@@ -1155,7 +1155,7 @@ msgid "Black and white"
 msgstr "白黒"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:682 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:688 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
 msgid "Auto"
 msgstr "自動"
 
@@ -3137,7 +3137,7 @@ msgstr "スマートフォンがマイクを拒否しました（HTTP {code}）�
 msgid "No microphone"
 msgstr "マイクなし"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:679 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:685 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "ストリーミング停止中"
 
@@ -4341,54 +4341,58 @@ msgstr "別のアプリが使用している可能性があります。そちら
 msgid "{app} is using it. Close it there and it starts here."
 msgstr "{app}が使用中です。そちらで閉じるとここで開始されます。"
 
-#: rust/crates/outputs/src/webcam.rs:412
+#: rust/crates/outputs/src/webcam.rs:412 rust/crates/outputs/src/webcam.rs:415
 #, python-brace-format
 msgid "Can't open {name}"
 msgstr "{name}を開けません"
 
-#: rust/crates/outputs/src/webcam.rs:671
+#: rust/crates/outputs/src/webcam.rs:675
 msgid "Not plugged in"
 msgstr "未接続"
 
-#: rust/crates/outputs/src/webcam.rs:673
+#: rust/crates/outputs/src/webcam.rs:677
+msgid "Blocked by Windows or security software"
+msgstr ""
+
+#: rust/crates/outputs/src/webcam.rs:679
 msgid "In use by another app"
 msgstr "別のアプリで使用中"
 
-#: rust/crates/outputs/src/webcam.rs:673
+#: rust/crates/outputs/src/webcam.rs:679
 #, python-brace-format
 msgid "In use by {app}"
 msgstr "{app}で使用中"
 
-#: rust/crates/outputs/src/webcam.rs:675
+#: rust/crates/outputs/src/webcam.rs:681
 msgid "Not sending anything"
 msgstr "データ未送信"
 
-#: rust/crates/outputs/src/webcam.rs:677
+#: rust/crates/outputs/src/webcam.rs:683
 msgid "Starting…"
 msgstr "開始中…"
 
-#: rust/crates/outputs/src/webcam.rs:690
+#: rust/crates/outputs/src/webcam.rs:696
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
 msgstr "ウェブカメラから送信されるサイズ。「自動」ではフレームレートを維持できる最大1080pまでのサイズが選択されます"
 
-#: rust/crates/outputs/src/webcam.rs:707
+#: rust/crates/outputs/src/webcam.rs:713
 msgid "Webcams"
 msgstr "ウェブカメラ"
 
-#: rust/crates/outputs/src/webcam.rs:708
+#: rust/crates/outputs/src/webcam.rs:714
 msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "このコンピューターに接続されたウェブカメラやキャプチャ カードからストリーミングします。"
 
-#: rust/crates/outputs/src/webcam.rs:709
+#: rust/crates/outputs/src/webcam.rs:715
 msgid "Without it webcams aren't in the phone picker and the Webcam card is gone too."
 msgstr "無効にするとスマートフォンの選択欄にウェブカメラが表示されず、「ウェブカメラ」カードも非表示になります。"
 
-#: rust/crates/outputs/src/webcam.rs:747
+#: rust/crates/outputs/src/webcam.rs:753
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name}が接続されていません"
 
-#: rust/crates/outputs/src/webcam.rs:748
+#: rust/crates/outputs/src/webcam.rs:754
 msgid "Plug it in, or pick another camera."
 msgstr "接続するか、別のカメラを選択してください。"
 
@@ -4401,6 +4405,10 @@ msgid "Another app is using the webcam. Close it there and it starts here."
 msgstr "別のアプリがウェブカメラを使用しています。そちらで閉じるとここで開始されます。"
 
 #: rust/crates/outputs/src/webcam_capture.rs:12
+msgid "Windows or your security software is blocking Telescope from the webcam. Allow it there, then start the webcam again."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture.rs:13
 msgid "The webcam isn't sending anything. Try another resolution or frame rate."
 msgstr "ウェブカメラからデータが送信されていません。別の解像度やフレームレートを試してください。"
 

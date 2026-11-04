@@ -1155,7 +1155,7 @@ msgid "Black and white"
 msgstr "Чорно-білий"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:682 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:688 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
 msgid "Auto"
 msgstr "Авто"
 
@@ -3137,7 +3137,7 @@ msgstr "Телефон відхилив доступ до мікрофона (HT
 msgid "No microphone"
 msgstr "Немає мікрофона"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:679 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:685 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "Не транслює"
 
@@ -4341,54 +4341,58 @@ msgstr "Можливо, її використовує інший додаток.
 msgid "{app} is using it. Close it there and it starts here."
 msgstr "Її використовує {app}. Закрийте там цей додаток, і камера запуститься тут."
 
-#: rust/crates/outputs/src/webcam.rs:412
+#: rust/crates/outputs/src/webcam.rs:412 rust/crates/outputs/src/webcam.rs:415
 #, python-brace-format
 msgid "Can't open {name}"
 msgstr "Не вдалося відкрити {name}"
 
-#: rust/crates/outputs/src/webcam.rs:671
+#: rust/crates/outputs/src/webcam.rs:675
 msgid "Not plugged in"
 msgstr "Не підключено"
 
-#: rust/crates/outputs/src/webcam.rs:673
+#: rust/crates/outputs/src/webcam.rs:677
+msgid "Blocked by Windows or security software"
+msgstr ""
+
+#: rust/crates/outputs/src/webcam.rs:679
 msgid "In use by another app"
 msgstr "Використовує інший додаток"
 
-#: rust/crates/outputs/src/webcam.rs:673
+#: rust/crates/outputs/src/webcam.rs:679
 #, python-brace-format
 msgid "In use by {app}"
 msgstr "Використовує {app}"
 
-#: rust/crates/outputs/src/webcam.rs:675
+#: rust/crates/outputs/src/webcam.rs:681
 msgid "Not sending anything"
 msgstr "Нічого не надсилає"
 
-#: rust/crates/outputs/src/webcam.rs:677
+#: rust/crates/outputs/src/webcam.rs:683
 msgid "Starting…"
 msgstr "Запуск…"
 
-#: rust/crates/outputs/src/webcam.rs:690
+#: rust/crates/outputs/src/webcam.rs:696
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
 msgstr "Розмір, який надсилає вебкамера; «Авто» вибирає найбільший до 1080p, за якого зберігається частота кадрів"
 
-#: rust/crates/outputs/src/webcam.rs:707
+#: rust/crates/outputs/src/webcam.rs:713
 msgid "Webcams"
 msgstr "Вебкамери"
 
-#: rust/crates/outputs/src/webcam.rs:708
+#: rust/crates/outputs/src/webcam.rs:714
 msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "Трансляція з вебкамер і пристроїв відеозахоплення, підключених до цього комп'ютера."
 
-#: rust/crates/outputs/src/webcam.rs:709
+#: rust/crates/outputs/src/webcam.rs:715
 msgid "Without it webcams aren't in the phone picker and the Webcam card is gone too."
 msgstr "Без нього вебкамер не буде у списку вибору на телефоні, а картка «Вебкамера» також зникне."
 
-#: rust/crates/outputs/src/webcam.rs:747
+#: rust/crates/outputs/src/webcam.rs:753
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name} не підключено"
 
-#: rust/crates/outputs/src/webcam.rs:748
+#: rust/crates/outputs/src/webcam.rs:754
 msgid "Plug it in, or pick another camera."
 msgstr "Підключіть її або виберіть іншу камеру."
 
@@ -4401,6 +4405,10 @@ msgid "Another app is using the webcam. Close it there and it starts here."
 msgstr "Вебкамеру використовує інший додаток. Закрийте його там, і вона запуститься тут."
 
 #: rust/crates/outputs/src/webcam_capture.rs:12
+msgid "Windows or your security software is blocking Telescope from the webcam. Allow it there, then start the webcam again."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture.rs:13
 msgid "The webcam isn't sending anything. Try another resolution or frame rate."
 msgstr "Вебкамера нічого не надсилає. Спробуйте іншу роздільну здатність або частоту кадрів."
 

@@ -12,6 +12,8 @@ use crate::webcams::{Choice, Mode, FPS_STEPS};
 const VIRTUAL_SUFFIX: &str = " (Windows Virtual Camera)";
 /// 29.97 counts as 30.
 const FPS_SLACK: f64 = 0.5;
+/// More raw video per second than this (about what USB 2 carries) isn't coming off the camera as raw.
+const RAW_LIMIT_BITS: f64 = 300e6;
 
 /// One media type a camera offers, as Media Foundation describes it: its subtype's FOURCC, size and frame rate range.
 #[derive(Clone, Debug, PartialEq)]
@@ -59,6 +61,11 @@ pub fn modes(types: &[MediaType]) -> Vec<Mode> {
     }
     let jpeg: Vec<(u32, u32, Vec<f64>)> = out.iter().filter(|m| m.fourcc == "MJPG").map(|m| (m.width, m.height, m.fps.clone())).collect();
     out.retain(|m| !(m.fourcc == "NV12" && jpeg.contains(&(m.width, m.height, m.fps.clone()))));
+    // Frame Server also offers raw copies it decodes from MJPEG at rates no cable could carry raw; MJPEG itself is the real mode
+    let carried = |m: &Mode| (m.width as f64) * (m.height as f64) * 16.0 * m.max_fps() <= RAW_LIMIT_BITS;
+    let jpeg: Vec<(u32, u32, f64)> = out.iter().filter(|m| m.fourcc == "MJPG").map(|m| (m.width, m.height, m.max_fps())).collect();
+    out.retain(|m| m.fourcc == "MJPG" || m.fps.is_empty() || carried(m)
+        || !jpeg.iter().any(|&(w, h, f)| (w, h) == (m.width, m.height) && f + FPS_SLACK >= m.max_fps()));
     out.sort_by(|a, b| (&a.fourcc, a.width, a.height).cmp(&(&b.fourcc, b.width, b.height))
         .then(a.fps.partial_cmp(&b.fps).unwrap_or(std::cmp::Ordering::Equal)));
     out
@@ -104,19 +111,43 @@ pub fn device_instance(path: &str) -> String {
     }
 }
 
-/// Why a camera that opened won't send, from Media Foundation's error: Some(true) when another app has it (or the
-/// privacy settings keep it from Telescope), so the card says busy rather than silent.
+/// Why a camera that opened won't send, from Media Foundation's error: Some(true) when another app has it, so the card
+/// says busy rather than silent.
 pub fn held_elsewhere(hresult: i32) -> bool {
     matches!(hresult as u32,
-        0xC00D_3EA2 // MF_E_VIDEO_RECORDING_DEVICE_INUSE
+        0xC00D_3EA2 // MF_E_VIDEO_RECORDING_DEVICE_INVALIDATED: the device was taken or lost
         | 0xC00D_3EA3 // MF_E_VIDEO_RECORDING_DEVICE_PREEMPTED
         | 0xC00D_3704 // MF_E_HW_MFT_FAILED_START_STREAMING
-        | 0x8007_0005 // E_ACCESSDENIED: camera access is off in Windows' privacy settings
+        | 0x8007_0020 // ERROR_SHARING_VIOLATION
         | 0x8007_00AA) // ERROR_BUSY
 }
 
+/// Windows (its camera privacy switch) or security software said no to Telescope, which is not another app holding the camera.
+pub fn access_denied(hresult: i32) -> bool {
+    matches!(hresult as u32,
+        0x8007_0005 // E_ACCESSDENIED
+        | 0x8007_04EC) // ERROR_ACCESS_DISABLED_BY_POLICY
+}
+
+/// The first HRESULT written as 0x and eight hex digits in an error's text, which is how the windows crate prints one.
+pub fn hresult_in(text: &str) -> Option<i32> {
+    let lower = text.to_lowercase();
+    lower.match_indices("0x").find_map(|(at, _)| {
+        let digits = lower.get(at + 2..at + 10)?;
+        if !digits.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return None;
+        }
+        u32::from_str_radix(digits, 16).ok().map(|v| v as i32)
+    })
+}
+
+/// Whether an open's error text says access was denied.
+pub fn denied_in(text: &str) -> bool {
+    hresult_in(text).is_some_and(access_denied)
+}
+
 #[cfg(windows)]
-pub use real::{open, present, WindowsScanner};
+pub use real::{device_source, open, present, WindowsScanner};
 
 #[cfg(windows)]
 mod real {
@@ -261,27 +292,46 @@ mod real {
                 if link.is_empty() || is_virtual(&name, "") {
                     continue; // Telescope's own camera and other virtual ones, so a stream can't feed back into itself
                 }
-                let modes = match self.known.remove(&link) {
+                // A camera that gave no modes (blocked by security software, held by an app) is asked again next scan
+                let modes = match self.known.remove(&link).filter(|m| !m.is_empty()) {
                     Some(modes) => modes,
                     None => {
                         // SAFETY: the source is shut down once read, as the activator is
                         unsafe {
-                            let modes = activate.ActivateObject::<IMFMediaSource>().map(|s| {
-                                let modes = super::modes(&types_of(&s));
-                                let _ = s.Shutdown();
-                                modes
-                            }).unwrap_or_default();
+                            let modes = match activate.ActivateObject::<IMFMediaSource>() {
+                                Ok(s) => {
+                                    let modes = super::modes(&types_of(&s));
+                                    let _ = s.Shutdown();
+                                    modes
+                                }
+                                Err(e) => {
+                                    log::info!("Couldn't ask {name} for its modes: {e}");
+                                    Vec::new()
+                                }
+                            };
                             let _ = activate.ShutdownObject();
                             modes
                         }
                     }
                 };
-                known.insert(link.clone(), modes.clone());
+                if !modes.is_empty() {
+                    known.insert(link.clone(), modes.clone());
+                }
                 found.push(Device { key: link.clone(), name, location: link, modes });
             }
             self.known = known;
             tell_apart(found)
         }
+    }
+
+    /// A fresh media source for the camera at link, for reading and setting its picture controls.
+    pub fn device_source(link: &str) -> windows::core::Result<IMFMediaSource> {
+        if !media_foundation_here() {
+            return Err(windows::core::Error::from_hresult(windows::Win32::Foundation::E_FAIL));
+        }
+        start();
+        // SAFETY: COM calls on objects made here
+        unsafe { MFCreateDeviceSource(&video_attributes(Some(link))?) }
     }
 
     /// Whether a camera with this symbolic link is still plugged in.
@@ -488,6 +538,23 @@ mod tests {
     }
 
     #[test]
+    fn raw_copies_decoded_from_mjpeg_at_impossible_rates_are_not_modes() {
+        let got = modes(&[
+            t("MJPG", 1920, 1080, 30.0, 30.0),
+            t("YUY2", 1920, 1080, 30.0, 30.0),
+            t("YUY2", 1920, 1080, 5.0, 5.0),
+            t("MJPG", 640, 480, 30.0, 30.0),
+            t("YUY2", 640, 480, 30.0, 30.0),
+            t("YUY2", 1600, 896, 30.0, 30.0),
+        ]);
+        let has = |f: &str, w: u32, fps: f64| got.iter().any(|m| m.fourcc == f && m.width == w && m.fps.contains(&fps));
+        assert!(has("MJPG", 1920, 30.0) && !has("YUYV", 1920, 30.0), "raw 1080p at 30 isn't the camera's");
+        assert!(has("YUYV", 1920, 5.0), "a real slow raw mode stays");
+        assert!(has("YUYV", 640, 30.0), "raw that fits the cable stays");
+        assert!(has("YUYV", 1600, 30.0), "raw with no MJPEG twin stays");
+    }
+
+    #[test]
     fn the_native_type_asked_for_fits_format_size_and_rate() {
         let types = [t("NV12", 1280, 720, 30.0, 30.0), t("MJPG", 1280, 720, 15.0, 15.0), t("MJPG", 1280, 720, 30.0, 30.0),
                      t("MJPG", 1920, 1080, 5.0, 30.0)];
@@ -510,5 +577,17 @@ mod tests {
         assert_eq!(device_instance(mf), device_instance(ds));
         assert!(held_elsewhere(0xC00D_3EA2_u32 as i32));
         assert!(!held_elsewhere(0x8000_4005_u32 as i32), "E_FAIL is just a failure");
+    }
+
+    #[test]
+    fn a_denied_camera_is_not_a_busy_one() {
+        assert!(access_denied(0x8007_0005_u32 as i32) && !held_elsewhere(0x8007_0005_u32 as i32));
+        assert!(held_elsewhere(0x8007_0020_u32 as i32) && !access_denied(0x8007_0020_u32 as i32));
+        assert_eq!(hresult_in("Access is denied. (0x80070005)"), Some(0x8007_0005_u32 as i32));
+        assert_eq!(hresult_in("Access is denied. (0X8007000A)"), Some(0x8007_000A_u32 as i32));
+        assert_eq!(hresult_in("no code here, 0x12"), None);
+        assert!(denied_in("Access is denied. (0x80070005)"));
+        assert!(!denied_in("the camera stopped (flags 0x4)"));
+        assert!(!denied_in("The device is in use. (0xC00D3EA3)"));
     }
 }

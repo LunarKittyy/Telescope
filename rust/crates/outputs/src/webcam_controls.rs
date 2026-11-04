@@ -255,6 +255,202 @@ impl Controls for LinuxControls {
     }
 }
 
+// ── Windows: DirectShow's picture controls, asked of the Media Foundation source ─────────────────────────
+
+const DS_AUTO: i32 = 1;
+const DS_MANUAL: i32 = 2;
+
+/// One DirectShow property: in IAMCameraControl (camera) or IAMVideoProcAmp, its id there, our name and unit, and the
+/// name of the auto switch that goes with it.
+pub struct DsProp {
+    pub camera: bool,
+    pub id: i32,
+    pub name: &'static str,
+    pub unit: &'static str,
+    pub auto: Option<&'static str>,
+}
+
+const fn ds(camera: bool, id: i32, name: &'static str, unit: &'static str, auto: Option<&'static str>) -> DsProp {
+    DsProp { camera, id, name, unit, auto }
+}
+
+pub const DS_PROPS: [DsProp; 14] = [
+    ds(false, 0, "brightness", "", None), ds(false, 1, "contrast", "", None), ds(false, 2, "hue", "", None),
+    ds(false, 3, "saturation", "", None), ds(false, 4, "sharpness", "", None), ds(false, 5, "gamma", "", None),
+    ds(false, 7, "white_balance", "kelvin", Some("white_balance_auto")), ds(false, 8, "backlight", "", None),
+    ds(false, 9, "gain", "", None),
+    ds(true, 0, "pan", "arcsec", None), ds(true, 1, "tilt", "arcsec", None), ds(true, 3, "zoom", "zoom", None),
+    ds(true, 4, "exposure_time", "log2s", Some("exposure_auto")), ds(true, 6, "focus", "", Some("focus_auto")),
+];
+
+/// What one DirectShow property reported: its range, the modes it can be in (caps) and where it is now.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct DsRead {
+    pub min: i32,
+    pub max: i32,
+    pub step: i32,
+    pub default: i32,
+    pub caps: i32,
+    pub value: i32,
+    pub flags: i32,
+}
+
+/// The controls a property gives the card: the number itself when it can be set by hand over a real range, and its
+/// auto switch when the camera can do auto.
+pub fn ds_controls(prop: &DsProp, r: &DsRead) -> Vec<Control> {
+    let mut out = Vec::new();
+    let auto_on = r.flags & DS_AUTO != 0;
+    let manual = r.caps & DS_MANUAL != 0 || r.caps & DS_AUTO == 0;
+    if manual && r.max > r.min {
+        let mut c = Control::new(prop.name, "int", i64::from(r.min), i64::from(r.max), i64::from(r.step.max(1)), i64::from(r.default), i64::from(r.value));
+        c.unit = prop.unit.into();
+        c.inactive = prop.auto.is_some() && auto_on;
+        out.push(c);
+    }
+    if let (Some(auto), true) = (prop.auto, r.caps & DS_AUTO != 0) {
+        out.push(Control::new(auto, "bool", 0, 1, 1, 1, i64::from(auto_on)));
+    }
+    out
+}
+
+/// The property a control name belongs to, and whether the name is its auto switch.
+pub fn ds_target(name: &str) -> Option<(&'static DsProp, bool)> {
+    DS_PROPS.iter().find_map(|p| if p.name == name { Some((p, false)) } else { (p.auto == Some(name)).then_some((p, true)) })
+}
+
+/// The flags to set a property with: auto on or off for a switch, manual for a number.
+pub fn ds_flags(auto_switch: bool, value: i64) -> i32 {
+    if auto_switch && value != 0 { DS_AUTO } else { DS_MANUAL }
+}
+
+#[cfg(windows)]
+mod win {
+    use super::*;
+    use windows::core::Interface;
+    use windows::Win32::Media::DirectShow::{IAMCameraControl, IAMVideoProcAmp};
+
+    enum Iface {
+        Proc(IAMVideoProcAmp),
+        Cam(IAMCameraControl),
+    }
+
+    impl Iface {
+        fn read(&self, id: i32) -> windows::core::Result<DsRead> {
+            let mut r = DsRead::default();
+            // SAFETY: the pointers are fields of r, which lives through the calls
+            unsafe {
+                match self {
+                    Iface::Proc(p) => p.GetRange(id, &mut r.min, &mut r.max, &mut r.step, &mut r.default, &mut r.caps)?,
+                    Iface::Cam(c) => c.GetRange(id, &mut r.min, &mut r.max, &mut r.step, &mut r.default, &mut r.caps)?,
+                }
+                // A property the camera can read no value of still lists, at its default
+                let got = match self {
+                    Iface::Proc(p) => p.Get(id, &mut r.value, &mut r.flags),
+                    Iface::Cam(c) => c.Get(id, &mut r.value, &mut r.flags),
+                };
+                if got.is_err() {
+                    r.value = r.default;
+                    r.flags = if r.caps & DS_AUTO != 0 { DS_AUTO } else { DS_MANUAL };
+                }
+            }
+            Ok(r)
+        }
+
+        fn write(&self, id: i32, value: i32, flags: i32) -> windows::core::Result<()> {
+            // SAFETY: plain COM calls on a live interface
+            unsafe {
+                match self {
+                    Iface::Proc(p) => p.Set(id, value, flags),
+                    Iface::Cam(c) => c.Set(id, value, flags),
+                }
+            }
+        }
+    }
+
+    /// The controls of one camera, read from a fresh media source on each call (which works while a stream holds the camera).
+    pub struct WinControls {
+        link: String,
+        name: String,
+        logged: String,
+    }
+
+    impl WinControls {
+        pub fn new(link: &str, name: &str) -> WinControls {
+            WinControls { link: link.into(), name: name.into(), logged: String::new() }
+        }
+
+        fn say(&mut self, line: String) {
+            if self.logged != line {
+                log::info!("{line}");
+                self.logged = line;
+            }
+        }
+
+        fn code(e: &windows::core::Error) -> String {
+            format!("{:#010x}", e.code().0 as u32)
+        }
+
+        /// The two interfaces of a fresh source (either may be missing) and what asking for them gave; the source is
+        /// shut down again once the answers are read, so use them in the same call.
+        fn interfaces(&self) -> Result<(windows::Win32::Media::MediaFoundation::IMFMediaSource, Option<Iface>, Option<Iface>, String), String> {
+            let source = crate::webcams_win::device_source(&self.link).map_err(|e| format!("couldn't open the camera: {e}"))?;
+            let proc = source.cast::<IAMVideoProcAmp>();
+            let cam = source.cast::<IAMCameraControl>();
+            let note = format!("IAMVideoProcAmp {}, IAMCameraControl {}",
+                               proc.as_ref().map_or_else(Self::code, |_| "ok".into()),
+                               cam.as_ref().map_or_else(Self::code, |_| "ok".into()));
+            Ok((source, proc.ok().map(Iface::Proc), cam.ok().map(Iface::Cam), note))
+        }
+    }
+
+    impl Controls for WinControls {
+        fn list(&mut self) -> Vec<Control> {
+            let (source, proc, cam, note) = match self.interfaces() {
+                Ok(got) => got,
+                Err(why) => {
+                    self.say(format!("Webcam controls of {}: {why}", self.name));
+                    return Vec::new();
+                }
+            };
+            let (mut out, mut found, mut missing) = (Vec::new(), Vec::new(), Vec::new());
+            for prop in &DS_PROPS {
+                let Some(iface) = (if prop.camera { cam.as_ref() } else { proc.as_ref() }) else { continue };
+                match iface.read(prop.id) {
+                    Ok(r) => {
+                        let made = ds_controls(prop, &r);
+                        found.push(format!("{} {}..{} caps {}{}", prop.name, r.min, r.max, r.caps, if made.is_empty() { " (unusable)" } else { "" }));
+                        out.extend(made);
+                    }
+                    Err(e) => missing.push(format!("{} {}", prop.name, Self::code(&e))),
+                }
+            }
+            // SAFETY: shutting the source down releases the camera
+            let _ = unsafe { source.Shutdown() };
+            self.say(format!("Webcam controls of {}: {note}; found [{}]; refused [{}]", self.name, found.join(", "), missing.join(", ")));
+            out
+        }
+
+        fn set(&mut self, name: &str, value: i64) -> bool {
+            let Some((prop, auto_switch)) = ds_target(name) else { return false };
+            let Ok((source, proc, cam, _)) = self.interfaces() else { return false };
+            let done = match if prop.camera { cam } else { proc } {
+                Some(iface) => {
+                    // An auto switch keeps the value it has; a number goes in by hand
+                    let now = if auto_switch { iface.read(prop.id).map(|r| r.value).unwrap_or(0) } else { value as i32 };
+                    iface.write(prop.id, now, ds_flags(auto_switch, value)).map_err(|e| e.to_string())
+                }
+                None => Err("the camera has no such control".into()),
+            };
+            // SAFETY: shutting the source down releases the camera
+            let _ = unsafe { source.Shutdown() };
+            if let Err(why) = &done {
+                log::debug!("the webcam refused {name} = {value}: {why}");
+            }
+            done.is_ok()
+        }
+    }
+}
+
 /// What reads and sets a webcam's controls on this system, or None where that can't be done.
 pub fn controls_for(device: &crate::webcams::Device) -> Option<Box<dyn Controls>> {
     #[cfg(target_os = "linux")]
@@ -272,7 +468,11 @@ pub fn controls_for(device: &crate::webcams::Device) -> Option<Box<dyn Controls>
             Some(Box::new(Owned(f)) as Box<dyn Ioctl>)
         }))))
     }
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
+    {
+        Some(Box::new(win::WinControls::new(&device.location, &device.name)))
+    }
+    #[cfg(not(any(target_os = "linux", windows)))]
     {
         let _ = device;
         None
@@ -365,6 +565,27 @@ pub(crate) mod tests {
         assert!(c.set("exposure_auto", 0) && fake.values.lock().unwrap()[&0x009A_0901] == 1);
         assert!(c.set("exposure_auto", 1) && fake.values.lock().unwrap()[&0x009A_0901] == 3);
         assert!(!c.set("not_a_control", 1));
+    }
+
+    #[test]
+    fn directshow_properties_become_numbers_and_auto_switches() {
+        let prop = |name| DS_PROPS.iter().find(|p| p.name == name).unwrap();
+        let read = |min, max, step, default, caps, value, flags| DsRead { min, max, step, default, caps, value, flags };
+        // Brightness by hand only
+        let got = ds_controls(prop("brightness"), &read(0, 255, 1, 128, 2, 140, 2));
+        assert_eq!(got, [Control::new("brightness", "int", 0, 255, 1, 128, 140)]);
+        // Focus with auto on: the number is greyed out and the switch is on
+        let got = ds_controls(prop("focus"), &read(0, 250, 0, 0, 3, 40, 1));
+        assert_eq!((got[0].name.as_str(), got[0].step, got[0].inactive), ("focus", 1, true));
+        assert_eq!((got[1].name.as_str(), got[1].kind.as_str(), got[1].value), ("focus_auto", "bool", 1));
+        // Auto-only exposure: just the switch; a flat range is no control
+        let got = ds_controls(prop("exposure_time"), &read(0, 0, 0, 0, 1, 0, 1));
+        assert_eq!(got.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), ["exposure_auto"]);
+        assert!(ds_controls(prop("zoom"), &read(100, 100, 1, 100, 2, 100, 2)).is_empty());
+        assert_eq!(ds_target("exposure_auto").map(|(p, a)| (p.name, a)), Some(("exposure_time", true)));
+        assert_eq!(ds_target("pan").map(|(p, a)| (p.id, a)), Some((0, false)));
+        assert!(ds_target("anti_flicker").is_none());
+        assert_eq!((ds_flags(true, 1), ds_flags(true, 0), ds_flags(false, 5)), (DS_AUTO, DS_MANUAL, DS_MANUAL));
     }
 
     // test_webcam_controls.py::test_mains_frequency_comes_from_where_the_computer_is

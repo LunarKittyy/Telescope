@@ -9,10 +9,11 @@ use telescope_core::media::{Decoded, Decoder, FeedEnd, Packet};
 
 pub const GONE_TEXT: &str = n_("The webcam isn't plugged in. Plug it back in and it carries on.");
 pub const BUSY_TEXT: &str = n_("Another app is using the webcam. Close it there and it starts here.");
+pub const DENIED_TEXT: &str = n_("Windows or your security software is blocking Telescope from the webcam. Allow it there, then start the webcam again.");
 pub const NO_FRAMES_TEXT: &str = n_("The webcam isn't sending anything. Try another resolution or frame rate.");
 
 /// How an opening went, for the plugin: ("ok", the Choice's text), ("busy", the program holding it or ""),
-/// ("gone", "") or ("silent", "").
+/// ("denied", ""), ("gone", "") or ("silent", "").
 pub type Report = std::sync::Arc<dyn Fn(&str, &str) + Send + Sync>;
 
 /// A camera opened for reading: frames come out of read() until it fails.
@@ -81,6 +82,9 @@ pub fn open(deps: &ReaderDeps, waiting: &std::sync::Arc<std::sync::Mutex<String>
             // Gone, held by another program, or opened but silent
             if (deps.locate)().is_none() || !(deps.exists)(&device.location) {
                 return say(GONE_TEXT, "gone", "");
+            }
+            if crate::webcams_win::denied_in(&why) {
+                return say(DENIED_TEXT, "denied", "");
             }
             let user = (deps.users)(&device.location);
             if !user.is_empty() || !opened {
@@ -595,6 +599,13 @@ mod tests {
         let r = rig(Arc::new(|_, _| Err((false, "refused".into()))), "");
         assert!(open(&r.deps, &Arc::default()).is_err());
         assert_eq!(r.reports.lock().unwrap()[0], ("busy".to_string(), String::new()));
+    }
+
+    #[test]
+    fn a_webcam_windows_refuses_says_blocked_not_busy() {
+        let r = rig(Arc::new(|_, _| Err((false, "Access is denied. (0x80070005)".into()))), "");
+        assert_eq!(open(&r.deps, &Arc::default()).err(), Some(tr(DENIED_TEXT)));
+        assert_eq!(*r.reports.lock().unwrap(), [("denied".to_string(), String::new())]);
     }
 
     // test_webcams.py::test_an_open_webcam_that_sends_nothing_says_so

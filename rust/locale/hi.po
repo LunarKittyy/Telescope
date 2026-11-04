@@ -1155,7 +1155,7 @@ msgid "Black and white"
 msgstr "ब्लैक एंड व्हाइट"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:682 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:688 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
 msgid "Auto"
 msgstr "ऑटो"
 
@@ -3137,7 +3137,7 @@ msgstr "फ़ोन ने माइक्रोफ़ोन अस्वीक
 msgid "No microphone"
 msgstr "कोई माइक्रोफ़ोन नहीं"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:679 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:685 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "स्ट्रीम नहीं हो रहा है"
 
@@ -4341,54 +4341,58 @@ msgstr "हो सकता है कोई दूसरा ऐप इसका
 msgid "{app} is using it. Close it there and it starts here."
 msgstr "{app} इसका इस्तेमाल कर रहा है. उसे वहां बंद करें और यह यहां शुरू हो जाएगा."
 
-#: rust/crates/outputs/src/webcam.rs:412
+#: rust/crates/outputs/src/webcam.rs:412 rust/crates/outputs/src/webcam.rs:415
 #, python-brace-format
 msgid "Can't open {name}"
 msgstr "{name} को नहीं खोला जा सकता"
 
-#: rust/crates/outputs/src/webcam.rs:671
+#: rust/crates/outputs/src/webcam.rs:675
 msgid "Not plugged in"
 msgstr "प्लग इन नहीं है"
 
-#: rust/crates/outputs/src/webcam.rs:673
+#: rust/crates/outputs/src/webcam.rs:677
+msgid "Blocked by Windows or security software"
+msgstr ""
+
+#: rust/crates/outputs/src/webcam.rs:679
 msgid "In use by another app"
 msgstr "कोई दूसरा ऐप इसका इस्तेमाल कर रहा है"
 
-#: rust/crates/outputs/src/webcam.rs:673
+#: rust/crates/outputs/src/webcam.rs:679
 #, python-brace-format
 msgid "In use by {app}"
 msgstr "{app} इसका इस्तेमाल कर रहा है"
 
-#: rust/crates/outputs/src/webcam.rs:675
+#: rust/crates/outputs/src/webcam.rs:681
 msgid "Not sending anything"
 msgstr "कुछ नहीं भेज रहा है"
 
-#: rust/crates/outputs/src/webcam.rs:677
+#: rust/crates/outputs/src/webcam.rs:683
 msgid "Starting…"
 msgstr "शुरू हो रहा है…"
 
-#: rust/crates/outputs/src/webcam.rs:690
+#: rust/crates/outputs/src/webcam.rs:696
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
 msgstr "वह साइज़ जो वेबकैम भेजता है; ऑटो 1080p तक का सबसे बड़ा साइज़ चुनता है जिससे फ़्रेम रेट बना रहे"
 
-#: rust/crates/outputs/src/webcam.rs:707
+#: rust/crates/outputs/src/webcam.rs:713
 msgid "Webcams"
 msgstr "वेबकैम"
 
-#: rust/crates/outputs/src/webcam.rs:708
+#: rust/crates/outputs/src/webcam.rs:714
 msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "इस कंप्यूटर में प्लग इन वेबकैम और कैप्चर कार्ड से स्ट्रीमिंग."
 
-#: rust/crates/outputs/src/webcam.rs:709
+#: rust/crates/outputs/src/webcam.rs:715
 msgid "Without it webcams aren't in the phone picker and the Webcam card is gone too."
 msgstr "इसके बिना वेबकैम फ़ोन पिकर में नहीं होंगे और वेबकैम कार्ड भी हट जाएगा."
 
-#: rust/crates/outputs/src/webcam.rs:747
+#: rust/crates/outputs/src/webcam.rs:753
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name} प्लग इन नहीं है"
 
-#: rust/crates/outputs/src/webcam.rs:748
+#: rust/crates/outputs/src/webcam.rs:754
 msgid "Plug it in, or pick another camera."
 msgstr "इसे प्लग इन करें, या कोई दूसरा कैमरा चुनें."
 
@@ -4401,6 +4405,10 @@ msgid "Another app is using the webcam. Close it there and it starts here."
 msgstr "कोई दूसरा ऐप वेबकैम का इस्तेमाल कर रहा है. उसे वहां बंद करें और यह यहां शुरू हो जाएगा."
 
 #: rust/crates/outputs/src/webcam_capture.rs:12
+msgid "Windows or your security software is blocking Telescope from the webcam. Allow it there, then start the webcam again."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture.rs:13
 msgid "The webcam isn't sending anything. Try another resolution or frame rate."
 msgstr "वेबकैम कुछ नहीं भेज रहा है. कोई दूसरा रेज़ोल्यूशन या फ़्रेम रेट आज़माएं."
 
