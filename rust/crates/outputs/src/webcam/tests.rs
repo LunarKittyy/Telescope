@@ -521,6 +521,32 @@ fn exposure_moves_in_stops() {
     assert!((log_pos_to_val(500.0, LOG_STEPS, 3.0, 2047.0) - (3.0f64 * 2047.0).sqrt()).abs() < 0.01);
 }
 
+// The scan every two seconds renders the card too: a list it already shows must not be sent again, or a drag in progress is rebuilt away
+#[test]
+fn an_unchanged_list_of_rows_is_not_sent_again_while_a_slider_is_dragged() {
+    fn last_props(env: &Env) -> Value {
+        let call = env.host.calls.iter().rev().find(|c| c.starts_with("set_ui_props card ")).expect("a card update");
+        serde_json::from_str(call.strip_prefix("set_ui_props card ").unwrap()).unwrap()
+    }
+    let (mut env, _backend) = card();
+    env.plugin.card();
+    env.plugin.rescan(&mut env.host);
+    assert!(last_props(&env).get("rows").is_none(), "nothing changed, so no new rows");
+    let at = env.plugin.rows().iter().position(|r| r["name"] == "gain").unwrap();
+    let event = UiEvent { ui: "card".into(), callback: "control-set".into(), args: vec![json!("gain"), json!(30.0)] };
+    env.plugin.on_ui(&mut env.host, &event);
+    assert!(last_props(&env).get("rows").is_none());
+    assert_eq!(last_props(&env)["readouts"][at], env.plugin.readouts()[at].as_str());
+    env.plugin.rescan(&mut env.host);
+    report(&mut env, "cam", "busy", "zoom");
+    env.plugin.on_event(&mut env.host, &Event::StreamsChanged { count: 0 });
+    assert!(last_props(&env).get("rows").is_none(), "the position the hand left is already on the card");
+    // What the card doesn't know about still gets through
+    env.plugin.reset_controls(&mut env.host);
+    env.plugin.render(&mut env.host);
+    assert!(last_props(&env).get("rows").is_some(), "a reset moved the sliders");
+}
+
 mod card_ui {
     use super::*;
     use i_slint_backend_testing::ElementHandle;

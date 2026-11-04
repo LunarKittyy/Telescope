@@ -300,13 +300,15 @@ pub struct WebcamPlugin {
     modes: HashMap<String, String>,
     selected_key: String,
     stopped: bool,
+    /// The rows the card holds now, so an unchanged list is never sent again (a new list rebuilds every slider and breaks off a drag)
+    shown_rows: Option<Vec<Value>>,
 }
 
 impl WebcamPlugin {
     pub fn new(scan: Scanner, controls_for: ControlsFor, system: System) -> WebcamPlugin {
         WebcamPlugin {
             scan, controls_for, system, shared: Arc::default(), poster: None, controls: HashMap::new(), backends: HashMap::new(),
-            sources: HashMap::new(), states: HashMap::new(), modes: HashMap::new(), selected_key: String::new(), stopped: false,
+            sources: HashMap::new(), states: HashMap::new(), modes: HashMap::new(), selected_key: String::new(), stopped: false, shown_rows: None,
         }
     }
 
@@ -700,9 +702,16 @@ impl WebcamPlugin {
         })
     }
 
-    fn render(&self, host: &mut dyn Host) {
+    fn render(&mut self, host: &mut dyn Host) {
         let streaming = self.sources.get(&self.selected_key).is_some_and(|s| host.is_streaming_from(Some(&s.id())));
-        host.set_ui_props("card", &self.props(streaming));
+        let mut props = self.props(streaming);
+        let rows = props["rows"].as_array().cloned().unwrap_or_default();
+        if self.shown_rows.as_ref() == Some(&rows) {
+            props.as_object_mut().unwrap().remove("rows");
+        } else {
+            self.shown_rows = Some(rows);
+        }
+        host.set_ui_props("card", &props);
     }
 }
 
@@ -733,7 +742,9 @@ impl Plugin for WebcamPlugin {
 
     fn card(&mut self) -> Option<CardSpec> {
         // Where the Camera card is, which hides while a webcam is picked
-        Some(CardSpec { ui: UiSpec { source: SlintSource::Text(UI.into()), component: "WebcamCard".into(), props: self.props(false) }, region: "right".into() })
+        let props = self.props(false);
+        self.shown_rows = props["rows"].as_array().cloned();
+        Some(CardSpec { ui: UiSpec { source: SlintSource::Text(UI.into()), component: "WebcamCard".into(), props }, region: "right".into() })
     }
 
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
@@ -799,6 +810,7 @@ impl Plugin for WebcamPlugin {
                 self.set_control(host, &name, value);
                 if !AUTOS.contains(&name.as_str()) {
                     // Only the readouts: new rows would rebuild the slider being dragged and break the drag off
+                    self.shown_rows = Some(self.rows()); // the slider already is where the hand put it
                     host.set_ui_props("card", &json!({"readouts": self.readouts()}));
                     return;
                 }
