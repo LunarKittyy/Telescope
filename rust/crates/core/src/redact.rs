@@ -1,5 +1,4 @@
-//! What Copy diagnostics hides on top of tokens and addresses: home folders in every spelling, MAC addresses, emails, ids,
-//! computer and device names. diagnostics::sanitize runs all of it on every log line and again over the whole report.
+//! What Copy diagnostics hides on top of tokens and addresses: home folders in every spelling, MAC addresses, emails, ids, computer and device names.
 
 use regex::{Match, Regex};
 use std::collections::HashMap;

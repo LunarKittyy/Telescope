@@ -594,8 +594,7 @@ fn matters(line: &str) -> bool {
     matches!(line.splitn(4, ' ').nth(2), Some("WARNING" | "ERROR" | "CRASH" | "START"))
 }
 
-/// Which of lines (oldest first) go in the report: the last `tail` and every one that matters, and within room bytes: the oldest
-/// ordinary ones go first, then the oldest of the rest. A run left out shows as one line saying how many.
+/// The lines (oldest first) the report keeps: the last `tail` and every one that matters, within room bytes by dropping the oldest ordinary ones first.
 pub fn pick_log(lines: &[String], tail: usize, room: usize) -> Vec<String> {
     let first_tail = lines.len().saturating_sub(tail);
     let mut keep: Vec<bool> = lines.iter().enumerate().map(|(i, l)| i >= first_tail || matters(l)).collect();

@@ -47,9 +47,7 @@ impl DeliveryLog {
     }
 }
 
-/// A stage of a frame took from began_ns until now. It always goes to perf's running summary (what Copy diagnostics shows), and
-/// with TELESCOPE_STRESS_TRACE naming a file also out as one line for rust/tools/stress: the stage, when it began and when it ended.
-/// Lines come from several threads, so each goes out whole in one append.
+/// A stage of a frame took from began_ns until now: it goes to perf's summary, and to the TELESCOPE_STRESS_TRACE file (stage, began, ended) when that's set.
 pub fn span(stage: &'static str, began_ns: u64) {
     static FILE: std::sync::OnceLock<Option<std::fs::File>> = std::sync::OnceLock::new();
     let ended = monotonic_ns();

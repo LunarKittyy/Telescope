@@ -1,5 +1,4 @@
-//! How streaming has been going, for Copy diagnostics: how long each stage of a frame takes, the worst stalls of the session,
-//! a timeline of frame rate and bitrate, and what had the screen when it went wrong. Nothing here keeps a title, a program or an id.
+//! How streaming has been going, for Copy diagnostics: stage times, the worst stalls and a timeline, with nothing that names a window or program.
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
