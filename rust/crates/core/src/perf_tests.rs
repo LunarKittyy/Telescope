@@ -147,8 +147,8 @@ fn the_timeline_is_a_character_for_two_seconds() {
     assert_eq!(lines.len(), 2);
     let fps = lines[0].split('|').nth(1).unwrap();
     assert_eq!(fps.len(), COLUMNS);
-    assert_eq!(&fps[..49], "_".repeat(49), "no stream before it");
-    assert_eq!(&fps[49..], "####= ####_");
+    assert_eq!(&fps[..49], "~".repeat(49), "no stream before it");
+    assert_eq!(&fps[49..], "####= ####~");
     assert!(lines[0].ends_with("min 0.0 max 30.0") && lines[1].ends_with("min 0.0 max 8.0"), "{lines:?}");
     assert!(lines[0].starts_with("fps  |") && lines[1].starts_with("Mbps |"));
     assert!(timeline_from(&[], now).is_empty());

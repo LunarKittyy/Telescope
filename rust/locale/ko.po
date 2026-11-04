@@ -1155,7 +1155,7 @@ msgid "Black and white"
 msgstr "흑백"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:681 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:682 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
 msgid "Auto"
 msgstr "자동"
 
@@ -3137,7 +3137,7 @@ msgstr "휴대폰에서 마이크 연결을 거부했어요(HTTP {code})."
 msgid "No microphone"
 msgstr "마이크 없음"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:678 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/worker.rs:495 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:679 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "스트리밍 중 아님"
 
@@ -3266,148 +3266,148 @@ msgstr "USB로 업데이트"
 msgid "Switch to Automatic"
 msgstr "'자동'으로 전환"
 
-#: rust/crates/link/src/connection.rs:435
+#: rust/crates/link/src/connection.rs:444
 #, python-brace-format
 msgid "Can't reach {phone} over USB"
 msgstr "USB로 {phone}에 연결할 수 없음"
 
-#: rust/crates/link/src/connection.rs:436
+#: rust/crates/link/src/connection.rs:445
 #, python-brace-format
 msgid "Can't reach {phone} over Wi-Fi"
 msgstr "Wi-Fi로 {phone}에 연결할 수 없음"
 
-#: rust/crates/link/src/connection.rs:437
+#: rust/crates/link/src/connection.rs:446
 #, python-brace-format
 msgid "Can't reach {phone}"
 msgstr "{phone}에 연결할 수 없음"
 
-#: rust/crates/link/src/connection.rs:442
+#: rust/crates/link/src/connection.rs:451
 msgid "Check the cable and that Telescope is open on the phone."
 msgstr "케이블 연결 상태와 휴대폰에서 Telescope가 열려 있는지 확인하세요."
 
-#: rust/crates/link/src/connection.rs:443
+#: rust/crates/link/src/connection.rs:452
 msgid "Check that it's on the same network as this computer."
 msgstr "이 컴퓨터와 동일한 네트워크에 연결되어 있는지 확인하세요."
 
-#: rust/crates/link/src/connection.rs:446
+#: rust/crates/link/src/connection.rs:455
 #, python-brace-format
 msgid "Still streaming over {now}, so Connect via stays on {kept}."
 msgstr "아직 {now}(으)로 스트리밍 중이므로 '연결 방법'이 {kept}(으)로 유지돼요."
 
-#: rust/crates/link/src/connection.rs:781
+#: rust/crates/link/src/connection.rs:794
 msgid "Automatic"
 msgstr "자동"
 
-#: rust/crates/link/src/connection.rs:782
+#: rust/crates/link/src/connection.rs:795
 msgid "USB only"
 msgstr "USB 전용"
 
-#: rust/crates/link/src/connection.rs:783
+#: rust/crates/link/src/connection.rs:796
 msgid "Wi-Fi only"
 msgstr "Wi-Fi 전용"
 
-#: rust/crates/link/src/connection.rs:790
+#: rust/crates/link/src/connection.rs:803
 msgid "Computer"
 msgstr "컴퓨터"
 
-#: rust/crates/link/src/connection.rs:801 rust/crates/shell/src/plugins/onboarding.rs:126 rust/crates/system/src/updates_plugin.rs:459
+#: rust/crates/link/src/connection.rs:814 rust/crates/shell/src/plugins/onboarding.rs:126 rust/crates/system/src/updates_plugin.rs:459
 msgid "Checking…"
 msgstr "확인 중…"
 
-#: rust/crates/link/src/connection.rs:803 rust/crates/setup/src/setup.rs:635 rust/crates/setup/src/setup.rs:644 rust/crates/setup/src/setup.rs:663 rust/crates/setup/src/setup.rs:687
+#: rust/crates/link/src/connection.rs:816 rust/crates/setup/src/setup.rs:635 rust/crates/setup/src/setup.rs:644 rust/crates/setup/src/setup.rs:663 rust/crates/setup/src/setup.rs:687
 msgid "Ready"
 msgstr "준비됨"
 
-#: rust/crates/link/src/connection.rs:804
+#: rust/crates/link/src/connection.rs:817
 msgid "Can't reach the phone"
 msgstr "휴대폰에 연결할 수 없음"
 
-#: rust/crates/link/src/connection.rs:805
+#: rust/crates/link/src/connection.rs:818
 msgid "Needs pairing again"
 msgstr "다시 페어링 필요"
 
-#: rust/crates/link/src/connection.rs:806
+#: rust/crates/link/src/connection.rs:819
 msgid "Phone accepts USB only"
 msgstr "휴대폰이 USB 연결만 허용함"
 
-#: rust/crates/link/src/connection.rs:807
+#: rust/crates/link/src/connection.rs:820
 msgid "USB not available"
 msgstr "USB를 사용할 수 없음"
 
-#: rust/crates/link/src/connection.rs:808
+#: rust/crates/link/src/connection.rs:821
 msgid "Phone app needs an update"
 msgstr "휴대폰 앱 업데이트 필요"
 
-#: rust/crates/link/src/connection.rs:809
+#: rust/crates/link/src/connection.rs:822
 msgid "This app needs an update"
 msgstr "이 앱 업데이트 필요"
 
-#: rust/crates/link/src/connection.rs:816
+#: rust/crates/link/src/connection.rs:829
 #, python-brace-format
 msgid "Open Telescope on {phone} and keep it on screen. It needs to be on the same network as this computer, or plugged in with a USB cable."
 msgstr "휴대폰({phone})에서 Telescope를 열고 화면에 띄워 두세요. 이 컴퓨터와 같은 네트워크에 있거나 USB 케이블로 연결되어 있어야 해요."
 
-#: rust/crates/link/src/connection.rs:818
+#: rust/crates/link/src/connection.rs:831
 #, python-brace-format
 msgid "This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add phone and scan the code again."
 msgstr "이번 버전의 Telescope는 {phone}과의 연결을 암호화하므로 다시 페어링해야 해요. '휴대폰 추가'를 누르고 코드를 다시 스캔해 보세요."
 
-#: rust/crates/link/src/connection.rs:819
+#: rust/crates/link/src/connection.rs:832
 #, python-brace-format
 msgid "{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add phone to pair it again."
 msgstr "{phone}에서 이 컴퓨터를 더 이상 인식하지 못해요(휴대폰에서 제거되었거나 앱이 다시 설치됨). 다시 페어링하려면 '휴대폰 추가'를 누르세요."
 
-#: rust/crates/link/src/connection.rs:821
+#: rust/crates/link/src/connection.rs:834
 #, python-brace-format
 msgid "Local only is on in the phone app, so {phone} only accepts USB. Plug it in with a cable, or turn Local only off on the phone."
 msgstr "휴대폰 앱에서 '로컬 전용'이 켜져 있어 {phone}이(가) USB 연결만 허용해요. 케이블로 연결하거나 휴대폰에서 '로컬 전용'을 끄세요."
 
-#: rust/crates/link/src/connection.rs:823
+#: rust/crates/link/src/connection.rs:836
 msgid "USB needs adb, which Add phone can get."
 msgstr "USB 연결에는 adb가 필요해요. '휴대폰 추가'에서 설치할 수 있어요."
 
-#: rust/crates/link/src/connection.rs:828
+#: rust/crates/link/src/connection.rs:841
 msgid "the phone isn't answering over USB"
 msgstr "휴대폰이 USB로 응답하지 않음"
 
-#: rust/crates/link/src/connection.rs:829
+#: rust/crates/link/src/connection.rs:842
 #, python-brace-format
 msgid "The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."
 msgstr "연결이 USB 전용으로 설정되어 있어요: {why}. Wi-Fi를 대신 사용하려면 '자동'으로 전환하세요."
 
-#: rust/crates/link/src/connection.rs:831
+#: rust/crates/link/src/connection.rs:844
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one. Update it on the phone."
 msgstr "{phone}의 Telescope 앱이 이 앱보다 이전 버전이에요. 휴대폰에서 앱을 업데이트하세요."
 
-#: rust/crates/link/src/connection.rs:832
+#: rust/crates/link/src/connection.rs:845
 #, python-brace-format
 msgid "The Telescope app on {phone} is newer than this one. Update Telescope on this computer."
 msgstr "{phone}의 Telescope 앱이 이 앱보다 최신 버전이에요. 이 컴퓨터에서 Telescope를 업데이트하세요."
 
-#: rust/crates/link/src/connection.rs:842
+#: rust/crates/link/src/connection.rs:855
 #, python-brace-format
 msgid "Not using USB: {reason}."
 msgstr "USB를 사용하지 않음: {reason}."
 
-#: rust/crates/link/src/connection.rs:851
+#: rust/crates/link/src/connection.rs:864
 msgid "USB cable"
 msgstr "USB 케이블"
 
-#: rust/crates/link/src/connection.rs:859
+#: rust/crates/link/src/connection.rs:872
 #, python-brace-format
 msgid "The phone is streaming to {computer}."
 msgstr "휴대폰이 {computer}에 스트리밍 중이에요."
 
-#: rust/crates/link/src/connection.rs:860
+#: rust/crates/link/src/connection.rs:873
 msgid "The phone is streaming to another computer."
 msgstr "휴대폰이 다른 컴퓨터에 스트리밍 중이에요."
 
-#: rust/crates/link/src/connection.rs:862
+#: rust/crates/link/src/connection.rs:875
 msgid "Stop it there or on the phone, then try again."
 msgstr "해당 컴퓨터나 휴대폰에서 스트리밍을 중지한 다음 다시 시도해 보세요."
 
-#: rust/crates/link/src/connection.rs:868
+#: rust/crates/link/src/connection.rs:881
 msgid ""
 "The phone hasn't given Telescope camera access.\n"
 "\n"
@@ -3417,7 +3417,7 @@ msgstr ""
 "\n"
 "휴대폰에서 앱을 열고 카메라 권한을 허용해 주세요."
 
-#: rust/crates/link/src/connection.rs:869
+#: rust/crates/link/src/connection.rs:882
 msgid ""
 "The phone is busy starting or stopping a stream.\n"
 "\n"
@@ -3427,7 +3427,7 @@ msgstr ""
 "\n"
 "잠시 후 다시 시도해 보세요."
 
-#: rust/crates/link/src/connection.rs:870
+#: rust/crates/link/src/connection.rs:883
 msgid ""
 "Android didn't let the camera start in the background.\n"
 "\n"
@@ -3437,7 +3437,7 @@ msgstr ""
 "\n"
 "휴대폰에서 Telescope를 화면 맨 앞으로 가져온 후 다시 시도해 보세요."
 
-#: rust/crates/link/src/connection.rs:871 rust/crates/link/src/connection.rs:978
+#: rust/crates/link/src/connection.rs:884 rust/crates/link/src/connection.rs:991
 msgid ""
 "The phone doesn't recognise this computer anymore.\n"
 "\n"
@@ -3447,37 +3447,37 @@ msgstr ""
 "\n"
 "다시 페어링하려면 '휴대폰 추가'를 누르세요."
 
-#: rust/crates/link/src/connection.rs:873
+#: rust/crates/link/src/connection.rs:886
 msgid "unknown error"
 msgstr "알 수 없는 오류"
 
-#: rust/crates/link/src/connection.rs:874
+#: rust/crates/link/src/connection.rs:887
 #, python-brace-format
 msgid "The phone refused to start streaming ({error})."
 msgstr "휴대폰에서 스트리밍 시작을 거부했어요({error})."
 
-#: rust/crates/link/src/connection.rs:972 rust/crates/link/src/service.rs:331
+#: rust/crates/link/src/connection.rs:985 rust/crates/link/src/service.rs:331
 msgid "Lost the connection to the phone. Try again."
 msgstr "휴대폰과의 연결이 끊어졌어요. 다시 시도해 보세요."
 
-#: rust/crates/link/src/connection.rs:979
+#: rust/crates/link/src/connection.rs:992
 msgid "Couldn't reach the phone. Open Telescope on it and try again."
 msgstr "휴대폰에 연결할 수 없었어요. 휴대폰에서 Telescope를 연 후 다시 시도해 보세요."
 
-#: rust/crates/link/src/connection.rs:989
+#: rust/crates/link/src/connection.rs:1002
 msgid "Starting the phone's camera..."
 msgstr "휴대폰 카메라 시작 중..."
 
-#: rust/crates/link/src/connection.rs:1024 rust/crates/link/src/connection.rs:1033
+#: rust/crates/link/src/connection.rs:1037 rust/crates/link/src/connection.rs:1046
 msgid "Lost contact with the phone while its camera was starting."
 msgstr "카메라를 시작하는 도중 휴대폰과의 연결이 끊어졌어요."
 
-#: rust/crates/link/src/connection.rs:1035
+#: rust/crates/link/src/connection.rs:1048
 #, python-brace-format
 msgid "Phone went quiet for a moment, still waiting... ({seconds}s)"
 msgstr "휴대폰 응답이 일시적으로 중단되었어요. 대기 중... ({seconds}초)"
 
-#: rust/crates/link/src/connection.rs:1042
+#: rust/crates/link/src/connection.rs:1055
 msgid ""
 "The phone's camera stopped before it finished starting.\n"
 "\n"
@@ -3487,17 +3487,17 @@ msgstr ""
 "\n"
 "휴대폰에 권한 요청이나 오류가 표시되어 있는지 확인하세요."
 
-#: rust/crates/link/src/connection.rs:1044
+#: rust/crates/link/src/connection.rs:1057
 #, python-brace-format
 msgid "Phone's camera is opening... ({seconds}s)"
 msgstr "휴대폰 카메라 여는 중... ({seconds}초)"
 
-#: rust/crates/link/src/connection.rs:1044
+#: rust/crates/link/src/connection.rs:1057
 #, python-brace-format
 msgid "Waiting for the phone's camera... ({seconds}s)"
 msgstr "휴대폰 카메라 대기 중... ({seconds}초)"
 
-#: rust/crates/link/src/connection.rs:1047
+#: rust/crates/link/src/connection.rs:1060
 msgid ""
 "The phone's camera didn't finish starting in time.\n"
 "\n"
@@ -4332,63 +4332,63 @@ msgstr "60 Hz"
 msgid "Check that it's plugged in."
 msgstr "연결되어 있는지 확인하세요."
 
-#: rust/crates/outputs/src/webcam.rs:407
+#: rust/crates/outputs/src/webcam.rs:408
 msgid "Another app may be using it. Close it there and it starts here."
 msgstr "다른 앱에서 사용 중일 수 있어요. 해당 앱에서 닫으면 여기에서 시작돼요."
 
-#: rust/crates/outputs/src/webcam.rs:409
+#: rust/crates/outputs/src/webcam.rs:410
 #, python-brace-format
 msgid "{app} is using it. Close it there and it starts here."
 msgstr "{app}에서 사용 중이에요. 해당 앱에서 닫으면 여기에서 시작돼요."
 
-#: rust/crates/outputs/src/webcam.rs:411
+#: rust/crates/outputs/src/webcam.rs:412
 #, python-brace-format
 msgid "Can't open {name}"
 msgstr "{name}을(를) 열 수 없음"
 
-#: rust/crates/outputs/src/webcam.rs:670
+#: rust/crates/outputs/src/webcam.rs:671
 msgid "Not plugged in"
 msgstr "연결되지 않음"
 
-#: rust/crates/outputs/src/webcam.rs:672
+#: rust/crates/outputs/src/webcam.rs:673
 msgid "In use by another app"
 msgstr "다른 앱에서 사용 중"
 
-#: rust/crates/outputs/src/webcam.rs:672
+#: rust/crates/outputs/src/webcam.rs:673
 #, python-brace-format
 msgid "In use by {app}"
 msgstr "{app}에서 사용 중"
 
-#: rust/crates/outputs/src/webcam.rs:674
+#: rust/crates/outputs/src/webcam.rs:675
 msgid "Not sending anything"
 msgstr "아무것도 전송하지 않음"
 
-#: rust/crates/outputs/src/webcam.rs:676
+#: rust/crates/outputs/src/webcam.rs:677
 msgid "Starting…"
 msgstr "시작 중…"
 
-#: rust/crates/outputs/src/webcam.rs:689
+#: rust/crates/outputs/src/webcam.rs:690
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
 msgstr "웹캠이 전송하는 크기예요. 자동은 프레임 레이트를 유지하는 최대 1080p까지의 가장 큰 크기를 선택해요"
 
-#: rust/crates/outputs/src/webcam.rs:706
+#: rust/crates/outputs/src/webcam.rs:707
 msgid "Webcams"
 msgstr "웹캠"
 
-#: rust/crates/outputs/src/webcam.rs:707
+#: rust/crates/outputs/src/webcam.rs:708
 msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "이 컴퓨터에 연결된 웹캠과 캡처 카드로 스트리밍해요."
 
-#: rust/crates/outputs/src/webcam.rs:708
+#: rust/crates/outputs/src/webcam.rs:709
 msgid "Without it webcams aren't in the phone picker and the Webcam card is gone too."
 msgstr "이 플러그인이 없으면 휴대폰 선택기에 웹캠이 나타나지 않으며 웹캠 카드도 사라져요."
 
-#: rust/crates/outputs/src/webcam.rs:746
+#: rust/crates/outputs/src/webcam.rs:747
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name}이(가) 연결되어 있지 않음"
 
-#: rust/crates/outputs/src/webcam.rs:747
+#: rust/crates/outputs/src/webcam.rs:748
 msgid "Plug it in, or pick another camera."
 msgstr "케이블을 연결하거나 다른 카메라를 선택하세요."
 
@@ -6230,7 +6230,7 @@ msgstr "휴대폰 카메라 시작 중…"
 msgid "Couldn't start the phone's camera"
 msgstr "휴대폰 카메라를 시작할 수 없었어요"
 
-#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:811
+#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:814
 msgid "Connecting..."
 msgstr "연결 중..."
 
@@ -6437,38 +6437,38 @@ msgstr "중지"
 msgid "Stream error: {error}"
 msgstr "스트림 오류: {error}"
 
-#: rust/crates/shell/src/worker.rs:811
+#: rust/crates/shell/src/worker.rs:814
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "{url}에 연결 중..."
 
-#: rust/crates/shell/src/worker.rs:821
+#: rust/crates/shell/src/worker.rs:824
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "휴대폰의 스트림에 연결할 수 없어요. {seconds}초 후 다시 시도하는 중…"
 
-#: rust/crates/shell/src/worker.rs:833
+#: rust/crates/shell/src/worker.rs:836
 msgid "Waiting for the first frame…"
 msgstr "첫 프레임 대기 중…"
 
-#: rust/crates/shell/src/worker.rs:920
+#: rust/crates/shell/src/worker.rs:923
 msgid "Stream reconnected"
 msgstr "스트림이 다시 연결됨"
 
-#: rust/crates/shell/src/worker.rs:989
+#: rust/crates/shell/src/worker.rs:992
 msgid "The video is paused while the phone takes a photo"
 msgstr "휴대폰에서 사진을 촬영하는 동안 비디오가 일시 정지됨"
 
-#: rust/crates/shell/src/worker.rs:991 rust/crates/shell/src/worker.rs:997
+#: rust/crates/shell/src/worker.rs:994 rust/crates/shell/src/worker.rs:1000
 msgid "Stream dropped - reconnecting"
 msgstr "스트림 끊김 - 다시 연결 중"
 
-#: rust/crates/shell/src/worker.rs:1103 rust/crates/shell/src/worker.rs:1149
+#: rust/crates/shell/src/worker.rs:1106 rust/crates/shell/src/worker.rs:1155
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "가상 카메라 오류: {error}"
 
-#: rust/crates/shell/src/worker.rs:1114
+#: rust/crates/shell/src/worker.rs:1117
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{camera}에 {size}, {fps} fps로 스트리밍 중"

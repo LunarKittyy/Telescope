@@ -8,6 +8,18 @@ fn state(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
     pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
 }
 
+/// A word for each number, since lines that differ only in their numbers collapse into one.
+fn letters(mut i: usize) -> String {
+    let mut out = String::new();
+    loop {
+        out.push((b'g' + (i % 20) as u8) as char);
+        i /= 20;
+        if i == 0 {
+            return out;
+        }
+    }
+}
+
 /// A line without its date and time.
 fn body(line: &str) -> &str {
     line.splitn(3, ' ').nth(2).unwrap()
@@ -95,14 +107,14 @@ fn rotates_and_keeps_one_previous_file() {
     let path = dir.join("telescope.log");
     let events = EventLog::with_file(&path, 2000);
     for i in 0..200 {
-        events.note(&format!("event {i}"));
+        events.note(&format!("event {}", letters(i)));
     }
     events.close();
     assert!(fs::metadata(&path).unwrap().len() < 2200);
     assert!(dir.join("telescope.log.1").exists());
     assert!(!dir.join("telescope.log.2").exists());
     let reread = EventLog::with_file(&path, MAX_BYTES);
-    assert!(reread.lines(REPORT_LINES).last().unwrap().ends_with("event 199"));
+    assert!(reread.lines(REPORT_LINES).last().unwrap().ends_with(&format!("event {}", letters(199))));
     reread.close();
 }
 
@@ -115,22 +127,25 @@ fn a_log_that_cant_be_rotated_keeps_being_written() {
     fs::write(dir.join("telescope.log.1").join("held"), "x").unwrap();
     let events = EventLog::with_file(&path, 200);
     for i in 0..20 {
-        events.note(&format!("event {i}"));
+        events.note(&format!("event {}", letters(i)));
     }
     events.close();
-    assert!(fs::read_to_string(&path).unwrap().contains("event 19"));
+    assert!(fs::read_to_string(&path).unwrap().contains(&format!("event {}", letters(19))));
 }
 
 #[test]
 fn report_is_bounded() {
     let events = EventLog::with_file(&scratch_dir("diag").join("telescope.log"), MAX_BYTES);
-    for i in 0..1000 {
-        events.note(&format!("event {i} {}", "x".repeat(1000)));
+    for i in 0..2000 {
+        events.note(&format!("event {} {}", letters(i), "x".repeat(1000)));
+        events.note(&format!("event {} different {}", letters(i), "y".repeat(1000)));
     }
     let lines = events.lines(REPORT_LINES);
     assert_eq!(lines.len(), REPORT_LINES);
-    // Fits a GitHub issue field
-    assert!(lines.iter().map(|l| l.len() + 1).sum::<usize>() < 65536);
+    // Fits a GitHub comment with room to spare
+    assert!(lines.iter().map(|l| l.len() + 1).sum::<usize>() < 65536 * 3);
+    let report = report_for(&events, "0.5.0 dev", "", &[], "");
+    assert!(report.len() < REPORT_BUDGET + 2000, "{} bytes", report.len());
     events.close();
 }
 
@@ -138,11 +153,11 @@ fn report_is_bounded() {
 fn without_a_file_it_keeps_the_last_lines_in_memory() {
     let events = EventLog::new();
     for i in 0..500 {
-        events.note(&format!("event {i}"));
+        events.note(&format!("event {}", letters(i)));
     }
     let lines = events.lines(REPORT_LINES);
     assert_eq!(lines.len(), REPORT_LINES);
-    assert!(lines.last().unwrap().ends_with("event 499"));
+    assert!(lines.last().unwrap().ends_with(&format!("event {}", letters(499))));
 }
 
 #[test]
@@ -252,7 +267,7 @@ fn report() {
     assert!(lines.contains(&"Connection: usb"));
     assert!(lines.contains(&"Phone app: 0.5.0"));
     assert!(lines.iter().any(|l| l.contains("Slint wayland")));
-    assert!(lines.contains(&format!("Log (last {REPORT_LINES} lines):").as_str()));
+    assert!(lines.contains(&"Log (1 lines):"));
     assert!(!text.contains("192.168"));
 }
 
@@ -375,4 +390,96 @@ fn a_zero_width_joiner_doesnt_hide_a_secret() {
     assert_eq!(sanitize_at("code=\u{200d}AbCdEfGhIjKlMnOpQrStUvWx", None), "code=\u{200d}<redacted>");
     assert_eq!(sanitize_at("at \u{200d}10.0.0.5\u{200d}", None), "at \u{200d}<ip>\u{200d}");
     assert_eq!(sanitize_at("see x\u{200d}http://host/p", None), "see x\u{200d}<url>");
+}
+
+#[test]
+fn lines_that_differ_only_in_numbers_collapse_and_keep_the_last_numbers() {
+    let events = EventLog::new();
+    for fps in ["29.8", "30.1", "12.0", "28.5"] {
+        events.note(&format!("Status: {fps} fps 1920x1080"));
+    }
+    events.note("Status: stopped");
+    let lines = events.lines(REPORT_LINES);
+    assert_eq!(lines.len(), 3, "{lines:?}");
+    assert!(lines[0].ends_with("NOTE Status: 29.8 fps 1920x1080"));
+    assert_eq!(lines[1], "    (repeated 3 more times, last: Status: 28.5 fps 1920x1080)");
+    // A run of identical lines says no more than it did
+    let same = EventLog::new();
+    same.note("Status: 5 fps");
+    same.note("Status: 5 fps");
+    same.note("Status: 6 fps");
+    same.note("Status: 5 fps");
+    assert_eq!(same.lines(REPORT_LINES)[1], "    (repeated 3 more times)");
+    let two = EventLog::new();
+    two.note("Status: 5 fps");
+    two.note("Status: 6 fps");
+    assert_eq!(two.lines(REPORT_LINES)[1], "    (repeated 1 more times, last: Status: 6 fps)");
+    // Different words are different lines
+    let words = EventLog::new();
+    words.note("Plugin 3 failed");
+    words.note("Plugin 3 recovered");
+    assert_eq!(words.lines(REPORT_LINES).len(), 2);
+}
+
+#[test]
+fn numbers_are_taken_out_whole() {
+    assert_eq!(without_numbers("p95 12.3 ms, max 2048 ms at 1920x1080, v1.2.3, 7."), "p# # ms, max # ms at #x#, v#, #.");
+}
+
+fn log_line(i: usize, level: &str) -> String {
+    format!("2026-11-04 12:00:00 {level} line {i} {}", "x".repeat(80))
+}
+
+#[test]
+fn the_report_keeps_the_tail_and_every_warning_and_drops_ordinary_lines_first() {
+    let lines: Vec<String> = (0..1000).map(|i| log_line(i, if i % 100 == 7 { "WARNING" } else { "INFO" })).collect();
+    let all = pick_log(&lines, 400, usize::MAX);
+    // 400 of the tail, and the warnings before it (7, 107 ... 507: six), with the runs between left out
+    assert_eq!(all.iter().filter(|l| !l.starts_with("    (")).count(), 406);
+    assert!(all.iter().any(|l| l.contains("line 107 ")) && !all.iter().any(|l| l.contains("line 108 ")));
+    assert!(all.iter().any(|l| l.starts_with("    (") && l.ends_with("lines left out)")));
+    // Short of room, the oldest ordinary lines go first and warnings stay longest
+    let room = 150 * 120;
+    let tight = pick_log(&lines, 400, room);
+    assert!(tight.iter().map(|l| l.len() + 1).sum::<usize>() <= room + 10 * 40, "{}", tight.iter().map(|l| l.len() + 1).sum::<usize>());
+    assert!(tight.iter().any(|l| l.contains("line 999 ")) && !tight.iter().any(|l| l.contains("line 600 ")));
+    assert!(tight.iter().filter(|l| l.contains("WARNING")).count() >= 6 || tight.last().unwrap().contains("line 999 "));
+    let none_left = pick_log(&lines, 10, 50);
+    assert!(none_left.iter().all(|l| l.starts_with("    (") || l.contains("line 99")), "{none_left:?}");
+}
+
+#[test]
+fn a_whole_report_fits_a_comment_and_has_nothing_private_in_it() {
+    let home = std::env::home_dir().unwrap_or_else(|| "/home/luna".into());
+    let home = home.display().to_string();
+    let events = EventLog::new();
+    for i in 0..3000 {
+        let w = letters(i);
+        events.note(&format!("Status: Streaming {w} fps to http://192.168.1.{}:8765/v1/state from {home}/.config", i % 250));
+        events.add("INFO", &format!("telescope::worker: frame {w} took {i} ms, phone 10.0.0.{} mac aa:bb:cc:dd:ee:{:02x} luna@example.com", i % 200, i % 256));
+        if i % 200 == 0 {
+            events.add("WARNING", &format!("telescope::link: unreachable {w} 2001:db8:85a3::8a2e:370:{i} at {home}\\AppData serial 0A1B2C3D4E5F{i}"));
+        }
+    }
+    let state = state(&[("Connection", "wifi"), ("Webcams", &format!("{home}/cam.local (4 modes)")), ("Phone app", "0.5.0")]);
+    let report = report_for(&events, "5.0.1", "38f8aff7aa", &state, "wayland");
+    assert!(report.len() < REPORT_BUDGET + 2000, "{} bytes", report.len());
+    assert!(report.chars().count() < 65_536);
+    assert!(report.contains("Machine: ") && report.contains("Graphics: ") && report.contains("Worst moments"), "{}", &report[..600.min(report.len())]);
+    let ip = regex::Regex::new(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b").unwrap();
+    let mac = regex::Regex::new(r"(?i)\b[0-9a-f]{2}(:[0-9a-f]{2}){5}\b").unwrap();
+    let email = regex::Regex::new(r"(?i)[a-z0-9._-]+@[a-z0-9-]+\.[a-z]+").unwrap();
+    for line in report.lines() {
+        assert!(!line.contains(&home) && !line.to_lowercase().contains(&home.to_lowercase()), "home path: {line}");
+        assert!(!ip.is_match(line) && !mac.is_match(line) && !email.is_match(line) && !line.contains("2001:db8"), "address: {line}");
+    }
+    // The warnings from the start are still there
+    assert!(report.contains("WARNING telescope::link: unreachable"));
+}
+
+#[test]
+fn the_final_pass_hides_what_a_section_let_through() {
+    let report = "Machine: fine\nWebcams: C:\\Users\\Someone\\x\nmail me@example.org\n";
+    let out = sanitize_lines(report);
+    assert!(out.contains("<email>") && out.contains("<user>"), "{out}");
 }

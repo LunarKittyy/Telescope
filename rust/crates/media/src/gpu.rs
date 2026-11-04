@@ -137,6 +137,7 @@ impl Gpu {
         }
         let adapter = found.ok_or(why)?;
         let info = adapter.get_info();
+        telescope_core::machine::set_gpu(info.vendor, &format!("{:?}", info.device_type), &info.name, &format!("{:?}", info.backend), &format!("{} {}", info.driver, info.driver_info));
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("telescope frames"),
             required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),

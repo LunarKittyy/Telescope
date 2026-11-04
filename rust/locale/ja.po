@@ -1155,7 +1155,7 @@ msgid "Black and white"
 msgstr "白黒"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:681 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:682 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
 msgid "Auto"
 msgstr "自動"
 
@@ -3137,7 +3137,7 @@ msgstr "スマートフォンがマイクを拒否しました（HTTP {code}）�
 msgid "No microphone"
 msgstr "マイクなし"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:678 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/worker.rs:495 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:679 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "ストリーミング停止中"
 
@@ -3266,148 +3266,148 @@ msgstr "USB経由でアップデート"
 msgid "Switch to Automatic"
 msgstr "「自動」に切り替え"
 
-#: rust/crates/link/src/connection.rs:435
+#: rust/crates/link/src/connection.rs:444
 #, python-brace-format
 msgid "Can't reach {phone} over USB"
 msgstr "USB経由で{phone}に接続できません"
 
-#: rust/crates/link/src/connection.rs:436
+#: rust/crates/link/src/connection.rs:445
 #, python-brace-format
 msgid "Can't reach {phone} over Wi-Fi"
 msgstr "Wi-Fi経由で{phone}に接続できません"
 
-#: rust/crates/link/src/connection.rs:437
+#: rust/crates/link/src/connection.rs:446
 #, python-brace-format
 msgid "Can't reach {phone}"
 msgstr "{phone}に接続できません"
 
-#: rust/crates/link/src/connection.rs:442
+#: rust/crates/link/src/connection.rs:451
 msgid "Check the cable and that Telescope is open on the phone."
 msgstr "ケーブルを確認し、スマートフォンでTelescopeが開いていることを確認してください。"
 
-#: rust/crates/link/src/connection.rs:443
+#: rust/crates/link/src/connection.rs:452
 msgid "Check that it's on the same network as this computer."
 msgstr "このコンピューターと同じネットワークに接続されていることを確認してください。"
 
-#: rust/crates/link/src/connection.rs:446
+#: rust/crates/link/src/connection.rs:455
 #, python-brace-format
 msgid "Still streaming over {now}, so Connect via stays on {kept}."
 msgstr "{now}経由でストリーミング中のため、「接続方法」は{kept}のまま維持されます。"
 
-#: rust/crates/link/src/connection.rs:781
+#: rust/crates/link/src/connection.rs:794
 msgid "Automatic"
 msgstr "自動"
 
-#: rust/crates/link/src/connection.rs:782
+#: rust/crates/link/src/connection.rs:795
 msgid "USB only"
 msgstr "USBのみ"
 
-#: rust/crates/link/src/connection.rs:783
+#: rust/crates/link/src/connection.rs:796
 msgid "Wi-Fi only"
 msgstr "Wi-Fiのみ"
 
-#: rust/crates/link/src/connection.rs:790
+#: rust/crates/link/src/connection.rs:803
 msgid "Computer"
 msgstr "コンピューター"
 
-#: rust/crates/link/src/connection.rs:801 rust/crates/shell/src/plugins/onboarding.rs:126 rust/crates/system/src/updates_plugin.rs:459
+#: rust/crates/link/src/connection.rs:814 rust/crates/shell/src/plugins/onboarding.rs:126 rust/crates/system/src/updates_plugin.rs:459
 msgid "Checking…"
 msgstr "確認中…"
 
-#: rust/crates/link/src/connection.rs:803 rust/crates/setup/src/setup.rs:635 rust/crates/setup/src/setup.rs:644 rust/crates/setup/src/setup.rs:663 rust/crates/setup/src/setup.rs:687
+#: rust/crates/link/src/connection.rs:816 rust/crates/setup/src/setup.rs:635 rust/crates/setup/src/setup.rs:644 rust/crates/setup/src/setup.rs:663 rust/crates/setup/src/setup.rs:687
 msgid "Ready"
 msgstr "準備完了"
 
-#: rust/crates/link/src/connection.rs:804
+#: rust/crates/link/src/connection.rs:817
 msgid "Can't reach the phone"
 msgstr "スマートフォンに接続できません"
 
-#: rust/crates/link/src/connection.rs:805
+#: rust/crates/link/src/connection.rs:818
 msgid "Needs pairing again"
 msgstr "再度ペアリングが必要です"
 
-#: rust/crates/link/src/connection.rs:806
+#: rust/crates/link/src/connection.rs:819
 msgid "Phone accepts USB only"
 msgstr "スマートフォンはUSB接続のみ受け付けます"
 
-#: rust/crates/link/src/connection.rs:807
+#: rust/crates/link/src/connection.rs:820
 msgid "USB not available"
 msgstr "USBが利用できません"
 
-#: rust/crates/link/src/connection.rs:808
+#: rust/crates/link/src/connection.rs:821
 msgid "Phone app needs an update"
 msgstr "スマートフォン版アプリのアップデートが必要です"
 
-#: rust/crates/link/src/connection.rs:809
+#: rust/crates/link/src/connection.rs:822
 msgid "This app needs an update"
 msgstr "このアプリのアップデートが必要です"
 
-#: rust/crates/link/src/connection.rs:816
+#: rust/crates/link/src/connection.rs:829
 #, python-brace-format
 msgid "Open Telescope on {phone} and keep it on screen. It needs to be on the same network as this computer, or plugged in with a USB cable."
 msgstr "{phone}でTelescopeを開き、画面に表示したままにしてください。このコンピューターと同じネットワークに接続するか、USBケーブルで接続する必要があります。"
 
-#: rust/crates/link/src/connection.rs:818
+#: rust/crates/link/src/connection.rs:831
 #, python-brace-format
 msgid "This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add phone and scan the code again."
 msgstr "このバージョンのTelescopeは{phone}との接続を暗号化するため、新しいペアリングが必要です。「スマートフォンを追加」をクリックして、コードを再度スキャンしてください。"
 
-#: rust/crates/link/src/connection.rs:819
+#: rust/crates/link/src/connection.rs:832
 #, python-brace-format
 msgid "{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add phone to pair it again."
 msgstr "{phone}がこのコンピューターを認識できなくなりました（スマートフォン側で削除されたか、アプリが再インストールされました）。「スマートフォンを追加」をクリックして、再度ペアリングしてください。"
 
-#: rust/crates/link/src/connection.rs:821
+#: rust/crates/link/src/connection.rs:834
 #, python-brace-format
 msgid "Local only is on in the phone app, so {phone} only accepts USB. Plug it in with a cable, or turn Local only off on the phone."
 msgstr "スマートフォン版アプリで「ローカルのみ」がオンになっているため、{phone}はUSB接続のみを受け付けます。ケーブルで接続するか、スマートフォンで「ローカルのみ」をオフにしてください。"
 
-#: rust/crates/link/src/connection.rs:823
+#: rust/crates/link/src/connection.rs:836
 msgid "USB needs adb, which Add phone can get."
 msgstr "USB接続にはadbが必要です。「スマートフォンを追加」から取得できます。"
 
-#: rust/crates/link/src/connection.rs:828
+#: rust/crates/link/src/connection.rs:841
 msgid "the phone isn't answering over USB"
 msgstr "スマートフォンがUSB経由で応答しません"
 
-#: rust/crates/link/src/connection.rs:829
+#: rust/crates/link/src/connection.rs:842
 #, python-brace-format
 msgid "The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."
 msgstr "接続が「USBのみ」に設定されています: {why}。Wi-Fiを使用するには「自動」に切り替えてください。"
 
-#: rust/crates/link/src/connection.rs:831
+#: rust/crates/link/src/connection.rs:844
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one. Update it on the phone."
 msgstr "{phone}のTelescopeアプリは、このアプリより古いバージョンです。スマートフォン側でアップデートしてください。"
 
-#: rust/crates/link/src/connection.rs:832
+#: rust/crates/link/src/connection.rs:845
 #, python-brace-format
 msgid "The Telescope app on {phone} is newer than this one. Update Telescope on this computer."
 msgstr "{phone}のTelescopeアプリは、このアプリより新しいバージョンです。このコンピューターのTelescopeをアップデートしてください。"
 
-#: rust/crates/link/src/connection.rs:842
+#: rust/crates/link/src/connection.rs:855
 #, python-brace-format
 msgid "Not using USB: {reason}."
 msgstr "USBを使用していません: {reason}。"
 
-#: rust/crates/link/src/connection.rs:851
+#: rust/crates/link/src/connection.rs:864
 msgid "USB cable"
 msgstr "USBケーブル"
 
-#: rust/crates/link/src/connection.rs:859
+#: rust/crates/link/src/connection.rs:872
 #, python-brace-format
 msgid "The phone is streaming to {computer}."
 msgstr "スマートフォンは{computer}にストリーミング中です。"
 
-#: rust/crates/link/src/connection.rs:860
+#: rust/crates/link/src/connection.rs:873
 msgid "The phone is streaming to another computer."
 msgstr "スマートフォンは他のコンピューターにストリーミング中です。"
 
-#: rust/crates/link/src/connection.rs:862
+#: rust/crates/link/src/connection.rs:875
 msgid "Stop it there or on the phone, then try again."
 msgstr "そのコンピューターまたはスマートフォンで停止してから、再試行してください。"
 
-#: rust/crates/link/src/connection.rs:868
+#: rust/crates/link/src/connection.rs:881
 msgid ""
 "The phone hasn't given Telescope camera access.\n"
 "\n"
@@ -3417,7 +3417,7 @@ msgstr ""
 "\n"
 "スマートフォンでアプリを開き、カメラの権限を許可してください。"
 
-#: rust/crates/link/src/connection.rs:869
+#: rust/crates/link/src/connection.rs:882
 msgid ""
 "The phone is busy starting or stopping a stream.\n"
 "\n"
@@ -3427,7 +3427,7 @@ msgstr ""
 "\n"
 "しばらくしてから再試行してください。"
 
-#: rust/crates/link/src/connection.rs:870
+#: rust/crates/link/src/connection.rs:883
 msgid ""
 "Android didn't let the camera start in the background.\n"
 "\n"
@@ -3437,7 +3437,7 @@ msgstr ""
 "\n"
 "スマートフォンでTelescopeを前面に表示して、再試行してください。"
 
-#: rust/crates/link/src/connection.rs:871 rust/crates/link/src/connection.rs:978
+#: rust/crates/link/src/connection.rs:884 rust/crates/link/src/connection.rs:991
 msgid ""
 "The phone doesn't recognise this computer anymore.\n"
 "\n"
@@ -3447,37 +3447,37 @@ msgstr ""
 "\n"
 "「スマートフォンを追加」をクリックして、再度ペアリングしてください。"
 
-#: rust/crates/link/src/connection.rs:873
+#: rust/crates/link/src/connection.rs:886
 msgid "unknown error"
 msgstr "不明なエラー"
 
-#: rust/crates/link/src/connection.rs:874
+#: rust/crates/link/src/connection.rs:887
 #, python-brace-format
 msgid "The phone refused to start streaming ({error})."
 msgstr "スマートフォンがストリーミングの開始を拒否しました（{error}）。"
 
-#: rust/crates/link/src/connection.rs:972 rust/crates/link/src/service.rs:331
+#: rust/crates/link/src/connection.rs:985 rust/crates/link/src/service.rs:331
 msgid "Lost the connection to the phone. Try again."
 msgstr "スマートフォンへの接続が切断されました。再試行してください。"
 
-#: rust/crates/link/src/connection.rs:979
+#: rust/crates/link/src/connection.rs:992
 msgid "Couldn't reach the phone. Open Telescope on it and try again."
 msgstr "スマートフォンに接続できませんでした。スマートフォンでTelescopeを開いて再試行してください。"
 
-#: rust/crates/link/src/connection.rs:989
+#: rust/crates/link/src/connection.rs:1002
 msgid "Starting the phone's camera..."
 msgstr "スマートフォンのカメラを起動中..."
 
-#: rust/crates/link/src/connection.rs:1024 rust/crates/link/src/connection.rs:1033
+#: rust/crates/link/src/connection.rs:1037 rust/crates/link/src/connection.rs:1046
 msgid "Lost contact with the phone while its camera was starting."
 msgstr "カメラの起動中にスマートフォンとの通信が切断されました。"
 
-#: rust/crates/link/src/connection.rs:1035
+#: rust/crates/link/src/connection.rs:1048
 #, python-brace-format
 msgid "Phone went quiet for a moment, still waiting... ({seconds}s)"
 msgstr "スマートフォンからの応答が一時的に途絶えました。待機中... ({seconds}秒)"
 
-#: rust/crates/link/src/connection.rs:1042
+#: rust/crates/link/src/connection.rs:1055
 msgid ""
 "The phone's camera stopped before it finished starting.\n"
 "\n"
@@ -3487,17 +3487,17 @@ msgstr ""
 "\n"
 "スマートフォン側で権限の確認プロンプトやエラーが表示されていないか確認してください。"
 
-#: rust/crates/link/src/connection.rs:1044
+#: rust/crates/link/src/connection.rs:1057
 #, python-brace-format
 msgid "Phone's camera is opening... ({seconds}s)"
 msgstr "スマートフォンのカメラを開いています... ({seconds}秒)"
 
-#: rust/crates/link/src/connection.rs:1044
+#: rust/crates/link/src/connection.rs:1057
 #, python-brace-format
 msgid "Waiting for the phone's camera... ({seconds}s)"
 msgstr "スマートフォンのカメラを待機中... ({seconds}秒)"
 
-#: rust/crates/link/src/connection.rs:1047
+#: rust/crates/link/src/connection.rs:1060
 msgid ""
 "The phone's camera didn't finish starting in time.\n"
 "\n"
@@ -4332,63 +4332,63 @@ msgstr "60 Hz"
 msgid "Check that it's plugged in."
 msgstr "接続されているか確認してください。"
 
-#: rust/crates/outputs/src/webcam.rs:407
+#: rust/crates/outputs/src/webcam.rs:408
 msgid "Another app may be using it. Close it there and it starts here."
 msgstr "別のアプリが使用している可能性があります。そちらで閉じるとここで開始されます。"
 
-#: rust/crates/outputs/src/webcam.rs:409
+#: rust/crates/outputs/src/webcam.rs:410
 #, python-brace-format
 msgid "{app} is using it. Close it there and it starts here."
 msgstr "{app}が使用中です。そちらで閉じるとここで開始されます。"
 
-#: rust/crates/outputs/src/webcam.rs:411
+#: rust/crates/outputs/src/webcam.rs:412
 #, python-brace-format
 msgid "Can't open {name}"
 msgstr "{name}を開けません"
 
-#: rust/crates/outputs/src/webcam.rs:670
+#: rust/crates/outputs/src/webcam.rs:671
 msgid "Not plugged in"
 msgstr "未接続"
 
-#: rust/crates/outputs/src/webcam.rs:672
+#: rust/crates/outputs/src/webcam.rs:673
 msgid "In use by another app"
 msgstr "別のアプリで使用中"
 
-#: rust/crates/outputs/src/webcam.rs:672
+#: rust/crates/outputs/src/webcam.rs:673
 #, python-brace-format
 msgid "In use by {app}"
 msgstr "{app}で使用中"
 
-#: rust/crates/outputs/src/webcam.rs:674
+#: rust/crates/outputs/src/webcam.rs:675
 msgid "Not sending anything"
 msgstr "データ未送信"
 
-#: rust/crates/outputs/src/webcam.rs:676
+#: rust/crates/outputs/src/webcam.rs:677
 msgid "Starting…"
 msgstr "開始中…"
 
-#: rust/crates/outputs/src/webcam.rs:689
+#: rust/crates/outputs/src/webcam.rs:690
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
 msgstr "ウェブカメラから送信されるサイズ。「自動」ではフレームレートを維持できる最大1080pまでのサイズが選択されます"
 
-#: rust/crates/outputs/src/webcam.rs:706
+#: rust/crates/outputs/src/webcam.rs:707
 msgid "Webcams"
 msgstr "ウェブカメラ"
 
-#: rust/crates/outputs/src/webcam.rs:707
+#: rust/crates/outputs/src/webcam.rs:708
 msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "このコンピューターに接続されたウェブカメラやキャプチャ カードからストリーミングします。"
 
-#: rust/crates/outputs/src/webcam.rs:708
+#: rust/crates/outputs/src/webcam.rs:709
 msgid "Without it webcams aren't in the phone picker and the Webcam card is gone too."
 msgstr "無効にするとスマートフォンの選択欄にウェブカメラが表示されず、「ウェブカメラ」カードも非表示になります。"
 
-#: rust/crates/outputs/src/webcam.rs:746
+#: rust/crates/outputs/src/webcam.rs:747
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name}が接続されていません"
 
-#: rust/crates/outputs/src/webcam.rs:747
+#: rust/crates/outputs/src/webcam.rs:748
 msgid "Plug it in, or pick another camera."
 msgstr "接続するか、別のカメラを選択してください。"
 
@@ -6230,7 +6230,7 @@ msgstr "スマートフォンのカメラを開始中…"
 msgid "Couldn't start the phone's camera"
 msgstr "スマートフォンのカメラを開始できませんでした"
 
-#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:811
+#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:814
 msgid "Connecting..."
 msgstr "接続中..."
 
@@ -6437,38 +6437,38 @@ msgstr "停止"
 msgid "Stream error: {error}"
 msgstr "ストリーム エラー: {error}"
 
-#: rust/crates/shell/src/worker.rs:811
+#: rust/crates/shell/src/worker.rs:814
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "{url}に接続中..."
 
-#: rust/crates/shell/src/worker.rs:821
+#: rust/crates/shell/src/worker.rs:824
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "スマートフォンのストリームに接続できません。{seconds}秒後に再試行します…"
 
-#: rust/crates/shell/src/worker.rs:833
+#: rust/crates/shell/src/worker.rs:836
 msgid "Waiting for the first frame…"
 msgstr "最初のフレームを待機中…"
 
-#: rust/crates/shell/src/worker.rs:920
+#: rust/crates/shell/src/worker.rs:923
 msgid "Stream reconnected"
 msgstr "ストリームが再接続されました"
 
-#: rust/crates/shell/src/worker.rs:989
+#: rust/crates/shell/src/worker.rs:992
 msgid "The video is paused while the phone takes a photo"
 msgstr "スマートフォンが写真を撮影している間、映像は一時停止します"
 
-#: rust/crates/shell/src/worker.rs:991 rust/crates/shell/src/worker.rs:997
+#: rust/crates/shell/src/worker.rs:994 rust/crates/shell/src/worker.rs:1000
 msgid "Stream dropped - reconnecting"
 msgstr "ストリームが切断されました - 再接続中"
 
-#: rust/crates/shell/src/worker.rs:1103 rust/crates/shell/src/worker.rs:1149
+#: rust/crates/shell/src/worker.rs:1106 rust/crates/shell/src/worker.rs:1155
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "仮想カメラ エラー: {error}"
 
-#: rust/crates/shell/src/worker.rs:1114
+#: rust/crates/shell/src/worker.rs:1117
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{size}、{fps} fpsで{camera}にストリーミング中"

@@ -13,7 +13,12 @@ use std::sync::{Mutex, MutexGuard, OnceLock};
 pub const MAX_BYTES: u64 = 1_000_000;
 /// A line this long still leaves room for the rest of a GitHub comment (the timing lines are the longest).
 pub const MAX_LINE: usize = 450;
-pub const REPORT_LINES: usize = 200;
+/// How many of the latest lines the report shows.
+pub const REPORT_LINES: usize = 400;
+/// How many lines are kept in memory, from which the report also takes every warning and error.
+pub const RING_LINES: usize = 1000;
+/// What the report aims to stay under, in bytes; GitHub's limit for a comment is 65,536 characters.
+pub const REPORT_BUDGET: usize = 40_000;
 
 fn pattern(cell: &'static OnceLock<Regex>, source: &str) -> &'static Regex {
     cell.get_or_init(|| Regex::new(source).expect("a fixed pattern"))
@@ -151,9 +156,30 @@ fn full_address(run: &str) -> bool {
     groups.len() == 8 && groups.iter().all(|g| (1..=4).contains(&g.len()) && g.chars().all(|c| c.is_ascii_hexdigit()))
 }
 
-/// "    (repeated N more times)": what a run of the same line becomes.
-fn repeated(n: u64) -> String {
-    format!("    (repeated {n} more times)")
+/// "    (repeated N more times)": what a run of the same line becomes, with the last one's text when its numbers differed.
+fn repeated(n: u64, latest: Option<&str>) -> String {
+    match latest {
+        Some(text) => format!("    (repeated {n} more times, last: {text})"),
+        None => format!("    (repeated {n} more times)"),
+    }
+}
+
+/// text with every number (digits, with a fraction) as "#", so lines that differ only in their numbers compare equal.
+fn without_numbers(text: &str) -> String {
+    let (mut out, mut in_number) = (String::with_capacity(text.len()), false);
+    let mut chars = text.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c.is_ascii_digit() || (in_number && c == '.' && chars.peek().is_some_and(char::is_ascii_digit)) {
+            if !in_number {
+                out.push('#');
+            }
+            in_number = true;
+        } else {
+            in_number = false;
+            out.push(c);
+        }
+    }
+    out
 }
 
 /// str.splitlines(): a line ends at any of these.
@@ -184,9 +210,11 @@ struct State {
     /// How much the open file holds.
     size: u64,
     memory: VecDeque<String>,
-    /// (level, text) of the latest line.
-    last: Option<(String, String)>,
+    /// (level, text with its numbers taken out, text) of the line a run of repeats belongs to.
+    last: Option<(String, String, String)>,
     repeats: u64,
+    /// The text of the newest repeat when its numbers differ from the first line's.
+    latest: Option<String>,
 }
 
 /// The event log: a file in the temp folder rotated at MAX_BYTES, repeats counted, or memory only without a file.
@@ -249,14 +277,17 @@ impl EventLog {
 
     fn add_at(&self, level: &str, text: &str, when: chrono::DateTime<chrono::Local>) {
         let text: String = sanitize(text).chars().take(MAX_LINE).collect();
+        let plain = without_numbers(&text);
         let mut state = self.lock();
-        if state.last.as_ref().is_some_and(|(l, t)| l == level && *t == text) {
+        if state.last.as_ref().is_some_and(|(l, p, _)| l == level && *p == plain) {
             state.repeats += 1;
+            // Only the newest repeat's numbers are kept
+            state.latest = state.last.as_ref().filter(|(_, _, first)| *first != text).map(|_| text);
             return;
         }
         self.flush_repeats(&mut state);
         let line = format!("{} {level} {text}", when.format("%Y-%m-%d %H:%M:%S"));
-        state.last = Some((level.to_string(), text));
+        state.last = Some((level.to_string(), plain, text));
         self.write(&mut state, &line);
     }
 
@@ -269,15 +300,16 @@ impl EventLog {
 
     fn flush_repeats(&self, state: &mut State) {
         if state.repeats > 0 {
-            let line = repeated(state.repeats);
+            let line = repeated(state.repeats, state.latest.as_deref());
             state.repeats = 0;
+            state.latest = None;
             self.write(state, &line);
         }
     }
 
     fn write(&self, state: &mut State, line: &str) {
         state.memory.push_back(line.to_string());
-        if state.memory.len() > REPORT_LINES {
+        if state.memory.len() > RING_LINES {
             state.memory.pop_front();
         }
         if state.file.is_none() {
@@ -308,7 +340,7 @@ impl EventLog {
     /// The latest lines, across a restart when the file has them.
     pub fn lines(&self, limit: usize) -> Vec<String> {
         let state = self.lock();
-        let pending: Vec<String> = (state.repeats > 0).then(|| repeated(state.repeats)).into_iter().collect();
+        let pending: Vec<String> = (state.repeats > 0).then(|| repeated(state.repeats, state.latest.as_deref())).into_iter().collect();
         let mut out: Vec<String> = Vec::new();
         match state.path.as_deref().filter(|_| state.file.is_some()) {
             None => out.extend(state.memory.iter().cloned()),
@@ -557,6 +589,69 @@ fn windows_version() -> (u32, u32, u32) {
     }
 }
 
+/// A line the report keeps however old it is: a warning, an error, a crash or the start of a run.
+fn matters(line: &str) -> bool {
+    matches!(line.splitn(4, ' ').nth(2), Some("WARNING" | "ERROR" | "CRASH" | "START"))
+}
+
+/// Which of lines (oldest first) go in the report: the last `tail` and every one that matters, and within room bytes: the oldest
+/// ordinary ones go first, then the oldest of the rest. A run left out shows as one line saying how many.
+pub fn pick_log(lines: &[String], tail: usize, room: usize) -> Vec<String> {
+    let first_tail = lines.len().saturating_sub(tail);
+    let mut keep: Vec<bool> = lines.iter().enumerate().map(|(i, l)| i >= first_tail || matters(l)).collect();
+    let mut size: usize = lines.iter().zip(&keep).filter(|(_, k)| **k).map(|(l, _)| l.len() + 1).sum();
+    for want_matters in [false, true] {
+        for i in 0..lines.len() {
+            if size <= room {
+                break;
+            }
+            if keep[i] && matters(&lines[i]) == want_matters {
+                keep[i] = false;
+                size -= lines[i].len() + 1;
+            }
+        }
+    }
+    let mut out = Vec::new();
+    let mut left_out = 0;
+    for (line, kept) in lines.iter().zip(&keep) {
+        if *kept {
+            if left_out > 0 {
+                out.push(format!("    ({left_out} lines left out)"));
+                left_out = 0;
+            }
+            out.push(line.clone());
+        } else {
+            left_out += 1;
+        }
+    }
+    if left_out > 0 {
+        out.push(format!("    ({left_out} lines left out)"));
+    }
+    out
+}
+
+/// The worst moments of the session, as report lines.
+fn worst_lines() -> Vec<String> {
+    let stalls = crate::perf::worst_stalls();
+    if stalls.is_empty() {
+        return vec![format!("Worst moments: none (no gap between frames over {} ms, no window under half the rate)", crate::perf::GAP_MS)];
+    }
+    let mut out = vec![format!("Worst moments of this session (gaps between frames over {} ms, or windows under half the rate before; worst first):", crate::perf::GAP_MS)];
+    out.extend(stalls.iter().map(|s| format!("  {}", s.line())));
+    out
+}
+
+/// How long each stage of a frame takes, as report lines.
+fn stage_lines() -> Vec<String> {
+    let summaries = crate::perf::stage_summaries();
+    if summaries.is_empty() {
+        return vec!["Stage times: nothing has streamed yet".to_string()];
+    }
+    let mut out = vec!["Stage times over the latest frames (ms: p50 / p99 / max, frames seen):".to_string()];
+    out.extend(summaries.iter().map(|s| format!("  {:<10} {} / {} / {}  ({})", s.stage, crate::perf::ms(s.p50_ms), crate::perf::ms(s.p99_ms), crate::perf::ms(s.max_ms), s.count)));
+    out
+}
+
 /// The text Copy diagnostics copies: `state` is what the plugins report, `windowing` the backend the window came up on.
 pub fn report_for(events: &EventLog, build: &str, commit: &str, state: &[(String, String)], windowing: &str) -> String {
     let mut head = format!("Telescope {build}");
@@ -567,12 +662,27 @@ pub fn report_for(events: &EventLog, build: &str, commit: &str, state: &[(String
     lines.extend(system_lines());
     let slint = if windowing.is_empty() { String::new() } else { format!(", Slint {windowing}") };
     lines.push(format!("Rust{slint}{}", if cfg!(debug_assertions) { ", from source" } else { ", bundled" }));
-    lines.extend(state.iter().map(|(key, value)| sanitize(&format!("{key}: {value}"))));
-    let recent = events.lines(REPORT_LINES);
+    lines.extend(crate::machine::lines());
+    lines.extend(state.iter().map(|(key, value)| format!("{key}: {value}")));
     lines.push(String::new());
-    lines.push(if recent.is_empty() { "Log: empty".to_string() } else { format!("Log (last {REPORT_LINES} lines):") });
-    lines.extend(recent);
-    lines.join("\n")
+    lines.extend(worst_lines());
+    let timeline = crate::perf::timeline_lines(crate::time::monotonic_ns());
+    if !timeline.is_empty() {
+        lines.push(String::new());
+        lines.push(format!("Timeline of the stream, the last {} minutes oldest first, a character for {} s ('~' is no stream, '#' the most):", crate::perf::COLUMNS as u64 * crate::perf::STEP_S / 60, crate::perf::STEP_S));
+        lines.extend(timeline);
+    }
+    lines.push(String::new());
+    lines.extend(stage_lines());
+    lines.push(String::new());
+    let recent = events.lines(RING_LINES);
+    // The log gets what the rest leaves of the budget
+    let used: usize = lines.iter().map(|l| l.len() + 1).sum();
+    let log = pick_log(&recent, REPORT_LINES, REPORT_BUDGET.saturating_sub(used + 100));
+    lines.push(if recent.is_empty() { "Log: empty".to_string() } else if recent.len() <= REPORT_LINES { format!("Log ({} lines):", recent.len()) } else { format!("Log (the last {REPORT_LINES} lines, and every warning and error before them):") });
+    lines.extend(log);
+    // Everything once more, as one piece, so nothing a section let through goes out
+    sanitize_lines(&lines.join("\n"))
 }
 
 #[cfg(test)]

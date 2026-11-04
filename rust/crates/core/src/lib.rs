@@ -19,6 +19,7 @@ pub mod image;
 pub mod json;
 pub mod launch;
 pub mod lens;
+pub mod machine;
 pub mod link;
 pub mod media;
 pub mod models;

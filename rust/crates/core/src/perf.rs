@@ -376,12 +376,12 @@ pub fn note_window(slot: u32, now_ns: u64, fps: f32, mbps: f32) {
     }
 }
 
-/// A line of text for values, a character each from the oldest on the left, and the smallest and largest: space is none, "#" the most, "_" no stream then.
+/// A line of text for values, a character each from the oldest on the left, and the smallest and largest: space is none, "#" the most, "~" no stream then.
 fn ramp(values: &[Option<f32>]) -> String {
     let seen: Vec<f32> = values.iter().flatten().copied().collect();
     let top = seen.iter().copied().fold(0.0f32, f32::max);
     values.iter().map(|v| match v {
-        None => '_',
+        None => '~',
         Some(v) if top <= 0.0 || *v <= 0.0 => ' ',
         Some(v) => RAMP[((v / top * (RAMP.len() - 1) as f32).round() as usize).clamp(1, RAMP.len() - 1)] as char,
     }).collect()
