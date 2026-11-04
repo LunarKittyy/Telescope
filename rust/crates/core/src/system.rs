@@ -214,6 +214,68 @@ fn stop_passing_descriptors_on() {
     }
 }
 
+/// Windows slows and coalesces the timers of a program that's in the background, which a game in front makes this one. Asks it not to,
+/// since a stream that has to hit every frame time can't wait. Does nothing elsewhere.
+pub fn opt_out_of_power_throttling() {
+    #[cfg(windows)]
+    {
+        use windows::Win32::System::Threading::*;
+        let state = PROCESS_POWER_THROTTLING_STATE {
+            Version: PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+            ControlMask: PROCESS_POWER_THROTTLING_EXECUTION_SPEED | PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION,
+            StateMask: 0,
+        };
+        // SAFETY: state lives past the call and the size given is its own
+        let done = unsafe { SetProcessInformation(GetCurrentProcess(), ProcessPowerThrottling, (&raw const state).cast(), size_of::<PROCESS_POWER_THROTTLING_STATE>() as u32) };
+        match done {
+            Ok(()) => log::info!("Windows power throttling is off for this app, so it keeps its speed and timers in the background"),
+            Err(e) => log::info!("Couldn't turn off Windows power throttling for this app: {e}"),
+        }
+    }
+}
+
+/// A thread's place in Windows' multimedia scheduler, given back when this is dropped. Holds nothing elsewhere.
+pub struct ThreadPriority {
+    #[cfg(windows)]
+    handle: Option<windows::Win32::Foundation::HANDLE>,
+}
+
+/// Puts the calling thread in the multimedia scheduler's Capture class, which keeps it running on time while a game takes the
+/// processor. Keep the result for as long as the thread works. what names the thread in the log.
+pub fn prioritise_thread(what: &str) -> ThreadPriority {
+    #[cfg(windows)]
+    {
+        let mut index = 0u32;
+        // SAFETY: the name is a constant string and index is a valid out-pointer
+        let joined = unsafe { windows::Win32::System::Threading::AvSetMmThreadCharacteristicsW(windows::core::w!("Capture"), &mut index) };
+        match joined {
+            Ok(handle) => {
+                log::info!("The {what} thread runs with multimedia scheduling (Capture)");
+                ThreadPriority { handle: Some(handle) }
+            }
+            Err(e) => {
+                log::info!("Couldn't give the {what} thread multimedia scheduling: {e}");
+                ThreadPriority { handle: None }
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = what;
+        ThreadPriority {}
+    }
+}
+
+#[cfg(windows)]
+impl Drop for ThreadPriority {
+    fn drop(&mut self) {
+        if let Some(handle) = self.handle.take() {
+            // SAFETY: the handle came from AvSetMmThreadCharacteristicsW on this thread
+            let _ = unsafe { windows::Win32::System::Threading::AvRevertMmThreadCharacteristics(handle) };
+        }
+    }
+}
+
 /// Call this first in main, before any thread starts. Notes the AppImage this copy runs from and clears what its runtime and AppRun added
 /// to the environment, which every program started from here on would inherit: another app's own libraries must not lose to ours.
 /// Starting this copy again has to go through start_command, since the mount ends with this process.

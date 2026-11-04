@@ -5,11 +5,13 @@
 
 use crate::ffmpeg::{Codec, Fault, Forced, Hw};
 use crate::packets::{Steps, Tap};
+use crate::slow::{self, Timings};
+use std::time::Instant;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use telescope_core::frame::Frame;
-use telescope_core::media::{Decoded, Decoder, DecodingStatus, Packet};
+use telescope_core::media::{Decoded, Decoder, DecodingStatus, Packet, TimingProbe};
 
 /// Card decoders to try, best first: D3D11 works on any Windows card; VA-API covers AMD and Intel on Linux.
 #[cfg(windows)]
@@ -117,6 +119,12 @@ impl Headers {
     }
 }
 
+/// What the timing probe reads: the recent pictures' times and the decoder they came from.
+struct Timed {
+    times: Timings,
+    backend: &'static str,
+}
+
 pub struct H264 {
     codec: Codec,
     headers: Headers,
@@ -129,6 +137,10 @@ pub struct H264 {
     hw_proven: bool,
     /// Pieces of the stream the card has taken since its last picture.
     silent: u32,
+    /// How long its recent pictures took (decode and, on the card, the copy to memory) and what it decodes on, shared with the timing probe.
+    timings: Arc<Mutex<Timed>>,
+    /// The frame rate the stream is meant to run at.
+    target_fps: u32,
     /// Tells the stream to ask for a keyframe after a change of decoder.
     ask_keyframe: Option<Box<dyn Fn() + Send>>,
     /// When the card gave up, until software has a picture.
@@ -172,6 +184,7 @@ impl H264 {
     }
 
     fn with_codec(codec: Codec, tap: Option<Arc<Tap>>) -> H264 {
+        let codec_hw = codec.hw;
         count_live(codec.hw, 1);
         let steps = tap.as_ref().map(|t| t.open());
         let step_generation = steps.as_ref().map_or(0, Steps::generation);
@@ -183,6 +196,8 @@ impl H264 {
             step_generation,
             hw_proven: false,
             silent: 0,
+            timings: Arc::new(Mutex::new(Timed { times: Timings::default(), backend: backend(codec_hw) })),
+            target_fps: 30,
             ask_keyframe: None,
             swapped_at: None,
             #[cfg(test)]
@@ -211,6 +226,7 @@ impl H264 {
         }
         // Joined the stream before its headers: nothing can decode that, so it says nothing about the card
         let strict = self.codec.hw.is_some() && !self.hw_proven && self.headers.sps.is_some() && self.headers.pps.is_some();
+        let began = Instant::now();
         #[cfg(test)]
         let result = if std::mem::take(&mut self.break_next) {
             Err("the driver failed after receiving setup".to_string())
@@ -222,6 +238,7 @@ impl H264 {
         match result {
             Ok(fed) if self.codec.hw.is_none() => {
                 self.note_picture_back(fed.count);
+                self.time(began, fed.count);
                 (fed.newest, fed.count)
             }
             Ok(fed) => {
@@ -230,6 +247,13 @@ impl H264 {
                 if self.silent >= SILENT_UNITS {
                     let why = format!("no picture from the last {} pieces of the stream", self.silent);
                     return self.fall_back(why, &data);
+                }
+                if let Some(why) = self.time(began, fed.count) {
+                    // The card's picture is good, so it stays if software has none yet
+                    return match self.fall_back(why, &data) {
+                        (None, _) => (fed.newest, fed.count),
+                        swapped => swapped,
+                    };
                 }
                 (fed.newest, fed.count)
             }
@@ -256,6 +280,7 @@ impl H264 {
         count_live(Some(hw), -1);
         count_live(None, 1);
         self.codec = codec;
+        *self.timings.lock().unwrap() = Timed { times: Timings::default(), backend: backend(None) };
         // The old steps have already seen this data
         if let Some(tap) = &self.tap {
             let steps = tap.open();
@@ -272,6 +297,34 @@ impl H264 {
         let fed = decode(&mut self.codec, self.steps.as_ref(), &setup, false).map_or((None, 0), |fed| (fed.newest, fed.count));
         self.note_picture_back(fed.1);
         fed
+    }
+
+    /// Notes what each picture this data finished took, and says why the card is too slow for the stream if it has been for a whole window.
+    fn time(&mut self, began: Instant, count: u32) -> Option<String> {
+        if count == 0 {
+            return None;
+        }
+        let now = Instant::now();
+        let each = now.duration_since(began).as_secs_f64() * 1000.0 / f64::from(count);
+        let interval = 1000.0 / f64::from(self.target_fps);
+        let mut timed = self.timings.lock().unwrap();
+        // The first picture of a decoder pays for its setup, which says nothing about the stream
+        let first = timed.times.recent().is_none();
+        for _ in 0..count.min(8) {
+            timed.times.record(now, each);
+        }
+        if !first {
+            timed.times.note_hiccup(now, each);
+        }
+        let hw = self.codec.hw?;
+        if let Some(worst) = timed.times.stalled() {
+            return Some(format!("stalled: pictures took up to {worst:.0} ms (decode and copy off the card), more than 500 ms once or 200 ms twice within {} s, on {}", slow::STALL_WINDOW.as_secs(), hw.name()));
+        }
+        let s = timed.times.slow(now, interval)?;
+        Some(format!(
+            "too slow for {} fps: a median of {:.1} ms, p95 {:.1} ms, max {:.1} ms a picture over the last {} s, against {interval:.1} ms between pictures on {}",
+            self.target_fps, s.median_ms, s.p95_ms, s.max_ms, slow::WINDOW.as_secs(), hw.name()
+        ))
     }
 
     fn note_picture_back(&mut self, count: u32) {
@@ -347,6 +400,19 @@ impl Decoder for H264 {
 
     fn on_keyframe_needed(&mut self, ask: Box<dyn Fn() + Send>) {
         self.ask_keyframe = Some(ask);
+    }
+
+    fn set_target_fps(&mut self, fps: u32) {
+        self.target_fps = fps.max(1);
+    }
+
+    fn timing_probe(&self) -> Option<TimingProbe> {
+        let timed = self.timings.clone();
+        Some(Arc::new(move || {
+            let timed = timed.lock().unwrap();
+            let s = timed.times.recent()?;
+            Some(format!("Decoding on {}: p95 {:.1} ms, max {:.1} ms a picture (decode and copy) over the last {} s", timed.backend, s.p95_ms, s.max_ms, slow::WINDOW.as_secs()))
+        }))
     }
 }
 

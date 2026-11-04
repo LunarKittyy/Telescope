@@ -351,6 +351,8 @@ struct Shared {
     newest_arrival: AtomicU64,
     frames_arrived: AtomicU64,
     last_arrival_fps: Mutex<f32>,
+    /// How the current decoder reports its timing, for the log when frames stop keeping up.
+    timing_probe: Mutex<Option<telescope_core::media::TimingProbe>>,
     camera_size: Mutex<Option<(u32, u32)>>,
     stopper: Mutex<Option<Box<dyn FeedStopper>>>,
     /// The feeds being opened right now, which a stop has to reach before they have a stopper.
@@ -470,13 +472,14 @@ impl StreamWorker {
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
             photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_colour: Mutex::new(None), gate: setup.gate,
             seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0),
-            last_arrival_fps: Mutex::new(0.0), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
+            last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
             handover_thread: Mutex::new(None),
         });
         shared.vcam_free.set();
         let s = shared.clone();
         let thread = std::thread::Builder::new().name("stream".into()).spawn(move || {
+            let _priority = telescope_core::system::prioritise_thread("virtual camera output");
             let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| s.run()));
             if let Err(e) = caught {
                 // A bug here must end the stream visibly, not leave a thread the app thinks is still streaming
@@ -696,6 +699,8 @@ impl Shared {
                 };
                 let events = self.events.clone();
                 decoder.on_keyframe_needed(Box::new(move || events(WorkerEvent::NeedsKeyframe)));
+                decoder.set_target_fps(self.fps.load(Ordering::SeqCst));
+                *self.timing_probe.lock().unwrap() = decoder.timing_probe();
                 Ok(Cap::Frames(self.media.frame_reader(feed, decoder)?))
             }
         }
@@ -839,6 +844,7 @@ impl Shared {
             let reader = {
                 let (s, done) = (self.clone(), reader_done.clone());
                 std::thread::Builder::new().name("stream-reader".into()).spawn(move || {
+                    let _priority = telescope_core::system::prioritise_thread("frame receive and decode");
                     let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| s.read_frames(cap)));
                     if caught.is_err() {
                         log::error!("Stream reader crashed; reconnecting");
@@ -1168,6 +1174,13 @@ impl Shared {
                 let struggling = judged && arrival_fps > 0.0 && arrival_fps < fps as f64 * 0.85;
                 weak_streak = if struggling { weak_streak + 1 } else { 0 };
                 let net_kind = if weak_streak >= 2 { "net_warn" } else { "net" };
+                // Once as the warning appears, so a copy of the diagnostics says whether decoding was the slow part
+                if weak_streak == 2 {
+                    let probe = self.timing_probe.lock().unwrap().clone();
+                    if let Some(line) = probe.and_then(|p| p()) {
+                        log::info!("Frames aren't keeping up ({arrival_fps:.1} of {fps} fps). {line}");
+                    }
+                }
                 // Frames but no bytes means the reader can't tell
                 let counted = bytes_now > bytes0 || recv_now == recv0;
                 self.status(net_kind, &if counted { format!("{mbps:.1} Mbps") } else { "-".into() });

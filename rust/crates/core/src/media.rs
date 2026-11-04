@@ -111,7 +111,18 @@ pub trait Decoder: Send {
     fn on_keyframe_needed(&mut self, ask: Box<dyn Fn() + Send>) {
         let _ = ask;
     }
+    /// The frame rate the stream is meant to run at, for a decoder that hands over to software when the card can't keep up.
+    fn set_target_fps(&mut self, fps: u32) {
+        let _ = fps;
+    }
+    /// Asks how decoding has gone lately: one plain line (the decoder in use, decode and copy time a picture), for the log when a stream struggles.
+    fn timing_probe(&self) -> Option<TimingProbe> {
+        None
+    }
 }
+
+/// What a Decoder's timing_probe gives: callable from another thread while the decoder runs.
+pub type TimingProbe = std::sync::Arc<dyn Fn() -> Option<String> + Send + Sync>;
 
 /// Turns a frame into RGB at another size, for the preview.
 pub trait Scaler: Send {

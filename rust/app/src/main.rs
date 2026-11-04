@@ -509,6 +509,7 @@ fn main() {
     telescope_system::memory::limit_malloc_arenas(4);
     telescope_system::update_guard::confirm_on_terminate(app_dir());
     start_logging();
+    telescope_core::system::opt_out_of_power_throttling();
     #[cfg(windows)]
     {
         use telescope_system::winapp;
