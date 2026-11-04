@@ -13,8 +13,8 @@ use telescope_core::media::{Decoder, FeedEnd, FeedStopper, FrameReader, Packet, 
 /// Data with no finished frame after this much isn't a stream the phone sent; stop instead of buffering on.
 pub const MAX_BYTES_WITHOUT_FRAME: u64 = 32 * 1024 * 1024;
 
-/// How much read data waits for the decoder before the reading stops too, and the connection pushes back after all.
-const MAX_QUEUED_BYTES: u64 = 24 * 1024 * 1024;
+/// How much read data waits for the decoder before the reading stops too and the connection pushes back: about 2 s of a fast stream, enough to ride out a stall without a slow decoder piling up seconds of delay.
+const MAX_QUEUED_BYTES: u64 = 4 * 1024 * 1024;
 
 pub struct Reader {
     packets: Receiver<Result<Packet, FeedEnd>>,
