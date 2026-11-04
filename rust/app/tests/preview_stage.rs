@@ -784,7 +784,7 @@ fn the_stage_says_the_camera_is_off_and_why() {
 
 /// The tip the camera button shows under the mouse.
 fn camera_tip(s: &Stage, text: &str) -> bool {
-    let e = s.element("Phone camera").expect("the camera button");
+    let e = s.element("Device camera").expect("the camera button");
     let (p, size) = (e.absolute_position(), e.size());
     // A control just pressed shows no tip until the pointer has left it and come back
     s.send(WindowEvent::PointerMoved { position: LogicalPosition::new(600.0, 200.0) });
@@ -802,12 +802,12 @@ fn the_camera_button_turns_the_camera_off_and_says_so() {
     let s = with_mic("stage-camera-button", true);
     s.r.w.emit(Event::MicChanged { enabled: true, muted: false });
     assert!(s.on("camera-on") && s.on("camera-enabled"));
-    s.press_button("Phone camera");
+    s.press_button("Device camera");
     s.r.pump();
     assert!(!s.on("camera-on"), "the click reached the camera");
     assert!(camera_tip(&s, "Turn the phone's camera back on."));
     assert!(s.says(IDLE_MIC), "not streaming yet: the stage says what Start will do");
-    s.press_button("Phone camera");
+    s.press_button("Device camera");
     s.r.pump();
     assert!(s.on("camera-on") && s.says(IDLE));
 }
@@ -820,7 +820,7 @@ fn the_camera_can_only_go_off_with_the_mic_on() {
     assert!(!s.on("camera-enabled"));
     assert!(s.text("camera-tip").contains("mic"), "{}", s.text("camera-tip"));
     assert!(camera_tip(&s, &s.text("camera-tip")));
-    s.press_button("Phone camera");
+    s.press_button("Device camera");
     s.r.pump();
     assert!(s.on("camera-on"), "a disabled button does nothing");
 }

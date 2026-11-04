@@ -47,11 +47,11 @@ export component AutomaticSettings inherits Card {
     callback unit-picked(int);
     callback notify-toggled(bool);
     title: @tr("Automatic streaming");
-    keywords: @tr("search" => "auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free");
+    keywords: @tr("search" => "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free");
     icon: Icons.bolt;
     SettingRow {
         title: start-title;
-        keywords: @tr("search" => "automatically begin streaming when phone ready app opens the camera auto start");
+        keywords: @tr("search" => "automatically begin streaming when phone device ready app opens the camera auto start");
         ChoiceField {
             width: 320px;
             compact: true;

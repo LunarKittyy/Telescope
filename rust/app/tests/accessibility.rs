@@ -511,7 +511,7 @@ fn a_real_cards_dropdown_works_from_the_keyboard_and_says_so() {
     assert!(items.len() >= 2, "{name}: its list items are exposed");
     assert_eq!(items.iter().filter(|i| i.accessible_item_selected() == Some(true)).count(), 1, "{name}: one item is the highlighted one");
     // (a dropdown with nothing picked yet reads empty, or its placeholder, which isn't one of the items)
-    assert_eq!(items.iter().filter(|i| i.accessible_label().as_deref() == Some(before.as_str())).count(), usize::from(!before.is_empty() && before != "Pick a phone"), "{name}: the current choice {before:?} is among them ({:?})", items.iter().map(|i| i.accessible_label()).collect::<Vec<_>>());
+    assert_eq!(items.iter().filter(|i| i.accessible_label().as_deref() == Some(before.as_str())).count(), usize::from(!before.is_empty() && before != "Pick a device"), "{name}: the current choice {before:?} is among them ({:?})", items.iter().map(|i| i.accessible_label()).collect::<Vec<_>>());
     keys(&w, Key::Escape.into());
     assert_eq!(dropdown.accessible_expanded(), Some(false), "{name}: Esc closes it");
     assert_eq!(dropdown.accessible_value().unwrap_or_default(), before, "{name}: and keeps the choice");

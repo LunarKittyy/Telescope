@@ -3532,8 +3532,8 @@ msgid "phone plugged in, but Telescope isn't open on it"
 msgstr "फ़ोन कनेक्ट है, लेकिन उस पर Telescope खुला नहीं है"
 
 #: rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:1068 rust/crates/link/src/plugin.rs:1325 rust/crates/link/ui/connection.slint:556 rust/crates/link/ui/connection.slint:557
-msgid "No phone yet"
-msgstr "अभी कोई फ़ोन नहीं है"
+msgid "No device yet"
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:348
 msgid "Add a phone to stream from."
@@ -3684,8 +3684,8 @@ msgstr "{source} का इंतज़ार है…"
 
 #: rust/crates/link/src/plugin.rs:1071
 #, python-brace-format
-msgid "{source}, no phone needed"
-msgstr "{source}, फ़ोन की ज़रूरत नहीं"
+msgid "{source}, no pairing needed"
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1086
 msgid "Reconnecting…"
@@ -3712,7 +3712,7 @@ msgstr "{phone} पर मौजूद Telescope ऐप इससे पुर�
 msgid "Copy command"
 msgstr "कमांड कॉपी करें"
 
-#: rust/crates/link/src/plugin.rs:1198 rust/crates/link/src/plugin.rs:1350 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/link/ui/connection.slint:561 rust/crates/setup/src/monitoring.rs:311 rust/crates/setup/ui/monitoring.slint:131
+#: rust/crates/link/src/plugin.rs:1198 rust/crates/link/src/plugin.rs:1350 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/setup/src/monitoring.rs:311 rust/crates/setup/ui/monitoring.slint:131
 msgid "Phone"
 msgstr "फ़ोन"
 
@@ -3863,36 +3863,40 @@ msgid "Also switch it on at every startup"
 msgstr "हर स्टार्टअप पर भी इसे चालू करें"
 
 #: rust/crates/link/ui/connection.slint:557
-msgid "Pick a phone"
+msgid "Pick a device"
+msgstr ""
+
+#: rust/crates/link/ui/connection.slint:561
+msgid "Device"
 msgstr ""
 
 #: rust/crates/link/ui/connection.slint:562
-msgid "Which phone to stream from"
-msgstr "किस फ़ोन से स्ट्रीम करना है"
+msgid "Which device to stream from"
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:580
-msgid "Your phones: add, rename, remove"
-msgstr "आपके फ़ोन: जोड़ें, नाम बदलें, हटाएं"
+msgid "Your devices: add, rename, remove"
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:581 rust/crates/link/ui/connection.slint:598
-msgid "Your phones"
-msgstr "आपके फ़ोन"
+msgid "Your devices"
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:599
-msgid "Each phone keeps its own camera settings, and so does a browser once you change one. Removing a phone also unpairs it on the phone."
-msgstr "हर फ़ोन अपनी कैमरा सेटिंग्स अलग रखता है, और कोई सेटिंग बदलने पर ब्राउज़र भी ऐसा ही करता है. किसी फ़ोन को हटाने पर वह फ़ोन पर भी अनपेयर हो जाता है."
+msgid "Each device keeps its own camera settings, a browser once you change one. Removing a phone also unpairs it on the phone."
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:601
-msgid "Phones"
-msgstr "फ़ोन"
+msgid "Devices"
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:607
 msgid "Pair another phone"
 msgstr "कोई दूसरा फ़ोन पेयर करें"
 
 #: rust/crates/link/ui/connection.slint:614
-msgid "No phones yet. Add one to pair it with this computer."
-msgstr "अभी कोई फ़ोन नहीं है. इस कंप्यूटर से पेयर करने के लिए एक जोड़ें."
+msgid "No devices yet. Add a phone to pair it with this computer."
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:618
 msgid "Rename phone"
@@ -4384,8 +4388,8 @@ msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "इस कंप्यूटर में प्लग इन वेबकैम और कैप्चर कार्ड से स्ट्रीमिंग."
 
 #: rust/crates/outputs/src/webcam.rs:715
-msgid "Without it webcams aren't in the phone picker and the Webcam card is gone too."
-msgstr "इसके बिना वेबकैम फ़ोन पिकर में नहीं होंगे और वेबकैम कार्ड भी हट जाएगा."
+msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:753
 #, python-brace-format
@@ -4490,8 +4494,8 @@ msgid "Sharper, more data"
 msgstr "ज़्यादा साफ़, ज़्यादा डेटा"
 
 #: rust/crates/outputs/ui/wait_screen.slint:21
-msgid "What video calls see while the phone isn't streaming."
-msgstr "जब फ़ोन स्ट्रीम नहीं कर रहा हो, तब वीडियो कॉल में दिखने वाली तस्वीर."
+msgid "What video calls see while no device is streaming."
+msgstr ""
 
 #: rust/crates/outputs/ui/wait_screen.slint:51
 msgid "Choose image…"
@@ -6217,8 +6221,8 @@ msgid "Open Telescope on it."
 msgstr "इस पर Telescope खोलें."
 
 #: rust/crates/shell/src/sources.rs:849 rust/crates/shell/src/streams.rs:1452
-msgid "the phone"
-msgstr "फ़ोन"
+msgid "the device"
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:1080
 msgid "Open the Telescope page in it again."
@@ -6378,8 +6382,8 @@ msgid "Lost the phone - reconnecting"
 msgstr "फ़ोन से संपर्क टूट गया - फिर से कनेक्ट हो रहा है"
 
 #: rust/crates/shell/src/streams.rs:1627
-msgid "Couldn't reach the phone."
-msgstr "फ़ोन से संपर्क नहीं हो सका."
+msgid "Couldn't reach the device."
+msgstr ""
 
 #: rust/crates/shell/src/tray.rs:54
 msgid "Telescope: streaming the camera"
@@ -6516,9 +6520,9 @@ msgstr "सेटअप गाइड बंद करें"
 msgid "Stop drawing this preview. The camera output doesn't change."
 msgstr "यह प्रीव्यू दिखाना बंद करें. कैमरे का आउटपुट नहीं बदलता."
 
-#: rust/crates/shell/ui/cards/preview.slint:241 rust/crates/system/src/shortcuts.rs:449
-msgid "Phone camera"
-msgstr "फ़ोन कैमरा"
+#: rust/crates/shell/ui/cards/preview.slint:241
+msgid "Device camera"
+msgstr ""
 
 #: rust/crates/shell/ui/cards/preview.slint:254
 msgid "Draw the skeleton MediaPipe finds. Doesn't show in the camera output."
@@ -6815,6 +6819,10 @@ msgstr "Telescope में: {status}"
 msgid "Start or stop"
 msgstr "शुरू या रोकें"
 
+#: rust/crates/system/src/shortcuts.rs:449
+msgid "Phone camera"
+msgstr "फ़ोन कैमरा"
+
 #: rust/crates/system/src/shortcuts.rs:450
 msgid "Show or hide Telescope"
 msgstr "Telescope दिखाएं या छिपाएं"
@@ -6935,8 +6943,8 @@ msgstr "{action} में {name} सेटिंग नहीं है."
 
 #: rust/crates/system/src/shortcuts.rs:799
 #, python-brace-format
-msgid "{action} can't be used right now (no phone, or the control is off)."
-msgstr "{action} का इस्तेमाल अभी नहीं किया जा सकता (फ़ोन नहीं है, या कंट्रोल बंद है)."
+msgid "{action} can't be used right now (no device, or the control is off)."
+msgstr ""
 
 #: rust/crates/system/src/shortcuts.rs:976
 msgid "No control matches that search."
@@ -7080,8 +7088,8 @@ msgid "Only when I press Start"
 msgstr "सिर्फ़ तब जब मैं 'शुरू' दबाऊं"
 
 #: rust/crates/system/src/startup.rs:39
-msgid "When the phone is ready"
-msgstr "जब फ़ोन तैयार हो"
+msgid "When the device is ready"
+msgstr ""
 
 #: rust/crates/system/src/startup.rs:40
 msgid "When an app opens the camera"
@@ -7401,13 +7409,13 @@ msgstr "ऑटोमैटिक स्ट्रीमिंग"
 
 #: rust/crates/system/ui/startup.slint:50
 msgctxt "search"
-msgid "auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free"
-msgstr "ऑटो शुरू रोकें कैमरा ऐप तैयार auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free"
+msgid "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
+msgstr ""
 
 #: rust/crates/system/ui/startup.slint:54
 msgctxt "search"
-msgid "automatically begin streaming when phone ready app opens the camera auto start"
-msgstr "ऑटोमैटिक स्ट्रीमिंग शुरू फ़ोन तैयार कैमरा ऑटो शुरू automatically begin streaming when phone ready app opens the camera auto start"
+msgid "automatically begin streaming when phone device ready app opens the camera auto start"
+msgstr ""
 
 #: rust/crates/system/ui/startup.slint:66
 msgctxt "search"
@@ -7603,10 +7611,6 @@ msgstr "यह प्लगइन्स फ़ोल्डर में को�
 msgid "Streaming from any device's web browser, by scanning a code."
 msgstr "कोड स्कैन करके, किसी भी डिवाइस के वेब ब्राउज़र से स्ट्रीमिंग."
 
-#: rust/crates/link/src/browser/plugin.rs:1184
-msgid "Without it Browser camera isn't in the phone picker and its card is gone too."
-msgstr "इसके बिना ब्राउज़र कैमरा फ़ोन पिकर में नहीं रहता और इसका कार्ड भी हट जाता है."
-
 #: rust/crates/shell/src/plugins/camera_control.rs:1434
 msgid "Exposure, white balance, focus, lenses and the phone camera's other settings."
 msgstr "एक्सपोज़र, व्हाइट बैलेंस, फ़ोकस, लेंस और फ़ोन के कैमरे की अन्य सेटिंग्स."
@@ -7659,14 +7663,6 @@ msgstr "शार्पनेस एज किनारा edge"
 msgctxt "search"
 msgid "dark night brightness"
 msgstr "अंधेरा रात ब्राइटनेस रोशनी dark night brightness"
-
-#: rust/crates/link/src/plugin.rs:1229
-msgid "Phones and connection"
-msgstr "फ़ोन और कनेक्शन"
-
-#: rust/crates/link/src/plugin.rs:1230
-msgid "Pairing phones, picking one and connecting to it over Wi-Fi or USB."
-msgstr "फ़ोन पेयर करना, कोई फ़ोन चुनना और Wi-Fi या USB से उससे कनेक्ट करना."
 
 #: rust/crates/core/src/actions.rs:262
 msgctxt "after a number"
@@ -7873,6 +7869,67 @@ msgstr "रीस्टार्ट नहीं किया जा सका"
 #: rust/crates/shell/src/sources.rs:1694
 msgid "In use"
 msgstr "इस्तेमाल में"
+
+#~ msgid "No phone yet"
+#~ msgstr "अभी कोई फ़ोन नहीं है"
+
+#, python-brace-format
+#~ msgid "{source}, no phone needed"
+#~ msgstr "{source}, फ़ोन की ज़रूरत नहीं"
+
+#~ msgid "Which phone to stream from"
+#~ msgstr "किस फ़ोन से स्ट्रीम करना है"
+
+#~ msgid "Your phones: add, rename, remove"
+#~ msgstr "आपके फ़ोन: जोड़ें, नाम बदलें, हटाएं"
+
+#~ msgid "Your phones"
+#~ msgstr "आपके फ़ोन"
+
+#~ msgid "Each phone keeps its own camera settings, and so does a browser once you change one. Removing a phone also unpairs it on the phone."
+#~ msgstr "हर फ़ोन अपनी कैमरा सेटिंग्स अलग रखता है, और कोई सेटिंग बदलने पर ब्राउज़र भी ऐसा ही करता है. किसी फ़ोन को हटाने पर वह फ़ोन पर भी अनपेयर हो जाता है."
+
+#~ msgid "Phones"
+#~ msgstr "फ़ोन"
+
+#~ msgid "No phones yet. Add one to pair it with this computer."
+#~ msgstr "अभी कोई फ़ोन नहीं है. इस कंप्यूटर से पेयर करने के लिए एक जोड़ें."
+
+#~ msgid "Without it webcams aren't in the phone picker and the Webcam card is gone too."
+#~ msgstr "इसके बिना वेबकैम फ़ोन पिकर में नहीं होंगे और वेबकैम कार्ड भी हट जाएगा."
+
+#~ msgid "What video calls see while the phone isn't streaming."
+#~ msgstr "जब फ़ोन स्ट्रीम नहीं कर रहा हो, तब वीडियो कॉल में दिखने वाली तस्वीर."
+
+#~ msgid "the phone"
+#~ msgstr "फ़ोन"
+
+#~ msgid "Couldn't reach the phone."
+#~ msgstr "फ़ोन से संपर्क नहीं हो सका."
+
+#, python-brace-format
+#~ msgid "{action} can't be used right now (no phone, or the control is off)."
+#~ msgstr "{action} का इस्तेमाल अभी नहीं किया जा सकता (फ़ोन नहीं है, या कंट्रोल बंद है)."
+
+#~ msgid "When the phone is ready"
+#~ msgstr "जब फ़ोन तैयार हो"
+
+#~ msgctxt "search"
+#~ msgid "auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free"
+#~ msgstr "ऑटो शुरू रोकें कैमरा ऐप तैयार auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free"
+
+#~ msgctxt "search"
+#~ msgid "automatically begin streaming when phone ready app opens the camera auto start"
+#~ msgstr "ऑटोमैटिक स्ट्रीमिंग शुरू फ़ोन तैयार कैमरा ऑटो शुरू automatically begin streaming when phone ready app opens the camera auto start"
+
+#~ msgid "Without it Browser camera isn't in the phone picker and its card is gone too."
+#~ msgstr "इसके बिना ब्राउज़र कैमरा फ़ोन पिकर में नहीं रहता और इसका कार्ड भी हट जाता है."
+
+#~ msgid "Phones and connection"
+#~ msgstr "फ़ोन और कनेक्शन"
+
+#~ msgid "Pairing phones, picking one and connecting to it over Wi-Fi or USB."
+#~ msgstr "फ़ोन पेयर करना, कोई फ़ोन चुनना और Wi-Fi या USB से उससे कनेक्ट करना."
 
 #~ msgid "This camera's microphone isn't passed on. Pick it in your call app instead."
 #~ msgstr "इस कैमरे का माइक्रोफ़ोन आगे नहीं भेजा जाता. इसके बजाय इसे अपने कॉल ऐप में चुनें."

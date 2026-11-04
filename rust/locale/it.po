@@ -3532,8 +3532,8 @@ msgid "phone plugged in, but Telescope isn't open on it"
 msgstr "telefono collegato, ma Telescope non è aperto sul telefono"
 
 #: rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:1068 rust/crates/link/src/plugin.rs:1325 rust/crates/link/ui/connection.slint:556 rust/crates/link/ui/connection.slint:557
-msgid "No phone yet"
-msgstr "Ancora nessun telefono"
+msgid "No device yet"
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:348
 msgid "Add a phone to stream from."
@@ -3684,8 +3684,8 @@ msgstr "In attesa di {source}…"
 
 #: rust/crates/link/src/plugin.rs:1071
 #, python-brace-format
-msgid "{source}, no phone needed"
-msgstr "{source}, nessun telefono necessario"
+msgid "{source}, no pairing needed"
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1086
 msgid "Reconnecting…"
@@ -3712,7 +3712,7 @@ msgstr "L'app Telescope su {phone} è più vecchia di questa."
 msgid "Copy command"
 msgstr "Copia comando"
 
-#: rust/crates/link/src/plugin.rs:1198 rust/crates/link/src/plugin.rs:1350 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/link/ui/connection.slint:561 rust/crates/setup/src/monitoring.rs:311 rust/crates/setup/ui/monitoring.slint:131
+#: rust/crates/link/src/plugin.rs:1198 rust/crates/link/src/plugin.rs:1350 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/setup/src/monitoring.rs:311 rust/crates/setup/ui/monitoring.slint:131
 msgid "Phone"
 msgstr "Telefono"
 
@@ -3863,36 +3863,40 @@ msgid "Also switch it on at every startup"
 msgstr "Attivala anche a ogni avvio"
 
 #: rust/crates/link/ui/connection.slint:557
-msgid "Pick a phone"
+msgid "Pick a device"
+msgstr ""
+
+#: rust/crates/link/ui/connection.slint:561
+msgid "Device"
 msgstr ""
 
 #: rust/crates/link/ui/connection.slint:562
-msgid "Which phone to stream from"
-msgstr "Telefono per lo streaming"
+msgid "Which device to stream from"
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:580
-msgid "Your phones: add, rename, remove"
-msgstr "I tuoi telefoni: aggiungi, rinomina, rimuovi"
+msgid "Your devices: add, rename, remove"
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:581 rust/crates/link/ui/connection.slint:598
-msgid "Your phones"
-msgstr "I tuoi telefoni"
+msgid "Your devices"
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:599
-msgid "Each phone keeps its own camera settings, and so does a browser once you change one. Removing a phone also unpairs it on the phone."
-msgstr "Ogni telefono mantiene le proprie impostazioni della fotocamera, e lo stesso fa un browser appena ne cambi una. Rimuovere un telefono annulla anche la sua associazione sul telefono."
+msgid "Each device keeps its own camera settings, a browser once you change one. Removing a phone also unpairs it on the phone."
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:601
-msgid "Phones"
-msgstr "Telefoni"
+msgid "Devices"
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:607
 msgid "Pair another phone"
 msgstr "Associa un altro telefono"
 
 #: rust/crates/link/ui/connection.slint:614
-msgid "No phones yet. Add one to pair it with this computer."
-msgstr "Nessun telefono ancora. Aggiungine uno per associarlo a questo computer."
+msgid "No devices yet. Add a phone to pair it with this computer."
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:618
 msgid "Rename phone"
@@ -4384,8 +4388,8 @@ msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "Streaming da webcam e schede di acquisizione collegate a questo computer."
 
 #: rust/crates/outputs/src/webcam.rs:715
-msgid "Without it webcams aren't in the phone picker and the Webcam card is gone too."
-msgstr "Senza questo plugin le webcam non compaiono nel selettore del telefono e la scheda Webcam sparisce."
+msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:753
 #, python-brace-format
@@ -4490,8 +4494,8 @@ msgid "Sharper, more data"
 msgstr "Più nitido, più dati"
 
 #: rust/crates/outputs/ui/wait_screen.slint:21
-msgid "What video calls see while the phone isn't streaming."
-msgstr "Cosa vedono le videochiamate quando il telefono non trasmette in streaming."
+msgid "What video calls see while no device is streaming."
+msgstr ""
 
 #: rust/crates/outputs/ui/wait_screen.slint:51
 msgid "Choose image…"
@@ -6217,8 +6221,8 @@ msgid "Open Telescope on it."
 msgstr "Apri Telescope sul telefono."
 
 #: rust/crates/shell/src/sources.rs:849 rust/crates/shell/src/streams.rs:1452
-msgid "the phone"
-msgstr "il telefono"
+msgid "the device"
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:1080
 msgid "Open the Telescope page in it again."
@@ -6378,8 +6382,8 @@ msgid "Lost the phone - reconnecting"
 msgstr "Connessione con il telefono persa - riconnessione in corso"
 
 #: rust/crates/shell/src/streams.rs:1627
-msgid "Couldn't reach the phone."
-msgstr "Impossibile raggiungere il telefono."
+msgid "Couldn't reach the device."
+msgstr ""
 
 #: rust/crates/shell/src/tray.rs:54
 msgid "Telescope: streaming the camera"
@@ -6516,9 +6520,9 @@ msgstr "Chiudi la guida alla configurazione"
 msgid "Stop drawing this preview. The camera output doesn't change."
 msgstr "Interrompe il rendering di questa anteprima. L'uscita della fotocamera non cambia."
 
-#: rust/crates/shell/ui/cards/preview.slint:241 rust/crates/system/src/shortcuts.rs:449
-msgid "Phone camera"
-msgstr "Fotocamera del telefono"
+#: rust/crates/shell/ui/cards/preview.slint:241
+msgid "Device camera"
+msgstr ""
 
 #: rust/crates/shell/ui/cards/preview.slint:254
 msgid "Draw the skeleton MediaPipe finds. Doesn't show in the camera output."
@@ -6815,6 +6819,10 @@ msgstr "In Telescope: {status}"
 msgid "Start or stop"
 msgstr "Avvia o interrompi"
 
+#: rust/crates/system/src/shortcuts.rs:449
+msgid "Phone camera"
+msgstr "Fotocamera del telefono"
+
 #: rust/crates/system/src/shortcuts.rs:450
 msgid "Show or hide Telescope"
 msgstr "Mostra o nascondi Telescope"
@@ -6935,8 +6943,8 @@ msgstr "{action} non ha alcuna impostazione denominata {name}."
 
 #: rust/crates/system/src/shortcuts.rs:799
 #, python-brace-format
-msgid "{action} can't be used right now (no phone, or the control is off)."
-msgstr "Impossibile usare {action} in questo momento (nessun telefono o controllo disattivato)."
+msgid "{action} can't be used right now (no device, or the control is off)."
+msgstr ""
 
 #: rust/crates/system/src/shortcuts.rs:976
 msgid "No control matches that search."
@@ -7080,8 +7088,8 @@ msgid "Only when I press Start"
 msgstr "Solo quando premo Avvia"
 
 #: rust/crates/system/src/startup.rs:39
-msgid "When the phone is ready"
-msgstr "Quando il telefono è pronto"
+msgid "When the device is ready"
+msgstr ""
 
 #: rust/crates/system/src/startup.rs:40
 msgid "When an app opens the camera"
@@ -7401,13 +7409,13 @@ msgstr "Streaming automatico"
 
 #: rust/crates/system/ui/startup.slint:50
 msgctxt "search"
-msgid "auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free"
-msgstr "avvio automatico interruzione fotocamera app apre discord obs zoom meet teams telefono pronto inattivo vivavoce auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free"
+msgid "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
+msgstr ""
 
 #: rust/crates/system/ui/startup.slint:54
 msgctxt "search"
-msgid "automatically begin streaming when phone ready app opens the camera auto start"
-msgstr "avvia automaticamente streaming quando telefono pronto app apre la fotocamera avvio automatico automatically begin streaming when phone ready app opens the camera auto start"
+msgid "automatically begin streaming when phone device ready app opens the camera auto start"
+msgstr ""
 
 #: rust/crates/system/ui/startup.slint:66
 msgctxt "search"
@@ -7603,10 +7611,6 @@ msgstr "Non è una cartella all'interno della cartella dei plugin."
 msgid "Streaming from any device's web browser, by scanning a code."
 msgstr "Streaming dal browser web di qualsiasi dispositivo scansionando un codice."
 
-#: rust/crates/link/src/browser/plugin.rs:1184
-msgid "Without it Browser camera isn't in the phone picker and its card is gone too."
-msgstr "Senza di esso Fotocamera del browser non compare nel selettore del telefono e anche la relativa scheda scompare."
-
 #: rust/crates/shell/src/plugins/camera_control.rs:1434
 msgid "Exposure, white balance, focus, lenses and the phone camera's other settings."
 msgstr "Esposizione, bilanciamento del bianco, messa a fuoco, obiettivi e le altre impostazioni della fotocamera del telefono."
@@ -7659,14 +7663,6 @@ msgstr "nitidezza bordo bordi contorno edge"
 msgctxt "search"
 msgid "dark night brightness"
 msgstr "buio notte luce scarsa luminosità dark night brightness"
-
-#: rust/crates/link/src/plugin.rs:1229
-msgid "Phones and connection"
-msgstr "Telefoni e connessione"
-
-#: rust/crates/link/src/plugin.rs:1230
-msgid "Pairing phones, picking one and connecting to it over Wi-Fi or USB."
-msgstr "Associazione dei telefoni, scelta di uno e connessione via Wi-Fi o USB."
 
 #: rust/crates/core/src/actions.rs:262
 msgctxt "after a number"
@@ -7873,6 +7869,67 @@ msgstr "Impossibile riavviare"
 #: rust/crates/shell/src/sources.rs:1694
 msgid "In use"
 msgstr "In uso"
+
+#~ msgid "No phone yet"
+#~ msgstr "Ancora nessun telefono"
+
+#, python-brace-format
+#~ msgid "{source}, no phone needed"
+#~ msgstr "{source}, nessun telefono necessario"
+
+#~ msgid "Which phone to stream from"
+#~ msgstr "Telefono per lo streaming"
+
+#~ msgid "Your phones: add, rename, remove"
+#~ msgstr "I tuoi telefoni: aggiungi, rinomina, rimuovi"
+
+#~ msgid "Your phones"
+#~ msgstr "I tuoi telefoni"
+
+#~ msgid "Each phone keeps its own camera settings, and so does a browser once you change one. Removing a phone also unpairs it on the phone."
+#~ msgstr "Ogni telefono mantiene le proprie impostazioni della fotocamera, e lo stesso fa un browser appena ne cambi una. Rimuovere un telefono annulla anche la sua associazione sul telefono."
+
+#~ msgid "Phones"
+#~ msgstr "Telefoni"
+
+#~ msgid "No phones yet. Add one to pair it with this computer."
+#~ msgstr "Nessun telefono ancora. Aggiungine uno per associarlo a questo computer."
+
+#~ msgid "Without it webcams aren't in the phone picker and the Webcam card is gone too."
+#~ msgstr "Senza questo plugin le webcam non compaiono nel selettore del telefono e la scheda Webcam sparisce."
+
+#~ msgid "What video calls see while the phone isn't streaming."
+#~ msgstr "Cosa vedono le videochiamate quando il telefono non trasmette in streaming."
+
+#~ msgid "the phone"
+#~ msgstr "il telefono"
+
+#~ msgid "Couldn't reach the phone."
+#~ msgstr "Impossibile raggiungere il telefono."
+
+#, python-brace-format
+#~ msgid "{action} can't be used right now (no phone, or the control is off)."
+#~ msgstr "Impossibile usare {action} in questo momento (nessun telefono o controllo disattivato)."
+
+#~ msgid "When the phone is ready"
+#~ msgstr "Quando il telefono è pronto"
+
+#~ msgctxt "search"
+#~ msgid "auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free"
+#~ msgstr "avvio automatico interruzione fotocamera app apre discord obs zoom meet teams telefono pronto inattivo vivavoce auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free"
+
+#~ msgctxt "search"
+#~ msgid "automatically begin streaming when phone ready app opens the camera auto start"
+#~ msgstr "avvia automaticamente streaming quando telefono pronto app apre la fotocamera avvio automatico automatically begin streaming when phone ready app opens the camera auto start"
+
+#~ msgid "Without it Browser camera isn't in the phone picker and its card is gone too."
+#~ msgstr "Senza di esso Fotocamera del browser non compare nel selettore del telefono e anche la relativa scheda scompare."
+
+#~ msgid "Phones and connection"
+#~ msgstr "Telefoni e connessione"
+
+#~ msgid "Pairing phones, picking one and connecting to it over Wi-Fi or USB."
+#~ msgstr "Associazione dei telefoni, scelta di uno e connessione via Wi-Fi o USB."
 
 #~ msgid "This camera's microphone isn't passed on. Pick it in your call app instead."
 #~ msgstr "Il microfono di questa fotocamera non viene inoltrato. Scegli invece quello nella tua app per le chiamate."

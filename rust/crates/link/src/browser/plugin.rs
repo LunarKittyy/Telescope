@@ -1181,7 +1181,7 @@ impl Plugin for BrowserCameraPlugin {
             name: NAME.into(),
             title: "Browser camera".into(),
             about: "Streaming from any device's web browser, by scanning a code.".into(),
-            when_off: "Without it Browser camera isn't in the phone picker and its card is gone too.".into(),
+            when_off: "Without it Browser camera isn't in the device picker and its card is gone too.".into(),
             category: "streaming".into(),
             icon: "wifi".into(),
             pinned: true,

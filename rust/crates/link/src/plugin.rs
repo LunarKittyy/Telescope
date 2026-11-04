@@ -94,7 +94,7 @@ pub struct ConnectionPlugin {
     remembered: Vec<RememberedSource>,
     /// Whose per-phone settings the panels hold.
     active_key: Option<String>,
-    /// The "No phone yet" banner, while it may still be up.
+    /// The "No device yet" banner, while it may still be up.
     no_phone_issue: Option<Issue>,
     updating_phone: bool,
     /// (kind, text) from the last phone update.
@@ -345,7 +345,7 @@ impl ConnectionPlugin {
         match problem {
             StartProblem::NoPhone => {
                 let issue = Issue {
-                    title: tr("No phone yet"), text: tr("Add a phone to stream from."),
+                    title: tr("No device yet"), text: tr("Add a phone to stream from."),
                     actions: vec![IssueAction { label: tr("Add phone"), does: IssueDoes::Plugin { id: "add_phone".into() } }],
                     kind: "warn".into(), details: String::new(), tell_dismiss: false,
                 };
@@ -1065,10 +1065,10 @@ pub fn card_props(c: &Connection, ctx: &CardCtx) -> Value {
     let Some(phone) = c.selected_phone() else {
         let live = c.streaming && c.connected && !c.lost;
         let text = match &ctx.source {
-            None => tr("No phone yet"),
+            None => tr("No device yet"),
             Some(_) if c.streaming && live => tr_ctx("status", "Streaming"),
             Some(source) if c.streaming => tr("Waiting for {source}…").field("source", source),
-            Some(source) => tr("{source}, no phone needed").field("source", source),
+            Some(source) => tr("{source}, no pairing needed").field("source", source),
         };
         p.insert("status-kind".into(), json!(if live { "status_ok" } else { "status_dim" }));
         p.insert("status-text".into(), json!(text));
@@ -1226,8 +1226,8 @@ impl Plugin for ConnectionPlugin {
     fn info(&self) -> PluginInfo {
         PluginInfo {
             name: NAME.into(),
-            title: "Phones and connection".into(),
-            about: "Pairing phones, picking one and connecting to it over Wi-Fi or USB.".into(),
+            title: "Devices and connection".into(),
+            about: "Pairing phones, picking a device and connecting to a phone over Wi-Fi or USB.".into(),
             category: "streaming".into(),
             icon: "connection".into(),
             pinned: true,
@@ -1322,7 +1322,7 @@ impl Plugin for ConnectionPlugin {
 
     fn card(&mut self) -> Option<CardSpec> {
         Some(CardSpec {
-            ui: UiSpec { source: SlintSource::Text(UI.into()), component: "ConnectionCard".into(), props: json!({"status-text": tr("No phone yet")}) },
+            ui: UiSpec { source: SlintSource::Text(UI.into()), component: "ConnectionCard".into(), props: json!({"status-text": tr("No device yet")}) },
             region: "left".into(),
         })
     }
@@ -2066,7 +2066,7 @@ mod tests {
     fn empty_state_is_just_the_status() {
         let mut e = env();
         e.settle();
-        assert_eq!(e.status(), "No phone yet");
+        assert_eq!(e.status(), "No device yet");
         assert_eq!(e.props("card")["note-text"], ""); // the Add phone button in the card header says the rest
         assert_eq!(e.props("card")["route-shown"], false);
         assert_eq!(e.props("card")["using-shown"], false);
@@ -2077,7 +2077,7 @@ mod tests {
         let mut e = env();
         let header = e.plugin.header_widget().unwrap();
         assert_eq!(header.component, "PhonePicker");
-        assert!(UI.contains("callback manage;") && UI.contains("@tr(\"Your phones: add, rename, remove\")"));
+        assert!(UI.contains("callback manage;") && UI.contains("@tr(\"Your devices: add, rename, remove\")"));
         assert_eq!(e.plugin.card().unwrap().ui.component, "ConnectionCard");
     }
 
@@ -2156,7 +2156,7 @@ mod tests {
         e.ui("header", "rename", vec![json!("id-a"), json!("Renamed")]);
         assert_eq!(e.props("header")["rows"][0]["name"], "Renamed");
         e.ui("header", "remove", vec![json!("id-a")]);
-        assert_eq!(e.props("header")["rows"], json!([])); // "No phones yet" shows on an empty list
+        assert_eq!(e.props("header")["rows"], json!([])); // "No devices yet" shows on an empty list
         assert!(e.called("forget_device_settings id-a"));
     }
 
@@ -2191,7 +2191,7 @@ mod tests {
 
         e.plugin.forget_phone(&mut e.host, "id-a");
         assert_eq!(e.shared.picked_source(), None);
-        assert_eq!(e.status(), "No phone yet");
+        assert_eq!(e.status(), "No device yet");
     }
 
     #[test]
@@ -2234,7 +2234,7 @@ mod tests {
     fn start_without_a_phone_explains_and_refuses() {
         let mut e = env();
         assert_eq!(e.ask_start(), None);
-        assert_eq!(e.issue("start").unwrap().title, "No phone yet");
+        assert_eq!(e.issue("start").unwrap().title, "No device yet");
         e.press("start", 0);
         assert_eq!(e.props("card")["add-open"], true);
     }
@@ -2504,7 +2504,7 @@ mod tests {
         assert_eq!(e.shared.picked_source().as_deref(), Some("browser")); // its settings are kept apart from the phone's
         assert!(e.called("switch_device Some(\"id-a\") Some(\"browser\")"));
         assert_eq!(picked(&e).as_deref(), Some("browser"));
-        assert!(e.status().contains("no phone needed"), "{}", e.status());
+        assert!(e.status().contains("no pairing needed"), "{}", e.status());
 
         e.ui("header", "picked", vec![json!(0)]);
         assert_eq!(picked(&e).as_deref(), Some(""));

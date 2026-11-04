@@ -712,7 +712,7 @@ impl Plugin for WebcamPlugin {
             name: NAME.into(),
             title: n_("Webcams").into(),
             about: n_("Streaming from webcams and capture cards plugged into this computer.").into(),
-            when_off: n_("Without it webcams aren't in the phone picker and the Webcam card is gone too.").into(),
+            when_off: n_("Without it webcams aren't in the device picker and the Webcam card is gone too.").into(),
             category: "streaming".into(),
             icon: "video".into(),
             pinned: true,

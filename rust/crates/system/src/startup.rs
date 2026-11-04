@@ -36,7 +36,7 @@ pub const STOP_OWN: &str = "own";
 pub const STOP_ANY: &str = "any";
 pub const START_CHOICES: [(&str, &str); 3] = [
     (START_OFF, n_("Only when I press Start")),
-    (START_READY, n_("When the phone is ready")),
+    (START_READY, n_("When the device is ready")),
     (START_WATCHED, n_("When an app opens the camera")),
 ];
 pub const STOP_CHOICES: [(&str, &str); 3] = [

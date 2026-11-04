@@ -1449,7 +1449,7 @@ impl StreamSource for NoSource {
         String::new()
     }
     fn name(&self) -> String {
-        tr("the phone")
+        tr("the device")
     }
     fn url(&self) -> String {
         String::new()
@@ -1624,7 +1624,7 @@ impl FlowHost for Host<'_> {
         let hardware = source.kind.card_decoding() && (chosen || self.w.opts.as_ref().is_some_and(|o| o.hardware_decode));
         let id = self.w.streams.next_worker.get() + 1;
         self.w.streams.next_worker.set(id);
-        let opener = source.kind.opener().unwrap_or_else(|| Arc::new(|_| Err(tr("Couldn't reach the phone."))));
+        let opener = source.kind.opener().unwrap_or_else(|| Arc::new(|_| Err(tr("Couldn't reach the device."))));
         // Before the thread starts, so no frame goes out without them
         let steps = self.w.state.borrow_mut().pipeline_steps(source.id.as_deref().filter(|id| !id.is_empty()));
         // This worker now owns the stream's vision and motion state: an older one for the same source that's slow to end leaves it alone
