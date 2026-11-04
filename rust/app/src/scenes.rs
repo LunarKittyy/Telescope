@@ -25,7 +25,7 @@ struct SceneLink {
     adb: bool,
     /// This computer is on a network, so pairing offers an address.
     network: bool,
-    /// A phone pairs as soon as Add phone is open (translation_scenes.add_phone_done).
+    /// A phone pairs as soon as Add device is open (translation_scenes.add_phone_done).
     pairs: bool,
 }
 
@@ -334,16 +334,16 @@ fn with_route(mut config: Value, route: &str) -> Value {
     config
 }
 
-/// The Add phone dialog as translation_scenes.add_phone and pairing_dialog show it: (id, adb, on a network).
+/// The Add device dialog as translation_scenes.add_phone and pairing_dialog show it: (id, adb, on a network).
 const ADD_PHONE: &[(&str, bool, bool)] = &[("dialog-add-phone", false, true), ("dialog-add-phone-usb", true, true),
                                             ("dialog-add-phone-no-network", true, false)];
 
-/// The window with nothing paired on a computer called Studio PC, and the Add phone dialog open.
+/// The window with nothing paired on a computer called Studio PC, and the Add device dialog open.
 fn add_phone(adb: bool, network: bool) -> Setup {
     add_phone_pairing(adb, network, false)
 }
 
-/// Runs the event loop for a while, for what plugins do on timers (Add phone polls for a pairing every 250 ms).
+/// Runs the event loop for a while, for what plugins do on timers (Add device polls for a pairing every 250 ms).
 fn wait(w: &std::rc::Rc<telescope_shell::window::Window>, ms: u64) {
     let start = std::time::Instant::now();
     while start.elapsed() < std::time::Duration::from_millis(ms) {
@@ -370,7 +370,7 @@ fn add_phone_pairing(adb: bool, network: bool, pairs: bool) -> Setup {
     }
 }
 
-/// translation_scenes.adb_licence: on Windows without adb, Get adb from Google pressed. Here the question is in Add phone.
+/// translation_scenes.adb_licence: on Windows without adb, Get adb from Google pressed. Here the question is in Add device.
 fn adb_licence() -> Setup {
     let link = SceneLink { answer: Some(Resolution::new(PhoneStatus::Unreachable)), adb: false, network: true, pairs: false };
     let mut setup = add_phone(false, true);

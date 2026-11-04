@@ -2706,7 +2706,7 @@ msgstr "Substituir layout"
 msgid "Name:"
 msgstr "Nome:"
 
-#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:492 rust/crates/link/ui/connection.slint:692 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:861 rust/crates/shell/ui/settings.slint:640
+#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:492 rust/crates/link/ui/connection.slint:692 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:862 rust/crates/shell/ui/settings.slint:640
 msgid "OK"
 msgstr "OK"
 
@@ -3137,7 +3137,7 @@ msgstr "O celular recusou o microfone (HTTP {code})."
 msgid "No microphone"
 msgstr "Sem microfone"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:685 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:685 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "Não está transmitindo"
 
@@ -3251,8 +3251,8 @@ msgid "This computer couldn't set up the video connection."
 msgstr "Este computador não conseguiu configurar a conexão de vídeo."
 
 #: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:349 rust/crates/link/ui/connection.slint:191 rust/crates/link/ui/connection.slint:606 rust/crates/shell/src/plugins/onboarding.rs:167
-msgid "Add phone"
-msgstr "Adicionar celular"
+msgid "Add device"
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:130
 msgid "Update this app"
@@ -3349,13 +3349,13 @@ msgstr "Abra o Telescope no {phone} e mantenha-o na tela. Ele precisa estar na m
 
 #: rust/crates/link/src/connection.rs:831
 #, python-brace-format
-msgid "This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add phone and scan the code again."
-msgstr "Esta versão do Telescope criptografa a conexão com o {phone}, o que exige um novo pareamento. Clique em Adicionar celular e escaneie o código novamente."
+msgid "This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add device and scan the code again."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:832
 #, python-brace-format
-msgid "{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add phone to pair it again."
-msgstr "O {phone} não reconhece mais este computador (ele foi removido no celular ou o app foi reinstalado). Clique em Adicionar celular para pareá-lo novamente."
+msgid "{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add device to pair it again."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:834
 #, python-brace-format
@@ -3363,8 +3363,8 @@ msgid "Local only is on in the phone app, so {phone} only accepts USB. Plug it i
 msgstr "O Apenas local está ativado no app do celular, então o {phone} só aceita USB. Conecte-o com um cabo ou desative o Apenas local no celular."
 
 #: rust/crates/link/src/connection.rs:836
-msgid "USB needs adb, which Add phone can get."
-msgstr "O USB precisa do adb, que o Adicionar celular pode obter."
+msgid "USB needs adb, which Add device can get."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:841
 msgid "the phone isn't answering over USB"
@@ -3441,11 +3441,8 @@ msgstr ""
 msgid ""
 "The phone doesn't recognise this computer anymore.\n"
 "\n"
-"Click Add phone to pair it again."
+"Click Add device to pair it again."
 msgstr ""
-"O celular não reconhece mais este computador.\n"
-"\n"
-"Clique em Adicionar celular para pareá-lo novamente."
 
 #: rust/crates/link/src/connection.rs:886
 msgid "unknown error"
@@ -3508,8 +3505,8 @@ msgstr ""
 "Tente novamente. Se isso continuar acontecendo, abra o Telescope no celular."
 
 #: rust/crates/link/src/phones.rs:300
-msgid "adb isn't installed, so USB can't be used (Add phone can get it)"
-msgstr "O adb não está instalado, portanto o USB não pode ser usado (Adicionar celular pode obtê-lo)"
+msgid "adb isn't installed, so USB can't be used (Add device can get it)"
+msgstr ""
 
 #: rust/crates/link/src/phones.rs:301
 msgid "adb isn't installed, so USB can't be used"
@@ -3708,7 +3705,7 @@ msgstr "Atualizando o app do celular via USB…"
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "O app do Telescope no {phone} é mais antigo que este."
 
-#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:154 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:1058
+#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:1058
 msgid "Copy command"
 msgstr "Copiar comando"
 
@@ -3803,8 +3800,8 @@ msgid "Connection"
 msgstr "Conexão"
 
 #: rust/crates/link/ui/connection.slint:192
-msgid "Pair a phone over Wi-Fi or USB"
-msgstr "Parear um celular via Wi-Fi ou USB"
+msgid "Pair a phone over Wi-Fi or USB, or use the Browser camera"
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:197
 msgid "Open or close the setup guide: the virtual camera, the phone app and pairing"
@@ -3891,8 +3888,8 @@ msgid "Devices"
 msgstr ""
 
 #: rust/crates/link/ui/connection.slint:607
-msgid "Pair another phone"
-msgstr "Parear outro celular"
+msgid "Add another device"
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:614
 msgid "No devices yet. Add a phone to pair it with this computer."
@@ -5376,11 +5373,11 @@ msgstr "Para transmitir várias câmeras ao mesmo tempo, o Telescope adiciona ma
 msgid "Set up more virtual cameras"
 msgstr "Configurar mais câmeras virtuais"
 
-#: rust/crates/shell/src/extra_cameras.rs:128
+#: rust/crates/shell/src/extra_cameras.rs:129
 msgid "Setting up more virtual cameras…"
 msgstr "Configurando mais câmeras virtuais…"
 
-#: rust/crates/shell/src/extra_cameras.rs:134 rust/crates/shell/src/extra_cameras.rs:156
+#: rust/crates/shell/src/extra_cameras.rs:135 rust/crates/shell/src/extra_cameras.rs:157
 msgid "Couldn't add more virtual cameras"
 msgstr "Não foi possível adicionar mais câmeras virtuais"
 
@@ -6037,54 +6034,54 @@ msgstr "Aba"
 msgid "Check that it's still on."
 msgstr "Verifique se ainda está ligado."
 
-#: rust/crates/shell/src/settings.rs:717
+#: rust/crates/shell/src/settings.rs:718
 msgid "Nothing matches every word. These match some of them."
 msgstr "Nenhum resultado corresponde a todas as palavras. Estes correspondem a algumas delas."
 
-#: rust/crates/shell/src/settings.rs:719
+#: rust/crates/shell/src/settings.rs:720
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)."
 msgstr "Nenhum resultado para “{text}”. Tente usar menos palavras ou descrever a função (resolução, microfone, inicialização)."
 
-#: rust/crates/shell/src/settings.rs:721 rust/crates/shell/ui/settings.slint:229
+#: rust/crates/shell/src/settings.rs:722 rust/crates/shell/ui/settings.slint:229
 msgid "Search results"
 msgstr "Resultados da pesquisa"
 
-#: rust/crates/shell/src/settings.rs:782
+#: rust/crates/shell/src/settings.rs:783
 #, python-brace-format
 msgid "Remove {plugin}"
 msgstr "Remover {plugin}"
 
-#: rust/crates/shell/src/settings.rs:801
+#: rust/crates/shell/src/settings.rs:802
 msgid "Check for updates"
 msgstr "Verificar atualizações"
 
-#: rust/crates/shell/src/settings.rs:802
+#: rust/crates/shell/src/settings.rs:803
 msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
 msgstr "Verifica uma vez por dia se há novas versões de plugins adicionados que publicam lançamentos no GitHub e as menciona aqui. Nada é baixado."
 
-#: rust/crates/shell/src/settings.rs:803
+#: rust/crates/shell/src/settings.rs:804
 msgid "Install updates without asking"
 msgstr "Instalar atualizações sem perguntar"
 
-#: rust/crates/shell/src/settings.rs:803
+#: rust/crates/shell/src/settings.rs:804
 msgid "Installs new versions of the plugins you switched on and switches them on again."
 msgstr "Instala novas versões dos plugins que você ativou e os ativa novamente."
 
-#: rust/crates/shell/src/settings.rs:804
+#: rust/crates/shell/src/settings.rs:805
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "Perigoso! Quem controla o repositório de um plugin pode executar código novo neste computador sempre que publicar um lançamento."
 
-#: rust/crates/shell/src/settings.rs:807
+#: rust/crates/shell/src/settings.rs:808
 #, python-brace-format
 msgid "Show: {which}"
 msgstr "Mostrar: {which}"
 
-#: rust/crates/shell/src/settings.rs:894
+#: rust/crates/shell/src/settings.rs:895
 msgid "Install a plugin"
 msgstr "Instalar um plugin"
 
-#: rust/crates/shell/src/settings.rs:896
+#: rust/crates/shell/src/settings.rs:897
 msgid "Plugins (*.zip)"
 msgstr "Plugins (*.zip)"
 
@@ -6147,7 +6144,7 @@ msgid "Could not save settings. Check disk space and permissions."
 msgstr "Não foi possível salvar as configurações. Verifique o espaço em disco e as permissões."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1313 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1315 rust/crates/system/src/shortcuts.rs:441
 msgid "Start"
 msgstr "Iniciar"
 
@@ -6409,19 +6406,19 @@ msgstr "Telescope: transmitindo o microfone, câmera desligada"
 msgid "Quit"
 msgstr "Sair"
 
-#: rust/crates/shell/src/tray.rs:227
+#: rust/crates/shell/src/tray.rs:229
 msgid "Streaming continues in the background."
 msgstr "A transmissão continua em segundo plano."
 
-#: rust/crates/shell/src/tray.rs:227
+#: rust/crates/shell/src/tray.rs:229
 msgid "It starts streaming by itself when it needs to."
 msgstr "Ele inicia a transmissão sozinho quando necessário."
 
-#: rust/crates/shell/src/tray.rs:228
+#: rust/crates/shell/src/tray.rs:230
 msgid "Right-click the tray icon to quit."
 msgstr "Clique com o botão direito no ícone da bandeja do sistema para sair."
 
-#: rust/crates/shell/src/tray.rs:229
+#: rust/crates/shell/src/tray.rs:231
 msgid "Telescope is still running"
 msgstr "O Telescope ainda está em execução"
 
@@ -6433,20 +6430,20 @@ msgstr "Telescope - Pré-visualização de vídeo"
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: rust/crates/shell/src/window.rs:1312 rust/crates/shell/src/window.rs:1313
+#: rust/crates/shell/src/window.rs:1314 rust/crates/shell/src/window.rs:1315
 msgid "Start mic only"
 msgstr "Iniciar apenas microfone"
 
-#: rust/crates/shell/src/window.rs:1312
+#: rust/crates/shell/src/window.rs:1314
 msgid "Start streaming"
 msgstr "Iniciar transmissão"
 
-#: rust/crates/shell/src/window.rs:1318
+#: rust/crates/shell/src/window.rs:1320
 msgid "Stop streaming"
 msgstr "Parar transmissão"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1319 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/window.rs:1321 rust/crates/system/src/shortcuts.rs:441
 msgid "Stop"
 msgstr "Parar"
 
@@ -7869,6 +7866,38 @@ msgstr "Não foi possível reiniciar"
 #: rust/crates/shell/src/sources.rs:1694
 msgid "In use"
 msgstr "Em uso"
+
+#~ msgid "Add phone"
+#~ msgstr "Adicionar celular"
+
+#, python-brace-format
+#~ msgid "This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add phone and scan the code again."
+#~ msgstr "Esta versão do Telescope criptografa a conexão com o {phone}, o que exige um novo pareamento. Clique em Adicionar celular e escaneie o código novamente."
+
+#, python-brace-format
+#~ msgid "{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add phone to pair it again."
+#~ msgstr "O {phone} não reconhece mais este computador (ele foi removido no celular ou o app foi reinstalado). Clique em Adicionar celular para pareá-lo novamente."
+
+#~ msgid "USB needs adb, which Add phone can get."
+#~ msgstr "O USB precisa do adb, que o Adicionar celular pode obter."
+
+#~ msgid ""
+"The phone doesn't recognise this computer anymore.\n"
+"\n"
+"Click Add phone to pair it again."
+#~ msgstr ""
+"O celular não reconhece mais este computador.\n"
+"\n"
+"Clique em Adicionar celular para pareá-lo novamente."
+
+#~ msgid "adb isn't installed, so USB can't be used (Add phone can get it)"
+#~ msgstr "O adb não está instalado, portanto o USB não pode ser usado (Adicionar celular pode obtê-lo)"
+
+#~ msgid "Pair a phone over Wi-Fi or USB"
+#~ msgstr "Parear um celular via Wi-Fi ou USB"
+
+#~ msgid "Pair another phone"
+#~ msgstr "Parear outro celular"
 
 #~ msgid "No phone yet"
 #~ msgstr "Nenhum celular ainda"

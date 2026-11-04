@@ -1,4 +1,4 @@
-//! tests/test_connection_dialogs.py: Add phone with the real pairing server and the real adb commands, only the adb program itself
+//! tests/test_connection_dialogs.py: Add device with the real pairing server and the real adb commands, only the adb program itself
 //! stood in for. What's in plugin.rs's tests drives the card through a stand-in offer.
 
 use super::*;
@@ -106,7 +106,7 @@ struct Rig {
 }
 
 impl Rig {
-    /// Add phone open, with these lines in `adb devices -l` and the first look at them taken.
+    /// Add device open, with these lines in `adb devices -l` and the first look at them taken.
     fn open(devices: &[&str]) -> Rig {
         let adb = Arc::new(FakeAdb::default());
         *adb.devices.lock().unwrap() = devices.iter().map(|d| d.to_string()).collect();

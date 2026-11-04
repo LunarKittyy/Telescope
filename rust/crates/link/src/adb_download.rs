@@ -25,7 +25,7 @@ const MAX_INDEX: u64 = 16 << 20;
 const TIMEOUT: Duration = Duration::from_secs(30);
 const LEFTOVER_AGE: Duration = Duration::from_secs(3600);
 
-/// Add phone and Advanced each have a Get adb; one download at a time.
+/// Add device and Advanced each have a Get adb; one download at a time.
 static LOCK: Mutex<()> = Mutex::new(());
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -427,7 +427,7 @@ pub fn get_adb(own: Option<&str>, progress: &dyn Fn(&str)) -> Result<String, Str
 /// What a download (or keeping an adb picked by hand) runs: progress texts in, Ok(version) or Err(why) out.
 pub type DownloadJob = Arc<dyn Fn(&dyn Fn(&str)) -> Result<String, String> + Send + Sync>;
 
-/// One download at a time, shared by Add phone and Advanced, so closing the dialog doesn't lose one under way
+/// One download at a time, shared by Add device and Advanced, so closing the dialog doesn't lose one under way
 /// (widgets/adb.py's AdbDownload).
 #[derive(Clone)]
 pub struct AdbDownloader {

@@ -2706,7 +2706,7 @@ msgstr "Thay thế bố cục"
 msgid "Name:"
 msgstr "Tên:"
 
-#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:492 rust/crates/link/ui/connection.slint:692 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:861 rust/crates/shell/ui/settings.slint:640
+#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:492 rust/crates/link/ui/connection.slint:692 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:862 rust/crates/shell/ui/settings.slint:640
 msgid "OK"
 msgstr "OK"
 
@@ -3137,7 +3137,7 @@ msgstr "Điện thoại đã từ chối quyền micrô (HTTP {code})."
 msgid "No microphone"
 msgstr "Không có micrô"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:685 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:685 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "Không truyền phát"
 
@@ -3251,8 +3251,8 @@ msgid "This computer couldn't set up the video connection."
 msgstr "Máy tính này không thể thiết lập kết nối video."
 
 #: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:349 rust/crates/link/ui/connection.slint:191 rust/crates/link/ui/connection.slint:606 rust/crates/shell/src/plugins/onboarding.rs:167
-msgid "Add phone"
-msgstr "Thêm điện thoại"
+msgid "Add device"
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:130
 msgid "Update this app"
@@ -3349,13 +3349,13 @@ msgstr "Mở Telescope trên {phone} và giữ ứng dụng trên màn hình. Đ
 
 #: rust/crates/link/src/connection.rs:831
 #, python-brace-format
-msgid "This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add phone and scan the code again."
-msgstr "Phiên bản Telescope này mã hóa kết nối tới {phone}, vì vậy cần ghép đôi lại. Bấm Thêm điện thoại và quét lại mã."
+msgid "This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add device and scan the code again."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:832
 #, python-brace-format
-msgid "{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add phone to pair it again."
-msgstr "{phone} không còn nhận ra máy tính này nữa (máy tính đã bị gỡ bỏ trên điện thoại, hoặc ứng dụng đã được cài đặt lại). Bấm Thêm điện thoại để ghép đôi lại."
+msgid "{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add device to pair it again."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:834
 #, python-brace-format
@@ -3363,8 +3363,8 @@ msgid "Local only is on in the phone app, so {phone} only accepts USB. Plug it i
 msgstr "Chế độ Chỉ nội bộ đang bật trong ứng dụng điện thoại, nên {phone} chỉ chấp nhận USB. Hãy cắm cáp hoặc tắt chế độ Chỉ nội bộ trên điện thoại."
 
 #: rust/crates/link/src/connection.rs:836
-msgid "USB needs adb, which Add phone can get."
-msgstr "USB cần adb, bạn có thể lấy qua mục Thêm điện thoại."
+msgid "USB needs adb, which Add device can get."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:841
 msgid "the phone isn't answering over USB"
@@ -3441,11 +3441,8 @@ msgstr ""
 msgid ""
 "The phone doesn't recognise this computer anymore.\n"
 "\n"
-"Click Add phone to pair it again."
+"Click Add device to pair it again."
 msgstr ""
-"Điện thoại không còn nhận ra máy tính này nữa.\n"
-"\n"
-"Bấm Thêm điện thoại để ghép đôi lại."
 
 #: rust/crates/link/src/connection.rs:886
 msgid "unknown error"
@@ -3508,8 +3505,8 @@ msgstr ""
 "Thử lại. Nếu sự cố vẫn tiếp diễn, hãy mở Telescope trên điện thoại."
 
 #: rust/crates/link/src/phones.rs:300
-msgid "adb isn't installed, so USB can't be used (Add phone can get it)"
-msgstr "adb chưa được cài đặt nên không thể dùng USB (mục Thêm điện thoại có thể tải adb)"
+msgid "adb isn't installed, so USB can't be used (Add device can get it)"
+msgstr ""
 
 #: rust/crates/link/src/phones.rs:301
 msgid "adb isn't installed, so USB can't be used"
@@ -3708,7 +3705,7 @@ msgstr "Đang cập nhật ứng dụng điện thoại qua USB…"
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Ứng dụng Telescope trên {phone} cũ hơn bản này."
 
-#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:154 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:1058
+#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:1058
 msgid "Copy command"
 msgstr "Sao chép lệnh"
 
@@ -3803,8 +3800,8 @@ msgid "Connection"
 msgstr "Kết nối"
 
 #: rust/crates/link/ui/connection.slint:192
-msgid "Pair a phone over Wi-Fi or USB"
-msgstr "Ghép đôi điện thoại qua Wi-Fi hoặc USB"
+msgid "Pair a phone over Wi-Fi or USB, or use the Browser camera"
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:197
 msgid "Open or close the setup guide: the virtual camera, the phone app and pairing"
@@ -3891,8 +3888,8 @@ msgid "Devices"
 msgstr ""
 
 #: rust/crates/link/ui/connection.slint:607
-msgid "Pair another phone"
-msgstr "Ghép đôi điện thoại khác"
+msgid "Add another device"
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:614
 msgid "No devices yet. Add a phone to pair it with this computer."
@@ -5376,11 +5373,11 @@ msgstr "Để truyền phát đồng thời nhiều camera, Telescope sẽ thêm
 msgid "Set up more virtual cameras"
 msgstr "Thiết lập thêm camera ảo"
 
-#: rust/crates/shell/src/extra_cameras.rs:128
+#: rust/crates/shell/src/extra_cameras.rs:129
 msgid "Setting up more virtual cameras…"
 msgstr "Đang thiết lập thêm camera ảo…"
 
-#: rust/crates/shell/src/extra_cameras.rs:134 rust/crates/shell/src/extra_cameras.rs:156
+#: rust/crates/shell/src/extra_cameras.rs:135 rust/crates/shell/src/extra_cameras.rs:157
 msgid "Couldn't add more virtual cameras"
 msgstr "Không thể thêm camera ảo"
 
@@ -6036,54 +6033,54 @@ msgstr "Thẻ"
 msgid "Check that it's still on."
 msgstr "Kiểm tra xem thiết bị vẫn đang bật."
 
-#: rust/crates/shell/src/settings.rs:717
+#: rust/crates/shell/src/settings.rs:718
 msgid "Nothing matches every word. These match some of them."
 msgstr "Không có mục nào khớp với mọi từ. Dưới đây là các mục khớp với một số từ."
 
-#: rust/crates/shell/src/settings.rs:719
+#: rust/crates/shell/src/settings.rs:720
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)."
 msgstr "Không có mục nào khớp với “{text}”. Hãy thử dùng ít từ hơn, hoặc tìm theo chức năng (độ phân giải, micrô, khởi động)."
 
-#: rust/crates/shell/src/settings.rs:721 rust/crates/shell/ui/settings.slint:229
+#: rust/crates/shell/src/settings.rs:722 rust/crates/shell/ui/settings.slint:229
 msgid "Search results"
 msgstr "Kết quả tìm kiếm"
 
-#: rust/crates/shell/src/settings.rs:782
+#: rust/crates/shell/src/settings.rs:783
 #, python-brace-format
 msgid "Remove {plugin}"
 msgstr "Gỡ bỏ {plugin}"
 
-#: rust/crates/shell/src/settings.rs:801
+#: rust/crates/shell/src/settings.rs:802
 msgid "Check for updates"
 msgstr "Kiểm tra bản cập nhật"
 
-#: rust/crates/shell/src/settings.rs:802
+#: rust/crates/shell/src/settings.rs:803
 msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
 msgstr "Kiểm tra mỗi ngày một lần các phiên bản mới của tiện ích bổ sung đã thêm có phát hành trên GitHub và thông báo tại đây. Không có gì được tải về."
 
-#: rust/crates/shell/src/settings.rs:803
+#: rust/crates/shell/src/settings.rs:804
 msgid "Install updates without asking"
 msgstr "Cài đặt bản cập nhật mà không cần hỏi"
 
-#: rust/crates/shell/src/settings.rs:803
+#: rust/crates/shell/src/settings.rs:804
 msgid "Installs new versions of the plugins you switched on and switches them on again."
 msgstr "Cài đặt các phiên bản mới của các tiện ích bổ sung bạn đã bật và tự động bật lại chúng."
 
-#: rust/crates/shell/src/settings.rs:804
+#: rust/crates/shell/src/settings.rs:805
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "Nguy hiểm! Bất kỳ ai kiểm soát kho lưu trữ của tiện ích đều có thể chạy mã mới trên máy tính này mỗi khi họ xuất bản bản phát hành mới."
 
-#: rust/crates/shell/src/settings.rs:807
+#: rust/crates/shell/src/settings.rs:808
 #, python-brace-format
 msgid "Show: {which}"
 msgstr "Hiển thị: {which}"
 
-#: rust/crates/shell/src/settings.rs:894
+#: rust/crates/shell/src/settings.rs:895
 msgid "Install a plugin"
 msgstr "Cài đặt tiện ích bổ sung"
 
-#: rust/crates/shell/src/settings.rs:896
+#: rust/crates/shell/src/settings.rs:897
 msgid "Plugins (*.zip)"
 msgstr "Tiện ích bổ sung (*.zip)"
 
@@ -6141,7 +6138,7 @@ msgid "Could not save settings. Check disk space and permissions."
 msgstr "Không thể lưu cài đặt. Kiểm tra dung lượng đĩa và quyền truy cập."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1313 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1315 rust/crates/system/src/shortcuts.rs:441
 msgid "Start"
 msgstr "Bắt đầu"
 
@@ -6403,19 +6400,19 @@ msgstr "Telescope: đang truyền phát mic, đã tắt camera"
 msgid "Quit"
 msgstr "Thoát"
 
-#: rust/crates/shell/src/tray.rs:227
+#: rust/crates/shell/src/tray.rs:229
 msgid "Streaming continues in the background."
 msgstr "Quá trình truyền phát tiếp tục ở chế độ nền."
 
-#: rust/crates/shell/src/tray.rs:227
+#: rust/crates/shell/src/tray.rs:229
 msgid "It starts streaming by itself when it needs to."
 msgstr "Ứng dụng sẽ tự động bắt đầu truyền phát khi cần."
 
-#: rust/crates/shell/src/tray.rs:228
+#: rust/crates/shell/src/tray.rs:230
 msgid "Right-click the tray icon to quit."
 msgstr "Nhấp chuột phải vào biểu tượng khay hệ thống để thoát."
 
-#: rust/crates/shell/src/tray.rs:229
+#: rust/crates/shell/src/tray.rs:231
 msgid "Telescope is still running"
 msgstr "Telescope vẫn đang chạy"
 
@@ -6427,20 +6424,20 @@ msgstr "Telescope - Xem trước video"
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: rust/crates/shell/src/window.rs:1312 rust/crates/shell/src/window.rs:1313
+#: rust/crates/shell/src/window.rs:1314 rust/crates/shell/src/window.rs:1315
 msgid "Start mic only"
 msgstr "Chỉ bật mic"
 
-#: rust/crates/shell/src/window.rs:1312
+#: rust/crates/shell/src/window.rs:1314
 msgid "Start streaming"
 msgstr "Bắt đầu truyền phát"
 
-#: rust/crates/shell/src/window.rs:1318
+#: rust/crates/shell/src/window.rs:1320
 msgid "Stop streaming"
 msgstr "Dừng truyền phát"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1319 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/window.rs:1321 rust/crates/system/src/shortcuts.rs:441
 msgid "Stop"
 msgstr "Dừng"
 
@@ -7860,6 +7857,38 @@ msgstr "Không thể khởi động lại"
 #: rust/crates/shell/src/sources.rs:1694
 msgid "In use"
 msgstr "Đang dùng"
+
+#~ msgid "Add phone"
+#~ msgstr "Thêm điện thoại"
+
+#, python-brace-format
+#~ msgid "This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add phone and scan the code again."
+#~ msgstr "Phiên bản Telescope này mã hóa kết nối tới {phone}, vì vậy cần ghép đôi lại. Bấm Thêm điện thoại và quét lại mã."
+
+#, python-brace-format
+#~ msgid "{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add phone to pair it again."
+#~ msgstr "{phone} không còn nhận ra máy tính này nữa (máy tính đã bị gỡ bỏ trên điện thoại, hoặc ứng dụng đã được cài đặt lại). Bấm Thêm điện thoại để ghép đôi lại."
+
+#~ msgid "USB needs adb, which Add phone can get."
+#~ msgstr "USB cần adb, bạn có thể lấy qua mục Thêm điện thoại."
+
+#~ msgid ""
+"The phone doesn't recognise this computer anymore.\n"
+"\n"
+"Click Add phone to pair it again."
+#~ msgstr ""
+"Điện thoại không còn nhận ra máy tính này nữa.\n"
+"\n"
+"Bấm Thêm điện thoại để ghép đôi lại."
+
+#~ msgid "adb isn't installed, so USB can't be used (Add phone can get it)"
+#~ msgstr "adb chưa được cài đặt nên không thể dùng USB (mục Thêm điện thoại có thể tải adb)"
+
+#~ msgid "Pair a phone over Wi-Fi or USB"
+#~ msgstr "Ghép đôi điện thoại qua Wi-Fi hoặc USB"
+
+#~ msgid "Pair another phone"
+#~ msgstr "Ghép đôi điện thoại khác"
 
 #~ msgid "No phone yet"
 #~ msgstr "Chưa có điện thoại"

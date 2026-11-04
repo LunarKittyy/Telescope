@@ -209,6 +209,7 @@ pub fn open(window: &Rc<Window>, tab: &str) {
     }
     crate::window::set_app_icon(&settings.ui);
     let _ = settings.ui.show();
+    crate::frame::dress(&settings.ui);
     crate::parent::attach(&settings.ui, &window.ui);
     if coming_up {
         if settings.fitted.get() {

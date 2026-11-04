@@ -164,7 +164,7 @@ impl Onboarding {
         } else if paired {
             step("Add your phone", tr("Paired."), "status_dim", true, String::new(), false)
         } else {
-            step("Add your phone", tr("Open Telescope on the phone first."), "status_dim", false, tr("Add phone"), true)
+            step("Add your phone", tr("Open Telescope on the phone first."), "status_dim", false, tr("Add device"), true)
         };
         // Points at the real button rather than duplicating it, so people learn where it lives
         let start = if self.streamed {
@@ -367,7 +367,7 @@ mod tests {
         assert!(env.shown());
         assert_eq!(env.needed().last(), Some(&true));
         assert_eq!(env.step(0)["text"], "Checking…");
-        assert_eq!(env.step(2)["button"], "Add phone");
+        assert_eq!(env.step(2)["button"], "Add device");
         assert!(env.qr());
         assert!((0..4).all(|i| env.step(i)["done"] == false));
     }
@@ -467,7 +467,7 @@ mod tests {
         env.event(Event::SetupGuideRequested);
         assert!(env.shown());
         assert_eq!(env.needed().last(), Some(&true));
-        assert_eq!(env.step(2)["button"], "Add phone", "not Not needed: a phone is why they asked");
+        assert_eq!(env.step(2)["button"], "Add device", "not Not needed: a phone is why they asked");
         assert!(env.qr() && env.close_button());
         env.close();
         assert!(!env.shown());

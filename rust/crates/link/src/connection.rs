@@ -28,7 +28,7 @@ pub const HELD_POLL_S: f64 = 60.0;
 pub const USB_WATCH: Duration = Duration::from_secs(5);
 /// USB that just failed a stream isn't tried again for this long, so it can't flap.
 pub const USB_SIT_OUT_S: f64 = 10.0;
-/// Add phone dialog: look for a phone on USB to pair with.
+/// Add device dialog: look for a phone on USB to pair with.
 pub const PAIR_USB_POLL: Duration = Duration::from_secs(2);
 /// A phone's addresses kept for Wi-Fi probes, newest last.
 pub const MAX_REMEMBERED_IPS: usize = 8;
@@ -126,7 +126,7 @@ pub enum Fix {
 impl Fix {
     pub fn label(self) -> String {
         match self {
-            Fix::AddPhone => tr("Add phone"),
+            Fix::AddPhone => tr("Add device"),
             Fix::UpdateDesktop => tr("Update this app"),
             Fix::UpdateOverUsb => tr("Update over USB"),
             Fix::SwitchToAutomatic => tr("Switch to Automatic"),
@@ -828,12 +828,12 @@ pub fn problem_text(res: &Resolution, phone: &str, adb_available: bool) -> Strin
     match res.status {
         PhoneStatus::Unreachable => with_phone(tr("Open Telescope on {phone} and keep it on screen. It needs to be on the same network as this computer, or plugged in with a USB cable."), phone),
         // LEGACY MIGRATION PATH
-        PhoneStatus::NotPaired if res.before_tls => with_phone(tr("This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add phone and scan the code again."), phone),
-        PhoneStatus::NotPaired => with_phone(tr("{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add phone to pair it again."), phone),
+        PhoneStatus::NotPaired if res.before_tls => with_phone(tr("This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add device and scan the code again."), phone),
+        PhoneStatus::NotPaired => with_phone(tr("{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add device to pair it again."), phone),
         PhoneStatus::LocalOnly => {
             let mut text = with_phone(tr("Local only is on in the phone app, so {phone} only accepts USB. Plug it in with a cable, or turn Local only off on the phone."), phone);
             if crate::platform::windows() && !adb_available {
-                text += &format!(" {}", tr("USB needs adb, which Add phone can get."));
+                text += &format!(" {}", tr("USB needs adb, which Add device can get."));
             }
             text
         }
@@ -881,7 +881,7 @@ pub fn start_refused_reason(error: Option<&str>, computer: Option<&str>) -> Stri
         "no_camera_permission" => tr("The phone hasn't given Telescope camera access.\n\nOpen the app on the phone and allow the camera permission."),
         "busy" => tr("The phone is busy starting or stopping a stream.\n\nTry again in a moment."),
         "start_refused" => tr("Android didn't let the camera start in the background.\n\nBring Telescope to the front on the phone and try again."),
-        "not_paired" => tr("The phone doesn't recognise this computer anymore.\n\nClick Add phone to pair it again."),
+        "not_paired" => tr("The phone doesn't recognise this computer anymore.\n\nClick Add device to pair it again."),
         other => {
             let error = if other.is_empty() { tr("unknown error") } else { other.to_string() };
             tr("The phone refused to start streaming ({error}).").field("error", &error)
@@ -988,7 +988,7 @@ pub fn ensure_streaming(client: Option<&dyn SessionCtl>, opening: Option<&Map<St
         ping = await_stopped(client, ping, pace);
     }
     match ping.status {
-        PingStatus::NotPaired => return Err(tr("The phone doesn't recognise this computer anymore.\n\nClick Add phone to pair it again.")),
+        PingStatus::NotPaired => return Err(tr("The phone doesn't recognise this computer anymore.\n\nClick Add device to pair it again.")),
         PingStatus::Unreachable => return Err(tr("Couldn't reach the phone. Open Telescope on it and try again.")),
         PingStatus::Paired => {}
     }
@@ -1179,7 +1179,7 @@ mod tests {
     fn problem_text_says_what_to_do() {
         let text = |s: PhoneStatus| problem_text(&Resolution::new(s), "Pixel", true);
         assert!(text(PhoneStatus::Unreachable).contains("Open Telescope on Pixel"));
-        assert!(text(PhoneStatus::NotPaired).contains("Add phone"));
+        assert!(text(PhoneStatus::NotPaired).contains("Add device"));
         assert!(text(PhoneStatus::LocalOnly).contains("Local only"));
         let forced = problem_text(&Resolution { usb_note: Some(UsbNote::AppClosed), ..Resolution::new(PhoneStatus::UsbNeedsAttention) }, "Pixel", true);
         assert!(forced.contains("isn't open") && forced.contains("Automatic"));
@@ -1192,11 +1192,11 @@ mod tests {
     fn local_only_on_windows_without_adb_points_at_add_phone() {
         let _lock = crate::platform::TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let without = problem_text(&Resolution::new(PhoneStatus::LocalOnly), "Pixel", false);
-        assert_eq!(without.contains("Add phone can get"), cfg!(windows));
+        assert_eq!(without.contains("Add device can get"), cfg!(windows));
         assert!(!problem_text(&Resolution::new(PhoneStatus::LocalOnly), "Pixel", true).contains("adb"));
         crate::platform::set_windows(Some(true));
-        assert!(problem_text(&Resolution::new(PhoneStatus::LocalOnly), "Pixel", false).contains("Add phone can get"));
-        assert!(crate::phones::usb_note_text(Some(UsbNote::NoAdb)).contains("Add phone can get it"));
+        assert!(problem_text(&Resolution::new(PhoneStatus::LocalOnly), "Pixel", false).contains("Add device can get"));
+        assert!(crate::phones::usb_note_text(Some(UsbNote::NoAdb)).contains("Add device can get it"));
         crate::platform::set_windows(None);
     }
 
@@ -1889,7 +1889,7 @@ mod tests {
     #[test]
     fn ensure_streaming_explains_unreachable_and_unpaired() {
         assert!(ensure(&Script::new(vec![Ping::status(PingStatus::Unreachable)]), false, &FakePace::new(0.0)).unwrap_err().contains("Couldn't reach"));
-        assert!(ensure(&Script::new(vec![Ping::status(PingStatus::NotPaired)]), false, &FakePace::new(0.0)).unwrap_err().contains("Add phone"));
+        assert!(ensure(&Script::new(vec![Ping::status(PingStatus::NotPaired)]), false, &FakePace::new(0.0)).unwrap_err().contains("Add device"));
         assert!(ensure_streaming(None, None, false, &|_| {}, &FakePace::new(0.0)).unwrap_err().contains("Lost the connection"));
     }
 

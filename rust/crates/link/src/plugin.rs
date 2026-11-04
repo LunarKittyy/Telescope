@@ -1,4 +1,4 @@
-//! The Connection plugin (plugins/connection.py's window half): the card, the phone picker, the Add phone and Your
+//! The Connection plugin (plugins/connection.py's window half): the card, the phone picker, the Add device and Your
 //! phones dialogs, the Start banners and the UDP setting. Its decisions are connection.rs's; its state is shared with
 //! LinkService (shared.rs), which the window's stream flow calls, so the window never reaches into this plugin.
 
@@ -25,7 +25,7 @@ use telescope_core::ui::{ActionSpec, CardSpec, Issue, IssueAction, IssueDoes, Se
 
 pub const NAME: &str = "connection";
 const UI: &str = include_str!("../ui/connection.slint");
-/// The pairing server's answer is looked for this often while Add phone is open.
+/// The pairing server's answer is looked for this often while Add device is open.
 const PAIR_POLL_MS: u64 = 250;
 /// The USB offer goes out again this often: the broadcast only lands while the app is on screen.
 const OFFER_AGAIN_S: f64 = 4.0;
@@ -48,7 +48,7 @@ const P_ADB: &str = "adb";
 const P_ADB_PROGRESS: &str = "adb_progress";
 const P_VCAM: &str = "vcam";
 
-/// The Add phone dialog while it's open.
+/// The Add device dialog while it's open.
 struct AddPhone {
     offer: Option<Arc<dyn PairingOffer>>,
     qr: (Vec<usize>, usize),
@@ -101,7 +101,7 @@ pub struct ConnectionPlugin {
     update_note: Option<(String, String)>,
     add: Option<AddPhone>,
     phones_open: bool,
-    /// Add phone was opened from Your phones, which Back goes to.
+    /// Add device was opened from Your phones, which Back goes to.
     add_from_phones: bool,
     same_phone: Option<SamePhone>,
     /// Ids in the picker's order, phones then sources.
@@ -113,7 +113,7 @@ pub struct ConnectionPlugin {
     stale: bool,
     adb_available: bool,
     apk_bundled: bool,
-    /// Kept across closing Add phone, so a download under way isn't started twice.
+    /// Kept across closing Add device, so a download under way isn't started twice.
     downloader: adb_download::AdbDownloader,
     /// The virtual camera, for the check at Start. None: no check.
     outputs: Option<Arc<dyn Outputs>>,
@@ -123,7 +123,7 @@ pub struct ConnectionPlugin {
     adb_asked: Option<RequestId>,
 }
 
-/// In a dev profile with TELESCOPE_TEST_OFFER set, Add phone writes its QR code's content to that file for a test to read.
+/// In a dev profile with TELESCOPE_TEST_OFFER set, Add device writes its QR code's content to that file for a test to read.
 fn test_offer_file() -> Option<std::path::PathBuf> {
     telescope_core::config::dev_profile()?;
     std::env::var_os("TELESCOPE_TEST_OFFER").filter(|v| !v.is_empty()).map(std::path::PathBuf::from)
@@ -346,7 +346,7 @@ impl ConnectionPlugin {
             StartProblem::NoPhone => {
                 let issue = Issue {
                     title: tr("No device yet"), text: tr("Add a phone to stream from."),
-                    actions: vec![IssueAction { label: tr("Add phone"), does: IssueDoes::Plugin { id: "add_phone".into() } }],
+                    actions: vec![IssueAction { label: tr("Add device"), does: IssueDoes::Plugin { id: "add_phone".into() } }],
                     kind: "warn".into(), details: String::new(), tell_dismiss: false,
                 };
                 self.no_phone_issue = Some(issue.clone());
@@ -737,7 +737,7 @@ impl ConnectionPlugin {
     }
 
     fn close_add(&mut self, host: &mut dyn Host) {
-        log::debug!("Add phone closed");
+        log::debug!("Add device closed");
         self.add = None; // revokes the offer
         host.cancel_schedule(T_PAIR_POLL);
         host.cancel_schedule(T_PAIR_USB);
@@ -1362,7 +1362,7 @@ impl Plugin for ConnectionPlugin {
         }];
         if test_offer_file().is_some() {
             actions.push(ActionSpec {
-                id: "connection.add_phone".into(), label: "Add phone".into(), group: "Telescope".into(), params: Vec::new(),
+                id: "connection.add_phone".into(), label: "Add device".into(), group: "Telescope".into(), params: Vec::new(),
                 repeats: false, on_release: false, current: None, keywords: String::new(),
             });
         }
@@ -1372,7 +1372,7 @@ impl Plugin for ConnectionPlugin {
     fn run_action(&mut self, host: &mut dyn Host, id: &str, params: &Value) -> Option<String> {
         if id == "connection.add_phone" && test_offer_file().is_some() {
             self.open_add_phone(host);
-            return Some("Add phone".into());
+            return Some("Add device".into());
         }
         if id != "phone.pick" {
             return None;
@@ -2067,7 +2067,7 @@ mod tests {
         let mut e = env();
         e.settle();
         assert_eq!(e.status(), "No device yet");
-        assert_eq!(e.props("card")["note-text"], ""); // the Add phone button in the card header says the rest
+        assert_eq!(e.props("card")["note-text"], ""); // the Add device button in the card header says the rest
         assert_eq!(e.props("card")["route-shown"], false);
         assert_eq!(e.props("card")["using-shown"], false);
     }
@@ -2267,7 +2267,7 @@ mod tests {
         e.add("id-a", "Pixel");
         e.link.answer(Resolution::new(PhoneStatus::NotPaired));
         e.ask_start();
-        assert_eq!(e.labels("start"), ["Add phone"]);
+        assert_eq!(e.labels("start"), ["Add device"]);
 
         e.shared.conn().route_pref = RoutePreference::Usb;
         e.link.answer(Resolution::new(PhoneStatus::UsbNeedsAttention));
@@ -2375,7 +2375,7 @@ mod tests {
         e.add("id-a", "Pixel");
         e.resolve(Resolution::new(PhoneStatus::NotPaired));
         assert!(e.status().contains("Needs pairing again"), "{}", e.status());
-        assert!(e.props("card")["note-text"].as_str().unwrap().contains("Add phone"));
+        assert!(e.props("card")["note-text"].as_str().unwrap().contains("Add device"));
     }
 
     #[test]
