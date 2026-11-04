@@ -668,7 +668,7 @@ pub fn report_for(events: &EventLog, build: &str, commit: &str, state: &[(String
     let timeline = crate::perf::timeline_lines(crate::time::monotonic_ns());
     if !timeline.is_empty() {
         lines.push(String::new());
-        lines.push(format!("Timeline of the stream, the last {} minutes oldest first, a character for {} s ('~' is no stream, '#' the most):", crate::perf::COLUMNS as u64 * crate::perf::STEP_S / 60, crate::perf::STEP_S));
+        lines.push(format!("Timeline of each stream, the last {} minutes oldest first, a character for {} s ('~' is no stream, '#' the most):", crate::perf::COLUMNS as u64 * crate::perf::STEP_S / 60, crate::perf::STEP_S));
         lines.extend(timeline);
     }
     lines.push(String::new());
