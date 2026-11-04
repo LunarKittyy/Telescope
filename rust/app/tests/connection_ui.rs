@@ -261,8 +261,8 @@ export component W inherits Window {
     let m = managed.clone();
     w.set_callback("managed", move |_| { *m.borrow_mut() += 1; Value::Void }).unwrap();
     offscreen::draw(w.window(), 600.0, 100.0, 1.0);
-    assert_eq!(ElementHandle::find_by_accessible_label(&w, "Phone").count(), 1);
-    ElementHandle::find_by_accessible_label(&w, "Your phones").next().expect("the manage button").invoke_accessible_default_action();
+    assert_eq!(ElementHandle::find_by_accessible_label(&w, "Device").count(), 1);
+    ElementHandle::find_by_accessible_label(&w, "Your devices").next().expect("the manage button").invoke_accessible_default_action();
     assert_eq!(*managed.borrow(), 1);
 }
 
@@ -275,12 +275,12 @@ export component W inherits Window {
     in property <int> current: -1;
     PhonePicker { x: 0; y: 0; width: 300px; height: 40px; names: root.names; current: root.current; }
 }"#);
-    let value = |w: &ComponentInstance| ElementHandle::find_by_accessible_label(w, "Phone").find_map(|e| e.accessible_value()).map(|v| v.to_string());
+    let value = |w: &ComponentInstance| ElementHandle::find_by_accessible_label(w, "Device").find_map(|e| e.accessible_value()).map(|v| v.to_string());
     offscreen::draw(w.window(), 600.0, 100.0, 1.0);
-    assert_eq!(value(&w).as_deref(), Some("Pick a phone"), "phones to pick from, none picked");
+    assert_eq!(value(&w).as_deref(), Some("Pick a device"), "phones to pick from, none picked");
     w.set_property("names", Value::Model(Rc::new(slint::VecModel::from(Vec::<Value>::new())).into())).unwrap();
     offscreen::draw(w.window(), 600.0, 100.0, 1.0);
-    assert_eq!(value(&w).as_deref(), Some("No phone yet"), "no phones at all");
+    assert_eq!(value(&w).as_deref(), Some("No device yet"), "no phones at all");
     w.set_property("names", Value::Model(Rc::new(slint::VecModel::from(vec![Value::String("Pixel".into())])).into())).unwrap();
     w.set_property("current", Value::Number(0.0)).unwrap();
     offscreen::draw(w.window(), 600.0, 100.0, 1.0);
@@ -420,7 +420,7 @@ export component W inherits Window {
     press(&w, "Add phone");
     assert_eq!(said.borrow().len(), 2);
     assert!(said.borrow()[0].contains("closed") && said.borrow()[1].contains("add"), "{:?}", said.borrow());
-    assert!(ElementHandle::find_by_accessible_label(&w, "Your phones").count() == 1, "only the button is left, Your phones is gone");
+    assert!(ElementHandle::find_by_accessible_label(&w, "Your devices").count() == 1, "only the button is left, Your devices is gone");
 }
 
 fn the_virtual_camera_question_comes_with_the_startup_choice() {

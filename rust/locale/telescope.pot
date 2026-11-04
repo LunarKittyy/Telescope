@@ -3513,7 +3513,7 @@ msgid "phone plugged in, but Telescope isn't open on it"
 msgstr ""
 
 #: rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:1068 rust/crates/link/src/plugin.rs:1325 rust/crates/link/ui/connection.slint:556 rust/crates/link/ui/connection.slint:557
-msgid "No phone yet"
+msgid "No device yet"
 msgstr ""
 
 #: rust/crates/link/src/plugin.rs:348
@@ -3665,7 +3665,7 @@ msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1071
 #, python-brace-format
-msgid "{source}, no phone needed"
+msgid "{source}, no pairing needed"
 msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1086
@@ -3693,7 +3693,7 @@ msgstr ""
 msgid "Copy command"
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:1198 rust/crates/link/src/plugin.rs:1350 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/link/ui/connection.slint:561 rust/crates/setup/src/monitoring.rs:311 rust/crates/setup/ui/monitoring.slint:131
+#: rust/crates/link/src/plugin.rs:1198 rust/crates/link/src/plugin.rs:1350 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/setup/src/monitoring.rs:311 rust/crates/setup/ui/monitoring.slint:131
 msgid "Phone"
 msgstr ""
 
@@ -3844,27 +3844,31 @@ msgid "Also switch it on at every startup"
 msgstr ""
 
 #: rust/crates/link/ui/connection.slint:557
-msgid "Pick a phone"
+msgid "Pick a device"
+msgstr ""
+
+#: rust/crates/link/ui/connection.slint:561
+msgid "Device"
 msgstr ""
 
 #: rust/crates/link/ui/connection.slint:562
-msgid "Which phone to stream from"
+msgid "Which device to stream from"
 msgstr ""
 
 #: rust/crates/link/ui/connection.slint:580
-msgid "Your phones: add, rename, remove"
+msgid "Your devices: add, rename, remove"
 msgstr ""
 
 #: rust/crates/link/ui/connection.slint:581 rust/crates/link/ui/connection.slint:598
-msgid "Your phones"
+msgid "Your devices"
 msgstr ""
 
 #: rust/crates/link/ui/connection.slint:599
-msgid "Each phone keeps its own camera settings, and so does a browser once you change one. Removing a phone also unpairs it on the phone."
+msgid "Each device keeps its own camera settings, a browser once you change one. Removing a phone also unpairs it on the phone."
 msgstr ""
 
 #: rust/crates/link/ui/connection.slint:601
-msgid "Phones"
+msgid "Devices"
 msgstr ""
 
 #: rust/crates/link/ui/connection.slint:607
@@ -3872,7 +3876,7 @@ msgid "Pair another phone"
 msgstr ""
 
 #: rust/crates/link/ui/connection.slint:614
-msgid "No phones yet. Add one to pair it with this computer."
+msgid "No devices yet. Add a phone to pair it with this computer."
 msgstr ""
 
 #: rust/crates/link/ui/connection.slint:618
@@ -4361,7 +4365,7 @@ msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:709
-msgid "Without it webcams aren't in the phone picker and the Webcam card is gone too."
+msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
 msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:747
@@ -4463,7 +4467,7 @@ msgid "Sharper, more data"
 msgstr ""
 
 #: rust/crates/outputs/ui/wait_screen.slint:21
-msgid "What video calls see while the phone isn't streaming."
+msgid "What video calls see while no device is streaming."
 msgstr ""
 
 #: rust/crates/outputs/ui/wait_screen.slint:51
@@ -6187,7 +6191,7 @@ msgid "Open Telescope on it."
 msgstr ""
 
 #: rust/crates/shell/src/sources.rs:849 rust/crates/shell/src/streams.rs:1452
-msgid "the phone"
+msgid "the device"
 msgstr ""
 
 #: rust/crates/shell/src/sources.rs:1080
@@ -6348,7 +6352,7 @@ msgid "Lost the phone - reconnecting"
 msgstr ""
 
 #: rust/crates/shell/src/streams.rs:1627
-msgid "Couldn't reach the phone."
+msgid "Couldn't reach the device."
 msgstr ""
 
 #: rust/crates/shell/src/tray.rs:54
@@ -6486,8 +6490,8 @@ msgstr ""
 msgid "Stop drawing this preview. The camera output doesn't change."
 msgstr ""
 
-#: rust/crates/shell/ui/cards/preview.slint:241 rust/crates/system/src/shortcuts.rs:449
-msgid "Phone camera"
+#: rust/crates/shell/ui/cards/preview.slint:241
+msgid "Device camera"
 msgstr ""
 
 #: rust/crates/shell/ui/cards/preview.slint:254
@@ -6785,6 +6789,10 @@ msgstr ""
 msgid "Start or stop"
 msgstr ""
 
+#: rust/crates/system/src/shortcuts.rs:449
+msgid "Phone camera"
+msgstr ""
+
 #: rust/crates/system/src/shortcuts.rs:450
 msgid "Show or hide Telescope"
 msgstr ""
@@ -6905,7 +6913,7 @@ msgstr ""
 
 #: rust/crates/system/src/shortcuts.rs:799
 #, python-brace-format
-msgid "{action} can't be used right now (no phone, or the control is off)."
+msgid "{action} can't be used right now (no device, or the control is off)."
 msgstr ""
 
 #: rust/crates/system/src/shortcuts.rs:976
@@ -7047,7 +7055,7 @@ msgid "Only when I press Start"
 msgstr ""
 
 #: rust/crates/system/src/startup.rs:39
-msgid "When the phone is ready"
+msgid "When the device is ready"
 msgstr ""
 
 #: rust/crates/system/src/startup.rs:40
@@ -7368,12 +7376,12 @@ msgstr ""
 
 #: rust/crates/system/ui/startup.slint:50
 msgctxt "search"
-msgid "auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free"
+msgid "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 msgstr ""
 
 #: rust/crates/system/ui/startup.slint:54
 msgctxt "search"
-msgid "automatically begin streaming when phone ready app opens the camera auto start"
+msgid "automatically begin streaming when phone device ready app opens the camera auto start"
 msgstr ""
 
 #: rust/crates/system/ui/startup.slint:66
@@ -7570,10 +7578,6 @@ msgstr ""
 msgid "Streaming from any device's web browser, by scanning a code."
 msgstr ""
 
-#: rust/crates/link/src/browser/plugin.rs:1184
-msgid "Without it Browser camera isn't in the phone picker and its card is gone too."
-msgstr ""
-
 #: rust/crates/shell/src/plugins/camera_control.rs:1434
 msgid "Exposure, white balance, focus, lenses and the phone camera's other settings."
 msgstr ""
@@ -7625,14 +7629,6 @@ msgstr ""
 #: rust/crates/shell/src/plugins/camera_control.rs:1617
 msgctxt "search"
 msgid "dark night brightness"
-msgstr ""
-
-#: rust/crates/link/src/plugin.rs:1229
-msgid "Phones and connection"
-msgstr ""
-
-#: rust/crates/link/src/plugin.rs:1230
-msgid "Pairing phones, picking one and connecting to it over Wi-Fi or USB."
 msgstr ""
 
 #: rust/crates/core/src/actions.rs:262

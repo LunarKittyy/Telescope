@@ -3532,8 +3532,8 @@ msgid "phone plugged in, but Telescope isn't open on it"
 msgstr "telefon bağlı ancak Telescope üzerinde açık değil"
 
 #: rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:1068 rust/crates/link/src/plugin.rs:1325 rust/crates/link/ui/connection.slint:556 rust/crates/link/ui/connection.slint:557
-msgid "No phone yet"
-msgstr "Henüz telefon yok"
+msgid "No device yet"
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:348
 msgid "Add a phone to stream from."
@@ -3684,8 +3684,8 @@ msgstr "{source} bekleniyor…"
 
 #: rust/crates/link/src/plugin.rs:1071
 #, python-brace-format
-msgid "{source}, no phone needed"
-msgstr "{source}, telefona gerek yok"
+msgid "{source}, no pairing needed"
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1086
 msgid "Reconnecting…"
@@ -3712,7 +3712,7 @@ msgstr "{phone} üzerindeki Telescope uygulaması bu sürümden daha eski."
 msgid "Copy command"
 msgstr "Komutu kopyala"
 
-#: rust/crates/link/src/plugin.rs:1198 rust/crates/link/src/plugin.rs:1350 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/link/ui/connection.slint:561 rust/crates/setup/src/monitoring.rs:311 rust/crates/setup/ui/monitoring.slint:131
+#: rust/crates/link/src/plugin.rs:1198 rust/crates/link/src/plugin.rs:1350 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/setup/src/monitoring.rs:311 rust/crates/setup/ui/monitoring.slint:131
 msgid "Phone"
 msgstr "Telefon"
 
@@ -3863,36 +3863,40 @@ msgid "Also switch it on at every startup"
 msgstr "Her başlangıçta da aç"
 
 #: rust/crates/link/ui/connection.slint:557
-msgid "Pick a phone"
+msgid "Pick a device"
+msgstr ""
+
+#: rust/crates/link/ui/connection.slint:561
+msgid "Device"
 msgstr ""
 
 #: rust/crates/link/ui/connection.slint:562
-msgid "Which phone to stream from"
-msgstr "Hangi telefondan yayın yapılacağı"
+msgid "Which device to stream from"
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:580
-msgid "Your phones: add, rename, remove"
-msgstr "Telefonların: ekle, yeniden adlandır, kaldır"
+msgid "Your devices: add, rename, remove"
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:581 rust/crates/link/ui/connection.slint:598
-msgid "Your phones"
-msgstr "Telefonların"
+msgid "Your devices"
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:599
-msgid "Each phone keeps its own camera settings, and so does a browser once you change one. Removing a phone also unpairs it on the phone."
-msgstr "Her telefon kendi kamera ayarlarını korur; bir tarayıcıda bir ayarı değiştirdiğinde o da aynısını yapar. Bir telefonu kaldırmak, telefondaki eşleştirmeyi de kaldırır."
+msgid "Each device keeps its own camera settings, a browser once you change one. Removing a phone also unpairs it on the phone."
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:601
-msgid "Phones"
-msgstr "Telefonlar"
+msgid "Devices"
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:607
 msgid "Pair another phone"
 msgstr "Başka bir telefon eşleştir"
 
 #: rust/crates/link/ui/connection.slint:614
-msgid "No phones yet. Add one to pair it with this computer."
-msgstr "Henüz telefon yok. Bu bilgisayarla eşleştirmek için bir tane ekle."
+msgid "No devices yet. Add a phone to pair it with this computer."
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:618
 msgid "Rename phone"
@@ -4380,8 +4384,8 @@ msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "Bu bilgisayara bağlı web kameralarından ve yakalama kartlarından yayın yapma."
 
 #: rust/crates/outputs/src/webcam.rs:709
-msgid "Without it webcams aren't in the phone picker and the Webcam card is gone too."
-msgstr "Bu olmadan web kameraları telefon seçicide yer almaz ve Web kamerası kartı da görünmez."
+msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:747
 #, python-brace-format
@@ -4482,8 +4486,8 @@ msgid "Sharper, more data"
 msgstr "Daha net, daha çok veri"
 
 #: rust/crates/outputs/ui/wait_screen.slint:21
-msgid "What video calls see while the phone isn't streaming."
-msgstr "Telefon yayın yapmıyorken görüntülü aramaların gördüğü ekran."
+msgid "What video calls see while no device is streaming."
+msgstr ""
 
 #: rust/crates/outputs/ui/wait_screen.slint:51
 msgid "Choose image…"
@@ -6209,8 +6213,8 @@ msgid "Open Telescope on it."
 msgstr "Telescope'u cihazda aç."
 
 #: rust/crates/shell/src/sources.rs:849 rust/crates/shell/src/streams.rs:1452
-msgid "the phone"
-msgstr "telefon"
+msgid "the device"
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:1080
 msgid "Open the Telescope page in it again."
@@ -6370,8 +6374,8 @@ msgid "Lost the phone - reconnecting"
 msgstr "Telefonla bağlantı kesildi - yeniden bağlanıyor"
 
 #: rust/crates/shell/src/streams.rs:1627
-msgid "Couldn't reach the phone."
-msgstr "Telefona ulaşılamadı."
+msgid "Couldn't reach the device."
+msgstr ""
 
 #: rust/crates/shell/src/tray.rs:54
 msgid "Telescope: streaming the camera"
@@ -6508,9 +6512,9 @@ msgstr "Kurulum kılavuzunu kapat"
 msgid "Stop drawing this preview. The camera output doesn't change."
 msgstr "Bu önizlemeyi çizmeyi durdur. Kamera çıkışı değişmez."
 
-#: rust/crates/shell/ui/cards/preview.slint:241 rust/crates/system/src/shortcuts.rs:449
-msgid "Phone camera"
-msgstr "Telefon kamerası"
+#: rust/crates/shell/ui/cards/preview.slint:241
+msgid "Device camera"
+msgstr ""
 
 #: rust/crates/shell/ui/cards/preview.slint:254
 msgid "Draw the skeleton MediaPipe finds. Doesn't show in the camera output."
@@ -6807,6 +6811,10 @@ msgstr "Telescope içinde: {status}"
 msgid "Start or stop"
 msgstr "Başlat veya durdur"
 
+#: rust/crates/system/src/shortcuts.rs:449
+msgid "Phone camera"
+msgstr "Telefon kamerası"
+
 #: rust/crates/system/src/shortcuts.rs:450
 msgid "Show or hide Telescope"
 msgstr "Telescope'u göster veya gizle"
@@ -6927,8 +6935,8 @@ msgstr "{action} eyleminin {name} ayarı yok."
 
 #: rust/crates/system/src/shortcuts.rs:799
 #, python-brace-format
-msgid "{action} can't be used right now (no phone, or the control is off)."
-msgstr "{action} şu anda kullanılamaz (telefon yok veya denetim kapalı)."
+msgid "{action} can't be used right now (no device, or the control is off)."
+msgstr ""
 
 #: rust/crates/system/src/shortcuts.rs:976
 msgid "No control matches that search."
@@ -7072,8 +7080,8 @@ msgid "Only when I press Start"
 msgstr "Sadece ben Başlat'a bastığımda"
 
 #: rust/crates/system/src/startup.rs:39
-msgid "When the phone is ready"
-msgstr "Telefon hazır olduğunda"
+msgid "When the device is ready"
+msgstr ""
 
 #: rust/crates/system/src/startup.rs:40
 msgid "When an app opens the camera"
@@ -7393,13 +7401,13 @@ msgstr "Otomatik yayın"
 
 #: rust/crates/system/ui/startup.slint:50
 msgctxt "search"
-msgid "auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free"
-msgstr "otomatik başlat durdur kamera uygulama açar telefon hazır boşta eller serbest auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free"
+msgid "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
+msgstr ""
 
 #: rust/crates/system/ui/startup.slint:54
 msgctxt "search"
-msgid "automatically begin streaming when phone ready app opens the camera auto start"
-msgstr "otomatik olarak yayını başlat telefon hazır uygulama kamerayı açar otomatik başlat automatically begin streaming when phone ready app opens the camera auto start"
+msgid "automatically begin streaming when phone device ready app opens the camera auto start"
+msgstr ""
 
 #: rust/crates/system/ui/startup.slint:66
 msgctxt "search"
@@ -7595,10 +7603,6 @@ msgstr "Bu, eklentiler klasöründeki bir klasör değil."
 msgid "Streaming from any device's web browser, by scanning a code."
 msgstr "Bir kod tarayarak herhangi bir aygıtın web tarayıcısından yayın yapma."
 
-#: rust/crates/link/src/browser/plugin.rs:1184
-msgid "Without it Browser camera isn't in the phone picker and its card is gone too."
-msgstr "Bu olmadan telefon seçicide Tarayıcı kamerası yer almaz ve kartı da gösterilmez."
-
 #: rust/crates/shell/src/plugins/camera_control.rs:1434
 msgid "Exposure, white balance, focus, lenses and the phone camera's other settings."
 msgstr "Pozlama, beyaz dengesi, odak, lensler ve telefon kamerasının diğer ayarları."
@@ -7651,14 +7655,6 @@ msgstr "kenar keskinleştirme edge"
 msgctxt "search"
 msgid "dark night brightness"
 msgstr "karanlık gece parlaklık düşük ışık dark night brightness"
-
-#: rust/crates/link/src/plugin.rs:1229
-msgid "Phones and connection"
-msgstr "Telefonlar ve bağlantı"
-
-#: rust/crates/link/src/plugin.rs:1230
-msgid "Pairing phones, picking one and connecting to it over Wi-Fi or USB."
-msgstr "Telefonları eşleştirme, birini seçme ve Wi-Fi ya da USB üzerinden bağlanma."
 
 #: rust/crates/core/src/actions.rs:262
 msgctxt "after a number"
@@ -7865,6 +7861,67 @@ msgstr "Yeniden başlatılamadı"
 #: rust/crates/shell/src/sources.rs:1694
 msgid "In use"
 msgstr "Kullanımda"
+
+#~ msgid "No phone yet"
+#~ msgstr "Henüz telefon yok"
+
+#, python-brace-format
+#~ msgid "{source}, no phone needed"
+#~ msgstr "{source}, telefona gerek yok"
+
+#~ msgid "Which phone to stream from"
+#~ msgstr "Hangi telefondan yayın yapılacağı"
+
+#~ msgid "Your phones: add, rename, remove"
+#~ msgstr "Telefonların: ekle, yeniden adlandır, kaldır"
+
+#~ msgid "Your phones"
+#~ msgstr "Telefonların"
+
+#~ msgid "Each phone keeps its own camera settings, and so does a browser once you change one. Removing a phone also unpairs it on the phone."
+#~ msgstr "Her telefon kendi kamera ayarlarını korur; bir tarayıcıda bir ayarı değiştirdiğinde o da aynısını yapar. Bir telefonu kaldırmak, telefondaki eşleştirmeyi de kaldırır."
+
+#~ msgid "Phones"
+#~ msgstr "Telefonlar"
+
+#~ msgid "No phones yet. Add one to pair it with this computer."
+#~ msgstr "Henüz telefon yok. Bu bilgisayarla eşleştirmek için bir tane ekle."
+
+#~ msgid "Without it webcams aren't in the phone picker and the Webcam card is gone too."
+#~ msgstr "Bu olmadan web kameraları telefon seçicide yer almaz ve Web kamerası kartı da görünmez."
+
+#~ msgid "What video calls see while the phone isn't streaming."
+#~ msgstr "Telefon yayın yapmıyorken görüntülü aramaların gördüğü ekran."
+
+#~ msgid "the phone"
+#~ msgstr "telefon"
+
+#~ msgid "Couldn't reach the phone."
+#~ msgstr "Telefona ulaşılamadı."
+
+#, python-brace-format
+#~ msgid "{action} can't be used right now (no phone, or the control is off)."
+#~ msgstr "{action} şu anda kullanılamaz (telefon yok veya denetim kapalı)."
+
+#~ msgid "When the phone is ready"
+#~ msgstr "Telefon hazır olduğunda"
+
+#~ msgctxt "search"
+#~ msgid "auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free"
+#~ msgstr "otomatik başlat durdur kamera uygulama açar telefon hazır boşta eller serbest auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free"
+
+#~ msgctxt "search"
+#~ msgid "automatically begin streaming when phone ready app opens the camera auto start"
+#~ msgstr "otomatik olarak yayını başlat telefon hazır uygulama kamerayı açar otomatik başlat automatically begin streaming when phone ready app opens the camera auto start"
+
+#~ msgid "Without it Browser camera isn't in the phone picker and its card is gone too."
+#~ msgstr "Bu olmadan telefon seçicide Tarayıcı kamerası yer almaz ve kartı da gösterilmez."
+
+#~ msgid "Phones and connection"
+#~ msgstr "Telefonlar ve bağlantı"
+
+#~ msgid "Pairing phones, picking one and connecting to it over Wi-Fi or USB."
+#~ msgstr "Telefonları eşleştirme, birini seçme ve Wi-Fi ya da USB üzerinden bağlanma."
 
 #~ msgid "This camera's microphone isn't passed on. Pick it in your call app instead."
 #~ msgstr "Bu kameranın mikrofonu aktarılmaz. Bunun yerine arama uygulamanda onu seç."

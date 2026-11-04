@@ -551,15 +551,15 @@ export component PhonePicker inherits HorizontalLayout {
         bold: true;
         has-icon: true;
         shortcut: "phone.pick";
-        icon: Icons.phone;
+        icon: Icons.video;
         icon-tint: Theme.plugin-hue("streaming");
-        caption: names.length == 0 ? @tr("No phone yet") : "";
-        placeholder: names.length == 0 ? @tr("No phone yet") : @tr("Pick a phone");
+        caption: names.length == 0 ? @tr("No device yet") : "";
+        placeholder: names.length == 0 ? @tr("No device yet") : @tr("Pick a device");
         items: names;
         gone: root.gone;
         current <=> root.current;
-        accessible-label: @tr("Phone");
-        accessible-description: @tr("Which phone to stream from");
+        accessible-label: @tr("Device");
+        accessible-description: @tr("Which device to stream from");
         picked(i) => { root.picked(i); }
         changed open => { root.picker-open(self.open); }
     }
@@ -577,8 +577,8 @@ export component PhonePicker inherits HorizontalLayout {
             icon: Icons.v-devices;
             icon-size: 18px;
             icon-tint: Theme.text-dim;
-            tip: @tr("Your phones: add, rename, remove");
-            accessible-label: @tr("Your phones");
+            tip: @tr("Your devices: add, rename, remove");
+            accessible-label: @tr("Your devices");
             clicked => { root.manage(); }
         }
 
@@ -595,11 +595,11 @@ export component PhonePicker inherits HorizontalLayout {
                 height: self.preferred-height;
                 dismissable: true;
                 dismissed => { root.phones-closed(); }
-                title: @tr("Your phones");
-                subtitle: @tr("Each phone keeps its own camera settings, and so does a browser once you change one. Removing a phone also unpairs it on the phone.");
+                title: @tr("Your devices");
+                subtitle: @tr("Each device keeps its own camera settings, a browser once you change one. Removing a phone also unpairs it on the phone.");
                 Card {
-                    title: @tr("Phones");
-                    icon: Icons.phone;
+                    title: @tr("Devices");
+                    icon: Icons.v-devices;
                     hue: Theme.plugin-hue("streaming");
                     has-action: true;
                     action-icon: Icons.plus;
@@ -611,7 +611,7 @@ export component PhonePicker inherits HorizontalLayout {
                         root.phones-closed();
                         root.add-phone();
                     }
-                    if rows.length == 0: Note { text: @tr("No phones yet. Add one to pair it with this computer."); }
+                    if rows.length == 0: Note { text: @tr("No devices yet. Add a phone to pair it with this computer."); }
                     if rows.length > 0: PhoneList {
                         rows-shown: rows;
                         rename(row) => {

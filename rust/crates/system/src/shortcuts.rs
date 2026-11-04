@@ -796,7 +796,7 @@ pub fn handle_remote(host: &mut dyn Host, request: &Value) -> Value {
     };
     match said {
         Some(text) => json!({"ok": true, "text": text}),
-        None => json!({"ok": false, "text": tr("{action} can't be used right now (no phone, or the control is off).").field("action", &action.label)}),
+        None => json!({"ok": false, "text": tr("{action} can't be used right now (no device, or the control is off).").field("action", &action.label)}),
     }
 }
 

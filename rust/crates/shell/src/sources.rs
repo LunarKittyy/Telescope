@@ -846,7 +846,7 @@ impl SourceKind for PhoneKind {
         tr("Open Telescope on it.")
     }
     fn name(&self) -> String {
-        self.phone().map_or_else(|| tr("the phone"), |p| p.name)
+        self.phone().map_or_else(|| tr("the device"), |p| p.name)
     }
 
     fn url(&self) -> String {
