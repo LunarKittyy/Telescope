@@ -182,7 +182,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 <!-- due: rust/crates/outputs/src/webcam*.rs rust/crates/outputs/src/webcam/** rust/crates/outputs/src/webcams/** rust/crates/outputs/ui/webcam.slint -->
 
-- [ ] A USB webcam shows in the phone picker under its own name, and Telescope's own cameras (Phone Camera, Telescope, OBS Virtual Camera) never do. Start streams it to the virtual camera and Background, Chroma key and Transforms work on it.
+- [ ] A USB webcam shows in the device picker under its own name, and Telescope's own cameras (Phone Camera, Telescope, OBS Virtual Camera) never do. Start streams it to the virtual camera and Background, Chroma key and Transforms work on it.
 - [ ] Resolution and Frame rate on the Webcam card change what arrives. 1080p at 30 fps on a USB 2 webcam shows MJPEG on the card.
 - [ ] With the webcam open in another app (a browser's camera test page will do) Start gives a banner naming the app on Linux. Closing it there lets the stream start without pressing anything.
 - [ ] Unplugging the webcam mid-stream shows the wait screen and plugging it back in picks the stream up again. Plugging one in while Telescope runs adds it to the picker within a few seconds.
@@ -204,7 +204,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Every Settings tab opens and the settings button brings the window back on the tab it was left on.
 - [ ] Folding: clicking a card title and a section title folds and unfolds them, Tab reaches the titles and Space or Enter toggles them. A shortcut for a control in a folded card still works. Folds come back after a restart.
 - [ ] Tab through the tiles and switches, use rotation and pan shortcuts saved before this release, pan with arrow keys and Home on the pan pad, open and pick from a dropdown with the keyboard and inspect labels with a screen reader.
-- [ ] Your phones: Rename works, Change name changes what a newly paired phone shows and saved browsers are listed with the phones.
+- [ ] Your devices: Rename works, Change name changes what a newly paired phone shows and saved browsers are listed with the phones.
 - [ ] Plugins: installing a newer `.zip` of an added plugin asks, replaces it with its settings kept and leaves it switched off. One with a GitHub `repo` shows its link and, once a release is newer, a line about it on its tile. **Install updates without asking** asks before it goes on.
 
 ### Several cameras in one picture

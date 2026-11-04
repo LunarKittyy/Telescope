@@ -179,7 +179,7 @@ Firefox can still drop frames or change size a bit when the phone or Wi-Fi strug
 
 ## Webcams
 
-**A webcam isn't in the phone picker**
+**A webcam isn't in the device picker**
 Check that **Webcams** is on in Plugins and that the camera works in another app. On Linux your user needs access to `/dev/video*` (usually the `video` group). A camera that only offers H.264 or another format OpenCV can't read is left out. Virtual cameras, like OBS Virtual Camera, are left out on purpose. On Windows a camera only Media Foundation apps can open (a phone through Phone Link, for one) isn't listed either.
 
 **"Can't open" and the webcam's name**

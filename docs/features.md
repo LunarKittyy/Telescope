@@ -213,7 +213,7 @@ The phone's mic can be a microphone on your computer while you stream.
 
 ## Browser camera
 
-Stream from anything with a browser (an iPhone, a tablet, another laptop) with nothing to install on it. Pick **Browser camera** in the phone picker, scan the code and tap **Start** on the page. It uses WebRTC like browser video calls do, so any up-to-date browser works. Nothing goes through a server outside your network.
+Stream from anything with a browser (an iPhone, a tablet, another laptop) with nothing to install on it. Pick **Browser camera** in the device picker, scan the code and tap **Start** on the page. It uses WebRTC like browser video calls do, so any up-to-date browser works. Nothing goes through a server outside your network.
 
 - **First visit warning:** the browser says the connection isn't private because Telescope makes its own certificate. It's still encrypted. On iPhone tap **Show Details** then **visit this website**. In Chrome it's **Advanced** then **Proceed**
 - **Keep the page open with the screen on.** Phones pause the camera when you switch apps or lock and it picks up again when you come back
@@ -223,14 +223,14 @@ Stream from anything with a browser (an iPhone, a tablet, another laptop) with n
 - **New link** makes a fresh code and the old one stops working at once. Connected browsers are dropped and apps fall back to the wait screen
 - Several devices can scan the same code. Each gets its own virtual camera (see [Several cameras](#several-cameras-at-once))
 - The browser's microphone works with the Microphone card too. It's sent raw (no echo cancellation or noise suppression) because Discord, Zoom and similar do their own
-- Browsers show up in the phone picker under their device name. One only gets saved settings once you change a setting. Saved browsers are listed under **Your phones** (the bin button forgets one) and are forgotten after 60 days without connecting
+- Browsers show up in the device picker under their device name. One only gets saved settings once you change a setting. Saved browsers are listed under **Your devices** (the bin button forgets one) and are forgotten after 60 days without connecting
 - Camera, output and alert settings don't apply to browsers. Resolution (480p to 1080p) and frame rate (15 to 30) are on the card
 - The card shows what the browser really sends, like "H.264, 1280×720 at 30 fps". It can be lower than what you picked when the device or Wi-Fi can't keep up. If the device's processor is the limit the card warns and a lower resolution or frame rate usually helps
 - On Linux the virtual camera is 1920x1080 unless you set another canvas under Video in Settings
 
 ## Webcams and capture cards
 
-A webcam plugged into the computer streams just like a phone. It shows up in the phone picker under its own name and every effect works on it (Background, Chroma key, Colour grading, Auto framing, Transforms, One picture and the rest). The result goes out on Telescope's virtual camera like a phone's would. With **+** it can stream next to a phone or another webcam (see [Several cameras](#several-cameras-at-once)).
+A webcam plugged into the computer streams just like a phone. It shows up in the device picker under its own name and every effect works on it (Background, Chroma key, Colour grading, Auto framing, Transforms, One picture and the rest). The result goes out on Telescope's virtual camera like a phone's would. With **+** it can stream next to a phone or another webcam (see [Several cameras](#several-cameras-at-once)).
 
 - **Cameras with a webcam mode** show up here too. Many mirrorless cameras and some DSLRs have a USB webcam (UVC) mode. Any camera with a clean HDMI output works through an HDMI capture card too, since computers see the card as a webcam. Telescope doesn't talk to cameras over their own USB protocols (no gphoto2 or maker software yet)
 - **Plugging in and out** is noticed while Telescope runs. A webcam that's unplugged while it streams keeps its place, apps see the wait screen and the stream carries on once it's plugged back in. One that isn't streaming just leaves the picker
