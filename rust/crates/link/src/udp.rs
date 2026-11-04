@@ -8,7 +8,8 @@ use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashSet};
 use std::net::{SocketAddr, UdpSocket};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use telescope_core::media::{FeedEnd, FeedStopper, Packet, VideoFeed};
 
@@ -398,7 +399,7 @@ struct Udp {
     last_report: f64,
     last_key_ask: f64,
     /// The reader made a picture from what came over it (Python's _decoded_any).
-    decoded_any: bool,
+    decoded_any: Arc<AtomicBool>,
 }
 
 impl Udp {
@@ -513,7 +514,7 @@ impl UdpFeed {
         let now = clock(self.origin);
         let mut udp = Udp { sock, _response: resp, phone: SocketAddr::new(ip, phone_port), seal_in: Seal::new(&key, TO_DESKTOP)?,
                             seal_out: Seal::new(&key, TO_PHONE)?, frames: Reassembler::new(), opened_at: now, received: 0,
-                            last_hello: 0.0, last_report: 0.0, last_key_ask: 0.0, decoded_any: false };
+                            last_hello: 0.0, last_report: 0.0, last_key_ask: 0.0, decoded_any: Arc::new(AtomicBool::new(false)) };
         udp.hello(now, true);
         self.udp = Some(udp);
         Ok(())
@@ -558,7 +559,7 @@ impl VideoFeed for UdpFeed {
             let Some(udp) = self.udp.as_mut() else { return Err(FeedEnd::Closed) };
             let now = clock(origin);
             let limit = if udp.received > 0 { self.first_decode_s } else { FIRST_FRAME_S };
-            if !udp.decoded_any && now - udp.opened_at > limit {
+            if !udp.decoded_any.load(Ordering::SeqCst) && now - udp.opened_at > limit {
                 // Likely a firewall: don't wait for it again
                 mark_failed(&udp.phone.ip().to_string());
                 if let Some(host) = Url::hostname(&self.url) {
@@ -567,7 +568,7 @@ impl VideoFeed for UdpFeed {
                 self.fall_back().map_err(FeedEnd::Error)?;
                 return self.read();
             }
-            if now > deadline && udp.decoded_any {
+            if now > deadline && udp.decoded_any.load(Ordering::SeqCst) {
                 return Err(FeedEnd::Closed); // the phone stopped sending: the session's over
             }
             udp.hello(now, false);
@@ -586,8 +587,12 @@ impl VideoFeed for UdpFeed {
 
     fn decoded(&mut self) {
         if let Some(udp) = self.udp.as_mut() {
-            udp.decoded_any = true;
+            udp.decoded_any.store(true, Ordering::SeqCst);
         }
+    }
+
+    fn decoded_flag(&self) -> Option<Arc<AtomicBool>> {
+        self.udp.as_ref().map(|u| u.decoded_any.clone())
     }
 }
 
@@ -1074,6 +1079,9 @@ mod tests {
         }
         fn decoded(&mut self) {
             self.0.lock().unwrap().decoded();
+        }
+        fn decoded_flag(&self) -> Option<Arc<AtomicBool>> {
+            self.0.lock().unwrap().decoded_flag()
         }
     }
 

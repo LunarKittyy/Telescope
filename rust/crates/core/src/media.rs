@@ -82,6 +82,11 @@ pub trait VideoFeed: Send {
     fn stopper(&self) -> Box<dyn FeedStopper>;
     /// What the last read gave decoded to a picture; a feed that falls back while none has (UDP) waits for this.
     fn decoded(&mut self) {}
+    /// A flag the reader sets when a picture came out of the decoder, for a feed that is blocked in read() when that happens and so can't be told
+    /// with decoded(). A feed that gives one doesn't hear decoded().
+    fn decoded_flag(&self) -> Option<std::sync::Arc<std::sync::atomic::AtomicBool>> {
+        None
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

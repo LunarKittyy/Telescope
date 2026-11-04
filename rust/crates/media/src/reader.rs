@@ -4,7 +4,7 @@
 //! The feed is read on a thread of its own, so a decoder that stalls for a moment (a card waiting behind a game's graphics work) doesn't
 //! stop the reading. The phone would see its connection stop taking data, take that for a bad link and cut the bitrate to the minimum.
 
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::Arc;
 use std::time::Duration;
@@ -22,6 +22,8 @@ pub struct Reader {
     queued: Arc<AtomicU64>,
     /// Pictures decoded that the feed hasn't been told of yet (it's read on the other thread).
     decoded: Arc<AtomicU32>,
+    /// The feed's own flag for a picture decoded, which reaches it while it's blocked reading.
+    decoded_flag: Option<Arc<AtomicBool>>,
     stop: Arc<dyn FeedStopper>,
     decoder: Box<dyn Decoder>,
     max_bytes: u64,
@@ -41,6 +43,7 @@ impl FeedStopper for Stop {
 impl Reader {
     pub fn new(mut feed: Box<dyn VideoFeed>, decoder: Box<dyn Decoder>) -> Reader {
         let stop: Arc<dyn FeedStopper> = Arc::from(feed.stopper());
+        let decoded_flag = feed.decoded_flag();
         let (send, packets) = channel();
         let (queued, decoded) = (Arc::new(AtomicU64::new(0)), Arc::new(AtomicU32::new(0)));
         let (q, d) = (queued.clone(), decoded.clone());
@@ -68,7 +71,7 @@ impl Reader {
         if let Err(e) = spawned {
             log::error!("Couldn't start the thread that reads the stream: {e}");
         }
-        Reader { packets, queued, decoded, stop, decoder, max_bytes: MAX_BYTES_WITHOUT_FRAME, pending_bytes: 0, pending_frames: 0 }
+        Reader { packets, queued, decoded, decoded_flag, stop, decoder, max_bytes: MAX_BYTES_WITHOUT_FRAME, pending_bytes: 0, pending_frames: 0 }
     }
 
     /// The next packet read, waiting for one; the end of the feed once the thread has gone.
@@ -92,7 +95,12 @@ impl FrameReader for Reader {
             let decoded = self.decoder.decode(&packet);
             self.pending_frames += decoded.count;
             if let Some(frame) = decoded.newest {
-                self.decoded.fetch_add(1, Ordering::Relaxed);
+                match &self.decoded_flag {
+                    Some(flag) => flag.store(true, Ordering::SeqCst),
+                    None => {
+                        self.decoded.fetch_add(1, Ordering::Relaxed);
+                    }
+                }
                 let bytes = std::mem::take(&mut self.pending_bytes);
                 // Frames that arrived for it, the ones skipped to keep up included
                 let count = std::mem::take(&mut self.pending_frames);
