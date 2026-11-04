@@ -27,3 +27,5 @@ ffmpeg-sys-next.workspace = true
 [target.'cfg(windows)'.dependencies]
 ffmpeg-sys-next = { workspace = true, optional = true }
 libloading.workspace = true
+# The decoder's graphics device gets a higher GPU priority (windows is already in the tree through Slint's winit backend)
+windows = { version = "0.62", features = ["Win32_Graphics_Dxgi"] }

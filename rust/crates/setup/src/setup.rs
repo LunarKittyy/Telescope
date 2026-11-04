@@ -143,6 +143,8 @@ pub struct Panel {
     pub hw_looked: bool,
     pub hw_enabled: bool,
     pub hw_line: String,
+    /// The card was too slow lately, so the processor decodes for now.
+    pub hw_slow: bool,
     /// The card's name, once looked for.
     pub hw_found: Option<String>,
     pub canvas_current: usize,
@@ -192,6 +194,7 @@ impl Panel {
             hw_looked: false,
             hw_enabled: false,
             hw_line: String::new(),
+            hw_slow: false,
             hw_found: None,
             canvas_current: 0,
             custom_w: canvas::CUSTOM_DEFAULT.0,
@@ -482,7 +485,9 @@ impl SetupPlugin {
         if self.panel.hw_looked {
             // Finding the card is done by now, and it may have failed since
             if self.panel.hw_found.is_some() {
-                self.show_hardware_failed(self.media.decoding_status().hardware_failed);
+                let status = self.media.decoding_status();
+                self.panel.hw_slow = status.hardware_slow;
+                self.show_hardware_failed(status.hardware_failed);
             }
             return;
         }
@@ -490,7 +495,7 @@ impl SetupPlugin {
         let media = self.media.clone();
         self.spawn(host, "hw-found", move |_| {
             let status = media.decoding_status();
-            json!({"device": status.hardware_device, "failed": status.hardware_failed})
+            json!({"device": status.hardware_device, "failed": status.hardware_failed, "slow": status.hardware_slow})
         });
     }
 
@@ -504,6 +509,7 @@ impl SetupPlugin {
     fn show_hardware_failed(&mut self, failed: bool) {
         self.panel.hw_line = match &self.panel.hw_found {
             Some(_) if failed => tr("The graphics card failed and the processor is decoding until you restart Telescope"),
+            Some(_) if self.panel.hw_slow => tr("The graphics card was too slow, so the processor is decoding for now"),
             Some(name) => tr("Found {device}").field("device", name),
             None => tr("No graphics card Telescope can use"),
         };
@@ -914,6 +920,8 @@ impl SetupPlugin {
         if status.backends.is_empty() {
             return if self.hw_decode && status.hardware_failed {
                 "not streaming (graphics card failed; processor until restart)".to_string()
+            } else if self.hw_decode && status.hardware_slow {
+                "not streaming (graphics card was too slow; processor for now)".to_string()
             } else {
                 format!("not streaming ({chosen} selected)")
             };
@@ -924,6 +932,8 @@ impl SetupPlugin {
         if self.hw_decode != status.backends.iter().any(|b| b != "processor") {
             text += &if self.hw_decode && status.hardware_failed {
                 " (graphics card failed; processor until restart)".to_string()
+            } else if self.hw_decode && status.hardware_slow {
+                " (graphics card was too slow; processor for now)".to_string()
             } else {
                 format!(" ({chosen} selected for the next connection)")
             };
@@ -937,6 +947,7 @@ impl SetupPlugin {
         let command = data.get("command").and_then(Value::as_str).unwrap_or("");
         match token {
             "hw-found" => {
+                self.panel.hw_slow = data.get("slow") == Some(&Value::Bool(true));
                 self.show_graphics_card(data.get("device").and_then(Value::as_str), data.get("failed") == Some(&Value::Bool(true)));
                 vec!["video"]
             }

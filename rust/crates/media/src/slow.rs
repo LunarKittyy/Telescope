@@ -51,6 +51,56 @@ pub fn stall(hiccups_ms: &[f64]) -> Option<f64> {
     (worst >= STALL_MS || heavy >= 2).then_some(worst)
 }
 
+/// How long software decodes after the card was too slow, the first time.
+pub const FIRST_WAIT: Duration = Duration::from_secs(5 * 60);
+/// The longest wait, after the card keeps being too slow.
+pub const LONGEST_WAIT: Duration = Duration::from_secs(40 * 60);
+/// A card that's too slow again within this long of coming back waits twice as long next time.
+pub const QUICK_REPEAT: Duration = Duration::from_secs(10 * 60);
+
+/// When a card that was too slow gets another go: five minutes, then twice as long each time it falls back soon after returning.
+pub struct Cooldown {
+    wait: Duration,
+    until: Option<Instant>,
+    returned_at: Option<Instant>,
+}
+
+impl Cooldown {
+    pub const fn new() -> Cooldown {
+        Cooldown { wait: FIRST_WAIT, until: None, returned_at: None }
+    }
+
+    /// The card was too slow now: how long software decodes before it's tried again.
+    pub fn fell(&mut self, now: Instant) -> Duration {
+        let soon_again = self.returned_at.is_some_and(|at| now.duration_since(at) < QUICK_REPEAT);
+        self.wait = if soon_again { (self.wait * 2).min(LONGEST_WAIT) } else { FIRST_WAIT };
+        self.until = Some(now + self.wait);
+        self.returned_at = None;
+        self.wait
+    }
+
+    /// Software decodes because the card was too slow, and the wait isn't over.
+    pub fn waiting(&self, now: Instant) -> bool {
+        self.until.is_some_and(|until| now < until)
+    }
+
+    /// Software decodes because the card was too slow, whether or not the wait is over.
+    pub fn active(&self) -> bool {
+        self.until.is_some()
+    }
+
+    /// The wait is over but software was struggling too: a whole wait more.
+    pub fn extend(&mut self, now: Instant) {
+        self.until = Some(now + self.wait);
+    }
+
+    /// The card is back.
+    pub fn returned(&mut self, now: Instant) {
+        self.until = None;
+        self.returned_at = Some(now);
+    }
+}
+
 /// What a decoder took for its recent pictures.
 #[derive(Default)]
 pub struct Timings {
@@ -138,6 +188,47 @@ mod tests {
         assert!(t.stalled().is_some());
         t.note_hiccup(start + Duration::from_secs(8), 10.0);
         assert!(t.stalled().is_none());
+    }
+
+    #[test]
+    fn the_card_waits_five_minutes_then_double_each_quick_repeat_up_to_forty() {
+        let t0 = Instant::now();
+        let mut c = Cooldown::new();
+        let mut now = t0;
+        let mut waits = Vec::new();
+        for _ in 0..6 {
+            let wait = c.fell(now);
+            waits.push(wait.as_secs() / 60);
+            assert!(c.waiting(now) && c.active());
+            now += wait;
+            assert!(!c.waiting(now) && c.active());
+            c.returned(now);
+            assert!(!c.active());
+            // Falls back again a minute after returning
+            now += Duration::from_secs(60);
+        }
+        assert_eq!(waits, [5, 10, 20, 40, 40, 40]);
+    }
+
+    #[test]
+    fn a_card_that_ran_well_a_while_starts_over_at_five_minutes() {
+        let t0 = Instant::now();
+        let mut c = Cooldown::new();
+        c.fell(t0);
+        c.fell(t0);
+        c.returned(t0 + Duration::from_secs(300));
+        assert_eq!(c.fell(t0 + Duration::from_secs(300) + QUICK_REPEAT), FIRST_WAIT);
+    }
+
+    #[test]
+    fn a_wait_can_be_extended() {
+        let t0 = Instant::now();
+        let mut c = Cooldown::new();
+        c.fell(t0);
+        let later = t0 + FIRST_WAIT;
+        assert!(!c.waiting(later));
+        c.extend(later);
+        assert!(c.waiting(later + Duration::from_secs(1)));
     }
 
     #[test]

@@ -2706,7 +2706,7 @@ msgstr "लेआउट बदलें"
 msgid "Name:"
 msgstr "नाम:"
 
-#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:492 rust/crates/link/ui/connection.slint:692 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:849 rust/crates/shell/ui/settings.slint:640
+#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:492 rust/crates/link/ui/connection.slint:692 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:861 rust/crates/shell/ui/settings.slint:640
 msgid "OK"
 msgstr "ठीक है"
 
@@ -3137,7 +3137,7 @@ msgstr "फ़ोन ने माइक्रोफ़ोन अस्वीक
 msgid "No microphone"
 msgstr "कोई माइक्रोफ़ोन नहीं"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:678 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/worker.rs:490 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:678 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/worker.rs:495 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "स्ट्रीम नहीं हो रहा है"
 
@@ -3229,7 +3229,7 @@ msgstr "स्पीड कम पड़ रही है"
 msgid "Browser"
 msgstr "ब्राउज़र"
 
-#: rust/crates/link/src/browser/plugin.rs:920 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:336 rust/crates/link/src/plugin.rs:372 rust/crates/link/src/plugin.rs:398 rust/crates/link/src/plugin.rs:732 rust/crates/setup/src/setup.rs:724 rust/crates/shell/src/plugins/onboarding.rs:139 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1531 rust/crates/system/ui/updates.slint:174
+#: rust/crates/link/src/browser/plugin.rs:920 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:336 rust/crates/link/src/plugin.rs:372 rust/crates/link/src/plugin.rs:398 rust/crates/link/src/plugin.rs:732 rust/crates/setup/src/setup.rs:730 rust/crates/shell/src/plugins/onboarding.rs:139 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1531 rust/crates/system/ui/updates.slint:174
 msgid "Try again"
 msgstr "फिर कोशिश करें"
 
@@ -3314,7 +3314,7 @@ msgstr "कंप्यूटर"
 msgid "Checking…"
 msgstr "जांच की जा रही है…"
 
-#: rust/crates/link/src/connection.rs:803 rust/crates/setup/src/setup.rs:629 rust/crates/setup/src/setup.rs:638 rust/crates/setup/src/setup.rs:657 rust/crates/setup/src/setup.rs:681
+#: rust/crates/link/src/connection.rs:803 rust/crates/setup/src/setup.rs:635 rust/crates/setup/src/setup.rs:644 rust/crates/setup/src/setup.rs:663 rust/crates/setup/src/setup.rs:687
 msgid "Ready"
 msgstr "तैयार"
 
@@ -3708,7 +3708,7 @@ msgstr "USB से फ़ोन ऐप को अपडेट किया ज�
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "{phone} पर मौजूद Telescope ऐप इससे पुराना है."
 
-#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:833 rust/crates/shell/src/extra_cameras.rs:154 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:1058
+#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:154 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:1058
 msgid "Copy command"
 msgstr "कमांड कॉपी करें"
 
@@ -3790,7 +3790,7 @@ msgstr "ब्राउज़र द्वारा भेजा जाने �
 msgid "Frame rate"
 msgstr "फ़्रेम रेट"
 
-#: rust/crates/link/ui/connection.slint:114 rust/crates/setup/src/setup.rs:641 rust/crates/shell/src/plugins/presets.rs:183 rust/crates/shell/src/plugins/presets.rs:213
+#: rust/crates/link/ui/connection.slint:114 rust/crates/setup/src/setup.rs:647 rust/crates/shell/src/plugins/presets.rs:183 rust/crates/shell/src/plugins/presets.rs:213
 msgid "Rename"
 msgstr "नाम बदलें"
 
@@ -4404,7 +4404,7 @@ msgstr "कोई दूसरा ऐप वेबकैम का इस्त�
 msgid "The webcam isn't sending anything. Try another resolution or frame rate."
 msgstr "वेबकैम कुछ नहीं भेज रहा है. कोई दूसरा रेज़ोल्यूशन या फ़्रेम रेट आज़माएं."
 
-#: rust/crates/outputs/src/wininstall.rs:225 rust/crates/setup/src/setup.rs:788
+#: rust/crates/outputs/src/wininstall.rs:225 rust/crates/setup/src/setup.rs:794
 msgid "Installed"
 msgstr "इंस्टॉल हो गया"
 
@@ -4675,307 +4675,311 @@ msgstr "इसके बिना कोई फ़ोन कार्ड नह�
 msgid "Asks for your password (pkexec or sudo): this changes system settings."
 msgstr "आपसे पासवर्ड मांगा जाता है (pkexec या sudo): इससे सिस्टम सेटिंग्स बदलती हैं."
 
-#: rust/crates/setup/src/setup.rs:168 rust/crates/setup/src/setup.rs:180 rust/crates/setup/src/setup.rs:186
+#: rust/crates/setup/src/setup.rs:170 rust/crates/setup/src/setup.rs:182 rust/crates/setup/src/setup.rs:188
 msgid "Checking..."
 msgstr "जांच हो रही है..."
 
-#: rust/crates/setup/src/setup.rs:181 rust/crates/setup/src/setup.rs:646 rust/crates/shell/src/plugins/onboarding.rs:135 rust/crates/shell/src/plugins/onboarding.rs:142
+#: rust/crates/setup/src/setup.rs:183 rust/crates/setup/src/setup.rs:652 rust/crates/shell/src/plugins/onboarding.rs:135 rust/crates/shell/src/plugins/onboarding.rs:142
 msgid "Install driver"
 msgstr "ड्राइवर इंस्टॉल करें"
 
-#: rust/crates/setup/src/setup.rs:188
+#: rust/crates/setup/src/setup.rs:190
 msgid "Get adb"
 msgstr "adb पाएं"
 
-#: rust/crates/setup/src/setup.rs:202
+#: rust/crates/setup/src/setup.rs:205
 msgid "Included with this app"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:202
+#: rust/crates/setup/src/setup.rs:205
 msgid "Not included with this app"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:342
+#: rust/crates/setup/src/setup.rs:345
 msgid "Same as the system"
 msgstr "सिस्टम के अनुसार"
 
 #. after a language's name in the Language list, for a translation that's only a first draft
-#: rust/crates/setup/src/setup.rs:345
+#: rust/crates/setup/src/setup.rs:348
 msgid "(beta)"
 msgstr "(बीटा)"
 
-#: rust/crates/setup/src/setup.rs:361
+#: rust/crates/setup/src/setup.rs:364
 msgid "Also writes it to /etc/modprobe.d/ and /etc/modules-load.d/, so it survives a reboot."
 msgstr "इसे /etc/modprobe.d/ और /etc/modules-load.d/ में भी लिखता है, ताकि यह रीबूट के बाद भी बना रहे."
 
-#: rust/crates/setup/src/setup.rs:374
+#: rust/crates/setup/src/setup.rs:377
 msgid "Applying stops the stream, unloads v4l2loopback and loads it again. Close OBS and anything else using the virtual camera first."
 msgstr "लागू करने पर स्ट्रीम रुक जाती है, v4l2loopback अनलोड होकर फिर से लोड होता है. पहले OBS और वर्चुअल कैमरा इस्तेमाल करने वाले किसी भी अन्य ऐप को बंद करें."
 
-#: rust/crates/setup/src/setup.rs:375
+#: rust/crates/setup/src/setup.rs:378
 msgid "Apply and reload"
 msgstr "लागू करें और फिर से लोड करें"
 
-#: rust/crates/setup/src/setup.rs:377
+#: rust/crates/setup/src/setup.rs:380
 msgid "Apply"
 msgstr "लागू करें"
 
-#: rust/crates/setup/src/setup.rs:377
+#: rust/crates/setup/src/setup.rs:380
 msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
 msgstr "लागू करने पर स्ट्रीम नए साइज़ पर फिर से शुरू होती है. अगर OBS सोर्स खो देता है, तो उसे हटाएं और फिर से जोड़ें."
 
-#: rust/crates/setup/src/setup.rs:404 rust/crates/shell/src/plugins/onboarding.rs:152 rust/crates/shell/src/plugins/onboarding.rs:156 rust/crates/shell/src/plugins/onboarding.rs:160
+#: rust/crates/setup/src/setup.rs:407 rust/crates/shell/src/plugins/onboarding.rs:152 rust/crates/shell/src/plugins/onboarding.rs:156 rust/crates/shell/src/plugins/onboarding.rs:160
 msgid "Install over USB"
 msgstr "USB से इंस्टॉल करें"
 
-#: rust/crates/setup/src/setup.rs:404
+#: rust/crates/setup/src/setup.rs:407
 msgid "Choose APK..."
 msgstr "APK चुनें..."
 
-#: rust/crates/setup/src/setup.rs:416
+#: rust/crates/setup/src/setup.rs:419
 msgid "This translation is a first draft and some texts might read a bit oddly."
 msgstr "यह अनुवाद अभी पहला ड्राफ़्ट है और कुछ टेक्स्ट थोड़े अजीब लग सकते हैं."
 
-#: rust/crates/setup/src/setup.rs:417
+#: rust/crates/setup/src/setup.rs:420
 msgid "Missing your language, or spotted a text that reads wrong?"
 msgstr "आपकी भाषा नहीं है, या कोई टेक्स्ट गलत लगा?"
 
 #. keep the <a href="{url}"> link and the name LunarKittyy as they are
-#: rust/crates/setup/src/setup.rs:423
+#: rust/crates/setup/src/setup.rs:426
 #, python-brace-format
 msgid "Made by <a href=\"{url}\">LunarKittyy</a>"
 msgstr "<a href=\"{url}\">LunarKittyy</a> द्वारा निर्मित"
 
-#: rust/crates/setup/src/setup.rs:426
+#: rust/crates/setup/src/setup.rs:429
 #, python-brace-format
 msgid "Version {version}"
 msgstr "वर्शन {version}"
 
-#: rust/crates/setup/src/setup.rs:428 rust/crates/system/src/shortcuts.rs:1058
+#: rust/crates/setup/src/setup.rs:431 rust/crates/system/src/shortcuts.rs:1058
 msgid "Copied"
 msgstr "कॉपी हो गया"
 
-#: rust/crates/setup/src/setup.rs:428
+#: rust/crates/setup/src/setup.rs:431
 msgid "Copy diagnostics"
 msgstr "डायग्नोस्टिक्स कॉपी करें"
 
-#: rust/crates/setup/src/setup.rs:506
+#: rust/crates/setup/src/setup.rs:511
 msgid "The graphics card failed and the processor is decoding until you restart Telescope"
 msgstr "ग्राफ़िक्स कार्ड फ़ेल हो गया है और जब तक आप Telescope रीस्टार्ट नहीं करते, तब तक प्रोसेसर डिकोड कर रहा है"
 
-#: rust/crates/setup/src/setup.rs:507
+#: rust/crates/setup/src/setup.rs:512
+msgid "The graphics card was too slow, so the processor is decoding for now"
+msgstr ""
+
+#: rust/crates/setup/src/setup.rs:513
 #, python-brace-format
 msgid "Found {device}"
 msgstr "{device} मिला"
 
-#: rust/crates/setup/src/setup.rs:508
+#: rust/crates/setup/src/setup.rs:514
 msgid "No graphics card Telescope can use"
 msgstr "Telescope के इस्तेमाल लायक कोई ग्राफ़िक्स कार्ड नहीं मिला"
 
-#: rust/crates/setup/src/setup.rs:525
+#: rust/crates/setup/src/setup.rs:531
 #, python-brace-format
 msgid "Ready: {phone} + {obs}"
 msgstr "तैयार: {phone} + {obs}"
 
-#: rust/crates/setup/src/setup.rs:527
+#: rust/crates/setup/src/setup.rs:533
 #, python-brace-format
 msgid "Module loaded but {device} not found - another config active"
 msgstr "मॉड्यूल लोड हो गया लेकिन {device} नहीं मिला - दूसरा कॉन्फ़िगरेशन सक्रिय है"
 
-#: rust/crates/setup/src/setup.rs:529
+#: rust/crates/setup/src/setup.rs:535
 msgid "Not loaded - click Load"
 msgstr "लोड नहीं है - 'लोड करें' पर क्लिक करें"
 
-#: rust/crates/setup/src/setup.rs:540
+#: rust/crates/setup/src/setup.rs:546
 msgid "Loading..."
 msgstr "लोड हो रहा है..."
 
-#: rust/crates/setup/src/setup.rs:545
+#: rust/crates/setup/src/setup.rs:551
 msgid "Unloading..."
 msgstr "अनलोड हो रहा है..."
 
-#: rust/crates/setup/src/setup.rs:551
+#: rust/crates/setup/src/setup.rs:557
 #, python-brace-format
 msgid "Loaded - {message}"
 msgstr "लोड हो गया - {message}"
 
-#: rust/crates/setup/src/setup.rs:552
+#: rust/crates/setup/src/setup.rs:558
 #, python-brace-format
 msgid "Unloaded - {message}"
 msgstr "अनलोड हो गया - {message}"
 
-#: rust/crates/setup/src/setup.rs:553
+#: rust/crates/setup/src/setup.rs:559
 #, python-brace-format
 msgid "Failed - {message}"
 msgstr "विफल रहा - {message}"
 
-#: rust/crates/setup/src/setup.rs:562
+#: rust/crates/setup/src/setup.rs:568
 msgid "Working..."
 msgstr "काम जारी है..."
 
-#: rust/crates/setup/src/setup.rs:587 rust/crates/shell/src/streams.rs:577
+#: rust/crates/setup/src/setup.rs:593 rust/crates/shell/src/streams.rs:577
 msgid "Stop the streams going to them first"
 msgstr "पहले उन पर जा रही स्ट्रीम रोकें"
 
-#: rust/crates/setup/src/setup.rs:589
+#: rust/crates/setup/src/setup.rs:595
 msgid "Back to just the one camera; Add camera sets them up again."
 msgstr "वापस सिर्फ़ एक कैमरे पर; 'कैमरा जोड़ें' उन्हें फिर से सेट करता है."
 
-#: rust/crates/setup/src/setup.rs:590
+#: rust/crates/setup/src/setup.rs:596
 msgid "Asks for your password."
 msgstr "आपसे पासवर्ड मांगता है."
 
-#: rust/crates/setup/src/setup.rs:590 rust/crates/shell/src/extra_cameras.rs:86
+#: rust/crates/setup/src/setup.rs:596 rust/crates/shell/src/extra_cameras.rs:86
 msgid "Windows asks for permission."
 msgstr "Windows अनुमति मांगता है."
 
-#: rust/crates/setup/src/setup.rs:597
+#: rust/crates/setup/src/setup.rs:603
 msgid "Removing…"
 msgstr "हटाया जा रहा है…"
 
-#: rust/crates/setup/src/setup.rs:604
+#: rust/crates/setup/src/setup.rs:610
 msgid "Removed"
 msgstr "हटा दिया गया"
 
-#: rust/crates/setup/src/setup.rs:608
+#: rust/crates/setup/src/setup.rs:614
 #, python-brace-format
 msgid "Couldn't remove them: {message}"
 msgstr "उन्हें हटाया नहीं जा सका: {message}"
 
-#: rust/crates/setup/src/setup.rs:629 rust/crates/setup/src/setup.rs:635 rust/crates/setup/src/setup.rs:638 rust/crates/setup/src/setup.rs:682
+#: rust/crates/setup/src/setup.rs:635 rust/crates/setup/src/setup.rs:641 rust/crates/setup/src/setup.rs:644 rust/crates/setup/src/setup.rs:688
 msgid "Reinstall"
 msgstr "फिर से इंस्टॉल करें"
 
-#: rust/crates/setup/src/setup.rs:631
+#: rust/crates/setup/src/setup.rs:637
 msgid "Update ready"
 msgstr "अपडेट तैयार है"
 
-#: rust/crates/setup/src/setup.rs:631
+#: rust/crates/setup/src/setup.rs:637
 msgid "Some apps can't see it"
 msgstr "कुछ ऐप इसे देख नहीं पा रहे हैं"
 
-#: rust/crates/setup/src/setup.rs:632 rust/crates/system/ui/updates.slint:34 rust/crates/system/ui/updates.slint:48
+#: rust/crates/setup/src/setup.rs:638 rust/crates/system/ui/updates.slint:34 rust/crates/system/ui/updates.slint:48
 msgid "Update"
 msgstr "अपडेट करें"
 
-#: rust/crates/setup/src/setup.rs:632
+#: rust/crates/setup/src/setup.rs:638
 msgid "Installs the camera every Windows 11 app can see (Windows asks for admin access once)."
 msgstr "वह कैमरा इंस्टॉल करता है जिसे हर Windows 11 ऐप देख सकता है (Windows एक बार एडमिन एक्सेस मांगता है)."
 
-#: rust/crates/setup/src/setup.rs:635
+#: rust/crates/setup/src/setup.rs:641
 msgid "Reinstall for a security fix"
 msgstr "सुरक्षा सुधार के लिए फिर से इंस्टॉल करें"
 
-#: rust/crates/setup/src/setup.rs:636
+#: rust/crates/setup/src/setup.rs:642
 msgid "Moves the driver into Program Files (Windows asks for admin access once)."
 msgstr "ड्राइवर को Program Files में ले जाता है (Windows एक बार एडमिन ऐक्सेस मांगता है)."
 
-#: rust/crates/setup/src/setup.rs:641
+#: rust/crates/setup/src/setup.rs:647
 #, python-brace-format
 msgid "Apps list it as “{name}”"
 msgstr "ऐप इसे इस नाम से दिखाते हैं: “{name}”"
 
-#: rust/crates/setup/src/setup.rs:642
+#: rust/crates/setup/src/setup.rs:648
 #, python-brace-format
 msgid "Register it again as “{name}”"
 msgstr "इसे फिर से इस नाम से रजिस्टर करें: “{name}”"
 
-#: rust/crates/setup/src/setup.rs:645
+#: rust/crates/setup/src/setup.rs:651
 msgid "Not installed"
 msgstr "इंस्टॉल नहीं है"
 
-#: rust/crates/setup/src/setup.rs:645
+#: rust/crates/setup/src/setup.rs:651
 msgid "Not installed (Install driver downloads it first)"
 msgstr "इंस्टॉल नहीं है ('ड्राइवर इंस्टॉल करें' पहले इसे डाउनलोड करता है)"
 
-#: rust/crates/setup/src/setup.rs:659
+#: rust/crates/setup/src/setup.rs:665
 msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
 msgstr "नहीं मिला. USB से पेयरिंग और इंस्टॉल करने के लिए इसकी ज़रूरत होती है; Wi-Fi के लिए नहीं."
 
-#: rust/crates/setup/src/setup.rs:685 rust/crates/setup/src/setup.rs:849
+#: rust/crates/setup/src/setup.rs:691 rust/crates/setup/src/setup.rs:855
 #, python-brace-format
 msgid "Failed: {message}"
 msgstr "विफल रहा: {message}"
 
-#: rust/crates/setup/src/setup.rs:686
+#: rust/crates/setup/src/setup.rs:692
 msgid "Retry"
 msgstr "फिर कोशिश करें"
 
-#: rust/crates/setup/src/setup.rs:717
+#: rust/crates/setup/src/setup.rs:723
 #, python-brace-format
 msgid "Ready (adb {version}, from Google)"
 msgstr "तैयार (adb {version}, Google से)"
 
-#: rust/crates/setup/src/setup.rs:718
+#: rust/crates/setup/src/setup.rs:724
 msgid "Ready (adb, from Google)"
 msgstr "तैयार (adb, Google से)"
 
-#: rust/crates/setup/src/setup.rs:719
+#: rust/crates/setup/src/setup.rs:725
 #, python-brace-format
 msgid "Ready (adb {version})"
 msgstr "तैयार (adb {version})"
 
-#: rust/crates/setup/src/setup.rs:720
+#: rust/crates/setup/src/setup.rs:726
 msgid "Ready (adb)"
 msgstr "तैयार (adb)"
 
-#: rust/crates/setup/src/setup.rs:734
+#: rust/crates/setup/src/setup.rs:740
 msgid "Installing over USB needs adb. Install it from your distro's packages."
 msgstr "USB से इंस्टॉल करने के लिए adb चाहिए. इसे अपने डिस्ट्रो के पैकेज से इंस्टॉल करें."
 
-#: rust/crates/setup/src/setup.rs:736
+#: rust/crates/setup/src/setup.rs:742
 msgid "Installing over USB needs adb. Click Get adb under Virtual camera above."
 msgstr "USB से इंस्टॉल करने के लिए adb चाहिए. ऊपर वर्चुअल कैमरा के तहत 'adb पाएं' पर क्लिक करें."
 
-#: rust/crates/setup/src/setup.rs:744
+#: rust/crates/setup/src/setup.rs:750
 msgid "Select APK"
 msgstr "APK चुनें"
 
-#: rust/crates/setup/src/setup.rs:745
+#: rust/crates/setup/src/setup.rs:751
 msgid "Android Package (*.apk)"
 msgstr "Android पैकेज (*.apk)"
 
-#: rust/crates/setup/src/setup.rs:762 rust/crates/shell/src/plugins/mod.rs:32
+#: rust/crates/setup/src/setup.rs:768 rust/crates/shell/src/plugins/mod.rs:32
 msgid "No phone found over USB. Plug it in and allow USB debugging when the phone asks."
 msgstr "USB पर कोई फ़ोन नहीं मिला. इसे प्लग इन करें और फ़ोन द्वारा पूछे जाने पर USB डीबगिंग की अनुमति दें."
 
-#: rust/crates/setup/src/setup.rs:778
+#: rust/crates/setup/src/setup.rs:784
 msgid "Installing..."
 msgstr "इंस्टॉल हो रहा है..."
 
-#: rust/crates/setup/src/setup.rs:810
+#: rust/crates/setup/src/setup.rs:816
 msgid "Reloading loopback..."
 msgstr "लूपबैक फिर से लोड हो रहा है..."
 
-#: rust/crates/setup/src/setup.rs:810
+#: rust/crates/setup/src/setup.rs:816
 msgid "Restarting stream..."
 msgstr "स्ट्रीम फिर शुरू हो रही है..."
 
-#: rust/crates/setup/src/setup.rs:831 rust/crates/shell/src/streams.rs:562
+#: rust/crates/setup/src/setup.rs:837 rust/crates/shell/src/streams.rs:562
 msgid "Resize the virtual camera"
 msgstr "वर्चुअल कैमरे का साइज़ बदलें"
 
-#: rust/crates/setup/src/setup.rs:845
+#: rust/crates/setup/src/setup.rs:851
 msgid "Done - loopback reloaded."
 msgstr "हो गया - लूपबैक फिर से लोड हो गया."
 
-#: rust/crates/setup/src/setup.rs:845
+#: rust/crates/setup/src/setup.rs:851
 msgid "Done - canvas updated."
 msgstr "हो गया - कैनवस अपडेट हो गया."
 
-#: rust/crates/setup/src/setup.rs:847
+#: rust/crates/setup/src/setup.rs:853
 msgid "Failed: module is still in use. Close OBS and any other app using the virtual camera, then try again."
 msgstr "विफल रहा: मॉड्यूल अभी भी इस्तेमाल में है. OBS और वर्चुअल कैमरा इस्तेमाल करने वाले किसी भी अन्य ऐप को बंद करें, फिर कोशिश करें."
 
-#: rust/crates/setup/src/setup.rs:1021
+#: rust/crates/setup/src/setup.rs:1032
 msgid "Advanced settings"
 msgstr "उन्नत सेटिंग्स"
 
-#: rust/crates/setup/src/setup.rs:1022
+#: rust/crates/setup/src/setup.rs:1033
 msgid "The virtual camera, its size, extra cameras, video and microphone limits, and the Updates & About tab."
 msgstr "वर्चुअल कैमरा, इसका साइज़, अतिरिक्त कैमरे, वीडियो और माइक्रोफ़ोन की सीमाएं, और 'अपडेट और परिचय' टैब."
 
-#: rust/crates/setup/src/setup.rs:1120 rust/crates/setup/ui/setup.slint:111
+#: rust/crates/setup/src/setup.rs:1131 rust/crates/setup/ui/setup.slint:111
 msgid "Use my own adb…"
 msgstr "अपने adb का इस्तेमाल करें…"
 
@@ -6021,54 +6025,54 @@ msgstr "टैब"
 msgid "Check that it's still on."
 msgstr "जांचें कि यह अभी भी चालू है."
 
-#: rust/crates/shell/src/settings.rs:705
+#: rust/crates/shell/src/settings.rs:717
 msgid "Nothing matches every word. These match some of them."
 msgstr "हर शब्द से कुछ भी मेल नहीं खाता. ये उनमें से कुछ से मेल खाते हैं."
 
-#: rust/crates/shell/src/settings.rs:707
+#: rust/crates/shell/src/settings.rs:719
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)."
 msgstr "“{text}” से कुछ भी मेल नहीं खाता. कम शब्दों में कोशिश करें, या लिखें कि यह क्या करता है (रेज़ोल्यूशन, माइक्रोफ़ोन, स्टार्टअप)."
 
-#: rust/crates/shell/src/settings.rs:709 rust/crates/shell/ui/settings.slint:229
+#: rust/crates/shell/src/settings.rs:721 rust/crates/shell/ui/settings.slint:229
 msgid "Search results"
 msgstr "खोज परिणाम"
 
-#: rust/crates/shell/src/settings.rs:770
+#: rust/crates/shell/src/settings.rs:782
 #, python-brace-format
 msgid "Remove {plugin}"
 msgstr "{plugin} हटाएं"
 
-#: rust/crates/shell/src/settings.rs:789
+#: rust/crates/shell/src/settings.rs:801
 msgid "Check for updates"
 msgstr "अपडेट खोजें"
 
-#: rust/crates/shell/src/settings.rs:790
+#: rust/crates/shell/src/settings.rs:802
 msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
 msgstr "यह GitHub पर रिलीज़ पब्लिश करने वाले जोड़े गए प्लगइन्स के नए वर्ज़न रोज़ाना एक बार खोजता है और उन्हें यहां दिखाता है. कुछ भी डाउनलोड नहीं होता है."
 
-#: rust/crates/shell/src/settings.rs:791
+#: rust/crates/shell/src/settings.rs:803
 msgid "Install updates without asking"
 msgstr "बिना पूछे अपडेट इंस्टॉल करें"
 
-#: rust/crates/shell/src/settings.rs:791
+#: rust/crates/shell/src/settings.rs:803
 msgid "Installs new versions of the plugins you switched on and switches them on again."
 msgstr "आपके द्वारा चालू किए गए प्लगइन्स के नए वर्ज़न इंस्टॉल करता है और उन्हें फिर से चालू करता है."
 
-#: rust/crates/shell/src/settings.rs:792
+#: rust/crates/shell/src/settings.rs:804
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "खतरनाक! जो कोई भी प्लगइन के रेपो को नियंत्रित करता है, वह हर बार रिलीज़ पब्लिश करने पर इस कंप्यूटर पर नया कोड चला सकता है."
 
-#: rust/crates/shell/src/settings.rs:795
+#: rust/crates/shell/src/settings.rs:807
 #, python-brace-format
 msgid "Show: {which}"
 msgstr "दिखाएं: {which}"
 
-#: rust/crates/shell/src/settings.rs:882
+#: rust/crates/shell/src/settings.rs:894
 msgid "Install a plugin"
 msgstr "एक प्लगइन इंस्टॉल करें"
 
-#: rust/crates/shell/src/settings.rs:884
+#: rust/crates/shell/src/settings.rs:896
 msgid "Plugins (*.zip)"
 msgstr "प्लगइन्स (*.zip)"
 
@@ -6232,7 +6236,7 @@ msgstr "फ़ोन का कैमरा शुरू हो रहा है
 msgid "Couldn't start the phone's camera"
 msgstr "फ़ोन का कैमरा शुरू नहीं किया जा सका"
 
-#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:797
+#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:811
 msgid "Connecting..."
 msgstr "कनेक्ट हो रहा है..."
 
@@ -6434,43 +6438,43 @@ msgstr "स्ट्रीमिंग रोकें"
 msgid "Stop"
 msgstr "रोकें"
 
-#: rust/crates/shell/src/worker.rs:485
+#: rust/crates/shell/src/worker.rs:490
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "स्ट्रीम एरर: {error}"
 
-#: rust/crates/shell/src/worker.rs:797
+#: rust/crates/shell/src/worker.rs:811
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "{url} से कनेक्ट हो रहा है..."
 
-#: rust/crates/shell/src/worker.rs:807
+#: rust/crates/shell/src/worker.rs:821
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "फ़ोन की स्ट्रीम से संपर्क नहीं हो पा रहा है. {seconds} सेकंड में फिर कोशिश की जाएगी…"
 
-#: rust/crates/shell/src/worker.rs:819
+#: rust/crates/shell/src/worker.rs:833
 msgid "Waiting for the first frame…"
 msgstr "पहले फ़्रेम का इंतज़ार है…"
 
-#: rust/crates/shell/src/worker.rs:905
+#: rust/crates/shell/src/worker.rs:920
 msgid "Stream reconnected"
 msgstr "स्ट्रीम फिर से कनेक्ट हो गई"
 
-#: rust/crates/shell/src/worker.rs:974
+#: rust/crates/shell/src/worker.rs:989
 msgid "The video is paused while the phone takes a photo"
 msgstr "फ़ोन द्वारा फ़ोटो लिए जाने के दौरान वीडियो रुका हुआ है"
 
-#: rust/crates/shell/src/worker.rs:976 rust/crates/shell/src/worker.rs:982
+#: rust/crates/shell/src/worker.rs:991 rust/crates/shell/src/worker.rs:997
 msgid "Stream dropped - reconnecting"
 msgstr "स्ट्रीम टूट गई - फिर से कनेक्ट हो रहा है"
 
-#: rust/crates/shell/src/worker.rs:1088 rust/crates/shell/src/worker.rs:1134
+#: rust/crates/shell/src/worker.rs:1103 rust/crates/shell/src/worker.rs:1149
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "वर्चुअल कैमरा एरर: {error}"
 
-#: rust/crates/shell/src/worker.rs:1099
+#: rust/crates/shell/src/worker.rs:1114
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{camera} पर {fps} fps पर {size} स्ट्रीम हो रहा है"

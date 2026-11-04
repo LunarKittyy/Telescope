@@ -8,7 +8,7 @@ use crate::packets::{Steps, Tap};
 use crate::slow::{self, Timings};
 use std::time::Instant;
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use telescope_core::frame::Frame;
 use telescope_core::media::{Decoded, Decoder, DecodingStatus, Packet, TimingProbe};
@@ -24,6 +24,8 @@ const SILENT_UNITS: u32 = 15;
 
 /// A card decoder errored this run: software from then on.
 static HW_FAILED: AtomicBool = AtomicBool::new(false);
+/// When the card gets another go after it was too slow (not for a card that failed): one per run, shared by the streams.
+static COOLDOWN: Mutex<slow::Cooldown> = Mutex::new(slow::Cooldown::new());
 /// What each live decoder uses ("vaapi", "processor"), counted.
 static LIVE: Mutex<BTreeMap<&'static str, usize>> = Mutex::new(BTreeMap::new());
 
@@ -42,11 +44,22 @@ pub fn hardware_failed() -> bool {
     HW_FAILED.load(Ordering::SeqCst)
 }
 
+/// The card was too slow lately and software decodes until the wait is over.
+pub fn hardware_slow() -> bool {
+    COOLDOWN.lock().unwrap().active()
+}
+
+/// Whether this Annex-B data holds an IDR picture, where a new decoder can start.
+fn has_keyframe(data: &[u8]) -> bool {
+    start_codes(data).into_iter().any(|(_, end)| data.get(end).is_some_and(|b| b & 31 == 5))
+}
+
 pub fn status() -> DecodingStatus {
     DecodingStatus {
         hardware_device: hardware_device().map(|h| h.name().to_string()),
         backends: LIVE.lock().unwrap().iter().filter(|(_, n)| **n > 0).map(|(k, _)| k.to_string()).collect(),
         hardware_failed: hardware_failed(),
+        hardware_slow: hardware_slow(),
     }
 }
 
@@ -139,8 +152,10 @@ pub struct H264 {
     silent: u32,
     /// How long its recent pictures took (decode and, on the card, the copy to memory) and what it decodes on, shared with the timing probe.
     timings: Arc<Mutex<Timed>>,
-    /// The frame rate the stream is meant to run at.
-    target_fps: u32,
+    /// The frame rate the stream is meant to run at, which the stream changes while it runs.
+    target_fps: Arc<AtomicU32>,
+    /// Set while software decodes only because the card was too slow: the card to go back to once the wait is over.
+    retry_hw: Option<Hw>,
     /// Tells the stream to ask for a keyframe after a change of decoder.
     ask_keyframe: Option<Box<dyn Fn() + Send>>,
     /// When the card gave up, until software has a picture.
@@ -161,7 +176,20 @@ impl H264 {
         if hardware && hardware_failed() {
             log::info!("Decoding this stream in software: the graphics card failed earlier this run");
         }
-        let wanted = if hardware && !hardware_failed() { device() } else { None };
+        let mut wanted = if hardware && !hardware_failed() { device() } else { None };
+        // The card was too slow lately: software until the wait is over, and then the card again
+        let mut retry_hw = None;
+        if let Some(h) = wanted {
+            let now = Instant::now();
+            let mut cooldown = COOLDOWN.lock().unwrap();
+            if cooldown.waiting(now) {
+                log::info!("Decoding this stream in software: the graphics card was too slow lately");
+                retry_hw = wanted.take();
+            } else if cooldown.active() {
+                cooldown.returned(now);
+                log::info!("Going back to hardware decoding ({}): the wait after it was too slow is over", h.name());
+            }
+        }
         let opened = wanted.map(|h| {
             let forced = matches!(Forced::asked(), Some((Forced::Open, _)));
             open(Some(h)).and_then(|c| if forced { Err("forced by TELESCOPE_HW_FAULT".to_string()) } else { Ok(c) }).map_err(|why| (h, why))
@@ -174,13 +202,15 @@ impl H264 {
                 open(None)?
             }
             None => {
-                if hardware && !hardware_failed() {
+                if hardware && !hardware_failed() && retry_hw.is_none() {
                     log::info!("Decoding this stream in software: no graphics card decoder here");
                 }
                 open(None)?
             }
         };
-        Ok(H264::with_codec(codec, tap))
+        let mut dec = H264::with_codec(codec, tap);
+        dec.retry_hw = retry_hw;
+        Ok(dec)
     }
 
     fn with_codec(codec: Codec, tap: Option<Arc<Tap>>) -> H264 {
@@ -197,7 +227,8 @@ impl H264 {
             hw_proven: false,
             silent: 0,
             timings: Arc::new(Mutex::new(Timed { times: Timings::default(), backend: backend(codec_hw) })),
-            target_fps: 30,
+            target_fps: Arc::new(AtomicU32::new(30)),
+            retry_hw: None,
             ask_keyframe: None,
             swapped_at: None,
             #[cfg(test)]
@@ -239,6 +270,11 @@ impl H264 {
             Ok(fed) if self.codec.hw.is_none() => {
                 self.note_picture_back(fed.count);
                 self.time(began, fed.count);
+                if let Some(hw) = self.retry_hw.filter(|_| has_keyframe(&data)) {
+                    if let Some(back) = self.go_back_to(hw, &data) {
+                        return if back.0.is_some() { back } else { (fed.newest, fed.count) };
+                    }
+                }
                 (fed.newest, fed.count)
             }
             Ok(fed) => {
@@ -250,7 +286,7 @@ impl H264 {
                 }
                 if let Some(why) = self.time(began, fed.count) {
                     // The card's picture is good, so it stays if software has none yet
-                    return match self.fall_back(why, &data) {
+                    return match self.fall_back_slow(why, &data) {
                         (None, _) => (fed.newest, fed.count),
                         swapped => swapped,
                     };
@@ -270,6 +306,72 @@ impl H264 {
         let hw = self.codec.hw.expect("only a card decoder falls back");
         HW_FAILED.store(true, Ordering::SeqCst);
         log::warn!("Hardware decoding ({}) failed ({why}); decoding in software from now on", hw.name());
+        self.swap_to_software(hw, data)
+    }
+
+    /// Swaps the card for software because it's too slow, for a while: the card isn't called failed, and gets another go later.
+    fn fall_back_slow(&mut self, why: String, data: &[u8]) -> (Option<Frame>, u32) {
+        let hw = self.codec.hw.expect("only a card decoder falls back");
+        let wait = COOLDOWN.lock().unwrap().fell(Instant::now());
+        log::warn!("Hardware decoding ({}) is {why}; decoding in software for {} minutes, then trying the card again", hw.name(), wait.as_secs() / 60);
+        let fed = self.swap_to_software(hw, data);
+        if self.codec.hw.is_none() {
+            self.retry_hw = Some(hw);
+        }
+        fed
+    }
+
+    /// Goes back to the card once the wait after it was too slow is over and software kept up meanwhile, at the next keyframe.
+    fn go_back_to(&mut self, hw: Hw, data: &[u8]) -> Option<(Option<Frame>, u32)> {
+        let now = Instant::now();
+        {
+            let mut cooldown = COOLDOWN.lock().unwrap();
+            if cooldown.waiting(now) {
+                return None;
+            }
+            if cooldown.active() {
+                let interval = 1000.0 / f64::from(self.target_fps.load(Ordering::Relaxed).max(1));
+                let timed = self.timings.lock().unwrap();
+                if timed.times.slow(now, interval).is_some() || timed.times.stalled().is_some() {
+                    log::info!("Staying in software a while longer: it's struggling with the stream too");
+                    cooldown.extend(now);
+                    return None;
+                }
+                cooldown.returned(now);
+            }
+        }
+        self.retry_hw = None;
+        let codec = match Codec::h264(Some(hw)) {
+            Ok(c) => c,
+            Err(why) => {
+                HW_FAILED.store(true, Ordering::SeqCst);
+                log::warn!("Hardware decoding ({}) didn't start again ({why}); decoding in software from now on", hw.name());
+                return None;
+            }
+        };
+        log::info!("Going back to hardware decoding ({}): software kept up while the card rested", hw.name());
+        count_live(None, -1);
+        count_live(Some(hw), 1);
+        self.codec = codec;
+        self.hw_proven = false;
+        self.silent = 0;
+        *self.timings.lock().unwrap() = Timed { times: Timings::default(), backend: backend(Some(hw)) };
+        self.restart_steps();
+        // A fresh decoder can't start from a keyframe alone, and TCP sends SPS and PPS only when joining
+        let setup = [&self.headers.setup(), data].concat();
+        Some(decode(&mut self.codec, self.steps.as_ref(), &setup, false).map_or((None, 0), |fed| (fed.newest, fed.count)))
+    }
+
+    /// Steps of its own for a new decoder: the old ones have already seen this data.
+    fn restart_steps(&mut self) {
+        if let Some(tap) = &self.tap {
+            let steps = tap.open();
+            self.step_generation = steps.generation();
+            self.steps = Some(steps);
+        }
+    }
+
+    fn swap_to_software(&mut self, hw: Hw, data: &[u8]) -> (Option<Frame>, u32) {
         let codec = match Codec::h264(None) {
             Ok(c) => c,
             Err(e) => {
@@ -281,12 +383,7 @@ impl H264 {
         count_live(None, 1);
         self.codec = codec;
         *self.timings.lock().unwrap() = Timed { times: Timings::default(), backend: backend(None) };
-        // The old steps have already seen this data
-        if let Some(tap) = &self.tap {
-            let steps = tap.open();
-            self.step_generation = steps.generation();
-            self.steps = Some(steps);
-        }
+        self.restart_steps();
         // Without this the picture waits for the phone's next keyframe, up to ten seconds with intra refresh
         if let Some(ask) = &self.ask_keyframe {
             ask();
@@ -306,7 +403,8 @@ impl H264 {
         }
         let now = Instant::now();
         let each = now.duration_since(began).as_secs_f64() * 1000.0 / f64::from(count);
-        let interval = 1000.0 / f64::from(self.target_fps);
+        let fps = self.target_fps.load(Ordering::Relaxed).max(1);
+        let interval = 1000.0 / f64::from(fps);
         let mut timed = self.timings.lock().unwrap();
         // The first picture of a decoder pays for its setup, which says nothing about the stream
         let first = timed.times.recent().is_none();
@@ -323,7 +421,7 @@ impl H264 {
         let s = timed.times.slow(now, interval)?;
         Some(format!(
             "too slow for {} fps: a median of {:.1} ms, p95 {:.1} ms, max {:.1} ms a picture over the last {} s, against {interval:.1} ms between pictures on {}",
-            self.target_fps, s.median_ms, s.p95_ms, s.max_ms, slow::WINDOW.as_secs(), hw.name()
+            fps, s.median_ms, s.p95_ms, s.max_ms, slow::WINDOW.as_secs(), hw.name()
         ))
     }
 
@@ -402,8 +500,8 @@ impl Decoder for H264 {
         self.ask_keyframe = Some(ask);
     }
 
-    fn set_target_fps(&mut self, fps: u32) {
-        self.target_fps = fps.max(1);
+    fn target_fps_cell(&self) -> Option<Arc<AtomicU32>> {
+        Some(self.target_fps.clone())
     }
 
     fn timing_probe(&self) -> Option<TimingProbe> {

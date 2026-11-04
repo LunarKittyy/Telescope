@@ -111,9 +111,10 @@ pub trait Decoder: Send {
     fn on_keyframe_needed(&mut self, ask: Box<dyn Fn() + Send>) {
         let _ = ask;
     }
-    /// The frame rate the stream is meant to run at, for a decoder that hands over to software when the card can't keep up.
-    fn set_target_fps(&mut self, fps: u32) {
-        let _ = fps;
+    /// Where the frame rate the stream is meant to run at goes, for a decoder that hands over to software when the card can't keep up.
+    /// The stream sets it when it opens and whenever the rate changes.
+    fn target_fps_cell(&self) -> Option<std::sync::Arc<std::sync::atomic::AtomicU32>> {
+        None
     }
     /// Asks how decoding has gone lately: one plain line (the decoder in use, decode and copy time a picture), for the log when a stream struggles.
     fn timing_probe(&self) -> Option<TimingProbe> {
@@ -253,6 +254,9 @@ pub struct DecodingStatus {
     pub backends: Vec<String>,
     /// A graphics card decoder failed this run, so decoding stays in software until restart.
     pub hardware_failed: bool,
+    /// The graphics card was too slow lately, so the processor decodes for a while and the card gets another go after.
+    #[serde(default)]
+    pub hardware_slow: bool,
 }
 
 /// Hands the newest packet from a stream's reader to its decoders (stream._Newest): one nobody took in time is

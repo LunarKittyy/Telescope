@@ -1,29 +1,90 @@
 //! Reading frames off a feed (H264Reader.read): the newest frame decoded from the next data that has any, with the
 //! bytes and frames behind it for the stream's throughput and "keeping up" readouts.
+//!
+//! The feed is read on a thread of its own, so a decoder that stalls for a moment (a card waiting behind a game's graphics work) doesn't
+//! stop the reading. The phone would see its connection stop taking data, take that for a bad link and cut the bitrate to the minimum.
 
-use telescope_core::media::{Decoder, FeedEnd, FeedStopper, FrameReader, ReadFrame, VideoFeed};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::mpsc::{channel, Receiver};
+use std::sync::Arc;
+use std::time::Duration;
+use telescope_core::media::{Decoder, FeedEnd, FeedStopper, FrameReader, Packet, ReadFrame, VideoFeed};
 
 /// Data with no finished frame after this much isn't a stream the phone sent; stop instead of buffering on.
 pub const MAX_BYTES_WITHOUT_FRAME: u64 = 32 * 1024 * 1024;
 
+/// How much read data waits for the decoder before the reading stops too, and the connection pushes back after all.
+const MAX_QUEUED_BYTES: u64 = 24 * 1024 * 1024;
+
 pub struct Reader {
-    feed: Box<dyn VideoFeed>,
+    packets: Receiver<Result<Packet, FeedEnd>>,
+    /// Bytes read and not decoded yet.
+    queued: Arc<AtomicU64>,
+    /// Pictures decoded that the feed hasn't been told of yet (it's read on the other thread).
+    decoded: Arc<AtomicU32>,
+    stop: Arc<dyn FeedStopper>,
     decoder: Box<dyn Decoder>,
     max_bytes: u64,
     pending_bytes: u64,
     pending_frames: u32,
 }
 
+/// Ends the feed's blocked read, for however many copies of it are asked for.
+struct Stop(Arc<dyn FeedStopper>);
+
+impl FeedStopper for Stop {
+    fn stop(&self) {
+        self.0.stop();
+    }
+}
+
 impl Reader {
-    pub fn new(feed: Box<dyn VideoFeed>, decoder: Box<dyn Decoder>) -> Reader {
-        Reader { feed, decoder, max_bytes: MAX_BYTES_WITHOUT_FRAME, pending_bytes: 0, pending_frames: 0 }
+    pub fn new(mut feed: Box<dyn VideoFeed>, decoder: Box<dyn Decoder>) -> Reader {
+        let stop: Arc<dyn FeedStopper> = Arc::from(feed.stopper());
+        let (send, packets) = channel();
+        let (queued, decoded) = (Arc::new(AtomicU64::new(0)), Arc::new(AtomicU32::new(0)));
+        let (q, d) = (queued.clone(), decoded.clone());
+        let spawned = std::thread::Builder::new().name("feed-reader".into()).spawn(move || {
+            let _priority = telescope_core::system::prioritise_thread("frame receive");
+            loop {
+                for _ in 0..d.swap(0, Ordering::Relaxed) {
+                    feed.decoded();
+                }
+                if q.load(Ordering::Relaxed) > MAX_QUEUED_BYTES {
+                    std::thread::sleep(Duration::from_millis(2));
+                    continue;
+                }
+                let read = feed.read();
+                let end = read.is_err();
+                if let Ok(p) = &read {
+                    q.fetch_add(p.data.len() as u64, Ordering::Relaxed);
+                }
+                // The reader is gone
+                if send.send(read).is_err() || end {
+                    return;
+                }
+            }
+        });
+        if let Err(e) = spawned {
+            log::error!("Couldn't start the thread that reads the stream: {e}");
+        }
+        Reader { packets, queued, decoded, stop, decoder, max_bytes: MAX_BYTES_WITHOUT_FRAME, pending_bytes: 0, pending_frames: 0 }
+    }
+
+    /// The next packet read, waiting for one; the end of the feed once the thread has gone.
+    fn next(&mut self) -> Result<Packet, FeedEnd> {
+        let read = self.packets.recv().unwrap_or(Err(FeedEnd::Closed));
+        if let Ok(p) = &read {
+            self.queued.fetch_sub(p.data.len() as u64, Ordering::Relaxed);
+        }
+        read
     }
 }
 
 impl FrameReader for Reader {
     fn read(&mut self) -> Result<ReadFrame, FeedEnd> {
         loop {
-            let packet = self.feed.read()?;
+            let packet = self.next()?;
             self.pending_bytes += packet.data.len() as u64;
             if self.pending_bytes > self.max_bytes {
                 return Err(FeedEnd::Error("data that never makes a frame".into()));
@@ -31,7 +92,7 @@ impl FrameReader for Reader {
             let decoded = self.decoder.decode(&packet);
             self.pending_frames += decoded.count;
             if let Some(frame) = decoded.newest {
-                self.feed.decoded();
+                self.decoded.fetch_add(1, Ordering::Relaxed);
                 let bytes = std::mem::take(&mut self.pending_bytes);
                 // Frames that arrived for it, the ones skipped to keep up included
                 let count = std::mem::take(&mut self.pending_frames);
@@ -41,7 +102,7 @@ impl FrameReader for Reader {
     }
 
     fn stopper(&self) -> Box<dyn FeedStopper> {
-        self.feed.stopper()
+        Box::new(Stop(self.stop.clone()))
     }
 
     fn hardware(&self) -> bool {
@@ -129,5 +190,68 @@ mod tests {
         let mut r = Reader::new(Box::new(Endless), Box::new(H264::new(false, None).unwrap()));
         r.max_bytes = 1024 * 1024;
         assert!(matches!(r.read(), Err(FeedEnd::Error(_))));
+    }
+}
+
+#[cfg(test)]
+mod stall_tests {
+    use super::*;
+    use std::sync::atomic::AtomicUsize;
+    use telescope_core::media::Decoded;
+
+    struct NoStop;
+
+    impl FeedStopper for NoStop {
+        fn stop(&self) {}
+    }
+
+    /// Hands out small packets, counting the reads, until it has given `limit`.
+    struct Counting {
+        reads: Arc<AtomicUsize>,
+        limit: usize,
+    }
+
+    impl VideoFeed for Counting {
+        fn read(&mut self) -> Result<Packet, FeedEnd> {
+            if self.reads.fetch_add(1, Ordering::SeqCst) >= self.limit {
+                return Err(FeedEnd::Closed);
+            }
+            Ok(Packet { data: vec![1; 100], time_ns: 0 })
+        }
+        fn stopper(&self) -> Box<dyn FeedStopper> {
+            Box::new(NoStop)
+        }
+    }
+
+    /// A decoder stalled on the graphics card for its first packet, noting how much of the feed was read when it came out of it.
+    struct Stalled {
+        reads: Arc<AtomicUsize>,
+        read_by_then: Arc<AtomicUsize>,
+        stalled: bool,
+    }
+
+    impl Decoder for Stalled {
+        fn decode(&mut self, _packet: &Packet) -> Decoded {
+            if !self.stalled {
+                self.stalled = true;
+                std::thread::sleep(Duration::from_millis(300));
+                self.read_by_then.store(self.reads.load(Ordering::SeqCst), Ordering::SeqCst);
+            }
+            Decoded { newest: None, count: 0 }
+        }
+        fn hardware(&self) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn the_feed_keeps_being_read_while_the_decoder_stalls() {
+        let reads = Arc::new(AtomicUsize::new(0));
+        let read_by_then = Arc::new(AtomicUsize::new(0));
+        let decoder = Stalled { reads: reads.clone(), read_by_then: read_by_then.clone(), stalled: false };
+        let mut r = Reader::new(Box::new(Counting { reads, limit: 20 }), Box::new(decoder));
+        assert!(matches!(r.read(), Err(FeedEnd::Closed)));
+        // Without the thread, only the one packet would have been read by the time the decoder was out of its stall
+        assert!(read_by_then.load(Ordering::SeqCst) > 20, "{}", read_by_then.load(Ordering::SeqCst));
     }
 }

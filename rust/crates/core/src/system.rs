@@ -234,6 +234,23 @@ pub fn opt_out_of_power_throttling() {
     }
 }
 
+/// Asks Windows to schedule this program's graphics work ahead of normal programs', since a game in front keeps the card busy. Windows may
+/// refuse without enough rights, which the log says. Does nothing elsewhere.
+pub fn raise_gpu_scheduling_priority() {
+    #[cfg(windows)]
+    {
+        use windows::Wdk::Graphics::Direct3D::{D3DKMTSetProcessSchedulingPriorityClass, D3DKMT_SCHEDULINGPRIORITYCLASS_HIGH};
+        use windows::Win32::System::Threading::GetCurrentProcess;
+        // SAFETY: both arguments are plain values
+        let status = unsafe { D3DKMTSetProcessSchedulingPriorityClass(GetCurrentProcess(), D3DKMT_SCHEDULINGPRIORITYCLASS_HIGH) };
+        if status.0 >= 0 {
+            log::info!("This app's graphics work runs at a high GPU scheduling priority");
+        } else {
+            log::info!("Couldn't raise this app's GPU scheduling priority (status {:#x})", status.0);
+        }
+    }
+}
+
 /// A thread's place in Windows' multimedia scheduler, given back when this is dropped. Holds nothing elsewhere.
 pub struct ThreadPriority {
     #[cfg(windows)]

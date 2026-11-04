@@ -213,6 +213,10 @@ impl Codec {
                     if r < 0 {
                         return Err(format!("{} didn't open: {}", h.name(), err_text(r)));
                     }
+                    #[cfg(windows)]
+                    if h == Hw::D3d11va {
+                        raise_gpu_priority(c.hw_device);
+                    }
                     (*c.ctx).hw_device_ctx = ff::av_buffer_ref(c.hw_device);
                     (*c.ctx).opaque = h.pixel_format() as i32 as usize as *mut _;
                     (*c.ctx).get_format = Some(pick_hw);
@@ -428,6 +432,26 @@ impl Codec {
 
 /// Whether a picture copied off the card is a surface the driver never wrote: all zeros, which no camera gives, since even
 /// black has chroma at the middle. A few samples down the first two planes, so it costs nothing.
+/// Asks Windows to schedule the D3D11 device FFmpeg made ahead of other programs' graphics work, so a game in front doesn't hold the decoder up.
+/// AVHWDeviceContext.hwctx points at an AVD3D11VADeviceContext, whose first field is the ID3D11Device (libavutil/hwcontext_d3d11va.h).
+#[cfg(windows)]
+unsafe fn raise_gpu_priority(buffer: *mut ff::AVBufferRef) {
+    use windows::core::{IUnknown, Interface};
+    use windows::Win32::Graphics::Dxgi::IDXGIDevice;
+    static SAID: std::sync::Once = std::sync::Once::new();
+    let say = |text: String| SAID.call_once(|| log::info!("{text}"));
+    let ctx = (*buffer).data as *const ff::AVHWDeviceContext;
+    let device = if ctx.is_null() || (*ctx).hwctx.is_null() { ptr::null_mut() } else { *((*ctx).hwctx as *const *mut std::ffi::c_void) };
+    let Some(unknown) = IUnknown::from_raw_borrowed(&device) else {
+        return say("Couldn't find the graphics device to raise its priority".into());
+    };
+    // SAFETY: the device is alive as long as FFmpeg's device context is, which outlives this call
+    match unknown.cast::<IDXGIDevice>().and_then(|dxgi| dxgi.SetGPUThreadPriority(7)) {
+        Ok(()) => say("The decoder's graphics device runs at a raised GPU priority".into()),
+        Err(e) => say(format!("Couldn't raise the decoder's GPU priority: {e}")),
+    }
+}
+
 unsafe fn unwritten(f: *const ff::AVFrame) -> bool {
     let (w, h) = ((*f).width as isize, (*f).height as isize);
     (0..16).all(|i| {

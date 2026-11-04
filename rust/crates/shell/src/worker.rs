@@ -353,6 +353,8 @@ struct Shared {
     last_arrival_fps: Mutex<f32>,
     /// How the current decoder reports its timing, for the log when frames stop keeping up.
     timing_probe: Mutex<Option<telescope_core::media::TimingProbe>>,
+    /// Where the current decoder reads the frame rate it should keep up with.
+    fps_cell: Mutex<Option<Arc<AtomicU32>>>,
     camera_size: Mutex<Option<(u32, u32)>>,
     stopper: Mutex<Option<Box<dyn FeedStopper>>>,
     /// The feeds being opened right now, which a stop has to reach before they have a stopper.
@@ -472,7 +474,7 @@ impl StreamWorker {
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
             photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_colour: Mutex::new(None), gate: setup.gate,
             seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0),
-            last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
+            last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), fps_cell: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
             handover_thread: Mutex::new(None),
         });
@@ -535,6 +537,9 @@ impl StreamWorker {
         }
         if let Some(fps) = fps.filter(|f| *f > 0 && *f != self.shared.fps.load(Ordering::SeqCst)) {
             self.shared.fps.store(fps, Ordering::SeqCst);
+            if let Some(cell) = self.shared.fps_cell.lock().unwrap().as_ref() {
+                cell.store(fps, Ordering::Relaxed);
+            }
             self.settle();
             self.shared.restart_vcam.set();
         }
@@ -699,7 +704,11 @@ impl Shared {
                 };
                 let events = self.events.clone();
                 decoder.on_keyframe_needed(Box::new(move || events(WorkerEvent::NeedsKeyframe)));
-                decoder.set_target_fps(self.fps.load(Ordering::SeqCst));
+                let cell = decoder.target_fps_cell();
+                if let Some(cell) = &cell {
+                    cell.store(self.fps.load(Ordering::SeqCst), Ordering::Relaxed);
+                }
+                *self.fps_cell.lock().unwrap() = cell;
                 *self.timing_probe.lock().unwrap() = decoder.timing_probe();
                 Ok(Cap::Frames(self.media.frame_reader(feed, decoder)?))
             }

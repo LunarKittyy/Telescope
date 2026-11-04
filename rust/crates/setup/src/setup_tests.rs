@@ -667,6 +667,10 @@ fn the_graphics_card_row_says_what_really_happens() {
     assert!(checked(&r) && r.plugin.panel.hw_line.contains("Found"));
     r.plugin.show_graphics_card(Some("vaapi"), true);
     assert!(checked(&r) && r.plugin.panel.hw_line.contains("until you restart"));
+    r.plugin.panel.hw_slow = true;
+    r.plugin.show_graphics_card(Some("vaapi"), false);
+    assert!(r.plugin.panel.hw_line.contains("too slow") && !r.plugin.panel.hw_line.contains("failed"));
+    r.plugin.panel.hw_slow = false;
     r.plugin.on_hw_decode(&mut r.host, false);
     assert!(!checked(&r));
 }

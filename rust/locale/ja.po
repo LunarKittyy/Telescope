@@ -2706,7 +2706,7 @@ msgstr "レイアウトを置換"
 msgid "Name:"
 msgstr "名前:"
 
-#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:492 rust/crates/link/ui/connection.slint:692 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:849 rust/crates/shell/ui/settings.slint:640
+#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:492 rust/crates/link/ui/connection.slint:692 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:861 rust/crates/shell/ui/settings.slint:640
 msgid "OK"
 msgstr "OK"
 
@@ -3137,7 +3137,7 @@ msgstr "スマートフォンがマイクを拒否しました（HTTP {code}）�
 msgid "No microphone"
 msgstr "マイクなし"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:678 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/worker.rs:490 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:678 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1303 rust/crates/shell/src/worker.rs:495 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "ストリーミング停止中"
 
@@ -3229,7 +3229,7 @@ msgstr "処理が追いつきません"
 msgid "Browser"
 msgstr "ブラウザー"
 
-#: rust/crates/link/src/browser/plugin.rs:920 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:336 rust/crates/link/src/plugin.rs:372 rust/crates/link/src/plugin.rs:398 rust/crates/link/src/plugin.rs:732 rust/crates/setup/src/setup.rs:724 rust/crates/shell/src/plugins/onboarding.rs:139 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1531 rust/crates/system/ui/updates.slint:174
+#: rust/crates/link/src/browser/plugin.rs:920 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:336 rust/crates/link/src/plugin.rs:372 rust/crates/link/src/plugin.rs:398 rust/crates/link/src/plugin.rs:732 rust/crates/setup/src/setup.rs:730 rust/crates/shell/src/plugins/onboarding.rs:139 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1531 rust/crates/system/ui/updates.slint:174
 msgid "Try again"
 msgstr "再試行"
 
@@ -3314,7 +3314,7 @@ msgstr "コンピューター"
 msgid "Checking…"
 msgstr "確認中…"
 
-#: rust/crates/link/src/connection.rs:803 rust/crates/setup/src/setup.rs:629 rust/crates/setup/src/setup.rs:638 rust/crates/setup/src/setup.rs:657 rust/crates/setup/src/setup.rs:681
+#: rust/crates/link/src/connection.rs:803 rust/crates/setup/src/setup.rs:635 rust/crates/setup/src/setup.rs:644 rust/crates/setup/src/setup.rs:663 rust/crates/setup/src/setup.rs:687
 msgid "Ready"
 msgstr "準備完了"
 
@@ -3708,7 +3708,7 @@ msgstr "USB経由でスマートフォン版アプリをアップデート中…
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "{phone}のTelescopeアプリは、このアプリより古いバージョンです。"
 
-#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:833 rust/crates/shell/src/extra_cameras.rs:154 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:1058
+#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:154 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:1058
 msgid "Copy command"
 msgstr "コマンドをコピー"
 
@@ -3790,7 +3790,7 @@ msgstr "ブラウザーが送信するサイズ。対応していないカメラ
 msgid "Frame rate"
 msgstr "フレームレート"
 
-#: rust/crates/link/ui/connection.slint:114 rust/crates/setup/src/setup.rs:641 rust/crates/shell/src/plugins/presets.rs:183 rust/crates/shell/src/plugins/presets.rs:213
+#: rust/crates/link/ui/connection.slint:114 rust/crates/setup/src/setup.rs:647 rust/crates/shell/src/plugins/presets.rs:183 rust/crates/shell/src/plugins/presets.rs:213
 msgid "Rename"
 msgstr "名前を変更"
 
@@ -4404,7 +4404,7 @@ msgstr "別のアプリがウェブカメラを使用しています。そちら
 msgid "The webcam isn't sending anything. Try another resolution or frame rate."
 msgstr "ウェブカメラからデータが送信されていません。別の解像度やフレームレートを試してください。"
 
-#: rust/crates/outputs/src/wininstall.rs:225 rust/crates/setup/src/setup.rs:788
+#: rust/crates/outputs/src/wininstall.rs:225 rust/crates/setup/src/setup.rs:794
 msgid "Installed"
 msgstr "インストール済み"
 
@@ -4675,307 +4675,311 @@ msgstr "無効にすると「スマートフォン」カードが表示されず
 msgid "Asks for your password (pkexec or sudo): this changes system settings."
 msgstr "パスワードを求められます（pkexecまたはsudo）: システム設定を変更します。"
 
-#: rust/crates/setup/src/setup.rs:168 rust/crates/setup/src/setup.rs:180 rust/crates/setup/src/setup.rs:186
+#: rust/crates/setup/src/setup.rs:170 rust/crates/setup/src/setup.rs:182 rust/crates/setup/src/setup.rs:188
 msgid "Checking..."
 msgstr "確認中..."
 
-#: rust/crates/setup/src/setup.rs:181 rust/crates/setup/src/setup.rs:646 rust/crates/shell/src/plugins/onboarding.rs:135 rust/crates/shell/src/plugins/onboarding.rs:142
+#: rust/crates/setup/src/setup.rs:183 rust/crates/setup/src/setup.rs:652 rust/crates/shell/src/plugins/onboarding.rs:135 rust/crates/shell/src/plugins/onboarding.rs:142
 msgid "Install driver"
 msgstr "ドライバーをインストール"
 
-#: rust/crates/setup/src/setup.rs:188
+#: rust/crates/setup/src/setup.rs:190
 msgid "Get adb"
 msgstr "adbを取得"
 
-#: rust/crates/setup/src/setup.rs:202
+#: rust/crates/setup/src/setup.rs:205
 msgid "Included with this app"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:202
+#: rust/crates/setup/src/setup.rs:205
 msgid "Not included with this app"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:342
+#: rust/crates/setup/src/setup.rs:345
 msgid "Same as the system"
 msgstr "システムと同じ"
 
 #. after a language's name in the Language list, for a translation that's only a first draft
-#: rust/crates/setup/src/setup.rs:345
+#: rust/crates/setup/src/setup.rs:348
 msgid "(beta)"
 msgstr "（ベータ）"
 
-#: rust/crates/setup/src/setup.rs:361
+#: rust/crates/setup/src/setup.rs:364
 msgid "Also writes it to /etc/modprobe.d/ and /etc/modules-load.d/, so it survives a reboot."
 msgstr "再起動後も保持されるよう、/etc/modprobe.d/ および /etc/modules-load.d/ にも書き込みます。"
 
-#: rust/crates/setup/src/setup.rs:374
+#: rust/crates/setup/src/setup.rs:377
 msgid "Applying stops the stream, unloads v4l2loopback and loads it again. Close OBS and anything else using the virtual camera first."
 msgstr "適用するとストリームが停止し、v4l2loopbackを再ロードします。事前にOBSなど仮想カメラを使用しているアプリを閉じてください。"
 
-#: rust/crates/setup/src/setup.rs:375
+#: rust/crates/setup/src/setup.rs:378
 msgid "Apply and reload"
 msgstr "適用して再ロード"
 
-#: rust/crates/setup/src/setup.rs:377
+#: rust/crates/setup/src/setup.rs:380
 msgid "Apply"
 msgstr "適用"
 
-#: rust/crates/setup/src/setup.rs:377
+#: rust/crates/setup/src/setup.rs:380
 msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
 msgstr "適用すると新しいサイズでストリームが再開されます。OBSでソースが見失われた場合は、一度削除して再度追加してください。"
 
-#: rust/crates/setup/src/setup.rs:404 rust/crates/shell/src/plugins/onboarding.rs:152 rust/crates/shell/src/plugins/onboarding.rs:156 rust/crates/shell/src/plugins/onboarding.rs:160
+#: rust/crates/setup/src/setup.rs:407 rust/crates/shell/src/plugins/onboarding.rs:152 rust/crates/shell/src/plugins/onboarding.rs:156 rust/crates/shell/src/plugins/onboarding.rs:160
 msgid "Install over USB"
 msgstr "USB経由でインストール"
 
-#: rust/crates/setup/src/setup.rs:404
+#: rust/crates/setup/src/setup.rs:407
 msgid "Choose APK..."
 msgstr "APKを選択..."
 
-#: rust/crates/setup/src/setup.rs:416
+#: rust/crates/setup/src/setup.rs:419
 msgid "This translation is a first draft and some texts might read a bit oddly."
 msgstr "この翻訳は初稿のため、一部不自然な表現が含まれている場合があります。"
 
-#: rust/crates/setup/src/setup.rs:417
+#: rust/crates/setup/src/setup.rs:420
 msgid "Missing your language, or spotted a text that reads wrong?"
 msgstr "お使いの言語が見つからない場合や、不自然な表現にお気づきですか？"
 
 #. keep the <a href="{url}"> link and the name LunarKittyy as they are
-#: rust/crates/setup/src/setup.rs:423
+#: rust/crates/setup/src/setup.rs:426
 #, python-brace-format
 msgid "Made by <a href=\"{url}\">LunarKittyy</a>"
 msgstr "作成者: <a href=\"{url}\">LunarKittyy</a>"
 
-#: rust/crates/setup/src/setup.rs:426
+#: rust/crates/setup/src/setup.rs:429
 #, python-brace-format
 msgid "Version {version}"
 msgstr "バージョン {version}"
 
-#: rust/crates/setup/src/setup.rs:428 rust/crates/system/src/shortcuts.rs:1058
+#: rust/crates/setup/src/setup.rs:431 rust/crates/system/src/shortcuts.rs:1058
 msgid "Copied"
 msgstr "コピー完了"
 
-#: rust/crates/setup/src/setup.rs:428
+#: rust/crates/setup/src/setup.rs:431
 msgid "Copy diagnostics"
 msgstr "診断情報をコピー"
 
-#: rust/crates/setup/src/setup.rs:506
+#: rust/crates/setup/src/setup.rs:511
 msgid "The graphics card failed and the processor is decoding until you restart Telescope"
 msgstr "グラフィック カードでエラーが発生したため、Telescopeを再起動するまでプロセッサーがデコードしています"
 
-#: rust/crates/setup/src/setup.rs:507
+#: rust/crates/setup/src/setup.rs:512
+msgid "The graphics card was too slow, so the processor is decoding for now"
+msgstr ""
+
+#: rust/crates/setup/src/setup.rs:513
 #, python-brace-format
 msgid "Found {device}"
 msgstr "{device}が見つかりました"
 
-#: rust/crates/setup/src/setup.rs:508
+#: rust/crates/setup/src/setup.rs:514
 msgid "No graphics card Telescope can use"
 msgstr "Telescopeで使用可能なグラフィックカードがありません"
 
-#: rust/crates/setup/src/setup.rs:525
+#: rust/crates/setup/src/setup.rs:531
 #, python-brace-format
 msgid "Ready: {phone} + {obs}"
 msgstr "準備完了: {phone} + {obs}"
 
-#: rust/crates/setup/src/setup.rs:527
+#: rust/crates/setup/src/setup.rs:533
 #, python-brace-format
 msgid "Module loaded but {device} not found - another config active"
 msgstr "モジュールはロードされましたが{device}が見つかりません - 別の構成がアクティブです"
 
-#: rust/crates/setup/src/setup.rs:529
+#: rust/crates/setup/src/setup.rs:535
 msgid "Not loaded - click Load"
 msgstr "未ロード - 「ロード」をクリックしてください"
 
-#: rust/crates/setup/src/setup.rs:540
+#: rust/crates/setup/src/setup.rs:546
 msgid "Loading..."
 msgstr "ロード中..."
 
-#: rust/crates/setup/src/setup.rs:545
+#: rust/crates/setup/src/setup.rs:551
 msgid "Unloading..."
 msgstr "アンロード中..."
 
-#: rust/crates/setup/src/setup.rs:551
+#: rust/crates/setup/src/setup.rs:557
 #, python-brace-format
 msgid "Loaded - {message}"
 msgstr "ロード完了 - {message}"
 
-#: rust/crates/setup/src/setup.rs:552
+#: rust/crates/setup/src/setup.rs:558
 #, python-brace-format
 msgid "Unloaded - {message}"
 msgstr "アンロード完了 - {message}"
 
-#: rust/crates/setup/src/setup.rs:553
+#: rust/crates/setup/src/setup.rs:559
 #, python-brace-format
 msgid "Failed - {message}"
 msgstr "失敗 - {message}"
 
-#: rust/crates/setup/src/setup.rs:562
+#: rust/crates/setup/src/setup.rs:568
 msgid "Working..."
 msgstr "処理中..."
 
-#: rust/crates/setup/src/setup.rs:587 rust/crates/shell/src/streams.rs:577
+#: rust/crates/setup/src/setup.rs:593 rust/crates/shell/src/streams.rs:577
 msgid "Stop the streams going to them first"
 msgstr "まずそれらへのストリームを停止してください"
 
-#: rust/crates/setup/src/setup.rs:589
+#: rust/crates/setup/src/setup.rs:595
 msgid "Back to just the one camera; Add camera sets them up again."
 msgstr "1台のカメラのみに戻りました。「カメラを追加」で再度セットアップできます。"
 
-#: rust/crates/setup/src/setup.rs:590
+#: rust/crates/setup/src/setup.rs:596
 msgid "Asks for your password."
 msgstr "パスワードを求められます。"
 
-#: rust/crates/setup/src/setup.rs:590 rust/crates/shell/src/extra_cameras.rs:86
+#: rust/crates/setup/src/setup.rs:596 rust/crates/shell/src/extra_cameras.rs:86
 msgid "Windows asks for permission."
 msgstr "Windowsから許可を求められます。"
 
-#: rust/crates/setup/src/setup.rs:597
+#: rust/crates/setup/src/setup.rs:603
 msgid "Removing…"
 msgstr "削除中…"
 
-#: rust/crates/setup/src/setup.rs:604
+#: rust/crates/setup/src/setup.rs:610
 msgid "Removed"
 msgstr "削除完了"
 
-#: rust/crates/setup/src/setup.rs:608
+#: rust/crates/setup/src/setup.rs:614
 #, python-brace-format
 msgid "Couldn't remove them: {message}"
 msgstr "削除できませんでした: {message}"
 
-#: rust/crates/setup/src/setup.rs:629 rust/crates/setup/src/setup.rs:635 rust/crates/setup/src/setup.rs:638 rust/crates/setup/src/setup.rs:682
+#: rust/crates/setup/src/setup.rs:635 rust/crates/setup/src/setup.rs:641 rust/crates/setup/src/setup.rs:644 rust/crates/setup/src/setup.rs:688
 msgid "Reinstall"
 msgstr "再インストール"
 
-#: rust/crates/setup/src/setup.rs:631
+#: rust/crates/setup/src/setup.rs:637
 msgid "Update ready"
 msgstr "アップデートの準備完了"
 
-#: rust/crates/setup/src/setup.rs:631
+#: rust/crates/setup/src/setup.rs:637
 msgid "Some apps can't see it"
 msgstr "一部のアプリで認識されません"
 
-#: rust/crates/setup/src/setup.rs:632 rust/crates/system/ui/updates.slint:34 rust/crates/system/ui/updates.slint:48
+#: rust/crates/setup/src/setup.rs:638 rust/crates/system/ui/updates.slint:34 rust/crates/system/ui/updates.slint:48
 msgid "Update"
 msgstr "アップデート"
 
-#: rust/crates/setup/src/setup.rs:632
+#: rust/crates/setup/src/setup.rs:638
 msgid "Installs the camera every Windows 11 app can see (Windows asks for admin access once)."
 msgstr "すべてのWindows 11アプリで認識可能なカメラをインストールします（Windowsから管理者権限を1度求められます）。"
 
-#: rust/crates/setup/src/setup.rs:635
+#: rust/crates/setup/src/setup.rs:641
 msgid "Reinstall for a security fix"
 msgstr "セキュリティ修正のため再インストール"
 
-#: rust/crates/setup/src/setup.rs:636
+#: rust/crates/setup/src/setup.rs:642
 msgid "Moves the driver into Program Files (Windows asks for admin access once)."
 msgstr "ドライバーをProgram Filesに移動します（Windowsから管理者権限を1度求められます）。"
 
-#: rust/crates/setup/src/setup.rs:641
+#: rust/crates/setup/src/setup.rs:647
 #, python-brace-format
 msgid "Apps list it as “{name}”"
 msgstr "アプリには「{name}」として表示されます"
 
-#: rust/crates/setup/src/setup.rs:642
+#: rust/crates/setup/src/setup.rs:648
 #, python-brace-format
 msgid "Register it again as “{name}”"
 msgstr "「{name}」として再登録"
 
-#: rust/crates/setup/src/setup.rs:645
+#: rust/crates/setup/src/setup.rs:651
 msgid "Not installed"
 msgstr "未インストール"
 
-#: rust/crates/setup/src/setup.rs:645
+#: rust/crates/setup/src/setup.rs:651
 msgid "Not installed (Install driver downloads it first)"
 msgstr "未インストール（「ドライバーをインストール」で先にダウンロードされます）"
 
-#: rust/crates/setup/src/setup.rs:659
+#: rust/crates/setup/src/setup.rs:665
 msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
 msgstr "見つかりません。USB経由でのペアリングとインストールに必要です（Wi-Fi接続時は不要）。"
 
-#: rust/crates/setup/src/setup.rs:685 rust/crates/setup/src/setup.rs:849
+#: rust/crates/setup/src/setup.rs:691 rust/crates/setup/src/setup.rs:855
 #, python-brace-format
 msgid "Failed: {message}"
 msgstr "失敗: {message}"
 
-#: rust/crates/setup/src/setup.rs:686
+#: rust/crates/setup/src/setup.rs:692
 msgid "Retry"
 msgstr "再試行"
 
-#: rust/crates/setup/src/setup.rs:717
+#: rust/crates/setup/src/setup.rs:723
 #, python-brace-format
 msgid "Ready (adb {version}, from Google)"
 msgstr "準備完了（adb {version}、Google提供）"
 
-#: rust/crates/setup/src/setup.rs:718
+#: rust/crates/setup/src/setup.rs:724
 msgid "Ready (adb, from Google)"
 msgstr "準備完了（adb、Google提供）"
 
-#: rust/crates/setup/src/setup.rs:719
+#: rust/crates/setup/src/setup.rs:725
 #, python-brace-format
 msgid "Ready (adb {version})"
 msgstr "準備完了（adb {version}）"
 
-#: rust/crates/setup/src/setup.rs:720
+#: rust/crates/setup/src/setup.rs:726
 msgid "Ready (adb)"
 msgstr "準備完了（adb）"
 
-#: rust/crates/setup/src/setup.rs:734
+#: rust/crates/setup/src/setup.rs:740
 msgid "Installing over USB needs adb. Install it from your distro's packages."
 msgstr "USB経由でのインストールにはadbが必要です。お使いのディストリビューションのパッケージからインストールしてください。"
 
-#: rust/crates/setup/src/setup.rs:736
+#: rust/crates/setup/src/setup.rs:742
 msgid "Installing over USB needs adb. Click Get adb under Virtual camera above."
 msgstr "USB経由でのインストールにはadbが必要です。上部の「仮想カメラ」にある「adbを取得」をクリックしてください。"
 
-#: rust/crates/setup/src/setup.rs:744
+#: rust/crates/setup/src/setup.rs:750
 msgid "Select APK"
 msgstr "APKを選択"
 
-#: rust/crates/setup/src/setup.rs:745
+#: rust/crates/setup/src/setup.rs:751
 msgid "Android Package (*.apk)"
 msgstr "Androidパッケージ (*.apk)"
 
-#: rust/crates/setup/src/setup.rs:762 rust/crates/shell/src/plugins/mod.rs:32
+#: rust/crates/setup/src/setup.rs:768 rust/crates/shell/src/plugins/mod.rs:32
 msgid "No phone found over USB. Plug it in and allow USB debugging when the phone asks."
 msgstr "USB接続のスマートフォンが見つかりません。接続し、スマートフォンに表示されたらUSBデバッグを許可してください。"
 
-#: rust/crates/setup/src/setup.rs:778
+#: rust/crates/setup/src/setup.rs:784
 msgid "Installing..."
 msgstr "インストール中..."
 
-#: rust/crates/setup/src/setup.rs:810
+#: rust/crates/setup/src/setup.rs:816
 msgid "Reloading loopback..."
 msgstr "ループバックを再ロード中..."
 
-#: rust/crates/setup/src/setup.rs:810
+#: rust/crates/setup/src/setup.rs:816
 msgid "Restarting stream..."
 msgstr "ストリームを再開中..."
 
-#: rust/crates/setup/src/setup.rs:831 rust/crates/shell/src/streams.rs:562
+#: rust/crates/setup/src/setup.rs:837 rust/crates/shell/src/streams.rs:562
 msgid "Resize the virtual camera"
 msgstr "仮想カメラのサイズ変更"
 
-#: rust/crates/setup/src/setup.rs:845
+#: rust/crates/setup/src/setup.rs:851
 msgid "Done - loopback reloaded."
 msgstr "完了 - ループバックを再ロードしました。"
 
-#: rust/crates/setup/src/setup.rs:845
+#: rust/crates/setup/src/setup.rs:851
 msgid "Done - canvas updated."
 msgstr "完了 - キャンバスを更新しました。"
 
-#: rust/crates/setup/src/setup.rs:847
+#: rust/crates/setup/src/setup.rs:853
 msgid "Failed: module is still in use. Close OBS and any other app using the virtual camera, then try again."
 msgstr "失敗: モジュールが使用中です。OBSなど、仮想カメラを使用中のアプリを閉じてから、もう一度お試しください。"
 
-#: rust/crates/setup/src/setup.rs:1021
+#: rust/crates/setup/src/setup.rs:1032
 msgid "Advanced settings"
 msgstr "詳細設定"
 
-#: rust/crates/setup/src/setup.rs:1022
+#: rust/crates/setup/src/setup.rs:1033
 msgid "The virtual camera, its size, extra cameras, video and microphone limits, and the Updates & About tab."
 msgstr "仮想カメラ、そのサイズ、追加のカメラ、映像およびマイクの制限、「アップデートと情報」タブ。"
 
-#: rust/crates/setup/src/setup.rs:1120 rust/crates/setup/ui/setup.slint:111
+#: rust/crates/setup/src/setup.rs:1131 rust/crates/setup/ui/setup.slint:111
 msgid "Use my own adb…"
 msgstr "手持ちのadbを使用…"
 
@@ -6020,54 +6024,54 @@ msgstr "タブ"
 msgid "Check that it's still on."
 msgstr "オンのままであることを確認してください。"
 
-#: rust/crates/shell/src/settings.rs:705
+#: rust/crates/shell/src/settings.rs:717
 msgid "Nothing matches every word. These match some of them."
 msgstr "すべての単語に一致するものはありません。一部が一致する項目は以下の通りです。"
 
-#: rust/crates/shell/src/settings.rs:707
+#: rust/crates/shell/src/settings.rs:719
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)."
 msgstr "「{text}」に一致するものはありません。単語数を減らすか、機能名（解像度、マイク、スタートアップなど）でお試しください。"
 
-#: rust/crates/shell/src/settings.rs:709 rust/crates/shell/ui/settings.slint:229
+#: rust/crates/shell/src/settings.rs:721 rust/crates/shell/ui/settings.slint:229
 msgid "Search results"
 msgstr "検索結果"
 
-#: rust/crates/shell/src/settings.rs:770
+#: rust/crates/shell/src/settings.rs:782
 #, python-brace-format
 msgid "Remove {plugin}"
 msgstr "{plugin}を削除"
 
-#: rust/crates/shell/src/settings.rs:789
+#: rust/crates/shell/src/settings.rs:801
 msgid "Check for updates"
 msgstr "アップデートを確認"
 
-#: rust/crates/shell/src/settings.rs:790
+#: rust/crates/shell/src/settings.rs:802
 msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
 msgstr "GitHubでリリースを公開している追加プラグインの新バージョンを1日1回確認し、ここに表示します。何もダウンロードされません。"
 
-#: rust/crates/shell/src/settings.rs:791
+#: rust/crates/shell/src/settings.rs:803
 msgid "Install updates without asking"
 msgstr "確認なしでアップデートをインストール"
 
-#: rust/crates/shell/src/settings.rs:791
+#: rust/crates/shell/src/settings.rs:803
 msgid "Installs new versions of the plugins you switched on and switches them on again."
 msgstr "オンにしているプラグインの新バージョンをインストールし、再度オンにします。"
 
-#: rust/crates/shell/src/settings.rs:792
+#: rust/crates/shell/src/settings.rs:804
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "危険！プラグインのリポジトリを管理している人物がリリースを公開するたびに、このコンピューター上で新しいコードを実行できるようになります。"
 
-#: rust/crates/shell/src/settings.rs:795
+#: rust/crates/shell/src/settings.rs:807
 #, python-brace-format
 msgid "Show: {which}"
 msgstr "表示: {which}"
 
-#: rust/crates/shell/src/settings.rs:882
+#: rust/crates/shell/src/settings.rs:894
 msgid "Install a plugin"
 msgstr "プラグインをインストール"
 
-#: rust/crates/shell/src/settings.rs:884
+#: rust/crates/shell/src/settings.rs:896
 msgid "Plugins (*.zip)"
 msgstr "プラグイン（*.zip）"
 
@@ -6226,7 +6230,7 @@ msgstr "スマートフォンのカメラを開始中…"
 msgid "Couldn't start the phone's camera"
 msgstr "スマートフォンのカメラを開始できませんでした"
 
-#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:797
+#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:811
 msgid "Connecting..."
 msgstr "接続中..."
 
@@ -6428,43 +6432,43 @@ msgstr "ストリーミング停止"
 msgid "Stop"
 msgstr "停止"
 
-#: rust/crates/shell/src/worker.rs:485
+#: rust/crates/shell/src/worker.rs:490
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "ストリーム エラー: {error}"
 
-#: rust/crates/shell/src/worker.rs:797
+#: rust/crates/shell/src/worker.rs:811
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "{url}に接続中..."
 
-#: rust/crates/shell/src/worker.rs:807
+#: rust/crates/shell/src/worker.rs:821
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "スマートフォンのストリームに接続できません。{seconds}秒後に再試行します…"
 
-#: rust/crates/shell/src/worker.rs:819
+#: rust/crates/shell/src/worker.rs:833
 msgid "Waiting for the first frame…"
 msgstr "最初のフレームを待機中…"
 
-#: rust/crates/shell/src/worker.rs:905
+#: rust/crates/shell/src/worker.rs:920
 msgid "Stream reconnected"
 msgstr "ストリームが再接続されました"
 
-#: rust/crates/shell/src/worker.rs:974
+#: rust/crates/shell/src/worker.rs:989
 msgid "The video is paused while the phone takes a photo"
 msgstr "スマートフォンが写真を撮影している間、映像は一時停止します"
 
-#: rust/crates/shell/src/worker.rs:976 rust/crates/shell/src/worker.rs:982
+#: rust/crates/shell/src/worker.rs:991 rust/crates/shell/src/worker.rs:997
 msgid "Stream dropped - reconnecting"
 msgstr "ストリームが切断されました - 再接続中"
 
-#: rust/crates/shell/src/worker.rs:1088 rust/crates/shell/src/worker.rs:1134
+#: rust/crates/shell/src/worker.rs:1103 rust/crates/shell/src/worker.rs:1149
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "仮想カメラ エラー: {error}"
 
-#: rust/crates/shell/src/worker.rs:1099
+#: rust/crates/shell/src/worker.rs:1114
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{size}、{fps} fpsで{camera}にストリーミング中"

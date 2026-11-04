@@ -510,6 +510,7 @@ fn main() {
     telescope_system::update_guard::confirm_on_terminate(app_dir());
     start_logging();
     telescope_core::system::opt_out_of_power_throttling();
+    telescope_core::system::raise_gpu_scheduling_priority();
     #[cfg(windows)]
     {
         use telescope_system::winapp;
