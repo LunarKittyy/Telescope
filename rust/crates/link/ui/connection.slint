@@ -3,7 +3,7 @@
 
 import { Theme, Icons, Icon, TipBody, Button, IconButton, LinkText, Card, FormRow, Segmented, ChoiceField, TextField, TextCap, Switch, SettingRow, Tag, DialogFrame, WindowBox, FlickBar, QrCode } from "@ui-kit/ui-kit.slint";
 
-// A plugged-in phone the Add phone dialog can pair over USB.
+// A plugged-in phone the Add device dialog can pair over USB.
 export struct UsbPick {
     serial: string,
     label: string,
@@ -84,7 +84,7 @@ component ScrollList inherits Rectangle {
     }
 }
 
-// Add phone's Pair buttons: scrolling past four, so a pile of phones can't grow the dialog.
+// Add device's Pair buttons: scrolling past four, so a pile of phones can't grow the dialog.
 export component UsbPicks inherits ScrollList {
     in property <[UsbPick]> picks;
     callback pick(string);
@@ -145,7 +145,7 @@ export component ConnectionCard inherits Card {
     callback update;
     callback route-picked(int);
 
-    // Add phone
+    // Add device
     in property <bool> add-open;
     in property <string> add-subtitle;
     in property <[int]> qr-cells;
@@ -188,8 +188,8 @@ export component ConnectionCard inherits Card {
     has-action: true;
     // card_action takes line icons for help and plus
     action-icon: Icons.plus;
-    action-text: @tr("Add phone");
-    action-label: @tr("Pair a phone over Wi-Fi or USB");
+    action-text: @tr("Add device");
+    action-label: @tr("Pair a phone over Wi-Fi or USB, or use the Browser camera");
     action-shortcut: "connection.add_phone";
     action => { root.add-phone(); }
     has-extra: true;
@@ -603,8 +603,8 @@ export component PhonePicker inherits HorizontalLayout {
                     hue: Theme.plugin-hue("streaming");
                     has-action: true;
                     action-icon: Icons.plus;
-                    action-text: @tr("Add phone");
-                    action-label: @tr("Pair another phone");
+                    action-text: @tr("Add device");
+                    action-label: @tr("Add another device");
                     action-shortcut: "connection.add_phone";
                     // In its place: pop-ups don't stack
                     action => {

@@ -115,6 +115,7 @@ impl Window {
         });
         crate::input::watch(&ui, |_, _| slint::winit_030::EventResult::Propagate);
         let _ = ui.show();
+        crate::frame::dress(&ui);
         crate::parent::attach(&ui, &self.ui);
         *self.streams.slots.question.borrow_mut() = Some(ui);
     }

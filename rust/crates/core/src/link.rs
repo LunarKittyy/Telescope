@@ -87,7 +87,7 @@ pub trait PairingOffer: Send + Sync {
     fn offer_over_usb(&self, package: &str) -> usize;
     /// The phone that paired, once one has.
     fn poll(&self) -> Option<PairedPhone>;
-    /// Sends the offer to one phone on a cable (the one picked in Add phone), again each time it's called, since the
+    /// Sends the offer to one phone on a cable (the one picked in Add device), again each time it's called, since the
     /// broadcast only lands while the app is on screen. Blocking.
     fn offer_to(&self, _serial: &str, _package: &str) -> bool {
         false

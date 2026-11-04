@@ -114,7 +114,7 @@ impl Shared {
     }
 }
 
-/// The pairing server for one Add phone dialog.
+/// The pairing server for one Add device dialog.
 pub struct PairingServer {
     pub offer: PairingOffer,
     shared: Arc<Shared>,

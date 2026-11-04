@@ -153,12 +153,12 @@ fn pairing() -> MutexGuard<'static, ()> {
     PAIRING.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// Pairs a phone through Add phone and the pairing server (hold pairing() meanwhile).
+/// Pairs a phone through Add device and the pairing server (hold pairing() meanwhile).
 fn pair(app: &mut App, base: &Path, phone_id: &str, name: &str) {
     let offer_file = base.join("offer.json");
     let _ = std::fs::remove_file(&offer_file);
     app.ui("connection", "card", "add-phone", vec![]);
-    let offer: Value = serde_json::from_str(&std::fs::read_to_string(&offer_file).expect("Add phone wrote no offer")).unwrap();
+    let offer: Value = serde_json::from_str(&std::fs::read_to_string(&offer_file).expect("Add device wrote no offer")).unwrap();
     assert_eq!(pair_as_phone(&offer, phone_id, name), 200);
     app.until("the phone to be saved", |a| a.phones_on_disk().iter().any(|p| p["id"] == phone_id));
     app.ui("connection", "card", "add-closed", vec![]);

@@ -417,7 +417,7 @@ export component W inherits Window {
     w.set_property("rows", phones(1)).unwrap();
     w.set_property("open", Value::Bool(true)).unwrap();
     settle(&w);
-    press(&w, "Add phone");
+    press(&w, "Add device");
     assert_eq!(said.borrow().len(), 2);
     assert!(said.borrow()[0].contains("closed") && said.borrow()[1].contains("add"), "{:?}", said.borrow());
     assert!(ElementHandle::find_by_accessible_label(&w, "Your devices").count() == 1, "only the button is left, Your devices is gone");

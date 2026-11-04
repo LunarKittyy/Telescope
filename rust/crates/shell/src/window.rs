@@ -959,6 +959,7 @@ impl Window {
                         let _ = p.set_property("bone", colour);
                     }
                     let _ = p.show();
+                    crate::frame::dress(&p);
                     *self.popout.borrow_mut() = Some(p);
                     self.layers_drawn.take();
                     self.painted.set(0);
@@ -1079,6 +1080,7 @@ impl Window {
         crate::keys::watch_plugin_keys(&ui, Rc::downgrade(self));
         Self::set_window_props(&ui, plugin, id, &spec.ui.props);
         let _ = ui.show();
+        crate::frame::dress(&ui);
         crate::parent::attach(&ui, &self.ui);
         let scale = ui.window().scale_factor();
         crate::screen::keep_inside(&ui, ((320.0 * scale) as u32, (200.0 * scale) as u32));

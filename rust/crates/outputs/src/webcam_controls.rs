@@ -367,16 +367,39 @@ mod win {
         }
     }
 
-    /// The controls of one camera, read from a fresh media source on each call (which works while a stream holds the camera).
+    /// A media source kept open with the two interfaces asked of it, so a slider drag doesn't open the camera for every step.
+    struct Held {
+        source: windows::Win32::Media::MediaFoundation::IMFMediaSource,
+        proc: Option<Iface>,
+        cam: Option<Iface>,
+        /// What asking for the interfaces gave, for the log.
+        note: String,
+    }
+
+    // SAFETY: Media Foundation's objects are free-threaded, and a Held is only used by the one call at a time that owns the plugin
+    unsafe impl Send for Held {}
+
+    impl Drop for Held {
+        fn drop(&mut self) {
+            // SAFETY: shutting the source down releases the camera
+            let _ = unsafe { self.source.Shutdown() };
+        }
+    }
+
+    /// The controls of one camera, read and set through one media source that stays open while this is kept (which works while a
+    /// stream holds the camera too) and is made again if the camera stops answering through it.
     pub struct WinControls {
         link: String,
         name: String,
         logged: String,
+        held: Option<Held>,
     }
+
+    type Listing = (Vec<Control>, Vec<String>, Vec<String>, String, bool);
 
     impl WinControls {
         pub fn new(link: &str, name: &str) -> WinControls {
-            WinControls { link: link.into(), name: name.into(), logged: String::new() }
+            WinControls { link: link.into(), name: name.into(), logged: String::new(), held: None }
         }
 
         fn say(&mut self, line: String) {
@@ -390,31 +413,28 @@ mod win {
             format!("{:#010x}", e.code().0 as u32)
         }
 
-        /// The two interfaces of a fresh source (either may be missing) and what asking for them gave; the source is
-        /// shut down again once the answers are read, so use them in the same call.
-        fn interfaces(&self) -> Result<(windows::Win32::Media::MediaFoundation::IMFMediaSource, Option<Iface>, Option<Iface>, String), String> {
-            let source = crate::webcams_win::device_source(&self.link).map_err(|e| format!("couldn't open the camera: {e}"))?;
-            let proc = source.cast::<IAMVideoProcAmp>();
-            let cam = source.cast::<IAMCameraControl>();
-            let note = format!("IAMVideoProcAmp {}, IAMCameraControl {}",
-                               proc.as_ref().map_or_else(Self::code, |_| "ok".into()),
-                               cam.as_ref().map_or_else(Self::code, |_| "ok".into()));
-            Ok((source, proc.ok().map(Iface::Proc), cam.ok().map(Iface::Cam), note))
+        /// The source kept open, made first if there isn't one; the bool says it was already open before this call.
+        fn held(&mut self) -> Result<(&Held, bool), String> {
+            let before = self.held.is_some();
+            if !before {
+                let source = crate::webcams_win::device_source(&self.link).map_err(|e| format!("couldn't open the camera: {e}"))?;
+                let proc = source.cast::<IAMVideoProcAmp>();
+                let cam = source.cast::<IAMCameraControl>();
+                let note = format!("IAMVideoProcAmp {}, IAMCameraControl {}",
+                                   proc.as_ref().map_or_else(Self::code, |_| "ok".into()),
+                                   cam.as_ref().map_or_else(Self::code, |_| "ok".into()));
+                self.held = Some(Held { source, proc: proc.ok().map(Iface::Proc), cam: cam.ok().map(Iface::Cam), note });
+            }
+            self.held.as_ref().map(|h| (h, before)).ok_or_else(|| "no source".into())
         }
-    }
 
-    impl Controls for WinControls {
-        fn list(&mut self) -> Vec<Control> {
-            let (source, proc, cam, note) = match self.interfaces() {
-                Ok(got) => got,
-                Err(why) => {
-                    self.say(format!("Webcam controls of {}: {why}", self.name));
-                    return Vec::new();
-                }
-            };
+        /// One pass over the properties on the open source: what the camera offers, what it listed and refused, the log note, and
+        /// whether the source was open already.
+        fn read_all(&mut self) -> Result<Listing, String> {
+            let (held, before) = self.held()?;
             let (mut out, mut found, mut missing) = (Vec::new(), Vec::new(), Vec::new());
             for prop in &DS_PROPS {
-                let Some(iface) = (if prop.camera { cam.as_ref() } else { proc.as_ref() }) else { continue };
+                let Some(iface) = (if prop.camera { held.cam.as_ref() } else { held.proc.as_ref() }) else { continue };
                 match iface.read(prop.id) {
                     Ok(r) => {
                         let made = ds_controls(prop, &r);
@@ -424,25 +444,53 @@ mod win {
                     Err(e) => missing.push(format!("{} {}", prop.name, Self::code(&e))),
                 }
             }
-            // SAFETY: shutting the source down releases the camera
-            let _ = unsafe { source.Shutdown() };
-            self.say(format!("Webcam controls of {}: {note}; found [{}]; refused [{}]", self.name, found.join(", "), missing.join(", ")));
-            out
+            Ok((out, found, missing, held.note.clone(), before))
         }
 
-        fn set(&mut self, name: &str, value: i64) -> bool {
-            let Some((prop, auto_switch)) = ds_target(name) else { return false };
-            let Ok((source, proc, cam, _)) = self.interfaces() else { return false };
-            let done = match if prop.camera { cam } else { proc } {
+        fn write(&mut self, name: &str, value: i64) -> Result<(), String> {
+            let Some((prop, auto_switch)) = ds_target(name) else { return Err("no such control".into()) };
+            let (held, _) = self.held()?;
+            match if prop.camera { held.cam.as_ref() } else { held.proc.as_ref() } {
                 Some(iface) => {
                     // An auto switch keeps the value it has; a number goes in by hand
                     let now = if auto_switch { iface.read(prop.id).map(|r| r.value).unwrap_or(0) } else { value as i32 };
                     iface.write(prop.id, now, ds_flags(auto_switch, value)).map_err(|e| e.to_string())
                 }
                 None => Err("the camera has no such control".into()),
-            };
-            // SAFETY: shutting the source down releases the camera
-            let _ = unsafe { source.Shutdown() };
+            }
+        }
+    }
+
+    impl Controls for WinControls {
+        fn list(&mut self) -> Vec<Control> {
+            let mut got = self.read_all();
+            // A source kept from before that lists nothing any more (the camera was replugged or reset) is made again
+            if matches!(&got, Ok((_, found, _, _, true)) if found.is_empty()) {
+                self.held = None;
+                got = self.read_all();
+            }
+            match got {
+                Ok((out, found, missing, note, _)) => {
+                    self.say(format!("Webcam controls of {}: {note}; found [{}]; refused [{}]", self.name, found.join(", "), missing.join(", ")));
+                    out
+                }
+                Err(why) => {
+                    self.say(format!("Webcam controls of {}: {why}", self.name));
+                    Vec::new()
+                }
+            }
+        }
+
+        fn set(&mut self, name: &str, value: i64) -> bool {
+            if ds_target(name).is_none() {
+                return false;
+            }
+            let mut done = self.write(name, value);
+            if done.is_err() && self.held.is_some() {
+                // Once more on a fresh source, in case the kept one went stale
+                self.held = None;
+                done = self.write(name, value);
+            }
             if let Err(why) = &done {
                 log::debug!("the webcam refused {name} = {value}: {why}");
             }

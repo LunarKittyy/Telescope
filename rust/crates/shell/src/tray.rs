@@ -135,6 +135,7 @@ impl Window {
     pub fn show_window(&self) {
         use slint::winit_030::WinitWindowAccessor;
         let _ = self.ui.show();
+        crate::frame::dress(&self.ui);
         self.ui.window().set_minimized(false);
         self.ui.window().with_winit_window(|w| w.focus_window());
         self.keep_on_screen();
@@ -188,6 +189,7 @@ impl Window {
     pub fn start_hidden(&self) {
         if !self.has_tray() {
             let _ = self.ui.show();
+            crate::frame::dress(&self.ui);
             self.ui.window().set_minimized(true);
         }
         self.report_shown();
