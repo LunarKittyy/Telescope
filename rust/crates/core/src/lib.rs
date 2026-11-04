@@ -26,6 +26,7 @@ pub mod motion;
 pub mod names;
 pub mod output;
 pub mod pace;
+pub mod perf;
 pub mod people;
 pub mod plugin;
 pub mod plugin_admin;

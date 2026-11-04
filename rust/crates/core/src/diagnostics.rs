@@ -11,8 +11,8 @@ use std::sync::{Mutex, MutexGuard, OnceLock};
 
 /// Per file; the one before is kept as telescope.log.1.
 pub const MAX_BYTES: u64 = 1_000_000;
-/// 200 lines of this still fit in a GitHub issue field.
-pub const MAX_LINE: usize = 300;
+/// A line this long still leaves room for the rest of a GitHub comment (the timing lines are the longest).
+pub const MAX_LINE: usize = 450;
 pub const REPORT_LINES: usize = 200;
 
 fn pattern(cell: &'static OnceLock<Regex>, source: &str) -> &'static Regex {

@@ -47,17 +47,20 @@ impl DeliveryLog {
     }
 }
 
-/// One line per stage of a frame, for rust/tools/stress: the stage, when it began and when it ended. TELESCOPE_STRESS_TRACE names the file.
+/// A stage of a frame took from began_ns until now. It always goes to perf's running summary (what Copy diagnostics shows), and
+/// with TELESCOPE_STRESS_TRACE naming a file also out as one line for rust/tools/stress: the stage, when it began and when it ended.
 /// Lines come from several threads, so each goes out whole in one append.
 pub fn span(stage: &'static str, began_ns: u64) {
     static FILE: std::sync::OnceLock<Option<std::fs::File>> = std::sync::OnceLock::new();
+    let ended = monotonic_ns();
+    crate::perf::record(stage, ended.saturating_sub(began_ns));
     let file = FILE.get_or_init(|| {
         let path = std::env::var_os("TELESCOPE_STRESS_TRACE").filter(|p| !p.is_empty())?;
         std::fs::OpenOptions::new().create(true).append(true).open(path).ok()
     });
     if let Some(mut file) = file.as_ref() {
         use std::io::Write;
-        let _ = file.write_all(format!("{stage} {began_ns} {}\n", monotonic_ns()).as_bytes());
+        let _ = file.write_all(format!("{stage} {began_ns} {ended}\n").as_bytes());
     }
 }
 

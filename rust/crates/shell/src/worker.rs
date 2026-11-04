@@ -490,6 +490,9 @@ impl StreamWorker {
                 s.status("error", &fill(&tr("Stream error: {error}"), &[("error", &what.unwrap_or_default())]));
             }
             s.join_handover();
+            if let Some(line) = telescope_core::perf::stage_line() {
+                log::info!("Stream ended. {line}");
+            }
             s.forget_in_vision();
             (crate::window::app_hooks().release_memory)();
             s.status("idle", &tr("Not streaming"));
@@ -1122,6 +1125,8 @@ impl Shared {
         let mut scaler = None;
         let mut ok = true;
         let mut delivery_log = telescope_core::time::DeliveryLog::from_env();
+        let mut watch = telescope_core::perf::StallWatch::new();
+        let context = || (telescope_core::perf::DecoderKind::of(&self.media.decoding_status().backends), telescope_core::perf::foreground());
         while !self.stopped() && !self.restart_vcam.is_set() && !self.parked.load(Ordering::SeqCst) && !reader_done.is_set() {
             // A new frame goes out as soon as it's ready. The last one is resent only after two periods without one,
             // so a frame that's a little late isn't held back behind a resend.
@@ -1139,6 +1144,7 @@ impl Shared {
                 let new_frame = count != seen || fitted.is_none();
                 if new_frame {
                     seen = count;
+                    watch.frame(telescope_core::time::monotonic_ns(), &context);
                     let fit = fit_frame(&src, cam_w, cam_h);
                     fitted = Some(if nv12 { to_nv12(&fit) } else { fit });
                 } else if !due {
@@ -1183,12 +1189,16 @@ impl Shared {
                 let struggling = judged && arrival_fps > 0.0 && arrival_fps < fps as f64 * 0.85;
                 weak_streak = if struggling { weak_streak + 1 } else { 0 };
                 let net_kind = if weak_streak >= 2 { "net_warn" } else { "net" };
-                // Once as the warning appears, so a copy of the diagnostics says whether decoding was the slow part
+                watch.window(secs, arrival_fps as f32, mbps as f32, judged, &context);
+                telescope_core::perf::note_window(self.slot_number, telescope_core::time::monotonic_ns(), arrival_fps as f32, mbps as f32);
+                // Once as the warning appears, so a copy of the diagnostics says which stage was the slow part
                 if weak_streak == 2 {
                     let probe = self.timing_probe.lock().unwrap().clone();
-                    if let Some(line) = probe.and_then(|p| p()) {
-                        log::info!("Frames aren't keeping up ({arrival_fps:.1} of {fps} fps). {line}");
-                    }
+                    let mut parts = vec![format!("Frames aren't keeping up ({arrival_fps:.1} of {fps} fps).")];
+                    parts.extend(probe.and_then(|p| p()).map(|line| format!("{line}.")));
+                    parts.extend(telescope_core::perf::stage_line());
+                    parts.push(format!("In front: {}.", telescope_core::perf::foreground().label()));
+                    log::info!("{}", parts.join(" "));
                 }
                 // Frames but no bytes means the reader can't tell
                 let counted = bytes_now > bytes0 || recv_now == recv0;
