@@ -509,8 +509,6 @@ fn main() {
     telescope_system::memory::limit_malloc_arenas(4);
     telescope_system::update_guard::confirm_on_terminate(app_dir());
     start_logging();
-    telescope_core::system::opt_out_of_power_throttling();
-    telescope_core::system::raise_gpu_scheduling_priority();
     #[cfg(windows)]
     {
         use telescope_system::winapp;
@@ -623,6 +621,9 @@ fn main() {
     if command != Some("config-snapshot") {
         use_own_profile();
         start_diagnostics();
+        // After the log file opens, so a copy of the diagnostics shows whether Windows took these
+        telescope_core::system::opt_out_of_power_throttling();
+        telescope_core::system::raise_gpu_scheduling_priority();
         start_language();
     }
     let result = match command {
