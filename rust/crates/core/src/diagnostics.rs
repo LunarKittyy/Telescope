@@ -1,5 +1,6 @@
 //! The desktop log and Copy diagnostics (diagnostics.py): every line is sanitized first, so no tokens, addresses or home paths.
 
+use crate::redact::{self, Hidden, Who};
 use regex::bytes::Regex as Bytes;
 use regex::Regex;
 use std::collections::VecDeque;
@@ -84,24 +85,32 @@ fn replace_in(text: &str, view: View, re: &Bytes, keep: Option<usize>, with: &st
     out
 }
 
-/// Strip what shouldn't end up in a public issue: URLs, IPs, tokens and the user's home path.
+/// Strip what shouldn't end up in a public issue: URLs, IPs, tokens, the user's home path, MAC addresses, emails, ids and names.
 pub fn sanitize(text: &str) -> String {
-    sanitize_at(text, std::env::home_dir().as_deref())
+    sanitize_with(text, &Who::this_machine(user_name), redact::hidden().as_deref())
 }
 
 /// sanitize with the home folder given, so a test can choose it.
 pub fn sanitize_at(text: &str, home: Option<&Path>) -> String {
+    sanitize_with(text, &Who::cached(home), None)
+}
+
+/// Every line of a report through sanitize once more, so what the pieces missed between them doesn't go out.
+pub fn sanitize_lines(report: &str) -> String {
+    report.lines().map(sanitize).collect::<Vec<_>>().join("\n")
+}
+
+fn sanitize_with(text: &str, who: &Who, hidden: Option<&Hidden>) -> String {
     static URL: OnceLock<Bytes> = OnceLock::new();
     static BEARER: OnceLock<Bytes> = OnceLock::new();
     static IPV4: OnceLock<Bytes> = OnceLock::new();
     static LONG_SECRET: OnceLock<Bytes> = OnceLock::new();
-    let mut text = text.to_string();
-    if let Some(home) = home.map(|h| h.to_string_lossy().into_owned()).filter(|h| h.chars().count() > 1) {
-        text = text.replace(&home, "~");
-    }
+    let text = redact::hide_homes(text, who);
     // The patterns are the Python ones, ASCII only: `project` has already made the text say what Python's classes would
     let text = replace_in(&text, View::Letters, ascii_pattern(&URL, r"(?i-u)\b[a-z][a-z0-9+.-]*://\S+"), None, "<url>");
     let text = replace_in(&text, View::Letters, ascii_pattern(&BEARER, r#"(?i-u)(bearer|token|nonce|secret)(["'=: ]+)[^\s"',}]+"#), Some(2), "<redacted>");
+    let text = redact::hide_host(&redact::hide_ids(&text), who);
+    let text = hidden.map_or(text.clone(), |h| h.apply(&text));
     let text = replace_in(&text, View::Digits, ascii_pattern(&IPV4, r"(?-u)\b\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?\b"), None, "<ip>");
     let text = replace_ipv6(&text);
     // [A-Za-z0-9_] is all one letter here, so any other word character can't be taken for one

@@ -344,6 +344,7 @@ impl WebcamPlugin {
             self.backends.remove(&key); // its handle on the camera is dead; a replugged one gets a fresh one
         }
         *self.shared.devices.lock().unwrap() = found.iter().map(|d| (d.key.clone(), d.clone())).collect();
+        telescope_core::redact::set_hidden("webcam", &found.iter().map(|d| d.name.clone()).collect::<Vec<_>>());
         for dev in &found {
             match self.sources.get(&dev.key) {
                 None => {

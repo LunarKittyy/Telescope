@@ -32,6 +32,7 @@ pub mod plugin_admin;
 pub mod pose;
 pub mod preview;
 pub mod qr;
+pub mod redact;
 pub mod services;
 pub mod shader;
 pub mod snapshot;

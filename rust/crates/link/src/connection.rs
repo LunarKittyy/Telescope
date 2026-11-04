@@ -246,6 +246,14 @@ impl Connection {
         if !cleaned.is_empty() {
             self.computer_name = cleaned;
         }
+        self.hide_names();
+    }
+
+    /// Tells the log which names are the person's own, so a copied report shows "phone 1" and "computer 1" instead.
+    fn hide_names(&self) {
+        let phones: Vec<String> = self.phones.iter().map(|p| p.name.clone()).collect();
+        telescope_core::redact::set_hidden("phone", &phones);
+        telescope_core::redact::set_hidden("computer", std::slice::from_ref(&self.computer_name));
     }
 
     // ── Settings ──────────────────────────────────────────────────────────
@@ -284,6 +292,7 @@ impl Connection {
         let known = sel.is_some_and(|s| self.phone(Some(s)).is_some() || source_known(s));
         self.selected_id = if known { sel.map(str::to_string) } else { self.phones.first().map(|p| p.id.clone()) };
         self.resolution = None;
+        self.hide_names();
     }
 
     // ── Checks ────────────────────────────────────────────────────────────
@@ -679,6 +688,7 @@ impl Connection {
             return Paired { existing: true, reconnect };
         }
         self.phones.push(phone);
+        self.hide_names();
         Paired { existing: false, reconnect }
     }
 
@@ -706,6 +716,7 @@ impl Connection {
         if let Some(slot) = self.phones.iter_mut().find(|p| p.id == old_id) {
             *slot = phone;
         }
+        self.hide_names();
         self.release_stream(Some(old_id), false);
         self.paths.remove(old_id);
     }
@@ -716,6 +727,7 @@ impl Connection {
         if !cleaned.is_empty() {
             phone.name = cleaned;
         }
+        self.hide_names();
         true
     }
 
@@ -723,6 +735,7 @@ impl Connection {
     pub fn forget_phone(&mut self, pid: &str) -> Option<(PairedPhone, Option<Option<String>>)> {
         let phone = self.phone(Some(pid))?.clone();
         self.phones.retain(|p| p.id != pid);
+        self.hide_names();
         let reselect = (Some(pid) == self.selected_id.as_deref()).then(|| self.phones.first().map(|p| p.id.clone()));
         Some((phone, reselect))
     }

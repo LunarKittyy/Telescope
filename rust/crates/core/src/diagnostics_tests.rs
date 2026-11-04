@@ -326,7 +326,7 @@ fn sanitize_gives_what_the_python_app_gave() {
         ("path /usr/local/share/telescope/very/long/path/name/here", "path /<redacted>"),
         ("Caf\u{e9} 192.168.0.1 \u{fc}n\u{ef}", "Caf\u{e9} <ip> \u{fc}n\u{ef}"),
         ("x\u{2026}y 10.1.1.1/24", "x\u{2026}y <ip>/24"),
-        ("/home/someone/.config and /home/someone2", "~/.config and ~2"),
+        ("/home/someone/.config and /home/someone2", "~/.config and /home/<user>"),
         ("", ""),
     ];
     for (text, want) in samples {
