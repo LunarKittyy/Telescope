@@ -19,6 +19,8 @@ pub const RAW: [&str; 8] = ["YUYV", "UYVY", "NV12", "YU12", "YV12", "BGR3", "RGB
 pub const FPS_STEPS: [u32; 9] = [5, 10, 15, 20, 24, 25, 30, 50, 60];
 /// Same, for sizes.
 pub const STEP_SIZES: [(u32, u32); 5] = [(640, 480), (1280, 720), (1920, 1080), (2560, 1440), (3840, 2160)];
+/// A size is only offered when some format reaches this rate there, so slow raw-only sizes don't lag the stream.
+pub const MIN_USABLE_FPS: f64 = 15.0;
 /// 29.97 counts as 30.
 const FPS_SLACK: f64 = 0.5;
 /// Linux drivers that make virtual cameras rather than talk to hardware.
@@ -90,11 +92,16 @@ impl PartialEq for Device {
 
 // ── Choosing a mode ──────────────────────────────────────────────────────────
 
-/// Every size the camera sends in a format we read, largest first.
+/// Every size worth offering, largest first: one some format sends at MIN_USABLE_FPS or more. When none does, every size
+/// stays, so a slow camera still has a list. A mode that lists no rates counts as fast enough.
 pub fn sizes(modes: &[Mode]) -> Vec<(u32, u32)> {
     let mut found: Vec<(u32, u32)> = modes.iter().map(|m| (m.width, m.height)).collect();
     found.sort_by_key(|s| std::cmp::Reverse((s.0 as u64 * s.1 as u64, s.0)));
     found.dedup();
+    let fast = |s: &(u32, u32)| modes.iter().any(|m| (m.width, m.height) == *s && (m.fps.is_empty() || m.max_fps() + FPS_SLACK >= MIN_USABLE_FPS));
+    if found.iter().any(fast) {
+        found.retain(fast);
+    }
     found
 }
 

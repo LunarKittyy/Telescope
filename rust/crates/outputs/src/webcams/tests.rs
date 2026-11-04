@@ -76,6 +76,40 @@ fn sizes_and_rates_for_the_card() {
     assert_eq!(rates(&c920(), None)[0], 60);
 }
 
+fn c920_windows() -> Vec<Mode> {
+    vec![
+        Mode::new("MJPG", 1920, 1080, &[30.0]),
+        Mode::new("MJPG", 640, 480, &[30.0]),
+        Mode::new("YUYV", 2304, 1536, &[2.0]),
+        Mode::new("YUYV", 2304, 1296, &[2.0]),
+        Mode::new("YUYV", 1920, 1080, &[5.0]),
+        Mode::new("YUYV", 640, 480, &[30.0]),
+    ]
+}
+
+#[test]
+fn sizes_that_never_reach_a_usable_rate_are_not_offered() {
+    assert_eq!(sizes(&c920_windows()), [(1920, 1080), (640, 480)]);
+}
+
+#[test]
+fn a_size_offers_only_the_rates_it_has() {
+    assert_eq!(rates(&c920_windows(), Some((1920, 1080))), [30, 5]);
+    assert_eq!(rates(&c920_windows(), Some((640, 480))), [30]);
+}
+
+#[test]
+fn a_camera_with_only_slow_sizes_keeps_them_all() {
+    let slow = [Mode::new("YUYV", 1280, 720, &[5.0]), Mode::new("YUYV", 640, 480, &[10.0])];
+    assert_eq!(sizes(&slow), [(1280, 720), (640, 480)]);
+}
+
+#[test]
+fn auto_ignores_the_slow_sizes_too() {
+    let got = choose(&c920_windows(), None, 30.0).unwrap();
+    assert_eq!((got.width, got.height), (1920, 1080));
+}
+
 // test_webcams.py::test_a_choice_describes_itself
 #[test]
 fn a_choice_describes_itself() {
