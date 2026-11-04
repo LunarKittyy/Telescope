@@ -430,8 +430,6 @@ impl Codec {
     }
 }
 
-/// Whether a picture copied off the card is a surface the driver never wrote: all zeros, which no camera gives, since even
-/// black has chroma at the middle. A few samples down the first two planes, so it costs nothing.
 /// Asks Windows to schedule the D3D11 device FFmpeg made ahead of other programs' graphics work, so a game in front doesn't hold the decoder up.
 /// AVHWDeviceContext.hwctx points at an AVD3D11VADeviceContext, whose first field is the ID3D11Device (libavutil/hwcontext_d3d11va.h).
 #[cfg(windows)]
@@ -440,8 +438,11 @@ unsafe fn raise_gpu_priority(buffer: *mut ff::AVBufferRef) {
     use windows::Win32::Graphics::Dxgi::IDXGIDevice;
     static SAID: std::sync::Once = std::sync::Once::new();
     let say = |text: String| SAID.call_once(|| log::info!("{text}"));
+    if buffer.is_null() || (*buffer).data.is_null() {
+        return say("Couldn't find the graphics device to raise its priority".into());
+    }
     let ctx = (*buffer).data as *const ff::AVHWDeviceContext;
-    let device = if ctx.is_null() || (*ctx).hwctx.is_null() { ptr::null_mut() } else { *((*ctx).hwctx as *const *mut std::ffi::c_void) };
+    let device = if (*ctx).hwctx.is_null() { ptr::null_mut() } else { *((*ctx).hwctx as *const *mut std::ffi::c_void) };
     let Some(unknown) = IUnknown::from_raw_borrowed(&device) else {
         return say("Couldn't find the graphics device to raise its priority".into());
     };
@@ -452,6 +453,8 @@ unsafe fn raise_gpu_priority(buffer: *mut ff::AVBufferRef) {
     }
 }
 
+/// Whether a picture copied off the card is a surface the driver never wrote: all zeros, which no camera gives, since even
+/// black has chroma at the middle. A few samples down the first two planes, so it costs nothing.
 unsafe fn unwritten(f: *const ff::AVFrame) -> bool {
     let (w, h) = ((*f).width as isize, (*f).height as isize);
     (0..16).all(|i| {
