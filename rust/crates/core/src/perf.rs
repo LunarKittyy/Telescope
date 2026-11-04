@@ -9,15 +9,14 @@ pub const STAGES: [&str; 10] = ["decode", "receive", "take_frame", "transfer", "
 /// How many of a stage's latest times its summary is taken from.
 const WINDOW: usize = 512;
 
-/// One stage's latest times in microseconds (0 is an empty slot), and the slowest since a frame last went out.
+/// One stage's latest times in microseconds (0 is an empty slot).
 struct Stage {
     ring: [AtomicU32; WINDOW],
     next: AtomicUsize,
-    peak: AtomicU32,
 }
 
 #[allow(clippy::declare_interior_mutable_const)]
-const NEW_STAGE: Stage = Stage { ring: [const { AtomicU32::new(0) }; WINDOW], next: AtomicUsize::new(0), peak: AtomicU32::new(0) };
+const NEW_STAGE: Stage = Stage { ring: [const { AtomicU32::new(0) }; WINDOW], next: AtomicUsize::new(0) };
 static SEEN: [Stage; STAGES.len()] = [NEW_STAGE; STAGES.len()];
 
 /// A stage took ns. Two atomic stores and a compare, so it's fine for every frame on every thread.
@@ -26,19 +25,58 @@ pub fn record(stage: &str, ns: u64) {
     let us = (ns / 1000).min(u32::MAX as u64 - 1) as u32;
     let s = &SEEN[i];
     s.ring[s.next.fetch_add(1, Ordering::Relaxed) % WINDOW].store(us + 1, Ordering::Relaxed);
-    s.peak.fetch_max(us + 1, Ordering::Relaxed);
+    let mut active = ACTIVE.load(Ordering::Relaxed);
+    while active != 0 {
+        let w = active.trailing_zeros() as usize;
+        PEAKS[w][i].fetch_max(us + 1, Ordering::Relaxed);
+        active &= active - 1;
+    }
 }
 
-/// The stage that took longest since the last call, and how many milliseconds; starts every stage's peak over.
-pub fn take_peak() -> Option<(&'static str, f64)> {
-    let mut worst: Option<(&'static str, u32)> = None;
-    for (name, s) in STAGES.iter().zip(&SEEN) {
-        let peak = s.peak.swap(0, Ordering::Relaxed);
-        if peak > worst.map_or(0, |w| w.1) {
-            worst = Some((name, peak));
+/// How many streams can follow their own slowest stage at once.
+const WATCHERS: usize = 8;
+#[allow(clippy::declare_interior_mutable_const)]
+const NO_PEAKS: [AtomicU32; STAGES.len()] = [const { AtomicU32::new(0) }; STAGES.len()];
+/// Each watcher's slowest time of every stage since it last asked.
+static PEAKS: [[AtomicU32; STAGES.len()]; WATCHERS] = [NO_PEAKS; WATCHERS];
+/// Which watchers are following, one bit each.
+static ACTIVE: AtomicU32 = AtomicU32::new(0);
+
+/// A claim on one of the watcher slots, so a stream's peaks aren't taken by another stream's watch.
+pub struct PeakWatch(usize);
+
+impl PeakWatch {
+    /// None when every slot is taken.
+    pub fn claim() -> Option<PeakWatch> {
+        for w in 0..WATCHERS {
+            let bit = 1u32 << w;
+            if ACTIVE.fetch_or(bit, Ordering::AcqRel) & bit == 0 {
+                for p in &PEAKS[w] {
+                    p.store(0, Ordering::Relaxed);
+                }
+                return Some(PeakWatch(w));
+            }
         }
+        None
     }
-    worst.map(|(name, us)| (name, (us - 1) as f64 / 1000.0))
+
+    /// The stage that took longest since the last call, and how many milliseconds; starts this watcher's peaks over.
+    pub fn take(&self) -> Option<(&'static str, f64)> {
+        let mut worst: Option<(&'static str, u32)> = None;
+        for (name, p) in STAGES.iter().zip(&PEAKS[self.0]) {
+            let peak = p.swap(0, Ordering::Relaxed);
+            if peak > worst.map_or(0, |w| w.1) {
+                worst = Some((name, peak));
+            }
+        }
+        worst.map(|(name, us)| (name, (us - 1) as f64 / 1000.0))
+    }
+}
+
+impl Drop for PeakWatch {
+    fn drop(&mut self) {
+        ACTIVE.fetch_and(!(1u32 << self.0), Ordering::AcqRel);
+    }
 }
 
 /// How a stage did over its latest times.
@@ -268,6 +306,8 @@ pub struct StallWatch {
     window: u64,
     gap_in_window: bool,
     window_peak: Option<(&'static str, f64)>,
+    /// This stream's own view of the slowest stage.
+    peaks: Option<PeakWatch>,
     /// Where a finished stall goes: keep_stall, or a test's own.
     sink: fn(Stall),
 }
@@ -288,12 +328,12 @@ impl StallWatch {
 
     /// A watch that hands each finished stall to sink.
     pub fn into(sink: fn(Stall)) -> StallWatch {
-        StallWatch { last_frame_ns: None, before: None, pending: None, window: 0, gap_in_window: false, window_peak: None, sink }
+        StallWatch { last_frame_ns: None, before: None, pending: None, window: 0, gap_in_window: false, window_peak: None, peaks: PeakWatch::claim(), sink }
     }
 
     /// A new frame came out at now_ns (time::monotonic_ns).
     pub fn frame(&mut self, now_ns: u64, context: Context) {
-        let peak = take_peak();
+        let peak = self.peaks.as_ref().and_then(PeakWatch::take);
         if peak.is_some_and(|p| p.1 > self.window_peak.map_or(0.0, |w| w.1)) {
             self.window_peak = peak;
         }
@@ -386,16 +426,29 @@ fn ramp(values: &[Option<f32>]) -> String {
     }).collect()
 }
 
-/// The last two minutes of the newest stream as two lines, frames and Mbps, or nothing when it's quiet.
+/// The last two minutes of every stream with a recent window, two lines each (frames and Mbps), or nothing when it's quiet.
+/// With more than one stream each gets a "Stream N" line first, N being its output slot, never a device's name.
 pub fn timeline_lines(now_ns: u64) -> Vec<String> {
     let samples: Vec<Sample> = TIMELINE.lock().unwrap_or_else(|e| e.into_inner()).iter().copied().collect();
     timeline_from(&samples, now_ns)
 }
 
 fn timeline_from(samples: &[Sample], now_ns: u64) -> Vec<String> {
-    let Some(newest) = samples.last() else { return Vec::new() };
+    let mut slots: Vec<u32> = samples.iter().map(|s| s.slot).collect();
+    slots.sort_unstable();
+    slots.dedup();
+    let drawn: Vec<(u32, Vec<String>)> = slots.into_iter().filter_map(|slot| {
+        let own: Vec<Sample> = samples.iter().filter(|s| s.slot == slot).copied().collect();
+        let lines = stream_lines(&own, now_ns);
+        (!lines.is_empty()).then_some((slot, lines))
+    }).collect();
+    let several = drawn.len() > 1;
+    drawn.into_iter().flat_map(|(slot, lines)| several.then(|| format!("Stream {slot}:")).into_iter().chain(lines)).collect()
+}
+
+fn stream_lines(samples: &[Sample], now_ns: u64) -> Vec<String> {
     let mut columns: [(Option<f32>, Option<f32>); COLUMNS] = [(None, None); COLUMNS];
-    for s in samples.iter().filter(|s| s.slot == newest.slot) {
+    for s in samples {
         let ago = (now_ns.saturating_sub(s.ns) / 1_000_000_000 / STEP_S) as usize;
         if ago < COLUMNS {
             columns[COLUMNS - 1 - ago] = (Some(s.fps), Some(s.mbps));

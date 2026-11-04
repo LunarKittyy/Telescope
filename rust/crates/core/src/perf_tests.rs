@@ -30,13 +30,10 @@ fn stage_times_are_summed_up_over_the_latest_ones() {
     let s = all.iter().find(|s| s.stage == "readback").unwrap();
     assert_eq!((s.count, s.p50_ms, s.p99_ms, s.max_ms), (100, 50.0, 99.0, 100.0));
     assert!(stage_line().unwrap().contains("readback 50/99/100"));
-    // The stall tests' watches take peaks too, so a peak may be gone; the slowest stage then is whichever is left
-    let peak = (0..50).find_map(|_| {
-        record("camera", 7 * MS);
-        take_peak().filter(|p| p.0 == "camera")
-    });
-    assert_eq!(peak, Some(("camera", 7.0)));
-    assert!(take_peak().is_none_or(|p| p.0 != "camera"), "a peak is taken once");
+    let (a, b) = (PeakWatch::claim().unwrap(), PeakWatch::claim().unwrap());
+    record("camera", 7 * MS);
+    assert_eq!((a.take(), b.take()), (Some(("camera", 7.0)), Some(("camera", 7.0))), "every stream sees the peak");
+    assert!(a.take().is_none_or(|p| p.0 != "camera"), "a peak is taken once");
     record("nonsense", MS);
     assert!(stage_summaries().iter().all(|s| s.stage != "nonsense"));
     // Past the window only the latest count
@@ -141,8 +138,6 @@ fn the_timeline_is_a_character_for_two_seconds() {
     samples[4].fps = 15.0;
     samples[5].fps = 0.0;
     samples[5].mbps = 0.0;
-    // Another stream's windows aren't drawn
-    samples.insert(3, sample(14, now, 2, 99.0, 99.0));
     let lines = timeline_from(&samples, now);
     assert_eq!(lines.len(), 2);
     let fps = lines[0].split('|').nth(1).unwrap();
@@ -152,5 +147,11 @@ fn the_timeline_is_a_character_for_two_seconds() {
     assert!(lines[0].ends_with("min 0.0 max 30.0") && lines[1].ends_with("min 0.0 max 8.0"), "{lines:?}");
     assert!(lines[0].starts_with("fps  |") && lines[1].starts_with("Mbps |"));
     assert!(timeline_from(&[], now).is_empty());
+    // A second stream gets its own labelled lines, and one that stopped long ago isn't drawn
+    let both = [sample(4, now, 1, 30.0, 8.0), sample(4, now, 2, 99.0, 9.0), sample(500, now, 3, 5.0, 1.0)];
+    let lines = timeline_from(&both, now);
+    assert_eq!(lines.len(), 6, "{lines:?}");
+    assert_eq!((lines[0].as_str(), lines[3].as_str()), ("Stream 1:", "Stream 2:"));
+    assert!(lines[1].ends_with("max 30.0") && lines[4].ends_with("max 99.0"));
     assert!(timeline_from(&[sample(500, now, 1, 30.0, 8.0)], now).is_empty(), "older than two minutes");
 }
