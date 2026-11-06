@@ -13,7 +13,7 @@ pub const FILE_MAP_READ: u32 = 0x0004;
 pub const SYNCHRONIZE: u32 = 0x0010_0000;
 pub const EVENT_MODIFY_STATE: u32 = 0x0002;
 pub const WAIT_OBJECT_0: u32 = 0;
-pub const INFINITE: u32 = 0xFFFF_FFFF;
+pub const WAIT_ABANDONED: u32 = 0x80;
 
 const HKEY_CLASSES_ROOT: HKey = 0x8000_0000_usize as HKey;
 const HKEY_LOCAL_MACHINE: HKey = 0x8000_0002_usize as HKey;
@@ -181,7 +181,9 @@ pub fn open_mutex(name: &str) -> Option<Owned> {
 
 pub fn wait(handle: &Owned, millis: u32) -> bool {
     // SAFETY: a live handle
-    unsafe { WaitForSingleObject(handle.0, millis) == WAIT_OBJECT_0 }
+    let got = unsafe { WaitForSingleObject(handle.0, millis) };
+    // A mutex whose owner died is ours now too
+    got == WAIT_OBJECT_0 || got == WAIT_ABANDONED
 }
 
 pub fn release_mutex(handle: &Owned) {

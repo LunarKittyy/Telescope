@@ -94,6 +94,10 @@ pub struct Shared {
     open: Option<(crate::win::Owned, crate::win::Owned, crate::win::Owned, crate::win::View)>,
 }
 
+/// How long a frame waits for the filter's mutex before it's dropped.
+#[cfg(windows)]
+const LOCK_WAIT_MS: u32 = 30;
+
 #[cfg(windows)]
 impl Shared {
     pub fn new(num: u32) -> Shared {
@@ -106,7 +110,10 @@ impl Shared {
             return true;
         }
         let Some(mutex) = crate::win::open_mutex(&name("Mutx", self.num)) else { return false };
-        crate::win::wait(&mutex, crate::win::INFINITE);
+        // A filter stuck holding the mutex must not freeze the sender: try again on the next frame
+        if !crate::win::wait(&mutex, LOCK_WAIT_MS) {
+            return false;
+        }
         let num = self.num;
         let opened = open_objects(
             &mut self.want,
@@ -134,7 +141,10 @@ impl Target for Shared {
             return Ok(());
         }
         let (mutex, _want, sent, view) = self.open.as_mut().unwrap();
-        crate::win::wait(mutex, crate::win::INFINITE);
+        // The filter holds the mutex while it reads a frame; if it's stuck, drop this frame instead of waiting
+        if !crate::win::wait(mutex, LOCK_WAIT_MS) {
+            return Ok(());
+        }
         let fits = write_frame(view.buf(), rgba, width, height);
         crate::win::release_mutex(mutex);
         if !fits {
