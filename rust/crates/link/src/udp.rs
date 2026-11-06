@@ -287,7 +287,7 @@ impl Reassembler {
         }
         let f = self.frames.remove(&next).unwrap();
         self.held -= f.bytes();
-        self.next = Some(next + 1);
+        self.next = Some(next.wrapping_add(1));
         Some((f.parts.into_values().flatten().collect(), 1 + skipped))
     }
 
@@ -380,6 +380,13 @@ pub fn nack(seq: u32, missing: &[u16]) -> Vec<u8> {
     body
 }
 
+/// A timer that has never fired, so the first one is due at once.
+const NEVER: f64 = f64::NEG_INFINITY;
+
+fn due(now: f64, last: f64, every: f64) -> bool {
+    now - last >= every
+}
+
 fn clock(origin: Instant) -> f64 {
     origin.elapsed().as_secs_f64()
 }
@@ -416,7 +423,7 @@ impl Udp {
     }
 
     fn report(&mut self, now: f64) {
-        if now - self.last_report >= REPORT_S {
+        if due(now, self.last_report, REPORT_S) {
             self.last_report = now;
             let body = report(self.received, self.seal_in.highest(), &self.frames, now);
             self.send(&body);
@@ -448,7 +455,7 @@ impl Udp {
         for (seq, missing) in nacks {
             self.send(&nack(seq, &missing));
         }
-        if want_key && now - self.last_key_ask >= KEY_ASK_S {
+        if want_key && due(now, self.last_key_ask, KEY_ASK_S) {
             self.last_key_ask = now;
             self.send(&[KEYFRAME]);
         }
@@ -514,7 +521,7 @@ impl UdpFeed {
         let now = clock(self.origin);
         let mut udp = Udp { sock, _response: resp, phone: SocketAddr::new(ip, phone_port), seal_in: Seal::new(&key, TO_DESKTOP)?,
                             seal_out: Seal::new(&key, TO_PHONE)?, frames: Reassembler::new(), opened_at: now, received: 0,
-                            last_hello: 0.0, last_report: 0.0, last_key_ask: 0.0, decoded_any: Arc::new(AtomicBool::new(false)) };
+                            last_hello: 0.0, last_report: NEVER, last_key_ask: NEVER, decoded_any: Arc::new(AtomicBool::new(false)) };
         udp.hello(now, true);
         self.udp = Some(udp);
         Ok(())
