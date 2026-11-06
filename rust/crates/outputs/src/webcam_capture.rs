@@ -239,6 +239,12 @@ pub fn is_jpeg(choice: &Choice) -> bool {
 
 // ── Linux: V4L2 with memory-mapped buffers ──────────────────────────────────
 
+/// The size of the argument an ioctl request number encodes.
+#[cfg(target_os = "linux")]
+fn request_size(request: u32) -> usize {
+    ((request >> 16) & 0x3fff) as usize
+}
+
 /// An ioctl on an open file.
 #[cfg(target_os = "linux")]
 pub struct Fd<'a>(pub &'a std::fs::File);
@@ -247,7 +253,11 @@ pub struct Fd<'a>(pub &'a std::fs::File);
 impl crate::webcams::Ioctl for Fd<'_> {
     fn call(&self, request: u32, buf: &mut [u8]) -> bool {
         use std::os::fd::AsRawFd;
-        // SAFETY: buf is as big as the request says (the request encodes its size)
+        if buf.len() < request_size(request) {
+            log::error!("ioctl {request:#x} needs {} bytes, got {}", request_size(request), buf.len());
+            return false;
+        }
+        // SAFETY: buf is at least as big as the request says (checked above)
         unsafe { libc::ioctl(self.0.as_raw_fd(), request as libc::c_ulong, buf.as_mut_ptr()) >= 0 }
     }
 }
