@@ -52,6 +52,15 @@ impl Graded {
                 }
                 Tables::Levels(levels)
             }
+            // A cube whose size doesn't match its points can't be walked safely; it grades nothing
+            Baked::Cube { size, rgb } if *size < 2 || size.checked_pow(3).and_then(|n| n.checked_mul(3)) != Some(rgb.len()) => {
+                log::warn!("A colour cube of size {size} with {} values was ignored", rgb.len());
+                let mut levels = Box::new([[0u8; LEVELS]; 3]);
+                for level in levels.iter_mut() {
+                    *level = std::array::from_fn(|i| i as u8);
+                }
+                Tables::Levels(levels)
+            }
             Baked::Cube { size, rgb } => {
                 let point = |v: f32| (to_16(v) >> 1) as i16;
                 let points = rgb.as_chunks::<3>().0.iter().map(|p| [point(p[0]), point(p[1]), point(p[2]), 0]).collect();
@@ -377,6 +386,17 @@ mod tests {
                     assert!((have as i32 - want as i32).abs() <= 1, "{p:?}: {:?} and {want:?}", [r[i], g[i], b[i]]);
                 }
             }
+        }
+    }
+
+    #[test]
+    fn a_cube_of_the_wrong_size_grades_nothing() {
+        for (size, len) in [(33, 3 * 5), (1, 3), (0, 0), (usize::MAX, 3), (4, 3 * 64 + 3)] {
+            let graded = Graded::new(&Baked::Cube { size, rgb: vec![0.5; len] });
+            let px = noise(3000);
+            let (mut r, mut g, mut b) = (px[..1000].to_vec(), px[1000..2000].to_vec(), px[2000..].to_vec());
+            graded.grade(&mut r, &mut g, &mut b);
+            assert!(r == px[..1000] && g == px[1000..2000] && b == px[2000..], "{size} {len}");
         }
     }
 
