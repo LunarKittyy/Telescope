@@ -221,6 +221,11 @@ pub fn safe_name(name: &str, index: usize) -> String {
     if cleaned.is_empty() { format!("photo_{}.jpg", index + 1) } else { cleaned.to_string() }
 }
 
+/// The exposure as a Duration; a value that can't be one (NaN, negative, absurdly long) is clamped rather than panicking.
+fn exposure_duration(seconds: f64) -> Duration {
+    Duration::from_secs_f64(if seconds.is_nan() { 0.0 } else { seconds.clamp(0.0, 1e9) })
+}
+
 /// How long the sensor is open in all for a photo with these /v1/still options (0 for the video's exposure).
 pub fn exposure_seconds(options: &Value) -> f64 {
     let float = |key: &str| match options.get(key) {
@@ -348,13 +353,19 @@ impl Stills {
         }
         let inner = self.inner.clone();
         let base = base.to_string();
-        std::thread::Builder::new().name("still".into()).spawn(move || {
+        let k2 = k.clone();
+        let spawned = std::thread::Builder::new().name("still".into()).spawn(move || {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 Runner { inner: &inner, base: &base, auth: &auth, stop: &stop }.run(options, &folder, on_progress, alive)
             })).unwrap_or_else(|_| StillResult::failed("failed", "", &[]));
             inner.busy.lock().unwrap().remove(&k);
             on_done(result);
-        }).is_ok()
+        });
+        if spawned.is_err() {
+            // No thread, so nothing will free the slot
+            self.inner.busy.lock().unwrap().remove(&k2);
+        }
+        spawned.is_ok()
     }
 
     /// Stops every photo; each tells its phone to forget it on the way out.
@@ -418,7 +429,7 @@ impl Runner<'_> {
 
     fn run(&self, options: Map<String, Value>, folder: &Path, on_progress: Option<Progress>, alive: Option<Alive>) -> StillResult {
         let t = self.timings();
-        let exposure = Duration::from_secs_f64(exposure_seconds(&Value::Object(options.clone())));
+        let exposure = exposure_duration(exposure_seconds(&Value::Object(options.clone())));
         let mut body = options;
         body.insert("action".into(), json!("take"));
         let started = match self.request("/still", Some(&Value::Object(body))) {
@@ -711,6 +722,9 @@ mod tests {
         assert_eq!(exposure_seconds(&json!({"exposure_ns": 30_000_000_000i64})), 30.0);
         assert_eq!(exposure_seconds(&json!({"exposure_ns": 2_000_000_000i64, "count": 2, "bracket_ev": "-1,0,1"})), 12.0);
         assert_eq!(exposure_seconds(&json!({"exposure_ns": "x"})), 0.0);
+        assert_eq!(exposure_duration(f64::NAN), Duration::ZERO);
+        assert_eq!(exposure_duration(-1.0), Duration::ZERO);
+        assert_eq!(exposure_duration(1e28), Duration::from_secs(1_000_000_000));
     }
 
     /// /v1/still as the phone serves it: a photo that takes a couple of polls and leaves the files given.

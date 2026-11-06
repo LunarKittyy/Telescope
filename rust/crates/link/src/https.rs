@@ -140,7 +140,9 @@ impl Url {
             Some(i) => (&rest[..i], format!("/{}", &rest[i..])),
             None => (rest, "/".to_string()),
         };
+        let bracketed = authority.strip_prefix('[').and_then(|a| a.split_once(']'));
         let (host, port) = match authority.rsplit_once(':') {
+            Some(_) if bracketed.is_some_and(|(_, after)| after.is_empty()) => (authority.to_string(), if tls { 443 } else { 80 }),
             Some((h, p)) if !h.ends_with(']') || h.starts_with('[') => {
                 (h.to_string(), p.parse().map_err(|_| Error::Bad(format!("bad port in {url}")))?)
             }
@@ -794,6 +796,9 @@ mod tests {
         assert_eq!(Url::parse("http://phone").unwrap().port, 80);
         assert_eq!(Url::parse("http://phone?x=1").unwrap().target, "/?x=1");
         assert!(Url::parse("ftp://x").is_err());
+        let v6 = Url::parse("http://[::1]/v1/video").unwrap();
+        assert_eq!((v6.host.as_str(), v6.port), ("::1", 80));
+        assert_eq!(Url::parse("https://[::1]:8443/").unwrap().port, 8443);
     }
 
     #[test]
