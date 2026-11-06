@@ -79,7 +79,7 @@ pub fn parse_size_label(text: &str) -> Option<(u32, u32)> {
     let text = text.replace(" x ", " × ");
     let (w, h) = text.split_once(" × ")?;
     let (w, h): (i64, i64) = (w.trim().parse().ok()?, h.trim().parse().ok()?);
-    (w > 0 && h > 0).then_some((w as u32, h as u32))
+    (w > 0 && h > 0).then_some((u32::try_from(w).ok()?, u32::try_from(h).ok()?))
 }
 
 fn gcd(a: u32, b: u32) -> u32 {
@@ -682,7 +682,7 @@ impl StreamOutputPlugin {
 
 fn size_of(s: &Value) -> Option<(u32, u32)> {
     let (w, h) = (s.get("width")?.as_i64()?, s.get("height")?.as_i64()?);
-    (w > 0 && h > 0).then_some((w as u32, h as u32))
+    (w > 0 && h > 0).then_some((u32::try_from(w).ok()?, u32::try_from(h).ok()?))
 }
 
 fn dim(state: &Value, key: &str) -> Option<u32> {

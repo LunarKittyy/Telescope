@@ -31,6 +31,9 @@ fn sizes_group_by_shape_and_snap_near_ratios() {
     assert_eq!(parse_size_label("1280 × 720"), Some((1280, 720)));
     assert_eq!(parse_size_label("0 x 720"), None);
     assert_eq!(parse_size_label("big"), None);
+    assert_eq!(parse_size_label("4294967297 × 1080"), None);
+    assert_eq!(parse_size_label("1920 × 4294967296"), None);
+    assert_eq!(parse_size_label("4294967295 × 1"), Some((u32::MAX, 1)));
 }
 
 #[test]
