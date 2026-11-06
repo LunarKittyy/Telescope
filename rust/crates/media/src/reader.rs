@@ -24,6 +24,8 @@ pub struct Reader {
     decoded: Arc<AtomicU32>,
     /// The feed's own flag for a picture decoded, which reaches it while it's blocked reading.
     decoded_flag: Option<Arc<AtomicBool>>,
+    /// The feed's count of frames it skipped, which still arrived.
+    skipped: Option<Arc<AtomicU32>>,
     stop: Arc<dyn FeedStopper>,
     decoder: Box<dyn Decoder>,
     max_bytes: u64,
@@ -44,6 +46,7 @@ impl Reader {
     pub fn new(mut feed: Box<dyn VideoFeed>, decoder: Box<dyn Decoder>) -> Reader {
         let stop: Arc<dyn FeedStopper> = Arc::from(feed.stopper());
         let decoded_flag = feed.decoded_flag();
+        let skipped = feed.skipped_frames();
         let (send, packets) = channel();
         let (queued, decoded) = (Arc::new(AtomicU64::new(0)), Arc::new(AtomicU32::new(0)));
         let (q, d) = (queued.clone(), decoded.clone());
@@ -71,7 +74,7 @@ impl Reader {
         if let Err(e) = spawned {
             log::error!("Couldn't start the thread that reads the stream: {e}");
         }
-        Reader { packets, queued, decoded, decoded_flag, stop, decoder, max_bytes: MAX_BYTES_WITHOUT_FRAME, pending_bytes: 0, pending_frames: 0 }
+        Reader { packets, queued, decoded, decoded_flag, skipped, stop, decoder, max_bytes: MAX_BYTES_WITHOUT_FRAME, pending_bytes: 0, pending_frames: 0 }
     }
 
     /// The next packet read, waiting for one; the end of the feed once the thread has gone.
@@ -94,6 +97,9 @@ impl FrameReader for Reader {
             }
             let decoded = self.decoder.decode(&packet);
             self.pending_frames += decoded.count;
+            if let Some(skipped) = &self.skipped {
+                self.pending_frames += skipped.swap(0, Ordering::Relaxed);
+            }
             if let Some(frame) = decoded.newest {
                 match &self.decoded_flag {
                     Some(flag) => flag.store(true, Ordering::SeqCst),
