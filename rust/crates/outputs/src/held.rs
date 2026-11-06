@@ -2,7 +2,7 @@
 //! reload (vcam.device_released).
 
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Condvar, Mutex, Weak};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, Weak};
 use std::time::Duration;
 use telescope_core::output::Released;
 
@@ -145,7 +145,11 @@ impl<J: Job> Held<J> {
     pub fn stop(&self) {
         let mut st = self.inner.state.lock().unwrap();
         st.wanted = false;
-        self.inner.join(&mut st);
+        let mut st = self.inner.join(st);
+        // A start() that came in while the lock was free is honoured now that the thread is gone
+        if st.wanted {
+            self.inner.spawn(&mut st);
+        }
     }
 
     pub fn running(&self) -> bool {
@@ -158,8 +162,8 @@ impl<J: Job> Held<J> {
 
     /// Stops the thread, runs change while nothing runs, then starts again if wanted: a restart with new settings.
     pub fn restart_with(&self, change: impl FnOnce()) {
-        let mut st = self.inner.state.lock().unwrap();
-        self.inner.join(&mut st);
+        let st = self.inner.state.lock().unwrap();
+        let mut st = self.inner.join(st);
         change();
         st.wanted = true;
         self.inner.spawn(&mut st);
@@ -172,14 +176,24 @@ impl<J: Job> Held<J> {
     }
 }
 
-fn alive(st: &HeldState) -> bool {
+/// A thread that hasn't ended yet, even one that was told to stop and hasn't: only one may ever write to the camera.
+fn occupied(st: &HeldState) -> bool {
     // A thread that ended by itself (a failed prepare, a crash) counts as not running, so asking again restarts it
     st.thread.as_ref().is_some_and(|(_, _, done)| !done.load(Ordering::SeqCst))
 }
 
+fn alive(st: &HeldState) -> bool {
+    st.thread.as_ref().is_some_and(|(_, stop, done)| !done.load(Ordering::SeqCst) && !stop.is_set())
+}
+
+#[cfg(not(test))]
+const JOIN_WAIT: Duration = Duration::from_secs(3);
+#[cfg(test)]
+const JOIN_WAIT: Duration = Duration::from_millis(150);
+
 impl<J: Job> Inner<J> {
     fn spawn(&self, st: &mut HeldState) {
-        if alive(st) || self.gate.is_released() {
+        if occupied(st) || self.gate.is_released() {
             return;
         }
         if let Some((handle, _, _)) = st.thread.take() {
@@ -201,28 +215,35 @@ impl<J: Job> Inner<J> {
         }
     }
 
-    fn join(&self, st: &mut HeldState) {
-        if let Some((handle, stop, done)) = st.thread.take() {
-            stop.set();
-            self.job.wake();
-            let until = std::time::Instant::now() + Duration::from_secs(3);
-            while !done.load(Ordering::SeqCst) && std::time::Instant::now() < until {
-                std::thread::sleep(Duration::from_millis(5));
-            }
-            if done.load(Ordering::SeqCst) {
-                let _ = handle.join();
-            } else {
-                log::warn!("A virtual camera job did not stop within 3s");
-            }
+    /// Asks the thread to stop and waits without holding the lock. One that doesn't stop in time stays in the state, so
+    /// nothing else is spawned until it ends.
+    fn join<'a>(&'a self, st: MutexGuard<'a, HeldState>) -> MutexGuard<'a, HeldState> {
+        let Some((_, stop, done)) = st.thread.as_ref() else { return st };
+        let (stop, done) = (stop.clone(), done.clone());
+        stop.set();
+        self.job.wake();
+        drop(st);
+        let until = std::time::Instant::now() + JOIN_WAIT;
+        while !done.load(Ordering::SeqCst) && std::time::Instant::now() < until {
+            std::thread::sleep(Duration::from_millis(5));
         }
+        let mut st = self.state.lock().unwrap();
+        if done.load(Ordering::SeqCst) {
+            // Only the thread waited for: another caller may have joined it and started a new one meanwhile
+            if st.thread.as_ref().is_some_and(|(_, _, d)| Arc::ptr_eq(d, &done)) {
+                let _ = st.thread.take().unwrap().0.join();
+            }
+        } else {
+            log::warn!("A virtual camera job did not stop within {}s", JOIN_WAIT.as_secs_f32());
+        }
+        st
     }
 }
 
 impl<J: Job> Suspend for Inner<J> {
     fn suspend(&self) {
-        let mut st = self.state.lock().unwrap();
-        self.join(&mut st);
-        drop(st);
+        let st = self.state.lock().unwrap();
+        drop(self.join(st));
         self.job.suspended();
     }
 
@@ -237,10 +258,9 @@ impl<J: Job> Suspend for Inner<J> {
 impl<J: Job> Drop for Held<J> {
     fn drop(&mut self) {
         // The thread holds its own Arc of the job; stopping it here lets the camera go with the holder
-        if Arc::strong_count(&self.inner) == 1 {
-            let mut st = self.inner.state.lock().unwrap();
-            self.inner.join(&mut st);
-        }
+        let mut st = self.inner.state.lock().unwrap();
+        st.wanted = false;
+        drop(self.inner.join(st));
     }
 }
 
@@ -271,5 +291,37 @@ mod tests {
         drop(released);
         assert!(before.running());
         assert!(during.running());
+    }
+
+    /// A job that ignores the stop until told to leave.
+    struct Stubborn {
+        leave: AtomicBool,
+        runs: AtomicUsize,
+    }
+
+    impl Job for Stubborn {
+        fn run(&self, _stop: &Stop) {
+            self.runs.fetch_add(1, Ordering::SeqCst);
+            while !self.leave.load(Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        }
+    }
+
+    #[test]
+    fn a_job_that_will_not_stop_is_never_joined_by_a_second_writer() {
+        let gate = Arc::new(Gate::default());
+        let held = Held::new(Stubborn { leave: AtomicBool::new(false), runs: AtomicUsize::new(0) }, &gate);
+        held.start();
+        held.stop();
+        held.start();
+        held.restart_with(|| {});
+        assert_eq!(held.job().runs.load(Ordering::SeqCst), 1);
+        assert!(!held.running());
+        held.job().leave.store(true, Ordering::SeqCst);
+        std::thread::sleep(Duration::from_millis(50));
+        held.start();
+        std::thread::sleep(Duration::from_millis(50));
+        assert_eq!(held.job().runs.load(Ordering::SeqCst), 2);
     }
 }
