@@ -1,0 +1,22 @@
+name: Dependency audit
+
+# Advisories, yanked crates, licences and sources for rust/Cargo.lock, against rust/deny.toml.
+on:
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: rust/Cargo.toml
+          arguments: --locked
