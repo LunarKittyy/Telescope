@@ -436,8 +436,12 @@ static TERMINATE_PIPE: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI
 extern "C" fn on_terminate(signal: libc::c_int) {
     let byte = signal as u8;
     let fd = TERMINATE_PIPE.load(std::sync::atomic::Ordering::SeqCst);
-    // SAFETY: write is async-signal-safe and this is one byte from a local
-    unsafe { libc::write(fd, (&byte as *const u8).cast(), 1) };
+    // SAFETY: write is async-signal-safe and this is one byte from a local; errno is kept for the code the signal interrupted
+    unsafe {
+        let saved = *libc::__errno_location();
+        libc::write(fd, (&byte as *const u8).cast(), 1);
+        *libc::__errno_location() = saved;
+    }
 }
 
 /// A logout or shutdown (SIGTERM, SIGHUP) before confirm() is the system's doing, not a failed start: confirm, then die the way the signal would have.
@@ -572,7 +576,9 @@ pub fn guard_start(directory: &Path, after_update: bool) -> bool {
         None => true,
         Some(argv) => {
             // Nothing more this copy can do if it fails; starting Telescope again runs whatever version is in place
-            let _ = launch(&argv);
+            if let Err(e) = launch(&argv) {
+                log::error!("Couldn't start Telescope again after recovering: {e}");
+            }
             false
         }
     }

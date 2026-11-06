@@ -395,7 +395,7 @@ fn zip_name<R: io::Read + io::Seek>(zip: &mut zip::ZipArchive<R>) -> Result<Stri
     }
     for i in 0..zip.len() {
         let entry = zip.by_index_raw(i).map_err(|_| invalid(NOT_A_ZIP))?;
-        total += entry.size();
+        total = total.saturating_add(entry.size());
         let name = entry.name().map_err(|_| invalid(NOT_A_ZIP))?.to_string();
         let parts = entry_parts(&name);
         if parts.is_empty() || name.starts_with(['/', '\\']) || name.contains('\\') || parts.iter().any(|p| *p == ".." || p.contains(':')) {

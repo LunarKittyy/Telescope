@@ -192,7 +192,11 @@ fn serve(listener: TcpListener, shared: Arc<Shared>) {
                 std::thread::sleep(Duration::from_millis(20));
                 continue;
             }
-            Err(_) => continue,
+            Err(_) => {
+                // Out of descriptors fails at once every time
+                std::thread::sleep(Duration::from_millis(20));
+                continue;
+            }
         };
         let host = addr.ip().to_string();
         if !shared.claim(&host) {
