@@ -25,6 +25,8 @@ pub struct Reader {
     /// The feed's own flag for a picture decoded, which reaches it while it's blocked reading.
     decoded_flag: Option<Arc<AtomicBool>>,
     stop: Arc<dyn FeedStopper>,
+    /// Set when the Reader is dropped, which the feed-reader thread can't see while the queue is full and it isn't sending.
+    gone: Arc<AtomicBool>,
     decoder: Box<dyn Decoder>,
     max_bytes: u64,
     pending_bytes: u64,
@@ -47,11 +49,16 @@ impl Reader {
         let (send, packets) = channel();
         let (queued, decoded) = (Arc::new(AtomicU64::new(0)), Arc::new(AtomicU32::new(0)));
         let (q, d) = (queued.clone(), decoded.clone());
+        let gone = Arc::new(AtomicBool::new(false));
+        let g = gone.clone();
         let spawned = std::thread::Builder::new().name("feed-reader".into()).spawn(move || {
             let _priority = telescope_core::system::prioritise_thread("frame receive");
             loop {
                 for _ in 0..d.swap(0, Ordering::Relaxed) {
                     feed.decoded();
+                }
+                if g.load(Ordering::Relaxed) {
+                    return;
                 }
                 if q.load(Ordering::Relaxed) > MAX_QUEUED_BYTES {
                     std::thread::sleep(Duration::from_millis(2));
@@ -71,7 +78,7 @@ impl Reader {
         if let Err(e) = spawned {
             log::error!("Couldn't start the thread that reads the stream: {e}");
         }
-        Reader { packets, queued, decoded, decoded_flag, stop, decoder, max_bytes: MAX_BYTES_WITHOUT_FRAME, pending_bytes: 0, pending_frames: 0 }
+        Reader { packets, queued, decoded, decoded_flag, stop, gone, decoder, max_bytes: MAX_BYTES_WITHOUT_FRAME, pending_bytes: 0, pending_frames: 0 }
     }
 
     /// The next packet read, waiting for one; the end of the feed once the thread has gone.
@@ -81,6 +88,12 @@ impl Reader {
             self.queued.fetch_sub(p.data.len() as u64, Ordering::Relaxed);
         }
         read
+    }
+}
+
+impl Drop for Reader {
+    fn drop(&mut self) {
+        self.gone.store(true, Ordering::Relaxed);
     }
 }
 
@@ -261,5 +274,37 @@ mod stall_tests {
         assert!(matches!(r.read(), Err(FeedEnd::Closed)));
         // Without the thread, only the one packet would have been read by the time the decoder was out of its stall
         assert!(read_by_then.load(Ordering::SeqCst) > 20, "{}", read_by_then.load(Ordering::SeqCst));
+    }
+
+    /// A feed with more data than the queue holds that notes when it is dropped, which is when the connection closes.
+    struct Flood(Arc<AtomicBool>);
+
+    impl Drop for Flood {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+
+    impl VideoFeed for Flood {
+        fn read(&mut self) -> Result<Packet, FeedEnd> {
+            Ok(Packet { data: vec![0; 1024 * 1024], time_ns: 0 })
+        }
+        fn stopper(&self) -> Box<dyn FeedStopper> {
+            Box::new(NoStop)
+        }
+    }
+
+    #[test]
+    fn dropping_the_reader_with_a_full_queue_lets_go_of_the_feed() {
+        let closed = Arc::new(AtomicBool::new(false));
+        let r = Reader::new(Box::new(Flood(closed.clone())), Box::new(Stalled { reads: Arc::default(), read_by_then: Arc::default(), stalled: true }));
+        // Long enough for the queue to fill and the thread to start waiting on it
+        std::thread::sleep(Duration::from_millis(200));
+        drop(r);
+        let until = std::time::Instant::now() + Duration::from_secs(5);
+        while !closed.load(Ordering::SeqCst) && std::time::Instant::now() < until {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(closed.load(Ordering::SeqCst), "the feed-reader thread kept the feed open");
     }
 }
