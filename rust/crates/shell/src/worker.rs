@@ -952,15 +952,10 @@ impl Shared {
     /// frames instead of letting them queue up as lag.
     fn read_jpegs(self: &Arc<Self>, feed: &mut dyn VideoFeed, decoders: &mut Vec<Box<dyn Decoder>>) -> Ended {
         let newest: Arc<Newest<(u64, telescope_core::media::Packet)>> = Arc::default();
+        let broken = Arc::new(AtomicBool::new(false));
         let threads: Vec<_> = decoders.drain(..).map(|mut decoder| {
-            let (s, newest) = (self.clone(), newest.clone());
-            std::thread::spawn(move || {
-                while let Some((seq, packet)) = newest.take() {
-                    if let Some(frame) = decoder.decode(&packet).newest {
-                        s.publish(seq, frame);
-                    }
-                }
-            })
+            let (s, newest, broken) = (self.clone(), newest.clone(), broken.clone());
+            std::thread::spawn(move || decode_jpegs(decoder.as_mut(), &newest, &broken, |seq, frame| { s.publish(seq, frame); }))
         }).collect();
         let ended = loop {
             if self.stopped() {
@@ -968,6 +963,11 @@ impl Shared {
             }
             if let Some(moved) = self.take_handover() {
                 break Ended::Moved(moved);
+            }
+            // A decoder that keeps crashing leaves nothing publishing; reconnect for fresh ones instead of freezing the camera
+            if broken.load(Ordering::SeqCst) {
+                log::error!("A JPEG decoder crashed; reconnecting");
+                break Ended::Dropped;
             }
             match feed.read() {
                 Ok(packet) => {
@@ -1212,6 +1212,30 @@ impl Shared {
     }
 }
 
+/// Decodes the newest packets until the feed is finished. A packet that makes the decoder panic is dropped; a few in a row set broken and end the thread.
+fn decode_jpegs(decoder: &mut dyn Decoder, newest: &Newest<(u64, telescope_core::media::Packet)>, broken: &AtomicBool, mut publish: impl FnMut(u64, Frame)) {
+    const MAX_CRASHES_IN_A_ROW: u32 = 3;
+    let mut crashes = 0;
+    while let Some((seq, packet)) = newest.take() {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| decoder.decode(&packet))) {
+            Ok(decoded) => {
+                crashes = 0;
+                if let Some(frame) = decoded.newest {
+                    publish(seq, frame);
+                }
+            }
+            Err(_) => {
+                crashes += 1;
+                log::error!("A JPEG decoder crashed on a packet; it was dropped");
+                if crashes >= MAX_CRASHES_IN_A_ROW {
+                    broken.store(true, Ordering::SeqCst);
+                    return;
+                }
+            }
+        }
+    }
+}
+
 /// Stands in for a source's decoder once it's gone to the decoding thread.
 struct NoDecoder;
 
@@ -1304,6 +1328,54 @@ mod tests {
         data.extend(vec![u; chroma]);
         data.extend(vec![v; chroma]);
         Frame::new(w, h, PixelFormat::I420, data)
+    }
+
+    #[test]
+    fn a_decoder_that_panics_on_a_packet_is_contained() {
+        use telescope_core::media::{Decoded, Packet};
+        struct Flaky(u32);
+        impl Decoder for Flaky {
+            fn decode(&mut self, _packet: &Packet) -> Decoded {
+                self.0 += 1;
+                assert!(self.0 != 1, "bad packet");
+                Decoded { newest: Some(tinted(2, 2, 1, 2, 3)), count: 1 }
+            }
+            fn hardware(&self) -> bool {
+                false
+            }
+        }
+        let (broken, published) = (AtomicBool::new(false), Mutex::new(Vec::new()));
+        // One crash drops its packet and carries on
+        let newest = Newest::default();
+        let mut flaky = Flaky(0);
+        newest.put((1, Packet { data: vec![0], time_ns: 0 }));
+        newest.finish();
+        decode_jpegs(&mut flaky, &newest, &broken, |seq, _| published.lock().unwrap().push(seq));
+        assert!(!broken.load(Ordering::SeqCst) && published.lock().unwrap().is_empty());
+        // A decoder that crashes every time ends its thread and says so
+        struct Dead;
+        impl Decoder for Dead {
+            fn decode(&mut self, _packet: &Packet) -> Decoded {
+                panic!("always");
+            }
+            fn hardware(&self) -> bool {
+                false
+            }
+        }
+        let newest = Arc::new(Newest::default());
+        let feeder = {
+            let newest = newest.clone();
+            std::thread::spawn(move || {
+                for seq in 0..50 {
+                    newest.put((seq, Packet { data: vec![0], time_ns: 0 }));
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                newest.finish();
+            })
+        };
+        decode_jpegs(&mut Dead, &newest, &broken, |_, _| {});
+        assert!(broken.load(Ordering::SeqCst));
+        feeder.join().unwrap();
     }
 
     #[test]

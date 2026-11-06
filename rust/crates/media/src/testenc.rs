@@ -46,7 +46,8 @@ fn encode_with(name: &str, count: usize, w: u32, h: u32, fmt: ff::AVPixelFormat,
         ff::av_frame_get_buffer(frame, 0);
         let mut pkt = ff::av_packet_alloc();
         let mut out = Vec::new();
-        let (cw, ch) = (w.div_ceil(2) as usize, h.div_ceil(2) as usize);
+        // 4:2:2 keeps every row of chroma
+        let (cw, ch) = (w.div_ceil(2) as usize, if fmt == ff::AVPixelFormat::AV_PIX_FMT_YUVJ422P { h as usize } else { h.div_ceil(2) as usize });
         for i in 0..count {
             ff::av_frame_make_writable(frame);
             for (plane, pw, ph) in [(0, w as usize, h as usize), (1, cw, ch), (2, cw, ch)] {
@@ -139,6 +140,11 @@ pub fn opus_tone(packets: usize, peak: f64) -> Option<Vec<Vec<u8>>> {
 /// A JPEG of a flat grey.
 pub fn jpeg(value: u8, w: u32, h: u32) -> Vec<u8> {
     encode("mjpeg", &[value], (128, 128), w, h, ff::AVPixelFormat::AV_PIX_FMT_YUVJ420P, &[]).and_then(|mut p| p.pop()).expect("FFmpeg always has its MJPEG encoder")
+}
+
+/// A 4:2:2 JPEG of a flat grey, which swscale has to convert.
+pub fn jpeg_422(value: u8, w: u32, h: u32) -> Vec<u8> {
+    encode("mjpeg", &[value], (128, 128), w, h, ff::AVPixelFormat::AV_PIX_FMT_YUVJ422P, &[]).and_then(|mut p| p.pop()).expect("FFmpeg always has its MJPEG encoder")
 }
 
 /// One flat H.264 picture with these Y, U and V values as they are in the stream, saying in its headers what matrix

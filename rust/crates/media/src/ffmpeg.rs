@@ -143,6 +143,8 @@ pub struct Codec {
     // A JPEG decoder: JFIF pictures are always full range BT.601, whatever the frame says (OpenCV decodes them so)
     jpeg: bool,
     converter: yuv::Converter,
+    // Where swscale writes the pictures it converts, padded for its SIMD loops
+    sws_out: Padded,
     // Copies of the bytes handed to FFmpeg with the zeroed tail its bitstream readers may read into
     parse_buf: Vec<u8>,
     unit_buf: Vec<u8>,
@@ -199,6 +201,7 @@ impl Codec {
                 refusals: 0,
                 jpeg: id == ff::AVCodecID::AV_CODEC_ID_MJPEG,
                 converter: yuv::Converter::default(),
+                sws_out: Padded::default(),
                 parse_buf: Vec::new(),
                 unit_buf: Vec::new(),
             };
@@ -234,6 +237,10 @@ impl Codec {
 
     /// Splits stream bytes into access units (H.264), calling unit for each one the parser finishes.
     pub fn parse(&mut self, data: &[u8], mut unit: impl FnMut(&mut Codec, &[u8])) {
+        // Only a codec opened with a parser can split anything; the others have none to call
+        if self.parser.is_null() {
+            return;
+        }
         let mut buf = std::mem::take(&mut self.parse_buf);
         let len = data.len();
         let input = padded(&mut buf, data);
@@ -404,17 +411,23 @@ impl Codec {
             i420.extend_from_slice(&v);
         } else {
             // Anything else (a 4:2:2 or 4:4:4 JPEG) goes through swscale
-            i420.resize(w * h + 2 * cw * ch, 0);
             self.sws = ff::sws_getCachedContext(self.sws, w as i32, h as i32, std::mem::transmute::<i32, ff::AVPixelFormat>(fmt), w as i32, h as i32,
                                                 ff::AVPixelFormat::AV_PIX_FMT_YUV420P, ff::SwsFlags::SWS_BILINEAR as i32,
                                                 ptr::null_mut(), ptr::null_mut(), ptr::null());
             if self.sws.is_null() {
                 return Err(Fault::Invalid);
             }
-            let base = i420.as_mut_ptr();
-            let dst = [base, base.add(w * h), base.add(w * h + cw * ch), ptr::null_mut()];
-            let dst_stride = [w as i32, cw as i32, cw as i32, 0];
+            // swscale's SIMD loops run past each row and the end, so it writes into padded rows and the planes are copied out tight
+            let (ys, cs) = (padded_stride(w), padded_stride(cw));
+            let base = self.sws_out.reserve(ys * h + 2 * cs * ch);
+            let dst = [base, base.add(ys * h), base.add(ys * h + cs * ch), ptr::null_mut()];
+            let dst_stride = [ys as i32, cs as i32, cs as i32, 0];
             ff::sws_scale(self.sws, (*src).data.as_ptr() as *const *const u8, (*src).linesize.as_ptr(), 0, h as i32, dst.as_ptr(), dst_stride.as_ptr());
+            for (from, pw, ph, stride) in [(0, w, h, ys), (ys * h, cw, ch, cs), (ys * h + cs * ch, cw, ch, cs)] {
+                for row in 0..ph {
+                    i420.extend_from_slice(self.sws_out.bytes(from + row * stride, pw));
+                }
+            }
             // swscale takes the J formats' full range as it goes; any other format is left as it was
             use ff::AVPixelFormat::*;
             full_range &= ![AV_PIX_FMT_YUVJ422P, AV_PIX_FMT_YUVJ444P, AV_PIX_FMT_YUVJ440P].iter().any(|&j| j as i32 == fmt);
@@ -596,6 +609,7 @@ impl Padded {
     /// Copies packed I420 planes in with padded rows; the pointers and strides swscale takes come back.
     pub(crate) fn load_i420(&mut self, w: usize, h: usize, planes: (&[u8], &[u8], &[u8])) -> ([*const u8; 4], [i32; 4]) {
         let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+        assert!(planes.0.len() >= w * h && planes.1.len() >= cw * ch && planes.2.len() >= cw * ch, "an I420 picture shorter than its size");
         let (ys, cs) = (padded_stride(w), padded_stride(cw));
         let base = self.reserve(ys * h + 2 * cs * ch);
         let mut ptrs = [ptr::null(); 4];
@@ -869,6 +883,27 @@ mod picture_tests {
             drop(f);
             assert!(!crate::guard_alloc::overran(size), "{w}: swscale wrote past the end of the RGBA buffer");
         }
+    }
+
+    #[test]
+    fn a_422_jpeg_converts_without_writing_past_its_buffer() {
+        for w in [637usize, 638, 641] {
+            let mut codec = Codec::mjpeg().unwrap();
+            let mut out = None;
+            codec.decode(&crate::testenc::jpeg_422(100, w as u32, 3), |f| out = Some(f)).unwrap();
+            let f = out.unwrap();
+            assert_eq!((f.width as usize, f.height), (w, 3));
+            let size = w * 3 + 2 * w.div_ceil(2) * 2;
+            assert_eq!(f.data.len(), size);
+            drop(f);
+            assert!(!crate::guard_alloc::overran(size), "{w}: swscale wrote past the end of the I420 buffer");
+        }
+    }
+
+    #[test]
+    fn a_codec_without_a_parser_takes_no_stream_bytes() {
+        let mut codec = Codec::mjpeg().unwrap();
+        codec.parse(b"\x00\x00\x00\x01abc", |_, _| panic!("no parser, no units"));
     }
 
     #[test]
