@@ -87,6 +87,10 @@ pub trait VideoFeed: Send {
     fn decoded_flag(&self) -> Option<std::sync::Arc<std::sync::atomic::AtomicBool>> {
         None
     }
+    /// A count the feed adds to when it skips frames to catch up (UDP resyncing on a keyframe), so they still count as arrived. The reader takes it as it decodes.
+    fn skipped_frames(&self) -> Option<std::sync::Arc<std::sync::atomic::AtomicU32>> {
+        None
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

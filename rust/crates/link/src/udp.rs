@@ -8,7 +8,7 @@ use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashSet};
 use std::net::{SocketAddr, UdpSocket};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use telescope_core::media::{FeedEnd, FeedStopper, Packet, VideoFeed};
@@ -407,6 +407,8 @@ struct Udp {
     last_key_ask: f64,
     /// The reader made a picture from what came over it (Python's _decoded_any).
     decoded_any: Arc<AtomicBool>,
+    /// Frames skipped when the reassembler resynced on a keyframe, for the reader to count as arrived.
+    skipped: Arc<AtomicU32>,
 }
 
 impl Udp {
@@ -521,7 +523,8 @@ impl UdpFeed {
         let now = clock(self.origin);
         let mut udp = Udp { sock, _response: resp, phone: SocketAddr::new(ip, phone_port), seal_in: Seal::new(&key, TO_DESKTOP)?,
                             seal_out: Seal::new(&key, TO_PHONE)?, frames: Reassembler::new(), opened_at: now, received: 0,
-                            last_hello: 0.0, last_report: NEVER, last_key_ask: NEVER, decoded_any: Arc::new(AtomicBool::new(false)) };
+                            last_hello: 0.0, last_report: NEVER, last_key_ask: NEVER, decoded_any: Arc::new(AtomicBool::new(false)),
+                            skipped: Arc::new(AtomicU32::new(0)) };
         udp.hello(now, true);
         self.udp = Some(udp);
         Ok(())
@@ -581,7 +584,8 @@ impl VideoFeed for UdpFeed {
             udp.hello(now, false);
             udp.report(now);
             udp.receive(origin);
-            if let Some((data, _frames)) = udp.frames.take() {
+            if let Some((data, frames)) = udp.frames.take() {
+                udp.skipped.fetch_add(frames - 1, Ordering::Relaxed);
                 return Ok(Packet { data, time_ns: telescope_core::time::monotonic_ns() });
             }
             udp.chase(now);
@@ -601,6 +605,10 @@ impl VideoFeed for UdpFeed {
     fn decoded_flag(&self) -> Option<Arc<AtomicBool>> {
         self.udp.as_ref().map(|u| u.decoded_any.clone())
     }
+
+    fn skipped_frames(&self) -> Option<Arc<AtomicU32>> {
+        self.udp.as_ref().map(|u| u.skipped.clone())
+    }
 }
 
 #[cfg(test)]
@@ -608,7 +616,7 @@ mod tests {
     use super::*;
     use std::io::Write;
     use std::net::TcpListener;
-    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::atomic::Ordering;
     use std::sync::Arc;
 
     const KEY: [u8; 32] = {
@@ -1026,6 +1034,22 @@ mod tests {
     }
 
     #[test]
+    fn frames_skipped_to_resync_on_a_keyframe_are_counted() {
+        let _one = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        forget_failures();
+        let phone = fake_phone(vec![], Behaviour { silent: true, ..Default::default() });
+        let mut feed = UdpFeed::open(&url(&phone), &PhoneAuth::new("secret", ""), Duration::from_secs(1), StopHandle::default()).unwrap();
+        let skipped = feed.skipped_frames().unwrap();
+        for (seq, key) in [(0, false), (1, false), (2, true)] {
+            for p in fragments(seq, b"frame", key, 10) {
+                feed.udp.as_mut().unwrap().frames.add(&p, 0.0);
+            }
+        }
+        assert_eq!(feed.read().unwrap().data, b"frame");
+        assert_eq!(skipped.load(Ordering::Relaxed), 2);
+    }
+
+    #[test]
     fn a_phone_that_refuses_udp_streams_over_tcp() {
         let _one = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
         forget_failures();
@@ -1089,6 +1113,9 @@ mod tests {
         }
         fn decoded_flag(&self) -> Option<Arc<AtomicBool>> {
             self.0.lock().unwrap().decoded_flag()
+        }
+        fn skipped_frames(&self) -> Option<Arc<AtomicU32>> {
+            self.0.lock().unwrap().skipped_frames()
         }
     }
 
