@@ -7,6 +7,7 @@ import android.media.MediaFormat
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.os.SystemClock
 import android.os.HandlerThread
 import android.view.Surface
 
@@ -107,7 +108,13 @@ class H264Encoder(
                     val bytes = ByteArray(info.size).also { buf.get(it) }
                     val config = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
                     val key = info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0
-                    if (!config) { checkOrder(info.presentationTimeUs); outputRate.tick() }
+                    if (!config) {
+                        checkOrder(info.presentationTimeUs)
+                        outputRate.tick()
+                        if (PhoneStats.shared.active()) {
+                            PhoneStats.delayMs(info.presentationTimeUs, System.nanoTime(), SystemClock.elapsedRealtimeNanos(), PhoneStats.shared.realtimeStamps)?.let { PhoneStats.shared.addEncode(it) }
+                        }
+                    }
                     onPacket(bytes, key, config)
                 }
                 mc.releaseOutputBuffer(index, false)

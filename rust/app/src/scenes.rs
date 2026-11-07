@@ -193,6 +193,8 @@ struct Changes {
     no_rnnoise: bool,
     /// Stream output is there, on a computer that can't decode H.264 (translation_scenes_camera.stream_no_pyav).
     no_h264: bool,
+    /// The Stats card is there, which the window scenes leave out because its Tab stops move what they walk to.
+    stats: bool,
 }
 
 fn services(link: SceneLink) -> Arc<Services> {
@@ -224,6 +226,7 @@ fn services_with(link: SceneLink, changes: Changes) -> Arc<Services> {
                 Box::new(String::new)
             };
             // The effects as main.rs has them; the ones that reach this computer's desktop or cameras are left out
+            let stats = changes.stats.then(|| Box::new(telescope_setup::stats::StatsPlugin::new()) as Box<dyn telescope_core::plugin::Plugin>);
             let mut plugins = vec![
                 Box::new(setup_plugin()) as Box<dyn telescope_core::plugin::Plugin>,
                 Box::new(telescope_setup::monitoring::MonitoringPlugin::new()),
@@ -247,6 +250,7 @@ fn services_with(link: SceneLink, changes: Changes) -> Arc<Services> {
             if changes.no_h264 {
                 plugins.push(Box::new(telescope_outputs::stream_output::StreamOutputPlugin::new(false)));
             }
+            plugins.extend(stats);
             plugins
         }),
     })
@@ -257,6 +261,39 @@ fn turned_off(names: &[&str]) -> Setup {
     let mut config = main_window_config(true);
     config["plugins"] = json!({"off": names});
     Setup { every_optional: false, ..Setup::window(Some(services(quiet())), config, WIDTH_THREE_COL, 900.0) }
+}
+
+/// What a stream that dropped a few frames over a Wi-Fi link looks like to the Stats card.
+fn example_stats() -> telescope_core::stats::Snapshot {
+    use telescope_core::stats::{DropReason, Hub};
+    let hub = Hub::new();
+    hub.want("scene", true);
+    let now = telescope_core::time::monotonic_ns();
+    hub.snapshot_at(now, Some(0), Some(0));
+    let stats = hub.register("phone-1", 0);
+    stats.set_link("https://192.168.1.20:8443/v1/video.udp", false);
+    stats.set_target_fps(30);
+    // A minute of a stream that was steady, stumbled from 40 s in
+    let mut last = None;
+    for second in 1..=60u64 {
+        let rough = (40..=58).contains(&second);
+        stats.received(if rough { 17 } else { 29 + second % 2 }, if rough { 300_000 } else { 560_000 });
+        stats.decoded(if rough { 16 } else { 29 });
+        for _ in 0..if rough { 15 } else { 29 } {
+            stats.delivered();
+        }
+        if rough {
+            stats.repeated();
+            stats.dropped(DropReason::LostOnLink, 2);
+            stats.dropped(DropReason::WaitingForKeyframe, 1);
+        }
+        stats.steps().timer("colour").add(2_000_000);
+        stats.steps().timer("privacy_blur").add(7_000_000);
+        hub.hooks().timer("monitoring").add(400_000);
+        let cpu = 380_000_000 * second + if rough { 250_000_000 } else { 0 };
+        last = Some(hub.snapshot_at(now + second * 1_000_000_000, Some(cpu), Some((240 + second / 4) << 20)));
+    }
+    last.expect("a snapshot")
 }
 
 /// Never checks: the scenes show the card before its first check.
@@ -425,6 +462,31 @@ pub fn all() -> Vec<Scene> {
         page: Page::Card { plugin: "stream_output".into() },
         ..Setup::window(Some(services_with(quiet(), Changes { no_h264: true, ..Changes::default() })), main_window_config(true), CARD_WIDTH, 400.0)
     }));
+    // The Stats card with a stream's numbers in it: some drops, a slow step and a plugin that costs a little, in both views
+    for (id, view, phone) in [("stats-standard", "standard", false), ("stats-nerd", "nerd", false), ("stats-phone-standard", "standard", true), ("stats-phone-nerd", "nerd", true)] {
+        scenes.push(Scene::new(id, move || {
+            let mut config = main_window_config(true);
+            config["plugins"] = json!({"on": ["stats"]});
+            config["plugin_configs"]["stats"] = json!({"view": view});
+            Setup {
+                page: Page::Card { plugin: "stats".into() },
+                every_optional: false,
+                then: Some(Box::new(move |w| {
+                    w.state.borrow_mut().bus.emit(telescope_core::Event::StatsUpdated { snapshot: example_stats() });
+                    // A phone from this version, a few seconds into being asked for its own numbers
+                    if phone {
+                        let state = json!({
+                            "takes_stats": true, "phone_fps": 30, "camera_fps": 29.6, "battery_temp_c": 41.5, "wifi_band": "5", "wifi_rssi": -61, "wifi_mbps": 780,
+                            "heat_fps": 24, "stats": {"encode_ms": 9.2, "encode_max_ms": 16.5, "queue_ms": 4.0, "encoder_fps": 29.4, "thermal": 3, "thermal_headroom": 0.97}
+                        });
+                        w.state.borrow_mut().bus.emit(telescope_core::Event::PhoneStateUpdated { state });
+                    }
+                    w.process();
+                })),
+                ..Setup::window(Some(services_with(quiet(), Changes { stats: true, ..Changes::default() })), config, CARD_WIDTH, 700.0)
+            }
+        }));
+    }
     // translation_scenes_audio.control_menu: right-clicks on a control with its shortcuts saved
     scenes.push(Scene::new("menu-control-mute", || {
         let mut config = mic_config();

@@ -51,11 +51,13 @@ impl FrameSlot for Slot {
         self.state.lock().unwrap().published.clone()
     }
 
-    fn replace(&self, frame: Frame, number: u64) -> bool {
+    fn replace(&self, mut frame: Frame, number: u64) -> bool {
         let mut st = self.state.lock().unwrap();
         if st.latest.is_none() || st.published.as_ref().map(|f| f.number) != Some(number) {
             return false;
         }
+        // Still the frame that went out under this number, so a stream counting what it sends doesn't take it for a new one
+        frame.number = number;
         st.latest = Some(frame);
         st.version += 1;
         self.changed.notify_all();
@@ -211,6 +213,7 @@ mod tests {
         assert!(frames.replace_frame(None, frame(9), n));
         assert!(slot.wait_newer(version, Duration::ZERO));
         assert_eq!(slot.latest().unwrap().0.data[0], 9);
+        assert_eq!(slot.latest().unwrap().0.number, n, "the replacement keeps the number it replaced, so it isn't counted as a new frame");
         // The stream's own frame stays what plugins read
         assert_eq!(slot.published().unwrap().data[0], 1);
         slot.publish(frame(2));

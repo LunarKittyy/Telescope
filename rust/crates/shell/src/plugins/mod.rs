@@ -46,11 +46,11 @@ pub fn builtins(services: Option<&Services>, bus: &BusSender) -> Vec<Box<dyn Plu
 /// Every built-in plugin's name in the Python app's registration order (plugins/__init__.py), which is the order
 /// their cards and menu entries come in. Built-ins from other crates (Connection from link) arrive through
 /// Services.plugins and are put in their place by this.
-pub const ORDER: [&str; 31] = [
+pub const ORDER: [&str; 32] = [
     "setup", "connection", "camera_control", "browser_camera", "webcam", "cinema", "face_exposure", "background",
     "chroma_key", "fun_pack", "privacy_blur", "photos", "colour_grading", "stream_output", "transforms", "framing",
     "desk", "name_tag", "notes", "composite", "microphone", "presets", "qr_reader", "preview", "onboarding",
-    "monitoring", "updates", "wait_screen", "on_air", "shortcuts", "startup",
+    "monitoring", "stats", "updates", "wait_screen", "on_air", "shortcuts", "startup",
 ];
 
 /// Built-ins in their registration order, then added plugins as they came.

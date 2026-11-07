@@ -15,7 +15,7 @@ How the desktop app in `rust/` is split up and which rules keep it that way, for
 | `system` | Tray, notifications, autostart, single instance, global shortcuts, the updater and its journal | `core` |
 | `vision` | The vision pack's download, MediaPipe from it and the people tracking | `core` |
 | `effects` | The cards that change the picture or read it: Transforms, Colour grading, Chroma key, Fun pack, Background, Privacy blur, Auto framing, Cinema tools, Name tag, Notes, QR codes, Photos, On Air and the rest | `core`, `ui-kit` |
-| `setup` | Advanced settings and the Phone card | `core`, `ui-kit` |
+| `setup` | Advanced settings, the Phone card and the Stats card | `core`, `ui-kit` |
 | `plugin-host` | Plugins people add: Lua, shaders and `.slint` cards, with a boundary a WASM runtime can fill | `core`, `ui-kit` |
 | `shell` | The window, the Settings window, the stream flow, the Camera and Preview cards | `core`, `ui-kit` |
 | `app` | `telescope-rs` itself, which builds every crate's part and hands them to the shell as `core::services::Services` | everything |
@@ -74,6 +74,10 @@ Everything a plugin can use is listed in `crates/plugin-host/tests/plugin_api.tx
 ## The event bus
 
 Any thread can emit (`BusSender`) and the host delivers on its own thread in emit order. An event emitted from inside a hook waits until that hook returns. Code that emitted and then read back what another plugin did in response has to wait for the event that answers it instead.
+
+## Stats
+
+Each stream's worker counts into a `core::stats::SourceStats`: relaxed atomics only, so the frame path takes no lock and allocates nothing for it. `perf::record` also adds a stage's time to the stream the thread is bound to (`stats::bind`), and the link and decoder note drops the same way (`stats::note_drop`). Once a second `Hub` reads them into a `Snapshot` (numbers, with the last 60 s of every series) and puts it on the bus as `Event::StatsUpdated`. What costs something to measure (each plugin's frame step and hook time) only runs while a plugin has asked with `Host::want_stats`, like `want_people`.
 
 ## Frames
 

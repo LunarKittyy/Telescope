@@ -361,6 +361,9 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
     if let Some(vision) = &state.vision {
         vision.attach(state.bus.sender());
     }
+    if services.is_some() {
+        telescope_core::stats::Hub::shared().start(state.bus.sender());
+    }
     let plugins = plugins(&state.bus.sender());
     // Filled in by the factory just now: the added plugins that are on but couldn't start
     let problems = services.as_ref().map(|s| s.plugin_problems.lock().unwrap_or_else(|e| e.into_inner()).clone()).unwrap_or_default();
@@ -498,9 +501,12 @@ impl Window {
             let Some(w) = weak.upgrade() else { return SValue::Void };
             if let Some(SValue::String(key)) = args.first() {
                 if w.state.borrow_mut().collapse.toggle(key) {
+                    let folded = w.state.borrow().collapse.is_folded(key);
+                    w.state.borrow_mut().bus.emit(Event::CardFolded { key: key.to_string(), folded });
                     w.fold_version.set(w.fold_version.get() + 1);
                     let _ = w.ui.set_global_property("Folds", "version", SValue::Number(w.fold_version.get() as f64));
                     w.schedule_save();
+                    w.process();
                 }
             }
             SValue::Void

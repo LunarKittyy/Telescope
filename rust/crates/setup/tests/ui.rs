@@ -49,6 +49,9 @@ fn the_cards_have_what_their_plugins_use() {
     let mut monitoring = MonitoringPlugin::new();
     ui_has(&monitoring.card().expect("a card").ui, &["batt-committed", "batt-step", "temp-committed", "temp-step", "alert-toggled"]);
 
+    let mut stats = telescope_setup::stats::StatsPlugin::new();
+    ui_has(&stats.card().expect("a card").ui, &["view-picked"]);
+
     let callbacks: [(&str, &[&str]); 6] = [
         ("virtual-camera", &["check-clicked", "load-clicked", "unload-clicked", "persist-toggled", "extras-clicked", "uc-clicked",
                              "adb-clicked", "own-adb-clicked", "copy"]),

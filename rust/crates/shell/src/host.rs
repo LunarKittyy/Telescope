@@ -563,6 +563,9 @@ impl Host for Ctx<'_> {
     fn poster(&self) -> Option<Arc<dyn telescope_core::host::Poster>> {
         Some(Arc::new(crate::shell::PluginPoster { owner: self.me.clone(), posts: self.state.posts.clone() }))
     }
+    fn want_stats(&mut self, owner: &str, on: bool) {
+        telescope_core::stats::Hub::shared().want(owner, on);
+    }
 }
 
 /// copy_action's Rust form, for a plugin's Issue: a button that copies text and leaves the banner up.

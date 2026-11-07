@@ -295,6 +295,7 @@ impl H264 {
             }
             Err(why) if self.codec.hw.is_none() => {
                 log::warn!("H.264 decoding failed ({why}); skipping this data");
+                telescope_core::stats::note_drop(telescope_core::stats::DropReason::DecoderFailed, 1);
                 (None, 0)
             }
             Err(why) => self.fall_back(why, &data),

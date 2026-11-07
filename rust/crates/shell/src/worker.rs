@@ -16,6 +16,7 @@ use telescope_core::image::resize_linear_into;
 use telescope_core::media::{Codec, DecodeOptions, Decoder, FeedEnd, FeedStopper, FramePipeline, FrameReader, FrameSlot,
                             Media, Newest, PacketTap, StagedStep, VideoFeed};
 use telescope_core::output::{Outputs, VideoOutput};
+use telescope_core::stats::{DropReason, Hub, SourceStats};
 
 pub const RECONNECT_DELAY: Duration = Duration::from_secs(3);
 /// Between tries after a stream drops mid-way, since a phone back on Wi-Fi answers within seconds.
@@ -308,8 +309,10 @@ impl Cap {
                 let packet = feed.read()?;
                 let bytes = packet.data.len() as u64;
                 if let Some(frame) = decoder.decode(&packet).newest {
+                    telescope_core::stats::note_decoded(1);
                     return Ok((frame, bytes, 1));
                 }
+                telescope_core::stats::note_drop(DropReason::DecoderFailed, 1);
             },
         }
     }
@@ -350,6 +353,13 @@ struct Shared {
     // When the newest published frame's packet came in, for the delivery log; publish overwrites the frame's own time
     newest_arrival: AtomicU64,
     frames_arrived: AtomicU64,
+    /// Frames that made it through the steps and into the slot, which the camera loop counts the ones it skipped from. Locked around the slot's
+    /// publish and the camera loop's read of the slot, so a count and the frame it was read with always agree.
+    published: Mutex<u64>,
+    /// The number of the last frame that went to the camera, which a camera restart doesn't forget (u64::MAX before any).
+    last_sent_number: AtomicU64,
+    /// What this stream counts into for the stats.
+    stats: Arc<SourceStats>,
     last_arrival_fps: Mutex<f32>,
     /// How the current decoder reports its timing, for the log when frames stop keeping up.
     timing_probe: Mutex<Option<telescope_core::media::TimingProbe>>,
@@ -463,6 +473,10 @@ impl StreamWorker {
             log::warn!("No frame steps for this stream: {e}");
             Box::new(NoSteps)
         });
+        let stats = Hub::shared().register(&setup.source_id, setup.slot);
+        stats.set_link(&setup.url, setup.plugin_source);
+        stats.set_target_fps(setup.fps.max(1));
+        pipeline.set_stats(stats.clone());
         pipeline.set_steps(setup.steps);
         let tap = media.packet_tap();
         let shared = Arc::new(Shared {
@@ -473,7 +487,7 @@ impl StreamWorker {
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
             photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_colour: Mutex::new(None), gate: setup.gate,
-            seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0),
+            seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), published: Mutex::new(0), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
             last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), fps_cell: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
             handover_thread: Mutex::new(None),
@@ -481,6 +495,7 @@ impl StreamWorker {
         shared.vcam_free.set();
         let s = shared.clone();
         let thread = std::thread::Builder::new().name("stream".into()).spawn(move || {
+            let _counting = telescope_core::stats::bind(&s.stats);
             let _priority = telescope_core::system::prioritise_thread("virtual camera output");
             let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| s.run()));
             if let Err(e) = caught {
@@ -490,13 +505,17 @@ impl StreamWorker {
                 s.status("error", &fill(&tr("Stream error: {error}"), &[("error", &what.unwrap_or_default())]));
             }
             s.join_handover();
+            Hub::shared().unregister(&s.stats);
             if let Some(line) = telescope_core::perf::stage_line() {
                 log::info!("Stream ended. {line}");
             }
             s.forget_in_vision();
             (crate::window::app_hooks().release_memory)();
             s.status("idle", &tr("Not streaming"));
-        }).map_err(|e| e.to_string())?;
+        }).map_err(|e| {
+            Hub::shared().unregister(&shared.stats);
+            e.to_string()
+        })?;
         Ok(StreamWorker { shared, thread: Mutex::new(Some(thread)) })
     }
 
@@ -540,6 +559,7 @@ impl StreamWorker {
         }
         if let Some(fps) = fps.filter(|f| *f > 0 && *f != self.shared.fps.load(Ordering::SeqCst)) {
             self.shared.fps.store(fps, Ordering::SeqCst);
+            self.shared.stats.set_target_fps(fps);
             if let Some(cell) = self.shared.fps_cell.lock().unwrap().as_ref() {
                 cell.store(fps, Ordering::Relaxed);
             }
@@ -604,6 +624,7 @@ impl StreamWorker {
     pub fn retarget(&self, url: &str, opener: Opener) {
         *self.shared.opener.lock().unwrap() = opener;
         *self.shared.url.lock().unwrap() = url.into();
+        self.shared.stats.set_link(url, self.shared.plugin_source);
         self.shared.retry_now.store(true, Ordering::SeqCst);
     }
 
@@ -729,6 +750,7 @@ impl Shared {
     }
 
     fn count_arrived(&self, frames: u32, bytes: u64) {
+        self.stats.received(frames as u64, bytes);
         self.bytes_total.fetch_add(bytes, Ordering::Relaxed);
         self.frames_arrived.fetch_add(frames as u64, Ordering::Relaxed);
         self.settle.lock().unwrap().arrived(Instant::now());
@@ -739,16 +761,22 @@ impl Shared {
     fn publish(&self, seq: u64, frame: Frame) -> bool {
         let mut publish = self.publish.lock().unwrap();
         if seq <= publish.1 {
+            self.stats.dropped(DropReason::Late, 1);
             return false;
         }
         let pipeline = publish.0.as_mut();
         let arrived = frame.time_ns;
         let Ok(out) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.prepare(pipeline, seq, frame))) else {
             log::error!("Frame processing failed; dropping this frame");
+            self.stats.dropped(DropReason::StepFailed, 1);
             return false;
         };
         self.newest_arrival.store(arrived, Ordering::Relaxed);
-        self.slot.publish(out);
+        {
+            let mut published = self.published.lock().unwrap();
+            self.slot.publish(out);
+            *published += 1;
+        }
         publish.1 = seq;
         true
     }
@@ -856,6 +884,7 @@ impl Shared {
             let reader = {
                 let (s, done) = (self.clone(), reader_done.clone());
                 std::thread::Builder::new().name("stream-reader".into()).spawn(move || {
+                    let _counting = telescope_core::stats::bind(&s.stats);
                     let _priority = telescope_core::system::prioritise_thread("frame receive and decode");
                     let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| s.read_frames(cap)));
                     if caught.is_err() {
@@ -955,7 +984,10 @@ impl Shared {
         let broken = Arc::new(AtomicBool::new(false));
         let threads: Vec<_> = decoders.drain(..).map(|mut decoder| {
             let (s, newest, broken) = (self.clone(), newest.clone(), broken.clone());
-            std::thread::spawn(move || decode_jpegs(decoder.as_mut(), &newest, &broken, |seq, frame| { s.publish(seq, frame); }))
+            std::thread::spawn(move || {
+                let _counting = telescope_core::stats::bind(&s.stats);
+                decode_jpegs(decoder.as_mut(), &newest, &broken, &s.stats, |seq, frame| { s.publish(seq, frame); })
+            })
         }).collect();
         let ended = loop {
             if self.stopped() {
@@ -972,7 +1004,10 @@ impl Shared {
             match feed.read() {
                 Ok(packet) => {
                     self.count_arrived(1, packet.data.len() as u64);
-                    newest.put((self.next_seq(), packet));
+                    // A packet no decoder had taken yet is replaced by this one, so a slow decoder skips frames instead of lagging
+                    if newest.put((self.next_seq(), packet)) {
+                        self.stats.dropped(DropReason::Paced, 1);
+                    }
                 }
                 Err(FeedEnd::Stopped) if self.stopped() => break Ended::Stopped,
                 Err(_) => break Ended::Dropped,
@@ -1032,7 +1067,12 @@ impl Shared {
     fn try_handover(self: &Arc<Self>, url: String, opener: Opener) {
         let taken = Arc::new(Flag::default());
         let mut handed = false;
-        match self.open_cap_with(&opener) {
+        // Only the opening counts for the stream (the feed it makes keeps counting its link's drops), not the frames read to see the route works
+        let opened = {
+            let _counting = telescope_core::stats::bind(&self.stats);
+            self.open_cap_with(&opener)
+        };
+        match opened {
             Ok(mut cap) => {
                 if self.healthy(&mut cap) {
                     *self.handover_ready.lock().unwrap() = Some((cap, url.clone(), taken.clone()));
@@ -1082,6 +1122,7 @@ impl Shared {
         let (cap, url, taken) = self.handover_ready.lock().unwrap().take()?;
         taken.set();
         *self.url.lock().unwrap() = url.clone();
+        self.stats.set_link(&url, self.plugin_source);
         *self.stopper.lock().unwrap() = Some(cap.stopper());
         self.settle.lock().unwrap().restart(Instant::now());
         log::info!("Stream moved to {url}");
@@ -1122,6 +1163,8 @@ impl Shared {
         let mut last_sent: Option<Instant> = None;
         let mut last_preview = Instant::now() - Duration::from_secs(1);
         let (mut seen, mut fitted): (u64, Option<Frame>) = (0, None);
+        // How many frames had been published when the last one was sent, to count the ones skipped since
+        let mut published_then = *self.published.lock().unwrap();
         let mut scaler = None;
         let mut ok = true;
         let mut delivery_log = telescope_core::time::DeliveryLog::from_env();
@@ -1139,9 +1182,16 @@ impl Shared {
                     self.restart_vcam.wait(pace);
                 }
             }
-            if let Some((src, count)) = self.slot.latest() {
+            // The count is read with the frame, under the lock publishing takes, or a frame published in between would be counted as skipped now and again when it goes out
+            let (latest, published_at) = {
+                let published = self.published.lock().unwrap();
+                (self.slot.latest(), *published)
+            };
+            if let Some((src, count)) = latest {
                 let due = last_sent.is_none_or(|t| t.elapsed() >= 2 * period);
                 let new_frame = count != seen || fitted.is_none();
+                // A frame a plugin replaced in the slot goes out again but isn't another one
+                let fresh = new_frame && src.number != self.last_sent_number.load(Ordering::Relaxed);
                 if new_frame {
                     seen = count;
                     watch.frame(telescope_core::time::monotonic_ns(), &context);
@@ -1153,10 +1203,22 @@ impl Shared {
                 let began = telescope_core::time::monotonic_ns();
                 if let Err(e) = cam.send(fitted.as_ref().unwrap()) {
                     self.status("warn", &fill(&tr("Virtual camera error: {error}"), &[("error", &e)]));
+                    // Whatever that frame was, nothing says why it didn't go
+                    self.stats.dropped(DropReason::Unknown, 1);
                     ok = false;
                     break;
                 }
                 telescope_core::time::span("camera", began);
+                if fresh {
+                    // Frames made since the last one sent that this one passed over: a burst thinned to the camera's rate
+                    self.stats.dropped(DropReason::Paced, published_at.saturating_sub(published_then).saturating_sub(1));
+                    published_then = published_at;
+                    self.last_sent_number.store(src.number, Ordering::Relaxed);
+                    self.stats.delivered();
+                } else {
+                    // The same picture again: nothing new came in time, or the camera was reopened on the last one
+                    self.stats.repeated();
+                }
                 if let (true, Some(log)) = (new_frame, delivery_log.as_mut()) {
                     log.delivered(src.number, self.newest_arrival.load(Ordering::Relaxed), src.time_ns);
                 }
@@ -1213,18 +1275,23 @@ impl Shared {
 }
 
 /// Decodes the newest packets until the feed is finished. A packet that makes the decoder panic is dropped; a few in a row set broken and end the thread.
-fn decode_jpegs(decoder: &mut dyn Decoder, newest: &Newest<(u64, telescope_core::media::Packet)>, broken: &AtomicBool, mut publish: impl FnMut(u64, Frame)) {
+fn decode_jpegs(decoder: &mut dyn Decoder, newest: &Newest<(u64, telescope_core::media::Packet)>, broken: &AtomicBool, stats: &SourceStats, mut publish: impl FnMut(u64, Frame)) {
     const MAX_CRASHES_IN_A_ROW: u32 = 3;
     let mut crashes = 0;
     while let Some((seq, packet)) = newest.take() {
+        // The decoders time themselves (perf's "decode"), so this doesn't
         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| decoder.decode(&packet))) {
             Ok(decoded) => {
                 crashes = 0;
                 if let Some(frame) = decoded.newest {
+                    stats.decoded(1);
                     publish(seq, frame);
+                } else {
+                    stats.dropped(DropReason::DecoderFailed, 1);
                 }
             }
             Err(_) => {
+                stats.dropped(DropReason::DecoderFailed, 1);
                 crashes += 1;
                 log::error!("A JPEG decoder crashed on a packet; it was dropped");
                 if crashes >= MAX_CRASHES_IN_A_ROW {
@@ -1350,7 +1417,7 @@ mod tests {
         let mut flaky = Flaky(0);
         newest.put((1, Packet { data: vec![0], time_ns: 0 }));
         newest.finish();
-        decode_jpegs(&mut flaky, &newest, &broken, |seq, _| published.lock().unwrap().push(seq));
+        decode_jpegs(&mut flaky, &newest, &broken, &SourceStats::detached(), |seq, _| published.lock().unwrap().push(seq));
         assert!(!broken.load(Ordering::SeqCst) && published.lock().unwrap().is_empty());
         // A decoder that crashes every time ends its thread and says so
         struct Dead;
@@ -1373,7 +1440,7 @@ mod tests {
                 newest.finish();
             })
         };
-        decode_jpegs(&mut Dead, &newest, &broken, |_, _| {});
+        decode_jpegs(&mut Dead, &newest, &broken, &SourceStats::detached(), |_, _| {});
         assert!(broken.load(Ordering::SeqCst));
         feeder.join().unwrap();
     }
@@ -1677,21 +1744,26 @@ mod tests {
                 log.lock().unwrap().push(e)
             }
         });
-        let slot: Arc<dyn FrameSlot> = telescope_media_free_slot();
+        let slot: Arc<dyn FrameSlot> = telescope_media_free_slot(Duration::ZERO);
         StreamWorker::start(setup, media, Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap()
     }
 
-    /// A FrameSlot without media's: the newest frame and a count.
-    fn telescope_media_free_slot() -> Arc<dyn FrameSlot> {
+    /// A FrameSlot without media's: the newest frame and a count. Every other publish lingers for linger once the frame is visible, as a busy machine would.
+    fn telescope_media_free_slot(linger: Duration) -> Arc<dyn FrameSlot> {
         #[derive(Default)]
-        struct S(Mutex<(Option<Frame>, u64)>, Condvar);
+        struct S(Mutex<(Option<Frame>, u64)>, Condvar, Duration);
         impl FrameSlot for S {
             fn publish(&self, frame: Frame) -> u64 {
                 let mut st = self.0.lock().unwrap();
                 st.1 += 1;
                 st.0 = Some(frame);
                 self.1.notify_all();
-                st.1
+                let number = st.1;
+                drop(st);
+                if number % 2 == 0 {
+                    std::thread::sleep(self.2);
+                }
+                number
             }
             fn published(&self) -> Option<Frame> {
                 self.0.lock().unwrap().0.clone()
@@ -1708,7 +1780,7 @@ mod tests {
                 self.1.wait_timeout_while(st, timeout, |st| st.1 <= seen).unwrap().0.1 > seen
             }
         }
-        Arc::new(S::default())
+        Arc::new(S(Mutex::default(), Condvar::new(), linger))
     }
 
     fn wait_for(what: impl Fn() -> bool) {
@@ -2660,7 +2732,7 @@ mod tests {
                                   source_id: source.into(), hardware_decode: false, plugin_source: false, vision: None, steps: Vec::new(), gate: None };
         let cams = Arc::new(Cams::default());
         let w = StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(cams.clone())),
-                                    telescope_media_free_slot(), Arc::new(|_| {})).unwrap();
+                                    telescope_media_free_slot(Duration::ZERO), Arc::new(|_| {})).unwrap();
         wait_for(|| !cams.sent.lock().unwrap().is_empty());
         w.stop();
         seen
@@ -2744,7 +2816,7 @@ mod tests {
         let setup = WorkerSetup { url: "https://phone/v1/video".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0,
                                   waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, plugin_source: false, vision, steps, gate };
         StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(Arc::new(Cams::default()))),
-                            telescope_media_free_slot(), Arc::new(|_| {})).unwrap()
+                            telescope_media_free_slot(Duration::ZERO), Arc::new(|_| {})).unwrap()
     }
 
     #[test]
@@ -2893,5 +2965,111 @@ mod tests {
         assert_eq!(seen.numbers.lock().unwrap().last(), Some(&1_000));
         assert_eq!(seen.sources.lock().unwrap().last().map(String::as_str), Some("phone-1"));
         w.stop();
+    }
+
+    // A stream that goes wrong in known ways: the stats count each one and time the slow step.
+
+    /// A decoder that gives nothing for picture 0 and panics on picture 1.
+    struct FaultyDecoder;
+
+    impl Decoder for FaultyDecoder {
+        fn decode(&mut self, packet: &Packet) -> Decoded {
+            match packet.data[0] {
+                0 => Decoded { newest: None, count: 0 },
+                1 => panic!("bad picture"),
+                y => Decoded { newest: Some(grey(4, 2, y)), count: 1 },
+            }
+        }
+        fn hardware(&self) -> bool {
+            false
+        }
+    }
+
+    /// Steps that take 15 ms on picture 7 and break on picture 9, timed as the real pipeline times itself.
+    struct SlowSteps;
+
+    impl FramePipeline for SlowSteps {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            let began = telescope_core::time::monotonic_ns();
+            match frame.data[0] {
+                7 => std::thread::sleep(Duration::from_millis(15)),
+                9 => panic!("bad step"),
+                _ => {}
+            }
+            telescope_core::time::span("pipeline", began);
+            frame
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+    }
+
+    struct TroubledMedia;
+
+    impl Media for TroubledMedia {
+        fn decoder(&self, _codec: Codec, _options: &DecodeOptions) -> Result<Box<dyn Decoder>, String> {
+            Ok(Box::new(FaultyDecoder))
+        }
+        fn scaler(&self) -> Box<dyn Scaler> {
+            FakeMedia.scaler()
+        }
+        fn pipeline(&self) -> Result<Box<dyn FramePipeline>, String> {
+            Ok(Box::new(SlowSteps))
+        }
+    }
+
+    #[test]
+    fn a_steady_stream_counts_no_pacing_drops_when_every_frame_goes_out() {
+        // 60 packets 20 ms apart: slower than the camera's pacing allows, so every frame is sent and none is skipped
+        let steps: Vec<Step> = (0..60u8).flat_map(|y| [Step::Frame(10 + y), Step::Pause(Duration::from_millis(20))]).chain([Step::Pause(Duration::from_millis(400))]).collect();
+        let (opener, _opens) = scripted(vec![Some(steps)]);
+        let cams = Arc::new(Cams::default());
+        // Every other frame is visible to the camera loop a moment before it is counted as published, as it can be on a busy machine
+        let slot = telescope_media_free_slot(Duration::from_millis(3));
+        let events: Events = Arc::new(|_| {});
+        let w = StreamWorker::start(WorkerSetup { source_id: "steady-test".into(), url: "https://127.0.0.1:40002/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap();
+        wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) == 60);
+        std::thread::sleep(Duration::from_millis(500));
+        let snap = Hub::shared().snapshot();
+        w.stop();
+        let s = snap.sources.iter().find(|s| s.source_id == "steady-test").expect("the stream is in the snapshot");
+        let published = *w.shared.published.lock().unwrap();
+        assert_eq!(published, 60);
+        assert_eq!((s.totals.delivered, s.drops.paced), (60, 0), "{s:?}");
+    }
+
+    #[test]
+    fn the_stats_match_a_stream_with_known_drops_and_a_slow_step() {
+        // 20 packets 25 ms apart: two the decoder fails on (one panics), one a step breaks on, one slow step, the rest fine
+        let pictures = [10, 11, 0, 12, 13, 1, 14, 7, 15, 9, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25];
+        let steps: Vec<Step> = pictures.iter().flat_map(|y| [Step::Frame(*y), Step::Pause(Duration::from_millis(25))]).chain([Step::Pause(Duration::from_millis(400))]).collect();
+        let (opener, _opens) = scripted(vec![Some(steps)]);
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let w = start(WorkerSetup { source_id: "stats-test".into(), url: "https://127.0.0.1:40001/v1/video".into(), ..setup(opener) }, Arc::new(TroubledMedia), &cams, &log);
+        wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) == 20);
+        // Past the end of the packets, long enough for the camera to repeat the last frame
+        std::thread::sleep(Duration::from_millis(500));
+        let snap = Hub::shared().snapshot();
+        w.stop();
+        std::panic::set_hook(hook);
+        let s = snap.sources.iter().find(|s| s.source_id == "stats-test").expect("the stream is in the snapshot");
+        assert_eq!(s.totals.received, 20);
+        assert_eq!(s.drops.decoder_failed, 2);
+        assert_eq!(s.drops.step_failed, 1);
+        assert_eq!(s.totals.decoded, 18);
+        // What was decoded either went out, or is accounted for
+        let published = *w.shared.published.lock().unwrap();
+        assert_eq!(s.totals.decoded, published + s.drops.late + s.drops.step_failed);
+        assert!(s.totals.delivered <= published && s.totals.delivered + s.drops.paced >= published, "{s:?}");
+        assert!(s.totals.repeated >= 1, "the camera resent the last frame while nothing came: {s:?}");
+        assert_eq!((s.drops.lost_on_link, s.drops.waiting_for_keyframe, s.drops.unknown), (0, 0, 0));
+        let step = s.stages.iter().find(|t| t.name == "pipeline").expect("the step was timed").timing;
+        assert!(step.max_ms >= 15.0 && step.count >= 16, "{step:?}");
+        assert!(step.mean_ms < step.max_ms);
+        assert_eq!((s.target_fps, s.link.route, s.link.transport), (30, telescope_core::stats::Route::Usb, telescope_core::stats::Transport::Tcp));
+        assert!(Hub::shared().snapshot().sources.iter().all(|s| s.source_id != "stats-test"), "gone with the worker");
     }
 }
