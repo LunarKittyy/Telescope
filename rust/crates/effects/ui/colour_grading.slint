@@ -209,6 +209,7 @@ export component ColourGradingCard inherits Card {
         Button {
             enabled: active && !auto-busy;
             text: @tr("Auto");
+            accessible-label: @tr("Auto colour grading");
             tip: @tr("Looks at about a second of the picture and sets white balance, brightness, contrast and colour for you. Everything it sets stays on the sliders to change");
             clicked => { root.auto-clicked(); }
         }

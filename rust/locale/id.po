@@ -183,7 +183,7 @@ msgstr "aktif"
 msgid "off"
 msgstr "nonaktif"
 
-#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:217 rust/crates/audio/ui/microphone.slint:227 rust/crates/audio/ui/microphone.slint:238 rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:307 rust/crates/outputs/src/webcam.rs:41
+#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:217 rust/crates/audio/ui/microphone.slint:227 rust/crates/audio/ui/microphone.slint:238 rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:280 rust/crates/outputs/src/webcam.rs:41
 msgid "Gain"
 msgstr "Gain"
 
@@ -318,7 +318,7 @@ msgstr "Mikrofon virtual berhenti menerima audio."
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "Kuning berarti limiter meredam lonjakan suara keras dan merah berarti suara mengalami clipping (klik untuk menghapus)."
 
-#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:516 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:385 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:156 rust/crates/outputs/ui/webcam.slint:156 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
+#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:521 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:385 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:156 rust/crates/outputs/ui/webcam.slint:156 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
 msgid "Double-click to reset"
 msgstr "Klik dua kali untuk mereset"
 
@@ -342,7 +342,7 @@ msgstr "Mikrofon ponsel memerlukan VB-Audio Virtual Cable di Windows."
 msgid "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."
 msgstr "VB-Cable dibuat oleh VB-Audio, bukan Telescope. Telescope dapat mengunduhnya dari vb-audio.com dan membuka penginstal milik VB-Audio sendiri, yang meminta akses admin. Mulai ulang komputer setelah selesai."
 
-#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:639 rust/crates/system/ui/shortcuts.slint:374 rust/crates/system/ui/updates.slint:212
+#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/colour_grading.slint:448 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:639 rust/crates/system/ui/shortcuts.slint:374 rust/crates/system/ui/updates.slint:212
 msgid "Cancel"
 msgstr "Batal"
 
@@ -576,11 +576,11 @@ msgstr "Tanpa plugin ini, tidak ada kartu Latar belakang dan latar belakang teta
 msgid "Background blur"
 msgstr "Buram latar belakang"
 
-#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:379 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
+#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:352 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
 msgid "Green"
 msgstr "Hijau"
 
-#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:379 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
+#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:352 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
 msgid "Blue"
 msgstr "Biru"
 
@@ -737,7 +737,7 @@ msgstr "RGB parade"
 msgid "Vectorscope"
 msgstr "Vectorscope"
 
-#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:379 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
+#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:352 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
 msgid "Red"
 msgstr "Merah"
 
@@ -832,15 +832,15 @@ msgstr "LUT 33 titik (*.cube)"
 msgid "65-point LUT (*.cube)"
 msgstr "LUT 65 titik (*.cube)"
 
-#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:266
+#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:239
 msgid "Lift"
 msgstr "Lift"
 
-#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:285 rust/crates/outputs/src/webcam.rs:46
+#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:258 rust/crates/outputs/src/webcam.rs:46
 msgid "Gamma"
 msgstr "Gamma"
 
-#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:326
+#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:299
 msgid "Offset"
 msgstr "Offset"
 
@@ -962,7 +962,7 @@ msgstr "Gain master"
 msgid "Offset master"
 msgstr "Offset master"
 
-#: rust/crates/effects/src/colour_grading.rs:86 rust/crates/effects/ui/colour_grading.slint:345 rust/crates/outputs/src/webcam.rs:44 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:256 rust/crates/shell/ui/cards/camera.slint:259
+#: rust/crates/effects/src/colour_grading.rs:86 rust/crates/effects/ui/colour_grading.slint:318 rust/crates/outputs/src/webcam.rs:44 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:256 rust/crates/shell/ui/cards/camera.slint:259
 msgid "Temperature"
 msgstr "Suhu warna"
 
@@ -970,7 +970,7 @@ msgstr "Suhu warna"
 msgid "Warmer or cooler"
 msgstr "Lebih hangat atau lebih dingin"
 
-#: rust/crates/effects/src/colour_grading.rs:87 rust/crates/effects/ui/colour_grading.slint:345 rust/crates/shell/src/plugins/camera_control.rs:1373 rust/crates/shell/src/plugins/camera_control.rs:1608
+#: rust/crates/effects/src/colour_grading.rs:87 rust/crates/effects/ui/colour_grading.slint:318 rust/crates/shell/src/plugins/camera_control.rs:1373 rust/crates/shell/src/plugins/camera_control.rs:1608
 msgid "Tint"
 msgstr "Corak"
 
@@ -979,7 +979,7 @@ msgid "More magenta or more green"
 msgstr "Lebih magenta atau lebih hijau"
 
 #. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
-#: rust/crates/effects/src/colour_grading.rs:88 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:345 rust/crates/outputs/src/webcam.rs:45
+#: rust/crates/effects/src/colour_grading.rs:88 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:318 rust/crates/outputs/src/webcam.rs:45
 msgid "Contrast"
 msgstr "Kontras"
 
@@ -987,7 +987,7 @@ msgstr "Kontras"
 msgid "Spreads the tones apart around the pivot"
 msgstr "Merentangkan nada warna di sekitar pivot"
 
-#: rust/crates/effects/src/colour_grading.rs:89 rust/crates/effects/ui/colour_grading.slint:345
+#: rust/crates/effects/src/colour_grading.rs:89 rust/crates/effects/ui/colour_grading.slint:318
 msgid "Pivot"
 msgstr "Pivot"
 
@@ -995,7 +995,7 @@ msgstr "Pivot"
 msgid "The level contrast turns around"
 msgstr "Level acuan perubahan kontras"
 
-#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:345 rust/crates/outputs/src/webcam.rs:45
+#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:318 rust/crates/outputs/src/webcam.rs:45
 msgid "Saturation"
 msgstr "Saturasi"
 
@@ -1003,7 +1003,7 @@ msgstr "Saturasi"
 msgid "How colourful the picture is"
 msgstr "Tingkat kepekatan warna pada gambar"
 
-#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/ui/colour_grading.slint:345
+#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/ui/colour_grading.slint:318
 msgid "Vibrance"
 msgstr ""
 
@@ -1011,7 +1011,7 @@ msgstr ""
 msgid "Colours up the dull parts more than the strong ones, and spares skin"
 msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:92 rust/crates/effects/ui/colour_grading.slint:345
+#: rust/crates/effects/src/colour_grading.rs:92 rust/crates/effects/ui/colour_grading.slint:318
 msgid "Shadows"
 msgstr "Bayangan"
 
@@ -1019,7 +1019,7 @@ msgstr "Bayangan"
 msgid "Brightens or darkens the darker parts"
 msgstr "Mencerahkan atau menggelapkan bagian yang lebih gelap"
 
-#: rust/crates/effects/src/colour_grading.rs:93 rust/crates/effects/ui/colour_grading.slint:345
+#: rust/crates/effects/src/colour_grading.rs:93 rust/crates/effects/ui/colour_grading.slint:318
 msgid "Highlights"
 msgstr "Highlight"
 
@@ -1027,41 +1027,41 @@ msgstr "Highlight"
 msgid "Brightens or darkens the brighter parts"
 msgstr "Mencerahkan atau menggelapkan bagian yang lebih terang"
 
-#: rust/crates/effects/src/colour_grading.rs:349
+#: rust/crates/effects/src/colour_grading.rs:354
 msgid "Load a LUT"
 msgstr "Muat LUT"
 
-#: rust/crates/effects/src/colour_grading.rs:356
+#: rust/crates/effects/src/colour_grading.rs:361
 msgid "Export the grade"
 msgstr "Ekspor grade"
 
-#: rust/crates/effects/src/colour_grading.rs:457
+#: rust/crates/effects/src/colour_grading.rs:462
 #, python-brace-format
 msgid "{file} is already there. Replace it?"
 msgstr "{file} sudah ada. Ingin menggantinya?"
 
-#: rust/crates/effects/src/colour_grading.rs:513 rust/crates/effects/src/colour_grading.rs:871 rust/crates/effects/src/colour_grading.rs:944 rust/crates/effects/src/colour_grading.rs:946 rust/crates/effects/src/colour_grading.rs:988 rust/crates/effects/ui/colour_grading.slint:154
+#: rust/crates/effects/src/colour_grading.rs:518 rust/crates/effects/src/colour_grading.rs:876 rust/crates/effects/src/colour_grading.rs:954 rust/crates/effects/src/colour_grading.rs:956 rust/crates/effects/src/colour_grading.rs:998 rust/crates/effects/ui/colour_grading.slint:150
 msgid "Colour grading"
 msgstr "Colour grading"
 
-#: rust/crates/effects/src/colour_grading.rs:515
+#: rust/crates/effects/src/colour_grading.rs:520
 #, python-brace-format
 msgid "{wheel} colour"
 msgstr "Warna {wheel}"
 
-#: rust/crates/effects/src/colour_grading.rs:872
+#: rust/crates/effects/src/colour_grading.rs:877
 msgid "Colour wheels, curves and LUT files for the look of the picture."
 msgstr "Roda warna, kurva, dan file LUT untuk mengatur tampilan gambar."
 
-#: rust/crates/effects/src/colour_grading.rs:873
+#: rust/crates/effects/src/colour_grading.rs:878
 msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
 msgstr "Tanpanya tidak ada kartu Colour grading dan gambar tetap menggunakan warna bawaan kamera."
 
-#: rust/crates/effects/src/colour_grading.rs:947 rust/crates/effects/src/colour_grading.rs:993
+#: rust/crates/effects/src/colour_grading.rs:957 rust/crates/effects/src/colour_grading.rs:1003
 msgid "Compare before and after"
 msgstr "Bandingkan sebelum dan sesudah"
 
-#: rust/crates/effects/src/colour_grading.rs:971 rust/crates/effects/src/colour_grading.rs:1006
+#: rust/crates/effects/src/colour_grading.rs:981 rust/crates/effects/src/colour_grading.rs:1016
 msgid "LUT strength"
 msgstr "Intensitas LUT"
 
@@ -1224,7 +1224,7 @@ msgid "Black and white"
 msgstr "Hitam putih"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:690 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/effects/ui/colour_grading.slint:211 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:690 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
 msgid "Auto"
 msgstr "Otomatis"
 
@@ -2511,135 +2511,115 @@ msgstr "Zebra mulai dari"
 msgid "Scope size"
 msgstr "Ukuran scope"
 
-#: rust/crates/effects/ui/colour_grading.slint:167 rust/crates/effects/ui/colour_grading.slint:174
+#: rust/crates/effects/ui/colour_grading.slint:163 rust/crates/effects/ui/colour_grading.slint:170
 msgid "Compare"
 msgstr "Bandingkan"
 
-#: rust/crates/effects/ui/colour_grading.slint:176
+#: rust/crates/effects/ui/colour_grading.slint:172
 msgid "Left of the line the preview shows the picture without the grade (apps always get it graded)"
 msgstr "Di sebelah kiri garis, pratinjau menampilkan gambar tanpa grading (aplikasi selalu menerima hasil grading)"
 
-#: rust/crates/effects/ui/colour_grading.slint:183
+#: rust/crates/effects/ui/colour_grading.slint:179
 msgid "Split"
 msgstr "Pemisah"
 
-#: rust/crates/effects/ui/colour_grading.slint:184
+#: rust/crates/effects/ui/colour_grading.slint:180
 msgid "Where the line between before and after is"
 msgstr "Posisi garis antara sebelum dan sesudah"
 
-#: rust/crates/effects/ui/colour_grading.slint:196
-msgid "After Auto"
-msgstr ""
-
-#: rust/crates/effects/ui/colour_grading.slint:201
-msgid "Darker"
-msgstr ""
-
-#: rust/crates/effects/ui/colour_grading.slint:202
-msgid "Make the picture a little darker"
-msgstr ""
-
-#: rust/crates/effects/ui/colour_grading.slint:207
-msgid "Brighter"
-msgstr ""
-
-#: rust/crates/effects/ui/colour_grading.slint:208
-msgid "Make the picture a little brighter"
-msgstr ""
-
-#: rust/crates/effects/ui/colour_grading.slint:213
-msgid "Undo"
-msgstr ""
-
-#: rust/crates/effects/ui/colour_grading.slint:214
-msgid "Put the sliders back as they were before Auto"
-msgstr ""
-
-#: rust/crates/effects/ui/colour_grading.slint:228
+#: rust/crates/effects/ui/colour_grading.slint:195
 msgid "Primaries"
 msgstr "Primer"
 
-#: rust/crates/effects/ui/colour_grading.slint:228
+#: rust/crates/effects/ui/colour_grading.slint:195
 msgid "Curves"
 msgstr "Kurva"
 
-#: rust/crates/effects/ui/colour_grading.slint:228 rust/crates/effects/ui/colour_grading.slint:407
+#: rust/crates/effects/ui/colour_grading.slint:195 rust/crates/effects/ui/colour_grading.slint:380
 msgid "LUT"
 msgstr "LUT"
 
-#: rust/crates/effects/ui/colour_grading.slint:232
+#: rust/crates/effects/ui/colour_grading.slint:199
 msgid "Page"
 msgstr "Halaman"
 
-#: rust/crates/effects/ui/colour_grading.slint:239
-msgid "Auto grade"
+#: rust/crates/effects/ui/colour_grading.slint:205
+msgid "Undo"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:240
+#: rust/crates/effects/ui/colour_grading.slint:206
+msgid "Put the sliders back as they were before Auto"
+msgstr ""
+
+#: rust/crates/effects/ui/colour_grading.slint:212
+msgid "Auto colour grading"
+msgstr ""
+
+#: rust/crates/effects/ui/colour_grading.slint:213
 msgid "Looks at about a second of the picture and sets white balance, brightness, contrast and colour for you. Everything it sets stays on the sliders to change"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:248 rust/crates/effects/ui/colour_grading.slint:251
+#: rust/crates/effects/ui/colour_grading.slint:221 rust/crates/effects/ui/colour_grading.slint:224
 msgid "Reset the grade"
 msgstr "Reset grading"
 
-#: rust/crates/effects/ui/colour_grading.slint:369
+#: rust/crates/effects/ui/colour_grading.slint:342
 msgid "RGB"
 msgstr "RGB"
 
-#: rust/crates/effects/ui/colour_grading.slint:369
+#: rust/crates/effects/ui/colour_grading.slint:342
 msgid "Hue vs sat"
 msgstr "Hue vs sat"
 
-#: rust/crates/effects/ui/colour_grading.slint:369
+#: rust/crates/effects/ui/colour_grading.slint:342
 msgid "Hue vs hue"
 msgstr "Hue vs hue"
 
-#: rust/crates/effects/ui/colour_grading.slint:373 rust/crates/effects/ui/colour_grading.slint:393
+#: rust/crates/effects/ui/colour_grading.slint:346 rust/crates/effects/ui/colour_grading.slint:366
 msgid "Curve"
 msgstr "Kurva"
 
-#: rust/crates/effects/ui/colour_grading.slint:379
+#: rust/crates/effects/ui/colour_grading.slint:352
 msgid "All"
 msgstr "Semua"
 
-#: rust/crates/effects/ui/colour_grading.slint:383 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
+#: rust/crates/effects/ui/colour_grading.slint:356 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
 msgid "Channel"
 msgstr "Kanal"
 
-#: rust/crates/effects/ui/colour_grading.slint:412
+#: rust/crates/effects/ui/colour_grading.slint:385
 msgid "Load…"
 msgstr "Muat…"
 
-#: rust/crates/effects/ui/colour_grading.slint:413
+#: rust/crates/effects/ui/colour_grading.slint:386
 msgid "Pick a .cube LUT to put on top of the grade"
 msgstr "Pilih LUT .cube untuk diterapkan di atas grading"
 
-#: rust/crates/effects/ui/colour_grading.slint:430 rust/crates/effects/ui/colour_grading.slint:433
+#: rust/crates/effects/ui/colour_grading.slint:403 rust/crates/effects/ui/colour_grading.slint:406
 msgid "Take the LUT off"
 msgstr "Hapus LUT"
 
-#: rust/crates/effects/ui/colour_grading.slint:439
+#: rust/crates/effects/ui/colour_grading.slint:412
 msgid "Strength"
 msgstr "Intensitas"
 
-#: rust/crates/effects/ui/colour_grading.slint:440
+#: rust/crates/effects/ui/colour_grading.slint:413
 msgid "How much of the LUT's look goes on the picture"
 msgstr "Seberapa kuat tampilan LUT diterapkan pada gambar"
 
-#: rust/crates/effects/ui/colour_grading.slint:457
+#: rust/crates/effects/ui/colour_grading.slint:430
 msgid "Export"
 msgstr "Ekspor"
 
-#: rust/crates/effects/ui/colour_grading.slint:461
+#: rust/crates/effects/ui/colour_grading.slint:434
 msgid "Export grade…"
 msgstr "Ekspor grade…"
 
-#: rust/crates/effects/ui/colour_grading.slint:462
+#: rust/crates/effects/ui/colour_grading.slint:435
 msgid "Save the grade, LUT included, as a .cube file for other apps"
 msgstr "Simpan grade, termasuk LUT, sebagai file .cube untuk aplikasi lain"
 
-#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:680
+#: rust/crates/effects/ui/colour_grading.slint:447 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:680
 msgid "Replace"
 msgstr "Ganti"
 
