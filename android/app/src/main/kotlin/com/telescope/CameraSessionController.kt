@@ -551,8 +551,23 @@ class CameraSessionController(
     fun setExposureLock(on: Boolean): Boolean {
         if (on && (cameraOff || taken || !exposureLock.request(currentCamera?.supportsExposureLock == true, SystemClock.elapsedRealtime()))) return false
         if (!on) exposureLock.release()
-        post { applyExposure() }
+        post { applyExposure(); scheduleLapseCheck() }
         return true
+    }
+
+    // On the camera thread; one chain at a time, so the lapse doesn't wait on capture results (they stall when the desktop does)
+    private var lapseCheckScheduled = false
+
+    private fun scheduleLapseCheck() {
+        if (lapseCheckScheduled) return
+        val delay = exposureLock.lapseIn(SystemClock.elapsedRealtime()) ?: return
+        lapseCheckScheduled = true
+        handler?.postDelayed({
+            lapseCheckScheduled = false
+            if (stopped) return@postDelayed
+            if (exposureLock.lapse(SystemClock.elapsedRealtime())) applyExposure()
+            scheduleLapseCheck()
+        }, delay)
     }
     fun setTorch(on: Boolean)               { currentTorch = on;                post { applyExposure() } }
 

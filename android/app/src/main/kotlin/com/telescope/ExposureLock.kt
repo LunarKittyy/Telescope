@@ -46,6 +46,9 @@ class ExposureLock {
         return false
     }
 
+    // How long until a held lock is due to lapse (at least 1), or null when nothing is held; for a check that doesn't wait on capture results
+    fun lapseIn(now: Long): Long? = if (asked) maxOf(1L, askedAt + LEASE_MS + 1 - now) else null
+
     // A capture result: confirmed only by one of the request of this lock (its tag is the generation), with each of auto
     // exposure and auto white balance holding, or set by hand already (where a lock means nothing)
     fun onResult(requestGeneration: Int?, aeLocked: Boolean, awbLocked: Boolean) {

@@ -2,6 +2,7 @@ package com.telescope
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -130,6 +131,26 @@ class ExposureLockTest {
         assertTrue(lock.lapse(ExposureLock.LEASE_MS + 1))
         assertEquals("off", lock.wire)
         assertFalse(lock.lapse(ExposureLock.LEASE_MS * 5), "nothing to let go of")
+    }
+
+    @Test
+    fun `a lock lapses on schedule with no capture results at all`() {
+        val lock = ExposureLock()
+        assertNull(lock.lapseIn(0))
+        lock.request(available = true, now = 1_000)
+        var now = 1_000L
+        var lapsed = false
+        var checks = 0
+        while (!lapsed && checks++ < 10) {
+            now += lock.lapseIn(now)!!
+            lapsed = lock.lapse(now)
+        }
+        assertTrue(lapsed)
+        assertEquals(1_000 + ExposureLock.LEASE_MS + 1, now)
+        assertEquals("off", lock.wire)
+        assertNull(lock.lapseIn(now))
+        lock.request(available = true, now = now)
+        assertEquals(2, lock.generation)
     }
 
     @Test
