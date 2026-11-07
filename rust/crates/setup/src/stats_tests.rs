@@ -435,14 +435,14 @@ fn the_phone_is_only_asked_while_the_card_is_up_with_a_stream_and_told_to_stop()
     assert!(host.calls.iter().any(|c| c.starts_with("request_phone_state")), "it first learns what the phone takes");
     assert!(controls(&host).is_empty(), "and sends nothing before it knows");
     plugin.on_event(&mut host, &Event::PhoneStateUpdated { state: new_phone_state() });
-    assert_eq!(controls(&host), [r#"phone_control None {"action":"stats","value":1}"#]);
+    assert_eq!(controls(&host), [r#"phone_control Some("phone") {"action":"stats","value":1}"#]);
     // The lease is renewed on the timer
     plugin.on_event(&mut host, &Event::TimerFired { owner: NAME.into(), token: "phone".into() });
     assert_eq!(controls(&host).len(), 2);
     assert!(host.scheduled.iter().any(|(_, t)| t == "phone"));
     // Hiding the window lets go
     plugin.on_event(&mut host, &Event::WindowShown { shown: false });
-    assert_eq!(controls(&host).last().unwrap(), r#"phone_control None {"action":"stats","value":0}"#);
+    assert_eq!(controls(&host).last().unwrap(), r#"phone_control Some("phone") {"action":"stats","value":0}"#);
     assert!(host.scheduled.iter().all(|(_, t)| t != "phone"));
     let sent = controls(&host).len();
     plugin.on_event(&mut host, &Event::WindowShown { shown: false });
@@ -468,4 +468,118 @@ fn a_stream_ending_clears_the_phones_numbers() {
     plugin.on_event(&mut host, &Event::PhoneStateUpdated { state: new_phone_state() });
     plugin.on_stream_stop(&mut host);
     assert!(!has_row(&props(&host), "Delay on the phone"));
+}
+
+fn stream(id: &str) -> telescope_core::plugin::StreamInfo {
+    telescope_core::plugin::StreamInfo { source_id: id.into(), url: String::new(), session: 1 }
+}
+
+fn streaming_with_lease() -> (StatsPlugin, FakeHost) {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    host.streaming = true;
+    plugin.on_stream_start(&mut host, &stream("phone"));
+    plugin.on_event(&mut host, &Event::PhoneStateUpdated { state: new_phone_state() });
+    assert_eq!(controls(&host).len(), 1);
+    (plugin, host)
+}
+
+#[test]
+fn folding_the_card_lets_the_phone_go_and_unfolding_asks_again() {
+    let (mut plugin, mut host) = streaming_with_lease();
+    plugin.on_event(&mut host, &Event::CardFolded { key: "other/Card".into(), folded: true });
+    assert_eq!(controls(&host).len(), 1, "another card's fold is none of its business");
+    plugin.on_event(&mut host, &Event::CardFolded { key: "stats/Stats".into(), folded: true });
+    assert_eq!(controls(&host).last().unwrap(), r#"phone_control Some("phone") {"action":"stats","value":0}"#);
+    assert!(host.scheduled.iter().all(|(_, t)| t != "phone"));
+    plugin.on_event(&mut host, &Event::TimerFired { owner: NAME.into(), token: "phone".into() });
+    assert_eq!(controls(&host).len(), 2, "no renewal while folded");
+    plugin.on_event(&mut host, &Event::CardFolded { key: "stats/Stats".into(), folded: false });
+    assert!(host.scheduled.iter().any(|(_, t)| t == "phone"));
+}
+
+#[test]
+fn a_card_that_starts_folded_never_asks_the_phone() {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    plugin.on_event(&mut host, &Event::CardFolded { key: "stats/Stats".into(), folded: true });
+    host.streaming = true;
+    plugin.on_stream_start(&mut host, &stream("phone"));
+    plugin.on_event(&mut host, &Event::PhoneStateUpdated { state: new_phone_state() });
+    assert!(controls(&host).is_empty() && host.scheduled.is_empty());
+}
+
+#[test]
+fn a_recent_pacing_problem_is_not_blamed_on_old_network_losses() {
+    let mut s = source_with(|s| {
+        s.drops.lost_on_link = 1000;
+        s.drops.paced = 30;
+    });
+    // A thousand losses early on, then twenty quiet seconds, then ten seconds of pacing drops
+    let mut totals = Vec::new();
+    for i in 0..30u64 {
+        let mut d = telescope_core::stats::Drops { lost_on_link: 1000, ..Default::default() };
+        d.paced = i.saturating_sub(20) * 3;
+        totals.push(d);
+    }
+    s.series.drop_totals = totals;
+    s.series.dropped_fps = [vec![0.0; 20], vec![3.0; 10]].concat();
+    assert_eq!(verdict(&s), Verdict::Dropping(DropReason::Paced));
+}
+
+#[test]
+fn switching_phones_lets_the_old_one_go_and_clears_its_numbers() {
+    let (mut plugin, mut host) = streaming_with_lease();
+    host.live.push("phone".into());
+    host.focused = Some("other".into());
+    plugin.on_focus_gained(&mut host, &stream("other"));
+    assert_eq!(controls(&host).last().unwrap(), r#"phone_control Some("phone") {"action":"stats","value":0}"#);
+    assert!(!has_row(&props(&host), "Delay on the phone"), "the old phone's rows are gone");
+    let sent = controls(&host).len();
+    plugin.on_event(&mut host, &Event::PhoneStateUpdated { state: json!({"camera_fps": 30.0, "battery_temp_c": 30.0}) });
+    assert_eq!(controls(&host).len(), sent, "an older phone is not sent a control it doesn't take");
+    plugin.on_event(&mut host, &Event::TimerFired { owner: NAME.into(), token: "phone".into() });
+    assert_eq!(controls(&host).len(), sent);
+}
+
+#[test]
+fn the_new_phone_is_the_one_asked() {
+    let (mut plugin, mut host) = streaming_with_lease();
+    host.focused = Some("other".into());
+    plugin.on_focus_gained(&mut host, &stream("other"));
+    plugin.on_event(&mut host, &Event::PhoneStateUpdated { state: new_phone_state() });
+    assert_eq!(controls(&host).last().unwrap(), r#"phone_control Some("other") {"action":"stats","value":1}"#);
+}
+
+#[test]
+fn diagnostics_follow_the_stream_the_phone_numbers_belong_to() {
+    let hub = Hub::new();
+    let a = hub.register("phone-a", 0);
+    let b = hub.register("phone-b", 1);
+    a.received(10, 0);
+    b.received(25, 0);
+    let snap = hub.snapshot_at(telescope_core::time::monotonic_ns() + SECOND, None, None);
+    let (mut plugin, mut host) = set_up(snap);
+    host.focused = Some("phone-b".into());
+    plugin.on_focus_gained(&mut host, &stream("phone-b"));
+    plugin.set_config(&json!({"view": "nerd"})).unwrap();
+    let stream_line = plugin.diagnostics().into_iter().find(|(k, _)| k == "Stats stream").unwrap().1;
+    assert!(stream_line.contains("25 frames in"), "{stream_line}");
+}
+
+#[test]
+fn the_phone_graph_is_one_value_for_each_second() {
+    let now = 200 * SECOND;
+    // A reading, then two in one second, a gap, and one: the slowest of a second wins and the quiet seconds up to now repeat the last value
+    let samples = [(now - 5 * SECOND, 4.0), (now - 5 * SECOND + 300 * MS, 9.0), (now - 5 * SECOND + 600 * MS, 5.0), (now - 3 * SECOND, 6.0)];
+    assert_eq!(delay_series(&samples, now), [4.0, 9.0, 6.0, 6.0, 6.0, 6.0]);
+    assert!(delay_series(&[(now - 120 * SECOND, 3.0)], now).is_empty(), "older than the graph is left out");
+    assert!(delay_series(&[], now).is_empty());
+}
+
+#[test]
+fn active_heat_limiting_is_throttling_even_while_android_says_cool() {
+    let p = phone_props(json!({"battery_temp_c": 38.0, "heat_fps": 24, "stats": {"encode_ms": 5.0, "thermal": 1, "thermal_headroom": 0.95}}), false);
+    let throttling = row(&p, "Throttling");
+    assert_eq!((throttling["value"].as_str(), throttling["kind"].as_str(), throttling["note"].as_str()), (Some("Yes"), Some("status_warn"), Some("capped at 24 fps")));
 }

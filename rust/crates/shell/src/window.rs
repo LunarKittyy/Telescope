@@ -501,9 +501,12 @@ impl Window {
             let Some(w) = weak.upgrade() else { return SValue::Void };
             if let Some(SValue::String(key)) = args.first() {
                 if w.state.borrow_mut().collapse.toggle(key) {
+                    let folded = w.state.borrow().collapse.is_folded(key);
+                    w.state.borrow_mut().bus.emit(Event::CardFolded { key: key.to_string(), folded });
                     w.fold_version.set(w.fold_version.get() + 1);
                     let _ = w.ui.set_global_property("Folds", "version", SValue::Number(w.fold_version.get() as f64));
                     w.schedule_save();
+                    w.process();
                 }
             }
             SValue::Void

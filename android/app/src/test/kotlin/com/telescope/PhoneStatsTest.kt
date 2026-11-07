@@ -75,6 +75,23 @@ class PhoneStatsTest {
     }
 
     @Test
+    fun `a timestamp is read on whichever clock it is from, even after the phone slept`() {
+        val monoNs = 50_000_000_000L
+        val realNs = monoNs + 3_600_000_000_000L
+        assertEquals(25.0, PhoneStats.delayMs((monoNs - 25_000_000L) / 1000, monoNs, realNs)!!, 0.001, "monotonic stamp")
+        assertEquals(25.0, PhoneStats.delayMs((realNs - 25_000_000L) / 1000, monoNs, realNs)!!, 0.001, "elapsed-realtime stamp")
+        assertNull(PhoneStats.delayMs(1_000_000L, monoNs, realNs), "on neither")
+    }
+
+    @Test
+    fun `the lease runs on the monotonic clock, not the wall clock`() {
+        val live = PhoneStats()
+        live.ask(true)
+        assertTrue(live.active())
+        assertTrue(kotlin.math.abs(PhoneStats.monotonicMs() - System.nanoTime() / 1_000_000) < 1_000)
+    }
+
+    @Test
     fun `the packet queue reports how long each packet waited`() {
         var t = 0L
         val waits = mutableListOf<Long>()

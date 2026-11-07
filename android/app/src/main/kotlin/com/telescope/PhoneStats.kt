@@ -4,7 +4,8 @@ import kotlinx.serialization.Serializable
 
 // What the phone measures for the desktop's Stats card. Nothing is measured unless the desktop asked in the last LEASE_MS
 // (control "stats" value=1, sent again every few seconds), so a closed card or a vanished desktop costs the phone nothing.
-class PhoneStats(private val clock: () -> Long = System::currentTimeMillis) {
+// The lease and the sample window run on a monotonic clock, so setting the phone's wall clock can't stretch or cut them.
+class PhoneStats(private val clock: () -> Long = ::monotonicMs) {
     companion object {
         const val LEASE_MS = 10_000L
         const val WINDOW_MS = 2_000L
@@ -12,12 +13,22 @@ class PhoneStats(private val clock: () -> Long = System::currentTimeMillis) {
         private const val MAX_DELAY_MS = 2_000.0
         val shared = PhoneStats()
 
-        /** Milliseconds from a frame's camera timestamp to [nowNs] (both SystemClock.elapsedRealtimeNanos), or null when it isn't believable. */
+        fun monotonicMs(): Long = System.nanoTime() / 1_000_000
+
+        /** Milliseconds from a frame's camera timestamp to [nowNs] on the clock the timestamp is from, or null when it isn't believable. */
         fun delayMs(timestampUs: Long, nowNs: Long): Double? {
             if (timestampUs <= 0) return null
             val ms = (nowNs - timestampUs * 1000) / 1_000_000.0
             return ms.takeIf { it in 0.0..MAX_DELAY_MS }
         }
+
+        /**
+         * The camera hands the encoder timestamps on the monotonic clock (System.nanoTime) or, from some sensors, on
+         * the elapsed-realtime one, which also counts time asleep. A timestamp is believable on one of them only, once
+         * the phone has slept for more than the limit; a reading on neither is dropped rather than guessed.
+         */
+        fun delayMs(timestampUs: Long, monotonicNs: Long, realtimeNs: Long): Double? =
+            delayMs(timestampUs, monotonicNs) ?: delayMs(timestampUs, realtimeNs)
     }
 
     private class Sample(val atMs: Long, val value: Double)

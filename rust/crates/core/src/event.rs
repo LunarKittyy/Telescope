@@ -146,6 +146,8 @@ events! {
     "stream_covered" => StreamCovered { covered: bool },
     /// The main window came on screen, or went to the tray or was minimized.
     "window_shown" => WindowShown { shown: bool },
+    /// A card was folded or unfolded, or its remembered fold loaded: its key ("<plugin>/<card title in English>") and whether it is folded now.
+    "card_folded" => CardFolded { key: String, folded: bool },
     /// Something waits for the phone to be ready (Automatic streaming), so it's checked even with the window hidden.
     "phone_wanted" => PhoneWanted { wanted: bool, held: bool },
     /// The camera went off (the stream is just the mic) or back on, or what the next start uses changed.

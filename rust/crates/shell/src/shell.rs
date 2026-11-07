@@ -631,6 +631,9 @@ impl State {
     fn apply_config(&mut self, cfg: &mut Value) {
         let window = WindowState::from_config(cfg);
         self.collapse.load(cfg.get("collapsed"));
+        for key in self.collapse.keys() {
+            self.bus.emit(Event::CardFolded { key, folded: true });
+        }
         *self.slot_memory.borrow_mut() = window.output_slots.iter().filter_map(|(id, slot)| Some((id.clone(), u32::try_from(slot.as_u64()?).ok()?))).collect();
         self.selected = window.selected_device.clone();
         if profiles::spread_shared_settings(cfg, &self.device_local()) {

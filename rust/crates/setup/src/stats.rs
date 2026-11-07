@@ -104,6 +104,40 @@ fn graph(series: &[f32], floor: f32) -> String {
     out
 }
 
+/// The source the card shows: the focused stream's, or the first while none is focused.
+fn shown_source<'a>(snap: &'a Snapshot, focused: Option<&String>) -> Option<&'a SourceSnapshot> {
+    match focused {
+        Some(id) => snap.sources.iter().find(|s| &s.source_id == id),
+        None => snap.sources.first(),
+    }
+}
+
+const SECOND_NS: u64 = 1_000_000_000;
+
+/// The phone's delay readings (when they came in, in monotonic ns, and the delay) as one value for each of the last KEPT seconds up to `now_ns`,
+/// the slowest reading in a second, a second with none repeating the one before. Starts at the first reading.
+fn delay_series(samples: &[(u64, f32)], now_ns: u64) -> Vec<f32> {
+    let mut seconds: Vec<Option<f32>> = vec![None; telescope_core::stats::KEPT];
+    for (at, ms) in samples {
+        let age = (now_ns.saturating_sub(*at) / SECOND_NS) as usize;
+        if let Some(i) = seconds.len().checked_sub(1 + age) {
+            seconds[i] = Some(seconds[i].map_or(*ms, |m| m.max(*ms)));
+        }
+    }
+    let mut out = Vec::new();
+    let mut last = None;
+    for second in seconds {
+        last = second.or(last);
+        if let Some(v) = last {
+            out.push(v);
+        }
+    }
+    out
+}
+
+/// The card's fold key (the shell's "<plugin>/<card title in English>").
+const FOLD_KEY: &str = "stats/Stats";
+
 /// What the card knows besides the snapshot.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Context {
@@ -251,7 +285,13 @@ pub fn verdict(s: &SourceSnapshot) -> Verdict {
     }
     let recent = |series: &[f32]| series.iter().rev().take(RECENT_S).sum::<f32>();
     if recent(&s.series.dropped_fps) > 0.0 {
-        let worst = DropReason::ALL.into_iter().max_by_key(|r| s.drops.of(*r)).unwrap_or(DropReason::Unknown);
+        // The cause is picked from the same recent window that switched the verdict on, not from the whole run
+        let lately = match s.series.drop_totals.iter().rev().nth(RECENT_S) {
+            Some(before) => s.drops.since(before),
+            None => s.drops,
+        };
+        let lately = if lately.total() > 0 { lately } else { s.drops };
+        let worst = DropReason::ALL.into_iter().max_by_key(|r| lately.of(*r)).unwrap_or(DropReason::Unknown);
         return if worst == DropReason::LostOnLink { Verdict::LinkLosing } else { Verdict::Dropping(worst) };
     }
     if s.now.received_fps < target * 0.85 && s.link.route != Route::Local {
@@ -443,7 +483,11 @@ pub struct StatsPlugin {
     wanting: bool,
     /// The shown stream's phone, from its last /v1/state, and how long its delay was each moment since the card came up.
     phone: Option<PhoneReading>,
-    phone_delay: Vec<f32>,
+    phone_delay: Vec<(u64, f32)>,
+    /// The stream the phone's readings and the lease belong to: the one the panels show.
+    phone_source: Option<String>,
+    /// The card is folded, so nothing on it shows.
+    folded: bool,
     /// The phone is being asked for its measurements: the card is up with a stream running.
     asking: bool,
     /// A `stats` 1 went out and no 0 has since, so one is owed.
@@ -458,7 +502,7 @@ impl Default for StatsPlugin {
 
 impl StatsPlugin {
     pub fn new() -> StatsPlugin {
-        StatsPlugin { view: View::Standard, latest: None, window_shown: true, watched: None, wanting: false, phone: None, phone_delay: Vec::new(), asking: false, phone_on: false }
+        StatsPlugin { view: View::Standard, latest: None, window_shown: true, watched: None, wanting: false, phone: None, phone_delay: Vec::new(), phone_source: None, folded: false, asking: false, phone_on: false }
     }
 
     pub fn view(&self) -> View {
@@ -475,7 +519,7 @@ impl StatsPlugin {
             asked_mbps: host.plugin_config("stream_output").and_then(|c| c.get("bitrate_mbps").and_then(Value::as_f64)),
             watched: self.watched,
             phone: self.phone.clone(),
-            phone_delay: self.phone_delay.clone(),
+            phone_delay: delay_series(&self.phone_delay, telescope_core::time::monotonic_ns()),
         };
         let mut props = json!({
             "view": if self.view == View::Nerd { 1 } else { 0 },
@@ -485,8 +529,7 @@ impl StatsPlugin {
         });
         let focused = host.focused_source_id();
         let shown = self.latest.as_ref().and_then(|snap| {
-            let source = snap.sources.iter().find(|s| Some(&s.source_id) == focused.as_ref()).or_else(|| snap.sources.first())?;
-            Some((snap, source))
+            Some((snap, shown_source(snap, focused.as_ref())?))
         });
         match shown {
             Some((snap, source)) => {
@@ -514,9 +557,40 @@ impl StatsPlugin {
         }
     }
 
-    /// The phone only measures while the card is up with a stream running: it's asked every few seconds, and told to stop when that ends.
+    /// The card can be seen: the window is up and the card isn't folded.
+    fn visible(&self) -> bool {
+        self.window_shown && !self.folded
+    }
+
+    /// Readings and the lease belong to the stream the panels show: when that changes, the old phone is let go and its numbers go with it.
+    fn follow_focus(&mut self, host: &mut dyn Host) {
+        let focused = host.focused_source_id();
+        if focused == self.phone_source {
+            return;
+        }
+        self.release_phone(host);
+        self.phone_source = focused;
+        if let Some(id) = &self.phone_source {
+            self.phone = host.phone_state(Some(id)).and_then(|state| PhoneReading::from_state(&state));
+        }
+    }
+
+    /// Lets the current phone go (when it is still streaming to hear it) and forgets its numbers.
+    fn release_phone(&mut self, host: &mut dyn Host) {
+        if self.phone_on {
+            if let Some(id) = self.phone_source.clone().filter(|id| host.is_streaming_from(Some(id))) {
+                host.phone_control(Some(&id), &json!({"action": "stats", "value": 0}));
+            }
+        }
+        self.phone_on = false;
+        self.phone = None;
+        self.phone_delay.clear();
+    }
+
+    /// The phone only measures while the card can be seen with a stream running: it's asked every few seconds, and told to stop when that ends.
     fn ask_phone(&mut self, host: &mut dyn Host) {
-        let want = self.window_shown && host.is_streaming();
+        self.follow_focus(host);
+        let want = self.visible() && host.is_streaming();
         if want {
             if !self.asking {
                 self.asking = true;
@@ -535,20 +609,21 @@ impl StatsPlugin {
 
     /// An older phone doesn't take the control, so nothing is sent until its state says it does.
     fn send_phone(&mut self, host: &mut dyn Host, on: bool) {
+        let source = self.phone_source.clone();
         if on {
             if self.phone.as_ref().is_some_and(|p| p.takes_stats) {
-                host.phone_control(None, &json!({"action": "stats", "value": 1}));
+                host.phone_control(source.as_deref(), &json!({"action": "stats", "value": 1}));
                 self.phone_on = true;
             }
         } else if self.phone_on {
-            host.phone_control(None, &json!({"action": "stats", "value": 0}));
+            host.phone_control(source.as_deref(), &json!({"action": "stats", "value": 0}));
             self.phone_on = false;
         }
     }
 
     /// The costly numbers are only taken while the Nerd view can be seen.
     fn want(&mut self, host: &mut dyn Host) {
-        let want = self.window_shown && self.view == View::Nerd;
+        let want = self.visible() && self.view == View::Nerd;
         if want != self.wanting {
             self.wanting = want;
             host.want_stats(NAME, want);
@@ -585,14 +660,17 @@ impl Plugin for StatsPlugin {
         match event {
             Event::StatsUpdated { snapshot } => {
                 self.latest = Some(snapshot.clone());
+                self.follow_focus(host);
                 self.show(host);
             }
             Event::CameraWatched { watched } => self.watched = Some(*watched),
             Event::PhoneStateUpdated { state } => {
+                self.follow_focus(host);
                 self.phone = PhoneReading::from_state(state);
                 if let Some(ms) = self.phone.as_ref().and_then(PhoneReading::phone_delay_ms) {
-                    self.phone_delay.push(ms as f32);
-                    self.phone_delay.drain(..self.phone_delay.len().saturating_sub(telescope_core::stats::KEPT));
+                    let now = telescope_core::time::monotonic_ns();
+                    self.phone_delay.push((now, ms as f32));
+                    self.phone_delay.retain(|(at, _)| now.saturating_sub(*at) < telescope_core::stats::KEPT as u64 * SECOND_NS);
                 }
                 if self.asking {
                     self.send_phone(host, true);
@@ -605,6 +683,12 @@ impl Plugin for StatsPlugin {
             }
             Event::WindowShown { shown } => {
                 self.window_shown = *shown;
+                self.want(host);
+                self.ask_phone(host);
+                self.show(host);
+            }
+            Event::CardFolded { key, folded } if key == FOLD_KEY => {
+                self.folded = *folded;
                 self.want(host);
                 self.ask_phone(host);
                 self.show(host);
@@ -623,12 +707,19 @@ impl Plugin for StatsPlugin {
             self.phone = None;
             self.phone_delay.clear();
             self.phone_on = false;
+            self.phone_source = None;
             self.ask_phone(host);
             self.show(host);
         }
     }
 
     fn on_focus_gained(&mut self, host: &mut dyn Host, _stream: &telescope_core::plugin::StreamInfo) {
+        self.ask_phone(host);
+        self.show(host);
+    }
+
+    fn on_focus_lost(&mut self, host: &mut dyn Host) {
+        self.ask_phone(host);
         self.show(host);
     }
 
@@ -654,7 +745,7 @@ impl Plugin for StatsPlugin {
     }
 
     fn diagnostics(&self) -> Vec<(String, String)> {
-        match self.latest.as_ref().and_then(|snap| Some((snap, snap.sources.first()?))) {
+        match self.latest.as_ref().and_then(|snap| Some((snap, shown_source(snap, self.phone_source.as_ref())?))) {
             Some((snap, source)) if self.view == View::Nerd => summary(snap, source, self.phone.as_ref()),
             _ => Vec::new(),
         }

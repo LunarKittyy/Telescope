@@ -133,18 +133,20 @@ pub fn rows(p: &PhoneReading, nerd: bool, delay: &[f32], period_ms: f32) -> Vec<
     }
     match p.thermal {
         Some(status) => {
+            // The phone's own cap for heat counts as throttling even while Android's status is still low
             let hot = status >= THROTTLING_FROM;
+            let capped = p.heat_fps.is_some();
             let mut note = match p.heat_fps {
                 Some(cap) => tr("capped at {n}").field("n", whole_fps(cap)),
                 None => String::new(),
             };
-            if let (false, Some(h)) = (hot, p.thermal_headroom) {
+            if let (false, false, Some(h)) = (hot, capped, p.thermal_headroom) {
                 if h >= 0.9 {
                     note = tr("close to throttling");
                 }
             }
-            out.push(Row::line(&tr("Throttling"), if hot { tr("Yes, {level}").field("level", thermal_name(status).to_lowercase()) } else { tr("No") })
-                .kind(if hot { "status_warn" } else { "status_ok" }).note(note));
+            let value = if hot { tr("Yes, {level}").field("level", thermal_name(status).to_lowercase()) } else if capped { tr("Yes") } else { tr("No") };
+            out.push(Row::line(&tr("Throttling"), value).kind(if hot || capped { "status_warn" } else { "status_ok" }).note(note));
         }
         None if p.heat_fps.is_some() => {
             out.push(Row::line(&tr("Throttling"), tr("Yes")).kind("status_warn").note(tr("capped at {n}").field("n", whole_fps(p.heat_fps.unwrap_or(0)))));

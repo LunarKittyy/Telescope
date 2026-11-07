@@ -67,6 +67,19 @@ pub struct Drops {
 }
 
 impl Drops {
+    /// What was dropped since `earlier` (an older reading of the same totals).
+    pub fn since(&self, earlier: &Drops) -> Drops {
+        Drops {
+            lost_on_link: self.lost_on_link.saturating_sub(earlier.lost_on_link),
+            late: self.late.saturating_sub(earlier.late),
+            decoder_failed: self.decoder_failed.saturating_sub(earlier.decoder_failed),
+            waiting_for_keyframe: self.waiting_for_keyframe.saturating_sub(earlier.waiting_for_keyframe),
+            paced: self.paced.saturating_sub(earlier.paced),
+            step_failed: self.step_failed.saturating_sub(earlier.step_failed),
+            unknown: self.unknown.saturating_sub(earlier.unknown),
+        }
+    }
+
     pub fn total(&self) -> u64 {
         self.lost_on_link + self.late + self.decoder_failed + self.waiting_for_keyframe + self.paced + self.step_failed + self.unknown
     }
@@ -441,6 +454,9 @@ pub struct SourceSeries {
     pub decode_ms: Vec<f32>,
     pub step_ms: Vec<f32>,
     pub camera_ms: Vec<f32>,
+    /// The drop totals at the end of each of those seconds, so what was dropped lately can be told from the whole run.
+    #[serde(default)]
+    pub drop_totals: Vec<Drops>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -731,6 +747,10 @@ fn sample(e: &mut Entry, now_ns: u64) -> SourceSnapshot {
     keep(&mut s.decode_ms, decode);
     keep(&mut s.step_ms, step);
     keep(&mut s.camera_ms, camera);
+    if s.drop_totals.len() >= KEPT {
+        s.drop_totals.remove(0);
+    }
+    s.drop_totals.push(drops);
     let meta = e.stats.meta.lock().unwrap_or_else(|p| p.into_inner());
     let link = LinkInfo::of_url(&meta.url, meta.plugin_source);
     SourceSnapshot {
