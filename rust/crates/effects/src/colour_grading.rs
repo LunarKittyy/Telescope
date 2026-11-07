@@ -14,7 +14,7 @@ use telescope_core::actions::{self, SliderSpec};
 use telescope_core::colour::{lattice, LEVELS};
 use telescope_core::event::Event;
 use crate::auto_fit::{self, Basic, Fit, Wb};
-use crate::auto_grade::{AutoState, CameraLock, MeasureStep, Undo, POST_MEASURED, T_HOLD, T_LABEL, T_TIMEOUT};
+use crate::auto_grade::{AutoState, CameraLock, MeasureStep, POST_MEASURED, T_HOLD, T_LABEL, T_TIMEOUT};
 use crate::auto_measure::Measurement;
 use crate::auto_tuning::{HOLD_TIMEOUT_MS, LABEL_MS, MEASURE_TIMEOUT_MS};
 use telescope_core::frame::{FrameStage, FrameStep};
@@ -566,9 +566,6 @@ impl ColourGradingPlugin {
         CameraLock::default()
     }
 
-    /// Puts the camera back as `lock_camera` found it. Nothing to put back yet.
-    fn restore_camera(&mut self, _host: &mut dyn Host, _state: &Value) {}
-
     fn auto_pressed(&mut self, host: &mut dyn Host) {
         if self.auto.busy {
             return;
@@ -661,9 +658,8 @@ impl ColourGradingPlugin {
         if lock.drifts && fit.moved.any() {
             sentences.push(tr(AUTO_DRIFTS));
         }
-        // Nothing to change leaves the sliders as the person has them, and a second press with the same answer keeps the first one's Undo
+        // Nothing to change leaves the sliders as the person has them, and a second press with the same answer changes nothing
         if (fit.moved.any() || take_off) && !same {
-            self.auto.undo = Some(Undo { basic: before, camera: lock.restore });
             self.auto.wrote = fit.moved.any();
             fit.values.put(&mut self.grade);
             self.show_all(host);
@@ -674,19 +670,6 @@ impl ColourGradingPlugin {
         if !(fit.moved.any() || take_off) {
             self.flash(host, AUTO_LABEL_FINE);
         }
-    }
-
-    fn auto_undone(&mut self, host: &mut dyn Host) {
-        let Some(undo) = self.auto.undo.take() else { return };
-        undo.basic.put(&mut self.grade);
-        self.auto.wrote = false;
-        if let Some(camera) = &undo.camera {
-            self.restore_camera(host, camera);
-        }
-        self.auto.note = (String::new(), "dim");
-        self.show_all(host);
-        self.publish(host);
-        host.schedule_save();
     }
 
     /// Frames are being looked at from now on, and the measurement has its own time to finish in.
@@ -716,7 +699,7 @@ impl ColourGradingPlugin {
         // the LUT has its own way off
         let (lut, strength) = (self.grade.lut.take(), self.grade.lut_strength);
         self.grade = Grade { lut, lut_strength: strength, ..Grade::default() };
-        (self.auto.undo, self.auto.wrote) = (None, false);
+        self.auto.wrote = false;
         self.show_all(host);
         self.publish(host);
         host.schedule_save();
@@ -786,7 +769,6 @@ impl ColourGradingPlugin {
             }
             "reset-clicked" => self.reset(host),
             "auto-clicked" => self.auto_pressed(host),
-            "auto-undo-clicked" => self.auto_undone(host),
             "wheel-pressed" => self.wheels[n(0) as usize % 4].press(),
             "wheel-dragged" => {
                 let i = n(0) as usize % 4;
@@ -1158,7 +1140,7 @@ impl Plugin for ColourGradingPlugin {
         self.lut_problem = problem;
         self.lut_path = path;
         self.grade = g;
-        (self.auto.undo, self.auto.wrote) = (None, false);
+        self.auto.wrote = false;
         self.on = cfg.get("on") != Some(&Value::Bool(false));
         // once, with the whole grade, so the stream never sees half of it: the next hook with a host does it
         self.dirty = true;

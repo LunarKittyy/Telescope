@@ -1,4 +1,4 @@
-//! Auto colour grading through the Colour grading plugin: the button, the frame step looking at generated frames, the sliders going in at once, Undo, and the baked result against the maths.
+//! Auto colour grading through the Colour grading plugin: the button, the frame step looking at generated frames, the sliders going in at once, and the baked result against the maths.
 
 use crate::auto_scene::*;
 use crate::colour_grading::ColourGradingPlugin;
@@ -171,37 +171,21 @@ fn a_press_measures_a_second_of_frames_then_puts_every_slider_in_at_once() {
     assert!(g.tint > 5.0, "green is countered: {:?}", g.tint);
     assert_eq!(r.published(), before + 1, "one publish for the whole answer");
     assert!(r.note().starts_with("Auto changed"), "{}", r.note());
-    assert_eq!(r.shown("auto-undo"), json!(true));
     // the card shows the new values
     assert!(r.shown("slider-value").as_array().unwrap()[1].as_f64().unwrap() > 5.0);
 }
 
 #[test]
-fn undo_puts_the_old_sliders_back() {
-    let mut r = Rig::new("ready");
-    r.ui("slider-moved", vec![json!(0), json!(12.0)]);
-    let old = (r.plugin.grade().temperature, r.plugin.grade().tint, r.plugin.grade().masters[1]);
-    r.press_and_measure(&Scene::default(), green().as_ref());
-    assert!(r.plugin.grade().tint != old.1);
-    r.ui("auto-undo-clicked", vec![]);
-    let g = r.plugin.grade();
-    assert_eq!((g.temperature, g.tint, g.masters[1]), old);
-    assert_eq!(r.shown("auto-undo"), json!(false));
-}
-
-#[test]
-fn auto_and_its_undo_leave_vibrance_alone() {
+fn auto_leaves_vibrance_alone() {
     let mut r = Rig::new("ready");
     r.ui("slider-moved", vec![json!(5), json!(40.0)]);
     r.press_and_measure(&Scene::default(), green().as_ref());
     assert!(r.plugin.grade().tint > 5.0);
     assert_eq!(r.plugin.grade().vibrance, 40.0);
-    r.ui("auto-undo-clicked", vec![]);
-    assert_eq!(r.plugin.grade().vibrance, 40.0);
 }
 
 #[test]
-fn pressing_twice_gives_the_same_sliders_and_one_undo_back_to_the_start() {
+fn pressing_twice_gives_the_same_sliders() {
     let mut r = Rig::new("ready");
     r.press_and_measure(&Scene::default(), green().as_ref());
     let first = r.plugin.grade().clone();
@@ -211,8 +195,6 @@ fn pressing_twice_gives_the_same_sliders_and_one_undo_back_to_the_start() {
     assert_eq!((first.temperature, first.tint), (second.temperature, second.tint));
     assert!((first.contrast - second.contrast).abs() < 0.02 && (first.saturation - second.saturation).abs() < 0.03);
     assert!(r.published() <= published + 1);
-    r.ui("auto-undo-clicked", vec![]);
-    assert!(r.plugin.grade().is_identity(), "one Undo goes back to before the first press");
 }
 
 #[test]
@@ -224,7 +206,6 @@ fn a_picture_that_is_fine_leaves_the_sliders_the_person_set_alone() {
     assert!(r.note().starts_with("Nothing to change"), "{}", r.note());
     assert_eq!(r.plugin.grade().temperature, -20.0);
     assert_eq!(r.published(), published);
-    assert_eq!(r.shown("auto-undo"), json!(false));
 }
 
 #[test]
@@ -347,8 +328,6 @@ fn a_picture_that_needs_nothing_now_takes_off_what_auto_set_before() {
     r.press_and_measure(&Scene::default(), right().as_ref());
     assert!(r.note().contains("taken off"), "{}", r.note());
     assert!(r.plugin.grade().is_identity(), "{:?}", r.plugin.grade().tint);
-    r.ui("auto-undo-clicked", vec![]);
-    assert!(r.plugin.grade().tint > 5.0, "Undo brings the earlier answer back");
 }
 
 #[test]
