@@ -501,6 +501,10 @@ mod win {
 
 /// What reads and sets a webcam's controls on this system, or None where that can't be done.
 pub fn controls_for(device: &crate::webcams::Device) -> Option<Box<dyn Controls>> {
+    // A DSLR's live view has no picture settings to read or set
+    if crate::webcams::is_gphoto(&device.location) {
+        return None;
+    }
     #[cfg(target_os = "linux")]
     {
         struct Owned(std::fs::File);

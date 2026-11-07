@@ -1224,7 +1224,7 @@ msgid "Black and white"
 msgstr "黑白"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:690 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:705 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
 msgid "Auto"
 msgstr "自动"
 
@@ -3242,7 +3242,7 @@ msgstr "手机拒绝了麦克风请求（HTTP {code}）。"
 msgid "No microphone"
 msgstr "无麦克风"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:687 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:702 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "未串流"
 
@@ -4434,71 +4434,75 @@ msgstr "50 Hz"
 msgid "60 Hz"
 msgstr "60 Hz"
 
-#: rust/crates/outputs/src/webcam.rs:278
+#: rust/crates/outputs/src/webcam.rs:283
 msgid "Check that it's plugged in."
 msgstr "请检查是否已插好。"
 
-#: rust/crates/outputs/src/webcam.rs:410
+#: rust/crates/outputs/src/webcam.rs:420
 msgid "Another app may be using it. Close it there and it starts here."
 msgstr "可能有其他应用正在使用它。在对应应用中将其关闭即可在此启动。"
 
-#: rust/crates/outputs/src/webcam.rs:412
+#: rust/crates/outputs/src/webcam.rs:422
 #, python-brace-format
 msgid "{app} is using it. Close it there and it starts here."
 msgstr "{app} 正在使用它。在对应应用中将其关闭即可在此启动。"
 
-#: rust/crates/outputs/src/webcam.rs:414 rust/crates/outputs/src/webcam.rs:417
+#: rust/crates/outputs/src/webcam.rs:424 rust/crates/outputs/src/webcam.rs:427 rust/crates/outputs/src/webcam.rs:430
 #, python-brace-format
 msgid "Can't open {name}"
 msgstr "无法打开 {name}"
 
-#: rust/crates/outputs/src/webcam.rs:677
+#: rust/crates/outputs/src/webcam.rs:690
 msgid "Not plugged in"
 msgstr "未插入"
 
-#: rust/crates/outputs/src/webcam.rs:679
+#: rust/crates/outputs/src/webcam.rs:692
 msgid "Blocked by Windows or security software"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:681
+#: rust/crates/outputs/src/webcam.rs:694
 msgid "In use by another app"
 msgstr "其他应用正在使用"
 
-#: rust/crates/outputs/src/webcam.rs:681
+#: rust/crates/outputs/src/webcam.rs:694
 #, python-brace-format
 msgid "In use by {app}"
 msgstr "{app} 正在使用"
 
-#: rust/crates/outputs/src/webcam.rs:683
+#: rust/crates/outputs/src/webcam.rs:696
+msgid "Mounted as a drive"
+msgstr ""
+
+#: rust/crates/outputs/src/webcam.rs:698
 msgid "Not sending anything"
 msgstr "未发送任何内容"
 
-#: rust/crates/outputs/src/webcam.rs:685
+#: rust/crates/outputs/src/webcam.rs:700
 msgid "Starting…"
 msgstr "正在启动…"
 
-#: rust/crates/outputs/src/webcam.rs:698
+#: rust/crates/outputs/src/webcam.rs:713
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
 msgstr "摄像头输出的尺寸；“自动”会选择维持帧率的前提下最高 1080p 的最大尺寸"
 
-#: rust/crates/outputs/src/webcam.rs:722
+#: rust/crates/outputs/src/webcam.rs:737
 msgid "Webcams"
 msgstr "摄像头"
 
-#: rust/crates/outputs/src/webcam.rs:723
+#: rust/crates/outputs/src/webcam.rs:738
 msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "从插入这台电脑的摄像头和采集卡串流。"
 
-#: rust/crates/outputs/src/webcam.rs:724
+#: rust/crates/outputs/src/webcam.rs:739
 msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:764
+#: rust/crates/outputs/src/webcam.rs:779
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name} 未连接"
 
-#: rust/crates/outputs/src/webcam.rs:765
+#: rust/crates/outputs/src/webcam.rs:780
 msgid "Plug it in, or pick another camera."
 msgstr "请将其插入，或选择其他相机。"
 
@@ -4515,6 +4519,10 @@ msgid "Windows or your security software is blocking Telescope from the webcam. 
 msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture.rs:13
+msgid "Something else has the camera mounted as a drive. Unmount it in your file manager, then start the webcam again."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture.rs:14
 msgid "The webcam isn't sending anything. Try another resolution or frame rate."
 msgstr "摄像头未发送任何内容。请尝试其他分辨率或帧率。"
 

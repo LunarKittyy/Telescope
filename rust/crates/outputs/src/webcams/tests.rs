@@ -412,3 +412,165 @@ fn who_uses_finds_the_program_holding_the_device() {
     assert_eq!(who_uses(&device.to_string_lossy(), &dir.join("proc").to_string_lossy()), "zoom");
     assert_eq!(who_uses("/nonexistent/video9", &dir.join("proc").to_string_lossy()), "");
 }
+
+// ── DSLRs through gphoto2 ────────────────────────────────────────────────────
+
+const DETECTED: &str = "Model                          Port                                             \n----------------------------------------------------------\nNikon DSC D5100 (PTP mode)     usb:001,004             \nMass Storage Camera            usb:001,007             \nCanon EOS 600D                 usb:002,003             \n";
+
+#[test]
+fn auto_detect_lists_cameras_that_can_do_live_view() {
+    assert_eq!(parse_auto_detect(DETECTED), [("Nikon DSC D5100 (PTP mode)".to_string(), "usb:001,004".to_string()), ("Canon EOS 600D".to_string(), "usb:002,003".to_string())]);
+    assert!(parse_auto_detect("").is_empty());
+    assert!(parse_auto_detect("Model Port\n------\n").is_empty());
+    assert!(parse_auto_detect("some error text with no table\n").is_empty());
+}
+
+#[test]
+fn a_dslr_is_a_webcam_with_one_mjpeg_mode() {
+    let found: Vec<Detected> = parse_auto_detect(DETECTED).into_iter().map(|(model, port)| Detected { model, port, identity: String::new() }).collect();
+    let devices = gphoto_devices(&found);
+    let nikon = devices.iter().find(|d| d.name.starts_with("Nikon")).unwrap();
+    assert_eq!(nikon.name, "Nikon DSC D5100 (PTP mode)");
+    assert_eq!(nikon.key, "gphoto2-Nikon DSC D5100 (PTP mode)");
+    assert_eq!(nikon.location, "gphoto2:usb:001,004");
+    assert!(is_gphoto(&nikon.location) && !is_gphoto("/dev/video0"));
+    assert!(nikon.modes.len() == 1 && nikon.modes[0].compressed());
+}
+
+/// A fake /sys/bus/usb/devices with one folder per port (name, bus, device number, serial).
+fn usb_tree(name: &str, cams: &[(&str, u32, u32, &str)]) -> PathBuf {
+    let root = std::env::temp_dir().join(format!("telescope-sysusb-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    for (folder, bus, dev, serial) in cams {
+        let d = root.join(folder);
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("busnum"), format!("{bus}\n")).unwrap();
+        std::fs::write(d.join("devnum"), format!("{dev}\n")).unwrap();
+        std::fs::write(d.join("idVendor"), "04b0\n").unwrap();
+        std::fs::write(d.join("idProduct"), "0429\n").unwrap();
+        if !serial.is_empty() {
+            std::fs::write(d.join("serial"), format!("{serial}\n")).unwrap();
+        }
+    }
+    root
+}
+
+fn seen(root: &Path, ports: &[&str]) -> Vec<Device> {
+    let found: Vec<Detected> = ports.iter().map(|p| Detected { model: "Nikon D5100".into(), port: p.to_string(), identity: usb_identity(p, root).unwrap_or_default() }).collect();
+    gphoto_devices(&found)
+}
+
+#[test]
+fn a_dslr_keeps_its_key_when_a_second_one_of_its_model_comes_and_goes() {
+    let root = usb_tree("twins", &[("1-2", 1, 4, ""), ("1-3", 1, 9, "")]);
+    let one = seen(&root, &["usb:001,004"]);
+    let two = seen(&root, &["usb:001,004", "usb:001,009"]);
+    let back = seen(&root, &["usb:001,004"]);
+    let first = |d: &[Device]| d.iter().find(|d| d.location == "gphoto2:usb:001,004").unwrap().key.clone();
+    assert_eq!(first(&one), first(&two));
+    assert_eq!(first(&one), first(&back));
+    assert_ne!(two[0].key, two[1].key);
+    assert_eq!(first(&one), "gphoto2-usb-port-1-2");
+    // The order gphoto2 lists them in doesn't move the "(2)"
+    let flipped = seen(&root, &["usb:001,009", "usb:001,004"]);
+    let name_of = |d: &[Device], loc: &str| d.iter().find(|d| d.location == loc).unwrap().name.clone();
+    assert_eq!(name_of(&two, "gphoto2:usb:001,009"), name_of(&flipped, "gphoto2:usb:001,009"));
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_replugged_dslr_keeps_its_key_though_its_device_number_changes() {
+    // Same port, new device number: its settings are still its own
+    let before = usb_tree("replug-a", &[("1-2", 1, 4, "")]);
+    let after = usb_tree("replug-b", &[("1-2", 1, 11, "")]);
+    let (a, b) = (seen(&before, &["usb:001,004"]), seen(&after, &["usb:001,011"]));
+    assert_eq!(a[0].key, b[0].key);
+    assert_ne!(a[0].location, b[0].location);
+    // With a serial number it follows the camera to another port too
+    let one = usb_tree("serial-a", &[("1-2", 1, 4, "ABC123")]);
+    let moved = usb_tree("serial-b", &[("2-1.4", 2, 7, "ABC123")]);
+    assert_eq!(seen(&one, &["usb:001,004"])[0].key, seen(&moved, &["usb:002,007"])[0].key);
+    assert_eq!(seen(&one, &["usb:001,004"])[0].key, "gphoto2-usb-04b0:0429-ABC123");
+    for r in [before, after, one, moved] {
+        let _ = std::fs::remove_dir_all(r);
+    }
+}
+
+#[test]
+fn a_dslr_sysfs_doesnt_know_falls_back_to_its_model() {
+    let root = usb_tree("none", &[]);
+    assert_eq!(usb_identity("usb:001,004", &root), None);
+    assert_eq!(usb_identity("serial:/dev/ttyS0", &root), None);
+    let devices = seen(&root, &["usb:001,004"]);
+    assert_eq!(devices[0].key, "gphoto2-Nikon D5100");
+    let twins = seen(&root, &["usb:001,004", "usb:001,009"]);
+    assert_ne!(twins[0].key, twins[1].key);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_dslr_is_present_while_its_usb_node_is() {
+    let root = std::env::temp_dir().join(format!("telescope-usb-{}", std::process::id()));
+    std::fs::create_dir_all(root.join("001")).unwrap();
+    std::fs::write(root.join("001/004"), "").unwrap();
+    let root_str = root.to_string_lossy().to_string();
+    assert!(gphoto_present("gphoto2:usb:001,004", &root_str));
+    assert!(!gphoto_present("gphoto2:usb:001,005", &root_str));
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[cfg(target_os = "linux")]
+mod gphoto_scanning {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::{Duration, Instant};
+
+    fn program(name: &str, script: &str) -> String {
+        let dir = std::env::temp_dir().join(format!("telescope-detect-{name}-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("gphoto2");
+        std::fs::write(&path, format!("#!/bin/bash\n{script}")).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        path.to_string_lossy().to_string()
+    }
+
+    fn scan_until(scanner: &mut GphotoScanner, done: impl Fn(&[Device]) -> bool) -> Vec<Device> {
+        let until = Instant::now() + Duration::from_secs(5);
+        loop {
+            let found = scanner.scan();
+            if done(&found) || Instant::now() > until {
+                return found;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    #[test]
+    fn the_scan_never_waits_for_gphoto2_and_finds_the_camera_after() {
+        let p = program("ok", &format!("sleep 0.3\ncat <<'EOF'\n{DETECTED}EOF\n"));
+        let mut scanner = GphotoScanner::new(&p, Duration::from_millis(50), Duration::from_secs(5));
+        let started = Instant::now();
+        assert!(scanner.scan().is_empty());
+        assert!(started.elapsed() < Duration::from_millis(200), "the first scan waited for gphoto2");
+        let found = scan_until(&mut scanner, |d| !d.is_empty());
+        assert_eq!(found.len(), 2);
+    }
+
+    #[test]
+    fn a_stuck_gphoto2_is_cut_off() {
+        let p = program("stuck", "exec sleep 30\n");
+        let started = Instant::now();
+        assert_eq!(run_auto_detect(&p, Duration::from_millis(200)), Err(false));
+        assert!(started.elapsed() < Duration::from_secs(3));
+    }
+
+    #[test]
+    fn without_gphoto2_nothing_shows() {
+        assert_eq!(run_auto_detect("/nonexistent/gphoto2", Duration::from_secs(1)), Err(true));
+        let mut scanner = GphotoScanner::new("/nonexistent/gphoto2", Duration::from_millis(10), Duration::from_secs(1));
+        for _ in 0..3 {
+            assert!(scanner.scan().is_empty());
+            std::thread::sleep(Duration::from_millis(30));
+        }
+    }
+}
