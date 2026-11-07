@@ -3,6 +3,7 @@ use telescope_core::balance::{Balance, Place};
 use std::sync::Arc;
 use telescope_core::stats::{DropReason, Hub};
 use telescope_core::testing::FakeHost;
+use crate::stats_phone::PhoneReading;
 
 const SECOND: u64 = 1_000_000_000;
 const MS: u64 = 1_000_000;
@@ -100,7 +101,7 @@ fn the_bitrate_is_shown_against_what_was_asked_for() {
     let hub = Hub::new();
     let snap = snapshot(&hub, "phone");
     let source = &snap.sources[0];
-    let rows_with = |asked| rows(&snap, source, View::Standard, &Context { asked_mbps: asked, watched: None });
+    let rows_with = |asked| rows(&snap, source, View::Standard, &Context { asked_mbps: asked, ..Context::default() });
     let note = |rows: &[Row]| rows.iter().find(|r| r.label == "Bitrate").unwrap().note.clone();
     assert_eq!(note(&rows_with(Some(8.0))), "asked for 8.0 Mbps");
     assert_eq!(note(&rows_with(Some(0.0))), "asked for Automatic");
@@ -304,7 +305,7 @@ fn old_drops_are_not_blamed_for_the_present() {
 fn the_summary_gives_min_average_max_and_when() {
     let snap = Snapshot::default();
     let s = source_with(|s| s.series.received_fps = vec![30.0, 10.0, 20.0, 30.0]);
-    let lines = summary(&snap, &s);
+    let lines = summary(&snap, &s, None);
     let (_, line) = lines.iter().find(|(k, _)| k == "Stats frames in").unwrap();
     assert_eq!(line, "min 10.0, average 22.5, max 30.0 fps, the max 0 s ago, over 4 s");
     assert_eq!(lines[0], ("Stats verdict".to_string(), "nothing slow".to_string()));
@@ -318,4 +319,153 @@ fn only_the_nerd_view_adds_to_copy_diagnostics() {
     assert!(plugin.diagnostics().is_empty());
     plugin.set_config(&json!({"view": "nerd"})).unwrap();
     assert!(plugin.diagnostics().iter().any(|(k, _)| k == "Stats verdict"));
+}
+
+// ── The phone's side ─────────────────────────────────────────────────────────
+
+fn new_phone_state() -> Value {
+    json!({
+        "takes_stats": true, "phone_fps": 30, "camera_fps": 29.6, "battery_temp_c": 36.5,
+        "wifi_band": "5", "wifi_rssi": -58, "wifi_mbps": 866, "heat_fps": 24,
+        "stats": {"encode_ms": 8.4, "encode_max_ms": 15.0, "queue_ms": 3.0, "encoder_fps": 29.5, "thermal": 3, "thermal_headroom": 0.95}
+    })
+}
+
+#[test]
+fn a_new_phones_state_reads_into_numbers() {
+    let p = PhoneReading::from_state(&new_phone_state()).unwrap();
+    assert!(p.takes_stats);
+    assert_eq!((p.wifi_band.as_deref(), p.wifi_rssi, p.wifi_mbps), (Some("5"), Some(-58), Some(866)));
+    assert_eq!((p.encode_ms, p.queue_ms, p.thermal, p.heat_fps), (Some(8.4), Some(3.0), Some(3), Some(24)));
+    assert_eq!(p.phone_delay_ms(), Some(11.4));
+}
+
+#[test]
+fn an_older_phone_has_no_stats_and_the_rest_still_reads() {
+    let p = PhoneReading::from_state(&json!({"camera_fps": 30.0, "battery_temp_c": 31.0, "wifi_band": "2.4", "wifi_rssi": -70, "phone_fps": 30})).unwrap();
+    assert!(!p.takes_stats);
+    assert_eq!((p.encode_ms, p.thermal, p.phone_delay_ms()), (None, None, None));
+    assert_eq!(p.battery_temp_c, Some(31.0));
+    assert!(PhoneReading::from_state(&json!({})).is_none(), "a state with nothing to show says nothing");
+}
+
+#[test]
+fn nonsense_in_the_state_is_left_out() {
+    let p = PhoneReading::from_state(&json!({"battery_temp_c": 30.0, "wifi_rssi": true, "wifi_mbps": -1, "stats": {"encode_ms": "fast", "thermal": 99, "queue_ms": -4.0}})).unwrap();
+    assert_eq!((p.wifi_rssi, p.wifi_mbps, p.encode_ms, p.thermal, p.queue_ms), (None, None, None, None, None));
+    assert!(PhoneReading::from_state(&json!({"stats": "x", "battery_temp_c": 30.0})).is_some());
+}
+
+fn phone_props(state: Value, nerd: bool) -> Value {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    if nerd {
+        plugin.on_ui(&mut host, &UiEvent { ui: "card".into(), callback: "view-picked".into(), args: vec![json!(1)] });
+    }
+    plugin.on_event(&mut host, &Event::PhoneStateUpdated { state });
+    props(&host)
+}
+
+#[test]
+fn the_phone_section_shows_what_the_phone_said_instead_of_not_available() {
+    let p = phone_props(new_phone_state(), false);
+    assert!(!has_row(&p, "From the phone"));
+    assert_eq!(row(&p, "Delay on the phone")["value"], "11 ms");
+    assert_eq!(row(&p, "Phone's Wi-Fi")["value"], "5 GHz, -58 dBm");
+    assert_eq!(row(&p, "Phone's Wi-Fi")["note"], "link speed 866 Mbps");
+    assert_eq!(row(&p, "Temperature")["value"], "36.5 °C");
+    let throttling = row(&p, "Throttling");
+    assert_eq!((throttling["value"].as_str(), throttling["kind"].as_str()), (Some("Yes, severe"), Some("status_warn")));
+    assert!(throttling["note"].as_str().unwrap().contains("24 fps"));
+    assert!(!has_row(&p, "Encoding time"), "Nerd has the rest");
+}
+
+#[test]
+fn nerd_adds_the_encoder_and_the_camera() {
+    let p = phone_props(new_phone_state(), true);
+    assert_eq!(row(&p, "Camera frame rate")["note"], "asked for 30.0 fps");
+    assert_eq!(row(&p, "Encoder frame rate")["value"], "29.5 fps");
+    assert_eq!(row(&p, "Encoding time")["value"], "8.4 ms");
+    assert_eq!(row(&p, "Encoding time")["note"], "slowest 15 ms");
+    assert_eq!(row(&p, "Send queue")["value"], "3.0 ms");
+    assert_eq!(row(&p, "Round trip, jitter and clock offset")["value"], "Not available yet");
+}
+
+#[test]
+fn an_older_phone_says_it_needs_an_update_for_the_delay_and_skips_what_it_cant_give() {
+    let p = phone_props(json!({"camera_fps": 30.0, "battery_temp_c": 31.0}), false);
+    assert_eq!(row(&p, "Delay on the phone")["value"], "Needs a newer phone app");
+    assert!(!has_row(&p, "Phone's Wi-Fi") && !has_row(&p, "Throttling"), "no Wi-Fi on USB and no thermal status before Android 10");
+    assert_eq!(row(&p, "Temperature")["value"], "31.0 °C");
+}
+
+#[test]
+fn a_cool_phone_is_not_throttling() {
+    let p = phone_props(json!({"battery_temp_c": 30.0, "stats": {"encode_ms": 5.0, "thermal": 0}}), false);
+    let throttling = row(&p, "Throttling");
+    assert_eq!((throttling["value"].as_str(), throttling["kind"].as_str()), (Some("No"), Some("status_ok")));
+}
+
+#[test]
+fn the_nerd_summary_carries_the_phones_numbers() {
+    let hub = Hub::new();
+    let snap = snapshot(&hub, "phone");
+    let p = PhoneReading::from_state(&new_phone_state()).unwrap();
+    let lines = summary(&snap, &snap.sources[0], Some(&p));
+    let get = |k: &str| lines.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_else(|| panic!("no {k}"));
+    assert!(get("Stats phone delay").starts_with("11.4 ms from the camera to sent"));
+    assert_eq!(get("Stats phone wifi"), "5 GHz, -58 dBm, 866 Mbps");
+    assert_eq!(get("Stats phone thermal status"), "3 (severe), capped at 24 fps");
+    assert!(get("Stats phone frame rates").contains("camera 29.6 fps, asked 30, encoder 29.5 fps"));
+}
+
+fn controls(host: &FakeHost) -> Vec<String> {
+    host.calls.iter().filter(|c| c.starts_with("phone_control")).cloned().collect()
+}
+
+#[test]
+fn the_phone_is_only_asked_while_the_card_is_up_with_a_stream_and_told_to_stop() {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    // No stream, nothing asked
+    plugin.on_event(&mut host, &Event::WindowShown { shown: true });
+    assert!(controls(&host).is_empty() && host.scheduled.is_empty());
+    host.streaming = true;
+    plugin.on_stream_start(&mut host, &telescope_core::plugin::StreamInfo { source_id: "phone".into(), url: String::new(), session: 1 });
+    assert!(host.calls.iter().any(|c| c.starts_with("request_phone_state")), "it first learns what the phone takes");
+    assert!(controls(&host).is_empty(), "and sends nothing before it knows");
+    plugin.on_event(&mut host, &Event::PhoneStateUpdated { state: new_phone_state() });
+    assert_eq!(controls(&host), [r#"phone_control None {"action":"stats","value":1}"#]);
+    // The lease is renewed on the timer
+    plugin.on_event(&mut host, &Event::TimerFired { owner: NAME.into(), token: "phone".into() });
+    assert_eq!(controls(&host).len(), 2);
+    assert!(host.scheduled.iter().any(|(_, t)| t == "phone"));
+    // Hiding the window lets go
+    plugin.on_event(&mut host, &Event::WindowShown { shown: false });
+    assert_eq!(controls(&host).last().unwrap(), r#"phone_control None {"action":"stats","value":0}"#);
+    assert!(host.scheduled.iter().all(|(_, t)| t != "phone"));
+    let sent = controls(&host).len();
+    plugin.on_event(&mut host, &Event::WindowShown { shown: false });
+    assert_eq!(controls(&host).len(), sent, "told once");
+}
+
+#[test]
+fn an_older_phone_is_never_sent_the_control() {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    host.streaming = true;
+    plugin.on_stream_start(&mut host, &telescope_core::plugin::StreamInfo { source_id: "phone".into(), url: String::new(), session: 1 });
+    plugin.on_event(&mut host, &Event::PhoneStateUpdated { state: json!({"camera_fps": 30.0, "battery_temp_c": 30.0}) });
+    plugin.on_event(&mut host, &Event::TimerFired { owner: NAME.into(), token: "phone".into() });
+    plugin.on_event(&mut host, &Event::WindowShown { shown: false });
+    assert!(controls(&host).is_empty());
+}
+
+#[test]
+fn a_stream_ending_clears_the_phones_numbers() {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    plugin.on_event(&mut host, &Event::PhoneStateUpdated { state: new_phone_state() });
+    plugin.on_stream_stop(&mut host);
+    assert!(!has_row(&props(&host), "Delay on the phone"));
 }

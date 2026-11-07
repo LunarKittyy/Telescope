@@ -87,6 +87,8 @@ class CameraSessionController(
     private var captureSession: CameraCaptureSession? = null
     private var imageReader: ImageReader? = null
     private var encoder: H264Encoder? = null
+    /** Frames per second the H.264 encoder puts out, null with no encoder running. */
+    fun encoderFps(): Double? = encoder?.outputRate?.fps()
     private var gate: FrameGate? = null  // drops frames for an encoder that ignores the cap; between camera and encoder
     private var handlerThread: HandlerThread? = null
     private var handler: Handler? = null

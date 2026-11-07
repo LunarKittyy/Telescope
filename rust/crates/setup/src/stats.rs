@@ -1,5 +1,5 @@
 //! Stats: a card with the numbers of the stream the panels show, read from the snapshot core puts on the bus once a second. Standard has what a stats panel usually does, Nerd adds the
-//! rest. Per-plugin times only get measured while the Nerd view is open and the window is showing (Host::want_stats), and what needs the phone's side shows as not available yet.
+//! rest. Per-plugin times only get measured while the Nerd view is open and the window is showing (Host::want_stats), and the phone's side comes from its state, which it only measures while the card is up (the `stats` control).
 
 use serde_json::{json, Value};
 use telescope_core::event::Event;
@@ -7,9 +7,11 @@ use telescope_core::host::Host;
 use telescope_core::i18n::{n_, number, tr, Fields};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::stats::{DropReason, NamedTiming, Route, Snapshot, SourceSnapshot, Transport};
+use crate::stats_phone::{self, PhoneReading};
 use telescope_core::ui::{CardSpec, SlintSource, UiEvent, UiSpec};
 
 pub const NAME: &str = "stats";
+const PHONE: &str = "phone";
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/stats.slint"));
 
 /// How many plugins each of the per-plugin lists shows, slowest first.
@@ -47,32 +49,32 @@ pub struct Row {
 }
 
 impl Row {
-    fn head(icon: &str, label: &str) -> Row {
+    pub(crate) fn head(icon: &str, label: &str) -> Row {
         Row { head: true, icon: icon.into(), label: label.into(), ..Row::default() }
     }
 
-    fn line(label: &str, value: String) -> Row {
+    pub(crate) fn line(label: &str, value: String) -> Row {
         Row { label: label.into(), value, ..Row::default() }
     }
 
-    fn note(mut self, note: String) -> Row {
+    pub(crate) fn note(mut self, note: String) -> Row {
         self.note = note;
         self
     }
 
-    fn kind(mut self, kind: &str) -> Row {
+    pub(crate) fn kind(mut self, kind: &str) -> Row {
         self.kind = kind.into();
         self
     }
 
     /// Draws the series next to the value. `floor` is the top of the graph at least, so a steady number stays flat and only a real spike reaches the top.
-    fn graph(mut self, series: &[f32], floor: f32) -> Row {
+    pub(crate) fn graph(mut self, series: &[f32], floor: f32) -> Row {
         self.graph = graph(series, floor);
         self
     }
 
     /// Something only the phone's side can tell, which the protocol doesn't carry yet.
-    fn later(label: &str) -> Row {
+    pub(crate) fn later(label: &str) -> Row {
         Row::line(label, tr("Not available yet")).kind("status_dim")
     }
 
@@ -109,6 +111,10 @@ pub struct Context {
     pub asked_mbps: Option<f64>,
     /// An app is reading the virtual camera, as camera_watched said.
     pub watched: Option<bool>,
+    /// What the shown stream's phone said about itself, once it has.
+    pub phone: Option<PhoneReading>,
+    /// The phone's delay each second of the last minute, oldest first.
+    pub phone_delay: Vec<f32>,
 }
 
 fn fps(v: f32) -> String {
@@ -270,7 +276,7 @@ fn series_line(name: &str, unit: &str, series: &[f32]) -> Option<(String, String
 }
 
 /// The Nerd view as lines for Copy diagnostics: the verdict, then each series' spread over the last minute. Plain English, no names.
-pub fn summary(snap: &Snapshot, s: &SourceSnapshot) -> Vec<(String, String)> {
+pub fn summary(snap: &Snapshot, s: &SourceSnapshot, phone: Option<&PhoneReading>) -> Vec<(String, String)> {
     let mut out = vec![
         ("Stats verdict".to_string(), verdict(s).code()),
         ("Stats stream".to_string(), format!("{} fps asked, {} s running, {} frames in, {} out, {} dropped", s.target_fps, s.seconds, s.totals.received, s.totals.delivered, s.drops.total())),
@@ -298,6 +304,9 @@ pub fn summary(snap: &Snapshot, s: &SourceSnapshot) -> Vec<(String, String)> {
     if !slowest.is_empty() {
         out.push(("Stats slowest plugin steps".to_string(), slowest.join(", ")));
     }
+    if let Some(p) = phone {
+        out.extend(stats_phone::summary(p));
+    }
     out
 }
 
@@ -305,6 +314,7 @@ pub fn summary(snap: &Snapshot, s: &SourceSnapshot) -> Vec<(String, String)> {
 pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> Vec<Row> {
     let nerd = view == View::Nerd;
     let target = s.target_fps.max(1) as f32;
+    let period_ms = 1000.0 / target;
     let mut out = vec![Row::head("video", &tr("Frames"))];
     // Judged only once the stream has had a few seconds to get going
     let judged = s.seconds >= 3;
@@ -350,13 +360,18 @@ pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> V
     out.push(bitrate);
 
     out.push(Row::head("phone", &tr("Phone")));
-    // Everything here needs the phone app, so it's one line instead of a row of the same answer each
-    let missing = if nerd {
-        tr("The delay from the camera, Wi-Fi band and signal, temperature and throttling, camera frame rate, encoding time and queue, and round trip, jitter and clock offset")
-    } else {
-        tr("The delay from the camera, Wi-Fi band and signal, and temperature and throttling")
-    };
-    out.push(Row::line(&tr("From the phone"), tr("Not available yet")).kind("status_dim").note(missing));
+    match &ctx.phone {
+        Some(p) => out.extend(stats_phone::rows(p, nerd, &ctx.phone_delay, period_ms)),
+        None => {
+            // Nothing from the phone yet, so it's one line instead of a row of the same answer each
+            let missing = if nerd {
+                tr("The delay from the camera, Wi-Fi band and signal, temperature and throttling, camera frame rate, encoding time and queue, and round trip, jitter and clock offset")
+            } else {
+                tr("The delay from the camera, Wi-Fi band and signal, and temperature and throttling")
+            };
+            out.push(Row::line(&tr("From the phone"), tr("Not available yet")).kind("status_dim").note(missing));
+        }
+    }
     let apps = match ctx.watched {
         Some(true) => tr("In use"),
         Some(false) => tr("Nothing"),
@@ -426,6 +441,13 @@ pub struct StatsPlugin {
     window_shown: bool,
     watched: Option<bool>,
     wanting: bool,
+    /// The shown stream's phone, from its last /v1/state, and how long its delay was each moment since the card came up.
+    phone: Option<PhoneReading>,
+    phone_delay: Vec<f32>,
+    /// The phone is being asked for its measurements: the card is up with a stream running.
+    asking: bool,
+    /// A `stats` 1 went out and no 0 has since, so one is owed.
+    phone_on: bool,
 }
 
 impl Default for StatsPlugin {
@@ -436,7 +458,7 @@ impl Default for StatsPlugin {
 
 impl StatsPlugin {
     pub fn new() -> StatsPlugin {
-        StatsPlugin { view: View::Standard, latest: None, window_shown: true, watched: None, wanting: false }
+        StatsPlugin { view: View::Standard, latest: None, window_shown: true, watched: None, wanting: false, phone: None, phone_delay: Vec::new(), asking: false, phone_on: false }
     }
 
     pub fn view(&self) -> View {
@@ -452,6 +474,8 @@ impl StatsPlugin {
         let context = Context {
             asked_mbps: host.plugin_config("stream_output").and_then(|c| c.get("bitrate_mbps").and_then(Value::as_f64)),
             watched: self.watched,
+            phone: self.phone.clone(),
+            phone_delay: self.phone_delay.clone(),
         };
         let mut props = json!({
             "view": if self.view == View::Nerd { 1 } else { 0 },
@@ -490,6 +514,38 @@ impl StatsPlugin {
         }
     }
 
+    /// The phone only measures while the card is up with a stream running: it's asked every few seconds, and told to stop when that ends.
+    fn ask_phone(&mut self, host: &mut dyn Host) {
+        let want = self.window_shown && host.is_streaming();
+        if want {
+            if !self.asking {
+                self.asking = true;
+                host.schedule(stats_phone::ASK_MS, PHONE);
+                host.request_phone_state(None);
+            }
+            self.send_phone(host, true);
+        } else {
+            if self.asking {
+                self.asking = false;
+                host.cancel_schedule(PHONE);
+            }
+            self.send_phone(host, false);
+        }
+    }
+
+    /// An older phone doesn't take the control, so nothing is sent until its state says it does.
+    fn send_phone(&mut self, host: &mut dyn Host, on: bool) {
+        if on {
+            if self.phone.as_ref().is_some_and(|p| p.takes_stats) {
+                host.phone_control(None, &json!({"action": "stats", "value": 1}));
+                self.phone_on = true;
+            }
+        } else if self.phone_on {
+            host.phone_control(None, &json!({"action": "stats", "value": 0}));
+            self.phone_on = false;
+        }
+    }
+
     /// The costly numbers are only taken while the Nerd view can be seen.
     fn want(&mut self, host: &mut dyn Host) {
         let want = self.window_shown && self.view == View::Nerd;
@@ -521,6 +577,7 @@ impl Plugin for StatsPlugin {
 
     fn on_plugins_ready(&mut self, host: &mut dyn Host) {
         self.want(host);
+        self.ask_phone(host);
         self.show(host);
     }
 
@@ -531,18 +588,42 @@ impl Plugin for StatsPlugin {
                 self.show(host);
             }
             Event::CameraWatched { watched } => self.watched = Some(*watched),
+            Event::PhoneStateUpdated { state } => {
+                self.phone = PhoneReading::from_state(state);
+                if let Some(ms) = self.phone.as_ref().and_then(PhoneReading::phone_delay_ms) {
+                    self.phone_delay.push(ms as f32);
+                    self.phone_delay.drain(..self.phone_delay.len().saturating_sub(telescope_core::stats::KEPT));
+                }
+                if self.asking {
+                    self.send_phone(host, true);
+                }
+                self.show(host);
+            }
+            Event::TimerFired { token, .. } if token == PHONE => {
+                self.asking = false;
+                self.ask_phone(host);
+            }
             Event::WindowShown { shown } => {
                 self.window_shown = *shown;
                 self.want(host);
+                self.ask_phone(host);
                 self.show(host);
             }
             _ => {}
         }
     }
 
+    fn on_stream_start(&mut self, host: &mut dyn Host, _stream: &telescope_core::plugin::StreamInfo) {
+        self.ask_phone(host);
+    }
+
     fn on_stream_stop(&mut self, host: &mut dyn Host) {
         if !host.is_streaming() {
             self.latest = None;
+            self.phone = None;
+            self.phone_delay.clear();
+            self.phone_on = false;
+            self.ask_phone(host);
             self.show(host);
         }
     }
@@ -564,6 +645,8 @@ impl Plugin for StatsPlugin {
     }
 
     fn shutdown(&mut self, host: &mut dyn Host) {
+        self.window_shown = false;
+        self.ask_phone(host);
         if self.wanting {
             self.wanting = false;
             host.want_stats(NAME, false);
@@ -572,7 +655,7 @@ impl Plugin for StatsPlugin {
 
     fn diagnostics(&self) -> Vec<(String, String)> {
         match self.latest.as_ref().and_then(|snap| Some((snap, snap.sources.first()?))) {
-            Some((snap, source)) if self.view == View::Nerd => summary(snap, source),
+            Some((snap, source)) if self.view == View::Nerd => summary(snap, source, self.phone.as_ref()),
             _ => Vec::new(),
         }
     }

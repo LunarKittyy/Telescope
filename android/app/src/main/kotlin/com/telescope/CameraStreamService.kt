@@ -1020,6 +1020,12 @@ class CameraStreamService : Service() {
             camera_taken = controller?.isCameraTaken() ?: false,
             camera_toggle = true,
             takes_notes = true,
+            takes_stats = true,
+            stats = PhoneStats.shared.report(
+                controller?.encoderFps(),
+                thermalStatus.takeIf { thermalListener != null },
+                thermalHeadroom.takeIf { thermalListener != null },
+            ),
             notes = NotesBoard.hasNotes,
             notes_shown = NotesBoard.hasNotes && NotesBoard.shown,
             notes_closed = NotesBoard.hasNotes && NotesBoard.dismissed,
@@ -1037,6 +1043,11 @@ class CameraStreamService : Service() {
 
     private fun handleControlCommand(params: Map<String, String>): String {
         NotesCommand.parse(params)?.let { return notesControl(it) }
+        // The desktop's Stats card is open (1, sent again every few seconds) or closed (0)
+        if (params["action"] == "stats") {
+            PhoneStats.shared.ask(params["value"] == "1")
+            return ok()
+        }
         val ctrl = controller ?: return err("camera not ready")
         return try {
             when (params["action"]) {

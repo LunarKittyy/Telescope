@@ -41,7 +41,8 @@ class StateExampleTest {
         codec_error_width = 1920, codec_error_height = 1080, codec_unsupported = true,
         active_lens = "2", camera_off = true, camera_error = "The camera didn't turn back on. Another app may be using it.", camera_error_code = "camera_in_use",
         camera_taken = true, camera_toggle = true, stills = 1, takes_notes = true, notes = true, notes_shown = true,
-        notes_closed = true, notes_preview = true,
+        notes_closed = true, notes_preview = true, takes_stats = true,
+        stats = PhoneStatsReport(encode_ms = 8.4, encode_max_ms = 15.0, queue_ms = 3.0, encoder_fps = 29.5, thermal = 2, thermal_headroom = 0.8f),
         sensors = listOf("orientation", "accelerometer", "gyroscope", "gravity", "rotation", "light"),
         stream_width = 1920, stream_height = 1080, battery = 87, charging = true, battery_temp_c = 32.5,
     )

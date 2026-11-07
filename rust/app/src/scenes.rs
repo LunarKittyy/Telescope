@@ -463,7 +463,7 @@ pub fn all() -> Vec<Scene> {
         ..Setup::window(Some(services_with(quiet(), Changes { no_h264: true, ..Changes::default() })), main_window_config(true), CARD_WIDTH, 400.0)
     }));
     // The Stats card with a stream's numbers in it: some drops, a slow step and a plugin that costs a little, in both views
-    for (id, view) in [("stats-standard", "standard"), ("stats-nerd", "nerd")] {
+    for (id, view, phone) in [("stats-standard", "standard", false), ("stats-nerd", "nerd", false), ("stats-phone-standard", "standard", true), ("stats-phone-nerd", "nerd", true)] {
         scenes.push(Scene::new(id, move || {
             let mut config = main_window_config(true);
             config["plugins"] = json!({"on": ["stats"]});
@@ -471,8 +471,16 @@ pub fn all() -> Vec<Scene> {
             Setup {
                 page: Page::Card { plugin: "stats".into() },
                 every_optional: false,
-                then: Some(Box::new(|w| {
+                then: Some(Box::new(move |w| {
                     w.state.borrow_mut().bus.emit(telescope_core::Event::StatsUpdated { snapshot: example_stats() });
+                    // A phone from this version, a few seconds into being asked for its own numbers
+                    if phone {
+                        let state = json!({
+                            "takes_stats": true, "phone_fps": 30, "camera_fps": 29.6, "battery_temp_c": 41.5, "wifi_band": "5", "wifi_rssi": -61, "wifi_mbps": 780,
+                            "heat_fps": 24, "stats": {"encode_ms": 9.2, "encode_max_ms": 16.5, "queue_ms": 4.0, "encoder_fps": 29.4, "thermal": 3, "thermal_headroom": 0.97}
+                        });
+                        w.state.borrow_mut().bus.emit(telescope_core::Event::PhoneStateUpdated { state });
+                    }
                     w.process();
                 })),
                 ..Setup::window(Some(services_with(quiet(), Changes { stats: true, ..Changes::default() })), config, CARD_WIDTH, 700.0)

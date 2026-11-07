@@ -901,7 +901,7 @@ msgstr "Gain master"
 msgid "Offset master"
 msgstr "Offset master"
 
-#: rust/crates/effects/src/colour_grading.rs:65 rust/crates/effects/ui/colour_grading.slint:300 rust/crates/outputs/src/webcam.rs:44 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:256 rust/crates/shell/ui/cards/camera.slint:259
+#: rust/crates/effects/src/colour_grading.rs:65 rust/crates/effects/ui/colour_grading.slint:300 rust/crates/outputs/src/webcam.rs:44 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:256 rust/crates/shell/ui/cards/camera.slint:259
 msgid "Temperature"
 msgstr "Suhu warna"
 
@@ -1040,7 +1040,7 @@ msgstr "{name} tidak streaming"
 msgid "{name} (not streaming)"
 msgstr "{name} (tidak streaming)"
 
-#: rust/crates/effects/src/composite_editor.rs:527 rust/crates/setup/src/stats.rs:322
+#: rust/crates/effects/src/composite_editor.rs:527 rust/crates/setup/src/stats.rs:332
 msgid "None"
 msgstr "Tidak ada"
 
@@ -1604,7 +1604,7 @@ msgid "Pill"
 msgstr "Kapsul"
 
 #. Light and Heavy are the names of the two stream formats
-#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:789 rust/crates/outputs/src/stream_output.rs:998 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/ui/stream_output.slint:129
+#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:789 rust/crates/outputs/src/stream_output.rs:998 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/ui/stream_output.slint:129 rust/crates/setup/src/stats_phone.rs:88
 msgid "Light"
 msgstr "Ringan"
 
@@ -2710,11 +2710,11 @@ msgstr "Nama:"
 msgid "OK"
 msgstr "Oke"
 
-#: rust/crates/effects/ui/composite_editor.slint:597 rust/crates/link/src/plugin.rs:808 rust/crates/link/ui/connection.slint:735
+#: rust/crates/effects/ui/composite_editor.slint:597 rust/crates/link/src/plugin.rs:808 rust/crates/link/ui/connection.slint:735 rust/crates/setup/src/stats_phone.rs:146
 msgid "No"
 msgstr "Tidak"
 
-#: rust/crates/effects/ui/composite_editor.slint:598 rust/crates/link/src/plugin.rs:807 rust/crates/link/ui/connection.slint:729
+#: rust/crates/effects/ui/composite_editor.slint:598 rust/crates/link/src/plugin.rs:807 rust/crates/link/ui/connection.slint:729 rust/crates/setup/src/stats_phone.rs:150
 msgid "Yes"
 msgstr "Ya"
 
@@ -2843,7 +2843,7 @@ msgstr "Tautan baru"
 msgid "Address"
 msgstr "Alamat"
 
-#: rust/crates/effects/ui/on_air.slint:169 rust/crates/link/ui/browser_camera.slint:111 rust/crates/setup/src/stats.rs:333
+#: rust/crates/effects/ui/on_air.slint:169 rust/crates/link/ui/browser_camera.slint:111 rust/crates/setup/src/stats.rs:343
 msgid "Link"
 msgstr "Tautan"
 
@@ -3709,7 +3709,7 @@ msgstr "Aplikasi Telescope di {phone} lebih lama daripada versi ini."
 msgid "Copy command"
 msgstr "Salin perintah"
 
-#: rust/crates/link/src/plugin.rs:1198 rust/crates/link/src/plugin.rs:1350 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/setup/src/monitoring.rs:311 rust/crates/setup/src/stats.rs:352 rust/crates/setup/ui/monitoring.slint:131
+#: rust/crates/link/src/plugin.rs:1198 rust/crates/link/src/plugin.rs:1350 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/setup/src/monitoring.rs:311 rust/crates/setup/src/stats.rs:362 rust/crates/setup/ui/monitoring.slint:131
 msgid "Phone"
 msgstr "Ponsel"
 
@@ -3795,7 +3795,7 @@ msgstr "Ganti nama"
 msgid "Remove"
 msgstr "Hapus"
 
-#: rust/crates/link/ui/connection.slint:186 rust/crates/link/ui/connection.slint:746 rust/crates/setup/src/stats.rs:345
+#: rust/crates/link/ui/connection.slint:186 rust/crates/link/ui/connection.slint:746 rust/crates/setup/src/stats.rs:355
 msgid "Connection"
 msgstr "Koneksi"
 
@@ -3899,7 +3899,7 @@ msgstr ""
 msgid "Rename phone"
 msgstr "Ganti nama ponsel"
 
-#: rust/crates/link/ui/connection.slint:628 rust/crates/setup/src/stats.rs:337
+#: rust/crates/link/ui/connection.slint:628 rust/crates/setup/src/stats.rs:347
 msgid "This computer"
 msgstr "Komputer ini"
 
@@ -4199,7 +4199,7 @@ msgstr "FPS"
 msgid "JPEG quality"
 msgstr "Kualitas JPEG"
 
-#: rust/crates/outputs/src/stream_output.rs:796 rust/crates/outputs/src/stream_output.rs:1025 rust/crates/outputs/ui/stream_output.slint:172 rust/crates/outputs/ui/stream_output.slint:182 rust/crates/setup/src/stats.rs:346
+#: rust/crates/outputs/src/stream_output.rs:796 rust/crates/outputs/src/stream_output.rs:1025 rust/crates/outputs/ui/stream_output.slint:172 rust/crates/outputs/ui/stream_output.slint:182 rust/crates/setup/src/stats.rs:356
 msgid "Bitrate"
 msgstr "Bitrate"
 
@@ -4577,7 +4577,7 @@ msgstr "Tidak dapat menyimpan pengaturan."
 msgid "Charging"
 msgstr "Mengisi daya"
 
-#: rust/crates/setup/src/monitoring.rs:275
+#: rust/crates/setup/src/monitoring.rs:275 rust/crates/setup/src/stats_phone.rs:87
 msgid "Cool"
 msgstr "Sejuk"
 
@@ -4992,329 +4992,439 @@ msgstr "Kamera virtual, ukurannya, kamera tambahan, batas video dan mikrofon, se
 msgid "Use my own adb…"
 msgstr "Gunakan adb saya sendiri…"
 
-#: rust/crates/setup/src/stats.rs:76 rust/crates/setup/src/stats.rs:359
+#: rust/crates/setup/src/stats.rs:78 rust/crates/setup/src/stats.rs:372 rust/crates/setup/src/stats_phone.rs:172
 msgid "Not available yet"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:115
+#: rust/crates/setup/src/stats.rs:121 rust/crates/setup/src/stats_phone.rs:78 rust/crates/setup/src/stats_phone.rs:82
 #, python-brace-format
 msgid "{n} fps"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:119
+#: rust/crates/setup/src/stats.rs:125
 #, python-brace-format
 msgid "{n} Mbps"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:123
+#: rust/crates/setup/src/stats.rs:129 rust/crates/setup/src/stats_phone.rs:74
 #, python-brace-format
 msgid "{n} ms"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:127
+#: rust/crates/setup/src/stats.rs:133
 #, python-brace-format
 msgid "{n} in all"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:131
+#: rust/crates/setup/src/stats.rs:137 rust/crates/setup/src/stats_phone.rs:167
 #, python-brace-format
 msgid "slowest {n}"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:137
+#: rust/crates/setup/src/stats.rs:143
 msgid "Decoding"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:138
+#: rust/crates/setup/src/stats.rs:144
 msgid "Decoder: waiting for output"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:139
+#: rust/crates/setup/src/stats.rs:145
 msgid "Decoder: taking the frame"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:140
+#: rust/crates/setup/src/stats.rs:146
 msgid "Decoder: copying the picture"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:141
+#: rust/crates/setup/src/stats.rs:147
 msgid "All frame steps"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:142
+#: rust/crates/setup/src/stats.rs:148
 msgid "Upload to the graphics card"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:143
+#: rust/crates/setup/src/stats.rs:149
 msgid "Frame steps on the card"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:144
+#: rust/crates/setup/src/stats.rs:150
 msgid "Waiting for the graphics card"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:145
+#: rust/crates/setup/src/stats.rs:151
 msgid "Back from the graphics card"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:146
+#: rust/crates/setup/src/stats.rs:152
 msgid "Handing the frame to the virtual camera"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:153
+#: rust/crates/setup/src/stats.rs:159
 msgid "Lost on the link"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:154
+#: rust/crates/setup/src/stats.rs:160
 msgid "Arrived too late"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:155
+#: rust/crates/setup/src/stats.rs:161
 msgid "The decoder failed"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:156
+#: rust/crates/setup/src/stats.rs:162
 msgid "Skipped waiting for a keyframe"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:157
+#: rust/crates/setup/src/stats.rs:163
 msgid "Dropped by pacing"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:158
+#: rust/crates/setup/src/stats.rs:164
 msgid "A frame step failed"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:159
+#: rust/crates/setup/src/stats.rs:165
 msgid "Unknown cause"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:174
+#: rust/crates/setup/src/stats.rs:180
 msgid "asked for Dynamic"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:176
+#: rust/crates/setup/src/stats.rs:182
 msgid "asked for Automatic"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:178 rust/crates/setup/src/stats.rs:313
+#: rust/crates/setup/src/stats.rs:184 rust/crates/setup/src/stats.rs:323 rust/crates/setup/src/stats_phone.rs:156
 #, python-brace-format
 msgid "asked for {n}"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:225
+#: rust/crates/setup/src/stats.rs:231
 msgid "Gathering numbers"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:226
+#: rust/crates/setup/src/stats.rs:232
 msgid "Nothing is slowing the stream down."
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:227
+#: rust/crates/setup/src/stats.rs:233
 msgid "The link is losing frames. A weaker Wi-Fi signal, a busy network or a USB cable that isn't seated well can do that."
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:228
+#: rust/crates/setup/src/stats.rs:234
 msgid "Frames arrive below the asked rate and none are lost, so the phone isn't sending them fast enough."
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:229
+#: rust/crates/setup/src/stats.rs:235
 #, python-brace-format
 msgid "This computer is the slow part: {step} takes longer than a frame lasts."
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:230
+#: rust/crates/setup/src/stats.rs:236
 #, python-brace-format
 msgid "Frames are being dropped, mostly because of: {reason}."
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:308
+#: rust/crates/setup/src/stats.rs:318
 msgid "Frames"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:312
+#: rust/crates/setup/src/stats.rs:322
 msgid "Frames in"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:315
+#: rust/crates/setup/src/stats.rs:325
 msgid "Decoded"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:317
+#: rust/crates/setup/src/stats.rs:327
 msgid "Frames out"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:318
+#: rust/crates/setup/src/stats.rs:328
 msgid "Repeated"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:320
+#: rust/crates/setup/src/stats.rs:330
 msgid "Dropped frames"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:322 rust/crates/setup/src/stats.rs:324
+#: rust/crates/setup/src/stats.rs:332 rust/crates/setup/src/stats.rs:334
 msgid "Dropped"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:335
+#: rust/crates/setup/src/stats.rs:345
 msgid "USB"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:336
+#: rust/crates/setup/src/stats.rs:346
 msgid "Wi-Fi or network"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:338 rust/crates/setup/src/stats.rs:363
+#: rust/crates/setup/src/stats.rs:348 rust/crates/setup/src/stats.rs:378
 msgid "Not known"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:341
+#: rust/crates/setup/src/stats.rs:351
 msgid "UDP"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:342
+#: rust/crates/setup/src/stats.rs:352
 msgid "TCP"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:355
+#: rust/crates/setup/src/stats.rs:368
 msgid "The delay from the camera, Wi-Fi band and signal, temperature and throttling, camera frame rate, encoding time and queue, and round trip, jitter and clock offset"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:357
+#: rust/crates/setup/src/stats.rs:370
 msgid "The delay from the camera, Wi-Fi band and signal, and temperature and throttling"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:359
+#: rust/crates/setup/src/stats.rs:372
 msgid "From the phone"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:361
+#: rust/crates/setup/src/stats.rs:376
 msgid "In use"
 msgstr "Sedang digunakan"
 
-#: rust/crates/setup/src/stats.rs:362
+#: rust/crates/setup/src/stats.rs:377
 msgid "Nothing"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:365
+#: rust/crates/setup/src/stats.rs:380
 msgid "Reading the virtual camera"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:365
+#: rust/crates/setup/src/stats.rs:380
 msgid "Naming the apps isn't possible yet"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:368
+#: rust/crates/setup/src/stats.rs:383
 msgid "On this computer"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:370
+#: rust/crates/setup/src/stats.rs:385
 msgid "The graphics card"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:370
+#: rust/crates/setup/src/stats.rs:385
 msgid "The processor"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:371
+#: rust/crates/setup/src/stats.rs:386
 msgid "Frame steps run on"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:371
+#: rust/crates/setup/src/stats.rs:386
 msgid "held there on purpose"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:372
+#: rust/crates/setup/src/stats.rs:387
 msgid "Balancer moves"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:374
+#: rust/crates/setup/src/stats.rs:389
 msgid "Moved to the graphics card"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:374
+#: rust/crates/setup/src/stats.rs:389
 msgid "Moved to the processor"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:375
+#: rust/crates/setup/src/stats.rs:390
 #, python-brace-format
 msgid "{n} s ago"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:377
+#: rust/crates/setup/src/stats.rs:392
 #, python-brace-format
 msgid "frames waited {n} for the card"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:378
+#: rust/crates/setup/src/stats.rs:393
 msgid "the card was clear for a while"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:394
+#: rust/crates/setup/src/stats.rs:409
 msgid "Each plugin's frame step"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:396 rust/crates/setup/src/stats.rs:403
+#: rust/crates/setup/src/stats.rs:411 rust/crates/setup/src/stats.rs:418 rust/crates/setup/src/stats_phone.rs:117
 msgid "Measuring"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:401
+#: rust/crates/setup/src/stats.rs:416
 msgid "Each plugin's events and card updates"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:409
+#: rust/crates/setup/src/stats.rs:424
 msgid "The app"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:411 rust/crates/setup/src/stats.rs:412
+#: rust/crates/setup/src/stats.rs:426 rust/crates/setup/src/stats.rs:427
 msgid "Processor"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:411
+#: rust/crates/setup/src/stats.rs:426
 #, python-brace-format
 msgid "{n}% of one core"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:415 rust/crates/setup/src/stats.rs:416
+#: rust/crates/setup/src/stats.rs:430 rust/crates/setup/src/stats.rs:431
 msgid "Memory"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:415
+#: rust/crates/setup/src/stats.rs:430
 #, python-brace-format
 msgid "{n} MB"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:458
+#: rust/crates/setup/src/stats.rs:482
 msgid "Standard"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:459
+#: rust/crates/setup/src/stats.rs:483
 msgid "Nerd"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:460
+#: rust/crates/setup/src/stats.rs:484
 msgid "Every number that can be measured, including what each plugin costs"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:474
+#: rust/crates/setup/src/stats.rs:498
 #, python-brace-format
 msgid "Stream on virtual camera {n}"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:479 rust/crates/setup/src/stats.rs:518
+#: rust/crates/setup/src/stats.rs:503 rust/crates/setup/src/stats.rs:574
 msgid "Start a stream to see its numbers."
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:507 rust/crates/setup/ui/stats.slint:92
+#: rust/crates/setup/src/stats.rs:563 rust/crates/setup/ui/stats.slint:92
 msgid "Stats"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:508
+#: rust/crates/setup/src/stats.rs:564
 msgid "Numbers about the stream as it runs: frames in and out, dropped frames and why, the link and bitrate, how long each step takes and what the app uses."
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:509
+#: rust/crates/setup/src/stats.rs:565
 msgid "Without it there's no Stats card. The stream carries on the same."
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:89
+msgid "Moderate"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:90
+msgid "Severe"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:91
+msgid "Critical"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:92
+msgid "Emergency"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:110
+#, python-brace-format
+msgid "encoding {e}, waiting to go out {q}"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:111
+#, python-brace-format
+msgid "encoding {e}"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:115 rust/crates/setup/src/stats_phone.rs:117 rust/crates/setup/src/stats_phone.rs:119
+msgid "Delay on the phone"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:119
+msgid "Needs a newer phone app"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:123
+#, python-brace-format
+msgid "{band} GHz, {n} dBm"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:124
+#, python-brace-format
+msgid "{n} dBm"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:126
+#, python-brace-format
+msgid "link speed {n} Mbps"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:127 rust/crates/setup/src/stats_phone.rs:129
+msgid "Phone's Wi-Fi"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:129
+#, python-brace-format
+msgid "{band} GHz"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:132
+#, python-brace-format
+msgid "{n} °C"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:138 rust/crates/setup/src/stats_phone.rs:150
+#, python-brace-format
+msgid "capped at {n}"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:143
+msgid "close to throttling"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:146 rust/crates/setup/src/stats_phone.rs:150
+msgid "Throttling"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:146
+#, python-brace-format
+msgid "Yes, {level}"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:158
+#, python-brace-format
+msgid "stepped down to {n} for the link"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:161
+msgid "Camera frame rate"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:164
+msgid "Encoder frame rate"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:167
+msgid "Encoding time"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:170
+msgid "Send queue"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:170
+msgid "longest a packet waited"
+msgstr ""
+
+#: rust/crates/setup/src/stats_phone.rs:172
+msgid "Round trip, jitter and clock offset"
 msgstr ""
 
 #: rust/crates/setup/ui/monitoring.slint:88
