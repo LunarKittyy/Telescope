@@ -1055,7 +1055,7 @@ msgstr "Exportera graderingen"
 msgid "{file} is already there. Replace it?"
 msgstr "{file} finns redan där. Vill du ersätta den?"
 
-#: rust/crates/effects/src/colour_grading.rs:521 rust/crates/effects/src/colour_grading.rs:904 rust/crates/effects/src/colour_grading.rs:986 rust/crates/effects/src/colour_grading.rs:988 rust/crates/effects/src/colour_grading.rs:1030 rust/crates/effects/ui/colour_grading.slint:151
+#: rust/crates/effects/src/colour_grading.rs:521 rust/crates/effects/src/colour_grading.rs:905 rust/crates/effects/src/colour_grading.rs:987 rust/crates/effects/src/colour_grading.rs:989 rust/crates/effects/src/colour_grading.rs:1031 rust/crates/effects/ui/colour_grading.slint:151
 msgid "Colour grading"
 msgstr "Färgsättning"
 
@@ -1064,19 +1064,19 @@ msgstr "Färgsättning"
 msgid "{wheel} colour"
 msgstr "{wheel}-färg"
 
-#: rust/crates/effects/src/colour_grading.rs:905
+#: rust/crates/effects/src/colour_grading.rs:906
 msgid "Colour wheels, curves and LUT files for the look of the picture."
 msgstr "Färghjul, kurvor och LUT-filer för bildens utseende."
 
-#: rust/crates/effects/src/colour_grading.rs:906
+#: rust/crates/effects/src/colour_grading.rs:907
 msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
 msgstr "Utan det finns inte kortet Färgsättning och bilden behåller kamerans färger."
 
-#: rust/crates/effects/src/colour_grading.rs:989 rust/crates/effects/src/colour_grading.rs:1035
+#: rust/crates/effects/src/colour_grading.rs:990 rust/crates/effects/src/colour_grading.rs:1036
 msgid "Compare before and after"
 msgstr "Jämför före och efter"
 
-#: rust/crates/effects/src/colour_grading.rs:1013 rust/crates/effects/src/colour_grading.rs:1048
+#: rust/crates/effects/src/colour_grading.rs:1014 rust/crates/effects/src/colour_grading.rs:1049
 msgid "LUT strength"
 msgstr "LUT-styrka"
 

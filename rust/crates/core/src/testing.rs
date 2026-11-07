@@ -138,6 +138,8 @@ pub struct FakeHost {
     pub can_turn_off: Option<(bool, String)>,
     /// What vision_state() answers instead of "off".
     pub vision: Option<String>,
+    /// What vision_state() says once someone has asked for people, as the real service moves on to loading.
+    pub vision_after_want: Option<String>,
     /// What vision_pack() answers.
     pub pack: crate::vision::VisionPack,
     /// What tracked_people() answers for each source id.
@@ -534,6 +536,9 @@ impl HostVision for FakeHost {
     }
     fn want_people(&mut self, owner: &str, on: bool) {
         self.note(format!("want_people {owner} {on}"));
+        if let (true, Some(next)) = (on, self.vision_after_want.clone()) {
+            self.vision = Some(next);
+        }
     }
     fn tracked_people(&self, source_id: Option<&str>) -> (Vec<Value>, u32) {
         self.tracked.get(source_id.unwrap_or("")).cloned().unwrap_or_default()

@@ -1056,7 +1056,7 @@ msgstr "그레이딩 내보내기"
 msgid "{file} is already there. Replace it?"
 msgstr "{file} 파일이 이미 있어요. 덮어쓸까요?"
 
-#: rust/crates/effects/src/colour_grading.rs:521 rust/crates/effects/src/colour_grading.rs:904 rust/crates/effects/src/colour_grading.rs:986 rust/crates/effects/src/colour_grading.rs:988 rust/crates/effects/src/colour_grading.rs:1030 rust/crates/effects/ui/colour_grading.slint:151
+#: rust/crates/effects/src/colour_grading.rs:521 rust/crates/effects/src/colour_grading.rs:905 rust/crates/effects/src/colour_grading.rs:987 rust/crates/effects/src/colour_grading.rs:989 rust/crates/effects/src/colour_grading.rs:1031 rust/crates/effects/ui/colour_grading.slint:151
 msgid "Colour grading"
 msgstr "컬러 그레이딩"
 
@@ -1065,19 +1065,19 @@ msgstr "컬러 그레이딩"
 msgid "{wheel} colour"
 msgstr "{wheel} 색상"
 
-#: rust/crates/effects/src/colour_grading.rs:905
+#: rust/crates/effects/src/colour_grading.rs:906
 msgid "Colour wheels, curves and LUT files for the look of the picture."
 msgstr "화면 분위기를 연출할 수 있는 컬러 휠, 커브, LUT 파일이에요."
 
-#: rust/crates/effects/src/colour_grading.rs:906
+#: rust/crates/effects/src/colour_grading.rs:907
 msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
 msgstr "이 플러그인이 없으면 컬러 그레이딩 카드가 표시되지 않으며 화면에 카메라 본래의 색상이 유지돼요."
 
-#: rust/crates/effects/src/colour_grading.rs:989 rust/crates/effects/src/colour_grading.rs:1035
+#: rust/crates/effects/src/colour_grading.rs:990 rust/crates/effects/src/colour_grading.rs:1036
 msgid "Compare before and after"
 msgstr "적용 전후 비교"
 
-#: rust/crates/effects/src/colour_grading.rs:1013 rust/crates/effects/src/colour_grading.rs:1048
+#: rust/crates/effects/src/colour_grading.rs:1014 rust/crates/effects/src/colour_grading.rs:1049
 msgid "LUT strength"
 msgstr "LUT 강도"
 

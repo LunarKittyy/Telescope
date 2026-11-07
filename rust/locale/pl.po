@@ -1056,7 +1056,7 @@ msgstr "Eksportuj korekcję"
 msgid "{file} is already there. Replace it?"
 msgstr "Plik {file} już istnieje. Czy chcesz go zastąpić?"
 
-#: rust/crates/effects/src/colour_grading.rs:521 rust/crates/effects/src/colour_grading.rs:904 rust/crates/effects/src/colour_grading.rs:986 rust/crates/effects/src/colour_grading.rs:988 rust/crates/effects/src/colour_grading.rs:1030 rust/crates/effects/ui/colour_grading.slint:151
+#: rust/crates/effects/src/colour_grading.rs:521 rust/crates/effects/src/colour_grading.rs:905 rust/crates/effects/src/colour_grading.rs:987 rust/crates/effects/src/colour_grading.rs:989 rust/crates/effects/src/colour_grading.rs:1031 rust/crates/effects/ui/colour_grading.slint:151
 msgid "Colour grading"
 msgstr "Korekcja kolorów"
 
@@ -1065,19 +1065,19 @@ msgstr "Korekcja kolorów"
 msgid "{wheel} colour"
 msgstr "Kolor: {wheel}"
 
-#: rust/crates/effects/src/colour_grading.rs:905
+#: rust/crates/effects/src/colour_grading.rs:906
 msgid "Colour wheels, curves and LUT files for the look of the picture."
 msgstr "Koła kolorów, krzywe i pliki LUT wpływające na wygląd obrazu."
 
-#: rust/crates/effects/src/colour_grading.rs:906
+#: rust/crates/effects/src/colour_grading.rs:907
 msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
 msgstr "Bez niej nie ma karty Korekcja kolorów, a obraz zachowuje oryginalne kolory z kamery."
 
-#: rust/crates/effects/src/colour_grading.rs:989 rust/crates/effects/src/colour_grading.rs:1035
+#: rust/crates/effects/src/colour_grading.rs:990 rust/crates/effects/src/colour_grading.rs:1036
 msgid "Compare before and after"
 msgstr "Porównaj przed i po"
 
-#: rust/crates/effects/src/colour_grading.rs:1013 rust/crates/effects/src/colour_grading.rs:1048
+#: rust/crates/effects/src/colour_grading.rs:1014 rust/crates/effects/src/colour_grading.rs:1049
 msgid "LUT strength"
 msgstr "Intensywność LUT"
 
