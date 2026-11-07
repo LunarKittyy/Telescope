@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
+import android.os.SystemClock
 import android.os.Message
 import android.view.Surface
 import java.util.concurrent.Executor
@@ -548,7 +549,7 @@ class CameraSessionController(
     fun setBlackLevelLock(on: Boolean)      { currentBlackLevelLock = on;       post { applyExposure() } }
     // false: this lens can't lock both exposure and white balance; the lock goes with the next lens, reopen or camera off
     fun setExposureLock(on: Boolean): Boolean {
-        if (on && (cameraOff || taken || !exposureLock.request(currentCamera?.supportsExposureLock == true))) return false
+        if (on && (cameraOff || taken || !exposureLock.request(currentCamera?.supportsExposureLock == true, SystemClock.elapsedRealtime()))) return false
         if (!on) exposureLock.release()
         post { applyExposure() }
         return true
@@ -1200,6 +1201,7 @@ class CameraSessionController(
                 val awbByHand = currentWbGains != null && cam?.supportsManualWB == true
                 if (!aeByHand) set(CaptureRequest.CONTROL_AE_LOCK, true)
                 if (!awbByHand) set(CaptureRequest.CONTROL_AWB_LOCK, true)
+                setTag(exposureLock.generation)
             }
 
             // Torch - only if this camera actually has a flash unit.
@@ -1339,14 +1341,16 @@ class CameraSessionController(
     // The lock counts once a result of a request that asked for it says both are locked; a part set by hand (manual
     // exposure, manual gains) is held already
     private fun confirmExposureLock(request: CaptureRequest, result: TotalCaptureResult) {
+        if (exposureLock.phase == ExposureLock.Phase.OFF) return
+        // The desktop stopped renewing it: let go, so a crashed desktop doesn't leave the picture frozen
+        if (exposureLock.lapse(SystemClock.elapsedRealtime())) { post { applyExposure() }; return }
         if (exposureLock.phase != ExposureLock.Phase.LOCKING) return
         val aeByHand = request.get(CaptureRequest.CONTROL_AE_MODE) == CaptureRequest.CONTROL_AE_MODE_OFF
         val awbByHand = request.get(CaptureRequest.CONTROL_AWB_MODE) == CaptureRequest.CONTROL_AWB_MODE_OFF
-        val hadLocks = (aeByHand || request.get(CaptureRequest.CONTROL_AE_LOCK) == true) &&
-            (awbByHand || request.get(CaptureRequest.CONTROL_AWB_LOCK) == true)
-        val aeLocked = aeByHand || result.get(CaptureResult.CONTROL_AE_STATE) == CaptureResult.CONTROL_AE_STATE_LOCKED
-        val awbLocked = awbByHand || result.get(CaptureResult.CONTROL_AWB_STATE) == CaptureResult.CONTROL_AWB_STATE_LOCKED
-        exposureLock.onResult(hadLocks, aeLocked, awbLocked)
+        exposureLock.onResult(
+            request.tag as? Int,
+            ExposureLock.aeHeld(aeByHand, result.get(CaptureResult.CONTROL_AE_STATE)),
+            ExposureLock.awbHeld(awbByHand, result.get(CaptureResult.CONTROL_AWB_STATE)))
     }
 
     private fun applyExposure() {

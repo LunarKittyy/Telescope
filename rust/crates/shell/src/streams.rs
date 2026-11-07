@@ -642,9 +642,14 @@ impl Window {
                 let locked = streaming && client.is_some_and(|c| c.lock_exposure(true));
                 vec![self.streams.locks.borrow_mut().lock_at_once(&id, locked, now)]
             }
+            // One that couldn't give its auto controls back stays locked, and Unlock can be pressed again
+            // One that couldn't give its auto controls back stays locked, and Unlock can be pressed again
             (Some(shared), false) => {
-                self.release_source_lock(&shared);
-                self.streams.locks.borrow_mut().unlock(&id).into_iter().collect()
+                if self.release_source_lock(&shared) {
+                    self.streams.locks.borrow_mut().unlock(&id).into_iter().collect()
+                } else {
+                    Vec::new()
+                }
             }
             (None, true) => {
                 let was_off = self.streams.locks.borrow().phase(&id) == "off";
@@ -666,10 +671,8 @@ impl Window {
     }
 
     /// A webcam's auto controls go back to what they were.
-    fn release_source_lock(&self, shared: &crate::sources::SharedSource) {
-        if let Some(client) = shared.lock().unwrap().control_client() {
-            client.lock_exposure(false);
-        }
+    fn release_source_lock(&self, shared: &crate::sources::SharedSource) -> bool {
+        shared.lock().unwrap().control_client().is_none_or(|client| client.lock_exposure(false))
     }
 
     /// Says what happened to locks on the bus, keeps host.exposure_lock's answer up to date and runs the timer that watches
@@ -721,6 +724,9 @@ impl Window {
         let due = self.streams.locks.borrow_mut().due(self.streams.lock_clock.get());
         for id in &due.poll {
             self.request_phone_state(Some(id));
+        }
+        for id in &due.renew {
+            self.phone_control(Some(id), &telescope_core::exposure_lock::phone_body(true));
         }
         for id in &due.unlock {
             self.phone_control(Some(id), &telescope_core::exposure_lock::phone_body(false));

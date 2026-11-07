@@ -94,10 +94,26 @@ fn the_lock_is_asked_of_the_phone_and_only_confirmed_when_it_says_so() {
 }
 
 #[test]
+fn a_held_lock_is_asked_for_again_so_the_phone_does_not_let_it_lapse() {
+    let r = on_air("lock-renews");
+    r.phone_says("pixel", phone("off", true));
+    ask(&r, None, true);
+    let_time_pass(&r, 300);
+    r.phone_says("pixel", phone("locked", true));
+    r.pump();
+    assert_eq!(sent_locks(&r, "pixel"), [json!("1")]);
+    *r.link.control("pixel").state.lock().unwrap() = Some(phone("locked", true));
+    let_time_pass(&r, 5_400);
+    assert_eq!(sent_locks(&r, "pixel"), [json!("1"), json!("1")], "renewed once in five seconds");
+    assert_eq!(reads(&r, None), "locked");
+}
+
+#[test]
 fn asking_again_while_held_changes_nothing() {
     let r = on_air("lock-twice");
     r.phone_says("pixel", phone("off", true));
     ask(&r, None, true);
+    let_time_pass(&r, 300);
     r.phone_says("pixel", phone("locked", true));
     r.pump();
     assert_eq!(locks(&r), ["pixel locking", "pixel locked"]);
@@ -111,6 +127,7 @@ fn unlocking_tells_the_phone_and_the_plugins() {
     let r = on_air("lock-unlock");
     r.phone_says("pixel", phone("off", true));
     ask(&r, None, true);
+    let_time_pass(&r, 300);
     r.phone_says("pixel", phone("locked", true));
     r.pump();
     ask(&r, None, false);
@@ -129,7 +146,7 @@ fn a_lock_the_phone_never_confirms_is_let_go() {
     ask(&r, None, true);
     let_time_pass(&r, 9_000);
     assert_eq!(locks(&r), ["pixel locking", "pixel failed"]);
-    assert_eq!(sent_locks(&r, "pixel"), [json!("1"), json!("0")], "and the phone is told to let go");
+    assert_eq!(sent_locks(&r, "pixel"), [json!("1"), json!("1"), json!("0")], "asked again once while it settled, then told to let go");
     assert_eq!(reads(&r, None), "off");
 }
 
@@ -139,6 +156,7 @@ fn a_phone_that_lets_go_by_itself_is_noticed() {
     r.phone_says("pixel", phone("off", true));
     ask(&r, None, true);
     *r.link.control("pixel").state.lock().unwrap() = Some(phone("locked", true));
+    let_time_pass(&r, 600);
     r.until("it locks", |r| reads(r, None) == "locked");
     *r.link.control("pixel").state.lock().unwrap() = Some(phone("off", true));
     r.until("it is noticed", |r| locks(r).last().is_some_and(|l| l == "pixel unlocked"));
@@ -150,6 +168,7 @@ fn switching_lens_lets_go_at_once_on_both_sides() {
     let r = on_air("lock-lens");
     r.phone_says("pixel", phone("off", true));
     ask(&r, None, true);
+    let_time_pass(&r, 300);
     r.phone_says("pixel", phone("locked", true));
     r.pump();
     r.w.state.borrow_mut().call(0, |_, host| telescope_core::host::HostStreams::phone_control(host, None, &json!({"action": "camera", "id": "2"})));
@@ -164,6 +183,7 @@ fn a_stream_that_stops_takes_its_lock_with_it() {
     let r = on_air("lock-stops");
     r.phone_says("pixel", phone("off", true));
     ask(&r, None, true);
+    let_time_pass(&r, 300);
     r.phone_says("pixel", phone("locked", true));
     r.pump();
     r.stop(None);

@@ -795,7 +795,7 @@ mod locking {
         let mut env = env_with(Some(camera.clone()));
         env.plugged.lock().unwrap().clear();
         env.plugin.rescan(&mut env.host);
-        let lock = WebcamLock { key: "usb-c920".into(), shared: env.plugin.shared().clone(), controls_for: env.plugin.controls_for.clone(), held: Mutex::new(None) };
+        let lock = WebcamLock::new("usb-c920", env.plugin.shared(), &env.plugin.controls_for);
         assert!(!lock.lock());
         assert!(camera.sets.lock().unwrap().is_empty());
     }
@@ -827,5 +827,83 @@ mod locking {
         env.plugin.on_event(&mut env.host, &Event::ExposureLock { source_id: "webcam:usb-c920".into(), state: "locked".into() });
         let switches = env.plugin.controls("usb-c920");
         assert_eq!((switches["exposure_auto"].value, switches["white_balance_auto"].value), (0, 0));
+    }
+
+    #[test]
+    fn unlocking_reads_the_cameras_controls_first_so_its_own_auto_mode_is_used() {
+        // A camera that has an auto mode of its own refuses a guess made without listing it
+        #[derive(Clone)]
+        struct Picky(Lockable, Arc<Mutex<bool>>);
+        impl Controls for Picky {
+            fn list(&mut self) -> Vec<Control> {
+                *self.1.lock().unwrap() = true;
+                self.0.list()
+            }
+            fn set(&mut self, name: &str, value: i64) -> bool {
+                if name.ends_with("_auto") && value != 0 && !*self.1.lock().unwrap() {
+                    return false;
+                }
+                self.0.set(name, value)
+            }
+        }
+        let camera = Lockable::new(true);
+        let c = camera.clone();
+        let env = cams_with(vec![c920()], Box::new(move |_| Some(Box::new(Picky(c.clone(), Arc::default())) as Box<dyn Controls>)));
+        let client = client(&env);
+        assert!(client.lock_exposure(true));
+        assert!(client.lock_exposure(false));
+        assert_eq!((camera.v("exposure_auto"), camera.v("white_balance_auto")), (1, 1));
+    }
+
+    #[test]
+    fn an_unlock_that_could_not_reach_the_camera_is_finished_when_it_opens_again() {
+        let camera = Lockable::new(true);
+        let mut env = env_with(Some(camera.clone()));
+        let client = client(&env);
+        assert!(client.lock_exposure(true));
+        let plugged = env.plugged.lock().unwrap().clone();
+        env.plugged.lock().unwrap().clear();
+        env.plugin.rescan(&mut env.host);
+        assert!(!client.lock_exposure(false), "unplugged: it says so");
+        assert_eq!((camera.v("exposure_auto"), camera.v("white_balance_auto")), (0, 0));
+        assert!(!client.lock_exposure(true), "and a new lock waits for the old one to be put back");
+        *env.plugged.lock().unwrap() = plugged;
+        env.plugin.rescan(&mut env.host);
+        report(&mut env, "usb-c920", "ok", "1280x720 MJPG 30 fps");
+        assert_eq!((camera.v("exposure_auto"), camera.v("white_balance_auto")), (1, 1), "put back once it's there");
+        assert!(client.lock_exposure(true));
+    }
+
+    #[test]
+    fn a_replug_that_resets_the_webcam_to_auto_puts_the_lock_back() {
+        let camera = Lockable::new(true);
+        let mut env = env_with(Some(camera.clone()));
+        assert!(client(&env).lock_exposure(true));
+        // A replug resets the camera
+        camera.values.lock().unwrap().extend([("exposure_auto".to_string(), 1), ("white_balance_auto".to_string(), 1)]);
+        report(&mut env, "usb-c920", "ok", "1280x720 MJPG 30 fps");
+        assert_eq!((camera.v("exposure_auto"), camera.v("white_balance_auto")), (0, 0));
+        assert_eq!((camera.v("exposure_time"), camera.v("white_balance")), (333, 4600));
+    }
+
+    #[test]
+    fn a_stream_that_ends_gives_the_auto_controls_back() {
+        let camera = Lockable::new(true);
+        let mut env = env_with(Some(camera.clone()));
+        stream(&mut env, "usb-c920");
+        assert!(client(&env).lock_exposure(true));
+        env.host.streaming = false;
+        env.host.focused = None;
+        env.plugin.on_event(&mut env.host, &Event::StreamsChanged { count: 0 });
+        assert_eq!((camera.v("exposure_auto"), camera.v("white_balance_auto")), (1, 1));
+    }
+
+    #[test]
+    fn quitting_with_a_lock_held_gives_the_auto_controls_back() {
+        let camera = Lockable::new(true);
+        let mut env = env_with(Some(camera.clone()));
+        assert!(client(&env).lock_exposure(true));
+        env.plugin.shutdown(&mut env.host);
+        assert_eq!((camera.v("exposure_auto"), camera.v("white_balance_auto")), (1, 1));
     }
 }

@@ -21,6 +21,8 @@ pub const CONFIRM_WITHIN_S: f64 = 8.0;
 /// How often the phone is asked while a lock is still settling, and how often once it holds (to notice it letting go).
 pub const POLL_LOCKING_S: f64 = 0.3;
 pub const POLL_LOCKED_S: f64 = 3.0;
+/// A phone lets go of a lock its computer stops renewing (a crashed desktop), so a held lock asks again this often.
+pub const RENEW_S: f64 = 5.0;
 
 /// The /v1/control body that asks a phone to lock (or let go).
 pub fn phone_body(on: bool) -> Value {
@@ -55,6 +57,8 @@ struct Held {
     since: f64,
     /// When the phone was last asked.
     polled: f64,
+    /// When the phone was last told to hold it.
+    renewed: f64,
     /// Whether the phone's state has shown the lock at all yet: before that an "off" only means the request hasn't arrived.
     seen: bool,
     /// A phone is asked about it as it goes on; a webcam's lock is its own word.
@@ -77,6 +81,8 @@ fn say(source_id: &str, state: &'static str) -> Say {
 pub struct Due {
     /// Phones to ask for their state now.
     pub poll: Vec<String>,
+    /// Phones whose held lock is asked for again, so the phone doesn't let it lapse.
+    pub renew: Vec<String>,
     /// Phones that never confirmed, which are sent an unlock.
     pub unlock: Vec<String>,
     pub says: Vec<Say>,
@@ -122,7 +128,7 @@ impl Locks {
         if self.held.contains_key(source_id) {
             return say(source_id, self.phase(source_id)); // asked again while it's held: nothing new
         }
-        self.held.insert(source_id.into(), Held { phase: Phase::Locking, since: now, polled: now, seen: false, phone: true });
+        self.held.insert(source_id.into(), Held { phase: Phase::Locking, since: now, polled: now, renewed: now, seen: false, phone: true });
         say(source_id, LOCKING)
     }
 
@@ -131,7 +137,7 @@ impl Locks {
         if !locked {
             return say(source_id, UNAVAILABLE);
         }
-        self.held.insert(source_id.into(), Held { phase: Phase::Locked, since: now, polled: now, seen: true, phone: false });
+        self.held.insert(source_id.into(), Held { phase: Phase::Locked, since: now, polled: now, renewed: now, seen: true, phone: false });
         say(source_id, LOCKED)
     }
 
@@ -156,6 +162,9 @@ impl Locks {
             return vec![say(source_id, UNAVAILABLE)];
         }
         match (held.phase, phone_phase(state)) {
+            // A state asked before the request went out can say "locked" of an earlier lock: a confirmation has to come from a
+            // state asked a poll after it
+            (Phase::Locking, LOCKED) if now - held.since < POLL_LOCKING_S => Vec::new(),
             (Phase::Locking, LOCKED) => {
                 held.phase = Phase::Locked;
                 held.seen = true;
@@ -192,6 +201,10 @@ impl Locks {
                 due.says.push(say(&id, FAILED));
                 due.unlock.push(id);
                 continue;
+            }
+            if now - held.renewed >= RENEW_S {
+                held.renewed = now;
+                due.renew.push(id.clone());
             }
             let every = if held.phase == Phase::Locking { POLL_LOCKING_S } else { POLL_LOCKED_S };
             if now - held.polled >= every {
@@ -264,6 +277,29 @@ mod tests {
         assert_eq!(locks.note_state("pixel", &state("locked", true), 1.7), vec![say("pixel", LOCKED)]);
         assert_eq!(locks.phase("pixel"), "locked");
         assert!(locks.note_state("pixel", &state("locked", true), 2.0).is_empty(), "said once");
+    }
+
+    #[test]
+    fn a_locked_state_asked_before_the_request_does_not_confirm() {
+        let mut locks = locks_with_lockable();
+        locks.lock_phone("pixel", 1.0);
+        // The reply of a poll sent during an earlier lock, landing just after this one was asked for
+        assert!(locks.note_state("pixel", &state("locked", true), 1.05).is_empty());
+        assert_eq!(locks.phase("pixel"), "locking");
+        assert_eq!(locks.note_state("pixel", &state("locked", true), 1.0 + POLL_LOCKING_S), vec![say("pixel", LOCKED)]);
+    }
+
+    #[test]
+    fn a_held_lock_is_renewed_so_the_phone_does_not_let_it_lapse() {
+        let mut locks = locks_with_lockable();
+        locks.lock_phone("pixel", 0.0);
+        locks.note_state("pixel", &state("locked", true), 0.5);
+        assert!(locks.due(RENEW_S - 0.1).renew.is_empty());
+        assert_eq!(locks.due(RENEW_S + 0.1).renew, ["pixel"]);
+        assert!(locks.due(RENEW_S + 0.2).renew.is_empty());
+        assert_eq!(locks.due(2.0 * RENEW_S + 0.3).renew, ["pixel"]);
+        locks.unlock("pixel");
+        assert!(locks.due(100.0).renew.is_empty());
     }
 
     #[test]

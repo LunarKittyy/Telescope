@@ -222,64 +222,124 @@ impl WebcamSource {
     }
 }
 
+/// One auto switch the lock turned off, with what it was and the manual value it holds in its place.
+#[derive(Clone, Debug, PartialEq)]
+struct Switched {
+    auto: String,
+    was: i64,
+    manual: Option<(String, i64)>,
+}
+
+#[derive(Default)]
+struct LockState {
+    /// What the lock switched off; None while nothing is locked.
+    held: Option<Vec<Switched>>,
+    /// Auto switches still to be put back after an unlock that couldn't (the webcam was unplugged, or refused): retried when
+    /// it opens again or the lock is asked for.
+    pending: Vec<(String, i64)>,
+}
+
 /// What a webcam gives host.lock_exposure: its auto exposure and white balance switched off at the values they have now,
 /// and switched back on when it's let go.
 pub struct WebcamLock {
     key: String,
     shared: Arc<Shared>,
     controls_for: Arc<Mutex<ControlsFor>>,
-    /// Each auto control the lock switched off with the value it had, which unlocking puts back; None while nothing is locked.
-    held: Mutex<Option<Vec<(String, i64)>>>,
+    state: Mutex<LockState>,
 }
 
 /// The auto switches that make a picture drift, each with the manual control that holds its value.
 const LOCKED_PAIRS: [(&str, &str); 2] = [("exposure_time", "exposure_auto"), ("white_balance", "white_balance_auto")];
 
 impl WebcamLock {
+    pub fn new(key: &str, shared: &Arc<Shared>, controls_for: &Arc<Mutex<ControlsFor>>) -> WebcamLock {
+        WebcamLock { key: key.into(), shared: shared.clone(), controls_for: controls_for.clone(), state: Mutex::new(LockState::default()) }
+    }
+
+    /// The webcam's controls, listed once so the backend knows how this camera spells auto (a fresh one doesn't).
+    fn backend(&self) -> Option<(Box<dyn Controls>, HashMap<String, Control>)> {
+        let device = self.shared.device(&self.key)?;
+        let mut backend = (self.controls_for.lock().unwrap())(&device)?;
+        let have = backend.list().into_iter().map(|c| (c.name.clone(), c)).collect();
+        Some((backend, have))
+    }
+
+    /// Puts back what an unlock left; true when nothing is left.
+    fn restore(state: &mut LockState, backend: &mut dyn Controls) -> bool {
+        state.pending.retain(|(auto, was)| !backend.set(auto, *was));
+        state.pending.is_empty()
+    }
+
+    /// Whether something is locked or still to be put back.
+    pub fn busy(&self) -> bool {
+        let st = self.state.lock().unwrap();
+        st.held.is_some() || !st.pending.is_empty()
+    }
+
     /// true when it's locked (or was already), false when this webcam can't: it needs both auto switches, and each manual
     /// control that goes with one is set to what the camera had chosen, since it reads that while auto is on.
     pub fn lock(&self) -> bool {
-        let mut held = self.held.lock().unwrap();
-        if held.is_some() {
+        let mut st = self.state.lock().unwrap();
+        if st.held.is_some() {
             return true;
         }
-        let Some(device) = self.shared.device(&self.key) else { return false };
-        let Some(mut backend) = (self.controls_for.lock().unwrap())(&device) else { return false };
-        let have: HashMap<String, Control> = backend.list().into_iter().map(|c| (c.name.clone(), c)).collect();
+        let Some((mut backend, have)) = self.backend() else { return false };
+        if !Self::restore(&mut st, backend.as_mut()) {
+            return false; // an earlier unlock isn't finished: the values read now wouldn't be the camera's own
+        }
         if !LOCKED_PAIRS.iter().all(|(_, auto)| have.get(*auto).is_some_and(|a| a.kind == "bool")) {
             return false;
         }
-        let mut switched: Vec<(String, i64)> = Vec::new();
+        let mut switched: Vec<Switched> = Vec::new();
         for (manual, auto) in LOCKED_PAIRS {
             let a = &have[auto];
             if a.value == 0 {
                 continue; // already by hand: it holds
             }
-            let at = have.get(manual).map(|m| m.value);
+            let at = have.get(manual).map(|m| (manual.to_string(), m.value));
             if !backend.set(auto, 0) {
-                for (name, was) in &switched {
-                    backend.set(name, *was);
+                for done in &switched {
+                    backend.set(&done.auto, done.was);
                 }
                 return false;
             }
-            switched.push((auto.to_string(), a.value));
-            if let Some(value) = at {
-                backend.set(manual, value);
+            if let Some((name, value)) = &at {
+                backend.set(name, *value);
             }
+            switched.push(Switched { auto: auto.to_string(), was: a.value, manual: at });
         }
-        *held = Some(switched);
+        st.held = Some(switched);
         true
     }
 
-    /// Puts the auto switches back; true when nothing is left held.
+    /// Puts the auto switches back; true when they are all back. What couldn't go back stays to be tried again.
     pub fn unlock(&self) -> bool {
-        let Some(switched) = self.held.lock().unwrap().take() else { return true };
-        let Some(device) = self.shared.device(&self.key) else { return true };
-        let Some(mut backend) = (self.controls_for.lock().unwrap())(&device) else { return true };
-        for (auto, was) in switched {
-            backend.set(&auto, was);
+        let mut st = self.state.lock().unwrap();
+        if let Some(switched) = st.held.take() {
+            st.pending.extend(switched.into_iter().map(|s| (s.auto, s.was)));
         }
-        true
+        if st.pending.is_empty() {
+            return true;
+        }
+        let Some((mut backend, _)) = self.backend() else { return false };
+        Self::restore(&mut st, backend.as_mut())
+    }
+
+    /// The webcam opened again, which resets most of them to auto: a held lock is put back as it was, and an unfinished
+    /// unlock is finished.
+    pub fn reopened(&self) {
+        let mut st = self.state.lock().unwrap();
+        if st.held.is_none() && st.pending.is_empty() {
+            return;
+        }
+        let Some((mut backend, _)) = self.backend() else { return };
+        Self::restore(&mut st, backend.as_mut());
+        for s in st.held.iter().flatten() {
+            backend.set(&s.auto, 0);
+            if let Some((name, value)) = &s.manual {
+                backend.set(name, *value);
+            }
+        }
     }
 }
 
@@ -361,6 +421,8 @@ pub struct WebcamPlugin {
     controls: HashMap<String, HashMap<String, Control>>,
     backends: HashMap<String, (Device, Box<dyn Controls>)>,
     sources: HashMap<String, Arc<WebcamSource>>,
+    /// Each webcam's lock, kept while it's unplugged: what an unlock couldn't put back waits for the camera to return.
+    locks: HashMap<String, Arc<WebcamLock>>,
     states: HashMap<String, (String, String)>,
     modes: HashMap<String, String>,
     selected_key: String,
@@ -373,7 +435,7 @@ impl WebcamPlugin {
     pub fn new(scan: Scanner, controls_for: ControlsFor, system: System) -> WebcamPlugin {
         WebcamPlugin {
             scan, controls_for: Arc::new(Mutex::new(controls_for)), system, shared: Arc::default(), poster: None, controls: HashMap::new(), backends: HashMap::new(),
-            sources: HashMap::new(), states: HashMap::new(), modes: HashMap::new(), selected_key: String::new(), stopped: false, shown_rows: None,
+            sources: HashMap::new(), locks: HashMap::new(), states: HashMap::new(), modes: HashMap::new(), selected_key: String::new(), stopped: false, shown_rows: None,
         }
     }
 
@@ -406,19 +468,26 @@ impl WebcamPlugin {
                 return;
             }
         };
+        let before: Vec<String> = self.shared.devices.lock().unwrap().keys().cloned().collect();
         let gone: Vec<String> = self.shared.devices.lock().unwrap().keys().filter(|k| !found.iter().any(|d| &d.key == *k)).cloned().collect();
         for key in gone {
             self.backends.remove(&key); // its handle on the camera is dead; a replugged one gets a fresh one
         }
         *self.shared.devices.lock().unwrap() = found.iter().map(|d| (d.key.clone(), d.clone())).collect();
         telescope_core::redact::set_hidden("webcam", &found.iter().map(|d| d.name.clone()).collect::<Vec<_>>());
+        for dev in found.iter().filter(|d| !before.contains(&d.key)) {
+            // Plugged in again: it comes back on auto, so a lock is put back as it was and an unfinished unlock is finished
+            if let Some(lock) = self.locks.get(&dev.key) {
+                lock.reopened();
+            }
+        }
         for dev in &found {
             match self.sources.get(&dev.key) {
                 None => {
                     let src = Arc::new(WebcamSource {
                         key: dev.key.clone(), name: Mutex::new(dev.name.clone()), shared: self.shared.clone(), poster: self.poster.clone(),
                         system: self.system.clone(), waiting: Arc::new(Mutex::new(tr(webcam_capture::BUSY_TEXT))), last: Mutex::new(None),
-                        lock: Arc::new(WebcamLock { key: dev.key.clone(), shared: self.shared.clone(), controls_for: self.controls_for.clone(), held: Mutex::new(None) }),
+                        lock: self.locks.entry(dev.key.clone()).or_insert_with(|| Arc::new(WebcamLock::new(&dev.key, &self.shared, &self.controls_for))).clone(),
                     });
                     self.sources.insert(dev.key.clone(), src.clone());
                     host.add_stream_source(src);
@@ -465,6 +534,7 @@ impl WebcamPlugin {
             // Every opening, even one that reads like the last: a replug resets most webcams
             self.modes.insert(key.into(), detail.into());
             self.apply_controls(key);
+            src.lock.reopened();
         }
         if self.states.get(key).is_some_and(|s| s.0 == state && s.1 == detail) {
             return;
@@ -493,6 +563,9 @@ impl WebcamPlugin {
         let keys: Vec<String> = self.sources.keys().cloned().collect();
         for key in keys {
             let id = self.sources[&key].id();
+            if !host.is_streaming_from(Some(&id)) && self.sources[&key].lock.busy() {
+                self.sources[&key].lock.unlock(); // a lock never outlives its stream
+            }
             if !host.is_streaming_from(Some(&id)) && self.states.remove(&key).is_some() {
                 self.modes.remove(&key);
                 host.clear_issue(Some(&format!("webcam:{key}")), None);
@@ -803,6 +876,10 @@ impl Plugin for WebcamPlugin {
     fn shutdown(&mut self, host: &mut dyn Host) {
         self.stopped = true;
         host.cancel_schedule(T_SCAN);
+        // The stream flow can't hand the cameras back after the window is gone, so a lock is let go here
+        for lock in self.locks.values() {
+            lock.unlock();
+        }
         self.backends.clear();
     }
 
