@@ -8,7 +8,7 @@
 
 use telescope_core::i18n::Fields;
 use crate::webcam_capture::{self, ReaderDeps};
-use crate::webcam_capture::gphoto_lib::{jog_value, FAR, NEAR};
+use crate::webcam_controls::{jog_value, FAR, NEAR};
 use crate::webcam_controls::{apply_order, auto_of, choice_text, default_of, local_flicker, shown_value, stops_apart, Control, Controls, AUTOS};
 use crate::webcam_hold::{jog_level, JogHold, JogTick};
 use telescope_core::hold::{self, Hold, Tick, TICK_MS};

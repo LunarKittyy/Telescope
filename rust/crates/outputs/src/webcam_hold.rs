@@ -2,7 +2,7 @@
 //! before the camera has finished the last one: a slow camera would otherwise be left with a queue of steps to run long after the
 //! hand came off. Counted in timer ticks, so nothing here reads a clock. The arrows of the dials use `telescope_core::hold`.
 
-use crate::webcam_capture::gphoto_lib::JOG_LEVELS;
+use crate::webcam_controls::JOG_LEVELS;
 use telescope_core::hold::REPEAT_TICKS;
 
 /// How far out the jog's handle has to be before it asks for anything, as a fraction of its way to the end: a resting hand wobbles.

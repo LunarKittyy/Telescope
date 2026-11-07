@@ -664,7 +664,7 @@ fn held_long_enough_exposure_jumps_a_whole_stop_at_a_time() {
 
 /// What the jog sends for a handle `offset` of the way out.
 fn jogged(offset: f64) -> i64 {
-    crate::webcam_capture::gphoto_lib::jog_value(crate::webcam_hold::jog_level(offset)).unwrap()
+    crate::webcam_controls::jog_value(crate::webcam_hold::jog_level(offset)).unwrap()
 }
 
 #[test]

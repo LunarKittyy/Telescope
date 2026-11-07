@@ -23,22 +23,9 @@ pub const WHITE_BALANCE: &str = "dslr_white_balance";
 const MENUS: [(&str, &[&str]); 3] = [(APERTURE, &["f-number", "aperture"]), (EXPOSURE_COMP, &["exposurecompensation"]), (WHITE_BALANCE, &["whitebalance"])];
 /// How far a tap moves the focus (a click beside the jog, an arrow key), in the camera's own steps. The Nikon D5100 takes -32767 to 32767.
 pub const FOCUS_STEP: i32 = 200;
-/// What the focus control is told: a tap toward Near or Far, and Focus (autofocus once).
-pub const NEAR: i64 = 0;
-pub const AUTOFOCUS: i64 = 1;
-pub const FAR: i64 = 2;
-/// A step of the jog is JOG_BASE plus how far out the handle is (1 to JOG_LEVELS), taken from it for Near. Level 1 is the smallest step
-/// and the last the biggest, with the ones between spread evenly in size on a log scale so the handle feels smooth all along.
-pub const JOG_BASE: i64 = 100;
-pub const JOG_LEVELS: i64 = 12;
+pub use crate::webcam_controls::{jog_value, AUTOFOCUS, FAR, JOG_BASE, JOG_LEVELS, NEAR};
 pub const JOG_SMALLEST: f64 = 50.0;
 pub const JOG_LARGEST: f64 = 2000.0;
-
-/// What to tell the focus control for a step at `level` (-JOG_LEVELS to JOG_LEVELS, negative toward Near); None for 0, which is at rest.
-pub fn jog_value(level: i64) -> Option<i64> {
-    let out = level.clamp(-JOG_LEVELS, JOG_LEVELS);
-    (out != 0).then(|| out.signum() * (JOG_BASE + out.abs()))
-}
 
 /// The jog level a control value stands for, with its sign, when it is one.
 fn jog_level(value: i64) -> Option<i64> {

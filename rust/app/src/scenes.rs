@@ -188,8 +188,10 @@ impl telescope_audio::backend::MicBackend for SceneMic {
 
 /// A Nikon D5100 in M mode as it was probed (libgphoto2's settings, in the Nikon driver's own wording with its decimal commas), run
 /// through the real mapping to the card's controls.
+#[cfg(target_os = "linux")]
 struct SceneRig;
 
+#[cfg(target_os = "linux")]
 impl telescope_outputs::webcam_capture::gphoto_lib::Rig for SceneRig {
     fn preview(&mut self) -> Result<Vec<u8>, String> {
         Err("no live view in scenes".into())
@@ -215,8 +217,10 @@ impl telescope_outputs::webcam_capture::gphoto_lib::Rig for SceneRig {
 }
 
 /// The D5100's settings for the Webcam card; a set is taken and shown, as the camera would.
+#[cfg(target_os = "linux")]
 struct SceneDslr(Vec<telescope_outputs::webcam_controls::Control>);
 
+#[cfg(target_os = "linux")]
 impl telescope_outputs::webcam_controls::Controls for SceneDslr {
     fn list(&mut self) -> Vec<telescope_outputs::webcam_controls::Control> {
         self.0.clone()
@@ -252,7 +256,11 @@ fn dslr_stills() -> serde_json::Value {
                    "0,0062s", "0,0080s", "0,0100s", "0,0125s", "0,0166s", "0,0200s", "0,0250s", "0,0333s", "0,0400s", "0,0500s", "0,0666s", "0,0769s", "0,1000s", "0,1250s",
                    "0,1666s", "0,2000s", "0,2500s", "0,3333s", "0,4000s", "0,5000s", "0,6250s", "0,7692s", "1,0000s", "1,3000s", "1,6000s", "2,0000s", "2,5000s", "3,0000s",
                    "4,0000s", "5,0000s", "6,0000s", "8,0000s", "10,0000s", "13,0000s", "15,0000s", "20,0000s", "25,0000s", "30,0000s"];
+    // The gphoto code is Linux's: elsewhere the camera's own words stand in for the labels
+    #[cfg(target_os = "linux")]
     let labels: Vec<String> = shutter.iter().map(|s| telescope_outputs::webcam_capture::gphoto_stills::shutter_label(s).unwrap()).collect();
+    #[cfg(not(target_os = "linux"))]
+    let labels: Vec<String> = shutter.iter().map(|s| s.to_string()).collect();
     json!({"formats": ["jpeg", "raw"], "camera": true, "burst_max": 1,
            "iso": {"values": iso, "labels": iso, "current": 6},
            "shutter": {"values": shutter.to_vec(), "labels": labels, "current": 20}})
@@ -288,6 +296,17 @@ impl telescope_outputs::webcam_controls::Controls for SceneUsb {
     }
 }
 
+#[cfg(target_os = "linux")]
+fn dslr_controls() -> Box<dyn telescope_outputs::webcam_controls::Controls> {
+    Box::new(SceneDslr(telescope_outputs::webcam_capture::gphoto_lib::read_controls(&mut SceneRig)))
+}
+
+/// DSLRs are Linux's for now, so a scene of one has no settings to show elsewhere.
+#[cfg(not(target_os = "linux"))]
+fn dslr_controls() -> Box<dyn telescope_outputs::webcam_controls::Controls> {
+    Box::new(SceneUsb)
+}
+
 /// A webcam plugged in whose card a scene shows: the D5100 on a USB cable, or a webcam.
 #[derive(Clone, Copy, PartialEq)]
 enum Webcam {
@@ -302,7 +321,6 @@ impl Webcam {
 
     fn plugin(self) -> telescope_outputs::webcam::WebcamPlugin {
         use telescope_outputs::webcam::{System, WebcamPlugin};
-        use telescope_outputs::webcam_controls::Controls;
         use telescope_outputs::webcams::{Device, Mode};
         let dslr = self == Webcam::Dslr;
         let device = if dslr {
@@ -313,11 +331,7 @@ impl Webcam {
         };
         let system = System { opener: Arc::new(|_, _| Err((false, "no camera in scenes".into()))), users: Arc::new(|_| String::new()), exists: Arc::new(|_| true) };
         let controls: telescope_outputs::webcam::ControlsFor = Box::new(move |_| {
-            Some(if dslr {
-                Box::new(SceneDslr(telescope_outputs::webcam_capture::gphoto_lib::read_controls(&mut SceneRig))) as Box<dyn Controls>
-            } else {
-                Box::new(SceneUsb)
-            })
+            Some(if dslr { dslr_controls() } else { Box::new(SceneUsb) })
         });
         WebcamPlugin::new(Box::new(move || Ok(vec![device.clone()])), controls, system)
     }
