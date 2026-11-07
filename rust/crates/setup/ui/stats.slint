@@ -12,18 +12,21 @@ export struct StatRow {
     graph: string,
 }
 
+// Every row has the same columns: the label, a 60px slot for the graph that stays empty when there is none, and the value on a right edge.
+// A row is 28px tall, or 44px when it has a note, so the card keeps to two heights.
 component StatLine inherits Rectangle {
     in property <StatRow> line;
     property <color> ink: line.kind == "" || line.kind == "status_dim" ? Theme.text : Status.color(line.kind).brighter(0.12);
-    min-height: 22px;
+    min-height: 28px;
     accessible-role: text;
     accessible-label: line.note == "" ? line.label + " " + line.value : line.label + " " + line.value + " " + line.note;
     VerticalLayout {
-        padding-top: 1px;
-        padding-bottom: 1px;
-        spacing: 1px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+        spacing: 0px;
         HorizontalLayout {
             spacing: 10px;
+            min-height: 20px;
             Text {
                 horizontal-stretch: 1;
                 min-width: 1px;
@@ -32,13 +35,13 @@ component StatLine inherits Rectangle {
                 font-size: Theme.body;
                 color: Theme.text-dim;
                 vertical-alignment: center;
-                overflow: elide;
+                wrap: word-wrap;
                 accessible-role: none;
             }
-            if line.graph != "": Rectangle {
+            Rectangle {
                 width: 60px;
                 accessible-role: none;
-                Path {
+                if line.graph != "": Path {
                     width: 60px;
                     height: 20px;
                     y: (parent.height - self.height) / 2;
@@ -50,7 +53,7 @@ component StatLine inherits Rectangle {
                 }
             }
             Text {
-                min-width: line.graph != "" ? 118px : 0px;
+                width: 120px;
                 text: line.value;
                 font-family: Theme.font;
                 font-size: Theme.body;
@@ -58,6 +61,7 @@ component StatLine inherits Rectangle {
                 color: ink;
                 horizontal-alignment: right;
                 vertical-alignment: center;
+                wrap: word-wrap;
                 accessible-role: none;
             }
         }
@@ -67,6 +71,8 @@ component StatLine inherits Rectangle {
             font-size: Theme.small;
             color: Theme.text-faint;
             horizontal-alignment: right;
+            vertical-alignment: center;
+            min-height: 16px;
             wrap: word-wrap;
             accessible-role: none;
         }
@@ -108,7 +114,12 @@ export component StatsCard inherits Card {
     }
     if empty-text != "": Note { text: empty-text; kind: "status_dim"; }
     for r in rows: VerticalLayout {
-        if r.head: SectionHeading { text: r.label; icon: Icons.named(r.icon); }
+        // The same gap above every heading and the same one below it
+        if r.head: VerticalLayout {
+            padding-top: 12px;
+            padding-bottom: 2px;
+            SectionHeading { text: r.label; icon: Icons.named(r.icon); }
+        }
         if !r.head: StatLine { line: r; }
     }
 }

@@ -183,7 +183,7 @@ fn stage_label(stage: &str) -> String {
         "submit" => tr("Frame steps on the card"),
         "gpu_wait" => tr("Waiting for the graphics card"),
         "readback" => tr("Back from the graphics card"),
-        "camera" => tr("Handing the frame to the virtual camera"),
+        "camera" => tr("To the virtual camera"),
         other => other.to_string(),
     }
 }
@@ -389,14 +389,14 @@ pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> V
 
         out.push(Row::head("plug", &tr("Each plugin's frame step")));
         if s.plugins.is_empty() {
-            out.push(Row::line(&tr("Measuring"), "…".into()).kind("status_dim"));
+            out.push(Row::line(&tr("Measuring"), String::new()).kind("status_dim"));
         }
         for t in fixed_order(&s.plugins) {
             out.push(Row::line(&plugin_label(&t.name), ms(t.timing.mean_ms)).note(timing_note(t.timing.max_ms)));
         }
         out.push(Row::head("plug", &tr("Each plugin's events and card updates")));
         if snap.app.hooks.is_empty() {
-            out.push(Row::line(&tr("Measuring"), "…".into()).kind("status_dim"));
+            out.push(Row::line(&tr("Measuring"), String::new()).kind("status_dim"));
         }
         for t in fixed_order(&snap.app.hooks) {
             out.push(Row::line(&plugin_label(&t.name), ms(t.timing.mean_ms)).note(timing_note(t.timing.max_ms)));
@@ -710,3 +710,4 @@ impl Plugin for StatsPlugin {
 #[cfg(test)]
 #[path = "stats_tests.rs"]
 mod tests;
+

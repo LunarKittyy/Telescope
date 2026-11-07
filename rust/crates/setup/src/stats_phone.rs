@@ -114,7 +114,7 @@ pub fn rows(p: &PhoneReading, nerd: bool, delay: &[f32], period_ms: f32) -> Vec<
         let slow = total as f32 > period_ms;
         out.push(Row::line(&tr("Delay on the phone"), ms(total)).note(note).kind(if slow { "status_warn" } else { "" }).graph(delay, period_ms));
     } else if p.takes_stats {
-        out.push(Row::line(&tr("Delay on the phone"), "…".into()).kind("status_dim").note(tr("Measuring")));
+        out.push(Row::line(&tr("Delay on the phone"), tr("Measuring")).kind("status_dim"));
     } else {
         out.push(Row::line(&tr("Delay on the phone"), tr("Needs a newer phone app")).kind("status_dim"));
     }
