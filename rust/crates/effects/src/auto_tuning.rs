@@ -118,9 +118,9 @@ pub const WB_STRENGTH: f64 = 0.7;
 /// How much of the way a correction goes with only grey patches to go by.
 pub const WB_GREY_ONLY_STRENGTH: f64 = 0.5;
 /// The most Temperature Auto sets.
-pub const WB_MAX_TEMPERATURE: f64 = 45.0;
+pub const WB_MAX_TEMPERATURE: f64 = 100.0;
 /// The most Tint Auto sets.
-pub const WB_MAX_TINT: f64 = 35.0;
+pub const WB_MAX_TINT: f64 = 60.0;
 /// Face and grey patches wanting Temperature in opposite directions this far apart conflict.
 pub const WB_CONFLICT_TEMPERATURE: f64 = 30.0;
 /// Face and grey patches wanting Tint in opposite directions this far apart conflict.
@@ -135,6 +135,11 @@ pub const WB_GREY_WEIGHT: f64 = 1.0;
 pub const WB_COST_TEMPERATURE: f64 = 0.03;
 /// Cost of moving Tint, per ten units squared, lower since a hue off the skin line is mostly tint.
 pub const WB_COST_TINT: f64 = 0.01;
+
+/// With nothing to go by but the whole picture, a colour cast (log ratios in linear light) must be bigger than this to be corrected.
+pub const WORLD_MIN: f32 = 0.40;
+/// How much of the way a correction goes when it only goes by the whole picture being grey on average.
+pub const WB_WORLD_STRENGTH: f64 = 0.35;
 
 // ── Brightness ───────────────────────────────────────────────────────
 
@@ -157,14 +162,16 @@ pub const SCENE_DARK_TARGET: f32 = 0.30;
 /// A middle brightness below this is a covered lens or a dark room's noise, and is left alone.
 pub const SCENE_BLACK_BELOW: f32 = 0.012;
 /// With no face, a middle brightness above this, or this share of the picture clipped to white, is overexposed.
-pub const SCENE_BRIGHT_ABOVE: f32 = 0.70;
-pub const SCENE_BLOWN_ABOVE: f32 = 0.15;
+pub const SCENE_BRIGHT_ABOVE: f32 = 0.72;
+pub const SCENE_BLOWN_ABOVE: f32 = 0.25;
 /// And is brought down towards this (clipped highlights can't come back, so the midtones are what's aimed at).
-pub const SCENE_BRIGHT_TARGET: f32 = 0.52;
+pub const SCENE_BRIGHT_TARGET: f32 = 0.62;
+/// Or this when over a third of the picture is blown out, so that more of it comes back below white.
+pub const SCENE_BLOWN_TARGET: f32 = 0.58;
 /// Lowest and highest Gamma master Auto sets.
-pub const GAMMA_RANGE: (f64, f64) = (-0.45, 0.45);
+pub const GAMMA_RANGE: (f64, f64) = (-0.7, 0.7);
 /// Lowest and highest Gain master Auto sets.
-pub const GAIN_RANGE: (f64, f64) = (0.80, 1.25);
+pub const GAIN_RANGE: (f64, f64) = (0.60, 1.80);
 /// Share of the unclipped pixels a grade may newly clip before it costs anything.
 pub const NEW_CLIP_OK: f32 = 0.005;
 
@@ -173,11 +180,11 @@ pub const NEW_CLIP_OK: f32 = 0.005;
 /// Levels are only corrected when the picture spans at least this much brightness, since a flat wall says nothing about its blacks.
 pub const LEVELS_MIN_SPREAD: f32 = 0.20;
 /// An unclipped darkest 1% above this means milky blacks.
-pub const BLACK_HIGH: f32 = 0.10;
+pub const BLACK_HIGH: f32 = 0.16;
 /// An unclipped darkest 1% below this can be lifted when the picture is quiet enough.
 pub const BLACK_LOW: f32 = 0.015;
 /// Where the darkest 1% should sit.
-pub const BLACK_TARGET: f32 = 0.04;
+pub const BLACK_TARGET: f32 = 0.07;
 /// Most share of black clipped pixels that still leaves it worth lifting.
 pub const BLACK_CLIP_MAX: f32 = 0.04;
 /// Noise level from which Lift stops adding, since lifting shadows lifts the noise with them.
@@ -194,6 +201,13 @@ pub const CONTRAST_RANGE: (f64, f64) = (1.0, 1.35);
 pub const PIVOT_RANGE: (f64, f64) = (0.25, 0.65);
 /// How far lift and contrast may move the face's brightness before they're charged for it.
 pub const FACE_STAY: f32 = 0.05;
+
+/// A picture whose brightest 1% sits below this has nothing near white in it, so it is underexposed.
+pub const TOP_DARK_BELOW: f32 = 0.72;
+/// Unless its darkest 1% is above this, which is haze or milky blacks rather than too little light.
+pub const TOP_BLACK_BELOW: f32 = 0.12;
+/// And its brightest 1% is brought up towards this.
+pub const TOP_TARGET: f32 = 0.85;
 
 // ── Highlights and saturation ────────────────────────────────────────
 

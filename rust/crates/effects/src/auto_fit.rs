@@ -105,6 +105,8 @@ pub enum Wb {
     Corrected,
     /// Corrected part of the way going by grey background only, as there was no face.
     GreyOnly,
+    /// Corrected a little going by the whole picture averaging out to grey, as there was no face or grey background.
+    World,
     /// The face already sits where skin does, so it was left alone.
     InRange,
     /// The face and the background (or the background's own areas) disagree: the light is mixed or coloured, so it was left alone.
@@ -119,6 +121,8 @@ pub struct Targets {
     pub face_luma: Option<f32>,
     /// With no face, the middle brightness a dark picture is brought up to.
     pub scene_luma: Option<f32>,
+    /// Where the brightest 1% should reach, for a picture with nothing near white in it.
+    pub top: Option<f32>,
     pub black: Option<f32>,
     /// The most Lift may add, less on a noisy picture.
     pub lift_up: f64,
@@ -143,7 +147,7 @@ pub fn decide(m: &Measurement) -> Targets {
     } else if t.p50 >= SCENE_BLACK_BELOW && t.p50 < SCENE_DARK_BELOW {
         Some(SCENE_DARK_TARGET)
     } else if t.p50 > SCENE_BRIGHT_ABOVE || t.white_clipped > SCENE_BLOWN_ABOVE {
-        Some(SCENE_BRIGHT_TARGET)
+        Some(if t.white_clipped > 0.30 { SCENE_BLOWN_TARGET } else { SCENE_BRIGHT_TARGET })
     } else {
         None
     };
@@ -163,9 +167,11 @@ pub fn decide(m: &Measurement) -> Targets {
     } else {
         None
     };
+    let top = (ranged && low < TOP_BLACK_BELOW && t.p99 < TOP_DARK_BELOW && t.white_clipped < CLIPPED_ENDS).then_some(TOP_TARGET);
     Targets {
         face_luma,
         scene_luma,
+        top,
         black,
         lift_up,
         spread: (ranged && (high - low) < SPREAD_FLAT).then_some(SPREAD_TARGET),
@@ -230,6 +236,7 @@ fn mean_colour(buf: &[f32]) -> Px {
 }
 
 /// The searcher's view of the picture: the samples flattened to run through `Grade::apply`.
+#[derive(Clone)]
 struct Rig {
     skin: Vec<f32>,
     patches: Vec<f32>,
@@ -238,6 +245,24 @@ struct Rig {
     clipped: Vec<bool>,
     /// A thin set of the unclipped samples to guard against new clipping with.
     guard: Vec<f32>,
+    /// Where the person isn't, with the ones the camera clipped marked (the whole picture when there's no mask).
+    bg: Vec<(Px, bool)>,
+}
+
+impl Rig {
+    /// The mean colour of the mid-bright unclipped samples, as a patch of its own.
+    fn world(&self) -> Option<Rig> {
+        let (mut sum, mut n) = ([0.0f32; 3], 0usize);
+        for (p, c) in &self.bg {
+            if !*c && (0.10..=0.90).contains(&luma(*p)) {
+                (0..3).for_each(|i| sum[i] += p[i]);
+                n += 1;
+            }
+        }
+        // a picture with much of it clipped has lost its colour where it clipped, and what's left says nothing of the light
+        let clipped = self.bg.iter().filter(|(_, c)| *c).count() as f32 / self.bg.len().max(1) as f32;
+        (n >= 50 && clipped < 0.05).then(|| Rig { patches: sum.map(|v| v / n as f32).to_vec(), ..self.clone() })
+    }
 }
 
 impl Rig {
@@ -249,6 +274,7 @@ impl Rig {
             all: flat(&m.all.iter().map(|p| p.rgb).collect::<Vec<_>>()),
             clipped: m.all.iter().map(|p| p.clipped).collect(),
             guard: flat(&thin(&unclipped, 500)),
+            bg: if m.background.is_empty() { m.all.iter().map(|p| (p.rgb, p.clipped)).collect() } else { m.background.iter().map(|p| (p.rgb, p.clipped)).collect() },
         }
     }
 }
@@ -364,6 +390,13 @@ fn wb_cost(rig: &Rig, p: &[f64; 2], face: bool, grey: bool) -> f64 {
     cost + moves(p, &[0.0, 0.0], &[WB_COST_TEMPERATURE / 100.0, WB_COST_TINT / 100.0]) + clip_cost(rig, &g)
 }
 
+/// How far the whole picture's average colour is from grey (log ratios, linear light), for tuning.
+pub fn world_cast(m: &Measurement) -> Option<f32> {
+    let w = Rig::new(m).world()?;
+    let c = linear_ratios(mean_colour(&w.patches));
+    Some(c[0].hypot(c[1]))
+}
+
 fn solve_wb(rig: &Rig, face: bool, grey: bool) -> [f64; 2] {
     let neutral = wb_cost(rig, &[0.0, 0.0], face, grey);
     let (rt, rn) = (WB_MAX_TEMPERATURE / WB_STRENGTH, WB_MAX_TINT / WB_STRENGTH);
@@ -376,11 +409,27 @@ fn conflicting(a: [f64; 2], b: [f64; 2]) -> bool {
     (a[0] * b[0] < 0.0 && (a[0] - b[0]).abs() > WB_CONFLICT_TEMPERATURE) || (a[1] * b[1] < 0.0 && (a[1] - b[1]).abs() > WB_CONFLICT_TINT)
 }
 
+/// A gentle correction going by the whole picture averaging out to grey, only when it is far from it.
+fn world_fix(rig: &Rig) -> Option<[f64; 2]> {
+    let world = rig.world()?;
+    let cast = linear_ratios(mean_colour(&world.patches));
+    if cast[0].hypot(cast[1]) < WORLD_MIN {
+        return None;
+    }
+    let solved = solve_wb(&world, false, true);
+    let capped = [(solved[0] * WB_WORLD_STRENGTH).clamp(-WB_MAX_TEMPERATURE, WB_MAX_TEMPERATURE), (solved[1] * WB_WORLD_STRENGTH).clamp(-WB_MAX_TINT, WB_MAX_TINT)];
+    (capped[0].abs() >= WB_MIN || capped[1].abs() >= WB_MIN).then_some(capped)
+}
+
 fn white_balance(m: &Measurement, rig: &Rig) -> (Wb, [f64; 2]) {
     let capped = |p: [f64; 2], strength: f64| [(p[0] * strength).clamp(-WB_MAX_TEMPERATURE, WB_MAX_TEMPERATURE), (p[1] * strength).clamp(-WB_MAX_TINT, WB_MAX_TINT)];
     let face = m.face.is_some() && !rig.skin.is_empty();
     if face && angle_excess(mean_colour(&rig.skin)) == 0.0 {
-        return (Wb::InRange, [0.0, 0.0]);
+        // skin that looks right still can't hide a picture that is plainly tinted all over
+        return match world_fix(rig).filter(|_| !matches!(m.grey, Grey::Agree { .. })) {
+            Some(solved) => (Wb::World, solved),
+            None => (Wb::InRange, [0.0, 0.0]),
+        };
     }
     if m.grey == Grey::Conflict {
         return (Wb::Conflict, [0.0, 0.0]);
@@ -396,7 +445,12 @@ fn white_balance(m: &Measurement, rig: &Rig) -> (Wb, [f64; 2]) {
         }
         (true, false) => capped(solve_wb(rig, true, false), WB_STRENGTH),
         (false, true) => capped(solve_wb(rig, false, true), WB_GREY_ONLY_STRENGTH),
-        (false, false) => return (Wb::Unsure, [0.0, 0.0]),
+        (false, false) => {
+            return match world_fix(rig) {
+                Some(solved) => (Wb::World, solved),
+                None => (Wb::Unsure, [0.0, 0.0]),
+            };
+        }
     };
     if solved[0].abs() < WB_MIN && solved[1].abs() < WB_MIN {
         return (Wb::Unsure, [0.0, 0.0]);
@@ -412,12 +466,21 @@ fn with_basic(base: &Basic, edit: impl FnOnce(&mut Basic)) -> Grade {
 
 fn exposure(rig: &Rig, targets: &Targets, base: &Basic) -> (f64, f64) {
     let face_target = targets.face_luma.filter(|_| !rig.skin.is_empty());
-    let Some(target) = face_target.or(targets.scene_luma) else { return (0.0, 1.0) };
+    let target = face_target.or(targets.scene_luma);
+    if target.is_none() && targets.top.is_none() {
+        return (0.0, 1.0);
+    }
     let cost = |p: &[f64; 2]| {
         let g = with_basic(base, |b| (b.gamma, b.gain) = (p[0], p[1]));
-        let seen = if face_target.is_some() { face_luma_after(rig, &g) } else { scene_luma_after(rig, &g) };
-        let face = ((seen - target) / 0.05) as f64;
-        face.powi(2) + clip_cost(rig, &g) + moves(p, &[0.0, 1.0], &[MOVE_COST[1], MOVE_COST[2]])
+        let mut face = 0.0;
+        if let Some(target) = target {
+            let seen = if face_target.is_some() { face_luma_after(rig, &g) } else { scene_luma_after(rig, &g) };
+            face += (((seen - target) / 0.05) as f64).powi(2);
+        }
+        if let Some(top) = targets.top {
+            face += (((top - tone_after(rig, &g).1).max(0.0) / 0.06) as f64).powi(2);
+        }
+        face + clip_cost(rig, &g) + moves(p, &[0.0, 1.0], &[MOVE_COST[1], MOVE_COST[2]])
     };
     let neutral = cost(&[0.0, 1.0]);
     let found = minimise([0.0, 1.0], [GAMMA_RANGE.0, GAIN_RANGE.0], [GAMMA_RANGE.1, GAIN_RANGE.1], [0.1, 0.05], &mut |p| cost(p));
