@@ -138,7 +138,15 @@ pub fn decide(m: &Measurement) -> Targets {
             None
         }
     });
-    let scene_luma = if m.face.is_none() && t.p50 >= SCENE_BLACK_BELOW && t.p50 < SCENE_DARK_BELOW { Some(SCENE_DARK_TARGET) } else { None };
+    let scene_luma = if m.face.is_some() {
+        None
+    } else if t.p50 >= SCENE_BLACK_BELOW && t.p50 < SCENE_DARK_BELOW {
+        Some(SCENE_DARK_TARGET)
+    } else if t.p50 > SCENE_BRIGHT_ABOVE || t.white_clipped > SCENE_BLOWN_ABOVE {
+        Some(SCENE_BRIGHT_TARGET)
+    } else {
+        None
+    };
     let quiet = (1.0 - m.noise / NOISE_LIFT_MAX).clamp(0.0, 1.0) as f64;
     let lift_up = LIFT_RANGE.1 * quiet;
     // a picture the camera already clipped at an end reaches it, so its unclipped percentiles say nothing about milky blacks or a flat range

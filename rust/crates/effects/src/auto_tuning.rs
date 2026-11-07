@@ -4,6 +4,8 @@
 
 /// Seconds of steady frames the measurement covers.
 pub const MEASURE_SECONDS: f64 = 1.0;
+/// Milliseconds the button keeps saying how a press went.
+pub const LABEL_MS: u64 = 3000;
 /// Milliseconds Auto waits for the vision service's first answer (it may be loading its models) before going by the whole picture.
 pub const HOLD_TIMEOUT_MS: u64 = 6000;
 /// Milliseconds after which a measurement gives up and works with the frames it has.
@@ -154,6 +156,11 @@ pub const SCENE_DARK_BELOW: f32 = 0.15;
 pub const SCENE_DARK_TARGET: f32 = 0.30;
 /// A middle brightness below this is a covered lens or a dark room's noise, and is left alone.
 pub const SCENE_BLACK_BELOW: f32 = 0.012;
+/// With no face, a middle brightness above this, or this share of the picture clipped to white, is overexposed.
+pub const SCENE_BRIGHT_ABOVE: f32 = 0.70;
+pub const SCENE_BLOWN_ABOVE: f32 = 0.15;
+/// And is brought down towards this (clipped highlights can't come back, so the midtones are what's aimed at).
+pub const SCENE_BRIGHT_TARGET: f32 = 0.52;
 /// Lowest and highest Gamma master Auto sets.
 pub const GAMMA_RANGE: (f64, f64) = (-0.45, 0.45);
 /// Lowest and highest Gain master Auto sets.

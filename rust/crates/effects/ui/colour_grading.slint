@@ -120,6 +120,7 @@ export component ColourGradingCard inherits Card {
     // Auto: busy while it looks at the picture, Undo after a press
     in property <bool> auto-busy;
     in property <bool> auto-undo;
+    in property <string> auto-label;
     callback switch-toggled-by-hand(bool);
     callback compare-toggled(bool);
     callback split-moved(float);
@@ -208,7 +209,7 @@ export component ColourGradingCard inherits Card {
         }
         Button {
             enabled: active && !auto-busy;
-            text: @tr("Auto");
+            text: auto-label != "" ? auto-label : @tr("Auto");
             accessible-label: @tr("Auto colour grading");
             tip: @tr("Looks at about a second of the picture and sets white balance, brightness, contrast and colour for you. Everything it sets stays on the sliders to change");
             clicked => { root.auto-clicked(); }

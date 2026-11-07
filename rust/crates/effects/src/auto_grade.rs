@@ -3,6 +3,7 @@
 use crate::auto_fit::Basic;
 use crate::auto_measure::{noise_level, Look, Measurement, Measurer};
 use crate::auto_tuning::*;
+use telescope_core::i18n::{n_, tr};
 use crate::cpu::Rgb;
 use crate::shared::mask_of;
 use serde_json::{json, Value};
@@ -16,12 +17,16 @@ use telescope_core::pose::Person;
 use telescope_core::time::monotonic_ns;
 use telescope_core::view::Geometry;
 
+const LOOKING_LABEL: &str = n_("Looking…");
+
 /// What the step posts once it has enough frames.
 pub const POST_MEASURED: &str = "auto_measured";
 /// The timer that ends a measurement that never got enough.
 pub const T_TIMEOUT: &str = "auto_timeout";
 /// The timer that stops waiting for the vision service's first answer.
 pub const T_HOLD: &str = "auto_hold";
+/// The timer that puts the button back to saying Auto.
+pub const T_LABEL: &str = "auto_label";
 
 /// What the vision service last said about the people on the stream being measured.
 #[derive(Default)]
@@ -215,18 +220,20 @@ pub struct AutoState {
     /// Auto's values are in the sliders now, so a later press that finds nothing to change takes them out.
     pub wrote: bool,
     pub note: (String, &'static str),
+    /// A word or two the button shows for a moment after a press.
+    pub label: String,
     /// What the last press measured and fitted, for tests and diagnostics.
     pub last: Option<(Measurement, crate::auto_fit::Fit)>,
 }
 
 impl Default for AutoState {
     fn default() -> AutoState {
-        AutoState { now: Arc::new(monotonic_ns), shared: Arc::default(), poster: None, busy: false, lock: None, undo: None, wrote: false, note: (String::new(), "dim"), last: None }
+        AutoState { now: Arc::new(monotonic_ns), shared: Arc::default(), poster: None, busy: false, lock: None, undo: None, wrote: false, note: (String::new(), "dim"), label: String::new(), last: None }
     }
 }
 
 impl AutoState {
     pub fn props(&self) -> Value {
-        json!({"auto-busy": self.busy, "auto-undo": self.undo.is_some(), "auto-note": self.note.0, "auto-kind": self.note.1})
+        json!({"auto-busy": self.busy, "auto-undo": self.undo.is_some(), "auto-label": if self.busy { tr(LOOKING_LABEL) } else { self.label.clone() }})
     }
 }

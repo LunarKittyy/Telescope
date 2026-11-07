@@ -74,7 +74,7 @@ impl Rig {
     }
 
     fn note(&self) -> String {
-        self.shown("auto-note").as_str().unwrap_or("").to_string()
+        self.plugin.auto_note().to_string()
     }
 
     fn calls(&self, what: &str) -> usize {
@@ -140,7 +140,8 @@ fn without_a_stream_the_button_says_so_and_measures_nothing() {
     assert!(r.note().starts_with("Start the stream"), "{}", r.note());
     assert_eq!(r.shown("auto-busy"), json!(false));
     assert_eq!(r.calls("want_people"), 0);
-    assert!(r.host.scheduled.is_empty());
+    assert!(!r.host.is_scheduled("auto_hold") && !r.host.is_scheduled("auto_timeout"));
+    assert_eq!(r.shown("auto-label"), json!("No stream"));
 }
 
 #[test]
@@ -495,4 +496,41 @@ fn a_covered_lens_is_not_chased() {
     let (_, fit) = r.plugin.last_auto().unwrap();
     assert!(fit.targets.scene_luma.is_none());
     assert!(r.plugin.grade().is_identity());
+}
+
+fn bright_camera() -> Box<dyn Fn(&[f32]) -> Rgb> {
+    graded(Grade { masters: [0.0, 0.6, 1.5, 0.0], ..Grade::default() })
+}
+
+#[test]
+fn an_overexposed_picture_is_brought_down_with_or_without_a_face() {
+    for person in [false, true] {
+        let mut r = Rig::new(if person { "ready" } else { "off" });
+        let scene = Scene { person, ..Scene::default() };
+        r.press_and_measure(&scene, bright_camera().as_ref());
+        let (m, fit) = r.plugin.last_auto().unwrap();
+        assert!(fit.moved.exposure, "person {person}: {:?} {:?}", m.tone, fit.values);
+        assert!(r.plugin.grade().masters[1] < -0.05 || r.plugin.grade().masters[2] < 0.95, "{:?}", r.plugin.grade().masters);
+    }
+}
+
+#[test]
+fn no_vision_pack_starts_the_download_once_and_still_grades() {
+    let mut r = Rig::new("missing");
+    r.host.pack = telescope_core::vision::VisionPack { available: true, size_mb: 47, ..Default::default() };
+    let scene = Scene { person: false, ..Scene::default() };
+    r.press_and_measure(&scene, dark_camera().as_ref());
+    assert_eq!(r.calls("download_vision"), 1);
+    assert!(r.plugin.grade().masters[1] > 0.1);
+}
+
+#[test]
+fn a_press_that_changes_nothing_shows_it_on_the_button_for_a_moment() {
+    let mut r = Rig::new("ready");
+    r.ui("auto-clicked", vec![]);
+    assert_eq!(r.shown("auto-label"), json!("Looking…"));
+    r.show(&Scene::default(), right().as_ref(), 16);
+    assert_eq!(r.shown("auto-label"), json!("Looks fine"));
+    r.event(Event::TimerFired { owner: "colour_grading".into(), token: "auto_label".into() });
+    assert_eq!(r.shown("auto-label"), json!(""));
 }
