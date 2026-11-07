@@ -12,6 +12,7 @@ pub mod mcp;
 pub mod mcp_bridge;
 pub mod memory;
 pub mod registry;
+pub mod remote;
 pub mod shortcuts;
 pub mod setup_move;
 pub mod single_instance;

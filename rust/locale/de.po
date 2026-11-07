@@ -160,7 +160,7 @@ msgstr "VB-Cable herunterladen"
 msgid "Takes out typing, fans and room hiss."
 msgstr "Filtert Tippgeräusche, Lüfter und Raumrauschen heraus."
 
-#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:638 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/outputs/src/stream_output.rs:956 rust/crates/system/src/shortcuts.rs:659 rust/crates/system/src/shortcuts.rs:661
+#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:638 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/outputs/src/stream_output.rs:956 rust/crates/system/src/shortcuts.rs:515 rust/crates/system/src/shortcuts.rs:517
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -187,15 +187,15 @@ msgstr "Aus"
 msgid "Gain"
 msgstr "Gain"
 
-#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:12 rust/crates/system/src/shortcuts.rs:442
+#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:12 rust/crates/system/src/remote.rs:20
 msgid "Switch on or off"
 msgstr "Ein- oder ausschalten"
 
-#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:13 rust/crates/system/src/shortcuts.rs:442
+#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:13 rust/crates/system/src/remote.rs:20
 msgid "Turn on"
 msgstr "Einschalten"
 
-#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:14 rust/crates/system/src/shortcuts.rs:442
+#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:14 rust/crates/system/src/remote.rs:20
 msgid "Turn off"
 msgstr "Ausschalten"
 
@@ -203,7 +203,7 @@ msgstr "Ausschalten"
 msgid "Switch while held, back on release"
 msgstr "Umschalten beim Halten, zurück beim Loslassen"
 
-#: rust/crates/audio/src/plugin.rs:1015 rust/crates/audio/src/plugin.rs:1100 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1353 rust/crates/outputs/src/stream_output.rs:620 rust/crates/outputs/src/stream_output.rs:637 rust/crates/shell/src/plugins/presets.rs:333 rust/crates/system/src/shortcuts.rs:448 rust/crates/system/src/shortcuts.rs:449
+#: rust/crates/audio/src/plugin.rs:1015 rust/crates/audio/src/plugin.rs:1100 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1353 rust/crates/outputs/src/stream_output.rs:620 rust/crates/outputs/src/stream_output.rs:637 rust/crates/shell/src/plugins/presets.rs:333 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
 msgid "Does"
 msgstr "Aktion"
 
@@ -432,7 +432,7 @@ msgstr "Tele"
 msgid "General"
 msgstr "Allgemein"
 
-#: rust/crates/core/src/plugin.rs:14 rust/crates/system/src/shortcuts.rs:448
+#: rust/crates/core/src/plugin.rs:14 rust/crates/system/src/remote.rs:26
 msgid "Streaming"
 msgstr "Streaming"
 
@@ -448,7 +448,7 @@ msgstr "Audio"
 msgid "Virtual camera & phone"
 msgstr "Virtuelle Kamera & Smartphone"
 
-#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1318
+#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1067
 msgid "Keyboard shortcuts"
 msgstr "Tastenkombinationen"
 
@@ -3242,7 +3242,7 @@ msgstr "Das Smartphone hat das Mikrofon verweigert (HTTP {code})."
 msgid "No microphone"
 msgstr "Kein Mikrofon"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:687 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:687 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Streamt nicht"
 
@@ -3810,7 +3810,7 @@ msgstr "Smartphone-App wird über USB aktualisiert…"
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Die Telescope-App auf {phone} ist älter als diese."
 
-#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:1068
+#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:817
 msgid "Copy command"
 msgstr "Befehl kopieren"
 
@@ -4865,7 +4865,7 @@ msgstr "Entwickelt von <a href=\"{url}\">LunarKittyy</a>"
 msgid "Version {version}"
 msgstr "Version {version}"
 
-#: rust/crates/setup/src/setup.rs:431 rust/crates/system/src/shortcuts.rs:1068
+#: rust/crates/setup/src/setup.rs:431 rust/crates/system/src/shortcuts.rs:817
 msgid "Copied"
 msgstr "Kopiert"
 
@@ -6249,7 +6249,7 @@ msgid "Could not save settings. Check disk space and permissions."
 msgstr "Einstellungen konnten nicht gespeichert werden. Prüfe Speicherplatz und Berechtigungen."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1315 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1315 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "Start"
 
@@ -6548,7 +6548,7 @@ msgid "Stop streaming"
 msgstr "Streaming stoppen"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1321 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/window.rs:1321 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "Stopp"
 
@@ -6862,20 +6862,108 @@ msgstr "Eine andere App verwendet diese Taste bereits"
 msgid "Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all, so pick another."
 msgstr "Globale Tastenkombinationen werden von Windows reserviert, während Telescope läuft. Eine Taste, die bereits von einer anderen App belegt ist, erreicht Telescope nicht; wähle daher eine andere."
 
-#: rust/crates/system/src/mcp.rs:552
+#: rust/crates/system/src/mcp.rs:626
 msgid "MCP server"
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:553
+#: rust/crates/system/src/mcp.rs:627
 msgid "Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port."
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:554
+#: rust/crates/system/src/mcp.rs:628
 msgid "Without it AI apps can't connect to Telescope."
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:579
+#: rust/crates/system/src/mcp.rs:655
 msgid "An AI app is connected to Telescope through the MCP server."
+msgstr ""
+
+#: rust/crates/system/src/remote.rs:10
+msgid "Telescope: shown"
+msgstr "Telescope: angezeigt"
+
+#: rust/crates/system/src/remote.rs:19
+msgid "Start or stop"
+msgstr "Start oder Stopp"
+
+#: rust/crates/system/src/remote.rs:27
+msgid "Phone camera"
+msgstr "Smartphone-Kamera"
+
+#: rust/crates/system/src/remote.rs:28
+msgid "Show or hide Telescope"
+msgstr "Telescope ein- oder ausblenden"
+
+#: rust/crates/system/src/remote.rs:39
+msgid "Already streaming"
+msgstr "Streamt bereits"
+
+#: rust/crates/system/src/remote.rs:43
+msgid "Streaming: starting"
+msgstr "Streaming: Startet"
+
+#: rust/crates/system/src/remote.rs:49
+msgid "Streaming: stopped"
+msgstr "Streaming: Gestoppt"
+
+#: rust/crates/system/src/remote.rs:64
+msgid "Phone camera: on"
+msgstr "Smartphone-Kamera: Ein"
+
+#: rust/crates/system/src/remote.rs:64
+msgid "Phone camera: off"
+msgstr "Smartphone-Kamera: Aus"
+
+#: rust/crates/system/src/remote.rs:66
+msgid "Telescope: hidden"
+msgstr "Telescope: ausgeblendet"
+
+#: rust/crates/system/src/remote.rs:164
+#, python-brace-format
+msgid "{action} has no setting {name}."
+msgstr "{action} hat keine Einstellung namens {name}."
+
+#: rust/crates/system/src/remote.rs:180
+#, python-brace-format
+msgid "{name} has to be a number, not {value}."
+msgstr "{name} muss eine Zahl sein, nicht {value}."
+
+#: rust/crates/system/src/remote.rs:185
+#, python-brace-format
+msgid "{name} goes from {low} to {high}, so {value} is out of range."
+msgstr ""
+
+#: rust/crates/system/src/remote.rs:191
+msgid "nothing right now"
+msgstr "derzeit nichts"
+
+#: rust/crates/system/src/remote.rs:194
+#, python-brace-format
+msgid "{name} can be {options}, not {value}."
+msgstr "{name} kann {options} sein, nicht {value}."
+
+#. hold, toggle, on and off are values typed on the command line: keep them in English
+#: rust/crates/system/src/remote.rs:199
+msgid "hold needs a key to let go of; use toggle, on or off with --action."
+msgstr "hold benötigt eine Taste zum Loslassen; nutze toggle, on oder off mit --action."
+
+#: rust/crates/system/src/remote.rs:206
+#, python-brace-format
+msgid "{action} needs {name}=… for that."
+msgstr "{action} benötigt dafür {name}=…"
+
+#: rust/crates/system/src/remote.rs:241
+msgid "That failed; Copy diagnostics has the details."
+msgstr "Das hat nicht geklappt. Details stehen unter „Diagnosedaten kopieren“."
+
+#: rust/crates/system/src/remote.rs:254
+#, python-brace-format
+msgid "No action called {action}. telescope --list-actions lists them."
+msgstr "Keine Aktion namens {action}. telescope --list-actions listet alle auf."
+
+#: rust/crates/system/src/remote.rs:267
+#, python-brace-format
+msgid "{action} can't be used right now (no device, or the control is off)."
 msgstr ""
 
 #: rust/crates/system/src/setup_move.rs:350
@@ -6895,10 +6983,6 @@ msgstr "Das Installationsprogramm wurde beendet (Code {code}), daher bleibt dies
 #: rust/crates/system/src/setup_move.rs:360
 msgid "Telescope was installed, but its folder wasn't where expected. Open it from the Start menu."
 msgstr "Telescope wurde installiert, der Ordner war jedoch nicht am erwarteten Ort. Öffne es über das Startmenü."
-
-#: rust/crates/system/src/shortcuts.rs:31
-msgid "Telescope: shown"
-msgstr "Telescope: angezeigt"
 
 #: rust/crates/system/src/shortcuts.rs:53
 msgid "This Telescope has no shortcuts."
@@ -6933,205 +7017,126 @@ msgstr "Überall (wird eingerichtet)"
 msgid "In Telescope: {status}"
 msgstr "In Telescope: {status}"
 
-#: rust/crates/system/src/shortcuts.rs:441
-msgid "Start or stop"
-msgstr "Start oder Stopp"
-
-#: rust/crates/system/src/shortcuts.rs:449
-msgid "Phone camera"
-msgstr "Smartphone-Kamera"
-
-#: rust/crates/system/src/shortcuts.rs:450
-msgid "Show or hide Telescope"
-msgstr "Telescope ein- oder ausblenden"
-
-#: rust/crates/system/src/shortcuts.rs:461
-msgid "Already streaming"
-msgstr "Streamt bereits"
-
-#: rust/crates/system/src/shortcuts.rs:465
-msgid "Streaming: starting"
-msgstr "Streaming: Startet"
-
-#: rust/crates/system/src/shortcuts.rs:471
-msgid "Streaming: stopped"
-msgstr "Streaming: Gestoppt"
-
-#: rust/crates/system/src/shortcuts.rs:486
-msgid "Phone camera: on"
-msgstr "Smartphone-Kamera: Ein"
-
-#: rust/crates/system/src/shortcuts.rs:486
-msgid "Phone camera: off"
-msgstr "Smartphone-Kamera: Aus"
-
-#: rust/crates/system/src/shortcuts.rs:488
-msgid "Telescope: hidden"
-msgstr "Telescope: ausgeblendet"
-
-#: rust/crates/system/src/shortcuts.rs:622 rust/crates/system/src/shortcuts.rs:635
+#: rust/crates/system/src/shortcuts.rs:478 rust/crates/system/src/shortcuts.rs:491
 #, python-brace-format
 msgid "{label}: set to {value}"
 msgstr "{label}: auf {value} setzen"
 
-#: rust/crates/system/src/shortcuts.rs:623
+#: rust/crates/system/src/shortcuts.rs:479
 #, python-brace-format
 msgid "{label}: reset to default"
 msgstr "{label}: auf Standardwert zurücksetzen"
 
-#: rust/crates/system/src/shortcuts.rs:630
+#: rust/crates/system/src/shortcuts.rs:486
 #, python-brace-format
 msgid "{label}: increase by {amount}"
 msgstr "{label}: um {amount} erhöhen"
 
-#: rust/crates/system/src/shortcuts.rs:630
+#: rust/crates/system/src/shortcuts.rs:486
 #, python-brace-format
 msgid "{label}: decrease by {amount}"
 msgstr "{label}: um {amount} verringern"
 
-#: rust/crates/system/src/shortcuts.rs:643
+#: rust/crates/system/src/shortcuts.rs:499
 #, python-brace-format
 msgid "{label}: raise by {n} stop"
 msgid_plural "{label}: raise by {n} stops"
 msgstr[0] "{label}: um {n} Blendenstufe anheben"
 msgstr[1] "{label}: um {n} Blendenstufen erhöhen"
 
-#: rust/crates/system/src/shortcuts.rs:645
+#: rust/crates/system/src/shortcuts.rs:501
 #, python-brace-format
 msgid "{label}: lower by {n} stop"
 msgid_plural "{label}: lower by {n} stops"
 msgstr[0] "{label}: um {n} Blendenstufe absenken"
 msgstr[1] "{label}: um {n} Blendenstufen senken"
 
-#: rust/crates/system/src/shortcuts.rs:650
+#: rust/crates/system/src/shortcuts.rs:506
 #, python-brace-format
 msgid "{label}: raise by {stops} stops"
 msgstr "{label}: um {stops} Blendenstufen erhöhen"
 
-#: rust/crates/system/src/shortcuts.rs:650
+#: rust/crates/system/src/shortcuts.rs:506
 #, python-brace-format
 msgid "{label}: lower by {stops} stops"
 msgstr "{label}: um {stops} Blendenstufen senken"
 
-#: rust/crates/system/src/shortcuts.rs:661
+#: rust/crates/system/src/shortcuts.rs:517
 msgid "next"
 msgstr "weiter"
 
-#: rust/crates/system/src/shortcuts.rs:661
+#: rust/crates/system/src/shortcuts.rs:517
 msgid "previous"
 msgstr "zurück"
 
-#: rust/crates/system/src/shortcuts.rs:713
-#, python-brace-format
-msgid "{name} has to be a number, not {value}."
-msgstr "{name} muss eine Zahl sein, nicht {value}."
-
-#: rust/crates/system/src/shortcuts.rs:718
-msgid "nothing right now"
-msgstr "derzeit nichts"
-
-#: rust/crates/system/src/shortcuts.rs:721
-#, python-brace-format
-msgid "{name} can be {options}, not {value}."
-msgstr "{name} kann {options} sein, nicht {value}."
-
-#. hold, toggle, on and off are values typed on the command line: keep them in English
-#: rust/crates/system/src/shortcuts.rs:726
-msgid "hold needs a key to let go of; use toggle, on or off with --action."
-msgstr "hold benötigt eine Taste zum Loslassen; nutze toggle, on oder off mit --action."
-
-#: rust/crates/system/src/shortcuts.rs:733
-#, python-brace-format
-msgid "{action} needs {name}=… for that."
-msgstr "{action} benötigt dafür {name}=…"
-
-#: rust/crates/system/src/shortcuts.rs:768
-msgid "That failed; Copy diagnostics has the details."
-msgstr "Das hat nicht geklappt. Details stehen unter „Diagnosedaten kopieren“."
-
-#: rust/crates/system/src/shortcuts.rs:791
-#, python-brace-format
-msgid "No action called {action}. telescope --list-actions lists them."
-msgstr "Keine Aktion namens {action}. telescope --list-actions listet alle auf."
-
-#: rust/crates/system/src/shortcuts.rs:797
-#, python-brace-format
-msgid "{action} has no setting {name}."
-msgstr "{action} hat keine Einstellung namens {name}."
-
-#: rust/crates/system/src/shortcuts.rs:809
-#, python-brace-format
-msgid "{action} can't be used right now (no device, or the control is off)."
-msgstr ""
-
-#: rust/crates/system/src/shortcuts.rs:986
+#: rust/crates/system/src/shortcuts.rs:735
 msgid "No control matches that search."
 msgstr "Kein Steuerelement passt zu dieser Suche."
 
-#: rust/crates/system/src/shortcuts.rs:986
+#: rust/crates/system/src/shortcuts.rs:735
 msgid "Pick a control."
 msgstr "Wähle ein Steuerelement aus."
 
-#: rust/crates/system/src/shortcuts.rs:988
+#: rust/crates/system/src/shortcuts.rs:737
 msgid "A modifier can't be a shortcut on its own. Add a key to it."
 msgstr "Eine Sondertaste allein kann keine Tastenkombination sein. Füge eine Taste hinzu."
 
-#: rust/crates/system/src/shortcuts.rs:990
+#: rust/crates/system/src/shortcuts.rs:739
 #, python-brace-format
 msgid "Press a key, with Ctrl, Alt, Shift or {meta} if you like."
 msgstr "Drücke eine Taste, wahlweise mit Strg, Alt, Umschalt oder {meta}."
 
-#: rust/crates/system/src/shortcuts.rs:994
+#: rust/crates/system/src/shortcuts.rs:743
 #, python-brace-format
 msgid "{keys} already does \"{action}\". Pick another key."
 msgstr "{keys} führt bereits „{action}“ aus. Wähle eine andere Taste."
 
-#: rust/crates/system/src/shortcuts.rs:1003
+#: rust/crates/system/src/shortcuts.rs:752
 #, python-brace-format
 msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
 msgstr "Überall würde {keys} die Eingabe in anderen Apps blockieren. Die Kombination mit Strg, Alt oder {meta} ist sicherer."
 
-#: rust/crates/system/src/shortcuts.rs:1024
+#: rust/crates/system/src/shortcuts.rs:773
 #, python-brace-format
 msgid "Unknown ({action})"
 msgstr "Unbekannt ({action})"
 
-#: rust/crates/system/src/shortcuts.rs:1045
+#: rust/crates/system/src/shortcuts.rs:794
 #, python-brace-format
 msgid "{value} (not there now)"
 msgstr "{value} (derzeit nicht vorhanden)"
 
-#: rust/crates/system/src/shortcuts.rs:1069
+#: rust/crates/system/src/shortcuts.rs:818
 msgid "A command can't hold a key down; pick another choice to copy one"
 msgstr "Ein Befehl kann eine Taste nicht gedrückt halten; wähle eine andere Option zum Kopieren"
 
-#: rust/crates/system/src/shortcuts.rs:1070
+#: rust/crates/system/src/shortcuts.rs:819
 msgid "A command line that does the same, for your desktop's own keyboard settings"
 msgstr "Ein entsprechender Befehl für die Tastatureinstellungen deiner Desktop-Umgebung"
 
-#: rust/crates/system/src/shortcuts.rs:1080
+#: rust/crates/system/src/shortcuts.rs:829
 #, python-brace-format
 msgid "Edit {shortcut}"
 msgstr "{shortcut} bearbeiten"
 
-#: rust/crates/system/src/shortcuts.rs:1081
+#: rust/crates/system/src/shortcuts.rs:830
 #, python-brace-format
 msgid "Remove {shortcut}"
 msgstr "{shortcut} entfernen"
 
-#: rust/crates/system/src/shortcuts.rs:1086
+#: rust/crates/system/src/shortcuts.rs:835
 msgid "Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings."
 msgstr "Globale Tastenkombinationen sind in dieser Desktop-Umgebung nicht verfügbar, daher funktionieren sie nur innerhalb von Telescope. Für Tasten, die überall funktionieren, kannst du über „Befehlszeile kopieren“ eine Verknüpfung in den Tastatureinstellungen deines Systems erstellen."
 
-#: rust/crates/system/src/shortcuts.rs:1189
+#: rust/crates/system/src/shortcuts.rs:938
 msgid "Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings."
 msgstr "Einstellungen für Tastenkombinationen der Desktop-Umgebung konnten nicht geöffnet werden. Suche in den Systemeinstellungen nach Tastenkombinationen."
 
-#: rust/crates/system/src/shortcuts.rs:1319
+#: rust/crates/system/src/shortcuts.rs:1068
 msgid "Keys for Telescope's controls, including ones that work in other apps."
 msgstr "Tastenkombinationen für die Steuerelemente von Telescope, auch für den Einsatz in anderen Apps."
 
-#: rust/crates/system/src/shortcuts.rs:1320
+#: rust/crates/system/src/shortcuts.rs:1069
 msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
 msgstr "Ohne das Plugin hat keine Tastenkombination eine Funktion und „Tastenkombinationen“ fehlt in den Einstellungen (deine Tastenkombinationen bleiben erhalten)."
 
@@ -7169,11 +7174,11 @@ msgstr "Telescope läuft nicht."
 msgid "Telescope didn't understand that. Is it an older version? Update it to use --action."
 msgstr "Telescope hat das nicht verstanden. Ist es eine ältere Version? Aktualisiere es, um --action zu nutzen."
 
-#: rust/crates/system/src/single_instance.rs:429
+#: rust/crates/system/src/single_instance.rs:436
 msgid "Telescope couldn't write the key --action needs next to its settings when it started. Restart it."
 msgstr "Telescope konnte beim Start den für --action erforderlichen Schlüssel nicht neben seinen Einstellungen speichern. Starte es neu."
 
-#: rust/crates/system/src/single_instance.rs:434
+#: rust/crates/system/src/single_instance.rs:441
 msgid "Telescope turned that down: it didn't come from this user's Telescope command."
 msgstr "Telescope hat die Anfrage abgelehnt: Sie stammte nicht vom Telescope-Befehl deines Benutzers."
 

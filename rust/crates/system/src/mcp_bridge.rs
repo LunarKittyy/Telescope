@@ -44,7 +44,8 @@ fn offline_answer(message: &Value, why: &str) -> Option<Value> {
             "instructions": why,
         }}),
         "ping" => json!({"jsonrpc": "2.0", "id": id, "result": {}}),
-        "tools/list" => json!({"jsonrpc": "2.0", "id": id, "result": {"tools": []}}),
+        // The catalogue stays whole while Telescope is away, so an AI app that listed the tools once doesn't go without them after it starts
+        "tools/list" => json!({"jsonrpc": "2.0", "id": id, "result": {"tools": crate::mcp::tools()}}),
         "tools/call" => json!({"jsonrpc": "2.0", "id": id, "result": {"content": [{"type": "text", "text": why}], "isError": true}}),
         _ => error(id, why),
     })
@@ -240,7 +241,7 @@ mod tests {
         let answers = collect(&out, 5);
         assert_eq!(answers[0]["result"]["protocolVersion"], json!("2025-03-26"));
         assert_eq!(answers[0]["result"]["instructions"], json!(why));
-        assert_eq!(answers[1]["result"]["tools"], json!([]));
+        assert_eq!(answers[1]["result"]["tools"], json!(crate::mcp::tools()), "the tools are offered all the same");
         assert_eq!((answers[2]["result"]["isError"].clone(), answers[2]["result"]["content"][0]["text"].clone()), (json!(true), json!(why)));
         assert_eq!(answers[3]["result"], json!({}));
         assert_eq!(answers[4]["error"]["message"], json!(why));

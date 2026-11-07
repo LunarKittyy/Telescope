@@ -160,7 +160,7 @@ msgstr "VB-Cable पाएं"
 msgid "Takes out typing, fans and room hiss."
 msgstr "टाइपिंग, पंखों की आवाज़ और कमरे के शोर को हटाता है."
 
-#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:638 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/outputs/src/stream_output.rs:956 rust/crates/system/src/shortcuts.rs:659 rust/crates/system/src/shortcuts.rs:661
+#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:638 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/outputs/src/stream_output.rs:956 rust/crates/system/src/shortcuts.rs:515 rust/crates/system/src/shortcuts.rs:517
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -187,15 +187,15 @@ msgstr "बंद"
 msgid "Gain"
 msgstr "गेन"
 
-#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:12 rust/crates/system/src/shortcuts.rs:442
+#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:12 rust/crates/system/src/remote.rs:20
 msgid "Switch on or off"
 msgstr "चालू या बंद करें"
 
-#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:13 rust/crates/system/src/shortcuts.rs:442
+#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:13 rust/crates/system/src/remote.rs:20
 msgid "Turn on"
 msgstr "चालू करें"
 
-#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:14 rust/crates/system/src/shortcuts.rs:442
+#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:14 rust/crates/system/src/remote.rs:20
 msgid "Turn off"
 msgstr "बंद करें"
 
@@ -203,7 +203,7 @@ msgstr "बंद करें"
 msgid "Switch while held, back on release"
 msgstr "दबाए रखने पर स्विच करें, छोड़ने पर वापस"
 
-#: rust/crates/audio/src/plugin.rs:1015 rust/crates/audio/src/plugin.rs:1100 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1353 rust/crates/outputs/src/stream_output.rs:620 rust/crates/outputs/src/stream_output.rs:637 rust/crates/shell/src/plugins/presets.rs:333 rust/crates/system/src/shortcuts.rs:448 rust/crates/system/src/shortcuts.rs:449
+#: rust/crates/audio/src/plugin.rs:1015 rust/crates/audio/src/plugin.rs:1100 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1353 rust/crates/outputs/src/stream_output.rs:620 rust/crates/outputs/src/stream_output.rs:637 rust/crates/shell/src/plugins/presets.rs:333 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
 msgid "Does"
 msgstr "काम"
 
@@ -432,7 +432,7 @@ msgstr "टेली"
 msgid "General"
 msgstr "सामान्य"
 
-#: rust/crates/core/src/plugin.rs:14 rust/crates/system/src/shortcuts.rs:448
+#: rust/crates/core/src/plugin.rs:14 rust/crates/system/src/remote.rs:26
 msgid "Streaming"
 msgstr "स्ट्रीमिंग"
 
@@ -448,7 +448,7 @@ msgstr "ऑडियो"
 msgid "Virtual camera & phone"
 msgstr "वर्चुअल कैमरा और फ़ोन"
 
-#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1318
+#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1067
 msgid "Keyboard shortcuts"
 msgstr "कीबोर्ड शॉर्टकट"
 
@@ -3242,7 +3242,7 @@ msgstr "फ़ोन ने माइक्रोफ़ोन अस्वीक
 msgid "No microphone"
 msgstr "कोई माइक्रोफ़ोन नहीं"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:687 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:687 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "स्ट्रीम नहीं हो रहा है"
 
@@ -3810,7 +3810,7 @@ msgstr "USB से फ़ोन ऐप को अपडेट किया ज�
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "{phone} पर मौजूद Telescope ऐप इससे पुराना है."
 
-#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:1068
+#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:817
 msgid "Copy command"
 msgstr "कमांड कॉपी करें"
 
@@ -4865,7 +4865,7 @@ msgstr "<a href=\"{url}\">LunarKittyy</a> द्वारा निर्मि�
 msgid "Version {version}"
 msgstr "वर्शन {version}"
 
-#: rust/crates/setup/src/setup.rs:431 rust/crates/system/src/shortcuts.rs:1068
+#: rust/crates/setup/src/setup.rs:431 rust/crates/system/src/shortcuts.rs:817
 msgid "Copied"
 msgstr "कॉपी हो गया"
 
@@ -6249,7 +6249,7 @@ msgid "Could not save settings. Check disk space and permissions."
 msgstr "सेटिंग्स सेव नहीं की जा सकीं. डिस्क स्पेस और अनुमतियां जांचें."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1315 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1315 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "शुरू"
 
@@ -6548,7 +6548,7 @@ msgid "Stop streaming"
 msgstr "स्ट्रीमिंग रोकें"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1321 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/window.rs:1321 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "रोकें"
 
@@ -6862,20 +6862,108 @@ msgstr "कोई दूसरा ऐप पहले से इस की क�
 msgid "Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all, so pick another."
 msgstr "जब Telescope चलता है तो हर जगह वाले शॉर्टकट Windows से लिए जाते हैं. किसी अन्य ऐप द्वारा ली जा चुकी की Telescope तक नहीं पहुंचती, इसलिए कोई दूसरी चुनें."
 
-#: rust/crates/system/src/mcp.rs:552
+#: rust/crates/system/src/mcp.rs:626
 msgid "MCP server"
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:553
+#: rust/crates/system/src/mcp.rs:627
 msgid "Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port."
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:554
+#: rust/crates/system/src/mcp.rs:628
 msgid "Without it AI apps can't connect to Telescope."
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:579
+#: rust/crates/system/src/mcp.rs:655
 msgid "An AI app is connected to Telescope through the MCP server."
+msgstr ""
+
+#: rust/crates/system/src/remote.rs:10
+msgid "Telescope: shown"
+msgstr "Telescope: दिखाई दे रहा है"
+
+#: rust/crates/system/src/remote.rs:19
+msgid "Start or stop"
+msgstr "शुरू या रोकें"
+
+#: rust/crates/system/src/remote.rs:27
+msgid "Phone camera"
+msgstr "फ़ोन कैमरा"
+
+#: rust/crates/system/src/remote.rs:28
+msgid "Show or hide Telescope"
+msgstr "Telescope दिखाएं या छिपाएं"
+
+#: rust/crates/system/src/remote.rs:39
+msgid "Already streaming"
+msgstr "पहले से स्ट्रीम हो रहा है"
+
+#: rust/crates/system/src/remote.rs:43
+msgid "Streaming: starting"
+msgstr "स्ट्रीमिंग: शुरू हो रही है"
+
+#: rust/crates/system/src/remote.rs:49
+msgid "Streaming: stopped"
+msgstr "स्ट्रीमिंग: रुक गई"
+
+#: rust/crates/system/src/remote.rs:64
+msgid "Phone camera: on"
+msgstr "फ़ोन कैमरा: चालू"
+
+#: rust/crates/system/src/remote.rs:64
+msgid "Phone camera: off"
+msgstr "फ़ोन कैमरा: बंद"
+
+#: rust/crates/system/src/remote.rs:66
+msgid "Telescope: hidden"
+msgstr "Telescope: छिपा हुआ"
+
+#: rust/crates/system/src/remote.rs:164
+#, python-brace-format
+msgid "{action} has no setting {name}."
+msgstr "{action} में {name} सेटिंग नहीं है."
+
+#: rust/crates/system/src/remote.rs:180
+#, python-brace-format
+msgid "{name} has to be a number, not {value}."
+msgstr "{name} एक संख्या होनी चाहिए, {value} नहीं."
+
+#: rust/crates/system/src/remote.rs:185
+#, python-brace-format
+msgid "{name} goes from {low} to {high}, so {value} is out of range."
+msgstr ""
+
+#: rust/crates/system/src/remote.rs:191
+msgid "nothing right now"
+msgstr "अभी कुछ नहीं"
+
+#: rust/crates/system/src/remote.rs:194
+#, python-brace-format
+msgid "{name} can be {options}, not {value}."
+msgstr "{name} {options} हो सकता है, {value} नहीं."
+
+#. hold, toggle, on and off are values typed on the command line: keep them in English
+#: rust/crates/system/src/remote.rs:199
+msgid "hold needs a key to let go of; use toggle, on or off with --action."
+msgstr "hold के लिए एक की (key) छोड़ना ज़रूरी है; --action के साथ toggle, on या off का इस्तेमाल करें."
+
+#: rust/crates/system/src/remote.rs:206
+#, python-brace-format
+msgid "{action} needs {name}=… for that."
+msgstr "उसके लिए {action} को {name}=… की ज़रूरत है."
+
+#: rust/crates/system/src/remote.rs:241
+msgid "That failed; Copy diagnostics has the details."
+msgstr "वह विफल रहा; विवरण डायग्नोस्टिक्स कॉपी करें में है."
+
+#: rust/crates/system/src/remote.rs:254
+#, python-brace-format
+msgid "No action called {action}. telescope --list-actions lists them."
+msgstr "{action} नाम का कोई ऐक्शन नहीं है. telescope --list-actions उनकी सूची देता है."
+
+#: rust/crates/system/src/remote.rs:267
+#, python-brace-format
+msgid "{action} can't be used right now (no device, or the control is off)."
 msgstr ""
 
 #: rust/crates/system/src/setup_move.rs:350
@@ -6895,10 +6983,6 @@ msgstr "इंस्टॉलर रुक गया (कोड {code}), इस�
 #: rust/crates/system/src/setup_move.rs:360
 msgid "Telescope was installed, but its folder wasn't where expected. Open it from the Start menu."
 msgstr "Telescope इंस्टॉल हो गया, लेकिन इसका फ़ोल्डर वहां नहीं था जहां उम्मीद थी. इसे स्टार्ट मेन्यू से खोलें."
-
-#: rust/crates/system/src/shortcuts.rs:31
-msgid "Telescope: shown"
-msgstr "Telescope: दिखाई दे रहा है"
 
 #: rust/crates/system/src/shortcuts.rs:53
 msgid "This Telescope has no shortcuts."
@@ -6933,205 +7017,126 @@ msgstr "हर जगह (सेट अप हो रहा है)"
 msgid "In Telescope: {status}"
 msgstr "Telescope में: {status}"
 
-#: rust/crates/system/src/shortcuts.rs:441
-msgid "Start or stop"
-msgstr "शुरू या रोकें"
-
-#: rust/crates/system/src/shortcuts.rs:449
-msgid "Phone camera"
-msgstr "फ़ोन कैमरा"
-
-#: rust/crates/system/src/shortcuts.rs:450
-msgid "Show or hide Telescope"
-msgstr "Telescope दिखाएं या छिपाएं"
-
-#: rust/crates/system/src/shortcuts.rs:461
-msgid "Already streaming"
-msgstr "पहले से स्ट्रीम हो रहा है"
-
-#: rust/crates/system/src/shortcuts.rs:465
-msgid "Streaming: starting"
-msgstr "स्ट्रीमिंग: शुरू हो रही है"
-
-#: rust/crates/system/src/shortcuts.rs:471
-msgid "Streaming: stopped"
-msgstr "स्ट्रीमिंग: रुक गई"
-
-#: rust/crates/system/src/shortcuts.rs:486
-msgid "Phone camera: on"
-msgstr "फ़ोन कैमरा: चालू"
-
-#: rust/crates/system/src/shortcuts.rs:486
-msgid "Phone camera: off"
-msgstr "फ़ोन कैमरा: बंद"
-
-#: rust/crates/system/src/shortcuts.rs:488
-msgid "Telescope: hidden"
-msgstr "Telescope: छिपा हुआ"
-
-#: rust/crates/system/src/shortcuts.rs:622 rust/crates/system/src/shortcuts.rs:635
+#: rust/crates/system/src/shortcuts.rs:478 rust/crates/system/src/shortcuts.rs:491
 #, python-brace-format
 msgid "{label}: set to {value}"
 msgstr "{label}: {value} पर सेट करें"
 
-#: rust/crates/system/src/shortcuts.rs:623
+#: rust/crates/system/src/shortcuts.rs:479
 #, python-brace-format
 msgid "{label}: reset to default"
 msgstr "{label}: डिफ़ॉल्ट पर रीसेट करें"
 
-#: rust/crates/system/src/shortcuts.rs:630
+#: rust/crates/system/src/shortcuts.rs:486
 #, python-brace-format
 msgid "{label}: increase by {amount}"
 msgstr "{label}: {amount} बढ़ाएं"
 
-#: rust/crates/system/src/shortcuts.rs:630
+#: rust/crates/system/src/shortcuts.rs:486
 #, python-brace-format
 msgid "{label}: decrease by {amount}"
 msgstr "{label}: {amount} घटाएं"
 
-#: rust/crates/system/src/shortcuts.rs:643
+#: rust/crates/system/src/shortcuts.rs:499
 #, python-brace-format
 msgid "{label}: raise by {n} stop"
 msgid_plural "{label}: raise by {n} stops"
 msgstr[0] "{label}: {n} स्टॉप बढ़ाएं"
 msgstr[1] "{label}: {n} स्टॉप्स बढ़ाएं"
 
-#: rust/crates/system/src/shortcuts.rs:645
+#: rust/crates/system/src/shortcuts.rs:501
 #, python-brace-format
 msgid "{label}: lower by {n} stop"
 msgid_plural "{label}: lower by {n} stops"
 msgstr[0] "{label}: {n} स्टॉप घटाएं"
 msgstr[1] "{label}: {n} स्टॉप्स घटाएं"
 
-#: rust/crates/system/src/shortcuts.rs:650
+#: rust/crates/system/src/shortcuts.rs:506
 #, python-brace-format
 msgid "{label}: raise by {stops} stops"
 msgstr "{label}: {stops} स्टॉप्स बढ़ाएं"
 
-#: rust/crates/system/src/shortcuts.rs:650
+#: rust/crates/system/src/shortcuts.rs:506
 #, python-brace-format
 msgid "{label}: lower by {stops} stops"
 msgstr "{label}: {stops} स्टॉप्स घटाएं"
 
-#: rust/crates/system/src/shortcuts.rs:661
+#: rust/crates/system/src/shortcuts.rs:517
 msgid "next"
 msgstr "अगला"
 
-#: rust/crates/system/src/shortcuts.rs:661
+#: rust/crates/system/src/shortcuts.rs:517
 msgid "previous"
 msgstr "पिछला"
 
-#: rust/crates/system/src/shortcuts.rs:713
-#, python-brace-format
-msgid "{name} has to be a number, not {value}."
-msgstr "{name} एक संख्या होनी चाहिए, {value} नहीं."
-
-#: rust/crates/system/src/shortcuts.rs:718
-msgid "nothing right now"
-msgstr "अभी कुछ नहीं"
-
-#: rust/crates/system/src/shortcuts.rs:721
-#, python-brace-format
-msgid "{name} can be {options}, not {value}."
-msgstr "{name} {options} हो सकता है, {value} नहीं."
-
-#. hold, toggle, on and off are values typed on the command line: keep them in English
-#: rust/crates/system/src/shortcuts.rs:726
-msgid "hold needs a key to let go of; use toggle, on or off with --action."
-msgstr "hold के लिए एक की (key) छोड़ना ज़रूरी है; --action के साथ toggle, on या off का इस्तेमाल करें."
-
-#: rust/crates/system/src/shortcuts.rs:733
-#, python-brace-format
-msgid "{action} needs {name}=… for that."
-msgstr "उसके लिए {action} को {name}=… की ज़रूरत है."
-
-#: rust/crates/system/src/shortcuts.rs:768
-msgid "That failed; Copy diagnostics has the details."
-msgstr "वह विफल रहा; विवरण डायग्नोस्टिक्स कॉपी करें में है."
-
-#: rust/crates/system/src/shortcuts.rs:791
-#, python-brace-format
-msgid "No action called {action}. telescope --list-actions lists them."
-msgstr "{action} नाम का कोई ऐक्शन नहीं है. telescope --list-actions उनकी सूची देता है."
-
-#: rust/crates/system/src/shortcuts.rs:797
-#, python-brace-format
-msgid "{action} has no setting {name}."
-msgstr "{action} में {name} सेटिंग नहीं है."
-
-#: rust/crates/system/src/shortcuts.rs:809
-#, python-brace-format
-msgid "{action} can't be used right now (no device, or the control is off)."
-msgstr ""
-
-#: rust/crates/system/src/shortcuts.rs:986
+#: rust/crates/system/src/shortcuts.rs:735
 msgid "No control matches that search."
 msgstr "उस खोज से कोई कंट्रोल मेल नहीं खाता."
 
-#: rust/crates/system/src/shortcuts.rs:986
+#: rust/crates/system/src/shortcuts.rs:735
 msgid "Pick a control."
 msgstr "एक कंट्रोल चुनें."
 
-#: rust/crates/system/src/shortcuts.rs:988
+#: rust/crates/system/src/shortcuts.rs:737
 msgid "A modifier can't be a shortcut on its own. Add a key to it."
 msgstr "मॉडिफ़ायर अपने आप में शॉर्टकट नहीं हो सकता. इसके साथ कोई की जोड़ें."
 
-#: rust/crates/system/src/shortcuts.rs:990
+#: rust/crates/system/src/shortcuts.rs:739
 #, python-brace-format
 msgid "Press a key, with Ctrl, Alt, Shift or {meta} if you like."
 msgstr "कोई की दबाएं, चाहें तो Ctrl, Alt, Shift या {meta} के साथ."
 
-#: rust/crates/system/src/shortcuts.rs:994
+#: rust/crates/system/src/shortcuts.rs:743
 #, python-brace-format
 msgid "{keys} already does \"{action}\". Pick another key."
 msgstr "{keys} पहले से \"{action}\" करता है. कोई दूसरी की चुनें."
 
-#: rust/crates/system/src/shortcuts.rs:1003
+#: rust/crates/system/src/shortcuts.rs:752
 #, python-brace-format
 msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
 msgstr "'हर जगह' होने पर, {keys} अन्य ऐप में टाइप होना बंद हो जाएगा. Ctrl, Alt या {meta} जोड़ना ज़्यादा सुरक्षित है."
 
-#: rust/crates/system/src/shortcuts.rs:1024
+#: rust/crates/system/src/shortcuts.rs:773
 #, python-brace-format
 msgid "Unknown ({action})"
 msgstr "अज्ञात ({action})"
 
-#: rust/crates/system/src/shortcuts.rs:1045
+#: rust/crates/system/src/shortcuts.rs:794
 #, python-brace-format
 msgid "{value} (not there now)"
 msgstr "{value} (अभी मौजूद नहीं)"
 
-#: rust/crates/system/src/shortcuts.rs:1069
+#: rust/crates/system/src/shortcuts.rs:818
 msgid "A command can't hold a key down; pick another choice to copy one"
 msgstr "कमांड किसी की को दबाकर नहीं रख सकती; कमांड कॉपी करने के लिए कोई दूसरा विकल्प चुनें"
 
-#: rust/crates/system/src/shortcuts.rs:1070
+#: rust/crates/system/src/shortcuts.rs:819
 msgid "A command line that does the same, for your desktop's own keyboard settings"
 msgstr "वही काम करने वाली एक कमांड लाइन, आपके डेस्कटॉप की अपनी कीबोर्ड सेटिंग्स के लिए"
 
-#: rust/crates/system/src/shortcuts.rs:1080
+#: rust/crates/system/src/shortcuts.rs:829
 #, python-brace-format
 msgid "Edit {shortcut}"
 msgstr "{shortcut} एडिट करें"
 
-#: rust/crates/system/src/shortcuts.rs:1081
+#: rust/crates/system/src/shortcuts.rs:830
 #, python-brace-format
 msgid "Remove {shortcut}"
 msgstr "{shortcut} हटाएं"
 
-#: rust/crates/system/src/shortcuts.rs:1086
+#: rust/crates/system/src/shortcuts.rs:835
 msgid "Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings."
 msgstr "इस डेस्कटॉप पर ग्लोबल शॉर्टकट उपलब्ध नहीं हैं, इसलिए ये Telescope के अंदर काम करते हैं. हर जगह काम करने वाली कीज़ के लिए, अपने डेस्कटॉप की कीबोर्ड सेटिंग्स में शॉर्टकट की 'कमांड लाइन कॉपी करें' को बाइंड करें."
 
-#: rust/crates/system/src/shortcuts.rs:1189
+#: rust/crates/system/src/shortcuts.rs:938
 msgid "Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings."
 msgstr "आपके डेस्कटॉप की शॉर्टकट सेटिंग्स नहीं खोली जा सकीं. इसकी सिस्टम सेटिंग्स में 'शॉर्टकट' देखें."
 
-#: rust/crates/system/src/shortcuts.rs:1319
+#: rust/crates/system/src/shortcuts.rs:1068
 msgid "Keys for Telescope's controls, including ones that work in other apps."
 msgstr "Telescope के कंट्रोल्स के लिए कीज़, जिनमें वे भी शामिल हैं जो अन्य ऐप में काम करती हैं."
 
-#: rust/crates/system/src/shortcuts.rs:1320
+#: rust/crates/system/src/shortcuts.rs:1069
 msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
 msgstr "इसके बिना कोई शॉर्टकट काम नहीं करता और सेटिंग्स में 'कीबोर्ड शॉर्टकट' नहीं होता (आपके शॉर्टकट इसके वापस आने तक सुरक्षित रखे जाते हैं)."
 
@@ -7169,11 +7174,11 @@ msgstr "Telescope नहीं चल रहा है."
 msgid "Telescope didn't understand that. Is it an older version? Update it to use --action."
 msgstr "Telescope इसे समझ नहीं सका. क्या यह पुराना वर्शन है? --action का इस्तेमाल करने के लिए इसे अपडेट करें."
 
-#: rust/crates/system/src/single_instance.rs:429
+#: rust/crates/system/src/single_instance.rs:436
 msgid "Telescope couldn't write the key --action needs next to its settings when it started. Restart it."
 msgstr "Telescope शुरू होते समय अपनी सेटिंग्स के पास वह की (key) नहीं लिख सका जिसकी --action को ज़रूरत है. इसे रीस्टार्ट करें."
 
-#: rust/crates/system/src/single_instance.rs:434
+#: rust/crates/system/src/single_instance.rs:441
 msgid "Telescope turned that down: it didn't come from this user's Telescope command."
 msgstr "Telescope ने इसे अस्वीकार कर दिया: यह इस यूज़र की Telescope कमांड से नहीं आया था."
 

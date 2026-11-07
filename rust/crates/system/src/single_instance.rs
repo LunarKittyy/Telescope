@@ -402,8 +402,13 @@ pub fn answer(conn: &mut Conn, on_raise: &dyn Fn(), on_action: Option<&dyn Fn(Va
     answer_with(conn, on_raise, on_action, None, control_key);
 }
 
-/// What a connection that stays open (`telescope mcp`) is given once it is let in: it runs on a thread of its own with the connection.
-pub type McpServe = Box<dyn FnOnce(Conn) + Send>;
+/// What a connection that stays open (`telescope mcp`) is given once it is let in: it runs on a thread of its own with the connection
+/// and the bytes that came in after the handshake line, which are the start of what the connection says.
+pub type McpServe = Box<dyn FnOnce(Conn, Vec<u8>) + Send>;
+
+/// How long a `mcp:` handshake line may take to arrive in full, and how long it may get.
+const MCP_HANDSHAKE_WAIT: Duration = Duration::from_secs(3);
+const MCP_HANDSHAKE_MAX: usize = 4096;
 
 /// Whether an MCP connection is let in now: the thing that serves it, or the reason it isn't.
 pub type McpOpen = dyn Fn() -> Result<McpServe, String> + Send;
@@ -419,8 +424,10 @@ pub fn answer_with(conn: &mut Conn, on_raise: &dyn Fn(), on_action: Option<&dyn 
         Err(_) => return,
     };
     let message = &first[..n];
-    if message.starts_with(MCP) {
-        return answer_mcp(conn, &message[MCP.len()..], on_mcp, control_key);
+    if message.starts_with(MCP) || (!message.is_empty() && MCP.starts_with(message)) {
+        // A connection may deliver the handshake in pieces (always can on TCP, which Windows uses)
+        let Some((line, after)) = read_mcp_handshake(conn, message) else { return };
+        return answer_mcp(conn, &line, after, on_mcp, control_key);
     }
     let reply: Vec<u8> = if message.starts_with(ACTION) {
         let request = read_request(conn, message);
@@ -447,11 +454,35 @@ pub fn answer_with(conn: &mut Conn, on_raise: &dyn Fn(), on_action: Option<&dyn 
     let _ = conn.write_all(&reply);
 }
 
-fn answer_mcp(conn: &mut Conn, rest: &[u8], on_mcp: Option<&McpOpen>, control_key: Option<&str>) {
+/// The handshake line after `mcp:` and whatever came in after its newline, read until the line is whole. None when it never is in time,
+/// grows too long or the other end goes.
+fn read_mcp_handshake(conn: &mut Conn, first: &[u8]) -> Option<(Vec<u8>, Vec<u8>)> {
+    let mut data = first.to_vec();
+    let deadline = Instant::now() + MCP_HANDSHAKE_WAIT;
+    let mut chunk = [0u8; 1024];
+    loop {
+        if data.len() >= MCP.len() {
+            if !data.starts_with(MCP) {
+                return None;
+            }
+            if let Some(end) = data.iter().position(|b| *b == b'\n') {
+                return Some((data[MCP.len()..end].to_vec(), data[end + 1..].to_vec()));
+            }
+        }
+        if data.len() >= MCP_HANDSHAKE_MAX || Instant::now() >= deadline {
+            return None;
+        }
+        match conn.read(&mut chunk) {
+            Ok(0) | Err(_) => return None,
+            Ok(n) => data.extend_from_slice(&chunk[..n]),
+        }
+    }
+}
+
+fn answer_mcp(conn: &mut Conn, line: &[u8], after: Vec<u8>, on_mcp: Option<&McpOpen>, control_key: Option<&str>) {
     let say = |conn: &mut Conn, ok: bool, text: &str| {
         let _ = conn.write_all(format!("{}\n", json!({"ok": ok, "text": text})).as_bytes());
     };
-    let line = rest.split(|b| *b == b'\n').next().unwrap_or_default();
     let sent = serde_json::from_slice::<Value>(line).ok().and_then(|r| r.get("key").and_then(Value::as_str).map(str::to_string)).unwrap_or_default();
     match (on_mcp, control_key) {
         (None, _) => say(conn, false, "This Telescope has no MCP server."),
@@ -462,7 +493,7 @@ fn answer_mcp(conn: &mut Conn, rest: &[u8], on_mcp: Option<&McpOpen>, control_ke
                 say(conn, true, "");
                 conn.set_timeout(None);
                 if let Ok(theirs) = conn.try_clone() {
-                    let _ = std::thread::Builder::new().name("mcp-client".into()).spawn(move || serve(theirs));
+                    let _ = std::thread::Builder::new().name("mcp-client".into()).spawn(move || serve(theirs, after));
                 }
             }
         },
@@ -661,9 +692,9 @@ mod tests {
             if !on.load(std::sync::atomic::Ordering::SeqCst) {
                 return Err("MCP is off".to_string());
             }
-            Ok(Box::new(|conn: Conn| {
+            Ok(Box::new(|conn: Conn, after: Vec<u8>| {
                 let mut writer = conn.try_clone().unwrap();
-                for line in std::io::BufRead::lines(std::io::BufReader::new(conn)).map_while(Result::ok) {
+                for line in std::io::BufRead::lines(std::io::BufReader::new(std::io::Read::chain(std::io::Cursor::new(after), conn))).map_while(Result::ok) {
                     let _ = writeln!(writer, "{}", line.len());
                 }
             }) as McpServe)
@@ -701,6 +732,47 @@ mod tests {
         // Not running at all
         assert_eq!(connect_mcp(&test_address("mcp-nobody"), &server.run.key_path()).err(), Some(McpRefused::NotRunning));
         assert_eq!(connect_mcp(&server.run.address, &server.run.dir.join("no-key")).err(), Some(McpRefused::NotRunning));
+    }
+
+    #[test]
+    fn a_handshake_that_arrives_in_pieces_still_gets_in_and_what_follows_it_is_kept() {
+        let on = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let server = mcp_running("mcp-pieces", on);
+        let key = std::fs::read_to_string(server.run.key_path()).unwrap();
+        let line = format!("mcp:{}\nfirst\n", json!({"key": key.trim()}));
+        let mut conn = connect(&server.run.address, Duration::from_secs(5)).unwrap();
+        // Split inside the prefix, inside the JSON and right after the newline, with a pause between each
+        let (a, rest) = line.as_bytes().split_at(2);
+        let (b, rest) = rest.split_at(9);
+        let newline = rest.iter().position(|c| *c == b'\n').unwrap() + 1;
+        let (c, d) = rest.split_at(newline);
+        for piece in [a, b, c, d] {
+            conn.write_all(piece).unwrap();
+            conn.flush().unwrap();
+            std::thread::sleep(Duration::from_millis(60));
+        }
+        let mut reply = Vec::new();
+        let mut byte = [0u8; 1];
+        while conn.read(&mut byte).map(|n| n == 1).unwrap_or(false) && byte[0] != b'\n' {
+            reply.push(byte[0]);
+        }
+        assert_eq!(serde_json::from_slice::<Value>(&reply).unwrap()["ok"], json!(true), "{}", String::from_utf8_lossy(&reply));
+        let mut got = [0u8; 2];
+        conn.read_exact(&mut got).unwrap();
+        assert_eq!(&got, b"5\n", "the line sent after the handshake was read, not dropped");
+    }
+
+    #[test]
+    fn a_handshake_that_never_ends_is_dropped() {
+        let on = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let server = mcp_running("mcp-endless", on);
+        let mut conn = connect(&server.run.address, Duration::from_secs(5)).unwrap();
+        conn.write_all(&[MCP, &vec![b'x'; MCP_HANDSHAKE_MAX]].concat()).unwrap();
+        let mut reply = Vec::new();
+        // Closed on us, which with bytes left unread can show as a reset
+        let _ = conn.read_to_end(&mut reply);
+        assert!(reply.is_empty(), "{}", String::from_utf8_lossy(&reply));
+        assert!(connect_mcp(&server.run.address, &server.run.key_path()).is_ok(), "and the next connection is served");
     }
 
     #[test]

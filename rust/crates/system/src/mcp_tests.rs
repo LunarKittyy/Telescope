@@ -39,9 +39,13 @@ impl Rig {
     }
 
     /// A tool call from a connection's thread, answered by the plugin on this one. `between` runs while it waits, for events other plugins would send.
-    fn ask_with(&mut self, tool: &str, args: Value, mut between: impl FnMut(&mut Rig)) -> Reply {
+    fn ask_with(&mut self, tool: &str, args: Value, between: impl FnMut(&mut Rig)) -> Reply {
+        self.ask_as_with(0, tool, args, between)
+    }
+
+    fn ask_as_with(&mut self, session: u64, tool: &str, args: Value, mut between: impl FnMut(&mut Rig)) -> Reply {
         let (handle, tool) = (self.handle.clone(), tool.to_string());
-        let asked = std::thread::spawn(move || handle.call(&tool, args));
+        let asked = std::thread::spawn(move || handle.call_as(session, &tool, args));
         while !asked.is_finished() {
             self.deliver();
             between(self);
@@ -52,6 +56,10 @@ impl Rig {
 
     fn ask(&mut self, tool: &str, args: Value) -> Reply {
         self.ask_with(tool, args, |_| {})
+    }
+
+    fn ask_as(&mut self, session: u64, tool: &str, args: Value) -> Reply {
+        self.ask_as_with(session, tool, args, |_| {})
     }
 
     fn config(&self) -> Value {
@@ -117,11 +125,35 @@ fn tools_call_passes_the_arguments_on_and_flags_a_failure() {
 #[test]
 fn an_unknown_tool_or_method_is_a_protocol_error_and_bad_arguments_a_tool_error() {
     let ask = |message: Value| handle_message(&message, &never).unwrap();
-    assert_eq!(ask(json!({"id": 1, "method": "tools/call", "params": {"name": "format_disk"}}))["error"]["code"], json!(-32602));
-    assert_eq!(ask(json!({"id": 2, "method": "resources/list"}))["error"]["code"], json!(-32601));
-    assert_eq!(ask(json!({"id": 3, "params": {}}))["error"]["code"], json!(-32600));
-    let bad = ask(json!({"id": 4, "method": "tools/call", "params": {"name": "get", "arguments": [1]}}));
+    assert_eq!(ask(json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "format_disk"}}))["error"]["code"], json!(-32602));
+    assert_eq!(ask(json!({"jsonrpc": "2.0", "id": 2, "method": "resources/list"}))["error"]["code"], json!(-32601));
+    assert_eq!(ask(json!({"jsonrpc": "2.0", "id": 3, "params": {}}))["error"]["code"], json!(-32600));
+    let bad = ask(json!({"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "get", "arguments": [1]}}));
     assert_eq!(bad["result"]["isError"], json!(true));
+}
+
+#[test]
+fn a_message_that_is_not_a_valid_request_is_refused_and_never_runs_a_tool() {
+    let ask = |message: Value| handle_message(&message, &never);
+    let call = |extra: Value| {
+        let mut m = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "set", "arguments": {"changes": {"a.b": 1}}}});
+        for (k, v) in extra.as_object().unwrap() {
+            if v.is_null() { m.as_object_mut().unwrap().remove(k); } else { m[k] = v.clone(); }
+        }
+        m
+    };
+    for bad in [call(json!({"jsonrpc": null})), call(json!({"jsonrpc": "1.0"})), call(json!({"id": true})), call(json!({"id": {"a": 1}})),
+                call(json!({"id": 1.5})), json!({"jsonrpc": "2.0", "id": null, "method": "ping"}), call(json!({"id": [1]})), json!({}), json!([]), json!("x"), json!(7)] {
+        let answer = ask(bad.clone()).unwrap_or_else(|| panic!("{bad} got no answer"));
+        assert_eq!(answer["error"]["code"], json!(-32600), "{bad} gave {answer}");
+    }
+    assert_eq!(ask(call(json!({"jsonrpc": "1.0"}))).unwrap()["id"], json!(1), "a usable id is echoed");
+    assert_eq!(ask(call(json!({"id": true}))).unwrap()["id"], json!(null), "an unusable one isn't");
+    // Valid ids and valid notifications are as before
+    assert_eq!(handle_message(&json!({"jsonrpc": "2.0", "id": "s", "method": "ping"}), &never).unwrap()["id"], json!("s"));
+    assert_eq!(handle_message(&json!({"jsonrpc": "2.0", "id": 0, "method": "ping"}), &never).unwrap()["id"], json!(0));
+    assert_eq!(handle_message(&json!({"jsonrpc": "2.0", "method": "notifications/cancelled"}), &never), None);
+    assert_eq!(handle_message(&json!({"jsonrpc": "2.0", "id": 5, "result": {}}), &never), None, "an answer to nothing asked is let go");
 }
 
 /// A writer that hands every message to a channel, so a test waits for answers instead of polling.
@@ -337,6 +369,63 @@ fn revert_leaves_a_setting_alone_when_another_camera_is_shown() {
     assert_eq!(r.config()["contrast"], json!(1.4));
 }
 
+/// A plugin's own rule for settings that depend on each other: no highlights at all means no contrast either.
+fn no_gain_no_contrast(_: &str, config: &mut Value) {
+    if config["masters"]["gain"] == json!(0.0) {
+        config["contrast"] = json!(1.0);
+    }
+}
+
+#[test]
+fn a_set_the_plugin_only_half_takes_is_undone_whole_and_leaves_nothing_to_revert() {
+    let mut r = Rig::new();
+    r.host.preset_rules = Some(no_gain_no_contrast);
+    r.host.settings.insert(0, PluginSettings { name: "alpha".into(), title: "Alpha".into(), settings: vec![SettingSpec::switch("on", "Whether", false)] });
+    r.host.plugin_configs.insert("alpha".into(), json!({"on": false}));
+    let before = (r.config(), r.host.plugin_configs["alpha"].clone());
+    let err = r.ask("set", json!({"changes": {"alpha.on": true, "grading.contrast": 1.4, "grading.masters.gain": 0.0}})).unwrap_err();
+    assert!(err.starts_with("Nothing was changed.") && err.contains("kept contrast"), "{err}");
+    assert_eq!((r.config(), r.host.plugin_configs["alpha"].clone()), before, "the plugin that was fine is back as it was too");
+    let back = r.ask("revert", json!({})).unwrap();
+    assert_eq!(back["reverted"], json!([]));
+}
+
+#[test]
+fn revert_puts_back_what_a_change_moved_on_its_own_and_all_together() {
+    let mut r = Rig::new();
+    r.host.preset_rules = Some(no_gain_no_contrast);
+    r.host.plugin_configs.get_mut("grading").unwrap()["contrast"] = json!(1.4);
+    let done = r.ask("set", json!({"changes": {"grading.masters.gain": 0.0}})).unwrap();
+    assert_eq!(r.config()["contrast"], json!(1.0), "the rule moved contrast too");
+    let ids: Vec<&str> = done["changed"].as_array().unwrap().iter().map(|c| c["id"].as_str().unwrap()).collect();
+    assert_eq!(ids, ["grading.contrast", "grading.masters.gain"], "the answer says so");
+    let back = r.ask("revert", json!({})).unwrap();
+    assert_eq!(back["reverted"].as_array().unwrap().len(), 2, "{back}");
+    assert_eq!((r.config()["contrast"].clone(), r.config()["masters"]["gain"].clone()), (json!(1.4), json!(1.0)));
+    assert_eq!(r.host.calls.iter().filter(|c| c.starts_with("apply_preset grading")).count(), 2, "one write to set, one to put back");
+}
+
+#[test]
+fn each_connection_reverts_only_its_own_changes() {
+    let mut r = Rig::new();
+    let (a, b) = (r.handle.open_client().unwrap(), r.handle.open_client().unwrap());
+    r.deliver();
+    assert_ne!(a.session(), b.session());
+    r.ask_as(a.session(), "set", json!({"changes": {"grading.contrast": 1.4}})).unwrap();
+    // Another connection can't take it back
+    let nothing = r.ask_as(b.session(), "revert", json!({})).unwrap();
+    assert_eq!((nothing["reverted"].clone(), r.config()["contrast"].clone()), (json!([]), json!(1.4)));
+    // A leaves; B starts from where A left it
+    drop(a);
+    r.deliver();
+    r.ask_as(b.session(), "set", json!({"changes": {"grading.contrast": 1.6}})).unwrap();
+    let back = r.ask_as(b.session(), "revert", json!({})).unwrap();
+    assert_eq!(back["reverted"][0], json!({"id": "grading.contrast", "back_to": 1.4}));
+    assert_eq!(r.config()["contrast"], json!(1.4));
+    assert_eq!(r.host.notifications.len(), 1, "a connection going is not announced as one arriving");
+    assert!(!r.plugin.journals.contains_key(&1), "what a gone connection changed is forgotten");
+}
+
 // ── Actions ──────────────────────────────────────────────────────────
 
 fn with_actions(r: &mut Rig) {
@@ -351,6 +440,18 @@ fn actions_list_what_can_run_and_leave_out_what_can_drop_a_call() {
     let listed = r.ask("actions", json!({})).unwrap();
     let ids: Vec<&str> = listed["actions"].as_array().unwrap().iter().map(|a| a["id"].as_str().unwrap()).collect();
     assert_eq!(ids, ["grading.reset"], "the stream and camera controls are the person's");
+}
+
+#[test]
+fn picking_another_phone_is_left_to_the_person_too() {
+    let mut r = Rig::new();
+    let action = |id: &str| ActionSpec { id: id.into(), label: id.into(), group: "Phone".into(), params: vec![], repeats: false, on_release: false, current: None, keywords: String::new() };
+    r.host.actions = vec![("connection".into(), action("phone.pick")), ("grading".into(), action("grading.reset"))];
+    let listed = r.ask("actions", json!({})).unwrap();
+    let ids: Vec<&str> = listed["actions"].as_array().unwrap().iter().map(|a| a["id"].as_str().unwrap()).collect();
+    assert_eq!(ids, ["grading.reset"]);
+    assert!(r.ask("run_action", json!({"action": "phone.pick"})).unwrap_err().contains("left to the person"));
+    assert!(!r.host.calls.iter().any(|c| c.starts_with("run_action")));
 }
 
 #[test]
@@ -379,7 +480,7 @@ fn an_actions_params_are_checked_so_a_typo_does_not_run_the_default() {
     r.host.actions = vec![("grading".into(), ActionSpec { id: "grading.tint".into(), label: "Tint".into(), group: "Grading".into(), params: slider.as_array().unwrap().clone(),
                                                           repeats: true, on_release: false, current: Some(0.0), keywords: String::new() })];
     let bad = |r: &mut Rig, params: Value| r.ask("run_action", json!({"action": "grading.tint", "params": params})).unwrap_err();
-    assert!(bad(&mut r, json!({"ammount": 3})).contains("has no setting \"ammount\""));
+    assert!(bad(&mut r, json!({"ammount": 3})).contains("has no setting 'ammount'"));
     assert!(bad(&mut r, json!({"op": "sideways"})).contains("up | set"));
     assert!(bad(&mut r, json!({"amount": 50})).contains("out of range"));
     assert!(bad(&mut r, json!({"amount": "lots"})).contains("has to be a number"));

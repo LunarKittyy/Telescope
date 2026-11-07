@@ -160,7 +160,7 @@ msgstr "VB-Cable 다운로드"
 msgid "Takes out typing, fans and room hiss."
 msgstr "타자 소리, 팬 소음, 방 안의 잡음을 제거해요."
 
-#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:638 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/outputs/src/stream_output.rs:956 rust/crates/system/src/shortcuts.rs:659 rust/crates/system/src/shortcuts.rs:661
+#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:638 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/outputs/src/stream_output.rs:956 rust/crates/system/src/shortcuts.rs:515 rust/crates/system/src/shortcuts.rs:517
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -187,15 +187,15 @@ msgstr "끔"
 msgid "Gain"
 msgstr "게인"
 
-#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:12 rust/crates/system/src/shortcuts.rs:442
+#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:12 rust/crates/system/src/remote.rs:20
 msgid "Switch on or off"
 msgstr "켜기 또는 끄기"
 
-#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:13 rust/crates/system/src/shortcuts.rs:442
+#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:13 rust/crates/system/src/remote.rs:20
 msgid "Turn on"
 msgstr "켜기"
 
-#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:14 rust/crates/system/src/shortcuts.rs:442
+#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:14 rust/crates/system/src/remote.rs:20
 msgid "Turn off"
 msgstr "끄기"
 
@@ -203,7 +203,7 @@ msgstr "끄기"
 msgid "Switch while held, back on release"
 msgstr "누르고 있는 동안 전환, 떼면 복귀"
 
-#: rust/crates/audio/src/plugin.rs:1015 rust/crates/audio/src/plugin.rs:1100 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1353 rust/crates/outputs/src/stream_output.rs:620 rust/crates/outputs/src/stream_output.rs:637 rust/crates/shell/src/plugins/presets.rs:333 rust/crates/system/src/shortcuts.rs:448 rust/crates/system/src/shortcuts.rs:449
+#: rust/crates/audio/src/plugin.rs:1015 rust/crates/audio/src/plugin.rs:1100 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1353 rust/crates/outputs/src/stream_output.rs:620 rust/crates/outputs/src/stream_output.rs:637 rust/crates/shell/src/plugins/presets.rs:333 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
 msgid "Does"
 msgstr "동작"
 
@@ -432,7 +432,7 @@ msgstr "망원"
 msgid "General"
 msgstr "일반"
 
-#: rust/crates/core/src/plugin.rs:14 rust/crates/system/src/shortcuts.rs:448
+#: rust/crates/core/src/plugin.rs:14 rust/crates/system/src/remote.rs:26
 msgid "Streaming"
 msgstr "스트리밍"
 
@@ -448,7 +448,7 @@ msgstr "오디오"
 msgid "Virtual camera & phone"
 msgstr "가상 카메라 및 휴대폰"
 
-#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1318
+#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1067
 msgid "Keyboard shortcuts"
 msgstr "키보드 단축키"
 
@@ -3242,7 +3242,7 @@ msgstr "휴대폰에서 마이크 연결을 거부했어요(HTTP {code})."
 msgid "No microphone"
 msgstr "마이크 없음"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:687 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:687 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "스트리밍 중 아님"
 
@@ -3810,7 +3810,7 @@ msgstr "USB로 휴대폰 앱 업데이트 중…"
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "{phone}의 Telescope 앱이 이 앱보다 이전 버전이에요."
 
-#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:1068
+#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:817
 msgid "Copy command"
 msgstr "명령어 복사"
 
@@ -4865,7 +4865,7 @@ msgstr "제작: <a href=\"{url}\">LunarKittyy</a>"
 msgid "Version {version}"
 msgstr "버전 {version}"
 
-#: rust/crates/setup/src/setup.rs:431 rust/crates/system/src/shortcuts.rs:1068
+#: rust/crates/setup/src/setup.rs:431 rust/crates/system/src/shortcuts.rs:817
 msgid "Copied"
 msgstr "복사됨"
 
@@ -6243,7 +6243,7 @@ msgid "Could not save settings. Check disk space and permissions."
 msgstr "설정을 저장하지 못했어요. 디스크 공간과 권한을 확인하세요."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1315 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1315 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "시작"
 
@@ -6542,7 +6542,7 @@ msgid "Stop streaming"
 msgstr "스트리밍 중지"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1321 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/window.rs:1321 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "중지"
 
@@ -6856,20 +6856,108 @@ msgstr "다른 앱에서 이미 이 키를 사용하고 있어요"
 msgid "Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all, so pick another."
 msgstr "'모든 위치' 단축키는 Telescope가 실행되는 동안 Windows에서 키를 가져가 사용해요. 다른 앱이 이미 사용 중인 키는 Telescope에 전혀 전달되지 않으니 다른 키를 선택하세요."
 
-#: rust/crates/system/src/mcp.rs:552
+#: rust/crates/system/src/mcp.rs:626
 msgid "MCP server"
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:553
+#: rust/crates/system/src/mcp.rs:627
 msgid "Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port."
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:554
+#: rust/crates/system/src/mcp.rs:628
 msgid "Without it AI apps can't connect to Telescope."
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:579
+#: rust/crates/system/src/mcp.rs:655
 msgid "An AI app is connected to Telescope through the MCP server."
+msgstr ""
+
+#: rust/crates/system/src/remote.rs:10
+msgid "Telescope: shown"
+msgstr "Telescope: 표시됨"
+
+#: rust/crates/system/src/remote.rs:19
+msgid "Start or stop"
+msgstr "시작 또는 중지"
+
+#: rust/crates/system/src/remote.rs:27
+msgid "Phone camera"
+msgstr "휴대폰 카메라"
+
+#: rust/crates/system/src/remote.rs:28
+msgid "Show or hide Telescope"
+msgstr "Telescope 표시 또는 숨기기"
+
+#: rust/crates/system/src/remote.rs:39
+msgid "Already streaming"
+msgstr "이미 스트리밍 중"
+
+#: rust/crates/system/src/remote.rs:43
+msgid "Streaming: starting"
+msgstr "스트리밍: 시작 중"
+
+#: rust/crates/system/src/remote.rs:49
+msgid "Streaming: stopped"
+msgstr "스트리밍: 중지됨"
+
+#: rust/crates/system/src/remote.rs:64
+msgid "Phone camera: on"
+msgstr "휴대폰 카메라: 켬"
+
+#: rust/crates/system/src/remote.rs:64
+msgid "Phone camera: off"
+msgstr "휴대폰 카메라: 끔"
+
+#: rust/crates/system/src/remote.rs:66
+msgid "Telescope: hidden"
+msgstr "Telescope: 숨김"
+
+#: rust/crates/system/src/remote.rs:164
+#, python-brace-format
+msgid "{action} has no setting {name}."
+msgstr "{action}에 {name} 설정이 없어요."
+
+#: rust/crates/system/src/remote.rs:180
+#, python-brace-format
+msgid "{name} has to be a number, not {value}."
+msgstr "{name} 값은 {value}이(가) 아니라 숫자여야 해요."
+
+#: rust/crates/system/src/remote.rs:185
+#, python-brace-format
+msgid "{name} goes from {low} to {high}, so {value} is out of range."
+msgstr ""
+
+#: rust/crates/system/src/remote.rs:191
+msgid "nothing right now"
+msgstr "현재 없음"
+
+#: rust/crates/system/src/remote.rs:194
+#, python-brace-format
+msgid "{name} can be {options}, not {value}."
+msgstr "{name} 값은 {value}이(가) 아니라 {options} 중 하나여야 해요."
+
+#. hold, toggle, on and off are values typed on the command line: keep them in English
+#: rust/crates/system/src/remote.rs:199
+msgid "hold needs a key to let go of; use toggle, on or off with --action."
+msgstr "hold를 사용하려면 손을 뗄 키가 필요해요. --action에는 toggle, on 또는 off를 사용하세요."
+
+#: rust/crates/system/src/remote.rs:206
+#, python-brace-format
+msgid "{action} needs {name}=… for that."
+msgstr "그 동작을 수행하려면 {action}에 {name}=… 설정이 필요해요."
+
+#: rust/crates/system/src/remote.rs:241
+msgid "That failed; Copy diagnostics has the details."
+msgstr "실패했어요. 자세한 내용은 '진단 정보 복사'에서 확인할 수 있어요."
+
+#: rust/crates/system/src/remote.rs:254
+#, python-brace-format
+msgid "No action called {action}. telescope --list-actions lists them."
+msgstr "{action} 동작이 없어요. telescope --list-actions로 목록을 확인할 수 있어요."
+
+#: rust/crates/system/src/remote.rs:267
+#, python-brace-format
+msgid "{action} can't be used right now (no device, or the control is off)."
 msgstr ""
 
 #: rust/crates/system/src/setup_move.rs:350
@@ -6889,10 +6977,6 @@ msgstr "설치 프로그램이 중단되어(코드 {code}) 현재 설치본이 �
 #: rust/crates/system/src/setup_move.rs:360
 msgid "Telescope was installed, but its folder wasn't where expected. Open it from the Start menu."
 msgstr "Telescope가 설치되었지만 예상된 위치에 폴더가 없어요. 시작 메뉴에서 실행하세요."
-
-#: rust/crates/system/src/shortcuts.rs:31
-msgid "Telescope: shown"
-msgstr "Telescope: 표시됨"
 
 #: rust/crates/system/src/shortcuts.rs:53
 msgid "This Telescope has no shortcuts."
@@ -6927,203 +7011,124 @@ msgstr "모든 위치(설정 중)"
 msgid "In Telescope: {status}"
 msgstr "Telescope 내에서: {status}"
 
-#: rust/crates/system/src/shortcuts.rs:441
-msgid "Start or stop"
-msgstr "시작 또는 중지"
-
-#: rust/crates/system/src/shortcuts.rs:449
-msgid "Phone camera"
-msgstr "휴대폰 카메라"
-
-#: rust/crates/system/src/shortcuts.rs:450
-msgid "Show or hide Telescope"
-msgstr "Telescope 표시 또는 숨기기"
-
-#: rust/crates/system/src/shortcuts.rs:461
-msgid "Already streaming"
-msgstr "이미 스트리밍 중"
-
-#: rust/crates/system/src/shortcuts.rs:465
-msgid "Streaming: starting"
-msgstr "스트리밍: 시작 중"
-
-#: rust/crates/system/src/shortcuts.rs:471
-msgid "Streaming: stopped"
-msgstr "스트리밍: 중지됨"
-
-#: rust/crates/system/src/shortcuts.rs:486
-msgid "Phone camera: on"
-msgstr "휴대폰 카메라: 켬"
-
-#: rust/crates/system/src/shortcuts.rs:486
-msgid "Phone camera: off"
-msgstr "휴대폰 카메라: 끔"
-
-#: rust/crates/system/src/shortcuts.rs:488
-msgid "Telescope: hidden"
-msgstr "Telescope: 숨김"
-
-#: rust/crates/system/src/shortcuts.rs:622 rust/crates/system/src/shortcuts.rs:635
+#: rust/crates/system/src/shortcuts.rs:478 rust/crates/system/src/shortcuts.rs:491
 #, python-brace-format
 msgid "{label}: set to {value}"
 msgstr "{label}: {value}(으)로 설정"
 
-#: rust/crates/system/src/shortcuts.rs:623
+#: rust/crates/system/src/shortcuts.rs:479
 #, python-brace-format
 msgid "{label}: reset to default"
 msgstr "{label}: 기본값으로 초기화"
 
-#: rust/crates/system/src/shortcuts.rs:630
+#: rust/crates/system/src/shortcuts.rs:486
 #, python-brace-format
 msgid "{label}: increase by {amount}"
 msgstr "{label}: {amount}만큼 증가"
 
-#: rust/crates/system/src/shortcuts.rs:630
+#: rust/crates/system/src/shortcuts.rs:486
 #, python-brace-format
 msgid "{label}: decrease by {amount}"
 msgstr "{label}: {amount}만큼 감소"
 
-#: rust/crates/system/src/shortcuts.rs:643
+#: rust/crates/system/src/shortcuts.rs:499
 #, python-brace-format
 msgid "{label}: raise by {n} stop"
 msgid_plural "{label}: raise by {n} stops"
 msgstr[0] "{label}: {n}스톱 올리기"
 
-#: rust/crates/system/src/shortcuts.rs:645
+#: rust/crates/system/src/shortcuts.rs:501
 #, python-brace-format
 msgid "{label}: lower by {n} stop"
 msgid_plural "{label}: lower by {n} stops"
 msgstr[0] "{label}: {n}스톱 내리기"
 
-#: rust/crates/system/src/shortcuts.rs:650
+#: rust/crates/system/src/shortcuts.rs:506
 #, python-brace-format
 msgid "{label}: raise by {stops} stops"
 msgstr "{label}: {stops}스톱 올리기"
 
-#: rust/crates/system/src/shortcuts.rs:650
+#: rust/crates/system/src/shortcuts.rs:506
 #, python-brace-format
 msgid "{label}: lower by {stops} stops"
 msgstr "{label}: {stops}스톱 내리기"
 
-#: rust/crates/system/src/shortcuts.rs:661
+#: rust/crates/system/src/shortcuts.rs:517
 msgid "next"
 msgstr "다음"
 
-#: rust/crates/system/src/shortcuts.rs:661
+#: rust/crates/system/src/shortcuts.rs:517
 msgid "previous"
 msgstr "이전"
 
-#: rust/crates/system/src/shortcuts.rs:713
-#, python-brace-format
-msgid "{name} has to be a number, not {value}."
-msgstr "{name} 값은 {value}이(가) 아니라 숫자여야 해요."
-
-#: rust/crates/system/src/shortcuts.rs:718
-msgid "nothing right now"
-msgstr "현재 없음"
-
-#: rust/crates/system/src/shortcuts.rs:721
-#, python-brace-format
-msgid "{name} can be {options}, not {value}."
-msgstr "{name} 값은 {value}이(가) 아니라 {options} 중 하나여야 해요."
-
-#. hold, toggle, on and off are values typed on the command line: keep them in English
-#: rust/crates/system/src/shortcuts.rs:726
-msgid "hold needs a key to let go of; use toggle, on or off with --action."
-msgstr "hold를 사용하려면 손을 뗄 키가 필요해요. --action에는 toggle, on 또는 off를 사용하세요."
-
-#: rust/crates/system/src/shortcuts.rs:733
-#, python-brace-format
-msgid "{action} needs {name}=… for that."
-msgstr "그 동작을 수행하려면 {action}에 {name}=… 설정이 필요해요."
-
-#: rust/crates/system/src/shortcuts.rs:768
-msgid "That failed; Copy diagnostics has the details."
-msgstr "실패했어요. 자세한 내용은 '진단 정보 복사'에서 확인할 수 있어요."
-
-#: rust/crates/system/src/shortcuts.rs:791
-#, python-brace-format
-msgid "No action called {action}. telescope --list-actions lists them."
-msgstr "{action} 동작이 없어요. telescope --list-actions로 목록을 확인할 수 있어요."
-
-#: rust/crates/system/src/shortcuts.rs:797
-#, python-brace-format
-msgid "{action} has no setting {name}."
-msgstr "{action}에 {name} 설정이 없어요."
-
-#: rust/crates/system/src/shortcuts.rs:809
-#, python-brace-format
-msgid "{action} can't be used right now (no device, or the control is off)."
-msgstr ""
-
-#: rust/crates/system/src/shortcuts.rs:986
+#: rust/crates/system/src/shortcuts.rs:735
 msgid "No control matches that search."
 msgstr "검색과 일치하는 컨트롤이 없어요."
 
-#: rust/crates/system/src/shortcuts.rs:986
+#: rust/crates/system/src/shortcuts.rs:735
 msgid "Pick a control."
 msgstr "컨트롤을 선택하세요."
 
-#: rust/crates/system/src/shortcuts.rs:988
+#: rust/crates/system/src/shortcuts.rs:737
 msgid "A modifier can't be a shortcut on its own. Add a key to it."
 msgstr "수정 키만으로는 단축키로 사용할 수 없어요. 다른 키를 함께 지정하세요."
 
-#: rust/crates/system/src/shortcuts.rs:990
+#: rust/crates/system/src/shortcuts.rs:739
 #, python-brace-format
 msgid "Press a key, with Ctrl, Alt, Shift or {meta} if you like."
 msgstr "키를 누르세요. 원하는 경우 Ctrl, Alt, Shift 또는 {meta} 키와 함께 누르세요."
 
-#: rust/crates/system/src/shortcuts.rs:994
+#: rust/crates/system/src/shortcuts.rs:743
 #, python-brace-format
 msgid "{keys} already does \"{action}\". Pick another key."
 msgstr "{keys} 키는 이미 \"{action}\" 동작에 사용 중이에요. 다른 키를 선택하세요."
 
-#: rust/crates/system/src/shortcuts.rs:1003
+#: rust/crates/system/src/shortcuts.rs:752
 #, python-brace-format
 msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
 msgstr "'모든 위치'로 설정하면 다른 앱에서 {keys} 입력이 차단될 수 있어요. Ctrl, Alt 또는 {meta} 키를 함께 추가하는 것이 안전해요."
 
-#: rust/crates/system/src/shortcuts.rs:1024
+#: rust/crates/system/src/shortcuts.rs:773
 #, python-brace-format
 msgid "Unknown ({action})"
 msgstr "알 수 없음({action})"
 
-#: rust/crates/system/src/shortcuts.rs:1045
+#: rust/crates/system/src/shortcuts.rs:794
 #, python-brace-format
 msgid "{value} (not there now)"
 msgstr "{value}(현재 없음)"
 
-#: rust/crates/system/src/shortcuts.rs:1069
+#: rust/crates/system/src/shortcuts.rs:818
 msgid "A command can't hold a key down; pick another choice to copy one"
 msgstr "명령줄은 키 길게 누르기 동작을 지원하지 않아요. 복사하려면 다른 옵션을 선택하세요"
 
-#: rust/crates/system/src/shortcuts.rs:1070
+#: rust/crates/system/src/shortcuts.rs:819
 msgid "A command line that does the same, for your desktop's own keyboard settings"
 msgstr "데스크톱의 키보드 설정에서 동일하게 동작시킬 수 있는 명령줄이에요"
 
-#: rust/crates/system/src/shortcuts.rs:1080
+#: rust/crates/system/src/shortcuts.rs:829
 #, python-brace-format
 msgid "Edit {shortcut}"
 msgstr "{shortcut} 편집"
 
-#: rust/crates/system/src/shortcuts.rs:1081
+#: rust/crates/system/src/shortcuts.rs:830
 #, python-brace-format
 msgid "Remove {shortcut}"
 msgstr "{shortcut} 제거"
 
-#: rust/crates/system/src/shortcuts.rs:1086
+#: rust/crates/system/src/shortcuts.rs:835
 msgid "Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings."
 msgstr "이 데스크톱 환경에서는 전역 단축키를 사용할 수 없어 Telescope 내에서만 작동해요. 어디서나 작동하는 키를 설정하려면 데스크톱의 키보드 설정에서 단축키의 '명령줄 복사'를 연결하세요."
 
-#: rust/crates/system/src/shortcuts.rs:1189
+#: rust/crates/system/src/shortcuts.rs:938
 msgid "Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings."
 msgstr "데스크톱의 단축키 설정을 열 수 없었어요. 시스템 설정에서 '단축키'를 찾아보세요."
 
-#: rust/crates/system/src/shortcuts.rs:1319
+#: rust/crates/system/src/shortcuts.rs:1068
 msgid "Keys for Telescope's controls, including ones that work in other apps."
 msgstr "다른 앱에서도 작동하는 키를 포함한 Telescope 컨트롤용 키예요."
 
-#: rust/crates/system/src/shortcuts.rs:1320
+#: rust/crates/system/src/shortcuts.rs:1069
 msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
 msgstr "끄면 단축키가 작동하지 않고 설정에서 키보드 단축키가 사라져요(단축키 설정은 유지돼요)."
 
@@ -7161,11 +7166,11 @@ msgstr "Telescope가 실행 중이 아니에요."
 msgid "Telescope didn't understand that. Is it an older version? Update it to use --action."
 msgstr "Telescope가 요청을 인식하지 못했어요. 이전 버전인가요? --action을 사용하려면 업데이트하세요."
 
-#: rust/crates/system/src/single_instance.rs:429
+#: rust/crates/system/src/single_instance.rs:436
 msgid "Telescope couldn't write the key --action needs next to its settings when it started. Restart it."
 msgstr "Telescope를 시작할 때 --action에 필요한 키를 설정 옆에 저장하지 못했어요. 프로그램을 다시 시작하세요."
 
-#: rust/crates/system/src/single_instance.rs:434
+#: rust/crates/system/src/single_instance.rs:441
 msgid "Telescope turned that down: it didn't come from this user's Telescope command."
 msgstr "Telescope가 요청을 거부했어요. 이 사용자의 Telescope 명령에서 보낸 요청이 아니에요."
 

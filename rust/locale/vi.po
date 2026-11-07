@@ -160,7 +160,7 @@ msgstr "Tải VB-Cable"
 msgid "Takes out typing, fans and room hiss."
 msgstr "Loại bỏ tiếng gõ phím, tiếng quạt và tiếng rít trong phòng."
 
-#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:638 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/outputs/src/stream_output.rs:956 rust/crates/system/src/shortcuts.rs:659 rust/crates/system/src/shortcuts.rs:661
+#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:638 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/outputs/src/stream_output.rs:956 rust/crates/system/src/shortcuts.rs:515 rust/crates/system/src/shortcuts.rs:517
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -187,15 +187,15 @@ msgstr "tắt"
 msgid "Gain"
 msgstr "Gain"
 
-#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:12 rust/crates/system/src/shortcuts.rs:442
+#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:12 rust/crates/system/src/remote.rs:20
 msgid "Switch on or off"
 msgstr "Bật hoặc tắt"
 
-#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:13 rust/crates/system/src/shortcuts.rs:442
+#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:13 rust/crates/system/src/remote.rs:20
 msgid "Turn on"
 msgstr "Bật"
 
-#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:14 rust/crates/system/src/shortcuts.rs:442
+#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:14 rust/crates/system/src/remote.rs:20
 msgid "Turn off"
 msgstr "Tắt"
 
@@ -203,7 +203,7 @@ msgstr "Tắt"
 msgid "Switch while held, back on release"
 msgstr "Chuyển đổi khi giữ, quay lại khi thả"
 
-#: rust/crates/audio/src/plugin.rs:1015 rust/crates/audio/src/plugin.rs:1100 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1353 rust/crates/outputs/src/stream_output.rs:620 rust/crates/outputs/src/stream_output.rs:637 rust/crates/shell/src/plugins/presets.rs:333 rust/crates/system/src/shortcuts.rs:448 rust/crates/system/src/shortcuts.rs:449
+#: rust/crates/audio/src/plugin.rs:1015 rust/crates/audio/src/plugin.rs:1100 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1353 rust/crates/outputs/src/stream_output.rs:620 rust/crates/outputs/src/stream_output.rs:637 rust/crates/shell/src/plugins/presets.rs:333 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
 msgid "Does"
 msgstr "Thao tác"
 
@@ -432,7 +432,7 @@ msgstr "Tele"
 msgid "General"
 msgstr "Chung"
 
-#: rust/crates/core/src/plugin.rs:14 rust/crates/system/src/shortcuts.rs:448
+#: rust/crates/core/src/plugin.rs:14 rust/crates/system/src/remote.rs:26
 msgid "Streaming"
 msgstr "Truyền phát"
 
@@ -448,7 +448,7 @@ msgstr "Âm thanh"
 msgid "Virtual camera & phone"
 msgstr "Camera ảo & điện thoại"
 
-#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1318
+#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1067
 msgid "Keyboard shortcuts"
 msgstr "Phím tắt"
 
@@ -3242,7 +3242,7 @@ msgstr "Điện thoại đã từ chối quyền micrô (HTTP {code})."
 msgid "No microphone"
 msgstr "Không có micrô"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:687 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:687 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Không truyền phát"
 
@@ -3810,7 +3810,7 @@ msgstr "Đang cập nhật ứng dụng điện thoại qua USB…"
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Ứng dụng Telescope trên {phone} cũ hơn bản này."
 
-#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:1068
+#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:817
 msgid "Copy command"
 msgstr "Sao chép lệnh"
 
@@ -4865,7 +4865,7 @@ msgstr "Được phát triển bởi <a href=\"{url}\">LunarKittyy</a>"
 msgid "Version {version}"
 msgstr "Phiên bản {version}"
 
-#: rust/crates/setup/src/setup.rs:431 rust/crates/system/src/shortcuts.rs:1068
+#: rust/crates/setup/src/setup.rs:431 rust/crates/system/src/shortcuts.rs:817
 msgid "Copied"
 msgstr "Đã sao chép"
 
@@ -6243,7 +6243,7 @@ msgid "Could not save settings. Check disk space and permissions."
 msgstr "Không thể lưu cài đặt. Kiểm tra dung lượng đĩa và quyền truy cập."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1315 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1315 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "Bắt đầu"
 
@@ -6542,7 +6542,7 @@ msgid "Stop streaming"
 msgstr "Dừng truyền phát"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1321 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/window.rs:1321 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "Dừng"
 
@@ -6856,20 +6856,108 @@ msgstr "Một ứng dụng khác đã sử dụng phím này"
 msgid "Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all, so pick another."
 msgstr "Phím tắt Mọi nơi được lấy từ Windows trong khi Telescope chạy. Phím mà ứng dụng khác đã chiếm sẽ không thể gửi đến Telescope, vì vậy hãy chọn phím khác."
 
-#: rust/crates/system/src/mcp.rs:552
+#: rust/crates/system/src/mcp.rs:626
 msgid "MCP server"
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:553
+#: rust/crates/system/src/mcp.rs:627
 msgid "Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port."
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:554
+#: rust/crates/system/src/mcp.rs:628
 msgid "Without it AI apps can't connect to Telescope."
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:579
+#: rust/crates/system/src/mcp.rs:655
 msgid "An AI app is connected to Telescope through the MCP server."
+msgstr ""
+
+#: rust/crates/system/src/remote.rs:10
+msgid "Telescope: shown"
+msgstr "Telescope: đang hiện"
+
+#: rust/crates/system/src/remote.rs:19
+msgid "Start or stop"
+msgstr "Bắt đầu hoặc dừng"
+
+#: rust/crates/system/src/remote.rs:27
+msgid "Phone camera"
+msgstr "Camera điện thoại"
+
+#: rust/crates/system/src/remote.rs:28
+msgid "Show or hide Telescope"
+msgstr "Hiện hoặc ẩn Telescope"
+
+#: rust/crates/system/src/remote.rs:39
+msgid "Already streaming"
+msgstr "Đang truyền phát rồi"
+
+#: rust/crates/system/src/remote.rs:43
+msgid "Streaming: starting"
+msgstr "Truyền phát: đang bắt đầu"
+
+#: rust/crates/system/src/remote.rs:49
+msgid "Streaming: stopped"
+msgstr "Truyền phát: đã dừng"
+
+#: rust/crates/system/src/remote.rs:64
+msgid "Phone camera: on"
+msgstr "Camera điện thoại: bật"
+
+#: rust/crates/system/src/remote.rs:64
+msgid "Phone camera: off"
+msgstr "Camera điện thoại: tắt"
+
+#: rust/crates/system/src/remote.rs:66
+msgid "Telescope: hidden"
+msgstr "Telescope: đang ẩn"
+
+#: rust/crates/system/src/remote.rs:164
+#, python-brace-format
+msgid "{action} has no setting {name}."
+msgstr "{action} không có cài đặt {name}."
+
+#: rust/crates/system/src/remote.rs:180
+#, python-brace-format
+msgid "{name} has to be a number, not {value}."
+msgstr "{name} phải là một số, không phải {value}."
+
+#: rust/crates/system/src/remote.rs:185
+#, python-brace-format
+msgid "{name} goes from {low} to {high}, so {value} is out of range."
+msgstr ""
+
+#: rust/crates/system/src/remote.rs:191
+msgid "nothing right now"
+msgstr "hiện không có gì"
+
+#: rust/crates/system/src/remote.rs:194
+#, python-brace-format
+msgid "{name} can be {options}, not {value}."
+msgstr "{name} có thể là {options}, không phải {value}."
+
+#. hold, toggle, on and off are values typed on the command line: keep them in English
+#: rust/crates/system/src/remote.rs:199
+msgid "hold needs a key to let go of; use toggle, on or off with --action."
+msgstr "hold cần một phím để nhả; hãy dùng toggle, on hoặc off với --action."
+
+#: rust/crates/system/src/remote.rs:206
+#, python-brace-format
+msgid "{action} needs {name}=… for that."
+msgstr "{action} cần {name}=… cho thao tác đó."
+
+#: rust/crates/system/src/remote.rs:241
+msgid "That failed; Copy diagnostics has the details."
+msgstr "Thao tác thất bại; Sao chép chẩn đoán có thông tin chi tiết."
+
+#: rust/crates/system/src/remote.rs:254
+#, python-brace-format
+msgid "No action called {action}. telescope --list-actions lists them."
+msgstr "Không có hành động nào tên là {action}. Dùng lệnh telescope --list-actions để xem danh sách."
+
+#: rust/crates/system/src/remote.rs:267
+#, python-brace-format
+msgid "{action} can't be used right now (no device, or the control is off)."
 msgstr ""
 
 #: rust/crates/system/src/setup_move.rs:350
@@ -6889,10 +6977,6 @@ msgstr "Trình cài đặt đã dừng (mã {code}), nên bản sao này vẫn �
 #: rust/crates/system/src/setup_move.rs:360
 msgid "Telescope was installed, but its folder wasn't where expected. Open it from the Start menu."
 msgstr "Telescope đã được cài đặt, nhưng thư mục ứng dụng không nằm ở vị trí mong đợi. Hãy mở ứng dụng từ menu Start."
-
-#: rust/crates/system/src/shortcuts.rs:31
-msgid "Telescope: shown"
-msgstr "Telescope: đang hiện"
 
 #: rust/crates/system/src/shortcuts.rs:53
 msgid "This Telescope has no shortcuts."
@@ -6927,203 +7011,124 @@ msgstr "Mọi nơi (đang thiết lập)"
 msgid "In Telescope: {status}"
 msgstr "Trong Telescope: {status}"
 
-#: rust/crates/system/src/shortcuts.rs:441
-msgid "Start or stop"
-msgstr "Bắt đầu hoặc dừng"
-
-#: rust/crates/system/src/shortcuts.rs:449
-msgid "Phone camera"
-msgstr "Camera điện thoại"
-
-#: rust/crates/system/src/shortcuts.rs:450
-msgid "Show or hide Telescope"
-msgstr "Hiện hoặc ẩn Telescope"
-
-#: rust/crates/system/src/shortcuts.rs:461
-msgid "Already streaming"
-msgstr "Đang truyền phát rồi"
-
-#: rust/crates/system/src/shortcuts.rs:465
-msgid "Streaming: starting"
-msgstr "Truyền phát: đang bắt đầu"
-
-#: rust/crates/system/src/shortcuts.rs:471
-msgid "Streaming: stopped"
-msgstr "Truyền phát: đã dừng"
-
-#: rust/crates/system/src/shortcuts.rs:486
-msgid "Phone camera: on"
-msgstr "Camera điện thoại: bật"
-
-#: rust/crates/system/src/shortcuts.rs:486
-msgid "Phone camera: off"
-msgstr "Camera điện thoại: tắt"
-
-#: rust/crates/system/src/shortcuts.rs:488
-msgid "Telescope: hidden"
-msgstr "Telescope: đang ẩn"
-
-#: rust/crates/system/src/shortcuts.rs:622 rust/crates/system/src/shortcuts.rs:635
+#: rust/crates/system/src/shortcuts.rs:478 rust/crates/system/src/shortcuts.rs:491
 #, python-brace-format
 msgid "{label}: set to {value}"
 msgstr "{label}: đặt thành {value}"
 
-#: rust/crates/system/src/shortcuts.rs:623
+#: rust/crates/system/src/shortcuts.rs:479
 #, python-brace-format
 msgid "{label}: reset to default"
 msgstr "{label}: đặt lại về mặc định"
 
-#: rust/crates/system/src/shortcuts.rs:630
+#: rust/crates/system/src/shortcuts.rs:486
 #, python-brace-format
 msgid "{label}: increase by {amount}"
 msgstr "{label}: tăng thêm {amount}"
 
-#: rust/crates/system/src/shortcuts.rs:630
+#: rust/crates/system/src/shortcuts.rs:486
 #, python-brace-format
 msgid "{label}: decrease by {amount}"
 msgstr "{label}: giảm bớt {amount}"
 
-#: rust/crates/system/src/shortcuts.rs:643
+#: rust/crates/system/src/shortcuts.rs:499
 #, python-brace-format
 msgid "{label}: raise by {n} stop"
 msgid_plural "{label}: raise by {n} stops"
 msgstr[0] "{label}: tăng {n} bước sáng"
 
-#: rust/crates/system/src/shortcuts.rs:645
+#: rust/crates/system/src/shortcuts.rs:501
 #, python-brace-format
 msgid "{label}: lower by {n} stop"
 msgid_plural "{label}: lower by {n} stops"
 msgstr[0] "{label}: giảm {n} bước sáng"
 
-#: rust/crates/system/src/shortcuts.rs:650
+#: rust/crates/system/src/shortcuts.rs:506
 #, python-brace-format
 msgid "{label}: raise by {stops} stops"
 msgstr "{label}: tăng {stops} bước sáng"
 
-#: rust/crates/system/src/shortcuts.rs:650
+#: rust/crates/system/src/shortcuts.rs:506
 #, python-brace-format
 msgid "{label}: lower by {stops} stops"
 msgstr "{label}: giảm {stops} bước sáng"
 
-#: rust/crates/system/src/shortcuts.rs:661
+#: rust/crates/system/src/shortcuts.rs:517
 msgid "next"
 msgstr "tiếp theo"
 
-#: rust/crates/system/src/shortcuts.rs:661
+#: rust/crates/system/src/shortcuts.rs:517
 msgid "previous"
 msgstr "trước đó"
 
-#: rust/crates/system/src/shortcuts.rs:713
-#, python-brace-format
-msgid "{name} has to be a number, not {value}."
-msgstr "{name} phải là một số, không phải {value}."
-
-#: rust/crates/system/src/shortcuts.rs:718
-msgid "nothing right now"
-msgstr "hiện không có gì"
-
-#: rust/crates/system/src/shortcuts.rs:721
-#, python-brace-format
-msgid "{name} can be {options}, not {value}."
-msgstr "{name} có thể là {options}, không phải {value}."
-
-#. hold, toggle, on and off are values typed on the command line: keep them in English
-#: rust/crates/system/src/shortcuts.rs:726
-msgid "hold needs a key to let go of; use toggle, on or off with --action."
-msgstr "hold cần một phím để nhả; hãy dùng toggle, on hoặc off với --action."
-
-#: rust/crates/system/src/shortcuts.rs:733
-#, python-brace-format
-msgid "{action} needs {name}=… for that."
-msgstr "{action} cần {name}=… cho thao tác đó."
-
-#: rust/crates/system/src/shortcuts.rs:768
-msgid "That failed; Copy diagnostics has the details."
-msgstr "Thao tác thất bại; Sao chép chẩn đoán có thông tin chi tiết."
-
-#: rust/crates/system/src/shortcuts.rs:791
-#, python-brace-format
-msgid "No action called {action}. telescope --list-actions lists them."
-msgstr "Không có hành động nào tên là {action}. Dùng lệnh telescope --list-actions để xem danh sách."
-
-#: rust/crates/system/src/shortcuts.rs:797
-#, python-brace-format
-msgid "{action} has no setting {name}."
-msgstr "{action} không có cài đặt {name}."
-
-#: rust/crates/system/src/shortcuts.rs:809
-#, python-brace-format
-msgid "{action} can't be used right now (no device, or the control is off)."
-msgstr ""
-
-#: rust/crates/system/src/shortcuts.rs:986
+#: rust/crates/system/src/shortcuts.rs:735
 msgid "No control matches that search."
 msgstr "Không có nút điều khiển nào khớp với tìm kiếm đó."
 
-#: rust/crates/system/src/shortcuts.rs:986
+#: rust/crates/system/src/shortcuts.rs:735
 msgid "Pick a control."
 msgstr "Chọn một nút điều khiển."
 
-#: rust/crates/system/src/shortcuts.rs:988
+#: rust/crates/system/src/shortcuts.rs:737
 msgid "A modifier can't be a shortcut on its own. Add a key to it."
 msgstr "Phím bổ trợ không thể tự đứng một mình làm phím tắt. Hãy kết hợp thêm một phím khác."
 
-#: rust/crates/system/src/shortcuts.rs:990
+#: rust/crates/system/src/shortcuts.rs:739
 #, python-brace-format
 msgid "Press a key, with Ctrl, Alt, Shift or {meta} if you like."
 msgstr "Nhấn một phím, có thể kết hợp với Ctrl, Alt, Shift hoặc {meta} nếu bạn muốn."
 
-#: rust/crates/system/src/shortcuts.rs:994
+#: rust/crates/system/src/shortcuts.rs:743
 #, python-brace-format
 msgid "{keys} already does \"{action}\". Pick another key."
 msgstr "{keys} đã được gán cho \"{action}\". Hãy chọn phím khác."
 
-#: rust/crates/system/src/shortcuts.rs:1003
+#: rust/crates/system/src/shortcuts.rs:752
 #, python-brace-format
 msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
 msgstr "Ở Mọi nơi, {keys} sẽ khiến bạn không thể gõ phím này trong ứng dụng khác. Kết hợp thêm Ctrl, Alt hoặc {meta} sẽ an toàn hơn."
 
-#: rust/crates/system/src/shortcuts.rs:1024
+#: rust/crates/system/src/shortcuts.rs:773
 #, python-brace-format
 msgid "Unknown ({action})"
 msgstr "Không xác định ({action})"
 
-#: rust/crates/system/src/shortcuts.rs:1045
+#: rust/crates/system/src/shortcuts.rs:794
 #, python-brace-format
 msgid "{value} (not there now)"
 msgstr "{value} (hiện không có)"
 
-#: rust/crates/system/src/shortcuts.rs:1069
+#: rust/crates/system/src/shortcuts.rs:818
 msgid "A command can't hold a key down; pick another choice to copy one"
 msgstr "Lệnh không thể giữ phím nhấn xuống; hãy chọn tùy chọn khác để sao chép"
 
-#: rust/crates/system/src/shortcuts.rs:1070
+#: rust/crates/system/src/shortcuts.rs:819
 msgid "A command line that does the same, for your desktop's own keyboard settings"
 msgstr "Dòng lệnh có cùng tác dụng, dùng cho cài đặt bàn phím của hệ thống"
 
-#: rust/crates/system/src/shortcuts.rs:1080
+#: rust/crates/system/src/shortcuts.rs:829
 #, python-brace-format
 msgid "Edit {shortcut}"
 msgstr "Sửa {shortcut}"
 
-#: rust/crates/system/src/shortcuts.rs:1081
+#: rust/crates/system/src/shortcuts.rs:830
 #, python-brace-format
 msgid "Remove {shortcut}"
 msgstr "Gỡ bỏ {shortcut}"
 
-#: rust/crates/system/src/shortcuts.rs:1086
+#: rust/crates/system/src/shortcuts.rs:835
 msgid "Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings."
 msgstr "Phím tắt toàn hệ thống không khả dụng trên môi trường máy tính để bàn này, vì vậy các phím này chỉ hoạt động bên trong Telescope. Để dùng phím ở mọi nơi, hãy gán lệnh từ Sao chép lệnh trong cài đặt bàn phím của hệ thống."
 
-#: rust/crates/system/src/shortcuts.rs:1189
+#: rust/crates/system/src/shortcuts.rs:938
 msgid "Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings."
 msgstr "Không thể mở cài đặt phím tắt của hệ thống. Hãy tìm mục Phím tắt trong Cài đặt hệ thống."
 
-#: rust/crates/system/src/shortcuts.rs:1319
+#: rust/crates/system/src/shortcuts.rs:1068
 msgid "Keys for Telescope's controls, including ones that work in other apps."
 msgstr "Phím tắt cho các nút điều khiển của Telescope, bao gồm cả các phím hoạt động trong ứng dụng khác."
 
-#: rust/crates/system/src/shortcuts.rs:1320
+#: rust/crates/system/src/shortcuts.rs:1069
 msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
 msgstr "Nếu không có tiện ích này, phím tắt sẽ không hoạt động và mục Phím tắt sẽ không có trong Cài đặt (các phím tắt của bạn được lưu lại khi tiện ích bật lại)."
 
@@ -7161,11 +7166,11 @@ msgstr "Telescope hiện không chạy."
 msgid "Telescope didn't understand that. Is it an older version? Update it to use --action."
 msgstr "Telescope không hiểu lệnh đó. Đây có phải là phiên bản cũ hơn không? Hãy cập nhật để dùng --action."
 
-#: rust/crates/system/src/single_instance.rs:429
+#: rust/crates/system/src/single_instance.rs:436
 msgid "Telescope couldn't write the key --action needs next to its settings when it started. Restart it."
 msgstr "Telescope không thể ghi khóa mà --action cần vào phần cài đặt khi khởi động. Hãy khởi động lại ứng dụng."
 
-#: rust/crates/system/src/single_instance.rs:434
+#: rust/crates/system/src/single_instance.rs:441
 msgid "Telescope turned that down: it didn't come from this user's Telescope command."
 msgstr "Telescope đã từ chối yêu cầu đó: yêu cầu không xuất phát từ lệnh Telescope của người dùng này."
 

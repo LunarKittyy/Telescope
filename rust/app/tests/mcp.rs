@@ -197,6 +197,20 @@ fn an_ai_app_reads_and_changes_settings_of_the_real_window_through_the_command()
     assert!(failed && why.starts_with("Nothing was changed.") && why.contains("out of range") && why.contains("sparkle"), "{why}");
     assert_eq!(grading(&w)["contrast"], json!(1.0));
 
+    // A plugin that keeps something else than asked (panning at zoom 1) undoes the whole batch, the flip too, and revert has nothing to undo
+    let (failed, why) = mcp.tool(Some(&w), 50, "set", json!({"changes": {"transforms.flip_h": true, "transforms.pan_x": 0.5}}));
+    assert!(failed && why.starts_with("Nothing was changed.") && why.contains("pan_x"), "{why}");
+    assert_eq!(w.state.borrow().plugin_config("transforms").unwrap()["flip_h"], json!(false), "the flip didn't stay");
+    let (_, back) = mcp.tool(Some(&w), 51, "revert", json!({}));
+    assert_eq!(serde_json::from_str::<Value>(&back).unwrap()["reverted"], json!([]));
+
+    // Picking another phone can drop a call, so it isn't offered and isn't run, though Connection really lists it
+    assert!(w.state.borrow().slots.iter().any(|s| s.actions.iter().any(|a| a.id == "phone.pick")), "Connection lists it");
+    let (_, listed_actions) = mcp.tool(Some(&w), 52, "actions", json!({}));
+    assert!(!listed_actions.contains("phone.pick") && listed_actions.contains("transforms.zoom"), "{listed_actions}");
+    let (failed, why) = mcp.tool(Some(&w), 53, "run_action", json!({"action": "phone.pick", "params": {"op": "next"}}));
+    assert!(failed && why.contains("left to the person"), "{why}");
+
     // Good input reaches the real plugin, several settings at once, and the rest stays
     let (failed, done) = mcp.tool(Some(&w), 6, "set", json!({"changes": {"colour_grading.contrast": 1.3, "colour_grading.masters.gain": 0.9, "transforms.flip_h": true}}));
     assert!(!failed, "{done}");
@@ -246,5 +260,5 @@ fn with_the_server_off_or_telescope_not_running_the_command_still_answers_and_sa
     assert!(failed && why.contains("switched off") && why.contains("Plugins"), "{why}");
     assert_eq!(handle.clients(), 0);
     let listed = mcp.call(None, 2, "tools/list", json!({}));
-    assert_eq!(listed["result"]["tools"], json!([]), "nothing is offered while it's off");
+    assert_eq!(listed["result"]["tools"], json!(telescope_system::mcp::tools()), "the tools are still offered while it's off, so a client that listed once keeps them");
 }

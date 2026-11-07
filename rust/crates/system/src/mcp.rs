@@ -13,11 +13,11 @@ use std::io::{BufRead, Read, Write};
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
+use crate::remote::checked_params;
 use telescope_core::event::Event;
 use telescope_core::host::{Host, PluginSettings, Poster};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{Plugin, PluginInfo};
-use telescope_core::ui::ActionSpec;
 use telescope_core::settings::{merge_changes, SettingSpec};
 
 pub const NAME: &str = "mcp";
@@ -31,7 +31,7 @@ const MAX_LINE: u64 = 1 << 20;
 const LATEST: &str = "2025-06-18";
 const KNOWN: [&str; 3] = ["2024-11-05", "2025-03-26", LATEST];
 /// Phone and stream controls that are hard to undo in a live call stay with the person: they have `--action` and the window.
-const OUT_OF_REACH: [&str; 3] = ["streaming.start_stop", "streaming.camera", "window.show_hide"];
+const OUT_OF_REACH: [&str; 4] = ["streaming.start_stop", "streaming.camera", "window.show_hide", "phone.pick"];
 
 /// What a tool says: its data, or what went wrong.
 pub type Reply = Result<Value, String>;
@@ -42,6 +42,7 @@ struct Link {
     next: u64,
     waiting: HashMap<u64, Sender<Reply>>,
     clients: usize,
+    sessions: u64,
 }
 
 /// Connects the connections' threads to the plugin on the window's thread, as RemoteActions does for `--action`. Empty while the plugin is
@@ -82,20 +83,26 @@ impl McpHandle {
 
     /// A connection came in: a guard that counts it until dropped, or why it can't be served (the plugin is off).
     pub fn open_client(&self) -> Result<Client, String> {
-        let poster = {
+        let (poster, session) = {
             let mut l = self.lock();
             let Some(poster) = l.poster.clone() else {
                 return Err("Telescope's MCP server is switched off. Switch on MCP server in Telescope's Plugins tab, then try again.".into());
             };
             l.clients += 1;
-            poster
+            l.sessions += 1;
+            (poster, l.sessions)
         };
         poster.post(POST_CLIENT, json!({"clients": self.clients()}));
-        Ok(Client(self.clone()))
+        Ok(Client(self.clone(), session))
     }
 
     /// From a connection's thread: runs a tool on the window's thread and waits for its answer.
     pub fn call(&self, tool: &str, args: Value) -> Reply {
+        self.call_as(0, tool, args)
+    }
+
+    /// The same for one connection (`Client::session`), whose changes are the only ones its revert undoes.
+    pub fn call_as(&self, session: u64, tool: &str, args: Value) -> Reply {
         let (tx, rx) = channel();
         let (poster, id) = {
             let mut l = self.lock();
@@ -105,7 +112,7 @@ impl McpHandle {
             l.waiting.insert(id, tx);
             (poster, id)
         };
-        poster.post(POST_CALL, json!({"id": id, "tool": tool, "args": args}));
+        poster.post(POST_CALL, json!({"id": id, "session": session, "tool": tool, "args": args}));
         let answer = rx.recv_timeout(CALL_WAIT);
         self.lock().waiting.remove(&id);
         answer.unwrap_or_else(|e| Err(match e {
@@ -125,8 +132,14 @@ fn off() -> String {
     "Telescope's MCP server was switched off.".into()
 }
 
-/// One connected AI app, counted until dropped.
-pub struct Client(McpHandle);
+/// One connected AI app, counted until dropped, with a number that is only its own.
+pub struct Client(McpHandle, u64);
+
+impl Client {
+    pub fn session(&self) -> u64 {
+        self.1
+    }
+}
 
 impl Drop for Client {
     fn drop(&mut self) {
@@ -136,7 +149,7 @@ impl Drop for Client {
             l.poster.clone()
         };
         if let Some(poster) = poster {
-            poster.post(POST_CLIENT, json!({"clients": self.0.clients()}));
+            poster.post(POST_CLIENT, json!({"clients": self.0.clients(), "gone": self.1}));
         }
     }
 }
@@ -144,11 +157,11 @@ impl Drop for Client {
 /// For the single-instance socket: lets a `telescope mcp` connection in, or turns it away while the plugin is off.
 pub fn accept(handle: &McpHandle) -> Result<crate::single_instance::McpServe, String> {
     let client = handle.open_client()?;
-    let handle = handle.clone();
-    Ok(Box::new(move |conn: crate::single_instance::Conn| {
+    let (handle, session) = (handle.clone(), client.session());
+    Ok(Box::new(move |conn: crate::single_instance::Conn, after: Vec<u8>| {
         let Ok(writer) = conn.try_clone() else { return };
-        let call: Arc<Caller> = Arc::new(move |tool, args| handle.call(tool, args));
-        serve_connection(std::io::BufReader::new(conn), Arc::new(Mutex::new(writer)), call);
+        let call: Arc<Caller> = Arc::new(move |tool, args| handle.call_as(session, tool, args));
+        serve_connection(std::io::BufReader::new(std::io::Cursor::new(after).chain(conn)), Arc::new(Mutex::new(writer)), call);
         drop(client);
     }))
 }
@@ -195,7 +208,7 @@ pub fn tools() -> Vec<Value> {
              &["changes"], false),
         tool("revert", "Puts back what set changed, as it was before the first change this session. A setting the person has moved by hand since is left as they have it.",
              json!({}), &[], false),
-        tool("actions", "Lists the actions Telescope can run, like the ones keyboard shortcuts run, with what each takes. Starting or stopping the stream and switching the phone's camera are left to the person.",
+        tool("actions", "Lists the actions Telescope can run, like the ones keyboard shortcuts run, with what each takes. Starting or stopping the stream, switching the phone's camera and picking another phone are left to the person.",
              json!({}), &[], true),
         tool("run_action", "Runs one action from actions with its parameters.",
              json!({"action": {"type": "string"}, "params": {"type": "object", "additionalProperties": true}}), &["action"], false),
@@ -225,10 +238,25 @@ fn tool_result(reply: Reply) -> Value {
 /// The answer to one JSON-RPC message, or None for a notification, which gets none. Knows nothing of sockets or the window: the
 /// tools run through `call`.
 pub fn handle_message(message: &Value, call: &dyn Fn(&str, Value) -> Reply) -> Option<Value> {
-    let id = message.get("id").filter(|id| !id.is_null())?;
-    let Some(method) = message.get("method").and_then(Value::as_str) else {
-        return Some(error(id, -32600, "That isn't a request: it has no method."));
+    let Some(fields) = message.as_object() else {
+        return Some(error(&Value::Null, -32600, "That isn't a request: a message is a JSON object, and batches aren't used."));
     };
+    // An answer to something this never asked is let go
+    if !fields.contains_key("method") && (fields.contains_key("result") || fields.contains_key("error")) {
+        return None;
+    }
+    let valid_id = |id: &Value| id.is_string() || id.is_i64() || id.is_u64();
+    let id_of = |fields: &Map<String, Value>| fields.get("id").filter(|id| valid_id(id)).cloned().unwrap_or(Value::Null);
+    if fields.get("jsonrpc") != Some(&json!("2.0")) {
+        return Some(error(&id_of(fields), -32600, "That isn't JSON-RPC 2.0: jsonrpc has to be \"2.0\"."));
+    }
+    let Some(method) = fields.get("method").and_then(Value::as_str) else {
+        return Some(error(&id_of(fields), -32600, "That isn't a request: it has no method."));
+    };
+    let Some(id) = fields.get("id") else { return None };
+    if !valid_id(id) {
+        return Some(error(&Value::Null, -32600, "That isn't a request: its id has to be a string or a whole number."));
+    }
     let params = message.get("params").cloned().unwrap_or(Value::Null);
     Some(match method {
         "initialize" => {
@@ -311,15 +339,16 @@ pub struct McpPlugin {
     /// Measuring tool calls waiting for the plugin that measures: token to call id.
     jobs: HashMap<String, u64>,
     next_job: u64,
-    changes: Vec<Change>,
+    /// What each connection changed, by `Client::session`: a revert undoes only its own, so one AI app can't take back another's.
+    journals: HashMap<u64, Vec<Change>>,
 }
 
 impl McpPlugin {
     pub fn new(handle: McpHandle) -> McpPlugin {
-        McpPlugin { handle, jobs: HashMap::new(), next_job: 0, changes: Vec::new() }
+        McpPlugin { handle, jobs: HashMap::new(), next_job: 0, journals: HashMap::new() }
     }
 
-    fn run(&mut self, host: &mut dyn Host, id: u64, tool: &str, args: &Value) {
+    fn run(&mut self, host: &mut dyn Host, id: u64, session: u64, tool: &str, args: &Value) {
         let reply = match tool {
             "status" => Ok(self.status(host)),
             "stats" | "watch" => stats_stub(args),
@@ -327,8 +356,8 @@ impl McpPlugin {
             "measure" => return self.measure(host, id),
             "describe" => self.describe(host, args),
             "get" => self.get(host, args),
-            "set" => self.set(host, args),
-            "revert" => Ok(self.revert(host)),
+            "set" => self.set(host, session, args),
+            "revert" => Ok(self.revert(host, session)),
             "actions" => Ok(json!({"actions": list_actions(host)})),
             "run_action" => run_action(host, args),
             other => Err(format!("There is no tool called {other:?}.")),
@@ -399,7 +428,7 @@ impl McpPlugin {
         if missing.is_empty() { Ok(json!({"values": values})) } else { Err(unknown_ids(&groups, &missing)) }
     }
 
-    fn set(&mut self, host: &mut dyn Host, args: &Value) -> Reply {
+    fn set(&mut self, host: &mut dyn Host, session: u64, args: &Value) -> Reply {
         let Some(changes) = args.get("changes").and_then(Value::as_object).filter(|c| !c.is_empty()) else {
             return Err("changes has to be an object of setting id to new value, such as {\"colour_grading.contrast\": 1.1}.".into());
         };
@@ -433,37 +462,64 @@ impl McpPlugin {
             return Err(format!("Nothing was changed.\n{}", problems.join("\n")));
         }
         let source = host.focused_source_id();
-        let mut done = Vec::new();
+        let mut applied: Vec<(String, Value)> = Vec::new();
+        let (mut done, mut journal) = (Vec::new(), Vec::new());
         for (name, map) in &by_plugin {
             let group = groups.iter().find(|g| g.name == *name).expect("grouped by a known plugin");
             let before = host.plugin_config(name).unwrap_or(Value::Null);
-            let after = host.change_plugin_settings(name, map).map_err(|list| format!("{}\nThe change may be partly in.", list.join("\n")))?;
-            for key in map.keys() {
-                let spec = group.settings.iter().find(|s| s.key == *key).expect("checked above");
-                let (was, now) = (spec.read(&before), spec.read(&after));
-                done.push(json!({"id": format!("{name}.{key}"), "was": was, "now": now}));
-                self.remember(name, key, was, now, source.clone());
+            applied.push((name.clone(), before.clone()));
+            match host.change_plugin_settings(name, map) {
+                Ok(after) => {
+                    // A setting can move others with it (zooming out puts the pan back), so every one that differs is kept, not only those asked for
+                    for spec in &group.settings {
+                        let (was, now) = (spec.read(&before), spec.read(&after));
+                        let asked = map.contains_key(&spec.key);
+                        if asked || was != now {
+                            let mut change = json!({"id": format!("{name}.{}", spec.key), "was": was, "now": now});
+                            if !asked {
+                                change["also"] = json!("moved because of another change");
+                            }
+                            done.push(change);
+                            journal.push((name.clone(), spec.key.clone(), was, now));
+                        }
+                    }
+                }
+                Err(list) => {
+                    // The plugin kept something else than was asked: the whole batch goes back, so nothing is left that revert doesn't know of
+                    for (name, before) in applied.iter().rev().filter(|(_, before)| before.is_object()) {
+                        host.apply_preset(name, before);
+                    }
+                    host.schedule_save();
+                    return Err(format!("Nothing was changed.\n{}", list.join("\n")));
+                }
             }
+        }
+        for (name, key, was, now) in journal {
+            self.remember(session, &name, &key, was, now, source.clone());
         }
         Ok(json!({"changed": done, "note": "The camera shows these now. revert puts them back."}))
     }
 
-    /// Keeps the first value a setting had this session and where it was left.
-    fn remember(&mut self, plugin: &str, key: &str, was: Value, now: Value, source: Option<String>) {
-        match self.changes.iter_mut().find(|c| c.plugin == plugin && c.key == key && c.source == source) {
+    /// Keeps the first value a setting had for this connection and where it was left.
+    fn remember(&mut self, session: u64, plugin: &str, key: &str, was: Value, now: Value, source: Option<String>) {
+        let journal = self.journals.entry(session).or_default();
+        match journal.iter_mut().find(|c| c.plugin == plugin && c.key == key && c.source == source) {
             Some(c) => c.last = now,
-            None => self.changes.push(Change { plugin: plugin.into(), key: key.into(), original: was, last: now, source }),
+            None => journal.push(Change { plugin: plugin.into(), key: key.into(), original: was, last: now, source }),
         }
     }
 
-    fn revert(&mut self, host: &mut dyn Host) -> Value {
-        if self.changes.is_empty() {
+    fn revert(&mut self, host: &mut dyn Host, session: u64) -> Value {
+        let changes = self.journals.remove(&session).unwrap_or_default();
+        if changes.is_empty() {
             return json!({"reverted": [], "left": [], "note": "Nothing was changed through MCP this session."});
         }
         let groups = host.plugin_settings();
         let shown = host.focused_source_id();
         let (mut reverted, mut left) = (Vec::new(), Vec::new());
-        for c in std::mem::take(&mut self.changes) {
+        // What goes back is put back plugin by plugin in one go, so settings that depend on each other are valid together
+        let mut back: Vec<(String, Map<String, Value>)> = Vec::new();
+        for c in changes {
             let id = format!("{}.{}", c.plugin, c.key);
             let Some(spec) = groups.iter().find(|g| g.name == c.plugin).and_then(|g| g.settings.iter().find(|s| s.key == c.key)) else {
                 left.push(json!({"id": id, "why": "the plugin is switched off now"}));
@@ -475,11 +531,18 @@ impl McpPlugin {
             } else if now != c.last {
                 left.push(json!({"id": id, "why": "the person changed it by hand since, so it was left as they have it", "now": now}));
             } else {
-                let map = Map::from_iter([(c.key.clone(), c.original.clone())]);
-                match host.change_plugin_settings(&c.plugin, &map) {
-                    Ok(_) => reverted.push(json!({"id": id, "back_to": c.original})),
-                    Err(list) => left.push(json!({"id": id, "why": list.join(" ")})),
+                match back.iter_mut().find(|(name, _)| *name == c.plugin) {
+                    Some((_, map)) => {
+                        map.insert(c.key, c.original);
+                    }
+                    None => back.push((c.plugin, Map::from_iter([(c.key, c.original)]))),
                 }
+            }
+        }
+        for (plugin, map) in back {
+            match host.change_plugin_settings(&plugin, &map) {
+                Ok(_) => reverted.extend(map.iter().map(|(key, original)| json!({"id": format!("{plugin}.{key}"), "back_to": original}))),
+                Err(list) => left.extend(map.keys().map(|key| json!({"id": format!("{plugin}.{key}"), "why": list.join(" ")}))),
             }
         }
         json!({"reverted": reverted, "left": left})
@@ -536,62 +599,10 @@ fn list_actions(host: &dyn Host) -> Vec<Value> {
         .map(|(_, a)| json!({"id": a.id, "group": a.group, "label": a.label, "params": a.params, "current": a.current})).collect()
 }
 
-/// What the action's params must be, checked as `telescope --action` checks them: a typo must not quietly run the default.
-fn action_params(action: &ActionSpec, given: &Map<String, Value>) -> Result<Value, String> {
-    let known = |name: &str| action.params.iter().any(|p| p["name"] == name);
-    if let Some(name) = given.keys().find(|k| !known(k)) {
-        let names: Vec<&str> = action.params.iter().filter_map(|p| p["name"].as_str()).collect();
-        return Err(format!("{} has no setting {name:?}. It takes {}.", action.id, if names.is_empty() { "none".into() } else { names.join(", ") }));
-    }
-    let mut full = Map::new();
-    for p in &action.params {
-        let Some(name) = p["name"].as_str() else { continue };
-        let value = match given.get(name) {
-            None => p["default"].clone(),
-            Some(v) if p["kind"] == "number" => {
-                let n = match v {
-                    Value::Number(n) => n.as_f64(),
-                    Value::String(s) => s.trim().parse::<f64>().ok(),
-                    _ => None,
-                }.filter(|n| n.is_finite());
-                let (lo, hi) = (p["minimum"].as_f64().unwrap_or(f64::NEG_INFINITY), p["maximum"].as_f64().unwrap_or(f64::INFINITY));
-                match n {
-                    Some(n) if n >= lo && n <= hi => json!(n),
-                    Some(n) => return Err(format!("{name} goes from {lo} to {hi}, so {n} is out of range.")),
-                    None => return Err(format!("{name} has to be a number, not {v}.")),
-                }
-            }
-            Some(v) => {
-                let options: Vec<&str> = p["choices"].as_array().into_iter().flatten().filter_map(|c| c[0].as_str()).collect();
-                if v == "hold" {
-                    return Err("hold needs a key to let go of; use toggle, on or off.".into());
-                }
-                if !options.iter().any(|o| v == o) && p["dynamic"] != true {
-                    return Err(format!("{name} can be {}, not {v}.", options.join(" | ")));
-                }
-                v.clone()
-            }
-        };
-        full.insert(name.into(), value);
-    }
-    // A number that matters for what was asked (its `shown_if` holds) can't be left to a default that isn't there
-    for p in &action.params {
-        let Some(name) = p["name"].as_str() else { continue };
-        let shown = match p.get("shown_if").and_then(Value::as_array) {
-            Some(cond) => cond.first().and_then(Value::as_str).and_then(|n| full.get(n)).is_some_and(|v| cond.get(1).and_then(Value::as_array).is_some_and(|vals| vals.contains(v))),
-            None => true,
-        };
-        if shown && p["kind"] == "number" && full.get(name).is_none_or(Value::is_null) {
-            return Err(format!("{} needs {name} for that.", action.id));
-        }
-    }
-    Ok(Value::Object(full))
-}
-
 fn run_action(host: &mut dyn Host, args: &Value) -> Reply {
     let Some(id) = args["action"].as_str() else { return Err("action has to be an action id from actions.".into()) };
     if OUT_OF_REACH.contains(&id) {
-        return Err(format!("{id} is left to the person: starting, stopping and switching the camera can drop a call. They can use the window or `telescope --action {id}`."));
+        return Err(format!("{id} is left to the person: starting, stopping, switching the camera and picking another phone can drop a call. They can use the window or `telescope --action {id}`."));
     }
     let given = match args.get("params") {
         None | Some(Value::Null) => Map::new(),
@@ -601,7 +612,7 @@ fn run_action(host: &mut dyn Host, args: &Value) -> Reply {
     let Some((plugin, action)) = host.shortcut_actions().into_iter().find(|(_, a)| a.id == id) else {
         return Err(format!("There is no action called {id:?}. actions lists them."));
     };
-    let params = action_params(&action, &given)?;
+    let params = Value::Object(checked_params(&action, &given, true)?);
     match host.run_action(&plugin, id, &params) {
         Some(said) => Ok(json!({"said": said})),
         None => Err(format!("{} can't be used right now (no device, or its control is off).", action.label)),
@@ -634,11 +645,13 @@ impl Plugin for McpPlugin {
         match event {
             Event::Posted { owner, token, data } if owner == NAME && token == POST_CALL => {
                 let id = data["id"].as_u64().unwrap_or(0);
-                self.run(host, id, data["tool"].as_str().unwrap_or(""), &data["args"]);
+                self.run(host, id, data["session"].as_u64().unwrap_or(0), data["tool"].as_str().unwrap_or(""), &data["args"]);
             }
             Event::Posted { owner, token, data } if owner == NAME && token == POST_CLIENT => {
+                if let Some(gone) = data["gone"].as_u64() {
+                    self.journals.remove(&gone);
                 // The first AI app to connect is announced, so nobody finds out by surprise
-                if data["clients"].as_u64() == Some(1) {
+                } else if data["clients"].as_u64() == Some(1) {
                     host.send_notification("Telescope", &tr("An AI app is connected to Telescope through the MCP server."), false);
                 }
             }

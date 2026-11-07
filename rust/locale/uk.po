@@ -160,7 +160,7 @@ msgstr "Отримати VB-Cable"
 msgid "Takes out typing, fans and room hiss."
 msgstr "Прибирає стукіт клавіш, шум вентиляторів і шипіння в кімнаті."
 
-#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:638 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/outputs/src/stream_output.rs:956 rust/crates/system/src/shortcuts.rs:659 rust/crates/system/src/shortcuts.rs:661
+#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:638 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1399 rust/crates/link/src/plugin.rs:1406 rust/crates/outputs/src/stream_output.rs:956 rust/crates/system/src/shortcuts.rs:515 rust/crates/system/src/shortcuts.rs:517
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -187,15 +187,15 @@ msgstr "вимк."
 msgid "Gain"
 msgstr "Підсилення"
 
-#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:12 rust/crates/system/src/shortcuts.rs:442
+#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:12 rust/crates/system/src/remote.rs:20
 msgid "Switch on or off"
 msgstr "Увімкнути або вимкнути"
 
-#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:13 rust/crates/system/src/shortcuts.rs:442
+#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:13 rust/crates/system/src/remote.rs:20
 msgid "Turn on"
 msgstr "Увімкнути"
 
-#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:14 rust/crates/system/src/shortcuts.rs:442
+#: rust/crates/audio/src/plugin.rs:1009 rust/crates/core/src/actions.rs:14 rust/crates/system/src/remote.rs:20
 msgid "Turn off"
 msgstr "Вимкнути"
 
@@ -203,7 +203,7 @@ msgstr "Вимкнути"
 msgid "Switch while held, back on release"
 msgstr "Перемикати під час утримування, повертати після відпускання"
 
-#: rust/crates/audio/src/plugin.rs:1015 rust/crates/audio/src/plugin.rs:1100 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1353 rust/crates/outputs/src/stream_output.rs:620 rust/crates/outputs/src/stream_output.rs:637 rust/crates/shell/src/plugins/presets.rs:333 rust/crates/system/src/shortcuts.rs:448 rust/crates/system/src/shortcuts.rs:449
+#: rust/crates/audio/src/plugin.rs:1015 rust/crates/audio/src/plugin.rs:1100 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1353 rust/crates/outputs/src/stream_output.rs:620 rust/crates/outputs/src/stream_output.rs:637 rust/crates/shell/src/plugins/presets.rs:333 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
 msgid "Does"
 msgstr "Дія"
 
@@ -432,7 +432,7 @@ msgstr "Теле"
 msgid "General"
 msgstr "Загальні"
 
-#: rust/crates/core/src/plugin.rs:14 rust/crates/system/src/shortcuts.rs:448
+#: rust/crates/core/src/plugin.rs:14 rust/crates/system/src/remote.rs:26
 msgid "Streaming"
 msgstr "Трансляція"
 
@@ -448,7 +448,7 @@ msgstr "Аудіо"
 msgid "Virtual camera & phone"
 msgstr "Віртуальна камера та телефон"
 
-#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1318
+#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1067
 msgid "Keyboard shortcuts"
 msgstr "Комбінації клавіш"
 
@@ -3242,7 +3242,7 @@ msgstr "Телефон відхилив доступ до мікрофона (HT
 msgid "No microphone"
 msgstr "Немає мікрофона"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:687 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:687 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Не транслює"
 
@@ -3810,7 +3810,7 @@ msgstr "Оновлення додатка на телефоні через USB�
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Додаток Telescope на {phone} старіший за цей."
 
-#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:1068
+#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:817
 msgid "Copy command"
 msgstr "Скопіювати команду"
 
@@ -4865,7 +4865,7 @@ msgstr "Створено <a href=\"{url}\">LunarKittyy</a>"
 msgid "Version {version}"
 msgstr "Версія {version}"
 
-#: rust/crates/setup/src/setup.rs:431 rust/crates/system/src/shortcuts.rs:1068
+#: rust/crates/setup/src/setup.rs:431 rust/crates/system/src/shortcuts.rs:817
 msgid "Copied"
 msgstr "Скопійовано"
 
@@ -6255,7 +6255,7 @@ msgid "Could not save settings. Check disk space and permissions."
 msgstr "Не вдалося зберегти налаштування. Перевірте вільне місце на диску та права доступу."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1315 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1315 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "Старт"
 
@@ -6554,7 +6554,7 @@ msgid "Stop streaming"
 msgstr "Зупинити трансляцію"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1321 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/window.rs:1321 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "Стоп"
 
@@ -6868,20 +6868,108 @@ msgstr "Інша програма вже використовує цю клав�
 msgid "Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all, so pick another."
 msgstr "Комбінації клавіш «Усюди» перехоплюються у Windows, поки працює Telescope. Якщо клавішу вже зайняла інша програма, вона взагалі не дійде до Telescope, тому виберіть іншу."
 
-#: rust/crates/system/src/mcp.rs:552
+#: rust/crates/system/src/mcp.rs:626
 msgid "MCP server"
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:553
+#: rust/crates/system/src/mcp.rs:627
 msgid "Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port."
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:554
+#: rust/crates/system/src/mcp.rs:628
 msgid "Without it AI apps can't connect to Telescope."
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:579
+#: rust/crates/system/src/mcp.rs:655
 msgid "An AI app is connected to Telescope through the MCP server."
+msgstr ""
+
+#: rust/crates/system/src/remote.rs:10
+msgid "Telescope: shown"
+msgstr "Telescope: показано"
+
+#: rust/crates/system/src/remote.rs:19
+msgid "Start or stop"
+msgstr "Почати або зупинити"
+
+#: rust/crates/system/src/remote.rs:27
+msgid "Phone camera"
+msgstr "Камера телефону"
+
+#: rust/crates/system/src/remote.rs:28
+msgid "Show or hide Telescope"
+msgstr "Показати або сховати Telescope"
+
+#: rust/crates/system/src/remote.rs:39
+msgid "Already streaming"
+msgstr "Уже транслює"
+
+#: rust/crates/system/src/remote.rs:43
+msgid "Streaming: starting"
+msgstr "Трансляція: запуск"
+
+#: rust/crates/system/src/remote.rs:49
+msgid "Streaming: stopped"
+msgstr "Трансляція: зупинено"
+
+#: rust/crates/system/src/remote.rs:64
+msgid "Phone camera: on"
+msgstr "Камера телефону: увімк."
+
+#: rust/crates/system/src/remote.rs:64
+msgid "Phone camera: off"
+msgstr "Камера телефону: вимк."
+
+#: rust/crates/system/src/remote.rs:66
+msgid "Telescope: hidden"
+msgstr "Telescope: приховано"
+
+#: rust/crates/system/src/remote.rs:164
+#, python-brace-format
+msgid "{action} has no setting {name}."
+msgstr "{action} не має налаштування {name}."
+
+#: rust/crates/system/src/remote.rs:180
+#, python-brace-format
+msgid "{name} has to be a number, not {value}."
+msgstr "{name} має бути числом, а не {value}."
+
+#: rust/crates/system/src/remote.rs:185
+#, python-brace-format
+msgid "{name} goes from {low} to {high}, so {value} is out of range."
+msgstr ""
+
+#: rust/crates/system/src/remote.rs:191
+msgid "nothing right now"
+msgstr "зараз нічого"
+
+#: rust/crates/system/src/remote.rs:194
+#, python-brace-format
+msgid "{name} can be {options}, not {value}."
+msgstr "{name} може бути {options}, а не {value}."
+
+#. hold, toggle, on and off are values typed on the command line: keep them in English
+#: rust/crates/system/src/remote.rs:199
+msgid "hold needs a key to let go of; use toggle, on or off with --action."
+msgstr "для hold потрібна клавіша, яку слід відпустити; використовуйте toggle, on або off з --action."
+
+#: rust/crates/system/src/remote.rs:206
+#, python-brace-format
+msgid "{action} needs {name}=… for that."
+msgstr "Для цього {action} потребує {name}=…."
+
+#: rust/crates/system/src/remote.rs:241
+msgid "That failed; Copy diagnostics has the details."
+msgstr "Дія не вдалася; у пункті «Скопіювати діагностику» є подробиці."
+
+#: rust/crates/system/src/remote.rs:254
+#, python-brace-format
+msgid "No action called {action}. telescope --list-actions lists them."
+msgstr "Немає дії з назвою {action}. Команда telescope --list-actions показує весь список."
+
+#: rust/crates/system/src/remote.rs:267
+#, python-brace-format
+msgid "{action} can't be used right now (no device, or the control is off)."
 msgstr ""
 
 #: rust/crates/system/src/setup_move.rs:350
@@ -6901,10 +6989,6 @@ msgstr "Роботу інсталятора зупинено (код {code}), т
 #: rust/crates/system/src/setup_move.rs:360
 msgid "Telescope was installed, but its folder wasn't where expected. Open it from the Start menu."
 msgstr "Telescope було встановлено, але його папка не там, де очікувалося. Відкрийте його з меню «Пуск»."
-
-#: rust/crates/system/src/shortcuts.rs:31
-msgid "Telescope: shown"
-msgstr "Telescope: показано"
 
 #: rust/crates/system/src/shortcuts.rs:53
 msgid "This Telescope has no shortcuts."
@@ -6939,63 +7023,27 @@ msgstr "Усюди (налаштування)"
 msgid "In Telescope: {status}"
 msgstr "У Telescope: {status}"
 
-#: rust/crates/system/src/shortcuts.rs:441
-msgid "Start or stop"
-msgstr "Почати або зупинити"
-
-#: rust/crates/system/src/shortcuts.rs:449
-msgid "Phone camera"
-msgstr "Камера телефону"
-
-#: rust/crates/system/src/shortcuts.rs:450
-msgid "Show or hide Telescope"
-msgstr "Показати або сховати Telescope"
-
-#: rust/crates/system/src/shortcuts.rs:461
-msgid "Already streaming"
-msgstr "Уже транслює"
-
-#: rust/crates/system/src/shortcuts.rs:465
-msgid "Streaming: starting"
-msgstr "Трансляція: запуск"
-
-#: rust/crates/system/src/shortcuts.rs:471
-msgid "Streaming: stopped"
-msgstr "Трансляція: зупинено"
-
-#: rust/crates/system/src/shortcuts.rs:486
-msgid "Phone camera: on"
-msgstr "Камера телефону: увімк."
-
-#: rust/crates/system/src/shortcuts.rs:486
-msgid "Phone camera: off"
-msgstr "Камера телефону: вимк."
-
-#: rust/crates/system/src/shortcuts.rs:488
-msgid "Telescope: hidden"
-msgstr "Telescope: приховано"
-
-#: rust/crates/system/src/shortcuts.rs:622 rust/crates/system/src/shortcuts.rs:635
+#: rust/crates/system/src/shortcuts.rs:478 rust/crates/system/src/shortcuts.rs:491
 #, python-brace-format
 msgid "{label}: set to {value}"
 msgstr "{label}: встановити на {value}"
 
-#: rust/crates/system/src/shortcuts.rs:623
+#: rust/crates/system/src/shortcuts.rs:479
 #, python-brace-format
 msgid "{label}: reset to default"
 msgstr "{label}: скинути до типового"
 
-#: rust/crates/system/src/shortcuts.rs:630
+#: rust/crates/system/src/shortcuts.rs:486
 #, python-brace-format
 msgid "{label}: increase by {amount}"
 msgstr "{label}: збільшити на {amount}"
 
-#: rust/crates/system/src/shortcuts.rs:630
+#: rust/crates/system/src/shortcuts.rs:486
 #, python-brace-format
 msgid "{label}: decrease by {amount}"
 msgstr "{label}: зменшити на {amount}"
 
-#: rust/crates/system/src/shortcuts.rs:643
+#: rust/crates/system/src/shortcuts.rs:499
 #, python-brace-format
 msgid "{label}: raise by {n} stop"
 msgid_plural "{label}: raise by {n} stops"
@@ -7003,7 +7051,7 @@ msgstr[0] "{label}: підвищити на {n} ступінь"
 msgstr[1] "{label}: підвищити на {n} ступені"
 msgstr[2] "{label}: підвищити на {n} ступенів"
 
-#: rust/crates/system/src/shortcuts.rs:645
+#: rust/crates/system/src/shortcuts.rs:501
 #, python-brace-format
 msgid "{label}: lower by {n} stop"
 msgid_plural "{label}: lower by {n} stops"
@@ -7011,135 +7059,92 @@ msgstr[0] "{label}: знизити на {n} ступінь"
 msgstr[1] "{label}: знизити на {n} ступені"
 msgstr[2] "{label}: знизити на {n} ступенів"
 
-#: rust/crates/system/src/shortcuts.rs:650
+#: rust/crates/system/src/shortcuts.rs:506
 #, python-brace-format
 msgid "{label}: raise by {stops} stops"
 msgstr "{label}: підвищити на {stops} ступені"
 
-#: rust/crates/system/src/shortcuts.rs:650
+#: rust/crates/system/src/shortcuts.rs:506
 #, python-brace-format
 msgid "{label}: lower by {stops} stops"
 msgstr "{label}: знизити на {stops} ступені"
 
-#: rust/crates/system/src/shortcuts.rs:661
+#: rust/crates/system/src/shortcuts.rs:517
 msgid "next"
 msgstr "наступний"
 
-#: rust/crates/system/src/shortcuts.rs:661
+#: rust/crates/system/src/shortcuts.rs:517
 msgid "previous"
 msgstr "попередній"
 
-#: rust/crates/system/src/shortcuts.rs:713
-#, python-brace-format
-msgid "{name} has to be a number, not {value}."
-msgstr "{name} має бути числом, а не {value}."
-
-#: rust/crates/system/src/shortcuts.rs:718
-msgid "nothing right now"
-msgstr "зараз нічого"
-
-#: rust/crates/system/src/shortcuts.rs:721
-#, python-brace-format
-msgid "{name} can be {options}, not {value}."
-msgstr "{name} може бути {options}, а не {value}."
-
-#. hold, toggle, on and off are values typed on the command line: keep them in English
-#: rust/crates/system/src/shortcuts.rs:726
-msgid "hold needs a key to let go of; use toggle, on or off with --action."
-msgstr "для hold потрібна клавіша, яку слід відпустити; використовуйте toggle, on або off з --action."
-
-#: rust/crates/system/src/shortcuts.rs:733
-#, python-brace-format
-msgid "{action} needs {name}=… for that."
-msgstr "Для цього {action} потребує {name}=…."
-
-#: rust/crates/system/src/shortcuts.rs:768
-msgid "That failed; Copy diagnostics has the details."
-msgstr "Дія не вдалася; у пункті «Скопіювати діагностику» є подробиці."
-
-#: rust/crates/system/src/shortcuts.rs:791
-#, python-brace-format
-msgid "No action called {action}. telescope --list-actions lists them."
-msgstr "Немає дії з назвою {action}. Команда telescope --list-actions показує весь список."
-
-#: rust/crates/system/src/shortcuts.rs:797
-#, python-brace-format
-msgid "{action} has no setting {name}."
-msgstr "{action} не має налаштування {name}."
-
-#: rust/crates/system/src/shortcuts.rs:809
-#, python-brace-format
-msgid "{action} can't be used right now (no device, or the control is off)."
-msgstr ""
-
-#: rust/crates/system/src/shortcuts.rs:986
+#: rust/crates/system/src/shortcuts.rs:735
 msgid "No control matches that search."
 msgstr "Жоден елемент керування не відповідає цьому пошуку."
 
-#: rust/crates/system/src/shortcuts.rs:986
+#: rust/crates/system/src/shortcuts.rs:735
 msgid "Pick a control."
 msgstr "Виберіть елемент керування."
 
-#: rust/crates/system/src/shortcuts.rs:988
+#: rust/crates/system/src/shortcuts.rs:737
 msgid "A modifier can't be a shortcut on its own. Add a key to it."
 msgstr "Клавіша-модифікатор не може бути комбінацією сама по собі. Додайте до неї іншу клавішу."
 
-#: rust/crates/system/src/shortcuts.rs:990
+#: rust/crates/system/src/shortcuts.rs:739
 #, python-brace-format
 msgid "Press a key, with Ctrl, Alt, Shift or {meta} if you like."
 msgstr "Натисніть клавішу, за бажанням разом із Ctrl, Alt, Shift або {meta}."
 
-#: rust/crates/system/src/shortcuts.rs:994
+#: rust/crates/system/src/shortcuts.rs:743
 #, python-brace-format
 msgid "{keys} already does \"{action}\". Pick another key."
 msgstr "{keys} уже виконує дію «{action}». Виберіть іншу клавішу."
 
-#: rust/crates/system/src/shortcuts.rs:1003
+#: rust/crates/system/src/shortcuts.rs:752
 #, python-brace-format
 msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
 msgstr "Усюди {keys} завадить її введенню в інших додатках. Безпечніше додати Ctrl, Alt або {meta}."
 
-#: rust/crates/system/src/shortcuts.rs:1024
+#: rust/crates/system/src/shortcuts.rs:773
 #, python-brace-format
 msgid "Unknown ({action})"
 msgstr "Невідомо ({action})"
 
-#: rust/crates/system/src/shortcuts.rs:1045
+#: rust/crates/system/src/shortcuts.rs:794
 #, python-brace-format
 msgid "{value} (not there now)"
 msgstr "{value} (зараз немає)"
 
-#: rust/crates/system/src/shortcuts.rs:1069
+#: rust/crates/system/src/shortcuts.rs:818
 msgid "A command can't hold a key down; pick another choice to copy one"
 msgstr "Команда не може утримувати клавішу натиснутою; виберіть інший варіант, щоб скопіювати команду"
 
-#: rust/crates/system/src/shortcuts.rs:1070
+#: rust/crates/system/src/shortcuts.rs:819
 msgid "A command line that does the same, for your desktop's own keyboard settings"
 msgstr "Командний рядок, що робить те саме, для налаштувань клавіатури вашого графічного середовища"
 
-#: rust/crates/system/src/shortcuts.rs:1080
+#: rust/crates/system/src/shortcuts.rs:829
 #, python-brace-format
 msgid "Edit {shortcut}"
 msgstr "Редагувати {shortcut}"
 
-#: rust/crates/system/src/shortcuts.rs:1081
+#: rust/crates/system/src/shortcuts.rs:830
 #, python-brace-format
 msgid "Remove {shortcut}"
 msgstr "Вилучити {shortcut}"
 
-#: rust/crates/system/src/shortcuts.rs:1086
+#: rust/crates/system/src/shortcuts.rs:835
 msgid "Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings."
 msgstr "Глобальні комбінації клавіш недоступні в цьому графічному середовищі, тому вони працюють лише у Telescope. Щоб клавіші діяли усюди, прив'яжіть скопійовану команду в налаштуваннях клавіатури вашого графічного середовища."
 
-#: rust/crates/system/src/shortcuts.rs:1189
+#: rust/crates/system/src/shortcuts.rs:938
 msgid "Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings."
 msgstr "Не вдалося відкрити налаштування комбінацій клавіш вашого графічного середовища. Шукайте «Гарячі клавіші» або «Комбінації клавіш» у системних налаштуваннях."
 
-#: rust/crates/system/src/shortcuts.rs:1319
+#: rust/crates/system/src/shortcuts.rs:1068
 msgid "Keys for Telescope's controls, including ones that work in other apps."
 msgstr "Клавіші для елементів керування Telescope, включно з тими, що працюють в інших додатках."
 
-#: rust/crates/system/src/shortcuts.rs:1320
+#: rust/crates/system/src/shortcuts.rs:1069
 msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
 msgstr "Без нього жодна комбінація клавіш не діє, а розділ «Гарячі клавіші» зникає з «Налаштувань» (ваші комбінації зберігаються на випадок його повторного ввімкнення)."
 
@@ -7177,11 +7182,11 @@ msgstr "Telescope не запущено."
 msgid "Telescope didn't understand that. Is it an older version? Update it to use --action."
 msgstr "Telescope не розпізнав цю команду. Можливо, це старіша версія? Оновіть її, щоб використовувати --action."
 
-#: rust/crates/system/src/single_instance.rs:429
+#: rust/crates/system/src/single_instance.rs:436
 msgid "Telescope couldn't write the key --action needs next to its settings when it started. Restart it."
 msgstr "Telescope не зміг записати ключ, потрібний для --action, поруч зі своїми налаштуваннями під час запуску. Перезапустіть його."
 
-#: rust/crates/system/src/single_instance.rs:434
+#: rust/crates/system/src/single_instance.rs:441
 msgid "Telescope turned that down: it didn't come from this user's Telescope command."
 msgstr "Telescope відхилив запит: він надійшов не від команди Telescope цього користувача."
 
