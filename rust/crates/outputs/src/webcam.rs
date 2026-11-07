@@ -8,9 +8,9 @@
 
 use telescope_core::i18n::Fields;
 use crate::webcam_capture::{self, ReaderDeps};
-use crate::webcam_capture::gphoto_lib::{FAR, FAR_BIG, NEAR, NEAR_BIG};
+use crate::webcam_capture::gphoto_lib::{jog_value, FAR, NEAR};
 use crate::webcam_controls::{apply_order, auto_of, choice_text, default_of, local_flicker, shown_value, stops_apart, Control, Controls, AUTOS};
-use crate::webcam_hold::{self, Hold, Tick, TICK_MS};
+use crate::webcam_hold::{self, jog_level, Hold, JogHold, JogTick, Tick, TICK_MS};
 use crate::webcams::{self, Choice, Device};
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
@@ -35,6 +35,7 @@ pub const FPS_CHOICES: [u32; 6] = [15, 24, 25, 30, 50, 60];
 const LOG_STEPS: f64 = 1000.0;
 const T_SCAN: &str = "scan";
 const T_HOLD: &str = "hold";
+const T_JOG: &str = "jog";
 const P_REPORTED: &str = "reported";
 const P_UNPLUGGED: &str = "unplugged";
 
@@ -328,8 +329,10 @@ pub struct WebcamPlugin {
     shown_rows: Option<Vec<Value>>,
     /// The same for the strip of a DSLR's values
     shown_tiles: Option<Vec<Value>>,
-    /// The button held down on the card, if any
+    /// The arrow held down on the card, if any
     held: Option<Hold>,
+    /// The focus jog's handle while it's held out, if it is
+    jogged: Option<JogHold>,
 }
 
 /// What came of a step a button asked for.
@@ -346,7 +349,7 @@ impl WebcamPlugin {
     pub fn new(scan: Scanner, controls_for: ControlsFor, system: System) -> WebcamPlugin {
         WebcamPlugin {
             scan, controls_for, system, shared: Arc::default(), poster: None, controls: HashMap::new(), backends: HashMap::new(),
-            sources: HashMap::new(), states: HashMap::new(), modes: HashMap::new(), selected_key: String::new(), stopped: false, shown_rows: None, shown_tiles: None, held: None,
+            sources: HashMap::new(), states: HashMap::new(), modes: HashMap::new(), selected_key: String::new(), stopped: false, shown_rows: None, shown_tiles: None, held: None, jogged: None,
         }
     }
 
@@ -597,7 +600,7 @@ impl WebcamPlugin {
         self.backend(key).is_some_and(|b| b.busy())
     }
 
-    /// One step of a button or an arrow: the focus a step nearer or further, a dial a place along its list (`big`: a longer step,
+    /// One step of a tap or an arrow: the focus a small step nearer or further, a dial a place along its list (`big`: a longer step,
     /// after the button has been held a while).
     fn nudge(&mut self, host: &mut dyn Host, name: &str, dir: i32, big: bool) -> Nudge {
         let key = self.selected_key.clone();
@@ -607,12 +610,7 @@ impl WebcamPlugin {
             c = self.read_controls(&key).remove(name).unwrap_or(c);
         }
         let value = match c.kind.as_str() {
-            "buttons" => match (dir < 0, big) {
-                (true, false) => NEAR,
-                (true, true) => NEAR_BIG,
-                (false, false) => FAR,
-                (false, true) => FAR_BIG,
-            },
+            "buttons" => if dir < 0 { NEAR } else { FAR },
             "menu" => {
                 let at = c.menu.iter().position(|v| *v == c.value).unwrap_or(0);
                 let by = if big && c.unit == "ev" { stops_apart(&c) } else { 1 };
@@ -648,7 +646,44 @@ impl WebcamPlugin {
 
     fn release_hold(&mut self, host: &mut dyn Host) {
         self.held = None;
+        self.jogged = None;
         host.cancel_schedule(T_HOLD);
+        host.cancel_schedule(T_JOG);
+    }
+
+    /// The jog's handle is at `level` (0: let go, and sprung back to the middle): a new one takes its first step at once and the timer
+    /// keeps going while it's out, an old one only changes how big the next step is.
+    fn set_jog(&mut self, host: &mut dyn Host, name: &str, level: i64) {
+        if level == 0 {
+            self.release_hold(host);
+            return;
+        }
+        match &mut self.jogged {
+            Some(jog) if jog.name == name => jog.set_level(level),
+            _ => {
+                self.release_hold(host);
+                self.jogged = Some(JogHold::new(name, level));
+                self.jog_tick(host);
+            }
+        }
+    }
+
+    /// A tick of the held-out jog: a step at the handle's level if the camera is ready for one.
+    fn jog_tick(&mut self, host: &mut dyn Host) {
+        let Some(mut jog) = self.jogged.take() else { return };
+        let key = self.selected_key.clone();
+        let settled = !self.busy(&key);
+        match jog.tick(settled) {
+            JogTick::Release => return,
+            JogTick::Wait => {}
+            JogTick::Step { level } => {
+                if let Some(value) = jog_value(level) {
+                    self.set_control(host, &jog.name, value);
+                }
+            }
+        }
+        self.jogged = Some(jog);
+        host.schedule(TICK_MS, T_JOG);
     }
 
     /// What changes while the hand is on a control, sent without new rows: those would rebuild the control being held.
@@ -780,7 +815,7 @@ impl WebcamPlugin {
                     row["kind"] = json!("auto");
                     row["checked"] = json!(c.value != 0);
                 } else if c.kind == "buttons" {
-                    row["kind"] = json!("buttons");
+                    row["kind"] = json!("jog");
                     row["options"] = json!([tr("Near"), tr("Focus"), tr("Far")]);
                 } else if c.kind == "bool" || (c.kind == "int" && (c.minimum, c.maximum) == (0, 1)) {
                     row["kind"] = json!("switch");
@@ -935,6 +970,7 @@ impl Plugin for WebcamPlugin {
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
         match event {
             Event::TimerFired { owner, token } if owner == NAME && token == T_HOLD => self.hold_tick(host),
+            Event::TimerFired { owner, token } if owner == NAME && token == T_JOG => self.jog_tick(host),
             Event::TimerFired { owner, token } if owner == NAME && token == T_SCAN => {
                 if !self.stopped {
                     self.rescan(host);
@@ -1021,6 +1057,11 @@ impl Plugin for WebcamPlugin {
             }
             "hold-up" => {
                 self.release_hold(host);
+                return;
+            }
+            "jog" => {
+                let (Some(name), Some(offset)) = (arg(0).as_str().map(String::from), arg(1).as_f64()) else { return };
+                self.set_jog(host, &name, jog_level(offset));
                 return;
             }
             "action" => self.reset_controls(host),

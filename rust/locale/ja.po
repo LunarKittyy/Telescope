@@ -183,7 +183,7 @@ msgstr "オン"
 msgid "off"
 msgstr "オフ"
 
-#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:217 rust/crates/audio/ui/microphone.slint:227 rust/crates/audio/ui/microphone.slint:238 rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:273 rust/crates/outputs/src/webcam.rs:44
+#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:217 rust/crates/audio/ui/microphone.slint:227 rust/crates/audio/ui/microphone.slint:238 rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:273 rust/crates/outputs/src/webcam.rs:45
 msgid "Gain"
 msgstr "ゲイン"
 
@@ -318,7 +318,7 @@ msgstr "仮想マイクへの音声の取り込みが停止しました。"
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "黄色はリミッターが大音量のピークを抑えていることを示し、赤色は音割れ（クリッピング）を示します（クリックでクリア）。"
 
-#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:524 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:453 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:199 rust/crates/outputs/ui/webcam.slint:199 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
+#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:524 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:453 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:189 rust/crates/outputs/ui/webcam.slint:189 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
 msgid "Double-click to reset"
 msgstr "ダブルクリックでリセット"
 
@@ -368,11 +368,11 @@ msgstr "段"
 msgid " stops"
 msgstr "段"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1354 rust/crates/outputs/src/stream_output.rs:621 rust/crates/outputs/ui/webcam.slint:221 rust/crates/shell/src/plugins/presets.rs:323
+#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1354 rust/crates/outputs/src/stream_output.rs:621 rust/crates/outputs/ui/webcam.slint:211 rust/crates/shell/src/plugins/presets.rs:323
 msgid "Next"
 msgstr "次へ"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1354 rust/crates/outputs/src/stream_output.rs:621 rust/crates/outputs/ui/webcam.slint:220 rust/crates/shell/src/plugins/presets.rs:323
+#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1354 rust/crates/outputs/src/stream_output.rs:621 rust/crates/outputs/ui/webcam.slint:210 rust/crates/shell/src/plugins/presets.rs:323
 msgid "Previous"
 msgstr "前へ"
 
@@ -460,7 +460,7 @@ msgstr "プラグイン"
 msgid "Updates & About"
 msgstr "アップデート & 情報"
 
-#: rust/crates/core/src/plugin.rs:25 rust/crates/outputs/src/webcam.rs:63 rust/crates/outputs/ui/webcam.slint:78 rust/crates/shell/src/plugins/camera_control.rs:1580 rust/crates/shell/ui/cards/camera.slint:143
+#: rust/crates/core/src/plugin.rs:25 rust/crates/outputs/src/webcam.rs:64 rust/crates/outputs/ui/webcam.slint:80 rust/crates/shell/src/plugins/camera_control.rs:1580 rust/crates/shell/ui/cards/camera.slint:143
 msgid "Camera"
 msgstr "カメラ"
 
@@ -524,7 +524,7 @@ msgid "Looking…"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:35 rust/crates/effects/src/photos.rs:458 rust/crates/effects/ui/background.slint:33 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:82 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:423 rust/crates/shell/ui/cards/camera.slint:431
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:35 rust/crates/effects/src/photos.rs:458 rust/crates/effects/ui/background.slint:33 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:83 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:423 rust/crates/shell/ui/cards/camera.slint:431
 msgid "Off"
 msgstr "オフ"
 
@@ -840,7 +840,7 @@ msgstr "65ポイントLUT (*.cube)"
 msgid "Lift"
 msgstr "リフト"
 
-#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:251 rust/crates/outputs/src/webcam.rs:49
+#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:251 rust/crates/outputs/src/webcam.rs:50
 msgid "Gamma"
 msgstr "ガンマ"
 
@@ -978,7 +978,7 @@ msgstr "ゲイン マスター"
 msgid "Offset master"
 msgstr "オフセット マスター"
 
-#: rust/crates/effects/src/colour_grading.rs:89 rust/crates/effects/ui/colour_grading.slint:311 rust/crates/outputs/src/webcam.rs:47 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:256 rust/crates/shell/ui/cards/camera.slint:259
+#: rust/crates/effects/src/colour_grading.rs:89 rust/crates/effects/ui/colour_grading.slint:311 rust/crates/outputs/src/webcam.rs:48 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:256 rust/crates/shell/ui/cards/camera.slint:259
 msgid "Temperature"
 msgstr "色温度"
 
@@ -995,7 +995,7 @@ msgid "More magenta or more green"
 msgstr "マゼンタまたはグリーンに調整"
 
 #. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
-#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:311 rust/crates/outputs/src/webcam.rs:48
+#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:311 rust/crates/outputs/src/webcam.rs:49
 msgid "Contrast"
 msgstr "コントラスト"
 
@@ -1011,7 +1011,7 @@ msgstr "ピボット"
 msgid "The level contrast turns around"
 msgstr "コントラスト調整の中心となる基準レベル"
 
-#: rust/crates/effects/src/colour_grading.rs:93 rust/crates/effects/ui/colour_grading.slint:311 rust/crates/outputs/src/webcam.rs:48
+#: rust/crates/effects/src/colour_grading.rs:93 rust/crates/effects/ui/colour_grading.slint:311 rust/crates/outputs/src/webcam.rs:49
 msgid "Saturation"
 msgstr "彩度"
 
@@ -1097,7 +1097,7 @@ msgstr "伸縮"
 msgid "Crop"
 msgstr "切り抜き"
 
-#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:136 rust/crates/effects/ui/transforms.slint:146 rust/crates/outputs/src/webcam.rs:54
+#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:136 rust/crates/effects/ui/transforms.slint:146 rust/crates/outputs/src/webcam.rs:55
 msgid "Pan"
 msgstr "パン"
 
@@ -1240,7 +1240,7 @@ msgid "Black and white"
 msgstr "白黒"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:23 rust/crates/effects/ui/colour_grading.slint:204 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:85 rust/crates/outputs/src/webcam.rs:866 rust/crates/outputs/ui/webcam.slint:118 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:23 rust/crates/effects/ui/colour_grading.slint:204 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:86 rust/crates/outputs/src/webcam.rs:901 rust/crates/outputs/ui/webcam.slint:120 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
 msgid "Auto"
 msgstr "自動"
 
@@ -1315,7 +1315,7 @@ msgstr "デスク モード"
 msgid "Done"
 msgstr "完了"
 
-#: rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/transforms.slint:47 rust/crates/outputs/ui/webcam.slint:69
+#: rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/transforms.slint:47 rust/crates/outputs/ui/webcam.slint:71
 msgid "Reset"
 msgstr "リセット"
 
@@ -1689,7 +1689,7 @@ msgid "Pill"
 msgstr "カプセル"
 
 #. Light and Heavy are the names of the two stream formats
-#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:789 rust/crates/outputs/src/stream_output.rs:998 rust/crates/outputs/src/webcam.rs:60 rust/crates/outputs/ui/stream_output.slint:129 rust/crates/setup/src/stats_phone.rs:88
+#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:789 rust/crates/outputs/src/stream_output.rs:998 rust/crates/outputs/src/webcam.rs:61 rust/crates/outputs/ui/stream_output.slint:129 rust/crates/setup/src/stats_phone.rs:88
 msgid "Light"
 msgstr "軽量"
 
@@ -2451,7 +2451,7 @@ msgstr "画像のズーム、パン、反転、回転、引き伸ばしができ
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "無効にすると「変形」カードが表示されず、スマートフォンから送られてきた画像がそのまま出力されます。"
 
-#: rust/crates/effects/src/transforms.rs:614 rust/crates/effects/src/transforms.rs:667 rust/crates/effects/ui/composite_editor.slint:447 rust/crates/effects/ui/transforms.slint:78 rust/crates/effects/ui/transforms.slint:91 rust/crates/outputs/src/webcam.rs:54
+#: rust/crates/effects/src/transforms.rs:614 rust/crates/effects/src/transforms.rs:667 rust/crates/effects/ui/composite_editor.slint:447 rust/crates/effects/ui/transforms.slint:78 rust/crates/effects/ui/transforms.slint:91 rust/crates/outputs/src/webcam.rs:55
 msgid "Zoom"
 msgstr "ズーム"
 
@@ -2819,7 +2819,7 @@ msgstr "形状"
 msgid "Follow my face"
 msgstr "顔を追従"
 
-#: rust/crates/effects/ui/framing.slint:88 rust/crates/outputs/src/webcam.rs:64
+#: rust/crates/effects/ui/framing.slint:88 rust/crates/outputs/src/webcam.rs:65
 msgid "Framing"
 msgstr "フレーミング"
 
@@ -2847,7 +2847,7 @@ msgstr "クリア"
 msgid "Trails"
 msgstr "光跡"
 
-#: rust/crates/effects/ui/fun_pack.slint:131 rust/crates/outputs/src/webcam.rs:45 rust/crates/shell/ui/cards/camera.slint:225 rust/crates/shell/ui/cards/camera.slint:228
+#: rust/crates/effects/ui/fun_pack.slint:131 rust/crates/outputs/src/webcam.rs:46 rust/crates/shell/ui/cards/camera.slint:225 rust/crates/shell/ui/cards/camera.slint:228
 msgid "Brightness"
 msgstr "明るさ"
 
@@ -3109,7 +3109,7 @@ msgstr "ブラケット"
 msgid "Steps"
 msgstr "ステップ数"
 
-#: rust/crates/effects/ui/photos.slint:235 rust/crates/outputs/src/webcam.rs:44 rust/crates/outputs/src/webcam.rs:52 rust/crates/shell/ui/cards/camera.slint:179 rust/crates/shell/ui/cards/camera.slint:182
+#: rust/crates/effects/ui/photos.slint:235 rust/crates/outputs/src/webcam.rs:45 rust/crates/outputs/src/webcam.rs:53 rust/crates/shell/ui/cards/camera.slint:179 rust/crates/shell/ui/cards/camera.slint:182
 msgid "Exposure"
 msgstr "露出"
 
@@ -3234,7 +3234,7 @@ msgstr "スマートフォンがマイクを拒否しました（HTTP {code}）�
 msgid "No microphone"
 msgstr "マイクなし"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:863 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:566 rust/crates/shell/src/streams.rs:1590 rust/crates/shell/src/window.rs:1311 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:898 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:566 rust/crates/shell/src/streams.rs:1590 rust/crates/shell/src/window.rs:1311 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "ストリーミング停止中"
 
@@ -3872,7 +3872,7 @@ msgstr "新しいコードを作成します。古いコードは無効になり
 msgid "Which of this computer's addresses the code points to"
 msgstr "コードが指すこのコンピューターのアドレス"
 
-#: rust/crates/link/ui/browser_camera.slint:132 rust/crates/link/ui/browser_camera.slint:134 rust/crates/outputs/src/stream_output.rs:792 rust/crates/outputs/src/stream_output.rs:976 rust/crates/outputs/src/stream_output.rs:979 rust/crates/outputs/ui/stream_output.slint:99 rust/crates/outputs/ui/webcam.slint:89
+#: rust/crates/link/ui/browser_camera.slint:132 rust/crates/link/ui/browser_camera.slint:134 rust/crates/outputs/src/stream_output.rs:792 rust/crates/outputs/src/stream_output.rs:976 rust/crates/outputs/src/stream_output.rs:979 rust/crates/outputs/ui/stream_output.slint:99 rust/crates/outputs/ui/webcam.slint:91
 msgid "Resolution"
 msgstr "解像度"
 
@@ -3880,7 +3880,7 @@ msgstr "解像度"
 msgid "The size the browser sends; a camera that can't do it sends what it can"
 msgstr "ブラウザーが送信するサイズ。対応していないカメラは可能なサイズで送信します"
 
-#: rust/crates/link/ui/browser_camera.slint:143 rust/crates/link/ui/browser_camera.slint:145 rust/crates/outputs/ui/stream_output.slint:108 rust/crates/outputs/ui/webcam.slint:97
+#: rust/crates/link/ui/browser_camera.slint:143 rust/crates/link/ui/browser_camera.slint:145 rust/crates/outputs/ui/stream_output.slint:108 rust/crates/outputs/ui/webcam.slint:99
 msgid "Frame rate"
 msgstr "フレームレート"
 
@@ -4354,163 +4354,163 @@ msgctxt "search"
 msgid "idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo"
 msgstr "待機 スタンバイ プレースホルダー 画像 GIF 静止画 黒画面 停止中 反転 背景 ロゴ idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo"
 
-#: rust/crates/outputs/src/webcam.rs:44
+#: rust/crates/outputs/src/webcam.rs:45
 msgid "Exposure time"
 msgstr "露光時間"
 
-#: rust/crates/outputs/src/webcam.rs:45
+#: rust/crates/outputs/src/webcam.rs:46
 msgid "Backlight compensation"
 msgstr "逆光補正"
 
-#: rust/crates/outputs/src/webcam.rs:46
+#: rust/crates/outputs/src/webcam.rs:47
 msgid "Anti-flicker"
 msgstr "ちらつき防止"
 
-#: rust/crates/outputs/src/webcam.rs:46
+#: rust/crates/outputs/src/webcam.rs:47
 msgid "Slow down in the dark"
 msgstr "暗所でのフレームレート低下"
 
-#: rust/crates/outputs/src/webcam.rs:47 rust/crates/outputs/src/webcam.rs:53 rust/crates/shell/ui/cards/camera.slint:244 rust/crates/shell/ui/cards/camera.slint:247
+#: rust/crates/outputs/src/webcam.rs:48 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:244 rust/crates/shell/ui/cards/camera.slint:247
 msgid "White balance"
 msgstr "ホワイト バランス"
 
-#: rust/crates/outputs/src/webcam.rs:48
+#: rust/crates/outputs/src/webcam.rs:49
 msgid "Hue"
 msgstr "色相"
 
-#: rust/crates/outputs/src/webcam.rs:49
+#: rust/crates/outputs/src/webcam.rs:50
 msgid "Sharpness"
 msgstr "シャープネス"
 
-#: rust/crates/outputs/src/webcam.rs:50 rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:62 rust/crates/outputs/src/webcam.rs:784 rust/crates/shell/ui/cards/camera.slint:295 rust/crates/shell/ui/cards/camera.slint:299 rust/crates/shell/ui/cards/camera.slint:302
+#: rust/crates/outputs/src/webcam.rs:51 rust/crates/outputs/src/webcam.rs:53 rust/crates/outputs/src/webcam.rs:63 rust/crates/outputs/src/webcam.rs:819 rust/crates/shell/ui/cards/camera.slint:295 rust/crates/shell/ui/cards/camera.slint:299 rust/crates/shell/ui/cards/camera.slint:302
 msgid "Focus"
 msgstr "フォーカス"
 
-#: rust/crates/outputs/src/webcam.rs:50
+#: rust/crates/outputs/src/webcam.rs:51
 msgid "Focus position"
 msgstr "フォーカス位置"
 
-#: rust/crates/outputs/src/webcam.rs:52
+#: rust/crates/outputs/src/webcam.rs:53
 msgid "Aperture"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:54
+#: rust/crates/outputs/src/webcam.rs:55
 msgid "Tilt"
 msgstr "チルト"
 
-#: rust/crates/outputs/src/webcam.rs:61 rust/crates/shell/ui/cards/camera.slint:329
+#: rust/crates/outputs/src/webcam.rs:62 rust/crates/shell/ui/cards/camera.slint:329
 msgid "Image"
 msgstr "画質"
 
-#: rust/crates/outputs/src/webcam.rs:70
+#: rust/crates/outputs/src/webcam.rs:71
 msgid "The shutter speed: slower is brighter but blurs movement."
 msgstr "シャッター速度: 遅いと明るくなりますが動きがぶれます。"
 
-#: rust/crates/outputs/src/webcam.rs:71
+#: rust/crates/outputs/src/webcam.rs:72
 msgid "The webcam's ISO: more is brighter but grainier."
 msgstr "ウェブカメラのISO感度: 高いと明るくなりますがノイズが増えます。"
 
-#: rust/crates/outputs/src/webcam.rs:72
+#: rust/crates/outputs/src/webcam.rs:73
 msgid "Brightens a face in front of a bright window."
 msgstr "明るい窓の前にいる顔を明るくします。"
 
-#: rust/crates/outputs/src/webcam.rs:73
+#: rust/crates/outputs/src/webcam.rs:74
 msgid "Set it to your mains frequency to stop lights flickering or banding."
 msgstr "照明のちらつきや縞模様を防ぐため、お使いの電源周波数に設定してください。"
 
-#: rust/crates/outputs/src/webcam.rs:74
+#: rust/crates/outputs/src/webcam.rs:75
 msgid "Exposure compensation: how much brighter or darker than the camera would pick"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:75
+#: rust/crates/outputs/src/webcam.rs:76
 msgid "Lets the webcam lower its frame rate in dim light for a brighter picture."
 msgstr "暗い場所でウェブカメラがフレームレートを落として画像を明るくできるようにします。"
 
-#: rust/crates/outputs/src/webcam.rs:83
+#: rust/crates/outputs/src/webcam.rs:84
 msgid "50 Hz"
 msgstr "50 Hz"
 
-#: rust/crates/outputs/src/webcam.rs:84
+#: rust/crates/outputs/src/webcam.rs:85
 msgid "60 Hz"
 msgstr "60 Hz"
 
-#: rust/crates/outputs/src/webcam.rs:291
+#: rust/crates/outputs/src/webcam.rs:292
 msgid "Check that it's plugged in."
 msgstr "接続されているか確認してください。"
 
-#: rust/crates/outputs/src/webcam.rs:463
+#: rust/crates/outputs/src/webcam.rs:466
 msgid "Another app may be using it. Close it there and it starts here."
 msgstr "別のアプリが使用している可能性があります。そちらで閉じるとここで開始されます。"
 
-#: rust/crates/outputs/src/webcam.rs:465
+#: rust/crates/outputs/src/webcam.rs:468
 #, python-brace-format
 msgid "{app} is using it. Close it there and it starts here."
 msgstr "{app}が使用中です。そちらで閉じるとここで開始されます。"
 
-#: rust/crates/outputs/src/webcam.rs:467 rust/crates/outputs/src/webcam.rs:470 rust/crates/outputs/src/webcam.rs:473
+#: rust/crates/outputs/src/webcam.rs:470 rust/crates/outputs/src/webcam.rs:473 rust/crates/outputs/src/webcam.rs:476
 #, python-brace-format
 msgid "Can't open {name}"
 msgstr "{name}を開けません"
 
-#: rust/crates/outputs/src/webcam.rs:784
+#: rust/crates/outputs/src/webcam.rs:819
 msgid "Near"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:784
+#: rust/crates/outputs/src/webcam.rs:819
 msgid "Far"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:851
+#: rust/crates/outputs/src/webcam.rs:886
 msgid "Not plugged in"
 msgstr "未接続"
 
-#: rust/crates/outputs/src/webcam.rs:853
+#: rust/crates/outputs/src/webcam.rs:888
 msgid "Blocked by Windows or security software"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:855
+#: rust/crates/outputs/src/webcam.rs:890
 msgid "In use by another app"
 msgstr "別のアプリで使用中"
 
-#: rust/crates/outputs/src/webcam.rs:855
+#: rust/crates/outputs/src/webcam.rs:890
 #, python-brace-format
 msgid "In use by {app}"
 msgstr "{app}で使用中"
 
-#: rust/crates/outputs/src/webcam.rs:857
+#: rust/crates/outputs/src/webcam.rs:892
 msgid "Mounted as a drive"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:859
+#: rust/crates/outputs/src/webcam.rs:894
 msgid "Not sending anything"
 msgstr "データ未送信"
 
-#: rust/crates/outputs/src/webcam.rs:861
+#: rust/crates/outputs/src/webcam.rs:896
 msgid "Starting…"
 msgstr "開始中…"
 
-#: rust/crates/outputs/src/webcam.rs:874
+#: rust/crates/outputs/src/webcam.rs:909
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
 msgstr "ウェブカメラから送信されるサイズ。「自動」ではフレームレートを維持できる最大1080pまでのサイズが選択されます"
 
-#: rust/crates/outputs/src/webcam.rs:905
+#: rust/crates/outputs/src/webcam.rs:940
 msgid "Webcams"
 msgstr "ウェブカメラ"
 
-#: rust/crates/outputs/src/webcam.rs:906
+#: rust/crates/outputs/src/webcam.rs:941
 msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "このコンピューターに接続されたウェブカメラやキャプチャ カードからストリーミングします。"
 
-#: rust/crates/outputs/src/webcam.rs:907
+#: rust/crates/outputs/src/webcam.rs:942
 msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:950
+#: rust/crates/outputs/src/webcam.rs:986
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name}が接続されていません"
 
-#: rust/crates/outputs/src/webcam.rs:951
+#: rust/crates/outputs/src/webcam.rs:987
 msgid "Plug it in, or pick another camera."
 msgstr "接続するか、別のカメラを選択してください。"
 
@@ -4627,28 +4627,24 @@ msgstr "デフォルトを使用"
 msgid "Mirror it, for apps that flip the camera"
 msgstr "カメラを反転するアプリ向けに左右反転する"
 
-#: rust/crates/outputs/ui/webcam.slint:65
+#: rust/crates/outputs/ui/webcam.slint:67
 msgid "Webcam"
 msgstr "ウェブカメラ"
 
-#: rust/crates/outputs/ui/webcam.slint:68
+#: rust/crates/outputs/ui/webcam.slint:70
 msgid "Put the webcam's picture settings back to its defaults"
 msgstr "ウェブカメラの画質設定をデフォルトに戻す"
 
-#: rust/crates/outputs/ui/webcam.slint:118 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248
+#: rust/crates/outputs/ui/webcam.slint:120 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248
 msgid "Manual"
 msgstr "手動"
 
-#: rust/crates/outputs/ui/webcam.slint:130
-msgid "Focus nearer. Hold to keep going"
+#: rust/crates/outputs/ui/webcam.slint:134
+msgid "Drag to focus nearer or further away, the further the faster"
 msgstr ""
 
-#: rust/crates/outputs/ui/webcam.slint:140
+#: rust/crates/outputs/ui/webcam.slint:142
 msgid "Focus once automatically"
-msgstr ""
-
-#: rust/crates/outputs/ui/webcam.slint:148
-msgid "Focus further away. Hold to keep going"
 msgstr ""
 
 #: rust/crates/plugin-host/src/load.rs:16

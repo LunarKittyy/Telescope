@@ -91,19 +91,7 @@ export component Button inherits Rectangle {
     in property <bool> quiet-when-disabled;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
-    // A button that acts while it is down (Near and Far on the focus): hold-down as it goes down, by pointer or Space, and hold-up
-    // as it comes up; clicked stays quiet
-    in property <bool> hold;
     callback clicked;
-    callback hold-down;
-    callback hold-up;
-    property <bool> holding;
-    function release() {
-        if (holding) {
-            holding = false;
-            hold-up();
-        }
-    }
     // QPushButton's 30px min-height inside its 1px border
     height: 32px;
     min-width: lay.preferred-width;
@@ -123,26 +111,16 @@ export component Button inherits Rectangle {
     accessible-role: button;
     accessible-label: text;
     accessible-description: tip == text ? "" : tip;
-    accessible-action-default => { if (enabled) { if (hold) { hold-down(); hold-up(); } else { clicked(); } } }
-    changed enabled => { if (!enabled) { release(); } }
+    accessible-action-default => { if (enabled) { clicked(); } }
     forward-focus: focus;
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
-        focus-lost => { release(); }
         enabled: root.enabled;
         key-pressed(e) => {
             if (enabled && (e.text == " " || e.text == "\n")) {
-                if (hold) {
-                    if (!holding) { holding = true; hold-down(); }
-                } else {
-                    clicked();
-                }
+                clicked();
                 return accept;
             }
-            reject
-        }
-        key-released(e) => {
-            if (holding && (e.text == " " || e.text == "\n")) { release(); return accept; }
             reject
         }
     }
@@ -152,14 +130,9 @@ export component Button inherits Rectangle {
         mouse-cursor: pointer;
         pointer-event(e) => {
             if (e.kind == PointerEventKind.down) { usage.press(); }
-            if (hold && enabled && e.kind == PointerEventKind.down && e.button == PointerEventButton.left && !holding) {
-                holding = true;
-                hold-down();
-            }
-            if (holding && ((e.kind == PointerEventKind.up && e.button == PointerEventButton.left) || e.kind == PointerEventKind.cancel)) { release(); }
         }
         scroll-event(e) => { usage.wheel(); reject }
-        clicked => { if (enabled && !hold) { root.clicked(); } }
+        clicked => { if (enabled) { root.clicked(); } }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
     if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }

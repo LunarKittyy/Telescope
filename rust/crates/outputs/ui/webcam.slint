@@ -1,7 +1,7 @@
 // The Webcam card: which webcam streams and how, plus whichever picture settings the camera itself offers, as rows the plugin builds.
 // A DSLR's values come as a strip of tiles under its focus buttons instead (aperture and exposure step like a dial). Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Card, FormRow, Slider, ChoiceField, Segmented, SwitchTile, SectionHeading, Button, Stepper } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Card, FormRow, Slider, ChoiceField, Segmented, SwitchTile, SectionHeading, Button, Stepper, Jog } from "@ui-kit/ui-kit.slint";
 
 // One row of picture settings: a section heading, an Auto/Manual switch, an on/off tile, a menu or a slider. The strip's tiles are
 // rows too, a "stepper" or a "menu" each.
@@ -52,8 +52,10 @@ export component WebcamCard inherits Card {
     callback size-picked(int);
     callback fps-picked(int);
     callback control-set(string, float);
-    // One step (-1 or 1) of a control from a key or the wheel, and a button or arrow going down (with its way) and coming up
+    // One step (-1 or 1) of a control from a key, the wheel or a click beside the jog, and an arrow going down (with its way) and coming up
     callback control-step(string, int);
+    // The jog's handle at a new place, -1 to 1 (0 once let go)
+    callback jog(string, float);
     callback hold-down(string, int);
     callback hold-up();
 
@@ -120,38 +122,26 @@ export component WebcamCard inherits Card {
                 picked(i) => { root.control-set(row.name, i == 0 ? 1 : 0); }
             }
         }
-        // Near and Far act while they're held, the middle one runs autofocus once
+        // Drag the jog toward Near or Far, the further the faster, and it springs back to stop. Focus runs autofocus once
         HorizontalLayout {
-            visible: row.kind == "buttons";
-            height: row.kind == "buttons" ? 32px : 0;
+            visible: row.kind == "jog";
+            height: row.kind == "jog" ? 32px : 0;
             spacing: 8px;
-            Button {
-                text: row.options[0];
-                tip: @tr("Focus nearer. Hold to keep going");
-                horizontal-stretch: 1;
-                preferred-width: 1000px;
+            Jog {
+                near-text: row.options[0];
+                far-text: row.options[2];
+                label: row.label;
+                tip: @tr("Drag to focus nearer or further away, the further the faster");
+                hue: root.hue;
                 enabled: row.enabled;
-                hold: true;
-                hold-down => { root.hold-down(row.name, -1); }
-                hold-up => { root.hold-up(); }
+                moved(v) => { root.jog(row.name, v); }
+                tapped(by) => { root.control-step(row.name, by); }
             }
             Button {
                 text: row.options[1];
                 tip: @tr("Focus once automatically");
-                horizontal-stretch: 1;
-                preferred-width: 1000px;
                 enabled: row.enabled;
                 clicked => { root.control-set(row.name, 1); }
-            }
-            Button {
-                text: row.options[2];
-                tip: @tr("Focus further away. Hold to keep going");
-                horizontal-stretch: 1;
-                preferred-width: 1000px;
-                enabled: row.enabled;
-                hold: true;
-                hold-down => { root.hold-down(row.name, 1); }
-                hold-up => { root.hold-up(); }
             }
         }
         SwitchTile {

@@ -446,7 +446,7 @@ impl Controls for Dslr {
 
 /// What a D5100 in M mode offers (probe/allconfig_M.txt), in the Nikon driver's own wording with its decimal commas.
 fn dslr_controls() -> Vec<Control> {
-    let mut focus = Control::new("dslr_focus", "buttons", 0, 4, 1, 1, 1);
+    let mut focus = Control::new("dslr_focus", "buttons", -112, 112, 1, 1, 1);
     focus.transient = true;
     let menu = |name: &str, labels: &[&str], at: i64, unit: &str, ordered: bool| {
         let mut c = Control::new(name, "menu", 0, labels.len() as i64 - 1, 1, at, at);
@@ -487,13 +487,18 @@ fn tick(env: &mut Env) {
     env.plugin.on_event(&mut env.host, &Event::TimerFired { owner: NAME.into(), token: T_HOLD.into() });
 }
 
+fn jog_tick(env: &mut Env) {
+    env.host.cancel_schedule(T_JOG);
+    env.plugin.on_event(&mut env.host, &Event::TimerFired { owner: NAME.into(), token: T_JOG.into() });
+}
+
 #[test]
-fn a_dslrs_card_is_focus_buttons_and_a_strip_of_tiles_with_no_heading_over_them() {
+fn a_dslrs_card_is_a_focus_jog_and_a_strip_of_tiles_with_no_heading_over_them() {
     let (env, _) = dslr_card();
     let rows = env.plugin.rows();
     assert_eq!(rows.len(), 1, "one kind of settings needs no heading: {rows:?}");
     let focus = &rows[0];
-    assert_eq!((focus["name"].as_str(), focus["kind"].as_str(), focus["options"].as_array().unwrap().len()), (Some("dslr_focus"), Some("buttons"), 3));
+    assert_eq!((focus["name"].as_str(), focus["kind"].as_str(), focus["options"].as_array().unwrap().len()), (Some("dslr_focus"), Some("jog"), 3));
     let tiles = env.plugin.tiles();
     let of = |i: usize| (tiles[i]["name"].as_str().unwrap(), tiles[i]["label"].as_str().unwrap(), tiles[i]["kind"].as_str().unwrap());
     assert_eq!((of(0), of(1), of(2)), (("dslr_aperture", "Aperture", "stepper"), ("dslr_exposure_comp", "Exposure", "stepper"), ("dslr_white_balance", "White balance", "menu")));
@@ -657,22 +662,85 @@ fn held_long_enough_exposure_jumps_a_whole_stop_at_a_time() {
     assert_eq!(jumped.first().map(|v| v - thirds), Some(3), "a stop is three thirds: {jumped:?}");
 }
 
+/// What the jog sends for a handle `offset` of the way out.
+fn jogged(offset: f64) -> i64 {
+    crate::webcam_capture::gphoto_lib::jog_value(crate::webcam_hold::jog_level(offset)).unwrap()
+}
+
 #[test]
-fn near_and_far_repeat_while_held_with_bigger_steps_after_a_while() {
+fn the_jog_steps_at_once_and_keeps_going_at_the_size_of_how_far_it_is_out_but_only_when_the_camera_is_ready() {
     let (mut env, backend) = dslr_card();
-    ui(&mut env, "hold-down", vec![json!("dslr_focus"), json!(-1)]);
-    for _ in 0..40 {
-        tick(&mut env);
+    ui(&mut env, "jog", vec![json!("dslr_focus"), json!(0.3)]);
+    assert_eq!(backend.names(), [("dslr_focus".to_string(), jogged(0.3))], "one step as the handle leaves the middle");
+    assert!(env.host.is_scheduled(T_JOG));
+    // The camera answers at once, so a step every other tick (0.1 s) at the size it was
+    for _ in 0..4 {
+        jog_tick(&mut env);
     }
-    ui(&mut env, "hold-up", vec![]);
-    ui(&mut env, "hold-down", vec![json!("dslr_focus"), json!(1)]);
-    ui(&mut env, "hold-up", vec![]);
     let sent: Vec<i64> = backend.names().iter().map(|(_, v)| *v).collect();
-    assert_eq!(sent[0], 0, "Near as it goes down");
-    assert!(sent[1..sent.len() - 1].iter().all(|v| *v == 0 || *v == 3), "Near, then bigger Near: {sent:?}");
-    assert!(sent.contains(&3), "bigger once held a while: {sent:?}");
-    assert_eq!(*sent.last().unwrap(), 2, "a plain Far press is one Far");
-    // The middle button runs autofocus once, not stepping
+    assert_eq!(sent, vec![jogged(0.3); 3]);
+    // Pulled further out, the next step is bigger; the handle doesn't have to move for the steps to keep coming
+    ui(&mut env, "jog", vec![json!("dslr_focus"), json!(0.9)]);
+    for _ in 0..4 {
+        jog_tick(&mut env);
+    }
+    let sent: Vec<i64> = backend.names().iter().map(|(_, v)| *v).collect();
+    assert!(sent[3..].iter().all(|v| *v == jogged(0.9)) && sent.len() == 5, "{sent:?}");
+    assert!(jogged(0.9) > jogged(0.3), "further out is a bigger step");
+    // And the other way is a step toward Near
+    ui(&mut env, "jog", vec![json!("dslr_focus"), json!(-0.9)]);
+    jog_tick(&mut env);
+    jog_tick(&mut env);
+    assert_eq!(backend.names().last().map(|(_, v)| *v), Some(-jogged(0.9)));
+}
+
+#[test]
+fn a_jog_asks_for_nothing_inside_the_dead_zone_and_springing_back_stops_it() {
+    let (mut env, backend) = dslr_card();
+    ui(&mut env, "jog", vec![json!("dslr_focus"), json!(0.04)]);
+    assert!(backend.names().is_empty() && !env.host.is_scheduled(T_JOG), "a resting hand's wobble");
+    ui(&mut env, "jog", vec![json!("dslr_focus"), json!(1.0)]);
+    jog_tick(&mut env);
+    jog_tick(&mut env);
+    assert!(backend.names().len() >= 2);
+    // The handle sprang back to the middle: nothing more, and nothing left waiting
+    ui(&mut env, "jog", vec![json!("dslr_focus"), json!(0.0)]);
+    let before = backend.names().len();
+    for _ in 0..40 {
+        jog_tick(&mut env);
+    }
+    assert_eq!(backend.names().len(), before, "let go, so nothing more");
+    assert!(!env.host.is_scheduled(T_JOG));
+}
+
+#[test]
+fn a_jog_held_out_on_a_slow_camera_gets_one_step_at_a_time_and_no_backlog() {
+    let (mut env, backend) = dslr_card();
+    ui(&mut env, "jog", vec![json!("dslr_focus"), json!(1.0)]);
+    // The first step goes at once, the camera then stays busy through a hundred ticks
+    backend.working(true);
+    for _ in 0..100 {
+        jog_tick(&mut env);
+    }
+    assert_eq!(backend.names().len(), 1, "no steps stacked up behind a camera that is working: {:?}", backend.names());
+    backend.working(false);
+    jog_tick(&mut env);
+    assert_eq!(backend.names().len(), 2, "one the moment it is ready");
+    backend.working(true);
+    for _ in 0..20 {
+        jog_tick(&mut env);
+    }
+    assert_eq!(backend.names().len(), 2);
+}
+
+#[test]
+fn a_click_beside_the_jog_is_one_small_step_that_way_and_the_middle_button_is_autofocus() {
+    let (mut env, backend) = dslr_card();
+    ui(&mut env, "control-step", vec![json!("dslr_focus"), json!(-1)]);
+    ui(&mut env, "control-step", vec![json!("dslr_focus"), json!(1)]);
+    assert_eq!(backend.names(), [("dslr_focus".to_string(), 0), ("dslr_focus".to_string(), 2)], "Near and Far, the small step each");
+    assert!(!env.host.is_scheduled(T_JOG));
+    // Focus runs autofocus once, not stepping
     backend.sets.lock().unwrap().clear();
     ui(&mut env, "control-set", vec![json!("dslr_focus"), json!(1.0)]);
     assert_eq!(backend.names(), [("dslr_focus".to_string(), 1)]);
@@ -681,7 +749,7 @@ fn near_and_far_repeat_while_held_with_bigger_steps_after_a_while() {
 #[test]
 fn a_hold_ends_when_another_camera_is_picked_or_the_plugin_stops() {
     let (mut env, backend) = dslr_card();
-    ui(&mut env, "hold-down", vec![json!("dslr_focus"), json!(1)]);
+    ui(&mut env, "hold-down", vec![json!("dslr_aperture"), json!(1)]);
     assert!(env.host.is_scheduled(T_HOLD));
     pick(&mut env, None);
     assert!(!env.host.is_scheduled(T_HOLD));
@@ -691,6 +759,20 @@ fn a_hold_ends_when_another_camera_is_picked_or_the_plugin_stops() {
     assert_eq!(backend.names().len(), 1);
     ui(&mut env, "hold-down", vec![json!("nothing"), json!(1)]);
     assert!(!env.host.is_scheduled(T_HOLD), "nothing to hold");
+    // A jog held out ends the same ways
+    let (mut env, backend) = dslr_card();
+    ui(&mut env, "jog", vec![json!("dslr_focus"), json!(0.5)]);
+    assert!(env.host.is_scheduled(T_JOG));
+    pick(&mut env, None);
+    assert!(!env.host.is_scheduled(T_JOG));
+    for _ in 0..20 {
+        jog_tick(&mut env);
+    }
+    assert_eq!(backend.names().len(), 1);
+    pick(&mut env, Some("gphoto2-d5100"));
+    ui(&mut env, "jog", vec![json!("dslr_focus"), json!(0.5)]);
+    env.plugin.shutdown(&mut env.host);
+    assert!(!env.host.is_scheduled(T_JOG));
 }
 
 #[test]
@@ -889,6 +971,7 @@ export component Wrapper inherits Window {
     callback control-step(string, int);
     callback hold-down(string, int);
     callback hold-up();
+    callback jog(string, float);
     VerticalLayout {
         alignment: start;
         WebcamCard {
@@ -897,6 +980,7 @@ export component Wrapper inherits Window {
             control-step(n, d) => { root.control-step(n, d); }
             hold-down(n, d) => { root.hold-down(n, d); }
             hold-up => { root.hold-up(); }
+            jog(n, v) => { root.jog(n, v); }
         }
     }
 }"#;
@@ -940,7 +1024,7 @@ export component Wrapper inherits Window {
             i_slint_backend_testing::init_no_event_loop();
             let ui = crate::ui_check::built(UI, "webcam.slint", WRAPPER.into()).create().expect("an instance");
             let asked: Asked = Rc::default();
-            for name in ["control-set", "control-step", "hold-down", "hold-up"] {
+            for name in ["control-set", "control-step", "hold-down", "hold-up", "jog"] {
                 let a = asked.clone();
                 ui.set_callback(name, move |args| {
                     let text = |v: &SValue| if let SValue::String(s) = v { s.to_string() } else { String::new() };
@@ -1056,20 +1140,74 @@ export component Wrapper inherits Window {
         assert!(tiles.iter().all(|t| t.size().height == 40.0), "{:?}", tiles.iter().map(|t| t.size().height).collect::<Vec<_>>());
     }
 
-    // Near and Far act as the pointer goes down and let go as it comes up; Focus is an ordinary click
+    /// The jog on the card: its middle, and how far its handle can go either way.
+    fn jog_of(card: &Card<Dslr>) -> (LogicalPosition, f32) {
+        let jog = ElementHandle::find_by_element_type_name(&card.ui, "Jog").next().expect("the focus jog");
+        let (p, s) = (jog.absolute_position(), jog.size());
+        (LogicalPosition::new(p.x + s.width / 2.0, p.y + s.height / 2.0), s.width / 2.0 - 15.0)
+    }
+
+    // The handle follows the pointer out and tells the plugin where it is; letting go sends it back to the middle and says 0
     #[test]
-    fn near_and_far_report_going_down_and_coming_up_and_focus_is_a_click() {
+    fn dragging_the_jog_out_focuses_and_letting_go_springs_it_back_and_stops() {
         let card = Card::dslr();
-        for label in ["Near", "Far", "Focus"] {
-            let at = card.centre(label);
-            card.press(at);
-            card.release(at);
+        let (middle, reach) = jog_of(&card);
+        card.press(middle);
+        assert!(card.backend.names().is_empty(), "taking hold of the handle asks for nothing");
+        let at = |by: f32| LogicalPosition::new(middle.x + by, middle.y);
+        card.pointer(WindowEvent::PointerMoved { position: at(reach * 0.5) });
+        let half = card.backend.names();
+        assert_eq!(half.len(), 1, "a step as it went out: {half:?}");
+        card.pointer(WindowEvent::PointerMoved { position: at(reach + 30.0) });
+        let asked: Vec<f64> = card.asked_so_far().iter().filter(|(a, _, _)| a == "jog").map(|(_, _, v)| *v).collect();
+        assert!(asked.windows(2).all(|w| w[1] >= w[0]) && asked.last() == Some(&1.0), "further out, and 1 at the end however far the pointer goes: {asked:?}");
+        for _ in 0..3 {
+            jog_tick(&mut card.env.borrow_mut().0);
         }
-        let seen = card.asked_so_far();
-        let seen: Vec<(&str, &str, f64)> = seen.iter().map(|(a, b, c)| (a.as_str(), b.as_str(), *c)).collect();
-        assert_eq!(seen, [("hold-down", "dslr_focus", -1.0), ("hold-up", "", 0.0), ("hold-down", "dslr_focus", 1.0), ("hold-up", "", 0.0), ("control-set", "dslr_focus", 1.0)]);
-        // A press and release is one step of Near, one of Far, and the autofocus
-        assert_eq!(card.backend.names(), [("dslr_focus".to_string(), 0), ("dslr_focus".to_string(), 2), ("dslr_focus".to_string(), 1)]);
+        let biggest = card.backend.names().last().unwrap().1;
+        assert!(biggest > half[0].1, "bigger than at half way: {} against {}", biggest, half[0].1);
+        card.release(at(reach + 30.0));
+        let asked = card.asked_so_far();
+        assert_eq!(asked.last().map(|(a, n, v)| (a.as_str(), n.as_str(), *v)), Some(("jog", "dslr_focus", 0.0)), "let go: back to the middle");
+        let before = card.backend.names().len();
+        for _ in 0..20 {
+            jog_tick(&mut card.env.borrow_mut().0);
+        }
+        assert_eq!(card.backend.names().len(), before, "and stopped");
+        assert!(!card.env.borrow().0.host.is_scheduled(T_JOG));
+    }
+
+    // Dragging toward Near is Near steps, and a click on a side of the track beside the handle is a tap that way, no more
+    #[test]
+    fn dragging_toward_near_steps_near_and_a_click_at_a_side_is_one_small_step() {
+        let card = Card::dslr();
+        let (middle, reach) = jog_of(&card);
+        card.press(middle);
+        card.pointer(WindowEvent::PointerMoved { position: LogicalPosition::new(middle.x - reach, middle.y) });
+        card.release(LogicalPosition::new(middle.x - reach, middle.y));
+        assert!(card.backend.names().iter().all(|(n, v)| n == "dslr_focus" && *v < -100), "{:?}", card.backend.names());
+        card.backend.sets.lock().unwrap().clear();
+        let side = LogicalPosition::new(middle.x + reach * 0.6, middle.y);
+        card.press(side);
+        card.release(side);
+        assert_eq!(card.backend.names(), [("dslr_focus".to_string(), 2)], "a click beside the track is one Far tap");
+        let side = LogicalPosition::new(middle.x - reach * 0.6, middle.y);
+        card.press(side);
+        card.release(side);
+        assert_eq!(card.backend.names().last(), Some(&("dslr_focus".to_string(), 0)), "and one Near tap");
+        assert!(!card.env.borrow().0.host.is_scheduled(T_JOG));
+    }
+
+    // Focus is an ordinary button beside the jog
+    #[test]
+    fn the_focus_button_beside_the_jog_runs_autofocus_once() {
+        let card = Card::dslr();
+        let focus = ElementHandle::find_by_element_type_name(&card.ui, "Button").find(|b| b.accessible_label().as_deref() == Some("Focus") && b.size().width > 0.0).expect("the Focus button");
+        let (p, s) = (focus.absolute_position(), focus.size());
+        let at = LogicalPosition::new(p.x + s.width / 2.0, p.y + s.height / 2.0);
+        card.press(at);
+        card.release(at);
+        assert_eq!(card.backend.names(), [("dslr_focus".to_string(), 1)]);
     }
 
     // The arrow under the hand must still be there, and still hear the release, after the plugin has answered each step

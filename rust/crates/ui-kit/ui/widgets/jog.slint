@@ -1,0 +1,145 @@
+// A jog: a handle on a short track that springs back to the middle when let go. Drag it either way and the further it goes the more it
+// asks for, and the owner keeps going for as long as it's held out. A click at one side of the track is one small step that way.
+
+import { Theme } from "../theme.slint";
+import { Reveal } from "folds.slint";
+import { FocusRing } from "basics.slint";
+import { TipBody, TipUse } from "tip.slint";
+
+export component Jog inherits Rectangle {
+    // What the two ends are called, in the track's own corners
+    in property <string> near-text;
+    in property <string> far-text;
+    // What a screen reader calls it
+    in property <string> label;
+    in property <string> tip;
+    in property <bool> enabled: true;
+    in property <color> hue: Theme.accent;
+    // How far the handle is from the middle, -1 (all the way toward the first end) to 1. Asked for in 48ths, so a drag tells the owner
+    // about 100 different places and no more.
+    out property <float> offset;
+    // The handle moved to a new place, or went back to 0 because it was let go
+    callback moved(float);
+    // A click at one side (-1 or 1), or the arrow keys
+    callback tapped(int);
+    // Where the handle's middle goes at the ends: the track's padding and half a handle in from its edge
+    property <length> reach: root.width / 2 - 8px - handle.width / 2;
+    property <bool> dragging;
+    property <bool> on-handle;
+    property <length> pressed-at;
+    property <int> asked;
+    function drag-to(x: length) {
+        offset = clamp((x - root.width / 2) / max(1px, reach), -1, 1);
+        let q = round(offset * 48);
+        if (q != asked) {
+            asked = q;
+            moved(q / 48);
+        }
+    }
+    function let-go() {
+        dragging = false;
+        offset = 0;
+        if (asked != 0) {
+            asked = 0;
+            moved(0);
+        }
+    }
+    height: 32px;
+    horizontal-stretch: 1;
+    min-width: 96px;
+    border-radius: 7px;
+    border-width: 1px;
+    background: !enabled ? Theme.bg : touch.has-hover || dragging ? Theme.surface-hover : Theme.surface-raise;
+    border-color: !enabled ? Theme.border : touch.has-hover || dragging ? Theme.border-hover : Theme.border-strong;
+    accessible-role: slider;
+    accessible-label: label;
+    accessible-description: tip;
+    accessible-action-increment => { if (enabled) { tapped(1); } }
+    accessible-action-decrement => { if (enabled) { tapped(-1); } }
+    changed enabled => { if (!enabled && dragging) { let-go(); } }
+    forward-focus: focus;
+    focus := FocusScope {
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+        focus-lost => { if (dragging) { let-go(); } }
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (e.modifiers.control || e.modifiers.meta || e.modifiers.alt) { return reject; }
+            if (e.text == Key.LeftArrow || e.text == Key.DownArrow) { tapped(-1); return accept; }
+            if (e.text == Key.RightArrow || e.text == Key.UpArrow) { tapped(1); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: 7px; width: parent.width + 4px; height: parent.height + 4px; }
+    usage := TipUse { hover: touch.has-hover; }
+    Text {
+        x: 11px;
+        width: root.width / 2 - 24px;
+        height: parent.height;
+        text: root.near-text;
+        font-family: Theme.font;
+        font-size: Theme.small;
+        color: enabled ? Theme.text-faint : Theme.text-disabled;
+        vertical-alignment: center;
+        overflow: elide;
+        accessible-role: none;
+    }
+    Text {
+        x: root.width / 2 + 13px;
+        width: root.width / 2 - 24px;
+        height: parent.height;
+        text: root.far-text;
+        font-family: Theme.font;
+        font-size: Theme.small;
+        color: enabled ? Theme.text-faint : Theme.text-disabled;
+        horizontal-alignment: right;
+        vertical-alignment: center;
+        overflow: elide;
+        accessible-role: none;
+    }
+    // The middle, where it comes to rest: a mark the handle sits over
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 2px;
+        height: 12px;
+        border-radius: 1px;
+        background: enabled ? Theme.border-hover : Theme.border-strong;
+    }
+    handle := Rectangle {
+        width: 14px;
+        height: 22px;
+        y: (parent.height - self.height) / 2;
+        x: (parent.width - self.width) / 2 + root.offset * root.reach;
+        border-radius: 5px;
+        background: !enabled ? Theme.text-disabled : touch.pressed || dragging ? hue.brighter(0.15) : touch.has-hover ? hue.brighter(0.1) : hue;
+        // Back to the middle in a moment rather than a jump, but never behind a hand that's moving it
+        animate x { duration: root.dragging ? 0ms : 160ms; easing: ease-out; }
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: MouseCursor.ew-resize;
+        scroll-event(e) => { usage.wheel(); reject }
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down) { usage.press(); }
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                focus.focus();
+                pressed-at = self.mouse-x;
+                on-handle = abs(self.mouse-x - root.width / 2) <= handle.width / 2 + 4px;
+                // A press on the handle holds it at once, one beside it waits to see whether it's a click or a drag
+                dragging = on-handle;
+            }
+            if (e.kind == PointerEventKind.up && e.button == PointerEventButton.left) {
+                if (dragging) { let-go(); }
+                else if (!on-handle) { tapped(self.mouse-x < root.width / 2 ? -1 : 1); }
+            }
+            if (e.kind == PointerEventKind.cancel && dragging) { let-go(); }
+        }
+        moved => {
+            if (self.pressed) {
+                if (!dragging && abs(self.mouse-x - pressed-at) > 4px) { dragging = true; }
+                if (dragging) { drag-to(self.mouse-x); }
+            }
+        }
+    }
+    if root.tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
+}

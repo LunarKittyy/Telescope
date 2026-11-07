@@ -21,15 +21,42 @@ pub const WHITE_BALANCE: &str = "dslr_white_balance";
 /// What the card calls them, and the camera's own name for each setting.
 /// A setting can go by another name on another make (Canon's aperture is "aperture"), so each lists the names to try in turn.
 const MENUS: [(&str, &[&str]); 3] = [(APERTURE, &["f-number", "aperture"]), (EXPOSURE_COMP, &["exposurecompensation"]), (WHITE_BALANCE, &["whitebalance"])];
-/// How far a Near or Far press moves the focus, in the camera's own steps, and how far one goes once the button has been held a while.
-pub const FOCUS_STEP: i32 = 1000;
-pub const FOCUS_BIG_STEP: i32 = 3000;
-/// What the focus control is told: the buttons Near, Focus (autofocus once) and Far, and Near and Far with the bigger step.
+/// How far a tap moves the focus (a click beside the jog, an arrow key), in the camera's own steps. The Nikon D5100 takes -32767 to 32767.
+pub const FOCUS_STEP: i32 = 200;
+/// What the focus control is told: a tap toward Near or Far, and Focus (autofocus once).
 pub const NEAR: i64 = 0;
 pub const AUTOFOCUS: i64 = 1;
 pub const FAR: i64 = 2;
-pub const NEAR_BIG: i64 = 3;
-pub const FAR_BIG: i64 = 4;
+/// A step of the jog is JOG_BASE plus how far out the handle is (1 to JOG_LEVELS), taken from it for Near. Level 1 is the smallest step
+/// and the last the biggest, with the ones between spread evenly in size on a log scale so the handle feels smooth all along.
+pub const JOG_BASE: i64 = 100;
+pub const JOG_LEVELS: i64 = 12;
+pub const JOG_SMALLEST: f64 = 50.0;
+pub const JOG_LARGEST: f64 = 2000.0;
+
+/// What to tell the focus control for a step at `level` (-JOG_LEVELS to JOG_LEVELS, negative toward Near); None for 0, which is at rest.
+pub fn jog_value(level: i64) -> Option<i64> {
+    let out = level.clamp(-JOG_LEVELS, JOG_LEVELS);
+    (out != 0).then(|| out.signum() * (JOG_BASE + out.abs()))
+}
+
+/// The jog level a control value stands for, with its sign, when it is one.
+fn jog_level(value: i64) -> Option<i64> {
+    (value.abs() > JOG_BASE && value.abs() <= JOG_BASE + JOG_LEVELS).then(|| value.signum() * (value.abs() - JOG_BASE))
+}
+
+/// How far a step at `level` (1 to JOG_LEVELS) moves a focus that takes a number: from 50 at the centre to 2000 at the edge.
+pub fn jog_amount(level: i64) -> i32 {
+    let at = (level.abs().clamp(1, JOG_LEVELS) - 1) as f64 / (JOG_LEVELS - 1) as f64;
+    (JOG_SMALLEST * (JOG_LARGEST / JOG_SMALLEST).powf(at)).round() as i32
+}
+
+/// How far a focus step goes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Reach {
+    Tap,
+    Jog(i64),
+}
 /// How often the settings are read again while streaming.
 /// Requests waiting for the camera's thread, and how many it does between two frames.
 const MAX_QUEUED: usize = 4;
@@ -95,16 +122,26 @@ pub(super) fn resolve<'a>(rig: &mut dyn Rig, names: &[&'a str]) -> Option<(&'a s
     names.iter().find_map(|n| rig.read(n).map(|s| (*n, s)))
 }
 
-/// What to write to move the focus one step toward near (-1) or far (1): a number where the camera takes one (Nikon), else the
-/// medium step of the camera's own Near and Far choices (Canon), or its biggest one for `big`.
-fn focus_step(setting: &Setting, direction: i32, big: bool) -> Option<String> {
+/// What to write to move the focus one step toward near (-1) or far (1): a number where the camera takes one (Nikon), else one of the
+/// camera's own Near and Far choices (Canon): its step 1 for a tap, and steps 1, 2 and 3 for the first, middle and last third of the jog.
+fn focus_step(setting: &Setting, direction: i32, reach: Reach) -> Option<String> {
     match setting.kind {
-        Kind::Range { .. } => Some((direction * if big { FOCUS_BIG_STEP } else { FOCUS_STEP }).to_string()),
+        Kind::Range { .. } => {
+            let amount = match reach {
+                Reach::Tap => FOCUS_STEP,
+                Reach::Jog(level) => jog_amount(level),
+            };
+            Some((direction * amount).to_string())
+        }
         Kind::Choice => {
             let word = if direction < 0 { "Near" } else { "Far" };
             let ours: Vec<&String> = setting.choices.iter().filter(|c| c.starts_with(word)).collect();
-            let wanted = if big { '3' } else { '2' };
-            let fallback = if big { ours.last() } else { ours.first() };
+            let rank = match reach {
+                Reach::Tap => 1,
+                Reach::Jog(level) => (level.abs().clamp(1, JOG_LEVELS) - 1) * 3 / JOG_LEVELS + 1,
+            };
+            let wanted = char::from_digit(rank as u32, 10).unwrap_or('1');
+            let fallback = if rank >= 3 { ours.last() } else { ours.first() };
             ours.iter().find(|c| c.ends_with(wanted)).or(fallback).map(|c| (*c).clone())
         }
         _ => None,
@@ -116,9 +153,9 @@ pub fn read_controls(rig: &mut dyn Rig) -> Vec<Control> {
     let mut out = Vec::new();
     let usable = |s: &Setting| !s.readonly;
     let drive = rig.read("autofocusdrive").is_some_and(|s| usable(&s))
-        && rig.read("manualfocusdrive").is_some_and(|s| usable(&s) && focus_step(&s, -1, false).is_some() && focus_step(&s, 1, false).is_some());
+        && rig.read("manualfocusdrive").is_some_and(|s| usable(&s) && focus_step(&s, -1, Reach::Tap).is_some() && focus_step(&s, 1, Reach::Tap).is_some());
     if drive {
-        let mut c = Control::new(FOCUS, "buttons", NEAR, FAR_BIG, 1, AUTOFOCUS, AUTOFOCUS);
+        let mut c = Control::new(FOCUS, "buttons", -(JOG_BASE + JOG_LEVELS), JOG_BASE + JOG_LEVELS, 1, AUTOFOCUS, AUTOFOCUS);
         c.transient = true;
         out.push(c);
     }
@@ -140,19 +177,22 @@ pub fn read_controls(rig: &mut dyn Rig) -> Vec<Control> {
     out
 }
 
-/// Does what a control says: a menu takes the nth choice of the camera's list, the focus buttons are Near, Focus and Far (and the two
-/// with a bigger step).
+/// Does what a control says: a menu takes the nth choice of the camera's list, the focus takes Near, Focus and Far (and a step of the jog).
 pub fn write_control(rig: &mut dyn Rig, name: &str, value: i64) -> Result<(), String> {
     if name == FOCUS {
         return match value {
             AUTOFOCUS => rig.write("autofocusdrive", "1"),
-            NEAR | FAR | NEAR_BIG | FAR_BIG => {
+            NEAR | FAR => {
                 let drive = rig.read("manualfocusdrive").ok_or("the camera can't drive its focus")?;
-                let direction = if value == NEAR || value == NEAR_BIG { -1 } else { 1 };
-                let step = focus_step(&drive, direction, value >= NEAR_BIG).ok_or("no focus step to take")?;
+                let step = focus_step(&drive, if value == NEAR { -1 } else { 1 }, Reach::Tap).ok_or("no focus step to take")?;
                 rig.write("manualfocusdrive", &step)
             }
-            _ => Err("no such focus button".into()),
+            _ => {
+                let level = jog_level(value).ok_or("no such focus button")?;
+                let drive = rig.read("manualfocusdrive").ok_or("the camera can't drive its focus")?;
+                let step = focus_step(&drive, level.signum() as i32, Reach::Jog(level)).ok_or("no focus step to take")?;
+                rig.write("manualfocusdrive", &step)
+            }
         };
     }
     let Some((_, gnames)) = MENUS.iter().find(|(n, _)| *n == name) else { return Err("no such control".into()) };
@@ -651,7 +691,7 @@ mod tests {
         write_control(&mut rig, APERTURE, 2).unwrap();
         write_control(&mut rig, FOCUS, 0).unwrap();
         write_control(&mut rig, FOCUS, 2).unwrap();
-        assert_eq!(state.lock().unwrap().log, ["aperture=f/5,6", "manualfocusdrive=Near 2", "manualfocusdrive=Far 2"]);
+        assert_eq!(state.lock().unwrap().log, ["aperture=f/5,6", "manualfocusdrive=Near 1", "manualfocusdrive=Far 1"]);
     }
 
     #[test]
@@ -670,7 +710,7 @@ mod tests {
         write_control(&mut rig, FOCUS, 1).unwrap();
         write_control(&mut rig, FOCUS, 0).unwrap();
         write_control(&mut rig, FOCUS, 2).unwrap();
-        assert_eq!(state.lock().unwrap().log, ["f-number=f/5,6", "autofocusdrive=1", "manualfocusdrive=-1000", "manualfocusdrive=1000"]);
+        assert_eq!(state.lock().unwrap().log, ["f-number=f/5,6", "autofocusdrive=1", "manualfocusdrive=-200", "manualfocusdrive=200"]);
         assert!(write_control(&mut rig, APERTURE, 7).is_err());
         assert!(write_control(&mut rig, "nonsense", 0).is_err());
         // A refusal from the camera comes back as an error and changes nothing
@@ -680,22 +720,49 @@ mod tests {
     }
 
     #[test]
-    fn a_held_focus_button_takes_the_bigger_step_a_nikon_takes_as_a_number_and_a_canon_as_its_third_choice() {
+    fn a_tap_is_a_small_step_and_a_jog_step_grows_with_how_far_out_the_handle_is() {
+        // Where the handle just leaves the middle and where it is at the end, on a camera that takes a number
+        assert_eq!((jog_amount(1), jog_amount(JOG_LEVELS)), (50, 2000));
+        let amounts: Vec<i32> = (1..=JOG_LEVELS).map(jog_amount).collect();
+        assert!(amounts.windows(2).all(|w| w[0] < w[1]), "each level asks for more than the one before: {amounts:?}");
+        // Spread evenly in size, so no level is a lurch
+        let ratios: Vec<f64> = amounts.windows(2).map(|w| w[1] as f64 / w[0] as f64).collect();
+        assert!(ratios.iter().all(|r| (r - ratios[0]).abs() < 0.08), "{ratios:?}");
+        assert!(FOCUS_STEP > jog_amount(1) && FOCUS_STEP < jog_amount(JOG_LEVELS), "a tap sits inside the jog's range");
         let state = camera(false);
         let mut rig = Fake(state.clone());
-        write_control(&mut rig, FOCUS, NEAR_BIG).unwrap();
-        write_control(&mut rig, FOCUS, FAR_BIG).unwrap();
-        {
-            let choices = ["Near 1", "Near 2", "Near 3", "None", "Far 1", "Far 2", "Far 3"].map(String::from).to_vec();
-            state.lock().unwrap().settings.insert("manualfocusdrive".into(), (false, choices, "None".into()));
+        for level in [-1, -JOG_LEVELS, 6, JOG_LEVELS] {
+            write_control(&mut rig, FOCUS, jog_value(level).unwrap()).unwrap();
         }
-        write_control(&mut rig, FOCUS, NEAR_BIG).unwrap();
-        write_control(&mut rig, FOCUS, FAR_BIG).unwrap();
+        let log = state.lock().unwrap().log.clone();
+        let mid = format!("manualfocusdrive={}", jog_amount(6));
+        assert_eq!(log, ["manualfocusdrive=-50", "manualfocusdrive=-2000", mid.as_str(), "manualfocusdrive=2000"]);
+    }
+
+    #[test]
+    fn the_jog_at_rest_asks_for_nothing_and_a_value_that_is_no_step_is_refused() {
+        assert_eq!(jog_value(0), None);
+        assert_eq!((jog_value(1), jog_value(-1), jog_value(99), jog_value(-99)), (Some(JOG_BASE + 1), Some(-JOG_BASE - 1), Some(JOG_BASE + JOG_LEVELS), Some(-JOG_BASE - JOG_LEVELS)));
+        let mut rig = Fake(camera(false));
+        assert!(write_control(&mut rig, FOCUS, JOG_BASE).is_err() && write_control(&mut rig, FOCUS, JOG_BASE + JOG_LEVELS + 1).is_err() && write_control(&mut rig, FOCUS, 17).is_err());
+    }
+
+    #[test]
+    fn a_canon_takes_its_own_near_and_far_steps_one_by_distance_and_a_tap_is_step_one() {
+        let state = camera(false);
+        let mut rig = Fake(state.clone());
+        let choices = ["Near 1", "Near 2", "Near 3", "None", "Far 1", "Far 2", "Far 3"].map(String::from).to_vec();
+        state.lock().unwrap().settings.insert("manualfocusdrive".into(), (false, choices, "None".into()));
+        write_control(&mut rig, FOCUS, NEAR).unwrap();
         write_control(&mut rig, FOCUS, FAR).unwrap();
-        assert_eq!(state.lock().unwrap().log, ["manualfocusdrive=-3000", "manualfocusdrive=3000", "manualfocusdrive=Near 3", "manualfocusdrive=Far 3", "manualfocusdrive=Far 2"]);
-        // The control takes all five, with Focus in the middle as before
+        for level in [-1, -4, -5, -8, -9, -JOG_LEVELS, JOG_LEVELS] {
+            write_control(&mut rig, FOCUS, jog_value(level).unwrap()).unwrap();
+        }
+        assert_eq!(state.lock().unwrap().log, ["manualfocusdrive=Near 1", "manualfocusdrive=Far 1", "manualfocusdrive=Near 1", "manualfocusdrive=Near 1", "manualfocusdrive=Near 2",
+                                                "manualfocusdrive=Near 2", "manualfocusdrive=Near 3", "manualfocusdrive=Near 3", "manualfocusdrive=Far 3"]);
+        // The control takes a tap each way and every jog step, with Focus in the middle as before
         let focus = read_controls(&mut Fake(camera(false))).remove(0);
-        assert_eq!((focus.minimum, focus.maximum, focus.value), (NEAR, FAR_BIG, AUTOFOCUS));
+        assert_eq!((focus.minimum, focus.maximum, focus.value), (-(JOG_BASE + JOG_LEVELS), JOG_BASE + JOG_LEVELS, AUTOFOCUS));
     }
 
     #[test]
@@ -717,7 +784,7 @@ mod tests {
         // Counted until the camera has done it and the list is read again: a held button sends nothing more before that
         wait_for("the step", || !controls.busy());
         let log = state.lock().unwrap().log.clone();
-        assert_eq!(log.iter().filter(|l| l.starts_with("manualfocusdrive")).collect::<Vec<_>>(), ["manualfocusdrive=-1000"]);
+        assert_eq!(log.iter().filter(|l| l.starts_with("manualfocusdrive")).collect::<Vec<_>>(), ["manualfocusdrive=-200"]);
         assert!(controls.list().iter().any(|c| c.name == FOCUS));
         // A request that wasn't taken (the camera is gone) leaves nothing counted
         drop(cap);
