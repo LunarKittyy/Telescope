@@ -353,8 +353,9 @@ struct Shared {
     // When the newest published frame's packet came in, for the delivery log; publish overwrites the frame's own time
     newest_arrival: AtomicU64,
     frames_arrived: AtomicU64,
-    /// Frames that made it through the steps and into the slot, which the camera loop counts the ones it skipped from.
-    published: AtomicU64,
+    /// Frames that made it through the steps and into the slot, which the camera loop counts the ones it skipped from. Locked around the slot's
+    /// publish and the camera loop's read of the slot, so a count and the frame it was read with always agree.
+    published: Mutex<u64>,
     /// The number of the last frame that went to the camera, which a camera restart doesn't forget (u64::MAX before any).
     last_sent_number: AtomicU64,
     /// What this stream counts into for the stats.
@@ -486,7 +487,7 @@ impl StreamWorker {
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
             photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_colour: Mutex::new(None), gate: setup.gate,
-            seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), published: AtomicU64::new(0), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
+            seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), published: Mutex::new(0), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
             last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), fps_cell: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
             handover_thread: Mutex::new(None),
@@ -771,8 +772,11 @@ impl Shared {
             return false;
         };
         self.newest_arrival.store(arrived, Ordering::Relaxed);
-        self.slot.publish(out);
-        self.published.fetch_add(1, Ordering::Relaxed);
+        {
+            let mut published = self.published.lock().unwrap();
+            self.slot.publish(out);
+            *published += 1;
+        }
         publish.1 = seq;
         true
     }
@@ -1160,7 +1164,7 @@ impl Shared {
         let mut last_preview = Instant::now() - Duration::from_secs(1);
         let (mut seen, mut fitted): (u64, Option<Frame>) = (0, None);
         // How many frames had been published when the last one was sent, to count the ones skipped since
-        let mut published_then = self.published.load(Ordering::Relaxed);
+        let mut published_then = *self.published.lock().unwrap();
         let mut scaler = None;
         let mut ok = true;
         let mut delivery_log = telescope_core::time::DeliveryLog::from_env();
@@ -1178,9 +1182,12 @@ impl Shared {
                     self.restart_vcam.wait(pace);
                 }
             }
-            if let Some((src, count)) = self.slot.latest() {
-                // Counted with the frame picked, not after a send that may have taken a while
-                let published_at = self.published.load(Ordering::Relaxed);
+            // The count is read with the frame, under the lock publishing takes, or a frame published in between would be counted as skipped now and again when it goes out
+            let (latest, published_at) = {
+                let published = self.published.lock().unwrap();
+                (self.slot.latest(), *published)
+            };
+            if let Some((src, count)) = latest {
                 let due = last_sent.is_none_or(|t| t.elapsed() >= 2 * period);
                 let new_frame = count != seen || fitted.is_none();
                 // A frame a plugin replaced in the slot goes out again but isn't another one
@@ -1737,21 +1744,26 @@ mod tests {
                 log.lock().unwrap().push(e)
             }
         });
-        let slot: Arc<dyn FrameSlot> = telescope_media_free_slot();
+        let slot: Arc<dyn FrameSlot> = telescope_media_free_slot(Duration::ZERO);
         StreamWorker::start(setup, media, Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap()
     }
 
-    /// A FrameSlot without media's: the newest frame and a count.
-    fn telescope_media_free_slot() -> Arc<dyn FrameSlot> {
+    /// A FrameSlot without media's: the newest frame and a count. Every other publish lingers for linger once the frame is visible, as a busy machine would.
+    fn telescope_media_free_slot(linger: Duration) -> Arc<dyn FrameSlot> {
         #[derive(Default)]
-        struct S(Mutex<(Option<Frame>, u64)>, Condvar);
+        struct S(Mutex<(Option<Frame>, u64)>, Condvar, Duration);
         impl FrameSlot for S {
             fn publish(&self, frame: Frame) -> u64 {
                 let mut st = self.0.lock().unwrap();
                 st.1 += 1;
                 st.0 = Some(frame);
                 self.1.notify_all();
-                st.1
+                let number = st.1;
+                drop(st);
+                if number % 2 == 0 {
+                    std::thread::sleep(self.2);
+                }
+                number
             }
             fn published(&self) -> Option<Frame> {
                 self.0.lock().unwrap().0.clone()
@@ -1768,7 +1780,7 @@ mod tests {
                 self.1.wait_timeout_while(st, timeout, |st| st.1 <= seen).unwrap().0.1 > seen
             }
         }
-        Arc::new(S::default())
+        Arc::new(S(Mutex::default(), Condvar::new(), linger))
     }
 
     fn wait_for(what: impl Fn() -> bool) {
@@ -2720,7 +2732,7 @@ mod tests {
                                   source_id: source.into(), hardware_decode: false, plugin_source: false, vision: None, steps: Vec::new(), gate: None };
         let cams = Arc::new(Cams::default());
         let w = StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(cams.clone())),
-                                    telescope_media_free_slot(), Arc::new(|_| {})).unwrap();
+                                    telescope_media_free_slot(Duration::ZERO), Arc::new(|_| {})).unwrap();
         wait_for(|| !cams.sent.lock().unwrap().is_empty());
         w.stop();
         seen
@@ -2804,7 +2816,7 @@ mod tests {
         let setup = WorkerSetup { url: "https://phone/v1/video".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0,
                                   waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, plugin_source: false, vision, steps, gate };
         StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(Arc::new(Cams::default()))),
-                            telescope_media_free_slot(), Arc::new(|_| {})).unwrap()
+                            telescope_media_free_slot(Duration::ZERO), Arc::new(|_| {})).unwrap()
     }
 
     #[test]
@@ -3008,6 +3020,26 @@ mod tests {
     }
 
     #[test]
+    fn a_steady_stream_counts_no_pacing_drops_when_every_frame_goes_out() {
+        // 60 packets 20 ms apart: slower than the camera's pacing allows, so every frame is sent and none is skipped
+        let steps: Vec<Step> = (0..60u8).flat_map(|y| [Step::Frame(10 + y), Step::Pause(Duration::from_millis(20))]).chain([Step::Pause(Duration::from_millis(400))]).collect();
+        let (opener, _opens) = scripted(vec![Some(steps)]);
+        let cams = Arc::new(Cams::default());
+        // Every other frame is visible to the camera loop a moment before it is counted as published, as it can be on a busy machine
+        let slot = telescope_media_free_slot(Duration::from_millis(3));
+        let events: Events = Arc::new(|_| {});
+        let w = StreamWorker::start(WorkerSetup { source_id: "steady-test".into(), url: "https://127.0.0.1:40002/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap();
+        wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) == 60);
+        std::thread::sleep(Duration::from_millis(500));
+        let snap = Hub::shared().snapshot();
+        w.stop();
+        let s = snap.sources.iter().find(|s| s.source_id == "steady-test").expect("the stream is in the snapshot");
+        let published = *w.shared.published.lock().unwrap();
+        assert_eq!(published, 60);
+        assert_eq!((s.totals.delivered, s.drops.paced), (60, 0), "{s:?}");
+    }
+
+    #[test]
     fn the_stats_match_a_stream_with_known_drops_and_a_slow_step() {
         // 20 packets 25 ms apart: two the decoder fails on (one panics), one a step breaks on, one slow step, the rest fine
         let pictures = [10, 11, 0, 12, 13, 1, 14, 7, 15, 9, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25];
@@ -3029,7 +3061,7 @@ mod tests {
         assert_eq!(s.drops.step_failed, 1);
         assert_eq!(s.totals.decoded, 18);
         // What was decoded either went out, or is accounted for
-        let published = w.shared.published.load(Ordering::SeqCst);
+        let published = *w.shared.published.lock().unwrap();
         assert_eq!(s.totals.decoded, published + s.drops.late + s.drops.step_failed);
         assert!(s.totals.delivered <= published && s.totals.delivered + s.drops.paced >= published, "{s:?}");
         assert!(s.totals.repeated >= 1, "the camera resent the last frame while nothing came: {s:?}");
