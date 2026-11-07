@@ -673,9 +673,22 @@ fn main() {
     }
     if let Err(e) = result {
         eprintln!("{e}");
-        std::process::exit(1);
+        leave(1);
     }
-    let code = telescope_shell::window::exit_code();
+    leave(telescope_shell::window::exit_code());
+}
+
+/// Ends the process once the window is gone. A debug build skips the thread-local destructors, since wgpu's debug-only lock trace is destroyed before Slint's graphics queue drops and the exit aborts.
+fn leave(code: i32) {
+    use std::io::Write;
+    let _ = std::io::stdout().flush();
+    let _ = std::io::stderr().flush();
+    #[cfg(all(unix, debug_assertions))]
+    // SAFETY: _exit only ends the process, and everything that needs saving has been by now
+    unsafe {
+        libc::_exit(code)
+    }
+    #[cfg(not(all(unix, debug_assertions)))]
     if code != 0 {
         std::process::exit(code);
     }
