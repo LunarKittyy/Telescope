@@ -83,9 +83,6 @@ export component StatsCard inherits Card {
     in property <string> empty-text;
     // The source the numbers are for, when more than one stream runs
     in property <string> source-name;
-    // What is slowing the stream down, in a sentence, with its status kind
-    in property <string> verdict;
-    in property <string> verdict-kind;
     in property <[StatRow]> rows;
     callback view-picked(int);
 
@@ -109,7 +106,6 @@ export component StatsCard inherits Card {
         color: Theme.text-faint;
         overflow: elide;
     }
-    if verdict != "": Note { text: verdict; kind: verdict-kind; }
     if empty-text != "": Note { text: empty-text; kind: "status_dim"; }
     for r in rows: VerticalLayout {
         if r.head: SectionHeading { text: r.label; icon: Icons.named(r.icon); }

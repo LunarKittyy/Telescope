@@ -200,6 +200,19 @@ fn reason_label(reason: DropReason) -> String {
     }
 }
 
+/// A drop cause as a phrase for Copy diagnostics, which is always English.
+fn drop_cause(reason: DropReason) -> &'static str {
+    match reason {
+        DropReason::LostOnLink => "lost on the link",
+        DropReason::Late => "arrived too late",
+        DropReason::DecoderFailed => "failed to decode",
+        DropReason::WaitingForKeyframe => "waiting for a keyframe",
+        DropReason::Paced => "dropped by pacing",
+        DropReason::StepFailed => "lost to a failed frame step",
+        DropReason::Unknown => "of unknown cause",
+    }
+}
+
 /// "privacy_blur" as a name for people.
 fn plugin_label(name: &str) -> String {
     let mut chars = name.replace('_', " ").chars().collect::<Vec<_>>();
@@ -226,80 +239,6 @@ fn slowest_first(list: &[NamedTiming]) -> Vec<&NamedTiming> {
     list
 }
 
-/// What is slowing a stream down, as far as its numbers can tell.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Verdict {
-    /// Not enough running yet to say.
-    Warming,
-    /// Nothing is slow and nothing is dropping.
-    Fine,
-    /// Frames are lost on the link, over Wi-Fi or the network.
-    LinkLosing,
-    /// Frames come in below the asked rate, with nothing lost: the phone isn't sending them.
-    PhoneSlow,
-    /// A step on this computer takes longer than a frame lasts: the stage's name from perf::STAGES.
-    ComputerSlow(&'static str),
-    /// Frames are dropped, mostly for this reason.
-    Dropping(DropReason),
-}
-
-/// How many of the latest seconds count as "now" when looking for drops.
-const RECENT_S: usize = 10;
-
-impl Verdict {
-    /// A short word for Copy diagnostics, which is always English.
-    pub fn code(self) -> String {
-        match self {
-            Verdict::Warming => "warming up".into(),
-            Verdict::Fine => "nothing slow".into(),
-            Verdict::LinkLosing => "frames lost on the link".into(),
-            Verdict::PhoneSlow => "frames arrive below the asked rate".into(),
-            Verdict::ComputerSlow(stage) => format!("computer slow in {stage}"),
-            Verdict::Dropping(r) => format!("frames dropped, mostly {r:?}"),
-        }
-    }
-
-    /// The line the card shows and its status kind.
-    pub fn text(self) -> (String, &'static str) {
-        match self {
-            Verdict::Warming => (tr("Gathering numbers"), "status_dim"),
-            Verdict::Fine => (tr("Nothing is slowing the stream down."), "status_ok"),
-            Verdict::LinkLosing => (tr("The link is losing frames. A weaker Wi-Fi signal, a busy network or a USB cable that isn't seated well can do that."), "status_warn"),
-            Verdict::PhoneSlow => (tr("Frames arrive below the asked rate and none are lost, so the phone isn't sending them fast enough."), "status_warn"),
-            Verdict::ComputerSlow(stage) => (tr("This computer is the slow part: {step} takes longer than a frame lasts.").field("step", stage_label(stage).to_lowercase()), "status_warn"),
-            Verdict::Dropping(reason) => (tr("Frames are being dropped, mostly because of: {reason}.").field("reason", reason_label(reason).to_lowercase()), "status_warn"),
-        }
-    }
-}
-
-/// Works out what is slowing one source down, the computer's steps first since those are the ones a person can change.
-pub fn verdict(s: &SourceSnapshot) -> Verdict {
-    if s.seconds < 3 {
-        return Verdict::Warming;
-    }
-    let target = s.target_fps.max(1) as f32;
-    let period = 1000.0 / target;
-    if let Some(t) = s.stages.iter().find(|t| matches!(t.name.as_str(), "decode" | "pipeline" | "camera") && t.timing.mean_ms > period) {
-        let stage = telescope_core::perf::STAGES.iter().find(|n| **n == t.name).copied().unwrap_or("pipeline");
-        return Verdict::ComputerSlow(stage);
-    }
-    let recent = |series: &[f32]| series.iter().rev().take(RECENT_S).sum::<f32>();
-    if recent(&s.series.dropped_fps) > 0.0 {
-        // The cause is picked from the same recent window that switched the verdict on, not from the whole run
-        let lately = match s.series.drop_totals.iter().rev().nth(RECENT_S) {
-            Some(before) => s.drops.since(before),
-            None => s.drops,
-        };
-        let lately = if lately.total() > 0 { lately } else { s.drops };
-        let worst = DropReason::ALL.into_iter().max_by_key(|r| lately.of(*r)).unwrap_or(DropReason::Unknown);
-        return if worst == DropReason::LostOnLink { Verdict::LinkLosing } else { Verdict::Dropping(worst) };
-    }
-    if s.now.received_fps < target * 0.85 && s.link.route != Route::Local {
-        return Verdict::PhoneSlow;
-    }
-    Verdict::Fine
-}
-
 /// min / average / max of a series, and how many seconds ago its biggest value was.
 fn spread(series: &[f32]) -> Option<(f32, f32, f32, usize)> {
     if series.is_empty() {
@@ -315,15 +254,14 @@ fn series_line(name: &str, unit: &str, series: &[f32]) -> Option<(String, String
     Some((format!("Stats {name}"), format!("min {min:.1}, average {avg:.1}, max {max:.1} {unit}, the max {ago} s ago, over {} s", series.len())))
 }
 
-/// The Nerd view as lines for Copy diagnostics: the verdict, then each series' spread over the last minute. Plain English, no names.
+/// The Nerd view as lines for Copy diagnostics: the totals, then each series' spread over the last minute. Plain English, no names.
 pub fn summary(snap: &Snapshot, s: &SourceSnapshot, phone: Option<&PhoneReading>) -> Vec<(String, String)> {
     let mut out = vec![
-        ("Stats verdict".to_string(), verdict(s).code()),
         ("Stats stream".to_string(), format!("{} fps asked, {} s running, {} frames in, {} out, {} dropped", s.target_fps, s.seconds, s.totals.received, s.totals.delivered, s.drops.total())),
     ];
-    let reasons: Vec<String> = DropReason::ALL.into_iter().filter(|r| s.drops.of(*r) > 0).map(|r| format!("{r:?} {}", s.drops.of(r))).collect();
-    if !reasons.is_empty() {
-        out.push(("Stats drops".to_string(), reasons.join(", ")));
+    if s.drops.total() > 0 {
+        let causes: Vec<String> = DropReason::ALL.into_iter().filter(|r| s.drops.of(*r) > 0).map(|r| format!("{} {}", s.drops.of(r), drop_cause(r))).collect();
+        out.push(("Stats dropped".to_string(), format!("{}, {}", s.drops.total(), causes.join(", "))));
     }
     let q = &s.series;
     let lines = [
@@ -533,15 +471,11 @@ impl StatsPlugin {
         });
         match shown {
             Some((snap, source)) => {
-                let (text, kind) = verdict(source).text();
-                props["verdict"] = json!(text);
-                props["verdict-kind"] = json!(kind);
                 props["rows"] = Value::Array(rows(snap, source, self.view, &context).iter().map(Row::json).collect());
                 props["empty-text"] = json!("");
                 props["source-name"] = json!(if snap.sources.len() > 1 { tr("Stream on virtual camera {n}").field("n", source.slot) } else { String::new() });
             }
             None => {
-                props["verdict"] = json!("");
                 props["rows"] = json!([]);
                 props["empty-text"] = json!(tr("Start a stream to see its numbers."));
                 props["source-name"] = json!("");

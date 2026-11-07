@@ -273,42 +273,13 @@ fn rows_carry_a_graph_once_there_is_history() {
 }
 
 #[test]
-fn the_verdict_names_the_slow_part() {
-    assert_eq!(verdict(&source_with(|s| s.seconds = 1)), Verdict::Warming);
-    assert_eq!(verdict(&source_with(|_| {})), Verdict::Fine);
-    let slow = source_with(|s| s.stages = vec![NamedTiming { name: "pipeline".into(), timing: telescope_core::stats::Timing { mean_ms: 50.0, ..Default::default() } }]);
-    assert_eq!(verdict(&slow), Verdict::ComputerSlow("pipeline"));
-    let lossy = source_with(|s| {
-        s.series.dropped_fps = vec![0.0, 3.0];
-        s.drops.lost_on_link = 5;
-        s.drops.paced = 1;
-    });
-    assert_eq!(verdict(&lossy), Verdict::LinkLosing);
-    let paced = source_with(|s| {
-        s.series.dropped_fps = vec![2.0];
-        s.drops.paced = 5;
-    });
-    assert_eq!(verdict(&paced), Verdict::Dropping(DropReason::Paced));
-    assert_eq!(verdict(&source_with(|s| s.now.received_fps = 10.0)), Verdict::PhoneSlow);
-}
-
-#[test]
-fn old_drops_are_not_blamed_for_the_present() {
-    let old = source_with(|s| {
-        s.series.dropped_fps = [vec![5.0], vec![0.0; 12]].concat();
-        s.drops.lost_on_link = 5;
-    });
-    assert_eq!(verdict(&old), Verdict::Fine);
-}
-
-#[test]
 fn the_summary_gives_min_average_max_and_when() {
     let snap = Snapshot::default();
     let s = source_with(|s| s.series.received_fps = vec![30.0, 10.0, 20.0, 30.0]);
     let lines = summary(&snap, &s, None);
     let (_, line) = lines.iter().find(|(k, _)| k == "Stats frames in").unwrap();
     assert_eq!(line, "min 10.0, average 22.5, max 30.0 fps, the max 0 s ago, over 4 s");
-    assert_eq!(lines[0], ("Stats verdict".to_string(), "nothing slow".to_string()));
+    assert!(!lines.iter().any(|(k, _)| k == "Stats verdict"));
     assert!(!lines.iter().any(|(k, _)| k == "Stats bitrate"));
 }
 
@@ -318,7 +289,7 @@ fn only_the_nerd_view_adds_to_copy_diagnostics() {
     let (mut plugin, _host) = set_up(snapshot(&hub, "phone"));
     assert!(plugin.diagnostics().is_empty());
     plugin.set_config(&json!({"view": "nerd"})).unwrap();
-    assert!(plugin.diagnostics().iter().any(|(k, _)| k == "Stats verdict"));
+    assert!(plugin.diagnostics().iter().any(|(k, _)| k == "Stats stream"));
 }
 
 // ── The phone's side ─────────────────────────────────────────────────────────
@@ -507,24 +478,6 @@ fn a_card_that_starts_folded_never_asks_the_phone() {
     plugin.on_stream_start(&mut host, &stream("phone"));
     plugin.on_event(&mut host, &Event::PhoneStateUpdated { state: new_phone_state() });
     assert!(controls(&host).is_empty() && host.scheduled.is_empty());
-}
-
-#[test]
-fn a_recent_pacing_problem_is_not_blamed_on_old_network_losses() {
-    let mut s = source_with(|s| {
-        s.drops.lost_on_link = 1000;
-        s.drops.paced = 30;
-    });
-    // A thousand losses early on, then twenty quiet seconds, then ten seconds of pacing drops
-    let mut totals = Vec::new();
-    for i in 0..30u64 {
-        let mut d = telescope_core::stats::Drops { lost_on_link: 1000, ..Default::default() };
-        d.paced = i.saturating_sub(20) * 3;
-        totals.push(d);
-    }
-    s.series.drop_totals = totals;
-    s.series.dropped_fps = [vec![0.0; 20], vec![3.0; 10]].concat();
-    assert_eq!(verdict(&s), Verdict::Dropping(DropReason::Paced));
 }
 
 #[test]
