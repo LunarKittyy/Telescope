@@ -10,7 +10,8 @@ use telescope_core::i18n::Fields;
 use crate::webcam_capture::{self, ReaderDeps};
 use crate::webcam_capture::gphoto_lib::{jog_value, FAR, NEAR};
 use crate::webcam_controls::{apply_order, auto_of, choice_text, default_of, local_flicker, shown_value, stops_apart, Control, Controls, AUTOS};
-use crate::webcam_hold::{self, jog_level, Hold, JogHold, JogTick, Tick, TICK_MS};
+use crate::webcam_hold::{jog_level, JogHold, JogTick};
+use telescope_core::hold::{self, Hold, Tick, TICK_MS};
 use crate::webcams::{self, Choice, Device};
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
@@ -614,7 +615,7 @@ impl WebcamPlugin {
             "menu" => {
                 let at = c.menu.iter().position(|v| *v == c.value).unwrap_or(0);
                 let by = if big && c.unit == "ev" { stops_apart(&c) } else { 1 };
-                match webcam_hold::stepped(at, c.menu.len(), dir, by) {
+                match hold::stepped(at, c.menu.len(), dir, by) {
                     Some(to) => c.menu[to],
                     None => return Nudge::End,
                 }

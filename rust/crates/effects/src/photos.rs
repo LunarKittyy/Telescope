@@ -1,7 +1,8 @@
 //! The Photos plugin (plugins/photos.py): full-quality photos taken on the phone through the host's stills service and saved in a
 //! folder. What the card offers follows the lens the shown stream is on (RAW, the maker's Night mode, bursts and brackets where it
 //! has them); the picks of another lens are kept for when it comes back. A stream with a camera of its own (a DSLR) answers the same
-//! service, and then the card also offers the camera's own ISO and shutter speed lists, where its mode allows them.
+//! service, and then the card also offers the camera's own ISO and shutter speed lists, where its mode allows them. Values that run in
+//! order (ISO, shutter speed, how many, a long exposure) are dials that step along their list, named choices are tiles with a drop-down.
 
 use telescope_core::i18n::Fields;
 use crate::shared::{py_float, Paired};
@@ -10,12 +11,14 @@ use serde_json::{json, Map, Value};
 use std::path::{Path, PathBuf};
 use telescope_core::actions::{self, Choice};
 use telescope_core::event::Event;
+use telescope_core::hold::{self, Hold, Tick, TICK_MS};
 use telescope_core::host::{FileDialog, FileDialogKind, Host, RequestId};
 use telescope_core::i18n::{n_, tr, trn_open};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
 pub const NAME: &str = "photos";
+const T_HOLD: &str = "hold";
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/photos.slint"));
 
 pub const FORMATS: [(&str, &str); 5] = [("jpeg", n_("JPEG")), ("heic", n_("HEIC")), ("ultrahdr", n_("Ultra HDR")), ("raw", n_("RAW (DNG)")), ("raw+jpeg", n_("RAW and JPEG"))];
@@ -37,10 +40,12 @@ pub const DISTORTION: [(&str, &str); 3] = [("camera", n_("As the camera does it"
 const TAKE_TIP: &str = n_("Take a photo on the phone with the settings below");
 const OPEN_TIP: &str = n_("Show the photos taken last");
 const MODE_TIP: &str = n_("The phone maker's own Night, HDR and Bokeh modes pause the video while they shoot");
+/// Past this many entries a held arrow takes bigger steps after a moment (a list in thirds of a stop is a stop at three).
+const LONG_LIST: usize = 12;
+const BIG_STEP: usize = 3;
 const FOCUS_TIP: &str = n_("Photos from the nearest focus to the farthest, for focus stacking");
 const EXPOSURE_TIP: &str = n_("A long exposure keeps the video's ISO and the video stops while the shutter is open");
 const BEST_TIP: &str = n_("Takes a little longer and only changes the photo, not the video");
-const FOLDER_TIP: &str = n_("Where photos are saved");
 const CAMERA_BUSY: &str = n_("The camera is already taking a photo.");
 const CAMERA_FAILED: &str = n_("The camera couldn't take the photo.");
 
@@ -320,34 +325,56 @@ fn index_of(list: &[&str], value: &str) -> usize {
     list.iter().position(|v| *v == value).unwrap_or(0)
 }
 
-/// What a QSpinBox makes of the text typed into it: whether it's a value in range, could still become one, or the box won't take it.
-#[derive(Debug, PartialEq, Eq)]
-enum Typed {
-    Acceptable(i64),
-    Intermediate,
-    Invalid,
+/// The columns of the grid the tiles sit in: a tile takes 6 / (tiles in its row) of them, so 3 tiles in a line, or 2, or 1 fill it.
+const GRID: usize = 6;
+
+/// Where each tile goes in a grid that is `cols` tiles wide at most (1 to 3), by weight (a wide tile counts for 2): as (row, column,
+/// columns taken) in the 6 columns, filling every line from edge to edge so there are no holes. Lines are as even as they can be: four
+/// tiles are two and two even where three would fit.
+pub fn flow(weights: &[usize], cols: usize) -> Vec<(usize, usize, usize)> {
+    let cols = cols.clamp(1, 3);
+    let weights: Vec<usize> = weights.iter().map(|w| (*w).clamp(1, cols)).collect();
+    let total: usize = weights.iter().sum();
+    if total == 0 {
+        return Vec::new();
+    }
+    let rows = total.div_ceil(cols);
+    let cols = total.div_ceil(rows);
+    let mut lines: Vec<Vec<usize>> = vec![Vec::new()];
+    let mut used = 0;
+    for (i, w) in weights.iter().enumerate() {
+        if used + w > cols {
+            lines.push(Vec::new());
+            used = 0;
+        }
+        lines.last_mut().unwrap().push(i);
+        used += w;
+    }
+    let mut out = vec![(0, 0, GRID); weights.len()];
+    for (row, line) in lines.iter().enumerate() {
+        let sum: usize = line.iter().map(|i| weights[*i]).sum();
+        let mut col = 0;
+        for i in line {
+            let span = GRID * weights[*i] / sum;
+            out[*i] = (row, col, span);
+            col += span;
+        }
+    }
+    out
 }
 
-fn typed_number(text: &str, min: i64, max: i64) -> Typed {
-    if text.is_empty() {
-        return Typed::Intermediate;
-    }
-    if !text.bytes().all(|b| b.is_ascii_digit()) {
-        return Typed::Invalid;
-    }
-    // More digits than any i64 holds are far past the largest allowed
-    let value = text.parse::<i64>().unwrap_or(i64::MAX);
-    match value {
-        v if (min..=max).contains(&v) => Typed::Acceptable(v),
-        v if v > max || min == max => Typed::Invalid,
-        _ => Typed::Intermediate,
-    }
+/// One tile of the card: a value among a list. A dial steps along its list (ISO, shutter speed, how many, a long exposure) and
+/// the rest are named choices that open their list.
+struct Tile {
+    key: &'static str,
+    label: String,
+    dial: bool,
+    wide: bool,
+    options: Vec<String>,
+    index: usize,
+    tip: String,
+    shortcut: &'static str,
 }
-
-/// The kinds of choice the card sends back: which list a pick came from.
-const PICKS: [&str; 8] = ["mode", "format", "shots", "exposure_s", "bracket", "distortion", "iso", "shutter"];
-/// Where ISO and shutter speed are in PICKS, which is also where they sit in camera_picks.
-const CAMERA_PICK: usize = 6;
 
 pub struct PhotosPlugin {
     choices: Choices,
@@ -367,9 +394,10 @@ pub struct PhotosPlugin {
     paired: Paired,
     /// set_config has no host: the card hears the settings with the next hook that has one.
     pending: bool,
-    /// What the How many and Steps boxes show while they're being typed in (None: the value), and how often each was put back.
-    typing: [Option<String>; 2],
-    sync: [i64; 2],
+    /// The tiles the card has now, so an unchanged list is never sent again (a new list rebuilds every arrow, and one held would be lost)
+    shown_tiles: Option<Vec<Value>>,
+    /// The arrow held down on the card, if any
+    held: Option<Hold>,
 }
 
 impl Default for PhotosPlugin {
@@ -393,8 +421,8 @@ impl PhotosPlugin {
             status: (String::new(), "status_dim"),
             paired: Paired::default(),
             pending: false,
-            typing: [None, None],
-            sync: [0, 0],
+            shown_tiles: None,
+            held: None,
         }
     }
 
@@ -445,10 +473,8 @@ impl PhotosPlugin {
     fn fixed_props() -> Value {
         json!({
             "take-text": tr("Take photo"), "take-tip": tr(TAKE_TIP), "open-text": tr("Open folder"), "open-tip": tr(OPEN_TIP),
-            "mode-tip": tr(MODE_TIP), "focus-tip": tr(FOCUS_TIP), "exposure-tip": tr(EXPOSURE_TIP), "best-name": tr("Best quality noise reduction and sharpening"),
-            "best-tip": tr(BEST_TIP), "folder-tip-text": tr(FOLDER_TIP), "change-text": tr("Change…"),
-            "bracket-items": BRACKETS.iter().map(|(_, t, _)| tr(t)).collect::<Vec<_>>(),
-            "distortion-items": DISTORTION.iter().map(|(_, t)| tr(t)).collect::<Vec<_>>(),
+            "best-name": tr("Best quality noise reduction and sharpening"), "best-tip": tr(BEST_TIP),
+            "previous-label": tr("Previous"), "next-label": tr("Next"),
             "timer-items": TIMERS.iter().map(|s| Self::timer_text(*s)).collect::<Vec<_>>(),
             "reset-hint": tr("Double-click to reset"),
         })
@@ -468,55 +494,72 @@ impl PhotosPlugin {
         if which == 0 { (2, burst_max.max(2)) } else { (2, burst_max.clamp(2, 30)) }
     }
 
-    /// What the box shows for the value it holds.
-    fn number_text(&self, which: usize) -> String {
-        let (min, max) = self.number_range(which);
-        let (key, default) = if which == 0 { ("burst", 5) } else { ("focus_steps", 5) };
-        int(&self.choices, key, default).clamp(min, max).to_string()
-    }
-
-    /// Puts a box back to `text`, as a QSpinBox does with a key it refuses or text it can't keep.
-    fn restore_number(&mut self, host: &mut dyn Host, which: usize, text: String) {
-        self.sync[which] += 1;
-        let name = if which == 0 { "burst" } else { "focus" };
-        host.set_ui_props("card", &json!({format!("{name}-restore"): text, format!("{name}-sync"): self.sync[which]}));
-    }
-
-    /// Both boxes show their values again (the lens or the settings changed under them).
-    fn sync_numbers(&mut self, host: &mut dyn Host) {
-        for which in 0..2 {
-            self.typing[which] = None;
-            let text = self.number_text(which);
-            self.restore_number(host, which, text);
-        }
-    }
-
-    fn number_edited(&mut self, host: &mut dyn Host, which: usize, text: &str) {
-        let which = which.min(1);
-        let (min, max) = self.number_range(which);
-        match typed_number(text, min, max) {
-            Typed::Acceptable(value) => {
-                self.typing[which] = Some(text.to_string());
-                self.pick_value(host, if which == 0 { "burst" } else { "focus_steps" }, json!(value));
-            }
-            Typed::Intermediate => self.typing[which] = Some(text.to_string()),
-            Typed::Invalid => {
-                let back = self.typing[which].clone().unwrap_or_else(|| self.number_text(which));
-                self.restore_number(host, which, back);
+    /// The tiles for what this lens offers, in the order they're shown: the camera's own dials first.
+    fn tile_list(&self) -> Vec<Tile> {
+        let caps = self.effective_caps();
+        let can = self.can();
+        let c = &self.choices;
+        let mode = pick(text(c, "mode"), &can.modes);
+        let format = pick(text(c, "format"), &can.formats);
+        let shots = pick(text(c, "shots"), &can.shots);
+        let extension = EXTENSIONS.contains(&mode);
+        let exposure = pick_number(number(c, "exposure_s", 0.0), &can.exposures);
+        let tile = |key, label: String, dial, options: Vec<String>, index| Tile { key, label, dial, wide: false, options, index, tip: String::new(), shortcut: "" };
+        let mut tiles = Vec::new();
+        for (which, key, label) in [(0, "iso", tr("ISO")), (1, "shutter", tr("Shutter"))] {
+            if let Some(setting) = self.camera_setting(which) {
+                tiles.push(tile(key, label, true, setting.labels.clone(), self.camera_index(which)));
             }
         }
+        if can.modes.len() > 1 {
+            tiles.push(Tile { tip: tr(MODE_TIP), shortcut: "photos.mode", ..tile("mode", tr("Mode"), false, Self::labelled(&can.modes, &MODES), index_of(&can.modes, mode)) });
+        }
+        if can.formats.len() > 1 {
+            tiles.push(tile("format", tr("Format"), false, Self::labelled(&can.formats, &FORMATS), index_of(&can.formats, format)));
+        }
+        if can.shots.len() > 1 {
+            tiles.push(tile("shots", tr("Shots"), false, Self::labelled(&can.shots, &SHOTS), index_of(&can.shots, shots)));
+        }
+        for (which, key, label, tip) in [(0, "burst", n_("How many"), ""), (1, "focus_steps", n_("Steps"), FOCUS_TIP)] {
+            if shots == ["burst", "focus"][which] {
+                let (min, max) = self.number_range(which);
+                let options = (min..=max).map(|n| n.to_string()).collect();
+                let index = int(c, key, 5).clamp(min, max) - min;
+                tiles.push(Tile { tip: if tip.is_empty() { String::new() } else { tr(tip) }, ..tile(key, tr(label), true, options, index as usize) });
+            }
+        }
+        if shots == "bracket" {
+            let options = BRACKETS.iter().map(|(_, t, _)| tr(t)).collect();
+            let index = BRACKETS.iter().position(|(k, ..)| *k == text(c, "bracket")).unwrap_or(0);
+            tiles.push(Tile { wide: true, ..tile("bracket", tr("Bracket"), false, options, index) });
+        }
+        if can.exposures.len() > 1 {
+            let options = can.exposures.iter().map(|s| exposure_text(*s)).collect();
+            let index = can.exposures.iter().position(|s| *s == exposure).unwrap_or(0);
+            tiles.push(Tile { tip: tr(EXPOSURE_TIP), ..tile("exposure_s", tr("Exposure"), true, options, index) });
+        }
+        if !extension && caps.distortion {
+            let options = DISTORTION.iter().map(|(_, t)| tr(t)).collect();
+            let index = DISTORTION.iter().position(|(k, _)| *k == text(c, "distortion")).unwrap_or(0);
+            tiles.push(Tile { wide: true, ..tile("distortion", tr("Distortion fix"), false, options, index) });
+        }
+        tiles
     }
 
-    /// On Enter or leaving the box: what's in it counts, up to the box's limits, and anything else goes back to the value.
-    fn number_left(&mut self, host: &mut dyn Host, which: usize, text: &str) {
-        let which = which.min(1);
-        if let Some(value) = telescope_core::names::whole_number(text) {
-            let (min, max) = self.number_range(which);
-            self.pick_value(host, if which == 0 { "burst" } else { "focus_steps" }, json!(value.clamp(min, max)));
-        }
-        self.typing[which] = None;
-        let text = self.number_text(which);
-        self.restore_number(host, which, text);
+    /// The tiles as the card takes them, each with where it goes when three, two or one fit in a line.
+    fn tiles_json(tiles: &[Tile]) -> Vec<Value> {
+        let weights: Vec<usize> = tiles.iter().map(|t| if t.wide { 2 } else { 1 }).collect();
+        let (three, two) = (flow(&weights, 3), flow(&weights, 2));
+        tiles.iter().enumerate().map(|(i, t)| {
+            json!({"key": t.key, "label": t.label, "kind": if t.dial { "dial" } else { "choice" }, "options": t.options, "tip": t.tip, "shortcut": t.shortcut,
+                   "r3": three[i].0, "c3": three[i].1, "w3": three[i].2, "r2": two[i].0, "c2": two[i].1, "w2": two[i].2})
+        }).collect()
+    }
+
+    /// How many lines the tiles make when `cols` fit in one.
+    fn rows(tiles: &[Tile], cols: usize) -> usize {
+        let weights: Vec<usize> = tiles.iter().map(|t| if t.wide { 2 } else { 1 }).collect();
+        flow(&weights, cols).iter().map(|p| p.0 + 1).max().unwrap_or(0)
     }
 
     /// The controls for what this lens offers, keeping the picks it can't do for another lens (_show_choices).
@@ -526,29 +569,16 @@ impl PhotosPlugin {
         let c = &self.choices;
         let mode = pick(text(c, "mode"), &can.modes);
         let format = pick(text(c, "format"), &can.formats);
-        let shots = pick(text(c, "shots"), &can.shots);
         let extension = EXTENSIONS.contains(&mode);
-        let exposure = pick_number(number(c, "exposure_s", 0.0), &can.exposures);
         let quality = int(c, "quality", 95).clamp(50, 100);
-        let (burst_text, focus_text) = (self.number_text(0), self.number_text(1));
+        let tiles = self.tile_list();
         json!({
-            "burst-restore": burst_text, "burst-sync": self.sync[0], "focus-restore": focus_text, "focus-sync": self.sync[1],
-            "mode-items": Self::labelled(&can.modes, &MODES), "mode-current": index_of(&can.modes, mode), "mode-shown": can.modes.len() > 1,
-            "format-items": Self::labelled(&can.formats, &FORMATS), "format-current": index_of(&can.formats, format), "format-shown": can.formats.len() > 1,
+            "tiles": Self::tiles_json(&tiles), "tile-indexes": tiles.iter().map(|t| t.index).collect::<Vec<_>>(),
+            "rows3": Self::rows(&tiles, 3), "rows2": Self::rows(&tiles, 2),
             "quality": quality, "quality-text": quality.to_string(), "quality-shown": format != "raw" && !caps.camera,
-            "iso-items": self.camera_setting(0).map(|s| s.labels.clone()).unwrap_or_default(), "iso-current": self.camera_index(0), "iso-shown": self.camera_setting(0).is_some(),
-            "shutter-items": self.camera_setting(1).map(|s| s.labels.clone()).unwrap_or_default(), "shutter-current": self.camera_index(1), "shutter-shown": self.camera_setting(1).is_some(),
-            "shots-items": Self::labelled(&can.shots, &SHOTS), "shots-current": index_of(&can.shots, shots), "shots-shown": can.shots.len() > 1,
-            "burst-text": burst_text, "burst-shown": shots == "burst",
-            "bracket-current": BRACKETS.iter().position(|(k, ..)| *k == text(c, "bracket")).unwrap_or(0), "bracket-shown": shots == "bracket",
-            "focus-text": focus_text, "focus-shown": shots == "focus",
-            "exposure-items": can.exposures.iter().map(|s| exposure_text(*s)).collect::<Vec<_>>(),
-            "exposure-current": can.exposures.iter().position(|s| *s == exposure).unwrap_or(0), "exposure-shown": can.exposures.len() > 1,
             "timer-current": TIMERS.iter().position(|t| *t as f64 == number(c, "timer", 0.0)).unwrap_or(0),
             "best": c.get("best") == Some(&json!(true)),
             "best-shown": !extension && (caps.noise_reduction_hq || caps.sharpening_hq || caps.hot_pixel_hq),
-            "distortion-current": DISTORTION.iter().position(|(k, _)| *k == text(c, "distortion")).unwrap_or(0),
-            "distortion-shown": !extension && caps.distortion,
             "folder-name": Path::new(&self.folder).file_name().map(|n| n.to_string_lossy().into_owned()).filter(|n| !n.is_empty()).unwrap_or_else(|| self.folder.clone()),
             "folder-tip": self.folder,
         })
@@ -574,9 +604,11 @@ impl PhotosPlugin {
         json!({"status": self.status.0, "status-kind": self.status.1})
     }
 
-    fn all_props(&self, host: &dyn Host) -> Value {
+    fn all_props(&mut self, host: &dyn Host) -> Value {
         let mut all = Self::fixed_props();
-        for part in [self.choice_props(), self.state_props(host), self.status_props()] {
+        let choices = self.choice_props();
+        self.shown_tiles = choices["tiles"].as_array().cloned();
+        for part in [choices, self.state_props(host), self.status_props()] {
             if let (Value::Object(a), Value::Object(p)) = (&mut all, part) {
                 a.extend(p);
             }
@@ -589,8 +621,19 @@ impl PhotosPlugin {
         host.set_ui_props("card", &self.status_props());
     }
 
-    fn show_choices(&self, host: &mut dyn Host) {
-        host.set_ui_props("card", &self.choice_props());
+    /// What changed in the picks. The tiles themselves only go when the list of them does: a new list rebuilds every arrow on the card,
+    /// and the one under a hand would never hear the release.
+    fn show_choices(&mut self, host: &mut dyn Host) {
+        let mut props = self.choice_props();
+        let tiles = props["tiles"].as_array().cloned();
+        if tiles == self.shown_tiles {
+            if let Some(p) = props.as_object_mut() {
+                p.remove("tiles");
+            }
+        } else {
+            self.shown_tiles = tiles;
+        }
+        host.set_ui_props("card", &props);
     }
 
     /// Brings the card up to date with the shown stream's lens and whether a photo is being taken.
@@ -601,7 +644,6 @@ impl PhotosPlugin {
             self.caps_raw = raw;
             self.settle_camera_picks();
             self.show_choices(host);
-            self.sync_numbers(host);
         }
         self.busy = host.still_busy(None);
         host.set_ui_props("card", &self.state_props(host));
@@ -611,8 +653,8 @@ impl PhotosPlugin {
         if self.pending {
             self.pending = false;
             self.refresh(host);
-            self.sync_numbers(host);
-            host.set_ui_props("card", &self.all_props(host));
+            let props = self.all_props(host);
+            host.set_ui_props("card", &props);
         }
     }
 
@@ -635,19 +677,23 @@ impl PhotosPlugin {
         host.schedule_save();
     }
 
-    /// A pick from one of the drop-downs: the index in the list the card is showing.
-    fn pick_index(&mut self, host: &mut dyn Host, kind: usize, index: usize) {
+    /// A pick from one of the tiles: the index in the list the card is showing.
+    fn pick_index(&mut self, host: &mut dyn Host, key: &str, index: usize) {
         let can = self.can();
-        let value = match PICKS.get(kind).copied() {
-            Some("mode") => can.modes.get(index).map(|v| json!(v)),
-            Some("format") => can.formats.get(index).map(|v| json!(v)),
-            Some("shots") => can.shots.get(index).map(|v| json!(v)),
-            Some("exposure_s") => can.exposures.get(index).map(|s| if s.fract() == 0.0 { json!(*s as i64) } else { json!(s) }),
-            Some("bracket") => BRACKETS.get(index).map(|(k, ..)| json!(k)),
-            Some("distortion") => DISTORTION.get(index).map(|(k, _)| json!(k)),
+        let value = match key {
+            "mode" => can.modes.get(index).map(|v| json!(v)),
+            "format" => can.formats.get(index).map(|v| json!(v)),
+            "shots" => can.shots.get(index).map(|v| json!(v)),
+            "exposure_s" => can.exposures.get(index).map(|s| if s.fract() == 0.0 { json!(*s as i64) } else { json!(s) }),
+            "bracket" => BRACKETS.get(index).map(|(k, ..)| json!(k)),
+            "distortion" => DISTORTION.get(index).map(|(k, _)| json!(k)),
+            "burst" | "focus_steps" => {
+                let (min, max) = self.number_range(usize::from(key == "focus_steps"));
+                Some(min + index as i64).filter(|n| *n <= max).map(|n| json!(n))
+            }
             // The camera's own lists: picked for the next photo, and not saved
-            Some("iso" | "shutter") => {
-                let which = kind - CAMERA_PICK;
+            "iso" | "shutter" => {
+                let which = usize::from(key == "shutter");
                 let pick = self.camera_setting(which).and_then(|s| s.values.get(index)).cloned();
                 if pick.is_some() {
                     self.camera_picks[which] = pick;
@@ -657,9 +703,45 @@ impl PhotosPlugin {
             }
             _ => None,
         };
-        if let (Some(key), Some(value)) = (PICKS.get(kind), value) {
+        if let Some(value) = value {
             self.pick_value(host, key, value);
         }
+    }
+
+    /// One step of a dial, `by` entries toward the end of its list (dir) or its start; false when it was already there.
+    fn step_tile(&mut self, host: &mut dyn Host, key: &str, dir: i32, by: usize) -> bool {
+        let tiles = self.tile_list();
+        let Some(tile) = tiles.iter().find(|t| t.key == key && t.dial) else { return false };
+        match hold::stepped(tile.index, tile.options.len(), dir, by) {
+            Some(to) => {
+                self.pick_index(host, key, to);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// A tick of the arrow held down: another step, bigger after a moment on a long list. Nothing here waits on anything, the picks are
+    /// only for the next photo.
+    fn hold_tick(&mut self, host: &mut dyn Host) {
+        let Some(mut held) = self.held.take() else { return };
+        let long = self.tile_list().iter().any(|t| t.key == held.name && t.options.len() > LONG_LIST);
+        match held.tick(true) {
+            Tick::Release => return,
+            Tick::Wait => {}
+            Tick::Step { big } => {
+                if !self.step_tile(host, &held.name, held.dir, if big && long { BIG_STEP } else { 1 }) {
+                    return;
+                }
+            }
+        }
+        self.held = Some(held);
+        host.schedule(TICK_MS, T_HOLD);
+    }
+
+    fn release_hold(&mut self, host: &mut dyn Host) {
+        self.held = None;
+        host.cancel_schedule(T_HOLD);
     }
 
     // ── Taking one ────────────────────────────────────────────────────
@@ -769,14 +851,29 @@ impl Plugin for PhotosPlugin {
         self.refresh(host);
     }
 
+    fn shutdown(&mut self, host: &mut dyn Host) {
+        self.release_hold(host);
+    }
+
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
         self.catch_up(host);
+        if let Event::TimerFired { owner, token } = event {
+            if owner == NAME && token == T_HOLD {
+                self.hold_tick(host);
+            }
+        }
         if let Some(on) = self.paired.hear(event) {
             host.set_ui_props("card", &json!({"active": on, "shown": self.card_shown()}));
         }
         match event {
             Event::PhoneStateUpdated { .. } | Event::StreamStopped | Event::DeviceChanged { .. } | Event::CameraSwitched { .. }
-            | Event::StillBusyChanged { .. } | Event::StillCapsChanged { .. } | Event::SourceSelected { .. } => self.refresh(host),
+            | Event::StillBusyChanged { .. } | Event::StillCapsChanged { .. } | Event::SourceSelected { .. } => {
+                // The tile under a held arrow may be gone with the camera
+                self.refresh(host);
+                if self.held.as_ref().is_some_and(|h| !self.tile_list().iter().any(|t| t.key == h.name)) {
+                    self.release_hold(host);
+                }
+            }
             Event::RequestProgress { request, data } if self.taking.contains(request) => self.progress(host, data),
             Event::RequestDone { request, data, .. } if self.taking.contains(request) => {
                 self.taking.retain(|r| r != request);
@@ -796,7 +893,9 @@ impl Plugin for PhotosPlugin {
 
     fn card(&mut self) -> Option<CardSpec> {
         let mut props = Self::fixed_props();
-        for part in [self.choice_props(), json!({"active": self.paired.on(), "shown": true, "take-enabled": false,
+        let choices = self.choice_props();
+        self.shown_tiles = choices["tiles"].as_array().cloned();
+        for part in [choices, json!({"active": self.paired.on(), "shown": true, "take-enabled": false,
                                                   "info": tr("Start streaming to take photos."), "info-shown": true, "open-shown": false})] {
             if let (Value::Object(a), Value::Object(p)) = (&mut props, part) {
                 a.extend(p);
@@ -814,14 +913,27 @@ impl Plugin for PhotosPlugin {
         match event.callback.as_str() {
             "take-clicked" => self.take(host),
             "open-clicked" => self.open_folder(host),
-            "choice-picked" => self.pick_index(host, index(0), index(1)),
+            "tile-picked" => self.pick_index(host, event.args.first().and_then(Value::as_str).unwrap_or(""), index(1)),
+            "tile-step" => {
+                let (key, by) = (event.args.first().and_then(Value::as_str).unwrap_or(""), event.args.get(1).and_then(Value::as_f64).unwrap_or(0.0));
+                self.step_tile(host, key, if by < 0.0 { -1 } else { 1 }, 1);
+            }
+            "tile-hold-down" => {
+                let (key, dir) = (event.args.first().and_then(Value::as_str).unwrap_or("").to_string(), event.args.get(1).and_then(Value::as_f64).unwrap_or(0.0));
+                let dir = if dir < 0.0 { -1 } else { 1 };
+                // One step as it goes down; the timer takes over if it stays down
+                self.release_hold(host);
+                if self.step_tile(host, &key, dir, 1) {
+                    self.held = Some(Hold::new(&key, dir));
+                    host.schedule(TICK_MS, T_HOLD);
+                }
+            }
+            "tile-hold-up" => self.release_hold(host),
             "quality-moved" => {
                 let value = event.args.first().and_then(Value::as_f64).unwrap_or(95.0).round() as i64;
                 host.set_ui_props("card", &json!({"quality-text": value.to_string()}));
                 self.pick_value(host, "quality", json!(value));
             }
-            "number-edited" => self.number_edited(host, index(0), event.args.get(1).and_then(Value::as_str).unwrap_or("")),
-            "number-left" => self.number_left(host, index(0), event.args.get(1).and_then(Value::as_str).unwrap_or("")),
             "timer-picked" => {
                 if let Some(seconds) = TIMERS.get(index(0)) {
                     self.pick_value(host, "timer", json!(seconds));
@@ -872,7 +984,7 @@ impl Plugin for PhotosPlugin {
                 let current = index_of(&can.modes, pick(text(&self.choices, "mode"), &can.modes));
                 let (said, pick) = actions::choice_target(params, &options, Some(current), true)?;
                 if pick {
-                    self.pick_index(host, 0, said);
+                    self.pick_index(host, "mode", said);
                 }
                 Some(actions::slider_text(&tr("Photo mode"), &shown[said]))
             }

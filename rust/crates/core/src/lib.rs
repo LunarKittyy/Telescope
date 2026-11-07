@@ -13,6 +13,7 @@ pub mod diagnostics;
 pub mod event;
 pub mod frame;
 pub mod fuzzy;
+pub mod hold;
 pub mod host;
 pub mod i18n;
 pub mod image;

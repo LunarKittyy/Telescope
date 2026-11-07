@@ -133,6 +133,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Night, HDR and Bokeh on a phone whose maker offers them: the video pauses for a few seconds and picks up again without a reconnect, and the photo looks like the phone's own camera app.
 - [ ] A 10 s long exposure in the dark, an exposure bracket and a focus bracket: the brackets really step (brightness, then near to far) and the stream comes back after each.
 - [ ] Switching the lens or the size during a timer, and turning the camera off during one: the photo fails or goes ahead cleanly and the next one works.
+- [ ] The Photos card on a phone and on a DSLR in M mode: ISO, Shutter and How many step with their arrows, the mouse wheel and Left and Right, holding an arrow keeps going (in threes on a long list) and stops on release, and clicking the value opens the whole list. The tiles wrap cleanly when the card is narrow and Timer and Save in stay on one line.
 
 ### Microphone
 

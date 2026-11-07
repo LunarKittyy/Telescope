@@ -229,6 +229,42 @@ impl telescope_outputs::webcam_controls::Controls for SceneDslr {
     }
 }
 
+/// What the Photos card asks a stream's camera: a fixed answer for what it can take, and no photo ever taken.
+struct SceneStills(serde_json::Value);
+
+impl telescope_core::source::SourceStills for SceneStills {
+    fn caps(&self) -> Option<serde_json::Value> {
+        Some(self.0.clone())
+    }
+    fn busy(&self) -> bool {
+        false
+    }
+    fn take(&self, _: &serde_json::Value, _: &str, _: Box<dyn Fn(serde_json::Value) + Send>, _: Box<dyn FnOnce(serde_json::Value) + Send>, _: Box<dyn Fn() -> bool + Send>) -> bool {
+        false
+    }
+    fn set_on_change(&self, _: Box<dyn Fn() + Send + Sync>) {}
+}
+
+/// What a Nikon D5100 in M mode offers the Photos card (probe/allconfig_M.txt): its ISO and shutter speed lists as the camera words them.
+fn dslr_stills() -> serde_json::Value {
+    let iso = ["100", "125", "160", "200", "250", "320", "400", "500", "640", "800", "1000", "1250", "1600", "2000", "2500", "3200", "4000", "5000", "6400", "8000", "10000", "12800", "25600"];
+    let shutter = ["0,0002s", "0,0003s", "0,0004s", "0,0005s", "0,0006s", "0,0008s", "0,0010s", "0,0012s", "0,0015s", "0,0020s", "0,0025s", "0,0031s", "0,0040s", "0,0050s",
+                   "0,0062s", "0,0080s", "0,0100s", "0,0125s", "0,0166s", "0,0200s", "0,0250s", "0,0333s", "0,0400s", "0,0500s", "0,0666s", "0,0769s", "0,1000s", "0,1250s",
+                   "0,1666s", "0,2000s", "0,2500s", "0,3333s", "0,4000s", "0,5000s", "0,6250s", "0,7692s", "1,0000s", "1,3000s", "1,6000s", "2,0000s", "2,5000s", "3,0000s",
+                   "4,0000s", "5,0000s", "6,0000s", "8,0000s", "10,0000s", "13,0000s", "15,0000s", "20,0000s", "25,0000s", "30,0000s"];
+    let labels: Vec<String> = shutter.iter().map(|s| telescope_outputs::webcam_capture::gphoto_stills::shutter_label(s).unwrap()).collect();
+    json!({"formats": ["jpeg", "raw"], "camera": true, "burst_max": 1,
+           "iso": {"values": iso, "labels": iso, "current": 6},
+           "shutter": {"values": shutter.to_vec(), "labels": labels, "current": 20}})
+}
+
+/// A flagship phone's lens: every mode, shot and extra the Photos card has.
+fn phone_stills() -> serde_json::Value {
+    json!({"formats": ["jpeg", "heic", "ultrahdr", "raw"], "size": [4080, 3072], "max_res": [8160, 6144], "max_res_raw": true,
+           "extensions": ["night", "hdr", "bokeh"], "exposure_max_ns": 30_000_000_000i64, "bracketing": true, "focus_bracketing": true,
+           "noise_reduction_hq": true, "sharpening_hq": true, "hot_pixel_hq": true, "distortion": true, "burst_max": 60})
+}
+
 /// A webcam with the settings a good USB one offers, for the Webcam card.
 struct SceneUsb;
 
@@ -605,6 +641,36 @@ pub fn all() -> Vec<Scene> {
                     w.process();
                 })),
                 ..Setup::window(Some(services_with(quiet(), Changes { webcam: Some(camera), ..Changes::default() })), config, width, 700.0)
+            }
+        }));
+    }
+    // The Photos card for a DSLR in M mode and for a phone, and with a narrow card (where the tiles wrap)
+    for (id, dslr, width) in [("photos-dslr", true, CARD_WIDTH), ("photos-dslr-narrow", true, 350.0), ("photos-phone", false, CARD_WIDTH), ("photos-phone-narrow", false, 350.0)] {
+        scenes.push(Scene::new(id, move || {
+            let mut config = main_window_config(true);
+            config["plugins"] = json!({"on": ["photos"]});
+            config["plugin_configs"]["photos"] = json!({"folder": "/home/me/Pictures/Telescope", "shots": "burst", "burst": 8, "exposure_s": 4});
+            Setup {
+                page: Page::Card { plugin: "photos".into() },
+                every_optional: false,
+                then: Some(Box::new(move |w| {
+                    let source = if dslr { "webcam:gphoto2-d5100" } else { "phone:a" };
+                    {
+                        let mut state = w.state.borrow_mut();
+                        state.streams.live.push(source.into());
+                        state.streams.source_id = Some(source.into());
+                        let caps = if dslr { dslr_stills() } else { phone_stills() };
+                        state.source_stills.push((source.into(), Arc::new(SceneStills(caps))));
+                        if dslr {
+                            state.bus.emit(telescope_core::Event::SourceSelected { source_id: source.into() });
+                        } else {
+                            state.bus.emit(telescope_core::Event::PhonesChanged { count: 1 });
+                        }
+                        state.bus.emit(telescope_core::Event::StillCapsChanged { source_id: source.into() });
+                    }
+                    w.process();
+                })),
+                ..Setup::window(Some(services(quiet())), config, width, 700.0)
             }
         }));
     }
