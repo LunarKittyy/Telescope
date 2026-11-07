@@ -18,6 +18,8 @@ use telescope_core::media::{Codec, DecodeOptions, Decoder, FeedEnd, FeedStopper,
 use telescope_core::output::{Outputs, VideoOutput};
 use telescope_core::stats::{DropReason, Hub, SourceStats};
 
+/// Frames of a burst the camera loop keeps waiting for their turn; more than this and the oldest is skipped, which keeps a burst from adding a long delay.
+const BURST_KEPT: usize = 3;
 pub const RECONNECT_DELAY: Duration = Duration::from_secs(3);
 /// Between tries after a stream drops mid-way, since a phone back on Wi-Fi answers within seconds.
 pub const DROP_RETRY_DELAY: Duration = Duration::from_secs(1);
@@ -1163,6 +1165,9 @@ impl Shared {
         let mut last_sent: Option<Instant> = None;
         let mut last_preview = Instant::now() - Duration::from_secs(1);
         let (mut seen, mut fitted): (u64, Option<Frame>) = (0, None);
+        // Frames that came in while the last one was being paced, each with how many had been published by then, and the newest one sent
+        let mut queued: std::collections::VecDeque<(Frame, u64)> = std::collections::VecDeque::new();
+        let mut shown: Option<Frame> = None;
         // How many frames had been published when the last one was sent, to count the ones skipped since
         let mut published_then = *self.published.lock().unwrap();
         let mut scaler = None;
@@ -1173,33 +1178,54 @@ impl Shared {
         while !self.stopped() && !self.restart_vcam.is_set() && !self.parked.load(Ordering::SeqCst) && !reader_done.is_set() {
             // A new frame goes out as soon as it's ready. The last one is resent only after two periods without one,
             // so a frame that's a little late isn't held back behind a resend.
-            let wait = last_sent.map_or(Duration::ZERO, |t| (t + 2 * period).saturating_duration_since(Instant::now()));
-            self.slot.wait_newer(seen, wait.min(Duration::from_millis(100)).max(Duration::from_millis(1)));
-            if let Some(t) = last_sent {
-                // A burst from the phone is paced to at most twice the camera's rate.
-                let pace = (t + period / 2).saturating_duration_since(Instant::now());
-                if !pace.is_zero() {
-                    self.restart_vcam.wait(pace);
-                }
+            let now = Instant::now();
+            let pace_left = last_sent.map_or(Duration::ZERO, |t| (t + period / 2).saturating_duration_since(now));
+            let resend_in = last_sent.map_or(Duration::ZERO, |t| (t + 2 * period).saturating_duration_since(now));
+            // Frames are picked up while the pacing runs, so a burst isn't thinned down to its last frame
+            let wait = if queued.is_empty() { resend_in } else { pace_left };
+            if queued.is_empty() || !wait.is_zero() {
+                self.slot.wait_newer(seen, wait.min(Duration::from_millis(100)).max(Duration::from_millis(1)));
             }
             // The count is read with the frame, under the lock publishing takes, or a frame published in between would be counted as skipped now and again when it goes out
             let (latest, published_at) = {
                 let published = self.published.lock().unwrap();
                 (self.slot.latest(), *published)
             };
-            if let Some((src, count)) = latest {
-                let due = last_sent.is_none_or(|t| t.elapsed() >= 2 * period);
-                let new_frame = count != seen || fitted.is_none();
-                // A frame a plugin replaced in the slot goes out again but isn't another one
-                let fresh = new_frame && src.number != self.last_sent_number.load(Ordering::Relaxed);
-                if new_frame {
-                    seen = count;
-                    watch.frame(telescope_core::time::monotonic_ns(), &context);
-                    let fit = fit_frame(&src, cam_w, cam_h);
-                    fitted = Some(if nv12 { to_nv12(&fit) } else { fit });
-                } else if !due {
-                    continue;
+            if let Some((src, count)) = latest.filter(|(_, count)| *count != seen) {
+                seen = count;
+                match queued.back_mut() {
+                    // A plugin replaced the frame that hasn't gone out yet
+                    Some(back) if back.0.number == src.number => back.0 = src,
+                    _ => {
+                        queued.push_back((src, published_at));
+                        // The oldest goes, which the next frame's skipped count adds up
+                        while queued.len() > BURST_KEPT {
+                            queued.pop_front();
+                        }
+                    }
                 }
+            }
+            // A burst from the phone is paced to at most twice the camera's rate
+            let paced = last_sent.is_some_and(|t| t.elapsed() < period / 2);
+            let due = last_sent.is_none_or(|t| t.elapsed() >= 2 * period);
+            let next = if paced { None } else { queued.pop_front() };
+            if next.is_none() && (paced || !due || fitted.is_none()) {
+                continue;
+            }
+            {
+                let new_frame = next.is_some();
+                let (src, fresh_at) = match next {
+                    Some((src, at)) => {
+                        // A frame a plugin replaced in the slot goes out again but isn't another one
+                        let fresh = src.number != self.last_sent_number.load(Ordering::Relaxed);
+                        watch.frame(telescope_core::time::monotonic_ns(), &context);
+                        let fit = fit_frame(&src, cam_w, cam_h);
+                        fitted = Some(if nv12 { to_nv12(&fit) } else { fit });
+                        shown = Some(src.clone());
+                        (src, fresh.then_some(at))
+                    }
+                    None => (shown.clone().unwrap(), None),
+                };
                 let began = telescope_core::time::monotonic_ns();
                 if let Err(e) = cam.send(fitted.as_ref().unwrap()) {
                     self.status("warn", &fill(&tr("Virtual camera error: {error}"), &[("error", &e)]));
@@ -1209,8 +1235,8 @@ impl Shared {
                     break;
                 }
                 telescope_core::time::span("camera", began);
-                if fresh {
-                    // Frames made since the last one sent that this one passed over: a burst thinned to the camera's rate
+                if let Some(published_at) = fresh_at {
+                    // Frames made since the last one sent that this one passed over: a burst thinned to what the queue can keep
                     self.stats.dropped(DropReason::Paced, published_at.saturating_sub(published_then).saturating_sub(1));
                     published_then = published_at;
                     self.last_sent_number.store(src.number, Ordering::Relaxed);
@@ -3037,6 +3063,63 @@ mod tests {
         let published = *w.shared.published.lock().unwrap();
         assert_eq!(published, 60);
         assert_eq!((s.totals.delivered, s.drops.paced), (60, 0), "{s:?}");
+    }
+
+    /// Runs frames arriving after each of the gaps (ms) through a 30 fps camera and returns (arrived, delivered, paced drops).
+    fn run_with_gaps(id: &str, gaps: &[u64]) -> (u64, u64, u64) {
+        let steps: Vec<Step> = gaps.iter().enumerate().flat_map(|(i, g)| [Step::Frame(10 + (i % 200) as u8), Step::Pause(Duration::from_millis(*g))]).chain([Step::Pause(Duration::from_millis(400))]).collect();
+        let (opener, _opens) = scripted(vec![Some(steps)]);
+        let cams = Arc::new(Cams::default());
+        let events: Events = Arc::new(|_| {});
+        let w = StreamWorker::start(WorkerSetup { source_id: id.into(), url: "https://127.0.0.1:40003/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
+        let n = gaps.len() as u64;
+        wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) == n);
+        std::thread::sleep(Duration::from_millis(300));
+        let snap = Hub::shared().snapshot();
+        w.stop();
+        let s = snap.sources.iter().find(|s| s.source_id == id).expect("the stream is in the snapshot");
+        (s.totals.received, s.totals.delivered, s.drops.paced)
+    }
+
+    #[test]
+    fn a_30_fps_source_with_jitter_loses_no_frames() {
+        // About 33 ms apart, each gap off by up to 10 ms either way, so the mean rate is the camera's
+        let mut x: u32 = 12345;
+        let gaps: Vec<u64> = (0..90).map(|_| { x = x.wrapping_mul(1664525).wrapping_add(1013904223); 23 + ((x >> 16) % 21) as u64 }).collect();
+        let (received, delivered, paced) = run_with_gaps("jitter-test", &gaps);
+        assert_eq!(received, 90);
+        assert_eq!(delivered + paced, 90, "every frame went out or was counted as skipped");
+        assert_eq!(paced, 0, "jitter alone dropped {paced} of 90 frames");
+    }
+
+    #[test]
+    fn a_30_fps_source_that_delivers_in_pairs_loses_no_frames() {
+        // Two frames 4 ms apart, then 62 ms: still 30 fps in all, as a source that hands frames over in bursts does
+        let gaps: Vec<u64> = (0..90).map(|i| if i % 2 == 0 { 4 } else { 62 }).collect();
+        let (received, delivered, paced) = run_with_gaps("pairs-test", &gaps);
+        assert_eq!(received, 90);
+        assert_eq!(delivered + paced, 90);
+        assert_eq!(paced, 0, "a pair lost a frame");
+    }
+
+    #[test]
+    fn a_30_fps_source_that_hands_frames_over_in_bursts_loses_none_it_has_time_for() {
+        // Five frames 8 ms apart, then 120 ms: 30 fps in all, as a source that delivers in clumps does, and every frame fits before the next clump
+        let five: Vec<u64> = (0..90).map(|i| if i % 5 == 4 { 120 } else { 8 }).collect();
+        assert_eq!(run_with_gaps("five-test", &five), (90, 90, 0));
+        // Three 4 ms apart, then 92 ms
+        let three: Vec<u64> = (0..90).map(|i| if i % 3 == 2 { 92 } else { 4 }).collect();
+        assert_eq!(run_with_gaps("three-test", &three), (90, 90, 0));
+    }
+
+    #[test]
+    fn a_burst_longer_than_the_queue_skips_the_oldest_and_counts_them() {
+        // Twelve frames 1 ms apart, then a long quiet: more than the camera can take in time
+        let gaps: Vec<u64> = (0..12).map(|i| if i == 11 { 600 } else { 1 }).collect();
+        let (received, delivered, paced) = run_with_gaps("long-burst-test", &gaps);
+        assert_eq!(received, 12);
+        assert_eq!(delivered + paced, 12, "every frame went out or was counted as skipped");
+        assert!(paced >= 1 && delivered >= 3, "delivered {delivered}, skipped {paced}");
     }
 
     #[test]
