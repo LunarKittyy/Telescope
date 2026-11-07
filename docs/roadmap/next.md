@@ -1,9 +1,10 @@
 # Next release
 
-The next release follows 5.0.
+The next release follows 5.0.5.
 
 - [ ] [Auto colour grading](#auto-colour-grading)
 - [ ] [Stats](#stats)
+- [x] [Fixes from a review of the port](#fixes-from-a-review-of-the-port)
 
 ## Auto colour grading
 
@@ -43,3 +44,12 @@ It has two views.
 
 Each number gets a small graph of the last minute that still shows a spike after it passed. Copy diagnostics adds a summary of the Nerd view.
 
+## Fixes from a review of the port
+
+A review of the Rust desktop in November 2026 looking at threads, error handling, `unsafe` code and the dependencies. Most of what it found only shows when something already went wrong, so a normal stream looks the same. Merged:
+
+- The Windows 11 camera waits at most 30 ms for an app that's reading it and drops that frame instead of freezing
+- A webcam writer that won't stop can't get a second one started next to it, and the window no longer waits on it
+- A JPEG decoder that crashes only loses that frame, and three crashes in a row reconnect with fresh decoders instead of leaving a frozen picture
+- Over UDP the first keyframe request goes out straight away, and frames skipped while waiting for a keyframe count as arrived again like in the Python app
+- `cargo deny` checks the dependencies' advisories and licences every week (`.github/workflows/deny.yml`)

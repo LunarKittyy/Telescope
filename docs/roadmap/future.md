@@ -117,6 +117,8 @@ Much of this is in 5.0. Decoding uses the graphics card (VA-API on Linux, D3D11V
 
 What's left is the steps still written for the CPU that change the picture partway through, like Background, Chroma key, Privacy blur, the combined picture, Desk mode, the Fun pack, Name tag and the wait screen. Each one brings the frame down and makes the next shader send it up again. Turning the heaviest of them into shaders, or into steps that can run either way, would leave one trip up and one down, which is all the virtual camera needs.
 
+The card isn't always the faster place though. 5.0.2 and 5.0.3 moved mirroring, flipping, zoom and stretch back to the CPU, since they're cheap there and a card busy with a game or OBS held up every frame. A step is only worth moving to the card when it's heavy enough to make up for that.
+
 Measure first. The pipeline already counts its transfers (`crates/media/src/transfers.rs`), so run a heavy stack on a weak laptop and see where the time goes before moving anything. Laptops whose GPU shares memory with the CPU copy almost for free and they're also the ones whose CPU struggles first.
 
 ## ARM64
