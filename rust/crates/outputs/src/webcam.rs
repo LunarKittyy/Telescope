@@ -8,7 +8,9 @@
 
 use telescope_core::i18n::Fields;
 use crate::webcam_capture::{self, ReaderDeps};
-use crate::webcam_controls::{apply_order, auto_of, default_of, local_flicker, shown_value, Control, Controls, AUTOS};
+use crate::webcam_capture::gphoto_lib::{FAR, FAR_BIG, NEAR, NEAR_BIG};
+use crate::webcam_controls::{apply_order, auto_of, choice_text, default_of, local_flicker, shown_value, stops_apart, Control, Controls, AUTOS};
+use crate::webcam_hold::{self, Hold, Tick, TICK_MS};
 use crate::webcams::{self, Choice, Device};
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
@@ -32,6 +34,7 @@ pub const FPS_CHOICES: [u32; 6] = [15, 24, 25, 30, 50, 60];
 /// Exposure time slider positions, spread out evenly in stops.
 const LOG_STEPS: f64 = 1000.0;
 const T_SCAN: &str = "scan";
+const T_HOLD: &str = "hold";
 const P_REPORTED: &str = "reported";
 const P_UNPLUGGED: &str = "unplugged";
 
@@ -46,7 +49,7 @@ const SECTIONS: [Section; 5] = [
                          ("gamma", n_("Gamma")), ("sharpness", n_("Sharpness"))]),
     ("focus", "focus", &[("focus_auto", n_("Focus")), ("focus", n_("Focus position"))]),
     // A DSLR's own settings, only the ones its mode allows now (webcam_capture/gphoto_lib.rs)
-    ("dslr", "focus", &[("dslr_focus", n_("Focus")), ("dslr_aperture", n_("Aperture")), ("dslr_exposure_comp", n_("Exposure compensation")),
+    ("dslr", "focus", &[("dslr_focus", n_("Focus")), ("dslr_aperture", n_("Aperture")), ("dslr_exposure_comp", n_("Exposure")),
                         ("dslr_white_balance", n_("White balance"))]),
     ("framing", "crop", &[("zoom", n_("Zoom")), ("pan", n_("Pan")), ("tilt", n_("Tilt"))]),
 ];
@@ -68,6 +71,7 @@ fn tip(name: &str) -> String {
         "gain" => tr("The webcam's ISO: more is brighter but grainier."),
         "backlight" => tr("Brightens a face in front of a bright window."),
         "anti_flicker" => tr("Set it to your mains frequency to stop lights flickering or banding."),
+        "dslr_exposure_comp" => tr("Exposure compensation: how much brighter or darker than the camera would pick"),
         "frame_rate_drop" => tr("Lets the webcam lower its frame rate in dim light for a brighter picture."),
         _ => String::new(),
     }
@@ -311,13 +315,27 @@ pub struct WebcamPlugin {
     stopped: bool,
     /// The rows the card holds now, so an unchanged list is never sent again (a new list rebuilds every slider and breaks off a drag)
     shown_rows: Option<Vec<Value>>,
+    /// The same for the strip of a DSLR's values
+    shown_tiles: Option<Vec<Value>>,
+    /// The button held down on the card, if any
+    held: Option<Hold>,
+}
+
+/// What came of a step a button asked for.
+#[derive(Debug, PartialEq, Eq)]
+enum Nudge {
+    Sent,
+    /// The camera had no room for it
+    Dropped,
+    /// There is no further to go
+    End,
 }
 
 impl WebcamPlugin {
     pub fn new(scan: Scanner, controls_for: ControlsFor, system: System) -> WebcamPlugin {
         WebcamPlugin {
             scan, controls_for, system, shared: Arc::default(), poster: None, controls: HashMap::new(), backends: HashMap::new(),
-            sources: HashMap::new(), states: HashMap::new(), modes: HashMap::new(), selected_key: String::new(), stopped: false, shown_rows: None,
+            sources: HashMap::new(), states: HashMap::new(), modes: HashMap::new(), selected_key: String::new(), stopped: false, shown_rows: None, shown_tiles: None, held: None,
         }
     }
 
@@ -389,7 +407,8 @@ impl WebcamPlugin {
     /// A DSLR's settings change under us (the mode dial, live view starting or stopping): read again, and the card follows.
     fn refresh_dslr_controls(&mut self) {
         let key = self.selected_key.clone();
-        if self.shared.device(&key).is_some_and(|d| webcams::is_gphoto(&d.location)) {
+        // Not while the camera is still working through a request: its list is behind what the hand has just done
+        if self.shared.device(&key).is_some_and(|d| webcams::is_gphoto(&d.location)) && !self.busy(&key) {
             self.read_controls(&key);
         }
     }
@@ -529,17 +548,19 @@ impl WebcamPlugin {
         }
     }
 
-    fn set_control(&mut self, host: &mut dyn Host, name: &str, value: i64) {
+    /// Whether the camera took the request.
+    fn set_control(&mut self, host: &mut dyn Host, name: &str, value: i64) -> bool {
         let key = self.selected_key.clone();
-        let Some(b) = self.backend(&key) else { return };
-        b.set(name, value);
+        let Some(b) = self.backend(&key) else { return false };
+        let accepted = b.set(name, value);
         let transient = self.controls.get(&key).and_then(|m| m.get(name)).is_some_and(|c| c.transient);
         if transient {
-            // Held by the camera, which may refuse it, and different in another mode: read back, never saved
-            if let Some(c) = self.controls.get_mut(&key).and_then(|m| m.get_mut(name)).filter(|c| c.kind == "menu") {
+            // Held by the camera, which may refuse it, and different in another mode: read back, never saved. A request it had no room for
+            // leaves the card where the camera is
+            if let Some(c) = self.controls.get_mut(&key).and_then(|m| m.get_mut(name)).filter(|c| c.kind == "menu" && accepted) {
                 c.value = value;
             }
-            return;
+            return accepted;
         }
         {
             let mut s = self.shared.settings.lock().unwrap();
@@ -557,6 +578,73 @@ impl WebcamPlugin {
         } else if let Some(c) = self.controls.get_mut(&key).and_then(|m| m.get_mut(name)) {
             c.value = value;
         }
+        accepted
+    }
+
+    /// The camera is still working through what it was last asked.
+    fn busy(&mut self, key: &str) -> bool {
+        self.backend(key).is_some_and(|b| b.busy())
+    }
+
+    /// One step of a button or an arrow: the focus a step nearer or further, a dial a place along its list (`big`: a longer step,
+    /// after the button has been held a while).
+    fn nudge(&mut self, host: &mut dyn Host, name: &str, dir: i32, big: bool) -> Nudge {
+        let key = self.selected_key.clone();
+        let Some(mut c) = self.controls.get(&key).and_then(|m| m.get(name)).cloned() else { return Nudge::End };
+        // From where the camera is once it has finished the last request; until then, from where the last one put it
+        if c.transient && !self.busy(&key) {
+            c = self.read_controls(&key).remove(name).unwrap_or(c);
+        }
+        let value = match c.kind.as_str() {
+            "buttons" => match (dir < 0, big) {
+                (true, false) => NEAR,
+                (true, true) => NEAR_BIG,
+                (false, false) => FAR,
+                (false, true) => FAR_BIG,
+            },
+            "menu" => {
+                let at = c.menu.iter().position(|v| *v == c.value).unwrap_or(0);
+                let by = if big && c.unit == "ev" { stops_apart(&c) } else { 1 };
+                match webcam_hold::stepped(at, c.menu.len(), dir, by) {
+                    Some(to) => c.menu[to],
+                    None => return Nudge::End,
+                }
+            }
+            _ => return Nudge::End,
+        };
+        if self.set_control(host, name, value) { Nudge::Sent } else { Nudge::Dropped }
+    }
+
+    /// A tick of the held button: another step if it's time and the camera is ready for it.
+    fn hold_tick(&mut self, host: &mut dyn Host) {
+        let Some(mut hold) = self.held.take() else { return };
+        let key = self.selected_key.clone();
+        let settled = !self.busy(&key);
+        match hold.tick(settled) {
+            Tick::Release => return,
+            Tick::Wait => {}
+            Tick::Step { big } => {
+                let result = self.nudge(host, &hold.name, hold.dir, big);
+                self.show_dynamic(host);
+                if result == Nudge::End {
+                    return;
+                }
+            }
+        }
+        self.held = Some(hold);
+        host.schedule(TICK_MS, T_HOLD);
+    }
+
+    fn release_hold(&mut self, host: &mut dyn Host) {
+        self.held = None;
+        host.cancel_schedule(T_HOLD);
+    }
+
+    /// What changes while the hand is on a control, sent without new rows: those would rebuild the control being held.
+    fn show_dynamic(&mut self, host: &mut dyn Host) {
+        self.shown_rows = Some(self.rows());
+        self.shown_tiles = Some(self.tiles());
+        host.set_ui_props("card", &json!({"readouts": self.readouts(), "tile-indexes": self.tile_indexes()}));
     }
 
     /// Every picture setting back to the camera's default (anti-flicker to the local mains).
@@ -657,14 +745,21 @@ impl WebcamPlugin {
     fn rows(&self) -> Vec<Value> {
         let have = self.controls(&self.selected_key);
         let mut rows = Vec::new();
+        // A camera with one kind of settings needs no heading to say which
+        let headings = SECTIONS.iter().filter(|(_, _, entries)| entries.iter().any(|(n, _)| have.contains_key(*n))).count() > 1;
         for (section, icon, entries) in SECTIONS {
             let shown: Vec<&(&str, &str)> = entries.iter().filter(|(n, _)| have.contains_key(*n)).collect();
             if shown.is_empty() {
                 continue;
             }
-            rows.push(json!({"name": section, "label": section_title(section), "kind": "heading", "icon": icon, "enabled": true}));
+            if headings {
+                rows.push(json!({"name": section, "label": section_title(section), "kind": "heading", "icon": icon, "enabled": true}));
+            }
             for (name, label) in shown {
                 let c = &have[*name];
+                if section == "dslr" && c.kind == "menu" {
+                    continue; // a tile of the strip under the rows
+                }
                 let enabled = !match auto_of(name).and_then(|a| have.get(a)) {
                     Some(a) => a.value != 0,
                     None => c.inactive,
@@ -710,6 +805,26 @@ impl WebcamPlugin {
         rows
     }
 
+    /// A DSLR's values as a strip of tiles under its buttons: the ones that run in order step like a dial, the rest are a drop-down.
+    fn tile_controls(&self) -> Vec<(&'static str, Control)> {
+        let have = self.controls(&self.selected_key);
+        SECTIONS.iter().filter(|(section, _, _)| *section == "dslr").flat_map(|(_, _, entries)| entries.iter())
+            .filter_map(|(name, label)| have.get(*name).filter(|c| c.kind == "menu").map(|c| (*label, c.clone()))).collect()
+    }
+
+    fn tiles(&self) -> Vec<Value> {
+        self.tile_controls().iter().map(|(label, c)| {
+            let options: Vec<String> = c.menu.iter().map(|v| choice_text(c, *v as usize)).collect();
+            json!({"name": c.name, "label": tr(label), "kind": if c.ordered { "stepper" } else { "menu" }, "options": options, "tip": tip(&c.name),
+                   "enabled": true})
+        }).collect()
+    }
+
+    /// Where each tile is, apart from the tiles so that stepping never replaces them.
+    fn tile_indexes(&self) -> Vec<usize> {
+        self.tile_controls().iter().map(|(_, c)| c.menu.iter().position(|v| *v == c.value).unwrap_or(0)).collect()
+    }
+
     /// What each row reads out, in the order of `rows` ("" for the rows that read nothing).
     fn readouts(&self) -> Vec<String> {
         self.rows().iter().map(|r| r["readout"].as_str().unwrap_or("").to_string()).collect()
@@ -749,7 +864,7 @@ impl WebcamPlugin {
             "fps-items": fps.iter().map(|f| format!("{f} fps")).collect::<Vec<_>>(), "fps-current": fps_i, "fps-enabled": !key.is_empty(),
             // Reset has nothing to put back on a DSLR, whose settings the camera holds
             "has-controls": self.controls(key).values().any(|c| !c.transient),
-            "rows": rows, "readouts": self.readouts(),
+            "rows": rows, "readouts": self.readouts(), "tiles": self.tiles(), "tile-indexes": self.tile_indexes(),
         })
     }
 
@@ -761,6 +876,12 @@ impl WebcamPlugin {
             props.as_object_mut().unwrap().remove("rows");
         } else {
             self.shown_rows = Some(rows);
+        }
+        let tiles = props["tiles"].as_array().cloned().unwrap_or_default();
+        if self.shown_tiles.as_ref() == Some(&tiles) {
+            props.as_object_mut().unwrap().remove("tiles");
+        } else {
+            self.shown_tiles = Some(tiles);
         }
         host.set_ui_props("card", &props);
     }
@@ -787,6 +908,7 @@ impl Plugin for WebcamPlugin {
 
     fn shutdown(&mut self, host: &mut dyn Host) {
         self.stopped = true;
+        self.release_hold(host);
         host.cancel_schedule(T_SCAN);
         self.backends.clear();
     }
@@ -795,11 +917,13 @@ impl Plugin for WebcamPlugin {
         // Where the Camera card is, which hides while a webcam is picked
         let props = self.props(false);
         self.shown_rows = props["rows"].as_array().cloned();
+        self.shown_tiles = props["tiles"].as_array().cloned();
         Some(CardSpec { ui: UiSpec { source: SlintSource::Text(UI.into()), component: "WebcamCard".into(), props }, region: "right".into() })
     }
 
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
         match event {
+            Event::TimerFired { owner, token } if owner == NAME && token == T_HOLD => self.hold_tick(host),
             Event::TimerFired { owner, token } if owner == NAME && token == T_SCAN => {
                 if !self.stopped {
                     self.rescan(host);
@@ -820,6 +944,7 @@ impl Plugin for WebcamPlugin {
             Event::SourceSelected { source_id } => {
                 let key = source_id.strip_prefix(SOURCE_PREFIX).unwrap_or("").to_string();
                 if key != self.selected_key {
+                    self.release_hold(host);
                     self.selected_key = key.clone();
                     if self.shared.device(&key).is_some() {
                         self.read_controls(&key);
@@ -861,10 +986,31 @@ impl Plugin for WebcamPlugin {
                 self.set_control(host, &name, value);
                 if !AUTOS.contains(&name.as_str()) {
                     // Only the readouts: new rows would rebuild the slider being dragged and break the drag off
-                    self.shown_rows = Some(self.rows()); // the slider already is where the hand put it
-                    host.set_ui_props("card", &json!({"readouts": self.readouts()}));
+                    self.show_dynamic(host); // the slider already is where the hand put it
                     return;
                 }
+            }
+            "control-step" => {
+                let (Some(name), Some(dir)) = (arg(0).as_str().map(String::from), arg(1).as_f64()) else { return };
+                self.nudge(host, &name, dir as i32, false);
+                self.show_dynamic(host);
+                return;
+            }
+            "hold-down" => {
+                let (Some(name), Some(dir)) = (arg(0).as_str().map(String::from), arg(1).as_f64()) else { return };
+                // One step as it goes down; the timer takes over if it stays down
+                self.release_hold(host);
+                let first = self.nudge(host, &name, dir as i32, false);
+                self.show_dynamic(host);
+                if first != Nudge::End {
+                    self.held = Some(Hold::new(&name, dir as i32));
+                    host.schedule(TICK_MS, T_HOLD);
+                }
+                return;
+            }
+            "hold-up" => {
+                self.release_hold(host);
+                return;
             }
             "action" => self.reset_controls(host),
             _ => return,

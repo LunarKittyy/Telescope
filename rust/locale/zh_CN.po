@@ -183,7 +183,7 @@ msgstr "开"
 msgid "off"
 msgstr "关"
 
-#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:217 rust/crates/audio/ui/microphone.slint:227 rust/crates/audio/ui/microphone.slint:238 rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:281 rust/crates/outputs/src/webcam.rs:41
+#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:217 rust/crates/audio/ui/microphone.slint:227 rust/crates/audio/ui/microphone.slint:238 rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:273 rust/crates/outputs/src/webcam.rs:44
 msgid "Gain"
 msgstr "增益"
 
@@ -318,7 +318,7 @@ msgstr "虚拟麦克风已停止接收音频。"
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "黄色表示限制器正在压制过大峰值，红色表示声音出现爆音削波（点击以清除）。"
 
-#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:524 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:385 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:172 rust/crates/outputs/ui/webcam.slint:172 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
+#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:524 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:385 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:193 rust/crates/outputs/ui/webcam.slint:193 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
 msgid "Double-click to reset"
 msgstr "双击以重置"
 
@@ -342,7 +342,7 @@ msgstr "在 Windows 上，手机麦克风需要 VB-Audio Virtual Cable。"
 msgid "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."
 msgstr "VB-Cable 由 VB-Audio 制作，不是 Telescope 的一部分。Telescope 可以从 vb-audio.com 下载它，并打开 VB-Audio 自带的安装程序（需要管理员权限）。完成后请重启电脑。"
 
-#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/colour_grading.slint:449 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:639 rust/crates/system/ui/shortcuts.slint:374 rust/crates/system/ui/updates.slint:212
+#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/colour_grading.slint:441 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:639 rust/crates/system/ui/shortcuts.slint:374 rust/crates/system/ui/updates.slint:212
 msgid "Cancel"
 msgstr "取消"
 
@@ -368,11 +368,11 @@ msgstr "档"
 msgid " stops"
 msgstr " 档"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1354 rust/crates/outputs/src/stream_output.rs:621 rust/crates/shell/src/plugins/presets.rs:323
+#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1354 rust/crates/outputs/src/stream_output.rs:621 rust/crates/outputs/ui/webcam.slint:215 rust/crates/shell/src/plugins/presets.rs:323
 msgid "Next"
 msgstr "下一个"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1354 rust/crates/outputs/src/stream_output.rs:621 rust/crates/shell/src/plugins/presets.rs:323
+#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1354 rust/crates/outputs/src/stream_output.rs:621 rust/crates/outputs/ui/webcam.slint:214 rust/crates/shell/src/plugins/presets.rs:323
 msgid "Previous"
 msgstr "上一个"
 
@@ -460,7 +460,7 @@ msgstr "插件"
 msgid "Updates & About"
 msgstr "更新与关于"
 
-#: rust/crates/core/src/plugin.rs:25 rust/crates/outputs/src/webcam.rs:60 rust/crates/outputs/ui/webcam.slint:59 rust/crates/shell/src/plugins/camera_control.rs:1580 rust/crates/shell/ui/cards/camera.slint:143
+#: rust/crates/core/src/plugin.rs:25 rust/crates/outputs/src/webcam.rs:63 rust/crates/outputs/ui/webcam.slint:76 rust/crates/shell/src/plugins/camera_control.rs:1580 rust/crates/shell/ui/cards/camera.slint:143
 msgid "Camera"
 msgstr "相机"
 
@@ -519,12 +519,12 @@ msgstr "MediaPipe 未能在这台电脑上加载。“复制诊断信息”中�
 msgid "Getting ready…"
 msgstr "正在准备…"
 
-#: rust/crates/effects/src/auto_grade.rs:20
+#: rust/crates/effects/src/auto_grade.rs:19
 msgid "Looking…"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:390 rust/crates/effects/ui/background.slint:33 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:78 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:423 rust/crates/shell/ui/cards/camera.slint:431
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:390 rust/crates/effects/ui/background.slint:33 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:82 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:423 rust/crates/shell/ui/cards/camera.slint:431
 msgid "Off"
 msgstr "关"
 
@@ -580,11 +580,11 @@ msgstr "没有它就没有“背景”卡片，背景将保持相机拍摄的原
 msgid "Background blur"
 msgstr "背景虚化"
 
-#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:353 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
+#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:345 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
 msgid "Green"
 msgstr "绿色"
 
-#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:353 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
+#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:345 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
 msgid "Blue"
 msgstr "蓝色"
 
@@ -741,7 +741,7 @@ msgstr "RGB 分量图"
 msgid "Vectorscope"
 msgstr "矢量示波器"
 
-#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:353 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
+#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:345 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
 msgid "Red"
 msgstr "红色"
 
@@ -836,15 +836,15 @@ msgstr "33 点 LUT (*.cube)"
 msgid "65-point LUT (*.cube)"
 msgstr "65 点 LUT (*.cube)"
 
-#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:240
+#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:232
 msgid "Lift"
 msgstr "提升"
 
-#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:259 rust/crates/outputs/src/webcam.rs:46
+#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:251 rust/crates/outputs/src/webcam.rs:49
 msgid "Gamma"
 msgstr "伽玛"
 
-#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:300
+#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:292
 msgid "Offset"
 msgstr "偏移"
 
@@ -978,7 +978,7 @@ msgstr "增益主控"
 msgid "Offset master"
 msgstr "偏移主控"
 
-#: rust/crates/effects/src/colour_grading.rs:89 rust/crates/effects/ui/colour_grading.slint:319 rust/crates/outputs/src/webcam.rs:44 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:256 rust/crates/shell/ui/cards/camera.slint:259
+#: rust/crates/effects/src/colour_grading.rs:89 rust/crates/effects/ui/colour_grading.slint:311 rust/crates/outputs/src/webcam.rs:47 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:256 rust/crates/shell/ui/cards/camera.slint:259
 msgid "Temperature"
 msgstr "色温"
 
@@ -986,7 +986,7 @@ msgstr "色温"
 msgid "Warmer or cooler"
 msgstr "偏暖或偏冷"
 
-#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:319 rust/crates/shell/src/plugins/camera_control.rs:1373 rust/crates/shell/src/plugins/camera_control.rs:1608
+#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:311 rust/crates/shell/src/plugins/camera_control.rs:1373 rust/crates/shell/src/plugins/camera_control.rs:1608
 msgid "Tint"
 msgstr "色调"
 
@@ -995,7 +995,7 @@ msgid "More magenta or more green"
 msgstr "偏洋红或偏绿"
 
 #. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
-#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:319 rust/crates/outputs/src/webcam.rs:45
+#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:311 rust/crates/outputs/src/webcam.rs:48
 msgid "Contrast"
 msgstr "对比度"
 
@@ -1003,7 +1003,7 @@ msgstr "对比度"
 msgid "Spreads the tones apart around the pivot"
 msgstr "以轴心为基准拉开影调反差"
 
-#: rust/crates/effects/src/colour_grading.rs:92 rust/crates/effects/ui/colour_grading.slint:319
+#: rust/crates/effects/src/colour_grading.rs:92 rust/crates/effects/ui/colour_grading.slint:311
 msgid "Pivot"
 msgstr "轴心"
 
@@ -1011,7 +1011,7 @@ msgstr "轴心"
 msgid "The level contrast turns around"
 msgstr "对比度调整所围绕的电平基准"
 
-#: rust/crates/effects/src/colour_grading.rs:93 rust/crates/effects/ui/colour_grading.slint:319 rust/crates/outputs/src/webcam.rs:45
+#: rust/crates/effects/src/colour_grading.rs:93 rust/crates/effects/ui/colour_grading.slint:311 rust/crates/outputs/src/webcam.rs:48
 msgid "Saturation"
 msgstr "饱和度"
 
@@ -1019,7 +1019,7 @@ msgstr "饱和度"
 msgid "How colourful the picture is"
 msgstr "画面的色彩鲜艳程度"
 
-#: rust/crates/effects/src/colour_grading.rs:94 rust/crates/effects/ui/colour_grading.slint:319
+#: rust/crates/effects/src/colour_grading.rs:94 rust/crates/effects/ui/colour_grading.slint:311
 msgid "Vibrance"
 msgstr ""
 
@@ -1027,7 +1027,7 @@ msgstr ""
 msgid "Colours up the dull parts more than the strong ones, and spares skin"
 msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:95 rust/crates/effects/ui/colour_grading.slint:319
+#: rust/crates/effects/src/colour_grading.rs:95 rust/crates/effects/ui/colour_grading.slint:311
 msgid "Shadows"
 msgstr "暗部"
 
@@ -1035,7 +1035,7 @@ msgstr "暗部"
 msgid "Brightens or darkens the darker parts"
 msgstr "提亮或压暗画面的较暗部分"
 
-#: rust/crates/effects/src/colour_grading.rs:96 rust/crates/effects/ui/colour_grading.slint:319
+#: rust/crates/effects/src/colour_grading.rs:96 rust/crates/effects/ui/colour_grading.slint:311
 msgid "Highlights"
 msgstr "高光"
 
@@ -1056,7 +1056,7 @@ msgstr "导出调色"
 msgid "{file} is already there. Replace it?"
 msgstr "{file} 已存在。要替换吗？"
 
-#: rust/crates/effects/src/colour_grading.rs:521 rust/crates/effects/src/colour_grading.rs:905 rust/crates/effects/src/colour_grading.rs:987 rust/crates/effects/src/colour_grading.rs:989 rust/crates/effects/src/colour_grading.rs:1031 rust/crates/effects/ui/colour_grading.slint:151
+#: rust/crates/effects/src/colour_grading.rs:521 rust/crates/effects/src/colour_grading.rs:887 rust/crates/effects/src/colour_grading.rs:969 rust/crates/effects/src/colour_grading.rs:971 rust/crates/effects/src/colour_grading.rs:1013 rust/crates/effects/ui/colour_grading.slint:149
 msgid "Colour grading"
 msgstr "调色"
 
@@ -1065,19 +1065,19 @@ msgstr "调色"
 msgid "{wheel} colour"
 msgstr "{wheel}颜色"
 
-#: rust/crates/effects/src/colour_grading.rs:906
+#: rust/crates/effects/src/colour_grading.rs:888
 msgid "Colour wheels, curves and LUT files for the look of the picture."
 msgstr "使用色轮、曲线和 LUT 文件调整画面风格。"
 
-#: rust/crates/effects/src/colour_grading.rs:907
+#: rust/crates/effects/src/colour_grading.rs:889
 msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
 msgstr "没有它就没有“调色”卡片，画面将保留相机的原始色彩。"
 
-#: rust/crates/effects/src/colour_grading.rs:990 rust/crates/effects/src/colour_grading.rs:1036
+#: rust/crates/effects/src/colour_grading.rs:972 rust/crates/effects/src/colour_grading.rs:1018
 msgid "Compare before and after"
 msgstr "调色前后对比"
 
-#: rust/crates/effects/src/colour_grading.rs:1014 rust/crates/effects/src/colour_grading.rs:1049
+#: rust/crates/effects/src/colour_grading.rs:996 rust/crates/effects/src/colour_grading.rs:1031
 msgid "LUT strength"
 msgstr "LUT 强度"
 
@@ -1097,7 +1097,7 @@ msgstr "拉伸"
 msgid "Crop"
 msgstr "裁剪"
 
-#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:136 rust/crates/effects/ui/transforms.slint:146 rust/crates/outputs/src/webcam.rs:51
+#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:136 rust/crates/effects/ui/transforms.slint:146 rust/crates/outputs/src/webcam.rs:54
 msgid "Pan"
 msgstr "平移"
 
@@ -1240,7 +1240,7 @@ msgid "Black and white"
 msgstr "黑白"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/effects/ui/colour_grading.slint:212 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:81 rust/crates/outputs/src/webcam.rs:740 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/effects/ui/colour_grading.slint:204 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:85 rust/crates/outputs/src/webcam.rs:855 rust/crates/outputs/ui/webcam.slint:115 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
 msgid "Auto"
 msgstr "自动"
 
@@ -1315,7 +1315,7 @@ msgstr "桌面模式"
 msgid "Done"
 msgstr "完成"
 
-#: rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/transforms.slint:47 rust/crates/outputs/ui/webcam.slint:56
+#: rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/transforms.slint:47 rust/crates/outputs/ui/webcam.slint:67
 msgid "Reset"
 msgstr "重置"
 
@@ -1689,7 +1689,7 @@ msgid "Pill"
 msgstr "胶囊"
 
 #. Light and Heavy are the names of the two stream formats
-#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:789 rust/crates/outputs/src/stream_output.rs:998 rust/crates/outputs/src/webcam.rs:57 rust/crates/outputs/ui/stream_output.slint:129 rust/crates/setup/src/stats_phone.rs:88
+#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:789 rust/crates/outputs/src/stream_output.rs:998 rust/crates/outputs/src/webcam.rs:60 rust/crates/outputs/ui/stream_output.slint:129 rust/crates/setup/src/stats_phone.rs:88
 msgid "Light"
 msgstr "轻量"
 
@@ -2451,7 +2451,7 @@ msgstr "缩放、平移、翻转、旋转和拉伸画面。"
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "关闭后将没有“变换”卡片，画面将完全按手机发送的原样输出。"
 
-#: rust/crates/effects/src/transforms.rs:614 rust/crates/effects/src/transforms.rs:667 rust/crates/effects/ui/composite_editor.slint:447 rust/crates/effects/ui/transforms.slint:78 rust/crates/effects/ui/transforms.slint:91 rust/crates/outputs/src/webcam.rs:51
+#: rust/crates/effects/src/transforms.rs:614 rust/crates/effects/src/transforms.rs:667 rust/crates/effects/ui/composite_editor.slint:447 rust/crates/effects/ui/transforms.slint:78 rust/crates/effects/ui/transforms.slint:91 rust/crates/outputs/src/webcam.rs:54
 msgid "Zoom"
 msgstr "缩放"
 
@@ -2527,115 +2527,107 @@ msgstr "斑马纹阈值"
 msgid "Scope size"
 msgstr "示波器大小"
 
-#: rust/crates/effects/ui/colour_grading.slint:164 rust/crates/effects/ui/colour_grading.slint:171
+#: rust/crates/effects/ui/colour_grading.slint:162 rust/crates/effects/ui/colour_grading.slint:169
 msgid "Compare"
 msgstr "对比"
 
-#: rust/crates/effects/ui/colour_grading.slint:173
+#: rust/crates/effects/ui/colour_grading.slint:171
 msgid "Left of the line the preview shows the picture without the grade (apps always get it graded)"
 msgstr "分界线左侧的预览显示未调色画面（其他应用始终接收调色后的画面）"
 
-#: rust/crates/effects/ui/colour_grading.slint:180
+#: rust/crates/effects/ui/colour_grading.slint:178
 msgid "Split"
 msgstr "分屏位置"
 
-#: rust/crates/effects/ui/colour_grading.slint:181
+#: rust/crates/effects/ui/colour_grading.slint:179
 msgid "Where the line between before and after is"
 msgstr "调整前后对比分界线的位置"
 
-#: rust/crates/effects/ui/colour_grading.slint:196
+#: rust/crates/effects/ui/colour_grading.slint:194
 msgid "Primaries"
 msgstr "一级调色"
 
-#: rust/crates/effects/ui/colour_grading.slint:196
+#: rust/crates/effects/ui/colour_grading.slint:194
 msgid "Curves"
 msgstr "曲线"
 
-#: rust/crates/effects/ui/colour_grading.slint:196 rust/crates/effects/ui/colour_grading.slint:381
+#: rust/crates/effects/ui/colour_grading.slint:194 rust/crates/effects/ui/colour_grading.slint:373
 msgid "LUT"
 msgstr "LUT"
 
-#: rust/crates/effects/ui/colour_grading.slint:200
+#: rust/crates/effects/ui/colour_grading.slint:198
 msgid "Page"
 msgstr "页面"
 
-#: rust/crates/effects/ui/colour_grading.slint:206
-msgid "Undo"
-msgstr ""
-
-#: rust/crates/effects/ui/colour_grading.slint:207
-msgid "Put the sliders back as they were before Auto"
-msgstr ""
-
-#: rust/crates/effects/ui/colour_grading.slint:213
+#: rust/crates/effects/ui/colour_grading.slint:205
 msgid "Auto colour grading"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:214
+#: rust/crates/effects/ui/colour_grading.slint:206
 msgid "Looks at about a second of the picture and sets white balance, brightness, contrast and colour for you. Everything it sets stays on the sliders to change"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:222 rust/crates/effects/ui/colour_grading.slint:225
+#: rust/crates/effects/ui/colour_grading.slint:214 rust/crates/effects/ui/colour_grading.slint:217
 msgid "Reset the grade"
 msgstr "重置调色"
 
-#: rust/crates/effects/ui/colour_grading.slint:343
+#: rust/crates/effects/ui/colour_grading.slint:335
 msgid "RGB"
 msgstr "RGB"
 
-#: rust/crates/effects/ui/colour_grading.slint:343
+#: rust/crates/effects/ui/colour_grading.slint:335
 msgid "Hue vs sat"
 msgstr "色相 vs 饱和度"
 
-#: rust/crates/effects/ui/colour_grading.slint:343
+#: rust/crates/effects/ui/colour_grading.slint:335
 msgid "Hue vs hue"
 msgstr "色相 vs 色相"
 
-#: rust/crates/effects/ui/colour_grading.slint:347 rust/crates/effects/ui/colour_grading.slint:367
+#: rust/crates/effects/ui/colour_grading.slint:339 rust/crates/effects/ui/colour_grading.slint:359
 msgid "Curve"
 msgstr "曲线"
 
-#: rust/crates/effects/ui/colour_grading.slint:353
+#: rust/crates/effects/ui/colour_grading.slint:345
 msgid "All"
 msgstr "全部"
 
-#: rust/crates/effects/ui/colour_grading.slint:357 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
+#: rust/crates/effects/ui/colour_grading.slint:349 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
 msgid "Channel"
 msgstr "通道"
 
-#: rust/crates/effects/ui/colour_grading.slint:386
+#: rust/crates/effects/ui/colour_grading.slint:378
 msgid "Load…"
 msgstr "加载…"
 
-#: rust/crates/effects/ui/colour_grading.slint:387
+#: rust/crates/effects/ui/colour_grading.slint:379
 msgid "Pick a .cube LUT to put on top of the grade"
 msgstr "选择叠加在调色效果上的 .cube LUT 文件"
 
-#: rust/crates/effects/ui/colour_grading.slint:404 rust/crates/effects/ui/colour_grading.slint:407
+#: rust/crates/effects/ui/colour_grading.slint:396 rust/crates/effects/ui/colour_grading.slint:399
 msgid "Take the LUT off"
 msgstr "移除 LUT"
 
-#: rust/crates/effects/ui/colour_grading.slint:413
+#: rust/crates/effects/ui/colour_grading.slint:405
 msgid "Strength"
 msgstr "强度"
 
-#: rust/crates/effects/ui/colour_grading.slint:414
+#: rust/crates/effects/ui/colour_grading.slint:406
 msgid "How much of the LUT's look goes on the picture"
 msgstr "应用到画面的 LUT 效果强度"
 
-#: rust/crates/effects/ui/colour_grading.slint:431
+#: rust/crates/effects/ui/colour_grading.slint:423
 msgid "Export"
 msgstr "导出"
 
-#: rust/crates/effects/ui/colour_grading.slint:435
+#: rust/crates/effects/ui/colour_grading.slint:427
 msgid "Export grade…"
 msgstr "导出调色…"
 
-#: rust/crates/effects/ui/colour_grading.slint:436
+#: rust/crates/effects/ui/colour_grading.slint:428
 msgid "Save the grade, LUT included, as a .cube file for other apps"
 msgstr "将调色设置（包含 LUT）保存为供其他应用使用的 .cube 文件"
 
-#: rust/crates/effects/ui/colour_grading.slint:448 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:680
+#: rust/crates/effects/ui/colour_grading.slint:440 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:680
 msgid "Replace"
 msgstr "替换"
 
@@ -2827,7 +2819,7 @@ msgstr "形状"
 msgid "Follow my face"
 msgstr "跟随我的脸"
 
-#: rust/crates/effects/ui/framing.slint:88 rust/crates/outputs/src/webcam.rs:61
+#: rust/crates/effects/ui/framing.slint:88 rust/crates/outputs/src/webcam.rs:64
 msgid "Framing"
 msgstr "构图"
 
@@ -2855,7 +2847,7 @@ msgstr "清除"
 msgid "Trails"
 msgstr "拖尾"
 
-#: rust/crates/effects/ui/fun_pack.slint:131 rust/crates/outputs/src/webcam.rs:42 rust/crates/shell/ui/cards/camera.slint:225 rust/crates/shell/ui/cards/camera.slint:228
+#: rust/crates/effects/ui/fun_pack.slint:131 rust/crates/outputs/src/webcam.rs:45 rust/crates/shell/ui/cards/camera.slint:225 rust/crates/shell/ui/cards/camera.slint:228
 msgid "Brightness"
 msgstr "亮度"
 
@@ -3109,7 +3101,7 @@ msgstr "包围设置"
 msgid "Steps"
 msgstr "步数"
 
-#: rust/crates/effects/ui/photos.slint:215 rust/crates/outputs/src/webcam.rs:41 rust/crates/shell/ui/cards/camera.slint:179 rust/crates/shell/ui/cards/camera.slint:182
+#: rust/crates/effects/ui/photos.slint:215 rust/crates/outputs/src/webcam.rs:44 rust/crates/outputs/src/webcam.rs:52 rust/crates/shell/ui/cards/camera.slint:179 rust/crates/shell/ui/cards/camera.slint:182
 msgid "Exposure"
 msgstr "曝光"
 
@@ -3234,7 +3226,7 @@ msgstr "手机拒绝了麦克风请求（HTTP {code}）。"
 msgid "No microphone"
 msgstr "无麦克风"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:737 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1311 rust/crates/shell/src/worker.rs:514 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:852 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1311 rust/crates/shell/src/worker.rs:514 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "未串流"
 
@@ -3872,7 +3864,7 @@ msgstr "生成新二维码；旧二维码将失效"
 msgid "Which of this computer's addresses the code points to"
 msgstr "二维码指向这台电脑的哪个地址"
 
-#: rust/crates/link/ui/browser_camera.slint:132 rust/crates/link/ui/browser_camera.slint:134 rust/crates/outputs/src/stream_output.rs:792 rust/crates/outputs/src/stream_output.rs:976 rust/crates/outputs/src/stream_output.rs:979 rust/crates/outputs/ui/stream_output.slint:99 rust/crates/outputs/ui/webcam.slint:73 rust/crates/outputs/ui/webcam.slint:75
+#: rust/crates/link/ui/browser_camera.slint:132 rust/crates/link/ui/browser_camera.slint:134 rust/crates/outputs/src/stream_output.rs:792 rust/crates/outputs/src/stream_output.rs:976 rust/crates/outputs/src/stream_output.rs:979 rust/crates/outputs/ui/stream_output.slint:99 rust/crates/outputs/ui/webcam.slint:84
 msgid "Resolution"
 msgstr "分辨率"
 
@@ -3880,7 +3872,7 @@ msgstr "分辨率"
 msgid "The size the browser sends; a camera that can't do it sends what it can"
 msgstr "浏览器发送的画面尺寸；如果相机无法达到此尺寸，则按其实际支持的尺寸发送"
 
-#: rust/crates/link/ui/browser_camera.slint:143 rust/crates/link/ui/browser_camera.slint:145 rust/crates/outputs/ui/stream_output.slint:108 rust/crates/outputs/ui/webcam.slint:85 rust/crates/outputs/ui/webcam.slint:87
+#: rust/crates/link/ui/browser_camera.slint:143 rust/crates/link/ui/browser_camera.slint:145 rust/crates/outputs/ui/stream_output.slint:108 rust/crates/outputs/ui/webcam.slint:93
 msgid "Frame rate"
 msgstr "帧率"
 
@@ -4354,163 +4346,163 @@ msgctxt "search"
 msgid "idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo"
 msgstr "空闲 待机 占位 画面 图像 gif 黑屏 静止 未串流 镜像 翻转 自定义 背景 标志 图标 徽标 idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo"
 
-#: rust/crates/outputs/src/webcam.rs:41
+#: rust/crates/outputs/src/webcam.rs:44
 msgid "Exposure time"
 msgstr "曝光时间"
 
-#: rust/crates/outputs/src/webcam.rs:42
+#: rust/crates/outputs/src/webcam.rs:45
 msgid "Backlight compensation"
 msgstr "逆光补偿"
 
-#: rust/crates/outputs/src/webcam.rs:43
+#: rust/crates/outputs/src/webcam.rs:46
 msgid "Anti-flicker"
 msgstr "防闪烁"
 
-#: rust/crates/outputs/src/webcam.rs:43
+#: rust/crates/outputs/src/webcam.rs:46
 msgid "Slow down in the dark"
 msgstr "暗光下降帧"
 
-#: rust/crates/outputs/src/webcam.rs:44 rust/crates/outputs/src/webcam.rs:50 rust/crates/shell/ui/cards/camera.slint:244 rust/crates/shell/ui/cards/camera.slint:247
+#: rust/crates/outputs/src/webcam.rs:47 rust/crates/outputs/src/webcam.rs:53 rust/crates/shell/ui/cards/camera.slint:244 rust/crates/shell/ui/cards/camera.slint:247
 msgid "White balance"
 msgstr "白平衡"
 
-#: rust/crates/outputs/src/webcam.rs:45
+#: rust/crates/outputs/src/webcam.rs:48
 msgid "Hue"
 msgstr "色调"
 
-#: rust/crates/outputs/src/webcam.rs:46
+#: rust/crates/outputs/src/webcam.rs:49
 msgid "Sharpness"
 msgstr "锐度"
 
-#: rust/crates/outputs/src/webcam.rs:47 rust/crates/outputs/src/webcam.rs:49 rust/crates/outputs/src/webcam.rs:59 rust/crates/outputs/src/webcam.rs:678 rust/crates/shell/ui/cards/camera.slint:295 rust/crates/shell/ui/cards/camera.slint:299 rust/crates/shell/ui/cards/camera.slint:302
+#: rust/crates/outputs/src/webcam.rs:50 rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:62 rust/crates/outputs/src/webcam.rs:773 rust/crates/shell/ui/cards/camera.slint:295 rust/crates/shell/ui/cards/camera.slint:299 rust/crates/shell/ui/cards/camera.slint:302
 msgid "Focus"
 msgstr "对焦"
 
-#: rust/crates/outputs/src/webcam.rs:47
+#: rust/crates/outputs/src/webcam.rs:50
 msgid "Focus position"
 msgstr "对焦位置"
 
-#: rust/crates/outputs/src/webcam.rs:49
+#: rust/crates/outputs/src/webcam.rs:52
 msgid "Aperture"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:49
-msgid "Exposure compensation"
-msgstr ""
-
-#: rust/crates/outputs/src/webcam.rs:51
+#: rust/crates/outputs/src/webcam.rs:54
 msgid "Tilt"
 msgstr "俯仰"
 
-#: rust/crates/outputs/src/webcam.rs:58 rust/crates/shell/ui/cards/camera.slint:329
+#: rust/crates/outputs/src/webcam.rs:61 rust/crates/shell/ui/cards/camera.slint:329
 msgid "Image"
 msgstr "图像"
 
-#: rust/crates/outputs/src/webcam.rs:67
+#: rust/crates/outputs/src/webcam.rs:70
 msgid "The shutter speed: slower is brighter but blurs movement."
 msgstr "快门速度：越慢画面越亮，但移动物体会模糊。"
 
-#: rust/crates/outputs/src/webcam.rs:68
+#: rust/crates/outputs/src/webcam.rs:71
 msgid "The webcam's ISO: more is brighter but grainier."
 msgstr "摄像头的 ISO：数值越高画面越亮，但噪点更多。"
 
-#: rust/crates/outputs/src/webcam.rs:69
+#: rust/crates/outputs/src/webcam.rs:72
 msgid "Brightens a face in front of a bright window."
 msgstr "提亮明亮窗户前的人脸。"
 
-#: rust/crates/outputs/src/webcam.rs:70
+#: rust/crates/outputs/src/webcam.rs:73
 msgid "Set it to your mains frequency to stop lights flickering or banding."
 msgstr "设置为当地电网工频以消除灯光闪烁或条纹。"
 
-#: rust/crates/outputs/src/webcam.rs:71
+#: rust/crates/outputs/src/webcam.rs:74
+msgid "Exposure compensation: how much brighter or darker than the camera would pick"
+msgstr ""
+
+#: rust/crates/outputs/src/webcam.rs:75
 msgid "Lets the webcam lower its frame rate in dim light for a brighter picture."
 msgstr "允许摄像头在弱光下降低帧率以提亮画面。"
 
-#: rust/crates/outputs/src/webcam.rs:79
+#: rust/crates/outputs/src/webcam.rs:83
 msgid "50 Hz"
 msgstr "50 Hz"
 
-#: rust/crates/outputs/src/webcam.rs:80
+#: rust/crates/outputs/src/webcam.rs:84
 msgid "60 Hz"
 msgstr "60 Hz"
 
-#: rust/crates/outputs/src/webcam.rs:287
+#: rust/crates/outputs/src/webcam.rs:291
 msgid "Check that it's plugged in."
 msgstr "请检查是否已插好。"
 
-#: rust/crates/outputs/src/webcam.rs:433
+#: rust/crates/outputs/src/webcam.rs:452
 msgid "Another app may be using it. Close it there and it starts here."
 msgstr "可能有其他应用正在使用它。在对应应用中将其关闭即可在此启动。"
 
-#: rust/crates/outputs/src/webcam.rs:435
+#: rust/crates/outputs/src/webcam.rs:454
 #, python-brace-format
 msgid "{app} is using it. Close it there and it starts here."
 msgstr "{app} 正在使用它。在对应应用中将其关闭即可在此启动。"
 
-#: rust/crates/outputs/src/webcam.rs:437 rust/crates/outputs/src/webcam.rs:440 rust/crates/outputs/src/webcam.rs:443
+#: rust/crates/outputs/src/webcam.rs:456 rust/crates/outputs/src/webcam.rs:459 rust/crates/outputs/src/webcam.rs:462
 #, python-brace-format
 msgid "Can't open {name}"
 msgstr "无法打开 {name}"
 
-#: rust/crates/outputs/src/webcam.rs:678
+#: rust/crates/outputs/src/webcam.rs:773
 msgid "Near"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:678
+#: rust/crates/outputs/src/webcam.rs:773
 msgid "Far"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:725
+#: rust/crates/outputs/src/webcam.rs:840
 msgid "Not plugged in"
 msgstr "未插入"
 
-#: rust/crates/outputs/src/webcam.rs:727
+#: rust/crates/outputs/src/webcam.rs:842
 msgid "Blocked by Windows or security software"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:729
+#: rust/crates/outputs/src/webcam.rs:844
 msgid "In use by another app"
 msgstr "其他应用正在使用"
 
-#: rust/crates/outputs/src/webcam.rs:729
+#: rust/crates/outputs/src/webcam.rs:844
 #, python-brace-format
 msgid "In use by {app}"
 msgstr "{app} 正在使用"
 
-#: rust/crates/outputs/src/webcam.rs:731
+#: rust/crates/outputs/src/webcam.rs:846
 msgid "Mounted as a drive"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:733
+#: rust/crates/outputs/src/webcam.rs:848
 msgid "Not sending anything"
 msgstr "未发送任何内容"
 
-#: rust/crates/outputs/src/webcam.rs:735
+#: rust/crates/outputs/src/webcam.rs:850
 msgid "Starting…"
 msgstr "正在启动…"
 
-#: rust/crates/outputs/src/webcam.rs:748
+#: rust/crates/outputs/src/webcam.rs:863
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
 msgstr "摄像头输出的尺寸；“自动”会选择维持帧率的前提下最高 1080p 的最大尺寸"
 
-#: rust/crates/outputs/src/webcam.rs:773
+#: rust/crates/outputs/src/webcam.rs:894
 msgid "Webcams"
 msgstr "摄像头"
 
-#: rust/crates/outputs/src/webcam.rs:774
+#: rust/crates/outputs/src/webcam.rs:895
 msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "从插入这台电脑的摄像头和采集卡串流。"
 
-#: rust/crates/outputs/src/webcam.rs:775
+#: rust/crates/outputs/src/webcam.rs:896
 msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:815
+#: rust/crates/outputs/src/webcam.rs:939
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name} 未连接"
 
-#: rust/crates/outputs/src/webcam.rs:816
+#: rust/crates/outputs/src/webcam.rs:940
 msgid "Plug it in, or pick another camera."
 msgstr "请将其插入，或选择其他相机。"
 
@@ -4627,17 +4619,29 @@ msgstr "使用默认"
 msgid "Mirror it, for apps that flip the camera"
 msgstr "镜像画面，适用于翻转相机的应用"
 
-#: rust/crates/outputs/ui/webcam.slint:52
+#: rust/crates/outputs/ui/webcam.slint:63
 msgid "Webcam"
 msgstr "摄像头"
 
-#: rust/crates/outputs/ui/webcam.slint:55
+#: rust/crates/outputs/ui/webcam.slint:66
 msgid "Put the webcam's picture settings back to its defaults"
 msgstr "将摄像头的画面设置恢复为默认值"
 
-#: rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248
+#: rust/crates/outputs/ui/webcam.slint:115 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248
 msgid "Manual"
 msgstr "手动"
+
+#: rust/crates/outputs/ui/webcam.slint:127
+msgid "Focus nearer. Hold to keep going"
+msgstr ""
+
+#: rust/crates/outputs/ui/webcam.slint:136
+msgid "Focus once automatically"
+msgstr ""
+
+#: rust/crates/outputs/ui/webcam.slint:143
+msgid "Focus further away. Hold to keep going"
+msgstr ""
 
 #: rust/crates/plugin-host/src/load.rs:16
 msgid "It isn't turned on."
@@ -8072,6 +8076,10 @@ msgstr ""
 #: rust/crates/vision/src/pack.rs:316
 msgid "The download contains unexpected paths, so it wasn't used."
 msgstr "下载的内容包含异常路径，因此未使用。"
+
+#: rust/crates/system/src/keys.rs:33
+msgid "Undo"
+msgstr ""
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
 #: rust/app/src/main.rs:424

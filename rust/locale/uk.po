@@ -183,7 +183,7 @@ msgstr "увімк."
 msgid "off"
 msgstr "вимк."
 
-#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:217 rust/crates/audio/ui/microphone.slint:227 rust/crates/audio/ui/microphone.slint:238 rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:281 rust/crates/outputs/src/webcam.rs:41
+#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:217 rust/crates/audio/ui/microphone.slint:227 rust/crates/audio/ui/microphone.slint:238 rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:273 rust/crates/outputs/src/webcam.rs:44
 msgid "Gain"
 msgstr "Підсилення"
 
@@ -318,7 +318,7 @@ msgstr "Віртуальний мікрофон перестав приймат�
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "Жовтий означає, що лімітер стримує гучні піки, а червоний означає перевантаження звуку (клацніть, щоб скинути)."
 
-#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:524 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:385 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:172 rust/crates/outputs/ui/webcam.slint:172 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
+#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:524 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:385 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:193 rust/crates/outputs/ui/webcam.slint:193 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
 msgid "Double-click to reset"
 msgstr "Двічі клацніть, щоб скинути"
 
@@ -342,7 +342,7 @@ msgstr "Для мікрофона телефону потрібен VB-Audio Vir
 msgid "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."
 msgstr "VB-Cable розроблено VB-Audio, а не Telescope. Telescope може завантажити його з vb-audio.com і запустити інсталятор VB-Audio, який запитує права адміністратора. Після завершення перезавантажте комп'ютер."
 
-#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/colour_grading.slint:449 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:639 rust/crates/system/ui/shortcuts.slint:374 rust/crates/system/ui/updates.slint:212
+#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/colour_grading.slint:441 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:639 rust/crates/system/ui/shortcuts.slint:374 rust/crates/system/ui/updates.slint:212
 msgid "Cancel"
 msgstr "Скасувати"
 
@@ -368,11 +368,11 @@ msgstr "Ступені"
 msgid " stops"
 msgstr " ступені"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1354 rust/crates/outputs/src/stream_output.rs:621 rust/crates/shell/src/plugins/presets.rs:323
+#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1354 rust/crates/outputs/src/stream_output.rs:621 rust/crates/outputs/ui/webcam.slint:215 rust/crates/shell/src/plugins/presets.rs:323
 msgid "Next"
 msgstr "Наступний"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1354 rust/crates/outputs/src/stream_output.rs:621 rust/crates/shell/src/plugins/presets.rs:323
+#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1354 rust/crates/outputs/src/stream_output.rs:621 rust/crates/outputs/ui/webcam.slint:214 rust/crates/shell/src/plugins/presets.rs:323
 msgid "Previous"
 msgstr "Попередній"
 
@@ -460,7 +460,7 @@ msgstr "Плагіни"
 msgid "Updates & About"
 msgstr "Оновлення та відомості"
 
-#: rust/crates/core/src/plugin.rs:25 rust/crates/outputs/src/webcam.rs:60 rust/crates/outputs/ui/webcam.slint:59 rust/crates/shell/src/plugins/camera_control.rs:1580 rust/crates/shell/ui/cards/camera.slint:143
+#: rust/crates/core/src/plugin.rs:25 rust/crates/outputs/src/webcam.rs:63 rust/crates/outputs/ui/webcam.slint:76 rust/crates/shell/src/plugins/camera_control.rs:1580 rust/crates/shell/ui/cards/camera.slint:143
 msgid "Camera"
 msgstr "Камера"
 
@@ -519,12 +519,12 @@ msgstr "MediaPipe не завантажився на цьому комп'юте�
 msgid "Getting ready…"
 msgstr "Підготовка…"
 
-#: rust/crates/effects/src/auto_grade.rs:20
+#: rust/crates/effects/src/auto_grade.rs:19
 msgid "Looking…"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:390 rust/crates/effects/ui/background.slint:33 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:78 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:423 rust/crates/shell/ui/cards/camera.slint:431
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:390 rust/crates/effects/ui/background.slint:33 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:82 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:423 rust/crates/shell/ui/cards/camera.slint:431
 msgid "Off"
 msgstr "Вимк."
 
@@ -580,11 +580,11 @@ msgstr "Без нього картка «Фон» відсутня, а фон з
 msgid "Background blur"
 msgstr "Розмиття фону"
 
-#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:353 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
+#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:345 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
 msgid "Green"
 msgstr "Зелений"
 
-#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:353 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
+#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:345 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
 msgid "Blue"
 msgstr "Синій"
 
@@ -741,7 +741,7 @@ msgstr "Парад RGB"
 msgid "Vectorscope"
 msgstr "Вектороскоп"
 
-#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:353 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
+#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:345 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
 msgid "Red"
 msgstr "Червоний"
 
@@ -836,15 +836,15 @@ msgstr "33-точковий LUT (*.cube)"
 msgid "65-point LUT (*.cube)"
 msgstr "65-точковий LUT (*.cube)"
 
-#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:240
+#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:232
 msgid "Lift"
 msgstr "Ліфт"
 
-#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:259 rust/crates/outputs/src/webcam.rs:46
+#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:251 rust/crates/outputs/src/webcam.rs:49
 msgid "Gamma"
 msgstr "Гама"
 
-#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:300
+#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:292
 msgid "Offset"
 msgstr "Зсув"
 
@@ -978,7 +978,7 @@ msgstr "Майстер-гейн"
 msgid "Offset master"
 msgstr "Майстер-зсув"
 
-#: rust/crates/effects/src/colour_grading.rs:89 rust/crates/effects/ui/colour_grading.slint:319 rust/crates/outputs/src/webcam.rs:44 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:256 rust/crates/shell/ui/cards/camera.slint:259
+#: rust/crates/effects/src/colour_grading.rs:89 rust/crates/effects/ui/colour_grading.slint:311 rust/crates/outputs/src/webcam.rs:47 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:256 rust/crates/shell/ui/cards/camera.slint:259
 msgid "Temperature"
 msgstr "Температура"
 
@@ -986,7 +986,7 @@ msgstr "Температура"
 msgid "Warmer or cooler"
 msgstr "Тепліше або холодніше"
 
-#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:319 rust/crates/shell/src/plugins/camera_control.rs:1373 rust/crates/shell/src/plugins/camera_control.rs:1608
+#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:311 rust/crates/shell/src/plugins/camera_control.rs:1373 rust/crates/shell/src/plugins/camera_control.rs:1608
 msgid "Tint"
 msgstr "Відтінок"
 
@@ -995,7 +995,7 @@ msgid "More magenta or more green"
 msgstr "Більше пурпурового або більше зеленого"
 
 #. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
-#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:319 rust/crates/outputs/src/webcam.rs:45
+#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:311 rust/crates/outputs/src/webcam.rs:48
 msgid "Contrast"
 msgstr "Контраст"
 
@@ -1003,7 +1003,7 @@ msgstr "Контраст"
 msgid "Spreads the tones apart around the pivot"
 msgstr "Розсуває тони навколо точки опори"
 
-#: rust/crates/effects/src/colour_grading.rs:92 rust/crates/effects/ui/colour_grading.slint:319
+#: rust/crates/effects/src/colour_grading.rs:92 rust/crates/effects/ui/colour_grading.slint:311
 msgid "Pivot"
 msgstr "Точка опори"
 
@@ -1011,7 +1011,7 @@ msgstr "Точка опори"
 msgid "The level contrast turns around"
 msgstr "Рівень, навколо якого змінюється контраст"
 
-#: rust/crates/effects/src/colour_grading.rs:93 rust/crates/effects/ui/colour_grading.slint:319 rust/crates/outputs/src/webcam.rs:45
+#: rust/crates/effects/src/colour_grading.rs:93 rust/crates/effects/ui/colour_grading.slint:311 rust/crates/outputs/src/webcam.rs:48
 msgid "Saturation"
 msgstr "Насиченість"
 
@@ -1019,7 +1019,7 @@ msgstr "Насиченість"
 msgid "How colourful the picture is"
 msgstr "Наскільки барвистим є зображення"
 
-#: rust/crates/effects/src/colour_grading.rs:94 rust/crates/effects/ui/colour_grading.slint:319
+#: rust/crates/effects/src/colour_grading.rs:94 rust/crates/effects/ui/colour_grading.slint:311
 msgid "Vibrance"
 msgstr ""
 
@@ -1027,7 +1027,7 @@ msgstr ""
 msgid "Colours up the dull parts more than the strong ones, and spares skin"
 msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:95 rust/crates/effects/ui/colour_grading.slint:319
+#: rust/crates/effects/src/colour_grading.rs:95 rust/crates/effects/ui/colour_grading.slint:311
 msgid "Shadows"
 msgstr "Тіні"
 
@@ -1035,7 +1035,7 @@ msgstr "Тіні"
 msgid "Brightens or darkens the darker parts"
 msgstr "Освітлює або затемнює темні ділянки"
 
-#: rust/crates/effects/src/colour_grading.rs:96 rust/crates/effects/ui/colour_grading.slint:319
+#: rust/crates/effects/src/colour_grading.rs:96 rust/crates/effects/ui/colour_grading.slint:311
 msgid "Highlights"
 msgstr "Світлі тони"
 
@@ -1056,7 +1056,7 @@ msgstr "Експортувати корекцію"
 msgid "{file} is already there. Replace it?"
 msgstr "{file} уже існує. Хочете замінити його?"
 
-#: rust/crates/effects/src/colour_grading.rs:521 rust/crates/effects/src/colour_grading.rs:905 rust/crates/effects/src/colour_grading.rs:987 rust/crates/effects/src/colour_grading.rs:989 rust/crates/effects/src/colour_grading.rs:1031 rust/crates/effects/ui/colour_grading.slint:151
+#: rust/crates/effects/src/colour_grading.rs:521 rust/crates/effects/src/colour_grading.rs:887 rust/crates/effects/src/colour_grading.rs:969 rust/crates/effects/src/colour_grading.rs:971 rust/crates/effects/src/colour_grading.rs:1013 rust/crates/effects/ui/colour_grading.slint:149
 msgid "Colour grading"
 msgstr "Корекція кольору"
 
@@ -1065,19 +1065,19 @@ msgstr "Корекція кольору"
 msgid "{wheel} colour"
 msgstr "Колір: {wheel}"
 
-#: rust/crates/effects/src/colour_grading.rs:906
+#: rust/crates/effects/src/colour_grading.rs:888
 msgid "Colour wheels, curves and LUT files for the look of the picture."
 msgstr "Колірні круги, криві та файли LUT для вигляду зображення."
 
-#: rust/crates/effects/src/colour_grading.rs:907
+#: rust/crates/effects/src/colour_grading.rs:889
 msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
 msgstr "Без нього немає картки «Корекція кольору», а зображення зберігає кольори камери."
 
-#: rust/crates/effects/src/colour_grading.rs:990 rust/crates/effects/src/colour_grading.rs:1036
+#: rust/crates/effects/src/colour_grading.rs:972 rust/crates/effects/src/colour_grading.rs:1018
 msgid "Compare before and after"
 msgstr "Порівняти до і після"
 
-#: rust/crates/effects/src/colour_grading.rs:1014 rust/crates/effects/src/colour_grading.rs:1049
+#: rust/crates/effects/src/colour_grading.rs:996 rust/crates/effects/src/colour_grading.rs:1031
 msgid "LUT strength"
 msgstr "Інтенсивність LUT"
 
@@ -1097,7 +1097,7 @@ msgstr "Розтягнути"
 msgid "Crop"
 msgstr "Обрізати"
 
-#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:136 rust/crates/effects/ui/transforms.slint:146 rust/crates/outputs/src/webcam.rs:51
+#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:136 rust/crates/effects/ui/transforms.slint:146 rust/crates/outputs/src/webcam.rs:54
 msgid "Pan"
 msgstr "Панорамувати"
 
@@ -1240,7 +1240,7 @@ msgid "Black and white"
 msgstr "Чорно-білий"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/effects/ui/colour_grading.slint:212 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:81 rust/crates/outputs/src/webcam.rs:740 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/effects/ui/colour_grading.slint:204 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:85 rust/crates/outputs/src/webcam.rs:855 rust/crates/outputs/ui/webcam.slint:115 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
 msgid "Auto"
 msgstr "Авто"
 
@@ -1315,7 +1315,7 @@ msgstr "Режим столу"
 msgid "Done"
 msgstr "Готово"
 
-#: rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/transforms.slint:47 rust/crates/outputs/ui/webcam.slint:56
+#: rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/transforms.slint:47 rust/crates/outputs/ui/webcam.slint:67
 msgid "Reset"
 msgstr "Скинути"
 
@@ -1689,7 +1689,7 @@ msgid "Pill"
 msgstr "Капсула"
 
 #. Light and Heavy are the names of the two stream formats
-#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:789 rust/crates/outputs/src/stream_output.rs:998 rust/crates/outputs/src/webcam.rs:57 rust/crates/outputs/ui/stream_output.slint:129 rust/crates/setup/src/stats_phone.rs:88
+#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:789 rust/crates/outputs/src/stream_output.rs:998 rust/crates/outputs/src/webcam.rs:60 rust/crates/outputs/ui/stream_output.slint:129 rust/crates/setup/src/stats_phone.rs:88
 msgid "Light"
 msgstr "Легкий"
 
@@ -2451,7 +2451,7 @@ msgstr "Масштабувати, панорамувати, перевертат
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "Без нього картка «Трансформація» буде відсутня, а зображення транслюватиметься саме так, як його надсилає телефон."
 
-#: rust/crates/effects/src/transforms.rs:614 rust/crates/effects/src/transforms.rs:667 rust/crates/effects/ui/composite_editor.slint:447 rust/crates/effects/ui/transforms.slint:78 rust/crates/effects/ui/transforms.slint:91 rust/crates/outputs/src/webcam.rs:51
+#: rust/crates/effects/src/transforms.rs:614 rust/crates/effects/src/transforms.rs:667 rust/crates/effects/ui/composite_editor.slint:447 rust/crates/effects/ui/transforms.slint:78 rust/crates/effects/ui/transforms.slint:91 rust/crates/outputs/src/webcam.rs:54
 msgid "Zoom"
 msgstr "Масштаб"
 
@@ -2527,115 +2527,107 @@ msgstr "Зебра від"
 msgid "Scope size"
 msgstr "Розмір відеоскопа"
 
-#: rust/crates/effects/ui/colour_grading.slint:164 rust/crates/effects/ui/colour_grading.slint:171
+#: rust/crates/effects/ui/colour_grading.slint:162 rust/crates/effects/ui/colour_grading.slint:169
 msgid "Compare"
 msgstr "Порівняння"
 
-#: rust/crates/effects/ui/colour_grading.slint:173
+#: rust/crates/effects/ui/colour_grading.slint:171
 msgid "Left of the line the preview shows the picture without the grade (apps always get it graded)"
 msgstr "Ліворуч від лінії попередній перегляд показує зображення без корекції (програми завжди отримують його скоригованим)"
 
-#: rust/crates/effects/ui/colour_grading.slint:180
+#: rust/crates/effects/ui/colour_grading.slint:178
 msgid "Split"
 msgstr "Розділення"
 
-#: rust/crates/effects/ui/colour_grading.slint:181
+#: rust/crates/effects/ui/colour_grading.slint:179
 msgid "Where the line between before and after is"
 msgstr "Де розташована лінія між «до» та «після»"
 
-#: rust/crates/effects/ui/colour_grading.slint:196
+#: rust/crates/effects/ui/colour_grading.slint:194
 msgid "Primaries"
 msgstr "Основні"
 
-#: rust/crates/effects/ui/colour_grading.slint:196
+#: rust/crates/effects/ui/colour_grading.slint:194
 msgid "Curves"
 msgstr "Криві"
 
-#: rust/crates/effects/ui/colour_grading.slint:196 rust/crates/effects/ui/colour_grading.slint:381
+#: rust/crates/effects/ui/colour_grading.slint:194 rust/crates/effects/ui/colour_grading.slint:373
 msgid "LUT"
 msgstr "LUT"
 
-#: rust/crates/effects/ui/colour_grading.slint:200
+#: rust/crates/effects/ui/colour_grading.slint:198
 msgid "Page"
 msgstr "Сторінка"
 
-#: rust/crates/effects/ui/colour_grading.slint:206
-msgid "Undo"
-msgstr ""
-
-#: rust/crates/effects/ui/colour_grading.slint:207
-msgid "Put the sliders back as they were before Auto"
-msgstr ""
-
-#: rust/crates/effects/ui/colour_grading.slint:213
+#: rust/crates/effects/ui/colour_grading.slint:205
 msgid "Auto colour grading"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:214
+#: rust/crates/effects/ui/colour_grading.slint:206
 msgid "Looks at about a second of the picture and sets white balance, brightness, contrast and colour for you. Everything it sets stays on the sliders to change"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:222 rust/crates/effects/ui/colour_grading.slint:225
+#: rust/crates/effects/ui/colour_grading.slint:214 rust/crates/effects/ui/colour_grading.slint:217
 msgid "Reset the grade"
 msgstr "Скинути корекцію"
 
-#: rust/crates/effects/ui/colour_grading.slint:343
+#: rust/crates/effects/ui/colour_grading.slint:335
 msgid "RGB"
 msgstr "RGB"
 
-#: rust/crates/effects/ui/colour_grading.slint:343
+#: rust/crates/effects/ui/colour_grading.slint:335
 msgid "Hue vs sat"
 msgstr "Тон - насиченість"
 
-#: rust/crates/effects/ui/colour_grading.slint:343
+#: rust/crates/effects/ui/colour_grading.slint:335
 msgid "Hue vs hue"
 msgstr "Тон - тон"
 
-#: rust/crates/effects/ui/colour_grading.slint:347 rust/crates/effects/ui/colour_grading.slint:367
+#: rust/crates/effects/ui/colour_grading.slint:339 rust/crates/effects/ui/colour_grading.slint:359
 msgid "Curve"
 msgstr "Крива"
 
-#: rust/crates/effects/ui/colour_grading.slint:353
+#: rust/crates/effects/ui/colour_grading.slint:345
 msgid "All"
 msgstr "Усі"
 
-#: rust/crates/effects/ui/colour_grading.slint:357 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
+#: rust/crates/effects/ui/colour_grading.slint:349 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
 msgid "Channel"
 msgstr "Канал"
 
-#: rust/crates/effects/ui/colour_grading.slint:386
+#: rust/crates/effects/ui/colour_grading.slint:378
 msgid "Load…"
 msgstr "Завантажити…"
 
-#: rust/crates/effects/ui/colour_grading.slint:387
+#: rust/crates/effects/ui/colour_grading.slint:379
 msgid "Pick a .cube LUT to put on top of the grade"
 msgstr "Виберіть LUT .cube, щоб накласти поверх корекції"
 
-#: rust/crates/effects/ui/colour_grading.slint:404 rust/crates/effects/ui/colour_grading.slint:407
+#: rust/crates/effects/ui/colour_grading.slint:396 rust/crates/effects/ui/colour_grading.slint:399
 msgid "Take the LUT off"
 msgstr "Прибрати LUT"
 
-#: rust/crates/effects/ui/colour_grading.slint:413
+#: rust/crates/effects/ui/colour_grading.slint:405
 msgid "Strength"
 msgstr "Сила"
 
-#: rust/crates/effects/ui/colour_grading.slint:414
+#: rust/crates/effects/ui/colour_grading.slint:406
 msgid "How much of the LUT's look goes on the picture"
 msgstr "Наскільки вигляд LUT накладається на зображення"
 
-#: rust/crates/effects/ui/colour_grading.slint:431
+#: rust/crates/effects/ui/colour_grading.slint:423
 msgid "Export"
 msgstr "Експорт"
 
-#: rust/crates/effects/ui/colour_grading.slint:435
+#: rust/crates/effects/ui/colour_grading.slint:427
 msgid "Export grade…"
 msgstr "Експортувати корекцію…"
 
-#: rust/crates/effects/ui/colour_grading.slint:436
+#: rust/crates/effects/ui/colour_grading.slint:428
 msgid "Save the grade, LUT included, as a .cube file for other apps"
 msgstr "Зберегти корекцію разом із LUT як файл .cube для інших програм"
 
-#: rust/crates/effects/ui/colour_grading.slint:448 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:680
+#: rust/crates/effects/ui/colour_grading.slint:440 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:680
 msgid "Replace"
 msgstr "Замінити"
 
@@ -2827,7 +2819,7 @@ msgstr "Формат"
 msgid "Follow my face"
 msgstr "Стежити за обличчям"
 
-#: rust/crates/effects/ui/framing.slint:88 rust/crates/outputs/src/webcam.rs:61
+#: rust/crates/effects/ui/framing.slint:88 rust/crates/outputs/src/webcam.rs:64
 msgid "Framing"
 msgstr "Кадрування"
 
@@ -2855,7 +2847,7 @@ msgstr "Очистити"
 msgid "Trails"
 msgstr "Сліди"
 
-#: rust/crates/effects/ui/fun_pack.slint:131 rust/crates/outputs/src/webcam.rs:42 rust/crates/shell/ui/cards/camera.slint:225 rust/crates/shell/ui/cards/camera.slint:228
+#: rust/crates/effects/ui/fun_pack.slint:131 rust/crates/outputs/src/webcam.rs:45 rust/crates/shell/ui/cards/camera.slint:225 rust/crates/shell/ui/cards/camera.slint:228
 msgid "Brightness"
 msgstr "Яскравість"
 
@@ -3109,7 +3101,7 @@ msgstr "Брекетинг"
 msgid "Steps"
 msgstr "Кроки"
 
-#: rust/crates/effects/ui/photos.slint:215 rust/crates/outputs/src/webcam.rs:41 rust/crates/shell/ui/cards/camera.slint:179 rust/crates/shell/ui/cards/camera.slint:182
+#: rust/crates/effects/ui/photos.slint:215 rust/crates/outputs/src/webcam.rs:44 rust/crates/outputs/src/webcam.rs:52 rust/crates/shell/ui/cards/camera.slint:179 rust/crates/shell/ui/cards/camera.slint:182
 msgid "Exposure"
 msgstr "Експозиція"
 
@@ -3234,7 +3226,7 @@ msgstr "Телефон відхилив доступ до мікрофона (HT
 msgid "No microphone"
 msgstr "Немає мікрофона"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:737 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1311 rust/crates/shell/src/worker.rs:514 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:852 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1311 rust/crates/shell/src/worker.rs:514 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "Не транслює"
 
@@ -3872,7 +3864,7 @@ msgstr "Створити новий код; старий перестане пр
 msgid "Which of this computer's addresses the code points to"
 msgstr "На яку з адрес цього комп'ютера вказує код"
 
-#: rust/crates/link/ui/browser_camera.slint:132 rust/crates/link/ui/browser_camera.slint:134 rust/crates/outputs/src/stream_output.rs:792 rust/crates/outputs/src/stream_output.rs:976 rust/crates/outputs/src/stream_output.rs:979 rust/crates/outputs/ui/stream_output.slint:99 rust/crates/outputs/ui/webcam.slint:73 rust/crates/outputs/ui/webcam.slint:75
+#: rust/crates/link/ui/browser_camera.slint:132 rust/crates/link/ui/browser_camera.slint:134 rust/crates/outputs/src/stream_output.rs:792 rust/crates/outputs/src/stream_output.rs:976 rust/crates/outputs/src/stream_output.rs:979 rust/crates/outputs/ui/stream_output.slint:99 rust/crates/outputs/ui/webcam.slint:84
 msgid "Resolution"
 msgstr "Роздільна здатність"
 
@@ -3880,7 +3872,7 @@ msgstr "Роздільна здатність"
 msgid "The size the browser sends; a camera that can't do it sends what it can"
 msgstr "Розмір, який надсилає браузер; камера, яка не підтримує його, надсилає доступний"
 
-#: rust/crates/link/ui/browser_camera.slint:143 rust/crates/link/ui/browser_camera.slint:145 rust/crates/outputs/ui/stream_output.slint:108 rust/crates/outputs/ui/webcam.slint:85 rust/crates/outputs/ui/webcam.slint:87
+#: rust/crates/link/ui/browser_camera.slint:143 rust/crates/link/ui/browser_camera.slint:145 rust/crates/outputs/ui/stream_output.slint:108 rust/crates/outputs/ui/webcam.slint:93
 msgid "Frame rate"
 msgstr "Кадрів/с"
 
@@ -4354,163 +4346,163 @@ msgctxt "search"
 msgid "idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo"
 msgstr "очікування заставка картинка зображення gif чорний екран зависання не транслює віддзеркалити перевернути власний фон логотип idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo"
 
-#: rust/crates/outputs/src/webcam.rs:41
+#: rust/crates/outputs/src/webcam.rs:44
 msgid "Exposure time"
 msgstr "Час експозиції"
 
-#: rust/crates/outputs/src/webcam.rs:42
+#: rust/crates/outputs/src/webcam.rs:45
 msgid "Backlight compensation"
 msgstr "Компенсація контрового світла"
 
-#: rust/crates/outputs/src/webcam.rs:43
+#: rust/crates/outputs/src/webcam.rs:46
 msgid "Anti-flicker"
 msgstr "Антимерехтіння"
 
-#: rust/crates/outputs/src/webcam.rs:43
+#: rust/crates/outputs/src/webcam.rs:46
 msgid "Slow down in the dark"
 msgstr "Сповільнюватися в темряві"
 
-#: rust/crates/outputs/src/webcam.rs:44 rust/crates/outputs/src/webcam.rs:50 rust/crates/shell/ui/cards/camera.slint:244 rust/crates/shell/ui/cards/camera.slint:247
+#: rust/crates/outputs/src/webcam.rs:47 rust/crates/outputs/src/webcam.rs:53 rust/crates/shell/ui/cards/camera.slint:244 rust/crates/shell/ui/cards/camera.slint:247
 msgid "White balance"
 msgstr "Баланс білого"
 
-#: rust/crates/outputs/src/webcam.rs:45
+#: rust/crates/outputs/src/webcam.rs:48
 msgid "Hue"
 msgstr "Відтінок"
 
-#: rust/crates/outputs/src/webcam.rs:46
+#: rust/crates/outputs/src/webcam.rs:49
 msgid "Sharpness"
 msgstr "Різкість"
 
-#: rust/crates/outputs/src/webcam.rs:47 rust/crates/outputs/src/webcam.rs:49 rust/crates/outputs/src/webcam.rs:59 rust/crates/outputs/src/webcam.rs:678 rust/crates/shell/ui/cards/camera.slint:295 rust/crates/shell/ui/cards/camera.slint:299 rust/crates/shell/ui/cards/camera.slint:302
+#: rust/crates/outputs/src/webcam.rs:50 rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:62 rust/crates/outputs/src/webcam.rs:773 rust/crates/shell/ui/cards/camera.slint:295 rust/crates/shell/ui/cards/camera.slint:299 rust/crates/shell/ui/cards/camera.slint:302
 msgid "Focus"
 msgstr "Фокус"
 
-#: rust/crates/outputs/src/webcam.rs:47
+#: rust/crates/outputs/src/webcam.rs:50
 msgid "Focus position"
 msgstr "Положення фокуса"
 
-#: rust/crates/outputs/src/webcam.rs:49
+#: rust/crates/outputs/src/webcam.rs:52
 msgid "Aperture"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:49
-msgid "Exposure compensation"
-msgstr ""
-
-#: rust/crates/outputs/src/webcam.rs:51
+#: rust/crates/outputs/src/webcam.rs:54
 msgid "Tilt"
 msgstr "Нахил"
 
-#: rust/crates/outputs/src/webcam.rs:58 rust/crates/shell/ui/cards/camera.slint:329
+#: rust/crates/outputs/src/webcam.rs:61 rust/crates/shell/ui/cards/camera.slint:329
 msgid "Image"
 msgstr "Зображення"
 
-#: rust/crates/outputs/src/webcam.rs:67
+#: rust/crates/outputs/src/webcam.rs:70
 msgid "The shutter speed: slower is brighter but blurs movement."
 msgstr "Витримка: довша дає яскравіше зображення, але розмиває рух."
 
-#: rust/crates/outputs/src/webcam.rs:68
+#: rust/crates/outputs/src/webcam.rs:71
 msgid "The webcam's ISO: more is brighter but grainier."
 msgstr "ISO вебкамери: більше значення дає яскравіше, але зернистіше зображення."
 
-#: rust/crates/outputs/src/webcam.rs:69
+#: rust/crates/outputs/src/webcam.rs:72
 msgid "Brightens a face in front of a bright window."
 msgstr "Освітлює обличчя на тлі яскравого вікна."
 
-#: rust/crates/outputs/src/webcam.rs:70
+#: rust/crates/outputs/src/webcam.rs:73
 msgid "Set it to your mains frequency to stop lights flickering or banding."
 msgstr "Виберіть частоту вашої електромережі, щоб прибрати мерехтіння освітлення та смуги на зображенні."
 
-#: rust/crates/outputs/src/webcam.rs:71
+#: rust/crates/outputs/src/webcam.rs:74
+msgid "Exposure compensation: how much brighter or darker than the camera would pick"
+msgstr ""
+
+#: rust/crates/outputs/src/webcam.rs:75
 msgid "Lets the webcam lower its frame rate in dim light for a brighter picture."
 msgstr "Дозволяє вебкамері знижувати частоту кадрів за тьмяного світла для яскравішого зображення."
 
-#: rust/crates/outputs/src/webcam.rs:79
+#: rust/crates/outputs/src/webcam.rs:83
 msgid "50 Hz"
 msgstr "50 Гц"
 
-#: rust/crates/outputs/src/webcam.rs:80
+#: rust/crates/outputs/src/webcam.rs:84
 msgid "60 Hz"
 msgstr "60 Гц"
 
-#: rust/crates/outputs/src/webcam.rs:287
+#: rust/crates/outputs/src/webcam.rs:291
 msgid "Check that it's plugged in."
 msgstr "Перевірте, чи її підключено."
 
-#: rust/crates/outputs/src/webcam.rs:433
+#: rust/crates/outputs/src/webcam.rs:452
 msgid "Another app may be using it. Close it there and it starts here."
 msgstr "Можливо, її використовує інший додаток. Закрийте його там, і камера запуститься тут."
 
-#: rust/crates/outputs/src/webcam.rs:435
+#: rust/crates/outputs/src/webcam.rs:454
 #, python-brace-format
 msgid "{app} is using it. Close it there and it starts here."
 msgstr "Її використовує {app}. Закрийте там цей додаток, і камера запуститься тут."
 
-#: rust/crates/outputs/src/webcam.rs:437 rust/crates/outputs/src/webcam.rs:440 rust/crates/outputs/src/webcam.rs:443
+#: rust/crates/outputs/src/webcam.rs:456 rust/crates/outputs/src/webcam.rs:459 rust/crates/outputs/src/webcam.rs:462
 #, python-brace-format
 msgid "Can't open {name}"
 msgstr "Не вдалося відкрити {name}"
 
-#: rust/crates/outputs/src/webcam.rs:678
+#: rust/crates/outputs/src/webcam.rs:773
 msgid "Near"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:678
+#: rust/crates/outputs/src/webcam.rs:773
 msgid "Far"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:725
+#: rust/crates/outputs/src/webcam.rs:840
 msgid "Not plugged in"
 msgstr "Не підключено"
 
-#: rust/crates/outputs/src/webcam.rs:727
+#: rust/crates/outputs/src/webcam.rs:842
 msgid "Blocked by Windows or security software"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:729
+#: rust/crates/outputs/src/webcam.rs:844
 msgid "In use by another app"
 msgstr "Використовує інший додаток"
 
-#: rust/crates/outputs/src/webcam.rs:729
+#: rust/crates/outputs/src/webcam.rs:844
 #, python-brace-format
 msgid "In use by {app}"
 msgstr "Використовує {app}"
 
-#: rust/crates/outputs/src/webcam.rs:731
+#: rust/crates/outputs/src/webcam.rs:846
 msgid "Mounted as a drive"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:733
+#: rust/crates/outputs/src/webcam.rs:848
 msgid "Not sending anything"
 msgstr "Нічого не надсилає"
 
-#: rust/crates/outputs/src/webcam.rs:735
+#: rust/crates/outputs/src/webcam.rs:850
 msgid "Starting…"
 msgstr "Запуск…"
 
-#: rust/crates/outputs/src/webcam.rs:748
+#: rust/crates/outputs/src/webcam.rs:863
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
 msgstr "Розмір, який надсилає вебкамера; «Авто» вибирає найбільший до 1080p, за якого зберігається частота кадрів"
 
-#: rust/crates/outputs/src/webcam.rs:773
+#: rust/crates/outputs/src/webcam.rs:894
 msgid "Webcams"
 msgstr "Вебкамери"
 
-#: rust/crates/outputs/src/webcam.rs:774
+#: rust/crates/outputs/src/webcam.rs:895
 msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "Трансляція з вебкамер і пристроїв відеозахоплення, підключених до цього комп'ютера."
 
-#: rust/crates/outputs/src/webcam.rs:775
+#: rust/crates/outputs/src/webcam.rs:896
 msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:815
+#: rust/crates/outputs/src/webcam.rs:939
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name} не підключено"
 
-#: rust/crates/outputs/src/webcam.rs:816
+#: rust/crates/outputs/src/webcam.rs:940
 msgid "Plug it in, or pick another camera."
 msgstr "Підключіть її або виберіть іншу камеру."
 
@@ -4627,17 +4619,29 @@ msgstr "Використовувати типове"
 msgid "Mirror it, for apps that flip the camera"
 msgstr "Віддзеркалити для програм, що перевертають камеру"
 
-#: rust/crates/outputs/ui/webcam.slint:52
+#: rust/crates/outputs/ui/webcam.slint:63
 msgid "Webcam"
 msgstr "Вебкамера"
 
-#: rust/crates/outputs/ui/webcam.slint:55
+#: rust/crates/outputs/ui/webcam.slint:66
 msgid "Put the webcam's picture settings back to its defaults"
 msgstr "Скинути налаштування зображення вебкамери до початкових"
 
-#: rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248
+#: rust/crates/outputs/ui/webcam.slint:115 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248
 msgid "Manual"
 msgstr "Вручну"
+
+#: rust/crates/outputs/ui/webcam.slint:127
+msgid "Focus nearer. Hold to keep going"
+msgstr ""
+
+#: rust/crates/outputs/ui/webcam.slint:136
+msgid "Focus once automatically"
+msgstr ""
+
+#: rust/crates/outputs/ui/webcam.slint:143
+msgid "Focus further away. Hold to keep going"
+msgstr ""
 
 #: rust/crates/plugin-host/src/load.rs:16
 msgid "It isn't turned on."
@@ -8088,6 +8092,10 @@ msgstr ""
 #: rust/crates/vision/src/pack.rs:316
 msgid "The download contains unexpected paths, so it wasn't used."
 msgstr "Завантажений файл містить неочікувані шляхи, тому його не було використано."
+
+#: rust/crates/system/src/keys.rs:33
+msgid "Undo"
+msgstr ""
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
 #: rust/app/src/main.rs:424

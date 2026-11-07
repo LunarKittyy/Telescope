@@ -186,9 +186,112 @@ impl telescope_audio::backend::MicBackend for SceneMic {
     fn teardown(&self) {}
 }
 
+/// A Nikon D5100 in M mode as it was probed (libgphoto2's settings, in the Nikon driver's own wording with its decimal commas), run
+/// through the real mapping to the card's controls.
+struct SceneRig;
+
+impl telescope_outputs::webcam_capture::gphoto_lib::Rig for SceneRig {
+    fn preview(&mut self) -> Result<Vec<u8>, String> {
+        Err("no live view in scenes".into())
+    }
+    fn read(&mut self, name: &str) -> Option<telescope_outputs::webcam_capture::gphoto_lib::Setting> {
+        use telescope_outputs::webcam_capture::gphoto_lib::{Kind, Setting};
+        let choice = |value: &str, list: &[&str]| Setting { kind: Kind::Choice, readonly: false, value: value.into(), choices: list.iter().map(|s| s.to_string()).collect() };
+        Some(match name {
+            "autofocusdrive" => Setting { kind: Kind::Toggle, readonly: false, value: "0".into(), choices: Vec::new() },
+            "manualfocusdrive" => Setting { kind: Kind::Range { min: -32767.0, max: 32767.0, step: 1.0 }, readonly: false, value: "0".into(), choices: Vec::new() },
+            "f-number" => choice("f/5,6", &["f/3,5", "f/4", "f/4,5", "f/5", "f/5,6", "f/6,3", "f/7,1", "f/8", "f/9", "f/10", "f/11", "f/13", "f/14", "f/16", "f/18", "f/20", "f/22"]),
+            "exposurecompensation" => choice("0", &["-5", "-4,666", "-4,333", "-4", "-3,666", "-3,333", "-3", "-2,666", "-2,333", "-2", "-1,666", "-1,333", "-1", "-0,666",
+                                                    "-0,333", "0", "0,333", "0,666", "1", "1,333", "1,666", "2", "2,333", "2,666", "3", "3,333", "3,666", "4", "4,333", "4,666", "5"]),
+            "whitebalance" => choice("Automatic", &["Automatic", "Daylight", "Fluorescent", "Tungsten", "Flash", "Cloudy", "Shade", "Preset"]),
+            _ => return None,
+        })
+    }
+    fn write(&mut self, _name: &str, _value: &str) -> Result<(), String> {
+        Ok(())
+    }
+    fn restart_live_view(&mut self) {}
+    fn close(&mut self) {}
+}
+
+/// The D5100's settings for the Webcam card; a set is taken and shown, as the camera would.
+struct SceneDslr(Vec<telescope_outputs::webcam_controls::Control>);
+
+impl telescope_outputs::webcam_controls::Controls for SceneDslr {
+    fn list(&mut self) -> Vec<telescope_outputs::webcam_controls::Control> {
+        self.0.clone()
+    }
+    fn set(&mut self, name: &str, value: i64) -> bool {
+        if let Some(c) = self.0.iter_mut().find(|c| c.name == name && c.kind == "menu") {
+            c.value = value;
+        }
+        true
+    }
+}
+
+/// A webcam with the settings a good USB one offers, for the Webcam card.
+struct SceneUsb;
+
+impl telescope_outputs::webcam_controls::Controls for SceneUsb {
+    fn list(&mut self) -> Vec<telescope_outputs::webcam_controls::Control> {
+        use telescope_outputs::webcam_controls::Control;
+        let mut time = Control::new("exposure_time", "int", 3, 2047, 1, 250, 250);
+        time.unit = "100us".into();
+        time.inactive = true;
+        let mut kelvin = Control::new("white_balance", "int", 2000, 6500, 1, 4000, 4000);
+        kelvin.unit = "kelvin".into();
+        kelvin.inactive = true;
+        let mut flicker = Control::new("anti_flicker", "menu", 0, 2, 1, 1, 1);
+        flicker.menu = vec![0, 1, 2];
+        vec![Control::new("exposure_auto", "bool", 0, 1, 1, 1, 1), time, Control::new("gain", "int", 0, 255, 1, 0, 0), flicker,
+             Control::new("white_balance_auto", "bool", 0, 1, 1, 1, 1), kelvin, Control::new("saturation", "int", 0, 255, 1, 128, 128),
+             Control::new("contrast", "int", 0, 255, 1, 128, 128), Control::new("focus_auto", "bool", 0, 1, 1, 1, 1)]
+    }
+    fn set(&mut self, _name: &str, _value: i64) -> bool {
+        true
+    }
+}
+
+/// A webcam plugged in whose card a scene shows: the D5100 on a USB cable, or a webcam.
+#[derive(Clone, Copy, PartialEq)]
+enum Webcam {
+    Dslr,
+    Usb,
+}
+
+impl Webcam {
+    fn key(self) -> &'static str {
+        if self == Webcam::Dslr { "gphoto2-d5100" } else { "usb-brio" }
+    }
+
+    fn plugin(self) -> telescope_outputs::webcam::WebcamPlugin {
+        use telescope_outputs::webcam::{System, WebcamPlugin};
+        use telescope_outputs::webcam_controls::Controls;
+        use telescope_outputs::webcams::{Device, Mode};
+        let dslr = self == Webcam::Dslr;
+        let device = if dslr {
+            Device { key: self.key().into(), name: "Nikon DSC D5100".into(), location: "gphoto2:usb:001,004".into(), modes: Vec::new() }
+        } else {
+            let modes = vec![Mode::new("MJPG", 1280, 720, &[30.0, 60.0]), Mode::new("MJPG", 1920, 1080, &[30.0]), Mode::new("MJPG", 640, 480, &[30.0])];
+            Device { key: self.key().into(), name: "Brio 100".into(), location: "/dev/video0".into(), modes }
+        };
+        let system = System { opener: Arc::new(|_, _| Err((false, "no camera in scenes".into()))), users: Arc::new(|_| String::new()), exists: Arc::new(|_| true) };
+        let controls: telescope_outputs::webcam::ControlsFor = Box::new(move |_| {
+            Some(if dslr {
+                Box::new(SceneDslr(telescope_outputs::webcam_capture::gphoto_lib::read_controls(&mut SceneRig))) as Box<dyn Controls>
+            } else {
+                Box::new(SceneUsb)
+            })
+        });
+        WebcamPlugin::new(Box::new(move || Ok(vec![device.clone()])), controls, system)
+    }
+}
+
 /// What a scene changes in the plugins services() loads.
 #[derive(Clone, Copy, Default)]
 struct Changes {
+    /// The Webcam plugin is there with this camera plugged in (and picked, by the scene).
+    webcam: Option<Webcam>,
     /// RNNoise's library isn't there (translation_scenes_audio.rnnoise_problem).
     no_rnnoise: bool,
     /// Stream output is there, on a computer that can't decode H.264 (translation_scenes_camera.stream_no_pyav).
@@ -251,6 +354,7 @@ fn services_with(link: SceneLink, changes: Changes) -> Arc<Services> {
                 plugins.push(Box::new(telescope_outputs::stream_output::StreamOutputPlugin::new(false)));
             }
             plugins.extend(stats);
+            plugins.extend(changes.webcam.map(|w| Box::new(w.plugin()) as Box<dyn telescope_core::plugin::Plugin>));
             plugins
         }),
     })
@@ -484,6 +588,23 @@ pub fn all() -> Vec<Scene> {
                     w.process();
                 })),
                 ..Setup::window(Some(services_with(quiet(), Changes { stats: true, ..Changes::default() })), config, CARD_WIDTH, 700.0)
+            }
+        }));
+    }
+    // The Webcam card for a DSLR, a webcam, and a narrow card (where the strip of tiles wraps)
+    for (id, camera, width) in [("webcam-dslr", Webcam::Dslr, CARD_WIDTH), ("webcam-dslr-narrow", Webcam::Dslr, 350.0), ("webcam-usb", Webcam::Usb, CARD_WIDTH),
+                                ("webcam-usb-narrow", Webcam::Usb, 350.0)] {
+        scenes.push(Scene::new(id, move || {
+            let mut config = main_window_config(true);
+            config["plugins"] = json!({"on": ["webcam"]});
+            Setup {
+                page: Page::Card { plugin: "webcam".into() },
+                every_optional: false,
+                then: Some(Box::new(move |w| {
+                    w.state.borrow_mut().bus.emit(telescope_core::Event::SourceSelected { source_id: format!("webcam:{}", camera.key()) });
+                    w.process();
+                })),
+                ..Setup::window(Some(services_with(quiet(), Changes { webcam: Some(camera), ..Changes::default() })), config, width, 700.0)
             }
         }));
     }
