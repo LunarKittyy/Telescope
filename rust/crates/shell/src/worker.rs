@@ -308,10 +308,7 @@ impl Cap {
             Cap::Jpegs { feed, decoder, .. } => loop {
                 let packet = feed.read()?;
                 let bytes = packet.data.len() as u64;
-                let began = telescope_core::time::monotonic_ns();
-                let decoded = decoder.decode(&packet).newest;
-                telescope_core::time::span("decode", began);
-                if let Some(frame) = decoded {
+                if let Some(frame) = decoder.decode(&packet).newest {
                     telescope_core::stats::note_decoded(1);
                     return Ok((frame, bytes, 1));
                 }
@@ -358,6 +355,8 @@ struct Shared {
     frames_arrived: AtomicU64,
     /// Frames that made it through the steps and into the slot, which the camera loop counts the ones it skipped from.
     published: AtomicU64,
+    /// The number of the last frame that went to the camera, which a camera restart doesn't forget (u64::MAX before any).
+    last_sent_number: AtomicU64,
     /// What this stream counts into for the stats.
     stats: Arc<SourceStats>,
     last_arrival_fps: Mutex<f32>,
@@ -487,7 +486,7 @@ impl StreamWorker {
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
             photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_colour: Mutex::new(None), gate: setup.gate,
-            seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), published: AtomicU64::new(0), stats: stats.clone(),
+            seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), published: AtomicU64::new(0), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
             last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), fps_cell: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
             handover_thread: Mutex::new(None),
@@ -512,7 +511,10 @@ impl StreamWorker {
             s.forget_in_vision();
             (crate::window::app_hooks().release_memory)();
             s.status("idle", &tr("Not streaming"));
-        }).map_err(|e| e.to_string())?;
+        }).map_err(|e| {
+            Hub::shared().unregister(&shared.stats);
+            e.to_string()
+        })?;
         Ok(StreamWorker { shared, thread: Mutex::new(Some(thread)) })
     }
 
@@ -1157,8 +1159,8 @@ impl Shared {
         let mut last_sent: Option<Instant> = None;
         let mut last_preview = Instant::now() - Duration::from_secs(1);
         let (mut seen, mut fitted): (u64, Option<Frame>) = (0, None);
-        // The number of the last frame sent and how many had been published then, to tell new frames from a replaced one and count the skipped
-        let (mut last_number, mut published_then) = (u64::MAX, self.published.load(Ordering::Relaxed));
+        // How many frames had been published when the last one was sent, to count the ones skipped since
+        let mut published_then = self.published.load(Ordering::Relaxed);
         let mut scaler = None;
         let mut ok = true;
         let mut delivery_log = telescope_core::time::DeliveryLog::from_env();
@@ -1177,10 +1179,12 @@ impl Shared {
                 }
             }
             if let Some((src, count)) = self.slot.latest() {
+                // Counted with the frame picked, not after a send that may have taken a while
+                let published_at = self.published.load(Ordering::Relaxed);
                 let due = last_sent.is_none_or(|t| t.elapsed() >= 2 * period);
                 let new_frame = count != seen || fitted.is_none();
                 // A frame a plugin replaced in the slot goes out again but isn't another one
-                let fresh = new_frame && src.number != last_number;
+                let fresh = new_frame && src.number != self.last_sent_number.load(Ordering::Relaxed);
                 if new_frame {
                     seen = count;
                     watch.frame(telescope_core::time::monotonic_ns(), &context);
@@ -1199,12 +1203,13 @@ impl Shared {
                 }
                 telescope_core::time::span("camera", began);
                 if fresh {
-                    let published = self.published.load(Ordering::Relaxed);
                     // Frames made since the last one sent that this one passed over: a burst thinned to the camera's rate
-                    self.stats.dropped(DropReason::Paced, published.saturating_sub(published_then).saturating_sub(1));
-                    (last_number, published_then) = (src.number, published);
+                    self.stats.dropped(DropReason::Paced, published_at.saturating_sub(published_then).saturating_sub(1));
+                    published_then = published_at;
+                    self.last_sent_number.store(src.number, Ordering::Relaxed);
                     self.stats.delivered();
-                } else if !new_frame {
+                } else {
+                    // The same picture again: nothing new came in time, or the camera was reopened on the last one
                     self.stats.repeated();
                 }
                 if let (true, Some(log)) = (new_frame, delivery_log.as_mut()) {
@@ -1267,10 +1272,8 @@ fn decode_jpegs(decoder: &mut dyn Decoder, newest: &Newest<(u64, telescope_core:
     const MAX_CRASHES_IN_A_ROW: u32 = 3;
     let mut crashes = 0;
     while let Some((seq, packet)) = newest.take() {
-        let began = telescope_core::time::monotonic_ns();
-        let decoded = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| decoder.decode(&packet)));
-        telescope_core::time::span("decode", began);
-        match decoded {
+        // The decoders time themselves (perf's "decode"), so this doesn't
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| decoder.decode(&packet))) {
             Ok(decoded) => {
                 crashes = 0;
                 if let Some(frame) = decoded.newest {

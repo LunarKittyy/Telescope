@@ -269,3 +269,28 @@ fn the_hub_sends_snapshots_to_the_bus_while_a_stream_runs() {
     let Some(Event::StatsUpdated { snapshot }) = bus.next() else { panic!("no snapshot after a second") };
     assert_eq!(snapshot.sources[0].totals.received, 1);
 }
+
+#[test]
+fn a_feed_that_fell_back_says_which_transport_it_really_uses() {
+    let (hub, stats, began) = running();
+    stats.set_link("https://192.168.1.20:8443/v1/video.udp", false);
+    {
+        let _counting = bind(&stats);
+        note_transport(Transport::Tcp);
+    }
+    assert_eq!(hub.snapshot_at(began + SECOND, None, None).sources[0].link, LinkInfo { route: Route::Network, transport: Transport::Tcp });
+    // A new route starts from what its URL says
+    stats.set_link("https://192.168.1.20:8443/v1/video.udp", false);
+    assert_eq!(hub.snapshot_at(began + 2 * SECOND, None, None).sources[0].link.transport, Transport::Udp);
+}
+
+#[test]
+fn a_mean_never_passes_its_slowest() {
+    let timer = Timer::default();
+    timer.add(3 * MS);
+    timer.add(5 * MS);
+    let t = timer.take();
+    assert_eq!((t.count, t.mean_ms, t.max_ms), (2, 4.0, 5.0));
+    // Nothing is left over to count twice
+    assert_eq!(timer.take(), Timing::default());
+}

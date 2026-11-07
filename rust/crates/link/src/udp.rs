@@ -308,7 +308,9 @@ impl Reassembler {
             f.notice(now);
             let noticed = f.noticed.unwrap();
             if now - noticed >= GIVE_UP_S {
+                let before = self.frames.len();
                 self.forget_before(seq + 1);
+                telescope_core::stats::note_drop(telescope_core::stats::DropReason::LostOnLink, (before - self.frames.len()) as u64);
                 return (Vec::new(), true);
             }
             if now - noticed >= NACK_AFTER_S && f.asked_long_ago(now) {
@@ -536,6 +538,7 @@ impl UdpFeed {
 
     fn fall_back(&mut self) -> Result<(), String> {
         self.udp = None;
+        telescope_core::stats::note_transport(telescope_core::stats::Transport::Tcp);
         if !self.fell_back {
             self.fell_back = true;
             log::info!("UDP video fell back to TCP");

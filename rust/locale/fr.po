@@ -3137,7 +3137,7 @@ msgstr "Le téléphone a refusé le microphone (HTTP {code})."
 msgid "No microphone"
 msgstr "Aucun microphone"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:687 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1308 rust/crates/shell/src/worker.rs:514 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:687 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1308 rust/crates/shell/src/worker.rs:513 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "Ne diffuse pas"
 
@@ -4992,7 +4992,7 @@ msgstr "La caméra virtuelle, sa taille, les caméras supplémentaires, les limi
 msgid "Use my own adb…"
 msgstr "Utiliser mon propre adb…"
 
-#: rust/crates/setup/src/stats.rs:68
+#: rust/crates/setup/src/stats.rs:68 rust/crates/setup/src/stats.rs:215
 msgid "Not available yet"
 msgstr ""
 
@@ -5138,7 +5138,7 @@ msgstr ""
 msgid "Wi-Fi or network"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:194 rust/crates/setup/src/stats.rs:220
+#: rust/crates/setup/src/stats.rs:194 rust/crates/setup/src/stats.rs:219
 msgid "Not known"
 msgstr ""
 
@@ -5150,156 +5150,144 @@ msgstr ""
 msgid "TCP"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:209
-msgid "Delay from camera to virtual camera"
-msgstr ""
-
-#: rust/crates/setup/src/stats.rs:210
-msgid "Wi-Fi band and signal"
-msgstr ""
-
 #: rust/crates/setup/src/stats.rs:211
-msgid "Temperature and throttling"
+msgid "The delay from the camera, Wi-Fi band and signal, temperature and throttling, camera frame rate, encoding time and queue, and round trip, jitter and clock offset"
 msgstr ""
 
 #: rust/crates/setup/src/stats.rs:213
-msgid "Camera frame rate"
-msgstr ""
-
-#: rust/crates/setup/src/stats.rs:214
-msgid "Encoding time and queue"
+msgid "The delay from the camera, Wi-Fi band and signal, and temperature and throttling"
 msgstr ""
 
 #: rust/crates/setup/src/stats.rs:215
-msgid "Round trip, jitter and clock offset"
+msgid "From the phone"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:218
+#: rust/crates/setup/src/stats.rs:217
 msgid "In use"
 msgstr "Actuellement utilisé"
 
-#: rust/crates/setup/src/stats.rs:219
+#: rust/crates/setup/src/stats.rs:218
 msgid "Nothing"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:222
+#: rust/crates/setup/src/stats.rs:221
 msgid "Reading the virtual camera"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:222
-msgid "Which apps isn't available yet"
+#: rust/crates/setup/src/stats.rs:221
+msgid "Naming the apps isn't possible yet"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:225
+#: rust/crates/setup/src/stats.rs:224
 msgid "On this computer"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:227
+#: rust/crates/setup/src/stats.rs:226
 msgid "The graphics card"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:227
+#: rust/crates/setup/src/stats.rs:226
 msgid "The processor"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:228
+#: rust/crates/setup/src/stats.rs:227
 msgid "Frame steps run on"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:228
+#: rust/crates/setup/src/stats.rs:227
 msgid "held there on purpose"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:229
+#: rust/crates/setup/src/stats.rs:228
 msgid "Balancer moves"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:231
+#: rust/crates/setup/src/stats.rs:230
 msgid "Moved to the graphics card"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:231
+#: rust/crates/setup/src/stats.rs:230
 msgid "Moved to the processor"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:232
+#: rust/crates/setup/src/stats.rs:231
 #, python-brace-format
 msgid "{n} s ago"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:234
+#: rust/crates/setup/src/stats.rs:233
 #, python-brace-format
 msgid "frames waited {n} for the card"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:235
+#: rust/crates/setup/src/stats.rs:234
 msgid "the card was clear for a while"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:245
+#: rust/crates/setup/src/stats.rs:244
 msgid "Each plugin's frame step"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:247 rust/crates/setup/src/stats.rs:254
+#: rust/crates/setup/src/stats.rs:246 rust/crates/setup/src/stats.rs:253
 msgid "Measuring"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:252
+#: rust/crates/setup/src/stats.rs:251
 msgid "Each plugin's events and card updates"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:260
+#: rust/crates/setup/src/stats.rs:259
 msgid "The app"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:262 rust/crates/setup/src/stats.rs:263
+#: rust/crates/setup/src/stats.rs:261 rust/crates/setup/src/stats.rs:262
 msgid "Processor"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:262
+#: rust/crates/setup/src/stats.rs:261
 #, python-brace-format
 msgid "{n}% of one core"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:266 rust/crates/setup/src/stats.rs:267
+#: rust/crates/setup/src/stats.rs:265 rust/crates/setup/src/stats.rs:266
 msgid "Memory"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:266
+#: rust/crates/setup/src/stats.rs:265
 #, python-brace-format
 msgid "{n} MB"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:309
+#: rust/crates/setup/src/stats.rs:308
 msgid "Standard"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:310
+#: rust/crates/setup/src/stats.rs:309
 msgid "Nerd"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:311
+#: rust/crates/setup/src/stats.rs:310
 msgid "Every number that can be measured, including what each plugin costs"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:322
+#: rust/crates/setup/src/stats.rs:321
 #, python-brace-format
 msgid "Stream on virtual camera {n}"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:326 rust/crates/setup/src/stats.rs:365
+#: rust/crates/setup/src/stats.rs:325 rust/crates/setup/src/stats.rs:364
 msgid "Start a stream to see its numbers."
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:354 rust/crates/setup/ui/stats.slint:72
+#: rust/crates/setup/src/stats.rs:353 rust/crates/setup/ui/stats.slint:72
 msgid "Stats"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:355
+#: rust/crates/setup/src/stats.rs:354
 msgid "Numbers about the stream as it runs: frames in and out, dropped frames and why, the link and bitrate, how long each step takes and what the app uses."
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:356
+#: rust/crates/setup/src/stats.rs:355
 msgid "Without it there's no Stats card. The stream carries on the same."
 msgstr ""
 
@@ -6560,7 +6548,7 @@ msgstr "Démarrage de la caméra du téléphone…"
 msgid "Couldn't start the phone's camera"
 msgstr "Impossible de démarrer la caméra du téléphone"
 
-#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:836
+#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:838
 msgid "Connecting..."
 msgstr "Connexion..."
 
@@ -6762,43 +6750,43 @@ msgstr "Arrêter la diffusion"
 msgid "Stop"
 msgstr "Arrêter"
 
-#: rust/crates/shell/src/worker.rs:505
+#: rust/crates/shell/src/worker.rs:504
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "Erreur de flux : {error}"
 
-#: rust/crates/shell/src/worker.rs:836
+#: rust/crates/shell/src/worker.rs:838
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "Connexion à {url}..."
 
-#: rust/crates/shell/src/worker.rs:846
+#: rust/crates/shell/src/worker.rs:848
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "Impossible de joindre le flux du téléphone. Nouvelle tentative dans {seconds} s…"
 
-#: rust/crates/shell/src/worker.rs:858
+#: rust/crates/shell/src/worker.rs:860
 msgid "Waiting for the first frame…"
 msgstr "En attente de la première image…"
 
-#: rust/crates/shell/src/worker.rs:946
+#: rust/crates/shell/src/worker.rs:948
 msgid "Stream reconnected"
 msgstr "Flux reconnecté"
 
-#: rust/crates/shell/src/worker.rs:1021
+#: rust/crates/shell/src/worker.rs:1023
 msgid "The video is paused while the phone takes a photo"
 msgstr "La vidéo est en pause pendant que le téléphone prend une photo"
 
-#: rust/crates/shell/src/worker.rs:1023 rust/crates/shell/src/worker.rs:1029
+#: rust/crates/shell/src/worker.rs:1025 rust/crates/shell/src/worker.rs:1031
 msgid "Stream dropped - reconnecting"
 msgstr "Flux interrompu - reconnexion"
 
-#: rust/crates/shell/src/worker.rs:1141 rust/crates/shell/src/worker.rs:1194
+#: rust/crates/shell/src/worker.rs:1143 rust/crates/shell/src/worker.rs:1198
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "Erreur de caméra virtuelle : {error}"
 
-#: rust/crates/shell/src/worker.rs:1152
+#: rust/crates/shell/src/worker.rs:1154
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Diffusion en {size} à {fps} fps vers {camera}"

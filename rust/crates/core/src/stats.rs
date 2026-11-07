@@ -171,20 +171,23 @@ impl Timer {
     #[inline]
     pub fn add(&self, ns: u64) {
         let us = (ns / 1000).min(u32::MAX as u64) as u32;
-        self.sum_us.fetch_add(us as u64, Ordering::Relaxed);
-        self.count.fetch_add(1, Ordering::Relaxed);
-        self.max_us.fetch_max(us, Ordering::Relaxed);
+        // Count last, and a take reads it first: a sample that is counted has its time and its peak in too
+        self.max_us.fetch_max(us, Ordering::Release);
+        self.sum_us.fetch_add(us as u64, Ordering::Release);
+        self.count.fetch_add(1, Ordering::Release);
     }
 
     /// What was added since the last take, which starts it over.
     pub fn take(&self) -> Timing {
-        let count = self.count.swap(0, Ordering::Relaxed);
-        let sum = self.sum_us.swap(0, Ordering::Relaxed);
-        let max = self.max_us.swap(0, Ordering::Relaxed);
+        let count = self.count.swap(0, Ordering::AcqRel);
+        let sum = self.sum_us.swap(0, Ordering::AcqRel);
+        let max = self.max_us.swap(0, Ordering::AcqRel);
         if count == 0 {
             return Timing::default();
         }
-        Timing { mean_ms: (sum as f64 / count as f64 / 1000.0) as f32, max_ms: max as f32 / 1000.0, count }
+        // A sample added during the take can be in the sum and not yet in the count, which mustn't put the mean past the slowest
+        let max_ms = max as f32 / 1000.0;
+        Timing { mean_ms: ((sum as f64 / count as f64 / 1000.0) as f32).min(max_ms), max_ms, count }
     }
 }
 
@@ -239,6 +242,8 @@ struct Meta {
     url: String,
     plugin_source: bool,
     target_fps: u32,
+    /// The transport the feed says it uses when that isn't what its URL says (UDP that fell back to TCP).
+    transport: Option<Transport>,
 }
 
 /// One stream's live numbers, written by its threads and read by the hub. Everything is a relaxed atomic.
@@ -267,7 +272,7 @@ impl SourceStats {
             drops: [const { AtomicU64::new(0) }; 7],
             stages: std::array::from_fn(|_| StageAcc::default()),
             steps: Timers::new(detailed),
-            meta: Mutex::new(Meta { source_id: source_id.into(), slot, url: String::new(), plugin_source: false, target_fps: 0 }),
+            meta: Mutex::new(Meta { source_id: source_id.into(), slot, url: String::new(), plugin_source: false, target_fps: 0, transport: None }),
         }
     }
 
@@ -322,6 +327,7 @@ impl SourceStats {
         let mut meta = self.meta.lock().unwrap_or_else(|p| p.into_inner());
         meta.url = url.into();
         meta.plugin_source = plugin_source;
+        meta.transport = None;
     }
 
     pub fn set_target_fps(&self, fps: u32) {
@@ -388,6 +394,11 @@ pub(crate) fn note_stage(index: usize, ns: u64) {
 /// The decoder finished this many frames on this thread's stream.
 pub fn note_decoded(frames: u64) {
     with_current(|s| s.decoded(frames));
+}
+
+/// The feed on this thread's stream carries its video this way now, whatever its URL said.
+pub fn note_transport(transport: Transport) {
+    with_current(|s| s.meta.lock().unwrap_or_else(|p| p.into_inner()).transport = Some(transport));
 }
 
 /// Frames dropped for reason on this thread's stream. Nothing happens on a thread no stream is bound to.
@@ -721,10 +732,11 @@ fn sample(e: &mut Entry, now_ns: u64) -> SourceSnapshot {
     keep(&mut s.step_ms, step);
     keep(&mut s.camera_ms, camera);
     let meta = e.stats.meta.lock().unwrap_or_else(|p| p.into_inner());
+    let link = LinkInfo::of_url(&meta.url, meta.plugin_source);
     SourceSnapshot {
         source_id: meta.source_id.clone(),
         slot: meta.slot,
-        link: LinkInfo::of_url(&meta.url, meta.plugin_source),
+        link: LinkInfo { transport: meta.transport.unwrap_or(link.transport), ..link },
         target_fps: meta.target_fps,
         seconds: now_ns.saturating_sub(e.stats.started_ns) / SECOND,
         totals,

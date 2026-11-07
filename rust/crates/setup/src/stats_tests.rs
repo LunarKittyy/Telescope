@@ -83,14 +83,16 @@ fn no_drops_says_none() {
 }
 
 #[test]
-fn what_needs_the_phone_says_it_is_not_available_yet() {
+fn what_needs_the_phone_says_so_once() {
     let hub = Hub::new();
-    let (_plugin, host) = set_up(snapshot(&hub, "phone"));
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
     let p = props(&host);
-    for label in ["Delay from camera to virtual camera", "Wi-Fi band and signal", "Temperature and throttling"] {
-        assert_eq!((row(&p, label)["value"].as_str(), row(&p, label)["kind"].as_str()), (Some("Not available yet"), Some("status_dim")), "{label}");
-    }
-    assert!(!has_row(&p, "Encoding time and queue"), "that's for Nerd");
+    let phone = row(&p, "From the phone");
+    assert_eq!((phone["value"].as_str(), phone["kind"].as_str()), (Some("Not available yet"), Some("status_dim")));
+    assert!(phone["note"].as_str().unwrap().contains("Wi-Fi band and signal") && !phone["note"].as_str().unwrap().contains("encoding"));
+    assert_eq!(p["rows"].as_array().unwrap().iter().filter(|r| r["value"] == "Not available yet").count(), 1, "one line, not a row each");
+    plugin.on_ui(&mut host, &UiEvent { ui: "card".into(), callback: "view-picked".into(), args: vec![json!(1)] });
+    assert!(row(&props(&host), "From the phone")["note"].as_str().unwrap().contains("encoding time and queue"), "Nerd lists more of it");
 }
 
 #[test]
@@ -153,7 +155,6 @@ fn nerd_adds_times_balancer_moves_plugins_and_the_apps_cost() {
     assert_eq!(row(&p, "Lua thing")["value"], "3.0 ms");
     assert_eq!(row(&p, "Processor")["value"], "100% of one core");
     assert_eq!(row(&p, "Memory")["value"], "512 MB");
-    assert!(has_row(&p, "Encoding time and queue"));
 }
 
 #[test]

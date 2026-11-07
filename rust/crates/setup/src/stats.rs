@@ -206,20 +206,19 @@ pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> V
     out.push(bitrate);
 
     out.push(Row::head("phone", &tr("Phone")));
-    out.push(Row::later(&tr("Delay from camera to virtual camera")));
-    out.push(Row::later(&tr("Wi-Fi band and signal")));
-    out.push(Row::later(&tr("Temperature and throttling")));
-    if nerd {
-        out.push(Row::later(&tr("Camera frame rate")));
-        out.push(Row::later(&tr("Encoding time and queue")));
-        out.push(Row::later(&tr("Round trip, jitter and clock offset")));
-    }
+    // Everything here needs the phone app, so it's one line instead of a row of the same answer each
+    let missing = if nerd {
+        tr("The delay from the camera, Wi-Fi band and signal, temperature and throttling, camera frame rate, encoding time and queue, and round trip, jitter and clock offset")
+    } else {
+        tr("The delay from the camera, Wi-Fi band and signal, and temperature and throttling")
+    };
+    out.push(Row::line(&tr("From the phone"), tr("Not available yet")).kind("status_dim").note(missing));
     let apps = match ctx.watched {
         Some(true) => tr("In use"),
         Some(false) => tr("Nothing"),
         None => tr("Not known"),
     };
-    out.push(Row::line(&tr("Reading the virtual camera"), apps).note(tr("Which apps isn't available yet")));
+    out.push(Row::line(&tr("Reading the virtual camera"), apps).note(tr("Naming the apps isn't possible yet")));
 
     if nerd {
         out.push(Row::head("chip", &tr("On this computer")));
