@@ -394,11 +394,35 @@ fn row_enabled(env: &Env, name: &str) -> bool {
     env.plugin.rows().iter().find(|r| r["name"] == name).unwrap()["enabled"].as_bool().unwrap()
 }
 
-/// A DSLR's settings: what the camera allows now, held by the camera, so never saved or put back.
-#[derive(Clone, Default)]
+/// A DSLR's settings: what the camera allows now, held by the camera, so never saved or put back. Answers like the camera: a request it
+/// takes moves the value (`taking` false: no room for it), and `working` says it hasn't finished.
+#[derive(Clone)]
 struct Dslr {
     offered: Arc<Mutex<Vec<Control>>>,
     sets: Arc<Mutex<Vec<(String, i64)>>>,
+    taking: Arc<Mutex<bool>>,
+    working: Arc<Mutex<bool>>,
+}
+
+impl Default for Dslr {
+    fn default() -> Dslr {
+        Dslr { offered: Arc::default(), sets: Arc::default(), taking: Arc::new(Mutex::new(true)), working: Arc::default() }
+    }
+}
+
+impl Dslr {
+    fn working(&self, on: bool) {
+        *self.working.lock().unwrap() = on;
+    }
+    fn taking(&self, on: bool) {
+        *self.taking.lock().unwrap() = on;
+    }
+    fn value(&self, name: &str) -> i64 {
+        self.offered.lock().unwrap().iter().find(|c| c.name == name).unwrap().value
+    }
+    fn names(&self) -> Vec<(String, i64)> {
+        self.sets.lock().unwrap().clone()
+    }
 }
 
 impl Controls for Dslr {
@@ -406,19 +430,37 @@ impl Controls for Dslr {
         self.offered.lock().unwrap().clone()
     }
     fn set(&mut self, name: &str, value: i64) -> bool {
+        if !*self.taking.lock().unwrap() {
+            return false;
+        }
         self.sets.lock().unwrap().push((name.into(), value));
+        if let Some(c) = self.offered.lock().unwrap().iter_mut().find(|c| c.name == name && c.kind == "menu") {
+            c.value = value;
+        }
         true
+    }
+    fn busy(&mut self) -> bool {
+        *self.working.lock().unwrap()
     }
 }
 
+/// What a D5100 in M mode offers (probe/allconfig_M.txt), in the Nikon driver's own wording with its decimal commas.
 fn dslr_controls() -> Vec<Control> {
-    let mut focus = Control::new("dslr_focus", "buttons", 0, 2, 1, 1, 1);
+    let mut focus = Control::new("dslr_focus", "buttons", 0, 4, 1, 1, 1);
     focus.transient = true;
-    let mut aperture = Control::new("dslr_aperture", "menu", 0, 2, 1, 1, 1);
-    aperture.menu = vec![0, 1, 2];
-    aperture.labels = vec!["f/3,5".into(), "f/4".into(), "f/5,6".into()];
-    aperture.transient = true;
-    vec![focus, aperture]
+    let menu = |name: &str, labels: &[&str], at: i64, unit: &str, ordered: bool| {
+        let mut c = Control::new(name, "menu", 0, labels.len() as i64 - 1, 1, at, at);
+        c.menu = (0..labels.len() as i64).collect();
+        c.labels = labels.iter().map(|s| s.to_string()).collect();
+        (c.transient, c.unit, c.ordered) = (true, unit.into(), ordered);
+        c
+    };
+    let aperture = ["f/3,5", "f/4", "f/4,5", "f/5", "f/5,6", "f/6,3", "f/7,1", "f/8", "f/9", "f/10", "f/11", "f/13", "f/14", "f/16", "f/18", "f/20", "f/22"];
+    let comp = ["-5", "-4,666", "-4,333", "-4", "-3,666", "-3,333", "-3", "-2,666", "-2,333", "-2", "-1,666", "-1,333", "-1", "-0,666", "-0,333", "0",
+                "0,333", "0,666", "1", "1,333", "1,666", "2", "2,333", "2,666", "3", "3,333", "3,666", "4", "4,333", "4,666", "5"];
+    let balance = ["Automatic", "Daylight", "Fluorescent", "Tungsten", "Flash", "Cloudy", "Shade", "Preset"];
+    vec![focus, menu("dslr_aperture", &aperture, 4, "fstop", true), menu("dslr_exposure_comp", &comp, 15, "ev", true),
+         menu("dslr_white_balance", &balance, 0, "", false)]
 }
 
 fn dslr_card() -> (Env, Dslr) {
@@ -431,16 +473,61 @@ fn dslr_card() -> (Env, Dslr) {
     (env, backend)
 }
 
+fn ui(env: &mut Env, callback: &str, args: Vec<Value>) {
+    env.plugin.on_ui(&mut env.host, &UiEvent { ui: "card".into(), callback: callback.into(), args });
+}
+
+fn tile_index(env: &Env, name: &str) -> usize {
+    let at = env.plugin.tiles().iter().position(|t| t["name"] == name).unwrap();
+    env.plugin.tile_indexes()[at]
+}
+
+fn tick(env: &mut Env) {
+    env.host.cancel_schedule(T_HOLD); // a timer that has fired is no longer waiting
+    env.plugin.on_event(&mut env.host, &Event::TimerFired { owner: NAME.into(), token: T_HOLD.into() });
+}
+
 #[test]
-fn a_dslrs_card_shows_focus_buttons_and_the_cameras_own_choices() {
+fn a_dslrs_card_is_focus_buttons_and_a_strip_of_tiles_with_no_heading_over_them() {
     let (env, _) = dslr_card();
     let rows = env.plugin.rows();
-    let focus = rows.iter().find(|r| r["name"] == "dslr_focus").unwrap();
-    assert_eq!((focus["kind"].as_str(), focus["options"].as_array().unwrap().len()), (Some("buttons"), 3));
-    let aperture = rows.iter().find(|r| r["name"] == "dslr_aperture").unwrap();
-    assert_eq!((aperture["options"].clone(), aperture["index"].clone()), (json!(["f/3,5", "f/4", "f/5,6"]), json!(1)));
+    assert_eq!(rows.len(), 1, "one kind of settings needs no heading: {rows:?}");
+    let focus = &rows[0];
+    assert_eq!((focus["name"].as_str(), focus["kind"].as_str(), focus["options"].as_array().unwrap().len()), (Some("dslr_focus"), Some("buttons"), 3));
+    let tiles = env.plugin.tiles();
+    let of = |i: usize| (tiles[i]["name"].as_str().unwrap(), tiles[i]["label"].as_str().unwrap(), tiles[i]["kind"].as_str().unwrap());
+    assert_eq!((of(0), of(1), of(2)), (("dslr_aperture", "Aperture", "stepper"), ("dslr_exposure_comp", "Exposure", "stepper"), ("dslr_white_balance", "White balance", "menu")));
+    // The camera's own wording, tidied: f-numbers with a point and exposure in thirds with one decimal and a sign
+    let options = |i: usize| tiles[i]["options"].as_array().unwrap().iter().map(|o| o.as_str().unwrap().to_string()).collect::<Vec<_>>();
+    assert_eq!(options(0)[..3], ["f/3.5", "f/4", "f/4.5"]);
+    assert_eq!((options(1)[0].as_str(), options(1)[1].as_str(), options(1)[15].as_str(), options(1)[16].as_str(), options(1)[30].as_str()), ("-5.0", "-4.7", "0", "+0.3", "+5.0"));
+    assert_eq!(options(2)[..2], ["Automatic", "Daylight"]);
+    assert_eq!(env.plugin.tile_indexes(), [4, 15, 0]);
     // Nothing for Reset to put back on a camera that holds its own settings
     assert_eq!(env.plugin.props(false)["has-controls"], false);
+}
+
+/// A webcam offering brightness (Light) and saturation (Image), as most do
+struct Two;
+
+impl Controls for Two {
+    fn list(&mut self) -> Vec<Control> {
+        vec![Control::new("brightness", "int", 0, 255, 1, 128, 128), Control::new("saturation", "int", 0, 255, 1, 128, 128)]
+    }
+    fn set(&mut self, _: &str, _: i64) -> bool {
+        true
+    }
+}
+
+#[test]
+fn headings_name_the_kinds_of_settings_only_when_there_are_several() {
+    let headings = |env: &Env| env.plugin.rows().iter().filter(|r| r["kind"] == "heading").map(|r| r["name"].as_str().unwrap().to_string()).collect::<Vec<_>>();
+    let mut env = cams_with(vec![cam()], Box::new(|_| Some(Box::new(Two) as Box<dyn Controls>)));
+    pick(&mut env, Some("cam"));
+    assert_eq!(headings(&env), ["light", "image"]);
+    let (env, _) = card();
+    assert!(headings(&env).is_empty(), "Light alone says nothing a heading would add");
+    assert!(env.plugin.rows().iter().any(|r| r["name"] == "gain"));
 }
 
 #[test]
@@ -448,7 +535,7 @@ fn a_dslrs_settings_are_sent_to_the_camera_but_never_saved_or_put_back() {
     let (mut env, backend) = dslr_card();
     set(&mut env, "dslr_aperture", 2);
     set(&mut env, "dslr_focus", 0);
-    assert_eq!(*backend.sets.lock().unwrap(), [("dslr_aperture".to_string(), 2), ("dslr_focus".to_string(), 0)]);
+    assert_eq!(backend.names(), [("dslr_aperture".to_string(), 2), ("dslr_focus".to_string(), 0)]);
     assert!(env.plugin.get_config()["cameras"].as_object().unwrap().is_empty());
     backend.sets.lock().unwrap().clear();
     stream(&mut env, "gphoto2-d5100");
@@ -460,14 +547,172 @@ fn a_dslrs_settings_are_sent_to_the_camera_but_never_saved_or_put_back() {
 #[test]
 fn a_dslrs_card_follows_the_mode_dial() {
     let (mut env, backend) = dslr_card();
-    assert_eq!(env.plugin.rows().iter().filter(|r| r["kind"] != "heading").count(), 2);
+    assert_eq!((env.plugin.rows().len(), env.plugin.tiles().len()), (1, 3));
     // Turned to a scene mode: the camera refuses everything, so the next look finds nothing to offer
     backend.offered.lock().unwrap().clear();
     env.plugin.rescan(&mut env.host);
-    assert!(env.plugin.rows().is_empty());
+    assert!(env.plugin.rows().is_empty() && env.plugin.tiles().is_empty());
     backend.offered.lock().unwrap().extend(dslr_controls());
     env.plugin.rescan(&mut env.host);
-    assert_eq!(env.plugin.rows().iter().filter(|r| r["kind"] != "heading").count(), 2);
+    assert_eq!((env.plugin.rows().len(), env.plugin.tiles().len()), (1, 3));
+}
+
+#[test]
+fn an_arrow_steps_one_place_along_the_list_and_stops_at_its_ends() {
+    let (mut env, backend) = dslr_card();
+    ui(&mut env, "control-step", vec![json!("dslr_aperture"), json!(1)]);
+    ui(&mut env, "control-step", vec![json!("dslr_aperture"), json!(1)]);
+    assert_eq!((backend.value("dslr_aperture"), tile_index(&env, "dslr_aperture")), (6, 6));
+    ui(&mut env, "control-step", vec![json!("dslr_aperture"), json!(-1)]);
+    assert_eq!(backend.value("dslr_aperture"), 5);
+    // The widest and the narrowest end: no request goes to the camera past them
+    backend.sets.lock().unwrap().clear();
+    for _ in 0..30 {
+        ui(&mut env, "control-step", vec![json!("dslr_aperture"), json!(-1)]);
+    }
+    assert_eq!(backend.value("dslr_aperture"), 0);
+    assert_eq!(backend.names().len(), 5, "five steps to the end and none after: {:?}", backend.names());
+    // Never saved: the camera holds it
+    assert!(env.plugin.get_config()["cameras"].as_object().unwrap().is_empty());
+}
+
+#[test]
+fn a_step_the_camera_had_no_room_for_leaves_the_card_where_the_camera_is() {
+    let (mut env, backend) = dslr_card();
+    backend.taking(false);
+    ui(&mut env, "control-step", vec![json!("dslr_exposure_comp"), json!(1)]);
+    assert_eq!(tile_index(&env, "dslr_exposure_comp"), 15);
+    backend.taking(true);
+    ui(&mut env, "control-step", vec![json!("dslr_exposure_comp"), json!(1)]);
+    assert_eq!(tile_index(&env, "dslr_exposure_comp"), 16);
+}
+
+#[test]
+fn picking_from_the_list_goes_straight_to_that_entry() {
+    let (mut env, backend) = dslr_card();
+    ui(&mut env, "control-set", vec![json!("dslr_exposure_comp"), json!(18.0)]);
+    assert_eq!((backend.value("dslr_exposure_comp"), tile_index(&env, "dslr_exposure_comp")), (18, 18));
+    ui(&mut env, "control-set", vec![json!("dslr_white_balance"), json!(3.0)]);
+    assert_eq!(backend.value("dslr_white_balance"), 3);
+}
+
+#[test]
+fn a_held_arrow_steps_at_once_then_repeats_but_only_when_the_camera_is_ready() {
+    let (mut env, backend) = dslr_card();
+    ui(&mut env, "hold-down", vec![json!("dslr_aperture"), json!(1)]);
+    assert_eq!(backend.names(), [("dslr_aperture".to_string(), 5)], "one step as it goes down");
+    assert!(env.host.is_scheduled(T_HOLD));
+    // Nothing more through the first pause, so a click is one step
+    for _ in 0..8 {
+        tick(&mut env);
+    }
+    assert_eq!(backend.names().len(), 1);
+    // The first repeat, and the camera still busy for the ones after
+    backend.working(true);
+    for _ in 0..30 {
+        tick(&mut env);
+    }
+    assert_eq!(backend.names().len(), 1, "no backlog on a camera that is still working: {:?}", backend.names());
+    backend.working(false);
+    tick(&mut env);
+    assert_eq!(backend.names().len(), 2);
+    for _ in 0..4 {
+        tick(&mut env);
+    }
+    assert_eq!(backend.value("dslr_aperture"), 5 + backend.names().len() as i64 - 1);
+    ui(&mut env, "hold-up", vec![]);
+    let before = backend.names().len();
+    for _ in 0..20 {
+        tick(&mut env);
+    }
+    assert_eq!(backend.names().len(), before, "let go, so nothing more");
+    assert!(!env.host.is_scheduled(T_HOLD));
+}
+
+#[test]
+fn a_held_arrow_stops_at_the_end_of_its_list() {
+    let (mut env, backend) = dslr_card();
+    ui(&mut env, "hold-down", vec![json!("dslr_aperture"), json!(1)]);
+    for _ in 0..300 {
+        tick(&mut env);
+    }
+    assert_eq!(backend.value("dslr_aperture"), 16, "f/22 is the last");
+    assert!(!env.host.is_scheduled(T_HOLD), "nothing left to wait for");
+}
+
+#[test]
+fn held_long_enough_exposure_jumps_a_whole_stop_at_a_time() {
+    let (mut env, backend) = dslr_card();
+    ui(&mut env, "hold-down", vec![json!("dslr_exposure_comp"), json!(1)]);
+    for _ in 0..27 {
+        tick(&mut env);
+    }
+    let thirds = backend.value("dslr_exposure_comp");
+    assert!(thirds > 15 && thirds <= 15 + 12, "one third a step so far: {thirds}");
+    let at = backend.names().len();
+    tick(&mut env);
+    tick(&mut env);
+    tick(&mut env);
+    let jumped: Vec<i64> = backend.names()[at..].iter().map(|(_, v)| *v).collect();
+    assert_eq!(jumped.first().map(|v| v - thirds), Some(3), "a stop is three thirds: {jumped:?}");
+}
+
+#[test]
+fn near_and_far_repeat_while_held_with_bigger_steps_after_a_while() {
+    let (mut env, backend) = dslr_card();
+    ui(&mut env, "hold-down", vec![json!("dslr_focus"), json!(-1)]);
+    for _ in 0..40 {
+        tick(&mut env);
+    }
+    ui(&mut env, "hold-up", vec![]);
+    ui(&mut env, "hold-down", vec![json!("dslr_focus"), json!(1)]);
+    ui(&mut env, "hold-up", vec![]);
+    let sent: Vec<i64> = backend.names().iter().map(|(_, v)| *v).collect();
+    assert_eq!(sent[0], 0, "Near as it goes down");
+    assert!(sent[1..sent.len() - 1].iter().all(|v| *v == 0 || *v == 3), "Near, then bigger Near: {sent:?}");
+    assert!(sent.contains(&3), "bigger once held a while: {sent:?}");
+    assert_eq!(*sent.last().unwrap(), 2, "a plain Far press is one Far");
+    // The middle button runs autofocus once, not stepping
+    backend.sets.lock().unwrap().clear();
+    ui(&mut env, "control-set", vec![json!("dslr_focus"), json!(1.0)]);
+    assert_eq!(backend.names(), [("dslr_focus".to_string(), 1)]);
+}
+
+#[test]
+fn a_hold_ends_when_another_camera_is_picked_or_the_plugin_stops() {
+    let (mut env, backend) = dslr_card();
+    ui(&mut env, "hold-down", vec![json!("dslr_focus"), json!(1)]);
+    assert!(env.host.is_scheduled(T_HOLD));
+    pick(&mut env, None);
+    assert!(!env.host.is_scheduled(T_HOLD));
+    for _ in 0..20 {
+        tick(&mut env);
+    }
+    assert_eq!(backend.names().len(), 1);
+    ui(&mut env, "hold-down", vec![json!("nothing"), json!(1)]);
+    assert!(!env.host.is_scheduled(T_HOLD), "nothing to hold");
+}
+
+#[test]
+fn stepping_and_holding_send_no_new_tiles_that_would_rebuild_the_arrow_under_the_hand() {
+    fn last_props(env: &Env) -> Value {
+        let call = env.host.calls.iter().rev().find(|c| c.starts_with("set_ui_props card ")).expect("a card update");
+        serde_json::from_str(call.strip_prefix("set_ui_props card ").unwrap()).unwrap()
+    }
+    let (mut env, _backend) = dslr_card();
+    env.plugin.card();
+    env.plugin.rescan(&mut env.host);
+    assert!(last_props(&env).get("tiles").is_none() && last_props(&env).get("rows").is_none(), "nothing changed, so nothing replaced");
+    ui(&mut env, "hold-down", vec![json!("dslr_aperture"), json!(1)]);
+    assert!(last_props(&env).get("tiles").is_none());
+    assert_eq!(last_props(&env)["tile-indexes"], json!([5, 15, 0]));
+    for _ in 0..12 {
+        tick(&mut env);
+    }
+    env.plugin.rescan(&mut env.host);
+    assert!(last_props(&env).get("tiles").is_none(), "the scan every two seconds leaves them be too");
+    // A scan while the camera is still working through a request doesn't read where it was before
+    ui(&mut env, "hold-up", vec![]);
 }
 
 // test_webcam_controls.py::test_a_webcam_is_only_written_to_once_its_stream_opens_and_gets_anti_flicker_for_the_local_mains
@@ -638,10 +883,21 @@ export component Wrapper inherits Window {
     height: 900px;
     in property <[ControlRow]> rows;
     in property <[string]> readouts;
+    in property <[ControlRow]> tiles;
+    in property <[int]> tile-indexes;
     callback control-set(string, float);
+    callback control-step(string, int);
+    callback hold-down(string, int);
+    callback hold-up();
     VerticalLayout {
         alignment: start;
-        WebcamCard { rows: root.rows; readouts: root.readouts; control-set(n, v) => { root.control-set(n, v); } }
+        WebcamCard {
+            rows: root.rows; readouts: root.readouts; tiles: root.tiles; tile-indexes: root.tile-indexes;
+            control-set(n, v) => { root.control-set(n, v); }
+            control-step(n, d) => { root.control-step(n, d); }
+            hold-down(n, d) => { root.hold-down(n, d); }
+            hold-up => { root.hold-up(); }
+        }
     }
 }"#;
 
@@ -661,40 +917,53 @@ export component Wrapper inherits Window {
         SValue::Struct(Struct::from_iter(row.as_object().unwrap().iter().filter(|(k, _)| *k != "readout").map(|(k, v)| (k.clone(), field(v)))))
     }
 
-    /// The card on a plugin's props the way the shell applies them: every list is a new model.
-    struct Card {
-        ui: ComponentInstance,
-        env: Rc<RefCell<(Env, usize)>>,
-        asked: Rc<RefCell<Vec<(String, f64)>>>,
-        backend: Backend,
+    fn model(list: Vec<SValue>) -> SValue {
+        SValue::Model(ModelRc::new(VecModel::from(list)))
     }
 
-    impl Card {
-        fn new() -> Card {
+    /// What the card asked of the plugin, in order: (callback, control, number).
+    type Asked = Rc<RefCell<Vec<(String, String, f64)>>>;
+
+    /// The card on a plugin's props the way the shell applies them: every list is a new model.
+    struct Card<B> {
+        ui: ComponentInstance,
+        env: Rc<RefCell<(Env, usize)>>,
+        /// What the card asked since the plugin was last told
+        asked: Asked,
+        /// Everything it asked since the test began
+        history: Asked,
+        backend: B,
+    }
+
+    impl<B> Card<B> {
+        fn on(env: Env, backend: B) -> Card<B> {
             i_slint_backend_testing::init_no_event_loop();
-            let (env, backend) = card();
             let ui = crate::ui_check::built(UI, "webcam.slint", WRAPPER.into()).create().expect("an instance");
-            let asked: Rc<RefCell<Vec<(String, f64)>>> = Rc::default();
-            let a = asked.clone();
-            ui.set_callback("control-set", move |args| {
-                let (SValue::String(name), SValue::Number(v)) = (&args[0], &args[1]) else { panic!("{args:?}") };
-                a.borrow_mut().push((name.to_string(), *v));
-                SValue::Void
-            })
-            .unwrap();
-            let card = Card { ui, env: Rc::new(RefCell::new((env, 0))), asked, backend };
+            let asked: Asked = Rc::default();
+            for name in ["control-set", "control-step", "hold-down", "hold-up"] {
+                let a = asked.clone();
+                ui.set_callback(name, move |args| {
+                    let text = |v: &SValue| if let SValue::String(s) = v { s.to_string() } else { String::new() };
+                    let number = |v: &SValue| if let SValue::Number(n) = v { *n } else { 0.0 };
+                    a.borrow_mut().push((name.to_string(), args.first().map(text).unwrap_or_default(), args.get(1).map(number).unwrap_or(0.0)));
+                    SValue::Void
+                })
+                .unwrap();
+            }
+            let card = Card { ui, env: Rc::new(RefCell::new((env, 0))), asked, history: Rc::default(), backend };
             card.show();
             card
         }
 
         // Hands the plugin what the card asked since last time, then shows what the plugin said
         fn show(&self) {
-            let asked: Vec<(String, f64)> = self.asked.borrow_mut().drain(..).collect();
+            let asked: Vec<(String, String, f64)> = self.asked.borrow_mut().drain(..).collect();
+            self.history.borrow_mut().extend(asked.iter().cloned());
             let mut guard = self.env.borrow_mut();
             let (env, seen) = &mut *guard;
-            for (name, v) in asked {
-                let event = UiEvent { ui: "card".into(), callback: "control-set".into(), args: vec![json!(name), json!(v)] };
-                env.plugin.on_ui(&mut env.host, &event);
+            for (callback, name, v) in asked {
+                let args = if callback == "hold-up" { vec![] } else { vec![json!(name), json!(v)] };
+                env.plugin.on_ui(&mut env.host, &UiEvent { ui: "card".into(), callback, args });
             }
             if *seen == 0 {
                 env.plugin.render(&mut env.host);
@@ -703,11 +972,16 @@ export component Wrapper inherits Window {
                 let Some(props) = call.strip_prefix("set_ui_props card ") else { continue };
                 let props: Value = serde_json::from_str(props).unwrap();
                 if let Some(rows) = props.get("rows").and_then(Value::as_array) {
-                    self.ui.set_property("rows", SValue::Model(ModelRc::new(VecModel::from(rows.iter().map(row_value).collect::<Vec<_>>())))).unwrap();
+                    self.ui.set_property("rows", model(rows.iter().map(row_value).collect())).unwrap();
+                }
+                if let Some(tiles) = props.get("tiles").and_then(Value::as_array) {
+                    self.ui.set_property("tiles", model(tiles.iter().map(row_value).collect())).unwrap();
+                }
+                if let Some(indexes) = props.get("tile-indexes").and_then(Value::as_array) {
+                    self.ui.set_property("tile-indexes", model(indexes.iter().map(|i| SValue::Number(i.as_f64().unwrap())).collect())).unwrap();
                 }
                 if let Some(readouts) = props.get("readouts").and_then(Value::as_array) {
-                    let list = readouts.iter().map(|s| SValue::String(s.as_str().unwrap().into())).collect::<Vec<_>>();
-                    self.ui.set_property("readouts", SValue::Model(ModelRc::new(VecModel::from(list)))).unwrap();
+                    self.ui.set_property("readouts", model(readouts.iter().map(|s| SValue::String(s.as_str().unwrap().into())).collect())).unwrap();
                 }
             }
             *seen = env.host.calls.len();
@@ -716,6 +990,41 @@ export component Wrapper inherits Window {
         fn pointer(&self, event: WindowEvent) {
             self.ui.window().dispatch_event(event);
             self.show();
+        }
+
+        /// The middle of the first element with this label that takes room on the card.
+        fn centre(&self, label: &str) -> LogicalPosition {
+            let found: Vec<ElementHandle> = ElementHandle::find_by_accessible_label(&self.ui, label).filter(|e| e.size().width > 0.0).collect();
+            let e = found.first().unwrap_or_else(|| panic!("no {label}"));
+            let (p, s) = (e.absolute_position(), e.size());
+            LogicalPosition::new(p.x + s.width / 2.0, p.y + s.height / 2.0)
+        }
+
+        fn press(&self, at: LogicalPosition) {
+            self.pointer(WindowEvent::PointerMoved { position: at });
+            self.pointer(WindowEvent::PointerPressed { position: at, button: PointerEventButton::Left });
+        }
+
+        fn release(&self, at: LogicalPosition) {
+            self.pointer(WindowEvent::PointerReleased { position: at, button: PointerEventButton::Left });
+        }
+
+        fn asked_so_far(&self) -> Vec<(String, String, f64)> {
+            self.history.borrow().clone()
+        }
+    }
+
+    impl Card<Backend> {
+        fn new() -> Card<Backend> {
+            let (env, backend) = card();
+            Card::on(env, backend)
+        }
+    }
+
+    impl Card<Dslr> {
+        fn dslr() -> Card<Dslr> {
+            let (env, backend) = dslr_card();
+            Card::on(env, backend)
         }
     }
 
@@ -745,5 +1054,91 @@ export component Wrapper inherits Window {
         let tiles: Vec<_> = ElementHandle::find_by_element_type_name(&card.ui, "SwitchTile").filter(|t| t.size().height > 0.0).collect();
         assert_eq!(tiles.len(), 1, "frame_rate_drop is the one switch here");
         assert!(tiles.iter().all(|t| t.size().height == 40.0), "{:?}", tiles.iter().map(|t| t.size().height).collect::<Vec<_>>());
+    }
+
+    // Near and Far act as the pointer goes down and let go as it comes up; Focus is an ordinary click
+    #[test]
+    fn near_and_far_report_going_down_and_coming_up_and_focus_is_a_click() {
+        let card = Card::dslr();
+        for label in ["Near", "Far", "Focus"] {
+            let at = card.centre(label);
+            card.press(at);
+            card.release(at);
+        }
+        let seen = card.asked_so_far();
+        let seen: Vec<(&str, &str, f64)> = seen.iter().map(|(a, b, c)| (a.as_str(), b.as_str(), *c)).collect();
+        assert_eq!(seen, [("hold-down", "dslr_focus", -1.0), ("hold-up", "", 0.0), ("hold-down", "dslr_focus", 1.0), ("hold-up", "", 0.0), ("control-set", "dslr_focus", 1.0)]);
+        // A press and release is one step of Near, one of Far, and the autofocus
+        assert_eq!(card.backend.names(), [("dslr_focus".to_string(), 0), ("dslr_focus".to_string(), 2), ("dslr_focus".to_string(), 1)]);
+    }
+
+    // The arrow under the hand must still be there, and still hear the release, after the plugin has answered each step
+    #[test]
+    fn a_held_arrow_survives_the_plugin_answering_each_step() {
+        let card = Card::dslr();
+        let found: Vec<ElementHandle> = ElementHandle::find_by_accessible_label(&card.ui, "Next").filter(|e| e.size().width > 0.0).collect();
+        assert_eq!(found.len(), 2, "an arrow each way on the aperture and on the exposure");
+        assert_eq!(found[0].accessible_description().as_deref(), Some("Aperture"), "the arrow says whose it is");
+        let next = card.centre("Next");
+        card.press(next);
+        assert_eq!(card.backend.value("dslr_aperture"), 5, "a step as it went down");
+        // The plugin's answers while it's held: the timer's steps, each followed by new indexes for the card
+        for _ in 0..12 {
+            tick(&mut card.env.borrow_mut().0);
+            card.show();
+        }
+        assert!(card.backend.value("dslr_aperture") > 5);
+        card.release(next);
+        let asked = card.asked_so_far();
+        assert_eq!(asked.last().map(|(a, _, _)| a.as_str()), Some("hold-up"), "the release got through: {asked:?}");
+        assert!(!card.env.borrow().0.host.is_scheduled(T_HOLD));
+    }
+
+    // The wheel over a dial steps it one place a notch, the other way for the other turn, and a smooth wheel's small turns add up
+    #[test]
+    fn the_mouse_wheel_over_a_dial_steps_it() {
+        let card = Card::dslr();
+        let at = card.centre("Aperture");
+        let scroll = |dy: f32| card.pointer(WindowEvent::PointerScrolled { position: at, delta_x: 0.0, delta_y: dy });
+        scroll(60.0);
+        scroll(-60.0);
+        scroll(-60.0);
+        assert_eq!(card.backend.value("dslr_aperture"), 3, "up one, down two from f/5.6");
+        for _ in 0..5 {
+            scroll(4.0);
+        }
+        assert_eq!(card.backend.value("dslr_aperture"), 3, "twenty pixels of smooth scrolling isn't a step yet");
+        for _ in 0..5 {
+            scroll(4.0);
+        }
+        assert_eq!(card.backend.value("dslr_aperture"), 4, "forty is");
+        let asked = card.asked_so_far();
+        assert!(asked.iter().all(|(a, name, _)| a == "control-step" && name == "dslr_aperture"), "{asked:?}");
+    }
+
+    // At the start of a list the arrow that would go before it can't be pressed
+    #[test]
+    fn the_arrow_that_would_pass_the_end_of_a_list_does_nothing() {
+        let card = Card::dslr();
+        let first = card.centre("Previous");
+        // The aperture is at f/5.6, a few places in: step down to the widest, then press the arrow once more
+        for _ in 0..4 {
+            card.press(first);
+            card.release(first);
+        }
+        assert_eq!(card.backend.value("dslr_aperture"), 0);
+        let sent = card.backend.names().len();
+        card.press(first);
+        card.release(first);
+        assert_eq!(card.backend.names().len(), sent, "f/3.5 is the first: nothing further to ask for");
+    }
+
+    #[test]
+    fn the_stepper_shows_the_cameras_value_tidied_between_its_arrows() {
+        let card = Card::dslr();
+        let values: Vec<String> = ElementHandle::find_by_accessible_label(&card.ui, "Aperture").filter_map(|e| e.accessible_value()).map(|v| v.to_string()).collect();
+        assert!(values.iter().any(|v| v == "f/5.6"), "{values:?}");
+        let values: Vec<String> = ElementHandle::find_by_accessible_label(&card.ui, "Exposure").filter_map(|e| e.accessible_value()).map(|v| v.to_string()).collect();
+        assert!(values.iter().any(|v| v == "0"), "{values:?}");
     }
 }

@@ -9,7 +9,7 @@ use super::Capture;
 use crate::webcam_controls::{Control, Controls};
 use crate::webcams::{gphoto_port, Choice, Device};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{sync_channel, Receiver, RecvTimeoutError, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -21,8 +21,15 @@ pub const WHITE_BALANCE: &str = "dslr_white_balance";
 /// What the card calls them, and the camera's own name for each setting.
 /// A setting can go by another name on another make (Canon's aperture is "aperture"), so each lists the names to try in turn.
 const MENUS: [(&str, &[&str]); 3] = [(APERTURE, &["f-number", "aperture"]), (EXPOSURE_COMP, &["exposurecompensation"]), (WHITE_BALANCE, &["whitebalance"])];
-/// How far a Near or Far press moves the focus, in the camera's own steps.
+/// How far a Near or Far press moves the focus, in the camera's own steps, and how far one goes once the button has been held a while.
 pub const FOCUS_STEP: i32 = 1000;
+pub const FOCUS_BIG_STEP: i32 = 3000;
+/// What the focus control is told: the buttons Near, Focus (autofocus once) and Far, and Near and Far with the bigger step.
+pub const NEAR: i64 = 0;
+pub const AUTOFOCUS: i64 = 1;
+pub const FAR: i64 = 2;
+pub const NEAR_BIG: i64 = 3;
+pub const FAR_BIG: i64 = 4;
 /// How often the settings are read again while streaming.
 /// Requests waiting for the camera's thread, and how many it does between two frames.
 const MAX_QUEUED: usize = 4;
@@ -89,14 +96,16 @@ pub(super) fn resolve<'a>(rig: &mut dyn Rig, names: &[&'a str]) -> Option<(&'a s
 }
 
 /// What to write to move the focus one step toward near (-1) or far (1): a number where the camera takes one (Nikon), else the
-/// medium step of the camera's own Near and Far choices (Canon).
-fn focus_step(setting: &Setting, direction: i32) -> Option<String> {
+/// medium step of the camera's own Near and Far choices (Canon), or its biggest one for `big`.
+fn focus_step(setting: &Setting, direction: i32, big: bool) -> Option<String> {
     match setting.kind {
-        Kind::Range { .. } => Some((direction * FOCUS_STEP).to_string()),
+        Kind::Range { .. } => Some((direction * if big { FOCUS_BIG_STEP } else { FOCUS_STEP }).to_string()),
         Kind::Choice => {
             let word = if direction < 0 { "Near" } else { "Far" };
             let ours: Vec<&String> = setting.choices.iter().filter(|c| c.starts_with(word)).collect();
-            ours.iter().find(|c| c.ends_with('2')).or(ours.first()).map(|c| (*c).clone())
+            let wanted = if big { '3' } else { '2' };
+            let fallback = if big { ours.last() } else { ours.first() };
+            ours.iter().find(|c| c.ends_with(wanted)).or(fallback).map(|c| (*c).clone())
         }
         _ => None,
     }
@@ -107,9 +116,9 @@ pub fn read_controls(rig: &mut dyn Rig) -> Vec<Control> {
     let mut out = Vec::new();
     let usable = |s: &Setting| !s.readonly;
     let drive = rig.read("autofocusdrive").is_some_and(|s| usable(&s))
-        && rig.read("manualfocusdrive").is_some_and(|s| usable(&s) && focus_step(&s, -1).is_some() && focus_step(&s, 1).is_some());
+        && rig.read("manualfocusdrive").is_some_and(|s| usable(&s) && focus_step(&s, -1, false).is_some() && focus_step(&s, 1, false).is_some());
     if drive {
-        let mut c = Control::new(FOCUS, "buttons", 0, 2, 1, 1, 1);
+        let mut c = Control::new(FOCUS, "buttons", NEAR, FAR_BIG, 1, AUTOFOCUS, AUTOFOCUS);
         c.transient = true;
         out.push(c);
     }
@@ -120,19 +129,27 @@ pub fn read_controls(rig: &mut dyn Rig) -> Vec<Control> {
         c.menu = (0..s.choices.len() as i64).collect();
         c.labels = s.choices;
         c.transient = true;
+        // Aperture and exposure compensation run in order, so the card steps along them; white balance is a set of names
+        (c.ordered, c.unit) = match name {
+            APERTURE => (true, "fstop".into()),
+            EXPOSURE_COMP => (true, "ev".into()),
+            _ => (false, String::new()),
+        };
         out.push(c);
     }
     out
 }
 
-/// Does what a control says: a menu takes the nth choice of the camera's list, the focus buttons are Near (0), Focus (1) and Far (2).
+/// Does what a control says: a menu takes the nth choice of the camera's list, the focus buttons are Near, Focus and Far (and the two
+/// with a bigger step).
 pub fn write_control(rig: &mut dyn Rig, name: &str, value: i64) -> Result<(), String> {
     if name == FOCUS {
         return match value {
-            1 => rig.write("autofocusdrive", "1"),
-            0 | 2 => {
+            AUTOFOCUS => rig.write("autofocusdrive", "1"),
+            NEAR | FAR | NEAR_BIG | FAR_BIG => {
                 let drive = rig.read("manualfocusdrive").ok_or("the camera can't drive its focus")?;
-                let step = focus_step(&drive, value as i32 - 1).ok_or("no focus step to take")?;
+                let direction = if value == NEAR || value == NEAR_BIG { -1 } else { 1 };
+                let step = focus_step(&drive, direction, value >= NEAR_BIG).ok_or("no focus step to take")?;
                 rig.write("manualfocusdrive", &step)
             }
             _ => Err("no such focus button".into()),
@@ -157,6 +174,8 @@ struct Hub {
     cmds: SyncSender<Cmd>,
     controls: Arc<Mutex<Vec<Control>>>,
     stills: Arc<StillsShared>,
+    /// Requests handed over that the camera hasn't finished, the list read again after each included.
+    pending: Arc<AtomicUsize>,
 }
 
 /// What the photo service of the camera on a port shares with its thread, while that streams.
@@ -189,7 +208,18 @@ impl Controls for GphotoControls {
     /// Handed to the camera's thread to do between two frames (a focus run can take a second), so it says yes at once. Only a few wait at a
     /// time: a press with that many ahead of it is dropped, not queued behind seconds of focusing.
     fn set(&mut self, name: &str, value: i64) -> bool {
-        hubs().lock().unwrap().get(&self.port).is_some_and(|h| h.cmds.try_send(Cmd::Set(name.into(), value)).is_ok())
+        let hubs = hubs().lock().unwrap();
+        let Some(h) = hubs.get(&self.port) else { return false };
+        h.pending.fetch_add(1, Ordering::SeqCst);
+        let sent = h.cmds.try_send(Cmd::Set(name.into(), value)).is_ok();
+        if !sent {
+            h.pending.fetch_sub(1, Ordering::SeqCst);
+        }
+        sent
+    }
+
+    fn busy(&mut self) -> bool {
+        hubs().lock().unwrap().get(&self.port).is_some_and(|h| h.pending.load(Ordering::SeqCst) > 0)
     }
 }
 
@@ -259,7 +289,8 @@ fn run(mut connect: Connect, port: &str, timing: Timing, stop: &Arc<AtomicBool>,
     let id = IDS.fetch_add(1, Ordering::SeqCst);
     let (cmd_tx, cmds) = sync_channel::<Cmd>(MAX_QUEUED);
     let shared = Arc::new(Mutex::new(Vec::new()));
-    hubs().lock().unwrap().insert(port.to_string(), Hub { id, cmds: cmd_tx, controls: shared.clone(), stills: stills.clone() });
+    let pending = Arc::new(AtomicUsize::new(0));
+    hubs().lock().unwrap().insert(port.to_string(), Hub { id, cmds: cmd_tx, controls: shared.clone(), stills: stills.clone(), pending: pending.clone() });
     let mut rig: Option<Box<dyn Rig>> = None;
     let (mut fails, mut delay) = (0u32, timing.restart);
     let mut refreshed = Instant::now();
@@ -301,7 +332,7 @@ fn run(mut connect: Connect, port: &str, timing: Timing, stop: &Arc<AtomicBool>,
             notify_changed(port);
             continue;
         }
-        let mut set_something = false;
+        let mut done = 0;
         for _ in 0..PER_FRAME {
             if stop.load(Ordering::SeqCst) {
                 break;
@@ -310,14 +341,18 @@ fn run(mut connect: Connect, port: &str, timing: Timing, stop: &Arc<AtomicBool>,
             if let Err(why) = write_control(r.as_mut(), &name, value) {
                 log::debug!("the camera refused {name} = {value}: {why}");
             }
-            set_something = true;
+            done += 1;
         }
-        if set_something || refreshed.elapsed() >= REFRESH {
+        if done > 0 || refreshed.elapsed() >= REFRESH {
             *shared.lock().unwrap() = read_controls(r.as_mut());
             if stills.set_caps(Some(read_photo_caps(r.as_mut()))) {
                 notify_changed(port);
             }
             refreshed = Instant::now();
+        }
+        // Only now, with the list up to date: whoever waits for the camera to be idle then reads where it really is
+        if done > 0 {
+            pending.fetch_sub(done, Ordering::SeqCst);
         }
         match r.preview() {
             Ok(frame) => {
@@ -642,6 +677,51 @@ mod tests {
         state.lock().unwrap().settings.get_mut("f-number").unwrap().0 = true;
         assert!(write_control(&mut rig, APERTURE, 0).is_err());
         assert_eq!(state.lock().unwrap().settings["f-number"].2, "f/5,6");
+    }
+
+    #[test]
+    fn a_held_focus_button_takes_the_bigger_step_a_nikon_takes_as_a_number_and_a_canon_as_its_third_choice() {
+        let state = camera(false);
+        let mut rig = Fake(state.clone());
+        write_control(&mut rig, FOCUS, NEAR_BIG).unwrap();
+        write_control(&mut rig, FOCUS, FAR_BIG).unwrap();
+        {
+            let choices = ["Near 1", "Near 2", "Near 3", "None", "Far 1", "Far 2", "Far 3"].map(String::from).to_vec();
+            state.lock().unwrap().settings.insert("manualfocusdrive".into(), (false, choices, "None".into()));
+        }
+        write_control(&mut rig, FOCUS, NEAR_BIG).unwrap();
+        write_control(&mut rig, FOCUS, FAR_BIG).unwrap();
+        write_control(&mut rig, FOCUS, FAR).unwrap();
+        assert_eq!(state.lock().unwrap().log, ["manualfocusdrive=-3000", "manualfocusdrive=3000", "manualfocusdrive=Near 3", "manualfocusdrive=Far 3", "manualfocusdrive=Far 2"]);
+        // The control takes all five, with Focus in the middle as before
+        let focus = read_controls(&mut Fake(camera(false))).remove(0);
+        assert_eq!((focus.minimum, focus.maximum, focus.value), (NEAR, FAR_BIG, AUTOFOCUS));
+    }
+
+    #[test]
+    fn aperture_and_exposure_compensation_are_dials_and_white_balance_is_not() {
+        let controls = read_controls(&mut Fake(camera(false)));
+        let of = |name: &str| controls.iter().find(|c| c.name == name).map(|c| (c.ordered, c.unit.clone())).unwrap();
+        assert_eq!((of(APERTURE), of(EXPOSURE_COMP), of(WHITE_BALANCE)), ((true, "fstop".to_string()), (true, "ev".to_string()), (false, String::new())));
+    }
+
+    #[test]
+    fn focus_steps_wait_for_the_last_one_to_finish() {
+        let state = camera(false);
+        let mut cap = open_with("gphoto2:usb:T5", fast(), connecting(&state)).ok().unwrap();
+        cap.read().unwrap();
+        let mut controls = GphotoControls::new("gphoto2:usb:T5");
+        wait_for("the list", || !controls.list().is_empty());
+        assert!(!controls.busy());
+        assert!(controls.set(FOCUS, NEAR));
+        // Counted until the camera has done it and the list is read again: a held button sends nothing more before that
+        wait_for("the step", || !controls.busy());
+        let log = state.lock().unwrap().log.clone();
+        assert_eq!(log.iter().filter(|l| l.starts_with("manualfocusdrive")).collect::<Vec<_>>(), ["manualfocusdrive=-1000"]);
+        assert!(controls.list().iter().any(|c| c.name == FOCUS));
+        // A request that wasn't taken (the camera is gone) leaves nothing counted
+        drop(cap);
+        assert!(!controls.set(FOCUS, NEAR) && !controls.busy());
     }
 
     fn wait_for(what: &str, mut ok: impl FnMut() -> bool) {

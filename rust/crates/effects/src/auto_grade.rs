@@ -1,6 +1,5 @@
 //! What Auto colour grading needs between the Colour grading card and the frames: the frame step that looks at the picture and what the people events tell it. The measuring is in `auto_measure`, the fit in `auto_fit`.
 
-use crate::auto_fit::Basic;
 use crate::auto_measure::{noise_level, Look, Measurement, Measurer};
 use crate::auto_tuning::*;
 use telescope_core::i18n::{n_, tr};
@@ -186,25 +185,16 @@ impl CpuStep for MeasureStep {
     }
 }
 
-/// What Undo puts back: the sliders Auto replaced and, once the phone's exposure and white balance can be locked for a measurement, the camera's own state.
-#[derive(Clone, Debug)]
-pub struct Undo {
-    pub basic: Basic,
-    pub camera: Option<Value>,
-}
-
 /// The camera as measuring found it. Where the phone's auto exposure and white balance locks plug in.
 #[derive(Clone, Debug)]
 pub struct CameraLock {
-    /// What Undo gives back to the camera.
-    pub restore: Option<Value>,
     /// The source can't be locked, so the result may drift as it adjusts itself.
     pub drifts: bool,
 }
 
 impl Default for CameraLock {
     fn default() -> CameraLock {
-        CameraLock { restore: None, drifts: true }
+        CameraLock { drifts: true }
     }
 }
 
@@ -216,7 +206,6 @@ pub struct AutoState {
     pub poster: Option<Arc<dyn Poster>>,
     pub busy: bool,
     pub lock: Option<CameraLock>,
-    pub undo: Option<Undo>,
     /// Auto's values are in the sliders now, so a later press that finds nothing to change takes them out.
     pub wrote: bool,
     pub note: (String, &'static str),
@@ -228,12 +217,12 @@ pub struct AutoState {
 
 impl Default for AutoState {
     fn default() -> AutoState {
-        AutoState { now: Arc::new(monotonic_ns), shared: Arc::default(), poster: None, busy: false, lock: None, undo: None, wrote: false, note: (String::new(), "dim"), label: String::new(), last: None }
+        AutoState { now: Arc::new(monotonic_ns), shared: Arc::default(), poster: None, busy: false, lock: None, wrote: false, note: (String::new(), "dim"), label: String::new(), last: None }
     }
 }
 
 impl AutoState {
     pub fn props(&self) -> Value {
-        json!({"auto-busy": self.busy, "auto-undo": self.undo.is_some(), "auto-label": if self.busy { tr(LOOKING_LABEL) } else { self.label.clone() }})
+        json!({"auto-busy": self.busy, "auto-label": if self.busy { tr(LOOKING_LABEL) } else { self.label.clone() }})
     }
 }
