@@ -769,6 +769,16 @@ fn answered(run: impl FnOnce() -> Value) -> Value {
     })
 }
 
+/// Every action as a tool outside the window lists it: its id, card, label, what it takes and where it is now.
+pub fn actions_json(host: &dyn Host) -> Vec<Value> {
+    all_actions(host).into_iter().map(|(_, a)| json!({"id": a.id, "group": a.group, "label": a.label, "params": a.params, "current": a.current})).collect()
+}
+
+/// handle_remote for a request from a tool outside the window; a crash in it is still answered.
+pub fn run_remote_request(host: &mut dyn Host, request: &Value) -> Value {
+    answered(|| handle_remote(host, request))
+}
+
 /// A `telescope --action` request: {"list": true}, or {"action": id, "params": {name: value}} (handle_remote).
 pub fn handle_remote(host: &mut dyn Host, request: &Value) -> Value {
     let actions = all_actions(host);

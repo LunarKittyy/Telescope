@@ -199,6 +199,8 @@ pub struct AutoState {
     pub shared: Arc<Shared>,
     pub poster: Option<Arc<dyn Poster>>,
     pub busy: bool,
+    /// The token of an outside measuring request (picture_measure_requested) this measurement answers, instead of changing any slider.
+    pub probe: Option<String>,
     pub lock: Option<CameraLock>,
     pub undo: Option<Undo>,
     /// A press finished, so the brighter and darker buttons make sense.
@@ -210,7 +212,7 @@ pub struct AutoState {
 
 impl Default for AutoState {
     fn default() -> AutoState {
-        AutoState { now: Arc::new(monotonic_ns), shared: Arc::default(), poster: None, busy: false, lock: None, undo: None, nudge: false, wrote: false, note: (String::new(), "dim") }
+        AutoState { now: Arc::new(monotonic_ns), shared: Arc::default(), poster: None, busy: false, probe: None, lock: None, undo: None, nudge: false, wrote: false, note: (String::new(), "dim") }
     }
 }
 

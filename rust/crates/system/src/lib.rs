@@ -8,6 +8,8 @@ pub mod icon;
 pub mod hotkeys_portal;
 pub mod hotkeys_windows;
 pub mod keys;
+pub mod mcp;
+pub mod mcp_bridge;
 pub mod memory;
 pub mod registry;
 pub mod shortcuts;

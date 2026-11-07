@@ -102,6 +102,8 @@ pub struct FakeHost {
     pub plugin_configs: HashMap<String, Value>,
     /// Plugins has_plugin() says are there.
     pub plugins: Vec<String>,
+    /// What plugin_settings() lists.
+    pub settings: Vec<PluginSettings>,
     pub streaming: bool,
     pub focused: Option<String>,
     pub view: View,
@@ -241,6 +243,12 @@ impl HostSettings for FakeHost {
     }
     fn preset_plugins(&self) -> Vec<String> {
         self.preset_plugins.clone()
+    }
+    fn plugin_settings(&self) -> Vec<PluginSettings> {
+        self.settings.clone()
+    }
+    fn running_plugins(&self) -> Vec<(String, String)> {
+        self.plugins.iter().map(|p| (p.clone(), p.clone())).collect()
     }
     fn device_config(&self, source_id: Option<&str>, plugin_name: &str) -> Value {
         source_id.and_then(|id| self.device_configs.get(&(id.to_string(), plugin_name.to_string()))).cloned().unwrap_or_else(|| json!({}))

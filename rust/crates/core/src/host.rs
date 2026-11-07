@@ -208,6 +208,41 @@ pub trait HostSettings {
     fn forget_device_settings(&mut self, name: &str);
     /// Store a device's settings (presets included) and its virtual camera under a new id.
     fn move_device_settings(&mut self, old: &str, new: &str);
+    /// The running plugins that declare settings a tool outside the window may change (Plugin::settings), in registration order.
+    fn plugin_settings(&self) -> Vec<PluginSettings> {
+        Vec::new()
+    }
+    /// The plugins that are running, as (name, title).
+    fn running_plugins(&self) -> Vec<(String, String)> {
+        Vec::new()
+    }
+    /// Changes declared settings of a running plugin, given as {"key": value}. All of them are checked first and nothing changes unless
+    /// every one is fine (the problems come back together). The change goes in through the plugin's own apply_preset, so its checks
+    /// apply too, and is saved. Gives the plugin's settings afterwards.
+    fn change_plugin_settings(&mut self, name: &str, changes: &serde_json::Map<String, Value>) -> Result<Value, Vec<String>> {
+        let Some(group) = self.plugin_settings().into_iter().find(|g| g.name == name) else {
+            return Err(vec![format!("{name} has no settings to change here (it may be switched off)")]);
+        };
+        let config = self.plugin_config(name).unwrap_or(Value::Null);
+        let merged = crate::settings::merge_changes(&group.settings, &config, changes)?;
+        self.apply_preset(name, &merged);
+        self.schedule_save();
+        let after = self.plugin_config(name).unwrap_or(merged);
+        let kept: Vec<String> = changes.keys().filter_map(|key| {
+            let spec = group.settings.iter().find(|s| s.key == *key)?;
+            let (wanted, got) = (spec.check(&changes[key]).ok()?, spec.read(&after));
+            (wanted != got).then(|| format!("{name} kept {key} at {got} instead of {wanted}"))
+        }).collect();
+        if kept.is_empty() { Ok(after) } else { Err(kept) }
+    }
+}
+
+/// A running plugin's declared settings.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PluginSettings {
+    pub name: String,
+    pub title: String,
+    pub settings: Vec<crate::settings::SettingSpec>,
 }
 
 /// Output geometry for update_stream_output: None keeps the current value, Some(None) is pass-through.

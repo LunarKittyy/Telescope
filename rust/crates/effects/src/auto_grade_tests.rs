@@ -435,3 +435,80 @@ fn fitted_results_run_the_same_through_the_real_pipeline_and_the_cpu_step() {
         assert!(worst_cpu <= 3 && worst_math <= 6, "pipeline against the CPU step {worst_cpu}, against the maths {worst_math}");
     }
 }
+
+fn measured(r: &Rig) -> Option<(bool, String, Value)> {
+    r.host.events.iter().rev().find_map(|e| match e {
+        Event::PictureMeasured { ok, message, data, .. } => Some((*ok, message.clone(), data.clone())),
+        _ => None,
+    })
+}
+
+#[test]
+fn a_measure_request_answers_with_the_picture_as_numbers_and_moves_no_slider() {
+    let mut r = Rig::new("ready");
+    r.ui("slider-moved", vec![json!(0), json!(12.0)]);
+    let before = (r.plugin.grade().temperature, r.plugin.grade().tint, r.published());
+    r.event(Event::PictureMeasureRequested { token: "m1".into() });
+    assert_eq!(r.shown("auto-busy"), json!(true));
+    r.show(&Scene::default(), green().as_ref(), 16);
+    let (ok, _, data) = measured(&r).expect("an answer");
+    assert!(ok);
+    assert_eq!(data["source"], json!(SOURCE));
+    assert!(data["tone"]["middle"].as_f64().unwrap() > 0.0 && data["frames"].as_u64().unwrap() >= 5, "{data}");
+    assert_eq!((r.plugin.grade().temperature, r.plugin.grade().tint, r.published()), before, "Auto's answer is not applied");
+    assert_eq!(r.shown("auto-busy"), json!(false));
+    assert_eq!(r.shown("auto-undo"), json!(false));
+}
+
+#[test]
+fn a_measure_request_without_a_stream_or_while_busy_is_refused_with_a_reason() {
+    let mut r = Rig::new("ready");
+    r.host.streaming = false;
+    r.event(Event::PictureMeasureRequested { token: "m1".into() });
+    let (ok, why, _) = measured(&r).unwrap();
+    assert!(!ok && why.contains("No stream is running"), "{why}");
+    r.host.streaming = true;
+    r.ui("auto-clicked", vec![]);
+    r.event(Event::PictureMeasureRequested { token: "m2".into() });
+    let (ok, why, _) = measured(&r).unwrap();
+    assert!(!ok && why.contains("already looking"), "{why}");
+}
+
+#[test]
+fn a_measure_that_ends_with_the_stream_says_so() {
+    let mut r = Rig::new("ready");
+    r.event(Event::PictureMeasureRequested { token: "m1".into() });
+    r.plugin.on_stream_stop(&mut r.host);
+    let (ok, why, _) = measured(&r).unwrap();
+    assert!(!ok && why.contains("stream ended"), "{why}");
+    assert_eq!(r.shown("auto-busy"), json!(false));
+}
+
+#[test]
+fn the_grade_declares_its_sliders_with_the_ranges_the_card_has() {
+    let specs = ColourGradingPlugin::new().settings();
+    let find = |key: &str| specs.iter().find(|s| s.key == key).unwrap_or_else(|| panic!("{key} is declared"));
+    assert_eq!(specs.len(), 14);
+    assert!(find("contrast").check(&json!(2.5)).is_err() && find("contrast").check(&json!(1.25)).is_ok());
+    assert!(find("vibrance").check(&json!(-100)).is_ok() && find("vibrance").check(&json!(101)).is_err());
+    assert!(find("masters.gain").check(&json!(1.5)).is_ok() && find("masters.lift").check(&json!(0.6)).is_err());
+    // every declared key is one the plugin saves, or one it leaves out while it is at its default
+    let config = ColourGradingPlugin::new().get_config();
+    for spec in &specs {
+        if let Some(v) = telescope_core::settings::get_path(&config, &spec.key) {
+            assert_eq!(*v, spec.default, "{} starts at its declared default", spec.key);
+        }
+    }
+}
+
+#[test]
+fn changing_settings_through_the_host_reaches_the_card_and_keeps_what_was_not_named() {
+    let mut r = Rig::new("ready");
+    r.ui("slider-moved", vec![json!(0), json!(12.0)]);
+    let changes = json!({"contrast": 1.4, "masters.gain": 0.8});
+    let config = r.plugin.get_config();
+    let merged = telescope_core::settings::merge_changes(&r.plugin.settings(), &config, changes.as_object().unwrap()).unwrap();
+    r.plugin.apply_preset(&mut r.host, &merged).unwrap();
+    let g = r.plugin.grade();
+    assert_eq!((g.contrast, g.masters[2], g.temperature), (1.4, 0.8, 12.0));
+}

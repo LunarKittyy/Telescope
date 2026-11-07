@@ -209,6 +209,11 @@ pub trait Plugin: Send {
     fn apply_preset(&mut self, _host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
         self.set_config(cfg)
     }
+    /// The settings a tool outside the window (the MCP server) may list and change, with their ranges. They are keys of get_config(),
+    /// and a change goes in through apply_preset() so the plugin's own checks apply. Nothing by default.
+    fn settings(&self) -> Vec<crate::settings::SettingSpec> {
+        Vec::new()
+    }
     /// A few ("Label", "value") lines for Copy diagnostics. No tokens, addresses or names.
     fn diagnostics(&self) -> Vec<(String, String)> {
         Vec::new()
