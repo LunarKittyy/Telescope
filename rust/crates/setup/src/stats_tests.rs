@@ -342,6 +342,7 @@ fn the_phone_section_shows_what_the_phone_said_instead_of_not_available() {
     let p = phone_props(new_phone_state(), false);
     assert!(!has_row(&p, "From the phone"));
     assert_eq!(row(&p, "Delay on the phone")["value"], "11 ms");
+    assert_eq!(row(&p, "Delay on the phone")["note"], "from the camera 8.4 ms, waiting to go out 3.0 ms");
     assert_eq!(row(&p, "Phone's Wi-Fi")["value"], "5 GHz, -58 dBm");
     assert_eq!(row(&p, "Phone's Wi-Fi")["note"], "link speed 866 Mbps");
     assert_eq!(row(&p, "Temperature")["value"], "36.5 °C");
@@ -384,7 +385,7 @@ fn the_nerd_summary_carries_the_phones_numbers() {
     let p = PhoneReading::from_state(&new_phone_state()).unwrap();
     let lines = summary(&snap, &snap.sources[0], Some(&p));
     let get = |k: &str| lines.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_else(|| panic!("no {k}"));
-    assert!(get("Stats phone delay").starts_with("11.4 ms from the camera to sent"));
+    assert_eq!(get("Stats phone delay"), "11.4 ms from the camera to sent (from the camera 8.4, queue 3.0, slowest 15.0)");
     assert_eq!(get("Stats phone wifi"), "5 GHz, -58 dBm, 866 Mbps");
     assert_eq!(get("Stats phone thermal status"), "3 (severe), capped at 24 fps");
     assert!(get("Stats phone frame rates").contains("camera 29.6 fps, asked 30, encoder 29.5 fps"));

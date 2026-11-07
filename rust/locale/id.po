@@ -5275,19 +5275,19 @@ msgstr ""
 msgid "Stream on virtual camera {n}"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:480 rust/crates/setup/src/stats.rs:583
+#: rust/crates/setup/src/stats.rs:480 rust/crates/setup/src/stats.rs:598
 msgid "Start a stream to see its numbers."
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:572 rust/crates/setup/ui/stats.slint:89
+#: rust/crates/setup/src/stats.rs:587 rust/crates/setup/ui/stats.slint:89
 msgid "Stats"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:573
+#: rust/crates/setup/src/stats.rs:588
 msgid "Numbers about the stream as it runs: frames in and out, dropped frames and why, the link and bitrate, how long each step takes and what the app uses."
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:574
+#: rust/crates/setup/src/stats.rs:589
 msgid "Without it there's no Stats card. The stream carries on the same."
 msgstr ""
 
@@ -5309,12 +5309,12 @@ msgstr ""
 
 #: rust/crates/setup/src/stats_phone.rs:110
 #, python-brace-format
-msgid "encoding {e}, waiting to go out {q}"
+msgid "from the camera {e}, waiting to go out {q}"
 msgstr ""
 
 #: rust/crates/setup/src/stats_phone.rs:111
 #, python-brace-format
-msgid "encoding {e}"
+msgid "from the camera {e}"
 msgstr ""
 
 #: rust/crates/setup/src/stats_phone.rs:115 rust/crates/setup/src/stats_phone.rs:117 rust/crates/setup/src/stats_phone.rs:119
