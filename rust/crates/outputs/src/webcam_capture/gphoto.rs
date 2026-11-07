@@ -210,6 +210,10 @@ pub struct GphotoCapture {
 
 /// Starts live view on the camera at device's port: Err((opened at all, why)). The first frame comes from read().
 pub fn open(program: &str, device: &Device) -> Result<Box<dyn Capture>, (bool, String)> {
+    // Through libgphoto2 when it's there, which also gives the card its camera controls; else the gphoto2 command
+    if super::gphoto_lib::available() {
+        return super::gphoto_lib::open(device);
+    }
     open_with(program, &device.location, Timing::default())
 }
 

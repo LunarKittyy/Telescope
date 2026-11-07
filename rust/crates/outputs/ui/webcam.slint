@@ -1,7 +1,7 @@
 // The Webcam card: which webcam streams and how, plus whichever picture
 // settings the camera itself offers, as rows the plugin builds. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Card, FormRow, Slider, ChoiceField, Segmented, SwitchTile, SectionHeading } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Card, FormRow, Slider, ChoiceField, Segmented, SwitchTile, SectionHeading, Button } from "@ui-kit/ui-kit.slint";
 
 // One row of picture settings: a section heading, an Auto/Manual switch, an on/off tile, a menu or a slider.
 export struct ControlRow {
@@ -109,6 +109,22 @@ export component WebcamCard inherits Card {
                 items: [@tr("Auto"), @tr("Manual")];
                 current: row.checked ? 0 : 1;
                 picked(i) => { root.control-set(row.name, i == 0 ? 1 : 0); }
+            }
+        }
+        FormRow {
+            visible: row.kind == "buttons";
+            height: row.kind == "buttons" ? self.preferred-height : 0;
+            label: row.label;
+            enabled: row.enabled;
+            HorizontalLayout {
+                horizontal-stretch: 1;
+                spacing: 6px;
+                for option[j] in row.options: Button {
+                    text: option;
+                    horizontal-stretch: 1;
+                    enabled: row.enabled;
+                    clicked => { root.control-set(row.name, j); }
+                }
             }
         }
         SwitchTile {

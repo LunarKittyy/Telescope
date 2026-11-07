@@ -522,9 +522,13 @@ pub fn parse_auto_detect(output: &str) -> Vec<(String, String)> {
     lines.filter_map(|l| {
         let l = l.trim_end();
         let at = l.rfind(char::is_whitespace)?;
-        let (model, port) = (l[..at].trim(), l[at..].trim());
-        (!model.is_empty() && port.contains(':') && !model.to_lowercase().contains("mass storage")).then(|| (model.to_string(), port.to_string()))
+        usable_camera(l[..at].trim(), l[at..].trim())
     }).collect()
+}
+
+/// (model, port) when that is a camera live view can come from.
+pub fn usable_camera(model: &str, port: &str) -> Option<(String, String)> {
+    (!model.is_empty() && port.contains(':') && !model.to_lowercase().contains("mass storage")).then(|| (model.to_string(), port.to_string()))
 }
 
 /// A camera gphoto2 found, with what tells it apart from other cameras of its model ("" when sysfs doesn't know it).
@@ -628,6 +632,8 @@ pub struct GphotoScanner {
     program: String,
     every: std::time::Duration,
     limit: std::time::Duration,
+    /// Look through libgphoto2 when it can be loaded, instead of running the command.
+    library: bool,
     state: std::sync::Arc<std::sync::Mutex<GphotoState>>,
     last: Option<std::time::Instant>,
 }
@@ -635,11 +641,11 @@ pub struct GphotoScanner {
 #[cfg(target_os = "linux")]
 impl GphotoScanner {
     pub fn new(program: &str, every: std::time::Duration, limit: std::time::Duration) -> GphotoScanner {
-        GphotoScanner { program: program.into(), every, limit, state: Default::default(), last: None }
+        GphotoScanner { program: program.into(), every, limit, library: false, state: Default::default(), last: None }
     }
 
     pub fn system() -> GphotoScanner {
-        GphotoScanner::new("gphoto2", std::time::Duration::from_secs(4), GPHOTO_DETECT_TIMEOUT)
+        GphotoScanner { library: true, ..GphotoScanner::new("gphoto2", std::time::Duration::from_secs(4), GPHOTO_DETECT_TIMEOUT) }
     }
 
     pub fn scan(&mut self) -> Vec<Device> {
@@ -651,15 +657,22 @@ impl GphotoScanner {
         if !running && self.last.is_none_or(|t| t.elapsed() >= wait) {
             self.last = Some(std::time::Instant::now());
             self.state.lock().unwrap().running = true;
-            let (state, program, limit) = (self.state.clone(), self.program.clone(), self.limit);
+            let (state, program, limit, library) = (self.state.clone(), self.program.clone(), self.limit, self.library);
             std::thread::spawn(move || {
-                let out = run_auto_detect(&program, limit);
+                // Through libgphoto2 when it's there (the release carries one, so no gphoto2 command is needed), else the command
+                let out = if library && crate::webcam_capture::gphoto_lib::available() {
+                    crate::webcam_capture::gphoto_lib::detect().map(|found| {
+                        found.iter().filter_map(|(m, p)| usable_camera(m, p)).collect::<Vec<_>>()
+                    }).map_err(|_| false)
+                } else {
+                    run_auto_detect(&program, limit).map(|text| parse_auto_detect(&text))
+                };
                 let mut st = state.lock().unwrap();
                 st.running = false;
                 match out {
                     Ok(text) => {
                         st.missing = false;
-                        st.found = parse_auto_detect(&text).into_iter().map(|(model, port)| {
+                        st.found = text.into_iter().map(|(model, port)| {
                             let identity = usb_identity(&port, std::path::Path::new("/sys/bus/usb/devices")).unwrap_or_default();
                             Detected { model, port, identity }
                         }).collect();

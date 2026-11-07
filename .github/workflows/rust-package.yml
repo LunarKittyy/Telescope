@@ -72,7 +72,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends build-essential curl ca-certificates git cmake nasm clang libclang-dev pkg-config \
-            python3 python3-pip libfontconfig1-dev libxkbcommon-dev libva-dev libdrm-dev zlib1g-dev squashfs-tools
+            python3 python3-pip libfontconfig1-dev libxkbcommon-dev libva-dev libdrm-dev zlib1g-dev squashfs-tools libgphoto2-6 libgphoto2-port12
           curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 

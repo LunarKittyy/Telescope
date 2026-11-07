@@ -35,11 +35,15 @@ pub struct Control {
     /// The camera says it does nothing right now (its auto partner is on).
     pub inactive: bool,
     pub unit: String,
+    /// A menu's choices as the camera words them, by menu entry (when the numbers say nothing).
+    pub labels: Vec<String>,
+    /// Not kept in the saved settings or put back by Reset: the camera holds it, and what it offers changes with its mode.
+    pub transient: bool,
 }
 
 impl Control {
     pub fn new(name: &str, kind: &str, minimum: i64, maximum: i64, step: i64, default: i64, value: i64) -> Control {
-        Control { name: name.into(), kind: kind.into(), minimum, maximum, step, default, value, menu: Vec::new(), inactive: false, unit: String::new() }
+        Control { name: name.into(), kind: kind.into(), minimum, maximum, step, default, value, menu: Vec::new(), inactive: false, unit: String::new(), labels: Vec::new(), transient: false }
     }
 
     pub fn clamp(&self, value: i64) -> i64 {
@@ -501,8 +505,11 @@ mod win {
 
 /// What reads and sets a webcam's controls on this system, or None where that can't be done.
 pub fn controls_for(device: &crate::webcams::Device) -> Option<Box<dyn Controls>> {
-    // A DSLR's live view has no picture settings to read or set
     if crate::webcams::is_gphoto(&device.location) {
+        // A DSLR's settings, while its live view streams through libgphoto2
+        #[cfg(target_os = "linux")]
+        return Some(Box::new(crate::webcam_capture::gphoto_lib::GphotoControls::new(&device.location)));
+        #[cfg(not(target_os = "linux"))]
         return None;
     }
     #[cfg(target_os = "linux")]

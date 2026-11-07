@@ -318,7 +318,7 @@ msgstr "Віртуальний мікрофон перестав приймат�
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "Жовтий означає, що лімітер стримує гучні піки, а червоний означає перевантаження звуку (клацніть, щоб скинути)."
 
-#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:524 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:385 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:156 rust/crates/outputs/ui/webcam.slint:156 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
+#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:524 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:385 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:172 rust/crates/outputs/ui/webcam.slint:172 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
 msgid "Double-click to reset"
 msgstr "Двічі клацніть, щоб скинути"
 
@@ -460,7 +460,7 @@ msgstr "Плагіни"
 msgid "Updates & About"
 msgstr "Оновлення та відомості"
 
-#: rust/crates/core/src/plugin.rs:25 rust/crates/outputs/ui/webcam.slint:59 rust/crates/shell/src/plugins/camera_control.rs:1580 rust/crates/shell/ui/cards/camera.slint:143
+#: rust/crates/core/src/plugin.rs:25 rust/crates/outputs/src/webcam.rs:60 rust/crates/outputs/ui/webcam.slint:59 rust/crates/shell/src/plugins/camera_control.rs:1580 rust/crates/shell/ui/cards/camera.slint:143
 msgid "Camera"
 msgstr "Камера"
 
@@ -524,7 +524,7 @@ msgid "Looking…"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:390 rust/crates/effects/ui/background.slint:33 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:74 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:423 rust/crates/shell/ui/cards/camera.slint:431
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:390 rust/crates/effects/ui/background.slint:33 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:78 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:423 rust/crates/shell/ui/cards/camera.slint:431
 msgid "Off"
 msgstr "Вимк."
 
@@ -1097,7 +1097,7 @@ msgstr "Розтягнути"
 msgid "Crop"
 msgstr "Обрізати"
 
-#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:136 rust/crates/effects/ui/transforms.slint:146 rust/crates/outputs/src/webcam.rs:48
+#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:136 rust/crates/effects/ui/transforms.slint:146 rust/crates/outputs/src/webcam.rs:51
 msgid "Pan"
 msgstr "Панорамувати"
 
@@ -1240,7 +1240,7 @@ msgid "Black and white"
 msgstr "Чорно-білий"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/effects/ui/colour_grading.slint:212 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:705 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/effects/ui/colour_grading.slint:212 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:81 rust/crates/outputs/src/webcam.rs:740 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
 msgid "Auto"
 msgstr "Авто"
 
@@ -1689,7 +1689,7 @@ msgid "Pill"
 msgstr "Капсула"
 
 #. Light and Heavy are the names of the two stream formats
-#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:789 rust/crates/outputs/src/stream_output.rs:998 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/ui/stream_output.slint:129
+#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:789 rust/crates/outputs/src/stream_output.rs:998 rust/crates/outputs/src/webcam.rs:57 rust/crates/outputs/ui/stream_output.slint:129
 msgid "Light"
 msgstr "Легкий"
 
@@ -2451,7 +2451,7 @@ msgstr "Масштабувати, панорамувати, перевертат
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "Без нього картка «Трансформація» буде відсутня, а зображення транслюватиметься саме так, як його надсилає телефон."
 
-#: rust/crates/effects/src/transforms.rs:614 rust/crates/effects/src/transforms.rs:667 rust/crates/effects/ui/composite_editor.slint:447 rust/crates/effects/ui/transforms.slint:78 rust/crates/effects/ui/transforms.slint:91 rust/crates/outputs/src/webcam.rs:48
+#: rust/crates/effects/src/transforms.rs:614 rust/crates/effects/src/transforms.rs:667 rust/crates/effects/ui/composite_editor.slint:447 rust/crates/effects/ui/transforms.slint:78 rust/crates/effects/ui/transforms.slint:91 rust/crates/outputs/src/webcam.rs:51
 msgid "Zoom"
 msgstr "Масштаб"
 
@@ -2827,7 +2827,7 @@ msgstr "Формат"
 msgid "Follow my face"
 msgstr "Стежити за обличчям"
 
-#: rust/crates/effects/ui/framing.slint:88 rust/crates/outputs/src/webcam.rs:57
+#: rust/crates/effects/ui/framing.slint:88 rust/crates/outputs/src/webcam.rs:61
 msgid "Framing"
 msgstr "Кадрування"
 
@@ -3234,7 +3234,7 @@ msgstr "Телефон відхилив доступ до мікрофона (HT
 msgid "No microphone"
 msgstr "Немає мікрофона"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:702 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:737 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "Не транслює"
 
@@ -4370,7 +4370,7 @@ msgstr "Антимерехтіння"
 msgid "Slow down in the dark"
 msgstr "Сповільнюватися в темряві"
 
-#: rust/crates/outputs/src/webcam.rs:44 rust/crates/shell/ui/cards/camera.slint:244 rust/crates/shell/ui/cards/camera.slint:247
+#: rust/crates/outputs/src/webcam.rs:44 rust/crates/outputs/src/webcam.rs:50 rust/crates/shell/ui/cards/camera.slint:244 rust/crates/shell/ui/cards/camera.slint:247
 msgid "White balance"
 msgstr "Баланс білого"
 
@@ -4382,7 +4382,7 @@ msgstr "Відтінок"
 msgid "Sharpness"
 msgstr "Різкість"
 
-#: rust/crates/outputs/src/webcam.rs:47 rust/crates/outputs/src/webcam.rs:56 rust/crates/shell/ui/cards/camera.slint:295 rust/crates/shell/ui/cards/camera.slint:299 rust/crates/shell/ui/cards/camera.slint:302
+#: rust/crates/outputs/src/webcam.rs:47 rust/crates/outputs/src/webcam.rs:49 rust/crates/outputs/src/webcam.rs:59 rust/crates/outputs/src/webcam.rs:678 rust/crates/shell/ui/cards/camera.slint:295 rust/crates/shell/ui/cards/camera.slint:299 rust/crates/shell/ui/cards/camera.slint:302
 msgid "Focus"
 msgstr "Фокус"
 
@@ -4390,111 +4390,127 @@ msgstr "Фокус"
 msgid "Focus position"
 msgstr "Положення фокуса"
 
-#: rust/crates/outputs/src/webcam.rs:48
+#: rust/crates/outputs/src/webcam.rs:49
+msgid "Aperture"
+msgstr ""
+
+#: rust/crates/outputs/src/webcam.rs:49
+msgid "Exposure compensation"
+msgstr ""
+
+#: rust/crates/outputs/src/webcam.rs:51
 msgid "Tilt"
 msgstr "Нахил"
 
-#: rust/crates/outputs/src/webcam.rs:55 rust/crates/shell/ui/cards/camera.slint:329
+#: rust/crates/outputs/src/webcam.rs:58 rust/crates/shell/ui/cards/camera.slint:329
 msgid "Image"
 msgstr "Зображення"
 
-#: rust/crates/outputs/src/webcam.rs:63
+#: rust/crates/outputs/src/webcam.rs:67
 msgid "The shutter speed: slower is brighter but blurs movement."
 msgstr "Витримка: довша дає яскравіше зображення, але розмиває рух."
 
-#: rust/crates/outputs/src/webcam.rs:64
+#: rust/crates/outputs/src/webcam.rs:68
 msgid "The webcam's ISO: more is brighter but grainier."
 msgstr "ISO вебкамери: більше значення дає яскравіше, але зернистіше зображення."
 
-#: rust/crates/outputs/src/webcam.rs:65
+#: rust/crates/outputs/src/webcam.rs:69
 msgid "Brightens a face in front of a bright window."
 msgstr "Освітлює обличчя на тлі яскравого вікна."
 
-#: rust/crates/outputs/src/webcam.rs:66
+#: rust/crates/outputs/src/webcam.rs:70
 msgid "Set it to your mains frequency to stop lights flickering or banding."
 msgstr "Виберіть частоту вашої електромережі, щоб прибрати мерехтіння освітлення та смуги на зображенні."
 
-#: rust/crates/outputs/src/webcam.rs:67
+#: rust/crates/outputs/src/webcam.rs:71
 msgid "Lets the webcam lower its frame rate in dim light for a brighter picture."
 msgstr "Дозволяє вебкамері знижувати частоту кадрів за тьмяного світла для яскравішого зображення."
 
-#: rust/crates/outputs/src/webcam.rs:75
+#: rust/crates/outputs/src/webcam.rs:79
 msgid "50 Hz"
 msgstr "50 Гц"
 
-#: rust/crates/outputs/src/webcam.rs:76
+#: rust/crates/outputs/src/webcam.rs:80
 msgid "60 Hz"
 msgstr "60 Гц"
 
-#: rust/crates/outputs/src/webcam.rs:283
+#: rust/crates/outputs/src/webcam.rs:287
 msgid "Check that it's plugged in."
 msgstr "Перевірте, чи її підключено."
 
-#: rust/crates/outputs/src/webcam.rs:420
+#: rust/crates/outputs/src/webcam.rs:433
 msgid "Another app may be using it. Close it there and it starts here."
 msgstr "Можливо, її використовує інший додаток. Закрийте його там, і камера запуститься тут."
 
-#: rust/crates/outputs/src/webcam.rs:422
+#: rust/crates/outputs/src/webcam.rs:435
 #, python-brace-format
 msgid "{app} is using it. Close it there and it starts here."
 msgstr "Її використовує {app}. Закрийте там цей додаток, і камера запуститься тут."
 
-#: rust/crates/outputs/src/webcam.rs:424 rust/crates/outputs/src/webcam.rs:427 rust/crates/outputs/src/webcam.rs:430
+#: rust/crates/outputs/src/webcam.rs:437 rust/crates/outputs/src/webcam.rs:440 rust/crates/outputs/src/webcam.rs:443
 #, python-brace-format
 msgid "Can't open {name}"
 msgstr "Не вдалося відкрити {name}"
 
-#: rust/crates/outputs/src/webcam.rs:690
+#: rust/crates/outputs/src/webcam.rs:678
+msgid "Near"
+msgstr ""
+
+#: rust/crates/outputs/src/webcam.rs:678
+msgid "Far"
+msgstr ""
+
+#: rust/crates/outputs/src/webcam.rs:725
 msgid "Not plugged in"
 msgstr "Не підключено"
 
-#: rust/crates/outputs/src/webcam.rs:692
+#: rust/crates/outputs/src/webcam.rs:727
 msgid "Blocked by Windows or security software"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:694
+#: rust/crates/outputs/src/webcam.rs:729
 msgid "In use by another app"
 msgstr "Використовує інший додаток"
 
-#: rust/crates/outputs/src/webcam.rs:694
+#: rust/crates/outputs/src/webcam.rs:729
 #, python-brace-format
 msgid "In use by {app}"
 msgstr "Використовує {app}"
 
-#: rust/crates/outputs/src/webcam.rs:696
+#: rust/crates/outputs/src/webcam.rs:731
 msgid "Mounted as a drive"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:698
+#: rust/crates/outputs/src/webcam.rs:733
 msgid "Not sending anything"
 msgstr "Нічого не надсилає"
 
-#: rust/crates/outputs/src/webcam.rs:700
+#: rust/crates/outputs/src/webcam.rs:735
 msgid "Starting…"
 msgstr "Запуск…"
 
-#: rust/crates/outputs/src/webcam.rs:713
+#: rust/crates/outputs/src/webcam.rs:748
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
 msgstr "Розмір, який надсилає вебкамера; «Авто» вибирає найбільший до 1080p, за якого зберігається частота кадрів"
 
-#: rust/crates/outputs/src/webcam.rs:737
+#: rust/crates/outputs/src/webcam.rs:773
 msgid "Webcams"
 msgstr "Вебкамери"
 
-#: rust/crates/outputs/src/webcam.rs:738
+#: rust/crates/outputs/src/webcam.rs:774
 msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "Трансляція з вебкамер і пристроїв відеозахоплення, підключених до цього комп'ютера."
 
-#: rust/crates/outputs/src/webcam.rs:739
+#: rust/crates/outputs/src/webcam.rs:775
 msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:779
+#: rust/crates/outputs/src/webcam.rs:815
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name} не підключено"
 
-#: rust/crates/outputs/src/webcam.rs:780
+#: rust/crates/outputs/src/webcam.rs:816
 msgid "Plug it in, or pick another camera."
 msgstr "Підключіть її або виберіть іншу камеру."
 

@@ -284,6 +284,16 @@ impl crate::webcams::Ioctl for Fd<'_> {
 
 #[cfg(target_os = "linux")]
 pub mod gphoto;
+#[cfg(target_os = "linux")]
+mod gp;
+
+/// Points libgphoto2 at the bundled camera drivers, if the package has them. Call it first thing in main, before any thread starts.
+pub fn prepare_gphoto_environment() {
+    #[cfg(target_os = "linux")]
+    gp::prepare_environment();
+}
+#[cfg(target_os = "linux")]
+pub mod gphoto_lib;
 
 #[cfg(target_os = "linux")]
 pub mod v4l2 {

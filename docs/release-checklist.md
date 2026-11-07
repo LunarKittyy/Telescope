@@ -53,7 +53,7 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 ### Linux system setup
 
-<!-- due: .github/workflows/rust-package.yml rust/tools/package_linux.sh rust/tools/package_appimage.sh rust/tools/AppRun rust/tools/fonts.conf rust/tools/start.sh rust/tools/main_stub.py rust/tools/build_ffmpeg.sh rust/crates/outputs/src/linux_setup.rs rust/crates/outputs/src/v4l2.rs rust/crates/system/src/autostart.rs rust/crates/system/src/hotkeys_portal.rs -->
+<!-- due: .github/workflows/rust-package.yml rust/tools/package_linux.sh rust/tools/package_appimage.sh rust/tools/bundle_gphoto2.sh rust/tools/AppRun rust/tools/fonts.conf rust/tools/start.sh rust/tools/main_stub.py rust/tools/build_ffmpeg.sh rust/crates/outputs/src/linux_setup.rs rust/crates/outputs/src/v4l2.rs rust/crates/system/src/autostart.rs rust/crates/system/src/hotkeys_portal.rs -->
 
 - [ ] Module not loaded: Start asks once with the startup box ticked and after a reboot Start doesn't ask. Unticked, it asks again after a reboot.
 - [ ] Without pkexec (or with no polkit agent): Start shows the command banner, Copy command works and running it then Start streams.
@@ -186,7 +186,8 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Resolution and Frame rate on the Webcam card change what arrives. 1080p at 30 fps on a USB 2 webcam shows MJPEG on the card.
 - [ ] With the webcam open in another app (a browser's camera test page will do) Start gives a banner naming the app on Linux. Closing it there lets the stream start without pressing anything.
 - [ ] Unplugging the webcam mid-stream shows the wait screen and plugging it back in picks the stream up again. Plugging one in while Telescope runs adds it to the picker within a few seconds.
-- [ ] Linux, with gphoto2 installed: an older DSLR in live-view mode shows in the picker and streams. When it ends live view after a few minutes the stream carries on, and with the camera mounted in the file manager the stream says to unmount it.
+- [ ] Linux, from the AppImage or tarball on a machine without libgphoto2 installed: an older DSLR in live-view mode shows in the picker and streams. When it ends live view after a few minutes the stream carries on, and with the camera mounted in the file manager the stream says to unmount it.
+- [ ] On the same DSLR set to M, the Webcam card has Focus (Near, Focus, Far), Aperture, Exposure compensation and White balance, and each changes the live picture. Turning the dial to a scene mode empties the list within a couple of seconds.
 - [ ] The Webcam card shows only the settings the camera has. Exposure on Manual makes Exposure time work, the change shows in the picture, and after an unplug and replug (or a Stop and Start) the camera has it again. Reset puts the defaults back.
 - [ ] Windows: the same, plus a camera with a built-in webcam mode or an HDMI capture card shows up and streams.
 

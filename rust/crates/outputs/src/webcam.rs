@@ -37,7 +37,7 @@ const P_UNPLUGGED: &str = "unplugged";
 
 /// The card's picture settings, by section, in the order they're shown: (section, icon, [(name, label)]).
 type Section = (&'static str, &'static str, &'static [(&'static str, &'static str)]);
-const SECTIONS: [Section; 4] = [
+const SECTIONS: [Section; 5] = [
     ("light", "sun", &[("exposure_auto", n_("Exposure")), ("exposure_time", n_("Exposure time")), ("gain", n_("Gain")),
                        ("brightness", n_("Brightness")), ("backlight", n_("Backlight compensation")),
                        ("anti_flicker", n_("Anti-flicker")), ("frame_rate_drop", n_("Slow down in the dark"))]),
@@ -45,6 +45,9 @@ const SECTIONS: [Section; 4] = [
                          ("saturation", n_("Saturation")), ("hue", n_("Hue")), ("contrast", n_("Contrast")),
                          ("gamma", n_("Gamma")), ("sharpness", n_("Sharpness"))]),
     ("focus", "focus", &[("focus_auto", n_("Focus")), ("focus", n_("Focus position"))]),
+    // A DSLR's own settings, only the ones its mode allows now (webcam_capture/gphoto_lib.rs)
+    ("dslr", "focus", &[("dslr_focus", n_("Focus")), ("dslr_aperture", n_("Aperture")), ("dslr_exposure_comp", n_("Exposure compensation")),
+                        ("dslr_white_balance", n_("White balance"))]),
     ("framing", "crop", &[("zoom", n_("Zoom")), ("pan", n_("Pan")), ("tilt", n_("Tilt"))]),
 ];
 
@@ -54,6 +57,7 @@ fn section_title(section: &str) -> String {
         "light" => tr("Light"),
         "image" => tr("Image"),
         "focus" => tr("Focus"),
+        "dslr" => tr("Camera"),
         _ => tr("Framing"),
     }
 }
@@ -378,7 +382,16 @@ impl WebcamPlugin {
             }
         }
         self.drop_unplugged(host);
+        self.refresh_dslr_controls();
         self.render(host);
+    }
+
+    /// A DSLR's settings change under us (the mode dial, live view starting or stopping): read again, and the card follows.
+    fn refresh_dslr_controls(&mut self) {
+        let key = self.selected_key.clone();
+        if self.shared.device(&key).is_some_and(|d| webcams::is_gphoto(&d.location)) {
+            self.read_controls(&key);
+        }
     }
 
     /// Webcams that are gone leave the picker, unless they stream: those wait to be plugged back in.
@@ -520,6 +533,14 @@ impl WebcamPlugin {
         let key = self.selected_key.clone();
         let Some(b) = self.backend(&key) else { return };
         b.set(name, value);
+        let transient = self.controls.get(&key).and_then(|m| m.get(name)).is_some_and(|c| c.transient);
+        if transient {
+            // Held by the camera, which may refuse it, and different in another mode: read back, never saved
+            if let Some(c) = self.controls.get_mut(&key).and_then(|m| m.get_mut(name)).filter(|c| c.kind == "menu") {
+                c.value = value;
+            }
+            return;
+        }
         {
             let mut s = self.shared.settings.lock().unwrap();
             let cfg = s.entry(key.clone()).or_default();
@@ -548,6 +569,9 @@ impl WebcamPlugin {
         let names: Vec<String> = have.keys().cloned().collect();
         for name in apply_order(&names) {
             let control = &have[&name];
+            if control.transient {
+                continue;
+            }
             if auto_of(&name).and_then(|a| have.get(a)).is_some_and(|a| a.default != 0) {
                 continue; // auto by default: the manual value can't be set and doesn't matter
             }
@@ -649,13 +673,24 @@ impl WebcamPlugin {
                 if AUTOS.contains(name) {
                     row["kind"] = json!("auto");
                     row["checked"] = json!(c.value != 0);
+                } else if c.kind == "buttons" {
+                    row["kind"] = json!("buttons");
+                    row["options"] = json!([tr("Near"), tr("Focus"), tr("Far")]);
                 } else if c.kind == "bool" || (c.kind == "int" && (c.minimum, c.maximum) == (0, 1)) {
                     row["kind"] = json!("switch");
                     row["checked"] = json!(c.value != 0);
                     row["icon"] = json!(if *name == "frame_rate_drop" { "moon" } else { "sun" });
                 } else if c.kind == "menu" {
                     row["kind"] = json!("menu");
-                    let options: Vec<String> = c.menu.iter().map(|v| if *name == "anti_flicker" { flicker_label(*v).unwrap_or(v.to_string()) } else { v.to_string() }).collect();
+                    let options: Vec<String> = c.menu.iter().map(|v| {
+                        if let Some(label) = c.labels.get(*v as usize) {
+                            label.clone()
+                        } else if *name == "anti_flicker" {
+                            flicker_label(*v).unwrap_or(v.to_string())
+                        } else {
+                            v.to_string()
+                        }
+                    }).collect();
                     row["options"] = json!(options);
                     row["index"] = json!(c.menu.iter().position(|v| *v == c.value).unwrap_or(0));
                 } else {
@@ -712,7 +747,8 @@ impl WebcamPlugin {
             "size-items": size_items, "size-current": size_i, "size-enabled": !key.is_empty(),
             "size-tip": tr("The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"),
             "fps-items": fps.iter().map(|f| format!("{f} fps")).collect::<Vec<_>>(), "fps-current": fps_i, "fps-enabled": !key.is_empty(),
-            "has-controls": !rows.is_empty(),
+            // Reset has nothing to put back on a DSLR, whose settings the camera holds
+            "has-controls": self.controls(key).values().any(|c| !c.transient),
             "rows": rows, "readouts": self.readouts(),
         })
     }

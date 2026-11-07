@@ -74,6 +74,15 @@ fontconfig, FreeType, Expat, libpng, Brotli, libuuid and zlib (lib/fallback-font
     Source: https://gitlab.freedesktop.org/fontconfig/fontconfig, https://freetype.org, https://libexpat.github.io,
     http://www.libpng.org, https://github.com/google/brotli, https://github.com/util-linux/util-linux, https://zlib.net
 
+libgphoto2 (lib/gphoto2/, used when the system has no libgphoto2 of its own)
+    Talks to DSLRs over USB: live view as a webcam and the camera's focus, aperture, exposure compensation and white balance.
+    Bundled with libgphoto2_port, its ptp2 camera driver and usb1 port driver, and libltdl, libexif, libusb, libxml2, libjpeg, liblzma and zlib as
+    the build machine had them. Loaded at run time, not linked into the program, so you can replace the copies in lib/gphoto2 with your own build
+    of the same version (or delete the folder and install libgphoto2 on the system).
+    License: GNU LGPL v2.1 or later (libgphoto2, libgphoto2_port, libltdl, libexif, libusb), MIT (libxml2), libjpeg(-turbo) licence, 0BSD/public domain (liblzma),
+    zlib License. Source: https://github.com/gphoto/libgphoto2, https://libusb.info, https://libexif.github.io, https://www.gnu.org/software/libtool/,
+    https://gitlab.gnome.org/GNOME/libxml2, https://libjpeg-turbo.org, https://tukaani.org/xz/, https://zlib.net
+
 AppImage runtime (Telescope-x86_64.AppImage only)
     Mounts the AppImage. Statically linked with libfuse, squashfuse and zstd.
     License: MIT, with libfuse under the LGPL 2.1 and squashfuse under a BSD licence. One message is reworded, nothing else.
