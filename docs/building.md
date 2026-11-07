@@ -132,6 +132,10 @@ The packaging scripts use Python 3 for two small jobs, `tools/fetch_rnnoise.py` 
 
 MediaPipe and its two models come as a separate download that the optional plugins switch on (Auto framing, Background, Expose for my face). `python tools/build_vision_pack.py --check --out ../vision` from `rust/` builds the pack for both systems (pip fetches the other one's wheels) and checks it against `crates/vision/vision_pack.json`, which the app is built with. After changing a pin in `tools/vision-pack-requirements.txt`, run it with `--write` and commit the result. It also prints how big each pack is unpacked, which has to stay under `MAX_UNPACKED` in `crates/vision/src/pack.rs` (160 MiB, with the Linux pack at 135 MB), because the app stops unpacking a download at that size. Raise it if a pin bump makes the pack grow past it. `release.yml` publishes the zips next to the other files.
 
+### The matting pack
+
+Background's **High quality** option runs Robust Video Matting (the model, GPL-3.0) with ONNX Runtime (MIT) from a second download, kept in a `matting` folder next to the vision packs. `python tools/build_matting_pack.py --check --out ../vision` from `rust/` builds the pack for both systems from pinned downloads (every file is checked against a sha256 in the script) and checks it against `crates/vision/matting_pack.json`. After changing a pin, run it with `--write` and commit the result. The app loads the library by path from the pack with the `ort` crate's `load-dynamic` feature, so nothing is linked or bundled: the library is `libonnxruntime.so` on Linux and `onnxruntime.dll` on Windows (CPU only for now). `release.yml` builds it in the same job as the vision packs and publishes `Telescope-matting-<system>-<id>.zip` next to the other files, where nightly builds find it under the `nightly` tag.
+
 ## CI
 
 ### `release.yml`

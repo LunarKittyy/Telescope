@@ -83,6 +83,7 @@ jobs:
 
   # MediaPipe and its models for the optional plugins, downloaded by the app when one is switched on. Both platforms
   # build here (pip fetches the Windows wheels too), and they have to match rust/crates/vision/vision_pack.json, which the app builds in.
+  # The matting packs (Background's High quality option) ride along and match matting_pack.json the same way.
   vision:
     runs-on: ubuntu-latest
     steps:
@@ -95,6 +96,10 @@ jobs:
       - name: Build the vision packs
         working-directory: rust
         run: python tools/build_vision_pack.py --check --out ../vision
+
+      - name: Build the matting packs
+        working-directory: rust
+        run: python tools/build_matting_pack.py --check --out ../vision
 
       - uses: actions/upload-artifact@v7
         with:
@@ -168,7 +173,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends squashfs-tools
           chmod +x rust/tools/package_appimage.sh rust/tools/AppRun
           rust/tools/package_appimage.sh dist/linux-bundle out/Telescope-x86_64.AppImage
-          cp dist/vision/*.zip out/  # not in manifest.json: the app finds its pack by name (vision_pack.json)
+          cp dist/vision/*.zip out/  # not in manifest.json: the app finds its packs by name (vision_pack.json and matting_pack.json)
 
       - name: Write manifest.json
         run: >-

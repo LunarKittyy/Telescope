@@ -545,7 +545,7 @@ impl FrameContext for Held {
 
 fn step_in(mode: &str, blur: i64, edges: i64) -> Step {
     let mode = MODES.iter().position(|(k, _)| *k == mode).unwrap();
-    Step { settings: Settings { mode, blur, edges, picture: None }, covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None }
+    Step { settings: Settings { mode, blur, edges, picture: None, high_quality: false }, covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None }
 }
 
 fn varied_mask(w: usize, h: usize, seed: usize) -> Gray {
@@ -1005,4 +1005,162 @@ fn a_resize_that_keeps_the_quarter_size_mask_gives_what_a_fresh_step_gives() {
         assert!(a.data == b.data, "{w}x{h}");
     }
     let _ = scene;
+}
+
+// ── The High quality cutout ─────────────────────────────────────────────
+
+/// A normal mask with the person on the left and a high quality one with the person on the right, and how often each is asked for.
+struct TwoMasks(Gray, Gray, std::cell::Cell<(u32, u32)>);
+
+impl FrameContext for TwoMasks {
+    fn source_id(&self) -> &str {
+        "phone"
+    }
+    fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        self.2.set((self.2.get().0 + 1, self.2.get().1));
+        Some(Arc::new(self.0.data.clone()))
+    }
+    fn person_mask_hq(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        self.2.set((self.2.get().0, self.2.get().1 + 1));
+        Some(Arc::new(self.1.data.clone()))
+    }
+    fn person_mask_hq_at(&self, _frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        self.2.set((self.2.get().0, self.2.get().1 + 1));
+        Some(Arc::new(self.1.shrink(w, h).data.to_vec()))
+    }
+    fn colour_preview(&self, frame: &Frame) -> Frame {
+        frame.clone()
+    }
+}
+
+fn right_mask(w: usize, h: usize) -> Gray {
+    Gray { w, h, data: (0..w * h).map(|i| if i % w >= w / 2 { 255 } else { 0 }).collect() }
+}
+
+#[test]
+fn the_high_quality_cutout_is_off_unless_asked_for_and_kept_in_the_settings_only_when_on() {
+    let mut rig = Rig::new(None, vision::READY);
+    assert_eq!(rig.shown("high-quality"), json!(false));
+    assert_eq!(rig.plugin.get_config(), json!({"mode": "off", "blur": 6, "edges": 3, "picture": ""}));
+    rig.set_mode("blur");
+    rig.ui("high-quality-toggled", vec![json!(true)]);
+    assert_eq!(rig.shown("high-quality"), json!(true));
+    assert_eq!(rig.plugin.get_config()["high_quality"], json!(true));
+    // a saved setting, a preset and a damaged value
+    let saved = rig.plugin.get_config();
+    let mut other = Rig::new(None, vision::READY);
+    other.plugin.set_config(&saved).unwrap();
+    assert!(other.plugin.high_quality);
+    other.plugin.set_config(&json!({"mode": "blur", "high_quality": "yes"})).unwrap();
+    assert!(!other.plugin.high_quality);
+    rig.ui("high-quality-toggled", vec![json!(false)]);
+    assert!(rig.plugin.get_config().get("high_quality").is_none());
+    assert!(rig.host.calls.iter().filter(|c| *c == "refresh_frame_step").count() >= 3, "each change reaches the stream");
+}
+
+#[test]
+fn the_frame_step_asks_for_the_high_quality_mask_only_with_it_switched_on() {
+    let (w, h) = (64, 36);
+    let mut rig = Rig::new(None, vision::READY);
+    rig.set_mode("blur");
+    rig.ui("edges-moved", vec![json!(0)]);
+    let ctx = TwoMasks(half_mask(w, h), right_mask(w, h), Default::default());
+    let frame = stripes(w, h);
+    let run = |rig: &mut Rig| {
+        let mut f = frame_of(&frame);
+        if let Some(FrameStep::Cpu(mut step)) = rig.plugin.frame_step() {
+            step.process(&mut f, &ctx);
+        }
+        Rgb::from_frame(&f).unwrap()
+    };
+    let normal = run(&mut rig);
+    assert_eq!(ctx.2.get(), (1, 0));
+    // the person stays on the left with the normal mask
+    assert_eq!(column(&normal, 0, 20), column(&frame, 0, 20));
+    rig.ui("high-quality-toggled", vec![json!(true)]);
+    let better = run(&mut rig);
+    assert_eq!(ctx.2.get(), (1, 1), "the normal one isn't asked for as well");
+    assert_eq!(column(&better, 44, 64), column(&frame, 44, 64));
+    assert_ne!(column(&better, 0, 20), column(&frame, 0, 20), "and the left is blurred now");
+}
+
+#[test]
+fn a_frame_in_yuv_gets_the_high_quality_mask_too() {
+    let (scene, mask) = peek::sample_scene(480, 270);
+    let frame = i420_of(&scene);
+    let ctx = TwoMasks(Gray::filled(mask.w, mask.h, 255), mask, Default::default());
+    let mut normal = step_in("blur", 6, 3);
+    let mut better = step_in("blur", 6, 3);
+    better.settings.high_quality = true;
+    let (mut a, mut b) = (frame.clone(), frame.clone());
+    normal.process(&mut a, &ctx);
+    assert_eq!(ctx.2.get(), (1, 0));
+    better.process(&mut b, &ctx);
+    assert_eq!(ctx.2.get(), (1, 1), "only the high quality one is asked, at the quarter size");
+    assert_ne!(a.data, b.data, "the person is cut out differently");
+    assert_eq!(a.data, frame.data, "everyone in the normal mask: the frame is left as it was");
+}
+
+#[test]
+fn a_service_with_no_high_quality_model_gives_the_normal_mask() {
+    // Ctx leaves person_mask_hq as it is: the default is person_mask
+    let mut rig = Rig::new(Some(half_mask(64, 36)), vision::READY);
+    rig.set_mode("blur");
+    rig.ui("edges-moved", vec![json!(0)]);
+    let before = rig.process(&stripes(64, 36));
+    rig.ui("high-quality-toggled", vec![json!(true)]);
+    assert_eq!(rig.process(&stripes(64, 36)), before);
+    assert_eq!(rig.ctx.1.get(), 2);
+}
+
+#[test]
+fn with_the_high_quality_cutout_on_and_no_mask_at_all_the_room_stays_hidden() {
+    // Neither model has a mask (still loading, downloading, failed): that is the same as having lost track, so nothing clear gets out
+    let mut rig = Rig::new(None, vision::LOADING);
+    rig.set_mode("blur");
+    rig.ui("high-quality-toggled", vec![json!(true)]);
+    let frame = stripes(64, 40);
+    assert_eq!(rig.process(&frame), blurred(&frame, 6, None));
+    let source = i420_of(&frame);
+    let mut yuv = source.clone();
+    let Some(FrameStep::Cpu(mut step)) = rig.plugin.frame_step() else { panic!("a CPU step") };
+    step.process(&mut yuv, &rig.ctx);
+    assert_ne!(yuv.data, source.data);
+    let mut rig = Rig::with(BackgroundPlugin::with_reader(reader_of([0, 0, 255])), None, vision::LOADING);
+    rig.plugin.load_picture("/pics/beach.png");
+    rig.set_mode("picture");
+    rig.ui("high-quality-toggled", vec![json!(true)]);
+    assert!(rig.process(&Rgb::filled(64, 36, [200, 200, 200])).data.as_chunks::<3>().0.iter().all(|p| *p == [0, 0, 255]));
+}
+
+#[test]
+fn the_card_offers_the_cutouts_download_and_says_the_normal_one_is_used_meanwhile() {
+    let mut rig = Rig::new(Some(half_mask(64, 36)), vision::READY);
+    rig.host.matting = Some(vision::MISSING.into());
+    rig.host.matting_pack = VisionPack { available: true, size_mb: 26, ..VisionPack::default() };
+    rig.set_mode("blur");
+    rig.ui("edges-moved", vec![json!(0)]);
+    assert_eq!(rig.shown("cutout-text"), json!(""), "nothing while the switch is off");
+    rig.ui("high-quality-toggled", vec![json!(true)]);
+    assert_eq!(rig.shown("cutout-text"), json!("Needs a one-time download (about 26 MB). Until then the normal cutout is used."));
+    assert_eq!(rig.shown("cutout-download"), json!(true));
+    assert!(rig.shown("quality-tip").as_str().unwrap().contains("40% of a CPU core"));
+    // the picture is not held up meanwhile
+    let out = rig.process(&stripes(64, 36));
+    assert_eq!(column(&out, 0, 20), column(&stripes(64, 36), 0, 20));
+    rig.ui("cutout-download-clicked", vec![]);
+    assert!(rig.host.calls.iter().any(|c| c == "download_matting"));
+    assert!(!rig.host.calls.iter().any(|c| c == "download_vision"), "the vision pack is another download");
+    rig.host.matting_pack.downloading = true;
+    rig.host.matting_pack.size = 100;
+    rig.host.matting_pack.done = 25;
+    rig.event(Event::VisionDownloadProgress { done: 25, size: 100 });
+    assert_eq!(rig.shown("cutout-text"), json!("Downloading… 25%"));
+    rig.host.matting_pack = VisionPack { ready: true, available: true, size_mb: 26, ..VisionPack::default() };
+    rig.host.matting = Some(vision::FAILED.into());
+    rig.event(Event::MattingStateChanged { state: vision::FAILED.into() });
+    assert!(rig.shown("cutout-text").as_str().unwrap().contains("didn't load"));
+    rig.host.matting = Some(vision::READY.into());
+    rig.event(Event::MattingStateChanged { state: vision::READY.into() });
+    assert_eq!(rig.shown("cutout-text"), json!(""));
 }

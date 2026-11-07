@@ -44,6 +44,25 @@ IBM Plex Sans (ui-kit/fonts/)
     Source: https://github.com/IBM/plex
 """
 
+DOWNLOADED = """
+Downloaded when asked for (not included)
+-----------------------------------------
+
+MediaPipe and its selfie segmenter and pose models (the vision pack)
+    Copyright (c) Google LLC. License: Apache 2.0, with absl-py and flatbuffers (Apache 2.0) and certifi (MPL 2.0).
+    Source: https://github.com/google-ai-edge/mediapipe
+
+Robust Video Matting (the matting pack's model, Background's High quality option)
+    Copyright (c) Peter Lin. License: GNU GPL v3, whose text the download carries. Used as released, without changes.
+    Source: https://github.com/PeterL1n/RobustVideoMatting
+
+ONNX Runtime (the matting pack's library)
+    Copyright (c) Microsoft Corporation. License: MIT, with its own third-party notices, both in the download.
+    Source: https://github.com/microsoft/onnxruntime
+
+Each download has a NOTICES.txt and its licence files inside it.
+"""
+
 WINDOWS = """
 UnityCapture (unitycapture/)
     DirectShow virtual camera filter for Windows.
@@ -129,7 +148,7 @@ def crates(target: str) -> list:
 def main():
     target, ffmpeg, out = sys.argv[1], Path(sys.argv[2]), Path(sys.argv[3])
     build = (ffmpeg / "BUILD.txt").read_text(encoding="utf-8").strip().replace("\n", "\n    ")
-    text = HEADER.format(ffmpeg=build) + (WINDOWS if target == "windows" else LINUX) + CRATES
+    text = HEADER.format(ffmpeg=build) + (WINDOWS if target == "windows" else LINUX) + DOWNLOADED + CRATES
     text += "\n".join(crates(TARGETS[target]))
     text += "\n\n\nFFmpeg's licence\n----------------\n\n" + (ffmpeg / "COPYING.LGPLv2.1").read_text(encoding="utf-8")
     out.write_text(text, encoding="utf-8")

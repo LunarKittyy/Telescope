@@ -466,6 +466,17 @@ impl HostVision for Ctx<'_> {
             vision.download("");
         }
     }
+    fn matting_state(&self) -> String {
+        self.state.vision.as_ref().map_or_else(|| telescope_core::vision::OFF.into(), |v| v.matting_state())
+    }
+    fn matting_pack(&self) -> telescope_core::vision::VisionPack {
+        self.state.vision.as_ref().map(|v| v.matting_pack()).unwrap_or_default()
+    }
+    fn download_matting(&mut self) {
+        if let Some(vision) = &self.state.vision {
+            vision.download_matting();
+        }
+    }
 }
 
 impl HostFrames for Ctx<'_> {

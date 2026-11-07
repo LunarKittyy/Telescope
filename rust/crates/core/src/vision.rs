@@ -118,6 +118,33 @@ pub fn status_text(active: bool, problem: &str, optional: bool, state: &str, pac
     }
 }
 
+/// The status line under Background's High quality cutout switch (the vision status row's twin for the cutout's own download): (text,
+/// whether Download shows). Hidden while the text is empty. `on` is the switch. A cutout that isn't there yet or didn't load never stops the
+/// picture: the normal one is used meanwhile, which the text says.
+pub fn matting_text(on: bool, state: &str, pack: &VisionPack) -> (String, bool) {
+    if !on || state == LOADING || (pack.ready && state != FAILED) {
+        return (String::new(), false);
+    }
+    if pack.downloading {
+        let text = if let Some(percent) = (pack.done * 100).checked_div(pack.size) {
+            tr("Downloading… {percent}%").field("percent", percent.min(99).to_string())
+        } else {
+            tr("Downloading…")
+        };
+        return (text, false);
+    }
+    if state == FAILED {
+        return (tr("The high quality cutout didn't load on this computer, so the normal one is used."), false);
+    }
+    if !pack.available {
+        return (tr("There's no high quality cutout for this computer yet, so the normal one is used."), false);
+    }
+    if !pack.error.is_empty() {
+        return (pack.error.clone(), true);
+    }
+    (tr("Needs a one-time download (about {mb} MB). Until then the normal cutout is used.").field("mb", pack.size_mb.max(1).to_string()), true)
+}
+
 /// The vision service the shell runs, one for the whole app. Every call is safe before it's ready (None, nothing).
 pub trait VisionService: Send + Sync {
     /// Where people_seen, people_tracked, vision_state_changed and the download's events go from now on.
@@ -180,6 +207,22 @@ pub trait VisionService: Send + Sync {
     fn remove_pack(&self) -> Result<(), String>;
     /// What went wrong after the download itself, shown like its own failure on the waiting plugin's tile.
     fn download_failed(&self, _error: &str, _plugin: &str) {}
+    /// From a frame step: the same as person_mask_in (at w x h), from the high quality cutout's model (Robust Video Matting, run by ONNX Runtime from its own
+    /// download). Never waits for it, and while it isn't downloaded, loading, failed or late this is person_mask's answer. A service without
+    /// the model leaves this as it is. epoch is person_mask_in's: a picture of a view that has turned since gets no mask of either model.
+    fn person_mask_hq(&self, source_id: &str, frame: &Frame, w: usize, h: usize, epoch: u64) -> Option<Arc<Vec<u8>>> {
+        self.person_mask_in(source_id, frame, w, h, epoch)
+    }
+    /// OFF until something asks for the high quality cutout, then LOADING and READY; MISSING (without loading) when it isn't downloaded; FAILED.
+    fn matting_state(&self) -> String {
+        OFF.into()
+    }
+    /// Where the high quality cutout's download is.
+    fn matting_pack(&self) -> VisionPack {
+        VisionPack::default()
+    }
+    /// Download it in the background; vision_download_progress and vision_download_finished (with no plugin to switch on) say how it goes.
+    fn download_matting(&self) {}
 }
 
 #[cfg(test)]
@@ -207,5 +250,22 @@ mod tests {
         assert_eq!(status_text(true, "", false, READY, &pack).0, "");
         let going = VisionPack { downloading: true, done: 50, size: 100, ..pack };
         assert_eq!(status_text(true, "", false, MISSING, &going).0, "Downloading… 50%");
+    }
+
+    #[test]
+    fn the_cutout_note_says_the_normal_one_is_used_while_it_isnt_there() {
+        let pack = VisionPack { available: true, size_mb: 26, ..VisionPack::default() };
+        assert_eq!(matting_text(false, MISSING, &pack), (String::new(), false));
+        assert_eq!(matting_text(true, MISSING, &pack), ("Needs a one-time download (about 26 MB). Until then the normal cutout is used.".into(), true));
+        assert!(matting_text(true, OFF, &pack).1);
+        assert_eq!(matting_text(true, MISSING, &VisionPack { available: false, ..pack.clone() }).0, "There's no high quality cutout for this computer yet, so the normal one is used.");
+        assert_eq!(matting_text(true, MISSING, &VisionPack { error: "The download failed.".into(), ..pack.clone() }), ("The download failed.".into(), true));
+        assert_eq!(matting_text(true, MISSING, &VisionPack { downloading: true, done: 1, size: 4, ..pack.clone() }).0, "Downloading… 25%");
+        let ready = VisionPack { ready: true, ..pack };
+        // Loading, loaded and not yet asked for are all quiet; only a model that won't load says anything
+        for state in [OFF, LOADING, READY] {
+            assert_eq!(matting_text(true, state, &ready), (String::new(), false), "{state}");
+        }
+        assert_eq!(matting_text(true, FAILED, &ready).0, "The high quality cutout didn't load on this computer, so the normal one is used.");
     }
 }
