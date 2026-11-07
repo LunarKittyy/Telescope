@@ -8,6 +8,8 @@ export struct StatRow {
     value: string,
     note: string,
     kind: string,
+    // Slint path commands of the last minute in a 60px by 20px box, or empty
+    graph: string,
 }
 
 component StatLine inherits Rectangle {
@@ -33,7 +35,22 @@ component StatLine inherits Rectangle {
                 overflow: elide;
                 accessible-role: none;
             }
+            if line.graph != "": Rectangle {
+                width: 60px;
+                accessible-role: none;
+                Path {
+                    width: 60px;
+                    height: 20px;
+                    y: (parent.height - self.height) / 2;
+                    viewbox-width: 60;
+                    viewbox-height: 20;
+                    commands: line.graph;
+                    stroke: line.kind == "status_warn" ? Theme.warn : Theme.text-faint;
+                    stroke-width: 1px;
+                }
+            }
             Text {
+                min-width: line.graph != "" ? 118px : 0px;
                 text: line.value;
                 font-family: Theme.font;
                 font-size: Theme.body;
@@ -66,6 +83,9 @@ export component StatsCard inherits Card {
     in property <string> empty-text;
     // The source the numbers are for, when more than one stream runs
     in property <string> source-name;
+    // What is slowing the stream down, in a sentence, with its status kind
+    in property <string> verdict;
+    in property <string> verdict-kind;
     in property <[StatRow]> rows;
     callback view-picked(int);
 
@@ -89,6 +109,7 @@ export component StatsCard inherits Card {
         color: Theme.text-faint;
         overflow: elide;
     }
+    if verdict != "": Note { text: verdict; kind: verdict-kind; }
     if empty-text != "": Note { text: empty-text; kind: "status_dim"; }
     for r in rows: VerticalLayout {
         if r.head: SectionHeading { text: r.label; icon: Icons.named(r.icon); }

@@ -231,3 +231,91 @@ fn the_view_is_saved() {
 fn a_plugin_is_named_for_people() {
     assert_eq!((plugin_label("privacy_blur").as_str(), plugin_label("view").as_str(), plugin_label("").as_str()), ("Privacy blur", "View", ""));
 }
+
+fn source_with(f: impl FnOnce(&mut SourceSnapshot)) -> SourceSnapshot {
+    let mut s = SourceSnapshot { target_fps: 30, seconds: 20, now: telescope_core::stats::Rates { received_fps: 30.0, ..Default::default() }, ..Default::default() };
+    s.link.route = Route::Network;
+    f(&mut s);
+    s
+}
+
+#[test]
+fn a_graph_ends_at_the_right_edge_and_keeps_a_spike_to_the_top() {
+    let g = graph(&[1.0, 1.0, 30.0], 30.0);
+    let points: Vec<&str> = g.split_whitespace().collect();
+    assert_eq!(points.len(), 9);
+    assert_eq!(points[0], "M");
+    assert_eq!(points[7], "59.5");
+    assert_eq!(points[8], "1.0");
+    assert!(graph(&[5.0], 30.0).is_empty());
+    assert!(graph(&[], 30.0).is_empty());
+}
+
+#[test]
+fn a_steady_number_stays_low_under_its_floor() {
+    let g = graph(&[1.0, 1.0], 30.0);
+    let ys: Vec<f32> = g.split_whitespace().filter_map(|w| w.parse().ok()).skip(1).step_by(2).collect();
+    assert!(ys.iter().all(|y| *y > 10.0));
+}
+
+#[test]
+fn rows_carry_a_graph_once_there_is_history() {
+    let hub = Hub::new();
+    let snap = snapshot(&hub, "phone");
+    let (_p, host) = set_up(snap);
+    assert_eq!(row(&props(&host), "Frames in")["graph"], "");
+    let hub = Hub::new();
+    let mut snap = snapshot(&hub, "phone");
+    snap.sources[0].series.received_fps = vec![30.0, 12.0, 30.0];
+    let (_p, host) = set_up(snap);
+    assert!(row(&props(&host), "Frames in")["graph"].as_str().unwrap().starts_with("M "));
+}
+
+#[test]
+fn the_verdict_names_the_slow_part() {
+    assert_eq!(verdict(&source_with(|s| s.seconds = 1)), Verdict::Warming);
+    assert_eq!(verdict(&source_with(|_| {})), Verdict::Fine);
+    let slow = source_with(|s| s.stages = vec![NamedTiming { name: "pipeline".into(), timing: telescope_core::stats::Timing { mean_ms: 50.0, ..Default::default() } }]);
+    assert_eq!(verdict(&slow), Verdict::ComputerSlow("pipeline"));
+    let lossy = source_with(|s| {
+        s.series.dropped_fps = vec![0.0, 3.0];
+        s.drops.lost_on_link = 5;
+        s.drops.paced = 1;
+    });
+    assert_eq!(verdict(&lossy), Verdict::LinkLosing);
+    let paced = source_with(|s| {
+        s.series.dropped_fps = vec![2.0];
+        s.drops.paced = 5;
+    });
+    assert_eq!(verdict(&paced), Verdict::Dropping(DropReason::Paced));
+    assert_eq!(verdict(&source_with(|s| s.now.received_fps = 10.0)), Verdict::PhoneSlow);
+}
+
+#[test]
+fn old_drops_are_not_blamed_for_the_present() {
+    let old = source_with(|s| {
+        s.series.dropped_fps = [vec![5.0], vec![0.0; 12]].concat();
+        s.drops.lost_on_link = 5;
+    });
+    assert_eq!(verdict(&old), Verdict::Fine);
+}
+
+#[test]
+fn the_summary_gives_min_average_max_and_when() {
+    let snap = Snapshot::default();
+    let s = source_with(|s| s.series.received_fps = vec![30.0, 10.0, 20.0, 30.0]);
+    let lines = summary(&snap, &s);
+    let (_, line) = lines.iter().find(|(k, _)| k == "Stats frames in").unwrap();
+    assert_eq!(line, "min 10.0, average 22.5, max 30.0 fps, the max 0 s ago, over 4 s");
+    assert_eq!(lines[0], ("Stats verdict".to_string(), "nothing slow".to_string()));
+    assert!(!lines.iter().any(|(k, _)| k == "Stats bitrate"));
+}
+
+#[test]
+fn only_the_nerd_view_adds_to_copy_diagnostics() {
+    let hub = Hub::new();
+    let (mut plugin, _host) = set_up(snapshot(&hub, "phone"));
+    assert!(plugin.diagnostics().is_empty());
+    plugin.set_config(&json!({"view": "nerd"})).unwrap();
+    assert!(plugin.diagnostics().iter().any(|(k, _)| k == "Stats verdict"));
+}

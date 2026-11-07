@@ -273,18 +273,27 @@ fn example_stats() -> telescope_core::stats::Snapshot {
     let stats = hub.register("phone-1", 0);
     stats.set_link("https://192.168.1.20:8443/v1/video.udp", false);
     stats.set_target_fps(30);
-    stats.received(29, 560_000);
-    stats.decoded(28);
-    for _ in 0..28 {
-        stats.delivered();
+    // A minute of a stream that was steady, stumbled from 40 s in
+    let mut last = None;
+    for second in 1..=60u64 {
+        let rough = (40..=58).contains(&second);
+        stats.received(if rough { 17 } else { 29 + second % 2 }, if rough { 300_000 } else { 560_000 });
+        stats.decoded(if rough { 16 } else { 29 });
+        for _ in 0..if rough { 15 } else { 29 } {
+            stats.delivered();
+        }
+        if rough {
+            stats.repeated();
+            stats.dropped(DropReason::LostOnLink, 2);
+            stats.dropped(DropReason::WaitingForKeyframe, 1);
+        }
+        stats.steps().timer("colour").add(2_000_000);
+        stats.steps().timer("privacy_blur").add(7_000_000);
+        hub.hooks().timer("monitoring").add(400_000);
+        let cpu = 380_000_000 * second + if rough { 250_000_000 } else { 0 };
+        last = Some(hub.snapshot_at(now + second * 1_000_000_000, Some(cpu), Some((240 + second / 4) << 20)));
     }
-    stats.repeated();
-    stats.dropped(DropReason::LostOnLink, 4);
-    stats.dropped(DropReason::WaitingForKeyframe, 6);
-    stats.steps().timer("colour").add(2_000_000);
-    stats.steps().timer("privacy_blur").add(7_000_000);
-    hub.hooks().timer("monitoring").add(400_000);
-    hub.snapshot_at(now + 1_000_000_000, Some(380_000_000), Some(240 << 20))
+    last.expect("a snapshot")
 }
 
 /// Never checks: the scenes show the card before its first check.
