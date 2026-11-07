@@ -55,10 +55,13 @@ component SliderRow inherits LabelRow {
     in property <string> hint;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
+    // The id of the setting it is, for the outline when something outside the window reads or changes it
+    in property <string> setting;
     callback moved(float);
     Rectangle {
         horizontal-stretch: 1;
         Slider {
+            setting: root.setting;
             tip: root.tip != "" && has-default && hint != "" ? root.tip + "\n" + hint : root.tip;
             shortcut: root.shortcut;
             width: parent.width;

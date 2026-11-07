@@ -173,16 +173,16 @@ msgid "unmuted"
 msgstr "ljud på"
 
 #. a switch's state, as in "Phone mic: on"
-#: rust/crates/audio/src/plugin.rs:958 rust/crates/core/src/actions.rs:64
+#: rust/crates/audio/src/plugin.rs:958 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:963
 msgid "on"
 msgstr "på"
 
 #. a switch's state, as in "Phone mic: on"
-#: rust/crates/audio/src/plugin.rs:958 rust/crates/core/src/actions.rs:64
+#: rust/crates/audio/src/plugin.rs:958 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:964
 msgid "off"
 msgstr "av"
 
-#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:217 rust/crates/audio/ui/microphone.slint:227 rust/crates/audio/ui/microphone.slint:238 rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:273 rust/crates/outputs/src/webcam.rs:46
+#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:217 rust/crates/audio/ui/microphone.slint:227 rust/crates/audio/ui/microphone.slint:238 rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:278 rust/crates/outputs/src/webcam.rs:46
 msgid "Gain"
 msgstr "Förstärkning"
 
@@ -341,7 +341,7 @@ msgstr "Telefonens mikrofon behöver VB-Audio Virtual Cable på Windows."
 msgid "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."
 msgstr "VB-Cable kommer från VB-Audio, inte från Telescope. Telescope kan ladda ner det från vb-audio.com och öppna VB-Audios egen installation, som ber om administratörsrättigheter. Starta om datorn när den är klar."
 
-#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/colour_grading.slint:441 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:639 rust/crates/system/ui/shortcuts.slint:374 rust/crates/system/ui/updates.slint:212
+#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/colour_grading.slint:450 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:639 rust/crates/system/ui/shortcuts.slint:374 rust/crates/system/ui/updates.slint:212
 msgid "Cancel"
 msgstr "Avbryt"
 
@@ -579,11 +579,11 @@ msgstr "Utan det finns inte kortet Bakgrund och bakgrunden förblir som kameran 
 msgid "Background blur"
 msgstr "Bakgrundsoskärpa"
 
-#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:345 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
+#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:353 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
 msgid "Green"
 msgstr "Grön"
 
-#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:345 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
+#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:353 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
 msgid "Blue"
 msgstr "Blå"
 
@@ -740,7 +740,7 @@ msgstr "RGB-parad"
 msgid "Vectorscope"
 msgstr "Vektorskop"
 
-#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:345 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
+#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:353 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
 msgid "Red"
 msgstr "Röd"
 
@@ -835,15 +835,15 @@ msgstr "33-punkters LUT (*.cube)"
 msgid "65-point LUT (*.cube)"
 msgstr "65-punkters LUT (*.cube)"
 
-#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:232
+#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:235
 msgid "Lift"
 msgstr "Lift"
 
-#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:251 rust/crates/outputs/src/webcam.rs:51
+#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:255 rust/crates/outputs/src/webcam.rs:51
 msgid "Gamma"
 msgstr "Gamma"
 
-#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:292
+#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:298
 msgid "Offset"
 msgstr "Offset"
 
@@ -867,7 +867,7 @@ msgstr "Allt: färg och nivå"
 msgid "Drag towards a colour to add it. Double-click to reset."
 msgstr "Dra mot en färg för att lägga till den. Dubbelklicka för att återställa."
 
-#: rust/crates/effects/src/colour_grading.rs:48 rust/crates/effects/ui/colour_grading.slint:111
+#: rust/crates/effects/src/colour_grading.rs:48 rust/crates/effects/ui/colour_grading.slint:114
 msgid "No LUT loaded"
 msgstr "Ingen LUT inläst"
 
@@ -977,7 +977,7 @@ msgstr "Gain master"
 msgid "Offset master"
 msgstr "Offset master"
 
-#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:311 rust/crates/outputs/src/webcam.rs:49 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:256 rust/crates/shell/ui/cards/camera.slint:259
+#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:318 rust/crates/outputs/src/webcam.rs:49 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:256 rust/crates/shell/ui/cards/camera.slint:259
 msgid "Temperature"
 msgstr "Färgtemperatur"
 
@@ -985,7 +985,7 @@ msgstr "Färgtemperatur"
 msgid "Warmer or cooler"
 msgstr "Varmare eller kallare"
 
-#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/ui/colour_grading.slint:311 rust/crates/shell/src/plugins/camera_control.rs:1373 rust/crates/shell/src/plugins/camera_control.rs:1608
+#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/ui/colour_grading.slint:318 rust/crates/shell/src/plugins/camera_control.rs:1373 rust/crates/shell/src/plugins/camera_control.rs:1608
 msgid "Tint"
 msgstr "Färgton"
 
@@ -994,7 +994,7 @@ msgid "More magenta or more green"
 msgstr "Mer magenta eller mer grönt"
 
 #. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
-#: rust/crates/effects/src/colour_grading.rs:92 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:311 rust/crates/outputs/src/webcam.rs:50
+#: rust/crates/effects/src/colour_grading.rs:92 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:318 rust/crates/outputs/src/webcam.rs:50
 msgid "Contrast"
 msgstr "Kontrast"
 
@@ -1002,7 +1002,7 @@ msgstr "Kontrast"
 msgid "Spreads the tones apart around the pivot"
 msgstr "Sprider isär tonerna kring brytpunkten"
 
-#: rust/crates/effects/src/colour_grading.rs:93 rust/crates/effects/ui/colour_grading.slint:311
+#: rust/crates/effects/src/colour_grading.rs:93 rust/crates/effects/ui/colour_grading.slint:318
 msgid "Pivot"
 msgstr "Brytpunkt"
 
@@ -1010,7 +1010,7 @@ msgstr "Brytpunkt"
 msgid "The level contrast turns around"
 msgstr "Nivån som kontrasten vrider sig kring"
 
-#: rust/crates/effects/src/colour_grading.rs:94 rust/crates/effects/ui/colour_grading.slint:311 rust/crates/outputs/src/webcam.rs:50
+#: rust/crates/effects/src/colour_grading.rs:94 rust/crates/effects/ui/colour_grading.slint:318 rust/crates/outputs/src/webcam.rs:50
 msgid "Saturation"
 msgstr "Mättnad"
 
@@ -1018,7 +1018,7 @@ msgstr "Mättnad"
 msgid "How colourful the picture is"
 msgstr "Hur färgstark bilden är"
 
-#: rust/crates/effects/src/colour_grading.rs:95 rust/crates/effects/ui/colour_grading.slint:311
+#: rust/crates/effects/src/colour_grading.rs:95 rust/crates/effects/ui/colour_grading.slint:318
 msgid "Vibrance"
 msgstr ""
 
@@ -1026,7 +1026,7 @@ msgstr ""
 msgid "Colours up the dull parts more than the strong ones, and spares skin"
 msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:96 rust/crates/effects/ui/colour_grading.slint:311
+#: rust/crates/effects/src/colour_grading.rs:96 rust/crates/effects/ui/colour_grading.slint:318
 msgid "Shadows"
 msgstr "Skuggor"
 
@@ -1034,7 +1034,7 @@ msgstr "Skuggor"
 msgid "Brightens or darkens the darker parts"
 msgstr "Ljusar upp eller mörkar ner de mörkare delarna"
 
-#: rust/crates/effects/src/colour_grading.rs:97 rust/crates/effects/ui/colour_grading.slint:311
+#: rust/crates/effects/src/colour_grading.rs:97 rust/crates/effects/ui/colour_grading.slint:318
 msgid "Highlights"
 msgstr "Högdagrar"
 
@@ -1055,7 +1055,7 @@ msgstr "Exportera graderingen"
 msgid "{file} is already there. Replace it?"
 msgstr "{file} finns redan där. Vill du ersätta den?"
 
-#: rust/crates/effects/src/colour_grading.rs:522 rust/crates/effects/src/colour_grading.rs:929 rust/crates/effects/src/colour_grading.rs:1012 rust/crates/effects/src/colour_grading.rs:1014 rust/crates/effects/src/colour_grading.rs:1056 rust/crates/effects/ui/colour_grading.slint:149
+#: rust/crates/effects/src/colour_grading.rs:522 rust/crates/effects/src/colour_grading.rs:929 rust/crates/effects/src/colour_grading.rs:1012 rust/crates/effects/src/colour_grading.rs:1014 rust/crates/effects/src/colour_grading.rs:1056 rust/crates/effects/ui/colour_grading.slint:152
 msgid "Colour grading"
 msgstr "Färgsättning"
 
@@ -1096,7 +1096,7 @@ msgstr "Sträck"
 msgid "Crop"
 msgstr "Beskär"
 
-#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:136 rust/crates/effects/ui/transforms.slint:146 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:137 rust/crates/effects/ui/transforms.slint:147 rust/crates/outputs/src/webcam.rs:56
 msgid "Pan"
 msgstr "Panorera"
 
@@ -1239,7 +1239,7 @@ msgid "Black and white"
 msgstr "Svartvitt"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:26 rust/crates/effects/ui/colour_grading.slint:204 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:101 rust/crates/outputs/src/webcam.rs:958 rust/crates/outputs/ui/webcam.slint:120 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:26 rust/crates/effects/ui/colour_grading.slint:207 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:101 rust/crates/outputs/src/webcam.rs:958 rust/crates/outputs/ui/webcam.slint:120 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
 msgid "Auto"
 msgstr "Auto"
 
@@ -2008,7 +2008,7 @@ msgstr "Visa skylten på en webbsida"
 msgid "Scan"
 msgstr "Skanna"
 
-#: rust/crates/effects/src/on_air_plugin.rs:444 rust/crates/effects/src/qr_reader.rs:473 rust/crates/link/ui/browser_camera.slint:125 rust/crates/setup/ui/parts.slint:126
+#: rust/crates/effects/src/on_air_plugin.rs:444 rust/crates/effects/src/qr_reader.rs:473 rust/crates/link/ui/browser_camera.slint:125 rust/crates/setup/ui/parts.slint:126 rust/crates/system/ui/mcp.slint:103
 msgid "Copy"
 msgstr "Kopiera"
 
@@ -2494,11 +2494,11 @@ msgstr "Panorera vänster/höger"
 msgid "Pan up/down"
 msgstr "Panorera upp/ned"
 
-#: rust/crates/effects/src/transforms.rs:618 rust/crates/effects/src/transforms.rs:686 rust/crates/effects/ui/desk.slint:106 rust/crates/effects/ui/transforms.slint:167
+#: rust/crates/effects/src/transforms.rs:618 rust/crates/effects/src/transforms.rs:686 rust/crates/effects/ui/desk.slint:106 rust/crates/effects/ui/transforms.slint:168
 msgid "Width"
 msgstr "Bredd"
 
-#: rust/crates/effects/src/transforms.rs:619 rust/crates/effects/src/transforms.rs:686 rust/crates/effects/ui/desk.slint:121 rust/crates/effects/ui/transforms.slint:182
+#: rust/crates/effects/src/transforms.rs:619 rust/crates/effects/src/transforms.rs:686 rust/crates/effects/ui/desk.slint:121 rust/crates/effects/ui/transforms.slint:184
 msgid "Height"
 msgstr "Höjd"
 
@@ -2558,107 +2558,107 @@ msgstr "Zebramönster från"
 msgid "Scope size"
 msgstr "Scopestorlek"
 
-#: rust/crates/effects/ui/colour_grading.slint:162 rust/crates/effects/ui/colour_grading.slint:169
+#: rust/crates/effects/ui/colour_grading.slint:165 rust/crates/effects/ui/colour_grading.slint:172
 msgid "Compare"
 msgstr "Jämför"
 
-#: rust/crates/effects/ui/colour_grading.slint:171
+#: rust/crates/effects/ui/colour_grading.slint:174
 msgid "Left of the line the preview shows the picture without the grade (apps always get it graded)"
 msgstr "Till vänster om linjen visar förhandsvisningen bilden utan färgsättning (appar får den alltid färgsatt)"
 
-#: rust/crates/effects/ui/colour_grading.slint:178
+#: rust/crates/effects/ui/colour_grading.slint:181
 msgid "Split"
 msgstr "Delning"
 
-#: rust/crates/effects/ui/colour_grading.slint:179
+#: rust/crates/effects/ui/colour_grading.slint:182
 msgid "Where the line between before and after is"
 msgstr "Var linjen mellan före och efter är"
 
-#: rust/crates/effects/ui/colour_grading.slint:194
+#: rust/crates/effects/ui/colour_grading.slint:197
 msgid "Primaries"
 msgstr "Primära"
 
-#: rust/crates/effects/ui/colour_grading.slint:194
+#: rust/crates/effects/ui/colour_grading.slint:197
 msgid "Curves"
 msgstr "Kurvor"
 
-#: rust/crates/effects/ui/colour_grading.slint:194 rust/crates/effects/ui/colour_grading.slint:373
+#: rust/crates/effects/ui/colour_grading.slint:197 rust/crates/effects/ui/colour_grading.slint:381
 msgid "LUT"
 msgstr "LUT"
 
-#: rust/crates/effects/ui/colour_grading.slint:198
+#: rust/crates/effects/ui/colour_grading.slint:201
 msgid "Page"
 msgstr "Sida"
 
-#: rust/crates/effects/ui/colour_grading.slint:205
+#: rust/crates/effects/ui/colour_grading.slint:208
 msgid "Auto colour grading"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:206
+#: rust/crates/effects/ui/colour_grading.slint:209
 msgid "Looks at about a second of the picture and sets white balance, brightness, contrast and colour for you. Everything it sets stays on the sliders to change"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:214 rust/crates/effects/ui/colour_grading.slint:217
+#: rust/crates/effects/ui/colour_grading.slint:217 rust/crates/effects/ui/colour_grading.slint:220
 msgid "Reset the grade"
 msgstr "Återställ färgsättningen"
 
-#: rust/crates/effects/ui/colour_grading.slint:335
+#: rust/crates/effects/ui/colour_grading.slint:343
 msgid "RGB"
 msgstr "RGB"
 
-#: rust/crates/effects/ui/colour_grading.slint:335
+#: rust/crates/effects/ui/colour_grading.slint:343
 msgid "Hue vs sat"
 msgstr "Nyans mot mättnad"
 
-#: rust/crates/effects/ui/colour_grading.slint:335
+#: rust/crates/effects/ui/colour_grading.slint:343
 msgid "Hue vs hue"
 msgstr "Nyans mot nyans"
 
-#: rust/crates/effects/ui/colour_grading.slint:339 rust/crates/effects/ui/colour_grading.slint:359
+#: rust/crates/effects/ui/colour_grading.slint:347 rust/crates/effects/ui/colour_grading.slint:367
 msgid "Curve"
 msgstr "Kurva"
 
-#: rust/crates/effects/ui/colour_grading.slint:345
+#: rust/crates/effects/ui/colour_grading.slint:353
 msgid "All"
 msgstr "Alla"
 
-#: rust/crates/effects/ui/colour_grading.slint:349 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
+#: rust/crates/effects/ui/colour_grading.slint:357 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
 msgid "Channel"
 msgstr "Kanal"
 
-#: rust/crates/effects/ui/colour_grading.slint:378
+#: rust/crates/effects/ui/colour_grading.slint:386
 msgid "Load…"
 msgstr "Läs in…"
 
-#: rust/crates/effects/ui/colour_grading.slint:379
+#: rust/crates/effects/ui/colour_grading.slint:387
 msgid "Pick a .cube LUT to put on top of the grade"
 msgstr "Välj en .cube-LUT att lägga ovanpå färgsättningen"
 
-#: rust/crates/effects/ui/colour_grading.slint:396 rust/crates/effects/ui/colour_grading.slint:399
+#: rust/crates/effects/ui/colour_grading.slint:404 rust/crates/effects/ui/colour_grading.slint:407
 msgid "Take the LUT off"
 msgstr "Ta bort LUT:en"
 
-#: rust/crates/effects/ui/colour_grading.slint:405
+#: rust/crates/effects/ui/colour_grading.slint:413
 msgid "Strength"
 msgstr "Styrka"
 
-#: rust/crates/effects/ui/colour_grading.slint:406
+#: rust/crates/effects/ui/colour_grading.slint:414
 msgid "How much of the LUT's look goes on the picture"
 msgstr "Hur mycket av LUT:ens utseende som läggs på bilden"
 
-#: rust/crates/effects/ui/colour_grading.slint:423
+#: rust/crates/effects/ui/colour_grading.slint:432
 msgid "Export"
 msgstr "Exportera"
 
-#: rust/crates/effects/ui/colour_grading.slint:427
+#: rust/crates/effects/ui/colour_grading.slint:436
 msgid "Export grade…"
 msgstr "Exportera gradering…"
 
-#: rust/crates/effects/ui/colour_grading.slint:428
+#: rust/crates/effects/ui/colour_grading.slint:437
 msgid "Save the grade, LUT included, as a .cube file for other apps"
 msgstr "Spara graderingen, inklusive LUT, som en .cube-fil för andra appar"
 
-#: rust/crates/effects/ui/colour_grading.slint:440 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:680
+#: rust/crates/effects/ui/colour_grading.slint:449 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:680
 msgid "Replace"
 msgstr "Ersätt"
 
@@ -3004,103 +3004,103 @@ msgstr "Testa off air"
 msgid "Arrow keys move the view, Shift with an arrow moves it further. Home centres it."
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:95
+#: rust/crates/effects/ui/parts.slint:98
 msgid "pink"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:95
+#: rust/crates/effects/ui/parts.slint:98
 msgid "magenta"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:95
+#: rust/crates/effects/ui/parts.slint:98
 msgid "purple"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:95
+#: rust/crates/effects/ui/parts.slint:98
 msgid "blue"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:95
+#: rust/crates/effects/ui/parts.slint:98
 msgid "sky blue"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:95
+#: rust/crates/effects/ui/parts.slint:98
 msgid "cyan"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:95
+#: rust/crates/effects/ui/parts.slint:98
 msgid "spring green"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:95
+#: rust/crates/effects/ui/parts.slint:98
 msgid "green"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:95
+#: rust/crates/effects/ui/parts.slint:98
 msgid "lime"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:95
+#: rust/crates/effects/ui/parts.slint:98
 msgid "yellow"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:95
+#: rust/crates/effects/ui/parts.slint:98
 msgid "orange"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:95
+#: rust/crates/effects/ui/parts.slint:98
 msgid "red"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:101
+#: rust/crates/effects/ui/parts.slint:104
 msgid "neutral"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:101
+#: rust/crates/effects/ui/parts.slint:104
 msgid "towards"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:104
+#: rust/crates/effects/ui/parts.slint:107
 msgid "points, none picked"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:104
+#: rust/crates/effects/ui/parts.slint:107
 msgid "point"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:104
+#: rust/crates/effects/ui/parts.slint:107
 msgid "in"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:104
+#: rust/crates/effects/ui/parts.slint:107
 msgid "out"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:111
+#: rust/crates/effects/ui/parts.slint:114
 msgid "centred"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:112 rust/crates/effects/ui/parts.slint:114
+#: rust/crates/effects/ui/parts.slint:115 rust/crates/effects/ui/parts.slint:117
 msgid "left"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:112 rust/crates/effects/ui/parts.slint:114
+#: rust/crates/effects/ui/parts.slint:115 rust/crates/effects/ui/parts.slint:117
 msgid "right"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:113 rust/crates/effects/ui/parts.slint:114
+#: rust/crates/effects/ui/parts.slint:116 rust/crates/effects/ui/parts.slint:117
 msgid "up"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:113 rust/crates/effects/ui/parts.slint:114
+#: rust/crates/effects/ui/parts.slint:116 rust/crates/effects/ui/parts.slint:117
 msgid "down"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:146
+#: rust/crates/effects/ui/parts.slint:149
 msgid "Arrow keys move the puck a little, Shift with an arrow moves it further. Home puts it back in the middle."
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:320
+#: rust/crates/effects/ui/parts.slint:323
 msgid "Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve."
 msgstr ""
 
@@ -3225,7 +3225,7 @@ msgstr "Telefonen nekade mikrofonen (HTTP {code})."
 msgid "No microphone"
 msgstr "Ingen mikrofon"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:955 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:576 rust/crates/shell/src/streams.rs:1600 rust/crates/shell/src/window.rs:1311 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/remote.rs:46
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:955 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:576 rust/crates/shell/src/streams.rs:1600 rust/crates/shell/src/window.rs:1353 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Strömmar inte"
 
@@ -3279,7 +3279,7 @@ msgstr "Webbläsaren kopplades från."
 msgid "Browser camera"
 msgstr "Webbläsarkamera"
 
-#: rust/crates/link/src/browser/plugin.rs:588
+#: rust/crates/link/src/browser/plugin.rs:588 rust/crates/system/ui/mcp.slint:34
 msgid "Connected"
 msgstr "Ansluten"
 
@@ -6602,66 +6602,66 @@ msgstr "Installera ett tillägg"
 msgid "Plugins (*.zip)"
 msgstr "Tillägg (*.zip)"
 
-#: rust/crates/shell/src/shell.rs:581
+#: rust/crates/shell/src/shell.rs:583
 #, python-brace-format
 msgid "{plugins} didn't start"
 msgid_plural "{plugins} didn't start"
 msgstr[0] "{plugins} startade inte"
 msgstr[1] "{plugins} startade inte"
 
-#: rust/crates/shell/src/shell.rs:583
+#: rust/crates/shell/src/shell.rs:585
 #, python-brace-format
 msgid "{n} plugin didn't start"
 msgid_plural "{n} plugins didn't start"
 msgstr[0] "{n} tillägg startade inte"
 msgstr[1] "{n} tillägg startade inte"
 
-#: rust/crates/shell/src/shell.rs:585
+#: rust/crates/shell/src/shell.rs:587
 msgid "Telescope works without it. The Plugins tab in Settings says what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings says what went wrong."
 msgstr[0] "Telescope fungerar utan det. Fliken Tillägg i Inställningar visar vad som gick fel."
 msgstr[1] "Telescope fungerar utan dem. Fliken Tillägg i Inställningar visar vad som gick fel."
 
-#: rust/crates/shell/src/shell.rs:589 rust/crates/shell/src/shell.rs:609
+#: rust/crates/shell/src/shell.rs:591 rust/crates/shell/src/shell.rs:611
 msgid "Plugins…"
 msgstr "Tillägg…"
 
-#: rust/crates/shell/src/shell.rs:603
+#: rust/crates/shell/src/shell.rs:605
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
 msgstr[0] "Tillägget {plugins} är avstängt"
 msgstr[1] "Tilläggen {plugins} är avstängda"
 
-#: rust/crates/shell/src/shell.rs:604
+#: rust/crates/shell/src/shell.rs:606
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "Du stängde av det här i Tillägg. Öppna Tillägg i Inställningar och slå på det igen för att få tillbaka det."
 msgstr[1] "Du stängde av de här i Tillägg. Öppna Tillägg i Inställningar och slå på dem igen för att få tillbaka dem."
 
-#: rust/crates/shell/src/shell.rs:624
+#: rust/crates/shell/src/shell.rs:626
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "En kopia av den gamla filen finns på {path}."
 
-#: rust/crates/shell/src/shell.rs:626
+#: rust/crates/shell/src/shell.rs:628
 msgid "Your settings couldn't be read"
 msgstr "Dina inställningar kunde inte läsas"
 
-#: rust/crates/shell/src/shell.rs:627
+#: rust/crates/shell/src/shell.rs:629
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescope startade med standardinställningarna, så parkopplade telefoner måste parkopplas igen."
 
-#: rust/crates/shell/src/shell.rs:947
+#: rust/crates/shell/src/shell.rs:949
 msgid "Telescope - Save failed"
 msgstr "Telescope - Kunde inte spara"
 
-#: rust/crates/shell/src/shell.rs:948
+#: rust/crates/shell/src/shell.rs:950
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "Kunde inte spara inställningarna. Kontrollera diskutrymme och behörigheter."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1321 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1363 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "Starta"
 
@@ -6947,28 +6947,28 @@ msgstr "Högerklicka på ikonen i meddelandefältet för att avsluta."
 msgid "Telescope is still running"
 msgstr "Telescope körs fortfarande"
 
-#: rust/crates/shell/src/window.rs:110
+#: rust/crates/shell/src/window.rs:114
 msgid "Telescope - Video Preview"
 msgstr "Telescope - Videoförhandsvisning"
 
-#: rust/crates/shell/src/window.rs:603
+#: rust/crates/shell/src/window.rs:610
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: rust/crates/shell/src/window.rs:1320 rust/crates/shell/src/window.rs:1321
+#: rust/crates/shell/src/window.rs:1362 rust/crates/shell/src/window.rs:1363
 msgid "Start mic only"
 msgstr "Starta bara mikrofonen"
 
-#: rust/crates/shell/src/window.rs:1320
+#: rust/crates/shell/src/window.rs:1362
 msgid "Start streaming"
 msgstr "Starta strömning"
 
-#: rust/crates/shell/src/window.rs:1326
+#: rust/crates/shell/src/window.rs:1368
 msgid "Stop streaming"
 msgstr "Stoppa strömning"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1327 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/window.rs:1369 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "Stoppa"
 
@@ -7282,19 +7282,161 @@ msgstr "En annan app använder redan den här tangenten"
 msgid "Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all, so pick another."
 msgstr "Kortkommandon som gäller Överallt tas över från Windows medan Telescope körs. En tangent som en annan app redan har tagit når aldrig Telescope, så välj en annan."
 
-#: rust/crates/system/src/mcp.rs:626
+#: rust/crates/system/src/mcp.rs:500 rust/crates/system/src/mcp.rs:643
+msgid "An AI app"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:506
+#, python-brace-format
+msgid "Refused (read only): {what}"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:535
+#, python-brace-format
+msgid "Failed: {what}"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:566
+msgid "Read status"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:567
+msgid "Read stats"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:568
+#, python-brace-format
+msgid "Watched stats for {n} s"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:569
+msgid "Read diagnostics"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:570
+msgid "Measured the picture"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:572
+#, python-brace-format
+msgid "Listed the {plugin} settings"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:573
+msgid "Listed every setting"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:576
+#, python-brace-format
+msgid "Read {names}"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:577
+msgid "Read every setting"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:580
+#, python-brace-format
+msgid "Set {changes}"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:580
+#, python-brace-format
+msgid "{name} to {value}"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:581
+msgid "Set settings"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:583
+msgid "Undid its changes"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:584
+msgid "Listed the actions"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:588
+#, python-brace-format
+msgid "Ran {action}"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:629
+msgid "MCP server settings"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:630
+msgid "An AI app is connected. Open the MCP settings"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:630
+msgid "No AI app is connected. Open the MCP settings"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:631 rust/crates/system/src/mcp.rs:632
+msgid "Undo what the AI changed"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:632
+msgid "The AI hasn't changed anything"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:647
+msgid "No AI app is connected"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:648
+msgid "Read only"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:648
+msgid "Read and change"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:651
+msgid "Copy the entry for an AI app's MCP settings"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:653
+msgid "Nothing yet"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:914
+msgid "You"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:914
+msgid "Undid what the AI changed"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:975
+#, python-brace-format
+msgid "{list} and {n} more"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:1045 rust/crates/system/ui/mcp.slint:29
 msgid "MCP server"
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:627
+#: rust/crates/system/src/mcp.rs:1046
 msgid "Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port."
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:628
+#: rust/crates/system/src/mcp.rs:1047
 msgid "Without it AI apps can't connect to Telescope."
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:655
+#: rust/crates/system/src/mcp.rs:1075 rust/crates/system/ui/mcp.slint:245
+msgid "MCP"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:1076 rust/crates/system/ui/mcp.slint:30
+msgctxt "search"
+msgid "mcp ai claude model assistant agent connect access read only"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:1113
 msgid "An AI app is connected to Telescope through the MCP server."
 msgstr ""
 
@@ -7831,6 +7973,23 @@ msgstr "Uppdateringar"
 #: rust/crates/system/src/updates_plugin.rs:858
 msgid "Checking for new versions of Telescope and installing them."
 msgstr "Söker efter nya versioner av Telescope och installerar dem."
+
+#: rust/crates/system/ui/mcp.slint:58 rust/crates/system/ui/mcp.slint:64
+msgid "Access"
+msgstr ""
+
+#: rust/crates/system/ui/mcp.slint:75
+msgid "Command"
+msgstr ""
+
+#: rust/crates/system/ui/mcp.slint:113
+msgid "Recent activity"
+msgstr ""
+
+#: rust/crates/system/ui/mcp.slint:114
+msgctxt "search"
+msgid "mcp ai log history what the ai did refused"
+msgstr ""
 
 #: rust/crates/system/ui/shortcuts.slint:51
 msgid "Copy command line"

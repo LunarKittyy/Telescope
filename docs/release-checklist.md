@@ -212,12 +212,14 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### MCP server
 
-<!-- due: rust/crates/system/src/mcp.rs rust/crates/system/src/mcp_bridge.rs rust/crates/system/src/single_instance.rs rust/crates/core/src/settings.rs docs/mcp.md -->
+<!-- due: rust/crates/system/src/mcp.rs rust/crates/system/src/mcp_bridge.rs rust/crates/system/src/mcp_stats.rs rust/crates/system/src/remote.rs rust/crates/system/ui/mcp.slint rust/crates/shell/src/touched.rs rust/crates/system/src/single_instance.rs rust/crates/core/src/settings.rs docs/mcp.md -->
 
 - [ ] With the plugin off, `telescope mcp` started by an AI app still starts and says where to switch it on. After switching **MCP server** on and restarting, the same app connects without restarting it, and Telescope shows a notification for the first connection.
 - [ ] In Claude Desktop and one other MCP client (set up as in `docs/mcp.md`): `status`, `describe` and `get` answer, and `set` with Colour grading's Contrast moves the slider in the card and the picture at once. A wrong value names the problem and changes nothing. `revert` puts it back and leaves a slider moved by hand alone.
 - [ ] With a phone streaming and Colour grading on, `measure` gives numbers while sitting still and says why when the stream is off. Asking a model to colour grade the picture ends with sensible sliders and nothing outside the ranges.
-- [ ] `stats` and `watch` say they aren't available (until Stats is in), and the stream and phone camera actions are refused.
+- [ ] With a phone streaming, `stats` and `watch` give the numbers the Stats panel shows (also with the Stats plugin off), and the stream and phone camera actions are refused.
+- [ ] The **MCP** button in the top bar: the dot shows when an AI app is connected, it lights while the AI reads or changes something, the left side opens the MCP tab and the right side undoes what the AI changed (greyed out with nothing to undo). On the MCP tab, **Read only** makes `set`, `revert` and `run_action` refuse with a line in the activity list marked as refused, and the last 30 calls are listed newest first.
+- [ ] When the AI sets Colour grading's Contrast and Temperature, those two sliders get an outline for about a second and a half. With the card folded nothing opens.
 
 ### Several cameras in one picture
 

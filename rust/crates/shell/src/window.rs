@@ -72,6 +72,10 @@ pub struct Window {
     pieces: Vec<PieceRef>,
     fold_version: Cell<i32>,
     save_timer: slint::Timer,
+    /// The controls an outside caller just touched (touched.rs), and the timers that fade and clear their outlines.
+    touches: RefCell<crate::touched::Touches>,
+    touch_fade: slint::Timer,
+    touch_clear: slint::Timer,
     pub(crate) services: Option<Arc<Services>>,
     pub(crate) opts: Option<WindowOptions>,
     pub streams: crate::streams::Streams,
@@ -410,6 +414,9 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         pieces,
         fold_version: Cell::new(0),
         save_timer: slint::Timer::default(),
+        touches: RefCell::default(),
+        touch_fade: slint::Timer::default(),
+        touch_clear: slint::Timer::default(),
         services,
         opts,
         streams: crate::streams::Streams::new(),
@@ -1245,6 +1252,7 @@ impl Window {
             Effect::ToggleWindow => self.toggle_window(),
             Effect::KeepInTray(_) => {}
             Effect::OpenSettings(tab) => crate::settings::open(self, &tab),
+            Effect::TouchSettings { ids, changed } => self.touch_settings(&ids, changed),
             Effect::OpenUrl(url) => self.follow_url(&url),
             Effect::CopyText(text) => self.copy_text(&text),
             Effect::PluginHues(on) => {
@@ -1271,6 +1279,40 @@ impl Window {
                 let _ = self.ui.set_global_property("Shortcuts", "version", SValue::Number(version + 1.0));
             }
         }
+    }
+
+    /// Outlines the controls that show these settings, holds for a moment, fades them and lets go. Nothing is opened or scrolled to.
+    fn touch_settings(self: &Rc<Self>, ids: &[String], changed: bool) {
+        self.touches.borrow_mut().touch(ids, changed);
+        self.show_touches();
+        self.touch_clear.stop();
+        let weak = Rc::downgrade(self);
+        self.touch_fade.start(slint::TimerMode::SingleShot, crate::touched::HOLD, move || {
+            let Some(w) = weak.upgrade() else { return };
+            w.touches.borrow_mut().fade();
+            w.show_touches();
+            let weak = Rc::downgrade(&w);
+            w.touch_clear.start(slint::TimerMode::SingleShot, crate::touched::FADE, move || {
+                let Some(w) = weak.upgrade() else { return };
+                w.touches.borrow_mut().clear_faded();
+                w.show_touches();
+            });
+        });
+    }
+
+    /// Keeps the outlines where they are instead of fading them, so a scene can draw one however long drawing takes.
+    pub fn keep_touches(&self) {
+        self.touch_fade.stop();
+        self.touch_clear.stop();
+    }
+
+    fn show_touches(&self) {
+        let rows: Vec<SValue> = self.touches.borrow().items().iter().map(|i| SValue::Struct(Struct::from_iter([
+            ("id".to_string(), SValue::String(i.id.as_str().into())),
+            ("on".to_string(), SValue::Bool(i.on)),
+            ("changed".to_string(), SValue::Bool(i.changed)),
+        ]))).collect();
+        let _ = self.ui.set_global_property("Touched", "items", SValue::Model(ModelRc::new(VecModel::from(rows))));
     }
 
     pub fn schedule_save(self: &Rc<Self>) {

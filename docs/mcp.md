@@ -12,6 +12,17 @@ It's off until you switch it on, and it opens no network port. The AI app starts
 
 Telescope shows a notification when the first AI app connects. Switching the plugin off again turns every connection away.
 
+Once it's on there's an **MCP** tab in Settings and an **MCP** button in the top bar. The button's dot shows whether an AI app is connected right now and lights up for a moment when the AI looks at something or changes something. Its left side opens the MCP tab. Its right side undoes what the AI changed, for every AI app, and is greyed out when there's nothing to undo.
+
+The MCP tab has:
+
+- the AI apps connected now, by the name each one gave
+- **Access**: **Read only** or **Read and change** (the default). Read only turns away **set**, **revert** and **run_action**, which includes Auto colour grading. Reading still works. The undo button is yours, so it works either way
+- the entry to put in your AI app's MCP settings, with a copy button
+- the last 30 things the AI did, newest first, with refused ones marked. It lives in memory only and is gone when Telescope quits
+
+When the AI changes a setting whose control is on screen, that control gets an outline for a second and a half, and it does the same when the AI reads a few named settings. Controls that are folded away or on another tab are skipped. Nothing opens or scrolls.
+
 ## Adding it to an AI app
 
 For Claude Desktop, open its settings, then **Developer** and **Edit Config**, and add Telescope to `mcpServers`:
@@ -45,7 +56,12 @@ Changes show in the camera straight away, which matters in a live call, so the m
 
 Settings are declared by plugins. Colour grading and Transforms declare theirs so far, and more plugins will follow. A plugin that's switched off doesn't show up in **describe**.
 
-**Not here yet:** the Stats numbers (**stats** and **watch**) answer that they aren't available in this build. Frames from the camera are never sent.
+- **stats** gives the numbers the Stats panel shows (frame rates in and out, drops with their reasons, bitrate, decode and frame step times) over the last minute, each as min, average and max with the worst moments and how long ago they were. `level: nerd` adds the stage times, the balancer's moves and the app's CPU and memory
+- **watch** collects the same numbers for 5 to 120 seconds while you reproduce a problem, then answers
+
+Both read the numbers core already keeps, so they work with the Stats panel switched off. They need a stream running.
+
+**Not here yet:** frames from the camera are never sent.
 
 ## Trying it
 

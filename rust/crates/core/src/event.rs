@@ -209,6 +209,10 @@ events! {
     "picture_measure_requested" => PictureMeasureRequested { token: String },
     /// Not in plugin.py: the answer to picture_measure_requested: ok with the picture as numbers in data, or not with why in message.
     "picture_measured" => PictureMeasured { token: String, ok: bool, message: String, data: Value },
+    /// Not in plugin.py: something outside the window (the MCP server) read or changed these settings (ids as "plugin.key"). The window
+    /// outlines the controls that show them for a moment: changed is true for a change and false for a read. A control that isn't on
+    /// screen is skipped, nothing is opened or scrolled to.
+    "settings_touched" => SettingsTouched { ids: Vec<String>, changed: bool },
     /// Not in plugin.py: an event a plugin someone added defines for itself, named "<plugin>.<what>".
     "custom" => Custom { name: String, data: Value },
 }

@@ -91,6 +91,7 @@ export component TransformsCard inherits Card {
                     label: @tr("Zoom");
                     tip: root.zoom-tip;
                     shortcut: "transforms.zoom";
+                    setting: "transforms.zoom";
                     minimum: 1;
                     maximum: zoom-max;
                     step: 0.01;
@@ -167,6 +168,7 @@ export component TransformsCard inherits Card {
         label: @tr("Width");
         tip: stretch-tips[0];
         shortcut: "transforms.stretch_x";
+        setting: "transforms.stretch_x";
         hint: reset-hint;
         minimum: 50;
         maximum: 200;
@@ -182,6 +184,7 @@ export component TransformsCard inherits Card {
         label: @tr("Height");
         tip: stretch-tips[1];
         shortcut: "transforms.stretch_y";
+        setting: "transforms.stretch_y";
         hint: reset-hint;
         minimum: 50;
         maximum: 200;

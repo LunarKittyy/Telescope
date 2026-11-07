@@ -186,7 +186,7 @@ fn a_connection_answers_line_by_line_and_a_slow_tool_does_not_hold_up_the_next_r
         "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"ping\"}\n",
         "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n",
     );
-    serve_connection(std::io::Cursor::new(input), Arc::new(Mutex::new(Lines(tx))), call);
+    serve_connection(std::io::Cursor::new(input), Arc::new(Mutex::new(Lines(tx))), call, Arc::new(|_| {}));
     let first: Value = serde_json::from_str(&rx.recv_timeout(Duration::from_secs(5)).unwrap()).unwrap();
     let second: Value = serde_json::from_str(&rx.recv_timeout(Duration::from_secs(5)).unwrap()).unwrap();
     assert_eq!(first["error"]["code"], json!(-32700), "bad JSON is answered");
@@ -256,7 +256,8 @@ fn status_says_what_is_going_on_without_any_address_or_token() {
     assert_eq!(status["streaming"]["canvas"], json!({"width": 1920, "height": 1080}));
     assert_eq!(status["focused_source"], json!("phone"));
     assert!(status["plugins_running"].as_array().unwrap().iter().any(|p| p["name"] == "grading"));
-    assert_eq!(status["stats"], json!("not available in this build"));
+    assert!(status["stats"].as_str().unwrap().contains("no stream is running"));
+    assert_eq!(status["mcp"]["access"], json!("read_and_change"));
 }
 
 #[test]
@@ -289,15 +290,6 @@ fn diagnostics_gives_the_copy_diagnostics_text() {
     let mut r = Rig::new();
     r.host.report = "Telescope 5.1\nStreaming: yes".into();
     assert_eq!(r.ask("diagnostics", json!({})).unwrap()["text"], json!("Telescope 5.1\nStreaming: yes"));
-}
-
-#[test]
-fn stats_and_watch_say_they_are_not_here_yet() {
-    let mut r = Rig::new();
-    for tool in ["stats", "watch"] {
-        let why = r.ask(tool, json!({"window_seconds": 30})).unwrap_err();
-        assert!(why.contains("not available in this build"), "{why}");
-    }
 }
 
 // ── Setting ──────────────────────────────────────────────────────────
@@ -423,7 +415,10 @@ fn each_connection_reverts_only_its_own_changes() {
     assert_eq!(back["reverted"][0], json!({"id": "grading.contrast", "back_to": 1.4}));
     assert_eq!(r.config()["contrast"], json!(1.4));
     assert_eq!(r.host.notifications.len(), 1, "a connection going is not announced as one arriving");
-    assert!(!r.plugin.journals.contains_key(&1), "what a gone connection changed is forgotten");
+    // What a gone connection changed stays, so the header button can still undo it
+    assert!(r.plugin.journals.contains_key(&1));
+    r.plugin.undo_all(&mut r.host);
+    assert_eq!(r.config()["contrast"], json!(1.0));
 }
 
 // ── Actions ──────────────────────────────────────────────────────────
@@ -463,7 +458,7 @@ fn run_action_runs_one_and_refuses_the_ones_left_to_the_person() {
         let why = r.ask("run_action", json!({"action": id})).unwrap_err();
         assert!(why.contains("left to the person"), "{why}");
     }
-    assert!(!r.host.calls.iter().any(|c| c.contains("start_stream") || c.contains("stop")));
+    assert!(!r.host.calls.iter().any(|c| c.starts_with("run_action") && (c.contains("start_stream") || c.contains("stop"))));
     assert!(r.ask("run_action", json!({"action": "nope"})).unwrap_err().contains("no action called"));
     assert!(r.ask("run_action", json!({})).unwrap_err().contains("action has to be"));
     assert!(r.ask("run_action", json!({"action": "grading.reset", "params": 3})).unwrap_err().contains("params has to be"));
@@ -543,4 +538,423 @@ fn an_answer_for_somebody_elses_measuring_is_ignored() {
     let mut r = Rig::new();
     r.plugin.on_event(&mut r.host, &Event::PictureMeasured { token: "other".into(), ok: true, message: String::new(), data: json!({}) });
     assert!(r.plugin.jobs.is_empty());
+}
+
+// ── Stats and watch: the real numbers, through core's snapshot only ──
+
+use telescope_core::stats::{Counts, Drops, Rates, Snapshot, SourceSeries, SourceSnapshot};
+
+fn snapshot_of(fps: Vec<f32>, lost: u64) -> Snapshot {
+    let n = fps.len();
+    let mut drops = vec![Drops::default(); n];
+    if let Some(last) = drops.last_mut() {
+        last.lost_on_link = lost;
+    }
+    Snapshot {
+        at_ms: 1000 * n as u64,
+        detailed: false,
+        sources: vec![SourceSnapshot {
+            source_id: "phone".into(), seconds: n as u64, target_fps: 30, totals: Counts { received: 900, delivered: 880, ..Counts::default() },
+            drops: drops.last().copied().unwrap_or_default(), now: Rates { received_fps: *fps.last().unwrap_or(&0.0), ..Rates::default() },
+            series: SourceSeries {
+                received_fps: fps.clone(), delivered_fps: fps.clone(), decoded_fps: fps, mbps: vec![9.0; n], dropped_fps: vec![0.0; n], repeated_fps: vec![0.0; n],
+                decode_ms: vec![5.0; n], step_ms: vec![2.0; n], camera_ms: vec![1.0; n], drop_totals: drops, ..SourceSeries::default()
+            },
+            ..SourceSnapshot::default()
+        }],
+        ..Snapshot::default()
+    }
+}
+
+impl Rig {
+    fn stats_arrive(&mut self, snapshot: Snapshot) {
+        self.plugin.on_event(&mut self.host, &Event::StatsUpdated { snapshot });
+    }
+
+    /// The props last handed to a piece of the plugin's UI.
+    fn props(&self, ui: &str) -> Value {
+        let prefix = format!("set_ui_props {ui} ");
+        self.host.calls.iter().rev().find_map(|c| c.strip_prefix(&prefix).map(|j| serde_json::from_str(j).unwrap())).unwrap_or(Value::Null)
+    }
+
+    fn ui(&mut self, ui: &str, callback: &str, args: Vec<Value>) {
+        self.plugin.on_ui(&mut self.host, &UiEvent { ui: ui.into(), callback: callback.into(), args });
+    }
+
+    fn touched(&self) -> Vec<(Vec<String>, bool)> {
+        self.host.events.iter().filter_map(|e| match e {
+            Event::SettingsTouched { ids, changed } => Some((ids.clone(), *changed)),
+            _ => None,
+        }).collect()
+    }
+
+    fn read_only(&mut self) {
+        self.plugin.set_config(&json!({"access": "read_only"})).unwrap();
+    }
+}
+
+use telescope_core::ui::UiEvent;
+
+#[test]
+fn stats_gives_the_real_numbers_as_min_average_max_with_the_worst_moments() {
+    let mut r = Rig::new();
+    let mut fps = vec![30.0; 20];
+    fps[14] = 11.0;
+    r.stats_arrive(snapshot_of(fps, 6));
+    let said = r.ask("stats", json!({"window_seconds": 20})).unwrap();
+    let stream = &said["streams"][0];
+    assert_eq!((stream["source"].clone(), stream["target_fps"].clone()), (json!("phone"), json!(30)));
+    let received = &stream["series"]["received_fps"];
+    assert_eq!((received["min"].as_f64(), received["max"].as_f64(), received["samples"].as_u64()), (Some(11.0), Some(30.0), Some(20)));
+    assert_eq!(received["worst_moments"][0], json!({"seconds_ago": 5, "value": 11.0}), "{received}");
+    assert_eq!(stream["dropped_in_window"], json!({"total": 6, "by_reason": {"lost_on_link": 6}}));
+    assert!(stream["series"].get("decode_ms").is_none(), "standard leaves out the nerd series");
+    let nerd = r.ask("stats", json!({"level": "nerd", "series": ["decode_ms"]})).unwrap();
+    assert_eq!(nerd["streams"][0]["series"]["decode_ms"]["max"].as_f64(), Some(5.0));
+    assert!(r.host.calls.iter().any(|c| c == "want_stats mcp true"), "the costly numbers are asked for, only while a nerd call wants them");
+    assert!(r.host.is_scheduled("unwant"));
+}
+
+#[test]
+fn stats_without_a_stream_or_with_a_bad_window_says_what_to_do() {
+    let mut r = Rig::new();
+    assert!(r.ask("stats", json!({})).unwrap_err().contains("No stream is running"));
+    r.stats_arrive(Snapshot::default());
+    assert!(r.ask("stats", json!({})).unwrap_err().contains("No stream is running"), "a snapshot with no streams is no numbers");
+    r.stats_arrive(snapshot_of(vec![30.0; 10], 0));
+    assert!(r.ask("stats", json!({"window_seconds": 2})).unwrap_err().contains("5 to 60"));
+    assert!(r.ask("stats", json!({"level": "loud"})).unwrap_err().contains("standard or nerd"));
+    assert!(r.ask("stats", json!({"series": 3})).unwrap_err().contains("list of names"));
+}
+
+#[test]
+fn stats_work_with_the_stats_plugin_switched_off() {
+    let mut r = Rig::new();
+    assert!(!r.host.plugins.iter().any(|p| p == "stats"));
+    r.stats_arrive(snapshot_of(vec![30.0; 10], 0));
+    assert!(r.ask("stats", json!({})).is_ok());
+}
+
+#[test]
+fn watch_collects_a_second_at_a_time_and_answers_when_the_time_is_up() {
+    let mut r = Rig::new();
+    let mut step = 0;
+    let said = r.ask_with("watch", json!({"seconds": 10}), |r| {
+        if !r.host.scheduled.iter().any(|(ms, t)| *ms == 10_000 && t.starts_with("watch:")) || step > 0 {
+            return;
+        }
+        step = 1;
+        for second in 1..=8 {
+            let mut fps = vec![30.0; second];
+            if second == 5 {
+                fps[4] = 8.0;
+            }
+            r.stats_arrive(snapshot_of(fps, if second >= 6 { 3 } else { 0 }));
+        }
+        let token = r.host.scheduled.iter().find(|(_, t)| t.starts_with("watch:")).unwrap().1.clone();
+        r.plugin.on_event(&mut r.host, &Event::TimerFired { owner: NAME.into(), token });
+    }).unwrap();
+    let received = &said["streams"][0]["series"]["received_fps"];
+    assert_eq!((received["samples"].as_u64(), received["min"].as_f64()), (Some(8), Some(8.0)), "{said}");
+    assert_eq!(received["worst_moments"][0], json!({"seconds_ago": 3, "value": 8.0}));
+    assert_eq!(said["streams"][0]["dropped_in_window"]["total"], json!(3));
+}
+
+#[test]
+fn a_watch_with_no_stream_says_so_and_a_bad_length_is_refused() {
+    let mut r = Rig::new();
+    assert!(r.ask("watch", json!({"seconds": 1})).unwrap_err().contains("5 to 120"));
+    assert!(r.ask("watch", json!({"seconds": 500})).unwrap_err().contains("5 to 120"));
+    let mut fired = false;
+    let said = r.ask_with("watch", json!({"seconds": 5, "level": "nerd"}), |r| {
+        if let (Some((_, token)), false) = (r.host.scheduled.iter().find(|(_, t)| t.starts_with("watch:")).cloned(), fired) {
+            fired = true;
+            r.plugin.on_event(&mut r.host, &Event::TimerFired { owner: NAME.into(), token });
+        }
+    });
+    assert!(said.unwrap_err().contains("No stream was running"));
+    assert!(r.host.calls.iter().any(|c| c == "want_stats mcp true") && r.host.calls.iter().any(|c| c == "want_stats mcp false"), "nerd asks while it watches and lets go after");
+}
+
+// ── Access level ─────────────────────────────────────────────────────
+
+#[test]
+fn the_access_level_is_saved_defaults_to_read_and_change_and_ignores_what_it_does_not_know() {
+    let mut p = McpPlugin::new(McpHandle::default());
+    assert_eq!((p.access(), p.get_config()), (Access::ReadAndChange, json!({"access": "read_and_change"})));
+    p.set_config(&json!({"access": "read_only"})).unwrap();
+    assert_eq!((p.access(), p.get_config()), (Access::ReadOnly, json!({"access": "read_only"})));
+    p.set_config(&json!({"access": "everything"})).unwrap();
+    assert_eq!(p.access(), Access::ReadAndChange);
+    p.set_config(&json!({})).unwrap();
+    assert_eq!(p.access(), Access::ReadAndChange);
+}
+
+#[test]
+fn read_only_refuses_set_and_changes_nothing() {
+    let mut r = Rig::new();
+    r.read_only();
+    let before = r.config();
+    let why = r.ask("set", json!({"changes": {"grading.contrast": 1.4}})).unwrap_err();
+    assert!(why.contains("read only") && why.contains("set was refused"), "{why}");
+    assert_eq!(r.config(), before);
+    assert!(!r.host.calls.iter().any(|c| c.starts_with("apply_preset") || c == "schedule_save"));
+    assert!(r.touched().is_empty(), "a refused call outlines nothing");
+}
+
+#[test]
+fn read_only_refuses_revert_and_leaves_the_journal() {
+    let mut r = Rig::new();
+    r.ask("set", json!({"changes": {"grading.contrast": 1.4}})).unwrap();
+    r.read_only();
+    let why = r.ask("revert", json!({})).unwrap_err();
+    assert!(why.contains("read only") && why.contains("revert was refused"), "{why}");
+    assert_eq!(r.config()["contrast"], json!(1.4));
+    assert!(r.plugin.can_undo(), "the person's button can still undo it");
+}
+
+#[test]
+fn read_only_refuses_run_action_and_so_auto_colour_grading() {
+    let mut r = Rig::new();
+    with_actions(&mut r);
+    r.read_only();
+    let why = r.ask("run_action", json!({"action": "grading.reset"})).unwrap_err();
+    assert!(why.contains("read only") && why.contains("run_action was refused"), "{why}");
+    assert!(!r.host.calls.iter().any(|c| c.starts_with("run_action")), "nothing ran");
+    // Listing what exists is only reading
+    assert!(r.ask("actions", json!({})).is_ok());
+}
+
+#[test]
+fn read_only_still_reads_everything() {
+    let mut r = Rig::new();
+    r.read_only();
+    r.stats_arrive(snapshot_of(vec![30.0; 10], 0));
+    for (tool, args) in [("status", json!({})), ("describe", json!({})), ("get", json!({})), ("diagnostics", json!({})), ("actions", json!({})), ("stats", json!({}))] {
+        assert!(r.ask(tool, args).is_ok(), "{tool} is a read");
+    }
+}
+
+#[test]
+fn changing_the_level_applies_to_the_next_call_and_the_page_picks_it() {
+    let mut r = Rig::new();
+    assert!(r.ask("set", json!({"changes": {"grading.contrast": 1.2}})).is_ok());
+    r.ui(TAB, "access-picked", vec![json!(0)]);
+    assert_eq!(r.plugin.access(), Access::ReadOnly);
+    assert_eq!(r.props(TAB)["access-current"], json!(0));
+    assert!(r.host.calls.iter().any(|c| c == "schedule_save"), "the level is saved");
+    assert!(r.ask("set", json!({"changes": {"grading.contrast": 1.3}})).is_err());
+    r.ui(TAB, "access-picked", vec![json!(1)]);
+    assert!(r.ask("set", json!({"changes": {"grading.contrast": 1.3}})).is_ok());
+}
+
+// ── The activity log ─────────────────────────────────────────────────
+
+#[test]
+fn the_log_says_in_plain_words_what_each_call_did_newest_first() {
+    let mut r = Rig::new();
+    let client = r.handle.open_client().unwrap();
+    r.handle.name_client(client.session(), "Claude Desktop");
+    let s = client.session();
+    r.ask_as(s, "status", json!({})).unwrap();
+    r.ask_as(s, "get", json!({"ids": ["grading.contrast"]})).unwrap();
+    r.ask_as(s, "set", json!({"changes": {"grading.contrast": 1.4, "grading.on": false}})).unwrap();
+    r.ask_as(s, "set", json!({"changes": {"grading.contrast": 9}})).unwrap_err();
+    let texts: Vec<String> = r.plugin.log().into_iter().map(|e| e.text).collect();
+    assert_eq!(texts, ["Failed: Set Contrast to 9", "Set Contrast to 1.4, Colour grading to off", "Read Contrast", "Read status"]);
+    assert!(r.plugin.log().iter().all(|e| e.who == "Claude Desktop" && !e.refused));
+    assert_eq!(r.plugin.log()[0].time.len(), 8, "a time of day");
+    // The page gets the same rows
+    let rows = r.props(TAB)["log"].clone();
+    assert_eq!(rows[0]["text"], json!("Failed: Set Contrast to 9"));
+    assert_eq!(rows[3]["text"], json!("Read status"));
+}
+
+#[test]
+fn a_refused_call_is_marked_in_the_log_and_says_what_it_tried() {
+    let mut r = Rig::new();
+    r.read_only();
+    r.ask("set", json!({"changes": {"grading.contrast": 1.4}})).unwrap_err();
+    let entry = r.plugin.log().remove(0);
+    assert!(entry.refused);
+    assert_eq!(entry.text, "Refused (read only): Set Contrast to 1.4");
+    assert_eq!(entry.who, "An AI app", "an app that never said its name");
+    assert_eq!(r.props(TAB)["log"][0]["kind"], json!("refused"));
+}
+
+#[test]
+fn the_log_keeps_the_last_thirty_and_only_in_memory() {
+    let mut r = Rig::new();
+    for _ in 0..45 {
+        r.ask("status", json!({})).unwrap();
+    }
+    assert_eq!(r.plugin.log().len(), LOG_KEPT);
+    assert_eq!(r.props(TAB)["log"].as_array().unwrap().len(), 30);
+    assert_eq!(r.plugin.get_config(), json!({"access": "read_and_change"}), "nothing of it is in what gets saved");
+}
+
+#[test]
+fn a_long_list_of_settings_is_cut_short_in_the_log() {
+    let mut r = Rig::new();
+    r.ask("get", json!({"ids": ["grading.on", "grading.contrast", "grading.masters.gain", "grading.mode"]})).unwrap();
+    assert_eq!(r.plugin.log()[0].text, "Read Colour grading, Contrast, Masters gain and 1 more");
+}
+
+// ── The header button ────────────────────────────────────────────────
+
+#[test]
+fn the_button_knows_whether_an_ai_app_is_connected() {
+    let mut r = Rig::new();
+    assert_eq!(r.plugin.header_widget().unwrap().props["connected"], json!(false));
+    let client = r.handle.open_client().unwrap();
+    r.deliver();
+    assert_eq!(r.props(HEADER)["connected"], json!(true));
+    assert_eq!(r.props(TAB)["clients"], json!(["An AI app"]));
+    r.handle.name_client(client.session(), "Cursor");
+    r.deliver();
+    assert_eq!(r.props(TAB)["clients"], json!(["Cursor"]));
+    drop(client);
+    r.deliver();
+    assert_eq!(r.props(HEADER)["connected"], json!(false));
+    assert_eq!(r.props(TAB)["clients"], json!([]));
+}
+
+#[test]
+fn the_button_lights_for_a_look_or_a_change_and_settles_after_a_moment() {
+    let mut r = Rig::new();
+    assert_eq!(r.plugin.header_widget().unwrap().props["activity"], json!(""));
+    r.ask("get", json!({})).unwrap();
+    assert_eq!(r.props(HEADER)["activity"], json!("read"));
+    assert!(r.host.is_scheduled("calm"), "it settles on its own");
+    r.ask("set", json!({"changes": {"grading.contrast": 1.4}})).unwrap();
+    assert_eq!(r.props(HEADER)["activity"], json!("change"), "a change shows stronger than a look");
+    r.plugin.on_event(&mut r.host, &Event::TimerFired { owner: NAME.into(), token: "calm".into() });
+    assert_eq!(r.props(HEADER)["activity"], json!(""));
+}
+
+#[test]
+fn the_button_stays_lit_for_the_whole_of_a_slow_call() {
+    let mut r = Rig::new();
+    let mut seen = Vec::new();
+    r.ask_with("measure", json!({}), |r| {
+        if seen.is_empty() && r.host.events.iter().any(|e| matches!(e, Event::PictureMeasureRequested { .. })) {
+            seen.push(r.props(HEADER)["activity"].clone());
+            r.plugin.on_event(&mut r.host, &Event::TimerFired { owner: NAME.into(), token: "calm".into() });
+            seen.push(r.props(HEADER)["activity"].clone());
+            let token = r.host.events.iter().rev().find_map(|e| match e {
+                Event::PictureMeasureRequested { token } => Some(token.clone()),
+                _ => None,
+            }).unwrap();
+            r.plugin.on_event(&mut r.host, &Event::PictureMeasured { token, ok: true, message: String::new(), data: json!({}) });
+        }
+    }).unwrap();
+    assert_eq!(seen, [json!("read"), json!("read")], "a stray settle while a call runs changes nothing");
+}
+
+#[test]
+fn undo_from_the_button_puts_back_what_the_ai_changed_for_every_connection() {
+    let mut r = Rig::new();
+    let (a, b) = (r.handle.open_client().unwrap(), r.handle.open_client().unwrap());
+    r.deliver();
+    assert_eq!(r.props(HEADER)["can-undo"], json!(false), "nothing to undo yet");
+    r.ask_as(a.session(), "set", json!({"changes": {"grading.contrast": 1.4}})).unwrap();
+    r.ask_as(b.session(), "set", json!({"changes": {"grading.masters.gain": 0.5}})).unwrap();
+    assert_eq!(r.props(HEADER)["can-undo"], json!(true));
+    r.ui(HEADER, "undo", vec![]);
+    assert_eq!((r.config()["contrast"].clone(), r.config()["masters"]["gain"].clone()), (json!(1.0), json!(1.0)), "both apps' changes are back");
+    assert!(!r.plugin.can_undo());
+    assert_eq!(r.props(HEADER)["can-undo"], json!(false));
+    let entry = r.plugin.log().remove(0);
+    assert_eq!((entry.who.as_str(), entry.text.as_str()), ("You", "Undid what the AI changed"));
+    assert!(r.touched().last().is_some_and(|(ids, changed)| *changed && ids.contains(&"grading.contrast".to_string())), "the controls that moved back are outlined");
+}
+
+#[test]
+fn undo_goes_back_through_connections_to_where_a_shared_setting_began() {
+    let mut r = Rig::new();
+    let (a, b) = (r.handle.open_client().unwrap(), r.handle.open_client().unwrap());
+    r.deliver();
+    r.ask_as(a.session(), "set", json!({"changes": {"grading.contrast": 1.4}})).unwrap();
+    r.ask_as(b.session(), "set", json!({"changes": {"grading.contrast": 1.7}})).unwrap();
+    r.ui(HEADER, "undo", vec![]);
+    assert_eq!(r.config()["contrast"], json!(1.0));
+}
+
+#[test]
+fn undo_leaves_what_the_person_moved_by_hand_and_works_in_read_only() {
+    let mut r = Rig::new();
+    r.ask("set", json!({"changes": {"grading.contrast": 1.4, "grading.masters.gain": 0.5}})).unwrap();
+    r.host.plugin_configs.get_mut("grading").unwrap()["masters"]["gain"] = json!(0.2);
+    r.read_only();
+    r.ui(HEADER, "undo", vec![]);
+    assert_eq!((r.config()["contrast"].clone(), r.config()["masters"]["gain"].clone()), (json!(1.0), json!(0.2)));
+}
+
+#[test]
+fn the_buttons_open_side_opens_the_mcp_page_and_copy_puts_the_entry_on_the_clipboard() {
+    let mut r = Rig::new();
+    r.ui(HEADER, "open", vec![]);
+    assert!(r.host.calls.iter().any(|c| c == "open_settings mcp"));
+    r.ui(TAB, "copy-clicked", vec![]);
+    let entry = McpPlugin::connect_entry();
+    assert!(r.host.calls.iter().any(|c| *c == format!("copy_text {entry}")), "{:?}", r.host.calls);
+    let json: Value = serde_json::from_str(&format!("{{{entry}}}")).expect("a JSON entry to paste inside mcpServers");
+    assert_eq!(json["telescope"]["args"], json!(["mcp"]));
+    assert!(json["telescope"]["command"].as_str().is_some_and(|c| !c.is_empty()));
+}
+
+// ── Outlines: which controls the AI touched ──────────────────────────
+
+#[test]
+fn a_set_outlines_every_setting_it_changed_including_the_ones_that_moved_with_it() {
+    let mut r = Rig::new();
+    r.ask("set", json!({"changes": {"grading.contrast": 1.4, "grading.masters.gain": 0.8}})).unwrap();
+    let (ids, changed) = r.touched().remove(0);
+    assert!(changed);
+    assert_eq!(ids, ["grading.contrast", "grading.masters.gain"]);
+}
+
+#[test]
+fn a_get_of_a_few_named_settings_is_outlined_as_a_look_and_nothing_else_is() {
+    let mut r = Rig::new();
+    r.ask("get", json!({"ids": ["grading.contrast", "grading.masters.gain"]})).unwrap();
+    assert_eq!(r.touched(), [(vec!["grading.contrast".to_string(), "grading.masters.gain".to_string()], false)]);
+    // Looking at everything, listing, status, a long list and a failure make no outlines
+    r.host.events.clear();
+    r.ask("get", json!({})).unwrap();
+    r.ask("describe", json!({})).unwrap();
+    r.ask("status", json!({})).unwrap();
+    r.ask("get", json!({"ids": ["grading.on", "grading.on", "grading.on", "grading.on", "grading.on", "grading.on", "grading.on"]})).unwrap();
+    r.ask("get", json!({"ids": ["grading.nope"]})).unwrap_err();
+    r.ask("set", json!({"changes": {"grading.contrast": 9}})).unwrap_err();
+    assert!(r.touched().is_empty(), "{:?}", r.touched());
+}
+
+#[test]
+fn a_revert_outlines_what_went_back() {
+    let mut r = Rig::new();
+    r.ask("set", json!({"changes": {"grading.contrast": 1.4}})).unwrap();
+    r.host.events.clear();
+    r.ask("revert", json!({})).unwrap();
+    assert_eq!(r.touched(), [(vec!["grading.contrast".to_string()], true)]);
+}
+
+// ── Who is connected ────────────────────────────────────────────────
+
+#[test]
+fn an_ai_app_that_says_hello_is_named_and_a_blank_name_is_not() {
+    let names = Arc::new(Mutex::new(Vec::new()));
+    let hello: Arc<Hello> = {
+        let names = names.clone();
+        Arc::new(move |n| names.lock().unwrap().push(n.to_string()))
+    };
+    let call: Arc<Caller> = Arc::new(|_, _| Ok(json!({})));
+    let (tx, _rx) = channel();
+    let input = concat!(
+        "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"clientInfo\":{\"name\":\"Claude Desktop\",\"version\":\"1\"}}}\n",
+        "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"initialize\",\"params\":{\"clientInfo\":{\"name\":\"  \"}}}\n",
+        "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"initialize\",\"params\":{}}\n",
+    );
+    serve_connection(std::io::Cursor::new(input), Arc::new(Mutex::new(Lines(tx))), call, hello);
+    assert_eq!(*names.lock().unwrap(), ["Claude Desktop"]);
 }

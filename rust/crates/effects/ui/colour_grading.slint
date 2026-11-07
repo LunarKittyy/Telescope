@@ -7,6 +7,8 @@ component WheelCell inherits VerticalLayout {
     in property <string> tip;
     in property <string> master-tip;
     in property <string> master-shortcut;
+    // The setting id of the master slider, for the outline when something outside the window reads or changes it
+    in property <string> master-setting;
     in property <string> hint;
     in property <string> readout;
     in property <float> puck-x;
@@ -56,6 +58,7 @@ component WheelCell inherits VerticalLayout {
             hue: root.hue;
             label: root.name;
             shortcut: root.master-shortcut;
+            setting: root.master-setting;
             minimum: master-min;
             maximum: master-max;
             step: master-step;
@@ -234,6 +237,7 @@ export component ColourGradingCard inherits Card {
                 tip: wheel-tips[0];
                 master-tip: master-tips[0];
                 master-shortcut: "colour_grading.lift_master";
+                master-setting: "colour_grading.masters.lift";
                 hint: root.reset-hint;
                 readout: master-text[0];
                 puck-x: wheel-x[0]; puck-y: wheel-y[0]; puck-colour: wheel-colour[0];
@@ -253,6 +257,7 @@ export component ColourGradingCard inherits Card {
                 tip: wheel-tips[1];
                 master-tip: master-tips[1];
                 master-shortcut: "colour_grading.gamma_master";
+                master-setting: "colour_grading.masters.gamma";
                 hint: root.reset-hint;
                 readout: master-text[1];
                 puck-x: wheel-x[1]; puck-y: wheel-y[1]; puck-colour: wheel-colour[1];
@@ -275,6 +280,7 @@ export component ColourGradingCard inherits Card {
                 tip: wheel-tips[2];
                 master-tip: master-tips[2];
                 master-shortcut: "colour_grading.gain_master";
+                master-setting: "colour_grading.masters.gain";
                 hint: root.reset-hint;
                 readout: master-text[2];
                 puck-x: wheel-x[2]; puck-y: wheel-y[2]; puck-colour: wheel-colour[2];
@@ -294,6 +300,7 @@ export component ColourGradingCard inherits Card {
                 tip: wheel-tips[3];
                 master-tip: master-tips[3];
                 master-shortcut: "colour_grading.offset_master";
+                master-setting: "colour_grading.masters.offset";
                 hint: root.reset-hint;
                 readout: master-text[3];
                 puck-x: wheel-x[3]; puck-y: wheel-y[3]; puck-colour: wheel-colour[3];
@@ -313,6 +320,7 @@ export component ColourGradingCard inherits Card {
             label: name;
             tip: slider-tips[i];
             shortcut: ["colour_grading.temperature", "colour_grading.tint", "colour_grading.contrast", "colour_grading.pivot", "colour_grading.saturation", "colour_grading.vibrance", "colour_grading.shadows", "colour_grading.highlights"][i];
+            setting: ["colour_grading.temperature", "colour_grading.tint", "colour_grading.contrast", "colour_grading.pivot", "colour_grading.saturation", "colour_grading.vibrance", "colour_grading.shadows", "colour_grading.highlights"][i];
             minimum: slider-min[i];
             maximum: slider-max[i];
             step: slider-step[i];
@@ -405,6 +413,7 @@ export component ColourGradingCard inherits Card {
             label: @tr("Strength");
             tip: @tr("How much of the LUT's look goes on the picture");
             shortcut: "colour_grading.lut_strength";
+            setting: "colour_grading.lut_strength";
             minimum: 0;
             maximum: 100;
             value: strength;

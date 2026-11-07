@@ -2,7 +2,7 @@
 
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
-import { FocusRing, KeyFocus } from "basics.slint";
+import { FocusRing, KeyFocus, TouchRing } from "basics.slint";
 import { TipBody, TipUse } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 
@@ -41,6 +41,8 @@ export component Slider inherits HorizontalLayout {
     in property <string> typing;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
+    // The id of the setting it is ("colour_grading.contrast"), which a caller outside the window outlines it by when it reads or changes it
+    in property <string> setting;
     property <bool> is-typing;
     // The button that is down on the groove is the left one: a right-click opens the shortcut menu and leaves the value
     property <bool> dragging;
@@ -72,6 +74,7 @@ export component Slider inherits HorizontalLayout {
             if (marks.length > 3 && abs((marks[3] - v) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset)) <= snap-px) { return marks[3]; }
             return v;
         }
+        TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: 7px; }
         accessible-role: slider;
         accessible-label: label;
         // The readout carries the unit ("30%", "+1.0 EV"), which the bare number would lose

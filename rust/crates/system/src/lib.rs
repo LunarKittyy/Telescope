@@ -10,6 +10,7 @@ pub mod hotkeys_windows;
 pub mod keys;
 pub mod mcp;
 pub mod mcp_bridge;
+pub mod mcp_stats;
 pub mod memory;
 pub mod registry;
 pub mod remote;

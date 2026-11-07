@@ -104,6 +104,8 @@ pub enum Effect {
     Tray(TrayAction),
     FrameStep(String),
     OpenSettings(String),
+    /// Event::SettingsTouched: the controls showing these settings get an outline for a moment.
+    TouchSettings { ids: Vec<String>, changed: bool },
     Notify { title: String, body: String, urgent: bool },
     Start { interactive: bool },
     StartAgain(Option<String>),
@@ -1041,6 +1043,9 @@ impl State {
                 }
                 if let Event::CameraOnChanged { on } = event {
                     self.camera_on_shown = on;
+                }
+                if let Event::SettingsTouched { ids, changed } = &event {
+                    self.effects.push(Effect::TouchSettings { ids: ids.clone(), changed: *changed });
                 }
                 if matches!(event, Event::SourceSelected { .. }) {
                     self.effects.push(Effect::SourceSelected);

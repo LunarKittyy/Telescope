@@ -348,6 +348,8 @@ struct Changes {
     no_h264: bool,
     /// The Stats card is there, which the window scenes leave out because its Tab stops move what they walk to.
     stats: bool,
+    /// The MCP server is there, on the program's own handle (mcp_scene).
+    mcp: bool,
 }
 
 fn services(link: SceneLink) -> Arc<Services> {
@@ -404,10 +406,96 @@ fn services_with(link: SceneLink, changes: Changes) -> Arc<Services> {
                 plugins.push(Box::new(telescope_outputs::stream_output::StreamOutputPlugin::new(false)));
             }
             plugins.extend(stats);
+            if changes.mcp {
+                plugins.push(Box::new(telescope_system::mcp::McpPlugin::new(telescope_system::mcp::McpHandle::global())));
+            }
             plugins.extend(changes.webcam.map(|w| Box::new(w.plugin()) as Box<dyn telescope_core::plugin::Plugin>));
             plugins
         }),
     })
+}
+
+thread_local! {
+    /// The AI apps a scene has connected, kept for as long as it is drawn.
+    static MCP_CLIENTS: std::cell::RefCell<Vec<telescope_system::mcp::Client>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// What the MCP scenes have an AI app do before they are drawn.
+#[derive(Clone, Copy)]
+enum Mcp {
+    /// Switched on, nothing connected.
+    Nobody,
+    /// Connected and at rest.
+    Connected,
+    /// Connected and a moment after it looked at something.
+    Reading,
+    /// Connected and a moment after it changed settings (so there is something to undo).
+    Changing,
+    /// Connected, at rest, with its changes there to undo.
+    Undoable,
+    /// Read only, with a refused change among what it did.
+    ReadOnly,
+}
+
+/// Runs tool calls as an AI app's connection would, on a thread of their own while the window's thread keeps processing.
+fn drive(w: &std::rc::Rc<telescope_shell::window::Window>, session: u64, calls: &[(&str, Value)]) {
+    let handle = telescope_system::mcp::McpHandle::global();
+    for (tool, args) in calls {
+        let (handle, tool, args) = (handle.clone(), tool.to_string(), args.clone());
+        let asked = std::thread::spawn(move || handle.call_as(session, &tool, args));
+        while !asked.is_finished() {
+            w.process();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        let _ = asked.join();
+    }
+    w.process();
+}
+
+/// The window with the MCP server on, after an AI app (named Claude Desktop) did what state says.
+fn mcp_scene(state: Mcp, page: Page, width: f32) -> Setup {
+    MCP_CLIENTS.with(|c| c.borrow_mut().clear());
+    let mut config = main_window_config(true);
+    config["plugin_configs"]["mcp"] = json!({"access": if matches!(state, Mcp::ReadOnly) { "read_only" } else { "read_and_change" }});
+    Setup {
+        page,
+        then: Some(Box::new(move |w| {
+            let handle = telescope_system::mcp::McpHandle::global();
+            if matches!(state, Mcp::Nobody) {
+                return;
+            }
+            let Ok(client) = handle.open_client() else { return };
+            let session = client.session();
+            handle.name_client(session, "Claude Desktop");
+            MCP_CLIENTS.with(|c| c.borrow_mut().push(client));
+            w.process();
+            let look = ("get", json!({"ids": ["colour_grading.contrast", "colour_grading.temperature"]}));
+            let change = ("set", json!({"changes": {"colour_grading.contrast": 1.2, "colour_grading.temperature": -14, "colour_grading.vibrance": 18}}));
+            match state {
+                Mcp::Nobody | Mcp::Connected => {}
+                Mcp::Reading => drive(w, session, &[("status", json!({})), look]),
+                Mcp::Changing | Mcp::Undoable => drive(w, session, &[("status", json!({})), look, change]),
+                Mcp::ReadOnly => {
+                    drive(w, session, &[("status", json!({})), ("describe", json!({"plugin": "colour_grading"})), look]);
+                    drive(w, session, &[("set", json!({"changes": {"colour_grading.contrast": 1.4}}))]);
+                }
+            }
+            // The outline would fade while the picture is still being drawn
+            w.keep_touches();
+            if matches!(state, Mcp::Connected | Mcp::Undoable | Mcp::ReadOnly) {
+                let calm = telescope_core::Event::TimerFired { owner: "mcp".into(), token: "calm".into() };
+                w.state.borrow_mut().deliver_to("mcp", &calm);
+                w.process();
+            }
+        })),
+        every_optional: false,
+        ..Setup::window(Some(services_with(quiet(), Changes { mcp: true, ..Changes::default() })), with_plugins_on(config, &["mcp", "colour_grading"]), width, 900.0)
+    }
+}
+
+fn with_plugins_on(mut config: Value, on: &[&str]) -> Value {
+    config["plugins"] = json!({"on": on});
+    config
 }
 
 /// translation_scenes_window.turned_off on the wide window, started through load_plugins (loaded_window).
@@ -641,6 +729,16 @@ pub fn all() -> Vec<Scene> {
             }
         }));
     }
+    // The MCP server: its settings page and the header button in each state
+    for (id, state) in [("mcp-settings", Mcp::Undoable), ("mcp-settings-read-only", Mcp::ReadOnly), ("mcp-settings-nobody", Mcp::Nobody)] {
+        scenes.push(Scene::new(id, move || mcp_scene(state, Page::Settings("mcp".into()), 940.0)));
+    }
+    for (id, state) in [("mcp-header-nobody", Mcp::Nobody), ("mcp-header-connected", Mcp::Connected), ("mcp-header-reading", Mcp::Reading),
+                        ("mcp-header-changing", Mcp::Changing), ("mcp-header-undoable", Mcp::Undoable)] {
+        scenes.push(Scene::new(id, move || mcp_scene(state, Page::Window, WIDTH_THREE_COL)));
+    }
+    // The controls an AI app changes get an outline for a moment
+    scenes.push(Scene::new("mcp-outline", || mcp_scene(Mcp::Changing, Page::Card { plugin: "colour_grading".into() }, CARD_WIDTH)));
     // The Webcam card for a DSLR, a webcam, and a narrow card (where the strip of tiles wraps)
     for (id, camera, width) in [("webcam-dslr", Webcam::Dslr, CARD_WIDTH), ("webcam-dslr-narrow", Webcam::Dslr, 350.0), ("webcam-usb", Webcam::Usb, CARD_WIDTH),
                                 ("webcam-usb-narrow", Webcam::Usb, 350.0)] {
