@@ -224,6 +224,8 @@ pub trait FramePipeline: Send {
     fn replace_steps(&mut self, _owner: &str, _stage: crate::frame::FrameStage, _steps: Vec<crate::frame::FrameStep>) {}
     fn process(&mut self, frame: Frame, ctx: &dyn FrameContext) -> Frame;
     fn is_empty(&self) -> bool;
+    /// Where to count what each step costs while the stats ask for it (Timers::on); a pipeline that can't just doesn't.
+    fn set_stats(&mut self, _stats: Arc<crate::stats::SourceStats>) {}
 }
 
 /// One stream's newest frames: what it made, and what goes out on its virtual camera (which replace_frame can swap).
@@ -283,9 +285,11 @@ impl<T> Default for Newest<T> {
 
 impl<T> Newest<T> {
     /// Replaces whatever is waiting.
-    pub fn put(&self, item: T) {
-        self.item.lock().unwrap().0 = Some(item);
+    /// True when it replaced an item nobody had taken, which is dropped.
+    pub fn put(&self, item: T) -> bool {
+        let replaced = self.item.lock().unwrap().0.replace(item).is_some();
         self.ready.notify_one();
+        replaced
     }
 
     /// No more items come; take() hands out what's left, then None.

@@ -225,13 +225,14 @@ impl Reassembler {
             if flags & FLAG_KEY == 0 {
                 return;
             }
-            let mut evicted = false;
+            let mut evicted = 0;
             while self.held - replaced + incoming > MAX_HELD_BYTES {
                 let Some(oldest) = self.frames.keys().copied().find(|s| *s != seq) else { break };
                 self.held -= self.frames.remove(&oldest).map_or(0, |f| f.bytes());
-                evicted = true;
+                evicted += 1;
             }
-            if evicted {
+            if evicted > 0 {
+                telescope_core::stats::note_drop(telescope_core::stats::DropReason::LostOnLink, evicted);
                 self.next = None;
             }
             if self.held - replaced + incoming > MAX_HELD_BYTES {
@@ -244,7 +245,9 @@ impl Reassembler {
                     return;
                 }
                 // A fresh keyframe is the way out of a backlog, so make room for it
+                let before = self.frames.len();
                 self.forget_before(seq);
+                telescope_core::stats::note_drop(telescope_core::stats::DropReason::LostOnLink, (before - self.frames.len()) as u64);
                 if self.frames.len() >= MAX_FRAMES {
                     return;
                 }
@@ -334,6 +337,7 @@ impl Reassembler {
             let waited = now - f.noticed.unwrap();
             if waited >= GIVE_UP_S {
                 self.dropped += 1;
+                telescope_core::stats::note_drop(telescope_core::stats::DropReason::LostOnLink, 1);
                 self.next = None; // freeze until a keyframe rather than decode on a broken reference
                 self.forget_before(s + 1);
                 return (Vec::new(), true);

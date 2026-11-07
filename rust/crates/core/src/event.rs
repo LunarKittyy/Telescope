@@ -1,6 +1,7 @@
 //! Everything on the event bus: one variant per EventBus signal of the Python app's plugin.py, same name, same meaning.
 
 use crate::host::{Pick, RequestId, View};
+use crate::stats::Snapshot;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -196,6 +197,8 @@ events! {
     /// Not in plugin.py: the vision pack's download ended (VisionDownload.finished): "" when it's ready, else what went wrong,
     /// and the optional plugin that waited for it (to switch on when it worked).
     "vision_download_finished" => VisionDownloadFinished { error: String, switch_on: String },
+    /// Not in plugin.py: about once a second while a stream runs, how it's going as numbers (core::stats::Snapshot), with the last minute of each series.
+    "stats_updated" => StatsUpdated { snapshot: Snapshot },
     /// Not in plugin.py: an event a plugin someone added defines for itself, named "<plugin>.<what>".
     "custom" => Custom { name: String, data: Value },
 }

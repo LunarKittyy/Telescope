@@ -9,6 +9,7 @@ use std::sync::mpsc::{channel, Receiver};
 use std::sync::Arc;
 use std::time::Duration;
 use telescope_core::media::{Decoder, FeedEnd, FeedStopper, FrameReader, Packet, ReadFrame, VideoFeed};
+use telescope_core::stats::DropReason;
 
 /// Data with no finished frame after this much isn't a stream the phone sent; stop instead of buffering on.
 pub const MAX_BYTES_WITHOUT_FRAME: u64 = 32 * 1024 * 1024;
@@ -54,7 +55,10 @@ impl Reader {
         let (q, d) = (queued.clone(), decoded.clone());
         let gone = Arc::new(AtomicBool::new(false));
         let g = gone.clone();
+        // What the feed drops on its own thread (UDP giving up on a frame) counts for the stream that opened it
+        let counting = telescope_core::stats::current();
         let spawned = std::thread::Builder::new().name("feed-reader".into()).spawn(move || {
+            let _counting = counting.as_ref().map(telescope_core::stats::bind);
             let _priority = telescope_core::system::prioritise_thread("frame receive");
             loop {
                 for _ in 0..d.swap(0, Ordering::Relaxed) {
@@ -110,8 +114,16 @@ impl FrameReader for Reader {
             }
             let decoded = self.decoder.decode(&packet);
             self.pending_frames += decoded.count;
+            let finished = decoded.count.max(decoded.newest.is_some() as u32);
+            telescope_core::stats::note_decoded(finished as u64);
+            // A burst shows only its newest frame, to stay live
+            if decoded.newest.is_some() && finished > 1 {
+                telescope_core::stats::note_drop(DropReason::Paced, finished as u64 - 1);
+            }
             if let Some(skipped) = &self.skipped {
-                self.pending_frames += skipped.swap(0, Ordering::Relaxed);
+                let skipped = skipped.swap(0, Ordering::Relaxed);
+                self.pending_frames += skipped;
+                telescope_core::stats::note_drop(DropReason::WaitingForKeyframe, skipped as u64);
             }
             if let Some(frame) = decoded.newest {
                 match &self.decoded_flag {

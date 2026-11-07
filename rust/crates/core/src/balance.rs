@@ -5,6 +5,8 @@
 //! TELESCOPE_FRAME_STEPS=card or cpu pins it, for comparing.
 
 use crate::time::monotonic_ns;
+use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 
@@ -32,6 +34,29 @@ pub enum Place {
     Cpu,
 }
 
+/// Why frames moved.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Why {
+    /// Too many frames waited too long for the card.
+    CardBusy,
+    /// Every trial came back clear for long enough.
+    CardClear,
+}
+
+/// One move of the frame steps, for the stats.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Move {
+    pub at_ns: u64,
+    pub to: Place,
+    pub why: Why,
+    /// The wait that moved it, in ns.
+    pub wait_ns: u64,
+}
+
+/// How many moves are remembered.
+const KEPT_MOVES: usize = 8;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Pin {
     Free,
@@ -52,11 +77,12 @@ struct Watch {
     /// One is out, and nothing has come back from it yet.
     trial_out: bool,
     swaps: u32,
+    moves: VecDeque<Move>,
 }
 
 impl Watch {
     fn new() -> Watch {
-        Watch { place: Place::Card, recent: [false; LOOKED_AT], next: 0, clear_since: None, clear_for: CLEAR_FOR, moved_at: 0, next_trial: 0, trial_out: false, swaps: 0 }
+        Watch { place: Place::Card, recent: [false; LOOKED_AT], next: 0, clear_since: None, clear_for: CLEAR_FOR, moved_at: 0, next_trial: 0, trial_out: false, swaps: 0, moves: VecDeque::new() }
     }
 
     fn note(&mut self, wait: u64, now: u64) -> Option<Place> {
@@ -72,7 +98,7 @@ impl Watch {
                 self.recent = [false; LOOKED_AT];
                 self.clear_since = None;
                 self.next_trial = now + TRIAL_EVERY;
-                self.moved(Place::Cpu, now)
+                self.moved(Place::Cpu, now, Why::CardBusy, wait)
             }
             Place::Cpu => {
                 if wait > CLEAR {
@@ -82,15 +108,19 @@ impl Watch {
                 if now.saturating_sub(*self.clear_since.get_or_insert(now)) < self.clear_for {
                     return None;
                 }
-                self.moved(Place::Card, now)
+                self.moved(Place::Card, now, Why::CardClear, wait)
             }
         }
     }
 
-    fn moved(&mut self, place: Place, now: u64) -> Option<Place> {
+    fn moved(&mut self, place: Place, now: u64, why: Why, wait_ns: u64) -> Option<Place> {
         self.place = place;
         self.moved_at = now;
         self.swaps += 1;
+        if self.moves.len() == KEPT_MOVES {
+            self.moves.pop_front();
+        }
+        self.moves.push_back(Move { at_ns: now, to: place, why, wait_ns: wait_ns.min(10_000 * MS) });
         Some(place)
     }
 
@@ -182,6 +212,16 @@ impl Balance {
     /// How many times frames have moved.
     pub fn swaps(&self) -> u32 {
         self.watch.lock().unwrap().swaps
+    }
+
+    /// The latest moves, oldest first, with why.
+    pub fn moves(&self) -> Vec<Move> {
+        self.watch.lock().unwrap().moves.iter().copied().collect()
+    }
+
+    /// Whether TELESCOPE_FRAME_STEPS holds frames in one place.
+    pub fn is_pinned(&self) -> bool {
+        self.pin != Pin::Free
     }
 }
 

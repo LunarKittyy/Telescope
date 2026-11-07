@@ -434,10 +434,16 @@ impl State {
         let mut plugin = self.slots.get_mut(i)?.plugin.take()?;
         let name = self.slots[i].info.name.clone();
         self.calls += 1;
+        // What a plugin's hooks cost is only timed while the Stats panel wants it
+        let hooks = telescope_core::stats::Hub::global();
+        let began = hooks.hooks().on().then(telescope_core::time::monotonic_ns);
         let result = {
             let mut ctx = crate::host::Ctx { state: self, me: name.clone() };
             catch_unwind(AssertUnwindSafe(|| f(plugin.as_mut(), &mut ctx)))
         };
+        if let Some(began) = began {
+            hooks.hooks().timer(&name).add(telescope_core::time::monotonic_ns().saturating_sub(began));
+        }
         self.slots[i].plugin = Some(plugin);
         self.calls -= 1;
         if self.calls == 0 && std::mem::take(&mut self.save_after_call) && !self.save_now() {

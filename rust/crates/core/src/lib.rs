@@ -39,6 +39,7 @@ pub mod services;
 pub mod shader;
 pub mod snapshot;
 pub mod source;
+pub mod stats;
 pub mod system;
 pub mod text;
 pub mod testing;

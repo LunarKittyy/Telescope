@@ -663,6 +663,9 @@ impl Host for FakeHost {
     fn poster(&self) -> Option<Arc<dyn Poster>> {
         Some(Arc::new(FakePoster(self.posted.clone())))
     }
+    fn want_stats(&mut self, owner: &str, on: bool) {
+        self.note(format!("want_stats {owner} {on}"));
+    }
 }
 
 impl FakeHost {

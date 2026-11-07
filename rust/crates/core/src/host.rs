@@ -479,4 +479,6 @@ pub trait Host:
     fn poster(&self) -> Option<Arc<dyn Poster>> {
         None
     }
+    /// The expensive stats (each plugin's frame step and hook times) are measured while any plugin wants them; the cheap ones are always counted.
+    fn want_stats(&mut self, _owner: &str, _on: bool) {}
 }
