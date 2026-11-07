@@ -17,14 +17,14 @@ pub const MASTER_RANGE: [(f64, f64); 4] = [(-0.5, 0.5), (-1.0, 1.0), (0.0, 2.0),
 pub const MASTER_DEFAULT: [f64; 4] = [0.0, 0.0, 1.0, 0.0];
 const TEMPERATURE_STOPS: f32 = 0.25;
 const TINT_STOPS: f32 = 0.2;
-/// Past the middle of the slider the reach grows, so the ends cover a real tungsten lamp (about 2700 K to 7500 K) and a green fluorescent.
-const TEMPERATURE_EXTRA: f32 = 1.8;
-const TINT_EXTRA: f32 = 1.0;
+/// Past 100 on either slider the reach grows faster, so the far ends cover a real tungsten lamp (about 2700 K to 7500 K) and a green fluorescent. Up to 100 they mean what they always did.
+const TEMPERATURE_TAIL_STOPS: f32 = 0.45;
+const TINT_TAIL_STOPS: f32 = 0.25;
 
-/// Stops a slider position (-1..1) stands for: linear within half the slider, then curving up.
-fn reach(x: f32, per_unit: f32, extra: f32) -> f32 {
-    let past = (x.abs() - 0.5).max(0.0);
-    x.signum() * (per_unit * x.abs().min(0.5) + per_unit * past + extra * past * past)
+/// Stops a slider position (-200..200) stands for: `per_100` for each hundred up to 100, `tail` for each hundred past it.
+fn reach(x: f32, per_100: f32, tail: f32) -> f32 {
+    let a = x.abs() / 100.0;
+    x.signum() * (per_100 * a.min(1.0) + tail * (a - 1.0).max(0.0))
 }
 /// Shadows or highlights at 100 add up to 4/27 of the range to the part they're about.
 const TONE: f32 = 1.0;
@@ -59,11 +59,10 @@ fn luma(x: [f32; 3]) -> f32 {
     LUMA[0] * x[0] + LUMA[1] * x[1] + LUMA[2] * x[2]
 }
 
-/// Linear-light RGB gains for temperature and tint (-100..100; warmer and more magenta upwards), scaled so white keeps its
+/// Linear-light RGB gains for temperature and tint (-200..200; warmer and more magenta upwards), scaled so white keeps its
 /// brightness.
 pub fn white_balance_gains(temperature: f64, tint: f64) -> [f32; 3] {
-    let (t, n) = (temperature as f32 / 100.0, tint as f32 / 100.0);
-    let (warm, green) = (reach(t, TEMPERATURE_STOPS, TEMPERATURE_EXTRA), reach(n, TINT_STOPS, TINT_EXTRA));
+    let (warm, green) = (reach(temperature as f32, TEMPERATURE_STOPS, TEMPERATURE_TAIL_STOPS), reach(tint as f32, TINT_STOPS, TINT_TAIL_STOPS));
     let gains = [2f32.powf(warm), 2f32.powf(-green), 2f32.powf(-warm)];
     let norm = luma(gains);
     gains.map(|g| g / norm)
@@ -709,5 +708,32 @@ mod tests {
             Grade { saturation: 1.2, ..Default::default() },
         );
         check(&full, |x| d.eval(c.eval(b.eval(a.eval(x)))), 1e-5);
+    }
+}
+
+#[cfg(test)]
+mod white_balance_compat {
+    use super::*;
+
+    /// What Temperature and Tint meant before the sliders were widened: linear, 0.25 and 0.2 stops at 100.
+    fn old_gains(temperature: f64, tint: f64) -> [f32; 3] {
+        let (t, n) = (temperature as f32 / 100.0, tint as f32 / 100.0);
+        let gains = [2f32.powf(0.25 * t), 2f32.powf(-0.2 * n), 2f32.powf(-0.25 * t)];
+        let norm = luma(gains);
+        gains.map(|g| g / norm)
+    }
+
+    #[test]
+    fn saved_temperature_and_tint_give_the_colours_they_always_did() {
+        for (t, n) in [(100.0, 100.0), (-100.0, -100.0), (73.0, -41.0), (-20.0, 100.0), (5.0, 0.0)] {
+            let (old, new) = (old_gains(t, n), white_balance_gains(t, n));
+            assert!((0..3).all(|i| (old[i] - new[i]).abs() < 1e-5), "{t} {n}: {old:?} {new:?}");
+        }
+    }
+
+    #[test]
+    fn the_far_ends_reach_a_real_lamp() {
+        let g = white_balance_gains(200.0, 0.0);
+        assert!(g[0] / g[2] > 2.5, "{g:?}");
     }
 }

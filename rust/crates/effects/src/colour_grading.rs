@@ -86,8 +86,8 @@ struct SliderDef {
 }
 
 const SLIDERS: [SliderDef; 8] = [
-    SliderDef { key: "temperature", label: n_("Temperature"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Warmer or cooler") },
-    SliderDef { key: "tint", label: n_("Tint"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("More magenta or more green") },
+    SliderDef { key: "temperature", label: n_("Temperature"), lo: -200.0, hi: 200.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Warmer or cooler") },
+    SliderDef { key: "tint", label: n_("Tint"), lo: -200.0, hi: 200.0, steps: 1.0, decimals: 0, signed: true, tip: n_("More magenta or more green") },
     SliderDef { key: "contrast", label: n_("Contrast"), lo: 0.0, hi: 2.0, steps: 100.0, decimals: 2, signed: false, tip: n_("Spreads the tones apart around the pivot") },
     SliderDef { key: "pivot", label: n_("Pivot"), lo: 0.0, hi: 1.0, steps: 1000.0, decimals: 3, signed: false, tip: n_("The level contrast turns around") },
     SliderDef { key: "saturation", label: n_("Saturation"), lo: 0.0, hi: 2.0, steps: 100.0, decimals: 0, signed: false, tip: n_("How colourful the picture is") },
@@ -582,9 +582,10 @@ impl ColourGradingPlugin {
         let lock = self.lock_camera(host);
         self.auto.lock = Some(lock);
         // vision stays off until someone asks, and may need to load its models: wait for its first answer unless it can't answer
+        // no pack yet: fetch it for next time, and grade from the whole picture meanwhile (asking for people moves the state on)
+        let pack_missing = host.vision_state() == "missing" && host.vision_pack().available;
         host.want_people(AUTO_TITLE, true);
-        // no pack yet: fetch it for next time, and grade from the whole picture meanwhile
-        if host.vision_state() == "missing" && host.vision_pack().available {
+        if pack_missing {
             host.download_vision();
         }
         self.auto.label.clear();

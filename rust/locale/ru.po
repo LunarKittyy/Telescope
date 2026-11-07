@@ -1056,7 +1056,7 @@ msgstr "Экспортировать цветокоррекцию"
 msgid "{file} is already there. Replace it?"
 msgstr "Файл {file} уже существует. Заменить его?"
 
-#: rust/crates/effects/src/colour_grading.rs:521 rust/crates/effects/src/colour_grading.rs:904 rust/crates/effects/src/colour_grading.rs:986 rust/crates/effects/src/colour_grading.rs:988 rust/crates/effects/src/colour_grading.rs:1030 rust/crates/effects/ui/colour_grading.slint:151
+#: rust/crates/effects/src/colour_grading.rs:521 rust/crates/effects/src/colour_grading.rs:905 rust/crates/effects/src/colour_grading.rs:987 rust/crates/effects/src/colour_grading.rs:989 rust/crates/effects/src/colour_grading.rs:1031 rust/crates/effects/ui/colour_grading.slint:151
 msgid "Colour grading"
 msgstr "Цветокоррекция"
 
@@ -1065,19 +1065,19 @@ msgstr "Цветокоррекция"
 msgid "{wheel} colour"
 msgstr "Цвет: {wheel}"
 
-#: rust/crates/effects/src/colour_grading.rs:905
+#: rust/crates/effects/src/colour_grading.rs:906
 msgid "Colour wheels, curves and LUT files for the look of the picture."
 msgstr "Цветовые круги, кривые и файлы LUT для настройки вида картинки."
 
-#: rust/crates/effects/src/colour_grading.rs:906
+#: rust/crates/effects/src/colour_grading.rs:907
 msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
 msgstr "Без него не будет карточки «Цветокоррекция», и картинка сохранит исходные цвета камеры."
 
-#: rust/crates/effects/src/colour_grading.rs:989 rust/crates/effects/src/colour_grading.rs:1035
+#: rust/crates/effects/src/colour_grading.rs:990 rust/crates/effects/src/colour_grading.rs:1036
 msgid "Compare before and after"
 msgstr "Сравнить до и после"
 
-#: rust/crates/effects/src/colour_grading.rs:1013 rust/crates/effects/src/colour_grading.rs:1048
+#: rust/crates/effects/src/colour_grading.rs:1014 rust/crates/effects/src/colour_grading.rs:1049
 msgid "LUT strength"
 msgstr "Интенсивность LUT"
 

@@ -447,7 +447,9 @@ fn white_balance(m: &Measurement, rig: &Rig) -> (Wb, [f64; 2]) {
     let face = m.face.is_some() && !rig.skin.is_empty();
     if face && angle_excess(mean_colour(&rig.skin)) == 0.0 {
         // skin that looks right still can't hide a picture that is plainly tinted all over
-        return match world_fix(rig, true).filter(|_| !matches!(m.grey, Grey::Agree { .. })) {
+        // not when the walls disagree (mixed light), and not if it would push the skin off the line
+        let keeps_skin = |t: &[f64; 2]| angle_excess(mean_colour(&run(&wb_grade(t[0], t[1]), &rig.skin))) == 0.0;
+        return match world_fix(rig, true).filter(|t| !matches!(m.grey, Grey::Agree { .. } | Grey::Conflict) && keeps_skin(t)) {
             Some(solved) => (Wb::World, solved),
             None => (Wb::InRange, [0.0, 0.0]),
         };

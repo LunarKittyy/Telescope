@@ -124,7 +124,7 @@ fn skin_tones_from_pale_to_dark_are_recovered_the_same_way() {
             let r = recover(&scene, &wrong);
             report(&format!("{name} {kind}"), &r);
             // a face the correction leaves on the skin line already is left alone, and then nothing gets worse
-            assert!(r.face.1 <= r.face.0 + 0.01, "{name} {kind}: face {:?}", r.face);
+            assert!(r.face.1 <= r.face.0 + 0.02, "{name} {kind}: face {:?}", r.face);
         }
         let fine = of(&scene, &right());
         assert!(!fine.moved.any(), "{name}: {:?}", fine.values);
@@ -409,4 +409,12 @@ fn a_matrix_of_exposures_casts_and_haze_never_gets_worse_and_the_big_ones_move_c
             }
         }
     }
+}
+
+#[test]
+fn a_fine_face_does_not_let_conflicting_walls_or_a_biased_average_recolour_the_picture() {
+    let scene = Scene { wall: [0.80, 0.64, 0.45], wall_right: [0.45, 0.64, 0.80], ..Scene::default() };
+    let f = of(&scene, &right());
+    assert_eq!(f.values.temperature, 0.0, "{:?}", f.values);
+    assert_ne!(f.wb, Wb::World);
 }

@@ -120,13 +120,13 @@ pub const WB_STRENGTH: f64 = 0.9;
 /// How much of the way a correction goes with only grey patches to go by.
 pub const WB_GREY_ONLY_STRENGTH: f64 = 0.8;
 /// The most Temperature Auto sets.
-pub const WB_MAX_TEMPERATURE: f64 = 100.0;
+pub const WB_MAX_TEMPERATURE: f64 = 200.0;
 /// The most Tint Auto sets.
-pub const WB_MAX_TINT: f64 = 100.0;
+pub const WB_MAX_TINT: f64 = 200.0;
 /// Face and grey patches wanting Temperature in opposite directions this far apart conflict.
-pub const WB_CONFLICT_TEMPERATURE: f64 = 30.0;
+pub const WB_CONFLICT_TEMPERATURE: f64 = 50.0;
 /// Face and grey patches wanting Tint in opposite directions this far apart conflict.
-pub const WB_CONFLICT_TINT: f64 = 30.0;
+pub const WB_CONFLICT_TINT: f64 = 50.0;
 /// A white balance smaller than this on both sliders isn't worth setting.
 pub const WB_MIN: f64 = 2.0;
 /// Weight of the face's distance outside the skin band, per band width squared.
@@ -134,9 +134,9 @@ pub const WB_FACE_WEIGHT: f64 = 1.0;
 /// Weight of the grey patches' cast, per squared agreement width.
 pub const WB_GREY_WEIGHT: f64 = 1.0;
 /// Cost of moving Temperature, per ten units squared.
-pub const WB_COST_TEMPERATURE: f64 = 0.01;
+pub const WB_COST_TEMPERATURE: f64 = 0.0035;
 /// Cost of moving Tint, per ten units squared, lower since a hue off the skin line is mostly tint.
-pub const WB_COST_TINT: f64 = 0.02;
+pub const WB_COST_TINT: f64 = 0.007;
 
 /// With nothing to go by but the whole picture, a colour cast (log ratios in linear light) must be bigger than this to be corrected.
 pub const WORLD_MIN: f32 = 0.35;

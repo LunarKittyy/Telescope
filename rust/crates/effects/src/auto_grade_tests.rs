@@ -534,3 +534,12 @@ fn a_press_that_changes_nothing_shows_it_on_the_button_for_a_moment() {
     r.event(Event::TimerFired { owner: "colour_grading".into(), token: "auto_label".into() });
     assert_eq!(r.shown("auto-label"), json!(""));
 }
+
+#[test]
+fn the_pack_download_starts_even_when_asking_for_people_moves_the_state_on() {
+    let mut r = Rig::new("missing");
+    r.host.vision_after_want = Some("loading".into());
+    r.host.pack = telescope_core::vision::VisionPack { available: true, size_mb: 47, ..Default::default() };
+    r.ui("auto-clicked", vec![]);
+    assert_eq!(r.calls("download_vision"), 1);
+}

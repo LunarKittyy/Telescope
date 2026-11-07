@@ -1056,7 +1056,7 @@ msgstr "ग्रेड एक्सपोर्ट करें"
 msgid "{file} is already there. Replace it?"
 msgstr "{file} पहले से मौजूद है. क्या आप इसे बदलना चाहते हैं?"
 
-#: rust/crates/effects/src/colour_grading.rs:521 rust/crates/effects/src/colour_grading.rs:904 rust/crates/effects/src/colour_grading.rs:986 rust/crates/effects/src/colour_grading.rs:988 rust/crates/effects/src/colour_grading.rs:1030 rust/crates/effects/ui/colour_grading.slint:151
+#: rust/crates/effects/src/colour_grading.rs:521 rust/crates/effects/src/colour_grading.rs:905 rust/crates/effects/src/colour_grading.rs:987 rust/crates/effects/src/colour_grading.rs:989 rust/crates/effects/src/colour_grading.rs:1031 rust/crates/effects/ui/colour_grading.slint:151
 msgid "Colour grading"
 msgstr "कलर ग्रेडिंग"
 
@@ -1065,19 +1065,19 @@ msgstr "कलर ग्रेडिंग"
 msgid "{wheel} colour"
 msgstr "{wheel} का रंग"
 
-#: rust/crates/effects/src/colour_grading.rs:905
+#: rust/crates/effects/src/colour_grading.rs:906
 msgid "Colour wheels, curves and LUT files for the look of the picture."
 msgstr "तस्वीर के लुक के लिए कलर व्हील्स, कर्व्स और LUT फ़ाइलें."
 
-#: rust/crates/effects/src/colour_grading.rs:906
+#: rust/crates/effects/src/colour_grading.rs:907
 msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
 msgstr "इसके बिना कोई कलर ग्रेडिंग कार्ड नहीं होगा और तस्वीर में कैमरे के असली रंग ही दिखेंगे."
 
-#: rust/crates/effects/src/colour_grading.rs:989 rust/crates/effects/src/colour_grading.rs:1035
+#: rust/crates/effects/src/colour_grading.rs:990 rust/crates/effects/src/colour_grading.rs:1036
 msgid "Compare before and after"
 msgstr "पहले और बाद की तुलना करें"
 
-#: rust/crates/effects/src/colour_grading.rs:1013 rust/crates/effects/src/colour_grading.rs:1048
+#: rust/crates/effects/src/colour_grading.rs:1014 rust/crates/effects/src/colour_grading.rs:1049
 msgid "LUT strength"
 msgstr "LUT तीव्रता"
 
