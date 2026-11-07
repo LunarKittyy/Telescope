@@ -7,7 +7,6 @@
 //! the plugin's own `apply_preset`, the shortcut actions, Copy diagnostics, and the bus (`picture_measure_requested`, answered by whichever
 //! plugin can measure the picture).
 
-use crate::shortcuts;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::io::{BufRead, Read, Write};
@@ -18,6 +17,7 @@ use telescope_core::event::Event;
 use telescope_core::host::{Host, PluginSettings, Poster};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{Plugin, PluginInfo};
+use telescope_core::ui::ActionSpec;
 use telescope_core::settings::{merge_changes, SettingSpec};
 
 pub const NAME: &str = "mcp";
@@ -329,7 +329,7 @@ impl McpPlugin {
             "get" => self.get(host, args),
             "set" => self.set(host, args),
             "revert" => Ok(self.revert(host)),
-            "actions" => Ok(json!({"actions": shortcuts::actions_json(host).into_iter().filter(|a| !OUT_OF_REACH.contains(&a["id"].as_str().unwrap_or(""))).collect::<Vec<_>>()})),
+            "actions" => Ok(json!({"actions": list_actions(host)})),
             "run_action" => run_action(host, args),
             other => Err(format!("There is no tool called {other:?}.")),
         };
@@ -530,19 +530,82 @@ fn unknown_ids(groups: &[PluginSettings], ids: &[String]) -> String {
     text
 }
 
-fn run_action(host: &mut dyn Host, args: &Value) -> Reply {
-    let Some(action) = args["action"].as_str() else { return Err("action has to be an action id from actions.".into()) };
-    if OUT_OF_REACH.contains(&action) {
-        return Err(format!("{action} is left to the person: starting, stopping and switching the camera can drop a call. They can use the window or `telescope --action {action}`."));
+/// The actions as the tool lists them, without the ones left to the person.
+fn list_actions(host: &dyn Host) -> Vec<Value> {
+    host.shortcut_actions().into_iter().filter(|(_, a)| !OUT_OF_REACH.contains(&a.id.as_str()))
+        .map(|(_, a)| json!({"id": a.id, "group": a.group, "label": a.label, "params": a.params, "current": a.current})).collect()
+}
+
+/// What the action's params must be, checked as `telescope --action` checks them: a typo must not quietly run the default.
+fn action_params(action: &ActionSpec, given: &Map<String, Value>) -> Result<Value, String> {
+    let known = |name: &str| action.params.iter().any(|p| p["name"] == name);
+    if let Some(name) = given.keys().find(|k| !known(k)) {
+        let names: Vec<&str> = action.params.iter().filter_map(|p| p["name"].as_str()).collect();
+        return Err(format!("{} has no setting {name:?}. It takes {}.", action.id, if names.is_empty() { "none".into() } else { names.join(", ") }));
     }
-    let params = match args.get("params") {
-        None | Some(Value::Null) => json!({}),
-        Some(p) if p.is_object() => p.clone(),
+    let mut full = Map::new();
+    for p in &action.params {
+        let Some(name) = p["name"].as_str() else { continue };
+        let value = match given.get(name) {
+            None => p["default"].clone(),
+            Some(v) if p["kind"] == "number" => {
+                let n = match v {
+                    Value::Number(n) => n.as_f64(),
+                    Value::String(s) => s.trim().parse::<f64>().ok(),
+                    _ => None,
+                }.filter(|n| n.is_finite());
+                let (lo, hi) = (p["minimum"].as_f64().unwrap_or(f64::NEG_INFINITY), p["maximum"].as_f64().unwrap_or(f64::INFINITY));
+                match n {
+                    Some(n) if n >= lo && n <= hi => json!(n),
+                    Some(n) => return Err(format!("{name} goes from {lo} to {hi}, so {n} is out of range.")),
+                    None => return Err(format!("{name} has to be a number, not {v}.")),
+                }
+            }
+            Some(v) => {
+                let options: Vec<&str> = p["choices"].as_array().into_iter().flatten().filter_map(|c| c[0].as_str()).collect();
+                if v == "hold" {
+                    return Err("hold needs a key to let go of; use toggle, on or off.".into());
+                }
+                if !options.iter().any(|o| v == o) && p["dynamic"] != true {
+                    return Err(format!("{name} can be {}, not {v}.", options.join(" | ")));
+                }
+                v.clone()
+            }
+        };
+        full.insert(name.into(), value);
+    }
+    // A number that matters for what was asked (its `shown_if` holds) can't be left to a default that isn't there
+    for p in &action.params {
+        let Some(name) = p["name"].as_str() else { continue };
+        let shown = match p.get("shown_if").and_then(Value::as_array) {
+            Some(cond) => cond.first().and_then(Value::as_str).and_then(|n| full.get(n)).is_some_and(|v| cond.get(1).and_then(Value::as_array).is_some_and(|vals| vals.contains(v))),
+            None => true,
+        };
+        if shown && p["kind"] == "number" && full.get(name).is_none_or(Value::is_null) {
+            return Err(format!("{} needs {name} for that.", action.id));
+        }
+    }
+    Ok(Value::Object(full))
+}
+
+fn run_action(host: &mut dyn Host, args: &Value) -> Reply {
+    let Some(id) = args["action"].as_str() else { return Err("action has to be an action id from actions.".into()) };
+    if OUT_OF_REACH.contains(&id) {
+        return Err(format!("{id} is left to the person: starting, stopping and switching the camera can drop a call. They can use the window or `telescope --action {id}`."));
+    }
+    let given = match args.get("params") {
+        None | Some(Value::Null) => Map::new(),
+        Some(Value::Object(p)) => p.clone(),
         Some(_) => return Err("params has to be an object of name to value.".into()),
     };
-    let answer = shortcuts::run_remote_request(host, &json!({"action": action, "params": params}));
-    let text = answer["text"].as_str().unwrap_or("").to_string();
-    if answer["ok"] == true { Ok(json!({"said": text})) } else { Err(text) }
+    let Some((plugin, action)) = host.shortcut_actions().into_iter().find(|(_, a)| a.id == id) else {
+        return Err(format!("There is no action called {id:?}. actions lists them."));
+    };
+    let params = action_params(&action, &given)?;
+    match host.run_action(&plugin, id, &params) {
+        Some(said) => Ok(json!({"said": said})),
+        None => Err(format!("{} can't be used right now (no device, or its control is off).", action.label)),
+    }
 }
 
 impl Plugin for McpPlugin {
@@ -553,7 +616,7 @@ impl Plugin for McpPlugin {
             about: n_("Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port.").into(),
             when_off: n_("Without it AI apps can't connect to Telescope.").into(),
             category: "extras".into(),
-            icon: "plug".into(),
+            icon: "sliders".into(),
             optional: true,
             ..Default::default()
         }

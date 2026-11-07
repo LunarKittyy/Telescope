@@ -207,6 +207,15 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Your devices: Rename works, Change name changes what a newly paired phone shows and saved browsers are listed with the phones.
 - [ ] Plugins: installing a newer `.zip` of an added plugin asks, replaces it with its settings kept and leaves it switched off. One with a GitHub `repo` shows its link and, once a release is newer, a line about it on its tile. **Install updates without asking** asks before it goes on.
 
+### MCP server
+
+<!-- due: rust/crates/system/src/mcp.rs rust/crates/system/src/mcp_bridge.rs rust/crates/system/src/single_instance.rs rust/crates/core/src/settings.rs docs/mcp.md -->
+
+- [ ] With the plugin off, `telescope mcp` started by an AI app still starts and says where to switch it on. After switching **MCP server** on and restarting, the same app connects without restarting it, and Telescope shows a notification for the first connection.
+- [ ] In Claude Desktop and one other MCP client (set up as in `docs/mcp.md`): `status`, `describe` and `get` answer, and `set` with Colour grading's Contrast moves the slider in the card and the picture at once. A wrong value names the problem and changes nothing. `revert` puts it back and leaves a slider moved by hand alone.
+- [ ] With a phone streaming and Colour grading on, `measure` gives numbers while sitting still and says why when the stream is off. Asking a model to colour grade the picture ends with sensible sliders and nothing outside the ranges.
+- [ ] `stats` and `watch` say they aren't available (until Stats is in), and the stream and phone camera actions are refused.
+
 ### Several cameras in one picture
 
 <!-- due: rust/crates/effects/src/compos*.rs -->

@@ -363,9 +363,31 @@ fn run_action_runs_one_and_refuses_the_ones_left_to_the_person() {
         assert!(why.contains("left to the person"), "{why}");
     }
     assert!(!r.host.calls.iter().any(|c| c.contains("start_stream") || c.contains("stop")));
-    assert!(r.ask("run_action", json!({"action": "nope"})).unwrap_err().contains("No action called"));
+    assert!(r.ask("run_action", json!({"action": "nope"})).unwrap_err().contains("no action called"));
     assert!(r.ask("run_action", json!({})).unwrap_err().contains("action has to be"));
     assert!(r.ask("run_action", json!({"action": "grading.reset", "params": 3})).unwrap_err().contains("params has to be"));
+}
+
+#[test]
+fn an_actions_params_are_checked_so_a_typo_does_not_run_the_default() {
+    let mut r = Rig::new();
+    let slider = json!([
+        {"name": "op", "kind": "choice", "default": "up", "choices": [["up", "Increase by"], ["set", "Set to"]]},
+        {"name": "amount", "kind": "number", "default": 5.0, "minimum": 0.0, "maximum": 10.0, "shown_if": ["op", ["up"]]},
+        {"name": "value", "kind": "number", "default": null, "minimum": -100.0, "maximum": 100.0, "shown_if": ["op", ["set"]]},
+    ]);
+    r.host.actions = vec![("grading".into(), ActionSpec { id: "grading.tint".into(), label: "Tint".into(), group: "Grading".into(), params: slider.as_array().unwrap().clone(),
+                                                          repeats: true, on_release: false, current: Some(0.0), keywords: String::new() })];
+    let bad = |r: &mut Rig, params: Value| r.ask("run_action", json!({"action": "grading.tint", "params": params})).unwrap_err();
+    assert!(bad(&mut r, json!({"ammount": 3})).contains("has no setting \"ammount\""));
+    assert!(bad(&mut r, json!({"op": "sideways"})).contains("up | set"));
+    assert!(bad(&mut r, json!({"amount": 50})).contains("out of range"));
+    assert!(bad(&mut r, json!({"amount": "lots"})).contains("has to be a number"));
+    assert!(bad(&mut r, json!({"op": "set"})).contains("needs value"));
+    assert!(r.host.calls.iter().all(|c| !c.starts_with("run_action")), "nothing ran");
+    r.ask("run_action", json!({"action": "grading.tint", "params": {"op": "set", "value": "-20"}})).unwrap();
+    let ran = r.host.calls.iter().find(|c| c.starts_with("run_action")).unwrap().clone();
+    assert!(ran.contains("-20") && ran.contains("\"op\":\"set\""), "{ran}");
 }
 
 // ── Measuring is a job ───────────────────────────────────────────────

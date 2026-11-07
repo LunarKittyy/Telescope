@@ -592,7 +592,7 @@ pub fn run(words: &[String]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     // The plugins that say category = "extras" themselves in Python
-    const IN_EXTRAS: [&str; 4] = ["onboarding", "presets", "shortcuts", "updates"];
+    const IN_EXTRAS: [&str; 5] = ["mcp", "onboarding", "presets", "shortcuts", "updates"];
 
     // test_plugins_panel.py::test_every_built_in_plugin_picks_its_category_and_icon
     #[test]
