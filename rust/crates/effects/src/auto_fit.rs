@@ -121,6 +121,8 @@ pub struct Targets {
     pub face_luma: Option<f32>,
     /// With no face, the middle brightness a dark picture is brought up to.
     pub scene_luma: Option<f32>,
+    /// The scene target is a ceiling to come down to rather than a floor to come up to.
+    pub scene_bright: bool,
     /// Where the brightest 1% should reach, for a picture with nothing near white in it.
     pub top: Option<f32>,
     pub black: Option<f32>,
@@ -167,10 +169,12 @@ pub fn decide(m: &Measurement) -> Targets {
     } else {
         None
     };
+    let scene_bright = scene_luma.is_some_and(|t| t > SCENE_DARK_TARGET);
     let top = (ranged && low < TOP_BLACK_BELOW && t.p99 < TOP_DARK_BELOW && t.white_clipped < CLIPPED_ENDS).then_some(TOP_TARGET);
     Targets {
         face_luma,
         scene_luma,
+        scene_bright,
         top,
         black,
         lift_up,
@@ -209,8 +213,13 @@ pub fn skin_angle(p: Px) -> f32 {
 
 /// How many degrees a colour's hue is past the band skin sits in.
 pub fn angle_excess(p: Px) -> f32 {
+    angle_beyond(p, SKIN_BAND_DEG)
+}
+
+/// The same for a band of another width, which the correction aims for once skin is far enough off to be corrected.
+fn angle_beyond(p: Px, band: f32) -> f32 {
     let d = (skin_angle(p) - SKIN_ANGLE as f32 + 180.0).rem_euclid(360.0) - 180.0;
-    (d.abs() - SKIN_BAND_DEG).max(0.0)
+    (d.abs() - band).max(0.0)
 }
 
 fn hsv_saturation(p: Px) -> f32 {
@@ -323,7 +332,10 @@ fn chroma_after(rig: &Rig, g: &Grade) -> f32 {
 
 fn scene_luma_after(rig: &Rig, g: &Grade) -> f32 {
     let out = run(g, &rig.all);
-    median(&mut triplets(&out).map(luma).collect::<Vec<_>>())
+    // blown areas stay white whatever is done, so a picture with many of them is judged by the rest
+    let blown = rig.clipped.iter().filter(|c| **c).count() as f32 / rig.clipped.len().max(1) as f32 > 0.05;
+    let mut l: Vec<f32> = triplets(&out).zip(&rig.clipped).filter(|(_, c)| !blown || !**c).map(|(p, _)| luma(p)).collect();
+    median(&mut l)
 }
 
 fn face_luma_after(rig: &Rig, g: &Grade) -> f32 {
@@ -378,7 +390,7 @@ fn wb_cost(rig: &Rig, p: &[f64; 2], face: bool, grey: bool) -> f64 {
     let g = wb_grade(p[0], p[1]);
     let mut cost = 0.0;
     if face {
-        let excess = angle_excess(mean_colour(&run(&g, &rig.skin))) / SKIN_BAND_DEG;
+        let excess = angle_beyond(mean_colour(&run(&g, &rig.skin)), SKIN_AIM_DEG) / SKIN_BAND_DEG;
         cost += WB_FACE_WEIGHT * (excess as f64).powi(2);
     }
     if grey {
@@ -417,7 +429,9 @@ fn world_fix(rig: &Rig) -> Option<[f64; 2]> {
         return None;
     }
     let solved = solve_wb(&world, false, true);
-    let capped = [(solved[0] * WB_WORLD_STRENGTH).clamp(-WB_MAX_TEMPERATURE, WB_MAX_TEMPERATURE), (solved[1] * WB_WORLD_STRENGTH).clamp(-WB_MAX_TINT, WB_MAX_TINT)];
+    // the further past the threshold the cast is, the more sure it is a cast and not the room's colours
+    let strength = (WB_WORLD_STRENGTH + (cast[0].hypot(cast[1]) - WORLD_MIN) as f64 * WB_WORLD_RAMP).min(WB_STRENGTH);
+    let capped = [(solved[0] * strength).clamp(-WB_MAX_TEMPERATURE, WB_MAX_TEMPERATURE), (solved[1] * strength).clamp(-WB_MAX_TINT, WB_MAX_TINT)];
     (capped[0].abs() >= WB_MIN || capped[1].abs() >= WB_MIN).then_some(capped)
 }
 
@@ -475,7 +489,8 @@ fn exposure(rig: &Rig, targets: &Targets, base: &Basic) -> (f64, f64) {
         let mut face = 0.0;
         if let Some(target) = target {
             let seen = if face_target.is_some() { face_luma_after(rig, &g) } else { scene_luma_after(rig, &g) };
-            face += (((seen - target) / 0.05) as f64).powi(2);
+            let miss = if face_target.is_none() && targets.scene_bright { (seen - target).max(0.0) } else { seen - target };
+            face += ((miss / 0.05) as f64).powi(2);
         }
         if let Some(top) = targets.top {
             face += (((top - tone_after(rig, &g).1).max(0.0) / 0.06) as f64).powi(2);

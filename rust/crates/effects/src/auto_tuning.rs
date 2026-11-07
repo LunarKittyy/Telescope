@@ -113,14 +113,16 @@ pub const SAMPLES: (usize, usize, usize) = (500, 700, 1500);
 
 /// Skin sits within this many degrees of the skin line on a vectorscope, and a face inside is left alone.
 pub const SKIN_BAND_DEG: f32 = 10.0;
+/// Once skin is off the skin line by more than the band, the correction aims for within this many degrees of it.
+pub const SKIN_AIM_DEG: f32 = 3.0;
 /// How much of the way a correction goes when there's a face to go by.
-pub const WB_STRENGTH: f64 = 0.7;
+pub const WB_STRENGTH: f64 = 0.9;
 /// How much of the way a correction goes with only grey patches to go by.
-pub const WB_GREY_ONLY_STRENGTH: f64 = 0.5;
+pub const WB_GREY_ONLY_STRENGTH: f64 = 0.8;
 /// The most Temperature Auto sets.
 pub const WB_MAX_TEMPERATURE: f64 = 100.0;
 /// The most Tint Auto sets.
-pub const WB_MAX_TINT: f64 = 60.0;
+pub const WB_MAX_TINT: f64 = 100.0;
 /// Face and grey patches wanting Temperature in opposite directions this far apart conflict.
 pub const WB_CONFLICT_TEMPERATURE: f64 = 30.0;
 /// Face and grey patches wanting Tint in opposite directions this far apart conflict.
@@ -132,14 +134,16 @@ pub const WB_FACE_WEIGHT: f64 = 1.0;
 /// Weight of the grey patches' cast, per squared agreement width.
 pub const WB_GREY_WEIGHT: f64 = 1.0;
 /// Cost of moving Temperature, per ten units squared.
-pub const WB_COST_TEMPERATURE: f64 = 0.03;
+pub const WB_COST_TEMPERATURE: f64 = 0.01;
 /// Cost of moving Tint, per ten units squared, lower since a hue off the skin line is mostly tint.
-pub const WB_COST_TINT: f64 = 0.01;
+pub const WB_COST_TINT: f64 = 0.02;
 
 /// With nothing to go by but the whole picture, a colour cast (log ratios in linear light) must be bigger than this to be corrected.
-pub const WORLD_MIN: f32 = 0.40;
+pub const WORLD_MIN: f32 = 0.22;
 /// How much of the way a correction goes when it only goes by the whole picture being grey on average.
-pub const WB_WORLD_STRENGTH: f64 = 0.35;
+/// Plus this much more per unit of cast past that, up to the strength a face gets.
+pub const WB_WORLD_RAMP: f64 = 4.0;
+pub const WB_WORLD_STRENGTH: f64 = 0.3;
 
 // ── Brightness ───────────────────────────────────────────────────────
 
@@ -169,9 +173,9 @@ pub const SCENE_BRIGHT_TARGET: f32 = 0.62;
 /// Or this when over a third of the picture is blown out, so that more of it comes back below white.
 pub const SCENE_BLOWN_TARGET: f32 = 0.58;
 /// Lowest and highest Gamma master Auto sets.
-pub const GAMMA_RANGE: (f64, f64) = (-0.7, 0.7);
+pub const GAMMA_RANGE: (f64, f64) = (-0.6, 0.7);
 /// Lowest and highest Gain master Auto sets.
-pub const GAIN_RANGE: (f64, f64) = (0.60, 1.80);
+pub const GAIN_RANGE: (f64, f64) = (1.0, 1.80);
 /// Share of the unclipped pixels a grade may newly clip before it costs anything.
 pub const NEW_CLIP_OK: f32 = 0.005;
 
