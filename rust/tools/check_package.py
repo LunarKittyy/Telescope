@@ -147,6 +147,17 @@ def check_linux(name: str, folder: Path, args):
     # The system's libva when it has one, as start.sh does
     va = [lib / "fallback" / f for f in ("libdrm.so.2", "libva.so.2", "libva-drm.so.2")] if "not found" in linked else []
     check_ffmpeg_holds(name, va + [next(lib.glob("libavutil.so.*")), next(lib.glob("libavcodec.so.*"))])
+    check_gphoto2(name, folder)
+
+
+def check_gphoto2(name: str, folder: Path):
+    """The bundled libgphoto2 and its two drivers must resolve everything they link to, against the folder and the system (no camera needed)."""
+    gp = folder.resolve() / "lib" / "gphoto2"
+    for lib in ("libgphoto2.so.6", "libgphoto2_port.so.12", "camlibs/ptp2.so", "iolibs/usb1.so"):
+        env = dict(os.environ, LD_LIBRARY_PATH=str(gp))
+        out = subprocess.run(["ldd", str(gp / lib)], capture_output=True, text=True, env=env).stdout
+        if "not found" in out:
+            problems.append(f"{name}'s lib/gphoto2/{lib} lacks something it links to: {out}")
 
 
 def check_appimage(image: Path, args):

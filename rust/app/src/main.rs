@@ -493,6 +493,8 @@ fn use_window_apartment() {
 
 fn main() {
     telescope_core::system::leave_appimage_environment();
+    // Before any thread: it sets environment variables for libgphoto2
+    telescope_outputs::webcam_capture::prepare_gphoto_environment();
     #[cfg(windows)]
     {
         use_parent_console();

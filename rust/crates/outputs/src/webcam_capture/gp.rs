@@ -31,6 +31,7 @@ const WIDGET_MENU: c_int = 6;
 /// The functions, copied out of the library, which is never unloaded.
 struct Api {
     context_new: unsafe extern "C" fn() -> Ctx,
+    context_unref: unsafe extern "C" fn(Ctx),
     camera_new: unsafe extern "C" fn(*mut Cam) -> c_int,
     camera_init: unsafe extern "C" fn(Cam, Ctx) -> c_int,
     camera_exit: unsafe extern "C" fn(Cam, Ctx) -> c_int,
@@ -107,10 +108,19 @@ fn load_bundled(dir: &Path) -> Option<Library> {
     }
     // SAFETY: as above
     let lib = unsafe { Library::new(dir.join(SONAME)) }.ok()?;
-    // Read when the library first looks for drivers, so before any call into it
-    std::env::set_var("CAMLIBS", &camlibs);
-    std::env::set_var("IOLIBS", &iolibs);
+    // CAMLIBS and IOLIBS were set at startup (prepare_environment), before any thread could be reading the environment
     Some(lib)
+}
+
+/// Points libgphoto2 at the bundled camera drivers when there is a bundle. It has to run at startup before the program starts any
+/// thread, since changing the environment while others read it isn't safe.
+pub fn prepare_environment() {
+    let Some(dir) = bundle_dir() else { return };
+    let (camlibs, iolibs) = (dir.join("camlibs"), dir.join("iolibs"));
+    if dir.join(SONAME).exists() && camlibs.is_dir() && iolibs.is_dir() {
+        std::env::set_var("CAMLIBS", &camlibs);
+        std::env::set_var("IOLIBS", &iolibs);
+    }
 }
 
 fn load() -> Result<Api, String> {
@@ -122,6 +132,7 @@ fn load() -> Result<Api, String> {
     };
     let api = Api {
         context_new: sym(&lib, "gp_context_new")?,
+        context_unref: sym(&lib, "gp_context_unref")?,
         camera_new: sym(&lib, "gp_camera_new")?,
         camera_init: sym(&lib, "gp_camera_init")?,
         camera_exit: sym(&lib, "gp_camera_exit")?,
@@ -195,7 +206,10 @@ pub fn auto_detect() -> Result<Vec<(String, String)>, String> {
     unsafe {
         let ctx = (api.context_new)();
         let mut list: *mut c_void = std::ptr::null_mut();
-        check(api, (api.cams_new)(&mut list))?;
+        if let Err(why) = check(api, (api.cams_new)(&mut list)) {
+            (api.context_unref)(ctx);
+            return Err(why);
+        }
         let done = (|| {
             check(api, (api.autodetect)(list, ctx))?;
             let text = |p: *const c_char| if p.is_null() { String::new() } else { CStr::from_ptr(p).to_string_lossy().into_owned() };
@@ -209,6 +223,7 @@ pub fn auto_detect() -> Result<Vec<(String, String)>, String> {
             Ok(found)
         })();
         (api.cams_free)(list);
+        (api.context_unref)(ctx);
         done
     }
 }
@@ -231,7 +246,10 @@ impl GpCamera {
         unsafe {
             let ctx = (api.context_new)();
             let mut cam: Cam = std::ptr::null_mut();
-            check(api, (api.camera_new)(&mut cam))?;
+            if let Err(why) = check(api, (api.camera_new)(&mut cam)) {
+                (api.context_unref)(ctx);
+                return Err(why);
+            }
             if !port.is_empty() {
                 if let Err(why) = set_port(api, cam, port) {
                     log::debug!("gphoto2 port {port}: {why}");
@@ -239,8 +257,10 @@ impl GpCamera {
             }
             let code = (api.camera_init)(cam, ctx);
             if code < 0 {
+                let why = say(api, code);
                 (api.camera_unref)(cam);
-                return Err(say(api, code));
+                (api.context_unref)(ctx);
+                return Err(why);
             }
             Ok(GpCamera { api, ctx, cam })
         }
@@ -395,6 +415,7 @@ impl Rig for GpCamera {
         unsafe {
             (self.api.camera_exit)(self.cam, self.ctx);
             (self.api.camera_unref)(self.cam);
+            (self.api.context_unref)(self.ctx);
         }
         self.cam = std::ptr::null_mut();
     }
