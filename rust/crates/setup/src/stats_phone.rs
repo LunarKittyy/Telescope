@@ -166,7 +166,7 @@ pub fn rows(p: &PhoneReading, nerd: bool, delay: &[f32], period_ms: f32) -> Vec<
             out.push(Row::line(&tr("Encoder frame rate"), fps(enc)));
         }
         if let (Some(avg), Some(max)) = (p.encode_ms, p.encode_max_ms) {
-            out.push(Row::line(&tr("Encoding time"), ms(avg)).note(tr("slowest {n}").field("n", ms(max))));
+            out.push(Row::line(&tr("From the camera"), ms(avg)).note(tr("slowest {n}").field("n", ms(max))));
         }
         if let Some(q) = p.queue_ms {
             out.push(Row::line(&tr("Send queue"), ms(q)).note(tr("longest a packet waited")));
@@ -181,7 +181,7 @@ pub fn summary(p: &PhoneReading) -> Vec<(String, String)> {
     let mut out = Vec::new();
     let mut put = |name: &str, value: String| out.push((format!("Stats phone {name}"), value));
     if let Some(d) = p.phone_delay_ms() {
-        put("delay", format!("{d:.1} ms from the camera to sent (from the camera {:.1}, queue {:.1}, slowest {:.1})", p.encode_ms.unwrap_or(0.0), p.queue_ms.unwrap_or(0.0), p.encode_max_ms.unwrap_or(0.0)));
+        put("delay", format!("{d:.1} ms on the phone (from the camera {:.1}, waiting to go out {:.1}, slowest {:.1})", p.encode_ms.unwrap_or(0.0), p.queue_ms.unwrap_or(0.0), p.encode_max_ms.unwrap_or(0.0)));
     }
     if p.wifi_band.is_some() || p.wifi_rssi.is_some() {
         put("wifi", format!("{} GHz, {} dBm, {} Mbps", p.wifi_band.as_deref().unwrap_or("?"), p.wifi_rssi.map_or("?".into(), |n| n.to_string()), p.wifi_mbps.map_or("?".into(), |n| n.to_string())));

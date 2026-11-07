@@ -5135,7 +5135,7 @@ msgid "TCP"
 msgstr ""
 
 #: rust/crates/setup/src/stats.rs:346
-msgid "The delay from the camera, Wi-Fi band and signal, temperature and throttling, camera frame rate, encoding time and queue, and round trip, jitter and clock offset"
+msgid "The delay from the camera, Wi-Fi band and signal, temperature and throttling, camera frame rate, time from the camera and queue, and round trip, jitter and clock offset"
 msgstr ""
 
 #: rust/crates/setup/src/stats.rs:348
@@ -5370,7 +5370,7 @@ msgid "Encoder frame rate"
 msgstr ""
 
 #: rust/crates/setup/src/stats_phone.rs:169
-msgid "Encoding time"
+msgid "From the camera"
 msgstr ""
 
 #: rust/crates/setup/src/stats_phone.rs:172

@@ -343,7 +343,7 @@ pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> V
         None => {
             // Nothing from the phone yet, so it's one line instead of a row of the same answer each
             let missing = if nerd {
-                tr("The delay from the camera, Wi-Fi band and signal, temperature and throttling, camera frame rate, encoding time and queue, and round trip, jitter and clock offset")
+                tr("The delay from the camera, Wi-Fi band and signal, temperature and throttling, camera frame rate, time from the camera and queue, and round trip, jitter and clock offset")
             } else {
                 tr("The delay from the camera, Wi-Fi band and signal, and temperature and throttling")
             };

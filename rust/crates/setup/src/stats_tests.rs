@@ -93,7 +93,7 @@ fn what_needs_the_phone_says_so_once() {
     assert!(phone["note"].as_str().unwrap().contains("Wi-Fi band and signal") && !phone["note"].as_str().unwrap().contains("encoding"));
     assert_eq!(p["rows"].as_array().unwrap().iter().filter(|r| r["value"] == "Not available yet").count(), 1, "one line, not a row each");
     plugin.on_ui(&mut host, &UiEvent { ui: "card".into(), callback: "view-picked".into(), args: vec![json!(1)] });
-    assert!(row(&props(&host), "From the phone")["note"].as_str().unwrap().contains("encoding time and queue"), "Nerd lists more of it");
+    assert!(row(&props(&host), "From the phone")["note"].as_str().unwrap().contains("time from the camera and queue"), "Nerd lists more of it");
 }
 
 #[test]
@@ -349,7 +349,7 @@ fn the_phone_section_shows_what_the_phone_said_instead_of_not_available() {
     let throttling = row(&p, "Throttling");
     assert_eq!((throttling["value"].as_str(), throttling["kind"].as_str()), (Some("Yes, severe"), Some("status_warn")));
     assert!(throttling["note"].as_str().unwrap().contains("24 fps"));
-    assert!(!has_row(&p, "Encoding time"), "Nerd has the rest");
+    assert!(!has_row(&p, "From the camera"), "Nerd has the rest");
 }
 
 #[test]
@@ -357,8 +357,8 @@ fn nerd_adds_the_encoder_and_the_camera() {
     let p = phone_props(new_phone_state(), true);
     assert_eq!(row(&p, "Camera frame rate")["note"], "asked for 30.0 fps");
     assert_eq!(row(&p, "Encoder frame rate")["value"], "29.5 fps");
-    assert_eq!(row(&p, "Encoding time")["value"], "8.4 ms");
-    assert_eq!(row(&p, "Encoding time")["note"], "slowest 15 ms");
+    assert_eq!(row(&p, "From the camera")["value"], "8.4 ms");
+    assert_eq!(row(&p, "From the camera")["note"], "slowest 15 ms");
     assert_eq!(row(&p, "Send queue")["value"], "3.0 ms");
     assert_eq!(row(&p, "Round trip, jitter and clock offset")["value"], "Not available yet");
 }
@@ -385,7 +385,7 @@ fn the_nerd_summary_carries_the_phones_numbers() {
     let p = PhoneReading::from_state(&new_phone_state()).unwrap();
     let lines = summary(&snap, &snap.sources[0], Some(&p));
     let get = |k: &str| lines.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_else(|| panic!("no {k}"));
-    assert_eq!(get("Stats phone delay"), "11.4 ms from the camera to sent (from the camera 8.4, queue 3.0, slowest 15.0)");
+    assert_eq!(get("Stats phone delay"), "11.4 ms on the phone (from the camera 8.4, waiting to go out 3.0, slowest 15.0)");
     assert_eq!(get("Stats phone wifi"), "5 GHz, -58 dBm, 866 Mbps");
     assert_eq!(get("Stats phone thermal status"), "3 (severe), capped at 24 fps");
     assert!(get("Stats phone frame rates").contains("camera 29.6 fps, asked 30, encoder 29.5 fps"));
