@@ -1,7 +1,7 @@
-// What a stream's phone offers plugins through the window: its sensors and its photos.
+// What a stream's phone offers plugins through the window: its sensors and its photos, and a camera's own photos.
 mod rig;
 
-use rig::{state_with, Listener, Rig};
+use rig::{state_with, FakeSource, Listener, Picker, Rig};
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -9,7 +9,7 @@ use telescope_core::host::Host;
 use telescope_core::link::PhoneStills;
 use telescope_core::media::PacketTap;
 use telescope_core::plugin::Plugin;
-use telescope_core::source::PairedPhone;
+use telescope_core::source::{PairedPhone, SourceStills};
 use telescope_link::sensors::SensorHub;
 use telescope_shell::worker::VideoWorker;
 
@@ -151,6 +151,124 @@ fn a_restart_ends_the_photo_on_the_old_session() {
     r.w.toggle_stream();
     r.pump();
     assert!(!(stills.alive.lock().unwrap().as_ref().unwrap())());
+}
+
+/// A DSLR's photos, doing what a test says when it says.
+#[derive(Default)]
+struct CameraStills {
+    caps: Mutex<Option<Value>>,
+    busy: AtomicBool,
+    taken: Mutex<Vec<(Value, String)>>,
+    progress: Later<dyn Fn(Value) + Send>,
+    done: Later<dyn FnOnce(Value) + Send>,
+    alive: Later<dyn Fn() -> bool + Send>,
+    on_change: Later<dyn Fn() + Send + Sync>,
+}
+
+impl SourceStills for CameraStills {
+    fn caps(&self) -> Option<Value> {
+        self.caps.lock().unwrap().clone()
+    }
+    fn busy(&self) -> bool {
+        self.busy.load(Ordering::SeqCst)
+    }
+    fn take(&self, options: &Value, folder: &str, on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
+            alive: Box<dyn Fn() -> bool + Send>) -> bool {
+        self.taken.lock().unwrap().push((options.clone(), folder.into()));
+        *self.progress.lock().unwrap() = Some(on_progress);
+        *self.done.lock().unwrap() = Some(on_done);
+        *self.alive.lock().unwrap() = Some(alive);
+        true
+    }
+    fn set_on_change(&self, on_change: Box<dyn Fn() + Send + Sync>) {
+        *self.on_change.lock().unwrap() = Some(on_change);
+    }
+}
+
+/// A DSLR as the source, streaming, with the phones' photo service not in the picture at all.
+fn camera_on_air(name: &str) -> (Rig, Arc<CameraStills>) {
+    let r = Rig::with(name, |link, heard| vec![Box::new(Listener::new("panel", heard)) as Box<dyn Plugin>, Box::new(Picker(link.clone()))]);
+    let stills = Arc::new(CameraStills::default());
+    *stills.caps.lock().unwrap() = Some(json!({"formats": ["jpeg"], "camera": true}));
+    r.offer(FakeSource { stills: Some(stills.clone()), ..FakeSource::new("webcam:d5100") });
+    r.pick("webcam:d5100");
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    (r, stills)
+}
+
+#[test]
+fn a_cameras_photos_go_through_its_own_service_and_tell_every_plugin() {
+    let (r, stills) = camera_on_air("photos-camera");
+    assert_eq!(asks(&r, |host| host.still_caps(None)).unwrap()["camera"], json!(true));
+    assert!(!asks(&r, |host| host.still_busy(None)));
+    r.forget_heard();
+    assert!(take(&r));
+    assert_eq!(*stills.taken.lock().unwrap(), [(json!({"format": "jpeg"}), "/tmp".to_string())]);
+    assert_eq!(busy(&r), ["panel busy webcam:d5100 true"]);
+    stills.busy.store(true, Ordering::SeqCst);
+    assert!(asks(&r, |host| host.still_busy(None)));
+    (stills.progress.lock().unwrap().as_ref().unwrap())(json!({"state": "capturing", "paused": true}));
+    r.until("the stream is held", |r| r.worker(0).did("hold_for_photo 3"));
+    stills.busy.store(false, Ordering::SeqCst);
+    stills.done.lock().unwrap().take().unwrap()(json!({"ok": true, "files": ["/tmp/Telescope_1.jpg"]}));
+    r.until("it reported back", |r| r.heard().iter().any(|l| l.starts_with("panel done true")));
+    r.pump();
+    assert_eq!(busy(&r), ["panel busy webcam:d5100 true", "panel busy webcam:d5100 false"]);
+    assert!(r.did_hear("panel saved webcam:d5100 [\"/tmp/Telescope_1.jpg\"]"), "{:?}", r.heard());
+}
+
+#[test]
+fn a_camera_takes_one_photo_at_a_time_and_offers_nothing_once_it_lets_go() {
+    let (r, stills) = camera_on_air("photos-camera-busy");
+    stills.busy.store(true, Ordering::SeqCst);
+    assert!(!take(&r), "one at a time");
+    assert!(stills.taken.lock().unwrap().is_empty());
+    stills.busy.store(false, Ordering::SeqCst);
+    *stills.caps.lock().unwrap() = None;
+    assert!(asks(&r, |host| host.still_caps(None)).is_none());
+    assert!(!take(&r), "a camera with no photos to offer");
+}
+
+#[test]
+fn the_plugins_hear_when_what_a_camera_takes_changes_and_when_its_stream_ends_the_photo() {
+    let (r, stills) = camera_on_air("photos-camera-changes");
+    r.forget_heard();
+    (stills.on_change.lock().unwrap().as_ref().expect("listened to once it streams"))();
+    r.until("they heard", |r| r.did_hear("panel caps webcam:d5100"));
+    assert!(take(&r));
+    assert!((stills.alive.lock().unwrap().as_ref().unwrap())());
+    r.stop(Some("webcam:d5100"));
+    r.pump();
+    assert!(!(stills.alive.lock().unwrap().as_ref().unwrap())());
+}
+
+#[test]
+fn a_photo_the_camera_wont_start_ends_in_the_cameras_words() {
+    struct Refusing;
+    impl SourceStills for Refusing {
+        fn caps(&self) -> Option<Value> {
+            Some(json!({"formats": ["jpeg"], "camera": true}))
+        }
+        fn busy(&self) -> bool {
+            false
+        }
+        fn take(&self, _: &Value, _: &str, _: Box<dyn Fn(Value) + Send>, _: Box<dyn FnOnce(Value) + Send>, _: Box<dyn Fn() -> bool + Send>) -> bool {
+            false
+        }
+        fn set_on_change(&self, _: Box<dyn Fn() + Send + Sync>) {}
+    }
+    let r = Rig::with("photos-camera-refused", |link, heard| vec![Box::new(Listener::new("panel", heard)) as Box<dyn Plugin>, Box::new(Picker(link.clone()))]);
+    r.offer(FakeSource { stills: Some(Arc::new(Refusing)), ..FakeSource::new("webcam:d5100") });
+    r.pick("webcam:d5100");
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    r.forget_heard();
+    assert!(take(&r), "the host sent it on");
+    r.until("it reported back", |r| r.heard().iter().any(|l| l.starts_with("panel done false")));
+    assert!(r.heard().iter().any(|l| l.starts_with("panel done false The camera is already taking a photo.")), "{:?}", r.heard());
 }
 
 #[test]

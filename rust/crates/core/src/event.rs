@@ -176,6 +176,8 @@ events! {
     "still_busy_changed" => StillBusyChanged { source_id: String, busy: bool },
     /// Photos were saved from a stream's phone, whichever plugin asked for them.
     "still_saved" => StillSaved { source_id: String, paths: Vec<String> },
+    /// What a stream's own camera can take for a photo changed (a DSLR's mode dial turned, or its live view started or ended); phones say it in phone_state_updated.
+    "still_caps_changed" => StillCapsChanged { source_id: String },
     /// A stream fell behind its frame rate, or caught up again; only the shown one is measured.
     "stream_behind" => StreamBehind { source_id: String, behind: bool },
 

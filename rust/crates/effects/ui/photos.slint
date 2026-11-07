@@ -53,7 +53,7 @@ component NumberRow inherits FormRow {
 }
 
 export component PhotosCard inherits Card {
-    // Greyed out until a phone is paired, and gone for a source that isn't a phone
+    // Greyed out until a phone is paired, and gone for a source that isn't a phone or a camera that takes photos
     in property <bool> active: true;
     in property <bool> shown: true;
     in property <string> take-text;
@@ -73,6 +73,12 @@ export component PhotosCard inherits Card {
     in property <string> quality-text;
     in property <bool> quality-shown;
     in property <string> reset-hint;
+    in property <[string]> iso-items: [""];
+    in property <int> iso-current;
+    in property <bool> iso-shown;
+    in property <[string]> shutter-items: [""];
+    in property <int> shutter-current;
+    in property <bool> shutter-shown;
     in property <[string]> mode-items: [""];
     in property <int> mode-current;
     in property <bool> mode-shown;
@@ -167,6 +173,20 @@ export component PhotosCard inherits Card {
         default-value: 95;
         hint: reset-hint;
         moved(v) => { root.quality-moved(v); }
+    }
+    if iso-shown: PickRow {
+        enabled: active;
+        label: @tr("ISO");
+        items: iso-items;
+        current: iso-current;
+        picked(i) => { root.choice-picked(6, i); }
+    }
+    if shutter-shown: PickRow {
+        enabled: active;
+        label: @tr("Shutter speed");
+        items: shutter-items;
+        current: shutter-current;
+        picked(i) => { root.choice-picked(7, i); }
     }
     if mode-shown: PickRow {
         enabled: active;

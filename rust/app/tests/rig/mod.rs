@@ -549,6 +549,7 @@ impl Plugin for Listener {
             Event::SensorsChanged { source_id } => note(&self.heard, format!("{} sensors {source_id}", self.name)),
             Event::StillBusyChanged { source_id, busy } => note(&self.heard, format!("{} busy {source_id} {busy}", self.name)),
             Event::StillSaved { source_id, paths } => note(&self.heard, format!("{} saved {source_id} {paths:?}", self.name)),
+            Event::StillCapsChanged { source_id } => note(&self.heard, format!("{} caps {source_id}", self.name)),
             _ => {}
         }
     }
@@ -921,6 +922,8 @@ pub struct FakeSource {
     pub cancels: AtomicU32,
     /// Its camera makes no more than arrives.
     pub slow_camera: bool,
+    /// Photos its own camera takes (a DSLR).
+    pub stills: Option<Arc<dyn telescope_core::source::SourceStills>>,
 }
 
 impl FakeSource {
@@ -983,6 +986,9 @@ impl StreamSource for FakeSource {
     }
     fn camera_limited(&self, _arrival: f32) -> bool {
         self.slow_camera
+    }
+    fn stills(&self) -> Option<Arc<dyn telescope_core::source::SourceStills>> {
+        self.stills.clone()
     }
 }
 

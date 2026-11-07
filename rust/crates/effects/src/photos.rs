@@ -1,6 +1,7 @@
 //! The Photos plugin (plugins/photos.py): full-quality photos taken on the phone through the host's stills service and saved in a
 //! folder. What the card offers follows the lens the shown stream is on (RAW, the maker's Night mode, bursts and brackets where it
-//! has them); the picks of another lens are kept for when it comes back.
+//! has them); the picks of another lens are kept for when it comes back. A stream with a camera of its own (a DSLR) answers the same
+//! service, and then the card also offers the camera's own ISO and shutter speed lists, where its mode allows them.
 
 use telescope_core::i18n::Fields;
 use crate::shared::{py_float, Paired};
@@ -40,6 +41,8 @@ const FOCUS_TIP: &str = n_("Photos from the nearest focus to the farthest, for f
 const EXPOSURE_TIP: &str = n_("A long exposure keeps the video's ISO and the video stops while the shutter is open");
 const BEST_TIP: &str = n_("Takes a little longer and only changes the photo, not the video");
 const FOLDER_TIP: &str = n_("Where photos are saved");
+const CAMERA_BUSY: &str = n_("The camera is already taking a photo.");
+const CAMERA_FAILED: &str = n_("The camera couldn't take the photo.");
 
 /// What the lens a stream is on can take (stills.StillCaps), as the link crate describes it. Anything not here isn't offered.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
@@ -62,6 +65,19 @@ pub struct StillCaps {
     pub distortion: bool,
     pub burst_max: i64,
     pub extension_sizes: Vec<(String, (i64, i64))>,
+    /// A camera with settings of its own (a DSLR): no JPEG quality to pick, and ISO and shutter speed are its own lists.
+    pub camera: bool,
+    pub iso: Option<CameraSetting>,
+    pub shutter: Option<CameraSetting>,
+}
+
+/// One of a camera's own lists: what to send back for each entry, how to show it, and which one the camera is on (None: none listed).
+#[derive(Clone, Debug, Default, PartialEq, Deserialize)]
+#[serde(default)]
+pub struct CameraSetting {
+    pub values: Vec<String>,
+    pub labels: Vec<String>,
+    pub current: Option<usize>,
 }
 
 impl Default for StillCaps {
@@ -69,7 +85,7 @@ impl Default for StillCaps {
         StillCaps {
             formats: vec!["jpeg".into()], size: None, max_res: None, max_res_raw: false, extensions: Vec::new(), exposure_max_ns: 0,
             bracketing: false, focus_bracketing: false, noise_reduction_hq: false, sharpening_hq: false, hot_pixel_hq: false,
-            distortion: false, burst_max: 1, extension_sizes: Vec::new(),
+            distortion: false, burst_max: 1, extension_sizes: Vec::new(), camera: false, iso: None, shutter: None,
         }
     }
 }
@@ -221,6 +237,18 @@ pub fn build_options(caps: &StillCaps, choices: &Choices, rotation: i32) -> Valu
     Value::Object(opts)
 }
 
+/// A camera's own picks go with a photo as it is asked for: its ISO and shutter speed as the camera words them, and no JPEG quality
+/// (it keeps its own).
+pub fn camera_options(options: &mut Value, iso: Option<&str>, shutter: Option<&str>) {
+    let Some(map) = options.as_object_mut() else { return };
+    map.remove("quality");
+    for (key, pick) in [("iso", iso), ("shutter", shutter)] {
+        if let Some(pick) = pick {
+            map.insert(key.into(), json!(pick));
+        }
+    }
+}
+
 /// Where photos go unless told otherwise: Pictures/Telescope (QStandardPaths' PicturesLocation), written the way pathlib joins it.
 pub fn default_folder() -> String {
     pictures().join("Telescope").components().collect::<PathBuf>().display().to_string()
@@ -317,7 +345,9 @@ fn typed_number(text: &str, min: i64, max: i64) -> Typed {
 }
 
 /// The kinds of choice the card sends back: which list a pick came from.
-const PICKS: [&str; 6] = ["mode", "format", "shots", "exposure_s", "bracket", "distortion"];
+const PICKS: [&str; 8] = ["mode", "format", "shots", "exposure_s", "bracket", "distortion", "iso", "shutter"];
+/// Where ISO and shutter speed are in PICKS, which is also where they sit in camera_picks.
+const CAMERA_PICK: usize = 6;
 
 pub struct PhotosPlugin {
     choices: Choices,
@@ -325,6 +355,9 @@ pub struct PhotosPlugin {
     caps: Option<StillCaps>,
     /// What still_caps last answered, to tell when it changed.
     caps_raw: Option<Value>,
+    /// What was picked of the camera's own ISO (0) and shutter speed (1) lists, as the camera words them. They aren't saved: the
+    /// camera holds them, so they only stand until it reports the same.
+    camera_picks: [Option<String>; 2],
     busy: bool,
     last_saved: Vec<String>,
     /// The photos being taken (one per phone, each with its own end) and the folder dialog being shown.
@@ -352,6 +385,7 @@ impl PhotosPlugin {
             folder: default_folder(),
             caps: None,
             caps_raw: None,
+            camera_picks: [None, None],
             busy: false,
             last_saved: Vec::new(),
             taking: Vec::new(),
@@ -370,6 +404,40 @@ impl PhotosPlugin {
 
     fn can(&self) -> Offered {
         offered(&self.effective_caps(), &self.choices)
+    }
+
+    /// A camera's own ISO (0) or shutter speed (1) list, when it lets them be picked now.
+    fn camera_setting(&self, which: usize) -> Option<&CameraSetting> {
+        let caps = self.caps.as_ref().filter(|c| c.camera)?;
+        [&caps.iso, &caps.shutter][which].as_ref().filter(|s| s.values.len() > 1)
+    }
+
+    /// Which entry of a camera's list the card shows: the pick, else where the camera is.
+    fn camera_index(&self, which: usize) -> usize {
+        let Some(setting) = self.camera_setting(which) else { return 0 };
+        self.camera_picks[which].as_ref().and_then(|p| setting.values.iter().position(|v| v == p)).or(setting.current).unwrap_or(0)
+    }
+
+    /// A pick the camera now agrees with, or no longer lists, is dropped, so the card follows the camera again.
+    fn settle_camera_picks(&mut self) {
+        for which in 0..2 {
+            let keep = match (&self.camera_picks[which], self.camera_setting(which)) {
+                (Some(pick), Some(setting)) => setting.values.contains(pick) && setting.current.and_then(|i| setting.values.get(i)) != Some(pick),
+                _ => false,
+            };
+            if !keep {
+                self.camera_picks[which] = None;
+            }
+        }
+    }
+
+    /// Whether the card is for what's shown: always for a phone, and for another source only while it's a camera that takes photos.
+    fn card_shown(&self) -> bool {
+        !self.paired.source() || self.caps.as_ref().is_some_and(|c| c.camera)
+    }
+
+    fn camera_words(&self, text: &'static str, phone: &'static str) -> String {
+        tr(if self.caps.as_ref().is_some_and(|c| c.camera) { text } else { phone })
     }
 
     // ── What the card shows ───────────────────────────────────────────
@@ -467,7 +535,9 @@ impl PhotosPlugin {
             "burst-restore": burst_text, "burst-sync": self.sync[0], "focus-restore": focus_text, "focus-sync": self.sync[1],
             "mode-items": Self::labelled(&can.modes, &MODES), "mode-current": index_of(&can.modes, mode), "mode-shown": can.modes.len() > 1,
             "format-items": Self::labelled(&can.formats, &FORMATS), "format-current": index_of(&can.formats, format), "format-shown": can.formats.len() > 1,
-            "quality": quality, "quality-text": quality.to_string(), "quality-shown": format != "raw",
+            "quality": quality, "quality-text": quality.to_string(), "quality-shown": format != "raw" && !caps.camera,
+            "iso-items": self.camera_setting(0).map(|s| s.labels.clone()).unwrap_or_default(), "iso-current": self.camera_index(0), "iso-shown": self.camera_setting(0).is_some(),
+            "shutter-items": self.camera_setting(1).map(|s| s.labels.clone()).unwrap_or_default(), "shutter-current": self.camera_index(1), "shutter-shown": self.camera_setting(1).is_some(),
             "shots-items": Self::labelled(&can.shots, &SHOTS), "shots-current": index_of(&can.shots, shots), "shots-shown": can.shots.len() > 1,
             "burst-text": burst_text, "burst-shown": shots == "burst",
             "bracket-current": BRACKETS.iter().position(|(k, ..)| *k == text(c, "bracket")).unwrap_or(0), "bracket-shown": shots == "bracket",
@@ -494,7 +564,7 @@ impl PhotosPlugin {
             tr("This phone can't take photos from Telescope yet. Update the app on the phone.")
         };
         json!({
-            "active": self.paired.on(), "shown": !self.paired.source(),
+            "active": self.paired.on(), "shown": self.card_shown(),
             "take-enabled": self.caps.is_some() && !self.busy,
             "info": note, "info-shown": self.caps.is_none(), "open-shown": !self.last_saved.is_empty(),
         })
@@ -529,6 +599,7 @@ impl PhotosPlugin {
         if raw != self.caps_raw {
             self.caps = raw.as_ref().and_then(|v| serde_json::from_value(v.clone()).ok());
             self.caps_raw = raw;
+            self.settle_camera_picks();
             self.show_choices(host);
             self.sync_numbers(host);
         }
@@ -574,6 +645,16 @@ impl PhotosPlugin {
             Some("exposure_s") => can.exposures.get(index).map(|s| if s.fract() == 0.0 { json!(*s as i64) } else { json!(s) }),
             Some("bracket") => BRACKETS.get(index).map(|(k, ..)| json!(k)),
             Some("distortion") => DISTORTION.get(index).map(|(k, _)| json!(k)),
+            // The camera's own lists: picked for the next photo, and not saved
+            Some("iso" | "shutter") => {
+                let which = kind - CAMERA_PICK;
+                let pick = self.camera_setting(which).and_then(|s| s.values.get(index)).cloned();
+                if pick.is_some() {
+                    self.camera_picks[which] = pick;
+                    self.show_choices(host);
+                }
+                return;
+            }
             _ => None,
         };
         if let (Some(key), Some(value)) = (PICKS.get(kind), value) {
@@ -593,14 +674,20 @@ impl PhotosPlugin {
             return;
         }
         let caps: StillCaps = serde_json::from_value(raw).unwrap_or_default();
-        let options = build_options(&caps, &self.choices, Self::rotation(host));
+        let mut options = build_options(&caps, &self.choices, Self::rotation(host));
+        if caps.camera {
+            camera_options(&mut options, self.camera_picks[0].as_deref(), self.camera_picks[1].as_deref());
+        }
         match host.take_still(&options, &self.folder, None) {
             Some(id) => {
                 self.taking.push(id);
                 self.show_status(host, tr("Taking the photo…"), "status_dim");
                 self.refresh(host);
             }
-            None => self.show_status(host, tr("The phone is already taking a photo."), "status_err"),
+            None => {
+                let text = self.camera_words(CAMERA_BUSY, "The phone is already taking a photo.");
+                self.show_status(host, text, "status_err");
+            }
         }
     }
 
@@ -636,7 +723,7 @@ impl PhotosPlugin {
                 host.send_notification(&tr("Photo saved"), &text, false);
             }
         } else {
-            let error = result.get("error").and_then(Value::as_str).filter(|e| !e.is_empty()).map_or_else(|| tr("The phone couldn't take the photo."), String::from);
+            let error = result.get("error").and_then(Value::as_str).filter(|e| !e.is_empty()).map_or_else(|| self.camera_words(CAMERA_FAILED, "The phone couldn't take the photo."), String::from);
             self.show_status(host, error, "status_err");
         }
         self.refresh(host);
@@ -664,7 +751,7 @@ impl Plugin for PhotosPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("Photos").into(),
-            about: n_("Takes full-quality photos on the phone, RAW and the phone's Night mode included where it has them.").into(),
+            about: n_("Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it.").into(),
             when_off: n_("Without it there's no Photos card and no Take photo shortcut.").into(),
             category: "camera".into(),
             icon: "photo".into(),
@@ -685,11 +772,11 @@ impl Plugin for PhotosPlugin {
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
         self.catch_up(host);
         if let Some(on) = self.paired.hear(event) {
-            host.set_ui_props("card", &json!({"active": on, "shown": !self.paired.source()}));
+            host.set_ui_props("card", &json!({"active": on, "shown": self.card_shown()}));
         }
         match event {
             Event::PhoneStateUpdated { .. } | Event::StreamStopped | Event::DeviceChanged { .. } | Event::CameraSwitched { .. }
-            | Event::StillBusyChanged { .. } => self.refresh(host),
+            | Event::StillBusyChanged { .. } | Event::StillCapsChanged { .. } | Event::SourceSelected { .. } => self.refresh(host),
             Event::RequestProgress { request, data } if self.taking.contains(request) => self.progress(host, data),
             Event::RequestDone { request, data, .. } if self.taking.contains(request) => {
                 self.taking.retain(|r| r != request);
@@ -762,8 +849,8 @@ impl Plugin for PhotosPlugin {
 
     fn run_action(&mut self, host: &mut dyn Host, id: &str, params: &Value) -> Option<String> {
         self.catch_up(host);
-        // The card is out of use until a phone is paired
-        if !self.paired.on() || self.paired.source() {
+        // The card is out of use until a phone is paired, or a camera of its own is the source
+        if !self.paired.on() || !self.card_shown() {
             return None;
         }
         match id {
@@ -840,6 +927,12 @@ impl Plugin for PhotosPlugin {
             have.push("full resolution".into());
         }
         have.extend(caps.extensions.iter().cloned());
+        if caps.camera {
+            // The camera's own lists, as far as its mode gives them now
+            let lists: Vec<&str> = [("ISO", &caps.iso), ("shutter speed", &caps.shutter)].iter().filter(|(_, s)| s.is_some()).map(|(name, _)| *name).collect();
+            let formats = if caps.formats.iter().any(|f| f == "raw") { "jpeg, raw" } else { "jpeg" };
+            return vec![("Photos".into(), format!("camera, {formats}")), ("Photo settings".into(), if lists.is_empty() { "none".into() } else { lists.join(", ") })];
+        }
         let sizes: Vec<String> = offered(caps, &Map::new()).modes.iter().filter_map(|m| caps.size_for(m).map(|(w, h)| format!("{m} {w}x{h}"))).collect();
         vec![("Photos".into(), have.join(", ")), ("Photo sizes".into(), if sizes.is_empty() { "unknown".into() } else { sizes.join(", ") })]
     }

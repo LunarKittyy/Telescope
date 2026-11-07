@@ -18,7 +18,7 @@ use telescope_core::host::{Host, Poster};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::media::{Codec, Decoder, VideoFeed};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
-use telescope_core::source::{ControlClient, StreamSource};
+use telescope_core::source::{ControlClient, SourceStills, StreamSource};
 use telescope_core::ui::{CardSpec, Issue, SlintSource, UiEvent, UiSpec};
 
 pub const NAME: &str = "webcam";
@@ -288,6 +288,17 @@ impl StreamSource for WebcamSource {
     }
     fn waiting_text(&self) -> String {
         self.waiting.lock().unwrap().clone()
+    }
+    fn stills(&self) -> Option<Arc<dyn SourceStills>> {
+        // A DSLR takes full photos through the camera thread that streams its live view
+        #[cfg(target_os = "linux")]
+        {
+            let device = self.shared.device(&self.key)?;
+            if webcams::is_gphoto(&device.location) {
+                return Some(Arc::new(webcam_capture::gphoto_stills::GphotoStills::new(&device.location)));
+            }
+        }
+        None
     }
 }
 

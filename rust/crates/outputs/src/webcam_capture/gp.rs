@@ -3,7 +3,7 @@
 //! own lib/gphoto2 folder first (the release bundles it), then the system's, and points the library at the bundled camera drivers
 //! when it takes the bundled one.
 
-use super::gphoto_lib::{Kind, Rig, Setting};
+use super::gphoto_lib::{Kind, Rig, Setting, Shot};
 use libloading::Library;
 use std::ffi::{c_char, c_float, c_int, c_ulong, c_void, CStr, CString};
 use std::path::{Path, PathBuf};
@@ -27,6 +27,20 @@ const WIDGET_RANGE: c_int = 3;
 const WIDGET_TOGGLE: c_int = 4;
 const WIDGET_RADIO: c_int = 5;
 const WIDGET_MENU: c_int = 6;
+const CAPTURE_IMAGE: c_int = 0;
+const FILE_NORMAL: c_int = 1;
+const EVENT_TIMEOUT: c_int = 1;
+const EVENT_FILE_ADDED: c_int = 2;
+const EVENT_CAPTURE_COMPLETE: c_int = 4;
+/// How long a camera that makes a second file (RAW and JPEG) gets to announce it after the first, in all.
+const SECOND_FILE_WAIT_MS: c_int = 3000;
+
+/// CameraFilePath: where the camera put a file.
+#[repr(C)]
+struct FilePath {
+    name: [c_char; 128],
+    folder: [c_char; 1024],
+}
 
 /// The functions, copied out of the library, which is never unloaded.
 struct Api {
@@ -38,6 +52,9 @@ struct Api {
     camera_unref: unsafe extern "C" fn(Cam) -> c_int,
     set_port_info: unsafe extern "C" fn(Cam, *mut c_void) -> c_int,
     capture_preview: unsafe extern "C" fn(Cam, File, Ctx) -> c_int,
+    capture: unsafe extern "C" fn(Cam, c_int, *mut FilePath, Ctx) -> c_int,
+    file_get: unsafe extern "C" fn(Cam, *const c_char, *const c_char, c_int, File, Ctx) -> c_int,
+    wait_for_event: unsafe extern "C" fn(Cam, c_int, *mut c_int, *mut *mut c_void, Ctx) -> c_int,
     get_single_config: unsafe extern "C" fn(Cam, *const c_char, *mut Widget, Ctx) -> c_int,
     set_single_config: unsafe extern "C" fn(Cam, *const c_char, Widget, Ctx) -> c_int,
     file_new: unsafe extern "C" fn(*mut File) -> c_int,
@@ -139,6 +156,9 @@ fn load() -> Result<Api, String> {
         camera_unref: sym(&lib, "gp_camera_unref")?,
         set_port_info: sym(&lib, "gp_camera_set_port_info")?,
         capture_preview: sym(&lib, "gp_camera_capture_preview")?,
+        capture: sym(&lib, "gp_camera_capture")?,
+        file_get: sym(&lib, "gp_camera_file_get")?,
+        wait_for_event: sym(&lib, "gp_camera_wait_for_event")?,
         get_single_config: sym(&lib, "gp_camera_get_single_config")?,
         set_single_config: sym(&lib, "gp_camera_set_single_config")?,
         file_new: sym(&lib, "gp_file_new")?,
@@ -263,6 +283,29 @@ impl GpCamera {
                 return Err(why);
             }
             Ok(GpCamera { api, ctx, cam })
+        }
+    }
+
+    /// The file the camera made at this path, copied over.
+    fn download(&mut self, path: &FilePath) -> Result<Shot, String> {
+        let api = self.api;
+        // SAFETY: the camera is open; the path's strings end in a zero (the library wrote them, or it is the zeroed rest); the file is
+        // made, filled by the call, copied while it lives and freed
+        unsafe {
+            let text = |p: &[c_char]| CStr::from_ptr(p.as_ptr()).to_string_lossy().into_owned();
+            let mut file: File = std::ptr::null_mut();
+            check(api, (api.file_new)(&mut file))?;
+            let done = (|| {
+                check(api, (api.file_get)(self.cam, path.folder.as_ptr(), path.name.as_ptr(), FILE_NORMAL, file, self.ctx))?;
+                let (mut data, mut size): (*const c_char, c_ulong) = (std::ptr::null(), 0);
+                check(api, (api.file_data)(file, &mut data, &mut size))?;
+                if data.is_null() || size == 0 {
+                    return Err("the camera sent an empty file".to_string());
+                }
+                Ok(Shot { name: text(&path.name), data: std::slice::from_raw_parts(data.cast::<u8>(), size as usize).to_vec() })
+            })();
+            (api.file_unref)(file);
+            done
         }
     }
 
@@ -397,6 +440,40 @@ impl Rig for GpCamera {
         // SAFETY: w came from get_single_config and isn't used again
         unsafe { (api.widget_unref)(w) };
         done
+    }
+
+    fn capture(&mut self, expect: usize) -> Result<Vec<Shot>, String> {
+        let api = self.api;
+        // SAFETY: the path is a local the call fills in; each file is made, filled, copied and freed in download(); an event's data is
+        // malloc'd by the library, read as the file path it is for a file event and freed here once
+        unsafe {
+            let mut path = FilePath { name: [0; 128], folder: [0; 1024] };
+            check(api, (api.capture)(self.cam, CAPTURE_IMAGE, &mut path, self.ctx))?;
+            let mut shots = vec![self.download(&path)?];
+            // A camera that makes RAW and JPEG says about the second one as an event, a moment after the first
+            let mut waited = 0;
+            while shots.len() < expect && waited < SECOND_FILE_WAIT_MS {
+                let (mut kind, mut data): (c_int, *mut c_void) = (0, std::ptr::null_mut());
+                if (api.wait_for_event)(self.cam, 250, &mut kind, &mut data, self.ctx) < 0 {
+                    break;
+                }
+                match kind {
+                    EVENT_TIMEOUT => waited += 250,
+                    EVENT_FILE_ADDED if !data.is_null() => match self.download(&*(data as *const FilePath)) {
+                        Ok(shot) => shots.push(shot),
+                        Err(why) => log::debug!("the camera's second file wouldn't come: {why}"),
+                    },
+                    _ => {}
+                }
+                if !data.is_null() {
+                    libc::free(data);
+                }
+                if kind == EVENT_CAPTURE_COMPLETE {
+                    break;
+                }
+            }
+            Ok(shots)
+        }
     }
 
     fn restart_live_view(&mut self) {
