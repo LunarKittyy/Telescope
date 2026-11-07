@@ -743,10 +743,15 @@ mod tests {
                 assert!(forward[6..round] == forward[round + 6..2 * round], "the first pass went another way than the second");
                 let scrolled = forward[..round].iter().filter_map(|s| s.rsplit(' ').next()?.split('/').next()?.parse::<f64>().ok()).fold(0.0, f64::max);
                 assert!(scrolled > view * 3.0, "Tab brought the column up to {scrolled}, so it stayed in what was in view");
-                // And back the way it came, from wherever it is
+                // And back the way it came, from wherever it is: the same control, wherever it scrolled to (going back reveals it at the other edge)
+                let place = || {
+                    let scrolled: f64 = (0..3).map(|c| number(&w.ui, &format!("scroll{c}"))).sum();
+                    format!("{:?}", telescope_shell::input::focused_box(&w.ui).map(|b| (b.0, b.1 as f64 + scrolled, b.2, b.3)))
+                };
+                let before = place();
                 let ahead = pressed(&w.ui, Key::Tab, 1, reads).remove(0);
-                let back = pressed(&w.ui, Key::Backtab, 1, reads).remove(0);
-                assert_eq!(back, forward[forward.len() - 1], "Shift+Tab undoes a Tab (after {ahead})");
+                pressed(&w.ui, Key::Backtab, 1, reads);
+                assert_eq!(place(), before, "Shift+Tab undoes a Tab (after {ahead})");
             })),
             ..Setup::window(Some(services(quiet())), main_window_config(true), size.0, size.1)
         });

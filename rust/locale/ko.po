@@ -183,7 +183,7 @@ msgstr "켬"
 msgid "off"
 msgstr "끔"
 
-#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:217 rust/crates/audio/ui/microphone.slint:227 rust/crates/audio/ui/microphone.slint:238 rust/crates/effects/src/colour_grading.rs:31 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/outputs/src/webcam.rs:41
+#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:217 rust/crates/audio/ui/microphone.slint:227 rust/crates/audio/ui/microphone.slint:238 rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:307 rust/crates/outputs/src/webcam.rs:41
 msgid "Gain"
 msgstr "게인"
 
@@ -318,7 +318,7 @@ msgstr "가상 마이크가 오디오 입력을 받지 못하고 중지되었어
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "노란색은 리미터가 큰 피크를 억제하고 있음을 나타내고, 빨간색은 사운드가 클리핑되었음을 나타내요(클릭하여 지우기)."
 
-#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:476 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:385 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:156 rust/crates/outputs/ui/webcam.slint:156 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
+#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:507 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:385 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:156 rust/crates/outputs/ui/webcam.slint:156 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
 msgid "Double-click to reset"
 msgstr "더블 클릭하여 초기화"
 
@@ -342,7 +342,7 @@ msgstr "Windows에서 휴대폰 마이크를 사용하려면 VB-Audio Virtual Ca
 msgid "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."
 msgstr "VB-Cable은 Telescope가 아닌 VB-Audio에서 제작한 프로그램이에요. Telescope에서 vb-audio.com을 통해 다운로드하고 VB-Audio 설치 프로그램을 열 수 있으며, 관리자 권한이 필요해요. 설치가 끝나면 컴퓨터를 다시 시작하세요."
 
-#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/colour_grading.slint:430 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:639 rust/crates/system/ui/shortcuts.slint:374 rust/crates/system/ui/updates.slint:212
+#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:183 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:639 rust/crates/system/ui/shortcuts.slint:374 rust/crates/system/ui/updates.slint:212
 msgid "Cancel"
 msgstr "취소"
 
@@ -576,11 +576,11 @@ msgstr "이 플러그인이 없으면 배경 카드가 표시되지 않으며, �
 msgid "Background blur"
 msgstr "배경 흐림"
 
-#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:334 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
+#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:379 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
 msgid "Green"
 msgstr "녹색"
 
-#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:334 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
+#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:379 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
 msgid "Blue"
 msgstr "파란색"
 
@@ -737,7 +737,7 @@ msgstr "RGB 퍼레이드"
 msgid "Vectorscope"
 msgstr "벡터스코프"
 
-#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:334 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
+#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/chroma_key.slint:131 rust/crates/effects/ui/cinema.slint:146 rust/crates/effects/ui/colour_grading.slint:379 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528
 msgid "Red"
 msgstr "빨간색"
 
@@ -820,179 +820,236 @@ msgstr "클리핑 임박"
 msgid "Clipped"
 msgstr "클리핑됨"
 
-#: rust/crates/effects/src/colour_grading.rs:26
+#: rust/crates/effects/src/colour_grading.rs:34
 msgid "LUT files (*.cube)"
 msgstr "LUT 파일 (*.cube)"
 
-#: rust/crates/effects/src/colour_grading.rs:27
+#: rust/crates/effects/src/colour_grading.rs:35
 msgid "33-point LUT (*.cube)"
 msgstr "33포인트 LUT (*.cube)"
 
-#: rust/crates/effects/src/colour_grading.rs:27
+#: rust/crates/effects/src/colour_grading.rs:35
 msgid "65-point LUT (*.cube)"
 msgstr "65포인트 LUT (*.cube)"
 
-#: rust/crates/effects/src/colour_grading.rs:31 rust/crates/effects/ui/colour_grading.slint:221
+#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:266
 msgid "Lift"
 msgstr "리프트"
 
-#: rust/crates/effects/src/colour_grading.rs:31 rust/crates/effects/ui/colour_grading.slint:240 rust/crates/outputs/src/webcam.rs:46
+#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:285 rust/crates/outputs/src/webcam.rs:46
 msgid "Gamma"
 msgstr "감마"
 
-#: rust/crates/effects/src/colour_grading.rs:31 rust/crates/effects/ui/colour_grading.slint:281
+#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:326
 msgid "Offset"
 msgstr "오프셋"
 
-#: rust/crates/effects/src/colour_grading.rs:33
+#: rust/crates/effects/src/colour_grading.rs:41
 msgid "Shadows: colour and level, with white staying put"
 msgstr "어두운 영역: 흰색은 유지하면서 색상과 레벨 조절"
 
-#: rust/crates/effects/src/colour_grading.rs:34
+#: rust/crates/effects/src/colour_grading.rs:42
 msgid "Midtones: colour and brightness, with black and white staying put"
 msgstr "중간 영역: 검은색과 흰색은 유지하면서 색상과 밝기 조절"
 
-#: rust/crates/effects/src/colour_grading.rs:35
+#: rust/crates/effects/src/colour_grading.rs:43
 msgid "Highlights: colour and level, with black staying put"
 msgstr "밝은 영역: 검은색은 유지하면서 색상과 레벨 조절"
 
-#: rust/crates/effects/src/colour_grading.rs:36
+#: rust/crates/effects/src/colour_grading.rs:44
 msgid "Everything: colour and level"
 msgstr "전체: 색상과 레벨 조절"
 
-#: rust/crates/effects/src/colour_grading.rs:38
+#: rust/crates/effects/src/colour_grading.rs:46
 msgid "Drag towards a colour to add it. Double-click to reset."
 msgstr "색상 쪽으로 드래그하여 추가하세요. 초기화하려면 더블 클릭하세요."
 
-#: rust/crates/effects/src/colour_grading.rs:39 rust/crates/effects/ui/colour_grading.slint:111
+#: rust/crates/effects/src/colour_grading.rs:47 rust/crates/effects/ui/colour_grading.slint:111
 msgid "No LUT loaded"
 msgstr "불러온 LUT 없음"
 
-#: rust/crates/effects/src/colour_grading.rs:40
+#: rust/crates/effects/src/colour_grading.rs:48
 msgid "Telescope can't open that file."
 msgstr "Telescope에서 해당 파일을 열 수 없어요."
 
-#: rust/crates/effects/src/colour_grading.rs:41
+#: rust/crates/effects/src/colour_grading.rs:49
 msgid "Telescope couldn't save the LUT there."
 msgstr "Telescope에서 해당 위치에 LUT를 저장하지 못했어요."
 
-#: rust/crates/effects/src/colour_grading.rs:42
+#: rust/crates/effects/src/colour_grading.rs:50
 #, python-brace-format
 msgid "Saved {file}."
 msgstr "{file} 파일을 저장했어요."
 
-#: rust/crates/effects/src/colour_grading.rs:43
+#: rust/crates/effects/src/colour_grading.rs:51
 msgid "Switch the grade off to see the camera's own colours"
 msgstr "카메라 본래의 색상을 보려면 그레이딩을 끄세요"
 
-#: rust/crates/effects/src/colour_grading.rs:48
+#: rust/crates/effects/src/colour_grading.rs:54
+msgid "Start the stream first, so Auto has a picture to look at."
+msgstr ""
+
+#: rust/crates/effects/src/colour_grading.rs:55
+msgid "Looking at the picture…"
+msgstr ""
+
+#: rust/crates/effects/src/colour_grading.rs:56
+msgid "Auto couldn't get a steady picture to look at. Try again while nothing moves."
+msgstr ""
+
+#: rust/crates/effects/src/colour_grading.rs:57
+msgid "Nothing to change, the picture already looks right."
+msgstr ""
+
+#: rust/crates/effects/src/colour_grading.rs:58
+#, python-brace-format
+msgid "Auto changed {parts}."
+msgstr ""
+
+#: rust/crates/effects/src/colour_grading.rs:59
+msgid "No face was found, so it went by the background and the brightness."
+msgstr ""
+
+#: rust/crates/effects/src/colour_grading.rs:60
+msgid "The light is mixed or coloured, so white balance stayed as it was."
+msgstr ""
+
+#: rust/crates/effects/src/colour_grading.rs:61
+msgid "Your own wheels and curves would have clipped the picture, so Auto went only part of the way."
+msgstr ""
+
+#: rust/crates/effects/src/colour_grading.rs:62
+msgid "The camera adjusts itself, so this may drift."
+msgstr ""
+
+#: rust/crates/effects/src/colour_grading.rs:63
+msgid "white balance"
+msgstr ""
+
+#: rust/crates/effects/src/colour_grading.rs:63
+msgid "brightness"
+msgstr ""
+
+#: rust/crates/effects/src/colour_grading.rs:63
+msgid "contrast and blacks"
+msgstr ""
+
+#: rust/crates/effects/src/colour_grading.rs:63
+msgid "highlights"
+msgstr ""
+
+#: rust/crates/effects/src/colour_grading.rs:63
+msgid "saturation"
+msgstr ""
+
+#: rust/crates/effects/src/colour_grading.rs:68
 msgid "Lift master"
 msgstr "리프트 마스터"
 
-#: rust/crates/effects/src/colour_grading.rs:48
+#: rust/crates/effects/src/colour_grading.rs:68
 msgid "Gamma master"
 msgstr "감마 마스터"
 
-#: rust/crates/effects/src/colour_grading.rs:48
+#: rust/crates/effects/src/colour_grading.rs:68
 msgid "Gain master"
 msgstr "게인 마스터"
 
-#: rust/crates/effects/src/colour_grading.rs:48
+#: rust/crates/effects/src/colour_grading.rs:68
 msgid "Offset master"
 msgstr "오프셋 마스터"
 
-#: rust/crates/effects/src/colour_grading.rs:65 rust/crates/effects/ui/colour_grading.slint:300 rust/crates/outputs/src/webcam.rs:44 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:256 rust/crates/shell/ui/cards/camera.slint:259
+#: rust/crates/effects/src/colour_grading.rs:85 rust/crates/effects/ui/colour_grading.slint:345 rust/crates/outputs/src/webcam.rs:44 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:256 rust/crates/shell/ui/cards/camera.slint:259
 msgid "Temperature"
 msgstr "색온도"
 
-#: rust/crates/effects/src/colour_grading.rs:65
+#: rust/crates/effects/src/colour_grading.rs:85
 msgid "Warmer or cooler"
 msgstr "더 따뜻하게 또는 더 차갑게"
 
-#: rust/crates/effects/src/colour_grading.rs:66 rust/crates/effects/ui/colour_grading.slint:300 rust/crates/shell/src/plugins/camera_control.rs:1373 rust/crates/shell/src/plugins/camera_control.rs:1608
+#: rust/crates/effects/src/colour_grading.rs:86 rust/crates/effects/ui/colour_grading.slint:345 rust/crates/shell/src/plugins/camera_control.rs:1373 rust/crates/shell/src/plugins/camera_control.rs:1608
 msgid "Tint"
 msgstr "색조"
 
-#: rust/crates/effects/src/colour_grading.rs:66
+#: rust/crates/effects/src/colour_grading.rs:86
 msgid "More magenta or more green"
 msgstr "마젠타 또는 녹색 쪽으로"
 
 #. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
-#: rust/crates/effects/src/colour_grading.rs:67 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:300 rust/crates/outputs/src/webcam.rs:45
+#: rust/crates/effects/src/colour_grading.rs:87 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:345 rust/crates/outputs/src/webcam.rs:45
 msgid "Contrast"
 msgstr "대비"
 
-#: rust/crates/effects/src/colour_grading.rs:67
+#: rust/crates/effects/src/colour_grading.rs:87
 msgid "Spreads the tones apart around the pivot"
 msgstr "피벗을 중심으로 톤의 차이를 넓혀요"
 
-#: rust/crates/effects/src/colour_grading.rs:68 rust/crates/effects/ui/colour_grading.slint:300
+#: rust/crates/effects/src/colour_grading.rs:88 rust/crates/effects/ui/colour_grading.slint:345
 msgid "Pivot"
 msgstr "피벗"
 
-#: rust/crates/effects/src/colour_grading.rs:68
+#: rust/crates/effects/src/colour_grading.rs:88
 msgid "The level contrast turns around"
 msgstr "대비 조절의 기준이 되는 레벨이에요"
 
-#: rust/crates/effects/src/colour_grading.rs:69 rust/crates/effects/ui/colour_grading.slint:300 rust/crates/outputs/src/webcam.rs:45
+#: rust/crates/effects/src/colour_grading.rs:89 rust/crates/effects/ui/colour_grading.slint:345 rust/crates/outputs/src/webcam.rs:45
 msgid "Saturation"
 msgstr "채도"
 
-#: rust/crates/effects/src/colour_grading.rs:69
+#: rust/crates/effects/src/colour_grading.rs:89
 msgid "How colourful the picture is"
 msgstr "화면의 색감이 얼마나 짙은지예요"
 
-#: rust/crates/effects/src/colour_grading.rs:70 rust/crates/effects/ui/colour_grading.slint:300
+#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:345
 msgid "Shadows"
 msgstr "어두운 영역"
 
-#: rust/crates/effects/src/colour_grading.rs:70
+#: rust/crates/effects/src/colour_grading.rs:90
 msgid "Brightens or darkens the darker parts"
 msgstr "어두운 부분을 더 밝게 또는 더 어둡게 조절해요"
 
-#: rust/crates/effects/src/colour_grading.rs:71 rust/crates/effects/ui/colour_grading.slint:300
+#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/ui/colour_grading.slint:345
 msgid "Highlights"
 msgstr "밝은 영역"
 
-#: rust/crates/effects/src/colour_grading.rs:71
+#: rust/crates/effects/src/colour_grading.rs:91
 msgid "Brightens or darkens the brighter parts"
 msgstr "밝은 부분을 더 밝게 또는 더 어둡게 조절해요"
 
-#: rust/crates/effects/src/colour_grading.rs:312
+#: rust/crates/effects/src/colour_grading.rs:340
 msgid "Load a LUT"
 msgstr "LUT 불러오기"
 
-#: rust/crates/effects/src/colour_grading.rs:319
+#: rust/crates/effects/src/colour_grading.rs:347
 msgid "Export the grade"
 msgstr "그레이딩 내보내기"
 
-#: rust/crates/effects/src/colour_grading.rs:420
+#: rust/crates/effects/src/colour_grading.rs:448
 #, python-brace-format
 msgid "{file} is already there. Replace it?"
 msgstr "{file} 파일이 이미 있어요. 덮어쓸까요?"
 
-#: rust/crates/effects/src/colour_grading.rs:473 rust/crates/effects/src/colour_grading.rs:680 rust/crates/effects/src/colour_grading.rs:731 rust/crates/effects/src/colour_grading.rs:733 rust/crates/effects/src/colour_grading.rs:775 rust/crates/effects/ui/colour_grading.slint:145
+#: rust/crates/effects/src/colour_grading.rs:504 rust/crates/effects/src/colour_grading.rs:858 rust/crates/effects/src/colour_grading.rs:931 rust/crates/effects/src/colour_grading.rs:933 rust/crates/effects/src/colour_grading.rs:975 rust/crates/effects/ui/colour_grading.slint:154
 msgid "Colour grading"
 msgstr "컬러 그레이딩"
 
-#: rust/crates/effects/src/colour_grading.rs:475
+#: rust/crates/effects/src/colour_grading.rs:506
 #, python-brace-format
 msgid "{wheel} colour"
 msgstr "{wheel} 색상"
 
-#: rust/crates/effects/src/colour_grading.rs:681
+#: rust/crates/effects/src/colour_grading.rs:859
 msgid "Colour wheels, curves and LUT files for the look of the picture."
 msgstr "화면 분위기를 연출할 수 있는 컬러 휠, 커브, LUT 파일이에요."
 
-#: rust/crates/effects/src/colour_grading.rs:682
+#: rust/crates/effects/src/colour_grading.rs:860
 msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
 msgstr "이 플러그인이 없으면 컬러 그레이딩 카드가 표시되지 않으며 화면에 카메라 본래의 색상이 유지돼요."
 
-#: rust/crates/effects/src/colour_grading.rs:734 rust/crates/effects/src/colour_grading.rs:780
+#: rust/crates/effects/src/colour_grading.rs:934 rust/crates/effects/src/colour_grading.rs:980
 msgid "Compare before and after"
 msgstr "적용 전후 비교"
 
-#: rust/crates/effects/src/colour_grading.rs:758 rust/crates/effects/src/colour_grading.rs:793
+#: rust/crates/effects/src/colour_grading.rs:958 rust/crates/effects/src/colour_grading.rs:993
 msgid "LUT strength"
 msgstr "LUT 강도"
 
@@ -1155,7 +1212,7 @@ msgid "Black and white"
 msgstr "흑백"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:688 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:690 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
 msgid "Auto"
 msgstr "자동"
 
@@ -2442,99 +2499,135 @@ msgstr "지브라 시작 기준"
 msgid "Scope size"
 msgstr "스코프 크기"
 
-#: rust/crates/effects/ui/colour_grading.slint:158 rust/crates/effects/ui/colour_grading.slint:165
+#: rust/crates/effects/ui/colour_grading.slint:167 rust/crates/effects/ui/colour_grading.slint:174
 msgid "Compare"
 msgstr "비교"
 
-#: rust/crates/effects/ui/colour_grading.slint:167
+#: rust/crates/effects/ui/colour_grading.slint:176
 msgid "Left of the line the preview shows the picture without the grade (apps always get it graded)"
 msgstr "기준선 왼쪽의 미리보기는 그레이딩이 적용되지 않은 화면을 보여줘요(다른 앱에는 항상 그레이딩된 화면이 전달돼요)"
 
-#: rust/crates/effects/ui/colour_grading.slint:174
+#: rust/crates/effects/ui/colour_grading.slint:183
 msgid "Split"
 msgstr "분할"
 
-#: rust/crates/effects/ui/colour_grading.slint:175
+#: rust/crates/effects/ui/colour_grading.slint:184
 msgid "Where the line between before and after is"
 msgstr "적용 전후를 나누는 기준선의 위치예요"
 
-#: rust/crates/effects/ui/colour_grading.slint:190
+#: rust/crates/effects/ui/colour_grading.slint:196
+msgid "After Auto"
+msgstr ""
+
+#: rust/crates/effects/ui/colour_grading.slint:201
+msgid "Darker"
+msgstr ""
+
+#: rust/crates/effects/ui/colour_grading.slint:202
+msgid "Make the picture a little darker"
+msgstr ""
+
+#: rust/crates/effects/ui/colour_grading.slint:207
+msgid "Brighter"
+msgstr ""
+
+#: rust/crates/effects/ui/colour_grading.slint:208
+msgid "Make the picture a little brighter"
+msgstr ""
+
+#: rust/crates/effects/ui/colour_grading.slint:213
+msgid "Undo"
+msgstr ""
+
+#: rust/crates/effects/ui/colour_grading.slint:214
+msgid "Put the sliders back as they were before Auto"
+msgstr ""
+
+#: rust/crates/effects/ui/colour_grading.slint:228
 msgid "Primaries"
 msgstr "프라이머리"
 
-#: rust/crates/effects/ui/colour_grading.slint:190
+#: rust/crates/effects/ui/colour_grading.slint:228
 msgid "Curves"
 msgstr "커브"
 
-#: rust/crates/effects/ui/colour_grading.slint:190 rust/crates/effects/ui/colour_grading.slint:362
+#: rust/crates/effects/ui/colour_grading.slint:228 rust/crates/effects/ui/colour_grading.slint:407
 msgid "LUT"
 msgstr "LUT"
 
-#: rust/crates/effects/ui/colour_grading.slint:194
+#: rust/crates/effects/ui/colour_grading.slint:232
 msgid "Page"
 msgstr "페이지"
 
-#: rust/crates/effects/ui/colour_grading.slint:203 rust/crates/effects/ui/colour_grading.slint:206
+#: rust/crates/effects/ui/colour_grading.slint:239
+msgid "Auto grade"
+msgstr ""
+
+#: rust/crates/effects/ui/colour_grading.slint:240
+msgid "Looks at about a second of the picture and sets white balance, brightness, contrast and colour for you. Everything it sets stays on the sliders to change"
+msgstr ""
+
+#: rust/crates/effects/ui/colour_grading.slint:248 rust/crates/effects/ui/colour_grading.slint:251
 msgid "Reset the grade"
 msgstr "그레이딩 초기화"
 
-#: rust/crates/effects/ui/colour_grading.slint:324
+#: rust/crates/effects/ui/colour_grading.slint:369
 msgid "RGB"
 msgstr "RGB"
 
-#: rust/crates/effects/ui/colour_grading.slint:324
+#: rust/crates/effects/ui/colour_grading.slint:369
 msgid "Hue vs sat"
 msgstr "색상 vs 채도"
 
-#: rust/crates/effects/ui/colour_grading.slint:324
+#: rust/crates/effects/ui/colour_grading.slint:369
 msgid "Hue vs hue"
 msgstr "색상 vs 색상"
 
-#: rust/crates/effects/ui/colour_grading.slint:328 rust/crates/effects/ui/colour_grading.slint:348
+#: rust/crates/effects/ui/colour_grading.slint:373 rust/crates/effects/ui/colour_grading.slint:393
 msgid "Curve"
 msgstr "커브"
 
-#: rust/crates/effects/ui/colour_grading.slint:334
+#: rust/crates/effects/ui/colour_grading.slint:379
 msgid "All"
 msgstr "전체"
 
-#: rust/crates/effects/ui/colour_grading.slint:338 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
+#: rust/crates/effects/ui/colour_grading.slint:383 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
 msgid "Channel"
 msgstr "채널"
 
-#: rust/crates/effects/ui/colour_grading.slint:367
+#: rust/crates/effects/ui/colour_grading.slint:412
 msgid "Load…"
 msgstr "불러오기…"
 
-#: rust/crates/effects/ui/colour_grading.slint:368
+#: rust/crates/effects/ui/colour_grading.slint:413
 msgid "Pick a .cube LUT to put on top of the grade"
 msgstr "그레이딩 위에 적용할 .cube LUT 선택"
 
-#: rust/crates/effects/ui/colour_grading.slint:385 rust/crates/effects/ui/colour_grading.slint:388
+#: rust/crates/effects/ui/colour_grading.slint:430 rust/crates/effects/ui/colour_grading.slint:433
 msgid "Take the LUT off"
 msgstr "LUT 제거"
 
-#: rust/crates/effects/ui/colour_grading.slint:394
+#: rust/crates/effects/ui/colour_grading.slint:439
 msgid "Strength"
 msgstr "강도"
 
-#: rust/crates/effects/ui/colour_grading.slint:395
+#: rust/crates/effects/ui/colour_grading.slint:440
 msgid "How much of the LUT's look goes on the picture"
 msgstr "화면에 LUT 효과를 얼마나 적용할지 조절해요"
 
-#: rust/crates/effects/ui/colour_grading.slint:412
+#: rust/crates/effects/ui/colour_grading.slint:457
 msgid "Export"
 msgstr "내보내기"
 
-#: rust/crates/effects/ui/colour_grading.slint:416
+#: rust/crates/effects/ui/colour_grading.slint:461
 msgid "Export grade…"
 msgstr "그레이딩 내보내기…"
 
-#: rust/crates/effects/ui/colour_grading.slint:417
+#: rust/crates/effects/ui/colour_grading.slint:462
 msgid "Save the grade, LUT included, as a .cube file for other apps"
 msgstr "다른 앱에서 사용할 수 있도록 LUT를 포함한 그레이딩 설정을 .cube 파일로 저장해요"
 
-#: rust/crates/effects/ui/colour_grading.slint:429 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:680
+#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:680
 msgid "Replace"
 msgstr "덮어쓰기"
 
@@ -3137,7 +3230,7 @@ msgstr "휴대폰에서 마이크 연결을 거부했어요(HTTP {code})."
 msgid "No microphone"
 msgstr "마이크 없음"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:685 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:687 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "스트리밍 중 아님"
 
@@ -4333,67 +4426,67 @@ msgstr "60 Hz"
 msgid "Check that it's plugged in."
 msgstr "연결되어 있는지 확인하세요."
 
-#: rust/crates/outputs/src/webcam.rs:408
+#: rust/crates/outputs/src/webcam.rs:410
 msgid "Another app may be using it. Close it there and it starts here."
 msgstr "다른 앱에서 사용 중일 수 있어요. 해당 앱에서 닫으면 여기에서 시작돼요."
 
-#: rust/crates/outputs/src/webcam.rs:410
+#: rust/crates/outputs/src/webcam.rs:412
 #, python-brace-format
 msgid "{app} is using it. Close it there and it starts here."
 msgstr "{app}에서 사용 중이에요. 해당 앱에서 닫으면 여기에서 시작돼요."
 
-#: rust/crates/outputs/src/webcam.rs:412 rust/crates/outputs/src/webcam.rs:415
+#: rust/crates/outputs/src/webcam.rs:414 rust/crates/outputs/src/webcam.rs:417
 #, python-brace-format
 msgid "Can't open {name}"
 msgstr "{name}을(를) 열 수 없음"
 
-#: rust/crates/outputs/src/webcam.rs:675
+#: rust/crates/outputs/src/webcam.rs:677
 msgid "Not plugged in"
 msgstr "연결되지 않음"
 
-#: rust/crates/outputs/src/webcam.rs:677
+#: rust/crates/outputs/src/webcam.rs:679
 msgid "Blocked by Windows or security software"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:679
+#: rust/crates/outputs/src/webcam.rs:681
 msgid "In use by another app"
 msgstr "다른 앱에서 사용 중"
 
-#: rust/crates/outputs/src/webcam.rs:679
+#: rust/crates/outputs/src/webcam.rs:681
 #, python-brace-format
 msgid "In use by {app}"
 msgstr "{app}에서 사용 중"
 
-#: rust/crates/outputs/src/webcam.rs:681
+#: rust/crates/outputs/src/webcam.rs:683
 msgid "Not sending anything"
 msgstr "아무것도 전송하지 않음"
 
-#: rust/crates/outputs/src/webcam.rs:683
+#: rust/crates/outputs/src/webcam.rs:685
 msgid "Starting…"
 msgstr "시작 중…"
 
-#: rust/crates/outputs/src/webcam.rs:696
+#: rust/crates/outputs/src/webcam.rs:698
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
 msgstr "웹캠이 전송하는 크기예요. 자동은 프레임 레이트를 유지하는 최대 1080p까지의 가장 큰 크기를 선택해요"
 
-#: rust/crates/outputs/src/webcam.rs:713
+#: rust/crates/outputs/src/webcam.rs:722
 msgid "Webcams"
 msgstr "웹캠"
 
-#: rust/crates/outputs/src/webcam.rs:714
+#: rust/crates/outputs/src/webcam.rs:723
 msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "이 컴퓨터에 연결된 웹캠과 캡처 카드로 스트리밍해요."
 
-#: rust/crates/outputs/src/webcam.rs:715
+#: rust/crates/outputs/src/webcam.rs:724
 msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:753
+#: rust/crates/outputs/src/webcam.rs:764
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name}이(가) 연결되어 있지 않음"
 
-#: rust/crates/outputs/src/webcam.rs:754
+#: rust/crates/outputs/src/webcam.rs:765
 msgid "Plug it in, or pick another camera."
 msgstr "케이블을 연결하거나 다른 카메라를 선택하세요."
 

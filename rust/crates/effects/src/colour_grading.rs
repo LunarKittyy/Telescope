@@ -13,7 +13,15 @@ use std::time::Instant;
 use telescope_core::actions::{self, SliderSpec};
 use telescope_core::colour::{lattice, LEVELS};
 use telescope_core::event::Event;
+use crate::auto_fit::{self, Basic, Fit, Wb};
+use crate::auto_grade::{AutoState, CameraLock, MeasureStep, Undo, POST_MEASURED, T_TIMEOUT};
+use crate::auto_measure::Measurement;
+use crate::auto_tuning::{MEASURE_TIMEOUT_MS, NUDGE_GAMMA};
+use telescope_core::frame::{FrameStage, FrameStep};
 use telescope_core::host::{ColourStage, FileDialog, FileDialogKind, Host, RequestId};
+use telescope_core::people::{self, Track};
+use telescope_core::pose::Person;
+use telescope_core::view::Geometry;
 use telescope_core::i18n::{n_, number, percent, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
@@ -41,6 +49,18 @@ const CANT_OPEN: &str = n_("Telescope can't open that file.");
 const CANT_SAVE: &str = n_("Telescope couldn't save the LUT there.");
 const SAVED: &str = n_("Saved {file}.");
 const SWITCH_TIP: &str = n_("Switch the grade off to see the camera's own colours");
+/// What vision is asked for under while Auto looks at the picture.
+const AUTO_TITLE: &str = "Auto colour grading";
+const AUTO_NO_STREAM: &str = n_("Start the stream first, so Auto has a picture to look at.");
+const AUTO_LOOKING: &str = n_("Looking at the picture…");
+const AUTO_NO_PICTURE: &str = n_("Auto couldn't get a steady picture to look at. Try again while nothing moves.");
+const AUTO_NOTHING: &str = n_("Nothing to change, the picture already looks right.");
+const AUTO_CHANGED: &str = n_("Auto changed {parts}.");
+const AUTO_NO_FACE: &str = n_("No face was found, so it went by the background and the brightness.");
+const AUTO_CONFLICT: &str = n_("The light is mixed or coloured, so white balance stayed as it was.");
+const AUTO_BACKED_OFF: &str = n_("Your own wheels and curves would have clipped the picture, so Auto went only part of the way.");
+const AUTO_DRIFTS: &str = n_("The camera adjusts itself, so this may drift.");
+const AUTO_PARTS: [&str; 5] = [n_("white balance"), n_("brightness"), n_("contrast and blacks"), n_("highlights"), n_("saturation")];
 /// .cube files kept parsed, so switching phones doesn't read a 65-point LUT again.
 const KEEP_PARSED: usize = 4;
 const MASTER_STEPS: [f64; 4] = [1000.0, 100.0, 100.0, 1000.0];
@@ -173,6 +193,7 @@ pub struct ColourGradingPlugin {
     started: Instant,
     /// Where the switch and the compare were when a key held for them went down.
     held: [Option<bool>; 2],
+    auto: AutoState,
     #[cfg(test)]
     reads: usize,
 }
@@ -208,6 +229,7 @@ impl ColourGradingPlugin {
             export_note: (String::new(), "dim"),
             started: Instant::now(),
             held: [None; 2],
+            auto: AutoState::default(),
             #[cfg(test)]
             reads: 0,
         }
@@ -215,6 +237,12 @@ impl ColourGradingPlugin {
 
     pub fn grade(&self) -> &Grade {
         &self.grade
+    }
+
+    /// Where Auto reads the time people were seen at, for a test to run by hand.
+    #[cfg(test)]
+    pub(crate) fn set_auto_clock(&mut self, now: Arc<dyn Fn() -> u64 + Send + Sync>) {
+        self.auto.now = now;
     }
 
     pub fn is_on(&self) -> bool {
@@ -459,6 +487,9 @@ impl ColourGradingPlugin {
         all.insert("on".into(), json!(self.on));
         all.insert("page".into(), json!(self.page));
         all.insert("active".into(), json!(self.paired.on()));
+        if let Value::Object(m) = self.auto.props() {
+            all.extend(m);
+        }
         Value::Object(all)
     }
 
@@ -488,12 +519,156 @@ impl ColourGradingPlugin {
         })
     }
 
+    // ── Auto ──────────────────────────────────────────────────────────
+
+    fn show_auto(&self, host: &mut dyn Host) {
+        host.set_ui_props("card", &self.auto.props());
+    }
+
+    fn say(&mut self, host: &mut dyn Host, text: String, kind: &'static str) {
+        self.auto.note = (text, kind);
+        self.show_auto(host);
+    }
+
+    /// Where the phone's auto exposure and white balance get locked before measuring, waiting until it confirms. Nothing locks yet.
+    fn lock_camera(&mut self, _host: &mut dyn Host) -> CameraLock {
+        CameraLock::default()
+    }
+
+    /// Puts the camera back as `lock_camera` found it. Nothing to put back yet.
+    fn restore_camera(&mut self, _host: &mut dyn Host, _state: &Value) {}
+
+    fn auto_pressed(&mut self, host: &mut dyn Host) {
+        if self.auto.busy {
+            return;
+        }
+        let source = host.focused_source_id();
+        let Some(source) = source.filter(|_| host.is_streaming()) else {
+            self.say(host, tr(AUTO_NO_STREAM), "warn");
+            return;
+        };
+        let lock = self.lock_camera(host);
+        self.auto.lock = Some(lock);
+        self.auto.shared.start(&source, Geometry::from(&host.view()));
+        if host.vision_state() == "ready" {
+            host.want_people(AUTO_TITLE, true);
+        }
+        host.schedule(MEASURE_TIMEOUT_MS, T_TIMEOUT);
+        self.auto.busy = true;
+        self.say(host, tr(AUTO_LOOKING), "dim");
+    }
+
+    /// Stops looking without an answer (the stream ended or moved away).
+    fn auto_abort(&mut self, host: &mut dyn Host) {
+        if self.auto.busy {
+            self.auto.shared.stop();
+            self.auto.busy = false;
+            self.auto.lock = None;
+            host.cancel_schedule(T_TIMEOUT);
+            host.want_people(AUTO_TITLE, false);
+            self.say(host, String::new(), "dim");
+        }
+    }
+
+    /// The measurement is in (or ran out of time): fit it and put the sliders in.
+    fn auto_measured(&mut self, host: &mut dyn Host) {
+        if !self.auto.busy {
+            return;
+        }
+        host.cancel_schedule(T_TIMEOUT);
+        host.want_people(AUTO_TITLE, false);
+        self.auto.busy = false;
+        let lock = self.auto.lock.take().unwrap_or_default();
+        let measurement: Option<Measurement> = self.auto.shared.take();
+        let Some(m) = measurement.filter(|m| !m.is_empty()) else {
+            self.say(host, tr(AUTO_NO_PICTURE), "warn");
+            return;
+        };
+        let fit = auto_fit::fit(&m, Some(&self.grade));
+        self.apply_fit(host, &fit, lock);
+    }
+
+    fn apply_fit(&mut self, host: &mut dyn Host, fit: &Fit, lock: CameraLock) {
+        let before = Basic::of(&self.grade);
+        let (a, b) = (before, fit.values);
+        let same = [a.temperature - b.temperature, a.tint - b.tint, a.lift - b.lift, a.gamma - b.gamma, a.gain - b.gain, a.contrast - b.contrast,
+                    a.pivot - b.pivot, a.highlights - b.highlights, a.saturation - b.saturation].iter().all(|d| d.abs() < 1e-6);
+        let mut sentences = Vec::new();
+        let kind = if fit.moved.any() {
+            let m = fit.moved;
+            let parts: Vec<String> = [m.white_balance, m.exposure, m.levels, m.highlights, m.saturation].iter().zip(AUTO_PARTS)
+                .filter(|(on, _)| **on).map(|(_, p)| tr(p)).collect();
+            sentences.push(tr(AUTO_CHANGED).field("parts", parts.join(", ")));
+            "ok"
+        } else {
+            sentences.push(tr(AUTO_NOTHING));
+            "dim"
+        };
+        if !fit.had_face {
+            sentences.push(tr(AUTO_NO_FACE));
+        }
+        if fit.wb == Wb::Conflict {
+            sentences.push(tr(AUTO_CONFLICT));
+        }
+        if fit.backed_off {
+            sentences.push(tr(AUTO_BACKED_OFF));
+        }
+        if lock.drifts && fit.moved.any() {
+            sentences.push(tr(AUTO_DRIFTS));
+        }
+        // Nothing to change leaves the sliders as the person has them, and a second press with the same answer keeps the first one's Undo
+        if fit.moved.any() && !same {
+            self.auto.undo = Some(Undo { basic: before, camera: lock.restore });
+            fit.values.put(&mut self.grade);
+            self.show_all(host);
+            self.publish(host);
+            host.schedule_save();
+        }
+        self.auto.nudge = true;
+        self.say(host, sentences.join(" "), kind);
+    }
+
+    fn auto_undone(&mut self, host: &mut dyn Host) {
+        let Some(undo) = self.auto.undo.take() else { return };
+        undo.basic.put(&mut self.grade);
+        if let Some(camera) = &undo.camera {
+            self.restore_camera(host, camera);
+        }
+        self.auto.nudge = false;
+        self.auto.note = (String::new(), "dim");
+        self.show_all(host);
+        self.publish(host);
+        host.schedule_save();
+    }
+
+    /// Brighter (1) or darker (-1) than Auto left it, by moving Gamma.
+    fn auto_nudged(&mut self, host: &mut dyn Host, direction: f64) {
+        let (lo, hi) = MASTER_RANGE[1];
+        let gamma = ((self.grade.masters[1] + direction * NUDGE_GAMMA) * 100.0).round() / 100.0;
+        self.set_grade(host, |g| g.masters[1] = gamma.clamp(lo, hi));
+        self.show(host, &self.wheel_props());
+    }
+
+    fn hear_people(&mut self, host: &dyn Host, source_id: &str, people: &[Value]) {
+        if self.auto.busy && self.auto.shared.source().is_some_and(|s| s == source_id) && host.focused_source_id().is_some_and(|f| f == source_id) {
+            self.auto.shared.hear_people(people.iter().filter_map(Person::from_value).collect(), (self.auto.now)());
+        }
+    }
+
+    fn hear_tracks(&mut self, source_id: &str, tracks: &[Value]) {
+        if self.auto.busy && self.auto.shared.source().is_some_and(|s| s == source_id) {
+            let tracks = Track::all_from(tracks);
+            self.auto.shared.hear_main(people::main(&tracks).filter(|t| t.missing_s == 0.0).map(|t| t.bbox));
+        }
+    }
+
     // ── Doing what the card says ──────────────────────────────────────
 
     fn reset(&mut self, host: &mut dyn Host) {
         // the LUT has its own way off
         let (lut, strength) = (self.grade.lut.take(), self.grade.lut_strength);
         self.grade = Grade { lut, lut_strength: strength, ..Grade::default() };
+        (self.auto.undo, self.auto.nudge) = (None, false);
         self.show_all(host);
         self.publish(host);
         host.schedule_save();
@@ -562,6 +737,9 @@ impl ColourGradingPlugin {
                 self.show(host, &self.curve_props());
             }
             "reset-clicked" => self.reset(host),
+            "auto-clicked" => self.auto_pressed(host),
+            "auto-undo-clicked" => self.auto_undone(host),
+            "auto-nudged" => self.auto_nudged(host, n(0).signum()),
             "wheel-pressed" => self.wheels[n(0) as usize % 4].press(),
             "wheel-dragged" => {
                 let i = n(0) as usize % 4;
@@ -682,6 +860,8 @@ impl Plugin for ColourGradingPlugin {
             when_off: n_("Without it there's no Colour grading card and the picture keeps the camera's colours.").into(),
             category: "look".into(),
             icon: "colour".into(),
+            // Auto reads the picture clean, before the other steps change it
+            frame_stage: FrameStage::Reading,
             optional: true,
             in_presets: true,
             // each phone has its own look to fix
@@ -691,6 +871,7 @@ impl Plugin for ColourGradingPlugin {
     }
 
     fn setup(&mut self, host: &mut dyn Host) {
+        self.auto.poster = host.poster();
         self.show(host, &ColourGradingPlugin::fixed_props());
         self.show_all(host);
     }
@@ -700,6 +881,8 @@ impl Plugin for ColourGradingPlugin {
     }
 
     fn shutdown(&mut self, host: &mut dyn Host) {
+        self.auto_abort(host);
+        self.auto.poster = None;
         host.set_colour_stage(OWNER, None, 0, None);
         host.colour_split(OWNER, None);
     }
@@ -709,6 +892,14 @@ impl Plugin for ColourGradingPlugin {
         if let Some(on) = self.paired.hear(event) {
             self.show(host, &json!({"active": on}));
         }
+        match event {
+            Event::PeopleSeen { source_id, people } => self.hear_people(host, source_id, people),
+            Event::PeopleTracked { source_id, tracks, .. } => self.hear_tracks(source_id, tracks),
+            Event::ViewChanged { view } => self.auto.shared.hear_view(Geometry::from(view)),
+            Event::Posted { owner, token, .. } if owner == NAME && token == POST_MEASURED => self.auto_measured(host),
+            Event::TimerFired { owner, token } if owner == NAME && token == T_TIMEOUT => self.auto_measured(host),
+            _ => {}
+        }
         if let Event::RequestDone { request, ok, data, .. } = event {
             if let Some((id, ask)) = self.asked {
                 if id == *request {
@@ -717,6 +908,15 @@ impl Plugin for ColourGradingPlugin {
                 }
             }
         }
+    }
+
+    fn on_stream_stop(&mut self, host: &mut dyn Host) {
+        self.auto_abort(host);
+    }
+
+    fn frame_step(&mut self) -> Option<FrameStep> {
+        let poster = self.auto.poster.clone()?;
+        Some(FrameStep::Cpu(Box::new(MeasureStep { shared: self.auto.shared.clone(), poster })))
     }
 
     fn card(&mut self) -> Option<CardSpec> {
@@ -898,6 +1098,7 @@ impl Plugin for ColourGradingPlugin {
         self.lut_problem = problem;
         self.lut_path = path;
         self.grade = g;
+        (self.auto.undo, self.auto.nudge) = (None, false);
         self.on = cfg.get("on") != Some(&Value::Bool(false));
         // once, with the whole grade, so the stream never sees half of it: the next hook with a host does it
         self.dirty = true;
