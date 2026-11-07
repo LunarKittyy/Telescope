@@ -402,11 +402,13 @@ struct Dslr {
     sets: Arc<Mutex<Vec<(String, i64)>>>,
     taking: Arc<Mutex<bool>>,
     working: Arc<Mutex<bool>>,
+    /// The choice each menu set was told it was, by name.
+    labelled: Arc<Mutex<Vec<(String, String)>>>,
 }
 
 impl Default for Dslr {
     fn default() -> Dslr {
-        Dslr { offered: Arc::default(), sets: Arc::default(), taking: Arc::new(Mutex::new(true)), working: Arc::default() }
+        Dslr { offered: Arc::default(), sets: Arc::default(), taking: Arc::new(Mutex::new(true)), working: Arc::default(), labelled: Arc::default() }
     }
 }
 
@@ -438,6 +440,10 @@ impl Controls for Dslr {
             c.value = value;
         }
         true
+    }
+    fn set_labelled(&mut self, name: &str, value: i64, label: &str) -> bool {
+        self.labelled.lock().unwrap().push((name.into(), label.into()));
+        self.set(name, value)
     }
     fn busy(&mut self) -> bool {
         *self.working.lock().unwrap()
@@ -664,7 +670,7 @@ fn held_long_enough_exposure_jumps_a_whole_stop_at_a_time() {
 
 /// What the jog sends for a handle `offset` of the way out.
 fn jogged(offset: f64) -> i64 {
-    crate::webcam_capture::gphoto_lib::jog_value(crate::webcam_hold::jog_level(offset)).unwrap()
+    crate::webcam_controls::jog_value(crate::webcam_hold::jog_level(offset)).unwrap()
 }
 
 #[test]
@@ -1279,4 +1285,100 @@ export component Wrapper inherits Window {
         let values: Vec<String> = ElementHandle::find_by_accessible_label(&card.ui, "Exposure").filter_map(|e| e.accessible_value()).map(|v| v.to_string()).collect();
         assert!(values.iter().any(|v| v == "0"), "{values:?}");
     }
+}
+
+fn last_card_props(env: &Env) -> Value {
+    let call = env.host.calls.iter().rev().find(|c| c.starts_with("set_ui_props card ")).expect("a card update");
+    serde_json::from_str(call.strip_prefix("set_ui_props card ").unwrap()).unwrap()
+}
+
+#[test]
+fn a_control_that_went_with_the_mode_is_never_saved_as_a_setting_or_put_back() {
+    let (mut env, backend) = dslr_card();
+    // The mode dial turns and the camera stops offering the focus drive; the card hasn't looked yet
+    backend.offered.lock().unwrap().retain(|c| c.name != "dslr_focus");
+    ui(&mut env, "hold-down", vec![json!("dslr_focus"), json!(1)]);
+    assert!(backend.names().is_empty(), "nothing is sent for a control the camera no longer has: {:?}", backend.names());
+    assert!(!env.host.is_scheduled(T_HOLD));
+    // Looked at again, it is gone from the card and asking for it does nothing, saves nothing
+    env.plugin.rescan(&mut env.host);
+    assert!(!env.plugin.rows().iter().any(|r| r["name"] == "dslr_focus"));
+    assert!(!env.plugin.set_control(&mut env.host, "dslr_focus", 2));
+    assert!(env.plugin.get_config()["cameras"].as_object().unwrap().is_empty(), "{}", env.plugin.get_config());
+    // A jog held out when it goes ends
+    let (mut env, backend) = dslr_card();
+    ui(&mut env, "jog", vec![json!("dslr_focus"), json!(0.5)]);
+    backend.offered.lock().unwrap().retain(|c| c.name != "dslr_focus");
+    env.plugin.rescan(&mut env.host);
+    jog_tick(&mut env);
+    jog_tick(&mut env);
+    assert!(!env.host.is_scheduled(T_JOG), "the jog ended with its control");
+    assert!(env.plugin.get_config()["cameras"].as_object().unwrap().is_empty());
+}
+
+#[test]
+fn a_dslr_setting_an_older_file_saved_is_not_put_back_when_it_streams() {
+    let (mut env, backend) = dslr_card();
+    env.plugin.set_config(&json!({"cameras": {"gphoto2-d5100": {"controls": {"dslr_focus": 0, "dslr_aperture": 3}}}})).unwrap();
+    stream(&mut env, "gphoto2-d5100");
+    report(&mut env, "gphoto2-d5100", "ok", "640×426, MJPEG, 30 fps");
+    assert!(backend.names().is_empty(), "the camera holds its own: {:?}", backend.names());
+}
+
+#[test]
+fn a_nudge_that_finds_the_list_changed_sends_the_new_tiles_and_ends_the_hold() {
+    let (mut env, backend) = dslr_card();
+    env.plugin.card();
+    env.plugin.rescan(&mut env.host);
+    ui(&mut env, "hold-down", vec![json!("dslr_exposure_comp"), json!(1)]);
+    assert!(env.host.is_scheduled(T_HOLD));
+    assert!(last_card_props(&env).get("tiles").is_none(), "a plain step sends no tiles");
+    // The lens is zoomed: aperture now has fewer choices, and the next tick reads that
+    for c in backend.offered.lock().unwrap().iter_mut().filter(|c| c.name == "dslr_aperture") {
+        c.labels.drain(..2);
+        c.menu = (0..c.labels.len() as i64).collect();
+        (c.maximum, c.value) = (c.labels.len() as i64 - 1, 2);
+    }
+    for _ in 0..40 {
+        tick(&mut env);
+    }
+    let props = last_card_props(&env);
+    let tiles = props["tiles"].as_array().expect("the new list of aperture choices went out with the step");
+    assert_eq!(tiles[0]["options"][0], "f/4.5", "f/3.5 and f/4 are gone");
+    assert!(!env.host.is_scheduled(T_HOLD), "the arrow under the hand was rebuilt, so the hold ended");
+    // And the card keeps what it was sent: a later look finds nothing to send again
+    env.plugin.rescan(&mut env.host);
+    assert!(last_card_props(&env).get("tiles").is_none());
+}
+
+#[test]
+fn a_control_removed_during_a_dial_step_leaves_the_card_without_its_tile() {
+    let (mut env, backend) = dslr_card();
+    env.plugin.card();
+    ui(&mut env, "control-step", vec![json!("dslr_exposure_comp"), json!(1)]);
+    backend.offered.lock().unwrap().retain(|c| c.name != "dslr_aperture");
+    ui(&mut env, "control-step", vec![json!("dslr_exposure_comp"), json!(1)]);
+    let tiles = last_card_props(&env)["tiles"].clone();
+    assert!(tiles.as_array().unwrap().iter().all(|t| t["name"] != "dslr_aperture"), "{tiles}");
+    env.plugin.rescan(&mut env.host);
+    assert!(last_card_props(&env).get("tiles").is_none(), "nothing left to catch up on");
+}
+
+#[test]
+fn a_choice_is_sent_by_the_name_the_card_showed_not_by_its_place_in_a_list_that_may_have_changed() {
+    let (mut env, backend) = dslr_card();
+    ui(&mut env, "control-set", vec![json!("dslr_aperture"), json!(3.0)]);
+    assert_eq!(*backend.labelled.lock().unwrap(), [("dslr_aperture".to_string(), "f/5".to_string())]);
+    // A stepped one too
+    ui(&mut env, "control-step", vec![json!("dslr_aperture"), json!(1)]);
+    assert_eq!(backend.labelled.lock().unwrap().last().map(|(_, l)| l.as_str()), Some("f/5,6"), "{:?}", backend.labelled.lock().unwrap());
+}
+
+#[test]
+fn a_choice_the_camera_refuses_leaves_the_card_where_the_camera_is() {
+    let (mut env, backend) = dslr_card();
+    backend.taking(false);
+    ui(&mut env, "control-set", vec![json!("dslr_white_balance"), json!(3.0)]);
+    assert_eq!(env.plugin.tile_indexes()[2], 0, "the model stays on what the camera says, and the card follows it");
+    assert_eq!(last_card_props(&env)["tile-indexes"][2], 0);
 }

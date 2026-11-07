@@ -318,7 +318,7 @@ msgstr "Mikrofon virtual berhenti menerima audio."
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "Kuning berarti limiter meredam lonjakan suara keras dan merah berarti suara mengalami clipping (klik untuk menghapus)."
 
-#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:524 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:479 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:189 rust/crates/outputs/ui/webcam.slint:189 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
+#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:524 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:482 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:189 rust/crates/outputs/ui/webcam.slint:189 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
 msgid "Double-click to reset"
 msgstr "Klik dua kali untuk mereset"
 
@@ -368,11 +368,11 @@ msgstr "Stop"
 msgid " stops"
 msgstr " stop"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:477 rust/crates/link/src/plugin.rs:1354 rust/crates/outputs/src/stream_output.rs:621 rust/crates/outputs/ui/webcam.slint:211 rust/crates/shell/src/plugins/presets.rs:323
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:480 rust/crates/link/src/plugin.rs:1354 rust/crates/outputs/src/stream_output.rs:621 rust/crates/outputs/ui/webcam.slint:211 rust/crates/shell/src/plugins/presets.rs:323
 msgid "Next"
 msgstr "Berikutnya"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:477 rust/crates/link/src/plugin.rs:1354 rust/crates/outputs/src/stream_output.rs:621 rust/crates/outputs/ui/webcam.slint:210 rust/crates/shell/src/plugins/presets.rs:323
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:480 rust/crates/link/src/plugin.rs:1354 rust/crates/outputs/src/stream_output.rs:621 rust/crates/outputs/ui/webcam.slint:210 rust/crates/shell/src/plugins/presets.rs:323
 msgid "Previous"
 msgstr "Sebelumnya"
 
@@ -460,7 +460,7 @@ msgstr "Plugin"
 msgid "Updates & About"
 msgstr "Pembaruan & Tentang"
 
-#: rust/crates/core/src/plugin.rs:25 rust/crates/outputs/src/webcam.rs:65 rust/crates/outputs/ui/webcam.slint:80 rust/crates/shell/src/plugins/camera_control.rs:1580 rust/crates/shell/ui/cards/camera.slint:143
+#: rust/crates/core/src/plugin.rs:25 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:80 rust/crates/shell/src/plugins/camera_control.rs:1580 rust/crates/shell/ui/cards/camera.slint:143
 msgid "Camera"
 msgstr "Kamera"
 
@@ -524,7 +524,7 @@ msgid "Looking…"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:38 rust/crates/effects/src/photos.rs:484 rust/crates/effects/ui/background.slint:33 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:84 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:423 rust/crates/shell/ui/cards/camera.slint:431
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:38 rust/crates/effects/src/photos.rs:487 rust/crates/effects/ui/background.slint:33 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:98 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:423 rust/crates/shell/ui/cards/camera.slint:431
 msgid "Off"
 msgstr "Nonaktif"
 
@@ -1240,7 +1240,7 @@ msgid "Black and white"
 msgstr "Hitam putih"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:26 rust/crates/effects/ui/colour_grading.slint:204 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:87 rust/crates/outputs/src/webcam.rs:902 rust/crates/outputs/ui/webcam.slint:120 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:26 rust/crates/effects/ui/colour_grading.slint:204 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:101 rust/crates/outputs/src/webcam.rs:958 rust/crates/outputs/ui/webcam.slint:120 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
 msgid "Auto"
 msgstr "Otomatis"
 
@@ -1689,7 +1689,7 @@ msgid "Pill"
 msgstr "Kapsul"
 
 #. Light and Heavy are the names of the two stream formats
-#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:789 rust/crates/outputs/src/stream_output.rs:998 rust/crates/outputs/src/webcam.rs:62 rust/crates/outputs/ui/stream_output.slint:129 rust/crates/setup/src/stats_phone.rs:88
+#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:789 rust/crates/outputs/src/stream_output.rs:998 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:129 rust/crates/setup/src/stats_phone.rs:88
 msgid "Light"
 msgstr "Ringan"
 
@@ -2134,7 +2134,7 @@ msgstr "Eksposur panjang mempertahankan ISO video dan video berhenti saat shutte
 msgid "Takes a little longer and only changes the photo, not the video"
 msgstr "Memerlukan waktu sedikit lebih lama dan hanya memengaruhi foto, bukan video"
 
-#: rust/crates/effects/src/photos.rs:49 rust/crates/shell/src/streams.rs:681
+#: rust/crates/effects/src/photos.rs:49 rust/crates/shell/src/streams.rs:691
 msgid "The camera is already taking a photo."
 msgstr ""
 
@@ -2146,119 +2146,119 @@ msgstr ""
 msgid "Like the video"
 msgstr "Sama seperti video"
 
-#: rust/crates/effects/src/photos.rs:321 rust/crates/effects/src/photos.rs:484
+#: rust/crates/effects/src/photos.rs:321 rust/crates/effects/src/photos.rs:487
 #, python-brace-format
 msgid "{seconds} s"
 msgstr "{seconds} s"
 
-#: rust/crates/effects/src/photos.rs:475 rust/crates/effects/src/photos.rs:958 rust/crates/effects/src/photos.rs:974
+#: rust/crates/effects/src/photos.rs:478 rust/crates/effects/src/photos.rs:980 rust/crates/effects/src/photos.rs:996
 msgid "Take photo"
 msgstr "Ambil foto"
 
-#: rust/crates/effects/src/photos.rs:475
+#: rust/crates/effects/src/photos.rs:478
 msgid "Open folder"
 msgstr "Buka folder"
 
-#: rust/crates/effects/src/photos.rs:476
+#: rust/crates/effects/src/photos.rs:479
 msgid "Best quality noise reduction and sharpening"
 msgstr "Pengurangan noise dan penajaman kualitas terbaik"
 
-#: rust/crates/effects/src/photos.rs:509
+#: rust/crates/effects/src/photos.rs:512
 msgid "ISO"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:509 rust/crates/shell/src/plugins/camera_control.rs:1343 rust/crates/shell/src/plugins/camera_control.rs:1588 rust/crates/shell/ui/cards/camera.slint:208 rust/crates/shell/ui/cards/camera.slint:211
+#: rust/crates/effects/src/photos.rs:512 rust/crates/shell/src/plugins/camera_control.rs:1343 rust/crates/shell/src/plugins/camera_control.rs:1588 rust/crates/shell/ui/cards/camera.slint:208 rust/crates/shell/ui/cards/camera.slint:211
 msgid "Shutter"
 msgstr "Shutter"
 
-#: rust/crates/effects/src/photos.rs:515
+#: rust/crates/effects/src/photos.rs:518
 msgid "Mode"
 msgstr "Mode"
 
-#: rust/crates/effects/src/photos.rs:518 rust/crates/outputs/src/stream_output.rs:794 rust/crates/outputs/src/stream_output.rs:1005 rust/crates/outputs/src/stream_output.rs:1008
+#: rust/crates/effects/src/photos.rs:521 rust/crates/outputs/src/stream_output.rs:794 rust/crates/outputs/src/stream_output.rs:1005 rust/crates/outputs/src/stream_output.rs:1008
 msgid "Format"
 msgstr "Format"
 
-#: rust/crates/effects/src/photos.rs:521
+#: rust/crates/effects/src/photos.rs:524
 msgid "Shots"
 msgstr "Bidikan"
 
-#: rust/crates/effects/src/photos.rs:523
+#: rust/crates/effects/src/photos.rs:526
 msgid "How many"
 msgstr "Jumlah"
 
-#: rust/crates/effects/src/photos.rs:523
+#: rust/crates/effects/src/photos.rs:526
 msgid "Steps"
 msgstr "Langkah"
 
-#: rust/crates/effects/src/photos.rs:534
+#: rust/crates/effects/src/photos.rs:537
 msgid "Bracket"
 msgstr "Bracket"
 
-#: rust/crates/effects/src/photos.rs:539 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:179 rust/crates/shell/ui/cards/camera.slint:182
+#: rust/crates/effects/src/photos.rs:542 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:179 rust/crates/shell/ui/cards/camera.slint:182
 msgid "Exposure"
 msgstr "Eksposur"
 
-#: rust/crates/effects/src/photos.rs:544
+#: rust/crates/effects/src/photos.rs:547
 msgid "Distortion fix"
 msgstr "Koreksi distorsi"
 
-#: rust/crates/effects/src/photos.rs:592 rust/crates/effects/src/photos.rs:899
+#: rust/crates/effects/src/photos.rs:595 rust/crates/effects/src/photos.rs:921
 msgid "Start streaming to take photos."
 msgstr "Mulai streaming untuk mengambil foto."
 
-#: rust/crates/effects/src/photos.rs:594
+#: rust/crates/effects/src/photos.rs:597
 msgid "This phone can't take photos from Telescope yet. Update the app on the phone."
 msgstr "Ponsel ini belum dapat mengambil foto dari Telescope. Perbarui aplikasi di ponsel."
 
-#: rust/crates/effects/src/photos.rs:766 rust/crates/effects/src/photos.rs:786
+#: rust/crates/effects/src/photos.rs:786 rust/crates/effects/src/photos.rs:806
 msgid "Taking the photo…"
 msgstr "Mengambil foto…"
 
-#: rust/crates/effects/src/photos.rs:780
+#: rust/crates/effects/src/photos.rs:800
 #, python-brace-format
 msgid "Taking the photo in {seconds} s"
 msgstr "Mengambil foto dalam {seconds} s"
 
-#: rust/crates/effects/src/photos.rs:782
+#: rust/crates/effects/src/photos.rs:802
 #, python-brace-format
 msgid "Photo {n} of {total}"
 msgstr "Foto {n} dari {total}"
 
-#: rust/crates/effects/src/photos.rs:784
+#: rust/crates/effects/src/photos.rs:804
 msgid "Taking the photo, the video is paused…"
 msgstr "Mengambil foto, video dijeda…"
 
-#: rust/crates/effects/src/photos.rs:800
+#: rust/crates/effects/src/photos.rs:820
 #, python-brace-format
 msgid "Saved {name}"
 msgstr "Tersimpan {name}"
 
-#: rust/crates/effects/src/photos.rs:805
+#: rust/crates/effects/src/photos.rs:825
 msgid "Photo saved"
 msgstr "Foto disimpan"
 
-#: rust/crates/effects/src/photos.rs:820
+#: rust/crates/effects/src/photos.rs:840
 msgid "Save photos in"
 msgstr "Simpan foto di"
 
-#: rust/crates/effects/src/photos.rs:835 rust/crates/effects/src/photos.rs:949 rust/crates/effects/ui/photos.slint:145
+#: rust/crates/effects/src/photos.rs:855 rust/crates/effects/src/photos.rs:971 rust/crates/effects/ui/photos.slint:145
 msgid "Photos"
 msgstr "Foto"
 
-#: rust/crates/effects/src/photos.rs:836
+#: rust/crates/effects/src/photos.rs:856
 msgid "Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:837
+#: rust/crates/effects/src/photos.rs:857
 msgid "Without it there's no Photos card and no Take photo shortcut."
 msgstr "Tanpanya, kartu Foto dan pintasan Ambil foto tidak ada."
 
-#: rust/crates/effects/src/photos.rs:951 rust/crates/effects/src/photos.rs:989
+#: rust/crates/effects/src/photos.rs:973 rust/crates/effects/src/photos.rs:1011
 msgid "Photo mode"
 msgstr "Mode foto"
 
-#: rust/crates/effects/src/photos.rs:956 rust/crates/effects/src/photos.rs:999
+#: rust/crates/effects/src/photos.rs:978 rust/crates/effects/src/photos.rs:1021
 msgid "Photo timer"
 msgstr "Timer foto"
 
@@ -2851,7 +2851,7 @@ msgstr "Bentuk"
 msgid "Follow my face"
 msgstr "Ikuti wajah saya"
 
-#: rust/crates/effects/ui/framing.slint:88 rust/crates/outputs/src/webcam.rs:66
+#: rust/crates/effects/ui/framing.slint:88 rust/crates/outputs/src/webcam.rs:80
 msgid "Framing"
 msgstr "Pembingkaian"
 
@@ -3226,7 +3226,7 @@ msgstr "Ponsel menolak mikrofon (HTTP {code})."
 msgid "No microphone"
 msgstr "Tidak ada mikrofon"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:899 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:566 rust/crates/shell/src/streams.rs:1590 rust/crates/shell/src/window.rs:1311 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:955 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:576 rust/crates/shell/src/streams.rs:1600 rust/crates/shell/src/window.rs:1311 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "Tidak streaming"
 
@@ -3318,7 +3318,7 @@ msgstr "Tidak dapat mengimbangi"
 msgid "Browser"
 msgstr "Browser"
 
-#: rust/crates/link/src/browser/plugin.rs:920 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:336 rust/crates/link/src/plugin.rs:372 rust/crates/link/src/plugin.rs:398 rust/crates/link/src/plugin.rs:732 rust/crates/setup/src/setup.rs:730 rust/crates/shell/src/plugins/onboarding.rs:139 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1551 rust/crates/system/ui/updates.slint:174
+#: rust/crates/link/src/browser/plugin.rs:920 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:336 rust/crates/link/src/plugin.rs:372 rust/crates/link/src/plugin.rs:398 rust/crates/link/src/plugin.rs:732 rust/crates/setup/src/setup.rs:730 rust/crates/shell/src/plugins/onboarding.rs:139 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1561 rust/crates/system/ui/updates.slint:174
 msgid "Try again"
 msgstr "Coba lagi"
 
@@ -3794,7 +3794,7 @@ msgstr "Memperbarui aplikasi ponsel melalui USB…"
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Aplikasi Telescope di {phone} lebih lama daripada versi ini."
 
-#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:569 rust/crates/system/src/shortcuts.rs:1058
+#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:579 rust/crates/system/src/shortcuts.rs:1058
 msgid "Copy command"
 msgstr "Salin perintah"
 
@@ -4374,7 +4374,7 @@ msgstr "Rona"
 msgid "Sharpness"
 msgstr "Ketajaman"
 
-#: rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/src/webcam.rs:64 rust/crates/outputs/src/webcam.rs:820 rust/crates/shell/ui/cards/camera.slint:295 rust/crates/shell/ui/cards/camera.slint:299 rust/crates/shell/ui/cards/camera.slint:302
+#: rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/src/webcam.rs:78 rust/crates/outputs/src/webcam.rs:876 rust/crates/shell/ui/cards/camera.slint:295 rust/crates/shell/ui/cards/camera.slint:299 rust/crates/shell/ui/cards/camera.slint:302
 msgid "Focus"
 msgstr "Fokus"
 
@@ -4390,119 +4390,119 @@ msgstr ""
 msgid "Tilt"
 msgstr "Kemiringan"
 
-#: rust/crates/outputs/src/webcam.rs:63 rust/crates/shell/ui/cards/camera.slint:329
+#: rust/crates/outputs/src/webcam.rs:77 rust/crates/shell/ui/cards/camera.slint:329
 msgid "Image"
 msgstr "Olah gambar"
 
-#: rust/crates/outputs/src/webcam.rs:72
+#: rust/crates/outputs/src/webcam.rs:86
 msgid "The shutter speed: slower is brighter but blurs movement."
 msgstr "Kecepatan shutter: makin lambat makin terang, tetapi memburamkan gerakan."
 
-#: rust/crates/outputs/src/webcam.rs:73
+#: rust/crates/outputs/src/webcam.rs:87
 msgid "The webcam's ISO: more is brighter but grainier."
 msgstr "ISO webcam: makin tinggi makin terang, tetapi makin banyak noise."
 
-#: rust/crates/outputs/src/webcam.rs:74
+#: rust/crates/outputs/src/webcam.rs:88
 msgid "Brightens a face in front of a bright window."
 msgstr "Mencerahkan wajah di depan jendela yang terang."
 
-#: rust/crates/outputs/src/webcam.rs:75
+#: rust/crates/outputs/src/webcam.rs:89
 msgid "Set it to your mains frequency to stop lights flickering or banding."
 msgstr "Atur sesuai frekuensi listrik setempat agar lampu tidak berkedip atau muncul garis."
 
-#: rust/crates/outputs/src/webcam.rs:76
+#: rust/crates/outputs/src/webcam.rs:90
 msgid "Exposure compensation: how much brighter or darker than the camera would pick"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:77
+#: rust/crates/outputs/src/webcam.rs:91
 msgid "Lets the webcam lower its frame rate in dim light for a brighter picture."
 msgstr "Mengizinkan webcam menurunkan frame rate saat cahaya redup agar gambar lebih terang."
 
-#: rust/crates/outputs/src/webcam.rs:85
+#: rust/crates/outputs/src/webcam.rs:99
 msgid "50 Hz"
 msgstr "50 Hz"
 
-#: rust/crates/outputs/src/webcam.rs:86
+#: rust/crates/outputs/src/webcam.rs:100
 msgid "60 Hz"
 msgstr "60 Hz"
 
-#: rust/crates/outputs/src/webcam.rs:293
+#: rust/crates/outputs/src/webcam.rs:310
 msgid "Check that it's plugged in."
 msgstr "Pastikan webcam sudah tersambung."
 
-#: rust/crates/outputs/src/webcam.rs:467
+#: rust/crates/outputs/src/webcam.rs:488
 msgid "Another app may be using it. Close it there and it starts here."
 msgstr "Aplikasi lain mungkin sedang menggunakannya. Tutup di sana dan kamera akan mulai di sini."
 
-#: rust/crates/outputs/src/webcam.rs:469
+#: rust/crates/outputs/src/webcam.rs:490
 #, python-brace-format
 msgid "{app} is using it. Close it there and it starts here."
 msgstr "{app} sedang menggunakannya. Tutup di sana dan kamera akan mulai di sini."
 
-#: rust/crates/outputs/src/webcam.rs:471 rust/crates/outputs/src/webcam.rs:474 rust/crates/outputs/src/webcam.rs:477
+#: rust/crates/outputs/src/webcam.rs:492 rust/crates/outputs/src/webcam.rs:495 rust/crates/outputs/src/webcam.rs:498
 #, python-brace-format
 msgid "Can't open {name}"
 msgstr "Tidak dapat membuka {name}"
 
-#: rust/crates/outputs/src/webcam.rs:820
+#: rust/crates/outputs/src/webcam.rs:876
 msgid "Near"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:820
+#: rust/crates/outputs/src/webcam.rs:876
 msgid "Far"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:887
+#: rust/crates/outputs/src/webcam.rs:943
 msgid "Not plugged in"
 msgstr "Tidak tersambung"
 
-#: rust/crates/outputs/src/webcam.rs:889
+#: rust/crates/outputs/src/webcam.rs:945
 msgid "Blocked by Windows or security software"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:891
+#: rust/crates/outputs/src/webcam.rs:947
 msgid "In use by another app"
 msgstr "Digunakan oleh aplikasi lain"
 
-#: rust/crates/outputs/src/webcam.rs:891
+#: rust/crates/outputs/src/webcam.rs:947
 #, python-brace-format
 msgid "In use by {app}"
 msgstr "Digunakan oleh {app}"
 
-#: rust/crates/outputs/src/webcam.rs:893
+#: rust/crates/outputs/src/webcam.rs:949
 msgid "Mounted as a drive"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:895
+#: rust/crates/outputs/src/webcam.rs:951
 msgid "Not sending anything"
 msgstr "Tidak mengirim apa pun"
 
-#: rust/crates/outputs/src/webcam.rs:897
+#: rust/crates/outputs/src/webcam.rs:953
 msgid "Starting…"
 msgstr "Memulai…"
 
-#: rust/crates/outputs/src/webcam.rs:910
+#: rust/crates/outputs/src/webcam.rs:966
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
 msgstr "Ukuran yang dikirim webcam; Otomatis memilih ukuran terbesar hingga 1080p yang masih mempertahankan frame rate"
 
-#: rust/crates/outputs/src/webcam.rs:941
+#: rust/crates/outputs/src/webcam.rs:1001
 msgid "Webcams"
 msgstr "Webcam"
 
-#: rust/crates/outputs/src/webcam.rs:942
+#: rust/crates/outputs/src/webcam.rs:1002
 msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "Streaming dari webcam dan capture card yang tersambung ke komputer ini."
 
-#: rust/crates/outputs/src/webcam.rs:943
+#: rust/crates/outputs/src/webcam.rs:1003
 msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:987
+#: rust/crates/outputs/src/webcam.rs:1047
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name} tidak tersambung"
 
-#: rust/crates/outputs/src/webcam.rs:988
+#: rust/crates/outputs/src/webcam.rs:1048
 msgid "Plug it in, or pick another camera."
 msgstr "Sambungkan, atau pilih kamera lain."
 
@@ -4947,7 +4947,7 @@ msgstr "Gagal - {message}"
 msgid "Working..."
 msgstr "Memproses..."
 
-#: rust/crates/setup/src/setup.rs:593 rust/crates/shell/src/streams.rs:585
+#: rust/crates/setup/src/setup.rs:593 rust/crates/shell/src/streams.rs:595
 msgid "Stop the streams going to them first"
 msgstr "Hentikan stream yang mengarah ke sana terlebih dahulu"
 
@@ -5085,7 +5085,7 @@ msgstr "Memuat ulang loopback..."
 msgid "Restarting stream..."
 msgstr "Memulai ulang stream..."
 
-#: rust/crates/setup/src/setup.rs:837 rust/crates/shell/src/streams.rs:570
+#: rust/crates/setup/src/setup.rs:837 rust/crates/shell/src/streams.rs:580
 msgid "Resize the virtual camera"
 msgstr "Ubah ukuran kamera virtual"
 
@@ -6729,7 +6729,7 @@ msgstr "Streaming di {size} sampai ponsel dingin."
 msgid "Open Telescope on it."
 msgstr "Buka Telescope di dalamnya."
 
-#: rust/crates/shell/src/sources.rs:849 rust/crates/shell/src/streams.rs:1472
+#: rust/crates/shell/src/sources.rs:849 rust/crates/shell/src/streams.rs:1482
 msgid "the device"
 msgstr ""
 
@@ -6785,120 +6785,120 @@ msgstr "Mengaktifkan kamera ponsel…"
 msgid "Streaming the mic, camera off"
 msgstr "Streaming mikrofon, kamera nonaktif"
 
-#: rust/crates/shell/src/streams.rs:515
+#: rust/crates/shell/src/streams.rs:525
 msgid "Stop all but one camera first, then apply again"
 msgstr "Hentikan semua kamera kecuali satu terlebih dahulu, lalu terapkan lagi"
 
-#: rust/crates/shell/src/streams.rs:529
+#: rust/crates/shell/src/streams.rs:539
 msgid "Reloading v4l2loopback…"
 msgstr "Memuat ulang v4l2loopback…"
 
-#: rust/crates/shell/src/streams.rs:529
+#: rust/crates/shell/src/streams.rs:539
 msgid "Restarting stream…"
 msgstr "Memulai ulang stream…"
 
-#: rust/crates/shell/src/streams.rs:559
+#: rust/crates/shell/src/streams.rs:569
 #, python-brace-format
 msgid "Loopback reloaded: {message}"
 msgstr "Loopback dimuat ulang: {message}"
 
-#: rust/crates/shell/src/streams.rs:559
+#: rust/crates/shell/src/streams.rs:569
 msgid "Canvas updated"
 msgstr "Kanvas diperbarui"
 
-#: rust/crates/shell/src/streams.rs:564
+#: rust/crates/shell/src/streams.rs:574
 #, python-brace-format
 msgid "Reload failed: {message}"
 msgstr "Gagal memuat ulang: {message}"
 
-#: rust/crates/shell/src/streams.rs:585
+#: rust/crates/shell/src/streams.rs:595
 msgid "There are none to remove"
 msgstr "Tidak ada yang perlu dihapus"
 
-#: rust/crates/shell/src/streams.rs:651 rust/crates/shell/src/streams.rs:652
+#: rust/crates/shell/src/streams.rs:661 rust/crates/shell/src/streams.rs:662
 msgid "The phone couldn't take the photo."
 msgstr "Ponsel tidak dapat mengambil foto."
 
-#: rust/crates/shell/src/streams.rs:683
+#: rust/crates/shell/src/streams.rs:693
 msgid "The phone is already taking a photo."
 msgstr "Ponsel sedang mengambil foto."
 
-#: rust/crates/shell/src/streams.rs:813
+#: rust/crates/shell/src/streams.rs:823
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "Stream dari {name} berhenti secara tak terduga"
 
-#: rust/crates/shell/src/streams.rs:815
+#: rust/crates/shell/src/streams.rs:825
 msgid "The stream stopped unexpectedly"
 msgstr "Stream berhenti secara tak terduga"
 
-#: rust/crates/shell/src/streams.rs:817
+#: rust/crates/shell/src/streams.rs:827
 msgid "Copy diagnostics has the details."
 msgstr "Salin diagnostik memiliki detailnya."
 
-#: rust/crates/shell/src/streams.rs:842
+#: rust/crates/shell/src/streams.rs:852
 #, python-brace-format
 msgid "The phone got hot and lowered the frame rate to {fps} fps for now."
 msgstr "Ponsel menjadi panas dan menurunkan frame rate ke {fps} fps untuk saat ini."
 
-#: rust/crates/shell/src/streams.rs:844
+#: rust/crates/shell/src/streams.rs:854
 #, python-brace-format
 msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
 msgstr "Dinamis menurunkan frame rate ke {fps} fps untuk mengimbangi koneksi yang lambat."
 
-#: rust/crates/shell/src/streams.rs:846
+#: rust/crates/shell/src/streams.rs:856
 msgid "The camera is making fewer frames than asked for. Dim light slows it down."
 msgstr "Kamera menghasilkan frame lebih sedikit daripada yang diminta. Cahaya redup memperlambatnya."
 
-#: rust/crates/shell/src/streams.rs:848
+#: rust/crates/shell/src/streams.rs:858
 msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
 msgstr "Kamera ponsel menghasilkan frame lebih sedikit dari yang diminta. Cahaya redup memperlambatnya."
 
-#: rust/crates/shell/src/streams.rs:914
+#: rust/crates/shell/src/streams.rs:924
 msgid "Reconnecting"
 msgstr "Menghubungkan ulang"
 
-#: rust/crates/shell/src/streams.rs:916
+#: rust/crates/shell/src/streams.rs:926
 msgid "Live"
 msgstr "Live"
 
-#: rust/crates/shell/src/streams.rs:918
+#: rust/crates/shell/src/streams.rs:928
 msgid "Connecting"
 msgstr "Menghubungkan"
 
-#: rust/crates/shell/src/streams.rs:928
+#: rust/crates/shell/src/streams.rs:938
 msgid "Starting"
 msgstr "Memulai"
 
-#: rust/crates/shell/src/streams.rs:931
+#: rust/crates/shell/src/streams.rs:941
 msgid "Waiting"
 msgstr "Menunggu"
 
 #. under a stream's tile, the virtual camera it goes to
-#: rust/crates/shell/src/streams.rs:942
+#: rust/crates/shell/src/streams.rs:952
 #, python-brace-format
 msgid "to {output}"
 msgstr "ke {output}"
 
-#: rust/crates/shell/src/streams.rs:943
+#: rust/crates/shell/src/streams.rs:953
 #, python-brace-format
 msgid "Stop streaming {name}"
 msgstr "Hentikan streaming {name}"
 
-#: rust/crates/shell/src/streams.rs:1293
+#: rust/crates/shell/src/streams.rs:1303
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "Ponsel mengirim data yang tidak dapat dibaca oleh versi ini. Perbarui kedua aplikasi ke versi yang sama."
 
-#: rust/crates/shell/src/streams.rs:1375
+#: rust/crates/shell/src/streams.rs:1385
 #, python-brace-format
 msgid "Can't reach {name}"
 msgstr "Tidak dapat menjangkau {name}"
 
-#: rust/crates/shell/src/streams.rs:1459
+#: rust/crates/shell/src/streams.rs:1469
 msgid "Lost the phone - reconnecting"
 msgstr "Koneksi ke ponsel terputus - menghubungkan ulang"
 
-#: rust/crates/shell/src/streams.rs:1647
+#: rust/crates/shell/src/streams.rs:1657
 msgid "Couldn't reach the device."
 msgstr ""
 
@@ -8197,7 +8197,7 @@ msgstr " °C"
 msgid "Add your phone"
 msgstr "Tambahkan ponsel"
 
-#: rust/crates/effects/src/photos.rs:798
+#: rust/crates/effects/src/photos.rs:818
 #, python-brace-format
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"

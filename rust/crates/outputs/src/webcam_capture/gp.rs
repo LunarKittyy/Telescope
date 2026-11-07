@@ -3,11 +3,12 @@
 //! own lib/gphoto2 folder first (the release bundles it), then the system's, and points the library at the bundled camera drivers
 //! when it takes the bundled one.
 
-use super::gphoto_lib::{Kind, Rig, Setting, Shot};
+use super::gphoto_lib::{gather, Incomplete, Kind, Rig, Said, Setting, Shot};
 use libloading::Library;
 use std::ffi::{c_char, c_float, c_int, c_ulong, c_void, CStr, CString};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+use std::time::Duration;
 
 /// Where the bundle's libraries are, instead of next to the program.
 pub const BUNDLE_ENV: &str = "TELESCOPE_GPHOTO2_DIR";
@@ -33,7 +34,7 @@ const EVENT_TIMEOUT: c_int = 1;
 const EVENT_FILE_ADDED: c_int = 2;
 const EVENT_CAPTURE_COMPLETE: c_int = 4;
 /// How long a camera that makes a second file (RAW and JPEG) gets to announce it after the first, in all.
-const SECOND_FILE_WAIT_MS: c_int = 3000;
+const SECOND_FILE_WAIT_MS: u64 = 3000;
 
 /// CameraFilePath: where the camera put a file.
 #[repr(C)]
@@ -442,37 +443,33 @@ impl Rig for GpCamera {
         done
     }
 
-    fn capture(&mut self, expect: usize) -> Result<Vec<Shot>, String> {
+    fn capture(&mut self, expect: usize) -> Result<Vec<Shot>, Incomplete> {
         let api = self.api;
         // SAFETY: the path is a local the call fills in; each file is made, filled, copied and freed in download(); an event's data is
         // malloc'd by the library, read as the file path it is for a file event and freed here once
         unsafe {
             let mut path = FilePath { name: [0; 128], folder: [0; 1024] };
             check(api, (api.capture)(self.cam, CAPTURE_IMAGE, &mut path, self.ctx))?;
-            let mut shots = vec![self.download(&path)?];
+            let first = vec![self.download(&path)?];
             // A camera that makes RAW and JPEG says about the second one as an event, a moment after the first
-            let mut waited = 0;
-            while shots.len() < expect && waited < SECOND_FILE_WAIT_MS {
+            let (cam, ctx) = (self.cam, self.ctx);
+            let listen = || {
                 let (mut kind, mut data): (c_int, *mut c_void) = (0, std::ptr::null_mut());
-                if (api.wait_for_event)(self.cam, 250, &mut kind, &mut data, self.ctx) < 0 {
-                    break;
+                if (api.wait_for_event)(cam, 250, &mut kind, &mut data, ctx) < 0 {
+                    return Err("the camera stopped answering".to_string());
                 }
-                match kind {
-                    EVENT_TIMEOUT => waited += 250,
-                    EVENT_FILE_ADDED if !data.is_null() => match self.download(&*(data as *const FilePath)) {
-                        Ok(shot) => shots.push(shot),
-                        Err(why) => log::debug!("the camera's second file wouldn't come: {why}"),
-                    },
-                    _ => {}
-                }
+                let said = match kind {
+                    EVENT_TIMEOUT => Said::Quiet,
+                    EVENT_FILE_ADDED if !data.is_null() => Said::File(std::ptr::read(data as *const FilePath)),
+                    EVENT_CAPTURE_COMPLETE => Said::Done,
+                    _ => Said::Other,
+                };
                 if !data.is_null() {
                     libc::free(data);
                 }
-                if kind == EVENT_CAPTURE_COMPLETE {
-                    break;
-                }
-            }
-            Ok(shots)
+                Ok(said)
+            };
+            gather(first, expect, Duration::from_millis(SECOND_FILE_WAIT_MS), listen, |file| self.download(&file))
         }
     }
 

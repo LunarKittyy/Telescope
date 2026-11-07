@@ -103,6 +103,8 @@ export component Stepper inherits Rectangle {
         tip: root.tip;
         centered: true;
         side: 32px;
+        // What the stepper shows is the camera's value: a pick it refuses doesn't stay on screen
+        follows: true;
         picked(i) => { root.picked(i); }
         nudged(by) => { root.step(by); }
     }

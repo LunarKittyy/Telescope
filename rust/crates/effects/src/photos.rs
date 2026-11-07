@@ -385,6 +385,8 @@ pub struct PhotosPlugin {
     /// What was picked of the camera's own ISO (0) and shutter speed (1) lists, as the camera words them. They aren't saved: the
     /// camera holds them, so they only stand until it reports the same.
     camera_picks: [Option<String>; 2],
+    /// The stream the card last showed, which the picks above were made on.
+    source: Option<String>,
     busy: bool,
     last_saved: Vec<String>,
     /// The photos being taken (one per phone, each with its own end) and the folder dialog being shown.
@@ -414,6 +416,7 @@ impl PhotosPlugin {
             caps: None,
             caps_raw: None,
             camera_picks: [None, None],
+            source: None,
             busy: false,
             last_saved: Vec::new(),
             taking: Vec::new(),
@@ -631,6 +634,8 @@ impl PhotosPlugin {
                 p.remove("tiles");
             }
         } else {
+            // A new list rebuilds every arrow, so the one under a hand never hears the release: the hold ends before it goes out
+            self.release_hold(host);
             self.shown_tiles = tiles;
         }
         host.set_ui_props("card", &props);
@@ -638,7 +643,20 @@ impl PhotosPlugin {
 
     /// Brings the card up to date with the shown stream's lens and whether a photo is being taken.
     fn refresh(&mut self, host: &mut dyn Host) {
+        // What was picked for the next photo is the camera's it was picked on: another camera starts clean, whatever its lists say
+        let mut other_camera = false;
+        if let Some(id) = host.focused_source_id() {
+            if self.source.as_ref() != Some(&id) {
+                other_camera = self.camera_picks.iter().any(Option::is_some);
+                self.source = Some(id);
+                self.camera_picks = [None, None];
+                self.release_hold(host);
+            }
+        }
         let raw = host.still_caps(None);
+        if raw == self.caps_raw && other_camera {
+            self.show_choices(host);
+        }
         if raw != self.caps_raw {
             self.caps = raw.as_ref().and_then(|v| serde_json::from_value(v.clone()).ok());
             self.caps_raw = raw;
@@ -653,6 +671,8 @@ impl PhotosPlugin {
         if self.pending {
             self.pending = false;
             self.refresh(host);
+            // All the tiles go out again
+            self.release_hold(host);
             let props = self.all_props(host);
             host.set_ui_props("card", &props);
         }
@@ -867,7 +887,9 @@ impl Plugin for PhotosPlugin {
         }
         match event {
             Event::PhoneStateUpdated { .. } | Event::StreamStopped | Event::DeviceChanged { .. } | Event::CameraSwitched { .. }
-            | Event::StillBusyChanged { .. } | Event::StillCapsChanged { .. } | Event::SourceSelected { .. } => {
+            | Event::StillBusyChanged { .. } | Event::StillCapsChanged { .. } | Event::SourceSelected { .. }
+            // A camera that streams again may take photos again, whether or not it said so while nobody listened
+            | Event::StreamConnected { .. } | Event::StreamLost { .. } => {
                 // The tile under a held arrow may be gone with the camera
                 self.refresh(host);
                 if self.held.as_ref().is_some_and(|h| !self.tile_list().iter().any(|t| t.key == h.name)) {

@@ -203,10 +203,30 @@ pub const V4L2_CONTROLS: [(u32, &str, &str); 19] = [
     (0x009A_090A, "focus", ""), (0x009A_090C, "focus_auto", ""), (0x009A_090D, "zoom", "zoom"),
 ];
 
+/// What the focus control is told: a tap toward Near or Far, and Focus (autofocus once).
+pub const NEAR: i64 = 0;
+pub const AUTOFOCUS: i64 = 1;
+pub const FAR: i64 = 2;
+/// A step of the jog is JOG_BASE plus how far out the handle is (1 to JOG_LEVELS), taken from it for Near. Level 1 is the smallest step
+/// and the last the biggest, with the ones between spread evenly in size on a log scale so the handle feels smooth all along.
+pub const JOG_BASE: i64 = 100;
+pub const JOG_LEVELS: i64 = 12;
+
+/// What to tell the focus control for a step at `level` (-JOG_LEVELS to JOG_LEVELS, negative toward Near); None for 0, which is at rest.
+pub fn jog_value(level: i64) -> Option<i64> {
+    let out = level.clamp(-JOG_LEVELS, JOG_LEVELS);
+    (out != 0).then(|| out.signum() * (JOG_BASE + out.abs()))
+}
+
 /// What reads and sets one camera's controls.
 pub trait Controls: Send {
     fn list(&mut self) -> Vec<Control>;
     fn set(&mut self, name: &str, value: i64) -> bool;
+    /// Sets a menu to the choice the card showed as `label` (the camera words its choices, and its list can change between the card
+    /// showing it and the click, so a place in the list would mean another choice). Cameras with fixed lists just take the number.
+    fn set_labelled(&mut self, name: &str, value: i64, _label: &str) -> bool {
+        self.set(name, value)
+    }
     /// The camera is still doing what it was last asked, so a held button waits before sending the next step. Most
     /// cameras answer at once.
     fn busy(&mut self) -> bool {

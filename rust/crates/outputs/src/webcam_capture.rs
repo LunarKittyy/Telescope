@@ -296,6 +296,8 @@ pub fn prepare_gphoto_environment() {
 pub mod gphoto_lib;
 #[cfg(target_os = "linux")]
 pub mod gphoto_stills;
+#[cfg(target_os = "linux")]
+pub mod quirks;
 
 #[cfg(target_os = "linux")]
 pub mod v4l2 {

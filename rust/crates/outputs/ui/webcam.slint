@@ -218,6 +218,7 @@ export component WebcamCard inherits Card {
                 caption: tile.label;
                 items: tile.options;
                 current: root.tile-indexes[j];
+                follows: true;
                 enabled: tile.enabled;
                 tip: tile.tip;
                 picked(i) => { root.control-set(tile.name, i); }

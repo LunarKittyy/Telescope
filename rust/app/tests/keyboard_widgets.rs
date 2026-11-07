@@ -24,6 +24,8 @@ export component Test inherits Window {
     in-out property <int> last-pick: -1;
     out property <int> dd-shown: dd.shown;
     out property <bool> dd-open: dd.open;
+    in-out property <int> cam-picks;
+    out property <int> cam-shown: cam.shown;
     VerticalLayout {
         padding: 10px;
         spacing: 8px;
@@ -44,6 +46,14 @@ export component Test inherits Window {
             picked(i) => { picks += 1; last-pick = i; }
         }
         Button { text: "After"; }
+        // A camera's choice: what it shows is what the parent says, so a pick the camera refuses doesn't stay on screen
+        cam := ChoiceField {
+            name: "Lens";
+            items: ["Wide", "Normal", "Long"];
+            current: 0;
+            follows: true;
+            picked(i) => { cam-picks += 1; }
+        }
     }
 }
 "#;
@@ -294,4 +304,17 @@ fn space_and_enter_both_do_a_controls_main_action() {
     key(&ui, Key::Escape);
     key(&ui, Key::Return);
     assert!(flag(&ui, "dd-open"), "a dropdown: Enter");
+}
+
+#[test]
+fn a_choice_that_follows_its_parent_shows_the_parents_value_after_a_pick_the_parent_didnt_take() {
+    let ui = rig();
+    focus(&ui, "Lens", AccessibleRole::Combobox);
+    key(&ui, Key::DownArrow);
+    assert_eq!(number(&ui, "cam-picks"), 1, "the pick was sent");
+    assert_eq!(number(&ui, "cam-shown"), 0, "the camera didn't take it, so the box still says what the camera does");
+    // An ordinary box keeps what was picked until its parent says otherwise
+    focus(&ui, "Fruit", AccessibleRole::Combobox);
+    key(&ui, Key::DownArrow);
+    assert_eq!(number(&ui, "dd-shown"), 1);
 }
