@@ -286,6 +286,17 @@
   "icon": "phone"
  },
  {
+  "name": "stats",
+  "title": "Stats",
+  "about": "Numbers about the stream as it runs: frames in and out, dropped frames and why, the link and bitrate, how long each step takes and what the app uses.",
+  "when_off": "Without it there's no Stats card. The stream carries on the same.",
+  "required": false,
+  "optional": true,
+  "needs_vision": false,
+  "category": "streaming",
+  "icon": "chip"
+ },
+ {
   "name": "updates",
   "title": "Updates",
   "about": "Checking for new versions of Telescope and installing them.",

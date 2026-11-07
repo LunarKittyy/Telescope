@@ -163,6 +163,7 @@ fn every_plugin(bus: &telescope_core::BusSender) -> Vec<Box<dyn Plugin>> {
         Box::new(telescope_effects::qr_reader::QrReaderPlugin::new()),
         Box::new(telescope_effects::on_air_plugin::OnAirPlugin::new(Arc::new(telescope_link::web::SystemWeb), Some(outputs))),
         Box::new(telescope_setup::monitoring::MonitoringPlugin::new()),
+        Box::new(telescope_setup::stats::StatsPlugin::new()),
     ];
     plugins.extend(telescope_shell::plugins::builtins(None, bus));
     plugins
