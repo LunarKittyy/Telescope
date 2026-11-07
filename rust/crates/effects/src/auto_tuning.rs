@@ -146,6 +146,10 @@ pub const WORLD_MAX_CAST: f32 = 0.60;
 /// Plus this much more per unit of cast past that, up to the strength a face gets.
 /// The most Temperature and Tint a correction going by the whole picture alone may set: warm rooms are often meant to be warm.
 pub const WB_WORLD_MAX: (f64, f64) = (50.0, 35.0);
+/// The same for a picture with a face in it, which vouches that the light is what's off.
+pub const WORLD_MIN_FACE: f32 = 0.22;
+pub const WB_WORLD_STRENGTH_FACE: f64 = 0.3;
+pub const WB_WORLD_RAMP_FACE: f64 = 4.0;
 pub const WB_WORLD_RAMP: f64 = 1.0;
 pub const WB_WORLD_STRENGTH: f64 = 0.25;
 
