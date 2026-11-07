@@ -14,9 +14,9 @@ use telescope_core::actions::{self, SliderSpec};
 use telescope_core::colour::{lattice, LEVELS};
 use telescope_core::event::Event;
 use crate::auto_fit::{self, Basic, Fit, Wb};
-use crate::auto_grade::{AutoState, CameraLock, MeasureStep, Undo, POST_MEASURED, T_HOLD, T_TIMEOUT};
+use crate::auto_grade::{AutoState, CameraLock, MeasureStep, Undo, POST_MEASURED, T_HOLD, T_LABEL, T_TIMEOUT};
 use crate::auto_measure::Measurement;
-use crate::auto_tuning::{HOLD_TIMEOUT_MS, MEASURE_TIMEOUT_MS};
+use crate::auto_tuning::{HOLD_TIMEOUT_MS, LABEL_MS, MEASURE_TIMEOUT_MS};
 use telescope_core::frame::{FrameStage, FrameStep};
 use telescope_core::host::{ColourStage, FileDialog, FileDialogKind, Host, RequestId};
 use telescope_core::people::{self, Track};
@@ -52,6 +52,9 @@ const SWITCH_TIP: &str = n_("Switch the grade off to see the camera's own colour
 /// What vision is asked for under while Auto looks at the picture.
 const AUTO_TITLE: &str = "Auto colour grading";
 const AUTO_NO_STREAM: &str = n_("Start the stream first, so Auto has a picture to look at.");
+const AUTO_LABEL_FINE: &str = n_("Looks fine");
+const AUTO_LABEL_NO_STREAM: &str = n_("No stream");
+const AUTO_LABEL_NO_PICTURE: &str = n_("No picture");
 const AUTO_LOOKING: &str = n_("Looking at the picture…");
 const AUTO_NO_PICTURE: &str = n_("Auto couldn't get a steady picture to look at. Try again while nothing moves.");
 const AUTO_NOTHING: &str = n_("Nothing to change, the picture already looks right.");
@@ -544,6 +547,20 @@ impl ColourGradingPlugin {
         self.show_auto(host);
     }
 
+    /// The button says a word or two about how the last press went, then goes back to "Auto".
+    fn flash(&mut self, host: &mut dyn Host, label: &str) {
+        self.auto.label = tr(label);
+        host.cancel_schedule(T_LABEL);
+        host.schedule(LABEL_MS, T_LABEL);
+        self.show_auto(host);
+    }
+
+    /// What Auto last said in words, for tests and the log.
+    #[cfg(test)]
+    pub(crate) fn auto_note(&self) -> &str {
+        &self.auto.note.0
+    }
+
     /// Where the phone's auto exposure and white balance get locked before measuring, waiting until it confirms. Nothing locks yet.
     fn lock_camera(&mut self, _host: &mut dyn Host) -> CameraLock {
         CameraLock::default()
@@ -559,12 +576,19 @@ impl ColourGradingPlugin {
         let source = host.focused_source_id();
         let Some(source) = source.filter(|_| host.is_streaming()) else {
             self.say(host, tr(AUTO_NO_STREAM), "warn");
+            self.flash(host, AUTO_LABEL_NO_STREAM);
             return;
         };
         let lock = self.lock_camera(host);
         self.auto.lock = Some(lock);
         // vision stays off until someone asks, and may need to load its models: wait for its first answer unless it can't answer
         host.want_people(AUTO_TITLE, true);
+        // no pack yet: fetch it for next time, and grade from the whole picture meanwhile
+        if host.vision_state() == "missing" && host.vision_pack().available {
+            host.download_vision();
+        }
+        self.auto.label.clear();
+        host.cancel_schedule(T_LABEL);
         let hold = !matches!(host.vision_state().as_str(), "missing" | "failed");
         self.auto.shared.start(&source, Geometry::from(&host.view()), hold);
         host.schedule(if hold { HOLD_TIMEOUT_MS } else { MEASURE_TIMEOUT_MS }, if hold { T_HOLD } else { T_TIMEOUT });
@@ -598,6 +622,7 @@ impl ColourGradingPlugin {
         let measurement: Option<Measurement> = self.auto.shared.take();
         let Some(m) = measurement.filter(|m| !m.is_empty()) else {
             self.say(host, tr(AUTO_NO_PICTURE), "warn");
+            self.flash(host, AUTO_LABEL_NO_PICTURE);
             return;
         };
         let fit = auto_fit::fit(&m, Some(&self.grade));
@@ -645,6 +670,9 @@ impl ColourGradingPlugin {
             host.schedule_save();
         }
         self.say(host, sentences.join(" "), kind);
+        if !(fit.moved.any() || take_off) {
+            self.flash(host, AUTO_LABEL_FINE);
+        }
     }
 
     fn auto_undone(&mut self, host: &mut dyn Host) {
@@ -915,6 +943,10 @@ impl Plugin for ColourGradingPlugin {
             Event::PeopleTracked { source_id, tracks, .. } => self.hear_tracks(source_id, tracks),
             Event::ViewChanged { view } => self.auto.shared.hear_view(Geometry::from(view)),
             Event::Posted { owner, token, .. } if owner == NAME && token == POST_MEASURED => self.auto_measured(host),
+            Event::TimerFired { owner, token } if owner == NAME && token == T_LABEL => {
+                self.auto.label.clear();
+                self.show_auto(host);
+            }
             Event::TimerFired { owner, token } if owner == NAME && token == T_TIMEOUT => self.auto_measured(host),
             Event::TimerFired { owner, token } if owner == NAME && token == T_HOLD && self.auto.busy => {
                 if self.auto.shared.release() {

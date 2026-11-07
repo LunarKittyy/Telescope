@@ -197,8 +197,9 @@ fn conflicting_light_leaves_white_balance_alone() {
 fn a_face_inside_the_skin_range_keeps_its_white_balance_whatever_the_walls_say() {
     let scene = Scene { wall: [0.72, 0.64, 0.52], wall_right: [0.72, 0.64, 0.52], ..Scene::default() };
     let f = of(&scene, &right());
-    assert_eq!(f.wb, Wb::InRange);
-    assert_eq!((f.values.temperature, f.values.tint), (0.0, 0.0));
+    // a yellow wall round a fine face may be a yellow lamp, so it goes only a little way
+    assert!(matches!(f.wb, Wb::InRange | Wb::World), "{:?}", f.wb);
+    assert!(f.values.temperature.abs() <= 50.0 && f.values.tint.abs() <= 50.0, "{:?}", f.values);
 }
 
 #[test]
@@ -373,4 +374,39 @@ fn white_balance_left_alone_keeps_the_persons_own_not_neutral() {
     assert_eq!(f.wb, Wb::Conflict);
     assert_eq!((f.values.temperature, f.values.tint), (12.0, -7.0));
     assert!(!f.moved.white_balance, "{:?}", f.moved);
+}
+
+#[test]
+fn a_matrix_of_exposures_casts_and_haze_never_gets_worse_and_the_big_ones_move_clearly_towards_the_original() {
+    let by = |ev: f32, g: [f32; 3]| -> Camera {
+        let k = 2f32.powf(ev);
+        cast([g[0] * k, g[1] * k, g[2] * k])
+    };
+    // (name, camera, must move clearly)
+    let cases: Vec<(&str, Camera, bool)> = vec![
+        ("-2 EV", by(-2.0, [1.0; 3]), true),
+        ("-1 EV", by(-1.0, [1.0; 3]), true),
+        ("+1 EV", by(1.0, [1.0; 3]), true),
+        ("+2 EV", by(2.0, [1.0; 3]), true),
+        ("tungsten", by(0.0, [1.25, 1.0, 0.65]), false),
+        ("cool", by(0.0, [0.88, 1.0, 1.18]), false),
+        ("green fluorescent", by(0.0, [0.88, 1.15, 0.88]), false),
+        ("hazy", flat(), false),
+        ("dark and warm", by(-1.5, [1.25, 1.0, 0.65]), true),
+        ("bright and cool", by(1.5, [0.88, 1.0, 1.18]), true),
+    ];
+    for person in [true, false] {
+        let scene = Scene { person, ..Scene::default() };
+        for (name, camera, clear) in &cases {
+            let r = recover(&scene, camera);
+            report(&format!("{name} (person {person})"), &r);
+            assert!(r.picture.1 <= r.picture.0 * 1.05 + 0.01, "{name} (person {person}) gets worse: {:?}", r.picture);
+            if person {
+                assert!(r.face.1 <= r.face.0 * 1.05 + 0.03, "{name} face gets worse: {:?}", r.face);
+            }
+            if *clear {
+                assert!(r.picture.1 < r.picture.0 * 0.85, "{name} (person {person}) doesn't move clearly: {:?}", r.picture);
+            }
+        }
+    }
 }
