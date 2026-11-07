@@ -437,6 +437,8 @@ pub struct CameraControl {
     manual_wb: bool,
     manual_focus: bool,
     point_focus: bool,
+    /// What the host says the shown stream's exposure and white balance lock is: "off", "locking" or "locked".
+    exposure_lock: String,
     /// What focus_mode_changed last said.
     published_focus: Option<String>,
     lens_id: Option<String>,
@@ -509,6 +511,7 @@ impl CameraControl {
             manual_wb: false,
             manual_focus: false,
             point_focus: false,
+            exposure_lock: "off".into(),
             published_focus: None,
             lens_id: None,
             pending_lens: None,
@@ -1199,11 +1202,18 @@ impl CameraControl {
         props["exposure-tips"] = json!(self.exp.tips);
         props["wb-tips"] = json!(self.wb.tips);
         props["focus-tips"] = json!(self.focus.tips);
+        props["exposure-lock-label"] = json!(match self.exposure_lock.as_str() {
+            "locking" => tr("Locking…"),
+            "locked" => tr("Locked"),
+            _ => String::new(),
+        });
+        props["exposure-lock-text"] = json!(tr("Exposure and white balance are held"));
         props
     }
 
     /// What the handlers queued goes out, then the card shows where things are.
     fn refresh(&mut self, host: &mut dyn Host) {
+        self.exposure_lock = host.exposure_lock(None);
         let out = std::mem::take(&mut self.out);
         for body in &out.bodies {
             host.phone_control(None, body);
@@ -1464,6 +1474,8 @@ impl Plugin for CameraControl {
             Event::SourceSelected { source_id } => self.source = source_id.clone(),
             Event::FocusPoint { x, y } => self.on_focus_point(f64::from(*x), f64::from(*y)),
             Event::MeterPoint { x, y } => self.on_meter_point(f64::from(*x), f64::from(*y)),
+            // Something locked or let go of the exposure and white balance: refresh reads where it stands
+            Event::ExposureLock { .. } => {}
             _ => return,
         }
         self.refresh(host);
@@ -1522,6 +1534,10 @@ impl Plugin for CameraControl {
         let b = |i: usize| event.args.get(i).and_then(Value::as_bool).unwrap_or(false);
         match event.callback.as_str() {
             "lens-picked" => self.on_ui_lens(n(0) as usize),
+            "unlock-clicked" => {
+                host.unlock_exposure(None);
+                return;
+            }
             "exposure-picked" => {
                 if self.exp.enabled.get(n(0) as usize) == Some(&true) {
                     self.set_exp(n(0) as usize == 1);

@@ -318,7 +318,7 @@ msgstr "वर्चुअल माइक्रोफ़ोन ने ऑडि
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "पीले रंग का मतलब है कि लिमिटर तेज़ आवाज़ को दबा रहा है और लाल रंग का मतलब है कि आवाज़ क्लिप हो गई (साफ़ करने के लिए क्लिक करें)."
 
-#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:476 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:385 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:156 rust/crates/outputs/ui/webcam.slint:156 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
+#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:476 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:385 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:156 rust/crates/outputs/ui/webcam.slint:156 rust/crates/shell/ui/cards/camera.slint:259 rust/crates/shell/ui/cards/camera.slint:289 rust/crates/shell/ui/cards/camera.slint:307
 msgid "Double-click to reset"
 msgstr "रीसेट करने के लिए डबल-क्लिक करें"
 
@@ -330,7 +330,7 @@ msgstr "ऑटो लेवल"
 msgid "Evens out quiet and loud speech."
 msgstr "धीमी और तेज़ आवाज़ को बराबर करता है."
 
-#: rust/crates/audio/ui/microphone.slint:257 rust/crates/audio/ui/microphone.slint:268 rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1614 rust/crates/shell/ui/cards/camera.slint:422
+#: rust/crates/audio/ui/microphone.slint:257 rust/crates/audio/ui/microphone.slint:268 rust/crates/shell/src/plugins/camera_control.rs:1266 rust/crates/shell/src/plugins/camera_control.rs:1630 rust/crates/shell/ui/cards/camera.slint:442
 msgid "Noise reduction"
 msgstr "नॉइज़ रिडक्शन"
 
@@ -460,7 +460,7 @@ msgstr "प्लगइन्स"
 msgid "Updates & About"
 msgstr "अपडेट और परिचय"
 
-#: rust/crates/core/src/plugin.rs:25 rust/crates/outputs/ui/webcam.slint:59 rust/crates/shell/src/plugins/camera_control.rs:1580 rust/crates/shell/ui/cards/camera.slint:143
+#: rust/crates/core/src/plugin.rs:25 rust/crates/outputs/ui/webcam.slint:59 rust/crates/shell/src/plugins/camera_control.rs:1596 rust/crates/shell/ui/cards/camera.slint:147
 msgid "Camera"
 msgstr "कैमरा"
 
@@ -520,7 +520,7 @@ msgid "Getting ready…"
 msgstr "तैयार हो रहा है…"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:390 rust/crates/effects/ui/background.slint:33 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:74 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:423 rust/crates/shell/ui/cards/camera.slint:431
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:390 rust/crates/effects/ui/background.slint:33 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:74 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:443 rust/crates/shell/ui/cards/camera.slint:451
 msgid "Off"
 msgstr "बंद"
 
@@ -901,7 +901,7 @@ msgstr "गेन मास्टर"
 msgid "Offset master"
 msgstr "ऑफ़सेट मास्टर"
 
-#: rust/crates/effects/src/colour_grading.rs:65 rust/crates/effects/ui/colour_grading.slint:300 rust/crates/outputs/src/webcam.rs:44 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:256 rust/crates/shell/ui/cards/camera.slint:259
+#: rust/crates/effects/src/colour_grading.rs:65 rust/crates/effects/ui/colour_grading.slint:300 rust/crates/outputs/src/webcam.rs:44 rust/crates/shell/src/plugins/camera_control.rs:1375 rust/crates/shell/src/plugins/camera_control.rs:1622 rust/crates/shell/ui/cards/camera.slint:276 rust/crates/shell/ui/cards/camera.slint:279
 msgid "Temperature"
 msgstr "कलर टेम्परेचर"
 
@@ -909,7 +909,7 @@ msgstr "कलर टेम्परेचर"
 msgid "Warmer or cooler"
 msgstr "ज़्यादा गर्म या ठंडा"
 
-#: rust/crates/effects/src/colour_grading.rs:66 rust/crates/effects/ui/colour_grading.slint:300 rust/crates/shell/src/plugins/camera_control.rs:1373 rust/crates/shell/src/plugins/camera_control.rs:1608
+#: rust/crates/effects/src/colour_grading.rs:66 rust/crates/effects/ui/colour_grading.slint:300 rust/crates/shell/src/plugins/camera_control.rs:1383 rust/crates/shell/src/plugins/camera_control.rs:1624
 msgid "Tint"
 msgstr "टिंट"
 
@@ -1155,7 +1155,7 @@ msgid "Black and white"
 msgstr "ब्लैक एंड व्हाइट"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:688 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:77 rust/crates/outputs/src/webcam.rs:756 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1259 rust/crates/shell/src/plugins/camera_control.rs:1261 rust/crates/shell/src/plugins/camera_control.rs:1263 rust/crates/shell/src/plugins/camera_control.rs:1601 rust/crates/shell/src/plugins/camera_control.rs:1602 rust/crates/shell/ui/cards/camera.slint:203 rust/crates/shell/ui/cards/camera.slint:268 rust/crates/shell/ui/cards/camera.slint:323
 msgid "Auto"
 msgstr "ऑटो"
 
@@ -2090,7 +2090,7 @@ msgstr "यह फ़ोन अभी Telescope से फ़ोटो नही
 msgid "Taking the photo…"
 msgstr "फ़ोटो ली जा रही है…"
 
-#: rust/crates/effects/src/photos.rs:603 rust/crates/shell/src/streams.rs:663
+#: rust/crates/effects/src/photos.rs:603 rust/crates/shell/src/streams.rs:792
 msgid "The phone is already taking a photo."
 msgstr "फ़ोन पहले से ही एक फ़ोटो ले रहा है."
 
@@ -2117,7 +2117,7 @@ msgstr "{name} सेव की गई"
 msgid "Photo saved"
 msgstr "फ़ोटो सेव हो गई"
 
-#: rust/crates/effects/src/photos.rs:639 rust/crates/shell/src/streams.rs:635 rust/crates/shell/src/streams.rs:638
+#: rust/crates/effects/src/photos.rs:639 rust/crates/shell/src/streams.rs:764 rust/crates/shell/src/streams.rs:767
 msgid "The phone couldn't take the photo."
 msgstr "फ़ोन फ़ोटो नहीं ले सका."
 
@@ -2758,7 +2758,7 @@ msgstr "साफ़ करें"
 msgid "Trails"
 msgstr "ट्रेल्स"
 
-#: rust/crates/effects/ui/fun_pack.slint:131 rust/crates/outputs/src/webcam.rs:42 rust/crates/shell/ui/cards/camera.slint:225 rust/crates/shell/ui/cards/camera.slint:228
+#: rust/crates/effects/ui/fun_pack.slint:131 rust/crates/outputs/src/webcam.rs:42 rust/crates/shell/ui/cards/camera.slint:245 rust/crates/shell/ui/cards/camera.slint:248
 msgid "Brightness"
 msgstr "ब्राइटनेस"
 
@@ -3012,7 +3012,7 @@ msgstr "ब्रैकेट"
 msgid "Steps"
 msgstr "स्टेप्स"
 
-#: rust/crates/effects/ui/photos.slint:215 rust/crates/outputs/src/webcam.rs:41 rust/crates/shell/ui/cards/camera.slint:179 rust/crates/shell/ui/cards/camera.slint:182
+#: rust/crates/effects/ui/photos.slint:215 rust/crates/outputs/src/webcam.rs:41 rust/crates/shell/ui/cards/camera.slint:199 rust/crates/shell/ui/cards/camera.slint:202
 msgid "Exposure"
 msgstr "एक्सपोज़र"
 
@@ -3137,7 +3137,7 @@ msgstr "फ़ोन ने माइक्रोफ़ोन अस्वीक
 msgid "No microphone"
 msgstr "कोई माइक्रोफ़ोन नहीं"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:685 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1305 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:753 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:565 rust/crates/shell/src/streams.rs:1701 rust/crates/shell/src/window.rs:1306 rust/crates/shell/src/worker.rs:498 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "स्ट्रीम नहीं हो रहा है"
 
@@ -3229,7 +3229,7 @@ msgstr "स्पीड कम पड़ रही है"
 msgid "Browser"
 msgstr "ब्राउज़र"
 
-#: rust/crates/link/src/browser/plugin.rs:920 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:336 rust/crates/link/src/plugin.rs:372 rust/crates/link/src/plugin.rs:398 rust/crates/link/src/plugin.rs:732 rust/crates/setup/src/setup.rs:730 rust/crates/shell/src/plugins/onboarding.rs:139 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1531 rust/crates/system/ui/updates.slint:174
+#: rust/crates/link/src/browser/plugin.rs:920 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:336 rust/crates/link/src/plugin.rs:372 rust/crates/link/src/plugin.rs:398 rust/crates/link/src/plugin.rs:732 rust/crates/setup/src/setup.rs:730 rust/crates/shell/src/plugins/onboarding.rs:139 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1662 rust/crates/system/ui/updates.slint:174
 msgid "Try again"
 msgstr "फिर कोशिश करें"
 
@@ -3705,7 +3705,7 @@ msgstr "USB से फ़ोन ऐप को अपडेट किया ज�
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "{phone} पर मौजूद Telescope ऐप इससे पुराना है."
 
-#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:1058
+#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:568 rust/crates/system/src/shortcuts.rs:1058
 msgid "Copy command"
 msgstr "कमांड कॉपी करें"
 
@@ -4273,7 +4273,7 @@ msgstr "एंटी-फ़्लिकर"
 msgid "Slow down in the dark"
 msgstr "अंधेरे में धीमा करें"
 
-#: rust/crates/outputs/src/webcam.rs:44 rust/crates/shell/ui/cards/camera.slint:244 rust/crates/shell/ui/cards/camera.slint:247
+#: rust/crates/outputs/src/webcam.rs:44 rust/crates/shell/ui/cards/camera.slint:264 rust/crates/shell/ui/cards/camera.slint:267
 msgid "White balance"
 msgstr "व्हाइट बैलेंस"
 
@@ -4285,7 +4285,7 @@ msgstr "ह्यू"
 msgid "Sharpness"
 msgstr "शार्पनेस"
 
-#: rust/crates/outputs/src/webcam.rs:47 rust/crates/outputs/src/webcam.rs:56 rust/crates/shell/ui/cards/camera.slint:295 rust/crates/shell/ui/cards/camera.slint:299 rust/crates/shell/ui/cards/camera.slint:302
+#: rust/crates/outputs/src/webcam.rs:47 rust/crates/outputs/src/webcam.rs:56 rust/crates/shell/ui/cards/camera.slint:315 rust/crates/shell/ui/cards/camera.slint:319 rust/crates/shell/ui/cards/camera.slint:322
 msgid "Focus"
 msgstr "फ़ोकस"
 
@@ -4297,7 +4297,7 @@ msgstr "फ़ोकस पोज़ीशन"
 msgid "Tilt"
 msgstr "टिल्ट"
 
-#: rust/crates/outputs/src/webcam.rs:55 rust/crates/shell/ui/cards/camera.slint:329
+#: rust/crates/outputs/src/webcam.rs:55 rust/crates/shell/ui/cards/camera.slint:349
 msgid "Image"
 msgstr "इमेज"
 
@@ -4329,71 +4329,71 @@ msgstr "50 Hz"
 msgid "60 Hz"
 msgstr "60 Hz"
 
-#: rust/crates/outputs/src/webcam.rs:278
+#: rust/crates/outputs/src/webcam.rs:343
 msgid "Check that it's plugged in."
 msgstr "देखें कि यह प्लग इन है."
 
-#: rust/crates/outputs/src/webcam.rs:408
+#: rust/crates/outputs/src/webcam.rs:476
 msgid "Another app may be using it. Close it there and it starts here."
 msgstr "हो सकता है कोई दूसरा ऐप इसका इस्तेमाल कर रहा हो. उसे वहां बंद करें और यह यहां शुरू हो जाएगा."
 
-#: rust/crates/outputs/src/webcam.rs:410
+#: rust/crates/outputs/src/webcam.rs:478
 #, python-brace-format
 msgid "{app} is using it. Close it there and it starts here."
 msgstr "{app} इसका इस्तेमाल कर रहा है. उसे वहां बंद करें और यह यहां शुरू हो जाएगा."
 
-#: rust/crates/outputs/src/webcam.rs:412 rust/crates/outputs/src/webcam.rs:415
+#: rust/crates/outputs/src/webcam.rs:480 rust/crates/outputs/src/webcam.rs:483
 #, python-brace-format
 msgid "Can't open {name}"
 msgstr "{name} को नहीं खोला जा सकता"
 
-#: rust/crates/outputs/src/webcam.rs:675
+#: rust/crates/outputs/src/webcam.rs:743
 msgid "Not plugged in"
 msgstr "प्लग इन नहीं है"
 
-#: rust/crates/outputs/src/webcam.rs:677
+#: rust/crates/outputs/src/webcam.rs:745
 msgid "Blocked by Windows or security software"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:679
+#: rust/crates/outputs/src/webcam.rs:747
 msgid "In use by another app"
 msgstr "कोई दूसरा ऐप इसका इस्तेमाल कर रहा है"
 
-#: rust/crates/outputs/src/webcam.rs:679
+#: rust/crates/outputs/src/webcam.rs:747
 #, python-brace-format
 msgid "In use by {app}"
 msgstr "{app} इसका इस्तेमाल कर रहा है"
 
-#: rust/crates/outputs/src/webcam.rs:681
+#: rust/crates/outputs/src/webcam.rs:749
 msgid "Not sending anything"
 msgstr "कुछ नहीं भेज रहा है"
 
-#: rust/crates/outputs/src/webcam.rs:683
+#: rust/crates/outputs/src/webcam.rs:751
 msgid "Starting…"
 msgstr "शुरू हो रहा है…"
 
-#: rust/crates/outputs/src/webcam.rs:696
+#: rust/crates/outputs/src/webcam.rs:764
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
 msgstr "वह साइज़ जो वेबकैम भेजता है; ऑटो 1080p तक का सबसे बड़ा साइज़ चुनता है जिससे फ़्रेम रेट बना रहे"
 
-#: rust/crates/outputs/src/webcam.rs:713
+#: rust/crates/outputs/src/webcam.rs:788
 msgid "Webcams"
 msgstr "वेबकैम"
 
-#: rust/crates/outputs/src/webcam.rs:714
+#: rust/crates/outputs/src/webcam.rs:789
 msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "इस कंप्यूटर में प्लग इन वेबकैम और कैप्चर कार्ड से स्ट्रीमिंग."
 
-#: rust/crates/outputs/src/webcam.rs:715
+#: rust/crates/outputs/src/webcam.rs:790
 msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:753
+#: rust/crates/outputs/src/webcam.rs:830
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name} प्लग इन नहीं है"
 
-#: rust/crates/outputs/src/webcam.rs:754
+#: rust/crates/outputs/src/webcam.rs:831
 msgid "Plug it in, or pick another camera."
 msgstr "इसे प्लग इन करें, या कोई दूसरा कैमरा चुनें."
 
@@ -4514,7 +4514,7 @@ msgstr "वेबकैम"
 msgid "Put the webcam's picture settings back to its defaults"
 msgstr "वेबकैम की तस्वीर की सेटिंग्स को डिफ़ॉल्ट पर रीसेट करें"
 
-#: rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248
+#: rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1259 rust/crates/shell/src/plugins/camera_control.rs:1261 rust/crates/shell/src/plugins/camera_control.rs:1601 rust/crates/shell/ui/cards/camera.slint:203 rust/crates/shell/ui/cards/camera.slint:268
 msgid "Manual"
 msgstr "मैनुअल"
 
@@ -4826,7 +4826,7 @@ msgstr "विफल रहा - {message}"
 msgid "Working..."
 msgstr "काम जारी है..."
 
-#: rust/crates/setup/src/setup.rs:593 rust/crates/shell/src/streams.rs:577
+#: rust/crates/setup/src/setup.rs:593 rust/crates/shell/src/streams.rs:584
 msgid "Stop the streams going to them first"
 msgstr "पहले उन पर जा रही स्ट्रीम रोकें"
 
@@ -4964,7 +4964,7 @@ msgstr "लूपबैक फिर से लोड हो रहा है...
 msgid "Restarting stream..."
 msgstr "स्ट्रीम फिर शुरू हो रही है..."
 
-#: rust/crates/setup/src/setup.rs:837 rust/crates/shell/src/streams.rs:562
+#: rust/crates/setup/src/setup.rs:837 rust/crates/shell/src/streams.rs:569
 msgid "Resize the virtual camera"
 msgstr "वर्चुअल कैमरे का साइज़ बदलें"
 
@@ -5381,11 +5381,11 @@ msgstr "और वर्चुअल कैमरे सेट किए जा 
 msgid "Couldn't add more virtual cameras"
 msgstr "और वर्चुअल कैमरे नहीं जोड़े जा सके"
 
-#: rust/crates/shell/src/host.rs:527
+#: rust/crates/shell/src/host.rs:537
 msgid "Only a phone's stream has the video this needs."
 msgstr "सिर्फ़ फ़ोन की स्ट्रीम में ही इसके लिए ज़रूरी वीडियो होता है."
 
-#: rust/crates/shell/src/host.rs:533
+#: rust/crates/shell/src/host.rs:543
 msgid "Needs Light: Heavy sends whole pictures, with no keyframes to work with."
 msgstr "हल्का फ़ॉर्मैट चाहिए: भारी पूरी तस्वीरें भेजता है, जिनमें काम करने के लिए कोई कीफ़्रेम नहीं होते."
 
@@ -5401,11 +5401,11 @@ msgstr "एरिया मार्क करने के लिए तस्�
 msgid "Drag the corners into place, then press Enter. Esc cancels."
 msgstr "कोनों को सही जगह ड्रैग करें, फिर Enter दबाएं. Esc दबाकर रद्द करें."
 
-#: rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:423 rust/crates/shell/ui/cards/camera.slint:431
+#: rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:443 rust/crates/shell/ui/cards/camera.slint:451
 msgid "Fast"
 msgstr "तेज़"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:423 rust/crates/shell/ui/cards/camera.slint:431
+#: rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:443 rust/crates/shell/ui/cards/camera.slint:451
 msgid "High Quality"
 msgstr "हाई क्वालिटी"
 
@@ -5472,123 +5472,135 @@ msgstr "लेंस लोड करने के लिए स्ट्री�
 msgid "No cameras available"
 msgstr "कोई कैमरा उपलब्ध नहीं है"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:502 rust/crates/shell/src/plugins/camera_control.rs:830
+#: rust/crates/shell/src/plugins/camera_control.rs:504 rust/crates/shell/src/plugins/camera_control.rs:833
 msgid "Optical image stabilization"
 msgstr "ऑप्टिकल इमेज स्टेबलाइज़ेशन"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:641
+#: rust/crates/shell/src/plugins/camera_control.rs:644
 msgid "Loading lenses..."
 msgstr "लेंस लोड हो रहे हैं..."
 
-#: rust/crates/shell/src/plugins/camera_control.rs:698
+#: rust/crates/shell/src/plugins/camera_control.rs:701
 msgid "Unavailable"
 msgstr "उपलब्ध नहीं"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:778
+#: rust/crates/shell/src/plugins/camera_control.rs:781
 msgid "Full manual control"
 msgstr "फ़ुल मैनुअल कंट्रोल"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:778
+#: rust/crates/shell/src/plugins/camera_control.rs:781
 msgid "Limited manual control"
 msgstr "लिमिटेड मैनुअल कंट्रोल"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:781
+#: rust/crates/shell/src/plugins/camera_control.rs:784
 #, python-brace-format
 msgid "Camera level: {level}"
 msgstr "कैमरा लेवल: {level}"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:784
+#: rust/crates/shell/src/plugins/camera_control.rs:787
 #, python-brace-format
 msgid "Supports: {features}"
 msgstr "सपोर्ट करता है: {features}"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:787
+#: rust/crates/shell/src/plugins/camera_control.rs:790
 #, python-brace-format
 msgid "Not supported: {features}"
 msgstr "सपोर्ट नहीं करता: {features}"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:797
+#: rust/crates/shell/src/plugins/camera_control.rs:800
 msgid "This lens has no manual exposure"
 msgstr "इस लेंस में मैनुअल एक्सपोज़र नहीं है"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:806
+#: rust/crates/shell/src/plugins/camera_control.rs:809
 msgid "This lens has no manual white balance"
 msgstr "इस लेंस में मैनुअल व्हाइट बैलेंस नहीं है"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:821
+#: rust/crates/shell/src/plugins/camera_control.rs:824
 msgid "This lens has no manual focus"
 msgstr "इस लेंस में मैनुअल फ़ोकस नहीं है"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:827
+#: rust/crates/shell/src/plugins/camera_control.rs:830
 msgid "This lens has no flash to use as a torch"
 msgstr "टॉर्च की तरह इस्तेमाल करने के लिए इस लेंस में फ़्लैश नहीं है"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:830
+#: rust/crates/shell/src/plugins/camera_control.rs:833
 msgid "This lens has no optical stabilization"
 msgstr "इस लेंस में ऑप्टिकल स्टेबलाइज़ेशन नहीं है"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:916
+#: rust/crates/shell/src/plugins/camera_control.rs:919
 msgid "Click the preview to focus there"
 msgstr "वहां फ़ोकस करने के लिए प्रीव्यू पर क्लिक करें"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:918
+#: rust/crates/shell/src/plugins/camera_control.rs:921
 msgid "This lens can't focus on a point"
 msgstr "यह लेंस किसी पॉइंट पर फ़ोकस नहीं कर सकता"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1242 rust/crates/shell/src/plugins/camera_control.rs:1599
+#: rust/crates/shell/src/plugins/camera_control.rs:1206
+msgid "Locking…"
+msgstr ""
+
+#: rust/crates/shell/src/plugins/camera_control.rs:1207
+msgid "Locked"
+msgstr ""
+
+#: rust/crates/shell/src/plugins/camera_control.rs:1210
+msgid "Exposure and white balance are held"
+msgstr ""
+
+#: rust/crates/shell/src/plugins/camera_control.rs:1252 rust/crates/shell/src/plugins/camera_control.rs:1615
 msgid "Lens"
 msgstr "लेंस"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1248 rust/crates/shell/src/plugins/camera_control.rs:1600
+#: rust/crates/shell/src/plugins/camera_control.rs:1258 rust/crates/shell/src/plugins/camera_control.rs:1616
 msgid "Exposure mode"
 msgstr "एक्सपोज़र मोड"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1250 rust/crates/shell/src/plugins/camera_control.rs:1605
+#: rust/crates/shell/src/plugins/camera_control.rs:1260 rust/crates/shell/src/plugins/camera_control.rs:1621
 msgid "White balance mode"
 msgstr "व्हाइट बैलेंस मोड"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1252 rust/crates/shell/src/plugins/camera_control.rs:1610
+#: rust/crates/shell/src/plugins/camera_control.rs:1262 rust/crates/shell/src/plugins/camera_control.rs:1626
 msgid "Focus mode"
 msgstr "फ़ोकस मोड"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/shell/src/plugins/camera_control.rs:1263 rust/crates/shell/src/plugins/camera_control.rs:1602 rust/crates/shell/ui/cards/camera.slint:323
 msgid "Tap a point"
 msgstr "पॉइंट पर टैप करें"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/shell/src/plugins/camera_control.rs:1263 rust/crates/shell/src/plugins/camera_control.rs:1602 rust/crates/shell/ui/cards/camera.slint:323
 msgctxt "focus"
 msgid "Manual"
 msgstr "मैनुअल"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1615 rust/crates/shell/ui/cards/camera.slint:430
+#: rust/crates/shell/src/plugins/camera_control.rs:1266 rust/crates/shell/src/plugins/camera_control.rs:1631 rust/crates/shell/ui/cards/camera.slint:450
 msgid "Sharpening"
 msgstr "शार्पनेस"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1308 rust/crates/shell/src/plugins/camera_control.rs:1613 rust/crates/shell/ui/cards/camera.slint:339 rust/crates/shell/ui/cards/camera.slint:386
+#: rust/crates/shell/src/plugins/camera_control.rs:1318 rust/crates/shell/src/plugins/camera_control.rs:1629 rust/crates/shell/ui/cards/camera.slint:359 rust/crates/shell/ui/cards/camera.slint:406
 msgid "Stabilization"
 msgstr "स्टेबलाइज़ेशन"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1309 rust/crates/shell/src/plugins/camera_control.rs:1616 rust/crates/shell/ui/cards/camera.slint:361 rust/crates/shell/ui/cards/camera.slint:396
+#: rust/crates/shell/src/plugins/camera_control.rs:1319 rust/crates/shell/src/plugins/camera_control.rs:1632 rust/crates/shell/ui/cards/camera.slint:381 rust/crates/shell/ui/cards/camera.slint:416
 msgid "Black level lock"
 msgstr "ब्लैक लेवल लॉक"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1310 rust/crates/shell/src/plugins/camera_control.rs:1617 rust/crates/shell/ui/cards/camera.slint:349
+#: rust/crates/shell/src/plugins/camera_control.rs:1320 rust/crates/shell/src/plugins/camera_control.rs:1633 rust/crates/shell/ui/cards/camera.slint:369
 msgid "Low light"
 msgstr "लो लाइट"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1311 rust/crates/shell/src/plugins/camera_control.rs:1618 rust/crates/shell/ui/cards/camera.slint:371 rust/crates/shell/ui/cards/camera.slint:409
+#: rust/crates/shell/src/plugins/camera_control.rs:1321 rust/crates/shell/src/plugins/camera_control.rs:1634 rust/crates/shell/ui/cards/camera.slint:391 rust/crates/shell/ui/cards/camera.slint:429
 msgid "Torch"
 msgstr "टॉर्च"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1343 rust/crates/shell/src/plugins/camera_control.rs:1588 rust/crates/shell/ui/cards/camera.slint:208 rust/crates/shell/ui/cards/camera.slint:211
+#: rust/crates/shell/src/plugins/camera_control.rs:1353 rust/crates/shell/src/plugins/camera_control.rs:1604 rust/crates/shell/ui/cards/camera.slint:228 rust/crates/shell/ui/cards/camera.slint:231
 msgid "Shutter"
 msgstr "शटर स्पीड"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1357 rust/crates/shell/src/plugins/camera_control.rs:1603
+#: rust/crates/shell/src/plugins/camera_control.rs:1367 rust/crates/shell/src/plugins/camera_control.rs:1619
 msgid "Compensation"
 msgstr "कंपेंसेशन"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1383 rust/crates/shell/src/plugins/camera_control.rs:1611
+#: rust/crates/shell/src/plugins/camera_control.rs:1393 rust/crates/shell/src/plugins/camera_control.rs:1627
 msgid "Focus distance"
 msgstr "फ़ोकस दूरी"
 
@@ -6085,66 +6097,66 @@ msgstr "एक प्लगइन इंस्टॉल करें"
 msgid "Plugins (*.zip)"
 msgstr "प्लगइन्स (*.zip)"
 
-#: rust/crates/shell/src/shell.rs:573
+#: rust/crates/shell/src/shell.rs:577
 #, python-brace-format
 msgid "{plugins} didn't start"
 msgid_plural "{plugins} didn't start"
 msgstr[0] "{plugins} शुरू नहीं हुआ"
 msgstr[1] "{plugins} शुरू नहीं हुए"
 
-#: rust/crates/shell/src/shell.rs:575
+#: rust/crates/shell/src/shell.rs:579
 #, python-brace-format
 msgid "{n} plugin didn't start"
 msgid_plural "{n} plugins didn't start"
 msgstr[0] "{n} प्लगइन शुरू नहीं हुआ"
 msgstr[1] "{n} प्लगइन शुरू नहीं हुए"
 
-#: rust/crates/shell/src/shell.rs:577
+#: rust/crates/shell/src/shell.rs:581
 msgid "Telescope works without it. The Plugins tab in Settings says what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings says what went wrong."
 msgstr[0] "Telescope इसके बिना काम करता है. सेटिंग्स में प्लगइन्स टैब बताता है कि क्या गड़बड़ी हुई."
 msgstr[1] "Telescope इनके बिना काम करता है. सेटिंग्स में प्लगइन्स टैब बताता है कि क्या गड़बड़ी हुई."
 
-#: rust/crates/shell/src/shell.rs:581 rust/crates/shell/src/shell.rs:601
+#: rust/crates/shell/src/shell.rs:585 rust/crates/shell/src/shell.rs:605
 msgid "Plugins…"
 msgstr "प्लगइन्स…"
 
-#: rust/crates/shell/src/shell.rs:595
+#: rust/crates/shell/src/shell.rs:599
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
 msgstr[0] "{plugins} बंद है"
 msgstr[1] "{plugins} बंद हैं"
 
-#: rust/crates/shell/src/shell.rs:596
+#: rust/crates/shell/src/shell.rs:600
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "आपने इसे प्लगइन्स में बंद कर दिया था. इसे वापस पाने के लिए, सेटिंग्स में प्लगइन्स खोलें और इसे चालू करें."
 msgstr[1] "आपने इन्हें प्लगइन्स में बंद कर दिया था. इन्हें वापस पाने के लिए, सेटिंग्स में प्लगइन्स खोलें और उन्हें चालू करें."
 
-#: rust/crates/shell/src/shell.rs:616
+#: rust/crates/shell/src/shell.rs:620
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "पुरानी फ़ाइल की एक कॉपी {path} पर है."
 
-#: rust/crates/shell/src/shell.rs:618
+#: rust/crates/shell/src/shell.rs:622
 msgid "Your settings couldn't be read"
 msgstr "आपकी सेटिंग्स पढ़ी नहीं जा सकीं"
 
-#: rust/crates/shell/src/shell.rs:619
+#: rust/crates/shell/src/shell.rs:623
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescope अपनी डिफ़ॉल्ट सेटिंग्स के साथ शुरू हुआ, इसलिए पेयर किए गए फ़ोन फिर से पेयर करने होंगे."
 
-#: rust/crates/shell/src/shell.rs:936
+#: rust/crates/shell/src/shell.rs:940
 msgid "Telescope - Save failed"
 msgstr "Telescope - सेव नहीं हो सका"
 
-#: rust/crates/shell/src/shell.rs:937
+#: rust/crates/shell/src/shell.rs:941
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "सेटिंग्स सेव नहीं की जा सकीं. डिस्क स्पेस और अनुमतियां जांचें."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1315 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1316 rust/crates/system/src/shortcuts.rs:441
 msgid "Start"
 msgstr "शुरू"
 
@@ -6217,7 +6229,7 @@ msgstr "ठंडा होने तक यह {size} पर स्ट्री
 msgid "Open Telescope on it."
 msgstr "इस पर Telescope खोलें."
 
-#: rust/crates/shell/src/sources.rs:849 rust/crates/shell/src/streams.rs:1452
+#: rust/crates/shell/src/sources.rs:849 rust/crates/shell/src/streams.rs:1583
 msgid "the device"
 msgstr ""
 
@@ -6273,112 +6285,112 @@ msgstr "फ़ोन का कैमरा चालू किया जा र
 msgid "Streaming the mic, camera off"
 msgstr "माइक स्ट्रीम हो रहा है, कैमरा बंद"
 
-#: rust/crates/shell/src/streams.rs:507
+#: rust/crates/shell/src/streams.rs:514
 msgid "Stop all but one camera first, then apply again"
 msgstr "पहले एक कैमरे को छोड़कर बाकी सब रोकें, फिर लागू करें"
 
-#: rust/crates/shell/src/streams.rs:521
+#: rust/crates/shell/src/streams.rs:528
 msgid "Reloading v4l2loopback…"
 msgstr "v4l2loopback दोबारा लोड किया जा रहा है…"
 
-#: rust/crates/shell/src/streams.rs:521
+#: rust/crates/shell/src/streams.rs:528
 msgid "Restarting stream…"
 msgstr "स्ट्रीम रीस्टार्ट हो रही है…"
 
-#: rust/crates/shell/src/streams.rs:551
+#: rust/crates/shell/src/streams.rs:558
 #, python-brace-format
 msgid "Loopback reloaded: {message}"
 msgstr "लूपबैक दोबारा लोड हुआ: {message}"
 
-#: rust/crates/shell/src/streams.rs:551
+#: rust/crates/shell/src/streams.rs:558
 msgid "Canvas updated"
 msgstr "कैनवस अपडेट हुआ"
 
-#: rust/crates/shell/src/streams.rs:556
+#: rust/crates/shell/src/streams.rs:563
 #, python-brace-format
 msgid "Reload failed: {message}"
 msgstr "दोबारा लोड होना विफल रहा: {message}"
 
-#: rust/crates/shell/src/streams.rs:577
+#: rust/crates/shell/src/streams.rs:584
 msgid "There are none to remove"
 msgstr "हटाने के लिए कुछ नहीं है"
 
-#: rust/crates/shell/src/streams.rs:793
+#: rust/crates/shell/src/streams.rs:922
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "{name} से स्ट्रीम अचानक रुक गई"
 
-#: rust/crates/shell/src/streams.rs:795
+#: rust/crates/shell/src/streams.rs:924
 msgid "The stream stopped unexpectedly"
 msgstr "स्ट्रीम अचानक रुक गई"
 
-#: rust/crates/shell/src/streams.rs:797
+#: rust/crates/shell/src/streams.rs:926
 msgid "Copy diagnostics has the details."
 msgstr "विवरण डायग्नोस्टिक्स कॉपी करें में है."
 
-#: rust/crates/shell/src/streams.rs:822
+#: rust/crates/shell/src/streams.rs:951
 #, python-brace-format
 msgid "The phone got hot and lowered the frame rate to {fps} fps for now."
 msgstr "फ़ोन गर्म हो गया और उसने अभी के लिए फ़्रेम रेट घटाकर {fps} fps कर दिया."
 
-#: rust/crates/shell/src/streams.rs:824
+#: rust/crates/shell/src/streams.rs:953
 #, python-brace-format
 msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
 msgstr "धीमे कनेक्शन के साथ तालमेल बनाए रखने के लिए डाइनैमिक ने फ़्रेम रेट घटाकर {fps} fps कर दिया."
 
-#: rust/crates/shell/src/streams.rs:826
+#: rust/crates/shell/src/streams.rs:955
 msgid "The camera is making fewer frames than asked for. Dim light slows it down."
 msgstr "कैमरा मांगे गए फ़्रेम से कम फ़्रेम बना रहा है. कम रोशनी इसे धीमा कर देती है."
 
-#: rust/crates/shell/src/streams.rs:828
+#: rust/crates/shell/src/streams.rs:957
 msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
 msgstr "फ़ोन का कैमरा मांगे गए फ़्रेम से कम फ़्रेम बना रहा है. हल्की रोशनी इसे धीमा कर देती है."
 
-#: rust/crates/shell/src/streams.rs:894
+#: rust/crates/shell/src/streams.rs:1023
 msgid "Reconnecting"
 msgstr "फिर से कनेक्ट हो रहा है"
 
-#: rust/crates/shell/src/streams.rs:896
+#: rust/crates/shell/src/streams.rs:1025
 msgid "Live"
 msgstr "लाइव"
 
-#: rust/crates/shell/src/streams.rs:898
+#: rust/crates/shell/src/streams.rs:1027
 msgid "Connecting"
 msgstr "कनेक्ट हो रहा है"
 
-#: rust/crates/shell/src/streams.rs:908
+#: rust/crates/shell/src/streams.rs:1037
 msgid "Starting"
 msgstr "शुरू हो रहा है"
 
-#: rust/crates/shell/src/streams.rs:911
+#: rust/crates/shell/src/streams.rs:1040
 msgid "Waiting"
 msgstr "इंतज़ार में"
 
 #. under a stream's tile, the virtual camera it goes to
-#: rust/crates/shell/src/streams.rs:922
+#: rust/crates/shell/src/streams.rs:1051
 #, python-brace-format
 msgid "to {output}"
 msgstr "{output} को"
 
-#: rust/crates/shell/src/streams.rs:923
+#: rust/crates/shell/src/streams.rs:1052
 #, python-brace-format
 msgid "Stop streaming {name}"
 msgstr "{name} की स्ट्रीमिंग रोकें"
 
-#: rust/crates/shell/src/streams.rs:1273
+#: rust/crates/shell/src/streams.rs:1403
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "फ़ोन ने ऐसा डेटा भेजा जिसे यह वर्शन नहीं पढ़ सकता. दोनों ऐप्स को एक ही वर्शन पर अपडेट करें."
 
-#: rust/crates/shell/src/streams.rs:1355
+#: rust/crates/shell/src/streams.rs:1486
 #, python-brace-format
 msgid "Can't reach {name}"
 msgstr "{name} से संपर्क नहीं हो पा रहा है"
 
-#: rust/crates/shell/src/streams.rs:1439
+#: rust/crates/shell/src/streams.rs:1570
 msgid "Lost the phone - reconnecting"
 msgstr "फ़ोन से संपर्क टूट गया - फिर से कनेक्ट हो रहा है"
 
-#: rust/crates/shell/src/streams.rs:1627
+#: rust/crates/shell/src/streams.rs:1758
 msgid "Couldn't reach the device."
 msgstr ""
 
@@ -6430,20 +6442,20 @@ msgstr "Telescope - वीडियो प्रीव्यू"
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: rust/crates/shell/src/window.rs:1314 rust/crates/shell/src/window.rs:1315
+#: rust/crates/shell/src/window.rs:1315 rust/crates/shell/src/window.rs:1316
 msgid "Start mic only"
 msgstr "सिर्फ़ माइक शुरू करें"
 
-#: rust/crates/shell/src/window.rs:1314
+#: rust/crates/shell/src/window.rs:1315
 msgid "Start streaming"
 msgstr "स्ट्रीमिंग शुरू करें"
 
-#: rust/crates/shell/src/window.rs:1320
+#: rust/crates/shell/src/window.rs:1321
 msgid "Stop streaming"
 msgstr "स्ट्रीमिंग रोकें"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1321 rust/crates/system/src/shortcuts.rs:441
+#: rust/crates/shell/src/window.rs:1322 rust/crates/system/src/shortcuts.rs:441
 msgid "Stop"
 msgstr "रोकें"
 
@@ -6488,16 +6500,20 @@ msgstr "वर्चुअल कैमरा एरर: {error}"
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{camera} पर {fps} fps पर {size} स्ट्रीम हो रहा है"
 
-#: rust/crates/shell/ui/cards/camera.slint:175
+#: rust/crates/shell/ui/cards/camera.slint:179
 msgctxt "camera section"
 msgid "Light"
 msgstr "रोशनी"
 
-#: rust/crates/shell/ui/cards/camera.slint:274 rust/crates/shell/ui/cards/camera.slint:277
+#: rust/crates/shell/ui/cards/camera.slint:195
+msgid "Unlock"
+msgstr ""
+
+#: rust/crates/shell/ui/cards/camera.slint:294 rust/crates/shell/ui/cards/camera.slint:297
 msgid "Tint G–M"
 msgstr "टिंट G–M"
 
-#: rust/crates/shell/ui/cards/camera.slint:311 rust/crates/shell/ui/cards/camera.slint:314
+#: rust/crates/shell/ui/cards/camera.slint:331 rust/crates/shell/ui/cards/camera.slint:334
 msgid "Distance"
 msgstr "दूरी"
 
@@ -7608,55 +7624,55 @@ msgstr "यह प्लगइन्स फ़ोल्डर में को�
 msgid "Streaming from any device's web browser, by scanning a code."
 msgstr "कोड स्कैन करके, किसी भी डिवाइस के वेब ब्राउज़र से स्ट्रीमिंग."
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1434
+#: rust/crates/shell/src/plugins/camera_control.rs:1444
 msgid "Exposure, white balance, focus, lenses and the phone camera's other settings."
 msgstr "एक्सपोज़र, व्हाइट बैलेंस, फ़ोकस, लेंस और फ़ोन के कैमरे की अन्य सेटिंग्स."
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1435
+#: rust/crates/shell/src/plugins/camera_control.rs:1445
 msgid "Without it there's no Camera card and the phone uses its own automatic settings."
 msgstr "इसके बिना कोई कैमरा कार्ड नहीं होता और फ़ोन अपनी ऑटोमैटिक सेटिंग्स का इस्तेमाल करता है."
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1589
+#: rust/crates/shell/src/plugins/camera_control.rs:1605
 msgctxt "search"
 msgid "exposure manual"
 msgstr "एक्सपोज़र मैनुअल exposure manual"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1591
+#: rust/crates/shell/src/plugins/camera_control.rs:1607
 msgctxt "search"
 msgid "exposure manual speed"
 msgstr "एक्सपोज़र मैनुअल शटर स्पीड exposure manual speed"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1603
+#: rust/crates/shell/src/plugins/camera_control.rs:1619
 msgctxt "search"
 msgid "exposure ev brightness"
 msgstr "एक्सपोज़र ब्राइटनेस exposure ev brightness"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1606
+#: rust/crates/shell/src/plugins/camera_control.rs:1622
 msgctxt "search"
 msgid "white balance wb kelvin"
 msgstr "व्हाइट बैलेंस केल्विन कलर टेम्परेचर white balance wb kelvin"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1608
+#: rust/crates/shell/src/plugins/camera_control.rs:1624
 msgctxt "search"
 msgid "white balance wb green magenta"
 msgstr "व्हाइट बैलेंस टिंट हरा मैजेंटा white balance wb green magenta"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1611
+#: rust/crates/shell/src/plugins/camera_control.rs:1627
 msgctxt "search"
 msgid "manual focus"
 msgstr "मैनुअल फ़ोकस manual focus"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1618
+#: rust/crates/shell/src/plugins/camera_control.rs:1634
 msgctxt "search"
 msgid "flash light"
 msgstr "फ़्लैश लाइट टॉर्च रोशनी flash light"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1615
+#: rust/crates/shell/src/plugins/camera_control.rs:1631
 msgctxt "search"
 msgid "edge"
 msgstr "शार्पनेस एज किनारा edge"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1617
+#: rust/crates/shell/src/plugins/camera_control.rs:1633
 msgctxt "search"
 msgid "dark night brightness"
 msgstr "अंधेरा रात ब्राइटनेस रोशनी dark night brightness"

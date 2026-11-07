@@ -52,6 +52,12 @@ pub trait ControlClient: Send + Sync {
     fn state(&self) -> Result<Value, String>;
     /// Whether there's a microphone to bring over.
     fn has_audio(&self) -> bool;
+    /// Holds the source's auto exposure and white balance where they are (true) or hands them back (false), for
+    /// host.lock_exposure. The answer is whether it worked: false for a source that can't, which is the default. A phone
+    /// isn't asked this way, since its camera says when the lock took.
+    fn lock_exposure(&self, _on: bool) -> bool {
+        false
+    }
 }
 
 /// Browser camera in the picker, for Add device to offer it without knowing its plugin.

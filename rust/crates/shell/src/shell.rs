@@ -112,6 +112,8 @@ pub enum Effect {
     /// Restart a stream for new connection settings: source_id's, or the panels' without one.
     Reconnect(Option<String>),
     PhoneControl { source_id: Option<String>, body: Value },
+    /// Host::lock_exposure (on) and unlock_exposure.
+    ExposureLock { source_id: Option<String>, on: bool },
     RequestPhoneState { source_id: Option<String> },
     /// The packet steps the shown stream's H.264 goes through now, after one plugin's change_packets.
     Packets(PacketMakers),
@@ -173,6 +175,8 @@ pub struct Streams {
     pub plugin_source: bool,
     pub source_id: Option<String>,
     pub phone_state: Option<Value>,
+    /// Each source's exposure and white balance lock, "locking" or "locked" (host.exposure_lock); a source without one isn't here.
+    pub exposure_locks: std::collections::HashMap<String, String>,
     /// (id, name) of the stream the mic follows, and the ids of every stream that's up.
     pub main: Option<(String, String)>,
     pub live: Vec<String>,

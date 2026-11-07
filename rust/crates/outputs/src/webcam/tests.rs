@@ -671,3 +671,161 @@ export component Wrapper inherits Window {
         assert!(tiles.iter().all(|t| t.size().height == 40.0), "{:?}", tiles.iter().map(|t| t.size().height).collect::<Vec<_>>());
     }
 }
+
+// Holding a webcam's exposure and white balance for host.lock_exposure
+
+mod locking {
+    use super::*;
+
+    /// A camera with both auto switches, each manual control refusing to be set while its auto is on.
+    #[derive(Clone)]
+    struct Lockable {
+        values: Arc<Mutex<HashMap<String, i64>>>,
+        sets: Arc<Mutex<Vec<(String, i64)>>>,
+        with_white_balance: bool,
+    }
+
+    impl Lockable {
+        fn new(with_white_balance: bool) -> Lockable {
+            let values = [("exposure_auto", 1), ("exposure_time", 333), ("white_balance_auto", 1), ("white_balance", 4600)];
+            Lockable {
+                values: Arc::new(Mutex::new(values.iter().map(|(k, v)| (k.to_string(), *v)).collect())),
+                sets: Arc::default(),
+                with_white_balance,
+            }
+        }
+        fn v(&self, n: &str) -> i64 {
+            self.values.lock().unwrap()[n]
+        }
+    }
+
+    impl Controls for Lockable {
+        fn list(&mut self) -> Vec<Control> {
+            let mut list = vec![Control::new("exposure_auto", "bool", 0, 1, 1, 1, self.v("exposure_auto")),
+                                Control::new("exposure_time", "int", 3, 2047, 1, 250, self.v("exposure_time"))];
+            if self.with_white_balance {
+                list.push(Control::new("white_balance_auto", "bool", 0, 1, 1, 1, self.v("white_balance_auto")));
+                list.push(Control::new("white_balance", "int", 2000, 6500, 10, 4600, self.v("white_balance")));
+            }
+            list
+        }
+        fn set(&mut self, name: &str, value: i64) -> bool {
+            let auto = |a: &str| self.values.lock().unwrap().get(a).copied().unwrap_or(0) != 0;
+            if (name == "exposure_time" && auto("exposure_auto")) || (name == "white_balance" && auto("white_balance_auto")) {
+                return false;
+            }
+            self.sets.lock().unwrap().push((name.into(), value));
+            self.values.lock().unwrap().insert(name.into(), value);
+            true
+        }
+    }
+
+    fn env_with(camera: Option<Lockable>) -> Env {
+        cams_with(vec![c920()], Box::new(move |_| camera.clone().map(|c| Box::new(c) as Box<dyn Controls>)))
+    }
+
+    fn client(env: &Env) -> Box<dyn ControlClient> {
+        env.plugin.sources["usb-c920"].control_client().expect("a control client")
+    }
+
+    #[test]
+    fn locking_switches_both_autos_off_at_the_values_they_had() {
+        let camera = Lockable::new(true);
+        let env = env_with(Some(camera.clone()));
+        assert!(client(&env).lock_exposure(true));
+        assert_eq!((camera.v("exposure_auto"), camera.v("white_balance_auto")), (0, 0));
+        assert_eq!((camera.v("exposure_time"), camera.v("white_balance")), (333, 4600), "what the camera had chosen, now held");
+    }
+
+    #[test]
+    fn unlocking_puts_the_autos_back() {
+        let camera = Lockable::new(true);
+        let env = env_with(Some(camera.clone()));
+        let client = client(&env);
+        assert!(client.lock_exposure(true));
+        assert!(client.lock_exposure(false));
+        assert_eq!((camera.v("exposure_auto"), camera.v("white_balance_auto")), (1, 1));
+        let sets = camera.sets.lock().unwrap().len();
+        assert!(client.lock_exposure(false), "letting go twice is fine");
+        assert_eq!(camera.sets.lock().unwrap().len(), sets, "and touches nothing");
+    }
+
+    #[test]
+    fn locking_twice_does_not_lock_again() {
+        let camera = Lockable::new(true);
+        let env = env_with(Some(camera.clone()));
+        let client = client(&env);
+        assert!(client.lock_exposure(true));
+        let sets = camera.sets.lock().unwrap().len();
+        assert!(client.lock_exposure(true));
+        assert_eq!(camera.sets.lock().unwrap().len(), sets);
+    }
+
+    #[test]
+    fn a_part_already_by_hand_is_left_alone_and_stays_by_hand_after() {
+        let camera = Lockable::new(true);
+        camera.values.lock().unwrap().insert("white_balance_auto".into(), 0);
+        let env = env_with(Some(camera.clone()));
+        let client = client(&env);
+        assert!(client.lock_exposure(true));
+        assert!(!camera.sets.lock().unwrap().iter().any(|(n, _)| n.starts_with("white_balance")), "nothing to freeze there");
+        assert!(client.lock_exposure(false));
+        assert_eq!((camera.v("exposure_auto"), camera.v("white_balance_auto")), (1, 0));
+    }
+
+    #[test]
+    fn a_webcam_without_a_white_balance_switch_cannot_lock_and_is_not_touched() {
+        let camera = Lockable::new(false);
+        let env = env_with(Some(camera.clone()));
+        assert!(!client(&env).lock_exposure(true));
+        assert!(camera.sets.lock().unwrap().is_empty());
+        assert_eq!(camera.v("exposure_auto"), 1);
+    }
+
+    #[test]
+    fn a_webcam_with_no_controls_at_all_cannot_lock() {
+        let env = env_with(None);
+        assert!(!client(&env).lock_exposure(true));
+        assert!(client(&env).lock_exposure(false), "there's nothing to give back");
+    }
+
+    #[test]
+    fn a_webcam_that_is_unplugged_cannot_lock() {
+        let camera = Lockable::new(true);
+        let mut env = env_with(Some(camera.clone()));
+        env.plugged.lock().unwrap().clear();
+        env.plugin.rescan(&mut env.host);
+        let lock = WebcamLock { key: "usb-c920".into(), shared: env.plugin.shared().clone(), controls_for: env.plugin.controls_for.clone(), held: Mutex::new(None) };
+        assert!(!lock.lock());
+        assert!(camera.sets.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_camera_that_refuses_the_switch_is_put_back_as_it_was() {
+        struct Refuses(Lockable);
+        impl Controls for Refuses {
+            fn list(&mut self) -> Vec<Control> {
+                self.0.list()
+            }
+            fn set(&mut self, name: &str, value: i64) -> bool {
+                name != "white_balance_auto" && self.0.set(name, value)
+            }
+        }
+        let camera = Lockable::new(true);
+        let c = camera.clone();
+        let env = cams_with(vec![c920()], Box::new(move |_| Some(Box::new(Refuses(c.clone())) as Box<dyn Controls>)));
+        assert!(!client(&env).lock_exposure(true));
+        assert_eq!((camera.v("exposure_auto"), camera.v("white_balance_auto")), (1, 1));
+    }
+
+    #[test]
+    fn the_card_hears_about_a_lock_and_reads_the_controls_again() {
+        let camera = Lockable::new(true);
+        let mut env = env_with(Some(camera.clone()));
+        pick(&mut env, Some("usb-c920"));
+        assert!(client(&env).lock_exposure(true));
+        env.plugin.on_event(&mut env.host, &Event::ExposureLock { source_id: "webcam:usb-c920".into(), state: "locked".into() });
+        let switches = env.plugin.controls("usb-c920");
+        assert_eq!((switches["exposure_auto"].value, switches["white_balance_auto"].value), (0, 0));
+    }
+}

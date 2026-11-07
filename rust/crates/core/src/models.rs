@@ -110,6 +110,8 @@ pub struct CameraCapabilities {
     /// Newer phone apps only.
     pub supports_focus_point: bool,
     pub supports_meter_point: bool,
+    /// The lens takes exposure_lock: it has both the auto exposure lock and the auto white balance lock.
+    pub supports_exposure_lock: bool,
     /// How far the lens zooms itself (CONTROL_ZOOM_RATIO), 1 for an older phone app.
     pub zoom_ratio_max: f64,
     /// How far it crops on top of that (SCALER_CROP_REGION).
@@ -153,6 +155,7 @@ impl CameraCapabilities {
             hw_level: require_str(raw, "hwLevel", w)?,
             supports_focus_point: flag("supportsFocusPoint"),
             supports_meter_point: flag("supportsMeterPoint"),
+            supports_exposure_lock: flag("supportsExposureLock"),
             zoom_ratio_max: or_one(optional_number(raw, "zoomRatioMax")?),
             crop_zoom_max: or_one(optional_number(raw, "cropZoomMax")?),
             freeform_crop: flag("freeformCrop"),
@@ -330,6 +333,8 @@ mod tests {
         // The newer phone apps' flags are only true when they say true
         let flags = CameraCapabilities::from_value(&with(camera(), json!({"supportsFocusPoint": true, "supportsMeterPoint": 1}))).unwrap();
         assert_eq!((flags.supports_focus_point, flags.supports_meter_point), (true, false));
+        let lockable = CameraCapabilities::from_value(&with(camera(), json!({"supportsExposureLock": true}))).unwrap();
+        assert!(lockable.supports_exposure_lock && !old.supports_exposure_lock);
     }
 
     // test_models.py::test_camera_capabilities_rejects_lens_zooms_that_arent_numbers

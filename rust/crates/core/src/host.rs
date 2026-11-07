@@ -282,6 +282,18 @@ pub trait HostCamera {
     /// Whether set_camera_on(false) would work now, and if not, why.
     fn can_turn_camera_off(&self) -> (bool, String);
     fn set_camera_on(&mut self, on: bool, auto: bool);
+    /// Holds source_id's auto exposure and white balance where they are (the shown stream's by default), for a plugin that
+    /// measures the picture and needs it not to drift. A phone locks them with the camera's own locks and a webcam switches
+    /// its auto controls off at their current values. Event::ExposureLock says "locking" and then "locked" once the source
+    /// confirms it, or "unavailable" when it can't (a lens without the locks, a webcam without the controls, an older phone
+    /// app). It lets go by itself when the stream stops or the lens changes. Asking again while it's held does nothing.
+    fn lock_exposure(&mut self, _source_id: Option<&str>) {}
+    /// Lets a lock_exposure go (Event::ExposureLock says "unlocked"); nothing happens when nothing is held.
+    fn unlock_exposure(&mut self, _source_id: Option<&str>) {}
+    /// "off", "locking" or "locked" for source_id's stream (the shown one by default).
+    fn exposure_lock(&self, _source_id: Option<&str>) -> String {
+        "off".into()
+    }
 }
 
 /// Places other than a paired phone to stream from.

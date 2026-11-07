@@ -1229,6 +1229,7 @@ impl Window {
                 self.timers.borrow_mut().remove(&(plugin, token));
             }
             Effect::PhoneControl { source_id, body } => self.phone_control(source_id.as_deref(), &body),
+            Effect::ExposureLock { source_id, on } => self.set_exposure_lock(source_id.as_deref(), on),
             Effect::RequestPhoneState { source_id } => self.request_phone_state(source_id.as_deref()),
             Effect::Packets(makers) => self.change_packets(makers),
             Effect::Quit => self.quit("A plugin quit the app"),

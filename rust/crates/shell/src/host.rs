@@ -217,6 +217,16 @@ impl HostCamera for Ctx<'_> {
         self.state.streams.camera_off_auto = !on && auto;
         self.state.effects.push(Effect::CameraOn { on, auto });
     }
+    fn lock_exposure(&mut self, source_id: Option<&str>) {
+        self.state.effects.push(Effect::ExposureLock { source_id: source_id.map(String::from), on: true });
+    }
+    fn unlock_exposure(&mut self, source_id: Option<&str>) {
+        self.state.effects.push(Effect::ExposureLock { source_id: source_id.map(String::from), on: false });
+    }
+    fn exposure_lock(&self, source_id: Option<&str>) -> String {
+        let id = source_id.map(String::from).or_else(|| self.state.streams.source_id.clone()).unwrap_or_default();
+        self.state.streams.exposure_locks.get(&id).cloned().unwrap_or_else(|| "off".into())
+    }
 }
 
 impl HostSources for Ctx<'_> {

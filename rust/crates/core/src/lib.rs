@@ -11,6 +11,7 @@ pub mod config;
 pub mod dev_profile;
 pub mod diagnostics;
 pub mod event;
+pub mod exposure_lock;
 pub mod frame;
 pub mod fuzzy;
 pub mod host;

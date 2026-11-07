@@ -548,6 +548,7 @@ impl Plugin for Listener {
             Event::FocusModeChanged { mode } => note(&self.heard, format!("{} focus mode {mode}", self.name)),
             Event::SensorsChanged { source_id } => note(&self.heard, format!("{} sensors {source_id}", self.name)),
             Event::StillBusyChanged { source_id, busy } => note(&self.heard, format!("{} busy {source_id} {busy}", self.name)),
+            Event::ExposureLock { source_id, state } => note(&self.heard, format!("{} lock {source_id} {state}", self.name)),
             Event::StillSaved { source_id, paths } => note(&self.heard, format!("{} saved {source_id} {paths:?}", self.name)),
             _ => {}
         }

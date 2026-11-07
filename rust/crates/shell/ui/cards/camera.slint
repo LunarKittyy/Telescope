@@ -120,6 +120,9 @@ export component CameraCard inherits Card {
     in property <TileState> torch: { enabled: true };
     in property <int> noise-reduction: 1;
     in property <int> sharpening: 1;
+    // Something is holding exposure and white balance where they are: "Locked", or "Locking…" until the phone confirms; "" when not
+    in property <string> exposure-lock-label;
+    in property <string> exposure-lock-text;
 
     callback lens-picked(int);
     callback exposure-picked(int);
@@ -139,6 +142,7 @@ export component CameraCard inherits Card {
     callback torch-toggled(bool);
     callback nr-picked(int);
     callback edge-picked(int);
+    callback unlock-clicked;
 
     title: @tr("Camera");
     icon: Icons.camera;
@@ -175,6 +179,22 @@ export component CameraCard inherits Card {
         title: @tr("camera section" => "Light");
         icon: Icons.sun;
         scope: root.fold-key;
+        if exposure-lock-label != "": FormRow {
+            label: exposure-lock-label;
+            HorizontalLayout {
+                spacing: 8px;
+                Text {
+                    text: exposure-lock-text;
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    color: Theme.text-dim;
+                    vertical-alignment: center;
+                    overflow: elide;
+                    horizontal-stretch: 1;
+                }
+                Button { text: @tr("Unlock"); enabled: active; clicked => { unlock-clicked(); } }
+            }
+        }
         FormRow {
             label: @tr("Exposure");
             Segmented {

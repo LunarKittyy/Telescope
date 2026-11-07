@@ -32,7 +32,7 @@ fn the_desktop_reads_the_phones_state() {
     assert_eq!((camera.logical_id.as_deref(), camera.label.as_str(), camera.current, camera.has_ois, camera.iso_min), (Some("0"), "Back ~24mm OIS [phys]", true, true, 50));
     assert_eq!((camera.shutter_min_ns, camera.shutter_max_ns, camera.min_focus_distance), (100_000, 1_000_000_000, 10.0));
     assert!(camera.supports_manual_sensor && camera.supports_manual_wb && camera.supports_manual_focus);
-    assert!(camera.supports_focus_point && camera.supports_meter_point);
+    assert!(camera.supports_focus_point && camera.supports_meter_point && camera.supports_exposure_lock);
     assert!(camera.supports_flash && camera.freeform_crop);
     assert_eq!((camera.zoom_ratio_max, camera.crop_zoom_max, camera.hw_level.as_str()), (10.0, 8.0, "FULL"));
     assert_eq!((camera.ae_comp_min, camera.ae_comp_max), (-12, 12));

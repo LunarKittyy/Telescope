@@ -126,6 +126,8 @@ pub struct FakeHost {
     pub window_active: bool,
     /// The phone's camera is off (set_camera_on(false) turns it off too).
     pub camera_off: bool,
+    /// What exposure_lock() answers: "locking" or "locked" (empty is off); lock_exposure and unlock_exposure only note the call.
+    pub exposure_lock: String,
     /// What background_streams() lists.
     pub background: Vec<BackgroundStream>,
     /// Whether pick_on_preview() says there is a preview to pick on.
@@ -363,6 +365,15 @@ impl HostCamera for FakeHost {
         self.camera_off = !on;
         self.camera_off_auto = auto && !on;
         self.note(format!("set_camera_on {on} {auto}"));
+    }
+    fn lock_exposure(&mut self, source_id: Option<&str>) {
+        self.note(format!("lock_exposure {source_id:?}"));
+    }
+    fn unlock_exposure(&mut self, source_id: Option<&str>) {
+        self.note(format!("unlock_exposure {source_id:?}"));
+    }
+    fn exposure_lock(&self, _source_id: Option<&str>) -> String {
+        if self.exposure_lock.is_empty() { "off".into() } else { self.exposure_lock.clone() }
     }
 }
 

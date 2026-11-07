@@ -175,6 +175,11 @@ events! {
     "still_saved" => StillSaved { source_id: String, paths: Vec<String> },
     /// A stream fell behind its frame rate, or caught up again; only the shown one is measured.
     "stream_behind" => StreamBehind { source_id: String, behind: bool },
+    /// Not in plugin.py: where a source's exposure and white balance lock stands after host.lock_exposure or unlock_exposure:
+    /// "locking" (asked, not confirmed yet), "locked" (the phone or webcam confirmed it), "unlocked", "unavailable" (the
+    /// source can't lock) or "failed" (never confirmed in time, and let go). The source letting go by itself (another lens,
+    /// the stream stopping) says "unlocked" too.
+    "exposure_lock" => ExposureLock { source_id: String, state: String },
 
     /// Not in plugin.py: a pick_on_preview ended, with the pick or None when cancelled (Python's on_done callback).
     "preview_picked" => PreviewPicked { owner: String, pick: Option<Pick> },

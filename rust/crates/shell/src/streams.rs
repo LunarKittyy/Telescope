@@ -28,6 +28,8 @@ const COLOUR_SETTLE: Duration = Duration::from_secs(1);
 
 /// How long a phone gets to reopen its camera at a new size: a camera reopen and a possible brief reconnect.
 const RESOLUTION_WAIT: Duration = Duration::from_secs(8);
+/// How often locks are looked after while any is held.
+const LOCK_TICK: Duration = Duration::from_millis(150);
 /// How long the footer stays red after a size that didn't land.
 const RESOLUTION_FAILED_SHOWN: Duration = Duration::from_secs(4);
 
@@ -90,6 +92,11 @@ pub struct Streams {
     reconnecting: RefCell<Option<(slint::Timer, String, Cell<u32>)>>,
     /// Takes the red off the frame rate again after a size that didn't land.
     fps_tone_timer: slint::Timer,
+    /// Each source's exposure and white balance lock (host.lock_exposure), and the timer that watches the phones' side of it.
+    locks: RefCell<telescope_core::exposure_lock::Locks>,
+    lock_timer: slint::Timer,
+    /// Seconds of ticks the lock timer has run, which is the clock its timeouts use (it only runs while a lock is held).
+    lock_clock: Cell<f64>,
     /// By source: how long a resolution change may take before the footer says it didn't land.
     resolution_timers: RefCell<std::collections::HashMap<String, slint::Timer>>,
     /// The packet steps plugins asked for, which go with the panels from stream to stream.
@@ -589,15 +596,137 @@ impl Window {
     }
 
     /// A control body to source_id's stream, the shown one by default.
-    pub fn phone_control(&self, source_id: Option<&str>, body: &Value) {
-        let flow = self.streams.flow.borrow();
-        let source = match source_id {
-            Some(id) => flow.sessions.find(Some(id)),
-            None => flow.sessions.focus.clone(),
+    pub fn phone_control(self: &Rc<Self>, source_id: Option<&str>, body: &Value) {
+        let (source, session) = {
+            let flow = self.streams.flow.borrow();
+            let source = match source_id {
+                Some(id) => flow.sessions.find(Some(id)),
+                None => flow.sessions.focus.clone(),
+            };
+            let session = source.as_ref().and_then(|s| s.session());
+            (source, session)
         };
-        if let Some(session) = source.and_then(|s| s.session()) {
-            session.client.send(body);
+        let Some(session) = session else { return };
+        session.client.send(body);
+        // A new lens, size or camera state reopens the phone's camera, which lets go of a lock; the phone may skip a reopen it
+        // doesn't need, so it is told too and both sides end up unlocked
+        if let Some(source) = source.filter(|_| matches!(body.get("action").and_then(Value::as_str), Some("camera" | "resolution" | "camera_on"))) {
+            if self.streams.plugin_sources.borrow().contains_key(source.id_str()) {
+                return;
+            }
+            let held = self.streams.locks.borrow_mut().unlock(source.id_str());
+            if held.is_some() {
+                session.client.send(&telescope_core::exposure_lock::phone_body(false));
+                self.said_locks(held.into_iter().collect());
+            }
         }
+    }
+
+    /// host.lock_exposure and unlock_exposure: a phone is asked to lock with the camera's own locks and says so in its state
+    /// once they hold; a plugin's source (a webcam) switches its auto controls off and answers at once.
+    pub fn set_exposure_lock(self: &Rc<Self>, source_id: Option<&str>, on: bool) {
+        use telescope_core::exposure_lock::{phone_body, LOCKING};
+        let id = match source_id {
+            Some(id) => id.to_string(),
+            None => match self.streams.flow.borrow().sessions.focus.as_ref() {
+                Some(s) => s.id_str().to_string(),
+                None => return,
+            },
+        };
+        let streaming = self.streams.flow.borrow().sessions.find(Some(&id)).is_some_and(|s| s.has_session());
+        let plugin = self.streams.plugin_sources.borrow().get(&id).cloned();
+        let now = self.streams.lock_clock.get();
+        let says = match (plugin, on) {
+            (Some(shared), true) => {
+                let client = shared.lock().unwrap().control_client();
+                let locked = streaming && client.is_some_and(|c| c.lock_exposure(true));
+                vec![self.streams.locks.borrow_mut().lock_at_once(&id, locked, now)]
+            }
+            (Some(shared), false) => {
+                self.release_source_lock(&shared);
+                self.streams.locks.borrow_mut().unlock(&id).into_iter().collect()
+            }
+            (None, true) => {
+                let was_off = self.streams.locks.borrow().phase(&id) == "off";
+                let said = self.streams.locks.borrow_mut().lock_phone(&id, now);
+                if said.state == LOCKING && was_off {
+                    self.phone_control(Some(&id), &phone_body(true));
+                }
+                vec![said]
+            }
+            (None, false) => {
+                let held = self.streams.locks.borrow_mut().unlock(&id);
+                if streaming && held.is_some() {
+                    self.phone_control(Some(&id), &phone_body(false));
+                }
+                held.into_iter().collect()
+            }
+        };
+        self.said_locks(says);
+    }
+
+    /// A webcam's auto controls go back to what they were.
+    fn release_source_lock(&self, shared: &crate::sources::SharedSource) {
+        if let Some(client) = shared.lock().unwrap().control_client() {
+            client.lock_exposure(false);
+        }
+    }
+
+    /// Says what happened to locks on the bus, keeps host.exposure_lock's answer up to date and runs the timer that watches
+    /// the phones while any is held.
+    fn said_locks(self: &Rc<Self>, says: Vec<telescope_core::exposure_lock::Say>) {
+        {
+            let locks = self.streams.locks.borrow();
+            let mut st = self.state.borrow_mut();
+            st.streams.exposure_locks = locks.ids().into_iter().map(|id| { let phase = locks.phase(&id).to_string(); (id, phase) }).collect();
+            for say in says {
+                st.bus.emit(Event::ExposureLock { source_id: say.source_id, state: say.state.into() });
+            }
+        }
+        if self.streams.locks.borrow().is_empty() {
+            self.streams.lock_timer.stop();
+        } else if !self.streams.lock_timer.running() {
+            let me = Rc::downgrade(self);
+            self.streams.lock_timer.start(slint::TimerMode::Repeated, LOCK_TICK, move || {
+                if let Some(w) = me.upgrade() {
+                    w.lock_tick();
+                }
+            });
+        }
+        self.process();
+    }
+
+    /// What a phone's state says about its lock (every state that comes, polled or not).
+    fn lock_state(self: &Rc<Self>, source: &SourceRef, state: &Value) {
+        let says = self.streams.locks.borrow_mut().note_state(source.id_str(), state, self.streams.lock_clock.get());
+        if !says.is_empty() {
+            self.said_locks(says);
+        }
+    }
+
+    /// Locks held on a stream that has since stopped go with it, a settling lock is asked about, and one that never confirmed is let go.
+    fn lock_tick(self: &Rc<Self>) {
+        self.streams.lock_clock.set(self.streams.lock_clock.get() + LOCK_TICK.as_secs_f64());
+        let ids = self.streams.locks.borrow().ids();
+        let mut says = Vec::new();
+        for id in ids {
+            if self.streams.flow.borrow().sessions.find(Some(&id)).is_some_and(|s| s.has_session()) {
+                continue;
+            }
+            if let Some(shared) = self.streams.plugin_sources.borrow().get(&id).cloned() {
+                self.release_source_lock(&shared);
+            }
+            says.extend(self.streams.locks.borrow_mut().gone(&id));
+        }
+        let due = self.streams.locks.borrow_mut().due(self.streams.lock_clock.get());
+        for id in &due.poll {
+            self.request_phone_state(Some(id));
+        }
+        for id in &due.unlock {
+            self.phone_control(Some(id), &telescope_core::exposure_lock::phone_body(false));
+        }
+        says.extend(due.says);
+        self.said_locks(says);
     }
 
     /// host.change_packets: the makers as they are now, on the shown stream's tap.
@@ -1259,6 +1388,7 @@ impl Window {
             return;
         }
         let shown = crate::session::same(&self.streams.flow.borrow().sessions.focus, source);
+        self.lock_state(source, &state);
         self.state.borrow().bus.emit(Event::PhonePolled { source_id: source.id_str().into(), session: session_id, shown, state });
         self.process();
     }
@@ -1285,6 +1415,7 @@ impl Window {
             }
         }
         let focused = crate::session::same(&self.streams.flow.borrow().sessions.focus, source);
+        self.lock_state(source, &state);
         self.state.borrow().bus.emit(Event::StreamState { source_id: source.id_str().into(), state: state.clone() });
         // What each lens can take, from every stream's state and not only the shown one's
         if let Some(stills) = self.state.borrow().link.as_ref().and_then(|l| l.stills()) {
