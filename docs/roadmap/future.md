@@ -119,6 +119,8 @@ What's left is the steps still written for the CPU that change the picture partw
 
 The card isn't always the faster place though. 5.0.2 and 5.0.3 moved mirroring, flipping, zoom and stretch back to the CPU, since they're cheap there and a card busy with a game or OBS held up every frame. A step is only worth moving to the card when it's heavy enough to make up for that.
 
+A view between two plugin shaders now costs a trip down and back up though. Making the view a step that can run either way would only help with one more rule: such a step goes to the card only when the frame is already up there. Right now the balancer picks the card or the CPU for every such step in a frame at once (colour grading is the other one), so with the card picked a lone view or grade sends the frame up just for itself.
+
 Measure first. The pipeline already counts its transfers (`crates/media/src/transfers.rs`), so run a heavy stack on a weak laptop and see where the time goes before moving anything. Laptops whose GPU shares memory with the CPU copy almost for free and they're also the ones whose CPU struggles first.
 
 ## ARM64
