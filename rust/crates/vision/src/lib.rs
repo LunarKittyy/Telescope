@@ -308,7 +308,10 @@ impl VisionService for VisionHost {
         let shared = frame.clone();
         let hq = self.shared.vision.newest_cutout_in(source_id, frame.number, w, h, Box::new(move || rgb(&shared)), epoch);
         // Not downloaded, loading, failed or late: the normal mask, so the picture never goes without one it could have had
-        hq.or_else(|| self.person_mask_in(source_id, frame, w, h, epoch))
+        hq.or_else(|| {
+            let shared = frame.clone();
+            self.shared.vision.newest_mask_nowait_in(source_id, frame.number, w, h, Box::new(move || model_rgb(&shared)), epoch)
+        })
     }
 
     fn matting_state(&self) -> String {

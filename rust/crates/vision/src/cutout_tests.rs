@@ -303,3 +303,25 @@ fn a_turn_of_the_view_leaves_no_cutout_mask_of_the_old_picture_and_clears_the_mo
     assert!(go(3, v.view_epoch()).is_some(), "the turned picture gets a new mask");
     assert_eq!(r.counts.resets.load(Ordering::SeqCst), resets + 1, "and the model starts again");
 }
+
+#[test]
+fn the_fallback_to_the_normal_mask_never_holds_a_frame_up() {
+    let (counts, broken): (Arc<Counts>, Arc<AtomicBool>) = Default::default();
+    let slow = Cutouts { counts, took: Duration::from_millis(400), broken };
+    let backend: Arc<dyn Backend> = Arc::new(slow);
+    let (v, _, _) = super::tests::make(Box::new(move || Ok(backend.clone())));
+    v.load();
+    wait(|| v.state() == READY);
+    // the normal model's first mask is 400 ms away and no cutout is ready: the old waiting ask would sit here for up to FIRST_MASK_WAIT_S
+    for seq in 1..6 {
+        let f = frame();
+        let began = Instant::now();
+        v.newest_mask_nowait_in("a", seq, f.w, f.h, Box::new(move || Some(f)), v.view_epoch());
+        assert!(began.elapsed() < Duration::from_millis(100), "{:?}", began.elapsed());
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    wait(|| {
+        let f = frame();
+        v.newest_mask_nowait_in("a", 100, f.w, f.h, Box::new(move || Some(f)), v.view_epoch()).is_some()
+    });
+}

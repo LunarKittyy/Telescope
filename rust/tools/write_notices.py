@@ -76,9 +76,9 @@ Windows 11 camera (virtualcamera/TelescopeCamera.dll, source in rust/windows/vir
     Sample: Copyright (c) Microsoft Corporation. License: MIT.
     Source: https://github.com/microsoft/Windows-Camera/tree/master/Samples/VirtualCamera
 
-Microsoft Visual C++ runtime (vcruntime140.dll)
+Microsoft Visual C++ runtime (vcruntime140.dll, vcruntime140_1.dll, msvcp140.dll, msvcp140_1.dll)
     Copyright (c) Microsoft Corporation.
-    Redistributed under the Microsoft Visual Studio license terms, for RNNoise.
+    Redistributed under the Microsoft Visual Studio license terms, for RNNoise and ONNX Runtime.
 
 Android SDK Platform Tools (not included)
     On Windows, adb.exe is downloaded from Google when you ask for it (Get adb), and kept in

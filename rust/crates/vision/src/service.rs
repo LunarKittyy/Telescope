@@ -495,6 +495,16 @@ impl Vision {
 
     /// newest_mask for a picture made when the view had turned `epoch` times: once it has turned again, that picture's mask is of the wrong way round, so none is made or handed out for it.
     pub fn newest_mask_in(&self, key: &str, seq: u64, w: usize, h: usize, picture: Picture, epoch: u64) -> Option<Arc<Vec<u8>>> {
+        self.newest_normal(key, true, seq, w, h, picture, epoch)
+    }
+
+    /// newest_mask_in that never waits for the first mask: what the high quality cutout falls back on, so a frame step is never held up.
+    pub fn newest_mask_nowait_in(&self, key: &str, seq: u64, w: usize, h: usize, picture: Picture, epoch: u64) -> Option<Arc<Vec<u8>>> {
+        self.newest_normal(key, false, seq, w, h, picture, epoch)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn newest_normal(&self, key: &str, wait: bool, seq: u64, w: usize, h: usize, picture: Picture, epoch: u64) -> Option<Arc<Vec<u8>>> {
         if self.inner.masks_wait.load(Ordering::SeqCst) {
             let mut picture = Some(picture);
             return self.person_mask_in(key, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch);
@@ -503,7 +513,7 @@ impl Vision {
             self.load();
             return None;
         };
-        self.newest_from(key, backend, Which::Normal, true, seq, w, h, picture, epoch)
+        self.newest_from(key, backend, Which::Normal, wait, seq, w, h, picture, epoch)
     }
 
     /// The high quality cutout's way in, the same as newest_mask from its own model and thread, and never waiting: None while it isn't
