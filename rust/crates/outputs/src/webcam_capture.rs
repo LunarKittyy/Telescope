@@ -10,6 +10,7 @@ use telescope_core::media::{Decoded, Decoder, FeedEnd, Packet};
 pub const GONE_TEXT: &str = n_("The webcam isn't plugged in. Plug it back in and it carries on.");
 pub const BUSY_TEXT: &str = n_("Another app is using the webcam. Close it there and it starts here.");
 pub const DENIED_TEXT: &str = n_("Windows or your security software is blocking Telescope from the webcam. Allow it there, then start the webcam again.");
+pub const CLAIMED_TEXT: &str = n_("Something else has the camera mounted as a drive. Unmount it in your file manager, then start the webcam again.");
 pub const NO_FRAMES_TEXT: &str = n_("The webcam isn't sending anything. Try another resolution or frame rate.");
 
 /// How an opening went, for the plugin: ("ok", the Choice's text), ("busy", the program holding it or ""),
@@ -83,6 +84,10 @@ pub fn open(deps: &ReaderDeps, waiting: &std::sync::Arc<std::sync::Mutex<String>
             if (deps.locate)().is_none() || !(deps.exists)(&device.location) {
                 return say(GONE_TEXT, "gone", "");
             }
+            #[cfg(target_os = "linux")]
+            if gphoto::is_claim_error(&why) {
+                return say(CLAIMED_TEXT, "claimed", "");
+            }
             if crate::webcams_win::denied_in(&why) {
                 return say(DENIED_TEXT, "denied", "");
             }
@@ -103,7 +108,11 @@ impl telescope_core::media::VideoFeed for WebcamFeed {
                 Ok(d) => d,
                 Err(why) => {
                     let gone = (self.deps.locate)().is_none() || !(self.deps.exists)(&self.location);
-                    let (text, state) = if gone { (GONE_TEXT, "gone") } else { (NO_FRAMES_TEXT, "silent") };
+                    #[cfg(target_os = "linux")]
+                    let claimed = gphoto::is_claim_error(&why);
+                    #[cfg(not(target_os = "linux"))]
+                    let claimed = false;
+                    let (text, state) = if gone { (GONE_TEXT, "gone") } else if claimed { (CLAIMED_TEXT, "claimed") } else { (NO_FRAMES_TEXT, "silent") };
                     *self.waiting.lock().unwrap() = tr(text);
                     (self.deps.report)(state, "");
                     return Err(FeedEnd::Error(why));
@@ -261,6 +270,9 @@ impl crate::webcams::Ioctl for Fd<'_> {
         unsafe { libc::ioctl(self.0.as_raw_fd(), request as libc::c_ulong, buf.as_mut_ptr()) >= 0 }
     }
 }
+
+#[cfg(target_os = "linux")]
+pub mod gphoto;
 
 #[cfg(target_os = "linux")]
 pub mod v4l2 {

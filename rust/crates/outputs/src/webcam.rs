@@ -167,9 +167,11 @@ impl Default for System {
     fn default() -> System {
         #[cfg(target_os = "linux")]
         return System {
-            opener: Arc::new(|d: &Device, c: &Choice| webcam_capture::v4l2::open(&d.location, c)),
-            users: Arc::new(|p: &str| webcams::who_uses(p, "/proc")),
-            exists: Arc::new(|p: &str| std::path::Path::new(p).exists()),
+            opener: Arc::new(|d: &Device, c: &Choice| {
+                if webcams::is_gphoto(&d.location) { webcam_capture::gphoto::open("gphoto2", d) } else { webcam_capture::v4l2::open(&d.location, c) }
+            }),
+            users: Arc::new(|p: &str| if webcams::is_gphoto(p) { String::new() } else { webcams::who_uses(p, "/proc") }),
+            exists: Arc::new(|p: &str| if webcams::is_gphoto(p) { webcams::gphoto_present(p, "/dev/bus/usb") } else { std::path::Path::new(p).exists() }),
         };
         #[cfg(windows)]
         return System {
@@ -317,7 +319,12 @@ impl WebcamPlugin {
         #[cfg(target_os = "linux")]
         let scan: Scanner = {
             let mut scanner = webcams::linux_scanner();
-            Box::new(move || Ok(scanner.scan()))
+            let mut dslrs = webcams::GphotoScanner::system();
+            Box::new(move || {
+                let mut found = scanner.scan();
+                found.extend(dslrs.scan());
+                Ok(found)
+            })
         };
         #[cfg(windows)]
         let scan: Scanner = {
@@ -413,6 +420,9 @@ impl WebcamPlugin {
             };
             host.show_issue(&issue_key, Issue { title: tr("Can't open {name}").field("name", src.name()), text, actions: Vec::new(),
                                                 kind: "warn".into(), details: String::new(), tell_dismiss: false });
+        } else if state == "claimed" && host.is_streaming_from(Some(&src.id())) {
+            host.show_issue(&issue_key, Issue { title: tr("Can't open {name}").field("name", src.name()), text: tr(webcam_capture::CLAIMED_TEXT),
+                                                actions: Vec::new(), kind: "warn".into(), details: String::new(), tell_dismiss: false });
         } else if state == "denied" && host.is_streaming_from(Some(&src.id())) {
             host.show_issue(&issue_key, Issue { title: tr("Can't open {name}").field("name", src.name()),
                                                 text: tr(webcam_capture::DENIED_TEXT),
@@ -679,6 +689,8 @@ impl WebcamPlugin {
             ("status_err", tr("Blocked by Windows or security software"))
         } else if state == "busy" {
             ("status_err", if detail.is_empty() { tr("In use by another app") } else { tr("In use by {app}").field("app", &detail) })
+        } else if state == "claimed" {
+            ("status_err", tr("Mounted as a drive"))
         } else if state == "silent" {
             ("status_warn", tr("Not sending anything"))
         } else if streaming {
