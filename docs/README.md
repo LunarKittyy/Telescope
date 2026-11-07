@@ -7,6 +7,7 @@ New here? The [Quick Start](../README.md#up-and-running-in-about-two-minutes) is
 - [Features](features.md): everything the apps can do
 - [Troubleshooting](troubleshooting.md): common problems and their fixes
 - [Plugins](plugins.md): switching parts of the app off and installing plugins other people made
+- [MCP server](mcp.md): letting an AI app like Claude Desktop read and change Telescope's settings
 - [Manual setup](setup.md): the virtual camera by hand on Linux, loading it at boot, OBS as a Flatpak
 - [Device compatibility](device-compatibility.md): phones that have been tested
 - [Licenses](licenses.md): what the license means for you and the third-party parts used

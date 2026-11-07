@@ -205,6 +205,8 @@ pub struct AutoState {
     pub shared: Arc<Shared>,
     pub poster: Option<Arc<dyn Poster>>,
     pub busy: bool,
+    /// The token of an outside measuring request (picture_measure_requested) this measurement answers, instead of changing any slider.
+    pub probe: Option<String>,
     pub lock: Option<CameraLock>,
     /// Auto's values are in the sliders now, so a later press that finds nothing to change takes them out.
     pub wrote: bool,
@@ -217,7 +219,7 @@ pub struct AutoState {
 
 impl Default for AutoState {
     fn default() -> AutoState {
-        AutoState { now: Arc::new(monotonic_ns), shared: Arc::default(), poster: None, busy: false, lock: None, wrote: false, note: (String::new(), "dim"), label: String::new(), last: None }
+        AutoState { now: Arc::new(monotonic_ns), shared: Arc::default(), poster: None, busy: false, probe: None, lock: None, wrote: false, note: (String::new(), "dim"), label: String::new(), last: None }
     }
 }
 

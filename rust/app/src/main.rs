@@ -158,7 +158,7 @@ fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions
     let link = Arc::new(telescope_link::LinkService::new());
     let problems = telescope_core::services::PluginProblems::default();
     // Added plugins can't take a built-in's name
-    let reserved: Vec<String> = vec!["camera_control".into(), "onboarding".into(), "connection".into(), "browser_camera".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into(), "notes".into(), "name_tag".into(), "composite".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "qr_reader".into(), "on_air".into(), "cinema".into(), "background".into(), "privacy_blur".into(), "framing".into(), "face_exposure".into(), "setup".into(), "monitoring".into(), "stats".into()];
+    let reserved: Vec<String> = vec!["camera_control".into(), "onboarding".into(), "connection".into(), "browser_camera".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into(), "notes".into(), "name_tag".into(), "composite".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "qr_reader".into(), "on_air".into(), "cinema".into(), "background".into(), "privacy_blur".into(), "framing".into(), "face_exposure".into(), "setup".into(), "monitoring".into(), "stats".into(), "mcp".into()];
     let admin: Arc<dyn telescope_core::plugin_admin::PluginAdmin> = Arc::new(telescope_plugin_host::admin::Admin::app(reserved.clone()));
     let added = telescope_plugin_host::load::factory(reserved, telescope_core::i18n::language(), problems.clone());
     let media: Arc<dyn telescope_core::media::Media> = Arc::new(telescope_media::FfmpegMedia);
@@ -220,6 +220,7 @@ fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions
                 Box::new(telescope_effects::on_air_plugin::OnAirPlugin::new(machine.web.clone(), Some(sign_outputs.clone()))),
                 Box::new(telescope_setup::monitoring::MonitoringPlugin::new()),
                 Box::new(telescope_setup::stats::StatsPlugin::new()),
+                Box::new(telescope_system::mcp::McpPlugin::new(telescope_system::mcp::McpHandle::global())),
             ];
             plugins.extend(added());
             plugins
@@ -347,7 +348,9 @@ fn take_lock(wait: bool, remote: &telescope_system::shortcuts::RemoteActions, sp
     // Straight away: an --action from a sign-in script mustn't find the last run's key
     let key = si::write_control_key(&si::control_key_path(&telescope_core::config::config_path()));
     let remote = remote.clone();
-    si::listen(lock, telescope_shell::window::raise, move |request| remote.handle(request), key);
+    // The MCP server's connections ride the same socket and key; they're turned away while its plugin is off
+    let mcp = telescope_system::mcp::McpHandle::global();
+    si::listen_with_mcp(lock, telescope_shell::window::raise, move |request| remote.handle(request), move || telescope_system::mcp::accept(&mcp), key);
     Some(())
 }
 
@@ -528,6 +531,11 @@ fn main() {
     let mut words: Vec<String> = std::env::args().skip(1).collect();
     if words.first().map(String::as_str) == Some("dev") {
         std::process::exit(dev::run(&words[1..]));
+    }
+    // `telescope mcp`: what an AI app starts, a bridge from stdin and stdout to the running copy (it opens no window and no port)
+    if words.first().map(String::as_str) == Some("mcp") {
+        use_own_profile();
+        std::process::exit(telescope_system::mcp_bridge::run_stdio());
     }
     // --action takes every word after it
     let action = words.iter().position(|w| w == "--action").map(|i| words.split_off(i).split_off(1));

@@ -24,6 +24,7 @@ use telescope_core::pose::Person;
 use telescope_core::view::Geometry;
 use telescope_core::i18n::{n_, number, percent, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
+use telescope_core::settings::SettingSpec;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
 pub const NAME: &str = "colour_grading";
@@ -594,9 +595,35 @@ impl ColourGradingPlugin {
         self.say(host, tr(AUTO_LOOKING), "dim");
     }
 
+    /// Something outside the window (the MCP server) wants the picture as numbers: the same look Auto takes, with no slider moved.
+    fn probe_requested(&mut self, host: &mut dyn Host, token: &str) {
+        let refuse = |host: &mut dyn Host, why: &str| {
+            host.emit(Event::PictureMeasured { token: token.into(), ok: false, message: why.into(), data: Value::Null });
+        };
+        if self.auto.busy {
+            return refuse(host, "Something is already looking at the picture (Auto colour grading, or another measurement). Try again in a few seconds.");
+        }
+        let source = host.focused_source_id();
+        let Some(source) = source.filter(|_| host.is_streaming()) else {
+            return refuse(host, "No stream is running, so there is no picture to measure. Start the phone's stream first.");
+        };
+        self.auto.probe = Some(token.into());
+        self.auto.lock = Some(CameraLock::default());
+        self.auto.shared.start(&source, Geometry::from(&host.view()), false);
+        if host.vision_state() == "ready" {
+            host.want_people(AUTO_TITLE, true);
+        }
+        host.schedule(MEASURE_TIMEOUT_MS, T_TIMEOUT);
+        self.auto.busy = true;
+        self.say(host, tr(AUTO_LOOKING), "dim");
+    }
+
     /// Stops looking without an answer (the stream ended or moved away).
     fn auto_abort(&mut self, host: &mut dyn Host) {
         if self.auto.busy {
+            if let Some(token) = self.auto.probe.take() {
+                host.emit(Event::PictureMeasured { token, ok: false, message: "The stream ended before the measurement was done.".into(), data: Value::Null });
+            }
             self.auto.shared.stop();
             self.auto.busy = false;
             self.auto.lock = None;
@@ -617,7 +644,22 @@ impl ColourGradingPlugin {
         host.want_people(AUTO_TITLE, false);
         self.auto.busy = false;
         let lock = self.auto.lock.take().unwrap_or_default();
+        let source = self.auto.shared.source();
         let measurement: Option<Measurement> = self.auto.shared.take();
+        if let Some(token) = self.auto.probe.take() {
+            let event = match measurement.filter(|m| !m.is_empty()) {
+                Some(m) => {
+                    let mut data = m.numbers();
+                    data["source"] = json!(source);
+                    data["picture"] = json!("the camera's own picture, before Telescope's view, effects and grade change it");
+                    Event::PictureMeasured { token, ok: true, message: String::new(), data }
+                }
+                None => Event::PictureMeasured { token, ok: false, message: "No steady picture to measure. Try again while nothing moves.".into(), data: Value::Null },
+            };
+            host.emit(event);
+            self.say(host, String::new(), "dim");
+            return;
+        }
         let Some(m) = measurement.filter(|m| !m.is_empty()) else {
             self.say(host, tr(AUTO_NO_PICTURE), "warn");
             self.flash(host, AUTO_LABEL_NO_PICTURE);
@@ -925,6 +967,7 @@ impl Plugin for ColourGradingPlugin {
             Event::PeopleSeen { source_id, people } => self.hear_people(host, source_id, people),
             Event::PeopleTracked { source_id, tracks, .. } => self.hear_tracks(source_id, tracks),
             Event::ViewChanged { view } => self.auto.shared.hear_view(Geometry::from(view)),
+            Event::PictureMeasureRequested { token } => self.probe_requested(host, token),
             Event::Posted { owner, token, .. } if owner == NAME && token == POST_MEASURED => self.auto_measured(host),
             Event::TimerFired { owner, token } if owner == NAME && token == T_LABEL => {
                 self.auto.label.clear();
@@ -1084,6 +1127,28 @@ impl Plugin for ColourGradingPlugin {
         if event.ui == "card" {
             self.handle_ui(host, event);
         }
+    }
+
+    fn settings(&self) -> Vec<SettingSpec> {
+        let mut out = vec![SettingSpec::switch("on", "Whether the grade is applied (off shows the camera's own colours)", true)];
+        for def in &SLIDERS {
+            let decimals = if def.key == "saturation" { 2 } else { def.decimals };
+            let default = slider_value(&Grade::default(), def.key);
+            let unit = match def.key {
+                "contrast" | "saturation" => "1 is unchanged",
+                "pivot" => "0 black to 1 white",
+                _ => "0 is unchanged",
+            };
+            out.push(SettingSpec::number(def.key, def.tip, def.lo, def.hi, decimals, default).unit(unit));
+        }
+        let masters = ["Lift master: raises or lowers the shadows, with white staying put", "Gamma master: brightens or darkens the midtones, with black and white staying put",
+                       "Gain master: raises or lowers the highlights, with black staying put", "Offset master: raises or lowers everything"];
+        for (i, name) in WHEELS.iter().enumerate() {
+            let (lo, hi) = MASTER_RANGE[i];
+            out.push(SettingSpec::number(&format!("masters.{name}"), masters[i], lo, hi, 2, MASTER_DEFAULT[i]));
+        }
+        out.push(SettingSpec::number("lut_strength", "How much of the loaded LUT file shows (needs a LUT loaded)", 0.0, 1.0, 2, 1.0));
+        out
     }
 
     fn get_config(&self) -> Value {

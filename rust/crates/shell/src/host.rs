@@ -87,6 +87,15 @@ impl HostSettings for Ctx<'_> {
     fn move_device_settings(&mut self, old: &str, new: &str) {
         self.state.move_device_settings(old, new);
     }
+    fn plugin_settings(&self) -> Vec<PluginSettings> {
+        self.state.slots.iter().filter_map(|s| {
+            let settings = s.plugin.as_ref()?.settings();
+            (!settings.is_empty()).then(|| PluginSettings { name: s.info.name.clone(), title: s.info.title.clone(), settings })
+        }).collect()
+    }
+    fn running_plugins(&self) -> Vec<(String, String)> {
+        self.state.slots.iter().filter(|s| !s.info.name.is_empty()).map(|s| (s.info.name.clone(), s.info.title.clone())).collect()
+    }
 }
 
 impl HostStreams for Ctx<'_> {

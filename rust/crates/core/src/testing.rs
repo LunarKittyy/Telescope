@@ -100,8 +100,12 @@ pub struct FakeHost {
     pub packets: HashMap<String, Option<Arc<dyn PacketStepFactory>>>,
     /// What plugin_config() answers, by plugin name.
     pub plugin_configs: HashMap<String, Value>,
+    /// Stands in for a plugin's own rules in apply_preset: puts right the config it was given, as a plugin does for settings that depend on each other.
+    pub preset_rules: Option<fn(&str, &mut Value)>,
     /// Plugins has_plugin() says are there.
     pub plugins: Vec<String>,
+    /// What plugin_settings() lists.
+    pub settings: Vec<PluginSettings>,
     pub streaming: bool,
     pub focused: Option<String>,
     pub view: View,
@@ -238,11 +242,21 @@ impl HostSettings for FakeHost {
     fn apply_preset(&mut self, name: &str, cfg: &Value) {
         self.note(format!("apply_preset {name} {cfg}"));
         if self.plugin_configs.contains_key(name) {
-            self.plugin_configs.insert(name.to_string(), cfg.clone());
+            let mut cfg = cfg.clone();
+            if let Some(rules) = self.preset_rules {
+                rules(name, &mut cfg);
+            }
+            self.plugin_configs.insert(name.to_string(), cfg);
         }
     }
     fn preset_plugins(&self) -> Vec<String> {
         self.preset_plugins.clone()
+    }
+    fn plugin_settings(&self) -> Vec<PluginSettings> {
+        self.settings.clone()
+    }
+    fn running_plugins(&self) -> Vec<(String, String)> {
+        self.plugins.iter().map(|p| (p.clone(), p.clone())).collect()
     }
     fn device_config(&self, source_id: Option<&str>, plugin_name: &str) -> Value {
         source_id.and_then(|id| self.device_configs.get(&(id.to_string(), plugin_name.to_string()))).cloned().unwrap_or_else(|| json!({}))

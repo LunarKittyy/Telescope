@@ -203,6 +203,12 @@ events! {
     "vision_download_finished" => VisionDownloadFinished { error: String, switch_on: String },
     /// Not in plugin.py: about once a second while a stream runs, how it's going as numbers (core::stats::Snapshot), with the last minute of each series.
     "stats_updated" => StatsUpdated { snapshot: Snapshot },
+    /// Not in plugin.py: something outside the window (the MCP server) wants the picture of a stream measured, about a second of steady
+    /// frames, and whichever plugin can do that (Colour grading) answers with picture_measured and the same token. Nobody answering
+    /// means nothing here can measure, which the asker finds out from its own timeout.
+    "picture_measure_requested" => PictureMeasureRequested { token: String },
+    /// Not in plugin.py: the answer to picture_measure_requested: ok with the picture as numbers in data, or not with why in message.
+    "picture_measured" => PictureMeasured { token: String, ok: bool, message: String, data: Value },
     /// Not in plugin.py: an event a plugin someone added defines for itself, named "<plugin>.<what>".
     "custom" => Custom { name: String, data: Value },
 }
