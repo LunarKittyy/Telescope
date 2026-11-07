@@ -17,6 +17,15 @@ pub const MASTER_RANGE: [(f64, f64); 4] = [(-0.5, 0.5), (-1.0, 1.0), (0.0, 2.0),
 pub const MASTER_DEFAULT: [f64; 4] = [0.0, 0.0, 1.0, 0.0];
 const TEMPERATURE_STOPS: f32 = 0.25;
 const TINT_STOPS: f32 = 0.2;
+/// Past the middle of the slider the reach grows, so the ends cover a real tungsten lamp (about 2700 K to 7500 K) and a green fluorescent.
+const TEMPERATURE_EXTRA: f32 = 1.8;
+const TINT_EXTRA: f32 = 1.0;
+
+/// Stops a slider position (-1..1) stands for: linear within half the slider, then curving up.
+fn reach(x: f32, per_unit: f32, extra: f32) -> f32 {
+    let past = (x.abs() - 0.5).max(0.0);
+    x.signum() * (per_unit * x.abs().min(0.5) + per_unit * past + extra * past * past)
+}
 /// Shadows or highlights at 100 add up to 4/27 of the range to the part they're about.
 const TONE: f32 = 1.0;
 
@@ -54,7 +63,8 @@ fn luma(x: [f32; 3]) -> f32 {
 /// brightness.
 pub fn white_balance_gains(temperature: f64, tint: f64) -> [f32; 3] {
     let (t, n) = (temperature as f32 / 100.0, tint as f32 / 100.0);
-    let gains = [2f32.powf(TEMPERATURE_STOPS * t), 2f32.powf(-TINT_STOPS * n), 2f32.powf(-TEMPERATURE_STOPS * t)];
+    let (warm, green) = (reach(t, TEMPERATURE_STOPS, TEMPERATURE_EXTRA), reach(n, TINT_STOPS, TINT_EXTRA));
+    let gains = [2f32.powf(warm), 2f32.powf(-green), 2f32.powf(-warm)];
     let norm = luma(gains);
     gains.map(|g| g / norm)
 }
