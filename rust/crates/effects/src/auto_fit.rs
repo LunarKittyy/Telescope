@@ -117,6 +117,8 @@ pub enum Wb {
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Targets {
     pub face_luma: Option<f32>,
+    /// With no face, the middle brightness a dark picture is brought up to.
+    pub scene_luma: Option<f32>,
     pub black: Option<f32>,
     /// The most Lift may add, less on a noisy picture.
     pub lift_up: f64,
@@ -136,6 +138,7 @@ pub fn decide(m: &Measurement) -> Targets {
             None
         }
     });
+    let scene_luma = if m.face.is_none() && t.p50 >= SCENE_BLACK_BELOW && t.p50 < SCENE_DARK_BELOW { Some(SCENE_DARK_TARGET) } else { None };
     let quiet = (1.0 - m.noise / NOISE_LIFT_MAX).clamp(0.0, 1.0) as f64;
     let lift_up = LIFT_RANGE.1 * quiet;
     // a picture the camera already clipped at an end reaches it, so its unclipped percentiles say nothing about milky blacks or a flat range
@@ -154,6 +157,7 @@ pub fn decide(m: &Measurement) -> Targets {
     };
     Targets {
         face_luma,
+        scene_luma,
         black,
         lift_up,
         spread: (ranged && (high - low) < SPREAD_FLAT).then_some(SPREAD_TARGET),
@@ -283,6 +287,11 @@ fn chroma_after(rig: &Rig, g: &Grade) -> f32 {
     if n == 0 { 0.0 } else { sum / n as f32 }
 }
 
+fn scene_luma_after(rig: &Rig, g: &Grade) -> f32 {
+    let out = run(g, &rig.all);
+    median(&mut triplets(&out).map(luma).collect::<Vec<_>>())
+}
+
 fn face_luma_after(rig: &Rig, g: &Grade) -> f32 {
     luma(middle_colour(&run(g, &rig.skin)))
 }
@@ -394,10 +403,12 @@ fn with_basic(base: &Basic, edit: impl FnOnce(&mut Basic)) -> Grade {
 }
 
 fn exposure(rig: &Rig, targets: &Targets, base: &Basic) -> (f64, f64) {
-    let Some(target) = targets.face_luma.filter(|_| !rig.skin.is_empty()) else { return (0.0, 1.0) };
+    let face_target = targets.face_luma.filter(|_| !rig.skin.is_empty());
+    let Some(target) = face_target.or(targets.scene_luma) else { return (0.0, 1.0) };
     let cost = |p: &[f64; 2]| {
         let g = with_basic(base, |b| (b.gamma, b.gain) = (p[0], p[1]));
-        let face = ((face_luma_after(rig, &g) - target) / 0.05) as f64;
+        let seen = if face_target.is_some() { face_luma_after(rig, &g) } else { scene_luma_after(rig, &g) };
+        let face = ((seen - target) / 0.05) as f64;
         face.powi(2) + clip_cost(rig, &g) + moves(p, &[0.0, 1.0], &[MOVE_COST[1], MOVE_COST[2]])
     };
     let neutral = cost(&[0.0, 1.0]);

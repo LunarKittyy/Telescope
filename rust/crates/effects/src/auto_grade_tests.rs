@@ -1,4 +1,4 @@
-//! Auto colour grading through the Colour grading plugin: the button, the frame step looking at generated frames, the sliders going in at once, Undo and the nudge, and the baked result against the maths.
+//! Auto colour grading through the Colour grading plugin: the button, the frame step looking at generated frames, the sliders going in at once, Undo, and the baked result against the maths.
 
 use crate::auto_scene::*;
 use crate::colour_grading::ColourGradingPlugin;
@@ -149,6 +149,7 @@ fn the_step_does_nothing_and_costs_nothing_until_asked() {
     assert_eq!(r.step.touch(&r.ctx), Touch::Nothing);
     let mut r = r;
     r.ui("auto-clicked", vec![]);
+    r.people_seen(&Scene::default());
     assert_eq!(r.step.touch(&r.ctx), Touch::Reads);
     let other = Ctx { source: "somewhere else".into(), mask: None };
     assert_eq!(r.step.touch(&other), Touch::Nothing);
@@ -161,7 +162,7 @@ fn a_press_measures_a_second_of_frames_then_puts_every_slider_in_at_once() {
     let before = r.published();
     r.ui("auto-clicked", vec![]);
     assert_eq!(r.shown("auto-busy"), json!(true));
-    assert!(r.calls("want_people Auto colour grading true") == 1 && r.host.is_scheduled("auto_timeout"));
+    assert!(r.calls("want_people Auto colour grading true") == 1 && r.host.is_scheduled("auto_hold"));
     r.show(&Scene::default(), green().as_ref(), 16);
     assert_eq!(r.shown("auto-busy"), json!(false));
     assert!(r.calls("want_people Auto colour grading false") == 1 && !r.host.is_scheduled("auto_timeout"));
@@ -170,23 +171,17 @@ fn a_press_measures_a_second_of_frames_then_puts_every_slider_in_at_once() {
     assert_eq!(r.published(), before + 1, "one publish for the whole answer");
     assert!(r.note().starts_with("Auto changed"), "{}", r.note());
     assert_eq!(r.shown("auto-undo"), json!(true));
-    assert_eq!(r.shown("auto-nudge"), json!(true));
     // the card shows the new values
     assert!(r.shown("slider-value").as_array().unwrap()[1].as_f64().unwrap() > 5.0);
 }
 
 #[test]
-fn undo_puts_the_old_sliders_back_and_the_nudge_moves_brightness() {
+fn undo_puts_the_old_sliders_back() {
     let mut r = Rig::new("ready");
     r.ui("slider-moved", vec![json!(0), json!(12.0)]);
     let old = (r.plugin.grade().temperature, r.plugin.grade().tint, r.plugin.grade().masters[1]);
     r.press_and_measure(&Scene::default(), green().as_ref());
     assert!(r.plugin.grade().tint != old.1);
-    r.ui("auto-nudged", vec![json!(1)]);
-    let brighter = r.plugin.grade().masters[1];
-    r.ui("auto-nudged", vec![json!(-1)]);
-    r.ui("auto-nudged", vec![json!(-1)]);
-    assert!(brighter > r.plugin.grade().masters[1] && (brighter - r.plugin.grade().masters[1] - 0.16).abs() < 1e-9);
     r.ui("auto-undo-clicked", vec![]);
     let g = r.plugin.grade();
     assert_eq!((g.temperature, g.tint, g.masters[1]), old);
@@ -235,8 +230,9 @@ fn a_picture_that_is_fine_leaves_the_sliders_the_person_set_alone() {
 fn without_a_person_it_says_so_and_still_does_what_it_can() {
     let mut r = Rig::new("missing");
     let scene = Scene { person: false, ..Scene::default() };
-    r.press_and_measure(&scene, cast([1.15, 1.0, 0.85]).as_ref());
-    assert_eq!(r.calls("want_people Auto colour grading true"), 0, "never asked for people it cannot get");
+    r.ui("auto-clicked", vec![]);
+    assert!(r.host.is_scheduled("auto_timeout") && !r.host.is_scheduled("auto_hold"), "no waiting for people that cannot come");
+    r.show(&scene, cast([1.15, 1.0, 0.85]).as_ref(), 16);
     assert!(r.note().contains("No face was found"), "{}", r.note());
     assert!(r.plugin.grade().temperature < -3.0, "{}", r.plugin.grade().temperature);
 }
@@ -374,7 +370,7 @@ fn a_measurement_that_was_restarted_while_a_frame_was_looked_at_keeps_the_new_on
         fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
             // the press is cancelled and another one started on the same stream, in the middle of this frame
             self.1.stop();
-            self.1.start(SOURCE, telescope_core::view::Geometry::default());
+            self.1.start(SOURCE, telescope_core::view::Geometry::default(), false);
             None
         }
         fn colour_preview(&self, frame: &Frame) -> Frame {
@@ -434,4 +430,69 @@ fn fitted_results_run_the_same_through_the_real_pipeline_and_the_cpu_step() {
         }
         assert!(worst_cpu <= 3 && worst_math <= 6, "pipeline against the CPU step {worst_cpu}, against the maths {worst_math}");
     }
+}
+
+fn dark_camera() -> Box<dyn Fn(&[f32]) -> Rgb> {
+    graded(Grade { masters: [0.0, -0.8, 0.4, 0.0], ..Grade::default() })
+}
+
+#[test]
+fn it_asks_for_people_even_while_vision_is_off_and_waits_for_the_first_answer() {
+    let mut r = Rig::new("off");
+    r.ui("auto-clicked", vec![]);
+    assert_eq!(r.calls("want_people Auto colour grading true"), 1);
+    assert!(r.host.is_scheduled("auto_hold") && !r.host.is_scheduled("auto_timeout"));
+    // frames before the first answer are not looked at
+    assert_eq!(r.step.touch(&r.ctx), Touch::Nothing);
+    r.show(&Scene::default(), green().as_ref(), 1);
+    assert!(r.host.is_scheduled("auto_timeout") && !r.host.is_scheduled("auto_hold"));
+    assert_eq!(r.step.touch(&r.ctx), Touch::Reads);
+    r.show(&Scene::default(), green().as_ref(), 15);
+    assert!(r.plugin.last_auto().unwrap().0.face.is_some(), "the face came in once vision answered");
+    assert!(r.plugin.grade().tint > 5.0);
+}
+
+#[test]
+fn vision_that_never_answers_still_grades_from_the_whole_picture() {
+    let mut r = Rig::new("off");
+    r.ui("auto-clicked", vec![]);
+    r.event(Event::TimerFired { owner: "colour_grading".into(), token: "auto_hold".into() });
+    assert!(r.host.is_scheduled("auto_timeout") && r.shown("auto-busy") == json!(true));
+    let scene = Scene { person: false, ..Scene::default() };
+    r.ctx.mask = None;
+    for k in 0..16u64 {
+        let now = 1_000_000_000 + k * 100_000_000;
+        let rgb = cast([1.15, 1.0, 0.85])(&scene.render(k as u32 + 1));
+        let rgba: Vec<u8> = rgb.data.chunks(3).flat_map(|p| [p[0], p[1], p[2], 255]).collect();
+        let mut frame = Frame::new(W as u32, H as u32, PixelFormat::Rgba, rgba);
+        frame.time_ns = now;
+        r.step.process(&mut frame, &r.ctx);
+        let posted: Vec<(String, Value)> = r.host.posted.lock().unwrap().drain(..).collect();
+        for (token, data) in posted {
+            r.event(Event::Posted { owner: "colour_grading".into(), token, data });
+        }
+    }
+    assert_eq!(r.shown("auto-busy"), json!(false));
+    assert!(r.plugin.grade().temperature < -3.0, "{}", r.plugin.grade().temperature);
+}
+
+#[test]
+fn a_dark_picture_with_nobody_in_it_is_brought_up() {
+    let mut r = Rig::new("ready");
+    let scene = Scene { person: false, ..Scene::default() };
+    r.press_and_measure(&scene, dark_camera().as_ref());
+    let (m, fit) = r.plugin.last_auto().unwrap();
+    assert!(m.face.is_none() && m.tone.p50 < 0.2, "{:?}", m.tone);
+    assert!(fit.targets.scene_luma.is_some() && fit.moved.exposure, "{:?}", fit.values);
+    assert!(r.plugin.grade().masters[1] > 0.1 || r.plugin.grade().masters[2] > 1.05, "{:?}", r.plugin.grade().masters);
+}
+
+#[test]
+fn a_covered_lens_is_not_chased() {
+    let mut r = Rig::new("ready");
+    let scene = Scene { person: false, ..Scene::default() };
+    r.press_and_measure(&scene, &|_| Rgb::filled(W, H, [2, 2, 2]));
+    let (_, fit) = r.plugin.last_auto().unwrap();
+    assert!(fit.targets.scene_luma.is_none());
+    assert!(r.plugin.grade().is_identity());
 }

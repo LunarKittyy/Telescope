@@ -117,12 +117,9 @@ export component ColourGradingCard inherits Card {
     in property <string> export-note;
     in property <string> export-kind: "dim";
     in property <bool> replace-open;
-    // Auto: busy while it looks at the picture, Undo and the brighter and darker buttons after a press, and its note
+    // Auto: busy while it looks at the picture, Undo after a press
     in property <bool> auto-busy;
     in property <bool> auto-undo;
-    in property <bool> auto-nudge;
-    in property <string> auto-note;
-    in property <string> auto-kind: "dim";
     callback switch-toggled-by-hand(bool);
     callback compare-toggled(bool);
     callback split-moved(float);
@@ -149,7 +146,6 @@ export component ColourGradingCard inherits Card {
     callback replace-answered(bool);
     callback auto-clicked;
     callback auto-undo-clicked;
-    callback auto-nudged(int);
 
     title: @tr("Colour grading");
     icon: Icons.colour;
@@ -192,35 +188,6 @@ export component ColourGradingCard inherits Card {
         hint: root.reset-hint;
         moved(v) => { root.split-moved(v); }
     }
-    if auto-nudge: FormRow {
-        label: @tr("After Auto");
-        HorizontalLayout {
-            spacing: 8px;
-            Button {
-                enabled: active;
-                text: @tr("Darker");
-                tip: @tr("Make the picture a little darker");
-                clicked => { root.auto-nudged(-1); }
-            }
-            Button {
-                enabled: active;
-                text: @tr("Brighter");
-                tip: @tr("Make the picture a little brighter");
-                clicked => { root.auto-nudged(1); }
-            }
-            if auto-undo: Button {
-                enabled: active && !auto-busy;
-                text: @tr("Undo");
-                tip: @tr("Put the sliders back as they were before Auto");
-                clicked => { root.auto-undo-clicked(); }
-            }
-            Rectangle { horizontal-stretch: 1; }
-        }
-    }
-    if auto-note != "": Note {
-        text: auto-note;
-        kind: "status_" + auto-kind;
-    }
     HorizontalLayout {
         spacing: 8px;
         Segmented {
@@ -233,10 +200,15 @@ export component ColourGradingCard inherits Card {
             current: page;
             picked(i) => { root.page-picked(i); }
         }
-        Button {
-            width: 100px;
+        if auto-undo: Button {
             enabled: active && !auto-busy;
-            text: @tr("Auto grade");
+            text: @tr("Undo");
+            tip: @tr("Put the sliders back as they were before Auto");
+            clicked => { root.auto-undo-clicked(); }
+        }
+        Button {
+            enabled: active && !auto-busy;
+            text: @tr("Auto");
             tip: @tr("Looks at about a second of the picture and sets white balance, brightness, contrast and colour for you. Everything it sets stays on the sliders to change");
             clicked => { root.auto-clicked(); }
         }
