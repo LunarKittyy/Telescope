@@ -224,9 +224,9 @@ fn an_ai_app_reads_and_changes_settings_of_the_real_window_through_the_command()
     let (failed, why) = mcp.tool(Some(&w), 8, "measure", json!({}));
     assert!(failed && why.contains("No stream is running"), "{why}");
 
-    // Stats are a stub in this build
+    // Stats read core's snapshot, which has no stream in it here
     let (failed, why) = mcp.tool(Some(&w), 9, "stats", json!({}));
-    assert!(failed && why.contains("not available in this build"), "{why}");
+    assert!(failed && why.contains("No stream is running"), "{why}");
 
     let (failed, back) = mcp.tool(Some(&w), 10, "revert", json!({}));
     assert!(!failed, "{back}");
