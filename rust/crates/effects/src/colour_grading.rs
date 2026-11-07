@@ -14,9 +14,9 @@ use telescope_core::actions::{self, SliderSpec};
 use telescope_core::colour::{lattice, LEVELS};
 use telescope_core::event::Event;
 use crate::auto_fit::{self, Basic, Fit, Wb};
-use crate::auto_grade::{AutoState, CameraLock, MeasureStep, Undo, POST_MEASURED, T_TIMEOUT};
+use crate::auto_grade::{AutoState, CameraLock, MeasureStep, Undo, POST_MEASURED, T_HOLD, T_TIMEOUT};
 use crate::auto_measure::Measurement;
-use crate::auto_tuning::{MEASURE_TIMEOUT_MS, NUDGE_GAMMA};
+use crate::auto_tuning::{HOLD_TIMEOUT_MS, MEASURE_TIMEOUT_MS};
 use telescope_core::frame::{FrameStage, FrameStep};
 use telescope_core::host::{ColourStage, FileDialog, FileDialogKind, Host, RequestId};
 use telescope_core::people::{self, Track};
@@ -247,6 +247,11 @@ impl ColourGradingPlugin {
     #[cfg(test)]
     pub(crate) fn set_auto_clock(&mut self, now: Arc<dyn Fn() -> u64 + Send + Sync>) {
         self.auto.now = now;
+    }
+
+    /// What the last press of Auto measured and fitted.
+    pub fn last_auto(&self) -> Option<&(Measurement, Fit)> {
+        self.auto.last.as_ref()
     }
 
     #[cfg(test)]
@@ -558,11 +563,11 @@ impl ColourGradingPlugin {
         };
         let lock = self.lock_camera(host);
         self.auto.lock = Some(lock);
-        self.auto.shared.start(&source, Geometry::from(&host.view()));
-        if host.vision_state() == "ready" {
-            host.want_people(AUTO_TITLE, true);
-        }
-        host.schedule(MEASURE_TIMEOUT_MS, T_TIMEOUT);
+        // vision stays off until someone asks, and may need to load its models: wait for its first answer unless it can't answer
+        host.want_people(AUTO_TITLE, true);
+        let hold = !matches!(host.vision_state().as_str(), "missing" | "failed");
+        self.auto.shared.start(&source, Geometry::from(&host.view()), hold);
+        host.schedule(if hold { HOLD_TIMEOUT_MS } else { MEASURE_TIMEOUT_MS }, if hold { T_HOLD } else { T_TIMEOUT });
         self.auto.busy = true;
         self.say(host, tr(AUTO_LOOKING), "dim");
     }
@@ -574,6 +579,7 @@ impl ColourGradingPlugin {
             self.auto.busy = false;
             self.auto.lock = None;
             host.cancel_schedule(T_TIMEOUT);
+            host.cancel_schedule(T_HOLD);
             host.want_people(AUTO_TITLE, false);
             self.say(host, String::new(), "dim");
         }
@@ -585,6 +591,7 @@ impl ColourGradingPlugin {
             return;
         }
         host.cancel_schedule(T_TIMEOUT);
+        host.cancel_schedule(T_HOLD);
         host.want_people(AUTO_TITLE, false);
         self.auto.busy = false;
         let lock = self.auto.lock.take().unwrap_or_default();
@@ -594,6 +601,7 @@ impl ColourGradingPlugin {
             return;
         };
         let fit = auto_fit::fit(&m, Some(&self.grade));
+        self.auto.last = Some((m, fit));
         self.apply_fit(host, &fit, lock);
     }
 
@@ -636,7 +644,6 @@ impl ColourGradingPlugin {
             self.publish(host);
             host.schedule_save();
         }
-        self.auto.nudge = true;
         self.say(host, sentences.join(" "), kind);
     }
 
@@ -647,24 +654,23 @@ impl ColourGradingPlugin {
         if let Some(camera) = &undo.camera {
             self.restore_camera(host, camera);
         }
-        self.auto.nudge = false;
         self.auto.note = (String::new(), "dim");
         self.show_all(host);
         self.publish(host);
         host.schedule_save();
     }
 
-    /// Brighter (1) or darker (-1) than Auto left it, by moving Gamma.
-    fn auto_nudged(&mut self, host: &mut dyn Host, direction: f64) {
-        let (lo, hi) = MASTER_RANGE[1];
-        let gamma = ((self.grade.masters[1] + direction * NUDGE_GAMMA) * 100.0).round() / 100.0;
-        self.set_grade(host, |g| g.masters[1] = gamma.clamp(lo, hi));
-        self.show(host, &self.wheel_props());
+    /// Frames are being looked at from now on, and the measurement has its own time to finish in.
+    fn auto_released(&mut self, host: &mut dyn Host) {
+        host.cancel_schedule(T_HOLD);
+        host.schedule(MEASURE_TIMEOUT_MS, T_TIMEOUT);
     }
 
-    fn hear_people(&mut self, host: &dyn Host, source_id: &str, people: &[Value]) {
+    fn hear_people(&mut self, host: &mut dyn Host, source_id: &str, people: &[Value]) {
         if self.auto.busy && self.auto.shared.source().is_some_and(|s| s == source_id) && host.focused_source_id().is_some_and(|f| f == source_id) {
-            self.auto.shared.hear_people(people.iter().filter_map(Person::from_value).collect(), (self.auto.now)());
+            if self.auto.shared.hear_people(people.iter().filter_map(Person::from_value).collect(), (self.auto.now)()) {
+                self.auto_released(host);
+            }
         }
     }
 
@@ -681,7 +687,7 @@ impl ColourGradingPlugin {
         // the LUT has its own way off
         let (lut, strength) = (self.grade.lut.take(), self.grade.lut_strength);
         self.grade = Grade { lut, lut_strength: strength, ..Grade::default() };
-        (self.auto.undo, self.auto.nudge, self.auto.wrote) = (None, false, false);
+        (self.auto.undo, self.auto.wrote) = (None, false);
         self.show_all(host);
         self.publish(host);
         host.schedule_save();
@@ -752,7 +758,6 @@ impl ColourGradingPlugin {
             "reset-clicked" => self.reset(host),
             "auto-clicked" => self.auto_pressed(host),
             "auto-undo-clicked" => self.auto_undone(host),
-            "auto-nudged" => self.auto_nudged(host, n(0).signum()),
             "wheel-pressed" => self.wheels[n(0) as usize % 4].press(),
             "wheel-dragged" => {
                 let i = n(0) as usize % 4;
@@ -911,6 +916,11 @@ impl Plugin for ColourGradingPlugin {
             Event::ViewChanged { view } => self.auto.shared.hear_view(Geometry::from(view)),
             Event::Posted { owner, token, .. } if owner == NAME && token == POST_MEASURED => self.auto_measured(host),
             Event::TimerFired { owner, token } if owner == NAME && token == T_TIMEOUT => self.auto_measured(host),
+            Event::TimerFired { owner, token } if owner == NAME && token == T_HOLD && self.auto.busy => {
+                if self.auto.shared.release() {
+                    self.auto_released(host);
+                }
+            }
             _ => {}
         }
         if let Event::RequestDone { request, ok, data, .. } = event {
@@ -1115,7 +1125,7 @@ impl Plugin for ColourGradingPlugin {
         self.lut_problem = problem;
         self.lut_path = path;
         self.grade = g;
-        (self.auto.undo, self.auto.nudge, self.auto.wrote) = (None, false, false);
+        (self.auto.undo, self.auto.wrote) = (None, false);
         self.on = cfg.get("on") != Some(&Value::Bool(false));
         // once, with the whole grade, so the stream never sees half of it: the next hook with a host does it
         self.dirty = true;

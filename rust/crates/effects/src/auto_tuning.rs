@@ -4,6 +4,8 @@
 
 /// Seconds of steady frames the measurement covers.
 pub const MEASURE_SECONDS: f64 = 1.0;
+/// Milliseconds Auto waits for the vision service's first answer (it may be loading its models) before going by the whole picture.
+pub const HOLD_TIMEOUT_MS: u64 = 6000;
 /// Milliseconds after which a measurement gives up and works with the frames it has.
 pub const MEASURE_TIMEOUT_MS: u64 = 4000;
 /// Milliseconds between two frames that get looked at.
@@ -146,6 +148,12 @@ pub const FACE_BRIGHT_TARGET: f32 = 0.70;
 pub const PICTURE_DARK_BELOW: f32 = 0.28;
 /// A face with more than this share clipped is pulled down too.
 pub const FACE_CLIPPED_ABOVE: f32 = 0.04;
+/// With no face, a picture whose middle brightness is below this is too dark.
+pub const SCENE_DARK_BELOW: f32 = 0.15;
+/// And is brought up towards this.
+pub const SCENE_DARK_TARGET: f32 = 0.30;
+/// A middle brightness below this is a covered lens or a dark room's noise, and is left alone.
+pub const SCENE_BLACK_BELOW: f32 = 0.012;
 /// Lowest and highest Gamma master Auto sets.
 pub const GAMMA_RANGE: (f64, f64) = (-0.45, 0.45);
 /// Lowest and highest Gain master Auto sets.
@@ -215,7 +223,5 @@ pub const IMPROVE_MARGIN: f64 = 0.85;
 pub const STAGE_BUDGET: usize = 400;
 /// Cost per unit squared of each slider's move from neutral: lift, gamma, gain, contrast, pivot, highlights, saturation.
 pub const MOVE_COST: [f64; 7] = [20.0, 4.0, 12.0, 6.0, 1.0, 0.002, 6.0];
-/// How much Gamma one press of the brighter or darker button moves.
-pub const NUDGE_GAMMA: f64 = 0.08;
 /// The person's own wheels and curves on top may clip this much more of the face than they would alone.
 pub const FINAL_FACE_CLIP: f32 = 0.06;

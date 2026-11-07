@@ -20,6 +20,8 @@ use telescope_core::view::Geometry;
 pub const POST_MEASURED: &str = "auto_measured";
 /// The timer that ends a measurement that never got enough.
 pub const T_TIMEOUT: &str = "auto_timeout";
+/// The timer that stops waiting for the vision service's first answer.
+pub const T_HOLD: &str = "auto_hold";
 
 /// What the vision service last said about the people on the stream being measured.
 #[derive(Default)]
@@ -37,6 +39,8 @@ struct Inner {
     measurer: Option<Measurer>,
     seen: Seen,
     done: Option<Measurement>,
+    /// Waiting for the vision service's first answer, so no frame is looked at yet.
+    holding: bool,
     last_ns: Option<u64>,
 }
 
@@ -52,11 +56,11 @@ pub struct Shared {
 
 impl Shared {
     /// Starts looking at this stream's frames.
-    pub fn start(&self, source: &str, view: Geometry) {
+    pub fn start(&self, source: &str, view: Geometry, hold: bool) {
         self.generation.fetch_add(1, Ordering::SeqCst);
         *self.last_read.lock().unwrap() = None;
         let mut i = self.inner.lock().unwrap();
-        *i = Inner { source: Some(source.to_string()), measurer: Some(Measurer::new()), seen: Seen { view, ..Seen::default() }, ..Inner::default() };
+        *i = Inner { source: Some(source.to_string()), measurer: Some(Measurer::new()), seen: Seen { view, ..Seen::default() }, holding: hold, ..Inner::default() };
     }
 
     pub fn stop(&self) {
@@ -73,9 +77,16 @@ impl Shared {
         self.inner.lock().unwrap().source.clone()
     }
 
-    pub fn hear_people(&self, people: Vec<Person>, at_ns: u64) {
+    /// True when this was the first answer that ended the wait.
+    pub fn hear_people(&self, people: Vec<Person>, at_ns: u64) -> bool {
         let mut i = self.inner.lock().unwrap();
         (i.seen.people, i.seen.at_ns) = (people, at_ns);
+        std::mem::take(&mut i.holding)
+    }
+
+    /// Stops waiting for people and starts looking at frames. True if it was waiting.
+    pub fn release(&self) -> bool {
+        std::mem::take(&mut self.inner.lock().unwrap().holding)
     }
 
     pub fn hear_main(&self, main: Option<Box4>) {
@@ -112,7 +123,7 @@ impl Shared {
     /// Whether this stream's frames are being looked at.
     fn wants(&self, source_id: &str) -> bool {
         let i = self.inner.lock().unwrap();
-        i.measurer.is_some() && i.source.as_deref() == Some(source_id)
+        i.measurer.is_some() && !i.holding && i.source.as_deref() == Some(source_id)
     }
 }
 
@@ -201,21 +212,21 @@ pub struct AutoState {
     pub busy: bool,
     pub lock: Option<CameraLock>,
     pub undo: Option<Undo>,
-    /// A press finished, so the brighter and darker buttons make sense.
-    pub nudge: bool,
     /// Auto's values are in the sliders now, so a later press that finds nothing to change takes them out.
     pub wrote: bool,
     pub note: (String, &'static str),
+    /// What the last press measured and fitted, for tests and diagnostics.
+    pub last: Option<(Measurement, crate::auto_fit::Fit)>,
 }
 
 impl Default for AutoState {
     fn default() -> AutoState {
-        AutoState { now: Arc::new(monotonic_ns), shared: Arc::default(), poster: None, busy: false, lock: None, undo: None, nudge: false, wrote: false, note: (String::new(), "dim") }
+        AutoState { now: Arc::new(monotonic_ns), shared: Arc::default(), poster: None, busy: false, lock: None, undo: None, wrote: false, note: (String::new(), "dim"), last: None }
     }
 }
 
 impl AutoState {
     pub fn props(&self) -> Value {
-        json!({"auto-busy": self.busy, "auto-undo": self.undo.is_some(), "auto-nudge": self.nudge, "auto-note": self.note.0, "auto-kind": self.note.1})
+        json!({"auto-busy": self.busy, "auto-undo": self.undo.is_some(), "auto-note": self.note.0, "auto-kind": self.note.1})
     }
 }
