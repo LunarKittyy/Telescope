@@ -142,6 +142,8 @@ pub const FACE_DARK_TARGET: f32 = 0.30;
 pub const FACE_BRIGHT_ABOVE: f32 = 0.80;
 /// And is brought down to this.
 pub const FACE_BRIGHT_TARGET: f32 = 0.70;
+/// A dim face only counts as lost detail when the picture's middle brightness is below this too, else it's dark skin or a backlit person.
+pub const PICTURE_DARK_BELOW: f32 = 0.28;
 /// A face with more than this share clipped is pulled down too.
 pub const FACE_CLIPPED_ABOVE: f32 = 0.04;
 /// Lowest and highest Gamma master Auto sets.
@@ -153,6 +155,8 @@ pub const NEW_CLIP_OK: f32 = 0.005;
 
 // ── Levels ───────────────────────────────────────────────────────────
 
+/// Levels are only corrected when the picture spans at least this much brightness, since a flat wall says nothing about its blacks.
+pub const LEVELS_MIN_SPREAD: f32 = 0.20;
 /// An unclipped darkest 1% above this means milky blacks.
 pub const BLACK_HIGH: f32 = 0.10;
 /// An unclipped darkest 1% below this can be lifted when the picture is quiet enough.

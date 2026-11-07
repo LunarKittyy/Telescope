@@ -128,7 +128,7 @@ pub struct Targets {
 pub fn decide(m: &Measurement) -> Targets {
     let t = &m.tone;
     let face_luma = m.face.and_then(|f| {
-        if f.luma < FACE_DARK_BELOW {
+        if f.luma < FACE_DARK_BELOW && t.p50 < PICTURE_DARK_BELOW {
             Some(FACE_DARK_TARGET)
         } else if f.luma > FACE_BRIGHT_ABOVE || f.clipped > FACE_CLIPPED_ABOVE {
             Some((f.luma - 0.05).min(FACE_BRIGHT_TARGET))
@@ -141,7 +141,11 @@ pub fn decide(m: &Measurement) -> Targets {
     // a picture the camera already clipped at an end reaches it, so its unclipped percentiles say nothing about milky blacks or a flat range
     let low = if t.black_clipped >= CLIPPED_ENDS { 0.0 } else { t.p01 };
     let high = if t.white_clipped >= CLIPPED_ENDS { 1.0 } else { t.p99 };
-    let black = if low > BLACK_HIGH {
+    // a picture with no range at all is a wall or a one-colour room, which stays as it is
+    let ranged = high - low >= LEVELS_MIN_SPREAD;
+    let black = if !ranged {
+        None
+    } else if low > BLACK_HIGH {
         Some(BLACK_TARGET)
     } else if low < BLACK_LOW && t.black_clipped <= BLACK_CLIP_MAX && lift_up > 0.0 {
         Some(BLACK_TARGET)
@@ -152,7 +156,7 @@ pub fn decide(m: &Measurement) -> Targets {
         face_luma,
         black,
         lift_up,
-        spread: ((high - low) < SPREAD_FLAT).then_some(SPREAD_TARGET),
+        spread: (ranged && (high - low) < SPREAD_FLAT).then_some(SPREAD_TARGET),
         near_clip: (t.near_clip > NEAR_CLIP_ABOVE).then_some(NEAR_CLIP_TARGET),
         chroma: if t.chroma > 0.0 && t.chroma < CHROMA_DULL_BELOW {
             Some(CHROMA_DULL_TARGET)
@@ -496,6 +500,11 @@ pub fn fit(m: &Measurement, creative: Option<&Grade>) -> Fit {
     values.temperature = values.temperature.clamp(-WB_MAX_TEMPERATURE, WB_MAX_TEMPERATURE);
     values.gamma = values.gamma.clamp(MASTER_RANGE[1].0, MASTER_RANGE[1].1);
     let mut values = values.snapped();
+    // white balance left alone means the person's own stays, not neutral
+    let keeps_wb = matches!(wb, Wb::Conflict | Wb::Unsure);
+    if let Some(own) = creative.filter(|_| keeps_wb) {
+        (values.temperature, values.tint) = (own.temperature, own.tint);
+    }
 
     let mut backed_off = false;
     if let Some(own) = creative.filter(|_| values.moved().any()) {
@@ -512,16 +521,22 @@ pub fn fit(m: &Measurement, creative: Option<&Grade>) -> Fit {
         for scale in [1.0, 0.5, 0.0] {
             let mix = |a: f64, b: f64| b + (a - b) * scale;
             let tried = Basic {
-                temperature: mix(values.temperature, neutral.temperature), tint: mix(values.tint, neutral.tint), lift: mix(values.lift, neutral.lift),
+                temperature: if keeps_wb { values.temperature } else { mix(values.temperature, neutral.temperature) },
+                tint: if keeps_wb { values.tint } else { mix(values.tint, neutral.tint) }, lift: mix(values.lift, neutral.lift),
                 gamma: mix(values.gamma, neutral.gamma), gain: mix(values.gain, neutral.gain), contrast: mix(values.contrast, neutral.contrast),
                 pivot: values.pivot, highlights: mix(values.highlights, neutral.highlights), saturation: mix(values.saturation, neutral.saturation),
             };
             if scale == 0.0 || !bad(&tried) {
                 backed_off = scale < 1.0;
                 values = tried.snapped();
+                if keeps_wb {
+                    (values.temperature, values.tint) = (tried.temperature, tried.tint);
+                }
                 break;
             }
         }
     }
-    Fit { values, moved: values.moved(), wb, had_face: m.face.is_some(), targets, backed_off }
+    // what moved is judged without the white balance that was only kept
+    let moved = if keeps_wb { Basic { temperature: 0.0, tint: 0.0, ..values }.moved() } else { values.moved() };
+    Fit { values, moved, wb, had_face: m.face.is_some(), targets, backed_off }
 }

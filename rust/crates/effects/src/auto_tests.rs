@@ -334,6 +334,7 @@ fn the_persons_own_look_is_checked_so_it_cant_be_clipped_further() {
     // a backlit person: a dim face against a mid-bright room, where Auto lifting the exposure is fine alone but clips on top of their own offset
     let mut m = measure(&Scene::default(), right().as_ref());
     let dim = [0.22, 0.15, 0.12];
+    m.tone.p50 = 0.2;
     m.skin = vec![dim; 500];
     m.face = Some(FaceMeasure { colour: dim, luma: crate::auto_measure::luma(dim), clipped: 0.0, spread: 0.02, frames: 10 });
     m.all = (0..600).map(|i| Pix { rgb: [0.6 + (i % 5) as f32 * 0.01; 3], clipped: false }).collect();
@@ -344,4 +345,32 @@ fn the_persons_own_look_is_checked_so_it_cant_be_clipped_further() {
     println!("backed off {} {:?} vs {:?}", f.backed_off, f.values, alone.values);
     assert!(alone.moved.exposure && !alone.backed_off);
     assert!(f.backed_off && (f.values.gamma < alone.values.gamma || f.values.gain < alone.values.gain));
+}
+
+#[test]
+fn well_lit_dark_skin_is_not_taken_for_underexposure() {
+    // [0.24, 0.16, 0.12] measures 0.17, under the face limit, in a room that is plainly bright
+    let scene = Scene { skin: [0.24, 0.16, 0.12], ..Scene::default() };
+    let f = of(&scene, &right());
+    assert!(f.targets.face_luma.is_none() && !f.moved.exposure, "{:?}", f.values);
+}
+
+#[test]
+fn a_flat_one_colour_room_stays_as_it_is() {
+    let wall: Camera = Box::new(|_| Rgb::filled(W, H, [51, 51, 51]));
+    let f = of(&Scene { person: false, ..Scene::default() }, &wall);
+    assert_eq!(f.values, Basic::default(), "{:?}", f.values);
+    assert!(f.targets.black.is_none() && f.targets.spread.is_none());
+}
+
+#[test]
+fn white_balance_left_alone_keeps_the_persons_own_not_neutral() {
+    let scene = Scene { wall: [0.73, 0.64, 0.64], wall_right: [0.64, 0.64, 0.73], ..Scene::default() };
+    let mut m = measure(&scene, green().as_ref());
+    m.tone.p50 = 0.2;
+    let own = Grade { temperature: 12.0, tint: -7.0, ..Grade::default() };
+    let f = fit(&m, Some(&own));
+    assert_eq!(f.wb, Wb::Conflict);
+    assert_eq!((f.values.temperature, f.values.tint), (12.0, -7.0));
+    assert!(!f.moved.white_balance, "{:?}", f.moved);
 }

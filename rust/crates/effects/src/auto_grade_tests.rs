@@ -329,3 +329,98 @@ fn the_baked_result_matches_the_maths_on_the_cpu_path() {
         assert!(off <= tolerance + 1, "the CPU step is {off} off the maths");
     }
 }
+
+#[test]
+fn a_picture_that_needs_nothing_now_takes_off_what_auto_set_before() {
+    let mut r = Rig::new("ready");
+    r.press_and_measure(&Scene::default(), green().as_ref());
+    assert!(r.plugin.grade().tint > 5.0);
+    // the lighting is put right, and Auto is pressed again
+    r.press_and_measure(&Scene::default(), right().as_ref());
+    assert!(r.note().contains("taken off"), "{}", r.note());
+    assert!(r.plugin.grade().is_identity(), "{:?}", r.plugin.grade().tint);
+    r.ui("auto-undo-clicked", vec![]);
+    assert!(r.plugin.grade().tint > 5.0, "Undo brings the earlier answer back");
+}
+
+#[test]
+fn conflicting_light_keeps_the_white_balance_that_was_there() {
+    let mut r = Rig::new("ready");
+    r.ui("slider-moved", vec![json!(0), json!(12.0)]);
+    let scene = Scene { wall: [0.73, 0.64, 0.64], wall_right: [0.64, 0.64, 0.73], ..Scene::default() };
+    r.press_and_measure(&scene, green().as_ref());
+    assert!(r.note().contains("light is mixed or coloured"), "{}", r.note());
+    assert_eq!(r.plugin.grade().temperature, 12.0);
+}
+
+#[test]
+fn a_measurement_that_was_restarted_while_a_frame_was_looked_at_keeps_the_new_one() {
+    struct Restarts(Ctx, Arc<crate::auto_grade::Shared>);
+    impl FrameContext for Restarts {
+        fn source_id(&self) -> &str {
+            self.0.source_id()
+        }
+        fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
+            // the press is cancelled and another one started on the same stream, in the middle of this frame
+            self.1.stop();
+            self.1.start(SOURCE, telescope_core::view::Geometry::default());
+            None
+        }
+        fn colour_preview(&self, frame: &Frame) -> Frame {
+            frame.clone()
+        }
+    }
+    let mut r = Rig::new("ready");
+    r.ui("auto-clicked", vec![]);
+    let shared = r.plugin.auto_shared();
+    let scene = Scene::default();
+    let rgb = green()(&scene.render(1));
+    let rgba: Vec<u8> = rgb.data.chunks(3).flat_map(|p| [p[0], p[1], p[2], 255]).collect();
+    let mut frame = Frame::new(W as u32, H as u32, PixelFormat::Rgba, rgba);
+    frame.time_ns = 1_000_000_000;
+    r.step.process(&mut frame, &Restarts(Ctx { source: SOURCE.into(), mask: None }, shared.clone()));
+    assert!(shared.running());
+    let m = shared.take().expect("the new measurement still has its measurer");
+    assert_eq!(m.frames, 0, "the old frame was not put in the new run");
+}
+
+#[test]
+fn fitted_results_run_the_same_through_the_real_pipeline_and_the_cpu_step() {
+    use crate::auto_fit::fit;
+    use telescope_core::frame::FrameStage;
+    use telescope_core::media::{Media, StagedStep};
+    if telescope_media::gpu::Gpu::shared().is_none() {
+        return eprintln!("no graphics card here: the pipeline check is skipped");
+    }
+    let dark = graded(Grade { masters: [0.0, -0.8, 0.4, 0.0], ..Grade::default() });
+    let flat = graded(Grade { contrast: 0.55, masters: [0.12, 0.0, 1.0, 0.0], ..Grade::default() });
+    let cameras: [Box<dyn Fn(&[f32]) -> Rgb>; 3] = [green(), dark, flat];
+    for camera in cameras {
+        let values = fit(&measure(&Scene::default(), camera.as_ref()), None).values;
+        let mut r = Rig::new("ready");
+        let mut grade = Grade::default();
+        values.put(&mut grade);
+        r.plugin.set_config(&json!({"temperature": values.temperature, "tint": values.tint, "masters": {"lift": values.lift, "gamma": values.gamma, "gain": values.gain},
+                                    "contrast": values.contrast, "pivot": values.pivot, "highlights": values.highlights, "saturation": values.saturation})).unwrap();
+        r.event(Event::StreamStopped);
+        let stage = r.plugin.stage().expect("a stage");
+        let baked = bake(&[&stage], None).expect("baked");
+        let pixels = camera(&Scene::default().render(3));
+        let rgba: Vec<u8> = pixels.data.chunks(3).flat_map(|p| [p[0], p[1], p[2], 255]).collect();
+        let frame = Frame::new(W as u32, H as u32, PixelFormat::Rgba, rgba);
+        let mut cpu = frame.clone();
+        telescope_core::colour_cpu::Graded::new(&baked).process(&mut cpu, &Ctx { source: SOURCE.into(), mask: None });
+        let mut pipeline = telescope_media::FfmpegMedia.pipeline().expect("a frame pipeline");
+        pipeline.set_steps(vec![StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step: baked.frame_step() }]);
+        let through = pipeline.process(frame.clone(), &Ctx { source: SOURCE.into(), mask: None });
+        let (mut worst_cpu, mut worst_math) = (0i32, 0i32);
+        for i in (0..W * H).step_by(53) {
+            let want = grade.eval([frame.data[i * 4], frame.data[i * 4 + 1], frame.data[i * 4 + 2]].map(|v| v as f32 / 255.0));
+            for c in 0..3 {
+                worst_cpu = worst_cpu.max((through.data[i * 4 + c] as i32 - cpu.data[i * 4 + c] as i32).abs());
+                worst_math = worst_math.max((through.data[i * 4 + c] as i32 - (want[c] * 255.0).round() as i32).abs());
+            }
+        }
+        assert!(worst_cpu <= 3 && worst_math <= 6, "pipeline against the CPU step {worst_cpu}, against the maths {worst_math}");
+    }
+}

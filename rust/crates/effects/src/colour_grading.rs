@@ -55,6 +55,7 @@ const AUTO_NO_STREAM: &str = n_("Start the stream first, so Auto has a picture t
 const AUTO_LOOKING: &str = n_("Looking at the picture…");
 const AUTO_NO_PICTURE: &str = n_("Auto couldn't get a steady picture to look at. Try again while nothing moves.");
 const AUTO_NOTHING: &str = n_("Nothing to change, the picture already looks right.");
+const AUTO_TAKEN_OFF: &str = n_("Nothing needs changing now, so Auto's earlier changes were taken off.");
 const AUTO_CHANGED: &str = n_("Auto changed {parts}.");
 const AUTO_NO_FACE: &str = n_("No face was found, so it went by the background and the brightness.");
 const AUTO_CONFLICT: &str = n_("The light is mixed or coloured, so white balance stayed as it was.");
@@ -243,6 +244,11 @@ impl ColourGradingPlugin {
     #[cfg(test)]
     pub(crate) fn set_auto_clock(&mut self, now: Arc<dyn Fn() -> u64 + Send + Sync>) {
         self.auto.now = now;
+    }
+
+    #[cfg(test)]
+    pub(crate) fn auto_shared(&self) -> Arc<crate::auto_grade::Shared> {
+        self.auto.shared.clone()
     }
 
     pub fn is_on(&self) -> bool {
@@ -594,6 +600,8 @@ impl ColourGradingPlugin {
         let same = [a.temperature - b.temperature, a.tint - b.tint, a.lift - b.lift, a.gamma - b.gamma, a.gain - b.gain, a.contrast - b.contrast,
                     a.pivot - b.pivot, a.highlights - b.highlights, a.saturation - b.saturation].iter().all(|d| d.abs() < 1e-6);
         let mut sentences = Vec::new();
+        // Auto's values replace its earlier ones outright, so a picture that needs nothing now takes them off
+        let take_off = !fit.moved.any() && self.auto.wrote && !same;
         let kind = if fit.moved.any() {
             let m = fit.moved;
             let parts: Vec<String> = [m.white_balance, m.exposure, m.levels, m.highlights, m.saturation].iter().zip(AUTO_PARTS)
@@ -601,7 +609,7 @@ impl ColourGradingPlugin {
             sentences.push(tr(AUTO_CHANGED).field("parts", parts.join(", ")));
             "ok"
         } else {
-            sentences.push(tr(AUTO_NOTHING));
+            sentences.push(tr(if take_off { AUTO_TAKEN_OFF } else { AUTO_NOTHING }));
             "dim"
         };
         if !fit.had_face {
@@ -617,8 +625,9 @@ impl ColourGradingPlugin {
             sentences.push(tr(AUTO_DRIFTS));
         }
         // Nothing to change leaves the sliders as the person has them, and a second press with the same answer keeps the first one's Undo
-        if fit.moved.any() && !same {
+        if (fit.moved.any() || take_off) && !same {
             self.auto.undo = Some(Undo { basic: before, camera: lock.restore });
+            self.auto.wrote = fit.moved.any();
             fit.values.put(&mut self.grade);
             self.show_all(host);
             self.publish(host);
@@ -631,6 +640,7 @@ impl ColourGradingPlugin {
     fn auto_undone(&mut self, host: &mut dyn Host) {
         let Some(undo) = self.auto.undo.take() else { return };
         undo.basic.put(&mut self.grade);
+        self.auto.wrote = false;
         if let Some(camera) = &undo.camera {
             self.restore_camera(host, camera);
         }
@@ -668,7 +678,7 @@ impl ColourGradingPlugin {
         // the LUT has its own way off
         let (lut, strength) = (self.grade.lut.take(), self.grade.lut_strength);
         self.grade = Grade { lut, lut_strength: strength, ..Grade::default() };
-        (self.auto.undo, self.auto.nudge) = (None, false);
+        (self.auto.undo, self.auto.nudge, self.auto.wrote) = (None, false, false);
         self.show_all(host);
         self.publish(host);
         host.schedule_save();
@@ -1098,7 +1108,7 @@ impl Plugin for ColourGradingPlugin {
         self.lut_problem = problem;
         self.lut_path = path;
         self.grade = g;
-        (self.auto.undo, self.auto.nudge) = (None, false);
+        (self.auto.undo, self.auto.nudge, self.auto.wrote) = (None, false, false);
         self.on = cfg.get("on") != Some(&Value::Bool(false));
         // once, with the whole grade, so the stream never sees half of it: the next hook with a host does it
         self.dirty = true;

@@ -6,7 +6,9 @@ use crate::auto_tuning::*;
 use crate::cpu::Rgb;
 use crate::shared::mask_of;
 use serde_json::{json, Value};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use telescope_core::frame::{CpuStep, Frame, FrameContext, Touch};
 use telescope_core::host::Poster;
 use telescope_core::people::Box4;
@@ -42,16 +44,23 @@ struct Inner {
 #[derive(Default)]
 pub struct Shared {
     inner: Mutex<Inner>,
+    /// Goes up whenever a measurement starts or ends, so a frame still being looked at for an old one can tell.
+    generation: AtomicU64,
+    /// When a frame was last let down from the card for a look.
+    last_read: Mutex<Option<Instant>>,
 }
 
 impl Shared {
     /// Starts looking at this stream's frames.
     pub fn start(&self, source: &str, view: Geometry) {
+        self.generation.fetch_add(1, Ordering::SeqCst);
+        *self.last_read.lock().unwrap() = None;
         let mut i = self.inner.lock().unwrap();
         *i = Inner { source: Some(source.to_string()), measurer: Some(Measurer::new()), seen: Seen { view, ..Seen::default() }, ..Inner::default() };
     }
 
     pub fn stop(&self) {
+        self.generation.fetch_add(1, Ordering::SeqCst);
         *self.inner.lock().unwrap() = Inner::default();
     }
 
@@ -79,10 +88,25 @@ impl Shared {
 
     /// What was measured: whatever the step finished, or (timing out, a stream that stopped) what it has so far. Ends the measurement either way.
     pub fn take(&self) -> Option<Measurement> {
+        self.generation.fetch_add(1, Ordering::SeqCst);
         let mut i = self.inner.lock().unwrap();
         let done = i.done.take().or_else(|| i.measurer.take().map(Measurer::finish));
         *i = Inner::default();
         done
+    }
+
+    /// Whether this stream's frames are being looked at, and it's time for another: a frame is only let down from the card now and then.
+    fn due_to_read(&self, source_id: &str) -> bool {
+        if !self.wants(source_id) {
+            return false;
+        }
+        let mut last = self.last_read.lock().unwrap();
+        let now = Instant::now();
+        if last.is_some_and(|at| now.duration_since(at) < Duration::from_millis(FRAME_EVERY_MS)) {
+            return false;
+        }
+        *last = Some(now);
+        true
     }
 
     /// Whether this stream's frames are being looked at.
@@ -100,13 +124,14 @@ pub struct MeasureStep {
 
 impl CpuStep for MeasureStep {
     fn touch(&self, ctx: &dyn FrameContext) -> Touch {
-        if self.shared.wants(ctx.source_id()) { Touch::Reads } else { Touch::Nothing }
+        if self.shared.due_to_read(ctx.source_id()) { Touch::Reads } else { Touch::Nothing }
     }
 
     fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
         if !self.shared.wants(ctx.source_id()) {
             return;
         }
+        let generation = self.shared.generation.load(Ordering::SeqCst);
         {
             let mut i = self.shared.inner.lock().unwrap();
             if i.last_ns.is_some_and(|last| frame.time_ns.saturating_sub(last) < FRAME_EVERY_MS * 1_000_000) {
@@ -121,6 +146,9 @@ impl CpuStep for MeasureStep {
         let mask = mask_of(ctx, frame).map(|m| m.shrink(small.w, small.h));
         let (people, main, view, mut measurer) = {
             let mut i = self.shared.inner.lock().unwrap();
+            if self.shared.generation.load(Ordering::SeqCst) != generation {
+                return;
+            }
             let fresh = frame.time_ns.abs_diff(i.seen.at_ns) <= FRESH_NS;
             let people = if fresh { i.seen.people.clone() } else { Vec::new() };
             let Some(measurer) = i.measurer.take() else { return };
@@ -128,8 +156,8 @@ impl CpuStep for MeasureStep {
         };
         let finished = measurer.look(&Look { small: &small, mask: mask.as_ref(), people: &people, main, view: &view, noise, time_ns: frame.time_ns });
         let mut i = self.shared.inner.lock().unwrap();
-        if i.source.is_none() {
-            // stopped while this frame was being looked at
+        if self.shared.generation.load(Ordering::SeqCst) != generation || i.source.is_none() {
+            // stopped, or stopped and started again, while this frame was being looked at: it belongs to a measurement that's over
             return;
         }
         if finished {
@@ -175,12 +203,14 @@ pub struct AutoState {
     pub undo: Option<Undo>,
     /// A press finished, so the brighter and darker buttons make sense.
     pub nudge: bool,
+    /// Auto's values are in the sliders now, so a later press that finds nothing to change takes them out.
+    pub wrote: bool,
     pub note: (String, &'static str),
 }
 
 impl Default for AutoState {
     fn default() -> AutoState {
-        AutoState { now: Arc::new(monotonic_ns), shared: Arc::default(), poster: None, busy: false, lock: None, undo: None, nudge: false, note: (String::new(), "dim") }
+        AutoState { now: Arc::new(monotonic_ns), shared: Arc::default(), poster: None, busy: false, lock: None, undo: None, nudge: false, wrote: false, note: (String::new(), "dim") }
     }
 }
 
