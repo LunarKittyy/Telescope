@@ -133,11 +133,13 @@ pub struct Timing {
     pub give_up_runs: u32,
     /// Without a frame for this long a read fails (and gphoto2 is killed, so the next try can claim the camera).
     pub silent: Duration,
+    /// How long gphoto2 gets to turn live view off after an interrupt before it is killed.
+    pub grace: Duration,
 }
 
 impl Default for Timing {
     fn default() -> Timing {
-        Timing { restart: Duration::from_millis(200), restart_max: Duration::from_secs(4), give_up_runs: 5, silent: Duration::from_secs(15) }
+        Timing { restart: Duration::from_millis(200), restart_max: Duration::from_secs(4), give_up_runs: 5, silent: Duration::from_secs(15), grace: Duration::from_secs(3) }
     }
 }
 
@@ -146,10 +148,14 @@ enum Msg {
     Failed(String),
 }
 
-/// Ends the capture from another thread: the flag, and the running gphoto2 killed.
+/// Ends the capture from another thread: the flag, and the running gphoto2 interrupted (it turns the camera's live view off
+/// on SIGINT, a kill would leave the mirror up) and killed if it hasn't gone after the grace time.
 struct Stop {
     flag: AtomicBool,
     pid: Mutex<Option<u32>>,
+    /// Whether the running gphoto2 was interrupted already (a second interrupt makes it give up without turning live view off).
+    interrupted: AtomicBool,
+    grace: Duration,
 }
 
 impl Stop {
@@ -157,14 +163,30 @@ impl Stop {
         self.flag.load(Ordering::SeqCst)
     }
 
-    fn kill(&self) {
-        if let Some(pid) = *self.pid.lock().unwrap() {
+    fn signal(&self, sig: libc::c_int) -> Option<u32> {
+        let pid = *self.pid.lock().unwrap();
+        if let Some(pid) = pid {
             // SAFETY: the pid is cleared under this lock before the child is reaped, so it can't be someone else's by now
-            unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) };
+            unsafe { libc::kill(pid as libc::pid_t, sig) };
         }
+        pid
     }
 
-    fn stop(&self) {
+    fn kill(self: &Arc<Self>) {
+        if self.interrupted.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let Some(pid) = self.signal(libc::SIGINT) else { return };
+        let (stop, grace) = (self.clone(), self.grace);
+        std::thread::spawn(move || {
+            std::thread::sleep(grace);
+            if *stop.pid.lock().unwrap() == Some(pid) {
+                stop.signal(libc::SIGKILL);
+            }
+        });
+    }
+
+    fn stop(self: &Arc<Self>) {
         self.flag.store(true, Ordering::SeqCst);
         self.kill();
     }
@@ -192,7 +214,7 @@ pub fn open(program: &str, device: &Device) -> Result<Box<dyn Capture>, (bool, S
 }
 
 pub fn open_with(program: &str, location: &str, timing: Timing) -> Result<Box<dyn Capture>, (bool, String)> {
-    let stop = Arc::new(Stop { flag: AtomicBool::new(false), pid: Mutex::new(None) });
+    let stop = Arc::new(Stop { flag: AtomicBool::new(false), pid: Mutex::new(None), interrupted: AtomicBool::new(false), grace: timing.grace });
     let (tx, rx) = sync_channel(4);
     let (program, port, s) = (program.to_string(), gphoto_port(location).to_string(), stop.clone());
     let worker = std::thread::Builder::new().name("gphoto2".into()).spawn(move || run(&program, &port, timing, &s, &tx))
@@ -241,6 +263,7 @@ fn run(program: &str, port: &str, timing: Timing, stop: &Arc<Stop>, tx: &SyncSen
                 return;
             }
         };
+        stop.interrupted.store(false, Ordering::SeqCst);
         *stop.pid.lock().unwrap() = Some(child.id());
         if stop.stopped() {
             stop.kill();
@@ -259,23 +282,32 @@ fn run(program: &str, port: &str, timing: Timing, stop: &Arc<Stop>, tx: &SyncSen
             })
         });
         let mut got = 0;
-        if let Some(mut out) = child.stdout.take() {
+        // Kept open until gphoto2 is gone: with the pipe closed its goodbye to the camera dies of SIGPIPE
+        let mut out = child.stdout.take();
+        if let Some(out) = out.as_mut() {
             let mut split = JpegSplitter::new(MAX_FRAME);
             let mut buf = vec![0u8; 64 * 1024];
-            'read: while let Ok(n @ 1..) = out.read(&mut buf) {
+            let mut ending = false;
+            while let Ok(n @ 1..) = out.read(&mut buf) {
+                if ending {
+                    continue; // only draining until it has gone
+                }
                 for frame in split.push(&buf[..n]) {
                     got += 1;
                     match tx.try_send(Msg::Frame(frame)) {
                         Ok(()) | Err(TrySendError::Full(_)) => {} // a reader that falls behind skips frames rather than lagging
-                        Err(TrySendError::Disconnected(_)) => break 'read,
+                        Err(TrySendError::Disconnected(_)) => {
+                            ending = true;
+                            stop.kill();
+                            break;
+                        }
                     }
                 }
             }
         }
-        // It ended (or is being stopped): make sure, then reap it
-        *stop.pid.lock().unwrap() = None;
-        let _ = child.kill();
-        let _ = child.wait();
+        // It ended (or is being stopped): let it turn live view off if it's still running, then reap it
+        end(&mut child, stop);
+        drop(out);
         if let Some(t) = err_reader {
             let _ = t.join();
         }
@@ -307,6 +339,31 @@ fn run(program: &str, port: &str, timing: Timing, stop: &Arc<Stop>, tx: &SyncSen
             delay = (delay * 2).min(timing.restart_max);
         }
     }
+}
+
+/// Interrupts the child if it's still running, kills it when it takes longer than the grace time, and reaps it.
+fn end(child: &mut Child, stop: &Arc<Stop>) {
+    let until = Instant::now() + stop.grace;
+    if !stop.interrupted.swap(true, Ordering::SeqCst) {
+        stop.signal(libc::SIGINT);
+    }
+    loop {
+        // Reaping under the lock, so nobody signals the pid after it's free
+        let mut pid = stop.pid.lock().unwrap();
+        if matches!(child.try_wait(), Ok(Some(_)) | Err(_)) {
+            *pid = None;
+            return;
+        }
+        drop(pid);
+        if Instant::now() >= until {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let mut pid = stop.pid.lock().unwrap();
+    let _ = child.kill();
+    let _ = child.wait();
+    *pid = None;
 }
 
 impl GphotoCapture {
@@ -500,7 +557,7 @@ mod tests {
     }
 
     fn quick() -> Timing {
-        Timing { restart: Duration::from_millis(20), restart_max: Duration::from_millis(100), give_up_runs: 3, silent: Duration::from_secs(10) }
+        Timing { restart: Duration::from_millis(20), restart_max: Duration::from_millis(100), give_up_runs: 3, silent: Duration::from_secs(10), grace: Duration::from_millis(1500) }
     }
 
     fn alive(pid: &str) -> bool {
@@ -660,5 +717,118 @@ exit 1
             }
         }
         assert!(is_claim_error(&last.unwrap_err()));
+    }
+
+    // Sends a frame, then waits like gphoto2 does and turns live view off (here: writes a file) when interrupted
+    const TIDY: &str = r#"
+echo $$ > "$D/pid"
+trap 'echo off > "$D/off"; kill $S; exit 0' INT
+cat "$D/z"
+sleep 30 &
+S=$!
+wait
+"#;
+
+    #[test]
+    fn stopping_interrupts_gphoto2_so_it_can_turn_live_view_off() {
+        let fake = Fake::new("tidy", TIDY);
+        let mut cap = open_with(&fake.program(), "", quick()).unwrap();
+        assert_eq!(cap.read().unwrap(), jpeg(b'Z', 1));
+        drop(cap);
+        assert_eq!(fake.file("off").trim(), "off", "gphoto2 was killed before it could end live view");
+        assert!(!alive(&fake.file("pid")));
+        let fake = Fake::new("tidy-stop", TIDY);
+        let mut cap = open_with(&fake.program(), "", quick()).unwrap();
+        assert_eq!(cap.read().unwrap(), jpeg(b'Z', 1));
+        cap.stopper().stop();
+        assert_eq!(cap.read().unwrap_err(), "stopped");
+        drop(cap);
+        assert_eq!(fake.file("off").trim(), "off");
+    }
+
+    // Ignores the interrupt, so only a kill ends it
+    const DEAF: &str = r#"
+echo $$ > "$D/pid"
+trap '' INT
+cat "$D/z"
+while :; do sleep 0.05; done
+"#;
+
+    #[test]
+    fn a_gphoto2_that_ignores_the_interrupt_is_killed_after_the_grace_time() {
+        let fake = Fake::new("deaf", DEAF);
+        let mut cap = open_with(&fake.program(), "", quick()).unwrap();
+        assert_eq!(cap.read().unwrap(), jpeg(b'Z', 1));
+        let stopper = cap.stopper();
+        stopper.stop();
+        let started = Instant::now();
+        assert!(dropped_within(cap, Duration::from_secs(3)), "stop hung on a gphoto2 that ignores the interrupt");
+        assert!(started.elapsed() >= Duration::from_millis(250));
+        assert!(!alive(&fake.file("pid")));
+    }
+
+    /// The size a JPEG's start-of-frame segment declares.
+    fn jpeg_size(b: &[u8]) -> Option<(u16, u16)> {
+        let mut i = 2;
+        while i + 9 < b.len() {
+            let m = b[i + 1];
+            if (0xC0..=0xC3).contains(&m) {
+                return Some((u16::from_be_bytes([b[i + 7], b[i + 8]]), u16::from_be_bytes([b[i + 5], b[i + 6]])));
+            }
+            i += 2 + u16::from_be_bytes([b[i + 2], b[i + 3]]) as usize;
+        }
+        None
+    }
+
+    /// With a camera plugged in: TELESCOPE_DSLR_SECS=60 TELESCOPE_DSLR_OUT=/some/folder cargo nextest run --run-ignored all real_camera
+    #[test]
+    #[ignore]
+    fn real_camera_live_view() {
+        let secs: u64 = std::env::var("TELESCOPE_DSLR_SECS").ok().and_then(|v| v.parse().ok()).unwrap_or(20);
+        let out = std::env::var("TELESCOPE_DSLR_OUT").ok();
+        let mut scanner = crate::webcams::GphotoScanner::system();
+        let mut found = Vec::new();
+        for _ in 0..20 {
+            found = scanner.scan();
+            if !found.is_empty() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(500));
+        }
+        let device = found.first().expect("no camera listed");
+        eprintln!("listed: {} at {} modes {}", device.name, device.location, device.modes.len());
+        let started = Instant::now();
+        let mut cap = open(&"gphoto2", device).unwrap_or_else(|e| panic!("{e:?}"));
+        let mut times = Vec::new();
+        let mut size = None;
+        while started.elapsed() < Duration::from_secs(secs) {
+            let frame = cap.read().expect("read");
+            times.push(started.elapsed().as_secs_f64());
+            size = size.or(jpeg_size(&frame));
+            if let (Some(dir), true) = (&out, times.len() % 100 == 1 && times.len() < 400) {
+                std::fs::create_dir_all(dir).unwrap();
+                std::fs::write(format!("{dir}/frame{:04}.jpg", times.len()), &frame).unwrap();
+            }
+        }
+        let gaps: Vec<(f64, f64)> = times.windows(2).filter(|w| w[1] - w[0] > 0.3).map(|w| (w[0], w[1] - w[0])).collect();
+        eprintln!("first frame {:.2} s, {} frames in {secs} s = {:.1} fps, size {:?}, gaps over 0.3 s: {:?}", times[0], times.len(), times.len() as f64 / (secs as f64 - times[0]), size, gaps);
+        drop(cap);
+    }
+
+    // Keeps sending frames, and says goodbye to the camera (over its output, as gphoto2 does) a moment after being interrupted
+    const CHATTY: &str = r#"
+echo $$ > "$D/pid"
+trap 'echo i >> "$D/ints"; sleep 0.2; cat "$D/z"; echo off > "$D/off"; exit 0' INT
+while :; do cat "$D/z"; sleep 0.01; done
+"#;
+
+    #[test]
+    fn the_output_stays_open_until_gphoto2_has_said_goodbye() {
+        let fake = Fake::new("chatty", CHATTY);
+        let mut cap = open_with(&fake.program(), "", quick()).unwrap();
+        assert_eq!(cap.read().unwrap(), jpeg(b'Z', 1));
+        drop(cap);
+        assert_eq!(fake.file("off").trim(), "off", "gphoto2 lost its output before it finished");
+        assert_eq!(fake.file("ints").lines().count(), 1, "a second interrupt makes gphoto2 quit without turning live view off");
     }
 }
