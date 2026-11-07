@@ -158,6 +158,24 @@ impl Conn {
         self.set_timeout(t);
     }
 
+    /// Writes wait this long, or for ever, whatever reads do. A connection is one socket, so this holds for every handle made by try_clone.
+    pub fn set_write_wait(&self, t: Option<Duration>) {
+        match self {
+            #[cfg(unix)]
+            Conn::Unix(s) => drop(s.set_write_timeout(t)),
+            Conn::Tcp(s) => drop(s.set_write_timeout(t)),
+        }
+    }
+
+    /// Ends the connection both ways, which also wakes a read that is waiting on another handle.
+    pub fn close(&self) {
+        match self {
+            #[cfg(unix)]
+            Conn::Unix(s) => drop(s.shutdown(std::net::Shutdown::Both)),
+            Conn::Tcp(s) => drop(s.shutdown(std::net::Shutdown::Both)),
+        }
+    }
+
     fn shutdown_write(&self) {
         match self {
             #[cfg(unix)]

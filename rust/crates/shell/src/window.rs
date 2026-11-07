@@ -74,8 +74,7 @@ pub struct Window {
     save_timer: slint::Timer,
     /// The controls an outside caller just touched (touched.rs), and the timers that fade and clear their outlines.
     touches: RefCell<crate::touched::Touches>,
-    touch_fade: slint::Timer,
-    touch_clear: slint::Timer,
+    touch_timer: slint::Timer,
     pub(crate) services: Option<Arc<Services>>,
     pub(crate) opts: Option<WindowOptions>,
     pub streams: crate::streams::Streams,
@@ -415,8 +414,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         fold_version: Cell::new(0),
         save_timer: slint::Timer::default(),
         touches: RefCell::default(),
-        touch_fade: slint::Timer::default(),
-        touch_clear: slint::Timer::default(),
+        touch_timer: slint::Timer::default(),
         services,
         opts,
         streams: crate::streams::Streams::new(),
@@ -1281,29 +1279,29 @@ impl Window {
         }
     }
 
-    /// Outlines the controls that show these settings, holds for a moment, fades them and lets go. Nothing is opened or scrolled to.
+    /// Outlines the controls that show these settings, holds each for a moment, fades it and lets go. Every setting has its own expiry.
+    /// Nothing is opened or scrolled to.
     fn touch_settings(self: &Rc<Self>, ids: &[String], changed: bool) {
-        self.touches.borrow_mut().touch(ids, changed);
+        self.touches.borrow_mut().touch(ids, changed, std::time::Instant::now());
+        self.run_touches();
+    }
+
+    /// Fades and clears what is due, then waits for the next one.
+    fn run_touches(self: &Rc<Self>) {
+        let next = self.touches.borrow_mut().tick(std::time::Instant::now());
         self.show_touches();
-        self.touch_clear.stop();
+        let Some(wait) = next else { return self.touch_timer.stop() };
         let weak = Rc::downgrade(self);
-        self.touch_fade.start(slint::TimerMode::SingleShot, crate::touched::HOLD, move || {
-            let Some(w) = weak.upgrade() else { return };
-            w.touches.borrow_mut().fade();
-            w.show_touches();
-            let weak = Rc::downgrade(&w);
-            w.touch_clear.start(slint::TimerMode::SingleShot, crate::touched::FADE, move || {
-                let Some(w) = weak.upgrade() else { return };
-                w.touches.borrow_mut().clear_faded();
-                w.show_touches();
-            });
+        self.touch_timer.start(slint::TimerMode::SingleShot, wait.max(Duration::from_millis(10)), move || {
+            if let Some(w) = weak.upgrade() {
+                w.run_touches();
+            }
         });
     }
 
     /// Keeps the outlines where they are instead of fading them, so a scene can draw one however long drawing takes.
     pub fn keep_touches(&self) {
-        self.touch_fade.stop();
-        self.touch_clear.stop();
+        self.touch_timer.stop();
     }
 
     fn show_touches(&self) {

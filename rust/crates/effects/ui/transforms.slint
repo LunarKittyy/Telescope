@@ -58,6 +58,7 @@ export component TransformsCard inherits Card {
             enabled: active;
             label: @tr("Flip");
             shortcuts: ["transforms.flip_horizontal", "transforms.flip_vertical"];
+            settings: ["transforms.flip_h", "transforms.flip_v"];
             toggled(i, on) => { root.flip-toggled(i, on); }
         }
     }
@@ -70,6 +71,7 @@ export component TransformsCard inherits Card {
             icons: [Icons.colour, Icons.colour, Icons.colour, Icons.colour];
             label: @tr("Rotation");
             shortcut: "transforms.rotation";
+            setting: "transforms.rotation";
             current: rotation;
             picked(i) => { root.rotation-picked(i); }
         }
@@ -145,6 +147,8 @@ export component TransformsCard inherits Card {
                 hue: root.hue;
                 tip: root.pan-tip;
                 label: @tr("Pan");
+                setting-x: "transforms.pan_x";
+                setting-y: "transforms.pan_y";
                 shortcut: "transforms.pan_x transforms.pan_y";
                 shortcut-adds: [{ id: "transforms.pan_x", text: root.pan-add-x }, { id: "transforms.pan_y", text: root.pan-add-y }];
                 pointer(x, y) => { root.pad-pointer(x, y); }

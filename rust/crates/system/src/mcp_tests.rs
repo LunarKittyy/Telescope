@@ -416,7 +416,7 @@ fn each_connection_reverts_only_its_own_changes() {
     assert_eq!(r.config()["contrast"], json!(1.4));
     assert_eq!(r.host.notifications.len(), 1, "a connection going is not announced as one arriving");
     // What a gone connection changed stays, so the header button can still undo it
-    assert!(r.plugin.journals.contains_key(&1));
+    assert!(r.plugin.journal.iter().any(|c| c.session == 1));
     r.plugin.undo_all(&mut r.host);
     assert_eq!(r.config()["contrast"], json!(1.0));
 }
@@ -453,7 +453,9 @@ fn picking_another_phone_is_left_to_the_person_too() {
 fn run_action_runs_one_and_refuses_the_ones_left_to_the_person() {
     let mut r = Rig::new();
     with_actions(&mut r);
-    assert_eq!(r.ask("run_action", json!({"action": "grading.reset"})).unwrap(), json!({"said": "grading.reset ran"}));
+    let said = r.ask("run_action", json!({"action": "grading.reset"})).unwrap();
+    assert_eq!(said["said"], json!("grading.reset ran"));
+    assert!(said.get("changed").is_none() && said["note"].as_str().unwrap().contains("nothing to put back"), "an action that moved no setting says revert can't undo it: {said}");
     for id in OUT_OF_REACH {
         let why = r.ask("run_action", json!({"action": id})).unwrap_err();
         assert!(why.contains("left to the person"), "{why}");
@@ -957,4 +959,313 @@ fn an_ai_app_that_says_hello_is_named_and_a_blank_name_is_not() {
     );
     serve_connection(std::io::Cursor::new(input), Arc::new(Mutex::new(Lines(tx))), call, hello);
     assert_eq!(*names.lock().unwrap(), ["Claude Desktop"]);
+}
+
+// ── The undo journal ─────────────────────────────────────────────────
+
+fn set_contrast(r: &mut Rig, session: u64, value: f64) {
+    r.ask_as(session, "set", json!({"changes": {"grading.contrast": value}})).unwrap();
+}
+
+fn by_hand(r: &mut Rig, contrast: f64) {
+    r.host.plugin_configs.get_mut("grading").unwrap()["contrast"] = json!(contrast);
+}
+
+#[test]
+fn writing_again_after_someone_elses_edit_goes_back_to_that_edit_and_not_to_the_start() {
+    let mut r = Rig::new();
+    set_contrast(&mut r, 0, 1.4);
+    by_hand(&mut r, 1.7);
+    set_contrast(&mut r, 0, 1.9);
+    let back = r.ask("revert", json!({})).unwrap();
+    assert_eq!(r.config()["contrast"], json!(1.7), "the person's 1.7 is not erased: {back}");
+    assert_eq!(back["reverted"][0], json!({"id": "grading.contrast", "back_to": 1.7}));
+    assert!(!r.plugin.can_undo());
+}
+
+#[test]
+fn an_equal_value_write_after_someone_elses_edit_is_still_told_apart() {
+    let mut r = Rig::new();
+    set_contrast(&mut r, 0, 1.4);
+    by_hand(&mut r, 1.7);
+    // The app moved the setting by writing 1.4 again, so that write is its own
+    set_contrast(&mut r, 0, 1.4);
+    r.ask("revert", json!({})).unwrap();
+    assert_eq!(r.config()["contrast"], json!(1.7));
+}
+
+/// A plugin's own rule: at unity gain the contrast is put back to 1 (as zooming out puts the pan back to the middle).
+fn unity_gain_resets_contrast(_: &str, config: &mut Value) {
+    if config["masters"]["gain"] == json!(1.0) {
+        config["contrast"] = json!(1.0);
+    }
+}
+
+#[test]
+fn a_revert_that_would_move_a_setting_through_a_coupled_one_leaves_the_persons_edit_alone() {
+    let mut r = Rig::new();
+    r.host.preset_rules = Some(unity_gain_resets_contrast);
+    r.ask("set", json!({"changes": {"grading.masters.gain": 2.0, "grading.contrast": 1.5}})).unwrap();
+    // The person moves the contrast; putting the gain back would reset it to 1 on its own
+    by_hand(&mut r, 1.8);
+    let back = r.ask("revert", json!({})).unwrap();
+    assert_eq!(r.config()["contrast"], json!(1.8), "{back}");
+    assert_eq!(r.config()["masters"]["gain"], json!(2.0), "the gain stays too: it could not go back without moving the contrast");
+    assert_eq!(back["reverted"], json!([]));
+    let left: Vec<&str> = back["left"].as_array().unwrap().iter().map(|c| c["id"].as_str().unwrap()).collect();
+    assert!(left.contains(&"grading.contrast") && left.contains(&"grading.masters.gain"), "{back}");
+    assert!(back["left"].as_array().unwrap().iter().any(|c| c["why"].as_str().unwrap().contains("would also have moved grading.contrast")), "{back}");
+}
+
+#[test]
+fn a_coupled_revert_goes_ahead_when_everything_it_moves_is_going_back() {
+    let mut r = Rig::new();
+    r.host.preset_rules = Some(unity_gain_resets_contrast);
+    r.ask("set", json!({"changes": {"grading.masters.gain": 2.0, "grading.contrast": 1.5}})).unwrap();
+    r.ask("revert", json!({})).unwrap();
+    assert_eq!((r.config()["contrast"].clone(), r.config()["masters"]["gain"].clone()), (json!(1.0), json!(1.0)));
+}
+
+#[test]
+fn undo_all_unwinds_in_the_order_things_were_written_and_not_the_order_apps_connected() {
+    let mut r = Rig::new();
+    let (a, b) = (r.handle.open_client().unwrap(), r.handle.open_client().unwrap());
+    r.deliver();
+    // B, the later connection, writes first
+    set_contrast(&mut r, b.session(), 1.7);
+    set_contrast(&mut r, a.session(), 1.4);
+    r.ui(HEADER, "undo", vec![]);
+    assert_eq!(r.config()["contrast"], json!(1.0), "back to where it began, nothing left to undo");
+    assert!(!r.plugin.can_undo());
+}
+
+#[test]
+fn one_apps_revert_leaves_a_setting_another_app_moved_after_it() {
+    let mut r = Rig::new();
+    let (a, b) = (r.handle.open_client().unwrap(), r.handle.open_client().unwrap());
+    r.deliver();
+    set_contrast(&mut r, b.session(), 1.7);
+    set_contrast(&mut r, a.session(), 1.4);
+    let back = r.ask_as(b.session(), "revert", json!({})).unwrap();
+    assert_eq!(back["reverted"], json!([]));
+    assert_eq!(r.config()["contrast"], json!(1.4), "A's later write is not B's to take back");
+}
+
+#[test]
+fn a_write_that_moves_nothing_is_not_a_step_to_undo() {
+    let mut r = Rig::new();
+    set_contrast(&mut r, 0, 1.0);
+    assert!(!r.plugin.can_undo() && r.plugin.journal.is_empty());
+    assert_eq!(r.props(HEADER)["can-undo"], json!(false));
+    // Reconnecting and asking for what is already there over and over keeps nothing
+    for _ in 0..5 {
+        let client = r.handle.open_client().unwrap();
+        r.deliver();
+        set_contrast(&mut r, client.session(), 1.0);
+    }
+    assert!(r.plugin.journal.is_empty());
+}
+
+#[test]
+fn the_same_app_moving_a_setting_again_is_one_step_and_back_where_it_began_is_none() {
+    let mut r = Rig::new();
+    for value in [1.1, 1.2, 1.3, 1.4] {
+        set_contrast(&mut r, 0, value);
+    }
+    assert_eq!(r.plugin.journal.len(), 1, "a slider dragged in steps is a single step");
+    assert_eq!((r.plugin.journal[0].was.clone(), r.plugin.journal[0].now.clone()), (json!(1.0), json!(1.4)));
+    set_contrast(&mut r, 0, 1.0);
+    assert!(r.plugin.journal.is_empty(), "it ended where it began");
+    assert!(!r.plugin.can_undo());
+}
+
+#[test]
+fn the_journal_keeps_the_latest_steps_and_forgets_the_oldest() {
+    let mut r = Rig::new();
+    let writes = JOURNAL_KEPT + 30;
+    // Two apps taking turns never extend each other's step, so every write is a step of its own
+    for i in 0..writes {
+        let value = |n: usize| json!(0.5 + (n % 100) as f64 * 0.01);
+        let was = if i == 0 { json!(1.0) } else { value(i - 1) };
+        r.plugin.remember(1 + (i as u64 % 2), vec![("grading".into(), "contrast".into(), was, value(i))], None);
+    }
+    assert_eq!(r.plugin.journal.len(), JOURNAL_KEPT);
+    assert!(r.plugin.journal.windows(2).all(|w| w[0].seq < w[1].seq), "still in the order they happened");
+    assert_eq!(r.plugin.journal.last().unwrap().seq, writes as u64);
+}
+
+// ── Actions that change settings ─────────────────────────────────────
+
+#[test]
+fn a_run_action_that_moves_settings_is_journalled_outlined_and_can_be_undone() {
+    let mut r = Rig::new();
+    with_actions(&mut r);
+    by_hand(&mut r, 1.4);
+    let mut after = r.config();
+    after["on"] = json!(false);
+    after["contrast"] = json!(1.0);
+    r.host.action_effects.insert("grading.reset".into(), ("grading".into(), after));
+    let said = r.ask("run_action", json!({"action": "grading.reset"})).unwrap();
+    let mut ids: Vec<&str> = said["changed"].as_array().unwrap().iter().map(|c| c["id"].as_str().unwrap()).collect();
+    ids.sort_unstable();
+    assert_eq!(ids, ["grading.contrast", "grading.on"], "{said}");
+    assert!(r.plugin.can_undo(), "the header's undo is lit by an action's changes");
+    assert_eq!(r.props(HEADER)["can-undo"], json!(true));
+    let (outlined, changed) = r.touched().remove(0);
+    assert!(changed && outlined.contains(&"grading.on".to_string()) && outlined.contains(&"grading.contrast".to_string()), "{outlined:?}");
+    r.ask("revert", json!({})).unwrap();
+    assert_eq!((r.config()["on"].clone(), r.config()["contrast"].clone()), (json!(true), json!(1.4)));
+}
+
+// ── Limits ───────────────────────────────────────────────────────────
+
+#[test]
+fn a_watch_has_a_deadline_longer_than_its_own_length_and_other_calls_stay_quick() {
+    assert!(deadline("watch", &json!({})) > Duration::from_secs(30), "the default watch is 30 s");
+    assert!(deadline("watch", &json!({"seconds": 120})) > Duration::from_secs(120));
+    assert!(deadline("watch", &json!({"seconds": "soon"})) > Duration::from_secs(30), "a bad length is answered at once, whatever the deadline");
+    assert_eq!(deadline("stats", &json!({})), CALL_WAIT);
+}
+
+#[test]
+fn a_connection_runs_only_so_many_calls_at_once_and_refuses_the_rest_with_a_reason() {
+    let (release, wait) = channel::<()>();
+    let wait = Mutex::new(wait);
+    let call: Arc<Caller> = Arc::new(move |_, _| {
+        let _ = wait.lock().unwrap().recv_timeout(Duration::from_secs(5));
+        Ok(json!({"done": true}))
+    });
+    let (tx, rx) = channel();
+    let input: String = (1..=PER_CONNECTION + 1)
+        .map(|id| format!("{{\"jsonrpc\":\"2.0\",\"id\":{id},\"method\":\"tools/call\",\"params\":{{\"name\":\"watch\"}}}}\n"))
+        .collect();
+    serve_connection(std::io::Cursor::new(input), Arc::new(Mutex::new(Lines(tx))), call, Arc::new(|_| {}));
+    let refused: Value = serde_json::from_str(&rx.recv_timeout(Duration::from_secs(5)).unwrap()).unwrap();
+    assert_eq!(refused["id"], json!(PER_CONNECTION + 1), "the one past the limit is answered at once, while the others still run");
+    assert_eq!(refused["result"]["isError"], json!(true));
+    assert!(refused["result"]["content"][0]["text"].as_str().unwrap().contains("Too many calls"));
+    for _ in 0..PER_CONNECTION {
+        release.send(()).unwrap();
+    }
+    for _ in 0..PER_CONNECTION {
+        let done: Value = serde_json::from_str(&rx.recv_timeout(Duration::from_secs(5)).unwrap()).unwrap();
+        assert_eq!(done["result"]["isError"], json!(false));
+    }
+}
+
+#[test]
+fn calls_in_all_are_capped_and_a_call_past_the_cap_is_refused_at_once() {
+    let r = Rig::new();
+    let waiting: Vec<_> = (0..MAX_CALLS).map(|_| {
+        let handle = r.handle.clone();
+        std::thread::spawn(move || handle.call("watch", json!({})))
+    }).collect();
+    while r.handle.lock().waiting.len() < MAX_CALLS {
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    let why = r.handle.call("status", json!({})).unwrap_err();
+    assert!(why.contains("busy"), "{why}");
+    r.handle.detach();
+    for w in waiting {
+        assert_eq!(w.join().unwrap().unwrap_err(), off());
+    }
+}
+
+#[test]
+fn only_so_many_apps_connect_at_once() {
+    let r = Rig::new();
+    let clients: Vec<_> = (0..MAX_CLIENTS).map(|_| r.handle.open_client().unwrap()).collect();
+    assert!(r.handle.open_client().err().unwrap().contains("Too many AI apps"));
+    drop(clients);
+    assert!(r.handle.open_client().is_ok());
+}
+
+#[test]
+fn a_call_whose_connection_goes_stops_waiting_and_the_watch_behind_it_is_cancelled() {
+    let mut r = Rig::new();
+    let client = r.handle.open_client().unwrap();
+    r.deliver();
+    let (handle, session) = (r.handle.clone(), client.session());
+    let waiting = std::thread::spawn(move || handle.call_as(session, "watch", json!({"seconds": 30})));
+    while r.plugin.watches.is_empty() {
+        r.deliver();
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    let token = r.host.scheduled.iter().find(|(_, t)| t.starts_with("watch:")).unwrap().1.clone();
+    drop(client);
+    assert_eq!(waiting.join().unwrap().unwrap_err(), "The AI app disconnected.");
+    r.deliver();
+    assert!(r.plugin.watches.is_empty() && r.plugin.open.is_empty(), "the watch is let go");
+    assert!(!r.host.is_scheduled(&token), "and its timer");
+    assert_eq!(r.plugin.pending, 0);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_connection_that_stops_taking_answers_is_closed_after_the_write_wait() {
+    use crate::single_instance::Conn;
+    let (ours, mut theirs) = std::os::unix::net::UnixStream::pair().unwrap();
+    let writer = Conn::Unix(ours);
+    writer.set_write_wait(Some(Duration::from_millis(100)));
+    let mut closing = Closing(writer);
+    let line = vec![b'x'; 1 << 16];
+    // Nobody reads the other end, so the buffers fill and a write gives up instead of waiting for ever
+    let failed = (0..4096).any(|_| closing.write_all(&line).is_err());
+    assert!(failed, "the write timed out");
+    theirs.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+    let mut sink = vec![0u8; 1 << 16];
+    let ended = loop {
+        match theirs.read(&mut sink) {
+            Ok(0) => break true,
+            Ok(_) => {}
+            Err(_) => break false,
+        }
+    };
+    assert!(ended, "the other end sees the connection close once it has read what was sent");
+}
+
+// ── The per-plugin times ─────────────────────────────────────────────
+
+fn asked_for_times(r: &Rig) -> Vec<bool> {
+    r.host.calls.iter().filter_map(|c| c.strip_prefix("want_stats mcp ").map(|on| on == "true")).collect()
+}
+
+#[test]
+fn a_standard_watch_does_not_keep_the_nerd_times_on_after_the_nerd_ask_ran_out() {
+    let mut r = Rig::new();
+    r.stats_arrive(snapshot_of(vec![30.0; 10], 0));
+    r.ask("stats", json!({"level": "nerd"})).unwrap();
+    assert_eq!(asked_for_times(&r), [true]);
+    // A standard watch starts while the nerd ask is fresh, and the ask runs out meanwhile
+    let mut step = 0;
+    r.ask_with("watch", json!({"seconds": 24}), |r| {
+        if step == 0 && r.plugin.watches.len() == 1 {
+            step = 1;
+            r.plugin.on_event(&mut r.host, &Event::TimerFired { owner: NAME.into(), token: T_UNWANT.into() });
+            assert_eq!(asked_for_times(r), [true, false], "the standard watch has no use for the times");
+            let token = r.host.scheduled.iter().find(|(_, t)| t.starts_with("watch:")).unwrap().1.clone();
+            r.stats_arrive(snapshot_of(vec![30.0; 3], 0));
+            r.plugin.on_event(&mut r.host, &Event::TimerFired { owner: NAME.into(), token });
+        }
+    }).unwrap();
+    assert_eq!(asked_for_times(&r), [true, false], "and finishing it leaves nothing asked for");
+}
+
+#[test]
+fn a_nerd_watch_keeps_the_times_on_when_the_nerd_ask_runs_out_and_lets_go_when_it_ends() {
+    let mut r = Rig::new();
+    r.stats_arrive(snapshot_of(vec![30.0; 10], 0));
+    r.ask("stats", json!({"level": "nerd"})).unwrap();
+    let mut step = 0;
+    r.ask_with("watch", json!({"seconds": 20, "level": "nerd"}), |r| {
+        if step == 0 && r.plugin.watches.len() == 1 {
+            step = 1;
+            r.plugin.on_event(&mut r.host, &Event::TimerFired { owner: NAME.into(), token: T_UNWANT.into() });
+            assert_eq!(asked_for_times(r), [true], "the nerd watch still needs them");
+            let token = r.host.scheduled.iter().find(|(_, t)| t.starts_with("watch:")).unwrap().1.clone();
+            r.stats_arrive(snapshot_of(vec![30.0; 3], 0));
+            r.plugin.on_event(&mut r.host, &Event::TimerFired { owner: NAME.into(), token });
+        }
+    }).unwrap();
+    assert_eq!(asked_for_times(&r), [true, false]);
 }

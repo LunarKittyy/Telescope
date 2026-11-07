@@ -125,6 +125,8 @@ pub struct FakeHost {
     pub actions: Vec<(String, ActionSpec)>,
     /// What run_action answers for an action id instead of "ran": a text, or None for a control that's off.
     pub action_answers: HashMap<String, Option<String>>,
+    /// What an action does to a plugin's config when it runs, by action id: the plugin and the config it is left with.
+    pub action_effects: HashMap<String, (String, Value)>,
     /// How often toggle_window ran: it shows, then hides.
     pub window_toggles: u32,
     pub window_active: bool,
@@ -438,6 +440,9 @@ impl HostShell for FakeHost {
     }
     fn run_action(&mut self, plugin: &str, id: &str, params: &Value) -> Option<String> {
         self.note(format!("run_action {plugin} {id} {params}"));
+        if let Some((name, config)) = self.action_effects.get(id) {
+            self.plugin_configs.insert(name.clone(), config.clone());
+        }
         if let Some(answer) = self.action_answers.get(id) {
             return answer.clone();
         }

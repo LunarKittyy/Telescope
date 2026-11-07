@@ -8,11 +8,12 @@
 //! plugin can measure the picture).
 
 use serde_json::{json, Map, Value};
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::io::{BufRead, Read, Write};
-use std::sync::mpsc::{channel, Sender};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc::{channel, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use crate::remote::checked_params;
 use telescope_core::event::Event;
 use telescope_core::host::{Host, PluginSettings, Poster};
@@ -26,6 +27,7 @@ use crate::mcp_stats::{Collected, Level, WATCH_MAX_SECONDS, WINDOW_MAX};
 pub const NAME: &str = "mcp";
 const POST_CALL: &str = "call";
 const POST_CLIENT: &str = "client";
+const POST_CANCEL: &str = "cancel";
 const TAB: &str = "mcp";
 const HEADER: &str = "header";
 const UI: &str = include_str!("../ui/mcp.slint");
@@ -41,6 +43,18 @@ const NERD_ASK_MS: u64 = 20_000;
 const T_UNWANT: &str = "unwant";
 /// A tool that never gets an answer from the window thread gives up after this.
 const CALL_WAIT: Duration = Duration::from_secs(25);
+/// How often a call that waits looks up whether its connection is still there.
+const POLL: Duration = Duration::from_millis(250);
+/// A watch has a deadline of its own: its length plus this, so it never gives up before its time is up.
+const WATCH_SLACK: Duration = Duration::from_secs(10);
+/// Tool calls one connection may have running at once, all connections together, and AI apps connected at once. A call past a limit is refused with a reason.
+const PER_CONNECTION: usize = 4;
+const MAX_CALLS: usize = 12;
+const MAX_CLIENTS: usize = 8;
+/// A connection that stops taking answers is let go after this.
+const WRITE_WAIT: Duration = Duration::from_secs(10);
+/// How many undo steps are kept, oldest dropped first.
+const JOURNAL_KEPT: usize = 200;
 /// A measuring that nobody answered at all (no plugin can measure) gives up after this, longer than the measuring itself takes.
 const JOB_WAIT_MS: u64 = 10_000;
 const MAX_LINE: u64 = 1 << 20;
@@ -127,6 +141,9 @@ impl McpHandle {
             let Some(poster) = l.poster.clone() else {
                 return Err("Telescope's MCP server is switched off. Switch on MCP server in Telescope's Plugins tab, then try again.".into());
             };
+            if l.clients.len() >= MAX_CLIENTS {
+                return Err("Too many AI apps are connected to Telescope at once. Close one, then try again.".into());
+            }
             l.sessions += 1;
             let session = l.sessions;
             l.clients.push((session, String::new()));
@@ -141,24 +158,44 @@ impl McpHandle {
         self.call_as(0, tool, args)
     }
 
-    /// The same for one connection (`Client::session`), whose changes are the only ones its revert undoes.
+    /// The same for one connection (`Client::session`), whose changes are the only ones its revert undoes. Gives up when the window doesn't answer
+    /// in time or the connection goes, and tells the plugin so it stops the work.
     pub fn call_as(&self, session: u64, tool: &str, args: Value) -> Reply {
         let (tx, rx) = channel();
+        let wait = deadline(tool, &args);
         let (poster, id) = {
             let mut l = self.lock();
             let Some(poster) = l.poster.clone() else { return Err(off()) };
+            if l.waiting.len() >= MAX_CALLS {
+                return Err("Telescope is busy with other requests from AI apps. Try again in a moment.".into());
+            }
             l.next += 1;
             let id = l.next;
             l.waiting.insert(id, tx);
             (poster, id)
         };
         poster.post(POST_CALL, json!({"id": id, "session": session, "tool": tool, "args": args}));
-        let answer = rx.recv_timeout(CALL_WAIT);
-        self.lock().waiting.remove(&id);
-        answer.unwrap_or_else(|e| Err(match e {
-            std::sync::mpsc::RecvTimeoutError::Timeout => "Telescope didn't answer in time.".into(),
-            std::sync::mpsc::RecvTimeoutError::Disconnected => off(),
-        }))
+        let end = Instant::now() + wait;
+        let gave_up = loop {
+            match rx.recv_timeout(POLL) {
+                Ok(reply) => break Ok(reply),
+                Err(RecvTimeoutError::Disconnected) => break Err(off()),
+                Err(RecvTimeoutError::Timeout) if Instant::now() >= end => break Err("Telescope didn't answer in time.".to_string()),
+                Err(RecvTimeoutError::Timeout) if session != 0 && !self.is_connected(session) => break Err("The AI app disconnected.".to_string()),
+                Err(RecvTimeoutError::Timeout) => {}
+            }
+        };
+        let unanswered = self.lock().waiting.remove(&id).is_some();
+        gave_up.unwrap_or_else(|why| {
+            if unanswered && why != off() {
+                poster.post(POST_CANCEL, json!({"id": id}));
+            }
+            Err(why)
+        })
+    }
+
+    fn is_connected(&self, session: u64) -> bool {
+        self.lock().clients.iter().any(|(s, _)| *s == session)
     }
 
     fn reply(&self, id: u64, reply: Reply) {
@@ -170,6 +207,14 @@ impl McpHandle {
 
 fn off() -> String {
     "Telescope's MCP server was switched off.".into()
+}
+
+/// How long a call waits for the window: a watch outlasts its own length, everything else is quick.
+fn deadline(tool: &str, args: &Value) -> Duration {
+    match tool {
+        "watch" => Duration::from_secs(watch_seconds(args).unwrap_or(30)) + WATCH_SLACK,
+        _ => CALL_WAIT,
+    }
 }
 
 /// One connected AI app, counted until dropped, with a number that is only its own.
@@ -200,14 +245,28 @@ pub fn accept(handle: &McpHandle) -> Result<crate::single_instance::McpServe, St
     let (handle, session) = (handle.clone(), client.session());
     Ok(Box::new(move |conn: crate::single_instance::Conn, after: Vec<u8>| {
         let Ok(writer) = conn.try_clone() else { return };
+        writer.set_write_wait(Some(WRITE_WAIT));
         let hello: Arc<Hello> = {
             let handle = handle.clone();
             Arc::new(move |name| handle.name_client(session, name))
         };
         let call: Arc<Caller> = Arc::new(move |tool, args| handle.call_as(session, tool, args));
-        serve_connection(std::io::BufReader::new(std::io::Cursor::new(after).chain(conn)), Arc::new(Mutex::new(writer)), call, hello);
+        serve_connection(std::io::BufReader::new(std::io::Cursor::new(after).chain(conn)), Arc::new(Mutex::new(Closing(writer))), call, hello);
         drop(client);
     }))
+}
+
+/// A connection that is let go when a write to it fails or times out, which also ends the read that waits for the next request.
+struct Closing(crate::single_instance::Conn);
+
+impl Write for Closing {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.write(buf).inspect_err(|_| self.0.close())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.0.flush().inspect_err(|_| self.0.close())
+    }
 }
 
 // ── JSON-RPC ─────────────────────────────────────────────────────────
@@ -254,7 +313,7 @@ pub fn tools() -> Vec<Value> {
         tool("set", "Changes settings, by id, all at once so the camera shows no half-way steps. Every value is checked first and nothing changes unless all of them are fine. Changes show in the camera straight away, which matters in a live call, so make small steps. revert undoes them. Refused when the person has set Telescope to read only.",
              json!({"changes": {"type": "object", "description": "Setting id to new value, such as {\"colour_grading.contrast\": 1.1, \"colour_grading.on\": true}.", "additionalProperties": true}}),
              &["changes"], false),
-        tool("revert", "Puts back what set changed, as it was before the first change this session. A setting the person has moved by hand since is left as they have it. Refused when Telescope is set to read only.",
+        tool("revert", "Puts back what set and run_action changed, as it was before this session's first change to each setting. A setting the person or another AI app has moved since is left as it is. Refused when Telescope is set to read only.",
              json!({}), &[], false),
         tool("actions", "Lists the actions Telescope can run, like the ones keyboard shortcuts run, with what each takes. Starting or stopping the stream, switching the phone's camera and picking another phone are left to the person.",
              json!({}), &[], true),
@@ -340,9 +399,19 @@ fn send(writer: &Mutex<dyn Write + Send>, message: &Value) {
     let _ = w.write_all(format!("{message}\n").as_bytes()).and_then(|()| w.flush());
 }
 
+/// Counts a connection's running calls until dropped.
+struct Running(Arc<AtomicUsize>);
+
+impl Drop for Running {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
 /// One connection: a JSON-RPC message per line in, one per line out. A tool call can take seconds (measure), so each runs on a thread
-/// of its own and the connection keeps answering meanwhile. Returns when the other end closes.
+/// of its own and the connection keeps answering meanwhile, up to PER_CONNECTION at once. Returns when the other end closes.
 pub fn serve_connection(mut reader: impl BufRead, writer: Arc<Mutex<dyn Write + Send>>, call: Arc<Caller>, hello: Arc<Hello>) {
+    let running = Arc::new(AtomicUsize::new(0));
     loop {
         let mut line = String::new();
         match (&mut reader).take(MAX_LINE).read_line(&mut line) {
@@ -363,12 +432,25 @@ pub fn serve_connection(mut reader: impl BufRead, writer: Arc<Mutex<dyn Write + 
             }
         }
         if message["method"] == "tools/call" {
-            let (writer, call) = (writer.clone(), call.clone());
-            std::thread::spawn(move || {
-                if let Some(answer) = handle_message(&message, &*call) {
+            let too_many = || -> Reply { Err(format!("Too many calls from this AI app at once (at most {PER_CONNECTION}). Wait for one to finish, then ask again.")) };
+            if running.fetch_add(1, Ordering::SeqCst) >= PER_CONNECTION {
+                running.fetch_sub(1, Ordering::SeqCst);
+                if let Some(answer) = handle_message(&message, &|_, _| too_many()) {
                     send(&*writer, &answer);
                 }
+                continue;
+            }
+            let (out, call, held) = (writer.clone(), call.clone(), Running(running.clone()));
+            let id = message["id"].clone();
+            let started = std::thread::Builder::new().name("mcp-call".into()).spawn(move || {
+                let _held = held;
+                if let Some(answer) = handle_message(&message, &*call) {
+                    send(&*out, &answer);
+                }
             });
+            if started.is_err() {
+                send(&*writer, &result(&id, tool_result(Err("Telescope couldn't start that call right now.".into()))));
+            }
         } else if let Some(answer) = handle_message(&message, &*call) {
             send(&*writer, &answer);
         }
@@ -437,14 +519,18 @@ pub struct LogEntry {
     pub refused: bool,
 }
 
-/// A setting this session changed through `set`: where it was, and where `set` left it, so a revert can tell it from the person's own edits.
+/// One write an AI app made to a setting, through `set` or an action: where the setting was and where the write left it. The journal keeps these
+/// in the order they happened, so a revert can tell its own writes from anyone else's and unwind the newest first.
 #[derive(Clone, Debug, PartialEq)]
 struct Change {
+    /// Counts every write of every connection, so the order between connections is known.
+    seq: u64,
+    session: u64,
     plugin: String,
     key: String,
-    original: Value,
-    last: Value,
     source: Option<String>,
+    was: Value,
+    now: Value,
 }
 
 /// A watch that is collecting: the tool call waits for it to end.
@@ -459,9 +545,13 @@ pub struct McpPlugin {
     /// Measuring tool calls waiting for the plugin that measures: token to call id.
     jobs: HashMap<String, u64>,
     next_job: u64,
-    /// What each connection changed, by `Client::session`: a revert undoes only its own, so one AI app can't take back another's. They stay
-    /// after the connection ends, so the header button can still undo them.
-    journals: BTreeMap<u64, Vec<Change>>,
+    /// What the AI apps changed, oldest first: a revert undoes only its own connection's (`Client::session`), so one AI app can't take back another's.
+    /// They stay after the connection ends, so the header button can still undo them, up to JOURNAL_KEPT of them.
+    journal: Vec<Change>,
+    next_seq: u64,
+    /// A nerd stats call asked for the per-plugin times a moment ago, and whether the host was last told they are wanted.
+    stats_lease: bool,
+    stats_wanted: bool,
     access: Access,
     /// The last LOG_KEPT calls, newest first.
     log: VecDeque<LogEntry>,
@@ -478,7 +568,7 @@ pub struct McpPlugin {
 impl McpPlugin {
     pub fn new(handle: McpHandle) -> McpPlugin {
         McpPlugin {
-            handle, jobs: HashMap::new(), next_job: 0, journals: BTreeMap::new(), access: Access::default(), log: VecDeque::new(), open: HashMap::new(),
+            handle, jobs: HashMap::new(), next_job: 0, journal: Vec::new(), next_seq: 0, stats_lease: false, stats_wanted: false, access: Access::default(), log: VecDeque::new(), open: HashMap::new(),
             pending: 0, activity: Activity::Rest, snapshot: None, watches: HashMap::new(), clock: telescope_core::time::local_clock,
         }
     }
@@ -493,7 +583,7 @@ impl McpPlugin {
     }
 
     pub fn can_undo(&self) -> bool {
-        self.journals.values().any(|j| !j.is_empty())
+        !self.journal.is_empty()
     }
 
     fn who(&self, session: u64) -> String {
@@ -520,7 +610,7 @@ impl McpPlugin {
             "set" => self.set(host, session, args),
             "revert" => Ok(self.revert(host, session)),
             "actions" => Ok(json!({"actions": list_actions(host)})),
-            "run_action" => run_action(host, args),
+            "run_action" => self.run_action(host, session, args),
             other => Err(format!("There is no tool called {other:?}.")),
         };
         if let Ok(value) = &reply {
@@ -545,7 +635,7 @@ impl McpPlugin {
             list.as_array().map(|a| a.iter().filter_map(|c| c[key].as_str().map(String::from)).collect()).unwrap_or_default()
         };
         let (ids, changed) = match tool {
-            "set" => (ids_in(&value["changed"], "id"), true),
+            "set" | "run_action" => (ids_in(&value["changed"], "id"), true),
             "revert" => (ids_in(&value["reverted"], "id"), true),
             "get" => {
                 let named: Vec<String> = args["ids"].as_array().map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect()).unwrap_or_default();
@@ -696,7 +786,8 @@ impl McpPlugin {
         let only = series_names(args)?;
         if level == Level::Nerd {
             // The per-plugin times are only measured while somebody asks, so this asks, for a little while
-            host.want_stats(NAME, true);
+            self.stats_lease = true;
+            self.sync_stats(host);
             host.schedule(NERD_ASK_MS, T_UNWANT);
         }
         let Some(snapshot) = self.snapshot.as_ref().filter(|s| !s.sources.is_empty()) else {
@@ -718,20 +809,40 @@ impl McpPlugin {
         match started {
             Err(why) => self.answer(host, id, Err(why)),
             Ok((seconds, level, only)) => {
-                if level == Level::Nerd {
-                    host.want_stats(NAME, true);
-                }
                 host.schedule(seconds * 1000, &format!("watch:{id}"));
                 self.watches.insert(id, Watch { collected: Collected::default(), level, only });
+                self.sync_stats(host);
             }
         }
     }
 
+    /// The per-plugin times are measured while a nerd stats call's ask is fresh or a nerd watch is collecting: each is tracked on its own, and the host is told
+    /// when either changes, so one ending never lets go of what the other still needs.
+    fn sync_stats(&mut self, host: &mut dyn Host) {
+        let wanted = self.stats_lease || self.watches.values().any(|w| w.level == Level::Nerd);
+        if wanted != self.stats_wanted {
+            self.stats_wanted = wanted;
+            host.want_stats(NAME, wanted);
+        }
+    }
+
+    /// A call whose AI app stopped waiting (it timed out or disconnected): what runs for it stops.
+    fn cancel(&mut self, host: &mut dyn Host, id: u64) {
+        if self.watches.remove(&id).is_some() {
+            host.cancel_schedule(&format!("watch:{id}"));
+            self.sync_stats(host);
+        }
+        let tokens: Vec<String> = self.jobs.iter().filter(|(_, job)| **job == id).map(|(token, _)| token.clone()).collect();
+        for token in tokens {
+            self.jobs.remove(&token);
+            host.cancel_schedule(&format!("job:{token}"));
+        }
+        self.answer(host, id, Err("The AI app stopped waiting for this.".into()));
+    }
+
     fn watch_done(&mut self, host: &mut dyn Host, id: u64) {
         let Some(watch) = self.watches.remove(&id) else { return };
-        if watch.level == Level::Nerd && !self.watches.values().any(|w| w.level == Level::Nerd) {
-            host.want_stats(NAME, false);
-        }
+        self.sync_stats(host);
         let reply = if watch.collected.is_empty() {
             Err("No stream was running while this watched, so there are no numbers. Start the phone's stream, then watch while the problem happens.".into())
         } else {
@@ -817,7 +928,7 @@ impl McpPlugin {
         }
         let source = host.focused_source_id();
         let mut applied: Vec<(String, Value)> = Vec::new();
-        let (mut done, mut journal) = (Vec::new(), Vec::new());
+        let (mut done, mut writes) = (Vec::new(), Vec::new());
         for (name, map) in &by_plugin {
             let group = groups.iter().find(|g| g.name == *name).expect("grouped by a known plugin");
             let before = host.plugin_config(name).unwrap_or(Value::Null);
@@ -834,7 +945,7 @@ impl McpPlugin {
                                 change["also"] = json!("moved because of another change");
                             }
                             done.push(change);
-                            journal.push((name.clone(), spec.key.clone(), was, now));
+                            writes.push((name.clone(), spec.key.clone(), was, now));
                         }
                     }
                 }
@@ -848,75 +959,92 @@ impl McpPlugin {
                 }
             }
         }
-        for (name, key, was, now) in journal {
-            self.remember(session, &name, &key, was, now, source.clone());
-        }
+        self.remember(session, writes, source);
         Ok(json!({"changed": done, "note": "The camera shows these now. revert puts them back."}))
     }
 
-    /// Keeps the first value a setting had for this connection and where it was left.
-    fn remember(&mut self, session: u64, plugin: &str, key: &str, was: Value, now: Value, source: Option<String>) {
-        let journal = self.journals.entry(session).or_default();
-        match journal.iter_mut().find(|c| c.plugin == plugin && c.key == key && c.source == source) {
-            Some(c) => c.last = now,
-            None => journal.push(Change { plugin: plugin.into(), key: key.into(), original: was, last: now, source }),
+    /// Journals writes as they happened. A write that moved nothing is no step. A connection moving the same setting again with nobody in between
+    /// is still one step, from where it began to where it is now (so dragging a slider doesn't fill the journal), and a step that ends where it
+    /// began goes away. Past JOURNAL_KEPT the oldest are forgotten.
+    fn remember(&mut self, session: u64, writes: Vec<(String, String, Value, Value)>, source: Option<String>) {
+        for (plugin, key, was, now) in writes {
+            if was == now {
+                continue;
+            }
+            self.next_seq += 1;
+            let seq = self.next_seq;
+            let latest = self.journal.iter().rposition(|c| c.plugin == plugin && c.key == key && c.source == source);
+            match latest.filter(|&i| self.journal[i].session == session && self.journal[i].now == was) {
+                Some(i) => {
+                    let mut step = self.journal.remove(i);
+                    step.now = now;
+                    step.seq = seq;
+                    if step.was != step.now {
+                        self.journal.push(step);
+                    }
+                }
+                None => self.journal.push(Change { seq, session, plugin, key, source: source.clone(), was, now }),
+            }
         }
+        let extra = self.journal.len().saturating_sub(JOURNAL_KEPT);
+        self.journal.drain(..extra);
     }
 
     fn revert(&mut self, host: &mut dyn Host, session: u64) -> Value {
-        let changes = self.journals.remove(&session).unwrap_or_default();
-        if changes.is_empty() {
+        let (mine, rest): (Vec<Change>, Vec<Change>) = std::mem::take(&mut self.journal).into_iter().partition(|c| c.session == session);
+        self.journal = rest;
+        if mine.is_empty() {
             return json!({"reverted": [], "left": [], "note": "Nothing was changed through MCP this session."});
         }
-        let groups = host.plugin_settings();
-        let shown = host.focused_source_id();
-        let (mut reverted, mut left) = (Vec::new(), Vec::new());
-        // What goes back is put back plugin by plugin in one go, so settings that depend on each other are valid together
-        let mut back: Vec<(String, Map<String, Value>)> = Vec::new();
-        for c in changes {
-            let id = format!("{}.{}", c.plugin, c.key);
-            let Some(spec) = groups.iter().find(|g| g.name == c.plugin).and_then(|g| g.settings.iter().find(|s| s.key == c.key)) else {
-                left.push(json!({"id": id, "why": "the plugin is switched off now"}));
-                continue;
-            };
-            let now = spec.read(&host.plugin_config(&c.plugin).unwrap_or(Value::Null));
-            if c.source != shown {
-                left.push(json!({"id": id, "why": "a different camera is shown now, so it was left alone"}));
-            } else if now != c.last {
-                left.push(json!({"id": id, "why": "the person changed it by hand since, so it was left as they have it", "now": now}));
-            } else {
-                match back.iter_mut().find(|(name, _)| *name == c.plugin) {
-                    Some((_, map)) => {
-                        map.insert(c.key, c.original);
-                    }
-                    None => back.push((c.plugin, Map::from_iter([(c.key, c.original)]))),
-                }
-            }
-        }
-        for (plugin, map) in back {
-            match host.change_plugin_settings(&plugin, &map) {
-                Ok(_) => reverted.extend(map.iter().map(|(key, original)| json!({"id": format!("{plugin}.{key}"), "back_to": original}))),
-                Err(list) => left.extend(map.keys().map(|key| json!({"id": format!("{plugin}.{key}"), "why": list.join(" ")}))),
-            }
-        }
+        let (reverted, left) = unwind(host, mine);
         json!({"reverted": reverted, "left": left})
     }
 
-    /// The header button's undo: puts back what any AI app changed, latest connection first so a setting two of them moved goes back to where it began.
-    /// It is the person's own action, so it works whatever the access level.
+    /// The header button's undo: puts back what any AI app changed, the newest write first whichever connection made it, so a setting two of them moved
+    /// goes back to where it began. It is the person's own action, so it works whatever the access level.
     pub fn undo_all(&mut self, host: &mut dyn Host) {
-        let sessions: Vec<u64> = self.journals.keys().rev().copied().collect();
-        let mut ids = Vec::new();
-        for session in sessions {
-            let said = self.revert(host, session);
-            ids.extend(said["reverted"].as_array().into_iter().flatten().filter_map(|c| c["id"].as_str().map(String::from)));
-        }
+        let all = std::mem::take(&mut self.journal);
+        let (reverted, _) = unwind(host, all);
+        let ids: Vec<String> = reverted.iter().filter_map(|c| c["id"].as_str().map(String::from)).collect();
         self.push_log(tr("You"), tr("Undid what the AI changed"), false);
         if !ids.is_empty() {
             host.emit(Event::SettingsTouched { ids, changed: true });
         }
         host.schedule_save();
         self.push_page(host);
+    }
+
+    /// Runs an action. The settings it moved are journalled and outlined like a set's, and the answer says when there is nothing for revert to undo.
+    fn run_action(&mut self, host: &mut dyn Host, session: u64, args: &Value) -> Reply {
+        let Some(id) = args["action"].as_str() else { return Err("action has to be an action id from actions.".into()) };
+        if OUT_OF_REACH.contains(&id) {
+            return Err(format!("{id} is left to the person: starting, stopping, switching the camera and picking another phone can drop a call. They can use the window or `telescope --action {id}`."));
+        }
+        let given = match args.get("params") {
+            None | Some(Value::Null) => Map::new(),
+            Some(Value::Object(p)) => p.clone(),
+            Some(_) => return Err("params has to be an object of name to value.".into()),
+        };
+        let Some((plugin, action)) = host.shortcut_actions().into_iter().find(|(_, a)| a.id == id) else {
+            return Err(format!("There is no action called {id:?}. actions lists them."));
+        };
+        let params = Value::Object(checked_params(&action, &given, true)?);
+        let before = setting_values(host);
+        let source = host.focused_source_id();
+        let Some(said) = host.run_action(&plugin, id, &params) else {
+            return Err(format!("{} can't be used right now (no device, or its control is off).", action.label));
+        };
+        let after = setting_values(host);
+        let moved: Vec<(String, String, Value, Value)> = after.into_iter()
+            .filter_map(|((plugin, key), now)| before.get(&(plugin.clone(), key.clone())).filter(|was| **was != now).map(|was| (plugin, key, was.clone(), now)))
+            .collect();
+        let changed: Vec<Value> = moved.iter().map(|(plugin, key, was, now)| json!({"id": format!("{plugin}.{key}"), "was": was, "now": now})).collect();
+        self.remember(session, moved, source);
+        if changed.is_empty() {
+            Ok(json!({"said": said, "note": "No setting moved, so revert has nothing to put back for this action. Anything it does later, or outside the settings, is not tracked."}))
+        } else {
+            Ok(json!({"said": said, "changed": changed, "note": "revert puts the settings it moved back. Anything it does later, or outside the settings, is not tracked."}))
+        }
     }
 
     fn measure(&mut self, host: &mut dyn Host, id: u64) {
@@ -1018,24 +1146,79 @@ fn list_actions(host: &dyn Host) -> Vec<Value> {
         .map(|(_, a)| json!({"id": a.id, "group": a.group, "label": a.label, "params": a.params, "current": a.current})).collect()
 }
 
-fn run_action(host: &mut dyn Host, args: &Value) -> Reply {
-    let Some(id) = args["action"].as_str() else { return Err("action has to be an action id from actions.".into()) };
-    if OUT_OF_REACH.contains(&id) {
-        return Err(format!("{id} is left to the person: starting, stopping, switching the camera and picking another phone can drop a call. They can use the window or `telescope --action {id}`."));
+/// Every setting's value now, by plugin and key.
+fn setting_values(host: &dyn Host) -> HashMap<(String, String), Value> {
+    let mut values = HashMap::new();
+    for group in host.plugin_settings() {
+        let config = host.plugin_config(&group.name).unwrap_or(Value::Null);
+        for spec in &group.settings {
+            values.insert((group.name.clone(), spec.key.clone()), spec.read(&config));
+        }
     }
-    let given = match args.get("params") {
-        None | Some(Value::Null) => Map::new(),
-        Some(Value::Object(p)) => p.clone(),
-        Some(_) => return Err("params has to be an object of name to value.".into()),
-    };
-    let Some((plugin, action)) = host.shortcut_actions().into_iter().find(|(_, a)| a.id == id) else {
-        return Err(format!("There is no action called {id:?}. actions lists them."));
-    };
-    let params = Value::Object(checked_params(&action, &given, true)?);
-    match host.run_action(&plugin, id, &params) {
-        Some(said) => Ok(json!({"said": said})),
-        None => Err(format!("{} can't be used right now (no device, or its control is off).", action.label)),
+    values
+}
+
+/// Puts back what these writes did, the newest first, and says what went back and what was left. A setting goes back only while it still
+/// has the value its write gave it: anything else means the person or another AI app moved it since, and that stays. What goes back is put
+/// back plugin by plugin in one go so settings that depend on each other are valid together, and when that would move a setting that
+/// isn't going back (zooming out puts the pan back to the middle) it isn't done at all.
+fn unwind(host: &mut dyn Host, mut changes: Vec<Change>) -> (Vec<Value>, Vec<Value>) {
+    changes.sort_by_key(|c| std::cmp::Reverse(c.seq));
+    let groups = host.plugin_settings();
+    let shown = host.focused_source_id();
+    let (mut reverted, mut left) = (Vec::new(), Vec::new());
+    // Where each setting stands once the writes undone so far are back
+    let mut standing: HashMap<(String, String), Value> = HashMap::new();
+    let mut back: Vec<(String, Map<String, Value>)> = Vec::new();
+    for c in changes {
+        let id = format!("{}.{}", c.plugin, c.key);
+        let Some(spec) = groups.iter().find(|g| g.name == c.plugin).and_then(|g| g.settings.iter().find(|s| s.key == c.key)) else {
+            left.push(json!({"id": id, "why": "the plugin is switched off now"}));
+            continue;
+        };
+        let slot = (c.plugin.clone(), c.key.clone());
+        let now = standing.get(&slot).cloned().unwrap_or_else(|| spec.read(&host.plugin_config(&c.plugin).unwrap_or(Value::Null)));
+        if c.source != shown {
+            left.push(json!({"id": id, "why": "a different camera is shown now, so it was left alone"}));
+        } else if now != c.now {
+            left.push(json!({"id": id, "why": "it was changed since by hand or by another AI app, so it was left as it is", "now": now}));
+        } else {
+            standing.insert(slot, c.was.clone());
+            match back.iter_mut().find(|(name, _)| *name == c.plugin) {
+                Some((_, map)) => {
+                    map.insert(c.key, c.was);
+                }
+                None => back.push((c.plugin, Map::from_iter([(c.key, c.was)]))),
+            }
+        }
     }
+    for (plugin, map) in back {
+        let Some(group) = groups.iter().find(|g| g.name == plugin) else { continue };
+        let before = host.plugin_config(&plugin).unwrap_or(Value::Null);
+        let undo = |host: &mut dyn Host| {
+            if before.is_object() {
+                host.apply_preset(&plugin, &before);
+                host.schedule_save();
+            }
+        };
+        match host.change_plugin_settings(&plugin, &map) {
+            Ok(after) => {
+                let also: Vec<String> = group.settings.iter().filter(|s| !map.contains_key(&s.key) && s.read(&before) != s.read(&after)).map(|s| format!("{plugin}.{}", s.key)).collect();
+                if also.is_empty() {
+                    reverted.extend(map.iter().map(|(key, was)| json!({"id": format!("{plugin}.{key}"), "back_to": was})));
+                } else {
+                    undo(host);
+                    let why = format!("putting it back would also have moved {}, which has been changed since, so it was left", also.join(", "));
+                    left.extend(map.keys().map(|key| json!({"id": format!("{plugin}.{key}"), "why": why})));
+                }
+            }
+            Err(list) => {
+                undo(host);
+                left.extend(map.keys().map(|key| json!({"id": format!("{plugin}.{key}"), "why": list.join(" ")})));
+            }
+        }
+    }
+    (reverted, left)
 }
 
 impl Plugin for McpPlugin {
@@ -1059,6 +1242,9 @@ impl Plugin for McpPlugin {
 
     fn shutdown(&mut self, host: &mut dyn Host) {
         self.handle.detach();
+        self.stats_lease = false;
+        self.watches.clear();
+        self.stats_wanted = false;
         host.want_stats(NAME, false);
     }
 
@@ -1107,6 +1293,9 @@ impl Plugin for McpPlugin {
                 let id = data["id"].as_u64().unwrap_or(0);
                 self.run(host, id, data["session"].as_u64().unwrap_or(0), data["tool"].as_str().unwrap_or(""), &data["args"]);
             }
+            Event::Posted { owner, token, data } if owner == NAME && token == POST_CANCEL => {
+                self.cancel(host, data["id"].as_u64().unwrap_or(0));
+            }
             Event::Posted { owner, token, data } if owner == NAME && token == POST_CLIENT => {
                 // The first AI app to connect is announced, so nobody finds out by surprise
                 if data["gone"].is_null() && data["named"].is_null() && data["clients"].as_u64() == Some(1) {
@@ -1135,8 +1324,9 @@ impl Plugin for McpPlugin {
                         self.activity = Activity::Rest;
                         self.push_header(host);
                     }
-                } else if token == T_UNWANT && self.watches.is_empty() {
-                    host.want_stats(NAME, false);
+                } else if token == T_UNWANT {
+                    self.stats_lease = false;
+                    self.sync_stats(host);
                 }
             }
             _ => {}

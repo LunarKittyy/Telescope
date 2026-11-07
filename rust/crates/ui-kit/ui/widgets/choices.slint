@@ -2,7 +2,7 @@
 
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
-import { Icon, FocusRing } from "basics.slint";
+import { Icon, FocusRing, TouchRing } from "basics.slint";
 import { WindowBox } from "dialog.slint";
 import { FlickBar } from "scroll.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
@@ -47,6 +47,8 @@ export component Segmented inherits Rectangle {
     }
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
+    // The id of the setting it is, for the outline when something outside the window reads or changes it
+    in property <string> setting;
     // Room above and below the 32px track, to sit in a 36px form row; 0 for a row of its own (segmented_row alone)
     in property <length> margin: 2px;
     callback picked(int);
@@ -63,6 +65,7 @@ export component Segmented inherits Rectangle {
         border-color: Theme.border;
         border-radius: 8px;
     }
+    TouchRing { setting: root.setting; y: margin; width: parent.width; height: 32px; radius: 8px; }
     HorizontalLayout {
         y: margin;
         height: 32px;

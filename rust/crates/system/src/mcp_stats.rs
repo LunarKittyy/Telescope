@@ -112,6 +112,8 @@ pub struct Collected {
     drops_at_start: BTreeMap<String, Drops>,
     /// The newest snapshot, which has everything that isn't a series.
     latest: Option<Snapshot>,
+    /// Each stream's last snapshot while it was there, in the order they first showed up, so a stream that stopped part way is still reported.
+    seen: Vec<SourceSnapshot>,
     pub seconds: usize,
 }
 
@@ -143,6 +145,7 @@ impl Collected {
         let cut = |v: &Vec<f32>| v[v.len().saturating_sub(window)..].to_vec();
         c.app.insert("cpu_percent", cut(&snapshot.app.series.cpu_percent));
         c.app.insert("memory_mb", cut(&snapshot.app.series.memory_mb));
+        c.seen = snapshot.sources.clone();
         c.latest = Some(snapshot.clone());
         c
     }
@@ -161,6 +164,10 @@ impl Collected {
                 // What this stream had dropped up to the first second it was seen in doesn't belong to the watch
                 self.drops_at_start.insert(source.source_id.clone(), source.drops);
             }
+            match self.seen.iter_mut().find(|s| s.source_id == source.source_id) {
+                Some(last) => *last = source.clone(),
+                None => self.seen.push(source.clone()),
+            }
         }
         if let Some(v) = snapshot.app.series.cpu_percent.last() {
             self.app.entry("cpu_percent").or_default().push(*v);
@@ -172,15 +179,16 @@ impl Collected {
         self.latest = Some(snapshot.clone());
     }
 
+    /// Nothing was collected: no stream was ever in a snapshot.
     pub fn is_empty(&self) -> bool {
-        self.latest.is_none()
+        self.seen.is_empty()
     }
 
     /// The report: per stream and for the app, over the seconds collected. `only` limits it to series of these names (empty: all of the level).
     pub fn report(&self, level: Level, only: &[String]) -> Value {
         let Some(latest) = &self.latest else { return json!({}) };
         let wanted = |name: &str| only.is_empty() || only.iter().any(|n| n == name);
-        let sources: Vec<Value> = latest.sources.iter().map(|s| self.source_report(s, level, &wanted)).collect();
+        let sources: Vec<Value> = self.seen.iter().map(|s| self.source_report(s, level, &wanted)).collect();
         let mut app = Map::new();
         if level == Level::Nerd {
             for name in APP_SERIES.iter().filter(|n| wanted(n)) {
@@ -329,6 +337,32 @@ mod tests {
         assert_eq!(report["seconds"], json!(6));
         assert_eq!(report["streams"][0]["series"]["received_fps"]["samples"], json!(6));
         assert_eq!(report["streams"][0]["dropped_in_window"]["total"], json!(3), "{report}");
+    }
+
+    #[test]
+    fn a_stream_that_stopped_part_way_through_a_watch_is_still_reported() {
+        let mut watch = Collected::default();
+        for second in 1..=5usize {
+            watch.push(&snapshot(vec![source("phone", vec![30.0; second], vec![Drops::default(); second]), source("webcam", vec![25.0; second], vec![Drops::default(); second])]));
+        }
+        // The webcam goes at second 6 and then the phone too: core sends snapshots with fewer streams, and finally none
+        watch.push(&snapshot(vec![source("phone", vec![30.0; 6], vec![Drops::default(); 6])]));
+        watch.push(&snapshot(vec![]));
+        assert!(!watch.is_empty());
+        let report = watch.report(Level::Standard, &[]);
+        let streams = report["streams"].as_array().unwrap();
+        assert_eq!(streams.iter().map(|s| s["source"].as_str().unwrap()).collect::<Vec<_>>(), ["phone", "webcam"], "{report}");
+        assert_eq!(streams[0]["series"]["received_fps"]["samples"], json!(6));
+        assert_eq!(streams[1]["series"]["received_fps"]["samples"], json!(5), "what it gave before it went");
+        assert_eq!(report["seconds"], json!(7));
+    }
+
+    #[test]
+    fn a_watch_that_only_ever_saw_empty_snapshots_collected_nothing() {
+        let mut watch = Collected::default();
+        watch.push(&snapshot(vec![]));
+        watch.push(&snapshot(vec![]));
+        assert!(watch.is_empty());
     }
 
     #[test]
