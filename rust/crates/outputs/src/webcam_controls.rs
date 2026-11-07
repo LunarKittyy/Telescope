@@ -222,6 +222,11 @@ pub fn jog_value(level: i64) -> Option<i64> {
 pub trait Controls: Send {
     fn list(&mut self) -> Vec<Control>;
     fn set(&mut self, name: &str, value: i64) -> bool;
+    /// Sets a menu to the choice the card showed as `label` (the camera words its choices, and its list can change between the card
+    /// showing it and the click, so a place in the list would mean another choice). Cameras with fixed lists just take the number.
+    fn set_labelled(&mut self, name: &str, value: i64, _label: &str) -> bool {
+        self.set(name, value)
+    }
     /// The camera is still doing what it was last asked, so a held button waits before sending the next step. Most
     /// cameras answer at once.
     fn busy(&mut self) -> bool {

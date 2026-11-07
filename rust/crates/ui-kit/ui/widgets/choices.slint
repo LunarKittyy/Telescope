@@ -184,7 +184,9 @@ export component ChoiceField inherits Rectangle {
     in-out property <int> current;
     property <int> local;
     property <bool> touched;
-    out property <int> shown: touched ? local : current;
+    // Shows what the parent says even right after a pick, which a camera may refuse: the parent moves `current` when it took it
+    in property <bool> follows;
+    out property <int> shown: touched && !follows ? local : current;
     changed current => { touched = false; }
     function pick(i: int) {
         local = i;

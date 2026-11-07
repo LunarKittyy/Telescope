@@ -5,6 +5,7 @@
 
 use super::gphoto::{is_claim_error, Timing, CLAIM_ERROR};
 use super::gphoto_stills::{notify_changed, read_photo_caps, Shared as StillsShared};
+use super::quirks;
 use super::Capture;
 use crate::webcam_controls::{Control, Controls};
 use crate::webcams::{gphoto_port, Choice, Device};
@@ -50,7 +51,15 @@ const MAX_QUEUED: usize = 4;
 const PER_FRAME: usize = 2;
 /// How long ending a stream waits for the camera's thread before leaving it to finish and let go by itself.
 const END_WAIT: Duration = Duration::from_secs(6);
+/// How long the camera's settings are left before they are read again. This is how a change the camera made on its own reaches the
+/// cards: a turn of the zoom ring (which changes the aperture and the apertures on offer), the mode dial, the camera's own buttons.
+/// Those are expected input, not an accident of polling. A read after each of the card's own requests (below) covers those, and
+/// camera events (gp_camera_wait_for_event) are not used instead because the D5100's live view isn't known to send them, a changed
+/// list isn't in them and a camera that does send them still needs this read as the fallback.
 const REFRESH: Duration = Duration::from_millis(1500);
+/// How long the card's aperture (or another setting that needs live view started again) has to stay unchanged before live view is
+/// cycled, so several clicks cost one restart.
+const RESTART_AFTER: Duration = Duration::from_millis(800);
 
 pub enum Kind {
     Toggle,
@@ -246,8 +255,23 @@ pub fn write_control(rig: &mut dyn Rig, name: &str, value: i64) -> Result<(), St
     rig.write(gname, choice)
 }
 
+/// Sets a menu control to the choice the camera words as `label`, looked up in the list as it is now.
+pub fn write_choice(rig: &mut dyn Rig, name: &str, label: &str) -> Result<(), String> {
+    let Some((_, gnames)) = MENUS.iter().find(|(n, _)| *n == name) else { return Err("no such control".into()) };
+    let (gname, setting) = resolve(rig, gnames).ok_or("the camera doesn't have it")?;
+    if setting.readonly {
+        return Err("the camera doesn't allow it now".into());
+    }
+    if !setting.choices.iter().any(|c| c == label) {
+        return Err(format!("{label} isn't one of its choices now"));
+    }
+    rig.write(gname, label)
+}
+
 enum Cmd {
     Set(String, i64),
+    /// A menu to the choice with this wording, whatever its place in the camera's list is by now.
+    Pick(String, String),
 }
 
 /// What a running camera shares: where to send it work, and the controls it last read.
@@ -282,6 +306,19 @@ impl GphotoControls {
     }
 }
 
+impl GphotoControls {
+    fn send(&self, cmd: Cmd) -> bool {
+        let hubs = hubs().lock().unwrap();
+        let Some(h) = hubs.get(&self.port) else { return false };
+        h.pending.fetch_add(1, Ordering::SeqCst);
+        let sent = h.cmds.try_send(cmd).is_ok();
+        if !sent {
+            h.pending.fetch_sub(1, Ordering::SeqCst);
+        }
+        sent
+    }
+}
+
 impl Controls for GphotoControls {
     fn list(&mut self) -> Vec<Control> {
         hubs().lock().unwrap().get(&self.port).map(|h| h.controls.lock().unwrap().clone()).unwrap_or_default()
@@ -290,14 +327,11 @@ impl Controls for GphotoControls {
     /// Handed to the camera's thread to do between two frames (a focus run can take a second), so it says yes at once. Only a few wait at a
     /// time: a press with that many ahead of it is dropped, not queued behind seconds of focusing.
     fn set(&mut self, name: &str, value: i64) -> bool {
-        let hubs = hubs().lock().unwrap();
-        let Some(h) = hubs.get(&self.port) else { return false };
-        h.pending.fetch_add(1, Ordering::SeqCst);
-        let sent = h.cmds.try_send(Cmd::Set(name.into(), value)).is_ok();
-        if !sent {
-            h.pending.fetch_sub(1, Ordering::SeqCst);
-        }
-        sent
+        self.send(Cmd::Set(name.into(), value))
+    }
+
+    fn set_labelled(&mut self, name: &str, _value: i64, label: &str) -> bool {
+        self.send(Cmd::Pick(name.into(), label.into()))
     }
 
     fn busy(&mut self) -> bool {
@@ -329,16 +363,21 @@ impl telescope_core::media::FeedStopper for Stopper {
 
 /// Starts live view through libgphoto2 on device's camera: Err((opened at all, why)). The first frame comes from read().
 pub fn open(device: &Device) -> Result<Box<dyn Capture>, (bool, String)> {
-    open_with(&device.location, Timing::default(), Box::new(|port| super::gp::GpCamera::open(port).map(|c| Box::new(c) as Box<dyn Rig>)))
+    open_model(&device.location, &device.name, Timing::default(), Box::new(|port| super::gp::GpCamera::open(port).map(|c| Box::new(c) as Box<dyn Rig>)))
 }
 
 pub fn open_with(location: &str, timing: Timing, connect: Connect) -> Result<Box<dyn Capture>, (bool, String)> {
+    open_model(location, "", timing, connect)
+}
+
+/// As open_with, for a camera of this model (as libgphoto2 lists it), whose quirks (quirks.rs) are then dealt with.
+pub fn open_model(location: &str, model: &str, timing: Timing, connect: Connect) -> Result<Box<dyn Capture>, (bool, String)> {
     let stop = Arc::new(AtomicBool::new(false));
     let (tx, rx) = sync_channel(4);
-    let (port, s) = (gphoto_port(location).to_string(), stop.clone());
+    let (port, s, model) = (gphoto_port(location).to_string(), stop.clone(), model.to_string());
     let stills = Arc::new(StillsShared::default());
     let shared = stills.clone();
-    let worker = std::thread::Builder::new().name("gphoto2".into()).spawn(move || run(connect, &port, timing, &s, &tx, &shared))
+    let worker = std::thread::Builder::new().name("gphoto2".into()).spawn(move || run(connect, &port, &model, timing, &s, &tx, &shared))
         .map_err(|e| (false, e.to_string()))?;
     Ok(Box::new(LibCapture { stills, rx: Some(rx), stop, worker: Some(worker), last_frame: Instant::now(), silent: timing.silent }))
 }
@@ -366,7 +405,7 @@ fn pause(stop: &AtomicBool, d: Duration) {
 
 /// Keeps live view going until stopped: opens the camera, passes on its frames, does the card's requests between them, and
 /// starts live view (or the whole camera) again when it stops sending.
-fn run(mut connect: Connect, port: &str, timing: Timing, stop: &Arc<AtomicBool>, tx: &SyncSender<Msg>, stills: &Arc<StillsShared>) {
+fn run(mut connect: Connect, port: &str, model: &str, timing: Timing, stop: &Arc<AtomicBool>, tx: &SyncSender<Msg>, stills: &Arc<StillsShared>) {
     static IDS: AtomicU64 = AtomicU64::new(1);
     let id = IDS.fetch_add(1, Ordering::SeqCst);
     let (cmd_tx, cmds) = sync_channel::<Cmd>(MAX_QUEUED);
@@ -376,6 +415,8 @@ fn run(mut connect: Connect, port: &str, timing: Timing, stop: &Arc<AtomicBool>,
     let mut rig: Option<Box<dyn Rig>> = None;
     let (mut fails, mut delay) = (0u32, timing.restart);
     let mut refreshed = Instant::now();
+    // When live view is due to be cycled for a setting this model only applies that way (quirks.rs), pushed back by each further change
+    let mut restart_at: Option<Instant> = None;
     while !stop.load(Ordering::SeqCst) {
         let Some(r) = rig.as_mut() else {
             match connect(port) {
@@ -419,9 +460,25 @@ fn run(mut connect: Connect, port: &str, timing: Timing, stop: &Arc<AtomicBool>,
             if stop.load(Ordering::SeqCst) {
                 break;
             }
-            let Ok(Cmd::Set(name, value)) = cmds.try_recv() else { break };
-            if let Err(why) = write_control(r.as_mut(), &name, value) {
-                log::debug!("the camera refused {name} = {value}: {why}");
+            let Ok(cmd) = cmds.try_recv() else { break };
+            let (name, done_it) = match cmd {
+                Cmd::Set(name, value) => {
+                    let done_it = write_control(r.as_mut(), &name, value);
+                    if let Err(why) = &done_it {
+                        log::debug!("the camera refused {name} = {value}: {why}");
+                    }
+                    (name, done_it)
+                }
+                Cmd::Pick(name, label) => {
+                    let done_it = write_choice(r.as_mut(), &name, &label);
+                    if let Err(why) = &done_it {
+                        log::debug!("the camera refused {name} = {label}: {why}");
+                    }
+                    (name, done_it)
+                }
+            };
+            if done_it.is_ok() && quirks::needs_live_view_restart(model, &name) {
+                restart_at = Some(Instant::now() + RESTART_AFTER);
             }
             done += 1;
         }
@@ -435,6 +492,14 @@ fn run(mut connect: Connect, port: &str, timing: Timing, stop: &Arc<AtomicBool>,
         // Only now, with the list up to date: whoever waits for the camera to be idle then reads where it really is
         if done > 0 {
             pending.fetch_sub(done, Ordering::SeqCst);
+        }
+        // The dial has been still for a moment: live view off and on, which is when this camera's lens takes the setting. The last
+        // frame stays on the virtual camera meanwhile, as for a photo. The list is read again after it, as the camera may have moved.
+        if restart_at.is_some_and(|t| Instant::now() >= t) && pending.load(Ordering::SeqCst) == 0 {
+            restart_at = None;
+            log::debug!("live view is cycled for the setting just changed");
+            r.restart_live_view();
+            refreshed = Instant::now().checked_sub(REFRESH).unwrap_or_else(Instant::now);
         }
         match r.preview() {
             Ok(frame) => {
@@ -894,5 +959,91 @@ mod tests {
         assert!(cap.read().unwrap_err().starts_with("gphoto2 stopped"));
         let mut cap = open_with("gphoto2:usb:T4", fast(), Box::new(|_| Err("Could not claim the USB device".into()))).ok().unwrap();
         assert!(is_claim_error(&cap.read().unwrap_err()));
+    }
+
+    /// Aperture changes asked for through the card, one by one with a short wait between, as a person clicking would.
+    fn click_aperture(controls: &mut GphotoControls, picks: &[i64]) {
+        for pick in picks {
+            assert!(controls.set(APERTURE, *pick));
+            std::thread::sleep(Duration::from_millis(60));
+        }
+    }
+
+    #[test]
+    fn a_d5100_cycles_live_view_once_after_a_run_of_aperture_clicks() {
+        let state = camera(false);
+        let mut cap = open_model("gphoto2:usb:Q1", "Nikon DSC D5100 (PTP mode)", fast(), connecting(&state)).ok().unwrap();
+        cap.read().unwrap();
+        let mut controls = GphotoControls::new("gphoto2:usb:Q1");
+        click_aperture(&mut controls, &[0, 1, 2, 1, 0]);
+        wait_for("live view to be cycled", || state.lock().unwrap().live_view_restarts == 1);
+        assert_eq!(state.lock().unwrap().settings["f-number"].2, "f/3,5");
+        std::thread::sleep(RESTART_AFTER + Duration::from_millis(500));
+        assert_eq!(state.lock().unwrap().live_view_restarts, 1, "five clicks, one cycle");
+        // The frames carry on after it
+        let before = state.lock().unwrap().previews;
+        wait_for("frames again", || state.lock().unwrap().previews > before + 2);
+        // A later click starts the count again
+        click_aperture(&mut controls, &[2]);
+        wait_for("a second cycle", || state.lock().unwrap().live_view_restarts == 2);
+    }
+
+    #[test]
+    fn nothing_but_aperture_on_a_d5100_cycles_live_view_and_no_other_model_does() {
+        // Other settings on the D5100
+        let state = camera(false);
+        let mut cap = open_model("gphoto2:usb:Q2", "Nikon DSC D5100", fast(), connecting(&state)).ok().unwrap();
+        cap.read().unwrap();
+        let mut controls = GphotoControls::new("gphoto2:usb:Q2");
+        assert!(controls.set(EXPOSURE_COMP, 2) && controls.set(WHITE_BALANCE, 1));
+        wait_for("both applied", || state.lock().unwrap().settings["whitebalance"].2 == "Daylight" && state.lock().unwrap().settings["exposurecompensation"].2 == "1");
+        std::thread::sleep(RESTART_AFTER + Duration::from_millis(500));
+        assert_eq!(state.lock().unwrap().live_view_restarts, 0);
+        drop(cap);
+        // Aperture on another model, a Nikon too, and on a camera whose model isn't known
+        for (i, model) in ["Nikon DSC D7500", "Canon EOS 600D", ""].into_iter().enumerate() {
+            let state = camera(false);
+            let location = format!("gphoto2:usb:Q3{i}");
+            let mut cap = open_model(&location, model, fast(), connecting(&state)).ok().unwrap();
+            cap.read().unwrap();
+            let mut controls = GphotoControls::new(&location);
+            click_aperture(&mut controls, &[0, 2]);
+            wait_for("applied", || state.lock().unwrap().settings["f-number"].2 == "f/5,6");
+            std::thread::sleep(RESTART_AFTER + Duration::from_millis(500));
+            assert_eq!(state.lock().unwrap().live_view_restarts, 0, "{model:?}");
+        }
+    }
+
+    #[test]
+    fn a_camera_changing_aperture_and_its_choices_on_its_own_reaches_the_card_without_breaking_a_pick() {
+        let state = camera(false);
+        let mut cap = open_with("gphoto2:usb:Q4", fast(), connecting(&state)).ok().unwrap();
+        cap.read().unwrap();
+        let mut controls = GphotoControls::new("gphoto2:usb:Q4");
+        let aperture = |controls: &mut GphotoControls| controls.list().into_iter().find(|c| c.name == APERTURE).unwrap();
+        assert_eq!((aperture(&mut controls).labels.len(), aperture(&mut controls).value), (3, 1));
+        // The zoom ring turns: the lens narrows the widest aperture, so both the value and the list on offer change under the card
+        {
+            let mut s = state.lock().unwrap();
+            let f = s.settings.get_mut("f-number").unwrap();
+            f.1 = vec!["f/4".into(), "f/4,5".into(), "f/5,6".into()];
+            f.2 = "f/4,5".into();
+        }
+        wait_for("the card to see the new list and value", || {
+            let a = aperture(&mut controls);
+            a.labels == ["f/4", "f/4,5", "f/5,6"] && a.value == 1
+        });
+        // A click made on the old list: f/4 was place 1 there, and it is place 0 now. It goes by its name
+        assert!(controls.set_labelled(APERTURE, 1, "f/4"));
+        wait_for("the pick", || state.lock().unwrap().settings["f-number"].2 == "f/4");
+        // One that the lens can no longer do is refused, and nothing else is written in its place
+        let writes = state.lock().unwrap().log.len();
+        assert!(controls.set_labelled(APERTURE, 0, "f/3,5"));
+        wait_for("the camera to be done", || !controls.busy());
+        assert_eq!(state.lock().unwrap().settings["f-number"].2, "f/4");
+        assert_eq!(state.lock().unwrap().log.len(), writes, "no write for a choice that isn't offered");
+        // And what is asked by number still works for the cameras with fixed lists
+        assert!(controls.set(APERTURE, 2));
+        wait_for("the number", || state.lock().unwrap().settings["f-number"].2 == "f/5,6");
     }
 }
