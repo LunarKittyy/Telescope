@@ -194,6 +194,17 @@ fn undo_puts_the_old_sliders_back_and_the_nudge_moves_brightness() {
 }
 
 #[test]
+fn auto_and_its_undo_leave_vibrance_alone() {
+    let mut r = Rig::new("ready");
+    r.ui("slider-moved", vec![json!(5), json!(40.0)]);
+    r.press_and_measure(&Scene::default(), green().as_ref());
+    assert!(r.plugin.grade().tint > 5.0);
+    assert_eq!(r.plugin.grade().vibrance, 40.0);
+    r.ui("auto-undo-clicked", vec![]);
+    assert_eq!(r.plugin.grade().vibrance, 40.0);
+}
+
+#[test]
 fn pressing_twice_gives_the_same_sliders_and_one_undo_back_to_the_start() {
     let mut r = Rig::new("ready");
     r.press_and_measure(&Scene::default(), green().as_ref());

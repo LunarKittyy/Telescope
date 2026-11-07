@@ -93,13 +93,13 @@ export component ColourGradingCard inherits Card {
     in property <[float]> master-step: [0.01, 0.01, 0.01, 0.01];
     in property <[float]> master-default: [0, 0, 1, 0];
     // The sliders under the wheels, in the card's order
-    in property <[string]> slider-tips: ["", "", "", "", "", "", ""];
-    in property <[string]> slider-text: ["", "", "", "", "", "", ""];
-    in property <[float]> slider-min: [0, 0, 0, 0, 0, 0, 0];
-    in property <[float]> slider-max: [1, 1, 1, 1, 1, 1, 1];
-    in property <[float]> slider-value: [0, 0, 0, 0, 0, 0, 0];
-    in property <[float]> slider-step: [1, 1, 1, 1, 1, 1, 1];
-    in property <[float]> slider-default: [0, 0, 1, 0.435, 1, 0, 0];
+    in property <[string]> slider-tips: ["", "", "", "", "", "", "", ""];
+    in property <[string]> slider-text: ["", "", "", "", "", "", "", ""];
+    in property <[float]> slider-min: [0, 0, 0, 0, 0, 0, 0, 0];
+    in property <[float]> slider-max: [1, 1, 1, 1, 1, 1, 1, 1];
+    in property <[float]> slider-value: [0, 0, 0, 0, 0, 0, 0, 0];
+    in property <[float]> slider-step: [1, 1, 1, 1, 1, 1, 1, 1];
+    in property <[float]> slider-default: [0, 0, 1, 0.435, 1, 0, 0, 0];
     // The curve page
     in property <int> curve: 0;
     in property <int> channel: 0;
@@ -342,11 +342,11 @@ export component ColourGradingCard inherits Card {
             }
         }
         }
-        for name[i] in [@tr("Temperature"), @tr("Tint"), @tr("Contrast"), @tr("Pivot"), @tr("Saturation"), @tr("Shadows"), @tr("Highlights")]: SliderRow {
+        for name[i] in [@tr("Temperature"), @tr("Tint"), @tr("Contrast"), @tr("Pivot"), @tr("Saturation"), @tr("Vibrance"), @tr("Shadows"), @tr("Highlights")]: SliderRow {
             enabled: active;
             label: name;
             tip: slider-tips[i];
-            shortcut: ["colour_grading.temperature", "colour_grading.tint", "colour_grading.contrast", "colour_grading.pivot", "colour_grading.saturation", "colour_grading.shadows", "colour_grading.highlights"][i];
+            shortcut: ["colour_grading.temperature", "colour_grading.tint", "colour_grading.contrast", "colour_grading.pivot", "colour_grading.saturation", "colour_grading.vibrance", "colour_grading.shadows", "colour_grading.highlights"][i];
             minimum: slider-min[i];
             maximum: slider-max[i];
             step: slider-step[i];

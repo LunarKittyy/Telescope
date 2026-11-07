@@ -204,6 +204,22 @@ fn neutral_points(points: &[(f64, f64)]) -> bool {
     points.iter().all(|(_, y)| (y - 0.5).abs() < 1e-6)
 }
 
+/// Where skin sits on the hue circle (in turns, orange) and how far either side of it Vibrance holds back.
+const SKIN_HUE: f32 = 0.07;
+const SKIN_REACH: f32 = 0.07;
+/// How much of Vibrance skin tones still get at the middle of the skin hues.
+const SKIN_SHARE: f32 = 0.25;
+
+/// What Vibrance multiplies a colour's distance from grey by: the dull colours get most of a boost and the strong ones most of a cut, and skin hues get a quarter of either.
+fn vibrance_gain(vibrance: f32, rgb: [f32; 3]) -> f32 {
+    let top = rgb[0].max(rgb[1]).max(rgb[2]);
+    let sat = if top > 1e-6 { (top - rgb[0].min(rgb[1]).min(rgb[2])) / top } else { 0.0 };
+    let weight = if vibrance > 0.0 { (1.0 - sat) * (1.0 - sat) } else { sat };
+    let t = (1.0 - (hue_of(rgb) - SKIN_HUE).abs() / SKIN_REACH).clamp(0.0, 1.0);
+    let skin = 1.0 - (1.0 - SKIN_SHARE) * t * t * (3.0 - 2.0 * t);
+    1.0 + vibrance / 100.0 * weight * skin
+}
+
 /// Every setting of the Colour grading card.
 #[derive(Clone, Debug)]
 pub struct Grade {
@@ -218,6 +234,8 @@ pub struct Grade {
     pub shadows: f64,
     pub highlights: f64,
     pub saturation: f64,
+    /// -100..100: saturation that favours dull colours and spares skin.
+    pub vibrance: f64,
     /// The tone curves in CHANNELS order (all, r, g, b).
     pub curves: [Vec<(f64, f64)>; 4],
     pub hue_sat: Vec<(f64, f64)>,
@@ -238,6 +256,7 @@ impl Default for Grade {
             shadows: 0.0,
             highlights: 0.0,
             saturation: 1.0,
+            vibrance: 0.0,
             curves: std::array::from_fn(|_| LINEAR.to_vec()),
             hue_sat: neutral_hue(),
             hue_hue: neutral_hue(),
@@ -279,13 +298,13 @@ impl Grade {
 
     pub fn is_identity(&self) -> bool {
         self.temperature == 0.0 && self.tint == 0.0 && self.primaries_neutral() && self.contrast == 1.0 && self.shadows == 0.0
-            && self.highlights == 0.0 && self.saturation == 1.0 && self.curves_linear() && neutral_points(&self.hue_sat)
+            && self.highlights == 0.0 && self.saturation == 1.0 && self.vibrance == 0.0 && self.curves_linear() && neutral_points(&self.hue_sat)
             && neutral_points(&self.hue_hue) && (self.lut.is_none() || self.lut_strength == 0.0)
     }
 
     /// Each channel only depends on itself: no saturation, tone, hue curves or 3D LUT in play.
     pub fn per_channel(&self) -> bool {
-        self.shadows == 0.0 && self.highlights == 0.0 && self.saturation == 1.0 && neutral_points(&self.hue_sat) && neutral_points(&self.hue_hue)
+        self.shadows == 0.0 && self.highlights == 0.0 && self.saturation == 1.0 && self.vibrance == 0.0 && neutral_points(&self.hue_sat) && neutral_points(&self.hue_hue)
             && self.lut.as_ref().is_none_or(|l| self.lut_strength == 0.0 || l.per_channel())
     }
 
@@ -364,6 +383,11 @@ impl Prepared<'_> {
         if g.saturation != 1.0 {
             let y = luma(x);
             x = x.map(|v| y + g.saturation as f32 * (v - y));
+        }
+        if g.vibrance != 0.0 {
+            let k = vibrance_gain(g.vibrance as f32, x.map(|v| v.clamp(0.0, 1.0)));
+            let y = luma(x);
+            x = x.map(|v| y + k * (v - y));
         }
         if let Some(curves) = &self.curves {
             x = x.map(|v| v.clamp(0.0, 1.0));
@@ -510,6 +534,48 @@ mod tests {
         check(&Grade { saturation: 1.6, ..Default::default() }, |x| x.map(|v| (lum(x) + 1.6 * (v - lum(x))).clamp(0.0, 1.0)), 1e-5);
         check(&Grade { saturation: 0.0, ..Default::default() }, |x| [lum(x); 3], 1e-5);
         assert!(!Grade { saturation: 0.5, ..Default::default() }.per_channel());
+    }
+
+    #[test]
+    fn vibrance_is_neutral_at_zero_and_leaves_greys_alone() {
+        let neutral = Grade::default();
+        let vibrant = Grade { vibrance: 0.0, ..Default::default() };
+        assert!(vibrant.is_identity() && vibrant.per_channel());
+        for x in colours() {
+            assert_eq!(vibrant.eval(x), neutral.eval(x));
+        }
+        for v in [-100.0, -40.0, 60.0, 100.0] {
+            let g = Grade { vibrance: v, ..Default::default() };
+            assert!(!g.is_identity() && !g.per_channel());
+            for l in [0.0, 0.2, 0.5, 0.9, 1.0] {
+                assert!(g.eval([l; 3]).iter().all(|c| (c - l).abs() < 1e-6));
+            }
+        }
+    }
+
+    #[test]
+    fn vibrance_boosts_dull_colours_more_than_strong_ones() {
+        // blue-green hues, away from skin
+        let (dull, strong) = ([0.45, 0.5, 0.55], [0.1, 0.4, 0.9]);
+        let grade = Grade { vibrance: 80.0, ..Default::default() };
+        let chroma = |x: [f32; 3]| x[0].max(x[1]).max(x[2]) - x[0].min(x[1]).min(x[2]);
+        let (d, s) = (chroma(grade.eval(dull)) / chroma(dull), chroma(grade.eval(strong)) / chroma(strong));
+        assert!(d > 1.5 && d > s && s > 1.0, "dull {d}, strong {s}");
+        let cut = Grade { vibrance: -80.0, ..Default::default() };
+        let (d, s) = (chroma(cut.eval(dull)) / chroma(dull), chroma(cut.eval(strong)) / chroma(strong));
+        assert!(s < d && d < 1.0, "dull {d}, strong {s}");
+    }
+
+    #[test]
+    fn vibrance_holds_back_on_skin_hues() {
+        let grade = Grade { vibrance: 100.0, ..Default::default() };
+        let chroma = |x: [f32; 3]| x[0].max(x[1]).max(x[2]) - x[0].min(x[1]).min(x[2]);
+        // same saturation, one skin orange and one teal
+        let (skin, teal) = ([0.6, 0.5, 0.4], [0.4, 0.6, 0.5]);
+        assert!((hue_of(skin) - SKIN_HUE).abs() < 0.03);
+        let (a, b) = (chroma(grade.eval(skin)) / chroma(skin), chroma(grade.eval(teal)) / chroma(teal));
+        assert!(a < 1.0 + 0.5 * (b - 1.0), "skin {a}, teal {b}");
+        assert!(a > 1.0);
     }
 
     #[test]

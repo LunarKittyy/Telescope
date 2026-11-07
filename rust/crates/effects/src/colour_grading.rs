@@ -82,12 +82,13 @@ struct SliderDef {
     tip: &'static str,
 }
 
-const SLIDERS: [SliderDef; 7] = [
+const SLIDERS: [SliderDef; 8] = [
     SliderDef { key: "temperature", label: n_("Temperature"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Warmer or cooler") },
     SliderDef { key: "tint", label: n_("Tint"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("More magenta or more green") },
     SliderDef { key: "contrast", label: n_("Contrast"), lo: 0.0, hi: 2.0, steps: 100.0, decimals: 2, signed: false, tip: n_("Spreads the tones apart around the pivot") },
     SliderDef { key: "pivot", label: n_("Pivot"), lo: 0.0, hi: 1.0, steps: 1000.0, decimals: 3, signed: false, tip: n_("The level contrast turns around") },
     SliderDef { key: "saturation", label: n_("Saturation"), lo: 0.0, hi: 2.0, steps: 100.0, decimals: 0, signed: false, tip: n_("How colourful the picture is") },
+    SliderDef { key: "vibrance", label: n_("Vibrance"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Colours up the dull parts more than the strong ones, and spares skin") },
     SliderDef { key: "shadows", label: n_("Shadows"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Brightens or darkens the darker parts") },
     SliderDef { key: "highlights", label: n_("Highlights"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Brightens or darkens the brighter parts") },
 ];
@@ -99,6 +100,7 @@ fn slider_value(g: &Grade, key: &str) -> f64 {
         "contrast" => g.contrast,
         "pivot" => g.pivot,
         "saturation" => g.saturation,
+        "vibrance" => g.vibrance,
         "shadows" => g.shadows,
         _ => g.highlights,
     }
@@ -111,6 +113,7 @@ fn set_slider(g: &mut Grade, key: &str, v: f64) {
         "contrast" => g.contrast = v,
         "pivot" => g.pivot = v,
         "saturation" => g.saturation = v,
+        "vibrance" => g.vibrance = v,
         "shadows" => g.shadows = v,
         _ => g.highlights = v,
     }
@@ -943,7 +946,7 @@ impl Plugin for ColourGradingPlugin {
             actions::toggle_action("colour_grading.on", &tr("Colour grading"), &group, "", &[]),
             actions::toggle_action("colour_grading.compare", &tr("Compare before and after"), &group, "", &[]),
         ];
-        for key in ["temperature", "tint", "saturation", "contrast", "pivot", "shadows", "highlights"] {
+        for key in ["temperature", "tint", "saturation", "vibrance", "contrast", "pivot", "shadows", "highlights"] {
             let def = SLIDERS.iter().find(|d| d.key == key).expect("a slider by that key");
             let (scale, decimals, suffix) = if key == "saturation" { (100.0 / def.steps, 0, "%") } else { (1.0 / def.steps, def.decimals, "") };
             let step = match key {
@@ -1070,6 +1073,10 @@ impl Plugin for ColourGradingPlugin {
         cfg.insert("lut".into(), json!(self.lut_path));
         cfg.insert("lut_strength".into(), json!(g.lut_strength));
         for def in &SLIDERS {
+            // Vibrance came later: a grade without it saves exactly what older versions did
+            if def.key == "vibrance" && g.vibrance == 0.0 {
+                continue;
+            }
             cfg.insert(def.key.into(), json!(slider_value(g, def.key)));
         }
         Value::Object(cfg)
