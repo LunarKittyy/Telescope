@@ -1,5 +1,6 @@
 use super::*;
 use crate::webcam_capture::gphoto::Timing;
+use crate::webcam_capture::gphoto_lib::{gather, Said};
 use crate::webcam_capture::gphoto_lib::{open_with, Connect};
 use std::sync::atomic::AtomicUsize;
 use std::sync::mpsc::channel;
@@ -12,6 +13,8 @@ struct State {
     /// What capture() makes: (name, bytes) per file, or the error it fails with, and how long it takes.
     made: Vec<(String, Vec<u8>)>,
     capture_error: Option<String>,
+    /// capture() brings the first file and fails for the second.
+    partial: bool,
     capture_takes: Duration,
     captures: u32,
     /// Live view as capture() found it.
@@ -67,7 +70,7 @@ impl Rig for Fake {
         }
     }
     fn restart_live_view(&mut self) {}
-    fn capture(&mut self, expect: usize) -> Result<Vec<Shot>, String> {
+    fn capture(&mut self, expect: usize) -> Result<Vec<Shot>, Incomplete> {
         let (takes, error) = {
             let mut s = self.0.lock().unwrap();
             s.log.push("capture".into());
@@ -78,9 +81,12 @@ impl Rig for Fake {
         };
         std::thread::sleep(takes);
         if let Some(why) = error {
-            return Err(why);
+            return Err(why.into());
         }
         let s = self.0.lock().unwrap();
+        if s.partial {
+            return Err(Incomplete { why: "1 of 2 files came".into(), shots: s.made.iter().take(1).map(|(name, data)| Shot { name: name.clone(), data: data.clone() }).collect() });
+        }
         Ok(s.made.iter().take(expect).map(|(name, data)| Shot { name: name.clone(), data: data.clone() }).collect())
     }
     fn close(&mut self) {
@@ -472,4 +478,61 @@ fn two_photos_in_the_same_second_dont_overwrite_each_other() {
     assert_ne!(first, second);
     assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 2);
     let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_raw_and_jpeg_photo_with_a_file_missing_says_so_and_keeps_the_file_that_came() {
+    let state = d5100(true);
+    state.lock().unwrap().partial = true;
+    let mut cap = open_with("gphoto2:usb:S9", fast(), connecting(&state)).ok().unwrap();
+    cap.read().unwrap();
+    let stills = GphotoStills::new("gphoto2:usb:S9");
+    wait_for("caps", || stills.caps().is_some());
+    let dir = folder("partial");
+    let taken = take(&stills, json!({"format": "jpeg", "raw": 1, "rotation": 0}), &dir, yes()).expect("starts");
+    let done = read_until_done(&mut cap, &taken);
+    assert_eq!(done["ok"], json!(false), "{done}");
+    assert_eq!(done["code"], json!("partial"));
+    let files = done["files"].as_array().unwrap();
+    assert_eq!(files.len(), 1, "the file that came is saved");
+    assert_eq!(std::fs::read(files[0].as_str().unwrap()).unwrap(), vec![1; 8]);
+    wait_for("the busy flag to drop", || !stills.busy());
+    assert_eq!(state.lock().unwrap().log.last().map(String::as_str), Some("viewfinder=1"), "live view is back");
+}
+
+fn shot(n: u8) -> Shot {
+    Shot { name: format!("DSC_{n}.JPG"), data: vec![n] }
+}
+
+#[test]
+fn waiting_for_the_second_file_ends_at_the_deadline_however_busy_the_camera_is() {
+    // Events of another kind every time, and the second file never comes: a count of quiet moments would never get to the end
+    let started = Instant::now();
+    let got = gather(vec![shot(1)], 2, Duration::from_millis(120), || {
+        std::thread::sleep(Duration::from_millis(5));
+        Ok(Said::<u8>::Other)
+    }, |_| Ok(shot(2)));
+    let err = got.unwrap_err();
+    assert!(started.elapsed() < Duration::from_secs(2), "{:?}", started.elapsed());
+    assert_eq!(err.shots, [shot(1)], "the first file is kept");
+    assert!(err.why.contains("1 of 2"), "{}", err.why);
+}
+
+#[test]
+fn the_second_file_is_fetched_when_the_camera_says_it_is_there() {
+    let mut said = vec![Said::Other, Said::Quiet, Said::File(2u8)].into_iter();
+    let got = gather(vec![shot(1)], 2, Duration::from_secs(1), || Ok(said.next().unwrap()), |n| Ok(shot(n))).unwrap();
+    assert_eq!(got, [shot(1), shot(2)]);
+    // One file asked for needs no waiting at all
+    assert_eq!(gather(vec![shot(1)], 1, Duration::ZERO, || -> Result<Said<u8>, String> { panic!("no listening") }, |_| Ok(shot(2))).unwrap().len(), 1);
+}
+
+#[test]
+fn a_second_file_that_fails_to_come_down_or_a_camera_done_early_is_an_incomplete_photo() {
+    let fetch_fails = gather(vec![shot(1)], 2, Duration::from_secs(1), || Ok(Said::File(2u8)), |_| Err("download failed".into())).unwrap_err();
+    assert_eq!((fetch_fails.shots.len(), fetch_fails.why.contains("download failed")), (1, true));
+    let done_early = gather(vec![shot(1)], 2, Duration::from_secs(1), || Ok(Said::<u8>::Done), |_| Ok(shot(2))).unwrap_err();
+    assert_eq!(done_early.shots.len(), 1);
+    let lost = gather(vec![shot(1)], 2, Duration::from_secs(1), || Err::<Said<u8>, _>("gone".into()), |_| Ok(shot(2))).unwrap_err();
+    assert_eq!(lost.shots.len(), 1);
 }

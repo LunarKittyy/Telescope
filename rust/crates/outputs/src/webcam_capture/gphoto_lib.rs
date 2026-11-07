@@ -77,7 +77,7 @@ pub trait Rig: Send {
     /// After the camera ended live view on its own.
     fn restart_live_view(&mut self);
     /// Takes one photo to the computer and gives each file the camera made; expect is how many to wait for (RAW and JPEG are two).
-    fn capture(&mut self, _expect: usize) -> Result<Vec<Shot>, String> {
+    fn capture(&mut self, _expect: usize) -> Result<Vec<Shot>, Incomplete> {
         Err("this camera can't take photos".into())
     }
     /// Live view off and the camera let go.
@@ -85,10 +85,65 @@ pub trait Rig: Send {
 }
 
 /// One file the camera made for a photo, as it named it.
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Shot {
     pub name: String,
     pub data: Vec<u8>,
+}
+
+/// A photo that wasn't taken whole: why, and the files that did come (none when the camera failed at once).
+#[derive(Debug)]
+pub struct Incomplete {
+    pub why: String,
+    pub shots: Vec<Shot>,
+}
+
+impl From<String> for Incomplete {
+    fn from(why: String) -> Incomplete {
+        Incomplete { why, shots: Vec::new() }
+    }
+}
+
+impl From<&str> for Incomplete {
+    fn from(why: &str) -> Incomplete {
+        Incomplete::from(why.to_string())
+    }
+}
+
+/// One thing the camera said while the rest of a photo's files were awaited.
+pub enum Said<F> {
+    /// Nothing for a moment.
+    Quiet,
+    /// Another file is ready to fetch.
+    File(F),
+    /// The camera is done with the photo.
+    Done,
+    /// Something else (a setting changed, the status), which no photo waits on.
+    Other,
+}
+
+/// Waits for the files of a RAW and JPEG photo after the first, until `expect` are in. The wait is a clock, not a count of quiet
+/// moments: a camera busy with other events can't stretch it. A photo with a file missing is an error that still holds the ones that came.
+pub fn gather<F>(shots: Vec<Shot>, expect: usize, limit: Duration, mut listen: impl FnMut() -> Result<Said<F>, String>,
+                 mut fetch: impl FnMut(F) -> Result<Shot, String>) -> Result<Vec<Shot>, Incomplete> {
+    let until = Instant::now() + limit;
+    let mut shots = shots;
+    let missing = |shots: Vec<Shot>, why: String| Err(Incomplete { why: format!("{} of {expect} files came: {why}", shots.len()), shots });
+    while shots.len() < expect {
+        if Instant::now() >= until {
+            return missing(shots, "the rest didn't arrive in time".into());
+        }
+        match listen() {
+            Err(why) => return missing(shots, why),
+            Ok(Said::Done) => return missing(shots, "the camera said it was done".into()),
+            Ok(Said::File(file)) => match fetch(file) {
+                Ok(shot) => shots.push(shot),
+                Err(why) => return missing(shots, why),
+            },
+            Ok(Said::Quiet | Said::Other) => {}
+        }
+    }
+    Ok(shots)
 }
 
 /// Opens the camera on a port.

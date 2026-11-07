@@ -5,7 +5,7 @@
 //! What the camera offers (the picture formats it has, ISO and shutter speed where its mode dial allows them) is read again with
 //! the other settings, so a turn of the dial shows up on the card.
 
-use super::gphoto_lib::{resolve, stills_of, Kind, Rig, Setting, Shot};
+use super::gphoto_lib::{resolve, stills_of, Incomplete, Kind, Rig, Setting, Shot};
 use crate::webcam_controls::shutter_text;
 use crate::webcams::gphoto_port;
 use serde_json::{json, Value};
@@ -218,6 +218,8 @@ pub enum Failure {
     Save,
     Interrupted,
     Timeout,
+    /// A RAW and JPEG photo with a file missing: the files that did come are still saved.
+    Partial(Vec<Shot>),
 }
 
 impl Failure {
@@ -231,6 +233,7 @@ impl Failure {
             Failure::Save => "save",
             Failure::Interrupted => "interrupted",
             Failure::Timeout => "timeout",
+            Failure::Partial(_) => "partial",
         }
     }
 
@@ -244,6 +247,7 @@ impl Failure {
             Failure::Save => "Telescope couldn't save the photo.",
             Failure::Interrupted => "The photo was interrupted because the camera stopped.",
             Failure::Timeout => "The camera took too long to take the photo.",
+            Failure::Partial(_) => "The camera only sent part of the photo. What came is saved.",
         })
     }
 }
@@ -302,9 +306,15 @@ pub fn take_photo(rig: &mut dyn Rig, wish: &Wish) -> Result<Vec<Shot>, Failure> 
             }
         }
     }
-    rig.capture(expect).map_err(|why| {
+    rig.capture(expect).map_err(|Incomplete { why, shots }| {
         log::info!("the camera couldn't take the photo: {why}");
-        if why.to_lowercase().contains("busy") { Failure::Busy } else { Failure::Camera(why) }
+        if !shots.is_empty() {
+            Failure::Partial(shots)
+        } else if why.to_lowercase().contains("busy") {
+            Failure::Busy
+        } else {
+            Failure::Camera(why)
+        }
     })
 }
 
@@ -453,6 +463,14 @@ fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Valu
     let shots = loop {
         match rx.recv_timeout(LOOK) {
             Ok(Ok(shots)) => break shots,
+            // Whatever came of a photo that is only half there is kept, and the card says it is half
+            Ok(Err(Failure::Partial(shots))) => {
+                let files = match save(folder, &shots) {
+                    Ok(files) => files,
+                    Err((_, files)) => files,
+                };
+                return failed(&Failure::Partial(shots), &files);
+            }
             Ok(Err(failure)) => return failed(&failure, &[]),
             Err(RecvTimeoutError::Disconnected) => return failed(&Failure::Interrupted, &[]),
             Err(RecvTimeoutError::Timeout) => {
