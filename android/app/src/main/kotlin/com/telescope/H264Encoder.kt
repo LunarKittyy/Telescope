@@ -112,7 +112,7 @@ class H264Encoder(
                         checkOrder(info.presentationTimeUs)
                         outputRate.tick()
                         if (PhoneStats.shared.active()) {
-                            PhoneStats.delayMs(info.presentationTimeUs, System.nanoTime(), SystemClock.elapsedRealtimeNanos())?.let { PhoneStats.shared.addEncode(it) }
+                            PhoneStats.delayMs(info.presentationTimeUs, System.nanoTime(), SystemClock.elapsedRealtimeNanos(), PhoneStats.shared.realtimeStamps)?.let { PhoneStats.shared.addEncode(it) }
                         }
                     }
                     onPacket(bytes, key, config)

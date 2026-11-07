@@ -23,15 +23,22 @@ class PhoneStats(private val clock: () -> Long = ::monotonicMs) {
         }
 
         /**
-         * The camera hands the encoder timestamps on the monotonic clock (System.nanoTime) or, from some sensors, on
-         * the elapsed-realtime one, which also counts time asleep. A timestamp is believable on one of them only, once
-         * the phone has slept for more than the limit; a reading on neither is dropped rather than guessed.
+         * The camera hands the encoder timestamps on the monotonic clock (System.nanoTime) or on the elapsed-realtime
+         * one, which also counts time asleep; its SENSOR_INFO_TIMESTAMP_SOURCE says which ([realtime]). Both clocks read
+         * alike until the phone has slept, so guessing is only right by luck: when the camera says nothing, the one that
+         * gives a believable delay is taken, and a reading on neither is dropped rather than guessed.
          */
-        fun delayMs(timestampUs: Long, monotonicNs: Long, realtimeNs: Long): Double? =
-            delayMs(timestampUs, monotonicNs) ?: delayMs(timestampUs, realtimeNs)
+        fun delayMs(timestampUs: Long, monotonicNs: Long, realtimeNs: Long, realtime: Boolean? = null): Double? = when (realtime) {
+            true -> delayMs(timestampUs, realtimeNs)
+            false -> delayMs(timestampUs, monotonicNs)
+            null -> delayMs(timestampUs, monotonicNs) ?: delayMs(timestampUs, realtimeNs)
+        }
     }
 
     private class Sample(val atMs: Long, val value: Double)
+
+    /** Whether the open camera stamps frames on the elapsed-realtime clock (true), the monotonic one (false) or doesn't say (null). */
+    @Volatile var realtimeStamps: Boolean? = null
 
     private val encode = ArrayDeque<Sample>()
     private val queue = ArrayDeque<Sample>()

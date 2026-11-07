@@ -84,6 +84,18 @@ class PhoneStatsTest {
     }
 
     @Test
+    fun `a camera that names its clock is read on it, even when the phone has slept only a moment`() {
+        // Slept 20 ms in all: both clocks give a believable delay for the same stamp, and only the camera knows which is right
+        val monoNs = 50_000_000_000L
+        val realNs = monoNs + 20_000_000L
+        val stamp = (realNs - 93_000_000L) / 1000
+        assertEquals(93.0, PhoneStats.delayMs(stamp, monoNs, realNs, realtime = true)!!, 0.001)
+        assertEquals(73.0, PhoneStats.delayMs(stamp, monoNs, realNs, realtime = null)!!, 0.001, "unnamed: the first believable clock")
+        assertEquals(93.0, PhoneStats.delayMs((monoNs - 93_000_000L) / 1000, monoNs, realNs, realtime = false)!!, 0.001)
+        assertNull(PhoneStats.delayMs((monoNs - 93_000_000L) / 1000, monoNs, realNs + 9_000_000_000L, realtime = true), "a named clock is not second-guessed")
+    }
+
+    @Test
     fun `the lease runs on the monotonic clock, not the wall clock`() {
         val live = PhoneStats()
         live.ask(true)

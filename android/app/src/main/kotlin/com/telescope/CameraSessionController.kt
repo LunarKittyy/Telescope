@@ -721,10 +721,22 @@ class CameraSessionController(
         captureSession = null; cameraDevice = null
     }
 
+    // Which clock the open camera stamps its frames on, for the delay the Stats card shows; null when it can't be read
+    private fun stampsAreRealtime(): Boolean? {
+        val cam = currentCamera ?: return null
+        return try {
+            val source = (context.getSystemService(Context.CAMERA_SERVICE) as CameraManager)
+                .getCameraCharacteristics(cam.logicalId ?: cam.id)
+                .get(CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE)
+            source?.let { it == CameraMetadata.SENSOR_INFO_TIMESTAMP_SOURCE_REALTIME }
+        } catch (_: Exception) { null }
+    }
+
     // The camera's stream output at the current size: the JPEG reader, or the H.264 encoder's
     // Surface. An encoder that won't start falls back to JPEG and reports it.
     private fun buildOutputs() {
         if (codec == H264Stream.CODEC_H264) {
+            PhoneStats.shared.realtimeStamps = stampsAreRealtime()
             try {
                 lateinit var built: H264Encoder
                 // Queued behind a size change, a report from the old encoder must not count against the new one
