@@ -64,6 +64,7 @@ data class CameraEntry(
     val focalMm: Int = 0,      // 35 mm equivalent; 0 = not known
     val lensKind: String = "", // LensLabel.PHYSICAL for one lens of a multi-lens camera, AUTO for the camera itself
     val sensorOrientation: Int = 0,  // SENSOR_ORIENTATION: the clockwise turn that makes the picture upright on the screen
+    val supportsExposureLock: Boolean = false,  // AE_LOCK_AVAILABLE and AWB_LOCK_AVAILABLE
 )
 
 // The sensor's active pixel array (SENSOR_INFO_ACTIVE_ARRAY_SIZE), kept free of android.graphics.Rect so
@@ -390,6 +391,9 @@ class CameraStreamService : Service() {
                 val edgeModes = chars.get(CameraCharacteristics.EDGE_AVAILABLE_EDGE_MODES)?.toSet() ?: emptySet()
                 val maxAfRegions = chars.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AF) ?: 0
                 val maxAeRegions = chars.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AE) ?: 0
+                val exposureLock = ExposureLock.available(
+                    chars.get(CameraCharacteristics.CONTROL_AE_LOCK_AVAILABLE) == true,
+                    chars.get(CameraCharacteristics.CONTROL_AWB_LOCK_AVAILABLE) == true)
                 val activeArray = chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
                     ?.let { SensorBox(it.left, it.top, it.width(), it.height()) }
 
@@ -450,7 +454,8 @@ class CameraStreamService : Service() {
                             maxAfRegions, maxAeRegions, activeArray,
                             zoomRatioMax.coerceAtLeast(1f), cropZoomMax.coerceAtLeast(1f), freeformCrop, lensZooms,
                             highSpeed = highSpeed, facing = facing, focalMm = focalEq, lensKind = kind,
-                            sensorOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0)
+                            sensorOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0,
+                            supportsExposureLock = exposureLock)
             }.getOrNull()
 
             manager.cameraIdList.forEach { id ->
@@ -965,6 +970,7 @@ class CameraStreamService : Service() {
                 supportsFocusPoint = e.maxAfRegions > 0 && e.activeArray != null &&
                     CaptureRequest.CONTROL_AF_MODE_AUTO in e.afModes,
                 supportsMeterPoint = e.maxAeRegions > 0 && e.activeArray != null,
+                supportsExposureLock = e.supportsExposureLock,
                 zoomRatioMax = e.zoomRatioMax, cropZoomMax = e.cropZoomMax, freeformCrop = e.freeformCrop,
                 lensZooms = e.lensZooms,
                 maxFps = e.aeFpsRanges.maxOfOrNull { it.upper } ?: 0,
@@ -1008,6 +1014,7 @@ class CameraStreamService : Service() {
             heat_width = snap?.heatWidth ?: 0,
             heat_height = snap?.heatHeight ?: 0,
             low_light_toggle = true,
+            exposure_lock = snap?.exposureLock ?: "off",
             codec_error = snap?.codecFailure?.text,
             codec_error_code = snap?.codecFailure?.code,
             codec_error_width = snap?.codecFailure?.width ?: 0,
@@ -1173,6 +1180,11 @@ class CameraStreamService : Service() {
                 }
                 "torch" -> {
                     ctrl.setTorch(params["value"] == "1")
+                    ok()
+                }
+                "exposure_lock" -> {
+                    // 1: hold auto exposure and white balance where they are (the state says "locked" once the camera confirms it); 0: let go
+                    if (!ctrl.setExposureLock(params["value"] == "1")) return err("this lens can't lock exposure and white balance")
                     ok()
                 }
                 "camera_on" -> {

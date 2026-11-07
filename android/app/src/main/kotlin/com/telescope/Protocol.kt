@@ -37,6 +37,7 @@ data class CameraCapability(
     val h264Sizes: List<CameraSize>? = null,  // the supportedSizes the H.264 encoder takes; null = no encoder, or not said
     val supportsFocusPoint: Boolean = false,
     val supportsMeterPoint: Boolean = false,  // meter_point works: AE regions, whether or not the lens can focus on a point
+    val supportsExposureLock: Boolean = false,  // exposure_lock works: the lens has both the AE lock and the AWB lock
     val zoomRatioMax: Float = 1f,
     val cropZoomMax: Float = 1f,
     val freeformCrop: Boolean = false,
@@ -131,6 +132,7 @@ data class V1State(
     val heat_height: Int = 0,
     val low_light: Boolean = false,  // auto exposure may slow the camera down in the dark (and noise reduction is high)
     val low_light_toggle: Boolean = false,  // takes low_light; set by every phone that can
+    val exposure_lock: String = "off",  // "locking" after exposure_lock 1 until the camera confirms the lock, "locked" while both hold, else "off"
     val h264_profile: String? = null,  // "high", "baseline" or "auto" while H.264 runs
     val intra_refresh: Boolean = false,  // H.264 refreshes the picture over a second of frames instead of keyframes
     val wifi_band: String? = null,  // the phone's Wi-Fi: "2.4", "5" or "6" GHz, left out on mobile data or Android 9

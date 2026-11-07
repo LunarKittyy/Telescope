@@ -48,6 +48,7 @@ data class CameraControlSnapshot(
     val heatFps:           Int = 0,  // the rate the phone's heat capped the camera at; 0 = not capped
     val heatWidth:         Int = 0,  // the size the phone's heat dropped the stream to; 0 = the size asked for
     val heatHeight:        Int = 0,
+    val exposureLock:      String = "off",  // "locking" until the capture results confirm both locks, then "locked"
 )
 
 // Phone-side zoom, as the desktop splits it: a centred CONTROL_ZOOM_RATIO, then a 1/crop SCALER_CROP_REGION
@@ -116,6 +117,8 @@ class CameraSessionController(
     @Volatile private var currentEdgeMode:       Int     = CaptureRequest.EDGE_MODE_FAST
     @Volatile private var currentAeComp:         Int     = 0
     @Volatile private var currentBlackLevelLock: Boolean = false
+    // Auto exposure and white balance held at their current values; confirmed by the capture results, not by the ask
+    private val exposureLock = ExposureLock()
     // Low light: auto exposure may slow the camera down (to LOW_LIGHT_MIN_FPS where the phone has that) and noise
     // reduction runs at its best, for a dark room
     @Volatile private var currentLowLight: Boolean = false
@@ -217,6 +220,7 @@ class CameraSessionController(
         heatFps         = heatCap()?.takeIf { it < (frameRate?.cap ?: currentPhoneFps) } ?: 0,
         heatWidth       = if (heated()) streamWidth else 0,
         heatHeight      = if (heated()) streamHeight else 0,
+        exposureLock    = exposureLock.wire,
     )
 
     private fun heated() = streamWidth != askedWidth || streamHeight != askedHeight
@@ -542,6 +546,13 @@ class CameraSessionController(
     fun setEdgeMode(m: Int)                 { currentEdgeMode = m;              post { applyExposure() } }
     fun setAeComp(v: Int)                   { currentAeComp = v;                post { applyExposure() } }
     fun setBlackLevelLock(on: Boolean)      { currentBlackLevelLock = on;       post { applyExposure() } }
+    // false: this lens can't lock both exposure and white balance; the lock goes with the next lens, reopen or camera off
+    fun setExposureLock(on: Boolean): Boolean {
+        if (on && (cameraOff || taken || !exposureLock.request(currentCamera?.supportsExposureLock == true))) return false
+        if (!on) exposureLock.release()
+        post { applyExposure() }
+        return true
+    }
     fun setTorch(on: Boolean)               { currentTorch = on;                post { applyExposure() } }
 
     fun open(cameraId: String, physicalCameraId: String?, initialEntry: CameraEntry, initialOis: Boolean) {
@@ -979,6 +990,7 @@ class CameraSessionController(
 
     // Tells StillCapture: a photo in flight ends unless only the session is rebuilt
     private fun stillRebuilding(cause: StillRebuild.Cause) {
+        exposureLock.onRebuild(cause)
         if (!StillRebuild.interrupts(cause)) return
         onStillInterrupted?.invoke(cause)
         // After the photo ended, so its outputs aren't taken as refused by this lens
@@ -1181,6 +1193,15 @@ class CameraSessionController(
 
             set(CaptureRequest.BLACK_LEVEL_LOCK, currentBlackLevelLock)
 
+            // Lock auto exposure and auto white balance at their current values; both stay in auto mode, so they freeze where they are
+            // (a part set by hand needs none: manual exposure and manual gains are held already)
+            if (exposureLock.asked) {
+                val aeByHand = currentIso != null && currentShutterNs != null && cam != null && cam.supportsManualSensor
+                val awbByHand = currentWbGains != null && cam?.supportsManualWB == true
+                if (!aeByHand) set(CaptureRequest.CONTROL_AE_LOCK, true)
+                if (!awbByHand) set(CaptureRequest.CONTROL_AWB_LOCK, true)
+            }
+
             // Torch - only if this camera actually has a flash unit.
             set(CaptureRequest.FLASH_MODE,
                 if (currentTorch && cam?.supportsFlash == true) CaptureRequest.FLASH_MODE_TORCH
@@ -1307,11 +1328,25 @@ class CameraSessionController(
                     if (frameDurations.size > 60) frameDurations.removeFirst()
                 }
             }
+            confirmExposureLock(request, result)
             appliedFpsRange = result.get(CaptureResult.CONTROL_AE_TARGET_FPS_RANGE)
             exposureNs = result.get(CaptureResult.SENSOR_EXPOSURE_TIME)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
                 activeLens = result.get(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID)
         }
+    }
+
+    // The lock counts once a result of a request that asked for it says both are locked; a part set by hand (manual
+    // exposure, manual gains) is held already
+    private fun confirmExposureLock(request: CaptureRequest, result: TotalCaptureResult) {
+        if (exposureLock.phase != ExposureLock.Phase.LOCKING) return
+        val aeByHand = request.get(CaptureRequest.CONTROL_AE_MODE) == CaptureRequest.CONTROL_AE_MODE_OFF
+        val awbByHand = request.get(CaptureRequest.CONTROL_AWB_MODE) == CaptureRequest.CONTROL_AWB_MODE_OFF
+        val hadLocks = (aeByHand || request.get(CaptureRequest.CONTROL_AE_LOCK) == true) &&
+            (awbByHand || request.get(CaptureRequest.CONTROL_AWB_LOCK) == true)
+        val aeLocked = aeByHand || result.get(CaptureResult.CONTROL_AE_STATE) == CaptureResult.CONTROL_AE_STATE_LOCKED
+        val awbLocked = awbByHand || result.get(CaptureResult.CONTROL_AWB_STATE) == CaptureResult.CONTROL_AWB_STATE_LOCKED
+        exposureLock.onResult(hadLocks, aeLocked, awbLocked)
     }
 
     private fun applyExposure() {
