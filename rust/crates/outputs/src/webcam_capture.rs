@@ -284,6 +284,10 @@ impl crate::webcams::Ioctl for Fd<'_> {
 
 #[cfg(target_os = "linux")]
 pub mod gphoto;
+#[cfg(target_os = "linux")]
+mod gp;
+#[cfg(target_os = "linux")]
+pub mod gphoto_lib;
 
 #[cfg(target_os = "linux")]
 pub mod v4l2 {

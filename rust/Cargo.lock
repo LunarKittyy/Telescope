@@ -5817,6 +5817,7 @@ dependencies = [
  "i-slint-backend-testing",
  "image",
  "libc",
+ "libloading 0.9.0",
  "log",
  "ring",
  "serde_json",

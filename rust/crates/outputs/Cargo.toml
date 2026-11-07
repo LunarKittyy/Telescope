@@ -17,6 +17,8 @@ ring.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libc.workspace = true
+# libgphoto2 for DSLRs, loaded at run time so a system without it still starts
+libloading.workspace = true
 
 # Webcams through Media Foundation (windows is already in the tree through Slint's winit backend); downloading and
 # checking UnityCapture for the camera install

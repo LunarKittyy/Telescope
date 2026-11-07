@@ -394,6 +394,82 @@ fn row_enabled(env: &Env, name: &str) -> bool {
     env.plugin.rows().iter().find(|r| r["name"] == name).unwrap()["enabled"].as_bool().unwrap()
 }
 
+/// A DSLR's settings: what the camera allows now, held by the camera, so never saved or put back.
+#[derive(Clone, Default)]
+struct Dslr {
+    offered: Arc<Mutex<Vec<Control>>>,
+    sets: Arc<Mutex<Vec<(String, i64)>>>,
+}
+
+impl Controls for Dslr {
+    fn list(&mut self) -> Vec<Control> {
+        self.offered.lock().unwrap().clone()
+    }
+    fn set(&mut self, name: &str, value: i64) -> bool {
+        self.sets.lock().unwrap().push((name.into(), value));
+        true
+    }
+}
+
+fn dslr_controls() -> Vec<Control> {
+    let mut focus = Control::new("dslr_focus", "buttons", 0, 2, 1, 1, 1);
+    focus.transient = true;
+    let mut aperture = Control::new("dslr_aperture", "menu", 0, 2, 1, 1, 1);
+    aperture.menu = vec![0, 1, 2];
+    aperture.labels = vec!["f/3,5".into(), "f/4".into(), "f/5,6".into()];
+    aperture.transient = true;
+    vec![focus, aperture]
+}
+
+fn dslr_card() -> (Env, Dslr) {
+    let backend = Dslr::default();
+    *backend.offered.lock().unwrap() = dslr_controls();
+    let b = backend.clone();
+    let device = Device { key: "gphoto2-d5100".into(), name: "Nikon DSC D5100".into(), location: "gphoto2:usb:001,004".into(), modes: modes() };
+    let mut env = cams_with(vec![device], Box::new(move |_| Some(Box::new(b.clone()) as Box<dyn Controls>)));
+    pick(&mut env, Some("gphoto2-d5100"));
+    (env, backend)
+}
+
+#[test]
+fn a_dslrs_card_shows_focus_buttons_and_the_cameras_own_choices() {
+    let (env, _) = dslr_card();
+    let rows = env.plugin.rows();
+    let focus = rows.iter().find(|r| r["name"] == "dslr_focus").unwrap();
+    assert_eq!((focus["kind"].as_str(), focus["options"].as_array().unwrap().len()), (Some("buttons"), 3));
+    let aperture = rows.iter().find(|r| r["name"] == "dslr_aperture").unwrap();
+    assert_eq!((aperture["options"].clone(), aperture["index"].clone()), (json!(["f/3,5", "f/4", "f/5,6"]), json!(1)));
+    // Nothing for Reset to put back on a camera that holds its own settings
+    assert_eq!(env.plugin.props(false)["has-controls"], false);
+}
+
+#[test]
+fn a_dslrs_settings_are_sent_to_the_camera_but_never_saved_or_put_back() {
+    let (mut env, backend) = dslr_card();
+    set(&mut env, "dslr_aperture", 2);
+    set(&mut env, "dslr_focus", 0);
+    assert_eq!(*backend.sets.lock().unwrap(), [("dslr_aperture".to_string(), 2), ("dslr_focus".to_string(), 0)]);
+    assert!(env.plugin.get_config()["cameras"].as_object().unwrap().is_empty());
+    backend.sets.lock().unwrap().clear();
+    stream(&mut env, "gphoto2-d5100");
+    report(&mut env, "gphoto2-d5100", "ok", "640×426, MJPEG, 30 fps");
+    env.plugin.reset_controls(&mut env.host);
+    assert!(backend.sets.lock().unwrap().is_empty());
+}
+
+#[test]
+fn a_dslrs_card_follows_the_mode_dial() {
+    let (mut env, backend) = dslr_card();
+    assert_eq!(env.plugin.rows().iter().filter(|r| r["kind"] != "heading").count(), 2);
+    // Turned to a scene mode: the camera refuses everything, so the next look finds nothing to offer
+    backend.offered.lock().unwrap().clear();
+    env.plugin.rescan(&mut env.host);
+    assert!(env.plugin.rows().is_empty());
+    backend.offered.lock().unwrap().extend(dslr_controls());
+    env.plugin.rescan(&mut env.host);
+    assert_eq!(env.plugin.rows().iter().filter(|r| r["kind"] != "heading").count(), 2);
+}
+
 // test_webcam_controls.py::test_a_webcam_is_only_written_to_once_its_stream_opens_and_gets_anti_flicker_for_the_local_mains
 #[test]
 fn a_webcam_is_only_written_to_once_its_stream_opens_and_gets_anti_flicker_for_the_local_mains() {
