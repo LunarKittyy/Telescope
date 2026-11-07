@@ -422,16 +422,23 @@ fn conflicting(a: [f64; 2], b: [f64; 2]) -> bool {
 }
 
 /// A gentle correction going by the whole picture averaging out to grey, only when it is far from it.
-fn world_fix(rig: &Rig) -> Option<[f64; 2]> {
+fn world_fix(rig: &Rig, face: bool) -> Option<[f64; 2]> {
     let world = rig.world()?;
     let cast = linear_ratios(mean_colour(&world.patches));
-    if cast[0].hypot(cast[1]) < WORLD_MIN {
+    let size = cast[0].hypot(cast[1]);
+    // with a face to vouch that the light is what's off, a bigger share of the way is gone and no cast is too big; without one a far bigger tint than a lamp gives is coloured light or a coloured room, which is meant
+    let (min, max_cast, base, ramp, top, caps) = if face {
+        (WORLD_MIN_FACE, f32::MAX, WB_WORLD_STRENGTH_FACE, WB_WORLD_RAMP_FACE, WB_STRENGTH, (WB_MAX_TEMPERATURE, WB_MAX_TINT))
+    } else {
+        (WORLD_MIN, WORLD_MAX_CAST, WB_WORLD_STRENGTH, WB_WORLD_RAMP, 0.5, WB_WORLD_MAX)
+    };
+    if !(min..=max_cast).contains(&size) {
         return None;
     }
     let solved = solve_wb(&world, false, true);
     // the further past the threshold the cast is, the more sure it is a cast and not the room's colours
-    let strength = (WB_WORLD_STRENGTH + (cast[0].hypot(cast[1]) - WORLD_MIN) as f64 * WB_WORLD_RAMP).min(WB_STRENGTH);
-    let capped = [(solved[0] * strength).clamp(-WB_MAX_TEMPERATURE, WB_MAX_TEMPERATURE), (solved[1] * strength).clamp(-WB_MAX_TINT, WB_MAX_TINT)];
+    let strength = (base + (size - min) as f64 * ramp).min(top);
+    let capped = [(solved[0] * strength).clamp(-caps.0, caps.0), (solved[1] * strength).clamp(-caps.1, caps.1)];
     (capped[0].abs() >= WB_MIN || capped[1].abs() >= WB_MIN).then_some(capped)
 }
 
@@ -440,7 +447,7 @@ fn white_balance(m: &Measurement, rig: &Rig) -> (Wb, [f64; 2]) {
     let face = m.face.is_some() && !rig.skin.is_empty();
     if face && angle_excess(mean_colour(&rig.skin)) == 0.0 {
         // skin that looks right still can't hide a picture that is plainly tinted all over
-        return match world_fix(rig).filter(|_| !matches!(m.grey, Grey::Agree { .. })) {
+        return match world_fix(rig, true).filter(|_| !matches!(m.grey, Grey::Agree { .. })) {
             Some(solved) => (Wb::World, solved),
             None => (Wb::InRange, [0.0, 0.0]),
         };
@@ -460,7 +467,7 @@ fn white_balance(m: &Measurement, rig: &Rig) -> (Wb, [f64; 2]) {
         (true, false) => capped(solve_wb(rig, true, false), WB_STRENGTH),
         (false, true) => capped(solve_wb(rig, false, true), WB_GREY_ONLY_STRENGTH),
         (false, false) => {
-            return match world_fix(rig) {
+            return match world_fix(rig, false) {
                 Some(solved) => (Wb::World, solved),
                 None => (Wb::Unsure, [0.0, 0.0]),
             };
