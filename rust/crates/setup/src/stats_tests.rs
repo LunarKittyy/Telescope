@@ -536,3 +536,20 @@ fn active_heat_limiting_is_throttling_even_while_android_says_cool() {
     let throttling = row(&p, "Throttling");
     assert_eq!((throttling["value"].as_str(), throttling["kind"].as_str(), throttling["note"].as_str()), (Some("Yes"), Some("status_warn"), Some("capped at 24 fps")));
 }
+
+#[test]
+fn the_cards_own_polls_update_the_phone_numbers() {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    host.streaming = true;
+    plugin.on_stream_start(&mut host, &telescope_core::plugin::StreamInfo { source_id: "phone".into(), url: String::new(), session: 1 });
+    plugin.on_event(&mut host, &Event::PhoneStateUpdated { state: json!({"takes_stats": true, "camera_fps": 30.0, "battery_temp_c": 30.0}) });
+    // What request_phone_state asked for comes back as a poll of the shown stream, and fills in the measured rows
+    plugin.on_event(&mut host, &Event::PhonePolled { source_id: "phone".into(), session: 1, shown: true, state: new_phone_state() });
+    let rows = phone_props(new_phone_state(), false);
+    assert!(rows.to_string().contains("Delay on the phone"));
+    assert_eq!(plugin.phone.as_ref().and_then(|p| p.encode_ms), Some(8.4));
+    // A poll of a stream that isn't shown is somebody else's
+    plugin.on_event(&mut host, &Event::PhonePolled { source_id: "other".into(), session: 1, shown: false, state: json!({"takes_stats": true, "battery_temp_c": 50.0}) });
+    assert_eq!(plugin.phone.as_ref().and_then(|p| p.battery_temp_c), Some(36.5));
+}

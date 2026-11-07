@@ -541,6 +541,21 @@ impl StatsPlugin {
         }
     }
 
+    /// A reading of the shown phone's state: the card's numbers, and the lease renewed while it is wanted.
+    fn take_phone_state(&mut self, host: &mut dyn Host, state: &Value) {
+        self.follow_focus(host);
+        self.phone = PhoneReading::from_state(state);
+        if let Some(ms) = self.phone.as_ref().and_then(PhoneReading::phone_delay_ms) {
+            let now = telescope_core::time::monotonic_ns();
+            self.phone_delay.push((now, ms as f32));
+            self.phone_delay.retain(|(at, _)| now.saturating_sub(*at) < telescope_core::stats::KEPT as u64 * SECOND_NS);
+        }
+        if self.asking {
+            self.send_phone(host, true);
+        }
+        self.show(host);
+    }
+
     /// An older phone doesn't take the control, so nothing is sent until its state says it does.
     fn send_phone(&mut self, host: &mut dyn Host, on: bool) {
         let source = self.phone_source.clone();
@@ -598,19 +613,9 @@ impl Plugin for StatsPlugin {
                 self.show(host);
             }
             Event::CameraWatched { watched } => self.watched = Some(*watched),
-            Event::PhoneStateUpdated { state } => {
-                self.follow_focus(host);
-                self.phone = PhoneReading::from_state(state);
-                if let Some(ms) = self.phone.as_ref().and_then(PhoneReading::phone_delay_ms) {
-                    let now = telescope_core::time::monotonic_ns();
-                    self.phone_delay.push((now, ms as f32));
-                    self.phone_delay.retain(|(at, _)| now.saturating_sub(*at) < telescope_core::stats::KEPT as u64 * SECOND_NS);
-                }
-                if self.asking {
-                    self.send_phone(host, true);
-                }
-                self.show(host);
-            }
+            Event::PhoneStateUpdated { state } => self.take_phone_state(host, state),
+            // The answers to this card's own asks come back as polls, for the shown stream only
+            Event::PhonePolled { shown: true, state, .. } => self.take_phone_state(host, state),
             Event::TimerFired { token, .. } if token == PHONE => {
                 self.asking = false;
                 self.ask_phone(host);
