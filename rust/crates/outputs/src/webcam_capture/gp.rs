@@ -458,15 +458,20 @@ impl Rig for GpCamera {
                 if (api.wait_for_event)(cam, 250, &mut kind, &mut data, ctx) < 0 {
                     return Err("the camera stopped answering".to_string());
                 }
+                let Some(given) = std::ptr::NonNull::new(data) else {
+                    return Ok(match kind {
+                        EVENT_TIMEOUT => Said::Quiet,
+                        EVENT_CAPTURE_COMPLETE => Said::Done,
+                        _ => Said::Other,
+                    });
+                };
                 let said = match kind {
+                    EVENT_FILE_ADDED => Said::File(given.cast::<FilePath>().read()),
                     EVENT_TIMEOUT => Said::Quiet,
-                    EVENT_FILE_ADDED if !data.is_null() => Said::File(std::ptr::read(data as *const FilePath)),
                     EVENT_CAPTURE_COMPLETE => Said::Done,
                     _ => Said::Other,
                 };
-                if !data.is_null() {
-                    libc::free(data);
-                }
+                libc::free(given.as_ptr());
                 Ok(said)
             };
             gather(first, expect, Duration::from_millis(SECOND_FILE_WAIT_MS), listen, |file| self.download(&file))
