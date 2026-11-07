@@ -20,8 +20,74 @@ pub fn is_claim_error(why: &str) -> bool {
     why.contains(CLAIM_ERROR)
 }
 
-/// Cuts a byte stream into JPEGs at their start (FF D8 FF) and end (FF D9) markers, whatever sizes it arrives in. Bytes
-/// outside a JPEG are dropped, and so is a JPEG that runs past max without ending.
+enum Parse {
+    /// A whole JPEG of this many bytes.
+    Done(usize),
+    /// Fine so far, the rest hasn't arrived.
+    Need,
+    /// Not a JPEG after all.
+    Bad,
+}
+
+/// Walks a JPEG that starts at the beginning of b: segments by their lengths (so an EXIF thumbnail or any FF D9 inside one is
+/// skipped), then the picture data after a scan header up to the next real marker (FF 00 and restart markers belong to the
+/// data), until the end marker.
+fn parse(b: &[u8]) -> Parse {
+    let mut i = 2;
+    loop {
+        if i + 1 >= b.len() {
+            return Parse::Need;
+        }
+        if b[i] != 0xFF {
+            return Parse::Bad;
+        }
+        let marker = b[i + 1];
+        match marker {
+            0xFF => {
+                i += 1; // fill
+                continue;
+            }
+            0x00 => return Parse::Bad,
+            0xD9 => return Parse::Done(i + 2),
+            0x01 | 0xD0..=0xD8 => {
+                i += 2; // no length
+                continue;
+            }
+            _ => {}
+        }
+        if i + 3 >= b.len() {
+            return Parse::Need;
+        }
+        let len = u16::from_be_bytes([b[i + 2], b[i + 3]]) as usize;
+        if len < 2 {
+            return Parse::Bad;
+        }
+        let end = i + 2 + len;
+        if end > b.len() {
+            return Parse::Need;
+        }
+        i = end;
+        if marker != 0xDA {
+            continue;
+        }
+        // Picture data: on to the next marker that isn't part of it
+        loop {
+            let Some(p) = b[i..].iter().position(|&c| c == 0xFF).map(|p| p + i) else { return Parse::Need };
+            let Some(&next) = b.get(p + 1) else { return Parse::Need };
+            match next {
+                0xFF => i = p + 1,
+                0x00 | 0xD0..=0xD7 => i = p + 2,
+                _ => {
+                    i = p;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+/// Cuts a byte stream into JPEGs, whatever sizes it arrives in. Bytes outside a JPEG are dropped, and so is one that isn't
+/// well formed or runs past max without ending.
 pub struct JpegSplitter {
     buf: Vec<u8>,
     max: usize,
@@ -44,13 +110,13 @@ impl JpegSplitter {
                 break;
             };
             self.buf.drain(..start);
-            match self.buf[2..].windows(2).position(|w| w == [0xFF, 0xD9]) {
-                Some(end) => frames.push(self.buf.drain(..end + 4).collect()),
-                None if self.buf.len() > self.max => {
-                    // Too long to be a frame: look for the next start after this one
+            match parse(&self.buf) {
+                Parse::Done(len) => frames.push(self.buf.drain(..len).collect()),
+                Parse::Need if self.buf.len() <= self.max => break,
+                // Garbage or too long to be a frame: look for the next start after this one
+                Parse::Need | Parse::Bad => {
                     self.buf.drain(..1);
                 }
-                None => break,
             }
         }
         frames
@@ -65,7 +131,7 @@ pub struct Timing {
     pub restart_max: Duration,
     /// Runs in a row that sent nothing before it counts as failed.
     pub give_up_runs: u32,
-    /// Without a frame for this long a read fails.
+    /// Without a frame for this long a read fails (and gphoto2 is killed, so the next try can claim the camera).
     pub silent: Duration,
 }
 
@@ -97,19 +163,23 @@ impl Stop {
             unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) };
         }
     }
+
+    fn stop(&self) {
+        self.flag.store(true, Ordering::SeqCst);
+        self.kill();
+    }
 }
 
 struct Stopper(Arc<Stop>);
 
 impl telescope_core::media::FeedStopper for Stopper {
     fn stop(&self) {
-        self.0.flag.store(true, Ordering::SeqCst);
-        self.0.kill();
+        self.0.stop();
     }
 }
 
 pub struct GphotoCapture {
-    rx: Receiver<Msg>,
+    rx: Option<Receiver<Msg>>,
     stop: Arc<Stop>,
     worker: Option<std::thread::JoinHandle<()>>,
     last_frame: Instant,
@@ -127,15 +197,32 @@ pub fn open_with(program: &str, location: &str, timing: Timing) -> Result<Box<dy
     let (program, port, s) = (program.to_string(), gphoto_port(location).to_string(), stop.clone());
     let worker = std::thread::Builder::new().name("gphoto2".into()).spawn(move || run(&program, &port, timing, &s, &tx))
         .map_err(|e| (false, e.to_string()))?;
-    Ok(Box::new(GphotoCapture { rx, stop, worker: Some(worker), last_frame: Instant::now(), silent: timing.silent }))
+    Ok(Box::new(GphotoCapture { rx: Some(rx), stop, worker: Some(worker), last_frame: Instant::now(), silent: timing.silent }))
 }
 
-fn spawn(program: &str, port: &str) -> std::io::Result<Child> {
+/// The gphoto2 command, speaking English whatever the desktop's language is, since the claim error is told by its text.
+pub fn command(program: &str, port: &str) -> Command {
     let mut cmd = Command::new(program);
+    cmd.env("LC_ALL", "C").env("LANG", "C").env_remove("LANGUAGE");
     if !port.is_empty() {
         cmd.args(["--port", port]);
     }
-    cmd.args(["--capture-movie", "--stdout"]).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()
+    cmd.args(["--capture-movie", "--stdout"]).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    cmd
+}
+
+/// Hands over a last message once there's room, without holding up a stop.
+fn deliver(tx: &SyncSender<Msg>, stop: &Stop, msg: Msg) {
+    let mut msg = msg;
+    loop {
+        match tx.try_send(msg) {
+            Err(TrySendError::Full(back)) if !stop.stopped() => {
+                msg = back;
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            _ => return,
+        }
+    }
 }
 
 /// Keeps live view running until stopped: starts gphoto2, passes on its frames, starts it again when it exits.
@@ -146,11 +233,11 @@ fn run(program: &str, port: &str, timing: Timing, stop: &Arc<Stop>, tx: &SyncSen
         if stop.stopped() {
             return;
         }
-        let mut child = match spawn(program, port) {
+        let mut child: Child = match command(program, port).spawn() {
             Ok(c) => c,
             Err(e) => {
                 let why = if e.kind() == std::io::ErrorKind::NotFound { "gphoto2 isn't installed".to_string() } else { format!("couldn't start gphoto2: {e}") };
-                let _ = tx.send(Msg::Failed(why));
+                deliver(tx, stop, Msg::Failed(why));
                 return;
             }
         };
@@ -197,7 +284,7 @@ fn run(program: &str, port: &str, timing: Timing, stop: &Arc<Stop>, tx: &SyncSen
         }
         let said = errors.lock().unwrap().clone();
         if is_claim_error(&said) {
-            let _ = tx.send(Msg::Failed(CLAIM_ERROR.into()));
+            deliver(tx, stop, Msg::Failed(CLAIM_ERROR.into()));
             return;
         }
         if got > 0 {
@@ -207,7 +294,7 @@ fn run(program: &str, port: &str, timing: Timing, stop: &Arc<Stop>, tx: &SyncSen
             empty_runs += 1;
             if empty_runs >= timing.give_up_runs {
                 let line = said.lines().map(str::trim).rfind(|l| !l.is_empty()).unwrap_or("it sent nothing");
-                let _ = tx.send(Msg::Failed(format!("gphoto2 stopped: {line}")));
+                deliver(tx, stop, Msg::Failed(format!("gphoto2 stopped: {line}")));
                 return;
             }
         }
@@ -222,19 +309,34 @@ fn run(program: &str, port: &str, timing: Timing, stop: &Arc<Stop>, tx: &SyncSen
     }
 }
 
+impl GphotoCapture {
+    /// Ends it for good: gphoto2 killed and reaped, so nothing keeps the camera claimed afterwards.
+    fn shutdown(&mut self) {
+        // Dropping the receiver first means a worker waiting to hand something over gives up at once
+        self.rx = None;
+        self.stop.stop();
+        if let Some(w) = self.worker.take() {
+            let _ = w.join();
+        }
+    }
+}
+
 impl Capture for GphotoCapture {
     fn read(&mut self) -> Result<Vec<u8>, String> {
         loop {
             if self.stop.stopped() {
                 return Err("stopped".into());
             }
-            match self.rx.recv_timeout(Duration::from_millis(100)) {
+            let Some(rx) = &self.rx else { return Err("stopped".into()) };
+            match rx.recv_timeout(Duration::from_millis(100)) {
                 Ok(Msg::Frame(f)) => {
                     self.last_frame = Instant::now();
                     return Ok(f);
                 }
                 Ok(Msg::Failed(why)) => return Err(why),
                 Err(RecvTimeoutError::Timeout) if self.last_frame.elapsed() > self.silent => {
+                    // A gphoto2 that hung still has the camera claimed, so it goes before anything else tries
+                    self.shutdown();
                     return Err(format!("no frame within {:.1} s", self.silent.as_secs_f64()));
                 }
                 Err(RecvTimeoutError::Timeout) => {}
@@ -254,11 +356,7 @@ impl Capture for GphotoCapture {
 
 impl Drop for GphotoCapture {
     fn drop(&mut self) {
-        self.stop.flag.store(true, Ordering::SeqCst);
-        self.stop.kill();
-        if let Some(w) = self.worker.take() {
-            let _ = w.join();
-        }
+        self.shutdown();
     }
 }
 
@@ -267,10 +365,35 @@ mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
 
+    /// SOI, an APP0 segment, a scan header, picture data (tag bytes with a stuffed FF 00 and a restart marker) and EOI.
     fn jpeg(tag: u8, len: usize) -> Vec<u8> {
-        let mut v = vec![0xFF, 0xD8, 0xFF, 0xE0];
+        let mut v = vec![0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x06, b'J', b'F', b'I', b'F'];
+        v.extend([0xFF, 0xDA, 0x00, 0x08, 1, 1, 0, 0, 0x3F, 0]);
         v.extend(std::iter::repeat_n(tag, len));
-        v.extend([0xFF, 0xD9]);
+        v.extend([0xFF, 0x00, 0xFF, 0xD0, tag, 0xFF, 0xD9]);
+        v
+    }
+
+    /// A JPEG whose EXIF segment holds a whole thumbnail JPEG and a stray FF D9, and a comment with one too.
+    fn jpeg_with_metadata() -> Vec<u8> {
+        let thumb = jpeg(9, 6);
+        let mut exif = b"Exif\0\0".to_vec();
+        exif.extend([0xFF, 0xD9, 0x01]);
+        exif.extend(&thumb);
+        let mut v = vec![0xFF, 0xD8, 0xFF, 0xE1];
+        v.extend(((exif.len() + 2) as u16).to_be_bytes());
+        v.extend(&exif);
+        v.extend([0xFF, 0xFE, 0x00, 0x06, b'a', 0xFF, 0xD9, b'b']);
+        v.extend([0xFF, 0xDA, 0x00, 0x08, 1, 1, 0, 0, 0x3F, 0, 5, 6, 7, 0xFF, 0xD9]);
+        v
+    }
+
+    /// Two scans with a table between them, the way progressive JPEGs come.
+    fn jpeg_progressive() -> Vec<u8> {
+        let mut v = vec![0xFF, 0xD8, 0xFF, 0xDB, 0x00, 0x03, 0];
+        v.extend([0xFF, 0xDA, 0x00, 0x08, 1, 1, 0, 0, 0x3F, 0, 1, 2, 0xFF, 0x00, 3]);
+        v.extend([0xFF, 0xC4, 0x00, 0x04, 0xFF, 0xD9]);
+        v.extend([0xFF, 0xDA, 0x00, 0x08, 1, 1, 0, 0, 0x3F, 0, 4, 5, 0xFF, 0xD9]);
         v
     }
 
@@ -290,12 +413,23 @@ mod tests {
     fn the_splitter_joins_a_frame_split_across_reads() {
         let (a, b) = (jpeg(1, 20), jpeg(2, 20));
         let all: Vec<u8> = [a.clone(), b.clone()].concat();
-        // Cut inside the start marker, inside the end marker and in the middle
         for cut in 1..all.len() {
             assert_eq!(split_all(&[&all[..cut], &all[cut..]]), [a.clone(), b.clone()], "cut at {cut}");
         }
         let bytes: Vec<&[u8]> = all.chunks(1).collect();
         assert_eq!(split_all(&bytes), [a, b]);
+    }
+
+    #[test]
+    fn metadata_with_an_end_marker_in_it_doesnt_cut_a_frame_short() {
+        let frames = [jpeg_with_metadata(), jpeg_progressive(), jpeg(4, 3)];
+        let all: Vec<u8> = frames.concat();
+        assert_eq!(split_all(&[&all]), frames);
+        for cut in 1..all.len() {
+            assert_eq!(split_all(&[&all[..cut], &all[cut..]]), frames, "cut at {cut}");
+        }
+        let bytes: Vec<&[u8]> = all.chunks(1).collect();
+        assert_eq!(split_all(&bytes), frames);
     }
 
     #[test]
@@ -307,22 +441,25 @@ mod tests {
         assert_eq!(split_all(&[&input]), [a.clone()]);
         assert!(split_all(&[&[1, 2, 3, 0xFF, 0xD9, 0xFF, 0xD8, 0x00]]).is_empty());
         assert!(split_all(&[&[]]).is_empty());
-        // A start with no end is waited for, then the next frame still comes through
+        // A start that turns out not to be a JPEG (a segment length of 1) doesn't swallow the frame after it
+        let mut input = vec![0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x01, 9, 9];
+        input.extend(&a);
+        assert_eq!(split_all(&[&input]), [a.clone()]);
+        // A half-sent frame is waited for
         let mut s = JpegSplitter::new(1024);
-        assert!(s.push(&[0xFF, 0xD8, 0xFF, 0xE0, 1, 2]).is_empty());
-        assert_eq!(s.push(&a), [vec![0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 0xFF, 0xD8, 0xFF, 0xE0, 7, 7, 7, 7, 7, 7, 7, 7, 0xFF, 0xD9]]);
+        assert!(s.push(&a[..9]).is_empty());
+        assert_eq!(s.push(&a[9..]), [a]);
     }
 
     #[test]
     fn the_splitter_drops_a_frame_that_never_ends_and_keeps_memory_bounded() {
         let mut s = JpegSplitter::new(64);
-        let mut junk = vec![0xFF, 0xD8, 0xFF, 0xE0];
+        let mut junk = vec![0xFF, 0xD8, 0xFF, 0xE0, 0x7F, 0xFF];
         junk.extend(std::iter::repeat_n(0x11, 500));
         assert!(s.push(&junk).is_empty());
-        assert!(s.buf.len() <= 64 + 3, "{}", s.buf.len());
+        assert!(s.buf.len() <= 2, "{}", s.buf.len());
         let a = jpeg(3, 10);
         assert_eq!(s.push(&a), [a]);
-        // Endless bytes with no start never pile up
         let mut s = JpegSplitter::new(64);
         for _ in 0..100 {
             s.push(&[0x42; 1000]);
@@ -330,7 +467,7 @@ mod tests {
         assert!(s.buf.len() <= 2);
     }
 
-    /// A folder with a fake gphoto2 in it, and its state files.
+    /// A folder with a fake gphoto2 in it, the frames it plays and its state files.
     struct Fake {
         dir: std::path::PathBuf,
     }
@@ -340,6 +477,9 @@ mod tests {
             let dir = std::env::temp_dir().join(format!("telescope-gphoto-{name}-{}", std::process::id()));
             let _ = std::fs::remove_dir_all(&dir);
             std::fs::create_dir_all(&dir).unwrap();
+            for (file, frame) in [("a", jpeg(b'A', 4)), ("b", jpeg(b'B', 4)), ("c", jpeg(b'C', 4)), ("z", jpeg(b'Z', 1))] {
+                std::fs::write(dir.join(file), frame).unwrap();
+            }
             let path = dir.join("gphoto2");
             std::fs::write(&path, format!("#!/bin/bash\nD='{}'\n{script}", dir.display())).unwrap();
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
@@ -374,13 +514,13 @@ echo "$@" >> "$D/args"
 echo $$ >> "$D/pids"
 n=$(wc -l < "$D/pids")
 if [ "$n" = 1 ]; then
-  printf '\xff\xd8\xff\xe0AAAA\xff\xd9'
-  printf '\xff\xd8\xff\xe0BB'
+  cat "$D/a"
+  head -c 20 "$D/b"
   sleep 0.1
-  printf 'BB\xff\xd9'
+  tail -c +21 "$D/b"
   exit 0
 fi
-printf '\xff\xd8\xff\xe0CCCC\xff\xd9'
+cat "$D/c"
 exec sleep 30
 "#;
 
@@ -390,7 +530,7 @@ exec sleep 30
         let mut cap = open_with(&fake.program(), "gphoto2:usb:001,004", quick()).unwrap();
         let stopper = cap.stopper();
         assert_eq!(cap.read().unwrap(), jpeg(b'A', 4));
-        assert_eq!(cap.read().unwrap(), [vec![0xFF, 0xD8, 0xFF, 0xE0, b'B', b'B', b'B', b'B', 0xFF, 0xD9]].concat());
+        assert_eq!(cap.read().unwrap(), jpeg(b'B', 4));
         // The first run ended; a frame from the second means it started again
         assert_eq!(cap.read().unwrap(), jpeg(b'C', 4));
         assert_eq!(fake.file("pids").lines().count(), 2);
@@ -406,7 +546,7 @@ exec sleep 30
 
     #[test]
     fn dropping_the_capture_kills_the_child_too() {
-        let fake = Fake::new("drop", "echo $$ > \"$D/pid\"\nprintf '\\xff\\xd8\\xff\\xe0Z\\xff\\xd9'\nexec sleep 30\n");
+        let fake = Fake::new("drop", "echo $$ > \"$D/pid\"\ncat \"$D/z\"\nexec sleep 30\n");
         let mut cap = open_with(&fake.program(), "", quick()).unwrap();
         assert_eq!(cap.read().unwrap(), jpeg(b'Z', 1));
         let pid = fake.file("pid");
@@ -424,6 +564,28 @@ exec sleep 30
         assert_eq!(fake.file("pids").lines().count(), 1, "no point starting it again");
     }
 
+    // A gphoto2 that answers in the desktop's language unless it's told to speak English
+    const LOCALISED: &str = r#"
+if [ "$LC_ALL" = C ] && [ "$LANG" = C ] && [ -z "$LANGUAGE" ]; then
+  echo 'Could not claim the USB device' >&2
+else
+  echo 'Das USB-Gerät konnte nicht belegt werden' >&2
+fi
+exit 1
+"#;
+
+    #[test]
+    fn the_claim_error_is_found_whatever_language_the_desktop_speaks() {
+        let cmd = command("gphoto2", "usb:001,004");
+        let envs: std::collections::HashMap<_, _> = cmd.get_envs().map(|(k, v)| (k.to_string_lossy().to_string(), v.map(|v| v.to_string_lossy().to_string()))).collect();
+        assert_eq!(envs["LC_ALL"].as_deref(), Some("C"));
+        assert_eq!(envs["LANG"].as_deref(), Some("C"));
+        assert_eq!(envs["LANGUAGE"], None);
+        let fake = Fake::new("locale", LOCALISED);
+        let mut cap = open_with(&fake.program(), "", quick()).unwrap();
+        assert!(is_claim_error(&cap.read().unwrap_err()));
+    }
+
     #[test]
     fn a_gphoto2_that_keeps_failing_ends_the_feed_with_what_it_said() {
         let fake = Fake::new("fail", "echo $$ >> \"$D/pids\"\necho 'Unsupported operation' >&2\nexit 1\n");
@@ -439,14 +601,64 @@ exec sleep 30
         assert_eq!(cap.read().unwrap_err(), "gphoto2 isn't installed");
     }
 
+    // The first run hangs without a frame, holding the camera; a run after it gets frames
+    const HANGS_ONCE: &str = r#"
+echo $$ >> "$D/pids"
+if [ "$(wc -l < "$D/pids")" = 1 ]; then exec sleep 30; fi
+cat "$D/z"
+exec sleep 30
+"#;
+
     #[test]
-    fn a_hung_gphoto2_with_no_frames_is_a_silent_camera() {
-        let fake = Fake::new("hung", "echo $$ > \"$D/pid\"\nexec sleep 30\n");
+    fn a_silent_gphoto2_is_killed_before_the_error_so_the_next_try_can_have_the_camera() {
+        let fake = Fake::new("hung", HANGS_ONCE);
         let timing = Timing { silent: Duration::from_millis(300), ..quick() };
         let mut cap = open_with(&fake.program(), "", timing).unwrap();
         assert_eq!(cap.read().unwrap_err(), "no frame within 0.3 s");
-        let pid = fake.file("pid");
-        drop(cap);
-        assert!(!alive(&pid));
+        let hung = fake.file("pids").lines().next().unwrap().to_string();
+        assert!(!alive(&hung), "the hung gphoto2 was left running");
+        assert_eq!(cap.read().unwrap_err(), "stopped");
+        // Another capture (what the reopened feed makes) gets frames
+        let mut next = open_with(&fake.program(), "", quick()).unwrap();
+        assert_eq!(next.read().unwrap(), jpeg(b'Z', 1));
+    }
+
+    // Plays far more frames than the queue holds and then fails, so the worker has something to hand over with the queue full
+    const FLOOD_THEN_CLAIM: &str = r#"
+echo $$ > "$D/pid"
+for i in $(seq 1 40); do cat "$D/z"; done
+sleep 0.2
+echo 'Could not claim the USB device' >&2
+exit 1
+"#;
+
+    fn dropped_within(cap: Box<dyn Capture>, limit: Duration) -> bool {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            drop(cap);
+            let _ = tx.send(());
+        });
+        rx.recv_timeout(limit).is_ok()
+    }
+
+    #[test]
+    fn cancelling_with_a_full_queue_doesnt_hang() {
+        let fake = Fake::new("full", FLOOD_THEN_CLAIM);
+        let cap = open_with(&fake.program(), "", quick()).unwrap();
+        // Nothing reads, so the queue fills and the last message waits for room
+        std::thread::sleep(Duration::from_millis(700));
+        assert!(dropped_within(cap, Duration::from_secs(3)), "dropping the capture hung on a full queue");
+        assert!(!alive(&fake.file("pid")));
+        // Same when it's stopped rather than dropped, and still hands the error over once there's room
+        let mut cap = open_with(&fake.program(), "", quick()).unwrap();
+        std::thread::sleep(Duration::from_millis(700));
+        let mut last = Ok(Vec::new());
+        for _ in 0..10 {
+            last = cap.read();
+            if last.is_err() {
+                break;
+            }
+        }
+        assert!(is_claim_error(&last.unwrap_err()));
     }
 }

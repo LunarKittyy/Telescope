@@ -527,14 +527,46 @@ pub fn parse_auto_detect(output: &str) -> Vec<(String, String)> {
     }).collect()
 }
 
-/// The webcam list entries for what gphoto2 found. Two of one model get their port in the key, so each keeps its own settings.
-pub fn gphoto_devices(found: &[(String, String)]) -> Vec<Device> {
+/// A camera gphoto2 found, with what tells it apart from other cameras of its model ("" when sysfs doesn't know it).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Detected {
+    pub model: String,
+    pub port: String,
+    pub identity: String,
+}
+
+/// What stays the same for a USB camera however often it's replugged: its serial number when it has one, else the physical
+/// port it's in (not the bus device number, which changes every time). Looks the "usb:001,004" port up in sysfs (/sys/bus/usb/devices).
+pub fn usb_identity(port: &str, sysfs_usb: &std::path::Path) -> Option<String> {
+    let (bus, dev) = port.strip_prefix("usb:")?.split_once(',')?;
+    let (bus, dev): (u32, u32) = (bus.trim().parse().ok()?, dev.trim().parse().ok()?);
+    for e in std::fs::read_dir(sysfs_usb).ok()?.flatten() {
+        let folder = e.path();
+        let num = |name: &str| read(&folder.join(name)).parse::<u32>().ok();
+        if num("busnum") != Some(bus) || num("devnum") != Some(dev) {
+            continue;
+        }
+        let serial = read(&folder.join("serial"));
+        if !serial.is_empty() {
+            return Some(format!("usb-{}:{}-{serial}", read(&folder.join("idVendor")), read(&folder.join("idProduct"))));
+        }
+        return Some(format!("usb-port-{}", e.file_name().to_string_lossy()));
+    }
+    None
+}
+
+/// The webcam list entries for what gphoto2 found. A camera keeps its key when another of its model comes or goes and when it's
+/// replugged, so its settings stay with it. Cameras sysfs doesn't know fall back to their model (and port, when two share one).
+pub fn gphoto_devices(found: &[Detected]) -> Vec<Device> {
     let mode = Mode::new("MJPG", GPHOTO_MODE.0, GPHOTO_MODE.1, &[GPHOTO_MODE.2]);
-    let devices = found.iter().map(|(model, port)| {
-        let twins = found.iter().filter(|f| f.0 == *model).count() > 1;
-        let key = if twins { format!("gphoto2-{model}-{port}") } else { format!("gphoto2-{model}") };
-        Device { key, name: model.clone(), location: format!("{GPHOTO_PREFIX}{port}"), modes: vec![mode.clone()] }
+    let mut devices: Vec<Device> = found.iter().map(|d| {
+        let twins = found.iter().filter(|f| f.model == d.model).count() > 1;
+        let key = if !d.identity.is_empty() { format!("gphoto2-{}", d.identity) }
+            else if twins { format!("gphoto2-{}-{}", d.model, d.port) } else { format!("gphoto2-{}", d.model) };
+        Device { key, name: d.model.clone(), location: format!("{GPHOTO_PREFIX}{}", d.port), modes: vec![mode.clone()] }
     }).collect();
+    // The same order whichever way gphoto2 lists them, so the "(2)" stays on the same camera
+    devices.sort_by(|a, b| a.key.cmp(&b.key));
     tell_apart(devices)
 }
 
@@ -554,7 +586,7 @@ pub fn gphoto_present(location: &str, usb_root: &str) -> bool {
 #[cfg(target_os = "linux")]
 pub fn run_auto_detect(program: &str, limit: std::time::Duration) -> Result<String, bool> {
     use std::io::Read;
-    let mut child = std::process::Command::new(program).arg("--auto-detect")
+    let mut child = std::process::Command::new(program).arg("--auto-detect").env("LC_ALL", "C").env("LANG", "C").env_remove("LANGUAGE")
         .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::null()).spawn()
         .map_err(|e| e.kind() == std::io::ErrorKind::NotFound)?;
     let mut out = child.stdout.take().ok_or(false)?;
@@ -584,7 +616,7 @@ pub fn run_auto_detect(program: &str, limit: std::time::Duration) -> Result<Stri
 #[cfg(target_os = "linux")]
 #[derive(Default)]
 struct GphotoState {
-    found: Vec<(String, String)>,
+    found: Vec<Detected>,
     running: bool,
     missing: bool,
 }
@@ -627,7 +659,10 @@ impl GphotoScanner {
                 match out {
                     Ok(text) => {
                         st.missing = false;
-                        st.found = parse_auto_detect(&text);
+                        st.found = parse_auto_detect(&text).into_iter().map(|(model, port)| {
+                            let identity = usb_identity(&port, std::path::Path::new("/sys/bus/usb/devices")).unwrap_or_default();
+                            Detected { model, port, identity }
+                        }).collect();
                     }
                     Err(true) => {
                         st.missing = true;

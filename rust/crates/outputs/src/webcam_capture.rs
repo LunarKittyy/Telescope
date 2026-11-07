@@ -61,6 +61,11 @@ pub struct WebcamFeed {
 
 /// Opens the camera and reads one frame to check it sends; on failure says why (and why in waiting_text).
 pub fn open(deps: &ReaderDeps, waiting: &std::sync::Arc<std::sync::Mutex<String>>) -> Result<(Choice, WebcamFeed), String> {
+    open_stoppable(deps, waiting, &telescope_core::media::OpenStop::default())
+}
+
+/// Same, and a stop through open ends the wait for the first frame at once.
+pub fn open_stoppable(deps: &ReaderDeps, waiting: &std::sync::Arc<std::sync::Mutex<String>>, stop: &telescope_core::media::OpenStop) -> Result<(Choice, WebcamFeed), String> {
     let say = |text: &str, state: &str, detail: &str| {
         *waiting.lock().unwrap() = tr(text);
         (deps.report)(state, detail);
@@ -69,8 +74,14 @@ pub fn open(deps: &ReaderDeps, waiting: &std::sync::Arc<std::sync::Mutex<String>
     let Some(device) = (deps.locate)() else { return say(GONE_TEXT, "gone", "") };
     let Some(choice) = (deps.want)(&device) else { return say(NO_FRAMES_TEXT, "silent", "") };
     let opened = (deps.opener)(&device, &choice).and_then(|mut cap| {
+        // Before the wait, so a stop in the middle of it reaches the camera (a DSLR can take seconds to send its first frame)
+        let stopper = cap.stopper();
+        stop.watch(move || stopper.stop());
         cap.read().map(|first| (cap, first)).map_err(|why| (true, why))
     });
+    if stop.stopped() {
+        return Err("stopped".into());
+    }
     match opened {
         Ok((capture, first)) => {
             (deps.report)("ok", &choice.describe());
@@ -661,5 +672,52 @@ mod tests {
         let yv12 = raw_to_i420("YV12", 2, 2, &[1, 2, 3, 4, 6, 5]).unwrap();
         assert_eq!(&yv12.data[4..], &[5, 6]);
         assert!(raw_to_i420("H264", 2, 2, &[0; 16]).is_none());
+    }
+
+    /// A camera that never sends a frame but ends its read when stopped.
+    struct Blocked(Arc<std::sync::atomic::AtomicBool>);
+
+    struct FlagStop(Arc<std::sync::atomic::AtomicBool>);
+    impl telescope_core::media::FeedStopper for FlagStop {
+        fn stop(&self) {
+            self.0.store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+
+    impl Capture for Blocked {
+        fn read(&mut self) -> Result<Vec<u8>, String> {
+            while !self.0.load(std::sync::atomic::Ordering::SeqCst) {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            Err("stopped".into())
+        }
+        fn stopper(&self) -> Box<dyn telescope_core::media::FeedStopper> {
+            Box::new(FlagStop(self.0.clone()))
+        }
+    }
+
+    fn blocked() -> Opener {
+        Arc::new(|_, _| Ok(Box::new(Blocked(Arc::default())) as Box<dyn Capture>))
+    }
+
+    #[test]
+    fn stopping_while_the_first_frame_is_awaited_ends_the_wait_at_once() {
+        let r = rig(blocked(), "");
+        let stop = telescope_core::media::OpenStop::default();
+        let (deps, s) = (r.deps.clone(), stop.clone());
+        let opening = std::thread::spawn(move || open_stoppable(&deps, &Arc::default(), &s).err());
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        let started = std::time::Instant::now();
+        stop.stop();
+        assert_eq!(opening.join().unwrap().as_deref(), Some("stopped"));
+        assert!(started.elapsed() < std::time::Duration::from_secs(2));
+        // A stop that came before the camera was even opened ends it without waiting
+        let early = telescope_core::media::OpenStop::default();
+        early.stop();
+        let started = std::time::Instant::now();
+        assert!(open_stoppable(&r.deps, &Arc::default(), &early).is_err());
+        assert!(started.elapsed() < std::time::Duration::from_secs(2));
+        // A stopped open says nothing about the camera
+        assert!(r.reports.lock().unwrap().is_empty());
     }
 }

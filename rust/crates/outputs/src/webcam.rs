@@ -258,7 +258,10 @@ impl StreamSource for WebcamSource {
         false
     }
     fn open_feed(&self) -> Result<(Codec, Box<dyn VideoFeed>), String> {
-        let (choice, feed) = webcam_capture::open(&self.deps(), &self.waiting)?;
+        self.open_feed_stoppable(&telescope_core::media::OpenStop::default())
+    }
+    fn open_feed_stoppable(&self, open: &telescope_core::media::OpenStop) -> Result<(Codec, Box<dyn VideoFeed>), String> {
+        let (choice, feed) = webcam_capture::open_stoppable(&self.deps(), &self.waiting, open)?;
         *self.last.lock().unwrap() = Some(choice);
         Ok((Codec::Mjpeg, Box::new(feed)))
     }
