@@ -771,3 +771,50 @@ fn a_hold_ends_when_its_tile_goes_or_the_plugin_stops() {
     rig.ui("tile-hold-down", vec![json!("nothing"), json!(1)]);
     assert!(!rig.host.is_scheduled(T_HOLD), "nothing to hold");
 }
+
+#[test]
+fn picks_made_on_one_camera_are_not_sent_with_another_cameras_photo() {
+    let mut rig = dslr(dslr_json());
+    rig.host.focused = Some("webcam:a".into());
+    rig.event(Event::DeviceChanged { source_id: "webcam:a".into() });
+    rig.ui("tile-picked", vec![json!("iso"), json!(3)]);
+    rig.ui("tile-picked", vec![json!("shutter"), json!(2)]);
+    assert_eq!(tile(&rig.props(), "iso").unwrap().1, 3);
+    // Another camera whose lists are word for word the same, so nothing in what it reports tells the two apart
+    rig.host.focused = Some("webcam:b".into());
+    rig.event(Event::DeviceChanged { source_id: "webcam:b".into() });
+    assert_eq!((tile(&rig.props(), "iso").unwrap().1, tile(&rig.props(), "shutter").unwrap().1), (2, 1), "the camera's own values show");
+    rig.ui("take-clicked", vec![]);
+    assert_eq!(rig.host.stills_taken[0].0, json!({"format": "jpeg", "rotation": 0}), "nothing from the other camera goes with it");
+    // The same camera again after the stream stops and starts keeps what was picked on it
+    let mut same = dslr(dslr_json());
+    same.host.focused = Some("webcam:a".into());
+    same.event(Event::DeviceChanged { source_id: "webcam:a".into() });
+    same.ui("tile-picked", vec![json!("iso"), json!(3)]);
+    same.host.focused = None;
+    same.event(Event::StreamStopped);
+    same.host.focused = Some("webcam:a".into());
+    same.event(Event::DeviceChanged { source_id: "webcam:a".into() });
+    assert_eq!(tile(&same.props(), "iso").unwrap().1, 3);
+}
+
+#[test]
+fn a_hold_ends_before_the_tiles_are_replaced_even_when_its_own_tile_stays() {
+    let mut rig = dslr(long_dslr());
+    rig.ui("tile-hold-down", vec![json!("shutter"), json!(1)]);
+    rig.ui("tile-hold-up", vec![]);
+    rig.ui("tile-hold-down", vec![json!("iso"), json!(1)]);
+    assert!(rig.host.is_scheduled(T_HOLD));
+    // The mode dial turns: the shutter tile goes and ISO stays, so a new list of tiles replaces the arrows
+    let mut scene = long_dslr();
+    scene.as_object_mut().unwrap().remove("shutter");
+    rig.host.still_caps = Some(scene);
+    rig.event(Event::StillCapsChanged { source_id: "webcam:cam".into() });
+    assert!(tile(&rig.props(), "iso").is_some() && tile(&rig.props(), "shutter").is_none());
+    assert!(!rig.host.is_scheduled(T_HOLD), "the arrow it was under is gone");
+    let at = tile(&rig.props(), "iso").unwrap().1;
+    for _ in 0..30 {
+        hold_tick(&mut rig);
+    }
+    assert_eq!(tile(&rig.props(), "iso").unwrap().1, at, "nothing keeps stepping after the release that never came");
+}
