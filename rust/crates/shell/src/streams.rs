@@ -359,12 +359,22 @@ impl Window {
         st.streams.live = s.streams.iter().filter(|x| x.has_session()).map(|x| x.id_str().to_string()).collect();
         // A stream with a camera of its own takes photos through it, and tells when what it can take changes
         let bus = st.bus.sender();
-        st.source_stills = s.streams.iter().filter(|x| x.has_session()).filter_map(|src| {
+        let installed: Vec<(String, Arc<dyn telescope_core::source::SourceStills>)> = s.streams.iter().filter(|x| x.has_session()).filter_map(|src| {
             let stills = src.kind.stills()?;
             let (sender, id) = (bus.clone(), src.id_str().to_string());
             stills.set_on_change(Box::new(move || sender.emit(Event::StillCapsChanged { source_id: id.clone() })));
             Some((src.id_str().to_string(), stills))
         }).collect();
+        // A service that is new, or says something else than the one it replaces, is announced: the camera may have published what
+        // it takes before anyone was listening (it streamed first, or came back on another port), and nothing else would tell the cards
+        for (id, stills) in &installed {
+            let before = st.source_stills.iter().find(|(old, _)| old == id).map(|(_, old)| old);
+            let news = before.is_none_or(|old| !std::ptr::addr_eq(Arc::as_ptr(old), Arc::as_ptr(stills)) && old.caps() != stills.caps());
+            if news {
+                bus.emit(Event::StillCapsChanged { source_id: id.clone() });
+            }
+        }
+        st.source_stills = installed;
         st.streams.stopping_all = s.stopping_all;
         st.streams.ids =s.streams.iter().map(|x| x.id_str().to_string()).collect();
         st.streams.waking_id = s.wake_source.as_ref().filter(|_| s.waking).map(|w| w.id_str().to_string());

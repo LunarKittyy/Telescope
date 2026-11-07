@@ -9,7 +9,6 @@ use super::gphoto_lib::{resolve, stills_of, Incomplete, Kind, Rig, Setting, Shot
 use crate::webcam_controls::shutter_text;
 use crate::webcams::gphoto_port;
 use serde_json::{json, Value};
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{sync_channel, RecvTimeoutError, SyncSender};
@@ -371,18 +370,40 @@ impl Shared {
 }
 
 type OnChange = Arc<dyn Fn() + Send + Sync>;
+/// Where a camera is now: the location its device has at this moment, which changes when it comes back on another USB port.
+pub type Locate = Arc<dyn Fn() -> Option<String> + Send + Sync>;
 
-/// Who wants to hear about each camera's changes, by port: set before the camera streams and kept after it stops.
-fn listeners() -> &'static Mutex<HashMap<String, OnChange>> {
-    static LISTENERS: OnceLock<Mutex<HashMap<String, OnChange>>> = OnceLock::new();
-    LISTENERS.get_or_init(Mutex::default)
+/// Someone who wants to hear about one camera's changes, wherever that camera is on the bus when they happen.
+struct Hearer {
+    locate: Locate,
+    on_change: Mutex<Option<OnChange>>,
 }
 
-/// Tells whoever listens to this camera that what it takes may have changed.
+impl Hearer {
+    fn port(&self) -> Option<String> {
+        (self.locate)().map(|location| gphoto_port(&location).to_string())
+    }
+}
+
+/// Every photo service there is, which hear what happens at the port their camera is at now.
+fn hearers() -> &'static Mutex<Vec<std::sync::Weak<Hearer>>> {
+    static HEARERS: OnceLock<Mutex<Vec<std::sync::Weak<Hearer>>>> = OnceLock::new();
+    HEARERS.get_or_init(Mutex::default)
+}
+
+/// Tells whoever listens to the camera on this port that what it takes may have changed. A camera that comes back on another port
+/// is told about there too, since it is found by where its device is now and not where it was when it was asked to listen.
 pub fn notify_changed(port: &str) {
-    let listener = listeners().lock().unwrap().get(port).cloned();
-    if let Some(listener) = listener {
-        listener();
+    let hearing: Vec<Arc<Hearer>> = {
+        let mut all = hearers().lock().unwrap();
+        all.retain(|h| h.strong_count() > 0);
+        all.iter().filter_map(std::sync::Weak::upgrade).collect()
+    };
+    for hearer in hearing.into_iter().filter(|h| h.port().as_deref() == Some(port)) {
+        let listener = hearer.on_change.lock().unwrap().clone();
+        if let Some(listener) = listener {
+            listener();
+        }
     }
 }
 
@@ -497,28 +518,42 @@ fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Valu
 
 /// The Photos card's way to a DSLR: only while the camera streams, since only the stream's thread can talk to it.
 pub struct GphotoStills {
-    port: String,
+    hearer: Arc<Hearer>,
     longest: Duration,
 }
 
 impl GphotoStills {
+    /// The camera at this location, for good.
     pub fn new(location: &str) -> GphotoStills {
-        GphotoStills { port: gphoto_port(location).to_string(), longest: LONGEST }
+        let location = location.to_string();
+        GphotoStills::following(Arc::new(move || Some(location.clone())))
+    }
+
+    /// The camera of a device, wherever it is on the bus at the moment it is asked: it can come back on another port after the
+    /// stream dropped, and this service still has to be the one for it.
+    pub fn following(locate: Locate) -> GphotoStills {
+        let hearer = Arc::new(Hearer { locate, on_change: Mutex::new(None) });
+        hearers().lock().unwrap().push(Arc::downgrade(&hearer));
+        GphotoStills { hearer, longest: LONGEST }
+    }
+
+    fn shared(&self) -> Option<Arc<Shared>> {
+        stills_of(&self.hearer.port()?)
     }
 }
 
 impl SourceStills for GphotoStills {
     fn caps(&self) -> Option<Value> {
-        stills_of(&self.port)?.caps_json()
+        self.shared()?.caps_json()
     }
 
     fn busy(&self) -> bool {
-        stills_of(&self.port).is_some_and(|s| s.in_flight.load(Ordering::SeqCst))
+        self.shared().is_some_and(|s| s.in_flight.load(Ordering::SeqCst))
     }
 
     fn take(&self, options: &Value, folder: &str, on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
             alive: Box<dyn Fn() -> bool + Send>) -> bool {
-        let Some(shared) = stills_of(&self.port) else { return false };
+        let Some(shared) = self.shared() else { return false };
         if shared.caps_json().is_none() || shared.in_flight.swap(true, Ordering::SeqCst) {
             return false;
         }
@@ -537,7 +572,7 @@ impl SourceStills for GphotoStills {
     }
 
     fn set_on_change(&self, on_change: Box<dyn Fn() + Send + Sync>) {
-        listeners().lock().unwrap().insert(self.port.clone(), Arc::from(on_change));
+        *self.hearer.on_change.lock().unwrap() = Some(Arc::from(on_change));
     }
 }
 

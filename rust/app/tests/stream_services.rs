@@ -220,6 +220,18 @@ fn a_cameras_photos_go_through_its_own_service_and_tell_every_plugin() {
 }
 
 #[test]
+fn a_cameras_photo_service_is_announced_when_the_window_installs_it_and_not_again_while_it_stays() {
+    // The camera published what it takes before the window had its service to listen to, so nothing else would tell the cards
+    let (r, _stills) = camera_on_air("photos-camera-installed");
+    assert!(r.did_hear("panel caps webcam:d5100"), "{:?}", r.heard());
+    r.forget_heard();
+    r.pump();
+    r.emit(telescope_core::event::Event::StreamStopped);
+    r.pump();
+    assert!(!r.did_hear("panel caps webcam:d5100"), "the same service stays quiet: {:?}", r.heard());
+}
+
+#[test]
 fn a_camera_takes_one_photo_at_a_time_and_offers_nothing_once_it_lets_go() {
     let (r, stills) = camera_on_air("photos-camera-busy");
     stills.busy.store(true, Ordering::SeqCst);

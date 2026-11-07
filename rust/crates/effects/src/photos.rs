@@ -887,7 +887,9 @@ impl Plugin for PhotosPlugin {
         }
         match event {
             Event::PhoneStateUpdated { .. } | Event::StreamStopped | Event::DeviceChanged { .. } | Event::CameraSwitched { .. }
-            | Event::StillBusyChanged { .. } | Event::StillCapsChanged { .. } | Event::SourceSelected { .. } => {
+            | Event::StillBusyChanged { .. } | Event::StillCapsChanged { .. } | Event::SourceSelected { .. }
+            // A camera that streams again may take photos again, whether or not it said so while nobody listened
+            | Event::StreamConnected { .. } | Event::StreamLost { .. } => {
                 // The tile under a held arrow may be gone with the camera
                 self.refresh(host);
                 if self.held.as_ref().is_some_and(|h| !self.tile_list().iter().any(|t| t.key == h.name)) {

@@ -818,3 +818,17 @@ fn a_hold_ends_before_the_tiles_are_replaced_even_when_its_own_tile_stays() {
     }
     assert_eq!(tile(&rig.props(), "iso").unwrap().1, at, "nothing keeps stepping after the release that never came");
 }
+
+#[test]
+fn a_camera_that_streams_again_brings_the_card_back_even_if_nobody_told_the_card_what_it_takes() {
+    let mut rig = dslr(dslr_json());
+    assert_eq!(rig.props()["shown"], true);
+    // The stream drops and the camera takes nothing for now
+    rig.host.still_caps = None;
+    rig.event(Event::StreamLost { source_id: "webcam:cam".into() });
+    assert_eq!((rig.props()["shown"].clone(), rig.props()["take-enabled"].clone()), (json!(false), json!(false)));
+    // It is back, and the only notice is that the stream is: the card asks
+    rig.host.still_caps = Some(dslr_json());
+    rig.event(Event::StreamConnected { source_id: "webcam:cam".into() });
+    assert_eq!((rig.props()["shown"].clone(), rig.props()["take-enabled"].clone()), (json!(true), json!(true)));
+}

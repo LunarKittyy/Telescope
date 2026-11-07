@@ -2,6 +2,7 @@ use super::*;
 use crate::webcam_capture::gphoto::Timing;
 use crate::webcam_capture::gphoto_lib::{gather, Said};
 use crate::webcam_capture::gphoto_lib::{open_with, Connect};
+use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
 use std::sync::mpsc::channel;
 
@@ -535,4 +536,34 @@ fn a_second_file_that_fails_to_come_down_or_a_camera_done_early_is_an_incomplete
     assert_eq!(done_early.shots.len(), 1);
     let lost = gather(vec![shot(1)], 2, Duration::from_secs(1), || Err::<Said<u8>, _>("gone".into()), |_| Ok(shot(2))).unwrap_err();
     assert_eq!(lost.shots.len(), 1);
+}
+
+#[test]
+fn a_service_that_follows_its_camera_is_told_where_the_camera_is_now_and_not_where_it_was() {
+    // The camera streams on a port, and the service for it is asked to listen while its device says another one
+    let state = d5100(true);
+    let location = Arc::new(Mutex::new("gphoto2:usb:F1".to_string()));
+    let here = location.clone();
+    let stills = GphotoStills::following(Arc::new(move || Some(here.lock().unwrap().clone())));
+    let heard = Arc::new(AtomicUsize::new(0));
+    let counter = heard.clone();
+    stills.set_on_change(Box::new(move || {
+        counter.fetch_add(1, Ordering::SeqCst);
+    }));
+    assert!(stills.caps().is_none(), "nothing streams on F1");
+    let mut cap = open_with("gphoto2:usb:F2", fast(), connecting(&state)).ok().unwrap();
+    cap.read().unwrap();
+    assert_eq!(heard.load(Ordering::SeqCst), 0, "F2 isn't its camera's port yet");
+    // The device moves to F2 (the camera came back there): the same service now has its camera, and hears what it does
+    *location.lock().unwrap() = "gphoto2:usb:F2".into();
+    assert!(stills.caps().is_some(), "found by where the device is now");
+    notify_changed("usb:F2");
+    assert_eq!(heard.load(Ordering::SeqCst), 1);
+    notify_changed("usb:F1");
+    assert_eq!(heard.load(Ordering::SeqCst), 1, "a camera on another port isn't its business");
+    // A service that is gone isn't kept: the camera ending tells nobody
+    drop(stills);
+    drop(cap);
+    notify_changed("usb:F2");
+    assert_eq!(heard.load(Ordering::SeqCst), 1);
 }
