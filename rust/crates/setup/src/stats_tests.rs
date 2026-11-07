@@ -89,11 +89,47 @@ fn what_needs_the_phone_says_so_once() {
     let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
     let p = props(&host);
     let phone = row(&p, "From the phone");
-    assert_eq!((phone["value"].as_str(), phone["kind"].as_str()), (Some("Not available yet"), Some("status_dim")));
-    assert!(phone["note"].as_str().unwrap().contains("Wi-Fi band and signal") && !phone["note"].as_str().unwrap().contains("encoding"));
+    assert_eq!((phone["value"].as_str(), phone["kind"].as_str(), phone["note"].as_str()), (Some("Not available yet"), Some("status_dim"), Some("")), "no explaining line under it");
     assert_eq!(p["rows"].as_array().unwrap().iter().filter(|r| r["value"] == "Not available yet").count(), 1, "one line, not a row each");
+    assert_eq!(row(&p, "Reading the virtual camera")["note"], "", "no explaining line under the apps either");
     plugin.on_ui(&mut host, &UiEvent { ui: "card".into(), callback: "view-picked".into(), args: vec![json!(1)] });
-    assert!(row(&props(&host), "From the phone")["note"].as_str().unwrap().contains("time from the camera and queue"), "Nerd lists more of it");
+    assert_eq!(row(&props(&host), "From the phone")["note"], "");
+}
+
+#[test]
+fn a_source_on_this_computer_has_no_phone_section() {
+    let hub = Hub::new();
+    let stats = hub.register("webcam", 0);
+    stats.set_link("webcam://0", true);
+    stats.set_target_fps(30);
+    stats.received(30, 1000);
+    let snap = hub.snapshot_at(telescope_core::time::monotonic_ns() + SECOND, None, None);
+    for view in [View::Standard, View::Nerd] {
+        let rows = rows(&snap, &snap.sources[0], view, &Context::default());
+        assert!(!rows.iter().any(|r| r.head && r.label == "Phone") && !rows.iter().any(|r| r.label == "From the phone"), "{view:?}");
+        assert!(rows.iter().any(|r| r.label == "Reading the virtual camera"), "the camera's readers are still shown");
+    }
+}
+
+#[test]
+fn the_plugin_rows_keep_their_places_whatever_the_timings_do() {
+    let order = |times: [u64; 3]| {
+        let hub = Hub::new();
+        let now = telescope_core::time::monotonic_ns();
+        hub.snapshot_at(now, Some(0), Some(0));
+        hub.register("phone", 0).set_target_fps(30);
+        for (name, t) in ["zeta", "alpha", "mid_one"].into_iter().zip(times) {
+            hub.hooks().timer(name).add(t * MS);
+        }
+        let snap = hub.snapshot_at(now + SECOND, Some(SECOND), Some(0));
+        let rows = rows(&snap, &snap.sources[0], View::Nerd, &Context::default());
+        let at = rows.iter().position(|r| r.head && r.label == "Each plugin's events and card updates").unwrap();
+        rows[at + 1..].iter().take_while(|r| !r.head).map(|r| r.label.clone()).collect::<Vec<_>>()
+    };
+    let first = order([9, 2, 5]);
+    assert_eq!(first, ["Alpha", "Mid one", "Zeta"]);
+    assert_eq!(order([1, 8, 3]), first);
+    assert_eq!(order([4, 4, 40]), first);
 }
 
 #[test]
@@ -148,10 +184,10 @@ fn nerd_adds_times_balancer_moves_plugins_and_the_apps_cost() {
     assert_eq!(row(&p, "Balancer moves")["value"], "1");
     let moved = row(&p, "Moved to the processor");
     assert!(moved["note"].as_str().unwrap().contains("frames waited 25 ms for the card"), "{moved}");
-    // The slowest plugin comes first
+    // The plugins keep to the shown names' order, not the timings'
     let labels: Vec<&str> = p["rows"].as_array().unwrap().iter().map(|r| r["label"].as_str().unwrap()).collect();
     let blur = labels.iter().position(|l| *l == "Privacy blur").unwrap();
-    assert!(blur < labels.iter().position(|l| *l == "Colour grading").unwrap());
+    assert!(blur > labels.iter().position(|l| *l == "Colour grading").unwrap());
     assert_eq!((row(&p, "Privacy blur")["value"].as_str(), row(&p, "Privacy blur")["note"].as_str()), (Some("9.0 ms"), Some("slowest 9.0 ms")));
     assert_eq!(row(&p, "Lua thing")["value"], "3.0 ms");
     assert_eq!(row(&p, "Processor")["value"], "100% of one core");

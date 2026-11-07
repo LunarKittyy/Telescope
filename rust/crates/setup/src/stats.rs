@@ -239,6 +239,13 @@ fn slowest_first(list: &[NamedTiming]) -> Vec<&NamedTiming> {
     list
 }
 
+/// The listed plugins by shown name, so a row keeps its place while the timings move.
+fn fixed_order(list: &[NamedTiming]) -> Vec<&NamedTiming> {
+    let mut list = slowest_first(list);
+    list.sort_by_key(|t| plugin_label(&t.name));
+    list
+}
+
 /// min / average / max of a series, and how many seconds ago its biggest value was.
 fn spread(series: &[f32]) -> Option<(f32, f32, f32, usize)> {
     if series.is_empty() {
@@ -337,25 +344,21 @@ pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> V
     }
     out.push(bitrate);
 
-    out.push(Row::head("phone", &tr("Phone")));
-    match &ctx.phone {
-        Some(p) => out.extend(stats_phone::rows(p, nerd, &ctx.phone_delay, period_ms)),
-        None => {
-            // Nothing from the phone yet, so it's one line instead of a row of the same answer each
-            let missing = if nerd {
-                tr("The delay from the camera, Wi-Fi band and signal, temperature and throttling, camera frame rate, time from the camera and queue, and round trip, jitter and clock offset")
-            } else {
-                tr("The delay from the camera, Wi-Fi band and signal, and temperature and throttling")
-            };
-            out.push(Row::line(&tr("From the phone"), tr("Not available yet")).kind("status_dim").note(missing));
+    // Only a phone has a side of its own to show; a webcam or the Browser camera is on this computer
+    if s.link.route != Route::Local {
+        out.push(Row::head("phone", &tr("Phone")));
+        match &ctx.phone {
+            Some(p) => out.extend(stats_phone::rows(p, nerd, &ctx.phone_delay, period_ms)),
+            None => out.push(Row::line(&tr("From the phone"), tr("Not available yet")).kind("status_dim")),
         }
     }
+    out.push(Row::head("video", &tr("Virtual camera")));
     let apps = match ctx.watched {
         Some(true) => tr("In use"),
         Some(false) => tr("Nothing"),
         None => tr("Not known"),
     };
-    out.push(Row::line(&tr("Reading the virtual camera"), apps).note(tr("Naming the apps isn't possible yet")));
+    out.push(Row::line(&tr("Reading the virtual camera"), apps));
 
     if nerd {
         out.push(Row::head("chip", &tr("On this computer")));
@@ -388,14 +391,14 @@ pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> V
         if s.plugins.is_empty() {
             out.push(Row::line(&tr("Measuring"), "…".into()).kind("status_dim"));
         }
-        for t in slowest_first(&s.plugins) {
+        for t in fixed_order(&s.plugins) {
             out.push(Row::line(&plugin_label(&t.name), ms(t.timing.mean_ms)).note(timing_note(t.timing.max_ms)));
         }
         out.push(Row::head("plug", &tr("Each plugin's events and card updates")));
         if snap.app.hooks.is_empty() {
             out.push(Row::line(&tr("Measuring"), "…".into()).kind("status_dim"));
         }
-        for t in slowest_first(&snap.app.hooks) {
+        for t in fixed_order(&snap.app.hooks) {
             out.push(Row::line(&plugin_label(&t.name), ms(t.timing.mean_ms)).note(timing_note(t.timing.max_ms)));
         }
 
