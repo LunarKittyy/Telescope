@@ -1364,6 +1364,10 @@ mod launcher_tests {
         if !python() {
             return eprintln!("skipped: no python3");
         }
+        // The Python updater rightly leaves the swap to a running Telescope, and the lock is per user, not per test
+        if another_copy_running(false) {
+            return eprintln!("skipped: a real Telescope holds this user's lock");
+        }
         let dir = cut_short("stub-finishes", true);
         let (code, out) = run(&dir, None);
         assert!(code == 0 && out.contains("telescope-rs started") && !out.contains("LOOPED"), "{code} {out}");
