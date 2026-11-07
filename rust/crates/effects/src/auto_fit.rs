@@ -425,13 +425,14 @@ fn conflicting(a: [f64; 2], b: [f64; 2]) -> bool {
 fn world_fix(rig: &Rig) -> Option<[f64; 2]> {
     let world = rig.world()?;
     let cast = linear_ratios(mean_colour(&world.patches));
-    if cast[0].hypot(cast[1]) < WORLD_MIN {
+    // a far bigger tint than a lamp gives is coloured light or a coloured room, which is meant
+    if !(WORLD_MIN..=WORLD_MAX_CAST).contains(&cast[0].hypot(cast[1])) {
         return None;
     }
     let solved = solve_wb(&world, false, true);
     // the further past the threshold the cast is, the more sure it is a cast and not the room's colours
-    let strength = (WB_WORLD_STRENGTH + (cast[0].hypot(cast[1]) - WORLD_MIN) as f64 * WB_WORLD_RAMP).min(WB_STRENGTH);
-    let capped = [(solved[0] * strength).clamp(-WB_MAX_TEMPERATURE, WB_MAX_TEMPERATURE), (solved[1] * strength).clamp(-WB_MAX_TINT, WB_MAX_TINT)];
+    let strength = (WB_WORLD_STRENGTH + (cast[0].hypot(cast[1]) - WORLD_MIN) as f64 * WB_WORLD_RAMP).min(0.5);
+    let capped = [(solved[0] * strength).clamp(-WB_WORLD_MAX.0, WB_WORLD_MAX.0), (solved[1] * strength).clamp(-WB_WORLD_MAX.1, WB_WORLD_MAX.1)];
     (capped[0].abs() >= WB_MIN || capped[1].abs() >= WB_MIN).then_some(capped)
 }
 

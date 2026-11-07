@@ -139,11 +139,15 @@ pub const WB_COST_TEMPERATURE: f64 = 0.01;
 pub const WB_COST_TINT: f64 = 0.02;
 
 /// With nothing to go by but the whole picture, a colour cast (log ratios in linear light) must be bigger than this to be corrected.
-pub const WORLD_MIN: f32 = 0.22;
+pub const WORLD_MIN: f32 = 0.35;
+/// And smaller than this, or it is more likely coloured light than a lamp's cast.
+pub const WORLD_MAX_CAST: f32 = 0.60;
 /// How much of the way a correction goes when it only goes by the whole picture being grey on average.
 /// Plus this much more per unit of cast past that, up to the strength a face gets.
-pub const WB_WORLD_RAMP: f64 = 4.0;
-pub const WB_WORLD_STRENGTH: f64 = 0.3;
+/// The most Temperature and Tint a correction going by the whole picture alone may set: warm rooms are often meant to be warm.
+pub const WB_WORLD_MAX: (f64, f64) = (50.0, 35.0);
+pub const WB_WORLD_RAMP: f64 = 1.0;
+pub const WB_WORLD_STRENGTH: f64 = 0.25;
 
 // ── Brightness ───────────────────────────────────────────────────────
 
@@ -160,13 +164,13 @@ pub const PICTURE_DARK_BELOW: f32 = 0.28;
 /// A face with more than this share clipped is pulled down too.
 pub const FACE_CLIPPED_ABOVE: f32 = 0.04;
 /// With no face, a picture whose middle brightness is below this is too dark.
-pub const SCENE_DARK_BELOW: f32 = 0.15;
+pub const SCENE_DARK_BELOW: f32 = 0.10;
 /// And is brought up towards this.
-pub const SCENE_DARK_TARGET: f32 = 0.30;
+pub const SCENE_DARK_TARGET: f32 = 0.26;
 /// A middle brightness below this is a covered lens or a dark room's noise, and is left alone.
 pub const SCENE_BLACK_BELOW: f32 = 0.012;
 /// With no face, a middle brightness above this, or this share of the picture clipped to white, is overexposed.
-pub const SCENE_BRIGHT_ABOVE: f32 = 0.72;
+pub const SCENE_BRIGHT_ABOVE: f32 = 0.78;
 pub const SCENE_BLOWN_ABOVE: f32 = 0.25;
 /// And is brought down towards this (clipped highlights can't come back, so the midtones are what's aimed at).
 pub const SCENE_BRIGHT_TARGET: f32 = 0.62;
