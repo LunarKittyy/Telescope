@@ -348,6 +348,8 @@ pub struct State {
     pub shortcut_menu: Option<(String, Vec<telescope_core::ui::ShortcutEntry>)>,
     /// The photos being taken, by request: (plugin, the stream's id) for each, to say what became of them when they end.
     pub stills: Vec<(RequestId, String, String)>,
+    /// The streams that take photos with a camera of their own (a DSLR), by their id: the photo service of each, as of the last snapshot.
+    pub source_stills: Vec<(String, Arc<dyn telescope_core::source::SourceStills>)>,
     /// Photos' "still running" flags, by the stream they're taken on: cleared when that stream ends, which ends the photo.
     pub still_alive: Vec<(String, Arc<std::sync::atomic::AtomicBool>)>,
     /// Reads what's on the clipboard (the window pastes it into a hidden box); None before there is a window.
@@ -415,7 +417,7 @@ impl State {
             camera_on_shown: true,
             shown: None,
             tray_close_notified: false,
-            shortcut_menu: None, stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false,
+            shortcut_menu: None, stills: Vec::new(), source_stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false,
         }
     }
 
@@ -1117,7 +1119,10 @@ impl State {
         let Event::RequestDone { request, data, .. } = event else { return };
         let Some(i) = self.stills.iter().position(|(r, ..)| r == request) else { return };
         let (_, _, source) = self.stills.remove(i);
-        let busy = self.link.as_ref().and_then(|l| l.stills()).is_some_and(|s| s.busy(Some(&source)));
+        let busy = match self.source_stills.iter().find(|(id, _)| *id == source) {
+            Some((_, camera)) => camera.busy(),
+            None => self.link.as_ref().and_then(|l| l.stills()).is_some_and(|s| s.busy(Some(&source))),
+        };
         self.bus.emit(Event::StillBusyChanged { source_id: source.clone(), busy });
         let files: Vec<String> = data.get("files").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect()).unwrap_or_default();
         if !files.is_empty() {

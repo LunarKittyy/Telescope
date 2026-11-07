@@ -480,3 +480,160 @@ fn the_number_boxes_take_keys_the_way_a_spin_box_does() {
         assert_eq!(rig.plugin.get_config()[key], value, "{keys:?}");
     }
 }
+
+// ── A camera of its own (a DSLR) ─────────────────────────────────────────────
+
+fn dslr_json() -> Value {
+    json!({"formats": ["jpeg", "raw"], "camera": true, "burst_max": 1,
+           "iso": {"values": ["100", "200", "400", "800"], "labels": ["100", "200", "400", "800"], "current": 2},
+           "shutter": {"values": ["0,0010s", "0,0250s", "30,0000s"], "labels": ["1/1000", "1/40", "30 s"], "current": 1}})
+}
+
+/// No phone paired, a DSLR picked and streaming.
+fn dslr(caps: Value) -> Rig {
+    let mut rig = Rig::new(Some(caps), true);
+    rig.event(Event::PhonesChanged { count: 0 });
+    rig.event(Event::SourceSelected { source_id: "webcam:cam".into() });
+    rig
+}
+
+#[test]
+fn the_card_shows_for_a_camera_that_takes_photos_and_not_for_other_sources() {
+    let mut rig = dslr(dslr_json());
+    let p = rig.props();
+    assert_eq!((p["shown"].clone(), p["active"].clone(), p["take-enabled"].clone()), (json!(true), json!(true), json!(true)));
+    // The browser camera has no stills service: the card goes
+    rig.host.still_caps = None;
+    rig.event(Event::SourceSelected { source_id: "browser".into() });
+    assert_eq!(rig.props()["shown"], false);
+    // ...and comes back with the camera's own
+    rig.host.still_caps = Some(dslr_json());
+    rig.event(Event::StillCapsChanged { source_id: "webcam:cam".into() });
+    assert_eq!(rig.props()["shown"], true);
+}
+
+#[test]
+fn the_card_offers_the_cameras_own_iso_and_shutter_lists_and_no_quality() {
+    let rig = dslr(dslr_json());
+    let p = rig.props();
+    assert_eq!((p["iso-shown"].clone(), p["iso-items"].clone(), p["iso-current"].clone()), (json!(true), json!(["100", "200", "400", "800"]), json!(2)));
+    assert_eq!((p["shutter-items"].clone(), p["shutter-current"].clone()), (json!(["1/1000", "1/40", "30 s"]), json!(1)));
+    assert_eq!(p["quality-shown"], false, "a camera keeps its own JPEG quality");
+    assert_eq!(p["format-items"], json!(["JPEG", "RAW (DNG)", "RAW and JPEG"]));
+    for row in ["mode-shown", "shots-shown", "exposure-shown", "best-shown", "distortion-shown"] {
+        assert_eq!(p[row], false, "{row}");
+    }
+    // A phone's card has neither list
+    let phone = Rig::new(Some(full_json()), true);
+    assert!(phone.props()["iso-shown"] == false && phone.props()["shutter-shown"] == false);
+}
+
+#[test]
+fn a_mode_without_iso_or_shutter_hides_both_and_forgets_what_was_picked() {
+    let mut rig = dslr(dslr_json());
+    rig.ui("choice-picked", vec![json!(6), json!(3)]);
+    assert_eq!(rig.props()["iso-current"], 3);
+    let mut scene = dslr_json();
+    scene.as_object_mut().unwrap().remove("iso");
+    scene.as_object_mut().unwrap().remove("shutter");
+    rig.host.still_caps = Some(scene);
+    rig.event(Event::StillCapsChanged { source_id: "webcam:cam".into() });
+    let p = rig.props();
+    assert!(p["iso-shown"] == false && p["shutter-shown"] == false);
+    // Back in M the camera's own value shows, not the pick from before the dial turned
+    rig.host.still_caps = Some(dslr_json());
+    rig.event(Event::StillCapsChanged { source_id: "webcam:cam".into() });
+    assert_eq!(rig.props()["iso-current"], 2);
+}
+
+#[test]
+fn picks_from_the_cameras_lists_go_with_the_photo_without_a_quality_and_are_not_saved() {
+    let mut rig = dslr(dslr_json());
+    rig.ui("choice-picked", vec![json!(6), json!(3)]);
+    rig.ui("choice-picked", vec![json!(7), json!(2)]);
+    rig.ui("choice-picked", vec![json!(1), json!(2)]);
+    assert!(rig.plugin.get_config().get("iso").is_none() && rig.plugin.get_config().get("shutter").is_none());
+    rig.ui("take-clicked", vec![]);
+    let (options, folder) = rig.host.stills_taken[0].clone();
+    assert_eq!(folder, "/tmp/photos");
+    assert_eq!(options, json!({"format": "jpeg", "raw": 1, "rotation": 0, "iso": "800", "shutter": "30,0000s"}));
+    // Without a pick nothing is asked of the camera but the format
+    let mut quiet = dslr(dslr_json());
+    quiet.ui("take-clicked", vec![]);
+    assert_eq!(quiet.host.stills_taken[0].0, json!({"format": "jpeg", "rotation": 0}));
+}
+
+#[test]
+fn a_pick_stands_until_the_camera_reports_the_same() {
+    let mut rig = dslr(dslr_json());
+    rig.ui("choice-picked", vec![json!(6), json!(3)]);
+    // The camera still says 400: the pick shows
+    rig.event(Event::StillCapsChanged { source_id: "webcam:cam".into() });
+    assert_eq!(rig.props()["iso-current"], 3);
+    let mut moved = dslr_json();
+    moved["iso"]["current"] = json!(3);
+    rig.host.still_caps = Some(moved);
+    rig.event(Event::StillCapsChanged { source_id: "webcam:cam".into() });
+    assert_eq!(rig.props()["iso-current"], 3);
+    // Now the camera is the one that decides: a turn of its dial shows
+    let mut turned = dslr_json();
+    turned["iso"]["current"] = json!(0);
+    rig.host.still_caps = Some(turned);
+    rig.event(Event::StillCapsChanged { source_id: "webcam:cam".into() });
+    assert_eq!(rig.props()["iso-current"], 0);
+}
+
+#[test]
+fn a_camera_says_camera_where_a_phone_says_phone() {
+    let mut rig = dslr(dslr_json());
+    rig.ui("take-clicked", vec![]);
+    let id = *rig.plugin.taking.last().unwrap();
+    rig.event(Event::RequestDone { request: id, ok: false, message: String::new(), data: json!({"ok": false, "files": []}) });
+    assert_eq!(rig.props()["status"], "The camera couldn't take the photo.");
+    // The host won't start a second one while one is on
+    rig.host.still_busy = true;
+    rig.plugin.take(&mut rig.host);
+    assert_eq!(rig.host.stills_taken.len(), 1, "nothing more started");
+    // The phone's wording is unchanged
+    let mut phone = Rig::new(Some(full_json()), true);
+    phone.ui("take-clicked", vec![]);
+    let id = *phone.plugin.taking.last().unwrap();
+    phone.event(Event::RequestDone { request: id, ok: false, message: String::new(), data: json!({"ok": false, "files": []}) });
+    assert_eq!(phone.props()["status"], "The phone couldn't take the photo.");
+}
+
+#[test]
+fn the_shortcuts_work_for_a_camera_and_not_for_a_source_without_photos() {
+    let mut rig = dslr(dslr_json());
+    assert_eq!(rig.plugin.run_action(&mut rig.host, "photos.take", &json!({})).as_deref(), Some("Take photo"));
+    assert_eq!(rig.host.stills_taken.len(), 1);
+    assert_eq!(rig.plugin.run_action(&mut rig.host, "photos.timer", &json!({"op": "next"})).as_deref(), Some("Photo timer: 3 s"));
+    rig.host.still_caps = None;
+    rig.event(Event::SourceSelected { source_id: "browser".into() });
+    assert!(rig.plugin.run_action(&mut rig.host, "photos.take", &json!({})).is_none());
+}
+
+#[test]
+fn the_self_timer_goes_with_a_camera_photo() {
+    let mut rig = dslr(dslr_json());
+    rig.ui("timer-picked", vec![json!(2)]);
+    rig.ui("take-clicked", vec![]);
+    assert_eq!(rig.host.stills_taken[0].0["timer_s"], 10);
+}
+
+#[test]
+fn camera_options_drop_the_quality_and_keep_only_picks_that_were_made() {
+    let mut options = json!({"format": "jpeg", "rotation": 0, "quality": 95});
+    camera_options(&mut options, None, Some("1/60"));
+    assert_eq!(options, json!({"format": "jpeg", "rotation": 0, "shutter": "1/60"}));
+}
+
+#[test]
+fn diagnostics_say_what_the_camera_offers_now() {
+    let rig = dslr(dslr_json());
+    let d: std::collections::HashMap<_, _> = rig.plugin.diagnostics().into_iter().collect();
+    assert_eq!((d["Photos"].as_str(), d["Photo settings"].as_str()), ("camera, jpeg, raw", "ISO, shutter speed"));
+    let scene = dslr(json!({"formats": ["jpeg"], "camera": true}));
+    let d: std::collections::HashMap<_, _> = scene.plugin.diagnostics().into_iter().collect();
+    assert_eq!((d["Photos"].as_str(), d["Photo settings"].as_str()), ("camera, jpeg", "none"));
+}

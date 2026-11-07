@@ -239,6 +239,10 @@ pub trait SourceKind {
     fn as_phone(&self) -> Option<&crate::sources::PhoneKind> {
         None
     }
+    /// Photos its own camera takes (a DSLR), where the stills service of the phones doesn't apply.
+    fn stills(&self) -> Option<std::sync::Arc<dyn telescope_core::source::SourceStills>> {
+        None
+    }
 }
 
 /// A phone state that needs the panels, held until the start under way is through: (source, session id, state).

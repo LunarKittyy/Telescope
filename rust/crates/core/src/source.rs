@@ -57,6 +57,22 @@ pub trait ControlClient: Send + Sync {
 /// Browser camera in the picker, for Add device to offer it without knowing its plugin.
 pub const BROWSER_SOURCE: &str = "browser";
 
+/// Full-quality photos from a source that isn't a phone (a DSLR holding its own shutter), one at a time. Progress and results are
+/// plain data in the shapes PhoneStills uses: progress {"state", "shots", "taken", "countdown_ms", "paused"}, result {"ok", "files",
+/// "code", "error"} with error in this app's language. What the camera can take is the same JSON the phone's stills service gives,
+/// plus "camera": true, "iso" and "shutter" ({"values", "labels", "current"}) where its mode allows them.
+pub trait SourceStills: Send + Sync {
+    /// What the camera can take right now, or None while it can't (it isn't streaming, or its mode dial says no).
+    fn caps(&self) -> Option<Value>;
+    fn busy(&self) -> bool;
+    /// Starts a photo with these options into folder; false while one is being taken. alive() turning false (the stream stopped or
+    /// restarted) ends it as interrupted. The callbacks come from its own thread.
+    fn take(&self, options: &Value, folder: &str, on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
+            alive: Box<dyn Fn() -> bool + Send>) -> bool;
+    /// Called from any thread whenever caps() may have changed, and when its camera lets go. Replaces the last one given.
+    fn set_on_change(&self, on_change: Box<dyn Fn() + Send + Sync>);
+}
+
 /// Something other than a paired phone to stream from, like the Browser camera (StreamSource in plugin.py).
 pub trait StreamSource: Send + Sync {
     /// Also the key its per-device settings are saved under, so it mustn't look like a phone id.
@@ -114,6 +130,10 @@ pub trait StreamSource: Send + Sync {
     /// Frames reach the computer at this rate, under what was asked for, and that's all its camera makes: it isn't falling behind.
     fn camera_limited(&self, _arrival: f32) -> bool {
         false
+    }
+    /// Photos it can take with its own camera (a DSLR); None for the usual source with no shutter of its own.
+    fn stills(&self) -> Option<std::sync::Arc<dyn SourceStills>> {
+        None
     }
 }
 

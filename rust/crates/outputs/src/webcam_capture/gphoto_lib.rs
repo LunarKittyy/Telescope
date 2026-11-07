@@ -4,6 +4,7 @@
 //! marks read-only (a scene mode on the dial) isn't offered, and the list is read again now and then so a turn of the dial shows up.
 
 use super::gphoto::{is_claim_error, Timing, CLAIM_ERROR};
+use super::gphoto_stills::{notify_changed, read_photo_caps, Shared as StillsShared};
 use super::Capture;
 use crate::webcam_controls::{Control, Controls};
 use crate::webcams::{gphoto_port, Choice, Device};
@@ -54,8 +55,19 @@ pub trait Rig: Send {
     fn write(&mut self, name: &str, value: &str) -> Result<(), String>;
     /// After the camera ended live view on its own.
     fn restart_live_view(&mut self);
+    /// Takes one photo to the computer and gives each file the camera made; expect is how many to wait for (RAW and JPEG are two).
+    fn capture(&mut self, _expect: usize) -> Result<Vec<Shot>, String> {
+        Err("this camera can't take photos".into())
+    }
     /// Live view off and the camera let go.
     fn close(&mut self);
+}
+
+/// One file the camera made for a photo, as it named it.
+#[derive(Debug)]
+pub struct Shot {
+    pub name: String,
+    pub data: Vec<u8>,
 }
 
 /// Opens the camera on a port.
@@ -72,7 +84,7 @@ pub fn detect() -> Result<Vec<(String, String)>, String> {
 }
 
 /// The first of these names the camera has, with its setting.
-fn resolve<'a>(rig: &mut dyn Rig, names: &[&'a str]) -> Option<(&'a str, Setting)> {
+pub(super) fn resolve<'a>(rig: &mut dyn Rig, names: &[&'a str]) -> Option<(&'a str, Setting)> {
     names.iter().find_map(|n| rig.read(n).map(|s| (*n, s)))
 }
 
@@ -144,6 +156,12 @@ struct Hub {
     id: u64,
     cmds: SyncSender<Cmd>,
     controls: Arc<Mutex<Vec<Control>>>,
+    stills: Arc<StillsShared>,
+}
+
+/// What the photo service of the camera on a port shares with its thread, while that streams.
+pub(super) fn stills_of(port: &str) -> Option<Arc<StillsShared>> {
+    hubs().lock().unwrap().get(port).map(|h| h.stills.clone())
 }
 
 /// The cameras streaming now, by port.
@@ -181,6 +199,7 @@ enum Msg {
 }
 
 pub struct LibCapture {
+    stills: Arc<StillsShared>,
     rx: Option<Receiver<Msg>>,
     stop: Arc<AtomicBool>,
     worker: Option<std::thread::JoinHandle<()>>,
@@ -205,9 +224,11 @@ pub fn open_with(location: &str, timing: Timing, connect: Connect) -> Result<Box
     let stop = Arc::new(AtomicBool::new(false));
     let (tx, rx) = sync_channel(4);
     let (port, s) = (gphoto_port(location).to_string(), stop.clone());
-    let worker = std::thread::Builder::new().name("gphoto2".into()).spawn(move || run(connect, &port, timing, &s, &tx))
+    let stills = Arc::new(StillsShared::default());
+    let shared = stills.clone();
+    let worker = std::thread::Builder::new().name("gphoto2".into()).spawn(move || run(connect, &port, timing, &s, &tx, &shared))
         .map_err(|e| (false, e.to_string()))?;
-    Ok(Box::new(LibCapture { rx: Some(rx), stop, worker: Some(worker), last_frame: Instant::now(), silent: timing.silent }))
+    Ok(Box::new(LibCapture { stills, rx: Some(rx), stop, worker: Some(worker), last_frame: Instant::now(), silent: timing.silent }))
 }
 
 /// Hands over a last message once there's room, without holding up a stop.
@@ -233,12 +254,12 @@ fn pause(stop: &AtomicBool, d: Duration) {
 
 /// Keeps live view going until stopped: opens the camera, passes on its frames, does the card's requests between them, and
 /// starts live view (or the whole camera) again when it stops sending.
-fn run(mut connect: Connect, port: &str, timing: Timing, stop: &Arc<AtomicBool>, tx: &SyncSender<Msg>) {
+fn run(mut connect: Connect, port: &str, timing: Timing, stop: &Arc<AtomicBool>, tx: &SyncSender<Msg>, stills: &Arc<StillsShared>) {
     static IDS: AtomicU64 = AtomicU64::new(1);
     let id = IDS.fetch_add(1, Ordering::SeqCst);
     let (cmd_tx, cmds) = sync_channel::<Cmd>(MAX_QUEUED);
     let shared = Arc::new(Mutex::new(Vec::new()));
-    hubs().lock().unwrap().insert(port.to_string(), Hub { id, cmds: cmd_tx, controls: shared.clone() });
+    hubs().lock().unwrap().insert(port.to_string(), Hub { id, cmds: cmd_tx, controls: shared.clone(), stills: stills.clone() });
     let mut rig: Option<Box<dyn Rig>> = None;
     let (mut fails, mut delay) = (0u32, timing.restart);
     let mut refreshed = Instant::now();
@@ -251,6 +272,9 @@ fn run(mut connect: Connect, port: &str, timing: Timing, stop: &Arc<AtomicBool>,
                         let _ = r.write("viewfinder", "1");
                     }
                     *shared.lock().unwrap() = read_controls(r.as_mut());
+                    if stills.set_caps(Some(read_photo_caps(r.as_mut()))) {
+                        notify_changed(port);
+                    }
                     refreshed = Instant::now();
                     rig = Some(r);
                 }
@@ -271,6 +295,12 @@ fn run(mut connect: Connect, port: &str, timing: Timing, stop: &Arc<AtomicBool>,
             }
             continue;
         };
+        // A photo asked for: live view is paused for it and comes back after
+        if stills.run_pending(r.as_mut()) {
+            refreshed = Instant::now().checked_sub(REFRESH).unwrap_or_else(Instant::now);
+            notify_changed(port);
+            continue;
+        }
         let mut set_something = false;
         for _ in 0..PER_FRAME {
             if stop.load(Ordering::SeqCst) {
@@ -284,6 +314,9 @@ fn run(mut connect: Connect, port: &str, timing: Timing, stop: &Arc<AtomicBool>,
         }
         if set_something || refreshed.elapsed() >= REFRESH {
             *shared.lock().unwrap() = read_controls(r.as_mut());
+            if stills.set_caps(Some(read_photo_caps(r.as_mut()))) {
+                notify_changed(port);
+            }
             refreshed = Instant::now();
         }
         match r.preview() {
@@ -309,6 +342,10 @@ fn run(mut connect: Connect, port: &str, timing: Timing, stop: &Arc<AtomicBool>,
                     if let Some(mut r) = rig.take() {
                         r.close();
                     }
+                    // Nothing to shoot with until it's open again
+                    if stills.set_caps(None) {
+                        notify_changed(port);
+                    }
                 } else if let Some(r) = rig.as_mut() {
                     r.restart_live_view();
                 }
@@ -322,6 +359,8 @@ fn run(mut connect: Connect, port: &str, timing: Timing, stop: &Arc<AtomicBool>,
             h.remove(port);
         }
     }
+    stills.close();
+    notify_changed(port);
     if let Some(mut r) = rig {
         r.close();
     }
@@ -360,6 +399,8 @@ impl Capture for LibCapture {
                     return Ok(f);
                 }
                 Ok(Msg::Failed(why)) => return Err(why),
+                // A photo is being taken, which can last a minute and sends no frames meanwhile
+                Err(RecvTimeoutError::Timeout) if self.stills.capturing() => self.last_frame = Instant::now(),
                 Err(RecvTimeoutError::Timeout) if self.last_frame.elapsed() > self.silent => {
                     self.shutdown();
                     return Err(format!("no frame within {:.1} s", self.silent.as_secs_f64()));

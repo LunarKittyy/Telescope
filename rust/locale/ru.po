@@ -318,7 +318,7 @@ msgstr "Виртуальный микрофон перестал принима�
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "Желтый цвет означает, что лимитер сглаживает громкие пики, а красный - перегрузку звука (нажми, чтобы сбросить)."
 
-#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:524 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:385 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:172 rust/crates/outputs/ui/webcam.slint:172 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
+#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:524 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:453 rust/crates/effects/src/transforms.rs:37 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:172 rust/crates/outputs/ui/webcam.slint:172 rust/crates/shell/ui/cards/camera.slint:239 rust/crates/shell/ui/cards/camera.slint:269 rust/crates/shell/ui/cards/camera.slint:287
 msgid "Double-click to reset"
 msgstr "Двойной щелчок для сброса"
 
@@ -524,7 +524,7 @@ msgid "Looking…"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:390 rust/crates/effects/ui/background.slint:33 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:78 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:423 rust/crates/shell/ui/cards/camera.slint:431
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:35 rust/crates/effects/src/photos.rs:458 rust/crates/effects/ui/background.slint:33 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:78 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:423 rust/crates/shell/ui/cards/camera.slint:431
 msgid "Off"
 msgstr "Выкл"
 
@@ -1240,7 +1240,7 @@ msgid "Black and white"
 msgstr "Черно-белый"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:22 rust/crates/effects/ui/colour_grading.slint:212 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:81 rust/crates/outputs/src/webcam.rs:740 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:23 rust/crates/effects/ui/colour_grading.slint:212 rust/crates/link/ui/connection.slint:322 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:81 rust/crates/outputs/src/webcam.rs:751 rust/crates/outputs/ui/webcam.slint:109 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:303
 msgid "Auto"
 msgstr "Авто"
 
@@ -2030,203 +2030,203 @@ msgctxt "search"
 msgid "on air sign busy light call meeting do not disturb webhook home assistant smart home"
 msgstr "в эфире табличка индикатор звонок встреча не беспокоить занят вебхук умный дом on air sign busy light call meeting do not disturb webhook home assistant smart home"
 
-#: rust/crates/effects/src/photos.rs:20
+#: rust/crates/effects/src/photos.rs:21
 msgid "JPEG"
 msgstr "JPEG"
 
-#: rust/crates/effects/src/photos.rs:20
+#: rust/crates/effects/src/photos.rs:21
 msgid "HEIC"
 msgstr "HEIC"
 
-#: rust/crates/effects/src/photos.rs:20
+#: rust/crates/effects/src/photos.rs:21
 msgid "Ultra HDR"
 msgstr "Ultra HDR"
 
-#: rust/crates/effects/src/photos.rs:20
+#: rust/crates/effects/src/photos.rs:21
 msgid "RAW (DNG)"
 msgstr "RAW (DNG)"
 
-#: rust/crates/effects/src/photos.rs:20
+#: rust/crates/effects/src/photos.rs:21
 msgid "RAW and JPEG"
 msgstr "RAW и JPEG"
 
-#: rust/crates/effects/src/photos.rs:22
+#: rust/crates/effects/src/photos.rs:23
 msgid "Normal"
 msgstr "Обычный"
 
-#: rust/crates/effects/src/photos.rs:22
+#: rust/crates/effects/src/photos.rs:23
 msgid "Full resolution"
 msgstr "Полное разрешение"
 
-#: rust/crates/effects/src/photos.rs:22
+#: rust/crates/effects/src/photos.rs:23
 msgid "Night"
 msgstr "Ночной"
 
-#: rust/crates/effects/src/photos.rs:22
+#: rust/crates/effects/src/photos.rs:23
 msgid "HDR"
 msgstr "HDR"
 
-#: rust/crates/effects/src/photos.rs:22
+#: rust/crates/effects/src/photos.rs:23
 msgid "Bokeh"
 msgstr "Боке"
 
-#: rust/crates/effects/src/photos.rs:25
+#: rust/crates/effects/src/photos.rs:26
 msgid "Single"
 msgstr "Одиночный"
 
-#: rust/crates/effects/src/photos.rs:25
+#: rust/crates/effects/src/photos.rs:26
 msgid "Burst"
 msgstr "Серия"
 
-#: rust/crates/effects/src/photos.rs:25
+#: rust/crates/effects/src/photos.rs:26
 msgid "Exposure bracket"
 msgstr "Брекетинг экспозиции"
 
-#: rust/crates/effects/src/photos.rs:25
+#: rust/crates/effects/src/photos.rs:26
 msgid "Focus bracket"
 msgstr "Брекетинг фокуса"
 
-#: rust/crates/effects/src/photos.rs:28
+#: rust/crates/effects/src/photos.rs:29
 msgid "3 photos, 1 EV apart"
 msgstr "3 фото с шагом 1 EV"
 
-#: rust/crates/effects/src/photos.rs:28
+#: rust/crates/effects/src/photos.rs:29
 msgid "3 photos, 2 EV apart"
 msgstr "3 фото с шагом 2 EV"
 
-#: rust/crates/effects/src/photos.rs:29
+#: rust/crates/effects/src/photos.rs:30
 msgid "5 photos, 1 EV apart"
 msgstr "5 фото с шагом 1 EV"
 
-#: rust/crates/effects/src/photos.rs:29
+#: rust/crates/effects/src/photos.rs:30
 msgid "7 photos, 1 EV apart"
 msgstr "7 фото с шагом 1 EV"
 
-#: rust/crates/effects/src/photos.rs:34
+#: rust/crates/effects/src/photos.rs:35
 msgid "As the camera does it"
 msgstr "Как на камере"
 
-#: rust/crates/effects/src/photos.rs:34
+#: rust/crates/effects/src/photos.rs:35
 msgid "On"
 msgstr "Вкл."
 
-#: rust/crates/effects/src/photos.rs:36
+#: rust/crates/effects/src/photos.rs:37
 msgid "Take a photo on the phone with the settings below"
 msgstr "Сделать фото на телефоне с настройками ниже"
 
-#: rust/crates/effects/src/photos.rs:37
+#: rust/crates/effects/src/photos.rs:38
 msgid "Show the photos taken last"
 msgstr "Показать последние сделанные фото"
 
-#: rust/crates/effects/src/photos.rs:38
+#: rust/crates/effects/src/photos.rs:39
 msgid "The phone maker's own Night, HDR and Bokeh modes pause the video while they shoot"
 msgstr "Фирменные режимы телефона «Ночной», HDR и «Боке» приостанавливают видео во время съемки"
 
-#: rust/crates/effects/src/photos.rs:39
+#: rust/crates/effects/src/photos.rs:40
 msgid "Photos from the nearest focus to the farthest, for focus stacking"
 msgstr "Снимки от ближайшего фокуса к дальнему - для стекинга по фокусу"
 
-#: rust/crates/effects/src/photos.rs:40
+#: rust/crates/effects/src/photos.rs:41
 msgid "A long exposure keeps the video's ISO and the video stops while the shutter is open"
 msgstr "Длинная выдержка сохраняет ISO видео, а видео останавливается, пока открыт затвор"
 
-#: rust/crates/effects/src/photos.rs:41
+#: rust/crates/effects/src/photos.rs:42
 msgid "Takes a little longer and only changes the photo, not the video"
 msgstr "Занимает чуть больше времени и меняет только фото, а не видео"
 
-#: rust/crates/effects/src/photos.rs:42
+#: rust/crates/effects/src/photos.rs:43
 msgid "Where photos are saved"
 msgstr "Куда сохраняются фото"
 
-#: rust/crates/effects/src/photos.rs:288
+#: rust/crates/effects/src/photos.rs:44 rust/crates/shell/src/streams.rs:681
+msgid "The camera is already taking a photo."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:45
+msgid "The camera couldn't take the photo."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:316
 msgid "Like the video"
 msgstr "Как в видео"
 
-#: rust/crates/effects/src/photos.rs:288 rust/crates/effects/src/photos.rs:390
+#: rust/crates/effects/src/photos.rs:316 rust/crates/effects/src/photos.rs:458
 #, python-brace-format
 msgid "{seconds} s"
 msgstr "{seconds} с"
 
-#: rust/crates/effects/src/photos.rs:379 rust/crates/effects/src/photos.rs:759 rust/crates/effects/src/photos.rs:775
+#: rust/crates/effects/src/photos.rs:447 rust/crates/effects/src/photos.rs:846 rust/crates/effects/src/photos.rs:862
 msgid "Take photo"
 msgstr "Сделать фото"
 
-#: rust/crates/effects/src/photos.rs:379
+#: rust/crates/effects/src/photos.rs:447
 msgid "Open folder"
 msgstr "Открыть папку"
 
-#: rust/crates/effects/src/photos.rs:380 rust/crates/effects/ui/photos.slint:248
+#: rust/crates/effects/src/photos.rs:448 rust/crates/effects/ui/photos.slint:268
 msgid "Best quality noise reduction and sharpening"
 msgstr "Максимальное качество шумоподавления и резкости"
 
-#: rust/crates/effects/src/photos.rs:381
+#: rust/crates/effects/src/photos.rs:449
 msgid "Change…"
 msgstr "Изменить…"
 
-#: rust/crates/effects/src/photos.rs:492 rust/crates/effects/src/photos.rs:713
+#: rust/crates/effects/src/photos.rs:562 rust/crates/effects/src/photos.rs:800
 msgid "Start streaming to take photos."
 msgstr "Начни трансляцию, чтобы делать фото."
 
-#: rust/crates/effects/src/photos.rs:494
+#: rust/crates/effects/src/photos.rs:564
 msgid "This phone can't take photos from Telescope yet. Update the app on the phone."
 msgstr "Этот телефон пока не умеет делать фото из Telescope. Обнови приложение на телефоне."
 
-#: rust/crates/effects/src/photos.rs:600 rust/crates/effects/src/photos.rs:617
+#: rust/crates/effects/src/photos.rs:684 rust/crates/effects/src/photos.rs:704
 msgid "Taking the photo…"
 msgstr "Съемка фото…"
 
-#: rust/crates/effects/src/photos.rs:603 rust/crates/shell/src/streams.rs:663
-msgid "The phone is already taking a photo."
-msgstr "Телефон уже делает фото."
-
-#: rust/crates/effects/src/photos.rs:611
+#: rust/crates/effects/src/photos.rs:698
 #, python-brace-format
 msgid "Taking the photo in {seconds} s"
 msgstr "Съемка фото через {seconds} с"
 
-#: rust/crates/effects/src/photos.rs:613
+#: rust/crates/effects/src/photos.rs:700
 #, python-brace-format
 msgid "Photo {n} of {total}"
 msgstr "Фото {n} из {total}"
 
-#: rust/crates/effects/src/photos.rs:615
+#: rust/crates/effects/src/photos.rs:702
 msgid "Taking the photo, the video is paused…"
 msgstr "Идет съемка, видео на паузе…"
 
-#: rust/crates/effects/src/photos.rs:631
+#: rust/crates/effects/src/photos.rs:718
 #, python-brace-format
 msgid "Saved {name}"
 msgstr "Сохранено {name}"
 
-#: rust/crates/effects/src/photos.rs:636
+#: rust/crates/effects/src/photos.rs:723
 msgid "Photo saved"
 msgstr "Фото сохранено"
 
-#: rust/crates/effects/src/photos.rs:639 rust/crates/shell/src/streams.rs:635 rust/crates/shell/src/streams.rs:638
-msgid "The phone couldn't take the photo."
-msgstr "Телефону не удалось сделать фото."
-
-#: rust/crates/effects/src/photos.rs:651
+#: rust/crates/effects/src/photos.rs:738
 msgid "Save photos in"
 msgstr "Сохранять фото в"
 
-#: rust/crates/effects/src/photos.rs:666 rust/crates/effects/src/photos.rs:750 rust/crates/effects/ui/photos.slint:122
+#: rust/crates/effects/src/photos.rs:753 rust/crates/effects/src/photos.rs:837 rust/crates/effects/ui/photos.slint:128
 msgid "Photos"
 msgstr "Фото"
 
-#: rust/crates/effects/src/photos.rs:667
-msgid "Takes full-quality photos on the phone, RAW and the phone's Night mode included where it has them."
-msgstr "Делает фото на телефоне в максимальном качестве, включая RAW и ночной режим телефона, если они поддерживаются."
+#: rust/crates/effects/src/photos.rs:754
+msgid "Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it."
+msgstr ""
 
-#: rust/crates/effects/src/photos.rs:668
+#: rust/crates/effects/src/photos.rs:755
 msgid "Without it there's no Photos card and no Take photo shortcut."
 msgstr "Без него нет карточки «Фото» и горячей клавиши «Сделать фото»."
 
-#: rust/crates/effects/src/photos.rs:752 rust/crates/effects/src/photos.rs:790
+#: rust/crates/effects/src/photos.rs:839 rust/crates/effects/src/photos.rs:877
 msgid "Photo mode"
 msgstr "Режим фото"
 
-#: rust/crates/effects/src/photos.rs:757 rust/crates/effects/src/photos.rs:800
+#: rust/crates/effects/src/photos.rs:844 rust/crates/effects/src/photos.rs:887
 msgid "Photo timer"
 msgstr "Таймер фото"
 
@@ -3081,47 +3081,55 @@ msgstr ""
 msgid "Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve."
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:153 rust/crates/outputs/src/stream_output.rs:794 rust/crates/outputs/src/stream_output.rs:1005 rust/crates/outputs/src/stream_output.rs:1008
+#: rust/crates/effects/ui/photos.slint:159 rust/crates/outputs/src/stream_output.rs:794 rust/crates/outputs/src/stream_output.rs:1005 rust/crates/outputs/src/stream_output.rs:1008
 msgid "Format"
 msgstr "Формат"
 
-#: rust/crates/effects/ui/photos.slint:160
+#: rust/crates/effects/ui/photos.slint:166
 msgid "Quality"
 msgstr "Качество"
 
-#: rust/crates/effects/ui/photos.slint:173
+#: rust/crates/effects/ui/photos.slint:179
+msgid "ISO"
+msgstr ""
+
+#: rust/crates/effects/ui/photos.slint:186
+msgid "Shutter speed"
+msgstr ""
+
+#: rust/crates/effects/ui/photos.slint:193
 msgid "Mode"
 msgstr "Режим"
 
-#: rust/crates/effects/ui/photos.slint:182
+#: rust/crates/effects/ui/photos.slint:202
 msgid "Shots"
 msgstr "Съемка"
 
-#: rust/crates/effects/ui/photos.slint:189
+#: rust/crates/effects/ui/photos.slint:209
 msgid "How many"
 msgstr "Количество"
 
-#: rust/crates/effects/ui/photos.slint:198
+#: rust/crates/effects/ui/photos.slint:218
 msgid "Bracket"
 msgstr "Брекетинг"
 
-#: rust/crates/effects/ui/photos.slint:205
+#: rust/crates/effects/ui/photos.slint:225
 msgid "Steps"
 msgstr "Шаги"
 
-#: rust/crates/effects/ui/photos.slint:215 rust/crates/outputs/src/webcam.rs:41 rust/crates/shell/ui/cards/camera.slint:179 rust/crates/shell/ui/cards/camera.slint:182
+#: rust/crates/effects/ui/photos.slint:235 rust/crates/outputs/src/webcam.rs:41 rust/crates/shell/ui/cards/camera.slint:179 rust/crates/shell/ui/cards/camera.slint:182
 msgid "Exposure"
 msgstr "Экспозиция"
 
-#: rust/crates/effects/ui/photos.slint:222 rust/crates/effects/ui/photos.slint:226
+#: rust/crates/effects/ui/photos.slint:242 rust/crates/effects/ui/photos.slint:246
 msgid "Timer"
 msgstr "Таймер"
 
-#: rust/crates/effects/ui/photos.slint:260
+#: rust/crates/effects/ui/photos.slint:280
 msgid "Distortion fix"
 msgstr "Коррекция искажений"
 
-#: rust/crates/effects/ui/photos.slint:266
+#: rust/crates/effects/ui/photos.slint:286
 msgid "Save in"
 msgstr "Сохранять в"
 
@@ -3234,7 +3242,7 @@ msgstr "Телефон отклонил доступ к микрофону (HTTP
 msgid "No microphone"
 msgstr "Нет микрофона"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:737 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:558 rust/crates/shell/src/streams.rs:1570 rust/crates/shell/src/window.rs:1311 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/shortcuts.rs:468
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:748 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:566 rust/crates/shell/src/streams.rs:1590 rust/crates/shell/src/window.rs:1311 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/shortcuts.rs:468
 msgid "Not streaming"
 msgstr "Нет трансляции"
 
@@ -3326,7 +3334,7 @@ msgstr "Не справляется"
 msgid "Browser"
 msgstr "Браузер"
 
-#: rust/crates/link/src/browser/plugin.rs:920 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:336 rust/crates/link/src/plugin.rs:372 rust/crates/link/src/plugin.rs:398 rust/crates/link/src/plugin.rs:732 rust/crates/setup/src/setup.rs:730 rust/crates/shell/src/plugins/onboarding.rs:139 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1531 rust/crates/system/ui/updates.slint:174
+#: rust/crates/link/src/browser/plugin.rs:920 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:336 rust/crates/link/src/plugin.rs:372 rust/crates/link/src/plugin.rs:398 rust/crates/link/src/plugin.rs:732 rust/crates/setup/src/setup.rs:730 rust/crates/shell/src/plugins/onboarding.rs:139 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1551 rust/crates/system/ui/updates.slint:174
 msgid "Try again"
 msgstr "Попробовать снова"
 
@@ -3802,7 +3810,7 @@ msgstr "Обновление приложения на телефоне по USB
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Приложение Telescope на {phone} старее этой версии."
 
-#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:561 rust/crates/system/src/shortcuts.rs:1058
+#: rust/crates/link/src/plugin.rs:1190 rust/crates/setup/src/setup.rs:839 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:569 rust/crates/system/src/shortcuts.rs:1058
 msgid "Copy command"
 msgstr "Скопировать команду"
 
@@ -4382,7 +4390,7 @@ msgstr "Оттенок"
 msgid "Sharpness"
 msgstr "Резкость"
 
-#: rust/crates/outputs/src/webcam.rs:47 rust/crates/outputs/src/webcam.rs:49 rust/crates/outputs/src/webcam.rs:59 rust/crates/outputs/src/webcam.rs:678 rust/crates/shell/ui/cards/camera.slint:295 rust/crates/shell/ui/cards/camera.slint:299 rust/crates/shell/ui/cards/camera.slint:302
+#: rust/crates/outputs/src/webcam.rs:47 rust/crates/outputs/src/webcam.rs:49 rust/crates/outputs/src/webcam.rs:59 rust/crates/outputs/src/webcam.rs:689 rust/crates/shell/ui/cards/camera.slint:295 rust/crates/shell/ui/cards/camera.slint:299 rust/crates/shell/ui/cards/camera.slint:302
 msgid "Focus"
 msgstr "Фокус"
 
@@ -4438,79 +4446,79 @@ msgstr "60 Гц"
 msgid "Check that it's plugged in."
 msgstr "Проверь, подключено ли устройство."
 
-#: rust/crates/outputs/src/webcam.rs:433
+#: rust/crates/outputs/src/webcam.rs:444
 msgid "Another app may be using it. Close it there and it starts here."
 msgstr "Возможно, устройство используется другим приложением. Закрой его там, и трансляция начнется здесь."
 
-#: rust/crates/outputs/src/webcam.rs:435
+#: rust/crates/outputs/src/webcam.rs:446
 #, python-brace-format
 msgid "{app} is using it. Close it there and it starts here."
 msgstr "Устройство используется приложением {app}. Закрой его там, и трансляция начнется здесь."
 
-#: rust/crates/outputs/src/webcam.rs:437 rust/crates/outputs/src/webcam.rs:440 rust/crates/outputs/src/webcam.rs:443
+#: rust/crates/outputs/src/webcam.rs:448 rust/crates/outputs/src/webcam.rs:451 rust/crates/outputs/src/webcam.rs:454
 #, python-brace-format
 msgid "Can't open {name}"
 msgstr "Не удалось открыть {name}"
 
-#: rust/crates/outputs/src/webcam.rs:678
+#: rust/crates/outputs/src/webcam.rs:689
 msgid "Near"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:678
+#: rust/crates/outputs/src/webcam.rs:689
 msgid "Far"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:725
+#: rust/crates/outputs/src/webcam.rs:736
 msgid "Not plugged in"
 msgstr "Не подключено"
 
-#: rust/crates/outputs/src/webcam.rs:727
+#: rust/crates/outputs/src/webcam.rs:738
 msgid "Blocked by Windows or security software"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:729
+#: rust/crates/outputs/src/webcam.rs:740
 msgid "In use by another app"
 msgstr "Используется другим приложением"
 
-#: rust/crates/outputs/src/webcam.rs:729
+#: rust/crates/outputs/src/webcam.rs:740
 #, python-brace-format
 msgid "In use by {app}"
 msgstr "Используется: {app}"
 
-#: rust/crates/outputs/src/webcam.rs:731
+#: rust/crates/outputs/src/webcam.rs:742
 msgid "Mounted as a drive"
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:733
+#: rust/crates/outputs/src/webcam.rs:744
 msgid "Not sending anything"
 msgstr "Ничего не передает"
 
-#: rust/crates/outputs/src/webcam.rs:735
+#: rust/crates/outputs/src/webcam.rs:746
 msgid "Starting…"
 msgstr "Запуск…"
 
-#: rust/crates/outputs/src/webcam.rs:748
+#: rust/crates/outputs/src/webcam.rs:759
 msgid "The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"
 msgstr "Разрешение с веб-камеры; «Авто» выбирает максимальное до 1080p без падения частоты кадров"
 
-#: rust/crates/outputs/src/webcam.rs:773
+#: rust/crates/outputs/src/webcam.rs:784
 msgid "Webcams"
 msgstr "Веб-камеры"
 
-#: rust/crates/outputs/src/webcam.rs:774
+#: rust/crates/outputs/src/webcam.rs:785
 msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "Трансляция с веб-камер и карт захвата, подключенных к этому компьютеру."
 
-#: rust/crates/outputs/src/webcam.rs:775
+#: rust/crates/outputs/src/webcam.rs:786
 msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:815
+#: rust/crates/outputs/src/webcam.rs:826
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name} не подключено"
 
-#: rust/crates/outputs/src/webcam.rs:816
+#: rust/crates/outputs/src/webcam.rs:827
 msgid "Plug it in, or pick another camera."
 msgstr "Подключи ее или выбери другую камеру."
 
@@ -4947,7 +4955,7 @@ msgstr "Сбой - {message}"
 msgid "Working..."
 msgstr "Выполняется..."
 
-#: rust/crates/setup/src/setup.rs:593 rust/crates/shell/src/streams.rs:577
+#: rust/crates/setup/src/setup.rs:593 rust/crates/shell/src/streams.rs:585
 msgid "Stop the streams going to them first"
 msgstr "Сначала останови идущие в них трансляции"
 
@@ -5085,7 +5093,7 @@ msgstr "Перезагрузка loopback..."
 msgid "Restarting stream..."
 msgstr "Перезапуск трансляции..."
 
-#: rust/crates/setup/src/setup.rs:837 rust/crates/shell/src/streams.rs:562
+#: rust/crates/setup/src/setup.rs:837 rust/crates/shell/src/streams.rs:570
 msgid "Resize the virtual camera"
 msgstr "Изменить размер виртуальной камеры"
 
@@ -5903,11 +5911,11 @@ msgstr "Настройка дополнительных виртуальных �
 msgid "Couldn't add more virtual cameras"
 msgstr "Не удалось добавить дополнительные виртуальные камеры"
 
-#: rust/crates/shell/src/host.rs:527
+#: rust/crates/shell/src/host.rs:544
 msgid "Only a phone's stream has the video this needs."
 msgstr "Только в трансляции с телефона есть видео нужного формата."
 
-#: rust/crates/shell/src/host.rs:533
+#: rust/crates/shell/src/host.rs:550
 msgid "Needs Light: Heavy sends whole pictures, with no keyframes to work with."
 msgstr "Требуется формат «Легкий»: «Тяжелый» передает полные кадры без ключевых кадров для обработки."
 
@@ -6608,7 +6616,7 @@ msgstr "Установить плагин"
 msgid "Plugins (*.zip)"
 msgstr "Плагины (*.zip)"
 
-#: rust/crates/shell/src/shell.rs:579
+#: rust/crates/shell/src/shell.rs:581
 #, python-brace-format
 msgid "{plugins} didn't start"
 msgid_plural "{plugins} didn't start"
@@ -6616,7 +6624,7 @@ msgstr[0] "Плагин {plugins} не запустился"
 msgstr[1] "Плагины {plugins} не запустились"
 msgstr[2] "Плагины {plugins} не запустились"
 
-#: rust/crates/shell/src/shell.rs:581
+#: rust/crates/shell/src/shell.rs:583
 #, python-brace-format
 msgid "{n} plugin didn't start"
 msgid_plural "{n} plugins didn't start"
@@ -6624,18 +6632,18 @@ msgstr[0] "{n} плагин не запустился"
 msgstr[1] "{n} плагина не запустились"
 msgstr[2] "{n} плагинов не запустились"
 
-#: rust/crates/shell/src/shell.rs:583
+#: rust/crates/shell/src/shell.rs:585
 msgid "Telescope works without it. The Plugins tab in Settings says what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings says what went wrong."
 msgstr[0] "Telescope работает и без него. Во вкладке «Плагины» в Настройках написано, что пошло не так."
 msgstr[1] "Telescope работает и без них. Во вкладке «Плагины» в Настройках написано, что пошло не так."
 msgstr[2] "Telescope работает и без них. Во вкладке «Плагины» в Настройках написано, что пошло не так."
 
-#: rust/crates/shell/src/shell.rs:587 rust/crates/shell/src/shell.rs:607
+#: rust/crates/shell/src/shell.rs:589 rust/crates/shell/src/shell.rs:609
 msgid "Plugins…"
 msgstr "Плагины…"
 
-#: rust/crates/shell/src/shell.rs:601
+#: rust/crates/shell/src/shell.rs:603
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
@@ -6643,31 +6651,31 @@ msgstr[0] "Плагин {plugins} выключен"
 msgstr[1] "Плагины {plugins} выключены"
 msgstr[2] "Плагины {plugins} выключены"
 
-#: rust/crates/shell/src/shell.rs:602
+#: rust/crates/shell/src/shell.rs:604
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "Ты выключил это в «Плагинах». Чтобы вернуть, открой «Плагины» в Настройках и включи."
 msgstr[1] "Ты выключил их в «Плагинах». Чтобы вернуть их, открой «Плагины» в Настройках и включи их."
 msgstr[2] "Ты выключил их в «Плагинах». Чтобы вернуть их, открой «Плагины» в Настройках и включи их."
 
-#: rust/crates/shell/src/shell.rs:622
+#: rust/crates/shell/src/shell.rs:624
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "Копия старого файла сохранена в {path}."
 
-#: rust/crates/shell/src/shell.rs:624
+#: rust/crates/shell/src/shell.rs:626
 msgid "Your settings couldn't be read"
 msgstr "Не удалось прочитать твои настройки"
 
-#: rust/crates/shell/src/shell.rs:625
+#: rust/crates/shell/src/shell.rs:627
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescope запущен со стандартными настройками, поэтому сопряженные телефоны нужно связать снова."
 
-#: rust/crates/shell/src/shell.rs:945
+#: rust/crates/shell/src/shell.rs:947
 msgid "Telescope - Save failed"
 msgstr "Telescope - не удалось сохранить"
 
-#: rust/crates/shell/src/shell.rs:946
+#: rust/crates/shell/src/shell.rs:948
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "Не удалось сохранить настройки. Проверь свободное место на диске и права доступа."
 
@@ -6745,11 +6753,11 @@ msgstr "Трансляция идет при {size}, пока устройств
 msgid "Open Telescope on it."
 msgstr "Открой Telescope на нем."
 
-#: rust/crates/shell/src/sources.rs:849 rust/crates/shell/src/streams.rs:1452
+#: rust/crates/shell/src/sources.rs:849 rust/crates/shell/src/streams.rs:1472
 msgid "the device"
 msgstr ""
 
-#: rust/crates/shell/src/sources.rs:1080
+#: rust/crates/shell/src/sources.rs:1083
 msgid "Open the Telescope page in it again."
 msgstr "Снова открой в нем страницу Telescope."
 
@@ -6801,112 +6809,120 @@ msgstr "Включение камеры телефона…"
 msgid "Streaming the mic, camera off"
 msgstr "Трансляция микрофона, камера выключена"
 
-#: rust/crates/shell/src/streams.rs:507
+#: rust/crates/shell/src/streams.rs:515
 msgid "Stop all but one camera first, then apply again"
 msgstr "Сначала останови все камеры, кроме одной, затем примени снова"
 
-#: rust/crates/shell/src/streams.rs:521
+#: rust/crates/shell/src/streams.rs:529
 msgid "Reloading v4l2loopback…"
 msgstr "Перезагрузка v4l2loopback…"
 
-#: rust/crates/shell/src/streams.rs:521
+#: rust/crates/shell/src/streams.rs:529
 msgid "Restarting stream…"
 msgstr "Перезапуск трансляции…"
 
-#: rust/crates/shell/src/streams.rs:551
+#: rust/crates/shell/src/streams.rs:559
 #, python-brace-format
 msgid "Loopback reloaded: {message}"
 msgstr "Loopback перезагружен: {message}"
 
-#: rust/crates/shell/src/streams.rs:551
+#: rust/crates/shell/src/streams.rs:559
 msgid "Canvas updated"
 msgstr "Холст обновлен"
 
-#: rust/crates/shell/src/streams.rs:556
+#: rust/crates/shell/src/streams.rs:564
 #, python-brace-format
 msgid "Reload failed: {message}"
 msgstr "Не удалось перезагрузить: {message}"
 
-#: rust/crates/shell/src/streams.rs:577
+#: rust/crates/shell/src/streams.rs:585
 msgid "There are none to remove"
 msgstr "Нечего удалять"
 
-#: rust/crates/shell/src/streams.rs:793
+#: rust/crates/shell/src/streams.rs:651 rust/crates/shell/src/streams.rs:652
+msgid "The phone couldn't take the photo."
+msgstr "Телефону не удалось сделать фото."
+
+#: rust/crates/shell/src/streams.rs:683
+msgid "The phone is already taking a photo."
+msgstr "Телефон уже делает фото."
+
+#: rust/crates/shell/src/streams.rs:813
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "Трансляция с {name} неожиданно остановилась"
 
-#: rust/crates/shell/src/streams.rs:795
+#: rust/crates/shell/src/streams.rs:815
 msgid "The stream stopped unexpectedly"
 msgstr "Трансляция неожиданно остановилась"
 
-#: rust/crates/shell/src/streams.rs:797
+#: rust/crates/shell/src/streams.rs:817
 msgid "Copy diagnostics has the details."
 msgstr "Подробности - в «Скопировать диагностику»."
 
-#: rust/crates/shell/src/streams.rs:822
+#: rust/crates/shell/src/streams.rs:842
 #, python-brace-format
 msgid "The phone got hot and lowered the frame rate to {fps} fps for now."
 msgstr "Телефон нагрелся и временно снизил частоту кадров до {fps} fps."
 
-#: rust/crates/shell/src/streams.rs:824
+#: rust/crates/shell/src/streams.rs:844
 #, python-brace-format
 msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
 msgstr "Формат «Динамический» снизил частоту кадров до {fps} fps из-за медленного соединения."
 
-#: rust/crates/shell/src/streams.rs:826
+#: rust/crates/shell/src/streams.rs:846
 msgid "The camera is making fewer frames than asked for. Dim light slows it down."
 msgstr "Камера выдает меньше кадров, чем задано. Слабое освещение замедляет ее."
 
-#: rust/crates/shell/src/streams.rs:828
+#: rust/crates/shell/src/streams.rs:848
 msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
 msgstr "Камера телефона выдает меньше кадров, чем запрошено. Слабое освещение замедляет ее работу."
 
-#: rust/crates/shell/src/streams.rs:894
+#: rust/crates/shell/src/streams.rs:914
 msgid "Reconnecting"
 msgstr "Переподключение"
 
-#: rust/crates/shell/src/streams.rs:896
+#: rust/crates/shell/src/streams.rs:916
 msgid "Live"
 msgstr "В эфире"
 
-#: rust/crates/shell/src/streams.rs:898
+#: rust/crates/shell/src/streams.rs:918
 msgid "Connecting"
 msgstr "Подключение"
 
-#: rust/crates/shell/src/streams.rs:908
+#: rust/crates/shell/src/streams.rs:928
 msgid "Starting"
 msgstr "Запуск"
 
-#: rust/crates/shell/src/streams.rs:911
+#: rust/crates/shell/src/streams.rs:931
 msgid "Waiting"
 msgstr "Ожидание"
 
 #. under a stream's tile, the virtual camera it goes to
-#: rust/crates/shell/src/streams.rs:922
+#: rust/crates/shell/src/streams.rs:942
 #, python-brace-format
 msgid "to {output}"
 msgstr "на {output}"
 
-#: rust/crates/shell/src/streams.rs:923
+#: rust/crates/shell/src/streams.rs:943
 #, python-brace-format
 msgid "Stop streaming {name}"
 msgstr "Остановить трансляцию {name}"
 
-#: rust/crates/shell/src/streams.rs:1273
+#: rust/crates/shell/src/streams.rs:1293
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "Телефон отправил данные, которые эта версия не может прочитать. Обнови оба приложения до одинаковой версии."
 
-#: rust/crates/shell/src/streams.rs:1355
+#: rust/crates/shell/src/streams.rs:1375
 #, python-brace-format
 msgid "Can't reach {name}"
 msgstr "Не удается связаться с {name}"
 
-#: rust/crates/shell/src/streams.rs:1439
+#: rust/crates/shell/src/streams.rs:1459
 msgid "Lost the phone - reconnecting"
 msgstr "Связь с телефоном потеряна - переподключение"
 
-#: rust/crates/shell/src/streams.rs:1627
+#: rust/crates/shell/src/streams.rs:1647
 msgid "Couldn't reach the device."
 msgstr ""
 
@@ -8205,7 +8221,7 @@ msgstr " °C"
 msgid "Add your phone"
 msgstr "Добавить телефон"
 
-#: rust/crates/effects/src/photos.rs:629
+#: rust/crates/effects/src/photos.rs:716
 #, python-brace-format
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"
@@ -8393,6 +8409,9 @@ msgstr "Не удалось открыть"
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "Не удалось перезапустить"
+
+#~ msgid "Takes full-quality photos on the phone, RAW and the phone's Night mode included where it has them."
+#~ msgstr "Делает фото на телефоне в максимальном качестве, включая RAW и ночной режим телефона, если они поддерживаются."
 
 #~ msgid "Add phone"
 #~ msgstr "Добавить телефон"
