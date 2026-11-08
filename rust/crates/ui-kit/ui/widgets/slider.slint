@@ -63,6 +63,8 @@ export component Slider inherits HorizontalLayout {
     // A tooltip on the slider and its readout: its name, then a line or two more and the keys that do the same
     in property <string> tip;
     in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
     in property <[string]> tip-keys;
     // The value as a box beside the readout would hold it (LogSliderRow's spin box): a click on the readout types over it there, and
     // `typed` hands the text to the owner to read. Empty: the slider reads a typed number itself (below) and says it with moved and released.
@@ -391,6 +393,12 @@ export component Slider inherits HorizontalLayout {
             }
         }
         bubble := Peek {
+            // The bubble follows the handle and its pointer points at it
+            has-point: true;
+            point-x: handle.x;
+            point-y: handle.y;
+            point-w: handle.width;
+            point-h: handle.height;
             kind: root.peek;
             engaged: root.touched-now;
             hue: root.hue;
@@ -399,7 +407,7 @@ export component Slider inherits HorizontalLayout {
             text: root.peek-text;
             changed open => { root.peek-changed(self.open); }
         }
-        usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover || readout-over; inert: !root.enabled; focused: slider-focus.has-focus && KeyFocus.keyboard; }
+        usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover || readout-over; inert: !root.enabled; focused: slider-focus.has-focus && KeyFocus.keyboard; }
         touch := TouchArea {
             enabled: root.enabled;
             property <float> picked: clamp((self.mouse-x - track.inset) / (track.width - 2 * track.inset), 0, 1);

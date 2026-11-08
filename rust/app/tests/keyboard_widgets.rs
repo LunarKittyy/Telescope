@@ -70,7 +70,7 @@ fn press(ui: &ComponentInstance, text: SharedString) {
     ui.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
     ui.window().dispatch_event(WindowEvent::KeyReleased { text });
     // The list opens and a letter is looked up a moment after the key
-    i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(20));
+    i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(200));
 }
 
 fn key(ui: &ComponentInstance, k: Key) {

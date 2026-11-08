@@ -206,6 +206,14 @@ impl Chase {
         Target::new(Self::SIDES.0 + (Self::SIDES.1 - Self::SIDES.0) * along, 0.5 - 0.2 * (std::f64::consts::PI * along).sin(), Self::ZOOM)
     }
 
+    /// Skips what is left of the hold before the next move, so a Speed that was just changed shows at once instead of after the wait.
+    pub fn start_move(&mut self) {
+        let into = self.at.rem_euclid(Self::HOLD_S + Self::MOVE_S);
+        if into < Self::HOLD_S {
+            self.at += Self::HOLD_S - into;
+        }
+    }
+
     /// Runs `dt` seconds on at this Speed: (you x, you y, framing x, framing y), each from 0 to 1 across the picture.
     pub fn step(&mut self, speed: i64, dt: f64) -> [f64; 4] {
         self.at += dt;
@@ -610,6 +618,10 @@ impl FramingPlugin {
     fn set_speed(&mut self, host: &mut dyn Host, value: i64) {
         if value != self.speed {
             self.speed = value;
+            // The bubble's dots take the new pace now, not after the pause they hold still for
+            if let Some(chase) = self.chasing.as_mut() {
+                chase.start_move();
+            }
             host.set_ui_props("card", &json!({"speed": value, "speed-text": self.speed_text()}));
             host.schedule_save();
         }

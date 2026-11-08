@@ -14,6 +14,8 @@ export component Jog inherits Rectangle {
     in property <string> label;
     in property <string> tip;
     in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
     in property <[string]> tip-keys;
     in property <bool> enabled: true;
     in property <color> hue: Theme.accent;
@@ -71,7 +73,7 @@ export component Jog inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus; radius: 7px; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
-    usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
     Text {
         x: 11px;
         width: root.width / 2 - 24px;

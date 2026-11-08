@@ -16,6 +16,8 @@ export component TextArea inherits Rectangle {
     in property <bool> skeleton;
     in property <string> tip;
     in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
     out property <bool> has-focus: input.has-focus;
     out property <string> control-kind: "field";
     callback edited(string);
@@ -88,5 +90,5 @@ export component TextArea inherits Rectangle {
             }
         }
     }
-    usage := Tip { says: root.tip; detail: root.tip-detail; hover: touch.has-hover; inert: !root.enabled; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; hover: touch.has-hover; inert: !root.enabled; }
 }

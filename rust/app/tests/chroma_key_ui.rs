@@ -159,6 +159,9 @@ impl Rig {
         self.press(x, y);
         self.release(x, y);
         self.draw();
+        // A bubble fades out before it goes
+        offscreen::skip(std::time::Duration::from_millis(300));
+        self.draw();
     }
 
     fn click_on(&self, e: &ElementHandle) {
@@ -170,6 +173,9 @@ impl Rig {
         let text = slint::SharedString::from(key);
         self.w.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
         self.w.window().dispatch_event(WindowEvent::KeyReleased { text });
+        self.draw();
+        // A bubble fades out before it goes
+        offscreen::skip(std::time::Duration::from_millis(300));
         self.draw();
     }
 

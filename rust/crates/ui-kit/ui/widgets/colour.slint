@@ -212,6 +212,8 @@ export component ColourField inherits Rectangle {
     in property <string> label;
     in property <string> tip;
     in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
     in property <string> pipette-tip;
     in property <bool> enabled: true;
     // False when there's no preview to pick from
@@ -257,7 +259,7 @@ export component ColourField inherits Rectangle {
         background: colour;
         opacity: enabled ? 1 : 0.5;
     }
-    usage := Tip { says: root.tip; detail: root.tip-detail; hover: touch.has-hover; inert: !root.enabled; enabled: !root.open; focused: focus.has-focus && KeyFocus.keyboard; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; hover: touch.has-hover; inert: !root.enabled; enabled: !root.open; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;

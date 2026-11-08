@@ -214,6 +214,9 @@ impl Wrap {
         self.w.window().dispatch_event(WindowEvent::PointerMoved { position });
         self.w.window().dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
         self.draw();
+        // A press on the track of a slider with a default waits out the double-click interval before it lands
+        offscreen::skip(std::time::Duration::from_millis(400));
+        self.draw();
         self.pass_on();
         self.draw();
     }

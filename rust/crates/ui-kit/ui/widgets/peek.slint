@@ -137,10 +137,16 @@ export component Peek inherits Rectangle {
     out property <bool> open: Peeks.shown && Peeks.owner == id;
     property <int> id;
     property <bool> want: engaged && kind != "";
-    property <length> ax: root.absolute-position.x;
-    property <length> ay: root.absolute-position.y;
-    property <length> aw: root.width;
-    property <length> ah: root.height;
+    // What it points at, when that is a part of the control (a slider's handle) rather than all of it: a place in the control
+    in property <bool> has-point;
+    in property <length> point-x;
+    in property <length> point-y;
+    in property <length> point-w;
+    in property <length> point-h;
+    property <length> ax: root.absolute-position.x + (has-point ? point-x : 0px);
+    property <length> ay: root.absolute-position.y + (has-point ? point-y : 0px);
+    property <length> aw: has-point ? point-w : root.width;
+    property <length> ah: has-point ? point-h : root.height;
     x: 0px;
     y: 0px;
     width: 100%;

@@ -74,7 +74,8 @@ impl Rig {
         self.ui.window().dispatch_event(WindowEvent::PointerMoved { position });
         self.ui.window().dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
         self.ui.window().dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
-        offscreen::pump();
+        // A click on a slider's track waits out the double-click interval before it lands
+        offscreen::skip(std::time::Duration::from_millis(400));
     }
 
     fn key(&self, key: impl Into<slint::SharedString>) {
@@ -184,6 +185,8 @@ fn framings_sliders_and_the_hand_tile_reach_the_plugin() {
         r.ui.window().dispatch_event(WindowEvent::PointerMoved { position });
         r.ui.window().dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
         r.ui.window().dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+        // A click on the track waits out the double-click interval first
+        offscreen::skip(std::time::Duration::from_millis(400));
         assert!(!r.said(callback).is_empty(), "{label} says nothing");
     }
     r.click_as("Things in hand", AccessibleRole::Switch);
@@ -253,6 +256,7 @@ fn notes_text_size_and_scroll_reach_the_plugin_and_typing_edits_the_text() {
     let position = LogicalPosition::new(p.x + s.width / 2.0, p.y + s.height / 2.0);
     r.ui.window().dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
     r.ui.window().dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+    offscreen::skip(std::time::Duration::from_millis(400));
     assert!(!r.said("size-moved").is_empty());
     r.click_as("Notes", AccessibleRole::TextInput);
     r.key("a");

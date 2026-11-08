@@ -473,6 +473,8 @@ export component ChoiceField inherits Rectangle {
     // A tooltip, when there's something to say beyond the label: its name, then a line or two more and the keys that do the same
     in property <string> tip;
     in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
     in property <[string]> tip-keys;
     callback picked(int);
     // The row the arrows move to from `from`, or there when there's none that way
@@ -504,7 +506,8 @@ export component ChoiceField inherits Rectangle {
         scans += 1;
         settling = true;
     }
-    // The list eases out before it goes: closing is the fade, and the popup closes when it is over
+    // The list eases out before it goes: it is closed (`open` is false, the focus is back) as soon as it is asked to, and the popup
+    // itself goes when the fade is over
     property <bool> closing;
     function close-now() {
         closing = false;
@@ -512,11 +515,14 @@ export component ChoiceField inherits Rectangle {
         root.open = false;
         focus.focus();
     }
-    // Close the list from the keyboard or a pick and hand the focus back
-    function close-list() {
-        if (Motion.fades && open) {
+    // Close the list and hand the focus back: a click eases it out, a key puts it away at once (`gently` says which)
+    function close-list(gently: bool) {
+        if (gently && Motion.fades && open && !closing) {
             closing = true;
-        } else {
+            root.open = false;
+            hl = -1;
+            focus.focus();
+        } else if (!closing) {
             close-now();
         }
     }
@@ -528,9 +534,9 @@ export component ChoiceField inherits Rectangle {
     // The list's own opacity and drop, for a test
     out property <float> list-shown: list-fade.value;
     list-fade := Fade { shown: root.open && !root.closing; }
-    function choose(i: int) {
+    function choose(i: int, gently: bool) {
         pick(i);
-        close-list();
+        close-list(gently);
     }
     Timer {
         interval: 1ms;
@@ -589,7 +595,7 @@ export component ChoiceField inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
-    usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
@@ -670,23 +676,23 @@ export component ChoiceField inherits Rectangle {
         // Slint doesn't say when a popup closes, but its focus goes back to the field then. Taken a moment after it
         // opens, since opening clears the focus
         watch := FocusScope {
-            focus-lost => { root.open = false; hl = -1; closing = false; }
+            focus-lost => { root.open = false; hl = -1; }
             key-pressed(e) => {
                 if (closing) { return accept; }
-                if (e.text == Key.Escape) { close-list(); return accept; }
-                if (e.text == Key.Tab || e.text == Key.Backtab) { close-list(); return reject; }
+                if (e.text == Key.Escape) { close-list(false); return accept; }
+                if (e.text == Key.Tab || e.text == Key.Backtab) { close-list(false); return reject; }
                 if (e.text == Key.UpArrow) { hl = step-from(hl, -1); return accept; }
                 if (e.text == Key.DownArrow) { hl = step-from(hl, 1); return accept; }
                 if (e.text == Key.Home) { scan(1, ""); return accept; }
                 if (e.text == Key.End) { scan(2, ""); return accept; }
-                if (e.text == " " || e.text == "\n") { if (hl >= 0) { choose(hl); } else { close-list(); } return accept; }
+                if (e.text == " " || e.text == "\n") { if (hl >= 0) { choose(hl, false); } else { close-list(false); } return accept; }
                 if (e.text.character-count == 1 && !e.modifiers.control && !e.modifiers.alt && !e.modifiers.meta) { scan(0, e.text); return accept; }
                 reject
             }
         }
         Timer {
             interval: 1ms;
-            running: !root.open;
+            running: !root.open && !root.closing;
             triggered => {
                 root.open = true;
                 watch.focus();
@@ -741,7 +747,7 @@ export component ChoiceField inherits Rectangle {
                         accessible-item-index: i;
                         accessible-item-count: items.length;
                         accessible-enabled: !headings[i] && !is-gone;
-                        accessible-action-default => { if (!headings[i] && !is-gone) { choose(i); } }
+                        accessible-action-default => { if (!headings[i] && !is-gone) { choose(i, false); } }
                         height: headings[i] ? 32px : max(26px, line.preferred-height + 10px);
                         border-radius: Theme.r-handle;
                         background: headings[i] || is-gone ? transparent : lit ? Theme.sel : transparent;
@@ -753,7 +759,7 @@ export component ChoiceField inherits Rectangle {
                         item-touch := TouchArea {
                             enabled: !headings[i] && !is-gone;
                             clicked => {
-                                if (!closing) { choose(i); }
+                                if (!closing) { choose(i, true); }
                             }
                         }
                         line := Text {

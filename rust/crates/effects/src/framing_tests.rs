@@ -891,3 +891,21 @@ fn the_stand_in_for_you_goes_across_pauses_and_comes_back() {
     assert!(close(Chase::you(Chase::HOLD_S * 0.5).x, a.x, 1e-9), "it holds still first");
     assert!((0..300).all(|i| (0.0..=1.0).contains(&Chase::you(i as f64 * 0.05).y)));
 }
+
+#[test]
+fn a_new_speed_starts_the_chase_moving_at_once_instead_of_after_the_hold() {
+    let mut chase = Chase::new();
+    // A little way into the hold, where nothing moves yet
+    chase.step(5, 0.3);
+    let held = chase.step(5, 0.1)[0];
+    assert!(close(held, Chase::you(0.0).x, 1e-9), "still holding");
+    chase.start_move();
+    let moved = chase.step(5, 0.25)[0];
+    assert!(moved > held + 0.05, "you are moving now: {held} then {moved}");
+    // In the middle of a move it carries on as it was
+    let mut mid = Chase::new();
+    mid.step(5, Chase::HOLD_S + 0.2);
+    let before = mid.at;
+    mid.start_move();
+    assert_eq!(before, mid.at);
+}

@@ -49,6 +49,8 @@ export component Switch inherits Rectangle {
     // A tooltip, when there's something to say beyond the label: its name, then a line or two more and the keys that do the same
     in property <string> tip;
     in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
     in property <[string]> tip-keys;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
@@ -97,7 +99,7 @@ export component Switch inherits Rectangle {
     }
     FocusRing { shown: focus.has-focus && keyed; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
     TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
-    usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: root.ringed; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: root.ringed; }
     // The handle's place between its two ends, 0 off and 1 on, with the little overshoot of a flick
     flick := Flick { to: shown ? 1 : 0; snap: quick; }
     // Where the handle is now, 0 to 1 and a little past either end while it flicks, for a test
@@ -147,6 +149,8 @@ export component SwitchTile inherits Rectangle {
     // A tooltip for the whole tile, say why it can't be used
     in property <string> tip;
     in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
     in property <[string]> tip-keys;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
@@ -156,7 +160,7 @@ export component SwitchTile inherits Rectangle {
     horizontal-stretch: 1;
     min-width: 0px;
     preferred-width: 0px;
-    usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; shortcut: root.shortcut; hover: tile-touch.has-hover; inert: !root.enabled; focused: sw.ringed; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; shortcut: root.shortcut; hover: tile-touch.has-hover; inert: !root.enabled; focused: sw.ringed; }
     tile-touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
@@ -226,6 +230,8 @@ export component ToggleTile inherits Rectangle {
     // A tooltip for the whole tile: say why it can't be used, or what an icon alone means
     in property <string> tip;
     in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
     in property <[string]> tip-keys;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
@@ -284,7 +290,7 @@ export component ToggleTile inherits Rectangle {
     }
     FocusRing { shown: focus.has-focus && keyed; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
     TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
-    usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && keyed; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && keyed; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;

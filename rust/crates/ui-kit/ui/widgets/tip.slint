@@ -38,6 +38,7 @@ export global Tips {
     in-out property <int> owner;
     in-out property <string> says;
     in-out property <string> detail;
+    in-out property <string> hint;
     in-out property <[string]> keys;
     in-out property <color> hue: transparent;
     // The control it explains, in window coordinates
@@ -56,10 +57,11 @@ export global Tips {
     public function is-warm() -> bool {
         return shown || animation-tick() - went-down < warm-for;
     }
-    public function show(id: int, text: string, more: string, caps: [string], colour: color, x: length, y: length, w: length, h: length) {
+    public function show(id: int, text: string, more: string, note: string, caps: [string], colour: color, x: length, y: length, w: length, h: length) {
         owner = id;
         says = text;
         detail = more;
+        hint = note;
         keys = caps;
         hue = colour;
         ax = x;
@@ -112,6 +114,8 @@ component KeyCap inherits Rectangle {
 export component TipBody inherits Rectangle {
     in property <string> says;
     in property <string> detail;
+    // The last line, smaller and dimmer than the detail: what a gesture does ("Double-click to reset")
+    in property <string> hint;
     in property <[string]> keys;
     in property <color> hue: transparent;
     out property <string> control-kind: "tip";
@@ -176,6 +180,15 @@ export component TipBody inherits Rectangle {
             font-size: Theme.small;
             color: Theme.ink2;
         }
+        if root.hint != "": Text {
+            text: root.hint;
+            max-width: root.measure;
+            wrap: word-wrap;
+            line-height-factor: Theme.line-factor(self.font-size);
+            font-family: Theme.font;
+            font-size: Theme.tiny;
+            color: Theme.faint;
+        }
     }
 }
 
@@ -203,6 +216,7 @@ export component TipLayer inherits Rectangle {
         property <bool> above: TipSpot.above(Tips.ay, Tips.ah, self.height, window-h);
         says: Tips.says;
         detail: Tips.detail;
+        hint: Tips.hint;
         keys: Tips.keys;
         hue: Tips.hue;
         width: self.preferred-width;
@@ -221,6 +235,8 @@ export component Tip inherits Rectangle {
     in property <string> says;
     // A line or two more, in smaller quieter type
     in property <string> detail;
+    // A last line in smaller and dimmer type still: what a gesture does ("Double-click to reset")
+    in property <string> hint;
     // The keys that do the same, as caps on the right of the name: an action id here fills them from its saved shortcut
     in property <[string]> keys;
     in property <string> shortcut;
@@ -256,7 +272,7 @@ export component Tip inherits Rectangle {
         wheeled = true;
     }
     function present() {
-        Tips.show(id, says, detail, caps, hue, ax, ay, aw, ah);
+        Tips.show(id, says, detail, hint, caps, hue, ax, ay, aw, ah);
     }
     function refresh() {
         if (up) { present(); }
@@ -279,6 +295,7 @@ export component Tip inherits Rectangle {
     }
     changed says => { refresh(); }
     changed detail => { refresh(); }
+    changed hint => { refresh(); }
     changed caps => { refresh(); }
     changed hue => { refresh(); }
     changed ax => { refresh(); }

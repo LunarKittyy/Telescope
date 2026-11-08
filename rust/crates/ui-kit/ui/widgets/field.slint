@@ -21,6 +21,8 @@ export component TextField inherits Rectangle {
     // A tooltip while the box isn't being typed in: its name, then a line or two more
     in property <string> tip;
     in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
     in property <image> icon;
     in property <bool> has-icon;
     in property <bool> clearable;
@@ -81,7 +83,7 @@ export component TextField inherits Rectangle {
         overflow: elide;
         accessible-role: none;
     }
-    Tip { says: root.tip; detail: root.tip-detail; hover: touch.has-hover; inert: !root.enabled; enabled: !input.has-focus; }
+    Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; hover: touch.has-hover; inert: !root.enabled; enabled: !input.has-focus; }
     // The box is the TouchArea's child: a text box takes the pointer over its text, but a TouchArea round it still sees it, so the field hovers there too
     touch := TouchArea {
         mouse-cursor: MouseCursor.text;
@@ -140,6 +142,8 @@ export component NumberField inherits Rectangle {
     in property <string> label;
     in property <string> tip;
     in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
     in property <bool> enabled: true;
     // Inside a popup: Enter leaves the focus here, the window's scope can't take it from a popup
     in property <bool> keeps-focus;
@@ -172,7 +176,7 @@ export component NumberField inherits Rectangle {
         enabled: root.enabled;
         label: root.label;
         tip: root.tip;
-        tip-detail: root.tip-detail;
+        tip-detail: root.tip-detail; tip-hint: root.tip-hint;
         align-right: true;
         escape-clears: false;
         edited(text) => { root.edited(text); }

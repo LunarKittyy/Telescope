@@ -311,6 +311,8 @@ export component RailRow inherits HorizontalLayout {
     in property <string> tip;
     // A line or two more under the tip
     in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
     in property <string> keywords;
     in property <color> hue: Theme.accent;
     in property <bool> enabled: true;
@@ -343,7 +345,7 @@ export component RailRow inherits HorizontalLayout {
         }
         if has-icon && label != "": SettingMark { width: parent.width; height: parent.height; name: label; keywords: keywords; }
         if has-icon && label != "": Rectangle {
-            Tip { says: tip != "" ? tip : label; detail: tip-detail; hover: icon-touch.has-hover; inert: !enabled; }
+            Tip { says: tip != "" ? tip : label; detail: tip-detail; hint: tip-hint; hover: icon-touch.has-hover; inert: !enabled; }
             icon-touch := TouchArea { mouse-cursor: default; }
         }
     }
@@ -371,6 +373,8 @@ export component SwitchRow inherits Rectangle {
     in property <string> label;
     in property <string> tip;
     in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
     in property <string> keywords;
     in property <color> hue: Theme.accent;
     in property <bool> enabled: true;
@@ -385,7 +389,7 @@ export component SwitchRow inherits Rectangle {
         icon: root.icon;
         label: root.label;
         tip: root.tip;
-        tip-detail: root.tip-detail;
+        tip-detail: root.tip-detail; tip-hint: root.tip-hint;
         keywords: root.keywords;
         hue: root.hue;
         enabled: root.enabled;
@@ -396,7 +400,7 @@ export component SwitchRow inherits Rectangle {
             Switch {
                 label: root.label;
                 tip: root.tip;
-                tip-detail: root.tip-detail;
+                tip-detail: root.tip-detail; tip-hint: root.tip-hint;
                 shortcut: root.shortcut;
                 hue: root.hue;
                 enabled: root.enabled;
