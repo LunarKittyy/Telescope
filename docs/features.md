@@ -32,7 +32,7 @@ Optional. It finds you in the picture and moves zoom and pan to keep you framed.
 - **Framing** sets how much of you is in the shot, from just your head to your whole body. Two people get framed together. With nobody in view for two seconds it zooms back out
 - **Speed** goes from **Sloth** to **Zippy**. **Easy** is the default
 - **Room to move** is how far you can shift before the framing follows (**Fidget** to **Roam**, while **Off** follows every move)
-- **Widen for something in your hand** (off by default) makes room when you hold something out to the side
+- **Things in hand** (off by default) makes room when you hold something out to the side
 - Zoom and Pan on the Transforms card are greyed out while it's on. Flip and rotation still work and your own zoom and pan come back when you switch it off
 - The skeleton button under the preview shows what the framing is reacting to. It never appears in the camera output
 
@@ -103,8 +103,8 @@ Optional. Point the phone down at a sheet of paper, mark the sheet's four corner
 - **Writing** can make the text stand out. **Contrast** evens out the light across the paper so it turns white and the ink stays dark. **Black and white** turns everything into pure black ink on white paper, which works best for printed text and pen
 - Clicking the straightened picture still works the way you'd expect: **Tap a point** focuses on the word you clicked, scrolling zooms around it and other plugins' picks land where you clicked. The lens outlines and the skeleton aren't drawn while the sheet is straightened
 - If zooming or Auto framing pushes part of the sheet off the picture the card warns about it. Zoom out or mark it again
-- The sheet keeps its own shape, centred with dark bars beside it (white ones with **Contrast** or **Black and white**), so a standing page stays a standing page in a wide call. **Shape** set to **Auto** works the real shape out from the corners, undoing the tilt. **A4**, **Letter** and **Square** use that size instead, turned the way the sheet lies. **Fill the picture** stretches it over the whole frame
-- If the page still looks a bit squashed, **Width** and **Height** stretch it by eye from 50% to 200%. A double-click on a slider or **Reset** puts them back to 100%
+- The sheet keeps its own shape, centred with dark bars beside it (white ones with **Contrast** or **Black and white**), so a standing page stays a standing page in a wide call. **Shape** set to **Auto** works the real shape out from the corners, undoing the tilt. **A4**, **Letter** and **Square** use that size instead, turned the way the sheet lies. **Fill** stretches it over the whole frame
+- If the page still looks a bit squashed, drag the handle on the pad at the bottom of the card: across is the width, down is the height, from 50% to 200% (the corner of the drawn sheet follows it). A double-click on the pad or the reset button on it puts both back to 100%
 - Each phone remembers its own corners and presets save them too
 
 ## QR codes
@@ -159,8 +159,8 @@ It only works on 64-bit Intel and AMD computers for now.
 
 Optional. It puts your name and pronouns in a corner of the picture, with a smaller second line under them if you want one (like your role). Switch it on under **On screen** in the Plugins tab of Settings and fill in the **Name tag** card. With several cameras each one has its own tag (or none), so the desk camera doesn't have to show your name too.
 
-- **Style** is **Bar** (a dark box with a coloured edge), **Pill**, **Light** or **Shadow**, which has no box at all and only a soft shadow behind the text
-- **Position** can be any bottom corner, bottom centre or the top corners. **Size** is measured against the picture's height and the tag looks the same at 720p and 4K
+- **Style** is **Bar** (a dark box with a coloured edge), **Pill**, **Light** or **Shadow**, which has no box at all and only a soft shadow behind the text. Each tile shows its look
+- **Position** is the small frame next to the styles: click the corner or the bottom centre you want. **Size** is measured against the picture's height and the tag looks the same at 720p and 4K
 - Presets save the tag too. One preset can have it on for a talk and another can leave it off for a chat
 - Names in any script work (Arabic and Hebrew ones start from the right) and anything too long for the picture is cut short with "…"
 - The tag goes on the picture before Telescope fits it to the virtual camera's canvas. With a **Canvas size** of another shape it sits in the corner of the picture rather than of the canvas. A low-resolution stream on a bigger canvas makes its text a little soft too (a higher resolution on the Stream output card helps)
