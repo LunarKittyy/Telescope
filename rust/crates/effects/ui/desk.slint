@@ -43,6 +43,11 @@ export component DeskCard inherits Card {
     icon: Icons.pencil;
     opacity: active ? 1 : 0.4;
     enabled: active;
+    has-action: true;
+    action-icon: Icons.reset;
+    action-label: reset-tip;
+    action-enabled: reset-shown && !picking;
+    action => { root.reset-clicked(); }
     has-switch: true;
     switch-shortcut: "desk.on";
     switch-enabled: active;
@@ -149,54 +154,46 @@ export component DeskCard inherits Card {
     }
     RailRow {
         icon: Icons.stretch;
-        label: @tr("Width and height");
+        label: @tr("Width");
+        tip: stretch-enabled ? stretch-tip : stretch-off-tip;
         hue: root.hue;
         enabled: active && stretch-enabled;
-        changed: stretch[0] != 100 || stretch[1] != 100;
-        sheet-pad := Pad {
-            label: @tr("Width and height");
-            tip: stretch-enabled ? stretch-tip : stretch-off-tip;
+        changed: stretch[0] != 100;
+        Slider {
             enabled: active && stretch-enabled;
-            x-minimum: 50;
-            x-maximum: 200;
-            y-minimum: 50;
-            y-maximum: 200;
-            value-x: stretch[0];
-            value-y: stretch[1];
-            centre-x: 100;
-            centre-y: 100;
-            has-default: true;
-            default-x: 100;
-            default-y: 100;
+            label: @tr("Width");
+            tip: stretch-enabled ? stretch-tip : stretch-off-tip;
+            tip-detail: stretch-enabled ? @tr("Double-click to reset") : "";
             hue: root.hue;
-            readout-top-left: true;
-            readout: @tr("W") + " " + stretch-text[0] + "  " + @tr("H") + " " + stretch-text[1];
-            moved(x, y) => {
-                root.stretch-moved(0, x);
-                root.stretch-moved(1, y);
-            }
-            // The sheet, from the pad's top left corner to the handle
-            Path {
-                x: Theme.u(6);
-                y: Theme.u(6);
-                width: max(1px, sheet-pad.handle-x - Theme.u(6));
-                height: max(1px, sheet-pad.handle-y - Theme.u(6));
-                viewbox-width: self.width / 1px;
-                viewbox-height: self.height / 1px;
-                commands: "M 1 1 L " + (self.width / 1px - 1) + " 1 L " + (self.width / 1px - 1) + " " + (self.height / 1px - 1) + " L 1 " + (self.height / 1px - 1) + " Z";
-                stroke: sheet-pad.enabled ? root.hue : Theme.dis;
-                stroke-width: 2px;
-                fill: sheet-pad.enabled ? Theme.tint(root.hue) : transparent;
-            }
-            IconButton {
-                x: parent.width - self.width - Theme.u(3);
-                y: Theme.u(3);
-                enabled: active && reset-shown && !picking;
-                icon: Icons.reset;
-                label: reset-text;
-                tip: reset-tip;
-                clicked => { root.reset-clicked(); }
-            }
+            minimum: 50;
+            maximum: 200;
+            value: stretch[0];
+            readout: stretch-text[0];
+            has-default: true;
+            default-value: 100;
+            moved(v) => { root.stretch-moved(0, v); }
+        }
+    }
+    RailRow {
+        icon: Icons.stretch-tall;
+        label: @tr("Height");
+        tip: stretch-enabled ? stretch-tip : stretch-off-tip;
+        hue: root.hue;
+        enabled: active && stretch-enabled;
+        changed: stretch[1] != 100;
+        Slider {
+            enabled: active && stretch-enabled;
+            label: @tr("Height");
+            tip: stretch-enabled ? stretch-tip : stretch-off-tip;
+            tip-detail: stretch-enabled ? @tr("Double-click to reset") : "";
+            hue: root.hue;
+            minimum: 50;
+            maximum: 200;
+            value: stretch[1];
+            readout: stretch-text[1];
+            has-default: true;
+            default-value: 100;
+            moved(v) => { root.stretch-moved(1, v); }
         }
     }
     if status != "": Note { text: status; kind: status-kind; }
@@ -204,4 +201,4 @@ export component DeskCard inherits Card {
     blocked: !active;
 }
 
-import { RailRow, PictureSegmented, Pad } from "@ui-kit/ui-kit.slint";
+import { RailRow, PictureSegmented, Slider } from "@ui-kit/ui-kit.slint";

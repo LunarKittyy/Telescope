@@ -300,16 +300,23 @@ export component PhotosCard inherits Card {
         }
     }
     RailRow {
-        has-icon: false;
-        enabled: active;
-        ToggleTile {
-            icon: Icons.sparkle;
-            text: best-name;
-            tip: best-tip;
-            hue: root.hue;
-            enabled: active && best-enabled;
-            checked: best;
-            toggled(v) => { root.best-toggled(v); }
+        icon: Icons.sparkle;
+        label: best-name;
+        hue: root.hue;
+        enabled: active && best-enabled;
+        changed: !best;
+        Rectangle {
+            horizontal-stretch: 1;
+            Switch {
+                x: 0px;
+                y: (parent.height - self.height) / 2;
+                label: best-name;
+                tip: best-tip;
+                hue: root.hue;
+                enabled: active && best-enabled;
+                checked: best;
+                toggled(v) => { root.best-toggled(v); }
+            }
         }
     }
     RailRow {

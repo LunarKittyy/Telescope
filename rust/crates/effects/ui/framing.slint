@@ -137,16 +137,20 @@ export component FramingCard inherits Card {
         hue: root.hue;
         enabled: active;
         changed: hand;
-        ToggleTile {
-            text: @tr("Things in hand");
-            name: hand-name;
-            tip: hand-name;
-            hue: root.hue;
-            enabled: active;
-            checked: root.hand;
-            toggled(v) => {
-                root.hand = v;
-                root.hand-toggled(v);
+        Rectangle {
+            horizontal-stretch: 1;
+            Switch {
+                x: 0px;
+                y: (parent.height - self.height) / 2;
+                label: hand-name;
+                tip: hand-name;
+                hue: root.hue;
+                enabled: active;
+                checked: root.hand;
+                toggled(v) => {
+                    root.hand = v;
+                    root.hand-toggled(v);
+                }
             }
         }
     }
@@ -159,4 +163,4 @@ export component FramingCard inherits Card {
     blocked: !active;
 }
 
-import { RailRow, ToggleTile } from "@ui-kit/ui-kit.slint";
+import { RailRow, Switch } from "@ui-kit/ui-kit.slint";

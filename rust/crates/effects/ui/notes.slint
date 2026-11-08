@@ -232,13 +232,11 @@ export component NotesCard inherits Card {
                 enabled: active && send-enabled;
                 clicked => { root.send-clicked(); }
             }
-            Button {
-                horizontal-stretch: 1;
-                preferred-width: 0px;
-                min-width: 0px;
-                has-icon: true;
+            // An icon button with the name as its tooltip, so the long German names never cut the Send text
+            IconButton {
                 icon: Icons.clear-phone;
-                text: clear-text;
+                label: clear-text;
+                tip: clear-text;
                 shortcut: "notes.clear";
                 enabled: active && clear-enabled;
                 clicked => { root.clear-clicked(); }

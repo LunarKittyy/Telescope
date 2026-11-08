@@ -6,7 +6,7 @@ import { FocusRing, KeyFocus, TouchRing } from "basics.slint";
 import { Tip } from "tip.slint";
 
 // Kind "segmented", the options laid out as the places they stand for (a name tag's corner): each anchor is a dot in a recessed
-// frame, and the picked one is a bar in the card's colour with the thick outline. `across` and `down` place option i from 0 (left,
+// frame with the outline of a picture inside it, and the picked one is a bar in the card's colour with the thick outline. `across` and `down` place option i from 0 (left,
 // top) to 1 (right, bottom); `moves` says where an arrow goes from option i, four numbers each in the order left, right, up, down
 // (-1 for nowhere). The name of an option is its tooltip. Picking, Tab stops, Space and Enter work like Segmented's.
 export component AnchorFrame inherits Rectangle {
@@ -31,7 +31,7 @@ export component AnchorFrame inherits Rectangle {
     // The picked bar's size and the room the anchors keep from the frame's edge
     in property <length> bar-w: Theme.u(15);
     in property <length> bar-h: Theme.u(5);
-    in property <length> inset: Theme.u(4);
+    in property <length> inset: Theme.u(6);
     out property <string> control-kind: "segmented";
     callback picked(int);
     function pick(i: int) {
@@ -62,6 +62,17 @@ export component AnchorFrame inherits Rectangle {
     accessible-role: tab-list;
     accessible-label: label;
     TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
+    // The picture the anchors are places on: its outline, so the dots are positions on something
+    Rectangle {
+        x: Theme.u(2);
+        y: Theme.u(2);
+        width: parent.width - Theme.u(4);
+        height: parent.height - Theme.u(4);
+        border-radius: Theme.r-ctl / 2;
+        border-width: 1px;
+        border-color: root.enabled ? Theme.line-hover : Theme.dis;
+        accessible-role: none;
+    }
     for item[i] in items: zone := Rectangle {
         property <bool> on: i == shown;
         // Where the anchor's centre is, and its bar's corner: the bar's own width is taken off by how far across it sits

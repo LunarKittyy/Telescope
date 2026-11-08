@@ -169,7 +169,7 @@ fn connection_shots() {
     shoot(&dir, "connection-streaming", &card, &[json!({"status-text": "Streaming over Wi-Fi", "status-kind": "", "route-shown": true, "route-current": 2,
         "using-shown": true, "using-text": "Wi-Fi \u{b7} 10.0.0.77"})]);
     shoot(&dir, "connection-none", &card, &[json!({"status-text": "No device yet", "status-kind": "status_dim"})]);
-    shoot(&dir, "connection-german", &card, &[json!({"status-text": "Die Telescope-App auf dem Telefon braucht eine Aktualisierung", "status-kind": "status_warn", "route-shown": true,
+    shoot(&dir, "connection-german", &card, &[json!({"status-text": "Smartphone-App benötigt ein Update", "status-kind": "status_warn", "route-shown": true,
         "update-shown": true, "update-text": "Per USB aktualisieren"})]);
 }
 
@@ -188,8 +188,19 @@ fn german_shots() {
         "mode-options": ["Normal", "Vollaufl\u{f6}sung"], "format-options": ["JPEG", "RAW und JPEG"], "shots-offered": [true, true, true, true],
         "slot-options": ["2", "3"], "exposure-options": ["Wie das Video", "0,5 s"], "distortion-enabled": true})]);
     let card = connection_card();
-    shoot(&dir, "de-connection", &card, &[json!({"status-text": "Telescope auf dem Telefon braucht eine Aktualisierung", "status-kind": "status_warn", "route-shown": true,
+    shoot(&dir, "de-connection", &card, &[json!({"status-text": "Smartphone-App benötigt ein Update", "status-kind": "status_warn", "route-shown": true,
         "update-shown": true, "update-text": "\u{dc}ber USB aktualisieren"})]);
+    let desk_de = card_of(&mut DeskPlugin::new(), "camera");
+    shoot(&dir, "de-desk", &desk_de, &[json!({"on": true, "active": true, "clean-items": ["Aus", "Kontrast", "Schwarzweiss"], "shape-items": ["Automatisch", "A4", "Letter", "Quadratisch", "Füllen"], "stretch": [120, 90], "stretch-text": ["120 %", "90 %"], "reset-shown": true})]);
+    let framing_de = card_of(&mut FramingPlugin::new(), "vision");
+    shoot(&dir, "de-framing", &framing_de, &[json!({"on": true, "active": true, "framing": 20, "speed": 3, "room": 4, "framing-text": "Hüfte", "speed-text": "Gemütlich", "room-text": "Schritt", "fits": "Gemütlich\nSchwungvoll\nUmherstreifen"})]);
+    let notes = card_of(&mut NotesPlugin::new(), "on_screen");
+    shoot(&dir, "de-notes", &notes, &[json!({"active": true, "text": "Guten Morgen zusammen. Danke, dass ihr dabei seid.", "size": 80, "size-text": "80", "scroll": 1, "scroll-items": ["Von Hand", "Automatisch"],
+        "show-auto": true, "send-text": "An das Telefon senden", "clear-text": "Vom Telefon entfernen", "send-enabled": true, "clear-enabled": true, "nav-enabled": true, "speed": 6, "speed-text": "6",
+        "set-items": ["Notizen 1", "Notizen 2"]})]);
+    let tag = card_of(&mut NameTagPlugin::new(), "on_screen");
+    shoot(&dir, "de-nametag", &tag, &[json!({"on": true, "name": "Alexandra Rivera-Schmidt", "pronouns": "sie/ihr", "second": "Leiterin Produktentwicklung", "position-current": 2, "style-current": 3, "size-current": 2,
+        "style-items": ["Leiste", "Kapsel", "Helle Box", "Schatten"], "position-items": ["Unten links", "Unten Mitte", "Unten rechts", "Oben links", "Oben rechts"], "size-items": ["Klein", "Mittel", "Gro\u{df}"]})]);
 }
 
 #[test]
@@ -204,7 +215,6 @@ fn desk_shots() {
     shoot(&dir, "desk-picking", &desk, &[json!({"on": true, "active": true, "picking": true, "stretch": [100, 100]})]);
     shoot(&dir, "desk-fill", &desk, &[json!({"on": true, "active": true, "shape-current": 4, "stretch-enabled": false})]);
     shoot(&dir, "desk-unpaired", &desk, &[json!({"on": false, "active": false})]);
-    shoot(&dir, "desk-german", &desk, &[json!({"on": true, "active": true, "clean-items": ["Aus", "Kontrast", "Schwarzweiss"], "shape-items": ["Automatisch", "A4", "Letter", "Quadrat", "Füllen"], "stretch": [120, 90], "stretch-text": ["120 %", "90 %"], "reset-shown": true})]);
 }
 
 #[test]
@@ -217,7 +227,6 @@ fn framing_shots() {
     shoot(&dir, "framing-changed", &framing, &[json!({"on": true, "active": true, "framing": 20, "speed": 8, "room": 4, "hand": true, "framing-text": "Waist", "speed-text": "Snappy", "room-text": "Step"})]);
     shoot_marked(&dir, "framing-changed", &framing, &[json!({"on": true, "active": true, "framing": 20, "speed": 8, "room": 4, "hand": true, "framing-text": "Waist", "speed-text": "Snappy", "room-text": "Step"})], true);
     shoot(&dir, "framing-unpaired", &framing, &[json!({"on": false, "active": false})]);
-    shoot(&dir, "framing-german", &framing, &[json!({"on": true, "active": true, "framing": 20, "speed": 3, "room": 4, "framing-text": "Hüfte", "speed-text": "Gemütlich", "room-text": "Schritt", "fits": "Gemütlich\nSchwungvoll\nUmherstreifen"})]);
     shoot(&dir, "framing-status", &framing, &[json!({"on": true, "active": true, "vision-text": "Needs a one-time download (about 47 MB).", "vision-download": true})]);
 }
 

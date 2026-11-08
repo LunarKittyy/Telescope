@@ -271,7 +271,8 @@ export component ToggleTile inherits Rectangle {
         padding-right: Theme.u(6);
         spacing: Theme.u(4);
         alignment: text == "" ? center : start;
-        Icon {
+        // No icon, no slot: the text starts at the tile's own padding
+        if icon.width > 0: Icon {
             source: icon;
             tint: !enabled ? Theme.dis : shown ? hue : Theme.ink2;
             width: Theme.icon;

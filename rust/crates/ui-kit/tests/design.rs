@@ -177,3 +177,40 @@ fn the_bundled_fonts_are_there_with_their_licence() {
     }
     assert!(std::fs::read_to_string(kit().join("ui/fonts/OFL.txt")).unwrap().contains("SIL OPEN FONT LICENSE Version 1.1"));
 }
+
+/// The text between the braces that open at `open` (the index of a `{`) and close with it.
+fn braced(text: &str, open: usize) -> &str {
+    let mut depth = 0;
+    for (i, c) in text[open..].char_indices() {
+        match c {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return &text[open..open + i + 1];
+                }
+            }
+            _ => {}
+        }
+    }
+    &text[open..]
+}
+
+#[test]
+fn a_lone_on_off_setting_is_a_switch_row_not_a_toggle_tile() {
+    let mut files = Vec::new();
+    slint_files(&crates(), &mut files);
+    let mut problems = Vec::new();
+    for file in files {
+        let text = std::fs::read_to_string(&file).unwrap();
+        for (at, _) in text.match_indices("RailRow {") {
+            let body = braced(&text, at + "RailRow ".len());
+            let tiles = body.matches("ToggleTile {").count();
+            let grouped = body.contains("HorizontalLayout") || body.contains("GridLayout") || body.contains("VerticalLayout") || body.contains("Tiles {");
+            if tiles == 1 && !grouped {
+                problems.push(format!("{}: a RailRow holds one ToggleTile on its own: use a Switch in the row (ToggleTiles are for groups)", file.display()));
+            }
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
