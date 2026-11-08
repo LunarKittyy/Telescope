@@ -4,6 +4,7 @@ import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { Icon, FocusRing, KeyFocus, TouchRing } from "basics.slint";
 import { Tip } from "tip.slint";
+import { Peek } from "peek.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { Fills, RampFill, ZebraFill, EdgeFill } from "fills.slint";
 
@@ -73,6 +74,19 @@ export component Slider inherits HorizontalLayout {
     property <bool> can-type: enabled && (has-readout || in-bar) && (typing != "" || (type-in && reads-as-number(readout)));
     // The box was opened from the keyboard, so the focus goes back to the slider when it closes
     property <bool> typing-by-key;
+    // A bubble while it is touched, for a value the main preview can't show by itself: "" for none, else what it draws ("picture" from
+    // `peek-picture`, "chase" with four numbers in `peek-values`, "text" at `peek-values[0]` with `peek-text`). The card decides when there is one.
+    in property <string> peek;
+    in property <[float]> peek-values;
+    in property <image> peek-picture;
+    in property <string> peek-text;
+    // Touched: held with the pointer, or a key used on it a moment ago while it has the focus
+    out property <bool> touched-now: enabled && (track.held || key-live);
+    // The bubble is up: the owner of a live picture in it runs only while this is true
+    out property <bool> peeking: bubble.open;
+    callback peek-changed(bool);
+    property <bool> key-live;
+    property <int> key-idle;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     // The id of the setting it is ("colour_grading.contrast"), which a caller outside the window outlines it by when it reads or changes it
@@ -150,8 +164,13 @@ export component Slider inherits HorizontalLayout {
         forward-focus: slider-focus;
         slider-focus := FocusScope {
             focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+            changed has-focus => { if (!self.has-focus) { key-live = false; } }
             enabled: root.enabled;
             key-pressed(e) => {
+                if (e.text == Key.UpArrow || e.text == Key.RightArrow || e.text == Key.DownArrow || e.text == Key.LeftArrow || e.text == Key.PageUp || e.text == Key.PageDown || e.text == Key.Home || e.text == Key.End) {
+                    key-live = true;
+                    key-idle = 0;
+                }
                 let by = e.modifiers.shift ? key-big : key-small;
                 if (e.text == Key.UpArrow || e.text == Key.RightArrow) { set-to(shown + by); return accept; }
                 if (e.text == Key.DownArrow || e.text == Key.LeftArrow) { set-to(shown - by); return accept; }
@@ -318,6 +337,24 @@ export component Slider inherits HorizontalLayout {
             border-width: Theme.stroke;
             border-color: !enabled ? Theme.dis : track.held ? track.under : touch.has-hover ? track.under : Theme.edge(track.under);
             FocusRing { shown: slider-focus.has-focus; radius: Theme.r-handle; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+        }
+        // Keys count as touching it for a moment after the last one
+        key-timer := Timer {
+            interval: 500ms;
+            running: key-live;
+            triggered => {
+                key-idle += 1;
+                if (key-idle >= 3) { key-live = false; }
+            }
+        }
+        bubble := Peek {
+            kind: root.peek;
+            engaged: root.touched-now;
+            hue: root.hue;
+            values: root.peek-values;
+            picture: root.peek-picture;
+            text: root.peek-text;
+            changed open => { root.peek-changed(self.open); }
         }
         usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover || readout-over; inert: !root.enabled; focused: slider-focus.has-focus && KeyFocus.keyboard; }
         touch := TouchArea {

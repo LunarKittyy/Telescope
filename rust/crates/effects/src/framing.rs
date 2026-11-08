@@ -1,5 +1,6 @@
 //! The Auto framing plugin (plugins/framing.py): zooms and pans to keep the people in the picture framed, through the window's view.
 
+use crate::peek;
 use crate::shared::Paired;
 use crate::vision_row;
 use serde_json::{json, Value};
@@ -59,6 +60,13 @@ const HAND_OFF_S: f64 = 0.8;
 const HANDS: [&str; 5] = ["elbow", "wrist", "index", "pinky", "thumb"];
 
 const T_TICK: &str = "tick";
+/// The bubbles' timers: the Framing bubble's picture and the Speed bubble's dots, each running only while its bubble is up.
+const T_PEEK: &str = "peek";
+const T_CHASE: &str = "chase";
+/// Why the framing asks for the people while the Framing bubble is up and Auto framing is off.
+const PEEK_OWNER: &str = "Auto framing bubble";
+/// A frame older than this is not what the preview shows now.
+const PEEK_FRESH_NS: u64 = 2_000_000_000;
 const SWITCH_TIP: &str = n_("Follow you with the zoom and pan");
 const FRAMING_TIP: &str = n_("How much of you is in the picture: just your head, down to your chest, down to your waist or all of you");
 const SPEED_TIP: &str = n_("How quickly the framing catches up when you move");
@@ -150,6 +158,65 @@ pub fn follow(goal: Target, target: Target, scale: f64) -> Target {
     let room = DEAD_ZOOM.ln() * scale;
     let zoom = goal.zoom.ln().max(target.zoom.ln() - room).min(target.zoom.ln() + room).exp();
     Target::new(goal.x.max(target.x - band).min(target.x + band), goal.y.max(target.y - band).min(target.y + band), zoom)
+}
+
+/// Where the goal is after another `dt`, with nothing holding it: it follows `smooth` as far as the dead zone asks and centres up once you stop.
+pub fn settle(goal: Option<Target>, smooth: Target, dt: f64, scale: f64) -> Target {
+    smoothed(Some(follow(goal.unwrap_or(smooth), smooth, scale)), smooth, dt, SETTLE_S * scale)
+}
+
+/// What the Speed bubble draws: a stand-in for you that moves by itself (across, pause, back), and the framing following it with the smoothing,
+/// dead zone and spring that `tick` uses at this Speed. Room to move is off, so it is only the pace you see.
+#[derive(Clone, Debug)]
+pub struct Chase {
+    at: f64,
+    smooth: Option<Target>,
+    goal: Option<Target>,
+    spring: Spring,
+}
+
+impl Default for Chase {
+    fn default() -> Self {
+        Chase::new()
+    }
+}
+
+impl Chase {
+    /// How long it holds still at each side, and how long the move across takes.
+    const HOLD_S: f64 = 2.0;
+    const MOVE_S: f64 = 0.5;
+    /// Where it stands at each side, and the zoom the window has (the dead zone depends on it).
+    const SIDES: (f64, f64) = (0.3, 0.7);
+    const ZOOM: f64 = 2.0;
+
+    pub fn new() -> Chase {
+        let start = Self::you(0.0);
+        Chase { at: 0.0, smooth: None, goal: None, spring: Spring::new(start) }
+    }
+
+    /// Where you are `t` seconds in: along an arc, as if you leaned over and came back, so both ways of the picture have something to follow.
+    pub fn you(t: f64) -> Target {
+        let leg = Self::HOLD_S + Self::MOVE_S;
+        let phase = t.rem_euclid(2.0 * leg);
+        let (going, into) = if phase < leg { (true, phase) } else { (false, phase - leg) };
+        let m = ((into - Self::HOLD_S) / Self::MOVE_S).clamp(0.0, 1.0);
+        let eased = m * m * (3.0 - 2.0 * m);
+        let along = if going { eased } else { 1.0 - eased };
+        Target::new(Self::SIDES.0 + (Self::SIDES.1 - Self::SIDES.0) * along, 0.5 - 0.2 * (std::f64::consts::PI * along).sin(), Self::ZOOM)
+    }
+
+    /// Runs `dt` seconds on at this Speed: (you x, you y, framing x, framing y), each from 0 to 1 across the picture.
+    pub fn step(&mut self, speed: i64, dt: f64) -> [f64; 4] {
+        self.at += dt;
+        let (omega, tau, scale) = tuning(speed);
+        let target = Self::you(self.at);
+        let smooth = smoothed(self.smooth, target, dt, tau);
+        self.smooth = Some(smooth);
+        let goal = settle(self.goal, smooth, dt, scale);
+        self.goal = Some(goal);
+        let framing = self.spring.step(goal, dt, omega);
+        [target.x, target.y, framing.x, framing.y]
+    }
 }
 
 /// target is within room (of the window's size, and as a zoom ratio in log space) of anchor.
@@ -296,6 +363,14 @@ pub struct FramingPlugin {
     orientation: Turn,
     max_zoom: f64,
     steering: bool,
+    /// The last target had someone in it: the preview shows the framing at work.
+    framed: bool,
+    /// The Framing bubble is up: it gets a picture, so the people are asked for.
+    peeking: bool,
+    /// The Speed bubble is up: its dots run.
+    chasing: Option<Chase>,
+    /// What the Framing slider was last told about its bubble ("picture" or "")
+    peek_sent: &'static str,
     /// set_config has no host: taking the view and the card's update wait for the next hook that has one.
     pending: bool,
     /// Settings that switched it off came in before that hook, as a device change's defaults do: it goes through off first.
@@ -338,6 +413,10 @@ impl FramingPlugin {
             orientation: Turn::default(),
             max_zoom: MAX_ZOOM,
             steering: false,
+            framed: false,
+            peeking: false,
+            chasing: None,
+            peek_sent: "picture",
             pending: false,
             cycle: false,
             clock: Box::new(clock),
@@ -370,8 +449,21 @@ impl FramingPlugin {
                "room-tip": tr(ROOM_TIP), "reset-hint": tr("Double-click to reset"), "hand-name": tr(HAND_NAME), "fits": fits.join("\n")})
     }
 
+    /// The Framing bubble shows the crop unless the preview does: Auto framing is following someone right now.
+    fn peek_kind(&self) -> &'static str {
+        if self.steering && self.framed { "" } else { "picture" }
+    }
+
+    fn sync_peek(&mut self, host: &mut dyn Host) {
+        let kind = self.peek_kind();
+        if kind != self.peek_sent {
+            self.peek_sent = kind;
+            host.set_ui_props("card", &json!({"framing-peek": kind}));
+        }
+    }
+
     fn state_props(&self) -> Value {
-        json!({"on": self.switch, "hand": self.hand, "active": self.paired.on(), "framing": self.framing, "speed": self.speed, "room": self.room,
+        json!({"framing-peek": self.peek_kind(), "on": self.switch, "hand": self.hand, "active": self.paired.on(), "framing": self.framing, "speed": self.speed, "room": self.room,
                "framing-text": self.framing_text(), "speed-text": self.speed_text(), "room-text": self.room_text()})
     }
 
@@ -420,13 +512,83 @@ impl FramingPlugin {
             host.schedule(TICK_MS, T_TICK);
         } else if !on && self.steering {
             self.steering = false;
+            self.framed = false;
             host.cancel_schedule(T_TICK);
             host.want_people(TITLE, false);
             host.release_view(TITLE);
-            self.people.clear();
-            self.seen_at = None;
+            if !self.peeking {
+                self.people.clear();
+                self.seen_at = None;
+            }
         }
+        self.sync_peek(host);
         self.refresh_status(host, self.switch, String::new());
+    }
+
+    /// The Framing bubble came up or went down: while it is up the people are asked for and a picture made 8 times a second.
+    fn peek_open(&mut self, host: &mut dyn Host, open: bool) {
+        if open == self.peeking {
+            return;
+        }
+        self.peeking = open;
+        if open {
+            host.want_people(PEEK_OWNER, true);
+            self.draw_peek(host);
+            host.schedule(peek::PICTURE_MS, T_PEEK);
+        } else {
+            host.cancel_schedule(T_PEEK);
+            host.want_people(PEEK_OWNER, false);
+            if !self.steering {
+                self.people.clear();
+                self.seen_at = None;
+            }
+        }
+    }
+
+    /// The crop at this Framing, from the live picture when someone is in it and from the stand-in scene when not.
+    fn draw_peek(&mut self, host: &mut dyn Host) {
+        let now = (self.clock)();
+        let aspect = host.view_aspect() as f64;
+        let aspect = if aspect != 0.0 { aspect } else { 16.0 / 9.0 };
+        let fresh = self.seen_at.is_some_and(|seen| now - seen < LOST_S);
+        let view = host.view();
+        let shown = Self::start_from_view(&view).at;
+        let live = host.frames().stream_frame(host.focused_source_id().as_deref()).filter(|f| f.age(monotonic_ns()) < PEEK_FRESH_NS);
+        let found = if fresh { target_box(&self.people, aspect, self.framing_value(), &[]).map(|b| fit(b, self.max_zoom)) } else { None };
+        let picture = match (live, found) {
+            (Some(stream), Some(want)) => {
+                let (w, h) = peek::size_for(stream.frame.width as f64 / stream.frame.height.max(1) as f64);
+                peek::crop(&peek::frame_reader(&stream.frame), peek::window_in((shown.x, shown.y, shown.zoom), (want.x, want.y, want.zoom)), w, h)
+            }
+            _ => {
+                let model = target_box(&[peek::sample_person()], peek::SAMPLE_ASPECT, self.framing_value(), &[]).map_or(Target::new(0.5, 0.5, 1.0), |b| fit(b, MAX_ZOOM));
+                peek::crop(&peek::scene_reader(), (model.x, model.y, model.zoom), peek::WIDTH, peek::HEIGHT)
+            }
+        };
+        host.set_ui_image("card", "framing-picture", &picture);
+    }
+
+    /// The Speed bubble came up or went down: its dots start from you at the left and run only while it is up.
+    fn chase_open(&mut self, host: &mut dyn Host, open: bool) {
+        if open == self.chasing.is_some() {
+            return;
+        }
+        if open {
+            self.chasing = Some(Chase::new());
+            self.move_dots(host, 0.0);
+            host.schedule(TICK_MS, T_CHASE);
+        } else {
+            self.chasing = None;
+            host.cancel_schedule(T_CHASE);
+        }
+    }
+
+    fn move_dots(&mut self, host: &mut dyn Host, dt: f64) {
+        let speed = self.speed;
+        if let Some(chase) = self.chasing.as_mut() {
+            let [a, b, c, d] = chase.step(speed, dt);
+            host.set_ui_props("card", &json!({"speed-dots": [a, b, c, d]}));
+        }
     }
 
     fn switched_by_hand(&mut self, host: &mut dyn Host, on: bool) {
@@ -461,7 +623,7 @@ impl FramingPlugin {
     }
 
     fn on_people(&mut self, host: &mut dyn Host, source_id: &str, people: &[Value]) {
-        if self.steering && source_id == host.focused_source_id().unwrap_or_default() {
+        if (self.steering || self.peeking) && source_id == host.focused_source_id().unwrap_or_default() {
             self.people = people.iter().filter_map(Person::from_value).collect();
             self.seen_at = Some((self.clock)());
         }
@@ -498,7 +660,9 @@ impl FramingPlugin {
             }
         }
         self.widened = widened;
-        target_box(people, aspect, self.framing_value(), &self.widened).map_or(Target::new(0.5, 0.5, 1.0), |b| fit(b, self.max_zoom))
+        let found = target_box(people, aspect, self.framing_value(), &self.widened);
+        self.framed = found.is_some();
+        found.map_or(Target::new(0.5, 0.5, 1.0), |b| fit(b, self.max_zoom))
     }
 
     fn tick(&mut self, host: &mut dyn Host) {
@@ -523,7 +687,7 @@ impl FramingPlugin {
         let goal = match hold {
             Some(hold) => hold,
             // And it centres up once you stop
-            None => smoothed(Some(follow(self.goal.unwrap_or(smooth), smooth, scale)), smooth, dt, SETTLE_S * scale),
+            None => settle(self.goal, smooth, dt, scale),
         };
         self.goal = Some(goal);
         let before = spring.at;
@@ -532,6 +696,7 @@ impl FramingPlugin {
         if (at.x - before.x).abs() + (at.y - before.y).abs() + (at.zoom - before.zoom).abs() > 1e-5 {
             self.steer(host, at);
         }
+        self.sync_peek(host);
     }
 
     fn steer(&self, host: &mut dyn Host, at: Target) {
@@ -570,6 +735,8 @@ impl Plugin for FramingPlugin {
 
     fn shutdown(&mut self, host: &mut dyn Host) {
         self.pending = false;
+        self.peek_open(host, false);
+        self.chase_open(host, false);
         self.apply(host, false);
     }
 
@@ -586,6 +753,14 @@ impl Plugin for FramingPlugin {
             Event::TimerFired { owner, token } if owner == NAME && token == T_TICK && self.steering => {
                 self.tick(host);
                 host.schedule(TICK_MS, T_TICK);
+            }
+            Event::TimerFired { owner, token } if owner == NAME && token == T_PEEK && self.peeking => {
+                self.draw_peek(host);
+                host.schedule(peek::PICTURE_MS, T_PEEK);
+            }
+            Event::TimerFired { owner, token } if owner == NAME && token == T_CHASE && self.chasing.is_some() => {
+                self.move_dots(host, TICK_MS as f64 / 1000.0);
+                host.schedule(TICK_MS, T_CHASE);
             }
             _ => {}
         }
@@ -612,6 +787,8 @@ impl Plugin for FramingPlugin {
         match event.callback.as_str() {
             "switch-toggled-by-hand" => self.switched_by_hand(host, on),
             "framing-moved" => self.set_framing(host, at(0, 30)),
+            "framing-peek-open" => self.peek_open(host, on),
+            "speed-peek-open" => self.chase_open(host, on),
             "speed-moved" => self.set_speed(host, at(1, 10)),
             "room-moved" => self.set_room(host, at(0, ROOMS.len() as i64 - 1)),
             "hand-toggled" => {

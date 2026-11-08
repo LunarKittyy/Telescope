@@ -6,6 +6,7 @@
 import { Theme } from "../theme.slint";
 import { WindowBox } from "window-box.slint";
 import { Shortcuts } from "shortcut-menu.slint";
+import { Peeks } from "peeks.slint";
 
 // Where a tip goes, in window coordinates. Pure, so a test can ask without drawing anything.
 export global TipSpot {
@@ -230,7 +231,8 @@ export component Tip inherits Rectangle {
     property <bool> wheeled;
     property <bool> over;
     property <int> id;
-    property <bool> want: enabled && says != "" && !used && (hover || over || focused);
+    // A held bubble is up: it stands in front of the tooltips for as long as it is
+    property <bool> want: enabled && says != "" && !used && !Peeks.shown && (hover || over || focused);
     property <[string]> caps: keys.length > 0 || shortcut == "" ? keys : Shortcuts.key-chips(shortcut, Shortcuts.version);
     property <length> ax: root.absolute-position.x;
     property <length> ay: root.absolute-position.y;
