@@ -78,7 +78,7 @@ export component BackgroundCard inherits Card {
                     vertical-alignment: center;
                     overflow: elide;
                 }
-                if picture-tip != "": Tooltip { TipBody { says: picture-tip; } }
+                Tip { says: picture-tip; inert: true; }
             }
         }
     }

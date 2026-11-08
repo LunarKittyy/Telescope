@@ -1,6 +1,6 @@
 // The Camera card, built from ui-kit's widgets.
 
-import { Theme, Icons, Icon, Button, Card, Section, FormRow, Segmented, Slider, SwitchTile, ChoiceField, ShortcutMenu, TipBody } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, Card, Section, FormRow, Segmented, Slider, SwitchTile, ChoiceField, ShortcutMenu, Tip, TipBody } from "@ui-kit/ui-kit.slint";
 
 export struct Lens {
     id: string,
@@ -156,7 +156,7 @@ export component CameraCard inherits Card {
             horizontal-stretch: 1;
             border-radius: Theme.r-ctl;
             background: Theme.trough;
-            if lens-placeholder != "": Tooltip { TipBody { says: lens-placeholder; } }
+            Tip { says: lens-placeholder; inert: true; }
         }
     }
     if lenses.length > 0: Rectangle {

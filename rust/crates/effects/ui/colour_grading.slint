@@ -68,9 +68,10 @@ component WheelCell inherits VerticalLayout {
             value: master-value;
             has-default: true;
             default-value: master-default;
+            tip: root.master-tip;
+            tip-detail: root.hint;
             moved(v) => { root.master-moved(v); }
         }
-        if master-tip != "": Tooltip { TipBody { says: hint != "" ? master-tip + "\n" + hint : master-tip; } }
     }
 }
 
@@ -221,9 +222,9 @@ export component ColourGradingCard inherits Card {
                 y: (parent.height - self.height) / 2;
                 icon: Icons.reset;
                 label: @tr("Reset the grade");
+                tip: @tr("Reset the grade");
                 clicked => { root.reset-clicked(); }
             }
-            Tooltip { TipBody { says: @tr("Reset the grade"); } }
         }
     }
 
@@ -412,16 +413,16 @@ export component ColourGradingCard inherits Card {
                     color: Theme.dim;
                     vertical-alignment: center;
                     overflow: elide;
-                    if shown-lut-text.preferred-width > shown-lut-text.width: Tooltip { TipBody { says: shown-lut-text.text; } }
+                    Tip { says: shown-lut-text.text; enabled: shown-lut-text.preferred-width > shown-lut-text.width; inert: true; }
                 }
                 if lut-loaded: Rectangle {
                     width: 34px;
                     IconButton {
                         icon: Icons.v-close;
                         label: @tr("Take the LUT off");
+                        tip: @tr("Take the LUT off");
                         clicked => { root.clear-clicked(); }
                     }
-                    Tooltip { TipBody { says: @tr("Take the LUT off"); } }
                 }
             }
         }

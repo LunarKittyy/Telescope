@@ -1,6 +1,6 @@
 // The setup checklist on the video stage (plugins/onboarding.py): virtual camera, phone app, add a phone, start.
 
-import { Theme, Icons, Card, Button, TipBody } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Card, Button, Tip, TipBody } from "@ui-kit/ui-kit.slint";
 
 export struct Step {
     title: string,
@@ -61,7 +61,7 @@ component StepRow inherits HorizontalLayout {
             font-size: Theme.body;
             font-weight: 600;
             color: Theme.text;
-            if step.tip != "": Tooltip { TipBody { says: step.tip; } }
+            Tip { says: step.tip; inert: true; }
         }
         body := Text {
             text: step.text;
@@ -69,7 +69,7 @@ component StepRow inherits HorizontalLayout {
             font-family: Theme.font;
             font-size: Theme.body;
             color: step.kind == "status_ok" ? Theme.ok : step.kind == "status_warn" ? Theme.warn : step.kind == "status_err" ? Theme.err : Theme.dim;
-            if step.tip != "": Tooltip { TipBody { says: step.tip; } }
+            Tip { says: step.tip; inert: true; }
         }
         // A step that is stuck needs its how-to on the card: a tooltip can't be opened with the keyboard
         if step.kind == "status_warn" && step.tip != "": Text {

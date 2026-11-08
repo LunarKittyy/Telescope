@@ -25,7 +25,7 @@ msgstr "Kurulumu tekrar aç"
 msgid "Needs VB-Audio Virtual Cable, a free virtual audio cable by VB-Audio."
 msgstr "VB-Audio'nun ücretsiz bir sanal ses kablosu olan VB-Audio Virtual Cable gerekir."
 
-#: rust/crates/audio/src/backend.rs:169 rust/crates/audio/ui/microphone.slint:328
+#: rust/crates/audio/src/backend.rs:169 rust/crates/audio/ui/microphone.slint:326
 msgid "Install VB-Cable"
 msgstr "VB-Cable'ı yükle"
 
@@ -68,7 +68,7 @@ msgstr "Mikrofonun sesini kapat"
 msgid "Unmute"
 msgstr "Sesi aç"
 
-#: rust/crates/audio/src/plugin.rs:453 rust/crates/audio/src/plugin.rs:941 rust/crates/audio/src/plugin.rs:1072 rust/crates/audio/src/plugin.rs:1089 rust/crates/audio/src/plugin.rs:1093 rust/crates/audio/ui/microphone.slint:136
+#: rust/crates/audio/src/plugin.rs:453 rust/crates/audio/src/plugin.rs:941 rust/crates/audio/src/plugin.rs:1072 rust/crates/audio/src/plugin.rs:1089 rust/crates/audio/src/plugin.rs:1093 rust/crates/audio/ui/microphone.slint:134
 msgid "Mute"
 msgstr "Sesi kapat"
 
@@ -96,7 +96,7 @@ msgstr "Kamera mikrofonu"
 msgid "Camera microphone"
 msgstr "Kamera mikrofonu"
 
-#: rust/crates/audio/src/plugin.rs:613 rust/crates/audio/src/plugin.rs:958 rust/crates/audio/src/plugin.rs:1095 rust/crates/audio/ui/microphone.slint:132
+#: rust/crates/audio/src/plugin.rs:613 rust/crates/audio/src/plugin.rs:958 rust/crates/audio/src/plugin.rs:1095 rust/crates/audio/ui/microphone.slint:130
 msgid "Phone mic"
 msgstr "Telefon mikrofonu"
 
@@ -183,7 +183,7 @@ msgstr "açık"
 msgid "off"
 msgstr "kapalı"
 
-#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:217 rust/crates/audio/ui/microphone.slint:227 rust/crates/audio/ui/microphone.slint:238 rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:286 rust/crates/outputs/src/webcam.rs:46
+#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:215 rust/crates/audio/ui/microphone.slint:225 rust/crates/audio/ui/microphone.slint:236 rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:287 rust/crates/outputs/src/webcam.rs:46
 msgid "Gain"
 msgstr "Kazanç"
 
@@ -207,7 +207,7 @@ msgstr "Basılı tutulduğunda değiştir, bırakıldığında geri dön"
 msgid "Does"
 msgstr "İşlem"
 
-#: rust/crates/audio/src/plugin.rs:1022 rust/crates/audio/src/plugin.rs:1088 rust/crates/audio/ui/microphone.slint:172 rust/crates/setup/ui/setup.slint:273
+#: rust/crates/audio/src/plugin.rs:1022 rust/crates/audio/src/plugin.rs:1088 rust/crates/audio/ui/microphone.slint:170 rust/crates/setup/ui/setup.slint:274
 msgid "Microphone"
 msgstr "Mikrofon"
 
@@ -314,39 +314,39 @@ msgstr "Sanal mikrofon açılamadı: {error}"
 msgid "The virtual microphone stopped taking audio."
 msgstr "Sanal mikrofon ses almayı durdurdu."
 
-#: rust/crates/audio/ui/microphone.slint:121
+#: rust/crates/audio/ui/microphone.slint:120
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "Sarı renk, sınırlayıcının yüksek ses tepe noktalarını baskıladığını; kırmızı renk ise seste kırpılma olduğunu gösterir (temizlemek için tıkla)."
 
-#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:482 rust/crates/effects/src/transforms.rs:38 rust/crates/effects/ui/composite_editor.slint:441 rust/crates/effects/ui/composite_editor.slint:457 rust/crates/effects/ui/composite_editor.slint:491 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:243 rust/crates/shell/ui/cards/camera.slint:274 rust/crates/shell/ui/cards/camera.slint:292
+#: rust/crates/audio/ui/microphone.slint:229 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:482 rust/crates/effects/src/transforms.rs:38 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:163 rust/crates/outputs/ui/stream_output.slint:184 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:243 rust/crates/shell/ui/cards/camera.slint:274 rust/crates/shell/ui/cards/camera.slint:292
 msgid "Double-click to reset"
 msgstr "Sıfırlamak için çift tıkla"
 
-#: rust/crates/audio/ui/microphone.slint:246 rust/crates/audio/ui/microphone.slint:252
+#: rust/crates/audio/ui/microphone.slint:244 rust/crates/audio/ui/microphone.slint:250
 msgid "Auto level"
 msgstr "Otomatik seviye"
 
-#: rust/crates/audio/ui/microphone.slint:253
+#: rust/crates/audio/ui/microphone.slint:251
 msgid "Evens out quiet and loud speech."
 msgstr "Kısık ve yüksek sesli konuşmaları dengeler."
 
-#: rust/crates/audio/ui/microphone.slint:258 rust/crates/audio/ui/microphone.slint:270 rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1614 rust/crates/shell/ui/cards/camera.slint:379 rust/crates/shell/ui/cards/camera.slint:382
+#: rust/crates/audio/ui/microphone.slint:256 rust/crates/audio/ui/microphone.slint:268 rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1614 rust/crates/shell/ui/cards/camera.slint:379 rust/crates/shell/ui/cards/camera.slint:382
 msgid "Noise reduction"
 msgstr "Gürültü azaltma"
 
-#: rust/crates/audio/ui/microphone.slint:329
+#: rust/crates/audio/ui/microphone.slint:327
 msgid "The phone's mic needs VB-Audio Virtual Cable on Windows."
 msgstr "Telefonun mikrofonu Windows'ta VB-Audio Virtual Cable gerektirir."
 
-#: rust/crates/audio/ui/microphone.slint:330
+#: rust/crates/audio/ui/microphone.slint:328
 msgid "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."
 msgstr "VB-Cable Telescope tarafından değil, VB-Audio tarafından yapılmıştır. Telescope bunu vb-audio.com adresinden indirebilir ve yönetici izni isteyen VB-Audio'nun kendi kurulumunu açabilir. İşlem bittiğinde bilgisayarı yeniden başlat."
 
-#: rust/crates/audio/ui/microphone.slint:342 rust/crates/effects/src/desk.rs:182 rust/crates/effects/ui/colour_grading.slint:467 rust/crates/effects/ui/composite_editor.slint:580 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:480 rust/crates/link/ui/connection.slint:681 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:632 rust/crates/system/ui/shortcuts.slint:373 rust/crates/system/ui/updates.slint:214
+#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:182 rust/crates/effects/ui/colour_grading.slint:468 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:483 rust/crates/link/ui/connection.slint:684 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:632 rust/crates/system/ui/shortcuts.slint:373 rust/crates/system/ui/updates.slint:215
 msgid "Cancel"
 msgstr "İptal"
 
-#: rust/crates/audio/ui/microphone.slint:346
+#: rust/crates/audio/ui/microphone.slint:344
 msgid "Download and install"
 msgstr "İndir ve yükle"
 
@@ -464,7 +464,7 @@ msgstr "Güncellemeler ve Hakkında"
 msgid "Camera"
 msgstr "Kamera"
 
-#: rust/crates/core/src/plugin.rs:26 rust/crates/setup/ui/setup.slint:386
+#: rust/crates/core/src/plugin.rs:26 rust/crates/setup/ui/setup.slint:387
 msgid "Look"
 msgstr "Görünüm"
 
@@ -532,7 +532,7 @@ msgstr "Kapalı"
 msgid "Blur"
 msgstr "Bulanıklaştırma"
 
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/background.slint:34 rust/crates/effects/ui/background.slint:60 rust/crates/effects/ui/chroma_key.slint:114 rust/crates/effects/ui/chroma_key.slint:145 rust/crates/effects/ui/composite_editor.slint:318 rust/crates/effects/ui/composite_editor.slint:534 rust/crates/effects/ui/composite_editor.slint:536
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/background.slint:34 rust/crates/effects/ui/background.slint:60 rust/crates/effects/ui/chroma_key.slint:114 rust/crates/effects/ui/chroma_key.slint:145 rust/crates/effects/ui/composite_editor.slint:325 rust/crates/effects/ui/composite_editor.slint:541 rust/crates/effects/ui/composite_editor.slint:543
 msgid "Picture"
 msgstr "Görüntü"
 
@@ -564,7 +564,7 @@ msgstr "Bir görüntü seç"
 msgid "Telescope can't open that picture."
 msgstr "Telescope bu görüntüyü açamıyor."
 
-#: rust/crates/effects/src/background.rs:255 rust/crates/effects/src/background.rs:340 rust/crates/effects/src/background.rs:343 rust/crates/effects/src/background.rs:361 rust/crates/effects/ui/background.slint:24 rust/crates/effects/ui/background.slint:30 rust/crates/effects/ui/background.slint:38 rust/crates/effects/ui/composite_editor.slint:508
+#: rust/crates/effects/src/background.rs:255 rust/crates/effects/src/background.rs:340 rust/crates/effects/src/background.rs:343 rust/crates/effects/src/background.rs:361 rust/crates/effects/ui/background.slint:24 rust/crates/effects/ui/background.slint:30 rust/crates/effects/ui/background.slint:38 rust/crates/effects/ui/composite_editor.slint:515
 msgid "Background"
 msgstr "Arka plan"
 
@@ -580,11 +580,11 @@ msgstr "Bu olmadan Arka plan kartı gösterilmez ve arka plan kameranın gördü
 msgid "Background blur"
 msgstr "Arka plan bulanıklaştırma"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:370 rust/crates/effects/ui/composite_editor.slint:473 rust/crates/effects/ui/composite_editor.slint:521 rust/crates/ui-kit/ui/widgets/colour.slint:333
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:371 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:333
 msgid "Green"
 msgstr "Yeşil"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:370 rust/crates/effects/ui/composite_editor.slint:473 rust/crates/effects/ui/composite_editor.slint:521 rust/crates/ui-kit/ui/widgets/colour.slint:333
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:371 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:333
 msgid "Blue"
 msgstr "Mavi"
 
@@ -592,7 +592,7 @@ msgstr "Mavi"
 msgid "Picked"
 msgstr "Seçilen"
 
-#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/chroma_key.slint:114 rust/crates/effects/ui/chroma_key.slint:124 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:512
+#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/chroma_key.slint:114 rust/crates/effects/ui/chroma_key.slint:124 rust/crates/effects/ui/composite_editor.slint:471 rust/crates/effects/ui/composite_editor.slint:519
 msgid "Colour"
 msgstr "Renk"
 
@@ -749,7 +749,7 @@ msgstr "RGB parade"
 msgid "Vectorscope"
 msgstr "Vektörskop"
 
-#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:370 rust/crates/effects/ui/composite_editor.slint:473 rust/crates/effects/ui/composite_editor.slint:521 rust/crates/ui-kit/ui/widgets/colour.slint:333
+#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:371 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:333
 msgid "Red"
 msgstr "Kırmızı"
 
@@ -844,15 +844,15 @@ msgstr "33 noktalı LUT (*.cube)"
 msgid "65-point LUT (*.cube)"
 msgstr "65 noktalı LUT (*.cube)"
 
-#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:241
+#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:242
 msgid "Lift"
 msgstr "Lift"
 
-#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/outputs/src/webcam.rs:51
+#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:263 rust/crates/outputs/src/webcam.rs:51
 msgid "Gamma"
 msgstr "Gama"
 
-#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:307
+#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:308
 msgid "Offset"
 msgstr "Ofset"
 
@@ -876,7 +876,7 @@ msgstr "Her şey: renk ve seviye"
 msgid "Drag towards a colour to add it. Double-click to reset."
 msgstr "Eklemek için bir renge doğru sürükle. Sıfırlamak için çift tıkla."
 
-#: rust/crates/effects/src/colour_grading.rs:48 rust/crates/effects/ui/colour_grading.slint:117
+#: rust/crates/effects/src/colour_grading.rs:48 rust/crates/effects/ui/colour_grading.slint:118
 msgid "No LUT loaded"
 msgstr "Yüklü LUT yok"
 
@@ -909,7 +909,7 @@ msgstr ""
 msgid "No stream"
 msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:58 rust/crates/effects/ui/composite_editor.slint:537
+#: rust/crates/effects/src/colour_grading.rs:58 rust/crates/effects/ui/composite_editor.slint:544
 msgid "No picture"
 msgstr "Resim yok"
 
@@ -986,7 +986,7 @@ msgstr "Ana gain"
 msgid "Offset master"
 msgstr "Ana ofset"
 
-#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:328 rust/crates/outputs/src/webcam.rs:49 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:261 rust/crates/shell/ui/cards/camera.slint:264
+#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:329 rust/crates/outputs/src/webcam.rs:49 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:261 rust/crates/shell/ui/cards/camera.slint:264
 msgid "Temperature"
 msgstr "Renk sıcaklığı"
 
@@ -994,7 +994,7 @@ msgstr "Renk sıcaklığı"
 msgid "Warmer or cooler"
 msgstr "Daha sıcak veya daha soğuk"
 
-#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/ui/colour_grading.slint:328 rust/crates/shell/src/plugins/camera_control.rs:1373 rust/crates/shell/src/plugins/camera_control.rs:1608
+#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/ui/colour_grading.slint:329 rust/crates/shell/src/plugins/camera_control.rs:1373 rust/crates/shell/src/plugins/camera_control.rs:1608
 msgid "Tint"
 msgstr "Renk tonu"
 
@@ -1003,7 +1003,7 @@ msgid "More magenta or more green"
 msgstr "Daha fazla macenta veya daha fazla yeşil"
 
 #. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
-#: rust/crates/effects/src/colour_grading.rs:92 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:328 rust/crates/outputs/src/webcam.rs:50
+#: rust/crates/effects/src/colour_grading.rs:92 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:329 rust/crates/outputs/src/webcam.rs:50
 msgid "Contrast"
 msgstr "Kontrast"
 
@@ -1011,7 +1011,7 @@ msgstr "Kontrast"
 msgid "Spreads the tones apart around the pivot"
 msgstr "Tonları pivot noktası etrafında birbirinden ayırır"
 
-#: rust/crates/effects/src/colour_grading.rs:93 rust/crates/effects/ui/colour_grading.slint:328
+#: rust/crates/effects/src/colour_grading.rs:93 rust/crates/effects/ui/colour_grading.slint:329
 msgid "Pivot"
 msgstr "Pivot"
 
@@ -1019,7 +1019,7 @@ msgstr "Pivot"
 msgid "The level contrast turns around"
 msgstr "Kontrastın etrafında döndüğü seviye"
 
-#: rust/crates/effects/src/colour_grading.rs:94 rust/crates/effects/ui/colour_grading.slint:328 rust/crates/outputs/src/webcam.rs:50
+#: rust/crates/effects/src/colour_grading.rs:94 rust/crates/effects/ui/colour_grading.slint:329 rust/crates/outputs/src/webcam.rs:50
 msgid "Saturation"
 msgstr "Doygunluk"
 
@@ -1027,7 +1027,7 @@ msgstr "Doygunluk"
 msgid "How colourful the picture is"
 msgstr "Görüntünün ne kadar renkli olduğu"
 
-#: rust/crates/effects/src/colour_grading.rs:95 rust/crates/effects/ui/colour_grading.slint:328
+#: rust/crates/effects/src/colour_grading.rs:95 rust/crates/effects/ui/colour_grading.slint:329
 msgid "Vibrance"
 msgstr ""
 
@@ -1035,7 +1035,7 @@ msgstr ""
 msgid "Colours up the dull parts more than the strong ones, and spares skin"
 msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:96 rust/crates/effects/ui/colour_grading.slint:328
+#: rust/crates/effects/src/colour_grading.rs:96 rust/crates/effects/ui/colour_grading.slint:329
 msgid "Shadows"
 msgstr "Gölgeler"
 
@@ -1043,7 +1043,7 @@ msgstr "Gölgeler"
 msgid "Brightens or darkens the darker parts"
 msgstr "Daha karanlık kısımları aydınlatır veya koyulaştırır"
 
-#: rust/crates/effects/src/colour_grading.rs:97 rust/crates/effects/ui/colour_grading.slint:328
+#: rust/crates/effects/src/colour_grading.rs:97 rust/crates/effects/ui/colour_grading.slint:329
 msgid "Highlights"
 msgstr "Açık tonlar"
 
@@ -1064,7 +1064,7 @@ msgstr "Derecelendirmeyi dışa aktar"
 msgid "{file} is already there. Replace it?"
 msgstr "{file} zaten var. Değiştirmek istiyor musun?"
 
-#: rust/crates/effects/src/colour_grading.rs:522 rust/crates/effects/src/colour_grading.rs:929 rust/crates/effects/src/colour_grading.rs:1012 rust/crates/effects/src/colour_grading.rs:1014 rust/crates/effects/src/colour_grading.rs:1056 rust/crates/effects/ui/colour_grading.slint:155
+#: rust/crates/effects/src/colour_grading.rs:522 rust/crates/effects/src/colour_grading.rs:929 rust/crates/effects/src/colour_grading.rs:1012 rust/crates/effects/src/colour_grading.rs:1014 rust/crates/effects/src/colour_grading.rs:1056 rust/crates/effects/ui/colour_grading.slint:156
 msgid "Colour grading"
 msgstr "Renk derecelendirme"
 
@@ -1248,7 +1248,7 @@ msgid "Black and white"
 msgstr "Siyah beyaz"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:26 rust/crates/effects/ui/colour_grading.slint:213 rust/crates/link/ui/connection.slint:315 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:101 rust/crates/outputs/src/webcam.rs:958 rust/crates/outputs/ui/webcam.slint:121 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:187 rust/crates/shell/ui/cards/camera.slint:253 rust/crates/shell/ui/cards/camera.slint:309
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:26 rust/crates/effects/ui/colour_grading.slint:214 rust/crates/link/ui/connection.slint:318 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:101 rust/crates/outputs/src/webcam.rs:958 rust/crates/outputs/ui/webcam.slint:121 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:187 rust/crates/shell/ui/cards/camera.slint:253 rust/crates/shell/ui/cards/camera.slint:309
 msgid "Auto"
 msgstr "Otomatik"
 
@@ -1311,7 +1311,7 @@ msgstr "Kağıdın bir kısmı görüntünün dışında. Uzaklaştır veya tekr
 msgid "Desk mode"
 msgstr "Masa modu"
 
-#: rust/crates/effects/src/desk.rs:181 rust/crates/link/ui/connection.slint:432
+#: rust/crates/effects/src/desk.rs:181 rust/crates/link/ui/connection.slint:435
 msgid "Done"
 msgstr "Bitti"
 
@@ -1689,7 +1689,7 @@ msgid "Pill"
 msgstr "Kapsül"
 
 #. Light and Heavy are the names of the two stream formats
-#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:789 rust/crates/outputs/src/stream_output.rs:998 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:129 rust/crates/setup/src/stats_phone.rs:88
+#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:789 rust/crates/outputs/src/stream_output.rs:998 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:128 rust/crates/setup/src/stats_phone.rs:88
 msgid "Light"
 msgstr "Açık renk"
 
@@ -1984,7 +1984,7 @@ msgstr "Yayında webhook'u ulaşmadı"
 msgid "It answered: {error}"
 msgstr "Gelen yanıt: {error}"
 
-#: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:363 rust/crates/shell/src/doc.rs:364 rust/crates/shell/src/doc.rs:723
+#: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:363 rust/crates/shell/src/doc.rs:364 rust/crates/shell/src/doc.rs:725
 msgid "Settings"
 msgstr "Ayarlar"
 
@@ -2479,7 +2479,7 @@ msgstr "Görüntüyü yakınlaştır, kaydır, ters çevir, döndür ve esnet."
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "Bu olmadan Dönüştürmeler kartı yer almaz ve görüntü telefonun gönderdiği gibi iletilir."
 
-#: rust/crates/effects/src/transforms.rs:615 rust/crates/effects/src/transforms.rs:668 rust/crates/effects/ui/composite_editor.slint:440 rust/crates/effects/ui/transforms.slint:81 rust/crates/effects/ui/transforms.slint:94 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/transforms.rs:615 rust/crates/effects/src/transforms.rs:668 rust/crates/effects/ui/composite_editor.slint:447 rust/crates/effects/ui/transforms.slint:81 rust/crates/effects/ui/transforms.slint:94 rust/crates/outputs/src/webcam.rs:56
 msgid "Zoom"
 msgstr "Yakınlaştırma"
 
@@ -2559,119 +2559,119 @@ msgstr "Zebra başlangıcı"
 msgid "Scope size"
 msgstr "Skop boyutu"
 
-#: rust/crates/effects/ui/colour_grading.slint:169 rust/crates/effects/ui/colour_grading.slint:177
+#: rust/crates/effects/ui/colour_grading.slint:170 rust/crates/effects/ui/colour_grading.slint:178
 msgid "Compare"
 msgstr "Karşılaştır"
 
-#: rust/crates/effects/ui/colour_grading.slint:179
+#: rust/crates/effects/ui/colour_grading.slint:180
 msgid "Left of the line the preview shows the picture without the grade (apps always get it graded)"
 msgstr "Önizleme, çizginin solunda görüntüyü derecelendirme olmadan gösterir (uygulamalar her zaman derecelendirilmiş halini alır)"
 
-#: rust/crates/effects/ui/colour_grading.slint:186
+#: rust/crates/effects/ui/colour_grading.slint:187
 msgid "Split"
 msgstr "Bölme"
 
-#: rust/crates/effects/ui/colour_grading.slint:187
+#: rust/crates/effects/ui/colour_grading.slint:188
 msgid "Where the line between before and after is"
 msgstr "Öncesi ve sonrası arasındaki çizginin konumu"
 
-#: rust/crates/effects/ui/colour_grading.slint:203
+#: rust/crates/effects/ui/colour_grading.slint:204
 msgid "Primaries"
 msgstr "Ana renkler"
 
-#: rust/crates/effects/ui/colour_grading.slint:203
+#: rust/crates/effects/ui/colour_grading.slint:204
 msgid "Curves"
 msgstr "Eğriler"
 
-#: rust/crates/effects/ui/colour_grading.slint:203 rust/crates/effects/ui/colour_grading.slint:398
+#: rust/crates/effects/ui/colour_grading.slint:204 rust/crates/effects/ui/colour_grading.slint:399
 msgid "LUT"
 msgstr "LUT"
 
-#: rust/crates/effects/ui/colour_grading.slint:207
+#: rust/crates/effects/ui/colour_grading.slint:208
 msgid "Page"
 msgstr "Sayfa"
 
-#: rust/crates/effects/ui/colour_grading.slint:214
+#: rust/crates/effects/ui/colour_grading.slint:215
 msgid "Auto colour grading"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:215
+#: rust/crates/effects/ui/colour_grading.slint:216
 msgid "Looks at about a second of the picture and sets white balance, brightness, contrast and colour for you. Everything it sets stays on the sliders to change"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:223 rust/crates/effects/ui/colour_grading.slint:226
+#: rust/crates/effects/ui/colour_grading.slint:224 rust/crates/effects/ui/colour_grading.slint:225
 msgid "Reset the grade"
 msgstr "Renk derecelendirmesini sıfırla"
 
-#: rust/crates/effects/ui/colour_grading.slint:359
+#: rust/crates/effects/ui/colour_grading.slint:360
 msgid "RGB"
 msgstr "RGB"
 
-#: rust/crates/effects/ui/colour_grading.slint:359
+#: rust/crates/effects/ui/colour_grading.slint:360
 msgid "Hue vs sat"
 msgstr "Ton - Doygunluk"
 
-#: rust/crates/effects/ui/colour_grading.slint:359
+#: rust/crates/effects/ui/colour_grading.slint:360
 msgid "Hue vs hue"
 msgstr "Ton - Ton"
 
-#: rust/crates/effects/ui/colour_grading.slint:363 rust/crates/effects/ui/colour_grading.slint:384
+#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/effects/ui/colour_grading.slint:385
 msgid "Curve"
 msgstr "Eğri"
 
-#: rust/crates/effects/ui/colour_grading.slint:370
+#: rust/crates/effects/ui/colour_grading.slint:371
 msgid "All"
 msgstr "Tümü"
 
-#: rust/crates/effects/ui/colour_grading.slint:374 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
+#: rust/crates/effects/ui/colour_grading.slint:375 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
 msgid "Channel"
 msgstr "Kanal"
 
-#: rust/crates/effects/ui/colour_grading.slint:403 rust/crates/setup/ui/setup.slint:59
+#: rust/crates/effects/ui/colour_grading.slint:404 rust/crates/setup/ui/setup.slint:59
 msgid "Load"
 msgstr "Yükle"
 
-#: rust/crates/effects/ui/colour_grading.slint:404
+#: rust/crates/effects/ui/colour_grading.slint:405
 msgid "Pick a .cube LUT to put on top of the grade"
 msgstr "Derecelendirmenin üzerine eklemek için bir .cube LUT seç"
 
-#: rust/crates/effects/ui/colour_grading.slint:421 rust/crates/effects/ui/colour_grading.slint:424
+#: rust/crates/effects/ui/colour_grading.slint:422 rust/crates/effects/ui/colour_grading.slint:423
 msgid "Take the LUT off"
 msgstr "LUT'u kaldır"
 
-#: rust/crates/effects/ui/colour_grading.slint:430
+#: rust/crates/effects/ui/colour_grading.slint:431
 msgid "Strength"
 msgstr "Yoğunluk"
 
-#: rust/crates/effects/ui/colour_grading.slint:431
+#: rust/crates/effects/ui/colour_grading.slint:432
 msgid "How much of the LUT's look goes on the picture"
 msgstr "LUT görünümünün görüntüye ne kadar uygulanacağı"
 
-#: rust/crates/effects/ui/colour_grading.slint:449
+#: rust/crates/effects/ui/colour_grading.slint:450
 msgid "Export"
 msgstr "Dışa aktar"
 
-#: rust/crates/effects/ui/colour_grading.slint:453
+#: rust/crates/effects/ui/colour_grading.slint:454
 msgid "Export grade"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:454
+#: rust/crates/effects/ui/colour_grading.slint:455
 msgid "Save the grade, LUT included, as a .cube file for other apps"
 msgstr "Derecelendirmeyi, LUT dahil, diğer uygulamalar için bir .cube dosyası olarak kaydet"
 
-#: rust/crates/effects/ui/colour_grading.slint:466 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:680
+#: rust/crates/effects/ui/colour_grading.slint:467 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:680
 msgid "Replace"
 msgstr "Değiştir"
 
-#: rust/crates/effects/ui/composite.slint:28 rust/crates/effects/ui/composite.slint:34 rust/crates/effects/ui/composite_editor.slint:368 rust/crates/effects/ui/composite_editor.slint:380
+#: rust/crates/effects/ui/composite.slint:28 rust/crates/effects/ui/composite.slint:34 rust/crates/effects/ui/composite_editor.slint:375 rust/crates/effects/ui/composite_editor.slint:387
 msgid "Layout"
 msgstr "Düzen"
 
-#: rust/crates/effects/ui/composite.slint:46 rust/crates/effects/ui/composite_editor.slint:381
+#: rust/crates/effects/ui/composite.slint:46 rust/crates/effects/ui/composite_editor.slint:388
 msgid "Not saved"
 msgstr "Kaydedilmedi"
 
-#: rust/crates/effects/ui/composite.slint:56 rust/crates/effects/ui/composite_editor.slint:231 rust/crates/effects/ui/composite_editor.slint:310
+#: rust/crates/effects/ui/composite.slint:56 rust/crates/effects/ui/composite_editor.slint:231 rust/crates/effects/ui/composite_editor.slint:317
 msgid "Edit picture"
 msgstr "Görüntüyü düzenle"
 
@@ -2699,131 +2699,131 @@ msgstr ""
 msgid "Arrow keys move the picked picture a little, Shift with an arrow moves it further."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:345
+#: rust/crates/effects/ui/composite_editor.slint:352
 msgid "Start from"
 msgstr "Şununla başla"
 
-#: rust/crates/effects/ui/composite_editor.slint:346
+#: rust/crates/effects/ui/composite_editor.slint:353
 msgid "Side by side"
 msgstr "Yan yana"
 
-#: rust/crates/effects/ui/composite_editor.slint:346
+#: rust/crates/effects/ui/composite_editor.slint:353
 msgid "Big and small"
 msgstr "Büyük ve küçük"
 
-#: rust/crates/effects/ui/composite_editor.slint:346
+#: rust/crates/effects/ui/composite_editor.slint:353
 msgid "Grid"
 msgstr "Izgara"
 
-#: rust/crates/effects/ui/composite_editor.slint:350
+#: rust/crates/effects/ui/composite_editor.slint:357
 msgid "Start again with the running streams laid out like this"
 msgstr "Çalışan yayınları bu şekilde yerleştirerek yeniden başla"
 
-#: rust/crates/effects/ui/composite_editor.slint:372
+#: rust/crates/effects/ui/composite_editor.slint:379
 msgid "Save as"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:373
+#: rust/crates/effects/ui/composite_editor.slint:380
 msgid "Keep this picture under a name"
 msgstr "Bu görüntüyü bir ad altında sakla"
 
-#: rust/crates/effects/ui/composite_editor.slint:387 rust/crates/link/ui/connection.slint:114 rust/crates/setup/src/setup.rs:652 rust/crates/shell/src/plugins/presets.rs:183 rust/crates/shell/src/plugins/presets.rs:213
+#: rust/crates/effects/ui/composite_editor.slint:394 rust/crates/link/ui/connection.slint:114 rust/crates/setup/src/setup.rs:652 rust/crates/shell/src/plugins/presets.rs:183 rust/crates/shell/src/plugins/presets.rs:213
 msgid "Rename"
 msgstr "Yeniden adlandır"
 
-#: rust/crates/effects/ui/composite_editor.slint:387
+#: rust/crates/effects/ui/composite_editor.slint:394
 msgid "Rename this layout"
 msgstr "Bu düzeni yeniden adlandır"
 
-#: rust/crates/effects/ui/composite_editor.slint:388 rust/crates/shell/src/plugins/presets.rs:183
+#: rust/crates/effects/ui/composite_editor.slint:395 rust/crates/shell/src/plugins/presets.rs:183
 msgid "Delete"
 msgstr "Sil"
 
-#: rust/crates/effects/ui/composite_editor.slint:388
+#: rust/crates/effects/ui/composite_editor.slint:395
 msgid "Delete this layout"
 msgstr "Bu düzeni sil"
 
-#: rust/crates/effects/ui/composite_editor.slint:392
+#: rust/crates/effects/ui/composite_editor.slint:399
 msgid "Streams"
 msgstr "Yayınlar"
 
-#: rust/crates/effects/ui/composite_editor.slint:419
+#: rust/crates/effects/ui/composite_editor.slint:426
 msgid "Start two or more streams"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:422
+#: rust/crates/effects/ui/composite_editor.slint:429
 msgid "Picked stream"
 msgstr "Seçilen yayın"
 
-#: rust/crates/effects/ui/composite_editor.slint:426
+#: rust/crates/effects/ui/composite_editor.slint:433
 msgid "Fit its shape"
 msgstr "Kendi boyutuna sığdır"
 
-#: rust/crates/effects/ui/composite_editor.slint:427
+#: rust/crates/effects/ui/composite_editor.slint:434
 msgid "Make the box the stream's own shape again, with nothing cropped or stretched"
 msgstr "Kutuyu kırpılmamış veya esnetilmemiş şekilde tekrar yayının kendi boyutuna getir"
 
-#: rust/crates/effects/ui/composite_editor.slint:434
+#: rust/crates/effects/ui/composite_editor.slint:441
 msgid "Stream"
 msgstr "Yayın"
 
-#: rust/crates/effects/ui/composite_editor.slint:441
+#: rust/crates/effects/ui/composite_editor.slint:448
 msgid "Scroll over a stream to zoom in and drag it with the right mouse button to move what's shown"
 msgstr "Yakınlaştırmak için bir yayının üzerinde fare tekerleğini kaydır ve gösterilen alanı taşımak için farenin sağ tuşuyla sürükle"
 
-#: rust/crates/effects/ui/composite_editor.slint:453
+#: rust/crates/effects/ui/composite_editor.slint:460
 msgid "Border"
 msgstr "Kenarlık"
 
-#: rust/crates/effects/ui/composite_editor.slint:466
+#: rust/crates/effects/ui/composite_editor.slint:473
 msgid "Border colour"
 msgstr "Kenarlık rengi"
 
-#: rust/crates/effects/ui/composite_editor.slint:487
+#: rust/crates/effects/ui/composite_editor.slint:494
 msgid "Corners"
 msgstr "Köşeler"
 
-#: rust/crates/effects/ui/composite_editor.slint:498
+#: rust/crates/effects/ui/composite_editor.slint:505
 msgid "Order"
 msgstr "Sıralama"
 
-#: rust/crates/effects/ui/composite_editor.slint:501
+#: rust/crates/effects/ui/composite_editor.slint:508
 msgid "Send back"
 msgstr "Arkaya gönder"
 
-#: rust/crates/effects/ui/composite_editor.slint:502
+#: rust/crates/effects/ui/composite_editor.slint:509
 msgid "Bring forward"
 msgstr "Öne getir"
 
-#: rust/crates/effects/ui/composite_editor.slint:514
+#: rust/crates/effects/ui/composite_editor.slint:521
 msgid "Background colour"
 msgstr "Arka plan rengi"
 
-#: rust/crates/effects/ui/composite_editor.slint:536
+#: rust/crates/effects/ui/composite_editor.slint:543
 msgid "Put a picture behind the streams instead of the colour"
 msgstr "Yayınların arkasına renk yerine bir resim koy"
 
-#: rust/crates/effects/ui/composite_editor.slint:556 rust/crates/link/ui/connection.slint:641
+#: rust/crates/effects/ui/composite_editor.slint:563 rust/crates/link/ui/connection.slint:644
 msgid "Close"
 msgstr "Kapat"
 
-#: rust/crates/effects/ui/composite_editor.slint:567
+#: rust/crates/effects/ui/composite_editor.slint:574
 msgid "Replace layout"
 msgstr "Düzeni değiştir"
 
-#: rust/crates/effects/ui/composite_editor.slint:570 rust/crates/effects/ui/composite_editor.slint:573 rust/crates/shell/src/plugins/presets.rs:184
+#: rust/crates/effects/ui/composite_editor.slint:577 rust/crates/effects/ui/composite_editor.slint:580 rust/crates/shell/src/plugins/presets.rs:184
 msgid "Name:"
 msgstr "Ad:"
 
-#: rust/crates/effects/ui/composite_editor.slint:581 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:685 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:880 rust/crates/shell/ui/settings.slint:633
+#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:489 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:880 rust/crates/shell/ui/settings.slint:633
 msgid "OK"
 msgstr "Tamam"
 
-#: rust/crates/effects/ui/composite_editor.slint:590 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:728 rust/crates/setup/src/stats_phone.rs:148
+#: rust/crates/effects/ui/composite_editor.slint:597 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:731 rust/crates/setup/src/stats_phone.rs:148
 msgid "No"
 msgstr "Hayır"
 
-#: rust/crates/effects/ui/composite_editor.slint:591 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:722 rust/crates/setup/src/stats_phone.rs:148 rust/crates/setup/src/stats_phone.rs:152
+#: rust/crates/effects/ui/composite_editor.slint:598 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:725 rust/crates/setup/src/stats_phone.rs:148 rust/crates/setup/src/stats_phone.rs:152
 msgid "Yes"
 msgstr "Evet"
 
@@ -2835,7 +2835,7 @@ msgstr ""
 msgid "Writing"
 msgstr "Yazı"
 
-#: rust/crates/effects/ui/desk.slint:88 rust/crates/effects/ui/desk.slint:95 rust/crates/outputs/ui/stream_output.slint:118
+#: rust/crates/effects/ui/desk.slint:88 rust/crates/effects/ui/desk.slint:95 rust/crates/outputs/ui/stream_output.slint:117
 msgid "Shape"
 msgstr "Şekil"
 
@@ -2863,7 +2863,7 @@ msgstr "Efekt"
 msgid "Clean up"
 msgstr "Düzelt"
 
-#: rust/crates/effects/ui/fun_pack.slint:94 rust/crates/system/ui/shortcuts.slint:170 rust/crates/ui-kit/ui/widgets/field.slint:99
+#: rust/crates/effects/ui/fun_pack.slint:94 rust/crates/system/ui/shortcuts.slint:170 rust/crates/ui-kit/ui/widgets/field.slint:125
 msgid "Clear"
 msgstr "Temizle"
 
@@ -2895,7 +2895,7 @@ msgstr "Aşağı"
 msgid "Across"
 msgstr "Yana"
 
-#: rust/crates/effects/ui/name_tag.slint:68 rust/crates/link/ui/connection.slint:611
+#: rust/crates/effects/ui/name_tag.slint:68 rust/crates/link/ui/connection.slint:614
 msgid "Name"
 msgstr "Ad"
 
@@ -3085,19 +3085,19 @@ msgstr ""
 msgid "Arrow keys move the puck a little, Shift with an arrow moves it further. Home puts it back in the middle."
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:333
+#: rust/crates/effects/ui/parts.slint:332
 msgid "Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve."
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:142
+#: rust/crates/effects/ui/photos.slint:141
 msgid "Quality"
 msgstr "Kalite"
 
-#: rust/crates/effects/ui/photos.slint:163 rust/crates/effects/ui/photos.slint:166
+#: rust/crates/effects/ui/photos.slint:162 rust/crates/effects/ui/photos.slint:165
 msgid "Timer"
 msgstr "Zamanlayıcı"
 
-#: rust/crates/effects/ui/photos.slint:175
+#: rust/crates/effects/ui/photos.slint:174
 msgid "Save in"
 msgstr "Kayıt yeri"
 
@@ -3210,7 +3210,7 @@ msgstr "Telefon mikrofonu reddetti (HTTP {code})."
 msgid "No microphone"
 msgstr "Mikrofon yok"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:955 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:576 rust/crates/shell/src/streams.rs:1600 rust/crates/shell/src/window.rs:1361 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/remote.rs:46
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:955 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:576 rust/crates/shell/src/streams.rs:1600 rust/crates/shell/src/window.rs:1369 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Yayın yapmıyor"
 
@@ -3302,7 +3302,7 @@ msgstr "Yetişemiyor"
 msgid "Browser"
 msgstr "Tarayıcı"
 
-#: rust/crates/link/src/browser/plugin.rs:920 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:735 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1561 rust/crates/system/ui/updates.slint:176
+#: rust/crates/link/src/browser/plugin.rs:920 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:735 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1561 rust/crates/system/ui/updates.slint:177
 msgid "Try again"
 msgstr "Tekrar dene"
 
@@ -3323,7 +3323,7 @@ msgstr "Tarayıcı, son bağlantı: {date}"
 msgid "This computer couldn't set up the video connection."
 msgstr "Bu bilgisayar video bağlantısını kuramadı."
 
-#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:361 rust/crates/link/ui/connection.slint:192 rust/crates/link/ui/connection.slint:599 rust/crates/shell/src/plugins/onboarding.rs:172
+#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:361 rust/crates/link/ui/connection.slint:192 rust/crates/link/ui/connection.slint:602 rust/crates/shell/src/plugins/onboarding.rs:172
 msgid "Add device"
 msgstr ""
 
@@ -3601,7 +3601,7 @@ msgstr "USB üzerinden bağlı telefon farklı bir telefon"
 msgid "phone plugged in, but Telescope isn't open on it"
 msgstr "telefon bağlı ancak Telescope üzerinde açık değil"
 
-#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1080 rust/crates/link/src/plugin.rs:1337 rust/crates/link/ui/connection.slint:550 rust/crates/link/ui/connection.slint:551
+#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1080 rust/crates/link/src/plugin.rs:1337 rust/crates/link/ui/connection.slint:553 rust/crates/link/ui/connection.slint:554
 msgid "No device yet"
 msgstr ""
 
@@ -3617,7 +3617,7 @@ msgstr "Telefona bağlanılamıyor"
 msgid "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."
 msgstr "adb telefonla bağlantı kuramadı. Çıkar, tekrar tak ve tekrar dene."
 
-#: rust/crates/link/src/plugin.rs:406 rust/crates/link/ui/connection.slint:455
+#: rust/crates/link/src/plugin.rs:406 rust/crates/link/ui/connection.slint:458
 msgid "Set up the virtual camera"
 msgstr "Sanal kamerayı kur"
 
@@ -3848,7 +3848,7 @@ msgstr "Yeni bir kod oluştur; eskisi çalışmayı durdurur"
 msgid "Which of this computer's addresses the code points to"
 msgstr "Kodun bu bilgisayarın hangi adresini işaret ettiği"
 
-#: rust/crates/link/ui/browser_camera.slint:132 rust/crates/link/ui/browser_camera.slint:134 rust/crates/outputs/src/stream_output.rs:792 rust/crates/outputs/src/stream_output.rs:976 rust/crates/outputs/src/stream_output.rs:979 rust/crates/outputs/ui/stream_output.slint:99 rust/crates/outputs/ui/webcam.slint:91
+#: rust/crates/link/ui/browser_camera.slint:132 rust/crates/link/ui/browser_camera.slint:134 rust/crates/outputs/src/stream_output.rs:792 rust/crates/outputs/src/stream_output.rs:976 rust/crates/outputs/src/stream_output.rs:979 rust/crates/outputs/ui/stream_output.slint:98 rust/crates/outputs/ui/webcam.slint:91
 msgid "Resolution"
 msgstr "Çözünürlük"
 
@@ -3856,7 +3856,7 @@ msgstr "Çözünürlük"
 msgid "The size the browser sends; a camera that can't do it sends what it can"
 msgstr "Tarayıcının gönderdiği boyut; bunu sağlayamayan bir kamera gönderebildiğini gönderir"
 
-#: rust/crates/link/ui/browser_camera.slint:143 rust/crates/link/ui/browser_camera.slint:145 rust/crates/outputs/ui/stream_output.slint:108 rust/crates/outputs/ui/webcam.slint:99
+#: rust/crates/link/ui/browser_camera.slint:143 rust/crates/link/ui/browser_camera.slint:145 rust/crates/outputs/ui/stream_output.slint:107 rust/crates/outputs/ui/webcam.slint:99
 msgid "Frame rate"
 msgstr "Kare hızı"
 
@@ -3864,7 +3864,7 @@ msgstr "Kare hızı"
 msgid "Remove"
 msgstr "Kaldır"
 
-#: rust/crates/link/ui/connection.slint:187 rust/crates/link/ui/connection.slint:739 rust/crates/setup/src/stats.rs:340
+#: rust/crates/link/ui/connection.slint:187 rust/crates/link/ui/connection.slint:742 rust/crates/setup/src/stats.rs:340
 msgid "Connection"
 msgstr "Bağlantı"
 
@@ -3880,128 +3880,128 @@ msgstr "Kurulum kılavuzunu aç veya kapat: sanal kamera, telefon uygulaması ve
 msgid "Setup guide"
 msgstr "Kurulum kılavuzu"
 
-#: rust/crates/link/ui/connection.slint:283
+#: rust/crates/link/ui/connection.slint:286
 msgid "Switch to USB"
 msgstr "USB'ye geç"
 
-#: rust/crates/link/ui/connection.slint:285
+#: rust/crates/link/ui/connection.slint:288
 msgid "The phone was plugged in; reconnect over the cable"
 msgstr "Telefon takıldı; kablo üzerinden yeniden bağlan"
 
-#: rust/crates/link/ui/connection.slint:311
+#: rust/crates/link/ui/connection.slint:314
 msgid "Connect via"
 msgstr "Şununla bağlan"
 
-#: rust/crates/link/ui/connection.slint:319
+#: rust/crates/link/ui/connection.slint:322
 msgid "Automatic: USB when the phone's plugged in, Wi-Fi otherwise."
 msgstr "Otomatik: Telefon takılıyken USB, aksi halde Wi-Fi."
 
-#: rust/crates/link/ui/connection.slint:343
+#: rust/crates/link/ui/connection.slint:346
 msgid "Add a phone"
 msgstr "Bir telefon ekle"
 
-#: rust/crates/link/ui/connection.slint:347
+#: rust/crates/link/ui/connection.slint:350
 msgid "What to add"
 msgstr "Ne eklenecek"
 
-#: rust/crates/link/ui/connection.slint:357
+#: rust/crates/link/ui/connection.slint:360
 msgid "Use it"
 msgstr "Bunu kullan"
 
-#: rust/crates/link/ui/connection.slint:375
+#: rust/crates/link/ui/connection.slint:378
 msgid "Pairing code"
 msgstr "Eşleştirme kodu"
 
-#: rust/crates/link/ui/connection.slint:432
+#: rust/crates/link/ui/connection.slint:435
 msgid "Back"
 msgstr "Geri"
 
-#: rust/crates/link/ui/connection.slint:456
+#: rust/crates/link/ui/connection.slint:459
 msgid "Telescope needs to switch on its virtual camera first. This asks for your password."
 msgstr "Telescope'un önce sanal kamerasını açması gerekir. Bu işlem parolanı sorar."
 
-#: rust/crates/link/ui/connection.slint:464 rust/crates/link/ui/connection.slint:467
+#: rust/crates/link/ui/connection.slint:467 rust/crates/link/ui/connection.slint:470
 msgid "Also switch it on at every startup"
 msgstr "Her başlangıçta da aç"
 
-#: rust/crates/link/ui/connection.slint:551
+#: rust/crates/link/ui/connection.slint:554
 msgid "Pick a device"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:555
+#: rust/crates/link/ui/connection.slint:558
 msgid "Device"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:556
+#: rust/crates/link/ui/connection.slint:559
 msgid "Which device to stream from"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:574
+#: rust/crates/link/ui/connection.slint:577
 msgid "Your devices: add, rename, remove"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:575 rust/crates/link/ui/connection.slint:592
+#: rust/crates/link/ui/connection.slint:578 rust/crates/link/ui/connection.slint:595
 msgid "Your devices"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:594
+#: rust/crates/link/ui/connection.slint:597
 msgid "Devices"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:600
+#: rust/crates/link/ui/connection.slint:603
 msgid "Add another device"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:607
+#: rust/crates/link/ui/connection.slint:610
 msgid "No devices yet"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:611
+#: rust/crates/link/ui/connection.slint:614
 msgid "Rename phone"
 msgstr "Telefonu yeniden adlandır"
 
-#: rust/crates/link/ui/connection.slint:621 rust/crates/setup/src/stats.rs:332
+#: rust/crates/link/ui/connection.slint:624 rust/crates/setup/src/stats.rs:332
 msgid "This computer"
 msgstr "Bu bilgisayar"
 
-#: rust/crates/link/ui/connection.slint:626
+#: rust/crates/link/ui/connection.slint:629
 msgid "What your phones call it"
 msgstr "Telefonlarının buna verdiği ad"
 
-#: rust/crates/link/ui/connection.slint:628
+#: rust/crates/link/ui/connection.slint:631
 msgid "Change name"
 msgstr "Adı değiştir"
 
-#: rust/crates/link/ui/connection.slint:629
+#: rust/crates/link/ui/connection.slint:632
 msgid "The name your phones show for this computer"
 msgstr "Telefonlarının bu bilgisayar için gösterdiği ad"
 
-#: rust/crates/link/ui/connection.slint:630
+#: rust/crates/link/ui/connection.slint:633
 msgid "Change this computer's name"
 msgstr "Bu bilgisayarın adını değiştir"
 
-#: rust/crates/link/ui/connection.slint:632
+#: rust/crates/link/ui/connection.slint:635
 msgid "Rename this computer"
 msgstr "Bu bilgisayarı yeniden adlandır"
 
-#: rust/crates/link/ui/connection.slint:632
+#: rust/crates/link/ui/connection.slint:635
 msgid "Name your phones show (applies to phones you pair from now on)"
 msgstr "Telefonlarının gösterdiği ad (bundan sonra eşleştireceğin telefonlar için geçerlidir)"
 
-#: rust/crates/link/ui/connection.slint:742 rust/crates/link/ui/connection.slint:749
+#: rust/crates/link/ui/connection.slint:745 rust/crates/link/ui/connection.slint:752
 msgid "UDP on Wi-Fi"
 msgstr "Wi-Fi üzerinde UDP"
 
-#: rust/crates/link/ui/connection.slint:743
+#: rust/crates/link/ui/connection.slint:746
 msgctxt "search"
 msgid "udp tcp transport network lag freezes stutter wifi"
 msgstr "udp tcp aktarım iletim ağ gecikme donmalar donma takılma wifi udp tcp transport network lag freezes stutter wifi"
 
-#: rust/crates/link/ui/connection.slint:744
+#: rust/crates/link/ui/connection.slint:747
 msgid "It can stutter more than TCP, so try it and see."
 msgstr "TCP'ye göre daha fazla takılabilir, bu yüzden deneyip gör."
 
-#: rust/crates/link/ui/connection.slint:745
+#: rust/crates/link/ui/connection.slint:748
 msgid "Experimental"
 msgstr "Deneysel"
 
@@ -4212,7 +4212,7 @@ msgstr "Yoğun formatına geçildi"
 msgid "{error}. You can try Light again in Stream output."
 msgstr "{error}. Yayın çıkışı bölümünden Hafif formatını tekrar deneyebilirsin."
 
-#: rust/crates/outputs/src/stream_output.rs:618 rust/crates/outputs/src/stream_output.rs:635 rust/crates/outputs/src/stream_output.rs:722 rust/crates/outputs/ui/stream_output.slint:88
+#: rust/crates/outputs/src/stream_output.rs:618 rust/crates/outputs/src/stream_output.rs:635 rust/crates/outputs/src/stream_output.rs:722 rust/crates/outputs/ui/stream_output.slint:87
 msgid "Stream output"
 msgstr "Yayın çıkışı"
 
@@ -4244,7 +4244,7 @@ msgstr "Yayının çözünürlüğü, kare hızı ve formatı."
 msgid "Without it there's no Stream output card and streams use whatever size and format the phone picks."
 msgstr "Bu olmadan Yayın çıkışı kartı yer almaz ve yayınlar telefonun seçtiği boyut ve formatı kullanır."
 
-#: rust/crates/outputs/src/stream_output.rs:789 rust/crates/outputs/src/stream_output.rs:998 rust/crates/outputs/ui/stream_output.slint:140
+#: rust/crates/outputs/src/stream_output.rs:789 rust/crates/outputs/src/stream_output.rs:998 rust/crates/outputs/ui/stream_output.slint:139
 msgid "Heavy"
 msgstr "Yoğun"
 
@@ -4256,11 +4256,11 @@ msgstr "En boy oranı"
 msgid "FPS"
 msgstr "FPS"
 
-#: rust/crates/outputs/src/stream_output.rs:795 rust/crates/outputs/src/stream_output.rs:1017 rust/crates/outputs/ui/stream_output.slint:151 rust/crates/outputs/ui/stream_output.slint:161
+#: rust/crates/outputs/src/stream_output.rs:795 rust/crates/outputs/src/stream_output.rs:1017 rust/crates/outputs/ui/stream_output.slint:150 rust/crates/outputs/ui/stream_output.slint:160
 msgid "JPEG quality"
 msgstr "JPEG kalitesi"
 
-#: rust/crates/outputs/src/stream_output.rs:796 rust/crates/outputs/src/stream_output.rs:1025 rust/crates/outputs/ui/stream_output.slint:172 rust/crates/outputs/ui/stream_output.slint:182 rust/crates/setup/src/stats.rs:341
+#: rust/crates/outputs/src/stream_output.rs:796 rust/crates/outputs/src/stream_output.rs:1025 rust/crates/outputs/ui/stream_output.slint:171 rust/crates/outputs/ui/stream_output.slint:181 rust/crates/setup/src/stats.rs:341
 msgid "Bitrate"
 msgstr "Bit hızı"
 
@@ -4567,11 +4567,11 @@ msgstr "Windows'ta kamera erişimi kapalı (Ayarlar > Gizlilik ve güvenlik > Ka
 msgid "Downloading driver files..."
 msgstr "Sürücü dosyaları indiriliyor..."
 
-#: rust/crates/outputs/ui/stream_output.slint:130
+#: rust/crates/outputs/ui/stream_output.slint:129
 msgid "Good for most calls"
 msgstr "Çoğu arama için iyi"
 
-#: rust/crates/outputs/ui/stream_output.slint:141
+#: rust/crates/outputs/ui/stream_output.slint:140
 msgid "Sharper, more data"
 msgstr "Daha net, daha çok veri"
 
@@ -5618,231 +5618,231 @@ msgstr "donanım hızlandırma gpu grafik kartı ekran kartı kod çözme daha h
 msgid "Decodes the Light format on the graphics card from the next stream on."
 msgstr "Bir sonraki yayından itibaren grafik kartında Hafif biçiminin kodunu çözer."
 
-#: rust/crates/setup/ui/setup.slint:179
+#: rust/crates/setup/ui/setup.slint:180
 msgid "If the card fails the processor takes over until you restart Telescope."
 msgstr "Kart hata verirse Telescope'u yeniden başlatana kadar işlemci devralır."
 
-#: rust/crates/setup/ui/setup.slint:185 rust/crates/setup/ui/setup.slint:189 rust/crates/setup/ui/setup.slint:194
+#: rust/crates/setup/ui/setup.slint:186 rust/crates/setup/ui/setup.slint:190 rust/crates/setup/ui/setup.slint:195
 msgid "Power-saving effects"
 msgstr "Güç tasarrufu efektleri"
 
-#: rust/crates/setup/ui/setup.slint:186
+#: rust/crates/setup/ui/setup.slint:187
 msgctxt "search"
 msgid "battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
 msgstr "pil güç enerji watt dizüstü işlemci kullanımı fan sıcaklık yavaş bulanıklaştırma kadrajlama hafif efektler kalite battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
 
-#: rust/crates/setup/ui/setup.slint:187 rust/crates/setup/ui/setup.slint:190
+#: rust/crates/setup/ui/setup.slint:188 rust/crates/setup/ui/setup.slint:191
 msgid "Background and Auto framing update less often"
 msgstr "Arka plan ve Otomatik kadrajlama daha seyrek güncellenir"
 
-#: rust/crates/setup/ui/setup.slint:195
+#: rust/crates/setup/ui/setup.slint:196
 msgid "Uses less of the processor and battery while Background or Auto framing is on. They follow quick moves a little later."
 msgstr "Arka plan veya Otomatik kadrajlama açıkken işlemciyi ve pili daha az kullanır. Hızlı hareketleri biraz gecikmeli takip ederler."
 
-#: rust/crates/setup/ui/setup.slint:201 rust/crates/setup/ui/setup.slint:204 rust/crates/setup/ui/setup.slint:207
+#: rust/crates/setup/ui/setup.slint:202 rust/crates/setup/ui/setup.slint:205 rust/crates/setup/ui/setup.slint:208
 msgid "Max zoom"
 msgstr "Maksimum yakınlaştırma"
 
-#: rust/crates/setup/ui/setup.slint:202
+#: rust/crates/setup/ui/setup.slint:203
 msgctxt "search"
 msgid "zoom limit magnify telephoto digital crop 10x 30x slider range"
 msgstr "yakınlaştırma sınırı büyütme telefoto dijital kırpma kaydırıcı aralık zoom limit magnify telephoto digital crop 10x 30x slider range"
 
-#: rust/crates/setup/ui/setup.slint:208
+#: rust/crates/setup/ui/setup.slint:209
 msgid "How far the Zoom slider goes. Past what the phone can zoom itself, the rest is cropped on this computer."
 msgstr "Yakınlaştırma kaydırıcısının nereye kadar gideceği. Telefonun kendi yakınlaştırabildiğinin ötesi bu bilgisayarda kırpılır."
 
-#: rust/crates/setup/ui/setup.slint:215 rust/crates/setup/ui/setup.slint:218 rust/crates/setup/ui/setup.slint:223 rust/crates/setup/ui/setup.slint:233 rust/crates/setup/ui/setup.slint:241
+#: rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:219 rust/crates/setup/ui/setup.slint:224 rust/crates/setup/ui/setup.slint:234 rust/crates/setup/ui/setup.slint:242
 msgid "Canvas size"
 msgstr "Tuval boyutu"
 
-#: rust/crates/setup/ui/setup.slint:216
+#: rust/crates/setup/ui/setup.slint:217
 msgctxt "search"
 msgid "resolution output size 1080p 720p 4k portrait landscape aspect ratio custom width height pixels apply reload"
 msgstr "çözünürlük çıkış boyutu dikey yatay en boy oranı özel genişlik yükseklik piksel uygula yeniden yükle resolution output size 1080p 720p 4k portrait landscape aspect ratio custom width height pixels apply reload"
 
-#: rust/crates/setup/ui/setup.slint:274
+#: rust/crates/setup/ui/setup.slint:275
 msgctxt "search"
 msgid "audio sound voice input volume"
 msgstr "ses ses girişi mikrofon ses seviyesi düzey audio sound voice input volume"
 
-#: rust/crates/setup/ui/setup.slint:279 rust/crates/setup/ui/setup.slint:282 rust/crates/setup/ui/setup.slint:286
+#: rust/crates/setup/ui/setup.slint:280 rust/crates/setup/ui/setup.slint:283 rust/crates/setup/ui/setup.slint:287
 msgid "Max gain"
 msgstr "Maksimum kazanç"
 
-#: rust/crates/setup/ui/setup.slint:280
+#: rust/crates/setup/ui/setup.slint:281
 msgctxt "search"
 msgid "microphone volume loudness boost amplify quiet decibel db slider range"
 msgstr "mikrofon ses düzeyi seviyesi yükseltme desibel kaydırıcı aralık microphone volume loudness boost amplify quiet decibel db slider range"
 
-#: rust/crates/setup/ui/setup.slint:281
+#: rust/crates/setup/ui/setup.slint:282
 msgid "How far the Gain slider goes. Less range gives finer steps; more helps a quiet phone."
 msgstr "Kazanç kaydırıcısının nereye kadar gideceği. Daha az aralık daha hassas adımlar sağlar; daha fazlası ise sesi az çıkan bir telefona yardımcı olur."
 
-#: rust/crates/setup/ui/setup.slint:293 rust/crates/setup/ui/setup.slint:297 rust/crates/setup/ui/setup.slint:302
+#: rust/crates/setup/ui/setup.slint:294 rust/crates/setup/ui/setup.slint:298 rust/crates/setup/ui/setup.slint:303
 msgid "Limiter"
 msgstr "Sınırlayıcı"
 
-#: rust/crates/setup/ui/setup.slint:294
+#: rust/crates/setup/ui/setup.slint:295
 msgctxt "search"
 msgid "microphone audio compressor distortion clipping loud peaks sound"
 msgstr "mikrofon ses kompresör sıkıştırıcı bozulma kırpılma yüksek doruk sesler microphone audio compressor distortion clipping loud peaks sound"
 
-#: rust/crates/setup/ui/setup.slint:295 rust/crates/setup/ui/setup.slint:298
+#: rust/crates/setup/ui/setup.slint:296 rust/crates/setup/ui/setup.slint:299
 msgid "Keeps loud sounds from clipping"
 msgstr "Yüksek seslerin kırpılmasını önler"
 
-#: rust/crates/setup/ui/setup.slint:322
+#: rust/crates/setup/ui/setup.slint:323
 msgid "Phone app"
 msgstr "Telefon uygulaması"
 
-#: rust/crates/setup/ui/setup.slint:323
+#: rust/crates/setup/ui/setup.slint:324
 msgctxt "search"
 msgid "android install apk usb"
 msgstr "android yükle apk usb android install apk usb"
 
-#: rust/crates/setup/ui/setup.slint:329
+#: rust/crates/setup/ui/setup.slint:330
 msgctxt "search"
 msgid "phone app install usb android reinstall newer version sideload cable"
 msgstr "telefon uygulaması yükle usb android yeniden yükle daha yeni sürüm kablo phone app install usb android reinstall newer version sideload cable"
 
-#: rust/crates/setup/ui/setup.slint:341
+#: rust/crates/setup/ui/setup.slint:342
 msgid "Installs the Telescope.apk that came with this app, or one you pick, on a phone plugged in over USB."
 msgstr "Bu uygulamayla birlikte gelen veya seçtiğin bir Telescope.apk dosyasını USB ile bağlı bir telefona yükler."
 
-#: rust/crates/setup/ui/setup.slint:349 rust/crates/setup/ui/setup.slint:360
+#: rust/crates/setup/ui/setup.slint:350 rust/crates/setup/ui/setup.slint:361
 msgid "Select device"
 msgstr "Cihaz seç"
 
-#: rust/crates/setup/ui/setup.slint:355
+#: rust/crates/setup/ui/setup.slint:356
 msgid "More than one phone is plugged in. Which one should get the app?"
 msgstr "Birden fazla telefon bağlı. Uygulama hangisine yüklensin?"
 
-#: rust/crates/setup/ui/setup.slint:387
+#: rust/crates/setup/ui/setup.slint:388
 msgctxt "search"
 msgid "appearance theme colors colours interface"
 msgstr "görünüm tema renkler renk arayüz appearance theme colors colours interface"
 
-#: rust/crates/setup/ui/setup.slint:392 rust/crates/setup/ui/setup.slint:394 rust/crates/setup/ui/setup.slint:398
+#: rust/crates/setup/ui/setup.slint:393 rust/crates/setup/ui/setup.slint:395 rust/crates/setup/ui/setup.slint:399
 msgid "Theme"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:393
+#: rust/crates/setup/ui/setup.slint:394
 msgctxt "search"
 msgid "theme classic dark blue appearance look old"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:399
+#: rust/crates/setup/ui/setup.slint:400
 msgid "Default"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:399
+#: rust/crates/setup/ui/setup.slint:400
 msgid "Classic"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:405 rust/crates/setup/ui/setup.slint:408 rust/crates/setup/ui/setup.slint:412
+#: rust/crates/setup/ui/setup.slint:406 rust/crates/setup/ui/setup.slint:409 rust/crates/setup/ui/setup.slint:413
 msgid "Card colours"
 msgstr "Kart renkleri"
 
-#: rust/crates/setup/ui/setup.slint:406
+#: rust/crates/setup/ui/setup.slint:407
 msgctxt "search"
 msgid "color colour theme appearance monochrome colourful purple hue accent look"
 msgstr "renk tema görünüm tek renkli monokrom renkli mor ton vurgu color colour theme appearance monochrome colourful purple hue accent look"
 
-#: rust/crates/setup/ui/setup.slint:407
+#: rust/crates/setup/ui/setup.slint:408
 msgid "Every card in the main window gets its own colour."
 msgstr "Ana penceredeki her kart kendi rengini alır."
 
-#: rust/crates/setup/ui/setup.slint:414
+#: rust/crates/setup/ui/setup.slint:415
 msgid "Colourful"
 msgstr "Renkli"
 
-#: rust/crates/setup/ui/setup.slint:414
+#: rust/crates/setup/ui/setup.slint:415
 msgid "Monochrome"
 msgstr "Tek renkli"
 
-#: rust/crates/setup/ui/setup.slint:420 rust/crates/setup/ui/setup.slint:423 rust/crates/setup/ui/setup.slint:427
+#: rust/crates/setup/ui/setup.slint:421 rust/crates/setup/ui/setup.slint:424 rust/crates/setup/ui/setup.slint:428
 msgid "Language"
 msgstr "Dil"
 
-#: rust/crates/setup/ui/setup.slint:421
+#: rust/crates/setup/ui/setup.slint:422
 msgctxt "search"
 msgid "language translation translate locale"
 msgstr "dil çeviri çevir yerel ayar language translation translate locale"
 
-#: rust/crates/setup/ui/setup.slint:443
+#: rust/crates/setup/ui/setup.slint:444
 msgid "Help translate"
 msgstr "Çeviriye yardım et"
 
-#: rust/crates/setup/ui/setup.slint:447 rust/crates/setup/ui/setup.slint:447
+#: rust/crates/setup/ui/setup.slint:448 rust/crates/setup/ui/setup.slint:448
 msgid "Fix a text or add a language, no coding needed"
 msgstr "Kodlama gerekmeden bir metni düzelt veya bir dil ekle"
 
-#: rust/crates/setup/ui/setup.slint:453
+#: rust/crates/setup/ui/setup.slint:454
 msgid "Restart Telescope to switch to it."
 msgstr "Bu dile geçmek için Telescope'u yeniden başlat."
 
-#: rust/crates/setup/ui/setup.slint:460 rust/crates/shell/ui/settings.slint:588
+#: rust/crates/setup/ui/setup.slint:461 rust/crates/shell/ui/settings.slint:588
 msgid "Restart now"
 msgstr "Şimdi yeniden başlat"
 
-#: rust/crates/setup/ui/setup.slint:464
+#: rust/crates/setup/ui/setup.slint:465
 msgid "Start Telescope again in the language you picked"
 msgstr "Telescope'u seçtiğin dilde yeniden başlat"
 
-#: rust/crates/setup/ui/setup.slint:485
+#: rust/crates/setup/ui/setup.slint:486
 msgid "About"
 msgstr "Hakkında"
 
-#: rust/crates/setup/ui/setup.slint:486
+#: rust/crates/setup/ui/setup.slint:487
 msgctxt "search"
 msgid "info version help support credits"
 msgstr "bilgi sürüm yardım destek katkıda bulunanlar info version help support credits"
 
-#: rust/crates/setup/ui/setup.slint:492
+#: rust/crates/setup/ui/setup.slint:493
 msgctxt "search"
 msgid "about author credits made by version number build"
 msgstr "hakkında yazar yapan sürüm numarası derleme about author credits made by version number build"
 
-#: rust/crates/setup/ui/setup.slint:516 rust/crates/setup/ui/setup.slint:519
+#: rust/crates/setup/ui/setup.slint:517 rust/crates/setup/ui/setup.slint:520
 msgid "Bug reports"
 msgstr "Hata raporları"
 
-#: rust/crates/setup/ui/setup.slint:517
+#: rust/crates/setup/ui/setup.slint:518
 msgctxt "search"
 msgid "bug report diagnostics logs debug support problem issue help copy log file"
 msgstr "hata raporu tanılama günlükler hata ayıklama destek sorun yardım kopyala günlük dosyası bug report diagnostics logs debug support problem issue help copy log file"
 
-#: rust/crates/setup/ui/setup.slint:521
+#: rust/crates/setup/ui/setup.slint:522
 msgid "Open log"
 msgstr "Günlüğü aç"
 
-#: rust/crates/setup/ui/setup.slint:521
+#: rust/crates/setup/ui/setup.slint:522
 msgid "The full log, in the temp folder (the system clears it)."
 msgstr "Geçici klasördeki tam günlük (sistem bunu temizler)."
 
-#: rust/crates/setup/ui/setup.slint:527
+#: rust/crates/setup/ui/setup.slint:528
 msgid "Copies info for a bug report, leaving out pairing tokens, addresses and file paths."
 msgstr "Eşleştirme anahtarlarını, adresleri ve dosya yollarını hariç tutarak bir hata raporu için bilgileri kopyalar."
 
-#: rust/crates/setup/ui/setup.slint:530
+#: rust/crates/setup/ui/setup.slint:531
 msgid "Report a bug"
 msgstr "Hata bildir"
 
-#: rust/crates/setup/ui/setup.slint:530
+#: rust/crates/setup/ui/setup.slint:531
 msgid "Copies the diagnostics and opens the bug form on GitHub."
 msgstr "Tanılama bilgilerini kopyalar ve GitHub'daki hata formunu açar."
 
-#: rust/crates/setup/ui/setup.slint:534 rust/crates/setup/ui/setup.slint:537
+#: rust/crates/setup/ui/setup.slint:535 rust/crates/setup/ui/setup.slint:538
 msgid "Need help?"
 msgstr "Yardıma mı ihtiyacın var?"
 
-#: rust/crates/setup/ui/setup.slint:535
+#: rust/crates/setup/ui/setup.slint:536
 msgctxt "search"
 msgid "help support troubleshooting question faq problem not working stuck ask"
 msgstr "yardım destek sorun giderme soru sss problem çalışmıyor takıldı sor danış help support troubleshooting question faq problem not working stuck ask"
 
-#: rust/crates/setup/ui/setup.slint:538
+#: rust/crates/setup/ui/setup.slint:539
 msgid "Troubleshooting"
 msgstr "Sorun giderme"
 
@@ -5858,7 +5858,7 @@ msgstr "Kamera ekle"
 msgid "Stream another camera at the same time, to a virtual camera of its own"
 msgstr "Aynı anda başka bir kameradan kendi sanal kamerasına yayın yap"
 
-#: rust/crates/shell/src/doc.rs:761 rust/crates/shell/src/doc.rs:762
+#: rust/crates/shell/src/doc.rs:763 rust/crates/shell/src/doc.rs:764
 msgid "Search settings"
 msgstr "Ayarlarda ara"
 
@@ -6283,11 +6283,11 @@ msgstr "Bu olmadan pencere görüntüyü göstermez ancak sanal kamerayı kullan
 msgid "Show or hide the preview"
 msgstr "Önizlemeyi göster veya gizle"
 
-#: rust/crates/shell/src/plugins/preview.rs:370 rust/crates/shell/ui/cards/preview.slint:269
+#: rust/crates/shell/src/plugins/preview.rs:370 rust/crates/shell/ui/cards/preview.slint:272
 msgid "Lens outlines"
 msgstr "Lens hatları"
 
-#: rust/crates/shell/src/plugins/preview.rs:371 rust/crates/shell/ui/cards/preview.slint:255
+#: rust/crates/shell/src/plugins/preview.rs:371 rust/crates/shell/ui/cards/preview.slint:257
 msgid "Skeleton"
 msgstr "İskelet"
 
@@ -6663,7 +6663,7 @@ msgid "Could not save settings. Check disk space and permissions."
 msgstr "Ayarlar kaydedilemedi. Disk alanını ve izinleri kontrol et."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1371 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1379 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "Başlat"
 
@@ -6953,24 +6953,24 @@ msgstr "Telescope hâlâ çalışıyor"
 msgid "Telescope - Video Preview"
 msgstr "Telescope - Video Önizlemesi"
 
-#: rust/crates/shell/src/window.rs:608
+#: rust/crates/shell/src/window.rs:616
 msgid "Telescope (dev)"
 msgstr "Telescope (geliştirici)"
 
-#: rust/crates/shell/src/window.rs:1370 rust/crates/shell/src/window.rs:1371
+#: rust/crates/shell/src/window.rs:1378 rust/crates/shell/src/window.rs:1379
 msgid "Start mic only"
 msgstr "Sadece mikrofonu başlat"
 
-#: rust/crates/shell/src/window.rs:1370
+#: rust/crates/shell/src/window.rs:1378
 msgid "Start streaming"
 msgstr "Yayını başlat"
 
-#: rust/crates/shell/src/window.rs:1376
+#: rust/crates/shell/src/window.rs:1384
 msgid "Stop streaming"
 msgstr "Yayını durdur"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1377 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/window.rs:1385 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "Durdur"
 
@@ -7041,30 +7041,38 @@ msgid "Close the setup guide"
 msgstr "Kurulum kılavuzunu kapat"
 
 #: rust/crates/shell/ui/cards/preview.slint:227
-msgid "Stop drawing this preview. The camera output doesn't change."
-msgstr "Bu önizlemeyi çizmeyi durdur. Kamera çıkışı değişmez."
+msgid "Stop drawing this preview"
+msgstr ""
 
-#: rust/crates/shell/ui/cards/preview.slint:241
+#: rust/crates/shell/ui/cards/preview.slint:228
+msgid "The camera output doesn't change."
+msgstr ""
+
+#: rust/crates/shell/ui/cards/preview.slint:242
 msgid "Device camera"
 msgstr ""
 
-#: rust/crates/shell/ui/cards/preview.slint:254
-msgid "Draw the skeleton MediaPipe finds. Doesn't show in the camera output."
-msgstr "MediaPipe'ın bulduğu iskeleti çizer. Kamera çıkışında görünmez."
+#: rust/crates/shell/ui/cards/preview.slint:255
+msgid "Draw the skeleton MediaPipe finds"
+msgstr ""
 
-#: rust/crates/shell/ui/cards/preview.slint:268
-msgid "Keep showing what the phone's longer lenses see. Doesn't show in the camera output."
-msgstr "Telefonun daha uzun lenslerinin gördüklerini göstermeye devam eder. Kamera çıkışında görünmez."
+#: rust/crates/shell/ui/cards/preview.slint:256 rust/crates/shell/ui/cards/preview.slint:271
+msgid "Doesn't show in the camera output."
+msgstr ""
 
-#: rust/crates/shell/ui/cards/preview.slint:274
+#: rust/crates/shell/ui/cards/preview.slint:270
+msgid "Keep showing what the phone's longer lenses see"
+msgstr ""
+
+#: rust/crates/shell/ui/cards/preview.slint:277
 msgid "Smooth"
 msgstr "Akıcı"
 
-#: rust/crates/shell/ui/cards/preview.slint:280
+#: rust/crates/shell/ui/cards/preview.slint:283
 msgid "Shows every frame in the preview but uses a bit more CPU."
 msgstr "Önizlemede her kareyi gösterir ancak biraz daha fazla işlemci kullanır."
 
-#: rust/crates/shell/ui/cards/preview.slint:284
+#: rust/crates/shell/ui/cards/preview.slint:287
 msgid "Pop out"
 msgstr "Ayrı pencere"
 
@@ -7425,7 +7433,7 @@ msgstr ""
 msgid "Without it AI apps can't connect to Telescope."
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:1261 rust/crates/system/ui/mcp.slint:245
+#: rust/crates/system/src/mcp.rs:1261 rust/crates/system/ui/mcp.slint:244
 msgid "MCP"
 msgstr ""
 
@@ -7889,7 +7897,7 @@ msgstr "Bu güncelleme yüklenmedi çünkü bu bilgisayarda başlatılamıyor."
 msgid "Stable"
 msgstr "Kararlı"
 
-#: rust/crates/system/src/updates_plugin.rs:30
+#: rust/crates/system/src/updates_plugin.rs:30 rust/crates/system/ui/updates.slint:121
 msgid "Nightly"
 msgstr "Nightly"
 
@@ -8151,54 +8159,54 @@ msgctxt "search"
 msgid "stable nightly beta release track builds testing"
 msgstr "kararlı nightly beta sürüm kanalı derlemeler test stable nightly beta release track builds testing"
 
-#: rust/crates/system/ui/updates.slint:121
-msgid "Nightly: built from every change. Fixes first, less tested."
-msgstr "Nightly: Her değişiklikten derlenir. Düzeltmeler ilk buraya gelir, daha az test edilmiştir."
+#: rust/crates/system/ui/updates.slint:122
+msgid "Built from every change. Fixes first, less tested."
+msgstr ""
 
-#: rust/crates/system/ui/updates.slint:126 rust/crates/system/ui/updates.slint:135
+#: rust/crates/system/ui/updates.slint:127 rust/crates/system/ui/updates.slint:136
 msgid "Check daily"
 msgstr "Her gün denetle"
 
-#: rust/crates/system/ui/updates.slint:128
+#: rust/crates/system/ui/updates.slint:129
 msgctxt "search"
 msgid "automatic updates auto check every day background"
 msgstr "otomatik güncellemeler otomatik denetle her gün arka plan automatic updates auto check every day background"
 
-#: rust/crates/system/ui/updates.slint:141
+#: rust/crates/system/ui/updates.slint:142
 msgid "Unzipped copy"
 msgstr "Ayıklanmış kopya"
 
-#: rust/crates/system/ui/updates.slint:142
+#: rust/crates/system/ui/updates.slint:143
 msgctxt "search"
 msgid "portable keep this copy where it is zip folder in place windows"
 msgstr "taşınabilir bu kopyayı olduğu yerde tut zip klasör yerinde windows portable keep this copy where it is zip folder in place windows"
 
-#: rust/crates/system/ui/updates.slint:149 rust/crates/system/ui/updates.slint:153
+#: rust/crates/system/ui/updates.slint:150 rust/crates/system/ui/updates.slint:154
 msgid "Keep this copy where it is"
 msgstr "Bu kopyayı olduğu yerde tut"
 
-#: rust/crates/system/ui/updates.slint:150
+#: rust/crates/system/ui/updates.slint:151
 msgid "Updates this unzipped folder in place instead of installing Telescope for your user."
 msgstr "Telescope'u kullanıcın için yüklemek yerine bu ayıklanmış klasörü yerinde günceller."
 
-#: rust/crates/system/ui/updates.slint:167
+#: rust/crates/system/ui/updates.slint:168
 msgid "What's new"
 msgstr "Yenilikler"
 
-#: rust/crates/system/ui/updates.slint:180
+#: rust/crates/system/ui/updates.slint:181
 msgid "Older version"
 msgstr ""
 
-#: rust/crates/system/ui/updates.slint:181
+#: rust/crates/system/ui/updates.slint:182
 msgctxt "search"
 msgid "go back downgrade python previous old version revert undo rust"
 msgstr ""
 
-#: rust/crates/system/ui/updates.slint:186
+#: rust/crates/system/ui/updates.slint:187
 msgid "Go back to the Python version"
 msgstr ""
 
-#: rust/crates/system/ui/updates.slint:207
+#: rust/crates/system/ui/updates.slint:208
 msgid "Go back to the Python version?"
 msgstr ""
 
@@ -8238,7 +8246,7 @@ msgstr "Daraltıldı. Genişletmek için Boşluk veya Enter tuşuna bas."
 msgid "Expanded. Press Space or Enter to collapse."
 msgstr "Genişletildi. Daraltmak için Boşluk veya Enter tuşuna bas."
 
-#: rust/crates/ui-kit/ui/widgets/shortcut-menu.slint:33
+#: rust/crates/ui-kit/ui/widgets/shortcut-menu.slint:35
 msgid "Add keyboard shortcut…"
 msgstr "Klavye kısayolu ekle…"
 
@@ -8585,6 +8593,18 @@ msgstr "Açılamadı"
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "Yeniden başlatılamadı"
+
+#~ msgid "Stop drawing this preview. The camera output doesn't change."
+#~ msgstr "Bu önizlemeyi çizmeyi durdur. Kamera çıkışı değişmez."
+
+#~ msgid "Draw the skeleton MediaPipe finds. Doesn't show in the camera output."
+#~ msgstr "MediaPipe'ın bulduğu iskeleti çizer. Kamera çıkışında görünmez."
+
+#~ msgid "Keep showing what the phone's longer lenses see. Doesn't show in the camera output."
+#~ msgstr "Telefonun daha uzun lenslerinin gördüklerini göstermeye devam eder. Kamera çıkışında görünmez."
+
+#~ msgid "Nightly: built from every change. Fixes first, less tested."
+#~ msgstr "Nightly: Her değişiklikten derlenir. Düzeltmeler ilk buraya gelir, daha az test edilmiştir."
 
 #~ msgid "Drag the corners on the preview onto the sheet's corners."
 #~ msgstr "Önizlemedeki köşeleri kağıdın köşelerine sürükle."

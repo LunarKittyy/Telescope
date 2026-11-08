@@ -91,9 +91,8 @@ export component PhotosCard inherits Card {
             color: Status.color(status-kind);
             vertical-alignment: center;
             overflow: elide;
-            if shown-status.preferred-width > shown-status.width: Tooltip { TipBody { says: shown-status.text; } }
         }
-        Tooltip { TipBody { says: root.status; } }
+        Tip { says: root.status; inert: true; }
     }
     if info-shown: Note { text: info; }
     // Six columns of one width with 8px between, each tile as many of them as the plugin says: spanning grid cells would share a line out

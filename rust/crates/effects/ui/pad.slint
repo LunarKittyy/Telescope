@@ -128,7 +128,7 @@ component PanPad inherits Rectangle {
     FocusRing { shown: focus.has-focus; radius: 9px; width: parent.width + 4px; height: parent.height + 4px; }
     TouchRing { setting: root.setting-x; width: parent.width; height: parent.height; radius: 9px; }
     TouchRing { setting: root.setting-y; width: parent.width; height: parent.height; radius: 9px; }
-    usage := TipUse { hover: touch.has-hover; }
+    usage := Tip { says: root.tip; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
@@ -142,6 +142,5 @@ component PanPad inherits Rectangle {
         }
         double-clicked => { root.reset(); }
     }
-    if tip != "" && !usage.used: Tooltip { TipBody { says: root.tip; } }
     ShortcutMenu { action: root.shortcut; adds: root.shortcut-adds; }
 }

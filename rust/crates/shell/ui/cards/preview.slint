@@ -224,7 +224,8 @@ export component PreviewCard inherits Rectangle {
                     icon: showing ? Icons.eye-off : Icons.eye;
                     icon-tint: Theme.text-dim;
                     enabled: !popout;
-                    tip: @tr("Stop drawing this preview. The camera output doesn't change.");
+                    tip: @tr("Stop drawing this preview");
+                    tip-detail: @tr("The camera output doesn't change.");
                     shortcut: "show_hide";
                     clicked => { root.toggle(); }
                 }
@@ -251,7 +252,8 @@ export component PreviewCard inherits Rectangle {
                     icon: Icons.skeleton;
                     icon-size: 16px;
                     icon-tint: skeleton-on ? Theme.accent-soft : Theme.text-dim;
-                    tip: @tr("Draw the skeleton MediaPipe finds. Doesn't show in the camera output.");
+                    tip: @tr("Draw the skeleton MediaPipe finds");
+                    tip-detail: @tr("Doesn't show in the camera output.");
                     accessible-label: @tr("Skeleton");
                     shortcut: "skeleton";
                     clicked => { root.skeleton-clicked(); }
@@ -265,7 +267,8 @@ export component PreviewCard inherits Rectangle {
                     icon-size: 16px;
                     icon-tint: !lenses-enabled ? Theme.text-disabled : lenses-on ? Theme.accent-soft : Theme.text-dim;
                     enabled: lenses-enabled;
-                    tip: @tr("Keep showing what the phone's longer lenses see. Doesn't show in the camera output.");
+                    tip: @tr("Keep showing what the phone's longer lenses see");
+                    tip-detail: @tr("Doesn't show in the camera output.");
                     accessible-label: @tr("Lens outlines");
                     shortcut: "lens_outlines";
                     clicked => { root.lenses-clicked(); }

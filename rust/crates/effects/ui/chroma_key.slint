@@ -75,6 +75,7 @@ export component ChromaKeyCard inherits Card {
                     has-icons: [false, false, false];
                     icons: [Icons.eyedropper, Icons.eyedropper, Icons.eyedropper];
                     label: @tr("Screen");
+                    tips: [screen-tip, screen-tip, screen-tip];
                     shortcut: "chroma_key.screen";
                     current: screen;
                     picked(i) => { root.screen-picked(i); }
@@ -84,7 +85,6 @@ export component ChromaKeyCard inherits Card {
                     Swatch { colour: picked-colour; y: (parent.height - self.height) / 2; }
                 }
             }
-            if screen-tip != "": Tooltip { TipBody { says: screen-tip; } }
         }
     }
     for name[i] in [@tr("Tolerance"), @tr("Edges"), @tr("Spill")]: SliderRow {
@@ -162,9 +162,8 @@ export component ChromaKeyCard inherits Card {
                     color: Theme.text-dim;
                     vertical-alignment: center;
                     overflow: elide;
-                    if shown-picture-text.preferred-width > shown-picture-text.width: Tooltip { TipBody { says: shown-picture-text.text; } }
                 }
-                if picture-tip != "": Tooltip { TipBody { says: picture-tip; } }
+                Tip { says: picture-tip != "" ? picture-tip : shown-picture-text.text; enabled: picture-tip != "" || shown-picture-text.preferred-width > shown-picture-text.width; inert: true; }
             }
         }
     }

@@ -1,7 +1,7 @@
 // What this crate's cards are built from. The plugins join this file and their card into one source (Rust's concat!),
 // so it holds the only import line.
 
-import { Theme, Icons, Icon, FocusRing, Button, Card, SearchWords, Section, SectionHeading, Switch, SwitchTile, Segmented, ChoiceField, TextField, NumberField, KeyFocus, TipBody, Reveal } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, Button, Card, SearchWords, Section, SectionHeading, Switch, SwitchTile, Segmented, ChoiceField, TextField, NumberField, KeyFocus, Tip, TipBody, Reveal } from "@ui-kit/ui-kit.slint";
 
 global Status {
     public pure function color(kind: string) -> color {
@@ -44,7 +44,7 @@ component Strip inherits Rectangle {
     accessible-label: title;
     accessible-description: sub;
     if keywords != "": SearchWords { words: keywords; }
-    if tip != "": Tooltip { TipBody { says: tip; } }
+    Tip { says: root.tip; inert: true; }
     VerticalLayout {
         padding-left: 13px;
         padding-right: 13px;
@@ -81,7 +81,7 @@ component StripTop inherits HorizontalLayout {
             // The strip is named by it already, and so is a switch in it
             accessible-role: none;
             // A line that only explains goes in a tooltip; one in a status colour is a status and stays
-            if sub != "" && sub-kind == "": Tooltip { TipBody { says: sub; } }
+            Tip { says: sub-kind == "" ? sub : ""; inert: true; }
         }
         Text {
             visible: sub != "" && sub-kind != "";
@@ -169,7 +169,7 @@ component SpinChip inherits Rectangle {
             reject
         }
     }
-    if tip != "": Tooltip { TipBody { says: tip; } }
+    Tip { says: root.tip; hover: touch.has-hover; inert: !root.enabled; }
     input := TextInput {
         x: 11px;
         width: parent.width - 22px;

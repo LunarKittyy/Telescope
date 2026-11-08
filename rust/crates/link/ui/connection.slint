@@ -1,7 +1,7 @@
 // The Connection plugin: the card, the phone picker in the header, the Add
 // phone and Your phones dialogs (as popups) and the UDP row in Settings. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, TipBody, Button, IconButton, LinkText, Card, FormRow, Segmented, ChoiceField, TextField, TextCap, Switch, SettingRow, Tag, DialogFrame, WindowBox, FlickBar, QrCode } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Tip, TipBody, Button, IconButton, LinkText, Card, FormRow, Segmented, ChoiceField, TextField, TextCap, Switch, SettingRow, Tag, DialogFrame, WindowBox, FlickBar, QrCode } from "@ui-kit/ui-kit.slint";
 
 // A plugged-in phone the Add device dialog can pair over USB.
 export struct UsbPick {
@@ -242,8 +242,11 @@ export component ConnectionCard inherits Card {
                         font-weight: 600;
                         color: Status.color(status-kind);
                         overflow: elide;
-                        if (note-text != "" && !err-shown) || shown-status-text.preferred-width > shown-status-text.width: Tooltip {
-                            TipBody { says: note-text == "" || err-shown ? shown-status-text.text : shown-status-text.preferred-width > shown-status-text.width ? shown-status-text.text + "\n" + note-text : note-text; }
+                        Tip {
+                            says: note-text == "" || err-shown ? shown-status-text.text : shown-status-text.preferred-width > shown-status-text.width ? shown-status-text.text : note-text;
+                            detail: note-text != "" && !err-shown && shown-status-text.preferred-width > shown-status-text.width ? note-text : "";
+                            enabled: (note-text != "" && !err-shown) || shown-status-text.preferred-width > shown-status-text.width;
+                            inert: true;
                         }
                     }
                     if using-shown: shown-using-text := Text {
@@ -252,7 +255,7 @@ export component ConnectionCard inherits Card {
                         font-size: Theme.body;
                         color: Theme.text-dim;
                         overflow: elide;
-                        if shown-using-text.preferred-width > shown-using-text.width: Tooltip { TipBody { says: shown-using-text.text; } }
+                        Tip { says: shown-using-text.text; enabled: shown-using-text.preferred-width > shown-using-text.width; inert: true; }
                     }
                 }
             }

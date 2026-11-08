@@ -1,7 +1,7 @@
 // The Stream output card: resolution, frame rate and shape as three
 // tiles, Light or Heavy, then JPEG quality or bitrate. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Card, FormRow, Slider, ChoiceField, TipBody, TipUse, ShortcutMenu } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Card, FormRow, Slider, ChoiceField, Tip, TipBody, TipUse, ShortcutMenu } from "@ui-kit/ui-kit.slint";
 
 // One of the two format buttons (widgets.controls.OptionCard): a title, a plain note and an icon.
 component OptionCard inherits Rectangle {
@@ -27,7 +27,7 @@ component OptionCard inherits Rectangle {
     accessible-description: note;
     accessible-checked: checked;
     accessible-action-default => { if (root.enabled) { root.clicked(); } }
-    usage := TipUse { hover: touch.has-hover; }
+    usage := Tip { says: root.tip; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: root.enabled ? pointer : default;
@@ -48,7 +48,6 @@ component OptionCard inherits Rectangle {
             Text { text: note; font-family: Theme.font; font-size: 11px; color: Theme.text-dim; }
         }
     }
-    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
 }
 
 export component StreamOutputCard inherits Card {

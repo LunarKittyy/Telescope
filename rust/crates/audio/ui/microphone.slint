@@ -1,7 +1,7 @@
 // The Microphone card. Texts with blanks come
 // filled from Rust; the Install VB-Cable question is a popup inside the card.
 
-import { Theme, Icons, Icon, Button, Card, FormRow, Slider, Switch, NumberField, TipBody, DialogFrame, WindowBox } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, Card, FormRow, Slider, Switch, NumberField, Tip, TipBody, DialogFrame, WindowBox } from "@ui-kit/ui-kit.slint";
 
 // The meter's numbers from the plugin: bar ends and the held marker as 0..1 along it, and which light is on.
 export struct MeterState {
@@ -117,9 +117,7 @@ component LevelMeter inherits Rectangle {
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
     }
-    if touch.has-hover: Tooltip {
-        TipBody { says: @tr("Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."); }
-    }
+    Tip { says: @tr("Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."); hover: touch.has-hover; }
 }
 
 export component MicrophoneCard inherits Card {

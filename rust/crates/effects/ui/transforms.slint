@@ -120,7 +120,7 @@ export component TransformsCard inherits Card {
                             border-radius: 3px;
                             background: dot-level == "on" ? Theme.accent : Theme.err;
                         }
-                        Tooltip { TipBody { says: root.dot-tip; } }
+                        Tip { says: root.dot-tip; inert: true; }
                     }
                     Text {
                         text: zoom-text;
@@ -132,7 +132,7 @@ export component TransformsCard inherits Card {
                         vertical-alignment: center;
                     }
                 }
-                Tooltip { TipBody { says: root.zoom-tip; } }
+                Tip { says: root.zoom-tip; inert: true; }
             }
         }
     }
