@@ -8,7 +8,7 @@ import { FlickBar } from "scroll.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { Tip } from "tip.slint";
 import { SearchWords } from "setting.slint";
-import { Motion } from "motion.slint";
+import { Motion, Worm } from "motion.slint";
 
 // Kind "segmented": equal raised segments side by side. The picked one has a thick border in the card's colour and a muted inside,
 // not a flat fill, so Start streaming stays the only filled thing in the window.
@@ -72,6 +72,28 @@ export component Segmented inherits Rectangle {
     preferred-width: 0px;
     accessible-role: tab-list;
     accessible-label: label;
+    // Layers, bottom to top: the surfaces and everything that takes a press, the worm (the picked outline, which stretches between
+    // options), then each option's text. The two layouts have the same rules, so an option's text sits on its surface.
+    // Where the picked option's surface is, for the worm
+    property <length> sel-x;
+    property <length> sel-w;
+    // Where the picked outline is now, for a test
+    out property <length> worm-left: worm.left;
+    out property <length> worm-right: worm.right;
+    out property <length> worm-top: worm.top;
+    out property <length> worm-bottom: worm.bottom;
+    // The pointer is on an option, or holds one down (-1 for none)
+    property <int> hover-i: -1;
+    property <int> press-i: -1;
+    // The worm glides for a pick (a click, or something outside) and rests after, so a layout that resizes moves it with no lag
+    property <int> settled: -1;
+    property <bool> glide: shown != settled;
+    init => { settled = shown; }
+    Timer {
+        interval: 700ms;
+        running: root.shown != root.settled;
+        triggered => { root.settled = root.shown; }
+    }
     TouchRing { setting: root.setting; y: margin; width: parent.width; height: Theme.row; radius: Theme.r-ctl; }
     HorizontalLayout {
         y: margin;
@@ -87,19 +109,34 @@ export component Segmented inherits Rectangle {
             min-width: min(bold-width.preferred-width + Theme.u(8), Theme.u(24));
             preferred-width: 1000px;
             border-radius: Theme.r-ctl;
-            border-width: on && !off ? Theme.stroke : 0px;
-            border-color: hue;
+            // The picked one's own colour is the worm's, which lies over this
             background: off ? Theme.raise.mix(Theme.card, 0.4)
-                : on ? (seg-touch.pressed ? Theme.held(hue) : Theme.tint(hue))
-                : seg-touch.pressed ? Theme.press
-                : seg-touch.has-hover ? Theme.hover : Theme.raise;
-            animate background, border-width { duration: Motion.tone-for(seg-touch.pressed || quick); easing: Motion.tone; }
+                : seg-touch.pressed && !on ? Theme.press
+                : seg-touch.has-hover && !on ? Theme.hover : Theme.raise;
+            animate background { duration: Motion.tone-for(seg-touch.pressed || quick); easing: Motion.tone; }
             accessible-role: tab;
             accessible-label: label + ": " + item;
             accessible-checkable: true;
             accessible-checked: on;
             accessible-action-default => { if (!off) { pick(i); } }
             bold-width := Text { text: item; font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; visible: false; }
+            // Where the worm goes when this one is picked
+            property <length> at-x: self.x;
+            property <length> at-w: self.width;
+            function claim() {
+                if (on) {
+                    root.sel-x = self.x;
+                    root.sel-w = self.width;
+                }
+            }
+            changed on => { claim(); }
+            changed at-x => { claim(); }
+            changed at-w => { claim(); }
+            init => { claim(); }
+            property <bool> over: seg-touch.has-hover;
+            changed over => { if (over) { hover-i = i; } else if (hover-i == i) { hover-i = -1; } }
+            property <bool> held: seg-touch.pressed;
+            changed held => { if (held) { press-i = i; } else if (press-i == i) { press-i = -1; } }
             property <int> asked: arrows;
             changed asked => {
                 if (arrow-to == i) {
@@ -139,6 +176,29 @@ export component Segmented inherits Rectangle {
                     }
                 }
             }
+        }
+    }
+    worm := Worm {
+        to-x: sel-x;
+        to-y: margin;
+        to-w: sel-w;
+        to-h: Theme.row;
+        hue: root.hue;
+        snap: quick || !glide;
+        shown: shown >= 0 && shown < items.length && !disabled[shown];
+        pressed: press-i == shown;
+    }
+    HorizontalLayout {
+        y: margin;
+        height: Theme.row;
+        spacing: Theme.gap;
+        for item[i] in items: Rectangle {
+            property <bool> on: i == shown;
+            property <bool> off: disabled[i];
+            horizontal-stretch: 1;
+            min-width: min(bold-copy.preferred-width + Theme.u(8), Theme.u(24));
+            preferred-width: 1000px;
+            bold-copy := Text { text: item; font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; visible: false; }
             HorizontalLayout {
                 alignment: center;
                 spacing: Theme.u(3);
@@ -155,10 +215,11 @@ export component Segmented inherits Rectangle {
                     font-family: Theme.font;
                     font-size: Theme.body;
                     font-weight: on ? Theme.w-value : Theme.w-label;
-                    color: off ? Theme.dis : on || seg-touch.has-hover ? Theme.ink : Theme.ink2;
+                    color: off ? Theme.dis : on || hover-i == i ? Theme.ink : Theme.ink2;
                     horizontal-alignment: center;
                     vertical-alignment: center;
                     overflow: elide;
+                    accessible-role: none;
                 }
             }
         }
@@ -247,6 +308,23 @@ export component PictureSegmented inherits Rectangle {
             }
         }
     }
+    // Where the picked outline is now, for a test
+    out property <length> worm-left: worm.left;
+    out property <length> worm-right: worm.right;
+    out property <length> worm-top: worm.top;
+    out property <length> worm-bottom: worm.bottom;
+    // The pointer is on a tile, or holds one down (-1 for none)
+    property <int> hover-i: -1;
+    property <int> press-i: -1;
+    // The worm glides for a pick (a click, or something outside) and rests after, so a layout that resizes moves it with no lag
+    property <int> settled: -1;
+    property <bool> glide: shown != settled;
+    init => { settled = shown; }
+    Timer {
+        interval: 700ms;
+        running: root.shown != root.settled;
+        triggered => { root.settled = root.shown; }
+    }
     TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
     for item[i] in items: seg := Rectangle {
         property <bool> on: i == shown;
@@ -257,13 +335,15 @@ export component PictureSegmented inherits Rectangle {
         width: cell-width;
         height: tile-height;
         border-radius: Theme.r-ctl;
-        border-width: on && !off ? Theme.stroke : 0px;
-        border-color: hue;
+        // The picked one's own colour is the worm's, which lies over this
         background: off ? Theme.raise.mix(Theme.card, 0.4)
-            : on ? (seg-touch.pressed ? Theme.held(hue) : Theme.tint(hue))
-            : seg-touch.pressed ? Theme.press
-            : seg-touch.has-hover ? Theme.hover : Theme.raise;
-        animate background, border-width { duration: Motion.tone-for(seg-touch.pressed || quick); easing: Motion.tone; }
+            : seg-touch.pressed && !on ? Theme.press
+            : seg-touch.has-hover && !on ? Theme.hover : Theme.raise;
+        animate background { duration: Motion.tone-for(seg-touch.pressed || quick); easing: Motion.tone; }
+        property <bool> held: seg-touch.pressed;
+        changed held => { if (held) { press-i = i; } else if (press-i == i) { press-i = -1; } }
+        property <bool> over: seg-touch.has-hover;
+        changed over => { if (over) { hover-i = i; } else if (hover-i == i) { hover-i = -1; } }
         accessible-role: tab;
         accessible-label: label + ": " + item;
         accessible-checkable: true;
@@ -308,22 +388,34 @@ export component PictureSegmented inherits Rectangle {
                 }
             }
         }
-        name-text := Text {
-            visible: show-names && !name-cut;
-            y: tile-height - Theme.u(8);
-            width: parent.width;
-            height: Theme.u(7);
-            text: item;
-            font-family: Theme.font;
-            font-size: Theme.tiny;
-            font-weight: on ? Theme.w-value : Theme.w-label;
-            color: off ? Theme.dis : on || seg-touch.has-hover ? Theme.ink : Theme.ink2;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-            overflow: elide;
-            // The tile is named by it already
-            accessible-role: none;
-        }
+    }
+    worm := Worm {
+        to-x: max(0, shown) * pitch;
+        to-y: 0px;
+        to-w: cell-width;
+        to-h: tile-height;
+        hue: root.hue;
+        snap: quick || !glide;
+        shown: shown >= 0 && shown < items.length && !disabled[shown];
+        pressed: press-i == shown;
+    }
+    for item[i] in items: Text {
+        property <bool> on: i == shown;
+        visible: show-names && !(show-names && !names-fit);
+        x: i * pitch;
+        y: tile-height - Theme.u(8);
+        width: cell-width;
+        height: Theme.u(7);
+        text: item;
+        font-family: Theme.font;
+        font-size: Theme.tiny;
+        font-weight: on ? Theme.w-value : Theme.w-label;
+        color: disabled[i] ? Theme.dis : on || hover-i == i ? Theme.ink : Theme.ink2;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+        // The tile is named by it already
+        accessible-role: none;
     }
     // The caller's drawings, over the tiles and under nothing: they take no pointer, so a press goes to the tile below
     Rectangle {

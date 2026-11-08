@@ -7,6 +7,8 @@
 // motion owns each property and the control never writes it back as a new value.
 // Two families: spatial motions (places and sizes) may overshoot a little when they are small and fast, effects (colour, opacity) never do.
 
+import { Theme } from "../theme.slint";
+
 export global Motion {
     // The system's reduced-motion setting, or the Appearance option: moves snap, colour and opacity changes stay
     in-out property <bool> reduced: false;
@@ -17,12 +19,17 @@ export global Motion {
 
     // Each spring's period: it is within 2% of its target after about one, and at rest after about one and a half
     out property <duration> settle: 200ms;
-    out property <duration> flick: 130ms;
+    out property <duration> flick: 200ms;
     out property <duration> pop: 150ms;
     out property <duration> tone-up: 90ms;
     out property <duration> tone-down: 140ms;
     out property <duration> fade-in: 120ms;
     out property <duration> fade-out: 100ms;
+    // The worm that follows a pick (see Worm): its leading edge is stiff and quick and lands exactly, its trailing edge starts a beat later
+    // on a softer spring (bounce 0.3, a literal in WormEdge) and passes its place a little as it snaps in. The same time however far it goes.
+    out property <duration> worm-lead: 110ms;
+    out property <duration> worm-trail: 190ms;
+    out property <duration> worm-lag: 45ms;
     // The outline round a control that something outside the window just touched, going out slowly enough to be seen
     out property <duration> outline-out: 240ms;
     out property <duration> unfold-open: 170ms;
@@ -72,8 +79,9 @@ export component Settle {
     }
 }
 
-// Kind "helper". Flick: a small thing that jumps between two places in a blink, a switch's handle. A spring a little under critical, so it
-// passes its place by about a fifteenth of the way and comes back.
+// Kind "helper". Flick: a small thing that jumps between two places in a blink, a switch's handle. It eases in from rest (the first frames
+// barely move, a spring starts at full speed) and passes its place by about 2% on the way in, so it never touches the track's border.
+// A curve, not a spring: a retarget mid-move restarts from where it is.
 export component Flick {
     out property <string> control-kind: "helper";
     in property <float> to;
@@ -86,7 +94,7 @@ export component Flick {
         border-width: root.to * 1px;
         animate border-width {
             duration: snap || !Motion.moves ? 0ms : Motion.flick;
-            easing: spring(0.35);
+            easing: cubic-bezier(0.45, 0, 0.25, 1.2);
         }
     }
 }
@@ -183,4 +191,94 @@ export component Unfold {
             easing: spring(0.0);
         }
     }
+}
+
+// Kind "helper". One side of a Worm: a length that follows `to` on the leading spring (stiff, no overshoot) or the trailing one (softer,
+// a beat late, a little overshoot). Goes in the Worm, which is not in a layout.
+component WormEdge {
+    in property <length> to;
+    in property <bool> lead;
+    in property <bool> snap;
+    // A beat more, for the second axis of a move across and down
+    in property <duration> after;
+    out property <length> value: bar.border-width;
+    bar := Rectangle {
+        visible: false;
+        width: 0px;
+        height: 0px;
+        border-width: root.to;
+        animate border-width {
+            delay: snap || !Motion.moves ? 0ms : (lead ? 0ms : Motion.worm-lag) + after;
+            duration: snap || !Motion.moves ? 0ms : lead ? Motion.worm-lead : Motion.worm-trail;
+            easing: lead ? spring(0.0) : spring(0.3);
+        }
+    }
+}
+
+// Kind "outline". Worm: the picked option's outline and muted inside, which stretches onto a newly picked option instead of vanishing and
+// appearing. The edge on the side it travels to is the leading one and the other trails (see Motion.worm-*), so it stretches then
+// contracts, in the same time however far it goes. On a grid one axis leads and the other follows (the path bows). Give it the picked
+// cell's place (`to-x`, `to-y`, `to-w`, `to-h`, in its parent) and draw it over the options' surfaces and under their text.
+// `snap` puts it there at once (a key, a layout resizing); the first place it is given is never animated.
+export component Worm inherits Rectangle {
+    out property <string> control-kind: "outline";
+    in property <length> to-x;
+    in property <length> to-y;
+    in property <length> to-w;
+    in property <length> to-h;
+    in property <color> hue: Theme.accent;
+    in property <length> radius: Theme.r-ctl;
+    // The picked option is held down
+    in property <bool> pressed;
+    in property <bool> snap;
+    // False while there is nothing picked, or what is picked can't show the outline (disabled)
+    in property <bool> shown: true;
+    // Where it is, for a test
+    out property <length> left: l.value;
+    out property <length> right: r.value;
+    out property <length> top: t.value;
+    out property <length> bottom: b.value;
+    // Which way the last pick went on each axis, and which axes it moved on, latched when the target moves
+    property <bool> fwd: true;
+    property <bool> down: true;
+    property <bool> h-moved;
+    property <bool> v-moved;
+    property <length> last-cx: -1px;
+    property <length> last-cy: -1px;
+    // The first place is where it starts, not something it travels to
+    property <bool> placed;
+    function retarget() {
+        let cx = to-x + to-w / 2;
+        let cy = to-y + to-h / 2;
+        if (cx != last-cx || cy != last-cy) {
+            h-moved = cx != last-cx;
+            v-moved = cy != last-cy;
+            if (h-moved) { fwd = cx > last-cx; }
+            if (v-moved) { down = cy > last-cy; }
+            last-cx = cx;
+            last-cy = cy;
+        }
+    }
+    property <length> cx: to-x + to-w / 2;
+    property <length> cy: to-y + to-h / 2;
+    changed cx => { retarget(); }
+    changed cy => { retarget(); }
+    changed to-w => { retarget(); if (to-w > 0px) { placed = true; } }
+    property <bool> still: snap || !placed;
+    // Across and down: across leads, down follows a beat later
+    property <duration> late: h-moved && v-moved ? Motion.worm-lag * 1.5 : 0ms;
+    l := WormEdge { to: root.to-x; lead: !fwd; snap: still; }
+    r := WormEdge { to: root.to-x + root.to-w; lead: fwd; snap: still; }
+    t := WormEdge { to: root.to-y; lead: !down; snap: still; after: late; }
+    b := WormEdge { to: root.to-y + root.to-h; lead: down; snap: still; after: late; }
+    x: l.value;
+    y: t.value;
+    width: max(0px, r.value - l.value);
+    height: max(0px, b.value - t.value);
+    visible: shown && to-w > 0px;
+    border-radius: radius;
+    border-width: Theme.stroke;
+    border-color: hue;
+    background: pressed ? Theme.held(hue) : Theme.tint(hue);
+    animate background { duration: Motion.tone-for(pressed || snap); easing: Motion.tone; }
 }

@@ -4,6 +4,7 @@ import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { FocusRing, KeyFocus, TouchRing } from "basics.slint";
 import { Tip } from "tip.slint";
+import { Worm } from "motion.slint";
 
 // Kind "segmented", the options laid out as the places they stand for (a name tag's corner): each anchor is a dot in a recessed
 // frame with the outline of a picture inside it, and the picked one is a bar in the card's colour with the thick outline. `across` and `down` place option i from 0 (left,
@@ -55,6 +56,13 @@ export component AnchorFrame inherits Rectangle {
         arrow-to = to;
         arrows += 1;
     }
+    // Where the picked outline is now, for a test
+    out property <length> worm-left: worm.left;
+    out property <length> worm-right: worm.right;
+    out property <length> worm-top: worm.top;
+    out property <length> worm-bottom: worm.bottom;
+    // The anchor held down (-1 for none)
+    property <int> held-i: -1;
     min-height: Theme.u(30);
     preferred-height: Theme.u(49);
     border-radius: Theme.r-ctl;
@@ -75,6 +83,8 @@ export component AnchorFrame inherits Rectangle {
     }
     for item[i] in items: zone := Rectangle {
         property <bool> on: i == shown;
+        property <bool> held: touch.pressed;
+        changed held => { if (held) { held-i = i; } else if (held-i == i) { held-i = -1; } }
         // Where the anchor's centre is, and its bar's corner: the bar's own width is taken off by how far across it sits
         property <length> cx: inset + (across[i] * (root.width - 2 * inset - bar-w)) + bar-w / 2;
         property <length> cy: inset + (down[i] * (root.height - 2 * inset - bar-h)) + bar-h / 2;
@@ -118,16 +128,6 @@ export component AnchorFrame inherits Rectangle {
             border-radius: self.width / 2;
             background: !root.enabled ? Theme.dis : touch.pressed ? Theme.ink : touch.has-hover ? Theme.ink2 : Theme.line-hover;
         }
-        if on: Rectangle {
-            x: cx - zone.x - self.width / 2;
-            y: cy - zone.y - self.height / 2;
-            width: bar-w;
-            height: bar-h;
-            border-radius: Theme.r-handle / 2;
-            border-width: root.enabled ? Theme.stroke : 0px;
-            border-color: hue;
-            background: !root.enabled ? Theme.dis : touch.pressed ? Theme.held(hue) : Theme.tint(hue);
-        }
         FocusRing { shown: zone-focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
         usage := Tip { says: item; hover: touch.has-hover; inert: !root.enabled; focused: zone-focus.has-focus && KeyFocus.keyboard; }
         touch := TouchArea {
@@ -142,6 +142,25 @@ export component AnchorFrame inherits Rectangle {
             scroll-event(e) => { usage.wheel(); reject }
             clicked => { pick(i); }
         }
+    }
+    // The picked bar: it stretches from one anchor to the next, across first and then down
+    property <int> settled: -1;
+    init => { settled = shown; }
+    Timer {
+        interval: 700ms;
+        running: root.shown != root.settled;
+        triggered => { root.settled = root.shown; }
+    }
+    worm := Worm {
+        to-x: inset + (shown >= 0 && across.length > shown ? across[shown] : 0) * (root.width - 2 * inset - bar-w);
+        to-y: inset + (shown >= 0 && down.length > shown ? down[shown] : 0) * (root.height - 2 * inset - bar-h);
+        to-w: bar-w;
+        to-h: bar-h;
+        radius: Theme.r-handle / 2;
+        hue: root.hue;
+        snap: root.shown == root.settled;
+        shown: root.enabled && root.shown >= 0 && root.shown < items.length;
+        pressed: held-i >= 0 && held-i == root.shown;
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
 }
