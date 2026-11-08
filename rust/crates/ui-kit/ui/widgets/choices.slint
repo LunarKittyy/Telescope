@@ -518,10 +518,10 @@ export component ChoiceField inherits Rectangle {
     // Close the list and hand the focus back: a click eases it out, a key puts it away at once (`gently` says which)
     function close-list(gently: bool) {
         if (gently && Motion.fades && open && !closing) {
+            // The focus stays where it is until the fade is over: moving it would take the pop-up down at once
             closing = true;
             root.open = false;
             hl = -1;
-            focus.focus();
         } else if (!closing) {
             close-now();
         }
@@ -664,6 +664,8 @@ export component ChoiceField inherits Rectangle {
         height: Theme.u(8);
     }
     popup := PopupWindow {
+        // A click inside doesn't close it by itself: a pick eases it out first
+        close-policy: close-on-click-outside;
         // Wide enough for its longest option, and inside the window: a longer one wraps, Slint moves it in from the edge
         property <length> room-w: WindowBox.width > 0 ? WindowBox.width - 16px : 4000px;
         property <length> room-h: WindowBox.height > 0 ? WindowBox.height - 16px : 4000px;

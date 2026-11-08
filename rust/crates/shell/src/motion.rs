@@ -61,7 +61,22 @@ fn system() -> Motion {
     Motion::Full
 }
 
-#[cfg(not(target_os = "linux"))]
+/// What Windows' "Show animations in Windows" (SPI_GETCLIENTAREAANIMATION) says: off is reduced motion.
+pub fn windows_says(animations_on: bool) -> Motion {
+    if animations_on { Motion::Full } else { Motion::Reduced }
+}
+
+#[cfg(windows)]
+fn system() -> Motion {
+    use windows::Win32::UI::WindowsAndMessaging::{SystemParametersInfoW, SPI_GETCLIENTAREAANIMATION, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS};
+    // A BOOL: 0 when animations are off
+    let mut on: i32 = 1;
+    // SAFETY: the pointer is to a live i32, which is the size of the BOOL this action fills in, and uiparam is unused by it
+    let read = unsafe { SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, Some(&mut on as *mut i32 as *mut core::ffi::c_void), SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0)) };
+    if read.is_ok() { windows_says(on != 0) } else { Motion::Full }
+}
+
+#[cfg(not(any(target_os = "linux", windows)))]
 fn system() -> Motion {
     Motion::Full
 }
@@ -100,6 +115,12 @@ mod tests {
         assert_eq!(gnome_says("false\n"), Some(Motion::Reduced));
         assert_eq!(gnome_says("true\n"), Some(Motion::Full));
         assert_eq!(gnome_says(""), None);
+    }
+
+    #[test]
+    fn windows_animations_off_is_reduced_motion() {
+        assert_eq!(windows_says(false), Motion::Reduced);
+        assert_eq!(windows_says(true), Motion::Full);
     }
 
     #[test]

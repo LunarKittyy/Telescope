@@ -271,6 +271,11 @@ export component Worm inherits Rectangle {
     changed cx => { retarget(); }
     changed cy => { retarget(); }
     changed to-w => { retarget(); if (to-w > 0px) { placed = true; } }
+    init => {
+        last-cx = cx;
+        last-cy = cy;
+        placed = to-w > 0px;
+    }
     property <bool> still: snap || !placed;
     // Across and down: across leads, down follows a beat later
     property <duration> late: h-moved && v-moved ? Motion.worm-lag * 1.5 : 0ms;

@@ -229,6 +229,8 @@ export component Card inherits Rectangle {
             max-height: unfold.value > 0 ? 100000px : 0px;
             vertical-stretch: unfold.value > 0 ? 1 : 0;
             clip: unfold.value < 1;
+            // The rows fade as the box closes round them, so a clipped handle or outline never shows as a stray arc
+            opacity: clamp((unfold.value - 0.75) / 0.2, 0, 1);
             rows := VerticalLayout {
                 width: parent.width;
                 height: max(parent.height, self.preferred-height);
