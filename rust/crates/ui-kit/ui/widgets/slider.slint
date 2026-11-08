@@ -172,7 +172,7 @@ export component Slider inherits HorizontalLayout {
         // A stepped slider's handle is a magnet while it is dragged (see `detent`): it follows the pointer, held back near each step, and
         // springs into its slot when let go; anything else glides to the value, a finger that has hold of the handle puts it there at once
         property <bool> magnetic: dragging && caught && chunky;
-        glide := Settle { to: magnetic ? track.pointer-fraction : track.target; snap: (dragging && caught) || quick; }
+        glide := Settle { to: magnetic ? track.pointer-fraction : track.target; snap: dragging && caught; }
         // Where a pointer at `fraction` along the track puts a stepped slider's handle: 1 to 1 with it on average, but held back near each
         // step (the middle third of a step moves it a fifth as far) and made up in the last of the way to the midpoint, where the value changes
         // and the next step's pull takes over. It is the pointer's own place at every midpoint, so nothing jumps there

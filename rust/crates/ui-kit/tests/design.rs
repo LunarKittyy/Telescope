@@ -295,3 +295,82 @@ fn every_icon_file_is_used_and_no_two_are_the_same_drawing() {
         assert!(icons.join(name).is_file(), "icons.slint names icons/{name}, which isn't there");
     }
 }
+
+/// Every .slint file of the kit and of the cards, with its path.
+fn all_slint() -> Vec<(String, String)> {
+    let mut files = Vec::new();
+    slint_files(&crates(), &mut files);
+    let mut kit_files = Vec::new();
+    slint_files(&kit().join("ui"), &mut kit_files);
+    files.extend(kit_files);
+    files.sort();
+    files.dedup();
+    files.into_iter().map(|f| (f.display().to_string(), std::fs::read_to_string(&f).unwrap())).collect()
+}
+
+/// A motion is a spring that keeps its place and speed when it is given a new target (see STYLE.md, Motion). Nothing may build one that
+/// doesn't chain: no `delay` (a retarget freezes the value for the delay, then it jumps on with its old speed), no curve on a number that
+/// moves (`cubic-bezier`, `ease-*` restart from rest at every retarget), and no `snap` that a key sets (a key during a move cut it dead).
+#[test]
+fn no_animation_has_a_delay_a_restarting_curve_or_a_snap_from_a_key() {
+    let mut problems = Vec::new();
+    for (path, text) in all_slint() {
+        for (n, line) in text.lines().enumerate() {
+            let code = line.split("//").next().unwrap();
+            let at = || format!("{path}:{}: {}", n + 1, line.trim());
+            if code.contains("delay:") && !code.contains("property") {
+                problems.push(format!("a delay: {}", at()));
+            }
+            if code.contains("cubic-bezier") || code.contains("easing: ease") || code.contains("easing: linear") {
+                problems.push(format!("a curve that restarts at every retarget (use a spring): {}", at()));
+            }
+            if code.contains("snap:") && code.contains("quick") {
+                // `quick` is what a key sets; the colours may follow it at once (Tone), places and sizes may not
+                if !code.contains("Tone {") {
+                    problems.push(format!("a snap that a key sets: {}", at()));
+                }
+            }
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+/// A stroked Path is fitted by Slint into its box less one stroke, offset by half of it, so a path whose viewbox is as big as its box is
+/// drawn smaller than its numbers and off the pixel grid. In the kit, every Path that has a stroke and a viewbox says which way it is
+/// fitted: its viewbox is the box less a stroke (written with `stroke`), or it widens its box by the stroke, or it says `fit: fill`.
+#[test]
+fn a_stroked_path_in_the_kit_is_fitted_on_purpose() {
+    let mut problems = Vec::new();
+    for (path, text) in all_slint() {
+        if !path.contains("/ui-kit/ui/") {
+            continue;
+        }
+        for (n, block) in text.split("Path {").enumerate().skip(1) {
+            let body = block.split("\n    }\n").next().unwrap_or(block);
+            let body = body.split("\n}\n").next().unwrap_or(body);
+            if body.contains("stroke-width:") && body.contains("viewbox-width:") {
+                let on_purpose = body.contains("Theme.stroke /") || body.contains("- Theme.stroke") || body.contains("ImageFit.fill") || body.contains("fitted:");
+                if !on_purpose {
+                    problems.push(format!("{path}: Path number {n} has a stroke and a viewbox of its own size; subtract the stroke from the viewbox (see widgets/stepper.slint) or say `fit: ImageFit.fill`, or write a `fitted:` comment in the Path saying why any scale will do"));
+                }
+            }
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+/// The words a fold's title says about its state ("Expanded. Press Space..." / "Collapsed...") are for a screen reader only: they may be read
+/// into an accessible-description, never drawn and never a tooltip's name or body.
+#[test]
+fn a_folds_state_words_are_for_screen_readers_only() {
+    let mut problems = Vec::new();
+    for (path, text) in all_slint() {
+        for (n, line) in text.lines().enumerate() {
+            let code = line.split("//").next().unwrap();
+            if (code.contains("FoldText.expanded") || code.contains("FoldText.collapsed")) && !code.contains("accessible-description") {
+                problems.push(format!("{path}:{}: {}", n + 1, line.trim()));
+            }
+        }
+    }
+    assert!(problems.is_empty(), "FoldText belongs in accessible-description only:\n{}", problems.join("\n"));
+}

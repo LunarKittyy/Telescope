@@ -145,12 +145,15 @@ export component AnchorFrame inherits Rectangle {
         }
     }
     // The picked bar: it stretches from one anchor to the next, across first and then down
-    property <int> settled: -1;
-    init => { settled = shown; }
-    Timer {
-        interval: 700ms;
-        running: root.shown != root.settled;
-        triggered => { root.settled = root.shown; }
+    // Glides for a pick until it has arrived (see Segmented): every pick sets it, arriving clears it, nothing counts or waits
+    property <bool> gliding;
+    changed shown => { gliding = true; glide-end.restart(); }
+    property <bool> worm-rest: worm.at-rest;
+    changed worm-rest => { if (worm-rest) { gliding = false; } }
+    glide-end := Timer {
+        interval: 900ms;
+        running: root.gliding;
+        triggered => { root.gliding = false; }
     }
     worm := Worm {
         to-x: inset + (shown >= 0 && across.length > shown ? across[shown] : 0) * (root.width - 2 * inset - bar-w);
@@ -159,7 +162,7 @@ export component AnchorFrame inherits Rectangle {
         to-h: bar-h;
         radius: Theme.r-handle / 2;
         hue: root.hue;
-        snap: root.shown == root.settled;
+        snap: !gliding;
         shown: root.enabled && root.shown >= 0 && root.shown < items.length;
         pressed: held-i >= 0 && held-i == root.shown;
     }

@@ -85,6 +85,8 @@ export component Wrapper inherits Window {
     let outside = slint::LogicalPosition::new(390.0, 590.0);
     ui.window().dispatch_event(WindowEvent::PointerPressed { position: outside, button: PointerEventButton::Left });
     ui.window().dispatch_event(WindowEvent::PointerReleased { position: outside, button: PointerEventButton::Left });
+    // The dialog eases out before it says no
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(300));
     slint::platform::update_timers_and_animations();
     assert!(!shown("Download and install"));
     assert_eq!(answers.borrow().as_slice(), [Value::Bool(false)], "it says no, as Cancel does");
