@@ -162,6 +162,8 @@ export component PictureSegmented inherits Rectangle {
     in property <[bool]> disabled;
     // What to say on hover over each option, where it differs from its name (why it can't be picked); a name alone has a tip of its own
     in property <[string]> tips;
+    // A line or two more under an option's tip
+    in property <[string]> tip-details;
     in property <string> label;
     // Where the parent says it is. Picking never writes here, so a parent's `current: mode` keeps following mode.
     in-out property <int> current: 0;
@@ -246,7 +248,7 @@ export component PictureSegmented inherits Rectangle {
             }
         }
         FocusRing { shown: seg-focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
-        usage := TipUse { hover: seg-touch.has-hover; }
+        usage := Tip { says: tips[i] != "" ? tips[i] : item; detail: tip-details.length > i ? tip-details[i] : ""; hover: seg-touch.has-hover; inert: off; focused: seg-focus.has-focus && KeyFocus.keyboard; }
         seg-touch := TouchArea {
             mouse-cursor: off ? default : pointer;
             scroll-event(e) => { usage.wheel(); reject }
@@ -264,7 +266,6 @@ export component PictureSegmented inherits Rectangle {
                 }
             }
         }
-        if !usage.used: Tooltip { TipBody { says: tips[i] != "" ? tips[i] : item; } }
         if show-names: Text {
             y: tile-height - Theme.u(8);
             width: parent.width;
