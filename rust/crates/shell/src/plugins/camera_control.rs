@@ -337,7 +337,7 @@ fn dial_stops(shutter: bool, v_min: f64, v_max: f64) -> Vec<Stop> {
         let n = if s.fract() == 0.0 { format!("{s}") } else { number(*s, 1, false) };
         Stop { name: tr("{n} s").field("n", n), value: (s * 1e9).round() }
     });
-    let fast = SHUTTER_FRACTIONS.iter().map(|d| Stop { name: format!("1/{d}"), value: (1e9 / f64::from(*d)).round() });
+    let fast = SHUTTER_FRACTIONS.iter().rev().map(|d| Stop { name: format!("1/{d}"), value: (1e9 / f64::from(*d)).round() });
     slow.chain(fast).filter(|s| inside(s.value)).collect()
 }
 

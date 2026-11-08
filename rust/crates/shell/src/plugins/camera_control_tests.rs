@@ -458,7 +458,7 @@ fn a_lens_that_can_only_meter_takes_a_meter_point_and_tap_a_point_stays_off() {
 fn compensation_snaps_and_all_three_reset_on_a_double_click() {
     // Brightness snaps to 0; all three have a default a double-click goes back to (the slider's own job in ui-kit)
     let card = include_str!("../../ui/cards/camera.slint");
-    let brightness = &card[card.find("label: @tr(\"Brightness\");\n            Slider").unwrap()..];
+    let brightness = &card[card.find("shortcut: \"camera.compensation\";").unwrap()..];
     let brightness = &brightness[..brightness.find("moved(v)").unwrap()];
     assert!(brightness.contains("marks: [0];") && brightness.contains("default-value: 0;"));
     assert_eq!(card.matches("has-default: true;").count(), 3);
@@ -885,7 +885,7 @@ fn back_on_a_after_b_nothing_is_sent_and_a_keeps_its_own_range() {
 #[test]
 fn iso_shutter_and_focus_move_a_position_at_a_time() {
     let card = include_str!("../../ui/cards/camera.slint");
-    for label in ["label: \"ISO\";\n            Slider", "label: @tr(\"Shutter\");\n            Slider", "label: @tr(\"Distance\");\n            Slider"] {
+    for label in ["shortcut: \"camera.focus\";"] {
         let at = card.find(label).unwrap_or_else(|| panic!("no {label}"));
         let slider = &card[at..at + card[at..].find("moved(v)").unwrap()];
         assert!(slider.contains("step: 1;"), "{label}: {slider}");

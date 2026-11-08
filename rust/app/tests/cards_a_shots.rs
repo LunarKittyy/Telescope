@@ -26,12 +26,18 @@ fn card_of(plugin: &mut dyn Plugin, group: &str) -> (String, String, Json) {
 }
 
 fn shoot(dir: &std::path::Path, name: &str, card: &(String, String, Json), props: &[Json]) {
+    shoot_marked(dir, name, card, props, false);
+}
+
+/// `dot`: the rows changed from their default are marked with a dot, not a lit icon (Theme.mark-dot).
+fn shoot_marked(dir: &std::path::Path, name: &str, card: &(String, String, Json), props: &[Json], dot: bool) {
     offscreen::install();
     let (source, component, base) = card;
     let def = telescope_shell::compile::compile("card.slint", source, vec![], component).expect("the card compiles");
     for classic in [false, true] {
         let ui = def.create().unwrap();
         ui.set_global_property("Theme", "classic", Value::Bool(classic)).unwrap();
+        ui.set_global_property("Theme", "mark-dot", Value::Bool(dot)).unwrap();
         for part in std::iter::once(base).chain(props) {
             for (key, value) in part.as_object().unwrap() {
                 ui.set_property(key, to_property(&ui, key, value)).unwrap_or_else(|e| panic!("{key}: {e:?}"));
@@ -45,7 +51,7 @@ fn shoot(dir: &std::path::Path, name: &str, card: &(String, String, Json), props
             other => panic!("no preferred height: {other:?}"),
         };
         let pic = offscreen::draw(ui.window(), WIDTH, height.ceil(), 2.0).expect("a picture");
-        pic.save_png(&dir.join(format!("{name}-{}.png", if classic { "classic" } else { "new" }))).unwrap();
+        pic.save_png(&dir.join(format!("{name}{}-{}.png", if dot { "-dot" } else { "" }, if classic { "classic" } else { "new" }))).unwrap();
         ui.hide().unwrap();
     }
 }
@@ -80,6 +86,16 @@ fn connection_card() -> (String, String, Json) {
     (source, "ConnectionCard".into(), json!({}))
 }
 
+static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// The language the cards are drawn in from here on: the texts are translated as each card is compiled. Held while the test draws.
+fn language(code: &str) -> std::sync::MutexGuard<'static, ()> {
+    let held = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
+    telescope_core::i18n::use_folder(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../locale"));
+    telescope_core::i18n::load(Some(code));
+    held
+}
+
 fn out() -> Option<std::path::PathBuf> {
     let dir = std::path::PathBuf::from(std::env::var("SHOTS").ok()?);
     std::fs::create_dir_all(&dir).unwrap();
@@ -89,13 +105,16 @@ fn out() -> Option<std::path::PathBuf> {
 #[test]
 fn camera_shots() {
     let Some(dir) = out() else { return };
+    let _english = language("en");
     let camera = card_of(&mut CameraControl::new(), "camera");
     shoot(&dir, "camera-auto", &camera, &[camera_props()]);
-    shoot(&dir, "camera-manual", &camera, &[camera_props(), json!({
+    let manual = json!({
         "exposure-mode": 1, "iso-enabled": true, "shutter-enabled": true, "wb-mode": 1, "wb-enabled": true, "kelvin": 3800, "tint": -40,
         "tint-text": "-40", "kelvin-text": "3800 K", "focus-mode": 2, "focus-enabled": true, "focus-pos": 400, "focus-text": "1.2 m",
         "ae-comp": 3, "ae-text": "+0.5 EV", "torch": {"checked": true, "enabled": true, "tip": ""}, "noise-reduction": 2,
-    })]);
+    });
+    shoot(&dir, "camera-manual", &camera, &[camera_props(), manual.clone()]);
+    shoot_marked(&dir, "camera-manual", &camera, &[camera_props(), manual], true);
     shoot(&dir, "camera-waiting", &camera, &[json!({
         "active": true, "lenses": [], "info": "", "lens-placeholder": "Start streaming to load lenses", "lens-columns": 3,
         "low-light": {"checked": false, "enabled": false, "tip": "Start streaming to use low light"},
@@ -106,6 +125,7 @@ fn camera_shots() {
 #[test]
 fn phone_shots() {
     let Some(dir) = out() else { return };
+    let _english = language("en");
     let phone = card_of(&mut MonitoringPlugin::new(), "streaming");
     shoot(&dir, "phone-streaming", &phone, &[json!({"active": true, "battery-level": 74, "battery-has-level": true, "battery-value": "74%",
         "battery-icon": "battery-charging", "temp-level": 38.0, "temp-has-level": true, "temp-value": "38 °C", "temp-note": "Cool"})]);
@@ -116,6 +136,7 @@ fn phone_shots() {
 #[test]
 fn photos_shots() {
     let Some(dir) = out() else { return };
+    let _english = language("en");
     let photos = card_of(&mut PhotosPlugin::new(), "camera");
     shoot(&dir, "photos-single", &photos, &[json!({"active": true, "shown": true, "take-enabled": true, "open-enabled": true,
         "mode-enabled": true, "format-enabled": true, "mode-options": ["Normal", "Night", "HDR"], "format-options": ["JPEG", "HEIC", "RAW (DNG)"],
@@ -131,6 +152,7 @@ fn photos_shots() {
 #[test]
 fn connection_shots() {
     let Some(dir) = out() else { return };
+    let _english = language("en");
     let card = connection_card();
     shoot(&dir, "connection-checking", &card, &[json!({"status-text": "Checking", "status-kind": "status_dim", "route-shown": true})]);
     shoot(&dir, "connection-update", &card, &[json!({"status-text": "Phone app needs an update", "status-kind": "status_warn", "route-shown": true,
@@ -140,4 +162,23 @@ fn connection_shots() {
     shoot(&dir, "connection-none", &card, &[json!({"status-text": "No device yet", "status-kind": "status_dim"})]);
     shoot(&dir, "connection-german", &card, &[json!({"status-text": "Die Telescope-App auf dem Telefon braucht eine Aktualisierung", "status-kind": "status_warn", "route-shown": true,
         "update-shown": true, "update-text": "Per USB aktualisieren"})]);
+}
+
+/// German, where the words run long: a stress test for text that is cut off.
+#[test]
+fn german_shots() {
+    let Some(dir) = out() else { return };
+    let _german = language("de");
+    let camera = card_of(&mut CameraControl::new(), "camera");
+    shoot(&dir, "de-camera", &camera, &[camera_props(), json!({"exposure-mode": 1, "iso-enabled": true, "shutter-enabled": true})]);
+    let phone = card_of(&mut MonitoringPlugin::new(), "streaming");
+    shoot(&dir, "de-phone", &phone, &[json!({"active": true, "battery-level": 74, "battery-has-level": true, "battery-value": "74 %",
+        "battery-icon": "battery-charging", "temp-level": 38.0, "temp-has-level": true, "temp-value": "38 \u{b0}C", "batt-text": "20 %", "temp-text": "45 \u{b0}C"})]);
+    let photos = card_of(&mut PhotosPlugin::new(), "camera");
+    shoot(&dir, "de-photos", &photos, &[json!({"active": true, "shown": true, "take-enabled": true, "mode-enabled": true, "format-enabled": true,
+        "mode-options": ["Normal", "Vollaufl\u{f6}sung"], "format-options": ["JPEG", "RAW und JPEG"], "shots-offered": [true, true, true, true],
+        "slot-options": ["2", "3"], "exposure-options": ["Wie das Video", "0,5 s"], "distortion-enabled": true})]);
+    let card = connection_card();
+    shoot(&dir, "de-connection", &card, &[json!({"status-text": "Telescope auf dem Telefon braucht eine Aktualisierung", "status-kind": "status_warn", "route-shown": true,
+        "update-shown": true, "update-text": "\u{dc}ber USB aktualisieren"})]);
 }

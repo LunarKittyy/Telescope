@@ -159,6 +159,9 @@ fn tile(props: &Value, key: &str) -> Option<(Vec<String>, i64)> {
     if !there {
         return None;
     }
+    if prefix == "distortion" {
+        return Some((vec![], props["distortion-index"].as_i64()?)); // the card words its three choices itself
+    }
     let list = props[format!("{prefix}-options")].as_array()?.iter().map(|o| o.as_str().unwrap().to_string()).collect();
     Some((list, props[format!("{prefix}-index")].as_i64()?))
 }
@@ -236,7 +239,7 @@ fn picking_a_night_mode_hides_what_it_cant_do() {
     rig.ui("tile-picked", vec![json!("mode"), json!(2)]);
     let p = rig.props();
     assert!(tile(&p, "format").is_none() && tile(&p, "exposure_s").is_none() && p["best-enabled"] == false);
-    assert_eq!(tile(&p, "shots").unwrap().0, ["Single", "Burst"]);
+    assert_eq!(p["shots-offered"], json!([true, true, false, false]));
     assert_eq!(rig.plugin.get_config()["mode"], "night");
 }
 

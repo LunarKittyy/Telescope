@@ -345,6 +345,8 @@ struct Tile {
 pub struct PhotosPlugin {
     choices: Choices,
     folder: String,
+    /// Where photos go until another folder is picked, to tell when one was
+    default_folder: String,
     caps: Option<StillCaps>,
     /// What still_caps last answered, to tell when it changed.
     caps_raw: Option<Value>,
@@ -379,6 +381,7 @@ impl PhotosPlugin {
         PhotosPlugin {
             choices: defaults(),
             folder: default_folder(),
+            default_folder: default_folder(),
             caps: None,
             caps_raw: None,
             camera_picks: [None, None],
@@ -559,7 +562,7 @@ impl PhotosPlugin {
             "timer-current": TIMERS.iter().position(|t| *t as f64 == number(c, "timer", 0.0)).unwrap_or(0),
             "best": c.get("best") == Some(&json!(true)), "best-enabled": best, "best-tip": tr(if best { BEST_TIP } else { BEST_OFF_TIP }),
             "folder-name": Path::new(&self.folder).file_name().map(|n| n.to_string_lossy().into_owned()).filter(|n| !n.is_empty()).unwrap_or_else(|| self.folder.clone()),
-            "folder-tip": self.folder,
+            "folder-tip": self.folder, "folder-changed": self.folder != self.default_folder,
         })
     }
 

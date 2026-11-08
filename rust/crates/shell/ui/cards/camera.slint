@@ -188,6 +188,7 @@ export component CameraCard inherits Card {
         label: @tr("Exposure");
         hue: root.hue;
         enabled: active;
+        changed: exposure-mode != 0;
         Segmented {
             hue: root.hue;
             shortcut: "camera.exposure_mode";
@@ -232,6 +233,7 @@ export component CameraCard inherits Card {
         label: @tr("Brightness");
         hue: root.hue;
         enabled: active;
+        changed: ae-comp != 0;
         Slider {
             shortcut: "camera.compensation";
             label: @tr("Brightness");
@@ -242,6 +244,7 @@ export component CameraCard inherits Card {
             step: 1;
             value: ae-comp;
             readout: ae-text;
+            marks: [0];
             has-default: true;
             default-value: 0;
             tip: @tr("Brightness");
@@ -254,6 +257,7 @@ export component CameraCard inherits Card {
         label: @tr("White balance");
         hue: root.hue;
         enabled: active;
+        changed: wb-mode != 0 || kelvin != 5500 || tint != 0;
         Segmented {
             hue: root.hue;
             shortcut: "camera.wb_mode";
@@ -313,6 +317,7 @@ export component CameraCard inherits Card {
         label: @tr("Focus");
         hue: root.hue;
         enabled: active;
+        changed: focus-mode != 0;
         Segmented {
             hue: root.hue;
             shortcut: "camera.focus_mode";
@@ -347,6 +352,7 @@ export component CameraCard inherits Card {
         label: @tr("Image");
         hue: root.hue;
         enabled: active;
+        changed: !ois.checked || low-light.checked || black-level-lock.checked || torch.checked;
         VerticalLayout {
             spacing: Theme.gap;
             HorizontalLayout {
@@ -403,6 +409,7 @@ export component CameraCard inherits Card {
         tip: @tr("Smooths out grain in the picture");
         hue: root.hue;
         enabled: active;
+        changed: noise-reduction != 1;
         Segmented {
             hue: root.hue;
             shortcut: "camera.noise_reduction";
@@ -420,6 +427,7 @@ export component CameraCard inherits Card {
         tip: @tr("Crisps up the edges in the picture");
         hue: root.hue;
         enabled: active;
+        changed: sharpening != 1;
         Segmented {
             hue: root.hue;
             shortcut: "camera.sharpening";

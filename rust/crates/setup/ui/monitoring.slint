@@ -73,6 +73,7 @@ export component MonitoringCard inherits Card {
         label: @tr("Battery under");
         hue: root.hue;
         enabled: root.active;
+        changed: batt-alert != 20 || !batt-notify || batt-stop;
         Slider {
             label: @tr("Battery under");
             fill: "threshold";
@@ -115,6 +116,7 @@ export component MonitoringCard inherits Card {
         label: @tr("Hotter than");
         hue: root.hue;
         enabled: root.active;
+        changed: temp-alert != 45 || !temp-notify || temp-stop;
         Slider {
             label: @tr("Hotter than");
             fill: "threshold";

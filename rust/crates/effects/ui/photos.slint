@@ -105,6 +105,7 @@ export component PhotosCard inherits Card {
     in property <bool> best;
     in property <bool> best-enabled;
     in property <string> folder-name;
+    in property <bool> folder-changed;
     in property <string> folder-tip;
     callback take-clicked;
     callback open-clicked;
@@ -181,6 +182,7 @@ export component PhotosCard inherits Card {
         label: @tr("Mode and format");
         hue: root.hue;
         enabled: active;
+        changed: mode-index != 0 || format-index != 0;
         HorizontalLayout {
             spacing: Theme.gap;
             ChoiceField {
@@ -210,6 +212,7 @@ export component PhotosCard inherits Card {
         label: @tr("Shots");
         hue: root.hue;
         enabled: active;
+        changed: shots-index != 0;
         shots := PictureSegmented {
             label: @tr("Shots");
             hue: root.hue;
@@ -233,7 +236,7 @@ export component PhotosCard inherits Card {
             spacing: Theme.gap;
             Stepper {
                 caption: slot-label != "" ? slot-label : @tr("How many");
-                items: slot-options;
+                items: slot-options.length > 0 ? slot-options : ["-"];
                 current: slot-index;
                 enabled: active && slot-options.length > 0;
                 tip: slot-tip;
@@ -246,7 +249,7 @@ export component PhotosCard inherits Card {
             }
             Stepper {
                 caption: @tr("Exposure");
-                items: exposure-options;
+                items: exposure-options.length > 0 ? exposure-options : ["-"];
                 current: exposure-index;
                 enabled: active && exposure-options.length > 1;
                 tip: exposure-tip;
@@ -264,6 +267,7 @@ export component PhotosCard inherits Card {
         label: @tr("Distortion fix");
         hue: root.hue;
         enabled: active;
+        changed: distortion-index != 0;
         Segmented {
             hue: root.hue;
             label: @tr("Distortion fix");
@@ -279,6 +283,7 @@ export component PhotosCard inherits Card {
         label: @tr("Quality");
         hue: root.hue;
         enabled: active;
+        changed: quality != 95;
         Slider {
             label: @tr("Quality");
             enabled: active && quality-enabled;
@@ -312,6 +317,7 @@ export component PhotosCard inherits Card {
         label: @tr("Timer");
         hue: root.hue;
         enabled: active;
+        changed: timer-current != 0;
         Segmented {
             hue: root.hue;
             label: @tr("Timer");
@@ -327,6 +333,7 @@ export component PhotosCard inherits Card {
         label: @tr("Save in");
         hue: root.hue;
         enabled: active;
+        changed: folder-changed;
         Button {
             horizontal-stretch: 1;
             preferred-width: 1000px;
