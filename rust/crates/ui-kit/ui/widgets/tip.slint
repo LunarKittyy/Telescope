@@ -47,6 +47,8 @@ export global Tips {
     in-out property <length> aw;
     in-out property <length> ah;
     property <int> last-id;
+    // Bumped by `dismiss`: a tip that was asked for before it stays down until its control is entered again
+    out property <int> epoch;
     property <duration> went-down: -100s;
     property <duration> last-beat;
     public function claim() -> int {
@@ -73,6 +75,17 @@ export global Tips {
     }
     public function hide(id: int) {
         if (shown && owner == id) {
+            shown = false;
+            went-down = animation-tick();
+        }
+    }
+    // Whatever holds the tips' owners hides them without the pointer or the focus moving (a page of Settings, a fold, a tab): it calls
+    // this, and the tip that is up goes down with its fade and none of the controls under the pointer or holding the focus right now shows
+    // one again until the pointer has left and come back (a control that was removed is taken care of by the heartbeat, below). The kit's
+    // own folds and Unfolding do it themselves; a card or page that hides a part of itself with `visible` calls it where it does.
+    public function dismiss() {
+        epoch += 1;
+        if (shown) {
             shown = false;
             went-down = animation-tick();
         }
@@ -254,7 +267,9 @@ export component Tip inherits Rectangle {
     property <bool> over;
     property <int> id;
     // A held bubble is up: it stands in front of the tooltips for as long as it is
-    property <bool> want: enabled && says != "" && !used && !Peeks.shown && (hover || over || focused);
+    // The `dismiss` that was current when the pointer last came in or the focus last arrived: a dismiss since then keeps the tip down
+    property <int> seen;
+    property <bool> want: enabled && says != "" && !used && !Peeks.shown && seen == Tips.epoch && (hover || over || focused);
     property <[string]> caps: keys.length > 0 || shortcut == "" ? keys : Shortcuts.key-chips(shortcut, Shortcuts.version);
     property <length> ax: root.absolute-position.x;
     property <length> ay: root.absolute-position.y;
@@ -278,14 +293,17 @@ export component Tip inherits Rectangle {
         if (up) { present(); }
     }
     changed hover => {
+        if (hover) { seen = Tips.epoch; }
         if (!hover) {
             // The wheel makes the TouchArea drop its hover for a moment, which isn't leaving
             if (wheeled) { wheeled = false; } else { used = false; }
         }
     }
     changed over => {
+        if (over) { seen = Tips.epoch; }
         if (!over) { used = false; }
     }
+    changed focused => { if (focused) { seen = Tips.epoch; } }
     changed want => {
         if (want) {
             if (focused || Tips.is-warm()) { present(); }

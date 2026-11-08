@@ -14,7 +14,9 @@ export component FramingCard inherits Card {
     // The bubble of the Framing slider: "picture" while the preview can't show the crop itself, "" otherwise, and the picture in it
     in property <string> framing-peek;
     in property <image> framing-picture;
-    // Where you are and where the framing is, for the Speed bubble: two dots (x, y, x, y)
+    // The part of that picture the bubble shows: x, y, width and height as fractions of it (the bubble crops it, nothing is redrawn)
+    in property <[float]> framing-clip: [0, 0, 1, 1];
+    // Where you are and where the framing is, for the Speed bubble: you, the frame and its two trailing copies (x, y each)
     in property <[float]> speed-dots: [0.5, 0.5, 0.5, 0.5];
     in property <string> framing-tip;
     in property <string> speed-tip;
@@ -80,6 +82,7 @@ export component FramingCard inherits Card {
                 value <=> root.framing;
                 peek: framing-peek;
                 peek-picture: framing-picture;
+                peek-values: framing-clip;
                 peek-changed(o) => { root.framing-peek-open(o); }
                 readout: framing-text;
                 readout-width: column;

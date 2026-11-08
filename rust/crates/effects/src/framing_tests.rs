@@ -705,12 +705,23 @@ impl Rig {
         self.event(Event::TimerFired { owner: NAME.into(), token: token.into() });
     }
 
+    /// A timer of the Speed bubble `ms` after the last one.
+    fn chase_after(&mut self, ms: u64) {
+        *self.clock.lock().unwrap() += ms as f64 / 1000.0;
+        self.peek_event(T_CHASE);
+    }
+
     fn pictures(&self) -> usize {
         self.host.calls.iter().filter(|c| c.starts_with("set_ui_image card framing-picture")).count()
     }
 
     fn dots(&self) -> Vec<f64> {
         self.prop("speed-dots").as_array().map(|a| a.iter().map(|v| v.as_f64().unwrap()).collect()).unwrap_or_default()
+    }
+
+    /// The part of the picture the Framing bubble shows now: x, y, width, height as fractions of it.
+    fn clip(&self) -> Vec<f64> {
+        self.prop("framing-clip").as_array().map(|a| a.iter().map(|v| v.as_f64().unwrap()).collect()).unwrap_or_default()
     }
 }
 
@@ -743,7 +754,7 @@ fn the_card_starts_out_with_the_bubble_it_will_have() {
 }
 
 #[test]
-fn the_framing_bubble_costs_nothing_while_closed_and_makes_a_small_picture_8_times_a_second_while_open() {
+fn the_framing_bubble_costs_nothing_while_closed_and_hands_over_a_picture_once_then_only_crops_it() {
     let mut r = Rig::new();
     assert!(!r.host.is_scheduled(T_PEEK) && r.pictures() == 0);
     // a stray timer while closed makes nothing
@@ -755,13 +766,20 @@ fn the_framing_bubble_costs_nothing_while_closed_and_makes_a_small_picture_8_tim
     assert!(r.host.calls.iter().any(|c| c == "want_people Auto framing bubble true"), "the people are asked for while it is up");
     let picture = &r.host.images[&("card".to_string(), "framing-picture".to_string())];
     assert_eq!((picture.width as usize, picture.height as usize), (peek::WIDTH, peek::HEIGHT));
+    assert_eq!(r.clip().len(), 4);
+    // nothing changed: nothing is handed over again, not the picture and not the crop
+    let calls = r.host.calls.len();
     r.peek_event(T_PEEK);
-    assert_eq!(r.pictures(), 2);
+    assert_eq!(r.pictures(), 1, "the stand-in scene is one picture the bubble crops");
+    assert_eq!(r.host.calls.len(), calls, "nothing is asked of the host: {:?}", &r.host.calls[calls..]);
     r.ui("framing-peek-open", json!(false));
     assert!(!r.host.is_scheduled(T_PEEK));
     assert!(r.host.calls.iter().any(|c| c == "want_people Auto framing bubble false"));
     r.peek_event(T_PEEK);
-    assert_eq!(r.pictures(), 2, "closed: nothing more is made");
+    assert_eq!(r.pictures(), 1, "closed: nothing more is made");
+    // opened again, it hands the picture over once more
+    r.ui("framing-peek-open", json!(true));
+    assert_eq!(r.pictures(), 2);
 }
 
 fn left_red_right_blue() -> StreamFrame {
@@ -770,57 +788,59 @@ fn left_red_right_blue() -> StreamFrame {
     StreamFrame { source_id: "phone".into(), name: "phone".into(), frame: Frame::new(w, h, telescope_core::frame::PixelFormat::Rgba, data) }
 }
 
-fn average(frame: &Frame) -> [f64; 3] {
-    let n = (frame.width * frame.height) as f64;
-    let mut sum = [0.0; 3];
-    for p in frame.data.chunks(4) {
-        for c in 0..3 {
-            sum[c] += p[c] as f64;
-        }
-    }
-    sum.map(|s| s / n)
-}
-
 #[test]
 fn the_bubble_crops_the_live_picture_around_whoever_is_in_it_and_a_stand_in_scene_when_nobody_is() {
     let mut r = Rig::new();
     r.host.stream_frames = vec![left_red_right_blue()];
     r.ui("framing-peek-open", json!(true));
     let key = ("card".to_string(), "framing-picture".to_string());
-    let sample = average(&r.host.images[&key]);
-    // someone on the right: the crop is over the blue half
+    let scene = r.host.images[&key].clone();
+    // someone on the right: the live frame is the picture and the crop is over the blue half
     r.people("phone", &[at(0.8)]);
     r.peek_event(T_PEEK);
-    let live = average(&r.host.images[&key]);
-    assert!(live[2] > 200.0 && live[0] < 60.0, "{live:?}");
-    assert_ne!(sample.map(|v| v as i64), live.map(|v| v as i64), "the stand-in is another picture");
-    // a closer framing is still over the blue half
-    r.ui("framing-moved", json!(0));
+    let live = r.host.images[&key].clone();
+    assert_eq!((live.width, live.height), (320, 180), "the frame as it is, already small enough");
+    assert_ne!(scene.data, live.data, "the stand-in is another picture");
+    let clip = r.clip();
+    assert!(clip[0] >= 0.5 - 1e-9 && clip[2] < 1.0, "over the blue half: {clip:?}");
+    // the same frame again: not handed over twice
+    let pictures = r.pictures();
     r.peek_event(T_PEEK);
-    assert!(average(&r.host.images[&key])[2] > 200.0);
+    assert_eq!(r.pictures(), pictures);
+    // a closer framing is still over the blue half, with no new picture
+    r.ui("framing-moved", json!(0));
+    let closer = r.clip();
+    assert!(closer[0] >= 0.5 - 1e-9 && closer[2] < clip[2], "{closer:?} against {clip:?}");
+    assert_eq!(r.pictures(), pictures, "a drag only moves the crop");
     // nobody now (seen too long ago): the stand-in again
     *r.clock.lock().unwrap() += 10.0;
     r.peek_event(T_PEEK);
-    let after = average(&r.host.images[&key]);
-    assert!(after[0] > 20.0 && after[1] > 20.0, "the wall's colours, not the live picture's: {after:?}");
+    assert_eq!(r.host.images[&key].data, scene.data, "the wall's colours, not the live picture's");
+    assert!(r.pictures() > pictures);
 }
 
 #[test]
 fn the_stand_in_crop_is_closer_the_closer_the_framing() {
     let mut r = Rig::new();
     r.ui("framing-peek-open", json!(true));
-    let key = ("card".to_string(), "framing-picture".to_string());
-    let mut skin_seen = Vec::new();
+    let mut widths = Vec::new();
     for steps in [0, 10, 20, 30] {
         r.ui("framing-moved", json!(steps));
-        r.peek_event(T_PEEK);
-        let picture = &r.host.images[&key];
-        // how much of the picture is the stand-in's skin tone, which grows as the window closes in on the head
-        let skin = picture.data.chunks(4).filter(|p| p[0] > 210 && (160..185).contains(&p[1]) && (125..150).contains(&p[2])).count();
-        skin_seen.push(skin);
+        let clip = r.clip();
+        // inside the picture and the shape of it
+        assert!(clip[0] >= 0.0 && clip[1] >= 0.0 && clip[0] + clip[2] <= 1.0 + 1e-9 && clip[1] + clip[3] <= 1.0 + 1e-9, "{clip:?}");
+        assert!((clip[2] - clip[3]).abs() < 1e-9);
+        widths.push(clip[2]);
     }
-    assert!(skin_seen.windows(2).all(|w| w[0] >= w[1]), "{skin_seen:?}");
-    assert!(skin_seen[0] > 2 * skin_seen[3].max(1), "{skin_seen:?}");
+    assert!(widths.windows(2).all(|w| w[0] <= w[1]), "{widths:?}");
+    assert!(widths[3] > 2.0 * widths[0], "{widths:?}");
+    // and it is over the head at the closest, which the picture's skin tone says
+    r.ui("framing-moved", json!(0));
+    let clip = r.clip();
+    let scene = peek::scene_picture();
+    let (x, y) = (((clip[0] + clip[2] / 2.0) * scene.width as f64) as usize, ((clip[1] + clip[3] / 2.0) * scene.height as f64) as usize);
+    let at = (y * scene.width as usize + x) * 4;
+    assert!(scene.data[at] > 200, "the crop's middle is the stand-in's face: {:?}", &scene.data[at..at + 4]);
 }
 
 #[test]
@@ -830,81 +850,163 @@ fn the_speed_bubble_moves_its_dots_only_while_it_is_up() {
     r.peek_event(T_CHASE);
     assert!(r.dots().is_empty(), "closed: a stray timer moves nothing");
     r.ui("speed-peek-open", json!(true));
-    assert!(r.host.scheduled.contains(&(TICK_MS, T_CHASE.into())));
+    assert!(r.host.scheduled.contains(&(CHASE_MS, T_CHASE.into())));
+    assert_eq!(CHASE_MS, 16, "as often as the window draws");
     let first = r.dots();
-    assert_eq!(first.len(), 4);
+    assert_eq!(first.len(), 8, "you, the frame and its two copies");
+    // the very first tick already has you hopping
+    r.chase_after(CHASE_MS);
+    assert_ne!(first[..2], r.dots()[..2], "you moved on the first tick");
     for _ in 0..90 {
-        r.peek_event(T_CHASE);
+        r.chase_after(CHASE_MS);
     }
     let later = r.dots();
     assert_ne!(first, later, "you moved on your own while it was open");
     r.ui("speed-peek-open", json!(false));
     assert!(!r.host.is_scheduled(T_CHASE));
     let before = r.dots();
-    r.peek_event(T_CHASE);
+    r.chase_after(CHASE_MS);
     assert_eq!(r.dots(), before);
 }
 
-/// How far the framing is from you a second after you have crossed over.
-fn lag_at(speed: i64) -> f64 {
-    let mut chase = Chase::new();
-    let mut last = [0.0; 4];
-    for _ in 0..((Chase::HOLD_S + Chase::MOVE_S + 1.0) / 0.033) as usize {
-        last = chase.step(speed, 0.033);
+#[test]
+fn a_late_timer_moves_the_dots_further_instead_of_slowing_them() {
+    let (mut steady, mut late) = (Rig::new(), Rig::new());
+    for r in [&mut steady, &mut late] {
+        r.ui("speed-peek-open", json!(true));
     }
-    (last[0] - last[2]).hypot(last[1] - last[3])
+    for _ in 0..40 {
+        steady.chase_after(16);
+    }
+    for _ in 0..20 {
+        late.chase_after(32);
+    }
+    let (a, b) = (steady.dots(), late.dots());
+    assert!(a.iter().zip(&b).all(|(x, y)| close(*x, *y, 0.03)), "{a:?} against {b:?}");
+}
+
+/// How far the framing is from you at the end of a hop (the next one is about to start), and how far it got from where it was.
+fn lag_at(speed: i64) -> (f64, f64) {
+    let mut chase = Chase::new();
+    let start = chase.step(speed, 0.0);
+    let mut last = start;
+    for _ in 0..((Chase::MOVE_S + Chase::HOLD_S) / 0.016) as usize {
+        last = chase.step(speed, 0.016);
+    }
+    ((last[0] - last[2]).hypot(last[1] - last[3]), (last[2] - start[2]).hypot(last[3] - start[3]))
 }
 
 #[test]
 fn the_dots_lag_by_what_the_speed_gives() {
-    let lags: Vec<f64> = (1..=10).map(lag_at).collect();
-    assert!(lags.windows(2).all(|w| w[0] >= w[1] - 1e-9), "slower speeds trail further behind: {lags:?}");
-    assert!(lags[0] > 0.25 && lags[9] < 0.05, "{lags:?}");
+    let lags: Vec<(f64, f64)> = (1..=10).map(lag_at).collect();
+    assert!(lags.windows(2).all(|w| w[0].0 >= w[1].0 - 1e-9), "slower speeds trail further behind: {lags:?}");
+    // Speed 1 is well short of you when the next hop comes (but has moved), Speed 10 has landed
+    assert!(lags[0].0 > 0.25 && lags[0].1 > 0.1, "{lags:?}");
+    assert!(lags[9].0 < 0.01, "{lags:?}");
+}
+
+/// Seconds after a hop starts until the framing is within a tenth of the hop's length of you.
+fn landing_time(speed: i64) -> f64 {
+    let mut chase = Chase::new();
+    let start = chase.step(speed, 0.0);
+    let mut t = 0.0;
+    let mut hop = 0.0f64;
+    while t < 3.0 {
+        let now = chase.step(speed, 0.004);
+        t += 0.004;
+        hop = hop.max((now[0] - start[0]).hypot(now[1] - start[1]));
+        if t > Chase::MOVE_S && (now[0] - now[2]).hypot(now[1] - now[3]) < hop * 0.1 {
+            return t;
+        }
+    }
+    t
 }
 
 #[test]
-fn the_chase_runs_on_the_same_smoothing_spring_and_dead_zone_as_the_framing() {
+fn the_fastest_speed_lands_in_about_a_fifth_of_a_second_and_the_slowest_not_within_a_hop() {
+    assert!(landing_time(10) < Chase::MOVE_S + 0.25, "{}", landing_time(10));
+    assert!(landing_time(1) > Chase::MOVE_S + Chase::HOLD_S, "{}", landing_time(1));
+}
+
+#[test]
+fn the_chase_runs_on_the_same_smoothing_and_spring_as_the_framing_without_the_dead_zone() {
     for speed in [1, 5, 10] {
         let mut chase = Chase::new();
-        let (omega, tau, scale) = tuning(speed);
-        let mut spring = Spring::new(Chase::you(0.0));
-        let (mut smooth, mut goal) = (None, None);
+        let (omega, tau, _) = tuning(speed);
+        let mut spring = Spring::new(Chase::you(Chase::HOLD_S));
+        let mut smooth = None;
+        let mut now = Chase::HOLD_S;
         for i in 1..=120 {
-            let target = Chase::you(i as f64 * 0.033);
-            let s = smoothed(smooth, target, 0.033, tau);
+            now += 0.016;
+            let s = smoothed(smooth, Chase::you(now), 0.016 * Chase::RATE, tau);
             smooth = Some(s);
-            let g = settle(goal, s, 0.033, scale);
-            goal = Some(g);
-            let at = spring.step(g, 0.033, omega);
-            let [_, _, fx, fy] = chase.step(speed, 0.033);
+            let at = spring.step(s, 0.016 * Chase::RATE, omega);
+            let [_, _, fx, fy, ..] = chase.step(speed, 0.016);
             assert!(close(fx, at.x, 1e-9) && close(fy, at.y, 1e-9), "speed {speed} step {i}");
         }
     }
 }
 
 #[test]
-fn the_stand_in_for_you_goes_across_pauses_and_comes_back() {
-    let (a, b) = (Chase::you(0.0), Chase::you(Chase::HOLD_S + Chase::MOVE_S + 0.01));
-    assert!(close(a.x, 0.3, 1e-6) && close(b.x, 0.7, 1e-2) && close(a.y, 0.5, 1e-6));
-    let lap = 2.0 * (Chase::HOLD_S + Chase::MOVE_S);
-    assert!(close(Chase::you(lap).x, a.x, 1e-9));
-    assert!(close(Chase::you(Chase::HOLD_S * 0.5).x, a.x, 1e-9), "it holds still first");
-    assert!((0..300).all(|i| (0.0..=1.0).contains(&Chase::you(i as f64 * 0.05).y)));
+fn the_copies_trail_the_framing_by_a_moment_and_huddle_when_it_is_slow() {
+    let spread = |speed: i64| {
+        let mut chase = Chase::new();
+        let mut widest = 0.0f64;
+        for _ in 0..200 {
+            let [_, _, fx, fy, ax, ay, bx, by] = chase.step(speed, 0.016);
+            widest = widest.max((fx - bx).hypot(fy - by));
+            assert!((0.0..=1.0).contains(&ax) && (0.0..=1.0).contains(&by));
+            let _ = ay;
+        }
+        widest
+    };
+    assert!(spread(10) > 3.0 * spread(1), "{} {}", spread(10), spread(1));
+    assert!(spread(10) > 0.3, "a quick hop is drawn with room between the copies: {}", spread(10));
+}
+
+#[test]
+fn the_stand_in_for_you_hops_between_four_spots_across_the_whole_box_and_holds_at_each() {
+    let leg = Chase::HOLD_S + Chase::MOVE_S;
+    let spots: Vec<Target> = (0..4).map(|i| Chase::you(i as f64 * leg + Chase::HOLD_S * 0.5)).collect();
+    for (spot, want) in spots.iter().zip(Chase::SPOTS) {
+        assert!(close(spot.x, want.0, 1e-9) && close(spot.y, want.1, 1e-9));
+    }
+    let xs: Vec<f64> = spots.iter().map(|s| s.x).collect();
+    let ys: Vec<f64> = spots.iter().map(|s| s.y).collect();
+    let span = |v: &[f64]| v.iter().cloned().fold(f64::MIN, f64::max) - v.iter().cloned().fold(f64::MAX, f64::min);
+    assert!(span(&xs) >= 0.8 && span(&ys) >= 0.6, "most of the box: {xs:?} {ys:?}");
+    // every hop is a good way across, and the four of them go up as well as down
+    for i in 0..4 {
+        let (a, b) = (spots[i], spots[(i + 1) % 4]);
+        assert!((a.x - b.x).hypot(a.y - b.y) > 0.4, "hop {i}");
+    }
+    assert!(spots[0].y < spots[1].y && spots[2].y > spots[3].y);
+    assert!(close(Chase::you(4.0 * leg).x, spots[0].x, 1e-9) || close(Chase::you(4.0 * leg + Chase::HOLD_S * 0.5).x, spots[0].x, 1e-9));
+    assert!((0..800).all(|i| (0.0..=1.0).contains(&Chase::you(i as f64 * 0.02).y) && (0.0..=1.0).contains(&Chase::you(i as f64 * 0.02).x)));
+}
+
+#[test]
+fn the_first_hop_comes_on_the_first_tick() {
+    let mut chase = Chase::new();
+    let first = chase.step(5, 0.0);
+    let after = chase.step(5, 0.016);
+    assert!((after[0] - first[0]).abs() + (after[1] - first[1]).abs() > 1e-4, "you are already moving: {first:?} then {after:?}");
 }
 
 #[test]
 fn a_new_speed_starts_the_chase_moving_at_once_instead_of_after_the_hold() {
     let mut chase = Chase::new();
-    // A little way into the hold, where nothing moves yet
-    chase.step(5, 0.3);
+    // Hop to the next spot and a little way into the hold there, where nothing moves
+    chase.step(5, Chase::MOVE_S + 0.1);
     let held = chase.step(5, 0.1)[0];
-    assert!(close(held, Chase::you(0.0).x, 1e-9), "still holding");
+    let still = chase.step(5, 0.1)[0];
+    assert!(close(held, still, 1e-9), "still holding");
     chase.start_move();
-    let moved = chase.step(5, 0.25)[0];
-    assert!(moved > held + 0.05, "you are moving now: {held} then {moved}");
-    // In the middle of a move it carries on as it was
+    let moved = chase.step(5, 0.08)[0];
+    assert!((moved - still).abs() > 0.05, "you are moving now: {still} then {moved}");
+    // In the middle of a hop it carries on as it was
     let mut mid = Chase::new();
-    mid.step(5, Chase::HOLD_S + 0.2);
+    mid.step(5, 0.05);
     let before = mid.at;
     mid.start_move();
     assert_eq!(before, mid.at);

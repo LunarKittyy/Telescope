@@ -13,6 +13,8 @@ import { Motion, Worm, WormFill, Fade } from "motion.slint";
 // Kind "segmented": equal raised segments side by side. The picked one has a thick border in the card's colour and a muted inside,
 // not a flat fill, so Start streaming stays the only filled thing in the window.
 export component Segmented inherits Rectangle {
+    // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font)
+    property <length> lift: 1phx;
     in property <[string]> items;
     in property <[bool]> disabled;
     // What to say on hover over each item, where there's something to say (why it can't be picked)
@@ -220,16 +222,24 @@ export component Segmented inherits Rectangle {
                     height: Theme.icon-small;
                     accessible-role: none;
                 }
-                Text {
-                    text: item;
-                    font-family: Theme.font;
-                    font-size: Theme.body;
-                    font-weight: on ? Theme.w-value : Theme.w-label;
-                    color: off ? Theme.dis : on || hover-i == i ? Theme.ink : Theme.ink2;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    overflow: elide;
-                    accessible-role: none;
+                // In a box of its own so the word can be lifted (lift) and the icon beside it stays on the row's middle
+                Rectangle {
+                    min-width: 0px;
+                    preferred-width: segment-name.preferred-width;
+                    segment-name := Text {
+                        y: -lift;
+                        width: parent.width;
+                        height: parent.height;
+                        text: item;
+                        font-family: Theme.font;
+                        font-size: Theme.body;
+                        font-weight: on ? Theme.w-value : Theme.w-label;
+                        color: off ? Theme.dis : on || hover-i == i ? Theme.ink : Theme.ink2;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        overflow: elide;
+                        accessible-role: none;
+                    }
                 }
             }
         }
@@ -250,6 +260,8 @@ export component Segmented inherits Rectangle {
 
 // Kind "segmented" with a drawing per option: option i is drawn by the caller in the square at x = i * pitch, cell-width by art-height, reading `shown` and `disabled`, and a drawing takes no pointer.
 export component PictureSegmented inherits Rectangle {
+    // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font)
+    property <length> lift: 1phx;
     in property <[string]> items;
     in property <[bool]> disabled;
     // What to say on hover over each option, where it differs from its name (why it can't be picked); a name alone has a tip of its own
@@ -321,7 +333,11 @@ export component PictureSegmented inherits Rectangle {
     out property <length> name-height: Theme.u(7);
     out property <length> art-gap: Theme.u(2);
     out property <length> art-height: names-drawn ? art-size : tile-height;
-    out property <length> art-top: names-drawn ? (tile-height - art-size - art-gap - name-height) / 2 : 0px;
+    // The drawing, the gap and the name are centred in the tile as one block measured from the drawing's top to the name's baseline (its capitals'
+    // bottom), so the space above the drawing and below the words is the same: the name's box is centred on its capitals, so its baseline is
+    // half a cap height under the box's middle
+    property <length> cap-h: round(Theme.tiny * 0.7 / 1phx) * 1phx;
+    out property <length> art-top: names-drawn ? round((tile-height - (art-size + art-gap + name-height / 2 + cap-h / 2)) / 2 / 1phx) * 1phx : 0px;
     out property <string> control-kind: "segmented";
     // Every name fits under its drawing, or none is drawn: a row with some names and some tooltips only reads as uneven. The widest decides, at the heaviest weight so a pick never changes it.
     property <bool> names-fit: measure.preferred-width <= cell-width - Theme.u(2);
@@ -442,7 +458,7 @@ export component PictureSegmented inherits Rectangle {
         property <bool> on: i == shown;
         visible: names-drawn;
         x: x-of(i);
-        y: y-of(i) + art-top + art-size + art-gap;
+        y: y-of(i) + art-top + art-size + art-gap - lift;
         width: cell-width;
         height: name-height;
         text: item;
@@ -481,6 +497,8 @@ export component PictureSegmented inherits Rectangle {
 // Kind "picker": the one style for anything that opens a list or a menu, everywhere: a raised box with the value and a chevron,
 // never "..." in a button. A caption makes it two lines (small caption over the value) until a card moves the caption into its row.
 export component ChoiceField inherits Rectangle {
+    // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font)
+    property <length> lift: 1phx;
     // Whether its list is open
     out property <bool> open;
     // Items that went away while the list was open, by index: greyed out and can't be picked
@@ -673,6 +691,7 @@ export component ChoiceField inherits Rectangle {
     if plain: VerticalLayout {
         padding-left: has-icon ? Theme.u(6) + Theme.icon-small + Theme.u(4) : Theme.u(6);
         padding-right: Theme.u(13);
+        padding-bottom: 2 * lift;
         alignment: center;
         Text {
             text: shown < 0 ? placeholder : items[shown];

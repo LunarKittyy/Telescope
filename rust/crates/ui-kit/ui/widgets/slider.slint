@@ -7,7 +7,7 @@ import { Tip } from "tip.slint";
 import { Peek } from "peek.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { Fills, RampFill, ZebraFill, EdgeFill } from "fills.slint";
-import { Motion, Settle, Tone } from "motion.slint";
+import { Motion, Settle, Tone, ClickWait } from "motion.slint";
 
 // Kind "slider", one anatomy for every slider: a track, a handle, the value on the right and, when it goes both ways, a tick at the
 // centre. Only the fill varies, by name: "plain" is the card's colour up to the handle, "gradient" the range's own colours along the
@@ -99,7 +99,8 @@ export component Slider inherits HorizontalLayout {
     // A press that took hold of the handle itself, or a glide that has caught up with the pointer: from then on the handle sticks to it
     property <bool> caught;
     // A click on the track waits for the double-click interval before the handle moves, so a double-click doesn't first jump and then reset
-    property <bool> pending;
+    // A first click on the track that waits to see whether it is a double-click (shared with the pan map: motion.slint)
+    property <bool> pending: pend.waiting;
     property <float> pending-v;
     property <length> press-x;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
@@ -189,11 +190,8 @@ export component Slider inherits HorizontalLayout {
                 caught = true;
             }
         }
-        pend := Timer {
-            interval: Motion.double-click;
-            running: pending;
-            triggered => {
-                pending = false;
+        pend := ClickWait {
+            elapsed => {
                 local = pending-v;
                 touched = true;
                 root.moved(local);
@@ -439,7 +437,7 @@ export component Slider inherits HorizontalLayout {
                 if (pending) {
                     // A drag that starts on the track is no click: it takes hold at once
                     if (abs(self.mouse-x - press-x) > Theme.u(2)) {
-                        pending = false;
+                        pend.cancel();
                     } else {
                         pending-v = v;
                         return;
@@ -461,7 +459,7 @@ export component Slider inherits HorizontalLayout {
                     caught = on-handle;
                     let v = round((minimum + picked * (maximum - minimum)) / step) * step;
                     if (!caught && has-default) {
-                        pending = true;
+                        pend.start();
                         pending-v = v;
                     } else {
                         local = v;
@@ -486,7 +484,7 @@ export component Slider inherits HorizontalLayout {
             }
             double-clicked => {
                 if (has-default) {
-                    pending = false;
+                    pend.cancel();
                     local = default-value;
                     touched = true;
                     root.moved(local);

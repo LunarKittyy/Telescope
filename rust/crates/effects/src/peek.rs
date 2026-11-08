@@ -1,7 +1,7 @@
-//! The pictures the held bubbles show (the kit's `Peek`): a stand-in scene with a person in it, the part of a picture a framing window
-//! covers, and the Speed bubble's script for what you do. All of it is small and made only while a bubble is up.
+//! The pictures the held bubbles show (the kit's `Peek`): a stand-in scene with a person in it and where a framing window sits in a picture.
+//! The bubble crops the picture itself, so what is made here is the scene once and a live frame shrunk, only while a bubble is up.
 
-use crate::cpu::{rgb_at, Rgb};
+use crate::cpu::Rgb;
 use crate::imgops::Gray;
 use std::sync::OnceLock;
 use telescope_core::frame::{Frame, PixelFormat};
@@ -126,6 +126,15 @@ pub fn blur_scene() -> &'static (Rgb, Gray) {
     portrait()
 }
 
+/// The blur's sample at the bubble's size (WIDTH x HEIGHT), shrunk once.
+pub fn blur_scene_small() -> &'static (Rgb, Gray) {
+    static SMALL: OnceLock<(Rgb, Gray)> = OnceLock::new();
+    SMALL.get_or_init(|| {
+        let (rgb, mask) = portrait();
+        (rgb.shrink(WIDTH, HEIGHT), mask.shrink(WIDTH, HEIGHT))
+    })
+}
+
 /// The same sample at w x h.
 pub fn sample_scene(w: usize, h: usize) -> (Rgb, Gray) {
     let (rgb, mask) = portrait();
@@ -145,16 +154,6 @@ pub fn rgba(rgb: &Rgb) -> Frame {
     Frame::new(rgb.w as u32, rgb.h as u32, PixelFormat::Rgba, data)
 }
 
-/// The size of a bubble picture for a source of this shape: as large as fits the bubble's box.
-pub fn size_for(aspect: f64) -> (usize, usize) {
-    let aspect = if aspect.is_finite() && aspect > 0.1 { aspect } else { SAMPLE_ASPECT };
-    if aspect >= SAMPLE_ASPECT {
-        (WIDTH, ((WIDTH as f64 / aspect).round() as usize).max(8))
-    } else {
-        (((HEIGHT as f64 * aspect).round() as usize).max(8), HEIGHT)
-    }
-}
-
 /// Where a window the framing wants (centre and zoom as fractions of the picture as shown) sits in a picture that already shows `view`,
 /// the window the view has now: the same shape, never wider than what the picture holds, slid in to stay inside it.
 pub fn window_in(view: (f64, f64, f64), want: (f64, f64, f64)) -> (f64, f64, f64) {
@@ -166,45 +165,34 @@ pub fn window_in(view: (f64, f64, f64), want: (f64, f64, f64)) -> (f64, f64, f64
     (u, v, zoom)
 }
 
-/// The part of a picture a window covers (centre and zoom as fractions of it), at w x h as RGBA. `at` reads the picture at a spot from 0 to 1 across and down.
-pub fn crop(at: &dyn Fn(f64, f64) -> [u8; 3], window: (f64, f64, f64), w: usize, h: usize) -> Frame {
-    let half = 0.5 / window.2.max(1.0);
+/// Where a window (centre and zoom as fractions of a picture) sits in the picture, as (x, y, width, height) fractions of it, slid in to stay
+/// inside. The bubble hands this to the kit's `Image` as its source clip, so the crop is drawn by the renderer and nothing is built here.
+pub fn clip(window: (f64, f64, f64)) -> [f64; 4] {
+    let size = 1.0 / window.2.max(1.0);
+    let half = size / 2.0;
     let (cx, cy) = (window.0.clamp(half, 1.0 - half), window.1.clamp(half, 1.0 - half));
-    let mut data = Vec::with_capacity(w * h * 4);
-    for y in 0..h {
-        for x in 0..w {
-            let mut sum = [0u32; 3];
-            // Four taps a pixel, so a big picture shrunk to this size doesn't shimmer
-            for (ox, oy) in [(0.25, 0.25), (0.75, 0.25), (0.25, 0.75), (0.75, 0.75)] {
-                let u = cx - half + (x as f64 + ox) / w as f64 * 2.0 * half;
-                let v = cy - half + (y as f64 + oy) / h as f64 * 2.0 * half;
-                let p = at(u, v);
-                for c in 0..3 {
-                    sum[c] += p[c] as u32;
-                }
-            }
-            data.extend_from_slice(&[(sum[0] / 4) as u8, (sum[1] / 4) as u8, (sum[2] / 4) as u8, 255]);
-        }
-    }
-    Frame::new(w as u32, h as u32, PixelFormat::Rgba, data)
+    [cx - half, cy - half, size, size]
 }
 
-/// A reader of a stream's frame for `crop`.
-pub fn frame_reader(frame: &Frame) -> impl Fn(f64, f64) -> [u8; 3] + '_ {
-    let (w, h) = (frame.width as usize, frame.height as usize);
-    move |u, v| {
-        let (x, y) = (((u * w as f64) as usize).min(w.saturating_sub(1)), ((v * h as f64) as usize).min(h.saturating_sub(1)));
-        rgb_at(frame, x, y).unwrap_or([0, 0, 0])
-    }
+/// The stand-in scene as a picture the card can show, made once: the bubble crops it with `clip` and never needs another.
+pub fn scene_picture() -> &'static Frame {
+    static PICTURE: OnceLock<Frame> = OnceLock::new();
+    PICTURE.get_or_init(|| rgba(&scene().0))
 }
 
-/// A reader of the stand-in scene for `crop`.
-pub fn scene_reader() -> impl Fn(f64, f64) -> [u8; 3] {
-    let (rgb, _) = scene();
-    move |u, v| {
-        let (x, y) = (((u * rgb.w as f64) as usize).min(rgb.w - 1), ((v * rgb.h as f64) as usize).min(rgb.h - 1));
-        rgb.at(x, y)
+/// The largest a live frame is handed to the bubble: twice the box, so a crop of it is still sharp on a sharp screen.
+const LIVE_WIDTH: usize = 2 * WIDTH;
+const LIVE_HEIGHT: usize = 2 * HEIGHT;
+
+/// A stream's frame shrunk to what the bubble needs (never enlarged), or None when its pixels can't be read.
+pub fn live_picture(frame: &Frame) -> Option<Frame> {
+    let rgb = Rgb::from_frame(frame)?;
+    let scale = (LIVE_WIDTH as f64 / rgb.w as f64).min(LIVE_HEIGHT as f64 / rgb.h as f64).min(1.0);
+    if scale >= 1.0 {
+        return Some(rgba(&rgb));
     }
+    let (w, h) = (((rgb.w as f64 * scale).round() as usize).max(1), ((rgb.h as f64 * scale).round() as usize).max(1));
+    Some(rgba(&rgb.shrink(w, h)))
 }
 
 #[cfg(test)]

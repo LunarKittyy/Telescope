@@ -2,6 +2,7 @@
 
 import { Theme } from "../theme.slint";
 import { Motion, Unfold } from "motion.slint";
+import { Tips } from "tip.slint";
 
 // Kind "helper". A column with no spacing of its own, for a row and the Unfolding that hangs from it: the Unfolding takes the card's gap
 // above it into its own height, so while it is shut no gap is left behind (a layout puts its spacing round a shut row too).
@@ -25,6 +26,8 @@ export component Unfolding inherits Rectangle {
     // How far open, 0 to 1, for a test
     out property <float> value: unfold.value;
     unfold := Unfold { open: root.open; snap: root.snap; }
+    // What is inside goes out of reach as it shuts: a tip of one of its rows goes down with it
+    changed open => { if (!open) { Tips.dismiss(); } }
     min-height: 0px;
     vertical-stretch: 0;
     preferred-height: unfold.value * (rows.preferred-height + lead);
