@@ -302,6 +302,8 @@ export component RailRow inherits HorizontalLayout {
     in property <image> icon;
     // A row that goes on from the one above has no icon, only the rail's room
     in property <bool> has-icon: true;
+    // The setting is off its default: a quiet mark on the row (a brighter icon, or with Theme.change-dot a small dot beside it)
+    in property <bool> modified;
     // The word the icon stands for: its tooltip, what a screen reader calls the row and what the settings search finds
     in property <string> label;
     // A longer sentence for the tooltip, where the word alone isn't enough
@@ -319,9 +321,18 @@ export component RailRow inherits HorizontalLayout {
             x: Theme.u(0.5);
             y: (parent.height - self.height) / 2;
             source: icon;
-            tint: enabled ? Theme.edge(hue) : Theme.dis;
+            tint: !enabled ? Theme.dis : modified && !Theme.change-dot ? hue.mix(Theme.ink, 0.5) : Theme.edge(hue);
             width: Theme.icon;
             height: Theme.icon;
+        }
+        if has-icon && modified && Theme.change-dot: Rectangle {
+            x: Theme.u(0.5) + Theme.icon - Theme.u(1.5);
+            y: (parent.height - Theme.icon) / 2 - Theme.u(1);
+            width: Theme.u(3.5);
+            height: Theme.u(3.5);
+            border-radius: self.height / 2;
+            background: enabled ? hue : Theme.dis;
+            accessible-role: none;
         }
         if has-icon && label != "": SettingMark { width: parent.width; height: parent.height; name: label; keywords: keywords; }
         if has-icon && label != "": Tooltip { TipBody { says: tip != "" ? tip : label; } }

@@ -11,6 +11,8 @@ import "fonts/IBMPlexSans-Bold.ttf";
 export global Theme {
     // Set by the window from Appearance: true draws Classic
     in-out property <bool> classic: false;
+    // How a row marks a setting that is off its default: false brightens the row's icon, true keeps the icon and adds a small dot
+    in-out property <bool> change-dot: false;
 
     // Surfaces, darkest to lightest
     out property <color> stage: classic ? #0a0c0f : #0d0d0d;
