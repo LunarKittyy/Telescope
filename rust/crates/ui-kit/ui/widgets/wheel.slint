@@ -48,7 +48,7 @@ export component ColourWheel inherits Rectangle {
     // The puck glides to a place that something other than the person set (Auto, Reset, an AI app), across first and then down so its path
     // bows; a finger or a key has it at once
     property <bool> quick;
-    glide-x := Settle { to: puck-x; snap: held || quick; }
+    glide-x := Settle { to: puck-x; snap: held || quick; pace: Motion.lead; }
     glide-y := Settle { to: puck-y; snap: held || quick; pace: Motion.trail; }
     held-tone := Tone { on: held && enabled; instant-in: true; }
     hover-tone := Tone { on: touch.has-hover && enabled; }

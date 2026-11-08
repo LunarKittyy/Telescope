@@ -85,7 +85,7 @@ export component Pad inherits Rectangle {
     out property <length> handle-y: inset-y + (y-up ? 1 - glide-y.value : glide-y.value) * (self.height - 2 * inset-y);
     // Where the handle is drawn: it glides to numbers that something other than the person changed, across first and then down so its path bows
     property <bool> quick;
-    glide-x := Settle { to: fraction-x; snap: dragging || quick; }
+    glide-x := Settle { to: fraction-x; snap: dragging || quick; pace: Motion.lead; }
     glide-y := Settle { to: fraction-y; snap: dragging || quick; pace: Motion.trail; }
     held-tone := Tone { on: held; instant-in: true; }
     hover-tone := Tone { on: touch.has-hover && enabled; }

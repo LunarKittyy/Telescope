@@ -32,8 +32,10 @@ export global Motion {
     out property <easing> tone: spring(0.0);
     // How long a colour takes to follow its state: at once for a press or a key, or with motion off
     public pure function tone-for(instant: bool) -> duration { !fades || instant ? 0ms : tone-up }
-    // The trailing axis of a move across and down takes this much longer than the leading one
-    out property <float> trail: 1.4;
+    // A move across and down leads with one axis: it takes this share of the usual time, and the other axis this much of it, so the
+    // path bows and never runs straight or turns a corner
+    out property <float> lead: 0.85;
+    out property <float> trail: 1.45;
     // The scale a popping bubble starts from
     out property <float> pop-from: 0.9;
     // How solid content that took a placeholder's place is in its first frame, so the swap leaves no gap
