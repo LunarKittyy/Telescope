@@ -214,15 +214,25 @@ export component Pad inherits Rectangle {
         @children
     }
     // A frame handle: what lies outside it dimmed, and the frame outlined in the card's colour (quiet at rest, full colour held), tinted inside while held
-    if framed: Rectangle { x: 0px; y: 0px; width: root.width; height: max(0px, handle-y - box-h / 2); background: Theme.stage.with-alpha(0.6); }
-    if framed: Rectangle { x: 0px; y: handle-y + box-h / 2; width: root.width; height: max(0px, root.height - handle-y - box-h / 2); background: Theme.stage.with-alpha(0.6); }
-    if framed: Rectangle { x: 0px; y: handle-y - box-h / 2; width: max(0px, handle-x - box-w / 2); height: box-h; background: Theme.stage.with-alpha(0.6); }
-    if framed: Rectangle { x: handle-x + box-w / 2; y: handle-y - box-h / 2; width: max(0px, root.width - handle-x - box-w / 2); height: box-h; background: Theme.stage.with-alpha(0.6); }
+    // The dimmed surround is the pad minus the frame's rounded rectangle (even-odd), so it follows the frame's round corners
+    if framed: Path {
+        width: root.width;
+        height: root.height;
+        viewbox-width: root.width / 1px;
+        viewbox-height: root.height / 1px;
+        fill: Theme.stage.with-alpha(0.6);
+        fill-rule: FillRule.evenodd;
+        property <length> fx: handle-x - box-w / 2;
+        property <length> fy: handle-y - box-h / 2;
+        property <length> fr: min(Theme.r-ctl, min(box-w, box-h) / 2);
+        commands: "M0 0H\{root.width / 1px}V\{root.height / 1px}H0ZM\{(fx + fr) / 1px} \{fy / 1px}H\{(fx + box-w - fr) / 1px}A\{fr / 1px} \{fr / 1px} 0 0 1 \{(fx + box-w) / 1px} \{(fy + fr) / 1px}V\{(fy + box-h - fr) / 1px}A\{fr / 1px} \{fr / 1px} 0 0 1 \{(fx + box-w - fr) / 1px} \{(fy + box-h) / 1px}H\{(fx + fr) / 1px}A\{fr / 1px} \{fr / 1px} 0 0 1 \{fx / 1px} \{(fy + box-h - fr) / 1px}V\{(fy + fr) / 1px}A\{fr / 1px} \{fr / 1px} 0 0 1 \{(fx + fr) / 1px} \{fy / 1px}Z";
+    }
     if framed: Rectangle {
         x: handle-x - box-w / 2;
         y: handle-y - box-h / 2;
         width: box-w;
         height: box-h;
+        border-radius: Theme.r-ctl;
         border-width: Theme.stroke;
         border-color: !enabled ? Theme.dis : Theme.lit(hue, max(held-tone.value, hover-tone.value));
         background: hue.with-alpha(0.14 * held-tone.value);

@@ -1,5 +1,4 @@
 use super::*;
-use std::sync::Arc;
 use telescope_core::testing::FakeHost;
 use telescope_core::view::{view_to_shown, PhoneZoom};
 
@@ -617,215 +616,25 @@ fn putting_the_maps_crop_back_in_the_middle_leaves_the_zoom_alone() {
 
 // ── The zoom and pan map ─────────────────────────────────────────────
 
-/// A frame store whose raw_still hands out what the test queued (the newest) and counts how often it is asked.
-#[derive(Default)]
-struct Stills {
-    asks: std::sync::atomic::AtomicUsize,
-    queue: std::sync::Mutex<Vec<Frame>>,
-}
-
-impl Stills {
-    fn asked(&self) -> usize {
-        self.asks.load(std::sync::atomic::Ordering::SeqCst)
-    }
-
-    /// A new picture, of its own time, the colour `shade` all over.
-    fn push(&self, shade: u8, (w, h): (u32, u32)) {
-        let mut f = Frame::new(w, h, PixelFormat::Rgba, [shade, shade, shade, 255].repeat((w * h) as usize));
-        f.time_ns = self.queue.lock().unwrap().len() as u64 + 1;
-        self.queue.lock().unwrap().push(f);
-    }
-}
-
-impl telescope_core::host::FrameStore for Stills {
-    fn stream_frames(&self) -> Vec<telescope_core::frame::StreamFrame> {
-        Vec::new()
-    }
-    fn stream_frame(&self, _source_id: Option<&str>) -> Option<telescope_core::frame::StreamFrame> {
-        None
-    }
-    fn replace_frame(&self, _source_id: Option<&str>, _frame: Frame, _number: u64) -> bool {
-        false
-    }
-    fn raw_still(&self, _source_id: Option<&str>) -> Option<Frame> {
-        self.asks.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        self.queue.lock().unwrap().last().cloned()
-    }
-}
-
-fn map_rig() -> (Rig, Arc<Stills>) {
-    let mut r = Rig::new();
-    let stills = Arc::new(Stills::default());
-    r.host.frame_store = Some(stills.clone());
-    r.zoom(250);
-    (r, stills)
-}
-
-fn pictures(r: &Rig) -> usize {
-    r.host.calls.iter().filter(|c| c.starts_with("set_ui_image card map-picture")).count()
-}
-
-fn timer(r: &mut Rig) {
-    r.event(Event::TimerFired { owner: NAME.into(), token: T_MAP.into() });
-}
-
-#[test]
-fn the_map_costs_nothing_until_its_crop_is_touched() {
-    let (mut r, stills) = map_rig();
-    stills.push(100, (32, 18));
-    // Zooming, the stream coming and going, phone news and a drag on the preview: nothing asks for a picture
-    r.zoom(300);
-    r.plugin.on_stream_start(&mut r.host, &stream());
-    r.view_status(&status(1.0, 1.0));
-    r.event(Event::ViewDragged { du: 0.1, dv: 0.0 });
-    assert_eq!((stills.asked(), pictures(&r)), (0, 0));
-    assert!(!r.host.scheduled.iter().any(|(_, t)| t == T_MAP), "no timer is running");
-    assert_eq!(r.shown("map-has-picture"), Value::Null, "and the card is told of no picture");
-}
-
-#[test]
-fn a_held_crop_makes_a_picture_five_times_a_second_and_stops_a_moment_after_it_is_let_go() {
-    let (mut r, stills) = map_rig();
-    stills.push(100, (32, 18));
-    r.ui("map-grabbed", vec![json!(true)]);
-    assert_eq!((stills.asked(), pictures(&r)), (1, 1), "a picture as soon as it is held");
-    assert_eq!(r.host.scheduled, vec![(MAP_MS, T_MAP.to_string())]);
-    assert_eq!(MAP_MS, 200, "five a second");
-    // moving it while held doesn't ask for more: the timer does
-    r.ui("map-moved", vec![json!(0.6), json!(0.5)]);
-    assert_eq!(stills.asked(), 1);
-    stills.push(120, (32, 18));
-    timer(&mut r);
-    assert_eq!((stills.asked(), pictures(&r)), (2, 2));
-    assert!(r.host.scheduled.iter().any(|(ms, t)| *ms == MAP_MS && t == T_MAP), "still going while held");
-    // let go: one more for the last position, and the timer is set again for a moment
-    r.ui("map-grabbed", vec![json!(false)]);
-    stills.push(140, (32, 18));
-    r.host.scheduled.clear();
-    timer(&mut r);
-    assert_eq!(pictures(&r), 3);
-    assert!(r.host.scheduled.iter().any(|(_, t)| t == T_MAP), "a moment after the last touch it still goes on");
-    // then it stops: nothing is scheduled, and a stray timer asks for nothing
-    r.plugin.map.until = 0.0;
-    r.host.scheduled.clear();
-    timer(&mut r);
-    assert!(r.host.scheduled.is_empty());
-    let asked = stills.asked();
-    timer(&mut r);
-    assert_eq!(stills.asked(), asked);
-}
-
-#[test]
-fn the_same_still_is_not_sent_to_the_card_twice() {
-    let (mut r, stills) = map_rig();
-    stills.push(100, (32, 18));
-    r.ui("map-grabbed", vec![json!(true)]);
-    timer(&mut r);
-    timer(&mut r);
-    assert_eq!(pictures(&r), 1, "nothing new came in");
-    stills.push(110, (32, 18));
-    timer(&mut r);
-    assert_eq!(pictures(&r), 2);
-}
-
-#[test]
-fn the_map_has_no_picture_to_make_before_the_stream_has_made_a_still() {
-    let (mut r, stills) = map_rig();
-    r.ui("map-grabbed", vec![json!(true)]);
-    assert_eq!((stills.asked(), pictures(&r)), (1, 0));
-    stills.push(90, (32, 18));
-    timer(&mut r);
-    assert_eq!(pictures(&r), 1, "it turns up with the next one");
-    assert_eq!(r.shown("map-has-picture"), json!(true));
-    assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 32.0 / 18.0));
-}
-
-#[test]
-fn a_new_stream_empties_the_map() {
-    let (mut r, stills) = map_rig();
-    stills.push(100, (32, 18));
-    r.ui("map-grabbed", vec![json!(true)]);
-    assert_eq!(r.shown("map-has-picture"), json!(true));
-    r.plugin.on_stream_stop(&mut r.host);
-    assert_eq!(r.shown("map-has-picture"), json!(false));
-    assert!(r.plugin.map.backdrop.is_none());
-}
-
-#[test]
-fn the_phone_on_its_telephoto_has_its_picture_scaled_into_where_it_sits_in_the_whole_view() {
-    let (mut r, stills) = map_rig();
-    // The whole view first, from the main lens
-    stills.push(200, (32, 18));
-    r.ui("map-grabbed", vec![json!(true)]);
-    assert_eq!(r.shown("map-share-on"), json!(false));
-    // then the phone is on its 3x lens, settled long ago, and sends its own (darker) picture
-    r.view_status(&status(3.0, 1.0));
-    stills.push(60, (32, 18));
-    timer(&mut r);
-    assert_eq!(r.shown("map-share-on"), json!(true));
-    let share: Vec<f64> = r.shown("map-share").as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect();
-    assert!(share.iter().all(|v| (*v - 1.0 / 3.0).abs() < 1e-4), "the middle third: {share:?}");
-    let picture = r.host.images[&("card".to_string(), "map-picture".to_string())].clone();
-    assert_eq!((picture.width, picture.height), (32, 18), "the card's picture is the whole view's size");
-    let px = |x: usize, y: usize| picture.data[(y * 32 + x) * 4];
-    assert_eq!(px(16, 9), 60, "the telephoto's own picture in the middle");
-    assert!((90..=110).contains(&px(2, 2)), "the last picture of the whole view round it, dimmed: {}", px(2, 2));
-    // back to the main lens: the whole view is there again, no outline
-    r.view_status(&status(1.0, 1.0));
-    stills.push(210, (32, 18));
-    timer(&mut r);
-    assert_eq!(r.shown("map-share-on"), json!(false));
-    let picture = r.host.images[&("card".to_string(), "map-picture".to_string())].clone();
-    assert_eq!(picture.data[0], 210);
-}
-
-#[test]
-fn a_lens_that_has_just_switched_doesnt_place_a_picture_it_didnt_take() {
-    let (mut r, stills) = map_rig();
-    stills.push(200, (32, 18));
-    r.ui("map-grabbed", vec![json!(true)]);
-    let before = pictures(&r);
-    // switched this instant: the phone's frames still come from the other lens
-    r.view_status(&status(3.0, now_s()));
-    stills.push(60, (32, 18));
-    timer(&mut r);
-    assert_eq!(pictures(&r), before, "left as it was until the new lens's frames are in");
-}
-
-#[test]
-fn the_phones_share_of_the_view_is_where_its_zoom_window_lies() {
-    assert_eq!(share_box(None), [0.0, 0.0, 1.0, 1.0]);
-    let third = share_box(Some(&PhoneZoom { ratio: 3.0, crop: 1.0, x: 0.5, y: 0.5 }));
-    assert!(third.iter().all(|v| (*v - 1.0 / 3.0).abs() < 1e-9), "{third:?}");
-    // a crop of the phone's own, off to one corner of its view
-    let corner = share_box(Some(&PhoneZoom { ratio: 1.0, crop: 2.0, x: 0.75, y: 0.25 }));
-    assert!(approx(corner[2], 0.5) && approx(corner[0], 0.5) && approx(corner[1], 0.0), "{corner:?}");
-}
-
-#[test]
-fn the_maps_picture_is_the_still_itself_when_it_is_the_whole_view_and_placed_otherwise() {
-    let still = Frame::new(8, 4, PixelFormat::Rgba, [200u8, 200, 200, 255].repeat(8 * 4));
-    assert_eq!(map_picture(&still, [0.0, 0.0, 1.0, 1.0], None), still);
-    // alone, a third of the view: outside it nothing at all, so the card's own colour shows
-    let alone = map_picture(&still, [1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0], None);
-    assert_eq!((alone.width, alone.height), (24, 12));
-    assert_eq!(alone.data[3], 0, "transparent outside");
-    let middle = (6 * 24 + 12) * 4;
-    assert_eq!((alone.data[middle], alone.data[middle + 3]), (200, 255));
-    // over a backdrop it takes the backdrop's size
-    let backdrop = Frame::new(16, 8, PixelFormat::Rgba, [255u8, 255, 255, 255].repeat(16 * 8));
-    let over = map_picture(&still, [0.25, 0.25, 0.5, 0.5], Some(&backdrop));
-    assert_eq!((over.width, over.height), (16, 8));
-    assert_eq!(over.data[0], (255 * BACKDROP_LIGHT / 255) as u8, "dimmed outside");
-    assert_eq!(over.data[(4 * 16 + 8) * 4], 200, "the still in its place");
-}
-
 #[test]
 fn the_map_cant_be_dragged_while_something_else_has_the_view() {
-    let (mut r, _) = map_rig();
+    let mut r = Rig::new();
+    r.zoom(250);
     r.event(Event::ViewTaken { owner: "Auto framing".into() });
     assert_eq!(r.shown("pan-enabled"), json!(false));
-    r.ui("map-grabbed", vec![json!(true)]);
     r.ui("map-moved", vec![json!(0.7), json!(0.5)]);
     assert_eq!(r.plugin.pan(), (0.0, 0.0));
+}
+
+#[test]
+fn the_map_has_the_shape_of_the_frame_the_window_shows_and_no_picture() {
+    let mut r = Rig::new();
+    r.host.aspect = 16.0 / 9.0;
+    r.plugin.show_all(&mut r.host);
+    assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 16.0 / 9.0));
+    // turned a quarter, the frame is as tall as it was wide
+    r.host.aspect = 9.0 / 16.0;
+    r.plugin.on_stream_start(&mut r.host, &stream());
+    assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 9.0 / 16.0));
+    assert!(!r.host.calls.iter().any(|c| c.starts_with("set_ui_image")), "the map never asks for a picture");
 }

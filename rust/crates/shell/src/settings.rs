@@ -195,6 +195,7 @@ pub fn set_hues(on: bool) {
 pub fn set_classic(on: bool) {
     if let Some(settings) = SETTINGS.with(|s| s.borrow().clone()) {
         let _ = settings.ui.set_global_property("Theme", "classic", SValue::Bool(on));
+        crate::frame::dress(&settings.ui);
         settings.show_panel();
     }
 }
@@ -824,8 +825,6 @@ impl Settings {
                        &tr("Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."), true, u.auto_on, u.auto_enabled),
         ]).collect();
         let _ = self.ui.set_property("update-rows", model(rows));
-        let names: Vec<SValue> = ["All", "On", "Off"].iter().map(|w| s(&fill(&tr("Show: {which}"), &[("which", &telescope_core::i18n::tr_ctx("plugins", w))]))).collect();
-        let _ = self.ui.set_property("filter-names", model(names));
         let _ = self.plugins_tab;
     }
 

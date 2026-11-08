@@ -585,7 +585,7 @@ export component CompositeEditor inherits Window {
                     spacing: 8px;
                     alignment: end;
                     Button { width: 96px; text: @tr("Cancel"); clicked => { root.name-cancelled(); } }
-                    Button { width: 96px; text: @tr("OK"); role: "primary"; clicked => { root.name-entered(name.text); } }
+                    Button { width: 96px; text: @tr("OK"); role: "primary"; hue: Theme.plugin-hue("streaming"); clicked => { root.name-entered(name.text); } }
                 }
             }
             if confirming: VerticalLayout {
@@ -595,7 +595,7 @@ export component CompositeEditor inherits Window {
                     spacing: 8px;
                     alignment: end;
                     Button { width: 96px; text: @tr("No"); clicked => { root.replace-answered(false); } }
-                    Button { width: 96px; text: @tr("Yes"); role: "primary"; clicked => { root.replace-answered(true); } }
+                    Button { width: 96px; text: @tr("Yes"); role: "primary"; hue: Theme.plugin-hue("streaming"); clicked => { root.replace-answered(true); } }
                 }
             }
         }

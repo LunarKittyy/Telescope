@@ -85,33 +85,38 @@ export component DeskCard inherits Card {
         hue: root.hue;
         enabled: active;
         changed: clean-current != 0;
+        // Each tile is a small sheet as the option leaves it: as the camera sees it, the writing brought out on lighter paper, pure black on white
         swatches := PictureSegmented {
             label: @tr("Writing");
             items: clean-items;
+            tips: [@tr("The sheet as the camera sees it"), @tr("Darker writing on lighter paper"), @tr("Black writing on white paper")];
             disabled: [!active, !active, !active];
             shortcut: "desk.writing";
             hue: root.hue;
-            tile-height: Theme.tile;
+            show-names: true;
+            art-size: Theme.u(11);
+            tile-height: Theme.u(24);
             current: clean-current;
             picked(i) => { root.clean-picked(i); }
             for i in 3: Rectangle {
                 x: i * swatches.pitch + (swatches.cell-width - self.width) / 2;
                 y: (swatches.art-height - self.height) / 2;
-                width: Theme.u(24);
-                height: Theme.u(13);
-                border-radius: Theme.u(2);
-                background: !active ? Theme.dis : i == 0 ? #d6d3ca : i == 1 ? #ffffff : #c4c4c4;
-                // A scribble on the paper: black ink on the white and the grey, bluish on the cream
+                width: Theme.u(18);
+                height: Theme.u(11);
+                border-radius: Theme.u(1.5);
+                background: !active ? Theme.dis : i == 0 ? #cbc5b4 : i == 1 ? #f2eee2 : #ffffff;
+                // Writing on the page: faint and bluish as it comes, dark blue once brought out, black on white for black and white
                 Path {
-                    x: Theme.u(3);
-                    y: Theme.u(3);
-                    width: parent.width - Theme.u(6);
-                    height: parent.height - Theme.u(6);
+                    x: Theme.u(2.5);
+                    y: Theme.u(2);
+                    width: parent.width - Theme.u(5);
+                    height: parent.height - Theme.u(4);
                     viewbox-width: 36;
                     viewbox-height: 14;
                     commands: "M 0 7 C 4 0 8 14 12 7 S 20 0 24 7 S 32 14 36 7";
-                    stroke: !active ? Theme.trough : i == 1 ? #111111 : #4a5568;
-                    stroke-width: 1.5px;
+                    stroke: !active ? Theme.trough : i == 0 ? #8b94a4 : i == 1 ? #1c2a4a : #000000;
+                    stroke-width: i == 0 ? 1.2px : i == 1 ? 1.6px : 2px;
+                    stroke-line-cap: round;
                     fill: transparent;
                 }
             }
@@ -138,7 +143,7 @@ export component DeskCard inherits Card {
                 property <length> w: i == 0 ? Theme.u(10) : i == 1 ? Theme.u(7) : i == 2 ? Theme.u(8) : i == 3 ? Theme.u(10) : Theme.u(13);
                 property <length> h: i == 4 ? Theme.u(8) : Theme.u(10);
                 x: i * shapes.pitch + (shapes.cell-width - w) / 2;
-                y: (shapes.art-height - h) / 2 - Theme.u(1);
+                y: (shapes.art-height - h) / 2;
                 width: w;
                 height: h;
                 viewbox-width: w / 1px;

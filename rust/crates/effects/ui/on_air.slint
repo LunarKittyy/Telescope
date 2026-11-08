@@ -1,10 +1,9 @@
 // The On Air sign's tab in Settings: three cards. Joined after parts.slint, which has the imports.
 
 // control_row with a one-line text box and the tooltip the box has in Qt
-component UrlRow inherits FormRow {
+component UrlRow inherits RailRow {
     in-out property <string> text;
     in property <string> placeholder;
-    in property <string> tip;
     callback edited(string);
     Rectangle {
         horizontal-stretch: 1;
@@ -71,8 +70,11 @@ export component OnAirSettings inherits VerticalLayout {
         title: @tr("On Air sign");
         icon: Icons.bell;
         hue: Theme.plugin-hue("on_screen");
-        FormRow {
+        RailRow {
+            icon: Icons.bell;
             label: @tr("Now");
+            hue: Theme.plugin-hue("on_screen");
+            enabled: true;
             shown-state-text := Text {
                 text: state-text;
                 font-family: Theme.font;
@@ -84,8 +86,11 @@ export component OnAirSettings inherits VerticalLayout {
                 horizontal-stretch: 1;
             }
         }
-        FormRow {
+        RailRow {
+            icon: Icons.bolt;
             label: @tr("On air when");
+            hue: Theme.plugin-hue("on_screen");
+            enabled: true;
             Rectangle {
                 horizontal-stretch: 1;
                 ChoiceField {
@@ -137,8 +142,11 @@ export component OnAirSettings inherits VerticalLayout {
             }
         }
         if problem != "": Note { text: problem; kind: "status_err"; }
-        if url-shown: FormRow {
+        if url-shown: RailRow {
+            icon: Icons.qr;
             label: @tr("Scan");
+            hue: Theme.plugin-hue("on_screen");
+            enabled: true;
             VerticalLayout {
                 padding-top: 4px;
                 padding-bottom: 4px;
@@ -149,8 +157,11 @@ export component OnAirSettings inherits VerticalLayout {
                 }
             }
         }
-        if address-shown: FormRow {
+        if address-shown: RailRow {
+            icon: Icons.wifi;
             label: @tr("Address");
+            hue: Theme.plugin-hue("on_screen");
+            enabled: true;
             Rectangle {
                 horizontal-stretch: 1;
                 ChoiceField {
@@ -164,8 +175,11 @@ export component OnAirSettings inherits VerticalLayout {
                 }
             }
         }
-        if url-shown: FormRow {
+        if url-shown: RailRow {
+            icon: Icons.link;
             label: @tr("Link");
+            hue: Theme.plugin-hue("on_screen");
+            enabled: true;
             HorizontalLayout {
                 spacing: 8px;
                 Text {
@@ -188,14 +202,19 @@ export component OnAirSettings inherits VerticalLayout {
         icon: Icons.plug;
         hue: Theme.plugin-hue("on_screen");
         UrlRow {
+            icon: Icons.link;
+            hue: Theme.plugin-hue("on_screen");
             label: @tr("Address");
             placeholder: "http://homeassistant.local:8123/api/webhook/…";
             text <=> root.webhook-url;
             edited(t) => { root.url-edited(t); }
         }
         if url-problem != "": Note { text: url-problem; kind: "status_err"; }
-        FormRow {
+        RailRow {
+            icon: Icons.send-phone;
             label: @tr("Method");
+            hue: Theme.plugin-hue("on_screen");
+            enabled: true;
             Segmented {
                 items: ["POST", "GET"];
                 label: @tr("Method");
@@ -204,6 +223,8 @@ export component OnAirSettings inherits VerticalLayout {
             }
         }
         UrlRow {
+            icon: Icons.eye;
+            hue: Theme.plugin-hue("on_screen");
             label: @tr("Going on air");
             placeholder: on-placeholder;
             tip: payload-tip;
@@ -211,6 +232,8 @@ export component OnAirSettings inherits VerticalLayout {
             edited(t) => { root.on-edited(t); }
         }
         UrlRow {
+            icon: Icons.eye-off;
+            hue: Theme.plugin-hue("on_screen");
             label: @tr("Going off air");
             placeholder: off-placeholder;
             tip: payload-tip;

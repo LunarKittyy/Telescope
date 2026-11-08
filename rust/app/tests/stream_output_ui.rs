@@ -116,7 +116,7 @@ impl Drawn {
     }
 
     fn option(&self, label: &str) -> ElementHandle {
-        ElementHandle::find_by_accessible_label(&self.ui, label).find(|e| e.accessible_checked().is_some_and(|_| e.accessible_description().is_some_and(|d| !d.is_empty()))).expect("the button")
+        ElementHandle::find_by_accessible_label(&self.ui, &format!("Format: {label}")).find(|e| e.accessible_checked().is_some()).expect("the button")
     }
 
     fn click(&mut self, label: &str) {
@@ -198,8 +198,7 @@ fn light_is_the_default_and_switching_reconnects() {
     assert_eq!(c.says("h264-enabled"), true, "offered before the phone has reported");
     assert!(c.says("light-tip").as_str().unwrap().contains("H.264"));
     assert!(c.says("heavy-tip").as_str().unwrap().contains("MJPEG"));
-    assert_eq!(light.accessible_description().as_deref(), Some("Good for most calls"));
-    assert_eq!(heavy.accessible_description().as_deref(), Some("Sharper, more data"));
+    assert_eq!(heavy.accessible_checked(), Some(false));
     assert!(c.slider("Bitrate").is_some() && c.slider("JPEG quality").is_none());
 
     c.plugin.on_phone_state(&mut c.host, &json!({"cameras": [], "codecs": ["mjpeg", "h264"]}));

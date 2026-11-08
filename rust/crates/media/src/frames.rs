@@ -5,7 +5,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::time::{Duration, Instant};
-use telescope_core::frame::{Frame, PixelFormat, StreamFrame};
+use telescope_core::frame::{Frame, StreamFrame};
 use telescope_core::host::FrameStore;
 use telescope_core::media::{FrameSlot, StreamFrames};
 use telescope_core::time::monotonic_ns;
@@ -18,21 +18,6 @@ static FRAME_NUMBERS: AtomicU64 = AtomicU64::new(1);
 pub struct Slot {
     state: Mutex<SlotState>,
     changed: Condvar,
-    /// The small copy of a frame before the view, and when it was asked for and last made (monotonic ns, 0 for never).
-    raw: RawStill,
-}
-
-/// How long after the last raw_still the stream keeps offering frames, and the least time between two copies (about 5 a second).
-pub const RAW_KEEP_NS: u64 = 1_500_000_000;
-pub const RAW_EVERY_NS: u64 = 190_000_000;
-/// The widest a still is kept.
-pub const RAW_WIDTH: usize = 320;
-
-#[derive(Default)]
-struct RawStill {
-    asked: AtomicU64,
-    made: AtomicU64,
-    still: Mutex<Option<Frame>>,
 }
 
 #[derive(Default)]
@@ -82,33 +67,6 @@ impl FrameSlot for Slot {
     fn latest(&self) -> Option<(Frame, u64)> {
         let st = self.state.lock().unwrap();
         st.latest.clone().map(|f| (f, st.version))
-    }
-
-    fn raw_still(&self) -> Option<Frame> {
-        self.raw.asked.store(monotonic_ns().max(1), Ordering::Relaxed);
-        self.raw.still.lock().unwrap().clone()
-    }
-
-    fn wants_raw(&self) -> bool {
-        let (asked, now) = (self.raw.asked.load(Ordering::Relaxed), monotonic_ns());
-        asked != 0 && now.saturating_sub(asked) < RAW_KEEP_NS && now.saturating_sub(self.raw.made.load(Ordering::Relaxed)) >= RAW_EVERY_NS
-    }
-
-    fn offer_raw(&self, frame: &Frame) {
-        let Some(rgb) = telescope_core::image::frame_rgb(frame) else { return };
-        let (w, h) = (frame.width as usize, frame.height as usize);
-        if w == 0 || h == 0 || rgb.len() < w * h * 3 {
-            return;
-        }
-        let w2 = w.min(RAW_WIDTH);
-        let h2 = (h * w2).div_ceil(w).max(1);
-        let small = if (w2, h2) == (w, h) { rgb } else { telescope_core::image::resize_area(&rgb, w, h, 3, w2, h2) };
-        let mut rgba = Vec::with_capacity(w2 * h2 * 4);
-        for px in small.chunks_exact(3) {
-            rgba.extend_from_slice(&[px[0], px[1], px[2], 255]);
-        }
-        *self.raw.still.lock().unwrap() = Some(Frame::new(w2 as u32, h2 as u32, PixelFormat::Rgba, rgba));
-        self.raw.made.store(monotonic_ns().max(1), Ordering::Relaxed);
     }
 
     fn wait_newer(&self, seen: u64, timeout: Duration) -> bool {
@@ -163,11 +121,6 @@ impl FrameStore for Frames {
         let sid = source_id.unwrap_or("");
         self.streams().iter().find(|e| e.0 == sid).is_some_and(|e| e.2.replace(frame, number))
     }
-
-    fn raw_still(&self, source_id: Option<&str>) -> Option<Frame> {
-        let sid = source_id.unwrap_or("");
-        self.streams().iter().find(|e| e.0 == sid).and_then(|e| e.2.raw_still())
-    }
 }
 
 impl StreamFrames for Frames {
@@ -192,54 +145,6 @@ mod tests {
 
     fn streams(list: &[(&str, &str, &Arc<Slot>)]) -> Vec<(String, String, Arc<dyn FrameSlot>)> {
         list.iter().map(|(s, n, slot)| (s.to_string(), n.to_string(), (*slot).clone() as Arc<dyn FrameSlot>)).collect()
-    }
-
-    fn rgba(w: u32, h: u32, value: u8) -> Frame {
-        Frame::new(w, h, PixelFormat::Rgba, vec![value; PixelFormat::Rgba.size(w, h)])
-    }
-
-    #[test]
-    fn a_stream_keeps_no_small_copy_until_somebody_asks_and_stops_a_moment_after() {
-        let slot = Slot::new();
-        assert!(!slot.wants_raw(), "nobody asked");
-        assert!(slot.raw_still().is_none(), "the first ask has nothing yet, and starts it");
-        assert!(slot.wants_raw());
-        slot.offer_raw(&rgba(64, 36, 90));
-        assert!(!slot.wants_raw(), "one is made about every 190 ms, not for every frame");
-        let still = slot.raw_still().expect("the copy");
-        assert_eq!((still.width, still.height, still.format), (64, 36, PixelFormat::Rgba));
-        std::thread::sleep(Duration::from_millis(200));
-        assert!(slot.wants_raw(), "time for the next while somebody keeps asking");
-        // Nobody asked for a while: it stops (the stamp of the last ask moved back past the keep time)
-        slot.raw.asked.store(1, Ordering::Relaxed);
-        assert!(!slot.wants_raw());
-    }
-
-    #[test]
-    fn the_small_copy_is_the_frame_before_the_view_shrunk_to_320_wide_keeping_its_shape() {
-        let slot = Slot::new();
-        slot.raw_still();
-        slot.offer_raw(&rgba(1920, 1080, 77));
-        let still = slot.raw_still().unwrap();
-        assert_eq!((still.width, still.height), (320, 180));
-        assert_eq!(&still.data[..4], &[77, 77, 77, 255]);
-        // a frame already smaller stays as it is, and a portrait one keeps its shape
-        slot.offer_raw(&rgba(100, 50, 5));
-        assert_eq!(slot.raw_still().map(|f| (f.width, f.height)), Some((100, 50)));
-        slot.offer_raw(&rgba(1080, 1920, 5));
-        assert_eq!(slot.raw_still().map(|f| (f.width, f.height)), Some((320, 569)));
-    }
-
-    #[test]
-    fn the_frame_store_hands_out_a_streams_copy_by_its_source() {
-        let (a, b) = (Slot::new(), Slot::new());
-        let frames = Frames::default();
-        frames.set_streams(streams(&[("a", "A", &a), ("b", "B", &b)]));
-        assert!(frames.raw_still(Some("a")).is_none());
-        a.offer_raw(&rgba(32, 18, 9));
-        assert!(frames.raw_still(Some("a")).is_some());
-        assert!(frames.raw_still(Some("b")).is_none(), "the other stream was asked for nothing");
-        assert!(frames.raw_still(Some("nobody")).is_none());
     }
 
     #[test]

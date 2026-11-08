@@ -264,12 +264,14 @@ export component IconButton inherits Rectangle {
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     in property <bool> enabled: true;
+    // On a raised square at rest, like the other controls of a bar (the top bar's), where the default sits on no fill
+    in property <bool> raised;
     out property <string> control-kind: "icon-button";
     callback clicked;
     width: Theme.row;
     height: Theme.row;
     border-radius: Theme.r-ctl;
-    background: !enabled ? Theme.trough : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : transparent;
+    background: !enabled ? Theme.trough : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : raised ? Theme.raise : transparent;
     animate background { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
     accessible-role: button;
     accessible-label: label;

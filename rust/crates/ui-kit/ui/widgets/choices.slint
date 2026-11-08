@@ -276,10 +276,15 @@ export component PictureSegmented inherits Rectangle {
     in property <bool> show-names;
     // The tile's height with the name, when shown, in it
     in property <length> tile-height: Theme.u(24);
+    // How tall the drawings are when names are under them: the drawing and its name are centred in the tile as one group
+    in property <length> art-size: Theme.u(10);
     // Where the drawings go
     out property <length> pitch: cell-width + Theme.gap;
     out property <length> cell-width: (self.width - (max(1, items.length) - 1) * Theme.gap) / max(1, items.length);
-    out property <length> art-height: tile-height - (show-names ? Theme.u(9) : 0px);
+    out property <length> name-height: Theme.u(7);
+    out property <length> art-gap: Theme.u(2);
+    out property <length> art-height: names-drawn ? art-size : tile-height;
+    out property <length> art-top: names-drawn ? (tile-height - art-size - art-gap - name-height) / 2 : 0px;
     out property <string> control-kind: "segmented";
     // Every name fits under its drawing, or none is drawn: a row with some names and some tooltips only reads as uneven. The widest decides, at the heaviest weight so a pick never changes it.
     property <bool> names-fit: measure.preferred-width <= cell-width - Theme.u(2);
@@ -401,11 +406,11 @@ export component PictureSegmented inherits Rectangle {
     }
     for item[i] in items: Text {
         property <bool> on: i == shown;
-        visible: show-names && !(show-names && !names-fit);
+        visible: names-drawn;
         x: i * pitch;
-        y: tile-height - Theme.u(8);
+        y: art-top + art-size + art-gap;
         width: cell-width;
-        height: Theme.u(7);
+        height: name-height;
         text: item;
         font-family: Theme.font;
         font-size: Theme.tiny;
@@ -419,6 +424,7 @@ export component PictureSegmented inherits Rectangle {
     }
     // The caller's drawings, over the tiles and under nothing: they take no pointer, so a press goes to the tile below
     Rectangle {
+        y: art-top;
         width: parent.width;
         height: art-height;
         @children

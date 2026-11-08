@@ -1,7 +1,7 @@
 // The settings window (widgets/settings_window.py) and its Plugins tab (widgets/plugins_panel.py). The window itself
 // is written at startup by doc.rs, with every plugin's settings sections placed on their tabs.
 
-import { Theme, Icons, Icon, FocusRing, Button, IconButton, LinkText, Switch, Segmented, Worm, SearchWords, SettingRow, TextField, Tip, TipBody, ColumnScrollbar } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, Button, IconButton, LinkText, Switch, Segmented, Worm, SearchWords, SettingRow, TextField, Tip, TipBody, ColumnScrollbar, Motion } from "@ui-kit/ui-kit.slint";
 
 export struct NavTab {
     id: string,
@@ -83,18 +83,19 @@ component NavItem inherits Rectangle {
     Rectangle {
         y: 1px;
         height: parent.height - 2px;
-        border-radius: 7px;
+        border-radius: Theme.r-ctl;
         // The picked tab's own look is the worm's, which the column draws under the rows
-        background: !selected && touch.has-hover ? Theme.surface-hover : transparent;
-        Icon { x: 13px; source: tab.icon; tint: selected ? Theme.text : Theme.text-dim; width: 16px; height: 16px; accessible-role: none; }
+        background: selected ? transparent : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : transparent;
+        animate background { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
+        Icon { x: 13px; source: tab.icon; tint: selected ? Theme.accent : Theme.ink2; width: 16px; height: 16px; accessible-role: none; }
         Text {
             x: 35px;
             width: parent.width - 45px;
             text: tab.name;
             font-family: Theme.font;
             font-size: Theme.body;
-            color: selected ? Theme.text : Theme.text-dim;
-            font-weight: selected ? 600 : 400;
+            font-weight: selected ? Theme.w-value : Theme.w-label;
+            color: selected ? Theme.ink : Theme.ink2;
             vertical-alignment: center;
             overflow: elide;
         }
@@ -130,7 +131,7 @@ export component SettingsNav inherits Rectangle {
             reject
         }
     }
-    FocusRing { shown: focus.has-focus; radius: 7px; width: parent.width + 4px; height: min(parent.height + 4px, tabs.length * 38px + 12px); }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 4px; height: min(parent.height + 4px, tabs.length * 38px + 12px); }
     Flickable {
         width: parent.width;
         height: parent.height;
@@ -154,7 +155,7 @@ export component SettingsNav inherits Rectangle {
                 to-y: 4px + current * 38px + 1px;
                 to-w: parent.width;
                 to-h: 36px;
-                radius: 7px;
+                radius: Theme.r-ctl;
                 hue: Theme.accent;
                 shown: current >= 0 && current < tabs.length;
             }
@@ -248,8 +249,10 @@ export component ResultsList inherits VerticalLayout {
         VerticalLayout {
             for r[i] in results: Rectangle {
                 height: 52px;
-                border-radius: 8px;
-                background: i == current ? Theme.fill : row-touch.has-hover ? Theme.surface-hover : transparent;
+                border-radius: Theme.r-ctl;
+                border-width: i == current ? Theme.stroke : 0px;
+                border-color: Theme.accent;
+                background: i == current ? Theme.tint(Theme.accent) : row-touch.has-hover ? Theme.hover : transparent;
                 accessible-role: list-item;
                 accessible-label: r.name;
                 accessible-description: r.path;
@@ -261,8 +264,8 @@ export component ResultsList inherits VerticalLayout {
                     padding-right: 10px;
                     alignment: center;
                     spacing: 2px;
-                    Text { text: r.name; overflow: elide; font-family: Theme.font; font-size: Theme.body; color: i == current ? white : Theme.text; }
-                    Text { text: r.path; overflow: elide; font-family: Theme.font; font-size: Theme.body; color: i == current ? #e6e1ff : Theme.text-dim; }
+                    Text { text: r.name; overflow: elide; font-family: Theme.font; font-size: Theme.body; color: Theme.ink; font-weight: i == current ? Theme.w-value : Theme.w-label; }
+                    Text { text: r.path; overflow: elide; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; }
                 }
             }
         }
@@ -275,15 +278,13 @@ component Badge inherits Rectangle {
     in property <BadgeData> data;
     height: 18px;
     width: label.preferred-width + 16px;
-    border-radius: 8px;
-    border-width: 1px;
-    background: data.kind == "restart" ? #251f17 : Theme.surface-raise;
-    border-color: data.kind == "restart" ? #5a4a2e : Theme.border;
+    border-radius: self.height / 2;
+    background: Theme.raise;
     label := Text {
         text: data.text;
         font-family: Theme.font;
         font-size: 11px;
-        color: data.kind == "restart" ? Theme.warn : data.kind == "lock" ? Theme.accent-soft : Theme.text-dim;
+        color: data.kind == "lock" ? Theme.accent-soft : Theme.ink2;
         vertical-alignment: center;
     }
 }
@@ -306,10 +307,9 @@ component PluginTile inherits Rectangle {
     callback switched(bool);
     callback removed;
     callback open-url(string);
-    border-radius: 12px;
-    border-width: 1px;
-    background: Theme.surface;
-    border-color: touch.has-hover ? Theme.border-strong : Theme.border;
+    border-radius: Theme.r-card;
+    background: touch.has-hover ? Theme.card.mix(Theme.hover, 0.5) : Theme.card;
+    animate background { duration: Motion.tone-for(false); easing: Motion.tone; }
     accessible-role: groupbox;
     accessible-label: tile.title;
     accessible-description: tile.about;
@@ -413,8 +413,6 @@ export component PluginsPanel inherits VerticalLayout {
     // Something has been added, so there are no instructions to show, and the update switches that go with it
     in property <bool> has-added;
     in property <[UpdateRowView]> update-rows;
-    // What each of All, On and Off is called to a screen reader ("Show: On")
-    in property <[string]> filter-names;
     callback switched(string, bool);
     callback removed(string);
     callback remove-pack;
@@ -458,6 +456,7 @@ export component PluginsPanel inherits VerticalLayout {
         // The kit's Segmented: the picked one wears the worm, like every one-of choice
         Segmented {
             width: 178px;
+            hue: Theme.accent;
             horizontal-stretch: 0;
             items: [@tr("plugins" => "All"), @tr("plugins" => "On"), @tr("plugins" => "Off")];
             disabled: [false, false, false];
@@ -568,25 +567,22 @@ export component PluginsPanel inherits VerticalLayout {
     }
 }
 
-// The restart bar kept under the Plugins tab's page.
+// The restart bar kept under the Plugins tab's page: in the warning colour so it is noticed, and the one place a pending restart shows.
 export component PluginsFooter inherits Rectangle {
     in property <string> note;
     callback restart;
     height: 54px;
-    border-radius: 12px;
-    border-width: 1px;
-    background: Theme.surface-raise;
-    border-color: Theme.border-strong;
+    border-radius: Theme.r-card;
+    background: Theme.warn;
     HorizontalLayout {
         padding-left: 16px;
         padding-right: 10px;
         padding-top: 10px;
         padding-bottom: 10px;
         spacing: 12px;
-        Text { horizontal-stretch: 1; text: note; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.text; vertical-alignment: center; }
+        Text { horizontal-stretch: 1; text: note; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; color: #101010; vertical-alignment: center; }
         Button {
             text: @tr("Restart now");
-            role: "primary";
             height: 32px;
             clicked => { root.restart(); }
             tip: @tr("Start Telescope again to apply your changes");

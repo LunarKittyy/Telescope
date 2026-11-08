@@ -243,6 +243,9 @@ export component TelescopeWindow inherits Window {
     in property <[TileData]> tiles;
     in property <string> status;
     in property <string> status-kind: "status_dim";
+    // Set from `status` when it is the streaming sentence: the camera and the size it names
+    in property <string> status-camera;
+    in property <string> status-size;
     in property <string> fps: "-";
     in property <string> fps-tone;
     property <color> fps-color: fps-tone == "warn" ? Theme.warn : fps-tone == "err" ? Theme.err : Theme.text;
@@ -343,42 +346,56 @@ const HEADER: &str = r#"
         HorizontalLayout {
             padding-left: 16px;
             padding-right: 16px;
-            padding-top: 10px;
-            padding-bottom: 10px;
+            padding-top: 8px;
+            padding-bottom: 8px;
             spacing: 12px;
-            HorizontalLayout {
-                // Header widgets keep their own width, like Qt's header row; the gap takes the rest
+            // Every control is centred on the bar's height by a layout of its own: a y in a layout is ignored
+            VerticalLayout {
+                alignment: center;
                 horizontal-stretch: 0;
-                spacing: 14px;
-{left}            }
+                HorizontalLayout {
+                    // Header widgets keep their own width, like Qt's header row; the gap takes the rest
+                    spacing: 14px;
+{left}                }
+            }
             Rectangle { horizontal-stretch: 1; }
-            HorizontalLayout {
+            VerticalLayout {
+                alignment: center;
                 horizontal-stretch: 0;
-                spacing: 8px;
-{right}            }
-            HeaderIconButton {
-                y: (parent.height - self.height) / 2;
-                icon: Icons.v-gear;
-                icon-size: 19px;
-                label: @tr("Settings");
-                tip: @tr("Settings");
-                clicked => { root.settings-clicked(); }
+                HorizontalLayout {
+                    spacing: 8px;
+{right}                }
             }
-            if add-visible: HeaderIconButton {
-                y: (parent.height - self.height) / 2;
-                icon: Icons.v-plus;
-                label: @tr("Add camera");
-                tip: @tr("Stream another camera at the same time, to a virtual camera of its own");
-                enabled: add-enabled;
-                clicked => { add-menu.show({ x: self.absolute-position.x, y: self.absolute-position.y + self.height + 6px }); }
+            VerticalLayout {
+                alignment: center;
+                HeaderIconButton {
+                    icon: Icons.v-gear;
+                    icon-size: Theme.icon * 1.25;
+                    label: @tr("Settings");
+                    tip: @tr("Settings");
+                    clicked => { root.settings-clicked(); }
+                }
             }
-            StartButton {
-                y: (parent.height - self.height) / 2;
-                text: root.mode == 2 ? start-short : start-text;
-                streaming: root.streaming;
-                shortcut: "streaming.start_stop";
-                enabled: start-enabled;
-                clicked => { root.start-clicked(); }
+            if add-visible: VerticalLayout {
+                alignment: center;
+                HeaderIconButton {
+                    icon: Icons.v-plus;
+                    icon-size: Theme.icon * 1.25;
+                    label: @tr("Add camera");
+                    tip: @tr("Stream another camera at the same time, to a virtual camera of its own");
+                    enabled: add-enabled;
+                    clicked => { add-menu.show({ x: self.absolute-position.x, y: self.absolute-position.y + self.height + 6px }); }
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                StartButton {
+                    text: root.mode == 2 ? start-short : start-text;
+                    streaming: root.streaming;
+                    shortcut: "streaming.start_stop";
+                    enabled: start-enabled;
+                    clicked => { root.start-clicked(); }
+                }
             }
         }
     }
@@ -439,6 +456,8 @@ const BODY_BOTTOM: &str = r#"        }
         width: root.width;
         status: root.status;
         status-kind: root.status-kind;
+        camera: root.status-camera;
+        size: root.status-size;
         fps: root.fps;
         fps-color: root.fps-color;
         fps-tip: root.fps-tip;
@@ -704,7 +723,6 @@ export component TelescopeSettings inherits Window {
     in property <string> footer-note;
     in property <bool> has-added;
     in property <[UpdateRowView]> update-rows;
-    in property <[string]> filter-names;
     callback plugin-switched(string, bool);
     callback plugin-removed(string);
     callback remove-pack;
@@ -813,7 +831,6 @@ const PLUGINS_PANEL: &str = r#"        PluginsPanel {
             columns: max(parent.inner-width < 400px ? 1 : 2, min(3, floor((parent.inner-width + 10px) / 240px)));
             has-added: root.has-added;
             update-rows: root.update-rows;
-            filter-names: root.filter-names;
             switched(name, on) => { root.plugin-switched(name, on); }
             removed(name) => { root.plugin-removed(name); }
             remove-pack => { root.remove-pack(); }

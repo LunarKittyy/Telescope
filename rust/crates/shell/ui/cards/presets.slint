@@ -99,8 +99,7 @@ export component PresetsHeader inherits HorizontalLayout {
         text: label;
         has-icon: true;
         icon: Icons.bookmark;
-        height: 34px;
-        y: (parent.height - self.height) / 2;
+        height: Theme.u(18);
         tip: root.tip;
         shortcut: "presets.apply";
         clicked => {
@@ -219,7 +218,7 @@ export component PresetsHeader inherits HorizontalLayout {
                     spacing: 8px;
                     alignment: end;
                     Button { text: cancel-text; clicked => { root.dialog-cancelled(); } }
-                    Button { text: ok-text; role: "primary"; clicked => { root.name-accepted(root.name-text); } }
+                    Button { text: ok-text; role: "primary"; hue: Theme.plugin-hue("extras"); clicked => { root.name-accepted(root.name-text); } }
                 }
             }
         }
@@ -249,7 +248,7 @@ export component PresetsHeader inherits HorizontalLayout {
                     spacing: 8px;
                     alignment: end;
                     Button { text: cancel-text; clicked => { root.replace-answered(false); } }
-                    Button { text: replace-text; role: "primary"; clicked => { root.replace-answered(true); } }
+                    Button { text: replace-text; role: "primary"; hue: Theme.plugin-hue("extras"); clicked => { root.replace-answered(true); } }
                 }
             }
         }

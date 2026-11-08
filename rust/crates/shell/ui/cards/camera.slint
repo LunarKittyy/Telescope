@@ -62,8 +62,10 @@ component LensTile inherits Rectangle {
                 height: Theme.u(9);
             }
         }
-        if lens.rest != "": Text {
+        // Always there, empty or not, so the focal length sits on the same baseline in every tile
+        Text {
             text: lens.rest;
+            height: Theme.small * 1.3;
             font-family: Theme.font;
             font-size: Theme.small;
             color: on ? hue : Theme.ink2;

@@ -22,7 +22,6 @@ const TEXT_DISABLED: [u8; 3] = [0x52, 0x5b, 0x67];
 // The Classic theme's colours, which this rig draws in: a slider handle's edge at rest (the camera colour three parts to one of the card), a disabled one's, and the value's ink
 const HANDLE_EDGE: [u8; 3] = [101, 165, 155];
 const HANDLE_OFF: [u8; 3] = [0x52, 0x5b, 0x67];
-const INK: [u8; 3] = [0xe7, 0xea, 0xef];
 const WIDTH: usize = 460;
 
 fn spin_on<F: std::future::Future>(f: F) -> F::Output {
@@ -42,11 +41,11 @@ fn window(plugin: &mut TransformsPlugin) -> ComponentInstance {
     let card = plugin.card().expect("a card");
     let SlintSource::Text(source) = card.ui.source.clone() else { panic!("source text") };
     let kinds: [(&str, &[&str]); 6] = [
-        ("bool", &["active", "pan-enabled", "zoom-free", "map-has-picture", "map-share-on"]),
+        ("bool", &["active", "pan-enabled", "zoom-free"]),
         ("float", &["pan-x", "pan-y", "rotation", "stretch-x", "stretch-y", "zoom", "zoom-max", "map-aspect"]),
         ("string", &["dot-level", "dot-tip", "pan-add-x", "pan-add-y", "pan-tip", "reset-hint", "reset-tip", "stretch-x-text", "stretch-y-text", "zoom-text", "zoom-tip"]),
         ("[bool]", &["flips"]),
-        ("[float]", &["zoom-marks", "map-share"]),
+        ("[float]", &["zoom-marks"]),
         ("[string]", &["stretch-tips"]),
     ];
     let (mut declared, mut passed) = (String::new(), String::new());
@@ -198,7 +197,8 @@ fn disc(w: &ComponentInstance, property: &str) -> (f64, f64) {
     let (from, to) = if property == "zoom-free" { (HANDLE_EDGE, HANDLE_OFF) } else { (HUE_CAMERA, TEXT_DISABLED) };
     let groups = recoloured(&on, &off, from, to);
     // The box's edge breaks into a few pieces at its rounded corners, which together are centred on it
-    let found = if property == "zoom-free" { groups.concat() } else { groups.iter().find(|g| g.len() >= 100).expect("the disc").clone() };
+    // The row's icon at the left goes grey with it: only what is right of the rail is the handle
+    let found = if property == "zoom-free" { groups.concat().into_iter().filter(|p| p.0 > 40).collect() } else { groups.iter().find(|g| g.len() >= 100).expect("the disc").clone() };
     assert!(found.len() >= 50, "the handle");
     (found.iter().map(|p| p.0 as f64).sum::<f64>() / found.len() as f64 + 0.5, found.iter().map(|p| p.1 as f64).sum::<f64>() / found.len() as f64 + 0.5)
 }
@@ -336,14 +336,15 @@ fn auto_framing_visibly_disables_the_zoom_handle_and_value() {
     assert_eq!(*moved.borrow(), 0, "the slider is off while it's taken");
     // The handle is a 14 x 24 px box whose edge went from the camera's colour to the disabled one, and the value's text went grey
     let groups = recoloured(&free, &taken, HANDLE_EDGE, HANDLE_OFF);
-    let all: Vec<(usize, usize)> = groups.concat();
+    let all: Vec<(usize, usize)> = groups.concat().into_iter().filter(|p| p.0 > 40).collect();
     let grey_handle = (!all.is_empty()).then(|| {
         let (x0, x1) = (all.iter().map(|p| p.0).min().unwrap(), all.iter().map(|p| p.0).max().unwrap());
         let (y0, y1) = (all.iter().map(|p| p.1).min().unwrap(), all.iter().map(|p| p.1).max().unwrap());
         (12..=16).contains(&(x1 - x0 + 1)) && (22..=26).contains(&(y1 - y0 + 1)) && all.len() >= 50
     });
     assert_eq!(grey_handle, Some(true), "no handle went grey: {:?}", groups.iter().map(|g| g.len()).collect::<Vec<_>>());
-    assert!(recoloured(&free, &taken, INK, TEXT_DISABLED).iter().any(|g| g.len() >= 1), "the value's text went grey too");
+    assert!(recoloured(&free, &taken, HUE_CAMERA, TEXT_DISABLED).iter().any(|g| g.len() >= 1), "the value's text went grey too");
+    assert!(groups.concat().iter().any(|p| p.0 <= 40), "and so did the row's icon");
 
     plugin.on_event(&mut host, &Event::ViewTaken { owner: String::new() });
     let released = show(&w, &props(&host, &mut plugin));
@@ -434,15 +435,12 @@ fn the_card_keeps_its_height_whatever_the_map_shows() {
     };
     sync(&rig, &w);
     let first = height(&w);
-    for (zoom, aspect, picture, share) in [(2.0, 16.0 / 9.0, true, false), (4.0, 9.0 / 16.0, true, true), (1.0, 4.0 / 3.0, false, false), (8.0, 21.0 / 9.0, true, true)] {
+    for (zoom, aspect) in [(2.0, 16.0 / 9.0), (4.0, 9.0 / 16.0), (1.0, 4.0 / 3.0), (8.0, 21.0 / 9.0)] {
         tell(&rig, "zoom-moved", vec![serde_json::json!(zoom)]);
         sync(&rig, &w);
         w.set_property("map-aspect", Value::Number(aspect)).unwrap();
-        w.set_property("map-has-picture", Value::Bool(picture)).unwrap();
-        w.set_property("map-share-on", Value::Bool(share)).unwrap();
-        w.set_property("map-share", from_json(&serde_json::json!([0.3, 0.3, 0.4, 0.4]))).unwrap();
         offscreen::draw(w.window(), WIDTH as f32, 760.0, 1.0).expect("a picture");
-        assert_eq!(height(&w), first, "zoom {zoom}, shape {aspect}, picture {picture}, share {share}");
+        assert_eq!(height(&w), first, "zoom {zoom}, shape {aspect}");
     }
 }
 

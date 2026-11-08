@@ -1,7 +1,7 @@
 // The Connection plugin: the card, the phone picker in the header, the Add
 // phone and Your phones dialogs (as popups) and the UDP row in Settings. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Tip, TipBody, Button, IconButton, LinkText, Card, FormRow, RailRow, Segmented, ChoiceField, TextField, TextCap, Switch, SettingRow, Tag, DialogFrame, WindowBox, FlickBar, QrCode } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Tip, TipBody, Button, IconButton, LinkText, Card, RailRow, Segmented, ChoiceField, TextField, TextCap, Switch, SettingRow, Tag, DialogFrame, WindowBox, FlickBar, QrCode } from "@ui-kit/ui-kit.slint";
 
 // A plugged-in phone the Add device dialog can pair over USB.
 export struct UsbPick {
@@ -325,14 +325,27 @@ export component ConnectionCard inherits Card {
                 label: @tr("What to add");
                 margin: 0px;
                 items: ["Android", other-name];
-                has-icons: [false, false];
-                icons: [Icons.x, Icons.x];
+                has-icons: [true, true];
+                icons: [Icons.phone, Icons.wifi];
                 current: root.add-page;
                 picked(i) => { root.add-page = i; }
             }
+            // Nothing to pair on this side: the one button adds it, named for what it adds
             if on-source: HorizontalLayout {
-                alignment: start;
-                Button { text: @tr("Use it"); role: "primary"; hue: root.hue; accessible-label: other-name; clicked => { root.other-picked(); } }
+                alignment: center;
+                padding-top: Theme.u(6);
+                padding-bottom: Theme.u(6);
+                Button {
+                    text: other-name;
+                    role: "primary";
+                    hue: root.hue;
+                    has-icon: true;
+                    icon: Icons.plus;
+                    icon-tint: Theme.on-hue;
+                    tip: @tr("Stream from any browser: no app on the phone, just a link or a code to open there");
+                    accessible-label: other-name;
+                    clicked => { root.other-picked(); }
+                }
             }
             if qr-size > 0 && !paired && !on-source: Rectangle {
                 property <int> modules: qr-size + 8;
@@ -347,28 +360,41 @@ export component ConnectionCard inherits Card {
                 max-height: full;
                 vertical-stretch: 1;
                 QrCode {
+                    x: (parent.width - self.width) / 2;
                     cells: qr-cells;
                     size: qr-size;
                     cell: fit(min(parent.width, parent.height));
                     label: @tr("Pairing code");
                 }
+                Tip { says: @tr("Pair over Wi-Fi"); detail: wifi-text; inert: true; }
             }
-            if wifi-shown && !paired && !add-frame.on-source: FormRow {
+            // No code to show (this computer isn't on a network): the reason, in one line
+            if qr-size == 0 && wifi-shown && wifi-text != "" && !paired && !add-frame.on-source: RailRow {
+                icon: Icons.wifi;
                 label: "Wi-Fi";
-                // Qt's label fills the row and centres its lines
-                VerticalLayout {
-                    horizontal-stretch: 1;
-                    alignment: center;
-                    Note { text: wifi-text; }
-                }
+                hue: root.hue;
+                enabled: false;
+                Note { text: wifi-text; vertical-alignment: center; }
             }
-            if usb-shown && !paired && !add-frame.on-source: FormRow {
+            if usb-shown && !paired && !add-frame.on-source: RailRow {
+                icon: Icons.usb;
                 label: "USB";
+                hue: root.hue;
                 VerticalLayout {
                     horizontal-stretch: 1;
-                    spacing: 6px;
+                    spacing: Theme.u(3);
                     alignment: center;
-                    Note { text: usb-text; kind: usb-kind; }
+                    // One line of where the cable stands; the whole sentence is its tooltip when it doesn't fit
+                    usb-line := Text {
+                        text: usb-text;
+                        font-family: Theme.font;
+                        font-size: Theme.body;
+                        color: Status.color(usb-kind);
+                        overflow: elide;
+                        vertical-alignment: center;
+                        height: Theme.row;
+                        Tip { says: usb-text; enabled: usb-line.preferred-width > usb-line.width; inert: true; }
+                    }
                     if usb-link-text != "": HorizontalLayout {
                         alignment: start;
                         LinkText {
@@ -382,8 +408,8 @@ export component ConnectionCard inherits Card {
                     if usb-after != "": Note { text: usb-after; }
                     if usb-action != "": HorizontalLayout {
                         alignment: start;
-                        spacing: 8px;
-                        Button { text: usb-action; clicked => { root.usb-action-clicked(); } }
+                        spacing: Theme.gap;
+                        Button { text: usb-action; role: "primary"; hue: root.hue; clicked => { root.usb-action-clicked(); } }
                         if usb-pick-action != "": Button { text: usb-pick-action; clicked => { root.usb-pick-clicked(); } }
                     }
                     if picks.length > 0: UsbPicks {
@@ -409,6 +435,7 @@ export component ConnectionCard inherits Card {
                     height: 32px;
                     text: paired ? @tr("Done") : @tr("Back");
                     role: paired ? "primary" : "";
+                    hue: root.hue;
                     clicked => {
                         if (paired) { root.add-closed(); } else { root.add-back(); }
                     }
@@ -515,11 +542,10 @@ export component PhonePicker inherits HorizontalLayout {
         }
     }
 
-    // The header bar is taller than these; Qt centres them in it
+    // The header's controls are one height, centred on the bar by the layout that holds this
     ChoiceField {
         min-width: 180px;
-        height: 34px;
-        y: (parent.height - self.height) / 2;
+        height: Theme.u(18);
         compact: true;
         bold: true;
         has-icon: true;
@@ -538,18 +564,17 @@ export component PhonePicker inherits HorizontalLayout {
     }
     // A plain element around these: a popup directly under a layout ignores its x and y
     phones-anchor := Rectangle {
-        width: 34px;
-        height: 34px;
-        y: (parent.height - self.height) / 2;
+        width: Theme.u(18);
+        height: Theme.u(18);
+        // A raised square like the picker and Presets beside it, so the three read as one row of controls
         Button {
-            width: 34px;
-            height: 34px;
-            role: "quiet";
+            width: parent.width;
+            height: parent.height;
             padding-x: 0px;
             has-icon: true;
             icon: Icons.v-devices;
-            icon-size: 18px;
-            icon-tint: Theme.text-dim;
+            icon-size: Theme.icon * 1.125;
+            icon-tint: Theme.ink2;
             tip: @tr("Your devices: add, rename, remove");
             accessible-label: @tr("Your devices");
             clicked => { root.manage(); }
@@ -704,7 +729,7 @@ export component PhonePicker inherits HorizontalLayout {
                             phones-popup.show();
                         }
                     }
-                    Button { width: 96px; height: 32px; text: @tr("No"); role: "primary"; clicked => { phones-popup.show(); } }
+                    Button { width: 96px; height: 32px; text: @tr("No"); role: "primary"; hue: Theme.plugin-hue("streaming"); clicked => { phones-popup.show(); } }
                 }
             }
         }

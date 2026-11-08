@@ -24,8 +24,10 @@ export component CompositeCard inherits Card {
     switch-tip: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    FormRow {
+    RailRow {
+        icon: Icons.layout;
         label: @tr("Layout");
+        hue: root.hue;
         Rectangle {
             horizontal-stretch: 1;
             ChoiceField {

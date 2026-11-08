@@ -66,19 +66,19 @@ pub fn rgb_to_hsv(rgb: [u8; 3], keep: (f32, f32)) -> (f32, f32, f32) {
     (sector / 6.0, s, max)
 }
 
-/// A colour typed as hex: "#rrggbb" or "rrggbb", or the short "#rgb", in any case and with spaces round it.
+/// A colour typed as hex, with or without a leading "#", in any case and with spaces round it: "#rrggbb", the short "#rgb", or either
+/// with an alpha on the end ("#rrggbbaa", "#rgba"), which is dropped. Anything else is None.
 pub fn parse_hex(text: &str) -> Option<[u8; 3]> {
-    let digits = text.trim().trim_start_matches('#');
+    let text = text.trim();
+    let digits = text.strip_prefix('#').unwrap_or(text).trim();
     if !digits.bytes().all(|b| b.is_ascii_hexdigit()) {
         return None;
     }
     let pair = |i: usize| u8::from_str_radix(&digits[i..i + 2], 16).ok();
+    let one = |i: usize| u8::from_str_radix(&digits[i..i + 1], 16).ok().map(|n| n * 17);
     match digits.len() {
-        6 => Some([pair(0)?, pair(2)?, pair(4)?]),
-        3 => {
-            let one = |i: usize| u8::from_str_radix(&digits[i..i + 1], 16).ok().map(|n| n * 17);
-            Some([one(0)?, one(1)?, one(2)?])
-        }
+        6 | 8 => Some([pair(0)?, pair(2)?, pair(4)?]),
+        3 | 4 => Some([one(0)?, one(1)?, one(2)?]),
         _ => None,
     }
 }
