@@ -374,79 +374,93 @@ export component ColourGradingCard inherits Card {
     if page == 2: VerticalLayout {
         spacing: Theme.u(4);
         padding-top: Theme.u(2);
-        RailRow {
-            icon: Icons.cube;
-            label: @tr("LUT");
-            hue: root.hue;
-            enabled: active;
-            changed: lut-loaded;
-            HorizontalLayout {
-                spacing: Theme.u(4);
-                // The slot is the LUT: empty until one is loaded, then it reads the file's name
-                PictureField {
-                    enabled: active;
-                    has-picture: false;
-                    set: lut-loaded;
-                    empty-icon: Icons.cube;
-                    name: lut-text != "" ? lut-text : @tr("Load");
-                    problem: lut-note;
-                    hue: root.hue;
-                    tip: @tr("Load LUT");
-                    tip-detail: @tr("Pick a .cube LUT file to apply on top of the grade.");
-                    clicked => { root.load-clicked(); }
-                }
-                if lut-loaded: IconButton {
-                    raised: true;
-                    icon: Icons.x;
-                    label: @tr("Remove LUT");
-                    tip: @tr("Remove LUT");
-                    clicked => { root.clear-clicked(); }
-                }
+        UnfoldGroup {
+            RailRow {
+                icon: Icons.cube;
+                label: @tr("LUT");
+                hue: root.hue;
+                enabled: active;
+                changed: lut-loaded;
+                HorizontalLayout {
+                    spacing: Theme.u(4);
+                    // The slot is the LUT: empty until one is loaded, then it reads the file's name
+                    PictureField {
+                        enabled: active;
+                        has-picture: false;
+                        set: lut-loaded;
+                        empty-icon: Icons.cube;
+                        name: lut-text != "" ? lut-text : @tr("Load");
+                        problem: lut-note;
+                        hue: root.hue;
+                        tip: @tr("Load LUT");
+                        tip-detail: @tr("Pick a .cube LUT file to apply on top of the grade.");
+                        clicked => { root.load-clicked(); }
+                    }
+                    if lut-loaded: IconButton {
+                        raised: true;
+                        icon: Icons.x;
+                        label: @tr("Remove LUT");
+                        tip: @tr("Remove LUT");
+                        clicked => { root.clear-clicked(); }
+                    }
+                    }
+
+            }
+            Unfolding {
+                open: lut-loaded;
+                RailSlider {
+                icon: Icons.gauge;
+                enabled: active;
+                label: @tr("Strength");
+                tip: @tr("Strength");
+                tip-detail: @tr("How strongly the LUT is applied.");
+                tip-hint: root.reset-hint;
+                shortcut: "colour_grading.lut_strength";
+                setting: "colour_grading.lut_strength";
+                minimum: 0;
+                maximum: 100;
+                value: strength;
+                readout: strength-text;
+                hue: root.hue;
+                has-default: true;
+                default-value: 100;
+                moved(v) => { root.strength-moved(v); }
+            }
             }
         }
-        if lut-loaded: RailSlider {
-            icon: Icons.gauge;
-            enabled: active;
-            label: @tr("Strength");
-            tip: @tr("Strength");
-            tip-detail: @tr("How strongly the LUT is applied.");
-            tip-hint: root.reset-hint;
-            shortcut: "colour_grading.lut_strength";
-            setting: "colour_grading.lut_strength";
-            minimum: 0;
-            maximum: 100;
-            value: strength;
-            readout: strength-text;
-            hue: root.hue;
-            has-default: true;
-            default-value: 100;
-            moved(v) => { root.strength-moved(v); }
-        }
-        RailRow {
-            icon: Icons.download;
-            label: @tr("Export");
-            hue: root.hue;
-            enabled: active;
-            HorizontalLayout {
-                Button {
-                    enabled: active;
-                    text: @tr("Export grade");
-                    tip: @tr("Export grade");
-                    tip-detail: @tr("Save the grade and LUT as a .cube file to use in other apps.");
-                    clicked => { root.export-clicked(); }
+        UnfoldGroup {
+            RailRow {
+                icon: Icons.download;
+                label: @tr("Export");
+                hue: root.hue;
+                enabled: active;
+                HorizontalLayout {
+                    Button {
+                        enabled: active;
+                        text: @tr("Export grade");
+                        tip: @tr("Export grade");
+                        tip-detail: @tr("Save the grade and LUT as a .cube file to use in other apps.");
+                        clicked => { root.export-clicked(); }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
                 }
+            }
+            Unfolding {
+                open: export-note != "";
+                RailRow {
+                has-icon: false;
+                StatusLine { text: export-note; kind: "status_" + export-kind; }
+            }
+            }
+            Unfolding {
+                open: replace-open;
+                HorizontalLayout {
+                spacing: Theme.u(4);
+                Button { text: @tr("Replace"); clicked => { root.replace-answered(true); } }
+                Button { text: @tr("Cancel"); clicked => { root.replace-answered(false); } }
                 Rectangle { horizontal-stretch: 1; }
             }
-        }
-        if export-note != "": RailRow {
-            has-icon: false;
-            StatusLine { text: export-note; kind: "status_" + export-kind; }
-        }
-        if replace-open: HorizontalLayout {
-            spacing: Theme.u(4);
-            Button { text: @tr("Replace"); clicked => { root.replace-answered(true); } }
-            Button { text: @tr("Cancel"); clicked => { root.replace-answered(false); } }
-            Rectangle { horizontal-stretch: 1; }
+            }
         }
     }
     // Nothing to touch until a phone is paired

@@ -128,9 +128,9 @@ fn settings_round_trip_and_damaged_ones_fall_back() {
     let blur_row = || ElementHandle::find_by_accessible_label(&ui, "Blur").any(|e| e.accessible_value_maximum().is_some());
     let picture_row = || ElementHandle::find_by_accessible_label(&ui, "Choose").count() > 0;
     // The rows that come and go unfold: give them the moment that takes
-    let settle = || for _ in 0..45 {
+    let settle = || for _ in 0..10 {
+        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(100));
         slint::platform::update_timers_and_animations();
-        std::thread::sleep(std::time::Duration::from_millis(16));
     };
     draw(&spec.props);
     settle();

@@ -441,7 +441,7 @@ fn a_row_that_grows_once_folding_is_installed_gets_its_new_height() {
     ui.set_property("lenses", Value::Model(slint::ModelRc::new(slint::VecModel::from(lenses)))).unwrap();
     slint::platform::update_timers_and_animations();
     let bottom = card().absolute_position().y + card().size().height;
-    let tiles: Vec<ElementHandle> = (0..5).map(|i| ElementHandle::find_by_accessible_label(&ui, &format!("Back {i}mm")).next().unwrap_or_else(|| panic!("no tile {i}"))).collect();
+    let tiles: Vec<ElementHandle> = (0..5).map(|i| ElementHandle::find_by_accessible_label(&ui, &format!("Lens: Back {i}mm")).next().unwrap_or_else(|| panic!("no tile {i}"))).collect();
     let first_row = tiles[0].absolute_position().y;
     let last_row = tiles[4].absolute_position().y;
     assert!(last_row > first_row, "two rows of tiles");

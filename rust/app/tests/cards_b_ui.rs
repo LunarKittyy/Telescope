@@ -216,8 +216,8 @@ fn notes_icon_tiles_and_buttons_do_what_the_old_buttons_did() {
     r.click("Play");
     r.click("Send to phone");
     r.click("Clear from phone");
-    r.click("New notes");
-    r.click("Delete notes");
+    r.click("New script");
+    r.click("Delete script");
     assert_eq!((r.said("back-clicked").len(), r.said("next-clicked").len(), r.said("send-clicked").len(), r.said("clear-clicked").len()), (1, 1, 1, 1));
     assert_eq!((r.said("new-clicked").len(), r.said("delete-clicked").len()), (1, 1));
     assert!(matches!(r.said("play-toggled")[0][0], Value::Bool(true)));
@@ -258,7 +258,7 @@ fn notes_text_size_and_scroll_reach_the_plugin_and_typing_edits_the_text() {
     r.ui.window().dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
     offscreen::skip(std::time::Duration::from_millis(400));
     assert!(!r.said("size-moved").is_empty());
-    r.click_as("Notes", AccessibleRole::TextInput);
+    r.click_as("Script", AccessibleRole::TextInput);
     r.key("a");
     assert_eq!(r.said("text-edited").last().map(|a| a[0].clone()), Some(Value::String("a".into())));
 }

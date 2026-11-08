@@ -374,7 +374,7 @@ msgstr ""
 msgid "VB-Cable is made by VB-Audio. Telescope downloads it from vb-audio.com and opens its setup, which asks for admin. Restart the computer afterwards."
 msgstr ""
 
-#: rust/crates/audio/ui/microphone.slint:291 rust/crates/effects/src/desk.rs:189 rust/crates/effects/ui/colour_grading.slint:448 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:454 rust/crates/link/ui/connection.slint:671 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:633 rust/crates/system/ui/shortcuts.slint:380 rust/crates/system/ui/updates.slint:209
+#: rust/crates/audio/ui/microphone.slint:291 rust/crates/effects/src/desk.rs:189 rust/crates/effects/ui/colour_grading.slint:460 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:454 rust/crates/link/ui/connection.slint:671 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:633 rust/crates/system/ui/shortcuts.slint:380 rust/crates/system/ui/updates.slint:209
 msgid "Cancel"
 msgstr "取消"
 
@@ -2757,7 +2757,7 @@ msgstr "一级调色"
 msgid "Curves"
 msgstr "曲线"
 
-#: rust/crates/effects/ui/colour_grading.slint:240 rust/crates/effects/ui/colour_grading.slint:245 rust/crates/effects/ui/colour_grading.slint:379
+#: rust/crates/effects/ui/colour_grading.slint:240 rust/crates/effects/ui/colour_grading.slint:245 rust/crates/effects/ui/colour_grading.slint:380
 msgid "LUT"
 msgstr "LUT"
 
@@ -2813,43 +2813,43 @@ msgstr "全部"
 msgid "Channel"
 msgstr "通道"
 
-#: rust/crates/effects/ui/colour_grading.slint:391 rust/crates/setup/ui/setup.slint:61 rust/crates/setup/ui/setup.slint:61
+#: rust/crates/effects/ui/colour_grading.slint:392 rust/crates/setup/ui/setup.slint:61 rust/crates/setup/ui/setup.slint:61
 msgid "Load"
 msgstr "加载"
 
-#: rust/crates/effects/ui/colour_grading.slint:394
+#: rust/crates/effects/ui/colour_grading.slint:395
 msgid "Load LUT"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:395
+#: rust/crates/effects/ui/colour_grading.slint:396
 msgid "Pick a .cube LUT file to apply on top of the grade."
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:401 rust/crates/effects/ui/colour_grading.slint:402
+#: rust/crates/effects/ui/colour_grading.slint:402 rust/crates/effects/ui/colour_grading.slint:403
 msgid "Remove LUT"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:410 rust/crates/effects/ui/colour_grading.slint:411
+#: rust/crates/effects/ui/colour_grading.slint:414 rust/crates/effects/ui/colour_grading.slint:415
 msgid "Strength"
 msgstr "强度"
 
-#: rust/crates/effects/ui/colour_grading.slint:412
+#: rust/crates/effects/ui/colour_grading.slint:416
 msgid "How strongly the LUT is applied."
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:427
+#: rust/crates/effects/ui/colour_grading.slint:434
 msgid "Export"
 msgstr "导出"
 
-#: rust/crates/effects/ui/colour_grading.slint:433 rust/crates/effects/ui/colour_grading.slint:434
+#: rust/crates/effects/ui/colour_grading.slint:440 rust/crates/effects/ui/colour_grading.slint:441
 msgid "Export grade"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:435
+#: rust/crates/effects/ui/colour_grading.slint:442
 msgid "Save the grade and LUT as a .cube file to use in other apps."
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:447 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:679
+#: rust/crates/effects/ui/colour_grading.slint:459 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:679
 msgid "Replace"
 msgstr "替换"
 

@@ -483,7 +483,7 @@ fn lens_panel_load_select_placeholder_and_clear() {
     r.phone_says("pixel", tiles(json!([lens("wide", "Wide", false), lens("tele", "Tele", true)])));
     r.pump();
     assert!(found(&r, "Loading lenses...").is_none(), "tiles in its place");
-    let tile = |name: &str| ElementHandle::find_by_accessible_label(&r.w.ui, name).find(|e| e.accessible_checked().is_some()).unwrap_or_else(|| panic!("no {name} tile"));
+    let tile = |name: &str| ElementHandle::find_by_accessible_label(&r.w.ui, &format!("Lens: {name}")).find(|e| e.accessible_checked().is_some()).unwrap_or_else(|| panic!("no {name} tile"));
     assert_eq!((tile("Wide").accessible_checked(), tile("Tele").accessible_checked()), (Some(false), Some(true)));
     forget_sent(&r, "pixel");
     click_on(&r, &tile("Wide"));
