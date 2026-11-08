@@ -473,6 +473,14 @@ impl Window {
                 .map(|b| crate::source::from_json(&serde_json::json!({"id": b.id, "text": b.text}))).collect::<Vec<_>>();
             SValue::Model(slint::ModelRc::new(slint::VecModel::from(listed)))
         });
+        let state = self.state.clone();
+        let _ = self.ui.set_global_callback("Shortcuts", "key-chips", move |args| {
+            let action = match args.first() { Some(SValue::String(s)) => s.to_string(), _ => String::new() };
+            let st = state.borrow();
+            let first = st.shortcut_menu.iter().flat_map(|(_, b)| b).find(|b| action.split(' ').any(|a| a == b.action));
+            let chips = first.map(|b| crate::keys::key_chips(&b.text)).unwrap_or_default().into_iter().map(|k| SValue::String(k.into())).collect::<Vec<_>>();
+            SValue::Model(slint::ModelRc::new(slint::VecModel::from(chips)))
+        });
         for callback in ["add", "edit"] {
             let weak = Rc::downgrade(self);
             let _ = self.ui.set_global_callback("Shortcuts", callback, move |args| {

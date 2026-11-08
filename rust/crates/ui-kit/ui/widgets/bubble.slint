@@ -2,6 +2,7 @@
 
 import { Theme } from "../theme.slint";
 import { WindowBox } from "dialog.slint";
+import { TipLayer } from "tip.slint";
 
 // Where a bubble goes, in window coordinates. Pure, so a test can ask without drawing anything.
 export global BubbleSpot {
@@ -149,6 +150,8 @@ export component Bubble inherits Rectangle {
                     x: bx + BubbleSpot.tip(root.absolute-position.x, root.width, bx, frame-w) - Theme.pointer-w / 2;
                     y: flip ? by - Theme.stroke / 2 : by + frame-h - Theme.stroke / 2 - Theme.stroke;
                 }
+                // A tooltip of a control in the bubble: the pop-up covers the window's own layer
+                TipLayer { }
             }
         }
     }

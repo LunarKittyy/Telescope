@@ -46,7 +46,7 @@ pub struct HeaderPlace {
 /// The window's document. cards are in registration order; panels says where each one shows.
 pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> String {
     let mut out = String::new();
-    out.push_str("import { Theme, Icons, Folds, Reveal, Shortcuts, TextCap, WindowBox, ColumnScrollbar, KeyFocus, Touched } from \"@ui-kit/ui-kit.slint\";\n");
+    out.push_str("import { Theme, Icons, Folds, Reveal, Shortcuts, TextCap, WindowBox, ColumnScrollbar, KeyFocus, Touched, TipLayer } from \"@ui-kit/ui-kit.slint\";\n");
     out.push_str("import { Footer, BannerArea, StreamTiles, HeaderIconButton, StartButton, BannerData, TileData } from \"shell/frame.slint\";\n");
     let mut imported = Vec::new();
     for piece in cards.iter().map(|c| &c.piece).chain(headers.iter().map(|h| &h.piece)) {
@@ -445,6 +445,8 @@ const BODY_BOTTOM: &str = r#"        }
         net-color: root.net-color;
     }
     }
+    // Last, so a tooltip draws over everything
+    TipLayer { }
 }
 "#;
 
@@ -600,7 +602,7 @@ pub struct SectionPlace {
 /// The settings window's document: tabs in order (plugins_tab is the index of the Plugins tab, if shown) and every
 /// plugin's sections on them.
 pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlace]) -> String {
-    let mut out = String::from("import { Theme, Icons, Folds, Reveal, TextField, WindowBox, KeyFocus } from \"@ui-kit/ui-kit.slint\";\n");
+    let mut out = String::from("import { Theme, Icons, Folds, Reveal, TextField, WindowBox, KeyFocus, TipLayer } from \"@ui-kit/ui-kit.slint\";\n");
     out.push_str("import { SettingsNav, ScrollPage, ResultsList, PluginsPanel, PluginsFooter, Ask, NavTab, Result, GroupView, UpdateRowView } from \"shell/settings.slint\";\n");
     let mut imported = Vec::new();
     for piece in sections.iter().flat_map(|s| std::iter::once(&s.piece).chain(s.footer.as_ref())) {
@@ -652,7 +654,7 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
         }
     }
     out.push_str(SETTINGS_BOTTOM.trim_end().strip_suffix('}').unwrap_or(SETTINGS_BOTTOM));
-    out.push_str("    }\n}\n");
+    out.push_str("    }\n    TipLayer { }\n}\n");
     out
 }
 

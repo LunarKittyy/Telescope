@@ -3,11 +3,11 @@
 import { Theme } from "../theme.slint";
 import { Icons } from "../icons.slint";
 import { Reveal } from "folds.slint";
-import { Icon, FocusRing, TouchRing, IconButton } from "basics.slint";
+import { Icon, FocusRing, TouchRing, IconButton, KeyFocus } from "basics.slint";
 import { Bubble } from "bubble.slint";
 import { NumberField } from "field.slint";
 import { Switch } from "switch.slint";
-import { TipBody, TipUse } from "tip.slint";
+import { Tip } from "tip.slint";
 
 // The colour at a hue (0 to 1) on the pad's top right corner, and what the hue strip shows there
 global Hues {
@@ -211,6 +211,7 @@ export component ColourField inherits Rectangle {
     in property <color> hue: Theme.accent;
     in property <string> label;
     in property <string> tip;
+    in property <string> tip-detail;
     in property <string> pipette-tip;
     in property <bool> enabled: true;
     // False when there's no preview to pick from
@@ -234,7 +235,7 @@ export component ColourField inherits Rectangle {
     accessible-value: "#" + hex;
     accessible-expandable: true;
     accessible-expanded: open;
-    accessible-description: tip;
+    accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
     accessible-action-default => { if (root.enabled) { root.show(); } }
     forward-focus: focus;
     focus := FocusScope {
@@ -256,7 +257,7 @@ export component ColourField inherits Rectangle {
         background: colour;
         opacity: enabled ? 1 : 0.5;
     }
-    usage := TipUse { hover: touch.has-hover; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hover: touch.has-hover; inert: !root.enabled; enabled: !root.open; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
@@ -264,7 +265,6 @@ export component ColourField inherits Rectangle {
         pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
         clicked => { focus.focus(); root.show(); }
     }
-    if root.tip != "" && !usage.used && !open: Tooltip { TipBody { says: root.tip; } }
     bubble := Bubble {
         width: parent.width;
         height: parent.height;

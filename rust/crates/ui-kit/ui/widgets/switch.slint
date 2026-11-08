@@ -2,8 +2,8 @@
 
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
-import { Icon, FocusRing, TouchRing } from "basics.slint";
-import { TipBody, TipUse } from "tip.slint";
+import { Icon, FocusRing, TouchRing, KeyFocus } from "basics.slint";
+import { Tip } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 
 // Kind "switch": a track at the row's end with a square handle. Off is quiet, on takes a thick border in the card's colour.
@@ -25,6 +25,7 @@ export component Switch inherits Rectangle {
     }
     // Got here by Tab, so it shows the ring; a click gives it the focus without one (theme.keyboard_focus)
     property <bool> keyed;
+    out property <bool> ringed: focus.has-focus && keyed;
     public function take-focus() {
         if (enabled) {
             keyed = false;
@@ -33,8 +34,10 @@ export component Switch inherits Rectangle {
     }
     in property <string> label;
     in property <bool> enabled: true;
-    // A tooltip, when there's something to say beyond the label
+    // A tooltip, when there's something to say beyond the label: its name, then a line or two more and the keys that do the same
     in property <string> tip;
+    in property <string> tip-detail;
+    in property <[string]> tip-keys;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     // A switch that's risky to leave on stays red while it is
@@ -81,7 +84,7 @@ export component Switch inherits Rectangle {
     }
     FocusRing { shown: focus.has-focus && keyed; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
     TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
-    usage := TipUse { hover: touch.has-hover; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: root.ringed; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
@@ -112,7 +115,6 @@ export component Switch inherits Rectangle {
             accessible-role: none;
         }
     }
-    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
 }
 
 // Kind "toggle": a name and a switch on one line, no box round them; the icon takes the card's colour while on.
@@ -126,6 +128,8 @@ export component SwitchTile inherits Rectangle {
     in property <bool> enabled: true;
     // A tooltip for the whole tile, say why it can't be used
     in property <string> tip;
+    in property <string> tip-detail;
+    in property <[string]> tip-keys;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     out property <string> control-kind: "toggle";
@@ -134,7 +138,7 @@ export component SwitchTile inherits Rectangle {
     horizontal-stretch: 1;
     min-width: 0px;
     preferred-width: 0px;
-    usage := TipUse { hover: tile-touch.has-hover; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; shortcut: root.shortcut; hover: tile-touch.has-hover; inert: !root.enabled; focused: sw.ringed; }
     tile-touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
@@ -143,7 +147,6 @@ export component SwitchTile inherits Rectangle {
         clicked => { sw.flip(); }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    if root.tip != "" && !usage.used: Tooltip { TipBody { says: root.tip; } }
     HorizontalLayout {
         spacing: Theme.u(4);
         Icon {

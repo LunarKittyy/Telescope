@@ -1,10 +1,10 @@
 // The card frame and its rows (widgets/common.py: create_card, add_card_header, add_section_heading, control_row).
 
 import { Theme } from "../theme.slint";
-import { Icon, FocusRing, Button } from "basics.slint";
+import { Icon, FocusRing, Button, KeyFocus } from "basics.slint";
 import { Folds, FoldText, Reveal } from "folds.slint";
 import { Switch } from "switch.slint";
-import { TipBody, TipUse } from "tip.slint";
+import { Tip } from "tip.slint";
 import { SearchWords, SettingMark } from "setting.slint";
 
 // collapse.py's _FoldButton: the title as a named keyboard toggle that folds what's under it. A blank key: no folding.
@@ -46,7 +46,7 @@ component FoldTitle inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus; radius: Theme.r-handle; x: 0; y: -Theme.u(1.5); width: parent.width; height: parent.height + Theme.u(3); }
-    usage := TipUse { hover: touch.has-hover; }
+    usage := Tip { says: foldable ? (folded ? FoldText.collapsed : FoldText.expanded) : ""; hover: touch.has-hover; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         enabled: foldable;
         mouse-cursor: foldable ? pointer : default;
@@ -54,7 +54,6 @@ component FoldTitle inherits Rectangle {
         scroll-event(e) => { usage.wheel(); reject }
         clicked => { Folds.toggle(key); }
     }
-    if foldable && !usage.used: Tooltip { TipBody { says: folded ? FoldText.collapsed : FoldText.expanded; } }
     label := Text {
         text: root.text;
         font-family: Theme.font;

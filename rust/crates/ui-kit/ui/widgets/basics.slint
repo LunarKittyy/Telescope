@@ -2,7 +2,7 @@
 
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
-import { TipBody, TipUse } from "tip.slint";
+import { Tip } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 
 // A line icon (widgets/line_icons.py), white in the file and tinted here.
@@ -133,8 +133,10 @@ export component Button inherits Rectangle {
     in property <length> padding-x: Theme.u(6);
     in property <length> gap: Theme.u(4);
     in property <bool> enabled: true;
-    // A tooltip, when there's something to say beyond the label
+    // A tooltip, when there's something to say beyond the label: its name, then a line or two more and the keys that do the same
     in property <string> tip;
+    in property <string> tip-detail;
+    in property <[string]> tip-keys;
     // A setting row's button, on no fill until hovered
     in property <bool> strip;
     // A disabled quiet button stays on no fill
@@ -156,7 +158,7 @@ export component Button inherits Rectangle {
         : (touch.pressed ? Theme.sel : touch.has-hover ? Theme.hover : Theme.raise);
     accessible-role: button;
     accessible-label: text;
-    accessible-description: tip == text ? "" : tip;
+    accessible-description: tip == text ? "" : tip-detail == "" ? tip : tip + ". " + tip-detail;
     accessible-action-default => { if (enabled) { clicked(); } }
     forward-focus: focus;
     focus := FocusScope {
@@ -171,7 +173,7 @@ export component Button inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus; radius: root.border-radius; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
-    usage := TipUse { hover: touch.has-hover; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         mouse-cursor: pointer;
         pointer-event(e) => {
@@ -181,7 +183,6 @@ export component Button inherits Rectangle {
         clicked => { if (enabled) { root.clicked(); } }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
     lay := HorizontalLayout {
         padding-left: padding-x;
         padding-right: padding-x;
@@ -221,8 +222,10 @@ export component IconButton inherits Rectangle {
     in property <image> icon;
     in property <length> icon-size: Theme.icon;
     in property <string> label;
-    // A tooltip, when there's something to say beyond the label
+    // A tooltip, when there's something to say beyond the label: its name, then a line or two more and the keys that do the same
     in property <string> tip;
+    in property <string> tip-detail;
+    in property <[string]> tip-keys;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     in property <bool> enabled: true;
@@ -235,7 +238,7 @@ export component IconButton inherits Rectangle {
     accessible-role: button;
     accessible-label: label;
     accessible-enabled: enabled;
-    accessible-description: tip == label ? "" : tip;
+    accessible-description: tip == label ? "" : tip-detail == "" ? tip : tip + ". " + tip-detail;
     accessible-action-default => { if (enabled) { clicked(); } }
     forward-focus: focus;
     focus := FocusScope {
@@ -247,7 +250,7 @@ export component IconButton inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
-    usage := TipUse { hover: touch.has-hover; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
@@ -256,6 +259,5 @@ export component IconButton inherits Rectangle {
         clicked => { root.clicked(); }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
     Icon { source: icon; tint: !enabled ? Theme.dis : touch.has-hover ? Theme.ink : Theme.ink2; width: icon-size; height: icon-size; }
 }

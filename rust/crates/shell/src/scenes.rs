@@ -30,6 +30,9 @@ pub enum Page {
     /// A control's right-click menu: the first control with this accessible label that isn't plain text, right-clicked in the
     /// middle, and this much (width, height) of the window from there.
     ControlMenu { label: String, size: (f32, f32) },
+    /// A control's tooltip: the first control with this accessible label that isn't plain text, hovered in the middle until its tip is up,
+    /// and this much (width, height) of the window from `from` (a little above and left of the control, in px) .
+    ControlTip { label: String, from: (f32, f32), size: (f32, f32) },
     /// One plugin's card alone, the setup's width wide (CARD_WIDTH usually) with CARD_MARGIN around it, as translation_scenes_audio.show_card and
     /// the other card scenes draw a card's panel in a widget of its own.
     Card { plugin: String },
@@ -220,6 +223,20 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
             settle(&w);
             crate::offscreen::draw(w.ui.window(), setup.width, shown.height as f32 / scale, scale)
                 .and_then(|p| crop(&p, position.x * scale, position.y * scale, size.0 * scale, size.1 * scale))
+        }
+        Page::ControlTip { label, from, size } => {
+            use i_slint_backend_testing::{AccessibleRole, ElementHandle};
+            use slint::platform::WindowEvent;
+            let shown = grown(&w, setup.width, setup.height, scale).ok_or("nothing drawn")?;
+            let control = ElementHandle::find_by_accessible_label(&w.ui, label).find(|e| e.accessible_role() != Some(AccessibleRole::Text))
+                .ok_or_else(|| format!("no control called {label}"))?;
+            let (at, middle) = (control.absolute_position(), control.size());
+            let position = slint::LogicalPosition::new(at.x + middle.width / 2.0, at.y + middle.height / 2.0);
+            w.ui.window().dispatch_event(WindowEvent::PointerMoved { position });
+            crate::offscreen::skip(Duration::from_millis(700));
+            settle(&w);
+            crate::offscreen::draw(w.ui.window(), setup.width, shown.height as f32 / scale, scale)
+                .and_then(|p| crop(&p, (at.x - from.0) * scale, (at.y - from.1) * scale, size.0 * scale, size.1 * scale))
         }
         Page::SettingsDialog { tab, call, then, frame, owner } => {
             // Opened as the window opens it, so what plugins say to their sections reaches it
