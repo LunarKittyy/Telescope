@@ -139,7 +139,7 @@ fn transforms_and_grading_shots() {
 fn desk_shots() {
     let Some(dir) = out() else { return };
     let card = card_of(&mut DeskPlugin::new(), "camera");
-    let props = json!({"active": true, "clean-items": ["Off", "Contrast", "Black and white"], "clean-current": 1, "shape-items": ["Auto", "A4", "Letter", "Square", "Fill the picture"], "shape-current": 0});
+    let props = json!({"active": true, "clean-items": ["Off", "Contrast", "Black and white"], "clean-current": 1, "shape-items": ["Auto", "A4", "Letter", "Square", "Fill"], "shape-current": 0});
     shoot(&dir, "desk", &card, 406.0, &[props], &nothing);
 }
 
@@ -231,4 +231,33 @@ fn preview_beside_a_card_shot() {
         pic.save_png(&dir.join(format!("preview-beside-card-{}.png", if classic { "classic" } else { "new" }))).unwrap();
     }
     let _ = std::fs::remove_file(stage);
+}
+
+/// A few of the approved tooltips as the kit draws them: a card header, a slider with a hint, a title-only one, a disabled reason.
+#[test]
+fn tooltip_shots() {
+    let Some(dir) = out() else { return };
+    offscreen::install();
+    let doc = r#"
+import { TipBody, Theme } from "@ui-kit/ui-kit.slint";
+export { Theme }
+export component W inherits Window {
+    width: 330px;
+    height: 250px;
+    background: Theme.bg;
+    TipBody { x: 10px; y: 10px; width: self.preferred-width; height: self.preferred-height; says: "Auto framing"; detail: "Zoom and pan automatically to keep you in the picture."; }
+    TipBody { x: 10px; y: 80px; width: self.preferred-width; height: self.preferred-height; says: "Speed"; detail: "How quickly the framing follows when you move."; hint: "Double-click to reset"; }
+    TipBody { x: 10px; y: 150px; width: self.preferred-width; height: self.preferred-height; says: "Mirror"; }
+    TipBody { x: 10px; y: 190px; width: self.preferred-width; height: self.preferred-height; says: "ISO"; detail: "Set Exposure to Manual to use this"; }
+}"#;
+    let def = telescope_shell::compile::compile("tips.slint", doc, vec![], "W").expect("compiles");
+    for classic in [false, true] {
+        let ui = def.create().unwrap();
+        ui.set_global_property("Theme", "classic", Value::Bool(classic)).unwrap();
+        ui.show().unwrap();
+        offscreen::pump();
+        let pic = offscreen::draw(ui.window(), 330.0, 250.0, 2.0).expect("a picture");
+        pic.save_png(&dir.join(format!("tips-{}.png", if classic { "classic" } else { "new" }))).unwrap();
+        ui.hide().unwrap();
+    }
 }

@@ -48,7 +48,7 @@ fn stream_quality_and_bitrate_reset_on_a_double_click() {
         let slider = ElementHandle::find_by_accessible_label(&ui, label).find(|e| e.accessible_value_maximum().is_some()).expect("the slider");
         double_click(ui.window(), &slider);
         if name == "bitrate-moved" {
-            assert_eq!(slider.accessible_description().as_deref(), Some("All the way right is Dynamic\nDouble-click to reset"), "its own tip stays, with what a double-click does");
+            assert_eq!(slider.accessible_description().as_deref(), Some("Bitrate. All the way right is Dynamic. Double-click to reset"), "its own tip stays, with what a double-click does");
         }
     }
     let moved = moved.borrow();

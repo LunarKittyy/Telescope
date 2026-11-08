@@ -125,7 +125,7 @@ impl Rig {
     }
 }
 
-const RESET_LABEL: &str = "Put the width and height back to 100%";
+const RESET_LABEL: &str = "Reset";
 
 #[test]
 fn desks_width_and_height_sliders_say_which_one_moved() {
@@ -217,7 +217,7 @@ fn notes_icon_tiles_and_buttons_do_what_the_old_buttons_did() {
     r.click("Send to phone");
     r.click("Clear from phone");
     r.click("New notes");
-    r.click("Delete these notes");
+    r.click("Delete notes");
     assert_eq!((r.said("back-clicked").len(), r.said("next-clicked").len(), r.said("send-clicked").len(), r.said("clear-clicked").len()), (1, 1, 1, 1));
     assert_eq!((r.said("new-clicked").len(), r.said("delete-clicked").len()), (1, 1));
     assert!(matches!(r.said("play-toggled")[0][0], Value::Bool(true)));
