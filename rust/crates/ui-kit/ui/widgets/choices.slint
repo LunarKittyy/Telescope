@@ -202,18 +202,39 @@ export component PictureSegmented inherits Rectangle {
     out property <length> cell-width: (self.width - (max(1, items.length) - 1) * Theme.gap) / max(1, items.length);
     out property <length> art-height: tile-height - (show-names ? Theme.u(9) : 0px);
     out property <string> control-kind: "segmented";
+    // Every name fits under its drawing, or none is drawn: a row with some names and some tooltips only reads as uneven. The widest decides, at the heaviest weight so a pick never changes it.
+    property <bool> names-fit: measure.preferred-width <= cell-width - Theme.u(2);
+    // The names are on the tiles (a test and a card that makes room for them can ask)
+    out property <bool> names-drawn: show-names && names-fit;
     callback picked(int);
     height: tile-height;
     horizontal-stretch: 1;
     preferred-width: 0px;
     accessible-role: tab-list;
     accessible-label: label;
+    // Measures the widest name, out of the way: a layout's preferred width is its widest child's
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 0px;
+        height: 0px;
+        opacity: 0;
+        measure := VerticalLayout {
+            for item in items: Text {
+                text: item;
+                font-family: Theme.font;
+                font-size: Theme.tiny;
+                font-weight: Theme.w-value;
+                accessible-role: none;
+            }
+        }
+    }
     TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
     for item[i] in items: seg := Rectangle {
         property <bool> on: i == shown;
         property <bool> off: disabled[i];
         // A name that doesn't fit under its drawing isn't cut short: the tooltip carries it instead
-        property <bool> name-cut: show-names && name-text.preferred-width > cell-width - Theme.u(2);
+        property <bool> name-cut: show-names && !names-fit;
         x: i * pitch;
         width: cell-width;
         height: tile-height;

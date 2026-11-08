@@ -4,6 +4,7 @@ use crate::compositor::cover;
 use crate::cpu::Rgb;
 use crate::shared::mask_of;
 use crate::imgops::{blur_quick, compose, Gray};
+use crate::peek;
 use crate::shared::{no_pictures, Paired, PictureReader};
 use crate::vision_row;
 use serde_json::{json, Map, Value};
@@ -139,6 +140,8 @@ pub struct BackgroundPlugin {
     /// set_config has no host: the card hears the settings with the next hook that has one.
     pending: bool,
     had_mask: Arc<AtomicBool>,
+    /// The Blur bubble is up: the sample is blurred again whenever the strength moves.
+    peeking: bool,
 }
 
 impl Default for BackgroundPlugin {
@@ -170,6 +173,7 @@ impl BackgroundPlugin {
             asked: None,
             pending: true,
             had_mask: Arc::default(),
+            peeking: false,
         }
     }
 
@@ -213,10 +217,23 @@ impl BackgroundPlugin {
 
     fn show(&self, host: &mut dyn Host) {
         let mut props = self.all_props();
-        if let (Value::Object(p), Value::Object(row)) = (&mut props, vision_row::props(&*host, self.mode != 0, &self.problem())) {
-            p.extend(row);
+        let row = vision_row::props(&*host, self.mode != 0, &self.problem());
+        // The preview shows the blur only while it streams and the person can be told from the room; until then the bubble does
+        let working = host.is_streaming() && row.get("vision-text").and_then(Value::as_str) == Some("");
+        if let Value::Object(p) = &mut props {
+            if let Value::Object(row) = row {
+                p.extend(row);
+            }
+            p.insert("blur-peek".into(), json!(if self.mode_name() == "blur" && working { "" } else { "picture" }));
         }
         host.set_ui_props("card", &props);
+    }
+
+    /// The stand-in scene blurred at this strength with the effect's own blur and edge, behind the person.
+    fn draw_blur(&self, host: &mut dyn Host) {
+        let (scene, mask) = peek::blur_scene();
+        let out = compose(scene, &mask.soften(self.edges), &blurred(scene, self.blur, Some(mask)));
+        host.set_ui_image("card", "blur-picture", &peek::rgba(&out.shrink(peek::WIDTH, peek::HEIGHT)));
     }
 
     fn catch_up(&mut self, host: &mut dyn Host) {
@@ -281,7 +298,7 @@ impl Plugin for BackgroundPlugin {
         if let Some(on) = self.paired.hear(event) {
             host.set_ui_props("card", &json!({"active": on}));
         }
-        if vision_row::changes_it(event) {
+        if vision_row::changes_it(event) || matches!(event, Event::StreamStarted { .. } | Event::StreamStopped) {
             self.show(host);
         }
         if let Event::RequestDone { request, ok, data, .. } = event {
@@ -322,6 +339,15 @@ impl Plugin for BackgroundPlugin {
             "blur-moved" => {
                 self.blur = (n(0).round() as i64).clamp(1, 10);
                 self.changed(host);
+                if self.peeking {
+                    self.draw_blur(host);
+                }
+            }
+            "blur-peek-open" => {
+                self.peeking = event.args.first().and_then(Value::as_bool).unwrap_or(false);
+                if self.peeking {
+                    self.draw_blur(host);
+                }
             }
             "edges-moved" => {
                 self.edges = (n(0).round() as i64).clamp(0, 10);

@@ -18,6 +18,8 @@ export component NotesCard inherits Card {
     in property <int> size: 44;
     in property <string> size-text;
     in property <string> size-tip;
+    // The start of the open set, for the size bubble's sample
+    in property <string> sample;
     in property <int> scroll;
     in property <[string]> scroll-items: ["", ""];
     in property <int> speed: 3;
@@ -123,6 +125,9 @@ export component NotesCard inherits Card {
             minimum: 16;
             maximum: 120;
             value: size;
+            peek: "text";
+            peek-values: [size * 1.0];
+            peek-text: sample;
             readout: size-text;
             has-default: true;
             default-value: 44;

@@ -299,25 +299,15 @@ export component PhotosCard inherits Card {
             moved(v) => { root.quality-moved(v); }
         }
     }
-    RailRow {
+    SwitchRow {
         icon: Icons.sparkle;
         label: best-name;
+        tip: best-tip;
         hue: root.hue;
         enabled: active && best-enabled;
         changed: !best;
-        Rectangle {
-            horizontal-stretch: 1;
-            Switch {
-                x: 0px;
-                y: (parent.height - self.height) / 2;
-                label: best-name;
-                tip: best-tip;
-                hue: root.hue;
-                enabled: active && best-enabled;
-                checked: best;
-                toggled(v) => { root.best-toggled(v); }
-            }
-        }
+        checked: best;
+        toggled(v) => { root.best-toggled(v); }
     }
     RailRow {
         icon: Icons.timer;

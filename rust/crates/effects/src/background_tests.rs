@@ -421,3 +421,83 @@ fn each_setting_makes_the_picture_python_makes() {
         }
     }
 }
+
+// ── The blur bubble ───────────────────────────────────────────────────
+
+fn samples(r: &Rig) -> usize {
+    r.host.calls.iter().filter(|c| c.starts_with("set_ui_image card blur-picture")).count()
+}
+
+#[test]
+fn the_blur_bubble_shows_until_the_preview_can_show_the_blur_itself() {
+    let mut r = Rig::new(None, vision::READY);
+    r.set_mode("blur");
+    // nothing streams: the preview has no picture to show it on
+    assert_eq!(r.shown("blur-peek"), json!("picture"));
+    r.host.streaming = true;
+    r.event(Event::StreamStarted { url: String::new() });
+    assert_eq!(r.shown("blur-peek"), json!(""), "streaming with vision ready: the preview blurs");
+    r.host.streaming = false;
+    r.event(Event::StreamStopped);
+    assert_eq!(r.shown("blur-peek"), json!("picture"));
+    // streaming but the person can't be told from the room yet
+    r.host.streaming = true;
+    r.host.vision = Some(vision::LOADING.into());
+    r.event(Event::VisionStateChanged { state: vision::LOADING.into() });
+    assert_eq!(r.shown("blur-peek"), json!("picture"));
+    r.host.vision = Some(vision::READY.into());
+    r.event(Event::VisionStateChanged { state: vision::READY.into() });
+    assert_eq!(r.shown("blur-peek"), json!(""));
+    // the effect itself is off
+    r.set_mode("off");
+    assert_eq!(r.shown("blur-peek"), json!("picture"));
+    r.set_mode("picture");
+    assert_eq!(r.shown("blur-peek"), json!("picture"));
+}
+
+#[test]
+fn the_blur_sample_is_made_only_while_the_bubble_is_up_and_follows_the_strength() {
+    let mut r = Rig::new(None, vision::READY);
+    r.set_mode("blur");
+    r.ui("blur-moved", vec![json!(3)]);
+    assert_eq!(samples(&r), 0, "closed: nothing is made");
+    r.ui("blur-peek-open", vec![json!(true)]);
+    assert_eq!(samples(&r), 1);
+    let key = ("card".to_string(), "blur-picture".to_string());
+    let sharpness = |r: &Rig| {
+        let f = &r.host.images[&key];
+        assert_eq!((f.width as usize, f.height as usize), (peek::WIDTH, peek::HEIGHT));
+        // how much the wall changes from pixel to pixel along a row of the top shelf, away from the person
+        let row = 10 * f.width as usize * 4;
+        (0..60).map(|x| (f.data[row + x * 4] as i64 - f.data[row + (x + 1) * 4] as i64).abs()).sum::<i64>()
+    };
+    let mild = sharpness(&r);
+    r.ui("blur-moved", vec![json!(10)]);
+    assert_eq!(samples(&r), 2, "moving the strength makes a new sample");
+    let strong = sharpness(&r);
+    r.ui("blur-moved", vec![json!(1)]);
+    let faint = sharpness(&r);
+    assert!(strong < mild && mild < faint, "{faint} {mild} {strong}");
+    r.ui("blur-peek-open", vec![json!(false)]);
+    r.ui("blur-moved", vec![json!(5)]);
+    assert_eq!(samples(&r), 3, "closed again: nothing more is made");
+}
+
+#[test]
+fn the_blur_sample_leaves_the_person_sharp_as_the_effect_does() {
+    let mut r = Rig::new(None, vision::READY);
+    r.set_mode("blur");
+    r.ui("blur-moved", vec![json!(10)]);
+    r.ui("blur-peek-open", vec![json!(true)]);
+    let (scene, _) = peek::sample_scene(peek::WIDTH, peek::HEIGHT);
+    // the first pick of the bubble made the sample once and kept it
+    assert!(std::ptr::eq(peek::blur_scene(), peek::blur_scene()));
+    let f = &r.host.images[&("card".to_string(), "blur-picture".to_string())];
+    // the middle of the shirt is the scene's own colour, the wall is not
+    let at = |x: usize, y: usize| [f.data[(y * f.width as usize + x) * 4], f.data[(y * f.width as usize + x) * 4 + 1], f.data[(y * f.width as usize + x) * 4 + 2]];
+    let shirt = (peek::WIDTH / 2, (peek::HEIGHT as f64 * 0.85) as usize);
+    let (mine, theirs) = (at(shirt.0, shirt.1), scene.at(shirt.0, shirt.1));
+    assert!((0..3).all(|c| (mine[c] as i32 - theirs[c] as i32).abs() <= 3), "{mine:?} {theirs:?}");
+    let wall = (20, 40);
+    assert_ne!(at(wall.0, wall.1), scene.at(wall.0, wall.1));
+}

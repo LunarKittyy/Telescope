@@ -6,6 +6,9 @@ export component BackgroundCard inherits Card {
     in property <int> mode: 0;
     in property <float> blur: 6;
     in property <string> blur-text: "6";
+    // "picture" while the preview can't show the blur itself (nothing streaming or no vision yet), and the sample blurred at this strength
+    in property <string> blur-peek;
+    in property <image> blur-picture;
     in property <float> edges: 3;
     in property <string> edges-text: "3";
     in property <string> edges-tip;
@@ -17,6 +20,7 @@ export component BackgroundCard inherits Card {
     in property <bool> vision-download;
     callback mode-picked(int);
     callback blur-moved(float);
+    callback blur-peek-open(bool);
     callback edges-moved(float);
     callback picture-clicked;
     callback download-clicked;
@@ -50,6 +54,9 @@ export component BackgroundCard inherits Card {
         minimum: 1;
         maximum: 10;
         value: blur;
+        peek: blur-peek;
+        peek-picture: blur-picture;
+        peek-changed(o) => { root.blur-peek-open(o); }
         readout: blur-text;
         hue: root.hue;
         has-default: true;

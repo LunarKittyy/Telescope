@@ -34,6 +34,7 @@ pub mod grade;
 pub mod name_tag;
 pub mod on_air;
 pub mod on_air_plugin;
+pub mod peek;
 pub mod notes;
 pub mod photos;
 pub mod pixels;

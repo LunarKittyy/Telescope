@@ -7,7 +7,8 @@ import { Tip } from "tip.slint";
 import { ShortcutMenu, ShortcutEntry } from "shortcut-menu.slint";
 
 // A square of the surround's colour with a quarter circle cut out, over one corner (0 to 3 clockwise from the top left): the software renderer squares off a gradient's corners, so the drawing is rounded by covering them.
-component CornerCap inherits Path {
+export component CornerCap inherits Path {
+    out property <string> control-kind: "helper";
     in property <int> corner;
     in property <length> r;
     width: r;

@@ -1,0 +1,47 @@
+// What a held bubble shows, in one place so a tooltip can stand down while it is up. Written by the `Peek` that owns it, drawn by the
+// `PeekLayer` at the top of the window (peek.slint).
+
+export global Peeks {
+    in-out property <bool> shown;
+    in-out property <int> owner;
+    // What to draw: "picture", "chase" or "text"
+    in-out property <string> kind;
+    in-out property <color> hue: transparent;
+    // Numbers for the drawing: the chase's four, the text's size
+    in-out property <[float]> values;
+    in-out property <image> picture;
+    in-out property <string> text;
+    // The control it points at, in window coordinates
+    in-out property <length> ax;
+    in-out property <length> ay;
+    in-out property <length> aw;
+    in-out property <length> ah;
+    property <int> last-id;
+    property <duration> last-beat;
+    public function claim() -> int {
+        last-id += 1;
+        return last-id;
+    }
+    public function show(id: int, what: string, numbers: [float], image: image, words: string, colour: color, x: length, y: length, w: length, h: length) {
+        owner = id;
+        kind = what;
+        values = numbers;
+        picture = image;
+        text = words;
+        hue = colour;
+        ax = x;
+        ay = y;
+        aw = w;
+        ah = h;
+        last-beat = animation-tick();
+        shown = true;
+    }
+    public function hide(id: int) {
+        if (shown && owner == id) { shown = false; }
+    }
+    // The owner calls this while it shows, so a bubble whose control went away under it (no one left to hide it) goes down by itself
+    public function beat() { last-beat = animation-tick(); }
+    public function check() {
+        if (shown && animation-tick() - last-beat > 600ms) { shown = false; }
+    }
+}

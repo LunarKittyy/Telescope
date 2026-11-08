@@ -46,7 +46,7 @@ pub struct HeaderPlace {
 /// The window's document. cards are in registration order; panels says where each one shows.
 pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> String {
     let mut out = String::new();
-    out.push_str("import { Theme, Icons, Folds, Reveal, Shortcuts, TextCap, WindowBox, ColumnScrollbar, KeyFocus, Touched, TipLayer } from \"@ui-kit/ui-kit.slint\";\n");
+    out.push_str("import { Theme, Icons, Folds, Reveal, Shortcuts, TextCap, WindowBox, ColumnScrollbar, KeyFocus, Touched, TipLayer, PeekLayer } from \"@ui-kit/ui-kit.slint\";\n");
     out.push_str("import { Footer, BannerArea, StreamTiles, HeaderIconButton, StartButton, BannerData, TileData } from \"shell/frame.slint\";\n");
     let mut imported = Vec::new();
     for piece in cards.iter().map(|c| &c.piece).chain(headers.iter().map(|h| &h.piece)) {
@@ -447,6 +447,7 @@ const BODY_BOTTOM: &str = r#"        }
     }
     // Last, so a tooltip draws over everything
     TipLayer { }
+    PeekLayer { }
 }
 "#;
 

@@ -67,6 +67,60 @@ component Pointer inherits Rectangle {
     }
 }
 
+// The frame and its pointer, placed by BubbleSpot, with whatever it is given inside. Both bubbles draw it: the popup `Bubble` below (a
+// press outside closes it) and the held one that `PeekLayer` draws (it takes nothing, so a drag underneath goes on). It has no size of
+// its own: the frame and pointer sit at window coordinates measured from where it is placed (the window's top left).
+export component BubbleFrame inherits Rectangle {
+    out property <string> control-kind: "bubble";
+    in property <color> hue: Theme.accent;
+    // The width of what's inside, and room inside is padding and the frame's line on top of that
+    in property <length> content-width: Theme.u(100);
+    in property <string> label;
+    // The control it points at, in window coordinates, and the window's size
+    in property <length> ax;
+    in property <length> ay;
+    in property <length> aw;
+    in property <length> ah;
+    in property <length> window-w: 4000px;
+    in property <length> window-h: 4000px;
+    // The frame's own face takes the presses that land on it (the popup needs that, a held bubble must not)
+    in property <bool> takes-presses;
+    // Room between the frame's outside and what's in it
+    out property <length> inner: Theme.u(4) + Theme.stroke;
+    out property <length> frame-w: min(content-width + 2 * inner, window-w - 2 * BubbleSpot.margin);
+    out property <length> frame-h: body.preferred-height;
+    out property <length> total-h: frame-h + Theme.pointer-h;
+    out property <bool> flip: BubbleSpot.below(ay, ah, total-h, window-h);
+    out property <length> bx: BubbleSpot.left(ax, aw, frame-w, window-w);
+    out property <length> by: BubbleSpot.top(ay, ah, total-h, flip, window-h);
+    frame := Rectangle {
+        x: bx;
+        y: by + (flip ? Theme.pointer-h : 0px);
+        width: frame-w;
+        height: frame-h;
+        background: Theme.bubble;
+        border-radius: Theme.r-bubble;
+        border-width: Theme.stroke;
+        border-color: root.hue;
+        drop-shadow-blur: Theme.u(8);
+        drop-shadow-offset-y: Theme.u(5);
+        drop-shadow-color: #00000080;
+        accessible-role: groupbox;
+        accessible-label: root.label;
+        if takes-presses: TouchArea { }
+        body := VerticalLayout {
+            padding: inner;
+            @children
+        }
+    }
+    Pointer {
+        up: flip;
+        hue: root.hue;
+        x: bx + BubbleSpot.tip(ax, aw, bx, frame-w) - Theme.pointer-w / 2;
+        y: flip ? by - Theme.stroke / 2 : by + frame-h - Theme.stroke / 2 - Theme.stroke;
+    }
+}
+
 // Kind "bubble". A frame in the card's colour with a pointer at the control it belongs to, in a pop-up that covers the window, so
 // nothing clips it and a press anywhere outside closes it (the card behind never sees that press). It sits inside the control
 // it points at, as big as the control, and takes no room in the card, so opening it moves nothing. It opens above the control and
@@ -95,19 +149,11 @@ export component Bubble inherits Rectangle {
         // The window's top left, the way a dialog in a pop-up covers it
         x: -root.absolute-position.x;
         y: -root.absolute-position.y;
-        width: WindowBox.cover-w(frame-w);
-        height: WindowBox.cover-h(total-h);
+        width: WindowBox.cover-w(drawn.frame-w);
+        height: WindowBox.cover-h(drawn.total-h);
         close-policy: no-auto-close;
         property <length> window-w: WindowBox.width > 0 ? WindowBox.width : 4000px;
         property <length> window-h: WindowBox.height > 0 ? WindowBox.height : 4000px;
-        // Room between the frame's outside and what's in it
-        property <length> inner: Theme.u(4) + Theme.stroke;
-        property <length> frame-w: min(root.content-width + 2 * inner, window-w - 2 * BubbleSpot.margin);
-        property <length> frame-h: body.preferred-height;
-        property <length> total-h: frame-h + Theme.pointer-h;
-        property <bool> flip: BubbleSpot.below(root.absolute-position.y, root.height, total-h, window-h);
-        property <length> bx: BubbleSpot.left(root.absolute-position.x, root.width, frame-w, window-w);
-        property <length> by: BubbleSpot.top(root.absolute-position.y, root.height, total-h, flip, window-h);
         property <float> reveal: 1;
         focus-in := FocusScope {
             // Escape from anywhere inside, unless a box in it takes the key first
@@ -123,32 +169,18 @@ export component Bubble inherits Rectangle {
             }
             shell := Rectangle {
                 opacity: reveal;
-                frame := Rectangle {
-                    x: bx;
-                    y: by + (flip ? Theme.pointer-h : 0px);
-                    width: frame-w;
-                    height: frame-h;
-                    background: Theme.bubble;
-                    border-radius: Theme.r-bubble;
-                    border-width: Theme.stroke;
-                    border-color: root.hue;
-                    drop-shadow-blur: Theme.u(8);
-                    drop-shadow-offset-y: Theme.u(5);
-                    drop-shadow-color: #00000080;
-                    accessible-role: groupbox;
-                    accessible-label: root.label;
-                    // The frame's own face takes its presses, so only what lands beside it closes the bubble
-                    TouchArea { }
-                    body := VerticalLayout {
-                        padding: inner;
-                        @children
-                    }
-                }
-                Pointer {
-                    up: flip;
+                drawn := BubbleFrame {
                     hue: root.hue;
-                    x: bx + BubbleSpot.tip(root.absolute-position.x, root.width, bx, frame-w) - Theme.pointer-w / 2;
-                    y: flip ? by - Theme.stroke / 2 : by + frame-h - Theme.stroke / 2 - Theme.stroke;
+                    content-width: root.content-width;
+                    label: root.label;
+                    ax: root.absolute-position.x;
+                    ay: root.absolute-position.y;
+                    aw: root.width;
+                    ah: root.height;
+                    window-w: popup.window-w;
+                    window-h: popup.window-h;
+                    takes-presses: true;
+                    @children
                 }
                 // A tooltip of a control in the bubble: the pop-up covers the window's own layer
                 TipLayer { }

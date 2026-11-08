@@ -313,6 +313,8 @@ export component RailRow inherits HorizontalLayout {
     in property <bool> enabled: true;
     // The row's setting is not at its default: a quiet mark on the rail (Theme.mark-dot picks a lit icon or a dot), no reset icon, a double-click on a slider resets it
     in property <bool> changed;
+    // Its name as text beside the icon, for a row whose icon alone says little (a lone switch row: SwitchRow)
+    in property <bool> named;
     out property <string> control-kind: "row";
     spacing: Theme.u(4);
     min-height: Theme.row;
@@ -342,7 +344,64 @@ export component RailRow inherits HorizontalLayout {
             icon-touch := TouchArea { mouse-cursor: default; }
         }
     }
+    if named: Text {
+        horizontal-stretch: 1;
+        min-width: 0px;
+        text: label;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        font-weight: Theme.w-label;
+        color: enabled ? Theme.ink2 : Theme.dis;
+        vertical-alignment: center;
+        overflow: elide;
+        // The row is named by it already
+        accessible-role: none;
+    }
     @children
+}
+
+// Kind "row". A lone on/off setting: the icon, its name beside it as text and the switch out at the right edge, centred on the row.
+// The icon alone says little for an unusual setting, so a lone switch row always carries its label (STYLE.md, Icon rail).
+export component SwitchRow inherits Rectangle {
+    out property <string> control-kind: "row";
+    in property <image> icon;
+    in property <string> label;
+    in property <string> tip;
+    in property <string> tip-detail;
+    in property <string> keywords;
+    in property <color> hue: Theme.accent;
+    in property <bool> enabled: true;
+    in property <bool> changed;
+    in property <string> shortcut;
+    in-out property <bool> checked;
+    callback toggled(bool);
+    height: Theme.row;
+    RailRow {
+        width: parent.width;
+        height: parent.height;
+        icon: root.icon;
+        label: root.label;
+        tip: root.tip;
+        tip-detail: root.tip-detail;
+        keywords: root.keywords;
+        hue: root.hue;
+        enabled: root.enabled;
+        changed: root.changed;
+        named: true;
+        VerticalLayout {
+            alignment: center;
+            Switch {
+                label: root.label;
+                tip: root.tip;
+                tip-detail: root.tip-detail;
+                shortcut: root.shortcut;
+                hue: root.hue;
+                enabled: root.enabled;
+                checked: root.checked;
+                toggled(v) => { root.toggled(v); }
+            }
+        }
+    }
 }
 
 // A section of a card that folds by its heading (add_section_heading plus collapse.py). key is the heading in English,

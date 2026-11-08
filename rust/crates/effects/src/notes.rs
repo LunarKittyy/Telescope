@@ -27,6 +27,8 @@ pub const SIZE_DEFAULT: i64 = 44;
 pub const SPEED_MAX: i64 = 10;
 pub const SPEED_DEFAULT: i64 = 3;
 pub const MAX_SETS: usize = 9;
+/// How much of the open set the text size bubble draws.
+pub const SAMPLE_CHARS: usize = 160;
 /// The phone reads control requests up to 64 KiB.
 pub const NOTES_MAX_BYTES: usize = 60_000;
 pub const NAME_CHARS: usize = 32;
@@ -272,6 +274,8 @@ impl NotesPlugin {
             "set-items": self.sets.iter().enumerate().map(|(i, t)| Self::set_label(i, t)).collect::<Vec<_>>(),
             "set-current": self.current,
             "text": self.text(),
+            // The size bubble's sample: just the start, so a long set never costs a long layout while it is up
+            "sample": self.text().chars().take(SAMPLE_CHARS).collect::<String>(),
             "new-enabled": self.sets.len() < MAX_SETS,
             "delete-enabled": self.sets.len() > 1 || !self.sets[0].is_empty(),
         })
