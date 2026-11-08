@@ -126,7 +126,7 @@ fn settings_round_trip_and_damaged_ones_fall_back() {
     };
     // The mode's segments carry these names too, so each row is found by what only it has
     let blur_row = || ElementHandle::find_by_accessible_label(&ui, "Blur").any(|e| e.accessible_value_maximum().is_some());
-    let picture_row = || ElementHandle::find_by_accessible_label(&ui, "Choose…").count() > 0;
+    let picture_row = || ElementHandle::find_by_accessible_label(&ui, "Choose").count() > 0;
     draw(&spec.props);
     assert!(blur_row() && !picture_row(), "the blur row shows, the picture row doesn't");
     plugin.on_ui(&mut host, &UiEvent { ui: "card".into(), callback: "mode-picked".into(), args: vec![json!(2)] });

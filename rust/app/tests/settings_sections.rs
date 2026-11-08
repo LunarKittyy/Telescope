@@ -90,7 +90,8 @@ fn the_notice_and_the_mic_note_come_on_with_an_idle_stop() {
     let picked = settings.ui.definition().callbacks().find(|n| n.ends_with("-stop-picked")).expect("the stop choice");
     settings.ui.invoke(&picked, &[Value::Number(2.0)]).unwrap();
     w.process();
-    assert_eq!(note(), 1);
+    // The line that said so is gone from the page: there's nothing to explain in a tooltip's place
+    assert_eq!(note(), 0);
     switch().invoke_accessible_default_action();
     w.process();
     assert_eq!(switch().accessible_checked(), Some(false));

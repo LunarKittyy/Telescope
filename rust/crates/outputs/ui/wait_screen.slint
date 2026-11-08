@@ -17,14 +17,6 @@ export component WaitScreenSettings inherits Card {
     callback mirror-toggled(bool);
     title: @tr("Wait screen");
     icon: Icons.moon;
-    Text {
-        text: @tr("What video calls see while no device is streaming.");
-        font-family: Theme.font;
-        font-size: Theme.body;
-        color: Theme.text-dim;
-        wrap: word-wrap;
-        line-height-factor: Theme.line-factor(self.font-size);
-    }
     HorizontalLayout {
         alignment: center;
         Image {
@@ -48,7 +40,7 @@ export component WaitScreenSettings inherits Card {
     HorizontalLayout {
         spacing: 8px;
         alignment: start;
-        Button { text: @tr("Choose image…"); role: "primary"; clicked => { root.choose-clicked(); } }
+        Button { text: @tr("Choose image"); role: "primary"; clicked => { root.choose-clicked(); } }
         Button { text: @tr("Use default"); enabled: default-enabled; clicked => { root.default-clicked(); } }
     }
     Rectangle {

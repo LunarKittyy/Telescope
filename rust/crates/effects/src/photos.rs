@@ -589,17 +589,13 @@ impl PhotosPlugin {
 
     /// The Take photo button, the note under it and Open folder (_refresh).
     fn state_props(&self, host: &dyn Host) -> Value {
-        let note = if self.caps.is_some() {
-            String::new()
-        } else if !host.is_streaming() {
-            tr("Start streaming to take photos.")
-        } else {
-            tr("This phone can't take photos from Telescope yet. Update the app on the phone.")
-        };
+        // Not streaming yet is no news: the button is just off, and its tip says why
+        let waiting = self.caps.is_none() && !host.is_streaming();
+        let note = if self.caps.is_some() || waiting { String::new() } else { tr("This phone can't take photos from Telescope yet. Update the app on the phone.") };
         json!({
             "active": self.paired.on(), "shown": self.card_shown(),
-            "take-enabled": self.caps.is_some() && !self.busy,
-            "info": note, "info-shown": self.caps.is_none(), "open-shown": !self.last_saved.is_empty(),
+            "take-enabled": self.caps.is_some() && !self.busy, "take-tip": if waiting { tr("Start streaming to take photos.") } else { tr(TAKE_TIP) },
+            "info": note, "info-shown": !note.is_empty(), "open-shown": !self.last_saved.is_empty(),
         })
     }
 
@@ -918,7 +914,7 @@ impl Plugin for PhotosPlugin {
         let choices = self.choice_props();
         self.shown_tiles = choices["tiles"].as_array().cloned();
         for part in [choices, json!({"active": self.paired.on(), "shown": true, "take-enabled": false,
-                                                  "info": tr("Start streaming to take photos."), "info-shown": true, "open-shown": false})] {
+                                                  "take-tip": tr("Start streaming to take photos."), "info": "", "info-shown": false, "open-shown": false})] {
             if let (Value::Object(a), Value::Object(p)) = (&mut props, part) {
                 a.extend(p);
             }

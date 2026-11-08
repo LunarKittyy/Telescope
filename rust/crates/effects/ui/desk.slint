@@ -50,22 +50,21 @@ export component DeskCard inherits Card {
     switch-tip: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    HorizontalLayout {
-        spacing: 8px;
-        if !picking: Button { enabled: active; text: mark-text; tip: mark-tip; shortcut: "desk.mark"; clicked => { root.mark-clicked(); } }
-        if picking: Button { text: done-text; clicked => { root.done-clicked(); } }
-        if picking: Button { text: cancel-text; clicked => { root.cancel-clicked(); } }
-        Rectangle { horizontal-stretch: 1; }
-        if reset-shown: Button {
-            enabled: active;
-            text: reset-text;
-            tip: reset-tip;
-            role: "quiet";
-            has-icon: true;
-            icon: Icons.reset;
-            icon-tint: Theme.text-dim;
-            quiet-when-disabled: true;
-            clicked => { root.reset-clicked(); }
+    FormRow {
+        label: @tr("Sheet");
+        HorizontalLayout {
+            spacing: 8px;
+            if !picking: Button { horizontal-stretch: 1; preferred-width: 1000px; enabled: active; text: mark-text; tip: mark-tip; shortcut: "desk.mark"; clicked => { root.mark-clicked(); } }
+            if picking: Button { horizontal-stretch: 1; preferred-width: 1000px; text: done-text; clicked => { root.done-clicked(); } }
+            if picking: Button { horizontal-stretch: 1; preferred-width: 1000px; text: cancel-text; clicked => { root.cancel-clicked(); } }
+            // Always there, so the Mark button keeps its width
+            IconButton {
+                enabled: active && reset-shown && !picking;
+                icon: Icons.reset;
+                label: reset-text;
+                tip: reset-tip;
+                clicked => { root.reset-clicked(); }
+            }
         }
     }
     FormRow {

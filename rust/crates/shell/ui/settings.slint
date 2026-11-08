@@ -412,14 +412,7 @@ export component PluginsPanel inherits VerticalLayout {
     alignment: start;
     HorizontalLayout {
         spacing: 12px;
-        Text {
-            horizontal-stretch: 1;
-            text: @tr("A change takes effect the next time Telescope starts, and settings are kept either way.");
-            wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: Theme.text-dim;
-        }
+        Rectangle { horizontal-stretch: 1; }
         VerticalLayout {
             alignment: start;
             CardAction {
@@ -547,7 +540,7 @@ export component PluginsPanel inherits VerticalLayout {
             }
         }
         if !has-added: Text {
-            text: @tr("No plugins added yet. Plugins people share come as .zip files. Added plugins start out switched off.");
+            text: @tr("No plugins added yet");
             wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
             font-family: Theme.font;
             font-size: Theme.body;

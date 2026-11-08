@@ -132,7 +132,7 @@ fn the_status_says_what_stands_in_the_way_first() {
     assert_eq!(with(|f| f.phone = false).1, "dim");
     assert!(with(|f| f.takes_notes = Some(false)).0.contains("Update Telescope"));
     assert_eq!(with(|f| f.too_long = true).1, "status_err");
-    assert!(with(|f| f.streaming = false).0.contains("Start streaming"));
+    assert!(with(|f| f.streaming = false).0.is_empty(), "the Send button is off, and says nothing more");
     assert!(with(|f| f.front = Some(false)).0.contains("front camera"));
     assert!(with(|f| f.sent = true).0.contains("Open Telescope"));
     assert_eq!(with(|f| { f.sent = true; f.shown = true; }), ("The notes are on the phone's screen.".to_string(), "status_ok"));
@@ -154,7 +154,7 @@ fn nothing_can_be_sent_without_a_stream() {
     let mut r = Rig::new();
     r.type_text("Hello");
     assert!(!r.enabled("send-enabled"));
-    assert!(r.status().contains("Start streaming"));
+    assert!(r.status().is_empty());
 }
 
 #[test]

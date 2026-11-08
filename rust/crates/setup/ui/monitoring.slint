@@ -44,7 +44,7 @@ component Pill inherits Rectangle {
     }
 }
 
-// One warning: what counts, then whether to notify and stop the stream
+// One warning: what counts, then whether to notify and stop the stream, each on the card's own edges
 component AlertBlock inherits VerticalLayout {
     in property <image> icon;
     in property <string> label;
@@ -52,6 +52,7 @@ component AlertBlock inherits VerticalLayout {
     in property <string> notify-tip;
     in property <string> stop-tip;
     in property <bool> enabled: true;
+    in property <color> hue: Theme.accent;
     in-out property <string> spin-text;
     in-out property <bool> notify;
     in-out property <bool> stop;
@@ -59,49 +60,52 @@ component AlertBlock inherits VerticalLayout {
     callback step(int);
     callback notify-toggled(bool);
     callback stop-toggled(bool);
-    spacing: 10px;
+    spacing: Theme.gap;
     HorizontalLayout {
-        spacing: 10px;
-        Icon { source: icon; tint: Theme.plugin-hue("phone"); width: 16px; height: 16px; y: (parent.height - self.height) / 2; }
+        spacing: Theme.u(4);
+        height: Theme.row;
+        Icon { source: icon; tint: Theme.ink2; width: Theme.icon; height: Theme.icon; y: (parent.height - self.height) / 2; }
         Text {
             horizontal-stretch: 1;
             text: label;
             font-family: Theme.font;
             font-size: Theme.body;
-            color: enabled ? Theme.text : Theme.text-disabled;
+            font-weight: Theme.w-label;
+            color: enabled ? Theme.ink : Theme.dis;
             vertical-alignment: center;
         }
-        SpinChip {
-            value: root.spin-text;
-            label: root.label;
-            tip: root.spin-tip;
-            enabled: root.enabled;
-            committed(t) => { root.committed(t); }
-            step(d) => { root.step(d); }
+        Rectangle {
+            width: Theme.u(40);
+            NumberField {
+                width: parent.width;
+                value: root.spin-text;
+                label: root.label;
+                enabled: root.enabled;
+                committed(t) => { root.committed(t); }
+                step(d) => { root.step(d); }
+            }
+            if root.spin-tip != "": Tooltip { TipBody { says: root.spin-tip; } }
         }
     }
-    // Under the label, past the icon
-    HorizontalLayout {
-        padding-left: 26px;
-        spacing: 24px;
-        LabelledSwitch {
-            text: @tr("Notify me");
-            within: root.label;
-            tip: root.notify-tip;
-            dim: true;
-            enabled: root.enabled;
-            checked <=> root.notify;
-            toggled(on) => { root.notify-toggled(on); }
-        }
-        LabelledSwitch {
-            text: @tr("Stop the stream");
-            within: root.label;
-            tip: root.stop-tip;
-            dim: true;
-            enabled: root.enabled;
-            checked <=> root.stop;
-            toggled(on) => { root.stop-toggled(on); }
-        }
+    SwitchTile {
+        icon: Icons.bell;
+        text: @tr("Notify me");
+        name: root.label + ": " + @tr("Notify me");
+        tip: root.notify-tip;
+        hue: root.hue;
+        enabled: root.enabled;
+        checked <=> root.notify;
+        toggled(on) => { root.notify-toggled(on); }
+    }
+    SwitchTile {
+        icon: Icons.stop;
+        text: @tr("Stop the stream");
+        name: root.label + ": " + @tr("Stop the stream");
+        tip: root.stop-tip;
+        hue: root.hue;
+        enabled: root.enabled;
+        checked <=> root.stop;
+        toggled(on) => { root.stop-toggled(on); }
     }
 }
 
@@ -144,20 +148,9 @@ export component MonitoringCard inherits Card {
         title: @tr("Warnings");
         icon: Icons.bell;
         scope: root.fold-key;
-        // QFrame#subsection
-        Rectangle {
-            background: Theme.surface-raise;
-            border-width: 1px;
-            border-color: Theme.border;
-            border-radius: 8px;
-            VerticalLayout {
-                padding-left: 13px;
-                padding-right: 13px;
-                padding-top: 11px;
-                padding-bottom: 11px;
-                spacing: 10px;
                 AlertBlock {
                     icon: Icons.battery;
+                    hue: root.hue;
                     label: @tr("Battery under");
                     spin-tip: @tr("Counts as low at this level, even while charging if it keeps dropping");
                     notify-tip: @tr("Show a notification when the battery runs low");
@@ -171,10 +164,9 @@ export component MonitoringCard inherits Card {
                     notify-toggled(on) => { root.alert-toggled("batt-notify", on); }
                     stop-toggled(on) => { root.alert-toggled("batt-stop", on); }
                 }
-                // hairline
-                Rectangle { height: 1px; background: Theme.border; }
                 AlertBlock {
                     icon: Icons.thermometer;
+                    hue: root.hue;
                     label: @tr("Hotter than");
                     spin-tip: @tr("The temperature that counts as too hot");
                     notify-tip: @tr("Show a notification when the phone gets too hot");
@@ -188,7 +180,5 @@ export component MonitoringCard inherits Card {
                     notify-toggled(on) => { root.alert-toggled("temp-notify", on); }
                     stop-toggled(on) => { root.alert-toggled("temp-stop", on); }
                 }
-            }
-        }
     }
 }

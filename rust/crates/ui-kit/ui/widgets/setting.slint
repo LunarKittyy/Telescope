@@ -1,6 +1,7 @@
 // One setting as a raised strip, and the small tag that marks one (widgets/controls.py: setting_row, Tag).
 
 import { Theme } from "../theme.slint";
+import { TipBody } from "tip.slint";
 
 // settings_search.keywords: carried as a zero-size Text with accessible-role none, which is no accessible node at all (the search reads "kind", a unit separator, then the words)
 export component SearchWords inherits Rectangle {
@@ -63,14 +64,8 @@ export component SettingRow inherits Rectangle {
                     line-height-factor: Theme.line-factor(self.font-size);
                     // The row is named by it already, and so is a switch in it
                     accessible-role: none;
-                }
-                if sub != "": Text {
-                    text: sub;
-                    font-family: Theme.font;
-                    font-size: Theme.small;
-                    color: enabled ? Theme.text-faint : Theme.text-disabled;
-                    wrap: word-wrap;
-                    line-height-factor: Theme.line-factor(self.font-size);
+                    // What the row explains is a tooltip, not a line of its own
+                    if sub != "": Tooltip { TipBody { says: sub; } }
                 }
             }
             // Qt centres the controls on the strip

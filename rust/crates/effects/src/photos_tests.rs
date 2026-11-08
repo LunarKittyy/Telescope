@@ -161,7 +161,7 @@ fn keys(props: &Value) -> Vec<String> {
 fn without_photos_the_button_is_off_and_the_card_says_why() {
     let mut rig = Rig::new(None, false);
     assert_eq!(rig.props()["take-enabled"], false);
-    assert!(rig.props()["info"].as_str().unwrap().contains("Start streaming"));
+    assert!(rig.props()["take-tip"].as_str().unwrap().contains("Start streaming") && rig.props()["info"] == "");
     rig.host.streaming = true;
     rig.caps_changed();
     assert!(rig.props()["info"].as_str().unwrap().contains("Update the app"));

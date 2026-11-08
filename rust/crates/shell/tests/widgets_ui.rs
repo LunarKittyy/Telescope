@@ -127,7 +127,7 @@ fn a_switch_toggles_from_anywhere_on_its_row_and_sits_at_the_row_end() {
     for width in [300.0, 400.0] {
         ui.set_property("row-width", Value::Number(width)).unwrap();
         settle(&ui);
-        assert_eq!((right("Notify"), right("Battery")), (width as f32 - 6.0, width as f32 - 13.0), "at {width}");
+        assert_eq!((right("Notify"), right("Battery")), (width as f32, width as f32 - 13.0), "at {width}");
     }
     // On the icon and the text, left of the track, not only on the track
     let position = LogicalPosition::new(20.0, 20.0);

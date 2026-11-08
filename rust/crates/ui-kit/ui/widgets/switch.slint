@@ -43,6 +43,8 @@ export component Switch inherits Rectangle {
     in property <string> setting;
     // The card's colour: the border and handle of a lit switch
     in property <color> hue: Theme.accent;
+    // The row it sits in is under the pointer, so the track answers too
+    in property <bool> row-hover;
     out property <string> control-kind: "switch";
     callback toggled(bool);
     width: Theme.switch-w;
@@ -53,7 +55,7 @@ export component Switch inherits Rectangle {
     border-color: lit;
     background: !enabled ? Theme.trough
         : shown ? Theme.tint(lit)
-        : touch.has-hover ? Theme.hover : Theme.raise;
+        : touch.has-hover || row-hover ? Theme.hover : Theme.raise;
     accessible-role: switch;
     accessible-label: label;
     accessible-checkable: true;
@@ -113,6 +115,8 @@ export component Switch inherits Rectangle {
 export component SwitchTile inherits Rectangle {
     in property <image> icon;
     in property <string> text;
+    // What a screen reader calls it, when the text alone repeats in a card ("Notify me" under two warnings)
+    in property <string> name: text;
     in property <color> hue: Theme.accent;
     in-out property <bool> checked;
     in property <bool> enabled: true;
@@ -126,8 +130,6 @@ export component SwitchTile inherits Rectangle {
     horizontal-stretch: 1;
     min-width: 0px;
     preferred-width: 0px;
-    background: tile-touch.has-hover && enabled ? Theme.hover.with-alpha(0.5) : transparent;
-    border-radius: Theme.r-ctl;
     usage := TipUse { hover: tile-touch.has-hover; }
     tile-touch := TouchArea {
         enabled: root.enabled;
@@ -139,8 +141,6 @@ export component SwitchTile inherits Rectangle {
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
     if root.tip != "" && !usage.used: Tooltip { TipBody { says: root.tip; } }
     HorizontalLayout {
-        padding-left: Theme.u(3);
-        padding-right: Theme.u(3);
         spacing: Theme.u(4);
         Icon {
             source: icon;
@@ -168,7 +168,8 @@ export component SwitchTile inherits Rectangle {
                 checked <=> root.checked;
                 enabled: root.enabled;
                 hue: root.hue;
-                label: root.text;
+                row-hover: tile-touch.has-hover;
+                label: root.name;
                 toggled(on) => { root.toggled(on); }
             }
         }

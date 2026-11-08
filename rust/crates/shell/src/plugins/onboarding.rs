@@ -120,32 +120,37 @@ impl Onboarding {
             let title = tr(title);
             json!({"title-lines": hint_lines(&title, Weight::SemiBold), "text-lines": hint_lines(&text, Weight::Regular), "title": title,
                    "text": text, "kind": if done && kind == "status_dim" { "status_ok" } else { kind },
-                   "done": done, "button": button, "primary": primary, "busy": false})
+                   "done": done, "button": button, "primary": primary, "busy": false, "tip": ""})
+        };
+        // What a step says in a few words stays on the card, the way to do it goes in a tooltip
+        let tipped = |mut s: Value, tip: String| {
+            s["tip"] = json!(tip);
+            s
         };
         let vcam = if !self.vcam_checked {
             step("Virtual camera", tr("Checking…"), "status_dim", false, String::new(), false)
         } else if self.vcam_ready {
-            let text = if self.linux { tr("Installed. Starting a stream may ask for your password to switch it on.") } else {
-                tr("Installed. If Discord, Zoom or a similar app was already open, quit it fully (closing the window isn't enough if it's still in the tray) and open it again to see the camera.")
+            let tip = if self.linux { tr("Starting a stream may ask for your password to switch it on.") } else {
+                tr("If Discord, Zoom or a similar app was already open, quit it fully (closing the window isn't enough if it's still in the tray) and open it again to see the camera.")
             };
-            step("Virtual camera", text, "status_dim", true, String::new(), false)
+            tipped(step("Virtual camera", tr("Installed."), "status_dim", true, String::new(), false), tip)
         } else if self.linux {
-            step("Virtual camera", tr(LINUX_INSTALL_HINT), "status_warn", false, tr("Check again"), false)
+            tipped(step("Virtual camera", tr("Not installed"), "status_warn", false, tr("Check again"), false), tr(LINUX_INSTALL_HINT))
         } else if self.vcam_busy {
-            let mut installing = step("Virtual camera", tr("Installing… Windows asks for admin access."), "status_dim", false, tr("Install driver"), true);
+            let mut installing = tipped(step("Virtual camera", tr("Installing…"), "status_dim", false, tr("Install driver"), true), tr("Windows asks for admin access."));
             installing["busy"] = json!(true);
             installing
         } else if !self.vcam_failed.is_empty() {
             step("Virtual camera", tr("Didn't install: {detail}").field("detail", &self.vcam_failed), "status_err", false, tr("Try again"), true)
         } else {
-            step("Virtual camera", tr("Other apps see Telescope as a webcam through this driver. Installing it needs admin access."),
-                 "status_dim", false, tr("Install driver"), true)
+            tipped(step("Virtual camera", tr("Not installed"), "status_dim", false, tr("Install driver"), true),
+                   tr("Other apps see Telescope as a webcam through this driver. Installing it needs admin access."))
         };
         let no_phone = !self.source.is_empty() && !self.asked;
         let paired = self.phones > 0 || no_phone;
-        let not_needed = || tr("Not needed: you picked a camera that isn't a phone.");
+        let not_needed = |title: &str| tipped(step(title, tr("Not needed"), "status_dim", true, String::new(), false), tr("You picked a camera that isn't a phone."));
         let app = if no_phone {
-            step("Phone app", not_needed(), "status_dim", true, String::new(), false)
+            not_needed("Phone app")
         } else if paired {
             step("Phone app", tr("Installed."), "status_dim", true, String::new(), false)
         } else if self.app_busy {
@@ -156,21 +161,21 @@ impl Onboarding {
             step("Phone app", text.clone(), kind, false, tr("Install over USB"), false)
         } else {
             let usb = self.installers.as_ref().is_some_and(|i| (i.usb_ready)());
-            step("Phone app", tr("Scan this with the phone's camera app to download Telescope.apk, then open it to install. It's a download link, not the pairing code."),
-                 "status_dim", false, if usb { tr("Install over USB") } else { String::new() }, false)
+            tipped(step("Phone app", tr("Scan to download"), "status_dim", false, if usb { tr("Install over USB") } else { String::new() }, false),
+                   tr("Scan this with the phone's camera app to download Telescope.apk, then open it to install. It's a download link, not the pairing code."))
         };
         let pair = if no_phone {
-            step("Add your phone", not_needed(), "status_dim", true, String::new(), false)
+            not_needed("Add your phone")
         } else if paired {
             step("Add your phone", tr("Paired."), "status_dim", true, String::new(), false)
         } else {
-            step("Add your phone", tr("Open Telescope on the phone first."), "status_dim", false, tr("Add device"), true)
+            tipped(step("Add your phone", tr("Not paired"), "status_dim", false, tr("Add device"), true), tr("Open Telescope on the phone first."))
         };
         // Points at the real button rather than duplicating it, so people learn where it lives
         let start = if self.streamed {
             step("Start streaming", tr("Done."), "status_dim", true, String::new(), false)
         } else {
-            step("Start streaming", tr("Click Start streaming in the top right corner of this window."), "status_dim", false, String::new(), false)
+            tipped(step("Start streaming", String::new(), "status_dim", false, String::new(), false), tr("Click Start streaming in the top right corner of this window."))
         };
         vec![vcam, app, pair, start]
     }
@@ -377,8 +382,8 @@ mod tests {
     fn missing_v4l2loopback_says_which_package() {
         let mut env = Env::new();
         env.vcam(false, "");
-        assert!(env.step(0)["text"].as_str().unwrap().contains("RPM Fusion"));
-        assert!(env.step(0)["text"].as_str().unwrap().contains("v4l2loopback-dkms"));
+        assert!(env.step(0)["tip"].as_str().unwrap().contains("RPM Fusion"));
+        assert!(env.step(0)["tip"].as_str().unwrap().contains("v4l2loopback-dkms"));
         assert_eq!(env.step(0)["button"], "Check again");
     }
 
@@ -413,7 +418,7 @@ mod tests {
         env.event(Event::PhonesChanged { count: 1 });
         assert!(env.shown(), "paired and ready, but step 4 still points at Start streaming");
         assert_eq!(env.step(2)["done"], true);
-        assert!(env.step(3)["text"].as_str().unwrap().contains("top right"));
+        assert!(env.step(3)["tip"].as_str().unwrap().contains("top right"));
         env.event(Event::StreamStarted { url: "url".into() });
         env.event(Event::StreamConnected { source_id: String::new() });
         env.event(Event::StreamStopped);
@@ -451,7 +456,7 @@ mod tests {
         env.ready_and_streamed();
         env.event(Event::SourceSelected { source_id: "browser".into() });
         assert!(!env.shown(), "no phone, but nothing left to set up");
-        assert!(env.step(2)["text"].as_str().unwrap().starts_with("Not needed"));
+        assert_eq!(env.step(2)["text"], "Not needed");
         assert!(!env.qr());
         env.event(Event::SourceSelected { source_id: String::new() });
         assert!(env.shown());
@@ -472,7 +477,7 @@ mod tests {
         env.close();
         assert!(!env.shown());
         assert_eq!(env.needed().last(), Some(&false));
-        assert!(env.step(2)["text"].as_str().unwrap().starts_with("Not needed"));
+        assert_eq!(env.step(2)["text"], "Not needed");
         env.event(Event::SetupGuideRequested);
         env.event(Event::SetupGuideRequested);
         assert!(!env.shown(), "the same button closes it");
@@ -595,7 +600,7 @@ mod tests {
         assert_eq!(step_of(&o, 1)["text"], "Installed. Open Telescope on the phone for the next step.");
         assert_eq!(step_of(&o, 1)["kind"], "status_ok");
         event(&mut o, &mut host, Event::StreamStopped);
-        assert!(step_of(&o, 1)["text"].as_str().unwrap().starts_with("Scan this"));
+        assert!(step_of(&o, 1)["tip"].as_str().unwrap().starts_with("Scan this"));
     }
 
     #[test]
@@ -603,7 +608,7 @@ mod tests {
         let (mut o, mut host, bus) = installing((false, "Refused"), Ok(()));
         click(&mut o, &mut host, 0);
         let busy = step_of(&o, 0);
-        assert_eq!((busy["text"].as_str(), busy["busy"].as_bool()), (Some("Installing… Windows asks for admin access."), Some(true)));
+        assert_eq!((busy["text"].as_str(), busy["busy"].as_bool()), (Some("Installing…"), Some(true)));
         answer(&mut o, &mut host, &bus);
         let failed = step_of(&o, 0);
         assert_eq!((failed["text"].as_str(), failed["kind"].as_str(), failed["button"].as_str()), (Some("Didn't install: Refused"), Some("status_err"), Some("Try again")));

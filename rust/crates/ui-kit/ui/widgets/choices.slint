@@ -360,11 +360,11 @@ export component ChoiceField inherits Rectangle {
     }
     if !centered: Icon {
         source: @image-url("../icons/chevron.svg");
-        x: parent.width - Theme.u(5) - self.width;
+        x: parent.width - Theme.u(4) - self.width;
         y: (parent.height - self.height) / 2;
         tint: enabled ? Theme.ink2 : Theme.dis;
-        width: Theme.u(6);
-        height: Theme.u(6);
+        width: Theme.u(8);
+        height: Theme.u(8);
     }
     popup := PopupWindow {
         // Wide enough for its longest option, and inside the window: a longer one wraps, Slint moves it in from the edge

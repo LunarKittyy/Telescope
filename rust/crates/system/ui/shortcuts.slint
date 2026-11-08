@@ -155,7 +155,7 @@ component KeyBox inherits Rectangle {
         Text {
             horizontal-stretch: 1;
             // Unfocused and empty: QKeySequenceEdit's own placeholder
-            text: root.text != "" ? root.text : focus.has-focus ? @tr("Press a key…") : "Press shortcut";
+            text: root.text != "" ? root.text : focus.has-focus ? @tr("Press a key") : "Press shortcut";
             font-family: Theme.font;
             font-size: Theme.body;
             color: root.text != "" ? Theme.text : Theme.text-faint;
@@ -221,7 +221,6 @@ callback param-committed(int, string);
         }
     }
 
-    Note { text: @tr("Right-click most controls to add one for it."); }
 
     Card {
         title: @tr("Shortcuts");
@@ -239,7 +238,7 @@ callback param-committed(int, string);
             remove => { root.remove(i); }
             copy-line => { root.copy-line(i); }
         }
-        if rows.length == 0: Note { text: @tr("No shortcuts yet. Add one, or right-click a control in the main window."); }
+        if rows.length == 0: Note { text: @tr("No shortcuts yet"); }
     }
 
     Card {
@@ -297,7 +296,7 @@ callback param-committed(int, string);
                         y: (parent.height - self.height) / 2;
                         horizontal-stretch: 1;
                         text: query;
-                        placeholder: @tr("Search: mute, zoom, exposure, preset…");
+                        placeholder: @tr("Search");
                         label: @tr("Find");
                         clearable: true;
                         edited(t) => { root.search(t); }

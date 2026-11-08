@@ -128,7 +128,7 @@ fn rename_and_delete_come_on_with_a_saved_layout() {
         editor.window().dispatch_event(slint::platform::WindowEvent::PointerReleased { position, button: left });
         w.process();
     };
-    click("Rename\u{2026}");
+    click("Rename");
     assert_eq!(asking(), SValue::Bool(false), "nothing saved to rename");
     editor.invoke("save-clicked", &[]).unwrap();
     w.process();
@@ -136,7 +136,7 @@ fn rename_and_delete_come_on_with_a_saved_layout() {
     editor.invoke("name-entered", &[SValue::String("Talk".into())]).unwrap();
     w.process();
     assert_eq!((asking(), editor.get_property("saved").unwrap()), (SValue::Bool(false), SValue::Bool(true)));
-    click("Rename\u{2026}");
+    click("Rename");
     assert_eq!(asking(), SValue::Bool(true), "Rename asks for a name now");
     editor.invoke("name-cancelled", &[]).unwrap();
     w.process();

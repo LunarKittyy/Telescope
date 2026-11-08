@@ -408,7 +408,7 @@ impl SetupPlugin {
     pub fn apk_props(&self) -> Value {
         let p = &self.panel;
         json!({
-            "apk-button": if self.link.bundled_apk().is_some() { tr("Install over USB") } else { tr("Choose APK...") },
+            "apk-button": if self.link.bundled_apk().is_some() { tr("Install over USB") } else { tr("Choose APK") },
             "apk-text": p.apk.text, "apk-kind": p.apk.kind, "apk-enabled": p.apk_enabled,
             "pick-shown": !p.apk_choices.is_empty(), "pick-items": p.apk_choices, "pick-current": 0,
         })

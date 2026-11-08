@@ -115,7 +115,7 @@ export component ChromaKeyCard inherits Card {
         Button {
             enabled: active;
             horizontal-stretch: 1;
-            text: @tr("Choose…");
+            text: @tr("Choose");
             tip: colour-tip;
             has-swatch: true;
             swatch: backdrop-colour;
@@ -147,7 +147,7 @@ export component ChromaKeyCard inherits Card {
             spacing: 8px;
             Button {
                 enabled: active;
-                text: @tr("Choose…");
+                text: @tr("Choose");
                 tip: picture-choose-tip;
                 clicked => { root.picture-clicked(); }
             }

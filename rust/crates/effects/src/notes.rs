@@ -112,8 +112,9 @@ pub fn notes_status(f: &StatusFacts) -> (String, &'static str) {
     if f.too_long {
         return (tr("These notes are too long to send to the phone."), "status_err");
     }
+    // Not streaming: the Send button is off and says nothing more
     if !f.streaming {
-        return (tr("Start streaming to send the notes to the phone."), "dim");
+        return (String::new(), "dim");
     }
     if !f.sent {
         if f.front == Some(false) {

@@ -283,7 +283,7 @@ fn a_photo_is_taken_through_the_shell_and_every_plugin_hears_what_became_of_it()
     state.bus.emit(Event::PhonesChanged { count: 1 });
     state.deliver_events();
     assert_eq!(props_of(&state, "photos", "card")["take-enabled"], false, "nothing streams yet");
-    assert!(props_of(&state, "photos", "card")["info"].as_str().unwrap().contains("Start streaming"));
+    assert!(props_of(&state, "photos", "card")["take-tip"].as_str().unwrap().contains("Start streaming"));
 
     // A stream is up and its phone has said what its lens takes
     state.streams.streaming = true;

@@ -215,18 +215,9 @@ export component ConnectionCard inherits Card {
         }
     }
 
-    // QFrame#subsection
+    // The status and the route, on the card's own edges
     Rectangle {
-        background: Theme.surface-raise;
-        border-width: 1px;
-        border-color: Theme.border;
-        border-radius: 8px;
-        // Qt's 12/8/12/6 margins sit inside the frame's 1px border
         VerticalLayout {
-            padding-left: 13px;
-            padding-right: 13px;
-            padding-top: 9px;
-            padding-bottom: 7px;
             spacing: 0px;
             HorizontalLayout {
                 spacing: 12px;
@@ -250,7 +241,9 @@ export component ConnectionCard inherits Card {
                         font-weight: 600;
                         color: Status.color(status-kind);
                         overflow: elide;
-                        if shown-status-text.preferred-width > shown-status-text.width: Tooltip { TipBody { says: shown-status-text.text; } }
+                        if note-text != "" || shown-status-text.preferred-width > shown-status-text.width: Tooltip {
+                            TipBody { says: note-text == "" ? shown-status-text.text : shown-status-text.preferred-width > shown-status-text.width ? shown-status-text.text + "\n" + note-text : note-text; }
+                        }
                     }
                     if using-shown: shown-using-text := Text {
                         text: using-text;
@@ -264,7 +257,7 @@ export component ConnectionCard inherits Card {
             }
             // Not under an `if`: Slint measures wrapped text in a conditional layout as one line, so the box would come up short
             HorizontalLayout {
-                property <bool> shown: note-text != "" || switch-usb-shown || update-shown;
+                property <bool> shown: switch-usb-shown || update-shown;
                 visible: shown;
                 max-height: shown ? 100000px : 0px;
                 padding-top: shown ? 4px : 0px;
@@ -273,15 +266,10 @@ export component ConnectionCard inherits Card {
                 VerticalLayout {
                     horizontal-stretch: 1;
                     padding-bottom: parent.shown ? 2px : 0px;
-                    Note {
-                        text: note-text;
-                        kind: note-kind;
-                        shown: note-text != "";
-                    }
                     if switch-usb-shown: HorizontalLayout {
                         alignment: start;
                         // Qt's 8px from the label's box, which ends a pixel above Slint's
-                        padding-top: note-text != "" ? 7px : 0px;
+                        padding-top: 0px;
                         // action_button: 160 wide; Qt's push buttons are 32 tall
                         Button {
                             width: 160px;
@@ -294,7 +282,7 @@ export component ConnectionCard inherits Card {
                     }
                     if update-shown: HorizontalLayout {
                         alignment: start;
-                        padding-top: switch-usb-shown ? 8px : note-text != "" ? 7px : 0px;
+                        padding-top: switch-usb-shown ? 8px : 0px;
                         // action_button: 160 wide; Qt's push buttons are 32 tall
                         Button {
                             width: 160px;
@@ -311,10 +299,8 @@ export component ConnectionCard inherits Card {
             // A note with nothing under it: Qt's label box ends 4px above Slint's there
             VerticalLayout {
                 // Qt keeps the note box when there's nothing in it, so its 2px bottom margin still counts
-                padding-top: switch-usb-shown || update-shown ? 9px : note-text != "" ? 8px : 14px;
+                padding-top: Theme.gap;
                 spacing: 4px;
-                // Stays with no route to choose from: only the row under it goes
-                Rectangle { height: 1px; background: Theme.border; }
                 if route-shown: FormRow {
                     label: @tr("Connect via");
                     Segmented {
@@ -360,7 +346,6 @@ export component ConnectionCard inherits Card {
                 current: root.add-page;
                 picked(i) => { root.add-page = i; }
             }
-            if on-source: Note { text: @tr("Works on an iPhone or anything else with a browser and there's nothing to install."); kind: ""; }
             if on-source: HorizontalLayout {
                 alignment: start;
                 Button { text: @tr("Use it"); role: "primary"; accessible-label: other-name; clicked => { root.other-picked(); } }
@@ -599,7 +584,6 @@ export component PhonePicker inherits HorizontalLayout {
                 dismissable: true;
                 dismissed => { root.phones-closed(); }
                 title: @tr("Your devices");
-                subtitle: @tr("Each device keeps its own camera settings, a browser once you change one. Removing a phone also unpairs it on the phone.");
                 Card {
                     title: @tr("Devices");
                     icon: Icons.v-devices;
@@ -614,7 +598,7 @@ export component PhonePicker inherits HorizontalLayout {
                         root.phones-closed();
                         root.add-phone();
                     }
-                    if rows.length == 0: Note { text: @tr("No devices yet. Add a phone to pair it with this computer."); }
+                    if rows.length == 0: Note { text: @tr("No devices yet"); }
                     if rows.length > 0: PhoneList {
                         rows-shown: rows;
                         rename(row) => {

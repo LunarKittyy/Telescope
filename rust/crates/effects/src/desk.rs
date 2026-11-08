@@ -163,12 +163,11 @@ impl DeskPlugin {
     }
 
     fn status(&self) -> (String, &'static str) {
+        // The preview says what to drag while the corners are placed, and the Mark button is the way in
         if self.picking {
-            (tr("Drag the corners on the preview onto the sheet's corners."), "dim")
+            (String::new(), "dim")
         } else if self.refused {
             (tr("Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."), "status_warn")
-        } else if self.on && self.corners.is_none() {
-            (tr("Mark the sheet's corners to straighten it."), "status_warn")
         } else if self.on && self.off_picture() {
             (tr("Part of the sheet is outside the picture. Zoom out or mark it again."), "status_warn")
         } else {

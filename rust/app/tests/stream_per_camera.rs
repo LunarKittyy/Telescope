@@ -465,7 +465,7 @@ fn empty_lenses_show_a_placeholder() {
     r.start();
     r.phone_says("pixel", tiles(json!([])));
     r.pump();
-    assert!(found(&r, "No cameras available").is_some(), "it's on the card");
+    assert_eq!(card_prop(&r, "lens-placeholder"), slint_interpreter::Value::String("No cameras available".into()), "it's what the dim tiles say");
     assert!(ElementHandle::find_by_accessible_label(&r.w.ui, "Back").next().is_none(), "with no tiles");
     r.w.stop_all_streams();
     r.pump();
@@ -474,11 +474,11 @@ fn empty_lenses_show_a_placeholder() {
 #[test]
 fn lens_panel_load_select_placeholder_and_clear() {
     let r = shown("lens-panel");
-    assert!(found(&r, "Start streaming to load lenses").is_some());
+    assert_eq!(card_prop(&r, "lens-placeholder"), slint_interpreter::Value::String("Start streaming to load lenses".into()));
     r.start();
     r.phone_says("pixel", tiles(json!([lens("wide", "Wide", false), lens("tele", "Tele", true)])));
     r.pump();
-    assert_eq!((found(&r, "Loading lenses...").is_none(), found(&r, "Start streaming to load lenses").is_none()), (true, true), "tiles in its place: {:?}", card_prop(&r, "lens-placeholder"));
+    assert!(found(&r, "Loading lenses...").is_none(), "tiles in its place");
     let tile = |name: &str| ElementHandle::find_by_accessible_label(&r.w.ui, name).find(|e| e.accessible_checked().is_some()).unwrap_or_else(|| panic!("no {name} tile"));
     assert_eq!((tile("Wide").accessible_checked(), tile("Tele").accessible_checked()), (Some(false), Some(true)));
     forget_sent(&r, "pixel");
@@ -488,6 +488,6 @@ fn lens_panel_load_select_placeholder_and_clear() {
     assert_eq!(card_prop(&r, "current-lens"), slint_interpreter::Value::Number(0.0));
     r.w.stop_all_streams();
     r.pump();
-    assert!(found(&r, "Start streaming to load lenses").is_some(), "cleared");
+    assert_eq!(card_prop(&r, "lens-placeholder"), slint_interpreter::Value::String("Start streaming to load lenses".into()), "cleared");
     assert!(ElementHandle::find_by_accessible_label(&r.w.ui, "Wide").next().is_none());
 }

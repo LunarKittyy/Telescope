@@ -50,6 +50,16 @@ One family, IBM Plex Sans, bundled in `ui/fonts` (regular, medium, semibold, bol
 
 Text that stays in a card is styled as something: a status, a badge, a key, an empty state. No loose explaining sentences.
 
+## Text
+
+The window has no explaining text. A sentence that explains goes in a tooltip (one friendly sentence) or is dropped. What stays is styled as something: a status (a coloured word or short phrase), a badge (`Tag`), a key, an empty state (dim placeholders of the real thing's shape, or a short name like "No devices yet"). Something that can't be used yet is a disabled control with a tooltip saying why ("Start streaming to take photos"), never a sentence in the card. A menu or picker button never ends in "...": the picker's chevron already says it opens.
+
+## Stability
+
+The window doesn't jump when a state changes (streaming starts or stops, a device connects, a plugin turns on). Either the move is one the eye can follow, or the empty state keeps the space of what will appear: a placeholder roughly the shape and height of the real content, like the Camera's lens row, which is three dim tiles until the phone names its lenses.
+
+The swap from placeholder to content happens in one frame. Never a frame where the old thing is gone and the new one isn't there yet (a model cleared then refilled, an `if` that removes one element before another is made, a size that collapses while data loads). Build it so both come from the same state change: update a model in place, switch visibility in one property change, keep the reserved height until the new content is laid out. `app/tests/card_stability.rs` steps a card through a state change one loop turn at a time and checks its height only ever goes from the one height to the other.
+
 ## Lines
 
 No hairline border round a box. Surfaces separate by tone steps and spacing. A line is only for something that splits meaning. The thick outline (`Theme.stroke`) is for state, below.
@@ -93,7 +103,9 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | `image` | QrCode | picture |
 | `helper` | no drawing of its own (search words, tooltips' usage, shortcut menu) | nothing |
 
-A menu button is always a `picker`: the value and a chevron, never "..." in a label.
+A menu button is always a `picker`: the value and a chevron, never "..." in a label. Glyphs inside controls (the chevron, a clear cross, a tick, a plus, the stepper's arrows) are heavier than the card icons: a 2px stroke against the icons' 1.4px, and the picker's chevron is 16px.
+
+Every control in a card sits between the same two edges, the card's own: a label column then the control out to the right edge, or a row that runs across (`SwitchTile`, a full-width `Button`). No inset boxes, no tiles side by side that end at different places. A box that only groups (a status, a warnings list) isn't drawn: the rows sit on the card.
 
 ## Sliders
 

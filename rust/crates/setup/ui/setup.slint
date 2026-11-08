@@ -109,7 +109,7 @@ export component VirtualCameraSettings inherits Card {
                 clicked => { root.adb-clicked(); }
             }
             if adb-row: StripButton {
-                text: @tr("Use my own adb…");
+                text: @tr("Use my own adb");
                 enabled: adb-enabled;
                 tip: @tr("Pick an adb.exe or platform-tools zip you already have");
                 clicked => { root.own-adb-clicked(); }
@@ -433,7 +433,7 @@ export component LookSettings inherits Card {
         // A first draft says so; any other language asks for help, both beside the same button
         HorizontalLayout {
             spacing: 8px;
-            Note { horizontal-stretch: 1; text: help-text; vertical-alignment: center; }
+            Rectangle { horizontal-stretch: 1; }
             StripButton {
                 y: (parent.height - self.height) / 2;
                 height: 30px;
@@ -444,7 +444,7 @@ export component LookSettings inherits Card {
                 has-icon: true;
                 icon: Icons.pencil;
                 icon-tint: Theme.text-dim;
-                tip: @tr("Fix a text or add a language, no coding needed");
+                tip: help-text != "" ? help-text + "\n" + @tr("Fix a text or add a language, no coding needed") : @tr("Fix a text or add a language, no coding needed");
                 clicked => { root.translate-clicked(); }
             }
         }

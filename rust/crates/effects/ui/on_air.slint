@@ -71,7 +71,6 @@ export component OnAirSettings inherits VerticalLayout {
         title: @tr("On Air sign");
         icon: Icons.bell;
         hue: Theme.plugin-hue("on_screen");
-        Note { text: @tr("Lets the people around you know you're on a call. Show it on a tablet by the door, switch a smart light with the webhook, or both."); }
         FormRow {
             label: @tr("Now");
             shown-state-text := Text {
@@ -188,7 +187,6 @@ export component OnAirSettings inherits VerticalLayout {
         keywords: @tr("search" => "smart home light home assistant url http request automation");
         icon: Icons.plug;
         hue: Theme.plugin-hue("on_screen");
-        Note { text: @tr("Sends a request each time you go on or off air, for a smart home hub or anything else that takes one."); }
         UrlRow {
             label: @tr("Address");
             placeholder: "http://homeassistant.local:8123/api/webhook/…";

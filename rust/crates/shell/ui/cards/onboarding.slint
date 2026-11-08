@@ -1,6 +1,6 @@
 // The setup checklist on the video stage (plugins/onboarding.py): virtual camera, phone app, add a phone, start.
 
-import { Theme, Icons, Card, Button } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Card, Button, TipBody } from "@ui-kit/ui-kit.slint";
 
 export struct Step {
     title: string,
@@ -14,6 +14,8 @@ export struct Step {
     button: string,
     primary: bool,
     busy: bool,
+    // How to do the step, for a tooltip
+    tip: string,
 }
 
 component StepRow inherits HorizontalLayout {
@@ -51,13 +53,23 @@ component StepRow inherits HorizontalLayout {
         padding-top: 3px;
         spacing: 4px;
         alignment: start;
-        title := Text { text: step.title; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.text; }
+        title := Text {
+            text: step.title;
+            wrap: word-wrap;
+            line-height-factor: Theme.line-factor(self.font-size);
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: 600;
+            color: Theme.text;
+            if step.tip != "": Tooltip { TipBody { says: step.tip; } }
+        }
         body := Text {
             text: step.text;
             wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
             font-family: Theme.font;
             font-size: Theme.body;
             color: step.kind == "status_ok" ? Theme.ok : step.kind == "status_warn" ? Theme.warn : step.kind == "status_err" ? Theme.err : Theme.dim;
+            if step.tip != "": Tooltip { TipBody { says: step.tip; } }
         }
         if qr-shown: HorizontalLayout {
             padding-top: 4px;

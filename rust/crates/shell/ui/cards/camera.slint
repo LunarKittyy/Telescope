@@ -1,6 +1,6 @@
 // The Camera card, built from ui-kit's widgets.
 
-import { Theme, Icons, Icon, Button, Card, Section, FormRow, Segmented, Slider, SwitchTile, ChoiceField, ShortcutMenu } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, Card, Section, FormRow, Segmented, Slider, SwitchTile, ChoiceField, ShortcutMenu, TipBody } from "@ui-kit/ui-kit.slint";
 
 export struct Lens {
     id: string,
@@ -148,13 +148,16 @@ export component CameraCard inherits Card {
     enabled: active;
     visible: !phone-only-hidden;
 
-    if lenses.length == 0: Text {
-        text: lens-placeholder;
-        font-family: Theme.font;
-        font-size: Theme.body;
-        color: Theme.text-dim;
-        height: 16px;
-        vertical-alignment: center;
+    // Before the phone has told its lenses: dim tiles where they will be, so the card doesn't jump when they arrive
+    if lenses.length == 0: HorizontalLayout {
+        spacing: 6px;
+        for n in 3: Rectangle {
+            height: 54px;
+            horizontal-stretch: 1;
+            border-radius: Theme.r-ctl;
+            background: Theme.trough;
+            if lens-placeholder != "": Tooltip { TipBody { says: lens-placeholder; } }
+        }
     }
     if lenses.length > 0: Rectangle {
         property <length> tile-width: (self.width - (lens-columns - 1) * 6px) / lens-columns;
@@ -332,105 +335,64 @@ export component CameraCard inherits Card {
         title: @tr("Image");
         icon: Icons.image;
         scope: root.fold-key;
-        // Two tiles a row, closing the gap when the phone has no low light mode
-        if show-low-light: GridLayout {
-            spacing: 8px;
-            Row {
-                SwitchTile {
-                    icon: Icons.stabilize;
-                    shortcut: "camera.stabilization";
-                    text: @tr("Stabilization");
-                    tip: ois.tip;
-                    hue: root.hue;
-                    enabled: active && ois.enabled;
-                    checked: ois.checked;
-                    toggled(on) => { ois-toggled(on); }
-                }
-                SwitchTile {
-                    icon: Icons.moon;
-                    shortcut: "camera.low_light";
-                    text: @tr("Low light");
-                    tip: low-light.tip;
-                    hue: root.hue;
-                    enabled: active && low-light.enabled;
-                    checked: low-light.checked;
-                    toggled(on) => { low-light-toggled(on); }
-                }
-            }
-            Row {
-                SwitchTile {
-                    icon: Icons.lock;
-                    shortcut: "camera.black_level_lock";
-                    text: @tr("Black level lock");
-                    tip: black-level-lock.tip;
-                    hue: root.hue;
-                    enabled: active && black-level-lock.enabled;
-                    checked: black-level-lock.checked;
-                    toggled(on) => { bll-toggled(on); }
-                }
-                SwitchTile {
-                    icon: Icons.torch;
-                    shortcut: "camera.torch";
-                    text: @tr("Torch");
-                    tip: torch.tip;
-                    hue: root.hue;
-                    enabled: active && torch.enabled;
-                    checked: torch.checked;
-                    toggled(on) => { torch-toggled(on); }
-                }
-            }
+        SwitchTile {
+            icon: Icons.stabilize;
+            shortcut: "camera.stabilization";
+            text: @tr("Stabilization");
+            tip: ois.tip;
+            hue: root.hue;
+            enabled: active && ois.enabled;
+            checked: ois.checked;
+            toggled(on) => { ois-toggled(on); }
         }
-        if !show-low-light: GridLayout {
-            spacing: 8px;
-            Row {
-                SwitchTile {
-                    icon: Icons.stabilize;
-                    shortcut: "camera.stabilization";
-                    text: @tr("Stabilization");
-                    tip: ois.tip;
-                    hue: root.hue;
-                    enabled: active && ois.enabled;
-                    checked: ois.checked;
-                    toggled(on) => { ois-toggled(on); }
-                }
-                SwitchTile {
-                    icon: Icons.lock;
-                    shortcut: "camera.black_level_lock";
-                    text: @tr("Black level lock");
-                    tip: black-level-lock.tip;
-                    hue: root.hue;
-                    enabled: active && black-level-lock.enabled;
-                    checked: black-level-lock.checked;
-                    toggled(on) => { bll-toggled(on); }
-                }
-            }
-            Row {
-                SwitchTile {
-                    col: 0;
-                    icon: Icons.torch;
-                    shortcut: "camera.torch";
-                    text: @tr("Torch");
-                    tip: torch.tip;
-                    hue: root.hue;
-                    enabled: active && torch.enabled;
-                    checked: torch.checked;
-                    toggled(on) => { torch-toggled(on); }
-                }
-            }
+        if show-low-light: SwitchTile {
+            icon: Icons.moon;
+            shortcut: "camera.low_light";
+            text: @tr("Low light");
+            tip: low-light.tip;
+            hue: root.hue;
+            enabled: active && low-light.enabled;
+            checked: low-light.checked;
+            toggled(on) => { low-light-toggled(on); }
         }
-        HorizontalLayout {
-            spacing: 8px;
+        SwitchTile {
+            icon: Icons.lock;
+            shortcut: "camera.black_level_lock";
+            text: @tr("Black level lock");
+            tip: black-level-lock.tip;
+            hue: root.hue;
+            enabled: active && black-level-lock.enabled;
+            checked: black-level-lock.checked;
+            toggled(on) => { bll-toggled(on); }
+        }
+        SwitchTile {
+            icon: Icons.torch;
+            shortcut: "camera.torch";
+            text: @tr("Torch");
+            tip: torch.tip;
+            hue: root.hue;
+            enabled: active && torch.enabled;
+            checked: torch.checked;
+            toggled(on) => { torch-toggled(on); }
+        }
+        FormRow {
+            label: @tr("Noise reduction");
             ChoiceField {
-                shortcut: "camera.noise_reduction";
+                compact: true;
                 caption: @tr("Noise reduction");
+                shortcut: "camera.noise_reduction";
                 items: [@tr("Off"), @tr("Fast"), @tr("High Quality")];
                 enabled: active;
                 current: noise-reduction;
                 picked(i) => { nr-picked(i); }
             }
+        }
+        FormRow {
+            label: @tr("Sharpening");
             ChoiceField {
-                shortcut: "camera.sharpening";
+                compact: true;
                 caption: @tr("Sharpening");
+                shortcut: "camera.sharpening";
                 items: [@tr("Off"), @tr("Fast"), @tr("High Quality")];
                 enabled: active;
                 current: sharpening;

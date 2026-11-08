@@ -74,14 +74,6 @@ export component AutomaticSettings inherits Card {
             picked(i) => { root.stop-current = i; root.stop-picked(i); }
         }
     }
-    if stops: Text {
-        text: @tr("With the phone mic on, only the camera turns off.");
-        font-family: Theme.font;
-        font-size: Theme.body;
-        color: Theme.text-dim;
-        wrap: word-wrap;
-        line-height-factor: Theme.line-factor(self.font-size);
-    }
     SettingRow {
         enabled: stops;
         title: delay-title;

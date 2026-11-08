@@ -18,79 +18,6 @@ export struct PhotoTile {
     w2: int,
 }
 
-// The folder photos go to, as a tile like the choices: a click picks another
-component FolderTile inherits Rectangle {
-    in property <string> caption;
-    in property <string> name;
-    in property <string> tip;
-    in property <bool> enabled: true;
-    callback clicked;
-    height: 48px;
-    horizontal-stretch: 1;
-    min-width: 0px;
-    preferred-width: 0px;
-    border-radius: 10px;
-    border-width: 1px;
-    background: !enabled ? Theme.bg : touch.has-hover ? Theme.surface-hover : Theme.surface-raise;
-    border-color: !enabled ? Theme.border : touch.has-hover ? Theme.border-hover : Theme.border;
-    accessible-role: button;
-    accessible-label: caption + ": " + name;
-    accessible-description: tip;
-    accessible-action-default => { if (enabled) { clicked(); } }
-    forward-focus: focus;
-    focus := FocusScope {
-        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
-        enabled: root.enabled;
-        key-pressed(e) => {
-            if (e.text == " " || e.text == "\n") { clicked(); return accept; }
-            reject
-        }
-    }
-    FocusRing { shown: focus.has-focus; radius: 10px; width: parent.width + 4px; height: parent.height + 4px; }
-    usage := TipUse { hover: touch.has-hover; }
-    touch := TouchArea {
-        enabled: root.enabled;
-        mouse-cursor: pointer;
-        pointer-event(e) => { if (e.kind == PointerEventKind.down) { focus.focus(); usage.press(); } }
-        scroll-event(e) => { usage.wheel(); reject }
-        clicked => { root.clicked(); }
-    }
-    if root.tip != "" && !usage.used: Tooltip { TipBody { says: root.tip; } }
-    // The caption's capitals and the value's read as one block centred top to bottom, like the choices
-    property <length> first-baseline: round((root.height / 1px - 26) / 2 + 8) * 1px;
-    Text {
-        x: 12px;
-        y: first-baseline - 11px * 1.025;
-        width: root.width - 12px - 34px;
-        text: root.caption;
-        font-family: Theme.font;
-        font-size: 11px;
-        color: enabled ? Theme.text-faint : Theme.text-disabled;
-        overflow: elide;
-        accessible-role: none;
-    }
-    Text {
-        x: 12px;
-        y: first-baseline + 18px - 13px * 1.025;
-        width: root.width - 12px - 34px;
-        text: root.name;
-        font-family: Theme.font;
-        font-size: Theme.body;
-        font-weight: 600;
-        color: enabled ? Theme.text : Theme.text-disabled;
-        overflow: elide;
-        accessible-role: none;
-    }
-    Icon {
-        source: Icons.pencil;
-        tint: enabled ? Theme.text-dim : Theme.text-disabled;
-        x: parent.width - 12px - self.width;
-        width: 14px;
-        height: 14px;
-        accessible-role: none;
-    }
-}
-
 export component PhotosCard inherits Card {
     // Greyed out until a phone is paired, and gone for a source that isn't a phone or a camera that takes photos
     in property <bool> active: true;
@@ -232,14 +159,10 @@ export component PhotosCard inherits Card {
         checked: best;
         toggled(v) => { root.best-toggled(v); }
     }
-    // The timer and the folder share a line, on the same columns as the tiles above: the timer takes the first third (or half)
-    foot := Rectangle {
-        property <length> column: (self.width - 40px) / 6;
-        property <int> timer-span: root.cols == 3 ? 2 : 3;
-        height: 48px;
+    FormRow {
+        label: @tr("Timer");
         ChoiceField {
-            x: 0px;
-            width: foot.timer-span * foot.column + (foot.timer-span - 1) * 8px;
+            compact: true;
             caption: @tr("Timer");
             items: timer-items;
             current: timer-current;
@@ -247,11 +170,15 @@ export component PhotosCard inherits Card {
             shortcut: "photos.timer";
             picked(i) => { root.timer-picked(i); }
         }
-        FolderTile {
-            x: foot.timer-span * (foot.column + 8px);
-            width: parent.width - self.x;
-            caption: @tr("Save in");
-            name: folder-name;
+    }
+    FormRow {
+        label: @tr("Save in");
+        Button {
+            horizontal-stretch: 1;
+            preferred-width: 1000px;
+            has-icon: true;
+            icon: Icons.pencil;
+            text: folder-name;
             tip: folder-tip;
             enabled: active;
             clicked => { root.folder-clicked(); }
