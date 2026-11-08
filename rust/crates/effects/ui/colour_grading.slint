@@ -99,8 +99,9 @@ component WheelCell inherits VerticalLayout {
 }
 
 export component ColourGradingCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     in property <string> reset-hint;
     in property <bool> on: true;
     in property <string> switch-name;
@@ -181,8 +182,11 @@ export component ColourGradingCard inherits Card {
     title: @tr("Colour grading");
     tip: @tr("Change the colours of the picture with colour wheels, curves and LUT files.");
     icon: Icons.colour;
-    opacity: active ? 1 : 0.4;
     enabled: active;
+    has-reset: true;
+    reset-lit: reset-lit;
+    reset-label: @tr("Reset grade");
+    reset => { root.reset-clicked(); }
     has-switch: true;
     switch-shortcut: "colour_grading.on";
     switch-setting: "colour_grading.on";
@@ -248,14 +252,6 @@ export component ColourGradingCard inherits Card {
             tip: auto-busy ? @tr("Looking at the picture") : auto-label != "" ? auto-label : @tr("Auto");
             tip-detail: auto-busy || auto-label != "" ? "" : @tr("Set white balance, brightness, contrast and colour from about a second of the picture. You can still adjust everything on the sliders.");
             clicked => { root.auto-clicked(); }
-        }
-        IconButton {
-            icon: Icons.reset;
-            label: @tr("Reset grade");
-            raised: true;
-            tip: @tr("Reset grade");
-            tip-detail: @tr("Set everything except the LUT back to default.");
-            clicked => { root.reset-clicked(); }
         }
     }
 

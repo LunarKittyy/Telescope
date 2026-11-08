@@ -77,6 +77,7 @@ component LensTile inherits Rectangle {
 
 export component CameraCard inherits Card {
     in property <bool> active;
+    idle: !active;
     // A source that isn't a phone is picked: the card has nothing to do then
     in property <bool> phone-only-hidden;
     in property <[Lens]> lenses;
@@ -150,9 +151,7 @@ export component CameraCard inherits Card {
     title: @tr("Camera");
     tip: @tr("Exposure, white balance, focus, lenses and the phone camera's other settings.");
     icon: Icons.camera;
-    note: info;
     // dim_until_paired: faded and disabled until there's a phone
-    opacity: active ? 1 : 0.4;
     enabled: active;
     visible: !phone-only-hidden;
 

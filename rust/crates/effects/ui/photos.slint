@@ -51,8 +51,9 @@ component ShotArt inherits Rectangle {
 }
 
 export component PhotosCard inherits Card {
-    // Greyed out until a phone is paired, and gone for a source that isn't a phone or a camera that takes photos
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired, and gone for a source that isn't a phone or a camera that takes photos
     in property <bool> shown: true;
     in property <string> take-text;
     in property <string> take-tip;
@@ -125,7 +126,6 @@ export component PhotosCard inherits Card {
     tip: @tr("Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it.");
     icon: Icons.photo;
     visible: shown;
-    opacity: active ? 1 : 0.4;
     enabled: active;
 
     RailRow {

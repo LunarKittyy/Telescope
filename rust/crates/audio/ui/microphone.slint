@@ -1,7 +1,7 @@
 // The Microphone card. Texts with blanks come
 // filled from Rust; the Install VB-Cable question is a popup inside the card.
 
-import { Theme, Icons, Icon, Button, Card, RailRow, SwitchRow, Slider, Switch, Tip, TipBody, DialogFrame, WindowBox } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, Card, RailRow, SwitchRow, Slider, Switch, Tip, TipBody, DialogFrame, DialogButtons, WindowBox, Status, UnfoldGroup, Unfolding } from "@ui-kit/ui-kit.slint";
 
 // The meter's numbers from the plugin: bar ends and the held marker as 0..1 along it, and which light is on.
 export struct MeterState {
@@ -14,7 +14,7 @@ export struct MeterState {
     red: bool,
 }
 
-global Status {
+global StatusInk {
     public pure function color(kind: string) -> color {
         kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
             : kind == "status_dim" ? Theme.ink2 : Theme.ink
@@ -26,7 +26,7 @@ component Note inherits Text {
     in property <string> kind: "status_dim";
     font-family: Theme.font;
     font-size: Theme.body;
-    color: Status.color(kind);
+    color: StatusInk.color(kind);
     wrap: word-wrap;
 }
 
@@ -110,8 +110,9 @@ component LevelMeter inherits Rectangle {
 }
 
 export component MicrophoneCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active;
+    idle: !active;
+    // Greyed out until a phone is paired
     // On for the stream the panels show: the controls are there
     in property <bool> here;
     in property <bool> on;
@@ -133,6 +134,7 @@ export component MicrophoneCard inherits Card {
     in property <bool> nr-enabled: true;
     in property <string> nr-note;
     in property <string> nr-tip;
+    in property <string> status-short;
     in property <string> status-text;
     in property <string> status-kind: "status_dim";
     // The fix for a problem (Install VB-Cable, Get VB-Cable)
@@ -158,7 +160,6 @@ export component MicrophoneCard inherits Card {
     title: @tr("Microphone");
     tip: @tr("Use the phone's microphone on this computer.");
     icon: Icons.mic;
-    opacity: active ? 1 : 0.4;
     enabled: active;
     // The Mute button and the on/off switch sit in the header, so the card says at a glance whether the mic is in use. Mute is an
     // icon of its own width, so swapping Mute and Unmute never moves the title
@@ -235,67 +236,34 @@ export component MicrophoneCard inherits Card {
         tip-detail: @tr("Even out quiet and loud speech.");
         toggled(v) => { root.auto-toggled(v); }
     }
-    if here: RailRow {
+    if here: SwitchRow {
         icon: Icons.denoise;
         label: @tr("Noise reduction");
-        tip-detail: nr-tip;
         hue: root.hue;
-        named: true;
         changed: nr;
+        checked: nr;
+        enabled: nr-enabled;
+        tip: @tr("Noise reduction");
+        tip-detail: nr-tip;
+        problem: nr-note;
+        problem-title: @tr("Noise reduction unavailable");
+        toggled(v) => { root.nr-toggled(v); }
+    }
+    // One line: what the microphone is doing, with the sentence in its tooltip
+    if status-text != "" || fix-shown: RailRow {
+        has-icon: false;
         HorizontalLayout {
-            spacing: Theme.gap;
-            alignment: end;
-            // RNNoise missing: a round red mark with the reason as its tooltip, so the switch stays where it is
-            if nr-note != "": Rectangle {
-                width: Theme.u(8);
-                y: (parent.height - self.height) / 2;
-                height: Theme.u(8);
-                border-radius: self.height / 2;
-                background: Theme.err;
-                accessible-role: text;
-                accessible-label: nr-note;
-                Text {
-                    text: "!";
-                    font-family: Theme.font;
-                    font-size: Theme.small;
-                    font-weight: 700;
-                    color: Theme.on-hue;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    accessible-role: none;
-                }
-                Tip { says: @tr("Noise reduction unavailable"); detail: nr-note; inert: true; }
+            spacing: Theme.u(4);
+            Status {
+                text: status-short;
+                detail: status-text;
+                kind: status-kind == "status_ok" ? "ok" : status-kind == "status_warn" ? "warn" : status-kind == "status_err" ? "err" : "";
             }
-            VerticalLayout {
-                alignment: center;
-                Switch {
-                    hue: root.hue;
-                    checked: nr;
-                    enabled: nr-enabled;
-                    label: @tr("Noise reduction");
-                    tip: @tr("Noise reduction");
-                    tip-detail: nr-tip;
-                    toggled(v) => { root.nr-toggled(v); }
-                }
+            if fix-shown: Button {
+                text: fix-text;
+                clicked => { root.fix-clicked(); }
             }
         }
-    }
-    // Left out with `if`: a row hidden at 0px still takes the card's spacing
-    if status-text != "": RailRow {
-        has-icon: false;
-        Note {
-            text: status-text;
-            kind: status-kind;
-            vertical-alignment: center;
-        }
-    }
-    if fix-shown: RailRow {
-        has-icon: false;
-        Button {
-            text: fix-text;
-            clicked => { root.fix-clicked(); }
-        }
-        Rectangle { horizontal-stretch: 1; }
     }
 
     question := PopupWindow {
@@ -315,20 +283,13 @@ export component MicrophoneCard inherits Card {
             Note { text: @tr("VB-Cable is made by VB-Audio. Telescope downloads it from vb-audio.com and opens its setup, which asks for admin. Restart the computer afterwards."); kind: "status_none"; }
             // VB-Audio's own two lines stay in English, as their licence asks for them word for word
             Note { text: origin + "\n" + donationware; }
-            HorizontalLayout {
-                spacing: Theme.u(4);
-                Button {
-                    text: donate-text;
-                    clicked => { root.donate(); }
-                }
-                Rectangle { horizontal-stretch: 1; }
-                Button {
-                    text: @tr("Cancel");
-                    clicked => { question.close(); root.confirm-answered(false); }
-                }
+            DialogButtons {
+                Button { text: donate-text; dialog: true; clicked => { root.donate(); } }
+                Button { text: @tr("Cancel"); dialog: true; clicked => { question.close(); root.confirm-answered(false); } }
                 Button {
                     text: @tr("Download and install");
                     role: "primary";
+                    dialog: true;
                     hue: root.hue;
                     clicked => { question.close(); root.confirm-answered(true); }
                 }

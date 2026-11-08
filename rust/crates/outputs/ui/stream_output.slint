@@ -4,8 +4,9 @@
 import { Theme, Icons, Card, RailRow, Slider, Segmented, ChoiceField } from "@ui-kit/ui-kit.slint";
 
 export component StreamOutputCard inherits Card {
-    // dim_until_paired: faded and disabled until there's a phone, and gone for a source that isn't one
     in property <bool> active: true;
+    idle: !active;
+    // dim_until_paired: faded and disabled until there's a phone, and gone for a source that isn't one
     in property <bool> phone-only-hidden;
     in property <[string]> res-items: ["-"];
     in-out property <int> res-current;
@@ -40,7 +41,6 @@ export component StreamOutputCard inherits Card {
     title: @tr("Stream output");
     tip: @tr("The resolution, frame rate and format of the stream.");
     icon: Icons.v-stream;
-    opacity: active ? 1 : 0.4;
     enabled: active;
     blocked: !active;
     visible: !phone-only-hidden;

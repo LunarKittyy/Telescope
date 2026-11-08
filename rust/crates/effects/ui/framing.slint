@@ -1,8 +1,9 @@
 // The Auto framing card. Joined after parts.slint and vision_status.slint.
 
 export component FramingCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     in-out property <bool> on;
     in-out property <bool> hand;
     in-out property <float> framing: 10;
@@ -41,7 +42,6 @@ export component FramingCard inherits Card {
     title: @tr("Auto framing");
     tip: @tr("Zoom and pan automatically to keep you in the picture.");
     icon: Icons.framing;
-    opacity: active ? 1 : 0.4;
     enabled: active;
     has-switch: true;
     switch-shortcut: "framing.on";

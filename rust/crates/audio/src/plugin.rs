@@ -94,6 +94,27 @@ pub trait AudioRoutes: Send + Sync {
 
 /// Through the link: a session of its own on the route the stream holds, so the phone's /v1/audio comes over the same
 /// pinned connection.
+/// The short word the card shows for a status sentence, which is then its tooltip.
+fn short_of(text: &str, kind: &str, action_url: Option<&str>) -> String {
+    if text.is_empty() {
+        String::new()
+    } else if text == tr(NO_MIC_NOTE) {
+        tr("No mic")
+    } else if text.ends_with('…') && text.len() < 24 {
+        text.to_string()
+    } else if text.starts_with("Downloading VB-Cable") {
+        tr("Downloading…")
+    } else if action_url == Some(INSTALL) {
+        tr("Needs VB-Cable")
+    } else if kind == "err" {
+        tr("Problem")
+    } else if kind == "warn" {
+        tr("Needs attention")
+    } else {
+        tr("On elsewhere")
+    }
+}
+
 pub struct LinkAudio(pub Arc<dyn Link>);
 
 /// The phone's audio, keeping its session (and the route's forward) until it's done.
@@ -422,6 +443,7 @@ impl MicrophonePlugin {
         }
         self.action_url = action.as_ref().map(|a| a.1.clone()).unwrap_or_default();
         h.set_card(&json!({
+            "status-short": short_of(&text, &kind, action.as_ref().map(|a| a.1.as_str())),
             "status-text": text,
             "status-kind": format!("status_{kind}"),
             "fix-text": action.as_ref().map(|a| a.0.clone()).unwrap_or_default(),

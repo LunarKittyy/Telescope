@@ -1,8 +1,9 @@
 // The Privacy blur card. Joined after parts.slint and vision_row.slint.
 
 export component PrivacyBlurCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     in property <bool> on: false;
     in property <string> switch-help;
     in property <int> mode: 0;
@@ -19,7 +20,6 @@ export component PrivacyBlurCard inherits Card {
     title: @tr("Privacy blur");
     tip: @tr("Blur the other people or show the wait screen when someone else is in the picture.");
     icon: Icons.eye-off;
-    opacity: active ? 1 : 0.4;
     enabled: active;
     has-switch: true;
     switch-shortcut: "privacy_blur.auto";

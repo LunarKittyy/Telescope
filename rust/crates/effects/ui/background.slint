@@ -1,8 +1,9 @@
 // The Background card. Joined after parts.slint and vision_row.slint.
 
 export component BackgroundCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     in property <int> mode: 0;
     in property <float> blur: 6;
     in property <string> blur-text: "6";
@@ -31,7 +32,6 @@ export component BackgroundCard inherits Card {
     title: @tr("Background");
     tip: @tr("Blur the background or replace it with a picture.");
     icon: Icons.image;
-    opacity: active ? 1 : 0.4;
     enabled: active;
 
     RailRow {

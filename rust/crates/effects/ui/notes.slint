@@ -1,8 +1,9 @@
 // The Teleprompter card. Joined after parts.slint, which has the imports.
 
 export component NotesCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     // The saved sets: how the picker names each, which is open and what its buttons say
     in property <[string]> set-items: [""];
     in property <int> set-current: 0;
@@ -63,7 +64,6 @@ export component NotesCard inherits Card {
     title: @tr("Teleprompter");
     tip: @tr("Show your script on the phone's screen so you can read it while looking into the camera.");
     icon: Icons.notes;
-    opacity: active ? 1 : 0.4;
     enabled: active;
 
     RailRow {

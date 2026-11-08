@@ -59,7 +59,10 @@ export component WebcamCard inherits Card {
     in property <[ControlRow]> tiles;
     in property <[int]> tile-indexes;
     in property <bool> has-controls;
-    has-action: has-controls;
+    has-reset: has-controls;
+    reset-lit: has-controls;
+    reset-label: @tr("Reset");
+    reset-tip: @tr("Set the webcam's picture settings back to default.");
     callback size-picked(int);
     callback fps-picked(int);
     callback control-set(string, float);
@@ -76,9 +79,6 @@ export component WebcamCard inherits Card {
     title: @tr("Webcam");
     tip: @tr("Stream from webcams and capture cards plugged into this computer.");
     icon: Icons.video;
-    action-icon: Icons.reset;
-    action-text: @tr("Reset");
-    action-tip-detail: @tr("Set the webcam's picture settings back to default.");
 
     Text {
         height: 18px;

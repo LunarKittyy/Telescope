@@ -1,8 +1,9 @@
 // The Fun pack card. Joined after parts.slint, which has the imports, and vision_status.slint.
 
 export component FunPackCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     in property <[string]> effect-items: [""];
     in property <int> effect: 0;
     in property <string> hint;
@@ -48,7 +49,6 @@ export component FunPackCard inherits Card {
     title: @tr("Fun pack");
     tip: @tr("Silly effects like clones, an invisibility cloak, light painting, retro looks and datamosh.");
     icon: Icons.sparkle;
-    opacity: active ? 1 : 0.4;
     enabled: active;
 
     RailRow {

@@ -10,8 +10,9 @@ component Swatch inherits Rectangle {
 }
 
 export component ChromaKeyCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     in property <bool> on: false;
     in property <string> switch-name;
     in property <string> switch-help;
@@ -57,7 +58,6 @@ export component ChromaKeyCard inherits Card {
     title: @tr("Chroma key");
     tip: @tr("Replace a green or blue screen behind you with a colour or a picture.");
     icon: Icons.eyedropper;
-    opacity: active ? 1 : 0.4;
     enabled: active;
     has-switch: true;
     switch-shortcut: "chroma_key.on";

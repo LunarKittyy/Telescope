@@ -1,8 +1,9 @@
 // The Desk mode card. Joined after parts.slint, which has the imports.
 
 export component DeskCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     in property <bool> on;
     in property <string> switch-name;
     in property <string> switch-help;
@@ -14,7 +15,6 @@ export component DeskCard inherits Card {
     in property <string> cancel-text;
     in property <bool> reset-shown;
     in property <string> reset-text;
-    in property <string> reset-tip;
     in property <[string]> clean-items: ["", "", ""];
     in property <int> clean-current;
     in property <string> clean-tip;
@@ -44,14 +44,11 @@ export component DeskCard inherits Card {
     title: @tr("Desk mode");
     tip: @tr("Straighten a sheet of paper you mark on the preview.");
     icon: Icons.pencil;
-    opacity: active ? 1 : 0.4;
     enabled: active;
-    has-action: true;
-    action-icon: Icons.reset;
-    // The icon-only action has no room for a body: reset-tip waits for kit support
-    action-label: reset-text;
-    action-enabled: reset-shown && !picking;
-    action => { root.reset-clicked(); }
+    has-reset: true;
+    reset-lit: reset-shown && !picking;
+    reset-label: reset-text;
+    reset => { root.reset-clicked(); }
     has-switch: true;
     switch-shortcut: "desk.on";
     switch-enabled: active;

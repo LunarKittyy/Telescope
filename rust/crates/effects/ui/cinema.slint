@@ -1,8 +1,9 @@
 // The Cinema tools card and its settings. Joined after parts.slint, which has the imports.
 
 export component CinemaCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     in-out property <bool> peaking;
     in-out property <bool> zebras;
     in-out property <bool> false-colour;
@@ -24,7 +25,6 @@ export component CinemaCard inherits Card {
     title: @tr("Cinema tools");
     tip: @tr("Show focus peaking, zebras, false colour, scopes, guides and a level on the preview.");
     icon: Icons.focus;
-    opacity: active ? 1 : 0.4;
 
     RailRow {
         icon: Icons.sliders;

@@ -1,9 +1,9 @@
 // What both cards of this crate are built from. The plugins join this file and their card into one source (Rust's concat!),
 // so it holds the only import line.
 
-import { Theme, Icons, Icon, FocusRing, KeyFocus, TouchRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, Stepper, SwitchTile, ToggleTile, PictureSegmented, Dial, RailRow, SwitchRow, TextField, NumberField, FlickBar, Tip, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu, Reveal, ColourField, WindowBox, TipLayer, Pad, ColourWheel, Motion } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, KeyFocus, TouchRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, Stepper, SwitchTile, ToggleTile, PictureSegmented, Dial, RailRow, SwitchRow, TextField, NumberField, FlickBar, Tip, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu, Reveal, ColourField, WindowBox, TipLayer, Pad, ColourWheel, Motion, Status } from "@ui-kit/ui-kit.slint";
 
-global Status {
+global StatusInk {
     public pure function color(kind: string) -> color {
         kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
             : kind == "status_dim" ? Theme.ink2 : Theme.ink
@@ -15,32 +15,22 @@ component Note inherits Text {
     in property <string> kind: "status_dim";
     font-family: Theme.font;
     font-size: Theme.body;
-    color: Status.color(kind);
+    color: StatusInk.color(kind);
     wrap: word-wrap;
 }
 
-// One line of status: a short word or phrase in a status colour, and the longer sentence as its tooltip. Stands in for the kit's
-// Status until that is in.
+// One line of status for a plugin's own kinds ("status_warn"...): the kit's Status, a short word with its sentence as the tooltip
 component StatusLine inherits Rectangle {
     in property <string> text;
     in property <string> kind: "status_dim";
     in property <string> detail;
     height: Theme.row;
     horizontal-stretch: 1;
-    accessible-role: AccessibleRole.text;
-    accessible-label: detail != "" ? text + ". " + detail : text;
-    shown := Text {
+    Status {
         width: parent.width;
-        height: parent.height;
         text: root.text;
-        font-family: Theme.font;
-        font-size: Theme.body;
-        font-weight: Theme.w-value;
-        color: Status.color(kind);
-        vertical-alignment: center;
-        overflow: elide;
-        accessible-role: none;
-        Tip { says: root.detail != "" || shown.preferred-width > shown.width ? root.text : ""; detail: root.detail; enabled: root.detail != "" || shown.preferred-width > shown.width; inert: true; }
+        detail: root.detail;
+        kind: root.kind == "status_ok" ? "ok" : root.kind == "status_warn" ? "warn" : root.kind == "status_err" ? "err" : "";
     }
 }
 
