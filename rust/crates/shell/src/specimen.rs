@@ -236,7 +236,7 @@ mod tests {
         };
         for classic in [false, true] {
             // The text boxes hover over their text too (the box swallows the pointer), the link and the strip answer it
-            for name in ["field", "number", "link", "strip", "icon-button"] {
+            for name in ["field", "number", "link", "icon-button"] {
                 let (rest, hover) = (draw(classic, name, "rest"), draw(classic, name, "hover"));
                 assert!(differing(&rest, &hover) > 50, "{name} (classic {classic}): hover looks like rest");
             }

@@ -166,7 +166,7 @@ export component UpdatesSettings inherits Card {
             spacing: 8px;
             alignment: start;
             Button { text: @tr("What's new"); clicked => { root.notes(); } }
-            Button { text: update-text; role: "primary"; enabled: update-enabled; clicked => { root.update(); } }
+            Button { text: update-text; role: "primary"; hue: Theme.accent; enabled: update-enabled; clicked => { root.update(); } }
         }
     }
     FormRow {
@@ -212,7 +212,7 @@ export component UpdatesSettings inherits Card {
                 spacing: 8px;
                 // The way out is the highlighted one: going back is the thing to be sure about
                 Button { height: 32px; text: back-action; enabled: back-action-enabled; clicked => { root.back-answered(true); } }
-                Button { width: 96px; height: 32px; text: @tr("Cancel"); role: "primary"; clicked => { root.back-answered(false); } }
+                Button { width: 96px; height: 32px; text: @tr("Cancel"); role: "primary"; hue: Theme.accent; clicked => { root.back-answered(false); } }
             }
         }
     }

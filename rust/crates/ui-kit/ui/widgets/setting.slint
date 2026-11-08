@@ -1,4 +1,4 @@
-// One setting as a raised strip, and the small tag that marks one (widgets/controls.py: setting_row, Tag).
+// One setting as a row of a card, and the small tag that marks one (widgets/controls.py: setting_row, Tag).
 
 import { Theme } from "../theme.slint";
 import { Tip } from "tip.slint";
@@ -22,7 +22,7 @@ export component SearchWords inherits Rectangle {
     }
 }
 
-// setting_row: its name with a short line under it on the left, its controls on the right. The settings search finds
+// setting_row: its name on the left, its controls on the right, on the card itself. The settings search finds
 // it by name and small print.
 export component SettingRow inherits Rectangle {
     in property <string> title;
@@ -33,23 +33,18 @@ export component SettingRow inherits Rectangle {
     // setting_row's below: a note across the row's width under the name and the controls
     in property <string> note;
     in property <color> note-color: Theme.text-dim;
-    min-height: 46px;
+    min-height: Theme.row + Theme.u(8);
     out property <string> control-kind: "strip";
-    border-radius: Theme.r-ctl;
-    // The strip answers the pointer, a half step toward hover so a switch in it still shows against it
-    background: strip-hover.has-hover ? Theme.raise.mix(Theme.hover, 0.5) : Theme.raise;
+    // No box of its own: a raised strip inside a card stacked two backgrounds and hid the switch's track, so the row sits on the card
     accessible-role: groupbox;
     accessible-id: "setting";
     accessible-label: title;
     accessible-description: sub;
     if keywords != "": SearchWords { words: keywords; }
     strip-hover := TouchArea { enabled: root.enabled; }
-    // The QSS border sits outside the layout's 12px and 8px margins
     VerticalLayout {
-        padding-left: 13px;
-        padding-right: 13px;
-        padding-top: 9px;
-        padding-bottom: 9px;
+        padding-top: Theme.u(4);
+        padding-bottom: Theme.u(4);
         spacing: 8px;
         HorizontalLayout {
             spacing: 12px;

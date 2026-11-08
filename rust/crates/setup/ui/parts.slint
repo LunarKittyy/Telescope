@@ -34,11 +34,8 @@ component Strip inherits Rectangle {
     // strip.setToolTip
     in property <string> tip;
     in property <string> keywords;
-    min-height: 46px;
-    border-radius: 9px;
-    border-width: 1px;
-    border-color: Theme.border;
-    background: Theme.surface-raise;
+    // A row of its card, on the card itself: a raised box with a line round it inside a card stacked two backgrounds and hid the switch
+    min-height: Theme.row + Theme.u(8);
     accessible-role: groupbox;
     accessible-id: "setting";
     accessible-label: title;
@@ -46,11 +43,9 @@ component Strip inherits Rectangle {
     if keywords != "": SearchWords { words: keywords; }
     Tip { says: root.tip; inert: true; }
     VerticalLayout {
-        padding-left: 13px;
-        padding-right: 13px;
-        padding-top: 9px;
-        padding-bottom: 9px;
-        spacing: 8px;
+        padding-top: Theme.u(4);
+        padding-bottom: Theme.u(4);
+        spacing: Theme.u(4);
         @children
     }
 }

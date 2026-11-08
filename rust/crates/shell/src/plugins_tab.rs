@@ -57,7 +57,7 @@ pub enum Filter {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Badge {
     pub text: String,
-    /// "lock", "restart", "vision" or "added".
+    /// "lock", "vision" or "added".
     pub kind: String,
 }
 
@@ -399,7 +399,6 @@ impl Panel {
     /// _tile's pending: the plugin waits on a restart.
     fn waits(&mut self, tile: &mut Tile) {
         self.pending.insert(tile.name.clone());
-        tile.badges.push(Badge { text: tr("Restart required"), kind: "restart".into() });
     }
 
     fn builtin_tile(&mut self, p: &PluginInfo, on: bool) -> Tile {

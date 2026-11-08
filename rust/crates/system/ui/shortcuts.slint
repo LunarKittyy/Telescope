@@ -371,7 +371,7 @@ callback param-committed(int, string);
                     }
                     Rectangle { horizontal-stretch: 1; }
                     Button { width: 96px; text: @tr("Cancel"); clicked => { root.cancel(); } }
-                    Button { width: 96px; text: @tr("Save"); role: "primary"; enabled: save-enabled; clicked => { root.save(); } }
+                    Button { width: 96px; text: @tr("Save"); role: "primary"; hue: Theme.accent; enabled: save-enabled; clicked => { root.save(); } }
                 }
             }
         }
