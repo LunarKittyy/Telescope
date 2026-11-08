@@ -97,6 +97,9 @@ fn show(w: &ComponentInstance, props: &BTreeMap<String, Json>) -> Vec<u8> {
         // A property the wrapper doesn't hand down isn't drawn differently by anything here
         let _ = w.set_property(name, from_json(value));
     }
+    // Colours and handles ease to their new state: draw once to start them and again once they have arrived
+    offscreen::draw(w.window(), WIDTH as f32, 760.0, 1.0).expect("a picture");
+    offscreen::skip(std::time::Duration::from_millis(600));
     offscreen::draw(w.window(), WIDTH as f32, 760.0, 1.0).expect("a picture").rgba
 }
 
