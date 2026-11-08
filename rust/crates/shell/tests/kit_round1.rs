@@ -649,3 +649,30 @@ fn shots_of_sliders_folding_away_in_both_looks() {
         save(&dir, &name("sliders-folding", classic), &strip(&frames, (0.0, 0.0, 210.0, 160.0), 3.0, 4));
     }
 }
+
+const HINTED: &str = r#"
+import { Button, TipLayer, Tips, Theme } from "@ui-kit/ui-kit.slint";
+export { Tips, Theme }
+export component T inherits Window {
+    width: 300px;
+    height: 120px;
+    background: Theme.card;
+    Button { x: 20px; y: 20px; width: 100px; text: "Reset"; tip: "Reset"; tip-detail: "Puts the value back."; tip-hint: "Double-click to reset"; }
+    TipLayer { }
+}
+"#;
+
+#[test]
+fn a_controls_hint_reaches_the_tooltip_as_its_own_part() {
+    let _still = offscreen::freeze_clock();
+    let ui = make(HINTED, 300.0, 120.0);
+    offscreen::draw(ui.window(), 300.0, 120.0, 1.0).unwrap();
+    pointer_to(&ui, 60.0, 36.0);
+    for _ in 0..50 {
+        step(FRAME);
+        offscreen::draw(ui.window(), 300.0, 120.0, 1.0).unwrap();
+    }
+    assert_eq!(ui.get_global_property("Tips", "says").unwrap(), Value::String("Reset".into()));
+    assert_eq!(ui.get_global_property("Tips", "detail").unwrap(), Value::String("Puts the value back.".into()));
+    assert_eq!(ui.get_global_property("Tips", "hint").unwrap(), Value::String("Double-click to reset".into()));
+}

@@ -65,7 +65,7 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
         let x = mode_expr(|m| col_x(&cols[m], c));
         let w = mode_expr(|m| col_w(&cols[m], c));
         out.push_str(&format!("    out property <length> c{c}x: {x};\n    out property <length> c{c}w: {w};\n"));
-        out.push_str(&format!("    property <length> card{c}w: c{c}w - {INSET}px - {BAR}px;\n"));
+        out.push_str(&format!("    out property <length> card{c}w: c{c}w - {INSET}px - {BAR}px;\n"));
     }
     // Preferred content height and stretch room of each column in the current mode
     #[allow(clippy::needless_range_loop)] // c names the column in the generated text as well
@@ -587,6 +587,13 @@ export component Hinted inherits Card {
         win.window().set_size(slint::LogicalSize::new(560.0, 900.0));
         assert_eq!(num("mode"), 2.0);
         assert_eq!(num("c0w"), 528.0);
+        // The scrollbar's room is always kept: the cards are the same width whether or not the bar is up
+        let narrow = num("card0w");
+        win.set_property("bar0", Value::Bool(true)).unwrap();
+        assert_eq!(num("card0w"), narrow, "a bar appearing doesn't narrow the column");
+        win.set_property("bar0", Value::Bool(false)).unwrap();
+        assert_eq!(num("card0w"), narrow);
+        assert_eq!(narrow, 528.0 - 6.0 - 11.0);
     }
 }
 
