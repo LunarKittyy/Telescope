@@ -24,6 +24,7 @@ mod screen;
 pub mod search;
 pub mod profiles;
 pub mod snapshot;
+pub mod specimen;
 pub mod source;
 pub mod sources;
 pub mod stream_flow;

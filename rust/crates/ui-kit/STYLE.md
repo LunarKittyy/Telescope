@@ -122,6 +122,16 @@ The grey ramps keep the card's colour on the handle, since black or white would 
 
 At rest everything is muted: the fill and the handle's border in the quietened colour, the handle's inside in the card's. While the slider is held its full colour comes up, handle included, and dims when it is let go. A simple colour change for now; the animations are a later pass.
 
+## Specimen sheet
+
+Every kind in every state, side by side, in the new look and in Classic. Rows are kinds and columns are rest, on, hover, focus, held, disabled, placeholder and a long text (what a German translation gives). A kind with no cell in a column has no such state. Read it as a picture: a kind whose hover or held cell looks like its rest cell is the usual fault, and so is a long text that is cut off or runs out of its row.
+
+```
+cargo run -p telescope-shell --bin shell-specimen -- OUT
+```
+
+in `rust/` (with `SLINT_BACKEND=testing`, so nothing opens a window) writes `OUT/new.png` and `OUT/classic.png`. The cells are drawn from `crates/shell/ui/specimen.slint` and the grid is laid out in `crates/shell/src/specimen.rs`: a new kind or a new state is a line in its `KINDS` table and a block in the .slint file. Regenerate it after changing a widget and look at what moved.
+
 ## Adding or changing a control
 
-Put it in `ui/widgets`, give it a `control-kind` from the table (add the kind here first if it is truly new), build it from tokens only, and use it from the card. A card that needs a look the kit lacks asks for a new kind or a new variation of one, it doesn't draw its own.
+Put it in `ui/widgets`, give it a `control-kind` from the table (add the kind here first if it is truly new), build it from tokens only, add it to the specimen sheet, and use it from the card. A card that needs a look the kit lacks asks for a new kind or a new variation of one, it doesn't draw its own.
