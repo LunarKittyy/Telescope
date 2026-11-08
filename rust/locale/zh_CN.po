@@ -318,7 +318,7 @@ msgstr "虚拟麦克风已停止接收音频。"
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "黄色表示限制器正在压制过大峰值，红色表示声音出现爆音削波（点击以清除）。"
 
-#: rust/crates/audio/ui/microphone.slint:229 rust/crates/effects/src/background.rs:186 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/framing.rs:449 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:56 rust/crates/effects/src/photos.rs:452 rust/crates/effects/src/transforms.rs:49 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/effects/ui/desk.slint:166 rust/crates/effects/ui/desk.slint:188 rust/crates/outputs/ui/stream_output.slint:163 rust/crates/outputs/ui/stream_output.slint:184 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:252 rust/crates/shell/ui/cards/camera.slint:291 rust/crates/shell/ui/cards/camera.slint:312
+#: rust/crates/audio/ui/microphone.slint:229 rust/crates/effects/src/background.rs:186 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/framing.rs:450 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:56 rust/crates/effects/src/photos.rs:452 rust/crates/effects/src/transforms.rs:49 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/effects/ui/desk.slint:166 rust/crates/effects/ui/desk.slint:188 rust/crates/outputs/ui/stream_output.slint:163 rust/crates/outputs/ui/stream_output.slint:184 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:252 rust/crates/shell/ui/cards/camera.slint:291 rust/crates/shell/ui/cards/camera.slint:312
 msgid "Double-click to reset"
 msgstr "双击以重置"
 
@@ -1391,7 +1391,7 @@ msgstr "将手机的测光点移到你的脸上，无论你身后是什么，都
 msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
 msgstr "没有它就没有“按我的脸曝光”卡片，手机会按你点击的位置或整个画面测光。"
 
-#: rust/crates/effects/src/framing.rs:19 rust/crates/effects/ui/framing.slint:40
+#: rust/crates/effects/src/framing.rs:19 rust/crates/effects/ui/framing.slint:41
 msgid "Auto framing"
 msgstr "自动构图"
 
@@ -1507,26 +1507,30 @@ msgid "What you can do before the framing follows you: fidget, shift in your sea
 msgstr "在构图跟上你之前，你可以做的动作：做小动作、在椅子上挪身、探身、迈步或四处溜达"
 
 #: rust/crates/effects/src/framing.rs:74
+msgid "Things in hand"
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:75
 msgid "Widen for something in your hand"
 msgstr "手里拿着东西时请加大范围"
 
-#: rust/crates/effects/src/framing.rs:75
+#: rust/crates/effects/src/framing.rs:76
 msgid "Something else is moving the zoom and pan."
 msgstr "有别的功能正在控制缩放和平移。"
 
-#: rust/crates/effects/src/framing.rs:76
+#: rust/crates/effects/src/framing.rs:77
 msgid "Auto framing: how much of you"
 msgstr "自动构图：包含你的多少部分"
 
-#: rust/crates/effects/src/framing.rs:77
+#: rust/crates/effects/src/framing.rs:78
 msgid "Auto framing speed"
 msgstr "自动构图速度"
 
-#: rust/crates/effects/src/framing.rs:713
+#: rust/crates/effects/src/framing.rs:714
 msgid "Zooms and pans to keep you in the picture as you move."
 msgstr "随你移动，自动缩放和平移，让你保持在画面中。"
 
-#: rust/crates/effects/src/framing.rs:714
+#: rust/crates/effects/src/framing.rs:715
 msgid "Without it there's no Auto framing card and the zoom stays where you put it."
 msgstr "没有它就没有“自动构图”卡片，缩放会停留在你设定的位置。"
 
@@ -2865,15 +2869,15 @@ msgstr "形状"
 msgid "Follow my face"
 msgstr "跟随我的脸"
 
-#: rust/crates/effects/ui/framing.slint:60 rust/crates/effects/ui/framing.slint:66 rust/crates/outputs/src/webcam.rs:80
+#: rust/crates/effects/ui/framing.slint:61 rust/crates/effects/ui/framing.slint:67 rust/crates/outputs/src/webcam.rs:80
 msgid "Framing"
 msgstr "构图"
 
-#: rust/crates/effects/ui/framing.slint:102 rust/crates/effects/ui/framing.slint:108 rust/crates/effects/ui/notes.slint:156 rust/crates/effects/ui/notes.slint:162
+#: rust/crates/effects/ui/framing.slint:103 rust/crates/effects/ui/framing.slint:109 rust/crates/effects/ui/notes.slint:156 rust/crates/effects/ui/notes.slint:162
 msgid "Speed"
 msgstr "速度"
 
-#: rust/crates/effects/ui/framing.slint:128 rust/crates/effects/ui/framing.slint:134
+#: rust/crates/effects/ui/framing.slint:129 rust/crates/effects/ui/framing.slint:135
 msgid "Room to move"
 msgstr "活动空间"
 

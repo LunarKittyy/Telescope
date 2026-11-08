@@ -23,6 +23,7 @@ export component FramingCard inherits Card {
     in property <string> switch-name;
     in property <string> switch-help;
     in property <string> hand-name;
+    in property <string> hand-detail;
     // Every word a readout can show, a line each: value_label's fits
     in property <string> fits;
     in property <string> vision-text;
@@ -148,6 +149,7 @@ export component FramingCard inherits Card {
     SwitchRow {
         icon: Icons.hand;
         label: hand-name;
+        tip-detail: hand-detail;
         hue: root.hue;
         enabled: active;
         changed: hand;

@@ -318,7 +318,7 @@ msgstr "가상 마이크가 오디오 입력을 받지 못하고 중지되었어
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "노란색은 리미터가 큰 피크를 억제하고 있음을 나타내고, 빨간색은 사운드가 클리핑되었음을 나타내요(클릭하여 지우기)."
 
-#: rust/crates/audio/ui/microphone.slint:229 rust/crates/effects/src/background.rs:186 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/framing.rs:449 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:56 rust/crates/effects/src/photos.rs:452 rust/crates/effects/src/transforms.rs:49 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/effects/ui/desk.slint:166 rust/crates/effects/ui/desk.slint:188 rust/crates/outputs/ui/stream_output.slint:163 rust/crates/outputs/ui/stream_output.slint:184 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:252 rust/crates/shell/ui/cards/camera.slint:291 rust/crates/shell/ui/cards/camera.slint:312
+#: rust/crates/audio/ui/microphone.slint:229 rust/crates/effects/src/background.rs:186 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/framing.rs:450 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:56 rust/crates/effects/src/photos.rs:452 rust/crates/effects/src/transforms.rs:49 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/effects/ui/desk.slint:166 rust/crates/effects/ui/desk.slint:188 rust/crates/outputs/ui/stream_output.slint:163 rust/crates/outputs/ui/stream_output.slint:184 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:252 rust/crates/shell/ui/cards/camera.slint:291 rust/crates/shell/ui/cards/camera.slint:312
 msgid "Double-click to reset"
 msgstr "더블 클릭하여 초기화"
 
@@ -1391,7 +1391,7 @@ msgstr "배경 밝기와 상관없이 얼굴이 밝게 나오도록 휴대폰의
 msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
 msgstr "이 플러그인이 없으면 '얼굴 기준 노출' 카드가 표시되지 않으며 휴대폰이 탭한 위치나 화면 전체를 기준으로 측광해요."
 
-#: rust/crates/effects/src/framing.rs:19 rust/crates/effects/ui/framing.slint:40
+#: rust/crates/effects/src/framing.rs:19 rust/crates/effects/ui/framing.slint:41
 msgid "Auto framing"
 msgstr "자동 프레이밍"
 
@@ -1507,26 +1507,30 @@ msgid "What you can do before the framing follows you: fidget, shift in your sea
 msgstr "프레이밍이 따라오기 전에 허용되는 움직임: 꼼지락거리기, 의자에서 자세 바꾸기, 몸 기울이기, 한 걸음 걷기 또는 돌아다니기"
 
 #: rust/crates/effects/src/framing.rs:74
+msgid "Things in hand"
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:75
 msgid "Widen for something in your hand"
 msgstr "손에 든 물건이 있으면 화각 넓히기"
 
-#: rust/crates/effects/src/framing.rs:75
+#: rust/crates/effects/src/framing.rs:76
 msgid "Something else is moving the zoom and pan."
 msgstr "다른 기능에서 줌과 팬을 제어하고 있어요."
 
-#: rust/crates/effects/src/framing.rs:76
+#: rust/crates/effects/src/framing.rs:77
 msgid "Auto framing: how much of you"
 msgstr "자동 프레이밍: 인물 범위"
 
-#: rust/crates/effects/src/framing.rs:77
+#: rust/crates/effects/src/framing.rs:78
 msgid "Auto framing speed"
 msgstr "자동 프레이밍 속도"
 
-#: rust/crates/effects/src/framing.rs:713
+#: rust/crates/effects/src/framing.rs:714
 msgid "Zooms and pans to keep you in the picture as you move."
 msgstr "움직여도 화면 안에 유지되도록 줌과 팬을 자동으로 조절해요."
 
-#: rust/crates/effects/src/framing.rs:714
+#: rust/crates/effects/src/framing.rs:715
 msgid "Without it there's no Auto framing card and the zoom stays where you put it."
 msgstr "이 플러그인이 없으면 자동 프레이밍 카드가 표시되지 않으며 줌이 설정한 위치에 그대로 고정돼요."
 
@@ -2865,15 +2869,15 @@ msgstr "모양"
 msgid "Follow my face"
 msgstr "얼굴 추적"
 
-#: rust/crates/effects/ui/framing.slint:60 rust/crates/effects/ui/framing.slint:66 rust/crates/outputs/src/webcam.rs:80
+#: rust/crates/effects/ui/framing.slint:61 rust/crates/effects/ui/framing.slint:67 rust/crates/outputs/src/webcam.rs:80
 msgid "Framing"
 msgstr "프레이밍"
 
-#: rust/crates/effects/ui/framing.slint:102 rust/crates/effects/ui/framing.slint:108 rust/crates/effects/ui/notes.slint:156 rust/crates/effects/ui/notes.slint:162
+#: rust/crates/effects/ui/framing.slint:103 rust/crates/effects/ui/framing.slint:109 rust/crates/effects/ui/notes.slint:156 rust/crates/effects/ui/notes.slint:162
 msgid "Speed"
 msgstr "속도"
 
-#: rust/crates/effects/ui/framing.slint:128 rust/crates/effects/ui/framing.slint:134
+#: rust/crates/effects/ui/framing.slint:129 rust/crates/effects/ui/framing.slint:135
 msgid "Room to move"
 msgstr "움직임 허용 범위"
 

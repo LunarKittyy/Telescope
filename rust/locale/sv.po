@@ -317,7 +317,7 @@ msgstr "Den virtuella mikrofonen slutade ta emot ljud."
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "Gult betyder att begränsaren håller nere höga toppar och rött att ljudet blev förvrängt (klicka för att nollställa)."
 
-#: rust/crates/audio/ui/microphone.slint:229 rust/crates/effects/src/background.rs:186 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/framing.rs:449 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:56 rust/crates/effects/src/photos.rs:452 rust/crates/effects/src/transforms.rs:49 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/effects/ui/desk.slint:166 rust/crates/effects/ui/desk.slint:188 rust/crates/outputs/ui/stream_output.slint:163 rust/crates/outputs/ui/stream_output.slint:184 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:252 rust/crates/shell/ui/cards/camera.slint:291 rust/crates/shell/ui/cards/camera.slint:312
+#: rust/crates/audio/ui/microphone.slint:229 rust/crates/effects/src/background.rs:186 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/framing.rs:450 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:56 rust/crates/effects/src/photos.rs:452 rust/crates/effects/src/transforms.rs:49 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/effects/ui/desk.slint:166 rust/crates/effects/ui/desk.slint:188 rust/crates/outputs/ui/stream_output.slint:163 rust/crates/outputs/ui/stream_output.slint:184 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:252 rust/crates/shell/ui/cards/camera.slint:291 rust/crates/shell/ui/cards/camera.slint:312
 msgid "Double-click to reset"
 msgstr "Dubbelklicka för att återställa"
 
@@ -1390,7 +1390,7 @@ msgstr "Flyttar telefonens mätpunkt till ditt ansikte så att du är välupplys
 msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
 msgstr "Utan det finns inte kortet Exponera för mitt ansikte och telefonen mäter på punkten du trycker på eller hela bilden."
 
-#: rust/crates/effects/src/framing.rs:19 rust/crates/effects/ui/framing.slint:40
+#: rust/crates/effects/src/framing.rs:19 rust/crates/effects/ui/framing.slint:41
 msgid "Auto framing"
 msgstr "Automatisk inramning"
 
@@ -1506,26 +1506,30 @@ msgid "What you can do before the framing follows you: fidget, shift in your sea
 msgstr "Vad du kan göra innan inramningen följer efter: pilla, vrida dig i stolen, luta dig, ta ett kliv eller gå runt"
 
 #: rust/crates/effects/src/framing.rs:74
+msgid "Things in hand"
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:75
 msgid "Widen for something in your hand"
 msgstr "Vidga bilden för något i handen"
 
-#: rust/crates/effects/src/framing.rs:75
+#: rust/crates/effects/src/framing.rs:76
 msgid "Something else is moving the zoom and pan."
 msgstr "Något annat styr zoom och panorering."
 
-#: rust/crates/effects/src/framing.rs:76
+#: rust/crates/effects/src/framing.rs:77
 msgid "Auto framing: how much of you"
 msgstr "Automatisk inramning: hur mycket av dig"
 
-#: rust/crates/effects/src/framing.rs:77
+#: rust/crates/effects/src/framing.rs:78
 msgid "Auto framing speed"
 msgstr "Hastighet för automatisk inramning"
 
-#: rust/crates/effects/src/framing.rs:713
+#: rust/crates/effects/src/framing.rs:714
 msgid "Zooms and pans to keep you in the picture as you move."
 msgstr "Zoomar och panorerar för att hålla dig i bild när du rör dig."
 
-#: rust/crates/effects/src/framing.rs:714
+#: rust/crates/effects/src/framing.rs:715
 msgid "Without it there's no Auto framing card and the zoom stays where you put it."
 msgstr "Utan det finns inte kortet Automatisk inramning och zoomen ligger kvar där du satte den."
 
@@ -2864,15 +2868,15 @@ msgstr "Form"
 msgid "Follow my face"
 msgstr "Följ mitt ansikte"
 
-#: rust/crates/effects/ui/framing.slint:60 rust/crates/effects/ui/framing.slint:66 rust/crates/outputs/src/webcam.rs:80
+#: rust/crates/effects/ui/framing.slint:61 rust/crates/effects/ui/framing.slint:67 rust/crates/outputs/src/webcam.rs:80
 msgid "Framing"
 msgstr "Inramning"
 
-#: rust/crates/effects/ui/framing.slint:102 rust/crates/effects/ui/framing.slint:108 rust/crates/effects/ui/notes.slint:156 rust/crates/effects/ui/notes.slint:162
+#: rust/crates/effects/ui/framing.slint:103 rust/crates/effects/ui/framing.slint:109 rust/crates/effects/ui/notes.slint:156 rust/crates/effects/ui/notes.slint:162
 msgid "Speed"
 msgstr "Hastighet"
 
-#: rust/crates/effects/ui/framing.slint:128 rust/crates/effects/ui/framing.slint:134
+#: rust/crates/effects/ui/framing.slint:129 rust/crates/effects/ui/framing.slint:135
 msgid "Room to move"
 msgstr "Rörelsemån"
 

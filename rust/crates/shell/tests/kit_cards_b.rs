@@ -204,7 +204,7 @@ export component Test inherits Window {
     height: 80px;
     background: Theme.card;
     in property <bool> on: true;
-    in property <string> name: "Widen for something in your hand";
+    in property <string> name: "Things in hand";
     in-out property <bool> lit;
     out property <int> flips;
     out property <length> row-h: row.height;
@@ -255,7 +255,7 @@ fn a_lone_switch_row_carries_its_label_and_puts_the_switch_at_the_right_edge_cen
     // text between the icon rail (up to x = 10 + 28 + 8) and the switch: ink2 on the card, so some pixels are light
     let light = (20..60).flat_map(|y| (50..230).map(move |x| (x, y))).filter(|(x, y)| picture.rgba[(y * 300 + x) * 4] > 150).count();
     assert!(light > 150, "the label is drawn beside the icon ({light} light pixels)");
-    let switch = i_slint_backend_testing::ElementHandle::find_by_accessible_label(&ui, "Widen for something in your hand")
+    let switch = i_slint_backend_testing::ElementHandle::find_by_accessible_label(&ui, "Things in hand")
         .find(|e| e.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::Switch))
         .expect("the switch");
     let (p, s) = (switch.absolute_position(), switch.size());

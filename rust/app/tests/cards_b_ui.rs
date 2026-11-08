@@ -186,14 +186,14 @@ fn framings_sliders_and_the_hand_tile_reach_the_plugin() {
         r.ui.window().dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
         assert!(!r.said(callback).is_empty(), "{label} says nothing");
     }
-    r.click_as("Widen for something in your hand", AccessibleRole::Switch);
+    r.click_as("Things in hand", AccessibleRole::Switch);
     assert_eq!(r.said("hand-toggled").iter().map(|a| matches!(a[0], Value::Bool(true))).collect::<Vec<_>>(), [true]);
 }
 
 #[test]
 fn framings_tile_does_nothing_while_no_phone_is_paired() {
     let r = rig(&mut FramingPlugin::new(), json!({"active": false}), FRAMING);
-    r.click_as("Widen for something in your hand", AccessibleRole::Switch);
+    r.click_as("Things in hand", AccessibleRole::Switch);
     assert!(r.said("hand-toggled").is_empty());
 }
 

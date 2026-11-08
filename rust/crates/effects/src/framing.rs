@@ -71,7 +71,8 @@ const SWITCH_TIP: &str = n_("Follow you with the zoom and pan");
 const FRAMING_TIP: &str = n_("How much of you is in the picture: just your head, down to your chest, down to your waist or all of you");
 const SPEED_TIP: &str = n_("How quickly the framing catches up when you move");
 const ROOM_TIP: &str = n_("What you can do before the framing follows you: fidget, shift in your seat, lean over, take a step or move around");
-const HAND_NAME: &str = n_("Widen for something in your hand");
+const HAND_NAME: &str = n_("Things in hand");
+const HAND_DETAIL: &str = n_("Widen for something in your hand");
 const VIEW_TAKEN: &str = n_("Something else is moving the zoom and pan.");
 const HOW_MUCH: &str = n_("Auto framing: how much of you");
 const SPEED_LABEL: &str = n_("Auto framing speed");
@@ -446,7 +447,7 @@ impl FramingPlugin {
     fn fixed_props() -> Value {
         let fits: Vec<String> = FRAMINGS.iter().chain(&SPEEDS).chain(&ROOMS).map(|t| tr(t)).collect();
         json!({"switch-name": tr(TITLE), "switch-help": tr(SWITCH_TIP), "framing-tip": tr(FRAMING_TIP), "speed-tip": tr(SPEED_TIP),
-               "room-tip": tr(ROOM_TIP), "reset-hint": tr("Double-click to reset"), "hand-name": tr(HAND_NAME), "fits": fits.join("\n")})
+               "room-tip": tr(ROOM_TIP), "reset-hint": tr("Double-click to reset"), "hand-name": tr(HAND_NAME), "hand-detail": tr(HAND_DETAIL), "fits": fits.join("\n")})
     }
 
     /// The Framing bubble shows the crop unless the preview does: Auto framing is following someone right now.

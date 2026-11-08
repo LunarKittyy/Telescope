@@ -318,7 +318,7 @@ msgstr "वर्चुअल माइक्रोफ़ोन ने ऑडि
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "पीले रंग का मतलब है कि लिमिटर तेज़ आवाज़ को दबा रहा है और लाल रंग का मतलब है कि आवाज़ क्लिप हो गई (साफ़ करने के लिए क्लिक करें)."
 
-#: rust/crates/audio/ui/microphone.slint:229 rust/crates/effects/src/background.rs:186 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/framing.rs:449 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:56 rust/crates/effects/src/photos.rs:452 rust/crates/effects/src/transforms.rs:49 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/effects/ui/desk.slint:166 rust/crates/effects/ui/desk.slint:188 rust/crates/outputs/ui/stream_output.slint:163 rust/crates/outputs/ui/stream_output.slint:184 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:252 rust/crates/shell/ui/cards/camera.slint:291 rust/crates/shell/ui/cards/camera.slint:312
+#: rust/crates/audio/ui/microphone.slint:229 rust/crates/effects/src/background.rs:186 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/framing.rs:450 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:56 rust/crates/effects/src/photos.rs:452 rust/crates/effects/src/transforms.rs:49 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/effects/ui/desk.slint:166 rust/crates/effects/ui/desk.slint:188 rust/crates/outputs/ui/stream_output.slint:163 rust/crates/outputs/ui/stream_output.slint:184 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:252 rust/crates/shell/ui/cards/camera.slint:291 rust/crates/shell/ui/cards/camera.slint:312
 msgid "Double-click to reset"
 msgstr "रीसेट करने के लिए डबल-क्लिक करें"
 
@@ -1391,7 +1391,7 @@ msgstr "फ़ोन के मीटरिंग पॉइंट को आप�
 msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
 msgstr "इसके बिना 'मेरे चेहरे के लिए एक्सपोज़र' कार्ड नहीं होगा और फ़ोन आपके टैप किए गए पॉइंट या पूरी तस्वीर के हिसाब से मीटरिंग करेगा."
 
-#: rust/crates/effects/src/framing.rs:19 rust/crates/effects/ui/framing.slint:40
+#: rust/crates/effects/src/framing.rs:19 rust/crates/effects/ui/framing.slint:41
 msgid "Auto framing"
 msgstr "ऑटो फ़्रेमिंग"
 
@@ -1507,26 +1507,30 @@ msgid "What you can do before the framing follows you: fidget, shift in your sea
 msgstr "फ़्रेमिंग द्वारा फ़ॉलो किए जाने से पहले आप क्या कर सकते हैं: हिलना-डुलना, कुर्सी में सरकना, झुकना, एक कदम बढ़ाना या घूमना"
 
 #: rust/crates/effects/src/framing.rs:74
+msgid "Things in hand"
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:75
 msgid "Widen for something in your hand"
 msgstr "हाथ में मौजूद किसी चीज़ के लिए फ़्रेम चौड़ा करें"
 
-#: rust/crates/effects/src/framing.rs:75
+#: rust/crates/effects/src/framing.rs:76
 msgid "Something else is moving the zoom and pan."
 msgstr "कोई अन्य चीज़ ज़ूम और पैन को नियंत्रित कर रही है."
 
-#: rust/crates/effects/src/framing.rs:76
+#: rust/crates/effects/src/framing.rs:77
 msgid "Auto framing: how much of you"
 msgstr "ऑटो फ़्रेमिंग: आपका कितना हिस्सा दिखे"
 
-#: rust/crates/effects/src/framing.rs:77
+#: rust/crates/effects/src/framing.rs:78
 msgid "Auto framing speed"
 msgstr "ऑटो फ़्रेमिंग स्पीड"
 
-#: rust/crates/effects/src/framing.rs:713
+#: rust/crates/effects/src/framing.rs:714
 msgid "Zooms and pans to keep you in the picture as you move."
 msgstr "आपके हिलने-डुलने पर आपको तस्वीर में बनाए रखने के लिए ज़ूम और पैन करता है."
 
-#: rust/crates/effects/src/framing.rs:714
+#: rust/crates/effects/src/framing.rs:715
 msgid "Without it there's no Auto framing card and the zoom stays where you put it."
 msgstr "इसके बिना कोई ऑटो फ़्रेमिंग कार्ड नहीं होता और ज़ूम वहीं रहता है जहां आपने सेट किया है."
 
@@ -2865,15 +2869,15 @@ msgstr "आकार"
 msgid "Follow my face"
 msgstr "चेहरा फ़ॉलो करें"
 
-#: rust/crates/effects/ui/framing.slint:60 rust/crates/effects/ui/framing.slint:66 rust/crates/outputs/src/webcam.rs:80
+#: rust/crates/effects/ui/framing.slint:61 rust/crates/effects/ui/framing.slint:67 rust/crates/outputs/src/webcam.rs:80
 msgid "Framing"
 msgstr "फ़्रेमिंग"
 
-#: rust/crates/effects/ui/framing.slint:102 rust/crates/effects/ui/framing.slint:108 rust/crates/effects/ui/notes.slint:156 rust/crates/effects/ui/notes.slint:162
+#: rust/crates/effects/ui/framing.slint:103 rust/crates/effects/ui/framing.slint:109 rust/crates/effects/ui/notes.slint:156 rust/crates/effects/ui/notes.slint:162
 msgid "Speed"
 msgstr "स्पीड"
 
-#: rust/crates/effects/ui/framing.slint:128 rust/crates/effects/ui/framing.slint:134
+#: rust/crates/effects/ui/framing.slint:129 rust/crates/effects/ui/framing.slint:135
 msgid "Room to move"
 msgstr "हिलने की गुंजाइश"
 
