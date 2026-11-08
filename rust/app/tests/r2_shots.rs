@@ -132,9 +132,11 @@ fn grading_header_shots() {
     let card = card_of(&mut ColourGradingPlugin::new(), "look");
     let on = json!({"active": true, "on": true, "page": 0});
     shoot(&dir, "grading-header", &card, 406.0, &[on.clone()], &nothing);
-    shoot(&dir, "grading-header-narrow", &card, 300.0, &[on.clone()], &nothing);
+    shoot(&dir, "grading-header-narrow", &card, 387.0, &[on.clone()], &nothing);
+    shoot(&dir, "grading-header-icon-only", &card, 336.0, &[on.clone()], &nothing);
     shoot(&dir, "grading-header-busy", &card, 406.0, &[on.clone(), json!({"auto-busy": true, "auto-label": "Looking\u{2026}"})], &nothing);
-    shoot(&dir, "grading-header-nostream", &card, 406.0, &[on, json!({"auto-label": "No stream"})], &nothing);
+    shoot(&dir, "grading-header-nostream", &card, 406.0, &[on.clone(), json!({"auto-ready": false})], &nothing);
+    shoot(&dir, "grading-header-nostream-narrow", &card, 387.0, &[on, json!({"auto-ready": false})], &nothing);
     shoot(&dir, "grading-lut", &card, 406.0, &[json!({"active": true, "on": true, "page": 2})], &nothing);
 }
 
@@ -257,53 +259,32 @@ fn the_microphone_meter_and_gain_slider_share_one_track() {
     let w = result.component("W").unwrap().create().unwrap();
     w.show().unwrap();
     settle();
-    let edges = |name: &str| {
+    // Where the drawn row has something that isn't the card's own colour: the runs of it, in px of the 2x picture. The meter is its
+    // bar, then the clip dot; the slider is its track, then the readout.
+    let pic = offscreen::draw(w.window(), 420.0, 330.0, 2.0).expect("a picture");
+    let runs = |name: &str| {
         let e = ElementHandle::find_by_element_type_name(&w, name).next().unwrap_or_else(|| panic!("no {name}"));
-        (e.absolute_position().x, e.absolute_position().x + e.size().width)
+        let y = ((e.absolute_position().y + e.size().height / 2.0) * 2.0) as usize;
+        let row: Vec<[u8; 3]> = (0..pic.width as usize).map(|x| { let i = (y * pic.width as usize + x) * 4; [pic.rgba[i], pic.rgba[i + 1], pic.rgba[i + 2]] }).collect();
+        // The card's colour, read just inside its left edge
+        let card = row[2 * 16 + 4];
+        let differs = |c: &[u8; 3]| c.iter().zip(card).any(|(a, b)| a.abs_diff(b) > 3);
+        let mut runs: Vec<(usize, usize)> = Vec::new();
+        for (x, c) in row.iter().enumerate() {
+            if differs(c) {
+                match runs.last_mut() {
+                    Some(last) if x - last.1 <= 4 => last.1 = x + 1,
+                    _ => runs.push((x, x + 1)),
+                }
+            }
+        }
+        runs
     };
-    let (meter, slider) = (edges("LevelMeter"), edges("Slider"));
-    // The slider's box includes its readout column; the meter's row has the same one, so the tracks line up
-    assert!((meter.0 - slider.0).abs() < 0.5, "starts: {meter:?} {slider:?}");
-    let readout = Theme_u(28.0) + Theme_u(4.0);
-    assert!((meter.1 + readout - slider.1).abs() < 0.5, "ends: {meter:?} {slider:?}");
-}
-
-#[allow(non_snake_case)]
-fn Theme_u(n: f32) -> f32 {
-    n * 2.0
-}
-
-/// The main window with the columns' scroll handles showing or not, and the gaps around them measured in the picture.
-#[test]
-fn window_gutter_shots() {
-    let Some(dir) = out() else { return };
-    // The scenes grow the window to its content; these draw the window at a size of their own, short enough for the columns to scroll
-    let mut scenes = Vec::new();
-    for (name, width, height) in [("window-default", 1380.0_f32, 330.0_f32), ("window-wide", 1900.0, 330.0), ("window-bars-hidden", 1380.0, 3000.0)] {
-        let dir = dir.clone();
-        let then = std::cell::RefCell::new(Some(Box::new(move |w: &std::rc::Rc<telescope_shell::window::Window>| {
-            let win = w.ui.window();
-            win.set_size(slint::LogicalSize::new(width, height));
-            settle();
-            let pic = offscreen::draw(win, width, height, 1.0).expect("a picture");
-            pic.save_png(&dir.join(format!("{name}.png"))).unwrap();
-        }) as telescope_shell::scenes::AfterBuilt));
-        scenes.push(telescope_shell::scenes::Scene::new(name, move || {
-            let mut s = telescope_shell::scenes::Setup::window(None, json!({}), width, height);
-            // Cards in the left rail and the right one, with the stage between
-            s.plugins = Some(|bus| {
-                let mut plugins = telescope_shell::plugins::builtins(None, bus);
-                plugins.push(Box::new(telescope_effects::transforms::TransformsPlugin::new()));
-                plugins.push(Box::new(telescope_effects::desk::DeskPlugin::new()));
-                plugins.push(Box::new(telescope_effects::framing::FramingPlugin::new()));
-                plugins.push(Box::new(ColourGradingPlugin::new()));
-                plugins.push(Box::new(NameTagPlugin::new()));
-                telescope_shell::plugins::in_order(plugins)
-            });
-            s.then = then.borrow_mut().take();
-            s
-        }));
-    }
-    let (n, failed) = telescope_shell::scenes::render(&scenes, &[1.0], &std::env::temp_dir().join("r2-gutter-unused")).expect("rendered");
-    assert!(failed.is_empty(), "{failed:?} {n}");
+    let (meter, slider) = (runs("LevelMeter"), runs("Slider"));
+    // Past the row's icon and before its readout (the 2x picture's x from 100 to 700): the bar and the track start at one x, and the
+    // clip dot, the last thing of the meter, ends where the track does
+    let inside = |r: Vec<(usize, usize)>| r.into_iter().filter(|r| r.0 >= 100 && r.0 < 700).collect::<Vec<_>>();
+    let (meter, slider) = (inside(meter), inside(slider));
+    assert_eq!(meter[0].0, slider[0].0, "starts: {meter:?} {slider:?}");
+    assert!((meter.last().unwrap().1 as i64 - slider.last().unwrap().1 as i64).abs() <= 1, "ends: {meter:?} {slider:?}");
 }

@@ -23,7 +23,7 @@ use telescope_core::people::{self, Track};
 use telescope_core::pose::Person;
 use telescope_core::view::Geometry;
 use telescope_core::i18n::{n_, number, percent, tr};
-use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
+use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::settings::SettingSpec;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
@@ -955,6 +955,7 @@ impl Plugin for ColourGradingPlugin {
 
     fn setup(&mut self, host: &mut dyn Host) {
         self.auto.poster = host.poster();
+        self.auto.ready = host.is_streaming() && host.focused_source_id().is_some();
         self.show(host, &ColourGradingPlugin::fixed_props());
         self.show_all(host);
     }
@@ -1003,8 +1004,15 @@ impl Plugin for ColourGradingPlugin {
         }
     }
 
+    fn on_stream_start(&mut self, host: &mut dyn Host, _stream: &StreamInfo) {
+        self.auto.ready = true;
+        self.show_auto(host);
+    }
+
     fn on_stream_stop(&mut self, host: &mut dyn Host) {
         self.auto_abort(host);
+        self.auto.ready = false;
+        self.show_auto(host);
     }
 
     fn frame_step(&mut self) -> Option<FrameStep> {

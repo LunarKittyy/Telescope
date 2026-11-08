@@ -152,6 +152,8 @@ export component ColourGradingCard inherits Card {
     in property <bool> replace-open;
     // Auto: busy while it looks at the picture
     in property <bool> auto-busy;
+    // A stream is there for Auto to look at
+    in property <bool> auto-ready: true;
     in property <string> auto-label;
     callback switch-toggled-by-hand(bool);
     callback compare-toggled(bool);
@@ -232,33 +234,40 @@ export component ColourGradingCard inherits Card {
         }
         }
     }
-    HorizontalLayout {
-        spacing: Theme.u(4);
-        Segmented {
-            hue: root.hue;
-            margin: 0px;
-            items: [@tr("Primaries"), @tr("Curves"), @tr("LUT")];
-            disabled: [!active, !active, !active];
-            has-icons: [false, false, false];
-            icons: [Icons.colour, Icons.colour, Icons.colour];
-            label: @tr("Page");
-            tips: [@tr("Primaries"), @tr("Curves"), @tr("LUT")];
-            tip-details: [@tr("Colour wheels and sliders."), @tr("Brightness, hue and saturation curves."), @tr("Load a LUT file or export the grade.")];
-            current: page;
-            picked(i) => { root.page-picked(i); }
-        }
-        // Auto keeps one width whatever it is doing: its answer shows in the icon's colour and the tooltip, never in the label
-        Button {
-            width: Theme.u(34);
-            enabled: active && !auto-busy;
-            text: @tr("Auto");
-            has-icon: true;
-            icon: Icons.sparkle;
-            icon-tint: auto-label == "" ? Theme.ink2 : auto-label == @tr("Looks fine") ? Theme.ok : Theme.warn;
-            accessible-label: @tr("Auto colour grading");
-            tip: auto-busy ? @tr("Looking at the picture") : auto-label != "" ? auto-label : @tr("Auto");
-            tip-detail: auto-busy || auto-label != "" ? "" : @tr("Set white balance, brightness, contrast and colour from about a second of the picture. You can still adjust everything on the sliders.");
-            clicked => { root.auto-clicked(); }
+    // The pages and Auto on one row. Where the card is too narrow for the pages and Auto's word, Auto is its icon alone, so no page name is ever cut
+    header-row := Rectangle {
+        height: Theme.row;
+        accessible-role: none;
+        property <bool> icon-only: self.width < pages.min-width + Theme.u(4) + Theme.u(34);
+        HorizontalLayout {
+            spacing: Theme.u(4);
+            pages := Segmented {
+                hue: root.hue;
+                margin: 0px;
+                items: [@tr("Primaries"), @tr("Curves"), @tr("LUT")];
+                disabled: [!active, !active, !active];
+                has-icons: [false, false, false];
+                icons: [Icons.colour, Icons.colour, Icons.colour];
+                label: @tr("Page");
+                tips: [@tr("Primaries"), @tr("Curves"), @tr("LUT")];
+                tip-details: [@tr("Colour wheels and sliders."), @tr("Brightness, hue and saturation curves."), @tr("Load a LUT file or export the grade.")];
+                current: page;
+                picked(i) => { root.page-picked(i); }
+            }
+            // Auto keeps one width whatever it is doing: its answer shows in the icon's colour and the tooltip, never in the label. Without a
+            // stream it is dimmed, and its tooltip says why.
+            Button {
+                width: header-row.icon-only ? Theme.row : Theme.u(34);
+                enabled: active && !auto-busy && auto-ready;
+                text: header-row.icon-only ? "" : @tr("Auto");
+                has-icon: true;
+                icon: Icons.sparkle;
+                icon-tint: auto-label == "" ? Theme.ink2 : auto-label == @tr("Looks fine") ? Theme.ok : Theme.warn;
+                accessible-label: @tr("Auto colour grading");
+                tip: auto-busy ? @tr("Looking at the picture") : !auto-ready ? @tr("Auto") : auto-label != "" ? auto-label : @tr("Auto");
+                tip-detail: auto-busy ? "" : !auto-ready ? @tr("Start the stream first, so Auto has a picture to look at.") : auto-label != "" ? "" : @tr("Set white balance, brightness, contrast and colour from about a second of the picture. You can still adjust everything on the sliders.");
+                clicked => { root.auto-clicked(); }
+            }
         }
     }
 

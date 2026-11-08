@@ -258,9 +258,15 @@ export component ConnectionCard inherits Card {
             tip-detail: @tr("Reconnect over USB now that the phone is plugged in.");
             clicked => { root.switch-usb(); }
         }
-        if !update-shown && !switch-usb-shown && using-shown: Rectangle {
-            width: using-tag.width;
-            using-tag := Tag { y: (parent.height - self.height) / 2; text: using-text; tint: Theme.ink2; }
+        // How it is connected, as plain dim text: no surface
+        if !update-shown && !switch-usb-shown && using-shown: Text {
+            text: using-text;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-value;
+            color: Theme.ink2;
+            vertical-alignment: center;
+            horizontal-stretch: 0;
         }
     }
     RailRow {
