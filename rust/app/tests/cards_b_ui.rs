@@ -117,47 +117,46 @@ fn desks_picture_tiles_pick_the_writing_and_the_shape() {
     assert_eq!(r.said("shape-picked").iter().map(|a| num(a, 0)).collect::<Vec<_>>(), [4.0, 1.0]);
 }
 
+impl Rig {
+    /// The slider of a row (a row's icon can share its label).
+    fn slider(&self, label: &str) -> ElementHandle {
+        ElementHandle::find_by_accessible_label(&self.ui, label).find(|e| e.accessible_value_maximum().is_some()).unwrap_or_else(|| panic!("no slider {label}"))
+    }
+}
+
+const RESET_LABEL: &str = "Put the width and height back to 100%";
+
 #[test]
-fn desks_pad_sets_the_width_and_the_height_and_goes_back_to_100() {
+fn desks_width_and_height_sliders_say_which_one_moved() {
     let r = rig(&mut DeskPlugin::new(), json!({"active": true, "on": true, "stretch": [120, 90], "stretch-text": ["120%", "90%"]}), DESK);
-    let pad = |r: &Rig| r.click_as("Width and height", AccessibleRole::Slider);
-    pad(&r);
-    // The click puts the handle where the pointer is, saying both numbers
+    r.click_on(&r.slider("Width"));
+    assert!(r.said("stretch-moved").iter().all(|a| num(a, 0) == 0.0) && !r.said("stretch-moved").is_empty());
+    r.click_on(&r.slider("Height"));
     let said = r.said("stretch-moved");
-    assert!(said.len() >= 2 && num(&said[0], 0) == 0.0 && num(&said[1], 0) == 1.0, "{said:?}");
-    let (x, y) = (num(&said[said.len() - 2], 1), num(&said[said.len() - 1], 1));
-    let before = said.len();
-    r.key(Key::RightArrow);
-    let said = r.said("stretch-moved");
-    assert_eq!(said.len(), before + 2, "one call for each of the two numbers");
-    assert_eq!((num(&said[before], 1), num(&said[before + 1], 1)), (x + 1.0, y));
-    // Home puts both back to 100%
-    r.key(Key::Home);
-    let said = r.said("stretch-moved");
-    assert_eq!((num(&said[said.len() - 2], 1), num(&said[said.len() - 1], 1)), (100.0, 100.0));
+    assert!(said.iter().any(|a| num(a, 0) == 1.0), "{said:?}");
 }
 
 #[test]
-fn desks_pad_is_greyed_out_not_gone_while_the_sheet_fills_the_picture() {
+fn desks_sliders_are_greyed_out_not_gone_while_the_sheet_fills_the_picture() {
     let r = rig(&mut DeskPlugin::new(), json!({"active": true, "on": true, "shape-current": 4, "stretch-enabled": false}), DESK);
-    r.click_as("Width and height", AccessibleRole::Slider);
+    r.click_on(&r.slider("Width"));
     r.key(Key::RightArrow);
     assert!(r.said("stretch-moved").is_empty());
-    // It keeps its room: the pad is as big as when it works
-    let off = r.find_as("Width and height", AccessibleRole::Slider).size();
+    // They keep their room: as big as when they work
+    let off = (r.slider("Width").size(), r.slider("Height").size());
     r.ui.set_property("stretch-enabled", Value::Bool(true)).unwrap();
     offscreen::pump();
-    assert_eq!(r.find_as("Width and height", AccessibleRole::Slider).size(), off);
+    assert_eq!((r.slider("Width").size(), r.slider("Height").size()), off);
 }
 
 #[test]
-fn desks_reset_sits_on_the_pad_and_lights_up_only_off_100() {
+fn desks_reset_sits_in_the_header_and_lights_up_only_off_100() {
     let r = rig(&mut DeskPlugin::new(), json!({"active": true, "on": true, "reset-shown": false}), DESK);
-    r.click("Reset");
+    r.click(RESET_LABEL);
     assert!(r.said("reset-clicked").is_empty());
     r.ui.set_property("reset-shown", Value::Bool(true)).unwrap();
     offscreen::pump();
-    r.click("Reset");
+    r.click(RESET_LABEL);
     assert_eq!(r.said("reset-clicked").len(), 1);
 }
 
@@ -313,8 +312,8 @@ fn stays(seen: &[f32], what: &str) {
 
 #[test]
 fn the_four_cards_keep_every_row_where_it_is_when_their_state_changes() {
-    stays(&steps(&mut DeskPlugin::new(), json!({"active": true, "picking": false}), json!({"picking": true}), "Width and height"), "Desk, marking the sheet");
-    stays(&steps(&mut DeskPlugin::new(), json!({"active": true, "stretch-enabled": true}), json!({"stretch-enabled": false, "shape-current": 4}), "Width and height"), "Desk, filling the picture");
+    stays(&steps(&mut DeskPlugin::new(), json!({"active": true, "picking": false}), json!({"picking": true}), "Height"), "Desk, marking the sheet");
+    stays(&steps(&mut DeskPlugin::new(), json!({"active": true, "stretch-enabled": true}), json!({"stretch-enabled": false, "shape-current": 4}), "Height"), "Desk, filling the picture");
     stays(&steps(&mut NotesPlugin::new(), json!({"active": true, "show-auto": true}), json!({"show-auto": false, "scroll": 1}), "Send to phone"), "Notes, by hand");
     stays(&steps(&mut NotesPlugin::new(), json!({"active": true, "text": ""}), json!({"text": "Good morning"}), "Send to phone"), "Notes, with something written");
     stays(&steps(&mut FramingPlugin::new(), json!({"active": true, "hand": false}), json!({"hand": true, "framing": 20, "framing-text": "Waist"}), "Room to move"), "Auto framing");

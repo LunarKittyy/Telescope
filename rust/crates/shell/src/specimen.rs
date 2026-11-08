@@ -37,6 +37,9 @@ const PRESSABLE: &[&str] = &["rest", "hover", "focus", "held", "off", "long"];
 const KINDS: &[Kind] = &[
     Kind { name: "button", label: "button", height: 56.0, at: MID, states: PRESSABLE },
     Kind { name: "button-primary", label: "button (primary)", height: 56.0, at: MID, states: PRESSABLE },
+    Kind { name: "button-primary-card", label: "button (primary, card colour)", height: 56.0, at: MID, states: PRESSABLE },
+    Kind { name: "button-go", label: "button (start streaming)", height: 56.0, at: MID, states: PRESSABLE },
+    Kind { name: "button-stop", label: "button (stop streaming)", height: 56.0, at: MID, states: PRESSABLE },
     Kind { name: "button-danger", label: "button (danger)", height: 56.0, at: MID, states: PRESSABLE },
     Kind { name: "button-quiet", label: "button (quiet)", height: 56.0, at: MID, states: PRESSABLE },
     Kind { name: "icon-button", label: "icon-button", height: 56.0, at: (0.08, 0.5), states: &["rest", "hover", "focus", "held", "off"] },

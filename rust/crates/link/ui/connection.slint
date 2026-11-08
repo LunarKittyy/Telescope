@@ -259,12 +259,14 @@ export component ConnectionCard inherits Card {
         if update-shown: Button {
             text: update-text;
             role: "primary";
+            hue: root.hue;
             enabled: update-enabled;
             clicked => { root.update(); }
         }
         if !update-shown && switch-usb-shown: Button {
             text: @tr("Switch to USB");
             role: "primary";
+            hue: root.hue;
             tip: @tr("The phone was plugged in; reconnect over the cable");
             clicked => { root.switch-usb(); }
         }
@@ -330,7 +332,7 @@ export component ConnectionCard inherits Card {
             }
             if on-source: HorizontalLayout {
                 alignment: start;
-                Button { text: @tr("Use it"); role: "primary"; accessible-label: other-name; clicked => { root.other-picked(); } }
+                Button { text: @tr("Use it"); role: "primary"; hue: root.hue; accessible-label: other-name; clicked => { root.other-picked(); } }
             }
             if qr-size > 0 && !paired && !on-source: Rectangle {
                 property <int> modules: qr-size + 8;
@@ -461,6 +463,7 @@ export component ConnectionCard inherits Card {
                     height: 32px;
                     text: @tr("OK");
                     role: "primary";
+                    hue: root.hue;
                     clicked => { root.vcam-answered(true, root.vcam-persist); }
                 }
             }

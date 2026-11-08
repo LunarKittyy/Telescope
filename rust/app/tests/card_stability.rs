@@ -117,7 +117,7 @@ fn the_connection_card_keeps_its_rows_when_a_device_connects() {
 
 #[test]
 fn the_desk_card_keeps_its_rows_when_the_corners_are_being_placed() {
-    let seen = steps(&mut DeskPlugin::new(), json!({"picking": false}), json!({"picking": true}), "Width and height");
+    let seen = steps(&mut DeskPlugin::new(), json!({"picking": false}), json!({"picking": true}), "Height");
     goes_from_one_to_the_other(&seen, "the Desk card");
     assert!((seen[0] - *seen.last().unwrap()).abs() < 0.5, "Done and Cancel took the place of Mark at another height: {seen:?}");
 }

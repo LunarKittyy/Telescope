@@ -57,7 +57,7 @@ export component HeaderIconButton inherits Rectangle {
     }
 }
 
-// Start streaming: the one filled violet button in the window, red while streaming.
+// Start streaming: the one white button in the window (violet in Classic), black with a white outline while streaming (red in Classic).
 export component StartButton inherits Rectangle {
     in property <string> text;
     in property <bool> streaming;
@@ -66,16 +66,16 @@ export component StartButton inherits Rectangle {
     in property <string> shortcut;
     callback clicked;
     height: Theme.u(16);
-    width: btn.min-width;
+    // Start and Stop are the same size: the width never drops below what "Start streaming" and "Stop streaming" take
+    width: max(btn.min-width, Theme.u(82));
     accessible-role: none;
     btn := Button {
         width: parent.width;
         height: parent.height;
         text: root.text;
-        role: root.streaming ? "danger" : "primary";
+        role: root.streaming ? "stop" : "go";
         has-icon: true;
         icon: root.streaming ? Icons.v-stop : Icons.v-play;
-        icon-tint: white;
         icon-size: Theme.icon-small;
         padding-x: Theme.u(8);
         gap: Theme.u(4);

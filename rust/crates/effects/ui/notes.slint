@@ -225,10 +225,10 @@ export component NotesCard inherits Card {
                 min-width: 0px;
                 has-icon: true;
                 icon: Icons.send-phone;
-                icon-tint: white;
                 text: send-text;
                 shortcut: "notes.send";
                 role: "primary";
+                hue: root.hue;
                 enabled: active && send-enabled;
                 clicked => { root.send-clicked(); }
             }

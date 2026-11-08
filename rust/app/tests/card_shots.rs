@@ -252,3 +252,47 @@ fn name_tag_shots() {
     shoot_marked(&dir, "nametag-filled", &tag, &[json!({"on": true, "name": "Alex Rivera", "pronouns": "they/them", "second": "Designer", "position-current": 2, "style-current": 3, "size-current": 2})], true);
     shoot(&dir, "nametag-pill", &tag, &[json!({"on": true, "name": "Alex Rivera", "pronouns": "", "second": "", "position-current": 3, "style-current": 1, "size-current": 0})]);
 }
+
+/// Start and Stop streaming in both looks, drawn at 2x, and the same size in both states.
+#[test]
+fn start_stop_shots() {
+    let Some(dir) = out() else { return };
+    let _english = language("en");
+    offscreen::install();
+    let source = r#"
+import { StartButton } from "shell/frame.slint";
+import { Theme } from "@ui-kit/ui-kit.slint";
+export { Theme }
+export component W inherits Window {
+    in property <bool> streaming;
+    in property <string> label;
+    width: 240px;
+    height: 56px;
+    background: Theme.chrome;
+    out property <length> button-width: b.width;
+    out property <length> button-height: b.height;
+    b := StartButton { x: 20px; y: 20px; text: label; streaming: streaming; }
+}
+"#;
+    let def = telescope_shell::compile::compile("start.slint", source, vec![], "W").expect("the button compiles");
+    for classic in [false, true] {
+        let mut sizes = Vec::new();
+        for streaming in [false, true] {
+            let ui = def.create().unwrap();
+            ui.set_global_property("Theme", "classic", Value::Bool(classic)).unwrap();
+            ui.set_property("streaming", Value::Bool(streaming)).unwrap();
+            ui.set_property("label", Value::String(if streaming { "Stop streaming" } else { "Start streaming" }.into())).unwrap();
+            ui.show().unwrap();
+            offscreen::pump();
+            let get = |n: &str| match ui.get_property(n) {
+                Ok(Value::Number(v)) => v,
+                other => panic!("{n}: {other:?}"),
+            };
+            sizes.push((get("button-width"), get("button-height")));
+            let pic = offscreen::draw(ui.window(), 240.0, 56.0, 2.0).expect("a picture");
+            pic.save_png(&dir.join(format!("start-{}-{}.png", if streaming { "stop" } else { "go" }, if classic { "classic" } else { "new" }))).unwrap();
+            ui.hide().unwrap();
+        }
+        assert_eq!(sizes[0], sizes[1], "Start and Stop are the same size (classic: {classic})");
+    }
+}

@@ -318,7 +318,7 @@ msgstr "Wirtualny mikrofon przestał odbierać dźwięk."
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "Kolor żółty oznacza, że ogranicznik tłumi głośne szczyty, a czerwony oznacza przesterowanie dźwięku (kliknij, aby wyczyścić)."
 
-#: rust/crates/audio/ui/microphone.slint:229 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:54 rust/crates/effects/src/photos.rs:452 rust/crates/effects/src/transforms.rs:38 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:163 rust/crates/outputs/ui/stream_output.slint:184 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:252 rust/crates/shell/ui/cards/camera.slint:291 rust/crates/shell/ui/cards/camera.slint:312
+#: rust/crates/audio/ui/microphone.slint:229 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:54 rust/crates/effects/src/photos.rs:452 rust/crates/effects/src/transforms.rs:38 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/effects/ui/desk.slint:166 rust/crates/effects/ui/desk.slint:188 rust/crates/outputs/ui/stream_output.slint:163 rust/crates/outputs/ui/stream_output.slint:184 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:252 rust/crates/shell/ui/cards/camera.slint:291 rust/crates/shell/ui/cards/camera.slint:312
 msgid "Double-click to reset"
 msgstr "Kliknij dwukrotnie, aby zresetować"
 
@@ -342,7 +342,7 @@ msgstr "Mikrofon telefonu wymaga oprogramowania VB-Audio Virtual Cable w systemi
 msgid "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."
 msgstr "VB-Cable to produkt firmy VB-Audio, a nie Telescope. Program Telescope może pobrać go ze strony vb-audio.com i otworzyć instalator VB-Audio, który wymaga uprawnień administratora. Po zakończeniu uruchom ponownie komputer."
 
-#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:186 rust/crates/effects/ui/colour_grading.slint:468 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:456 rust/crates/link/ui/connection.slint:657 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:632 rust/crates/system/ui/shortcuts.slint:373 rust/crates/system/ui/updates.slint:215
+#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:186 rust/crates/effects/ui/colour_grading.slint:468 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:458 rust/crates/link/ui/connection.slint:660 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:632 rust/crates/system/ui/shortcuts.slint:373 rust/crates/system/ui/updates.slint:215
 msgid "Cancel"
 msgstr "Anuluj"
 
@@ -1248,7 +1248,7 @@ msgid "Black and white"
 msgstr "Czarno-biały"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/desk.rs:41 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:27 rust/crates/effects/ui/colour_grading.slint:214 rust/crates/link/ui/connection.slint:293 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:101 rust/crates/outputs/src/webcam.rs:958 rust/crates/outputs/ui/webcam.slint:121 rust/crates/shell/src/plugins/camera_control.rs:1308 rust/crates/shell/src/plugins/camera_control.rs:1310 rust/crates/shell/src/plugins/camera_control.rs:1312 rust/crates/shell/src/plugins/camera_control.rs:1635 rust/crates/shell/src/plugins/camera_control.rs:1636 rust/crates/shell/ui/cards/camera.slint:196 rust/crates/shell/ui/cards/camera.slint:266 rust/crates/shell/ui/cards/camera.slint:326
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/desk.rs:41 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:27 rust/crates/effects/ui/colour_grading.slint:214 rust/crates/link/ui/connection.slint:295 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:101 rust/crates/outputs/src/webcam.rs:958 rust/crates/outputs/ui/webcam.slint:121 rust/crates/shell/src/plugins/camera_control.rs:1308 rust/crates/shell/src/plugins/camera_control.rs:1310 rust/crates/shell/src/plugins/camera_control.rs:1312 rust/crates/shell/src/plugins/camera_control.rs:1635 rust/crates/shell/src/plugins/camera_control.rs:1636 rust/crates/shell/ui/cards/camera.slint:196 rust/crates/shell/ui/cards/camera.slint:266 rust/crates/shell/ui/cards/camera.slint:326
 msgid "Auto"
 msgstr "Auto"
 
@@ -1315,7 +1315,7 @@ msgstr "Część kartki znajduje się poza obrazem. Zmniejsz przybliżenie lub z
 msgid "Desk mode"
 msgstr "Tryb biurka"
 
-#: rust/crates/effects/src/desk.rs:185 rust/crates/link/ui/connection.slint:408
+#: rust/crates/effects/src/desk.rs:185 rust/crates/link/ui/connection.slint:410
 msgid "Done"
 msgstr "Gotowe"
 
@@ -2523,11 +2523,11 @@ msgstr "Przesuń w lewo/prawo"
 msgid "Pan up/down"
 msgstr "Przesuń w górę/dół"
 
-#: rust/crates/effects/src/transforms.rs:618 rust/crates/effects/src/transforms.rs:686 rust/crates/effects/ui/transforms.slint:173
+#: rust/crates/effects/src/transforms.rs:618 rust/crates/effects/src/transforms.rs:686 rust/crates/effects/ui/desk.slint:157 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/transforms.slint:173
 msgid "Width"
 msgstr "Szerokość"
 
-#: rust/crates/effects/src/transforms.rs:619 rust/crates/effects/src/transforms.rs:686 rust/crates/effects/ui/transforms.slint:189
+#: rust/crates/effects/src/transforms.rs:619 rust/crates/effects/src/transforms.rs:686 rust/crates/effects/ui/desk.slint:179 rust/crates/effects/ui/desk.slint:186 rust/crates/effects/ui/transforms.slint:189
 msgid "Height"
 msgstr "Wysokość"
 
@@ -2835,7 +2835,7 @@ msgstr "Kolor tła"
 msgid "Put a picture behind the streams instead of the colour"
 msgstr "Ustaw obraz za strumieniami zamiast jednolitego koloru"
 
-#: rust/crates/effects/ui/composite_editor.slint:563 rust/crates/link/ui/connection.slint:617
+#: rust/crates/effects/ui/composite_editor.slint:563 rust/crates/link/ui/connection.slint:620
 msgid "Close"
 msgstr "Zamknij"
 
@@ -2847,41 +2847,29 @@ msgstr "Zastąp układ"
 msgid "Name:"
 msgstr "Nazwa:"
 
-#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:462 rust/crates/link/ui/connection.slint:661 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:880 rust/crates/shell/ui/settings.slint:633
+#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:464 rust/crates/link/ui/connection.slint:664 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:880 rust/crates/shell/ui/settings.slint:633
 msgid "OK"
 msgstr "OK"
 
-#: rust/crates/effects/ui/composite_editor.slint:597 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:704 rust/crates/setup/src/stats_phone.rs:148
+#: rust/crates/effects/ui/composite_editor.slint:597 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:707 rust/crates/setup/src/stats_phone.rs:148
 msgid "No"
 msgstr "Nie"
 
-#: rust/crates/effects/ui/composite_editor.slint:598 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:698 rust/crates/setup/src/stats_phone.rs:148 rust/crates/setup/src/stats_phone.rs:152
+#: rust/crates/effects/ui/composite_editor.slint:598 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:701 rust/crates/setup/src/stats_phone.rs:148 rust/crates/setup/src/stats_phone.rs:152
 msgid "Yes"
 msgstr "Tak"
 
-#: rust/crates/effects/ui/desk.slint:56
+#: rust/crates/effects/ui/desk.slint:61
 msgid "Sheet"
 msgstr ""
 
-#: rust/crates/effects/ui/desk.slint:78 rust/crates/effects/ui/desk.slint:84
+#: rust/crates/effects/ui/desk.slint:83 rust/crates/effects/ui/desk.slint:89
 msgid "Writing"
 msgstr "Pismo"
 
-#: rust/crates/effects/ui/desk.slint:117 rust/crates/effects/ui/desk.slint:122 rust/crates/outputs/ui/stream_output.slint:117
+#: rust/crates/effects/ui/desk.slint:122 rust/crates/effects/ui/desk.slint:127 rust/crates/outputs/ui/stream_output.slint:117
 msgid "Shape"
 msgstr "Kształt"
-
-#: rust/crates/effects/ui/desk.slint:152 rust/crates/effects/ui/desk.slint:157
-msgid "Width and height"
-msgstr ""
-
-#: rust/crates/effects/ui/desk.slint:173
-msgid "W"
-msgstr ""
-
-#: rust/crates/effects/ui/desk.slint:173
-msgid "H"
-msgstr ""
 
 #: rust/crates/effects/ui/face_exposure.slint:39
 msgid "Follow my face"
@@ -2898,10 +2886,6 @@ msgstr "Szybkość"
 #: rust/crates/effects/ui/framing.slint:114 rust/crates/effects/ui/framing.slint:120
 msgid "Room to move"
 msgstr "Swoboda ruchu"
-
-#: rust/crates/effects/ui/framing.slint:141
-msgid "Things in hand"
-msgstr ""
 
 #: rust/crates/effects/ui/fun_pack.slint:52 rust/crates/effects/ui/fun_pack.slint:58
 msgid "Effect"
@@ -2943,7 +2927,7 @@ msgstr "W dół"
 msgid "Across"
 msgstr "W poprzek"
 
-#: rust/crates/effects/ui/name_tag.slint:77 rust/crates/effects/ui/name_tag.slint:81 rust/crates/effects/ui/name_tag.slint:82 rust/crates/link/ui/connection.slint:587
+#: rust/crates/effects/ui/name_tag.slint:77 rust/crates/effects/ui/name_tag.slint:81 rust/crates/effects/ui/name_tag.slint:82 rust/crates/link/ui/connection.slint:590
 msgid "Name"
 msgstr "Nazwa"
 
@@ -3157,11 +3141,11 @@ msgstr ""
 msgid "Quality"
 msgstr "Jakość"
 
-#: rust/crates/effects/ui/photos.slint:317 rust/crates/effects/ui/photos.slint:323
+#: rust/crates/effects/ui/photos.slint:324 rust/crates/effects/ui/photos.slint:330
 msgid "Timer"
 msgstr "Samowyzwalacz"
 
-#: rust/crates/effects/ui/photos.slint:333
+#: rust/crates/effects/ui/photos.slint:340
 msgid "Save in"
 msgstr "Zapisuj w"
 
@@ -3387,7 +3371,7 @@ msgstr "Przeglądarka, ostatnio połączono: {date}"
 msgid "This computer couldn't set up the video connection."
 msgstr "Ten komputer nie mógł nawiązać połączenia wideo."
 
-#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:361 rust/crates/link/ui/connection.slint:191 rust/crates/link/ui/connection.slint:575 rust/crates/shell/src/plugins/onboarding.rs:172
+#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:361 rust/crates/link/ui/connection.slint:191 rust/crates/link/ui/connection.slint:578 rust/crates/shell/src/plugins/onboarding.rs:172
 msgid "Add device"
 msgstr ""
 
@@ -3665,7 +3649,7 @@ msgstr "telefon podłączony przez USB to inny telefon"
 msgid "phone plugged in, but Telescope isn't open on it"
 msgstr "telefon jest podłączony, ale Telescope nie jest na nim otwarty"
 
-#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1080 rust/crates/link/src/plugin.rs:1335 rust/crates/link/ui/connection.slint:526 rust/crates/link/ui/connection.slint:527
+#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1080 rust/crates/link/src/plugin.rs:1335 rust/crates/link/ui/connection.slint:529 rust/crates/link/ui/connection.slint:530
 msgid "No device yet"
 msgstr ""
 
@@ -3681,7 +3665,7 @@ msgstr "Nie można połączyć się z telefonem"
 msgid "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."
 msgstr "adb nie mogło nawiązać połączenia z telefonem. Odłącz go, podłącz ponownie i spróbuj jeszcze raz."
 
-#: rust/crates/link/src/plugin.rs:406 rust/crates/link/ui/connection.slint:431
+#: rust/crates/link/src/plugin.rs:406 rust/crates/link/ui/connection.slint:433
 msgid "Set up the virtual camera"
 msgstr "Skonfiguruj wirtualną kamerę"
 
@@ -3932,7 +3916,7 @@ msgstr "Klatkaż"
 msgid "Remove"
 msgstr "Usuń"
 
-#: rust/crates/link/ui/connection.slint:186 rust/crates/link/ui/connection.slint:715 rust/crates/setup/src/stats.rs:340
+#: rust/crates/link/ui/connection.slint:186 rust/crates/link/ui/connection.slint:718 rust/crates/setup/src/stats.rs:340
 msgid "Connection"
 msgstr "Połączenie"
 
@@ -3944,128 +3928,128 @@ msgstr "Otwórz lub zamknij przewodnik po konfiguracji: wirtualna kamera, aplika
 msgid "Setup guide"
 msgstr "Przewodnik po konfiguracji"
 
-#: rust/crates/link/ui/connection.slint:266
+#: rust/crates/link/ui/connection.slint:267
 msgid "Switch to USB"
 msgstr "Przełącz na USB"
 
-#: rust/crates/link/ui/connection.slint:268
+#: rust/crates/link/ui/connection.slint:270
 msgid "The phone was plugged in; reconnect over the cable"
 msgstr "Telefon został podłączony; połącz ponownie przez kabel"
 
-#: rust/crates/link/ui/connection.slint:285 rust/crates/link/ui/connection.slint:292
+#: rust/crates/link/ui/connection.slint:287 rust/crates/link/ui/connection.slint:294
 msgid "Connect via"
 msgstr "Połącz przez"
 
-#: rust/crates/link/ui/connection.slint:298
+#: rust/crates/link/ui/connection.slint:300
 msgid "Automatic: USB when the phone's plugged in, Wi-Fi otherwise."
 msgstr "Automatycznie: USB, gdy telefon jest podłączony, w przeciwnym razie Wi-Fi."
 
-#: rust/crates/link/ui/connection.slint:319
+#: rust/crates/link/ui/connection.slint:321
 msgid "Add a phone"
 msgstr "Dodaj telefon"
 
-#: rust/crates/link/ui/connection.slint:323
+#: rust/crates/link/ui/connection.slint:325
 msgid "What to add"
 msgstr "Co dodać"
 
-#: rust/crates/link/ui/connection.slint:333
+#: rust/crates/link/ui/connection.slint:335
 msgid "Use it"
 msgstr "Użyj jej"
 
-#: rust/crates/link/ui/connection.slint:351
+#: rust/crates/link/ui/connection.slint:353
 msgid "Pairing code"
 msgstr "Kod parowania"
 
-#: rust/crates/link/ui/connection.slint:408
+#: rust/crates/link/ui/connection.slint:410
 msgid "Back"
 msgstr "Wstecz"
 
-#: rust/crates/link/ui/connection.slint:432
+#: rust/crates/link/ui/connection.slint:434
 msgid "Telescope needs to switch on its virtual camera first. This asks for your password."
 msgstr "Telescope musi najpierw włączyć wirtualną kamerę. Wymaga to podania hasła."
 
-#: rust/crates/link/ui/connection.slint:440 rust/crates/link/ui/connection.slint:443
+#: rust/crates/link/ui/connection.slint:442 rust/crates/link/ui/connection.slint:445
 msgid "Also switch it on at every startup"
 msgstr "Włączaj ją także przy każdym uruchomieniu"
 
-#: rust/crates/link/ui/connection.slint:527
+#: rust/crates/link/ui/connection.slint:530
 msgid "Pick a device"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:531
+#: rust/crates/link/ui/connection.slint:534
 msgid "Device"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:532
+#: rust/crates/link/ui/connection.slint:535
 msgid "Which device to stream from"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:550
+#: rust/crates/link/ui/connection.slint:553
 msgid "Your devices: add, rename, remove"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:551 rust/crates/link/ui/connection.slint:568
+#: rust/crates/link/ui/connection.slint:554 rust/crates/link/ui/connection.slint:571
 msgid "Your devices"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:570
+#: rust/crates/link/ui/connection.slint:573
 msgid "Devices"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:576
+#: rust/crates/link/ui/connection.slint:579
 msgid "Add another device"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:583
+#: rust/crates/link/ui/connection.slint:586
 msgid "No devices yet"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:587
+#: rust/crates/link/ui/connection.slint:590
 msgid "Rename phone"
 msgstr "Zmień nazwę telefonu"
 
-#: rust/crates/link/ui/connection.slint:597 rust/crates/setup/src/stats.rs:332
+#: rust/crates/link/ui/connection.slint:600 rust/crates/setup/src/stats.rs:332
 msgid "This computer"
 msgstr "Ten komputer"
 
-#: rust/crates/link/ui/connection.slint:602
+#: rust/crates/link/ui/connection.slint:605
 msgid "What your phones call it"
 msgstr "Nazwa widoczna na telefonach"
 
-#: rust/crates/link/ui/connection.slint:604
+#: rust/crates/link/ui/connection.slint:607
 msgid "Change name"
 msgstr "Zmień nazwę"
 
-#: rust/crates/link/ui/connection.slint:605
+#: rust/crates/link/ui/connection.slint:608
 msgid "The name your phones show for this computer"
 msgstr "Nazwa tego komputera wyświetlana na telefonach"
 
-#: rust/crates/link/ui/connection.slint:606
+#: rust/crates/link/ui/connection.slint:609
 msgid "Change this computer's name"
 msgstr "Zmień nazwę tego komputera"
 
-#: rust/crates/link/ui/connection.slint:608
+#: rust/crates/link/ui/connection.slint:611
 msgid "Rename this computer"
 msgstr "Zmień nazwę tego komputera"
 
-#: rust/crates/link/ui/connection.slint:608
+#: rust/crates/link/ui/connection.slint:611
 msgid "Name your phones show (applies to phones you pair from now on)"
 msgstr "Nazwa widoczna na telefonach (dotyczy telefonów sparowanych od teraz)"
 
-#: rust/crates/link/ui/connection.slint:718 rust/crates/link/ui/connection.slint:725
+#: rust/crates/link/ui/connection.slint:721 rust/crates/link/ui/connection.slint:728
 msgid "UDP on Wi-Fi"
 msgstr "UDP przez Wi-Fi"
 
-#: rust/crates/link/ui/connection.slint:719
+#: rust/crates/link/ui/connection.slint:722
 msgctxt "search"
 msgid "udp tcp transport network lag freezes stutter wifi"
 msgstr "udp tcp transport sieć opóźnienie lag zacięcia zacinanie ścinki wifi udp tcp transport network lag freezes stutter wifi"
 
-#: rust/crates/link/ui/connection.slint:720
+#: rust/crates/link/ui/connection.slint:723
 msgid "It can stutter more than TCP, so try it and see."
 msgstr "To połączenie może działać mniej płynnie niż TCP, więc sprawdź, jak działa."
 
-#: rust/crates/link/ui/connection.slint:721
+#: rust/crates/link/ui/connection.slint:724
 msgid "Experimental"
 msgstr "Eksperymentalne"
 

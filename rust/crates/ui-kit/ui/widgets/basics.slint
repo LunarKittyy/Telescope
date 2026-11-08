@@ -116,14 +116,20 @@ export component LinkText inherits Rectangle {
     }
 }
 
-// Kind "button": a raised fill with no line round it, semibold. role "primary" is the one filled violet button, "danger" the
-// red one, "quiet" a ghost that only shows a fill when hovered. Anything that opens a menu is a ChoiceField, not a Button.
+// Kind "button": a raised fill with no line round it, semibold. role "primary" is a filled button (violet; in a card, given the card's
+// `hue`, it wears that in the new look), "go" and "stop" are Start and Stop streaming, "danger" the red one, "quiet" a ghost that only shows a fill when hovered. Anything that opens a menu is a ChoiceField, not a Button.
 export component Button inherits Rectangle {
     in property <string> text;
     in property <image> icon;
     in property <bool> has-icon: false;
     in property <color> icon-tint: Theme.ink2;
     in property <string> role: "";
+    // The card's colour, for a primary button inside a card (the new look fills it with this; Classic stays violet)
+    in property <color> hue: Theme.fill;
+    property <bool> wears-hue: role == "primary" && !Theme.classic && hue != Theme.fill;
+    // The text, and the glyph, of a button with a fill of its own
+    property <color> ink-on-fill: role == "go" ? Theme.go-ink : role == "stop" ? Theme.stop-ink : wears-hue ? Theme.on-hue : white;
+    property <bool> filled: role == "primary" || role == "danger" || role == "go" || role == "stop";
     in property <length> icon-size: Theme.icon-small;
     // A square of colour before the text, as a QPushButton draws a swatch icon
     in property <bool> has-swatch;
@@ -151,7 +157,13 @@ export component Button inherits Rectangle {
     // A long label gives way to a narrow place at some width and ends in an ellipsis; a short one never shrinks
     min-width: shrinks ? 0px : min(lay.preferred-width, Theme.u(70));
     border-radius: Theme.r-ctl;
+    // Stop streaming's thick outline sits inside the button, so the button keeps its size in both states
+    border-width: enabled && role == "stop" ? Theme.stop-edge-w : 0px;
+    border-color: Theme.stop-edge;
     background: !enabled ? (quiet-when-disabled ? transparent : Theme.trough)
+        : role == "go" ? (touch.pressed ? Theme.go-press : touch.has-hover ? Theme.go-hover : Theme.go-fill)
+        : role == "stop" ? (touch.pressed ? Theme.stop-press : touch.has-hover ? Theme.stop-hover : Theme.stop-fill)
+        : wears-hue ? (touch.pressed ? hue.mix(black, 0.15) : touch.has-hover ? hue.mix(white, 0.15) : hue)
         : role == "danger" ? Theme.err.mix(Theme.card, touch.pressed ? 0.35 : touch.has-hover ? 0.5 : 0.42)
         : role == "primary" ? (touch.pressed ? Theme.fill-press : touch.has-hover ? Theme.fill-hover : Theme.fill)
         : role == "quiet" || strip ? (touch.pressed ? Theme.raise : touch.has-hover ? Theme.hover : transparent)
@@ -190,7 +202,7 @@ export component Button inherits Rectangle {
         alignment: center;
         if has-icon: Icon {
             source: icon;
-            tint: !enabled ? Theme.dis : icon-tint;
+            tint: !enabled ? Theme.dis : filled ? ink-on-fill : icon-tint;
             width: icon-size;
             height: icon-size;
             y: (parent.height - self.height) / 2;
@@ -211,7 +223,7 @@ export component Button inherits Rectangle {
             font-family: Theme.font;
             font-size: root.font-size;
             font-weight: root.font-weight;
-            color: !enabled ? Theme.dis : role == "primary" || role == "danger" ? white : role == "quiet" ? Theme.ink2 : Theme.ink;
+            color: !enabled ? Theme.dis : filled ? ink-on-fill : role == "quiet" ? Theme.ink2 : Theme.ink;
             vertical-alignment: center;
         }
     }

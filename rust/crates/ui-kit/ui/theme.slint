@@ -45,6 +45,20 @@ export global Theme {
     out property <color> fill: classic ? #6a58cf : #7566d6;
     out property <color> fill-hover: classic ? #7867dc : #8677e4;
     out property <color> fill-press: classic ? #5b4bb8 : #6558c2;
+    // The text on a filled button that wears its card's colour (new look only; Classic's primary button is violet with white text)
+    out property <color> on-hue: classic ? #ffffff : #101010;
+    // Start streaming: white with black text. Classic keeps the violet fill.
+    out property <color> go-fill: classic ? #6a58cf : #ffffff;
+    out property <color> go-hover: classic ? #7867dc : #e6e6e6;
+    out property <color> go-press: classic ? #5b4bb8 : #cccccc;
+    out property <color> go-ink: classic ? #ffffff : #000000;
+    // Stop streaming: black with the thick white outline and white text. Classic keeps the red fill, without an outline.
+    out property <color> stop-fill: classic ? err.mix(card, 0.42) : #000000;
+    out property <color> stop-hover: classic ? err.mix(card, 0.5) : #1c1c1c;
+    out property <color> stop-press: classic ? err.mix(card, 0.35) : #2e2e2e;
+    out property <color> stop-edge: #ffffff;
+    out property <length> stop-edge-w: classic ? 0px : stroke;
+    out property <color> stop-ink: #ffffff;
 
     // Status
     out property <color> ok: classic ? #5fc98c : #79bf8e;

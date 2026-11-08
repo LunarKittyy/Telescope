@@ -173,3 +173,53 @@ fn every_group_and_status_is_found_in_the_theme() {
     }
     token(&theme, "card");
 }
+
+/// WCAG's bar for text.
+const TEXT_CONTRAST: f64 = 4.5;
+
+/// `a` mixed `amount` of the way towards `b`, as Slint's `mix` does.
+fn mixed(a: [u8; 3], b: [u8; 3], amount: f64) -> [u8; 3] {
+    let m = |x: u8, y: u8| (f64::from(x) * (1.0 - amount) + f64::from(y) * amount).round() as u8;
+    [m(a[0], b[0]), m(a[1], b[1]), m(a[2], b[2])]
+}
+
+#[test]
+fn text_on_a_primary_button_in_a_card_reads_on_every_group_colour_resting_hovered_and_pressed() {
+    let theme = theme_text();
+    let (ink, _) = token(&theme, "on-hue");
+    for group in GROUPS {
+        let (rest, _) = hue(&theme, group);
+        // The button lightens .15 of the way to white on hover and darkens .15 towards black when pressed
+        for (state, fill) in [("rest", rest), ("hover", mixed(rest, [255; 3], 0.15)), ("pressed", mixed(rest, [0; 3], 0.15))] {
+            let ratio = contrast(ink, fill);
+            assert!(ratio >= TEXT_CONTRAST, "the text on {group}'s primary button ({state}) is {ratio:.2}:1, under {TEXT_CONTRAST}:1");
+        }
+    }
+}
+
+#[test]
+fn start_and_stop_streaming_read_in_the_new_look_resting_hovered_and_pressed() {
+    let theme = theme_text();
+    let new = |name: &str| {
+        let line = theme.lines().find(|l| l.contains(&format!("property <color> {name}:"))).unwrap_or_else(|| panic!("theme.slint has no {name}"));
+        // The new look's value is the last colour on the line
+        *hexes(line).last().unwrap()
+    };
+    let go = new("go-ink");
+    for state in ["go-fill", "go-hover", "go-press"] {
+        let ratio = contrast(go, new(state));
+        assert!(ratio >= 7.0, "Start's text on {state} is {ratio:.2}:1, under 7:1");
+    }
+    // Start is white, so its three steps are told apart
+    assert!(luminance(new("go-fill")) > luminance(new("go-hover")) && luminance(new("go-hover")) > luminance(new("go-press")));
+    let stop = new("stop-ink");
+    for state in ["stop-fill", "stop-hover", "stop-press"] {
+        let ratio = contrast(stop, new(state));
+        assert!(ratio >= 7.0, "Stop's text on {state} is {ratio:.2}:1, under 7:1");
+    }
+    // The outline stands out from the fill and from the card at every step
+    let edge = new("stop-edge");
+    let card = token(&theme, "card").0;
+    assert!(contrast(edge, new("stop-press")) >= 7.0 && contrast(edge, card) >= CONTRAST_MIN);
+    assert!(luminance(new("stop-fill")) < luminance(new("stop-hover")) && luminance(new("stop-hover")) < luminance(new("stop-press")));
+}

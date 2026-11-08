@@ -177,11 +177,12 @@ fn compile_editor() {
     assert!(result.component("CompositeEditor").is_some());
 }
 
-/// Desk's sheet pad goes back to 100% by a double-click or Home (slider.set_snaps([100]) in desk.py, now a pad's default).
+/// Desk's Width and Height sliders go back to 100% by a double-click (slider.set_snaps([100]) in desk.py).
 #[test]
-fn desks_sheet_pad_has_100_for_its_default_and_its_centre() {
+fn desks_width_and_height_sliders_have_100_for_their_default() {
     let card = include_str!("../ui/desk.slint");
-    for line in ["has-default: true;", "default-x: 100;", "default-y: 100;", "centre-x: 100;", "centre-y: 100;"] {
-        assert_eq!(card.matches(line).count(), 1, "{line}");
+    for line in ["has-default: true;", "default-value: 100;"] {
+        assert_eq!(card.matches(line).count(), 2, "{line}");
     }
+    assert!(!card.contains("Pad {"), "no card uses the pad now");
 }

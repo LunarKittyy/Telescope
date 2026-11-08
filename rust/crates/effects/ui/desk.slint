@@ -74,7 +74,7 @@ export component DeskCard inherits Card {
                 shortcut: "desk.mark";
                 clicked => { root.mark-clicked(); }
             }
-            if picking: Button { horizontal-stretch: 1; preferred-width: 1000px; role: "primary"; text: done-text; clicked => { root.done-clicked(); } }
+            if picking: Button { horizontal-stretch: 1; preferred-width: 1000px; role: "primary"; hue: root.hue; text: done-text; clicked => { root.done-clicked(); } }
             if picking: Button { horizontal-stretch: 1; preferred-width: 1000px; text: cancel-text; clicked => { root.cancel-clicked(); } }
         }
     }

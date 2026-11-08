@@ -23,6 +23,9 @@ export component Cell inherits Window {
         spacing: 6px;
         if kind == "button": Button { text: long ? "Automatische Belichtungsmessung aktivieren" : "Reset"; enabled: !off; }
         if kind == "button-primary": Button { text: long ? "Übertragung jetzt starten und fortsetzen" : "Start streaming"; role: "primary"; enabled: !off; }
+        if kind == "button-primary-card": Button { text: long ? "Übertragung jetzt starten und fortsetzen" : "Take photo"; role: "primary"; hue: hue; enabled: !off; }
+        if kind == "button-go": Button { text: long ? "Übertragung jetzt starten und fortsetzen" : "Start streaming"; role: "go"; has-icon: true; icon: Icons.v-play; enabled: !off; }
+        if kind == "button-stop": Button { text: long ? "Übertragung jetzt beenden und speichern" : "Stop streaming"; role: "stop"; has-icon: true; icon: Icons.v-stop; enabled: !off; }
         if kind == "button-danger": Button { text: long ? "Alle gespeicherten Einstellungen löschen" : "Forget phone"; role: "danger"; enabled: !off; }
         if kind == "button-quiet": Button { text: long ? "Erweiterte Einstellungen anzeigen" : "Details"; role: "quiet"; enabled: !off; }
         if kind == "icon-button": HorizontalLayout { alignment: start; IconButton { icon: Icons.bell; label: "Notify"; enabled: !off; } }
