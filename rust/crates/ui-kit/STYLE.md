@@ -122,6 +122,16 @@ One anatomy for every slider: a track, a handle, the value on the right, and a t
 
 The grey ramps keep the card's colour on the handle, since black or white would vanish into the track.
 
+Keys and typing, the same on every slider (the focused slider takes them; tested in `crates/shell/tests/slider_keys.rs`):
+
+- Arrow keys step by one `step` (`key-small`).
+- Shift with an arrow, Page Up and Page Down step by a tenth of the range in whole steps (`key-big`: 10 on 0 to 100, 100 on 0 to 1000).
+- Home and End go to the minimum and the maximum.
+- Enter on the slider, or a double-click on its value, opens a box with the number. Enter sets it (held to the range and rounded to the step, a non-number is dropped), Escape and clicking away leave the value as it was. After a key opened it, the focus goes back to the slider.
+- A slider with `typing` set (a value that isn't its position, like a shutter time) opens its box on a click and hands the text to `typed` for the owner to read. `type-in: false` turns the number box off.
+
+Every one of these says what a drag says, `moved` then `released`, and says nothing when the value didn't change, so an owner never has to know how a value was set.
+
 At rest everything is muted: the fill and the handle's border in the quietened colour, the handle's inside in the card's. While the slider is held its full colour comes up, handle included, and dims when it is let go. A simple colour change for now; the animations are a later pass.
 
 ## Specimen sheet
