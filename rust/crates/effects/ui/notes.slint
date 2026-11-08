@@ -1,63 +1,5 @@
 // The Notes card. Joined after parts.slint, which has the imports.
 
-// QPlainTextEdit: several lines that wrap, scrolling to keep the cursor in sight
-component NotesEditor inherits Rectangle {
-    in-out property <string> text;
-    in property <string> placeholder;
-    in property <string> label;
-    in property <bool> enabled: true;
-    callback edited(string);
-    min-height: 140px;
-    // QAbstractScrollArea's size hint
-    preferred-height: 192px;
-    vertical-stretch: 1;
-    border-radius: 7px;
-    border-width: 1px;
-    background: Theme.surface-raise;
-    border-color: input.has-focus ? Theme.accent : Theme.border-strong;
-    forward-focus: input;
-    flick := Flickable {
-        x: 1px;
-        y: 1px;
-        width: parent.width - 2px;
-        height: parent.height - 2px;
-        viewport-height: max(self.height, input.preferred-height + 14px);
-        TouchArea { width: flick.viewport-width; height: flick.viewport-height; mouse-cursor: MouseCursor.text; clicked => { input.focus(); } }
-        if text == "" && placeholder != "": Text {
-            x: 10px;
-            y: 7px;
-            width: flick.width - 20px;
-            text: placeholder;
-            wrap: word-wrap;
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: Theme.text-faint;
-        }
-        input := TextInput {
-            x: 10px;
-            y: 7px;
-            width: flick.width - 20px;
-            text <=> root.text;
-            single-line: false;
-            accessible-label: root.label;
-            accessible-placeholder-text: root.placeholder;
-            wrap: word-wrap;
-            enabled: root.enabled;
-            changed has-focus => { if (self.has-focus) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: self.has-focus ? white : Theme.text;
-            selection-background-color: Theme.fill;
-            selection-foreground-color: white;
-            edited => { root.edited(self.text); }
-            cursor-position-changed(p) => {
-                if (p.y + flick.viewport-y < 0) { flick.viewport-y = -p.y; }
-                else if (p.y + 22px + flick.viewport-y > flick.height - 7px) { flick.viewport-y = -(p.y + 22px - flick.height + 7px); }
-            }
-        }
-    }
-}
-
 export component NotesCard inherits Card {
     // Greyed out until a phone is paired
     in property <bool> active: true;
@@ -80,8 +22,11 @@ export component NotesCard inherits Card {
     in property <[string]> scroll-items: ["", ""];
     in property <int> speed: 3;
     in property <string> speed-text;
+    in property <string> speed-tip;
+    // Why the speed and Play are greyed out by hand
+    in property <string> by-hand-tip;
     in property <string> reset-hint;
-    // By hand has no speed and no Play
+    // By hand has no speed and no Play: they stay, greyed out
     in property <bool> show-auto: true;
     in property <bool> playing;
     in property <string> back-text;
@@ -115,60 +60,81 @@ export component NotesCard inherits Card {
     opacity: active ? 1 : 0.4;
     enabled: active;
 
-    HorizontalLayout {
-        spacing: 6px;
-        ChoiceField {
-            enabled: active;
-            compact: true;
-            caption: set-tip;
-            items: set-items;
-            current: set-current;
-            picked(i) => { root.set-picked(i); }
-        }
-        IconButton {
-            width: 30px;
-            height: 30px;
-            y: 1px;
-            icon: Icons.plus;
-            icon-size: 15px;
-            label: new-tip;
-            opacity: new-enabled ? 1 : 0.4;
-            clicked => { if (new-enabled) { root.new-clicked(); } }
-        }
-        IconButton {
-            width: 30px;
-            height: 30px;
-            y: 1px;
-            icon: Icons.trash;
-            icon-size: 15px;
-            label: delete-tip;
-            opacity: delete-enabled ? 1 : 0.4;
-            clicked => { if (delete-enabled) { root.delete-clicked(); } }
-        }
-    }
-    NotesEditor {
-        enabled: active;
-        text <=> root.text;
-        placeholder: root.placeholder;
-        label: editor-label;
-        edited(t) => { root.text-edited(t); }
-    }
-    SliderRow {
-        enabled: active;
-        label: @tr("Text size");
-        tip: size-tip;
-        hint: reset-hint;
-        minimum: 16;
-        maximum: 120;
-        value: size;
-        readout: size-text;
+    RailRow {
+        icon: Icons.notes;
+        label: @tr("Notes");
         hue: root.hue;
-        has-default: true;
-        default-value: 44;
-        moved(v) => { root.size-moved(v); }
+        enabled: active;
+        HorizontalLayout {
+            spacing: Theme.gap;
+            ChoiceField {
+                enabled: active;
+                compact: true;
+                has-icon: true;
+                icon: Icons.notes;
+                caption: set-tip;
+                items: set-items;
+                current: set-current;
+                picked(i) => { root.set-picked(i); }
+            }
+            IconButton {
+                icon: Icons.plus;
+                label: new-tip;
+                tip: new-tip;
+                enabled: active && new-enabled;
+                clicked => { root.new-clicked(); }
+            }
+            IconButton {
+                icon: Icons.trash;
+                label: delete-tip;
+                tip: delete-tip;
+                enabled: active && delete-enabled;
+                clicked => { root.delete-clicked(); }
+            }
+        }
     }
-    FormRow {
+    RailRow {
+        icon: Icons.pencil;
+        label: editor-label;
+        hue: root.hue;
+        enabled: active;
+        TextArea {
+            enabled: active;
+            skeleton: true;
+            label: editor-label;
+            placeholder: root.placeholder;
+            tip: root.placeholder;
+            text <=> root.text;
+            edited(t) => { root.text-edited(t); }
+        }
+    }
+    RailRow {
+        icon: Icons.text-size;
+        label: @tr("Text size");
+        hue: root.hue;
+        enabled: active;
+        modified: size != 44;
+        Slider {
+            enabled: active;
+            label: @tr("Text size");
+            tip: size-tip;
+            tip-detail: reset-hint;
+            hue: root.hue;
+            minimum: 16;
+            maximum: 120;
+            value: size;
+            readout: size-text;
+            has-default: true;
+            default-value: 44;
+            moved(v) => { root.size-moved(v); }
+        }
+    }
+    RailRow {
+        icon: Icons.scroll;
         label: @tr("Scroll");
+        hue: root.hue;
+        enabled: active;
+        modified: scroll != 0;
         Segmented {
             hue: root.hue;
             items: scroll-items;
@@ -180,77 +146,108 @@ export component NotesCard inherits Card {
             picked(i) => { root.scroll-picked(i); }
         }
     }
-    if show-auto: SliderRow {
-        enabled: active;
+    RailRow {
+        icon: Icons.gauge;
         label: @tr("Speed");
-        shortcut: "notes.speed";
-        hint: reset-hint;
-        minimum: 1;
-        maximum: 10;
-        value: speed;
-        readout: speed-text;
         hue: root.hue;
-        has-default: true;
-        default-value: 3;
-        moved(v) => { root.speed-moved(v); }
-    }
-    HorizontalLayout {
-        spacing: 8px;
-        Button {
-            horizontal-stretch: 1;
-            preferred-width: 0px;
-            min-width: 0px;
-            text: back-text;
-            tip: back-tip;
-            shortcut: "notes.previous";
-            enabled: active && (nav-enabled);
-            clicked => { root.back-clicked(); }
-        }
-        if show-auto: Button {
-            horizontal-stretch: 1;
-            preferred-width: 0px;
-            min-width: 0px;
-            text: play-text;
-            tip: play-tip;
-            shortcut: "notes.play";
-            role: playing ? "primary" : "";
-            enabled: active && (nav-enabled);
-            clicked => { root.play-toggled(!root.playing); }
-        }
-        Button {
-            horizontal-stretch: 1;
-            preferred-width: 0px;
-            min-width: 0px;
-            text: next-text;
-            tip: next-tip;
-            shortcut: "notes.next";
-            enabled: active && (nav-enabled);
-            clicked => { root.next-clicked(); }
+        enabled: active && show-auto;
+        modified: speed != 3;
+        Slider {
+            enabled: active && show-auto;
+            label: @tr("Speed");
+            tip: show-auto ? speed-tip : by-hand-tip;
+            tip-detail: show-auto ? reset-hint : "";
+            shortcut: "notes.speed";
+            hue: root.hue;
+            minimum: 1;
+            maximum: 10;
+            value: speed;
+            readout: speed-text;
+            has-default: true;
+            default-value: 3;
+            moved(v) => { root.speed-moved(v); }
         }
     }
-    HorizontalLayout {
-        spacing: 8px;
-        Button {
-            horizontal-stretch: 1;
-            preferred-width: 0px;
-            min-width: 0px;
-            text: send-text;
-            shortcut: "notes.send";
-            role: "primary";
-            enabled: active && (send-enabled);
-            clicked => { root.send-clicked(); }
+    RailRow {
+        icon: Icons.phone;
+        label: @tr("Move through the notes");
+        hue: root.hue;
+        enabled: active;
+        HorizontalLayout {
+            spacing: Theme.gap;
+            Button {
+                horizontal-stretch: 1;
+                preferred-width: 0px;
+                min-width: 0px;
+                has-icon: true;
+                icon: Icons.skip-back;
+                icon-size: Theme.icon;
+                accessible-label: back-text;
+                tip: back-tip;
+                shortcut: "notes.previous";
+                enabled: active && nav-enabled;
+                clicked => { root.back-clicked(); }
+            }
+            ToggleTile {
+                height: Theme.row;
+                icon: Icons.v-play;
+                name: play-text;
+                tip: show-auto ? play-tip : by-hand-tip;
+                shortcut: "notes.play";
+                hue: root.hue;
+                enabled: active && nav-enabled && show-auto;
+                checked: playing;
+                toggled(on) => { root.play-toggled(on); }
+            }
+            Button {
+                horizontal-stretch: 1;
+                preferred-width: 0px;
+                min-width: 0px;
+                has-icon: true;
+                icon: Icons.skip-next;
+                icon-size: Theme.icon;
+                accessible-label: next-text;
+                tip: next-tip;
+                shortcut: "notes.next";
+                enabled: active && nav-enabled;
+                clicked => { root.next-clicked(); }
+            }
         }
-        Button {
-            horizontal-stretch: 1;
-            preferred-width: 0px;
-            min-width: 0px;
-            text: clear-text;
-            shortcut: "notes.clear";
-            enabled: active && (clear-enabled);
-            clicked => { root.clear-clicked(); }
+    }
+    RailRow {
+        has-icon: false;
+        enabled: active;
+        HorizontalLayout {
+            spacing: Theme.gap;
+            Button {
+                horizontal-stretch: 1;
+                preferred-width: 0px;
+                min-width: 0px;
+                has-icon: true;
+                icon: Icons.send-phone;
+                icon-tint: white;
+                text: send-text;
+                shortcut: "notes.send";
+                role: "primary";
+                enabled: active && send-enabled;
+                clicked => { root.send-clicked(); }
+            }
+            Button {
+                horizontal-stretch: 1;
+                preferred-width: 0px;
+                min-width: 0px;
+                has-icon: true;
+                icon: Icons.clear-phone;
+                text: clear-text;
+                shortcut: "notes.clear";
+                enabled: active && clear-enabled;
+                clicked => { root.clear-clicked(); }
+            }
         }
     }
     if status != "": Note { text: status; kind: status-kind; }
     // Nothing to touch until a phone is paired
     blocked: !active;
 }
+
+import { RailRow, ToggleTile, TextArea } from "@ui-kit/ui-kit.slint";

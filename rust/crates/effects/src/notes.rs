@@ -46,6 +46,8 @@ const SET_TIP: &str = n_("Your saved notes");
 const NEW_TIP: &str = n_("New notes");
 const DELETE_TIP: &str = n_("Delete these notes");
 const SIZE_TIP: &str = n_("How big the notes are on the phone");
+const SPEED_TIP: &str = n_("How fast the notes scroll on the phone");
+const BY_HAND_TIP: &str = n_("Only used when the notes scroll by themselves");
 const BACK_TIP: &str = n_("Back to the line before");
 const PLAY_TIP: &str = n_("Start or pause scrolling on the phone");
 const NEXT_TIP: &str = n_("On to the next line");
@@ -256,7 +258,7 @@ impl NotesPlugin {
     fn fixed_props() -> Value {
         json!({
             "set-tip": tr(SET_TIP), "new-tip": tr(NEW_TIP), "delete-tip": tr(DELETE_TIP),
-            "placeholder": tr(PLACEHOLDER), "editor-label": tr("Notes"), "size-tip": tr(SIZE_TIP),
+            "placeholder": tr(PLACEHOLDER), "editor-label": tr("Notes"), "size-tip": tr(SIZE_TIP), "speed-tip": tr(SPEED_TIP), "by-hand-tip": tr(BY_HAND_TIP),
             "scroll-items": SCROLLS.iter().map(|(_, t)| tr(t)).collect::<Vec<_>>(), "reset-hint": tr(RESET_HINT),
             "back-text": tr_ctx("notes", "Previous"), "back-tip": tr(BACK_TIP), "play-tip": tr(PLAY_TIP),
             "next-text": tr_ctx("notes", "Next"), "next-tip": tr(NEXT_TIP), "send-text": tr("Send to phone"),
