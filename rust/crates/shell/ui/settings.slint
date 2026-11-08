@@ -1,7 +1,7 @@
 // The settings window (widgets/settings_window.py) and its Plugins tab (widgets/plugins_panel.py). The window itself
 // is written at startup by doc.rs, with every plugin's settings sections placed on their tabs.
 
-import { Theme, Icons, Icon, FocusRing, Button, IconButton, LinkText, Switch, SearchWords, SettingRow, TextField, TipBody, ColumnScrollbar } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, Button, IconButton, LinkText, Switch, SearchWords, SettingRow, TextField, Tip, TipBody, ColumnScrollbar } from "@ui-kit/ui-kit.slint";
 
 export struct NavTab {
     id: string,
@@ -297,7 +297,7 @@ component PluginTile inherits Rectangle {
     accessible-description: tile.about;
     accessible-id: "setting";
     touch := TouchArea { }
-    if tile.locked && tile.tooltip != "": Tooltip { TipBody { says: tile.tooltip; } }
+    Tip { says: tile.locked ? tile.tooltip : ""; hover: touch.has-hover; }
     VerticalLayout {
         padding-left: 12px;
         padding-right: 12px;
@@ -335,9 +335,9 @@ component PluginTile inherits Rectangle {
                     checked: tile.on;
                     label: tile.title;
                     enabled: tile.enabled && !tile.locked;
+                    tip: tile.locked ? "" : tile.tooltip;
                     toggled(on) => { root.switched(on); }
                 }
-                if !tile.locked && tile.tooltip != "": Tooltip { TipBody { says: tile.tooltip; } }
             }
         }
         about := Text {

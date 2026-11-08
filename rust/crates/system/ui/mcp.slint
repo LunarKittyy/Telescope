@@ -1,6 +1,6 @@
 // The MCP server's tab in Settings and its button in the header. The texts that are lists or carry names come filled from Rust.
 
-import { Theme, Icons, Card, FormRow, Segmented, IconButton, Icon, FocusRing, TipBody, TipUse } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Card, FormRow, Segmented, IconButton, Icon, FocusRing, KeyFocus, Tip } from "@ui-kit/ui-kit.slint";
 
 // One line of the activity log: when, which AI app, what it did in words. kind is "" or "refused".
 export struct McpLogRow {
@@ -184,7 +184,7 @@ component Segment inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus; radius: 6px; x: 0px; y: 0px; width: parent.width; height: parent.height; }
-    usage := TipUse { hover: touch.has-hover; }
+    usage := Tip { says: root.tip; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
@@ -192,7 +192,6 @@ component Segment inherits Rectangle {
         scroll-event(e) => { usage.wheel(); reject }
         clicked => { root.clicked(); }
     }
-    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
     @children
 }
 

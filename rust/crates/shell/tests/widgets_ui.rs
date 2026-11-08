@@ -7,8 +7,8 @@ use slint::{ComponentHandle, LogicalPosition};
 use slint_interpreter::{ComponentInstance, Value};
 
 const DOC: &str = r#"
-import { Theme, Icons, Switch, SwitchTile, Segmented, Slider, Tag, FormRow, Button, ChoiceField, TipBody, SettingRow, DialogFrame } from "@ui-kit/ui-kit.slint";
-export { Theme }
+import { Theme, Icons, Switch, SwitchTile, Segmented, Slider, Tag, FormRow, Button, ChoiceField, TipBody, TipLayer, WindowBox, SettingRow, DialogFrame } from "@ui-kit/ui-kit.slint";
+export { Theme, WindowBox }
 export component Test inherits Window {
     width: 420px;
     height: 560px;
@@ -69,6 +69,7 @@ export component Test inherits Window {
     out property <length> bold-width: bold-measure.preferred-width;
     bold-measure := Text { text: "Tap a point"; font-size: Theme.body; font-weight: 600; font-family: Theme.font; visible: false; }
     tag-measure := Text { text: "Experimental"; font-size: floor(Theme.body * 0.88 / 1px) * 1px; font-weight: 600; font-family: Theme.font; visible: false; }
+    TipLayer { }
 }
 "#;
 
@@ -78,6 +79,8 @@ fn rig() -> ComponentInstance {
     let def = telescope_shell::compile::compile("widgets.slint", DOC, vec![], "Test").expect("the document compiles");
     let ui = def.create().unwrap();
     ui.window().set_size(slint::LogicalSize::new(420.0, 560.0));
+    ui.set_global_property("WindowBox", "width", Value::Number(420.0)).unwrap();
+    ui.set_global_property("WindowBox", "height", Value::Number(560.0)).unwrap();
     ui.show().unwrap();
     ui
 }
@@ -312,10 +315,10 @@ fn a_long_tooltip_wraps_and_a_short_one_stays_on_one_line() {
     ui.set_property("tip-text", Value::String(long_text.trim_end().into())).unwrap();
     settle(&ui);
     let (long_w, long_h) = (num(&ui, "tip-width"), num(&ui, "tip-height"));
-    // About 64 characters to a line: the long one stops at a readable width and grows downwards
-    assert!(long_w <= 470.0 + 16.0 + 1.0, "{long_w} wide");
+    // About 36 characters to a line: the long one stops at a readable width and grows downwards
+    assert!(long_w <= 262.0, "{long_w} wide");
     let text = labelled(&ui, long_text.trim_end()).into_iter().next().expect("the tip's text");
-    assert!(f64::from(text.size().height) <= long_h - 10.0 + 0.5 && f64::from(text.size().height) >= long_h - 10.0 - 0.5, "none of it is cut off: {} in {long_h}", text.size().height);
+    assert!(f64::from(text.size().height) <= long_h - 12.0 + 0.5 && f64::from(text.size().height) >= long_h - 12.0 - 0.5, "none of it is cut off: {} in {long_h}", text.size().height);
 
     // The same body, reused
     ui.set_property("tip-text", Value::String("Settings".into())).unwrap();
@@ -504,7 +507,7 @@ fn wait(ms: u64) {
 }
 
 // test_tooltips.py::test_tooltips_show_sooner: Qt's own wait is 700 ms and Python's 250. Slint 1.18 keeps Tooltip's at 500 and
-// doesn't let a program change it, so this holds it to sooner than Qt's.
+// doesn't let a program change it, so the kit draws its own tip (ui/widgets/tip.slint) and this holds it to sooner than Qt's.
 #[test]
 fn tooltips_show_sooner() {
     let ui = rig();

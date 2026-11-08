@@ -3,7 +3,7 @@
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { Icon, FocusRing, KeyFocus, TouchRing } from "basics.slint";
-import { TipBody, TipUse } from "tip.slint";
+import { Tip } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { Fills, RampFill, ZebraFill, EdgeFill } from "fills.slint";
 
@@ -55,8 +55,10 @@ export component Slider inherits HorizontalLayout {
     // A double-click puts the slider back here (NoScrollSlider.set_default)
     in property <bool> has-default;
     in property <float> default-value;
-    // A tooltip on the slider and its readout
+    // A tooltip on the slider and its readout: its name, then a line or two more and the keys that do the same
     in property <string> tip;
+    in property <string> tip-detail;
+    in property <[string]> tip-keys;
     // The value as a box beside the readout would hold it (LogSliderRow's spin box): a click on the readout types over it there, and
     // `typed` hands the text to the owner to read. Empty: the slider reads a typed number itself (below) and says it with moved and released.
     in property <string> typing;
@@ -142,7 +144,7 @@ export component Slider inherits HorizontalLayout {
         accessible-value-minimum: minimum;
         accessible-value-maximum: maximum;
         accessible-value-step: step;
-        accessible-description: tip;
+        accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
         accessible-action-increment => { if (enabled) { set-to(shown + step); } }
         accessible-action-decrement => { if (enabled) { set-to(shown - step); } }
         forward-focus: slider-focus;
@@ -316,7 +318,7 @@ export component Slider inherits HorizontalLayout {
             border-color: !enabled ? Theme.dis : track.held ? track.under : touch.has-hover ? track.under : Theme.edge(track.under);
             FocusRing { shown: slider-focus.has-focus; radius: Theme.r-handle; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
         }
-        usage := TipUse { hover: touch.has-hover || readout-over; }
+        usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover || readout-over; inert: !root.enabled; focused: slider-focus.has-focus && KeyFocus.keyboard; }
         touch := TouchArea {
             enabled: root.enabled;
             property <float> picked: clamp((self.mouse-x - track.inset) / (track.width - 2 * track.inset), 0, 1);
@@ -366,7 +368,6 @@ export component Slider inherits HorizontalLayout {
             clicked => { start-typing(false); }
         }
         if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-        if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
     }
     if has-readout && !in-bar: Rectangle {
         width: readout-width;
@@ -388,7 +389,6 @@ export component Slider inherits HorizontalLayout {
             horizontal-alignment: right;
             vertical-alignment: center;
             overflow: elide;
-            if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
         }
         if is-typing: TextInput {
             width: parent.width;

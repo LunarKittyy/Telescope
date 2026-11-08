@@ -1,7 +1,8 @@
 //! The specimen sheet: every kit control kind in every state, in the new look and in Classic, drawn offscreen as one picture
 //! per look. Rows are kinds and columns are states, so a kind that lacks a hover or a disabled look shows as a gap in the grid
 //! or as a cell that looks like its neighbour. The last column is a long text, what a German translation would give.
-//! `cargo run -p telescope-shell --bin shell-specimen -- OUT` in rust/ writes OUT/new.png and OUT/classic.png (STYLE.md).
+//! `cargo run -p telescope-shell --bin shell-specimen -- OUT` in rust/ writes OUT/new.png and OUT/classic.png, and the tooltip sheet beside
+//! them as OUT/tips-new.png and OUT/tips-classic.png (STYLE.md).
 
 use crate::offscreen::{self, Picture};
 use slint::platform::{Key, PointerEventButton, WindowEvent};
@@ -120,6 +121,42 @@ fn heading(def: &ComponentDefinition, classic: bool, text: &str, column: bool, w
     Ok(picture)
 }
 
+/// The tooltip sheet: each case is a small window with a control and its tooltip up, so how a name, detail, keys and a tint look, how a long
+/// detail wraps and where a tip goes near the window's edge can be read side by side.
+const TIP_CASES: &[&str] = &["name", "detail", "keys", "long", "tint", "tint-keys", "flip", "edge"];
+const TIP_CELL: (f32, f32) = (300.0, 170.0);
+const TIP_COLUMNS: usize = 4;
+
+fn tip_cell(def: &ComponentDefinition, classic: bool, case: &str) -> Result<Picture, String> {
+    let ui = def.create().map_err(fail)?;
+    ui.set_global_property("Theme", "classic", Value::Bool(classic)).map_err(fail)?;
+    ui.set_global_property("WindowBox", "width", Value::Number(TIP_CELL.0 as f64)).map_err(fail)?;
+    ui.set_global_property("WindowBox", "height", Value::Number(TIP_CELL.1 as f64)).map_err(fail)?;
+    ui.set_property("case", Value::String(case.into())).map_err(fail)?;
+    ui.show().map_err(fail)?;
+    ui.window().set_size(slint::LogicalSize::new(TIP_CELL.0, TIP_CELL.1));
+    offscreen::draw(ui.window(), TIP_CELL.0, TIP_CELL.1, 1.0).ok_or("nothing drawn")?;
+    // Past the delay a tip waits for
+    offscreen::skip(std::time::Duration::from_millis(700));
+    offscreen::skip(std::time::Duration::from_millis(50));
+    let picture = offscreen::draw(ui.window(), TIP_CELL.0, TIP_CELL.1, 1.0).ok_or("nothing drawn")?;
+    let _ = ui.hide();
+    Ok(picture)
+}
+
+fn tips_sheet(cells: &ComponentDefinition, classic: bool) -> Result<Picture, String> {
+    let (cw, ch) = (TIP_CELL.0 as usize, TIP_CELL.1 as usize);
+    let rows = TIP_CASES.len().div_ceil(TIP_COLUMNS);
+    let (width, height) = (TIP_COLUMNS * (cw + GAP) - GAP, rows * (ch + GAP) - GAP);
+    let background: [u8; 4] = if classic { [10, 12, 15, 255] } else { [13, 13, 13, 255] };
+    let rgba = background.iter().copied().cycle().take(width * height * 4).collect();
+    let mut out = Picture { width: width as u32, height: height as u32, rgba };
+    for (i, case) in TIP_CASES.iter().enumerate() {
+        blit(&mut out, &tip_cell(cells, classic, case)?, (i % TIP_COLUMNS) * (cw + GAP), (i / TIP_COLUMNS) * (ch + GAP));
+    }
+    Ok(out)
+}
+
 /// Puts picture on the sheet with its top left at (x, y).
 fn blit(sheet: &mut Picture, picture: &Picture, x: usize, y: usize) {
     let row_bytes = picture.width as usize * 4;
@@ -153,7 +190,7 @@ fn sheet(cells: &ComponentDefinition, headings: &ComponentDefinition, classic: b
     Ok(out)
 }
 
-/// Writes out/new.png and out/classic.png; how many pictures.
+/// Writes out/new.png and out/classic.png and, for the tooltips, out/tips-new.png and out/tips-classic.png; how many pictures.
 pub fn render(out: &Path) -> Result<usize, String> {
     if !offscreen::install() {
         return Err("a window system was already set up".into());
@@ -162,10 +199,12 @@ pub fn render(out: &Path) -> Result<usize, String> {
     let doc = include_str!("../ui/specimen.slint");
     let cells = crate::compile::compile("specimen.slint", doc, vec![], "Cell")?;
     let headings = crate::compile::compile("specimen.slint", doc, vec![], "Heading")?;
+    let tips = crate::compile::compile("specimen.slint", doc, vec![], "TipCell")?;
     for (name, classic) in [("new", false), ("classic", true)] {
         sheet(&cells, &headings, classic)?.save_png(&out.join(format!("{name}.png")))?;
+        tips_sheet(&tips, classic)?.save_png(&out.join(format!("tips-{name}.png")))?;
     }
-    Ok(2)
+    Ok(4)
 }
 
 #[cfg(test)]

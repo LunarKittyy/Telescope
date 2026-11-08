@@ -3,6 +3,9 @@
 
 import { Theme, KeyFocus, Icons, Button, IconButton, LinkText, Switch, SwitchTile, Segmented, ChoiceField, Slider, TextField, NumberField, Jog, Stepper, SettingRow, Tag, TipBody, Card, FormRow, SectionHeading, ScrollBar } from "@ui-kit/ui-kit.slint";
 export { Theme, KeyFocus }
+// Tooltips (the second sheet): the tip, the window it is drawn in and the globals it reads
+import { Tip, Tips, TipLayer, WindowBox } from "@ui-kit/ui-kit.slint";
+export { Tips, WindowBox }
 
 export component Cell inherits Window {
     // The control, as src/specimen.rs names it
@@ -75,7 +78,7 @@ export component Cell inherits Window {
             Switch { label: "Reconnect"; checked: lit; hue: hue; enabled: !off; }
         }
         if kind == "badge": HorizontalLayout { alignment: start; Tag { text: long ? "Experimentell und noch nicht stabil" : "Experimental"; } }
-        if kind == "tip": HorizontalLayout { alignment: start; TipBody { says: long ? "Stellt die Belichtung automatisch nach, solange das Telefon streamt, und merkt sich den Wert." : "Adjusts exposure for you."; } }
+        if kind == "tip": HorizontalLayout { alignment: start; TipBody { says: long ? "Belichtung automatisch" : "Exposure"; detail: long ? "Stellt die Belichtung nach, solange das Telefon streamt, und merkt sich den Wert." : "Adjusts the picture's brightness for you."; keys: long ? [] : ["Ctrl", "E"]; } }
         if kind == "row": FormRow { label: long ? "Belichtungskorrektur" : "Exposure"; enabled: !off; Segmented { label: "Exposure"; items: ["Auto", "Manual"]; hue: hue; } }
         if kind == "section": SectionHeading { text: long ? "Weißabgleich und Farbtemperatur" : "White balance"; icon: Icons.thermometer; }
         if kind == "scrollbar": HorizontalLayout { alignment: start; ScrollBar { width: 11px; height: 80px; content: 400px; viewport: 100px; offset: 0px; } }
@@ -289,3 +292,31 @@ export component Heading inherits Window {
 }
 
 import { ToggleTile, PictureSegmented, Pad, Dial, RailRow } from "@ui-kit/ui-kit.slint";
+
+// A control with its tooltip held up, anchored where the case says
+component TipSample inherits Rectangle {
+    in property <string> says;
+    in property <string> detail;
+    in property <[string]> keys;
+    in property <color> hue: transparent;
+    width: Theme.row;
+    height: Theme.row;
+    IconButton { icon: Icons.bell; label: "Notify"; }
+    Tip { says: root.says; detail: root.detail; keys: root.keys; hue: root.hue; hover: true; }
+}
+
+// One cell of the tooltip sheet (src/specimen.rs): a tooltip up over a control, in a small window with the tip's own layer
+export component TipCell inherits Window {
+    in property <string> case;
+    background: Theme.card;
+    property <color> hue: Theme.plugin-hue("camera");
+    if case == "name": TipSample { x: 24px; y: 14px; says: "Mute"; }
+    if case == "detail": TipSample { x: 24px; y: 14px; says: "Exposure"; detail: "Adjusts the picture's brightness for you."; }
+    if case == "keys": TipSample { x: 24px; y: 14px; says: "Take a photo"; keys: ["Ctrl", "Shift", "P"]; }
+    if case == "long": TipSample { x: 24px; y: 14px; says: "Automatic exposure"; detail: "Looks at about a second of the picture and sets brightness for you. Everything it sets stays on the sliders to change."; keys: ["F5"]; }
+    if case == "tint": TipSample { x: 24px; y: 14px; says: "Camera"; detail: "Which lens the phone uses."; hue: hue; }
+    if case == "tint-keys": TipSample { x: 24px; y: 14px; says: "Take a photo"; keys: ["Ctrl", "P"]; hue: hue; }
+    if case == "flip": TipSample { x: 24px; y: root.height - 14px - Theme.row; says: "Exposure"; detail: "Adjusts the picture's brightness for you."; }
+    if case == "edge": TipSample { x: root.width - 24px - Theme.row; y: 14px; says: "Take a photo"; detail: "Saves the picture to your photos folder."; keys: ["Ctrl", "P"]; }
+    TipLayer { }
+}

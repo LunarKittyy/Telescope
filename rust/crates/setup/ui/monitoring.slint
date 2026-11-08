@@ -81,10 +81,10 @@ component AlertBlock inherits VerticalLayout {
                 value: root.spin-text;
                 label: root.label;
                 enabled: root.enabled;
+                tip: root.spin-tip;
                 committed(t) => { root.committed(t); }
                 step(d) => { root.step(d); }
             }
-            if root.spin-tip != "": Tooltip { TipBody { says: root.spin-tip; } }
         }
     }
     SwitchTile {

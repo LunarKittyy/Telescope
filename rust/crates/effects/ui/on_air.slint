@@ -14,9 +14,9 @@ component UrlRow inherits FormRow {
             label: root.label;
             placeholder: root.placeholder;
             text <=> root.text;
+            tip: root.tip;
             edited(t) => { root.edited(t); }
         }
-        if tip != "": Tooltip { TipBody { says: root.tip; } }
     }
 }
 
@@ -80,7 +80,7 @@ export component OnAirSettings inherits VerticalLayout {
                 color: Status.color(state-kind);
                 vertical-alignment: center;
                 overflow: elide;
-                if shown-state-text.preferred-width > shown-state-text.width: Tooltip { TipBody { says: shown-state-text.text; } }
+                Tip { says: shown-state-text.text; enabled: shown-state-text.preferred-width > shown-state-text.width; inert: true; }
                 horizontal-stretch: 1;
             }
         }
@@ -94,9 +94,9 @@ export component OnAirSettings inherits VerticalLayout {
                     caption: @tr("On air when");
                     items: trigger-items;
                     current: trigger-current;
+                    tip: root.trigger-tip;
                     picked(i) => { root.trigger-picked(i); }
                 }
-                Tooltip { TipBody { says: root.trigger-tip; } }
             }
         }
     }
@@ -159,9 +159,9 @@ export component OnAirSettings inherits VerticalLayout {
                     caption: @tr("Address");
                     items: addresses;
                     current: address-current;
+                    tip: root.address-tip;
                     picked(i) => { root.address-picked(i); }
                 }
-                Tooltip { TipBody { says: root.address-tip; } }
             }
         }
         if url-shown: FormRow {

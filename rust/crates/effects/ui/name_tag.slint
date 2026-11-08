@@ -12,9 +12,9 @@ component TextRow inherits FormRow {
             height: 32px;
             label: root.label;
             text <=> root.text;
+            tip: root.tip;
             edited(t) => { root.edited(t); }
         }
-        if tip != "": Tooltip { TipBody { says: root.tip; } }
     }
 }
 

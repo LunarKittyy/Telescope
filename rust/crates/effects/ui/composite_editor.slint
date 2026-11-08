@@ -216,7 +216,7 @@ component SwatchRow inherits HorizontalLayout {
         accessible-role: button;
         accessible-label: label + ": " + code;
         touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
-        Tooltip { TipBody { says: root.label; } }
+        Tip { says: root.label; hover: touch.has-hover; }
     }
     Text {
         text: code;
@@ -229,6 +229,13 @@ component SwatchRow inherits HorizontalLayout {
 
 export component CompositeEditor inherits Window {
     title: @tr("Edit picture");
+    // The window's size, for a tooltip to stay inside it
+    init => {
+        WindowBox.width = self.width;
+        WindowBox.height = self.height;
+    }
+    changed width => { WindowBox.width = self.width; }
+    changed height => { WindowBox.height = self.height; }
     background: Theme.bg;
     min-width: 960px;
     min-height: 600px;
@@ -432,7 +439,7 @@ export component CompositeEditor inherits Window {
                             LabelRow {
                             label-width: 72px;
                                 label: @tr("Stream");
-                                shown-tile-name := Text { text: selected-tile.name; font-family: Theme.font; font-size: Theme.body; color: Theme.text; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; if shown-tile-name.preferred-width > shown-tile-name.width: Tooltip { TipBody { says: shown-tile-name.text; } } }
+                                shown-tile-name := Text { text: selected-tile.name; font-family: Theme.font; font-size: Theme.body; color: Theme.text; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; Tip { says: shown-tile-name.text; enabled: shown-tile-name.preferred-width > shown-tile-name.width; inert: true; } }
                             }
                             SliderRow {
                                     label-width: 72px;
@@ -532,7 +539,7 @@ export component CompositeEditor inherits Window {
                         LabelRow {
                             label-width: 72px;
                             label: @tr("Picture");
-                            shown-picture-name := Text { text: picture-name; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; if shown-picture-name.preferred-width > shown-picture-name.width: Tooltip { TipBody { says: shown-picture-name.text; } } }
+                            shown-picture-name := Text { text: picture-name; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; Tip { says: shown-picture-name.text; enabled: shown-picture-name.preferred-width > shown-picture-name.width; inert: true; } }
                             Button { y: 2px; text: @tr("Picture"); tip: @tr("Put a picture behind the streams instead of the colour"); clicked => { root.picture-clicked(); } }
                             if has-picture: IconButton { y: 3px; icon: Icons.x; label: @tr("No picture"); clicked => { root.no-picture(); } }
                         }
@@ -593,4 +600,5 @@ export component CompositeEditor inherits Window {
             }
         }
     }
+    TipLayer { }
 }

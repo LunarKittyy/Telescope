@@ -118,7 +118,8 @@ export component UpdatesSettings inherits Card {
             items: channels;
             current: channel;
             enabled: !busy;
-            tip: @tr("Nightly: built from every change. Fixes first, less tested.");
+            tip: @tr("Nightly");
+            tip-detail: @tr("Built from every change. Fixes first, less tested.");
             picked(i) => { root.channel-picked(i); }
         }
     }

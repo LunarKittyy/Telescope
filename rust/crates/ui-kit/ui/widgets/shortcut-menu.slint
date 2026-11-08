@@ -12,6 +12,8 @@ export global Shortcuts {
     // Goes up whenever the saved shortcuts change, so bindings-for asks again
     in property <int> version;
     pure callback bindings-for(string, int) -> [ShortcutEntry];
+    // The keys of an action's first saved shortcut, one string per key ("Ctrl", "Alt", "M"), for the caps in its tooltip
+    pure callback key-chips(string, int) -> [string];
     callback add(string);
     callback edit(string);
 }

@@ -796,6 +796,19 @@ pub fn all() -> Vec<Scene> {
             ..Setup::window(Some(services(quiet())), config, WIDTH_THREE_COL, 900.0)
         }
     }));
+    // The tooltip of a control that has a saved shortcut (its keys as caps beside the name), and of one that has none
+    scenes.push(Scene::new("tip-control-mute", || {
+        let mut config = mic_config();
+        config["plugin_configs"]["shortcuts"]["bindings"] = json!([{"id": "a", "keys": "Ctrl+Alt+M", "action": "microphone.mute", "params": {"mode": "toggle"}}]);
+        Setup {
+            page: Page::ControlTip { label: "Mute".into(), from: (330.0, 40.0), size: (540.0, 170.0) },
+            ..Setup::window(Some(services(quiet())), config, WIDTH_THREE_COL, 900.0)
+        }
+    }));
+    scenes.push(Scene::new("tip-control-auto-level", || Setup {
+        page: Page::ControlTip { label: "Auto level".into(), from: (330.0, 40.0), size: (540.0, 170.0) },
+        ..Setup::window(Some(services(quiet())), mic_config(), WIDTH_THREE_COL, 900.0)
+    }));
     scenes.push(Scene::new("menu-control-pan", || Setup {
         page: Page::ControlMenu { label: "Pan".into(), size: (300.0, 90.0) },
         ..Setup::window(Some(services(quiet())), main_window_config(true), WIDTH_THREE_COL, 900.0)

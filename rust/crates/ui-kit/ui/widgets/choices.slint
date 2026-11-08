@@ -2,11 +2,11 @@
 
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
-import { Icon, FocusRing, TouchRing } from "basics.slint";
+import { Icon, FocusRing, TouchRing, KeyFocus } from "basics.slint";
 import { WindowBox } from "dialog.slint";
 import { FlickBar } from "scroll.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
-import { TipBody, TipUse } from "tip.slint";
+import { Tip } from "tip.slint";
 import { SearchWords } from "setting.slint";
 
 // Kind "segmented": equal raised segments side by side. The picked one has a thick border in the card's colour and a muted inside,
@@ -16,6 +16,8 @@ export component Segmented inherits Rectangle {
     in property <[bool]> disabled;
     // What to say on hover over each item, where there's something to say (why it can't be picked)
     in property <[string]> tips;
+    // A line or two more under an item's tip
+    in property <[string]> tip-details;
     // A 13px line icon before each item's text, where has-icons says so
     in property <[image]> icons;
     in property <[bool]> has-icons;
@@ -109,7 +111,7 @@ export component Segmented inherits Rectangle {
                 }
             }
             FocusRing { shown: seg-focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
-            usage := TipUse { hover: seg-touch.has-hover; }
+            usage := Tip { says: tips[i]; detail: tip-details.length > i ? tip-details[i] : ""; hover: seg-touch.has-hover; focused: seg-focus.has-focus && KeyFocus.keyboard; }
             seg-touch := TouchArea {
                 mouse-cursor: off ? default : pointer;
                 scroll-event(e) => { usage.wheel(); reject }
@@ -127,8 +129,6 @@ export component Segmented inherits Rectangle {
                     }
                 }
             }
-            // Above the touch area, which would otherwise take the pointer before the tooltip sees it
-            if tips[i] != "" && !usage.used: Tooltip { TipBody { says: tips[i]; } }
             HorizontalLayout {
                 alignment: center;
                 spacing: Theme.u(3);
@@ -334,8 +334,10 @@ export component ChoiceField inherits Rectangle {
     in property <bool> enabled: true;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
-    // A tooltip, when there's something to say beyond the label
+    // A tooltip, when there's something to say beyond the label: its name, then a line or two more and the keys that do the same
     in property <string> tip;
+    in property <string> tip-detail;
+    in property <[string]> tip-keys;
     callback picked(int);
     // The row the arrows move to from `from`, or there when there's none that way
     function step-from(from: int, by: int) -> int {
@@ -412,7 +414,7 @@ export component ChoiceField inherits Rectangle {
     accessible-value: shown < 0 ? placeholder : items[shown];
     accessible-expandable: true;
     accessible-expanded: open;
-    accessible-description: tip;
+    accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
     accessible-action-default => { if (root.enabled) { popup.show(); } }
     forward-focus: focus;
     focus := FocusScope {
@@ -433,7 +435,7 @@ export component ChoiceField inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
-    usage := TipUse { hover: touch.has-hover; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
@@ -446,7 +448,6 @@ export component ChoiceField inherits Rectangle {
         }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    if root.tip != "" && !usage.used: Tooltip { TipBody { says: root.tip; } }
     if has-icon: Icon {
         source: icon;
         tint: icon-tint;

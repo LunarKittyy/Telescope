@@ -1,7 +1,7 @@
 // The window around the cards (app.py _build_header, _build_footer, widgets/banner.py, widgets/tiles.py). The window
 // itself is written by the shell at startup (doc.rs), which places every plugin's card between these.
 
-import { Theme, Icons, Icon, FocusRing, Button, IconButton, TipBody, TipUse, ShortcutMenu } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, KeyFocus, Button, IconButton, Tip, TipBody, TipUse, ShortcutMenu } from "@ui-kit/ui-kit.slint";
 
 export struct BannerData {
     key: string,
@@ -95,7 +95,7 @@ export component FooterPill inherits Rectangle {
     width: lay.preferred-width;
     accessible-role: text;
     accessible-label: caption + " " + value;
-    if tip != "": Tooltip { TipBody { says: tip; } }
+    Tip { says: root.tip; inert: true; }
     lay := HorizontalLayout {
         spacing: Theme.u(4);
         Text { text: caption; font-family: Theme.font; font-size: Theme.tiny; color: Theme.ink2; vertical-alignment: center; }
@@ -123,7 +123,7 @@ export component Footer inherits Rectangle {
             horizontal-stretch: 1;
             text: status;
             overflow: elide;
-            if shown-status.preferred-width > shown-status.width: Tooltip { TipBody { says: shown-status.text; } }
+            Tip { says: shown-status.text; enabled: shown-status.preferred-width > shown-status.width; inert: true; }
             font-family: Theme.font;
             font-size: Theme.body;
             color: StatusColors.of(status-kind);
@@ -242,7 +242,7 @@ component StreamTile inherits Rectangle {
     }
     FocusRing { shown: focus.has-focus; radius: Theme.r-card; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
     touch := TouchArea { mouse-cursor: pointer; clicked => { root.focus-requested(); } }
-    if !data.focused: Tooltip { TipBody { says: @tr("Show this one's settings"); } }
+    Tip { says: data.focused ? "" : @tr("Show this one's settings"); hover: touch.has-hover; focused: focus.has-focus && KeyFocus.keyboard; }
     lay := HorizontalLayout {
         padding-left: 8px;
         padding-right: 6px;
