@@ -50,8 +50,14 @@ export component Slider inherits HorizontalLayout {
     in property <float> default-value;
     // A tooltip on the slider and its readout
     in property <string> tip;
-    // The value as a box beside the readout would hold it (LogSliderRow's spin box): a click on the readout types over it there. Empty: only a readout.
+    // The value as a box beside the readout would hold it (LogSliderRow's spin box): a click on the readout types over it there, and
+    // `typed` hands the text to the owner to read. Empty: the slider reads a typed number itself (below) and says it with moved and released.
     in property <string> typing;
+    // Without `typing`: Enter on the slider or a double-click on the readout opens a box for the number, Enter sets it and Escape leaves it as it was
+    in property <bool> type-in: true;
+    property <bool> can-type: enabled && has-readout && (typing != "" || type-in);
+    // The box was opened from the keyboard, so the focus goes back to the slider when it closes
+    property <bool> typing-by-key;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     // The id of the setting it is ("colour_grading.contrast"), which a caller outside the window outlines it by when it reads or changes it
@@ -61,11 +67,34 @@ export component Slider inherits HorizontalLayout {
     property <bool> dragging;
     // The pointer is on the readout when it takes typing
     property <bool> readout-over;
+    // What the arrows move by: one step. Page up and down and Shift with an arrow move by a tenth of the range, in whole steps
+    out property <float> key-small: max(0.0001, step);
+    out property <float> key-big: max(0.0001, step) * max(1, round((maximum - minimum) / max(0.0001, step) / 10));
+    // Every way of setting a value from the keyboard or a typed number goes through here, saying what a drag says: moved, then released
+    function set-to(v: float) {
+        let to = clamp(v, minimum, maximum);
+        if (to != shown) {
+            local = to;
+            touched = true;
+            moved(to);
+            released(to);
+        }
+    }
+    function start-typing(by-key: bool) {
+        if (can-type) {
+            typing-by-key = by-key;
+            is-typing = true;
+        }
+    }
     function typing-done(text: string) {
         if (is-typing) {
             is-typing = false;
-            KeyFocus.given-back += 1;
-            if (text != typing) { typed(text); }
+            if (typing-by-key) { slider-focus.focus(); } else { KeyFocus.given-back += 1; }
+            if (typing != "") {
+                if (text != typing) { typed(text); }
+            } else if (text.is-float()) {
+                set-to(round(text.to-float() / max(0.0001, step)) * max(0.0001, step));
+            }
         }
     }
     callback moved(float);
@@ -101,17 +130,21 @@ export component Slider inherits HorizontalLayout {
         accessible-value-maximum: maximum;
         accessible-value-step: step;
         accessible-description: tip;
-        accessible-action-increment => { if (enabled) { local = min(maximum, shown + step); touched = true; moved(local); released(local); } }
-        accessible-action-decrement => { if (enabled) { local = max(minimum, shown - step); touched = true; moved(local); released(local); } }
+        accessible-action-increment => { if (enabled) { set-to(shown + step); } }
+        accessible-action-decrement => { if (enabled) { set-to(shown - step); } }
         forward-focus: slider-focus;
         slider-focus := FocusScope {
             focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
             enabled: root.enabled;
             key-pressed(e) => {
-                if (e.text == Key.UpArrow) { local = min(maximum, shown + step); touched = true; moved(local); released(local); return accept; }
-                if (e.text == Key.DownArrow) { local = max(minimum, shown - step); touched = true; moved(local); released(local); return accept; }
-                if (e.text == Key.LeftArrow) { local = max(minimum, shown - step); touched = true; moved(local); released(local); return accept; }
-                if (e.text == Key.RightArrow) { local = min(maximum, shown + step); touched = true; moved(local); released(local); return accept; }
+                let by = e.modifiers.shift ? key-big : key-small;
+                if (e.text == Key.UpArrow || e.text == Key.RightArrow) { set-to(shown + by); return accept; }
+                if (e.text == Key.DownArrow || e.text == Key.LeftArrow) { set-to(shown - by); return accept; }
+                if (e.text == Key.PageUp) { set-to(shown + key-big); return accept; }
+                if (e.text == Key.PageDown) { set-to(shown - key-big); return accept; }
+                if (e.text == Key.Home) { set-to(minimum); return accept; }
+                if (e.text == Key.End) { set-to(maximum); return accept; }
+                if (e.text == "\n" && can-type) { start-typing(true); return accept; }
                 reject
             }
         }
@@ -226,12 +259,13 @@ export component Slider inherits HorizontalLayout {
     }
     if has-readout: Rectangle {
         width: readout-width;
-        if typing != "": typing-touch := TouchArea {
+        if can-type: typing-touch := TouchArea {
             enabled: root.enabled;
-            mouse-cursor: MouseCursor.text;
+            mouse-cursor: typing != "" ? MouseCursor.text : MouseCursor.default;
             pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
             changed has-hover => { readout-over = self.has-hover; }
-            clicked => { is-typing = true; }
+            clicked => { if (typing != "") { start-typing(false); } }
+            double-clicked => { start-typing(false); }
         }
         if !is-typing: Text {
             width: parent.width;
@@ -248,7 +282,7 @@ export component Slider inherits HorizontalLayout {
         if is-typing: TextInput {
             width: parent.width;
             height: parent.height;
-            text: root.typing;
+            text: root.typing != "" ? root.typing : "\{root.shown}";
             font-family: Theme.font;
             font-size: Theme.body;
             font-weight: Theme.w-value;
@@ -263,7 +297,11 @@ export component Slider inherits HorizontalLayout {
             accepted => { root.typing-done(self.text); }
             changed has-focus => { if (!self.has-focus) { root.typing-done(self.text); } }
             key-pressed(e) => {
-                if (e.text == Key.Escape) { root.is-typing = false; KeyFocus.given-back += 1; return accept; }
+                if (e.text == Key.Escape) {
+                    root.is-typing = false;
+                    if (typing-by-key) { slider-focus.focus(); } else { KeyFocus.given-back += 1; }
+                    return accept;
+                }
                 reject
             }
         }

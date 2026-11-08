@@ -37,6 +37,8 @@ Two looks share the same tokens: the new one and Classic (the deep blue of 5.0).
 
 Category colours stay: a card's hue goes on its icon and on its controls' active state. `Theme.muted(hue)` is the hue quietened for rest, `Theme.tint(hue)` the muted inside of an active control.
 
+`tests/colours.rs` measures the category hues in OKLCH, in both looks: each within 0.04 of the middle lightness, chroma under 0.14, at least 3:1 against the card, and at least 30 degrees of hue from `ok`, `warn` and `err` (greys have no hue to compare). A colour that fails is listed in the test's `KNOWN` with why, and the test fails again when a colour changes either way. Add a ninth hue and the test says whether it fits.
+
 ## Type
 
 One family, IBM Plex Sans, bundled in `ui/fonts` (regular, medium, semibold, bold, with its OFL licence beside them) and imported by `theme.slint`, so the window never depends on a system font. A few styles, weight and size carrying the hierarchy (no capitals, no tracking tricks: some scripts have no case). Plex doesn't cover Hindi, Japanese, Korean or Chinese: those fall back to a system font. `Theme.line-factor` puts a wrapped line on Plex's whole-pixel pitch, and a text that needs a baseline by hand uses Plex's ascent of 1.025 em.
@@ -125,6 +127,16 @@ One anatomy for every slider: a track, a handle, the value on the right, and a t
 
 The grey ramps keep the card's colour on the handle, since black or white would vanish into the track.
 
+Keys and typing, the same on every slider (the focused slider takes them; tested in `crates/shell/tests/slider_keys.rs`):
+
+- Arrow keys step by one `step` (`key-small`).
+- Shift with an arrow, Page Up and Page Down step by a tenth of the range in whole steps (`key-big`: 10 on 0 to 100, 100 on 0 to 1000).
+- Home and End go to the minimum and the maximum.
+- Enter on the slider, or a double-click on its value, opens a box with the number. Enter sets it (held to the range and rounded to the step, a non-number is dropped), Escape and clicking away leave the value as it was. After a key opened it, the focus goes back to the slider.
+- A slider with `typing` set (a value that isn't its position, like a shutter time) opens its box on a click and hands the text to `typed` for the owner to read. `type-in: false` turns the number box off.
+
+Every one of these says what a drag says, `moved` then `released`, and says nothing when the value didn't change, so an owner never has to know how a value was set.
+
 At rest everything is muted: the fill and the handle's border in the quietened colour, the handle's inside in the card's. While the slider is held its full colour comes up, handle included, and dims when it is let go. A simple colour change for now; the animations are a later pass.
 
 ## Bubbles
@@ -137,6 +149,16 @@ Nothing moves when it opens or closes yet. `reveal` is the one number to ease la
 
 `ColourField` is the one way to pick a colour: a swatch as wide as its row that shows the colour itself, in a raised well so a colour near the card's own still reads as a control. A click opens a bubble with a saturation and brightness pad, a hue strip, a pipette that picks from the preview (the plugin starts that pick) and, behind a small switch, the exact values (hex, red, green, blue). The pad and strip hold full colour, not the muted look of a slider's fill, since the colour is what they are for. The plugin keeps hue, saturation and brightness as the pad left them so a grey or a black keeps its hue, and stores whatever it already stored.
 
+## Specimen sheet
+
+Every kind in every state, side by side, in the new look and in Classic. Rows are kinds and columns are rest, on, hover, focus, held, disabled, placeholder and a long text (what a German translation gives). A kind with no cell in a column has no such state. Read it as a picture: a kind whose hover or held cell looks like its rest cell is the usual fault, and so is a long text that is cut off or runs out of its row.
+
+```
+cargo run -p telescope-shell --bin shell-specimen -- OUT
+```
+
+in `rust/` (with `SLINT_BACKEND=testing`, so nothing opens a window) writes `OUT/new.png` and `OUT/classic.png`. The cells are drawn from `crates/shell/ui/specimen.slint` and the grid is laid out in `crates/shell/src/specimen.rs`: a new kind or a new state is a line in its `KINDS` table and a block in the .slint file. Regenerate it after changing a widget and look at what moved.
+
 ## Adding or changing a control
 
-Put it in `ui/widgets`, give it a `control-kind` from the table (add the kind here first if it is truly new), build it from tokens only, and use it from the card. A card that needs a look the kit lacks asks for a new kind or a new variation of one, it doesn't draw its own.
+Put it in `ui/widgets`, give it a `control-kind` from the table (add the kind here first if it is truly new), build it from tokens only, add it to the specimen sheet, and use it from the card. A card that needs a look the kit lacks asks for a new kind or a new variation of one, it doesn't draw its own.

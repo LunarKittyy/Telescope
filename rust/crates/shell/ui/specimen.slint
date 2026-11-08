@@ -1,0 +1,95 @@
+// One cell of the specimen sheet (src/specimen.rs): one kit control in one state, on a card's surface. Read crates/ui-kit/STYLE.md.
+// The sheet draws this window once per control, state and look, and puts the pictures in a grid.
+
+import { Theme, KeyFocus, Icons, Button, IconButton, LinkText, Switch, SwitchTile, Segmented, ChoiceField, Slider, TextField, NumberField, Jog, Stepper, SettingRow, Tag, TipBody, Card, FormRow, SectionHeading, ScrollBar } from "@ui-kit/ui-kit.slint";
+export { Theme, KeyFocus }
+
+export component Cell inherits Window {
+    // The control, as src/specimen.rs names it
+    in property <string> kind;
+    // The state: disabled, nothing filled in yet, a long text (what a German translation would give), lit
+    in property <bool> off;
+    in property <bool> empty;
+    in property <bool> long;
+    in property <bool> lit;
+    background: Theme.card;
+    property <color> hue: Theme.plugin-hue("camera");
+    VerticalLayout {
+        padding: 12px;
+        alignment: center;
+        spacing: 6px;
+        if kind == "button": Button { text: long ? "Automatische Belichtungsmessung aktivieren" : "Reset"; enabled: !off; }
+        if kind == "button-primary": Button { text: long ? "Übertragung jetzt starten und fortsetzen" : "Start streaming"; role: "primary"; enabled: !off; }
+        if kind == "button-danger": Button { text: long ? "Alle gespeicherten Einstellungen löschen" : "Forget phone"; role: "danger"; enabled: !off; }
+        if kind == "button-quiet": Button { text: long ? "Erweiterte Einstellungen anzeigen" : "Details"; role: "quiet"; enabled: !off; }
+        if kind == "icon-button": HorizontalLayout { alignment: start; IconButton { icon: Icons.bell; label: "Notify"; enabled: !off; } }
+        if kind == "link": HorizontalLayout { alignment: start; LinkText { text: long ? "Datenschutzerklärung und Nutzungsbedingungen anzeigen" : "Learn more"; url: "https://example.org"; font-size: Theme.body; } }
+        if kind == "switch": HorizontalLayout { alignment: start; Switch { label: "Notify"; checked: lit; hue: hue; enabled: !off; } }
+        if kind == "toggle": SwitchTile { text: long ? "Automatische Benachrichtigung bei Verbindungsabbruch" : "Notify"; icon: Icons.bell; checked: lit; hue: hue; enabled: !off; }
+        if kind == "slider": Slider {
+            label: "Zoom";
+            minimum: 0;
+            maximum: 100;
+            value: 40;
+            hue: hue;
+            readout: long ? "+1,0 Blendenstufen (automatisch)" : "40%";
+            enabled: !off;
+        }
+        if kind == "segmented": Segmented {
+            label: "Mode";
+            items: long ? ["Automatisch", "Manuell", "Antippen zum Fokussieren"] : ["Auto", "Tap", "Manual"];
+            disabled: [off, off, off];
+            current: 0;
+            hue: hue;
+        }
+        if kind == "picker": ChoiceField {
+            caption: long ? "Belichtungskorrektur" : "Lens";
+            items: long ? ["Weitwinkel (ultraweit)", "Normal (Hauptkamera)", "Teleobjektiv"] : ["Wide", "Normal", "Long"];
+            current: empty ? -1 : 1;
+            placeholder: long ? "Bitte ein Objektiv wählen" : "Choose";
+            enabled: !off;
+        }
+        if kind == "field": TextField { text: empty ? "" : long ? "Wohnzimmer-Kamera von Christoph (Pixel 8 Pro)" : "Pixel 8"; placeholder: long ? "Namen für dieses Telefon eingeben" : "Name"; label: "Name"; enabled: !off; }
+        if kind == "number": NumberField { value: empty ? "" : long ? "1234567890" : "42"; label: "Number"; enabled: !off; }
+        if kind == "jog": Jog { near-text: long ? "Näher heran" : "Near"; far-text: long ? "Weiter weg" : "Far"; label: "Focus"; hue: hue; enabled: !off; }
+        if kind == "stepper": Stepper { caption: long ? "Brennweite" : "Zoom"; items: long ? ["Ultraweitwinkel 0,5x", "Hauptkamera 1x", "Teleobjektiv 5x"] : ["0.5x", "1x", "5x"]; current: 1; enabled: !off; }
+        if kind == "strip": SettingRow {
+            title: long ? "Bei Verbindungsabbruch automatisch neu verbinden" : "Reconnect";
+            sub: long ? "Versucht es alle paar Sekunden" : "";
+            enabled: !off;
+            Switch { label: "Reconnect"; checked: lit; hue: hue; enabled: !off; }
+        }
+        if kind == "badge": HorizontalLayout { alignment: start; Tag { text: long ? "Experimentell und noch nicht stabil" : "Experimental"; } }
+        if kind == "tip": HorizontalLayout { alignment: start; TipBody { says: long ? "Stellt die Belichtung automatisch nach, solange das Telefon streamt, und merkt sich den Wert." : "Adjusts exposure for you."; } }
+        if kind == "row": FormRow { label: long ? "Belichtungskorrektur" : "Exposure"; enabled: !off; Segmented { label: "Exposure"; items: ["Auto", "Manual"]; hue: hue; } }
+        if kind == "section": SectionHeading { text: long ? "Weißabgleich und Farbtemperatur" : "White balance"; icon: Icons.thermometer; }
+        if kind == "scrollbar": HorizontalLayout { alignment: start; ScrollBar { width: 11px; height: 80px; content: 400px; viewport: 100px; offset: 0px; } }
+        if kind == "card": Card {
+            title: long ? "Belichtung und Weißabgleich" : "Camera";
+            icon: Icons.camera;
+            hue: hue;
+            enabled: !off;
+            FormRow { label: "Mode"; Segmented { label: "Mode"; items: ["Auto", "Manual"]; hue: hue; } }
+        }
+    }
+}
+
+// A row or column heading of the sheet
+export component Heading inherits Window {
+    in property <string> text;
+    in property <bool> column;
+    background: Theme.ground;
+    Text {
+        x: 6px;
+        width: parent.width - 12px;
+        height: parent.height;
+        text: root.text;
+        font-family: Theme.font;
+        font-size: Theme.small;
+        font-weight: Theme.w-value;
+        color: Theme.ink2;
+        vertical-alignment: center;
+        horizontal-alignment: column ? center : left;
+        overflow: elide;
+    }
+}
