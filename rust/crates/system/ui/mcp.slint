@@ -163,18 +163,24 @@ export component McpSettings inherits VerticalLayout {
     }
 }
 
-// Half of the split header button: a segment with its own hover, focus and press
+// Half of the split header button: a raised segment with its own hover, focus and press, and the thick outline while the AI is changing things
 component Segment inherits Rectangle {
     in property <bool> enabled: true;
     in property <string> label;
     in property <string> tip;
+    // The outline of state, in the accent while it is on
+    in property <bool> outlined;
     callback clicked;
     accessible-role: button;
     accessible-label: label;
     accessible-description: tip;
     accessible-enabled: enabled;
     accessible-action-default => { if (enabled) { clicked(); } }
-    background: touch.pressed && enabled ? Theme.surface-hover : touch.has-hover && enabled ? Theme.surface-raise : transparent;
+    border-radius: Theme.r-ctl;
+    border-width: outlined ? Theme.stroke : 0px;
+    border-color: Theme.accent;
+    background: !enabled ? Theme.trough : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : Theme.raise;
+    animate background, border-width { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
     forward-focus: focus;
     focus := FocusScope {
         enabled: root.enabled;
@@ -183,7 +189,7 @@ component Segment inherits Rectangle {
             reject
         }
     }
-    FocusRing { shown: focus.has-focus; radius: 6px; x: 0px; y: 0px; width: parent.width; height: parent.height; }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; x: 0px; y: 0px; width: parent.width; height: parent.height; }
     usage := Tip { says: root.tip; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         enabled: root.enabled;
@@ -195,8 +201,9 @@ component Segment inherits Rectangle {
     @children
 }
 
-// The header's MCP button, there while the plugin is on. Left: whether an AI app is connected, and open the MCP settings. Right: undo what
-// the AI changed. activity is "" at rest, "read" while it looks at things and "change" while it moves things, and fades back on its own.
+// The header's MCP button, there while the plugin is on: two raised segments side by side. Left: whether an AI app is connected, and open the
+// MCP settings. Right: undo what the AI changed. activity is "" at rest, "read" while it looks at things and "change" while it moves things,
+// and fades back on its own.
 export component McpButton inherits Rectangle {
     in property <bool> shown;
     in property <bool> connected;
@@ -209,32 +216,29 @@ export component McpButton inherits Rectangle {
     callback open;
     callback undo;
     visible: shown;
-    height: 36px;
-    width: shown ? 104px : 0px;
-    border-radius: 8px;
-    border-width: 1px;
-    clip: true;
-    border-color: activity == "change" ? Theme.accent : Theme.border;
-    animate border-color { duration: Motion.fades ? Motion.outline-out : 0ms; easing: Motion.tone; }
+    height: Theme.u(18);
+    width: shown ? Theme.u(56) + Theme.gap + Theme.u(18) : 0px;
     HorizontalLayout {
+        spacing: Theme.u(1);
         Segment {
             horizontal-stretch: 1;
             label: open-label;
             tip: open-tip;
+            outlined: activity == "change";
             clicked => { root.open(); }
             HorizontalLayout {
-                padding-left: 12px;
-                padding-right: 10px;
-                spacing: 8px;
+                padding-left: Theme.u(6);
+                padding-right: Theme.u(5);
+                spacing: Theme.u(4);
                 alignment: start;
                 VerticalLayout {
-                    width: 8px;
+                    width: Theme.u(4);
                     alignment: center;
                     Rectangle {
-                        height: 8px;
-                        border-radius: 4px;
-                        border-width: connected ? 0px : 1.5px;
-                        border-color: Theme.text-faint;
+                        height: Theme.u(4);
+                        border-radius: self.height / 2;
+                        border-width: connected ? 0px : Theme.u(0.75);
+                        border-color: Theme.faint;
                         background: !connected ? transparent : activity == "change" ? Theme.accent : activity == "read" ? Theme.accent-soft : Theme.ok;
                         animate background { duration: Motion.fades ? Motion.outline-out : 0ms; easing: Motion.tone; }
                         accessible-role: none;
@@ -244,19 +248,15 @@ export component McpButton inherits Rectangle {
                     text: @tr("MCP");
                     font-family: Theme.font;
                     font-size: Theme.body;
-                    font-weight: 600;
-                    color: connected ? Theme.text : Theme.text-dim;
+                    font-weight: Theme.w-value;
+                    color: connected ? Theme.ink : Theme.ink2;
                     vertical-alignment: center;
                     accessible-role: none;
                 }
             }
         }
-        Rectangle {
-            width: 1px;
-            background: Theme.border;
-        }
         Segment {
-            width: 36px;
+            width: Theme.u(18);
             enabled: can-undo;
             label: undo-label;
             tip: undo-tip;
@@ -267,9 +267,9 @@ export component McpButton inherits Rectangle {
                     alignment: center;
                     Icon {
                         source: Icons.reset;
-                        tint: can-undo ? Theme.text-dim : Theme.text-disabled;
-                        width: 16px;
-                        height: 16px;
+                        tint: can-undo ? Theme.ink2 : Theme.dis;
+                        width: Theme.icon;
+                        height: Theme.icon;
                     }
                 }
             }

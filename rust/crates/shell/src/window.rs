@@ -1036,6 +1036,15 @@ impl Window {
         done
     }
 
+    /// Sets one property of a plugin's card or header widget, as a scene does to put a card in a state no event gets it into.
+    pub fn set_card_property(self: &Rc<Self>, plugin: &str, ui: &str, prop: &str, value: &Value) -> bool {
+        let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else { return false };
+        let name = format!("{}-{prop}", r.id);
+        let done = self.ui.set_property(&name, to_property(&self.ui, &name, value)).is_ok();
+        self.process();
+        done
+    }
+
     /// Draws the preview through this from now on, in place of the graphics card's painter or the CPU's.
     pub fn use_painter(&self, painter: Box<dyn crate::preview::Painter>) {
         *self.painter.borrow_mut() = Some(painter);
@@ -1273,7 +1282,9 @@ impl Window {
                 let _ = self.ui.set_global_property("Theme", "classic", SValue::Bool(on));
                 for (_, _, open) in self.plugin_windows.borrow().iter() {
                     let _ = open.set_global_property("Theme", "classic", SValue::Bool(on));
+                    crate::frame::dress(open);
                 }
+                crate::frame::dress(&self.ui);
                 crate::settings::set_classic(on);
             }
             Effect::RestartCanvas { plugin, request, shows_command } => self.restart_canvas(&plugin, request, shows_command),
@@ -1361,7 +1372,14 @@ impl Window {
     }
 
     pub(crate) fn set(&self, name: &str, text: impl Into<SharedString>) {
-        let _ = self.ui.set_property(name, SValue::String(text.into()));
+        let text = text.into();
+        // The footer shows a stream by its camera and size, not the sentence that says them
+        if name == "status" {
+            let (camera, size) = streaming_parts(&text).unwrap_or_default();
+            let _ = self.ui.set_property("status-camera", SValue::String(camera.into()));
+            let _ = self.ui.set_property("status-size", SValue::String(size.into()));
+        }
+        let _ = self.ui.set_property(name, SValue::String(text));
     }
 
     /// _show_focus_stopped and the start button as it is while idle.
@@ -1629,5 +1647,63 @@ mod popout_tests {
         size(500, 300);
         super::fit_popout(&p, 0, 0);
         assert_eq!(now(), (500, 300), "no frame to take the shape of");
+    }
+}
+
+/// The camera and the size in the sentence "Streaming {size} at {fps} fps to {camera}" (the worker's, in the person's language), or None
+/// for any other status.
+pub(crate) fn streaming_parts(text: &str) -> Option<(String, String)> {
+    let template = tr("Streaming {size} at {fps} fps to {camera}");
+    // The template's text between its blanks (one more of these than there are blanks) and the blanks' names
+    let (mut literals, mut names) = (vec![String::new()], Vec::new());
+    let mut rest = template.as_str();
+    while let Some(open) = rest.find('{') {
+        let close = rest[open..].find('}')? + open;
+        literals.last_mut()?.push_str(&rest[..open]);
+        names.push(&rest[open + 1..close]);
+        literals.push(String::new());
+        rest = &rest[close + 1..];
+    }
+    literals.last_mut()?.push_str(rest);
+    if !text.starts_with(literals[0].as_str()) {
+        return None;
+    }
+    let mut at = literals[0].len();
+    let (mut size, mut camera) = (None, None);
+    for (i, name) in names.iter().enumerate() {
+        let next = &literals[i + 1];
+        // A blank runs to the text after it, or to the end of the sentence when nothing follows
+        let (end, resume) = if i + 1 == names.len() && next.is_empty() { (text.len(), text.len()) } else {
+            let end = text[at..].find(next.as_str())? + at;
+            (end, end + next.len())
+        };
+        let value = text[at..end].to_string();
+        match *name {
+            "size" => size = Some(value),
+            "camera" => camera = Some(value),
+            _ => {}
+        }
+        at = resume;
+    }
+    Some((camera?, size?))
+}
+
+#[cfg(test)]
+mod streaming_parts_tests {
+    use super::streaming_parts;
+
+    #[test]
+    fn the_camera_and_size_come_out_of_the_streaming_sentence() {
+        assert_eq!(streaming_parts("Streaming 1920 \u{d7} 1080 at 30 fps to Phone Camera"), Some(("Phone Camera".into(), "1920 \u{d7} 1080".into())));
+        assert_eq!(streaming_parts("Streaming 4 \u{d7} 4 at 24 fps to Telescope"), Some(("Telescope".into(), "4 \u{d7} 4".into())));
+        // a camera whose own name has the words in it
+        assert_eq!(streaming_parts("Streaming 640 \u{d7} 480 at 15 fps to Cam to go"), Some(("Cam to go".into(), "640 \u{d7} 480".into())));
+    }
+
+    #[test]
+    fn any_other_status_is_left_as_it_is() {
+        for text in ["Not streaming", "Stream reconnected", "Reconnecting.", "Streaming", "", "Virtual camera error: busy"] {
+            assert_eq!(streaming_parts(text), None, "{text:?}");
+        }
     }
 }

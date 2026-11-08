@@ -34,6 +34,7 @@ export global StatusColors {
     }
 }
 
+// The header's controls are one size, a little bigger than a card's: the bar's height less its padding
 // The header's icon button: the kit's, a little bigger.
 export component HeaderIconButton inherits Rectangle {
     in property <image> icon;
@@ -42,12 +43,13 @@ export component HeaderIconButton inherits Rectangle {
     in property <string> tip;
     in property <bool> enabled: true;
     callback clicked;
-    width: Theme.u(16);
-    height: Theme.u(16);
+    width: Theme.u(18);
+    height: Theme.u(18);
     accessible-role: none;
     IconButton {
         width: parent.width;
         height: parent.height;
+        raised: true;
         icon: root.icon;
         icon-size: root.icon-size;
         label: root.label;
@@ -65,9 +67,9 @@ export component StartButton inherits Rectangle {
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     callback clicked;
-    height: Theme.u(16);
+    height: Theme.u(18);
     // Start and Stop are the same size: the width never drops below what "Start streaming" and "Stop streaming" take
-    width: max(btn.min-width, Theme.u(82));
+    width: max(btn.min-width, Theme.u(88));
     accessible-role: none;
     btn := Button {
         width: parent.width;
@@ -76,8 +78,9 @@ export component StartButton inherits Rectangle {
         role: root.streaming ? "stop" : "go";
         has-icon: true;
         icon: root.streaming ? Icons.v-stop : Icons.v-play;
-        icon-size: Theme.icon-small;
-        padding-x: Theme.u(8);
+        icon-size: Theme.icon;
+        font-size: Theme.body * 1.08;
+        padding-x: Theme.u(9);
         gap: Theme.u(4);
         enabled: root.enabled;
         shortcut: root.shortcut;
@@ -85,32 +88,44 @@ export component StartButton inherits Rectangle {
     }
 }
 
-// The footer's FPS and Throughput: a quiet caption and a value, no pill.
-export component FooterPill inherits Rectangle {
-    in property <string> caption;
+// One of the footer's readouts: a small icon and the value, in the type of a card's value readout; the full name is its tooltip. The width
+// holds for the widest value it shows, so the readouts to its left don't move with the digits.
+component FooterReadout inherits Rectangle {
+    in property <image> icon;
     in property <string> value;
     in property <color> value-color: Theme.ink;
+    in property <string> name;
     in property <string> tip;
+    in property <length> least-width: Theme.u(24);
     height: Theme.u(12);
-    width: lay.preferred-width;
+    width: max(lay.preferred-width, least-width);
     accessible-role: text;
-    accessible-label: caption + " " + value;
-    Tip { says: root.tip; inert: true; }
+    accessible-label: name;
+    accessible-value: value;
+    Tip { says: root.name; detail: root.tip; inert: true; }
     lay := HorizontalLayout {
-        spacing: Theme.u(4);
-        Text { text: caption; font-family: Theme.font; font-size: Theme.tiny; color: Theme.ink2; vertical-alignment: center; }
-        Text { text: value; font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; color: value-color; vertical-alignment: center; }
+        spacing: Theme.u(3);
+        Icon { y: (parent.height - self.height) / 2; source: root.icon; tint: Theme.faint; width: Theme.icon-small; height: Theme.icon-small; accessible-role: none; }
+        Text { text: root.value; horizontal-stretch: 1; font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; color: root.value-color; vertical-alignment: center; horizontal-alignment: right; accessible-role: none; }
     }
 }
 
+// The bar under the window, the top bar's colour. Left: which camera is streaming and at what size, or the status in a word. Right, while
+// streaming: the frame rate and the throughput. Nothing else on it: no dot, no badge.
 export component Footer inherits Rectangle {
     in property <string> status;
     in property <string> status-kind: "status_dim";
+    // The camera and size of a stream that is going, from the streaming sentence; empty for any other status
+    in property <string> camera;
+    in property <string> size;
     in property <string> fps;
     in property <color> fps-color: Theme.ink;
     in property <string> fps-tip;
     in property <string> net;
     in property <color> net-color: Theme.ink;
+    property <bool> streaming: camera != "";
+    // Frames and throughput only mean something while there is a stream
+    property <bool> readouts: fps != "-" && fps != "";
     height: 40px;
     background: Theme.chrome;
     HorizontalLayout {
@@ -118,8 +133,37 @@ export component Footer inherits Rectangle {
         padding-right: 16px;
         padding-top: 8px;
         padding-bottom: 8px;
-        spacing: Theme.u(12);
-        shown-status := Text {
+        spacing: Theme.u(8);
+        if streaming: HorizontalLayout {
+            horizontal-stretch: 1;
+            spacing: Theme.u(4);
+            accessible-role: text;
+            accessible-label: root.status;
+            shown-camera := Text {
+                text: camera;
+                overflow: elide;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                font-weight: Theme.w-value;
+                color: Theme.ink;
+                vertical-alignment: center;
+                horizontal-stretch: 0;
+                min-width: 0px;
+                accessible-role: none;
+                Tip { says: shown-camera.text; detail: root.size; enabled: shown-camera.preferred-width > shown-camera.width; inert: true; }
+            }
+            Text {
+                text: size;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                color: Theme.faint;
+                vertical-alignment: center;
+                horizontal-stretch: 0;
+                accessible-role: none;
+            }
+            Rectangle { horizontal-stretch: 1; }
+        }
+        if !streaming: shown-status := Text {
             horizontal-stretch: 1;
             text: status;
             overflow: elide;
@@ -130,8 +174,8 @@ export component Footer inherits Rectangle {
             vertical-alignment: center;
             accessible-role: text;
         }
-        FooterPill { caption: @tr("FPS"); value: fps; value-color: fps-color; tip: fps-tip; }
-        FooterPill { caption: @tr("Throughput"); value: net; value-color: net-color; }
+        if readouts: FooterReadout { icon: Icons.film; value: fps; value-color: fps-color; name: @tr("Frame rate"); tip: fps-tip; least-width: Theme.u(24); }
+        if readouts: FooterReadout { icon: Icons.gauge; value: net; value-color: net-color; name: @tr("Throughput"); least-width: Theme.u(44); }
     }
 }
 

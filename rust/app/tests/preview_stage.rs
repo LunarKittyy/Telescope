@@ -957,7 +957,7 @@ fn lens_boxes_show_for_a_moment_after_a_move_then_fade() {
     s.show(0, Frame::new(640, 360, PixelFormat::Rgba, [0, 0, 0, 255].repeat(640 * 360)));
     let left = s.at(0.25, 0.5);
     let button = |s: &Stage| s.element("Lens outlines").expect("the button").size().width;
-    assert_eq!(button(&s), 36.0, "icon only at a fixed width: it can't widen the stage");
+    assert_eq!(button(&s), 32.0, "icon only at a fixed width: it can't widen the stage");
     s.press_button("Lens outlines");
     assert!(!s.on("lenses-on"), "nothing to outline yet");
     s.r.w.emit(Event::LensBoxes { boxes: vec![lens_box()], moved: false });
@@ -965,7 +965,7 @@ fn lens_boxes_show_for_a_moment_after_a_move_then_fade() {
     let before = s.r.w.card_rect("preview").unwrap();
     s.press_button("Lens outlines");
     assert!(lit_near(&s, left), "always on");
-    assert_eq!((button(&s), s.r.w.card_rect("preview").unwrap()), (36.0, before));
+    assert_eq!((button(&s), s.r.w.card_rect("preview").unwrap()), (32.0, before));
     s.press_button("Lens outlines");
     assert!(!lit_near(&s, left));
 }

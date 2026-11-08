@@ -649,6 +649,18 @@ fn add_phone_pairing(adb: bool, network: bool, pairs: bool) -> Setup {
     }
 }
 
+/// The Add device dialog with Browser camera offered beside Android, on the page `page` (0 Android, 1 Browser camera).
+fn add_phone_browser(page: i32) -> Setup {
+    let mut setup = add_phone(false, true);
+    setup.then = Some(Box::new(move |w| {
+        w.emit(telescope_core::Event::StreamSourcesChanged { sources: vec![telescope_core::event::SourceName { id: telescope_core::source::BROWSER_SOURCE.into(), name: "Browser camera".into() }] });
+        w.call_ui("connection", "card", "add-phone");
+        wait(w, 200);
+        let _ = w.set_card_property("connection", "card", "add-page", &json!(page));
+    }));
+    setup
+}
+
 /// translation_scenes.adb_licence: on Windows without adb, Get adb from Google pressed. Here the question is in Add device.
 fn adb_licence() -> Setup {
     let link = SceneLink { answer: Some(Resolution::new(PhoneStatus::Unreachable)), adb: false, network: true, pairs: false };
@@ -823,6 +835,8 @@ pub fn all() -> Vec<Scene> {
     for &(id, adb, network) in ADD_PHONE {
         scenes.push(Scene::new(id, move || add_phone(adb, network)));
     }
+    scenes.push(Scene::new("dialog-add-phone-browser", || add_phone_browser(0)));
+    scenes.push(Scene::new("dialog-add-phone-browser-page", || add_phone_browser(1)));
     scenes.push(Scene::new("dialog-add-phone-done", || add_phone_pairing(true, true, true)));
     scenes.push(Scene::new("dialog-adb-licence", adb_licence));
     // translation_scenes.phones_dialog: Pixel 8 on Studio PC, and a browser remembered as a camera
