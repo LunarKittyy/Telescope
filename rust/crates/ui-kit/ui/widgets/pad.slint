@@ -4,7 +4,7 @@ import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { FocusRing, TouchRing, KeyFocus } from "basics.slint";
 import { Tip } from "tip.slint";
-import { ShortcutMenu } from "shortcut-menu.slint";
+import { ShortcutMenu, ShortcutEntry } from "shortcut-menu.slint";
 
 // A square of the surround's colour with a quarter circle cut out, over one corner (0 to 3 clockwise from the top left): the software renderer squares off a gradient's corners, so the drawing is rounded by covering them.
 component CornerCap inherits Path {
@@ -21,7 +21,7 @@ component CornerCap inherits Path {
         : "M 0 " + k + " L 0 0 A " + k + " " + k + " 0 0 0 " + k + " " + k + " Z";
 }
 
-// Kind "pad": one box that sets two numbers (x across, y up and down) with the caller's drawing and buttons as its children, which can follow `handle-x` and `handle-y`, and it says `moved` then `released` like a slider.
+// Kind "pad": one box that sets two numbers (x across, y up and down) with the caller's drawing and buttons as its children, which can follow `handle-x` and `handle-y`, and it says `moved` then `released` like a slider. With `box-w` and `box-h` the handle is a frame of that size instead of a puck (the crop on a map): a press inside it keeps hold of where it was grabbed, a press outside centres it there, and what lies outside it is dimmed.
 export component Pad inherits Rectangle {
     in property <float> x-minimum: 0;
     in property <float> x-maximum: 100;
@@ -53,6 +53,8 @@ export component Pad inherits Rectangle {
     // The numbers in a small chip on the pad, bottom right or top left
     in property <string> readout;
     in property <bool> readout-top-left;
+    // What a screen reader says for where it is: the readout unless the owner has better words
+    in property <string> spoken: readout;
     in property <string> label;
     in property <color> hue: Theme.accent;
     // The handle's inside: what colour lies under it, where the drawing has one
@@ -60,11 +62,16 @@ export component Pad inherits Rectangle {
     // The colour the pad sits on, which its rounded corners are cut out of
     in property <color> surround: Theme.card;
     in property <bool> enabled: true;
+    // The size of a frame handle, as it lies on the pad; 0 for the round puck. The frame's centre runs from half its size in to half its size in
+    in property <length> box-w: 0;
+    in property <length> box-h: 0;
     in property <string> tip;
     in property <string> tip-detail;
     in property <[string]> tip-keys;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
+    // A pad that stands for two actions gives their ids in `shortcut` with a space between, and an add item for each here
+    in property <[ShortcutEntry]> shortcut-adds;
     // The ids of the two settings it is, for the outline when something outside the window reads or changes them
     in property <string> setting-x;
     in property <string> setting-y;
@@ -72,14 +79,20 @@ export component Pad inherits Rectangle {
     callback moved(float, float);
     callback released(float, float);
     // The handle's centre, in the pad's own coordinates, for a drawing that follows it
-    out property <length> handle-x: inset + fraction-x * (self.width - 2 * inset);
-    out property <length> handle-y: inset + (y-up ? 1 - fraction-y : fraction-y) * (self.height - 2 * inset);
+    out property <length> handle-x: inset-x + fraction-x * (self.width - 2 * inset-x);
+    out property <length> handle-y: inset-y + (y-up ? 1 - fraction-y : fraction-y) * (self.height - 2 * inset-y);
     // Where the handle's centre runs from and to
-    property <length> inset: Theme.u(6);
+    property <bool> framed: box-w > 0px && box-h > 0px;
+    property <length> inset-x: framed ? box-w / 2 : Theme.u(6);
+    property <length> inset-y: framed ? box-h / 2 : Theme.u(6);
+    // Where a press took hold of the frame, so it follows the pointer from there
+    property <length> grab-dx;
+    property <length> grab-dy;
     property <float> fraction-x: (shown-x - x-minimum) / max(0.0001, x-maximum - x-minimum);
     property <float> fraction-y: (shown-y - y-minimum) / max(0.0001, y-maximum - y-minimum);
     property <bool> dragging;
-    property <bool> held: dragging && touch.pressed;
+    // A press has the handle and is dragging it (a screen reader and an owner that wants to know)
+    out property <bool> held: dragging && touch.pressed;
     // What the arrows move by: one step. Shift with an arrow moves by a tenth of the range, in whole steps
     out property <float> key-small-x: max(0.0001, step-x);
     out property <float> key-small-y: max(0.0001, step-y);
@@ -100,10 +113,10 @@ export component Pad inherits Rectangle {
     }
     // The numbers the pointer is at, held to the step
     function at-x(px: length) -> float {
-        round((x-minimum + clamp((px - inset) / max(1px, root.width - 2 * inset), 0, 1) * (x-maximum - x-minimum)) / max(0.0001, step-x)) * max(0.0001, step-x)
+        round((x-minimum + clamp((px - inset-x) / max(1px, root.width - 2 * inset-x), 0, 1) * (x-maximum - x-minimum)) / max(0.0001, step-x)) * max(0.0001, step-x)
     }
     function at-y(py: length) -> float {
-        let f = clamp((py - inset) / max(1px, root.height - 2 * inset), 0, 1);
+        let f = clamp((py - inset-y) / max(1px, root.height - 2 * inset-y), 0, 1);
         round((y-minimum + (y-up ? 1 - f : f) * (y-maximum - y-minimum)) / max(0.0001, step-y)) * max(0.0001, step-y)
     }
     function drag-to(px: length, py: length) {
@@ -127,7 +140,7 @@ export component Pad inherits Rectangle {
     background: enabled ? Theme.raise : Theme.trough;
     accessible-role: slider;
     accessible-label: label;
-    accessible-value: readout;
+    accessible-value: spoken;
     accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
     accessible-action-increment => { if (enabled) { set-to(shown-x + step-x, shown-y); } }
     accessible-action-decrement => { if (enabled) { set-to(shown-x - step-x, shown-y); } }
@@ -158,10 +171,13 @@ export component Pad inherits Rectangle {
             if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
                 dragging = true;
                 focus.focus();
-                drag-to(self.mouse-x, self.mouse-y);
+                let inside = framed && abs(self.mouse-x - handle-x) <= box-w / 2 && abs(self.mouse-y - handle-y) <= box-h / 2;
+                grab-dx = inside ? handle-x - self.mouse-x : 0px;
+                grab-dy = inside ? handle-y - self.mouse-y : 0px;
+                drag-to(self.mouse-x + grab-dx, self.mouse-y + grab-dy);
             }
             if (e.kind == PointerEventKind.move && dragging && self.pressed) {
-                drag-to(self.mouse-x, self.mouse-y);
+                drag-to(self.mouse-x + grab-dx, self.mouse-y + grab-dy);
             }
             if (dragging && ((e.kind == PointerEventKind.up && e.button == PointerEventButton.left) || e.kind == PointerEventKind.cancel)) {
                 dragging = false;
@@ -169,7 +185,7 @@ export component Pad inherits Rectangle {
             }
         }
         moved => {
-            if (self.pressed && dragging) { drag-to(self.mouse-x, self.mouse-y); }
+            if (self.pressed && dragging) { drag-to(self.mouse-x + grab-dx, self.mouse-y + grab-dy); }
         }
         double-clicked => {
             set-to(has-default ? default-x : centre-x, has-default ? default-y : centre-y);
@@ -181,8 +197,22 @@ export component Pad inherits Rectangle {
         height: parent.height;
         @children
     }
+    // A frame handle: what lies outside it dimmed, and the frame outlined in the card's colour (quiet at rest, full colour held), tinted inside while held
+    if framed: Rectangle { x: 0px; y: 0px; width: root.width; height: max(0px, handle-y - box-h / 2); background: Theme.stage.with-alpha(0.6); }
+    if framed: Rectangle { x: 0px; y: handle-y + box-h / 2; width: root.width; height: max(0px, root.height - handle-y - box-h / 2); background: Theme.stage.with-alpha(0.6); }
+    if framed: Rectangle { x: 0px; y: handle-y - box-h / 2; width: max(0px, handle-x - box-w / 2); height: box-h; background: Theme.stage.with-alpha(0.6); }
+    if framed: Rectangle { x: handle-x + box-w / 2; y: handle-y - box-h / 2; width: max(0px, root.width - handle-x - box-w / 2); height: box-h; background: Theme.stage.with-alpha(0.6); }
+    if framed: Rectangle {
+        x: handle-x - box-w / 2;
+        y: handle-y - box-h / 2;
+        width: box-w;
+        height: box-h;
+        border-width: Theme.stroke;
+        border-color: !enabled ? Theme.dis : held || touch.has-hover ? hue : Theme.muted(hue);
+        background: held ? hue.with-alpha(0.14) : transparent;
+    }
     if has-centre: Rectangle {
-        x: inset + (centre-x - x-minimum) / max(0.0001, x-maximum - x-minimum) * (root.width - 2 * inset) - Theme.stroke / 2;
+        x: inset-x + (centre-x - x-minimum) / max(0.0001, x-maximum - x-minimum) * (root.width - 2 * inset-x) - Theme.stroke / 2;
         y: Theme.u(4);
         width: Theme.stroke;
         height: root.height - Theme.u(8);
@@ -191,7 +221,7 @@ export component Pad inherits Rectangle {
     }
     if has-centre: Rectangle {
         x: Theme.u(4);
-        y: inset + (y-up ? 1 - (centre-y - y-minimum) / max(0.0001, y-maximum - y-minimum) : (centre-y - y-minimum) / max(0.0001, y-maximum - y-minimum)) * (root.height - 2 * inset) - Theme.stroke / 2;
+        y: inset-y + (y-up ? 1 - (centre-y - y-minimum) / max(0.0001, y-maximum - y-minimum) : (centre-y - y-minimum) / max(0.0001, y-maximum - y-minimum)) * (root.height - 2 * inset-y) - Theme.stroke / 2;
         width: root.width - Theme.u(8);
         height: Theme.stroke;
         border-radius: Theme.stroke / 2;
@@ -201,8 +231,8 @@ export component Pad inherits Rectangle {
     CornerCap { corner: 1; r: Theme.r-ctl; x: root.width - Theme.r-ctl; y: 0px; fill: surround; }
     CornerCap { corner: 2; r: Theme.r-ctl; x: root.width - Theme.r-ctl; y: root.height - Theme.r-ctl; fill: surround; }
     CornerCap { corner: 3; r: Theme.r-ctl; x: 0px; y: root.height - Theme.r-ctl; fill: surround; }
-    // A pad that can't be used lets the card show through what is drawn on it
-    if !enabled: Rectangle {
+    // A pad that can't be used lets the card show through what is drawn on it (a frame handle's pad keeps its picture: the frame goes grey instead)
+    if !enabled && !framed: Rectangle {
         border-radius: Theme.r-ctl;
         background: Theme.card;
         opacity: 0.55;
@@ -229,7 +259,7 @@ export component Pad inherits Rectangle {
         }
     }
     // Held, a halo of the card's full colour round the handle, since a handle already in full colour on hover has nothing else to change
-    if held: Rectangle {
+    if held && !framed: Rectangle {
         x: handle-x - self.width / 2;
         y: handle-y - self.height / 2;
         width: Theme.u(19);
@@ -237,7 +267,7 @@ export component Pad inherits Rectangle {
         border-radius: self.width / 2;
         background: hue.with-alpha(0.32);
     }
-    handle := Rectangle {
+    if !framed: handle := Rectangle {
         width: Theme.u(12);
         height: Theme.u(12);
         x: handle-x - self.width / 2;
@@ -248,5 +278,5 @@ export component Pad inherits Rectangle {
         border-color: !enabled ? Theme.dis : held ? hue : touch.has-hover ? hue : Theme.edge(hue);
     }
     FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
-    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; adds: root.shortcut-adds; }
 }

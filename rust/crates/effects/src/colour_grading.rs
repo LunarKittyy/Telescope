@@ -44,7 +44,7 @@ const WHEEL_TIPS: [&str; 4] = [
     n_("Highlights: colour and level, with black staying put"),
     n_("Everything: colour and level"),
 ];
-const WHEEL_HINT: &str = n_("Drag towards a colour to add it. Double-click to reset.");
+const WHEEL_HINT: &str = n_("Drag towards a colour to add it, holding Shift to go slower. Double-click to reset.");
 const NO_LUT: &str = n_("No LUT loaded");
 const CANT_OPEN: &str = n_("Telescope can't open that file.");
 const CANT_SAVE: &str = n_("Telescope couldn't save the LUT there.");
@@ -524,7 +524,7 @@ impl ColourGradingPlugin {
             "wheel-labels": WHEEL_NAMES.iter().map(|w| tr("{wheel} colour").field("wheel", tr(w))).collect::<Vec<_>>(),
             "reset-hint": tr("Double-click to reset"),
             "master-tips": WHEEL_TIPS.iter().map(|t| tr(t)).collect::<Vec<_>>(),
-            "wheel-tips": WHEEL_TIPS.iter().map(|t| format!("{}\n{}", tr(t), tr(WHEEL_HINT))).collect::<Vec<_>>(),
+            "wheel-hint": tr(WHEEL_HINT),
             "master-min": MASTER_RANGE.iter().map(|r| r.0).collect::<Vec<_>>(),
             "master-max": MASTER_RANGE.iter().map(|r| r.1).collect::<Vec<_>>(),
             "master-step": MASTER_STEPS.iter().map(|s| 1.0 / s).collect::<Vec<_>>(),

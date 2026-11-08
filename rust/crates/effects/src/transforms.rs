@@ -7,6 +7,7 @@ use crate::shared::{number_in, Paired};
 use serde_json::{json, Map, Value};
 use telescope_core::actions::{self, Choice, SliderSpec};
 use telescope_core::event::Event;
+use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::host::{Host, ViewChange};
 use telescope_core::i18n::{n_, number, percent, tr, tr_ctx};
 use telescope_core::lens::{lens_name, lens_label};
@@ -14,7 +15,7 @@ use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo, Str
 use telescope_core::settings::SettingSpec;
 use telescope_core::time::monotonic_ns;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
-use telescope_core::view::{self, lens_step, pan_for, shown_to_view, window, window_centre, zoom_detent, Geometry, PhoneZoomCaps, ViewStatus, ROTATIONS};
+use telescope_core::view::{self, lens_step, pan_for, shown_to_view, window, window_centre, zoom_detent, Geometry, PhoneZoom, PhoneZoomCaps, ViewStatus, ROTATIONS};
 
 pub const NAME: &str = "transforms";
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/pad.slint"), "\n", include_str!("../ui/transforms.slint"));
@@ -31,6 +32,16 @@ const LENS_SETTLE_S: f64 = 2.0;
 const PAN_STEPS: f64 = 200.0;
 const DEFAULT_MAX_ZOOM: i32 = 10;
 const T_SETTLE: &str = "settle";
+const T_MAP: &str = "map";
+/// The map's picture is made this often (5 a second) while its crop is held, and for MAP_AFTER_S after it is let go.
+pub const MAP_MS: u64 = 200;
+const MAP_AFTER_S: f64 = 0.4;
+/// A lens that just switched takes this long for its frames to arrive, so a picture made before then isn't placed by the new lens.
+const SHARE_SETTLE_S: f64 = 0.8;
+/// The widest the map's picture is made when the phone's own share of the view is smaller than the whole.
+const MAP_PICTURE_W: usize = 480;
+/// How much of its light the last picture of the whole view keeps behind a longer lens's live one.
+const BACKDROP_LIGHT: u32 = 115;
 
 const RESET_TIP: &str = n_("Clear flip, rotation, zoom, pan and stretch back to defaults");
 const PAN_TIP: &str = n_("Drag to move the view. Double-click to centre it.");
@@ -81,6 +92,56 @@ pub fn lens_note(zoom: f64, sent_ratio: f64, caps: Option<&PhoneZoomCaps>, live:
     (level, lines.join("\n"))
 }
 
+/// What the zoom and pan map shows: it only works while its crop is held (or keys move it), and costs nothing otherwise.
+#[derive(Default)]
+struct MapState {
+    /// The crop is held with the pointer.
+    held: bool,
+    /// Until when (monotonic seconds) the picture keeps being made: for ever while held, a moment after.
+    until: f64,
+    /// The timer is running.
+    ticking: bool,
+    /// The last picture of the whole view, kept while the phone's own share is less than that.
+    backdrop: Option<Frame>,
+    /// What the card was last given a picture of: the still's time and the share it was placed by.
+    shown: Option<(u64, [f64; 4])>,
+}
+
+/// Where the frame the phone sends lies in the full view of the main lens: (x, y, width, height), each 0 to 1. The whole of it unless
+/// the phone has switched to a longer lens or crops for itself.
+pub fn share_box(sent: Option<&PhoneZoom>) -> [f64; 4] {
+    let (zoom, pan_x, pan_y) = view::phone_window(sent);
+    let ((x, w), (y, h)) = (window(zoom, pan_x), window(zoom, pan_y));
+    [x, y, w, h]
+}
+
+/// The map's picture: `still` (the phone's frame, RGBA) put where it lies in the full view. When that is the whole view, the still
+/// itself; otherwise over the last picture of the whole view, dimmed, or over nothing when there hasn't been one.
+pub fn map_picture(still: &Frame, share: [f64; 4], backdrop: Option<&Frame>) -> Frame {
+    if still.format != PixelFormat::Rgba || share[2] >= 0.999 && share[3] >= 0.999 {
+        return still.clone();
+    }
+    let (w, h) = match backdrop {
+        Some(b) => (b.width as usize, b.height as usize),
+        None => {
+            let w = ((still.width as f64 / share[2].max(0.01)).round() as usize).clamp(1, MAP_PICTURE_W);
+            (w, ((w as f64 * still.height as f64 / still.width.max(1) as f64).round() as usize).max(1))
+        }
+    };
+    let mut data = vec![0u8; w * h * 4];
+    if let Some(b) = backdrop.filter(|b| b.format == PixelFormat::Rgba) {
+        for (to, from) in data.chunks_exact_mut(4).zip(b.data.chunks_exact(4)) {
+            to.copy_from_slice(&[(from[0] as u32 * BACKDROP_LIGHT / 255) as u8, (from[1] as u32 * BACKDROP_LIGHT / 255) as u8, (from[2] as u32 * BACKDROP_LIGHT / 255) as u8, from[3]]);
+        }
+    }
+    let (x, y) = ((share[0] * w as f64).round().max(0.0) as usize, (share[1] * h as f64).round().max(0.0) as usize);
+    let (bw, bh) = (((share[2] * w as f64).round() as usize).min(w.saturating_sub(x)), ((share[3] * h as f64).round() as usize).min(h.saturating_sub(y)));
+    if bw > 0 && bh > 0 {
+        telescope_core::image::resize_linear_into(&still.data, still.width as usize, still.height as usize, 4, &mut data, w * 4, (x, y, bw, bh));
+    }
+    Frame::new(w as u32, h as u32, PixelFormat::Rgba, data)
+}
+
 pub struct TransformsPlugin {
     flip_h: bool,
     flip_v: bool,
@@ -117,6 +178,7 @@ pub struct TransformsPlugin {
     /// The scroll wheel's zoom, finer than the slider's 0.01 steps (trackpads).
     wheel_zoom: f64,
     paired: Paired,
+    map: MapState,
     /// set_config has no host: the window hears the settings with the next hook that has one.
     pending_view: bool,
     held: [Option<bool>; 2],
@@ -156,6 +218,7 @@ impl TransformsPlugin {
             raw_pan: None,
             wheel_zoom: 1.0,
             paired: Paired::default(),
+            map: MapState::default(),
             pending_view: false,
             held: [None; 2],
         }
@@ -229,10 +292,6 @@ impl TransformsPlugin {
         if pct != 0.0 { percent(pct, 0, true) } else { percent(0.0, 0, false) }
     }
 
-    fn pan_text(&self) -> String {
-        tr("H {x}\nV {y}").field("x", Self::pan_label(self.pan_x)).field("y", Self::pan_label(self.pan_y))
-    }
-
     fn zoom_where_text(&self) -> String {
         let mut text = self.zoom_where.clone();
         if !self.snaps.is_empty() {
@@ -271,8 +330,16 @@ impl TransformsPlugin {
             "pan-x": self.pan_x,
             "pan-y": self.pan_y,
             "pan-enabled": self.pan_active(),
-            "pan-text": self.pan_text(),
         })
+    }
+
+    /// The map's shape: width over height of the phone's frame, from what the window shows before there is a picture.
+    fn map_aspect(&self, host: &dyn Host) -> f64 {
+        let shown = host.view_aspect() as f64;
+        if shown <= 0.0 {
+            return 16.0 / 9.0;
+        }
+        if matches!(self.rotation, Some(90 | 270)) { 1.0 / shown } else { shown }
     }
 
     fn stretch_props(&self) -> Value {
@@ -315,6 +382,10 @@ impl TransformsPlugin {
 
     fn show_all(&self, host: &mut dyn Host) {
         self.show(host, &self.all_props());
+        if self.map.shown.is_none() {
+            let aspect = self.map_aspect(host);
+            self.show(host, &json!({"map-aspect": aspect}));
+        }
     }
 
     fn show_zoom_where(&self, host: &mut dyn Host) {
@@ -373,6 +444,76 @@ impl TransformsPlugin {
         let (x, y) = (x.clamp(-1.0, 1.0), y.clamp(-1.0, 1.0));
         self.pan_steps = [(x * PAN_STEPS).trunc() as i32, (y * PAN_STEPS).trunc() as i32];
         self.on_pan_changed(host);
+    }
+
+    /// The map's crop was moved so its middle is at (cx, cy) of the frame: the pan that puts the window there.
+    fn on_map_moved(&mut self, host: &mut dyn Host, cx: f64, cy: f64) {
+        self.on_pan_pad(host, pan_for(cx, self.zoom), pan_for(cy, self.zoom));
+        self.map_touched(host);
+    }
+
+    /// The map's crop is held or let go.
+    fn on_map_grabbed(&mut self, host: &mut dyn Host, held: bool) {
+        self.map.held = held;
+        self.map_touched(host);
+    }
+
+    /// Something moved the map's crop: its picture is made every MAP_MS until a moment after the last touch, and not at all after that.
+    fn map_touched(&mut self, host: &mut dyn Host) {
+        self.map.until = if self.map.held { f64::INFINITY } else { now_s() + MAP_AFTER_S };
+        if !self.map.ticking {
+            self.map.ticking = true;
+            self.map_tick(host);
+            host.schedule(MAP_MS, T_MAP);
+        }
+    }
+
+    fn map_timer(&mut self, host: &mut dyn Host) {
+        if !self.map.ticking {
+            return;
+        }
+        self.map_tick(host);
+        if self.map.held || now_s() < self.map.until {
+            host.schedule(MAP_MS, T_MAP);
+        } else {
+            self.map.ticking = false;
+        }
+    }
+
+    /// The newest small copy of the whole frame, put where it lies in the full view, on the map.
+    fn map_tick(&mut self, host: &mut dyn Host) {
+        let source = host.focused_source_id();
+        let Some(still) = host.frames().raw_still(source.as_deref()) else { return };
+        // A lens that has just switched hasn't got its own frames in yet
+        if self.status.sent_ratio_at > 0.0 && now_s() - self.status.sent_ratio_at < SHARE_SETTLE_S {
+            return;
+        }
+        let share = share_box(self.status.sent.as_ref());
+        if self.map.shown == Some((still.time_ns, share)) {
+            return;
+        }
+        let whole = share[2] >= 0.999 && share[3] >= 0.999;
+        if whole {
+            self.map.backdrop = Some(still.clone());
+        }
+        let picture = map_picture(&still, share, self.map.backdrop.as_ref());
+        host.set_ui_image("card", "map-picture", &picture);
+        self.map.shown = Some((still.time_ns, share));
+        self.show(host, &json!({
+            "map-has-picture": true,
+            "map-aspect": picture.width as f64 / picture.height.max(1) as f64,
+            "map-share": share,
+            "map-share-on": !whole,
+        }));
+    }
+
+    /// A different stream: the last one's picture isn't this one's.
+    fn map_forget(&mut self, host: &mut dyn Host) {
+        if self.map.shown.take().is_some() || self.map.backdrop.take().is_some() {
+            self.map.backdrop = None;
+            let aspect = self.map_aspect(host);
+            self.show(host, &json!({"map-has-picture": false, "map-share-on": false, "map-aspect": aspect}));
+        }
     }
 
     /// Zoom or pan changed: the sliders follow and the window's view moves (the phone hears, the lens boxes move).
@@ -497,6 +638,7 @@ impl TransformsPlugin {
         self.stream = None;
         self.session = None;
         self.live_lens.clear();
+        self.map_forget(host);
         self.show_zoom_where(host);
     }
 }
@@ -546,6 +688,7 @@ impl Plugin for TransformsPlugin {
             Event::TimerFired { owner, token } if owner == NAME && token == T_SETTLE => {
                 self.show_zoom_where(host);
             }
+            Event::TimerFired { owner, token } if owner == NAME && token == T_MAP => self.map_timer(host),
             _ => {}
         }
     }
@@ -574,31 +717,12 @@ impl Plugin for TransformsPlugin {
                     self.on_zoom_changed(host, (n(0) * 100.0).round() as i32);
                 }
             }
-            "pad-pointer" => {
+            "map-moved" => {
                 if self.pan_active() {
-                    self.on_pan_pad(host, n(0), n(1));
+                    self.on_map_moved(host, n(0), n(1));
                 }
             }
-            "pad-key" => {
-                if !self.pan_active() {
-                    return;
-                }
-                let step = if b(1) { 0.1 } else { 0.01 };
-                let (x, y) = (self.pan_x, self.pan_y);
-                match event.args.first().and_then(Value::as_str).unwrap_or("") {
-                    "home" => self.on_pan_pad(host, 0.0, 0.0),
-                    "left" => self.on_pan_pad(host, x - step, y),
-                    "right" => self.on_pan_pad(host, x + step, y),
-                    "up" => self.on_pan_pad(host, x, y - step),
-                    "down" => self.on_pan_pad(host, x, y + step),
-                    _ => {}
-                }
-            }
-            "pad-reset" => {
-                if self.pan_active() {
-                    self.on_pan_pad(host, 0.0, 0.0);
-                }
-            }
+            "map-grabbed" => self.on_map_grabbed(host, b(0)),
             "stretch-moved" => {
                 let which = (n(0) as usize).min(1);
                 self.stretch_steps[which] = (n(1).round() as i32).clamp(STRETCH_RANGE.0, STRETCH_RANGE.1);
@@ -712,14 +836,16 @@ impl Plugin for TransformsPlugin {
         self.catch_up(host);
     }
 
-    fn on_stream_start(&mut self, _host: &mut dyn Host, stream: &StreamInfo) {
+    fn on_stream_start(&mut self, host: &mut dyn Host, stream: &StreamInfo) {
         self.stream = Some(stream.url.clone());
         self.session = Some(stream.session);
+        self.map_forget(host);
     }
 
     fn on_focus_gained(&mut self, host: &mut dyn Host, stream: &StreamInfo) {
         self.stream = Some(stream.url.clone());
         self.session = Some(stream.session);
+        self.map_forget(host);
         if let Some((live, default, tele)) = self.behind.take(host, stream.session) {
             self.live_lens = live;
             self.default_lens = default;

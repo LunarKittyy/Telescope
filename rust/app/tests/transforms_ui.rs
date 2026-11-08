@@ -3,6 +3,7 @@
 
 use serde_json::Value as Json;
 use slint::platform::{PointerEventButton, WindowEvent};
+use i_slint_backend_testing::ElementHandle;
 use slint_interpreter::{Compiler, ComponentHandle, ComponentInstance, Value};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -41,11 +42,11 @@ fn window(plugin: &mut TransformsPlugin) -> ComponentInstance {
     let card = plugin.card().expect("a card");
     let SlintSource::Text(source) = card.ui.source.clone() else { panic!("source text") };
     let kinds: [(&str, &[&str]); 6] = [
-        ("bool", &["active", "pan-enabled", "zoom-free"]),
-        ("float", &["pan-x", "pan-y", "rotation", "stretch-x", "stretch-y", "zoom", "zoom-max"]),
-        ("string", &["dot-level", "dot-tip", "pan-add-x", "pan-add-y", "pan-text", "pan-tip", "reset-hint", "reset-tip", "stretch-x-text", "stretch-y-text", "zoom-text", "zoom-tip"]),
+        ("bool", &["active", "pan-enabled", "zoom-free", "map-has-picture", "map-share-on"]),
+        ("float", &["pan-x", "pan-y", "rotation", "stretch-x", "stretch-y", "zoom", "zoom-max", "map-aspect"]),
+        ("string", &["dot-level", "dot-tip", "pan-add-x", "pan-add-y", "pan-tip", "reset-hint", "reset-tip", "stretch-x-text", "stretch-y-text", "zoom-text", "zoom-tip"]),
         ("[bool]", &["flips"]),
-        ("[float]", &["zoom-marks"]),
+        ("[float]", &["zoom-marks", "map-share"]),
         ("[string]", &["stretch-tips"]),
     ];
     let (mut declared, mut passed) = (String::new(), String::new());
@@ -58,9 +59,9 @@ fn window(plugin: &mut TransformsPlugin) -> ComponentInstance {
     let doc = format!(
         "import {{ Theme }} from \"@ui-kit/ui-kit.slint\";\nexport {{ Theme }}\nimport {{ {c} }} from \"plugin/card.slint\";\n\
          export component W inherits Window {{\n    width: {WIDTH}px;\n    height: 760px;\n    callback zoom-moved(float);\n    \
-         callback pad-pointer(float, float);\n    callback pad-key(string, bool);\n    callback pad-reset();\n{declared}    \
-         {c} {{ hue: Theme.hue-camera; {passed}zoom-moved(v) => {{ root.zoom-moved(v); }} pad-pointer(x, y) => {{ root.pad-pointer(x, y); }} \
-         pad-key(k, s) => {{ root.pad-key(k, s); }} pad-reset => {{ root.pad-reset(); }} }}\n}}",
+         callback map-moved(float, float);\n    callback map-grabbed(bool);\n{declared}    \
+         {c} {{ hue: Theme.hue-camera; {passed}zoom-moved(v) => {{ root.zoom-moved(v); }} map-moved(x, y) => {{ root.map-moved(x, y); }} \
+         map-grabbed(on) => {{ root.map-grabbed(on); }} }}\n}}",
         c = card.ui.component
     );
     let mut compiler = Compiler::default();
@@ -234,12 +235,26 @@ fn the_card_is_greyed_out_until_a_phone_is_paired() {
     assert!(rig.borrow().0.zoom() > 1.0, "and answers");
 }
 
-fn the_pan_pad_works_from_the_keyboard() {
+/// The map's box: where the pad sits in the window, and its size.
+fn map_box(w: &ComponentInstance) -> ((f64, f64), (f64, f64)) {
+    let pad = ElementHandle::find_by_element_type_name(w, "Pad").next().expect("the map's pad");
+    let (at, size) = (pad.absolute_position(), pad.size());
+    ((at.x as f64, at.y as f64), (size.width as f64, size.height as f64))
+}
+
+/// Where the middle of the crop is in the window, from the pan the plugin holds.
+fn crop_centre(w: &ComponentInstance, zoom: f64, pan: (f64, f64)) -> (f64, f64) {
+    use telescope_core::view::window_centre;
+    let ((x, y), (width, height)) = map_box(w);
+    (x + window_centre(zoom, pan.0) * width, y + window_centre(zoom, pan.1) * height)
+}
+
+fn the_pan_map_works_from_the_keyboard() {
     use slint::platform::Key;
     let rig = rig(true);
     tell(&rig, "zoom-moved", vec![serde_json::json!(2.0)]);
     let w = window(&mut rig.borrow_mut().0);
-    wire(&rig, &w, &["pad-key"]);
+    wire(&rig, &w, &["map-moved"]);
     sync(&rig, &w);
     // Tab reaches it, like any control that takes keys
     for _ in 0..30 {
@@ -249,11 +264,15 @@ fn the_pan_pad_works_from_the_keyboard() {
             break;
         }
     }
-    assert!(rig.borrow().0.pan().0 > 0.0, "the pad never took the key");
+    let x = rig.borrow().0.pan().0;
+    assert!(x > 0.0, "the map never took the key");
+    // an arrow is half a percent of the frame, which at 2x is 2% of the pan
+    assert!((x - 0.02).abs() < 0.006, "{x}");
     w.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Shift.into() });
     key(&w, Key::DownArrow);
     w.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Shift.into() });
-    assert_eq!(rig.borrow().0.pan().1, 0.1);
+    let y = rig.borrow().0.pan().1;
+    assert!((y - 0.2).abs() < 0.01, "Shift moves a tenth of the way: {y}");
     key(&w, Key::Home);
     assert_eq!(rig.borrow().0.pan(), (0.0, 0.0));
 }
@@ -262,16 +281,23 @@ fn a_double_click_resets_zoom_and_pan() {
     let rig = rig(true);
     tell(&rig, "zoom-moved", vec![serde_json::json!(4.2)]);
     let w = window(&mut rig.borrow_mut().0);
-    wire(&rig, &w, &["zoom-moved", "pad-pointer", "pad-reset"]);
+    wire(&rig, &w, &["zoom-moved", "map-moved"]);
     sync(&rig, &w);
     let zoom = disc(&w, "zoom-free");
-    tell(&rig, "pad-pointer", vec![serde_json::json!(0.6), serde_json::json!(0.0)]);
+    {
+        let (plugin, host) = &mut *rig.borrow_mut();
+        plugin.on_ui(host, &UiEvent { ui: "card".into(), callback: "map-moved".into(), args: vec![serde_json::json!(0.6), serde_json::json!(0.5)] });
+    }
     sync(&rig, &w);
-    // On the dot, off centre: only the double-click itself can bring it back
-    let dot = disc(&w, "pan-enabled");
-    double_click(&w, dot);
+    assert!(rig.borrow().0.pan().0 > 0.0);
+    // On the crop, off centre: only the double-click itself can bring it back
+    let at = crop_centre(&w, 4.2, rig.borrow().0.pan());
+    double_click(&w, at);
     assert_eq!((rig.borrow().0.pan().0, rig.borrow().0.zoom()), (0.0, 4.2));
-    tell(&rig, "pad-pointer", vec![serde_json::json!(0.6), serde_json::json!(0.0)]);
+    {
+        let (plugin, host) = &mut *rig.borrow_mut();
+        plugin.on_ui(host, &UiEvent { ui: "card".into(), callback: "map-moved".into(), args: vec![serde_json::json!(0.6), serde_json::json!(0.5)] });
+    }
     sync(&rig, &w);
     double_click(&w, zoom);
     assert_eq!((rig.borrow().0.zoom(), rig.borrow().0.pan().0), (1.0, 0.0));
@@ -315,32 +341,98 @@ fn auto_framing_visibly_disables_the_zoom_handle_and_value() {
     assert!(*moved.borrow() > 0, "and the slider answers again");
 }
 
-fn pan_slider_clamps_resets_and_emits() {
+fn the_map_drags_the_crop_clamps_resets_and_emits() {
     let rig = rig(true);
     tell(&rig, "zoom-moved", vec![serde_json::json!(2.0)]);
     let w = window(&mut rig.borrow_mut().0);
-    wire(&rig, &w, &["pad-pointer", "pad-reset"]);
+    wire(&rig, &w, &["map-moved", "map-grabbed"]);
     sync(&rig, &w);
-    let centre = disc(&w, "pan-enabled");
-    // A little way along: in steps of 1/200 of the way, as the slider it replaces
+    let ((_, _), (width, _)) = map_box(&w);
+    let centre = crop_centre(&w, 2.0, (0.0, 0.0));
+    // A little way along: the pan goes in steps of 1/200 of the way, as the sliders it replaced did
     drag(&w, centre, (centre.0 + 11.0, centre.1));
     let x = rig.borrow().0.pan().0;
     assert!(x > 0.0 && (x * 200.0 - (x * 200.0).round()).abs() < 1e-3, "{x}");
+    // 11 pixels is 11 / width of the frame, and at 2x a pan of 1 is a quarter of it
+    assert!((x - 11.0 / width * 4.0).abs() < 0.01, "{x}");
     assert_eq!(rig.borrow().0.pan().1, 0.0);
     assert_eq!(rig.borrow().1.view.pan_x, x as f32, "what the view was told");
     // Past the end stops at the end
     sync(&rig, &w);
-    drag(&w, disc(&w, "pan-enabled"), (centre.0 + 600.0, centre.1 - 600.0));
+    let pan = rig.borrow().0.pan();
+    drag(&w, crop_centre(&w, 2.0, pan), (centre.0 + 600.0, centre.1 - 600.0));
     assert_eq!(rig.borrow().0.pan(), (1.0, -1.0));
     sync(&rig, &w);
-    double_click(&w, disc(&w, "pan-enabled"));
+    let pan = rig.borrow().0.pan();
+    double_click(&w, crop_centre(&w, 2.0, pan));
     assert_eq!(rig.borrow().0.pan(), (0.0, 0.0));
-    // With nothing to pan around in, the pad's off
+    // With nothing to pan around in, the map's off
     tell(&rig, "zoom-moved", vec![serde_json::json!(1.0)]);
     sync(&rig, &w);
     assert_eq!(w.get_property("pan-enabled").unwrap(), Value::Bool(false));
     drag(&w, centre, (centre.0 + 30.0, centre.1));
     assert_eq!(rig.borrow().0.pan(), (0.0, 0.0));
+}
+
+fn a_press_inside_the_crop_holds_it_where_it_was_taken_and_one_outside_brings_it_there() {
+    let rig = rig(true);
+    tell(&rig, "zoom-moved", vec![serde_json::json!(2.0)]);
+    let w = window(&mut rig.borrow_mut().0);
+    let grabs = Rc::new(RefCell::new(Vec::<bool>::new()));
+    let seen = grabs.clone();
+    wire(&rig, &w, &["map-moved"]);
+    w.set_callback("map-grabbed", move |args| {
+        if let Value::Bool(on) = &args[0] {
+            seen.borrow_mut().push(*on);
+        }
+        Value::Void
+    }).unwrap();
+    sync(&rig, &w);
+    let ((_, _), (width, height)) = map_box(&w);
+    let centre = crop_centre(&w, 2.0, (0.0, 0.0));
+    // Taken by a corner of the crop: pressing alone moves nothing, and a drag moves it by the pointer's own distance
+    let corner = (centre.0 + width / 4.0 - 4.0, centre.1 + height / 4.0 - 4.0);
+    let (window, button) = (w.window(), PointerEventButton::Left);
+    window.dispatch_event(WindowEvent::PointerMoved { position: point(corner.0, corner.1) });
+    window.dispatch_event(WindowEvent::PointerPressed { position: point(corner.0, corner.1), button });
+    assert_eq!(rig.borrow().0.pan(), (0.0, 0.0), "it didn't jump to the pointer");
+    assert_eq!(*grabs.borrow(), vec![true], "held");
+    window.dispatch_event(WindowEvent::PointerMoved { position: point(corner.0 - width / 8.0, corner.1) });
+    window.dispatch_event(WindowEvent::PointerReleased { position: point(corner.0 - width / 8.0, corner.1), button });
+    assert_eq!(*grabs.borrow(), vec![true, false], "and let go");
+    let x = rig.borrow().0.pan().0;
+    // An eighth of the frame to the left is half the way along the pan, to the left
+    assert!((x + 0.5).abs() < 0.02, "{x}");
+    // A press outside the crop puts its middle there
+    sync(&rig, &w);
+    let outside = crop_centre(&w, 2.0, (0.0, 0.0));
+    let target = (outside.0 + width * 0.2, outside.1 - height * 0.2);
+    window.dispatch_event(WindowEvent::PointerMoved { position: point(target.0, target.1) });
+    window.dispatch_event(WindowEvent::PointerPressed { position: point(target.0, target.1), button });
+    window.dispatch_event(WindowEvent::PointerReleased { position: point(target.0, target.1), button });
+    let (px, py) = rig.borrow().0.pan();
+    assert!((px - 0.8).abs() < 0.03 && (py + 0.8).abs() < 0.03, "{px} {py}");
+}
+
+fn the_card_keeps_its_height_whatever_the_map_shows() {
+    let rig = rig(true);
+    let w = window(&mut rig.borrow_mut().0);
+    let height = |w: &ComponentInstance| {
+        let card = ElementHandle::find_by_element_type_name(w, "TransformsCard").next().expect("the card");
+        card.size().height
+    };
+    sync(&rig, &w);
+    let first = height(&w);
+    for (zoom, aspect, picture, share) in [(2.0, 16.0 / 9.0, true, false), (4.0, 9.0 / 16.0, true, true), (1.0, 4.0 / 3.0, false, false), (8.0, 21.0 / 9.0, true, true)] {
+        tell(&rig, "zoom-moved", vec![serde_json::json!(zoom)]);
+        sync(&rig, &w);
+        w.set_property("map-aspect", Value::Number(aspect)).unwrap();
+        w.set_property("map-has-picture", Value::Bool(picture)).unwrap();
+        w.set_property("map-share-on", Value::Bool(share)).unwrap();
+        w.set_property("map-share", from_json(&serde_json::json!([0.3, 0.3, 0.4, 0.4]))).unwrap();
+        offscreen::draw(w.window(), WIDTH as f32, 760.0, 1.0).expect("a picture");
+        assert_eq!(height(&w), first, "zoom {zoom}, shape {aspect}, picture {picture}, share {share}");
+    }
 }
 
 fn point(x: f64, y: f64) -> slint::LogicalPosition {
@@ -407,7 +499,9 @@ fn the_transforms_card_in_a_window() {
     auto_framing_visibly_disables_the_zoom_handle_and_value();
     dragging_the_zoom_sticks_to_a_lens_but_keys_dont();
     the_card_is_greyed_out_until_a_phone_is_paired();
-    the_pan_pad_works_from_the_keyboard();
+    the_pan_map_works_from_the_keyboard();
     a_double_click_resets_zoom_and_pan();
-    pan_slider_clamps_resets_and_emits();
+    the_map_drags_the_crop_clamps_resets_and_emits();
+    a_press_inside_the_crop_holds_it_where_it_was_taken_and_one_outside_brings_it_there();
+    the_card_keeps_its_height_whatever_the_map_shows();
 }

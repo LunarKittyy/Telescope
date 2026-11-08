@@ -201,6 +201,36 @@ export component Cell inherits Window {
             }
             IconButton { x: parent.width - self.width - Theme.u(3); y: Theme.u(3); icon: Icons.reset; label: "Reset"; enabled: !off; }
         }
+        if kind == "pad-map": Pad {
+            preferred-height: self.width * 9 / 16;
+            label: "Crop";
+            x-minimum: 0.2;
+            x-maximum: 0.8;
+            y-minimum: 0.2;
+            y-maximum: 0.8;
+            value-x: 0.6;
+            value-y: 0.4;
+            step-x: 0.005;
+            step-y: 0.005;
+            box-w: self.width / 2.5;
+            box-h: self.height / 2.5;
+            has-centre: false;
+            has-default: true;
+            default-x: 0.5;
+            default-y: 0.5;
+            hue: hue;
+            enabled: !off;
+            Rectangle { background: @linear-gradient(180deg, #4a78b8 0%, #9cc0e8 55%, #3d6b3c 56%, #24402a 100%); }
+        }
+        if kind == "wheel": ColourWheel {
+            puck-x: 0.35;
+            puck-y: 0.2;
+            puck-colour: #9a7fd0;
+            label: "Lift colour";
+            spoken: "towards purple, 40%";
+            hue: hue;
+            enabled: !off;
+        }
         if kind == "dial": HorizontalLayout {
             spacing: Theme.gap;
             Dial {
@@ -319,7 +349,7 @@ export component Heading inherits Window {
     }
 }
 
-import { ToggleTile, PictureSegmented, Pad, Dial, RailRow, AnchorFrame, TextArea } from "@ui-kit/ui-kit.slint";
+import { ToggleTile, PictureSegmented, Pad, Dial, RailRow, AnchorFrame, TextArea, ColourWheel } from "@ui-kit/ui-kit.slint";
 
 // A control with its tooltip held up, anchored where the case says
 component TipSample inherits Rectangle {

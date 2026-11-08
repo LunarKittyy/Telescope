@@ -171,6 +171,12 @@ pub trait FrameStore: Send + Sync {
     fn stream_frame(&self, source_id: Option<&str>) -> Option<StreamFrame>;
     /// Sends frame out on source_id's virtual camera in place of the stream's newest one, numbered number; false once it's newer.
     fn replace_frame(&self, source_id: Option<&str>, frame: Frame, number: u64) -> bool;
+    /// A small RGBA copy of the stream's newest picture as the phone sent it, before the view's zoom, pan, flip and turn (so the whole
+    /// frame, where stream_frame's is already cropped). None until the stream has made one: the first call starts it (about 5 a second)
+    /// and it stops again a moment after the last, so ask only while something is on screen that shows it.
+    fn raw_still(&self, _source_id: Option<&str>) -> Option<Frame> {
+        None
+    }
 }
 
 /// Changes a stream's H.264 access units before they're decoded (HostPackets); one per stream, on its thread.

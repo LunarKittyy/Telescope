@@ -1,17 +1,16 @@
 // The Colour grading card. Joined after parts.slint, which has the imports.
 
-// One wheel: its name and readout over the puck's ring, and the master slider under it
+// One wheel: its name and readout over the puck's disc, and the master slider under it
 component WheelCell inherits VerticalLayout {
     in property <string> name;
     in property <string> wheel-label;
-    in property <string> tip;
+    in property <string> hint;
     in property <string> master-tip;
     in property <string> master-shortcut;
     // The setting id of the master slider, for the outline when something outside the window reads or changes it
     in property <string> master-setting;
     // The kit fill of the master slider's track: a ramp for lift, gamma, gain or offset
     in property <string> master-fill: "plain";
-    in property <string> hint;
     in property <string> readout;
     in property <float> puck-x;
     in property <float> puck-y;
@@ -21,6 +20,7 @@ component WheelCell inherits VerticalLayout {
     in property <float> master-value;
     in property <float> master-step: 0.01;
     in property <float> master-default;
+    in property <length> wheel-height: Theme.u(72);
     in property <color> hue: Theme.accent;
     in property <bool> enabled: true;
     callback pressed();
@@ -29,19 +29,38 @@ component WheelCell inherits VerticalLayout {
     callback reset();
     callback key(string, bool);
     callback master-moved(float);
-    spacing: 4px;
+    spacing: Theme.u(2);
     horizontal-stretch: 1;
     HorizontalLayout {
-        Text { text: name; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; }
+        Text {
+            text: name;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-label;
+            color: enabled ? Theme.ink : Theme.dis;
+            vertical-alignment: center;
+            overflow: elide;
+        }
         Rectangle { horizontal-stretch: 1; }
-        Text { text: readout; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.accent-soft; vertical-alignment: center; }
+        Text {
+            text: readout;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-value;
+            color: enabled ? Theme.ink : Theme.dis;
+            vertical-alignment: center;
+        }
     }
-    Wheel {
+    ColourWheel {
+        height: root.wheel-height;
         puck-x: root.puck-x;
         puck-y: root.puck-y;
         puck-colour: root.puck-colour;
-        tip: root.tip;
+        hue: root.hue;
         label: root.wheel-label;
+        spoken: Spoken.wheel(root.puck-x, root.puck-y);
+        tip: root.wheel-label;
+        tip-detail: root.hint;
         enabled: root.enabled;
         pressed => { root.pressed(); }
         dragged(dx, dy, shift) => { root.dragged(dx, dy, shift); }
@@ -49,9 +68,8 @@ component WheelCell inherits VerticalLayout {
         reset => { root.reset(); }
         key(k, shift) => { root.key(k, shift); }
     }
-    // QSlider's 20px
     Rectangle {
-        height: 20px;
+        height: Theme.u(10);
         Slider {
             width: parent.width;
             height: parent.height;
@@ -92,7 +110,7 @@ export component ColourGradingCard inherits Card {
     in property <[color]> wheel-colour: [#808080, #808080, #808080, #808080];
     in property <[string]> wheel-labels: ["", "", "", ""];
     in property <[string]> master-tips: ["", "", "", ""];
-    in property <[string]> wheel-tips: ["", "", "", ""];
+    in property <string> wheel-hint;
     in property <[string]> master-text: ["", "", "", ""];
     in property <[float]> master-min: [0, 0, 0, 0];
     in property <[float]> master-max: [1, 1, 1, 1];
@@ -232,99 +250,37 @@ export component ColourGradingCard inherits Card {
     if page == 0: VerticalLayout {
         spacing: 8px;
         padding-top: 4px;
-        // The wheels' grid has rows 10px apart, the rows under it 8px (_primaries_page)
-        VerticalLayout {
-        spacing: 10px;
-        HorizontalLayout {
-            spacing: 12px;
-            WheelCell {
+        // The wheels, two by two: four of them side by side would be too small to set a colour with, and three in a row leaves offset alone
+        GridLayout {
+            spacing: Theme.u(5);
+            for name[i] in [@tr("Lift"), @tr("Gamma"), @tr("Gain"), @tr("Offset")]: WheelCell {
+                row: floor(i / 2);
+                col: mod(i, 2);
                 enabled: active;
-                name: @tr("Lift");
-                wheel-label: wheel-labels[0];
-                tip: wheel-tips[0];
-                master-tip: master-tips[0];
-                master-shortcut: "colour_grading.lift_master";
-                master-setting: "colour_grading.masters.lift";
-                master-fill: "lift";
-                hint: root.reset-hint;
-                readout: master-text[0];
-                puck-x: wheel-x[0]; puck-y: wheel-y[0]; puck-colour: wheel-colour[0];
-                master-min: master-min[0]; master-max: master-max[0]; master-value: master-value[0]; master-step: master-step[0]; master-default: master-default[0];
+                name: name;
+                wheel-label: wheel-labels[i];
+                hint: root.wheel-hint;
+                master-tip: master-tips[i];
+                master-shortcut: ["colour_grading.lift_master", "colour_grading.gamma_master", "colour_grading.gain_master", "colour_grading.offset_master"][i];
+                master-setting: ["colour_grading.masters.lift", "colour_grading.masters.gamma", "colour_grading.masters.gain", "colour_grading.masters.offset"][i];
+                master-fill: ["lift", "gamma", "gain", "offset"][i];
+                readout: master-text[i];
+                puck-x: wheel-x[i];
+                puck-y: wheel-y[i];
+                puck-colour: wheel-colour[i];
+                master-min: master-min[i];
+                master-max: master-max[i];
+                master-value: master-value[i];
+                master-step: master-step[i];
+                master-default: master-default[i];
                 hue: root.hue;
-                pressed => { root.wheel-pressed(0); }
-                dragged(dx, dy, s) => { root.wheel-dragged(0, dx, dy, s); }
-                released => { root.wheel-released(0); }
-                reset => { root.wheel-reset(0); }
-                key(k, s) => { root.wheel-key(0, k, s); }
-                master-moved(v) => { root.master-moved(0, v); }
+                pressed => { root.wheel-pressed(i); }
+                dragged(dx, dy, s) => { root.wheel-dragged(i, dx, dy, s); }
+                released => { root.wheel-released(i); }
+                reset => { root.wheel-reset(i); }
+                key(k, s) => { root.wheel-key(i, k, s); }
+                master-moved(v) => { root.master-moved(i, v); }
             }
-            WheelCell {
-                enabled: active;
-                name: @tr("Gamma");
-                wheel-label: wheel-labels[1];
-                tip: wheel-tips[1];
-                master-tip: master-tips[1];
-                master-shortcut: "colour_grading.gamma_master";
-                master-setting: "colour_grading.masters.gamma";
-                master-fill: "gamma";
-                hint: root.reset-hint;
-                readout: master-text[1];
-                puck-x: wheel-x[1]; puck-y: wheel-y[1]; puck-colour: wheel-colour[1];
-                master-min: master-min[1]; master-max: master-max[1]; master-value: master-value[1]; master-step: master-step[1]; master-default: master-default[1];
-                hue: root.hue;
-                pressed => { root.wheel-pressed(1); }
-                dragged(dx, dy, s) => { root.wheel-dragged(1, dx, dy, s); }
-                released => { root.wheel-released(1); }
-                reset => { root.wheel-reset(1); }
-                key(k, s) => { root.wheel-key(1, k, s); }
-                master-moved(v) => { root.master-moved(1, v); }
-            }
-        }
-        HorizontalLayout {
-            spacing: 12px;
-            WheelCell {
-                enabled: active;
-                name: @tr("Gain");
-                wheel-label: wheel-labels[2];
-                tip: wheel-tips[2];
-                master-tip: master-tips[2];
-                master-shortcut: "colour_grading.gain_master";
-                master-setting: "colour_grading.masters.gain";
-                master-fill: "gain";
-                hint: root.reset-hint;
-                readout: master-text[2];
-                puck-x: wheel-x[2]; puck-y: wheel-y[2]; puck-colour: wheel-colour[2];
-                master-min: master-min[2]; master-max: master-max[2]; master-value: master-value[2]; master-step: master-step[2]; master-default: master-default[2];
-                hue: root.hue;
-                pressed => { root.wheel-pressed(2); }
-                dragged(dx, dy, s) => { root.wheel-dragged(2, dx, dy, s); }
-                released => { root.wheel-released(2); }
-                reset => { root.wheel-reset(2); }
-                key(k, s) => { root.wheel-key(2, k, s); }
-                master-moved(v) => { root.master-moved(2, v); }
-            }
-            WheelCell {
-                enabled: active;
-                name: @tr("Offset");
-                wheel-label: wheel-labels[3];
-                tip: wheel-tips[3];
-                master-tip: master-tips[3];
-                master-shortcut: "colour_grading.offset_master";
-                master-setting: "colour_grading.masters.offset";
-                master-fill: "offset";
-                hint: root.reset-hint;
-                readout: master-text[3];
-                puck-x: wheel-x[3]; puck-y: wheel-y[3]; puck-colour: wheel-colour[3];
-                master-min: master-min[3]; master-max: master-max[3]; master-value: master-value[3]; master-step: master-step[3]; master-default: master-default[3];
-                hue: root.hue;
-                pressed => { root.wheel-pressed(3); }
-                dragged(dx, dy, s) => { root.wheel-dragged(3, dx, dy, s); }
-                released => { root.wheel-released(3); }
-                reset => { root.wheel-reset(3); }
-                key(k, s) => { root.wheel-key(3, k, s); }
-                master-moved(v) => { root.master-moved(3, v); }
-            }
-        }
         }
         for name[i] in [@tr("Temperature"), @tr("Tint"), @tr("Contrast"), @tr("Pivot"), @tr("Saturation"), @tr("Vibrance"), @tr("Shadows"), @tr("Highlights")]: SliderRow {
             enabled: active;

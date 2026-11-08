@@ -183,7 +183,7 @@ fn the_ring_is_as_thick_on_every_side_of_the_disc() {
         feed(&w, &host);
         let rgba = offscreen::draw(w.window(), card_width, HEIGHT, scale).expect("a picture").rgba;
         let wide = (card_width * scale).round() as usize;
-        for found in ElementHandle::find_by_element_type_name(&w, "Wheel") {
+        for found in ElementHandle::find_by_element_type_name(&w, "ColourWheel") {
             let (at, size) = (found.absolute_position(), found.size());
             let (cx, cy) = (((at.x + size.width / 2.0) * scale).round() as usize, ((at.y + size.height / 2.0) * scale).round() as usize);
             let radius = ((size.height.min(size.width) / 2.0 - 11.0) * scale) as usize;
