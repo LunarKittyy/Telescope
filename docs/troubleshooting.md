@@ -83,7 +83,7 @@ Click the phone's **Pair** button under USB in the Add phone dialog first, it do
 Google blocks these downloads in some countries. Get Google's platform-tools for Windows another way, then click **pick one you already have** in Add phone (or **Use my own adb…** under Virtual camera & phone in Settings) and choose `adb.exe` or the zip. Wi-Fi works without adb.
 
 **It streams over Wi-Fi although the phone is plugged in**
-The note under the Connection panel's status names the reason: Telescope isn't open on the phone, USB debugging isn't allowed yet or the cable has a different phone on it. Fix that and the next connect uses USB. To never use Wi-Fi set **Connect via** to USB only.
+Hover the status line of the Connection panel and its tooltip names the reason: Telescope isn't open on the phone, USB debugging isn't allowed yet or the cable has a different phone on it. Fix that and the next connect uses USB. To never use Wi-Fi set **Connect via** to USB only.
 
 **"Can't reach the phone"**
 Telescope isn't open on the phone, or the phone is on another network and not plugged in. Open Telescope on the phone and keep it on screen.

@@ -113,6 +113,9 @@ pub struct MonitoringPlugin {
     pub polling: bool,
     pub battery: Pill,
     pub temp: Pill,
+    /// The readings the bars on the card are filled to: the battery level and the temperature, None until the phone says.
+    level: Option<i64>,
+    temp_c: Option<f64>,
     phones: u32,
     source: String,
 }
@@ -143,6 +146,8 @@ impl MonitoringPlugin {
             polling: false,
             battery: Pill::empty("battery"),
             temp: Pill::empty("thermometer"),
+            level: None,
+            temp_c: None,
             phones: 0,
             source: String::new(),
         }
@@ -167,9 +172,11 @@ impl MonitoringPlugin {
         json!({
             "active": self.phones > 0,
             "phone-only-hidden": !self.source.is_empty(),
-            "battery-value": self.battery.value, "battery-note": self.battery.note, "battery-kind": self.battery.kind,
-            "battery-icon": self.battery.icon,
-            "temp-value": self.temp.value, "temp-note": self.temp.note, "temp-kind": self.temp.kind,
+            "battery-value": self.battery.value, "battery-note": self.battery.note, "battery-icon": self.battery.icon,
+            "battery-level": self.level.unwrap_or(0), "battery-has-level": self.level.is_some(),
+            "temp-value": self.temp.value, "temp-note": self.temp.note,
+            "temp-level": self.temp_c.unwrap_or(0.0), "temp-has-level": self.temp_c.is_some(),
+            "batt-alert": self.battery_alert, "temp-alert": self.temp_alert,
             "batt-text": Self::spin_text(self.battery_alert, "%"),
             "temp-text": Self::spin_text(self.temp_alert, " °C"),
             "batt-notify": self.battery_notify, "batt-stop": self.battery_stop,
@@ -215,6 +222,8 @@ impl MonitoringPlugin {
     fn clear_readings(&mut self, host: &mut dyn Host) {
         self.battery = Pill::empty("battery");
         self.temp = Pill::empty("thermometer");
+        self.level = None;
+        self.temp_c = None;
         self.show(host);
     }
 
@@ -275,6 +284,8 @@ impl MonitoringPlugin {
         let feel = match temp_kind { "status_ok" => tr("Cool"), "status_warn" => tr("Warm"), _ => tr("Hot") };
         self.temp = Pill { value: tr("{temp} °C").field("temp", number(temp_c, 1, false)), note: feel, kind: temp_kind.into(),
                            icon: "thermometer".into() };
+        self.level = Some(level);
+        self.temp_c = Some(temp_c);
         self.show(host);
     }
 
@@ -426,11 +437,6 @@ impl MonitoringPlugin {
         self.show(host);
     }
 
-    /// What a spin box typed reads as: its digits, with or without the suffix.
-    fn typed(text: &str) -> Option<i64> {
-        let digits: String = text.trim().chars().take_while(|c| c.is_ascii_digit()).collect();
-        telescope_core::names::whole_number(&digits)
-    }
 }
 
 impl Plugin for MonitoringPlugin {
@@ -523,24 +529,10 @@ impl Plugin for MonitoringPlugin {
             return;
         }
         let text = event.args.first().and_then(Value::as_str).unwrap_or("");
-        let by = event.args.first().and_then(Value::as_i64).unwrap_or(0);
+        let level = event.args.first().and_then(Value::as_f64).map_or(0, |v| v.round() as i64);
         match event.callback.as_str() {
-            "batt-committed" => match Self::typed(text) {
-                Some(v) => self.set_battery_alert(host, v),
-                None => self.show(host),
-            },
-            "temp-committed" => match Self::typed(text) {
-                Some(v) => self.set_temp_alert(host, v),
-                None => self.show(host),
-            },
-            "batt-step" => {
-                let v = self.battery_alert + by;
-                self.set_battery_alert(host, v);
-            }
-            "temp-step" => {
-                let v = self.temp_alert + by;
-                self.set_temp_alert(host, v);
-            }
+            "batt-moved" => self.set_battery_alert(host, level),
+            "temp-moved" => self.set_temp_alert(host, level),
             "alert-toggled" => {
                 let on = event.args.get(1).and_then(Value::as_bool).unwrap_or(false);
                 self.set_switch(host, text, on);

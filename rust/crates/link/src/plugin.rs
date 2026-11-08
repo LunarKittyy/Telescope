@@ -1079,7 +1079,7 @@ pub fn card_props(c: &Connection, ctx: &CardCtx) -> Value {
         let text = match &ctx.source {
             None => tr("No device yet"),
             Some(_) if c.streaming && live => tr_ctx("status", "Streaming"),
-            Some(source) if c.streaming => tr("Waiting for {source}…").field("source", source),
+            Some(source) if c.streaming => tr("Waiting for {source}").field("source", source),
             Some(source) => tr("{source}, no pairing needed").field("source", source),
         };
         p.insert("status-kind".into(), json!(if live { "status_ok" } else { "status_dim" }));
@@ -1087,7 +1087,6 @@ pub fn card_props(c: &Connection, ctx: &CardCtx) -> Value {
         for (k, v) in [("using-shown", false), ("route-shown", false), ("switch-usb-shown", false), ("update-shown", false)] {
             p.insert(k.into(), json!(v));
         }
-        p.insert("route-icon".into(), json!("x"));
         p.insert("note-text".into(), json!(""));
         return Value::Object(p);
     };
@@ -1095,7 +1094,7 @@ pub fn card_props(c: &Connection, ctx: &CardCtx) -> Value {
     let (mut kind, mut text) = status_line(res);
     if c.streaming {
         (kind, text) = if c.lost {
-            ("status_warn", tr("Reconnecting…"))
+            ("status_warn", tr("Reconnecting"))
         } else if c.connected {
             ("", match c.stream_route() {
                 Some(r) if is_usb(&r) => tr("Streaming over USB"),
@@ -1103,7 +1102,7 @@ pub fn card_props(c: &Connection, ctx: &CardCtx) -> Value {
                 None => tr_ctx("status", "Streaming"),
             })
         } else {
-            ("status_dim", tr("Connecting…"))
+            ("status_dim", tr("Connecting"))
         };
     }
     let route = if c.streaming { c.stream_route() } else { res.and_then(|r| r.route.clone()) };
@@ -1129,7 +1128,6 @@ pub fn card_props(c: &Connection, ctx: &CardCtx) -> Value {
     json!({
         "status-kind": kind, "status-text": text,
         "using-text": route_text(route.as_ref()), "using-shown": route.is_some(),
-        "route-icon": match &route { Some(r) if is_usb(r) => "usb", Some(_) => "wifi", None => "x" },
         "route-shown": true, "route-current": route_index(preference),
         "note-text": note, "note-kind": note_kind,
         "switch-usb-shown": c.switch_usb_visible && c.streaming,
@@ -2235,11 +2233,11 @@ mod tests {
         e.shared.conn().set_stream_route(Some(wifi()));
         e.host.focused = Some("id-a".into());
         e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "https://10.0.0.5:8080/v1/video.h264".into(), session: 0 });
-        assert_eq!(e.status(), "Connecting…");
+        assert_eq!(e.status(), "Connecting");
         e.plugin.on_event(&mut e.host, &Event::StreamConnected { source_id: "id-a".into() });
         assert_eq!(e.status(), "Streaming over Wi-Fi");
         e.plugin.on_event(&mut e.host, &Event::StreamLost { source_id: "id-a".into() });
-        assert_eq!(e.status(), "Reconnecting…");
+        assert_eq!(e.status(), "Reconnecting");
     }
 
     #[test]
@@ -2822,7 +2820,7 @@ mod tests {
         assert!(e.host.is_scheduled(T_USB_WATCH));
 
         e.plugin.on_event(&mut e.host, &Event::StreamLost { source_id: String::new() });
-        assert_eq!(e.status(), "Reconnecting…");
+        assert_eq!(e.status(), "Reconnecting");
         assert!(!e.host.is_scheduled(T_USB_WATCH)); // recovery picks USB up by itself
 
         e.plugin.on_event(&mut e.host, &Event::StreamConnected { source_id: String::new() });

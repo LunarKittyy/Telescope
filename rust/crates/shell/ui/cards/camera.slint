@@ -1,6 +1,6 @@
-// The Camera card, built from ui-kit's widgets.
+// The Camera card, built from ui-kit's widgets: an icon rail, then one column of controls.
 
-import { Theme, Icons, Icon, Button, Card, Section, FormRow, Segmented, Slider, SwitchTile, ChoiceField, ShortcutMenu, Tip, TipBody } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Tip, Card, RailRow, Segmented, Slider, ToggleTile, Dial, ShortcutMenu } from "@ui-kit/ui-kit.slint";
 
 export struct Lens {
     id: string,
@@ -10,7 +10,7 @@ export struct Lens {
     name: string,
 }
 
-// A switch tile as the card holds it: on or off, usable, and why not.
+// A toggle tile as the card holds it: on or off, usable, and why not.
 export struct TileState {
     checked: bool,
     enabled: bool,
@@ -22,46 +22,51 @@ component LensTile inherits Rectangle {
     in property <bool> on;
     in property <color> hue;
     callback clicked;
-    height: 54px;
+    height: Theme.u(27);
     horizontal-stretch: 1;
-    border-radius: 7px;
-    border-width: 1px;
-    background: on ? hue.with-alpha(0.12) : touch.has-hover ? #2c333e : Theme.surface-raise;
-    border-color: on ? hue : touch.has-hover ? Theme.border-hover : Theme.border-strong;
+    border-radius: Theme.r-ctl;
+    border-width: on ? Theme.stroke : 0px;
+    border-color: hue;
+    background: on ? (touch.pressed ? Theme.held(hue) : Theme.tint(hue)) : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : Theme.raise;
     accessible-role: button;
     accessible-label: lens.name;
     accessible-checked: on;
     accessible-action-default => { root.clicked(); }
-    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    usage := Tip { says: lens.name; hover: touch.has-hover; }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
+        clicked => { root.clicked(); }
+    }
     ShortcutMenu { action: "camera.lens"; }
     VerticalLayout {
         alignment: center;
-        spacing: 2px;
+        spacing: Theme.u(1);
         HorizontalLayout {
             alignment: center;
-            spacing: 1px;
+            spacing: Theme.u(0.5);
             Text {
                 text: lens.number;
                 font-family: Theme.font;
-                font-size: 16px; // 1.25 of the body size, 16.25px, which Qt draws at 16
-                font-weight: 600;
-                color: on ? hue : Theme.text;
+                font-size: Theme.body * 1.25;
+                font-weight: Theme.w-value;
+                color: on ? hue : Theme.ink;
             }
             Text {
                 text: lens.unit;
                 font-family: Theme.font;
-                font-size: 11px;
-                font-weight: 500;
-                color: on ? hue : Theme.text;
+                font-size: Theme.small;
+                font-weight: Theme.w-label;
+                color: on ? hue : Theme.ink2;
                 vertical-alignment: bottom;
-                height: 18px;
+                height: Theme.u(9);
             }
         }
         if lens.rest != "": Text {
             text: lens.rest;
             font-family: Theme.font;
-            font-size: 11px;
-            color: on ? hue : Theme.text-faint;
+            font-size: Theme.small;
+            color: on ? hue : Theme.ink2;
             horizontal-alignment: center;
             overflow: elide;
         }
@@ -87,13 +92,12 @@ export component CameraCard inherits Card {
     in property <int> exposure-mode;
     in property <[bool]> exposure-disabled: [false, false];
     in property <bool> show-manual-exposure;
-    in property <float> iso-pos;
-    in property <string> iso-text;
-    in property <string> iso-spin;
+    // The stops the dials turn through, as they are written, and where the lens now is among them
+    in property <[string]> iso-stops;
+    in property <int> iso-index;
     in property <bool> iso-enabled;
-    in property <float> shutter-pos;
-    in property <string> shutter-text;
-    in property <string> shutter-spin;
+    in property <[string]> shutter-stops;
+    in property <int> shutter-index;
     in property <bool> shutter-enabled;
     in property <int> ae-comp;
     in property <int> ae-min: -8;
@@ -115,18 +119,18 @@ export component CameraCard inherits Card {
     in property <bool> focus-enabled;
     in property <TileState> ois: { checked: true, enabled: true };
     in property <TileState> low-light;
-    in property <bool> show-low-light;
     in property <TileState> black-level-lock: { enabled: true };
     in property <TileState> torch: { enabled: true };
     in property <int> noise-reduction: 1;
     in property <int> sharpening: 1;
+    // What a segment says on hover where its word alone would be ambiguous
+    in property <[string]> noise-tips;
+    in property <[string]> sharpening-tips;
 
     callback lens-picked(int);
     callback exposure-picked(int);
-    callback iso-moved(float);
-    callback iso-typed(string);
-    callback shutter-moved(float);
-    callback shutter-typed(string);
+    callback iso-picked(int);
+    callback shutter-picked(int);
     callback ae-moved(float);
     callback wb-picked(int);
     callback kelvin-moved(float);
@@ -149,255 +153,291 @@ export component CameraCard inherits Card {
     visible: !phone-only-hidden;
 
     // Before the phone has told its lenses: dim tiles where they will be, so the card doesn't jump when they arrive
-    if lenses.length == 0: HorizontalLayout {
-        spacing: 6px;
-        for n in 3: Rectangle {
-            height: 54px;
-            horizontal-stretch: 1;
-            border-radius: Theme.r-ctl;
-            background: Theme.trough;
-            Tip { says: lens-placeholder; inert: true; }
+    if lenses.length == 0: RailRow {
+        has-icon: false;
+        HorizontalLayout {
+            spacing: Theme.gap;
+            for n in 3: Rectangle {
+                height: Theme.u(27);
+                horizontal-stretch: 1;
+                border-radius: Theme.r-ctl;
+                background: Theme.trough;
+                if lens-placeholder != "": Tip { says: lens-placeholder; inert: true; }
+            }
         }
     }
-    if lenses.length > 0: Rectangle {
-        property <length> tile-width: (self.width - (lens-columns - 1) * 6px) / lens-columns;
-        height: ceil(lenses.length / lens-columns) * 60px - 6px;
-        for lens[i] in lenses: LensTile {
-            x: mod(i, lens-columns) * (parent.tile-width + 6px);
-            y: floor(i / lens-columns) * 60px;
-            width: parent.tile-width;
-            lens: lens;
-            hue: root.hue;
-            on: i == current-lens;
-            clicked => { lens-picked(i); }
+    if lenses.length > 0: RailRow {
+        has-icon: false;
+        Rectangle {
+            property <length> tile-width: (self.width - (lens-columns - 1) * Theme.gap) / lens-columns;
+            height: ceil(lenses.length / lens-columns) * Theme.u(30) - Theme.gap;
+            for lens[i] in lenses: LensTile {
+                x: mod(i, lens-columns) * (parent.tile-width + Theme.gap);
+                y: floor(i / lens-columns) * Theme.u(30);
+                width: parent.tile-width;
+                lens: lens;
+                hue: root.hue;
+                on: i == current-lens;
+                clicked => { lens-picked(i); }
+            }
         }
     }
 
-    Section {
-        key: "Light";
-        title: @tr("camera section" => "Light");
-        icon: Icons.sun;
-        scope: root.fold-key;
-        FormRow {
+    RailRow {
+        icon: Icons.exposure;
+        label: @tr("Exposure");
+        hue: root.hue;
+        enabled: active;
+        changed: exposure-mode != 0;
+        Segmented {
+            hue: root.hue;
+            shortcut: "camera.exposure_mode";
             label: @tr("Exposure");
-            Segmented {
-                hue: root.hue;
-                shortcut: "camera.exposure_mode";
-                label: @tr("Exposure");
-                items: [@tr("Auto"), @tr("Manual")];
-                disabled: [!active || exposure-disabled[0], !active || exposure-disabled[1]];
-                tips: exposure-tips;
-                current: exposure-mode;
-                picked(i) => { exposure-picked(i); }
-            }
+            items: [@tr("Auto"), @tr("Manual")];
+            disabled: [!active || exposure-disabled[0], !active || exposure-disabled[1]];
+            tips: exposure-tips;
+            current: exposure-mode;
+            picked(i) => { exposure-picked(i); }
         }
-        if show-manual-exposure: FormRow {
+    }
+    // Always there, dim in Auto and lit in Manual. One above the other: side by side a dial is too narrow to say 1/8000 or 12800 in full
+    RailRow {
+        has-icon: false;
+        enabled: active;
+        Dial {
+            shortcut: "camera.iso";
             label: "ISO";
-            Slider {
-                shortcut: "camera.iso";
-                label: "ISO";
-                hue: root.hue;
-                enabled: active && iso-enabled;
-                minimum: 0;
-                maximum: 2000;
-                step: 1;
-                value: iso-pos;
-                readout: iso-text;
-                typing: iso-spin;
-                moved(v) => { iso-moved(v); }
-                typed(t) => { iso-typed(t); }
-            }
+            hue: root.hue;
+            enabled: active && iso-enabled;
+            stops: iso-stops;
+            current: iso-index;
+            tip: iso-enabled ? "ISO" : exposure-tips[1] != "" ? exposure-tips[1] : @tr("Set Exposure to Manual to use this");
+            moved(i) => { iso-picked(i); }
         }
-        if show-manual-exposure: FormRow {
+    }
+    RailRow {
+        has-icon: false;
+        enabled: active;
+        Dial {
+            shortcut: "camera.shutter";
             label: @tr("Shutter");
-            Slider {
-                shortcut: "camera.shutter";
-                label: @tr("Shutter");
-                hue: root.hue;
-                enabled: active && shutter-enabled;
-                minimum: 0;
-                maximum: 2000;
-                step: 1;
-                value: shutter-pos;
-                readout: shutter-text;
-                typing: shutter-spin;
-                moved(v) => { shutter-moved(v); }
-                typed(t) => { shutter-typed(t); }
-            }
+            hue: root.hue;
+            enabled: active && shutter-enabled;
+            stops: shutter-stops;
+            current: shutter-index;
+            tip: shutter-enabled ? @tr("Shutter") : exposure-tips[1] != "" ? exposure-tips[1] : @tr("Set Exposure to Manual to use this");
+            moved(i) => { shutter-picked(i); }
         }
-        FormRow {
+    }
+    RailRow {
+        icon: Icons.sun;
+        label: @tr("Brightness");
+        hue: root.hue;
+        enabled: active;
+        changed: ae-comp != 0;
+        Slider {
+            shortcut: "camera.compensation";
             label: @tr("Brightness");
-            Slider {
-                shortcut: "camera.compensation";
-                label: @tr("Brightness");
-                hue: root.hue;
-                enabled: active;
-                minimum: ae-min;
-                maximum: ae-max;
-                step: 1;
-                value: ae-comp;
-                readout: ae-text;
-                marks: [0];
-                has-default: true;
-                default-value: 0;
-                tip: @tr("Double-click to reset");
-                moved(v) => { ae-moved(v); }
-            }
+            hue: root.hue;
+            enabled: active;
+            minimum: ae-min;
+            maximum: ae-max;
+            step: 1;
+            value: ae-comp;
+            readout: ae-text;
+            marks: [0];
+            has-default: true;
+            default-value: 0;
+            tip: @tr("Brightness");
+            tip-detail: @tr("Double-click to reset");
+            moved(v) => { ae-moved(v); }
         }
-        FormRow {
+    }
+    RailRow {
+        icon: Icons.thermometer;
+        label: @tr("White balance");
+        hue: root.hue;
+        enabled: active;
+        changed: wb-mode != 0 || kelvin != 5500 || tint != 0;
+        Segmented {
+            hue: root.hue;
+            shortcut: "camera.wb_mode";
             label: @tr("White balance");
-            Segmented {
-                hue: root.hue;
-                shortcut: "camera.wb_mode";
-                label: @tr("White balance");
-                items: [@tr("Auto"), @tr("Manual")];
-                disabled: [!active || wb-disabled[0], !active || wb-disabled[1]];
-                tips: wb-tips;
-                current: wb-mode;
-                picked(i) => { wb-picked(i); }
-            }
+            items: [@tr("Auto"), @tr("Manual")];
+            disabled: [!active || wb-disabled[0], !active || wb-disabled[1]];
+            tips: wb-tips;
+            current: wb-mode;
+            picked(i) => { wb-picked(i); }
         }
-        if show-manual-wb: FormRow {
+    }
+    // Two ordinary sliders: colour correction never snaps
+    RailRow {
+        has-icon: false;
+        enabled: active;
+        Slider {
+            shortcut: "camera.temperature";
             label: @tr("Temperature");
-            Slider {
-                shortcut: "camera.temperature";
-                label: @tr("Temperature");
-                hue: root.hue;
-                enabled: active && wb-enabled;
-                minimum: 2000;
-                maximum: 10000;
-                step: 100;
-                value: kelvin;
-                readout: kelvin-text;
-                has-default: true;
-                default-value: 5500;
-                tip: @tr("Double-click to reset");
-                moved(v) => { kelvin-moved(v); }
-            }
-        }
-        if show-manual-wb: FormRow {
-            label: @tr("Tint G–M");
-            Slider {
-                shortcut: "camera.tint";
-                label: @tr("Tint G–M");
-                hue: root.hue;
-                enabled: active && wb-enabled;
-                minimum: -150;
-                maximum: 150;
-                step: 1;
-                value: tint;
-                readout: tint-text;
-                has-default: true;
-                default-value: 0;
-                tip: @tr("Double-click to reset");
-                moved(v) => { tint-moved(v); }
-            }
+            hue: root.hue;
+            enabled: active && wb-enabled;
+            fill: "temperature";
+            minimum: 2000;
+            maximum: 10000;
+            step: 100;
+            value: kelvin;
+            readout: kelvin-text;
+            has-default: true;
+            default-value: 5500;
+            tip: wb-enabled || wb-tips[1] == "" ? @tr("Temperature") : wb-tips[1];
+            tip-detail: wb-enabled ? @tr("Double-click to reset") : wb-tips[1] == "" ? @tr("Set White balance to Manual to use this") : "";
+            moved(v) => { kelvin-moved(v); }
         }
     }
-
-    Section {
-        key: "Focus";
-        title: @tr("Focus");
+    RailRow {
+        has-icon: false;
+        enabled: active;
+        Slider {
+            shortcut: "camera.tint";
+            label: @tr("Tint");
+            hue: root.hue;
+            enabled: active && wb-enabled;
+            fill: "tint";
+            minimum: -150;
+            maximum: 150;
+            step: 1;
+            value: tint;
+            readout: tint-text;
+            has-default: true;
+            default-value: 0;
+            tip: wb-enabled || wb-tips[1] == "" ? @tr("Tint") : wb-tips[1];
+            tip-detail: wb-enabled ? @tr("Double-click to reset") : wb-tips[1] == "" ? @tr("Set White balance to Manual to use this") : "";
+            moved(v) => { tint-moved(v); }
+        }
+    }
+    RailRow {
         icon: Icons.focus;
-        scope: root.fold-key;
-        FormRow {
+        label: @tr("Focus");
+        hue: root.hue;
+        enabled: active;
+        changed: focus-mode != 0;
+        Segmented {
+            hue: root.hue;
+            shortcut: "camera.focus_mode";
             label: @tr("Focus");
-            Segmented {
-                hue: root.hue;
-                shortcut: "camera.focus_mode";
-                label: @tr("Focus");
-                items: [@tr("Auto"), @tr("Tap a point"), @tr("focus" => "Manual")];
-                disabled: [!active || focus-disabled[0], !active || focus-disabled[1], !active || focus-disabled[2]];
-                tips: focus-tips;
-                current: focus-mode;
-                picked(i) => { focus-picked(i); }
-            }
+            items: [@tr("Auto"), @tr("focus tap" => "Tap"), @tr("focus" => "Manual")];
+            disabled: [!active || focus-disabled[0], !active || focus-disabled[1], !active || focus-disabled[2]];
+            tips: focus-tips;
+            current: focus-mode;
+            picked(i) => { focus-picked(i); }
         }
-        if show-manual-focus: FormRow {
+    }
+    RailRow {
+        has-icon: false;
+        enabled: active;
+        Slider {
+            shortcut: "camera.focus";
             label: @tr("Distance");
-            Slider {
-                shortcut: "camera.focus";
-                label: @tr("Distance");
-                hue: root.hue;
-                enabled: active && focus-enabled;
-                minimum: 0;
-                maximum: 1000;
-                step: 1;
-                value: focus-pos;
-                readout: focus-text;
-                moved(v) => { focus-moved(v); }
+            hue: root.hue;
+            enabled: active && focus-enabled;
+            minimum: 0;
+            maximum: 1000;
+            step: 1;
+            value: focus-pos;
+            readout: focus-text;
+            tip: focus-enabled || focus-tips[2] == "" ? @tr("Distance") : focus-tips[2];
+            tip-detail: focus-enabled ? "" : focus-tips[2] == "" ? @tr("Set Focus to Manual to use this") : "";
+            moved(v) => { focus-moved(v); }
+        }
+    }
+    RailRow {
+        icon: Icons.sliders;
+        label: @tr("Image");
+        hue: root.hue;
+        enabled: active;
+        changed: !ois.checked || low-light.checked || black-level-lock.checked || torch.checked;
+        VerticalLayout {
+            spacing: Theme.gap;
+            HorizontalLayout {
+                spacing: Theme.gap;
+                ToggleTile {
+                    icon: Icons.stabilize;
+                    shortcut: "camera.stabilization";
+                    text: @tr("Stabilization");
+                    tip: ois.tip;
+                    hue: root.hue;
+                    enabled: active && ois.enabled;
+                    checked: ois.checked;
+                    toggled(on) => { ois-toggled(on); }
+                }
+                ToggleTile {
+                    icon: Icons.moon;
+                    shortcut: "camera.low_light";
+                    text: @tr("Low light");
+                    tip: low-light.tip;
+                    hue: root.hue;
+                    enabled: active && low-light.enabled;
+                    checked: low-light.checked;
+                    toggled(on) => { low-light-toggled(on); }
+                }
+            }
+            HorizontalLayout {
+                spacing: Theme.gap;
+                ToggleTile {
+                    icon: Icons.lock;
+                    shortcut: "camera.black_level_lock";
+                    text: @tr("Black level lock");
+                    tip: black-level-lock.tip;
+                    hue: root.hue;
+                    enabled: active && black-level-lock.enabled;
+                    checked: black-level-lock.checked;
+                    toggled(on) => { bll-toggled(on); }
+                }
+                ToggleTile {
+                    icon: Icons.torch;
+                    shortcut: "camera.torch";
+                    text: @tr("Torch");
+                    tip: torch.tip;
+                    hue: root.hue;
+                    enabled: active && torch.enabled;
+                    checked: torch.checked;
+                    toggled(on) => { torch-toggled(on); }
+                }
             }
         }
     }
-
-    Section {
-        key: "Image";
-        title: @tr("Image");
-        icon: Icons.image;
-        scope: root.fold-key;
-        SwitchTile {
-            icon: Icons.stabilize;
-            shortcut: "camera.stabilization";
-            text: @tr("Stabilization");
-            tip: ois.tip;
+    RailRow {
+        icon: Icons.grain;
+        label: @tr("Noise reduction");
+        tip: @tr("Smooths out grain in the picture");
+        hue: root.hue;
+        enabled: active;
+        changed: noise-reduction != 1;
+        Segmented {
             hue: root.hue;
-            enabled: active && ois.enabled;
-            checked: ois.checked;
-            toggled(on) => { ois-toggled(on); }
-        }
-        if show-low-light: SwitchTile {
-            icon: Icons.moon;
-            shortcut: "camera.low_light";
-            text: @tr("Low light");
-            tip: low-light.tip;
-            hue: root.hue;
-            enabled: active && low-light.enabled;
-            checked: low-light.checked;
-            toggled(on) => { low-light-toggled(on); }
-        }
-        SwitchTile {
-            icon: Icons.lock;
-            shortcut: "camera.black_level_lock";
-            text: @tr("Black level lock");
-            tip: black-level-lock.tip;
-            hue: root.hue;
-            enabled: active && black-level-lock.enabled;
-            checked: black-level-lock.checked;
-            toggled(on) => { bll-toggled(on); }
-        }
-        SwitchTile {
-            icon: Icons.torch;
-            shortcut: "camera.torch";
-            text: @tr("Torch");
-            tip: torch.tip;
-            hue: root.hue;
-            enabled: active && torch.enabled;
-            checked: torch.checked;
-            toggled(on) => { torch-toggled(on); }
-        }
-        FormRow {
+            shortcut: "camera.noise_reduction";
             label: @tr("Noise reduction");
-            ChoiceField {
-                compact: true;
-                caption: @tr("Noise reduction");
-                shortcut: "camera.noise_reduction";
-                items: [@tr("Off"), @tr("Fast"), @tr("High Quality")];
-                enabled: active;
-                current: noise-reduction;
-                picked(i) => { nr-picked(i); }
-            }
+            items: [@tr("Off"), @tr("Fast"), @tr("High quality")];
+            disabled: [!active, !active, !active];
+            tips: noise-tips;
+            current: noise-reduction;
+            picked(i) => { nr-picked(i); }
         }
-        FormRow {
+    }
+    RailRow {
+        icon: Icons.sharpen;
+        label: @tr("Sharpening");
+        tip: @tr("Crisps up the edges in the picture");
+        hue: root.hue;
+        enabled: active;
+        changed: sharpening != 1;
+        Segmented {
+            hue: root.hue;
+            shortcut: "camera.sharpening";
             label: @tr("Sharpening");
-            ChoiceField {
-                compact: true;
-                caption: @tr("Sharpening");
-                shortcut: "camera.sharpening";
-                items: [@tr("Off"), @tr("Fast"), @tr("High Quality")];
-                enabled: active;
-                current: sharpening;
-                picked(i) => { edge-picked(i); }
-            }
+            items: [@tr("Off"), @tr("Fast"), @tr("High quality")];
+            disabled: [!active, !active, !active];
+            tips: sharpening-tips;
+            current: sharpening;
+            picked(i) => { edge-picked(i); }
         }
     }
 }

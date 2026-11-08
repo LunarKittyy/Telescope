@@ -252,6 +252,7 @@ export component Cell inherits Window {
                 icon: Icons.sun;
                 label: "Brightness";
                 hue: hue;
+                changed: lit;
                 enabled: !off;
                 Slider { label: "Brightness"; minimum: -4; maximum: 4; step: 0.1; value: 0; hue: hue; readout: long ? "+0,0 Blendenstufen (Auto)" : "+0.0 EV"; enabled: !off; }
             }
@@ -259,6 +260,7 @@ export component Cell inherits Window {
                 icon: Icons.thermometer;
                 label: "White balance";
                 hue: hue;
+                changed: lit;
                 enabled: !off;
                 Segmented { label: "White balance"; items: ["Auto", "Manual"]; disabled: [off, off]; hue: hue; }
             }

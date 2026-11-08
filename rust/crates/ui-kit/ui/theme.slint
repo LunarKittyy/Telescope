@@ -69,6 +69,8 @@ export global Theme {
     out property <color> hue-camera: plugin-hue("camera");
     // theme.set_plugin_hues: off puts every card back in the accent colour
     in-out property <bool> own-hues: true;
+    // How a row that was changed from its default shows it, on the icon rail: false lights its icon, true keeps the icon quiet and adds a small dot
+    in-out property <bool> mark-dot: false;
     out property <length> mono-size: 13px;
     out property <string> mono: "monospace";
 

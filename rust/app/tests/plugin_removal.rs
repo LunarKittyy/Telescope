@@ -322,7 +322,7 @@ fn the_app_starts_streams_and_quits_without_any_one_optional_plugin() {
 }
 
 #[test]
-fn every_card_and_section_in_the_window_folds() {
+fn every_card_in_the_window_folds() {
     let dir = telescope_core::testing::scratch_dir("plugin-removal-folds");
     let w = build(&dir, None);
     w.ui.window().set_size(slint::LogicalSize::new(1300.0, 9000.0)); // a card scrolled out of view can't be found
@@ -348,9 +348,9 @@ fn every_card_and_section_in_the_window_folds() {
         e.invoke_accessible_default_action();
         assert!(w.state.borrow().collapse.is_folded(key), "{key}");
     };
-    toggle("Light", "camera_control/Camera/Light");
-    toggle("Image", "camera_control/Camera/Image");
-    toggle("Warnings", "monitoring/Phone/Warnings");
+    // The cards fold by their titles now: no card keeps a heading of its own for a section
+    toggle("Camera", "camera_control/Camera");
+    toggle("Phone", "monitoring/Phone");
     w.shut_down();
 }
 
@@ -359,13 +359,13 @@ fn a_plugin_switched_off_and_on_again_has_its_folds_as_it_left_them() {
     let dir = telescope_core::testing::scratch_dir("plugin-removal-off-and-on");
     let first = build(&dir, None);
     first.state.borrow_mut().collapse.set_folded("transforms/Transforms", true);
-    first.state.borrow_mut().collapse.set_folded("camera_control/Camera/Image", true);
+    first.state.borrow_mut().collapse.set_folded("camera_control/Camera", true);
     assert!(first.state.borrow_mut().save_now());
     first.shut_down();
 
     let without = build(&dir, Some("transforms")); // Transforms is off for this run
     assert!(without.state.borrow().index("transforms").is_none());
-    assert!(without.state.borrow().collapse.is_folded("camera_control/Camera/Image"));
+    assert!(without.state.borrow().collapse.is_folded("camera_control/Camera"));
     assert!(without.state.borrow_mut().save_now());
     let saved = without.state.borrow().file.load();
     assert!(saved["collapsed"].as_array().unwrap().contains(&Value::String("transforms/Transforms".into())));
@@ -373,15 +373,15 @@ fn a_plugin_switched_off_and_on_again_has_its_folds_as_it_left_them() {
 
     let again = build(&dir, None);
     assert!(again.state.borrow().collapse.is_folded("transforms/Transforms"));
-    assert!(!again.state.borrow().collapse.is_folded("camera_control/Camera/Light"));
+    assert!(!again.state.borrow().collapse.is_folded("monitoring/Phone"));
     again.ui.window().set_size(slint::LogicalSize::new(1300.0, 9000.0));
     again.ui.show().unwrap();
     // Open on screen: a title's toggle is checked while what's under it shows
     let open = |label: &str| ElementHandle::find_by_accessible_label(&again.ui, label).find(|e| e.accessible_checkable() == Some(true)).unwrap_or_else(|| panic!("{label}")).accessible_checked();
-    assert_eq!((open("Transforms"), open("Image"), open("Light")), (Some(false), Some(false), Some(true)));
+    assert_eq!((open("Transforms"), open("Camera"), open("Phone")), (Some(false), Some(false), Some(true)));
     let height = |label: &str| ElementHandle::find_by_accessible_label(&again.ui, label).map(|e| e.size().height).fold(0.0, f32::max);
     assert_eq!((height("Rotation"), height("Sharpening")), (0.0, 0.0), "what's under a folded title takes up no room");
-    assert!(height("Exposure") > 0.0, "Light stays open");
+    assert!(height("Battery under") > 0.0, "the Phone card stays open");
     let title = ElementHandle::find_by_accessible_label(&again.ui, "Transforms").find(|e| e.accessible_checkable() == Some(true)).expect("its title");
     title.invoke_accessible_default_action();
     assert!(height("Rotation") > 0.0, "and unfolded, it's back");

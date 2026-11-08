@@ -1,7 +1,7 @@
 // The Connection plugin: the card, the phone picker in the header, the Add
 // phone and Your phones dialogs (as popups) and the UDP row in Settings. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Tip, TipBody, Button, IconButton, LinkText, Card, FormRow, Segmented, ChoiceField, TextField, TextCap, Switch, SettingRow, Tag, DialogFrame, WindowBox, FlickBar, QrCode } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Tip, TipBody, Button, IconButton, LinkText, Card, FormRow, RailRow, Segmented, ChoiceField, TextField, TextCap, Switch, SettingRow, Tag, DialogFrame, WindowBox, FlickBar, QrCode } from "@ui-kit/ui-kit.slint";
 
 // A plugged-in phone the Add device dialog can pair over USB.
 export struct UsbPick {
@@ -30,8 +30,9 @@ global Status {
             : kind == "status_dim" ? Theme.text-dim : Theme.text
     }
 
-    public pure function icon(name: string) -> image {
-        name == "usb" ? Icons.usb : name == "wifi" ? Icons.wifi : Icons.x
+    // The state's glyph in its chip: a tick for fine, a cross for wrong, a warning, three dots while it isn't known
+    public pure function chip(kind: string) -> image {
+        kind == "status_ok" || kind == "" ? Icons.check : kind == "status_err" ? Icons.x : kind == "status_warn" ? Icons.v-alert : Icons.dots
     }
 }
 
@@ -129,10 +130,8 @@ export component ConnectionCard inherits Card {
     in property <string> status-kind;
     in property <string> using-text;
     in property <bool> using-shown;
-    in property <string> route-icon: "x";
     in property <string> note-text;
     in property <string> note-kind: "status_dim";
-    property <bool> err-shown: note-text != "" && note-kind == "status_err";
     in property <bool> switch-usb-shown;
     in property <bool> update-shown;
     in property <string> update-text;
@@ -189,8 +188,7 @@ export component ConnectionCard inherits Card {
     has-action: true;
     // card_action takes line icons for help and plus
     action-icon: Icons.plus;
-    action-text: @tr("Add device");
-    action-label: @tr("Pair a phone over Wi-Fi or USB, or use the Browser camera");
+    action-label: @tr("Add device");
     action-shortcut: "connection.add_phone";
     action => { root.add-phone(); }
     has-extra: true;
@@ -216,114 +214,89 @@ export component ConnectionCard inherits Card {
         }
     }
 
-    // The status and the route, on the card's own edges
-    Rectangle {
-        VerticalLayout {
-            spacing: 0px;
-            HorizontalLayout {
-                spacing: 12px;
-                // RoundIcon: the card's hue at 14% under the icon in that hue
-                Rectangle {
-                    width: 35px;
-                    height: 35px;
-                    border-radius: 17.5px;
-                    background: root.hue.with-alpha(0.14);
-                    Icon { source: Status.icon(route-icon); tint: root.hue; width: 17px; height: 17px; accessible-role: none; }
-                }
-                VerticalLayout {
-                    alignment: center;
-                    spacing: 1px;
-                    // Qt's two lines fit the icon's 35px; Slint's line boxes would make them a pixel taller
-                    max-height: 35px;
-                    shown-status-text := Text {
-                        text: status-text;
-                        font-family: Theme.font;
-                        font-size: Theme.start * 1.08;
-                        font-weight: 600;
-                        color: Status.color(status-kind);
-                        overflow: elide;
-                        Tip {
-                            says: note-text == "" || err-shown ? shown-status-text.text : shown-status-text.preferred-width > shown-status-text.width ? shown-status-text.text : note-text;
-                            detail: note-text != "" && !err-shown && shown-status-text.preferred-width > shown-status-text.width ? note-text : "";
-                            enabled: (note-text != "" && !err-shown) || shown-status-text.preferred-width > shown-status-text.width;
-                            inert: true;
-                        }
-                    }
-                    if using-shown: shown-using-text := Text {
-                        text: using-text;
-                        font-family: Theme.font;
-                        font-size: Theme.body;
-                        color: Theme.text-dim;
-                        overflow: elide;
-                        Tip { says: shown-using-text.text; enabled: shown-using-text.preferred-width > shown-using-text.width; inert: true; }
-                    }
+    // One line of status: a chip with the state's glyph, the state in a word, and a slot at the right that holds the way it is going (or
+    // the button that fixes it, or nothing yet). It keeps its height whatever is in the slot, so nothing moves when a device connects.
+    HorizontalLayout {
+        spacing: Theme.u(4);
+        height: Theme.u(18);
+        Rectangle {
+            width: Theme.u(14);
+            accessible-role: none;
+            Rectangle {
+                y: (parent.height - self.height) / 2;
+                width: Theme.u(14);
+                height: Theme.u(14);
+                border-radius: self.height / 2;
+                background: Status.color(status-kind).with-alpha(0.16);
+                Icon {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    source: Status.chip(status-kind);
+                    tint: Status.color(status-kind);
+                    width: Theme.icon;
+                    height: Theme.icon;
+                    accessible-role: none;
                 }
             }
-            // Not under an `if`: Slint measures wrapped text in a conditional layout as one line, so the box would come up short
-            HorizontalLayout {
-                property <bool> shown: err-shown || switch-usb-shown || update-shown;
-                visible: shown;
-                max-height: shown ? 100000px : 0px;
-                padding-top: shown ? 4px : 0px;
-                // Lined up with the status: the 35px icon and the 12px after it
-                Rectangle { width: 47px; }
-                VerticalLayout {
-                    horizontal-stretch: 1;
-                    padding-bottom: parent.shown ? 2px : 0px;
-                    // A failure stays on the card as a status; the other notes are in the status's tooltip
-                    Note {
-                        text: note-text;
-                        kind: note-kind;
-                        shown: err-shown;
-                    }
-                    if switch-usb-shown: HorizontalLayout {
-                        alignment: start;
-                        padding-top: err-shown ? 8px : 0px;
-                        // action_button: 160 wide; Qt's push buttons are 32 tall
-                        Button {
-                            width: 160px;
-                            height: 32px;
-                            text: @tr("Switch to USB");
-                            role: "primary";
-                            tip: @tr("The phone was plugged in; reconnect over the cable");
-                            clicked => { root.switch-usb(); }
-                        }
-                    }
-                    if update-shown: HorizontalLayout {
-                        alignment: start;
-                        padding-top: switch-usb-shown || err-shown ? 8px : 0px;
-                        // action_button: 160 wide; Qt's push buttons are 32 tall
-                        Button {
-                            width: 160px;
-                            height: 32px;
-                            text: update-text;
-                            role: "primary";
-                            enabled: update-enabled;
-                            clicked => { root.update(); }
-                        }
-                    }
-                }
+        }
+        shown-status-text := Text {
+            horizontal-stretch: 1;
+            text: status-text;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-value;
+            color: Status.color(status-kind);
+            vertical-alignment: center;
+            overflow: elide;
+            // What the note under it used to say, and the whole state when it is cut off
+            Tip {
+                says: note-text == "" || shown-status-text.preferred-width > shown-status-text.width ? shown-status-text.text : note-text;
+                detail: note-text != "" && shown-status-text.preferred-width > shown-status-text.width ? note-text : "";
+                enabled: note-text != "" || shown-status-text.preferred-width > shown-status-text.width;
+                inert: true;
             }
-            // Qt's 4px spacing, a 4px spacer and 4px again above the hairline
-            // A note with nothing under it: Qt's label box ends 4px above Slint's there
-            VerticalLayout {
-                // Qt keeps the note box when there's nothing in it, so its 2px bottom margin still counts
-                padding-top: Theme.gap;
-                spacing: 4px;
-                if route-shown: FormRow {
-                    label: @tr("Connect via");
-                    Segmented {
-                        hue: root.hue;
-                        horizontal-stretch: 1;
-                        items: [@tr("Auto"), "USB", "Wi-Fi"];
-                        icons: [Icons.x, Icons.usb, Icons.wifi];
-                        has-icons: [false, true, true];
-                        current <=> root.route-current;
-                        accessible-description: @tr("Automatic: USB when the phone's plugged in, Wi-Fi otherwise.");
-                        picked(i) => { root.route-picked(i); }
-                    }
-                }
-            }
+        }
+        if update-shown: Button {
+            text: update-text;
+            role: "primary";
+            enabled: update-enabled;
+            clicked => { root.update(); }
+        }
+        if !update-shown && switch-usb-shown: Button {
+            text: @tr("Switch to USB");
+            role: "primary";
+            tip: @tr("The phone was plugged in; reconnect over the cable");
+            clicked => { root.switch-usb(); }
+        }
+        if !update-shown && !switch-usb-shown && using-shown: Rectangle {
+            width: using-tag.width;
+            using-tag := Tag { y: (parent.height - self.height) / 2; text: using-text; tint: Theme.ink2; }
+        }
+        if !update-shown && !switch-usb-shown && !using-shown: Rectangle {
+            width: Theme.u(60);
+            height: Theme.row;
+            y: (parent.height - self.height) / 2;
+            border-radius: Theme.r-ctl;
+            background: Theme.trough;
+        }
+    }
+    RailRow {
+        icon: Icons.v-connection;
+        label: @tr("Connect via");
+        hue: root.hue;
+        enabled: route-shown;
+        changed: route-current != 0;
+        Segmented {
+            hue: root.hue;
+            horizontal-stretch: 1;
+            label: @tr("Connect via");
+            items: [@tr("Auto"), "USB", "Wi-Fi"];
+            icons: [Icons.x, Icons.usb, Icons.wifi];
+            has-icons: [false, true, true];
+            disabled: [!route-shown, !route-shown, !route-shown];
+            current <=> root.route-current;
+            accessible-description: @tr("Automatic: USB when the phone's plugged in, Wi-Fi otherwise.");
+            picked(i) => { root.route-picked(i); }
         }
     }
 

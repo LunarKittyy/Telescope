@@ -85,7 +85,6 @@ const OWN_CONTROLS: &[(&str, usize, usize)] = &[
     ("effects/ui/parts.slint", 5, 2),
     ("effects/ui/qr_reader.slint", 0, 1),
     ("outputs/ui/stream_output.slint", 1, 1),
-    ("setup/ui/monitoring.slint", 1, 0),
     ("setup/ui/parts.slint", 2, 2),
     ("setup/ui/setup.slint", 0, 1),
     ("shell/ui/cards/camera.slint", 1, 1),

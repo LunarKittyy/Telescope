@@ -15,8 +15,10 @@ use telescope_core::{FrameStage, Host};
 const FOCUS_STEPS: i64 = 1000;
 /// LogSliderRow.STEPS
 const LOG_STEPS: f64 = 2000.0;
-/// (English label, the phone's value) of the noise reduction and sharpening modes.
-const MODES: [(&str, i64); 3] = [(n_("Off"), 0), (n_("Fast"), 1), (n_("High Quality"), 2)];
+/// (the name saved shortcuts pick a mode by, the phone's value) of the noise reduction and sharpening modes.
+const MODES: [(&str, i64); 3] = [("Off", 0), ("Fast", 1), ("High Quality", 2)];
+/// What the modes are called on the card, in English.
+const MODE_NAMES: [&str; 3] = [n_("Off"), n_("Fast"), n_("High quality")];
 const LOW_LIGHT_TIP: &str = n_("Brightens a dark room when exposure is automatic but can drop the frame rate as low as 10 fps.");
 const CAPABILITY_LABELS: [(&str, &str); 5] = [
     ("supportsManualSensor", n_("Manual exposure")),
@@ -257,7 +259,8 @@ impl LogRow {
         sv.max(lo.min(hi)).min(hi.max(lo))
     }
 
-    /// _on_spin: a value typed in its box, in the box's units. None if it isn't a number.
+    /// _on_spin: a value typed in its box, in the box's units. None if it isn't a number. The card has no box any more.
+    #[cfg(test)]
     fn typed(&mut self, text: &str) -> Option<f64> {
         let typed = text.trim().replace(',', ".").parse::<f64>().ok().filter(|v| v.is_finite())?;
         self.spin = self.to_spin(typed / self.spin_scale);
@@ -268,6 +271,7 @@ impl LogRow {
     }
 
     /// What the box holds.
+    #[cfg(test)]
     fn spin_text(&self) -> String {
         if self.double { format!("{:.2}", self.spin) } else { format!("{}", self.spin as i64) }
     }
@@ -300,6 +304,47 @@ impl LogRow {
         let v = self.shown;
         if self.shutter { ns_to_display(actions::round_half_even(v) as i64) } else { format!("ISO {}", actions::round_half_even(v) as i64) }
     }
+}
+
+/// One stop of a dial: what it is called and what it sends (an ISO, or nanoseconds).
+#[derive(Clone, Debug, PartialEq)]
+struct Stop {
+    name: String,
+    value: f64,
+}
+
+/// The ISO values a camera app offers, a third of a stop apart.
+const ISO_STOPS: [u32; 37] = [
+    25, 32, 40, 50, 64, 80, 100, 125, 160, 200, 250, 320, 400, 500, 640, 800, 1000, 1250, 1600, 2000, 2500, 3200, 4000, 5000, 6400, 8000, 10000,
+    12800, 16000, 20000, 25600, 32000, 40000, 51200, 64000, 80000, 102400,
+];
+/// Shutter times below a quarter of a second, as the n of 1/n, a third of a stop apart.
+const SHUTTER_FRACTIONS: [u32; 34] = [
+    8000, 6400, 5000, 4000, 3200, 2500, 2000, 1600, 1250, 1000, 800, 640, 500, 400, 320, 250, 200, 160, 125, 100, 80, 60, 50, 40, 30, 25, 20, 15,
+    13, 10, 8, 6, 5, 4,
+];
+/// And from a third of a second up, in seconds.
+const SHUTTER_SECONDS: [f64; 21] = [0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.3, 1.6, 2.0, 2.5, 3.2, 4.0, 5.0, 6.0, 8.0, 10.0, 13.0, 15.0, 20.0, 25.0, 30.0];
+
+/// The stops a dial turns through inside a lens's range: ISO from low to high, shutter times from slow to fast, so right is more light
+/// for one and a faster shutter for the other. A stop a few per cent past the range counts as its end, which the card holds it to.
+fn dial_stops(shutter: bool, v_min: f64, v_max: f64) -> Vec<Stop> {
+    let inside = |v: f64| v >= v_min * 0.97 && v <= v_max * 1.03;
+    if !shutter {
+        return ISO_STOPS.iter().map(|v| f64::from(*v)).filter(|v| inside(*v)).map(|v| Stop { name: format!("{v}"), value: v }).collect();
+    }
+    let slow = SHUTTER_SECONDS.iter().rev().map(|s| {
+        let n = if s.fract() == 0.0 { format!("{s}") } else { number(*s, 1, false) };
+        Stop { name: tr("{n} s").field("n", n), value: (s * 1e9).round() }
+    });
+    let fast = SHUTTER_FRACTIONS.iter().rev().map(|d| Stop { name: format!("1/{d}"), value: (1e9 / f64::from(*d)).round() });
+    slow.chain(fast).filter(|s| inside(s.value)).collect()
+}
+
+/// The place in `stops` closest to a value (on the log scale, as a stop is), 0 when there are none.
+fn nearest_stop(stops: &[Stop], value: f64) -> usize {
+    let distance = |s: &Stop| (value.max(1e-9) / s.value).ln().abs();
+    stops.iter().enumerate().min_by(|a, b| distance(a.1).total_cmp(&distance(b.1))).map_or(0, |(i, _)| i)
 }
 
 /// A QSlider: a whole-number value inside its range.
@@ -1141,6 +1186,19 @@ impl CameraControl {
 
     // ── What the card shows ──
 
+    /// Low light is always on the card: greyed out, with the reason, until a streaming phone says it takes it.
+    fn low_light_tile(&self) -> Value {
+        let t = &self.low_light;
+        let (enabled, tip) = if t.visible {
+            (t.enabled, t.tip.clone())
+        } else if self.stream.is_some() {
+            (false, tr("This phone's app is too old for low light"))
+        } else {
+            (false, tr("Start streaming to use low light"))
+        };
+        json!({"checked": t.checked, "enabled": enabled, "tip": tip})
+    }
+
     fn props(&self) -> Value {
         let lenses: Vec<Value> = self.lenses.cameras.iter().map(|cam| {
             let label = lens_label(cam);
@@ -1160,11 +1218,7 @@ impl CameraControl {
             "exposure-mode": self.exp.index,
             "exposure-disabled": self.exp.enabled.iter().map(|e| !e).collect::<Vec<_>>(),
             "show-manual-exposure": self.manual_exp,
-            "iso-pos": self.iso.pos,
-            "iso-text": self.iso.text(),
             "iso-enabled": self.iso.enabled,
-            "shutter-pos": self.shutter.pos,
-            "shutter-text": self.shutter.text(),
             "shutter-enabled": self.shutter.enabled,
             "ae-comp": self.ae.value,
             "ae-min": self.ae.min,
@@ -1185,8 +1239,7 @@ impl CameraControl {
             "focus-text": self.focus_text,
             "focus-enabled": self.focus_slider.enabled,
             "ois": tile(&self.ois),
-            "low-light": tile(&self.low_light),
-            "show-low-light": self.low_light.visible,
+            "low-light": self.low_light_tile(),
             "black-level-lock": tile(&self.bll),
             "torch": tile(&self.torch),
             "noise-reduction": self.nr,
@@ -1194,8 +1247,14 @@ impl CameraControl {
         });
         // Apart from the rest: json! gives up on one this long
         props["lens-columns"] = json!(lens_columns(self.lenses.cameras.len()));
-        props["iso-spin"] = json!(self.iso.spin_text());
-        props["shutter-spin"] = json!(self.shutter.spin_text());
+        for (key, row) in [("iso", &self.iso), ("shutter", &self.shutter)] {
+            let stops = dial_stops(row.shutter, row.v_min, row.v_max);
+            props[format!("{key}-index")] = json!(nearest_stop(&stops, row.shown));
+            props[format!("{key}-stops")] = json!(stops.iter().map(|s| s.name.as_str()).collect::<Vec<_>>());
+        }
+        // The words alone are the same on both rows, so each segment's tooltip says which row it is
+        props["noise-tips"] = json!(MODE_NAMES.map(|mode| tr("Noise reduction: {mode}").field("mode", tr(mode))));
+        props["sharpening-tips"] = json!(MODE_NAMES.map(|mode| tr("Sharpening: {mode}").field("mode", tr(mode))));
         props["exposure-tips"] = json!(self.exp.tips);
         props["wb-tips"] = json!(self.wb.tips);
         props["focus-tips"] = json!(self.focus.tips);
@@ -1254,7 +1313,7 @@ impl CameraControl {
                                     self.focus.enabled.clone()),
             _ => {
                 let (label, current) = if id == "camera.noise_reduction" { (tr("Noise reduction"), self.nr) } else { (tr("Sharpening"), self.edge) };
-                (label, MODES.iter().map(|(l, _)| l.to_string()).collect(), MODES.iter().map(|(l, _)| tr(l)).collect(), Some(current),
+                (label, MODES.iter().map(|(l, _)| l.to_string()).collect(), MODE_NAMES.iter().map(|l| tr(l)).collect(), Some(current),
                  vec![true; 3])
             }
         };
@@ -1528,26 +1587,17 @@ impl Plugin for CameraControl {
                     self.on_exp_mode();
                 }
             }
-            "iso-moved" | "shutter-moved" => {
-                let row = if event.callback == "iso-moved" { &mut self.iso } else { &mut self.shutter };
+            "iso-picked" | "shutter-picked" => {
+                let iso = event.callback == "iso-picked";
+                let row = if iso { &mut self.iso } else { &mut self.shutter };
                 if !row.enabled {
                     return;
                 }
-                row.pos = n(0).round().clamp(0.0, LOG_STEPS);
-                let val = row.get_value();
-                row.spin = row.to_spin(val);
-                row.shown = val;
-                if event.callback == "iso-moved" { self.on_iso_changed(val) } else { self.on_shutter_changed(val) }
-            }
-            "iso-typed" | "shutter-typed" => {
-                let row = if event.callback == "iso-typed" { &mut self.iso } else { &mut self.shutter };
-                let text = event.args.first().and_then(Value::as_str).unwrap_or("");
-                if !row.enabled {
-                    return;
-                }
-                if let Some(val) = row.typed(text) {
-                    if event.callback == "iso-typed" { self.on_iso_changed(val) } else { self.on_shutter_changed(val) }
-                }
+                let stops = dial_stops(row.shutter, row.v_min, row.v_max);
+                let Some(stop) = stops.get((n(0) as usize).min(stops.len().saturating_sub(1))) else { return };
+                let val = stop.value.clamp(row.v_min, row.v_max);
+                row.set_value(val);
+                if iso { self.on_iso_changed(val) } else { self.on_shutter_changed(val) }
             }
             "ae-moved" => self.set_ae(n(0).round() as i64, false),
             "wb-picked" => {
@@ -1584,7 +1634,7 @@ impl Plugin for CameraControl {
         let lens_refs: Vec<(&str, String)> = lens_options.iter().map(|(v, s)| (v.as_str(), s.clone())).collect();
         let two = [("Auto", tr("Auto")), ("Manual", tr("Manual"))];
         let focus = [("Auto", tr("Auto")), ("Point", tr("Tap a point")), ("Manual", tr_ctx("focus", "Manual"))];
-        let modes: Vec<(&str, String)> = MODES.iter().map(|(l, _)| (*l, tr(l))).collect();
+        let modes: Vec<(&str, String)> = MODES.iter().zip(MODE_NAMES).map(|((value, _), name)| (*value, tr(name))).collect();
         let shutter_label = tr("Shutter");
         let iso = LogSliderSpec { id: "camera.iso", label: "ISO", group: &g, keywords: &search("exposure manual"),
                                   minimum: self.iso.v_min, maximum: self.iso.v_max, decimals: 0, suffix: "" };

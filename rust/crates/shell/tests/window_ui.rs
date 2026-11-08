@@ -22,12 +22,6 @@ fn controls_are_named_and_cards_fold_from_the_keyboard() {
     assert!(w.state.borrow().collapse.is_folded("camera_control/Camera"));
     assert_eq!(title.accessible_checked(), Some(false));
     assert_eq!(title.accessible_description().as_deref(), Some("Collapsed. Press Space or Enter to expand."));
-
-    // A section folds on its own, keyed under its card
-    title.invoke_accessible_default_action();
-    let light = ElementHandle::find_by_accessible_label(&w.ui, "Light").find(|e| e.accessible_checkable() == Some(true)).unwrap();
-    light.invoke_accessible_default_action();
-    assert!(w.state.borrow().collapse.is_folded("camera_control/Camera/Light"));
 }
 
 /// Hears every key; takes "k" and anything pressed while typing is off.

@@ -311,6 +311,8 @@ export component RailRow inherits HorizontalLayout {
     in property <string> keywords;
     in property <color> hue: Theme.accent;
     in property <bool> enabled: true;
+    // The row's setting is not at its default: a quiet mark on the rail (Theme.mark-dot picks a lit icon or a dot), no reset icon, a double-click on a slider resets it
+    in property <bool> changed;
     out property <string> control-kind: "row";
     spacing: Theme.u(4);
     min-height: Theme.row;
@@ -321,9 +323,17 @@ export component RailRow inherits HorizontalLayout {
             x: Theme.u(0.5);
             y: (parent.height - self.height) / 2;
             source: icon;
-            tint: enabled ? Theme.edge(hue) : Theme.dis;
+            tint: !enabled ? Theme.dis : changed && !Theme.mark-dot ? hue.mix(Theme.ink, 0.5) : Theme.edge(hue);
             width: Theme.icon;
             height: Theme.icon;
+        }
+        if has-icon && changed && Theme.mark-dot && enabled: Rectangle {
+            x: Theme.u(0.5) + Theme.icon - Theme.u(1.5);
+            y: (parent.height - Theme.icon) / 2 - Theme.u(0.5);
+            width: Theme.u(3);
+            height: Theme.u(3);
+            border-radius: Theme.u(1.5);
+            background: hue;
         }
         if has-icon && label != "": SettingMark { width: parent.width; height: parent.height; name: label; keywords: keywords; }
         if has-icon && label != "": Rectangle {

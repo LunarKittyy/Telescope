@@ -47,7 +47,7 @@ fn ui_has(ui: &UiSpec, callbacks: &[&str]) {
 #[test]
 fn the_cards_have_what_their_plugins_use() {
     let mut monitoring = MonitoringPlugin::new();
-    ui_has(&monitoring.card().expect("a card").ui, &["batt-committed", "batt-step", "temp-committed", "temp-step", "alert-toggled"]);
+    ui_has(&monitoring.card().expect("a card").ui, &["batt-moved", "temp-moved", "alert-toggled"]);
 
     let mut stats = telescope_setup::stats::StatsPlugin::new();
     ui_has(&stats.card().expect("a card").ui, &["view-picked"]);

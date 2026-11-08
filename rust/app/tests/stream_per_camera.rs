@@ -291,7 +291,7 @@ fn coming_back_to_a_stream_keeps_its_exposure_and_sends_nothing() {
     on(&r, "pixel");
     assert!(config(&r, "camera_control")["iso"].as_f64().unwrap() > 6390.0);
     assert_eq!(sent(&r, "pixel"), [] as [Value; 0], "the phone still has them");
-    ui(&r, "camera_control", "card", "iso-moved", vec![json!(2000)]);
+    ui(&r, "camera_control", "card", "iso-picked", vec![json!(1000)]);
     assert!(config(&r, "camera_control")["iso"].as_f64().unwrap() > 6390.0, "the slider's top is this lens's 6400 again");
     r.w.stop_all_streams();
     r.pump();
@@ -386,10 +386,13 @@ fn slider(r: &Rig, label: &str) -> ElementHandle {
     ElementHandle::find_by_accessible_label(&r.w.ui, label).find(|e| e.accessible_value_maximum().is_some()).unwrap_or_else(|| panic!("no {label} slider"))
 }
 
+/// A dial turns a stop at a time: as many turns as it has stops, which is more than any lens has.
 fn to_the_top(r: &Rig, label: &str) {
-    let e = slider(r, label);
-    let (p, s) = (e.absolute_position(), e.size());
-    click_at(r, LogicalPosition::new(p.x + s.width - 1.0, p.y + s.height / 2.0));
+    for _ in 0..60 {
+        slider(r, label).invoke_accessible_increment_action();
+    }
+    r.w.process();
+    r.pump();
 }
 
 fn iso_sent(r: &Rig) -> Vec<i64> {
@@ -407,13 +410,12 @@ fn manual(name: &str, min: i64, max: i64) -> Rig {
 #[test]
 fn integer_log_slider_syncs_slider_spin_and_signal() {
     let r = manual("log-sync", 10, 1000);
-    assert_eq!(slider(&r, "ISO").accessible_value().as_deref(), Some("ISO 100"), "a screen reader hears the readout, not the place on the slider");
-    assert!(found(&r, "ISO 100").is_some(), "the readout says it");
+    assert_eq!(slider(&r, "ISO").accessible_value().as_deref(), Some("100"), "a screen reader hears the stop the dial is on");
     forget_sent(&r, "pixel");
     to_the_top(&r, "ISO");
-    assert_eq!(slider(&r, "ISO").accessible_value().as_deref(), Some("ISO 1000"));
-    assert_eq!(iso_sent(&r), [999], "the value and not the place on the slider, cut to a whole number as Python's int() does");
-    assert!(found(&r, "ISO 1000").is_some(), "and the readout follows the hand");
+    assert_eq!(slider(&r, "ISO").accessible_value().as_deref(), Some("1000"));
+    assert_eq!(iso_sent(&r).last(), Some(&1000), "the stop's value, the lens's top and no further");
+    assert!(iso_sent(&r).windows(2).all(|w| w[0] < w[1]), "one stop at a time, each sent: {:?}", iso_sent(&r));
     r.w.stop_all_streams();
     r.pump();
 }
@@ -425,11 +427,13 @@ fn log_slider_range_and_enabled_state() {
     r.pump();
     forget_sent(&r, "pixel");
     to_the_top(&r, "ISO");
-    assert_eq!(iso_sent(&r), [1999], "the slider's top is the lens's top");
-    // The lens can't do manual exposure: the Manual segment goes, and the row with it
+    assert_eq!(iso_sent(&r).last(), Some(&2000), "the dial's top is the lens's top");
+    // The lens can't do manual exposure: the Manual segment is off, and the dial stays where it is, dim
     r.phone_says("pixel", camera_state(json!({"supportsManualSensor": false}), json!({})));
     r.pump();
-    assert!(ElementHandle::find_by_accessible_label(&r.w.ui, "ISO").next().is_none());
+    forget_sent(&r, "pixel");
+    to_the_top(&r, "ISO");
+    assert_eq!(iso_sent(&r), [] as [i64; 0], "the dial is off");
     r.phone_says("pixel", camera_state(json!({"isoMin": 20, "isoMax": 2000}), json!({"auto": false, "iso": 100})));
     r.pump();
     // With no phone the card's controls are off, slider and all
@@ -440,7 +444,7 @@ fn log_slider_range_and_enabled_state() {
     forget_sent(&r, "pixel");
     let before = slider(&r, "ISO").accessible_value();
     to_the_top(&r, "ISO");
-    assert_eq!(slider(&r, "ISO").accessible_value(), before, "a disabled slider doesn't move");
+    assert_eq!(slider(&r, "ISO").accessible_value(), before, "a disabled dial doesn't move");
     assert_eq!(iso_sent(&r), [] as [i64; 0]);
 }
 
