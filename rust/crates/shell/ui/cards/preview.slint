@@ -146,14 +146,14 @@ export component PreviewCard inherits Rectangle {
                 spacing: 12px;
                 if camera-off: HorizontalLayout {
                     alignment: center;
-                    Icon { source: Icons.camera-off; tint: Theme.accent; width: 52px; height: 52px; accessible-role: none; }
+                    Icon { source: Icons.camera-off; tint: Theme.dis; width: 52px; height: 52px; accessible-role: none; }
                 }
                 Text {
                     text: stage-text;
                     horizontal-alignment: center;
                     font-family: Theme.font;
                     font-size: camera-off ? 15px : 13px;
-                    color: camera-off ? Theme.accent-soft : Theme.text-faint;
+                    color: camera-off ? Theme.ink2 : Theme.faint;
                 }
             }
             if has-frame: TouchArea {

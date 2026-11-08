@@ -218,7 +218,7 @@ export component PresetsHeader inherits HorizontalLayout {
                     spacing: 8px;
                     alignment: end;
                     Button { text: cancel-text; clicked => { root.dialog-cancelled(); } }
-                    Button { text: ok-text; role: "primary"; hue: Theme.accent; clicked => { root.name-accepted(root.name-text); } }
+                    Button { text: ok-text; role: "primary"; hue: Theme.plugin-hue("extras"); clicked => { root.name-accepted(root.name-text); } }
                 }
             }
         }
@@ -248,7 +248,7 @@ export component PresetsHeader inherits HorizontalLayout {
                     spacing: 8px;
                     alignment: end;
                     Button { text: cancel-text; clicked => { root.replace-answered(false); } }
-                    Button { text: replace-text; role: "primary"; hue: Theme.accent; clicked => { root.replace-answered(true); } }
+                    Button { text: replace-text; role: "primary"; hue: Theme.plugin-hue("extras"); clicked => { root.replace-answered(true); } }
                 }
             }
         }

@@ -1,7 +1,7 @@
 // The Shortcuts page (plugins/shortcuts.py's ShortcutsSection and BindingEditor): the list of shortcuts, the Everywhere
 // card and the editor for one shortcut, as a popup. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Button, IconButton, Card, FormRow, ChoiceField, TextField, NumberField, Switch, SettingRow, DialogFrame, WindowBox } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, IconButton, Card, RailRow, SwitchRow, ChoiceField, TextField, NumberField, Switch, SettingRow, DialogFrame, WindowBox } from "@ui-kit/ui-kit.slint";
 
 export struct BindingRow {
     keys: string,
@@ -288,8 +288,11 @@ callback param-committed(int, string);
             title: @tr("Keyboard shortcut");
             VerticalLayout {
                 spacing: 14px;
-                FormRow {
+                RailRow {
+                    icon: Icons.search;
                     label: @tr("Find");
+                    hue: Theme.plugin-hue("extras");
+                    enabled: true;
                     TextField {
                         // BindingEditor opens with the search box focused
                         init => { self.focus(); }
@@ -302,8 +305,11 @@ callback param-committed(int, string);
                         edited(t) => { root.search(t); }
                     }
                 }
-                FormRow {
+                RailRow {
+                    icon: Icons.sliders;
                     label: @tr("Control");
+                    hue: Theme.plugin-hue("extras");
+                    enabled: true;
                     ChoiceField {
                         compact: true;
                         y: (parent.height - self.height) / 2;
@@ -314,7 +320,9 @@ callback param-committed(int, string);
                         picked(i) => { root.control-picked(i); }
                     }
                 }
-                for p in params: FormRow {
+                for p in params: RailRow {
+                    has-icon: false;
+                    named: true;
                     label: p.label;
                     if !p.number: ChoiceField {
                         compact: true;
@@ -335,8 +343,11 @@ callback param-committed(int, string);
                         step(d) => { root.param-step(p.at, d); }
                     }
                 }
-                FormRow {
+                RailRow {
+                    icon: Icons.keyboard;
                     label: @tr("Key");
+                    hue: Theme.plugin-hue("extras");
+                    enabled: true;
                     KeyBox {
                         y: (parent.height - self.height) / 2;
                         text: keys-text;
@@ -344,19 +355,12 @@ callback param-committed(int, string);
                         cleared => { root.key-cleared(); }
                     }
                 }
-                FormRow {
-                    label: "";
-                    // widgets.Switch with its text: the words on the left, the track at the row's end
-                    HorizontalLayout {
-                        spacing: 12px;
-                        Note { text: @tr("Also works while another app is in front"); kind: ""; horizontal-stretch: 1; }
-                        Switch {
-                            y: (parent.height - self.height) / 2;
-                            checked: global;
-                            label: @tr("Also works while another app is in front");
-                            toggled(on) => { root.global-toggled(on); }
-                        }
-                    }
+                SwitchRow {
+                    icon: Icons.monitor;
+                    label: @tr("Also works while another app is in front");
+                    hue: Theme.plugin-hue("extras");
+                    checked: global;
+                    toggled(on) => { root.global-toggled(on); }
                 }
                 if problem != "": Note { text: problem; kind: "status_warn"; }
                 // dialog_buttons: Cancel and Save 96px wide, 4px under the rows
@@ -371,7 +375,7 @@ callback param-committed(int, string);
                     }
                     Rectangle { horizontal-stretch: 1; }
                     Button { width: 96px; text: @tr("Cancel"); clicked => { root.cancel(); } }
-                    Button { width: 96px; text: @tr("Save"); role: "primary"; hue: Theme.accent; enabled: save-enabled; clicked => { root.save(); } }
+                    Button { width: 96px; text: @tr("Save"); role: "primary"; hue: Theme.plugin-hue("extras"); enabled: save-enabled; clicked => { root.save(); } }
                 }
             }
         }

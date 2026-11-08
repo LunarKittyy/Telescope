@@ -1,7 +1,7 @@
 // The Updates plugin: the green Update button in the header and the Telescope card on
 // Updates & About. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Button, Card, FormRow, ChoiceField, Switch, DialogFrame, WindowBox } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, Card, RailRow, SwitchRow, ChoiceField, Switch, DialogFrame, WindowBox } from "@ui-kit/ui-kit.slint";
 
 global Status {
     public pure function color(kind: string) -> color {
@@ -102,13 +102,17 @@ export component UpdatesSettings inherits Card {
     action-label: @tr("Check now");
     action-text: @tr("Check now");
     action => { if (!busy) { root.check-now(); } }
-    FormRow {
+    RailRow {
+        icon: Icons.check;
         label: @tr("This version");
+        hue: root.hue;
         keywords: @tr("search" => "current build number");
         Note { text: version-text; kind: "val"; horizontal-stretch: 1; }
     }
-    FormRow {
+    RailRow {
+        icon: Icons.layers;
         label: @tr("Channel");
+        hue: root.hue;
         keywords: @tr("search" => "stable nightly beta release track builds testing");
         enabled: !busy;
         ChoiceField {
@@ -123,62 +127,50 @@ export component UpdatesSettings inherits Card {
             picked(i) => { root.channel-picked(i); }
         }
     }
-    FormRow {
+    SwitchRow {
+        icon: Icons.timer;
         label: @tr("Check daily");
-        quiet: true;
         keywords: @tr("search" => "automatic updates auto check every day background");
-        HorizontalLayout {
-            alignment: end;
-            Switch {
-                hue: root.hue;
-                y: (parent.height - self.height) / 2;
-                checked: auto;
-                label: @tr("Check daily");
-                toggled(on) => { root.auto-toggled(on); }
-            }
-        }
+        hue: root.hue;
+        checked: auto;
+        toggled(on) => { root.auto-toggled(on); }
     }
-    if portable-shown: FormRow {
-        label: @tr("Unzipped copy");
-        keywords: @tr("search" => "portable keep this copy where it is zip folder in place windows");
-        HorizontalLayout {
-            spacing: 10px;
-            Switch {
-                hue: root.hue;
-                y: (parent.height - self.height) / 2;
-                checked: portable;
-                label: @tr("Keep this copy where it is");
-                tip: @tr("Updates this unzipped folder in place instead of installing Telescope for your user.");
-                toggled(on) => { root.portable-toggled(on); }
-            }
-            Note { text: @tr("Keep this copy where it is"); kind: ""; }
-        }
+    if portable-shown: SwitchRow {
+        icon: Icons.folder;
+        label: @tr("Keep this copy where it is");
+        keywords: @tr("search" => "portable keep this copy where it is zip folder in place windows unzipped");
+        tip: @tr("Updates this unzipped folder in place instead of installing Telescope for your user.");
+        hue: root.hue;
+        checked: portable;
+        toggled(on) => { root.portable-toggled(on); }
     }
     // Qt's control_row keeps its height with nothing shown in it, so these three rows do too
-    FormRow {
-        label: "";
+    RailRow {
+        has-icon: false;
         Note { text: status-text; kind: status-kind; horizontal-stretch: 1; }
     }
-    FormRow {
-        label: "";
+    RailRow {
+        has-icon: false;
         HorizontalLayout {
             visible: actions-shown;
             spacing: 8px;
             alignment: start;
             Button { text: @tr("What's new"); clicked => { root.notes(); } }
-            Button { text: update-text; role: "primary"; hue: Theme.accent; enabled: update-enabled; clicked => { root.update(); } }
+            Button { text: update-text; role: "primary"; hue: Theme.plugin-hue("extras"); enabled: update-enabled; clicked => { root.update(); } }
         }
     }
-    FormRow {
-        label: "";
+    RailRow {
+        has-icon: false;
         HorizontalLayout {
             visible: retry-shown;
             alignment: start;
             Button { text: @tr("Try again"); enabled: !busy; clicked => { root.retry(); } }
         }
     }
-    if back-shown: FormRow {
+    if back-shown: RailRow {
+        icon: Icons.reset;
         label: @tr("Older version");
+        hue: root.hue;
         keywords: @tr("search" => "go back downgrade python previous old version revert undo rust");
         enabled: !busy;
         HorizontalLayout {
@@ -212,7 +204,7 @@ export component UpdatesSettings inherits Card {
                 spacing: 8px;
                 // The way out is the highlighted one: going back is the thing to be sure about
                 Button { height: 32px; text: back-action; enabled: back-action-enabled; clicked => { root.back-answered(true); } }
-                Button { width: 96px; height: 32px; text: @tr("Cancel"); role: "primary"; hue: Theme.accent; clicked => { root.back-answered(false); } }
+                Button { width: 96px; height: 32px; text: @tr("Cancel"); role: "primary"; hue: Theme.plugin-hue("extras"); clicked => { root.back-answered(false); } }
             }
         }
     }

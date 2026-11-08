@@ -99,7 +99,12 @@ fn file_card(dir: &Path, name: &str, file: &str, component: &str, props: &str, s
         if component == "Footer" { 0 } else { 16 },
         if component == "Footer" { 8 } else { 16 },
         if component == "Footer" { 0 } else { 32 },
-        if component == "Footer" { String::new() } else if file.contains("microphone") { "hue: Theme.plugin-hue(\"sound\");".to_string() } else { "hue: Theme.plugin-hue(\"streaming\");".to_string() }
+        if component == "Footer" { String::new() } else {
+            // As tall as the card is, so the window's spare height doesn't spread its rows
+            let fit = if props.contains("height:") { "" } else { "height: self.preferred-height;" };
+            let hue = if file.contains("microphone") { "sound" } else { "streaming" };
+            format!("{fit} hue: Theme.plugin-hue(\"{hue}\");")
+        }
     );
     let mut compiler = Compiler::default();
     compiler.set_library_paths([(telescope_ui_kit::LIBRARY.to_string(), telescope_ui_kit::library_path())].into_iter().collect());
@@ -172,9 +177,11 @@ fn file_card_shots() {
     let stream = "active: true; res-items: [\"1080p\", \"720p\"]; res-enabled: true; fps-items: [\"30 fps\", \"60 fps\"]; fps-gone: [false, false]; ar-items: [\"16:9\", \"4:3\"]; ar-enabled: true; bitrate: 20; bitrate-readout: \"24 Mbps\"; quality-readout: \"85\"; light-tip: \"H.264\"; heavy-tip: \"MJPEG\";";
     file_card(&dir, "stream-light", "crates/outputs/ui/stream_output.slint", "StreamOutputCard", stream, (420.0, 380.0));
     file_card(&dir, "stream-heavy", "crates/outputs/ui/stream_output.slint", "StreamOutputCard", &format!("{stream} h264: false;"), (420.0, 380.0));
-    let browser = "shown: true; new-link-enabled: true; url: \"https://192.168.1.20:8767/#t1\"; url-short: \"192.168.1.20:8767\"; qr-size: 29; note-title: \"Browser says it isn't private?\"; note-text: \"x\"; size-index: 1; fps-index: 2;";
-    file_card(&dir, "browser-waiting", "crates/link/ui/browser_camera.slint", "BrowserCameraCard", &format!("{browser} status-text: \"Waiting for a browser\";"), (420.0, 470.0));
-    file_card(&dir, "browser-connected", "crates/link/ui/browser_camera.slint", "BrowserCameraCard", &format!("{browser} status-text: \"Pixel 8 \u{b7} 720p 30 fps\"; status-kind: \"status_ok\"; addresses: [\"192.168.1.20\", \"10.0.0.4\"]; show-addresses: true; address-index: 0;"), (420.0, 470.0));
+    let (cells, modules) = telescope_core::qr::encode("https://192.168.1.20:8767/#t1");
+    let cells = cells.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(", ");
+    let browser = format!("shown: true; new-link-enabled: true; url: \"https://192.168.1.20:8767/#t1\"; url-short: \"192.168.1.20:8767\"; qr-cells: [{cells}]; qr-size: {modules}; note-title: \"Browser says it isn't private?\"; note-text: \"x\"; size-index: 1; fps-index: 2;");
+    file_card(&dir, "browser-waiting", "crates/link/ui/browser_camera.slint", "BrowserCameraCard", &format!("{browser} status-text: \"Waiting for a browser\";"), (420.0, 520.0));
+    file_card(&dir, "browser-connected", "crates/link/ui/browser_camera.slint", "BrowserCameraCard", &format!("{browser} status-text: \"Pixel 8 \u{b7} 720p 30 fps\"; status-kind: \"status_ok\"; addresses: [\"192.168.1.20\", \"10.0.0.4\"]; show-addresses: true; address-index: 0;"), (420.0, 520.0));
     // The preview card from its own file, its import of the window's marks made absolute
     let file = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../crates/shell/ui/cards/preview.slint");
     let marks = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../crates/shell/ui/preview.slint");

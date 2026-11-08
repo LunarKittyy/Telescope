@@ -1,6 +1,6 @@
 // The MCP server's tab in Settings and its button in the header. The texts that are lists or carry names come filled from Rust.
 
-import { Theme, Icons, Card, FormRow, Segmented, IconButton, Icon, FocusRing, KeyFocus, Tip, Motion } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Card, RailRow, Segmented, IconButton, Icon, FocusRing, KeyFocus, Tip, Motion } from "@ui-kit/ui-kit.slint";
 
 // One line of the activity log: when, which AI app, what it did in words. kind is "" or "refused".
 export struct McpLogRow {
@@ -30,8 +30,11 @@ export component McpSettings inherits VerticalLayout {
         keywords: @tr("search" => "mcp ai claude model assistant agent connect access read only");
         icon: Icons.sliders;
         hue: Theme.plugin-hue("extras");
-        FormRow {
+        RailRow {
+            icon: Icons.plug;
             label: @tr("Connected");
+            hue: Theme.plugin-hue("extras");
+            enabled: true;
             VerticalLayout {
                 horizontal-stretch: 1;
                 alignment: center;
@@ -54,8 +57,11 @@ export component McpSettings inherits VerticalLayout {
                 }
             }
         }
-        FormRow {
+        RailRow {
+            icon: Icons.lock;
             label: @tr("Access");
+            hue: Theme.plugin-hue("extras");
+            enabled: true;
             Rectangle {
                 horizontal-stretch: 1;
                 Segmented {
@@ -71,16 +77,19 @@ export component McpSettings inherits VerticalLayout {
                 }
             }
         }
-        FormRow {
+        RailRow {
+            icon: Icons.keyboard;
             label: @tr("Command");
+            hue: Theme.plugin-hue("extras");
+            enabled: true;
             HorizontalLayout {
                 horizontal-stretch: 1;
                 spacing: 8px;
                 Rectangle {
                     horizontal-stretch: 1;
                     min-height: 36px;
-                    background: Theme.surface-sunk;
-                    border-radius: 6px;
+                    background: Theme.trough;
+                    border-radius: Theme.r-ctl;
                     accessible-role: text;
                     accessible-label: command;
                     VerticalLayout {
