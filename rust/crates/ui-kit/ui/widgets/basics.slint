@@ -119,7 +119,7 @@ export component LinkText inherits Rectangle {
 }
 
 // Kind "button": a raised fill with no line round it, semibold. role "primary" is a filled button (violet; in a card, given the card's
-// `hue`, it wears that in the new look), "go" and "stop" are Start and Stop streaming, "danger" the red one, "quiet" a ghost that only shows a fill when hovered. Anything that opens a menu is a ChoiceField, not a Button.
+// `hue`, it wears that in the new look), "go" and "stop" are Start and Stop streaming, "danger" the red one, "quiet" the same raised square with dimmer words (no button is ever a ghost: every one has a surface at rest). Anything that opens a menu is a ChoiceField, not a Button.
 export component Button inherits Rectangle {
     in property <string> text;
     in property <image> icon;
@@ -147,30 +147,37 @@ export component Button inherits Rectangle {
     // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
     in property <string> tip-hint;
     in property <[string]> tip-keys;
-    // A setting row's button, on no fill until hovered
+    // A setting row's button: the same raised square as any other (kept so rows can say what they are; it no longer changes the look)
     in property <bool> strip;
-    // A disabled quiet button stays on no fill
+    // A disabled quiet button stays on no fill (kept for the old cards; a disabled button is `dis` on `trough` like every other)
     in property <bool> quiet-when-disabled;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     // The label gives way to a narrow place and ends in an ellipsis (a folder's name)
     in property <bool> shrinks;
+    // Every text the label can be, so the button is as wide as the widest of them and never changes width when the label does
+    in property <[string]> reserve;
+    // A button in a dialog's button row: a floor on its width so Cancel and Save sit as even blocks
+    in property <bool> dialog;
+    // The widest of the label and the reserved texts, set the way the label is (a hidden copy, out of any layout)
+    property <length> widest: measure.preferred-width;
+    property <length> reserved-w: reserve.length == 0 ? 0px : widest + 2 * padding-x + (has-icon ? icon-size + gap : 0px) + (has-swatch ? Theme.icon-small + gap : 0px);
     out property <string> control-kind: "button";
     callback clicked;
     height: Theme.row;
     // A long label gives way to a narrow place at some width and ends in an ellipsis; a short one never shrinks
-    min-width: shrinks ? 0px : min(lay.preferred-width, Theme.u(70));
+    min-width: shrinks ? 0px : max(min(lay.preferred-width, Theme.u(70)), reserved-w, dialog ? Theme.u(40) : 0px);
+    preferred-width: max(lay.preferred-width, reserved-w, dialog ? Theme.u(40) : 0px);
     border-radius: Theme.r-ctl;
     // Stop streaming's thick outline sits inside the button, so the button keeps its size in both states
     border-width: enabled && role == "stop" ? Theme.stop-edge-w : 0px;
     border-color: Theme.stop-edge;
-    background: !enabled ? (quiet-when-disabled ? transparent : Theme.trough)
+    background: !enabled ? Theme.trough
         : role == "go" ? (touch.pressed ? Theme.go-press : touch.has-hover ? Theme.go-hover : Theme.go-fill)
         : role == "stop" ? (touch.pressed ? Theme.stop-press : touch.has-hover ? Theme.stop-hover : Theme.stop-fill)
         : wears-hue ? (touch.pressed ? hue.mix(black, 0.15) : touch.has-hover ? hue.mix(white, 0.15) : hue)
         : role == "danger" ? Theme.err.mix(Theme.card, touch.pressed ? 0.35 : touch.has-hover ? 0.5 : 0.42)
         : role == "primary" ? (touch.pressed ? Theme.fill-press : touch.has-hover ? Theme.fill-hover : Theme.fill)
-        : role == "quiet" || strip ? (touch.pressed ? Theme.raise : touch.has-hover ? Theme.hover : transparent)
         : (touch.pressed ? Theme.sel : touch.has-hover ? Theme.hover : Theme.raise);
     // A press comes in at once and a hover, a release or Start becoming Stop eases
     animate background, border-width { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
@@ -210,6 +217,16 @@ export component Button inherits Rectangle {
         border-radius: root.border-radius;
         background: filled || wears-hue ? #000000 : Theme.ink;
         opacity: (filled || wears-hue ? 0.2 : 0.1) * press-t.value;
+    }
+    // Measures the widest text the label can be, out of the way
+    Rectangle {
+        width: 0px;
+        height: 0px;
+        opacity: 0;
+        measure := VerticalLayout {
+            Text { text: root.text; font-family: Theme.font; font-size: root.font-size; font-weight: root.font-weight; accessible-role: none; }
+            for t in reserve: Text { text: t; font-family: Theme.font; font-size: root.font-size; font-weight: root.font-weight; accessible-role: none; }
+        }
     }
     lay := HorizontalLayout {
         // The words sink a pixel with the press
@@ -264,14 +281,16 @@ export component IconButton inherits Rectangle {
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     in property <bool> enabled: true;
-    // On a raised square at rest, like the other controls of a bar (the top bar's), where the default sits on no fill
-    in property <bool> raised;
+    // On no fill at rest, for an icon that sits inside a field (the cross that clears a text box); every other icon button is a raised square like a Button
+    in property <bool> bare;
+    // Kept for callers that still pass it; raised is now the only look unless `bare`
+    in property <bool> raised: true;
     out property <string> control-kind: "icon-button";
     callback clicked;
     width: Theme.row;
     height: Theme.row;
     border-radius: Theme.r-ctl;
-    background: !enabled ? Theme.trough : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : raised ? Theme.raise : transparent;
+    background: !enabled ? Theme.trough : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : bare ? transparent : Theme.raise;
     animate background { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
     accessible-role: button;
     accessible-label: label;

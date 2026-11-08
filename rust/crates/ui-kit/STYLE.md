@@ -90,7 +90,7 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | `row` | FormRow, RailRow, SwitchRow | label, or an icon and its tooltip word (FormRow only in Settings' pages, where the rows are named) |
 | `section` | SectionHeading, Section | title, folding |
 | `button` | Button | text, icon, role (plain, primary, danger, quiet) |
-| `icon-button` | IconButton | icon, `raised` for a bar's square (the top bar's and the preview's) |
+| `icon-button` | IconButton | icon (a raised square at rest; `bare` only for an icon inside a field) |
 | `link` | LinkText | text, address |
 | `switch` | Switch | hue, danger |
 | `toggle` | SwitchTile, ToggleTile | icon, name, hue |
@@ -104,16 +104,18 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | `jog` | Jog | range |
 | `stepper` | Stepper | range |
 | `strip` | SettingRow | title, controls: a row of a Settings card, on the card itself (no box of its own) |
-| `badge` | Tag | text, tint |
+| `badge` | Tag | text, tint, detail (tooltip) |
+| `status` | Status | one coloured word or short phrase, kind (quiet, ok, warn, err), detail (tooltip) |
+| `list-row` | ListRow | name, a dim line, icon, the row's buttons: a raised strip in a list (dialogs, devices) |
 | `dialog` | DialogFrame | title |
 | `bubble` | Bubble, BubbleFrame | what is inside, width |
 | `colour` | ColourField | colour, hex and channels shown |
 | `tip` | TipBody | name, detail, keys, tint |
 | `icon` | Icon | picture, tint |
-| `outline` | FocusRing, TouchRing, Worm | radius, the picked cell's place |
+| `outline` | FocusRing, TouchRing, Worm | radius, the picked cell's place (the inside is a `WormFill` under the text) |
 | `scrollbar` | ScrollBar, ColumnScrollbar, FlickBar | extent |
 | `image` | QrCode | picture |
-| `helper` | no drawing of its own (search words, `Tip`, `TipLayer`, `Peek`, `PeekLayer`, shortcut menu) | nothing |
+| `helper` | no drawing of its own (search words, `Tip`, `TipLayer`, `Peek`, `PeekLayer`, shortcut menu, `Unfolding`, `UnfoldGroup`, `DialogButtons`, the motions) | nothing |
 
 A menu button is always a `picker`: the value and a chevron, never "..." in a label. Glyphs inside controls (the chevron, a clear cross, a tick, a plus, the stepper's arrows) are heavier than the card icons: a 2px stroke against the icons' 1.4px, and the picker's chevron is 16px.
 

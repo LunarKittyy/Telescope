@@ -37,6 +37,7 @@ export component AnchorFrame inherits Rectangle {
     callback picked(int);
     function pick(i: int) {
         if (enabled) {
+            worm.sync();
             local = i;
             touched = true;
             picked(i);

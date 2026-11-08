@@ -1,0 +1,42 @@
+// A row, or a few, that are there only in some states (the blur sliders after Blur is picked).
+
+import { Theme } from "../theme.slint";
+import { Motion, Unfold } from "motion.slint";
+
+// Kind "helper". A column with no spacing of its own, for a row and the Unfolding that hangs from it: the Unfolding takes the card's gap
+// above it into its own height, so while it is shut no gap is left behind (a layout puts its spacing round a shut row too).
+//     UnfoldGroup { SegmentedRow { } Unfolding { open: blur; Slider { } Slider { } } }
+export component UnfoldGroup inherits VerticalLayout {
+    out property <string> control-kind: "helper";
+    spacing: 0px;
+}
+
+// Kind "helper". Unfolding: rows that appear and disappear with a state. Never `if state: Row`, which pops them in and out at once:
+// give the rows to this and set `open`. It opens and shuts in height and opacity together (one spring, `Motion.unfold-open` and
+// `unfold-close`), so a state that flips again mid-way turns the move round from where it is, with its speed, however often. Rows
+// inside are out of the keyboard and the pointer while it is shut. Put it in an UnfoldGroup after the row it belongs under (`lead`
+// is the gap it brings with it; 0 when it is the first thing in its place).
+export component Unfolding inherits Rectangle {
+    out property <string> control-kind: "helper";
+    in property <bool> open;
+    // A change that has to be there now (a window being built; reduced motion asks for that by itself)
+    in property <bool> snap;
+    in property <length> lead: Theme.gap;
+    // How far open, 0 to 1, for a test
+    out property <float> value: unfold.value;
+    unfold := Unfold { open: root.open; snap: root.snap; }
+    min-height: 0px;
+    vertical-stretch: 0;
+    preferred-height: unfold.value * (rows.preferred-height + lead);
+    max-height: unfold.value > 0 ? 100000px : 0px;
+    clip: unfold.value < 1;
+    visible: unfold.value > 0;
+    rows := VerticalLayout {
+        y: lead;
+        width: parent.width;
+        height: max(parent.height - lead, self.preferred-height);
+        spacing: Theme.gap;
+        opacity: clamp(unfold.value * 1.4 - 0.2, 0, 1);
+        @children
+    }
+}

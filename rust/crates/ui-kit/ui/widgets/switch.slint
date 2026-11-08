@@ -30,6 +30,7 @@ export component Switch inherits Rectangle {
     }
     function change() {
         if (enabled) {
+            flick.sync();
             local = !shown;
             touched = true;
             toggled(local);
@@ -101,7 +102,8 @@ export component Switch inherits Rectangle {
     TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
     usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: root.ringed; }
     // The handle's place between its two ends, 0 off and 1 on, with the little overshoot of a flick
-    flick := Flick { to: shown ? 1 : 0; snap: quick; }
+    // A key moves it like a click does (only the colours are at once): a handle that snaps for one press cuts a move still going
+    flick := Flick { to: shown ? 1 : 0; }
     // Where the handle is now, 0 to 1 and a little past either end while it flicks, for a test
     out property <float> handle-place: flick.value;
     touch := TouchArea {
@@ -112,6 +114,8 @@ export component Switch inherits Rectangle {
         clicked => { flip(); }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+    // The handle is on its "on" side of the middle: its glyph and colour change there, as it passes, not at the click
+    property <bool> over: flick.value > 0.5;
     // The handle carries I when on and O when off, so the state doesn't rest on colour alone
     handle := Rectangle {
         property <length> margin: Theme.u(1.5);
@@ -121,14 +125,14 @@ export component Switch inherits Rectangle {
         border-radius: Theme.r-handle;
         y: margin;
         x: margin + flick.value * (parent.width - size - 2 * margin);
-        background: !enabled ? Theme.sel : shown ? lit : held ? Theme.ink2 : Theme.line-hover;
+        background: !enabled ? Theme.sel : over ? lit : held ? Theme.ink2 : Theme.line-hover;
         animate background { duration: Motion.tone-for(held || quick); easing: Motion.tone; }
         Text {
-            text: shown ? "I" : "O";
+            text: over ? "I" : "O";
             font-family: Theme.font;
             font-size: Theme.tiny - 1px;
             font-weight: Theme.w-value;
-            color: !enabled ? Theme.dis : shown ? Theme.card : held ? Theme.card : Theme.ink2;
+            color: !enabled ? Theme.dis : over ? Theme.card : held ? Theme.card : Theme.ink2;
             animate color { duration: Motion.tone-for(held || quick); easing: Motion.tone; }
             horizontal-alignment: center;
             vertical-alignment: center;
@@ -245,6 +249,7 @@ export component ToggleTile inherits Rectangle {
     }
     function change() {
         if (enabled) {
+            fade.sync();
             local = !shown;
             touched = true;
             toggled(local);
@@ -305,11 +310,20 @@ export component ToggleTile inherits Rectangle {
         clicked => { flip(); }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    HorizontalLayout {
+    // An icon-only tile puts its icon on the tile's own middle, in whole pixels, with no padding to push it
+    if text == "" && icon.width > 0: Icon {
+        source: icon;
+        tint: !enabled ? Theme.dis : shown ? hue : Theme.ink2;
+        width: Theme.icon;
+        height: Theme.icon;
+        x: round((parent.width - self.width) / 2 / 1px) * 1px;
+        y: round((parent.height - self.height) / 2 / 1px) * 1px;
+    }
+    if text != "": HorizontalLayout {
         padding-left: Theme.u(6);
         padding-right: Theme.u(6);
         spacing: Theme.u(4);
-        alignment: text == "" ? center : start;
+        alignment: start;
         // No icon, no slot: the text starts at the tile's own padding
         if icon.width > 0: Icon {
             source: icon;

@@ -120,6 +120,7 @@ export component Slider inherits HorizontalLayout {
     function apply(v: float, instantly: bool) {
         let to = clamp(v, minimum, maximum);
         if (to != shown) {
+            glide.sync();
             quick = instantly;
             local = to;
             touched = true;
@@ -166,7 +167,22 @@ export component Slider inherits HorizontalLayout {
         // dragged, on a quicker settle, retargeting mid-flight when the pointer crosses several at once
         property <bool> chunky: step / max(0.0001, maximum - minimum) * (self.width - Theme.handle-w) >= Theme.u(8);
         out property <bool> stepping: chunky;
-        glide := Settle { to: track.target; snap: (dragging && caught && !chunky) || quick; pace: dragging && chunky ? 0.5 : 1; }
+        // A stepped slider's handle is a magnet while it is dragged (see `detent`): it follows the pointer, held back near each step, and
+        // springs into its slot when let go; anything else glides to the value, a finger that has hold of the handle puts it there at once
+        property <bool> magnetic: dragging && caught && chunky;
+        glide := Settle { to: magnetic ? track.pointer-fraction : track.target; snap: (dragging && caught) || quick; }
+        // Where a pointer at `fraction` along the track puts a stepped slider's handle: 1 to 1 with it on average, but held back near each
+        // step (the middle third of a step moves it a fifth as far) and made up in the last of the way to the midpoint, where the value changes
+        // and the next step's pull takes over. It is the pointer's own place at every midpoint, so nothing jumps there
+        function detent(p: float) -> float {
+            let span = max(0.0001, maximum - minimum);
+            let s = p * span / max(0.0001, step);
+            let n = round(s);
+            let d = s - n;
+            let held = d * 0.35 + 0.65 * 4 * d * d * d;
+            return clamp((n + held) * max(0.0001, step) / span, 0, 1);
+        }
+        property <float> pointer-fraction: detent(touch.picked);
         // A handle that glides to the pointer sticks to it once it arrives
         changed fraction => {
             if (dragging && !caught && !pending && abs(fraction - target) * (self.width - Theme.handle-w) < Theme.u(2)) {
@@ -429,6 +445,7 @@ export component Slider inherits HorizontalLayout {
                         return;
                     }
                 }
+                glide.sync();
                 local = v;
                 touched = true;
                 root.moved(local);
@@ -438,6 +455,7 @@ export component Slider inherits HorizontalLayout {
                 if (e.kind == PointerEventKind.down) { usage.press(); }
                 // A second press while the first click waits is the double-click's, which `double-clicked` answers
                 if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left && !pending) {
+                    glide.sync();
                     dragging = true;
                     press-x = self.mouse-x;
                     caught = on-handle;
@@ -455,6 +473,7 @@ export component Slider inherits HorizontalLayout {
                     drag();
                 }
                 if (dragging && ((e.kind == PointerEventKind.up && e.button == PointerEventButton.left) || e.kind == PointerEventKind.cancel)) {
+                    glide.sync();
                     dragging = false;
                     caught = false;
                     if (!pending) { released(shown); }

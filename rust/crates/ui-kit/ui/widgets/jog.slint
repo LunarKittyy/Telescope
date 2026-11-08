@@ -5,6 +5,7 @@ import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { FocusRing, KeyFocus } from "basics.slint";
 import { Tip } from "tip.slint";
+import { Settle } from "motion.slint";
 
 export component Jog inherits Rectangle {
     // What the two ends are called, in the track's own corners
@@ -81,7 +82,7 @@ export component Jog inherits Rectangle {
         text: root.near-text;
         font-family: Theme.font;
         font-size: Theme.small;
-        color: enabled ? Theme.text-faint : Theme.text-disabled;
+        color: enabled ? Theme.faint : Theme.dis;
         vertical-alignment: center;
         overflow: elide;
         accessible-role: none;
@@ -93,7 +94,7 @@ export component Jog inherits Rectangle {
         text: root.far-text;
         font-family: Theme.font;
         font-size: Theme.small;
-        color: enabled ? Theme.text-faint : Theme.text-disabled;
+        color: enabled ? Theme.faint : Theme.dis;
         horizontal-alignment: right;
         vertical-alignment: center;
         overflow: elide;
@@ -103,21 +104,21 @@ export component Jog inherits Rectangle {
     Rectangle {
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
-        width: 2px;
-        height: 12px;
+        width: Theme.stroke;
+        height: Theme.u(6);
         border-radius: 1px;
-        background: enabled ? Theme.border-hover : Theme.border-strong;
+        background: enabled ? Theme.line-hover : Theme.line-strong;
     }
     handle := Rectangle {
-        width: 14px;
-        height: 22px;
+        width: Theme.u(7);
+        height: Theme.u(11);
         y: (parent.height - self.height) / 2;
-        x: (parent.width - self.width) / 2 + root.offset * root.reach;
-        border-radius: 5px;
-        background: !enabled ? Theme.text-disabled : touch.pressed || dragging ? hue.brighter(0.15) : touch.has-hover ? hue.brighter(0.1) : hue;
-        // Back to the middle in a moment rather than a jump, but never behind a hand that's moving it
-        animate x { duration: root.dragging ? 0ms : 160ms; easing: ease-out; }
+        x: (parent.width - self.width) / 2 + glide.value * root.reach;
+        border-radius: Theme.r-handle;
+        background: !enabled ? Theme.dis : touch.pressed || dragging ? hue.brighter(0.15) : touch.has-hover ? hue.brighter(0.1) : hue;
     }
+    // Back to the middle in a moment rather than a jump, but never behind a hand that's moving it
+    glide := Settle { to: root.offset; snap: root.dragging; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: MouseCursor.ew-resize;

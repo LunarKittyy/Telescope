@@ -1,12 +1,13 @@
 // The card frame and its rows (widgets/common.py: create_card, add_card_header, add_section_heading, control_row).
 
 import { Theme } from "../theme.slint";
-import { Icon, FocusRing, Button, KeyFocus } from "basics.slint";
+import { Icon, FocusRing, Button, IconButton, KeyFocus } from "basics.slint";
+import { Icons } from "../icons.slint";
 import { Folds, FoldText, Reveal } from "folds.slint";
 import { Switch } from "switch.slint";
 import { Tip } from "tip.slint";
 import { SearchWords, SettingMark } from "setting.slint";
-import { Motion, Unfold } from "motion.slint";
+import { Motion, Unfold, Fade } from "motion.slint";
 
 // collapse.py's _FoldButton: the title as a named keyboard toggle that folds what's under it. A blank key: no folding.
 component FoldTitle inherits Rectangle {
@@ -23,9 +24,11 @@ component FoldTitle inherits Rectangle {
     in property <bool> hovered-elsewhere;
     // A title in a dimmed card never looks hovered, though it still folds
     in property <bool> card-enabled: true;
-    out property <bool> hot: card-enabled && (touch.has-hover || hovered-elsewhere);
     property <bool> foldable: key != "";
+    out property <bool> hot: foldable && card-enabled && (touch.has-hover || hovered-elsewhere);
     out property <string> control-kind: "fold-title";
+    // About to fold or unfold: the owner reads its motion's place first, so a fold that is still moving turns round from where it is
+    callback toggling;
     height: Theme.u(15);
     width: label.preferred-width;
     accessible-role: button;
@@ -33,7 +36,7 @@ component FoldTitle inherits Rectangle {
     accessible-checkable: foldable;
     accessible-checked: foldable && !folded;
     accessible-description: !foldable ? "" : folded ? FoldText.collapsed : FoldText.expanded;
-    accessible-action-default => { if (foldable) { Motion.by-pointer = false; Folds.toggle(key); } }
+    accessible-action-default => { if (foldable) { toggling(); Folds.toggle(key); } }
     forward-focus: focus;
     // Folding moves keyboard focus out of the rows it hides, onto the title
     public function take-focus() { focus.focus(); }
@@ -42,7 +45,7 @@ component FoldTitle inherits Rectangle {
         enabled: foldable;
         key-pressed(e) => {
             if (e.text == " " || e.text == "\n") {
-                if (!e.repeat) { Motion.by-pointer = false; Folds.toggle(key); }
+                if (!e.repeat) { toggling(); Folds.toggle(key); }
                 return accept;
             }
             reject
@@ -55,7 +58,7 @@ component FoldTitle inherits Rectangle {
         mouse-cursor: foldable ? pointer : default;
         pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
         scroll-event(e) => { usage.wheel(); reject }
-        clicked => { Motion.by-pointer = true; Folds.toggle(key); }
+        clicked => { toggling(); Folds.toggle(key); }
     }
     label := Text {
         text: root.text;
@@ -81,12 +84,31 @@ export component Card inherits Rectangle {
     in property <bool> enabled: true;
     // Nothing in the card takes a click or a key (a plugin's card before a phone is paired)
     in property <bool> blocked;
+    // The card is there but has nothing to do right now (no phone yet, switched off): it fades to the disabled look and back, the title and
+    // the header still working. Fades both ways, so a card going live doesn't snap. (Not called `active`: every card already has one.)
+    in property <bool> idle;
     in property <string> note;
     // "<plugin>/<title in English>", set by the window; blank leaves the card unfoldable
     in property <string> fold-key;
-    out property <bool> folded: fold-key != "" && Folds.is-folded(fold-key, Folds.version);
-    // How far open the rows are, 0 shut to 1 open: it moves when a click folded the card and snaps for a key
-    unfold := Unfold { open: !folded; snap: !Motion.by-pointer; }
+    // A card with nothing under its header is not a fold: no fold, no hover that suggests one, no click
+    out property <bool> has-body: rows.preferred-height > 0px;
+    property <bool> foldable: fold-key != "" && has-body;
+    out property <bool> folded: foldable && Folds.is-folded(fold-key, Folds.version);
+    // How far open the rows are, 0 shut to 1 open
+    // A person's fold (a click or a key, both the same) glides; state that came from somewhere else (loaded when the window is built, a plugin
+    // switched on) is there at once. Set by the person's toggle and never by another control, and a quiet moment later it clears.
+    property <bool> by-person;
+    fold-quiet := Timer {
+        interval: 600ms;
+        running: by-person;
+        triggered => { by-person = false; }
+    }
+    function person-folds() {
+        unfold.sync();
+        by-person = true;
+        fold-quiet.restart();
+    }
+    unfold := Unfold { open: !folded; snap: !by-person; }
     // The card's one header button, top right (add_card_header's action): a quiet icon button
     in property <bool> has-action;
     in property <image> action-icon;
@@ -95,6 +117,8 @@ export component Card inherits Rectangle {
     in property <string> action-tip-detail;
     // Shown next to the action's icon when set (card_action with text, like Connection's Add device)
     in property <string> action-text;
+    // Every text the action's label can be: the button is as wide as the widest, so a label that changes never moves the title
+    in property <[string]> action-reserve;
     // The action icon's colour (the Microphone card's Mute turns red while muted)
     in property <color> action-tint: Theme.ink2;
     // The action a key can stand in for: a right-click on the header button offers a keyboard shortcut
@@ -102,6 +126,13 @@ export component Card inherits Rectangle {
     callback action;
     // The action greys out (New link on a sign that's switched off)
     in property <bool> action-enabled: true;
+    // The one reset button of every card: icon only, the same raised square in the same header slot (the last, before a switch), lit only while
+    // something in the card is off its default and dim and inert otherwise. `reset-label` is its tooltip's name ("Reset"), `reset-detail` a line more.
+    in property <bool> has-reset;
+    in property <bool> reset-lit;
+    in property <string> reset-label;
+    in property <string> reset-detail;
+    callback reset;
     // An on/off switch at the far right of the header (the Microphone card's)
     in property <bool> has-switch;
     in-out property <bool> switch-checked;
@@ -134,29 +165,32 @@ export component Card inherits Rectangle {
     out property <string> control-kind: "card";
     background: Theme.card;
     border-radius: Theme.r-card;
+    on-fade := Fade { shown: !root.idle; }
+    opacity: Motion.between(0.4, 1, on-fade.value);
+    out property <float> presence: on-fade.value;
     VerticalLayout {
         padding-left: Theme.pad;
         padding-right: Theme.pad;
         padding-top: Theme.u(6);
         // Shut, the header has the same room under it as over it; open, the rows get the card's usual bottom padding, which comes in
         // and goes out with the fold so the bottom edge lands on the even padding as the card closes
-        padding-bottom: Theme.u(6) + unfold.value * (Theme.pad - Theme.u(6));
+        padding-bottom: Theme.u(6) + (has-body ? unfold.value : 0) * (Theme.pad - Theme.u(6));
         // Qt skips a layout with nothing shown in it, spacing and all; a folding card's is a widget of its own, which stays
-        spacing: fold-key == "" && body.preferred-height == 0 ? 0 : unfold.value * (Theme.gap + Theme.u(2));
+        spacing: !has-body ? 0 : fold-key == "" && body.preferred-height == 0 ? 0 : unfold.value * (Theme.gap + Theme.u(2));
         HorizontalLayout {
             spacing: Theme.u(5);
             height: Theme.row;
             Rectangle {
                 width: Theme.u(9);
                 chip-touch := TouchArea {
-                    enabled: fold-key != "";
-                    mouse-cursor: fold-key != "" ? pointer : default;
-                    clicked => { Motion.by-pointer = true; Folds.toggle(fold-key); }
+                    enabled: foldable;
+                    mouse-cursor: foldable ? pointer : default;
+                    clicked => { person-folds(); Folds.toggle(fold-key); }
                 }
                 Icon { source: icon; tint: enabled ? hue : Theme.dis; width: Theme.u(9); height: Theme.u(9); accessible-role: none; }
             }
             fold-title := FoldTitle {
-                key: fold-key;
+                key: foldable ? fold-key : "";
                 text: title;
                 tip: root.tip;
                 font-size: Theme.card-title;
@@ -166,6 +200,7 @@ export component Card inherits Rectangle {
                 folded: root.folded;
                 card-enabled: root.enabled;
                 hovered-elsewhere: chip-touch.has-hover;
+                toggling => { person-folds(); }
             }
             Rectangle { horizontal-stretch: 1; }
             if has-extra: Button {
@@ -187,6 +222,7 @@ export component Card inherits Rectangle {
                 padding-x: Theme.u(5);
                 gap: Theme.u(3);
                 text: action-text;
+                reserve: action-reserve;
                 has-icon: true;
                 icon: action-icon;
                 icon-tint: action-tint;
@@ -213,6 +249,14 @@ export component Card inherits Rectangle {
                 accessible-label: action-label;
                 shortcut: root.action-shortcut;
                 clicked => { root.action(); }
+            }
+            if has-reset: IconButton {
+                icon: Icons.reset;
+                label: reset-label;
+                tip: reset-label;
+                tip-detail: reset-detail;
+                enabled: live && reset-lit;
+                clicked => { root.reset(); }
             }
             if has-switch: Rectangle {
                 width: Theme.switch-w;
@@ -400,6 +444,10 @@ export component SwitchRow inherits Rectangle {
     in property <bool> changed;
     in property <string> shortcut;
     in-out property <bool> checked;
+    // Something is wrong with what this switch needs (a missing library): a round red "!" before the switch, so the switch stays where
+    // every other one is. `problem-title` and `problem` are its tooltip's name and body; blank `problem` shows no mark. Not a status dot.
+    in property <string> problem;
+    in property <string> problem-title;
     callback toggled(bool);
     height: Theme.row;
     RailRow {
@@ -414,17 +462,45 @@ export component SwitchRow inherits Rectangle {
         enabled: root.enabled;
         changed: root.changed;
         named: true;
-        VerticalLayout {
-            alignment: center;
-            Switch {
-                label: root.label;
-                tip: root.tip;
-                tip-detail: root.tip-detail; tip-hint: root.tip-hint;
-                shortcut: root.shortcut;
-                hue: root.hue;
-                enabled: root.enabled;
-                checked: root.checked;
-                toggled(v) => { root.toggled(v); }
+        HorizontalLayout {
+            spacing: Theme.gap;
+            alignment: end;
+            if problem != "": Rectangle {
+                width: Theme.u(8);
+                // The "!" sits a pixel above the row's middle: its mass is in its upper stem, so centred it reads low against the switch
+                Rectangle {
+                    y: (parent.height - self.height) / 2 - Theme.u(0.5);
+                    width: parent.width;
+                    height: Theme.u(8);
+                    border-radius: self.height / 2;
+                    background: Theme.err;
+                    accessible-role: text;
+                    accessible-label: problem;
+                    Text {
+                        text: "!";
+                        font-family: Theme.font;
+                        font-size: Theme.small;
+                        font-weight: 700;
+                        color: Theme.on-hue;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        accessible-role: none;
+                    }
+                    Tip { says: problem-title; detail: problem; inert: true; }
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                Switch {
+                    label: root.label;
+                    tip: root.tip;
+                    tip-detail: root.tip-detail; tip-hint: root.tip-hint;
+                    shortcut: root.shortcut;
+                    hue: root.hue;
+                    enabled: root.enabled;
+                    checked: root.checked;
+                    toggled(v) => { root.toggled(v); }
+                }
             }
         }
     }
@@ -442,6 +518,20 @@ export component Section inherits VerticalLayout {
     out property <string> control-kind: "section";
     spacing: unfold.value * Theme.gap;
     changed folded => { if (folded) { section-title.take-focus(); } }
+    // A person's fold (a click or a key, both the same) glides; state that came from somewhere else (loaded when the window is built, a plugin
+    // switched on) is there at once. Set by the person's toggle and never by another control, and a quiet moment later it clears.
+    property <bool> by-person;
+    fold-quiet := Timer {
+        interval: 600ms;
+        running: by-person;
+        triggered => { by-person = false; }
+    }
+    function person-folds() {
+        unfold.sync();
+        by-person = true;
+        fold-quiet.restart();
+    }
+
     HorizontalLayout {
         height: Theme.u(14);
         padding-top: Theme.u(4);
@@ -455,16 +545,16 @@ export component Section inherits VerticalLayout {
             hot-color: Theme.hot;
             folded: root.folded;
             hovered-elsewhere: rest-touch.has-hover;
+            toggling => { person-folds(); }
         }
         // The rest of the heading's row folds it too
         Rectangle {
             horizontal-stretch: 1;
-            rest-touch := TouchArea { enabled: fold-key != ""; mouse-cursor: fold-key != "" ? pointer : default; clicked => { Motion.by-pointer = true; Folds.toggle(fold-key); } }
+            rest-touch := TouchArea { enabled: fold-key != ""; mouse-cursor: fold-key != "" ? pointer : default; clicked => { person-folds(); Folds.toggle(fold-key); } }
         }
     }
     Rectangle {
-        // How far open the rows are, 0 shut to 1 open: it moves when a click folded the section and snaps for a key
-        unfold := Unfold { open: !folded; snap: !Motion.by-pointer; }
+        unfold := Unfold { open: !folded; snap: !by-person; }
         min-height: 0px;
         preferred-height: unfold.value * rows.preferred-height;
         max-height: unfold.value > 0 ? 100000px : 0px;

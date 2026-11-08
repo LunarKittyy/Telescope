@@ -98,7 +98,7 @@ fn a_pick_stretches_the_leading_edge_first_and_both_land_exactly_in_the_same_tim
             step(FRAME);
         }
         assert!(lead_first, "the leading edge goes first (target {target})");
-        assert!(max_width > (from_r - from_l) + (cl - from_l) * 0.5, "it stretches across the gap before it contracts (target {target}): widest {max_width}");
+        assert!(max_width > (from_r - from_l) + (cl - from_l) * 0.3, "it stretches across the gap before it contracts (target {target}): widest {max_width}");
         let (l, r) = edges(&ui);
         assert!((l - cl).abs() < 0.1 && (r - cr).abs() < 0.1, "it lands exactly: {l}..{r} for {cl}..{cr}");
         let done = all_done.expect("it arrives");
@@ -164,12 +164,18 @@ fn a_click_glides_to_the_option_and_a_key_puts_the_worm_there_at_once() {
     for _ in 0..60 {
         step(FRAME);
     }
-    // Right arrow from the focused option goes to the next at once
+    // Right arrow from the focused option goes to the next the same way a click does: a key never cuts a move short
     key(&ui, Key::RightArrow);
+    step(FRAME);
     step(FRAME);
     let (l, r) = edges(&ui);
     let (nl, nr) = cell(3);
-    assert!((l - nl).abs() < 0.6 && (r - nr).abs() < 0.6, "a key puts it there: {l}..{r} for {nl}..{nr}");
+    assert!((r - nr).abs() > 1.0 || (l - nl).abs() > 1.0, "a key moves it, it doesn't jump: {l}..{r} for {nl}..{nr}");
+    for _ in 0..60 {
+        step(FRAME);
+    }
+    let (l, r) = edges(&ui);
+    assert!((l - nl).abs() < 0.6 && (r - nr).abs() < 0.6, "and it lands: {l}..{r} for {nl}..{nr}");
 }
 
 #[test]

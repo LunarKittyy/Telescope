@@ -41,6 +41,7 @@ export component Dial inherits Rectangle {
         if (!enabled) { return; }
         let to = clamp(i, 0, max(0, stops.length - 1));
         if (stops.length > 0 && to != shown) {
+            strip.sync();
             quick = true;
             local = to;
             touched = true;
@@ -54,7 +55,8 @@ export component Dial inherits Rectangle {
     out property <float> strip-place: strip.value;
     // A key or a wheel turn just set it: the strip is there at once. A drag follows the finger, and a stop that something else picked is slid to.
     property <bool> quick;
-    strip := Settle { to: dragging ? drag-pos : shown; snap: dragging || quick; }
+    // Only a finger puts the strip somewhere at once: a key or a wheel notch slides it, retargeting a slide still going
+    strip := Settle { to: dragging ? drag-pos : shown; snap: dragging; }
     held-tone := Tone { on: held; instant-in: true; }
     Timer {
         interval: 80ms;

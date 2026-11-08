@@ -159,6 +159,7 @@ export component Bubble inherits Rectangle {
     public function close() {
         if (popup.is-open && !leaving) {
             if (Motion.fades) {
+                fade-state.sync();
                 leaving = true;
             } else {
                 close-now();
@@ -186,7 +187,7 @@ export component Bubble inherits Rectangle {
         focus-in := FocusScope {
             // Escape from anywhere inside, unless a box in it takes the key first
             key-pressed(e) => {
-                if (e.text == Key.Escape) { root.close-now(); return accept; }
+                if (e.text == Key.Escape) { root.close(); return accept; }
                 reject
             }
             // Everything outside the frame: a press there closes it

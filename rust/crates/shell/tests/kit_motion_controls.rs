@@ -46,17 +46,20 @@ fn a_click_flicks_a_switch_over_a_few_frames_and_a_key_puts_it_there_at_once() {
     let t = trace(&ui, "place", 24);
     assert!(t[1] > 0.0 && t[1] < 0.6, "a click starts it moving, it doesn't jump: {t:?}");
     let top = t.iter().cloned().fold(0.0, f32::max);
-    assert!(top > 1.02 && top < 1.12, "with a little overshoot: {t:?}");
+    assert!(top > 1.01 && top < 1.06, "with a little overshoot: {t:?}");
     assert!((t.last().unwrap() - 1.0).abs() < 0.001, "and it ends on: {t:?}");
-    // Tab to it and press space: no animation at all
+    // Tab to it and press space: it moves the same way (only the colours are at once), so a key never cuts a move short
     step(500);
     ui.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Tab.into() });
     ui.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Tab.into() });
     key_text(&ui, " ");
-    assert_eq!(num(&ui, "place"), 0.0, "a key snaps it to off");
+    step(FRAME);
+    assert!(num(&ui, "place") > 0.0 && num(&ui, "place") < 1.0, "a key moves it, it doesn't jump: {}", num(&ui, "place"));
     step(500);
+    assert_eq!(num(&ui, "place"), 0.0, "and it gets to off");
     key_text(&ui, " ");
-    assert_eq!(num(&ui, "place"), 1.0, "and back to on");
+    step(500);
+    assert!((num(&ui, "place") - 1.0).abs() < 0.001, "and back to on");
 }
 
 fn key_text(ui: &slint_interpreter::ComponentInstance, text: &str) {
@@ -308,7 +311,10 @@ fn a_dial_slides_to_a_stop_something_else_picked_and_a_key_steps_at_once() {
     ui.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Tab.into() });
     ui.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Tab.into() });
     key(&ui, Key::LeftArrow);
-    assert!((num(&ui, "place") - 4.0).abs() < 0.001, "a key steps at once: {}", num(&ui, "place"));
+    step(FRAME);
+    assert!(num(&ui, "place") > 4.0 && num(&ui, "place") < 5.0, "a key slides the strip, it doesn't jump: {}", num(&ui, "place"));
+    step(600);
+    assert!((num(&ui, "place") - 4.0).abs() < 0.001, "and it lands: {}", num(&ui, "place"));
 }
 
 const BUBBLES: &str = r#"
@@ -454,9 +460,14 @@ fn a_click_folds_a_card_over_a_few_frames_with_no_overshoot_and_a_key_snaps_it()
     // Open again with the keyboard: Tab to the title, Space
     key(&ui, Key::Tab);
     key_text(&ui, " ");
-    assert!((num(&ui, "card-h") - whole).abs() < 0.01, "a key opens it at once: {} of {whole}", num(&ui, "card-h"));
+    // A key folds the way a click does (nothing snaps, so it can never cut a fold short): over frames, and it gets there
+    step(FRAME);
+    assert!(num(&ui, "card-h") > shut + 1.0 && num(&ui, "card-h") < whole - 1.0, "a key opens it over frames: {} of {whole}", num(&ui, "card-h"));
+    step(500);
+    assert!((num(&ui, "card-h") - whole).abs() < 0.01, "and it opens: {}", num(&ui, "card-h"));
     key_text(&ui, " ");
-    assert!((num(&ui, "card-h") - shut).abs() < 0.01, "and shuts it at once");
+    step(500);
+    assert!((num(&ui, "card-h") - shut).abs() < 0.01, "and shuts");
 }
 
 #[test]
