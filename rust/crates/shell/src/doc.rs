@@ -703,7 +703,7 @@ pub struct SectionPlace {
 /// The settings window's document: tabs in order (plugins_tab is the index of the Plugins tab, if shown) and every
 /// plugin's sections on them.
 pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlace]) -> String {
-    let mut out = String::from("import { Theme, Icons, Folds, Reveal, TextField, WindowBox, KeyFocus, TipLayer, Motion } from \"@ui-kit/ui-kit.slint\";\n");
+    let mut out = String::from("import { Theme, Icons, Folds, Reveal, TextField, WindowBox, KeyFocus, TipLayer, Tips, Motion } from \"@ui-kit/ui-kit.slint\";\n");
     out.push_str("import { SettingsNav, ScrollPage, SettingsLayout, ResultsList, PluginsPanel, PluginsFooter, Ask, NavTab, Result, GroupView, UpdateRowView } from \"shell/settings.slint\";\n");
     let mut imported = Vec::new();
     for piece in sections.iter().flat_map(|s| std::iter::once(&s.piece).chain(s.footer.as_ref())) {
@@ -774,6 +774,9 @@ export component TelescopeSettings inherits Window {
     }
     changed width => { WindowBox.width = self.width; }
     changed height => { WindowBox.height = self.height; }
+    // A page that goes out of sight with the pointer still over a control must take that control's tooltip with it
+    changed current => { Tips.dismiss(); }
+    changed searching => { Tips.dismiss(); }
     // Where the focus goes when a text box lets go of it: the scope all the window's keys pass through
     public function focus-home() { keys.focus(); }
     property <int> given-back: KeyFocus.given-back;

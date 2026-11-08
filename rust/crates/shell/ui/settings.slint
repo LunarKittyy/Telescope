@@ -1,7 +1,7 @@
 // The settings window (widgets/settings_window.py) and its Plugins tab (widgets/plugins_panel.py). The window itself
 // is written at startup by doc.rs, with every plugin's settings sections placed on their tabs.
 
-import { Theme, Icons, Icon, FocusRing, Button, IconButton, LinkText, Switch, Segmented, Worm, SearchWords, SettingRow, TextField, Tip, TipBody, ColumnScrollbar, Motion } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, Button, IconButton, LinkText, Switch, Segmented, Worm, SearchWords, SettingRow, TextField, Tip, TipBody, ColumnScrollbar, Motion, DialogFrame, DialogButtons, Status } from "@ui-kit/ui-kit.slint";
 
 export struct NavTab {
     id: string,
@@ -183,10 +183,10 @@ export component SettingsNav inherits Rectangle {
 // lets Tab reach a control that has scrolled out of sight (a plain clip makes Slint skip it, and the cycle would be
 // whatever is in view). It never moves itself: the page scrolls by `offset`, and a control that takes the focus asks
 // for that through Reveal.
-// How wide a Settings page's content may grow: past this the labels and their controls are too far apart to read as one row. Pages keep
-// to the left, under the page title, however wide the window is.
+// How wide a Settings page's content may grow, the same on every page: past this a name and its control are too far apart to read as
+// one row. Pages keep to the left, under the page title, however wide the window is.
 export global SettingsLayout {
-    out property <length> content-max: Theme.u(340);
+    out property <length> content-max: Theme.u(260);
 }
 
 export component ScrollPage inherits Flickable {
@@ -595,8 +595,8 @@ export component PluginsFooter inherits Rectangle {
     }
 }
 
-// QMessageBox for the few questions the Plugins tab asks, drawn over the settings window. With info it only tells,
-// as QMessageBox.information and warning do: one button.
+// The few questions the Plugins tab asks, over the settings window: the kit's dialog on a dimmed window. It pops and fades in and goes
+// the same way, and the answer is said once the fade is over. With info it only tells, one button.
 export component Ask inherits Rectangle {
     in property <string> title;
     in property <string> text;
@@ -604,35 +604,36 @@ export component Ask inherits Rectangle {
     in property <bool> danger;
     in property <bool> info;
     callback answered(bool);
-    background: #00000080;
+    // What the dialog is left with: Escape and a press beside it are a no
+    property <bool> answer;
+    // The window dims and clears with the dialog
+    background: #000000.with-alpha(0.5 * dlg.presence);
     TouchArea { }
     FocusScope {
+        init => { self.focus(); }
         key-pressed(e) => {
-            if (e.text == Key.Escape) { root.answered(false); return accept; }
+            if (e.text == Key.Escape) { root.answer = false; dlg.leave(); return accept; }
             reject
         }
-        Rectangle {
+        dlg := DialogFrame {
             x: (root.width - self.width) / 2;
             y: (root.height - self.height) / 2;
-            width: 420px;
-            height: lay.preferred-height;
-            background: Theme.ground;
-            border-radius: 12px;
-            border-width: 1px;
-            border-color: Theme.line-strong;
-            accessible-role: groupbox;
-            accessible-label: title;
-            lay := VerticalLayout {
-                padding: 20px;
-                spacing: 12px;
-                Text { text: title; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.card-title; font-weight: 600; color: Theme.ink; }
-                Text { text: root.text; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; }
-                HorizontalLayout {
-                    spacing: 8px;
-                    alignment: end;
-                    if !info: Button { text: @tr("Cancel"); clicked => { root.answered(false); } }
-                    Button { text: info ? @tr("OK") : yes; role: danger && !info ? "" : "primary"; clicked => { root.answered(true); } }
-                }
+            width: Theme.u(210);
+            height: self.preferred-height;
+            title: root.title;
+            dismissable: true;
+            left => { root.answered(root.answer); }
+            Text {
+                text: root.text;
+                wrap: word-wrap;
+                line-height-factor: Theme.line-factor(self.font-size);
+                font-family: Theme.font;
+                font-size: Theme.body;
+                color: Theme.ink2;
+            }
+            DialogButtons {
+                if !info: Button { text: @tr("Cancel"); dialog: true; clicked => { root.answer = false; dlg.leave(); } }
+                Button { text: info ? @tr("OK") : yes; dialog: true; role: danger && !info ? "" : "primary"; clicked => { root.answer = true; dlg.leave(); } }
             }
         }
     }

@@ -386,7 +386,7 @@ fn the_card_says_when_a_pick_failed_or_wont_load() {
     assert!(r.host.calls.iter().any(|c| c.starts_with("pick_file Open Choose a wait screen")));
     let request = r.plugin.picking.expect("a dialog open");
     r.event(Event::RequestDone { request, ok: true, message: String::new(), data: json!({"path": tmp.join("gone.png").to_str(), "filter": ""}) });
-    let note = r.card("picture-note");
+    let note = r.card("picture-detail");
     let gone = if cfg!(windows) { "cannot find the file specified. Keeping" } else { "No such file" };
     assert!(note.as_str().unwrap().contains(gone) && note.as_str().unwrap().contains("Keeping"), "{note}");
     assert_eq!(r.plugin.image_path(), None);
@@ -484,7 +484,8 @@ fn settings_section_goes_in_streaming_and_shows_the_wait_screen() {
     let picture = &r.host.images[&("wait-screen".to_string(), "preview".to_string())];
     assert_eq!((picture.width, picture.height, picture.format), (384, 216, PixelFormat::Rgba));
     assert_eq!(r.card("mirror-checked"), json!(false));
-    assert_eq!(r.card("picture-note"), "Shown at 1920 \u{d7} 1080, the size the stream opens the camera at. Still images and GIFs work; transparent parts show the dark background.");
+    assert_eq!(r.card("picture-note"), "Shown at 1920 \u{d7} 1080");
+    assert_eq!(r.card("picture-detail"), "The size the stream opens the camera at. Still images and GIFs work; transparent parts show the dark background.");
     r.ui("mirror-toggled", vec![json!(true)]);
     assert!(r.plugin.mirror());
     // The picture follows the camera's shape

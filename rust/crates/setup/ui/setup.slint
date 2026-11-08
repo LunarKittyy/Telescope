@@ -483,7 +483,7 @@ export component LookSettings inherits Card {
     }
 }
 
-// About, on Updates & About: the version, bug reports and where to find help
+// About, on Updates & About: who made it, the log, diagnostics, bug reports and where to find help. One row each, the button at the right edge
 export component AboutSettings inherits Card {
     in property <string> version-text;
     in property <string> made-before;
@@ -501,58 +501,62 @@ export component AboutSettings inherits Card {
     tip: @tr("Version, log, bug reports and help.");
     keywords: @tr("search" => "info version help support credits");
     icon: Icons.help;
-    hue: Theme.plugin-hue("streaming");
+    hue: Theme.plugin-hue("extras");
 
-    Strip {
-        title: "Telescope";
+    RailRow {
+        icon: Icons.person;
+        label: "Telescope";
+        tip: "Telescope";
+        tip-detail: version-text;
+        named: true;
+        hue: root.hue;
         keywords: @tr("search" => "about author credits made by version number build");
-        sub: version-text;
-        StripTop {
-            title: "Telescope";
-            sub: version-text;
-            // A credit, not a Tab stop
-            HorizontalLayout {
-                alignment: end;
-                Text { text: made-before; font-family: Theme.font; font-size: Theme.body; color: Theme.ink; vertical-alignment: center; }
-                Text {
-                    text: made-link;
-                    font-family: Theme.font;
-                    font-size: Theme.body;
-                    color: Theme.accent;
-                    vertical-alignment: center;
-                    TouchArea { mouse-cursor: MouseCursor.pointer; clicked => { root.author-clicked(); } }
-                    // Qt underlines a link
-                    Rectangle { y: parent.height - 1px; height: 1px; background: Theme.accent; }
-                }
-                Text { text: made-after; font-family: Theme.font; font-size: Theme.body; color: Theme.ink; vertical-alignment: center; }
+        HorizontalLayout {
+            spacing: 0px;
+            alignment: end;
+            Text { text: made-before; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; }
+            VerticalLayout {
+                alignment: center;
+                LinkText { text: made-link; url: ""; font-size: Theme.body; horizontal-stretch: 0; opened(u) => { root.author-clicked(); } }
             }
+            if made-after != "": Text { text: made-after; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; }
         }
     }
-    Strip {
-        title: @tr("Bug reports");
+    if log-shown: RailRow {
+        icon: Icons.notes;
+        label: @tr("Log");
+        named: true;
+        hue: root.hue;
         keywords: @tr("search" => "bug report diagnostics logs debug support problem issue help copy log file");
-        StripTop {
-            title: @tr("Bug reports");
-            // Natural widths: three buttons sharing the row equally squeeze the text next to them onto extra lines
-            if log-shown: StripButton { text: @tr("Open log"); tip: @tr("Open log"); tip-detail: @tr("Open the full log. It's kept in the temp folder, which the system clears."); clicked => { root.log-clicked(); } }
-            StripButton {
-                text: diag-text;
-                has-icon: true;
-                icon: Icons.copy;
-                icon-tint: Theme.ink2;
-                tip: @tr("Copy diagnostics");
-                tip-detail: @tr("Copy info for a bug report without pairing tokens, addresses or file paths.");
-                clicked => { root.diag-clicked(); }
-            }
-            StripButton { text: @tr("Report a bug"); tip: @tr("Report a bug"); tip-detail: @tr("Copy the diagnostics and open the bug form on GitHub."); clicked => { root.bug-clicked(); } }
+        Button { text: @tr("Open"); tip: @tr("Open log"); tip-detail: @tr("Open the full log. It's kept in the temp folder, which the system clears."); clicked => { root.log-clicked(); } }
+    }
+    RailRow {
+        icon: Icons.copy;
+        label: @tr("Diagnostics");
+        named: true;
+        hue: root.hue;
+        keywords: @tr("search" => "bug report diagnostics logs debug support problem issue help copy log file");
+        Button {
+            text: diag-text;
+            tip: @tr("Copy diagnostics");
+            tip-detail: @tr("Copy info for a bug report without pairing tokens, addresses or file paths.");
+            clicked => { root.diag-clicked(); }
         }
     }
-    Strip {
-        title: @tr("Need help?");
+    RailRow {
+        icon: Icons.alert;
+        label: @tr("Bug reports");
+        named: true;
+        hue: root.hue;
+        keywords: @tr("search" => "bug report diagnostics logs debug support problem issue help copy log file");
+        Button { text: @tr("Report a bug"); tip: @tr("Report a bug"); tip-detail: @tr("Copy the diagnostics and open the bug form on GitHub."); clicked => { root.bug-clicked(); } }
+    }
+    RailRow {
+        icon: Icons.help;
+        label: @tr("Need help?");
+        named: true;
+        hue: root.hue;
         keywords: @tr("search" => "help support troubleshooting question faq problem not working stuck ask");
-        StripTop {
-            title: @tr("Need help?");
-            StripButton { text: @tr("Troubleshooting"); clicked => { root.help-clicked(); } }
-        }
+        Button { text: @tr("Troubleshooting"); clicked => { root.help-clicked(); } }
     }
 }

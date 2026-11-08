@@ -434,7 +434,7 @@ impl SetupPlugin {
         json!({
             "version-text": tr("Version {version}").field("version", &self.version),
             "made-before": before, "made-link": link, "made-after": after,
-            "diag-text": if self.panel.copied { tr("Copied") } else { tr("Copy diagnostics") },
+            "diag-text": if self.panel.copied { tr("Copied") } else { tr("Copy") },
             "log-shown": self.log_path.is_some(),
         })
     }

@@ -370,7 +370,7 @@ msgstr "Giảm nhiễu"
 msgid "Noise reduction unavailable"
 msgstr ""
 
-#: rust/crates/audio/ui/microphone.slint:311 rust/crates/effects/src/desk.rs:189 rust/crates/effects/ui/colour_grading.slint:469 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:460 rust/crates/link/ui/connection.slint:677 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:633 rust/crates/system/ui/shortcuts.slint:380 rust/crates/system/ui/updates.slint:209
+#: rust/crates/audio/ui/microphone.slint:311 rust/crates/effects/src/desk.rs:189 rust/crates/effects/ui/colour_grading.slint:469 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:460 rust/crates/link/ui/connection.slint:677 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:635 rust/crates/system/ui/shortcuts.slint:380 rust/crates/system/ui/updates.slint:241
 msgid "Cancel"
 msgstr "Hủy"
 
@@ -2046,11 +2046,11 @@ msgstr ""
 msgid "Open the link in a browser on any device on the same network and tap the page to make it full screen. The link stays the same after Telescope restarts."
 msgstr "Mở liên kết trong trình duyệt trên bất kỳ thiết bị nào cùng mạng và chạm vào trang để chuyển sang toàn màn hình. Liên kết vẫn giữ nguyên sau khi Telescope khởi động lại."
 
-#: rust/crates/effects/src/on_air_plugin.rs:200 rust/crates/effects/src/on_air_plugin.rs:456 rust/crates/effects/ui/on_air_header.slint:14 rust/crates/effects/ui/on_air_header.slint:16
+#: rust/crates/effects/src/on_air_plugin.rs:200 rust/crates/effects/src/on_air_plugin.rs:456 rust/crates/effects/ui/on_air.slint:290 rust/crates/effects/ui/on_air_header.slint:14 rust/crates/effects/ui/on_air_header.slint:16
 msgid "On air"
 msgstr "Đang lên sóng"
 
-#: rust/crates/effects/src/on_air_plugin.rs:200 rust/crates/effects/src/on_air_plugin.rs:456
+#: rust/crates/effects/src/on_air_plugin.rs:200 rust/crates/effects/src/on_air_plugin.rs:456 rust/crates/effects/ui/on_air.slint:291
 msgid "Off air"
 msgstr "Không lên sóng"
 
@@ -2084,7 +2084,7 @@ msgstr "Webhook Đang lên sóng không gửi được"
 msgid "It answered: {error}"
 msgstr "Phản hồi: {error}"
 
-#: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:404 rust/crates/shell/src/doc.rs:405 rust/crates/shell/src/doc.rs:825
+#: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:404 rust/crates/shell/src/doc.rs:405 rust/crates/shell/src/doc.rs:828
 msgid "Settings"
 msgstr "Cài đặt"
 
@@ -2097,19 +2097,19 @@ msgstr "Không thể bắt đầu: {error}"
 msgid "The address has to start with http:// or https://"
 msgstr "Địa chỉ phải bắt đầu bằng http:// hoặc https://"
 
-#: rust/crates/effects/src/on_air_plugin.rs:443 rust/crates/effects/ui/on_air.slint:127 rust/crates/effects/ui/on_air.slint:138
+#: rust/crates/effects/src/on_air_plugin.rs:443 rust/crates/effects/ui/on_air.slint:154
 msgid "Show the sign on a web page"
 msgstr "Hiển thị biển báo trên một trang web"
 
-#: rust/crates/effects/src/on_air_plugin.rs:443 rust/crates/effects/ui/on_air.slint:150
+#: rust/crates/effects/src/on_air_plugin.rs:443
 msgid "Scan"
 msgstr "Quét"
 
-#: rust/crates/effects/src/on_air_plugin.rs:444 rust/crates/effects/src/qr_reader.rs:473 rust/crates/link/ui/browser_camera.slint:172 rust/crates/link/ui/browser_camera.slint:173 rust/crates/setup/ui/parts.slint:122 rust/crates/setup/ui/parts.slint:126 rust/crates/system/ui/mcp.slint:113 rust/crates/system/ui/mcp.slint:114 rust/crates/system/ui/shortcuts.slint:374
+#: rust/crates/effects/src/on_air_plugin.rs:444 rust/crates/effects/src/qr_reader.rs:473 rust/crates/link/ui/browser_camera.slint:172 rust/crates/link/ui/browser_camera.slint:173 rust/crates/setup/src/setup.rs:437 rust/crates/setup/ui/parts.slint:122 rust/crates/setup/ui/parts.slint:126 rust/crates/system/ui/mcp.slint:113 rust/crates/system/ui/mcp.slint:114 rust/crates/system/ui/shortcuts.slint:374
 msgid "Copy"
 msgstr "Sao chép"
 
-#: rust/crates/effects/src/on_air_plugin.rs:514 rust/crates/effects/ui/on_air.slint:71
+#: rust/crates/effects/src/on_air_plugin.rs:514 rust/crates/effects/ui/on_air.slint:112
 msgid "On Air sign"
 msgstr "Biển báo Đang lên sóng"
 
@@ -2809,7 +2809,7 @@ msgstr "Đường cong"
 msgid "All"
 msgstr "Tất cả"
 
-#: rust/crates/effects/ui/colour_grading.slint:362 rust/crates/system/ui/updates.slint:116 rust/crates/system/ui/updates.slint:123
+#: rust/crates/effects/ui/colour_grading.slint:362 rust/crates/system/ui/updates.slint:164 rust/crates/system/ui/updates.slint:172
 msgid "Channel"
 msgstr "Kênh"
 
@@ -3013,7 +3013,7 @@ msgstr "Thay thế bố cục"
 msgid "Name:"
 msgstr "Tên:"
 
-#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:462 rust/crates/link/ui/connection.slint:679 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:880 rust/crates/shell/ui/settings.slint:634
+#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:462 rust/crates/link/ui/connection.slint:679 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:881 rust/crates/shell/ui/settings.slint:636
 msgid "OK"
 msgstr "OK"
 
@@ -3181,71 +3181,71 @@ msgstr "Cuộn"
 msgid "Move through the script"
 msgstr ""
 
-#: rust/crates/effects/ui/on_air.slint:72
+#: rust/crates/effects/ui/on_air.slint:113
 msgid "Shows the people around you that your camera or microphone is in use."
 msgstr ""
 
-#: rust/crates/effects/ui/on_air.slint:77
+#: rust/crates/effects/ui/on_air.slint:118
 msgid "Now"
 msgstr "Hiện tại"
 
-#: rust/crates/effects/ui/on_air.slint:93 rust/crates/effects/ui/on_air.slint:101 rust/crates/effects/ui/on_air.slint:104
+#: rust/crates/effects/ui/on_air.slint:125 rust/crates/effects/ui/on_air.slint:131 rust/crates/effects/ui/on_air.slint:134
 msgid "On air when"
 msgstr "Lên sóng khi"
 
-#: rust/crates/effects/ui/on_air.slint:112
+#: rust/crates/effects/ui/on_air.slint:141
 msgid "Sign on another device"
 msgstr "Biển báo trên thiết bị khác"
 
-#: rust/crates/effects/ui/on_air.slint:113
+#: rust/crates/effects/ui/on_air.slint:142
 msgctxt "search"
 msgid "tablet phone screen page link qr code"
 msgstr "máy tính bảng điện thoại màn hình trang liên kết mã qr tablet phone screen page link qr code"
 
-#: rust/crates/effects/ui/on_air.slint:119 rust/crates/link/ui/browser_camera.slint:76
+#: rust/crates/effects/ui/on_air.slint:148 rust/crates/link/ui/browser_camera.slint:76
 msgid "New link"
 msgstr "Liên kết mới"
 
-#: rust/crates/effects/ui/on_air.slint:165 rust/crates/effects/ui/on_air.slint:173 rust/crates/effects/ui/on_air.slint:176 rust/crates/effects/ui/on_air.slint:211 rust/crates/link/ui/browser_camera.slint:161 rust/crates/link/ui/browser_camera.slint:164
+#: rust/crates/effects/ui/on_air.slint:163
+msgid "The page didn't start"
+msgstr ""
+
+#: rust/crates/effects/ui/on_air.slint:183 rust/crates/effects/ui/on_air.slint:189 rust/crates/effects/ui/on_air.slint:192 rust/crates/effects/ui/on_air.slint:233 rust/crates/link/ui/browser_camera.slint:161 rust/crates/link/ui/browser_camera.slint:164
 msgid "Address"
 msgstr "Địa chỉ"
 
-#: rust/crates/effects/ui/on_air.slint:184 rust/crates/link/ui/browser_camera.slint:143 rust/crates/setup/src/stats.rs:328
+#: rust/crates/effects/ui/on_air.slint:203 rust/crates/link/ui/browser_camera.slint:143 rust/crates/setup/src/stats.rs:328
 msgid "Link"
 msgstr "Liên kết"
 
-#: rust/crates/effects/ui/on_air.slint:204
+#: rust/crates/effects/ui/on_air.slint:225
 msgid "Webhook"
 msgstr "Webhook"
 
-#: rust/crates/effects/ui/on_air.slint:205
+#: rust/crates/effects/ui/on_air.slint:226
 msgctxt "search"
 msgid "smart home light home assistant url http request automation"
 msgstr "nhà thông minh đèn trợ lý nhà url yêu cầu http tự động hóa smart home light home assistant url http request automation"
 
-#: rust/crates/effects/ui/on_air.slint:219 rust/crates/effects/ui/on_air.slint:226
+#: rust/crates/effects/ui/on_air.slint:248 rust/crates/effects/ui/on_air.slint:256
 msgid "Method"
 msgstr "Phương thức"
 
-#: rust/crates/effects/ui/on_air.slint:225 rust/crates/effects/ui/on_air.slint:225
+#: rust/crates/effects/ui/on_air.slint:255 rust/crates/effects/ui/on_air.slint:255
 msgid "POST sends the text as the request body and GET adds it to the address."
 msgstr ""
 
-#: rust/crates/effects/ui/on_air.slint:234 rust/crates/effects/ui/on_air.slint:236
+#: rust/crates/effects/ui/on_air.slint:264 rust/crates/effects/ui/on_air.slint:266
 msgid "Going on air"
 msgstr "Khi bắt đầu lên sóng"
 
-#: rust/crates/effects/ui/on_air.slint:244 rust/crates/effects/ui/on_air.slint:246
+#: rust/crates/effects/ui/on_air.slint:274 rust/crates/effects/ui/on_air.slint:276
 msgid "Going off air"
 msgstr "Khi dừng lên sóng"
 
-#: rust/crates/effects/ui/on_air.slint:253
-msgid "Test on"
-msgstr "Thử bật"
-
-#: rust/crates/effects/ui/on_air.slint:254
-msgid "Test off"
-msgstr "Thử tắt"
+#: rust/crates/effects/ui/on_air.slint:284
+msgid "Send a test"
+msgstr ""
 
 #: rust/crates/effects/ui/parts.slint:170
 msgid "Can't open this picture"
@@ -3621,7 +3621,7 @@ msgstr "Không theo kịp"
 msgid "Browser"
 msgstr "Trình duyệt"
 
-#: rust/crates/link/src/browser/plugin.rs:928 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:736 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1561 rust/crates/system/ui/updates.slint:168
+#: rust/crates/link/src/browser/plugin.rs:928 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:736 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1561 rust/crates/system/ui/updates.slint:157
 msgid "Try again"
 msgstr "Thử lại"
 
@@ -4335,20 +4335,20 @@ msgstr "Đổi tên máy tính này"
 msgid "Name your phones show (applies to phones you pair from now on)"
 msgstr "Tên hiển thị trên điện thoại của bạn (áp dụng cho các điện thoại ghép đôi từ bây giờ)"
 
-#: rust/crates/link/ui/connection.slint:735 rust/crates/link/ui/connection.slint:742
+#: rust/crates/link/ui/connection.slint:737 rust/crates/link/ui/connection.slint:754
 msgid "UDP on Wi-Fi"
 msgstr "UDP qua Wi-Fi"
 
-#: rust/crates/link/ui/connection.slint:736
+#: rust/crates/link/ui/connection.slint:738 rust/crates/link/ui/connection.slint:746
+msgid "It can stutter more than TCP, so try it and see."
+msgstr "Có thể bị giật nhiều hơn TCP, nên bạn hãy thử xem sao."
+
+#: rust/crates/link/ui/connection.slint:741
 msgctxt "search"
 msgid "udp tcp transport network lag freezes stutter wifi"
 msgstr "mạng giao thức lag giật đứng hình truyền tải udp tcp transport network lag freezes stutter wifi"
 
-#: rust/crates/link/ui/connection.slint:737
-msgid "It can stutter more than TCP, so try it and see."
-msgstr "Có thể bị giật nhiều hơn TCP, nên bạn hãy thử xem sao."
-
-#: rust/crates/link/ui/connection.slint:738
+#: rust/crates/link/ui/connection.slint:744
 msgid "Experimental"
 msgstr "Thử nghiệm"
 
@@ -4604,42 +4604,54 @@ msgstr ""
 msgid "Waiting for camera"
 msgstr "Đang chờ camera"
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:470
+#: rust/crates/outputs/src/wait_screen_plugin.rs:471
+msgid "Couldn't use that image"
+msgstr ""
+
+#: rust/crates/outputs/src/wait_screen_plugin.rs:471
 #, python-brace-format
-msgid "Couldn't use that image: {problem}. Keeping the current wait screen."
-msgstr "Không thể dùng ảnh đó: {problem}. Vẫn giữ màn hình chờ hiện tại."
+msgid "{problem}. Keeping the current wait screen."
+msgstr ""
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:472
-msgid "Couldn't read that image, so the default screen is showing. Choose another one."
-msgstr "Không thể đọc ảnh đó, nên màn hình mặc định đang hiển thị. Hãy chọn ảnh khác."
+#: rust/crates/outputs/src/wait_screen_plugin.rs:473
+msgid "Couldn't read that image"
+msgstr ""
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:474
+#: rust/crates/outputs/src/wait_screen_plugin.rs:473
+msgid "The default screen is showing. Choose another one."
+msgstr ""
+
+#: rust/crates/outputs/src/wait_screen_plugin.rs:476
 #, python-brace-format
-msgid "Shown at {size}, the size the stream opens the camera at. Still images and GIFs work; transparent parts show the dark background."
-msgstr "Hiển thị ở {size}, kích thước luồng phát mở camera. Hỗ trợ ảnh tĩnh và ảnh GIF; phần trong suốt sẽ hiển thị nền tối."
+msgid "Shown at {size}"
+msgstr ""
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:519
+#: rust/crates/outputs/src/wait_screen_plugin.rs:477
+msgid "The size the stream opens the camera at. Still images and GIFs work; transparent parts show the dark background."
+msgstr ""
+
+#: rust/crates/outputs/src/wait_screen_plugin.rs:523
 msgid "Choose a wait screen"
 msgstr "Chọn màn hình chờ"
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:521
+#: rust/crates/outputs/src/wait_screen_plugin.rs:525
 #, python-brace-format
 msgid "Images ({formats})"
 msgstr "Ảnh ({formats})"
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:536 rust/crates/outputs/ui/wait_screen.slint:18 rust/crates/outputs/ui/wait_screen.slint:30
+#: rust/crates/outputs/src/wait_screen_plugin.rs:540 rust/crates/outputs/ui/wait_screen.slint:36 rust/crates/outputs/ui/wait_screen.slint:62
 msgid "Wait screen"
 msgstr "Màn hình chờ"
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:537
+#: rust/crates/outputs/src/wait_screen_plugin.rs:541
 msgid "The picture apps see on the virtual camera while nothing is streaming."
 msgstr "Ảnh các ứng dụng nhìn thấy trên camera ảo trong khi không có luồng truyền phát nào."
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:538
+#: rust/crates/outputs/src/wait_screen_plugin.rs:542
 msgid "Without it Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
 msgstr "Nếu không có, thẻ Màn hình chờ sẽ không có trong Cài đặt và giữa các lần truyền phát, ứng dụng có thể thấy màn hình đen hoặc không thấy gì cả."
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:629
+#: rust/crates/outputs/src/wait_screen_plugin.rs:633
 msgctxt "search"
 msgid "idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo"
 msgstr "không hoạt động chờ ảnh giữ chỗ hình ảnh gif màn hình đen bị đơ không truyền phát lật gương lật hình nền tùy chỉnh logo idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo"
@@ -4929,19 +4941,19 @@ msgstr "Quyền truy cập camera đang tắt trong Windows (Settings > Privacy 
 msgid "Downloading driver files..."
 msgstr "Đang tải về các tệp trình điều khiển..."
 
-#: rust/crates/outputs/ui/wait_screen.slint:19
+#: rust/crates/outputs/ui/wait_screen.slint:37
 msgid "What apps see on the virtual camera while nothing is streaming."
 msgstr ""
 
-#: rust/crates/outputs/ui/wait_screen.slint:44
+#: rust/crates/outputs/ui/wait_screen.slint:42 rust/crates/outputs/ui/wait_screen.slint:43
 msgid "Choose image"
 msgstr ""
 
-#: rust/crates/outputs/ui/wait_screen.slint:45
+#: rust/crates/outputs/ui/wait_screen.slint:47
 msgid "Use default"
 msgstr "Dùng mặc định"
 
-#: rust/crates/outputs/ui/wait_screen.slint:52 rust/crates/outputs/ui/wait_screen.slint:57 rust/crates/outputs/ui/wait_screen.slint:69
+#: rust/crates/outputs/ui/wait_screen.slint:72
 msgid "Mirror it, for apps that flip the camera"
 msgstr "Lật gương ảnh này, dành cho các ứng dụng tự lật camera"
 
@@ -5227,10 +5239,6 @@ msgstr "Phiên bản {version}"
 msgid "Copied"
 msgstr "Đã sao chép"
 
-#: rust/crates/setup/src/setup.rs:437 rust/crates/setup/ui/setup.slint:543
-msgid "Copy diagnostics"
-msgstr "Sao chép chẩn đoán"
-
 #: rust/crates/setup/src/setup.rs:517
 msgid "The graphics card failed and the processor is decoding until you restart Telescope"
 msgstr "Card đồ họa gặp sự cố và bộ xử lý đang giải mã cho đến khi bạn khởi động lại Telescope"
@@ -5330,7 +5338,7 @@ msgstr "Bản cập nhật đã sẵn sàng"
 msgid "Some apps can't see it"
 msgstr "Một số ứng dụng không nhận diện được"
 
-#: rust/crates/setup/src/setup.rs:644 rust/crates/system/ui/updates.slint:34 rust/crates/system/ui/updates.slint:48
+#: rust/crates/setup/src/setup.rs:644 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
 msgid "Update"
 msgstr "Cập nhật"
 
@@ -6205,50 +6213,66 @@ msgctxt "search"
 msgid "info version help support credits"
 msgstr "thông tin phiên bản trợ giúp hỗ trợ ghi công info version help support credits"
 
-#: rust/crates/setup/ui/setup.slint:508
+#: rust/crates/setup/ui/setup.slint:513
 msgctxt "search"
 msgid "about author credits made by version number build"
 msgstr "giới thiệu tác giả ghi công phát triển bởi số phiên bản bản dựng about author credits made by version number build"
 
-#: rust/crates/setup/ui/setup.slint:532 rust/crates/setup/ui/setup.slint:535
-msgid "Bug reports"
-msgstr "Báo cáo lỗi"
+#: rust/crates/setup/ui/setup.slint:527
+msgid "Log"
+msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:533
+#: rust/crates/setup/ui/setup.slint:530 rust/crates/setup/ui/setup.slint:538 rust/crates/setup/ui/setup.slint:551
 msgctxt "search"
 msgid "bug report diagnostics logs debug support problem issue help copy log file"
 msgstr "báo cáo lỗi chẩn đoán nhật ký gỡ lỗi hỗ trợ sự cố vấn đề trợ giúp sao chép tệp nhật ký bug report diagnostics logs debug support problem issue help copy log file"
 
-#: rust/crates/setup/ui/setup.slint:537 rust/crates/setup/ui/setup.slint:537
+#: rust/crates/setup/ui/setup.slint:531 rust/crates/system/ui/shortcuts.slint:255
+msgid "Open"
+msgstr "Mở"
+
+#: rust/crates/setup/ui/setup.slint:531
 msgid "Open log"
 msgstr "Mở nhật ký"
 
-#: rust/crates/setup/ui/setup.slint:537
+#: rust/crates/setup/ui/setup.slint:531
 msgid "Open the full log. It's kept in the temp folder, which the system clears."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:544
+#: rust/crates/setup/ui/setup.slint:535
+msgid "Diagnostics"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:541
+msgid "Copy diagnostics"
+msgstr "Sao chép chẩn đoán"
+
+#: rust/crates/setup/ui/setup.slint:542
 msgid "Copy info for a bug report without pairing tokens, addresses or file paths."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:547 rust/crates/setup/ui/setup.slint:547
+#: rust/crates/setup/ui/setup.slint:548
+msgid "Bug reports"
+msgstr "Báo cáo lỗi"
+
+#: rust/crates/setup/ui/setup.slint:552 rust/crates/setup/ui/setup.slint:552
 msgid "Report a bug"
 msgstr "Báo lỗi"
 
-#: rust/crates/setup/ui/setup.slint:547
+#: rust/crates/setup/ui/setup.slint:552
 msgid "Copy the diagnostics and open the bug form on GitHub."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:551 rust/crates/setup/ui/setup.slint:554
+#: rust/crates/setup/ui/setup.slint:556
 msgid "Need help?"
 msgstr "Bạn cần trợ giúp?"
 
-#: rust/crates/setup/ui/setup.slint:552
+#: rust/crates/setup/ui/setup.slint:559
 msgctxt "search"
 msgid "help support troubleshooting question faq problem not working stuck ask"
 msgstr "trợ giúp hỗ trợ khắc phục sự cố câu hỏi hỏi đáp vấn đề không hoạt động bị kẹt hỏi help support troubleshooting question faq problem not working stuck ask"
 
-#: rust/crates/setup/ui/setup.slint:555
+#: rust/crates/setup/ui/setup.slint:560
 msgid "Troubleshooting"
 msgstr "Khắc phục sự cố"
 
@@ -6268,7 +6292,7 @@ msgstr "Thêm camera"
 msgid "Stream another camera at the same time on a separate virtual camera."
 msgstr ""
 
-#: rust/crates/shell/src/doc.rs:863 rust/crates/shell/src/doc.rs:864
+#: rust/crates/shell/src/doc.rs:866 rust/crates/shell/src/doc.rs:867
 msgid "Search settings"
 msgstr "Tìm kiếm cài đặt"
 
@@ -6990,49 +7014,49 @@ msgstr "Thẻ"
 msgid "Check that it's still on."
 msgstr "Kiểm tra xem thiết bị vẫn đang bật."
 
-#: rust/crates/shell/src/settings.rs:737
+#: rust/crates/shell/src/settings.rs:738
 msgid "Nothing matches every word. These match some of them."
 msgstr "Không có mục nào khớp với mọi từ. Dưới đây là các mục khớp với một số từ."
 
-#: rust/crates/shell/src/settings.rs:739
+#: rust/crates/shell/src/settings.rs:740
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)."
 msgstr "Không có mục nào khớp với “{text}”. Hãy thử dùng ít từ hơn, hoặc tìm theo chức năng (độ phân giải, micrô, khởi động)."
 
-#: rust/crates/shell/src/settings.rs:741 rust/crates/shell/ui/settings.slint:254
+#: rust/crates/shell/src/settings.rs:742 rust/crates/shell/ui/settings.slint:254
 msgid "Search results"
 msgstr "Kết quả tìm kiếm"
 
-#: rust/crates/shell/src/settings.rs:803
+#: rust/crates/shell/src/settings.rs:804
 #, python-brace-format
 msgid "Remove {plugin}"
 msgstr "Gỡ bỏ {plugin}"
 
-#: rust/crates/shell/src/settings.rs:822
+#: rust/crates/shell/src/settings.rs:823
 msgid "Check for updates"
 msgstr "Kiểm tra bản cập nhật"
 
-#: rust/crates/shell/src/settings.rs:823
+#: rust/crates/shell/src/settings.rs:824
 msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
 msgstr "Kiểm tra mỗi ngày một lần các phiên bản mới của tiện ích bổ sung đã thêm có phát hành trên GitHub và thông báo tại đây. Không có gì được tải về."
 
-#: rust/crates/shell/src/settings.rs:824
+#: rust/crates/shell/src/settings.rs:825
 msgid "Install updates without asking"
 msgstr "Cài đặt bản cập nhật mà không cần hỏi"
 
-#: rust/crates/shell/src/settings.rs:824
+#: rust/crates/shell/src/settings.rs:825
 msgid "Installs new versions of the plugins you switched on and switches them on again."
 msgstr "Cài đặt các phiên bản mới của các tiện ích bổ sung bạn đã bật và tự động bật lại chúng."
 
-#: rust/crates/shell/src/settings.rs:825
+#: rust/crates/shell/src/settings.rs:826
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "Nguy hiểm! Bất kỳ ai kiểm soát kho lưu trữ của tiện ích đều có thể chạy mã mới trên máy tính này mỗi khi họ xuất bản bản phát hành mới."
 
-#: rust/crates/shell/src/settings.rs:913
+#: rust/crates/shell/src/settings.rs:914
 msgid "Install a plugin"
 msgstr "Cài đặt tiện ích bổ sung"
 
-#: rust/crates/shell/src/settings.rs:915
+#: rust/crates/shell/src/settings.rs:916
 msgid "Plugins (*.zip)"
 msgstr "Tiện ích bổ sung (*.zip)"
 
@@ -8394,7 +8418,7 @@ msgstr "Bản cập nhật này không được cài đặt vì không thể kh�
 msgid "Stable"
 msgstr "Ổn định"
 
-#: rust/crates/system/src/updates_plugin.rs:30 rust/crates/system/ui/updates.slint:127
+#: rust/crates/system/src/updates_plugin.rs:30 rust/crates/system/ui/updates.slint:176
 msgid "Nightly"
 msgstr "Nightly"
 
@@ -8553,10 +8577,6 @@ msgctxt "search"
 msgid "global hotkeys portal kde plasma gnome desktop keys rebind"
 msgstr "phím tắt toàn hệ thống cổng phím gán lại global hotkeys portal kde plasma gnome desktop keys rebind"
 
-#: rust/crates/system/ui/shortcuts.slint:255
-msgid "Open"
-msgstr "Mở"
-
 #: rust/crates/system/ui/shortcuts.slint:256
 msgid "Global shortcuts"
 msgstr ""
@@ -8633,105 +8653,105 @@ msgctxt "search"
 msgid "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 msgstr ""
 
-#: rust/crates/system/ui/startup.slint:58
+#: rust/crates/system/ui/startup.slint:61
 msgctxt "search"
 msgid "automatically begin streaming when phone device ready app opens the camera auto start"
 msgstr ""
 
-#: rust/crates/system/ui/startup.slint:70
+#: rust/crates/system/ui/startup.slint:76
 msgctxt "search"
 msgid "automatically end streaming idle no app uses the camera auto stop"
 msgstr "tự động dừng truyền phát không hoạt động không dùng camera tự động tắt automatically end streaming idle no app uses the camera auto stop"
 
-#: rust/crates/system/ui/startup.slint:83
+#: rust/crates/system/ui/startup.slint:93
 msgctxt "search"
 msgid "delay timeout idle seconds minutes how long grace period auto stop"
 msgstr "độ trễ thời gian chờ không hoạt động giây phút bao lâu thời gian gia hạn tự động dừng delay timeout idle seconds minutes how long grace period auto stop"
 
-#: rust/crates/system/ui/startup.slint:120 rust/crates/system/ui/startup.slint:126
+#: rust/crates/system/ui/startup.slint:128
 msgid "Tell me when it stops a stream"
 msgstr "Báo cho tôi khi dừng luồng phát"
 
-#: rust/crates/system/ui/startup.slint:121
+#: rust/crates/system/ui/startup.slint:131
 msgctxt "search"
 msgid "notification notify alert popup message"
 msgstr "thông báo cảnh báo tin nhắn bật lên notification notify alert popup message"
 
-#: rust/crates/system/ui/updates.slint:97
+#: rust/crates/system/ui/updates.slint:104
 msgid "Check for new versions and install them."
 msgstr ""
 
-#: rust/crates/system/ui/updates.slint:98
+#: rust/crates/system/ui/updates.slint:105
 msgctxt "search"
 msgid "update upgrade new version release download install latest"
 msgstr "cập nhật nâng cấp phiên bản mới bản phát hành tải về cài đặt mới nhất update upgrade new version release download install latest"
 
-#: rust/crates/system/ui/updates.slint:103 rust/crates/system/ui/updates.slint:104
+#: rust/crates/system/ui/updates.slint:110 rust/crates/system/ui/updates.slint:111
 msgid "Check now"
 msgstr "Kiểm tra ngay"
 
-#: rust/crates/system/ui/updates.slint:105
+#: rust/crates/system/ui/updates.slint:112
 msgid "Look for a new version of Telescope."
 msgstr ""
 
-#: rust/crates/system/ui/updates.slint:109
+#: rust/crates/system/ui/updates.slint:118
 msgid "This version"
 msgstr "Phiên bản này"
 
-#: rust/crates/system/ui/updates.slint:111
+#: rust/crates/system/ui/updates.slint:121
 msgctxt "search"
 msgid "current build number"
 msgstr "số bản dựng hiện tại current build number"
 
-#: rust/crates/system/ui/updates.slint:118
+#: rust/crates/system/ui/updates.slint:146
+msgid "What's new"
+msgstr "Có gì mới"
+
+#: rust/crates/system/ui/updates.slint:167
 msgctxt "search"
 msgid "stable nightly beta release track builds testing"
 msgstr "ổn định nightly beta bản phát hành kênh bản dựng kiểm thử stable nightly beta release track builds testing"
 
-#: rust/crates/system/ui/updates.slint:128
+#: rust/crates/system/ui/updates.slint:177
 msgid "Built from every change. Gets fixes first but is less tested."
 msgstr ""
 
-#: rust/crates/system/ui/updates.slint:134
+#: rust/crates/system/ui/updates.slint:183
 msgid "Check daily"
 msgstr "Kiểm tra hằng ngày"
 
-#: rust/crates/system/ui/updates.slint:135
+#: rust/crates/system/ui/updates.slint:184
 msgctxt "search"
 msgid "automatic updates auto check every day background"
 msgstr "cập nhật tự động tự kiểm tra mỗi ngày chạy ngầm automatic updates auto check every day background"
 
-#: rust/crates/system/ui/updates.slint:142 rust/crates/system/ui/updates.slint:144
+#: rust/crates/system/ui/updates.slint:191 rust/crates/system/ui/updates.slint:193
 msgid "Keep this copy where it is"
 msgstr "Giữ bản sao này ở vị trí hiện tại"
 
-#: rust/crates/system/ui/updates.slint:143
+#: rust/crates/system/ui/updates.slint:192
 msgctxt "search"
 msgid "portable keep this copy where it is zip folder in place windows unzipped"
 msgstr ""
 
-#: rust/crates/system/ui/updates.slint:145
+#: rust/crates/system/ui/updates.slint:194
 msgid "Update this unzipped folder in place instead of installing Telescope for your user."
 msgstr ""
 
-#: rust/crates/system/ui/updates.slint:160
-msgid "What's new"
-msgstr "Có gì mới"
-
-#: rust/crates/system/ui/updates.slint:173
+#: rust/crates/system/ui/updates.slint:201
 msgid "Older version"
 msgstr ""
 
-#: rust/crates/system/ui/updates.slint:175
+#: rust/crates/system/ui/updates.slint:204
 msgctxt "search"
 msgid "go back downgrade python previous old version revert undo rust"
 msgstr ""
 
-#: rust/crates/system/ui/updates.slint:180 rust/crates/system/ui/updates.slint:181
+#: rust/crates/system/ui/updates.slint:208 rust/crates/system/ui/updates.slint:209
 msgid "Go back to the Python version"
 msgstr ""
 
-#: rust/crates/system/ui/updates.slint:202
+#: rust/crates/system/ui/updates.slint:229
 msgid "Go back to the Python version?"
 msgstr ""
 
@@ -8794,6 +8814,10 @@ msgstr ""
 #: rust/crates/vision/src/pack.rs:316
 msgid "The download contains unexpected paths, so it wasn't used."
 msgstr "Bản tải về chứa các đường dẫn bất thường, nên không được sử dụng."
+
+#: rust/crates/shell/src/overlays.rs:506
+msgid "Test"
+msgstr ""
 
 #: rust/crates/shell/ui/specimen.slint:301
 msgid "Type or paste your notes."
@@ -9122,6 +9146,23 @@ msgstr "Không thể mở"
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "Không thể khởi động lại"
+
+#~ msgid "Test on"
+#~ msgstr "Thử bật"
+
+#~ msgid "Test off"
+#~ msgstr "Thử tắt"
+
+#, python-brace-format
+#~ msgid "Couldn't use that image: {problem}. Keeping the current wait screen."
+#~ msgstr "Không thể dùng ảnh đó: {problem}. Vẫn giữ màn hình chờ hiện tại."
+
+#~ msgid "Couldn't read that image, so the default screen is showing. Choose another one."
+#~ msgstr "Không thể đọc ảnh đó, nên màn hình mặc định đang hiển thị. Hãy chọn ảnh khác."
+
+#, python-brace-format
+#~ msgid "Shown at {size}, the size the stream opens the camera at. Still images and GIFs work; transparent parts show the dark background."
+#~ msgstr "Hiển thị ở {size}, kích thước luồng phát mở camera. Hỗ trợ ảnh tĩnh và ảnh GIF; phần trong suốt sẽ hiển thị nền tối."
 
 #~ msgid "The phone's mic needs VB-Audio Virtual Cable on Windows."
 #~ msgstr "Mic điện thoại cần có VB-Audio Virtual Cable trên Windows."

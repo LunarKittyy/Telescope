@@ -74,6 +74,7 @@ fn tab_icon(tab: &str) -> &'static str {
         "video" => "video",
         "audio" => "mic",
         "devices" => "phone",
+        "on_air" => "bell",
         "shortcuts" => "keyboard",
         "plugins" => "plug",
         "about" => "download",

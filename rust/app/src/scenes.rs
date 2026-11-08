@@ -350,6 +350,49 @@ struct Changes {
     stats: bool,
     /// The MCP server is there, on the program's own handle (mcp_scene).
     mcp: bool,
+    /// The On Air sign is there, with a web server that only pretends to listen.
+    on_air: bool,
+    /// The Wait screen and Startup plugins are there, which put their cards on the Streaming page.
+    streaming: bool,
+}
+
+/// An autostart entry that is never written.
+struct SceneAutostart;
+
+impl telescope_core::system::Autostart for SceneAutostart {
+    fn enabled(&self) -> bool {
+        false
+    }
+    fn set_enabled(&self, _on: bool, _minimized: bool) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+/// A web that makes a certificate out of nothing and a server that never listens, for the On Air page's scenes.
+struct SceneWeb;
+
+struct SceneServer(Arc<telescope_core::web::ServerStats>);
+
+impl telescope_core::web::WebServer for SceneServer {
+    fn port(&self) -> u16 {
+        8768
+    }
+    fn stats(&self) -> Arc<telescope_core::web::ServerStats> {
+        self.0.clone()
+    }
+    fn stop(&self) {}
+}
+
+impl telescope_core::web::Web for SceneWeb {
+    fn addresses(&self) -> Vec<String> {
+        vec!["192.168.50.25".into(), "100.64.0.7".into()]
+    }
+    fn certificate(&self, _folder: &std::path::Path, _hosts: &[String]) -> Result<telescope_core::web::Certificate, String> {
+        Ok(telescope_core::web::Certificate { cert: Default::default(), key: Default::default() })
+    }
+    fn serve(&self, _certificate: &telescope_core::web::Certificate, serve: &telescope_core::web::Serve, _handler: Arc<dyn telescope_core::web::PageHandler>) -> Result<Box<dyn telescope_core::web::WebServer>, String> {
+        Ok(Box::new(SceneServer(Arc::new(telescope_core::web::ServerStats::new(8768, serve.port, false, &serve.label)))))
+    }
 }
 
 fn services(link: SceneLink) -> Arc<Services> {
@@ -408,6 +451,13 @@ fn services_with(link: SceneLink, changes: Changes) -> Arc<Services> {
             plugins.extend(stats);
             if changes.mcp {
                 plugins.push(Box::new(telescope_system::mcp::McpPlugin::new(telescope_system::mcp::McpHandle::global())));
+            }
+            if changes.streaming {
+                plugins.push(Box::new(telescope_outputs::wait_screen_plugin::WaitScreenPlugin::new(Arc::new(SceneOutputs))));
+                plugins.push(Box::new(telescope_system::startup::StartupPlugin::new(Arc::new(SceneAutostart))));
+            }
+            if changes.on_air {
+                plugins.push(Box::new(telescope_effects::on_air_plugin::OnAirPlugin::new(Arc::new(SceneWeb), None)));
             }
             plugins.extend(changes.webcam.map(|w| Box::new(w.plugin()) as Box<dyn telescope_core::plugin::Plugin>));
             plugins
@@ -918,6 +968,40 @@ pub fn all() -> Vec<Scene> {
             HAS_LOG.store(id == "setup-about", std::sync::atomic::Ordering::Relaxed);
             Setup { page: Page::Settings(tab.into()), ..Setup::window(Some(services), main_window_config(true), SETTINGS_SIZE.0, SETTINGS_SIZE.1) }
         }));
+    }
+    // The pages of the Settings redesign at a wide and a narrow window, for a look by eye (r2set-<page>-<2000|narrow>)
+    for (tab, name) in [("streaming", "streaming"), ("about", "about"), ("on_air", "onair")] {
+        for (label, size) in [("2000", (2000.0, 1000.0)), ("narrow", (720.0, 700.0))] {
+            for state in ["", "-more"] {
+                if state == "-more" && name == "streaming" {
+                    continue;
+                }
+                scenes.push(Scene::new(format!("r2set-{name}{state}-{label}"), move || {
+                    HAS_LOG.store(name == "about", std::sync::atomic::Ordering::Relaxed);
+                    let services = services_with(quiet(), Changes { on_air: name == "onair", streaming: name == "streaming", ..Changes::default() });
+                    let mut setup = Setup { page: Page::Settings(tab.into()), ..Setup::window(Some(services), main_window_config(true), size.0, size.1) };
+                    if state == "-more" {
+                        setup.then = Some(Box::new(move |w| {
+                            telescope_shell::settings::open(w, tab);
+                            if let Some(settings) = telescope_shell::settings::current() {
+                                if name == "onair" {
+                                    settings.set_props("on_air", "on_air", &json!({
+                                        "webhook-url": "http://homeassistant.local:8123/api/webhook/light", "webhook-on": "{\"on_air\": true}", "webhook-off": "{\"on_air\": false}",
+                                        "url-problem": "The address has to start with http:// or https://", "test-text": "Sent", "test-kind": "status_ok",
+                                    }));
+                                } else {
+                                    settings.set_props("updates", "updates", &json!({
+                                        "status-text": "Telescope 5.0.6 is out", "status-kind": "status_ok", "actions-shown": true,
+                                        "update-text": "Update and restart", "update-enabled": true, "portable-shown": true,
+                                    }));
+                                }
+                            }
+                        }));
+                    }
+                    setup
+                }));
+            }
+        }
     }
     for &tab in SETTINGS_PAGES {
         scenes.push(Scene::new(format!("settings-{tab}"), move || Setup {
