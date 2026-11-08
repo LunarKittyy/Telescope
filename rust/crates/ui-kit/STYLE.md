@@ -108,6 +108,7 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | `status` | Status | one coloured word or short phrase, kind (quiet, ok, warn, err), detail (tooltip) |
 | `list-row` | ListRow | name, a dim line, icon, the row's buttons: a raised strip in a list (dialogs, devices) |
 | `dialog` | DialogFrame | title |
+| `menu` | MenuSurface, MenuItem | the rows: a context menu, the Presets menu |
 | `bubble` | Bubble, BubbleFrame | what is inside, width |
 | `colour` | ColourField | colour, hex and channels shown |
 | `tip` | TipBody | name, detail, keys, tint |

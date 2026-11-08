@@ -276,6 +276,9 @@ fn pick_first(w: &ComponentInstance) {
     }
     telescope_shell::offscreen::pump();
     draw(w);
+    // The menu eases out after a pick
+    wait(w, 300);
+    draw(w);
 }
 
 #[test]

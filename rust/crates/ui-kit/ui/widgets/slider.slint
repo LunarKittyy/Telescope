@@ -63,8 +63,9 @@ export component Slider inherits HorizontalLayout {
     // A tooltip on the slider and its readout: its name, then a line or two more and the keys that do the same
     in property <string> tip;
     in property <string> tip-detail;
-    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    // A last, dimmer line of the tip, what a gesture does. A slider with a default says "Double-click to reset" itself, so `tip` is only the name
     in property <string> tip-hint;
+    property <string> hint-line: tip-hint != "" ? tip-hint : has-default ? @tr("Double-click to reset") : "";
     in property <[string]> tip-keys;
     // The value as a box beside the readout would hold it (LogSliderRow's spin box): a click on the readout types over it there, and
     // `typed` hands the text to the owner to read. Empty: the slider reads a typed number itself (below) and says it with moved and released.
@@ -222,7 +223,7 @@ export component Slider inherits HorizontalLayout {
         accessible-value-minimum: minimum;
         accessible-value-maximum: maximum;
         accessible-value-step: step;
-        accessible-description: tip + (tip-detail == "" ? "" : ". " + tip-detail) + (tip-hint == "" ? "" : ". " + tip-hint);
+        accessible-description: tip + (tip-detail == "" ? "" : ". " + tip-detail) + (hint-line == "" ? "" : ". " + hint-line);
         accessible-action-increment => { if (enabled) { set-to(shown + step); } }
         accessible-action-decrement => { if (enabled) { set-to(shown - step); } }
         forward-focus: slider-focus;
@@ -426,7 +427,7 @@ export component Slider inherits HorizontalLayout {
             text: root.peek-text;
             changed open => { root.peek-changed(self.open); }
         }
-        usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover || readout-over; inert: !root.enabled; focused: slider-focus.has-focus && KeyFocus.keyboard; }
+        usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.hint-line; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover || readout-over; inert: !root.enabled; focused: slider-focus.has-focus && KeyFocus.keyboard; }
         touch := TouchArea {
             enabled: root.enabled;
             property <float> picked: clamp((self.mouse-x - track.inset) / (track.width - 2 * track.inset), 0, 1);

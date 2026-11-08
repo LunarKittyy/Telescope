@@ -1017,7 +1017,9 @@ mod tests {
             // Extras and the plug are what a plugin gets by saying nothing
             assert!(info.category != "extras" || IN_EXTRAS.contains(&info.name.as_str()), "{} needs a category, not Extras by default", info.name);
             assert_ne!(info.icon, "plug", "{} needs an icon, not the plug by default", info.name);
-            let known = [format!("{}.svg", info.icon), format!("v_{}.svg", info.icon)].iter().any(|f| icons.join(f).is_file());
+            // A file of that name, or a name icons.slint's `named` maps to another file ("preset" is the bookmark)
+            let table = std::fs::read_to_string(icons.join("../icons.slint")).unwrap_or_default();
+            let known = [format!("{}.svg", info.icon), format!("v_{}.svg", info.icon)].iter().any(|f| icons.join(f).is_file()) || table.contains(&format!("name == \"{}\"", info.icon));
             assert!(known, "{} needs an icon the kit has, not {:?}", info.name, info.icon);
         }
     }

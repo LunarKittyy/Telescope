@@ -78,8 +78,8 @@ export component AnchorFrame inherits Rectangle {
         width: parent.width - Theme.u(4);
         height: parent.height - Theme.u(4);
         border-radius: Theme.r-ctl / 2;
-        border-width: 1px;
-        border-color: root.enabled ? Theme.line-hover : Theme.dis;
+        // The picture the anchors are places on, as a quieter surface and no line round it
+        background: root.enabled ? Theme.raise.mix(Theme.trough, 0.5) : Theme.trough.mix(Theme.card, 0.4);
         accessible-role: none;
     }
     for item[i] in items: zone := Rectangle {

@@ -71,6 +71,7 @@ export component Pad inherits Rectangle {
     in property <string> tip-detail;
     // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
     in property <string> tip-hint;
+    property <string> hint-line: tip-hint != "" ? tip-hint : has-default ? @tr("Double-click to reset") : "";
     in property <[string]> tip-keys;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
@@ -201,7 +202,7 @@ export component Pad inherits Rectangle {
     }
     TouchRing { setting: root.setting-x; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
     TouchRing { setting: root.setting-y; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
-    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.hint-line; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;

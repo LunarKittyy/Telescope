@@ -56,7 +56,7 @@ export component TextField inherits Rectangle {
     accessible-label: label;
     accessible-value: text;
     accessible-placeholder-text: placeholder;
-    if has-icon: Icon { x: 7px; source: icon; tint: Theme.text-dim; width: 16px; height: 16px; accessible-role: none; }
+    if has-icon: Icon { x: 7px; source: icon; tint: Theme.ink2; width: 16px; height: 16px; accessible-role: none; }
     if text == "" && placeholder != "": Text {
         x: input.x;
         width: input.width;
@@ -64,7 +64,7 @@ export component TextField inherits Rectangle {
         text: placeholder;
         font-family: Theme.font;
         font-size: Theme.body;
-        color: enabled ? Theme.text-faint : Theme.dis;
+        color: enabled ? Theme.faint : Theme.dis;
         horizontal-alignment: root.align-right ? right : left;
         vertical-alignment: center;
         overflow: elide;
@@ -77,7 +77,7 @@ export component TextField inherits Rectangle {
         text: root.text;
         font-family: Theme.font;
         font-size: Theme.body;
-        color: enabled ? Theme.text : Theme.dis;
+        color: enabled ? Theme.ink : Theme.dis;
         horizontal-alignment: root.align-right ? right : left;
         vertical-alignment: center;
         overflow: elide;
@@ -122,11 +122,11 @@ export component TextField inherits Rectangle {
         width: 20px;
         height: 20px;
         border-radius: 4px;
-        background: clear-touch.has-hover ? Theme.surface-hover : transparent;
+        background: clear-touch.has-hover ? Theme.hover : transparent;
         accessible-role: button;
         accessible-label: @tr("Clear");
         clear-touch := TouchArea { clicked => { root.text = ""; root.edited(""); input.focus(); } }
-        Icon { source: Icons.x; tint: Theme.text-dim; width: 12px; height: 12px; accessible-role: none; }
+        Icon { source: Icons.x; tint: Theme.ink2; width: 12px; height: 12px; accessible-role: none; }
     }
 }
 

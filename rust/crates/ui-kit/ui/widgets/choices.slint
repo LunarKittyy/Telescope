@@ -603,6 +603,16 @@ export component ChoiceField inherits Rectangle {
         running: closing;
         triggered => { close-now(); }
     }
+    // Open it, or take it back from the fade-out it is in the middle of (a click on the field while it is going turns it round)
+    function open-list() {
+        if (closing) {
+            list-fade.sync();
+            closing = false;
+            root.open = true;
+        } else {
+            popup.show();
+        }
+    }
     // The list's own opacity and drop, for a test
     out property <float> list-shown: list-fade.value;
     list-fade := Fade { shown: root.open && !root.closing; }
@@ -647,14 +657,14 @@ export component ChoiceField inherits Rectangle {
     accessible-expandable: true;
     accessible-expanded: open;
     accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
-    accessible-action-default => { if (root.enabled) { popup.show(); } }
+    accessible-action-default => { if (root.enabled) { open-list(); } }
     forward-focus: focus;
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: root.enabled;
         key-pressed(e) => {
             if (e.modifiers.control || e.modifiers.meta) { return reject; }
-            if ((e.modifiers.alt && (e.text == Key.DownArrow || e.text == Key.UpArrow)) || e.text == " " || e.text == "\n") { popup.show(); return accept; }
+            if ((e.modifiers.alt && (e.text == Key.DownArrow || e.text == Key.UpArrow)) || e.text == " " || e.text == "\n") { open-list(); return accept; }
             if (centered && (e.text == Key.LeftArrow || e.text == Key.UpArrow)) { nudged(-1); return accept; }
             if (centered && (e.text == Key.RightArrow || e.text == Key.DownArrow)) { nudged(1); return accept; }
             if (e.text == Key.UpArrow && step(-1) != shown) { pick(step(-1)); return accept; }
@@ -676,7 +686,7 @@ export component ChoiceField inherits Rectangle {
         clicked => {
             // Something has to hold the focus for the list's own to go back to when it closes (see `watch`)
             focus.focus();
-            popup.show();
+            open-list();
         }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
@@ -797,7 +807,13 @@ export component ChoiceField inherits Rectangle {
         // Everything outside the list: a press there eases it out, and nothing under it sees that press
         TouchArea {
             pointer-event(e) => {
-                if (e.kind == PointerEventKind.down && !closing) { close-list(true); }
+                if (e.kind == PointerEventKind.down) {
+                    // A press on the field while the list is going out turns it round (this pop-up is over the field and takes the press)
+                    let on-field = self.mouse-x >= root.absolute-position.x && self.mouse-x <= root.absolute-position.x + root.width
+                        && self.mouse-y >= root.absolute-position.y && self.mouse-y <= root.absolute-position.y + root.height;
+                    if (closing && on-field) { open-list(); }
+                    else if (!closing) { close-list(true); }
+                }
             }
         }
         Rectangle {

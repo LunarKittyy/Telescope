@@ -4,6 +4,7 @@
 import { Theme } from "../theme.slint";
 import { WindowBox } from "window-box.slint";
 import { TipLayer } from "tip.slint";
+import { Motion, Fade, Pop } from "motion.slint";
 export { WindowBox }
 
 // A dialog that sets `dismissable` goes by its x and y in a pop-up covering the whole window (WindowBox.cover-w and cover-h),
@@ -25,6 +26,39 @@ export component DialogFrame inherits Rectangle {
     in property <string> subtitle;
     in property <bool> dismissable;
     callback dismissed();
+    // A dialog pops in from a little under its size and fades in when it is made, and goes the same way: a card that closes it calls
+    // `leave()` (instead of closing its pop-up) and closes the pop-up in `left`, which comes once the fade is over. A press on the window
+    // beside it eases out too, then says `dismissed` (and `left`).
+    callback left();
+    property <bool> arrived;
+    property <bool> leaving;
+    property <bool> from-outside;
+    out property <float> presence: fade.value;
+    init => { arrived = true; }
+    public function leave() {
+        sync();
+        leaving = true;
+    }
+    function sync() {
+        fade.sync();
+        pop.sync();
+    }
+    fade := Fade { shown: arrived && !leaving; }
+    pop := Pop { to: arrived && !leaving ? 1 : 0; }
+    Timer {
+        interval: Motion.fades ? Motion.fade-out + 40ms : 1ms;
+        running: leaving;
+        triggered => {
+            leaving = false;
+            root.left();
+            if (from-outside) {
+                from-outside = false;
+                root.dismissed();
+            }
+        }
+    }
+    opacity: fade.value;
+    transform-scale: pop.scale;
     background: Theme.card;
     border-radius: Theme.r-card;
     out property <string> control-kind: "dialog";
@@ -37,7 +71,7 @@ export component DialogFrame inherits Rectangle {
         width: 10000px;
         height: 10000px;
         pointer-event(e) => {
-            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) { root.dismissed(); }
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left && !root.leaving) { root.from-outside = true; root.leave(); }
         }
     }
     // The dialog's own face takes its clicks, so the one behind it only gets what lands beside the dialog

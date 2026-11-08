@@ -34,7 +34,7 @@ export component SettingRow inherits Rectangle {
     in property <bool> enabled: true;
     // setting_row's below: a note across the row's width under the name and the controls
     in property <string> note;
-    in property <color> note-color: Theme.text-dim;
+    in property <color> note-color: Theme.ink2;
     min-height: Theme.row + Theme.u(8);
     out property <string> control-kind: "strip";
     // No box of its own: a raised strip inside a card stacked two backgrounds and hid the switch's track, so the row sits on the card
@@ -58,7 +58,7 @@ export component SettingRow inherits Rectangle {
                     text: title;
                     font-family: Theme.font;
                     font-size: Theme.body;
-                    color: enabled ? Theme.text : Theme.text-disabled;
+                    color: enabled ? Theme.ink : Theme.dis;
                     wrap: word-wrap;
                     line-height-factor: Theme.line-factor(self.font-size);
                     // The row is named by it already, and so is a switch in it

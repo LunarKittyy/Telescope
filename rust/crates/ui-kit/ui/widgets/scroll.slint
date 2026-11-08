@@ -25,7 +25,7 @@ export component ScrollBar inherits Rectangle {
         y: thumb-y;
         height: thumb-h;
         border-radius: thumb-radius;
-        background: dragging || (touch.has-hover && over-thumb) ? Theme.border-hover : Theme.border-strong;
+        background: dragging || (touch.has-hover && over-thumb) ? Theme.line-hover : Theme.line-strong;
     }
     touch := TouchArea {
         pointer-event(e) => {

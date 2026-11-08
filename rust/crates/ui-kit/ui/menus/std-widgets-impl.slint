@@ -4,6 +4,8 @@
 
 import { Theme } from "../theme.slint";
 import { WindowBox } from "../widgets/dialog.slint";
+import { MenuSurface, MenuItem } from "../widgets/menu.slint";
+import { Motion } from "../widgets/motion.slint";
 
 // Slint asks this file for these too, and its own can't be imported. The app has no menu bar.
 export component MenuBarImpl { }
@@ -16,65 +18,25 @@ export component ToolTipImpl inherits Rectangle {
     }
 }
 
-component MenuRow {
-    in property <MenuEntry> entry;
-    in property <bool> current;
-    callback hovered;
-    callback left;
-    callback activate;
-    // The release of the right-click that opened the menu can land on a row, and isn't a pick
-    property <duration> opened;
-    property <bool> had-press;
-    init => { opened = animation-tick(); }
-    height: entry.is-separator ? 9px : 26px;
-    if entry.is-separator: Rectangle {
-        y: 4px;
-        height: 1px;
-        background: Theme.border;
-    }
-    if !entry.is-separator: Rectangle {
-        border-radius: 5px;
-        background: root.current && entry.enabled ? Theme.surface-hover : transparent;
-        touch := TouchArea {
-            enabled: entry.enabled;
-            pointer-event(e) => {
-                if (e.kind == PointerEventKind.move && !root.current) {
-                    root.hovered();
-                } else if (e.kind == PointerEventKind.down) {
-                    root.had-press = true;
-                } else if (e.kind == PointerEventKind.up && (root.had-press || animation-tick() - root.opened > 300ms)
-                        && self.mouse-x > 0 && self.mouse-x < self.width && self.mouse-y > 0 && self.mouse-y < self.height) {
-                    root.activate();
-                }
-            }
-            changed has-hover => {
-                if (!self.has-hover && root.current) {
-                    root.left();
-                }
-            }
-        }
-        Text {
-            x: 8px;
-            width: parent.width - 16px;
-            text: entry.title;
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: entry.enabled ? Theme.text : Theme.text-disabled;
-            vertical-alignment: center;
-            overflow: elide;
-        }
-    }
-}
-
 export component PopupMenuImpl inherits Window {
     in property <[MenuEntry]> entries: [];
     callback sub-menu(menu-entry: MenuEntry) -> [MenuEntry];
     callback activated(menu-entry: MenuEntry);
     callback close-popup();
     property <int> current: -1;
+    // A pick runs at once and the menu eases out after it; Escape eases it out too (a click outside is Slint's own close)
+    property <bool> leaving;
+    function leave() { leaving = true; }
+    Timer {
+        interval: Motion.fade-out + 40ms;
+        running: root.leaving;
+        triggered => { root.close-popup(); }
+    }
     function pick(entry: MenuEntry) {
-        root.activated(entry);
-        root.close-popup();
+        if (!leaving) {
+            root.activated(entry);
+            root.leave();
+        }
     }
     function step(by: int) {
         let next = current < 0 && by < 0 ? entries.length - 1 : mod(current + by + entries.length, entries.length);
@@ -88,18 +50,13 @@ export component PopupMenuImpl inherits Window {
             if (e.text == Key.UpArrow) { step(-1); return accept; }
             if (e.text == Key.DownArrow) { step(1); return accept; }
             if (e.text == Key.Return && current >= 0 && entries[current].enabled) { pick(entries[current]); return accept; }
-            if (e.text == Key.Escape) { root.close-popup(); return accept; }
+            if (e.text == Key.Escape) { root.leave(); return accept; }
             reject
         }
-        Rectangle {
-            background: Theme.surface-raise;
-            border-width: 1px;
-            border-color: Theme.border-hover;
-            border-radius: 7px;
-            drop-shadow-blur: 12px;
-            drop-shadow-color: #00000080;
+        MenuSurface {
+            leaving: root.leaving;
             VerticalLayout {
-                padding: 5px;
+                padding: Theme.u(2.5);
                 widest := VerticalLayout {
                     height: 0px;
                     visible: false;
@@ -109,9 +66,11 @@ export component PopupMenuImpl inherits Window {
                         font-size: Theme.body;
                     }
                 }
-                for entry[i] in entries: MenuRow {
-                    preferred-width: widest.preferred-width + 16px;
-                    entry: entry;
+                for entry[i] in entries: MenuItem {
+                    preferred-width: widest.preferred-width + Theme.u(8);
+                    title: entry.title;
+                    separator: entry.is-separator;
+                    enabled: entry.enabled;
                     current: root.current == i;
                     hovered => { root.current = i; }
                     left => { root.current = -1; }

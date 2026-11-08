@@ -422,6 +422,8 @@ fn a_press_inside_the_crop_holds_it_where_it_was_taken_and_one_outside_brings_it
     window.dispatch_event(WindowEvent::PointerMoved { position: point(target.0, target.1) });
     window.dispatch_event(WindowEvent::PointerPressed { position: point(target.0, target.1), button });
     window.dispatch_event(WindowEvent::PointerReleased { position: point(target.0, target.1), button });
+    // A first click waits for the double-click interval (a double-click resets, and must not jump first)
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(400));
     let (px, py) = rig.borrow().0.pan();
     assert!((px - 0.8).abs() < 0.03 && (py + 0.8).abs() < 0.03, "{px} {py}");
 }
