@@ -4,7 +4,7 @@ import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { Icon, FocusRing, TouchRing, KeyFocus } from "basics.slint";
 import { Tip } from "tip.slint";
-import { Motion, Flick } from "motion.slint";
+import { Motion, Flick, Tone } from "motion.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 
 // Kind "switch": a track at the row's end with a square handle. Off is quiet, on takes a thick border in the card's colour.
@@ -252,13 +252,16 @@ export component ToggleTile inherits Rectangle {
     min-width: 0px;
     preferred-width: 0px;
     border-radius: Theme.r-ctl;
-    border-width: shown && enabled ? Theme.stroke : 0px;
-    border-color: hue;
-    background: !enabled ? Theme.raise.mix(Theme.card, 0.4)
-        : shown ? (held ? Theme.held(hue) : Theme.tint(hue))
+    // The outline and the muted inside fade in and out together (a multi-select tile has no worm: nothing travels between the tiles)
+    fade := Tone { on: shown && enabled; snap: quick; rise: Motion.tile-in; fall: Motion.tile-out; }
+    out property <float> lit: fade.value;
+    border-width: enabled ? Theme.stroke : 0px;
+    border-color: hue.with-alpha(lit);
+    property <color> at-rest: !enabled ? Theme.raise.mix(Theme.card, 0.4)
         : held ? Theme.press
         : touch.has-hover ? Theme.hover : Theme.raise;
-    animate background, border-width { duration: Motion.tone-for(held || quick); easing: Motion.tone; }
+    animate at-rest { duration: Motion.tone-for(held || quick); easing: Motion.tone; }
+    background: (held ? Theme.held(hue) : Theme.tint(hue)).mix(at-rest, lit);
     accessible-role: switch;
     accessible-label: name;
     accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;

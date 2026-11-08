@@ -91,8 +91,15 @@ export component Slider inherits HorizontalLayout {
     callback peek-changed(bool);
     property <bool> key-live;
     property <int> key-idle;
-    // The person just set it (a key, a typed number, a double-click): the handle is at its place at once. Something else moving it glides.
+    // The person just set it with a key: the handle is at its place at once. A typed number, a reset, a click on the track and anything
+    // else that isn't the pointer under the handle glides there.
     property <bool> quick;
+    // A press that took hold of the handle itself, or a glide that has caught up with the pointer: from then on the handle sticks to it
+    property <bool> caught;
+    // A click on the track waits for the double-click interval before the handle moves, so a double-click doesn't first jump and then reset
+    property <bool> pending;
+    property <float> pending-v;
+    property <length> press-x;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     // The id of the setting it is ("colour_grading.contrast"), which a caller outside the window outlines it by when it reads or changes it
@@ -106,10 +113,11 @@ export component Slider inherits HorizontalLayout {
     out property <float> key-small: max(0.0001, step);
     out property <float> key-big: max(0.0001, step) * max(1, round((maximum - minimum) / max(0.0001, step) / 10));
     // Every way of setting a value from the keyboard or a typed number goes through here, saying what a drag says: moved, then released
-    function set-to(v: float) {
+    function set-to(v: float) { apply(v, true); }
+    function apply(v: float, instantly: bool) {
         let to = clamp(v, minimum, maximum);
         if (to != shown) {
-            quick = true;
+            quick = instantly;
             local = to;
             touched = true;
             moved(to);
@@ -129,7 +137,7 @@ export component Slider inherits HorizontalLayout {
             if (typing != "") {
                 if (text != typing) { typed(text); }
             } else if (text.is-float()) {
-                set-to(round(text.to-float() / max(0.0001, step)) * max(0.0001, step));
+                apply(round(text.to-float() / max(0.0001, step)) * max(0.0001, step), false);
             }
         }
     }
@@ -151,7 +159,24 @@ export component Slider inherits HorizontalLayout {
         property <float> target: (shown - minimum) / max(0.0001, maximum - minimum);
         // Where the handle is drawn: it glides to a value that something other than the person changed
         property <float> fraction: glide.value;
-        glide := Settle { to: track.target; snap: dragging || quick; }
+        glide := Settle { to: track.target; snap: (dragging && caught) || quick; }
+        // A handle that glides to the pointer sticks to it once it arrives
+        changed fraction => {
+            if (dragging && !caught && !pending && abs(fraction - target) * (self.width - Theme.handle-w) < Theme.u(2)) {
+                caught = true;
+            }
+        }
+        pend := Timer {
+            interval: Motion.double-click;
+            running: pending;
+            triggered => {
+                pending = false;
+                local = pending-v;
+                touched = true;
+                root.moved(local);
+                if (!dragging) { released(local); }
+            }
+        }
         // How far the colour has come from muted to full while held, and how far the handle's edge has come while it is under the pointer
         held-tone := Tone { on: track.held; instant-in: true; }
         hover-tone := Tone { on: touch.has-hover && enabled; }
@@ -378,35 +403,58 @@ export component Slider inherits HorizontalLayout {
         touch := TouchArea {
             enabled: root.enabled;
             property <float> picked: clamp((self.mouse-x - track.inset) / (track.width - 2 * track.inset), 0, 1);
+            // The pointer is on the handle as it is drawn now
+            property <bool> on-handle: abs(self.mouse-x - (handle.x + Theme.handle-w / 2)) <= Theme.handle-w / 2 + Theme.u(1);
+            function drag() {
+                let v = snapped(round((minimum + picked * (maximum - minimum)) / step) * step);
+                if (pending) {
+                    // A drag that starts on the track is no click: it takes hold at once
+                    if (abs(self.mouse-x - press-x) > Theme.u(2)) {
+                        pending = false;
+                    } else {
+                        pending-v = v;
+                        return;
+                    }
+                }
+                local = v;
+                touched = true;
+                root.moved(local);
+            }
             scroll-event(e) => { usage.wheel(); reject }
             pointer-event(e) => {
                 if (e.kind == PointerEventKind.down) { usage.press(); }
-                if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                // A second press while the first click waits is the double-click's, which `double-clicked` answers
+                if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left && !pending) {
                     dragging = true;
-                    local = round((minimum + picked * (maximum - minimum)) / step) * step;
-                    touched = true;
-                    root.moved(local);
+                    press-x = self.mouse-x;
+                    caught = on-handle;
+                    let v = round((minimum + picked * (maximum - minimum)) / step) * step;
+                    if (!caught && has-default) {
+                        pending = true;
+                        pending-v = v;
+                    } else {
+                        local = v;
+                        touched = true;
+                        root.moved(local);
+                    }
                 }
                 if (e.kind == PointerEventKind.move && dragging && self.pressed) {
-                    local = snapped(round((minimum + picked * (maximum - minimum)) / step) * step);
-                    touched = true;
-                    root.moved(local);
+                    drag();
                 }
                 if (dragging && ((e.kind == PointerEventKind.up && e.button == PointerEventButton.left) || e.kind == PointerEventKind.cancel)) {
                     dragging = false;
-                    released(shown);
+                    caught = false;
+                    if (!pending) { released(shown); }
                 }
             }
             moved => {
                 if (self.pressed && dragging) {
-                    local = snapped(round((minimum + picked * (maximum - minimum)) / step) * step);
-                    touched = true;
-                    root.moved(local);
+                    drag();
                 }
             }
             double-clicked => {
                 if (has-default) {
-                    quick = true;
+                    pending = false;
                     local = default-value;
                     touched = true;
                     root.moved(local);

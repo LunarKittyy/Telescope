@@ -579,6 +579,10 @@ fn a_threshold_bar_is_a_slider_by_the_keys_and_the_pointer() {
     // The track is the whole 320 px, the handle's centre running from 7 px in to 7 px short of the end
     down(&ui, at(10.0 + 7.0 + 0.5 * 306.0, 26.0));
     up(&ui, at(10.0 + 7.0 + 0.5 * 306.0, 26.0));
+    // This bar has a default, so a click on its track waits to see whether it is a double-click
+    assert_eq!(number(&ui, "now"), 0.0, "the click waits for the double-click interval");
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(500));
+    slint::platform::update_timers_and_animations();
     assert_eq!(number(&ui, "now"), 50.0);
 }
 

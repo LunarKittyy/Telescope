@@ -111,9 +111,11 @@ fn a_finger_on_a_slider_has_the_handle_at_once_and_a_key_does_too() {
     num(&ui, "place");
     let track = ElementHandle::find_by_accessible_label(&ui, "Level").next().expect("the track");
     let (left, width) = (track.absolute_position().x, track.size().width);
-    // Pressed in the middle the handle is half way, wherever the ends of its run are
-    press(&ui, left + width / 2.0, 24.0);
-    assert!((num(&ui, "place") - 0.5).abs() < 0.02, "a press puts the handle under it: {}", num(&ui, "place"));
+    // Pressed on the handle itself, which sits at 0.2 of its run (7 px in from either end)
+    press(&ui, left + 7.0 + 0.2 * (width - 14.0), 24.0);
+    assert!((num(&ui, "place") - 0.2).abs() < 0.02, "a press on the handle keeps it where it is: {}", num(&ui, "place"));
+    pointer_to(&ui, left + width / 2.0, 24.0);
+    assert!((num(&ui, "place") - 0.5).abs() < 0.03, "and a drag has it under the pointer at once: {}", num(&ui, "place"));
     pointer_to(&ui, left + width + 10.0, 24.0);
     assert_eq!(num(&ui, "place"), 1.0, "and a drag keeps it there, to the end");
     pointer_to(&ui, left - 10.0, 24.0);
@@ -125,6 +127,75 @@ fn a_finger_on_a_slider_has_the_handle_at_once_and_a_key_does_too() {
     key(&ui, Key::Tab);
     key(&ui, Key::RightArrow);
     assert!((num(&ui, "place") - (before + 0.01)).abs() < 0.001, "an arrow moves it a step at once: {before} then {}", num(&ui, "place"));
+}
+
+#[test]
+fn a_press_on_the_track_glides_the_handle_to_it_and_then_it_sticks_to_the_pointer() {
+    let _still = offscreen::freeze_clock();
+    let ui = make(SLIDER, 340.0, 48.0);
+    num(&ui, "place");
+    let track = ElementHandle::find_by_accessible_label(&ui, "Level").next().expect("the track");
+    let (left, width) = (track.absolute_position().x, track.size().width);
+    offscreen::draw(ui.window(), 340.0, 48.0, 1.0);
+    press(&ui, left + 7.0 + 0.8 * (width - 14.0), 24.0);
+    offscreen::draw(ui.window(), 340.0, 48.0, 1.0);
+    let t = trace(&ui, "place", 30);
+    assert!(t[0] < 0.4, "the handle has not jumped under the pointer: {t:?}");
+    assert!(t.windows(2).all(|w| w[1] >= w[0] - 0.0001), "one move, with no overshoot: {t:?}");
+    assert!((t.last().unwrap() - 0.8).abs() < 0.01, "it arrives: {t:?}");
+    // It has caught up, so it follows the pointer with no lag now
+    pointer_to(&ui, left + 7.0 + 0.3 * (width - 14.0), 24.0);
+    assert!((num(&ui, "place") - 0.3).abs() < 0.03, "stuck to the pointer: {}", num(&ui, "place"));
+    release(&ui, left + 7.0 + 0.3 * (width - 14.0), 24.0);
+}
+
+const DEFAULTED: &str = r#"
+import { Slider, Theme } from "@ui-kit/ui-kit.slint";
+export component T inherits Window {
+    width: 340px;
+    height: 48px;
+    background: Theme.card;
+    in-out property <float> v: 20;
+    in-out property <int> moves;
+    out property <float> place: sl.handle-place;
+    sl := Slider { x: 10px; y: 4px; width: 320px; label: "Level"; minimum: 0; maximum: 100; value: root.v; has-default: true; default-value: 20; moved(x) => { root.v = x; root.moves += 1; } }
+}
+"#;
+
+#[test]
+fn a_click_on_the_track_waits_for_a_double_click_and_a_double_click_resets_without_jumping_first() {
+    let _still = offscreen::freeze_clock();
+    let ui = make(DEFAULTED, 340.0, 48.0);
+    num(&ui, "place");
+    offscreen::draw(ui.window(), 340.0, 48.0, 1.0);
+    let track = ElementHandle::find_by_accessible_label(&ui, "Level").next().expect("the track");
+    let (left, width) = (track.absolute_position().x, track.size().width);
+    let x = left + 7.0 + 0.8 * (width - 14.0);
+    // One click: nothing moves until the double-click interval is over
+    press(&ui, x, 24.0);
+    release(&ui, x, 24.0);
+    step(200);
+    offscreen::draw(ui.window(), 340.0, 48.0, 1.0);
+    assert_eq!(num(&ui, "moves"), 0.0, "the click is still waiting");
+    assert!((num(&ui, "place") - 0.2).abs() < 0.01, "and the handle hasn't moved");
+    step(300);
+    offscreen::draw(ui.window(), 340.0, 48.0, 1.0);
+    assert_eq!(num(&ui, "moves"), 1.0, "then the click lands");
+    let t = trace(&ui, "place", 30);
+    assert!((t.last().unwrap() - 0.8).abs() < 0.01, "and the handle glides there: {t:?}");
+    // A double-click on the track: it goes back to the default and never goes to the click first
+    let before = num(&ui, "moves");
+    press(&ui, left + 7.0 + 0.5 * (width - 14.0), 24.0);
+    release(&ui, left + 7.0 + 0.5 * (width - 14.0), 24.0);
+    step(100);
+    press(&ui, left + 7.0 + 0.5 * (width - 14.0), 24.0);
+    release(&ui, left + 7.0 + 0.5 * (width - 14.0), 24.0);
+    step(600);
+    offscreen::draw(ui.window(), 340.0, 48.0, 1.0);
+    assert_eq!(num(&ui, "moves"), before + 1.0, "one change, the reset");
+    let t = trace(&ui, "place", 30);
+    assert!((t.last().unwrap() - 0.2).abs() < 0.01, "the handle ends on the default: {t:?}");
+    assert!(t.iter().all(|v| *v < 0.5), "and never went towards the click: {t:?}");
 }
 
 #[test]

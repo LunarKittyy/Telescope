@@ -71,6 +71,8 @@ const H: f32 = 330.0;
 const TRACK_X: f32 = 100.0;
 const TALL_Y: f32 = 160.0 + 16.0;
 const TOP_Y: f32 = 4.0 + 16.0;
+// Where the top slider's handle is, so a press takes hold of it and the handle doesn't glide to the pointer
+const TOP_X: f32 = 84.0;
 
 fn open() -> ComponentInstance {
     telescope_shell::offscreen::install();
@@ -281,16 +283,16 @@ fn opening_a_bubble_moves_nothing_in_the_card() {
 fn near_the_top_it_opens_below_and_stays_in_the_window() {
     let plain = open();
     plain.set_property("kind", Value::String("".into())).unwrap();
-    press_at(&plain, TRACK_X, TOP_Y);
+    press_at(&plain, TOP_X, TOP_Y);
     let held = draw(&plain);
     let w = open();
-    press_at(&w, TRACK_X, TOP_Y);
+    press_at(&w, TOP_X, TOP_Y);
     assert!(up(&w));
     let shown = draw(&w);
     // there is no room above the slider: the bubble is below it, over what the first slider has under it
     assert!(differing(&held, &shown, 40..170, 0..320) > 1000);
     assert_eq!(differing(&held, &shown, 0..36, 0..420), 0, "and nothing above the slider");
-    release_at(&w, TRACK_X, TOP_Y);
+    release_at(&w, TOP_X, TOP_Y);
     assert!(!up(&w));
 }
 
