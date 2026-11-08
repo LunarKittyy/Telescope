@@ -8,6 +8,7 @@ import { WindowBox } from "window-box.slint";
 import { BubbleFrame } from "bubble.slint";
 import { CornerCap } from "pad.slint";
 import { Peeks } from "peeks.slint";
+import { Pop, Fade } from "motion.slint";
 
 // The size every held bubble draws at, so what is inside it changes and the bubble does not
 export global PeekBox {
@@ -50,7 +51,15 @@ export component PeekLayer inherits Rectangle {
         running: Peeks.shown;
         triggered => { Peeks.check(); }
     }
-    if Peeks.shown: BubbleFrame {
+    // The bubble pops in with a small overshoot and fades in with it, and fades out; it is drawn until it has faded
+    pop := Pop { to: Peeks.shown ? 1 : 0; }
+    fade := Fade { shown: Peeks.shown; }
+    // How solid the bubble is now and how big, for a test
+    out property <float> presence: fade.value;
+    out property <float> scale: pop.scale;
+    if Peeks.shown || fade.value > 0.02: BubbleFrame {
+        opacity: fade.value;
+        pop-scale: pop.scale;
         hue: Peeks.hue;
         content-width: PeekBox.w;
         ax: Peeks.ax;

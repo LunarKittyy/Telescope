@@ -7,6 +7,7 @@ import { Theme } from "../theme.slint";
 import { WindowBox } from "window-box.slint";
 import { Shortcuts } from "shortcut-menu.slint";
 import { Peeks } from "peeks.slint";
+import { Fade } from "motion.slint";
 
 // Where a tip goes, in window coordinates. Pure, so a test can ask without drawing anything.
 export global TipSpot {
@@ -191,7 +192,12 @@ export component TipLayer inherits Rectangle {
         running: Tips.shown;
         triggered => { Tips.check(); }
     }
-    if Tips.shown: tip := TipBody {
+    // A tip fades in and out, and stays where it is; it is drawn until it has faded
+    fade := Fade { shown: Tips.shown; }
+    // How solid the tip is now, for a test
+    out property <float> presence: fade.value;
+    if Tips.shown || fade.value > 0.02: tip := TipBody {
+        opacity: fade.value;
         property <length> window-w: WindowBox.width > 0 ? WindowBox.width : 4000px;
         property <length> window-h: WindowBox.height > 0 ? WindowBox.height : 4000px;
         property <bool> above: TipSpot.above(Tips.ay, Tips.ah, self.height, window-h);

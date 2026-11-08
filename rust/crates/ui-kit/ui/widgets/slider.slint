@@ -43,6 +43,9 @@ export component Slider inherits HorizontalLayout {
     in property <bool> two-way: minimum < 0 && maximum > 0;
     in property <float> centre: minimum < 0 && maximum > 0 ? 0 : (minimum + maximum) / 2;
     out property <string> control-kind: "slider";
+    // Where the handle is drawn now, 0 to 1 along the track, and how far its colour has come up while held, for a test
+    out property <float> handle-place: track.fraction;
+    out property <float> lit: held-tone.value;
     in property <bool> enabled: true;
     // false drops the readout column, for a slider with a box of its own beside it
     in property <bool> has-readout: true;

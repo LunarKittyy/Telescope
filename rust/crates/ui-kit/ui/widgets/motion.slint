@@ -87,8 +87,9 @@ export component Flick {
     }
 }
 
-// Kind "helper". Pop: a bubble's scale on its way in, from Motion.pop-from to 1 with a small overshoot. Goes only one way: it opens and
-// stays; closing is a Fade.
+// Kind "helper". Pop: a bubble's size coming and going. `value` runs 0 to 1 with a small overshoot and `scale` takes it from Motion.pop-from
+// to 1; its opacity is a Fade's, never this. It reads itself once when it is made, so the owner can set `to` right after (in its init)
+// and the move still starts from 0.
 export component Pop {
     out property <string> control-kind: "helper";
     in property <float> to;
@@ -96,6 +97,7 @@ export component Pop {
     out property <float> value: bar.border-width / 1px;
     // The scale for the current value
     out property <float> scale: Motion.between(Motion.pop-from, 1, value);
+    init => { value; }
     bar := Rectangle {
         visible: false;
         width: 0px;

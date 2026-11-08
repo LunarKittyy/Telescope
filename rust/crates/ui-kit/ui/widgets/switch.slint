@@ -100,6 +100,8 @@ export component Switch inherits Rectangle {
     usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: root.ringed; }
     // The handle's place between its two ends, 0 off and 1 on, with the little overshoot of a flick
     flick := Flick { to: shown ? 1 : 0; snap: quick; }
+    // Where the handle is now, 0 to 1 and a little past either end while it flicks, for a test
+    out property <float> handle-place: flick.value;
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;

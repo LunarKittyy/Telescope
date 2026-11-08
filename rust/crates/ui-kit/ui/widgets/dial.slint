@@ -48,6 +48,8 @@ export component Dial inherits Rectangle {
     }
     // The strip's place in stops, which a drag moves smoothly and which otherwise slides to the stop that is picked
     property <float> pos: strip.value;
+    // Where the strip is now, in stops, for a test
+    out property <float> strip-place: strip.value;
     // A key or a wheel turn just set it: the strip is there at once. A drag follows the finger, and a stop that something else picked is slid to.
     property <bool> quick;
     strip := Settle { to: dragging ? drag-pos : shown; snap: dragging || quick; }

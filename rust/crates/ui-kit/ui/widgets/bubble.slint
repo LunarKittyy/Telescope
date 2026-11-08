@@ -3,6 +3,7 @@
 import { Theme } from "../theme.slint";
 import { WindowBox } from "dialog.slint";
 import { TipLayer } from "tip.slint";
+import { Motion } from "motion.slint";
 
 // Where a bubble goes, in window coordinates. Pure, so a test can ask without drawing anything.
 export global BubbleSpot {
@@ -85,6 +86,8 @@ export component BubbleFrame inherits Rectangle {
     in property <length> window-h: 4000px;
     // The frame's own face takes the presses that land on it (the popup needs that, a held bubble must not)
     in property <bool> takes-presses;
+    // How far through popping in it is: its size grows from Motion.pop-from to full about the pointer's tip
+    in property <float> pop-scale: 1;
     // Room between the frame's outside and what's in it
     out property <length> inner: Theme.u(4) + Theme.stroke;
     out property <length> frame-w: min(content-width + 2 * inner, window-w - 2 * BubbleSpot.margin);
@@ -93,6 +96,8 @@ export component BubbleFrame inherits Rectangle {
     out property <bool> flip: BubbleSpot.below(ay, ah, total-h, window-h);
     out property <length> bx: BubbleSpot.left(ax, aw, frame-w, window-w);
     out property <length> by: BubbleSpot.top(ay, ah, total-h, flip, window-h);
+    transform-scale: pop-scale;
+    transform-origin: { x: bx + BubbleSpot.tip(ax, aw, bx, frame-w), y: flip ? by : by + total-h };
     frame := Rectangle {
         x: bx;
         y: by + (flip ? Theme.pointer-h : 0px);

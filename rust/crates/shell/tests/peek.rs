@@ -252,6 +252,8 @@ fn opening_a_bubble_moves_nothing_in_the_card() {
     let plain = open();
     plain.set_property("kind", Value::String("".into())).unwrap();
     press_at(&plain, TRACK_X, TALL_Y);
+    // A bubble takes a moment to pop in, and a handle's edge to come up under the pointer
+    wait(&plain, 250);
     let held = draw(&plain);
     let height = number(&plain, "column-h");
     release_at(&plain, TRACK_X, TALL_Y);
@@ -262,6 +264,8 @@ fn opening_a_bubble_moves_nothing_in_the_card() {
     press_at(&w, TRACK_X, TALL_Y);
     assert!(up(&w));
     assert_eq!(number(&w, "column-h"), height);
+    wait(&w, 250);
+    assert!(up(&w));
     let during = draw(&w);
     // everything from the slider down is exactly as it is without the bubble
     assert_eq!(differing(&held, &during, 160..330, 0..420), 0);

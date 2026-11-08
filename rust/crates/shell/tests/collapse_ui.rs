@@ -127,6 +127,8 @@ impl Rig {
         window.dispatch_event(WindowEvent::PointerMoved { position });
         window.dispatch_event(WindowEvent::PointerPressed { position, button });
         window.dispatch_event(WindowEvent::PointerReleased { position, button });
+        // A card a click folded closes over a fraction of a second: let it finish
+        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(600));
     }
 
     fn click(&self, e: &ElementHandle) {
