@@ -20,7 +20,7 @@ const HUE_CAMERA: [u8; 3] = [0x7f, 0xd3, 0xc4];
 const TEXT_DISABLED: [u8; 3] = [0x52, 0x5b, 0x67];
 // The Classic theme's colours, which this rig draws in: a slider handle's edge at rest (the camera colour three parts to one of the card), a disabled one's, and the value's ink
 const HANDLE_EDGE: [u8; 3] = [101, 165, 155];
-const HANDLE_OFF: [u8; 3] = [0x2f, 0x36, 0x41];
+const HANDLE_OFF: [u8; 3] = [0x52, 0x5b, 0x67];
 const INK: [u8; 3] = [0xe7, 0xea, 0xef];
 const WIDTH: usize = 460;
 

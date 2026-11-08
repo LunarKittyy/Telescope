@@ -1,6 +1,6 @@
 // Layout rule (tests/test_text_fits.py): widths come from the layout and text has to fit inside them. Qt's fixed-width push buttons could
-// clip a longer translation, which is what that file looks for; ui-kit's Button takes its minimum width from its own text, so a longer
-// text widens the button and what holds it instead of being cut off. This checks that for the buttons every card and dialog uses.
+// clip a longer translation, which is what that file looks for; ui-kit's Button takes its minimum width from its own text up to a cap, past which
+// a longer text ends in an ellipsis instead of being cut off or pushing its row out of its place. This checks that for the buttons every card and dialog uses.
 use i_slint_backend_testing::{AccessibleRole, ElementHandle};
 use slint::{ComponentHandle, ModelRc, VecModel};
 use slint_interpreter::Value;
@@ -34,12 +34,14 @@ fn a_button_is_as_wide_as_its_text_whatever_the_language() {
     i_slint_backend_testing::init_no_event_loop();
     let short = widths("OK");
     let long = widths("Telescope can't start from inside the zip, so extract it first");
-    // The button is no narrower than its text, even in a window narrower than that
-    assert!(long.1 > short.1 + 150.0, "{short:?} {long:?}");
+    // The button is no narrower than its text, even in a window narrower than that, up to a cap (Theme.u(70) = 140 px): a longer
+    // label gives way past it and ends in an ellipsis, so one long translation never pushes a row out of its card
+    assert!(long.1 > short.1 + 50.0, "{short:?} {long:?}");
     assert!(long.1 > long.0, "the window is only 60 wide: {long:?}");
+    assert!(long.1 <= 140.5, "a long label stops at the cap: {long:?}");
     // The pseudo language, which makes every text 40% longer to find a layout with no room for a translation
     let pseudo = widths(&telescope_core::i18n::pseudo("Telescope can't start from inside the zip, so extract it first"));
-    assert!(pseudo.1 > long.1, "{long:?} {pseudo:?}");
+    assert!((pseudo.1 - long.1).abs() < 1.0, "{long:?} {pseudo:?}");
 }
 
 struct Never;
