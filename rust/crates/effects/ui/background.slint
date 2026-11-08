@@ -30,8 +30,11 @@ export component BackgroundCard inherits Card {
     opacity: active ? 1 : 0.4;
     enabled: active;
 
-    FormRow {
+    RailRow {
+        icon: Icons.image;
         label: @tr("Background");
+        hue: root.hue;
+        enabled: active;
         Segmented {
             hue: root.hue;
             horizontal-stretch: 1;
@@ -45,7 +48,8 @@ export component BackgroundCard inherits Card {
             picked(i) => { root.mode-picked(i); }
         }
     }
-    if mode == 1: SliderRow {
+    if mode == 1: RailSlider {
+        icon: Icons.blur;
         enabled: active;
         label: @tr("Blur");
         // Qt's tooltip on a slider with a default and no tip of its own: just the hint
@@ -63,8 +67,11 @@ export component BackgroundCard inherits Card {
         default-value: 6;
         moved(v) => { root.blur-moved(v); }
     }
-    if mode == 2: FormRow {
+    if mode == 2: RailRow {
+        icon: Icons.photo;
         label: @tr("Picture");
+        hue: root.hue;
+        enabled: active;
         HorizontalLayout {
             spacing: 8px;
             Button {
@@ -89,7 +96,8 @@ export component BackgroundCard inherits Card {
             }
         }
     }
-    if mode != 0: SliderRow {
+    if mode != 0: RailSlider {
+        icon: Icons.edges;
         enabled: active;
         label: @tr("Edges");
         tip: edges-tip;

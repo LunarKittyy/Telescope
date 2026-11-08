@@ -49,10 +49,10 @@ pub const HINT_AFTER: Duration = Duration::from_secs(30);
 const CAMERA_LIMITED_SHARE: f32 = 0.9;
 const CPU_LIMIT: &str = n_("The device's processor can't keep up, so the browser is sending less. Try a lower resolution or frame rate.");
 const BANDWIDTH_LIMIT: &str = n_("The browser is lowering the picture to fit the connection or the bitrate for this resolution.");
+const CERT_TITLE: &str = n_("Browser says it isn't private?");
 // Translators: Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons:
 // use the names those browsers show in your language
-const CERT_NOTE: &str = n_("The browser warns that the connection isn't private: it's this computer's own certificate. On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed.");
-const BACKGROUND_NOTE: &str = n_("Keep the page open with the screen on: phones pause the camera when you leave the browser.");
+const CERT_STEPS: &str = n_("It is this computer's own certificate.\niPhone: tap Show Details, then visit this website.\nChrome: tap Advanced, then Proceed.\nKeep the page open with the screen on.");
 const POST_CHANGED: &str = "changed";
 const POST_PREPARE: &str = "prepare";
 const POST_CANCEL: &str = "cancel";
@@ -262,6 +262,12 @@ impl Serving for BrowserServer {
 
 /// Makes the server for a hub, telling on_change (from its threads) whenever a browser connects, leaves or says something.
 pub type ServerMaker = Box<dyn Fn(Arc<BrowserHub>, Arc<dyn Fn() + Send + Sync>) -> Result<Box<dyn Serving>, String> + Send>;
+
+/// The link as the card shows it: the address and port, without the scheme and the token after the slash.
+pub fn short_url(url: &str) -> String {
+    let rest = url.split_once("://").map_or(url, |(_, rest)| rest);
+    rest.split(['/', '#']).next().unwrap_or("").to_string()
+}
 
 /// The real server: this computer's certificate in `folder`, WebRTC on str0m, the mic decoded by media.
 pub fn system_server(web: Arc<dyn Web>, folder: PathBuf, media: Arc<dyn Media>) -> ServerMaker {
@@ -630,7 +636,9 @@ impl BrowserCameraPlugin {
             "show-addresses": server.is_some() && self.candidates.len() > 1,
             "size-index": SIZES.iter().position(|s| s.0 == self.size).unwrap_or(1),
             "fps-index": FPS_CHOICES.iter().position(|f| *f == self.fps).unwrap_or(2),
-            "note-text": format!("{} {}", tr(CERT_NOTE), tr(BACKGROUND_NOTE)),
+            "note-title": tr(CERT_TITLE),
+            "note-text": tr(CERT_STEPS),
+            "url-short": short_url(&url),
             "new-link-enabled": server.is_some(),
         })
     }

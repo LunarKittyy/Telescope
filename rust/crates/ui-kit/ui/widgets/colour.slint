@@ -7,6 +7,7 @@ import { Icon, FocusRing, TouchRing, IconButton, KeyFocus } from "basics.slint";
 import { Bubble } from "bubble.slint";
 import { NumberField } from "field.slint";
 import { Switch } from "switch.slint";
+import { Unfold, Fade } from "motion.slint";
 import { Tip } from "tip.slint";
 
 // The colour at a hue (0 to 1) on the pad's top right corner, and what the hue strip shows there
@@ -174,6 +175,7 @@ component ChannelBox inherits Rectangle {
     in property <string> label;
     callback committed(string);
     height: Theme.row;
+    // Three digits fit between the letter and the box's right padding at the width the three share
     NumberField {
         width: parent.width;
         height: parent.height;
@@ -184,7 +186,7 @@ component ChannelBox inherits Rectangle {
     }
     Text {
         x: Theme.u(5);
-        width: Theme.u(8);
+        width: Theme.u(6);
         height: parent.height;
         text: letter;
         font-family: Theme.font;
@@ -204,7 +206,7 @@ export component ColourField inherits Rectangle {
     in property <float> h;
     in property <float> s;
     in property <float> v;
-    // The colour as the values show it: hex without the #, and red, green, blue
+    // The colour as the values show it: hex with its #, and red, green, blue
     in property <string> hex;
     in property <[int]> channels: [0, 0, 0];
     // The card's colour: the bubble's edge
@@ -232,7 +234,7 @@ export component ColourField inherits Rectangle {
     background: !enabled ? Theme.raise.mix(Theme.card, 0.4) : open || touch.pressed ? Theme.sel : touch.has-hover ? Theme.hover : Theme.raise;
     accessible-role: button;
     accessible-label: label;
-    accessible-value: "#" + hex;
+    accessible-value: hex;
     accessible-expandable: true;
     accessible-expanded: open;
     accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
@@ -272,66 +274,86 @@ export component ColourField inherits Rectangle {
         content-width: Theme.u(122);
         label: root.label;
         VerticalLayout {
-            spacing: Theme.u(4);
-            SatPad {
-                h: root.h;
-                s: root.s;
-                v: root.v;
-                colour: root.colour;
-                label: @tr("Saturation and brightness");
-                moved(s, v) => { root.moved(root.h, s, v); }
-            }
-            HueStrip {
-                h: root.h;
-                label: @tr("Hue");
-                moved(h) => { root.moved(h, root.s, root.v); }
-            }
-            HorizontalLayout {
+            spacing: 0px;
+            VerticalLayout {
                 spacing: Theme.u(4);
-                IconButton {
-                    icon: Icons.eyedropper;
-                    label: @tr("Pick from the preview");
-                    tip: root.pipette-tip;
-                    enabled: root.can-pick;
-                    clicked => { bubble.close(); root.pipette-clicked(); }
+                SatPad {
+                    h: root.h;
+                    s: root.s;
+                    v: root.v;
+                    colour: root.colour;
+                    label: @tr("Saturation and brightness");
+                    moved(s, v) => { root.moved(root.h, s, v); }
                 }
-                Rectangle { horizontal-stretch: 1; }
-                Text {
-                    text: @tr("Values");
-                    font-family: Theme.font;
-                    font-size: Theme.body;
-                    font-weight: Theme.w-label;
-                    color: Theme.ink2;
-                    vertical-alignment: center;
+                HueStrip {
+                    h: root.h;
+                    label: @tr("Hue");
+                    moved(h) => { root.moved(h, root.s, root.v); }
                 }
-                Rectangle {
-                    width: Theme.switch-w;
-                    Switch {
-                        y: (parent.height - self.height) / 2;
-                        label: @tr("Values");
-                        hue: root.hue;
-                        checked: root.show-values;
-                        toggled(on) => { root.show-values = on; }
+                HorizontalLayout {
+                    spacing: Theme.u(4);
+                    IconButton {
+                        icon: Icons.eyedropper;
+                        label: @tr("Pick from the preview");
+                        tip: root.pipette-tip;
+                        enabled: root.can-pick;
+                        clicked => { bubble.close(); root.pipette-clicked(); }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    Text {
+                        text: @tr("Values");
+                        font-family: Theme.font;
+                        font-size: Theme.body;
+                        font-weight: Theme.w-label;
+                        color: Theme.ink2;
+                        vertical-alignment: center;
+                    }
+                    Rectangle {
+                        width: Theme.switch-w;
+                        Switch {
+                            y: (parent.height - self.height) / 2;
+                            label: @tr("Values");
+                            hue: root.hue;
+                            checked: root.show-values;
+                            toggled(on) => { root.show-values = on; }
+                        }
                     }
                 }
             }
-            if root.show-values: HorizontalLayout {
-                spacing: Theme.u(2);
-                NumberField {
-                    horizontal-stretch: 3;
-                    min-width: Theme.u(37);
-                    value: root.hex;
-                    label: @tr("Hex");
-                    keeps-focus: true;
-                    committed(text) => { root.hex-typed(text); }
-                }
-                for letter[i] in [@tr("R"), @tr("G"), @tr("B")]: ChannelBox {
-                    horizontal-stretch: 2;
-                    min-width: Theme.u(25);
-                    letter: letter;
-                    value: "\{root.channels[i]}";
-                    label: [@tr("Red"), @tr("Green"), @tr("Blue")][i];
-                    committed(text) => { root.channel-typed(i, text); }
+            // The exact values open and close with the bubble growing and shrinking round them, the fields fading in a touch behind
+            Rectangle {
+                values-open := Unfold { open: root.show-values; }
+                values-fade := Fade { shown: root.show-values; }
+                min-height: 0px;
+                preferred-height: values-open.value * values.preferred-height;
+                max-height: values-open.value > 0 ? 100000px : 0px;
+                vertical-stretch: values-open.value > 0 ? 1 : 0;
+                clip: true;
+                values := VerticalLayout {
+                    y: 0px;
+                    width: parent.width;
+                    height: self.preferred-height;
+                    opacity: values-fade.value;
+                    padding-top: Theme.u(4);
+                    spacing: Theme.u(2);
+                    visible: values-open.value > 0;
+                    // Hex across the whole width, red, green and blue in three equal boxes under it
+                    NumberField {
+                        value: root.hex;
+                        label: @tr("Hex");
+                        keeps-focus: true;
+                        committed(text) => { root.hex-typed(text); }
+                    }
+                    HorizontalLayout {
+                        spacing: Theme.u(2);
+                        for letter[i] in [@tr("R"), @tr("G"), @tr("B")]: ChannelBox {
+                            horizontal-stretch: 1;
+                            letter: letter;
+                            value: "\{root.channels[i]}";
+                            label: [@tr("Red"), @tr("Green"), @tr("Blue")][i];
+                            committed(text) => { root.channel-typed(i, text); }
+                        }
+                    }
                 }
             }
         }

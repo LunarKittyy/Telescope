@@ -240,17 +240,6 @@ pub trait FrameSlot: Send + Sync {
     fn latest(&self) -> Option<(Frame, u64)>;
     /// Waits until latest's count passes seen, or timeout; true if it did.
     fn wait_newer(&self, seen: u64, timeout: Duration) -> bool;
-    /// A small RGBA copy of the newest frame as it came in, before the view cropped, flipped or turned it. Asking is what makes the
-    /// stream keep one: it starts with the first ask and stops a moment after the last, so a stream nobody looks at pays nothing.
-    fn raw_still(&self) -> Option<Frame> {
-        None
-    }
-    /// Whether the stream should offer its next frame to offer_raw (a cheap check, made for every frame).
-    fn wants_raw(&self) -> bool {
-        false
-    }
-    /// A frame before the view, for raw_still to keep a small copy of.
-    fn offer_raw(&self, _frame: &Frame) {}
 }
 
 /// The FrameStore plugins read, plus what the window tells it (Frames.set_streams).

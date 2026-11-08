@@ -800,10 +800,6 @@ impl Shared {
         };
         // Its number before the steps see it: what a person mask is worked out once by (slot.publish numbers what goes out)
         frame.number = seq;
-        // The Transforms map's small copy of the whole frame, only while something asks for it
-        if self.slot.wants_raw() {
-            self.slot.offer_raw(&frame);
-        }
         if let Some(view) = self.gate.as_ref().and_then(|g| g.for_frame(&self.source_id, &frame, crate::shell::now_s(), replaced)) {
             pipeline.replace_steps("view", telescope_core::frame::FrameStage::View, telescope_core::view_step::steps(&view));
         }
@@ -1974,63 +1970,6 @@ mod tests {
         assert!(!w.shared.publish(999, grey(4, 2, 8)));
         let (frame, count) = w.shared.slot.latest().unwrap();
         assert_eq!((frame.data[0], count), (7, received + 1), "the older one isn't received at all");
-        w.stop();
-    }
-
-    /// A slot that counts the frames offered to it for the Transforms map, and wants them only when told to.
-    struct Tapped {
-        inner: Arc<dyn FrameSlot>,
-        wants: AtomicBool,
-        offered: Mutex<Vec<(u32, u32)>>,
-    }
-
-    impl FrameSlot for Tapped {
-        fn publish(&self, frame: Frame) -> u64 {
-            self.inner.publish(frame)
-        }
-        fn published(&self) -> Option<Frame> {
-            self.inner.published()
-        }
-        fn replace(&self, frame: Frame, number: u64) -> bool {
-            self.inner.replace(frame, number)
-        }
-        fn latest(&self) -> Option<(Frame, u64)> {
-            self.inner.latest()
-        }
-        fn wait_newer(&self, seen: u64, timeout: Duration) -> bool {
-            self.inner.wait_newer(seen, timeout)
-        }
-        fn wants_raw(&self) -> bool {
-            self.wants.load(Ordering::SeqCst)
-        }
-        fn offer_raw(&self, frame: &Frame) {
-            self.offered.lock().unwrap().push((frame.width, frame.height));
-        }
-    }
-
-    #[test]
-    fn the_frame_before_the_view_is_offered_to_the_slot_only_while_it_wants_one() {
-        let packets = Arc::new(Mutex::new(VecDeque::from([Some(1)])));
-        let (cams, log) = (Arc::new(Cams::default()), Log::default());
-        let feed = packets.clone();
-        let opener: Opener = Arc::new(move |_| Ok((Codec::Mjpeg, Box::new(Feed { packets: feed.clone(), stop: Arc::default(), endless: None }) as Box<dyn VideoFeed>).into()));
-        let tapped = Arc::new(Tapped { inner: telescope_media_free_slot(Duration::ZERO), wants: AtomicBool::new(false), offered: Mutex::default() });
-        let slot: Arc<dyn FrameSlot> = tapped.clone();
-        let events: Events = Arc::new(move |e| {
-            if !matches!(e, WorkerEvent::Preview(..)) {
-                log.lock().unwrap().push(e)
-            }
-        });
-        let w = StreamWorker::start(setup(opener), Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap();
-        wait_for(|| cams.opened.lock().unwrap().len() == 1);
-        assert!(w.shared.publish(1000, grey(4, 2, 7)));
-        assert!(tapped.offered.lock().unwrap().is_empty(), "nobody wants one: nothing is offered, and nothing copied");
-        tapped.wants.store(true, Ordering::SeqCst);
-        assert!(w.shared.publish(1001, grey(4, 2, 8)));
-        assert_eq!(*tapped.offered.lock().unwrap(), vec![(4, 2)], "the frame as it came in");
-        tapped.wants.store(false, Ordering::SeqCst);
-        assert!(w.shared.publish(1002, grey(4, 2, 9)));
-        assert_eq!(tapped.offered.lock().unwrap().len(), 1, "and no more once it doesn't");
         w.stop();
     }
 

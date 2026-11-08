@@ -26,6 +26,7 @@ fn slint_type(key: &str, value: &Json) -> &'static str {
     match value {
         Json::Bool(_) => "bool",
         Json::Number(_) => "float",
+        Json::String(_) if key == "colour-hex" => "string",
         Json::String(s) if s.len() == 7 && s.starts_with('#') && parse_color(s).is_some() => "color",
         Json::String(_) => "string",
         Json::Array(items) if key == "channel-value" => {
@@ -106,7 +107,7 @@ impl Rig {
         for key in &self.keys {
             let Some(value) = props.get(key) else { continue };
             let slint = match (value, parse_color(value.as_str().unwrap_or(""))) {
-                (Json::String(s), Some(c)) if s.starts_with('#') && s.len() == 7 => Value::Brush(slint::Brush::SolidColor(c)),
+                (Json::String(s), Some(c)) if s.starts_with('#') && s.len() == 7 && key != "colour-hex" => Value::Brush(slint::Brush::SolidColor(c)),
                 _ => from_json(value),
             };
             self.w.set_property(key, slint).unwrap();
@@ -347,7 +348,7 @@ fn the_exact_values_sit_behind_a_toggle_and_typing_one_sets_the_colour() {
     rig.click_on(&toggle);
     assert!(rig.bubble().is_some(), "still open");
     let hex = ElementHandle::find_by_accessible_label(&rig.w, "Hex").next().expect("the hex box");
-    assert_eq!(hex.accessible_value().as_deref(), Some("1e2228"), "the default colour, as hex");
+    assert_eq!(hex.accessible_value().as_deref(), Some("#1e2228"), "the default colour, as hex");
     // the same colour asked for through the callbacks the boxes use
     rig.said.borrow_mut().push(UiEvent { ui: "card".into(), callback: "hex-typed".into(), args: vec![json!("#ff8800")] });
     rig.pass_on();

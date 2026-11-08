@@ -4,12 +4,10 @@ use i_slint_backend_testing::ElementHandle;
 use serde_json::{json, Value as Json};
 use slint::ComponentHandle;
 use slint_interpreter::Value;
-use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::plugin::Plugin;
-use telescope_core::view::PhoneZoom;
 use telescope_core::ui::SlintSource;
 use telescope_effects::colour_grading::{wheel_colour, ColourGradingPlugin};
-use telescope_effects::transforms::{map_picture, share_box, TransformsPlugin};
+use telescope_effects::transforms::TransformsPlugin;
 use telescope_shell::offscreen;
 use telescope_shell::source::to_property;
 
@@ -114,31 +112,6 @@ fn out() -> Option<std::path::PathBuf> {
 }
 
 
-/// A made-up scene to look at: sky, hills, a sun and a figure, `w` x `h`, of which the box (x, y, bw, bh) of 0 to 1 is drawn, so a longer lens's picture is the middle of the same scene.
-fn scene(w: usize, h: usize, (bx, by, bw, bh): (f64, f64, f64, f64)) -> Frame {
-    let mut data = Vec::with_capacity(w * h * 4);
-    for j in 0..h {
-        for i in 0..w {
-            let (u, v) = (bx + bw * (i as f64 + 0.5) / w as f64, by + bh * (j as f64 + 0.5) / h as f64);
-            let hill = 0.62 + 0.06 * (u * 9.0).sin() + 0.04 * (u * 23.0).cos();
-            let mut px = if v < hill { [(70.0 + 120.0 * v) as u8, (120.0 + 100.0 * v) as u8, (200.0 + 40.0 * v) as u8] } else { [(60.0 + 50.0 * (v - hill)) as u8, (130.0 - 40.0 * (v - hill)) as u8, 70] };
-            if (u - 0.78).hypot((v - 0.2) * 1.78) < 0.07 {
-                px = [250, 226, 140];
-            }
-            let (fx, fy) = ((u - 0.42).abs(), v - 0.5);
-            if (fx < 0.045 && fy > -0.02 && fy < 0.3) || ((u - 0.42).hypot((v - 0.4) * 1.78) < 0.05) {
-                px = [40, 44, 58];
-            }
-            data.extend_from_slice(&[px[0], px[1], px[2], 255]);
-        }
-    }
-    Frame::new(w as u32, h as u32, PixelFormat::Rgba, data)
-}
-
-fn image_of(frame: &Frame) -> slint::Image {
-    slint::Image::from_rgba8(slint::SharedPixelBuffer::<slint::Rgba8Pixel>::clone_from_slice(&frame.data, frame.width, frame.height))
-}
-
 fn zoomed(zoom: f64, pan_x: f64, pan_y: f64) -> Json {
     json!({"active": true, "zoom": zoom, "pan-x": pan_x, "pan-y": pan_y, "pan-enabled": zoom > 1.0, "zoom-text": format!("{zoom:.1}\u{d7}")})
 }
@@ -147,34 +120,21 @@ fn zoomed(zoom: f64, pan_x: f64, pan_y: f64) -> Json {
 fn map_shots() {
     let Some(dir) = out() else { return };
     let card = card_of(&mut TransformsPlugin::new(), "camera");
-    let whole = scene(320, 180, (0.0, 0.0, 1.0, 1.0));
     shoot(&dir, "map-closed", &card, &[json!({"active": true})]);
-    shoot(&dir, "map-zoomed-empty", &card, &[zoomed(2.5, 0.4, -0.3)]);
-    shoot_with(&dir, "map-zoomed-picture", &card, &[zoomed(2.5, 0.4, -0.3), json!({"map-has-picture": true})], &[("map-picture", image_of(&whole))]);
-    shoot_with(&dir, "map-zoom1-picture", &card, &[json!({"active": true, "map-has-picture": true})], &[("map-picture", image_of(&whole))]);
-    // The phone on its telephoto, 3x: its picture lies in the middle of the whole view, over the last picture of all of it
-    let share = share_box(Some(&PhoneZoom { ratio: 3.0, crop: 1.0, x: 0.5, y: 0.5 }));
-    let tele = scene(320, 180, (share[0], share[1], share[2], share[3]));
-    let composed = map_picture(&tele, share, Some(&whole));
-    shoot_with(&dir, "map-tele", &card, &[zoomed(4.0, 0.2, 0.1), json!({"map-has-picture": true, "map-share-on": true, "map-share": share})], &[("map-picture", image_of(&composed))]);
-    let alone = map_picture(&tele, share, None);
-    shoot_with(&dir, "map-tele-alone", &card, &[zoomed(4.0, 0.2, 0.1), json!({"map-has-picture": true, "map-share-on": true, "map-share": share})], &[("map-picture", image_of(&alone))]);
+    shoot(&dir, "map-zoomed", &card, &[zoomed(2.5, 0.4, -0.3)]);
     // A portrait frame sits in the same row
-    let portrait = scene(180, 320, (0.0, 0.0, 1.0, 1.0));
-    shoot_with(&dir, "map-portrait", &card, &[zoomed(2.0, -0.5, 0.5), json!({"map-has-picture": true, "map-aspect": 0.5625})], &[("map-picture", image_of(&portrait))]);
+    shoot(&dir, "map-portrait", &card, &[zoomed(2.0, -0.5, 0.5), json!({"map-aspect": 0.5625})]);
     // Someone else (auto framing) has the view: the map follows it, nothing to drag
-    shoot_with(&dir, "map-taken", &card, &[json!({"active": true, "zoom": 2.0, "pan-x": 0.3, "pan-y": 0.0, "pan-enabled": false, "zoom-free": false, "map-has-picture": true})], &[("map-picture", image_of(&whole))]);
+    shoot(&dir, "map-taken", &card, &[json!({"active": true, "zoom": 2.0, "pan-x": 0.3, "pan-y": 0.0, "pan-enabled": false, "zoom-free": false})]);
 }
 
 #[test]
 fn map_held_shots() {
     let Some(dir) = out() else { return };
     let card = card_of(&mut TransformsPlugin::new(), "camera");
-    let whole = scene(320, 180, (0.0, 0.0, 1.0, 1.0));
     // 2.5x with a pan of (0.4, -0.3): the crop's middle is at (0.5 + 0.4 * 0.3, 0.5 - 0.3 * 0.3) of the frame
     let (cx, cy) = (0.5 + 0.4 * 0.3, 0.5 - 0.3 * 0.3);
-    shoot_held(&dir, "map-held", "Pad", 0, &card, &[zoomed(2.5, 0.4, -0.3), json!({"map-has-picture": true})], &[("map-picture", image_of(&whole))],
-        &|(x, y, w, h)| (x + cx * w, y + cy * h), false);
+    shoot_held(&dir, "map-held", "Pad", 0, &card, &[zoomed(2.5, 0.4, -0.3)], &[], &|(x, y, w, h)| (x + cx * w, y + cy * h), false);
 }
 
 /// The wheels' pucks somewhere, the colours they add and the master readouts.

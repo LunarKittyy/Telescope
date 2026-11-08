@@ -1,8 +1,7 @@
 // The Transforms card. Joined after parts.slint and pad.slint.
 
-// The zoom and pan map: the whole frame in its own shape, centred in a row of fixed height so the card never changes size when the
-// phone turns, with the crop drawn on it and dragged directly. Zoom stays the slider above. The picture is small and still until
-// the crop is touched, and lies under the crop's dimmed surround.
+// The zoom and pan map: the whole frame in its own shape on an empty field, centred in a row of fixed height so the card never changes
+// size when the phone turns, with the crop drawn on it as a rounded frame and dragged directly. Zoom stays the slider above.
 component ZoomMap inherits Rectangle {
     in property <float> zoom: 1;
     in property <float> pan-x;
@@ -15,11 +14,7 @@ component ZoomMap inherits Rectangle {
     in property <[ShortcutEntry]> shortcut-adds;
     in property <string> setting-x;
     in property <string> setting-y;
-    in property <image> picture;
-    in property <bool> has-picture;
     in property <float> aspect: 1.7778;
-    in property <[float]> share: [0, 0, 1, 1];
-    in property <bool> share-on;
     callback moved(float, float);
     callback grabbed(bool);
     height: Theme.u(76);
@@ -55,37 +50,6 @@ component ZoomMap inherits Rectangle {
         setting-y: root.setting-y;
         moved(x, y) => { root.moved(x, y); }
         changed held => { root.grabbed(self.held); }
-        // Nothing to show yet: the thirds of a picture, faint, so the map reads as a frame and not a dead box
-        if !root.has-picture: Rectangle {
-            for t in [1, 2]: Rectangle {
-                x: parent.width * t / 3 - Theme.u(0.25);
-                width: Theme.u(0.5);
-                background: Theme.ink.with-alpha(0.07);
-            }
-            for t in [1, 2]: Rectangle {
-                y: parent.height * t / 3 - Theme.u(0.25);
-                height: Theme.u(0.5);
-                background: Theme.ink.with-alpha(0.07);
-            }
-        }
-        if root.has-picture: Image {
-            width: parent.width;
-            height: parent.height;
-            source: root.picture;
-            image-fit: fill;
-            image-rendering: smooth;
-        }
-        // Where the phone's own lens sees, while that is less than the whole frame
-        if root.share-on: Rectangle {
-            x: root.share[0] * parent.width;
-            y: root.share[1] * parent.height;
-            width: root.share[2] * parent.width;
-            height: root.share[3] * parent.height;
-            Rectangle { y: 0px; height: Theme.u(0.5); background: Theme.ink.with-alpha(0.55); }
-            Rectangle { y: parent.height - Theme.u(0.5); height: Theme.u(0.5); background: Theme.ink.with-alpha(0.55); }
-            Rectangle { x: 0px; width: Theme.u(0.5); background: Theme.ink.with-alpha(0.55); }
-            Rectangle { x: parent.width - Theme.u(0.5); width: Theme.u(0.5); background: Theme.ink.with-alpha(0.55); }
-        }
     }
 }
 
@@ -107,13 +71,8 @@ export component TransformsCard inherits Card {
     in property <float> pan-y;
     in property <bool> pan-enabled;
     in property <string> pan-text;
-    // The map: the whole frame as the phone sends it (a small picture that only moves while it is touched), its shape (width over
-    // height), and where the phone's own share of it lies when that is less than the whole (x, y, width, height of 0 to 1)
-    in property <image> map-picture;
-    in property <bool> map-has-picture;
+    // The map's shape: the frame's width over its height
     in property <float> map-aspect: 1.7778;
-    in property <[float]> map-share: [0, 0, 1, 1];
-    in property <bool> map-share-on;
     in property <float> stretch-x: 100;
     in property <float> stretch-y: 100;
     in property <string> stretch-x-text;
@@ -145,21 +104,42 @@ export component TransformsCard inherits Card {
     action-shortcut: "transforms.reset";
     action => { root.reset-clicked(); }
 
-    FormRow {
+    RailRow {
+        icon: Icons.mirror;
         label: @tr("Flip");
-        Toggles {
-            items: [@tr("Mirror"), @tr("Upside down")];
-            icons: [Icons.mirror, Icons.upside-down];
-            checked: flips;
-            enabled: active;
-            label: @tr("Flip");
-            shortcuts: ["transforms.flip_horizontal", "transforms.flip_vertical"];
-            settings: ["transforms.flip_h", "transforms.flip_v"];
-            toggled(i, on) => { root.flip-toggled(i, on); }
+        hue: root.hue;
+        enabled: active;
+        changed: flips[0] || flips[1];
+        HorizontalLayout {
+            spacing: Theme.gap;
+            ToggleTile {
+                icon: Icons.mirror;
+                text: @tr("Mirror");
+                shortcut: "transforms.flip_horizontal";
+                setting: "transforms.flip_h";
+                hue: root.hue;
+                enabled: active;
+                checked: flips[0];
+                toggled(on) => { root.flip-toggled(0, on); }
+            }
+            ToggleTile {
+                icon: Icons.upside-down;
+                text: @tr("Upside down");
+                shortcut: "transforms.flip_vertical";
+                setting: "transforms.flip_v";
+                hue: root.hue;
+                enabled: active;
+                checked: flips[1];
+                toggled(on) => { root.flip-toggled(1, on); }
+            }
         }
     }
-    FormRow {
+    RailRow {
+        icon: Icons.rotate;
         label: @tr("Rotation");
+        hue: root.hue;
+        enabled: active;
+        changed: rotation != 0;
         Segmented {
             hue: root.hue;
             items: ["0\u{b0}", "90\u{b0}", "180\u{b0}", "270\u{b0}"];
@@ -173,11 +153,14 @@ export component TransformsCard inherits Card {
             picked(i) => { root.rotation-picked(i); }
         }
     }
-    FormRow {
+    RailRow {
+        icon: Icons.zoom;
         label: @tr("Zoom");
-        enabled: zoom-free;
+        hue: root.hue;
+        enabled: zoom-free && active;
+        changed: zoom != 1;
         HorizontalLayout {
-            spacing: 8px;
+            spacing: Theme.gap;
             Rectangle {
                 horizontal-stretch: 1;
                 Slider {
@@ -202,18 +185,18 @@ export component TransformsCard inherits Card {
                 }
             }
             Rectangle {
-                width: 56px;
+                width: Theme.u(28);
                 HorizontalLayout {
                     alignment: end;
-                    spacing: 4px;
+                    spacing: Theme.u(2);
                     if dot-level != "": Rectangle {
-                        width: 6px;
-                        y: (parent.height - 6px) / 2;
-                        height: 6px;
+                        width: Theme.u(3);
+                        y: (parent.height - Theme.u(3)) / 2;
+                        height: Theme.u(3);
                         Rectangle {
-                            width: 6px;
-                            height: 6px;
-                            border-radius: 3px;
+                            width: Theme.u(3);
+                            height: Theme.u(3);
+                            border-radius: Theme.u(1.5);
                             background: dot-level == "on" ? Theme.accent : Theme.err;
                         }
                         Tip { says: root.dot-tip; inert: true; }
@@ -222,8 +205,8 @@ export component TransformsCard inherits Card {
                         text: zoom-text;
                         font-family: Theme.font;
                         font-size: Theme.body;
-                        font-weight: 600;
-                        color: !active ? Theme.accent-soft : zoom-free ? root.hue : Theme.text-disabled;
+                        font-weight: Theme.w-value;
+                        color: !active || !zoom-free ? Theme.dis : root.hue;
                         horizontal-alignment: right;
                         vertical-alignment: center;
                     }
@@ -232,8 +215,12 @@ export component TransformsCard inherits Card {
             }
         }
     }
-    FormRow {
+    RailRow {
+        icon: Icons.pan;
         label: @tr("Pan");
+        hue: root.hue;
+        enabled: active && pan-enabled;
+        changed: pan-x != 0 || pan-y != 0;
         ZoomMap {
             zoom: root.zoom;
             pan-x: root.pan-x;
@@ -242,11 +229,7 @@ export component TransformsCard inherits Card {
             hue: root.hue;
             tip: root.pan-tip;
             label: @tr("Pan");
-            picture: root.map-picture;
-            has-picture: root.map-has-picture;
             aspect: root.map-aspect;
-            share: root.map-share;
-            share-on: root.map-share-on;
             shortcut: "transforms.pan_x transforms.pan_y";
             shortcut-adds: [{ id: "transforms.pan_x", text: root.pan-add-x }, { id: "transforms.pan_y", text: root.pan-add-y }];
             setting-x: "transforms.pan_x";
@@ -255,7 +238,8 @@ export component TransformsCard inherits Card {
             grabbed(on) => { root.map-grabbed(on); }
         }
     }
-    SliderRow {
+    RailSlider {
+        icon: Icons.stretch;
         enabled: active;
         label: @tr("Width");
         tip: stretch-tips[0];
@@ -271,7 +255,8 @@ export component TransformsCard inherits Card {
         default-value: 100;
         moved(v) => { root.stretch-moved(0, v); }
     }
-    SliderRow {
+    RailSlider {
+        icon: Icons.stretch-tall;
         enabled: active;
         label: @tr("Height");
         tip: stretch-tips[1];

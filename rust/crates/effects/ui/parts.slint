@@ -99,6 +99,77 @@ component SliderRow inherits LabelRow {
     }
 }
 
+// A slider on the card's icon rail: the icon is the label, its word the tooltip. The row marks itself changed when the value is off its default.
+component RailSlider inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    in property <string> tip;
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    in property <float> value: 0;
+    in property <float> step: 1;
+    in property <string> readout;
+    in property <length> readout-width: Theme.u(28);
+    in property <color> hue: Theme.accent;
+    in property <bool> enabled: true;
+    in property <bool> has-default;
+    in property <float> default-value;
+    in property <[float]> marks;
+    in property <string> fill: "plain";
+    in property <color> grad-a: Theme.ink2;
+    in property <color> grad-b: Theme.ink2;
+    in property <color> grad-c: Theme.ink2;
+    // "Double-click to reset", added to the tip of a slider that has a default
+    in property <string> hint;
+    in property <string> shortcut;
+    in property <string> setting;
+    in property <string> peek;
+    in property <image> peek-picture;
+    callback moved(float);
+    callback peek-changed(bool);
+    height: Theme.row;
+    horizontal-stretch: 1;
+    RailRow {
+        width: parent.width;
+        height: parent.height;
+        icon: root.icon;
+        label: root.label;
+        hue: root.hue;
+        enabled: root.enabled;
+        changed: root.has-default && abs(root.value - root.default-value) > root.step / 2;
+        Rectangle {
+            horizontal-stretch: 1;
+            Slider {
+                peek: root.peek;
+                peek-picture: root.peek-picture;
+                peek-changed(o) => { root.peek-changed(o); }
+                setting: root.setting;
+                tip: root.tip != "" && root.has-default && root.hint != "" ? root.tip + "\n" + root.hint : root.tip;
+                shortcut: root.shortcut;
+                width: parent.width;
+                height: parent.height;
+                hue: root.hue;
+                enabled: root.enabled;
+                label: root.label;
+                minimum: root.minimum;
+                maximum: root.maximum;
+                step: root.step;
+                value: root.value;
+                readout: root.readout;
+                readout-width: root.readout-width;
+                has-default: root.has-default;
+                default-value: root.default-value;
+                marks: root.marks;
+                fill: root.fill;
+                grad-a: root.grad-a;
+                grad-b: root.grad-b;
+                grad-c: root.grad-c;
+                moved(v) => { root.moved(v); }
+            }
+        }
+    }
+}
+
 // The keys the two hand-drawn controls understand, by the names editors.rs knows
 global Keys {
     public pure function name(text: string) -> string {

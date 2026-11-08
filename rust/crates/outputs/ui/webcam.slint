@@ -1,7 +1,7 @@
 // The Webcam card: which webcam streams and how, plus whichever picture settings the camera itself offers, as rows the plugin builds.
 // A DSLR's values come as a strip of tiles under its focus buttons instead (aperture and exposure step like a dial). Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Card, FormRow, Slider, ChoiceField, Segmented, SwitchTile, SectionHeading, Button, Stepper, Jog } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Card, RailRow, Slider, ChoiceField, Segmented, SwitchTile, SectionHeading, Button, Stepper, Jog } from "@ui-kit/ui-kit.slint";
 
 // One row of picture settings: a section heading, an Auto/Manual switch, an on/off tile, a menu or a slider. The strip's tiles are
 // rows too, a "stepper" or a "menu" each.
@@ -27,6 +27,17 @@ global Pick {
     public pure function icon(name: string) -> image {
         name == "sun" ? Icons.sun : name == "image" ? Icons.image : name == "focus" ? Icons.focus
             : name == "crop" ? Icons.crop : name == "moon" ? Icons.moon : Icons.sun
+    }
+    // What a picture setting of the camera is, by its name
+    public pure function control(name: string) -> image {
+        name == "exposure_auto" ? Icons.exposure : name == "exposure_time" ? Icons.timer : name == "gain" ? Icons.volume
+            : name == "brightness" ? Icons.sun : name == "backlight" ? Icons.torch : name == "anti_flicker" ? Icons.bolt
+            : name == "white_balance_auto" || name == "white_balance" || name == "dslr_white_balance" ? Icons.thermometer
+            : name == "saturation" ? Icons.saturation : name == "hue" ? Icons.colour : name == "contrast" ? Icons.contrast
+            : name == "gamma" ? Icons.sliders : name == "sharpness" ? Icons.sharpen
+            : name == "focus_auto" || name == "focus" || name == "dslr_focus" ? Icons.focus
+            : name == "dslr_aperture" ? Icons.aperture : name == "dslr_exposure_comp" ? Icons.exposure
+            : name == "zoom" ? Icons.zoom : name == "pan" || name == "tilt" ? Icons.pan : Icons.sliders
     }
 }
 
@@ -61,8 +72,6 @@ export component WebcamCard inherits Card {
 
     // As many tiles side by side as are 112px wide with 8px between, the last one taking the rest of its line when it's alone on it
     property <int> tile-cols: max(1, min(root.tiles.length, floor((root.width - 34px + 8px) / 120px)));
-    // Wide enough for three tiles in a line: the resolution then takes two of those columns and the frame rate the third, so their edges meet the tiles' and the buttons'
-    property <bool> three-up: floor((root.width - 34px + 8px) / 120px) >= 3;
 
     title: @tr("Webcam");
     icon: Icons.video;
@@ -82,21 +91,29 @@ export component WebcamCard inherits Card {
         color: root.status-kind == "status_ok" ? Theme.ok : root.status-kind == "status_warn" ? Theme.warn
             : root.status-kind == "status_err" ? Theme.err : Theme.text-dim;
     }
-    pair := HorizontalLayout {
-        spacing: 8px;
+    RailRow {
+        icon: Icons.grid;
+        label: @tr("Resolution");
+        hue: root.hue;
+        enabled: root.size-enabled;
         ChoiceField {
-            // Exactly what the tiles' columns are, so the edges line up
-            min-width: root.three-up ? (pair.width - 16px) / 3 * 2 + 8px : (pair.width - 8px) / 2;
-            max-width: self.min-width;
             caption: @tr("Resolution");
+            compact: true;
             items: root.size-items;
             current <=> root.size-current;
             enabled: root.size-enabled;
             tip: root.size-tip;
             picked(i) => { root.size-current = i; root.size-picked(i); }
         }
+    }
+    RailRow {
+        icon: Icons.film;
+        label: @tr("Frame rate");
+        hue: root.hue;
+        enabled: root.fps-enabled;
         ChoiceField {
             caption: @tr("Frame rate");
+            compact: true;
             items: root.fps-items;
             current <=> root.fps-current;
             enabled: root.fps-enabled;
@@ -110,10 +127,12 @@ export component WebcamCard inherits Card {
             text: row.label;
             icon: Pick.icon(row.icon);
         }
-        FormRow {
+        RailRow {
             visible: row.kind == "auto";
             height: row.kind == "auto" ? self.preferred-height : 0;
+            icon: Pick.control(row.name);
             label: row.label;
+            hue: root.hue;
             enabled: row.enabled;
             Segmented {
                 hue: root.hue;
@@ -156,10 +175,12 @@ export component WebcamCard inherits Card {
             enabled: row.enabled;
             toggled(on) => { root.control-set(row.name, on ? 1 : 0); }
         }
-        FormRow {
+        RailRow {
             visible: row.kind == "menu";
             height: row.kind == "menu" ? self.preferred-height : 0;
+            icon: Pick.control(row.name);
             label: row.label;
+            hue: root.hue;
             enabled: row.enabled;
             ChoiceField {
                 name: row.label;
@@ -170,10 +191,12 @@ export component WebcamCard inherits Card {
                 picked(i) => { root.control-set(row.name, i); }
             }
         }
-        FormRow {
+        RailRow {
             visible: row.kind == "slider";
             height: row.kind == "slider" ? self.preferred-height : 0;
+            icon: Pick.control(row.name);
             label: row.label;
+            hue: root.hue;
             enabled: row.enabled;
             Slider {
                 horizontal-stretch: 1;

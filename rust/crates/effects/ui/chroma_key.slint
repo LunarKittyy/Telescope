@@ -62,8 +62,11 @@ export component ChromaKeyCard inherits Card {
     switch-tip: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    FormRow {
+    RailRow {
+        icon: Icons.screen;
         label: @tr("Screen");
+        hue: root.hue;
+        enabled: active;
         Rectangle {
             horizontal-stretch: 1;
             HorizontalLayout {
@@ -87,7 +90,8 @@ export component ChromaKeyCard inherits Card {
             }
         }
     }
-    for name[i] in [@tr("Tolerance"), @tr("Edges"), @tr("Spill")]: SliderRow {
+    for name[i] in [@tr("Tolerance"), @tr("Edges"), @tr("Spill")]: RailSlider {
+        icon: [Icons.sliders, Icons.edges, Icons.tint][i];
         enabled: active;
         label: name;
         tip: slider-tips[i];
@@ -107,8 +111,11 @@ export component ChromaKeyCard inherits Card {
         hint: root.reset-hint;
         moved(v) => { root.slider-moved(i, v); }
     }
-    FormRow {
+    RailRow {
+        icon: Icons.person;
         label: @tr("Behind you");
+        hue: root.hue;
+        enabled: active;
         Segmented {
             hue: root.hue;
             items: [@tr("Colour"), @tr("Picture")];
@@ -120,8 +127,11 @@ export component ChromaKeyCard inherits Card {
             picked(i) => { root.background-picked(i); }
         }
     }
-    if behind == 0: FormRow {
+    if behind == 0: RailRow {
+        icon: Icons.colour;
         label: @tr("Colour");
+        hue: root.hue;
+        enabled: active;
         ColourField {
             enabled: active;
             colour: backdrop-colour;
@@ -141,8 +151,11 @@ export component ChromaKeyCard inherits Card {
             pipette-clicked => { root.pipette-clicked(); }
         }
     }
-    if behind == 1: FormRow {
+    if behind == 1: RailRow {
+        icon: Icons.photo;
         label: @tr("Picture");
+        hue: root.hue;
+        enabled: active;
         HorizontalLayout {
             spacing: 8px;
             Button {

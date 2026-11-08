@@ -288,7 +288,7 @@ impl ChromaKeyPlugin {
             "colour-h": self.hsv.0,
             "colour-s": self.hsv.1,
             "colour-v": self.hsv.2,
-            "colour-hex": hex([r, g, b]).trim_start_matches('#'),
+            "colour-hex": hex([r, g, b]),
             "channel-value": [r, g, b],
             "picture-text": if self.picture_path.is_empty() { tr("No picture yet") } else { file_name(&self.picture_path) },
             "picture-tip": self.picture_path,

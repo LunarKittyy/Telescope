@@ -1780,15 +1780,6 @@ impl FrameSlot for WakingSlot {
     fn wait_newer(&self, seen: u64, timeout: Duration) -> bool {
         self.inner.wait_newer(seen, timeout)
     }
-    fn raw_still(&self) -> Option<telescope_core::frame::Frame> {
-        self.inner.raw_still()
-    }
-    fn wants_raw(&self) -> bool {
-        self.inner.wants_raw()
-    }
-    fn offer_raw(&self, frame: &telescope_core::frame::Frame) {
-        self.inner.offer_raw(frame)
-    }
 }
 
 /// A frame slot for a media that keeps none (tests, builds without media): the newest frame only.

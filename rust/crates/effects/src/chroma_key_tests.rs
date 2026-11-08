@@ -490,7 +490,7 @@ fn the_pad_and_strip_set_the_stored_colour_as_before() {
     r.ui("colour-moved", vec![json!(0.0), json!(1.0), json!(1.0)]);
     assert_eq!(r.config()["colour"], json!([0, 0, 255]), "stored as B, G, R, whole numbers");
     assert_eq!((r.shown("colour-h"), r.shown("colour-s"), r.shown("colour-v")), (json!(0.0), json!(1.0), json!(1.0)));
-    assert_eq!((r.shown("backdrop-colour"), r.shown("colour-hex"), r.shown("channel-value")), (json!("#ff0000"), json!("ff0000"), json!([255, 0, 0])));
+    assert_eq!((r.shown("backdrop-colour"), r.shown("colour-hex"), r.shown("channel-value")), (json!("#ff0000"), json!("#ff0000"), json!([255, 0, 0])));
     // dragging down to black keeps the hue the person had, so coming back up is the same colour
     r.ui("colour-moved", vec![json!(0.25), json!(0.5), json!(0.0)]);
     assert_eq!(r.config()["colour"], json!([0, 0, 0]));
@@ -512,7 +512,7 @@ fn typed_values_set_the_colour_and_nonsense_leaves_it() {
     assert_eq!(r.config()["colour"], json!([0, 136, 255]));
     r.ui("hex-typed", vec![json!("not a colour")]);
     assert_eq!(r.config()["colour"], json!([0, 136, 255]), "a typo changes nothing");
-    assert_eq!(r.shown("colour-hex"), json!("ff8800"), "and the box is told what it still is");
+    assert_eq!(r.shown("colour-hex"), json!("#ff8800"), "and the box is told what it still is, with its #");
     r.ui("channel-typed", vec![json!(2), json!("12")]);
     r.ui("channel-typed", vec![json!(1), json!("999")]);
     r.ui("channel-typed", vec![json!(0), json!("-5")]);
@@ -539,4 +539,35 @@ fn the_pipette_picks_the_backdrop_from_the_preview_without_pausing_the_key() {
     let mut r = Rig::new(false);
     r.ui("pipette-clicked", vec![]);
     assert!(r.shown("status").as_str().unwrap().contains("Start streaming"));
+}
+
+#[test]
+fn hex_is_read_with_or_without_the_hash_short_or_long_and_alpha_is_dropped() {
+    use crate::shared::parse_hex;
+    for (typed, want) in [
+        ("#ff8800", Some([255, 136, 0])),
+        ("ff8800", Some([255, 136, 0])),
+        ("  #FF8800  ", Some([255, 136, 0])),
+        ("#f80", Some([255, 136, 0])),
+        ("f80", Some([255, 136, 0])),
+        ("#ff8800cc", Some([255, 136, 0])),
+        ("ff880000", Some([255, 136, 0])),
+        ("#f80c", Some([255, 136, 0])),
+        ("f80c", Some([255, 136, 0])),
+    ] {
+        assert_eq!(parse_hex(typed), want, "{typed:?}");
+    }
+    for typed in ["", "#", "##ff8800", "#ff880", "#ff88000", "#ff8800cc1", "#gg0000", "#ff 88 00", "#ff8800;", "\u{ff03}ff8800", "ff88\u{e9}0", "red"] {
+        assert_eq!(parse_hex(typed), None, "{typed:?}");
+    }
+}
+
+#[test]
+fn a_long_hex_with_alpha_sets_the_colour_and_the_box_shows_it_as_six_digits() {
+    let mut r = Rig::new(false);
+    r.ui("hex-typed", vec![json!("#12345678")]);
+    assert_eq!(r.config()["colour"], json!([0x56, 0x34, 0x12]), "stored as B, G, R");
+    assert_eq!(r.shown("colour-hex"), json!("#123456"));
+    r.ui("hex-typed", vec![json!("#12345")]);
+    assert_eq!(r.shown("colour-hex"), json!("#123456"), "five digits is a typo: it reverts");
 }

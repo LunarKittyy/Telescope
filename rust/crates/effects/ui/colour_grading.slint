@@ -184,23 +184,19 @@ export component ColourGradingCard inherits Card {
     switch-tip: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    FormRow {
+    SwitchRow {
+        icon: Icons.compare;
         label: @tr("Compare");
-        quiet: true;
-        Rectangle { horizontal-stretch: 1; }
-        Switch {
-            hue: root.hue;
-            enabled: active;
-            y: (parent.height - self.height) / 2;
-            checked: compare;
-            label: @tr("Compare");
-            shortcut: "colour_grading.compare";
-            tip: @tr("Left of the line the preview shows the picture without the grade (apps always get it graded)");
-            toggled(v) => { root.compare-toggled(v); }
-        }
+        hue: root.hue;
+        enabled: active;
+        checked: compare;
+        shortcut: "colour_grading.compare";
+        tip: @tr("Left of the line the preview shows the picture without the grade (apps always get it graded)");
+        toggled(v) => { root.compare-toggled(v); }
     }
     // A hidden row keeps its height out of the layout with visible and max-height
-    if compare: SliderRow {
+    if compare: RailSlider {
+        icon: Icons.split;
         enabled: active;
         label: @tr("Split");
         tip: @tr("Where the line between before and after is");
@@ -282,7 +278,8 @@ export component ColourGradingCard inherits Card {
                 master-moved(v) => { root.master-moved(i, v); }
             }
         }
-        for name[i] in [@tr("Temperature"), @tr("Tint"), @tr("Contrast"), @tr("Pivot"), @tr("Saturation"), @tr("Vibrance"), @tr("Shadows"), @tr("Highlights")]: SliderRow {
+        for name[i] in [@tr("Temperature"), @tr("Tint"), @tr("Contrast"), @tr("Pivot"), @tr("Saturation"), @tr("Vibrance"), @tr("Shadows"), @tr("Highlights")]: RailSlider {
+            icon: [Icons.thermometer, Icons.tint, Icons.contrast, Icons.pivot, Icons.saturation, Icons.sparkle, Icons.shadows, Icons.sun][i];
             enabled: active;
             label: name;
             tip: slider-tips[i];
@@ -351,8 +348,12 @@ export component ColourGradingCard inherits Card {
     if page == 2: VerticalLayout {
         spacing: 8px;
         padding-top: 4px;
-        FormRow {
+        RailRow {
+            icon: Icons.cube;
             label: @tr("LUT");
+            hue: root.hue;
+            enabled: active;
+            changed: lut-loaded;
             HorizontalLayout {
                 spacing: 8px;
                 Button {
@@ -382,7 +383,8 @@ export component ColourGradingCard inherits Card {
                 }
             }
         }
-        if lut-loaded: SliderRow {
+        if lut-loaded: RailSlider {
+            icon: Icons.gauge;
             enabled: active;
             label: @tr("Strength");
             tip: @tr("How much of the LUT's look goes on the picture");
@@ -402,8 +404,11 @@ export component ColourGradingCard inherits Card {
             text: lut-note;
             kind: "status_warn";
         }
-        FormRow {
+        RailRow {
+            icon: Icons.download;
             label: @tr("Export");
+            hue: root.hue;
+            enabled: active;
             HorizontalLayout {
                 Button {
                     enabled: active;

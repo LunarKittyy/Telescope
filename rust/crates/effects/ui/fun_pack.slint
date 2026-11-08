@@ -48,8 +48,11 @@ export component FunPackCard inherits Card {
     opacity: active ? 1 : 0.4;
     enabled: active;
 
-    FormRow {
+    RailRow {
+        icon: Icons.sparkle;
         label: @tr("Effect");
+        hue: root.hue;
+        enabled: active;
         ChoiceField {
             enabled: active;
             compact: true;
@@ -98,7 +101,8 @@ export component FunPackCard inherits Card {
         Rectangle { horizontal-stretch: 1; }
     }
     // Hidden rows are left out, not shrunk: a shrunk one still gets the card's spacing
-    if slider-show[0]: SliderRow {
+    if slider-show[0]: RailSlider {
+        icon: Icons.edges;
         enabled: active;
         label: @tr("Edges");
         tip: slider-tips[0];
@@ -112,7 +116,8 @@ export component FunPackCard inherits Card {
         hint: root.reset-hint;
         moved(v) => { root.slider-moved(0, v); }
     }
-    if slider-show[1]: SliderRow {
+    if slider-show[1]: RailSlider {
+        icon: Icons.trails;
         enabled: active;
         label: @tr("Trails");
         tip: slider-tips[1];
@@ -126,7 +131,8 @@ export component FunPackCard inherits Card {
         hint: root.reset-hint;
         moved(v) => { root.slider-moved(1, v); }
     }
-    if slider-show[2]: SliderRow {
+    if slider-show[2]: RailSlider {
+        icon: Icons.sun;
         enabled: active;
         label: @tr("Brightness");
         tip: slider-tips[2];
@@ -140,7 +146,8 @@ export component FunPackCard inherits Card {
         hint: root.reset-hint;
         moved(v) => { root.slider-moved(2, v); }
     }
-    if slider-show[3]: SliderRow {
+    if slider-show[3]: RailSlider {
+        icon: Icons.stretch;
         enabled: active;
         label: @tr("Spread");
         tip: slider-tips[3];
@@ -154,7 +161,8 @@ export component FunPackCard inherits Card {
         hint: root.reset-hint;
         moved(v) => { root.slider-moved(3, v); }
     }
-    if slider-show[4]: SliderRow {
+    if slider-show[4]: RailSlider {
+        icon: Icons.distortion;
         enabled: active;
         label: @tr("Smear");
         tip: slider-tips[4];
@@ -169,8 +177,11 @@ export component FunPackCard inherits Card {
         hint: root.reset-hint;
         moved(v) => { root.slider-moved(4, v); }
     }
-    if show-direction: FormRow {
+    if show-direction: RailRow {
+        icon: Icons.pan;
         label: @tr("Direction");
+        hue: root.hue;
+        enabled: active;
         Segmented {
             hue: root.hue;
             items: [@tr("Down"), @tr("Across")];
