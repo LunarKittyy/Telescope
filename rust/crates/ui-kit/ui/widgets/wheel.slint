@@ -5,6 +5,7 @@ import { Reveal } from "folds.slint";
 import { FocusRing, TouchRing, KeyFocus } from "basics.slint";
 import { Tip } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
+import { Motion, Settle, Tone } from "motion.slint";
 
 // Kind "wheel": a disc inside a ring of hues, each hue where a puck pointing at it would push the picture, and a puck on the disc that is dragged (it doesn't jump to the pointer, and it never snaps), moved with the arrows, and put back in the middle by Home, Delete, Backspace or a double-click. The pointer goes out in radii of the disc, from where it went down; holding Shift while dragging goes slower (a tenth as far), and the puck takes a dot and the pointer a crosshair while it does. It says `pressed`, `dragged` while held and `released`, and the owner works out the puck.
 export component ColourWheel inherits Rectangle {
@@ -44,25 +45,37 @@ export component ColourWheel inherits Rectangle {
     property <length> radius: floor((min(self.width, self.height) / 2 - ring-w - gap-w - Theme.u(1)) / 1phx) * 1phx;
     property <length> cx: round((self.absolute-position.x + self.width / 2) / 1phx) * 1phx - self.absolute-position.x;
     property <length> cy: round((self.absolute-position.y + self.height / 2) / 1phx) * 1phx - self.absolute-position.y;
-    property <length> px: cx + puck-x * radius;
-    property <length> py: cy - puck-y * radius;
+    // The puck glides to a place that something other than the person set (Auto, Reset, an AI app), across first and then down so its path
+    // bows; a finger or a key has it at once
+    property <bool> quick;
+    glide-x := Settle { to: puck-x; snap: held || quick; }
+    glide-y := Settle { to: puck-y; snap: held || quick; pace: Motion.trail; }
+    held-tone := Tone { on: held && enabled; instant-in: true; }
+    hover-tone := Tone { on: touch.has-hover && enabled; }
+    Timer {
+        interval: 80ms;
+        running: quick;
+        triggered => { quick = false; }
+    }
+    property <length> px: cx + glide-x.value * radius;
+    property <length> py: cy - glide-y.value * radius;
     property <length> ring-out: radius + gap-w + ring-w;
     accessible-role: slider;
     accessible-label: label;
     accessible-value: spoken;
     accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
-    accessible-action-increment => { if (enabled) { root.key("right", false); } }
-    accessible-action-decrement => { if (enabled) { root.key("left", false); } }
+    accessible-action-increment => { if (enabled) { quick = true; root.key("right", false); } }
+    accessible-action-decrement => { if (enabled) { quick = true; root.key("left", false); } }
     forward-focus: focus;
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: root.enabled;
         key-pressed(e) => {
-            if (e.text == Key.LeftArrow) { root.key("left", e.modifiers.shift); return accept; }
-            if (e.text == Key.RightArrow) { root.key("right", e.modifiers.shift); return accept; }
-            if (e.text == Key.UpArrow) { root.key("up", e.modifiers.shift); return accept; }
-            if (e.text == Key.DownArrow) { root.key("down", e.modifiers.shift); return accept; }
-            if (e.text == Key.Home || e.text == Key.Delete || e.text == Key.Backspace) { root.key("home", false); return accept; }
+            if (e.text == Key.LeftArrow) { quick = true; root.key("left", e.modifiers.shift); return accept; }
+            if (e.text == Key.RightArrow) { quick = true; root.key("right", e.modifiers.shift); return accept; }
+            if (e.text == Key.UpArrow) { quick = true; root.key("up", e.modifiers.shift); return accept; }
+            if (e.text == Key.DownArrow) { quick = true; root.key("down", e.modifiers.shift); return accept; }
+            if (e.text == Key.Home || e.text == Key.Delete || e.text == Key.Backspace) { quick = true; root.key("home", false); return accept; }
             reject
         }
     }
@@ -118,6 +131,7 @@ export component ColourWheel inherits Rectangle {
         height: 2 * r;
         border-radius: r;
         background: !enabled ? Theme.trough : touch.has-hover || held ? Theme.hover.mix(Theme.sel, t - 0.05) : Theme.raise.mix(Theme.hover, t - 0.05);
+        animate background { duration: Motion.tone-for(held); easing: Motion.tone; }
     }
     // The crosshair and the two rings inside, quiet: where the puck is, not a scale to read
     Rectangle { x: cx - radius + Theme.u(2); y: cy; width: 2 * radius - Theme.u(4); height: Theme.u(0.5); background: enabled ? Theme.ink.with-alpha(0.22) : Theme.dis.with-alpha(0.4); }
@@ -145,7 +159,8 @@ export component ColourWheel inherits Rectangle {
         stroke-width: Theme.u(0.6);
     }
     // Held, a halo round the puck in the card's colour, or in ink while Shift makes the moves finer
-    if held && enabled: Rectangle {
+    if held-tone.value > 0.01: Rectangle {
+        opacity: held-tone.value;
         x: px - self.width / 2;
         y: py - self.height / 2;
         width: Theme.u(17);
@@ -160,7 +175,7 @@ export component ColourWheel inherits Rectangle {
         height: Theme.u(9);
         border-radius: self.width / 2;
         border-width: Theme.u(1.5);
-        border-color: !enabled ? Theme.dis : held || touch.has-hover ? hue : Theme.edge(hue);
+        border-color: !enabled ? Theme.dis : hue.mix(Theme.card, 0.75 + 0.25 * max(held-tone.value, hover-tone.value));
         background: enabled ? puck-colour : Theme.raise;
         if held && fine: Rectangle {
             x: (parent.width - self.width) / 2;

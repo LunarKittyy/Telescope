@@ -1,6 +1,6 @@
 // The MCP server's tab in Settings and its button in the header. The texts that are lists or carry names come filled from Rust.
 
-import { Theme, Icons, Card, FormRow, Segmented, IconButton, Icon, FocusRing, KeyFocus, Tip } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Card, FormRow, Segmented, IconButton, Icon, FocusRing, KeyFocus, Tip, Motion } from "@ui-kit/ui-kit.slint";
 
 // One line of the activity log: when, which AI app, what it did in words. kind is "" or "refused".
 export struct McpLogRow {
@@ -215,7 +215,7 @@ export component McpButton inherits Rectangle {
     border-width: 1px;
     clip: true;
     border-color: activity == "change" ? Theme.accent : Theme.border;
-    animate border-color { duration: 400ms; easing: ease-out; }
+    animate border-color { duration: Motion.fades ? Motion.outline-out : 0ms; easing: Motion.tone; }
     HorizontalLayout {
         Segment {
             horizontal-stretch: 1;
@@ -236,7 +236,7 @@ export component McpButton inherits Rectangle {
                         border-width: connected ? 0px : 1.5px;
                         border-color: Theme.text-faint;
                         background: !connected ? transparent : activity == "change" ? Theme.accent : activity == "read" ? Theme.accent-soft : Theme.ok;
-                        animate background { duration: 400ms; easing: ease-out; }
+                        animate background { duration: Motion.fades ? Motion.outline-out : 0ms; easing: Motion.tone; }
                         accessible-role: none;
                     }
                 }

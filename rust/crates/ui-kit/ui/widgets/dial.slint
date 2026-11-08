@@ -5,6 +5,7 @@ import { Reveal } from "folds.slint";
 import { FocusRing, TouchRing, KeyFocus } from "basics.slint";
 import { Tip } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
+import { Motion, Settle, Tone } from "motion.slint";
 
 // Kind "dial": a strip of ticks and stop names sliding under a mark at the centre, dragged, scrolled or keyed through, saying `moved` then `released` with the stop's place in `stops`; it sits in the card, never in a bubble.
 export component Dial inherits Rectangle {
@@ -38,6 +39,7 @@ export component Dial inherits Rectangle {
         if (!enabled) { return; }
         let to = clamp(i, 0, max(0, stops.length - 1));
         if (stops.length > 0 && to != shown) {
+            quick = true;
             local = to;
             touched = true;
             moved(to);
@@ -45,8 +47,16 @@ export component Dial inherits Rectangle {
         }
     }
     // The strip's place in stops, which a drag moves smoothly and which otherwise slides to the stop that is picked
-    property <float> pos: dragging ? drag-pos : shown;
-    animate pos { duration: dragging ? 0ms : 140ms; easing: ease-out; }
+    property <float> pos: strip.value;
+    // A key or a wheel turn just set it: the strip is there at once. A drag follows the finger, and a stop that something else picked is slid to.
+    property <bool> quick;
+    strip := Settle { to: dragging ? drag-pos : shown; snap: dragging || quick; }
+    held-tone := Tone { on: held; instant-in: true; }
+    Timer {
+        interval: 80ms;
+        running: quick;
+        triggered => { quick = false; }
+    }
     property <float> drag-pos;
     property <float> drag-from;
     property <length> drag-x;
@@ -68,6 +78,7 @@ export component Dial inherits Rectangle {
     background: !enabled ? Theme.raise.mix(Theme.card, 0.4)
         : held ? Theme.tint(hue)
         : touch.has-hover ? Theme.hover : Theme.raise;
+    animate background, border-width { duration: Motion.tone-for(held); easing: Motion.tone; }
     accessible-role: slider;
     accessible-label: label;
     accessible-value: stops.length > 0 ? stops[shown] : "";
@@ -162,7 +173,7 @@ export component Dial inherits Rectangle {
         width: Theme.u(2);
         height: Theme.u(5.5);
         border-radius: Theme.u(1);
-        background: !enabled ? Theme.dis : held ? hue : Theme.muted(hue);
+        background: !enabled ? Theme.dis : Theme.lit(hue, held-tone.value);
     }
     FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
     usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }

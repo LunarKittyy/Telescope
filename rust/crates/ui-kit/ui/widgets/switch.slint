@@ -4,6 +4,7 @@ import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { Icon, FocusRing, TouchRing, KeyFocus } from "basics.slint";
 import { Tip } from "tip.slint";
+import { Motion, Flick } from "motion.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 
 // Kind "switch": a track at the row's end with a square handle. Off is quiet, on takes a thick border in the card's colour.
@@ -15,8 +16,19 @@ export component Switch inherits Rectangle {
     property <bool> touched;
     out property <bool> shown: touched ? local : checked;
     changed checked => { touched = false; }
-    // What a click does, and what a key does; SwitchTile calls it for a click on the tile
+    // A key just changed it, so the handle and colours follow at once; a click flicks the handle and eases the colours
+    property <bool> quick;
+    Timer {
+        interval: 80ms;
+        running: quick;
+        triggered => { quick = false; }
+    }
+    // What a click does; SwitchTile calls it for a click on the tile
     public function flip() {
+        quick = false;
+        change();
+    }
+    function change() {
         if (enabled) {
             local = !shown;
             touched = true;
@@ -63,11 +75,12 @@ export component Switch inherits Rectangle {
         : shown ? (held ? Theme.held(lit) : Theme.tint(lit))
         : held ? Theme.press
         : touch.has-hover || row-hover ? Theme.hover : Theme.raise;
+    animate background, border-width { duration: Motion.tone-for(held || quick); easing: Motion.tone; }
     accessible-role: switch;
     accessible-label: label;
     accessible-checkable: true;
     accessible-checked: shown;
-    accessible-action-default => { flip(); }
+    accessible-action-default => { quick = true; change(); }
     forward-focus: focus;
     focus := FocusScope {
         focus-gained(reason) => {
@@ -78,13 +91,15 @@ export component Switch inherits Rectangle {
         }
         enabled: root.enabled;
         key-pressed(e) => {
-            if (e.text == " " || e.text == "\n") { flip(); return accept; }
+            if (e.text == " " || e.text == "\n") { quick = true; change(); return accept; }
             reject
         }
     }
     FocusRing { shown: focus.has-focus && keyed; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
     TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
     usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: root.ringed; }
+    // The handle's place between its two ends, 0 off and 1 on, with the little overshoot of a flick
+    flick := Flick { to: shown ? 1 : 0; snap: quick; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
@@ -101,15 +116,16 @@ export component Switch inherits Rectangle {
         height: size;
         border-radius: Theme.r-handle;
         y: margin;
-        x: shown ? parent.width - size - margin : margin;
+        x: margin + flick.value * (parent.width - size - 2 * margin);
         background: !enabled ? Theme.sel : shown ? lit : held ? Theme.ink2 : Theme.line-hover;
-        animate x { duration: 90ms; }
+        animate background { duration: Motion.tone-for(held || quick); easing: Motion.tone; }
         Text {
             text: shown ? "I" : "O";
             font-family: Theme.font;
             font-size: Theme.tiny - 1px;
             font-weight: Theme.w-value;
             color: !enabled ? Theme.dis : shown ? Theme.card : held ? Theme.card : Theme.ink2;
+            animate color { duration: Motion.tone-for(held || quick); easing: Motion.tone; }
             horizontal-alignment: center;
             vertical-alignment: center;
             accessible-role: none;
@@ -197,6 +213,13 @@ export component ToggleTile inherits Rectangle {
     property <bool> touched;
     out property <bool> shown: touched ? local : checked;
     changed checked => { touched = false; }
+    // A key just changed it, so the colours follow at once
+    property <bool> quick;
+    Timer {
+        interval: 80ms;
+        running: quick;
+        triggered => { quick = false; }
+    }
     in property <bool> enabled: true;
     // A tooltip for the whole tile: say why it can't be used, or what an icon alone means
     in property <string> tip;
@@ -209,6 +232,10 @@ export component ToggleTile inherits Rectangle {
     out property <string> control-kind: "toggle";
     callback toggled(bool);
     public function flip() {
+        quick = false;
+        change();
+    }
+    function change() {
         if (enabled) {
             local = !shown;
             touched = true;
@@ -229,12 +256,13 @@ export component ToggleTile inherits Rectangle {
         : shown ? (held ? Theme.held(hue) : Theme.tint(hue))
         : held ? Theme.press
         : touch.has-hover ? Theme.hover : Theme.raise;
+    animate background, border-width { duration: Motion.tone-for(held || quick); easing: Motion.tone; }
     accessible-role: switch;
     accessible-label: name;
     accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
     accessible-checkable: true;
     accessible-checked: shown;
-    accessible-action-default => { flip(); }
+    accessible-action-default => { quick = true; change(); }
     forward-focus: focus;
     focus := FocusScope {
         focus-gained(reason) => {
@@ -245,7 +273,7 @@ export component ToggleTile inherits Rectangle {
         }
         enabled: root.enabled;
         key-pressed(e) => {
-            if (e.text == " " || e.text == "\n") { flip(); return accept; }
+            if (e.text == " " || e.text == "\n") { quick = true; change(); return accept; }
             reject
         }
     }

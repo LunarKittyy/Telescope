@@ -103,6 +103,8 @@ export global Theme {
 
     // The colour a control takes while it rests: the card's colour, quietened
     public pure function muted(hue: color) -> color { hue.mix(card, 0.5) }
+    // `muted` brought up towards the full colour by t (0 at rest, 1 held), for a colour that eases between the two
+    public pure function lit(hue: color, t: float) -> color { hue.mix(card, 0.5 + 0.5 * t) }
     // A control's edge at rest: the card's colour, a little quietened, so a handle reads against its own fill
     public pure function edge(hue: color) -> color { hue.mix(card, 0.75) }
     // The inside of an active control: a little of the card's colour over the card

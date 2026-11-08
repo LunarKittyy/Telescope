@@ -7,6 +7,7 @@ import { Tip } from "tip.slint";
 import { Peek } from "peek.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { Fills, RampFill, ZebraFill, EdgeFill } from "fills.slint";
+import { Motion, Settle, Tone } from "motion.slint";
 
 // Kind "slider", one anatomy for every slider: a track, a handle, the value on the right and, when it goes both ways, a tick at the
 // centre. Only the fill varies, by name: "plain" is the card's colour up to the handle, "gradient" the range's own colours along the
@@ -87,6 +88,8 @@ export component Slider inherits HorizontalLayout {
     callback peek-changed(bool);
     property <bool> key-live;
     property <int> key-idle;
+    // The person just set it (a key, a typed number, a double-click): the handle is at its place at once. Something else moving it glides.
+    property <bool> quick;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     // The id of the setting it is ("colour_grading.contrast"), which a caller outside the window outlines it by when it reads or changes it
@@ -103,6 +106,7 @@ export component Slider inherits HorizontalLayout {
     function set-to(v: float) {
         let to = clamp(v, minimum, maximum);
         if (to != shown) {
+            quick = true;
             local = to;
             touched = true;
             moved(to);
@@ -141,7 +145,18 @@ export component Slider inherits HorizontalLayout {
         property <bool> held: dragging && touch.pressed;
         // The colour under the handle: the card's, or the gradient's at that spot
         property <color> under: Fills.colours-handle(fill) ? Fills.at(fill, fraction, grad-a, grad-b, grad-c) : hue;
-        property <float> fraction: (shown - minimum) / max(0.0001, maximum - minimum);
+        property <float> target: (shown - minimum) / max(0.0001, maximum - minimum);
+        // Where the handle is drawn: it glides to a value that something other than the person changed
+        property <float> fraction: glide.value;
+        glide := Settle { to: track.target; snap: dragging || quick; }
+        // How far the colour has come from muted to full while held, and how far the handle's edge has come while it is under the pointer
+        held-tone := Tone { on: track.held; instant-in: true; }
+        hover-tone := Tone { on: touch.has-hover && enabled; }
+        Timer {
+            interval: 80ms;
+            running: quick;
+            triggered => { quick = false; }
+        }
         // The value a dragged handle at `v` sticks to: the first mark within reach, else itself
         function snapped(v: float) -> float {
             if (marks.length > 0 && abs((marks[0] - v) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset)) <= snap-px) { return marks[0]; }
@@ -189,7 +204,7 @@ export component Slider inherits HorizontalLayout {
             border-radius: in-bar ? Theme.r-ctl : Theme.track / 2;
             background: Theme.raise;
             property <length> live-w: track.width * clamp((level - minimum) / max(0.0001, maximum - minimum), 0, 1);
-            property <color> live-colour: !enabled ? Theme.sel : track.held ? hue : Theme.muted(hue);
+            property <color> live-colour: !enabled ? Theme.sel : Theme.lit(hue, held-tone.value);
             if has-level && in-bar && live-w > 0px: Rectangle {
                 x: 0px;
                 width: min(live-w, Theme.r-ctl * 2);
@@ -213,7 +228,7 @@ export component Slider inherits HorizontalLayout {
                 height: parent.height;
                 width: track.inset + track.fraction * (track.width - 2 * track.inset);
                 border-radius: Theme.track / 2;
-                background: track.held ? hue : Theme.muted(hue);
+                background: Theme.lit(hue, held-tone.value);
             }
             if enabled && Fills.is-ramp(fill): RampFill {
                 kind: fill;
@@ -230,7 +245,7 @@ export component Slider inherits HorizontalLayout {
             if enabled && fill != "plain" && !in-bar: Rectangle {
                 border-radius: Theme.track / 2;
                 background: Theme.card;
-                opacity: track.held ? 0 : Fills.rest-veil(fill);
+                opacity: Fills.rest-veil(fill) * (1 - held-tone.value);
             }
             if !enabled && !in-bar: Rectangle {
                 x: 0px;
@@ -333,9 +348,9 @@ export component Slider inherits HorizontalLayout {
             y: (parent.height - self.height) / 2;
             border-radius: Theme.r-handle;
             x: track.fraction * (track.width - Theme.handle-w);
-            background: !enabled ? Theme.raise : track.held && !in-bar ? track.under : Theme.card;
+            background: !enabled ? Theme.raise : in-bar ? Theme.card : track.under.mix(Theme.card, held-tone.value);
             border-width: Theme.stroke;
-            border-color: !enabled ? Theme.dis : track.held ? track.under : touch.has-hover ? track.under : Theme.edge(track.under);
+            border-color: !enabled ? Theme.dis : track.under.mix(Theme.card, 0.75 + 0.25 * max(held-tone.value, hover-tone.value));
             FocusRing { shown: slider-focus.has-focus; radius: Theme.r-handle; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
         }
         // Keys count as touching it for a moment after the last one
@@ -388,6 +403,7 @@ export component Slider inherits HorizontalLayout {
             }
             double-clicked => {
                 if (has-default) {
+                    quick = true;
                     local = default-value;
                     touched = true;
                     root.moved(local);

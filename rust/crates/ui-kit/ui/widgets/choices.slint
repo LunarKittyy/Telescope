@@ -8,6 +8,7 @@ import { FlickBar } from "scroll.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { Tip } from "tip.slint";
 import { SearchWords } from "setting.slint";
+import { Motion } from "motion.slint";
 
 // Kind "segmented": equal raised segments side by side. The picked one has a thick border in the card's colour and a muted inside,
 // not a flat fill, so Start streaming stays the only filled thing in the window.
@@ -33,6 +34,13 @@ export component Segmented inherits Rectangle {
         touched = true;
         picked(i);
     }
+    // A key just picked, so the colours follow at once; a click eases them
+    property <bool> quick;
+    Timer {
+        interval: 80ms;
+        running: quick;
+        triggered => { quick = false; }
+    }
     // Every option is a Tab stop of its own, as in reading_order; Space picks it
     // The option an arrow key sends the focus to, with how often that was asked so the same one can be asked again
     property <int> arrow-to;
@@ -43,6 +51,7 @@ export component Segmented inherits Rectangle {
             return;
         }
         if (from == shown) {
+            quick = true;
             pick(to);
         }
         arrow-to = to;
@@ -84,6 +93,7 @@ export component Segmented inherits Rectangle {
                 : on ? (seg-touch.pressed ? Theme.held(hue) : Theme.tint(hue))
                 : seg-touch.pressed ? Theme.press
                 : seg-touch.has-hover ? Theme.hover : Theme.raise;
+            animate background, border-width { duration: Motion.tone-for(seg-touch.pressed || quick); easing: Motion.tone; }
             accessible-role: tab;
             accessible-label: label + ": " + item;
             accessible-checkable: true;
@@ -104,7 +114,7 @@ export component Segmented inherits Rectangle {
                     }
                 }
                 key-pressed(e) => {
-                    if (e.text == " " || e.text == "\n") { pick(i); return accept; }
+                    if (e.text == " " || e.text == "\n") { quick = true; pick(i); return accept; }
                     if (e.text == Key.LeftArrow) { step(i, i - 1); return accept; }
                     if (e.text == Key.RightArrow) { step(i, i + 1); return accept; }
                     reject
@@ -176,6 +186,13 @@ export component PictureSegmented inherits Rectangle {
         touched = true;
         picked(i);
     }
+    // A key just picked, so the colours follow at once; a click eases them
+    property <bool> quick;
+    Timer {
+        interval: 80ms;
+        running: quick;
+        triggered => { quick = false; }
+    }
     // The option an arrow key sends the focus to, with how often that was asked so the same one can be asked again
     property <int> arrow-to;
     property <int> arrows;
@@ -184,6 +201,7 @@ export component PictureSegmented inherits Rectangle {
             return;
         }
         if (from == shown) {
+            quick = true;
             pick(to);
         }
         arrow-to = to;
@@ -245,6 +263,7 @@ export component PictureSegmented inherits Rectangle {
             : on ? (seg-touch.pressed ? Theme.held(hue) : Theme.tint(hue))
             : seg-touch.pressed ? Theme.press
             : seg-touch.has-hover ? Theme.hover : Theme.raise;
+        animate background, border-width { duration: Motion.tone-for(seg-touch.pressed || quick); easing: Motion.tone; }
         accessible-role: tab;
         accessible-label: label + ": " + item;
         accessible-checkable: true;
@@ -264,7 +283,7 @@ export component PictureSegmented inherits Rectangle {
                 }
             }
             key-pressed(e) => {
-                if (e.text == " " || e.text == "\n") { pick(i); return accept; }
+                if (e.text == " " || e.text == "\n") { quick = true; pick(i); return accept; }
                 if (e.text == Key.LeftArrow) { step(i, i - 1); return accept; }
                 if (e.text == Key.RightArrow) { step(i, i + 1); return accept; }
                 reject

@@ -247,13 +247,15 @@ fn the_drag_goes_on_under_the_bubble_and_says_what_a_drag_says() {
 
 #[test]
 fn opening_a_bubble_moves_nothing_in_the_card() {
-    // the same press with no bubble to show is the baseline: only the bubble may differ
+    // the same press with no bubble to show is the baseline: only the bubble may differ. The clock is still, so no colour is mid-ease.
+    let _still = telescope_shell::offscreen::freeze_clock();
     let plain = open();
     plain.set_property("kind", Value::String("".into())).unwrap();
     press_at(&plain, TRACK_X, TALL_Y);
     let held = draw(&plain);
     let height = number(&plain, "column-h");
     release_at(&plain, TRACK_X, TALL_Y);
+    wait(&plain, 300);
     let released = draw(&plain);
 
     let w = open();
@@ -267,6 +269,7 @@ fn opening_a_bubble_moves_nothing_in_the_card() {
     assert!(differing(&held, &during, 20..160, 0..320) > 1000, "the bubble is drawn above the slider");
     release_at(&w, TRACK_X, TALL_Y);
     assert_eq!(number(&w, "column-h"), height);
+    wait(&w, 300);
     assert_eq!(differing(&released, &draw(&w), 0..330, 0..420), 0, "closed, the picture is what it was");
 }
 

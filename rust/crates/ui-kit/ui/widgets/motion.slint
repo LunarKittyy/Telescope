@@ -1,0 +1,169 @@
+// The kit's motion: a handful of named motions, each tuned here once and used everywhere. Read the Motion section of rust/crates/ui-kit/STYLE.md.
+// Every motion is a spring that Slint steps itself (easing: spring(bounce), duration is the spring's period). A spring that is given a new
+// target mid-move keeps its speed, so a retarget bends the movement instead of restarting it, and it only asks for frames while it moves.
+// A spring is animated on an element's own number (a border width), not on a property of the component or an x: the interpreter the app
+// runs the kit through only carries the speed of a retarget over for the built-in properties that are not geometry.
+// Each motion drives one number (`value`, 0 to 1 between two states); the control turns it into a place, a size, a colour or an opacity, so one
+// motion owns each property and the control never writes it back as a new value.
+// Two families: spatial motions (places and sizes) may overshoot a little when they are small and fast, effects (colour, opacity) never do.
+
+export global Motion {
+    // The system's reduced-motion setting, or the Appearance option: moves snap, colour and opacity changes stay
+    in-out property <bool> reduced: false;
+    // Nothing moves, colour and opacity included
+    in-out property <bool> off: false;
+    // A person's pointer opened or closed a fold (a key snaps it), set by the control that folds
+    in-out property <bool> by-pointer: false;
+
+    // Each spring's period: it is within 2% of its target after about one, and at rest after about one and a half
+    out property <duration> settle: 200ms;
+    out property <duration> flick: 130ms;
+    out property <duration> pop: 150ms;
+    out property <duration> tone-up: 90ms;
+    out property <duration> tone-down: 140ms;
+    out property <duration> fade-in: 120ms;
+    out property <duration> fade-out: 100ms;
+    // The outline round a control that something outside the window just touched, going out slowly enough to be seen
+    out property <duration> outline-out: 240ms;
+    out property <duration> unfold-open: 170ms;
+    out property <duration> unfold-close: 130ms;
+
+    // The curve every colour change takes: critically damped, so a colour never passes either end
+    out property <easing> tone: spring(0.0);
+    // How long a colour takes to follow its state: at once for a press or a key, or with motion off
+    public pure function tone-for(instant: bool) -> duration { !fades || instant ? 0ms : tone-up }
+    // The trailing axis of a move across and down takes this much longer than the leading one
+    out property <float> trail: 1.4;
+    // The scale a popping bubble starts from
+    out property <float> pop-from: 0.9;
+
+    // A move that is allowed to be seen
+    out property <bool> moves: !reduced && !off;
+    // A change of colour or opacity that is allowed to be seen
+    out property <bool> fades: !off;
+
+    // A number between two, which a spring's overshoot may pass: the place of a flicked handle
+    public pure function between(a: float, b: float, t: float) -> float { a + (b - a) * t }
+}
+
+// Kind "helper". Settle: a place or a size that has to go somewhere calm and big enough to see, as a slider's handle does when something
+// other than the person moved it. Critically damped: no overshoot, whatever the distance. `snap` follows `to` with no easing at all (a
+// finger on the control, a key, a layout that is resizing). Goes in a control (not in a layout).
+export component Settle {
+    out property <string> control-kind: "helper";
+    in property <float> to;
+    in property <bool> snap;
+    // How much longer than the usual it takes: the trailing axis of a move across and down, so its path bows
+    in property <float> pace: 1;
+    out property <float> value: bar.border-width / 1px;
+    bar := Rectangle {
+        visible: false;
+        width: 0px;
+        height: 0px;
+        border-width: root.to * 1px;
+        animate border-width {
+            duration: snap || !Motion.moves ? 0ms : Motion.settle * pace;
+            easing: spring(0.0);
+        }
+    }
+}
+
+// Kind "helper". Flick: a small thing that jumps between two places in a blink, a switch's handle. A spring a little under critical, so it
+// passes its place by about a fifteenth of the way and comes back.
+export component Flick {
+    out property <string> control-kind: "helper";
+    in property <float> to;
+    in property <bool> snap;
+    out property <float> value: bar.border-width / 1px;
+    bar := Rectangle {
+        visible: false;
+        width: 0px;
+        height: 0px;
+        border-width: root.to * 1px;
+        animate border-width {
+            duration: snap || !Motion.moves ? 0ms : Motion.flick;
+            easing: spring(0.35);
+        }
+    }
+}
+
+// Kind "helper". Pop: a bubble's scale on its way in, from Motion.pop-from to 1 with a small overshoot. Goes only one way: it opens and
+// stays; closing is a Fade.
+export component Pop {
+    out property <string> control-kind: "helper";
+    in property <float> to;
+    in property <bool> snap;
+    out property <float> value: bar.border-width / 1px;
+    // The scale for the current value
+    out property <float> scale: Motion.between(Motion.pop-from, 1, value);
+    bar := Rectangle {
+        visible: false;
+        width: 0px;
+        height: 0px;
+        border-width: root.to * 1px;
+        animate border-width {
+            duration: snap || !Motion.moves ? 0ms : Motion.pop;
+            easing: spring(0.4);
+        }
+    }
+}
+
+// Kind "helper". Tone: how far a colour has come from its rest to its lit state (hover, press, held), 0 to 1. Critically damped and held
+// inside 0 and 1, so a colour made from it never flashes past either end, even when a reversal carries the spring's speed on.
+// A press comes in at once with `instant-in`; `snap` is a key.
+export component Tone {
+    out property <string> control-kind: "helper";
+    in property <bool> on;
+    in property <bool> snap;
+    in property <bool> instant-in;
+    in property <duration> rise: Motion.tone-up;
+    in property <duration> fall: Motion.tone-down;
+    out property <float> value: clamp(bar.border-width / 1px, 0, 1);
+    bar := Rectangle {
+        visible: false;
+        width: 0px;
+        height: 0px;
+        border-width: root.on ? 1px : 0px;
+        animate border-width {
+            duration: snap || !Motion.fades || (root.on && instant-in) ? 0ms : root.on ? rise : fall;
+            easing: spring(0.0);
+        }
+    }
+}
+
+// Kind "helper". Fade: an opacity going to 1 or 0, in a touch longer than it goes out. Critically damped, held inside 0 and 1.
+export component Fade {
+    out property <string> control-kind: "helper";
+    in property <bool> shown;
+    in property <bool> snap;
+    out property <float> value: clamp(bar.border-width / 1px, 0, 1);
+    bar := Rectangle {
+        visible: false;
+        width: 0px;
+        height: 0px;
+        border-width: root.shown ? 1px : 0px;
+        animate border-width {
+            duration: snap || !Motion.fades ? 0ms : root.shown ? Motion.fade-in : Motion.fade-out;
+            easing: spring(0.0);
+        }
+    }
+}
+
+// Kind "helper". Unfold: a fold opening or closing, 1 open and 0 shut. The one motion that is itself a change of height, so it is the only
+// one allowed to move what is under it. Critically damped. A key snaps (`snap`), a click or a press moves it.
+export component Unfold {
+    out property <string> control-kind: "helper";
+    in property <bool> open;
+    in property <bool> snap;
+    out property <float> value: clamp(bar.border-width / 1px, 0, 1);
+    bar := Rectangle {
+        visible: false;
+        width: 0px;
+        height: 0px;
+        border-width: root.open ? 1px : 0px;
+        animate border-width {
+            duration: snap || !Motion.moves ? 0ms : root.open ? Motion.unfold-open : Motion.unfold-close;
+            easing: spring(0.0);
+        }
+    }
+}

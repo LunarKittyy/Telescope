@@ -4,6 +4,7 @@ import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { Tip } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
+import { Motion } from "motion.slint";
 
 // A line icon (widgets/line_icons.py), white in the file and tinted here.
 export component Icon inherits Image {
@@ -51,7 +52,7 @@ export component TouchRing inherits Rectangle {
                 border-width: t.changed ? Theme.stroke : Theme.u(0.5);
                 border-color: Theme.accent;
                 opacity: t.on ? 1 : 0;
-                animate opacity { duration: 500ms; easing: ease-out; }
+                animate opacity { duration: Motion.fades ? (t.on ? Motion.fade-in : Motion.outline-out) : 0ms; easing: Motion.tone; }
             }
         }
     }
@@ -103,6 +104,7 @@ export component LinkText inherits Rectangle {
         font-family: Theme.font;
         font-size: root.font-size;
         color: touch.has-hover ? Theme.ink : Theme.accent-soft;
+        animate color { duration: Motion.tone-for(false); easing: Motion.tone; }
         vertical-alignment: center;
         overflow: elide;
     }
@@ -168,6 +170,8 @@ export component Button inherits Rectangle {
         : role == "primary" ? (touch.pressed ? Theme.fill-press : touch.has-hover ? Theme.fill-hover : Theme.fill)
         : role == "quiet" || strip ? (touch.pressed ? Theme.raise : touch.has-hover ? Theme.hover : transparent)
         : (touch.pressed ? Theme.sel : touch.has-hover ? Theme.hover : Theme.raise);
+    // A press comes in at once and a hover, a release or Start becoming Stop eases
+    animate background, border-width { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
     accessible-role: button;
     accessible-label: text;
     accessible-description: tip == text ? "" : tip-detail == "" ? tip : tip + ". " + tip-detail;
@@ -224,6 +228,7 @@ export component Button inherits Rectangle {
             font-size: root.font-size;
             font-weight: root.font-weight;
             color: !enabled ? Theme.dis : filled ? ink-on-fill : role == "quiet" ? Theme.ink2 : Theme.ink;
+            animate color { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
             vertical-alignment: center;
         }
     }
@@ -247,6 +252,7 @@ export component IconButton inherits Rectangle {
     height: Theme.row;
     border-radius: Theme.r-ctl;
     background: !enabled ? Theme.trough : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : transparent;
+    animate background { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
     accessible-role: button;
     accessible-label: label;
     accessible-enabled: enabled;
