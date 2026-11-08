@@ -132,32 +132,31 @@ export component NameTagCard inherits Card {
                     root.choice-picked(1, i);
                 }
             }
-            VerticalLayout {
-                spacing: Theme.gap;
-                for r in 2: looks := PictureSegmented {
-                    label: @tr("Style");
-                    items: [style-items[r * 2], style-items[r * 2 + 1]];
-                    disabled: [false, false];
-                    hue: root.hue;
-                    tile-height: Theme.u(23);
-                    // Each row holds two of the four looks and shows the picked one only when it is its own
-                    current: style-current - r * 2;
-                    picked(i) => {
-                        root.style-current = r * 2 + i;
-                        root.choice-picked(0, r * 2 + i);
-                    }
-                    for i in 2: Rectangle {
-                        x: i * looks.pitch;
-                        width: looks.cell-width;
-                        height: looks.art-height;
-                        StyleLook {
-                            width: r * 2 + i == 0 ? parent.width - Theme.u(8) : Theme.u(30);
-                            x: (parent.width - self.width) / 2;
-                            y: (parent.height - self.height) / 2;
-                            look: r * 2 + i;
-                            text: style-items[r * 2 + i];
-                            on: looks.shown == i;
-                        }
+            // Bar, Pill, Light and Shadow are one choice of four, laid out two by two, with one outline that goes across and down
+            looks := PictureSegmented {
+                label: @tr("Style");
+                items: style-items;
+                disabled: [false, false, false, false];
+                columns: 2;
+                hue: root.hue;
+                tile-height: Theme.u(23);
+                current: style-current;
+                picked(i) => {
+                    root.style-current = i;
+                    root.choice-picked(0, i);
+                }
+                for i in 4: Rectangle {
+                    x: looks.x-of(i);
+                    y: looks.y-of(i);
+                    width: looks.cell-width;
+                    height: looks.art-height;
+                    StyleLook {
+                        width: i == 0 ? parent.width - Theme.u(8) : Theme.u(30);
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        look: i;
+                        text: style-items[i];
+                        on: looks.shown == i;
                     }
                 }
             }

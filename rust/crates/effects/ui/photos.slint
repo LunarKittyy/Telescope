@@ -147,7 +147,7 @@ export component PhotosCard inherits Card {
             text: status;
             font-family: Theme.font;
             font-size: Theme.body;
-            color: Status.color(status-kind);
+            color: StatusInk.color(status-kind);
             vertical-alignment: center;
             overflow: elide;
             Tip { says: root.status; inert: true; }
@@ -347,7 +347,7 @@ export component PhotosCard inherits Card {
         changed: folder-changed;
         Button {
             horizontal-stretch: 1;
-            preferred-width: 1000px;
+            preferred-width: Theme.u(500);
             shrinks: true;
             text: folder-name;
             tip: @tr("Save in");

@@ -1218,6 +1218,7 @@ impl CameraControl {
             "active": self.card_on(),
             "phone-only-hidden": !self.source.is_empty(),
             "lenses": lenses,
+            "lens-names": lenses.iter().map(|l| l["name"].clone()).collect::<Vec<_>>(),
             "current-lens": self.lenses.checked.map_or(-1, |i| i as i64),
             "lens-placeholder": self.lenses.placeholder,
             "info": self.info_text,

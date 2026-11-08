@@ -1,7 +1,7 @@
 // What both cards of this crate are built from. The plugins join this file and their card into one source (Rust's concat!),
 // so it holds the only import line.
 
-import { Theme, Icons, Icon, FocusRing, KeyFocus, TouchRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, Stepper, SwitchTile, ToggleTile, PictureSegmented, Dial, RailRow, SwitchRow, TextField, NumberField, FlickBar, Tip, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu, Reveal, ColourField, WindowBox, TipLayer, Pad, ColourWheel, Motion, Status } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, KeyFocus, TouchRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, Stepper, SwitchTile, ToggleTile, PictureSegmented, Dial, RailRow, SwitchRow, TextField, NumberField, FlickBar, Tip, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu, Reveal, ColourField, WindowBox, TipLayer, Pad, ColourWheel, Motion, Status, UnfoldGroup, Unfolding } from "@ui-kit/ui-kit.slint";
 
 global StatusInk {
     public pure function color(kind: string) -> color {
@@ -365,7 +365,7 @@ component CurveBox inherits Rectangle {
     callback released();
     callback double-clicked(float, float, float, float);
     callback key(string, bool);
-    height: 200px;
+    height: Theme.u(100);
     horizontal-stretch: 1;
     property <length> pad: 8px;
     property <length> area-w: self.width - 2 * pad;
@@ -392,16 +392,14 @@ component CurveBox inherits Rectangle {
         y: pad - 1px;
         width: area-w + 2px;
         height: area-h + 2px;
-        border-radius: 4px;
-        border-width: 1px;
-        border-color: Theme.line;
+        border-radius: Theme.r-handle;
         background: Theme.stage;
     }
     if hue-curve: Rectangle {
         x: pad;
         y: pad + area-h + 4px;
         width: area-w;
-        height: 6px;
+        height: Theme.u(3);
         border-radius: 2px;
         opacity: enabled ? 1 : 0.4;
         background: @linear-gradient(90deg, #d96262 0%, #d99d62 8%, #d9d962 17%, #9dd962 25%, #62d962 33%, #62d99d 42%, #62d9d9 50%, #629dd9 58%, #6262d9 67%, #9d62d9 75%, #d962d9 83%, #d9629d 92%, #d96262 100%);
@@ -444,8 +442,8 @@ component CurveBox inherits Rectangle {
     for p[i] in points: Rectangle {
         x: pad + p.x * area-w - 5px;
         y: pad + (1 - p.y) * area-h - 5px;
-        width: 10px;
-        height: 10px;
+        width: Theme.u(5);
+        height: Theme.u(5);
         border-radius: 5px;
         border-width: 1.5px;
         border-color: tone;

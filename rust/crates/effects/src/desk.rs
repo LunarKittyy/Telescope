@@ -186,7 +186,7 @@ impl DeskPlugin {
         let shape_details = [tr(SHAPE_TIP), String::new(), String::new(), String::new(), tr(SHAPE_FILL_TIP)];
         json!({
             "switch-name": tr("Desk mode"), "switch-help": tr(SWITCH_TIP), "mark-tip": tr(MARK_TIP), "done-text": tr("Done"),
-            "cancel-text": tr("Cancel"), "reset-text": tr("Reset"), "reset-tip": tr(RESET_TIP), "clean-items": list(&CLEANUPS),
+            "cancel-text": tr("Cancel"), "reset-text": tr("Reset"), "reset-help": tr(RESET_TIP), "clean-items": list(&CLEANUPS),
             "clean-tip": tr(CLEAN_TIP), "shape-items": SHAPE_NAMES.iter().map(|t| tr(t)).collect::<Vec<_>>(), "shape-tips": shape_tips, "shape-details": shape_details,
             "stretch-tip": tr(STRETCH_TIP), "stretch-off-tip": tr(STRETCH_OFF_TIP),
         })

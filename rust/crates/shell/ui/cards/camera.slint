@@ -1,6 +1,6 @@
 // The Camera card, built from ui-kit's widgets: an icon rail, then one column of controls.
 
-import { Theme, Icons, Icon, Tip, Card, RailRow, Segmented, Slider, ToggleTile, Dial, ShortcutMenu, Arrival } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Tip, Card, RailRow, Segmented, Slider, ToggleTile, Dial, ShortcutMenu, Arrival, PictureSegmented } from "@ui-kit/ui-kit.slint";
 
 export struct Lens {
     id: string,
@@ -17,28 +17,11 @@ export struct TileState {
     tip: string,
 }
 
-component LensTile inherits Rectangle {
+// What a lens tile shows: its number and unit over its focal length. The tile itself and its outline are the PictureSegmented's.
+component LensArt inherits Rectangle {
     in property <Lens> lens;
     in property <bool> on;
     in property <color> hue;
-    callback clicked;
-    height: Theme.u(27);
-    horizontal-stretch: 1;
-    border-radius: Theme.r-ctl;
-    border-width: on ? Theme.stroke : 0px;
-    border-color: hue;
-    background: on ? (touch.pressed ? Theme.held(hue) : Theme.tint(hue)) : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : Theme.raise;
-    accessible-role: button;
-    accessible-label: lens.name;
-    accessible-checked: on;
-    accessible-action-default => { root.clicked(); }
-    usage := Tip { says: lens.name; hover: touch.has-hover; }
-    touch := TouchArea {
-        mouse-cursor: pointer;
-        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
-        clicked => { root.clicked(); }
-    }
-    ShortcutMenu { action: "camera.lens"; }
     VerticalLayout {
         alignment: center;
         spacing: Theme.u(1);
@@ -81,6 +64,7 @@ export component CameraCard inherits Card {
     // A source that isn't a phone is picked: the card has nothing to do then
     in property <bool> phone-only-hidden;
     in property <[Lens]> lenses;
+    in property <[string]> lens-names;
     in property <int> current-lens: -1;
     // Up to five tiles in a row, more lenses in rows as even as they can be
     in property <int> lens-columns: 1;
@@ -171,20 +155,31 @@ export component CameraCard inherits Card {
     }
     if lenses.length > 0: RailRow {
         has-icon: false;
-        Rectangle {
-            property <length> tile-width: (self.width - (lens-columns - 1) * Theme.gap) / lens-columns;
-            height: ceil(lenses.length / lens-columns) * Theme.u(30) - Theme.gap;
+        // The lenses are one choice, laid out in columns, with one outline that goes across and down between them
+        lens-tiles := PictureSegmented {
+            label: @tr("Lens");
+            items: lens-names;
+            disabled: [false, false, false, false, false, false, false, false, false];
+            tips: lens-names;
+            shortcut: "camera.lens";
+            columns: lens-columns;
+            hue: root.hue;
+            tile-height: Theme.u(27);
+            current: current-lens;
             // The tiles take the dim placeholders' place in one frame, half solid, and come up to full
             opacity: arrival.solid;
+            picked(i) => { lens-picked(i); }
             arrival := Arrival { }
-            for lens[i] in lenses: LensTile {
-                x: mod(i, lens-columns) * (parent.tile-width + Theme.gap);
-                y: floor(i / lens-columns) * Theme.u(30);
-                width: parent.tile-width;
-                lens: lens;
-                hue: root.hue;
-                on: i == current-lens;
-                clicked => { lens-picked(i); }
+            for lens[i] in lenses: Rectangle {
+                x: lens-tiles.x-of(i);
+                y: lens-tiles.y-of(i);
+                width: lens-tiles.cell-width;
+                height: lens-tiles.art-height;
+                LensArt {
+                    lens: lens;
+                    hue: root.hue;
+                    on: lens-tiles.shown == i;
+                }
             }
         }
     }

@@ -45,7 +45,9 @@ export component DeskCard inherits Card {
     tip: @tr("Straighten a sheet of paper you mark on the preview.");
     icon: Icons.pencil;
     enabled: active;
+    in property <string> reset-help;
     has-reset: true;
+    reset-detail: reset-help;
     reset-lit: reset-shown && !picking;
     reset-label: reset-text;
     reset => { root.reset-clicked(); }
@@ -67,7 +69,7 @@ export component DeskCard inherits Card {
             spacing: Theme.gap;
             if !picking: Button {
                 horizontal-stretch: 1;
-                preferred-width: 1000px;
+                preferred-width: Theme.u(500);
                 enabled: active;
                 has-icon: true;
                 icon: Icons.corners;

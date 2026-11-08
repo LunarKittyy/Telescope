@@ -81,7 +81,7 @@ export component OnAirSettings inherits VerticalLayout {
                 text: state-text;
                 font-family: Theme.font;
                 font-size: Theme.body;
-                color: Status.color(state-kind);
+                color: StatusInk.color(state-kind);
                 vertical-alignment: center;
                 overflow: elide;
                 Tip { says: shown-state-text.text; enabled: shown-state-text.preferred-width > shown-state-text.width; inert: true; }

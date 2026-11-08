@@ -128,13 +128,13 @@ export component Footer inherits Rectangle {
     property <bool> streaming: camera != "";
     // Frames and throughput only mean something while there is a stream
     property <bool> readouts: fps != "-" && fps != "";
-    height: 40px;
+    height: Theme.u(20);
     background: Theme.chrome;
     HorizontalLayout {
-        padding-left: 16px;
-        padding-right: 16px;
-        padding-top: 8px;
-        padding-bottom: 8px;
+        padding-left: Theme.u(8);
+        padding-right: Theme.u(8);
+        padding-top: Theme.u(4);
+        padding-bottom: Theme.u(4);
         spacing: Theme.u(8);
         if streaming: HorizontalLayout {
             horizontal-stretch: 1;
@@ -210,7 +210,7 @@ export component Banner inherits Rectangle {
         padding-right: 11px;
         padding-top: 13px;
         padding-bottom: 13px;
-        spacing: 12px;
+        spacing: Theme.u(6);
         VerticalLayout {
             alignment: start;
             Icon { source: Icons.v-alert; tint: data.kind == "warn" ? Theme.warn : Theme.err; width: 20px; height: 20px; accessible-role: none; }
@@ -225,10 +225,10 @@ export component Banner inherits Rectangle {
                 background: #00000040;
                 border-radius: 6px;
                 HorizontalLayout {
-                    padding-left: 8px;
-                    padding-right: 8px;
-                    padding-top: 6px;
-                    padding-bottom: 6px;
+                    padding-left: Theme.u(4);
+                    padding-right: Theme.u(4);
+                    padding-top: Theme.u(3);
+                    padding-bottom: Theme.u(3);
                     TextInput { text: data.details; read-only: true; font-family: Theme.mono; font-size: Theme.body; color: Theme.ink; wrap: word-wrap; }
                 }
             }
@@ -254,10 +254,10 @@ export component BannerArea inherits VerticalLayout {
     in property <[BannerData]> banners;
     callback action(string, int);
     callback dismissed(string);
-    padding-left: 16px;
-    padding-right: 16px;
+    padding-left: Theme.u(8);
+    padding-right: Theme.u(8);
     padding-top: banners.length > 0 ? 12px : 0px;
-    spacing: 8px;
+    spacing: Theme.u(4);
     for b in banners: Banner {
         data: b;
         action(i) => { root.action(b.key, i); }
@@ -290,14 +290,14 @@ component StreamTile inherits Rectangle {
     touch := TouchArea { mouse-cursor: pointer; clicked => { root.focus-requested(); } }
     Tip { says: data.focused ? "" : @tr("Show settings"); detail: data.focused ? "" : @tr("Show this stream's settings in the cards."); hover: touch.has-hover; focused: focus.has-focus && KeyFocus.keyboard; }
     lay := HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 6px;
-        padding-top: 8px;
-        padding-bottom: 8px;
-        spacing: 10px;
+        padding-left: Theme.u(4);
+        padding-right: Theme.u(3);
+        padding-top: Theme.u(4);
+        padding-bottom: Theme.u(4);
+        spacing: Theme.u(5);
         Rectangle {
-            width: 128px;
-            height: 72px;
+            width: Theme.u(64);
+            height: Theme.u(36);
             border-radius: 6px;
             background: Theme.stage;
             clip: true;
@@ -328,13 +328,13 @@ export component StreamTiles inherits HorizontalLayout {
     in property <[TileData]> tiles;
     callback focus-requested(string);
     callback stop-requested(string);
-    padding-left: 16px;
-    padding-right: 16px;
+    padding-left: Theme.u(8);
+    padding-right: Theme.u(8);
     padding-top: tiles.length > 1 ? 12px : 0px;
-    spacing: 10px;
+    spacing: Theme.u(5);
     alignment: start;
     if tiles.length > 1: HorizontalLayout {
-        spacing: 10px;
+        spacing: Theme.u(5);
         for t in tiles: StreamTile {
             data: t;
             focus-requested => { root.focus-requested(t.id); }

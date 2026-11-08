@@ -303,7 +303,7 @@ impl TransformsPlugin {
 
     fn fixed_props() -> Value {
         let add = |action: &str| tr("Add shortcut for {action}…").field("action", tr(action));
-        json!({"reset-tip": tr(RESET_TIP), "pan-tip": tr(PAN_TIP), "pan-add-x": add("Pan left/right"), "pan-add-y": add("Pan up/down"), "reset-hint": tr(RESET_HINT),
+        json!({"reset-help": tr(RESET_TIP), "pan-tip": tr(PAN_TIP), "pan-add-x": add("Pan left/right"), "pan-add-y": add("Pan up/down"), "reset-hint": tr(RESET_HINT),
                "stretch-tips": STRETCH_TIPS.iter().map(|t| tr(t)).collect::<Vec<_>>()})
     }
 

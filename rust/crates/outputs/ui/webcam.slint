@@ -62,7 +62,7 @@ export component WebcamCard inherits Card {
     has-reset: has-controls;
     reset-lit: has-controls;
     reset-label: @tr("Reset");
-    reset-tip: @tr("Set the webcam's picture settings back to default.");
+    reset-detail: @tr("Set the webcam's picture settings back to default.");
     callback size-picked(int);
     callback fps-picked(int);
     callback control-set(string, float);
@@ -81,7 +81,7 @@ export component WebcamCard inherits Card {
     icon: Icons.video;
 
     Text {
-        height: 18px;
+        height: Theme.u(9);
         text: root.status-text;
         overflow: elide;
         vertical-alignment: center;
@@ -153,7 +153,7 @@ export component WebcamCard inherits Card {
         HorizontalLayout {
             visible: row.kind == "jog";
             height: row.kind == "jog" ? 32px : 0;
-            spacing: 8px;
+            spacing: Theme.u(4);
             Jog {
                 near-text: row.options[0];
                 far-text: row.options[2];
@@ -235,12 +235,12 @@ export component WebcamCard inherits Card {
     GridLayout {
         visible: root.tiles.length > 0;
         height: root.tiles.length > 0 ? self.preferred-height : 0;
-        spacing: 8px;
+        spacing: Theme.u(4);
         for tile[j] in root.tiles: Rectangle {
             row: floor(j / root.tile-cols);
             col: mod(j, root.tile-cols);
             colspan: j == root.tiles.length - 1 && mod(root.tiles.length, root.tile-cols) == 1 ? root.tile-cols : 1;
-            height: 48px;
+            height: Theme.u(24);
             if tile.kind == "stepper": Stepper {
                 caption: tile.label;
                 items: tile.options;

@@ -11,7 +11,7 @@ component MenuRow inherits Rectangle {
     // The row's submenu is open
     in property <bool> open;
     callback clicked;
-    height: 26px;
+    height: Theme.u(13);
     border-radius: 5px;
     background: enabled && (touch.has-hover || open) ? Theme.hover : transparent;
     accessible-role: button;
@@ -112,11 +112,11 @@ export component PresetsHeader inherits HorizontalLayout {
     menu := PopupWindow {
         x: 0;
         y: root.below;
-        width: 190px;
+        width: Theme.u(95);
         close-policy: close-on-click-outside;
         MenuFrame {
             VerticalLayout {
-                padding: 4px;
+                padding: Theme.u(2);
                 spacing: 0px;
                 for name in names: MenuRow {
                     text: name;
@@ -159,11 +159,11 @@ export component PresetsHeader inherits HorizontalLayout {
     sub-popup := PopupWindow {
         x: 190px;
         y: root.below + 4px + 26px * names.length + (names.length > 0 ? 9px : 0px) + 26px;
-        width: 190px;
+        width: Theme.u(95);
         close-policy: close-on-click-outside;
         MenuFrame {
             VerticalLayout {
-                padding: 4px;
+                padding: Theme.u(2);
                 spacing: 0px;
                 for name in names: MenuRow {
                     text: name;
@@ -195,13 +195,13 @@ export component PresetsHeader inherits HorizontalLayout {
             name-frame := DialogFrame {
                 x: WindowBox.left(self.width);
                 y: WindowBox.top(self.height);
-                width: 380px;
+                width: Theme.u(190);
                 height: self.preferred-height;
                 dismissable: true;
                 dismissed => { root.dialog-cancelled(); }
                 title: dialog-title;
                 VerticalLayout {
-                    spacing: 6px;
+                    spacing: Theme.u(3);
                     Text {
                         text: dialog-label;
                         font-family: Theme.font;
@@ -216,7 +216,7 @@ export component PresetsHeader inherits HorizontalLayout {
                     }
                 }
                 HorizontalLayout {
-                    spacing: 8px;
+                    spacing: Theme.u(4);
                     alignment: end;
                     Button { text: cancel-text; clicked => { root.dialog-cancelled(); } }
                     Button { text: ok-text; role: "primary"; hue: Theme.plugin-hue("extras"); clicked => { root.name-accepted(root.name-text); } }
@@ -239,14 +239,14 @@ export component PresetsHeader inherits HorizontalLayout {
             replace-frame := DialogFrame {
                 x: WindowBox.left(self.width);
                 y: WindowBox.top(self.height);
-                width: 400px;
+                width: Theme.u(200);
                 height: self.preferred-height;
                 dismissable: true;
                 dismissed => { root.replace-answered(false); }
                 title: replace-title;
                 subtitle: confirm-text;
                 HorizontalLayout {
-                    spacing: 8px;
+                    spacing: Theme.u(4);
                     alignment: end;
                     Button { text: cancel-text; clicked => { root.replace-answered(false); } }
                     Button { text: replace-text; role: "primary"; hue: Theme.plugin-hue("extras"); clicked => { root.replace-answered(true); } }

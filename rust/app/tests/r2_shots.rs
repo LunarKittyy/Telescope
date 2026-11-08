@@ -10,6 +10,9 @@ use telescope_effects::background::BackgroundPlugin;
 use telescope_effects::chroma_key::ChromaKeyPlugin;
 use telescope_effects::colour_grading::ColourGradingPlugin;
 use telescope_effects::face_exposure::FaceExposurePlugin;
+use telescope_effects::fun_pack::FunPackPlugin;
+use telescope_effects::name_tag::NameTagPlugin;
+use telescope_shell::plugins::camera_control::CameraControl;
 use telescope_shell::offscreen;
 use telescope_shell::source::to_property;
 
@@ -221,4 +224,51 @@ fn top_bar_shots() {
     let scenes = vec![telescope_shell::scenes::Scene::new("window-top", || telescope_shell::scenes::Setup::window(None, json!({}), 1300.0, 900.0))];
     let (n, failed) = telescope_shell::scenes::render(&scenes, &[1.0], &dir).expect("rendered");
     assert!(failed.is_empty(), "{failed:?} {n}");
+}
+
+#[test]
+fn lens_and_name_tag_shots() {
+    let Some(dir) = out() else { return };
+    let camera = card_of(&mut CameraControl::new(), "camera");
+    let lenses = json!({"active": true, "lens-columns": 3, "current-lens": 1, "lens-names": ["Wide", "Main", "Zoom"], "lenses": [
+        {"id": "wide", "number": "0.6", "unit": "x", "rest": "Wide", "name": "Wide"},
+        {"id": "main", "number": "1", "unit": "x", "rest": "Main", "name": "Main"},
+        {"id": "tele", "number": "2", "unit": "x", "rest": "Zoom", "name": "Zoom"}]});
+    shoot(&dir, "camera-lenses", &camera, 406.0, &[lenses.clone()], &nothing);
+    shoot(&dir, "camera-lenses-four", &camera, 406.0, &[lenses, json!({"lens-columns": 2, "lens-names": ["Wide", "Main", "Zoom", "Macro"], "lenses": [
+        {"id": "wide", "number": "0.6", "unit": "x", "rest": "Wide", "name": "Wide"}, {"id": "main", "number": "1", "unit": "x", "rest": "Main", "name": "Main"},
+        {"id": "tele", "number": "2", "unit": "x", "rest": "Zoom", "name": "Zoom"}, {"id": "macro", "number": "3", "unit": "x", "rest": "Macro", "name": "Macro"}]})], &nothing);
+    let tag = card_of(&mut NameTagPlugin::new(), "on_screen");
+    shoot(&dir, "nametag", &tag, 406.0, &[json!({"style-items": ["Bar", "Pill", "Light", "Shadow"], "style-current": 1, "position-items": ["Bottom left", "Bottom centre", "Bottom right", "Top left", "Top right"], "position-current": 0, "size-items": ["Small", "Medium", "Large"], "size-current": 1})], &nothing);
+    let fun = card_of(&mut FunPackPlugin::new(), "extras");
+    shoot(&dir, "fun-pack", &fun, 406.0, &[json!({"active": true, "effect-items": ["Off", "Clones", "Cloak"], "effect": 1})], &nothing);
+}
+
+#[test]
+fn the_microphone_meter_and_gain_slider_share_one_track() {
+    use i_slint_backend_testing::ElementHandle;
+    offscreen::install();
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../crates/audio/ui/microphone.slint");
+    let doc = format!("import {{ MicrophoneCard }} from \"{}\";\nimport {{ Theme }} from \"@ui-kit/ui-kit.slint\";\nexport {{ Theme }}\nexport component W inherits Window {{ width: 420px; height: 330px; MicrophoneCard {{ width: 400px; active: true; here: true; on: true; meter: {{ peak: 0.5, rms: 0.3, hold: 0.6, lit: \"\", muted: false, readout: \"-18 dB\", red: false }}; }} }}", path.display());
+    let mut compiler = Compiler::default();
+    compiler.set_library_paths([(telescope_ui_kit::LIBRARY.to_string(), telescope_ui_kit::library_path())].into_iter().collect());
+    let result = spin_on(compiler.build_from_source(doc, PathBuf::from("/root/wrapper.slint")));
+    assert!(result.diagnostics().all(|d| d.level() != slint_interpreter::DiagnosticLevel::Error));
+    let w = result.component("W").unwrap().create().unwrap();
+    w.show().unwrap();
+    settle();
+    let edges = |name: &str| {
+        let e = ElementHandle::find_by_element_type_name(&w, name).next().unwrap_or_else(|| panic!("no {name}"));
+        (e.absolute_position().x, e.absolute_position().x + e.size().width)
+    };
+    let (meter, slider) = (edges("LevelMeter"), edges("Slider"));
+    // The slider's box includes its readout column; the meter's row has the same one, so the tracks line up
+    assert!((meter.0 - slider.0).abs() < 0.5, "starts: {meter:?} {slider:?}");
+    let readout = Theme_u(28.0) + Theme_u(4.0);
+    assert!((meter.1 + readout - slider.1).abs() < 0.5, "ends: {meter:?} {slider:?}");
+}
+
+#[allow(non_snake_case)]
+fn Theme_u(n: f32) -> f32 {
+    n * 2.0
 }

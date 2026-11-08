@@ -422,7 +422,7 @@ impl ColourGradingPlugin {
             "wheel-colour": self.wheels.iter().map(|w| wheel_colour(w.x, w.y, 1.6)).collect::<Vec<_>>(),
             "master-value": masters,
             "master-text": texts,
-            "reset-lit": self.off_default(),
+            "grade-lit": self.off_default(),
         })
     }
 
@@ -441,7 +441,7 @@ impl ColourGradingPlugin {
     fn slider_props(&self) -> Value {
         let values: Vec<f64> = SLIDERS.iter().map(|d| (slider_value(&self.grade, d.key) * d.steps).round_ties_even() / d.steps).collect();
         let texts: Vec<String> = SLIDERS.iter().map(|d| Self::slider_text(d, slider_value(&self.grade, d.key))).collect();
-        json!({"slider-value": values, "slider-text": texts, "reset-lit": self.off_default()})
+        json!({"slider-value": values, "slider-text": texts, "grade-lit": self.off_default()})
     }
 
     fn curve_props(&self) -> Value {
@@ -455,7 +455,7 @@ impl ColourGradingPlugin {
             "curve-points": self.editor.points.iter().map(|p| json!({"x": p.0, "y": p.1})).collect::<Vec<_>>(),
             "curve-picked": self.editor.picked,
             "curve-colour": if tone { CHANNEL_COLOURS[self.channel] } else { LOOK_HUE },
-            "reset-lit": self.off_default(),
+            "grade-lit": self.off_default(),
         })
     }
 

@@ -98,7 +98,9 @@ export component TransformsCard inherits Card {
     tip: @tr("Zoom, pan, flip, rotate and stretch the picture.");
     icon: Icons.crop;
     enabled: active;
+    in property <string> reset-help;
     has-reset: true;
+    reset-detail: reset-help;
     reset-lit: flips[0] || flips[1] || rotation != 0 || zoom != 1 || pan-x != 0 || pan-y != 0 || stretch-x != 100 || stretch-y != 100;
     reset-label: @tr("Reset");
     reset => { root.reset-clicked(); }

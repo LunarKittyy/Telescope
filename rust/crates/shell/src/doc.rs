@@ -341,21 +341,21 @@ const HEADER: &str = r#"
         x: 0;
         y: 0;
         width: root.width;
-        height: 60px;
+        height: Theme.u(30);
         background: Theme.chrome;
         HorizontalLayout {
-            padding-left: 16px;
-            padding-right: 16px;
-            padding-top: 8px;
-            padding-bottom: 8px;
-            spacing: 12px;
+            padding-left: Theme.pad;
+            padding-right: Theme.pad;
+            padding-top: Theme.u(4);
+            padding-bottom: Theme.u(4);
+            spacing: Theme.u(6);
             // Every control is centred on the bar's height by a layout of its own: a y in a layout is ignored
             VerticalLayout {
                 alignment: center;
                 horizontal-stretch: 0;
                 HorizontalLayout {
                     // Header widgets keep their own width, like Qt's header row; the gap takes the rest
-                    spacing: 14px;
+                    spacing: Theme.u(7);
 {left}                }
             }
             Rectangle { horizontal-stretch: 1; }
@@ -363,14 +363,14 @@ const HEADER: &str = r#"
                 alignment: center;
                 horizontal-stretch: 0;
                 HorizontalLayout {
-                    spacing: 8px;
+                    spacing: Theme.u(4);
 {right}                }
             }
             VerticalLayout {
                 alignment: center;
                 HeaderIconButton {
                     icon: Icons.v-gear;
-                    icon-size: Theme.icon * 1.25;
+                    icon-size: Theme.icon;
                     label: @tr("Settings");
                     tip: @tr("Settings");
                     clicked => { root.settings-clicked(); }
@@ -380,12 +380,12 @@ const HEADER: &str = r#"
                 alignment: center;
                 HeaderIconButton {
                     icon: Icons.v-plus;
-                    icon-size: Theme.icon * 1.25;
+                    icon-size: Theme.icon;
                     label: @tr("Add camera");
                     tip: @tr("Add camera");
                     tip-detail: @tr("Stream another camera at the same time on a separate virtual camera.");
                     enabled: add-enabled;
-                    clicked => { add-menu.show({ x: self.absolute-position.x, y: self.absolute-position.y + self.height + 6px }); }
+                    clicked => { add-menu.show({ x: self.absolute-position.x, y: self.absolute-position.y + self.height + Theme.u(3) }); }
                 }
             }
             VerticalLayout {

@@ -77,7 +77,7 @@ export component ChromaKeyCard inherits Card {
         Rectangle {
             horizontal-stretch: 1;
             HorizontalLayout {
-                spacing: 8px;
+                spacing: Theme.u(4);
                 Segmented {
                     hue: root.hue;
                     items: [@tr("Green"), @tr("Blue"), @tr("Picked")];

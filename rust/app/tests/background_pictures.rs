@@ -127,10 +127,17 @@ fn settings_round_trip_and_damaged_ones_fall_back() {
     // The mode's segments carry these names too, so each row is found by what only it has
     let blur_row = || ElementHandle::find_by_accessible_label(&ui, "Blur").any(|e| e.accessible_value_maximum().is_some());
     let picture_row = || ElementHandle::find_by_accessible_label(&ui, "Choose").count() > 0;
+    // The rows that come and go unfold: give them the moment that takes
+    let settle = || for _ in 0..45 {
+        slint::platform::update_timers_and_animations();
+        std::thread::sleep(std::time::Duration::from_millis(16));
+    };
     draw(&spec.props);
+    settle();
     assert!(blur_row() && !picture_row(), "the blur row shows, the picture row doesn't");
     plugin.on_ui(&mut host, &UiEvent { ui: "card".into(), callback: "mode-picked".into(), args: vec![json!(2)] });
     draw(&plugin.card().expect("a card").ui.props);
+    settle();
     assert!(!blur_row() && picture_row());
     plugin.set_config(&json!({"mode": "sparkles", "blur": "lots", "edges": 99, "picture": 3})).unwrap();
     assert_eq!(plugin.get_config(), json!({"mode": "off", "blur": 6, "edges": 10, "picture": ""}));

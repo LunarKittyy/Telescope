@@ -396,7 +396,7 @@ fn styled_kinds(slint: &str) -> Vec<String> {
         // The chain's last arm is the colour everything else gets, so a dim one styles status_dim
         let after: String = colour.chars().skip_while(|c| c.is_alphanumeric() || *c == '.' || *c == '-').collect();
         let last = after.trim_start().strip_prefix(':').map_or("", str::trim_start);
-        if ["Theme.dim", "Theme.text-dim", "Theme.text-faint"].iter().any(|dim| last.starts_with(dim)) {
+        if ["Theme.dim", "Theme.text-dim", "Theme.text-faint", "Theme.ink2", "Theme.faint"].iter().any(|dim| last.starts_with(dim)) {
             styled.push("status_dim".to_string());
         }
     }

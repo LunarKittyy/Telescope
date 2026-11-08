@@ -79,11 +79,9 @@ component PictureView inherits Rectangle {
     out property <length> area-h: round(area-w / aspect / 1px) * 1px;
     property <length> area-x: round((root.width - area-w) / 2 / 1px) * 1px;
     property <length> area-y: round((root.height - area-h) / 2 / 1px) * 1px;
-    min-width: 520px;
-    min-height: 320px;
-    border-radius: 10px;
-    border-width: 1px;
-    border-color: Theme.line;
+    min-width: Theme.u(260);
+    min-height: Theme.u(160);
+    border-radius: Theme.r-card;
     background: Theme.stage;
     accessible-role: slider;
     accessible-label: @tr("Picture preview");
@@ -204,10 +202,10 @@ component SwatchRow inherits HorizontalLayout {
     in property <string> code;
     in property <color> colour;
     callback clicked;
-    spacing: 10px;
+    spacing: Theme.u(5);
     Rectangle {
-        width: 52px;
-        height: 30px;
+        width: Theme.u(26);
+        height: Theme.u(15);
         y: (parent.height - self.height) / 2;
         border-radius: 7px;
         border-width: 1px;
@@ -237,8 +235,8 @@ export component CompositeEditor inherits Window {
     changed width => { WindowBox.width = self.width; }
     changed height => { WindowBox.height = self.height; }
     background: Theme.ground;
-    min-width: 960px;
-    min-height: 600px;
+    min-width: Theme.u(480);
+    min-height: Theme.u(300);
     in property <image> picture;
     in property <int> canvas-width: 1920;
     in property <int> canvas-height: 1080;
@@ -307,17 +305,17 @@ export component CompositeEditor inherits Window {
     callback close-clicked;
 
     VerticalLayout {
-        padding-left: 20px;
-        padding-right: 20px;
-        padding-top: 18px;
-        padding-bottom: 18px;
-        spacing: 14px;
+        padding-left: Theme.u(10);
+        padding-right: Theme.u(10);
+        padding-top: Theme.u(9);
+        padding-bottom: Theme.u(9);
+        spacing: Theme.u(7);
         VerticalLayout {
             spacing: 2px;
             Text { text: @tr("Edit picture"); font-family: Theme.font; font-size: 19px; font-weight: 600; color: Theme.ink; }
         }
         HorizontalLayout {
-            spacing: 12px;
+            spacing: Theme.u(6);
             vertical-stretch: 1;
             Rectangle {
                 horizontal-stretch: 1;
@@ -347,8 +345,8 @@ export component CompositeEditor inherits Window {
                     x: parent.width - self.width - 17px;
                     y: 15px;
                     width: self.preferred-width;
-                    height: 32px;
-                    spacing: 6px;
+                    height: Theme.u(16);
+                    spacing: Theme.u(3);
                     Text { text: @tr("Start from"); font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; }
                     for label[i] in [@tr("Side by side"), @tr("Big and small"), @tr("Grid")]: Button {
                         text: label;
@@ -360,7 +358,7 @@ export component CompositeEditor inherits Window {
                 }
             }
             Rectangle {
-                width: 384px;
+                width: Theme.u(192);
                 property <length> side-y;
                 property <bool> overflows: column.preferred-height > self.height;
                 side := Flickable {
@@ -368,8 +366,8 @@ export component CompositeEditor inherits Window {
                     viewport-y <=> side-y;
                 column := VerticalLayout {
                     x: 0;
-                    width: 374px; // Qt narrows it for the bar: here the width would hang on the height it gives
-                    spacing: 12px;
+                    width: Theme.u(187); // Qt narrows it for the bar: here the width would hang on the height it gives
+                    spacing: Theme.u(6);
                     alignment: start;
                     SideCard {
                         title: @tr("Layout");
@@ -380,7 +378,7 @@ export component CompositeEditor inherits Window {
                         action-tip-detail: @tr("Save this layout under a new name.");
                         action => { root.save-clicked(); }
                         HorizontalLayout {
-                            spacing: 6px;
+                            spacing: Theme.u(3);
                             ChoiceField {
                                 compact: true;
                                 y: (parent.height - self.height) / 2;
@@ -400,7 +398,7 @@ export component CompositeEditor inherits Window {
                         icon: Icons.video;
                         VerticalLayout {
                             for row[i] in streams: HorizontalLayout {
-                                spacing: 12px;
+                                spacing: Theme.u(6);
                                 Text {
                                     text: row.text;
                                     font-family: Theme.font;
@@ -411,7 +409,7 @@ export component CompositeEditor inherits Window {
                                     overflow: elide;
                                 }
                                 Rectangle {
-                                    width: 36px;
+                                    width: Theme.u(18);
                                     // 32 px only beside the note, which leaves its spare height to the rows in Qt
                                     height: few-streams ? 32px : 28px;
                                     Switch {
@@ -506,7 +504,7 @@ export component CompositeEditor inherits Window {
                             label-width: 72px;
                                 label: @tr("Order");
                                 HorizontalLayout {
-                                    spacing: 8px;
+                                    spacing: Theme.u(4);
                                     Button { y: 2px; text: @tr("Send back"); enabled: back-enabled; clicked => { root.restack(-1); } }
                                     Button { y: 2px; text: @tr("Bring forward"); enabled: front-enabled; clicked => { root.restack(1); } }
                                 }
@@ -551,7 +549,7 @@ export component CompositeEditor inherits Window {
                 if overflows: FlickBar {
                     x: parent.width - self.width;
                     y: 0;
-                    width: 10px;
+                    width: Theme.u(5);
                     height: parent.height;
                     content: column.preferred-height;
                     viewport: parent.height;
@@ -560,7 +558,7 @@ export component CompositeEditor inherits Window {
             }
         }
         HorizontalLayout {
-            padding-top: 4px;
+            padding-top: Theme.u(2);
             alignment: end;
             Button { width: 96px; text: @tr("Close"); clicked => { root.close-clicked(); } }
         }
@@ -571,11 +569,11 @@ export component CompositeEditor inherits Window {
         background: #00000080;
         TouchArea { }
         DialogFrame {
-            width: 420px;
+            width: Theme.u(210);
             height: self.preferred-height;
             title: asking-name ? ask-title : @tr("Replace layout");
             if asking-name: VerticalLayout {
-                spacing: 12px;
+                spacing: Theme.u(6);
                 Text { text: @tr("Name:"); font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; }
                 name := TextField {
                     text: ask-start;
@@ -584,17 +582,17 @@ export component CompositeEditor inherits Window {
                     init => { self.focus(); }
                 }
                 HorizontalLayout {
-                    spacing: 8px;
+                    spacing: Theme.u(4);
                     alignment: end;
                     Button { width: 96px; text: @tr("Cancel"); clicked => { root.name-cancelled(); } }
                     Button { width: 96px; text: @tr("OK"); role: "primary"; hue: Theme.plugin-hue("streaming"); clicked => { root.name-entered(name.text); } }
                 }
             }
             if confirming: VerticalLayout {
-                spacing: 12px;
+                spacing: Theme.u(6);
                 Note { text: confirm-text; kind: ""; }
                 HorizontalLayout {
-                    spacing: 8px;
+                    spacing: Theme.u(4);
                     alignment: end;
                     Button { width: 96px; text: @tr("No"); clicked => { root.replace-answered(false); } }
                     Button { width: 96px; text: @tr("Yes"); role: "primary"; hue: Theme.plugin-hue("streaming"); clicked => { root.replace-answered(true); } }

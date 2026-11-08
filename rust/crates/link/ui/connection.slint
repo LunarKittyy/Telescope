@@ -103,7 +103,7 @@ export component PhoneList inherits ScrollList {
     in property <[PhoneRow]> rows-shown;
     callback rename(PhoneRow);
     callback remove(PhoneRow);
-    cap: 6 * (Theme.row + Theme.u(8)) + 5 * Theme.gap;
+    cap: Theme.u(160);
     gap: Theme.gap;
     gutter: rows-shown.length > 6;
     for row in rows-shown: ListRow {
@@ -539,7 +539,7 @@ export component PhonePicker inherits HorizontalLayout {
             padding-x: 0px;
             has-icon: true;
             icon: Icons.v-devices;
-            icon-size: Theme.icon * 1.125;
+            icon-size: Theme.icon;
             icon-tint: Theme.ink2;
             tip: @tr("Devices");
             tip-detail: @tr("Add, rename or remove the phones you've paired.");

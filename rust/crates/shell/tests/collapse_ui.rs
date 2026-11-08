@@ -402,6 +402,7 @@ export component Test inherits Window {
     width: 420px;
     height: 1800px;
     in property <[Lens]> lenses;
+    in property <[string]> lens-names;
     in property <int> columns: 1;
     VerticalLayout {
         alignment: start;
@@ -411,6 +412,7 @@ export component Test inherits Window {
             active: true;
             fold-key: "camera_control/Camera";
             lenses: root.lenses;
+            lens-names: root.lens-names;
             lens-columns: root.columns;
         }
     }
@@ -434,6 +436,8 @@ fn a_row_that_grows_once_folding_is_installed_gets_its_new_height() {
         ("name".to_string(), Value::String(format!("Back {i}mm").into())),
     ]))).collect();
     ui.set_property("columns", Value::Number(3.0)).unwrap();
+    let names: Vec<Value> = (0..5).map(|i| Value::String(format!("Back {i}mm").into())).collect();
+    ui.set_property("lens-names", Value::Model(slint::ModelRc::new(slint::VecModel::from(names)))).unwrap();
     ui.set_property("lenses", Value::Model(slint::ModelRc::new(slint::VecModel::from(lenses)))).unwrap();
     slint::platform::update_timers_and_animations();
     let bottom = card().absolute_position().y + card().size().height;

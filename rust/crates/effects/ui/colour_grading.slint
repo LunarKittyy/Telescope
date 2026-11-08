@@ -183,8 +183,10 @@ export component ColourGradingCard inherits Card {
     tip: @tr("Change the colours of the picture with colour wheels, curves and LUT files.");
     icon: Icons.colour;
     enabled: active;
+    // Anything the grade has set off default, which lights the card's Reset
+    in property <bool> grade-lit;
     has-reset: true;
-    reset-lit: reset-lit;
+    reset-lit: grade-lit;
     reset-label: @tr("Reset grade");
     reset => { root.reset-clicked(); }
     has-switch: true;
@@ -197,33 +199,38 @@ export component ColourGradingCard inherits Card {
     switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    SwitchRow {
-        icon: Icons.compare;
-        label: @tr("Compare");
-        hue: root.hue;
-        enabled: active;
-        checked: compare;
-        shortcut: "colour_grading.compare";
-        tip: @tr("Compare");
-        tip-detail: @tr("Show the ungraded picture left of the line on the preview. Apps always get the graded picture.");
-        toggled(v) => { root.compare-toggled(v); }
-    }
-    // A hidden row keeps its height out of the layout with visible and max-height
-    if compare: RailSlider {
-        icon: Icons.split;
-        enabled: active;
-        label: @tr("Split");
-        tip: @tr("Split");
-        tip-detail: @tr("Move the line between before and after.");
-        tip-hint: root.reset-hint;
-        minimum: 0;
-        maximum: 100;
-        value: split;
-        readout: split-text;
-        hue: root.hue;
-        has-default: true;
-        default-value: 50;
-        moved(v) => { root.split-moved(v); }
+    UnfoldGroup {
+        SwitchRow {
+            icon: Icons.compare;
+            label: @tr("Compare");
+            hue: root.hue;
+            enabled: active;
+            checked: compare;
+            shortcut: "colour_grading.compare";
+            tip: @tr("Compare");
+            tip-detail: @tr("Show the ungraded picture left of the line on the preview. Apps always get the graded picture.");
+            toggled(v) => { root.compare-toggled(v); }
+        }
+        // A hidden row keeps its height out of the layout with visible and max-height
+        Unfolding {
+            open: compare;
+            RailSlider {
+            icon: Icons.split;
+            enabled: active;
+            label: @tr("Split");
+            tip: @tr("Split");
+            tip-detail: @tr("Move the line between before and after.");
+            tip-hint: root.reset-hint;
+            minimum: 0;
+            maximum: 100;
+            value: split;
+            readout: split-text;
+            hue: root.hue;
+            has-default: true;
+            default-value: 50;
+            moved(v) => { root.split-moved(v); }
+        }
+        }
     }
     HorizontalLayout {
         spacing: Theme.u(4);
@@ -257,8 +264,8 @@ export component ColourGradingCard inherits Card {
 
     // ── Primaries ─────────────────────────────────────────────────────
     if page == 0: VerticalLayout {
-        spacing: 8px;
-        padding-top: 4px;
+        spacing: Theme.u(4);
+        padding-top: Theme.u(2);
         // The wheels, two by two: four of them side by side would be too small to set a colour with, and three in a row leaves offset alone
         GridLayout {
             spacing: Theme.u(5);
@@ -322,8 +329,8 @@ export component ColourGradingCard inherits Card {
 
     // ── Curves ────────────────────────────────────────────────────────
     if page == 1: VerticalLayout {
-        spacing: 8px;
-        padding-top: 4px;
+        spacing: Theme.u(4);
+        padding-top: Theme.u(2);
         Segmented {
             hue: root.hue;
             margin: 0px;
@@ -365,8 +372,8 @@ export component ColourGradingCard inherits Card {
 
     // ── LUT ───────────────────────────────────────────────────────────
     if page == 2: VerticalLayout {
-        spacing: 8px;
-        padding-top: 4px;
+        spacing: Theme.u(4);
+        padding-top: Theme.u(2);
         RailRow {
             icon: Icons.cube;
             label: @tr("LUT");
@@ -436,7 +443,7 @@ export component ColourGradingCard inherits Card {
             StatusLine { text: export-note; kind: "status_" + export-kind; }
         }
         if replace-open: HorizontalLayout {
-            spacing: 8px;
+            spacing: Theme.u(4);
             Button { text: @tr("Replace"); clicked => { root.replace-answered(true); } }
             Button { text: @tr("Cancel"); clicked => { root.replace-answered(false); } }
             Rectangle { horizontal-stretch: 1; }

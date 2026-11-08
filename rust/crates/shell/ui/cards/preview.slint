@@ -85,7 +85,7 @@ export component PreviewCard inherits Rectangle {
     VerticalLayout {
         spacing: 0px;
         surface := Rectangle {
-            min-height: 240px;
+            min-height: Theme.u(120);
             vertical-stretch: 1;
             background: Theme.stage;
             accessible-role: image;
@@ -143,7 +143,7 @@ export component PreviewCard inherits Rectangle {
             }
             if !has-frame: VerticalLayout {
                 alignment: center;
-                spacing: 12px;
+                spacing: Theme.u(6);
                 if camera-off: HorizontalLayout {
                     alignment: center;
                     Icon { source: Icons.camera-off; tint: Theme.dis; width: 52px; height: 52px; accessible-role: none; }
@@ -180,8 +180,8 @@ export component PreviewCard inherits Rectangle {
             if has-frame && marker-shown: Rectangle {
                 x: pic-x + marker-u * pic-width - 22px;
                 y: pic-y + marker-v * pic-height - 22px;
-                width: 44px;
-                height: 44px;
+                width: Theme.u(22);
+                height: Theme.u(22);
                 border-width: 2px;
                 border-color: Theme.accent-soft;
                 border-radius: 6px;
