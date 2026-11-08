@@ -314,6 +314,7 @@ export component Pad inherits Rectangle {
         y: fy;
         width: fw;
         height: fh;
+        // fitted: the viewbox is the box less one stroke, so a unit is a pixel
         viewbox-width: mw / 1px;
         viewbox-height: mh / 1px;
         stroke: !enabled ? Theme.dis : Theme.lit(hue, max(held-tone.value, hover-tone.value));

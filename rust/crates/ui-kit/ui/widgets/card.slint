@@ -87,6 +87,8 @@ export component Card inherits Rectangle {
     // The card is there but has nothing to do right now (no phone yet, switched off): it fades to the disabled look and back, the title and
     // the header still working. Fades both ways, so a card going live doesn't snap. (Not called `active`: every card already has one.)
     in property <bool> idle;
+    // No longer drawn (a card gave the header a loose word of state: "Full manual control"); a state is a `Status` or a `Tag`. Kept so a card that still
+    // passes it compiles, and to be deleted with the last of them.
     in property <string> note;
     // "<plugin>/<title in English>", set by the window; blank leaves the card unfoldable
     in property <string> fold-key;
@@ -272,13 +274,6 @@ export component Card inherits Rectangle {
                     setting: root.switch-setting;
                     toggled(on) => { root.switch-toggled(on); }
                 }
-            }
-            if note != "": Text {
-                text: note;
-                font-family: Theme.font;
-                font-size: Theme.small;
-                color: Theme.faint;
-                vertical-alignment: center;
             }
         }
         // The rows sit in a box that is as tall as they are, or no taller than nothing while folded
