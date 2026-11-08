@@ -24,7 +24,10 @@ export component Test inherits Window {
     out property <color> faint: Theme.text-faint;
     out property <color> accent: Theme.accent;
     out property <color> fill: Theme.border-hover;
-    // Row 36px tall, its handle's centre running from x 10 to x 190
+    out property <color> sel: Theme.sel;
+    out property <color> muted-red: Theme.edge(#ff0000);
+    out property <color> muted-accent: Theme.edge(Theme.accent);
+    // Row 32px tall in a 36px box, its handle's centre running from x 7 to x 193
     Rectangle {
         x: 0;
         y: 0;
@@ -113,13 +116,14 @@ fn zoom_slider_marks_sit_where_the_handle_would() {
     // Given out of order, and out from under the handle while they're read
     set(500.0);
     let faint = colour(&ui, "faint");
-    let marks = runs(&draw(&ui), 18, faint);
+    let marks = runs(&draw(&ui), 16, faint);
     assert_eq!(marks.len(), 4, "{marks:?}");
     assert!(marks.windows(2).all(|m| m[0] < m[1]), "{marks:?}");
-    assert!((marks[0] - 10.0).abs() <= 1.0 && (marks[3] - 190.0).abs() <= 1.0, "the handle's ends: {marks:?}");
+    assert!((marks[0] - 7.0).abs() <= 1.0 && (marks[3] - 193.0).abs() <= 1.0, "the handle's ends: {marks:?}");
     for (value, mark) in [(100.0, marks[0]), (300.0, marks[1]), (700.0, marks[2]), (1000.0, marks[3])] {
         set(value);
-        let handle = runs(&draw(&ui), 18, [255, 0, 0]);
+        // The handle is a card-coloured box with a border in the card's colour, quietened at rest: its top edge is a run just below the top
+        let handle = runs(&draw(&ui), 5, colour(&ui, "muted-red"));
         assert_eq!(handle.len(), 1, "{handle:?}");
         assert!((handle[0] - mark).abs() <= 1.0, "the handle at {value} is at {}, its mark at {mark}", handle[0]);
     }
@@ -128,15 +132,15 @@ fn zoom_slider_marks_sit_where_the_handle_would() {
 #[test]
 fn slider_fill_doesnt_stick_out_past_the_handle_at_zero() {
     let ui = rig();
-    let (picture, accent) = (draw(&ui), colour(&ui, "accent"));
-    let row = 145 + 18;
-    let handle_left = 90 + 3; // its centre runs from 10 inside the slider, and it's 14 wide
-    assert!(near(picture.at(100, row), accent), "the live slider's handle is the accent colour: {:?}", picture.at(100, row));
-    assert!((80..handle_left).all(|x| !near(picture.at(x, row), accent)), "at 0 the handle is the leftmost fill");
-    // A disabled slider has a fill of its own, and that stays in too
-    let fill = colour(&ui, "fill");
-    assert!((0..3).all(|x| !near(picture.at(x, 58), fill)));
-    assert!((0..3).all(|x| picture.at(x, 58) == [0, 0, 0]));
+    let (picture, accent) = (draw(&ui), colour(&ui, "muted-accent"));
+    let row = 145 + 16;
+    // At 0 the handle sits at the very start of the track, 14 wide, and its border is the muted card colour
+    assert!(near(picture.at(91, row), accent), "the live slider's handle edge is the muted card colour: {:?}", picture.at(91, row));
+    assert!((80..90).all(|x| !near(picture.at(x, row), accent)), "nothing of the fill sticks out left of the handle");
+    assert!((106..140).all(|x| !near(picture.at(x, row), accent)), "and at 0 none is left of its right edge either");
+    // A disabled slider has a fill of its own, hidden under the handle at 0 too
+    let sel = colour(&ui, "sel");
+    assert!((14..30).all(|x| picture.at(x, 56) != sel));
 }
 
 #[test]
@@ -178,6 +182,8 @@ fn focus_ring_shows_after_tab_and_not_after_a_click() {
     let ui = rig();
     let accent = colour(&ui, "accent");
     let ringed = |x: u32, y: u32| (0..3).any(|d| near(draw(&ui).at(x - d, y), accent));
+    // Just outside a box's left edge, where the ring is and the box's own border is not
+    let outside = |x: u32, y: u32| (1..3).any(|d| near(draw(&ui).at(x - d, y), accent));
     assert!(!ringed(110, 106));
     tab(&ui); // the slider
     tab(&ui); // the button
@@ -191,12 +197,12 @@ fn focus_ring_shows_after_tab_and_not_after_a_click() {
     ui.window().dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
     assert_eq!(ui.get_property("switched"), Ok(Value::Number(1.0)));
     assert!(!ringed(110, 106), "the click took the focus from the dropdown");
-    assert!(!ringed(10, 160), "and shows no ring on the switch");
+    assert!(!outside(10, 162), "and shows no ring on the switch");
     press(&ui, " ".into());
     assert_eq!(ui.get_property("switched"), Ok(Value::Number(2.0)), "the keys go to the switch now");
     // By keyboard the same switch does get its ring
     tab(&ui);
     press(&ui, Key::Backtab.into());
     input::focus_key(&ui);
-    assert!(ringed(10, 160), "Tab back to it rings it");
+    assert!(outside(10, 162), "Tab back to it rings it");
 }

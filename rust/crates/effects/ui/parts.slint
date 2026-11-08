@@ -24,16 +24,17 @@ component Note inherits Text {
 component LabelRow inherits HorizontalLayout {
     in property <string> label;
     in property <bool> enabled: true;
-    in property <length> label-width: 96px;
-    spacing: 10px;
-    min-height: 36px;
+    in property <length> label-width: Theme.u(48);
+    spacing: Theme.u(4);
+    min-height: Theme.row;
     Text {
         text: label;
         width: label-width;
         font-family: Theme.font;
         font-size: Theme.body;
+        font-weight: Theme.w-label;
         // QLabel#form_label outranks QLabel:disabled in the theme
-        color: Theme.text-dim;
+        color: Theme.ink;
         vertical-alignment: center;
     }
     @children
@@ -51,6 +52,11 @@ component SliderRow inherits LabelRow {
     in property <float> default-value;
     // Values a dragged handle sticks to (NoScrollSlider.set_snaps)
     in property <[float]> marks;
+    // The kit slider's fills: "plain" or "gradient" along grad-a, grad-b, grad-c
+    in property <string> fill: "plain";
+    in property <color> grad-a: Theme.ink2;
+    in property <color> grad-b: Theme.ink2;
+    in property <color> grad-c: Theme.ink2;
     // "Double-click to reset", added to the tip of a slider that has a default
     in property <string> hint;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
@@ -77,6 +83,10 @@ component SliderRow inherits LabelRow {
             has-default: root.has-default;
             default-value: root.default-value;
             marks: root.marks;
+            fill: root.fill;
+            grad-a: root.grad-a;
+            grad-b: root.grad-b;
+            grad-c: root.grad-c;
             moved(v) => { root.moved(v); }
         }
     }

@@ -246,6 +246,7 @@ export component MicrophoneCard inherits Card {
         label: @tr("Auto level");
         Rectangle { horizontal-stretch: 1; }
         Switch {
+            hue: root.hue;
             y: 8px;
             checked: auto-level;
             label: @tr("Auto level");
@@ -262,6 +263,7 @@ export component MicrophoneCard inherits Card {
             Rectangle {
                 width: 36px;
                 Switch {
+                    hue: root.hue;
                     y: (parent.height - self.height) / 2;
                     checked: nr;
                     enabled: nr-enabled;

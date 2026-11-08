@@ -65,6 +65,7 @@ export component TransformsCard inherits Card {
     FormRow {
         label: @tr("Rotation");
         Segmented {
+            hue: root.hue;
             items: ["0\u{b0}", "90\u{b0}", "180\u{b0}", "270\u{b0}"];
             disabled: [!active, !active, !active, !active];
             has-icons: [false, false, false, false];

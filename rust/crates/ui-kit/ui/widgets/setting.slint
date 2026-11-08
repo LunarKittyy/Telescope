@@ -4,6 +4,7 @@ import { Theme } from "../theme.slint";
 
 // settings_search.keywords: carried as a zero-size Text with accessible-role none, which is no accessible node at all (the search reads "kind", a unit separator, then the words)
 export component SearchWords inherits Rectangle {
+    out property <string> control-kind: "helper";
     in property <string> words;
     // A card's words are for what's under it too
     in property <bool> card;
@@ -32,10 +33,9 @@ export component SettingRow inherits Rectangle {
     in property <string> note;
     in property <color> note-color: Theme.text-dim;
     min-height: 46px;
-    border-radius: 9px;
-    border-width: 1px;
-    border-color: Theme.border;
-    background: Theme.surface-raise;
+    out property <string> control-kind: "strip";
+    border-radius: Theme.r-ctl;
+    background: Theme.raise;
     accessible-role: groupbox;
     accessible-id: "setting";
     accessible-label: title;
@@ -97,6 +97,7 @@ export component SettingRow inherits Rectangle {
 // What the settings search finds a row by, for a row whose own text a screen reader skips (its switch says it). It covers the
 // text it sits in (give it that size) and, like SearchWords, is not announced.
 export component SettingMark inherits Rectangle {
+    out property <string> control-kind: "helper";
     in property <string> name;
     in property <string> keywords;
     accessible-role: none;
@@ -112,6 +113,7 @@ export component Tag inherits Rectangle {
     height: 20px;
     width: label.preferred-width + 16px;
     border-radius: self.height / 2;
+    out property <string> control-kind: "badge";
     background: tint.with-alpha(0.14);
     accessible-role: AccessibleRole.text;
     accessible-label: text;

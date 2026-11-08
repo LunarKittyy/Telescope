@@ -69,6 +69,7 @@ export component WaitScreenSettings inherits Card {
             accessible-role: none;
         }
         Switch {
+            hue: root.hue;
             x: parent.width - self.width;
             y: 8px;
             checked <=> root.mirror-checked;

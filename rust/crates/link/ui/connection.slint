@@ -318,6 +318,7 @@ export component ConnectionCard inherits Card {
                 if route-shown: FormRow {
                     label: @tr("Connect via");
                     Segmented {
+                        hue: root.hue;
                         horizontal-stretch: 1;
                         items: [@tr("Auto"), "USB", "Wi-Fi"];
                         icons: [Icons.x, Icons.usb, Icons.wifi];
@@ -350,6 +351,7 @@ export component ConnectionCard inherits Card {
             title: @tr("Add a phone");
             subtitle: on-source ? "" : add-subtitle;
             if other-name != "" && !paired: Segmented {
+                hue: root.hue;
                 label: @tr("What to add");
                 margin: 0px;
                 items: ["Android", other-name];
@@ -465,6 +467,7 @@ export component ConnectionCard inherits Card {
                 spacing: 8px;
                 alignment: start;
                 Switch {
+                    hue: root.hue;
                     checked: root.vcam-persist;
                     toggled(on) => { root.vcam-persist = on; }
                     label: @tr("Also switch it on at every startup");
@@ -751,6 +754,7 @@ export component ConnectionSettings inherits Card {
         sub: @tr("It can stutter more than TCP, so try it and see.");
         Tag { text: @tr("Experimental"); }
         Switch {
+            hue: root.hue;
             checked: udp;
             label: @tr("UDP on Wi-Fi");
             toggled(on) => { root.udp-toggled(on); }

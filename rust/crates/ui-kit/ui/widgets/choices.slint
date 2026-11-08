@@ -9,7 +9,8 @@ import { ShortcutMenu } from "shortcut-menu.slint";
 import { TipBody, TipUse } from "tip.slint";
 import { SearchWords } from "setting.slint";
 
-// segmented_row: equal segments in one track, the picked one a filled pill.
+// Kind "segmented": equal raised segments side by side. The picked one has a thick border in the card's colour and a muted inside,
+// not a flat fill, so Start streaming stays the only filled thing in the window.
 export component Segmented inherits Rectangle {
     in property <[string]> items;
     in property <[bool]> disabled;
@@ -49,45 +50,42 @@ export component Segmented inherits Rectangle {
     in property <string> shortcut;
     // The id of the setting it is, for the outline when something outside the window reads or changes it
     in property <string> setting;
-    // Room above and below the 32px track, to sit in a 36px form row; 0 for a row of its own (segmented_row alone)
-    in property <length> margin: 2px;
+    // Room above and below the segments, when the row it sits in is taller than they are
+    in property <length> margin: 0px;
+    // The card's colour, for the picked segment's border
+    in property <color> hue: Theme.accent;
+    out property <string> control-kind: "segmented";
     callback picked(int);
-    height: 32px + 2 * margin;
+    height: Theme.row + 2 * margin;
     horizontal-stretch: 1;
     preferred-width: 0px;
     accessible-role: tab-list;
     accessible-label: label;
-    track := Rectangle {
-        y: margin;
-        height: 32px;
-        background: Theme.surface-raise;
-        border-width: 1px;
-        border-color: Theme.border;
-        border-radius: 8px;
-    }
-    TouchRing { setting: root.setting; y: margin; width: parent.width; height: 32px; radius: 8px; }
+    TouchRing { setting: root.setting; y: margin; width: parent.width; height: Theme.row; radius: Theme.r-ctl; }
     HorizontalLayout {
         y: margin;
-        height: 32px;
-        padding: 3px;
-        spacing: 2px;
+        height: Theme.row;
+        spacing: Theme.gap;
         for item[i] in items: seg := Rectangle {
             property <bool> on: i == shown;
             property <bool> off: disabled[i];
             horizontal-stretch: 1;
             // A picked segment is bold, so every one keeps room for its bold text and the picked one never loses its end.
             // All too wide at first, so the layout takes the same off each: equal widths, as Qt's equal stretches give
-            min-width: bold-width.preferred-width + 16px;
+            min-width: bold-width.preferred-width + Theme.u(8);
             preferred-width: 1000px;
-            border-radius: 6px;
-            background: on ? (off ? Theme.border-strong : seg-touch.has-hover ? Theme.fill-hover : Theme.fill)
-                : (seg-touch.has-hover && !off ? Theme.surface-hover : transparent);
+            border-radius: Theme.r-ctl;
+            border-width: on && !off ? Theme.stroke : 0px;
+            border-color: hue;
+            background: off ? Theme.raise.mix(Theme.card, 0.4)
+                : on ? Theme.tint(hue)
+                : seg-touch.has-hover ? Theme.hover : Theme.raise;
             accessible-role: tab;
             accessible-label: label + ": " + item;
             accessible-checkable: true;
             accessible-checked: on;
             accessible-action-default => { if (!off) { pick(i); } }
-            bold-width := Text { text: item; font-family: Theme.font; font-size: Theme.body; font-weight: 600; visible: false; }
+            bold-width := Text { text: item; font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; visible: false; }
             property <int> asked: arrows;
             changed asked => {
                 if (arrow-to == i) {
@@ -108,7 +106,7 @@ export component Segmented inherits Rectangle {
                     reject
                 }
             }
-            FocusRing { shown: seg-focus.has-focus; radius: 6px; width: parent.width + 4px; height: parent.height + 4px; }
+            FocusRing { shown: seg-focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
             usage := TipUse { hover: seg-touch.has-hover; }
             seg-touch := TouchArea {
                 mouse-cursor: off ? default : pointer;
@@ -131,21 +129,21 @@ export component Segmented inherits Rectangle {
             if tips[i] != "" && !usage.used: Tooltip { TipBody { says: tips[i]; } }
             HorizontalLayout {
                 alignment: center;
-                spacing: 6px;
+                spacing: Theme.u(3);
                 if has-icons[i]: Icon {
-                    y: (parent.height - 13px) / 2;
+                    y: (parent.height - Theme.icon-small) / 2;
                     source: icons[i];
-                    tint: off ? Theme.text-disabled : on ? white : Theme.text-dim;
-                    width: 13px;
-                    height: 13px;
+                    tint: off ? Theme.dis : on ? Theme.ink : Theme.ink2;
+                    width: Theme.icon-small;
+                    height: Theme.icon-small;
                     accessible-role: none;
                 }
                 Text {
                     text: item;
                     font-family: Theme.font;
                     font-size: Theme.body;
-                    font-weight: on ? 600 : 400;
-                    color: off ? Theme.text-disabled : on ? white : seg-touch.has-hover ? Theme.text : Theme.text-dim;
+                    font-weight: on ? Theme.w-value : Theme.w-label;
+                    color: off ? Theme.dis : on || seg-touch.has-hover ? Theme.ink : Theme.ink2;
                     horizontal-alignment: center;
                     vertical-alignment: center;
                     overflow: elide;
@@ -156,8 +154,8 @@ export component Segmented inherits Rectangle {
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
 }
 
-// controls.ChoiceTile in "field" style: small caption over the value, chevron on the right, a list when clicked.
-// compact, or no caption to show: a plain combo box (NoScrollComboBox in a control_row), 32px with the value alone.
+// Kind "picker": the one style for anything that opens a list or a menu, everywhere: a raised box with the value and a chevron,
+// never "..." in a button. A caption makes it two lines (small caption over the value) until a card moves the caption into its row.
 export component ChoiceField inherits Rectangle {
     // Whether its list is open
     out property <bool> open;
@@ -171,12 +169,13 @@ export component ChoiceField inherits Rectangle {
     // A small icon before the text (the header's phone picker), and its text in bold
     in property <image> icon;
     in property <bool> has-icon;
-    in property <color> icon-tint: Theme.text-dim;
+    in property <color> icon-tint: Theme.ink2;
     in property <bool> bold;
+    out property <string> control-kind: "picker";
     // The value in the middle between room kept free at each side, no chevron, and the arrow keys asking for a step instead of
     // picking: how a Stepper uses it, with its arrows in that room
     in property <bool> centered;
-    in property <length> side: 30px;
+    in property <length> side: Theme.u(15);
     callback nudged(int);
     in property <[string]> items;
     // Rows that are a group's title among its items (ComboItemDelegate's "heading"): not picked, and the arrows skip them
@@ -265,16 +264,13 @@ export component ChoiceField inherits Rectangle {
             }
         }
     }
-    height: plain ? 32px : 48px;
+    height: plain ? Theme.row : Theme.u(24);
     horizontal-stretch: 1;
     for item in items: SearchWords { words: item; control: true; }
     min-width: 0px;
     preferred-width: 0px;
-    border-radius: plain ? 7px : 10px;
-    border-width: 1px;
-    background: !enabled ? Theme.bg : touch.has-hover ? Theme.surface-hover : Theme.surface-raise;
-    // Qt's plain combo box has the strong border; the tile its quiet one
-    border-color: !enabled ? Theme.border : touch.has-hover ? Theme.border-hover : plain ? Theme.border-strong : Theme.border;
+    border-radius: Theme.r-ctl;
+    background: !enabled ? Theme.raise.mix(Theme.card, 0.4) : open || touch.pressed ? Theme.sel : touch.has-hover ? Theme.hover : Theme.raise;
     accessible-role: combobox;
     accessible-label: caption != "" ? caption : name;
     accessible-value: shown < 0 ? placeholder : items[shown];
@@ -300,7 +296,7 @@ export component ChoiceField inherits Rectangle {
             reject
         }
     }
-    FocusRing { shown: focus.has-focus; radius: plain ? 7px : 10px; width: parent.width + 4px; height: parent.height + 4px; }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
     usage := TipUse { hover: touch.has-hover; }
     touch := TouchArea {
         enabled: root.enabled;
@@ -318,21 +314,21 @@ export component ChoiceField inherits Rectangle {
     if has-icon: Icon {
         source: icon;
         tint: icon-tint;
-        x: 11px;
-        width: 14px;
-        height: 14px;
+        x: Theme.u(6);
+        width: Theme.icon-small;
+        height: Theme.icon-small;
         accessible-role: none;
     }
     if plain: VerticalLayout {
-        padding-left: has-icon ? 33px : 11px; // the phone picker's 32px padding sits inside its border
-        padding-right: 30px;
+        padding-left: has-icon ? Theme.u(6) + Theme.icon-small + Theme.u(4) : Theme.u(6);
+        padding-right: Theme.u(13);
         alignment: center;
         Text {
             text: shown < 0 ? placeholder : items[shown];
             font-family: Theme.font;
             font-size: Theme.body;
-            font-weight: bold ? 600 : 400;
-            color: shown < 0 ? Theme.text-faint : enabled ? Theme.text : Theme.text-disabled;
+            font-weight: Theme.w-value;
+            color: shown < 0 ? Theme.ink2 : enabled ? Theme.ink : Theme.dis;
             overflow: elide;
         }
     }
@@ -340,33 +336,35 @@ export component ChoiceField inherits Rectangle {
     // 9px under the caption's baseline (stacked_baselines, with Inter's capitals 8px tall at 11px and 9px at 13px)
     property <length> first-baseline: round((root.height / 1px - 26) / 2 + 8) * 1px;
     if !plain: Text {
-        x: centered ? side : has-icon ? 32px : 12px;
-        y: first-baseline - 11px * 1984 / 2048;
-        width: root.width - self.x - (centered ? side : 30px);
+        x: centered ? side : has-icon ? Theme.u(16) : Theme.u(6);
+        y: first-baseline - Theme.tiny * 1984 / 2048;
+        width: root.width - self.x - (centered ? side : Theme.u(13));
         text: caption;
         font-family: Theme.font;
-        font-size: 11px; // 0.88 of the body size, 11.44px, which Qt draws at 11
-        color: enabled ? Theme.text-faint : Theme.text-disabled;
+        font-size: Theme.tiny;
+        color: enabled ? Theme.ink2 : Theme.dis;
         horizontal-alignment: centered ? center : left;
         overflow: elide;
     }
     if !plain: Text {
-        x: centered ? side : has-icon ? 32px : 12px;
-        y: first-baseline + 18px - 13px * 1984 / 2048;
-        width: root.width - self.x - (centered ? side : 30px);
+        x: centered ? side : has-icon ? Theme.u(16) : Theme.u(6);
+        y: first-baseline + 18px - Theme.body * 1984 / 2048;
+        width: root.width - self.x - (centered ? side : Theme.u(13));
         text: items[shown];
         font-family: Theme.font;
         font-size: Theme.body;
-        font-weight: 600;
-        color: enabled ? Theme.text : Theme.text-disabled;
+        font-weight: Theme.w-value;
+        color: enabled ? Theme.ink : Theme.dis;
         horizontal-alignment: centered ? center : left;
         overflow: elide;
     }
     if !centered: Icon {
         source: @image-url("../icons/chevron.svg");
-        x: parent.width - 12px - self.width;
-        width: plain ? 10px : 14px;
-        height: plain ? 10px : 14px;
+        x: parent.width - Theme.u(5) - self.width;
+        y: (parent.height - self.height) / 2;
+        tint: enabled ? Theme.ink2 : Theme.dis;
+        width: Theme.u(6);
+        height: Theme.u(6);
     }
     popup := PopupWindow {
         // Wide enough for its longest option, and inside the window: a longer one wraps, Slint moves it in from the edge
@@ -414,10 +412,8 @@ export component ChoiceField inherits Rectangle {
             }
         }
         Rectangle {
-            background: Theme.surface-raise;
-            border-width: 1px;
-            border-color: Theme.border-hover;
-            border-radius: 7px;
+            background: Theme.raise;
+            border-radius: Theme.r-ctl;
             drop-shadow-blur: 12px;
             drop-shadow-color: #00000080;
             list := Flickable {
@@ -452,12 +448,12 @@ export component ChoiceField inherits Rectangle {
                         accessible-enabled: !headings[i] && !is-gone;
                         accessible-action-default => { if (!headings[i] && !is-gone) { choose(i); } }
                         height: headings[i] ? 32px : max(26px, line.preferred-height + 10px);
-                        border-radius: 5px;
-                        background: headings[i] || is-gone ? transparent : lit ? Theme.fill : item-touch.has-hover ? Theme.surface-hover : transparent;
+                        border-radius: Theme.r-handle;
+                        background: headings[i] || is-gone ? transparent : lit ? Theme.sel : transparent;
                         if headings[i]: Rectangle {
                             y: 2px;
                             height: parent.height - 3px;
-                            background: Theme.accent.with-alpha(0.12);
+                            background: Theme.card.with-alpha(0.6);
                         }
                         item-touch := TouchArea {
                             enabled: !headings[i] && !is-gone;
@@ -471,8 +467,8 @@ export component ChoiceField inherits Rectangle {
                             text: item;
                             font-family: Theme.font;
                             font-size: headings[i] ? Theme.body * 0.85 : Theme.body;
-                            font-weight: headings[i] ? 700 : 400;
-                            color: headings[i] ? Theme.accent : is-gone ? Theme.text-disabled : lit ? white : Theme.text;
+                            font-weight: headings[i] ? Theme.w-value : Theme.w-label;
+                            color: headings[i] ? Theme.ink2 : is-gone ? Theme.dis : Theme.ink;
                             vertical-alignment: center;
                             wrap: word-wrap;
                         }

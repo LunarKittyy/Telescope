@@ -134,7 +134,7 @@ impl Drawn {
     fn at(slider: &ElementHandle, v: f32) -> LogicalPosition {
         let (p, s) = (slider.absolute_position(), slider.size());
         let (low, high) = (slider.accessible_value_minimum().unwrap(), slider.accessible_value_maximum().unwrap());
-        LogicalPosition::new(p.x + 10.0 + (v - low) / (high - low) * (s.width - 20.0), p.y + s.height / 2.0)
+        LogicalPosition::new(p.x + 7.0 + (v - low) / (high - low) * (s.width - 14.0), p.y + s.height / 2.0)
     }
 
     /// Takes the handle at `from` and lets go of it at `to`; the value the plugin last heard.

@@ -69,7 +69,7 @@ fn hovering_a_title_marks_it_and_a_dimmed_cards_title_stays_as_it_was() {
     assert_eq!(strip(&ui, "Things"), plain, "leaving puts it back");
     let section = strip(&ui, "Light");
     let t = title(&ui, "Light");
-    // Anywhere on the heading's row marks its title, here the rule beyond it
+    // Anywhere on the heading's row marks its title, here the room beyond it
     pointer(&ui, 270.0, t.absolute_position().y + t.size().height / 2.0);
     assert_ne!(strip(&ui, "Light"), section, "the section's title looks different too");
     ui.window().dispatch_event(WindowEvent::PointerExited);

@@ -6,10 +6,9 @@ import { WindowBox } from "dialog.slint";
 
 export component TipBody inherits Rectangle {
     in property <string> says;
-    background: Theme.surface-raise;
-    border-width: 1px;
-    border-color: Theme.border-hover;
-    border-radius: 6px;
+    background: Theme.sel;
+    border-radius: Theme.r-ctl;
+    out property <string> control-kind: "tip";
     HorizontalLayout {
         padding-left: 8px;
         padding-right: 8px;
@@ -29,6 +28,7 @@ export component TipBody inherits Rectangle {
 // Tells a control whether it is being used, which keeps its tooltip down: a press or the wheel on it counts, until the
 // pointer leaves it. A Tooltip inside `if !usage.used` is then gone and its popup with it.
 export component TipUse inherits Rectangle {
+    out property <string> control-kind: "helper";
     in property <bool> hover;
     out property <bool> used;
     // The wheel makes the TouchArea drop its hover for a moment, which isn't leaving

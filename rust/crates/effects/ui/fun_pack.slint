@@ -172,6 +172,7 @@ export component FunPackCard inherits Card {
     if show-direction: FormRow {
         label: @tr("Direction");
         Segmented {
+            hue: root.hue;
             items: [@tr("Down"), @tr("Across")];
             disabled: [!active, !active];
             has-icons: [false, false];

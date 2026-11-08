@@ -160,6 +160,7 @@ export component FramingCard inherits Card {
             }
         }
         Switch {
+            hue: root.hue;
             enabled: active;
             y: (parent.height - self.height) / 2;
             checked <=> root.hand;

@@ -6,7 +6,7 @@ import { Icon, FocusRing, TouchRing } from "basics.slint";
 import { TipBody, TipUse } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 
-// common.Switch: a 36x20 track at the row's end.
+// Kind "switch": a track at the row's end with a square handle. Off is quiet, on takes a thick border in the card's colour.
 export component Switch inherits Rectangle {
     // Where the parent says it is. A click never writes here, so a parent's `checked: on` keeps following on.
     in-out property <bool> checked;
@@ -41,14 +41,19 @@ export component Switch inherits Rectangle {
     in property <bool> danger;
     // The id of the setting it is ("transforms.flip_h"), which a caller outside the window outlines it by when it reads or changes it
     in property <string> setting;
+    // The card's colour: the border and handle of a lit switch
+    in property <color> hue: Theme.accent;
+    out property <string> control-kind: "switch";
     callback toggled(bool);
-    width: 36px;
-    height: 20px;
-    border-radius: 10px;
-    background: !enabled ? (shown ? Theme.border-strong : Theme.surface-raise)
-        : shown && danger ? Theme.err
-        : shown ? (touch.has-hover ? Theme.fill-hover : Theme.fill)
-        : (touch.has-hover ? Theme.border-hover : Theme.border-strong);
+    width: Theme.switch-w;
+    height: Theme.switch-h;
+    border-radius: Theme.r-ctl;
+    property <color> lit: danger ? Theme.err : hue;
+    border-width: shown && enabled ? Theme.stroke : 0px;
+    border-color: lit;
+    background: !enabled ? Theme.trough
+        : shown ? Theme.tint(lit)
+        : touch.has-hover ? Theme.hover : Theme.raise;
     accessible-role: switch;
     accessible-label: label;
     accessible-checkable: true;
@@ -68,8 +73,8 @@ export component Switch inherits Rectangle {
             reject
         }
     }
-    FocusRing { shown: focus.has-focus && keyed; radius: 10px; width: parent.width + 4px; height: parent.height + 4px; }
-    TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: 10px; }
+    FocusRing { shown: focus.has-focus && keyed; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
     usage := TipUse { hover: touch.has-hover; }
     touch := TouchArea {
         enabled: root.enabled;
@@ -79,19 +84,32 @@ export component Switch inherits Rectangle {
         clicked => { flip(); }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    Rectangle {
-        width: 14px;
-        height: 14px;
-        border-radius: 7px;
-        y: 3px;
-        x: shown ? parent.width - 17px : 3px;
-        background: !enabled ? Theme.text-disabled : shown ? white : Theme.text-dim;
+    // The handle carries I when on and O when off, so the state doesn't rest on colour alone
+    handle := Rectangle {
+        property <length> margin: Theme.u(1.5);
+        property <length> size: Theme.switch-h - 2 * margin;
+        width: size;
+        height: size;
+        border-radius: Theme.r-handle;
+        y: margin;
+        x: shown ? parent.width - size - margin : margin;
+        background: !enabled ? Theme.sel : shown ? lit : Theme.line-hover;
         animate x { duration: 90ms; }
+        Text {
+            text: shown ? "I" : "O";
+            font-family: Theme.font;
+            font-size: Theme.tiny - 1px;
+            font-weight: Theme.w-value;
+            color: !enabled ? Theme.dis : shown ? Theme.card : Theme.ink2;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
     }
     if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
 }
 
-// controls.SwitchTile: icon, name and switch in a small raised tile; the icon takes the card's hue while on.
+// Kind "toggle": a name and a switch on one line, no box round them; the icon takes the card's colour while on.
 export component SwitchTile inherits Rectangle {
     in property <image> icon;
     in property <string> text;
@@ -102,15 +120,14 @@ export component SwitchTile inherits Rectangle {
     in property <string> tip;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
+    out property <string> control-kind: "toggle";
     callback toggled(bool);
-    height: 40px;
+    height: Theme.row;
     horizontal-stretch: 1;
     min-width: 0px;
     preferred-width: 0px;
-    background: Theme.surface-raise;
-    border-width: 1px;
-    border-color: Theme.border;
-    border-radius: 9px;
+    background: tile-touch.has-hover && enabled ? Theme.hover.with-alpha(0.5) : transparent;
+    border-radius: Theme.r-ctl;
     usage := TipUse { hover: tile-touch.has-hover; }
     tile-touch := TouchArea {
         enabled: root.enabled;
@@ -121,16 +138,15 @@ export component SwitchTile inherits Rectangle {
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
     if root.tip != "" && !usage.used: Tooltip { TipBody { says: root.tip; } }
-    // The QSS border sits outside the layout's 10px margins
     HorizontalLayout {
-        padding-left: 11px;
-        padding-right: 11px;
-        spacing: 9px;
+        padding-left: Theme.u(3);
+        padding-right: Theme.u(3);
+        spacing: Theme.u(4);
         Icon {
             source: icon;
-            tint: sw.shown && enabled ? hue : Theme.text-dim;
-            width: 15px;
-            height: 15px;
+            tint: sw.shown && enabled ? hue : Theme.ink2;
+            width: Theme.icon;
+            height: Theme.icon;
             y: (parent.height - self.height) / 2;
         }
         Text {
@@ -138,18 +154,20 @@ export component SwitchTile inherits Rectangle {
             horizontal-stretch: 1;
             font-family: Theme.font;
             font-size: Theme.body;
-            color: enabled ? Theme.text : Theme.text-disabled;
+            font-weight: Theme.w-label;
+            color: enabled ? Theme.ink : Theme.dis;
             vertical-alignment: center;
             wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
             // The switch beside it carries this text as its name
             accessible-role: none;
         }
         Rectangle {
-            width: 36px;
+            width: Theme.switch-w;
             sw := Switch {
                 y: (parent.height - self.height) / 2;
                 checked <=> root.checked;
                 enabled: root.enabled;
+                hue: root.hue;
                 label: root.text;
                 toggled(on) => { root.toggled(on); }
             }

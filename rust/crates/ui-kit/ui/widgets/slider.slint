@@ -6,7 +6,9 @@ import { FocusRing, KeyFocus, TouchRing } from "basics.slint";
 import { TipBody, TipUse } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 
-// The theme's QSlider: a quiet 4px groove and a handle in the card's hue; value_label reads it out on the right.
+// Kind "slider", one anatomy for every slider: a track, a handle, the value on the right and, when it goes both ways, a tick at the
+// centre. Only the fill varies: "plain" is the card's colour up to the handle, "gradient" the range's own colours along the whole
+// track, with the handle taking the colour under it. Everything is muted at rest and takes its full colour while held, handle too.
 export component Slider inherits HorizontalLayout {
     in property <float> minimum: 0;
     in property <float> maximum: 100;
@@ -21,17 +23,26 @@ export component Slider inherits HorizontalLayout {
     in property <string> readout;
     in property <string> label;
     in property <color> hue: Theme.accent;
+    // "plain" or "gradient"; a gradient runs grad-a, grad-b, grad-c along the track (a temperature slider: blue, grey, orange)
+    in property <string> fill: "plain";
+    in property <color> grad-a: Theme.ink2;
+    in property <color> grad-b: Theme.ink2;
+    in property <color> grad-c: Theme.ink2;
+    // The slider goes both ways: a tick marks where it is neutral
+    in property <bool> two-way: minimum < 0 && maximum > 0;
+    in property <float> centre: minimum < 0 && maximum > 0 ? 0 : (minimum + maximum) / 2;
+    out property <string> control-kind: "slider";
     in property <bool> enabled: true;
     // false drops the readout column, for a slider with a box of its own beside it
     in property <bool> has-readout: true;
     // value_label's fits: wider than the usual column when its words need it
-    in property <length> readout-width: 56px;
+    in property <length> readout-width: Theme.u(28);
     // Dots on the groove (NoScrollSlider.set_snaps, at most four) that a dragged handle sticks to within snap-px; only a
     // drag snaps, keys and clicks on the groove step freely
     in property <[float]> marks;
-    in property <length> snap-px: 5px;
-    // The row it sits in: a control_row's 36px, or a bare QSlider's 20px
-    in property <length> row-height: 36px;
+    in property <length> snap-px: Theme.u(2.5);
+    // The row it sits in
+    in property <length> row-height: Theme.row;
     // A double-click puts the slider back here (NoScrollSlider.set_default)
     in property <bool> has-default;
     in property <float> default-value;
@@ -58,13 +69,18 @@ export component Slider inherits HorizontalLayout {
     callback moved(float);
     callback released(float);
     callback typed(string);
-    spacing: 8px;
+    spacing: Theme.u(4);
     horizontal-stretch: 1;
     track := Rectangle {
         horizontal-stretch: 1;
-        min-width: 84px;
+        min-width: Theme.u(42);
         height: row-height;
-        property <length> inset: 10px; // padding 3px + groove margin 7px: where the handle's centre runs
+        // Where the handle's centre runs from and to
+        property <length> inset: Theme.handle-w / 2;
+        // Held: the finger or key is on it, and it takes its full colour
+        property <bool> held: dragging && touch.pressed;
+        // The colour under the handle: the card's, or the gradient's at that spot
+        property <color> under: fill == "gradient" ? (fraction < 0.5 ? grad-a.mix(grad-b, 1 - fraction * 2) : grad-b.mix(grad-c, 1 - (fraction - 0.5) * 2)) : hue;
         property <float> fraction: (shown - minimum) / max(0.0001, maximum - minimum);
         // The value a dragged handle at `v` sticks to: the first mark within reach, else itself
         function snapped(v: float) -> float {
@@ -74,7 +90,7 @@ export component Slider inherits HorizontalLayout {
             if (marks.length > 3 && abs((marks[3] - v) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset)) <= snap-px) { return marks[3]; }
             return v;
         }
-        TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: 7px; }
+        TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
         accessible-role: slider;
         accessible-label: label;
         // The readout carries the unit ("30%", "+1.0 EV"), which the bare number would lose
@@ -97,36 +113,64 @@ export component Slider inherits HorizontalLayout {
                 reject
             }
         }
-        Rectangle {
-            x: track.inset;
-            width: parent.width - 2 * track.inset;
-            height: 4px;
-            border-radius: 2px;
-            background: enabled ? Theme.border-strong : Theme.surface-raise;
+        // The track. Each part rounds its own ends: a clip would square them off in the software renderer
+        groove := Rectangle {
+            y: (parent.height - Theme.track) / 2;
+            height: Theme.track;
+            border-radius: Theme.track / 2;
+            background: Theme.raise;
+            if enabled && fill == "plain": Rectangle {
+                x: 0px;
+                y: 0px;
+                height: parent.height;
+                width: track.inset + track.fraction * (track.width - 2 * track.inset);
+                border-radius: Theme.track / 2;
+                background: track.held ? hue : Theme.muted(hue);
+            }
+            if enabled && fill == "gradient": Rectangle {
+                border-radius: Theme.track / 2;
+                background: @linear-gradient(90deg, grad-a 0%, grad-b 50%, grad-c 100%);
+            }
+            if enabled && fill == "gradient": Rectangle {
+                border-radius: Theme.track / 2;
+                background: Theme.card;
+                opacity: track.held ? 0 : 0.5;
+            }
+            if !enabled: Rectangle {
+                x: 0px;
+                y: 0px;
+                height: parent.height;
+                width: track.inset + track.fraction * (track.width - 2 * track.inset);
+                border-radius: Theme.track / 2;
+                background: Theme.sel;
+            }
         }
-        // QSlider::sub-page: the same as the groove until the groove goes dark on a disabled slider
-        if !enabled: Rectangle {
-            x: track.inset;
-            width: track.fraction * (parent.width - 2 * track.inset);
-            height: 4px;
-            border-radius: 2px;
-            background: Theme.border-hover;
+        if two-way: Rectangle {
+            x: track.inset + (centre - minimum) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset) - Theme.stroke / 2;
+            y: (parent.height - self.height) / 2;
+            width: Theme.stroke;
+            height: Theme.track + Theme.u(4);
+            border-radius: Theme.stroke / 2;
+            background: enabled ? Theme.ink2.with-alpha(0.7) : Theme.dis;
         }
         for mark in marks: Rectangle {
-            x: track.inset - 2.5px + (mark - minimum) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset);
-            y: (parent.height - 5px) / 2;
-            width: 5px;
-            height: 5px;
-            border-radius: 2.5px;
-            background: enabled ? Theme.text-faint : Theme.text-disabled;
+            x: track.inset - Theme.u(1) + (mark - minimum) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset);
+            y: (parent.height - self.height) / 2;
+            width: Theme.u(2);
+            height: Theme.u(2);
+            border-radius: Theme.u(1);
+            background: enabled ? Theme.faint : Theme.dis;
         }
         handle := Rectangle {
-            width: 14px;
-            height: 14px;
-            border-radius: 7px;
-            x: track.inset - 7px + track.fraction * (track.width - 2 * track.inset);
-            background: !enabled ? Theme.text-disabled : (touch.has-hover || touch.pressed) ? hue.brighter(0.15) : hue;
-            FocusRing { shown: slider-focus.has-focus; radius: 7px; width: parent.width + 4px; height: parent.height + 4px; }
+            width: Theme.handle-w;
+            height: Theme.handle-h;
+            y: (parent.height - self.height) / 2;
+            border-radius: Theme.r-handle;
+            x: track.fraction * (track.width - Theme.handle-w);
+            background: !enabled ? Theme.trough : track.held ? track.under : Theme.card;
+            border-width: Theme.stroke;
+            border-color: !enabled ? Theme.sel : track.held ? track.under : touch.has-hover ? track.under : Theme.edge(track.under);
+            FocusRing { shown: slider-focus.has-focus; radius: Theme.r-handle; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
         }
         usage := TipUse { hover: touch.has-hover || readout-over; }
         touch := TouchArea {
@@ -185,9 +229,8 @@ export component Slider inherits HorizontalLayout {
             text: readout;
             font-family: Theme.font;
             font-size: Theme.body;
-            font-weight: 600;
-            // QLabel#val outranks QLabel:disabled in the theme, so a disabled readout keeps the accent's soft shade
-            color: enabled ? hue : Theme.accent-soft;
+            font-weight: Theme.w-value;
+            color: enabled ? Theme.ink : Theme.dis;
             horizontal-alignment: right;
             vertical-alignment: center;
             if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
@@ -198,8 +241,8 @@ export component Slider inherits HorizontalLayout {
             text: root.typing;
             font-family: Theme.font;
             font-size: Theme.body;
-            font-weight: 600;
-            color: hue;
+            font-weight: Theme.w-value;
+            color: Theme.ink;
             selection-background-color: Theme.fill;
             selection-foreground-color: white;
             horizontal-alignment: right;

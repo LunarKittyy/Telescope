@@ -63,6 +63,7 @@ export component ChromaKeyCard inherits Card {
             HorizontalLayout {
                 spacing: 8px;
                 Segmented {
+                    hue: root.hue;
                     items: [@tr("Green"), @tr("Blue"), @tr("Picked")];
                     disabled: [!active, !active, !active];
                     has-icons: [false, false, false];
@@ -98,6 +99,7 @@ export component ChromaKeyCard inherits Card {
     FormRow {
         label: @tr("Behind you");
         Segmented {
+            hue: root.hue;
             items: [@tr("Colour"), @tr("Picture")];
             disabled: [!active, !active];
             has-icons: [false, false];

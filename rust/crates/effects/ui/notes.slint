@@ -170,6 +170,7 @@ export component NotesCard inherits Card {
     FormRow {
         label: @tr("Scroll");
         Segmented {
+            hue: root.hue;
             items: scroll-items;
             disabled: [!active, !active];
             has-icons: [false, false];

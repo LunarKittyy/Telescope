@@ -178,6 +178,7 @@ export component CameraCard inherits Card {
         FormRow {
             label: @tr("Exposure");
             Segmented {
+                hue: root.hue;
                 shortcut: "camera.exposure_mode";
                 label: @tr("Exposure");
                 items: [@tr("Auto"), @tr("Manual")];
@@ -243,6 +244,7 @@ export component CameraCard inherits Card {
         FormRow {
             label: @tr("White balance");
             Segmented {
+                hue: root.hue;
                 shortcut: "camera.wb_mode";
                 label: @tr("White balance");
                 items: [@tr("Auto"), @tr("Manual")];
@@ -298,6 +300,7 @@ export component CameraCard inherits Card {
         FormRow {
             label: @tr("Focus");
             Segmented {
+                hue: root.hue;
                 shortcut: "camera.focus_mode";
                 label: @tr("Focus");
                 items: [@tr("Auto"), @tr("Tap a point"), @tr("focus" => "Manual")];

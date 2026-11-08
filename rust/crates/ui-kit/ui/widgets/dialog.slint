@@ -27,10 +27,9 @@ export component DialogFrame inherits Rectangle {
     in property <string> subtitle;
     in property <bool> dismissable;
     callback dismissed();
-    background: Theme.bg;
-    border-width: 1px;
-    border-color: Theme.border-hover;
-    border-radius: 12px;
+    background: Theme.card;
+    border-radius: Theme.r-card;
+    out property <string> control-kind: "dialog";
     drop-shadow-blur: 28px;
     drop-shadow-offset-y: 6px;
     drop-shadow-color: #000000a0;

@@ -116,6 +116,7 @@ export component WebcamCard inherits Card {
             label: row.label;
             enabled: row.enabled;
             Segmented {
+                hue: root.hue;
                 horizontal-stretch: 1;
                 items: [@tr("Auto"), @tr("Manual")];
                 current: row.checked ? 0 : 1;

@@ -39,11 +39,12 @@ export component TextField inherits Rectangle {
     public function let-go() {
         input.clear-focus();
     }
-    height: 32px;
-    border-radius: 7px;
-    border-width: 1px;
-    background: enabled ? Theme.surface-raise : Theme.bg;
-    border-color: !enabled ? Theme.border : input.has-focus ? Theme.accent : touch.has-hover ? Theme.border-hover : Theme.border-strong;
+    out property <string> control-kind: "field";
+    height: Theme.row;
+    border-radius: Theme.r-ctl;
+    border-width: input.has-focus && enabled ? Theme.stroke : 0px;
+    background: !enabled ? Theme.raise.mix(Theme.card, 0.4) : touch.has-hover && !input.has-focus ? Theme.hover : Theme.raise;
+    border-color: Theme.accent;
     forward-focus: input;
     accessible-role: text-input;
     accessible-label: label;
@@ -105,6 +106,7 @@ export component TextField inherits Rectangle {
 // leaving the box the typed text goes out through committed and whoever holds the value keeps what makes sense of it,
 // held to its limits, and the box then shows `value` again, so empty or nonsense text can't stay.
 export component NumberField inherits Rectangle {
+    out property <string> control-kind: "field";
     // The current value as the box shows it
     in property <string> value;
     in property <string> label;

@@ -18,6 +18,10 @@ use telescope_shell::source::from_json;
 
 const HUE_CAMERA: [u8; 3] = [0x7f, 0xd3, 0xc4];
 const TEXT_DISABLED: [u8; 3] = [0x52, 0x5b, 0x67];
+// The Classic theme's colours, which this rig draws in: a slider handle's edge at rest (the camera colour three parts to one of the card), a disabled one's, and the value's ink
+const HANDLE_EDGE: [u8; 3] = [101, 165, 155];
+const HANDLE_OFF: [u8; 3] = [0x2f, 0x36, 0x41];
+const INK: [u8; 3] = [0xe7, 0xea, 0xef];
 const WIDTH: usize = 460;
 
 fn spin_on<F: std::future::Future>(f: F) -> F::Output {
@@ -52,7 +56,7 @@ fn window(plugin: &mut TransformsPlugin) -> ComponentInstance {
         }
     }
     let doc = format!(
-        "import {{ Theme }} from \"@ui-kit/ui-kit.slint\";\nimport {{ {c} }} from \"plugin/card.slint\";\n\
+        "import {{ Theme }} from \"@ui-kit/ui-kit.slint\";\nexport {{ Theme }}\nimport {{ {c} }} from \"plugin/card.slint\";\n\
          export component W inherits Window {{\n    width: {WIDTH}px;\n    height: 760px;\n    callback zoom-moved(float);\n    \
          callback pad-pointer(float, float);\n    callback pad-key(string, bool);\n    callback pad-reset();\n{declared}    \
          {c} {{ hue: Theme.hue-camera; {passed}zoom-moved(v) => {{ root.zoom-moved(v); }} pad-pointer(x, y) => {{ root.pad-pointer(x, y); }} \
@@ -69,6 +73,7 @@ fn window(plugin: &mut TransformsPlugin) -> ComponentInstance {
     let errors: Vec<String> = result.diagnostics().filter(|d| d.level() == slint_interpreter::DiagnosticLevel::Error).map(|d| d.to_string()).collect();
     assert!(errors.is_empty(), "{}", errors.join("\n"));
     let w = result.component("W").unwrap().create().unwrap();
+    w.set_global_property("Theme", "classic", Value::Bool(true)).unwrap();
     w.show().unwrap();
     w
 }
@@ -95,7 +100,7 @@ fn show(w: &ComponentInstance, props: &BTreeMap<String, Json>) -> Vec<u8> {
 }
 
 fn is(p: &[u8], colour: [u8; 3]) -> bool {
-    p[..3] == colour
+    p[..3].iter().zip(colour).all(|(a, b)| a.abs_diff(b) <= 2)
 }
 
 /// The pixels that are one colour in `before` and another in `after`, in groups that touch.
@@ -177,8 +182,12 @@ fn disc(w: &ComponentInstance, property: &str) -> (f64, f64) {
     };
     let (on, off) = (draw(true), draw(false));
     draw(true);
-    let groups = recoloured(&on, &off, HUE_CAMERA, TEXT_DISABLED);
-    let found = groups.iter().find(|g| g.len() >= 100).expect("the disc");
+    // The zoom slider's handle is a box with an edge; the pad's dot is still a disc
+    let (from, to) = if property == "zoom-free" { (HANDLE_EDGE, HANDLE_OFF) } else { (HUE_CAMERA, TEXT_DISABLED) };
+    let groups = recoloured(&on, &off, from, to);
+    // The box's edge breaks into a few pieces at its rounded corners, which together are centred on it
+    let found = if property == "zoom-free" { groups.concat() } else { groups.iter().find(|g| g.len() >= 100).expect("the disc").clone() };
+    assert!(found.len() >= 50, "the handle");
     (found.iter().map(|p| p.0 as f64).sum::<f64>() / found.len() as f64 + 0.5, found.iter().map(|p| p.1 as f64).sum::<f64>() / found.len() as f64 + 0.5)
 }
 
@@ -288,15 +297,16 @@ fn auto_framing_visibly_disables_the_zoom_handle_and_value() {
     let taken = show(&w, &props(&host, &mut plugin));
     drag(&w, handle, (handle.0 + 60.0, handle.1));
     assert_eq!(*moved.borrow(), 0, "the slider is off while it's taken");
-    // The handle is a filled 14 px disc that went from the camera's colour to the disabled one, and so did the value's text
-    let groups = recoloured(&free, &taken, HUE_CAMERA, TEXT_DISABLED);
-    let grey_handle = groups.iter().find(|g| {
-        let (x0, x1) = (g.iter().map(|p| p.0).min().unwrap(), g.iter().map(|p| p.0).max().unwrap());
-        let (y0, y1) = (g.iter().map(|p| p.1).min().unwrap(), g.iter().map(|p| p.1).max().unwrap());
-        (11..=15).contains(&(x1 - x0 + 1)) && (11..=15).contains(&(y1 - y0 + 1)) && g.len() >= 100
+    // The handle is a 14 x 24 px box whose edge went from the camera's colour to the disabled one, and the value's text went grey
+    let groups = recoloured(&free, &taken, HANDLE_EDGE, HANDLE_OFF);
+    let all: Vec<(usize, usize)> = groups.concat();
+    let grey_handle = (!all.is_empty()).then(|| {
+        let (x0, x1) = (all.iter().map(|p| p.0).min().unwrap(), all.iter().map(|p| p.0).max().unwrap());
+        let (y0, y1) = (all.iter().map(|p| p.1).min().unwrap(), all.iter().map(|p| p.1).max().unwrap());
+        (12..=16).contains(&(x1 - x0 + 1)) && (22..=26).contains(&(y1 - y0 + 1)) && all.len() >= 50
     });
-    assert!(grey_handle.is_some(), "no handle went grey: {:?}", groups.iter().map(|g| g.len()).collect::<Vec<_>>());
-    assert!(groups.iter().any(|g| g.len() < 100), "the value's text went grey too");
+    assert_eq!(grey_handle, Some(true), "no handle went grey: {:?}", groups.iter().map(|g| g.len()).collect::<Vec<_>>());
+    assert!(recoloured(&free, &taken, INK, TEXT_DISABLED).iter().any(|g| g.len() >= 1), "the value's text went grey too");
 
     plugin.on_event(&mut host, &Event::ViewTaken { owner: String::new() });
     let released = show(&w, &props(&host, &mut plugin));

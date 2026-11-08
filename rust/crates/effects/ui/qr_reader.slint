@@ -59,6 +59,7 @@ export component QrReaderCard inherits Card {
             }
         }
         notify-switch := Switch {
+            hue: root.hue;
             enabled: active;
             y: (parent.height - self.height) / 2;
             checked: notify;

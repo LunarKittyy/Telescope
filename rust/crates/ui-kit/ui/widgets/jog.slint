@@ -44,13 +44,12 @@ export component Jog inherits Rectangle {
             moved(0);
         }
     }
-    height: 32px;
+    out property <string> control-kind: "jog";
+    height: Theme.row;
     horizontal-stretch: 1;
-    min-width: 96px;
-    border-radius: 7px;
-    border-width: 1px;
-    background: !enabled ? Theme.bg : touch.has-hover || dragging ? Theme.surface-hover : Theme.surface-raise;
-    border-color: !enabled ? Theme.border : touch.has-hover || dragging ? Theme.border-hover : Theme.border-strong;
+    min-width: Theme.u(48);
+    border-radius: Theme.r-ctl;
+    background: !enabled ? Theme.raise.mix(Theme.card, 0.4) : touch.has-hover || dragging ? Theme.hover : Theme.raise;
     accessible-role: slider;
     accessible-label: label;
     accessible-description: tip;
@@ -69,7 +68,7 @@ export component Jog inherits Rectangle {
             reject
         }
     }
-    FocusRing { shown: focus.has-focus; radius: 7px; width: parent.width + 4px; height: parent.height + 4px; }
+    FocusRing { shown: focus.has-focus; radius: 7px; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
     usage := TipUse { hover: touch.has-hover; }
     Text {
         x: 11px;

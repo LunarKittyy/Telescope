@@ -1,0 +1,137 @@
+//! DESIGN.md's rules, checked: every kit widget says its kind, and cards outside the kit don't draw controls of their own.
+
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+
+fn kit() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+}
+
+fn crates() -> PathBuf {
+    kit().join("..")
+}
+
+/// The kinds DESIGN.md lists in its table: the backticked name that starts each row.
+fn listed_kinds() -> Vec<String> {
+    let guide = std::fs::read_to_string(kit().join("DESIGN.md")).expect("DESIGN.md");
+    let table = guide.split("## Control kinds").nth(1).expect("a Control kinds section");
+    let table = table.split("\n## ").next().unwrap();
+    table.lines().filter_map(|l| l.strip_prefix("| `")).filter_map(|l| l.split('`').next()).map(str::to_string).collect()
+}
+
+fn slint_files(dir: &Path, out: &mut Vec<PathBuf>) {
+    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    for e in entries.flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            let name = p.file_name().unwrap().to_string_lossy().to_string();
+            if name != "target" && name != "ui-kit" {
+                slint_files(&p, out);
+            }
+        } else if p.extension().is_some_and(|x| x == "slint") {
+            out.push(p);
+        }
+    }
+}
+
+#[test]
+fn every_exported_widget_says_its_kind() {
+    let kinds = listed_kinds();
+    assert!(kinds.len() > 10, "DESIGN.md lists its kinds: {kinds:?}");
+    let mut missing = Vec::new();
+    let mut used = std::collections::BTreeSet::new();
+    let mut files: Vec<_> = std::fs::read_dir(kit().join("ui/widgets")).unwrap().flatten().map(|e| e.path()).collect();
+    files.sort();
+    for file in files {
+        let text = std::fs::read_to_string(&file).unwrap();
+        // Split at every top-level declaration; an exported component's block runs to the next one
+        let mut blocks: Vec<(String, String)> = Vec::new();
+        for line in text.lines() {
+            let starts = line.starts_with("export ") || line.starts_with("component ") || line.starts_with("global ") || line.starts_with("struct ");
+            if starts {
+                blocks.push((line.to_string(), String::new()));
+            }
+            if let Some(b) = blocks.last_mut() {
+                b.1.push_str(line);
+                b.1.push('\n');
+            }
+        }
+        for (head, body) in blocks {
+            let Some(rest) = head.strip_prefix("export component ") else { continue };
+            let name = rest.split(|c: char| !c.is_alphanumeric()).next().unwrap();
+            match body.split("control-kind: \"").nth(1).and_then(|k| k.split('"').next()) {
+                Some(kind) if kinds.iter().any(|k| k == kind) => {
+                    used.insert(kind.to_string());
+                }
+                Some(kind) => missing.push(format!("{}: {name} says kind \"{kind}\", which DESIGN.md doesn't list", file.display())),
+                None => missing.push(format!("{}: {name} has no control-kind", file.display())),
+            }
+        }
+    }
+    assert!(missing.is_empty(), "{}", missing.join("\n"));
+    let unused: Vec<_> = kinds.iter().filter(|k| !used.contains(*k)).collect();
+    assert!(unused.is_empty(), "DESIGN.md lists kinds no widget says: {unused:?}");
+}
+
+/// Where a card still draws its own control (a bordered Rectangle or a TouchArea), by file: (borders, touch areas). These
+/// are what's left to move into the kit, one card at a time; the numbers may only go down. A new file isn't on the list.
+const OWN_CONTROLS: &[(&str, usize, usize)] = &[
+    ("audio/ui/microphone.slint", 2, 1),
+    ("effects/ui/chroma_key.slint", 1, 0),
+    ("effects/ui/cinema.slint", 0, 1),
+    ("effects/ui/composite_editor.slint", 8, 3),
+    ("effects/ui/framing.slint", 0, 1),
+    ("effects/ui/notes.slint", 1, 1),
+    ("effects/ui/pad.slint", 2, 2),
+    ("effects/ui/parts.slint", 5, 2),
+    ("effects/ui/photos.slint", 1, 1),
+    ("effects/ui/qr_reader.slint", 0, 1),
+    ("link/ui/connection.slint", 1, 0),
+    ("outputs/ui/stream_output.slint", 1, 1),
+    ("setup/ui/monitoring.slint", 2, 0),
+    ("setup/ui/parts.slint", 2, 2),
+    ("setup/ui/setup.slint", 0, 1),
+    ("shell/ui/cards/camera.slint", 1, 1),
+    ("shell/ui/cards/onboarding.slint", 1, 0),
+    ("shell/ui/cards/presets.slint", 1, 1),
+    ("shell/ui/cards/preview.slint", 2, 1),
+    ("shell/ui/frame.slint", 1, 1),
+    ("shell/ui/preview.slint", 2, 1),
+    ("shell/ui/settings.slint", 5, 7),
+    ("system/ui/mcp.slint", 2, 1),
+    ("system/ui/shortcuts.slint", 3, 2),
+    ("system/ui/updates.slint", 0, 1),
+];
+
+/// (lines that give a Rectangle a border, TouchArea elements) in a card's .slint file.
+fn own_controls(text: &str) -> (usize, usize) {
+    let borders = text.lines().filter(|l| l.split_once("border-width:").is_some_and(|(_, v)| !v.trim_start().starts_with('0'))).count();
+    let touches = text.matches("TouchArea {").count();
+    (borders, touches)
+}
+
+#[test]
+fn cards_outside_the_kit_draw_no_controls_of_their_own() {
+    let mut files = Vec::new();
+    slint_files(&crates(), &mut files);
+    assert!(files.len() > 20, "found the cards' files");
+    let allowed: BTreeMap<&str, (usize, usize)> = OWN_CONTROLS.iter().map(|(f, b, t)| (*f, (*b, *t))).collect();
+    let mut problems = Vec::new();
+    let mut seen = std::collections::BTreeSet::new();
+    for file in files {
+        let rel = file.strip_prefix(crates()).unwrap().to_string_lossy().replace('\\', "/");
+        let (borders, touches) = own_controls(&std::fs::read_to_string(&file).unwrap());
+        seen.insert(rel.clone());
+        let (b, t) = allowed.get(rel.as_str()).copied().unwrap_or((0, 0));
+        if borders > b || touches > t {
+            problems.push(format!("{rel} draws {borders} bordered boxes and {touches} touch areas of its own (allowed {b} and {t}): use a kit widget or add a kind to the kit"));
+        }
+        if borders < b || touches < t {
+            problems.push(format!("{rel} is down to {borders} and {touches}: lower its numbers in OWN_CONTROLS (was {b} and {t})"));
+        }
+    }
+    for f in allowed.keys() {
+        assert!(seen.contains(*f), "OWN_CONTROLS names {f}, which doesn't exist");
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}

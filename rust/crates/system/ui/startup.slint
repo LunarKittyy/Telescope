@@ -16,6 +16,7 @@ export component StartupSettings inherits Card {
         title: @tr("Open Telescope when I sign in");
         keywords: @tr("search" => "autostart login log in boot startup run on startup launch computer starts tray");
         Switch {
+            hue: root.hue;
             checked <=> root.open-checked;
             enabled: open-enabled;
             label: @tr("Open Telescope when I sign in");
@@ -124,6 +125,7 @@ export component AutomaticSettings inherits Card {
         title: @tr("Tell me when it stops a stream");
         keywords: @tr("search" => "notification notify alert popup message");
         Switch {
+            hue: root.hue;
             checked <=> root.notify-checked;
             enabled: stops;
             label: @tr("Tell me when it stops a stream");

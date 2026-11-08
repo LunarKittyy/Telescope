@@ -20,9 +20,10 @@ component StepArrow inherits Rectangle {
             up();
         }
     }
-    width: 28px;
-    border-radius: 8px;
-    background: !enabled ? transparent : touch.pressed ? Theme.fill : touch.has-hover ? Theme.border-strong : transparent;
+    out property <string> control-kind: "stepper";
+    width: Theme.row;
+    border-radius: Theme.r-ctl;
+    background: !enabled ? transparent : touch.pressed ? Theme.raise : touch.has-hover ? Theme.sel : transparent;
     accessible-role: button;
     accessible-label: label;
     accessible-description: description;
@@ -58,6 +59,7 @@ component StepArrow inherits Rectangle {
 }
 
 export component Stepper inherits Rectangle {
+    out property <string> control-kind: "stepper";
     in property <string> caption;
     in property <[string]> items;
     in property <int> current;

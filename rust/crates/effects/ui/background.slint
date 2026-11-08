@@ -29,6 +29,7 @@ export component BackgroundCard inherits Card {
     FormRow {
         label: @tr("Background");
         Segmented {
+            hue: root.hue;
             horizontal-stretch: 1;
             items: [@tr("Off"), @tr("Blur"), @tr("Picture")];
             disabled: [!active, !active, !active];

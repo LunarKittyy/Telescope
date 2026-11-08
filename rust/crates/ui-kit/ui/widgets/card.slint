@@ -22,8 +22,9 @@ component FoldTitle inherits Rectangle {
     in property <bool> card-enabled: true;
     out property <bool> hot: card-enabled && (touch.has-hover || hovered-elsewhere);
     property <bool> foldable: key != "";
-    height: 30px;
-    width: label.preferred-width + (foldable ? 12px : 0px);
+    out property <string> control-kind: "fold-title";
+    height: Theme.u(15);
+    width: label.preferred-width;
     accessible-role: button;
     accessible-label: text;
     accessible-checkable: foldable;
@@ -44,7 +45,7 @@ component FoldTitle inherits Rectangle {
             reject
         }
     }
-    FocusRing { shown: focus.has-focus; radius: 6px; x: 0; y: -3px; width: parent.width; height: parent.height + 6px; }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-handle; x: 0; y: -Theme.u(1.5); width: parent.width; height: parent.height + Theme.u(3); }
     usage := TipUse { hover: touch.has-hover; }
     touch := TouchArea {
         enabled: foldable;
@@ -54,9 +55,7 @@ component FoldTitle inherits Rectangle {
         clicked => { Folds.toggle(key); }
     }
     if foldable && !usage.used: Tooltip { TipBody { says: folded ? FoldText.collapsed : FoldText.expanded; } }
-    // Qt indents a QSS-styled label's text by 6px; a settings card's title (which doesn't fold) sits right by its chip
     label := Text {
-        x: foldable ? 6px : 0px;
         text: root.text;
         font-family: Theme.font;
         font-size: root.font-size;
@@ -89,7 +88,7 @@ export component Card inherits Rectangle {
     // Shown next to the action's icon when set (card_action with text, like Connection's Add device)
     in property <string> action-text;
     // The action icon's colour (the Microphone card's Mute turns red while muted)
-    in property <color> action-tint: Theme.text-dim;
+    in property <color> action-tint: Theme.ink2;
     // The action a key can stand in for: a right-click on the header button offers a keyboard shortcut
     in property <string> action-shortcut;
     callback action;
@@ -112,8 +111,6 @@ export component Card inherits Rectangle {
     in property <string> extra-label;
     in property <string> extra-name: extra-label;
     callback extra;
-    // A folding card's title is a styled label 6px taller than the 30px chip, a header switch's row 2px (its 32px size hint)
-    property <length> lift: fold-key != "" ? 3px : has-switch ? 1px : 0px;
     // The header stays out of `blocked`'s cover, so its buttons go off by themselves; the title still folds
     property <bool> live: enabled && !blocked;
     // What Settings' search finds a card by, and the settings under it
@@ -121,69 +118,58 @@ export component Card inherits Rectangle {
     accessible-id: "card";
     accessible-label: title;
     if keywords != "": SearchWords { words: keywords; card: true; }
-    background: Theme.surface;
-    border-width: 1px;
-    border-color: Theme.border;
-    border-radius: 14px;
+    // Kind "card": the surface a plugin's controls sit on, one tone above the window, no line round it
+    out property <string> control-kind: "card";
+    background: Theme.card;
+    border-radius: Theme.r-card;
     VerticalLayout {
-        padding-left: 17px;
-        padding-right: 17px;
-        padding-top: 15px;
-        padding-bottom: 17px;
+        padding-left: Theme.pad;
+        padding-right: Theme.pad;
+        padding-top: Theme.u(6);
+        padding-bottom: Theme.pad;
         // Qt skips a layout with nothing shown in it, spacing and all; a folding card's is a widget of its own, which stays
-        spacing: folded || (fold-key == "" && body.preferred-height == 0) ? 0 : 8px;
+        spacing: folded || (fold-key == "" && body.preferred-height == 0) ? 0 : Theme.gap + Theme.u(2);
         HorizontalLayout {
-            spacing: 10px;
-            padding-bottom: 2px;
-            height: 32px + 2 * lift;
+            spacing: Theme.u(5);
+            height: Theme.row;
             Rectangle {
-                y: lift;
-                width: 30px;
-                height: 30px;
-                border-radius: 9px;
-                background: hue.with-alpha(0.14);
+                width: Theme.u(9);
                 chip-touch := TouchArea {
                     enabled: fold-key != "";
                     mouse-cursor: fold-key != "" ? pointer : default;
                     clicked => { Folds.toggle(fold-key); }
                 }
-                Icon { source: icon; tint: enabled ? hue : Theme.text-disabled; width: 16px; height: 16px; accessible-role: none; }
+                Icon { source: icon; tint: enabled ? hue : Theme.dis; width: Theme.u(9); height: Theme.u(9); accessible-role: none; }
             }
             fold-title := FoldTitle {
-                y: lift;
                 key: fold-key;
                 text: title;
                 font-size: Theme.card-title;
-                text-color: Theme.text;
-                hot-color: Theme.text-hover;
+                font-weight: Theme.w-title;
+                text-color: Theme.ink;
+                hot-color: Theme.hot;
                 folded: root.folded;
                 card-enabled: root.enabled;
                 hovered-elsewhere: chip-touch.has-hover;
             }
             Rectangle { horizontal-stretch: 1; }
-            // card_action with no text: Qt keeps room for the text either side of the icon
             if has-extra: Button {
-                y: lift;
-                // card_action with only an icon: 10px each side of it inside a 1px border
-                height: 30px;
-                width: 40px;
+                width: Theme.row;
                 role: "quiet";
                 padding-x: 0px;
                 has-icon: true;
                 icon: extra-icon;
-                icon-tint: Theme.text-dim;
+                icon-size: Theme.icon;
+                icon-tint: Theme.ink2;
                 enabled: live;
                 tip: extra-label;
                 accessible-label: extra-name;
                 clicked => { root.extra(); }
             }
             if has-action && action-text != "": Button {
-                y: lift;
-                height: 30px;
                 role: "quiet";
-                // card_action's 10px padding sits inside its 1px border; here the border is inside the padding
-                padding-x: 11px;
-                gap: 6px;
+                padding-x: Theme.u(5);
+                gap: Theme.u(3);
                 text: action-text;
                 has-icon: true;
                 icon: action-icon;
@@ -196,14 +182,13 @@ export component Card inherits Rectangle {
                 clicked => { root.action(); }
             }
             if has-action && action-text == "": Button {
-                y: lift;
-                height: 30px;
-                width: 30px;
+                width: Theme.row;
                 role: "quiet";
                 padding-x: 0px;
                 has-icon: true;
                 icon: action-icon;
-                icon-tint: Theme.text-dim;
+                icon-size: Theme.icon;
+                icon-tint: action-tint;
                 enabled: live && action-enabled;
                 quiet-when-disabled: true;
                 tip: action-label;
@@ -212,12 +197,12 @@ export component Card inherits Rectangle {
                 clicked => { root.action(); }
             }
             if has-switch: Rectangle {
-                width: 36px;
-                // Centred on the 30px chip, as Qt's header row centres it
+                width: Theme.switch-w;
                 Switch {
-                    y: lift + 5px;
+                    y: (parent.height - self.height) / 2;
                     checked <=> root.switch-checked;
                     enabled: live && root.switch-enabled;
+                    hue: root.hue;
                     label: root.switch-label;
                     tip: root.switch-tip;
                     shortcut: root.switch-shortcut;
@@ -229,7 +214,7 @@ export component Card inherits Rectangle {
                 text: note;
                 font-family: Theme.font;
                 font-size: Theme.small;
-                color: Theme.text-faint;
+                color: Theme.faint;
                 vertical-alignment: center;
             }
         }
@@ -243,7 +228,7 @@ export component Card inherits Rectangle {
             rows := VerticalLayout {
                 width: parent.width;
                 height: parent.height;
-                spacing: 8px;
+                spacing: Theme.gap;
                 visible: !folded;
                 @children
             }
@@ -253,51 +238,45 @@ export component Card inherits Rectangle {
     // dim_until_paired's setEnabled(False): over the rows and outside the layout, so it takes no row of its own. The
     // header stays out of it: a dimmed card still folds.
     if blocked: TouchArea {
-        y: 15px + (fold-key != "" ? 38px : 32px);
+        y: Theme.u(6) + Theme.row + Theme.u(5);
         height: root.height - self.y;
     }
 }
 
-// add_section_heading: a small icon, the name and a hairline to the card's edge.
+// Kind "section": a small semibold title that splits a card into groups. No rule, no icon: the gap above it does the splitting.
 export component SectionHeading inherits HorizontalLayout {
     in property <string> text;
     in property <image> icon;
-    height: 25px;
-    padding-top: 4px;
-    spacing: 14px;
-    Rectangle {
-        width: 13px;
-        Icon { source: icon; tint: Theme.text-faint; width: 13px; height: 13px; }
-    }
+    out property <string> control-kind: "section";
+    height: Theme.u(14);
+    padding-top: Theme.u(4);
     Text {
         text: root.text;
         font-family: Theme.font;
         font-size: Theme.small;
-        font-weight: 600;
-        color: Theme.text-faint;
+        font-weight: Theme.w-value;
+        color: Theme.ink2;
         vertical-alignment: center;
-    }
-    Rectangle {
-        horizontal-stretch: 1;
-        Rectangle { height: 1px; width: parent.width; background: Theme.border; }
     }
 }
 
-// control_row: the dim label in a 96px column, then the control, 36px tall at least.
+// Kind "row": the label in its own column, then the control, one row tall at least. Every row of a card shares the column.
 export component FormRow inherits HorizontalLayout {
     in property <string> label;
     in property <string> keywords;
     in property <bool> enabled: true;
     // A switch in the row says the label itself, so a screen reader skips the text
     in property <bool> quiet;
-    spacing: 10px;
-    min-height: 36px;
+    out property <string> control-kind: "row";
+    spacing: Theme.u(4);
+    min-height: Theme.row;
     if !quiet: Text {
         text: label;
-        width: 96px;
+        width: Theme.u(48);
         font-family: Theme.font;
         font-size: Theme.body;
-        color: enabled ? Theme.text-dim : Theme.text-disabled;
+        font-weight: Theme.w-label;
+        color: enabled ? Theme.ink : Theme.dis;
         vertical-alignment: center;
         // control_row's label is what the settings search finds
         accessible-id: "setting";
@@ -305,10 +284,11 @@ export component FormRow inherits HorizontalLayout {
     }
     if quiet: Text {
         text: label;
-        width: 96px;
+        width: Theme.u(48);
         font-family: Theme.font;
         font-size: Theme.body;
-        color: enabled ? Theme.text-dim : Theme.text-disabled;
+        font-weight: Theme.w-label;
+        color: enabled ? Theme.ink : Theme.dis;
         vertical-alignment: center;
         accessible-role: none;
         SettingMark { width: parent.width; height: parent.height; name: label; keywords: keywords; }
@@ -325,31 +305,27 @@ export component Section inherits VerticalLayout {
     in property <string> scope;
     property <string> fold-key: scope == "" ? "" : scope + "/" + key;
     out property <bool> folded: fold-key != "" && Folds.is-folded(fold-key, Folds.version);
-    spacing: folded ? 0 : 8px;
+    out property <string> control-kind: "section";
+    spacing: folded ? 0 : Theme.gap;
     changed folded => { if (folded) { section-title.take-focus(); } }
     HorizontalLayout {
-        height: 25px;
-        padding-top: 4px;
-        spacing: 8px;
-        Rectangle {
-            width: 13px;
-            icon-touch := TouchArea { enabled: fold-key != ""; clicked => { Folds.toggle(fold-key); } }
-            Icon { source: icon; tint: Theme.text-faint; width: 13px; height: 13px; accessible-role: none; }
-        }
+        height: Theme.u(14);
+        padding-top: Theme.u(4);
         section-title := FoldTitle {
             key: fold-key;
             text: title;
-            height: 21px;
+            height: Theme.u(10);
             font-size: Theme.small;
-            text-color: Theme.text-faint;
-            hot-color: Theme.text;
+            font-weight: Theme.w-value;
+            text-color: Theme.ink2;
+            hot-color: Theme.hot;
             folded: root.folded;
-            hovered-elsewhere: icon-touch.has-hover || rule-touch.has-hover;
+            hovered-elsewhere: rest-touch.has-hover;
         }
+        // The rest of the heading's row folds it too
         Rectangle {
             horizontal-stretch: 1;
-            rule-touch := TouchArea { enabled: fold-key != ""; clicked => { Folds.toggle(fold-key); } }
-            Rectangle { height: 1px; width: parent.width; background: Theme.border; }
+            rest-touch := TouchArea { enabled: fold-key != ""; mouse-cursor: fold-key != "" ? pointer : default; clicked => { Folds.toggle(fold-key); } }
         }
     }
     Rectangle {
@@ -361,7 +337,7 @@ export component Section inherits VerticalLayout {
         rows := VerticalLayout {
             width: parent.width;
             height: parent.height;
-            spacing: 8px;
+            spacing: Theme.gap;
             visible: !folded;
             @children
         }

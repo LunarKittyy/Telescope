@@ -167,6 +167,7 @@ export component ColourGradingCard inherits Card {
         quiet: true;
         Rectangle { horizontal-stretch: 1; }
         Switch {
+            hue: root.hue;
             enabled: active;
             y: (parent.height - self.height) / 2;
             checked: compare;
@@ -194,6 +195,7 @@ export component ColourGradingCard inherits Card {
     HorizontalLayout {
         spacing: 8px;
         Segmented {
+            hue: root.hue;
             margin: 0px;
             items: [@tr("Primaries"), @tr("Curves"), @tr("LUT")];
             disabled: [!active, !active, !active];
@@ -328,6 +330,11 @@ export component ColourGradingCard inherits Card {
             value: slider-value[i];
             readout: slider-text[i];
             hue: root.hue;
+            // Temperature, tint and saturation show their range in the track
+            fill: i == 0 || i == 1 || i == 4 ? "gradient" : "plain";
+            grad-a: i == 0 ? #5b9ee8 : i == 1 ? #6fc27a : #8d8d8d;
+            grad-b: i == 0 ? #c4c4c4 : i == 1 ? #c4c4c4 : #c4a483;
+            grad-c: i == 0 ? #ee9d4a : i == 1 ? #d46fc4 : #ee6a3c;
             has-default: true;
             default-value: slider-default[i];
             hint: root.reset-hint;
@@ -340,6 +347,7 @@ export component ColourGradingCard inherits Card {
         spacing: 8px;
         padding-top: 4px;
         Segmented {
+            hue: root.hue;
             margin: 0px;
             items: [@tr("RGB"), @tr("Hue vs sat"), @tr("Hue vs hue")];
             disabled: [!active, !active, !active];
@@ -350,6 +358,7 @@ export component ColourGradingCard inherits Card {
             picked(i) => { root.curve-picked-by-hand(i); }
         }
         if curve == 0: Segmented {
+            hue: root.hue;
             margin: 0px;
             items: [@tr("All"), @tr("Red"), @tr("Green"), @tr("Blue")];
             disabled: [!active, !active, !active, !active];

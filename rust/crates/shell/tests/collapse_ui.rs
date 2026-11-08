@@ -201,12 +201,12 @@ fn a_folded_section_stays_folded_when_its_card_is_folded_and_opened() {
 }
 
 #[test]
-fn the_rule_and_icon_of_a_section_heading_fold_it_too() {
+fn the_rest_of_a_section_headings_row_folds_it_too() {
     let r = rig();
     let light = r.title("Light", 0);
     let (p, s) = (light.absolute_position(), light.size());
-    // The icon sits left of the title and the rule runs from it to the card's edge
-    r.click_at(p.x - 14.0, p.y + s.height / 2.0, PointerEventButton::Left);
+    // Right of the title, out to the card's edge
+    r.click_at(380.0, p.y + s.height / 2.0, PointerEventButton::Left);
     assert!(r.state.borrow().is_folded("p/Things/Light"));
     r.click_at(380.0, p.y + s.height / 2.0, PointerEventButton::Left);
     assert!(!r.state.borrow().is_folded("p/Things/Light"));

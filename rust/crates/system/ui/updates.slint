@@ -129,6 +129,7 @@ export component UpdatesSettings inherits Card {
         HorizontalLayout {
             alignment: end;
             Switch {
+                hue: root.hue;
                 y: (parent.height - self.height) / 2;
                 checked: auto;
                 label: @tr("Check daily");
@@ -142,6 +143,7 @@ export component UpdatesSettings inherits Card {
         HorizontalLayout {
             spacing: 10px;
             Switch {
+                hue: root.hue;
                 y: (parent.height - self.height) / 2;
                 checked: portable;
                 label: @tr("Keep this copy where it is");
