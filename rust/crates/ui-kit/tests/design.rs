@@ -76,22 +76,19 @@ fn every_exported_widget_says_its_kind() {
 /// Where a card still draws its own control (a bordered Rectangle or a TouchArea), by file: (borders, touch areas). These
 /// are what's left to move into the kit, one card at a time; the numbers may only go down. A new file isn't on the list.
 const OWN_CONTROLS: &[(&str, usize, usize)] = &[
-    ("audio/ui/microphone.slint", 2, 1),
-    ("effects/ui/cinema.slint", 0, 1),
+    ("audio/ui/microphone.slint", 0, 1),
     ("effects/ui/composite_editor.slint", 8, 3),
-    ("effects/ui/pad.slint", 1, 1),
     ("effects/ui/parts.slint", 2, 1),
     ("effects/ui/qr_reader.slint", 0, 1),
-    ("outputs/ui/stream_output.slint", 1, 1),
-    ("setup/ui/parts.slint", 2, 2),
+    ("setup/ui/parts.slint", 1, 2),
     ("setup/ui/setup.slint", 0, 1),
     ("shell/ui/cards/camera.slint", 1, 1),
     ("shell/ui/cards/onboarding.slint", 1, 0),
     ("shell/ui/cards/presets.slint", 1, 1),
-    ("shell/ui/cards/preview.slint", 2, 1),
+    ("shell/ui/cards/preview.slint", 1, 1),
     ("shell/ui/frame.slint", 1, 1),
     ("shell/ui/preview.slint", 2, 1),
-    ("shell/ui/settings.slint", 5, 7),
+    ("shell/ui/settings.slint", 3, 6),
     ("system/ui/mcp.slint", 2, 1),
     ("system/ui/shortcuts.slint", 3, 2),
     ("system/ui/updates.slint", 0, 1),
@@ -228,6 +225,26 @@ fn a_lone_on_off_setting_is_a_switch_row_not_a_toggle_tile() {
             if tiles == 1 && !grouped {
                 problems.push(format!("{}: a RailRow holds one ToggleTile on its own: use a Switch in the row (ToggleTiles are for groups)", file.display()));
             }
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+/// Files outside the kit that may use the filled violet (`Theme.fill`): a step's done mark, which is a status and not a selection.
+const FILLED: &[&str] = &["shell/ui/cards/onboarding.slint"];
+
+#[test]
+fn no_card_marks_a_selection_with_a_fill() {
+    // A picked option is the thick outline in the card's colour over a muted inside (the kit's Segmented, ToggleTile and the rest), never
+    // the filled violet that joined button pairs and the settings' tabs used to wear. Only the one filled button, in the kit, has it.
+    let mut files = Vec::new();
+    slint_files(&crates(), &mut files);
+    let mut problems = Vec::new();
+    for file in files {
+        let rel = file.strip_prefix(crates()).unwrap().to_string_lossy().replace('\\', "/");
+        let text = std::fs::read_to_string(&file).unwrap();
+        if (text.contains("Theme.fill") || text.contains("Theme.surface-selected")) && !FILLED.contains(&rel.as_str()) {
+            problems.push(format!("{rel} fills something with Theme.fill: mark a picked option with the kit's outline instead"));
         }
     }
     assert!(problems.is_empty(), "{}", problems.join("\n"));
