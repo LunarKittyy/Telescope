@@ -367,6 +367,8 @@ pub trait HostShell {
     /// Whether every card gets its group's colour (true) or the accent colour (theme.set_plugin_hues). A host without a
     /// window ignores it.
     fn set_plugin_hues(&mut self, _on: bool) {}
+    /// Whether the window draws the Classic theme (the deep blue of 5.0) instead of the new look. A host without a window ignores it.
+    fn set_classic_theme(&mut self, _on: bool) {}
     /// Asks the person for a file or folder. Event::RequestDone says how it went: ok with data {"path", "filter"} for
     /// the pick, not ok with an empty message when it was cancelled. None on a host that can't show a dialog.
     fn pick_file(&mut self, _dialog: &FileDialog) -> Option<RequestId> {

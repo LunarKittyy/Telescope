@@ -1257,6 +1257,10 @@ impl Window {
                 let _ = self.ui.set_global_property("Theme", "own-hues", SValue::Bool(on));
                 crate::settings::set_hues(on);
             }
+            Effect::ClassicTheme(on) => {
+                let _ = self.ui.set_global_property("Theme", "classic", SValue::Bool(on));
+                crate::settings::set_classic(on);
+            }
             Effect::RestartCanvas { plugin, request, shows_command } => self.restart_canvas(&plugin, request, shows_command),
             Effect::RemoveExtras { plugin, request } => self.remove_extras(&plugin, request),
             Effect::TakeStill { plugin, request, source, options, folder } => self.take_still(&plugin, request, &source, &options, &folder),

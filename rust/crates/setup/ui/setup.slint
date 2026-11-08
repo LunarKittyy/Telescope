@@ -70,6 +70,7 @@ export component VirtualCameraSettings inherits Card {
             sub: persist-text;
             sub-kind: persist-kind;
             Switch {
+                hue: root.hue;
                 checked <=> root.persist-checked;
                 enabled: root.persist-enabled;
                 label: @tr("Load when the computer starts");
@@ -171,6 +172,7 @@ export component VideoSettings inherits Card {
             title: @tr("Hardware acceleration");
             sub: hw-line;
             Switch {
+                hue: root.hue;
                 checked <=> root.hw-checked;
                 enabled: root.hw-enabled;
                 label: @tr("Hardware acceleration");
@@ -187,6 +189,7 @@ export component VideoSettings inherits Card {
             title: @tr("Power-saving effects");
             sub: @tr("Background and Auto framing update less often");
             Switch {
+                hue: root.hue;
                 checked <=> root.saving-checked;
                 label: @tr("Power-saving effects");
                 tip: @tr("Uses less of the processor and battery while Background or Auto framing is on. They follow quick moves a little later.");
@@ -278,6 +281,7 @@ export component MicrophoneLimits inherits Card {
         tip: @tr("How far the Gain slider goes. Less range gives finer steps; more helps a quiet phone.");
         StripTop { title: @tr("Max gain"); bare: true; }
         Segmented {
+            hue: root.hue;
             margin: 0px;
             label: @tr("Max gain");
             items: root.gain-items;
@@ -293,6 +297,7 @@ export component MicrophoneLimits inherits Card {
             title: @tr("Limiter");
             sub: @tr("Keeps loud sounds from clipping");
             Switch {
+                hue: root.hue;
                 checked <=> root.limiter-checked;
                 label: @tr("Limiter");
                 toggled(on) => { root.limiter-toggled(on); }
@@ -367,11 +372,13 @@ export component PhoneAppSettings inherits Card {
 // Look, on General: card colours and the language
 export component LookSettings inherits Card {
     in-out property <int> hues-current;
+    in-out property <int> theme-current;
     in property <[string]> lang-items;
     in-out property <int> lang-current;
     in property <bool> lang-restart;
     in property <string> help-text;
     callback hues-picked(int);
+    callback theme-picked(int);
     callback lang-picked(int);
     callback restart-clicked;
     callback translate-clicked;
@@ -382,11 +389,25 @@ export component LookSettings inherits Card {
     hue: Theme.plugin-hue("streaming");
 
     Strip {
+        title: @tr("Theme");
+        keywords: @tr("search" => "theme classic dark blue appearance look old");
+        StripTop { title: @tr("Theme"); bare: true; }
+        Segmented {
+            margin: 0px;
+            hue: root.hue;
+            label: @tr("Theme");
+            items: [@tr("Default"), @tr("Classic")];
+            current <=> root.theme-current;
+            picked(i) => { root.theme-current = i; root.theme-picked(i); }
+        }
+    }
+    Strip {
         title: @tr("Card colours");
         keywords: @tr("search" => "color colour theme appearance monochrome colourful purple hue accent look");
         tip: @tr("Every card in the main window gets its own colour.");
         StripTop { title: @tr("Card colours"); bare: true; }
         Segmented {
+            hue: root.hue;
             margin: 0px;
             label: @tr("Card colours");
             // Qt has this on the Colourful segment alone; the kit's segments have no tooltips of their own

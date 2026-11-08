@@ -158,6 +158,11 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
     }, setup.services, None);
     EVERY_OPTIONAL.with(|e| e.set(false));
     let w = w?;
+    // SCENES_CLASSIC=1 draws every scene in the Classic theme
+    if std::env::var_os("SCENES_CLASSIC").is_some() {
+        let _ = w.ui.set_global_property("Theme", "classic", slint_interpreter::Value::Bool(true));
+        crate::settings::set_classic(true);
+    }
     settle(&w);
     if let Some(then) = setup.then {
         then(&w);

@@ -201,6 +201,8 @@ pub struct FakeHost {
     pub report: String,
     /// What set_plugin_hues last said (None until it's called).
     pub plugin_hues: Option<bool>,
+    /// What set_classic_theme last said (None until it's called).
+    pub classic_theme: Option<bool>,
     /// What set_power_saving last said (None until it's called).
     pub power_saving: Option<bool>,
     /// Runs inside stop_stream, for a test that looks at what the plugin holds at that moment.
@@ -472,6 +474,10 @@ impl HostShell for FakeHost {
     fn set_plugin_hues(&mut self, on: bool) {
         self.note(format!("set_plugin_hues {on}"));
         self.plugin_hues = Some(on);
+    }
+    fn set_classic_theme(&mut self, on: bool) {
+        self.note(format!("set_classic_theme {on}"));
+        self.classic_theme = Some(on);
     }
     fn pick_file(&mut self, dialog: &FileDialog) -> Option<RequestId> {
         self.note(format!("pick_file {:?} {}", dialog.kind, dialog.title));

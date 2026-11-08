@@ -96,6 +96,7 @@ export component StatsCard inherits Card {
     icon: Icons.chip;
 
     Segmented {
+        hue: root.hue;
         items: [view-standard, view-nerd];
         disabled: [false, false];
         has-icons: [false, false];

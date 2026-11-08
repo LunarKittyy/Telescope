@@ -699,11 +699,12 @@ fn setup_plugin_canvas_config() {
 fn setup_plugin_config_round_trip() {
     let mut r = Rig::linux();
     let cfg = json!({"canvas_preset": "Custom...", "custom_canvas_w": 2048, "custom_canvas_h": 1536, "max_zoom": 15, "max_gain": 36,
-                     "limiter": false, "hw_decode": true, "power_saving": true, "plugin_hues": false, "language": "sv"});
+                     "limiter": false, "hw_decode": true, "power_saving": true, "plugin_hues": false, "classic_theme": true, "language": "sv"});
     r.plugin.set_config(&cfg).unwrap();
     assert_eq!(r.plugin.get_config(), cfg);
     r.plugin.on_plugins_ready(&mut r.host);
     assert_eq!(r.host.plugin_hues, Some(false));
+    assert_eq!(r.host.classic_theme, Some(true));
 }
 
 #[test]
@@ -827,6 +828,18 @@ fn setup_dialog_canvas_dimension_selection_and_result_messages() {
     assert_eq!(r.plugin.panel.canvas_status.clone().unwrap().text, "Failed: permission denied");
     r.plugin.set_canvas_apply_result(true, "ok", "");
     assert!(r.plugin.panel.canvas_status.clone().unwrap().text.contains("Done"));
+}
+
+#[test]
+fn the_theme_applies_and_saves() {
+    let mut r = Rig::linux();
+    assert_eq!(r.plugin.look_props()["theme-current"], json!(0));
+    r.ui("look", "theme-picked", vec![json!(1)]);
+    assert_eq!(r.host.classic_theme, Some(true));
+    assert_eq!(r.plugin.get_config()["classic_theme"], json!(true));
+    assert_eq!(r.plugin.look_props()["theme-current"], json!(1));
+    r.ui("look", "theme-picked", vec![json!(0)]);
+    assert_eq!(r.host.classic_theme, Some(false));
 }
 
 #[test]

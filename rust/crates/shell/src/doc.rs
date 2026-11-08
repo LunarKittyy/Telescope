@@ -340,7 +340,6 @@ const HEADER: &str = r#"
         width: root.width;
         height: 60px;
         background: Theme.chrome;
-        Rectangle { y: parent.height - 1px; height: 1px; background: Theme.border; }
         HorizontalLayout {
             padding-left: 16px;
             padding-right: 16px;
@@ -754,7 +753,6 @@ const SETTINGS_RAIL: &str = r#"    Rectangle {
         width: 236px;
         height: root.height;
         background: Theme.chrome;
-        Rectangle { x: parent.width - 1px; width: 1px; background: Theme.border; }
         search := TextField {
             x: 10px;
             y: 14px;

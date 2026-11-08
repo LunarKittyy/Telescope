@@ -1,55 +1,129 @@
-// Palette and type, sized as Qt drew them: points at 96 dpi, so 1pt = 4/3 px.
+// Colours, type, radii and spacing. Read rust/crates/ui-kit/DESIGN.md before adding to it.
+// Two looks share one set of tokens: the new one and Classic (the deep blue of 5.0). A token has one value per look.
+// Sizes: text from `body`, corners from `radius`, gaps from `unit`. Nothing outside this file spells a size.
 
 export global Theme {
-    out property <color> bg: #0f1216;
-    out property <color> surface: #161a20;
-    out property <color> surface-raise: #1d222a;
-    out property <color> surface-hover: #242a33;
-    out property <color> surface-sunk: #0a0c0f;
-    out property <color> chrome: #121519;
-    out property <color> border: #232932;
-    out property <color> border-strong: #2f3641;
-    out property <color> border-hover: #4a5462;
-    out property <color> text: #e7eaef;
-    out property <color> text-hover: #74777a;
-    out property <color> text-dim: #a1abb8;
-    out property <color> text-faint: #7a8491;
-    out property <color> text-disabled: #525b67;
+    // Set by the window from Appearance: true draws Classic
+    in-out property <bool> classic: false;
+
+    // Surfaces, darkest to lightest
+    out property <color> stage: classic ? #0a0c0f : #0d0d0d;
+    out property <color> chrome: classic ? #121519 : #141414;
+    out property <color> ground: classic ? #0f1216 : #1b1b1b;
+    out property <color> trough: classic ? #0f1216 : #1a1a1a;
+    out property <color> card: classic ? #161a20 : #242424;
+    out property <color> raise: classic ? #1d222a : #303030;
+    out property <color> hover: classic ? #242a33 : #3a3a3a;
+    out property <color> sel: classic ? #2f3641 : #3b3b3b;
+
+    // Lines: only where one splits meaning, never a box round everything
+    out property <color> line: classic ? #232932 : #333333;
+    out property <color> line-strong: classic ? #2f3641 : #4a4a4a;
+    out property <color> line-hover: classic ? #4a5462 : #5c5c5c;
+
+    // Ink
+    out property <color> ink: classic ? #e7eaef : #eeeeee;
+    out property <color> ink2: classic ? #a1abb8 : #d9d9d9;
+    out property <color> faint: classic ? #7a8491 : #c8c8c8;
+    out property <color> dis: classic ? #525b67 : #6f6f6f;
+    out property <color> hot: classic ? #74777a : #ffffff;
+    out property <color> dim: classic ? #8792a0 : #b8b8b8;
+
+    // Accent: links and the focus ring. Fill: the one filled button (Start streaming) and a lit switch's glyph
     out property <color> accent: #aa9cf5;
     out property <color> accent-soft: #cdc4fa;
-    out property <color> fill: #6a58cf;
-    out property <color> fill-hover: #7867dc;
-    out property <color> fill-press: #5b4bb8;
-    out property <color> ok: #5fc98c;
-    out property <color> warn: #f0b65c;
-    out property <color> err: #ef6f6b;
-    // PLUGIN_HUES["camera"], the Camera card's mint
-    out property <color> hue-camera: #7fd3c4;
-    out property <color> dim: #8792a0;
+    out property <color> fill: classic ? #6a58cf : #7566d6;
+    out property <color> fill-hover: classic ? #7867dc : #8677e4;
+    out property <color> fill-press: classic ? #5b4bb8 : #6558c2;
+
+    // Status
+    out property <color> ok: classic ? #5fc98c : #79bf8e;
+    out property <color> warn: classic ? #f0b65c : #ef8a4e;
+    out property <color> err: classic ? #ef6f6b : #ec6b69;
+
+    // Old names for the tokens above, so a card not yet moved over still draws in the right look
+    out property <color> bg: ground;
+    out property <color> surface: card;
+    out property <color> surface-raise: raise;
+    out property <color> surface-hover: hover;
+    out property <color> surface-sunk: stage;
+    out property <color> border: line;
+    out property <color> border-strong: line-strong;
+    out property <color> border-hover: line-hover;
+    out property <color> text: ink;
+    out property <color> text-dim: ink2;
+    out property <color> text-faint: faint;
+    out property <color> text-disabled: dis;
+    out property <color> text-hover: hot;
+    // PLUGIN_HUES["camera"], the Camera card's colour
+    out property <color> hue-camera: plugin-hue("camera");
     // theme.set_plugin_hues: off puts every card back in the accent colour
     in-out property <bool> own-hues: true;
     out property <length> mono-size: 13px;
     out property <string> mono: "monospace";
 
-    // theme.hue: a plugin group's colour (PLUGIN_HUES), the accent for an unknown group or with plugin colours off
+    // The card colours, one per plugin group
+    public pure function plugin-hue(group: string) -> color {
+        !own-hues ? accent
+            : group == "camera" ? (classic ? #7fd3c4 : #4fbcb3)
+            : group == "look" ? (classic ? #e6a6e0 : #dc7ea2)
+            : group == "vision" ? (classic ? #bcd98c : #79bf8e)
+            : group == "preview" ? (classic ? #f2b48c : #e39a5e)
+            : group == "on_screen" ? (classic ? #f2a0bf : #b894dc)
+            : group == "sound" ? (classic ? #e8d08a : #cdb173)
+            : group == "streaming" ? (classic ? #8cc4f2 : #6aa6d8)
+            : group == "extras" ? (classic ? #b9bdcc : #a3abbd) : accent
+    }
+
+    // The colour a control takes while it rests: the card's colour, quietened
+    public pure function muted(hue: color) -> color { hue.mix(card, 0.5) }
+    // A control's edge at rest: the card's colour, a little quietened, so a handle reads against its own fill
+    public pure function edge(hue: color) -> color { hue.mix(card, 0.75) }
+    // The inside of an active control: a little of the card's colour over the card
+    public pure function tint(hue: color) -> color { hue.mix(card, 0.16) }
+
     // Qt lays wrapped lines out its font's ascent and descent apart, each rounded to whole pixels (16px for 13px Inter,
     // where Slint's natural line is 15.73px): a wrapped Text's line-height-factor, so a paragraph doesn't drift off Qt's
     public pure function line-factor(size: length) -> float {
         (round(size * 1984 / 2048 / 1px) + round(size * 494 / 2048 / 1px)) / (size * 2478 / 2048 / 1px)
     }
 
-    public pure function plugin-hue(group: string) -> color {
-        !own-hues ? accent
-            : group == "camera" ? #7fd3c4 : group == "look" ? #e6a6e0 : group == "vision" ? #bcd98c
-            : group == "preview" ? #f2b48c : group == "on_screen" ? #f2a0bf : group == "sound" ? #e8d08a
-            : group == "streaming" ? #8cc4f2 : group == "extras" ? #b9bdcc : accent
-    }
-
     out property <string> font: "Inter";
-    // font-size: 9.75pt for everything unless a rule says otherwise. Qt draws text at whole logical pixels (the point size
-    // times 4/3, rounded), so each size here is that whole number: a fraction would lay lines out a pixel off Qt's
+    // Weights: names and labels are medium, a value or a picked option semibold
+    out property <int> w-label: 500;
+    out property <int> w-value: 600;
+    out property <int> w-title: 600;
+
+    // The one text size. Qt draws text at whole logical pixels, so each size here is a whole number
     in-out property <length> body: 13px;
-    out property <length> small: 12px;        // 9pt
-    out property <length> card-title: 15px;   // 11pt is 14.67px, drawn at 15
-    out property <length> start: 13px;        // 10pt is 13.33px, drawn at 13
+    out property <length> small: round(body * 12 / 13 / 1px) * 1px;
+    out property <length> tiny: round(body * 11 / 13 / 1px) * 1px;
+    out property <length> card-title: round(body * 16 / 13 / 1px) * 1px;
+    out property <length> start: body;
+    // A line icon sits in text this size
+    out property <length> icon: round(body * 16 / 13 / 1px) * 1px;
+    out property <length> icon-small: round(body * 14 / 13 / 1px) * 1px;
+
+    // The one corner radius, and what follows from it
+    in-out property <length> radius: 6px;
+    out property <length> r-ctl: radius;
+    out property <length> r-card: radius * 4 / 3;
+    out property <length> r-handle: radius * 2 / 3;
+    out property <length> r-pill: 1000px;
+
+    // The one spacing unit, and what follows from it
+    in-out property <length> unit: 2px;
+    public pure function u(n: float) -> length { unit * n }
+    out property <length> row: unit * 16;
+    out property <length> gap: unit * 3;
+    out property <length> pad: unit * 8;
+    // The thick outline of an active control
+    out property <length> stroke: unit;
+    // A slider's track thickness
+    out property <length> track: unit * 4;
+    // A slider's handle, and a switch
+    out property <length> handle-w: unit * 7;
+    out property <length> handle-h: unit * 12;
+    out property <length> switch-w: unit * 22;
+    out property <length> switch-h: unit * 12;
 }

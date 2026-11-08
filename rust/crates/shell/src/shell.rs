@@ -138,6 +138,8 @@ pub enum Effect {
     TakeStill { plugin: String, request: RequestId, source: String, options: Value, folder: String },
     /// Host::set_plugin_hues: every card in its group's colour, or all in the accent.
     PluginHues(bool),
+    /// Host::set_classic_theme: the deep blue theme of 5.0, or the new look.
+    ClassicTheme(bool),
     /// Host::restart_vcam_canvas: plugin's request, answered by a RequestDone once the camera is back.
     RestartCanvas { plugin: String, request: RequestId, shows_command: bool },
     /// Host::remove_extra_cameras: plugin's request, answered by a RequestDone.
