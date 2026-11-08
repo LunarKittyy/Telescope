@@ -9,6 +9,8 @@ component WheelCell inherits VerticalLayout {
     in property <string> master-shortcut;
     // The setting id of the master slider, for the outline when something outside the window reads or changes it
     in property <string> master-setting;
+    // The kit fill of the master slider's track: a ramp for lift, gamma, gain or offset
+    in property <string> master-fill: "plain";
     in property <string> hint;
     in property <string> readout;
     in property <float> puck-x;
@@ -54,6 +56,7 @@ component WheelCell inherits VerticalLayout {
             width: parent.width;
             height: parent.height;
             row-height: parent.height;
+            fill: root.master-fill;
             has-readout: false;
             hue: root.hue;
             label: root.name;
@@ -241,6 +244,7 @@ export component ColourGradingCard inherits Card {
                 master-tip: master-tips[0];
                 master-shortcut: "colour_grading.lift_master";
                 master-setting: "colour_grading.masters.lift";
+                master-fill: "lift";
                 hint: root.reset-hint;
                 readout: master-text[0];
                 puck-x: wheel-x[0]; puck-y: wheel-y[0]; puck-colour: wheel-colour[0];
@@ -261,6 +265,7 @@ export component ColourGradingCard inherits Card {
                 master-tip: master-tips[1];
                 master-shortcut: "colour_grading.gamma_master";
                 master-setting: "colour_grading.masters.gamma";
+                master-fill: "gamma";
                 hint: root.reset-hint;
                 readout: master-text[1];
                 puck-x: wheel-x[1]; puck-y: wheel-y[1]; puck-colour: wheel-colour[1];
@@ -284,6 +289,7 @@ export component ColourGradingCard inherits Card {
                 master-tip: master-tips[2];
                 master-shortcut: "colour_grading.gain_master";
                 master-setting: "colour_grading.masters.gain";
+                master-fill: "gain";
                 hint: root.reset-hint;
                 readout: master-text[2];
                 puck-x: wheel-x[2]; puck-y: wheel-y[2]; puck-colour: wheel-colour[2];
@@ -304,6 +310,7 @@ export component ColourGradingCard inherits Card {
                 master-tip: master-tips[3];
                 master-shortcut: "colour_grading.offset_master";
                 master-setting: "colour_grading.masters.offset";
+                master-fill: "offset";
                 hint: root.reset-hint;
                 readout: master-text[3];
                 puck-x: wheel-x[3]; puck-y: wheel-y[3]; puck-colour: wheel-colour[3];
@@ -330,8 +337,8 @@ export component ColourGradingCard inherits Card {
             value: slider-value[i];
             readout: slider-text[i];
             hue: root.hue;
-            // Temperature, tint and saturation show their range in the track
-            fill: i == 0 || i == 1 || i == 4 ? "gradient" : "plain";
+            // Each slider's track shows what it does: colours for temperature, tint and saturation, greys or stripes for the tones
+            fill: i == 0 || i == 1 || i == 4 ? "gradient" : i == 2 ? "contrast" : i == 3 ? "pivot" : i == 5 ? "vibrance" : i == 6 ? "shadows" : "highlights";
             grad-a: i == 0 ? #5b9ee8 : i == 1 ? #6fc27a : #8d8d8d;
             grad-b: i == 0 ? #c4c4c4 : i == 1 ? #c4c4c4 : #c4a483;
             grad-c: i == 0 ? #ee9d4a : i == 1 ? #d46fc4 : #ee6a3c;

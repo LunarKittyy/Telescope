@@ -135,3 +135,40 @@ fn cards_outside_the_kit_draw_no_controls_of_their_own() {
     }
     assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
+
+/// The fills STYLE.md lists under Sliders: the backticked names before the colon of each bullet.
+fn listed_fills() -> Vec<String> {
+    let guide = std::fs::read_to_string(kit().join("STYLE.md")).expect("STYLE.md");
+    let section = guide.split("## Sliders").nth(1).expect("a Sliders section");
+    let section = section.split("\n## ").next().unwrap();
+    let mut out = Vec::new();
+    for line in section.lines().filter(|l| l.starts_with("- `")) {
+        let head = line.split(':').next().unwrap();
+        out.extend(head.split('`').skip(1).step_by(2).filter(|n| n.chars().all(|c| c.is_ascii_lowercase())).map(str::to_string));
+    }
+    out
+}
+
+#[test]
+fn cards_name_a_listed_fill_and_every_listed_fill_has_a_look() {
+    let fills = listed_fills();
+    assert!(fills.len() >= 11, "STYLE.md lists the fills: {fills:?}");
+    let ramps = std::fs::read_to_string(kit().join("ui/widgets/fills.slint")).unwrap();
+    for f in &fills {
+        // plain is the card's colour, gradient and vibrance have their own stops, contrast its own component, the rest are greys
+        let known = matches!(f.as_str(), "plain" | "gradient" | "vibrance" | "contrast") || ramps.contains(&format!("kind == \"{f}\""));
+        assert!(known, "STYLE.md lists the fill {f}, which fills.slint doesn't draw");
+    }
+    let mut files = Vec::new();
+    slint_files(&crates(), &mut files);
+    for file in files {
+        let text = std::fs::read_to_string(&file).unwrap();
+        for part in text.split("fill:").skip(1) {
+            // The strings in the value, as in `fill: i == 0 ? "gradient" : "plain";`
+            let value = part.split(';').next().unwrap();
+            for name in value.split('"').skip(1).step_by(2) {
+                assert!(fills.iter().any(|f| f == name), "{} asks for the fill {name}, which STYLE.md doesn't list", file.display());
+            }
+        }
+    }
+}

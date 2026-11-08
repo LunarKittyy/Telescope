@@ -5,10 +5,12 @@ import { Reveal } from "folds.slint";
 import { FocusRing, KeyFocus, TouchRing } from "basics.slint";
 import { TipBody, TipUse } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
+import { Fills, RampFill, ZebraFill } from "fills.slint";
 
 // Kind "slider", one anatomy for every slider: a track, a handle, the value on the right and, when it goes both ways, a tick at the
-// centre. Only the fill varies: "plain" is the card's colour up to the handle, "gradient" the range's own colours along the whole
-// track, with the handle taking the colour under it. Everything is muted at rest and takes its full colour while held, handle too.
+// centre. Only the fill varies, by name: "plain" is the card's colour up to the handle, "gradient" the range's own colours along the
+// whole track with the handle taking the colour under it, and the named ramps of fills.slint (shadows, highlights, contrast, vibrance,
+// pivot, lift, gamma, gain, offset). Everything is muted at rest and takes its full colour while held, handle too.
 export component Slider inherits HorizontalLayout {
     in property <float> minimum: 0;
     in property <float> maximum: 100;
@@ -23,7 +25,7 @@ export component Slider inherits HorizontalLayout {
     in property <string> readout;
     in property <string> label;
     in property <color> hue: Theme.accent;
-    // "plain" or "gradient"; a gradient runs grad-a, grad-b, grad-c along the track (a temperature slider: blue, grey, orange)
+    // "plain", "gradient" or a name from fills.slint; a gradient runs grad-a, grad-b, grad-c along the track (a temperature slider: blue, grey, orange)
     in property <string> fill: "plain";
     in property <color> grad-a: Theme.ink2;
     in property <color> grad-b: Theme.ink2;
@@ -80,7 +82,7 @@ export component Slider inherits HorizontalLayout {
         // Held: the finger or key is on it, and it takes its full colour
         property <bool> held: dragging && touch.pressed;
         // The colour under the handle: the card's, or the gradient's at that spot
-        property <color> under: fill == "gradient" ? (fraction < 0.5 ? grad-a.mix(grad-b, 1 - fraction * 2) : grad-b.mix(grad-c, 1 - (fraction - 0.5) * 2)) : hue;
+        property <color> under: Fills.colours-handle(fill) ? Fills.at(fill, fraction, grad-a, grad-b, grad-c) : hue;
         property <float> fraction: (shown - minimum) / max(0.0001, maximum - minimum);
         // The value a dragged handle at `v` sticks to: the first mark within reach, else itself
         function snapped(v: float) -> float {
@@ -127,11 +129,14 @@ export component Slider inherits HorizontalLayout {
                 border-radius: Theme.track / 2;
                 background: track.held ? hue : Theme.muted(hue);
             }
-            if enabled && fill == "gradient": Rectangle {
-                border-radius: Theme.track / 2;
-                background: @linear-gradient(90deg, grad-a 0%, grad-b 50%, grad-c 100%);
+            if enabled && Fills.is-ramp(fill): RampFill {
+                kind: fill;
+                ga: grad-a;
+                gb: grad-b;
+                gc: grad-c;
             }
-            if enabled && fill == "gradient": Rectangle {
+            if enabled && fill == "contrast": ZebraFill { }
+            if enabled && fill != "plain": Rectangle {
                 border-radius: Theme.track / 2;
                 background: Theme.card;
                 opacity: track.held ? 0 : 0.5;

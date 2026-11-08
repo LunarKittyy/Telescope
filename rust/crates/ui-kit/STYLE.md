@@ -97,10 +97,16 @@ A menu button is always a `picker`: the value and a chevron, never "..." in a la
 
 ## Sliders
 
-One anatomy for every slider: a track, a handle, the value on the right, and a tick at the centre when the slider goes both ways (a range that crosses zero, or `two-way`). Only the fill varies, from a fixed list:
+One anatomy for every slider: a track, a handle, the value on the right, and a tick at the centre when the slider goes both ways (a range that crosses zero, or `two-way`). Only the fill varies, by name, from a fixed list in `ui/widgets/fills.slint`. A card names a fill, it never draws one. Every fill has the same rounded ends as the track.
 
 - `plain`: the card's colour from the start of the track up to the handle.
-- `gradient`: the range's own colours along the whole track (`grad-a`, `grad-b`, `grad-c`), the handle taking the colour under it. Colour grading's temperature, tint and saturation use this.
+- `gradient`: the range's own colours along the whole track (`grad-a`, `grad-b`, `grad-c`), the handle taking the colour under it. Temperature, tint and saturation.
+- `vibrance`: pastels that grow more saturated to the right, the handle taking the colour under it.
+- `shadows` (black to grey), `highlights` (grey to white), `pivot` (black to white, so the handle marks the brightness contrast turns around).
+- `lift` (dark), `gamma` (mid), `gain` (bright), `offset` (a plain grey ramp): the four sliders under the colour wheels.
+- `contrast`: flat grey that fades into 45 degree black and white stripes, ending on a white one.
+
+The grey ramps keep the card's colour on the handle, since black or white would vanish into the track.
 
 At rest everything is muted: the fill and the handle's border in the quietened colour, the handle's inside in the card's. While the slider is held its full colour comes up, handle included, and dims when it is let go. A simple colour change for now; the animations are a later pass.
 
