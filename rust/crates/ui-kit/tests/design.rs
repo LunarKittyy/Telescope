@@ -1,4 +1,4 @@
-//! DESIGN.md's rules, checked: every kit widget says its kind, and cards outside the kit don't draw controls of their own.
+//! STYLE.md's rules, checked: every kit widget says its kind, and cards outside the kit don't draw controls of their own.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -11,9 +11,9 @@ fn crates() -> PathBuf {
     kit().join("..")
 }
 
-/// The kinds DESIGN.md lists in its table: the backticked name that starts each row.
+/// The kinds STYLE.md lists in its table: the backticked name that starts each row.
 fn listed_kinds() -> Vec<String> {
-    let guide = std::fs::read_to_string(kit().join("DESIGN.md")).expect("DESIGN.md");
+    let guide = std::fs::read_to_string(kit().join("STYLE.md")).expect("STYLE.md");
     let table = guide.split("## Control kinds").nth(1).expect("a Control kinds section");
     let table = table.split("\n## ").next().unwrap();
     table.lines().filter_map(|l| l.strip_prefix("| `")).filter_map(|l| l.split('`').next()).map(str::to_string).collect()
@@ -37,7 +37,7 @@ fn slint_files(dir: &Path, out: &mut Vec<PathBuf>) {
 #[test]
 fn every_exported_widget_says_its_kind() {
     let kinds = listed_kinds();
-    assert!(kinds.len() > 10, "DESIGN.md lists its kinds: {kinds:?}");
+    assert!(kinds.len() > 10, "STYLE.md lists its kinds: {kinds:?}");
     let mut missing = Vec::new();
     let mut used = std::collections::BTreeSet::new();
     let mut files: Vec<_> = std::fs::read_dir(kit().join("ui/widgets")).unwrap().flatten().map(|e| e.path()).collect();
@@ -63,14 +63,14 @@ fn every_exported_widget_says_its_kind() {
                 Some(kind) if kinds.iter().any(|k| k == kind) => {
                     used.insert(kind.to_string());
                 }
-                Some(kind) => missing.push(format!("{}: {name} says kind \"{kind}\", which DESIGN.md doesn't list", file.display())),
+                Some(kind) => missing.push(format!("{}: {name} says kind \"{kind}\", which STYLE.md doesn't list", file.display())),
                 None => missing.push(format!("{}: {name} has no control-kind", file.display())),
             }
         }
     }
     assert!(missing.is_empty(), "{}", missing.join("\n"));
     let unused: Vec<_> = kinds.iter().filter(|k| !used.contains(*k)).collect();
-    assert!(unused.is_empty(), "DESIGN.md lists kinds no widget says: {unused:?}");
+    assert!(unused.is_empty(), "STYLE.md lists kinds no widget says: {unused:?}");
 }
 
 /// Where a card still draws its own control (a bordered Rectangle or a TouchArea), by file: (borders, touch areas). These
