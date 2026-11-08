@@ -205,8 +205,11 @@ export component CameraCard inherits Card {
     }
     // Always there, dim in Auto and lit in Manual. One above the other: side by side a dial is too narrow to say 1/8000 or 12800 in full
     RailRow {
-        has-icon: false;
-        enabled: active;
+        icon: Icons.grain;
+        label: "ISO";
+        tip-detail: iso-enabled ? @tr("Higher ISO makes the picture brighter but grainier.") : exposure-tips[1] != "" ? exposure-tips[1] : @tr("Set Exposure to Manual to use this");
+        hue: root.hue;
+        enabled: active && iso-enabled;
         Dial {
             shortcut: "camera.iso";
             label: "ISO";
@@ -220,8 +223,11 @@ export component CameraCard inherits Card {
         }
     }
     RailRow {
-        has-icon: false;
-        enabled: active;
+        icon: Icons.timer;
+        label: @tr("Shutter");
+        tip-detail: shutter-enabled ? @tr("Slower shutter speeds make the picture brighter but blur movement.") : exposure-tips[1] != "" ? exposure-tips[1] : @tr("Set Exposure to Manual to use this");
+        hue: root.hue;
+        enabled: active && shutter-enabled;
         Dial {
             shortcut: "camera.shutter";
             label: @tr("Shutter");

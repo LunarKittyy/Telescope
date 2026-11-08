@@ -1,6 +1,6 @@
 // The video stage (plugins/preview.py): the letterboxed picture and the toolbar under it, no card chrome.
 
-import { Theme, Icons, Icon, IconButton, ToggleTile } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, IconButton, ToggleTile, Arrival } from "@ui-kit/ui-kit.slint";
 import { PreviewMarks, PreviewPick, LensOutline, SkeletonLine } from "../../shell/preview.slint";
 
 // A shape a plugin draws on the preview (add_preview_layer), in px of the picture's rect
@@ -90,12 +90,19 @@ export component PreviewCard inherits Rectangle {
             background: Theme.stage;
             accessible-role: image;
             accessible-label: @tr("Preview");
-            if has-frame: Image {
+            // The first picture takes the idle text's place in one frame and comes up to full
+            if has-frame: Rectangle {
                 width: parent.width;
                 height: parent.height;
-                source: frame;
-                image-fit: contain;
-                image-rendering: smooth;
+                opacity: arrival.solid;
+                arrival := Arrival { }
+                Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: frame;
+                    image-fit: contain;
+                    image-rendering: smooth;
+                }
             }
             if has-frame && has-overlay: Image {
                 width: parent.width;

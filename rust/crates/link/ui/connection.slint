@@ -202,20 +202,30 @@ export component ConnectionCard inherits Card {
     extra-tip-detail: @tr("Open or close the step-by-step guide for the virtual camera, the phone app and pairing.");
     extra => { root.guide(); }
 
+    // A dialog the card closes eases out first (`leave()`), and its pop-up goes in `left`; one that a press beside it dismissed has
+    // eased out already and goes at once
+    property <bool> add-up;
+    property <bool> add-going;
+    property <bool> vcam-up;
+    property <bool> vcam-going;
     changed add-open => {
         if (self.add-open) {
             self.add-page = 0;
+            self.add-up = true;
             add-popup.show();
-        } else {
-            add-popup.close();
+        } else if (self.add-up) {
+            self.add-going = true;
+            add-frame.leave();
         }
     }
 
     changed vcam-open => {
         if (self.vcam-open) {
+            self.vcam-up = true;
             vcam-popup.show();
-        } else {
-            vcam-popup.close();
+        } else if (self.vcam-up) {
+            self.vcam-going = true;
+            vcam-frame.leave();
         }
     }
 
@@ -306,7 +316,8 @@ export component ConnectionCard inherits Card {
             height: WindowBox.cap(self.preferred-height);
             dismissable: true;
             // A pairing with its code showing isn't lost to a stray click: that takes Back or Done
-            dismissed => { if (paired || qr-size == 0) { root.add-closed(); } }
+            dismissed => { if (paired || qr-size == 0) { root.add-up = false; add-popup.close(); root.add-closed(); } }
+            left => { if (root.add-going) { root.add-going = false; root.add-up = false; add-popup.close(); } }
             property <bool> on-source: other-name != "" && !paired && add-page == 1;
             title: @tr("Add a phone");
             if other-name != "" && !paired: Segmented {
@@ -436,7 +447,8 @@ export component ConnectionCard inherits Card {
             width: max(root.width, Theme.u(230));
             height: self.preferred-height;
             dismissable: true;
-            dismissed => { root.vcam-answered(false, false); }
+            dismissed => { root.vcam-up = false; vcam-popup.close(); root.vcam-answered(false, false); }
+            left => { if (root.vcam-going) { root.vcam-going = false; root.vcam-up = false; vcam-popup.close(); } }
             title: @tr("Set up the virtual camera");
             Note { text: @tr("Telescope needs to switch on its virtual camera first. This asks for your password."); kind: ""; }
             HorizontalLayout {
@@ -506,11 +518,15 @@ export component PhonePicker inherits HorizontalLayout {
         name-text = text;
     }
 
+    property <bool> phones-up;
+    property <bool> phones-going;
     changed phones-open => {
         if (self.phones-open) {
+            self.phones-up = true;
             phones-popup.show();
-        } else {
-            phones-popup.close();
+        } else if (self.phones-up) {
+            self.phones-going = true;
+            phones-frame.leave();
         }
     }
 
@@ -565,7 +581,8 @@ export component PhonePicker inherits HorizontalLayout {
                 width: Theme.u(230);
                 height: self.preferred-height;
                 dismissable: true;
-                dismissed => { root.phones-closed(); }
+                dismissed => { root.phones-up = false; phones-popup.close(); root.phones-closed(); }
+                left => { if (root.phones-going) { root.phones-going = false; root.phones-up = false; phones-popup.close(); } }
                 title: @tr("Your devices");
                 // A heading for each group, then its rows: no cards inside a dialog
                 HorizontalLayout {

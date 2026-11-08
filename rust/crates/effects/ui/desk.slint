@@ -111,19 +111,14 @@ export component DeskCard inherits Card {
                 height: Theme.u(11);
                 border-radius: Theme.u(1.5);
                 background: !active ? Theme.dis : i == 0 ? #cbc5b4 : i == 1 ? #f2eee2 : #ffffff;
-                // Writing on the page: faint and bluish as it comes, dark blue once brought out, black on white for black and white
-                Path {
+                // Three short lines of writing on the page: faint and bluish as it comes, dark blue once brought out, black on white for black and white
+                for line[l] in [0, 1, 2]: Rectangle {
                     x: Theme.u(2.5);
-                    y: Theme.u(2);
-                    width: parent.width - Theme.u(5);
-                    height: parent.height - Theme.u(4);
-                    viewbox-width: 36;
-                    viewbox-height: 14;
-                    commands: "M 0 7 C 4 0 8 14 12 7 S 20 0 24 7 S 32 14 36 7";
-                    stroke: !active ? Theme.trough : i == 0 ? #8b94a4 : i == 1 ? #1c2a4a : #000000;
-                    stroke-width: i == 0 ? 1.2px : i == 1 ? 1.6px : 2px;
-                    stroke-line-cap: round;
-                    fill: transparent;
+                    y: Theme.u(2.5) + l * Theme.u(2.5);
+                    width: l == 0 ? parent.width - Theme.u(5) : l == 1 ? Theme.u(10) : Theme.u(6.5);
+                    height: Theme.u(1);
+                    border-radius: Theme.u(0.5);
+                    background: !active ? Theme.trough : i == 0 ? #8b94a4 : i == 1 ? #1c2a4a : #000000;
                 }
             }
         }
@@ -147,7 +142,7 @@ export component DeskCard inherits Card {
             current: shape-current;
             picked(i) => { root.shape-picked(i); }
             for i in 5: Path {
-                property <length> w: i == 0 ? Theme.u(10) : i == 1 ? Theme.u(7) : i == 2 ? Theme.u(8) : i == 3 ? Theme.u(10) : Theme.u(13);
+                property <length> w: i == 0 ? Theme.u(12) : i == 1 ? Theme.u(7) : i == 2 ? Theme.u(8) : i == 3 ? Theme.u(10) : Theme.u(13);
                 property <length> h: i == 4 ? Theme.u(8) : Theme.u(10);
                 x: i * shapes.pitch + (shapes.cell-width - w) / 2;
                 y: (shapes.art-height - h) / 2;
@@ -155,8 +150,8 @@ export component DeskCard inherits Card {
                 height: h;
                 viewbox-width: w / 1px;
                 viewbox-height: h / 1px;
-                // Auto is an outline of a page found by its corners, the rest are the page's own shape
-                commands: i == 0 ? "M 1 " + (h / 1px - 1) + " L " + (w / 2 / 1px) + " 1 L " + (w / 1px - 1) + " " + (h / 1px - 1) + " Z"
+                // Auto is the four corners a page is found by, the rest are the page's own outline
+                commands: i == 0 ? "M 1 5 L 1 1 L 5 1 M " + (w / 1px - 5) + " 1 L " + (w / 1px - 1) + " 1 L " + (w / 1px - 1) + " 5 M " + (w / 1px - 1) + " " + (h / 1px - 5) + " L " + (w / 1px - 1) + " " + (h / 1px - 1) + " L " + (w / 1px - 5) + " " + (h / 1px - 1) + " M 5 " + (h / 1px - 1) + " L 1 " + (h / 1px - 1) + " L 1 " + (h / 1px - 5)
                     : "M 1 1 L " + (w / 1px - 1) + " 1 L " + (w / 1px - 1) + " " + (h / 1px - 1) + " L 1 " + (h / 1px - 1) + " Z";
                 stroke: !active ? Theme.dis : shapes.shown == i ? Theme.ink : Theme.ink2;
                 stroke-width: 1.5px;

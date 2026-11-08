@@ -1,55 +1,35 @@
 // The Presets button in the header (plugins/presets.py): a menu of the saved presets with Save, Rename and Delete under
 // them, and the two questions those ask (a name, and whether to replace a preset). The plugin says which question is open.
 
-import { Theme, Icons, Button, TextField, DialogFrame, WindowBox } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Button, TextField, DialogFrame, DialogButtons, WindowBox, MenuSurface, MenuItem, Motion } from "@ui-kit/ui-kit.slint";
 
-// One line of the menu: a QAction, or a QMenu that opens to the side (the arrow)
-component MenuRow inherits Rectangle {
-    in property <string> text;
+// A row that opens a submenu: the kit's menu row with the arrow at its end
+component SubmenuItem inherits Rectangle {
+    in property <string> title;
     in property <bool> enabled: true;
-    in property <bool> submenu;
-    // The row's submenu is open
-    in property <bool> open;
-    callback clicked;
+    in property <bool> current;
+    callback hovered;
+    callback left;
+    callback activate;
     height: Theme.u(13);
-    border-radius: Theme.u(2.5);
-    background: enabled && (touch.has-hover || open) ? Theme.hover : transparent;
-    accessible-role: button;
-    accessible-label: text;
-    accessible-enabled: enabled;
-    accessible-action-default => { if (enabled) { root.clicked(); } }
-    touch := TouchArea {
+    MenuItem {
+        title: root.title;
         enabled: root.enabled;
-        mouse-cursor: pointer;
-        clicked => { root.clicked(); }
+        current: root.current;
+        hovered => { root.hovered(); }
+        left => { root.left(); }
+        activate => { root.activate(); }
     }
     Text {
-        x: Theme.u(5);
-        width: parent.width - Theme.u(10) - (submenu ? Theme.u(7) : 0px);
-        text: root.text;
-        font-family: Theme.font;
-        font-size: Theme.body;
-        color: enabled ? Theme.ink : Theme.dis;
-        vertical-alignment: center;
-        overflow: elide;
-    }
-    if submenu: Text {
         x: parent.width - Theme.u(10);
+        y: -1phx;
+        height: parent.height;
         text: "›";
         font-family: Theme.font;
         font-size: Theme.body;
-        color: enabled ? Theme.ink2 : Theme.dis;
+        color: root.enabled ? Theme.ink2 : Theme.dis;
         vertical-alignment: center;
     }
-}
-
-component MenuFrame inherits Rectangle {
-    background: Theme.raise;
-    border-width: 1px;
-    border-color: Theme.line-hover;
-    border-radius: Theme.u(3.5);
-    drop-shadow-blur: Theme.u(6);
-    drop-shadow-color: #00000080;
 }
 
 export component PresetsHeader inherits HorizontalLayout {
@@ -79,19 +59,42 @@ export component PresetsHeader inherits HorizontalLayout {
 
     // Which of the menu's submenus is open: "", "rename" or "delete"
     property <string> sub;
+    // The row the pointer is on in the menu (names, then 1000 Save, 1001 Rename, 1002 Delete) and in the submenu
+    property <int> current: -1;
+    property <int> sub-current: -1;
+    // A pick runs at once and the menus ease out after it, then the pop-ups go
+    property <bool> leaving;
+    function leave() { leaving = true; }
+    Timer {
+        interval: Motion.fade-out + 40ms;
+        running: root.leaving;
+        triggered => {
+            root.leaving = false;
+            sub-popup.close();
+            menu.close();
+        }
+    }
     // The name being typed in the Save and Rename question
     property <string> name-text;
     // Where the popups open: 6px under the button, which the header bar centres
     property <length> below: (root.height + button.height) / 2 + Theme.u(3);
 
+    // Which question is up, so a change of `dialog` eases the right one out and then closes its pop-up
+    property <bool> name-up;
+    property <bool> replace-up;
     changed dialog => {
-        name-popup.close();
-        replace-popup.close();
         if (self.dialog == "name") {
             root.name-text = root.dialog-text;
+            root.name-up = true;
             name-popup.show();
-        } else if (self.dialog == "replace") {
+        } else if (root.name-up) {
+            name-frame.leave();
+        }
+        if (self.dialog == "replace") {
+            root.replace-up = true;
             replace-popup.show();
+        } else if (root.replace-up) {
+            replace-frame.leave();
         }
     }
 
@@ -105,6 +108,8 @@ export component PresetsHeader inherits HorizontalLayout {
         shortcut: "presets.apply";
         clicked => {
             root.sub = "";
+            root.current = -1;
+            root.leaving = false;
             menu.show();
         }
     }
@@ -114,42 +119,48 @@ export component PresetsHeader inherits HorizontalLayout {
         y: root.below;
         width: Theme.u(95);
         close-policy: close-on-click-outside;
-        MenuFrame {
+        MenuSurface {
+            leaving: root.leaving;
             VerticalLayout {
-                padding: Theme.u(2);
+                padding: Theme.u(2.5);
                 spacing: 0px;
-                for name in names: MenuRow {
-                    text: name;
-                    clicked => {
+                for name[i] in names: MenuItem {
+                    title: name;
+                    current: root.current == i;
+                    hovered => { root.current = i; }
+                    left => { root.current = -1; }
+                    activate => {
                         // Before closing: the row goes with the menu, and what follows the close doesn't run
                         root.apply(name);
-                        menu.close();
+                        root.leave();
                     }
                 }
-                if names.length > 0: Rectangle {
-                    height: Theme.u(4.5);
-                    Rectangle { y: Theme.u(2); height: 1px; background: Theme.line; }
-                }
-                MenuRow {
-                    text: save-text;
-                    clicked => {
-                        menu.close();
+                if names.length > 0: MenuItem { separator: true; }
+                MenuItem {
+                    title: save-text;
+                    current: root.current == 1000;
+                    hovered => { root.current = 1000; }
+                    left => { root.current = -1; }
+                    activate => {
+                        root.leave();
                         root.save-clicked();
                     }
                 }
-                MenuRow {
-                    text: rename-text;
-                    submenu: true;
+                SubmenuItem {
+                    title: rename-text;
                     enabled: names.length > 0;
-                    open: root.sub == "rename";
-                    clicked => { root.sub = "rename"; sub-popup.show(); }
+                    current: root.current == 1001 || root.sub == "rename";
+                    hovered => { root.current = 1001; }
+                    left => { root.current = -1; }
+                    activate => { root.sub = "rename"; sub-popup.show(); }
                 }
-                MenuRow {
-                    text: delete-text;
-                    submenu: true;
+                SubmenuItem {
+                    title: delete-text;
                     enabled: names.length > 0;
-                    open: root.sub == "delete";
-                    clicked => { root.sub = "delete"; sub-popup.show(); }
+                    current: root.current == 1002 || root.sub == "delete";
+                    hovered => { root.current = 1002; }
+                    left => { root.current = -1; }
+                    activate => { root.sub = "delete"; sub-popup.show(); }
                 }
             }
         }
@@ -158,23 +169,26 @@ export component PresetsHeader inherits HorizontalLayout {
     // The Rename or Delete submenu: the names again, opening beside the menu
     sub-popup := PopupWindow {
         x: Theme.u(95);
-        y: root.below + Theme.u(2) + Theme.u(13) * names.length + (names.length > 0 ? Theme.u(4.5) : 0px) + Theme.u(13);
+        y: root.below + Theme.u(2.5) + Theme.u(13) * names.length + (names.length > 0 ? Theme.u(4.5) : 0px) + Theme.u(13);
         width: Theme.u(95);
         close-policy: close-on-click-outside;
-        MenuFrame {
+        MenuSurface {
+            leaving: root.leaving;
             VerticalLayout {
-                padding: Theme.u(2);
+                padding: Theme.u(2.5);
                 spacing: 0px;
-                for name in names: MenuRow {
-                    text: name;
-                    clicked => {
+                for name[i] in names: MenuItem {
+                    title: name;
+                    current: root.sub-current == i;
+                    hovered => { root.sub-current = i; }
+                    left => { root.sub-current = -1; }
+                    activate => {
                         if (root.sub == "rename") {
                             root.rename-clicked(name);
                         } else {
                             root.delete-clicked(name);
                         }
-                        sub-popup.close();
-                        menu.close();
+                        root.leave();
                     }
                 }
             }
@@ -199,6 +213,7 @@ export component PresetsHeader inherits HorizontalLayout {
                 height: self.preferred-height;
                 dismissable: true;
                 dismissed => { root.dialog-cancelled(); }
+                left => { root.name-up = false; name-popup.close(); }
                 title: dialog-title;
                 VerticalLayout {
                     spacing: Theme.u(3);
@@ -215,11 +230,9 @@ export component PresetsHeader inherits HorizontalLayout {
                         accepted => { root.name-accepted(root.name-text); }
                     }
                 }
-                HorizontalLayout {
-                    spacing: Theme.u(4);
-                    alignment: end;
-                    Button { text: cancel-text; clicked => { root.dialog-cancelled(); } }
-                    Button { text: ok-text; role: "primary"; hue: Theme.plugin-hue("extras"); clicked => { root.name-accepted(root.name-text); } }
+                DialogButtons {
+                    Button { text: cancel-text; dialog: true; clicked => { root.dialog-cancelled(); } }
+                    Button { text: ok-text; role: "primary"; dialog: true; hue: Theme.plugin-hue("extras"); clicked => { root.name-accepted(root.name-text); } }
                 }
             }
         }
@@ -243,13 +256,12 @@ export component PresetsHeader inherits HorizontalLayout {
                 height: self.preferred-height;
                 dismissable: true;
                 dismissed => { root.replace-answered(false); }
+                left => { root.replace-up = false; replace-popup.close(); }
                 title: replace-title;
                 subtitle: confirm-text;
-                HorizontalLayout {
-                    spacing: Theme.u(4);
-                    alignment: end;
-                    Button { text: cancel-text; clicked => { root.replace-answered(false); } }
-                    Button { text: replace-text; role: "primary"; hue: Theme.plugin-hue("extras"); clicked => { root.replace-answered(true); } }
+                DialogButtons {
+                    Button { text: cancel-text; dialog: true; clicked => { root.replace-answered(false); } }
+                    Button { text: replace-text; role: "primary"; dialog: true; hue: Theme.plugin-hue("extras"); clicked => { root.replace-answered(true); } }
                 }
             }
         }

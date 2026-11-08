@@ -1,7 +1,7 @@
 // The window around the cards (app.py _build_header, _build_footer, widgets/banner.py, widgets/tiles.py). The window
 // itself is written by the shell at startup (doc.rs), which places every plugin's card between these.
 
-import { Theme, Icons, Icon, FocusRing, KeyFocus, Button, IconButton, Tip, TipBody, TipUse, ShortcutMenu } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, KeyFocus, Button, IconButton, Tip, TipBody, TipUse, ShortcutMenu, Arrival } from "@ui-kit/ui-kit.slint";
 
 export struct BannerData {
     key: string,
@@ -104,6 +104,9 @@ component FooterReadout inherits Rectangle {
     accessible-role: text;
     accessible-label: name;
     accessible-value: value;
+    // It takes the place of nothing in one frame, so it comes up to full
+    opacity: arrival.solid;
+    arrival := Arrival { }
     Tip { says: root.name; detail: root.tip; inert: true; }
     lay := HorizontalLayout {
         spacing: Theme.u(3);

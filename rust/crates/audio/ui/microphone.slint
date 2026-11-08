@@ -296,7 +296,8 @@ export component MicrophoneCard inherits Card {
             width: max(root.width, Theme.u(230));
             height: self.preferred-height;
             dismissable: true;
-            dismissed => { question.close(); root.confirm-answered(false); }
+            dismissed => { root.confirm-answered(false); }
+            left => { question.close(); }
             title: @tr("Install VB-Cable");
             // VB-Audio's own two lines stay in English, as their licence asks for them word for word
             Text {
@@ -308,7 +309,7 @@ export component MicrophoneCard inherits Card {
             }
             DialogButtons {
                 Button { text: donate-text; dialog: true; clicked => { root.donate(); } }
-                Button { text: @tr("Cancel"); dialog: true; clicked => { question.close(); root.confirm-answered(false); } }
+                Button { text: @tr("Cancel"); dialog: true; clicked => { question-frame.leave(); root.confirm-answered(false); } }
                 Button {
                     text: @tr("Download and install");
                     tip: @tr("Download and install");
@@ -316,7 +317,7 @@ export component MicrophoneCard inherits Card {
                     role: "primary";
                     dialog: true;
                     hue: root.hue;
-                    clicked => { question.close(); root.confirm-answered(true); }
+                    clicked => { question-frame.leave(); root.confirm-answered(true); }
                 }
             }
         }
