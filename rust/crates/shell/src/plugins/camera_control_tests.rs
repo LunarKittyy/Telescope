@@ -513,9 +513,11 @@ fn low_light_shows_only_once_the_phone_says_it_takes_it() {
         s
     };
     r.state(state.clone());
-    assert_eq!(r.props()["show-low-light"], false); // an older phone app
+    let tile = |r: &Rig| (r.props()["low-light"]["enabled"].clone(), r.props()["low-light"]["tip"].as_str().unwrap().to_string());
+    assert_eq!(tile(&r).0, false); // an older phone app, or not streaming yet: greyed out, with why
+    assert!(!tile(&r).1.is_empty());
     r.state(with(json!({"low_light_toggle": true})));
-    assert_eq!(r.props()["show-low-light"], true);
+    assert_eq!(tile(&r).0, true);
     assert!(!r.cam.low_light.checked);
     r.streaming();
     r.clear();
@@ -523,7 +525,7 @@ fn low_light_shows_only_once_the_phone_says_it_takes_it() {
     assert!(r.cam.low_light.checked);
     assert!(r.sent().is_empty()); // following the phone isn't a new request
     r.cam.on_stream_stop(&mut r.host);
-    assert_eq!(r.props()["show-low-light"], false); // until the next phone says it takes it
+    assert_eq!(tile(&r).0, false); // until the next phone says it takes it
 }
 
 #[test]
@@ -722,7 +724,7 @@ fn the_card_compiles_and_has_every_property_the_plugin_sets() {
         assert!(names.contains(key), "camera.slint has no {key}");
     }
     let callbacks: Vec<String> = def.callbacks().map(|c| c.replace('_', "-")).collect();
-    for cb in ["lens-picked", "exposure-picked", "iso-moved", "shutter-moved", "ae-moved", "wb-picked", "kelvin-moved", "tint-moved",
+    for cb in ["lens-picked", "exposure-picked", "iso-picked", "shutter-picked", "ae-moved", "wb-picked", "kelvin-moved", "tint-moved",
                "focus-picked", "focus-moved", "ois-toggled", "low-light-toggled", "bll-toggled", "torch-toggled", "nr-picked", "edge-picked"] {
         assert!(callbacks.contains(&cb.to_string()), "camera.slint has no {cb}");
     }
@@ -899,10 +901,10 @@ fn the_log_readouts_say_the_value_they_were_given() {
     assert_eq!(r.cam.iso.text(), "ISO 1234");
     r.cam.shutter.set_value(33_333_333.0);
     assert_eq!(r.cam.shutter.text(), "1/30");
-    // Moved by hand, it says where the slider is
+    // Turned to the last stop by hand, it says that stop
     r.cam.iso.enabled = true;
     r.cam.manual_exp = true;
-    r.ui("iso-moved", vec![json!(2000)]);
+    r.ui("iso-picked", vec![json!(1000)]);
     assert_eq!(r.cam.iso.text(), "ISO 6400");
 }
 
@@ -930,4 +932,56 @@ fn every_camera_action_is_offered_on_its_control() {
     for action in r.cam.actions() {
         assert!(card.contains(&format!("shortcut: \"{}\"", action.id)) || card.contains(&format!("action: \"{}\"", action.id)), "{}", action.id);
     }
+}
+
+// ── The dials: a lens's ISO and shutter times as stops ──
+
+#[test]
+fn the_iso_dial_has_the_stops_inside_the_lens_range() {
+    let stops = dial_stops(false, 50.0, 1600.0);
+    let names: Vec<&str> = stops.iter().map(|s| s.name.as_str()).collect();
+    assert_eq!((names[0], names[names.len() - 1], names.contains(&"400")), ("50", "1600", true));
+    assert!(stops.windows(2).all(|w| w[0].value < w[1].value), "low to high");
+    // A lens that stops a hair under a stop still gets it, held to its own end
+    assert_eq!(dial_stops(false, 50.0, 3199.0).last().unwrap().name, "3200");
+    assert!(dial_stops(false, 7.0, 9.0).is_empty(), "no stop in a range this small");
+}
+
+#[test]
+fn the_shutter_dial_goes_from_slow_to_fast() {
+    let stops = dial_stops(true, 100_000.0, 1_000_000_000.0);
+    assert!(stops.windows(2).all(|w| w[0].value > w[1].value), "slow to fast, so right is faster");
+    let names: Vec<&str> = stops.iter().map(|s| s.name.as_str()).collect();
+    assert_eq!((names[0], names[names.len() - 1]), ("1 s", "1/8000"));
+    assert!(names.contains(&"1/60") && names.contains(&"1/4"));
+    assert_eq!(nearest_stop(&stops, 16_666_667.0), names.iter().position(|n| *n == "1/60").unwrap());
+}
+
+#[test]
+fn turning_a_dial_sends_that_stop_and_a_disabled_dial_sends_nothing() {
+    let mut r = Rig::new();
+    r.streaming();
+    let stops = dial_stops(false, r.cam.iso.v_min, r.cam.iso.v_max);
+    let at = stops.iter().position(|s| s.name == "800").unwrap();
+    r.ui("iso-picked", vec![json!(at)]);
+    assert!(r.sent().is_empty(), "auto exposure: the dial is off");
+    r.ui("exposure-picked", vec![json!(1)]);
+    r.clear();
+    r.ui("iso-picked", vec![json!(at)]);
+    assert!(r.sent().contains(&json!({"action": "iso", "value": 800})));
+    assert_eq!(r.props()["iso-index"], at);
+    let slow = dial_stops(true, r.cam.shutter.v_min, r.cam.shutter.v_max);
+    let eighth = slow.iter().position(|s| s.name == "1/125").unwrap();
+    r.clear();
+    r.ui("shutter-picked", vec![json!(eighth)]);
+    assert!(r.sent().contains(&json!({"action": "shutter", "value": 8_000_000})));
+    assert_eq!(r.props()["shutter-stops"][eighth], "1/125");
+}
+
+#[test]
+fn the_noise_and_sharpening_rows_say_which_row_they_are_on_hover() {
+    let r = Rig::new();
+    let p = r.props();
+    assert_eq!(p["noise-tips"][2], "Noise reduction: High quality");
+    assert_eq!(p["sharpening-tips"][0], "Sharpening: Off");
 }

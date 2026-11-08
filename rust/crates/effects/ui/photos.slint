@@ -1,21 +1,53 @@
 // The Photos card. Joined after parts.slint, which has the imports.
-// Values that run in order (ISO, shutter speed, how many) are dials, named choices are tiles, and both sit side by side as far as the
-// card is wide, laid out by the plugin (where each goes when three, two or one fit in a line, on a grid of 6 columns).
+// Every control has its place whatever the lens offers, and is greyed out with its reason in a tooltip when there is nothing to pick, so
+// nothing moves when a stream starts. Values that run in order (ISO, shutter speed, how many, a long exposure) step; named choices pick.
 
-export struct PhotoTile {
-    key: string,
-    label: string,
-    // "dial" steps along its list, "choice" opens it
-    kind: string,
-    options: [string],
-    tip: string,
-    shortcut: string,
-    r3: int,
-    c3: int,
-    w3: int,
-    r2: int,
-    c2: int,
-    w2: int,
+// What a shots choice looks like: one frame, a stack of them, three exposures, layers of focus
+component ShotArt inherits Rectangle {
+    in property <int> kind;
+    in property <color> ink;
+    width: Theme.u(11);
+    height: Theme.u(9);
+    if kind == 0: Path {
+        width: parent.width;
+        height: parent.height;
+        viewbox-width: 22;
+        viewbox-height: 18;
+        commands: "M 5 3 H 17 V 15 H 5 Z";
+        stroke: ink;
+        stroke-width: 1.5px;
+        fill: transparent;
+    }
+    if kind == 1: Path {
+        width: parent.width;
+        height: parent.height;
+        viewbox-width: 22;
+        viewbox-height: 18;
+        commands: "M 8 5 V 2 H 20 V 12 H 17 M 3 6 H 15 V 16 H 3 Z";
+        stroke: ink;
+        stroke-width: 1.5px;
+        fill: transparent;
+    }
+    if kind == 2: Path {
+        width: parent.width;
+        height: parent.height;
+        viewbox-width: 22;
+        viewbox-height: 18;
+        commands: "M 1.5 4 H 7.5 V 14 H 1.5 Z M 8.5 4 H 14.5 V 14 H 8.5 Z M 15.5 4 H 21.5 V 14 H 15.5 Z";
+        stroke: ink;
+        stroke-width: 1.5px;
+        fill: transparent;
+    }
+    if kind == 3: Path {
+        width: parent.width;
+        height: parent.height;
+        viewbox-width: 22;
+        viewbox-height: 18;
+        commands: "M 11 1.5 L 20 5.5 L 11 9.5 L 2 5.5 Z M 2 9.5 L 11 13.5 L 20 9.5 M 2 13.5 L 11 17 L 20 13.5";
+        stroke: ink;
+        stroke-width: 1.5px;
+        fill: transparent;
+    }
 }
 
 export component PhotosCard inherits Card {
@@ -27,37 +59,57 @@ export component PhotosCard inherits Card {
     in property <bool> take-enabled;
     in property <string> open-text;
     in property <string> open-tip;
-    in property <bool> open-shown;
+    in property <bool> open-enabled;
     in property <string> status;
     in property <string> status-kind: "status_dim";
-    in property <string> info;
-    in property <bool> info-shown;
-    // The tiles, and where each one is in its list. Apart because the list is only replaced when it changes: replacing it rebuilds
-    // every arrow, and a held one would never hear the release.
-    in property <[PhotoTile]> tiles;
-    in property <[int]> tile-indexes;
-    // How many lines the tiles make when three or two fit in one
-    in property <int> rows3;
-    in property <int> rows2;
-    // What a screen reader calls the arrows
+    // A camera's own ISO and shutter speed lists (a DSLR); empty for a phone
+    in property <[string]> iso-options;
+    in property <int> iso-index;
+    in property <[string]> shutter-options;
+    in property <int> shutter-index;
+    in property <[string]> mode-options;
+    in property <int> mode-index;
+    in property <bool> mode-enabled;
+    in property <string> mode-tip;
+    in property <[string]> format-options;
+    in property <int> format-index;
+    in property <bool> format-enabled;
+    // The four ways to shoot, which of them this lens offers, and the one picked
+    in property <[string]> shots-names;
+    in property <[bool]> shots-offered: [true, false, false, false];
+    in property <int> shots-index;
+    // The slot under them: how many, how many steps or which bracket, by what is picked above
+    in property <string> slot-key;
+    in property <string> slot-label;
+    in property <[string]> slot-options;
+    in property <int> slot-index;
+    in property <string> slot-tip;
+    in property <[string]> exposure-options;
+    in property <int> exposure-index;
+    in property <string> exposure-tip;
+    in property <int> distortion-index;
+    in property <bool> distortion-enabled;
+    in property <[string]> distortion-tips;
+    // What the arrows are called to a screen reader
     in property <string> previous-label;
     in property <string> next-label;
     in property <int> quality: 95;
     in property <string> quality-text;
-    in property <bool> quality-shown;
+    in property <bool> quality-enabled: true;
+    in property <string> quality-tip;
     in property <string> reset-hint;
     in property <[string]> timer-items: ["", "", ""];
     in property <int> timer-current;
     in property <string> best-name;
     in property <string> best-tip;
     in property <bool> best;
-    in property <bool> best-shown;
+    in property <bool> best-enabled;
     in property <string> folder-name;
     in property <string> folder-tip;
     callback take-clicked;
     callback open-clicked;
     callback tile-picked(string, int);
-    // One step (-1 or 1) of a dial from a key or the wheel, and an arrow going down (with its way) and coming up
+    // One step (-1 or 1) of a stepper from a key or the wheel, and an arrow going down (with its way) and coming up
     callback tile-step(string, int);
     callback tile-hold-down(string, int);
     callback tile-hold-up();
@@ -66,118 +118,219 @@ export component PhotosCard inherits Card {
     callback best-toggled(bool);
     callback folder-clicked;
 
-    // As many tiles side by side as are 128px wide with 8px between
-    property <int> cols: root.width >= 434px ? 3 : root.width >= 298px ? 2 : 1;
-
     title: @tr("Photos");
     icon: Icons.photo;
     visible: shown;
     opacity: active ? 1 : 0.4;
     enabled: active;
 
-    HorizontalLayout {
-        spacing: 8px;
-        Button { horizontal-stretch: 1; preferred-width: 1000px; text: take-text; tip: take-tip; role: "primary"; enabled: active && take-enabled; shortcut: "photos.take"; clicked => { root.take-clicked(); } }
-        if open-shown: Button { text: open-text; tip: open-tip; clicked => { root.open-clicked(); } }
+    RailRow {
+        icon: Icons.aperture;
+        label: @tr("Take photo");
+        hue: root.hue;
+        enabled: active;
+        HorizontalLayout {
+            spacing: Theme.gap;
+            Button { horizontal-stretch: 1; preferred-width: 1000px; text: take-text; tip: take-tip; role: "primary"; enabled: active && take-enabled; shortcut: "photos.take"; clicked => { root.take-clicked(); } }
+            IconButton { icon: Icons.folder; label: open-text; tip: open-tip; enabled: active && open-enabled; clicked => { root.open-clicked(); } }
+        }
     }
-    if status != "": Rectangle {
-        height: 20px;
-        shown-status := Text {
-            width: parent.width;
-            height: parent.height;
+    if status != "": RailRow {
+        has-icon: false;
+        Text {
+            horizontal-stretch: 1;
+            height: Theme.row;
             text: status;
             font-family: Theme.font;
             font-size: Theme.body;
             color: Status.color(status-kind);
             vertical-alignment: center;
             overflow: elide;
+            Tip { says: root.status; inert: true; }
         }
-        Tip { says: root.status; inert: true; }
     }
-    if info-shown: Note { text: info; }
-    // Six columns of one width with 8px between, each tile as many of them as the plugin says: spanning grid cells would share a line out
-    // by tile rather than by columns taken, so a wide tile and a narrow one in the same line would come out the same width
-    grid := Rectangle {
-        property <int> rows: root.cols == 3 ? root.rows3 : root.cols == 2 ? root.rows2 : root.tiles.length;
-        property <length> column: (self.width - 40px) / 6;
-        visible: root.tiles.length > 0;
-        height: root.tiles.length > 0 ? grid.rows * 56px - 8px : 0px;
-        for tile[j] in root.tiles: Rectangle {
-            property <int> line: root.cols == 3 ? tile.r3 : root.cols == 2 ? tile.r2 : j;
-            property <int> start: root.cols == 3 ? tile.c3 : root.cols == 2 ? tile.c2 : 0;
-            property <int> span: root.cols == 3 ? tile.w3 : root.cols == 2 ? tile.w2 : 6;
-            x: start * (grid.column + 8px);
-            y: line * 56px;
-            width: span * grid.column + (span - 1) * 8px;
-            height: 48px;
-            if tile.kind == "dial": Stepper {
-                width: parent.width;
-                caption: tile.label;
-                items: tile.options;
-                current: root.tile-indexes[j];
+    if iso-options.length > 0 || shutter-options.length > 0: RailRow {
+        icon: Icons.exposure;
+        label: @tr("Exposure");
+        hue: root.hue;
+        enabled: active;
+        HorizontalLayout {
+            spacing: Theme.gap;
+            if iso-options.length > 0: Dial {
+                label: @tr("ISO");
+                tip: @tr("ISO");
+                hue: root.hue;
                 enabled: active;
-                tip: tile.tip;
+                stops: iso-options;
+                current: iso-index;
+                moved(i) => { root.tile-picked("iso", i); }
+            }
+            if shutter-options.length > 0: Dial {
+                label: @tr("Shutter");
+                tip: @tr("Shutter");
+                hue: root.hue;
+                enabled: active;
+                stops: shutter-options;
+                current: shutter-index;
+                moved(i) => { root.tile-picked("shutter", i); }
+            }
+        }
+    }
+    RailRow {
+        icon: Icons.grid;
+        label: @tr("Mode and format");
+        hue: root.hue;
+        enabled: active;
+        HorizontalLayout {
+            spacing: Theme.gap;
+            ChoiceField {
+                compact: true;
+                name: @tr("Mode");
+                items: mode-options;
+                current: mode-index;
+                enabled: active && mode-enabled;
+                shortcut: "photos.mode";
+                tip: @tr("Mode");
+                tip-detail: mode-tip;
+                picked(i) => { root.tile-picked("mode", i); }
+            }
+            ChoiceField {
+                compact: true;
+                name: @tr("Format");
+                items: format-options;
+                current: format-index;
+                enabled: active && format-enabled;
+                tip: @tr("Format");
+                picked(i) => { root.tile-picked("format", i); }
+            }
+        }
+    }
+    RailRow {
+        icon: Icons.copy;
+        label: @tr("Shots");
+        hue: root.hue;
+        enabled: active;
+        shots := PictureSegmented {
+            label: @tr("Shots");
+            hue: root.hue;
+            items: shots-names;
+            disabled: [!active || !shots-offered[0], !active || !shots-offered[1], !active || !shots-offered[2], !active || !shots-offered[3]];
+            current: shots-index;
+            picked(i) => { root.tile-picked("shots", i); }
+            for i in 4: ShotArt {
+                x: i * shots.pitch + (shots.cell-width - self.width) / 2;
+                y: (shots.art-height - self.height) / 2;
+                kind: i;
+                ink: !active || !shots-offered[i] ? Theme.dis : shots.shown == i ? Theme.ink : Theme.ink2;
+            }
+        }
+    }
+    // The slot under Shots keeps its place with nothing in it, so picking a way to shoot moves nothing
+    RailRow {
+        has-icon: false;
+        enabled: active;
+        HorizontalLayout {
+            spacing: Theme.gap;
+            Stepper {
+                caption: slot-label != "" ? slot-label : @tr("How many");
+                items: slot-options;
+                current: slot-index;
+                enabled: active && slot-options.length > 0;
+                tip: slot-tip;
                 previous-label: root.previous-label;
                 next-label: root.next-label;
-                step(by) => { root.tile-step(tile.key, by); }
-                hold-down(by) => { root.tile-hold-down(tile.key, by); }
+                step(by) => { root.tile-step(root.slot-key, by); }
+                hold-down(by) => { root.tile-hold-down(root.slot-key, by); }
                 hold-up => { root.tile-hold-up(); }
-                picked(i) => { root.tile-picked(tile.key, i); }
+                picked(i) => { root.tile-picked(root.slot-key, i); }
             }
-            if tile.kind == "choice": ChoiceField {
-                width: parent.width;
-                caption: tile.label;
-                items: tile.options;
-                current: root.tile-indexes[j];
-                enabled: active;
-                tip: tile.tip;
-                shortcut: tile.shortcut;
-                picked(i) => { root.tile-picked(tile.key, i); }
+            Stepper {
+                caption: @tr("Exposure");
+                items: exposure-options;
+                current: exposure-index;
+                enabled: active && exposure-options.length > 1;
+                tip: exposure-tip;
+                previous-label: root.previous-label;
+                next-label: root.next-label;
+                step(by) => { root.tile-step("exposure_s", by); }
+                hold-down(by) => { root.tile-hold-down("exposure_s", by); }
+                hold-up => { root.tile-hold-up(); }
+                picked(i) => { root.tile-picked("exposure_s", i); }
             }
         }
     }
-    if quality-shown: SliderRow {
+    RailRow {
+        icon: Icons.distortion;
+        label: @tr("Distortion fix");
+        hue: root.hue;
         enabled: active;
+        Segmented {
+            hue: root.hue;
+            label: @tr("Distortion fix");
+            items: [@tr("Camera"), @tr("On"), @tr("Off")];
+            disabled: [!active || !distortion-enabled, !active || !distortion-enabled, !active || !distortion-enabled];
+            tips: distortion-tips;
+            current: distortion-index;
+            picked(i) => { root.tile-picked("distortion", i); }
+        }
+    }
+    RailRow {
+        icon: Icons.gem;
         label: @tr("Quality");
-        minimum: 50;
-        maximum: 100;
-        value: quality;
-        readout: quality-text;
         hue: root.hue;
-        has-default: true;
-        default-value: 95;
-        hint: reset-hint;
-        moved(v) => { root.quality-moved(v); }
-    }
-    if best-shown: SwitchTile {
         enabled: active;
-        icon: Icons.sliders;
-        text: best-name;
-        tip: best-tip;
-        hue: root.hue;
-        checked: best;
-        toggled(v) => { root.best-toggled(v); }
+        Slider {
+            label: @tr("Quality");
+            enabled: active && quality-enabled;
+            minimum: 50;
+            maximum: 100;
+            value: quality;
+            readout: quality-text;
+            hue: root.hue;
+            has-default: true;
+            default-value: 95;
+            tip: quality-tip != "" ? quality-tip : @tr("Quality");
+            tip-detail: quality-tip != "" ? "" : reset-hint;
+            moved(v) => { root.quality-moved(v); }
+        }
     }
-    FormRow {
+    RailRow {
+        has-icon: false;
+        enabled: active;
+        ToggleTile {
+            icon: Icons.sparkle;
+            text: best-name;
+            tip: best-tip;
+            hue: root.hue;
+            enabled: active && best-enabled;
+            checked: best;
+            toggled(v) => { root.best-toggled(v); }
+        }
+    }
+    RailRow {
+        icon: Icons.timer;
         label: @tr("Timer");
-        ChoiceField {
-            compact: true;
-            caption: @tr("Timer");
-            items: timer-items;
-            current: timer-current;
-            enabled: active;
+        hue: root.hue;
+        enabled: active;
+        Segmented {
+            hue: root.hue;
+            label: @tr("Timer");
             shortcut: "photos.timer";
+            items: timer-items;
+            disabled: [!active, !active, !active];
+            current: timer-current;
             picked(i) => { root.timer-picked(i); }
         }
     }
-    FormRow {
+    RailRow {
+        icon: Icons.folder;
         label: @tr("Save in");
+        hue: root.hue;
+        enabled: active;
         Button {
             horizontal-stretch: 1;
             preferred-width: 1000px;
             shrinks: true;
-            has-icon: true;
-            icon: Icons.pencil;
             text: folder-name;
             tip: folder-tip;
             enabled: active;

@@ -1,93 +1,18 @@
 // The Phone card. Joined after parts.slint, which has the imports.
 
-// StatusPill: a live reading at a glance, icon, value and a short note, tinted by how it's doing
-component Pill inherits Rectangle {
-    in property <string> value;
-    in property <string> note;
-    in property <string> kind: "status_dim";
-    in property <image> icon;
-    property <color> ink: kind == "status_dim" ? Theme.text-dim : Status.color(kind).brighter(0.12);
-    height: 40px;
-    horizontal-stretch: 1;
-    min-width: 1px;
-    border-radius: self.height / 2;
-    border-width: 1px;
-    border-color: (kind == "status_dim" ? Theme.dim : Status.color(kind)).with-alpha(kind == "status_dim" ? 0.15 : 0.25);
-    background: (kind == "status_dim" ? Theme.dim : Status.color(kind)).with-alpha(kind == "status_dim" ? 0.06 : 0.12);
-    accessible-role: AccessibleRole.text;
-    accessible-label: note == "" ? value : value + " " + note;
-    HorizontalLayout {
-        padding-left: 14px;
-        padding-right: 14px;
-        spacing: 9px;
-        Icon { source: icon; tint: ink; width: 18px; height: 18px; y: (parent.height - self.height) / 2; accessible-role: none; }
-        Text {
-            text: value;
-            font-family: Theme.font;
-            font-size: 15px; // 1.13 of the body size, which Qt draws at 15
-            font-weight: 600;
-            color: ink;
-            vertical-alignment: center;
-            overflow: elide;
-            accessible-role: none;
-        }
-        Text {
-            horizontal-stretch: 1;
-            text: note;
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: ink;
-            vertical-alignment: center;
-            overflow: elide;
-            accessible-role: none;
-        }
-    }
-}
-
-// One warning: what counts, then whether to notify and stop the stream, each on the card's own edges
-component AlertBlock inherits VerticalLayout {
-    in property <image> icon;
+// One warning's two tiles: whether to notify and whether to stop the stream, side by side on the card's own edges
+component AlertTiles inherits HorizontalLayout {
     in property <string> label;
-    in property <string> spin-tip;
     in property <string> notify-tip;
     in property <string> stop-tip;
     in property <bool> enabled: true;
     in property <color> hue: Theme.accent;
-    in-out property <string> spin-text;
     in-out property <bool> notify;
     in-out property <bool> stop;
-    callback committed(string);
-    callback step(int);
     callback notify-toggled(bool);
     callback stop-toggled(bool);
     spacing: Theme.gap;
-    HorizontalLayout {
-        spacing: Theme.u(4);
-        height: Theme.row;
-        Icon { source: icon; tint: Theme.ink2; width: Theme.icon; height: Theme.icon; y: (parent.height - self.height) / 2; }
-        Text {
-            horizontal-stretch: 1;
-            text: label;
-            font-family: Theme.font;
-            font-size: Theme.body;
-            font-weight: Theme.w-label;
-            color: enabled ? Theme.ink : Theme.dis;
-            vertical-alignment: center;
-        }
-        Rectangle {
-            width: Theme.u(40);
-            NumberField {
-                width: parent.width;
-                value: root.spin-text;
-                label: root.label;
-                enabled: root.enabled;
-                tip: root.spin-tip;
-                committed(t) => { root.committed(t); }
-                step(d) => { root.step(d); }
-            }
-        }
-    }
-    SwitchTile {
+    ToggleTile {
         icon: Icons.bell;
         text: @tr("Notify me");
         name: root.label + ": " + @tr("Notify me");
@@ -97,7 +22,7 @@ component AlertBlock inherits VerticalLayout {
         checked <=> root.notify;
         toggled(on) => { root.notify-toggled(on); }
     }
-    SwitchTile {
+    ToggleTile {
         icon: Icons.stop;
         text: @tr("Stop the stream");
         name: root.label + ": " + @tr("Stop the stream");
@@ -113,23 +38,27 @@ export component MonitoringCard inherits Card {
     // dim_until_paired: faded and disabled until there's a phone, and gone for a source that isn't one
     in property <bool> active: true;
     in property <bool> phone-only-hidden;
+    // The live readings, which the bars show, and their words for the tooltips
     in property <string> battery-value: "-";
     in property <string> battery-note;
-    in property <string> battery-kind: "status_dim";
     in property <string> battery-icon: "battery";
+    in property <int> battery-level;
+    in property <bool> battery-has-level;
     in property <string> temp-value: "-";
     in property <string> temp-note;
-    in property <string> temp-kind: "status_dim";
+    in property <float> temp-level;
+    in property <bool> temp-has-level;
+    // Where the warnings are set
+    in property <int> batt-alert: 20;
+    in property <int> temp-alert: 45;
     in-out property <string> batt-text: "20%";
     in-out property <string> temp-text: "45 °C";
     in-out property <bool> batt-notify: true;
     in-out property <bool> batt-stop;
     in-out property <bool> temp-notify: true;
     in-out property <bool> temp-stop;
-    callback batt-committed(string);
-    callback batt-step(int);
-    callback temp-committed(string);
-    callback temp-step(int);
+    callback batt-moved(float);
+    callback temp-moved(float);
     callback alert-toggled(string, bool);
 
     title: @tr("Phone");
@@ -138,47 +67,87 @@ export component MonitoringCard inherits Card {
     enabled: active;
     visible: !phone-only-hidden;
 
-    HorizontalLayout {
-        spacing: 8px;
-        Pill { value: battery-value; note: battery-note; kind: battery-kind; icon: battery-icon == "battery-charging" ? Icons.battery-charging : Icons.battery; }
-        Pill { value: temp-value; note: temp-note; kind: temp-kind; icon: Icons.thermometer; }
+    // Each bar is the live reading, and its handle is the level to warn at
+    RailRow {
+        icon: Icons.battery;
+        label: @tr("Battery under");
+        hue: root.hue;
+        enabled: root.active;
+        Slider {
+            label: @tr("Battery under");
+            fill: "threshold";
+            hue: root.hue;
+            enabled: root.active;
+            minimum: 5;
+            maximum: 95;
+            step: 1;
+            value: batt-alert;
+            readout: batt-text;
+            level: battery-level;
+            has-level: battery-has-level;
+            level-text: battery-value;
+            level-icon: Icons.bolt;
+            has-level-icon: battery-icon == "battery-charging";
+            has-default: true;
+            default-value: 20;
+            tip: @tr("Counts as low at this level, even while charging if it keeps dropping");
+            tip-detail: battery-note;
+            moved(v) => { root.batt-moved(v); }
+        }
     }
-    Section {
-        key: "Warnings";
-        title: @tr("Warnings");
-        icon: Icons.bell;
-        scope: root.fold-key;
-                AlertBlock {
-                    icon: Icons.battery;
-                    hue: root.hue;
-                    label: @tr("Battery under");
-                    spin-tip: @tr("Counts as low at this level, even while charging if it keeps dropping");
-                    notify-tip: @tr("Show a notification when the battery runs low");
-                    stop-tip: @tr("Stop the stream when the battery runs low, and at every restart until it's fine again");
-                    enabled: root.active;
-                    spin-text <=> root.batt-text;
-                    notify <=> root.batt-notify;
-                    stop <=> root.batt-stop;
-                    committed(t) => { root.batt-committed(t); }
-                    step(d) => { root.batt-step(-d); }
-                    notify-toggled(on) => { root.alert-toggled("batt-notify", on); }
-                    stop-toggled(on) => { root.alert-toggled("batt-stop", on); }
-                }
-                AlertBlock {
-                    icon: Icons.thermometer;
-                    hue: root.hue;
-                    label: @tr("Hotter than");
-                    spin-tip: @tr("The temperature that counts as too hot");
-                    notify-tip: @tr("Show a notification when the phone gets too hot");
-                    stop-tip: @tr("Stop the stream when the phone gets too hot, and at every restart until it's fine again");
-                    enabled: root.active;
-                    spin-text <=> root.temp-text;
-                    notify <=> root.temp-notify;
-                    stop <=> root.temp-stop;
-                    committed(t) => { root.temp-committed(t); }
-                    step(d) => { root.temp-step(-d); }
-                    notify-toggled(on) => { root.alert-toggled("temp-notify", on); }
-                    stop-toggled(on) => { root.alert-toggled("temp-stop", on); }
-                }
+    RailRow {
+        has-icon: false;
+        enabled: root.active;
+        AlertTiles {
+            label: @tr("Battery under");
+            notify-tip: @tr("Show a notification when the battery runs low");
+            stop-tip: @tr("Stop the stream when the battery runs low, and at every restart until it's fine again");
+            enabled: root.active;
+            hue: root.hue;
+            notify <=> root.batt-notify;
+            stop <=> root.batt-stop;
+            notify-toggled(on) => { root.alert-toggled("batt-notify", on); }
+            stop-toggled(on) => { root.alert-toggled("batt-stop", on); }
+        }
+    }
+    RailRow {
+        icon: Icons.thermometer;
+        label: @tr("Hotter than");
+        hue: root.hue;
+        enabled: root.active;
+        Slider {
+            label: @tr("Hotter than");
+            fill: "threshold";
+            hue: root.hue;
+            enabled: root.active;
+            minimum: 35;
+            maximum: 65;
+            step: 1;
+            value: temp-alert;
+            readout: temp-text;
+            level: temp-level;
+            has-level: temp-has-level;
+            level-text: temp-value;
+            has-default: true;
+            default-value: 45;
+            tip: @tr("The temperature that counts as too hot");
+            tip-detail: temp-note;
+            moved(v) => { root.temp-moved(v); }
+        }
+    }
+    RailRow {
+        has-icon: false;
+        enabled: root.active;
+        AlertTiles {
+            label: @tr("Hotter than");
+            notify-tip: @tr("Show a notification when the phone gets too hot");
+            stop-tip: @tr("Stop the stream when the phone gets too hot, and at every restart until it's fine again");
+            enabled: root.active;
+            hue: root.hue;
+            notify <=> root.temp-notify;
+            stop <=> root.temp-stop;
+            notify-toggled(on) => { root.alert-toggled("temp-notify", on); }
+            stop-toggled(on) => { root.alert-toggled("temp-stop", on); }
+        }
     }
 }

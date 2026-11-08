@@ -291,7 +291,7 @@ fn coming_back_to_a_stream_keeps_its_exposure_and_sends_nothing() {
     on(&r, "pixel");
     assert!(config(&r, "camera_control")["iso"].as_f64().unwrap() > 6390.0);
     assert_eq!(sent(&r, "pixel"), [] as [Value; 0], "the phone still has them");
-    ui(&r, "camera_control", "card", "iso-moved", vec![json!(2000)]);
+    ui(&r, "camera_control", "card", "iso-picked", vec![json!(1000)]);
     assert!(config(&r, "camera_control")["iso"].as_f64().unwrap() > 6390.0, "the slider's top is this lens's 6400 again");
     r.w.stop_all_streams();
     r.pump();
