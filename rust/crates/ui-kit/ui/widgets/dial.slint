@@ -2,8 +2,8 @@
 
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
-import { FocusRing, TouchRing } from "basics.slint";
-import { TipBody, TipUse } from "tip.slint";
+import { FocusRing, TouchRing, KeyFocus } from "basics.slint";
+import { Tip } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 
 // Kind "dial": a strip of ticks and stop names sliding under a mark at the centre, dragged, scrolled or keyed through, saying `moved` then `released` with the stop's place in `stops`; it sits in the card, never in a bubble.
@@ -22,6 +22,8 @@ export component Dial inherits Rectangle {
     in property <color> hue: Theme.accent;
     in property <bool> enabled: true;
     in property <string> tip;
+    in property <string> tip-detail;
+    in property <[string]> tip-keys;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     // The id of the setting it is, for the outline when something outside the window reads or changes it
@@ -72,7 +74,7 @@ export component Dial inherits Rectangle {
     accessible-value-minimum: 0;
     accessible-value-maximum: max(0, stops.length - 1);
     accessible-value-step: 1;
-    accessible-description: tip;
+    accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
     accessible-action-increment => { if (enabled) { set-to(shown + 1); } }
     accessible-action-decrement => { if (enabled) { set-to(shown - 1); } }
     forward-focus: focus;
@@ -163,7 +165,7 @@ export component Dial inherits Rectangle {
         background: !enabled ? Theme.dis : held ? hue : Theme.muted(hue);
     }
     FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
-    usage := TipUse { hover: touch.has-hover; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
@@ -220,6 +222,5 @@ export component Dial inherits Rectangle {
             }
         }
     }
-    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
 }

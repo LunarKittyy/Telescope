@@ -2,8 +2,8 @@
 
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
-import { FocusRing, TouchRing } from "basics.slint";
-import { TipBody, TipUse } from "tip.slint";
+import { FocusRing, TouchRing, KeyFocus } from "basics.slint";
+import { Tip } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 
 // A square of the surround's colour with a quarter circle cut out, over one corner (0 to 3 clockwise from the top left): the software renderer squares off a gradient's corners, so the drawing is rounded by covering them.
@@ -61,6 +61,8 @@ export component Pad inherits Rectangle {
     in property <color> surround: Theme.card;
     in property <bool> enabled: true;
     in property <string> tip;
+    in property <string> tip-detail;
+    in property <[string]> tip-keys;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     // The ids of the two settings it is, for the outline when something outside the window reads or changes them
@@ -126,7 +128,7 @@ export component Pad inherits Rectangle {
     accessible-role: slider;
     accessible-label: label;
     accessible-value: readout;
-    accessible-description: tip;
+    accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
     accessible-action-increment => { if (enabled) { set-to(shown-x + step-x, shown-y); } }
     accessible-action-decrement => { if (enabled) { set-to(shown-x - step-x, shown-y); } }
     forward-focus: focus;
@@ -146,7 +148,7 @@ export component Pad inherits Rectangle {
     }
     TouchRing { setting: root.setting-x; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
     TouchRing { setting: root.setting-y; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
-    usage := TipUse { hover: touch.has-hover; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
@@ -246,6 +248,5 @@ export component Pad inherits Rectangle {
         border-color: !enabled ? Theme.dis : held ? hue : touch.has-hover ? hue : Theme.edge(hue);
     }
     FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
-    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
 }

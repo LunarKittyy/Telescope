@@ -306,6 +306,8 @@ export component RailRow inherits HorizontalLayout {
     in property <string> label;
     // A longer sentence for the tooltip, where the word alone isn't enough
     in property <string> tip;
+    // A line or two more under the tip
+    in property <string> tip-detail;
     in property <string> keywords;
     in property <color> hue: Theme.accent;
     in property <bool> enabled: true;
@@ -324,7 +326,10 @@ export component RailRow inherits HorizontalLayout {
             height: Theme.icon;
         }
         if has-icon && label != "": SettingMark { width: parent.width; height: parent.height; name: label; keywords: keywords; }
-        if has-icon && label != "": Tooltip { TipBody { says: tip != "" ? tip : label; } }
+        if has-icon && label != "": Rectangle {
+            Tip { says: tip != "" ? tip : label; detail: tip-detail; hover: icon-touch.has-hover; inert: !enabled; }
+            icon-touch := TouchArea { mouse-cursor: default; }
+        }
     }
     @children
 }

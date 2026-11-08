@@ -200,6 +200,8 @@ export component ToggleTile inherits Rectangle {
     in property <bool> enabled: true;
     // A tooltip for the whole tile: say why it can't be used, or what an icon alone means
     in property <string> tip;
+    in property <string> tip-detail;
+    in property <[string]> tip-keys;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     // The id of the setting it is, for the outline when something outside the window reads or changes it
@@ -229,7 +231,7 @@ export component ToggleTile inherits Rectangle {
         : touch.has-hover ? Theme.hover : Theme.raise;
     accessible-role: switch;
     accessible-label: name;
-    accessible-description: tip;
+    accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
     accessible-checkable: true;
     accessible-checked: shown;
     accessible-action-default => { flip(); }
@@ -249,7 +251,7 @@ export component ToggleTile inherits Rectangle {
     }
     FocusRing { shown: focus.has-focus && keyed; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
     TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
-    usage := TipUse { hover: touch.has-hover; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && keyed; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
@@ -289,5 +291,4 @@ export component ToggleTile inherits Rectangle {
             accessible-role: none;
         }
     }
-    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
 }

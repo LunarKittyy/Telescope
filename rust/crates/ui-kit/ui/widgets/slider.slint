@@ -238,8 +238,8 @@ export component Slider inherits HorizontalLayout {
             border-radius: Theme.u(1);
             background: enabled ? Theme.faint : Theme.dis;
         }
-        // The threshold bar's two numbers: the level beside the handle (on the side with room), the live value at the far end
-        if in-bar && !is-typing: Text {
+        // The threshold bar's two numbers: the level beside the handle (on the side with room), the live value at the end away from the handle
+        if in-bar && !is-typing: level-number := Text {
             property <bool> left-side: track.fraction > 0.5;
             x: left-side ? handle.x - Theme.u(4) - self.width : handle.x + Theme.handle-w + Theme.u(4);
             width: Theme.u(24);
@@ -283,9 +283,10 @@ export component Slider inherits HorizontalLayout {
                 reject
             }
         }
-        if in-bar && level-text != "": HorizontalLayout {
+        if in-bar && level-text != "": level-box := HorizontalLayout {
             width: min(self.preferred-width, track.width / 2 - Theme.u(6));
-            x: track.width - Theme.u(5) - self.width;
+            // At the end away from the handle: far right while the handle is in the left half, far left once it passes the middle
+            x: track.fraction > 0.5 ? Theme.u(5) : track.width - Theme.u(5) - self.width;
             y: 0px;
             height: parent.height;
             spacing: Theme.u(2);

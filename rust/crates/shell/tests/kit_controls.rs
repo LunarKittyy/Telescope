@@ -583,6 +583,27 @@ fn a_threshold_bar_is_a_slider_by_the_keys_and_the_pointer() {
 }
 
 #[test]
+fn a_threshold_bars_live_value_and_handle_number_stay_clear_of_the_handle_at_both_ends() {
+    let ui = rig(BAR, (340.0, 60.0), &[]);
+    let span = |id: &str| {
+        let e = ElementHandle::find_by_element_id(&ui, id).next().unwrap_or_else(|| panic!("no {id}"));
+        (e.absolute_position().x, e.absolute_position().x + e.size().width)
+    };
+    press(&ui, Key::Tab);
+    for (key, name, handle_at_max) in [(Key::End, "End", true), (Key::Home, "Home", false)] {
+        press(&ui, key);
+        let (hl, hr) = span("Slider::handle");
+        let (ll, lr) = span("Slider::level-box");
+        let (nl, nr) = span("Slider::level-number");
+        assert!(lr <= hl || ll >= hr, "the live value overlaps the handle at {name}: {ll}..{lr} vs {hl}..{hr}");
+        assert!(nr <= hl || nl >= hr, "the handle number overlaps the handle at {name}");
+        assert!(lr <= nl || ll >= nr, "the live value and the handle number overlap at {name}");
+        // The live value is at the end away from the handle
+        assert_eq!(ll < hl, handle_at_max);
+    }
+}
+
+#[test]
 fn a_threshold_bar_takes_a_typed_number_beside_the_handle() {
     let ui = rig(BAR, (340.0, 60.0), &[]);
     press(&ui, Key::Tab);
