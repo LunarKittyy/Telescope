@@ -1,6 +1,6 @@
 // The Camera card, built from ui-kit's widgets: an icon rail, then one column of controls.
 
-import { Theme, Icons, Icon, Tip, Card, RailRow, Segmented, Slider, ToggleTile, Dial, ShortcutMenu } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Tip, Card, RailRow, Segmented, Slider, ToggleTile, Dial, ShortcutMenu, Arrival } from "@ui-kit/ui-kit.slint";
 
 export struct Lens {
     id: string,
@@ -171,6 +171,9 @@ export component CameraCard inherits Card {
         Rectangle {
             property <length> tile-width: (self.width - (lens-columns - 1) * Theme.gap) / lens-columns;
             height: ceil(lenses.length / lens-columns) * Theme.u(30) - Theme.gap;
+            // The tiles take the dim placeholders' place in one frame, half solid, and come up to full
+            opacity: arrival.solid;
+            arrival := Arrival { }
             for lens[i] in lenses: LensTile {
                 x: mod(i, lens-columns) * (parent.tile-width + Theme.gap);
                 y: floor(i / lens-columns) * Theme.u(30);

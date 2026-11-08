@@ -3,7 +3,7 @@
 use slint::ComponentHandle;
 use slint_interpreter::{ComponentInstance, Value};
 use std::time::Duration;
-use telescope_shell::offscreen::{self, Picture};
+use telescope_shell::offscreen;
 use telescope_shell::compile;
 
 const FRAME: u64 = 16;
@@ -200,7 +200,7 @@ fn a_finger_or_a_key_takes_over_at_once() {
 #[test]
 fn reduced_motion_snaps_the_moves_and_keeps_the_colours() {
     let (ui, _still) = motions();
-    ui.set_global_property("Motion", "reduced", Value::Bool(true)).unwrap();
+    telescope_shell::motion::set(&ui, telescope_shell::motion::Motion::Reduced);
     go(&ui, 1.0);
     assert_eq!(num(&ui, "settle"), 1.0);
     assert_eq!(num(&ui, "flick"), 1.0);
@@ -210,7 +210,7 @@ fn reduced_motion_snaps_the_moves_and_keeps_the_colours() {
     let fade = num(&ui, "fade");
     assert!(tone > 0.0 && tone < 1.0, "a colour still eases: {tone}");
     assert!(fade > 0.0 && fade < 1.0, "an opacity still fades: {fade}");
-    ui.set_global_property("Motion", "off", Value::Bool(true)).unwrap();
+    telescope_shell::motion::set(&ui, telescope_shell::motion::Motion::Off);
     go(&ui, 0.0);
     for name in ["settle", "flick", "tone", "fade", "unfold"] {
         assert_eq!(num(&ui, name), 0.0, "{name} with motion off");

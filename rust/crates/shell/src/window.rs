@@ -405,8 +405,8 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
     let text = doc::window(&cards, &panels, &headers);
     let def = crate::compile::compile("window.slint", &text, files.clone(), "TelescopeWindow")?;
     let ui = def.create().map_err(|e| e.to_string())?;
+    crate::motion::apply(&ui);
     set_app_icon(&ui);
-
     let window = Rc::new(Window {
         state: Rc::new(RefCell::new(state)),
         ui,
@@ -1057,7 +1057,7 @@ impl Window {
         let (file, text) = source_of(plugin, id, &spec.ui);
         let component = &spec.ui.component;
         // Its file goes through the loader as a card's does, so its texts are translated
-        let doc = format!("export {{ {component} }} from \"{file}\";\nexport {{ KeyFocus, WindowBox, Theme }} from \"@ui-kit/ui-kit.slint\";\n");
+        let doc = format!("export {{ {component} }} from \"{file}\";\nexport {{ KeyFocus, WindowBox, Theme, Motion }} from \"@ui-kit/ui-kit.slint\";\n");
         let files = match &spec.ui.source {
             SlintSource::Text(_) => vec![(file.clone(), text.clone())],
             SlintSource::File(_) => Vec::new(),
@@ -1101,6 +1101,7 @@ impl Window {
         if let Ok(classic) = self.ui.get_global_property("Theme", "classic") {
             let _ = ui.set_global_property("Theme", "classic", classic);
         }
+        crate::motion::apply(&ui);
         let _ = ui.show();
         crate::frame::dress(&ui);
         crate::parent::attach(&ui, &self.ui);

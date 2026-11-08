@@ -207,6 +207,7 @@ export component Button inherits Rectangle {
         if has-icon: Icon {
             source: icon;
             tint: !enabled ? Theme.dis : filled ? ink-on-fill : icon-tint;
+            animate tint { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
             width: icon-size;
             height: icon-size;
             y: (parent.height - self.height) / 2;

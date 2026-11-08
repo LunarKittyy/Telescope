@@ -11,6 +11,7 @@ pub mod flow;
 mod frame;
 pub mod handover;
 pub mod layout;
+pub mod motion;
 pub mod notice;
 pub mod offscreen;
 pub mod overlays;

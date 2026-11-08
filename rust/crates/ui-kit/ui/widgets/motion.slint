@@ -36,6 +36,8 @@ export global Motion {
     out property <float> trail: 1.4;
     // The scale a popping bubble starts from
     out property <float> pop-from: 0.9;
+    // How solid content that took a placeholder's place is in its first frame, so the swap leaves no gap
+    out property <float> arrive-from: 0.45;
 
     // A move that is allowed to be seen
     out property <bool> moves: !reduced && !off;
@@ -139,6 +141,7 @@ export component Fade {
     in property <bool> shown;
     in property <bool> snap;
     out property <float> value: clamp(bar.border-width / 1px, 0, 1);
+    init => { value; }
     bar := Rectangle {
         visible: false;
         width: 0px;
@@ -149,6 +152,16 @@ export component Fade {
             easing: spring(0.0);
         }
     }
+}
+
+// Kind "helper". Arrival: for content that took a placeholder's place in one frame. `solid` is Motion.arrive-from in the first frame (never
+// empty, so nothing jumps) and rises to 1 over a fade. Goes in the thing that arrives, which uses `solid` as its opacity.
+export component Arrival {
+    out property <string> control-kind: "helper";
+    out property <float> solid: Motion.between(Motion.arrive-from, 1, fade.value);
+    property <bool> here;
+    fade := Fade { shown: here; }
+    init => { here = true; }
 }
 
 // Kind "helper". Unfold: a fold opening or closing, 1 open and 0 shut. The one motion that is itself a change of height, so it is the only

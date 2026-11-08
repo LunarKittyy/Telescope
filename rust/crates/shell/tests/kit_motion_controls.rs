@@ -397,3 +397,49 @@ fn a_second_click_mid_fold_turns_the_card_round_without_a_jump() {
     assert!(t.windows(2).all(|w| (w[1] - w[0]).abs() < 0.25 * whole), "no jump from one frame to the next: {t:?}");
     assert!((t.last().unwrap() - whole).abs() < 0.01, "it ends open: {t:?}");
 }
+
+const ARRIVAL: &str = r#"
+import { Arrival } from "@ui-kit/ui-kit.slint";
+export global Bridge {
+    in-out property <float> latest: -1;
+}
+component Probe inherits Rectangle {
+    out property <float> s: arr.solid;
+    arr := Arrival { }
+    init => { Bridge.latest = self.s; }
+    changed s => { Bridge.latest = self.s; }
+}
+export component T inherits Window {
+    width: 100px;
+    height: 100px;
+    in property <bool> show;
+    if show: Probe { }
+}
+"#;
+
+fn latest(ui: &slint_interpreter::ComponentInstance) -> f32 {
+    match ui.get_global_property("Bridge", "latest").unwrap() {
+        Value::Number(n) => n as f32,
+        v => panic!("{v:?}"),
+    }
+}
+
+#[test]
+fn content_that_takes_a_placeholders_place_starts_half_solid_and_comes_up_to_full() {
+    let _still = offscreen::freeze_clock();
+    let ui = make(ARRIVAL, 100.0, 100.0);
+    assert_eq!(latest(&ui), -1.0, "nothing is made yet");
+    set(&ui, "show", Value::Bool(true));
+    offscreen::draw(ui.window(), 100.0, 100.0, 1.0);
+    let first = latest(&ui);
+    assert!((first - 0.45).abs() < 0.01, "in the very first frame it is already there, at 45%: {first}");
+    let mut seen = vec![first];
+    for _ in 0..24 {
+        step(FRAME);
+        offscreen::draw(ui.window(), 100.0, 100.0, 1.0);
+        seen.push(latest(&ui));
+    }
+    assert!(seen.windows(2).all(|w| w[1] >= w[0] - 0.0001), "it only comes up: {seen:?}");
+    assert!(seen.iter().all(|v| *v <= 1.0001), "{seen:?}");
+    assert!(seen[4] > 0.8 && *seen.last().unwrap() == 1.0, "full within a tenth of a second or so: {seen:?}");
+}

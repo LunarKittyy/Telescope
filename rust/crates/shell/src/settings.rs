@@ -299,6 +299,7 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
     let def = crate::compile::compile("settings.slint", &text, files, "TelescopeSettings")?;
     // Under the main window, as Python's dialog has it as its parent
     let ui = crate::parent::make(&window.ui, || def.create()).map_err(|e| e.to_string())?;
+    crate::motion::apply(&ui);
     // A .zip dropped anywhere on the window installs like the Install button does
     let drops = Rc::new(plugins_tab::DropBatch::default());
     crate::keys::watch_scan_codes_and(&ui, move |event| {

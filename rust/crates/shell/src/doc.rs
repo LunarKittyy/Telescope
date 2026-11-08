@@ -46,7 +46,7 @@ pub struct HeaderPlace {
 /// The window's document. cards are in registration order; panels says where each one shows.
 pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> String {
     let mut out = String::new();
-    out.push_str("import { Theme, Icons, Folds, Reveal, Shortcuts, TextCap, WindowBox, ColumnScrollbar, KeyFocus, Touched, TipLayer, PeekLayer } from \"@ui-kit/ui-kit.slint\";\n");
+    out.push_str("import { Theme, Icons, Folds, Reveal, Shortcuts, TextCap, WindowBox, ColumnScrollbar, KeyFocus, Touched, TipLayer, PeekLayer, Motion } from \"@ui-kit/ui-kit.slint\";\n");
     out.push_str("import { Footer, BannerArea, StreamTiles, HeaderIconButton, StartButton, BannerData, TileData } from \"shell/frame.slint\";\n");
     let mut imported = Vec::new();
     for piece in cards.iter().map(|c| &c.piece).chain(headers.iter().map(|h| &h.piece)) {
@@ -56,7 +56,7 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
             out.push_str(&line);
         }
     }
-    out.push_str("export { Folds, Theme, Reveal, Shortcuts, TextCap, WindowBox, KeyFocus, Touched }\n");
+    out.push_str("export { Folds, Theme, Reveal, Shortcuts, TextCap, WindowBox, KeyFocus, Touched, Motion }\n");
     out.push_str(&FRAME_TOP.field("three", WIDTH_THREE_COL).field("two", WIDTH_TWO_COL));
 
     // Column geometry for each mode, relative to the body's left edge
@@ -603,7 +603,7 @@ pub struct SectionPlace {
 /// The settings window's document: tabs in order (plugins_tab is the index of the Plugins tab, if shown) and every
 /// plugin's sections on them.
 pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlace]) -> String {
-    let mut out = String::from("import { Theme, Icons, Folds, Reveal, TextField, WindowBox, KeyFocus, TipLayer } from \"@ui-kit/ui-kit.slint\";\n");
+    let mut out = String::from("import { Theme, Icons, Folds, Reveal, TextField, WindowBox, KeyFocus, TipLayer, Motion } from \"@ui-kit/ui-kit.slint\";\n");
     out.push_str("import { SettingsNav, ScrollPage, ResultsList, PluginsPanel, PluginsFooter, Ask, NavTab, Result, GroupView, UpdateRowView } from \"shell/settings.slint\";\n");
     let mut imported = Vec::new();
     for piece in sections.iter().flat_map(|s| std::iter::once(&s.piece).chain(s.footer.as_ref())) {
@@ -613,7 +613,7 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
             out.push_str(&line);
         }
     }
-    out.push_str("export { Folds, Theme, Reveal, WindowBox, KeyFocus }\n");
+    out.push_str("export { Folds, Theme, Reveal, WindowBox, KeyFocus, Motion }\n");
     out.push_str(SETTINGS_TOP);
     for t in 0..tabs {
         out.push_str(&format!("    in-out property page{t}-offset <=> page{t}.offset;\n    out property page{t}-height <=> page{t}.height;\n"));
