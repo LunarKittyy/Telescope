@@ -4,6 +4,7 @@ use crate::peek;
 use crate::shared::Paired;
 use crate::vision_row;
 use serde_json::{json, Value};
+use std::collections::VecDeque;
 use telescope_core::actions::{self, round_half_even, SliderSpec};
 use telescope_core::event::Event;
 use telescope_core::host::{Host, View};
@@ -34,6 +35,8 @@ pub const SPEED_DEFAULT: i64 = 5;
 const OMEGA_SLOW: f64 = 0.4;
 const OMEGA_FAST: f64 = 9.0;
 const TICK_MS: u64 = 33;
+/// The Speed bubble's pictures are moved this often (60 a second, as the window draws), only while it is up.
+const CHASE_MS: u64 = 16;
 /// Closer than this gets too soft to be worth it.
 pub const MAX_ZOOM: f64 = 4.0;
 /// Nobody seen for this long: back to the whole picture.
@@ -166,14 +169,16 @@ pub fn settle(goal: Option<Target>, smooth: Target, dt: f64, scale: f64) -> Targ
     smoothed(Some(follow(goal.unwrap_or(smooth), smooth, scale)), smooth, dt, SETTLE_S * scale)
 }
 
-/// What the Speed bubble draws: a stand-in for you that moves by itself (across, pause, back), and the framing following it with the smoothing,
-/// dead zone and spring that `tick` uses at this Speed. Room to move is off, so it is only the pace you see.
+/// What the Speed bubble draws: a stand-in for you that hops about the box by itself, and the framing following it with the smoothing and
+/// spring that `tick` uses at this Speed (the dead zone is left out, so it is only the pace you see), with two copies of where the framing
+/// was a moment ago, so a quick one is drawn with gaps between them and a slow one huddled.
 #[derive(Clone, Debug)]
 pub struct Chase {
     at: f64,
     smooth: Option<Target>,
-    goal: Option<Target>,
     spring: Spring,
+    /// Where the framing was, and when: just enough to draw the copies
+    history: VecDeque<(f64, [f64; 2])>,
 }
 
 impl Default for Chase {
@@ -183,30 +188,38 @@ impl Default for Chase {
 }
 
 impl Chase {
-    /// How long it holds still at each side, and how long the move across takes.
-    const HOLD_S: f64 = 2.0;
-    const MOVE_S: f64 = 0.5;
-    /// Where it stands at each side, and the zoom the window has (the dead zone depends on it).
-    const SIDES: (f64, f64) = (0.3, 0.7);
-    const ZOOM: f64 = 2.0;
+    /// How long it holds still at each spot, and how long a hop takes: a person stepping, so the bubble shows the follow within a second.
+    const HOLD_S: f64 = 0.7;
+    const MOVE_S: f64 = 0.12;
+    /// Where it stands, as fractions of the room the box has (the frame's own size already kept out): left and high, right and low, across to
+    /// the middle and low, then right and high, so every hop changes both ways.
+    const SPOTS: [(f64, f64); 4] = [(0.1, 0.2), (0.9, 0.8), (0.5, 0.85), (0.9, 0.15)];
+    /// How high a hop bows (of the room): you step round, not straight across.
+    const BOW: f64 = 0.12;
+    /// The demo follows this many times quicker than the real thing, so Speed 1 still gets a good way in a hop and Speed 10 lands in about a tenth of a second.
+    const RATE: f64 = 5.0;
+    /// How long ago the two copies were where the framing was.
+    const TRAIL_S: [f64; 2] = [0.05, 0.1];
 
+    /// Starts at the first hop, so the first move comes the moment the bubble is up.
     pub fn new() -> Chase {
-        let start = Self::you(0.0);
-        Chase { at: 0.0, smooth: None, goal: None, spring: Spring::new(start) }
+        let start = Self::you(Self::HOLD_S);
+        Chase { at: Self::HOLD_S, smooth: None, spring: Spring::new(start), history: VecDeque::new() }
     }
 
-    /// Where you are `t` seconds in: along an arc, as if you leaned over and came back, so both ways of the picture have something to follow.
+    /// Where you are `t` seconds in: each spot held for a while, then a hop to the next with a bow in it.
     pub fn you(t: f64) -> Target {
         let leg = Self::HOLD_S + Self::MOVE_S;
-        let phase = t.rem_euclid(2.0 * leg);
-        let (going, into) = if phase < leg { (true, phase) } else { (false, phase - leg) };
+        let (lap, into) = ((t / leg).floor(), t.rem_euclid(leg));
+        let from = lap.rem_euclid(Self::SPOTS.len() as f64) as usize;
+        let (a, b) = (Self::SPOTS[from], Self::SPOTS[(from + 1) % Self::SPOTS.len()]);
         let m = ((into - Self::HOLD_S) / Self::MOVE_S).clamp(0.0, 1.0);
         let eased = m * m * (3.0 - 2.0 * m);
-        let along = if going { eased } else { 1.0 - eased };
-        Target::new(Self::SIDES.0 + (Self::SIDES.1 - Self::SIDES.0) * along, 0.5 - 0.2 * (std::f64::consts::PI * along).sin(), Self::ZOOM)
+        let bow = Self::BOW * (std::f64::consts::PI * m).sin();
+        Target::new(a.0 + (b.0 - a.0) * eased, (a.1 + (b.1 - a.1) * eased - bow).clamp(0.0, 1.0), 1.0)
     }
 
-    /// Skips what is left of the hold before the next move, so a Speed that was just changed shows at once instead of after the wait.
+    /// Skips what is left of the hold before the next hop, so a Speed that was just changed shows at once instead of after the wait.
     pub fn start_move(&mut self) {
         let into = self.at.rem_euclid(Self::HOLD_S + Self::MOVE_S);
         if into < Self::HOLD_S {
@@ -214,17 +227,23 @@ impl Chase {
         }
     }
 
-    /// Runs `dt` seconds on at this Speed: (you x, you y, framing x, framing y), each from 0 to 1 across the picture.
-    pub fn step(&mut self, speed: i64, dt: f64) -> [f64; 4] {
+    /// Runs `dt` seconds on at this Speed: you (x, y), the framing, and the two copies of it, each from 0 to 1 across the room.
+    pub fn step(&mut self, speed: i64, dt: f64) -> [f64; 8] {
         self.at += dt;
-        let (omega, tau, scale) = tuning(speed);
+        let (omega, tau, _) = tuning(speed);
         let target = Self::you(self.at);
-        let smooth = smoothed(self.smooth, target, dt, tau);
+        let quick = dt * Self::RATE;
+        let smooth = smoothed(self.smooth, target, quick, tau);
         self.smooth = Some(smooth);
-        let goal = settle(self.goal, smooth, dt, scale);
-        self.goal = Some(goal);
-        let framing = self.spring.step(goal, dt, omega);
-        [target.x, target.y, framing.x, framing.y]
+        let framing = self.spring.step(smooth, quick, omega);
+        self.history.push_back((self.at, [framing.x, framing.y]));
+        let oldest = Self::TRAIL_S[1];
+        while self.history.len() > 2 && self.at - self.history[1].0 >= oldest {
+            self.history.pop_front();
+        }
+        let back = |lag: f64| self.history.iter().rev().find(|(t, _)| self.at - t >= lag).map_or([framing.x, framing.y], |(_, p)| *p);
+        let (one, two) = (back(Self::TRAIL_S[0]), back(Self::TRAIL_S[1]));
+        [target.x, target.y, framing.x, framing.y, one[0], one[1], two[0], two[1]]
     }
 }
 
@@ -378,6 +397,10 @@ pub struct FramingPlugin {
     peeking: bool,
     /// The Speed bubble is up: its dots run.
     chasing: Option<Chase>,
+    /// When the dots last moved, for the time they move by
+    chased_at: Option<f64>,
+    /// What the Framing bubble last showed: the stream frame it holds a picture of (0 for the stand-in scene) and the part of it, so it is only redrawn when one of them changes
+    peek_shown: Option<(u64, [f64; 4])>,
     /// What the Framing slider was last told about its bubble ("picture" or "")
     peek_sent: &'static str,
     /// set_config has no host: taking the view and the card's update wait for the next hook that has one.
@@ -425,6 +448,8 @@ impl FramingPlugin {
             framed: false,
             peeking: false,
             chasing: None,
+            chased_at: None,
+            peek_shown: None,
             peek_sent: "picture",
             pending: false,
             cycle: false,
@@ -540,6 +565,7 @@ impl FramingPlugin {
             return;
         }
         self.peeking = open;
+        self.peek_shown = None;
         if open {
             host.want_people(PEEK_OWNER, true);
             self.draw_peek(host);
@@ -554,7 +580,8 @@ impl FramingPlugin {
         }
     }
 
-    /// The crop at this Framing, from the live picture when someone is in it and from the stand-in scene when not.
+    /// The crop at this Framing, from the live picture when someone is in it and from the stand-in scene when not. The bubble crops the picture
+    /// itself, so a picture is handed over only when the frame is a new one (or the scene comes back) and a crop only when it moved.
     fn draw_peek(&mut self, host: &mut dyn Host) {
         let now = (self.clock)();
         let aspect = host.view_aspect() as f64;
@@ -564,40 +591,67 @@ impl FramingPlugin {
         let shown = Self::start_from_view(&view).at;
         let live = host.frames().stream_frame(host.focused_source_id().as_deref()).filter(|f| f.age(monotonic_ns()) < PEEK_FRESH_NS);
         let found = if fresh { target_box(&self.people, aspect, self.framing_value(), &[]).map(|b| fit(b, self.max_zoom)) } else { None };
-        let picture = match (live, found) {
+        let (picture, window) = match (live, found) {
             (Some(stream), Some(want)) => {
-                let (w, h) = peek::size_for(stream.frame.width as f64 / stream.frame.height.max(1) as f64);
-                peek::crop(&peek::frame_reader(&stream.frame), peek::window_in((shown.x, shown.y, shown.zoom), (want.x, want.y, want.zoom)), w, h)
+                let window = peek::window_in((shown.x, shown.y, shown.zoom), (want.x, want.y, want.zoom));
+                // The scene has number 0 and a stream's frames never do
+                let number = stream.frame.number.max(1);
+                let known = self.peek_shown.is_some_and(|(n, _)| n == number);
+                (if known { None } else { peek::live_picture(&stream.frame).map(|f| (number, f)) }, window)
             }
             _ => {
                 let model = target_box(&[peek::sample_person()], peek::SAMPLE_ASPECT, self.framing_value(), &[]).map_or(Target::new(0.5, 0.5, 1.0), |b| fit(b, MAX_ZOOM));
-                peek::crop(&peek::scene_reader(), (model.x, model.y, model.zoom), peek::WIDTH, peek::HEIGHT)
+                let known = self.peek_shown.is_some_and(|(n, _)| n == 0);
+                (if known { None } else { Some((0, peek::scene_picture().clone())) }, (model.x, model.y, model.zoom))
             }
         };
-        host.set_ui_image("card", "framing-picture", &picture);
+        let clip = peek::clip(window);
+        let (number, previous) = match (&picture, self.peek_shown) {
+            (Some((n, _)), _) => (*n, None),
+            (None, Some((n, clip))) => (n, Some(clip)),
+            (None, None) => return,
+        };
+        if let Some((_, frame)) = &picture {
+            host.set_ui_image("card", "framing-picture", frame);
+        }
+        if previous != Some(clip) {
+            host.set_ui_props("card", &json!({"framing-clip": clip}));
+        }
+        self.peek_shown = Some((number, clip));
     }
 
-    /// The Speed bubble came up or went down: its dots start from you at the left and run only while it is up.
+    /// The Speed bubble came up or went down: its dots start hopping at once and run only while it is up.
     fn chase_open(&mut self, host: &mut dyn Host, open: bool) {
         if open == self.chasing.is_some() {
             return;
         }
         if open {
             self.chasing = Some(Chase::new());
+            self.chased_at = Some((self.clock)());
+            // The first hop is under way before the first picture
             self.move_dots(host, 0.0);
-            host.schedule(TICK_MS, T_CHASE);
+            host.schedule(CHASE_MS, T_CHASE);
         } else {
             self.chasing = None;
+            self.chased_at = None;
             host.cancel_schedule(T_CHASE);
         }
     }
 
+    /// Moves the dots on by `dt` seconds at the Speed the slider has now, even while it is being dragged.
     fn move_dots(&mut self, host: &mut dyn Host, dt: f64) {
         let speed = self.speed;
         if let Some(chase) = self.chasing.as_mut() {
-            let [a, b, c, d] = chase.step(speed, dt);
-            host.set_ui_props("card", &json!({"speed-dots": [a, b, c, d]}));
+            host.set_ui_props("card", &json!({"speed-dots": chase.step(speed, dt)}));
         }
+    }
+
+    /// A tick of the Speed bubble: the time since the last one, not a fixed step, so a late timer moves the dots further instead of slowing them.
+    fn chase_tick(&mut self, host: &mut dyn Host) {
+        let now = (self.clock)();
+        let dt = self.chased_at.map_or(CHASE_MS as f64 / 1000.0, |at| (now - at).clamp(0.0, 0.1));
+        self.chased_at = Some(now);
+        self.move_dots(host, dt);
     }
 
     fn switched_by_hand(&mut self, host: &mut dyn Host, on: bool) {
@@ -612,6 +666,10 @@ impl FramingPlugin {
             self.framing = value;
             host.set_ui_props("card", &json!({"framing": value, "framing-text": self.framing_text()}));
             host.schedule_save();
+            // The bubble crops what it has, so a drag shows its crop at once and doesn't wait for the next picture
+            if self.peeking {
+                self.draw_peek(host);
+            }
         }
     }
 
@@ -772,8 +830,8 @@ impl Plugin for FramingPlugin {
                 host.schedule(peek::PICTURE_MS, T_PEEK);
             }
             Event::TimerFired { owner, token } if owner == NAME && token == T_CHASE && self.chasing.is_some() => {
-                self.move_dots(host, TICK_MS as f64 / 1000.0);
-                host.schedule(TICK_MS, T_CHASE);
+                self.chase_tick(host);
+                host.schedule(CHASE_MS, T_CHASE);
             }
             _ => {}
         }

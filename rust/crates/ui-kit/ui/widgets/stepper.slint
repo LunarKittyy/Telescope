@@ -42,16 +42,20 @@ component StepArrow inherits Rectangle {
         scroll-event(e) => { reject }
     }
     // The kit's chevron (icons/chevron.svg), a quarter turn each way so it points along the list
+    // Slint maps a path's viewbox into the box less one stroke, offset by half of it: so the box is the icon's 16 and the viewbox the 16 less
+    // a stroke, starting half a stroke in, which makes one unit one pixel and puts the chevron on the grid at full size
     Path {
-        width: 14px;
-        height: 14px;
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        viewbox-width: 16;
-        viewbox-height: 16;
+        width: 16px;
+        height: 16px;
+        x: round((parent.width - self.width) / 2 / 1phx) * 1phx;
+        y: round((parent.height - self.height) / 2 / 1phx) * 1phx;
+        viewbox-x: Theme.stroke / 2 / 1px;
+        viewbox-y: Theme.stroke / 2 / 1px;
+        viewbox-width: 16 - Theme.stroke / 1px;
+        viewbox-height: 16 - Theme.stroke / 1px;
         commands: dir < 0 ? "M 9.5 4.5 L 6 8 L 9.5 11.5" : "M 6.5 4.5 L 10 8 L 6.5 11.5";
-        stroke: !enabled ? Theme.text-disabled : touch.pressed ? white : touch.has-hover ? Theme.text : Theme.text-dim;
-        stroke-width: 2.2px;
+        stroke: !enabled ? Theme.dis : touch.pressed ? Theme.ink : touch.has-hover ? Theme.ink : Theme.ink2;
+        stroke-width: Theme.stroke;
         stroke-line-cap: round;
         stroke-line-join: round;
         accessible-role: none;

@@ -46,6 +46,8 @@ fn typing_in_the_search_never_shows_a_frame_that_settles_differently() {
     assert!(win.call("shortcuts", "shortcuts", "add"));
     rig.w.process();
     offscreen::draw(win.ui.window(), WIDTH, HEIGHT, 1.0);
+    // The dialog pops in over a moment: let it get there
+    offscreen::skip(std::time::Duration::from_millis(500));
     offscreen::draw(win.ui.window(), WIDTH, HEIGHT, 1.0);
     // A plain generator: the same letters each run, none of them special
     let mut seed = 0x2545_f491u32;

@@ -34,7 +34,7 @@ export component SettingRow inherits Rectangle {
     in property <bool> enabled: true;
     // setting_row's below: a note across the row's width under the name and the controls
     in property <string> note;
-    in property <color> note-color: Theme.text-dim;
+    in property <color> note-color: Theme.ink2;
     min-height: Theme.row + Theme.u(8);
     out property <string> control-kind: "strip";
     // No box of its own: a raised strip inside a card stacked two backgrounds and hid the switch's track, so the row sits on the card
@@ -58,7 +58,7 @@ export component SettingRow inherits Rectangle {
                     text: title;
                     font-family: Theme.font;
                     font-size: Theme.body;
-                    color: enabled ? Theme.text : Theme.text-disabled;
+                    color: enabled ? Theme.ink : Theme.dis;
                     wrap: word-wrap;
                     line-height-factor: Theme.line-factor(self.font-size);
                     // The row is named by it already, and so is a switch in it
@@ -103,6 +103,8 @@ export component SettingMark inherits Rectangle {
 // Tag: a small raised label in a colour at 14% under its text in that colour ("Experimental"), with `r-ctl` corners like every control.
 // `detail` is its tooltip body, where the word alone needs a sentence.
 export component Tag inherits Rectangle {
+    // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font)
+    property <length> lift: 1phx;
     in property <string> text;
     in property <string> detail;
     in property <color> tint: Theme.warn;
@@ -115,6 +117,7 @@ export component Tag inherits Rectangle {
     accessible-label: text;
     accessible-description: detail;
     label := Text {
+        y: (parent.height - self.height) / 2 - lift;
         text: root.text;
         font-family: Theme.font;
         font-size: floor(Theme.body * 0.88 / 1px) * 1px; // 0.88 of the body size, which Qt draws at 11
@@ -129,6 +132,8 @@ export component Tag inherits Rectangle {
 // "Sheet unclear". `kind` is "" (quiet), "ok", "warn" or "err". `detail` is a sentence for the tooltip, the way a status explains itself.
 // It takes the room it is given and ends in an ellipsis; it has no surface.
 export component Status inherits Rectangle {
+    // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font)
+    property <length> lift: 1phx;
     in property <string> text;
     in property <string> detail;
     in property <string> kind;
@@ -145,6 +150,7 @@ export component Status inherits Rectangle {
     accessible-label: text;
     accessible-description: detail;
     label := Text {
+        y: -lift;
         width: parent.width;
         height: parent.height;
         text: root.text;

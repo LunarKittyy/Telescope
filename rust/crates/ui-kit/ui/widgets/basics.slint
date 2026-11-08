@@ -121,6 +121,8 @@ export component LinkText inherits Rectangle {
 // Kind "button": a raised fill with no line round it, semibold. role "primary" is a filled button (violet; in a card, given the card's
 // `hue`, it wears that in the new look), "go" and "stop" are Start and Stop streaming, "danger" the red one, "quiet" the same raised square with dimmer words (no button is ever a ghost: every one has a surface at rest). Anything that opens a menu is a ChoiceField, not a Button.
 export component Button inherits Rectangle {
+    // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font)
+    property <length> lift: 1phx;
     in property <string> text;
     in property <image> icon;
     in property <bool> has-icon: false;
@@ -252,17 +254,24 @@ export component Button inherits Rectangle {
             background: swatch;
             opacity: enabled ? 1 : 0.5;
         }
-        if text != "": Text {
-            text: root.text;
-            overflow: elide;
+        // The label sits in a box of its own so it can be lifted (lift) without lifting an icon beside it
+        if text != "": Rectangle {
             horizontal-stretch: root.shrinks ? 1 : 0;
-            min-width: root.shrinks ? 0px : min(self.preferred-width, Theme.u(60));
-            font-family: Theme.font;
-            font-size: root.font-size;
-            font-weight: root.font-weight;
-            color: !enabled ? Theme.dis : filled ? ink-on-fill : role == "quiet" ? Theme.ink2 : Theme.ink;
-            animate color { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
-            vertical-alignment: center;
+            min-width: root.shrinks ? 0px : min(label.preferred-width, Theme.u(60));
+            preferred-width: label.preferred-width;
+            label := Text {
+                y: -lift;
+                width: parent.width;
+                height: parent.height;
+                text: root.text;
+                overflow: elide;
+                font-family: Theme.font;
+                font-size: root.font-size;
+                font-weight: root.font-weight;
+                color: !enabled ? Theme.dis : filled ? ink-on-fill : role == "quiet" ? Theme.ink2 : Theme.ink;
+                animate color { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
+                vertical-alignment: center;
+            }
         }
     }
 }

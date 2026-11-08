@@ -1,7 +1,8 @@
-// The icons (the v- ones are the older vector icons), white in the files and tinted by Icon. Cards pick one by
-// property or by name.
+// The icons, drawn on one 16 unit grid (see STYLE.md), white in the files and tinted by Icon. Cards pick one by property
+// or by name. The v- properties at the end are older names for icons that now have a plain one.
 
 export global Icons {
+    out property <image> alert: @image-url("icons/alert.svg");
     out property <image> aperture: @image-url("icons/aperture.svg");
     out property <image> aspect: @image-url("icons/aspect.svg");
     out property <image> battery: @image-url("icons/battery.svg");
@@ -25,6 +26,7 @@ export global Icons {
     out property <image> crop: @image-url("icons/crop.svg");
     out property <image> cube: @image-url("icons/cube.svg");
     out property <image> denoise: @image-url("icons/denoise.svg");
+    out property <image> devices: @image-url("icons/devices.svg");
     out property <image> distortion: @image-url("icons/distortion.svg");
     out property <image> dots: @image-url("icons/dots.svg");
     out property <image> download: @image-url("icons/download.svg");
@@ -48,10 +50,12 @@ export global Icons {
     out property <image> keyboard: @image-url("icons/keyboard.svg");
     out property <image> layers: @image-url("icons/layers.svg");
     out property <image> layout: @image-url("icons/layout.svg");
+    out property <image> lenses: @image-url("icons/lenses.svg");
     out property <image> level: @image-url("icons/level.svg");
     out property <image> link: @image-url("icons/link.svg");
     out property <image> lock: @image-url("icons/lock.svg");
     out property <image> mic: @image-url("icons/mic.svg");
+    out property <image> mic-off: @image-url("icons/mic_off.svg");
     out property <image> mirror: @image-url("icons/mirror.svg");
     out property <image> monitor: @image-url("icons/monitor.svg");
     out property <image> moon: @image-url("icons/moon.svg");
@@ -60,8 +64,9 @@ export global Icons {
     out property <image> pencil: @image-url("icons/pencil.svg");
     out property <image> person: @image-url("icons/person.svg");
     out property <image> phone: @image-url("icons/phone.svg");
-    out property <image> photo: @image-url("icons/photo.svg");
+    out property <image> photo: image;
     out property <image> pivot: @image-url("icons/pivot.svg");
+    out property <image> play: @image-url("icons/play.svg");
     out property <image> plug: @image-url("icons/plug.svg");
     out property <image> plus: @image-url("icons/plus.svg");
     out property <image> pop-out: @image-url("icons/pop_out.svg");
@@ -70,7 +75,7 @@ export global Icons {
     out property <image> room: @image-url("icons/room.svg");
     out property <image> rotate: @image-url("icons/rotate.svg");
     out property <image> saturation: @image-url("icons/saturation.svg");
-    out property <image> screen: @image-url("icons/screen.svg");
+    out property <image> screen: monitor;
     out property <image> scroll: @image-url("icons/scroll.svg");
     out property <image> search: @image-url("icons/search.svg");
     out property <image> send-phone: @image-url("icons/send_phone.svg");
@@ -81,7 +86,7 @@ export global Icons {
     out property <image> skip-back: @image-url("icons/skip_back.svg");
     out property <image> skip-next: @image-url("icons/skip_next.svg");
     out property <image> sliders: @image-url("icons/sliders.svg");
-    out property <image> snapshot: @image-url("icons/snapshot.svg");
+    out property <image> snapshot: camera;
     out property <image> sparkle: @image-url("icons/sparkle.svg");
     out property <image> split: @image-url("icons/split.svg");
     out property <image> stabilize: @image-url("icons/stabilize.svg");
@@ -97,41 +102,44 @@ export global Icons {
     out property <image> torch: @image-url("icons/torch.svg");
     out property <image> trails: @image-url("icons/trails.svg");
     out property <image> trash: @image-url("icons/trash.svg");
+    out property <image> update: download;
     out property <image> upside-down: @image-url("icons/upside_down.svg");
     out property <image> usb: @image-url("icons/usb.svg");
     out property <image> video: @image-url("icons/video.svg");
     out property <image> volume: @image-url("icons/volume.svg");
     out property <image> waveform: @image-url("icons/waveform.svg");
-    out property <image> v-alert: @image-url("icons/v_alert.svg");
-    out property <image> v-battery: @image-url("icons/v_battery.svg");
-    out property <image> v-battery-charging: @image-url("icons/v_battery_charging.svg");
-    out property <image> v-bell: @image-url("icons/v_bell.svg");
-    out property <image> v-check: @image-url("icons/v_check.svg");
-    out property <image> v-close: @image-url("icons/v_close.svg");
-    out property <image> v-connection: @image-url("icons/v_connection.svg");
-    out property <image> v-devices: @image-url("icons/v_devices.svg");
-    out property <image> v-expand: @image-url("icons/v_expand.svg");
-    out property <image> v-gear: @image-url("icons/v_gear.svg");
-    out property <image> v-help: @image-url("icons/v_help.svg");
-    out property <image> v-lenses: @image-url("icons/v_lenses.svg");
-    out property <image> v-mic: @image-url("icons/v_mic.svg");
-    out property <image> v-mic-off: @image-url("icons/v_mic_off.svg");
-    out property <image> v-play: @image-url("icons/v_play.svg");
-    out property <image> v-plus: @image-url("icons/v_plus.svg");
-    out property <image> v-preset: @image-url("icons/v_preset.svg");
-    out property <image> v-qr: @image-url("icons/v_qr.svg");
-    out property <image> v-reset: @image-url("icons/v_reset.svg");
-    out property <image> v-status: @image-url("icons/v_status.svg");
-    out property <image> v-stop: @image-url("icons/v_stop.svg");
-    out property <image> v-stream: @image-url("icons/v_stream.svg");
-    out property <image> v-thermometer: @image-url("icons/v_thermometer.svg");
-    out property <image> v-transforms: @image-url("icons/v_transforms.svg");
-    out property <image> v-update: @image-url("icons/v_update.svg");
-    out property <image> v-usb: @image-url("icons/v_usb.svg");
-    out property <image> v-wifi: @image-url("icons/v_wifi.svg");
     out property <image> wifi: @image-url("icons/wifi.svg");
     out property <image> x: @image-url("icons/x.svg");
     out property <image> zoom: @image-url("icons/zoom.svg");
+
+    // The names the cards used before the icons shared one drawing language: each points at the matching icon above
+    out property <image> v-alert: alert;
+    out property <image> v-battery: battery;
+    out property <image> v-battery-charging: battery-charging;
+    out property <image> v-bell: bell;
+    out property <image> v-check: check;
+    out property <image> v-close: x;
+    out property <image> v-connection: link;
+    out property <image> v-devices: devices;
+    out property <image> v-expand: pop-out;
+    out property <image> v-gear: sliders;
+    out property <image> v-help: help;
+    out property <image> v-lenses: lenses;
+    out property <image> v-mic: mic;
+    out property <image> v-mic-off: mic-off;
+    out property <image> v-play: play;
+    out property <image> v-plus: plus;
+    out property <image> v-preset: bookmark;
+    out property <image> v-qr: qr;
+    out property <image> v-reset: reset;
+    out property <image> v-status: waveform;
+    out property <image> v-stop: stop;
+    out property <image> v-stream: monitor;
+    out property <image> v-thermometer: thermometer;
+    out property <image> v-transforms: mirror;
+    out property <image> v-update: download;
+    out property <image> v-usb: usb;
+    out property <image> v-wifi: wifi;
 
     // An icon by its name in PluginInfo.icon, for cards described as data
     public pure function named(name: string) -> image {
@@ -145,6 +153,7 @@ export global Icons {
             : name == "chevron" ? chevron
             : name == "chip" ? chip
             : name == "colour" ? colour
+            : name == "connection" ? link
             : name == "copy" ? copy
             : name == "crop" ? crop
             : name == "download" ? download
@@ -170,6 +179,7 @@ export global Icons {
             : name == "plug" ? plug
             : name == "plus" ? plus
             : name == "pop_out" ? pop-out
+            : name == "preset" ? bookmark
             : name == "qr" ? qr
             : name == "reset" ? reset
             : name == "search" ? search
@@ -179,10 +189,12 @@ export global Icons {
             : name == "sparkle" ? sparkle
             : name == "stabilize" ? stabilize
             : name == "stop" ? stop
+            : name == "stream" || name == "v_stream" ? monitor
             : name == "sun" ? sun
             : name == "thermometer" ? thermometer
             : name == "torch" ? torch
             : name == "trash" ? trash
+            : name == "update" ? download
             : name == "upside_down" ? upside-down
             : name == "usb" ? usb
             : name == "video" ? video

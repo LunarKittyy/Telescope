@@ -10,7 +10,7 @@ use crate::vision_row;
 use serde_json::{json, Map, Value};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use telescope_core::actions::{self, Choice, SliderSpec};
 use telescope_core::config::clamped_int;
 use telescope_core::event::Event;
@@ -36,8 +36,12 @@ const DEFAULT_EDGES: i64 = 3;
 
 /// The frame blurred (strength 1..10), at an eighth of the size and scaled back up. With the person mask, the person is left out of the blur, so they don't smear into a dark halo around themselves.
 pub fn blurred(frame: &Rgb, strength: i64, mask: Option<&Gray>) -> Rgb {
-    let (w, h) = (frame.w, frame.h);
-    let (sw, sh) = ((w / BLUR_SMALL).max(1), (h / BLUR_SMALL).max(1));
+    blurred_to(frame, strength, mask, frame.w, frame.h)
+}
+
+/// `blurred`, scaled up to w x h instead of the frame's own size: the same blur, so a small copy needs no full-size picture made and shrunk.
+fn blurred_to(frame: &Rgb, strength: i64, mask: Option<&Gray>, w: usize, h: usize) -> Rgb {
+    let (sw, sh) = ((frame.w / BLUR_SMALL).max(1), (frame.h / BLUR_SMALL).max(1));
     let small = frame.shrink(sw, sh);
     let sigma = (1.0 + strength as f64 * 1.2) * SMALL / BLUR_SMALL as f64;
     let plain = small.blur(sigma);
@@ -61,6 +65,30 @@ pub fn blurred(frame: &Rgb, strength: i64, mask: Option<&Gray>) -> Rgb {
         }
     }
     out.linear_exact(w, h)
+}
+
+/// The sample's background blurred at strength 1..10 at the bubble's size, made the first time and kept.
+fn blurred_peek(strength: i64) -> &'static Rgb {
+    static LEVELS: [OnceLock<Rgb>; 10] = [const { OnceLock::new() }; 10];
+    let i = (strength.clamp(1, 10) - 1) as usize;
+    LEVELS[i].get_or_init(|| {
+        let (scene, mask) = peek::blur_scene();
+        blurred_to(scene, i as i64 + 1, Some(mask), peek::WIDTH, peek::HEIGHT)
+    })
+}
+
+/// The sample's person mask feathered by edges 0..10 at the bubble's size (`Gray::soften` with its work done at this size), made the first time and kept.
+fn softened_peek(edges: i64) -> &'static Gray {
+    static MASKS: [OnceLock<Gray>; 11] = [const { OnceLock::new() }; 11];
+    let i = edges.clamp(0, 10) as usize;
+    MASKS[i].get_or_init(|| {
+        let (_, mask) = peek::blur_scene();
+        if i == 0 {
+            return mask.shrink(peek::WIDTH, peek::HEIGHT);
+        }
+        let small = mask.area((mask.w / 4).max(1), (mask.h / 4).max(1));
+        small.blur(i as f64 * 0.6).linear_exact(peek::WIDTH, peek::HEIGHT)
+    })
 }
 
 /// What a frame step needs, frozen: a stream behind the panels keeps the ones it was left with.
@@ -230,11 +258,12 @@ impl BackgroundPlugin {
         }
     }
 
-    /// The stand-in scene blurred at this strength with the effect's own blur and edge, behind the person.
+    /// The stand-in scene blurred at this strength with the effect's own blur and edge, behind the person. Each strength's blur and each edge's feathered
+    /// mask is made once, at the bubble's size, the first time it is asked for, so a drag over the slider only lays one over the other.
     fn draw_blur(&self, host: &mut dyn Host) {
-        let (scene, mask) = peek::blur_scene();
-        let out = compose(scene, &mask.soften(self.edges), &blurred(scene, self.blur, Some(mask)));
-        host.set_ui_image("card", "blur-picture", &peek::rgba(&out.shrink(peek::WIDTH, peek::HEIGHT)));
+        let (scene, _) = peek::blur_scene_small();
+        let out = compose(scene, softened_peek(self.edges), blurred_peek(self.blur));
+        host.set_ui_image("card", "blur-picture", &peek::rgba(&out));
     }
 
     fn catch_up(&mut self, host: &mut dyn Host) {

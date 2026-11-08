@@ -366,6 +366,8 @@ fn a_pad_takes_a_drag_and_says_moved_then_released_with_both_numbers() {
     let ui = rig(PAD, (340.0, 230.0), &[]);
     // The middle of the pad's room: 6000 across, 0 up and down
     down(&ui, at(10.0 + 150.0, 10.0 + 100.0));
+    // A first click waits for the double-click interval (the sliders' rule) before it moves anything; a drag would not
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(400));
     assert_eq!((number(&ui, "moves"), number(&ui, "mx"), number(&ui, "my")), (1.0, 6000.0, 0.0));
     drag(&ui, at(10.0 + 12.0, 10.0 + 12.0));
     assert_eq!((number(&ui, "mx"), number(&ui, "my")), (2000.0, 50.0), "the top left, with y up");
@@ -420,6 +422,7 @@ fn a_pad_with_y_down_has_up_for_less() {
     press(&ui, Key::UpArrow);
     assert_eq!(number(&ui, "now-y"), 9.0);
     down(&ui, at(10.0 + 12.0, 10.0 + 12.0));
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(400));
     assert_eq!(number(&ui, "my"), -50.0, "the top is the least with y down");
 }
 

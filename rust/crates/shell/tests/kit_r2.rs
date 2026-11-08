@@ -240,3 +240,261 @@ fn rows_that_come_and_go_unfold_both_ways_leave_no_gap_and_turn_round_mid_way() 
     step(800);
     assert_eq!(num(&ui, "tail-y"), shut, "and shuts all the way, no gap");
 }
+
+const HELD: &str = r#"
+import { Slider, PeekLayer, Theme } from "@ui-kit/ui-kit.slint";
+export component T inherits Window {
+    width: 340px;
+    height: 400px;
+    background: Theme.ground;
+    Slider { x: 10px; y: 330px; width: 320px; label: "Level"; value: 50; peek: "text"; peek-text: "Aa Bb"; peek-values: [14]; hue: #aa9cf5; }
+    PeekLayer { }
+}
+"#;
+
+/// Rows of the outline's colour along a straight edge of the held bubble: every column of the top edge must put it on the same pixel row.
+#[test]
+fn the_held_bubbles_top_edge_is_one_pixel_row_from_end_to_end_at_every_scale() {
+    for scale in [1.0f32, 1.25, 1.5, 2.0] {
+        let _still = offscreen::freeze_clock();
+        let ui = make(HELD, 340.0, 400.0);
+        let (w, h) = (340.0, 400.0);
+        offscreen::draw(ui.window(), w, h, scale).unwrap();
+        // The handle is at the middle of the slider: move it a fraction of a pixel so nothing is on a whole number
+        press(&ui, 100.3, 346.0);
+        for _ in 0..10 {
+            step(FRAME);
+            offscreen::draw(ui.window(), w, h, scale).unwrap();
+        }
+        pointer_to(&ui, 100.3 + 37.37, 346.0);
+        for _ in 0..30 {
+            step(FRAME);
+            offscreen::draw(ui.window(), w, h, scale).unwrap();
+        }
+        let pic = offscreen::draw(ui.window(), w, h, scale).unwrap();
+        let accent = [0xaa, 0x9c, 0xf5];
+        let near = |i: usize| (0..3).all(|c| (pic.rgba[i + c] as i32 - accent[c] as i32).abs() < 40);
+        let width = pic.width as usize;
+        // For each column, the first row (from the top of the bubble area) that is the outline's colour
+        let mut tops = Vec::new();
+        for x in 0..width {
+            if let Some(y) = (0..(300.0 * scale) as usize).find(|y| near((y * width + x) * 4)) {
+                tops.push((x, y));
+            }
+        }
+        assert!(!tops.is_empty(), "scale {scale}: an outline was drawn");
+        // The top edge: the most common top row, and the columns on it; columns of the corners and the pointer are higher or lower, the
+        // straight stretch between them must be a single row
+        let mut counts = std::collections::BTreeMap::new();
+        for (_, y) in &tops {
+            *counts.entry(*y).or_insert(0usize) += 1;
+        }
+        let (&row, &n) = counts.iter().max_by_key(|(_, n)| **n).unwrap();
+        let on_row: Vec<usize> = tops.iter().filter(|(_, y)| *y == row).map(|(x, _)| *x).collect();
+        let (first, last) = (*on_row.first().unwrap(), *on_row.last().unwrap());
+        // Between the first and the last column on the row, no column may be off it by a pixel (a step)
+        let stepped: Vec<_> = tops.iter().filter(|(x, y)| *x >= first && *x <= last && *y != row).collect();
+        assert!(n > 100 && stepped.is_empty(), "scale {scale}: the top edge steps: row {row} for {n} columns, off it: {:?}", &stepped[..stepped.len().min(12)]);
+        if let Some(dir) = shots() {
+            let crop = (0.0, 150.0, 340.0, 200.0);
+            save(&dir, &format!("held-bubble-top-{scale}.png"), &strip(&[pic], crop, scale, 1));
+        }
+    }
+}
+
+const PAGES: &str = r#"
+import { Switch, TipLayer, Tips, Theme } from "@ui-kit/ui-kit.slint";
+export { Tips }
+export component T inherits Window {
+    width: 300px;
+    height: 200px;
+    background: Theme.card;
+    in-out property <int> page: 0;
+    in-out property <bool> built: true;
+    Rectangle {
+        visible: root.page == 0;
+        Switch { x: 20px; y: 20px; label: "Load at start"; tip: "Load when the computer starts"; }
+    }
+    Rectangle {
+        visible: root.page == 1;
+        Switch { x: 120px; y: 120px; label: "Other"; tip: "Another page"; }
+    }
+    if root.built: Switch { x: 20px; y: 80px; label: "Gone soon"; tip: "Built by an if"; }
+    TipLayer { }
+}
+"#;
+
+fn tip_up(ui: &slint_interpreter::ComponentInstance) -> bool {
+    matches!(ui.get_global_property("Tips", "shown"), Ok(Value::Bool(true)))
+}
+
+#[test]
+fn a_tooltip_never_outlives_its_owner() {
+    // The pointer rests on a switch, the page changes under it
+    {
+        let _still = offscreen::freeze_clock();
+        let ui = make(PAGES, 300.0, 200.0);
+        pointer_to(&ui, 40.0, 32.0);
+        for _ in 0..60 {
+            step(FRAME);
+            offscreen::draw(ui.window(), 300.0, 200.0, 1.0).unwrap();
+        }
+        assert!(tip_up(&ui), "a resting pointer shows the tip");
+        // A page that hides with `visible` leaves the pointer where it was (so the control still reads as hovered): the page says so
+        set(&ui, "page", Value::Number(1.0));
+        ui.invoke_global("Tips", "dismiss", &[]).unwrap();
+        for _ in 0..90 {
+            step(FRAME);
+            offscreen::draw(ui.window(), 300.0, 200.0, 1.0).unwrap();
+        }
+        assert!(!tip_up(&ui), "the page changed: the tip is gone, and does not come back under the resting pointer");
+        // Leaving and coming back shows it again
+        pointer_to(&ui, 200.0, 190.0);
+        pointer_to(&ui, 40.0, 92.0);
+        for _ in 0..60 {
+            step(FRAME);
+            offscreen::draw(ui.window(), 300.0, 200.0, 1.0).unwrap();
+        }
+        assert!(tip_up(&ui), "a control entered again shows its tip");
+    }
+    // The keyboard focus is on a switch, the page changes
+    {
+        let _still = offscreen::freeze_clock();
+        let ui = make(PAGES, 300.0, 200.0);
+        key(&ui, Key::Tab);
+        for _ in 0..30 {
+            step(FRAME);
+            offscreen::draw(ui.window(), 300.0, 200.0, 1.0).unwrap();
+        }
+        assert!(tip_up(&ui), "the focus shows the tip");
+        set(&ui, "page", Value::Number(1.0));
+        for _ in 0..60 {
+            step(FRAME);
+            offscreen::draw(ui.window(), 300.0, 200.0, 1.0).unwrap();
+        }
+        assert!(!tip_up(&ui), "the focused control is on a hidden page: the tip is gone");
+    }
+    // The owner is built by an `if` and removed while its tip is up
+    {
+        let _still = offscreen::freeze_clock();
+        let ui = make(PAGES, 300.0, 200.0);
+        pointer_to(&ui, 40.0, 92.0);
+        for _ in 0..60 {
+            step(FRAME);
+            offscreen::draw(ui.window(), 300.0, 200.0, 1.0).unwrap();
+        }
+        assert!(tip_up(&ui));
+        set(&ui, "built", Value::Bool(false));
+        for _ in 0..60 {
+            step(FRAME);
+            offscreen::draw(ui.window(), 300.0, 200.0, 1.0).unwrap();
+        }
+        assert!(!tip_up(&ui), "removed: the tip is gone");
+    }
+}
+
+const PADS: &str = r#"
+import { Pad, Theme } from "@ui-kit/ui-kit.slint";
+export component T inherits Window {
+    width: 340px;
+    height: 230px;
+    background: Theme.card;
+    in-out property <float> vx: 6000;
+    in-out property <float> vy: 0;
+    in-out property <int> moves;
+    out property <length> hx: pad.handle-x;
+    pad := Pad {
+        x: 10px; y: 10px; width: 300px; height: 200px; label: "Balance";
+        x-minimum: 2000; x-maximum: 10000; step-x: 100; y-minimum: -50; y-maximum: 50; step-y: 1; y-up: true;
+        has-default: true; default-x: 6000; default-y: 0; value-x: vx; value-y: vy;
+        moved(x, y) => { root.vx = x; root.vy = y; root.moves += 1; }
+    }
+}
+"#;
+
+#[test]
+fn a_double_click_on_the_pan_map_resets_without_the_handle_first_jumping_to_the_click() {
+    let _still = offscreen::freeze_clock();
+    let ui = make(PADS, 340.0, 230.0);
+    set(&ui, "vx", Value::Number(9000.0));
+    step(600);
+    let before = num(&ui, "hx");
+    // First click away from the handle: nothing moves while a second may follow
+    press(&ui, 60.0, 60.0);
+    release(&ui, 60.0, 60.0);
+    for _ in 0..8 {
+        step(FRAME);
+        assert_eq!(num(&ui, "hx"), before, "the handle waits for the double-click interval");
+    }
+    assert_eq!(num(&ui, "moves"), 0.0);
+    // The second press: a reset to the default, never to the click
+    press(&ui, 60.0, 60.0);
+    release(&ui, 60.0, 60.0);
+    ui.window().dispatch_event(WindowEvent::PointerPressed { position: at(60.0, 60.0), button: slint::platform::PointerEventButton::Left });
+    step(800);
+    // Without a second click, a click alone moves it after the interval
+    let ui = make(PADS, 340.0, 230.0);
+    press(&ui, 60.0, 60.0);
+    release(&ui, 60.0, 60.0);
+    step(500);
+    assert_eq!(num(&ui, "moves"), 1.0, "a lone click takes effect after the interval");
+    // A drag takes hold at once
+    let ui = make(PADS, 340.0, 230.0);
+    press(&ui, 60.0, 60.0);
+    pointer_to(&ui, 120.0, 90.0);
+    assert!(num(&ui, "moves") >= 1.0, "a drag does not wait");
+}
+
+const CAPS: &str = r#"
+import { Button, Segmented, PictureSegmented, Theme } from "@ui-kit/ui-kit.slint";
+export component T inherits Window {
+    width: 320px;
+    height: 160px;
+    background: Theme.card;
+    Button { x: 10px; y: 10px; width: 100px; text: "HHH"; }
+    Button { x: 120px; y: 10px; width: 100px; text: "HHH"; has-icon: false; font-weight: 500; }
+    Segmented { x: 10px; y: 60px; width: 200px; label: "S"; items: ["HHH", "HHH"]; disabled: [false, false]; current: 1; }
+    PictureSegmented { x: 230px; y: 10px; width: 80px; label: "P"; items: ["HHH"]; disabled: [false]; show-names: true; current: -1; tile-height: 48px; art-size: 20px; Rectangle { Rectangle { width: parent.width; height: 20px; background: #ff0000; } } }
+}
+"#;
+
+#[test]
+fn centred_words_sit_with_their_capitals_on_the_middle_of_their_box_and_a_tile_block_is_centred() {
+    for scale in [1.0f32, 1.25, 1.5, 2.0] {
+        let _still = offscreen::freeze_clock();
+        let ui = make(CAPS, 320.0, 160.0);
+        step(FRAME);
+        step(FRAME);
+        let pic = offscreen::draw(ui.window(), 320.0, 160.0, scale).unwrap();
+        let w = pic.width as usize;
+        // Rows (in logical px) where text-bright pixels are within the box: x range, y range
+        let ink = |x0: f32, x1: f32, y0: f32, y1: f32, bright: bool| {
+            let (mut top, mut bot) = (usize::MAX, 0usize);
+            for y in (y0 * scale) as usize..(y1 * scale) as usize {
+                for x in (x0 * scale) as usize..(x1 * scale) as usize {
+                    let p = &pic.rgba[(y * w + x) * 4..];
+                    let lum = (p[0] as u32 + p[1] as u32 + p[2] as u32) / 3;
+                    if (bright && lum > 170 && !(p[0] > 200 && p[1] < 80)) || (!bright && p[0] > 200 && p[1] < 80) {
+                        top = top.min(y);
+                        bot = bot.max(y);
+                    }
+                }
+            }
+            (top as f32 / scale, (bot + 1) as f32 / scale)
+        };
+        let middle = |(t, b): (f32, f32)| (t + b) / 2.0;
+        // A button 32 high at y 10: its middle is 26
+        let button = middle(ink(20.0, 100.0, 10.0, 42.0, true));
+        // A segment of the row 32 high at y 60: its middle is 76
+        let seg = middle(ink(110.0, 210.0, 60.0, 92.0, true));
+        let tolerance = 0.5 + 0.5 / scale;
+        assert!((button - 26.0).abs() <= tolerance, "scale {scale}: a button's capitals' middle is {button}, the box's 26");
+        assert!((seg - 76.0).abs() <= tolerance, "scale {scale}: a picked segment's capitals' middle is {seg}, the row's 76");
+        // The tile block: the red drawing's top to the name's bottom, centred in the tile 48 high at y 10 (middle 34)
+        let art = ink(230.0, 310.0, 10.0, 58.0, false);
+        let name = ink(230.0, 310.0, 10.0, 58.0, true);
+        let block = (art.0, name.1);
+        let (above, below) = (block.0 - 10.0, 58.0 - block.1);
+        assert!((above - below).abs() <= 1.0 + 1.0 / scale, "scale {scale}: the block has {above} above and {below} below");
+    }
+}

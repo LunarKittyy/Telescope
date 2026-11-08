@@ -46,23 +46,39 @@ fn a_window_in_a_picture_that_already_shows_a_view_slides_in_and_never_asks_for_
 }
 
 #[test]
-fn a_crop_shows_only_what_the_window_covers() {
-    let at = |u: f64, _v: f64| if u < 0.5 { [255, 0, 0] } else { [0, 0, 255] };
-    let whole = crop(&at, (0.5, 0.5, 1.0), 8, 4);
-    assert_eq!(&whole.data[0..4], &[255, 0, 0, 255]);
-    assert_eq!(&whole.data[7 * 4..8 * 4], &[0, 0, 255, 255]);
-    // a window over the left quarter is all red, over the right quarter all blue
-    let left = crop(&at, (0.25, 0.5, 4.0), 8, 4);
-    assert!(left.data.chunks(4).all(|p| p == [255, 0, 0, 255]));
-    let right = crop(&at, (0.9, 0.5, 4.0), 8, 4);
-    assert!(right.data.chunks(4).all(|p| p == [0, 0, 255, 255]));
+fn a_clip_is_the_window_slid_in_to_stay_inside_the_picture() {
+    assert_eq!(clip((0.5, 0.5, 1.0)), [0.0, 0.0, 1.0, 1.0]);
+    assert_eq!(clip((0.5, 0.5, 2.0)), [0.25, 0.25, 0.5, 0.5]);
+    // a window asked for past the left and top edges is held against them, and one past the right and bottom against those
+    assert_eq!(clip((0.0, 0.0, 4.0)), [0.0, 0.0, 0.25, 0.25]);
+    let [x, y, w, h] = clip((1.0, 1.0, 4.0));
+    assert!((x - 0.75).abs() < 1e-9 && (y - 0.75).abs() < 1e-9 && (w - 0.25).abs() < 1e-9 && (h - 0.25).abs() < 1e-9);
+    // never wider than the picture
+    assert_eq!(clip((0.3, 0.7, 0.5))[2], 1.0);
 }
 
 #[test]
-fn a_bubble_picture_fits_its_box_for_any_shape_of_source() {
-    assert_eq!(size_for(16.0 / 9.0), (WIDTH, HEIGHT));
-    assert_eq!(size_for(1.0), (HEIGHT, HEIGHT));
-    let (w, h) = size_for(4.0);
-    assert!(w <= WIDTH && h <= HEIGHT && w == WIDTH);
-    assert_eq!(size_for(f64::NAN), (WIDTH, HEIGHT));
+fn the_scene_picture_is_made_once_at_the_bubbles_size() {
+    let picture = scene_picture();
+    assert_eq!((picture.width as usize, picture.height as usize), (WIDTH, HEIGHT));
+    assert!(std::ptr::eq(picture, scene_picture()), "kept, not drawn again");
+    // the nose is on the skin tone, so what the bubble crops is the scene the framing code reads
+    let nose = sample_person().point("nose", SEEN).unwrap();
+    let at = ((nose.1 * HEIGHT as f64) as usize * WIDTH + (nose.0 * WIDTH as f64) as usize) * 4;
+    assert_eq!(&picture.data[at..at + 4], &[224, 172, 140, 255]);
+}
+
+#[test]
+fn a_live_frame_is_shrunk_for_the_bubble_and_never_enlarged() {
+    let big = Frame::new(1920, 1080, PixelFormat::Rgba, vec![200; 1920 * 1080 * 4]);
+    let shrunk = live_picture(&big).unwrap();
+    assert_eq!((shrunk.width, shrunk.height), (2 * WIDTH as u32, 2 * HEIGHT as u32));
+    assert!(shrunk.data.chunks(4).all(|p| p == [200, 200, 200, 255]));
+    let small = Frame::new(320, 180, PixelFormat::Rgba, vec![10; 320 * 180 * 4]);
+    let kept = live_picture(&small).unwrap();
+    assert_eq!((kept.width, kept.height), (320, 180));
+    // a tall one keeps its shape
+    let tall = Frame::new(1080, 1920, PixelFormat::Rgba, vec![0; 1080 * 1920 * 4]);
+    let shrunk = live_picture(&tall).unwrap();
+    assert_eq!((shrunk.width as usize, shrunk.height as usize), (223, 2 * HEIGHT));
 }

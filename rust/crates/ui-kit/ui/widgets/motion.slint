@@ -345,3 +345,23 @@ export component Worm inherits Rectangle {
     background: outline-only ? transparent : inside;
     animate background { duration: Motion.tone-for(pressed || snap); easing: Motion.tone; }
 }
+
+// Kind "helper". ClickWait: how long a first click on a control that has a double-click (a reset) waits to see whether a second follows,
+// so a double-click goes straight to the reset and the control never moves to the first click's place first (Motion.double-click, the
+// same for every control: sliders, the pan map). `start` on the press, `cancel` when a drag or a second press settles it; `elapsed` says
+// the wait is over and the click was a click. A press that is held and dragged never waits.
+export component ClickWait {
+    out property <string> control-kind: "helper";
+    out property <bool> waiting;
+    callback elapsed();
+    public function start() { waiting = true; }
+    public function cancel() { waiting = false; }
+    Timer {
+        interval: Motion.double-click;
+        running: root.waiting;
+        triggered => {
+            root.waiting = false;
+            root.elapsed();
+        }
+    }
+}

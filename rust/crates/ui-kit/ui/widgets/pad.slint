@@ -5,7 +5,7 @@ import { Reveal } from "folds.slint";
 import { FocusRing, TouchRing, KeyFocus } from "basics.slint";
 import { Tip } from "tip.slint";
 import { ShortcutMenu, ShortcutEntry } from "shortcut-menu.slint";
-import { Motion, Settle, Tone } from "motion.slint";
+import { Motion, Settle, Tone, ClickWait } from "motion.slint";
 
 // A square of the surround's colour with a quarter circle cut out, over one corner (0 to 3 clockwise from the top left): the software renderer squares off a gradient's corners, so the drawing is rounded by covering them.
 export component CornerCap inherits Path {
@@ -71,6 +71,7 @@ export component Pad inherits Rectangle {
     in property <string> tip-detail;
     // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
     in property <string> tip-hint;
+    property <string> hint-line: tip-hint != "" ? tip-hint : has-default ? @tr("Double-click to reset") : "";
     in property <[string]> tip-keys;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
@@ -111,6 +112,19 @@ export component Pad inherits Rectangle {
     property <bool> framed: box-w > 0px && box-h > 0px;
     property <length> inset-x: frame-shown ? frame-w.value * 1px / 2 : Theme.u(6);
     property <length> inset-y: frame-shown ? frame-h.value * 1px / 2 : Theme.u(6);
+    // A first click away from the handle waits for the double-click interval (the sliders' rule, `ClickWait`) before the handle moves, when a
+    // double-click would reset it, so the reset never starts with a jump to the click; a drag, or a press on the handle itself, takes hold at once
+    property <length> press-px;
+    property <length> press-py;
+    property <length> pend-x;
+    property <length> pend-y;
+    property <bool> pending: pend.waiting;
+    pend := ClickWait {
+        elapsed => {
+            drag-to(pend-x, pend-y);
+            if (!dragging) { released(shown-x, shown-y); }
+        }
+    }
     // Where a press took hold of the frame, so it follows the pointer from there
     property <length> grab-dx;
     property <length> grab-dy;
@@ -188,7 +202,7 @@ export component Pad inherits Rectangle {
     }
     TouchRing { setting: root.setting-x; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
     TouchRing { setting: root.setting-y; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
-    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.hint-line; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
@@ -201,20 +215,41 @@ export component Pad inherits Rectangle {
                 let inside = frame-shown && abs(self.mouse-x - handle-x) <= frame-w.value * 1px / 2 && abs(self.mouse-y - handle-y) <= frame-h.value * 1px / 2;
                 grab-dx = inside ? handle-x - self.mouse-x : 0px;
                 grab-dy = inside ? handle-y - self.mouse-y : 0px;
-                drag-to(self.mouse-x + grab-dx, self.mouse-y + grab-dy);
+                press-px = self.mouse-x;
+                press-py = self.mouse-y;
+                let on-puck = !frame-shown && abs(self.mouse-x - handle-x) <= Theme.u(8) && abs(self.mouse-y - handle-y) <= Theme.u(8);
+                if (!inside && !on-puck && has-default && !pending) {
+                    pend-x = self.mouse-x;
+                    pend-y = self.mouse-y;
+                    pend.start();
+                } else if (!pending) {
+                    drag-to(self.mouse-x + grab-dx, self.mouse-y + grab-dy);
+                }
             }
-            if (e.kind == PointerEventKind.move && dragging && self.pressed) {
-                drag-to(self.mouse-x + grab-dx, self.mouse-y + grab-dy);
-            }
+            if (e.kind == PointerEventKind.move && dragging && self.pressed) { follow(); }
             if (dragging && ((e.kind == PointerEventKind.up && e.button == PointerEventButton.left) || e.kind == PointerEventKind.cancel)) {
                 dragging = false;
-                released(shown-x, shown-y);
+                if (!pending) { released(shown-x, shown-y); }
             }
         }
         moved => {
-            if (self.pressed && dragging) { drag-to(self.mouse-x + grab-dx, self.mouse-y + grab-dy); }
+            if (self.pressed && dragging) { follow(); }
+        }
+        // The pointer moved with the button down: a drag that starts away from the handle ends the wait and takes hold at once
+        function follow() {
+            if (pending) {
+                if (abs(self.mouse-x - press-px) > Theme.u(2) || abs(self.mouse-y - press-py) > Theme.u(2)) {
+                    pend.cancel();
+                } else {
+                    pend-x = self.mouse-x;
+                    pend-y = self.mouse-y;
+                    return;
+                }
+            }
+            drag-to(self.mouse-x + grab-dx, self.mouse-y + grab-dy);
         }
         double-clicked => {
+            pend.cancel();
             set-to(has-default ? default-x : centre-x, has-default ? default-y : centre-y);
         }
     }

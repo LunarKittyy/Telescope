@@ -63,7 +63,7 @@ struct Kind {
 
 const FRAMING: Kind = Kind {
     group: "vision",
-    extra: &[("speed-dots", "[float]")],
+    extra: &[("speed-dots", "[float]"), ("framing-clip", "[float]")],
     images: &["framing-picture"],
     callbacks: &[("framing-peek-open", "bool"), ("speed-peek-open", "bool"), ("framing-moved", "float"), ("speed-moved", "float"), ("switch-toggled-by-hand", "bool"), ("hand-toggled", "bool")],
 };
@@ -280,6 +280,11 @@ impl Wrap {
 const HANDLE_INSET: f32 = 7.0;
 
 fn framing(top: f32, classic: bool) -> Wrap {
+    framing_stepping(top, classic, 0.033)
+}
+
+/// The same, with each look at the clock this many seconds on.
+fn framing_stepping(top: f32, classic: bool, step: f64) -> Wrap {
     let mut host = FakeHost::new();
     host.focused = Some("phone".into());
     host.vision = Some(vision::READY.into());
@@ -288,7 +293,7 @@ fn framing(top: f32, classic: bool) -> Wrap {
     let now = Arc::new(std::sync::Mutex::new(10.0f64));
     let mut plugin = FramingPlugin::with_clock(move || {
         let mut t = now.lock().unwrap();
-        *t += 0.033;
+        *t += step;
         *t
     });
     plugin.set_config(&json!({"on": false})).unwrap();
@@ -320,6 +325,7 @@ fn the_framing_slider_gets_a_picture_bubble_only_while_the_preview_cant_show_the
     assert!(w.up() && w.peek_kind() == "picture");
     assert!(scheduled(&w, "peek"), "the plugin makes pictures while it is up");
     assert_eq!(w.peek_picture(), (peek::WIDTH as u32, peek::HEIGHT as u32), "and the bubble holds one");
+    assert_eq!(w.peek_numbers().len(), 4, "with the part of it to show");
     assert_eq!(w.card_height(), height, "the card did not move");
     w.let_go();
     assert!(!w.up());
@@ -355,11 +361,11 @@ fn holding_the_speed_slider_runs_the_dots_and_only_then() {
     assert!(w.up() && w.peek_kind() == "chase");
     assert!(scheduled(&w, "chase"));
     let first = w.peek_numbers();
-    assert_eq!(first.len(), 4);
+    assert_eq!(first.len(), 8, "you, the frame and its two copies");
     w.fire("chase", 100);
     w.draw();
     let later = w.peek_numbers();
-    assert_eq!(later.len(), 4);
+    assert_eq!(later.len(), 8);
     assert_ne!(first, later, "the dots moved on their own");
     assert!(later.iter().all(|v| (0.0..=1.0).contains(v)));
     w.let_go();
@@ -466,4 +472,169 @@ fn shots() {
             w.let_go();
         }
     }
+}
+
+/// The box of a held bubble in a picture of the window (x, y, width, height in pixels): the biggest block of `fill`, the colour behind what it draws.
+fn find_box(p: &offscreen::Picture, fill: [u8; 3]) -> (usize, usize, usize, usize) {
+    let (w, h) = (p.width as usize, p.height as usize);
+    let is = |x: usize, y: usize| p.rgba[(y * w + x) * 4..(y * w + x) * 4 + 3] == fill;
+    let longest = |len: usize, count: &dyn Fn(usize) -> usize| {
+        let (mut best, mut start) = ((0, 0), None);
+        for i in 0..=len {
+            if i < len && count(i) > 40 {
+                start.get_or_insert(i);
+            } else if let Some(s) = start.take() {
+                if i - s > best.1 - best.0 {
+                    best = (s, i);
+                }
+            }
+        }
+        best
+    };
+    let (x0, x1) = longest(w, &|x| (200..480.min(h)).filter(|y| is(x, *y)).count());
+    let (y0, y1) = longest(h, &|y| (x0..x1).filter(|x| is(*x, y)).count());
+    (x0, y0, x1 - x0, y1 - y0)
+}
+
+/// The same crop of each picture, tiled in rows of `cols` with a few pixels of grey between.
+fn tile(pictures: &[offscreen::Picture], crop: (usize, usize, usize, usize), cols: usize) -> offscreen::Picture {
+    let (cx, cy, cw, ch) = crop;
+    let rows = pictures.len().div_ceil(cols);
+    let (w, h) = (cols * cw + (cols - 1) * 4, rows * ch + (rows - 1) * 4);
+    let mut rgba = vec![96u8; w * h * 4];
+    for (n, p) in pictures.iter().enumerate() {
+        let (ox, oy) = ((n % cols) * (cw + 4), (n / cols) * (ch + 4));
+        for y in 0..ch {
+            let from = ((cy + y) * p.width as usize + cx) * 4;
+            let to = ((oy + y) * w + ox) * 4;
+            rgba[to..to + cw * 4].copy_from_slice(&p.rgba[from..from + cw * 4]);
+        }
+    }
+    offscreen::Picture { width: w as u32, height: h as u32, rgba }
+}
+
+fn stack(parts: &[&offscreen::Picture]) -> offscreen::Picture {
+    let w = parts.iter().map(|p| p.width).max().unwrap() as usize;
+    let h: usize = parts.iter().map(|p| p.height as usize + 12).sum::<usize>() - 12;
+    let mut rgba = vec![40u8; w * h * 4];
+    let mut y = 0;
+    for p in parts {
+        for row in 0..p.height as usize {
+            let to = ((y + row) * w) * 4;
+            rgba[to..to + p.width as usize * 4].copy_from_slice(&p.rgba[row * p.width as usize * 4..(row + 1) * p.width as usize * 4]);
+        }
+        y += p.height as usize + 12;
+    }
+    offscreen::Picture { width: w as u32, height: h as u32, rgba }
+}
+
+/// What the Speed bubble drew before: a ring for you and a dot for the framing, two sides of the box, a pause of 2 s, a move of half a second.
+fn old_speed_bubble() -> ComponentInstance {
+    use telescope_effects::framing::{settle, smoothed, tuning, Spring, Target};
+    let _ = (settle, smoothed, tuning, Spring::new, Target::new);
+    offscreen::install();
+    let doc = r#"
+        import { Theme } from "@ui-kit/ui-kit.slint";
+        export component W inherits Window {
+            width: 176px;
+            height: 99px;
+            background: Theme.trough;
+            in property <[float]> v: [0.3, 0.5, 0.3, 0.5];
+            in property <color> hue: Theme.accent;
+            pure function at(n: float, extent: length) -> length { Theme.u(6) + clamp(n, 0, 1) * (extent - Theme.u(12) - Theme.u(6)) }
+            Rectangle {
+                width: Theme.u(6); height: Theme.u(6);
+                x: at(v[0], parent.width); y: at(v[1], parent.height);
+                border-radius: self.height / 2; border-width: Theme.stroke; border-color: Theme.ink2;
+            }
+            Rectangle {
+                width: Theme.u(6); height: Theme.u(6);
+                x: at(v[2], parent.width); y: at(v[3], parent.height);
+                border-radius: self.height / 2; background: root.hue;
+            }
+        }"#;
+    let w = telescope_shell::compile::compile("old.slint", doc, vec![], "W").unwrap_or_else(|e| panic!("{e}")).create().unwrap();
+    w.show().unwrap();
+    w
+}
+
+/// The old Chase, as it was: 33 ms ticks from the left side, the first move after 2 s.
+fn old_chase(speed: i64, frames: usize, every: f64) -> Vec<offscreen::Picture> {
+    use telescope_effects::framing::{settle, smoothed, tuning, Spring, Target};
+    let you = |t: f64| {
+        let (hold, mv, leg) = (2.0, 0.5, 2.5);
+        let phase = t.rem_euclid(2.0 * leg);
+        let (going, into) = if phase < leg { (true, phase) } else { (false, phase - leg) };
+        let m = ((into - hold) / mv).clamp(0.0, 1.0);
+        let eased = m * m * (3.0 - 2.0 * m);
+        let along = if going { eased } else { 1.0 - eased };
+        Target::new(0.3 + 0.4 * along, 0.5 - 0.2 * (std::f64::consts::PI * along).sin(), 2.0)
+    };
+    let w = old_speed_bubble();
+    let (mut at, mut smooth, mut goal, mut spring) = (0.0f64, None, None, Spring::new(you(0.0)));
+    let (omega, tau, scale) = tuning(speed);
+    let hue = Value::Brush(slint::Brush::SolidColor(slint::Color::from_rgb_u8(0x7d, 0xc4, 0x8c)));
+    let mut out = Vec::new();
+    for i in 0..frames {
+        // the frames are `every` seconds apart, in the 33 ms ticks the old bubble ran at
+        let ticks = if i == 0 { 0 } else { (every / 0.033).round() as usize };
+        let mut last = [0.3, 0.5, 0.3, 0.5];
+        for _ in 0..ticks {
+            at += 0.033;
+            let target = you(at);
+            let s = smoothed(smooth, target, 0.033, tau);
+            smooth = Some(s);
+            let g = settle(goal, s, 0.033, scale);
+            goal = Some(g);
+            let f = spring.step(g, 0.033, omega);
+            last = [target.x, target.y, f.x, f.y];
+        }
+        if i == 0 {
+            let t = you(0.0);
+            last = [t.x, t.y, t.x, t.y];
+        }
+        w.set_property("v", Value::Model(Rc::new(slint::VecModel::from(last.iter().map(|n| Value::Number(*n)).collect::<Vec<_>>())).into())).unwrap();
+        w.set_property("hue", hue.clone()).unwrap();
+        out.push(offscreen::draw(w.window(), 176.0, 99.0, 2.0).expect("a picture"));
+    }
+    out
+}
+
+/// The Speed bubble drawn every twelfth of a second for a second after it opens, at two speeds, to see the follow by eye, with the old one
+/// (twelve frames across three seconds, as nothing moves in the first two) beside it: SHOTS=dir cargo test --test peek_cards speed_film
+#[test]
+fn speed_film() {
+    let Ok(dir) = std::env::var("SHOTS") else { return };
+    let dir = PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut after = Vec::new();
+    for speed in [2.0f32, 9.0] {
+        let mut w = framing_stepping(150.0, false, 1.0 / 60.0);
+        w.hold_at("Speed", (speed - 1.0) / 9.0);
+        // The handle has glided to its step and the bubble with it before the film starts
+        for _ in 0..30 {
+            offscreen::skip(std::time::Duration::from_millis(50));
+            w.draw();
+        }
+        let mut frames = Vec::new();
+        for _ in 0..12 {
+            w.fire("chase", 5);
+            frames.push(offscreen::draw(w.w.window(), WIDTH, HEIGHT, 2.0).expect("a picture"));
+        }
+        // the box inside the bubble, at twice the size (found where the bubble landed, which follows the handle)
+        let (x, y, bw, bh) = find_box(&frames[0], [0x1a, 0x1a, 0x1a]);
+        let strip = tile(&frames, (x, y, 352.min(bw), 198.min(bh)), 6);
+        strip.save_png(&dir.join(format!("after-speed{speed}.png"))).unwrap();
+        after.push(strip);
+        w.let_go();
+    }
+    let mut before = Vec::new();
+    for speed in [2i64, 9] {
+        let frames = old_chase(speed, 12, 0.25);
+        let strip = tile(&frames, (0, 0, 352, 198), 6);
+        strip.save_png(&dir.join(format!("before-speed{speed}.png"))).unwrap();
+        before.push(strip);
+    }
+    stack(&[&before[0], &before[1]]).save_png(&dir.join("before.png")).unwrap();
+    stack(&[&after[0], &after[1]]).save_png(&dir.join("after.png")).unwrap();
 }

@@ -249,3 +249,49 @@ fn no_card_marks_a_selection_with_a_fill() {
     }
     assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
+
+fn source_files(dir: &Path, out: &mut Vec<PathBuf>) {
+    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    for e in entries.flatten() {
+        let p = e.path();
+        let name = p.file_name().unwrap().to_string_lossy().to_string();
+        if p.is_dir() {
+            if name != "target" && name != ".git" && name != "node_modules" {
+                source_files(&p, out);
+            }
+        } else if p.extension().is_some_and(|x| ["slint", "rs", "py", "ps1", "toml"].iter().any(|k| x == *k)) {
+            out.push(p);
+        }
+    }
+}
+
+#[test]
+fn every_icon_file_is_used_and_no_two_are_the_same_drawing() {
+    let icons = kit().join("ui/icons");
+    let mut files: Vec<PathBuf> = std::fs::read_dir(&icons).unwrap().flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "svg")).collect();
+    files.sort();
+    assert!(files.len() > 50, "{} icons", files.len());
+    let mut sources = Vec::new();
+    source_files(&crates().join(".."), &mut sources);
+    let texts: Vec<String> = sources.iter().filter_map(|p| std::fs::read_to_string(p).ok()).collect();
+    let mut orphans = Vec::new();
+    let mut same: BTreeMap<Vec<u8>, Vec<String>> = BTreeMap::new();
+    for file in &files {
+        let stem = file.file_stem().unwrap().to_string_lossy().to_string();
+        // An icon is used by its path (icons/name.svg in icons.slint) or by its name as a string (a plugin's icon, "v_stream")
+        let (path, quoted) = (format!("icons/{stem}.svg"), format!("\"{stem}\""));
+        if !texts.iter().any(|t| t.contains(&path) || t.contains(&quoted)) {
+            orphans.push(stem.clone());
+        }
+        same.entry(std::fs::read(file).unwrap()).or_default().push(stem);
+    }
+    assert!(orphans.is_empty(), "icons nothing refers to, delete them or use them: {orphans:?}");
+    let twins: Vec<_> = same.values().filter(|names| names.len() > 1).collect();
+    assert!(twins.is_empty(), "byte-identical icons, keep one file per drawing: {twins:?}");
+    // And icons.slint only names files that exist
+    let table = std::fs::read_to_string(kit().join("ui/icons.slint")).unwrap();
+    for part in table.split("icons/").skip(1) {
+        let name = part.split('"').next().unwrap();
+        assert!(icons.join(name).is_file(), "icons.slint names icons/{name}, which isn't there");
+    }
+}

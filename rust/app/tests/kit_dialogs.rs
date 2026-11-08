@@ -78,6 +78,8 @@ fn a_press_beside_a_dialog_is_its_cancel_and_one_inside_is_not() {
     click(ui, 250.0, 150.0);
     assert_eq!(dismissals(ui), 0.0, "and on its title");
     click(ui, 20.0, 20.0);
+    // It eases out first, then says so
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(300));
     assert_eq!(dismissals(ui), 1.0, "a press outside it");
 }
 
@@ -90,5 +92,6 @@ fn a_drag_that_starts_in_a_dialog_and_ends_outside_leaves_it_open() {
     settle(ui);
     assert_eq!(dismissals(ui), 0.0, "pressed inside, released outside");
     click(ui, 550.0, 450.0);
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(300));
     assert_eq!(dismissals(ui), 1.0, "the next press outside does close it");
 }

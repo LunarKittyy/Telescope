@@ -212,6 +212,8 @@ export component SwitchTile inherits Rectangle {
 
 // Kind "toggle", the tile that is its own switch: an icon and a name, the thick border in the card's colour is the state, and with no text it is an icon tile named by `name`.
 export component ToggleTile inherits Rectangle {
+    // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font)
+    property <length> lift: 1phx;
     in property <image> icon;
     in property <string> text;
     // What a screen reader calls it, when there is no text or the text alone repeats in a card
@@ -332,17 +334,23 @@ export component ToggleTile inherits Rectangle {
             height: Theme.icon;
             y: (parent.height - self.height) / 2;
         }
-        if text != "": Text {
-            text: root.text;
+        if text != "": Rectangle {
             horizontal-stretch: 1;
-            font-family: Theme.font;
-            font-size: Theme.body;
-            font-weight: Theme.w-value;
-            color: !enabled ? Theme.dis : shown || touch.has-hover ? Theme.ink : Theme.ink2;
-            vertical-alignment: center;
-            overflow: elide;
-            // The tile carries this text as its name
-            accessible-role: none;
+            min-width: 0px;
+            tile-name := Text {
+                y: -lift;
+                width: parent.width;
+                height: parent.height;
+                text: root.text;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                font-weight: Theme.w-value;
+                color: !enabled ? Theme.dis : shown || touch.has-hover ? Theme.ink : Theme.ink2;
+                vertical-alignment: center;
+                overflow: elide;
+                // The tile carries this text as its name
+                accessible-role: none;
+            }
         }
     }
 }

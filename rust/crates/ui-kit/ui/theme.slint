@@ -119,6 +119,10 @@ export global Theme {
     }
 
     out property <string> font: "IBM Plex Sans";
+    // Text centred in a box by its line box sits low: Plex's ascent is 1.025 em and its descent 0.275, so the capitals' middle is below the box's
+    // middle (measured on renders at 11 to 24 px and at 1 to 2x: 0.3 to 0.5 px low, which is what the eye reads as 1 px). Every kit control that
+    // centres a word in a box lifts it by one physical pixel (`property <length> lift: 1phx;` in the control: a global can't say 1phx), so the
+    // lift is whole at every scale.
     // Weights: names and labels are medium, a value or a picked option semibold
     out property <int> w-label: 500;
     out property <int> w-value: 600;
