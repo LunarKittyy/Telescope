@@ -333,11 +333,11 @@ export component ChoiceField inherits Rectangle {
         }
     }
     // _two_lines: the caption's capitals and the value's read as one block centred top to bottom, the value's capitals
-    // 9px under the caption's baseline (stacked_baselines, with Inter's capitals 8px tall at 11px and 9px at 13px)
+    // 9px under the caption's baseline (stacked_baselines, with Plex's capitals 8px tall at 11px and 9px at 13px)
     property <length> first-baseline: round((root.height / 1px - 26) / 2 + 8) * 1px;
     if !plain: Text {
         x: centered ? side : has-icon ? Theme.u(16) : Theme.u(6);
-        y: first-baseline - Theme.tiny * 1984 / 2048;
+        y: first-baseline - Theme.tiny * 1.025;
         width: root.width - self.x - (centered ? side : Theme.u(13));
         text: caption;
         font-family: Theme.font;
@@ -348,7 +348,7 @@ export component ChoiceField inherits Rectangle {
     }
     if !plain: Text {
         x: centered ? side : has-icon ? Theme.u(16) : Theme.u(6);
-        y: first-baseline + 18px - Theme.body * 1984 / 2048;
+        y: first-baseline + 18px - Theme.body * 1.025;
         width: root.width - self.x - (centered ? side : Theme.u(13));
         text: items[shown];
         font-family: Theme.font;

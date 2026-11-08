@@ -35,6 +35,9 @@ Source: https://github.com/google-ai-edge/mediapipe
 
 **FFmpeg** (libavcodec, libavutil, libswresample, libswscale) - a decoder-only build under the LGPL v2.1 or later, in every package. `rust/tools/build_ffmpeg.sh` is the exact recipe, and you can swap in your own build of the same major version.
 
+**IBM Plex Sans** (`rust/crates/ui-kit/ui/fonts/`) - the typeface of the window, in four weights. Copyright (c) 2017 IBM Corp., with Reserved Font Name "Plex". SIL Open Font License 1.1, the text is in `OFL.txt` next to the fonts.
+Source: https://github.com/IBM/plex
+
 **RNNoise** - the microphone's noise reduction. Copyright (c) Xiph.Org Foundation, Mozilla Corporation and others. BSD 3-Clause.
 
 **Rust dependencies** - every crate in the program, with the exact versions pinned in `rust/Cargo.lock`. The notices file lists each one's licence.

@@ -60,7 +60,7 @@ component FolderTile inherits Rectangle {
     property <length> first-baseline: round((root.height / 1px - 26) / 2 + 8) * 1px;
     Text {
         x: 12px;
-        y: first-baseline - 11px * 1984 / 2048;
+        y: first-baseline - 11px * 1.025;
         width: root.width - 12px - 34px;
         text: root.caption;
         font-family: Theme.font;
@@ -71,7 +71,7 @@ component FolderTile inherits Rectangle {
     }
     Text {
         x: 12px;
-        y: first-baseline + 18px - 13px * 1984 / 2048;
+        y: first-baseline + 18px - 13px * 1.025;
         width: root.width - 12px - 34px;
         text: root.name;
         font-family: Theme.font;

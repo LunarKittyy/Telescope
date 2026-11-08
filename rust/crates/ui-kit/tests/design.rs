@@ -172,3 +172,14 @@ fn cards_name_a_listed_fill_and_every_listed_fill_has_a_look() {
         }
     }
 }
+
+#[test]
+fn the_bundled_fonts_are_there_with_their_licence() {
+    let theme = std::fs::read_to_string(kit().join("ui/theme.slint")).unwrap();
+    let imports: Vec<&str> = theme.lines().filter_map(|l| l.strip_prefix("import \"fonts/")).filter_map(|l| l.split('"').next()).collect();
+    assert_eq!(imports.len(), 4, "regular, medium, semibold and bold: {imports:?}");
+    for f in imports {
+        assert!(kit().join("ui/fonts").join(f).metadata().is_ok_and(|m| m.len() > 100_000), "{f} is bundled");
+    }
+    assert!(std::fs::read_to_string(kit().join("ui/fonts/OFL.txt")).unwrap().contains("SIL OPEN FONT LICENSE Version 1.1"));
+}

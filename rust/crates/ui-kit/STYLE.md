@@ -38,7 +38,7 @@ Category colours stay: a card's hue goes on its icon and on its controls' active
 
 ## Type
 
-One family, a few styles, weight and size carrying the hierarchy (no capitals, no tracking tricks: some scripts have no case).
+One family, IBM Plex Sans, bundled in `ui/fonts` (regular, medium, semibold, bold, with its OFL licence beside them) and imported by `theme.slint`, so the window never depends on a system font. A few styles, weight and size carrying the hierarchy (no capitals, no tracking tricks: some scripts have no case). Plex doesn't cover Hindi, Japanese, Korean or Chinese: those fall back to a system font. `Theme.line-factor` puts a wrapped line on Plex's whole-pixel pitch, and a text that needs a baseline by hand uses Plex's ascent of 1.025 em.
 
 | Style | Size | Weight | Use |
 |---|---|---|---|

@@ -2,6 +2,12 @@
 // Two looks share one set of tokens: the new one and Classic (the deep blue of 5.0). A token has one value per look.
 // Sizes: text from `body`, corners from `radius`, gaps from `unit`. Nothing outside this file spells a size.
 
+// IBM Plex Sans, bundled so the window never depends on a system font (fonts/OFL.txt is its licence)
+import "fonts/IBMPlexSans-Regular.ttf";
+import "fonts/IBMPlexSans-Medium.ttf";
+import "fonts/IBMPlexSans-SemiBold.ttf";
+import "fonts/IBMPlexSans-Bold.ttf";
+
 export global Theme {
     // Set by the window from Appearance: true draws Classic
     in-out property <bool> classic: false;
@@ -82,13 +88,13 @@ export global Theme {
     // The inside of an active control: a little of the card's colour over the card
     public pure function tint(hue: color) -> color { hue.mix(card, 0.16) }
 
-    // Qt lays wrapped lines out its font's ascent and descent apart, each rounded to whole pixels (16px for 13px Inter,
-    // where Slint's natural line is 15.73px): a wrapped Text's line-height-factor, so a paragraph doesn't drift off Qt's
+    // A wrapped line is the font's ascent and descent apart, each rounded to whole pixels (17px for 13px Plex, where Slint's
+    // natural line is 16.9px): a wrapped Text's line-height-factor, so a paragraph's lines fall on whole pixels
     public pure function line-factor(size: length) -> float {
-        (round(size * 1984 / 2048 / 1px) + round(size * 494 / 2048 / 1px)) / (size * 2478 / 2048 / 1px)
+        (round(size * 1.025 / 1px) + round(size * 0.275 / 1px)) / (size * 1.3 / 1px)
     }
 
-    out property <string> font: "Inter";
+    out property <string> font: "IBM Plex Sans";
     // Weights: names and labels are medium, a value or a picked option semibold
     out property <int> w-label: 500;
     out property <int> w-value: 600;
