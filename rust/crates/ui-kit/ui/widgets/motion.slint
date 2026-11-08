@@ -19,7 +19,8 @@ export global Motion {
 
     // Each spring's period: it is within 2% of its target after about one, and at rest after about one and a half
     out property <duration> settle: 200ms;
-    out property <duration> flick: 200ms;
+    // A short move (a handle, a thumb, a step: up to about 60 px) takes a period of at least 220 ms, so its peak speed stays about 3 px a frame
+    out property <duration> flick: 260ms;
     out property <duration> pop: 150ms;
     // A button's press going back after a click, slow enough that a quick click is still seen
     out property <duration> press-out: 220ms;
@@ -32,11 +33,11 @@ export global Motion {
     out property <duration> tone-down: 140ms;
     out property <duration> fade-in: 120ms;
     out property <duration> fade-out: 100ms;
-    // The worm that follows a pick (see Worm): its leading edge is stiff and quick and lands exactly, its trailing edge starts a beat later
-    // on a softer spring (bounce 0.3, a literal in WormEdge) and passes its place a little as it snaps in. The same time however far it goes.
+    // The worm that follows a pick (see Worm): its leading edge is stiff and quick and lands exactly, its trailing edge is a long soft spring
+    // that starts at the same moment (no delay: a delay freezes an edge that is already moving when the target moves again) and passes its
+    // place a little as it snaps in (bounce 0.3, a literal in WormEdge). The same time however far it goes.
     out property <duration> worm-lead: 110ms;
-    out property <duration> worm-trail: 190ms;
-    out property <duration> worm-lag: 45ms;
+    out property <duration> worm-trail: 280ms;
     // The outline round a control that something outside the window just touched, going out slowly enough to be seen
     out property <duration> outline-out: 240ms;
     out property <duration> unfold-open: 170ms;
@@ -74,6 +75,8 @@ export component Settle {
     // How much longer than the usual it takes: the trailing axis of a move across and down, so its path bows
     in property <float> pace: 1;
     out property <float> value: bar.border-width / 1px;
+    // Read the place now, before something moves its target: Slint starts a new spring from the place the property last evaluated, so one that was not read this frame is a frame behind, and every retarget would lose a frame of the move. A control calls this first in whatever it does that moves the target (a click, a key).
+    public function sync() { value; }
     bar := Rectangle {
         visible: false;
         width: 0px;
@@ -86,14 +89,16 @@ export component Settle {
     }
 }
 
-// Kind "helper". Flick: a small thing that jumps between two places in a blink, a switch's handle. It eases in from rest (the first frames
-// barely move, a spring starts at full speed) and passes its place by about 2% on the way in, so it never touches the track's border.
-// A curve, not a spring: a retarget mid-move restarts from where it is.
+// Kind "helper". Flick: a small thing that moves between two places, a switch's handle. A spring at Motion.flick (260 ms, a hair of
+// overshoot, so it never touches the track's border): the first frame moves under 1.5 px and the peak is about 3 px a frame on a switch's
+// 20 px, so the handle is seen going rather than appearing. A new target mid-move keeps the speed, so a second click bends it.
 export component Flick {
     out property <string> control-kind: "helper";
     in property <float> to;
     in property <bool> snap;
     out property <float> value: bar.border-width / 1px;
+    // See Settle.sync
+    public function sync() { value; }
     bar := Rectangle {
         visible: false;
         width: 0px;
@@ -101,7 +106,7 @@ export component Flick {
         border-width: root.to * 1px;
         animate border-width {
             duration: snap || !Motion.moves ? 0ms : Motion.flick;
-            easing: cubic-bezier(0.45, 0, 0.25, 1.2);
+            easing: spring(0.22);
         }
     }
 }
@@ -114,6 +119,8 @@ export component Pop {
     in property <float> to;
     in property <bool> snap;
     out property <float> value: bar.border-width / 1px;
+    // See Settle.sync
+    public function sync() { value; }
     // The scale for the current value
     out property <float> scale: Motion.between(Motion.pop-from, 1, value);
     init => { value; }
@@ -140,6 +147,8 @@ export component Tone {
     in property <duration> rise: Motion.tone-up;
     in property <duration> fall: Motion.tone-down;
     out property <float> value: clamp(bar.border-width / 1px, 0, 1);
+    // See Settle.sync
+    public function sync() { value; }
     bar := Rectangle {
         visible: false;
         width: 0px;
@@ -158,6 +167,8 @@ export component Fade {
     in property <bool> shown;
     in property <bool> snap;
     out property <float> value: clamp(bar.border-width / 1px, 0, 1);
+    // See Settle.sync
+    public function sync() { value; }
     init => { value; }
     bar := Rectangle {
         visible: false;
@@ -188,6 +199,8 @@ export component Unfold {
     in property <bool> open;
     in property <bool> snap;
     out property <float> value: clamp(bar.border-width / 1px, 0, 1);
+    // See Settle.sync
+    public function sync() { value; }
     bar := Rectangle {
         visible: false;
         width: 0px;
@@ -200,14 +213,17 @@ export component Unfold {
     }
 }
 
-// Kind "helper". One side of a Worm: a length that follows `to` on the leading spring (stiff, no overshoot) or the trailing one (softer,
-// a beat late, a little overshoot). Goes in the Worm, which is not in a layout.
+// Kind "helper". One side of a Worm: a length on the leading spring (stiff, no overshoot) or the trailing one (a long, softer spring, a
+// little overshoot). Both start the moment the target moves and have no `delay`: the trailing edge trails by its slow start alone, and
+// a target that moves again mid-flight just bends both springs, whoever leads now, because a spring keeps its place and its speed
+// whatever its period becomes. (A trailing edge that chased the leading edge's live value was tried: Slint doesn't hand a spring a
+// value that another spring is still moving until that one has stopped, so it waited for the lead to land.)
+// `pace` stretches the period for the second axis of a move across and down.
 component WormEdge {
     in property <length> to;
     in property <bool> lead;
     in property <bool> snap;
-    // A beat more, for the second axis of a move across and down
-    in property <duration> after;
+    in property <float> pace: 1;
     out property <length> value: bar.border-width;
     bar := Rectangle {
         visible: false;
@@ -215,18 +231,41 @@ component WormEdge {
         height: 0px;
         border-width: root.to;
         animate border-width {
-            delay: snap || !Motion.moves ? 0ms : (lead ? 0ms : Motion.worm-lag) + after;
-            duration: snap || !Motion.moves ? 0ms : lead ? Motion.worm-lead : Motion.worm-trail;
+            duration: snap || !Motion.moves ? 0ms : (lead ? Motion.worm-lead : Motion.worm-trail) * pace;
             easing: lead ? spring(0.0) : spring(0.3);
         }
     }
 }
 
+// Kind "helper". The picked option's muted inside, drawn under the options' text and drawings, from a Worm's place.
+export component WormFill inherits Rectangle {
+    out property <string> control-kind: "helper";
+    in property <length> wx;
+    in property <length> wy;
+    in property <length> ww;
+    in property <length> wh;
+    in property <color> colour;
+    in property <float> presence: 1;
+    in property <length> radius: Theme.r-ctl;
+    x: wx;
+    y: wy;
+    width: ww;
+    height: wh;
+    visible: presence > 0 && ww > 0px;
+    opacity: presence;
+    border-radius: radius;
+    background: colour;
+}
+
 // Kind "outline". Worm: the picked option's outline and muted inside, which stretches onto a newly picked option instead of vanishing and
 // appearing. The edge on the side it travels to is the leading one and the other trails (see Motion.worm-*), so it stretches then
-// contracts, in the same time however far it goes. On a grid one axis leads and the other follows (the path bows). Give it the picked
-// cell's place (`to-x`, `to-y`, `to-w`, `to-h`, in its parent) and draw it over the options' surfaces and under their text.
-// `snap` puts it there at once (a key, a layout resizing); the first place it is given is never animated.
+// contracts, in the same time however far it goes. On a grid one axis leads and the other follows on a longer period (the path bows).
+// Give it the picked cell's place (`to-x`, `to-y`, `to-w`, `to-h`, in its parent). Without `outline-only` it draws the outline and
+// the inside as one element between the options' surfaces and their text. With it, it draws the outline alone, to sit above everything,
+// and a WormFill under the text draws the inside, so the outline is never under a tile's drawing, text or surface and the group has one
+// layer order that never changes mid-move.
+// `snap` puts it there at once (a layout resizing); the first place it is given is never animated. A new place while it moves, however
+// often, retargets the springs from where they are with their speeds, with no state that counts or waits.
 export component Worm inherits Rectangle {
     out property <string> control-kind: "outline";
     in property <length> to-x;
@@ -238,13 +277,22 @@ export component Worm inherits Rectangle {
     // The picked option is held down
     in property <bool> pressed;
     in property <bool> snap;
-    // False while there is nothing picked, or what is picked can't show the outline (disabled)
+    // False while there is nothing picked, or what is picked can't show the outline (disabled): it fades away and back
     in property <bool> shown: true;
+    // The outline alone (the inside is a WormFill under the text)
+    in property <bool> outline-only;
     // Where it is, for a test
     out property <length> left: l.value;
     out property <length> right: r.value;
     out property <length> top: t.value;
     out property <length> bottom: b.value;
+    // Read every edge now, before a pick moves them (see Settle.sync)
+    public function sync() { l.value; r.value; t.value; b.value; appear.value; }
+    // The colour of the inside, and how present the whole thing is (0 to 1), for a WormFill
+    out property <color> inside: pressed ? Theme.held(hue) : Theme.tint(hue);
+    out property <float> presence: appear.value;
+    // Whether every edge is on its place, for a test and for a control that waits for a move to end
+    out property <bool> at-rest: abs(l.value - to-x) < 0.01px && abs(r.value - (to-x + to-w)) < 0.01px && abs(t.value - to-y) < 0.01px && abs(b.value - (to-y + to-h)) < 0.01px;
     // Which way the last pick went on each axis, and which axes it moved on, latched when the target moves
     property <bool> fwd: true;
     property <bool> down: true;
@@ -277,20 +325,23 @@ export component Worm inherits Rectangle {
         placed = to-w > 0px;
     }
     property <bool> still: snap || !placed;
-    // Across and down: across leads, down follows a beat later
-    property <duration> late: h-moved && v-moved ? Motion.worm-lag * 1.5 : 0ms;
-    l := WormEdge { to: root.to-x; lead: !fwd; snap: still; }
-    r := WormEdge { to: root.to-x + root.to-w; lead: fwd; snap: still; }
-    t := WormEdge { to: root.to-y; lead: !down; snap: still; after: late; }
-    b := WormEdge { to: root.to-y + root.to-h; lead: down; snap: still; after: late; }
+    // Across and down: across leads, down follows on a longer period
+    property <float> h-pace: h-moved && v-moved ? 0.9 : 1;
+    property <float> v-pace: h-moved && v-moved ? 1.3 : 1;
+    appear := Fade { shown: root.shown && root.to-w > 0px; snap: root.snap || !root.placed; }
+    l := WormEdge { to: root.to-x; lead: !fwd; snap: still; pace: h-pace; }
+    r := WormEdge { to: root.to-x + root.to-w; lead: fwd; snap: still; pace: h-pace; }
+    t := WormEdge { to: root.to-y; lead: !down; snap: still; pace: v-pace; }
+    b := WormEdge { to: root.to-y + root.to-h; lead: down; snap: still; pace: v-pace; }
     x: l.value;
     y: t.value;
     width: max(0px, r.value - l.value);
     height: max(0px, b.value - t.value);
-    visible: shown && to-w > 0px;
+    visible: appear.value > 0 && to-w > 0px;
+    opacity: appear.value;
     border-radius: radius;
     border-width: Theme.stroke;
     border-color: hue;
-    background: pressed ? Theme.held(hue) : Theme.tint(hue);
+    background: outline-only ? transparent : inside;
     animate background { duration: Motion.tone-for(pressed || snap); easing: Motion.tone; }
 }

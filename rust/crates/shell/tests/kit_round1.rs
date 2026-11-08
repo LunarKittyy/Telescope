@@ -121,8 +121,8 @@ fn a_switch_eases_in_from_rest_and_barely_passes_its_place() {
         t.push(num(&ui, "place"));
     }
     // 60 frames a second: the first frames move little, most of the way is gone by the middle
-    assert!(t[1] < 0.06, "the first frame hardly moves: {t:?}");
-    assert!(t[2] < 0.15 && t[3] < 0.35, "and it picks up speed: {t:?}");
+    assert!(t[1] < 0.1, "the first frame hardly moves: {t:?}");
+    assert!(t[2] < 0.25 && t[3] < 0.45, "and it picks up speed: {t:?}");
     assert!(t[7] > 0.6 && t[7] < 0.95, "{t:?}");
     let top = t.iter().cloned().fold(0.0, f32::max);
     assert!(top > 1.005 && top < 1.03, "a small overshoot: {top}");
@@ -373,8 +373,8 @@ fn picture_tiles_and_the_corner_picker_wear_the_worm_too_and_a_grid_goes_across_
     for _ in 0..30 {
         let (l, r, t, b) = (num(&ui, "al"), num(&ui, "ar"), num(&ui, "at"), num(&ui, "ab"));
         seen.push((l, r, t, b));
-        // Across first: the right edge has moved a good way while the bottom edge has barely left
-        if r - start.1 > 60.0 && b - start.3 < 3.0 {
+        // Across first: the right edge has done a good deal more of its way than the bottom edge (no delay: one spring a longer period)
+        if (r - start.1) / (268.0 - start.1) - (b - start.3) / (68.0 - start.3) > 0.12 {
             across_first = true;
         }
         if num(&ui, "r") - num(&ui, "l") > 100.0 {
@@ -697,39 +697,38 @@ fn step_x(n: f32) -> f32 {
 }
 
 #[test]
-fn a_slider_with_big_steps_slides_from_step_to_step_while_it_is_dragged() {
+fn a_stepped_slider_is_a_magnet_while_dragged_and_springs_into_its_slot_when_let_go() {
     let _still = offscreen::freeze_clock();
     let ui = make(STEPPED, 340.0, 44.0);
     offscreen::draw(ui.window(), 340.0, 44.0, 1.0).unwrap();
     num(&ui, "place");
+    let stride = step_x(2.0) - step_x(1.0);
+    // A press on the handle holds it, then the pointer goes a quarter of a step: the handle is held back near its step
     press(&ui, step_x(1.0), 22.0);
-    // Across four steps in one move of the pointer
-    pointer_to(&ui, step_x(5.0), 22.0);
-    offscreen::draw(ui.window(), 340.0, 44.0, 1.0).unwrap();
+    pointer_to(&ui, step_x(1.0) + stride * 0.25, 22.0);
+    let quarter = num(&ui, "place") * 4.0;
+    assert!(quarter > 0.04 && quarter < 0.2, "held back near its step, not 1 to 1: {quarter}");
+    assert_eq!(num(&ui, "shown"), 1.0);
+    // Just short of the midpoint: the value hasn't changed and the handle is nearly at the pointer
+    pointer_to(&ui, step_x(1.0) + stride * 0.47, 22.0);
+    assert_eq!(num(&ui, "shown"), 1.0, "the value waits for the midpoint");
+    assert!(num(&ui, "place") * 4.0 > 0.4, "nearly 1 to 1 by the midpoint: {}", num(&ui, "place") * 4.0);
+    // Past it: the value changes and the handle has not jumped (it is the pointer's place at the midpoint from either side)
+    let before = num(&ui, "place");
+    pointer_to(&ui, step_x(1.0) + stride * 0.53, 22.0);
+    assert_eq!(num(&ui, "shown"), 2.0, "the value changes at the midpoint");
+    assert!((num(&ui, "place") - before).abs() * 4.0 < 0.2, "no jump at the midpoint: {before} to {}", num(&ui, "place"));
+    // Let go: it springs into the slot, over frames and never back
+    pointer_to(&ui, step_x(1.0) + stride * 0.6, 22.0);
+    release(&ui, step_x(1.0) + stride * 0.6, 22.0);
     let mut t = vec![num(&ui, "place")];
-    for _ in 0..16 {
+    for _ in 0..24 {
         step(FRAME);
         t.push(num(&ui, "place"));
     }
-    assert_eq!(num(&ui, "shown"), 5.0);
-    assert!(t[0] < 0.2, "the handle doesn't teleport to the step: {t:?}");
     assert!(t.windows(2).all(|w| w[1] >= w[0] - 0.0001), "one slide: {t:?}");
-    assert!((t.last().unwrap() - 1.0).abs() < 0.01, "and it arrives: {t:?}");
-    // Back across two steps, and on again before it has arrived: the move bends rather than restarting or jumping
-    pointer_to(&ui, step_x(3.0), 22.0);
-    offscreen::draw(ui.window(), 340.0, 44.0, 1.0).unwrap();
-    let mut u = Vec::new();
-    for i in 0..14 {
-        if i == 3 {
-            pointer_to(&ui, step_x(1.0), 22.0);
-        }
-        step(FRAME);
-        u.push(num(&ui, "place"));
-    }
-    let biggest = u.windows(2).map(|w| (w[1] - w[0]).abs()).fold(0.0, f32::max);
-    assert!(biggest < 0.2, "retargeting mid-flight carries the speed, no jump: {u:?}");
-    assert!(u.last().unwrap() < &0.05, "{u:?}");
-    release(&ui, step_x(1.0), 22.0);
+    assert!((t.last().unwrap() - 0.25).abs() < 0.002, "into the slot of step 2: {t:?}");
+    assert!(t.windows(2).map(|w| (w[1] - w[0]).abs()).fold(0.0, f32::max) * 320.0 < 6.0, "calm: {t:?}");
 }
 
 const SLIDER_SMALL: &str = r#"

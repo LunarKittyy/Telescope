@@ -439,10 +439,15 @@ fn a_dropdown_picked_by_hand_still_follows_the_value_bound_to_it() {
     let shown = || labelled(&ui, "Bound list").into_iter().next().and_then(|e| e.accessible_value()).map(|v| v.to_string());
     assert_eq!(shown().as_deref(), Some("a"));
     click(&ui, &labelled(&ui, "Bound list")[0]);
+    // The list takes the focus a moment after it opens
+    wait(30);
     settle(&ui);
     for key in [Key::Escape, Key::DownArrow] {
         ui.window().dispatch_event(WindowEvent::KeyPressed { text: key.into() });
         ui.window().dispatch_event(WindowEvent::KeyReleased { text: key.into() });
+        settle(&ui);
+        // Escape eases the list out before it goes
+        wait(300);
         settle(&ui);
     }
     assert_eq!(shown().as_deref(), Some("b"), "the arrows picked it");
@@ -549,8 +554,11 @@ fn a_dropdown_says_its_tip_and_its_arrows_skip_what_cant_be_picked() {
     wait(600);
     assert!(!labelled(&ui, "About the field").is_empty() );
     click(&ui, &labelled(&ui, "Picked").remove(0));
+    wait(30);
     ui.window().dispatch_event(WindowEvent::KeyPressed { text: slint::platform::Key::Escape.into() });
     ui.window().dispatch_event(WindowEvent::KeyReleased { text: slint::platform::Key::Escape.into() });
+    // Escape eases the list out before it goes
+    wait(300);
     let down: slint::SharedString = slint::platform::Key::DownArrow.into();
     key(&ui, &down);
     assert_eq!(ui.get_property("pressed").unwrap(), Value::String("row 2".into()));

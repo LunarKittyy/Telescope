@@ -11,6 +11,15 @@ export { WindowBox }
 // so it has to be the window's size for the dialog to see them. A press that starts inside the dialog never gets there, so a
 // slider dragged or text selected out past the edge leaves it open.
 
+// The dialog's button row, last in the frame: right-aligned, the card's gap between buttons, one Button row tall. Give it Buttons with
+// `dialog: true` (an even floor on their width); the primary action goes last.
+export component DialogButtons inherits HorizontalLayout {
+    out property <string> control-kind: "helper";
+    alignment: end;
+    spacing: Theme.gap;
+    padding-top: Theme.u(2);
+}
+
 export component DialogFrame inherits Rectangle {
     in property <string> title;
     in property <string> subtitle;
@@ -36,25 +45,25 @@ export component DialogFrame inherits Rectangle {
     // From the top: a layout left to fill a popup that's still the old size would spread its rows
     VerticalLayout {
         alignment: start;
-        padding-left: 20px;
-        padding-right: 20px;
-        padding-top: 18px;
-        padding-bottom: 18px;
-        spacing: 14px;
+        padding-left: Theme.u(10);
+        padding-right: Theme.u(10);
+        padding-top: Theme.u(9);
+        padding-bottom: Theme.u(9);
+        spacing: Theme.u(7);
         VerticalLayout {
-            spacing: 2px;
+            spacing: Theme.u(1);
             Text {
                 text: title;
                 font-family: Theme.font;
                 font-size: 19px; // 14pt is 18.67px, drawn at 19
                 font-weight: 600;
-                color: Theme.text;
+                color: Theme.ink;
             }
             if subtitle != "": Text {
                 text: subtitle;
                 font-family: Theme.font;
                 font-size: Theme.body;
-                color: Theme.text-dim;
+                color: Theme.ink2;
                 wrap: word-wrap;
                 line-height-factor: Theme.line-factor(self.font-size);
             }

@@ -516,6 +516,8 @@ fn a_real_cards_dropdown_works_from_the_keyboard_and_says_so() {
     keys(&w, Key::Escape.into());
     assert_eq!(dropdown.accessible_expanded(), Some(false), "{name}: Esc closes it");
     assert_eq!(dropdown.accessible_value().unwrap_or_default(), before, "{name}: and keeps the choice");
+    // The list eases out before the focus comes back to the field
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(300));
     keys(&w, Key::Return.into());
     assert_eq!(dropdown.accessible_expanded(), Some(true), "{name}: focus came back, so Enter opens it again");
     w.shut_down();

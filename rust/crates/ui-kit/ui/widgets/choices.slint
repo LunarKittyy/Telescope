@@ -8,7 +8,7 @@ import { FlickBar } from "scroll.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { Tip } from "tip.slint";
 import { SearchWords } from "setting.slint";
-import { Motion, Worm, Fade } from "motion.slint";
+import { Motion, Worm, WormFill, Fade } from "motion.slint";
 
 // Kind "segmented": equal raised segments side by side. The picked one has a thick border in the card's colour and a muted inside,
 // not a flat fill, so Start streaming stays the only filled thing in the window.
@@ -30,6 +30,7 @@ export component Segmented inherits Rectangle {
     out property <int> shown: touched ? local : current;
     changed current => { touched = false; }
     function pick(i: int) {
+        worm.sync();
         local = i;
         touched = true;
         picked(i);
@@ -70,6 +71,19 @@ export component Segmented inherits Rectangle {
     height: Theme.row + 2 * margin;
     horizontal-stretch: 1;
     preferred-width: 0px;
+    // Room for the longest name in every segment (up to a limit, so a long list can still give way): the row it sits in gives way to
+    // this, a segment never does, so no name is cut by what is next to it
+    out property <length> needed: items.length * (names.preferred-width + Theme.u(8) + (has-icons.length > 0 ? Theme.icon-small + Theme.u(3) : 0px)) + max(0, items.length - 1) * Theme.gap;
+    min-width: min(needed, Theme.u(130));
+    // Measures the widest name at the picked weight, out of the way
+    Rectangle {
+        width: 0px;
+        height: 0px;
+        opacity: 0;
+        names := VerticalLayout {
+            for item in items: Text { text: item; font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; accessible-role: none; }
+        }
+    }
     accessible-role: tab-list;
     accessible-label: label;
     // Layers, bottom to top: the surfaces and everything that takes a press, the worm (the picked outline, which stretches between
@@ -85,14 +99,17 @@ export component Segmented inherits Rectangle {
     // The pointer is on an option, or holds one down (-1 for none)
     property <int> hover-i: -1;
     property <int> press-i: -1;
-    // The worm glides for a pick (a click, or something outside) and rests after, so a layout that resizes moves it with no lag
-    property <int> settled: -1;
-    property <bool> glide: shown != settled;
-    init => { settled = shown; }
-    Timer {
-        interval: 700ms;
-        running: root.shown != root.settled;
-        triggered => { root.settled = root.shown; }
+    // The worm glides for a pick (a click, a key, or something outside) until it has arrived, and rests after, so a layout that resizes
+    // moves it with no lag. Every pick sets it again and arriving clears it, so nothing counts and a pick mid-flight, or back to where
+    // it came from, never snaps it. (The timer only clears it after a pick that moved nothing.)
+    property <bool> gliding;
+    changed shown => { gliding = true; glide-end.restart(); }
+    property <bool> worm-rest: worm.at-rest;
+    changed worm-rest => { if (worm-rest) { gliding = false; } }
+    glide-end := Timer {
+        interval: 900ms;
+        running: root.gliding;
+        triggered => { root.gliding = false; }
     }
     TouchRing { setting: root.setting; y: margin; width: parent.width; height: Theme.row; radius: Theme.r-ctl; }
     HorizontalLayout {
@@ -178,16 +195,9 @@ export component Segmented inherits Rectangle {
             }
         }
     }
-    worm := Worm {
-        to-x: sel-x;
-        to-y: margin;
-        to-w: sel-w;
-        to-h: Theme.row;
-        hue: root.hue;
-        snap: quick || !glide;
-        shown: shown >= 0 && shown < items.length && !disabled[shown];
-        pressed: press-i == shown;
-    }
+    // The picked inside lies under the text and the outline over everything, in this order always, so the outline never passes under a
+    // surface or a word whatever it is doing
+    WormFill { wx: worm.x; wy: worm.y; ww: worm.width; wh: worm.height; colour: worm.inside; presence: worm.presence; radius: worm.radius; }
     HorizontalLayout {
         y: margin;
         height: Theme.row;
@@ -224,6 +234,17 @@ export component Segmented inherits Rectangle {
             }
         }
     }
+    worm := Worm {
+        to-x: sel-x;
+        to-y: margin;
+        to-w: sel-w;
+        to-h: Theme.row;
+        hue: root.hue;
+        snap: !gliding;
+        outline-only: true;
+        shown: shown >= 0 && shown < items.length && !disabled[shown];
+        pressed: press-i == shown;
+    }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
 }
 
@@ -243,6 +264,7 @@ export component PictureSegmented inherits Rectangle {
     out property <int> shown: touched ? local : current;
     changed current => { touched = false; }
     function pick(i: int) {
+        worm.sync();
         local = i;
         touched = true;
         picked(i);
@@ -268,6 +290,13 @@ export component PictureSegmented inherits Rectangle {
         arrow-to = to;
         arrows += 1;
     }
+    // An arrow in the grid: along a row, or up and down the columns, never wrapping round to another row
+    function go(from: int, across: int, down: int) {
+        let c = mod(from, cols) + across;
+        let r = floor(from / cols) + down;
+        if (c < 0 || c >= cols || r < 0) { return; }
+        step(from, r * cols + c);
+    }
     in property <string> shortcut;
     in property <string> setting;
     // The card's colour, for the picked tile's border
@@ -278,9 +307,17 @@ export component PictureSegmented inherits Rectangle {
     in property <length> tile-height: Theme.u(24);
     // How tall the drawings are when names are under them: the drawing and its name are centred in the tile as one group
     in property <length> art-size: Theme.u(10);
-    // Where the drawings go
+    // How many options go in a row (0 for all of them in one): a grid is laid out in rows, one control with one picked outline, so a
+    // pick from one row to another moves straight across and up or down and never wraps through a one-dimensional index
+    in property <int> columns: 0;
+    out property <int> cols: columns > 0 ? min(columns, max(1, items.length)) : max(1, items.length);
+    out property <int> rows: floor((items.length + cols - 1) / cols);
+    // Where the drawings go: option i is drawn at (x-of(i), y-of(i)) in the drawing layer, cell-width by art-height
     out property <length> pitch: cell-width + Theme.gap;
-    out property <length> cell-width: (self.width - (max(1, items.length) - 1) * Theme.gap) / max(1, items.length);
+    out property <length> row-pitch: tile-height + Theme.gap;
+    out property <length> cell-width: (self.width - (cols - 1) * Theme.gap) / cols;
+    public pure function x-of(i: int) -> length { mod(i, cols) * pitch }
+    public pure function y-of(i: int) -> length { floor(i / cols) * row-pitch }
     out property <length> name-height: Theme.u(7);
     out property <length> art-gap: Theme.u(2);
     out property <length> art-height: names-drawn ? art-size : tile-height;
@@ -291,7 +328,7 @@ export component PictureSegmented inherits Rectangle {
     // The names are on the tiles (a test and a card that makes room for them can ask)
     out property <bool> names-drawn: show-names && names-fit;
     callback picked(int);
-    height: tile-height;
+    height: max(1, rows) * tile-height + max(0, rows - 1) * Theme.gap;
     horizontal-stretch: 1;
     preferred-width: 0px;
     accessible-role: tab-list;
@@ -321,14 +358,17 @@ export component PictureSegmented inherits Rectangle {
     // The pointer is on a tile, or holds one down (-1 for none)
     property <int> hover-i: -1;
     property <int> press-i: -1;
-    // The worm glides for a pick (a click, or something outside) and rests after, so a layout that resizes moves it with no lag
-    property <int> settled: -1;
-    property <bool> glide: shown != settled;
-    init => { settled = shown; }
-    Timer {
-        interval: 700ms;
-        running: root.shown != root.settled;
-        triggered => { root.settled = root.shown; }
+    // The worm glides for a pick (a click, a key, or something outside) until it has arrived, and rests after, so a layout that resizes
+    // moves it with no lag. Every pick sets it again and arriving clears it, so nothing counts and a pick mid-flight, or back to where
+    // it came from, never snaps it. (The timer only clears it after a pick that moved nothing.)
+    property <bool> gliding;
+    changed shown => { gliding = true; glide-end.restart(); }
+    property <bool> worm-rest: worm.at-rest;
+    changed worm-rest => { if (worm-rest) { gliding = false; } }
+    glide-end := Timer {
+        interval: 900ms;
+        running: root.gliding;
+        triggered => { root.gliding = false; }
     }
     TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
     for item[i] in items: seg := Rectangle {
@@ -336,7 +376,8 @@ export component PictureSegmented inherits Rectangle {
         property <bool> off: disabled[i];
         // A name that doesn't fit under its drawing isn't cut short: the tooltip carries it instead
         property <bool> name-cut: show-names && !names-fit;
-        x: i * pitch;
+        x: x-of(i);
+        y: y-of(i);
         width: cell-width;
         height: tile-height;
         border-radius: Theme.r-ctl;
@@ -364,13 +405,15 @@ export component PictureSegmented inherits Rectangle {
             enabled: !off;
             focus-gained(reason) => {
                 if (reason == FocusReason.tab-navigation) {
-                    Reveal.show(root.absolute-position.x + seg.x, root.absolute-position.y, seg.width, root.height);
+                    Reveal.show(root.absolute-position.x + seg.x, root.absolute-position.y + seg.y, seg.width, seg.height);
                 }
             }
             key-pressed(e) => {
                 if (e.text == " " || e.text == "\n") { quick = true; pick(i); return accept; }
-                if (e.text == Key.LeftArrow) { step(i, i - 1); return accept; }
-                if (e.text == Key.RightArrow) { step(i, i + 1); return accept; }
+                if (e.text == Key.LeftArrow) { go(i, -1, 0); return accept; }
+                if (e.text == Key.RightArrow) { go(i, 1, 0); return accept; }
+                if (e.text == Key.UpArrow) { go(i, 0, -1); return accept; }
+                if (e.text == Key.DownArrow) { go(i, 0, 1); return accept; }
                 reject
             }
         }
@@ -394,21 +437,12 @@ export component PictureSegmented inherits Rectangle {
             }
         }
     }
-    worm := Worm {
-        to-x: max(0, shown) * pitch;
-        to-y: 0px;
-        to-w: cell-width;
-        to-h: tile-height;
-        hue: root.hue;
-        snap: quick || !glide;
-        shown: shown >= 0 && shown < items.length && !disabled[shown];
-        pressed: press-i == shown;
-    }
+    WormFill { wx: worm.x; wy: worm.y; ww: worm.width; wh: worm.height; colour: worm.inside; presence: worm.presence; radius: worm.radius; }
     for item[i] in items: Text {
         property <bool> on: i == shown;
         visible: names-drawn;
-        x: i * pitch;
-        y: art-top + art-size + art-gap;
+        x: x-of(i);
+        y: y-of(i) + art-top + art-size + art-gap;
         width: cell-width;
         height: name-height;
         text: item;
@@ -428,6 +462,18 @@ export component PictureSegmented inherits Rectangle {
         width: parent.width;
         height: art-height;
         @children
+    }
+    // The outline last, over the tiles, the names and the drawings: the one layer order, which never changes while it moves
+    worm := Worm {
+        to-x: x-of(max(0, shown));
+        to-y: y-of(max(0, shown));
+        to-w: cell-width;
+        to-h: tile-height;
+        hue: root.hue;
+        snap: !gliding;
+        outline-only: true;
+        shown: shown >= 0 && shown < items.length && !disabled[shown];
+        pressed: press-i == shown;
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
 }
@@ -517,13 +563,15 @@ export component ChoiceField inherits Rectangle {
     property <bool> closing;
     function close-now() {
         closing = false;
-        popup.close();
         root.open = false;
+        popup.close();
         focus.focus();
     }
-    // Close the list and hand the focus back: a click eases it out, a key puts it away at once (`gently` says which)
+    // Close the list and hand the focus back. Every way out eases it out (a pick, a click outside, Escape, Tab, the window losing focus);
+    // `gently: false` is only for what must be gone this frame (reduced motion asks for that by itself)
     function close-list(gently: bool) {
         if (gently && Motion.fades && open && !closing) {
+            list-fade.sync();
             // The focus stays where it is until the fade is over: moving it would take the pop-up down at once
             closing = true;
             root.open = false;
@@ -670,25 +718,35 @@ export component ChoiceField inherits Rectangle {
         height: Theme.u(8);
     }
     popup := PopupWindow {
-        // A click inside doesn't close it by itself: a pick eases it out first
-        close-policy: close-on-click-outside;
-        // Wide enough for its longest option, and inside the window: a longer one wraps, Slint moves it in from the edge
-        property <length> room-w: WindowBox.width > 0 ? WindowBox.width - 16px : 4000px;
-        property <length> room-h: WindowBox.height > 0 ? WindowBox.height - 16px : 4000px;
+        // It covers the window, as a Bubble's does, and nothing closes it but the field: a press anywhere outside the list, Escape, Tab
+        // or the window losing focus ease it out first (a pop-up that closes itself goes in one frame, with no out-motion)
+        close-policy: no-auto-close;
+        x: -root.absolute-position.x;
+        y: -root.absolute-position.y;
+        width: WindowBox.cover-w(list-w);
+        height: WindowBox.cover-h(list-h);
+        // Wide enough for its longest option, and inside the window: a longer one wraps
+        property <length> win-w: WindowBox.width > 0 ? WindowBox.width : 4000px;
+        property <length> win-h: WindowBox.height > 0 ? WindowBox.height : 4000px;
+        property <length> room-w: win-w - 16px;
+        property <length> room-h: win-h - 16px;
         // By rows alone: a bar narrowing the list changes how many wrap, so this can't follow the list's real height
         property <bool> popup-tall: items.length * 26px + 10px > room-h;
-        x: 0;
-        y: root.height + 4px;
-        width: min(room-w, max(root.width, longest.preferred-width + 26px));
-        height: min(room-h, rows.preferred-height + 2px);
+        property <length> list-w: min(room-w, max(root.width, longest.preferred-width + 26px));
+        property <length> list-h: min(room-h, rows.preferred-height + 2px);
+        // Under the field, held inside the window's sides and bottom
+        property <length> list-x: max(8px, min(root.absolute-position.x, win-w - list-w - 8px));
+        property <length> list-y: max(8px, min(root.absolute-position.y + root.height + 4px, win-h - list-h - 8px));
         // Slint doesn't say when a popup closes, but its focus goes back to the field then. Taken a moment after it
         // opens, since opening clears the focus
         watch := FocusScope {
-            focus-lost => { root.open = false; hl = -1; }
+            // The window lost its focus while the list was up: it goes the way a click outside does
+            focus-lost => { if (root.open && !closing) { close-list(true); } }
             key-pressed(e) => {
                 if (closing) { return accept; }
-                if (e.text == Key.Escape) { close-list(false); return accept; }
-                if (e.text == Key.Tab || e.text == Key.Backtab) { close-list(false); return reject; }
+                if (e.text == Key.Escape) { close-list(true); return accept; }
+                // Tab is the one way out that has to move the focus on this frame, so it puts the list away at once
+                if (e.text == Key.Tab || e.text == Key.Backtab) { close-now(); return reject; }
                 if (e.text == Key.UpArrow) { hl = step-from(hl, -1); return accept; }
                 if (e.text == Key.DownArrow) { hl = step-from(hl, 1); return accept; }
                 if (e.text == Key.Home) { scan(1, ""); return accept; }
@@ -717,14 +775,25 @@ export component ChoiceField inherits Rectangle {
                 font-weight: headings[i] ? 700 : 400;
             }
         }
+        // Everything outside the list: a press there eases it out, and nothing under it sees that press
+        TouchArea {
+            pointer-event(e) => {
+                if (e.kind == PointerEventKind.down && !closing) { close-list(true); }
+            }
+        }
         Rectangle {
             // It comes in a touch from above and fades, and goes the same way
             opacity: list-fade.value;
-            y: (1 - list-fade.value) * -Theme.u(2);
+            x: popup.list-x;
+            y: popup.list-y + (1 - list-fade.value) * -Theme.u(2);
+            width: popup.list-w;
+            height: popup.list-h;
             background: Theme.raise;
             border-radius: Theme.r-ctl;
             drop-shadow-blur: 12px;
             drop-shadow-color: #00000080;
+            // The list's own face takes its presses, so one between the rows isn't a press outside
+            TouchArea { }
             list := Flickable {
                 x: 1px;
                 y: 1px;

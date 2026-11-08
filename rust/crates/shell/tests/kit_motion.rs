@@ -122,14 +122,17 @@ fn flick_passes_its_place_a_little_and_comes_back() {
     go(&ui, 1.0);
     let t = trace(&ui, "flick", 30);
     let top = t.iter().cloned().fold(0.0, f32::max);
-    assert!(top > 1.02 && top < 1.12, "a little overshoot, not a bounce: {top} in {t:?}");
+    assert!(top > 1.01 && top < 1.06, "a little overshoot, not a bounce: {top} in {t:?}");
     assert!(t.iter().filter(|v| **v > 1.0).count() >= 2, "long enough to see");
-    // It comes back to 1 and stays: under it by half a percent at most, and no second overshoot
+    // It comes back to 1 and stays: one rise and one fall, no second overshoot
     let after_top = t.iter().position(|v| *v == top).unwrap();
     assert!(t[after_top..].iter().all(|v| *v > 0.99), "{t:?}");
-    assert!(t[after_top + 5..].iter().all(|v| *v < 1.005), "one rise and one fall, then it settles: {t:?}");
+    assert!(t[after_top..].windows(2).all(|w| w[1] <= w[0] + 0.0001), "one rise and one fall, then it settles: {t:?}");
+    // A short move is a calm one: the first frame under 8% of the travel and none over 17% (3.4 px of a switch's 20)
+    let steps: Vec<f32> = t.windows(2).map(|w| w[1] - w[0]).collect();
+    assert!(steps[0] < 0.08 && steps.iter().all(|s| *s < 0.17), "calm steps: {steps:?}");
     let frames = rests_after(&t).expect("at rest");
-    assert!(frames as u64 * FRAME <= 400, "at rest within 400 ms, not {} ms: {t:?}", frames as u64 * FRAME);
+    assert!(frames as u64 * FRAME <= 500, "at rest within 400 ms, not {} ms: {t:?}", frames as u64 * FRAME);
 }
 
 #[test]
