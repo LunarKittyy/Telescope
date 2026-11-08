@@ -318,7 +318,7 @@ msgstr "가상 마이크가 오디오 입력을 받지 못하고 중지되었어
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "노란색은 리미터가 큰 피크를 억제하고 있음을 나타내고, 빨간색은 사운드가 클리핑되었음을 나타내요(클릭하여 지우기)."
 
-#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:482 rust/crates/effects/src/transforms.rs:38 rust/crates/effects/ui/composite_editor.slint:441 rust/crates/effects/ui/composite_editor.slint:457 rust/crates/effects/ui/composite_editor.slint:491 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:243 rust/crates/shell/ui/cards/camera.slint:274 rust/crates/shell/ui/cards/camera.slint:292
+#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:482 rust/crates/effects/src/transforms.rs:38 rust/crates/effects/ui/composite_editor.slint:441 rust/crates/effects/ui/composite_editor.slint:457 rust/crates/effects/ui/composite_editor.slint:491 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:243 rust/crates/shell/ui/cards/camera.slint:274 rust/crates/shell/ui/cards/camera.slint:292
 msgid "Double-click to reset"
 msgstr "더블 클릭하여 초기화"
 
@@ -330,7 +330,7 @@ msgstr "자동 레벨"
 msgid "Evens out quiet and loud speech."
 msgstr "작은 목소리와 큰 목소리를 고르게 맞춰줘요."
 
-#: rust/crates/audio/ui/microphone.slint:258 rust/crates/audio/ui/microphone.slint:270 rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1614 rust/crates/shell/ui/cards/camera.slint:379 rust/crates/shell/ui/cards/camera.slint:381
+#: rust/crates/audio/ui/microphone.slint:258 rust/crates/audio/ui/microphone.slint:270 rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1614 rust/crates/shell/ui/cards/camera.slint:379 rust/crates/shell/ui/cards/camera.slint:382
 msgid "Noise reduction"
 msgstr "노이즈 감소"
 
@@ -524,7 +524,7 @@ msgid "Looking…"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:38 rust/crates/effects/src/photos.rs:487 rust/crates/effects/ui/background.slint:34 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:98 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:383 rust/crates/shell/ui/cards/camera.slint:394
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:38 rust/crates/effects/src/photos.rs:487 rust/crates/effects/ui/background.slint:34 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:98 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:384 rust/crates/shell/ui/cards/camera.slint:396
 msgid "Off"
 msgstr "끔"
 
@@ -532,35 +532,35 @@ msgstr "끔"
 msgid "Blur"
 msgstr "흐림 효과"
 
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/chroma_key.rs:27 rust/crates/effects/ui/background.slint:34 rust/crates/effects/ui/background.slint:60 rust/crates/effects/ui/chroma_key.slint:103 rust/crates/effects/ui/chroma_key.slint:145 rust/crates/effects/ui/composite_editor.slint:318 rust/crates/effects/ui/composite_editor.slint:534 rust/crates/effects/ui/composite_editor.slint:536
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/background.slint:34 rust/crates/effects/ui/background.slint:60 rust/crates/effects/ui/chroma_key.slint:114 rust/crates/effects/ui/chroma_key.slint:145 rust/crates/effects/ui/composite_editor.slint:318 rust/crates/effects/ui/composite_editor.slint:534 rust/crates/effects/ui/composite_editor.slint:536
 msgid "Picture"
 msgstr "사진"
 
-#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/composite_editor.rs:16
+#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/src/composite_editor.rs:16
 msgid "Pictures (*.png *.jpg *.jpeg *.webp *.bmp)"
 msgstr "사진 (*.png *.jpg *.jpeg *.webp *.bmp)"
 
-#: rust/crates/effects/src/background.rs:183 rust/crates/effects/src/chroma_key.rs:39 rust/crates/effects/src/fun_pack.rs:70
+#: rust/crates/effects/src/background.rs:183 rust/crates/effects/src/chroma_key.rs:41 rust/crates/effects/src/fun_pack.rs:70
 msgid "How soft the edge around you is"
 msgstr "내 주변 가장자리의 부드러운 정도"
 
-#: rust/crates/effects/src/background.rs:184 rust/crates/effects/src/chroma_key.rs:265
+#: rust/crates/effects/src/background.rs:184 rust/crates/effects/src/chroma_key.rs:268
 msgid "Pick the picture that goes behind you"
 msgstr "등 뒤에 놓을 사진 선택"
 
-#: rust/crates/effects/src/background.rs:196 rust/crates/effects/src/chroma_key.rs:286
+#: rust/crates/effects/src/background.rs:196 rust/crates/effects/src/chroma_key.rs:293
 msgid "No picture yet"
 msgstr "선택된 사진 없음"
 
-#: rust/crates/effects/src/background.rs:208 rust/crates/effects/src/chroma_key.rs:251
+#: rust/crates/effects/src/background.rs:208 rust/crates/effects/src/chroma_key.rs:254
 msgid "Choose a picture to put behind you."
 msgstr "등 뒤에 놓을 사진을 선택하세요."
 
-#: rust/crates/effects/src/background.rs:239 rust/crates/effects/src/chroma_key.rs:379
+#: rust/crates/effects/src/background.rs:239 rust/crates/effects/src/chroma_key.rs:407
 msgid "Choose a picture"
 msgstr "사진 선택"
 
-#: rust/crates/effects/src/background.rs:247 rust/crates/effects/src/chroma_key.rs:386
+#: rust/crates/effects/src/background.rs:247 rust/crates/effects/src/chroma_key.rs:414
 msgid "Telescope can't open that picture."
 msgstr "Telescope에서 해당 사진을 열 수 없어요."
 
@@ -580,79 +580,87 @@ msgstr "이 플러그인이 없으면 배경 카드가 표시되지 않으며, �
 msgid "Background blur"
 msgstr "배경 흐림"
 
-#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:67 rust/crates/effects/ui/chroma_key.slint:133 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:370 rust/crates/effects/ui/composite_editor.slint:473 rust/crates/effects/ui/composite_editor.slint:521
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:370 rust/crates/effects/ui/composite_editor.slint:473 rust/crates/effects/ui/composite_editor.slint:521 rust/crates/ui-kit/ui/widgets/colour.slint:333
 msgid "Green"
 msgstr "녹색"
 
-#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:67 rust/crates/effects/ui/chroma_key.slint:133 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:370 rust/crates/effects/ui/composite_editor.slint:473 rust/crates/effects/ui/composite_editor.slint:521
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:370 rust/crates/effects/ui/composite_editor.slint:473 rust/crates/effects/ui/composite_editor.slint:521 rust/crates/ui-kit/ui/widgets/colour.slint:333
 msgid "Blue"
 msgstr "파란색"
 
-#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/ui/chroma_key.slint:67
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/ui/chroma_key.slint:73
 msgid "Picked"
 msgstr "선택한 색"
 
-#: rust/crates/effects/src/chroma_key.rs:27 rust/crates/effects/ui/chroma_key.slint:103 rust/crates/effects/ui/chroma_key.slint:113 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:512
+#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/chroma_key.slint:114 rust/crates/effects/ui/chroma_key.slint:124 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:512
 msgid "Colour"
 msgstr "색상"
 
-#: rust/crates/effects/src/chroma_key.rs:39
+#: rust/crates/effects/src/chroma_key.rs:41
 msgid "Higher takes out more shades of the screen"
 msgstr "값을 높이면 스크린 색조를 더 많이 제거해요"
 
-#: rust/crates/effects/src/chroma_key.rs:39
+#: rust/crates/effects/src/chroma_key.rs:41
 msgid "Takes the screen's colour out of your edges and skin"
 msgstr "가장자리와 피부에서 스크린 색상을 제거해요"
 
-#: rust/crates/effects/src/chroma_key.rs:259 rust/crates/effects/src/chroma_key.rs:412 rust/crates/effects/src/chroma_key.rs:508 rust/crates/effects/src/chroma_key.rs:512 rust/crates/effects/src/chroma_key.rs:530 rust/crates/effects/ui/chroma_key.slint:47
+#: rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/chroma_key.rs:440 rust/crates/effects/src/chroma_key.rs:555 rust/crates/effects/src/chroma_key.rs:559 rust/crates/effects/src/chroma_key.rs:577 rust/crates/effects/ui/chroma_key.slint:53
 msgid "Chroma key"
 msgstr "크로마키"
 
-#: rust/crates/effects/src/chroma_key.rs:260
+#: rust/crates/effects/src/chroma_key.rs:263
 msgid "Swap the screen behind you"
 msgstr "등 뒤의 스크린 바꾸기"
 
-#: rust/crates/effects/src/chroma_key.rs:263
+#: rust/crates/effects/src/chroma_key.rs:266
 msgid "Pick the colour that goes behind you"
 msgstr "배경에 넣을 색상 선택"
 
-#: rust/crates/effects/src/chroma_key.rs:264
-msgid "Colour behind you"
-msgstr "배경 색상"
+#: rust/crates/effects/src/chroma_key.rs:267
+msgid "Pick a colour from the preview"
+msgstr ""
 
-#: rust/crates/effects/src/chroma_key.rs:270
+#: rust/crates/effects/src/chroma_key.rs:273
 msgid "The colour picked from the preview. Click to pick again."
 msgstr "미리보기에서 선택한 색상이에요. 다시 선택하려면 클릭해 보세요."
 
-#: rust/crates/effects/src/chroma_key.rs:270
+#: rust/crates/effects/src/chroma_key.rs:273
 msgid "Pick the screen's colour from the preview"
 msgstr "미리보기에서 스크린 색상 선택"
 
-#: rust/crates/effects/src/chroma_key.rs:343
+#: rust/crates/effects/src/chroma_key.rs:350
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "미리보기에서 등 뒤의 스크린을 클릭해 보세요. Esc를 누르면 취소돼요."
 
-#: rust/crates/effects/src/chroma_key.rs:344
+#: rust/crates/effects/src/chroma_key.rs:351
 msgid "Start streaming to pick the screen's colour on the preview."
 msgstr "미리보기에서 스크린 색상을 선택하려면 스트리밍을 시작하세요."
 
-#: rust/crates/effects/src/chroma_key.rs:362
+#: rust/crates/effects/src/chroma_key.rs:369
 msgid "That spot has hardly any colour. Click the screen itself."
 msgstr "색상이 거의 없는 지점이에요. 스크린 부분을 클릭해 보세요."
 
-#: rust/crates/effects/src/chroma_key.rs:413
+#: rust/crates/effects/src/chroma_key.rs:386
+msgid "Click a colour on the preview. Esc cancels."
+msgstr ""
+
+#: rust/crates/effects/src/chroma_key.rs:387
+msgid "Start streaming to pick a colour on the preview."
+msgstr ""
+
+#: rust/crates/effects/src/chroma_key.rs:441
 msgid "Swaps a green or blue screen behind you for a colour or a picture, with no download."
 msgstr "별도 다운로드 없이 등 뒤의 초록색이나 파란색 스크린을 색상 또는 사진으로 바꿔 줘요."
 
-#: rust/crates/effects/src/chroma_key.rs:414
+#: rust/crates/effects/src/chroma_key.rs:442
 msgid "Without it there's no Chroma key card and a green screen stays green."
 msgstr "이 플러그인이 없으면 크로마키 카드가 표시되지 않으며 초록색 스크린이 그대로 초록색으로 유지돼요."
 
-#: rust/crates/effects/src/chroma_key.rs:510 rust/crates/effects/src/chroma_key.rs:545
+#: rust/crates/effects/src/chroma_key.rs:557 rust/crates/effects/src/chroma_key.rs:592
 msgid "Chroma key tolerance"
 msgstr "크로마키 허용 오차"
 
-#: rust/crates/effects/src/chroma_key.rs:513 rust/crates/effects/src/chroma_key.rs:539
+#: rust/crates/effects/src/chroma_key.rs:560 rust/crates/effects/src/chroma_key.rs:586
 msgid "Chroma key screen"
 msgstr "크로마키 스크린"
 
@@ -741,7 +749,7 @@ msgstr "RGB 퍼레이드"
 msgid "Vectorscope"
 msgstr "벡터스코프"
 
-#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/chroma_key.slint:133 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:370 rust/crates/effects/ui/composite_editor.slint:473 rust/crates/effects/ui/composite_editor.slint:521
+#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:370 rust/crates/effects/ui/composite_editor.slint:473 rust/crates/effects/ui/composite_editor.slint:521 rust/crates/ui-kit/ui/widgets/colour.slint:333
 msgid "Red"
 msgstr "빨간색"
 
@@ -2507,29 +2515,33 @@ msgstr "회전"
 msgid "Reset transforms"
 msgstr "화면 변형 초기화"
 
-#: rust/crates/effects/ui/background.slint:65 rust/crates/effects/ui/chroma_key.slint:118 rust/crates/effects/ui/chroma_key.slint:150
+#: rust/crates/effects/ui/background.slint:65 rust/crates/effects/ui/chroma_key.slint:150
 msgid "Choose"
 msgstr ""
 
-#: rust/crates/effects/ui/background.slint:87 rust/crates/effects/ui/chroma_key.slint:84 rust/crates/effects/ui/fun_pack.slint:103
+#: rust/crates/effects/ui/background.slint:87 rust/crates/effects/ui/chroma_key.slint:90 rust/crates/effects/ui/fun_pack.slint:103
 msgid "Edges"
 msgstr "가장자리"
 
-#: rust/crates/effects/ui/chroma_key.slint:60 rust/crates/effects/ui/chroma_key.slint:71
+#: rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:77
 msgid "Screen"
 msgstr "스크린"
 
-#: rust/crates/effects/ui/chroma_key.slint:84
+#: rust/crates/effects/ui/chroma_key.slint:90
 msgid "Tolerance"
 msgstr "허용 오차"
 
-#: rust/crates/effects/ui/chroma_key.slint:84
+#: rust/crates/effects/ui/chroma_key.slint:90
 msgid "Spill"
 msgstr "스필"
 
-#: rust/crates/effects/ui/chroma_key.slint:100 rust/crates/effects/ui/chroma_key.slint:107
+#: rust/crates/effects/ui/chroma_key.slint:111 rust/crates/effects/ui/chroma_key.slint:118
 msgid "Behind you"
 msgstr "배경"
+
+#: rust/crates/effects/ui/chroma_key.slint:134
+msgid "Colour behind you"
+msgstr "배경 색상"
 
 #: rust/crates/effects/ui/cinema.slint:144 rust/crates/effects/ui/cinema.slint:151
 msgid "Peaking colour"
@@ -3081,11 +3093,11 @@ msgstr ""
 msgid "Quality"
 msgstr "화질"
 
-#: rust/crates/effects/ui/photos.slint:163
+#: rust/crates/effects/ui/photos.slint:163 rust/crates/effects/ui/photos.slint:166
 msgid "Timer"
 msgstr "타이머"
 
-#: rust/crates/effects/ui/photos.slint:173
+#: rust/crates/effects/ui/photos.slint:175
 msgid "Save in"
 msgstr "저장 위치"
 
@@ -4326,7 +4338,7 @@ msgstr "어두운 곳에서 프레임 낮추기"
 msgid "White balance"
 msgstr "화이트 밸런스"
 
-#: rust/crates/outputs/src/webcam.rs:50
+#: rust/crates/outputs/src/webcam.rs:50 rust/crates/ui-kit/ui/widgets/colour.slint:286
 msgid "Hue"
 msgstr "색조"
 
@@ -5896,11 +5908,11 @@ msgstr "화면 위를 드래그해서 영역을 지정하세요. Esc를 누르�
 msgid "Drag the corners into place, then press Enter. Esc cancels."
 msgstr "모서리를 원하는 위치로 드래그한 다음 Enter를 누르세요. Esc를 누르면 취소돼요."
 
-#: rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:383 rust/crates/shell/ui/cards/camera.slint:394
+#: rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:384 rust/crates/shell/ui/cards/camera.slint:396
 msgid "Fast"
 msgstr "빠름"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:383 rust/crates/shell/ui/cards/camera.slint:394
+#: rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:384 rust/crates/shell/ui/cards/camera.slint:396
 msgid "High Quality"
 msgstr "고화질"
 
@@ -6055,7 +6067,7 @@ msgctxt "focus"
 msgid "Manual"
 msgstr "수동"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1615 rust/crates/shell/ui/cards/camera.slint:390 rust/crates/shell/ui/cards/camera.slint:392
+#: rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1615 rust/crates/shell/ui/cards/camera.slint:391 rust/crates/shell/ui/cards/camera.slint:394
 msgid "Sharpening"
 msgstr "선명도"
 
@@ -8180,6 +8192,34 @@ msgstr ""
 
 #: rust/crates/system/ui/updates.slint:207
 msgid "Go back to the Python version?"
+msgstr ""
+
+#: rust/crates/ui-kit/ui/widgets/colour.slint:281
+msgid "Saturation and brightness"
+msgstr ""
+
+#: rust/crates/ui-kit/ui/widgets/colour.slint:293
+msgid "Pick from the preview"
+msgstr ""
+
+#: rust/crates/ui-kit/ui/widgets/colour.slint:300 rust/crates/ui-kit/ui/widgets/colour.slint:311
+msgid "Values"
+msgstr ""
+
+#: rust/crates/ui-kit/ui/widgets/colour.slint:324
+msgid "Hex"
+msgstr ""
+
+#: rust/crates/ui-kit/ui/widgets/colour.slint:328
+msgid "R"
+msgstr ""
+
+#: rust/crates/ui-kit/ui/widgets/colour.slint:328
+msgid "G"
+msgstr ""
+
+#: rust/crates/ui-kit/ui/widgets/colour.slint:328
+msgid "B"
 msgstr ""
 
 #: rust/crates/ui-kit/ui/widgets/folds.slint:12

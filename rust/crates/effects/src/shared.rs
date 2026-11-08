@@ -31,6 +31,58 @@ pub fn hex(rgb: [u8; 3]) -> String {
     format!("#{:02x}{:02x}{:02x}", rgb[0], rgb[1], rgb[2])
 }
 
+/// A hue, saturation and brightness (each 0 to 1, the hue going once round the wheel) as a colour's red, green, blue.
+pub fn hsv_to_rgb(h: f32, s: f32, v: f32) -> [u8; 3] {
+    let (h, s, v) = (h.clamp(0.0, 1.0), s.clamp(0.0, 1.0), v.clamp(0.0, 1.0));
+    // the red end and the violet end are one colour: 1.0 is the same as 0.0
+    let sector = (h * 6.0) % 6.0;
+    let (i, f) = (sector.floor(), sector - sector.floor());
+    let (p, q, t) = (v * (1.0 - s), v * (1.0 - s * f), v * (1.0 - s * (1.0 - f)));
+    let (r, g, b) = match i as u8 {
+        0 => (v, t, p),
+        1 => (q, v, p),
+        2 => (p, v, t),
+        3 => (p, q, v),
+        4 => (t, p, v),
+        _ => (v, p, q),
+    };
+    [r, g, b].map(|c| (c * 255.0).round() as u8)
+}
+
+/// A colour's hue, saturation and brightness, each 0 to 1. A grey has no hue and a black no saturation either: `keep` is what
+/// they get then, so the pad's handle stays where the person left it when they drag to a corner.
+pub fn rgb_to_hsv(rgb: [u8; 3], keep: (f32, f32)) -> (f32, f32, f32) {
+    let [r, g, b] = rgb.map(|c| c as f32 / 255.0);
+    let (max, min) = (r.max(g).max(b), r.min(g).min(b));
+    let delta = max - min;
+    if max <= 0.0 {
+        return (keep.0, keep.1, 0.0);
+    }
+    let s = delta / max;
+    if delta <= 0.0 {
+        return (keep.0, s, max);
+    }
+    let sector = if max == r { ((g - b) / delta).rem_euclid(6.0) } else if max == g { (b - r) / delta + 2.0 } else { (r - g) / delta + 4.0 };
+    (sector / 6.0, s, max)
+}
+
+/// A colour typed as hex: "#rrggbb" or "rrggbb", or the short "#rgb", in any case and with spaces round it.
+pub fn parse_hex(text: &str) -> Option<[u8; 3]> {
+    let digits = text.trim().trim_start_matches('#');
+    if !digits.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return None;
+    }
+    let pair = |i: usize| u8::from_str_radix(&digits[i..i + 2], 16).ok();
+    match digits.len() {
+        6 => Some([pair(0)?, pair(2)?, pair(4)?]),
+        3 => {
+            let one = |i: usize| u8::from_str_radix(&digits[i..i + 1], 16).ok().map(|n| n * 17);
+            Some([one(0)?, one(1)?, one(2)?])
+        }
+        _ => None,
+    }
+}
+
 /// float(value) as Python does it for what a settings file can hold: numbers, booleans and numeric strings.
 pub fn py_float(value: &Value) -> Option<f64> {
     match value {
@@ -115,6 +167,48 @@ mod tests {
         assert_eq!(number_in(Some(&json!("hot")), 1.0, 0.0, 2.0), 1.0);
         assert_eq!(number_in(None, 1.0, 0.0, 2.0), 1.0);
         assert_eq!(number_in(Some(&json!("nan")), 1.0, 0.0, 2.0), 1.0);
+    }
+
+    #[test]
+    fn every_colour_comes_back_from_the_pad_unchanged() {
+        // a colour as the pad's three numbers and back is the colour it was
+        for r in (0..=255).step_by(15) {
+            for g in (0..=255).step_by(17) {
+                for b in (0..=255).step_by(15) {
+                    let rgb = [r as u8, g as u8, b as u8];
+                    let (h, s, v) = rgb_to_hsv(rgb, (0.0, 0.0));
+                    assert_eq!(hsv_to_rgb(h, s, v), rgb, "{rgb:?} through {h} {s} {v}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_pad_and_the_strip_make_the_colours_they_show() {
+        assert_eq!(hsv_to_rgb(0.0, 1.0, 1.0), [255, 0, 0]);
+        assert_eq!(hsv_to_rgb(1.0 / 3.0, 1.0, 1.0), [0, 255, 0]);
+        assert_eq!(hsv_to_rgb(2.0 / 3.0, 1.0, 1.0), [0, 0, 255]);
+        assert_eq!(hsv_to_rgb(1.0, 1.0, 1.0), [255, 0, 0], "the strip's two ends are one colour");
+        assert_eq!(hsv_to_rgb(0.4, 0.0, 1.0), [255, 255, 255]);
+        assert_eq!(hsv_to_rgb(0.4, 1.0, 0.0), [0, 0, 0]);
+        assert_eq!(hsv_to_rgb(0.5, 0.5, 0.5), [64, 128, 128]);
+    }
+
+    #[test]
+    fn a_grey_or_a_black_keeps_the_hue_and_saturation_it_had() {
+        assert_eq!(rgb_to_hsv([128, 128, 128], (0.7, 0.9)), (0.7, 0.0, 128.0 / 255.0));
+        assert_eq!(rgb_to_hsv([0, 0, 0], (0.7, 0.9)), (0.7, 0.9, 0.0));
+        assert_eq!(rgb_to_hsv([255, 0, 0], (0.7, 0.9)), (0.0, 1.0, 1.0));
+    }
+
+    #[test]
+    fn typed_hex_is_read_loosely() {
+        assert_eq!(parse_hex("#1E2228"), Some([0x1e, 0x22, 0x28]));
+        assert_eq!(parse_hex(" 1e2228 "), Some([0x1e, 0x22, 0x28]));
+        assert_eq!(parse_hex("#f80"), Some([0xff, 0x88, 0x00]));
+        for bad in ["", "#", "12345", "1234567", "gg0000", "#12 456", "é12345"] {
+            assert_eq!(parse_hex(bad), None, "{bad:?}");
+        }
     }
 
     #[test]
