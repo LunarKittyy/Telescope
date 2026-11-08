@@ -23,7 +23,8 @@ Two looks share the same tokens: the new one and Classic (the deep blue of 5.0).
 | `stage`, `chrome`, `ground` | Behind the preview, the title and status bars, the window |
 | `card` | A card's surface, one tone above the window |
 | `raise` | A control's resting surface: picker, button, segment, switch track, slider track |
-| `hover`, `sel` | A control under the pointer, a pressed or open control, a tooltip |
+| `hover`, `sel` | A control under the pointer, an open control, a tooltip |
+| `press` | A control held down (one step above `hover`, so a press never reads as a hover) |
 | `bubble` | A bubble's surface, a touch above the card so a control at rest in it still shows |
 | `trough` | Recessed: a disabled box, an off switch's inside |
 | `line`, `line-strong`, `line-hover` | The few real lines (a divider that splits meaning, a pad's crosshair) |
@@ -35,7 +36,7 @@ Two looks share the same tokens: the new one and Classic (the deep blue of 5.0).
 | `ok`, `warn`, `err` | Status |
 | `plugin-hue(group)` | The card's own colour, by plugin group (camera, look, vision, preview, on_screen, sound, streaming, extras) |
 
-Category colours stay: a card's hue goes on its icon and on its controls' active state. `Theme.muted(hue)` is the hue quietened for rest, `Theme.tint(hue)` the muted inside of an active control.
+Category colours stay: a card's hue goes on its icon and on its controls' active state. `Theme.muted(hue)` is the hue quietened for rest, `Theme.tint(hue)` the muted inside of an active control and `Theme.held(hue)` the same while it is held down.
 
 `tests/colours.rs` measures the category hues in OKLCH, in both looks: each within 0.04 of the middle lightness, chroma under 0.14, at least 3:1 against the card, and at least 30 degrees of hue from `ok`, `warn` and `err` (greys have no hue to compare). A colour that fails is listed in the test's `KNOWN` with why, and the test fails again when a colour changes either way. Add a ninth hue and the test says whether it fits.
 
@@ -72,8 +73,9 @@ No hairline border round a box. Surfaces separate by tone steps and spacing. A l
 - Rest: muted. Raised surface, ink2 text, muted colour.
 - Hover: one tone up (`hover`).
 - Active (picked segment, lit switch): a thick border in the card's hue with a muted inside (`tint`), not a flat fill.
-- Grabbed (a slider held): full colour, handle included.
-- Disabled: `dis` text on a `trough` surface, no hue.
+- Grabbed (a slider held): full colour, handle included. Any other control held down goes to `press` (a lit switch or picked segment to `Theme.held`), never the same as hover.
+- Disabled: `dis` text on a `trough` surface, no hue. It reads as there but unavailable: an icon button keeps its `trough` square, a slider keeps its handle outlined in `dis`.
+- Long text: a label, option, readout, link, button or box that doesn't fit ends in an ellipsis and never leaves its row. A tip grows down instead.
 - Keyboard focus: the accent ring (`FocusRing`), only after Tab or an arrow key.
 
 ## Control kinds
@@ -122,7 +124,7 @@ One anatomy for every slider: a track, a handle, the value on the right, and a t
 - `shadows` (black to grey), `highlights` (grey to white), `pivot` (black to white, so the handle marks the brightness contrast turns around).
 - `lift` (dark), `gamma` (mid), `gain` (bright), `offset` (a plain grey ramp): the four sliders under the colour wheels.
 - `contrast`: flat grey that fades into 45 degree black and white stripes, ending on a white one.
-- `tolerance`, `spill`: two colours from the card (`grad-a` to `grad-b`) with the handle taking the one under it. Chroma key's tolerance runs from the screen's colour to a grey, its spill from a skin tone with the screen's colour on it to a clean one.
+- `tolerance`, `spill`: two colours from the card (`grad-a` to `grad-b`, left to right) with the handle taking the one under it. Chroma key's tolerance runs from the screen's colour to a grey, its spill from a skin tone with the screen's colour on it to a clean one.
 - `edges`: `grad-a` on the left, `grad-b` on the right and a step between them that is hard at the track's start and spreads over the whole track at its end, so the handle's place is the softness. The handle keeps the card's colour.
 
 The grey ramps keep the card's colour on the handle, since black or white would vanish into the track.
@@ -132,12 +134,12 @@ Keys and typing, the same on every slider (the focused slider takes them; tested
 - Arrow keys step by one `step` (`key-small`).
 - Shift with an arrow, Page Up and Page Down step by a tenth of the range in whole steps (`key-big`: 10 on 0 to 100, 100 on 0 to 1000).
 - Home and End go to the minimum and the maximum.
-- Enter on the slider, or a double-click on its value, opens a box with the number. Enter sets it (held to the range and rounded to the step, a non-number is dropped), Escape and clicking away leave the value as it was. After a key opened it, the focus goes back to the slider.
+- Enter on the slider, or a double-click on its value, opens a box with the number, unless the readout isn't that number (a word like "Chest"; one that starts with a digit, a plus or a minus is): then no box is offered and the keys above still work. Enter sets it (held to the range and rounded to the step, a non-number is dropped), Escape and clicking away leave the value as it was. After a key opened it, the focus goes back to the slider.
 - A slider with `typing` set (a value that isn't its position, like a shutter time) opens its box on a click and hands the text to `typed` for the owner to read. `type-in: false` turns the number box off.
 
 Every one of these says what a drag says, `moved` then `released`, and says nothing when the value didn't change, so an owner never has to know how a value was set.
 
-At rest everything is muted: the fill and the handle's border in the quietened colour, the handle's inside in the card's. While the slider is held its full colour comes up, handle included, and dims when it is let go. A simple colour change for now; the animations are a later pass.
+At rest everything is muted: the fill and the handle's border in the quietened colour, the handle's inside in the card's (`tolerance`, `edges` and `spill` lie under a heavier veil, `Fills.rest-veil`, since their colours run bright along the whole track). While the slider is held its full colour comes up, handle included, and dims when it is let go. A simple colour change for now; the animations are a later pass.
 
 ## Bubbles
 

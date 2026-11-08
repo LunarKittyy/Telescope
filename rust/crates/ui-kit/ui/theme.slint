@@ -21,6 +21,8 @@ export global Theme {
     out property <color> raise: classic ? #1d222a : #303030;
     out property <color> hover: classic ? #242a33 : #3a3a3a;
     out property <color> sel: classic ? #2f3641 : #3b3b3b;
+    // A control held down: a step above hover, so a press never looks like a hover
+    out property <color> press: classic ? #3a4452 : #4a4a4a;
     // A bubble's surface: a touch above the card, so a control at rest in it still shows
     out property <color> bubble: classic ? #191e25 : #282828;
 
@@ -89,6 +91,8 @@ export global Theme {
     public pure function edge(hue: color) -> color { hue.mix(card, 0.75) }
     // The inside of an active control: a little of the card's colour over the card
     public pure function tint(hue: color) -> color { hue.mix(card, 0.16) }
+    // The same while it is held down: more of the card's colour, so a lit switch or picked segment answers a press
+    public pure function held(hue: color) -> color { hue.mix(card, 0.34) }
 
     // A wrapped line is the font's ascent and descent apart, each rounded to whole pixels (17px for 13px Plex, where Slint's
     // natural line is 16.9px): a wrapped Text's line-height-factor, so a paragraph's lines fall on whole pixels

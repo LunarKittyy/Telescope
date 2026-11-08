@@ -43,6 +43,7 @@ export component Test inherits Window {
         Segmented { label: "Bound mode"; items: ["a", "b", "c"]; current: mode; }
         tag := Tag { text: "Experimental"; }
         Rectangle { width: 200px; height: 40px; Segmented { label: "Seg"; items: ["Auto", "Tap a point", "Manual"]; current: 0; } }
+        Rectangle { width: 300px; height: 40px; Segmented { label: "Roomy"; items: ["Auto", "Tap a point", "Manual"]; current: 0; } }
         Rectangle { width: 400px; height: 40px; Segmented { label: "Wide"; items: ["Auto", "Tap a point", "Manual"]; current: 0; } }
         HorizontalLayout {
             spacing: 6px;
@@ -328,8 +329,17 @@ fn a_long_tooltip_wraps_and_a_short_one_stays_on_one_line() {
 #[test]
 fn a_picked_segment_keeps_room_for_its_bold_text() {
     let ui = rig();
-    let segment = labelled(&ui, "Seg: Tap a point").into_iter().next().expect("the middle segment");
+    let segment = labelled(&ui, "Roomy: Tap a point").into_iter().next().expect("the middle segment");
     assert!(segment.size().width as f64 >= num(&ui, "bold-width") + 16.0, "{} against {}", segment.size().width, num(&ui, "bold-width") + 16.0);
+}
+
+// A room too narrow for every option's full text: the options give way and end in an ellipsis, the row stays in its place
+#[test]
+fn segments_that_do_not_fit_shrink_instead_of_leaving_their_room() {
+    let ui = rig();
+    let widths: f32 = ["Auto", "Tap a point", "Manual"].iter().map(|s| labelled(&ui, &format!("Seg: {s}"))[0].size().width).sum();
+    // Three segments and two gaps of 6 px in a room 200 px wide
+    assert!(widths + 12.0 <= 200.5, "{widths} of 188 for the segments");
 }
 
 // Qt's equal stretches: three segments of different lengths come out as wide as each other

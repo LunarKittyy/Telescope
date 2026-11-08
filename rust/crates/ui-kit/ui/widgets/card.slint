@@ -278,6 +278,7 @@ export component FormRow inherits HorizontalLayout {
         font-weight: Theme.w-label;
         color: enabled ? Theme.ink : Theme.dis;
         vertical-alignment: center;
+        overflow: elide;
         // control_row's label is what the settings search finds
         accessible-id: "setting";
         if keywords != "": SearchWords { words: keywords; }
@@ -290,6 +291,7 @@ export component FormRow inherits HorizontalLayout {
         font-weight: Theme.w-label;
         color: enabled ? Theme.ink : Theme.dis;
         vertical-alignment: center;
+        overflow: elide;
         accessible-role: none;
         SettingMark { width: parent.width; height: parent.height; name: label; keywords: keywords; }
     }

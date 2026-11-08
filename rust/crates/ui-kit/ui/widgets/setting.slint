@@ -36,12 +36,14 @@ export component SettingRow inherits Rectangle {
     min-height: 46px;
     out property <string> control-kind: "strip";
     border-radius: Theme.r-ctl;
-    background: Theme.raise;
+    // The strip answers the pointer, a half step toward hover so a switch in it still shows against it
+    background: strip-hover.has-hover ? Theme.raise.mix(Theme.hover, 0.5) : Theme.raise;
     accessible-role: groupbox;
     accessible-id: "setting";
     accessible-label: title;
     accessible-description: sub;
     if keywords != "": SearchWords { words: keywords; }
+    strip-hover := TouchArea { enabled: root.enabled; }
     // The QSS border sits outside the layout's 12px and 8px margins
     VerticalLayout {
         padding-left: 13px;

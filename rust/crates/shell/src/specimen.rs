@@ -43,6 +43,7 @@ const KINDS: &[Kind] = &[
     Kind { name: "switch", label: "switch", height: 48.0, at: (0.08, 0.5), states: &["rest", "on", "hover", "focus", "held", "off"] },
     Kind { name: "toggle", label: "toggle", height: 56.0, at: MID, states: &["rest", "on", "hover", "focus", "held", "off", "long"] },
     Kind { name: "slider", label: "slider", height: 56.0, at: (0.3, 0.5), states: PRESSABLE },
+    Kind { name: "slider-key", label: "slider (key fills)", height: 124.0, at: (0.3, 0.2), states: &["rest", "hover", "held", "off"] },
     Kind { name: "segmented", label: "segmented", height: 56.0, at: (0.8, 0.5), states: PRESSABLE },
     Kind { name: "picker", label: "picker", height: 64.0, at: MID, states: &["rest", "hover", "focus", "held", "off", "empty", "long"] },
     Kind { name: "field", label: "field (text)", height: 56.0, at: (0.06, 0.5), states: &["rest", "hover", "focus", "off", "empty", "long"] },
@@ -51,7 +52,7 @@ const KINDS: &[Kind] = &[
     Kind { name: "stepper", label: "stepper", height: 76.0, at: (0.07, 0.5), states: PRESSABLE },
     Kind { name: "strip", label: "strip", height: 64.0, at: MID, states: &["rest", "on", "hover", "off", "long"] },
     Kind { name: "badge", label: "badge", height: 44.0, at: MID, states: &["rest", "long"] },
-    Kind { name: "tip", label: "tip", height: 64.0, at: MID, states: &["rest", "long"] },
+    Kind { name: "tip", label: "tip", height: 96.0, at: MID, states: &["rest", "long"] },
     Kind { name: "row", label: "row", height: 56.0, at: MID, states: &["rest", "off", "long"] },
     Kind { name: "section", label: "section", height: 44.0, at: MID, states: &["rest", "long"] },
     Kind { name: "scrollbar", label: "scrollbar", height: 104.0, at: (0.06, 0.2), states: &["rest", "hover", "held"] },
@@ -155,4 +156,48 @@ pub fn render(out: &Path) -> Result<usize, String> {
         sheet(&cells, &headings, classic)?.save_png(&out.join(format!("{name}.png")))?;
     }
     Ok(2)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// How many pixels of the cell differ between two states.
+    fn differing(a: &Picture, b: &Picture) -> usize {
+        assert_eq!((a.width, a.height), (b.width, b.height));
+        a.rgba.chunks(4).zip(b.rgba.chunks(4)).filter(|(x, y)| x != y).count()
+    }
+
+    // A kind whose hover or held cell looks like its rest cell is the usual fault (STYLE.md, Specimen sheet)
+    #[test]
+    fn hover_and_held_look_unlike_rest_and_each_other_in_both_looks() {
+        assert!(offscreen::install());
+        let doc = include_str!("../ui/specimen.slint");
+        let cells = crate::compile::compile("specimen.slint", doc, vec![], "Cell").expect("the cells compile");
+        let draw = |classic: bool, name: &str, state: &str| {
+            let kind = KINDS.iter().find(|k| k.name == name).expect("a kind of the sheet");
+            cell(&cells, classic, kind, state).expect("the cell draws")
+        };
+        for classic in [false, true] {
+            // The text boxes hover over their text too (the box swallows the pointer), the link and the strip answer it
+            for name in ["field", "number", "link", "strip", "icon-button"] {
+                let (rest, hover) = (draw(classic, name, "rest"), draw(classic, name, "hover"));
+                assert!(differing(&rest, &hover) > 50, "{name} (classic {classic}): hover looks like rest");
+            }
+            // Held is not hover, and not rest
+            for name in ["switch", "toggle", "picker", "segmented", "stepper"] {
+                let (rest, hover, held) = (draw(classic, name, "rest"), draw(classic, name, "hover"), draw(classic, name, "held"));
+                assert!(differing(&rest, &held) > 50, "{name} (classic {classic}): held looks like rest");
+                assert!(differing(&hover, &held) > 50, "{name} (classic {classic}): held looks like hover");
+            }
+            // A disabled icon button is there, on a surface of its own
+            let (rest, off) = (draw(classic, "icon-button", "rest"), draw(classic, "icon-button", "off"));
+            assert!(differing(&rest, &off) > 200, "icon-button (classic {classic}): disabled can't be told from rest");
+            // A box with nothing in it shows its placeholder
+            for name in ["picker", "number"] {
+                let (rest, empty) = (draw(classic, name, "rest"), draw(classic, name, "empty"));
+                assert!(differing(&rest, &empty) > 20, "{name} (classic {classic}): no placeholder");
+            }
+        }
+    }
 }

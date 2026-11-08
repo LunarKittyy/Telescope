@@ -35,6 +35,21 @@ export component Cell inherits Window {
             readout: long ? "+1,0 Blendenstufen (automatisch)" : "40%";
             enabled: !off;
         }
+        if kind == "slider-key": VerticalLayout {
+            spacing: 2px;
+            for name[i] in ["Tolerance", "Edges", "Spill"]: Slider {
+                label: name;
+                minimum: 0;
+                maximum: 100;
+                value: 40;
+                hue: Theme.plugin-hue("vision");
+                fill: i == 0 ? "tolerance" : i == 1 ? "edges" : "spill";
+                grad-a: i == 2 ? #d9a98a.mix(#3cb432, 0.55) : #3cb432;
+                grad-b: i == 0 ? Theme.ink2.mix(#3cb432, 0.85) : #d9a98a;
+                readout: "40%";
+                enabled: !off;
+            }
+        }
         if kind == "segmented": Segmented {
             label: "Mode";
             items: long ? ["Automatisch", "Manuell", "Antippen zum Fokussieren"] : ["Auto", "Tap", "Manual"];
@@ -50,7 +65,7 @@ export component Cell inherits Window {
             enabled: !off;
         }
         if kind == "field": TextField { text: empty ? "" : long ? "Wohnzimmer-Kamera von Christoph (Pixel 8 Pro)" : "Pixel 8"; placeholder: long ? "Namen für dieses Telefon eingeben" : "Name"; label: "Name"; enabled: !off; }
-        if kind == "number": NumberField { value: empty ? "" : long ? "1234567890" : "42"; label: "Number"; enabled: !off; }
+        if kind == "number": NumberField { value: empty ? "" : long ? "1234567890123456789012345678901234567890" : "42"; placeholder: "0"; label: "Number"; enabled: !off; }
         if kind == "jog": Jog { near-text: long ? "Näher heran" : "Near"; far-text: long ? "Weiter weg" : "Far"; label: "Focus"; hue: hue; enabled: !off; }
         if kind == "stepper": Stepper { caption: long ? "Brennweite" : "Zoom"; items: long ? ["Ultraweitwinkel 0,5x", "Hauptkamera 1x", "Teleobjektiv 5x"] : ["0.5x", "1x", "5x"]; current: 1; enabled: !off; }
         if kind == "strip": SettingRow {

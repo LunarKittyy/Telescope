@@ -16,6 +16,7 @@ export component Test inherits Window {
     in property <float> start: 50;
     in property <bool> on: true;
     in property <string> box;
+    in property <string> words;
     out property <int> moves;
     out property <int> releases;
     out property <float> last-moved;
@@ -32,6 +33,7 @@ export component Test inherits Window {
         value: start;
         enabled: on;
         typing: box;
+        readout: words;
         moved(v) => { moves += 1; last-moved = v; }
         released(v) => { releases += 1; last-released = v; }
         typed(t) => { typed-text = t; }
@@ -249,4 +251,31 @@ fn a_slider_with_its_own_box_hands_the_text_to_its_owner_instead() {
     press(&ui, "\n");
     assert_eq!(ui.get_property("typed-text").unwrap(), Value::String("9".into()));
     assert_eq!((value(&ui), said(&ui).0), (50.0, 0.0), "the owner reads it and moves the slider itself");
+}
+
+// With a readout the slider's accessible value is the readout ("Chest"), so these read the value from what the slider said instead
+#[test]
+fn a_readout_that_is_a_word_offers_no_box_for_the_raw_number_but_keeps_its_keys() {
+    let ui = rig(&[("words", Value::String("Chest".into()))]);
+    press(&ui, "\n");
+    type_in(&ui, "72\n");
+    assert_eq!(said(&ui).0, 0.0, "Enter opened no box, so the typed digits went nowhere");
+    double_click(&ui, on_readout(&ui));
+    type_in(&ui, "72\n");
+    assert_eq!(said(&ui).0, 0.0, "a double-click on the word opens nothing either");
+    for (key, wanted) in [(Key::RightArrow, 51.0), (Key::PageUp, 61.0), (Key::End, 100.0), (Key::Home, 0.0)] {
+        press(&ui, key);
+        assert_eq!(said(&ui).3, wanted);
+    }
+}
+
+#[test]
+fn a_readout_that_leads_with_a_number_still_offers_the_box() {
+    for words in ["40%", "+1.0 EV", "-3", "\u{2212}2 stops"] {
+        let ui = rig(&[("words", Value::String(words.into()))]);
+        press(&ui, "\n");
+        type_in(&ui, "72");
+        press(&ui, "\n");
+        assert_eq!(said(&ui).3, 72.0, "a readout of {words}");
+    }
 }

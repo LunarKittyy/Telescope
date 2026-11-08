@@ -70,15 +70,17 @@ export component Segmented inherits Rectangle {
             property <bool> on: i == shown;
             property <bool> off: disabled[i];
             horizontal-stretch: 1;
-            // A picked segment is bold, so every one keeps room for its bold text and the picked one never loses its end.
+            // A picked segment is bold, so every one keeps room for its bold text and the picked one never loses its end, down to a
+            // floor: a long option then gives way and ends in an ellipsis rather than pushing the row out of its card
             // All too wide at first, so the layout takes the same off each: equal widths, as Qt's equal stretches give
-            min-width: bold-width.preferred-width + Theme.u(8);
+            min-width: min(bold-width.preferred-width + Theme.u(8), Theme.u(24));
             preferred-width: 1000px;
             border-radius: Theme.r-ctl;
             border-width: on && !off ? Theme.stroke : 0px;
             border-color: hue;
             background: off ? Theme.raise.mix(Theme.card, 0.4)
-                : on ? Theme.tint(hue)
+                : on ? (seg-touch.pressed ? Theme.held(hue) : Theme.tint(hue))
+                : seg-touch.pressed ? Theme.press
                 : seg-touch.has-hover ? Theme.hover : Theme.raise;
             accessible-role: tab;
             accessible-label: label + ": " + item;
@@ -270,7 +272,7 @@ export component ChoiceField inherits Rectangle {
     min-width: 0px;
     preferred-width: 0px;
     border-radius: Theme.r-ctl;
-    background: !enabled ? Theme.raise.mix(Theme.card, 0.4) : open || touch.pressed ? Theme.sel : touch.has-hover ? Theme.hover : Theme.raise;
+    background: !enabled ? Theme.raise.mix(Theme.card, 0.4) : open ? Theme.sel : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : Theme.raise;
     accessible-role: combobox;
     accessible-label: caption != "" ? caption : name;
     accessible-value: shown < 0 ? placeholder : items[shown];
@@ -327,8 +329,8 @@ export component ChoiceField inherits Rectangle {
             text: shown < 0 ? placeholder : items[shown];
             font-family: Theme.font;
             font-size: Theme.body;
-            font-weight: Theme.w-value;
-            color: shown < 0 ? Theme.ink2 : enabled ? Theme.ink : Theme.dis;
+            font-weight: shown < 0 ? Theme.w-label : Theme.w-value;
+            color: !enabled ? Theme.dis : shown < 0 ? Theme.ink2 : Theme.ink;
             overflow: elide;
         }
     }
@@ -350,11 +352,11 @@ export component ChoiceField inherits Rectangle {
         x: centered ? side : has-icon ? Theme.u(16) : Theme.u(6);
         y: first-baseline + 18px - Theme.body * 1.025;
         width: root.width - self.x - (centered ? side : Theme.u(13));
-        text: items[shown];
+        text: shown < 0 ? placeholder : items[shown];
         font-family: Theme.font;
         font-size: Theme.body;
-        font-weight: Theme.w-value;
-        color: enabled ? Theme.ink : Theme.dis;
+        font-weight: shown < 0 ? Theme.w-label : Theme.w-value;
+        color: !enabled ? Theme.dis : shown < 0 ? Theme.ink2 : Theme.ink;
         horizontal-alignment: centered ? center : left;
         overflow: elide;
     }

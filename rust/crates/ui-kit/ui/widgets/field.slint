@@ -50,43 +50,64 @@ export component TextField inherits Rectangle {
     accessible-label: label;
     accessible-value: text;
     accessible-placeholder-text: placeholder;
-    touch := TouchArea { mouse-cursor: MouseCursor.text; clicked => { input.focus(); } }
     if has-icon: Icon { x: 7px; source: icon; tint: Theme.text-dim; width: 16px; height: 16px; accessible-role: none; }
     if text == "" && placeholder != "": Text {
         x: input.x;
+        width: input.width;
+        height: parent.height;
         text: placeholder;
         font-family: Theme.font;
         font-size: Theme.body;
-        color: Theme.text-faint;
+        color: enabled ? Theme.text-faint : Theme.dis;
+        horizontal-alignment: root.align-right ? right : left;
         vertical-alignment: center;
-        height: parent.height;
+        overflow: elide;
     }
-    // The 1px border, QSS's 10px padding and QLineEdit's own 2px margin
-    input := TextInput {
-        x: has-icon ? 39px : 13px;
-        width: parent.width - self.x - (clearable && text != "" ? 30px : 13px);
+    // A box that isn't being edited shows its text through this one, which can end in an ellipsis where the box's own can only cut off
+    if text != "" && !input.has-focus: Text {
+        x: input.x;
+        width: input.width;
         height: parent.height;
-        text <=> root.text;
-        enabled: root.enabled;
+        text: root.text;
         font-family: Theme.font;
         font-size: Theme.body;
-        color: self.has-focus ? white : Theme.text;
-        selection-background-color: Theme.fill;
-        selection-foreground-color: white;
-        vertical-alignment: center;
-        single-line: true;
+        color: enabled ? Theme.text : Theme.dis;
         horizontal-alignment: root.align-right ? right : left;
+        vertical-alignment: center;
+        overflow: elide;
         accessible-role: none;
-        edited => { root.edited(self.text); }
-        accepted => { root.accepted(); }
-        // Tab (or a click) into a box that has scrolled half out of sight brings it in
-        changed has-focus => { if (self.has-focus) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
-        key-pressed(e) => {
-            if (e.text == Key.DownArrow) { root.step(1); return accept; }
-            if (e.text == Key.UpArrow) { root.step(-1); return accept; }
-            if (e.text == Key.Escape && !root.escape-clears) { root.escaped(); return accept; }
-            if (e.text == Key.Escape && root.text != "") { root.text = ""; root.edited(""); return accept; }
-            reject
+    }
+    // The box is the TouchArea's child: a text box takes the pointer over its text, but a TouchArea round it still sees it, so the field hovers there too
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.text;
+        clicked => { input.focus(); }
+        // The 1px border, QSS's 10px padding and QLineEdit's own 2px margin
+        input := TextInput {
+            x: has-icon ? 39px : 13px;
+            width: root.width - self.x - (clearable && text != "" ? 30px : 13px);
+            height: root.height;
+            text <=> root.text;
+            enabled: root.enabled;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: self.has-focus ? white : transparent;
+            selection-background-color: Theme.fill;
+            selection-foreground-color: white;
+            vertical-alignment: center;
+            single-line: true;
+            horizontal-alignment: root.align-right ? right : left;
+            accessible-role: none;
+            edited => { root.edited(self.text); }
+            accepted => { root.accepted(); }
+            // Tab (or a click) into a box that has scrolled half out of sight brings it in
+            changed has-focus => { if (self.has-focus) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+            key-pressed(e) => {
+                if (e.text == Key.DownArrow) { root.step(1); return accept; }
+                if (e.text == Key.UpArrow) { root.step(-1); return accept; }
+                if (e.text == Key.Escape && !root.escape-clears) { root.escaped(); return accept; }
+                if (e.text == Key.Escape && root.text != "") { root.text = ""; root.edited(""); return accept; }
+                reject
+            }
         }
     }
     if clearable && text != "": Rectangle {
@@ -109,6 +130,8 @@ export component NumberField inherits Rectangle {
     out property <string> control-kind: "field";
     // The current value as the box shows it
     in property <string> value;
+    // Dim text while the box is empty
+    in property <string> placeholder;
     in property <string> label;
     in property <bool> enabled: true;
     // Inside a popup: Enter leaves the focus here, the window's scope can't take it from a popup
@@ -138,6 +161,7 @@ export component NumberField inherits Rectangle {
         width: parent.width;
         height: parent.height;
         text: root.value;
+        placeholder: root.placeholder;
         enabled: root.enabled;
         label: root.label;
         align-right: true;

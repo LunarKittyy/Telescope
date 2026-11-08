@@ -101,7 +101,7 @@ export component ChromaKeyCard inherits Card {
         // soft, and a skin tone with the screen's colour on it coming clean
         fill: i == 0 ? "tolerance" : i == 1 ? "edges" : "spill";
         grad-a: i == 0 ? screen-colour : i == 1 ? screen-colour : #d9a98a.mix(screen-colour, 0.55);
-        grad-b: i == 0 ? screen-colour.mix(Theme.ink2, 0.85) : #d9a98a;
+        grad-b: i == 0 ? Theme.ink2.mix(screen-colour, 0.85) : #d9a98a;
         has-default: true;
         default-value: i == 0 ? 40 : i == 1 ? 30 : 60;
         hint: root.reset-hint;

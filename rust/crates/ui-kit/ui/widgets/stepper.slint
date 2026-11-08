@@ -23,7 +23,7 @@ component StepArrow inherits Rectangle {
     out property <string> control-kind: "stepper";
     width: Theme.row;
     border-radius: Theme.r-ctl;
-    background: !enabled ? transparent : touch.pressed ? Theme.raise : touch.has-hover ? Theme.sel : transparent;
+    background: !enabled ? transparent : touch.pressed ? Theme.press : touch.has-hover ? Theme.sel : transparent;
     accessible-role: button;
     accessible-label: label;
     accessible-description: description;

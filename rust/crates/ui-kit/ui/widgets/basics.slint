@@ -78,7 +78,9 @@ export component LinkText inherits Rectangle {
     out property <string> control-kind: "link";
     callback opened(string);
     height: Theme.u(9);
-    width: label.preferred-width;
+    // As wide as its words, or as wide as the place gives it, where it ends in an ellipsis
+    preferred-width: label.preferred-width;
+    min-width: 0px;
     accessible-role: button;
     accessible-label: text;
     accessible-description: url;
@@ -94,13 +96,23 @@ export component LinkText inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus; radius: Theme.r-handle; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
-    TouchArea { mouse-cursor: pointer; clicked => { root.opened(url); } }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.opened(url); } }
     label := Text {
+        width: parent.width;
         text: root.text;
         font-family: Theme.font;
         font-size: root.font-size;
-        color: Theme.accent-soft;
+        color: touch.has-hover ? Theme.ink : Theme.accent-soft;
         vertical-alignment: center;
+        overflow: elide;
+    }
+    // The underline of a link under the pointer, as long as the words show
+    if touch.has-hover: Rectangle {
+        x: 0px;
+        y: parent.height / 2 + root.font-size * 0.62;
+        width: min(label.preferred-width, parent.width);
+        height: 1px;
+        background: Theme.ink;
     }
 }
 
@@ -134,7 +146,8 @@ export component Button inherits Rectangle {
     out property <string> control-kind: "button";
     callback clicked;
     height: Theme.row;
-    min-width: shrinks ? 0px : lay.preferred-width;
+    // A long label gives way to a narrow place at some width and ends in an ellipsis; a short one never shrinks
+    min-width: shrinks ? 0px : min(lay.preferred-width, Theme.u(70));
     border-radius: Theme.r-ctl;
     background: !enabled ? (quiet-when-disabled ? transparent : Theme.trough)
         : role == "danger" ? Theme.err.mix(Theme.card, touch.pressed ? 0.35 : touch.has-hover ? 0.5 : 0.42)
@@ -193,7 +206,7 @@ export component Button inherits Rectangle {
             text: root.text;
             overflow: elide;
             horizontal-stretch: root.shrinks ? 1 : 0;
-            min-width: root.shrinks ? 0px : self.preferred-width;
+            min-width: root.shrinks ? 0px : min(self.preferred-width, Theme.u(60));
             font-family: Theme.font;
             font-size: root.font-size;
             font-weight: root.font-weight;
@@ -218,7 +231,7 @@ export component IconButton inherits Rectangle {
     width: Theme.row;
     height: Theme.row;
     border-radius: Theme.r-ctl;
-    background: !enabled ? transparent : touch.pressed ? Theme.raise : touch.has-hover ? Theme.hover : transparent;
+    background: !enabled ? Theme.trough : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : transparent;
     accessible-role: button;
     accessible-label: label;
     accessible-enabled: enabled;
