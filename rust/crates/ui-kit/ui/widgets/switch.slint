@@ -337,6 +337,7 @@ export component ToggleTile inherits Rectangle {
         if text != "": Rectangle {
             horizontal-stretch: 1;
             min-width: 0px;
+            preferred-width: tile-name.preferred-width;
             tile-name := Text {
                 y: -lift;
                 width: parent.width;
