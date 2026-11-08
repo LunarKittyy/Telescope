@@ -115,6 +115,9 @@ fn camera_shots() {
     });
     shoot(&dir, "camera-manual", &camera, &[camera_props(), manual.clone()]);
     shoot_marked(&dir, "camera-manual", &camera, &[camera_props(), manual], true);
+    // The widest stops a dial shows, in the middle
+    shoot(&dir, "camera-fast", &camera, &[camera_props(), json!({"exposure-mode": 1, "iso-enabled": true, "shutter-enabled": true,
+        "iso-stops": ["3200", "6400", "12800"], "iso-index": 1, "shutter-stops": ["1/2000", "1/4000", "1/8000"], "shutter-index": 2})]);
     shoot(&dir, "camera-waiting", &camera, &[json!({
         "active": true, "lenses": [], "info": "", "lens-placeholder": "Start streaming to load lenses", "lens-columns": 3,
         "low-light": {"checked": false, "enabled": false, "tip": "Start streaming to use low light"},
@@ -146,6 +149,10 @@ fn photos_shots() {
         "mode-enabled": true, "format-enabled": true, "mode-options": ["Normal", "Night", "HDR"], "format-options": ["JPEG", "HEIC", "RAW (DNG)"],
         "shots-offered": [true, true, true, true], "shots-index": 1, "slot-key": "burst", "slot-label": "How many", "slot-options": ["2", "3", "4", "5"],
         "slot-index": 3, "distortion-enabled": true, "distortion-index": 1, "exposure-options": ["Like the video", "0.5 s", "1 s"], "best-enabled": true, "best": true})]);
+    // A DSLR: its own ISO and shutter lists as dials above, no quality
+    shoot(&dir, "photos-dslr", &photos, &[json!({"active": true, "shown": true, "take-enabled": true, "iso-options": ["100", "200", "400", "800"], "iso-index": 2,
+        "shutter-options": ["1/1000", "1/40", "30 s"], "shutter-index": 1, "format-enabled": true, "format-options": ["JPEG", "RAW (DNG)"], "quality-enabled": false,
+        "quality-tip": "The camera keeps its own JPEG quality", "shots-offered": [true, false, false, false]})]);
     shoot(&dir, "photos-idle", &photos, &[json!({"active": true, "shown": true, "take-enabled": false})]);
 }
 

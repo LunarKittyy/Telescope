@@ -200,32 +200,33 @@ export component CameraCard inherits Card {
             picked(i) => { exposure-picked(i); }
         }
     }
-    // Always there, dim in Auto and lit in Manual
+    // Always there, dim in Auto and lit in Manual. One above the other: side by side a dial is too narrow to say 1/8000 or 12800 in full
     RailRow {
         has-icon: false;
         enabled: active;
-        HorizontalLayout {
-            spacing: Theme.gap;
-            Dial {
-                shortcut: "camera.iso";
-                label: "ISO";
-                hue: root.hue;
-                enabled: active && iso-enabled;
-                stops: iso-stops;
-                current: iso-index;
-                tip: iso-enabled ? "ISO" : exposure-tips[1] != "" ? exposure-tips[1] : @tr("Set Exposure to Manual to use this");
-                moved(i) => { iso-picked(i); }
-            }
-            Dial {
-                shortcut: "camera.shutter";
-                label: @tr("Shutter");
-                hue: root.hue;
-                enabled: active && shutter-enabled;
-                stops: shutter-stops;
-                current: shutter-index;
-                tip: shutter-enabled ? @tr("Shutter") : exposure-tips[1] != "" ? exposure-tips[1] : @tr("Set Exposure to Manual to use this");
-                moved(i) => { shutter-picked(i); }
-            }
+        Dial {
+            shortcut: "camera.iso";
+            label: "ISO";
+            hue: root.hue;
+            enabled: active && iso-enabled;
+            stops: iso-stops;
+            current: iso-index;
+            tip: iso-enabled ? "ISO" : exposure-tips[1] != "" ? exposure-tips[1] : @tr("Set Exposure to Manual to use this");
+            moved(i) => { iso-picked(i); }
+        }
+    }
+    RailRow {
+        has-icon: false;
+        enabled: active;
+        Dial {
+            shortcut: "camera.shutter";
+            label: @tr("Shutter");
+            hue: root.hue;
+            enabled: active && shutter-enabled;
+            stops: shutter-stops;
+            current: shutter-index;
+            tip: shutter-enabled ? @tr("Shutter") : exposure-tips[1] != "" ? exposure-tips[1] : @tr("Set Exposure to Manual to use this");
+            moved(i) => { shutter-picked(i); }
         }
     }
     RailRow {

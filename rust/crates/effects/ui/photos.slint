@@ -240,8 +240,8 @@ export component PhotosCard inherits Card {
                 current: slot-index;
                 enabled: active && slot-options.length > 0;
                 tip: slot-tip;
-                previous-label: root.previous-label;
-                next-label: root.next-label;
+                previous-label: (slot-label != "" ? slot-label : @tr("How many")) + ": " + root.previous-label;
+                next-label: (slot-label != "" ? slot-label : @tr("How many")) + ": " + root.next-label;
                 step(by) => { root.tile-step(root.slot-key, by); }
                 hold-down(by) => { root.tile-hold-down(root.slot-key, by); }
                 hold-up => { root.tile-hold-up(); }
@@ -253,8 +253,8 @@ export component PhotosCard inherits Card {
                 current: exposure-index;
                 enabled: active && exposure-options.length > 1;
                 tip: exposure-tip;
-                previous-label: root.previous-label;
-                next-label: root.next-label;
+                previous-label: @tr("Exposure") + ": " + root.previous-label;
+                next-label: @tr("Exposure") + ": " + root.next-label;
                 step(by) => { root.tile-step("exposure_s", by); }
                 hold-down(by) => { root.tile-hold-down("exposure_s", by); }
                 hold-up => { root.tile-hold-up(); }
