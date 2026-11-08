@@ -136,7 +136,7 @@ export component PhotosCard inherits Card {
         HorizontalLayout {
             spacing: Theme.gap;
             Button { horizontal-stretch: 1; preferred-width: 1000px; text: take-text; tip: take-text; tip-detail: take-tip; role: "primary"; hue: root.hue; enabled: active && take-enabled; shortcut: "photos.take"; clicked => { root.take-clicked(); } }
-            IconButton { icon: Icons.folder; label: open-text; tip: open-text; tip-detail: open-tip; enabled: active && open-enabled; clicked => { root.open-clicked(); } }
+            IconButton { raised: true; icon: Icons.folder; label: open-text; tip: open-text; tip-detail: open-tip; enabled: active && open-enabled; clicked => { root.open-clicked(); } }
         }
     }
     if status != "": RailRow {

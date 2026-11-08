@@ -42,6 +42,7 @@ export component ChromaKeyCard inherits Card {
     in property <string> picture-problem;
     in property <string> picture-choose-tip;
     in property <string> status;
+    in property <string> status-detail;
     in property <string> status-kind: "status_dim";
     callback switch-toggled-by-hand(bool);
     callback screen-picked(int);
@@ -171,6 +172,7 @@ export component ChromaKeyCard inherits Card {
             enabled: active;
             thumb: picture-thumb;
             has-picture: has-picture;
+            set: has-picture || picture-text != "";
             name: picture-text != "" ? picture-text : @tr("Choose");
             problem: picture-problem;
             hue: root.hue;
@@ -179,9 +181,9 @@ export component ChromaKeyCard inherits Card {
             clicked => { root.picture-clicked(); }
         }
     }
-    if status != "": Note {
-        text: status;
-        kind: status-kind;
+    if status != "": RailRow {
+        has-icon: false;
+        StatusLine { text: status; kind: status-kind; detail: status-detail; }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;

@@ -157,13 +157,13 @@ export component MicrophoneCard inherits Card {
 
     title: @tr("Microphone");
     tip: @tr("Use the phone's microphone on this computer.");
-    icon: Icons.v-mic;
+    icon: Icons.mic;
     opacity: active ? 1 : 0.4;
     enabled: active;
-    // The Mute button and the on/off switch sit in the header, so the card says at a glance whether the mic is in use
+    // The Mute button and the on/off switch sit in the header, so the card says at a glance whether the mic is in use. Mute is an
+    // icon of its own width, so swapping Mute and Unmute never moves the title
     has-action: here;
-    action-text: mute-text;
-    action-icon: muted ? Icons.v-mic-off : Icons.v-mic;
+    action-icon: muted ? Icons.v-mic-off : Icons.mic;
     action-tint: muted ? Theme.err : Theme.ink2;
     action-label: mute-text;
     action-tip-detail: mute-tip;

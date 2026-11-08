@@ -11,6 +11,7 @@ export component CompositeCard inherits Card {
     in property <string> layout-tip;
     in property <bool> edit-shown;
     in property <string> status;
+    in property <string> status-detail;
     callback switch-toggled-by-hand(bool);
     callback layout-picked(int);
     callback edit-clicked;
@@ -66,5 +67,8 @@ export component CompositeCard inherits Card {
         icon-tint: Theme.ink2;
         clicked => { root.edit-clicked(); }
     }
-    if status != "": Note { text: status; }
+    if status != "": RailRow {
+        has-icon: false;
+        StatusLine { text: status; detail: status-detail; }
+    }
 }

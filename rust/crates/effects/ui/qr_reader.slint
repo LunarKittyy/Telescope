@@ -31,43 +31,21 @@ export component QrReaderCard inherits Card {
     switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    if status != "" || copy-shown: HorizontalLayout {
-        spacing: 8px;
-        alignment: stretch;
-        Note { text: status; kind: status-kind; horizontal-stretch: 1; }
-        if copy-shown: VerticalLayout {
-            alignment: start;
-            Button { text: copy-text; tip: copy-text; tip-detail: copy-tip; clicked => { root.copy-clicked(); } }
+    if status != "" || copy-shown: RailRow {
+        has-icon: false;
+        HorizontalLayout {
+            spacing: Theme.u(4);
+            StatusLine { text: status; kind: status-kind; }
+            if copy-shown: Button { text: copy-text; tip: copy-text; tip-detail: copy-tip; clicked => { root.copy-clicked(); } }
         }
     }
-    // Switch("Notify me…"): the text on the left, the track at the right end, the whole row toggling it
-    HorizontalLayout {
-        height: 32px;
-        spacing: 12px;
-        Text {
-            text: @tr("Notify me when a code is read");
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: active ? Theme.ink : Theme.dis;
-            vertical-alignment: center;
-            horizontal-stretch: 1;
-            accessible-role: none;
-            TouchArea {
-                mouse-cursor: MouseCursor.pointer;
-                clicked => {
-                    notify-switch.checked = !notify-switch.checked;
-                    root.notify-toggled(notify-switch.checked);
-                }
-            }
-        }
-        notify-switch := Switch {
-            hue: root.hue;
-            enabled: active;
-            y: (parent.height - self.height) / 2;
-            checked: notify;
-            label: notify-name;
-            toggled(v) => { root.notify-toggled(v); }
-        }
+    SwitchRow {
+        icon: Icons.bell;
+        label: @tr("Notify me when a code is read");
+        hue: root.hue;
+        enabled: active;
+        checked: notify;
+        toggled(v) => { root.notify-toggled(v); }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;

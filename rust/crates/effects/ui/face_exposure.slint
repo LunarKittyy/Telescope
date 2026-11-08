@@ -30,15 +30,14 @@ export component FaceExposureCard inherits Card {
     switch-tip: switch-name;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    if held: Note { text: held-note; }
-    if held: HorizontalLayout {
-        alignment: start;
+    // Something the user chose holds the point: the button that goes back says so in its tooltip
+    if held: RailRow {
+        has-icon: false;
         Button {
-            // action_button: the standard width
-            width: 160px;
+            horizontal-stretch: 1;
             text: @tr("Follow my face");
             tip: @tr("Follow my face");
-            tip-detail: follow-tip;
+            tip-detail: held-note != "" ? held-note + " " + follow-tip : follow-tip;
             clicked => { root.follow-clicked(); }
         }
     }

@@ -343,19 +343,22 @@ fn a_grey_pick_is_refused() {
     r.ui("screen-picked", vec![json!(2)]);
     r.click([0.5, 0.5]);
     assert_eq!(r.config()["picked"], Value::Null);
-    assert!(r.shown("status").as_str().unwrap().contains("hardly any colour"));
+    assert_eq!(r.shown("status"), json!("No colour there"));
+    assert!(r.shown("status-detail").as_str().unwrap().contains("hardly any colour"));
 }
 
 #[test]
 fn without_a_stream_the_card_says_to_start_one() {
     let mut r = Rig::new(false);
     r.ui("screen-picked", vec![json!(2)]);
-    assert!(r.shown("status").as_str().unwrap().contains("Start streaming"));
+    assert_eq!(r.shown("status"), json!("Not streaming"));
+    assert!(r.shown("status-detail").as_str().unwrap().contains("Start streaming"));
     // picking again, with a colour picked before
     r.plugin.set_config(&json!({"picked": [200, 40, 160]})).unwrap();
     r.event(Event::StreamStopped);
     r.ui("screen-picked", vec![json!(2)]);
-    assert!(r.shown("status").as_str().unwrap().contains("Start streaming"));
+    assert_eq!(r.shown("status"), json!("Not streaming"));
+    assert!(r.shown("status-detail").as_str().unwrap().contains("Start streaming"));
     assert_eq!(r.shown("status-kind"), json!("status_warn"));
 }
 
@@ -538,7 +541,8 @@ fn the_pipette_picks_the_backdrop_from_the_preview_without_pausing_the_key() {
     // without a preview it says why
     let mut r = Rig::new(false);
     r.ui("pipette-clicked", vec![]);
-    assert!(r.shown("status").as_str().unwrap().contains("Start streaming"));
+    assert_eq!(r.shown("status"), json!("Not streaming"));
+    assert!(r.shown("status-detail").as_str().unwrap().contains("Start streaming"));
 }
 
 #[test]

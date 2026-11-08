@@ -110,7 +110,7 @@ component Strip inherits Rectangle {
                 overflow: elide;
             }
         }
-        IconButton {
+        IconButton { raised: true;
             y: (parent.height - self.height) / 2;
             icon: Icons.pencil;
             label: item.edit-label;
@@ -118,7 +118,7 @@ component Strip inherits Rectangle {
             tip-detail: @tr("Change the keys of this shortcut.");
             clicked => { root.edit(); }
         }
-        IconButton {
+        IconButton { raised: true;
             y: (parent.height - self.height) / 2;
             icon: Icons.trash;
             label: item.remove-label;
@@ -162,7 +162,7 @@ component KeyBox inherits Rectangle {
             color: root.text != "" ? Theme.ink : Theme.faint;
             vertical-alignment: center;
         }
-        if root.text != "": IconButton {
+        if root.text != "": IconButton { raised: true;
             width: 26px;
             height: 26px;
             y: (parent.height - self.height) / 2;

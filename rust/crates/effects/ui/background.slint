@@ -82,6 +82,7 @@ export component BackgroundCard inherits Card {
             enabled: active;
             thumb: picture-thumb;
             has-picture: has-picture;
+            set: has-picture || picture-text != "";
             name: picture-text != "" ? picture-text : @tr("Choose");
             problem: picture-problem;
             hue: root.hue;

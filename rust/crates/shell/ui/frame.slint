@@ -239,7 +239,7 @@ export component Banner inherits Rectangle {
         }
         VerticalLayout {
             alignment: start;
-            IconButton {
+            IconButton { raised: true;
                 icon: Icons.v-close;
                 icon-size: Theme.icon-small;
                 label: @tr("Dismiss");
@@ -313,7 +313,7 @@ component StreamTile inherits Rectangle {
         }
         VerticalLayout {
             alignment: start;
-            IconButton {
+            IconButton { raised: true;
                 icon: Icons.v-close;
                 icon-size: Theme.icon-small;
                 label: data.stop-label;

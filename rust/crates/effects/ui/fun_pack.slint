@@ -62,12 +62,11 @@ export component FunPackCard inherits Card {
             items: effect-items;
             current: effect;
             caption: @tr("Effect");
+            tip: @tr("Effect");
+            tip-detail: hint;
             shortcut: "fun_pack.effect";
             picked(i) => { root.effect-picked(i); }
         }
-    }
-    if hint != "": Note {
-        text: hint;
     }
     if show-plate: HorizontalLayout {
         spacing: 8px;
@@ -203,9 +202,9 @@ export component FunPackCard inherits Card {
             picked(i) => { root.direction-picked(i); }
         }
     }
-    if problem != "": Note {
-        text: problem;
-        kind: "status_warn";
+    if problem != "": RailRow {
+        has-icon: false;
+        StatusLine { text: @tr("Not ready"); kind: "status_warn"; detail: problem; }
     }
     if vision-text != "": VisionStatus {
         text: vision-text;

@@ -30,6 +30,7 @@ export component DeskCard inherits Card {
     // Why the sheet can't be stretched now
     in property <string> stretch-off-tip;
     in property <string> status;
+    in property <string> status-detail;
     in property <string> status-kind: "status_dim";
     callback switch-toggled-by-hand(bool);
     callback mark-clicked;
@@ -212,7 +213,10 @@ export component DeskCard inherits Card {
             moved(v) => { root.stretch-moved(1, v); }
         }
     }
-    if status != "": Note { text: status; kind: status-kind; }
+    if status != "": RailRow {
+        has-icon: false;
+        StatusLine { text: status; kind: status-kind; detail: status-detail; }
+    }
     // Nothing to touch until a phone is paired
     blocked: !active;
 }

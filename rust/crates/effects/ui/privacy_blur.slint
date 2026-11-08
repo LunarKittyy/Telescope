@@ -30,12 +30,14 @@ export component PrivacyBlurCard inherits Card {
     switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    Rectangle {
-        height: 32px;
+    RailRow {
+        icon: Icons.eye-off;
+        label: @tr("What happens");
+        hue: root.hue;
+        enabled: active;
         ChoiceField {
-            width: parent.width;
-            compact: true;
             enabled: active;
+            compact: true;
             caption: @tr("Privacy blur: what happens");
             items: [@tr("Blur the others"), @tr("Blur all but me"), @tr("Show the wait screen")];
             current: mode;
@@ -45,15 +47,20 @@ export component PrivacyBlurCard inherits Card {
             picked(i) => { root.mode-picked(i); }
         }
     }
-    HorizontalLayout {
-        alignment: start;
+    RailRow {
+        icon: Icons.blur;
+        label: @tr("Blur now");
+        hue: root.hue;
+        enabled: active;
         Button {
+            horizontal-stretch: 1;
             enabled: active;
             text: @tr("Blur now");
             tip: @tr("Blur now");
             tip-detail: now-tip;
             // a checked QPushButton: the filled one
             role: now ? "primary" : "";
+            hue: root.hue;
             shortcut: "privacy_blur.now";
             clicked => { root.now-clicked(); }
         }

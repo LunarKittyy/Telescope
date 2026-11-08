@@ -139,10 +139,10 @@ fn corners_that_make_no_sheet_are_refused_and_the_card_says_why() {
     r.pick(&[[32.0, 90.0], [128.0, 90.0], [192.0, 90.0], [288.0, 90.0]]);
     // kept what it had
     assert_eq!(r.plugin.get_config()["corners"], corners_json());
-    assert!(r.status().contains("in a line"));
+    assert_eq!(r.status(), "Sheet unclear");
     r.ui("mark-clicked", vec![]);
     r.event(Event::PreviewPickChanged { owner: NAME.into() });
-    assert!(!r.status().contains("in a line"));
+    assert_ne!(r.status(), "Sheet unclear");
     // saved ones are checked too
     r.config(json!({"on": true, "corners": [[0.1, 0.5], [0.4, 0.5], [0.6, 0.5], [0.9, 0.5]]}));
     assert_eq!(r.plugin.get_config()["corners"], Value::Null);
@@ -152,7 +152,7 @@ fn corners_that_make_no_sheet_are_refused_and_the_card_says_why() {
 fn without_a_stream_the_card_says_to_start_one() {
     let mut r = Rig::new(false);
     r.ui("mark-clicked", vec![]);
-    assert!(r.status().contains("Start streaming"));
+    assert_eq!(r.status(), "Not streaming");
 }
 
 #[test]
@@ -244,7 +244,7 @@ fn a_sheet_pushed_off_the_picture_says_so() {
     r.config(json!({"on": true, "corners": corners_json()}));
     assert_eq!(r.status(), "");
     r.event(Event::ViewChanged { view: View { zoom: 3.0, ..View::default() } });
-    assert!(r.status().contains("outside the picture"));
+    assert_eq!(r.status(), "Sheet cut off");
 }
 
 #[test]

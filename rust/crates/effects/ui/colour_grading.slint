@@ -378,32 +378,26 @@ export component ColourGradingCard inherits Card {
             enabled: active;
             changed: lut-loaded;
             HorizontalLayout {
-                spacing: 8px;
-                Button {
+                spacing: Theme.u(4);
+                // The slot is the LUT: empty until one is loaded, then it reads the file's name
+                PictureField {
                     enabled: active;
-                    text: @tr("Load");
+                    has-picture: false;
+                    set: lut-loaded;
+                    empty-icon: Icons.cube;
+                    name: lut-text != "" ? lut-text : @tr("Load");
+                    problem: lut-note;
+                    hue: root.hue;
                     tip: @tr("Load LUT");
                     tip-detail: @tr("Pick a .cube LUT file to apply on top of the grade.");
                     clicked => { root.load-clicked(); }
                 }
-                shown-lut-text := Text {
-                    text: lut-text;
-                    horizontal-stretch: 1;
-                    font-family: Theme.font;
-                    font-size: Theme.body;
-                    color: Theme.dim;
-                    vertical-alignment: center;
-                    overflow: elide;
-                    Tip { says: shown-lut-text.text; enabled: shown-lut-text.preferred-width > shown-lut-text.width; inert: true; }
-                }
-                if lut-loaded: Rectangle {
-                    width: 34px;
-                    IconButton {
-                        icon: Icons.v-close;
-                        label: @tr("Remove LUT");
-                        tip: @tr("Remove LUT");
-                        clicked => { root.clear-clicked(); }
-                    }
+                if lut-loaded: IconButton {
+                    raised: true;
+                    icon: Icons.x;
+                    label: @tr("Remove LUT");
+                    tip: @tr("Remove LUT");
+                    clicked => { root.clear-clicked(); }
                 }
             }
         }
@@ -425,10 +419,6 @@ export component ColourGradingCard inherits Card {
             default-value: 100;
             moved(v) => { root.strength-moved(v); }
         }
-        if lut-note != "": Note {
-            text: lut-note;
-            kind: "status_warn";
-        }
         RailRow {
             icon: Icons.download;
             label: @tr("Export");
@@ -445,9 +435,9 @@ export component ColourGradingCard inherits Card {
                 Rectangle { horizontal-stretch: 1; }
             }
         }
-        if export-note != "": Note {
-            text: export-note;
-            kind: "status_" + export-kind;
+        if export-note != "": RailRow {
+            has-icon: false;
+            StatusLine { text: export-note; kind: "status_" + export-kind; }
         }
         if replace-open: HorizontalLayout {
             spacing: 8px;

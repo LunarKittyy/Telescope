@@ -109,13 +109,13 @@ export component PhoneList inherits ScrollList {
     for row in rows-shown: SettingRow {
         title: row.name;
         sub: row.sub;
-        if row.renamable: IconButton {
+        if row.renamable: IconButton { raised: true;
             icon: Icons.pencil;
             label: row.rename-label;
             tip: @tr("Rename");
             clicked => { root.rename(row); }
         }
-        IconButton {
+        IconButton { raised: true;
             icon: Icons.trash;
             label: row.remove-label;
             tip: @tr("Remove");

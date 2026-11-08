@@ -214,6 +214,8 @@ pub struct CompositePlugin {
     camera_label: String,
     /// What the card says under the layout, "" while it's hidden.
     pub(crate) note: String,
+    /// The short word the card shows for `note`, which is its tooltip.
+    note_short: String,
     /// set_config has no host: the card hears the settings with the next hook that has one.
     pending: bool,
     /// Where the switch was when a held key began.
@@ -245,7 +247,7 @@ impl CompositePlugin {
         let shared = Arc::new(Shared { hub: Mutex::new(hub), wake: Condvar::new(), store: Mutex::new(Arc::new(NoFrames)) });
         let mut plugin = CompositePlugin {
             on: false, layout: Layout::default(), layouts: Vec::new(), target: None, camera_size: None, canvas: (None, None), shared,
-            clock: None, camera_label, note: String::new(), pending: false, held: None, reader, editor: None,
+            clock: None, camera_label, note: String::new(), note_short: String::new(), pending: false, held: None, reader, editor: None,
         };
         plugin.prepare();
         plugin
@@ -404,7 +406,8 @@ impl CompositePlugin {
                 ("layout-items".to_string(), json!(names)),
                 ("layout-current".to_string(), json!(current)),
                 ("layout-enabled".to_string(), json!(!names.is_empty())),
-                ("status".to_string(), json!(self.note)),
+                ("status".to_string(), json!(self.note_short)),
+                ("status-detail".to_string(), json!(self.note)),
             ]);
         }
         props
@@ -425,6 +428,17 @@ impl CompositePlugin {
             tr("It goes out on {camera} once the stream there sends a picture.").field("camera", camera)
         } else {
             tr("Goes out on {camera}.").field("camera", camera)
+        };
+        self.note_short = if !self.on {
+            String::new()
+        } else if self.layout.tiles.is_empty() {
+            tr("Nothing in it")
+        } else if live < 2 {
+            tr("Needs two streams")
+        } else if self.target.is_none() || self.shared.store().stream_frame(self.target.as_deref()).is_none() {
+            tr("Not going out")
+        } else {
+            tr("Going out")
         };
         host.set_ui_props("card", &self.card_props());
         self.show_editor(host);

@@ -46,7 +46,6 @@ const WHEEL_TIPS: [&str; 4] = [
 ];
 const WHEEL_TIP: &str = n_("Drag towards a colour to add it.");
 const WHEEL_HINT: &str = n_("Hold Shift to go slower. Double-click to reset.");
-const NO_LUT: &str = n_("No LUT loaded");
 const CANT_OPEN: &str = n_("Telescope can't open that file.");
 const CANT_SAVE: &str = n_("Telescope couldn't save the LUT there.");
 const SAVED: &str = n_("Saved {file}.");
@@ -453,7 +452,7 @@ impl ColourGradingPlugin {
     fn lut_props(&self) -> Value {
         let name = Path::new(&self.lut_path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         json!({
-            "lut-text": if self.lut_path.is_empty() { tr(NO_LUT) } else { name },
+            "lut-text": name,
             "lut-path": self.lut_path,
             "lut-loaded": !self.lut_path.is_empty(),
             "strength": (self.grade.lut_strength * 100.0).round_ties_even(),

@@ -1,4 +1,4 @@
-// The Notes card. Joined after parts.slint, which has the imports.
+// The Teleprompter card. Joined after parts.slint, which has the imports.
 
 export component NotesCard inherits Card {
     // Greyed out until a phone is paired
@@ -45,6 +45,7 @@ export component NotesCard inherits Card {
     in property <bool> clear-enabled;
     in property <bool> nav-enabled;
     in property <string> status;
+    in property <string> status-detail;
     in property <string> status-kind: "status_dim";
     callback set-picked(int);
     callback new-clicked;
@@ -59,15 +60,15 @@ export component NotesCard inherits Card {
     callback send-clicked;
     callback clear-clicked;
 
-    title: @tr("Notes");
-    tip: @tr("Show your notes on the phone's screen so you can read them while looking into the camera.");
+    title: @tr("Teleprompter");
+    tip: @tr("Show your script on the phone's screen so you can read it while looking into the camera.");
     icon: Icons.notes;
     opacity: active ? 1 : 0.4;
     enabled: active;
 
     RailRow {
         icon: Icons.notes;
-        label: @tr("Notes");
+        label: @tr("Script");
         hue: root.hue;
         enabled: active;
         HorizontalLayout {
@@ -83,6 +84,7 @@ export component NotesCard inherits Card {
                 picked(i) => { root.set-picked(i); }
             }
             IconButton {
+                raised: true;
                 icon: Icons.plus;
                 label: new-tip;
                 tip: new-tip;
@@ -90,6 +92,7 @@ export component NotesCard inherits Card {
                 clicked => { root.new-clicked(); }
             }
             IconButton {
+                raised: true;
                 icon: Icons.trash;
                 label: delete-tip;
                 tip: delete-tip;
@@ -183,7 +186,7 @@ export component NotesCard inherits Card {
     }
     RailRow {
         icon: Icons.phone;
-        label: @tr("Move through the notes");
+        label: @tr("Move through the script");
         hue: root.hue;
         enabled: active;
         HorizontalLayout {
@@ -250,6 +253,7 @@ export component NotesCard inherits Card {
             }
             // An icon button with the name as its tooltip, so the long German names never cut the Send text
             IconButton {
+                raised: true;
                 icon: Icons.clear-phone;
                 label: clear-text;
                 tip: clear-text;
@@ -259,7 +263,10 @@ export component NotesCard inherits Card {
             }
         }
     }
-    if status != "": Note { text: status; kind: status-kind; }
+    if status != "": RailRow {
+        has-icon: false;
+        StatusLine { text: status; kind: status-kind; detail: status-detail; }
+    }
     // Nothing to touch until a phone is paired
     blocked: !active;
 }

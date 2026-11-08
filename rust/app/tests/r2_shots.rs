@@ -61,7 +61,11 @@ fn shoot(dir: &Path, name: &str, card: &Card, width: f32, props: &[Json], then: 
     let ui = def.create().unwrap();
     for part in std::iter::once(base).chain(props) {
         for (key, value) in part.as_object().unwrap() {
-            ui.set_property(key, to_property(&ui, key, value)).unwrap_or_else(|e| panic!("{key}: {e:?}"));
+            let set = ui.set_property(key, to_property(&ui, key, value));
+            // Run on the old sources for the before pictures, a property of the new look is not there to set
+            if std::env::var("R2_BEFORE").is_err() {
+                set.unwrap_or_else(|e| panic!("{key}: {e:?}"));
+            }
         }
     }
     ui.window().set_size(slint::LogicalSize::new(width, 2400.0));
@@ -81,11 +85,18 @@ fn shoot(dir: &Path, name: &str, card: &Card, width: f32, props: &[Json], then: 
 
 /// A component straight from its own .slint file, in a window of `size` with `then` run once it is shown.
 fn file_widget(dir: &Path, name: &str, file: &str, component: &str, props: &str, size: (f32, f32), then: Then) {
+    // The properties `then` sets on the component are passed up through the window
+    let alias = match component {
+        "PhonePicker" => "in-out property <bool> phones-open <=> c.phones-open;",
+        "ConnectionCard" => "in-out property <bool> add-open <=> c.add-open;",
+        "MicrophoneCard" => "in-out property <int> confirm-asked <=> c.confirm-asked;",
+        _ => "",
+    };
     offscreen::install();
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join(file);
     let bare = component == "Footer" || component == "PhonePicker";
     let doc = format!(
-        "import {{ {component} }} from \"{}\";\nimport {{ Theme, WindowBox }} from \"@ui-kit/ui-kit.slint\";\nexport {{ Theme }}\nexport component W inherits Window {{\n    width: {}px;\n    height: {}px;\n    background: Theme.ground;\n    init => {{ WindowBox.width = self.width; WindowBox.height = self.height; }}\n    {component} {{ x: {}px; y: {}px; {} {props} }}\n}}",
+        "import {{ {component} }} from \"{}\";\nimport {{ Theme, WindowBox }} from \"@ui-kit/ui-kit.slint\";\nexport {{ Theme }}\nexport component W inherits Window {{\n    width: {}px;\n    height: {}px;\n    background: Theme.ground;\n    init => {{ WindowBox.width = self.width; WindowBox.height = self.height; }}\n    {alias}\n    c := {component} {{ x: {}px; y: {}px; {} {props} }}\n}}",
         path.display(),
         size.0,
         size.1,
@@ -201,6 +212,11 @@ fn bar_shots() {
     let Some(dir) = out() else { return };
     file_widget(&dir, "bottom-bar-streaming", "crates/shell/ui/frame.slint", "Footer", "status: \"Streaming 1920 \u{d7} 1080 at 30 fps to Phone Camera\"; camera: \"Phone Camera\"; size: \"1920 \u{d7} 1080\"; fps: \"30\"; net: \"12.4 Mbps\";", (900.0, 56.0), &nothing);
     file_widget(&dir, "bottom-bar-idle", "crates/shell/ui/frame.slint", "Footer", "status: \"Not streaming\"; fps: \"-\"; net: \"-\";", (900.0, 56.0), &nothing);
+}
+
+#[test]
+fn top_bar_shots() {
+    let Some(dir) = out() else { return };
     // The whole window, whose top is the top bar: the first 80 px are cut out afterwards
     let scenes = vec![telescope_shell::scenes::Scene::new("window-top", || telescope_shell::scenes::Setup::window(None, json!({}), 1300.0, 900.0))];
     let (n, failed) = telescope_shell::scenes::render(&scenes, &[1.0], &dir).expect("rendered");

@@ -86,10 +86,9 @@ export component CinemaCard inherits Card {
             }
         }
     }
-    Note {
-        text: level-note;
-        visible: level-note-shown;
-        height: level-note-shown ? self.preferred-height : 0px;
+    if level-note-shown: RailRow {
+        has-icon: false;
+        StatusLine { text: @tr("Level unavailable"); kind: "status_warn"; detail: level-note; }
     }
     RailRow {
         icon: Icons.grid;

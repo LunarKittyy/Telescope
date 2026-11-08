@@ -19,6 +19,31 @@ component Note inherits Text {
     wrap: word-wrap;
 }
 
+// One line of status: a short word or phrase in a status colour, and the longer sentence as its tooltip. Stands in for the kit's
+// Status until that is in.
+component StatusLine inherits Rectangle {
+    in property <string> text;
+    in property <string> kind: "status_dim";
+    in property <string> detail;
+    height: Theme.row;
+    horizontal-stretch: 1;
+    accessible-role: AccessibleRole.text;
+    accessible-label: detail != "" ? text + ". " + detail : text;
+    shown := Text {
+        width: parent.width;
+        height: parent.height;
+        text: root.text;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        font-weight: Theme.w-value;
+        color: Status.color(kind);
+        vertical-alignment: center;
+        overflow: elide;
+        accessible-role: none;
+        Tip { says: root.detail != "" || shown.preferred-width > shown.width ? root.text : ""; detail: root.detail; enabled: root.detail != "" || shown.preferred-width > shown.width; inert: true; }
+    }
+}
+
 // The red mark that says something is wrong with a control (the Microphone's Noise reduction has the same one): the reason is its tooltip
 component ProblemMark inherits Rectangle {
     in property <string> says;
@@ -42,11 +67,15 @@ component ProblemMark inherits Rectangle {
     Tip { says: root.says; detail: root.detail; inert: true; }
 }
 
-// The picture a card puts behind you, as the control that chooses it: a raised slot with the picture's own small copy in it and its file
+// A file a card takes, as the control that chooses it (the picture behind you, a LUT): a raised slot with the picture's own small copy in it and its file
 // name, or an empty slot ("Choose") until there is one. A picture that can't be opened shows the red mark with the reason as its tooltip.
 component PictureField inherits Rectangle {
     in property <image> thumb;
     in property <bool> has-picture;
+    // Something is chosen (a picture with no thumbnail, a LUT): its name reads in full ink, the empty slot's words dimmer
+    in property <bool> set: has-picture;
+    // The empty slot's glyph, and the thumbnail's place for something with no picture of its own
+    in property <image> empty-icon: Icons.photo;
     // The file's name, or what the empty slot says
     in property <string> name;
     in property <string> problem;
@@ -103,8 +132,8 @@ component PictureField inherits Rectangle {
                 y: (parent.height - self.height) / 2;
                 width: Theme.icon-small;
                 height: Theme.icon-small;
-                source: Icons.photo;
-                tint: Theme.dis;
+                source: empty-icon;
+                tint: set ? hue : Theme.dis;
             }
         }
         Text {
@@ -113,7 +142,7 @@ component PictureField inherits Rectangle {
             font-family: Theme.font;
             font-size: Theme.body;
             font-weight: Theme.w-value;
-            color: !enabled ? Theme.dis : has-picture ? Theme.ink : Theme.ink2;
+            color: !enabled ? Theme.dis : set ? Theme.ink : Theme.ink2;
             vertical-alignment: center;
             horizontal-stretch: 1;
             min-width: 0px;

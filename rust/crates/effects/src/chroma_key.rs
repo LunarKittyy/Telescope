@@ -182,7 +182,8 @@ pub struct ChromaKeyPlugin {
     /// The picture's small copy for the Choose control, and whether the card has it yet.
     thumb: Option<Frame>,
     thumb_sent: bool,
-    status: Option<String>,
+    /// What the last pick said: a short word, and the sentence for its tooltip.
+    status: Option<(String, String)>,
     paired: Paired,
     held: Option<bool>,
     /// Keying waits while the screen's colour is picked, so the screen shows to click on.
@@ -289,13 +290,14 @@ impl ChromaKeyPlugin {
             "picture-problem": self.picture_problem,
             "picture-tip": self.picture_path,
             "status": text,
+            "status-detail": self.status.as_ref().map(|s| s.1.clone()).unwrap_or_default(),
             "status-kind": if self.status_text().is_empty() { "status_dim" } else { "status_warn" },
         })
     }
 
     /// What the status line says: a message from the last pick, else the note about the picture.
     fn status_text(&self) -> String {
-        self.status.clone().unwrap_or_default()
+        self.status.as_ref().map(|s| s.0.clone()).unwrap_or_default()
     }
 
     fn show(&mut self, host: &mut dyn Host) {
@@ -349,7 +351,7 @@ impl ChromaKeyPlugin {
 
     fn pick(&mut self, host: &mut dyn Host) {
         if !host.pick_on_preview(NAME, PickKind::Point, None, &tr("Click the screen behind you on the preview. Esc cancels.")) {
-            self.status = Some(tr("Start streaming to pick the screen's colour on the preview."));
+            self.status = Some((tr("Not streaming"), tr("Start streaming to pick the screen's colour on the preview.")));
             self.show(host);
         }
     }
@@ -367,7 +369,7 @@ impl ChromaKeyPlugin {
         };
         let colour = sample(&frame, at[0] as f64, at[1] as f64);
         if !keyable(colour) {
-            self.status = Some(tr("That spot has hardly any colour. Click the screen itself."));
+            self.status = Some((tr("No colour there"), tr("That spot has hardly any colour. Click the screen itself.")));
             self.show(host);
             return;
         }
@@ -385,7 +387,7 @@ impl ChromaKeyPlugin {
 
     fn pick_backdrop(&mut self, host: &mut dyn Host) {
         if !host.pick_on_preview(BACKDROP_OWNER, PickKind::Point, None, &tr("Click a colour on the preview. Esc cancels.")) {
-            self.status = Some(tr("Start streaming to pick a colour on the preview."));
+            self.status = Some((tr("Not streaming"), tr("Start streaming to pick a colour on the preview.")));
             self.show(host);
         }
     }
