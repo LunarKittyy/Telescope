@@ -8,7 +8,7 @@ import { FlickBar } from "scroll.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { Tip } from "tip.slint";
 import { SearchWords } from "setting.slint";
-import { Motion, Worm } from "motion.slint";
+import { Motion, Worm, Fade } from "motion.slint";
 
 // Kind "segmented": equal raised segments side by side. The picked one has a thick border in the card's colour and a muted inside,
 // not a flat fill, so Start streaming stays the only filled thing in the window.
@@ -504,12 +504,30 @@ export component ChoiceField inherits Rectangle {
         scans += 1;
         settling = true;
     }
-    // Close the list from the keyboard and hand the focus back
-    function close-list() {
+    // The list eases out before it goes: closing is the fade, and the popup closes when it is over
+    property <bool> closing;
+    function close-now() {
+        closing = false;
         popup.close();
         root.open = false;
         focus.focus();
     }
+    // Close the list from the keyboard or a pick and hand the focus back
+    function close-list() {
+        if (Motion.fades && open) {
+            closing = true;
+        } else {
+            close-now();
+        }
+    }
+    Timer {
+        interval: Motion.fade-out + 40ms;
+        running: closing;
+        triggered => { close-now(); }
+    }
+    // The list's own opacity and drop, for a test
+    out property <float> list-shown: list-fade.value;
+    list-fade := Fade { shown: root.open && !root.closing; }
     function choose(i: int) {
         pick(i);
         close-list();
@@ -652,8 +670,9 @@ export component ChoiceField inherits Rectangle {
         // Slint doesn't say when a popup closes, but its focus goes back to the field then. Taken a moment after it
         // opens, since opening clears the focus
         watch := FocusScope {
-            focus-lost => { root.open = false; hl = -1; }
+            focus-lost => { root.open = false; hl = -1; closing = false; }
             key-pressed(e) => {
+                if (closing) { return accept; }
                 if (e.text == Key.Escape) { close-list(); return accept; }
                 if (e.text == Key.Tab || e.text == Key.Backtab) { close-list(); return reject; }
                 if (e.text == Key.UpArrow) { hl = step-from(hl, -1); return accept; }
@@ -685,6 +704,9 @@ export component ChoiceField inherits Rectangle {
             }
         }
         Rectangle {
+            // It comes in a touch from above and fades, and goes the same way
+            opacity: list-fade.value;
+            y: (1 - list-fade.value) * -Theme.u(2);
             background: Theme.raise;
             border-radius: Theme.r-ctl;
             drop-shadow-blur: 12px;
@@ -731,7 +753,7 @@ export component ChoiceField inherits Rectangle {
                         item-touch := TouchArea {
                             enabled: !headings[i] && !is-gone;
                             clicked => {
-                                choose(i);
+                                if (!closing) { choose(i); }
                             }
                         }
                         line := Text {

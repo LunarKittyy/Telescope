@@ -4,7 +4,7 @@ import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
 import { Tip } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
-import { Motion } from "motion.slint";
+import { Motion, Tone } from "motion.slint";
 
 // A line icon (widgets/line_icons.py), white in the file and tinted here.
 export component Icon inherits Image {
@@ -199,7 +199,20 @@ export component Button inherits Rectangle {
         clicked => { if (enabled) { root.clicked(); } }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+    // A click is seen: the face darkens at once and goes back over a moment, so even a quick click leaves a press behind it
+    press-t := Tone { on: touch.pressed && enabled; instant-in: true; fall: Motion.press-out; }
+    out property <float> pressed-tone: press-t.value;
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        border-radius: root.border-radius;
+        background: filled || wears-hue ? #000000 : Theme.ink;
+        opacity: (filled || wears-hue ? 0.2 : 0.1) * press-t.value;
+    }
     lay := HorizontalLayout {
+        // The words sink a pixel with the press
+        y: press-t.value * 1px;
+        height: parent.height;
         padding-left: padding-x;
         padding-right: padding-x;
         spacing: gap;
@@ -278,5 +291,14 @@ export component IconButton inherits Rectangle {
         clicked => { root.clicked(); }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    Icon { source: icon; tint: !enabled ? Theme.dis : touch.has-hover ? Theme.ink : Theme.ink2; width: icon-size; height: icon-size; }
+    press-t := Tone { on: touch.pressed && enabled; instant-in: true; fall: Motion.press-out; }
+    out property <float> pressed-tone: press-t.value;
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        border-radius: Theme.r-ctl;
+        background: Theme.ink;
+        opacity: 0.1 * press-t.value;
+    }
+    Icon { y: (parent.height - icon-size) / 2 + press-t.value * 1px; source: icon; tint: !enabled ? Theme.dis : touch.has-hover ? Theme.ink : Theme.ink2; width: icon-size; height: icon-size; }
 }

@@ -21,6 +21,8 @@ export global Motion {
     out property <duration> settle: 200ms;
     out property <duration> flick: 200ms;
     out property <duration> pop: 150ms;
+    // A button's press going back after a click, slow enough that a quick click is still seen
+    out property <duration> press-out: 220ms;
     // How long a click on a slider's track waits to see whether it is the first of a double-click
     out property <duration> double-click: 350ms;
     // A multi-select tile's outline and inside fading in and out
