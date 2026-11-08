@@ -244,7 +244,7 @@ export component VideoSettings inherits Card {
                 committed(text) => { root.custom-committed("w", text); }
                 step(d) => { root.custom-step("w", -d); }
             }
-            Text { text: "×"; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; }
+            Text { text: "×"; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; }
             NumberField {
                 horizontal-stretch: 1;
                 label: @tr("Canvas size");
@@ -348,7 +348,7 @@ export component PhoneAppSettings inherits Card {
                 text: apk-button;
                 has-icon: true;
                 icon: Icons.download;
-                icon-tint: Theme.text-dim;
+                icon-tint: Theme.ink2;
                 enabled: apk-enabled;
                 tip: @tr("Install");
                 tip-detail: @tr("Install the Telescope.apk that came with this app, or an APK you pick, on a phone plugged in over USB.");
@@ -363,7 +363,7 @@ export component PhoneAppSettings inherits Card {
                 font-family: Theme.font;
                 font-size: Theme.body;
                 font-weight: 600;
-                color: Theme.text;
+                color: Theme.ink;
             }
             Note { text: @tr("More than one phone is plugged in. Which one should get the app?"); }
             HorizontalLayout {
@@ -452,13 +452,12 @@ export component LookSettings inherits Card {
             StripButton {
                 y: (parent.height - self.height) / 2;
                 height: 30px;
-                role: "quiet";
                 padding-x: 11px;
                 gap: 6px;
                 text: @tr("Help translate");
                 has-icon: true;
                 icon: Icons.pencil;
-                icon-tint: Theme.text-dim;
+                icon-tint: Theme.ink2;
                 tip: @tr("Help translate");
                 tip-detail: @tr("Fix a text or add a language, no coding needed.");
                 clicked => { root.translate-clicked(); }
@@ -470,13 +469,12 @@ export component LookSettings inherits Card {
             StripButton {
                 y: (parent.height - self.height) / 2;
                 height: 30px;
-                role: "quiet";
                 padding-x: 11px;
                 gap: 6px;
                 text: @tr("Restart now");
                 has-icon: true;
                 icon: Icons.reset;
-                icon-tint: Theme.text-dim;
+                icon-tint: Theme.ink2;
                 tip: @tr("Restart");
                 tip-detail: @tr("Restart Telescope in the language you picked.");
                 clicked => { root.restart-clicked(); }
@@ -515,7 +513,7 @@ export component AboutSettings inherits Card {
             // A credit, not a Tab stop
             HorizontalLayout {
                 alignment: end;
-                Text { text: made-before; font-family: Theme.font; font-size: Theme.body; color: Theme.text; vertical-alignment: center; }
+                Text { text: made-before; font-family: Theme.font; font-size: Theme.body; color: Theme.ink; vertical-alignment: center; }
                 Text {
                     text: made-link;
                     font-family: Theme.font;
@@ -526,7 +524,7 @@ export component AboutSettings inherits Card {
                     // Qt underlines a link
                     Rectangle { y: parent.height - 1px; height: 1px; background: Theme.accent; }
                 }
-                Text { text: made-after; font-family: Theme.font; font-size: Theme.body; color: Theme.text; vertical-alignment: center; }
+                Text { text: made-after; font-family: Theme.font; font-size: Theme.body; color: Theme.ink; vertical-alignment: center; }
             }
         }
     }
@@ -541,7 +539,7 @@ export component AboutSettings inherits Card {
                 text: diag-text;
                 has-icon: true;
                 icon: Icons.copy;
-                icon-tint: Theme.text-dim;
+                icon-tint: Theme.ink2;
                 tip: @tr("Copy diagnostics");
                 tip-detail: @tr("Copy info for a bug report without pairing tokens, addresses or file paths.");
                 clicked => { root.diag-clicked(); }

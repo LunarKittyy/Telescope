@@ -183,6 +183,12 @@ export component SettingsNav inherits Rectangle {
 // lets Tab reach a control that has scrolled out of sight (a plain clip makes Slint skip it, and the cycle would be
 // whatever is in view). It never moves itself: the page scrolls by `offset`, and a control that takes the focus asks
 // for that through Reveal.
+// How wide a Settings page's content may grow: past this the labels and their controls are too far apart to read as one row. Pages keep
+// to the left, under the page title, however wide the window is.
+export global SettingsLayout {
+    out property <length> content-max: Theme.u(340);
+}
+
 export component ScrollPage inherits Flickable {
     in-out property <length> offset;
     out property <length> content: lay.preferred-height;
@@ -191,7 +197,7 @@ export component ScrollPage inherits Flickable {
     in-out property <bool> bar;
     property <bool> checked;
     // The bar's room is always kept, so the page doesn't move or narrow when the bar appears
-    out property <length> inner-width: root.width - 8px - 11px;
+    out property <length> inner-width: min(root.width - 8px - 11px, SettingsLayout.content-max);
     changed content => { bar = content > root.height; }
     changed height => { bar = content > root.height; }
     interactive: false;
@@ -241,7 +247,7 @@ export component ResultsList inherits VerticalLayout {
     callback opened(int);
     spacing: 8px;
     alignment: start;
-    if note != "": Text { text: note; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
+    if note != "": Text { text: note; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; }
     if results.length > 0: Rectangle {
         height: results.length * 52px;
         accessible-role: list;
@@ -270,35 +276,29 @@ export component ResultsList inherits VerticalLayout {
             }
         }
     }
-    if empty != "": Text { text: empty; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
+    if empty != "": Text { text: empty; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; }
 }
 
-// QLabel#plugin_badge.
-component Badge inherits Rectangle {
+// What a plugin tile is marked with (Added, Needs the vision download): a short word in a status colour, with no surface round it
+component Badge inherits Text {
     in property <BadgeData> data;
-    height: 18px;
-    width: label.preferred-width + 16px;
-    border-radius: self.height / 2;
-    background: Theme.raise;
-    label := Text {
-        text: data.text;
-        font-family: Theme.font;
-        font-size: 11px;
-        color: data.kind == "lock" ? Theme.accent-soft : Theme.ink2;
-        vertical-alignment: center;
-    }
+    text: data.text;
+    font-family: Theme.font;
+    font-size: Theme.small;
+    font-weight: Theme.w-label;
+    color: data.kind == "lock" ? Theme.accent-soft : Theme.faint;
+    vertical-alignment: center;
+    overflow: elide;
 }
 
-// An icon on a tinted square (_chip); grey for a plugin that's off.
+// A plugin's icon in its card's colour; grey for a plugin that's off.
 component Chip inherits Rectangle {
     in property <image> icon;
     in property <color> hue;
     in property <bool> lit: true;
-    width: 28px;
-    height: 28px;
-    border-radius: self.width / 3;
-    background: (lit ? hue : Theme.text-faint).with-alpha(lit ? 0.14 : 0.10);
-    Icon { source: icon; tint: lit ? hue : Theme.text-faint; width: 16px; height: 16px; accessible-role: none; }
+    width: Theme.u(14);
+    height: Theme.u(14);
+    Icon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; source: icon; tint: lit ? hue : Theme.dis; width: Theme.icon; height: Theme.icon; accessible-role: none; }
 }
 
 // A plugin as a tile: icon, name and switch on top, what it does under them, then any note and its badges.
@@ -334,7 +334,7 @@ component PluginTile inherits Rectangle {
                 font-family: Theme.font;
                 font-size: Theme.body;
                 font-weight: 600;
-                color: tile.on ? Theme.text : Theme.text-dim;
+                color: tile.on ? Theme.ink : Theme.ink2;
                 vertical-alignment: center;
                 // The tile and its switch are named by it already
                 accessible-role: none;
@@ -367,14 +367,14 @@ component PluginTile inherits Rectangle {
             overflow: elide;
             font-family: Theme.font;
             font-size: 12px;
-            color: Theme.text-faint;
+            color: Theme.faint;
             vertical-alignment: top;
         }
         if tile.byline != "" || tile.byline-link != "": HorizontalLayout {
             spacing: 4px;
             alignment: start;
             height: 18px;
-            if tile.byline != "": Text { text: tile.byline; font-family: Theme.font; font-size: 12px; color: Theme.text-faint; vertical-alignment: center; }
+            if tile.byline != "": Text { text: tile.byline; font-family: Theme.font; font-size: 12px; color: Theme.faint; vertical-alignment: center; }
             if tile.byline-link != "": LinkText { text: tile.byline-link; url: tile.byline-url; opened(u) => { root.open-url(u); } }
         }
         if tile.note != "": Text {
@@ -382,11 +382,11 @@ component PluginTile inherits Rectangle {
             wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
             font-family: Theme.font;
             font-size: 12px;
-            color: tile.note-kind == "status_err" ? Theme.err : tile.note-kind == "status_warn" ? Theme.warn : Theme.text-faint;
+            color: tile.note-kind == "status_err" ? Theme.err : tile.note-kind == "status_warn" ? Theme.warn : Theme.faint;
         }
         if tile.note-link != "": LinkText { text: tile.note-link; url: tile.note-url; opened(u) => { root.open-url(u); } }
         if tile.badges.length > 0: HorizontalLayout {
-            spacing: 4px;
+            spacing: Theme.u(4);
             alignment: start;
             for b in tile.badges: Badge { data: b; }
         }
@@ -395,12 +395,11 @@ component PluginTile inherits Rectangle {
 
 // card_action: a quiet button with a small icon.
 export component CardAction inherits Button {
-    role: "quiet";
     height: 30px;
     padding-x: 10px;
     gap: 6px;
     has-icon: true;
-    icon-tint: Theme.text-dim;
+    icon-tint: Theme.ink2;
     quiet-when-disabled: true;
 }
 
@@ -482,8 +481,8 @@ export component PluginsPanel inherits VerticalLayout {
                 height: 26px;
                 alignment: start;
                 Chip { width: 26px; height: 26px; icon: g.icon; hue: g.hue; }
-                Text { text: g.title; font-family: Theme.font; font-size: Theme.card-title; font-weight: 600; color: Theme.text; vertical-alignment: center; }
-                Text { text: g.count; font-family: Theme.font; font-size: Theme.small; color: Theme.text-faint; vertical-alignment: center; }
+                Text { text: g.title; font-family: Theme.font; font-size: Theme.card-title; font-weight: 600; color: Theme.ink; vertical-alignment: center; }
+                Text { text: g.count; font-family: Theme.font; font-size: Theme.small; color: Theme.faint; vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; }
                 if g.remove-pack: CardAction {
                     y: -2px;
@@ -499,7 +498,7 @@ export component PluginsPanel inherits VerticalLayout {
                 wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
                 font-family: Theme.font;
                 font-size: Theme.body;
-                color: Theme.text-dim;
+                color: Theme.ink2;
             }
             Rectangle {
                 property <length> w: (self.width - (columns - 1) * 10px) / columns;
@@ -521,7 +520,7 @@ export component PluginsPanel inherits VerticalLayout {
         padding-top: 24px;
         padding-bottom: 24px;
         spacing: 10px;
-        Text { text: empty-note; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); horizontal-alignment: center; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
+        Text { text: empty-note; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); horizontal-alignment: center; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; }
         HorizontalLayout {
             alignment: center;
             CardAction { text: @tr("Show all plugins"); icon: Icons.reset; clicked => { root.show-all(); } }
@@ -533,7 +532,7 @@ export component PluginsPanel inherits VerticalLayout {
             spacing: 10px;
             height: 30px;
             Chip { y: 2px; width: 26px; height: 26px; icon: Icons.download; hue: Theme.accent; }
-            Text { text: @tr("Added plugins"); accessible-id: "card"; font-family: Theme.font; font-size: Theme.card-title; font-weight: 600; color: Theme.text; vertical-alignment: center; }
+            Text { text: @tr("Added plugins"); accessible-id: "card"; font-family: Theme.font; font-size: Theme.card-title; font-weight: 600; color: Theme.ink; vertical-alignment: center; }
             Rectangle { horizontal-stretch: 1; }
             CardAction {
                 text: @tr("Install");
@@ -548,13 +547,13 @@ export component PluginsPanel inherits VerticalLayout {
             wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
             font-family: Theme.font;
             font-size: Theme.body;
-            color: Theme.text-dim;
+            color: Theme.ink2;
         }
         for r in update-rows: SettingRow {
             title: r.title;
             sub: r.about;
             note: r.note;
-            note-color: r.danger ? Theme.err : Theme.text-dim;
+            note-color: r.danger ? Theme.err : Theme.ink2;
             Switch {
                 checked: r.on;
                 label: r.title;
@@ -617,17 +616,17 @@ export component Ask inherits Rectangle {
             y: (root.height - self.height) / 2;
             width: 420px;
             height: lay.preferred-height;
-            background: Theme.bg;
+            background: Theme.ground;
             border-radius: 12px;
             border-width: 1px;
-            border-color: Theme.border-strong;
+            border-color: Theme.line-strong;
             accessible-role: groupbox;
             accessible-label: title;
             lay := VerticalLayout {
                 padding: 20px;
                 spacing: 12px;
-                Text { text: title; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.card-title; font-weight: 600; color: Theme.text; }
-                Text { text: root.text; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
+                Text { text: title; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.card-title; font-weight: 600; color: Theme.ink; }
+                Text { text: root.text; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; }
                 HorizontalLayout {
                     spacing: 8px;
                     alignment: end;

@@ -6,7 +6,7 @@ import { Theme, Icons, Icon, FocusRing, Button, Card, SearchWords, Section, Sect
 global Status {
     public pure function color(kind: string) -> color {
         kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
-            : kind == "status_dim" ? Theme.dim : Theme.text
+            : kind == "status_dim" ? Theme.dim : Theme.ink
     }
 }
 
@@ -22,7 +22,6 @@ component Note inherits Text {
 
 // A button in a setting_row: as wide as its words, plain until it's the primary one
 component StripButton inherits Button {
-    strip: true;
     font-weight: self.role == "primary" ? 600 : 400;
     gap: 6px;
 }
@@ -71,7 +70,7 @@ component StripTop inherits HorizontalLayout {
             text: title;
             font-family: Theme.font;
             font-size: Theme.body;
-            color: enabled ? Theme.text : Theme.text-disabled;
+            color: enabled ? Theme.ink : Theme.dis;
             wrap: word-wrap;
             line-height-factor: Theme.line-factor(self.font-size);
             // The strip is named by it already, and so is a switch in it
@@ -85,7 +84,7 @@ component StripTop inherits HorizontalLayout {
             text: sub;
             font-family: Theme.font;
             font-size: Theme.small;
-            color: !enabled ? Theme.text-disabled : sub-kind == "" ? Theme.text-faint : Status.color(sub-kind);
+            color: !enabled ? Theme.dis : sub-kind == "" ? Theme.faint : Status.color(sub-kind);
             wrap: word-wrap;
             line-height-factor: Theme.line-factor(self.font-size);
         }
@@ -110,7 +109,7 @@ component CommandBox inherits HorizontalLayout {
         text: command;
         font-family: Theme.mono;
         font-size: Theme.mono-size;
-        color: Theme.text;
+        color: Theme.ink;
         wrap: word-wrap;
         vertical-alignment: center;
     }
@@ -118,13 +117,12 @@ component CommandBox inherits HorizontalLayout {
         alignment: start;
         Button {
             height: 30px;
-            role: "quiet";
             padding-x: 11px;
             gap: 6px;
             text: @tr("Copy");
             has-icon: true;
             icon: Icons.copy;
-            icon-tint: Theme.text-dim;
+            icon-tint: Theme.ink2;
             tip: @tr("Copy");
             tip-detail: @tr("Copy the command to paste in a terminal.");
             clicked => { root.copy(root.command); }
@@ -154,8 +152,8 @@ component SpinChip inherits Rectangle {
     height: 32px;
     border-radius: 7px;
     border-width: 1px;
-    background: Theme.bg;
-    border-color: !enabled ? Theme.border : input.has-focus ? Theme.accent : touch.has-hover ? Theme.border-hover : Theme.border-strong;
+    background: Theme.ground;
+    border-color: !enabled ? Theme.line : input.has-focus ? Theme.accent : touch.has-hover ? Theme.line-hover : Theme.line-strong;
     forward-focus: input;
     touch := TouchArea {
         enabled: root.enabled;
@@ -177,7 +175,7 @@ component SpinChip inherits Rectangle {
         font-family: Theme.font;
         font-size: Theme.body;
         font-weight: 600;
-        color: !root.enabled ? Theme.text-disabled : Theme.text;
+        color: !root.enabled ? Theme.dis : Theme.ink;
         vertical-alignment: center;
         single-line: true;
         accessible-label: root.label;
@@ -220,7 +218,7 @@ component LabelledSwitch inherits HorizontalLayout {
         text: root.text;
         font-family: Theme.font;
         font-size: Theme.body;
-        color: !enabled ? Theme.text-disabled : dim ? Theme.text-dim : Theme.text;
+        color: !enabled ? Theme.dis : dim ? Theme.ink2 : Theme.ink;
         vertical-alignment: center;
         accessible-role: none;
         TouchArea {
