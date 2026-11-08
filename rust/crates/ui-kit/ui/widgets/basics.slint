@@ -129,10 +129,12 @@ export component Button inherits Rectangle {
     in property <bool> quiet-when-disabled;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
+    // The label gives way to a narrow place and ends in an ellipsis (a folder's name)
+    in property <bool> shrinks;
     out property <string> control-kind: "button";
     callback clicked;
     height: Theme.row;
-    min-width: lay.preferred-width;
+    min-width: shrinks ? 0px : lay.preferred-width;
     border-radius: Theme.r-ctl;
     background: !enabled ? (quiet-when-disabled ? transparent : Theme.trough)
         : role == "danger" ? Theme.err.mix(Theme.card, touch.pressed ? 0.35 : touch.has-hover ? 0.5 : 0.42)
@@ -189,6 +191,9 @@ export component Button inherits Rectangle {
         }
         if text != "": Text {
             text: root.text;
+            overflow: elide;
+            horizontal-stretch: root.shrinks ? 1 : 0;
+            min-width: root.shrinks ? 0px : self.preferred-width;
             font-family: Theme.font;
             font-size: root.font-size;
             font-weight: root.font-weight;

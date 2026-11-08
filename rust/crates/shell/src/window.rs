@@ -1049,7 +1049,7 @@ impl Window {
         let (file, text) = source_of(plugin, id, &spec.ui);
         let component = &spec.ui.component;
         // Its file goes through the loader as a card's does, so its texts are translated
-        let doc = format!("export {{ {component} }} from \"{file}\";\nexport {{ KeyFocus, WindowBox }} from \"@ui-kit/ui-kit.slint\";\n");
+        let doc = format!("export {{ {component} }} from \"{file}\";\nexport {{ KeyFocus, WindowBox, Theme }} from \"@ui-kit/ui-kit.slint\";\n");
         let files = match &spec.ui.source {
             SlintSource::Text(_) => vec![(file.clone(), text.clone())],
             SlintSource::File(_) => Vec::new(),
@@ -1090,6 +1090,9 @@ impl Window {
         });
         crate::keys::watch_plugin_keys(&ui, Rc::downgrade(self));
         Self::set_window_props(&ui, plugin, id, &spec.ui.props);
+        if let Ok(classic) = self.ui.get_global_property("Theme", "classic") {
+            let _ = ui.set_global_property("Theme", "classic", classic);
+        }
         let _ = ui.show();
         crate::frame::dress(&ui);
         crate::parent::attach(&ui, &self.ui);
@@ -1259,6 +1262,9 @@ impl Window {
             }
             Effect::ClassicTheme(on) => {
                 let _ = self.ui.set_global_property("Theme", "classic", SValue::Bool(on));
+                for (_, _, open) in self.plugin_windows.borrow().iter() {
+                    let _ = open.set_global_property("Theme", "classic", SValue::Bool(on));
+                }
                 crate::settings::set_classic(on);
             }
             Effect::RestartCanvas { plugin, request, shows_command } => self.restart_canvas(&plugin, request, shows_command),

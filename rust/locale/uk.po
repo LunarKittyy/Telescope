@@ -330,7 +330,7 @@ msgstr "Авторівень"
 msgid "Evens out quiet and loud speech."
 msgstr "Вирівнює тихе й гучне мовлення."
 
-#: rust/crates/audio/ui/microphone.slint:258 rust/crates/audio/ui/microphone.slint:270 rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1614 rust/crates/shell/ui/cards/camera.slint:379 rust/crates/shell/ui/cards/camera.slint:381
+#: rust/crates/audio/ui/microphone.slint:258 rust/crates/audio/ui/microphone.slint:270 rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1614 rust/crates/shell/ui/cards/camera.slint:379 rust/crates/shell/ui/cards/camera.slint:382
 msgid "Noise reduction"
 msgstr "Шумозаглушення"
 
@@ -342,7 +342,7 @@ msgstr "Для мікрофона телефону потрібен VB-Audio Vir
 msgid "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."
 msgstr "VB-Cable розроблено VB-Audio, а не Telescope. Telescope може завантажити його з vb-audio.com і запустити інсталятор VB-Audio, який запитує права адміністратора. Після завершення перезавантажте комп'ютер."
 
-#: rust/crates/audio/ui/microphone.slint:342 rust/crates/effects/src/desk.rs:182 rust/crates/effects/ui/colour_grading.slint:467 rust/crates/effects/ui/composite_editor.slint:580 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:474 rust/crates/link/ui/connection.slint:675 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:632 rust/crates/system/ui/shortcuts.slint:373 rust/crates/system/ui/updates.slint:214
+#: rust/crates/audio/ui/microphone.slint:342 rust/crates/effects/src/desk.rs:182 rust/crates/effects/ui/colour_grading.slint:467 rust/crates/effects/ui/composite_editor.slint:580 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:480 rust/crates/link/ui/connection.slint:681 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:632 rust/crates/system/ui/shortcuts.slint:373 rust/crates/system/ui/updates.slint:214
 msgid "Cancel"
 msgstr "Скасувати"
 
@@ -524,7 +524,7 @@ msgid "Looking…"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:38 rust/crates/effects/src/photos.rs:487 rust/crates/effects/ui/background.slint:34 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:98 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:383 rust/crates/shell/ui/cards/camera.slint:394
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:38 rust/crates/effects/src/photos.rs:487 rust/crates/effects/ui/background.slint:34 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:98 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:384 rust/crates/shell/ui/cards/camera.slint:396
 msgid "Off"
 msgstr "Вимк."
 
@@ -1240,7 +1240,7 @@ msgid "Black and white"
 msgstr "Чорно-білий"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:26 rust/crates/effects/ui/colour_grading.slint:213 rust/crates/link/ui/connection.slint:309 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:101 rust/crates/outputs/src/webcam.rs:958 rust/crates/outputs/ui/webcam.slint:121 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:187 rust/crates/shell/ui/cards/camera.slint:253 rust/crates/shell/ui/cards/camera.slint:309
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:26 rust/crates/effects/ui/colour_grading.slint:213 rust/crates/link/ui/connection.slint:315 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:101 rust/crates/outputs/src/webcam.rs:958 rust/crates/outputs/ui/webcam.slint:121 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:187 rust/crates/shell/ui/cards/camera.slint:253 rust/crates/shell/ui/cards/camera.slint:309
 msgid "Auto"
 msgstr "Авто"
 
@@ -1303,7 +1303,7 @@ msgstr "Частина аркуша опинилася за межами зоб�
 msgid "Desk mode"
 msgstr "Режим столу"
 
-#: rust/crates/effects/src/desk.rs:181 rust/crates/link/ui/connection.slint:426
+#: rust/crates/effects/src/desk.rs:181 rust/crates/link/ui/connection.slint:432
 msgid "Done"
 msgstr "Готово"
 
@@ -2791,7 +2791,7 @@ msgstr "Колір фону"
 msgid "Put a picture behind the streams instead of the colour"
 msgstr "Поставити картинку позаду потоків замість кольору"
 
-#: rust/crates/effects/ui/composite_editor.slint:556 rust/crates/link/ui/connection.slint:635
+#: rust/crates/effects/ui/composite_editor.slint:556 rust/crates/link/ui/connection.slint:641
 msgid "Close"
 msgstr "Закрити"
 
@@ -2803,15 +2803,15 @@ msgstr "Замінити макет"
 msgid "Name:"
 msgstr "Назва:"
 
-#: rust/crates/effects/ui/composite_editor.slint:581 rust/crates/link/ui/connection.slint:480 rust/crates/link/ui/connection.slint:679 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:880 rust/crates/shell/ui/settings.slint:633
+#: rust/crates/effects/ui/composite_editor.slint:581 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:685 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:880 rust/crates/shell/ui/settings.slint:633
 msgid "OK"
 msgstr "ОК"
 
-#: rust/crates/effects/ui/composite_editor.slint:590 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:722 rust/crates/setup/src/stats_phone.rs:148
+#: rust/crates/effects/ui/composite_editor.slint:590 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:728 rust/crates/setup/src/stats_phone.rs:148
 msgid "No"
 msgstr "Ні"
 
-#: rust/crates/effects/ui/composite_editor.slint:591 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:716 rust/crates/setup/src/stats_phone.rs:148 rust/crates/setup/src/stats_phone.rs:152
+#: rust/crates/effects/ui/composite_editor.slint:591 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:722 rust/crates/setup/src/stats_phone.rs:148 rust/crates/setup/src/stats_phone.rs:152
 msgid "Yes"
 msgstr "Так"
 
@@ -2883,7 +2883,7 @@ msgstr "Вниз"
 msgid "Across"
 msgstr "Впоперек"
 
-#: rust/crates/effects/ui/name_tag.slint:68 rust/crates/link/ui/connection.slint:605
+#: rust/crates/effects/ui/name_tag.slint:68 rust/crates/link/ui/connection.slint:611
 msgid "Name"
 msgstr "Назва"
 
@@ -3081,11 +3081,11 @@ msgstr ""
 msgid "Quality"
 msgstr "Якість"
 
-#: rust/crates/effects/ui/photos.slint:163
+#: rust/crates/effects/ui/photos.slint:163 rust/crates/effects/ui/photos.slint:166
 msgid "Timer"
 msgstr "Таймер"
 
-#: rust/crates/effects/ui/photos.slint:173
+#: rust/crates/effects/ui/photos.slint:175
 msgid "Save in"
 msgstr "Зберігати в"
 
@@ -3198,7 +3198,7 @@ msgstr "Телефон відхилив доступ до мікрофона (HT
 msgid "No microphone"
 msgstr "Немає мікрофона"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:955 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:576 rust/crates/shell/src/streams.rs:1600 rust/crates/shell/src/window.rs:1355 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/remote.rs:46
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:955 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:576 rust/crates/shell/src/streams.rs:1600 rust/crates/shell/src/window.rs:1361 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Не транслює"
 
@@ -3311,7 +3311,7 @@ msgstr "Браузер, останнє підключення {date}"
 msgid "This computer couldn't set up the video connection."
 msgstr "Цьому комп'ютеру не вдалося встановити відеоз'єднання."
 
-#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:361 rust/crates/link/ui/connection.slint:191 rust/crates/link/ui/connection.slint:593 rust/crates/shell/src/plugins/onboarding.rs:172
+#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:361 rust/crates/link/ui/connection.slint:192 rust/crates/link/ui/connection.slint:599 rust/crates/shell/src/plugins/onboarding.rs:172
 msgid "Add device"
 msgstr ""
 
@@ -3589,7 +3589,7 @@ msgstr "через USB підключено інший телефон"
 msgid "phone plugged in, but Telescope isn't open on it"
 msgstr "телефон підключено, але Telescope на ньому не відкрито"
 
-#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1080 rust/crates/link/src/plugin.rs:1337 rust/crates/link/ui/connection.slint:544 rust/crates/link/ui/connection.slint:545
+#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1080 rust/crates/link/src/plugin.rs:1337 rust/crates/link/ui/connection.slint:550 rust/crates/link/ui/connection.slint:551
 msgid "No device yet"
 msgstr ""
 
@@ -3605,7 +3605,7 @@ msgstr "Не вдається підключитися до телефону"
 msgid "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."
 msgstr "adb не вдалося відкрити підключення до телефону. Від'єднайте його, підключіть знову та спробуйте ще раз."
 
-#: rust/crates/link/src/plugin.rs:406 rust/crates/link/ui/connection.slint:449
+#: rust/crates/link/src/plugin.rs:406 rust/crates/link/ui/connection.slint:455
 msgid "Set up the virtual camera"
 msgstr "Налаштувати віртуальну камеру"
 
@@ -3852,144 +3852,144 @@ msgstr "Кадрів/с"
 msgid "Remove"
 msgstr "Вилучити"
 
-#: rust/crates/link/ui/connection.slint:186 rust/crates/link/ui/connection.slint:733 rust/crates/setup/src/stats.rs:340
+#: rust/crates/link/ui/connection.slint:187 rust/crates/link/ui/connection.slint:739 rust/crates/setup/src/stats.rs:340
 msgid "Connection"
 msgstr "Підключення"
 
-#: rust/crates/link/ui/connection.slint:192
+#: rust/crates/link/ui/connection.slint:193
 msgid "Pair a phone over Wi-Fi or USB, or use the Browser camera"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:197
+#: rust/crates/link/ui/connection.slint:198
 msgid "Open or close the setup guide: the virtual camera, the phone app and pairing"
 msgstr "Відкрити або закрити посібник із налаштування: віртуальна камера, додаток на телефоні та створення пари"
 
-#: rust/crates/link/ui/connection.slint:198 rust/crates/shell/src/plugins/onboarding.rs:205
+#: rust/crates/link/ui/connection.slint:199 rust/crates/shell/src/plugins/onboarding.rs:205
 msgid "Setup guide"
 msgstr "Посібник із налаштування"
 
-#: rust/crates/link/ui/connection.slint:277
+#: rust/crates/link/ui/connection.slint:283
 msgid "Switch to USB"
 msgstr "Перемкнути на USB"
 
-#: rust/crates/link/ui/connection.slint:279
+#: rust/crates/link/ui/connection.slint:285
 msgid "The phone was plugged in; reconnect over the cable"
 msgstr "Телефон підключено; підключіть знову через кабель"
 
-#: rust/crates/link/ui/connection.slint:305
+#: rust/crates/link/ui/connection.slint:311
 msgid "Connect via"
 msgstr "Підключатися через"
 
-#: rust/crates/link/ui/connection.slint:313
+#: rust/crates/link/ui/connection.slint:319
 msgid "Automatic: USB when the phone's plugged in, Wi-Fi otherwise."
 msgstr "Автоматично: USB, коли телефон підключено, інакше Wi-Fi."
 
-#: rust/crates/link/ui/connection.slint:337
+#: rust/crates/link/ui/connection.slint:343
 msgid "Add a phone"
 msgstr "Додати телефон"
 
-#: rust/crates/link/ui/connection.slint:341
+#: rust/crates/link/ui/connection.slint:347
 msgid "What to add"
 msgstr "Що додати"
 
-#: rust/crates/link/ui/connection.slint:351
+#: rust/crates/link/ui/connection.slint:357
 msgid "Use it"
 msgstr "Використовувати"
 
-#: rust/crates/link/ui/connection.slint:369
+#: rust/crates/link/ui/connection.slint:375
 msgid "Pairing code"
 msgstr "Код створення пари"
 
-#: rust/crates/link/ui/connection.slint:426
+#: rust/crates/link/ui/connection.slint:432
 msgid "Back"
 msgstr "Назад"
 
-#: rust/crates/link/ui/connection.slint:450
+#: rust/crates/link/ui/connection.slint:456
 msgid "Telescope needs to switch on its virtual camera first. This asks for your password."
 msgstr "Спочатку Telescope має увімкнути свою віртуальну камеру. Для цього потрібен ваш пароль."
 
-#: rust/crates/link/ui/connection.slint:458 rust/crates/link/ui/connection.slint:461
+#: rust/crates/link/ui/connection.slint:464 rust/crates/link/ui/connection.slint:467
 msgid "Also switch it on at every startup"
 msgstr "Також вмикати її під час кожного запуску"
 
-#: rust/crates/link/ui/connection.slint:545
+#: rust/crates/link/ui/connection.slint:551
 msgid "Pick a device"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:549
+#: rust/crates/link/ui/connection.slint:555
 msgid "Device"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:550
+#: rust/crates/link/ui/connection.slint:556
 msgid "Which device to stream from"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:568
+#: rust/crates/link/ui/connection.slint:574
 msgid "Your devices: add, rename, remove"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:569 rust/crates/link/ui/connection.slint:586
+#: rust/crates/link/ui/connection.slint:575 rust/crates/link/ui/connection.slint:592
 msgid "Your devices"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:588
+#: rust/crates/link/ui/connection.slint:594
 msgid "Devices"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:594
+#: rust/crates/link/ui/connection.slint:600
 msgid "Add another device"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:601
+#: rust/crates/link/ui/connection.slint:607
 msgid "No devices yet"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:605
+#: rust/crates/link/ui/connection.slint:611
 msgid "Rename phone"
 msgstr "Перейменувати телефон"
 
-#: rust/crates/link/ui/connection.slint:615 rust/crates/setup/src/stats.rs:332
+#: rust/crates/link/ui/connection.slint:621 rust/crates/setup/src/stats.rs:332
 msgid "This computer"
 msgstr "Цей комп'ютер"
 
-#: rust/crates/link/ui/connection.slint:620
+#: rust/crates/link/ui/connection.slint:626
 msgid "What your phones call it"
 msgstr "Як його називають ваші телефони"
 
-#: rust/crates/link/ui/connection.slint:622
+#: rust/crates/link/ui/connection.slint:628
 msgid "Change name"
 msgstr "Змінити назву"
 
-#: rust/crates/link/ui/connection.slint:623
+#: rust/crates/link/ui/connection.slint:629
 msgid "The name your phones show for this computer"
 msgstr "Назва цього комп'ютера, яку показують ваші телефони"
 
-#: rust/crates/link/ui/connection.slint:624
+#: rust/crates/link/ui/connection.slint:630
 msgid "Change this computer's name"
 msgstr "Змінити назву цього комп'ютера"
 
-#: rust/crates/link/ui/connection.slint:626
+#: rust/crates/link/ui/connection.slint:632
 msgid "Rename this computer"
 msgstr "Перейменувати цей комп'ютер"
 
-#: rust/crates/link/ui/connection.slint:626
+#: rust/crates/link/ui/connection.slint:632
 msgid "Name your phones show (applies to phones you pair from now on)"
 msgstr "Назва, яку бачать ваші телефони (застосовується до телефонів, з якими ви створите пару надалі)"
 
-#: rust/crates/link/ui/connection.slint:736 rust/crates/link/ui/connection.slint:743
+#: rust/crates/link/ui/connection.slint:742 rust/crates/link/ui/connection.slint:749
 msgid "UDP on Wi-Fi"
 msgstr "UDP через Wi-Fi"
 
-#: rust/crates/link/ui/connection.slint:737
+#: rust/crates/link/ui/connection.slint:743
 msgctxt "search"
 msgid "udp tcp transport network lag freezes stutter wifi"
 msgstr "транспорт мережа затримка лаги зависання фризи підвисання вайфай вай-фай udp tcp transport network lag freezes stutter wifi"
 
-#: rust/crates/link/ui/connection.slint:738
+#: rust/crates/link/ui/connection.slint:744
 msgid "It can stutter more than TCP, so try it and see."
 msgstr "Може працювати менш плавно, ніж через TCP, тож спробуйте й перевірте."
 
-#: rust/crates/link/ui/connection.slint:739
+#: rust/crates/link/ui/connection.slint:745
 msgid "Experimental"
 msgstr "Експериментально"
 
@@ -5896,11 +5896,11 @@ msgstr "Потягніть по зображенню, щоб позначити 
 msgid "Drag the corners into place, then press Enter. Esc cancels."
 msgstr "Перетягніть кути на місце, потім натисніть Enter. Esc скасовує."
 
-#: rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:383 rust/crates/shell/ui/cards/camera.slint:394
+#: rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:384 rust/crates/shell/ui/cards/camera.slint:396
 msgid "Fast"
 msgstr "Швидко"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:383 rust/crates/shell/ui/cards/camera.slint:394
+#: rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:384 rust/crates/shell/ui/cards/camera.slint:396
 msgid "High Quality"
 msgstr "Висока якість"
 
@@ -6055,7 +6055,7 @@ msgctxt "focus"
 msgid "Manual"
 msgstr "Вручну"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1615 rust/crates/shell/ui/cards/camera.slint:390 rust/crates/shell/ui/cards/camera.slint:392
+#: rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1615 rust/crates/shell/ui/cards/camera.slint:391 rust/crates/shell/ui/cards/camera.slint:394
 msgid "Sharpening"
 msgstr "Різкість"
 
@@ -6657,7 +6657,7 @@ msgid "Could not save settings. Check disk space and permissions."
 msgstr "Не вдалося зберегти налаштування. Перевірте вільне місце на диску та права доступу."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1365 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1371 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "Старт"
 
@@ -6951,20 +6951,20 @@ msgstr "Telescope - Попередній перегляд відео"
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: rust/crates/shell/src/window.rs:1364 rust/crates/shell/src/window.rs:1365
+#: rust/crates/shell/src/window.rs:1370 rust/crates/shell/src/window.rs:1371
 msgid "Start mic only"
 msgstr "Запустити лише мікрофон"
 
-#: rust/crates/shell/src/window.rs:1364
+#: rust/crates/shell/src/window.rs:1370
 msgid "Start streaming"
 msgstr "Почати трансляцію"
 
-#: rust/crates/shell/src/window.rs:1370
+#: rust/crates/shell/src/window.rs:1376
 msgid "Stop streaming"
 msgstr "Зупинити трансляцію"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1371 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/window.rs:1377 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "Стоп"
 
@@ -7022,15 +7022,15 @@ msgstr "Відтінок G–M"
 msgid "Distance"
 msgstr "Відстань"
 
-#: rust/crates/shell/ui/cards/onboarding.slint:83
+#: rust/crates/shell/ui/cards/onboarding.slint:92
 msgid "QR code that downloads the phone app"
 msgstr ""
 
-#: rust/crates/shell/ui/cards/onboarding.slint:119
+#: rust/crates/shell/ui/cards/onboarding.slint:128
 msgid "Get set up"
 msgstr "Початок роботи"
 
-#: rust/crates/shell/ui/cards/onboarding.slint:123
+#: rust/crates/shell/ui/cards/onboarding.slint:132
 msgid "Close the setup guide"
 msgstr "Закрити посібник із налаштування"
 

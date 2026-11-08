@@ -160,7 +160,7 @@ export component MonitoringCard inherits Card {
                     notify <=> root.batt-notify;
                     stop <=> root.batt-stop;
                     committed(t) => { root.batt-committed(t); }
-                    step(d) => { root.batt-step(d); }
+                    step(d) => { root.batt-step(-d); }
                     notify-toggled(on) => { root.alert-toggled("batt-notify", on); }
                     stop-toggled(on) => { root.alert-toggled("batt-stop", on); }
                 }
@@ -176,7 +176,7 @@ export component MonitoringCard inherits Card {
                     notify <=> root.temp-notify;
                     stop <=> root.temp-stop;
                     committed(t) => { root.temp-committed(t); }
-                    step(d) => { root.temp-step(d); }
+                    step(d) => { root.temp-step(-d); }
                     notify-toggled(on) => { root.alert-toggled("temp-notify", on); }
                     stop-toggled(on) => { root.alert-toggled("temp-stop", on); }
                 }

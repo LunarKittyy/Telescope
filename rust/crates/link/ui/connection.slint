@@ -132,6 +132,7 @@ export component ConnectionCard inherits Card {
     in property <string> route-icon: "x";
     in property <string> note-text;
     in property <string> note-kind: "status_dim";
+    property <bool> err-shown: note-text != "" && note-kind == "status_err";
     in property <bool> switch-usb-shown;
     in property <bool> update-shown;
     in property <string> update-text;
@@ -241,8 +242,8 @@ export component ConnectionCard inherits Card {
                         font-weight: 600;
                         color: Status.color(status-kind);
                         overflow: elide;
-                        if note-text != "" || shown-status-text.preferred-width > shown-status-text.width: Tooltip {
-                            TipBody { says: note-text == "" ? shown-status-text.text : shown-status-text.preferred-width > shown-status-text.width ? shown-status-text.text + "\n" + note-text : note-text; }
+                        if (note-text != "" && !err-shown) || shown-status-text.preferred-width > shown-status-text.width: Tooltip {
+                            TipBody { says: note-text == "" || err-shown ? shown-status-text.text : shown-status-text.preferred-width > shown-status-text.width ? shown-status-text.text + "\n" + note-text : note-text; }
                         }
                     }
                     if using-shown: shown-using-text := Text {
@@ -257,7 +258,7 @@ export component ConnectionCard inherits Card {
             }
             // Not under an `if`: Slint measures wrapped text in a conditional layout as one line, so the box would come up short
             HorizontalLayout {
-                property <bool> shown: switch-usb-shown || update-shown;
+                property <bool> shown: err-shown || switch-usb-shown || update-shown;
                 visible: shown;
                 max-height: shown ? 100000px : 0px;
                 padding-top: shown ? 4px : 0px;
@@ -266,10 +267,15 @@ export component ConnectionCard inherits Card {
                 VerticalLayout {
                     horizontal-stretch: 1;
                     padding-bottom: parent.shown ? 2px : 0px;
+                    // A failure stays on the card as a status; the other notes are in the status's tooltip
+                    Note {
+                        text: note-text;
+                        kind: note-kind;
+                        shown: err-shown;
+                    }
                     if switch-usb-shown: HorizontalLayout {
                         alignment: start;
-                        // Qt's 8px from the label's box, which ends a pixel above Slint's
-                        padding-top: 0px;
+                        padding-top: err-shown ? 8px : 0px;
                         // action_button: 160 wide; Qt's push buttons are 32 tall
                         Button {
                             width: 160px;
@@ -282,7 +288,7 @@ export component ConnectionCard inherits Card {
                     }
                     if update-shown: HorizontalLayout {
                         alignment: start;
-                        padding-top: switch-usb-shown ? 8px : 0px;
+                        padding-top: switch-usb-shown || err-shown ? 8px : 0px;
                         // action_button: 160 wide; Qt's push buttons are 32 tall
                         Button {
                             width: 160px;

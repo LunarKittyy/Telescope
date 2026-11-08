@@ -26,7 +26,8 @@ export component Test inherits Window {
     out property <color> fill: Theme.border-hover;
     out property <color> sel: Theme.sel;
     out property <color> muted-red: Theme.edge(#ff0000);
-    out property <color> muted-accent: Theme.edge(Theme.accent);
+    out property <color> edge-accent: Theme.edge(Theme.accent);
+    out property <color> muted-accent: Theme.muted(Theme.accent);
     // Row 32px tall in a 36px box, its handle's centre running from x 7 to x 193
     Rectangle {
         x: 0;
@@ -132,12 +133,14 @@ fn zoom_slider_marks_sit_where_the_handle_would() {
 #[test]
 fn slider_fill_doesnt_stick_out_past_the_handle_at_zero() {
     let ui = rig();
-    let (picture, accent) = (draw(&ui), colour(&ui, "muted-accent"));
+    let (picture, edge, fill) = (draw(&ui), colour(&ui, "edge-accent"), colour(&ui, "muted-accent"));
     let row = 145 + 16;
     // At 0 the handle sits at the very start of the track, 14 wide, and its border is the muted card colour
-    assert!(near(picture.at(91, row), accent), "the live slider's handle edge is the muted card colour: {:?}", picture.at(91, row));
-    assert!((80..90).all(|x| !near(picture.at(x, row), accent)), "nothing of the fill sticks out left of the handle");
-    assert!((106..140).all(|x| !near(picture.at(x, row), accent)), "and at 0 none is left of its right edge either");
+    assert!(near(picture.at(91, row), edge), "the live slider's handle edge is the muted card colour: {:?}", picture.at(91, row));
+    // The fill is the hue half-way to the card, which isn't the handle's edge colour
+    assert!(!near(fill, edge), "the two colours are told apart by the checks below");
+    assert!((80..90).all(|x| !near(picture.at(x, row), fill)), "nothing of the fill sticks out left of the handle");
+    assert!((106..140).all(|x| !near(picture.at(x, row), fill)), "and at 0 none is left of its right edge either");
     // A disabled slider has a fill of its own, hidden under the handle at 0 too
     let sel = colour(&ui, "sel");
     assert!((14..30).all(|x| picture.at(x, 56) != sel));

@@ -330,7 +330,7 @@ msgstr "Mức tự động"
 msgid "Evens out quiet and loud speech."
 msgstr "Cân bằng giọng nói nhỏ và to."
 
-#: rust/crates/audio/ui/microphone.slint:258 rust/crates/audio/ui/microphone.slint:270 rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1614 rust/crates/shell/ui/cards/camera.slint:379 rust/crates/shell/ui/cards/camera.slint:381
+#: rust/crates/audio/ui/microphone.slint:258 rust/crates/audio/ui/microphone.slint:270 rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1614 rust/crates/shell/ui/cards/camera.slint:379 rust/crates/shell/ui/cards/camera.slint:382
 msgid "Noise reduction"
 msgstr "Giảm nhiễu"
 
@@ -342,7 +342,7 @@ msgstr "Mic điện thoại cần có VB-Audio Virtual Cable trên Windows."
 msgid "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."
 msgstr "VB-Cable do VB-Audio phát triển, không phải Telescope. Telescope có thể tải về tệp cài đặt từ vb-audio.com và mở trình thiết lập của chính VB-Audio, yêu cầu quyền quản trị. Hãy khởi động lại máy tính khi hoàn tất."
 
-#: rust/crates/audio/ui/microphone.slint:342 rust/crates/effects/src/desk.rs:182 rust/crates/effects/ui/colour_grading.slint:467 rust/crates/effects/ui/composite_editor.slint:580 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:474 rust/crates/link/ui/connection.slint:675 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:632 rust/crates/system/ui/shortcuts.slint:373 rust/crates/system/ui/updates.slint:214
+#: rust/crates/audio/ui/microphone.slint:342 rust/crates/effects/src/desk.rs:182 rust/crates/effects/ui/colour_grading.slint:467 rust/crates/effects/ui/composite_editor.slint:580 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:480 rust/crates/link/ui/connection.slint:681 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:632 rust/crates/system/ui/shortcuts.slint:373 rust/crates/system/ui/updates.slint:214
 msgid "Cancel"
 msgstr "Hủy"
 
@@ -524,7 +524,7 @@ msgid "Looking…"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:38 rust/crates/effects/src/photos.rs:487 rust/crates/effects/ui/background.slint:34 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:98 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:383 rust/crates/shell/ui/cards/camera.slint:394
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:38 rust/crates/effects/src/photos.rs:487 rust/crates/effects/ui/background.slint:34 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:98 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:384 rust/crates/shell/ui/cards/camera.slint:396
 msgid "Off"
 msgstr "Tắt"
 
@@ -1240,7 +1240,7 @@ msgid "Black and white"
 msgstr "Trắng đen"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:26 rust/crates/effects/ui/colour_grading.slint:213 rust/crates/link/ui/connection.slint:309 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:101 rust/crates/outputs/src/webcam.rs:958 rust/crates/outputs/ui/webcam.slint:121 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:187 rust/crates/shell/ui/cards/camera.slint:253 rust/crates/shell/ui/cards/camera.slint:309
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:26 rust/crates/effects/ui/colour_grading.slint:213 rust/crates/link/ui/connection.slint:315 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:101 rust/crates/outputs/src/webcam.rs:958 rust/crates/outputs/ui/webcam.slint:121 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:187 rust/crates/shell/ui/cards/camera.slint:253 rust/crates/shell/ui/cards/camera.slint:309
 msgid "Auto"
 msgstr "Tự động"
 
@@ -1303,7 +1303,7 @@ msgstr "Một phần tờ giấy nằm ngoài khung hình. Hãy thu nhỏ hoặc
 msgid "Desk mode"
 msgstr "Chế độ bàn làm việc"
 
-#: rust/crates/effects/src/desk.rs:181 rust/crates/link/ui/connection.slint:426
+#: rust/crates/effects/src/desk.rs:181 rust/crates/link/ui/connection.slint:432
 msgid "Done"
 msgstr "Xong"
 
@@ -2791,7 +2791,7 @@ msgstr "Màu nền"
 msgid "Put a picture behind the streams instead of the colour"
 msgstr "Đặt một hình ảnh phía sau các luồng phát thay vì màu nền"
 
-#: rust/crates/effects/ui/composite_editor.slint:556 rust/crates/link/ui/connection.slint:635
+#: rust/crates/effects/ui/composite_editor.slint:556 rust/crates/link/ui/connection.slint:641
 msgid "Close"
 msgstr "Đóng"
 
@@ -2803,15 +2803,15 @@ msgstr "Thay thế bố cục"
 msgid "Name:"
 msgstr "Tên:"
 
-#: rust/crates/effects/ui/composite_editor.slint:581 rust/crates/link/ui/connection.slint:480 rust/crates/link/ui/connection.slint:679 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:880 rust/crates/shell/ui/settings.slint:633
+#: rust/crates/effects/ui/composite_editor.slint:581 rust/crates/link/ui/connection.slint:486 rust/crates/link/ui/connection.slint:685 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:880 rust/crates/shell/ui/settings.slint:633
 msgid "OK"
 msgstr "OK"
 
-#: rust/crates/effects/ui/composite_editor.slint:590 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:722 rust/crates/setup/src/stats_phone.rs:148
+#: rust/crates/effects/ui/composite_editor.slint:590 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:728 rust/crates/setup/src/stats_phone.rs:148
 msgid "No"
 msgstr "Không"
 
-#: rust/crates/effects/ui/composite_editor.slint:591 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:716 rust/crates/setup/src/stats_phone.rs:148 rust/crates/setup/src/stats_phone.rs:152
+#: rust/crates/effects/ui/composite_editor.slint:591 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:722 rust/crates/setup/src/stats_phone.rs:148 rust/crates/setup/src/stats_phone.rs:152
 msgid "Yes"
 msgstr "Có"
 
@@ -2883,7 +2883,7 @@ msgstr "Xuống"
 msgid "Across"
 msgstr "Ngang"
 
-#: rust/crates/effects/ui/name_tag.slint:68 rust/crates/link/ui/connection.slint:605
+#: rust/crates/effects/ui/name_tag.slint:68 rust/crates/link/ui/connection.slint:611
 msgid "Name"
 msgstr "Tên"
 
@@ -3081,11 +3081,11 @@ msgstr ""
 msgid "Quality"
 msgstr "Chất lượng"
 
-#: rust/crates/effects/ui/photos.slint:163
+#: rust/crates/effects/ui/photos.slint:163 rust/crates/effects/ui/photos.slint:166
 msgid "Timer"
 msgstr "Hẹn giờ"
 
-#: rust/crates/effects/ui/photos.slint:173
+#: rust/crates/effects/ui/photos.slint:175
 msgid "Save in"
 msgstr "Lưu vào"
 
@@ -3198,7 +3198,7 @@ msgstr "Điện thoại đã từ chối quyền micrô (HTTP {code})."
 msgid "No microphone"
 msgstr "Không có micrô"
 
-#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:955 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:576 rust/crates/shell/src/streams.rs:1600 rust/crates/shell/src/window.rs:1355 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/remote.rs:46
+#: rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:955 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:576 rust/crates/shell/src/streams.rs:1600 rust/crates/shell/src/window.rs:1361 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Không truyền phát"
 
@@ -3311,7 +3311,7 @@ msgstr "Trình duyệt, kết nối lần cuối {date}"
 msgid "This computer couldn't set up the video connection."
 msgstr "Máy tính này không thể thiết lập kết nối video."
 
-#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:361 rust/crates/link/ui/connection.slint:191 rust/crates/link/ui/connection.slint:593 rust/crates/shell/src/plugins/onboarding.rs:172
+#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:361 rust/crates/link/ui/connection.slint:192 rust/crates/link/ui/connection.slint:599 rust/crates/shell/src/plugins/onboarding.rs:172
 msgid "Add device"
 msgstr ""
 
@@ -3589,7 +3589,7 @@ msgstr "điện thoại cắm qua USB là một thiết bị khác"
 msgid "phone plugged in, but Telescope isn't open on it"
 msgstr "đã cắm điện thoại nhưng chưa mở Telescope trên điện thoại"
 
-#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1080 rust/crates/link/src/plugin.rs:1337 rust/crates/link/ui/connection.slint:544 rust/crates/link/ui/connection.slint:545
+#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1080 rust/crates/link/src/plugin.rs:1337 rust/crates/link/ui/connection.slint:550 rust/crates/link/ui/connection.slint:551
 msgid "No device yet"
 msgstr ""
 
@@ -3605,7 +3605,7 @@ msgstr "Không thể kết nối với điện thoại"
 msgid "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."
 msgstr "adb không thể mở kết nối đến điện thoại. Hãy rút phích cắm, cắm lại và thử lại."
 
-#: rust/crates/link/src/plugin.rs:406 rust/crates/link/ui/connection.slint:449
+#: rust/crates/link/src/plugin.rs:406 rust/crates/link/ui/connection.slint:455
 msgid "Set up the virtual camera"
 msgstr "Thiết lập camera ảo"
 
@@ -3852,144 +3852,144 @@ msgstr "Tốc độ khung"
 msgid "Remove"
 msgstr "Gỡ bỏ"
 
-#: rust/crates/link/ui/connection.slint:186 rust/crates/link/ui/connection.slint:733 rust/crates/setup/src/stats.rs:340
+#: rust/crates/link/ui/connection.slint:187 rust/crates/link/ui/connection.slint:739 rust/crates/setup/src/stats.rs:340
 msgid "Connection"
 msgstr "Kết nối"
 
-#: rust/crates/link/ui/connection.slint:192
+#: rust/crates/link/ui/connection.slint:193
 msgid "Pair a phone over Wi-Fi or USB, or use the Browser camera"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:197
+#: rust/crates/link/ui/connection.slint:198
 msgid "Open or close the setup guide: the virtual camera, the phone app and pairing"
 msgstr "Mở hoặc đóng hướng dẫn thiết lập: camera ảo, ứng dụng điện thoại và ghép đôi"
 
-#: rust/crates/link/ui/connection.slint:198 rust/crates/shell/src/plugins/onboarding.rs:205
+#: rust/crates/link/ui/connection.slint:199 rust/crates/shell/src/plugins/onboarding.rs:205
 msgid "Setup guide"
 msgstr "Hướng dẫn thiết lập"
 
-#: rust/crates/link/ui/connection.slint:277
+#: rust/crates/link/ui/connection.slint:283
 msgid "Switch to USB"
 msgstr "Chuyển sang USB"
 
-#: rust/crates/link/ui/connection.slint:279
+#: rust/crates/link/ui/connection.slint:285
 msgid "The phone was plugged in; reconnect over the cable"
 msgstr "Điện thoại đã được cắm cáp; kết nối lại qua dây cáp"
 
-#: rust/crates/link/ui/connection.slint:305
+#: rust/crates/link/ui/connection.slint:311
 msgid "Connect via"
 msgstr "Kết nối qua"
 
-#: rust/crates/link/ui/connection.slint:313
+#: rust/crates/link/ui/connection.slint:319
 msgid "Automatic: USB when the phone's plugged in, Wi-Fi otherwise."
 msgstr "Tự động: USB khi cắm điện thoại, Wi-Fi trong trường hợp khác."
 
-#: rust/crates/link/ui/connection.slint:337
+#: rust/crates/link/ui/connection.slint:343
 msgid "Add a phone"
 msgstr "Thêm một điện thoại"
 
-#: rust/crates/link/ui/connection.slint:341
+#: rust/crates/link/ui/connection.slint:347
 msgid "What to add"
 msgstr "Mục cần thêm"
 
-#: rust/crates/link/ui/connection.slint:351
+#: rust/crates/link/ui/connection.slint:357
 msgid "Use it"
 msgstr "Dùng"
 
-#: rust/crates/link/ui/connection.slint:369
+#: rust/crates/link/ui/connection.slint:375
 msgid "Pairing code"
 msgstr "Mã ghép đôi"
 
-#: rust/crates/link/ui/connection.slint:426
+#: rust/crates/link/ui/connection.slint:432
 msgid "Back"
 msgstr "Quay lại"
 
-#: rust/crates/link/ui/connection.slint:450
+#: rust/crates/link/ui/connection.slint:456
 msgid "Telescope needs to switch on its virtual camera first. This asks for your password."
 msgstr "Trước tiên Telescope cần bật camera ảo của ứng dụng. Thao tác này sẽ yêu cầu mật khẩu của bạn."
 
-#: rust/crates/link/ui/connection.slint:458 rust/crates/link/ui/connection.slint:461
+#: rust/crates/link/ui/connection.slint:464 rust/crates/link/ui/connection.slint:467
 msgid "Also switch it on at every startup"
 msgstr "Đồng thời bật mỗi khi khởi động"
 
-#: rust/crates/link/ui/connection.slint:545
+#: rust/crates/link/ui/connection.slint:551
 msgid "Pick a device"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:549
+#: rust/crates/link/ui/connection.slint:555
 msgid "Device"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:550
+#: rust/crates/link/ui/connection.slint:556
 msgid "Which device to stream from"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:568
+#: rust/crates/link/ui/connection.slint:574
 msgid "Your devices: add, rename, remove"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:569 rust/crates/link/ui/connection.slint:586
+#: rust/crates/link/ui/connection.slint:575 rust/crates/link/ui/connection.slint:592
 msgid "Your devices"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:588
+#: rust/crates/link/ui/connection.slint:594
 msgid "Devices"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:594
+#: rust/crates/link/ui/connection.slint:600
 msgid "Add another device"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:601
+#: rust/crates/link/ui/connection.slint:607
 msgid "No devices yet"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:605
+#: rust/crates/link/ui/connection.slint:611
 msgid "Rename phone"
 msgstr "Đổi tên điện thoại"
 
-#: rust/crates/link/ui/connection.slint:615 rust/crates/setup/src/stats.rs:332
+#: rust/crates/link/ui/connection.slint:621 rust/crates/setup/src/stats.rs:332
 msgid "This computer"
 msgstr "Máy tính này"
 
-#: rust/crates/link/ui/connection.slint:620
+#: rust/crates/link/ui/connection.slint:626
 msgid "What your phones call it"
 msgstr "Tên hiển thị trên điện thoại"
 
-#: rust/crates/link/ui/connection.slint:622
+#: rust/crates/link/ui/connection.slint:628
 msgid "Change name"
 msgstr "Đổi tên"
 
-#: rust/crates/link/ui/connection.slint:623
+#: rust/crates/link/ui/connection.slint:629
 msgid "The name your phones show for this computer"
 msgstr "Tên máy tính này hiển thị trên điện thoại của bạn"
 
-#: rust/crates/link/ui/connection.slint:624
+#: rust/crates/link/ui/connection.slint:630
 msgid "Change this computer's name"
 msgstr "Đổi tên máy tính này"
 
-#: rust/crates/link/ui/connection.slint:626
+#: rust/crates/link/ui/connection.slint:632
 msgid "Rename this computer"
 msgstr "Đổi tên máy tính này"
 
-#: rust/crates/link/ui/connection.slint:626
+#: rust/crates/link/ui/connection.slint:632
 msgid "Name your phones show (applies to phones you pair from now on)"
 msgstr "Tên hiển thị trên điện thoại của bạn (áp dụng cho các điện thoại ghép đôi từ bây giờ)"
 
-#: rust/crates/link/ui/connection.slint:736 rust/crates/link/ui/connection.slint:743
+#: rust/crates/link/ui/connection.slint:742 rust/crates/link/ui/connection.slint:749
 msgid "UDP on Wi-Fi"
 msgstr "UDP qua Wi-Fi"
 
-#: rust/crates/link/ui/connection.slint:737
+#: rust/crates/link/ui/connection.slint:743
 msgctxt "search"
 msgid "udp tcp transport network lag freezes stutter wifi"
 msgstr "mạng giao thức lag giật đứng hình truyền tải udp tcp transport network lag freezes stutter wifi"
 
-#: rust/crates/link/ui/connection.slint:738
+#: rust/crates/link/ui/connection.slint:744
 msgid "It can stutter more than TCP, so try it and see."
 msgstr "Có thể bị giật nhiều hơn TCP, nên bạn hãy thử xem sao."
 
-#: rust/crates/link/ui/connection.slint:739
+#: rust/crates/link/ui/connection.slint:745
 msgid "Experimental"
 msgstr "Thử nghiệm"
 
@@ -5896,11 +5896,11 @@ msgstr "Kéo trên ảnh để đánh dấu một vùng. Nhấn Esc để hủy.
 msgid "Drag the corners into place, then press Enter. Esc cancels."
 msgstr "Kéo các góc vào đúng vị trí rồi nhấn Enter. Nhấn Esc để hủy."
 
-#: rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:383 rust/crates/shell/ui/cards/camera.slint:394
+#: rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:384 rust/crates/shell/ui/cards/camera.slint:396
 msgid "Fast"
 msgstr "Nhanh"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:383 rust/crates/shell/ui/cards/camera.slint:394
+#: rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:384 rust/crates/shell/ui/cards/camera.slint:396
 msgid "High Quality"
 msgstr "Chất lượng cao"
 
@@ -6055,7 +6055,7 @@ msgctxt "focus"
 msgid "Manual"
 msgstr "Tay"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1615 rust/crates/shell/ui/cards/camera.slint:390 rust/crates/shell/ui/cards/camera.slint:392
+#: rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1615 rust/crates/shell/ui/cards/camera.slint:391 rust/crates/shell/ui/cards/camera.slint:394
 msgid "Sharpening"
 msgstr "Tăng độ nét"
 
@@ -6645,7 +6645,7 @@ msgid "Could not save settings. Check disk space and permissions."
 msgstr "Không thể lưu cài đặt. Kiểm tra dung lượng đĩa và quyền truy cập."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1365 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1371 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "Bắt đầu"
 
@@ -6939,20 +6939,20 @@ msgstr "Telescope - Xem trước video"
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: rust/crates/shell/src/window.rs:1364 rust/crates/shell/src/window.rs:1365
+#: rust/crates/shell/src/window.rs:1370 rust/crates/shell/src/window.rs:1371
 msgid "Start mic only"
 msgstr "Chỉ bật mic"
 
-#: rust/crates/shell/src/window.rs:1364
+#: rust/crates/shell/src/window.rs:1370
 msgid "Start streaming"
 msgstr "Bắt đầu truyền phát"
 
-#: rust/crates/shell/src/window.rs:1370
+#: rust/crates/shell/src/window.rs:1376
 msgid "Stop streaming"
 msgstr "Dừng truyền phát"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1371 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/window.rs:1377 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "Dừng"
 
@@ -7010,15 +7010,15 @@ msgstr "Sắc thái G–M"
 msgid "Distance"
 msgstr "Khoảng cách"
 
-#: rust/crates/shell/ui/cards/onboarding.slint:83
+#: rust/crates/shell/ui/cards/onboarding.slint:92
 msgid "QR code that downloads the phone app"
 msgstr ""
 
-#: rust/crates/shell/ui/cards/onboarding.slint:119
+#: rust/crates/shell/ui/cards/onboarding.slint:128
 msgid "Get set up"
 msgstr "Bắt đầu thiết lập"
 
-#: rust/crates/shell/ui/cards/onboarding.slint:123
+#: rust/crates/shell/ui/cards/onboarding.slint:132
 msgid "Close the setup guide"
 msgstr "Đóng hướng dẫn thiết lập"
 

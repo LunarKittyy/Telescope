@@ -71,6 +71,15 @@ component StepRow inherits HorizontalLayout {
             color: step.kind == "status_ok" ? Theme.ok : step.kind == "status_warn" ? Theme.warn : step.kind == "status_err" ? Theme.err : Theme.dim;
             if step.tip != "": Tooltip { TipBody { says: step.tip; } }
         }
+        // A step that is stuck needs its how-to on the card: a tooltip can't be opened with the keyboard
+        if step.kind == "status_warn" && step.tip != "": Text {
+            text: step.tip;
+            wrap: word-wrap;
+            line-height-factor: Theme.line-factor(self.font-size);
+            font-family: Theme.font;
+            font-size: Theme.small;
+            color: Theme.ink2;
+        }
         if qr-shown: HorizontalLayout {
             padding-top: 4px;
             alignment: start;
