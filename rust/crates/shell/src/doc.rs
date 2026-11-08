@@ -12,9 +12,12 @@ use crate::source::{quote, Interface};
 
 /// Spacing between cards in a column and between columns (app.py _build_body).
 const GAP: f32 = 14.0;
-/// The room kept at the column's right for its scrollbar, always, so the bar appears in it and nothing moves or narrows: a gap, then the bar.
-const INSET: f32 = 6.0;
+/// The scrollbar's width. A side rail with a column after it keeps a gutter for its bar at its right, always, so the bar appearing
+/// moves and narrows nothing: cards, GAP, bar, then the column gap. The last column's bar sits in the window's right margin
+/// (as wide as the left one), and the stage's, which has a rail after it, in the gap before that rail.
 const BAR: f32 = 11.0;
+/// The window's margin on each side.
+const MARGIN: f32 = 16.0;
 
 /// One plugin's piece of UI as the window holds it.
 #[derive(Clone, Debug)]
@@ -65,7 +68,10 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
         let x = mode_expr(|m| col_x(&cols[m], c));
         let w = mode_expr(|m| col_w(&cols[m], c));
         out.push_str(&format!("    out property <length> c{c}x: {x};\n    out property <length> c{c}w: {w};\n"));
-        out.push_str(&format!("    out property <length> card{c}w: c{c}w - {INSET}px - {BAR}px;\n"));
+        let gutter = mode_expr(|m| format!("{}px", gutter_of(&cols[m], c)));
+        out.push_str(&format!("    out property <length> card{c}w: c{c}w - {gutter};\n"));
+        let bar_x = mode_expr(|m| bar_x(&cols[m], c));
+        out.push_str(&format!("    out property <length> bar{c}x: {bar_x};\n"));
     }
     // Preferred content height and stretch room of each column in the current mode
     #[allow(clippy::needless_range_loop)] // c names the column in the generated text as well
@@ -152,6 +158,30 @@ fn col_x(cols: &[(Vec<usize>, Option<f32>); 3], c: usize) -> String {
         parts.push(format!("{} + {GAP}px", width_of(*w, &shown)));
     }
     "0px".into()
+}
+
+/// What a column keeps at its right for its bar: only a fixed-width rail with another column after it.
+fn gutter_of(cols: &[(Vec<usize>, Option<f32>); 3], c: usize) -> f32 {
+    let shown = shown(cols);
+    match shown.iter().position(|(sc, _)| *sc == c) {
+        Some(at) if at + 1 < shown.len() && shown[at].1.is_some() => GAP + BAR,
+        _ => 0.0,
+    }
+}
+
+/// Where a column's bar goes, from the body's left edge: in the rail's own gutter, in the margin after the last column, or in the
+/// gap between the stage and the rail after it.
+fn bar_x(cols: &[(Vec<usize>, Option<f32>); 3], c: usize) -> String {
+    let shown = shown(cols);
+    let Some(at) = shown.iter().position(|(sc, _)| *sc == c) else { return "0px".into() };
+    let end = format!("root.c{c}x + root.c{c}w");
+    if at + 1 == shown.len() {
+        format!("{end} + {}px", ((MARGIN - BAR) / 2.0).floor())
+    } else if shown[at].1.is_some() {
+        format!("{end} - {BAR}px")
+    } else {
+        format!("{end} + {}px", ((GAP - BAR) / 2.0).floor())
+    }
 }
 
 fn col_w(cols: &[(Vec<usize>, Option<f32>); 3], c: usize) -> String {
@@ -427,7 +457,7 @@ const BODY_TOP: &str = r#"
     Flickable {
         x: 16px;
         y: body-top + 16px;
-        // The window's right margin too, where the last column's scrollbar sits so it ends flush with the window's edge
+        // The window's right margin too, where the last column's scrollbar sits
         width: body-w + 16px;
         height: view-h;
         interactive: false;
@@ -447,9 +477,9 @@ const BODY_TOP: &str = r#"
 "#;
 
 const BODY_BOTTOM: &str = r#"        }
-        ColumnScrollbar { x: root.c0x + root.c0w - 11px + (root.c1w > 0 ? 0px : 16px); height: root.view-h; visible: root.bar0 && root.c0w > 0; content: root.col0-full; viewport: root.view-h; offset <=> root.scroll0; }
-        ColumnScrollbar { x: root.c1x + root.c1w - 11px + (root.c2w > 0 ? 0px : 16px); height: root.view-h; visible: root.bar1 && root.c1w > 0; content: root.col1-full; viewport: root.view-h; offset <=> root.scroll1; }
-        ColumnScrollbar { x: root.c2x + root.c2w - 11px + 16px; height: root.view-h; visible: root.bar2 && root.c2w > 0; content: root.col2-full; viewport: root.view-h; offset <=> root.scroll2; }
+        ColumnScrollbar { x: root.bar0x; height: root.view-h; visible: root.bar0 && root.c0w > 0; content: root.col0-full; viewport: root.view-h; offset <=> root.scroll0; }
+        ColumnScrollbar { x: root.bar1x; height: root.view-h; visible: root.bar1 && root.c1w > 0; content: root.col1-full; viewport: root.view-h; offset <=> root.scroll1; }
+        ColumnScrollbar { x: root.bar2x; height: root.view-h; visible: root.bar2 && root.c2w > 0; content: root.col2-full; viewport: root.view-h; offset <=> root.scroll2; }
     }
     Footer {
         x: 0;
@@ -575,6 +605,48 @@ export component Hinted inherits Card {
     }
 
     #[test]
+    fn the_gaps_around_the_scroll_bars_are_one_width_and_the_margins_are_equal() {
+        i_slint_backend_testing::init_no_event_loop();
+        let (p0, f0) = piece("p0", "plugins/a/card.slint", "Stage", STAGE);
+        let (p1, f1) = piece("p1", "plugins/b/card.slint", "Stage", STAGE);
+        let (p2, f2) = piece("p2", "plugins/c/card.slint", "Stage", STAGE);
+        let place = |piece, region, name: &str| CardPlace { piece, region, fold_key: format!("{name}/Stage"), category: "preview".into() };
+        let cards = vec![place(p0, Region::Left, "a"), place(p1, Region::Center, "b"), place(p2, Region::Right, "c")];
+        let mut panels = Panels::default();
+        panels.place(Region::Left, 0, false, "preview");
+        panels.place(Region::Center, 1, false, "preview");
+        panels.place(Region::Right, 2, false, "preview");
+        let text = window(&cards, &panels, &[]);
+        let def = crate::compile::compile("window.slint", &text, vec![f0, f1, f2], "TelescopeWindow").unwrap_or_else(|e| panic!("{e}\n{text}"));
+        let win = def.create().unwrap();
+        win.set_global_callback("Folds", "is-folded", |_| Value::Bool(false)).unwrap();
+        let edges = |id: &str| {
+            let e = i_slint_backend_testing::ElementHandle::find_by_element_id(&win, &format!("TelescopeWindow::{id}")).next().unwrap();
+            (e.absolute_position().x, e.absolute_position().x + e.size().width)
+        };
+        let num = |name: &str| match win.get_property(name).unwrap() { Value::Number(n) => n as f32, v => panic!("{name}: {v:?}") };
+        for width in [1300.0_f32, 1700.0] {
+            win.window().set_size(slint::LogicalSize::new(width, 800.0));
+            for bars in [false, true] {
+                for c in 0..3 {
+                    win.set_property(&format!("bar{c}"), Value::Bool(bars)).unwrap();
+                }
+                let (left, stage, right) = (edges("p0"), edges("p1"), edges("p2"));
+                // The left bar sits in the rail's gutter, then the same gap to the stage, which is the same gap again to the right rail
+                let bar = num("bar0x") + 16.0;
+                assert_eq!(bar - left.1, 14.0, "left cards to the left bar at {width}");
+                assert_eq!(stage.0 - (bar + 11.0), 14.0, "left bar to the stage at {width}");
+                assert_eq!(right.0 - stage.1, 14.0, "stage to the right cards at {width}");
+                // Both margins are 16, with the right bar's handle or without it
+                assert_eq!(left.0, 16.0);
+                assert_eq!(width - right.1, 16.0, "right margin at {width}, bars {bars}");
+                let handle = num("bar2x") + 16.0;
+                assert!(handle >= right.1 && handle + 11.0 <= width, "the right bar sits in the right margin: {handle}");
+            }
+        }
+    }
+
+    #[test]
     fn cards_find_their_column_in_every_mode_and_reach_the_shell_by_name() {
         i_slint_backend_testing::init_no_event_loop();
         let camera = include_str!("../ui/cards/camera.slint");
@@ -613,7 +685,7 @@ export component Hinted inherits Card {
         assert_eq!(num("card0w"), narrow, "a bar appearing doesn't narrow the column");
         win.set_property("bar0", Value::Bool(false)).unwrap();
         assert_eq!(num("card0w"), narrow);
-        assert_eq!(narrow, 528.0 - 6.0 - 11.0);
+        assert_eq!(narrow, 528.0, "the last column's bar is in the margin, so its cards take the column");
     }
 }
 

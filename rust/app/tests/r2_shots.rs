@@ -272,3 +272,38 @@ fn the_microphone_meter_and_gain_slider_share_one_track() {
 fn Theme_u(n: f32) -> f32 {
     n * 2.0
 }
+
+/// The main window with the columns' scroll handles showing or not, and the gaps around them measured in the picture.
+#[test]
+fn window_gutter_shots() {
+    let Some(dir) = out() else { return };
+    // The scenes grow the window to its content; these draw the window at a size of their own, short enough for the columns to scroll
+    let mut scenes = Vec::new();
+    for (name, width, height) in [("window-default", 1380.0_f32, 330.0_f32), ("window-wide", 1900.0, 330.0), ("window-bars-hidden", 1380.0, 3000.0)] {
+        let dir = dir.clone();
+        let then = std::cell::RefCell::new(Some(Box::new(move |w: &std::rc::Rc<telescope_shell::window::Window>| {
+            let win = w.ui.window();
+            win.set_size(slint::LogicalSize::new(width, height));
+            settle();
+            let pic = offscreen::draw(win, width, height, 1.0).expect("a picture");
+            pic.save_png(&dir.join(format!("{name}.png"))).unwrap();
+        }) as telescope_shell::scenes::AfterBuilt));
+        scenes.push(telescope_shell::scenes::Scene::new(name, move || {
+            let mut s = telescope_shell::scenes::Setup::window(None, json!({}), width, height);
+            // Cards in the left rail and the right one, with the stage between
+            s.plugins = Some(|bus| {
+                let mut plugins = telescope_shell::plugins::builtins(None, bus);
+                plugins.push(Box::new(telescope_effects::transforms::TransformsPlugin::new()));
+                plugins.push(Box::new(telescope_effects::desk::DeskPlugin::new()));
+                plugins.push(Box::new(telescope_effects::framing::FramingPlugin::new()));
+                plugins.push(Box::new(ColourGradingPlugin::new()));
+                plugins.push(Box::new(NameTagPlugin::new()));
+                telescope_shell::plugins::in_order(plugins)
+            });
+            s.then = then.borrow_mut().take();
+            s
+        }));
+    }
+    let (n, failed) = telescope_shell::scenes::render(&scenes, &[1.0], &std::env::temp_dir().join("r2-gutter-unused")).expect("rendered");
+    assert!(failed.is_empty(), "{failed:?} {n}");
+}
