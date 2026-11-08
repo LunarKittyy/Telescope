@@ -129,12 +129,19 @@ export component Dial inherits Rectangle {
         y: Theme.u(5);
         width: pitch - Theme.u(3);
         height: Theme.u(13);
+        // The size between the small and the large is a scale of the large text, not a font size: a font size is rounded to whole pixels,
+        // so the names would jump from one size to the next, where a scale is anti-aliased and moves in fractions of a pixel. The box
+        // is made as much larger as the text is made smaller, so it still ends where the stop's room does.
+        property <float> grown: (Theme.small + (big - Theme.small) * clamp(1 - dist, 0, 1)) / big;
         Text {
-            width: parent.width;
-            height: parent.height;
+            width: parent.width / grown;
+            height: parent.height / grown;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            transform-scale: grown;
             text: stop;
             font-family: Theme.font;
-            font-size: Theme.small + (big - Theme.small) * clamp(1 - dist, 0, 1);
+            font-size: big;
             font-weight: Theme.w-value;
             color: !enabled ? Theme.dis : Theme.ink;
             opacity: dist <= 1 ? 0.45 + 0.55 * (1 - dist) : max(0, 0.45 * (1.6 - dist) / 0.6);

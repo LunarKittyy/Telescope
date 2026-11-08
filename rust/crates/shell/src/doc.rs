@@ -12,7 +12,7 @@ use crate::source::{quote, Interface};
 
 /// Spacing between cards in a column and between columns (app.py _build_body).
 const GAP: f32 = 14.0;
-/// The column's right inset, so its scrollbar doesn't cover a card's border.
+/// The room kept at the column's right for its scrollbar, always, so the bar appears in it and nothing moves or narrows: a gap, then the bar.
 const INSET: f32 = 6.0;
 const BAR: f32 = 11.0;
 
@@ -65,7 +65,7 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
         let x = mode_expr(|m| col_x(&cols[m], c));
         let w = mode_expr(|m| col_w(&cols[m], c));
         out.push_str(&format!("    out property <length> c{c}x: {x};\n    out property <length> c{c}w: {w};\n"));
-        out.push_str(&format!("    property <length> card{c}w: c{c}w - {INSET}px - (bar{c} ? {BAR}px : 0px);\n"));
+        out.push_str(&format!("    property <length> card{c}w: c{c}w - {INSET}px - {BAR}px;\n"));
     }
     // Preferred content height and stretch room of each column in the current mode
     #[allow(clippy::needless_range_loop)] // c names the column in the generated text as well
@@ -409,7 +409,8 @@ const BODY_TOP: &str = r#"
     Flickable {
         x: 16px;
         y: body-top + 16px;
-        width: body-w;
+        // The window's right margin too, where the last column's scrollbar sits so it ends flush with the window's edge
+        width: body-w + 16px;
         height: view-h;
         interactive: false;
         viewport-width: self.width;
@@ -428,9 +429,9 @@ const BODY_TOP: &str = r#"
 "#;
 
 const BODY_BOTTOM: &str = r#"        }
-        ColumnScrollbar { x: root.c0x + root.c0w - 11px; height: root.view-h; visible: root.bar0 && root.c0w > 0; content: root.col0-full; viewport: root.view-h; offset <=> root.scroll0; }
-        ColumnScrollbar { x: root.c1x + root.c1w - 11px; height: root.view-h; visible: root.bar1 && root.c1w > 0; content: root.col1-full; viewport: root.view-h; offset <=> root.scroll1; }
-        ColumnScrollbar { x: root.c2x + root.c2w - 11px; height: root.view-h; visible: root.bar2 && root.c2w > 0; content: root.col2-full; viewport: root.view-h; offset <=> root.scroll2; }
+        ColumnScrollbar { x: root.c0x + root.c0w - 11px + (root.c1w > 0 ? 0px : 16px); height: root.view-h; visible: root.bar0 && root.c0w > 0; content: root.col0-full; viewport: root.view-h; offset <=> root.scroll0; }
+        ColumnScrollbar { x: root.c1x + root.c1w - 11px + (root.c2w > 0 ? 0px : 16px); height: root.view-h; visible: root.bar1 && root.c1w > 0; content: root.col1-full; viewport: root.view-h; offset <=> root.scroll1; }
+        ColumnScrollbar { x: root.c2x + root.c2w - 11px + 16px; height: root.view-h; visible: root.bar2 && root.c2w > 0; content: root.col2-full; viewport: root.view-h; offset <=> root.scroll2; }
     }
     Footer {
         x: 0;

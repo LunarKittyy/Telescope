@@ -62,6 +62,10 @@ export component ColourWheel inherits Rectangle {
     property <length> px: cx + glide-x.value * radius;
     property <length> py: cy - glide-y.value * radius;
     property <length> ring-out: radius + gap-w + ring-w;
+    // The puck and the crosshair are whole physical pixels too, and an even number across, so at (0, 0) the puck's middle is the disc's
+    // middle, the crosshair's middle and a pixel edge, with the same on every side
+    property <length> puck-d: 2 * round(Theme.u(9) / 2phx) * 1phx;
+    property <length> cross: 2phx;
     accessible-role: slider;
     accessible-label: label;
     accessible-value: spoken;
@@ -136,8 +140,8 @@ export component ColourWheel inherits Rectangle {
         animate background { duration: Motion.tone-for(held); easing: Motion.tone; }
     }
     // The crosshair and the two rings inside, quiet: where the puck is, not a scale to read
-    Rectangle { x: cx - radius + Theme.u(2); y: cy; width: 2 * radius - Theme.u(4); height: Theme.u(0.5); background: enabled ? Theme.ink.with-alpha(0.22) : Theme.dis.with-alpha(0.4); }
-    Rectangle { x: cx; y: cy - radius + Theme.u(2); width: Theme.u(0.5); height: 2 * radius - Theme.u(4); background: enabled ? Theme.ink.with-alpha(0.22) : Theme.dis.with-alpha(0.4); }
+    Rectangle { x: cx - radius + Theme.u(2); y: cy - cross / 2; width: 2 * radius - Theme.u(4); height: cross; background: enabled ? Theme.ink.with-alpha(0.16) : Theme.dis.with-alpha(0.3); }
+    Rectangle { x: cx - cross / 2; y: cy - radius + Theme.u(2); width: cross; height: 2 * radius - Theme.u(4); background: enabled ? Theme.ink.with-alpha(0.16) : Theme.dis.with-alpha(0.3); }
     for t in [0.33, 0.66]: Rectangle {
         property <length> r: round(radius * t / 1phx) * 1phx;
         x: cx - r;
@@ -173,8 +177,8 @@ export component ColourWheel inherits Rectangle {
     Rectangle {
         x: px - self.width / 2;
         y: py - self.height / 2;
-        width: Theme.u(9);
-        height: Theme.u(9);
+        width: puck-d;
+        height: puck-d;
         border-radius: self.width / 2;
         border-width: Theme.u(1.5);
         border-color: !enabled ? Theme.dis : hue.mix(Theme.card, 0.75 + 0.25 * max(held-tone.value, hover-tone.value));

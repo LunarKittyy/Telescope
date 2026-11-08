@@ -189,7 +189,8 @@ export component ScrollPage inherits Flickable {
     // Set from changes, not bound: the bar narrows the page, which changes how tall its content is
     in-out property <bool> bar;
     property <bool> checked;
-    out property <length> inner-width: root.width - 8px - (bar ? 11px : 0px);
+    // The bar's room is always kept, so the page doesn't move or narrow when the bar appears
+    out property <length> inner-width: root.width - 8px - 11px;
     changed content => { bar = content > root.height; }
     changed height => { bar = content > root.height; }
     interactive: false;
