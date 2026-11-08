@@ -71,6 +71,8 @@ export component PhotosCard inherits Card {
     in property <int> mode-index;
     in property <bool> mode-enabled;
     in property <string> mode-tip;
+    in property <string> shots-tip;
+    in property <string> timer-tip;
     in property <[string]> format-options;
     in property <int> format-index;
     in property <bool> format-enabled;
@@ -120,6 +122,7 @@ export component PhotosCard inherits Card {
     callback folder-clicked;
 
     title: @tr("Photos");
+    tip: @tr("Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it.");
     icon: Icons.photo;
     visible: shown;
     opacity: active ? 1 : 0.4;
@@ -132,8 +135,8 @@ export component PhotosCard inherits Card {
         enabled: active;
         HorizontalLayout {
             spacing: Theme.gap;
-            Button { horizontal-stretch: 1; preferred-width: 1000px; text: take-text; tip: take-tip; role: "primary"; hue: root.hue; enabled: active && take-enabled; shortcut: "photos.take"; clicked => { root.take-clicked(); } }
-            IconButton { icon: Icons.folder; label: open-text; tip: open-tip; enabled: active && open-enabled; clicked => { root.open-clicked(); } }
+            Button { horizontal-stretch: 1; preferred-width: 1000px; text: take-text; tip: take-text; tip-detail: take-tip; role: "primary"; hue: root.hue; enabled: active && take-enabled; shortcut: "photos.take"; clicked => { root.take-clicked(); } }
+            IconButton { icon: Icons.folder; label: open-text; tip: open-text; tip-detail: open-tip; enabled: active && open-enabled; clicked => { root.open-clicked(); } }
         }
     }
     if status != "": RailRow {
@@ -160,6 +163,7 @@ export component PhotosCard inherits Card {
             if iso-options.length > 0: Dial {
                 label: @tr("ISO");
                 tip: @tr("ISO");
+                tip-detail: @tr("Higher ISO makes the photo brighter but grainier.");
                 hue: root.hue;
                 enabled: active;
                 stops: iso-options;
@@ -169,6 +173,7 @@ export component PhotosCard inherits Card {
             if shutter-options.length > 0: Dial {
                 label: @tr("Shutter");
                 tip: @tr("Shutter");
+                tip-detail: @tr("Slower shutter speeds make the photo brighter but blur movement.");
                 hue: root.hue;
                 enabled: active;
                 stops: shutter-options;
@@ -203,6 +208,7 @@ export component PhotosCard inherits Card {
                 current: format-index;
                 enabled: active && format-enabled;
                 tip: @tr("Format");
+                tip-detail: @tr("The file type photos are saved as.");
                 picked(i) => { root.tile-picked("format", i); }
             }
         }
@@ -217,6 +223,7 @@ export component PhotosCard inherits Card {
             label: @tr("Shots");
             hue: root.hue;
             items: shots-names;
+            tip-details: [shots-tip, shots-tip, shots-tip, shots-tip];
             disabled: [!active || !shots-offered[0], !active || !shots-offered[1], !active || !shots-offered[2], !active || !shots-offered[3]];
             current: shots-index;
             picked(i) => { root.tile-picked("shots", i); }
@@ -239,7 +246,8 @@ export component PhotosCard inherits Card {
                 items: slot-options.length > 0 ? slot-options : ["-"];
                 current: slot-index;
                 enabled: active && slot-options.length > 0;
-                tip: slot-tip;
+                tip: slot-label != "" ? slot-label : @tr("How many");
+                tip-detail: slot-tip;
                 previous-label: (slot-label != "" ? slot-label : @tr("How many")) + ": " + root.previous-label;
                 next-label: (slot-label != "" ? slot-label : @tr("How many")) + ": " + root.next-label;
                 step(by) => { root.tile-step(root.slot-key, by); }
@@ -252,7 +260,8 @@ export component PhotosCard inherits Card {
                 items: exposure-options.length > 0 ? exposure-options : ["-"];
                 current: exposure-index;
                 enabled: active && exposure-options.length > 1;
-                tip: exposure-tip;
+                tip: @tr("Exposure");
+                tip-detail: exposure-tip;
                 previous-label: @tr("Exposure") + ": " + root.previous-label;
                 next-label: @tr("Exposure") + ": " + root.next-label;
                 step(by) => { root.tile-step("exposure_s", by); }
@@ -273,7 +282,8 @@ export component PhotosCard inherits Card {
             label: @tr("Distortion fix");
             items: [@tr("Camera"), @tr("On"), @tr("Off")];
             disabled: [!active || !distortion-enabled, !active || !distortion-enabled, !active || !distortion-enabled];
-            tips: distortion-tips;
+            tips: [@tr("Camera"), @tr("On"), @tr("Off")];
+            tip-details: distortion-tips;
             current: distortion-index;
             picked(i) => { root.tile-picked("distortion", i); }
         }
@@ -294,15 +304,17 @@ export component PhotosCard inherits Card {
             hue: root.hue;
             has-default: true;
             default-value: 95;
-            tip: quality-tip != "" ? quality-tip : @tr("Quality");
-            tip-detail: quality-tip != "" ? "" : reset-hint;
+            tip: @tr("Quality");
+            tip-detail: quality-tip != "" ? quality-tip : @tr("Higher quality gives bigger and cleaner JPEG files.");
+            tip-hint: quality-tip != "" ? "" : reset-hint;
             moved(v) => { root.quality-moved(v); }
         }
     }
     SwitchRow {
         icon: Icons.sparkle;
         label: best-name;
-        tip: best-tip;
+        tip: best-name;
+        tip-detail: best-tip;
         hue: root.hue;
         enabled: active && best-enabled;
         changed: !best;
@@ -320,6 +332,8 @@ export component PhotosCard inherits Card {
             label: @tr("Timer");
             shortcut: "photos.timer";
             items: timer-items;
+            tips: timer-items;
+            tip-details: [timer-tip, timer-tip, timer-tip];
             disabled: [!active, !active, !active];
             current: timer-current;
             picked(i) => { root.timer-picked(i); }
@@ -336,7 +350,9 @@ export component PhotosCard inherits Card {
             preferred-width: 1000px;
             shrinks: true;
             text: folder-name;
-            tip: folder-tip;
+            tip: @tr("Save in");
+            tip-detail: @tr("The folder path photos are saved in.");
+            tip-hint: folder-tip;
             enabled: active;
             clicked => { root.folder-clicked(); }
         }

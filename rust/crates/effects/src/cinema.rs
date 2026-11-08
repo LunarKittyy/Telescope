@@ -22,13 +22,13 @@ const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("
 const T_SEEN: &str = "seen";
 const SEEN_EVERY_MS: u64 = 1000;
 
-const PEAKING_TIP: &str = n_("Outline what's sharp");
-const ZEBRAS_TIP: &str = n_("Stripe what's about to clip to white");
-const FALSE_TIP: &str = n_("Colour the picture by how bright it is");
-const LEVEL_TIP: &str = n_("Show the horizon from the phone's motion sensors");
-const GUIDES_TIP: &str = n_("Lines to help frame the shot");
-const SENSITIVITY_TIP: &str = n_("Higher outlines softer edges too");
-const ZEBRA_FROM_TIP: &str = n_("How bright something has to be to get stripes");
+const PEAKING_TIP: &str = n_("Outline the parts of the picture that are in focus.");
+const ZEBRAS_TIP: &str = n_("Show stripes on areas that are about to clip to white.");
+const FALSE_TIP: &str = n_("Colour each area of the picture by its brightness.");
+const LEVEL_TIP: &str = n_("Show a horizon line from the phone's motion sensors.");
+const GUIDES_TIP: &str = n_("Lines to help frame the shot.");
+const SENSITIVITY_TIP: &str = n_("Higher values also outline softer edges.");
+const ZEBRA_FROM_TIP: &str = n_("How bright something has to be to get stripes.");
 
 /// The four switches, in the order of their actions: (action id, the name on the card, which setting).
 const SWITCHES: [(&str, &str); 4] = [

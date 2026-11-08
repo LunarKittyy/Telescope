@@ -5,7 +5,10 @@ component WheelCell inherits VerticalLayout {
     in property <string> name;
     in property <string> wheel-label;
     in property <string> hint;
+    in property <string> tip-body;
     in property <string> master-tip;
+    in property <string> master-title;
+    in property <string> reset-hint;
     in property <string> master-shortcut;
     // The setting id of the master slider, for the outline when something outside the window reads or changes it
     in property <string> master-setting;
@@ -60,7 +63,8 @@ component WheelCell inherits VerticalLayout {
         label: root.wheel-label;
         spoken: Spoken.wheel(root.puck-x, root.puck-y);
         tip: root.wheel-label;
-        tip-detail: root.hint;
+        tip-detail: root.tip-body;
+        tip-hint: root.hint;
         enabled: root.enabled;
         pressed => { root.pressed(); }
         dragged(dx, dy, shift) => { root.dragged(dx, dy, shift); }
@@ -86,8 +90,9 @@ component WheelCell inherits VerticalLayout {
             value: master-value;
             has-default: true;
             default-value: master-default;
-            tip: root.master-tip;
-            tip-detail: root.hint;
+            tip: root.master-title;
+            tip-detail: root.master-tip;
+            tip-hint: root.reset-hint;
             moved(v) => { root.master-moved(v); }
         }
     }
@@ -110,6 +115,8 @@ export component ColourGradingCard inherits Card {
     in property <[color]> wheel-colour: [#808080, #808080, #808080, #808080];
     in property <[string]> wheel-labels: ["", "", "", ""];
     in property <[string]> master-tips: ["", "", "", ""];
+    in property <[string]> master-labels: ["", "", "", ""];
+    in property <string> wheel-tip;
     in property <string> wheel-hint;
     in property <[string]> master-text: ["", "", "", ""];
     in property <[float]> master-min: [0, 0, 0, 0];
@@ -172,6 +179,7 @@ export component ColourGradingCard inherits Card {
     callback auto-clicked;
 
     title: @tr("Colour grading");
+    tip: @tr("Change the colours of the picture with colour wheels, curves and LUT files.");
     icon: Icons.colour;
     opacity: active ? 1 : 0.4;
     enabled: active;
@@ -181,7 +189,8 @@ export component ColourGradingCard inherits Card {
     switch-enabled: active;
     switch-checked: on;
     switch-label: switch-name;
-    switch-tip: switch-help;
+    switch-tip: switch-name;
+    switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
     SwitchRow {
@@ -191,7 +200,8 @@ export component ColourGradingCard inherits Card {
         enabled: active;
         checked: compare;
         shortcut: "colour_grading.compare";
-        tip: @tr("Left of the line the preview shows the picture without the grade (apps always get it graded)");
+        tip: @tr("Compare");
+        tip-detail: @tr("Show the ungraded picture left of the line on the preview. Apps always get the graded picture.");
         toggled(v) => { root.compare-toggled(v); }
     }
     // A hidden row keeps its height out of the layout with visible and max-height
@@ -199,7 +209,9 @@ export component ColourGradingCard inherits Card {
         icon: Icons.split;
         enabled: active;
         label: @tr("Split");
-        tip: @tr("Where the line between before and after is");
+        tip: @tr("Split");
+        tip-detail: @tr("Move the line between before and after.");
+        tip-hint: root.reset-hint;
         minimum: 0;
         maximum: 100;
         value: split;
@@ -207,7 +219,6 @@ export component ColourGradingCard inherits Card {
         hue: root.hue;
         has-default: true;
         default-value: 50;
-        hint: root.reset-hint;
         moved(v) => { root.split-moved(v); }
     }
     HorizontalLayout {
@@ -220,6 +231,8 @@ export component ColourGradingCard inherits Card {
             has-icons: [false, false, false];
             icons: [Icons.colour, Icons.colour, Icons.colour];
             label: @tr("Page");
+            tips: [@tr("Primaries"), @tr("Curves"), @tr("LUT")];
+            tip-details: [@tr("Colour wheels and sliders."), @tr("Brightness, hue and saturation curves."), @tr("Load a LUT file or export the grade.")];
             current: page;
             picked(i) => { root.page-picked(i); }
         }
@@ -227,7 +240,8 @@ export component ColourGradingCard inherits Card {
             enabled: active && !auto-busy;
             text: auto-label != "" ? auto-label : @tr("Auto");
             accessible-label: @tr("Auto colour grading");
-            tip: @tr("Looks at about a second of the picture and sets white balance, brightness, contrast and colour for you. Everything it sets stays on the sliders to change");
+            tip: @tr("Auto");
+            tip-detail: @tr("Set white balance, brightness, contrast and colour from about a second of the picture. You can still adjust everything on the sliders.");
             clicked => { root.auto-clicked(); }
         }
         Rectangle {
@@ -235,8 +249,9 @@ export component ColourGradingCard inherits Card {
             IconButton {
                 y: (parent.height - self.height) / 2;
                 icon: Icons.reset;
-                label: @tr("Reset the grade");
-                tip: @tr("Reset the grade");
+                label: @tr("Reset grade");
+                tip: @tr("Reset grade");
+                tip-detail: @tr("Set everything except the LUT back to default.");
                 clicked => { root.reset-clicked(); }
             }
         }
@@ -256,6 +271,9 @@ export component ColourGradingCard inherits Card {
                 name: name;
                 wheel-label: wheel-labels[i];
                 hint: root.wheel-hint;
+                tip-body: root.wheel-tip;
+                reset-hint: root.reset-hint;
+                master-title: master-labels[i];
                 master-tip: master-tips[i];
                 master-shortcut: ["colour_grading.lift_master", "colour_grading.gamma_master", "colour_grading.gain_master", "colour_grading.offset_master"][i];
                 master-setting: ["colour_grading.masters.lift", "colour_grading.masters.gamma", "colour_grading.masters.gain", "colour_grading.masters.offset"][i];
@@ -282,7 +300,9 @@ export component ColourGradingCard inherits Card {
             icon: [Icons.thermometer, Icons.tint, Icons.contrast, Icons.pivot, Icons.saturation, Icons.sparkle, Icons.shadows, Icons.sun][i];
             enabled: active;
             label: name;
-            tip: slider-tips[i];
+            tip: name;
+            tip-detail: slider-tips[i];
+            tip-hint: root.reset-hint;
             shortcut: ["colour_grading.temperature", "colour_grading.tint", "colour_grading.contrast", "colour_grading.pivot", "colour_grading.saturation", "colour_grading.vibrance", "colour_grading.shadows", "colour_grading.highlights"][i];
             setting: ["colour_grading.temperature", "colour_grading.tint", "colour_grading.contrast", "colour_grading.pivot", "colour_grading.saturation", "colour_grading.vibrance", "colour_grading.shadows", "colour_grading.highlights"][i];
             minimum: slider-min[i];
@@ -298,7 +318,6 @@ export component ColourGradingCard inherits Card {
             grad-c: i == 0 ? #ee9d4a : i == 1 ? #d46fc4 : #ee6a3c;
             has-default: true;
             default-value: slider-default[i];
-            hint: root.reset-hint;
             moved(v) => { root.slider-moved(i, v); }
         }
     }
@@ -315,6 +334,7 @@ export component ColourGradingCard inherits Card {
             has-icons: [false, false, false];
             icons: [Icons.colour, Icons.colour, Icons.colour];
             label: @tr("Curve");
+            tips: [@tr("RGB"), @tr("Hue vs sat"), @tr("Hue vs hue")];
             current: curve;
             picked(i) => { root.curve-picked-by-hand(i); }
         }
@@ -326,6 +346,7 @@ export component ColourGradingCard inherits Card {
             has-icons: [false, false, false, false];
             icons: [Icons.colour, Icons.colour, Icons.colour, Icons.colour];
             label: @tr("Channel");
+            tips: [@tr("All"), @tr("Red"), @tr("Green"), @tr("Blue")];
             current: channel;
             picked(i) => { root.channel-picked(i); }
         }
@@ -359,7 +380,8 @@ export component ColourGradingCard inherits Card {
                 Button {
                     enabled: active;
                     text: @tr("Load");
-                    tip: @tr("Pick a .cube LUT to put on top of the grade");
+                    tip: @tr("Load LUT");
+                    tip-detail: @tr("Pick a .cube LUT file to apply on top of the grade.");
                     clicked => { root.load-clicked(); }
                 }
                 shown-lut-text := Text {
@@ -376,8 +398,8 @@ export component ColourGradingCard inherits Card {
                     width: 34px;
                     IconButton {
                         icon: Icons.v-close;
-                        label: @tr("Take the LUT off");
-                        tip: @tr("Take the LUT off");
+                        label: @tr("Remove LUT");
+                        tip: @tr("Remove LUT");
                         clicked => { root.clear-clicked(); }
                     }
                 }
@@ -387,7 +409,9 @@ export component ColourGradingCard inherits Card {
             icon: Icons.gauge;
             enabled: active;
             label: @tr("Strength");
-            tip: @tr("How much of the LUT's look goes on the picture");
+            tip: @tr("Strength");
+            tip-detail: @tr("How strongly the LUT is applied.");
+            tip-hint: root.reset-hint;
             shortcut: "colour_grading.lut_strength";
             setting: "colour_grading.lut_strength";
             minimum: 0;
@@ -397,7 +421,6 @@ export component ColourGradingCard inherits Card {
             hue: root.hue;
             has-default: true;
             default-value: 100;
-            hint: root.reset-hint;
             moved(v) => { root.strength-moved(v); }
         }
         if lut-note != "": Note {
@@ -413,7 +436,8 @@ export component ColourGradingCard inherits Card {
                 Button {
                     enabled: active;
                     text: @tr("Export grade");
-                    tip: @tr("Save the grade, LUT included, as a .cube file for other apps");
+                    tip: @tr("Export grade");
+                    tip-detail: @tr("Save the grade and LUT as a .cube file to use in other apps.");
                     clicked => { root.export-clicked(); }
                 }
                 Rectangle { horizontal-stretch: 1; }

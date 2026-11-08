@@ -51,6 +51,7 @@ export component ChromaKeyCard inherits Card {
     callback picture-clicked;
 
     title: @tr("Chroma key");
+    tip: @tr("Replace a green or blue screen behind you with a colour or a picture.");
     icon: Icons.eyedropper;
     opacity: active ? 1 : 0.4;
     enabled: active;
@@ -59,12 +60,14 @@ export component ChromaKeyCard inherits Card {
     switch-enabled: active;
     switch-checked: on;
     switch-label: switch-name;
-    switch-tip: switch-help;
+    switch-tip: switch-name;
+    switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
     RailRow {
         icon: Icons.screen;
         label: @tr("Screen");
+        tip-detail: @tr("Use green, blue or a colour picked from the preview as the screen colour.");
         hue: root.hue;
         enabled: active;
         Rectangle {
@@ -78,7 +81,8 @@ export component ChromaKeyCard inherits Card {
                     has-icons: [false, false, false];
                     icons: [Icons.eyedropper, Icons.eyedropper, Icons.eyedropper];
                     label: @tr("Screen");
-                    tips: [screen-tip, screen-tip, screen-tip];
+                    tips: [@tr("Green"), @tr("Blue"), @tr("Picked")];
+                    tip-details: ["", "", screen-tip];
                     shortcut: "chroma_key.screen";
                     current: screen;
                     picked(i) => { root.screen-picked(i); }
@@ -94,7 +98,9 @@ export component ChromaKeyCard inherits Card {
         icon: [Icons.sliders, Icons.edges, Icons.tint][i];
         enabled: active;
         label: name;
-        tip: slider-tips[i];
+        tip: name;
+        tip-detail: slider-tips[i];
+        tip-hint: root.reset-hint;
         shortcut: i == 0 ? "chroma_key.tolerance" : "";
         minimum: 0;
         maximum: 100;
@@ -108,12 +114,12 @@ export component ChromaKeyCard inherits Card {
         grad-b: i == 0 ? Theme.ink2.mix(screen-colour, 0.85) : #d9a98a;
         has-default: true;
         default-value: i == 0 ? 40 : i == 1 ? 30 : 60;
-        hint: root.reset-hint;
         moved(v) => { root.slider-moved(i, v); }
     }
     RailRow {
         icon: Icons.person;
         label: @tr("Behind you");
+        tip-detail: @tr("Put a colour or a picture where the screen was.");
         hue: root.hue;
         enabled: active;
         Segmented {
@@ -123,6 +129,7 @@ export component ChromaKeyCard inherits Card {
             has-icons: [false, false];
             icons: [Icons.image, Icons.image];
             label: @tr("Behind you");
+            tips: [@tr("Colour"), @tr("Picture")];
             current: behind;
             picked(i) => { root.background-picked(i); }
         }
@@ -142,7 +149,8 @@ export component ChromaKeyCard inherits Card {
             channels: channel-value;
             hue: root.hue;
             label: @tr("Colour behind you");
-            tip: colour-tip;
+            tip: @tr("Colour");
+            tip-detail: colour-tip;
             pipette-tip: pipette-tip;
             can-pick: active;
             moved(h, s, v) => { root.colour-moved(h, s, v); }
@@ -161,7 +169,8 @@ export component ChromaKeyCard inherits Card {
             Button {
                 enabled: active;
                 text: @tr("Choose");
-                tip: picture-choose-tip;
+                tip: @tr("Choose picture");
+                tip-detail: picture-choose-tip;
                 clicked => { root.picture-clicked(); }
             }
             Rectangle {
@@ -176,7 +185,7 @@ export component ChromaKeyCard inherits Card {
                     vertical-alignment: center;
                     overflow: elide;
                 }
-                Tip { says: picture-tip != "" ? picture-tip : shown-picture-text.text; enabled: picture-tip != "" || shown-picture-text.preferred-width > shown-picture-text.width; inert: true; }
+                Tip { says: shown-picture-text.text; enabled: shown-picture-text.preferred-width > shown-picture-text.width; inert: true; }
             }
         }
     }

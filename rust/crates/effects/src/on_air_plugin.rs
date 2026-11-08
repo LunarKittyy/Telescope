@@ -42,12 +42,12 @@ const TRIGGER_TEXTS: [(&str, &str); 4] = [
 /// use the names those browsers show in your language
 const CERT_NOTE: &str = n_("The browser warns that the connection isn't private: it's this computer's own certificate. \
                             On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed.");
-const TRIGGER_TIP: &str = n_("The mic counts while it streams and isn't muted");
-const ADDRESS_TIP: &str = n_("Which of this computer's addresses the link points to");
-const COPY_TIP: &str = n_("Copy the link, to open it on a device that can't scan the code");
-const NEW_LINK_TIP: &str = n_("Make a new link; the old one stops working");
-const PAYLOAD_TIP: &str = n_("POST sends it as the body, GET adds it to the address");
-const HEADER_TIP: &str = n_("Open the On Air settings");
+const TRIGGER_TIP: &str = n_("When the sign turns on. The mic only counts while it's streaming and not muted.");
+const ADDRESS_TIP: &str = n_("The address of this computer that the link uses.");
+const COPY_TIP: &str = n_("Copy the link to open it on a device that can't scan the code.");
+const NEW_LINK_TIP: &str = n_("Make a new link. The old link stops working.");
+const PAYLOAD_TIP: &str = n_("What is sent when the sign turns on or off.");
+const HEADER_TIP: &str = n_("Open the On Air settings.");
 const PAGE_NOTE: &str = n_("Open the link in a browser on any device on the same network and tap the page to make it full screen. \
                             The link stays the same after Telescope restarts.");
 
@@ -512,7 +512,7 @@ impl Plugin for OnAirPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("On Air sign").into(),
-            about: n_("Shows the people around you that you're on a call, on another device's screen or through a smart home light.").into(),
+            about: n_("Shows the people around you that your camera or microphone is in use, on another device's screen or through a smart home light.").into(),
             when_off: n_("Without it there's no On Air tab in Settings and no sign or webhook.").into(),
             category: "on_screen".into(),
             icon: "bell".into(),

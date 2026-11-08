@@ -22,9 +22,8 @@ const POSITION_TEXTS: [(&str, &str); 5] = [
     ("top_left", n_("Top left")), ("top_right", n_("Top right")),
 ];
 const SIZE_TEXTS: [(&str, &str); 3] = [("small", n_("Small")), ("medium", n_("Medium")), ("large", n_("Large"))];
-const SWITCH_TIP: &str = n_("Show the name tag on the picture");
-const PRONOUNS_TIP: &str = n_("Shown next to your name, like she/her or they/them");
-const SECOND_TIP: &str = n_("A smaller line under your name, like your role. Leave it empty for none");
+const PRONOUNS_TIP: &str = n_("Show your pronouns next to your name, like she/her or they/them.");
+const SECOND_TIP: &str = n_("An optional smaller line under your name, like your role.");
 
 /// The tag drawn on each frame, with the cache of the rendered tile it works from (a stream of its own size has its own).
 struct TagStep {
@@ -88,7 +87,7 @@ impl NameTagPlugin {
 
     fn fixed_props() -> Value {
         json!({
-            "switch-name": tr("Name tag"), "switch-help": tr(SWITCH_TIP), "pronouns-tip": tr(PRONOUNS_TIP), "second-tip": tr(SECOND_TIP),
+            "switch-name": tr("Name tag"), "pronouns-tip": tr(PRONOUNS_TIP), "second-tip": tr(SECOND_TIP),
             "style-items": Self::texts(&STYLE_TEXTS), "position-items": Self::texts(&POSITION_TEXTS), "size-items": Self::texts(&SIZE_TEXTS),
         })
     }

@@ -20,6 +20,7 @@ export component DeskCard inherits Card {
     in property <string> clean-tip;
     in property <[string]> shape-items: ["", "", "", "", ""];
     in property <[string]> shape-tips: ["", "", "", "", ""];
+    in property <[string]> shape-details: ["", "", "", "", ""];
     in property <int> shape-current;
     // Filling the picture leaves nothing to stretch
     in property <bool> stretch-enabled: true;
@@ -40,12 +41,14 @@ export component DeskCard inherits Card {
     callback stretch-moved(int, float);
 
     title: @tr("Desk mode");
+    tip: @tr("Straighten a sheet of paper you mark on the preview.");
     icon: Icons.pencil;
     opacity: active ? 1 : 0.4;
     enabled: active;
     has-action: true;
     action-icon: Icons.reset;
-    action-label: reset-tip;
+    // The icon-only action has no room for a body: reset-tip waits for kit support
+    action-label: reset-text;
     action-enabled: reset-shown && !picking;
     action => { root.reset-clicked(); }
     has-switch: true;
@@ -53,7 +56,8 @@ export component DeskCard inherits Card {
     switch-enabled: active;
     switch-checked: on;
     switch-label: switch-name;
-    switch-tip: switch-help;
+    switch-tip: switch-name;
+    switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
     RailRow {
@@ -70,7 +74,8 @@ export component DeskCard inherits Card {
                 has-icon: true;
                 icon: Icons.corners;
                 text: mark-text;
-                tip: mark-tip;
+                tip: @tr("Mark sheet");
+                tip-detail: mark-tip;
                 shortcut: "desk.mark";
                 clicked => { root.mark-clicked(); }
             }
@@ -81,7 +86,8 @@ export component DeskCard inherits Card {
     RailRow {
         icon: Icons.contrast;
         label: @tr("Writing");
-        tip: clean-tip;
+        tip: @tr("Writing");
+        tip-detail: clean-tip;
         hue: root.hue;
         enabled: active;
         changed: clean-current != 0;
@@ -132,6 +138,7 @@ export component DeskCard inherits Card {
             label: @tr("Shape");
             items: shape-items;
             tips: shape-tips;
+            tip-details: shape-details;
             disabled: [!active, !active, !active, !active, !active];
             shortcut: "desk.shape";
             hue: root.hue;
@@ -160,15 +167,17 @@ export component DeskCard inherits Card {
     RailRow {
         icon: Icons.stretch;
         label: @tr("Width");
-        tip: stretch-enabled ? stretch-tip : stretch-off-tip;
+        tip: @tr("Width");
+        tip-detail: stretch-enabled ? stretch-tip : stretch-off-tip;
         hue: root.hue;
         enabled: active && stretch-enabled;
         changed: stretch[0] != 100;
         Slider {
             enabled: active && stretch-enabled;
             label: @tr("Width");
-            tip: stretch-enabled ? stretch-tip : stretch-off-tip;
-            tip-detail: stretch-enabled ? @tr("Double-click to reset") : "";
+            tip: @tr("Width");
+            tip-detail: stretch-enabled ? stretch-tip : stretch-off-tip;
+            tip-hint: stretch-enabled ? @tr("Double-click to reset") : "";
             hue: root.hue;
             minimum: 50;
             maximum: 200;
@@ -182,15 +191,17 @@ export component DeskCard inherits Card {
     RailRow {
         icon: Icons.stretch-tall;
         label: @tr("Height");
-        tip: stretch-enabled ? stretch-tip : stretch-off-tip;
+        tip: @tr("Height");
+        tip-detail: stretch-enabled ? stretch-tip : stretch-off-tip;
         hue: root.hue;
         enabled: active && stretch-enabled;
         changed: stretch[1] != 100;
         Slider {
             enabled: active && stretch-enabled;
             label: @tr("Height");
-            tip: stretch-enabled ? stretch-tip : stretch-off-tip;
-            tip-detail: stretch-enabled ? @tr("Double-click to reset") : "";
+            tip: @tr("Height");
+            tip-detail: stretch-enabled ? stretch-tip : stretch-off-tip;
+            tip-hint: stretch-enabled ? @tr("Double-click to reset") : "";
             hue: root.hue;
             minimum: 50;
             maximum: 200;

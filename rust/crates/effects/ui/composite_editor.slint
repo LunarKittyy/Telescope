@@ -354,7 +354,8 @@ export component CompositeEditor inherits Window {
                         text: label;
                         role: "quiet";
                         enabled: starts-enabled;
-                        tip: @tr("Start again with the running streams laid out like this");
+                        tip: label;
+                        tip-detail: @tr("Start a new layout with the running streams arranged like this.");
                         clicked => { root.start-from(i); }
                     }
                 }
@@ -377,7 +378,7 @@ export component CompositeEditor inherits Window {
                         has-action: true;
                         action-icon: Icons.bookmark;
                         action-text: @tr("Save as");
-                        action-label: @tr("Keep this picture under a name");
+                        action-tip-detail: @tr("Save this layout under a new name.");
                         action => { root.save-clicked(); }
                         HorizontalLayout {
                             spacing: 6px;
@@ -391,8 +392,8 @@ export component CompositeEditor inherits Window {
                                 enabled: layout-enabled;
                                 picked(i) => { root.layout-picked(i); }
                             }
-                            IconButton { icon: Icons.pencil; label: @tr("Rename"); tip: @tr("Rename this layout"); clicked => { if (saved) { root.rename-clicked(); } } }
-                            IconButton { icon: Icons.trash; label: @tr("Delete"); tip: @tr("Delete this layout"); clicked => { if (saved) { root.delete-clicked(); } } }
+                            IconButton { icon: Icons.pencil; label: @tr("Rename"); tip: @tr("Rename"); tip-detail: @tr("Rename this layout."); clicked => { if (saved) { root.rename-clicked(); } } }
+                            IconButton { icon: Icons.trash; label: @tr("Delete"); tip: @tr("Delete"); tip-detail: @tr("Delete this layout."); clicked => { if (saved) { root.delete-clicked(); } } }
                         }
                     }
                     SideCard {
@@ -431,7 +432,7 @@ export component CompositeEditor inherits Window {
                         has-action: tile-shown;
                         action-icon: Icons.reset;
                         action-text: @tr("Fit its shape");
-                        action-label: @tr("Make the box the stream's own shape again, with nothing cropped or stretched");
+                        action-tip-detail: @tr("Give the box the stream's original shape again, without cropping or stretching.");
                         action-enabled: fit-enabled;
                         action => { root.fit-clicked(); }
                         if tile-shown: VerticalLayout {
@@ -445,7 +446,7 @@ export component CompositeEditor inherits Window {
                                     label-width: 72px;
                                     hue: Theme.plugin-hue("streaming");
                                 label: @tr("Zoom");
-                                tip: @tr("Scroll over a stream to zoom in and drag it with the right mouse button to move what's shown") + "\n" + @tr("Double-click to reset");
+                                tip-hint: @tr("Scroll to zoom and drag with the right mouse button to move. Double-click to reset.");
                                 minimum: 100;
                                 maximum: zoom-max;
                                 value: zoom;
@@ -461,7 +462,8 @@ export component CompositeEditor inherits Window {
                                 maximum: border-max;
                                 value: border;
                                 readout: border-text;
-                                tip: @tr("Double-click to reset");
+                                tip-detail: @tr("How thick the border is.");
+                                tip-hint: @tr("Double-click to reset");
                                 has-default: true;
                                 default-value: 0;
                                 moved(v) => { root.border-moved(v); }
@@ -495,7 +497,8 @@ export component CompositeEditor inherits Window {
                                 maximum: radius-max;
                                 value: radius;
                                 readout: radius-text;
-                                tip: @tr("Double-click to reset");
+                                tip-detail: @tr("How round the corners are.");
+                                tip-hint: @tr("Double-click to reset");
                                 has-default: true;
                                 default-value: 0;
                                 moved(v) => { root.radius-moved(v); }
@@ -540,7 +543,7 @@ export component CompositeEditor inherits Window {
                             label-width: 72px;
                             label: @tr("Picture");
                             shown-picture-name := Text { text: picture-name; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; Tip { says: shown-picture-name.text; enabled: shown-picture-name.preferred-width > shown-picture-name.width; inert: true; } }
-                            Button { y: 2px; text: @tr("Picture"); tip: @tr("Put a picture behind the streams instead of the colour"); clicked => { root.picture-clicked(); } }
+                            Button { y: 2px; text: @tr("Picture"); tip: @tr("Picture"); tip-detail: @tr("Show a picture behind the streams instead of the colour."); clicked => { root.picture-clicked(); } }
                             if has-picture: IconButton { y: 3px; icon: Icons.x; label: @tr("No picture"); clicked => { root.no-picture(); } }
                         }
                     }

@@ -38,17 +38,20 @@ pub const EXPOSURES_S: [f64; 9] = [0.5, 1.0, 2.0, 4.0, 8.0, 15.0, 30.0, 60.0, 12
 pub const TIMERS: [i64; 3] = [0, 3, 10];
 pub const DISTORTION: [(&str, &str); 3] = [("camera", n_("Camera")), ("on", n_("On")), ("off", n_("Off"))];
 /// What each distortion choice means, for its tooltip.
-const DISTORTION_TIPS: [&str; 3] = [n_("As the camera does it"), n_("Always fix the distortion"), n_("Never fix the distortion")];
+const DISTORTION_TIPS: [&str; 3] = [n_("Let the camera decide."), n_("Always fix lens distortion."), n_("Never fix lens distortion.")];
 
-const TAKE_TIP: &str = n_("Take a photo on the phone with the settings below");
-const OPEN_TIP: &str = n_("Show the photos taken last");
-const MODE_TIP: &str = n_("The phone maker's own Night, HDR and Bokeh modes pause the video while they shoot");
+const TAKE_TIP: &str = n_("Take a photo on the phone with the settings below.");
+const OPEN_TIP: &str = n_("Open the folder with the last photos taken.");
+const MODE_TIP: &str = n_("The video pauses while the phone maker's Night, HDR and Bokeh modes take a photo.");
 /// Past this many entries a held arrow takes bigger steps after a moment (a list in thirds of a stop is a stop at three).
 const LONG_LIST: usize = 12;
 const BIG_STEP: usize = 3;
-const FOCUS_TIP: &str = n_("Photos from the nearest focus to the farthest, for focus stacking");
-const EXPOSURE_TIP: &str = n_("A long exposure keeps the video's ISO and the video stops while the shutter is open");
-const BEST_TIP: &str = n_("Takes a little longer and only changes the photo, not the video");
+const FOCUS_TIP: &str = n_("Number of photos from the nearest focus to the farthest, for focus stacking.");
+const BURST_TIP: &str = n_("Number of photos in the burst.");
+const SHOTS_TIP: &str = n_("Take one photo, a burst or a set at different exposures or focus distances.");
+const TIMER_TIP: &str = n_("Wait a few seconds before taking the photo.");
+const EXPOSURE_TIP: &str = n_("A long exposure keeps the video's ISO and the video stops while the shutter is open.");
+const BEST_TIP: &str = n_("Use extra noise reduction and sharpening on the photo only, not the video. Taking the photo takes a little longer.");
 const BEST_OFF_TIP: &str = n_("This lens and mode have no extra noise reduction or sharpening to offer");
 const QUALITY_CAMERA_TIP: &str = n_("The camera keeps its own JPEG quality");
 const QUALITY_RAW_TIP: &str = n_("RAW photos have no quality setting");
@@ -446,7 +449,7 @@ impl PhotosPlugin {
         json!({
             "take-text": tr("Take photo"), "take-tip": tr(TAKE_TIP), "open-text": tr("Open folder"), "open-tip": tr(OPEN_TIP),
             "best-name": tr("Best quality"), "distortion-tips": DISTORTION_TIPS.map(tr),
-            "shots-names": SHOTS.map(|(_, name)| tr(name)), "mode-tip": tr(MODE_TIP), "exposure-tip": tr(EXPOSURE_TIP),
+            "shots-names": SHOTS.map(|(_, name)| tr(name)), "mode-tip": tr(MODE_TIP), "shots-tip": tr(SHOTS_TIP), "timer-tip": tr(TIMER_TIP), "exposure-tip": tr(EXPOSURE_TIP),
             "previous-label": tr("Previous"), "next-label": tr("Next"),
             "timer-items": TIMERS.iter().map(|s| Self::timer_text(*s)).collect::<Vec<_>>(),
             "reset-hint": tr("Double-click to reset"),
@@ -493,12 +496,12 @@ impl PhotosPlugin {
         if can.shots.len() > 1 {
             tiles.push(tile("shots", tr("Shots"), false, Self::labelled(&can.shots, &SHOTS), index_of(&can.shots, shots)));
         }
-        for (which, key, label, tip) in [(0, "burst", n_("How many"), ""), (1, "focus_steps", n_("Steps"), FOCUS_TIP)] {
+        for (which, key, label, tip) in [(0, "burst", n_("How many"), BURST_TIP), (1, "focus_steps", n_("Steps"), FOCUS_TIP)] {
             if shots == ["burst", "focus"][which] {
                 let (min, max) = self.number_range(which);
                 let options = (min..=max).map(|n| n.to_string()).collect();
                 let index = int(c, key, 5).clamp(min, max) - min;
-                tiles.push(Tile { tip: if tip.is_empty() { String::new() } else { tr(tip) }, ..tile(key, tr(label), true, options, index as usize) });
+                tiles.push(Tile { tip: tr(tip), ..tile(key, tr(label), true, options, index as usize) });
             }
         }
         if shots == "bracket" {

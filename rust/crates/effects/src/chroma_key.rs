@@ -38,7 +38,7 @@ const SAMPLE: i64 = 4;
 const MIN_CHROMA: f64 = 12.0;
 /// tolerance, softness, spill: their saved names and defaults
 const SLIDERS: [(&str, i64); 3] = [("tolerance", 40), ("softness", 30), ("spill", 60)];
-const SLIDER_TIPS: [&str; 3] = [n_("Higher takes out more shades of the screen"), n_("How soft the edge around you is"), n_("Takes the screen's colour out of your edges and skin")];
+const SLIDER_TIPS: [&str; 3] = [n_("Higher values remove more shades of the screen colour."), n_("How soft the edge around you is."), n_("Remove the screen's colour from your edges and skin.")];
 
 /// (Cb, Cr) of a B, G, R colour, centred on 0, as cv2.cvtColor's fixed-point BGR2YCrCb makes them.
 pub fn chroma_of(bgr: [u8; 3]) -> (f64, f64) {
@@ -260,17 +260,17 @@ impl ChromaKeyPlugin {
     fn fixed_props() -> Value {
         json!({
             "switch-name": tr("Chroma key"),
-            "switch-help": tr("Swap the screen behind you"),
+            "switch-help": tr("Replace the green or blue screen behind you."),
             "slider-tips": SLIDER_TIPS.iter().map(|t| tr(t)).collect::<Vec<_>>(),
             "reset-hint": tr("Double-click to reset"),
-            "colour-tip": tr("Pick the colour that goes behind you"),
-            "pipette-tip": tr("Pick a colour from the preview"),
-            "picture-choose-tip": tr("Pick the picture that goes behind you"),
+            "colour-tip": tr("Pick the colour that goes behind you."),
+            "pipette-tip": tr("Pick from the preview"),
+            "picture-choose-tip": tr("Pick the picture that goes behind you."),
         })
     }
 
     fn all_props(&self) -> Value {
-        let picked_tip = if self.picked.is_some() { tr("The colour picked from the preview. Click to pick again.") } else { tr("Pick the screen's colour from the preview") };
+        let picked_tip = if self.picked.is_some() { tr("The colour picked from the preview. Click to pick again.") } else { String::new() };
         let text = self.note();
         let (r, g, b) = (self.colour[2], self.colour[1], self.colour[0]);
         json!({

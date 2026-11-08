@@ -22,6 +22,7 @@ export component CinemaCard inherits Card {
     callback scope-picked(int);
 
     title: @tr("Cinema tools");
+    tip: @tr("Show focus peaking, zebras, false colour, scopes, guides and a level on the preview.");
     icon: Icons.focus;
     opacity: active ? 1 : 0.4;
 
@@ -38,7 +39,8 @@ export component CinemaCard inherits Card {
                 ToggleTile {
                     icon: Icons.focus;
                     text: switch-names[0];
-                    tip: switch-tips[0];
+                    tip: switch-names[0];
+                    tip-detail: switch-tips[0];
                     shortcut: "cinema.peaking";
                     hue: root.hue;
                     enabled: active;
@@ -48,7 +50,8 @@ export component CinemaCard inherits Card {
                 ToggleTile {
                     icon: Icons.stripes;
                     text: switch-names[1];
-                    tip: switch-tips[1];
+                    tip: switch-names[1];
+                    tip-detail: switch-tips[1];
                     shortcut: "cinema.zebras";
                     hue: root.hue;
                     enabled: active;
@@ -61,7 +64,8 @@ export component CinemaCard inherits Card {
                 ToggleTile {
                     icon: Icons.colour;
                     text: switch-names[2];
-                    tip: switch-tips[2];
+                    tip: switch-names[2];
+                    tip-detail: switch-tips[2];
                     shortcut: "cinema.false_colour";
                     hue: root.hue;
                     enabled: active;
@@ -71,7 +75,8 @@ export component CinemaCard inherits Card {
                 ToggleTile {
                     icon: Icons.level;
                     text: switch-names[3];
-                    tip: switch-tips[3];
+                    tip: switch-names[3];
+                    tip-detail: switch-tips[3];
                     shortcut: "cinema.level";
                     hue: root.hue;
                     enabled: active;
@@ -100,7 +105,8 @@ export component CinemaCard inherits Card {
                 current <=> root.guide-current;
                 caption: @tr("Guides");
                 shortcut: "cinema.guides";
-                tip: guides-tip;
+                tip: @tr("Guides");
+                tip-detail: guides-tip;
                 picked(i) => { root.guide-picked(i); }
             }
         }
@@ -115,6 +121,8 @@ export component CinemaCard inherits Card {
             items: scope-items;
             current <=> root.scope-current;
             caption: @tr("Scope");
+            tip: @tr("Scope");
+            tip-detail: @tr("Which scope is drawn on the preview.");
             shortcut: "cinema.scope";
             picked(i) => { root.scope-picked(i); }
         }
@@ -149,6 +157,7 @@ export component CinemaSettings inherits Card {
         Segmented {
             hue: root.hue;
             items: [@tr("Red"), @tr("Green"), @tr("Blue"), @tr("White")];
+            tips: [@tr("Red"), @tr("Green"), @tr("Blue"), @tr("White")];
             disabled: [false, false, false, false];
             has-icons: [false, false, false, false];
             icons: [Icons.eyedropper, Icons.eyedropper, Icons.eyedropper, Icons.eyedropper];
@@ -160,7 +169,7 @@ export component CinemaSettings inherits Card {
     RailSlider {
         icon: Icons.focus;
         label: @tr("Peaking sensitivity");
-        tip: peaking-tip;
+        tip-detail: peaking-tip;
         minimum: 1;
         maximum: 10;
         value: peaking-level;
@@ -168,13 +177,13 @@ export component CinemaSettings inherits Card {
         hue: root.hue;
         has-default: true;
         default-value: 5;
-        hint: reset-hint;
+        tip-hint: reset-hint;
         moved(v) => { root.peaking-moved(v); }
     }
     RailSlider {
         icon: Icons.stripes;
         label: @tr("Zebras from");
-        tip: zebra-tip;
+        tip-detail: zebra-tip;
         minimum: 70;
         maximum: 100;
         value: zebra-level;
@@ -182,7 +191,7 @@ export component CinemaSettings inherits Card {
         hue: root.hue;
         has-default: true;
         default-value: 95;
-        hint: reset-hint;
+        tip-hint: reset-hint;
         moved(v) => { root.zebra-moved(v); }
     }
     RailRow {
@@ -192,6 +201,7 @@ export component CinemaSettings inherits Card {
         Segmented {
             hue: root.hue;
             items: [@tr("Small"), @tr("Medium"), @tr("Large")];
+            tips: [@tr("Small"), @tr("Medium"), @tr("Large")];
             disabled: [false, false, false];
             has-icons: [false, false, false];
             icons: [Icons.eyedropper, Icons.eyedropper, Icons.eyedropper];

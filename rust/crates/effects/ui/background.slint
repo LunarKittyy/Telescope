@@ -26,6 +26,7 @@ export component BackgroundCard inherits Card {
     callback download-clicked;
 
     title: @tr("Background");
+    tip: @tr("Blur the background or replace it with a picture.");
     icon: Icons.image;
     opacity: active ? 1 : 0.4;
     enabled: active;
@@ -33,6 +34,7 @@ export component BackgroundCard inherits Card {
     RailRow {
         icon: Icons.image;
         label: @tr("Background");
+        tip-detail: @tr("Keep the background, blur it or replace it with a picture.");
         hue: root.hue;
         enabled: active;
         Segmented {
@@ -43,6 +45,7 @@ export component BackgroundCard inherits Card {
             has-icons: [false, false, false];
             icons: [Icons.image, Icons.image, Icons.image];
             label: @tr("Background");
+            tips: [@tr("Off"), @tr("Blur"), @tr("Picture")];
             current: mode;
             shortcut: "background.mode";
             picked(i) => { root.mode-picked(i); }
@@ -52,8 +55,8 @@ export component BackgroundCard inherits Card {
         icon: Icons.blur;
         enabled: active;
         label: @tr("Blur");
-        // Qt's tooltip on a slider with a default and no tip of its own: just the hint
-        tip: reset-hint;
+        tip: @tr("Blur");
+        tip-hint: reset-hint;
         shortcut: "background.blur";
         minimum: 1;
         maximum: 10;
@@ -77,12 +80,13 @@ export component BackgroundCard inherits Card {
             Button {
                 enabled: active;
                 text: @tr("Choose");
-                tip: picture-choose-tip;
+                tip: @tr("Choose picture");
+                tip-detail: picture-choose-tip;
                 clicked => { root.picture-clicked(); }
             }
             Rectangle {
                 horizontal-stretch: 1;
-                Text {
+                shown-picture := Text {
                     width: parent.width;
                     height: parent.height;
                     text: picture-text;
@@ -92,7 +96,7 @@ export component BackgroundCard inherits Card {
                     vertical-alignment: center;
                     overflow: elide;
                 }
-                Tip { says: picture-tip; inert: true; }
+                Tip { says: picture-text; enabled: shown-picture.preferred-width > shown-picture.width; inert: true; }
             }
         }
     }
@@ -100,7 +104,9 @@ export component BackgroundCard inherits Card {
         icon: Icons.edges;
         enabled: active;
         label: @tr("Edges");
-        tip: edges-tip;
+        tip: @tr("Edges");
+        tip-detail: edges-tip;
+        tip-hint: root.reset-hint;
         minimum: 0;
         maximum: 10;
         value: edges;
@@ -108,7 +114,6 @@ export component BackgroundCard inherits Card {
         hue: root.hue;
         has-default: true;
         default-value: 3;
-        hint: root.reset-hint;
         moved(v) => { root.edges-moved(v); }
     }
     if vision-text != "": VisionStatus {

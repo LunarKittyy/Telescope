@@ -18,6 +18,7 @@ export component QrReaderCard inherits Card {
     callback copy-clicked;
 
     title: @tr("QR codes");
+    tip: @tr("Copy QR codes held up to the camera to the clipboard.");
     icon: Icons.qr;
     opacity: active ? 1 : 0.4;
     enabled: active;
@@ -26,7 +27,8 @@ export component QrReaderCard inherits Card {
     switch-enabled: active;
     switch-checked: on;
     switch-label: switch-name;
-    switch-tip: switch-help;
+    switch-tip: switch-name;
+    switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
     if status != "" || copy-shown: HorizontalLayout {
@@ -35,7 +37,7 @@ export component QrReaderCard inherits Card {
         Note { text: status; kind: status-kind; horizontal-stretch: 1; }
         if copy-shown: VerticalLayout {
             alignment: start;
-            Button { text: copy-text; tip: copy-tip; clicked => { root.copy-clicked(); } }
+            Button { text: copy-text; tip: copy-text; tip-detail: copy-tip; clicked => { root.copy-clicked(); } }
         }
     }
     // Switch("Notify me…"): the text on the left, the track at the right end, the whole row toggling it

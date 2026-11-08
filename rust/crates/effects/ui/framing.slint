@@ -39,6 +39,7 @@ export component FramingCard inherits Card {
     callback download-clicked;
 
     title: @tr("Auto framing");
+    tip: @tr("Zoom and pan automatically to keep you in the picture.");
     icon: Icons.framing;
     opacity: active ? 1 : 0.4;
     enabled: active;
@@ -47,7 +48,8 @@ export component FramingCard inherits Card {
     switch-enabled: active;
     switch-checked <=> root.on;
     switch-label: switch-name;
-    switch-tip: switch-help;
+    switch-tip: switch-name;
+    switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
     property <length> column: max(Theme.u(28), ceil(widest.preferred-width / 1px) * 1px + 2px);
@@ -59,14 +61,16 @@ export component FramingCard inherits Card {
             height: parent.height;
             icon: Icons.framing;
             label: @tr("Framing");
+            tip-detail: framing-tip;
             hue: root.hue;
             enabled: active;
             changed: framing != 10;
             Slider {
                 enabled: active;
                 label: @tr("Framing");
-                tip: framing-tip;
-                tip-detail: reset-hint;
+                tip: @tr("Framing");
+                tip-detail: framing-tip;
+                tip-hint: reset-hint;
                 shortcut: "framing.framing";
                 hue: root.hue;
                 minimum: 0;
@@ -101,14 +105,16 @@ export component FramingCard inherits Card {
     RailRow {
         icon: Icons.gauge;
         label: @tr("Speed");
+        tip-detail: speed-tip;
         hue: root.hue;
         enabled: active;
         changed: speed != 5;
         Slider {
             enabled: active;
             label: @tr("Speed");
-            tip: speed-tip;
-            tip-detail: reset-hint;
+            tip: @tr("Speed");
+            tip-detail: speed-tip;
+            tip-hint: reset-hint;
             shortcut: "framing.speed";
             hue: root.hue;
             minimum: 1;
@@ -127,14 +133,16 @@ export component FramingCard inherits Card {
     RailRow {
         icon: Icons.room;
         label: @tr("Room to move");
+        tip-detail: room-tip;
         hue: root.hue;
         enabled: active;
         changed: room != 2;
         Slider {
             enabled: active;
             label: @tr("Room to move");
-            tip: room-tip;
-            tip-detail: reset-hint;
+            tip: @tr("Room to move");
+            tip-detail: room-tip;
+            tip-hint: reset-hint;
             hue: root.hue;
             minimum: 0;
             maximum: 5;
@@ -149,6 +157,7 @@ export component FramingCard inherits Card {
     SwitchRow {
         icon: Icons.hand;
         label: hand-name;
+        tip: hand-name;
         tip-detail: hand-detail;
         hue: root.hue;
         enabled: active;

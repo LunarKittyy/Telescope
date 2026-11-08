@@ -17,6 +17,8 @@ export component FunPackCard inherits Card {
     in property <string> clone-tip;
     in property <bool> show-clean;
     in property <string> clean-tip;
+    in property <string> clear-tip;
+    in property <string> direction-tip;
     in property <bool> show-clear;
     in property <bool> clear-enabled: true;
     // The five sliders in the card's order: Edges, Trails, Brightness, Spread, Smear
@@ -44,6 +46,7 @@ export component FunPackCard inherits Card {
     callback direction-picked(int);
 
     title: @tr("Fun pack");
+    tip: @tr("Silly effects like clones, an invisibility cloak, light painting, retro looks and datamosh.");
     icon: Icons.sparkle;
     opacity: active ? 1 : 0.4;
     enabled: active;
@@ -70,7 +73,8 @@ export component FunPackCard inherits Card {
         spacing: 8px;
         Button {
             text: plate-text;
-            tip: plate-tip;
+            tip: plate-text;
+            tip-detail: plate-tip;
             shortcut: "fun_pack.plate";
             enabled: active && (plate-enabled);
             clicked => { root.plate-clicked(); }
@@ -81,7 +85,8 @@ export component FunPackCard inherits Card {
         spacing: 8px;
         if show-clone: Button {
             text: clone-text;
-            tip: clone-tip;
+            tip: clone-text;
+            tip-detail: clone-tip;
             shortcut: "fun_pack.clone";
             enabled: active && (clone-enabled);
             clicked => { root.clone-clicked(); }
@@ -89,12 +94,15 @@ export component FunPackCard inherits Card {
         if show-clean: Button {
             enabled: active;
             text: @tr("Clean up");
-            tip: clean-tip;
+            tip: @tr("Clean up");
+            tip-detail: clean-tip;
             shortcut: "fun_pack.clean";
             clicked => { root.clean-clicked(); }
         }
         if show-clear: Button {
             text: @tr("Clear");
+            tip: @tr("Clear");
+            tip-detail: clear-tip;
             enabled: active && (clear-enabled);
             clicked => { root.clear-clicked(); }
         }
@@ -105,7 +113,7 @@ export component FunPackCard inherits Card {
         icon: Icons.edges;
         enabled: active;
         label: @tr("Edges");
-        tip: slider-tips[0];
+        tip-detail: slider-tips[0];
         minimum: slider-min[0];
         maximum: slider-max[0];
         value: slider-value[0];
@@ -113,14 +121,14 @@ export component FunPackCard inherits Card {
         hue: root.hue;
         has-default: true;
         default-value: slider-default[0];
-        hint: root.reset-hint;
+        tip-hint: root.reset-hint;
         moved(v) => { root.slider-moved(0, v); }
     }
     if slider-show[1]: RailSlider {
         icon: Icons.trails;
         enabled: active;
         label: @tr("Trails");
-        tip: slider-tips[1];
+        tip-detail: slider-tips[1];
         minimum: slider-min[1];
         maximum: slider-max[1];
         value: slider-value[1];
@@ -128,14 +136,14 @@ export component FunPackCard inherits Card {
         hue: root.hue;
         has-default: true;
         default-value: slider-default[1];
-        hint: root.reset-hint;
+        tip-hint: root.reset-hint;
         moved(v) => { root.slider-moved(1, v); }
     }
     if slider-show[2]: RailSlider {
         icon: Icons.sun;
         enabled: active;
         label: @tr("Brightness");
-        tip: slider-tips[2];
+        tip-detail: slider-tips[2];
         minimum: slider-min[2];
         maximum: slider-max[2];
         value: slider-value[2];
@@ -143,14 +151,14 @@ export component FunPackCard inherits Card {
         hue: root.hue;
         has-default: true;
         default-value: slider-default[2];
-        hint: root.reset-hint;
+        tip-hint: root.reset-hint;
         moved(v) => { root.slider-moved(2, v); }
     }
     if slider-show[3]: RailSlider {
         icon: Icons.stretch;
         enabled: active;
         label: @tr("Spread");
-        tip: slider-tips[3];
+        tip-detail: slider-tips[3];
         minimum: slider-min[3];
         maximum: slider-max[3];
         value: slider-value[3];
@@ -158,14 +166,14 @@ export component FunPackCard inherits Card {
         hue: root.hue;
         has-default: true;
         default-value: slider-default[3];
-        hint: root.reset-hint;
+        tip-hint: root.reset-hint;
         moved(v) => { root.slider-moved(3, v); }
     }
     if slider-show[4]: RailSlider {
         icon: Icons.distortion;
         enabled: active;
         label: @tr("Smear");
-        tip: slider-tips[4];
+        tip-detail: slider-tips[4];
         shortcut: "fun_pack.smear";
         minimum: slider-min[4];
         maximum: slider-max[4];
@@ -174,7 +182,7 @@ export component FunPackCard inherits Card {
         hue: root.hue;
         has-default: true;
         default-value: slider-default[4];
-        hint: root.reset-hint;
+        tip-hint: root.reset-hint;
         moved(v) => { root.slider-moved(4, v); }
     }
     if show-direction: RailRow {
@@ -185,6 +193,8 @@ export component FunPackCard inherits Card {
         Segmented {
             hue: root.hue;
             items: [@tr("Down"), @tr("Across")];
+            tips: [@tr("Down"), @tr("Across")];
+            tip-details: [direction-tip, direction-tip];
             disabled: [!active, !active];
             has-icons: [false, false];
             icons: [Icons.sparkle, Icons.sparkle];

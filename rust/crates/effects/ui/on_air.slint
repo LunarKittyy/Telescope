@@ -14,6 +14,7 @@ component UrlRow inherits RailRow {
             placeholder: root.placeholder;
             text <=> root.text;
             tip: root.tip;
+            tip-detail: root.tip-detail;
             edited(t) => { root.edited(t); }
         }
     }
@@ -68,6 +69,7 @@ export component OnAirSettings inherits VerticalLayout {
 
     Card {
         title: @tr("On Air sign");
+        tip: @tr("Shows the people around you that your camera or microphone is in use.");
         icon: Icons.bell;
         hue: Theme.plugin-hue("on_screen");
         RailRow {
@@ -99,7 +101,8 @@ export component OnAirSettings inherits VerticalLayout {
                     caption: @tr("On air when");
                     items: trigger-items;
                     current: trigger-current;
-                    tip: root.trigger-tip;
+                    tip: @tr("On air when");
+                    tip-detail: root.trigger-tip;
                     picked(i) => { root.trigger-picked(i); }
                 }
             }
@@ -112,7 +115,7 @@ export component OnAirSettings inherits VerticalLayout {
         hue: Theme.plugin-hue("on_screen");
         has-action: true;
         action-icon: Icons.reset;
-        action-label: new-link-tip;
+        action-tip-detail: new-link-tip;
         action-text: @tr("New link");
         action-enabled: page;
         action => { root.new-link-clicked(); }
@@ -170,7 +173,8 @@ export component OnAirSettings inherits VerticalLayout {
                     caption: @tr("Address");
                     items: addresses;
                     current: address-current;
-                    tip: root.address-tip;
+                    tip: @tr("Address");
+                    tip-detail: root.address-tip;
                     picked(i) => { root.address-picked(i); }
                 }
             }
@@ -191,7 +195,7 @@ export component OnAirSettings inherits VerticalLayout {
                     overflow: elide;
                     horizontal-stretch: 1;
                 }
-                Button { text: copy-text; tip: copy-tip; clicked => { root.copy-clicked(); } }
+                Button { text: copy-text; tip: copy-text; tip-detail: copy-tip; clicked => { root.copy-clicked(); } }
             }
         }
         if url-shown: Note { text: page-note; }
@@ -217,6 +221,8 @@ export component OnAirSettings inherits VerticalLayout {
             enabled: true;
             Segmented {
                 items: ["POST", "GET"];
+                tips: ["POST", "GET"];
+                tip-details: [@tr("POST sends the text as the request body and GET adds it to the address."), @tr("POST sends the text as the request body and GET adds it to the address.")];
                 label: @tr("Method");
                 current: method-current;
                 picked(i) => { root.method-picked(i); }
@@ -227,7 +233,8 @@ export component OnAirSettings inherits VerticalLayout {
             hue: Theme.plugin-hue("on_screen");
             label: @tr("Going on air");
             placeholder: on-placeholder;
-            tip: payload-tip;
+            tip: @tr("Going on air");
+            tip-detail: payload-tip;
             text <=> root.webhook-on;
             edited(t) => { root.on-edited(t); }
         }
@@ -236,7 +243,8 @@ export component OnAirSettings inherits VerticalLayout {
             hue: Theme.plugin-hue("on_screen");
             label: @tr("Going off air");
             placeholder: off-placeholder;
-            tip: payload-tip;
+            tip: @tr("Going off air");
+            tip-detail: payload-tip;
             text <=> root.webhook-off;
             edited(t) => { root.off-edited(t); }
         }

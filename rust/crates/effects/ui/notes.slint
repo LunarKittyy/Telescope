@@ -14,6 +14,7 @@ export component NotesCard inherits Card {
     // What the editor holds; set when a set is opened, typing edits it from inside
     in-out property <string> text;
     in property <string> placeholder;
+    in property <string> editor-tip;
     in property <string> editor-label;
     in property <int> size: 44;
     in property <string> size-text;
@@ -22,6 +23,7 @@ export component NotesCard inherits Card {
     in property <string> sample;
     in property <int> scroll;
     in property <[string]> scroll-items: ["", ""];
+    in property <string> scroll-tip;
     in property <int> speed: 3;
     in property <string> speed-text;
     in property <string> speed-tip;
@@ -58,6 +60,7 @@ export component NotesCard inherits Card {
     callback clear-clicked;
 
     title: @tr("Notes");
+    tip: @tr("Show your notes on the phone's screen so you can read them while looking into the camera.");
     icon: Icons.notes;
     opacity: active ? 1 : 0.4;
     enabled: active;
@@ -105,7 +108,8 @@ export component NotesCard inherits Card {
             skeleton: true;
             label: editor-label;
             placeholder: root.placeholder;
-            tip: root.placeholder;
+            tip: editor-label;
+            tip-detail: editor-tip;
             text <=> root.text;
             edited(t) => { root.text-edited(t); }
         }
@@ -119,8 +123,9 @@ export component NotesCard inherits Card {
         Slider {
             enabled: active;
             label: @tr("Text size");
-            tip: size-tip;
-            tip-detail: reset-hint;
+            tip: @tr("Text size");
+            tip-detail: size-tip;
+            tip-hint: reset-hint;
             hue: root.hue;
             minimum: 16;
             maximum: 120;
@@ -147,6 +152,8 @@ export component NotesCard inherits Card {
             has-icons: [false, false];
             icons: [Icons.colour, Icons.colour];
             label: @tr("Scroll");
+            tips: scroll-items;
+            tip-details: [scroll-tip, scroll-tip];
             current: scroll;
             picked(i) => { root.scroll-picked(i); }
         }
@@ -160,8 +167,9 @@ export component NotesCard inherits Card {
         Slider {
             enabled: active && show-auto;
             label: @tr("Speed");
-            tip: show-auto ? speed-tip : by-hand-tip;
-            tip-detail: show-auto ? reset-hint : "";
+            tip: @tr("Speed");
+            tip-detail: show-auto ? speed-tip : by-hand-tip;
+            tip-hint: show-auto ? reset-hint : "";
             shortcut: "notes.speed";
             hue: root.hue;
             minimum: 1;
@@ -188,7 +196,8 @@ export component NotesCard inherits Card {
                 icon: Icons.skip-back;
                 icon-size: Theme.icon;
                 accessible-label: back-text;
-                tip: back-tip;
+                tip: back-text;
+                tip-detail: back-tip;
                 shortcut: "notes.previous";
                 enabled: active && nav-enabled;
                 clicked => { root.back-clicked(); }
@@ -197,7 +206,8 @@ export component NotesCard inherits Card {
                 height: Theme.row;
                 icon: Icons.v-play;
                 name: play-text;
-                tip: show-auto ? play-tip : by-hand-tip;
+                tip: play-text;
+                tip-detail: show-auto ? play-tip : by-hand-tip;
                 shortcut: "notes.play";
                 hue: root.hue;
                 enabled: active && nav-enabled && show-auto;
@@ -212,7 +222,8 @@ export component NotesCard inherits Card {
                 icon: Icons.skip-next;
                 icon-size: Theme.icon;
                 accessible-label: next-text;
-                tip: next-tip;
+                tip: next-text;
+                tip-detail: next-tip;
                 shortcut: "notes.next";
                 enabled: active && nav-enabled;
                 clicked => { root.next-clicked(); }

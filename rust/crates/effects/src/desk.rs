@@ -30,13 +30,14 @@ pub const SHAPES: [(&str, &str); 5] = [("auto", n_("Auto")), ("a4", n_("A4")), (
 const CLEAN_VALUES: [&str; 3] = ["Off", "Contrast", "Black and white"];
 const SHAPE_VALUES: [&str; 5] = ["Auto", "A4", "Letter", "Square", "Fill the picture"];
 
-const SWITCH_TIP: &str = n_("Straighten the sheet you marked");
-const MARK_TIP: &str = n_("Drag the four corners of the sheet into place on the preview");
-const RESET_TIP: &str = n_("Put the width and height back to 100%");
-const CLEAN_TIP: &str = n_("Make the writing on the sheet stand out");
-const SHAPE_TIP: &str = n_("Auto works the shape out from the corners");
-const STRETCH_TIP: &str = n_("Stretch the sheet if it still looks squashed");
-const STRETCH_OFF_TIP: &str = n_("Fill uses the whole picture, so there is nothing to stretch");
+const SWITCH_TIP: &str = n_("Straighten the marked sheet.");
+const MARK_TIP: &str = n_("Drag the four corners of the sheet into place on the preview.");
+const RESET_TIP: &str = n_("Set the width and height back to 100%.");
+const CLEAN_TIP: &str = n_("Make the writing on the sheet stand out.");
+const SHAPE_TIP: &str = n_("Work out the shape from the corners.");
+const SHAPE_FILL_TIP: &str = n_("Fill the whole picture with the sheet.");
+const STRETCH_TIP: &str = n_("Stretch the sheet if it still looks squashed.");
+const STRETCH_OFF_TIP: &str = n_("Fill already uses the whole picture.");
 /// What the card's shape tiles are called: the same shapes, with Fill short and its full name in the tile's tooltip.
 const SHAPE_NAMES: [&str; 5] = [n_("Auto"), n_("A4"), n_("Letter"), n_("Square"), n_("Fill")];
 
@@ -179,12 +180,13 @@ impl DeskPlugin {
 
     fn fixed_props() -> Value {
         let list = |l: &[(&str, &str)]| l.iter().map(|(_, t)| tr(t)).collect::<Vec<_>>();
-        // The shapes that need more than their name: Auto says what it does, Fill says it in full
-        let shape_tips = [tr(SHAPE_TIP), String::new(), String::new(), String::new(), tr("Fill the picture")];
+        // Fill is named in full in its tooltip, and Auto and Fill say what they do
+        let shape_tips = [String::new(), String::new(), String::new(), String::new(), tr("Fill the picture")];
+        let shape_details = [tr(SHAPE_TIP), String::new(), String::new(), String::new(), tr(SHAPE_FILL_TIP)];
         json!({
             "switch-name": tr("Desk mode"), "switch-help": tr(SWITCH_TIP), "mark-tip": tr(MARK_TIP), "done-text": tr("Done"),
             "cancel-text": tr("Cancel"), "reset-text": tr("Reset"), "reset-tip": tr(RESET_TIP), "clean-items": list(&CLEANUPS),
-            "clean-tip": tr(CLEAN_TIP), "shape-items": SHAPE_NAMES.iter().map(|t| tr(t)).collect::<Vec<_>>(), "shape-tips": shape_tips,
+            "clean-tip": tr(CLEAN_TIP), "shape-items": SHAPE_NAMES.iter().map(|t| tr(t)).collect::<Vec<_>>(), "shape-tips": shape_tips, "shape-details": shape_details,
             "stretch-tip": tr(STRETCH_TIP), "stretch-off-tip": tr(STRETCH_OFF_TIP),
         })
     }

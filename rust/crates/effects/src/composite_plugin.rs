@@ -33,8 +33,8 @@ pub const FALLBACK_FPS: u64 = 30;
 /// What the Telescope camera opens at before any stream has said how big it is (vcam.DEFAULT_SIZE).
 pub const DEFAULT_SIZE: (u32, u32) = (1920, 1080);
 const STALE_NS: u64 = (STALE_S * 1e9) as u64;
-const SWITCH_TIP: &str = n_("Send the streams out as one picture");
-const LAYOUT_TIP: &str = n_("A layout you saved in the editor");
+const SWITCH_TIP: &str = n_("Combine the running streams into one picture.");
+const LAYOUT_TIP: &str = n_("A layout you saved in the editor.");
 
 /// What the frame steps of every stream, the clock and the plugin share.
 pub(crate) struct Hub {

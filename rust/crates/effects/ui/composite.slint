@@ -16,12 +16,14 @@ export component CompositeCard inherits Card {
     callback edit-clicked;
 
     title: @tr("One picture");
+    tip: @tr("Combine the running streams into one picture.");
     icon: Icons.layout;
     has-switch: true;
     switch-shortcut: "composite.on";
     switch-checked: on;
     switch-label: switch-name;
-    switch-tip: switch-help;
+    switch-tip: switch-name;
+    switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
     RailRow {
@@ -37,7 +39,8 @@ export component CompositeCard inherits Card {
                 items: layout-items;
                 current: layout-current;
                 enabled: layout-enabled;
-                tip: root.layout-tip;
+                tip: @tr("Layout");
+                tip-detail: root.layout-tip;
                 shortcut: "composite.layout";
                 picked(i) => { root.layout-picked(i); }
             }
@@ -56,6 +59,8 @@ export component CompositeCard inherits Card {
     }
     if edit-shown: Button {
         text: @tr("Edit picture");
+        tip: @tr("Edit picture");
+        tip-detail: @tr("Open the editor for the layout.");
         role: "quiet";
         has-icon: true;
         icon: Icons.pencil;

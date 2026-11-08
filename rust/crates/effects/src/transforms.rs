@@ -32,9 +32,9 @@ const PAN_STEPS: f64 = 200.0;
 const DEFAULT_MAX_ZOOM: i32 = 10;
 const T_SETTLE: &str = "settle";
 
-const RESET_TIP: &str = n_("Clear flip, rotation, zoom, pan and stretch back to defaults");
-const PAN_TIP: &str = n_("Drag to move the view. Double-click to centre it.");
-const STRETCH_TIPS: [&str; 2] = [n_("Stretch or squish the picture sideways"), n_("Stretch or squish the picture up and down")];
+const RESET_TIP: &str = n_("Set flip, rotation, zoom, pan and stretch back to default.");
+const PAN_TIP: &str = n_("Drag to move. Double-click to centre.");
+const STRETCH_TIPS: [&str; 2] = [n_("Stretch or squeeze the picture horizontally."), n_("Stretch or squeeze the picture vertically.")];
 const RESET_HINT: &str = n_("Double-click to reset");
 
 /// A hand-edited or damaged config value becomes the default instead of breaking every frame.
@@ -237,8 +237,7 @@ impl TransformsPlugin {
         if !self.taken_by.is_empty() {
             text = tr("{owner} is moving the zoom and pan").field("owner", tr(&self.taken_by));
         }
-        // A slider with a default says how to use it
-        format!("{text}\n{}", tr(RESET_HINT)).trim_start_matches('\n').to_string()
+        text.trim_start_matches('\n').to_string()
     }
 
     fn lens(&self) -> (&'static str, String) {

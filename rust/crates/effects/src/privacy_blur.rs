@@ -403,9 +403,9 @@ impl PrivacyBlurPlugin {
 
     fn fixed_props() -> Value {
         json!({
-            "switch-help": tr("Blur automatically when a second person shows up"),
-            "mode-tip": tr("What happens while someone else is in the picture"),
-            "now-tip": tr("Blur by hand until you click again"),
+            "switch-help": tr("Blur automatically when another person appears in the picture."),
+            "mode-tip": tr("What happens while someone else is in the picture."),
+            "now-tip": tr("Blur the picture until you click again."),
         })
     }
 

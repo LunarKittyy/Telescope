@@ -67,11 +67,11 @@ struct SliderDef {
 }
 
 const SLIDERS: [SliderDef; 5] = [
-    SliderDef { key: "edges", lo: 0, hi: 10, default: 3, tip: n_("How soft the edge around you is") },
-    SliderDef { key: "fade", lo: 1, hi: 10, default: 5, tip: n_("How long the light trails last") },
-    SliderDef { key: "brightness", lo: 1, hi: 10, default: 6, tip: n_("How bright a light has to be to paint") },
-    SliderDef { key: "spread", lo: 5, hi: 45, default: 20, tip: n_("Frames between one end of the picture and the other") },
-    SliderDef { key: "smear", lo: 0, hi: 3, default: 0, tip: n_("Plays each frame's motion this many extra times") },
+    SliderDef { key: "edges", lo: 0, hi: 10, default: 3, tip: n_("How soft the edge around you is.") },
+    SliderDef { key: "fade", lo: 1, hi: 10, default: 5, tip: n_("How long the light trails last.") },
+    SliderDef { key: "brightness", lo: 1, hi: 10, default: 6, tip: n_("How bright a light has to be to paint.") },
+    SliderDef { key: "spread", lo: 5, hi: 45, default: 20, tip: n_("How many frames pass between one end of the picture and the other.") },
+    SliderDef { key: "smear", lo: 0, hi: 3, default: 0, tip: n_("How many extra times each frame's motion is played.") },
 ];
 
 fn effect_text(key: &str) -> &'static str {
@@ -331,9 +331,11 @@ impl FunPackPlugin {
             "slider-min": SLIDERS.iter().map(|d| d.lo).collect::<Vec<_>>(),
             "slider-max": SLIDERS.iter().map(|d| d.hi).collect::<Vec<_>>(),
             "slider-default": SLIDERS.iter().map(|d| d.default).collect::<Vec<_>>(),
-            "plate-tip": tr("Step out of the picture: it's taken after a short countdown"),
-            "clone-tip": tr("Get in place: you're copied after a short countdown"),
-            "clean-tip": tr("Let the next keyframe through so the picture comes back"),
+            "plate-tip": tr("Step out of the picture. The empty room is taken after a short countdown."),
+            "clone-tip": tr("Get in place. The clone is taken after a short countdown."),
+            "clean-tip": tr("Let the next keyframe through to restore the picture."),
+            "clear-tip": tr("Remove all clones, or all light trails in Light painting."),
+            "direction-tip": tr("Which way the bands run."),
             "reset-hint": tr("Double-click to reset"),
         })
     }

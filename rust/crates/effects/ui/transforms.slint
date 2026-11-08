@@ -9,6 +9,7 @@ component ZoomMap inherits Rectangle {
     in property <bool> enabled: true;
     in property <color> hue: Theme.accent;
     in property <string> tip;
+    in property <string> tip-hint;
     in property <string> label;
     in property <string> shortcut;
     in property <[ShortcutEntry]> shortcut-adds;
@@ -42,6 +43,7 @@ component ZoomMap inherits Rectangle {
         enabled: root.enabled;
         hue: root.hue;
         tip: root.tip;
+        tip-hint: root.tip-hint;
         label: root.label;
         spoken: Spoken.pan(root.pan-x, root.pan-y);
         shortcut: root.shortcut;
@@ -93,6 +95,7 @@ export component TransformsCard inherits Card {
     callback stretch-moved(int, float);
 
     title: @tr("Transforms");
+    tip: @tr("Zoom, pan, flip, rotate and stretch the picture.");
     icon: Icons.crop;
     opacity: active ? 1 : 0.4;
     enabled: active;
@@ -100,7 +103,7 @@ export component TransformsCard inherits Card {
     action-icon: Icons.reset;
     // card_action(tr("Reset"), "reset", …)
     action-text: @tr("Reset");
-    action-label: reset-tip;
+    action-tip-detail: reset-tip;
     action-shortcut: "transforms.reset";
     action => { root.reset-clicked(); }
 
@@ -115,6 +118,8 @@ export component TransformsCard inherits Card {
             ToggleTile {
                 icon: Icons.mirror;
                 text: @tr("Mirror");
+                tip: @tr("Mirror");
+                tip-detail: @tr("Flip the picture left to right.");
                 shortcut: "transforms.flip_horizontal";
                 setting: "transforms.flip_h";
                 hue: root.hue;
@@ -125,6 +130,8 @@ export component TransformsCard inherits Card {
             ToggleTile {
                 icon: Icons.upside-down;
                 text: @tr("Upside down");
+                tip: @tr("Upside down");
+                tip-detail: @tr("Flip the picture top to bottom.");
                 shortcut: "transforms.flip_vertical";
                 setting: "transforms.flip_v";
                 hue: root.hue;
@@ -147,6 +154,7 @@ export component TransformsCard inherits Card {
             has-icons: [false, false, false, false];
             icons: [Icons.colour, Icons.colour, Icons.colour, Icons.colour];
             label: @tr("Rotation");
+            tips: [@tr("Rotation"), @tr("Rotation"), @tr("Rotation"), @tr("Rotation")];
             shortcut: "transforms.rotation";
             setting: "transforms.rotation";
             current: rotation;
@@ -171,7 +179,9 @@ export component TransformsCard inherits Card {
                     hue: root.hue;
                     enabled: active && zoom-free;
                     label: @tr("Zoom");
-                    tip: root.zoom-tip;
+                    tip: @tr("Zoom");
+                    tip-detail: root.zoom-tip;
+                    tip-hint: root.reset-hint;
                     shortcut: "transforms.zoom";
                     setting: "transforms.zoom";
                     minimum: 1;
@@ -199,7 +209,7 @@ export component TransformsCard inherits Card {
                             border-radius: Theme.u(1.5);
                             background: dot-level == "on" ? Theme.accent : Theme.err;
                         }
-                        Tip { says: root.dot-tip; inert: true; }
+                        Tip { says: @tr("Lens switch"); detail: root.dot-tip; inert: true; }
                     }
                     Text {
                         text: zoom-text;
@@ -211,7 +221,7 @@ export component TransformsCard inherits Card {
                         vertical-alignment: center;
                     }
                 }
-                Tip { says: root.zoom-tip; inert: true; }
+                Tip { says: @tr("Zoom"); detail: root.zoom-tip; hint: root.reset-hint; inert: true; }
             }
         }
     }
@@ -227,7 +237,8 @@ export component TransformsCard inherits Card {
             pan-y: root.pan-y;
             enabled: active && pan-enabled;
             hue: root.hue;
-            tip: root.pan-tip;
+            tip: @tr("Pan");
+            tip-hint: root.pan-tip;
             label: @tr("Pan");
             aspect: root.map-aspect;
             shortcut: "transforms.pan_x transforms.pan_y";
@@ -242,10 +253,11 @@ export component TransformsCard inherits Card {
         icon: Icons.stretch;
         enabled: active;
         label: @tr("Width");
-        tip: stretch-tips[0];
+        tip: @tr("Width");
+        tip-detail: stretch-tips[0];
+        tip-hint: reset-hint;
         shortcut: "transforms.stretch_x";
         setting: "transforms.stretch_x";
-        hint: reset-hint;
         minimum: 50;
         maximum: 200;
         value: stretch-x;
@@ -259,10 +271,11 @@ export component TransformsCard inherits Card {
         icon: Icons.stretch-tall;
         enabled: active;
         label: @tr("Height");
-        tip: stretch-tips[1];
+        tip: @tr("Height");
+        tip-detail: stretch-tips[1];
+        tip-hint: reset-hint;
         shortcut: "transforms.stretch_y";
         setting: "transforms.stretch_y";
-        hint: reset-hint;
         minimum: 50;
         maximum: 200;
         value: stretch-y;

@@ -43,8 +43,8 @@ const T_OUTLINE: &str = "outline";
 const T_CHECK: &str = "check";
 const POST_FOUND: &str = "found";
 
-const SWITCH_TIP: &str = n_("Look for QR codes in the picture");
-const COPY_TIP: &str = n_("Put the last code on the clipboard again");
+const SWITCH_TIP: &str = n_("Look for QR codes in the picture.");
+const COPY_TIP: &str = n_("Copy the last code to the clipboard again.");
 
 /// A code's four corners as fractions of the frame, in the order the detector gave them.
 pub type Corners = [[f64; 2]; 4];

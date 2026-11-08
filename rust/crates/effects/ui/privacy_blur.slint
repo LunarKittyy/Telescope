@@ -17,6 +17,7 @@ export component PrivacyBlurCard inherits Card {
     callback download-clicked;
 
     title: @tr("Privacy blur");
+    tip: @tr("Blur the other people or show the wait screen when someone else is in the picture.");
     icon: Icons.eye-off;
     opacity: active ? 1 : 0.4;
     enabled: active;
@@ -25,7 +26,8 @@ export component PrivacyBlurCard inherits Card {
     switch-enabled: active;
     switch-checked: on;
     switch-label: @tr("Privacy blur");
-    switch-tip: switch-help;
+    switch-tip: @tr("Privacy blur");
+    switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
     Rectangle {
@@ -38,7 +40,8 @@ export component PrivacyBlurCard inherits Card {
             items: [@tr("Blur the others"), @tr("Blur all but me"), @tr("Show the wait screen")];
             current: mode;
             shortcut: "privacy_blur.mode";
-            tip: mode-tip;
+            tip: @tr("Privacy blur: what happens");
+            tip-detail: mode-tip;
             picked(i) => { root.mode-picked(i); }
         }
     }
@@ -47,7 +50,8 @@ export component PrivacyBlurCard inherits Card {
         Button {
             enabled: active;
             text: @tr("Blur now");
-            tip: now-tip;
+            tip: @tr("Blur now");
+            tip-detail: now-tip;
             // a checked QPushButton: the filled one
             role: now ? "primary" : "";
             shortcut: "privacy_blur.now";

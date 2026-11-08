@@ -6,7 +6,6 @@ export component FaceExposureCard inherits Card {
     in property <bool> phone-only-hidden;
     in-out property <bool> on;
     in property <string> switch-name;
-    in property <string> switch-help;
     // Something the user chose holds the point: the note says what, and Follow my face goes back
     in property <bool> held;
     in property <string> held-note;
@@ -18,6 +17,7 @@ export component FaceExposureCard inherits Card {
     callback download-clicked;
 
     title: @tr("Expose for my face");
+    tip: @tr("Meter the phone's exposure on your face.");
     icon: Icons.sun;
     visible: !phone-only-hidden;
     opacity: active ? 1 : 0.4;
@@ -27,7 +27,7 @@ export component FaceExposureCard inherits Card {
     switch-enabled: active;
     switch-checked <=> root.on;
     switch-label: switch-name;
-    switch-tip: switch-help;
+    switch-tip: switch-name;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
     if held: Note { text: held-note; }
@@ -37,7 +37,8 @@ export component FaceExposureCard inherits Card {
             // action_button: the standard width
             width: 160px;
             text: @tr("Follow my face");
-            tip: follow-tip;
+            tip: @tr("Follow my face");
+            tip-detail: follow-tip;
             clicked => { root.follow-clicked(); }
         }
     }

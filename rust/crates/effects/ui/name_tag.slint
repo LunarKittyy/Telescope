@@ -45,7 +45,6 @@ export component NameTagCard inherits Card {
     in-out property <string> pronouns;
     in-out property <string> second;
     in property <string> switch-name;
-    in property <string> switch-help;
     in property <string> pronouns-tip;
     in property <string> second-tip;
     in property <[string]> style-items: ["", "", "", ""];
@@ -64,12 +63,13 @@ export component NameTagCard inherits Card {
     callback choice-picked(int, int);
 
     title: @tr("Name tag");
+    tip: @tr("Show your name and pronouns in a corner of the picture.");
     icon: Icons.bookmark;
     has-switch: true;
     switch-shortcut: "name_tag.on";
     switch-checked: on;
     switch-label: switch-name;
-    switch-tip: switch-help;
+    switch-tip: switch-name;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
     RailRow {
@@ -80,6 +80,7 @@ export component NameTagCard inherits Card {
         TextField {
             label: @tr("Name");
             placeholder: @tr("Name");
+            tip: @tr("Name");
             text <=> root.name;
             edited(t) => { root.text-edited(0, t); }
         }
@@ -94,14 +95,16 @@ export component NameTagCard inherits Card {
             TextField {
                 label: @tr("Pronouns");
                 placeholder: @tr("Pronouns");
-                tip: pronouns-tip;
+                tip: @tr("Pronouns");
+                tip-detail: pronouns-tip;
                 text <=> root.pronouns;
                 edited(t) => { root.text-edited(1, t); }
             }
             TextField {
                 label: @tr("Second line");
                 placeholder: @tr("Second line");
-                tip: second-tip;
+                tip: @tr("Second line");
+                tip-detail: second-tip;
                 text <=> root.second;
                 edited(t) => { root.text-edited(2, t); }
             }

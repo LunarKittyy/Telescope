@@ -67,12 +67,12 @@ const T_CHASE: &str = "chase";
 const PEEK_OWNER: &str = "Auto framing bubble";
 /// A frame older than this is not what the preview shows now.
 const PEEK_FRESH_NS: u64 = 2_000_000_000;
-const SWITCH_TIP: &str = n_("Follow you with the zoom and pan");
-const FRAMING_TIP: &str = n_("How much of you is in the picture: just your head, down to your chest, down to your waist or all of you");
-const SPEED_TIP: &str = n_("How quickly the framing catches up when you move");
-const ROOM_TIP: &str = n_("What you can do before the framing follows you: fidget, shift in your seat, lean over, take a step or move around");
+const SWITCH_TIP: &str = n_("Zoom and pan to follow you.");
+const FRAMING_TIP: &str = n_("How much of you is in the picture, from just your head to all of you.");
+const SPEED_TIP: &str = n_("How quickly the framing follows when you move.");
+const ROOM_TIP: &str = n_("How much you can move before the framing follows you, from a fidget to walking around.");
 const HAND_NAME: &str = n_("Things in hand");
-const HAND_DETAIL: &str = n_("Widen for something in your hand");
+const HAND_DETAIL: &str = n_("Widen the framing to include something you're holding.");
 const VIEW_TAKEN: &str = n_("Something else is moving the zoom and pan.");
 const HOW_MUCH: &str = n_("Auto framing: how much of you");
 const SPEED_LABEL: &str = n_("Auto framing speed");

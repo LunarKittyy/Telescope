@@ -39,17 +39,18 @@ const CHANNEL_COLOURS: [&str; 4] = ["#e7eaef", "#ef6f6b", "#5fc98c", "#8cc4f2"];
 const LOOK_HUE: &str = "#e6a6e0";
 const WHEEL_NAMES: [&str; 4] = [n_("Lift"), n_("Gamma"), n_("Gain"), n_("Offset")];
 const WHEEL_TIPS: [&str; 4] = [
-    n_("Shadows: colour and level, with white staying put"),
-    n_("Midtones: colour and brightness, with black and white staying put"),
-    n_("Highlights: colour and level, with black staying put"),
-    n_("Everything: colour and level"),
+    n_("Change the colour and level of the shadows without changing white."),
+    n_("Change the colour and brightness of the midtones without changing black or white."),
+    n_("Change the colour and level of the highlights without changing black."),
+    n_("Change the colour and level of the whole picture."),
 ];
-const WHEEL_HINT: &str = n_("Drag towards a colour to add it, holding Shift to go slower. Double-click to reset.");
+const WHEEL_TIP: &str = n_("Drag towards a colour to add it.");
+const WHEEL_HINT: &str = n_("Hold Shift to go slower. Double-click to reset.");
 const NO_LUT: &str = n_("No LUT loaded");
 const CANT_OPEN: &str = n_("Telescope can't open that file.");
 const CANT_SAVE: &str = n_("Telescope couldn't save the LUT there.");
 const SAVED: &str = n_("Saved {file}.");
-const SWITCH_TIP: &str = n_("Switch the grade off to see the camera's own colours");
+const SWITCH_TIP: &str = n_("Turn the grade off to see the camera's original colours.");
 /// What vision is asked for under while Auto looks at the picture.
 const AUTO_TITLE: &str = "Auto colour grading";
 const AUTO_NO_STREAM: &str = n_("Start the stream first, so Auto has a picture to look at.");
@@ -87,14 +88,14 @@ struct SliderDef {
 }
 
 const SLIDERS: [SliderDef; 8] = [
-    SliderDef { key: "temperature", label: n_("Temperature"), lo: -200.0, hi: 200.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Warmer or cooler") },
-    SliderDef { key: "tint", label: n_("Tint"), lo: -200.0, hi: 200.0, steps: 1.0, decimals: 0, signed: true, tip: n_("More magenta or more green") },
-    SliderDef { key: "contrast", label: n_("Contrast"), lo: 0.0, hi: 2.0, steps: 100.0, decimals: 2, signed: false, tip: n_("Spreads the tones apart around the pivot") },
-    SliderDef { key: "pivot", label: n_("Pivot"), lo: 0.0, hi: 1.0, steps: 1000.0, decimals: 3, signed: false, tip: n_("The level contrast turns around") },
-    SliderDef { key: "saturation", label: n_("Saturation"), lo: 0.0, hi: 2.0, steps: 100.0, decimals: 0, signed: false, tip: n_("How colourful the picture is") },
-    SliderDef { key: "vibrance", label: n_("Vibrance"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Colours up the dull parts more than the strong ones, and spares skin") },
-    SliderDef { key: "shadows", label: n_("Shadows"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Brightens or darkens the darker parts") },
-    SliderDef { key: "highlights", label: n_("Highlights"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Brightens or darkens the brighter parts") },
+    SliderDef { key: "temperature", label: n_("Temperature"), lo: -200.0, hi: 200.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Make the picture warmer or cooler.") },
+    SliderDef { key: "tint", label: n_("Tint"), lo: -200.0, hi: 200.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Shift the picture towards magenta or green.") },
+    SliderDef { key: "contrast", label: n_("Contrast"), lo: 0.0, hi: 2.0, steps: 100.0, decimals: 2, signed: false, tip: n_("Spread the tones apart around the pivot.") },
+    SliderDef { key: "pivot", label: n_("Pivot"), lo: 0.0, hi: 1.0, steps: 1000.0, decimals: 3, signed: false, tip: n_("The brightness level that contrast leaves unchanged.") },
+    SliderDef { key: "saturation", label: n_("Saturation"), lo: 0.0, hi: 2.0, steps: 100.0, decimals: 0, signed: false, tip: n_("Make the picture more or less colourful.") },
+    SliderDef { key: "vibrance", label: n_("Vibrance"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Boost dull colours more than strong colours and skin tones.") },
+    SliderDef { key: "shadows", label: n_("Shadows"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Brighten or darken the shadows.") },
+    SliderDef { key: "highlights", label: n_("Highlights"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Brighten or darken the highlights.") },
 ];
 
 fn slider_value(g: &Grade, key: &str) -> f64 {
@@ -524,6 +525,8 @@ impl ColourGradingPlugin {
             "wheel-labels": WHEEL_NAMES.iter().map(|w| tr("{wheel} colour").field("wheel", tr(w))).collect::<Vec<_>>(),
             "reset-hint": tr("Double-click to reset"),
             "master-tips": WHEEL_TIPS.iter().map(|t| tr(t)).collect::<Vec<_>>(),
+            "master-labels": MASTER_LABELS.iter().map(|t| tr(t)).collect::<Vec<_>>(),
+            "wheel-tip": tr(WHEEL_TIP),
             "wheel-hint": tr(WHEEL_HINT),
             "master-min": MASTER_RANGE.iter().map(|r| r.0).collect::<Vec<_>>(),
             "master-max": MASTER_RANGE.iter().map(|r| r.1).collect::<Vec<_>>(),
