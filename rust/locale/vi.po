@@ -160,7 +160,7 @@ msgstr "Tải VB-Cable"
 msgid "Takes out typing, fans and room hiss."
 msgstr "Loại bỏ tiếng gõ phím, tiếng quạt và tiếng rít trong phòng."
 
-#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:641 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1409 rust/crates/link/src/plugin.rs:1416 rust/crates/outputs/src/stream_output.rs:956 rust/crates/system/src/shortcuts.rs:515 rust/crates/system/src/shortcuts.rs:517
+#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:645 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1409 rust/crates/link/src/plugin.rs:1416 rust/crates/outputs/src/stream_output.rs:956 rust/crates/system/src/shortcuts.rs:515 rust/crates/system/src/shortcuts.rs:517
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -183,7 +183,7 @@ msgstr "bật"
 msgid "off"
 msgstr "tắt"
 
-#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:215 rust/crates/audio/ui/microphone.slint:225 rust/crates/audio/ui/microphone.slint:236 rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:287 rust/crates/outputs/src/webcam.rs:46
+#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:215 rust/crates/audio/ui/microphone.slint:225 rust/crates/audio/ui/microphone.slint:236 rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:256 rust/crates/outputs/src/webcam.rs:46
 msgid "Gain"
 msgstr "Gain"
 
@@ -318,7 +318,7 @@ msgstr "Mic ảo đã dừng nhận âm thanh."
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "Màu vàng nghĩa là bộ giới hạn đang nén các đỉnh âm thanh lớn và màu đỏ nghĩa là âm thanh bị méo tiếng (bấm để xóa)."
 
-#: rust/crates/audio/ui/microphone.slint:229 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:54 rust/crates/effects/src/photos.rs:452 rust/crates/effects/src/transforms.rs:38 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/effects/ui/desk.slint:166 rust/crates/effects/ui/desk.slint:188 rust/crates/outputs/ui/stream_output.slint:163 rust/crates/outputs/ui/stream_output.slint:184 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:252 rust/crates/shell/ui/cards/camera.slint:291 rust/crates/shell/ui/cards/camera.slint:312
+#: rust/crates/audio/ui/microphone.slint:229 rust/crates/effects/src/background.rs:186 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/framing.rs:449 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:56 rust/crates/effects/src/photos.rs:452 rust/crates/effects/src/transforms.rs:49 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/effects/ui/desk.slint:166 rust/crates/effects/ui/desk.slint:188 rust/crates/outputs/ui/stream_output.slint:163 rust/crates/outputs/ui/stream_output.slint:184 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:252 rust/crates/shell/ui/cards/camera.slint:291 rust/crates/shell/ui/cards/camera.slint:312
 msgid "Double-click to reset"
 msgstr "Nhấp đúp để đặt lại"
 
@@ -342,7 +342,7 @@ msgstr "Mic điện thoại cần có VB-Audio Virtual Cable trên Windows."
 msgid "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."
 msgstr "VB-Cable do VB-Audio phát triển, không phải Telescope. Telescope có thể tải về tệp cài đặt từ vb-audio.com và mở trình thiết lập của chính VB-Audio, yêu cầu quyền quản trị. Hãy khởi động lại máy tính khi hoàn tất."
 
-#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:186 rust/crates/effects/ui/colour_grading.slint:468 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:458 rust/crates/link/ui/connection.slint:660 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:632 rust/crates/system/ui/shortcuts.slint:373 rust/crates/system/ui/updates.slint:215
+#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:186 rust/crates/effects/ui/colour_grading.slint:424 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:458 rust/crates/link/ui/connection.slint:660 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:632 rust/crates/system/ui/shortcuts.slint:373 rust/crates/system/ui/updates.slint:215
 msgid "Cancel"
 msgstr "Hủy"
 
@@ -524,67 +524,67 @@ msgid "Looking…"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:457 rust/crates/effects/ui/background.slint:34 rust/crates/effects/ui/photos.slint:274 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:98 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:418 rust/crates/shell/ui/cards/camera.slint:436
+#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:48 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:457 rust/crates/effects/ui/background.slint:38 rust/crates/effects/ui/photos.slint:274 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:98 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:418 rust/crates/shell/ui/cards/camera.slint:436
 msgid "Off"
 msgstr "Tắt"
 
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/ui/background.slint:34 rust/crates/effects/ui/background.slint:46
+#: rust/crates/effects/src/background.rs:26 rust/crates/effects/ui/background.slint:38 rust/crates/effects/ui/background.slint:50
 msgid "Blur"
 msgstr "Làm mờ"
 
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/background.slint:34 rust/crates/effects/ui/background.slint:60 rust/crates/effects/ui/chroma_key.slint:114 rust/crates/effects/ui/chroma_key.slint:145 rust/crates/effects/ui/composite_editor.slint:325 rust/crates/effects/ui/composite_editor.slint:541 rust/crates/effects/ui/composite_editor.slint:543
+#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/background.slint:38 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/chroma_key.slint:114 rust/crates/effects/ui/chroma_key.slint:145 rust/crates/effects/ui/composite_editor.slint:325 rust/crates/effects/ui/composite_editor.slint:541 rust/crates/effects/ui/composite_editor.slint:543
 msgid "Picture"
 msgstr "Ảnh"
 
-#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/src/composite_editor.rs:16
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/src/composite_editor.rs:16
 msgid "Pictures (*.png *.jpg *.jpeg *.webp *.bmp)"
 msgstr "Ảnh (*.png *.jpg *.jpeg *.webp *.bmp)"
 
-#: rust/crates/effects/src/background.rs:183 rust/crates/effects/src/chroma_key.rs:41 rust/crates/effects/src/fun_pack.rs:70
+#: rust/crates/effects/src/background.rs:187 rust/crates/effects/src/chroma_key.rs:41 rust/crates/effects/src/fun_pack.rs:70
 msgid "How soft the edge around you is"
 msgstr "Độ mềm của đường viền xung quanh bạn"
 
-#: rust/crates/effects/src/background.rs:184 rust/crates/effects/src/chroma_key.rs:268
+#: rust/crates/effects/src/background.rs:188 rust/crates/effects/src/chroma_key.rs:268
 msgid "Pick the picture that goes behind you"
 msgstr "Chọn ảnh hiển thị phía sau bạn"
 
-#: rust/crates/effects/src/background.rs:196 rust/crates/effects/src/chroma_key.rs:293
+#: rust/crates/effects/src/background.rs:200 rust/crates/effects/src/chroma_key.rs:293
 msgid "No picture yet"
 msgstr "Chưa có ảnh"
 
-#: rust/crates/effects/src/background.rs:208 rust/crates/effects/src/chroma_key.rs:254
+#: rust/crates/effects/src/background.rs:212 rust/crates/effects/src/chroma_key.rs:254
 msgid "Choose a picture to put behind you."
 msgstr "Chọn một ảnh để đặt phía sau bạn."
 
-#: rust/crates/effects/src/background.rs:239 rust/crates/effects/src/chroma_key.rs:407
+#: rust/crates/effects/src/background.rs:256 rust/crates/effects/src/chroma_key.rs:407
 msgid "Choose a picture"
 msgstr "Chọn một ảnh"
 
-#: rust/crates/effects/src/background.rs:247 rust/crates/effects/src/chroma_key.rs:414
+#: rust/crates/effects/src/background.rs:264 rust/crates/effects/src/chroma_key.rs:414
 msgid "Telescope can't open that picture."
 msgstr "Telescope không thể mở ảnh đó."
 
-#: rust/crates/effects/src/background.rs:255 rust/crates/effects/src/background.rs:340 rust/crates/effects/src/background.rs:343 rust/crates/effects/src/background.rs:361 rust/crates/effects/ui/background.slint:24 rust/crates/effects/ui/background.slint:30 rust/crates/effects/ui/background.slint:38 rust/crates/effects/ui/composite_editor.slint:515
+#: rust/crates/effects/src/background.rs:272 rust/crates/effects/src/background.rs:366 rust/crates/effects/src/background.rs:369 rust/crates/effects/src/background.rs:387 rust/crates/effects/ui/background.slint:28 rust/crates/effects/ui/background.slint:34 rust/crates/effects/ui/background.slint:42 rust/crates/effects/ui/composite_editor.slint:515
 msgid "Background"
 msgstr "Nền"
 
-#: rust/crates/effects/src/background.rs:256
+#: rust/crates/effects/src/background.rs:273
 msgid "Blurs the background behind you or swaps it for a picture."
 msgstr "Làm mờ nền phía sau bạn hoặc thay nền bằng một ảnh."
 
-#: rust/crates/effects/src/background.rs:257
+#: rust/crates/effects/src/background.rs:274
 msgid "Without it there's no Background card and the background stays as the camera sees it."
 msgstr "Nếu không có tiện ích này, sẽ không có thẻ Nền và phần nền sẽ giữ nguyên như camera nhìn thấy."
 
-#: rust/crates/effects/src/background.rs:342 rust/crates/effects/src/background.rs:368
+#: rust/crates/effects/src/background.rs:368 rust/crates/effects/src/background.rs:394
 msgid "Background blur"
 msgstr "Làm mờ nền"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:371 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:333
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:327 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:333
 msgid "Green"
 msgstr "Xanh lục"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:371 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:333
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:327 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:333
 msgid "Blue"
 msgstr "Xanh lam"
 
@@ -749,7 +749,7 @@ msgstr "RGB parade"
 msgid "Vectorscope"
 msgstr "Vectorscope"
 
-#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:371 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:333
+#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:327 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:333
 msgid "Red"
 msgstr "Đỏ"
 
@@ -844,15 +844,15 @@ msgstr "LUT 33 điểm (*.cube)"
 msgid "65-point LUT (*.cube)"
 msgstr "LUT 65 điểm (*.cube)"
 
-#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:242
+#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:256
 msgid "Lift"
 msgstr "Lift"
 
-#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:263 rust/crates/outputs/src/webcam.rs:51
+#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:256 rust/crates/outputs/src/webcam.rs:51
 msgid "Gamma"
 msgstr "Gamma"
 
-#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:308
+#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:256
 msgid "Offset"
 msgstr "Offset"
 
@@ -873,10 +873,10 @@ msgid "Everything: colour and level"
 msgstr "Toàn bộ: màu sắc và mức sáng"
 
 #: rust/crates/effects/src/colour_grading.rs:47
-msgid "Drag towards a colour to add it. Double-click to reset."
-msgstr "Kéo về phía một màu để thêm màu đó. Nhấp đúp để đặt lại."
+msgid "Drag towards a colour to add it, holding Shift to go slower. Double-click to reset."
+msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:48 rust/crates/effects/ui/colour_grading.slint:118
+#: rust/crates/effects/src/colour_grading.rs:48 rust/crates/effects/ui/colour_grading.slint:136
 msgid "No LUT loaded"
 msgstr "Chưa nạp LUT"
 
@@ -986,7 +986,7 @@ msgstr "Gain tổng"
 msgid "Offset master"
 msgstr "Offset tổng"
 
-#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:329 rust/crates/outputs/src/webcam.rs:49 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1424 rust/crates/shell/src/plugins/camera_control.rs:1656 rust/crates/shell/ui/cards/camera.slint:279 rust/crates/shell/ui/cards/camera.slint:290
+#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:285 rust/crates/outputs/src/webcam.rs:49 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1424 rust/crates/shell/src/plugins/camera_control.rs:1656 rust/crates/shell/ui/cards/camera.slint:279 rust/crates/shell/ui/cards/camera.slint:290
 msgid "Temperature"
 msgstr "Nhiệt độ màu"
 
@@ -994,7 +994,7 @@ msgstr "Nhiệt độ màu"
 msgid "Warmer or cooler"
 msgstr "Ấm hơn hoặc lạnh hơn"
 
-#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/ui/colour_grading.slint:329 rust/crates/shell/src/plugins/camera_control.rs:1432 rust/crates/shell/src/plugins/camera_control.rs:1658 rust/crates/shell/ui/cards/camera.slint:300 rust/crates/shell/ui/cards/camera.slint:311
+#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/ui/colour_grading.slint:285 rust/crates/shell/src/plugins/camera_control.rs:1432 rust/crates/shell/src/plugins/camera_control.rs:1658 rust/crates/shell/ui/cards/camera.slint:300 rust/crates/shell/ui/cards/camera.slint:311
 msgid "Tint"
 msgstr "Sắc thái"
 
@@ -1003,7 +1003,7 @@ msgid "More magenta or more green"
 msgstr "Nghiêng hồng tím hoặc nghiêng xanh lá hơn"
 
 #. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
-#: rust/crates/effects/src/colour_grading.rs:92 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:329 rust/crates/outputs/src/webcam.rs:50
+#: rust/crates/effects/src/colour_grading.rs:92 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:285 rust/crates/outputs/src/webcam.rs:50
 msgid "Contrast"
 msgstr "Độ tương phản"
 
@@ -1011,7 +1011,7 @@ msgstr "Độ tương phản"
 msgid "Spreads the tones apart around the pivot"
 msgstr "Mở rộng khoảng cách các sắc độ quanh điểm trục"
 
-#: rust/crates/effects/src/colour_grading.rs:93 rust/crates/effects/ui/colour_grading.slint:329
+#: rust/crates/effects/src/colour_grading.rs:93 rust/crates/effects/ui/colour_grading.slint:285
 msgid "Pivot"
 msgstr "Điểm trục"
 
@@ -1019,7 +1019,7 @@ msgstr "Điểm trục"
 msgid "The level contrast turns around"
 msgstr "Mức sáng làm mốc xoay cho độ tương phản"
 
-#: rust/crates/effects/src/colour_grading.rs:94 rust/crates/effects/ui/colour_grading.slint:329 rust/crates/outputs/src/webcam.rs:50
+#: rust/crates/effects/src/colour_grading.rs:94 rust/crates/effects/ui/colour_grading.slint:285 rust/crates/outputs/src/webcam.rs:50
 msgid "Saturation"
 msgstr "Độ bão hòa"
 
@@ -1027,7 +1027,7 @@ msgstr "Độ bão hòa"
 msgid "How colourful the picture is"
 msgstr "Độ rực rỡ màu sắc của hình ảnh"
 
-#: rust/crates/effects/src/colour_grading.rs:95 rust/crates/effects/ui/colour_grading.slint:329
+#: rust/crates/effects/src/colour_grading.rs:95 rust/crates/effects/ui/colour_grading.slint:285
 msgid "Vibrance"
 msgstr ""
 
@@ -1035,7 +1035,7 @@ msgstr ""
 msgid "Colours up the dull parts more than the strong ones, and spares skin"
 msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:96 rust/crates/effects/ui/colour_grading.slint:329
+#: rust/crates/effects/src/colour_grading.rs:96 rust/crates/effects/ui/colour_grading.slint:285
 msgid "Shadows"
 msgstr "Vùng tối"
 
@@ -1043,7 +1043,7 @@ msgstr "Vùng tối"
 msgid "Brightens or darkens the darker parts"
 msgstr "Làm sáng hoặc làm tối các vùng tối hơn"
 
-#: rust/crates/effects/src/colour_grading.rs:97 rust/crates/effects/ui/colour_grading.slint:329
+#: rust/crates/effects/src/colour_grading.rs:97 rust/crates/effects/ui/colour_grading.slint:285
 msgid "Highlights"
 msgstr "Vùng sáng"
 
@@ -1064,7 +1064,7 @@ msgstr "Xuất thiết lập chỉnh màu"
 msgid "{file} is already there. Replace it?"
 msgstr "{file} đã tồn tại. Bạn có muốn thay thế không?"
 
-#: rust/crates/effects/src/colour_grading.rs:522 rust/crates/effects/src/colour_grading.rs:929 rust/crates/effects/src/colour_grading.rs:1012 rust/crates/effects/src/colour_grading.rs:1014 rust/crates/effects/src/colour_grading.rs:1056 rust/crates/effects/ui/colour_grading.slint:156
+#: rust/crates/effects/src/colour_grading.rs:522 rust/crates/effects/src/colour_grading.rs:929 rust/crates/effects/src/colour_grading.rs:1012 rust/crates/effects/src/colour_grading.rs:1014 rust/crates/effects/src/colour_grading.rs:1056 rust/crates/effects/ui/colour_grading.slint:174
 msgid "Colour grading"
 msgstr "Chỉnh màu"
 
@@ -1105,7 +1105,7 @@ msgstr "Kéo giãn"
 msgid "Crop"
 msgstr "Cắt xén"
 
-#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:140 rust/crates/effects/ui/transforms.slint:150 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:236 rust/crates/effects/ui/transforms.slint:244 rust/crates/outputs/src/webcam.rs:56
 msgid "Pan"
 msgstr "Lia"
 
@@ -1248,7 +1248,7 @@ msgid "Black and white"
 msgstr "Trắng đen"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/desk.rs:41 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:27 rust/crates/effects/ui/colour_grading.slint:214 rust/crates/link/ui/connection.slint:295 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:101 rust/crates/outputs/src/webcam.rs:958 rust/crates/outputs/ui/webcam.slint:121 rust/crates/shell/src/plugins/camera_control.rs:1308 rust/crates/shell/src/plugins/camera_control.rs:1310 rust/crates/shell/src/plugins/camera_control.rs:1312 rust/crates/shell/src/plugins/camera_control.rs:1635 rust/crates/shell/src/plugins/camera_control.rs:1636 rust/crates/shell/ui/cards/camera.slint:196 rust/crates/shell/ui/cards/camera.slint:266 rust/crates/shell/ui/cards/camera.slint:326
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/desk.rs:41 rust/crates/effects/src/notes.rs:44 rust/crates/effects/src/photos.rs:27 rust/crates/effects/ui/colour_grading.slint:232 rust/crates/link/ui/connection.slint:295 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:101 rust/crates/outputs/src/webcam.rs:958 rust/crates/outputs/ui/webcam.slint:121 rust/crates/shell/src/plugins/camera_control.rs:1308 rust/crates/shell/src/plugins/camera_control.rs:1310 rust/crates/shell/src/plugins/camera_control.rs:1312 rust/crates/shell/src/plugins/camera_control.rs:1635 rust/crates/shell/src/plugins/camera_control.rs:1636 rust/crates/shell/ui/cards/camera.slint:196 rust/crates/shell/ui/cards/camera.slint:266 rust/crates/shell/ui/cards/camera.slint:326
 msgid "Auto"
 msgstr "Tự động"
 
@@ -1319,7 +1319,7 @@ msgstr "Chế độ bàn làm việc"
 msgid "Done"
 msgstr "Xong"
 
-#: rust/crates/effects/src/desk.rs:186 rust/crates/effects/ui/transforms.slint:47 rust/crates/outputs/ui/webcam.slint:71
+#: rust/crates/effects/src/desk.rs:186 rust/crates/effects/ui/transforms.slint:143 rust/crates/outputs/ui/webcam.slint:71
 msgid "Reset"
 msgstr "Đặt lại"
 
@@ -1391,142 +1391,142 @@ msgstr "Di chuyển điểm đo sáng của điện thoại tới khuôn mặt b
 msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
 msgstr "Nếu không có tiện ích này, sẽ không có thẻ Phơi sáng theo khuôn mặt và điện thoại sẽ đo sáng theo điểm bạn chạm hoặc toàn bộ khung hình."
 
-#: rust/crates/effects/src/framing.rs:18 rust/crates/effects/ui/framing.slint:32
+#: rust/crates/effects/src/framing.rs:19 rust/crates/effects/ui/framing.slint:40
 msgid "Auto framing"
 msgstr "Căn khung tự động"
 
 #. keep these short, they sit in the slider's narrow readout column
-#: rust/crates/effects/src/framing.rs:23
+#: rust/crates/effects/src/framing.rs:24
 msgid "Head"
 msgstr "Đầu"
 
 #. keep these short, they sit in the slider's narrow readout column
-#: rust/crates/effects/src/framing.rs:23
+#: rust/crates/effects/src/framing.rs:24
 msgid "Chest"
 msgstr "Ngực"
 
 #. keep these short, they sit in the slider's narrow readout column
-#: rust/crates/effects/src/framing.rs:23
+#: rust/crates/effects/src/framing.rs:24
 msgid "Waist"
 msgstr "Eo"
 
 #. keep these short, they sit in the slider's narrow readout column
-#: rust/crates/effects/src/framing.rs:23
+#: rust/crates/effects/src/framing.rs:24
 msgid "Body"
 msgstr "Toàn thân"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Sloth"
 msgstr "Sên"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Lazy"
 msgstr "Rùa"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Mellow"
 msgstr "Lững thững"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Calm"
 msgstr "Thong dong"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Easy"
 msgstr "Êm"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Steady"
 msgstr "Đều tay"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Brisk"
 msgstr "Mau lẹ"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Quick"
 msgstr "Nhanh"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Snappy"
 msgstr "Thần tốc"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Zippy"
 msgstr "Tia chớp"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:47
+#: rust/crates/effects/src/framing.rs:48
 msgid "Fidget"
 msgstr "Cựa quậy"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:47
+#: rust/crates/effects/src/framing.rs:48
 msgid "Shift"
 msgstr "Dịch"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:47
+#: rust/crates/effects/src/framing.rs:48
 msgid "Lean"
 msgstr "Nghiêng người"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:47
+#: rust/crates/effects/src/framing.rs:48
 msgid "Step"
 msgstr "Bước chân"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:47
+#: rust/crates/effects/src/framing.rs:48
 msgid "Roam"
 msgstr "Đi lại"
 
-#: rust/crates/effects/src/framing.rs:62
+#: rust/crates/effects/src/framing.rs:70
 msgid "Follow you with the zoom and pan"
 msgstr "Đi theo bạn bằng cách thu phóng và lia máy"
 
-#: rust/crates/effects/src/framing.rs:63
+#: rust/crates/effects/src/framing.rs:71
 msgid "How much of you is in the picture: just your head, down to your chest, down to your waist or all of you"
 msgstr "Phần cơ thể xuất hiện trong khung hình: chỉ đầu, tới ngực, tới eo hoặc toàn thân bạn"
 
-#: rust/crates/effects/src/framing.rs:64
+#: rust/crates/effects/src/framing.rs:72
 msgid "How quickly the framing catches up when you move"
 msgstr "Tốc độ điều chỉnh căn khung bắt kịp khi bạn di chuyển"
 
-#: rust/crates/effects/src/framing.rs:65
+#: rust/crates/effects/src/framing.rs:73
 msgid "What you can do before the framing follows you: fidget, shift in your seat, lean over, take a step or move around"
 msgstr "Khoảng vận động trước khi căn khung đi theo bạn: cựa quậy, nhích người trên ghế, nghiêng người, bước một bước hoặc đi lại quanh phòng"
 
-#: rust/crates/effects/src/framing.rs:66
+#: rust/crates/effects/src/framing.rs:74
 msgid "Widen for something in your hand"
 msgstr "Mở rộng khi cầm vật trên tay"
 
-#: rust/crates/effects/src/framing.rs:67
+#: rust/crates/effects/src/framing.rs:75
 msgid "Something else is moving the zoom and pan."
 msgstr "Có tính năng khác đang điều khiển thu phóng và lia máy."
 
-#: rust/crates/effects/src/framing.rs:68
+#: rust/crates/effects/src/framing.rs:76
 msgid "Auto framing: how much of you"
 msgstr "Căn khung tự động: phần cơ thể"
 
-#: rust/crates/effects/src/framing.rs:69
+#: rust/crates/effects/src/framing.rs:77
 msgid "Auto framing speed"
 msgstr "Tốc độ căn khung tự động"
 
-#: rust/crates/effects/src/framing.rs:548
+#: rust/crates/effects/src/framing.rs:713
 msgid "Zooms and pans to keep you in the picture as you move."
 msgstr "Thu phóng và lia máy để giữ bạn luôn trong khung hình khi bạn di chuyển."
 
-#: rust/crates/effects/src/framing.rs:549
+#: rust/crates/effects/src/framing.rs:714
 msgid "Without it there's no Auto framing card and the zoom stays where you put it."
 msgstr "Nếu không có tiện ích này, sẽ không có thẻ Căn khung tự động và mức thu phóng sẽ giữ nguyên ở vị trí bạn đặt."
 
@@ -1750,162 +1750,162 @@ msgctxt "search"
 msgid "lower third caption title label overlay text name pronouns role"
 msgstr "phần ba phía dưới phụ đề tiêu đề nhãn lớp phủ văn bản tên đại từ vai trò lower third caption title label overlay text name pronouns role"
 
-#: rust/crates/effects/src/notes.rs:42
+#: rust/crates/effects/src/notes.rs:44
 msgid "By hand"
 msgstr "Thủ công"
 
-#: rust/crates/effects/src/notes.rs:44
+#: rust/crates/effects/src/notes.rs:46
 msgid "Type or paste your notes."
 msgstr "Nhập hoặc dán ghi chú của bạn."
 
-#: rust/crates/effects/src/notes.rs:45
+#: rust/crates/effects/src/notes.rs:47
 msgid "Your saved notes"
 msgstr "Ghi chú đã lưu của bạn"
 
-#: rust/crates/effects/src/notes.rs:46
+#: rust/crates/effects/src/notes.rs:48
 msgid "New notes"
 msgstr "Ghi chú mới"
 
-#: rust/crates/effects/src/notes.rs:47
+#: rust/crates/effects/src/notes.rs:49
 msgid "Delete these notes"
 msgstr "Xóa ghi chú này"
 
-#: rust/crates/effects/src/notes.rs:48
+#: rust/crates/effects/src/notes.rs:50
 msgid "How big the notes are on the phone"
 msgstr "Kích thước ghi chú trên điện thoại"
 
-#: rust/crates/effects/src/notes.rs:49
+#: rust/crates/effects/src/notes.rs:51
 msgid "How fast the notes scroll on the phone"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:50
+#: rust/crates/effects/src/notes.rs:52
 msgid "Only used when the notes scroll by themselves"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:51
+#: rust/crates/effects/src/notes.rs:53
 msgid "Back to the line before"
 msgstr "Quay lại dòng trước"
 
-#: rust/crates/effects/src/notes.rs:52
+#: rust/crates/effects/src/notes.rs:54
 msgid "Start or pause scrolling on the phone"
 msgstr "Bắt đầu hoặc tạm dừng cuộn trên điện thoại"
 
-#: rust/crates/effects/src/notes.rs:53
+#: rust/crates/effects/src/notes.rs:55
 msgid "On to the next line"
 msgstr "Chuyển sang dòng tiếp theo"
 
-#: rust/crates/effects/src/notes.rs:109
+#: rust/crates/effects/src/notes.rs:111
 msgid "Notes only work with a phone as the camera."
 msgstr "Ghi chú chỉ hoạt động khi dùng điện thoại làm camera."
 
-#: rust/crates/effects/src/notes.rs:112
+#: rust/crates/effects/src/notes.rs:114
 msgid "Update Telescope on the phone to show notes there."
 msgstr "Cập nhật Telescope trên điện thoại để hiển thị ghi chú tại đó."
 
-#: rust/crates/effects/src/notes.rs:115
+#: rust/crates/effects/src/notes.rs:117
 msgid "These notes are too long to send to the phone."
 msgstr "Ghi chú này quá dài để gửi đến điện thoại."
 
-#: rust/crates/effects/src/notes.rs:123
+#: rust/crates/effects/src/notes.rs:125
 msgid "Switch to the front camera to have the phone's screen facing you."
 msgstr "Chuyển sang camera trước để màn hình điện thoại hướng về phía bạn."
 
-#: rust/crates/effects/src/notes.rs:129
+#: rust/crates/effects/src/notes.rs:131
 msgid "The notes were closed on the phone. Send again to show them."
 msgstr "Ghi chú đã bị đóng trên điện thoại. Hãy gửi lại để hiển thị."
 
-#: rust/crates/effects/src/notes.rs:132
+#: rust/crates/effects/src/notes.rs:134
 msgid "The notes show up on the phone once you close its preview."
 msgstr "Ghi chú sẽ xuất hiện trên điện thoại khi bạn đóng bản xem trước."
 
-#: rust/crates/effects/src/notes.rs:134
+#: rust/crates/effects/src/notes.rs:136
 msgid "Open Telescope on the phone to see the notes."
 msgstr "Mở Telescope trên điện thoại để xem ghi chú."
 
-#: rust/crates/effects/src/notes.rs:137
+#: rust/crates/effects/src/notes.rs:139
 msgid "The notes are up but the phone streams from its back camera."
 msgstr "Ghi chú đã sẵn sàng nhưng điện thoại đang truyền phát từ camera sau."
 
-#: rust/crates/effects/src/notes.rs:140
+#: rust/crates/effects/src/notes.rs:142
 msgid "Send again to show your changes on the phone."
 msgstr "Gửi lại để hiển thị các thay đổi của bạn trên điện thoại."
 
-#: rust/crates/effects/src/notes.rs:142
+#: rust/crates/effects/src/notes.rs:144
 msgid "The notes are on the phone's screen."
 msgstr "Ghi chú đang hiển thị trên màn hình điện thoại."
 
-#: rust/crates/effects/src/notes.rs:217
+#: rust/crates/effects/src/notes.rs:219
 #, python-brace-format
 msgid "Notes {n}"
 msgstr "Ghi chú {n}"
 
-#: rust/crates/effects/src/notes.rs:261 rust/crates/effects/src/notes.rs:520 rust/crates/effects/src/notes.rs:599 rust/crates/effects/ui/notes.slint:58 rust/crates/effects/ui/notes.slint:65
+#: rust/crates/effects/src/notes.rs:263 rust/crates/effects/src/notes.rs:524 rust/crates/effects/src/notes.rs:603 rust/crates/effects/ui/notes.slint:60 rust/crates/effects/ui/notes.slint:67
 msgid "Notes"
 msgstr "Ghi chú"
 
-#: rust/crates/effects/src/notes.rs:263
+#: rust/crates/effects/src/notes.rs:265
 msgctxt "notes"
 msgid "Previous"
 msgstr "Trước"
 
-#: rust/crates/effects/src/notes.rs:264
+#: rust/crates/effects/src/notes.rs:266
 msgctxt "notes"
 msgid "Next"
 msgstr "Tiếp"
 
-#: rust/crates/effects/src/notes.rs:264
+#: rust/crates/effects/src/notes.rs:266
 msgid "Send to phone"
 msgstr "Gửi đến điện thoại"
 
-#: rust/crates/effects/src/notes.rs:265
+#: rust/crates/effects/src/notes.rs:267
 msgid "Clear from phone"
 msgstr "Xóa khỏi điện thoại"
 
-#: rust/crates/effects/src/notes.rs:289
+#: rust/crates/effects/src/notes.rs:293
 msgid "Pause"
 msgstr "Tạm dừng"
 
-#: rust/crates/effects/src/notes.rs:289
+#: rust/crates/effects/src/notes.rs:293
 msgid "Play"
 msgstr "Phát"
 
-#: rust/crates/effects/src/notes.rs:521
+#: rust/crates/effects/src/notes.rs:525
 msgid "Shows your notes on the phone's screen right under the camera, to read while looking people in the eye."
 msgstr "Hiển thị ghi chú trên màn hình điện thoại ngay dưới camera, giúp bạn đọc mà vẫn nhìn thẳng vào mắt người đối diện."
 
-#: rust/crates/effects/src/notes.rs:522
+#: rust/crates/effects/src/notes.rs:526
 msgid "Without it there's no Notes card and the phone never shows notes."
 msgstr "Nếu không có tiện ích này, sẽ không có thẻ Ghi chú và điện thoại sẽ không bao giờ hiển thị ghi chú."
 
-#: rust/crates/effects/src/notes.rs:601 rust/crates/effects/src/notes.rs:646
+#: rust/crates/effects/src/notes.rs:605 rust/crates/effects/src/notes.rs:650
 msgid "Notes scroll speed"
 msgstr "Tốc độ cuộn ghi chú"
 
-#: rust/crates/effects/src/notes.rs:604 rust/crates/effects/src/notes.rs:619
+#: rust/crates/effects/src/notes.rs:608 rust/crates/effects/src/notes.rs:623
 msgid "Send notes"
 msgstr "Gửi ghi chú"
 
-#: rust/crates/effects/src/notes.rs:605 rust/crates/effects/src/notes.rs:623
+#: rust/crates/effects/src/notes.rs:609 rust/crates/effects/src/notes.rs:627
 msgid "Clear notes"
 msgstr "Xóa ghi chú"
 
-#: rust/crates/effects/src/notes.rs:606 rust/crates/effects/src/notes.rs:627
+#: rust/crates/effects/src/notes.rs:610 rust/crates/effects/src/notes.rs:631
 msgid "Next line"
 msgstr "Dòng tiếp theo"
 
-#: rust/crates/effects/src/notes.rs:607 rust/crates/effects/src/notes.rs:631
+#: rust/crates/effects/src/notes.rs:611 rust/crates/effects/src/notes.rs:635
 msgid "Previous line"
 msgstr "Dòng trước"
 
-#: rust/crates/effects/src/notes.rs:608 rust/crates/effects/src/notes.rs:641
+#: rust/crates/effects/src/notes.rs:612 rust/crates/effects/src/notes.rs:645
 msgid "Scroll notes"
 msgstr "Cuộn ghi chú"
 
-#: rust/crates/effects/src/notes.rs:640
+#: rust/crates/effects/src/notes.rs:644
 msgid "playing"
 msgstr "đang phát"
 
-#: rust/crates/effects/src/notes.rs:640
+#: rust/crates/effects/src/notes.rs:644
 msgid "paused"
 msgstr "đã tạm dừng"
 
@@ -1996,7 +1996,7 @@ msgstr "Webhook Đang lên sóng không gửi được"
 msgid "It answered: {error}"
 msgstr "Phản hồi: {error}"
 
-#: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:363 rust/crates/shell/src/doc.rs:364 rust/crates/shell/src/doc.rs:725
+#: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:363 rust/crates/shell/src/doc.rs:364 rust/crates/shell/src/doc.rs:726
 msgid "Settings"
 msgstr "Cài đặt"
 
@@ -2411,147 +2411,137 @@ msgstr "Nếu không có tiện ích này, sẽ không có thẻ Mã QR và các
 msgid "Read QR codes"
 msgstr "Đọc mã QR"
 
-#: rust/crates/effects/src/transforms.rs:35
+#: rust/crates/effects/src/transforms.rs:46
 msgid "Clear flip, rotation, zoom, pan and stretch back to defaults"
 msgstr "Đặt lại lật, xoay, thu phóng, lia và kéo giãn về mặc định"
 
-#: rust/crates/effects/src/transforms.rs:36
+#: rust/crates/effects/src/transforms.rs:47
 msgid "Drag to move the view. Double-click to centre it."
 msgstr "Kéo để di chuyển góc nhìn. Nhấp đúp để căn giữa."
 
-#: rust/crates/effects/src/transforms.rs:37
+#: rust/crates/effects/src/transforms.rs:48
 msgid "Stretch or squish the picture sideways"
 msgstr "Kéo giãn hoặc ép ảnh theo chiều ngang"
 
-#: rust/crates/effects/src/transforms.rs:37
+#: rust/crates/effects/src/transforms.rs:48
 msgid "Stretch or squish the picture up and down"
 msgstr "Kéo giãn hoặc ép ảnh theo chiều dọc"
 
-#: rust/crates/effects/src/transforms.rs:62
+#: rust/crates/effects/src/transforms.rs:73
 #, python-brace-format
 msgid "Switched to {lens}"
 msgstr "Đã chuyển sang {lens}"
 
-#: rust/crates/effects/src/transforms.rs:67
+#: rust/crates/effects/src/transforms.rs:78
 msgid "the telephoto"
 msgstr "ống kính tele"
 
-#: rust/crates/effects/src/transforms.rs:69
+#: rust/crates/effects/src/transforms.rs:80
 msgid "the main camera"
 msgstr "camera chính"
 
-#: rust/crates/effects/src/transforms.rs:70
+#: rust/crates/effects/src/transforms.rs:81
 #, python-brace-format
 msgid "Panned past what {tele} can see, so it's on {live}. Pan back to switch again."
 msgstr "Đã lia vượt quá tầm nhìn của {tele}, nên đang dùng {live}. Hãy lia ngược lại để chuyển đổi."
 
-#: rust/crates/effects/src/transforms.rs:73
+#: rust/crates/effects/src/transforms.rs:84
 #, python-brace-format
 msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
 msgstr "Điện thoại tự động giữ {live}, nhiều khả năng là do quá tối hoặc quá gần đối với {tele}. Ứng dụng sẽ chuyển khi có thể."
 
-#: rust/crates/effects/src/transforms.rs:79
+#: rust/crates/effects/src/transforms.rs:90
 msgid "It can wobble for a moment while it switches."
 msgstr "Hình ảnh có thể rung lắc trong chốc lát khi chuyển đổi."
 
-#: rust/crates/effects/src/transforms.rs:224
+#: rust/crates/effects/src/transforms.rs:287
 #, python-brace-format
 msgid "{n}×"
 msgstr "{n}×"
 
-#. H and V for horizontal and vertical, in the narrow Pan readout
-#: rust/crates/effects/src/transforms.rs:233
-#, python-brace-format
-msgid ""
-"H {x}\n"
-"V {y}"
-msgstr ""
-"N {x}\n"
-"D {y}"
-
-#: rust/crates/effects/src/transforms.rs:239
+#: rust/crates/effects/src/transforms.rs:298
 msgid "Dots mark where the phone switches to another lens"
 msgstr "Các dấu chấm đánh dấu vị trí điện thoại chuyển sang ống kính khác"
 
-#: rust/crates/effects/src/transforms.rs:242
+#: rust/crates/effects/src/transforms.rs:301
 #, python-brace-format
 msgid "{owner} is moving the zoom and pan"
 msgstr "{owner} đang điều chỉnh thu phóng và lia"
 
-#: rust/crates/effects/src/transforms.rs:296
+#: rust/crates/effects/src/transforms.rs:363
 #, python-brace-format
 msgid "Add shortcut for {action}…"
 msgstr "Thêm phím tắt cho {action}…"
 
-#: rust/crates/effects/src/transforms.rs:479
+#: rust/crates/effects/src/transforms.rs:620
 msgid "Zoomed on this computer: this lens can't zoom itself"
 msgstr "Thu phóng trên máy tính này: ống kính này không thể tự thu phóng"
 
-#: rust/crates/effects/src/transforms.rs:479
+#: rust/crates/effects/src/transforms.rs:620
 msgid "Zoomed on this computer"
 msgstr "Thu phóng trên máy tính này"
 
-#: rust/crates/effects/src/transforms.rs:481
+#: rust/crates/effects/src/transforms.rs:622
 msgid "Zoomed on the phone's sensor as far as this lens allows, the rest on this computer"
 msgstr "Thu phóng trên cảm biến của điện thoại tối đa theo ống kính, phần còn lại trên máy tính này"
 
-#: rust/crates/effects/src/transforms.rs:483
+#: rust/crates/effects/src/transforms.rs:624
 msgid "Zoomed on the phone's sensor"
 msgstr "Thu phóng trên cảm biến của điện thoại"
 
-#: rust/crates/effects/src/transforms.rs:508 rust/crates/effects/src/transforms.rs:612 rust/crates/effects/ui/transforms.slint:40
+#: rust/crates/effects/src/transforms.rs:650 rust/crates/effects/src/transforms.rs:736 rust/crates/effects/ui/transforms.slint:136
 msgid "Transforms"
 msgstr "Biến đổi"
 
-#: rust/crates/effects/src/transforms.rs:509
+#: rust/crates/effects/src/transforms.rs:651
 msgid "Zoom, pan, flip, rotate and stretch the picture."
 msgstr "Thu phóng, lia, lật, xoay và kéo giãn ảnh."
 
-#: rust/crates/effects/src/transforms.rs:510
+#: rust/crates/effects/src/transforms.rs:652
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "Nếu không có, sẽ không có thẻ Biến đổi và ảnh xuất ra sẽ giống hệt như điện thoại gửi đến."
 
-#: rust/crates/effects/src/transforms.rs:615 rust/crates/effects/src/transforms.rs:668 rust/crates/effects/ui/composite_editor.slint:447 rust/crates/effects/ui/transforms.slint:81 rust/crates/effects/ui/transforms.slint:94 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/transforms.rs:739 rust/crates/effects/src/transforms.rs:792 rust/crates/effects/ui/composite_editor.slint:447 rust/crates/effects/ui/transforms.slint:177 rust/crates/effects/ui/transforms.slint:190 rust/crates/outputs/src/webcam.rs:56
 msgid "Zoom"
 msgstr "Thu phóng"
 
-#: rust/crates/effects/src/transforms.rs:616 rust/crates/effects/src/transforms.rs:678
+#: rust/crates/effects/src/transforms.rs:740 rust/crates/effects/src/transforms.rs:802
 msgid "Pan left/right"
 msgstr "Lia sang trái/phải"
 
-#: rust/crates/effects/src/transforms.rs:617 rust/crates/effects/src/transforms.rs:678
+#: rust/crates/effects/src/transforms.rs:741 rust/crates/effects/src/transforms.rs:802
 msgid "Pan up/down"
 msgstr "Lia lên/xuống"
 
-#: rust/crates/effects/src/transforms.rs:618 rust/crates/effects/src/transforms.rs:686 rust/crates/effects/ui/desk.slint:157 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/transforms.slint:173
+#: rust/crates/effects/src/transforms.rs:742 rust/crates/effects/src/transforms.rs:810 rust/crates/effects/ui/desk.slint:157 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/transforms.slint:260
 msgid "Width"
 msgstr "Chiều rộng"
 
-#: rust/crates/effects/src/transforms.rs:619 rust/crates/effects/src/transforms.rs:686 rust/crates/effects/ui/desk.slint:179 rust/crates/effects/ui/desk.slint:186 rust/crates/effects/ui/transforms.slint:189
+#: rust/crates/effects/src/transforms.rs:743 rust/crates/effects/src/transforms.rs:810 rust/crates/effects/ui/desk.slint:179 rust/crates/effects/ui/desk.slint:186 rust/crates/effects/ui/transforms.slint:276
 msgid "Height"
 msgstr "Chiều cao"
 
-#: rust/crates/effects/src/transforms.rs:626 rust/crates/effects/src/transforms.rs:646
+#: rust/crates/effects/src/transforms.rs:750 rust/crates/effects/src/transforms.rs:770
 msgid "Flip horizontal"
 msgstr "Lật ngang"
 
-#: rust/crates/effects/src/transforms.rs:627 rust/crates/effects/src/transforms.rs:646
+#: rust/crates/effects/src/transforms.rs:751 rust/crates/effects/src/transforms.rs:770
 msgid "Flip vertical"
 msgstr "Lật dọc"
 
-#: rust/crates/effects/src/transforms.rs:628 rust/crates/effects/src/transforms.rs:660 rust/crates/effects/ui/transforms.slint:66 rust/crates/effects/ui/transforms.slint:73
+#: rust/crates/effects/src/transforms.rs:752 rust/crates/effects/src/transforms.rs:784 rust/crates/effects/ui/transforms.slint:162 rust/crates/effects/ui/transforms.slint:169
 msgid "Rotation"
 msgstr "Xoay"
 
-#: rust/crates/effects/src/transforms.rs:635 rust/crates/effects/src/transforms.rs:691
+#: rust/crates/effects/src/transforms.rs:759 rust/crates/effects/src/transforms.rs:815
 msgid "Reset transforms"
 msgstr "Đặt lại biến đổi"
 
-#: rust/crates/effects/ui/background.slint:65 rust/crates/effects/ui/chroma_key.slint:150
+#: rust/crates/effects/ui/background.slint:72 rust/crates/effects/ui/chroma_key.slint:150
 msgid "Choose"
 msgstr ""
 
-#: rust/crates/effects/ui/background.slint:87 rust/crates/effects/ui/chroma_key.slint:90 rust/crates/effects/ui/fun_pack.slint:103
+#: rust/crates/effects/ui/background.slint:94 rust/crates/effects/ui/chroma_key.slint:90 rust/crates/effects/ui/fun_pack.slint:103
 msgid "Edges"
 msgstr "Đường viền"
 
@@ -2591,107 +2581,107 @@ msgstr "Sọc vằn từ"
 msgid "Scope size"
 msgstr "Kích thước scope"
 
-#: rust/crates/effects/ui/colour_grading.slint:170 rust/crates/effects/ui/colour_grading.slint:178
+#: rust/crates/effects/ui/colour_grading.slint:188 rust/crates/effects/ui/colour_grading.slint:196
 msgid "Compare"
 msgstr "So sánh"
 
-#: rust/crates/effects/ui/colour_grading.slint:180
+#: rust/crates/effects/ui/colour_grading.slint:198
 msgid "Left of the line the preview shows the picture without the grade (apps always get it graded)"
 msgstr "Phía bên trái đường phân cách hiển thị hình ảnh chưa chỉnh màu (các ứng dụng khác luôn nhận hình đã chỉnh màu)"
 
-#: rust/crates/effects/ui/colour_grading.slint:187
+#: rust/crates/effects/ui/colour_grading.slint:205
 msgid "Split"
 msgstr "Phân tách"
 
-#: rust/crates/effects/ui/colour_grading.slint:188
+#: rust/crates/effects/ui/colour_grading.slint:206
 msgid "Where the line between before and after is"
 msgstr "Vị trí của đường phân cách giữa trước và sau"
 
-#: rust/crates/effects/ui/colour_grading.slint:204
+#: rust/crates/effects/ui/colour_grading.slint:222
 msgid "Primaries"
 msgstr "Màu cơ bản"
 
-#: rust/crates/effects/ui/colour_grading.slint:204
+#: rust/crates/effects/ui/colour_grading.slint:222
 msgid "Curves"
 msgstr "Đường cong"
 
-#: rust/crates/effects/ui/colour_grading.slint:204 rust/crates/effects/ui/colour_grading.slint:399
+#: rust/crates/effects/ui/colour_grading.slint:222 rust/crates/effects/ui/colour_grading.slint:355
 msgid "LUT"
 msgstr "LUT"
 
-#: rust/crates/effects/ui/colour_grading.slint:208
+#: rust/crates/effects/ui/colour_grading.slint:226
 msgid "Page"
 msgstr "Trang"
 
-#: rust/crates/effects/ui/colour_grading.slint:215
+#: rust/crates/effects/ui/colour_grading.slint:233
 msgid "Auto colour grading"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:216
+#: rust/crates/effects/ui/colour_grading.slint:234
 msgid "Looks at about a second of the picture and sets white balance, brightness, contrast and colour for you. Everything it sets stays on the sliders to change"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:224 rust/crates/effects/ui/colour_grading.slint:225
+#: rust/crates/effects/ui/colour_grading.slint:242 rust/crates/effects/ui/colour_grading.slint:243
 msgid "Reset the grade"
 msgstr "Đặt lại hiệu ứng chỉnh màu"
 
-#: rust/crates/effects/ui/colour_grading.slint:360
+#: rust/crates/effects/ui/colour_grading.slint:316
 msgid "RGB"
 msgstr "RGB"
 
-#: rust/crates/effects/ui/colour_grading.slint:360
+#: rust/crates/effects/ui/colour_grading.slint:316
 msgid "Hue vs sat"
 msgstr "Hue theo sat"
 
-#: rust/crates/effects/ui/colour_grading.slint:360
+#: rust/crates/effects/ui/colour_grading.slint:316
 msgid "Hue vs hue"
 msgstr "Hue theo hue"
 
-#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/effects/ui/colour_grading.slint:385
+#: rust/crates/effects/ui/colour_grading.slint:320 rust/crates/effects/ui/colour_grading.slint:341
 msgid "Curve"
 msgstr "Đường cong"
 
-#: rust/crates/effects/ui/colour_grading.slint:371
+#: rust/crates/effects/ui/colour_grading.slint:327
 msgid "All"
 msgstr "Tất cả"
 
-#: rust/crates/effects/ui/colour_grading.slint:375 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
+#: rust/crates/effects/ui/colour_grading.slint:331 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
 msgid "Channel"
 msgstr "Kênh"
 
-#: rust/crates/effects/ui/colour_grading.slint:404 rust/crates/setup/ui/setup.slint:59
+#: rust/crates/effects/ui/colour_grading.slint:360 rust/crates/setup/ui/setup.slint:59
 msgid "Load"
 msgstr "Nạp"
 
-#: rust/crates/effects/ui/colour_grading.slint:405
+#: rust/crates/effects/ui/colour_grading.slint:361
 msgid "Pick a .cube LUT to put on top of the grade"
 msgstr "Chọn tệp LUT .cube để áp dụng lên trên lớp chỉnh màu"
 
-#: rust/crates/effects/ui/colour_grading.slint:422 rust/crates/effects/ui/colour_grading.slint:423
+#: rust/crates/effects/ui/colour_grading.slint:378 rust/crates/effects/ui/colour_grading.slint:379
 msgid "Take the LUT off"
 msgstr "Bỏ LUT"
 
-#: rust/crates/effects/ui/colour_grading.slint:431
+#: rust/crates/effects/ui/colour_grading.slint:387
 msgid "Strength"
 msgstr "Cường độ"
 
-#: rust/crates/effects/ui/colour_grading.slint:432
+#: rust/crates/effects/ui/colour_grading.slint:388
 msgid "How much of the LUT's look goes on the picture"
 msgstr "Mức độ áp dụng hiệu ứng LUT lên hình ảnh"
 
-#: rust/crates/effects/ui/colour_grading.slint:450
+#: rust/crates/effects/ui/colour_grading.slint:406
 msgid "Export"
 msgstr "Xuất"
 
-#: rust/crates/effects/ui/colour_grading.slint:454
+#: rust/crates/effects/ui/colour_grading.slint:410
 msgid "Export grade"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:455
+#: rust/crates/effects/ui/colour_grading.slint:411
 msgid "Save the grade, LUT included, as a .cube file for other apps"
 msgstr "Lưu thiết lập chỉnh màu, bao gồm cả LUT, thành tệp .cube cho các ứng dụng khác"
 
-#: rust/crates/effects/ui/colour_grading.slint:467 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:680
+#: rust/crates/effects/ui/colour_grading.slint:423 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:680
 msgid "Replace"
 msgstr "Thay thế"
 
@@ -2875,15 +2865,15 @@ msgstr "Hình dạng"
 msgid "Follow my face"
 msgstr "Theo dõi khuôn mặt"
 
-#: rust/crates/effects/ui/framing.slint:52 rust/crates/effects/ui/framing.slint:58 rust/crates/outputs/src/webcam.rs:80
+#: rust/crates/effects/ui/framing.slint:60 rust/crates/effects/ui/framing.slint:66 rust/crates/outputs/src/webcam.rs:80
 msgid "Framing"
 msgstr "Căn khung"
 
-#: rust/crates/effects/ui/framing.slint:91 rust/crates/effects/ui/framing.slint:97 rust/crates/effects/ui/notes.slint:151 rust/crates/effects/ui/notes.slint:157
+#: rust/crates/effects/ui/framing.slint:102 rust/crates/effects/ui/framing.slint:108 rust/crates/effects/ui/notes.slint:156 rust/crates/effects/ui/notes.slint:162
 msgid "Speed"
 msgstr "Tốc độ"
 
-#: rust/crates/effects/ui/framing.slint:114 rust/crates/effects/ui/framing.slint:120
+#: rust/crates/effects/ui/framing.slint:128 rust/crates/effects/ui/framing.slint:134
 msgid "Room to move"
 msgstr "Khoảng vận động"
 
@@ -2959,15 +2949,15 @@ msgstr "Kiểu"
 msgid "Size"
 msgstr "Kích thước"
 
-#: rust/crates/effects/ui/notes.slint:113 rust/crates/effects/ui/notes.slint:119
+#: rust/crates/effects/ui/notes.slint:115 rust/crates/effects/ui/notes.slint:121
 msgid "Text size"
 msgstr "Cỡ chữ"
 
-#: rust/crates/effects/ui/notes.slint:134 rust/crates/effects/ui/notes.slint:144
+#: rust/crates/effects/ui/notes.slint:139 rust/crates/effects/ui/notes.slint:149
 msgid "Scroll"
 msgstr "Cuộn"
 
-#: rust/crates/effects/ui/notes.slint:173
+#: rust/crates/effects/ui/notes.slint:178
 msgid "Move through the notes"
 msgstr ""
 
@@ -3029,107 +3019,99 @@ msgstr "Thử bật"
 msgid "Test off"
 msgstr "Thử tắt"
 
-#: rust/crates/effects/ui/pad.slint:106
-msgid "Arrow keys move the view, Shift with an arrow moves it further. Home centres it."
-msgstr ""
-
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "pink"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "magenta"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "purple"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "blue"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "sky blue"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "cyan"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "spring green"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "green"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "lime"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "yellow"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "orange"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "red"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:114
+#: rust/crates/effects/ui/parts.slint:121
 msgid "neutral"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:114
+#: rust/crates/effects/ui/parts.slint:121
 msgid "towards"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:117
+#: rust/crates/effects/ui/parts.slint:124
 msgid "points, none picked"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:117
+#: rust/crates/effects/ui/parts.slint:124
 msgid "point"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:117
+#: rust/crates/effects/ui/parts.slint:124
 msgid "in"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:117
+#: rust/crates/effects/ui/parts.slint:124
 msgid "out"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:124
+#: rust/crates/effects/ui/parts.slint:131
 msgid "centred"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:125 rust/crates/effects/ui/parts.slint:127
+#: rust/crates/effects/ui/parts.slint:132 rust/crates/effects/ui/parts.slint:134
 msgid "left"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:125 rust/crates/effects/ui/parts.slint:127
+#: rust/crates/effects/ui/parts.slint:132 rust/crates/effects/ui/parts.slint:134
 msgid "right"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:126 rust/crates/effects/ui/parts.slint:127
+#: rust/crates/effects/ui/parts.slint:133 rust/crates/effects/ui/parts.slint:134
 msgid "up"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:126 rust/crates/effects/ui/parts.slint:127
+#: rust/crates/effects/ui/parts.slint:133 rust/crates/effects/ui/parts.slint:134
 msgid "down"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:159
-msgid "Arrow keys move the puck a little, Shift with an arrow moves it further. Home puts it back in the middle."
-msgstr ""
-
-#: rust/crates/effects/ui/parts.slint:332
+#: rust/crates/effects/ui/parts.slint:168
 msgid "Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve."
 msgstr ""
 
@@ -3141,23 +3123,23 @@ msgstr ""
 msgid "Quality"
 msgstr "Chất lượng"
 
-#: rust/crates/effects/ui/photos.slint:324 rust/crates/effects/ui/photos.slint:330
+#: rust/crates/effects/ui/photos.slint:314 rust/crates/effects/ui/photos.slint:320
 msgid "Timer"
 msgstr "Hẹn giờ"
 
-#: rust/crates/effects/ui/photos.slint:340
+#: rust/crates/effects/ui/photos.slint:330
 msgid "Save in"
 msgstr "Lưu vào"
 
-#: rust/crates/effects/ui/transforms.slint:53 rust/crates/effects/ui/transforms.slint:59
+#: rust/crates/effects/ui/transforms.slint:149 rust/crates/effects/ui/transforms.slint:155
 msgid "Flip"
 msgstr "Lật"
 
-#: rust/crates/effects/ui/transforms.slint:55
+#: rust/crates/effects/ui/transforms.slint:151
 msgid "Mirror"
 msgstr "Lật gương"
 
-#: rust/crates/effects/ui/transforms.slint:55
+#: rust/crates/effects/ui/transforms.slint:151
 msgid "Upside down"
 msgstr "Lộn ngược"
 
@@ -5902,7 +5884,7 @@ msgstr "Thêm camera"
 msgid "Stream another camera at the same time, to a virtual camera of its own"
 msgstr "Truyền phát đồng thời một camera khác sang một camera ảo riêng"
 
-#: rust/crates/shell/src/doc.rs:763 rust/crates/shell/src/doc.rs:764
+#: rust/crates/shell/src/doc.rs:764 rust/crates/shell/src/doc.rs:765
 msgid "Search settings"
 msgstr "Tìm kiếm cài đặt"
 
@@ -6824,7 +6806,7 @@ msgstr "Đang bật camera điện thoại…"
 msgid "Couldn't start the phone's camera"
 msgstr "Không thể bật camera điện thoại"
 
-#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:844
+#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:848
 msgid "Connecting..."
 msgstr "Đang kết nối..."
 
@@ -7031,38 +7013,38 @@ msgstr "Dừng"
 msgid "Stream error: {error}"
 msgstr "Lỗi luồng phát: {error}"
 
-#: rust/crates/shell/src/worker.rs:844
+#: rust/crates/shell/src/worker.rs:848
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "Đang kết nối tới {url}..."
 
-#: rust/crates/shell/src/worker.rs:854
+#: rust/crates/shell/src/worker.rs:858
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "Không thể kết nối tới luồng phát của điện thoại. Thử lại sau {seconds} giây…"
 
-#: rust/crates/shell/src/worker.rs:866
+#: rust/crates/shell/src/worker.rs:870
 msgid "Waiting for the first frame…"
 msgstr "Đang chờ khung hình đầu tiên…"
 
-#: rust/crates/shell/src/worker.rs:954
+#: rust/crates/shell/src/worker.rs:958
 msgid "Stream reconnected"
 msgstr "Luồng phát đã kết nối lại"
 
-#: rust/crates/shell/src/worker.rs:1029
+#: rust/crates/shell/src/worker.rs:1033
 msgid "The video is paused while the phone takes a photo"
 msgstr "Video tạm dừng trong khi điện thoại đang chụp ảnh"
 
-#: rust/crates/shell/src/worker.rs:1031 rust/crates/shell/src/worker.rs:1037
+#: rust/crates/shell/src/worker.rs:1035 rust/crates/shell/src/worker.rs:1041
 msgid "Stream dropped - reconnecting"
 msgstr "Luồng phát bị ngắt - đang kết nối lại"
 
-#: rust/crates/shell/src/worker.rs:1149 rust/crates/shell/src/worker.rs:1231
+#: rust/crates/shell/src/worker.rs:1153 rust/crates/shell/src/worker.rs:1235
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "Lỗi camera ảo: {error}"
 
-#: rust/crates/shell/src/worker.rs:1160
+#: rust/crates/shell/src/worker.rs:1164
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Đang truyền phát {size} ở tốc độ {fps} fps tới {camera}"
@@ -8513,37 +8495,37 @@ msgstr ""
 "Mic điện thoại vẫn đang truyền phát và camera\n"
 "sẽ bật lại khi có ứng dụng mở camera."
 
-#: rust/crates/effects/src/transforms.rs:626
+#: rust/crates/effects/src/transforms.rs:750
 msgctxt "search"
 msgid "mirror"
 msgstr "lật gương mirror"
 
-#: rust/crates/effects/src/transforms.rs:627
+#: rust/crates/effects/src/transforms.rs:751
 msgctxt "search"
 msgid "mirror upside down"
 msgstr "lật gương lộn ngược mirror upside down"
 
-#: rust/crates/effects/src/transforms.rs:628
+#: rust/crates/effects/src/transforms.rs:752
 msgctxt "search"
 msgid "rotate turn"
 msgstr "xoay quay rotate turn"
 
-#: rust/crates/effects/src/transforms.rs:629
+#: rust/crates/effects/src/transforms.rs:753
 msgctxt "search"
 msgid "crop framing"
 msgstr "cắt xén căn khung crop framing"
 
-#: rust/crates/effects/src/transforms.rs:630
+#: rust/crates/effects/src/transforms.rs:754
 msgctxt "search"
 msgid "framing move"
 msgstr "căn khung di chuyển framing move"
 
-#: rust/crates/effects/src/transforms.rs:632
+#: rust/crates/effects/src/transforms.rs:756
 msgctxt "search"
 msgid "stretch squish aspect wide"
 msgstr "kéo giãn ép tỷ lệ rộng stretch squish aspect wide"
 
-#: rust/crates/effects/src/transforms.rs:633
+#: rust/crates/effects/src/transforms.rs:757
 msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "kéo giãn ép tỷ lệ cao stretch squish aspect tall"
@@ -8667,6 +8649,17 @@ msgstr "Không thể mở"
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "Không thể khởi động lại"
+
+#~ msgid "Drag towards a colour to add it. Double-click to reset."
+#~ msgstr "Kéo về phía một màu để thêm màu đó. Nhấp đúp để đặt lại."
+
+#, python-brace-format
+#~ msgid ""
+"H {x}\n"
+"V {y}"
+#~ msgstr ""
+"N {x}\n"
+"D {y}"
 
 #~ msgid "Stretch the sheet sideways if it still looks squashed"
 #~ msgstr "Kéo giãn tờ giấy sang hai bên nếu trông vẫn bị ép ngang"

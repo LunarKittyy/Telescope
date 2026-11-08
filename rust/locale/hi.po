@@ -160,7 +160,7 @@ msgstr "VB-Cable पाएं"
 msgid "Takes out typing, fans and room hiss."
 msgstr "टाइपिंग, पंखों की आवाज़ और कमरे के शोर को हटाता है."
 
-#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:641 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1409 rust/crates/link/src/plugin.rs:1416 rust/crates/outputs/src/stream_output.rs:956 rust/crates/system/src/shortcuts.rs:515 rust/crates/system/src/shortcuts.rs:517
+#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:645 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1409 rust/crates/link/src/plugin.rs:1416 rust/crates/outputs/src/stream_output.rs:956 rust/crates/system/src/shortcuts.rs:515 rust/crates/system/src/shortcuts.rs:517
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -183,7 +183,7 @@ msgstr "चालू"
 msgid "off"
 msgstr "बंद"
 
-#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:215 rust/crates/audio/ui/microphone.slint:225 rust/crates/audio/ui/microphone.slint:236 rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:287 rust/crates/outputs/src/webcam.rs:46
+#: rust/crates/audio/src/plugin.rs:976 rust/crates/audio/src/plugin.rs:1098 rust/crates/audio/ui/microphone.slint:215 rust/crates/audio/ui/microphone.slint:225 rust/crates/audio/ui/microphone.slint:236 rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:256 rust/crates/outputs/src/webcam.rs:46
 msgid "Gain"
 msgstr "गेन"
 
@@ -318,7 +318,7 @@ msgstr "वर्चुअल माइक्रोफ़ोन ने ऑडि
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "पीले रंग का मतलब है कि लिमिटर तेज़ आवाज़ को दबा रहा है और लाल रंग का मतलब है कि आवाज़ क्लिप हो गई (साफ़ करने के लिए क्लिक करें)."
 
-#: rust/crates/audio/ui/microphone.slint:229 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:54 rust/crates/effects/src/photos.rs:452 rust/crates/effects/src/transforms.rs:38 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/effects/ui/desk.slint:166 rust/crates/effects/ui/desk.slint:188 rust/crates/outputs/ui/stream_output.slint:163 rust/crates/outputs/ui/stream_output.slint:184 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:252 rust/crates/shell/ui/cards/camera.slint:291 rust/crates/shell/ui/cards/camera.slint:312
+#: rust/crates/audio/ui/microphone.slint:229 rust/crates/effects/src/background.rs:186 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/framing.rs:449 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:56 rust/crates/effects/src/photos.rs:452 rust/crates/effects/src/transforms.rs:49 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/effects/ui/desk.slint:166 rust/crates/effects/ui/desk.slint:188 rust/crates/outputs/ui/stream_output.slint:163 rust/crates/outputs/ui/stream_output.slint:184 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:252 rust/crates/shell/ui/cards/camera.slint:291 rust/crates/shell/ui/cards/camera.slint:312
 msgid "Double-click to reset"
 msgstr "रीसेट करने के लिए डबल-क्लिक करें"
 
@@ -342,7 +342,7 @@ msgstr "Windows पर फ़ोन के माइक के लिए VB-Audi
 msgid "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."
 msgstr "VB-Cable को VB-Audio ने बनाया है, Telescope ने नहीं. Telescope इसे vb-audio.com से डाउनलोड कर सकता है और VB-Audio का अपना सेटअप खोल सकता है, जो एडमिन अनुमति मांगता है. पूरा होने पर कंप्यूटर रीस्टार्ट करें."
 
-#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:186 rust/crates/effects/ui/colour_grading.slint:468 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:458 rust/crates/link/ui/connection.slint:660 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:632 rust/crates/system/ui/shortcuts.slint:373 rust/crates/system/ui/updates.slint:215
+#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:186 rust/crates/effects/ui/colour_grading.slint:424 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:458 rust/crates/link/ui/connection.slint:660 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:632 rust/crates/system/ui/shortcuts.slint:373 rust/crates/system/ui/updates.slint:215
 msgid "Cancel"
 msgstr "रद्द करें"
 
@@ -524,67 +524,67 @@ msgid "Looking…"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:457 rust/crates/effects/ui/background.slint:34 rust/crates/effects/ui/photos.slint:274 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:98 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:418 rust/crates/shell/ui/cards/camera.slint:436
+#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:48 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:457 rust/crates/effects/ui/background.slint:38 rust/crates/effects/ui/photos.slint:274 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:98 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:418 rust/crates/shell/ui/cards/camera.slint:436
 msgid "Off"
 msgstr "बंद"
 
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/ui/background.slint:34 rust/crates/effects/ui/background.slint:46
+#: rust/crates/effects/src/background.rs:26 rust/crates/effects/ui/background.slint:38 rust/crates/effects/ui/background.slint:50
 msgid "Blur"
 msgstr "ब्लर"
 
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/background.slint:34 rust/crates/effects/ui/background.slint:60 rust/crates/effects/ui/chroma_key.slint:114 rust/crates/effects/ui/chroma_key.slint:145 rust/crates/effects/ui/composite_editor.slint:325 rust/crates/effects/ui/composite_editor.slint:541 rust/crates/effects/ui/composite_editor.slint:543
+#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/background.slint:38 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/chroma_key.slint:114 rust/crates/effects/ui/chroma_key.slint:145 rust/crates/effects/ui/composite_editor.slint:325 rust/crates/effects/ui/composite_editor.slint:541 rust/crates/effects/ui/composite_editor.slint:543
 msgid "Picture"
 msgstr "तस्वीर"
 
-#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/src/composite_editor.rs:16
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/src/composite_editor.rs:16
 msgid "Pictures (*.png *.jpg *.jpeg *.webp *.bmp)"
 msgstr "तस्वीरें (*.png *.jpg *.jpeg *.webp *.bmp)"
 
-#: rust/crates/effects/src/background.rs:183 rust/crates/effects/src/chroma_key.rs:41 rust/crates/effects/src/fun_pack.rs:70
+#: rust/crates/effects/src/background.rs:187 rust/crates/effects/src/chroma_key.rs:41 rust/crates/effects/src/fun_pack.rs:70
 msgid "How soft the edge around you is"
 msgstr "आपके चारों ओर का किनारा कितना सॉफ़्ट है"
 
-#: rust/crates/effects/src/background.rs:184 rust/crates/effects/src/chroma_key.rs:268
+#: rust/crates/effects/src/background.rs:188 rust/crates/effects/src/chroma_key.rs:268
 msgid "Pick the picture that goes behind you"
 msgstr "वह तस्वीर चुनें जो आपके पीछे दिखाई देगी"
 
-#: rust/crates/effects/src/background.rs:196 rust/crates/effects/src/chroma_key.rs:293
+#: rust/crates/effects/src/background.rs:200 rust/crates/effects/src/chroma_key.rs:293
 msgid "No picture yet"
 msgstr "अभी कोई तस्वीर नहीं है"
 
-#: rust/crates/effects/src/background.rs:208 rust/crates/effects/src/chroma_key.rs:254
+#: rust/crates/effects/src/background.rs:212 rust/crates/effects/src/chroma_key.rs:254
 msgid "Choose a picture to put behind you."
 msgstr "अपने पीछे लगाने के लिए एक तस्वीर चुनें."
 
-#: rust/crates/effects/src/background.rs:239 rust/crates/effects/src/chroma_key.rs:407
+#: rust/crates/effects/src/background.rs:256 rust/crates/effects/src/chroma_key.rs:407
 msgid "Choose a picture"
 msgstr "तस्वीर चुनें"
 
-#: rust/crates/effects/src/background.rs:247 rust/crates/effects/src/chroma_key.rs:414
+#: rust/crates/effects/src/background.rs:264 rust/crates/effects/src/chroma_key.rs:414
 msgid "Telescope can't open that picture."
 msgstr "Telescope उस तस्वीर को नहीं खोल सकता."
 
-#: rust/crates/effects/src/background.rs:255 rust/crates/effects/src/background.rs:340 rust/crates/effects/src/background.rs:343 rust/crates/effects/src/background.rs:361 rust/crates/effects/ui/background.slint:24 rust/crates/effects/ui/background.slint:30 rust/crates/effects/ui/background.slint:38 rust/crates/effects/ui/composite_editor.slint:515
+#: rust/crates/effects/src/background.rs:272 rust/crates/effects/src/background.rs:366 rust/crates/effects/src/background.rs:369 rust/crates/effects/src/background.rs:387 rust/crates/effects/ui/background.slint:28 rust/crates/effects/ui/background.slint:34 rust/crates/effects/ui/background.slint:42 rust/crates/effects/ui/composite_editor.slint:515
 msgid "Background"
 msgstr "बैकग्राउंड"
 
-#: rust/crates/effects/src/background.rs:256
+#: rust/crates/effects/src/background.rs:273
 msgid "Blurs the background behind you or swaps it for a picture."
 msgstr "आपके पीछे के बैकग्राउंड को ब्लर करता है या इसे किसी तस्वीर से बदलता है."
 
-#: rust/crates/effects/src/background.rs:257
+#: rust/crates/effects/src/background.rs:274
 msgid "Without it there's no Background card and the background stays as the camera sees it."
 msgstr "इसके बिना कोई बैकग्राउंड कार्ड नहीं होगा और बैकग्राउंड वैसा ही रहेगा जैसा कैमरा देखता है."
 
-#: rust/crates/effects/src/background.rs:342 rust/crates/effects/src/background.rs:368
+#: rust/crates/effects/src/background.rs:368 rust/crates/effects/src/background.rs:394
 msgid "Background blur"
 msgstr "बैकग्राउंड ब्लर"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:371 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:333
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:327 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:333
 msgid "Green"
 msgstr "हरा"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:371 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:333
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:327 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:333
 msgid "Blue"
 msgstr "नीला"
 
@@ -749,7 +749,7 @@ msgstr "RGB परेड"
 msgid "Vectorscope"
 msgstr "वेक्टरस्कोप"
 
-#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:371 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:333
+#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:327 rust/crates/effects/ui/composite_editor.slint:480 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:333
 msgid "Red"
 msgstr "लाल"
 
@@ -844,15 +844,15 @@ msgstr "33-पॉइंट LUT (*.cube)"
 msgid "65-point LUT (*.cube)"
 msgstr "65-पॉइंट LUT (*.cube)"
 
-#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:242
+#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:256
 msgid "Lift"
 msgstr "लिफ़्ट"
 
-#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:263 rust/crates/outputs/src/webcam.rs:51
+#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:256 rust/crates/outputs/src/webcam.rs:51
 msgid "Gamma"
 msgstr "गामा"
 
-#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:308
+#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:256
 msgid "Offset"
 msgstr "ऑफ़सेट"
 
@@ -873,10 +873,10 @@ msgid "Everything: colour and level"
 msgstr "सब कुछ: रंग और लेवल"
 
 #: rust/crates/effects/src/colour_grading.rs:47
-msgid "Drag towards a colour to add it. Double-click to reset."
-msgstr "रंग जोड़ने के लिए उसकी ओर ड्रैग करें. रीसेट करने के लिए डबल-क्लिक करें."
+msgid "Drag towards a colour to add it, holding Shift to go slower. Double-click to reset."
+msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:48 rust/crates/effects/ui/colour_grading.slint:118
+#: rust/crates/effects/src/colour_grading.rs:48 rust/crates/effects/ui/colour_grading.slint:136
 msgid "No LUT loaded"
 msgstr "कोई LUT लोड नहीं है"
 
@@ -986,7 +986,7 @@ msgstr "गेन मास्टर"
 msgid "Offset master"
 msgstr "ऑफ़सेट मास्टर"
 
-#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:329 rust/crates/outputs/src/webcam.rs:49 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1424 rust/crates/shell/src/plugins/camera_control.rs:1656 rust/crates/shell/ui/cards/camera.slint:279 rust/crates/shell/ui/cards/camera.slint:290
+#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:285 rust/crates/outputs/src/webcam.rs:49 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1424 rust/crates/shell/src/plugins/camera_control.rs:1656 rust/crates/shell/ui/cards/camera.slint:279 rust/crates/shell/ui/cards/camera.slint:290
 msgid "Temperature"
 msgstr "कलर टेम्परेचर"
 
@@ -994,7 +994,7 @@ msgstr "कलर टेम्परेचर"
 msgid "Warmer or cooler"
 msgstr "ज़्यादा गर्म या ठंडा"
 
-#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/ui/colour_grading.slint:329 rust/crates/shell/src/plugins/camera_control.rs:1432 rust/crates/shell/src/plugins/camera_control.rs:1658 rust/crates/shell/ui/cards/camera.slint:300 rust/crates/shell/ui/cards/camera.slint:311
+#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/ui/colour_grading.slint:285 rust/crates/shell/src/plugins/camera_control.rs:1432 rust/crates/shell/src/plugins/camera_control.rs:1658 rust/crates/shell/ui/cards/camera.slint:300 rust/crates/shell/ui/cards/camera.slint:311
 msgid "Tint"
 msgstr "टिंट"
 
@@ -1003,7 +1003,7 @@ msgid "More magenta or more green"
 msgstr "ज़्यादा मजेंटा या ज़्यादा हरा"
 
 #. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
-#: rust/crates/effects/src/colour_grading.rs:92 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:329 rust/crates/outputs/src/webcam.rs:50
+#: rust/crates/effects/src/colour_grading.rs:92 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:285 rust/crates/outputs/src/webcam.rs:50
 msgid "Contrast"
 msgstr "कंट्रास्ट"
 
@@ -1011,7 +1011,7 @@ msgstr "कंट्रास्ट"
 msgid "Spreads the tones apart around the pivot"
 msgstr "पिवट के आस-पास टोन्स को फैलाता है"
 
-#: rust/crates/effects/src/colour_grading.rs:93 rust/crates/effects/ui/colour_grading.slint:329
+#: rust/crates/effects/src/colour_grading.rs:93 rust/crates/effects/ui/colour_grading.slint:285
 msgid "Pivot"
 msgstr "पिवट"
 
@@ -1019,7 +1019,7 @@ msgstr "पिवट"
 msgid "The level contrast turns around"
 msgstr "वह लेवल जिसके आस-पास कंट्रास्ट काम करता है"
 
-#: rust/crates/effects/src/colour_grading.rs:94 rust/crates/effects/ui/colour_grading.slint:329 rust/crates/outputs/src/webcam.rs:50
+#: rust/crates/effects/src/colour_grading.rs:94 rust/crates/effects/ui/colour_grading.slint:285 rust/crates/outputs/src/webcam.rs:50
 msgid "Saturation"
 msgstr "सैचुरेशन"
 
@@ -1027,7 +1027,7 @@ msgstr "सैचुरेशन"
 msgid "How colourful the picture is"
 msgstr "तस्वीर कितनी रंगीन है"
 
-#: rust/crates/effects/src/colour_grading.rs:95 rust/crates/effects/ui/colour_grading.slint:329
+#: rust/crates/effects/src/colour_grading.rs:95 rust/crates/effects/ui/colour_grading.slint:285
 msgid "Vibrance"
 msgstr ""
 
@@ -1035,7 +1035,7 @@ msgstr ""
 msgid "Colours up the dull parts more than the strong ones, and spares skin"
 msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:96 rust/crates/effects/ui/colour_grading.slint:329
+#: rust/crates/effects/src/colour_grading.rs:96 rust/crates/effects/ui/colour_grading.slint:285
 msgid "Shadows"
 msgstr "शैडो"
 
@@ -1043,7 +1043,7 @@ msgstr "शैडो"
 msgid "Brightens or darkens the darker parts"
 msgstr "गहरे हिस्सों को ब्राइट या डार्क करता है"
 
-#: rust/crates/effects/src/colour_grading.rs:97 rust/crates/effects/ui/colour_grading.slint:329
+#: rust/crates/effects/src/colour_grading.rs:97 rust/crates/effects/ui/colour_grading.slint:285
 msgid "Highlights"
 msgstr "हाइलाइट्स"
 
@@ -1064,7 +1064,7 @@ msgstr "ग्रेड एक्सपोर्ट करें"
 msgid "{file} is already there. Replace it?"
 msgstr "{file} पहले से मौजूद है. क्या आप इसे बदलना चाहते हैं?"
 
-#: rust/crates/effects/src/colour_grading.rs:522 rust/crates/effects/src/colour_grading.rs:929 rust/crates/effects/src/colour_grading.rs:1012 rust/crates/effects/src/colour_grading.rs:1014 rust/crates/effects/src/colour_grading.rs:1056 rust/crates/effects/ui/colour_grading.slint:156
+#: rust/crates/effects/src/colour_grading.rs:522 rust/crates/effects/src/colour_grading.rs:929 rust/crates/effects/src/colour_grading.rs:1012 rust/crates/effects/src/colour_grading.rs:1014 rust/crates/effects/src/colour_grading.rs:1056 rust/crates/effects/ui/colour_grading.slint:174
 msgid "Colour grading"
 msgstr "कलर ग्रेडिंग"
 
@@ -1105,7 +1105,7 @@ msgstr "स्ट्रेच"
 msgid "Crop"
 msgstr "क्रॉप"
 
-#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:140 rust/crates/effects/ui/transforms.slint:150 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:236 rust/crates/effects/ui/transforms.slint:244 rust/crates/outputs/src/webcam.rs:56
 msgid "Pan"
 msgstr "पैन"
 
@@ -1248,7 +1248,7 @@ msgid "Black and white"
 msgstr "ब्लैक एंड व्हाइट"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/desk.rs:41 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:27 rust/crates/effects/ui/colour_grading.slint:214 rust/crates/link/ui/connection.slint:295 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:101 rust/crates/outputs/src/webcam.rs:958 rust/crates/outputs/ui/webcam.slint:121 rust/crates/shell/src/plugins/camera_control.rs:1308 rust/crates/shell/src/plugins/camera_control.rs:1310 rust/crates/shell/src/plugins/camera_control.rs:1312 rust/crates/shell/src/plugins/camera_control.rs:1635 rust/crates/shell/src/plugins/camera_control.rs:1636 rust/crates/shell/ui/cards/camera.slint:196 rust/crates/shell/ui/cards/camera.slint:266 rust/crates/shell/ui/cards/camera.slint:326
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/desk.rs:41 rust/crates/effects/src/notes.rs:44 rust/crates/effects/src/photos.rs:27 rust/crates/effects/ui/colour_grading.slint:232 rust/crates/link/ui/connection.slint:295 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:101 rust/crates/outputs/src/webcam.rs:958 rust/crates/outputs/ui/webcam.slint:121 rust/crates/shell/src/plugins/camera_control.rs:1308 rust/crates/shell/src/plugins/camera_control.rs:1310 rust/crates/shell/src/plugins/camera_control.rs:1312 rust/crates/shell/src/plugins/camera_control.rs:1635 rust/crates/shell/src/plugins/camera_control.rs:1636 rust/crates/shell/ui/cards/camera.slint:196 rust/crates/shell/ui/cards/camera.slint:266 rust/crates/shell/ui/cards/camera.slint:326
 msgid "Auto"
 msgstr "ऑटो"
 
@@ -1319,7 +1319,7 @@ msgstr "डेस्क मोड"
 msgid "Done"
 msgstr "हो गया"
 
-#: rust/crates/effects/src/desk.rs:186 rust/crates/effects/ui/transforms.slint:47 rust/crates/outputs/ui/webcam.slint:71
+#: rust/crates/effects/src/desk.rs:186 rust/crates/effects/ui/transforms.slint:143 rust/crates/outputs/ui/webcam.slint:71
 msgid "Reset"
 msgstr "रीसेट करें"
 
@@ -1391,142 +1391,142 @@ msgstr "फ़ोन के मीटरिंग पॉइंट को आप�
 msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
 msgstr "इसके बिना 'मेरे चेहरे के लिए एक्सपोज़र' कार्ड नहीं होगा और फ़ोन आपके टैप किए गए पॉइंट या पूरी तस्वीर के हिसाब से मीटरिंग करेगा."
 
-#: rust/crates/effects/src/framing.rs:18 rust/crates/effects/ui/framing.slint:32
+#: rust/crates/effects/src/framing.rs:19 rust/crates/effects/ui/framing.slint:40
 msgid "Auto framing"
 msgstr "ऑटो फ़्रेमिंग"
 
 #. keep these short, they sit in the slider's narrow readout column
-#: rust/crates/effects/src/framing.rs:23
+#: rust/crates/effects/src/framing.rs:24
 msgid "Head"
 msgstr "सिर"
 
 #. keep these short, they sit in the slider's narrow readout column
-#: rust/crates/effects/src/framing.rs:23
+#: rust/crates/effects/src/framing.rs:24
 msgid "Chest"
 msgstr "छाती"
 
 #. keep these short, they sit in the slider's narrow readout column
-#: rust/crates/effects/src/framing.rs:23
+#: rust/crates/effects/src/framing.rs:24
 msgid "Waist"
 msgstr "कमर"
 
 #. keep these short, they sit in the slider's narrow readout column
-#: rust/crates/effects/src/framing.rs:23
+#: rust/crates/effects/src/framing.rs:24
 msgid "Body"
 msgstr "पूरा शरीर"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Sloth"
 msgstr "कछुआ"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Lazy"
 msgstr "सुस्त"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Mellow"
 msgstr "मद्धम"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Calm"
 msgstr "शांत"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Easy"
 msgstr "ठहरा"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Steady"
 msgstr "स्थिर"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Brisk"
 msgstr "चुस्त"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Quick"
 msgstr "तेज़"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Snappy"
 msgstr "झटपट"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:30
+#: rust/crates/effects/src/framing.rs:31
 msgid "Zippy"
 msgstr "बिजली"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:47
+#: rust/crates/effects/src/framing.rs:48
 msgid "Fidget"
 msgstr "हिलना"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:47
+#: rust/crates/effects/src/framing.rs:48
 msgid "Shift"
 msgstr "सरकना"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:47
+#: rust/crates/effects/src/framing.rs:48
 msgid "Lean"
 msgstr "झुकना"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:47
+#: rust/crates/effects/src/framing.rs:48
 msgid "Step"
 msgstr "कदम"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:47
+#: rust/crates/effects/src/framing.rs:48
 msgid "Roam"
 msgstr "घूमना"
 
-#: rust/crates/effects/src/framing.rs:62
+#: rust/crates/effects/src/framing.rs:70
 msgid "Follow you with the zoom and pan"
 msgstr "ज़ूम और पैन से आपको फ़ॉलो करें"
 
-#: rust/crates/effects/src/framing.rs:63
+#: rust/crates/effects/src/framing.rs:71
 msgid "How much of you is in the picture: just your head, down to your chest, down to your waist or all of you"
 msgstr "तस्वीर में आपका कितना हिस्सा दिखे: सिर्फ़ आपका सिर, छाती तक, कमर तक या पूरा शरीर"
 
-#: rust/crates/effects/src/framing.rs:64
+#: rust/crates/effects/src/framing.rs:72
 msgid "How quickly the framing catches up when you move"
 msgstr "हिलने-डुलने पर फ़्रेमिंग कितनी तेज़ी से आपको फ़ॉलो करती है"
 
-#: rust/crates/effects/src/framing.rs:65
+#: rust/crates/effects/src/framing.rs:73
 msgid "What you can do before the framing follows you: fidget, shift in your seat, lean over, take a step or move around"
 msgstr "फ़्रेमिंग द्वारा फ़ॉलो किए जाने से पहले आप क्या कर सकते हैं: हिलना-डुलना, कुर्सी में सरकना, झुकना, एक कदम बढ़ाना या घूमना"
 
-#: rust/crates/effects/src/framing.rs:66
+#: rust/crates/effects/src/framing.rs:74
 msgid "Widen for something in your hand"
 msgstr "हाथ में मौजूद किसी चीज़ के लिए फ़्रेम चौड़ा करें"
 
-#: rust/crates/effects/src/framing.rs:67
+#: rust/crates/effects/src/framing.rs:75
 msgid "Something else is moving the zoom and pan."
 msgstr "कोई अन्य चीज़ ज़ूम और पैन को नियंत्रित कर रही है."
 
-#: rust/crates/effects/src/framing.rs:68
+#: rust/crates/effects/src/framing.rs:76
 msgid "Auto framing: how much of you"
 msgstr "ऑटो फ़्रेमिंग: आपका कितना हिस्सा दिखे"
 
-#: rust/crates/effects/src/framing.rs:69
+#: rust/crates/effects/src/framing.rs:77
 msgid "Auto framing speed"
 msgstr "ऑटो फ़्रेमिंग स्पीड"
 
-#: rust/crates/effects/src/framing.rs:548
+#: rust/crates/effects/src/framing.rs:713
 msgid "Zooms and pans to keep you in the picture as you move."
 msgstr "आपके हिलने-डुलने पर आपको तस्वीर में बनाए रखने के लिए ज़ूम और पैन करता है."
 
-#: rust/crates/effects/src/framing.rs:549
+#: rust/crates/effects/src/framing.rs:714
 msgid "Without it there's no Auto framing card and the zoom stays where you put it."
 msgstr "इसके बिना कोई ऑटो फ़्रेमिंग कार्ड नहीं होता और ज़ूम वहीं रहता है जहां आपने सेट किया है."
 
@@ -1750,162 +1750,162 @@ msgctxt "search"
 msgid "lower third caption title label overlay text name pronouns role"
 msgstr "लोअर थर्ड कैप्शन टाइटल शीर्षक लेबल ओवरले टेक्स्ट लिखावट नाम नेम सर्वनाम प्रोनाउन रोल पद भूमिका lower third caption title label overlay text name pronouns role"
 
-#: rust/crates/effects/src/notes.rs:42
+#: rust/crates/effects/src/notes.rs:44
 msgid "By hand"
 msgstr "हाथ से"
 
-#: rust/crates/effects/src/notes.rs:44
+#: rust/crates/effects/src/notes.rs:46
 msgid "Type or paste your notes."
 msgstr "अपने नोट्स टाइप करें या पेस्ट करें."
 
-#: rust/crates/effects/src/notes.rs:45
+#: rust/crates/effects/src/notes.rs:47
 msgid "Your saved notes"
 msgstr "आपके सेव किए गए नोट्स"
 
-#: rust/crates/effects/src/notes.rs:46
+#: rust/crates/effects/src/notes.rs:48
 msgid "New notes"
 msgstr "नए नोट्स"
 
-#: rust/crates/effects/src/notes.rs:47
+#: rust/crates/effects/src/notes.rs:49
 msgid "Delete these notes"
 msgstr "ये नोट्स हटाएं"
 
-#: rust/crates/effects/src/notes.rs:48
+#: rust/crates/effects/src/notes.rs:50
 msgid "How big the notes are on the phone"
 msgstr "फ़ोन पर नोट्स कितने बड़े दिखेंगे"
 
-#: rust/crates/effects/src/notes.rs:49
+#: rust/crates/effects/src/notes.rs:51
 msgid "How fast the notes scroll on the phone"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:50
+#: rust/crates/effects/src/notes.rs:52
 msgid "Only used when the notes scroll by themselves"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:51
+#: rust/crates/effects/src/notes.rs:53
 msgid "Back to the line before"
 msgstr "पिछली लाइन पर वापस जाएं"
 
-#: rust/crates/effects/src/notes.rs:52
+#: rust/crates/effects/src/notes.rs:54
 msgid "Start or pause scrolling on the phone"
 msgstr "फ़ोन पर स्क्रॉल करना शुरू करें या रोकें"
 
-#: rust/crates/effects/src/notes.rs:53
+#: rust/crates/effects/src/notes.rs:55
 msgid "On to the next line"
 msgstr "अगली लाइन पर जाएं"
 
-#: rust/crates/effects/src/notes.rs:109
+#: rust/crates/effects/src/notes.rs:111
 msgid "Notes only work with a phone as the camera."
 msgstr "नोट्स सिर्फ़ तब काम करते हैं जब फ़ोन कैमरे के रूप में हो."
 
-#: rust/crates/effects/src/notes.rs:112
+#: rust/crates/effects/src/notes.rs:114
 msgid "Update Telescope on the phone to show notes there."
 msgstr "फ़ोन पर नोट्स दिखाने के लिए उस पर Telescope अपडेट करें."
 
-#: rust/crates/effects/src/notes.rs:115
+#: rust/crates/effects/src/notes.rs:117
 msgid "These notes are too long to send to the phone."
 msgstr "ये नोट्स फ़ोन पर भेजने के लिए बहुत लंबे हैं."
 
-#: rust/crates/effects/src/notes.rs:123
+#: rust/crates/effects/src/notes.rs:125
 msgid "Switch to the front camera to have the phone's screen facing you."
 msgstr "फ़्रंट कैमरे पर स्विच करें ताकि फ़ोन की स्क्रीन आपके सामने हो."
 
-#: rust/crates/effects/src/notes.rs:129
+#: rust/crates/effects/src/notes.rs:131
 msgid "The notes were closed on the phone. Send again to show them."
 msgstr "फ़ोन पर नोट्स बंद कर दिए गए थे. उन्हें दिखाने के लिए फिर से भेजें."
 
-#: rust/crates/effects/src/notes.rs:132
+#: rust/crates/effects/src/notes.rs:134
 msgid "The notes show up on the phone once you close its preview."
 msgstr "फ़ोन पर प्रीव्यू बंद करते ही नोट्स दिखने लगेंगे."
 
-#: rust/crates/effects/src/notes.rs:134
+#: rust/crates/effects/src/notes.rs:136
 msgid "Open Telescope on the phone to see the notes."
 msgstr "नोट्स देखने के लिए फ़ोन पर Telescope खोलें."
 
-#: rust/crates/effects/src/notes.rs:137
+#: rust/crates/effects/src/notes.rs:139
 msgid "The notes are up but the phone streams from its back camera."
 msgstr "नोट्स दिख रहे हैं, लेकिन फ़ोन बैक कैमरे से स्ट्रीम कर रहा है."
 
-#: rust/crates/effects/src/notes.rs:140
+#: rust/crates/effects/src/notes.rs:142
 msgid "Send again to show your changes on the phone."
 msgstr "फ़ोन पर अपने बदलाव दिखाने के लिए फिर से भेजें."
 
-#: rust/crates/effects/src/notes.rs:142
+#: rust/crates/effects/src/notes.rs:144
 msgid "The notes are on the phone's screen."
 msgstr "नोट्स फ़ोन की स्क्रीन पर हैं."
 
-#: rust/crates/effects/src/notes.rs:217
+#: rust/crates/effects/src/notes.rs:219
 #, python-brace-format
 msgid "Notes {n}"
 msgstr "नोट्स {n}"
 
-#: rust/crates/effects/src/notes.rs:261 rust/crates/effects/src/notes.rs:520 rust/crates/effects/src/notes.rs:599 rust/crates/effects/ui/notes.slint:58 rust/crates/effects/ui/notes.slint:65
+#: rust/crates/effects/src/notes.rs:263 rust/crates/effects/src/notes.rs:524 rust/crates/effects/src/notes.rs:603 rust/crates/effects/ui/notes.slint:60 rust/crates/effects/ui/notes.slint:67
 msgid "Notes"
 msgstr "नोट्स"
 
-#: rust/crates/effects/src/notes.rs:263
+#: rust/crates/effects/src/notes.rs:265
 msgctxt "notes"
 msgid "Previous"
 msgstr "पिछला"
 
-#: rust/crates/effects/src/notes.rs:264
+#: rust/crates/effects/src/notes.rs:266
 msgctxt "notes"
 msgid "Next"
 msgstr "अगला"
 
-#: rust/crates/effects/src/notes.rs:264
+#: rust/crates/effects/src/notes.rs:266
 msgid "Send to phone"
 msgstr "फ़ोन पर भेजें"
 
-#: rust/crates/effects/src/notes.rs:265
+#: rust/crates/effects/src/notes.rs:267
 msgid "Clear from phone"
 msgstr "फ़ोन से हटाएं"
 
-#: rust/crates/effects/src/notes.rs:289
+#: rust/crates/effects/src/notes.rs:293
 msgid "Pause"
 msgstr "रोकें"
 
-#: rust/crates/effects/src/notes.rs:289
+#: rust/crates/effects/src/notes.rs:293
 msgid "Play"
 msgstr "चलाएं"
 
-#: rust/crates/effects/src/notes.rs:521
+#: rust/crates/effects/src/notes.rs:525
 msgid "Shows your notes on the phone's screen right under the camera, to read while looking people in the eye."
 msgstr "आपके नोट्स फ़ोन की स्क्रीन पर ठीक कैमरे के नीचे दिखाता है, ताकि आप लोगों की आंखों में देखते हुए पढ़ सकें."
 
-#: rust/crates/effects/src/notes.rs:522
+#: rust/crates/effects/src/notes.rs:526
 msgid "Without it there's no Notes card and the phone never shows notes."
 msgstr "इसके बिना कोई नोट्स कार्ड नहीं होगा और फ़ोन पर कभी नोट्स नहीं दिखेंगे."
 
-#: rust/crates/effects/src/notes.rs:601 rust/crates/effects/src/notes.rs:646
+#: rust/crates/effects/src/notes.rs:605 rust/crates/effects/src/notes.rs:650
 msgid "Notes scroll speed"
 msgstr "नोट्स की स्क्रॉल स्पीड"
 
-#: rust/crates/effects/src/notes.rs:604 rust/crates/effects/src/notes.rs:619
+#: rust/crates/effects/src/notes.rs:608 rust/crates/effects/src/notes.rs:623
 msgid "Send notes"
 msgstr "नोट्स भेजें"
 
-#: rust/crates/effects/src/notes.rs:605 rust/crates/effects/src/notes.rs:623
+#: rust/crates/effects/src/notes.rs:609 rust/crates/effects/src/notes.rs:627
 msgid "Clear notes"
 msgstr "नोट्स हटाएं"
 
-#: rust/crates/effects/src/notes.rs:606 rust/crates/effects/src/notes.rs:627
+#: rust/crates/effects/src/notes.rs:610 rust/crates/effects/src/notes.rs:631
 msgid "Next line"
 msgstr "अगली लाइन"
 
-#: rust/crates/effects/src/notes.rs:607 rust/crates/effects/src/notes.rs:631
+#: rust/crates/effects/src/notes.rs:611 rust/crates/effects/src/notes.rs:635
 msgid "Previous line"
 msgstr "पिछली लाइन"
 
-#: rust/crates/effects/src/notes.rs:608 rust/crates/effects/src/notes.rs:641
+#: rust/crates/effects/src/notes.rs:612 rust/crates/effects/src/notes.rs:645
 msgid "Scroll notes"
 msgstr "नोट्स स्क्रॉल करें"
 
-#: rust/crates/effects/src/notes.rs:640
+#: rust/crates/effects/src/notes.rs:644
 msgid "playing"
 msgstr "चल रहा है"
 
-#: rust/crates/effects/src/notes.rs:640
+#: rust/crates/effects/src/notes.rs:644
 msgid "paused"
 msgstr "रुका हुआ"
 
@@ -1996,7 +1996,7 @@ msgstr "ऑन एयर वेबहुक नहीं पहुंच पा�
 msgid "It answered: {error}"
 msgstr "जवाब मिला: {error}"
 
-#: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:363 rust/crates/shell/src/doc.rs:364 rust/crates/shell/src/doc.rs:725
+#: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:363 rust/crates/shell/src/doc.rs:364 rust/crates/shell/src/doc.rs:726
 msgid "Settings"
 msgstr "सेटिंग्स"
 
@@ -2411,147 +2411,137 @@ msgstr "इसके बिना QR कोड कार्ड नहीं द�
 msgid "Read QR codes"
 msgstr "QR कोड पढ़ें"
 
-#: rust/crates/effects/src/transforms.rs:35
+#: rust/crates/effects/src/transforms.rs:46
 msgid "Clear flip, rotation, zoom, pan and stretch back to defaults"
 msgstr "फ़्लिप, घुमाव, ज़ूम, पैन और स्ट्रेच को डिफ़ॉल्ट पर रीसेट करें"
 
-#: rust/crates/effects/src/transforms.rs:36
+#: rust/crates/effects/src/transforms.rs:47
 msgid "Drag to move the view. Double-click to centre it."
 msgstr "व्यू को हिलाने के लिए ड्रैग करें. बीच में लाने के लिए डबल-क्लिक करें."
 
-#: rust/crates/effects/src/transforms.rs:37
+#: rust/crates/effects/src/transforms.rs:48
 msgid "Stretch or squish the picture sideways"
 msgstr "तस्वीर को चौड़ाई में स्ट्रेच या सिकोड़ें"
 
-#: rust/crates/effects/src/transforms.rs:37
+#: rust/crates/effects/src/transforms.rs:48
 msgid "Stretch or squish the picture up and down"
 msgstr "तस्वीर को लंबाई में स्ट्रेच या सिकोड़ें"
 
-#: rust/crates/effects/src/transforms.rs:62
+#: rust/crates/effects/src/transforms.rs:73
 #, python-brace-format
 msgid "Switched to {lens}"
 msgstr "{lens} पर स्विच किया गया"
 
-#: rust/crates/effects/src/transforms.rs:67
+#: rust/crates/effects/src/transforms.rs:78
 msgid "the telephoto"
 msgstr "टेलीफ़ोटो"
 
-#: rust/crates/effects/src/transforms.rs:69
+#: rust/crates/effects/src/transforms.rs:80
 msgid "the main camera"
 msgstr "मुख्य कैमरा"
 
-#: rust/crates/effects/src/transforms.rs:70
+#: rust/crates/effects/src/transforms.rs:81
 #, python-brace-format
 msgid "Panned past what {tele} can see, so it's on {live}. Pan back to switch again."
 msgstr "{tele} के देखने के दायरे से बाहर पैन किया गया, इसलिए यह {live} पर है. फिर से स्विच करने के लिए वापस पैन करें."
 
-#: rust/crates/effects/src/transforms.rs:73
+#: rust/crates/effects/src/transforms.rs:84
 #, python-brace-format
 msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
 msgstr "फ़ोन अपने आप {live} पर ही रहा, संभवतः {tele} के लिए बहुत अंधेरा है या वह बहुत पास है. जैसे ही मुमकिन होगा यह स्विच कर लेगा."
 
-#: rust/crates/effects/src/transforms.rs:79
+#: rust/crates/effects/src/transforms.rs:90
 msgid "It can wobble for a moment while it switches."
 msgstr "स्विच करते समय यह एक पल के लिए हिल सकता है."
 
-#: rust/crates/effects/src/transforms.rs:224
+#: rust/crates/effects/src/transforms.rs:287
 #, python-brace-format
 msgid "{n}×"
 msgstr "{n}×"
 
-#. H and V for horizontal and vertical, in the narrow Pan readout
-#: rust/crates/effects/src/transforms.rs:233
-#, python-brace-format
-msgid ""
-"H {x}\n"
-"V {y}"
-msgstr ""
-"H {x}\n"
-"V {y}"
-
-#: rust/crates/effects/src/transforms.rs:239
+#: rust/crates/effects/src/transforms.rs:298
 msgid "Dots mark where the phone switches to another lens"
 msgstr "बिंदु दिखाते हैं कि फ़ोन किस जगह दूसरे लेंस पर स्विच करता है"
 
-#: rust/crates/effects/src/transforms.rs:242
+#: rust/crates/effects/src/transforms.rs:301
 #, python-brace-format
 msgid "{owner} is moving the zoom and pan"
 msgstr "{owner} ज़ूम और पैन बदल रहा है"
 
-#: rust/crates/effects/src/transforms.rs:296
+#: rust/crates/effects/src/transforms.rs:363
 #, python-brace-format
 msgid "Add shortcut for {action}…"
 msgstr "{action} के लिए शॉर्टकट जोड़ें…"
 
-#: rust/crates/effects/src/transforms.rs:479
+#: rust/crates/effects/src/transforms.rs:620
 msgid "Zoomed on this computer: this lens can't zoom itself"
 msgstr "इस कंप्यूटर पर ज़ूम किया गया: यह लेंस खुद ज़ूम नहीं कर सकता"
 
-#: rust/crates/effects/src/transforms.rs:479
+#: rust/crates/effects/src/transforms.rs:620
 msgid "Zoomed on this computer"
 msgstr "इस कंप्यूटर पर ज़ूम किया गया"
 
-#: rust/crates/effects/src/transforms.rs:481
+#: rust/crates/effects/src/transforms.rs:622
 msgid "Zoomed on the phone's sensor as far as this lens allows, the rest on this computer"
 msgstr "फ़ोन के सेंसर पर उतना ही ज़ूम किया गया जितना यह लेंस अनुमति देता है, बाकी इस कंप्यूटर पर"
 
-#: rust/crates/effects/src/transforms.rs:483
+#: rust/crates/effects/src/transforms.rs:624
 msgid "Zoomed on the phone's sensor"
 msgstr "फ़ोन के सेंसर पर ज़ूम किया गया"
 
-#: rust/crates/effects/src/transforms.rs:508 rust/crates/effects/src/transforms.rs:612 rust/crates/effects/ui/transforms.slint:40
+#: rust/crates/effects/src/transforms.rs:650 rust/crates/effects/src/transforms.rs:736 rust/crates/effects/ui/transforms.slint:136
 msgid "Transforms"
 msgstr "घुमाव और ज़ूम"
 
-#: rust/crates/effects/src/transforms.rs:509
+#: rust/crates/effects/src/transforms.rs:651
 msgid "Zoom, pan, flip, rotate and stretch the picture."
 msgstr "तस्वीर को ज़ूम, पैन, पलटें, घुमाएं और स्ट्रेच करें."
 
-#: rust/crates/effects/src/transforms.rs:510
+#: rust/crates/effects/src/transforms.rs:652
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "इसके बिना 'घुमाव और ज़ूम' कार्ड नहीं होगा और तस्वीर बिल्कुल वैसी ही जाएगी जैसी फ़ोन भेजता है."
 
-#: rust/crates/effects/src/transforms.rs:615 rust/crates/effects/src/transforms.rs:668 rust/crates/effects/ui/composite_editor.slint:447 rust/crates/effects/ui/transforms.slint:81 rust/crates/effects/ui/transforms.slint:94 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/transforms.rs:739 rust/crates/effects/src/transforms.rs:792 rust/crates/effects/ui/composite_editor.slint:447 rust/crates/effects/ui/transforms.slint:177 rust/crates/effects/ui/transforms.slint:190 rust/crates/outputs/src/webcam.rs:56
 msgid "Zoom"
 msgstr "ज़ूम"
 
-#: rust/crates/effects/src/transforms.rs:616 rust/crates/effects/src/transforms.rs:678
+#: rust/crates/effects/src/transforms.rs:740 rust/crates/effects/src/transforms.rs:802
 msgid "Pan left/right"
 msgstr "बाएं/दाएं पैन करें"
 
-#: rust/crates/effects/src/transforms.rs:617 rust/crates/effects/src/transforms.rs:678
+#: rust/crates/effects/src/transforms.rs:741 rust/crates/effects/src/transforms.rs:802
 msgid "Pan up/down"
 msgstr "ऊपर/नीचे पैन करें"
 
-#: rust/crates/effects/src/transforms.rs:618 rust/crates/effects/src/transforms.rs:686 rust/crates/effects/ui/desk.slint:157 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/transforms.slint:173
+#: rust/crates/effects/src/transforms.rs:742 rust/crates/effects/src/transforms.rs:810 rust/crates/effects/ui/desk.slint:157 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/transforms.slint:260
 msgid "Width"
 msgstr "चौड़ाई"
 
-#: rust/crates/effects/src/transforms.rs:619 rust/crates/effects/src/transforms.rs:686 rust/crates/effects/ui/desk.slint:179 rust/crates/effects/ui/desk.slint:186 rust/crates/effects/ui/transforms.slint:189
+#: rust/crates/effects/src/transforms.rs:743 rust/crates/effects/src/transforms.rs:810 rust/crates/effects/ui/desk.slint:179 rust/crates/effects/ui/desk.slint:186 rust/crates/effects/ui/transforms.slint:276
 msgid "Height"
 msgstr "ऊंचाई"
 
-#: rust/crates/effects/src/transforms.rs:626 rust/crates/effects/src/transforms.rs:646
+#: rust/crates/effects/src/transforms.rs:750 rust/crates/effects/src/transforms.rs:770
 msgid "Flip horizontal"
 msgstr "हॉरिज़ॉन्टल पलटें"
 
-#: rust/crates/effects/src/transforms.rs:627 rust/crates/effects/src/transforms.rs:646
+#: rust/crates/effects/src/transforms.rs:751 rust/crates/effects/src/transforms.rs:770
 msgid "Flip vertical"
 msgstr "वर्टिकल पलटें"
 
-#: rust/crates/effects/src/transforms.rs:628 rust/crates/effects/src/transforms.rs:660 rust/crates/effects/ui/transforms.slint:66 rust/crates/effects/ui/transforms.slint:73
+#: rust/crates/effects/src/transforms.rs:752 rust/crates/effects/src/transforms.rs:784 rust/crates/effects/ui/transforms.slint:162 rust/crates/effects/ui/transforms.slint:169
 msgid "Rotation"
 msgstr "घुमाव"
 
-#: rust/crates/effects/src/transforms.rs:635 rust/crates/effects/src/transforms.rs:691
+#: rust/crates/effects/src/transforms.rs:759 rust/crates/effects/src/transforms.rs:815
 msgid "Reset transforms"
 msgstr "घुमाव और ज़ूम रीसेट करें"
 
-#: rust/crates/effects/ui/background.slint:65 rust/crates/effects/ui/chroma_key.slint:150
+#: rust/crates/effects/ui/background.slint:72 rust/crates/effects/ui/chroma_key.slint:150
 msgid "Choose"
 msgstr ""
 
-#: rust/crates/effects/ui/background.slint:87 rust/crates/effects/ui/chroma_key.slint:90 rust/crates/effects/ui/fun_pack.slint:103
+#: rust/crates/effects/ui/background.slint:94 rust/crates/effects/ui/chroma_key.slint:90 rust/crates/effects/ui/fun_pack.slint:103
 msgid "Edges"
 msgstr "किनारे"
 
@@ -2591,107 +2581,107 @@ msgstr "ज़ेब्रा थ्रेशोल्ड"
 msgid "Scope size"
 msgstr "स्कोप का साइज़"
 
-#: rust/crates/effects/ui/colour_grading.slint:170 rust/crates/effects/ui/colour_grading.slint:178
+#: rust/crates/effects/ui/colour_grading.slint:188 rust/crates/effects/ui/colour_grading.slint:196
 msgid "Compare"
 msgstr "तुलना करें"
 
-#: rust/crates/effects/ui/colour_grading.slint:180
+#: rust/crates/effects/ui/colour_grading.slint:198
 msgid "Left of the line the preview shows the picture without the grade (apps always get it graded)"
 msgstr "लाइन के बाईं ओर प्रीव्यू बिना ग्रेडिंग वाली तस्वीर दिखाता है (ऐप्स को हमेशा ग्रेड की गई तस्वीर ही मिलती है)"
 
-#: rust/crates/effects/ui/colour_grading.slint:187
+#: rust/crates/effects/ui/colour_grading.slint:205
 msgid "Split"
 msgstr "स्प्लिट"
 
-#: rust/crates/effects/ui/colour_grading.slint:188
+#: rust/crates/effects/ui/colour_grading.slint:206
 msgid "Where the line between before and after is"
 msgstr "पहले और बाद के बीच की लाइन कहां है"
 
-#: rust/crates/effects/ui/colour_grading.slint:204
+#: rust/crates/effects/ui/colour_grading.slint:222
 msgid "Primaries"
 msgstr "प्राइमरीज़"
 
-#: rust/crates/effects/ui/colour_grading.slint:204
+#: rust/crates/effects/ui/colour_grading.slint:222
 msgid "Curves"
 msgstr "कर्व्स"
 
-#: rust/crates/effects/ui/colour_grading.slint:204 rust/crates/effects/ui/colour_grading.slint:399
+#: rust/crates/effects/ui/colour_grading.slint:222 rust/crates/effects/ui/colour_grading.slint:355
 msgid "LUT"
 msgstr "LUT"
 
-#: rust/crates/effects/ui/colour_grading.slint:208
+#: rust/crates/effects/ui/colour_grading.slint:226
 msgid "Page"
 msgstr "पेज"
 
-#: rust/crates/effects/ui/colour_grading.slint:215
+#: rust/crates/effects/ui/colour_grading.slint:233
 msgid "Auto colour grading"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:216
+#: rust/crates/effects/ui/colour_grading.slint:234
 msgid "Looks at about a second of the picture and sets white balance, brightness, contrast and colour for you. Everything it sets stays on the sliders to change"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:224 rust/crates/effects/ui/colour_grading.slint:225
+#: rust/crates/effects/ui/colour_grading.slint:242 rust/crates/effects/ui/colour_grading.slint:243
 msgid "Reset the grade"
 msgstr "ग्रेडिंग रीसेट करें"
 
-#: rust/crates/effects/ui/colour_grading.slint:360
+#: rust/crates/effects/ui/colour_grading.slint:316
 msgid "RGB"
 msgstr "RGB"
 
-#: rust/crates/effects/ui/colour_grading.slint:360
+#: rust/crates/effects/ui/colour_grading.slint:316
 msgid "Hue vs sat"
 msgstr "ह्यू बनाम सैट"
 
-#: rust/crates/effects/ui/colour_grading.slint:360
+#: rust/crates/effects/ui/colour_grading.slint:316
 msgid "Hue vs hue"
 msgstr "ह्यू बनाम ह्यू"
 
-#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/effects/ui/colour_grading.slint:385
+#: rust/crates/effects/ui/colour_grading.slint:320 rust/crates/effects/ui/colour_grading.slint:341
 msgid "Curve"
 msgstr "कर्व"
 
-#: rust/crates/effects/ui/colour_grading.slint:371
+#: rust/crates/effects/ui/colour_grading.slint:327
 msgid "All"
 msgstr "सभी"
 
-#: rust/crates/effects/ui/colour_grading.slint:375 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
+#: rust/crates/effects/ui/colour_grading.slint:331 rust/crates/system/ui/updates.slint:111 rust/crates/system/ui/updates.slint:117
 msgid "Channel"
 msgstr "चैनल"
 
-#: rust/crates/effects/ui/colour_grading.slint:404 rust/crates/setup/ui/setup.slint:59
+#: rust/crates/effects/ui/colour_grading.slint:360 rust/crates/setup/ui/setup.slint:59
 msgid "Load"
 msgstr "लोड करें"
 
-#: rust/crates/effects/ui/colour_grading.slint:405
+#: rust/crates/effects/ui/colour_grading.slint:361
 msgid "Pick a .cube LUT to put on top of the grade"
 msgstr "ग्रेडिंग के ऊपर लगाने के लिए .cube LUT चुनें"
 
-#: rust/crates/effects/ui/colour_grading.slint:422 rust/crates/effects/ui/colour_grading.slint:423
+#: rust/crates/effects/ui/colour_grading.slint:378 rust/crates/effects/ui/colour_grading.slint:379
 msgid "Take the LUT off"
 msgstr "LUT हटाएं"
 
-#: rust/crates/effects/ui/colour_grading.slint:431
+#: rust/crates/effects/ui/colour_grading.slint:387
 msgid "Strength"
 msgstr "तीव्रता"
 
-#: rust/crates/effects/ui/colour_grading.slint:432
+#: rust/crates/effects/ui/colour_grading.slint:388
 msgid "How much of the LUT's look goes on the picture"
 msgstr "तस्वीर पर LUT का लुक कितना दिखेगा"
 
-#: rust/crates/effects/ui/colour_grading.slint:450
+#: rust/crates/effects/ui/colour_grading.slint:406
 msgid "Export"
 msgstr "एक्सपोर्ट"
 
-#: rust/crates/effects/ui/colour_grading.slint:454
+#: rust/crates/effects/ui/colour_grading.slint:410
 msgid "Export grade"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:455
+#: rust/crates/effects/ui/colour_grading.slint:411
 msgid "Save the grade, LUT included, as a .cube file for other apps"
 msgstr "अन्य ऐप्स के लिए LUT सहित ग्रेड को .cube फ़ाइल के रूप में सेव करें"
 
-#: rust/crates/effects/ui/colour_grading.slint:467 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:680
+#: rust/crates/effects/ui/colour_grading.slint:423 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:680
 msgid "Replace"
 msgstr "बदलें"
 
@@ -2875,15 +2865,15 @@ msgstr "आकार"
 msgid "Follow my face"
 msgstr "चेहरा फ़ॉलो करें"
 
-#: rust/crates/effects/ui/framing.slint:52 rust/crates/effects/ui/framing.slint:58 rust/crates/outputs/src/webcam.rs:80
+#: rust/crates/effects/ui/framing.slint:60 rust/crates/effects/ui/framing.slint:66 rust/crates/outputs/src/webcam.rs:80
 msgid "Framing"
 msgstr "फ़्रेमिंग"
 
-#: rust/crates/effects/ui/framing.slint:91 rust/crates/effects/ui/framing.slint:97 rust/crates/effects/ui/notes.slint:151 rust/crates/effects/ui/notes.slint:157
+#: rust/crates/effects/ui/framing.slint:102 rust/crates/effects/ui/framing.slint:108 rust/crates/effects/ui/notes.slint:156 rust/crates/effects/ui/notes.slint:162
 msgid "Speed"
 msgstr "स्पीड"
 
-#: rust/crates/effects/ui/framing.slint:114 rust/crates/effects/ui/framing.slint:120
+#: rust/crates/effects/ui/framing.slint:128 rust/crates/effects/ui/framing.slint:134
 msgid "Room to move"
 msgstr "हिलने की गुंजाइश"
 
@@ -2959,15 +2949,15 @@ msgstr "स्टाइल"
 msgid "Size"
 msgstr "साइज़"
 
-#: rust/crates/effects/ui/notes.slint:113 rust/crates/effects/ui/notes.slint:119
+#: rust/crates/effects/ui/notes.slint:115 rust/crates/effects/ui/notes.slint:121
 msgid "Text size"
 msgstr "टेक्स्ट साइज़"
 
-#: rust/crates/effects/ui/notes.slint:134 rust/crates/effects/ui/notes.slint:144
+#: rust/crates/effects/ui/notes.slint:139 rust/crates/effects/ui/notes.slint:149
 msgid "Scroll"
 msgstr "स्क्रॉल"
 
-#: rust/crates/effects/ui/notes.slint:173
+#: rust/crates/effects/ui/notes.slint:178
 msgid "Move through the notes"
 msgstr ""
 
@@ -3029,107 +3019,99 @@ msgstr "ऑन टेस्ट करें"
 msgid "Test off"
 msgstr "ऑफ टेस्ट करें"
 
-#: rust/crates/effects/ui/pad.slint:106
-msgid "Arrow keys move the view, Shift with an arrow moves it further. Home centres it."
-msgstr ""
-
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "pink"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "magenta"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "purple"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "blue"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "sky blue"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "cyan"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "spring green"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "green"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "lime"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "yellow"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "orange"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:108
+#: rust/crates/effects/ui/parts.slint:115
 msgid "red"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:114
+#: rust/crates/effects/ui/parts.slint:121
 msgid "neutral"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:114
+#: rust/crates/effects/ui/parts.slint:121
 msgid "towards"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:117
+#: rust/crates/effects/ui/parts.slint:124
 msgid "points, none picked"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:117
+#: rust/crates/effects/ui/parts.slint:124
 msgid "point"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:117
+#: rust/crates/effects/ui/parts.slint:124
 msgid "in"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:117
+#: rust/crates/effects/ui/parts.slint:124
 msgid "out"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:124
+#: rust/crates/effects/ui/parts.slint:131
 msgid "centred"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:125 rust/crates/effects/ui/parts.slint:127
+#: rust/crates/effects/ui/parts.slint:132 rust/crates/effects/ui/parts.slint:134
 msgid "left"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:125 rust/crates/effects/ui/parts.slint:127
+#: rust/crates/effects/ui/parts.slint:132 rust/crates/effects/ui/parts.slint:134
 msgid "right"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:126 rust/crates/effects/ui/parts.slint:127
+#: rust/crates/effects/ui/parts.slint:133 rust/crates/effects/ui/parts.slint:134
 msgid "up"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:126 rust/crates/effects/ui/parts.slint:127
+#: rust/crates/effects/ui/parts.slint:133 rust/crates/effects/ui/parts.slint:134
 msgid "down"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:159
-msgid "Arrow keys move the puck a little, Shift with an arrow moves it further. Home puts it back in the middle."
-msgstr ""
-
-#: rust/crates/effects/ui/parts.slint:332
+#: rust/crates/effects/ui/parts.slint:168
 msgid "Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve."
 msgstr ""
 
@@ -3141,23 +3123,23 @@ msgstr ""
 msgid "Quality"
 msgstr "क्वालिटी"
 
-#: rust/crates/effects/ui/photos.slint:324 rust/crates/effects/ui/photos.slint:330
+#: rust/crates/effects/ui/photos.slint:314 rust/crates/effects/ui/photos.slint:320
 msgid "Timer"
 msgstr "टाइमर"
 
-#: rust/crates/effects/ui/photos.slint:340
+#: rust/crates/effects/ui/photos.slint:330
 msgid "Save in"
 msgstr "यहां सेव करें"
 
-#: rust/crates/effects/ui/transforms.slint:53 rust/crates/effects/ui/transforms.slint:59
+#: rust/crates/effects/ui/transforms.slint:149 rust/crates/effects/ui/transforms.slint:155
 msgid "Flip"
 msgstr "पलटें"
 
-#: rust/crates/effects/ui/transforms.slint:55
+#: rust/crates/effects/ui/transforms.slint:151
 msgid "Mirror"
 msgstr "मिरर"
 
-#: rust/crates/effects/ui/transforms.slint:55
+#: rust/crates/effects/ui/transforms.slint:151
 msgid "Upside down"
 msgstr "उल्टा"
 
@@ -5902,7 +5884,7 @@ msgstr "कैमरा जोड़ें"
 msgid "Stream another camera at the same time, to a virtual camera of its own"
 msgstr "एक ही समय में दूसरे कैमरे को उसके अपने वर्चुअल कैमरे में स्ट्रीम करें"
 
-#: rust/crates/shell/src/doc.rs:763 rust/crates/shell/src/doc.rs:764
+#: rust/crates/shell/src/doc.rs:764 rust/crates/shell/src/doc.rs:765
 msgid "Search settings"
 msgstr "सेटिंग्स में खोजें"
 
@@ -6830,7 +6812,7 @@ msgstr "फ़ोन का कैमरा शुरू हो रहा है
 msgid "Couldn't start the phone's camera"
 msgstr "फ़ोन का कैमरा शुरू नहीं किया जा सका"
 
-#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:844
+#: rust/crates/shell/src/stream_flow.rs:292 rust/crates/shell/src/worker.rs:848
 msgid "Connecting..."
 msgstr "कनेक्ट हो रहा है..."
 
@@ -7037,38 +7019,38 @@ msgstr "रोकें"
 msgid "Stream error: {error}"
 msgstr "स्ट्रीम एरर: {error}"
 
-#: rust/crates/shell/src/worker.rs:844
+#: rust/crates/shell/src/worker.rs:848
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "{url} से कनेक्ट हो रहा है..."
 
-#: rust/crates/shell/src/worker.rs:854
+#: rust/crates/shell/src/worker.rs:858
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "फ़ोन की स्ट्रीम से संपर्क नहीं हो पा रहा है. {seconds} सेकंड में फिर कोशिश की जाएगी…"
 
-#: rust/crates/shell/src/worker.rs:866
+#: rust/crates/shell/src/worker.rs:870
 msgid "Waiting for the first frame…"
 msgstr "पहले फ़्रेम का इंतज़ार है…"
 
-#: rust/crates/shell/src/worker.rs:954
+#: rust/crates/shell/src/worker.rs:958
 msgid "Stream reconnected"
 msgstr "स्ट्रीम फिर से कनेक्ट हो गई"
 
-#: rust/crates/shell/src/worker.rs:1029
+#: rust/crates/shell/src/worker.rs:1033
 msgid "The video is paused while the phone takes a photo"
 msgstr "फ़ोन द्वारा फ़ोटो लिए जाने के दौरान वीडियो रुका हुआ है"
 
-#: rust/crates/shell/src/worker.rs:1031 rust/crates/shell/src/worker.rs:1037
+#: rust/crates/shell/src/worker.rs:1035 rust/crates/shell/src/worker.rs:1041
 msgid "Stream dropped - reconnecting"
 msgstr "स्ट्रीम टूट गई - फिर से कनेक्ट हो रहा है"
 
-#: rust/crates/shell/src/worker.rs:1149 rust/crates/shell/src/worker.rs:1231
+#: rust/crates/shell/src/worker.rs:1153 rust/crates/shell/src/worker.rs:1235
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "वर्चुअल कैमरा एरर: {error}"
 
-#: rust/crates/shell/src/worker.rs:1160
+#: rust/crates/shell/src/worker.rs:1164
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{camera} पर {fps} fps पर {size} स्ट्रीम हो रहा है"
@@ -8522,37 +8504,37 @@ msgstr ""
 "फ़ोन का माइक अभी भी स्ट्रीम हो रहा है, और किसी ऐप द्वारा\n"
 "कैमरा खोले जाने पर यह फिर से चालू हो जाता है."
 
-#: rust/crates/effects/src/transforms.rs:626
+#: rust/crates/effects/src/transforms.rs:750
 msgctxt "search"
 msgid "mirror"
 msgstr "मिरर आईना उलटा mirror"
 
-#: rust/crates/effects/src/transforms.rs:627
+#: rust/crates/effects/src/transforms.rs:751
 msgctxt "search"
 msgid "mirror upside down"
 msgstr "मिरर उल्टा सिर नीचे mirror upside down"
 
-#: rust/crates/effects/src/transforms.rs:628
+#: rust/crates/effects/src/transforms.rs:752
 msgctxt "search"
 msgid "rotate turn"
 msgstr "घुमाएं घुमाव मोड़ें rotate turn"
 
-#: rust/crates/effects/src/transforms.rs:629
+#: rust/crates/effects/src/transforms.rs:753
 msgctxt "search"
 msgid "crop framing"
 msgstr "क्रॉप फ़्रेमिंग काटना crop framing"
 
-#: rust/crates/effects/src/transforms.rs:630
+#: rust/crates/effects/src/transforms.rs:754
 msgctxt "search"
 msgid "framing move"
 msgstr "फ़्रेमिंग हिलाना सरकाना framing move"
 
-#: rust/crates/effects/src/transforms.rs:632
+#: rust/crates/effects/src/transforms.rs:756
 msgctxt "search"
 msgid "stretch squish aspect wide"
 msgstr "स्ट्रेच सिकोड़ें आस्पेक्ट चौड़ा खिंचाव stretch squish aspect wide"
 
-#: rust/crates/effects/src/transforms.rs:633
+#: rust/crates/effects/src/transforms.rs:757
 msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "स्ट्रेच सिकोड़ें आस्पेक्ट लंबा खिंचाव stretch squish aspect tall"
@@ -8676,6 +8658,17 @@ msgstr "इसे खोला नहीं जा सका"
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "रीस्टार्ट नहीं किया जा सका"
+
+#~ msgid "Drag towards a colour to add it. Double-click to reset."
+#~ msgstr "रंग जोड़ने के लिए उसकी ओर ड्रैग करें. रीसेट करने के लिए डबल-क्लिक करें."
+
+#, python-brace-format
+#~ msgid ""
+"H {x}\n"
+"V {y}"
+#~ msgstr ""
+"H {x}\n"
+"V {y}"
 
 #~ msgid "Stretch the sheet sideways if it still looks squashed"
 #~ msgstr "अगर कागज़ अभी भी दबा हुआ लगे, तो उसे चौड़ाई में खींचें"
