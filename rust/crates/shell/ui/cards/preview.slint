@@ -77,7 +77,7 @@ export component PreviewCard inherits Rectangle {
     callback smooth-clicked;
 
     visible: visible-card;
-    preferred-height: 240px + Theme.row + Theme.u(8);
+    preferred-height: Theme.u(120) + Theme.row + Theme.u(8);
     background: Theme.stage;
     border-radius: Theme.r-card;
     clip: true;
@@ -146,13 +146,13 @@ export component PreviewCard inherits Rectangle {
                 spacing: Theme.u(6);
                 if camera-off: HorizontalLayout {
                     alignment: center;
-                    Icon { source: Icons.camera-off; tint: Theme.dis; width: 52px; height: 52px; accessible-role: none; }
+                    Icon { source: Icons.camera-off; tint: Theme.dis; width: Theme.u(26); height: Theme.u(26); accessible-role: none; }
                 }
                 Text {
                     text: stage-text;
                     horizontal-alignment: center;
                     font-family: Theme.font;
-                    font-size: camera-off ? 15px : 13px;
+                    font-size: camera-off ? Theme.u(7.5) : Theme.u(6.5);
                     color: camera-off ? Theme.ink2 : Theme.faint;
                 }
             }
@@ -173,18 +173,18 @@ export component PreviewCard inherits Rectangle {
                     if u < 0 || u > 1 || v < 0 || v > 1 || e.delta-y == 0 {
                         return reject;
                     }
-                    root.view-wheel(u, v, e.delta-y / 60px); // a notch of the wheel is 60 px here
+                    root.view-wheel(u, v, e.delta-y / Theme.u(30)); // a notch of the wheel is 60 px here
                     accept
                 }
             }
             if has-frame && marker-shown: Rectangle {
-                x: pic-x + marker-u * pic-width - 22px;
-                y: pic-y + marker-v * pic-height - 22px;
+                x: pic-x + marker-u * pic-width - Theme.u(11);
+                y: pic-y + marker-v * pic-height - Theme.u(11);
                 width: Theme.u(22);
                 height: Theme.u(22);
-                border-width: 2px;
+                border-width: Theme.u(1);
                 border-color: Theme.accent-soft;
-                border-radius: 6px;
+                border-radius: Theme.r-ctl;
             }
             if picking: PreviewPick {
                 width: parent.width;

@@ -1,7 +1,7 @@
 // The Stream output card: resolution, frame rate and shape as three
 // tiles, Light or Heavy, then JPEG quality or bitrate. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Card, RailRow, Slider, Segmented, ChoiceField } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Card, RailRow, Slider, Segmented, ChoiceField, UnfoldGroup, Unfolding } from "@ui-kit/ui-kit.slint";
 
 export component StreamOutputCard inherits Card {
     in property <bool> active: true;
@@ -30,7 +30,7 @@ export component StreamOutputCard inherits Card {
     in property <string> bitrate-readout;
     in property <string> bitrate-tip;
     // value_label's fits: the column both readouts share, wide enough for "100 Mbps" and the words it can show
-    in property <length> readout-width: 64px;
+    in property <length> readout-width: Theme.u(32);
     callback res-picked(int);
     callback fps-picked(int);
     callback ar-picked(int);
@@ -95,72 +95,80 @@ export component StreamOutputCard inherits Card {
             picked(i) => { root.ar-current = i; root.ar-picked(i); }
         }
     }
-    RailRow {
-        icon: Icons.layers;
-        label: @tr("Format");
-        hue: root.hue;
-        enabled: active;
-        Segmented {
-            hue: root.hue;
-            items: [@tr("Light"), @tr("Heavy")];
-            disabled: [!active || !h264-enabled, !active];
-            has-icons: [true, true];
-            icons: [Icons.bolt, Icons.heavy];
-            tips: [@tr("Light"), @tr("Heavy")];
-            tip-details: [root.light-tip, root.heavy-tip];
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.layers;
             label: @tr("Format");
-            shortcut: "stream.format";
-            current: h264 ? 0 : 1;
-            picked(i) => { root.format-picked(i == 0); }
-        }
-    }
-    if !root.h264: RailRow {
-        icon: Icons.gem;
-        label: @tr("JPEG quality");
-        tip-detail: root.quality-tip;
-        hue: root.hue;
-        enabled: active;
-        changed: abs(root.quality - 85) > 0.5;
-        Slider {
-            minimum: 1;
-            maximum: 95;
-            value: root.quality;
-            readout: root.quality-readout;
-            readout-width: root.readout-width;
-            label: @tr("JPEG quality");
-            shortcut: "stream.quality";
             hue: root.hue;
-            tip: @tr("JPEG quality");
-            tip-detail: root.quality-tip;
-            tip-hint: @tr("Double-click to reset");
-            marks: [85];
-            has-default: true;
-            default-value: 85;
-            moved(v) => { root.quality = v; root.quality-moved(v); }
+            enabled: active;
+            Segmented {
+                hue: root.hue;
+                items: [@tr("Light"), @tr("Heavy")];
+                disabled: [!active || !h264-enabled, !active];
+                has-icons: [true, true];
+                icons: [Icons.bolt, Icons.heavy];
+                tips: [@tr("Light"), @tr("Heavy")];
+                tip-details: [root.light-tip, root.heavy-tip];
+                label: @tr("Format");
+                shortcut: "stream.format";
+                current: h264 ? 0 : 1;
+                picked(i) => { root.format-picked(i == 0); }
+            }
         }
-    }
-    if root.h264: RailRow {
-        icon: Icons.gauge;
-        label: @tr("Bitrate");
-        tip-detail: root.bitrate-tip;
-        hue: root.hue;
-        enabled: active;
-        changed: root.bitrate > 0.5;
-        Slider {
-            minimum: 0;
-            maximum: 101;
-            value: root.bitrate;
-            readout: root.bitrate-readout;
-            readout-width: root.readout-width;
-            label: @tr("Bitrate");
-            shortcut: "stream.bitrate";
-            hue: root.hue;
-            tip: @tr("Bitrate");
-            tip-detail: root.bitrate-tip;
-            tip-hint: @tr("Double-click to reset");
-            has-default: true;
-            default-value: 0;
-            moved(v) => { root.bitrate = v; root.bitrate-moved(v); }
+        Unfolding {
+            open: !root.h264;
+            RailRow {
+                    icon: Icons.gem;
+                    label: @tr("JPEG quality");
+                    tip-detail: root.quality-tip;
+                    hue: root.hue;
+                    enabled: active;
+                    changed: abs(root.quality - 85) > 0.5;
+                    Slider {
+                        minimum: 1;
+                        maximum: 95;
+                        value: root.quality;
+                        readout: root.quality-readout;
+                        readout-width: root.readout-width;
+                        label: @tr("JPEG quality");
+                        shortcut: "stream.quality";
+                        hue: root.hue;
+                        tip: @tr("JPEG quality");
+                        tip-detail: root.quality-tip;
+                        tip-hint: @tr("Double-click to reset");
+                        marks: [85];
+                        has-default: true;
+                        default-value: 85;
+                        moved(v) => { root.quality = v; root.quality-moved(v); }
+                    }
+                }
+        }
+        Unfolding {
+            open: root.h264;
+            RailRow {
+                    icon: Icons.gauge;
+                    label: @tr("Bitrate");
+                    tip-detail: root.bitrate-tip;
+                    hue: root.hue;
+                    enabled: active;
+                    changed: root.bitrate > 0.5;
+                    Slider {
+                        minimum: 0;
+                        maximum: 101;
+                        value: root.bitrate;
+                        readout: root.bitrate-readout;
+                        readout-width: root.readout-width;
+                        label: @tr("Bitrate");
+                        shortcut: "stream.bitrate";
+                        hue: root.hue;
+                        tip: @tr("Bitrate");
+                        tip-detail: root.bitrate-tip;
+                        tip-hint: @tr("Double-click to reset");
+                        has-default: true;
+                        default-value: 0;
+                        moved(v) => { root.bitrate = v; root.bitrate-moved(v); }
+                    }
+                }
         }
     }
 }

@@ -31,20 +31,29 @@ export component FaceExposureCard inherits Card {
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
     // Something the user chose holds the point: the button that goes back says so in its tooltip
-    if held: RailRow {
-        has-icon: false;
-        Button {
-            horizontal-stretch: 1;
-            text: @tr("Follow my face");
-            tip: @tr("Follow my face");
-            tip-detail: held-note != "" ? held-note + " " + follow-tip : follow-tip;
-            clicked => { root.follow-clicked(); }
+    // Something the user chose holds the point: the button that goes back says so in its tooltip. Both rows unfold, so a card with neither is
+    // header-only: no fold
+    UnfoldGroup {
+        Unfolding {
+            open: held;
+            lead: 0px;
+            RailRow {
+                has-icon: false;
+                Button {
+                    horizontal-stretch: 1;
+                    text: @tr("Follow my face");
+                    tip: @tr("Follow my face");
+                    tip-detail: held-note != "" ? held-note + " " + follow-tip : follow-tip;
+                    clicked => { root.follow-clicked(); }
+                }
+            }
         }
-    }
-    if vision-text != "": VisionStatus {
-        text: vision-text;
-        download: vision-download;
-        download-clicked => { root.download-clicked(); }
+        VisionStatus {
+            lead: held ? Theme.gap : 0px;
+            text: vision-text;
+            download: vision-download;
+            download-clicked => { root.download-clicked(); }
+        }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;

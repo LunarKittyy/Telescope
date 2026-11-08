@@ -52,7 +52,7 @@ export component FramingCard inherits Card {
     switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    property <length> column: max(Theme.u(28), ceil(widest.preferred-width / 1px) * 1px + 2px);
+    property <length> column: max(Theme.u(28), ceil(widest.preferred-width / 1px) * 1px + Theme.u(1));
 
     Rectangle {
         height: Theme.row;
@@ -154,24 +154,26 @@ export component FramingCard inherits Card {
             moved(v) => { root.room-moved(v); }
         }
     }
-    SwitchRow {
-        icon: Icons.hand;
-        label: hand-name;
-        tip: hand-name;
-        tip-detail: hand-detail;
-        hue: root.hue;
-        enabled: active;
-        changed: hand;
-        checked: root.hand;
-        toggled(v) => {
-            root.hand = v;
-            root.hand-toggled(v);
+    UnfoldGroup {
+        SwitchRow {
+            icon: Icons.hand;
+            label: hand-name;
+            tip: hand-name;
+            tip-detail: hand-detail;
+            hue: root.hue;
+            enabled: active;
+            changed: hand;
+            checked: root.hand;
+            toggled(v) => {
+                root.hand = v;
+                root.hand-toggled(v);
+            }
         }
-    }
-    if vision-text != "": VisionStatus {
-        text: vision-text;
-        download: vision-download;
-        download-clicked => { root.download-clicked(); }
+        VisionStatus {
+            text: vision-text;
+            download: vision-download;
+            download-clicked => { root.download-clicked(); }
+        }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;

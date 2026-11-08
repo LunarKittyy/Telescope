@@ -47,28 +47,30 @@ export component PrivacyBlurCard inherits Card {
             picked(i) => { root.mode-picked(i); }
         }
     }
-    RailRow {
-        icon: Icons.blur;
-        label: @tr("Blur now");
-        hue: root.hue;
-        enabled: active;
-        Button {
-            horizontal-stretch: 1;
-            enabled: active;
-            text: @tr("Blur now");
-            tip: @tr("Blur now");
-            tip-detail: now-tip;
-            // a checked QPushButton: the filled one
-            role: now ? "primary" : "";
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.blur;
+            label: @tr("Blur now");
             hue: root.hue;
-            shortcut: "privacy_blur.now";
-            clicked => { root.now-clicked(); }
+            enabled: active;
+            Button {
+                horizontal-stretch: 1;
+                enabled: active;
+                text: @tr("Blur now");
+                tip: @tr("Blur now");
+                tip-detail: now-tip;
+                // a checked QPushButton: the filled one
+                role: now ? "primary" : "";
+                hue: root.hue;
+                shortcut: "privacy_blur.now";
+                clicked => { root.now-clicked(); }
+            }
         }
-    }
-    if vision-text != "": VisionStatus {
-        text: vision-text;
-        download: vision-download;
-        download-clicked => { root.download-clicked(); }
+        VisionStatus {
+            text: vision-text;
+            download: vision-download;
+            download-clicked => { root.download-clicked(); }
+        }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;

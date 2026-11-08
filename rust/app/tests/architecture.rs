@@ -389,6 +389,12 @@ fn styled_kinds(slint: &str) -> Vec<String> {
         // A rule can take a short name too: `"status_ok" || kind == "ok" ? Theme.ok`
         let tail = tail.strip_prefix("||").and_then(|t| t.find('?').map(|q| &t[q..])).unwrap_or(tail);
         let Some(colour) = tail.strip_prefix('?').map(str::trim_start) else { continue };
+        // The Status widget takes the short name (`"status_ok" ? "ok" : ... : ""`) and does the colouring; its empty arm is the quiet one
+        if colour.starts_with('"') {
+            styled.push(kind);
+            styled.push("status_dim".to_string());
+            continue;
+        }
         if !colour.starts_with("Theme.") {
             continue;
         }

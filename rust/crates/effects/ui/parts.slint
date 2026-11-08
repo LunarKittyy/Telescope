@@ -35,6 +35,33 @@ component StatusLine inherits Rectangle {
 }
 
 // The red mark that says something is wrong with a control (the Microphone's Noise reduction has the same one): the reason is its tooltip
+// A line of status that unfolds in and out with its words (never `if status != ""`), and keeps its last words while it shuts. Put it in an
+// UnfoldGroup after the row it hangs from.
+component StatusUnfold inherits Unfolding {
+    in property <string> text;
+    in property <string> kind: "status_dim";
+    in property <string> detail;
+    property <string> held-text;
+    property <string> held-kind;
+    property <string> held-detail;
+    function keep() {
+        if (root.text != "") {
+            held-text = root.text;
+            held-kind = root.kind;
+            held-detail = root.detail;
+        }
+    }
+    open: text != "";
+    init => { keep(); }
+    changed text => { keep(); }
+    changed kind => { keep(); }
+    changed detail => { keep(); }
+    RailRow {
+        has-icon: false;
+        StatusLine { text: held-text; kind: held-kind; detail: held-detail; }
+    }
+}
+
 component ProblemMark inherits Rectangle {
     in property <string> says;
     in property <string> detail;
@@ -367,9 +394,9 @@ component CurveBox inherits Rectangle {
     callback key(string, bool);
     height: Theme.u(100);
     horizontal-stretch: 1;
-    property <length> pad: 8px;
+    property <length> pad: Theme.u(4);
     property <length> area-w: self.width - 2 * pad;
-    property <length> area-h: self.height - pad - (hue-curve ? 14px : pad);
+    property <length> area-h: self.height - pad - (hue-curve ? Theme.u(7) : pad);
     property <color> tone: enabled ? colour : Theme.dis;
     forward-focus: focus;
     accessible-role: slider;
@@ -390,17 +417,17 @@ component CurveBox inherits Rectangle {
     Rectangle {
         x: pad - 1px;
         y: pad - 1px;
-        width: area-w + 2px;
-        height: area-h + 2px;
+        width: area-w + Theme.u(1);
+        height: area-h + Theme.u(1);
         border-radius: Theme.r-handle;
         background: Theme.stage;
     }
     if hue-curve: Rectangle {
         x: pad;
-        y: pad + area-h + 4px;
+        y: pad + area-h + Theme.u(2);
         width: area-w;
         height: Theme.u(3);
-        border-radius: 2px;
+        border-radius: Theme.u(1);
         opacity: enabled ? 1 : 0.4;
         background: @linear-gradient(90deg, #d96262 0%, #d99d62 8%, #d9d962 17%, #9dd962 25%, #62d962 33%, #62d99d 42%, #62d9d9 50%, #629dd9 58%, #6262d9 67%, #9d62d9 75%, #d962d9 83%, #d9629d 92%, #d96262 100%);
     }
@@ -421,16 +448,16 @@ component CurveBox inherits Rectangle {
         stroke-width: 1px;
     }
     Rectangle {
-        x: pad - 2px;
-        y: pad - 2px;
-        width: area-w + 4px;
-        height: area-h + 4px;
+        x: pad - Theme.u(1);
+        y: pad - Theme.u(1);
+        width: area-w + Theme.u(2);
+        height: area-h + Theme.u(2);
         clip: true;
         Path {
             x: 1px;
             y: 1px;
-            width: area-w + 2px;
-            height: area-h + 2px;
+            width: area-w + Theme.u(1);
+            height: area-h + Theme.u(1);
             viewbox-width: 1000;
             viewbox-height: 1000;
             fit: ImageFit.fill;
@@ -440,16 +467,16 @@ component CurveBox inherits Rectangle {
         }
     }
     for p[i] in points: Rectangle {
-        x: pad + p.x * area-w - 5px;
-        y: pad + (1 - p.y) * area-h - 5px;
+        x: pad + p.x * area-w - Theme.u(2.5);
+        y: pad + (1 - p.y) * area-h - Theme.u(2.5);
         width: Theme.u(5);
         height: Theme.u(5);
-        border-radius: 5px;
-        border-width: 1.5px;
+        border-radius: Theme.u(2.5);
+        border-width: Theme.u(0.75);
         border-color: tone;
         background: i == picked && enabled ? colour : Theme.card;
     }
-    FocusRing { shown: focus.has-focus; radius: 6px; x: 1px; y: 1px; width: root.width - 2px; height: root.height - 2px; }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; x: 1px; y: 1px; width: root.width - Theme.u(1); height: root.height - Theme.u(1); }
     TouchArea {
         enabled: root.enabled;
         mouse-cursor: MouseCursor.crosshair;

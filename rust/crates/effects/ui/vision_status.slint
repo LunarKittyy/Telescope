@@ -1,16 +1,31 @@
 // VisionStatus: why nothing's happening yet, with a Download button when that's why. One line: a short status, and the full reason as its tooltip.
-component VisionStatus inherits RailRow {
+// It unfolds in and out with its text (never `if vision-text != ""`) and keeps its last words while it shuts; put it in an UnfoldGroup after the row it hangs from.
+component VisionStatus inherits Unfolding {
     in property <string> text;
     in property <bool> download;
     callback download-clicked;
-    has-icon: false;
-    HorizontalLayout {
-        spacing: Theme.u(4);
-        StatusLine {
-            text: root.download ? @tr("Needs a download") : root.text;
-            kind: "status_warn";
-            detail: root.download ? root.text : "";
+    property <string> held-text;
+    property <bool> held-download;
+    function keep() {
+        if (root.text != "") {
+            held-text = root.text;
+            held-download = root.download;
         }
-        if download: Button { text: @tr("Download"); clicked => { root.download-clicked(); } }
+    }
+    open: text != "";
+    init => { keep(); }
+    changed text => { keep(); }
+    changed download => { keep(); }
+    RailRow {
+        has-icon: false;
+        HorizontalLayout {
+            spacing: Theme.u(4);
+            StatusLine {
+                text: root.held-download ? @tr("Needs a download") : root.held-text;
+                kind: "status_warn";
+                detail: root.held-download ? root.held-text : "";
+            }
+            if root.held-download: Button { text: @tr("Download"); clicked => { root.download-clicked(); } }
+        }
     }
 }

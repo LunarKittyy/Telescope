@@ -12,7 +12,7 @@ component MenuRow inherits Rectangle {
     in property <bool> open;
     callback clicked;
     height: Theme.u(13);
-    border-radius: 5px;
+    border-radius: Theme.u(2.5);
     background: enabled && (touch.has-hover || open) ? Theme.hover : transparent;
     accessible-role: button;
     accessible-label: text;
@@ -24,8 +24,8 @@ component MenuRow inherits Rectangle {
         clicked => { root.clicked(); }
     }
     Text {
-        x: 10px;
-        width: parent.width - 20px - (submenu ? 14px : 0px);
+        x: Theme.u(5);
+        width: parent.width - Theme.u(10) - (submenu ? Theme.u(7) : 0px);
         text: root.text;
         font-family: Theme.font;
         font-size: Theme.body;
@@ -34,7 +34,7 @@ component MenuRow inherits Rectangle {
         overflow: elide;
     }
     if submenu: Text {
-        x: parent.width - 20px;
+        x: parent.width - Theme.u(10);
         text: "›";
         font-family: Theme.font;
         font-size: Theme.body;
@@ -47,8 +47,8 @@ component MenuFrame inherits Rectangle {
     background: Theme.raise;
     border-width: 1px;
     border-color: Theme.line-hover;
-    border-radius: 7px;
-    drop-shadow-blur: 12px;
+    border-radius: Theme.u(3.5);
+    drop-shadow-blur: Theme.u(6);
     drop-shadow-color: #00000080;
 }
 
@@ -82,7 +82,7 @@ export component PresetsHeader inherits HorizontalLayout {
     // The name being typed in the Save and Rename question
     property <string> name-text;
     // Where the popups open: 6px under the button, which the header bar centres
-    property <length> below: (root.height + button.height) / 2 + 6px;
+    property <length> below: (root.height + button.height) / 2 + Theme.u(3);
 
     changed dialog => {
         name-popup.close();
@@ -127,8 +127,8 @@ export component PresetsHeader inherits HorizontalLayout {
                     }
                 }
                 if names.length > 0: Rectangle {
-                    height: 9px;
-                    Rectangle { y: 4px; height: 1px; background: Theme.line; }
+                    height: Theme.u(4.5);
+                    Rectangle { y: Theme.u(2); height: 1px; background: Theme.line; }
                 }
                 MenuRow {
                     text: save-text;
@@ -157,8 +157,8 @@ export component PresetsHeader inherits HorizontalLayout {
 
     // The Rename or Delete submenu: the names again, opening beside the menu
     sub-popup := PopupWindow {
-        x: 190px;
-        y: root.below + 4px + 26px * names.length + (names.length > 0 ? 9px : 0px) + 26px;
+        x: Theme.u(95);
+        y: root.below + Theme.u(2) + Theme.u(13) * names.length + (names.length > 0 ? Theme.u(4.5) : 0px) + Theme.u(13);
         width: Theme.u(95);
         close-policy: close-on-click-outside;
         MenuFrame {
@@ -184,7 +184,7 @@ export component PresetsHeader inherits HorizontalLayout {
     name-popup := PopupWindow {
         x: -root.absolute-position.x;
         y: -root.absolute-position.y;
-        width: WindowBox.cover-w(380px);
+        width: WindowBox.cover-w(Theme.u(190));
         height: WindowBox.cover-h(name-frame.preferred-height);
         close-policy: no-auto-close;
         FocusScope {
@@ -228,7 +228,7 @@ export component PresetsHeader inherits HorizontalLayout {
     replace-popup := PopupWindow {
         x: -root.absolute-position.x;
         y: -root.absolute-position.y;
-        width: WindowBox.cover-w(400px);
+        width: WindowBox.cover-w(Theme.u(200));
         height: WindowBox.cover-h(replace-frame.preferred-height);
         close-policy: no-auto-close;
         FocusScope {

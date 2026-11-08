@@ -233,39 +233,38 @@ export component NotesCard inherits Card {
             }
         }
     }
-    RailRow {
-        has-icon: false;
-        enabled: active;
-        HorizontalLayout {
-            spacing: Theme.gap;
-            Button {
-                horizontal-stretch: 1;
-                preferred-width: 0px;
-                min-width: 0px;
-                has-icon: true;
-                icon: Icons.send-phone;
-                text: send-text;
-                shortcut: "notes.send";
-                role: "primary";
-                hue: root.hue;
-                enabled: active && send-enabled;
-                clicked => { root.send-clicked(); }
-            }
-            // An icon button with the name as its tooltip, so the long German names never cut the Send text
-            IconButton {
-                raised: true;
-                icon: Icons.clear-phone;
-                label: clear-text;
-                tip: clear-text;
-                shortcut: "notes.clear";
-                enabled: active && clear-enabled;
-                clicked => { root.clear-clicked(); }
+    UnfoldGroup {
+        RailRow {
+            has-icon: false;
+            enabled: active;
+            HorizontalLayout {
+                spacing: Theme.gap;
+                Button {
+                    horizontal-stretch: 1;
+                    preferred-width: 0px;
+                    min-width: 0px;
+                    has-icon: true;
+                    icon: Icons.send-phone;
+                    text: send-text;
+                    shortcut: "notes.send";
+                    role: "primary";
+                    hue: root.hue;
+                    enabled: active && send-enabled;
+                    clicked => { root.send-clicked(); }
+                }
+                // An icon button with the name as its tooltip, so the long German names never cut the Send text
+                IconButton {
+                    raised: true;
+                    icon: Icons.clear-phone;
+                    label: clear-text;
+                    tip: clear-text;
+                    shortcut: "notes.clear";
+                    enabled: active && clear-enabled;
+                    clicked => { root.clear-clicked(); }
+                }
             }
         }
-    }
-    if status != "": RailRow {
-        has-icon: false;
-        StatusLine { text: status; kind: status-kind; detail: status-detail; }
+        StatusUnfold { text: status; kind: status-kind; detail: status-detail; }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;

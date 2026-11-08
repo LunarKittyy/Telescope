@@ -341,7 +341,7 @@ export component ConnectionCard inherits Card {
                 // A long payload makes more modules than the dialog's width holds at 6px. Whole device pixels each, or the
                 // white gaps between dark cells show on a scaled screen
                 function fit(room: length) -> length {
-                    return min(6px, max(1phx, floor(room / modules / 1phx) * 1phx));
+                    return min(Theme.u(3), max(1phx, floor(room / modules / 1phx) * 1phx));
                 }
                 property <length> full: modules * fit(self.width);
                 min-height: 0px;

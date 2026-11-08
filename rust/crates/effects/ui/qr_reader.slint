@@ -14,6 +14,18 @@ export component QrReaderCard inherits Card {
     in property <bool> copy-shown;
     in property <string> status;
     in property <string> status-kind: "status_dim";
+    // What the status said last, kept while its row shuts
+    property <string> held-status;
+    property <string> held-kind;
+    function keep() {
+        if (status != "") {
+            held-status = status;
+            held-kind = status-kind;
+        }
+    }
+    init => { keep(); }
+    changed status => { keep(); }
+    changed status-kind => { keep(); }
     callback switch-toggled-by-hand(bool);
     callback notify-toggled(bool);
     callback copy-clicked;
@@ -31,21 +43,31 @@ export component QrReaderCard inherits Card {
     switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    if status != "" || copy-shown: RailRow {
-        has-icon: false;
-        HorizontalLayout {
-            spacing: Theme.u(4);
-            StatusLine { text: status; kind: status-kind; }
-            if copy-shown: Button { text: copy-text; tip: copy-text; tip-detail: copy-tip; clicked => { root.copy-clicked(); } }
+    // The status and Copy come and go above the switch: the row under them keeps clear of the gap while they are shut
+    UnfoldGroup {
+        found := Unfolding {
+            open: status != "" || copy-shown;
+            lead: 0px;
+            RailRow {
+                has-icon: false;
+                HorizontalLayout {
+                    spacing: Theme.u(4);
+                    StatusLine { text: held-status; kind: held-kind; }
+                    if copy-shown: Button { text: copy-text; tip: copy-text; tip-detail: copy-tip; clicked => { root.copy-clicked(); } }
+                }
+            }
         }
-    }
-    SwitchRow {
-        icon: Icons.bell;
-        label: @tr("Notify me when a code is read");
-        hue: root.hue;
-        enabled: active;
-        checked: notify;
-        toggled(v) => { root.notify-toggled(v); }
+        VerticalLayout {
+            padding-top: found.value * Theme.gap;
+            SwitchRow {
+                icon: Icons.bell;
+                label: @tr("Notify me when a code is read");
+                hue: root.hue;
+                enabled: active;
+                checked: notify;
+                toggled(v) => { root.notify-toggled(v); }
+            }
+        }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;

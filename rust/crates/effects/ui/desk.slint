@@ -188,33 +188,32 @@ export component DeskCard inherits Card {
             moved(v) => { root.stretch-moved(0, v); }
         }
     }
-    RailRow {
-        icon: Icons.stretch-tall;
-        label: @tr("Height");
-        tip: @tr("Height");
-        tip-detail: stretch-enabled ? stretch-tip : stretch-off-tip;
-        hue: root.hue;
-        enabled: active && stretch-enabled;
-        changed: stretch[1] != 100;
-        Slider {
-            enabled: active && stretch-enabled;
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.stretch-tall;
             label: @tr("Height");
             tip: @tr("Height");
             tip-detail: stretch-enabled ? stretch-tip : stretch-off-tip;
-            tip-hint: stretch-enabled ? @tr("Double-click to reset") : "";
             hue: root.hue;
-            minimum: 50;
-            maximum: 200;
-            value: stretch[1];
-            readout: stretch-text[1];
-            has-default: true;
-            default-value: 100;
-            moved(v) => { root.stretch-moved(1, v); }
+            enabled: active && stretch-enabled;
+            changed: stretch[1] != 100;
+            Slider {
+                enabled: active && stretch-enabled;
+                label: @tr("Height");
+                tip: @tr("Height");
+                tip-detail: stretch-enabled ? stretch-tip : stretch-off-tip;
+                tip-hint: stretch-enabled ? @tr("Double-click to reset") : "";
+                hue: root.hue;
+                minimum: 50;
+                maximum: 200;
+                value: stretch[1];
+                readout: stretch-text[1];
+                has-default: true;
+                default-value: 100;
+                moved(v) => { root.stretch-moved(1, v); }
+            }
         }
-    }
-    if status != "": RailRow {
-        has-icon: false;
-        StatusLine { text: status; kind: status-kind; detail: status-detail; }
+        StatusUnfold { text: status; kind: status-kind; detail: status-detail; }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;

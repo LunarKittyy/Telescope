@@ -120,70 +120,75 @@ export component ChromaKeyCard inherits Card {
         default-value: i == 0 ? 40 : i == 1 ? 30 : 60;
         moved(v) => { root.slider-moved(i, v); }
     }
-    RailRow {
-        icon: Icons.person;
-        label: @tr("Behind you");
-        tip-detail: @tr("Put a colour or a picture where the screen was.");
-        hue: root.hue;
-        enabled: active;
-        Segmented {
-            hue: root.hue;
-            items: [@tr("Colour"), @tr("Picture")];
-            disabled: [!active, !active];
-            has-icons: [false, false];
-            icons: [Icons.image, Icons.image];
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.person;
             label: @tr("Behind you");
-            tips: [@tr("Colour"), @tr("Picture")];
-            current: behind;
-            picked(i) => { root.background-picked(i); }
-        }
-    }
-    if behind == 0: RailRow {
-        icon: Icons.colour;
-        label: @tr("Colour");
-        hue: root.hue;
-        enabled: active;
-        ColourField {
-            enabled: active;
-            colour: backdrop-colour;
-            h: colour-h;
-            s: colour-s;
-            v: colour-v;
-            hex: colour-hex;
-            channels: channel-value;
+            tip-detail: @tr("Put a colour or a picture where the screen was.");
             hue: root.hue;
-            label: @tr("Colour behind you");
-            tip: @tr("Colour");
-            tip-detail: colour-tip;
-            pipette-tip: pipette-tip;
-            can-pick: active;
-            moved(h, s, v) => { root.colour-moved(h, s, v); }
-            hex-typed(text) => { root.hex-typed(text); }
-            channel-typed(i, text) => { root.channel-typed(i, text); }
-            pipette-clicked => { root.pipette-clicked(); }
-        }
-    }
-    if behind == 1: RailRow {
-        icon: Icons.photo;
-        label: @tr("Picture");
-        hue: root.hue;
-        enabled: active;
-        PictureField {
             enabled: active;
-            thumb: picture-thumb;
-            has-picture: has-picture;
-            set: has-picture || picture-text != "";
-            name: picture-text != "" ? picture-text : @tr("Choose");
-            problem: picture-problem;
-            hue: root.hue;
-            tip: @tr("Choose picture");
-            tip-detail: picture-choose-tip;
-            clicked => { root.picture-clicked(); }
+            Segmented {
+                hue: root.hue;
+                items: [@tr("Colour"), @tr("Picture")];
+                disabled: [!active, !active];
+                has-icons: [false, false];
+                icons: [Icons.image, Icons.image];
+                label: @tr("Behind you");
+                tips: [@tr("Colour"), @tr("Picture")];
+                current: behind;
+                picked(i) => { root.background-picked(i); }
+            }
         }
-    }
-    if status != "": RailRow {
-        has-icon: false;
-        StatusLine { text: status; kind: status-kind; detail: status-detail; }
+        Unfolding {
+            open: behind == 0;
+            RailRow {
+                icon: Icons.colour;
+                label: @tr("Colour");
+                hue: root.hue;
+                enabled: active;
+                ColourField {
+                    enabled: active;
+                    colour: backdrop-colour;
+                    h: colour-h;
+                    s: colour-s;
+                    v: colour-v;
+                    hex: colour-hex;
+                    channels: channel-value;
+                    hue: root.hue;
+                    label: @tr("Colour behind you");
+                    tip: @tr("Colour");
+                    tip-detail: colour-tip;
+                    pipette-tip: pipette-tip;
+                    can-pick: active;
+                    moved(h, s, v) => { root.colour-moved(h, s, v); }
+                    hex-typed(text) => { root.hex-typed(text); }
+                    channel-typed(i, text) => { root.channel-typed(i, text); }
+                    pipette-clicked => { root.pipette-clicked(); }
+                }
+            }
+        }
+        Unfolding {
+            open: behind == 1;
+            RailRow {
+                icon: Icons.photo;
+                label: @tr("Picture");
+                hue: root.hue;
+                enabled: active;
+                PictureField {
+                    enabled: active;
+                    thumb: picture-thumb;
+                    has-picture: has-picture;
+                    set: has-picture || picture-text != "";
+                    name: picture-text != "" ? picture-text : @tr("Choose");
+                    problem: picture-problem;
+                    hue: root.hue;
+                    tip: @tr("Choose picture");
+                    tip-detail: picture-choose-tip;
+                    clicked => { root.picture-clicked(); }
+                }
+            }
+        }
+        StatusUnfold { text: status; kind: status-kind; detail: status-detail; }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;
