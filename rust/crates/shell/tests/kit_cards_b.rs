@@ -195,3 +195,101 @@ fn a_changed_row_brightens_its_icon_or_adds_a_dot_and_a_default_row_has_neither(
     ui.set_property("changed", Value::Bool(false)).unwrap();
     assert_eq!(off, drawn(&ui), "a disabled row looks the same changed or not");
 }
+
+const SWITCH_ROW: &str = r#"
+import { SwitchRow, Icons, Theme } from "@ui-kit/ui-kit.slint";
+export { Theme }
+export component Test inherits Window {
+    width: 300px;
+    height: 80px;
+    background: Theme.card;
+    in property <bool> on: true;
+    in property <string> name: "Widen for something in your hand";
+    in-out property <bool> lit;
+    out property <int> flips;
+    out property <length> row-h: row.height;
+    row := SwitchRow {
+        x: 10px;
+        y: 10px;
+        width: 280px;
+        icon: Icons.sun;
+        label: name;
+        hue: #7fd3c4;
+        enabled: on;
+        checked: lit;
+        toggled(v) => { flips += 1; lit = v; }
+    }
+}
+"#;
+
+const NAMES: &str = r#"
+import { PictureSegmented, Theme } from "@ui-kit/ui-kit.slint";
+export { Theme }
+export component Test inherits Window {
+    width: 320px;
+    height: 80px;
+    background: Theme.card;
+    in property <[string]> words: ["Auto", "A4", "Letter"];
+    out property <bool> names: row.names-drawn;
+    out property <length> row-h: row.height;
+    row := PictureSegmented {
+        x: 10px;
+        y: 10px;
+        width: 300px;
+        label: "Shape";
+        items: words;
+        disabled: [false, false, false];
+        show-names: true;
+    }
+}
+"#;
+
+fn flag(ui: &ComponentInstance, name: &str) -> bool {
+    matches!(ui.get_property(name), Ok(Value::Bool(true)))
+}
+
+#[test]
+fn a_lone_switch_row_carries_its_label_and_puts_the_switch_at_the_right_edge_centred() {
+    let ui = rig(SWITCH_ROW, (300.0, 80.0), &[]);
+    let picture = telescope_shell::offscreen::draw(ui.window(), 300.0, 80.0, 1.0).unwrap();
+    // text between the icon rail (up to x = 10 + 28 + 8) and the switch: ink2 on the card, so some pixels are light
+    let light = (20..60).flat_map(|y| (50..230).map(move |x| (x, y))).filter(|(x, y)| picture.rgba[(y * 300 + x) * 4] > 150).count();
+    assert!(light > 150, "the label is drawn beside the icon ({light} light pixels)");
+    let switch = i_slint_backend_testing::ElementHandle::find_by_accessible_label(&ui, "Widen for something in your hand")
+        .find(|e| e.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::Switch))
+        .expect("the switch");
+    let (p, s) = (switch.absolute_position(), switch.size());
+    assert!((p.x + s.width - 290.0).abs() < 1.5, "its right edge is the row's: {}", p.x + s.width);
+    assert!(((p.y + s.height / 2.0) - (10.0 + number(&ui, "row-h") as f32 / 2.0)).abs() < 1.0, "centred on the row");
+    // a click flips it and says so, and the row keeps its height
+    click(&ui, p.x + s.width / 2.0, p.y + s.height / 2.0);
+    assert_eq!(number(&ui, "flips"), 1.0);
+    assert!(flag(&ui, "lit"));
+    assert_eq!(number(&ui, "row-h"), 32.0);
+}
+
+#[test]
+fn a_long_label_in_a_switch_row_is_cut_short_and_stays_in_its_row() {
+    let ui = rig(SWITCH_ROW, (300.0, 80.0), &[("name", Value::String("Bildausschnitt vergr\u{f6}\u{df}ern, wenn du etwas in der Hand h\u{e4}ltst und noch mehr".into()))]);
+    let picture = telescope_shell::offscreen::draw(ui.window(), 300.0, 80.0, 1.0).unwrap();
+    // nothing of the label reaches into the switch's place at the right edge, and nothing is drawn below the row
+    let below = (52..80).flat_map(|y| (0..300).map(move |x| (x, y))).filter(|(x, y)| picture.rgba[(y * 300 + x) * 4] > 150).count();
+    assert_eq!(below, 0, "the text stays on its row");
+    assert_eq!(number(&ui, "row-h"), 32.0);
+}
+
+#[test]
+fn a_row_of_pictures_draws_every_name_or_none() {
+    let ui = rig(NAMES, (320.0, 80.0), &[]);
+    assert!(flag(&ui, "names"), "short names fit under their drawings");
+    // one name too long for its tile takes every name away, not only its own
+    let words = slint::ModelRc::new(slint::VecModel::from(vec![Value::String("Auto".into()), Value::String("A4".into()), Value::String("Quadratisch-extra-lang".into())]));
+    ui.set_property("words", Value::Model(words)).unwrap();
+    drawn(&ui);
+    assert!(!flag(&ui, "names"), "one name doesn't fit: none is drawn");
+    assert_eq!(number(&ui, "row-h"), 48.0, "and the tiles keep their height");
+    let again = slint::ModelRc::new(slint::VecModel::from(vec![Value::String("Auto".into()), Value::String("A4".into()), Value::String("Letter".into())]));
+    ui.set_property("words", Value::Model(again)).unwrap();
+    drawn(&ui);
+    assert!(flag(&ui, "names"), "they come back when they fit");
+}

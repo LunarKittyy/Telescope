@@ -1,5 +1,6 @@
 use super::*;
 use std::sync::{Arc, Mutex, OnceLock};
+use telescope_core::frame::{Frame, StreamFrame};
 use telescope_core::testing::FakeHost;
 use telescope_core::vision::{self, VisionPack};
 
@@ -695,4 +696,198 @@ fn whole_runs_steer_as_python_does_tick_by_tick() {
         assert_eq!(r.prop("vision-text"), end["status"], "{name}");
         assert_eq!(r.plugin.diagnostics()[0].1, end["diagnostics"]["Auto framing"].as_str().unwrap(), "{name}");
     }
+}
+
+// ── The bubbles ───────────────────────────────────────────────────────
+
+impl Rig {
+    fn peek_event(&mut self, token: &str) {
+        self.event(Event::TimerFired { owner: NAME.into(), token: token.into() });
+    }
+
+    fn pictures(&self) -> usize {
+        self.host.calls.iter().filter(|c| c.starts_with("set_ui_image card framing-picture")).count()
+    }
+
+    fn dots(&self) -> Vec<f64> {
+        self.prop("speed-dots").as_array().map(|a| a.iter().map(|v| v.as_f64().unwrap()).collect()).unwrap_or_default()
+    }
+}
+
+#[test]
+fn the_framing_bubble_shows_the_crop_unless_the_preview_already_shows_it() {
+    let mut r = Rig::new();
+    assert_eq!(r.prop("framing-peek"), json!("picture"), "off: the preview shows nothing of it");
+    r.switch(true);
+    assert_eq!(r.prop("framing-peek"), json!("picture"), "on, but nobody to follow yet");
+    r.run(1.0, Some(&[at(0.6)]));
+    assert_eq!(r.prop("framing-peek"), json!(""), "following someone: the preview shows it");
+    r.run(10.0, None);
+    assert_eq!(r.prop("framing-peek"), json!("picture"), "nobody seen for a while: back to the whole picture");
+    r.run(1.0, Some(&[at(0.6)]));
+    assert_eq!(r.prop("framing-peek"), json!(""));
+    r.switch(false);
+    assert_eq!(r.prop("framing-peek"), json!("picture"));
+    // something else holds the view: nothing is followed
+    let mut other = Rig::new();
+    other.host.view_owner = "Transforms".into();
+    other.switch(true);
+    other.run(1.0, Some(&[at(0.6)]));
+    assert_eq!(other.prop("framing-peek"), json!("picture"));
+}
+
+#[test]
+fn the_card_starts_out_with_the_bubble_it_will_have() {
+    let mut plugin = FramingPlugin::new();
+    assert_eq!(plugin.card().unwrap().ui.props["framing-peek"], json!("picture"));
+}
+
+#[test]
+fn the_framing_bubble_costs_nothing_while_closed_and_makes_a_small_picture_8_times_a_second_while_open() {
+    let mut r = Rig::new();
+    assert!(!r.host.is_scheduled(T_PEEK) && r.pictures() == 0);
+    // a stray timer while closed makes nothing
+    r.peek_event(T_PEEK);
+    assert_eq!(r.pictures(), 0);
+    r.ui("framing-peek-open", json!(true));
+    assert!(r.host.scheduled.contains(&(peek::PICTURE_MS, T_PEEK.into())) && r.pictures() == 1);
+    assert_eq!(peek::PICTURE_MS, 125);
+    assert!(r.host.calls.iter().any(|c| c == "want_people Auto framing bubble true"), "the people are asked for while it is up");
+    let picture = &r.host.images[&("card".to_string(), "framing-picture".to_string())];
+    assert_eq!((picture.width as usize, picture.height as usize), (peek::WIDTH, peek::HEIGHT));
+    r.peek_event(T_PEEK);
+    assert_eq!(r.pictures(), 2);
+    r.ui("framing-peek-open", json!(false));
+    assert!(!r.host.is_scheduled(T_PEEK));
+    assert!(r.host.calls.iter().any(|c| c == "want_people Auto framing bubble false"));
+    r.peek_event(T_PEEK);
+    assert_eq!(r.pictures(), 2, "closed: nothing more is made");
+}
+
+fn left_red_right_blue() -> StreamFrame {
+    let (w, h) = (320u32, 180u32);
+    let data = (0..w * h).flat_map(|i| if (i % w) < w / 2 { [255, 0, 0, 255] } else { [0, 0, 255, 255] }).collect();
+    StreamFrame { source_id: "phone".into(), name: "phone".into(), frame: Frame::new(w, h, telescope_core::frame::PixelFormat::Rgba, data) }
+}
+
+fn average(frame: &Frame) -> [f64; 3] {
+    let n = (frame.width * frame.height) as f64;
+    let mut sum = [0.0; 3];
+    for p in frame.data.chunks(4) {
+        for c in 0..3 {
+            sum[c] += p[c] as f64;
+        }
+    }
+    sum.map(|s| s / n)
+}
+
+#[test]
+fn the_bubble_crops_the_live_picture_around_whoever_is_in_it_and_a_stand_in_scene_when_nobody_is() {
+    let mut r = Rig::new();
+    r.host.stream_frames = vec![left_red_right_blue()];
+    r.ui("framing-peek-open", json!(true));
+    let key = ("card".to_string(), "framing-picture".to_string());
+    let sample = average(&r.host.images[&key]);
+    // someone on the right: the crop is over the blue half
+    r.people("phone", &[at(0.8)]);
+    r.peek_event(T_PEEK);
+    let live = average(&r.host.images[&key]);
+    assert!(live[2] > 200.0 && live[0] < 60.0, "{live:?}");
+    assert_ne!(sample.map(|v| v as i64), live.map(|v| v as i64), "the stand-in is another picture");
+    // a closer framing is still over the blue half
+    r.ui("framing-moved", json!(0));
+    r.peek_event(T_PEEK);
+    assert!(average(&r.host.images[&key])[2] > 200.0);
+    // nobody now (seen too long ago): the stand-in again
+    *r.clock.lock().unwrap() += 10.0;
+    r.peek_event(T_PEEK);
+    let after = average(&r.host.images[&key]);
+    assert!(after[0] > 20.0 && after[1] > 20.0, "the wall's colours, not the live picture's: {after:?}");
+}
+
+#[test]
+fn the_stand_in_crop_is_closer_the_closer_the_framing() {
+    let mut r = Rig::new();
+    r.ui("framing-peek-open", json!(true));
+    let key = ("card".to_string(), "framing-picture".to_string());
+    let mut skin_seen = Vec::new();
+    for steps in [0, 10, 20, 30] {
+        r.ui("framing-moved", json!(steps));
+        r.peek_event(T_PEEK);
+        let picture = &r.host.images[&key];
+        // how much of the picture is the stand-in's skin tone, which grows as the window closes in on the head
+        let skin = picture.data.chunks(4).filter(|p| p[0] > 210 && (160..185).contains(&p[1]) && (125..150).contains(&p[2])).count();
+        skin_seen.push(skin);
+    }
+    assert!(skin_seen.windows(2).all(|w| w[0] >= w[1]), "{skin_seen:?}");
+    assert!(skin_seen[0] > 2 * skin_seen[3].max(1), "{skin_seen:?}");
+}
+
+#[test]
+fn the_speed_bubble_moves_its_dots_only_while_it_is_up() {
+    let mut r = Rig::new();
+    assert!(!r.host.is_scheduled(T_CHASE) && r.dots().is_empty());
+    r.peek_event(T_CHASE);
+    assert!(r.dots().is_empty(), "closed: a stray timer moves nothing");
+    r.ui("speed-peek-open", json!(true));
+    assert!(r.host.scheduled.contains(&(TICK_MS, T_CHASE.into())));
+    let first = r.dots();
+    assert_eq!(first.len(), 4);
+    for _ in 0..90 {
+        r.peek_event(T_CHASE);
+    }
+    let later = r.dots();
+    assert_ne!(first, later, "you moved on your own while it was open");
+    r.ui("speed-peek-open", json!(false));
+    assert!(!r.host.is_scheduled(T_CHASE));
+    let before = r.dots();
+    r.peek_event(T_CHASE);
+    assert_eq!(r.dots(), before);
+}
+
+/// How far the framing is from you a second after you have crossed over.
+fn lag_at(speed: i64) -> f64 {
+    let mut chase = Chase::new();
+    let mut last = [0.0; 4];
+    for _ in 0..((Chase::HOLD_S + Chase::MOVE_S + 1.0) / 0.033) as usize {
+        last = chase.step(speed, 0.033);
+    }
+    (last[0] - last[2]).hypot(last[1] - last[3])
+}
+
+#[test]
+fn the_dots_lag_by_what_the_speed_gives() {
+    let lags: Vec<f64> = (1..=10).map(lag_at).collect();
+    assert!(lags.windows(2).all(|w| w[0] >= w[1] - 1e-9), "slower speeds trail further behind: {lags:?}");
+    assert!(lags[0] > 0.25 && lags[9] < 0.05, "{lags:?}");
+}
+
+#[test]
+fn the_chase_runs_on_the_same_smoothing_spring_and_dead_zone_as_the_framing() {
+    for speed in [1, 5, 10] {
+        let mut chase = Chase::new();
+        let (omega, tau, scale) = tuning(speed);
+        let mut spring = Spring::new(Chase::you(0.0));
+        let (mut smooth, mut goal) = (None, None);
+        for i in 1..=120 {
+            let target = Chase::you(i as f64 * 0.033);
+            let s = smoothed(smooth, target, 0.033, tau);
+            smooth = Some(s);
+            let g = settle(goal, s, 0.033, scale);
+            goal = Some(g);
+            let at = spring.step(g, 0.033, omega);
+            let [_, _, fx, fy] = chase.step(speed, 0.033);
+            assert!(close(fx, at.x, 1e-9) && close(fy, at.y, 1e-9), "speed {speed} step {i}");
+        }
+    }
+}
+
+#[test]
+fn the_stand_in_for_you_goes_across_pauses_and_comes_back() {
+    let (a, b) = (Chase::you(0.0), Chase::you(Chase::HOLD_S + Chase::MOVE_S + 0.01));
+    assert!(close(a.x, 0.3, 1e-6) && close(b.x, 0.7, 1e-2) && close(a.y, 0.5, 1e-6));
+    let lap = 2.0 * (Chase::HOLD_S + Chase::MOVE_S);
+    assert!(close(Chase::you(lap).x, a.x, 1e-9));
+    assert!(close(Chase::you(Chase::HOLD_S * 0.5).x, a.x, 1e-9), "it holds still first");
+    assert!((0..300).all(|i| (0.0..=1.0).contains(&Chase::you(i as f64 * 0.05).y)));
 }

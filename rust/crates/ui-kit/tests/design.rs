@@ -197,6 +197,24 @@ fn braced(text: &str, open: usize) -> &str {
 }
 
 #[test]
+fn a_lone_switch_in_a_rail_row_is_a_switch_row_that_carries_its_label() {
+    let mut files = Vec::new();
+    slint_files(&crates(), &mut files);
+    let mut problems = Vec::new();
+    for file in files {
+        let text = std::fs::read_to_string(&file).unwrap();
+        for (at, _) in text.match_indices("RailRow {") {
+            let body = braced(&text, at + "RailRow ".len());
+            let grouped = body.contains("HorizontalLayout") || body.contains("GridLayout") || body.contains("VerticalLayout");
+            if body.matches("Switch {").count() == 1 && !grouped {
+                problems.push(format!("{}: a RailRow holds one Switch on its own: use a SwitchRow, which carries the name beside the icon", file.display()));
+            }
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+#[test]
 fn a_lone_on_off_setting_is_a_switch_row_not_a_toggle_tile() {
     let mut files = Vec::new();
     slint_files(&crates(), &mut files);

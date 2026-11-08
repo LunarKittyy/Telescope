@@ -85,7 +85,7 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | Kind | Widget | May vary |
 |---|---|---|
 | `card` | Card | title, icon, hue, header action or switch |
-| `row` | FormRow, RailRow | label, or an icon and its tooltip word |
+| `row` | FormRow, RailRow, SwitchRow | label, or an icon and its tooltip word |
 | `section` | SectionHeading, Section | title, folding |
 | `button` | Button | text, icon, role (plain, primary, danger, quiet) |
 | `icon-button` | IconButton | icon |
@@ -103,14 +103,14 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | `strip` | SettingRow | title, controls |
 | `badge` | Tag | text, tint |
 | `dialog` | DialogFrame | title |
-| `bubble` | Bubble | what is inside, width |
+| `bubble` | Bubble, BubbleFrame | what is inside, width |
 | `colour` | ColourField | colour, hex and channels shown |
 | `tip` | TipBody | name, detail, keys, tint |
 | `icon` | Icon | picture, tint |
 | `outline` | FocusRing, TouchRing | radius |
 | `scrollbar` | ScrollBar, ColumnScrollbar, FlickBar | extent |
 | `image` | QrCode | picture |
-| `helper` | no drawing of its own (search words, `Tip`, `TipLayer`, shortcut menu) | nothing |
+| `helper` | no drawing of its own (search words, `Tip`, `TipLayer`, `Peek`, `PeekLayer`, shortcut menu) | nothing |
 
 A menu button is always a `picker`: the value and a chevron, never "..." in a label. Glyphs inside controls (the chevron, a clear cross, a tick, a plus, the stepper's arrows) are heavier than the card icons: a 2px stroke against the icons' 1.4px, and the picker's chevron is 16px.
 
@@ -150,7 +150,7 @@ At rest everything is muted: the fill and the handle's border in the quietened c
 Four controls that the card redesigns need, built on the same states as the rest (muted at rest, a thick border and muted inside when active, `press` or `Theme.held` while held, `dis` on `trough` when disabled, the accent ring from the keyboard). Each keeps its size in every state, empty or disabled included.
 
 - `ToggleTile` (kind `toggle`): a `SwitchTile` without its switch. An icon and a name on a raised tile `Theme.tile` high, and the thick border in the card's colour is the state. With no text it is an icon tile (Previous, Play, Next), named by `name`. Space and Enter flip it.
-- `PictureSegmented` (kind `segmented`): a `Segmented` whose options are drawings. Same tiles, same picking, same keys (Tab stops, arrows move and pick, Space picks). The drawing is the caller's, put inside the control: option `i` goes in the square from `x: i * pitch`, `cell-width` by `art-height`, and reads `shown` and its own `disabled` for how to look. `show-names` writes each option's name under its drawing; otherwise the name is the tooltip. A name too long for its tile is left out (never cut short or shrunk) and the tooltip says it. A drawing takes no pointer and draws no `border-width` (use a `Path` outline).
+- `PictureSegmented` (kind `segmented`): a `Segmented` whose options are drawings. Same tiles, same picking, same keys (Tab stops, arrows move and pick, Space picks). The drawing is the caller's, put inside the control: option `i` goes in the square from `x: i * pitch`, `cell-width` by `art-height`, and reads `shown` and its own `disabled` for how to look. `show-names` writes each option's name under its drawing; otherwise the name is the tooltip. If any name in the row is too long for its tile, no name in that row is drawn (never some and not others, never cut short or shrunk) and the tooltips carry them all. A drawing takes no pointer and draws no `border-width` (use a `Path` outline).
 - `Pad` (kind `pad`): one box that sets two numbers (no card uses it now: Desk mode's sheet size went back to a Width and a Height slider, and the pad is kept for the zoom and pan mini-map; white balance is two sliders too), `value-x` across and `value-y` up and down (`y-up` says which way is more), each with its own range and step. Its height is 2 for every 3 of its width unless the caller says otherwise (about 230 px in the card's 342 px column), and in a layout it can't be squeezed flatter than 1 for every 2 of width, so both axes get similar travel. A crosshair marks where both are neutral (`centre-x`, `centre-y`), the handle is a circle that takes the card's colour held, with a halo. What is drawn on it (the sheet) and any button on it (a Reset) are its children; a drawing can follow the handle through `handle-x` and `handle-y`, and `handle-fill` puts the colour under the handle in the handle. `readout` is a chip at a corner. The pad rounds its own corners over any drawing. Arrow keys move one step, Shift moves a tenth of the range, Home and a double-click go to the default (`has-default`, else the centre). It says `moved` then `released` with both numbers, like a slider, and nothing when neither changed. No typed value yet.
 - `AnchorFrame` (kind `segmented`): a `PictureSegmented` whose options are places in a frame instead of tiles in a row (a name tag's corner). A recessed frame holding the outline of a picture, with a dot at each anchor (`across` and `down` place option i from 0 to 1) and the picked one a bar with the thick outline in the card's colour and a muted inside. The name of an anchor is its tooltip. Click an anchor, Tab between them, Space or Enter picks, and an arrow goes where `moves` sends it (four numbers per option in the order left, right, up, down, -1 for nowhere).
 - `TextArea` (kind `field`): the many-line `TextField`: a recessed `trough` box that wraps and scrolls to keep the cursor in sight, with the thick accent outline while it has the focus. Empty, `skeleton` draws dim lines of text instead of a sentence, and `placeholder` is what a screen reader hears.
@@ -160,7 +160,7 @@ Four controls that the card redesigns need, built on the same states as the rest
 
 A card's label column is a column of icons: the icon is the label and the full word is its tooltip. `RailRow` (kind `row`) is the one row for that: an icon (`icon`, in the card's colour quietened, grey when disabled), the word it stands for (`label`: the tooltip, what a screen reader says and what the settings search finds), an optional longer `tip`, then the control. A row that goes on from the one above has `has-icon: false` and keeps the rail's room blank.
 
-One on/off setting gets a switch row: a `RailRow` with the kit `Switch` at the start of the control column, its name as the row's tooltip. A `ToggleTile` is only for a group of them (Camera's four, Phone's Notify and Stop pairs) or an icon-only tile in a row of buttons; never one on its own across a full row. `design.rs` fails on a `RailRow` that holds a lone `ToggleTile`. A `ToggleTile` with no `icon` has no icon slot, its text starts at the tile's padding.
+One on/off setting gets a `SwitchRow` (kind `row`): the icon, the setting's name as text beside it (cut with an ellipsis and a tooltip when it doesn't fit) and the kit `Switch` out at the right edge, centred on the row. A lone switch row always carries its label, since the icon alone says little for an unusual setting. Under it is a `RailRow` with `named` set, which is the one option that writes the label out. A `ToggleTile` is only for a group of them (Camera's four, Phone's Notify and Stop pairs) or an icon-only tile in a row of buttons; never one on its own across a full row. `design.rs` fails on a `RailRow` that holds a lone `ToggleTile` or a lone `Switch`. A `ToggleTile` with no `icon` has no icon slot, its text starts at the tile's padding.
 
 A setting changed from its default gets a quiet mark on its row, from `changed` on the `RailRow` (the card works it out from its own values). No reset icon: a double-click on a slider puts it back, and a card with a header Reset lights it when anything on the card is off its default. `Theme.mark-dot` picks how the mark looks, in one place for every card: false lights the row's icon (the card's colour mixed half towards the text colour), true leaves the icon quiet and puts a small dot in the card's colour at its corner. The specimen's rail row shows it in the "on" column.
 
@@ -169,6 +169,19 @@ A setting changed from its default gets a quiet mark on its row, from `changed` 
 One popover for everything that needs one (the colour picker now; the live crop, the chasing dots and the like later). It is the kit's `Bubble`: a frame in the card's colour with a pointer at the control it belongs to, a `bubble` surface, `Theme.stroke` for its line and `r-bubble` for its corners. It sits inside the control it points at, as big as that control, and takes no room in the card, so opening it moves nothing. It opens above the control, flips below when it doesn't fit above, keeps its frame inside the window (`BubbleSpot` has the arithmetic) and puts the pointer over the control's middle. A press anywhere outside closes it and the card behind never sees that press; Escape closes it too. The focus goes in when it opens and back to the control when it closes. What goes inside is up to the caller, built from kit controls.
 
 Nothing moves when it opens or closes yet. `reveal` is the one number to ease later, 0 closed and 1 open.
+
+### Held bubbles
+
+The popup bubble takes the focus and the pointer (a press outside closes it), which a slider being dragged or keyed can't spare, so a bubble that explains a number is drawn another way: a `Peek` in the control, the one `Peeks` global and a `PeekLayer` at the top of the window (next to the tooltips' layer, in the main window's document). It draws the same `BubbleFrame` (frame, pointer, `BubbleSpot`'s placement) at one size, `PeekBox`, for every kind, so what is inside changes and the bubble doesn't. It takes no press and no key, so the drag or key that opened it goes on, it sits over the card and takes no room in it, and a tooltip waits while it is up.
+
+When there is one:
+
+- Only while the control is touched: held with the pointer, or keys used on it (arrows, Page keys, Home, End) and for a moment after the last one (about a second), and only while it has the focus. Hovering alone shows the tooltip, never the bubble.
+- Only when the main preview can't show the change right then, because the effect is off or because the setting is a behaviour over time. The card decides and passes `peek` (a kind) to the slider, or `""` for none. A grade on a stream that's on has none.
+
+What it draws, by kind: `picture` (a small picture the plugin gives it through `set_ui_image`), `chase` (a ring and a dot from four numbers: where you are and where the framing is) and `text` (a sample at a size, with the phone's 360 dp screen as the scale).
+
+The cost rule: a live picture in a bubble is a small, low-frame-rate copy (about 8 a second) that only exists while the bubble is up. The slider says `peek-changed(open)` when its bubble comes up and goes down, the card hands that to its plugin, and the plugin makes pictures, asks for people or moves dots only between the two. Closed, nothing runs. `app/tests/peek_cards.rs` and `crates/shell/tests/peek.rs` check it.
 
 ## Tooltips
 
