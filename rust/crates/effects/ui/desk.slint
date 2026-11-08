@@ -133,7 +133,7 @@ export component DeskCard inherits Card {
                 property <length> w: i == 0 ? Theme.u(10) : i == 1 ? Theme.u(7) : i == 2 ? Theme.u(8) : i == 3 ? Theme.u(10) : Theme.u(13);
                 property <length> h: i == 4 ? Theme.u(8) : Theme.u(10);
                 x: i * shapes.pitch + (shapes.cell-width - w) / 2;
-                y: (shapes.art-height - h) / 2;
+                y: (shapes.art-height - h) / 2 - Theme.u(1);
                 width: w;
                 height: h;
                 viewbox-width: w / 1px;

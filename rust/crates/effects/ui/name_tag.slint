@@ -8,10 +8,7 @@ component StyleLook inherits Rectangle {
     in property <bool> off;
     property <color> back: look == 2 ? #f2f2f2 : #111111;
     property <color> ink: look == 2 ? #111111 : #ffffff;
-    width: look == 0 ? parent.width - Theme.u(8) : Theme.u(30);
     height: Theme.u(12);
-    x: (parent.width - self.width) / 2;
-    y: (parent.height - self.height) / 2;
     border-radius: look == 1 ? self.height / 2 : Theme.u(2);
     background: off ? Theme.dis : look == 3 ? transparent : back;
     if look == 3 && !off: Text {
@@ -151,6 +148,9 @@ export component NameTagCard inherits Card {
                         width: looks.cell-width;
                         height: looks.art-height;
                         StyleLook {
+                            width: r * 2 + i == 0 ? parent.width - Theme.u(8) : Theme.u(30);
+                            x: (parent.width - self.width) / 2;
+                            y: (parent.height - self.height) / 2;
                             look: r * 2 + i;
                             text: style-items[r * 2 + i];
                             on: looks.shown == i;

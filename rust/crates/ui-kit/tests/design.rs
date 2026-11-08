@@ -79,8 +79,6 @@ const OWN_CONTROLS: &[(&str, usize, usize)] = &[
     ("audio/ui/microphone.slint", 2, 1),
     ("effects/ui/cinema.slint", 0, 1),
     ("effects/ui/composite_editor.slint", 8, 3),
-    ("effects/ui/framing.slint", 0, 1),
-    ("effects/ui/notes.slint", 1, 1),
     ("effects/ui/pad.slint", 2, 2),
     ("effects/ui/parts.slint", 5, 2),
     ("effects/ui/qr_reader.slint", 0, 1),
