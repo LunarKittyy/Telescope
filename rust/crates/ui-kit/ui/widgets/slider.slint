@@ -93,8 +93,8 @@ export component Slider inherits HorizontalLayout {
     callback peek-changed(bool);
     property <bool> key-live;
     property <int> key-idle;
-    // The person just set it with a key: the handle is at its place at once. A typed number, a reset, a click on the track and anything
-    // else that isn't the pointer under the handle glides there.
+    // The handle is put at its place at once only while the pointer drags it (and a slider with big steps still slides between them);
+    // a key, a typed number, a reset, a click on the track and anything else glides there.
     property <bool> quick;
     // A press that took hold of the handle itself, or a glide that has caught up with the pointer: from then on the handle sticks to it
     property <bool> caught;
@@ -115,7 +115,8 @@ export component Slider inherits HorizontalLayout {
     out property <float> key-small: max(0.0001, step);
     out property <float> key-big: max(0.0001, step) * max(1, round((maximum - minimum) / max(0.0001, step) / 10));
     // Every way of setting a value from the keyboard or a typed number goes through here, saying what a drag says: moved, then released
-    function set-to(v: float) { apply(v, true); }
+    // Keys glide the handle too (it retargets as each repeat lands, keeping its speed)
+    function set-to(v: float) { apply(v, false); }
     function apply(v: float, instantly: bool) {
         let to = clamp(v, minimum, maximum);
         if (to != shown) {
@@ -161,7 +162,11 @@ export component Slider inherits HorizontalLayout {
         property <float> target: (shown - minimum) / max(0.0001, maximum - minimum);
         // Where the handle is drawn: it glides to a value that something other than the person changed
         property <float> fraction: glide.value;
-        glide := Settle { to: track.target; snap: (dragging && caught) || quick; }
+        // A step that is a visible jump on the track (a 1 to 5 slider, a 1 to 10 one): the handle slides from step to step even while it is
+        // dragged, on a quicker settle, retargeting mid-flight when the pointer crosses several at once
+        property <bool> chunky: step / max(0.0001, maximum - minimum) * (self.width - Theme.handle-w) >= Theme.u(8);
+        out property <bool> stepping: chunky;
+        glide := Settle { to: track.target; snap: (dragging && caught && !chunky) || quick; pace: dragging && chunky ? 0.5 : 1; }
         // A handle that glides to the pointer sticks to it once it arrives
         changed fraction => {
             if (dragging && !caught && !pending && abs(fraction - target) * (self.width - Theme.handle-w) < Theme.u(2)) {

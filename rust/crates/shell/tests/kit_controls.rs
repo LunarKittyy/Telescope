@@ -596,6 +596,10 @@ fn a_threshold_bars_live_value_and_handle_number_stay_clear_of_the_handle_at_bot
     press(&ui, Key::Tab);
     for (key, name, handle_at_max) in [(Key::End, "End", true), (Key::Home, "Home", false)] {
         press(&ui, key);
+        // The handle glides to the end a key sent it to: let it arrive
+        let _ = span("Slider::handle");
+        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(600));
+        slint::platform::update_timers_and_animations();
         let (hl, hr) = span("Slider::handle");
         let (ll, lr) = span("Slider::level-box");
         let (nl, nr) = span("Slider::level-number");

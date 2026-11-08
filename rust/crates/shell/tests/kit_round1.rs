@@ -676,3 +676,102 @@ fn a_controls_hint_reaches_the_tooltip_as_its_own_part() {
     assert_eq!(ui.get_global_property("Tips", "detail").unwrap(), Value::String("Puts the value back.".into()));
     assert_eq!(ui.get_global_property("Tips", "hint").unwrap(), Value::String("Double-click to reset".into()));
 }
+
+const STEPPED: &str = r#"
+import { Slider, Theme } from "@ui-kit/ui-kit.slint";
+export { Theme }
+export component T inherits Window {
+    width: 340px;
+    height: 44px;
+    background: Theme.card;
+    in-out property <float> v: 1;
+    out property <float> place: sl.handle-place;
+    out property <float> shown: sl.shown;
+    sl := Slider { x: 10px; y: 6px; width: 320px; label: "Steps"; minimum: 1; maximum: 5; step: 1; value: root.v; hue: Theme.accent; readout: "\{root.v}"; moved(x) => { root.v = x; } }
+}
+"#;
+
+/// The window x of the handle's middle at step `n` (1 to 5): the track is 320 - 56 (readout) - 8 wide, the handle 14 across.
+fn step_x(n: f32) -> f32 {
+    10.0 + 7.0 + (n - 1.0) / 4.0 * (320.0 - 56.0 - 8.0 - 14.0)
+}
+
+#[test]
+fn a_slider_with_big_steps_slides_from_step_to_step_while_it_is_dragged() {
+    let _still = offscreen::freeze_clock();
+    let ui = make(STEPPED, 340.0, 44.0);
+    offscreen::draw(ui.window(), 340.0, 44.0, 1.0).unwrap();
+    num(&ui, "place");
+    press(&ui, step_x(1.0), 22.0);
+    // Across four steps in one move of the pointer
+    pointer_to(&ui, step_x(5.0), 22.0);
+    offscreen::draw(ui.window(), 340.0, 44.0, 1.0).unwrap();
+    let mut t = vec![num(&ui, "place")];
+    for _ in 0..16 {
+        step(FRAME);
+        t.push(num(&ui, "place"));
+    }
+    assert_eq!(num(&ui, "shown"), 5.0);
+    assert!(t[0] < 0.2, "the handle doesn't teleport to the step: {t:?}");
+    assert!(t.windows(2).all(|w| w[1] >= w[0] - 0.0001), "one slide: {t:?}");
+    assert!((t.last().unwrap() - 1.0).abs() < 0.01, "and it arrives: {t:?}");
+    // Back across two steps, and on again before it has arrived: the move bends rather than restarting or jumping
+    pointer_to(&ui, step_x(3.0), 22.0);
+    offscreen::draw(ui.window(), 340.0, 44.0, 1.0).unwrap();
+    let mut u = Vec::new();
+    for i in 0..14 {
+        if i == 3 {
+            pointer_to(&ui, step_x(1.0), 22.0);
+        }
+        step(FRAME);
+        u.push(num(&ui, "place"));
+    }
+    let biggest = u.windows(2).map(|w| (w[1] - w[0]).abs()).fold(0.0, f32::max);
+    assert!(biggest < 0.2, "retargeting mid-flight carries the speed, no jump: {u:?}");
+    assert!(u.last().unwrap() < &0.05, "{u:?}");
+    release(&ui, step_x(1.0), 22.0);
+}
+
+const SLIDER_SMALL: &str = r#"
+import { Slider, Theme } from "@ui-kit/ui-kit.slint";
+export { Theme }
+export component T inherits Window {
+    width: 340px;
+    height: 44px;
+    background: Theme.card;
+    in-out property <float> v: 20;
+    out property <float> place: sl.handle-place;
+    sl := Slider { x: 10px; y: 6px; width: 320px; label: "Fine"; minimum: 0; maximum: 100; step: 1; value: root.v; hue: Theme.accent; moved(x) => { root.v = x; } }
+}
+"#;
+
+#[test]
+fn a_slider_with_small_steps_still_sticks_to_the_pointer() {
+    let _still = offscreen::freeze_clock();
+    let ui = make(SLIDER_SMALL, 340.0, 44.0);
+    offscreen::draw(ui.window(), 340.0, 44.0, 1.0).unwrap();
+    press(&ui, 10.0 + 7.0 + 0.2 * 242.0, 22.0);
+    pointer_to(&ui, 10.0 + 7.0 + 0.9 * 242.0, 22.0);
+    assert!((num(&ui, "place") - 0.9).abs() < 0.02, "a fine slider has the handle under the pointer at once: {}", num(&ui, "place"));
+    release(&ui, 10.0 + 7.0 + 0.9 * 242.0, 22.0);
+}
+
+#[test]
+fn shots_of_a_stepped_slider_dragged_across_its_steps_in_both_looks() {
+    let Some(dir) = shots() else { return };
+    let _still = offscreen::freeze_clock();
+    for classic in [false, true] {
+        let ui = themed(STEPPED, 340.0, 44.0, classic);
+        let mut frames = vec![offscreen::draw(ui.window(), 340.0, 44.0, 2.0).unwrap()];
+        press(&ui, step_x(1.0), 22.0);
+        // The pointer crosses one step every 5 frames, then goes back to the start in one move
+        for target in [2.0, 3.0, 4.0, 5.0] {
+            pointer_to(&ui, step_x(target), 22.0);
+            frames.extend(film(&ui, (340.0, 44.0), 2.0, 5, |_| {}));
+        }
+        pointer_to(&ui, step_x(1.0), 22.0);
+        frames.extend(film(&ui, (340.0, 44.0), 2.0, 12, |_| {}));
+        release(&ui, step_x(1.0), 22.0);
+        save(&dir, &name("stepped-slider-drag", classic), &strip(&frames, (0.0, 0.0, 340.0, 44.0), 2.0, 3));
+    }
+}

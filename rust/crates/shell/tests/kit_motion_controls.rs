@@ -105,7 +105,7 @@ fn a_slider_glides_to_a_value_something_else_set() {
 }
 
 #[test]
-fn a_finger_on_a_slider_has_the_handle_at_once_and_a_key_does_too() {
+fn a_finger_on_a_slider_has_the_handle_at_once_and_a_key_glides() {
     let _still = offscreen::freeze_clock();
     let ui = make(SLIDER, 340.0, 48.0);
     num(&ui, "place");
@@ -126,7 +126,11 @@ fn a_finger_on_a_slider_has_the_handle_at_once_and_a_key_does_too() {
     let before = num(&ui, "place");
     key(&ui, Key::Tab);
     key(&ui, Key::RightArrow);
-    assert!((num(&ui, "place") - (before + 0.01)).abs() < 0.001, "an arrow moves it a step at once: {before} then {}", num(&ui, "place"));
+    offscreen::draw(ui.window(), 340.0, 48.0, 1.0);
+    step(FRAME);
+    assert!(num(&ui, "place") < before + 0.01, "an arrow glides it to the next step: {before} then {}", num(&ui, "place"));
+    step(500);
+    assert!((num(&ui, "place") - (before + 0.01)).abs() < 0.001, "and it arrives: {before} then {}", num(&ui, "place"));
 }
 
 #[test]
