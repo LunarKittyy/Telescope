@@ -12,6 +12,8 @@ import { Motion, Unfold } from "motion.slint";
 component FoldTitle inherits Rectangle {
     in property <string> key;
     in property <string> text;
+    // What the card does, the tooltip's body under the title; blank leaves the title without a tooltip
+    in property <string> tip;
     in property <length> font-size;
     in property <int> font-weight: 600;
     in property <color> text-color;
@@ -47,7 +49,7 @@ component FoldTitle inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus; radius: Theme.r-handle; x: 0; y: -Theme.u(1.5); width: parent.width; height: parent.height + Theme.u(3); }
-    usage := Tip { says: foldable ? (folded ? FoldText.collapsed : FoldText.expanded) : ""; hover: touch.has-hover; focused: focus.has-focus && KeyFocus.keyboard; }
+    usage := Tip { says: root.tip != "" ? root.text : ""; detail: root.tip; hover: touch.has-hover; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         enabled: foldable;
         mouse-cursor: foldable ? pointer : default;
@@ -70,6 +72,8 @@ component FoldTitle inherits Rectangle {
 // The standard card: QFrame#card with card_layout's margins and add_card_header's icon chip and title.
 export component Card inherits Rectangle {
     in property <string> title;
+    // What the card does: the title's tooltip body
+    in property <string> tip;
     in property <string> keywords;
     in property <image> icon;
     in property <color> hue: Theme.accent;
@@ -87,6 +91,8 @@ export component Card inherits Rectangle {
     in property <bool> has-action;
     in property <image> action-icon;
     in property <string> action-label;
+    // A text action's tooltip body: the title is then action-text and action-label is not used for the tip
+    in property <string> action-tip-detail;
     // Shown next to the action's icon when set (card_action with text, like Connection's Add device)
     in property <string> action-text;
     // The action icon's colour (the Microphone card's Mute turns red while muted)
@@ -102,6 +108,8 @@ export component Card inherits Rectangle {
     in property <bool> switch-enabled: true;
     in property <string> switch-label;
     in property <string> switch-tip;
+    // The switch tooltip's body under the title (switch-tip)
+    in property <string> switch-tip-detail;
     // The action a key can stand in for: a right-click on the switch offers a keyboard shortcut
     in property <string> switch-shortcut;
     // The id of the setting the switch is, for the outline when something outside the window reads or changes it
@@ -112,6 +120,8 @@ export component Card inherits Rectangle {
     in property <image> extra-icon;
     in property <string> extra-label;
     in property <string> extra-name: extra-label;
+    // The extra button tooltip's body under its title (extra-label)
+    in property <string> extra-tip-detail;
     callback extra;
     // The header stays out of `blocked`'s cover, so its buttons go off by themselves; the title still folds
     property <bool> live: enabled && !blocked;
@@ -148,6 +158,7 @@ export component Card inherits Rectangle {
             fold-title := FoldTitle {
                 key: fold-key;
                 text: title;
+                tip: root.tip;
                 font-size: Theme.card-title;
                 font-weight: Theme.w-title;
                 text-color: Theme.ink;
@@ -167,6 +178,7 @@ export component Card inherits Rectangle {
                 icon-tint: Theme.ink2;
                 enabled: live;
                 tip: extra-label;
+                tip-detail: extra-tip-detail;
                 accessible-label: extra-name;
                 clicked => { root.extra(); }
             }
@@ -180,7 +192,8 @@ export component Card inherits Rectangle {
                 icon-tint: action-tint;
                 enabled: live && action-enabled;
                 quiet-when-disabled: true;
-                tip: action-label;
+                tip: action-tip-detail != "" ? action-text : action-label;
+                tip-detail: action-tip-detail;
                 accessible-label: action-text;
                 shortcut: root.action-shortcut;
                 clicked => { root.action(); }
@@ -196,6 +209,7 @@ export component Card inherits Rectangle {
                 enabled: live && action-enabled;
                 quiet-when-disabled: true;
                 tip: action-label;
+                tip-detail: action-tip-detail;
                 accessible-label: action-label;
                 shortcut: root.action-shortcut;
                 clicked => { root.action(); }
@@ -209,6 +223,7 @@ export component Card inherits Rectangle {
                     hue: root.hue;
                     label: root.switch-label;
                     tip: root.switch-tip;
+                    tip-detail: root.switch-tip-detail;
                     shortcut: root.switch-shortcut;
                     setting: root.switch-setting;
                     toggled(on) => { root.switch-toggled(on); }

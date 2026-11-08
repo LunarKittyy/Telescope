@@ -65,6 +65,7 @@ export component Stepper inherits Rectangle {
     in property <int> current;
     in property <bool> enabled: true;
     in property <string> tip;
+    in property <string> tip-detail;
     // What a screen reader calls the arrows
     in property <string> previous-label;
     in property <string> next-label;
@@ -103,6 +104,7 @@ export component Stepper inherits Rectangle {
         current: root.current;
         enabled: root.enabled;
         tip: root.tip;
+        tip-detail: root.tip-detail;
         centered: true;
         side: 32px;
         // What the stepper shows is the camera's value: a pick it refuses doesn't stay on screen

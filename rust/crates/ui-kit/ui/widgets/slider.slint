@@ -208,7 +208,7 @@ export component Slider inherits HorizontalLayout {
         accessible-value-minimum: minimum;
         accessible-value-maximum: maximum;
         accessible-value-step: step;
-        accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
+        accessible-description: tip + (tip-detail == "" ? "" : ". " + tip-detail) + (tip-hint == "" ? "" : ". " + tip-hint);
         accessible-action-increment => { if (enabled) { set-to(shown + step); } }
         accessible-action-decrement => { if (enabled) { set-to(shown - step); } }
         forward-focus: slider-focus;

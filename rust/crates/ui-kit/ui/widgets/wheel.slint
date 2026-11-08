@@ -69,7 +69,7 @@ export component ColourWheel inherits Rectangle {
     accessible-role: slider;
     accessible-label: label;
     accessible-value: spoken;
-    accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
+    accessible-description: tip + (tip-detail == "" ? "" : ". " + tip-detail) + (tip-hint == "" ? "" : ". " + tip-hint);
     accessible-action-increment => { if (enabled) { quick = true; root.key("right", false); } }
     accessible-action-decrement => { if (enabled) { quick = true; root.key("left", false); } }
     forward-focus: focus;
