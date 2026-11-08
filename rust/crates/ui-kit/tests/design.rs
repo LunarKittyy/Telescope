@@ -77,7 +77,6 @@ fn every_exported_widget_says_its_kind() {
 /// are what's left to move into the kit, one card at a time; the numbers may only go down. A new file isn't on the list.
 const OWN_CONTROLS: &[(&str, usize, usize)] = &[
     ("audio/ui/microphone.slint", 2, 1),
-    ("effects/ui/chroma_key.slint", 1, 0),
     ("effects/ui/cinema.slint", 0, 1),
     ("effects/ui/composite_editor.slint", 8, 3),
     ("effects/ui/framing.slint", 0, 1),

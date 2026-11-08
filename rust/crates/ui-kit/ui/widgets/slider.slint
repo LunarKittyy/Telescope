@@ -5,12 +5,12 @@ import { Reveal } from "folds.slint";
 import { FocusRing, KeyFocus, TouchRing } from "basics.slint";
 import { TipBody, TipUse } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
-import { Fills, RampFill, ZebraFill } from "fills.slint";
+import { Fills, RampFill, ZebraFill, EdgeFill } from "fills.slint";
 
 // Kind "slider", one anatomy for every slider: a track, a handle, the value on the right and, when it goes both ways, a tick at the
 // centre. Only the fill varies, by name: "plain" is the card's colour up to the handle, "gradient" the range's own colours along the
 // whole track with the handle taking the colour under it, and the named ramps of fills.slint (shadows, highlights, contrast, vibrance,
-// pivot, lift, gamma, gain, offset). Everything is muted at rest and takes its full colour while held, handle too.
+// pivot, lift, gamma, gain, offset, tolerance, edges, spill). Everything is muted at rest and takes its full colour while held, handle too.
 export component Slider inherits HorizontalLayout {
     in property <float> minimum: 0;
     in property <float> maximum: 100;
@@ -136,6 +136,11 @@ export component Slider inherits HorizontalLayout {
                 gc: grad-c;
             }
             if enabled && fill == "contrast": ZebraFill { }
+            if enabled && fill == "edges": EdgeFill {
+                ga: grad-a;
+                gb: grad-b;
+                softness: track.fraction;
+            }
             if enabled && fill != "plain": Rectangle {
                 border-radius: Theme.track / 2;
                 background: Theme.card;

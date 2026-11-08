@@ -318,7 +318,7 @@ msgstr "O microfone virtual parou de receber áudio."
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "Amarelo significa que o limitador está contendo picos altos e vermelho significa que o som distorceu (clique para limpar)."
 
-#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:482 rust/crates/effects/src/transforms.rs:38 rust/crates/effects/ui/composite_editor.slint:441 rust/crates/effects/ui/composite_editor.slint:457 rust/crates/effects/ui/composite_editor.slint:491 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:243 rust/crates/shell/ui/cards/camera.slint:274 rust/crates/shell/ui/cards/camera.slint:292
+#: rust/crates/audio/ui/microphone.slint:231 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:482 rust/crates/effects/src/transforms.rs:38 rust/crates/effects/ui/composite_editor.slint:441 rust/crates/effects/ui/composite_editor.slint:457 rust/crates/effects/ui/composite_editor.slint:491 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/outputs/ui/stream_output.slint:185 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:243 rust/crates/shell/ui/cards/camera.slint:274 rust/crates/shell/ui/cards/camera.slint:292
 msgid "Double-click to reset"
 msgstr "Clique duas vezes para redefinir"
 
@@ -532,35 +532,35 @@ msgstr "Desligado"
 msgid "Blur"
 msgstr "Desfoque"
 
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/chroma_key.rs:27 rust/crates/effects/ui/background.slint:34 rust/crates/effects/ui/background.slint:60 rust/crates/effects/ui/chroma_key.slint:103 rust/crates/effects/ui/chroma_key.slint:145 rust/crates/effects/ui/composite_editor.slint:318 rust/crates/effects/ui/composite_editor.slint:534 rust/crates/effects/ui/composite_editor.slint:536
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/background.slint:34 rust/crates/effects/ui/background.slint:60 rust/crates/effects/ui/chroma_key.slint:114 rust/crates/effects/ui/chroma_key.slint:145 rust/crates/effects/ui/composite_editor.slint:318 rust/crates/effects/ui/composite_editor.slint:534 rust/crates/effects/ui/composite_editor.slint:536
 msgid "Picture"
 msgstr "Imagem"
 
-#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/composite_editor.rs:16
+#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/src/composite_editor.rs:16
 msgid "Pictures (*.png *.jpg *.jpeg *.webp *.bmp)"
 msgstr "Imagens (*.png *.jpg *.jpeg *.webp *.bmp)"
 
-#: rust/crates/effects/src/background.rs:183 rust/crates/effects/src/chroma_key.rs:39 rust/crates/effects/src/fun_pack.rs:70
+#: rust/crates/effects/src/background.rs:183 rust/crates/effects/src/chroma_key.rs:41 rust/crates/effects/src/fun_pack.rs:70
 msgid "How soft the edge around you is"
 msgstr "O quanto a borda ao seu redor é suave"
 
-#: rust/crates/effects/src/background.rs:184 rust/crates/effects/src/chroma_key.rs:265
+#: rust/crates/effects/src/background.rs:184 rust/crates/effects/src/chroma_key.rs:268
 msgid "Pick the picture that goes behind you"
 msgstr "Escolha a imagem que ficará atrás de você"
 
-#: rust/crates/effects/src/background.rs:196 rust/crates/effects/src/chroma_key.rs:286
+#: rust/crates/effects/src/background.rs:196 rust/crates/effects/src/chroma_key.rs:293
 msgid "No picture yet"
 msgstr "Nenhuma imagem ainda"
 
-#: rust/crates/effects/src/background.rs:208 rust/crates/effects/src/chroma_key.rs:251
+#: rust/crates/effects/src/background.rs:208 rust/crates/effects/src/chroma_key.rs:254
 msgid "Choose a picture to put behind you."
 msgstr "Escolha uma imagem para colocar atrás de você."
 
-#: rust/crates/effects/src/background.rs:239 rust/crates/effects/src/chroma_key.rs:379
+#: rust/crates/effects/src/background.rs:239 rust/crates/effects/src/chroma_key.rs:407
 msgid "Choose a picture"
 msgstr "Escolha uma imagem"
 
-#: rust/crates/effects/src/background.rs:247 rust/crates/effects/src/chroma_key.rs:386
+#: rust/crates/effects/src/background.rs:247 rust/crates/effects/src/chroma_key.rs:414
 msgid "Telescope can't open that picture."
 msgstr "O Telescope não consegue abrir essa imagem."
 
@@ -580,79 +580,87 @@ msgstr "Sem ele, o cartão Plano de fundo não aparece e o fundo fica como a câ
 msgid "Background blur"
 msgstr "Desfoque de fundo"
 
-#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:67 rust/crates/effects/ui/chroma_key.slint:133 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:370 rust/crates/effects/ui/composite_editor.slint:473 rust/crates/effects/ui/composite_editor.slint:521
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:370 rust/crates/effects/ui/composite_editor.slint:473 rust/crates/effects/ui/composite_editor.slint:521 rust/crates/ui-kit/ui/widgets/colour.slint:333
 msgid "Green"
 msgstr "Verde"
 
-#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:67 rust/crates/effects/ui/chroma_key.slint:133 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:370 rust/crates/effects/ui/composite_editor.slint:473 rust/crates/effects/ui/composite_editor.slint:521
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:370 rust/crates/effects/ui/composite_editor.slint:473 rust/crates/effects/ui/composite_editor.slint:521 rust/crates/ui-kit/ui/widgets/colour.slint:333
 msgid "Blue"
 msgstr "Azul"
 
-#: rust/crates/effects/src/chroma_key.rs:26 rust/crates/effects/ui/chroma_key.slint:67
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/ui/chroma_key.slint:73
 msgid "Picked"
 msgstr "Escolhida"
 
-#: rust/crates/effects/src/chroma_key.rs:27 rust/crates/effects/ui/chroma_key.slint:103 rust/crates/effects/ui/chroma_key.slint:113 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:512
+#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/chroma_key.slint:114 rust/crates/effects/ui/chroma_key.slint:124 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:512
 msgid "Colour"
 msgstr "Cor"
 
-#: rust/crates/effects/src/chroma_key.rs:39
+#: rust/crates/effects/src/chroma_key.rs:41
 msgid "Higher takes out more shades of the screen"
 msgstr "Valores mais altos removem mais tons da tela"
 
-#: rust/crates/effects/src/chroma_key.rs:39
+#: rust/crates/effects/src/chroma_key.rs:41
 msgid "Takes the screen's colour out of your edges and skin"
 msgstr "Remove a cor da tela das suas bordas e da pele"
 
-#: rust/crates/effects/src/chroma_key.rs:259 rust/crates/effects/src/chroma_key.rs:412 rust/crates/effects/src/chroma_key.rs:508 rust/crates/effects/src/chroma_key.rs:512 rust/crates/effects/src/chroma_key.rs:530 rust/crates/effects/ui/chroma_key.slint:47
+#: rust/crates/effects/src/chroma_key.rs:262 rust/crates/effects/src/chroma_key.rs:440 rust/crates/effects/src/chroma_key.rs:555 rust/crates/effects/src/chroma_key.rs:559 rust/crates/effects/src/chroma_key.rs:577 rust/crates/effects/ui/chroma_key.slint:53
 msgid "Chroma key"
 msgstr "Chroma key"
 
-#: rust/crates/effects/src/chroma_key.rs:260
+#: rust/crates/effects/src/chroma_key.rs:263
 msgid "Swap the screen behind you"
 msgstr "Substituir a tela atrás de você"
 
-#: rust/crates/effects/src/chroma_key.rs:263
+#: rust/crates/effects/src/chroma_key.rs:266
 msgid "Pick the colour that goes behind you"
 msgstr "Escolher a cor que fica atrás de você"
 
-#: rust/crates/effects/src/chroma_key.rs:264
-msgid "Colour behind you"
-msgstr "Cor atrás de você"
+#: rust/crates/effects/src/chroma_key.rs:267
+msgid "Pick a colour from the preview"
+msgstr ""
 
-#: rust/crates/effects/src/chroma_key.rs:270
+#: rust/crates/effects/src/chroma_key.rs:273
 msgid "The colour picked from the preview. Click to pick again."
 msgstr "A cor escolhida na pré-visualização. Clique para escolher novamente."
 
-#: rust/crates/effects/src/chroma_key.rs:270
+#: rust/crates/effects/src/chroma_key.rs:273
 msgid "Pick the screen's colour from the preview"
 msgstr "Escolher a cor da tela na pré-visualização"
 
-#: rust/crates/effects/src/chroma_key.rs:343
+#: rust/crates/effects/src/chroma_key.rs:350
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Clique na tela atrás de você na pré-visualização. Esc cancela."
 
-#: rust/crates/effects/src/chroma_key.rs:344
+#: rust/crates/effects/src/chroma_key.rs:351
 msgid "Start streaming to pick the screen's colour on the preview."
 msgstr "Inicie a transmissão para escolher a cor da tela na pré-visualização."
 
-#: rust/crates/effects/src/chroma_key.rs:362
+#: rust/crates/effects/src/chroma_key.rs:369
 msgid "That spot has hardly any colour. Click the screen itself."
 msgstr "Esse ponto quase não tem cor. Clique na própria tela."
 
-#: rust/crates/effects/src/chroma_key.rs:413
+#: rust/crates/effects/src/chroma_key.rs:386
+msgid "Click a colour on the preview. Esc cancels."
+msgstr ""
+
+#: rust/crates/effects/src/chroma_key.rs:387
+msgid "Start streaming to pick a colour on the preview."
+msgstr ""
+
+#: rust/crates/effects/src/chroma_key.rs:441
 msgid "Swaps a green or blue screen behind you for a colour or a picture, with no download."
 msgstr "Substitui uma tela verde ou azul atrás de você por uma cor ou imagem, sem nenhum download."
 
-#: rust/crates/effects/src/chroma_key.rs:414
+#: rust/crates/effects/src/chroma_key.rs:442
 msgid "Without it there's no Chroma key card and a green screen stays green."
 msgstr "Sem ele, não há o cartão Chroma key e uma tela verde continua verde."
 
-#: rust/crates/effects/src/chroma_key.rs:510 rust/crates/effects/src/chroma_key.rs:545
+#: rust/crates/effects/src/chroma_key.rs:557 rust/crates/effects/src/chroma_key.rs:592
 msgid "Chroma key tolerance"
 msgstr "Tolerância do chroma key"
 
-#: rust/crates/effects/src/chroma_key.rs:513 rust/crates/effects/src/chroma_key.rs:539
+#: rust/crates/effects/src/chroma_key.rs:560 rust/crates/effects/src/chroma_key.rs:586
 msgid "Chroma key screen"
 msgstr "Tela do chroma key"
 
@@ -741,7 +749,7 @@ msgstr "Parade RGB"
 msgid "Vectorscope"
 msgstr "Vetorscópio"
 
-#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/chroma_key.slint:133 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:370 rust/crates/effects/ui/composite_editor.slint:473 rust/crates/effects/ui/composite_editor.slint:521
+#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:147 rust/crates/effects/ui/colour_grading.slint:370 rust/crates/effects/ui/composite_editor.slint:473 rust/crates/effects/ui/composite_editor.slint:521 rust/crates/ui-kit/ui/widgets/colour.slint:333
 msgid "Red"
 msgstr "Vermelho"
 
@@ -2507,29 +2515,33 @@ msgstr "Rotação"
 msgid "Reset transforms"
 msgstr "Redefinir transformações"
 
-#: rust/crates/effects/ui/background.slint:65 rust/crates/effects/ui/chroma_key.slint:118 rust/crates/effects/ui/chroma_key.slint:150
+#: rust/crates/effects/ui/background.slint:65 rust/crates/effects/ui/chroma_key.slint:150
 msgid "Choose"
 msgstr ""
 
-#: rust/crates/effects/ui/background.slint:87 rust/crates/effects/ui/chroma_key.slint:84 rust/crates/effects/ui/fun_pack.slint:103
+#: rust/crates/effects/ui/background.slint:87 rust/crates/effects/ui/chroma_key.slint:90 rust/crates/effects/ui/fun_pack.slint:103
 msgid "Edges"
 msgstr "Bordas"
 
-#: rust/crates/effects/ui/chroma_key.slint:60 rust/crates/effects/ui/chroma_key.slint:71
+#: rust/crates/effects/ui/chroma_key.slint:66 rust/crates/effects/ui/chroma_key.slint:77
 msgid "Screen"
 msgstr "Tela"
 
-#: rust/crates/effects/ui/chroma_key.slint:84
+#: rust/crates/effects/ui/chroma_key.slint:90
 msgid "Tolerance"
 msgstr "Tolerância"
 
-#: rust/crates/effects/ui/chroma_key.slint:84
+#: rust/crates/effects/ui/chroma_key.slint:90
 msgid "Spill"
 msgstr "Vazamento"
 
-#: rust/crates/effects/ui/chroma_key.slint:100 rust/crates/effects/ui/chroma_key.slint:107
+#: rust/crates/effects/ui/chroma_key.slint:111 rust/crates/effects/ui/chroma_key.slint:118
 msgid "Behind you"
 msgstr "Atrás de você"
+
+#: rust/crates/effects/ui/chroma_key.slint:134
+msgid "Colour behind you"
+msgstr "Cor atrás de você"
 
 #: rust/crates/effects/ui/cinema.slint:144 rust/crates/effects/ui/cinema.slint:151
 msgid "Peaking colour"
@@ -4326,7 +4338,7 @@ msgstr "Reduzir velocidade no escuro"
 msgid "White balance"
 msgstr "Balanço de branco"
 
-#: rust/crates/outputs/src/webcam.rs:50
+#: rust/crates/outputs/src/webcam.rs:50 rust/crates/ui-kit/ui/widgets/colour.slint:286
 msgid "Hue"
 msgstr "Matiz"
 
@@ -8188,6 +8200,34 @@ msgstr ""
 
 #: rust/crates/system/ui/updates.slint:207
 msgid "Go back to the Python version?"
+msgstr ""
+
+#: rust/crates/ui-kit/ui/widgets/colour.slint:281
+msgid "Saturation and brightness"
+msgstr ""
+
+#: rust/crates/ui-kit/ui/widgets/colour.slint:293
+msgid "Pick from the preview"
+msgstr ""
+
+#: rust/crates/ui-kit/ui/widgets/colour.slint:300 rust/crates/ui-kit/ui/widgets/colour.slint:311
+msgid "Values"
+msgstr ""
+
+#: rust/crates/ui-kit/ui/widgets/colour.slint:324
+msgid "Hex"
+msgstr ""
+
+#: rust/crates/ui-kit/ui/widgets/colour.slint:328
+msgid "R"
+msgstr ""
+
+#: rust/crates/ui-kit/ui/widgets/colour.slint:328
+msgid "G"
+msgstr ""
+
+#: rust/crates/ui-kit/ui/widgets/colour.slint:328
+msgid "B"
 msgstr ""
 
 #: rust/crates/ui-kit/ui/widgets/folds.slint:12

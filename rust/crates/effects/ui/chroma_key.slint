@@ -3,11 +3,9 @@
 // A small square of a colour, for a button (chroma_key.swatch)
 component Swatch inherits Rectangle {
     in property <color> colour;
-    width: 14px;
-    height: 14px;
-    border-radius: 3px;
-    border-width: 1px;
-    border-color: Theme.border-strong;
+    width: Theme.icon-small;
+    height: Theme.icon-small;
+    border-radius: Theme.r-handle / 2;
     background: colour;
 }
 
@@ -27,10 +25,16 @@ export component ChromaKeyCard inherits Card {
     in property <string> reset-hint;
     in property <int> behind: 0;
     in property <color> backdrop-colour: #1e222a;
-    in property <bool> editing-colour: false;
-    in property <[float]> channel-value: [0, 0, 0];
+    // The screen being keyed, which the three sliders' fills are drawn from
+    in property <color> screen-colour: #3cb432;
+    in property <float> colour-h;
+    in property <float> colour-s;
+    in property <float> colour-v;
+    in property <string> colour-hex;
+    in property <[int]> channel-value: [0, 0, 0];
+    in property <bool> can-pick: true;
     in property <string> colour-tip;
-    in property <string> colour-title;
+    in property <string> pipette-tip;
     in property <string> picture-text;
     in property <string> picture-tip;
     in property <string> picture-choose-tip;
@@ -40,8 +44,10 @@ export component ChromaKeyCard inherits Card {
     callback screen-picked(int);
     callback slider-moved(int, float);
     callback background-picked(int);
-    callback colour-clicked;
-    callback channel-moved(int, float);
+    callback colour-moved(float, float, float);
+    callback hex-typed(string);
+    callback channel-typed(int, string);
+    callback pipette-clicked;
     callback picture-clicked;
 
     title: @tr("Chroma key");
@@ -74,8 +80,8 @@ export component ChromaKeyCard inherits Card {
                     picked(i) => { root.screen-picked(i); }
                 }
                 if has-picked: Rectangle {
-                    width: 14px;
-                    Swatch { colour: picked-colour; }
+                    width: Theme.icon-small;
+                    Swatch { colour: picked-colour; y: (parent.height - self.height) / 2; }
                 }
             }
             if screen-tip != "": Tooltip { TipBody { says: screen-tip; } }
@@ -91,6 +97,11 @@ export component ChromaKeyCard inherits Card {
         value: slider-value[i];
         readout: slider-text[i];
         hue: root.hue;
+        // What each does, drawn in its track: the screen's shades going grey, the edge between screen and person hardening to
+        // soft, and a skin tone with the screen's colour on it coming clean
+        fill: i == 0 ? "tolerance" : i == 1 ? "edges" : "spill";
+        grad-a: i == 0 ? screen-colour : i == 1 ? screen-colour : #d9a98a.mix(screen-colour, 0.55);
+        grad-b: i == 0 ? screen-colour.mix(Theme.ink2, 0.85) : #d9a98a;
         has-default: true;
         default-value: i == 0 ? 40 : i == 1 ? 30 : 60;
         hint: root.reset-hint;
@@ -111,34 +122,23 @@ export component ChromaKeyCard inherits Card {
     }
     if behind == 0: FormRow {
         label: @tr("Colour");
-        // control_row(stretch=True): the button fills the row, with the colour as its icon
-        Button {
+        ColourField {
             enabled: active;
-            horizontal-stretch: 1;
-            text: @tr("Choose");
-            tip: colour-tip;
-            has-swatch: true;
-            swatch: backdrop-colour;
-            gap: 4px;
-            clicked => { root.colour-clicked(); }
-        }
-    }
-    if behind == 0 && editing-colour: VerticalLayout {
-        Text {
-            text: colour-title;
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: Theme.text-dim;
-        }
-        for name[i] in [@tr("Red"), @tr("Green"), @tr("Blue")]: SliderRow {
-            enabled: active;
-            label: name;
-            minimum: 0;
-            maximum: 255;
-            value: channel-value[i];
-            readout: "\{Math.round(channel-value[i])}";
+            colour: backdrop-colour;
+            h: colour-h;
+            s: colour-s;
+            v: colour-v;
+            hex: colour-hex;
+            channels: channel-value;
             hue: root.hue;
-            moved(v) => { root.channel-moved(i, v); }
+            label: @tr("Colour behind you");
+            tip: colour-tip;
+            pipette-tip: pipette-tip;
+            can-pick: active;
+            moved(h, s, v) => { root.colour-moved(h, s, v); }
+            hex-typed(text) => { root.hex-typed(text); }
+            channel-typed(i, text) => { root.channel-typed(i, text); }
+            pipette-clicked => { root.pipette-clicked(); }
         }
     }
     if behind == 1: FormRow {

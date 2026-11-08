@@ -481,3 +481,62 @@ fn a_saturated_key_colour_is_clamped_to_a_byte_as_opencv_does() {
     let blue = key_tables([255, 0, 0], 40, 30, 60);
     assert_eq!((sum(&blue.alpha), sum(&blue.cr), sum(&blue.cb)), (14877747, 8471525, 7655053));
 }
+
+#[test]
+fn the_pad_and_strip_set_the_stored_colour_as_before() {
+    let mut r = Rig::new(false);
+    assert_eq!(r.config()["colour"], json!(DEFAULT_COLOUR));
+    // full red at the top right of the pad, red's hue
+    r.ui("colour-moved", vec![json!(0.0), json!(1.0), json!(1.0)]);
+    assert_eq!(r.config()["colour"], json!([0, 0, 255]), "stored as B, G, R, whole numbers");
+    assert_eq!((r.shown("colour-h"), r.shown("colour-s"), r.shown("colour-v")), (json!(0.0), json!(1.0), json!(1.0)));
+    assert_eq!((r.shown("backdrop-colour"), r.shown("colour-hex"), r.shown("channel-value")), (json!("#ff0000"), json!("ff0000"), json!([255, 0, 0])));
+    // dragging down to black keeps the hue the person had, so coming back up is the same colour
+    r.ui("colour-moved", vec![json!(0.25), json!(0.5), json!(0.0)]);
+    assert_eq!(r.config()["colour"], json!([0, 0, 0]));
+    assert_eq!((r.shown("colour-h"), r.shown("colour-s")), (json!(0.25), json!(0.5)));
+    r.ui("colour-moved", vec![json!(0.25), json!(0.5), json!(1.0)]);
+    assert_eq!(r.config()["colour"], json!([128, 255, 191]));
+    // the card changed the setting, so it is saved and the stream rebuilt
+    assert!(r.host.calls.iter().any(|c| c == "schedule_save") && r.host.calls.iter().any(|c| c == "refresh_frame_step"));
+    // a colour that came from the saved settings is what it is on the pad
+    r.plugin.set_config(&json!({"colour": [0, 255, 0]})).unwrap();
+    r.ui("hex-typed", vec![json!("#00ff00")]);
+    assert_eq!((r.shown("colour-h"), r.shown("colour-s"), r.shown("colour-v")), (json!(1.0f32 / 3.0), json!(1.0), json!(1.0)));
+}
+
+#[test]
+fn typed_values_set_the_colour_and_nonsense_leaves_it() {
+    let mut r = Rig::new(false);
+    r.ui("hex-typed", vec![json!(" #FF8800 ")]);
+    assert_eq!(r.config()["colour"], json!([0, 136, 255]));
+    r.ui("hex-typed", vec![json!("not a colour")]);
+    assert_eq!(r.config()["colour"], json!([0, 136, 255]), "a typo changes nothing");
+    assert_eq!(r.shown("colour-hex"), json!("ff8800"), "and the box is told what it still is");
+    r.ui("channel-typed", vec![json!(2), json!("12")]);
+    r.ui("channel-typed", vec![json!(1), json!("999")]);
+    r.ui("channel-typed", vec![json!(0), json!("-5")]);
+    assert_eq!(r.config()["colour"], json!([12, 255, 0]), "blue 12, green and red held to 0 to 255, stored as B, G, R");
+    r.ui("channel-typed", vec![json!(0), json!("lots")]);
+    assert_eq!(r.config()["colour"], json!([12, 255, 0]));
+}
+
+#[test]
+fn the_pipette_picks_the_backdrop_from_the_preview_without_pausing_the_key() {
+    let mut r = Rig::new(true);
+    r.ui("pipette-clicked", vec![]);
+    assert!(r.host.calls.iter().any(|c| c == "pick_on_preview chroma_key.backdrop Point"));
+    // the key keeps working while it runs: only the screen's own pick steps it aside
+    r.event(Event::PreviewPickChanged { owner: "chroma_key.backdrop".into() });
+    r.ui("switch-toggled-by-hand", vec![json!(true)]);
+    assert!(matches!(r.plugin.frame_step(), Some(FrameStep::Shader(_))));
+    // the colour is the one on the picture the preview showed
+    let pick = Pick { kind: PickKind::Point, shown: vec![[0.5, 0.5]], full: vec![[0.5, 0.5]], in_picture: vec![[0.5, 0.5]], picture: Some(flat(32, 18, [20, 90, 200])) };
+    r.event(Event::PreviewPicked { owner: "chroma_key.backdrop".into(), pick: Some(pick) });
+    assert_eq!(r.config()["colour"], json!([20, 90, 200]));
+    assert_eq!(r.config()["picked"], Value::Null, "and the screen's own pick is untouched");
+    // without a preview it says why
+    let mut r = Rig::new(false);
+    r.ui("pipette-clicked", vec![]);
+    assert!(r.shown("status").as_str().unwrap().contains("Start streaming"));
+}
