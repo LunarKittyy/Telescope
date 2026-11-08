@@ -123,6 +123,7 @@ export component BubbleFrame inherits Rectangle {
             viewbox-y: flip ? -ph / 1px : 0;
             viewbox-width: cw / 1px;
             viewbox-height: (ch + ph) / 1px;
+            // fitted: the viewbox is the box less one stroke, so a unit is a pixel
             commands: root.outline;
             stroke: root.hue;
             stroke-width: Theme.stroke;
