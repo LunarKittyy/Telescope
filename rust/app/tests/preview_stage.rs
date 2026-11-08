@@ -494,7 +494,7 @@ fn card_preview_downscales_large_frame_before_signal() {
     s.show(0, grey(1200, 600));
     let width = s.number("stage-width").min(s.number("stage-height") * 2.0).round() as u32;
     assert!(width < 1200);
-    assert_eq!(s.image_size(), (width, width / 2));
+    assert_eq!(s.image_size(), (width, (width as f32 / 2.0).round() as u32), "scaled by the same rounding as every other frame");
     assert_eq!(s.r.worker(0).slot().latest().unwrap().0.width, 1200, "what the stream holds isn't touched");
 }
 

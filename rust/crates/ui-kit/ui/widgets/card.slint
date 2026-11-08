@@ -128,7 +128,9 @@ export component Card inherits Rectangle {
         padding-left: Theme.pad;
         padding-right: Theme.pad;
         padding-top: Theme.u(6);
-        padding-bottom: Theme.pad;
+        // Shut, the header has the same room under it as over it; open, the rows get the card's usual bottom padding, which comes in
+        // and goes out with the fold so the bottom edge lands on the even padding as the card closes
+        padding-bottom: Theme.u(6) + unfold.value * (Theme.pad - Theme.u(6));
         // Qt skips a layout with nothing shown in it, spacing and all; a folding card's is a widget of its own, which stays
         spacing: fold-key == "" && body.preferred-height == 0 ? 0 : unfold.value * (Theme.gap + Theme.u(2));
         HorizontalLayout {
