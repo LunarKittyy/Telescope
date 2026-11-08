@@ -382,7 +382,8 @@ const HEADER: &str = r#"
                     icon: Icons.v-plus;
                     icon-size: Theme.icon * 1.25;
                     label: @tr("Add camera");
-                    tip: @tr("Stream another camera at the same time, to a virtual camera of its own");
+                    tip: @tr("Add camera");
+                    tip-detail: @tr("Stream another camera at the same time on a separate virtual camera.");
                     enabled: add-enabled;
                     clicked => { add-menu.show({ x: self.absolute-position.x, y: self.absolute-position.y + self.height + 6px }); }
                 }

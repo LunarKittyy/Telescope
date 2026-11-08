@@ -982,6 +982,6 @@ fn turning_a_dial_sends_that_stop_and_a_disabled_dial_sends_nothing() {
 fn the_noise_and_sharpening_rows_say_which_row_they_are_on_hover() {
     let r = Rig::new();
     let p = r.props();
-    assert_eq!(p["noise-tips"][2], "Noise reduction: High quality");
-    assert_eq!(p["sharpening-tips"][0], "Sharpening: Off");
+    assert_eq!(p["noise-tip-details"][2], "Reduce noise as much as possible, even if the frame rate drops.");
+    assert_eq!(p["sharpening-tip-details"][0], "");
 }

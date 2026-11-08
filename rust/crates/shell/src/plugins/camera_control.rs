@@ -19,7 +19,14 @@ const LOG_STEPS: f64 = 2000.0;
 const MODES: [(&str, i64); 3] = [("Off", 0), ("Fast", 1), ("High Quality", 2)];
 /// What the modes are called on the card, in English.
 const MODE_NAMES: [&str; 3] = [n_("Off"), n_("Fast"), n_("High quality")];
-const LOW_LIGHT_TIP: &str = n_("Brightens a dark room when exposure is automatic but can drop the frame rate as low as 10 fps.");
+const OIS_TIP: &str = n_("Reduce shake with optical stabilisation in the lens.");
+const BLACK_LEVEL_LOCK_TIP: &str = n_("Keep the black level from changing as the light changes.");
+const TORCH_TIP: &str = n_("Keep the phone's flash on as a light.");
+const NOISE_FAST_TIP: &str = n_("Reduce noise without lowering the frame rate.");
+const NOISE_HIGH_TIP: &str = n_("Reduce noise as much as possible, even if the frame rate drops.");
+const SHARPEN_FAST_TIP: &str = n_("Sharpen without lowering the frame rate.");
+const SHARPEN_HIGH_TIP: &str = n_("Sharpen as well as possible, even if the frame rate drops.");
+const LOW_LIGHT_TIP: &str = n_("Brighten a dark room when exposure is automatic. The frame rate can drop as low as 10 fps.");
 const CAPABILITY_LABELS: [(&str, &str); 5] = [
     ("supportsManualSensor", n_("Manual exposure")),
     ("supportsManualWB", n_("Manual WB")),
@@ -544,10 +551,10 @@ impl CameraControl {
             focus_slider: IntSlider { min: 0, max: FOCUS_STEPS, value: 0, enabled: false },
             focus_text: "∞".into(),
             focus_max_diopters: 10.0,
-            ois: Tile { tip: tr("Optical image stabilization"), ..Tile::new(true) },
+            ois: Tile { tip: tr(OIS_TIP), ..Tile::new(true) },
             low_light: Tile { tip: tr(LOW_LIGHT_TIP), visible: false, ..Tile::new(false) },
-            bll: Tile::new(false),
-            torch: Tile::new(false),
+            bll: Tile { tip: tr(BLACK_LEVEL_LOCK_TIP), ..Tile::new(false) },
+            torch: Tile { tip: tr(TORCH_TIP), ..Tile::new(false) },
             nr: 1,
             edge: 1,
             manual_exp: false,
@@ -869,10 +876,10 @@ impl CameraControl {
         }
 
         self.torch.enabled = caps.flash;
-        self.torch.tip = if caps.flash { String::new() } else { tr("This lens has no flash to use as a torch") };
+        self.torch.tip = if caps.flash { tr(TORCH_TIP) } else { tr("This lens has no flash to use as a torch") };
         // Greyed out but stays checked across lens switches
         self.ois.enabled = caps.ois;
-        self.ois.tip = if caps.ois { tr("Optical image stabilization") } else { tr("This lens has no optical stabilization") };
+        self.ois.tip = if caps.ois { tr(OIS_TIP) } else { tr("This lens has no optical stabilisation") };
     }
 
     // ── Handlers ──
@@ -958,7 +965,7 @@ impl CameraControl {
         }
         self.focus.enabled[1] = available;
         self.focus.tips[1] = if available {
-            tr("Click the preview to focus there")
+            tr("Click the preview to focus on that point.")
         } else if self.stream.is_some() {
             tr("This lens can't focus on a point")
         } else {
@@ -1253,8 +1260,8 @@ impl CameraControl {
             props[format!("{key}-stops")] = json!(stops.iter().map(|s| s.name.as_str()).collect::<Vec<_>>());
         }
         // The words alone are the same on both rows, so each segment's tooltip says which row it is
-        props["noise-tips"] = json!(MODE_NAMES.map(|mode| tr("Noise reduction: {mode}").field("mode", tr(mode))));
-        props["sharpening-tips"] = json!(MODE_NAMES.map(|mode| tr("Sharpening: {mode}").field("mode", tr(mode))));
+        props["noise-tip-details"] = json!(["".to_string(), tr(NOISE_FAST_TIP), tr(NOISE_HIGH_TIP)]);
+        props["sharpening-tip-details"] = json!(["".to_string(), tr(SHARPEN_FAST_TIP), tr(SHARPEN_HIGH_TIP)]);
         props["exposure-tips"] = json!(self.exp.tips);
         props["wb-tips"] = json!(self.wb.tips);
         props["focus-tips"] = json!(self.focus.tips);

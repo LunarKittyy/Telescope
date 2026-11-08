@@ -315,7 +315,7 @@ component PluginTile inherits Rectangle {
     accessible-description: tile.about;
     accessible-id: "setting";
     touch := TouchArea { }
-    Tip { says: tile.locked ? tile.tooltip : ""; hover: touch.has-hover; }
+    Tip { says: tile.locked ? tile.title : ""; detail: tile.tooltip; hover: touch.has-hover; }
     VerticalLayout {
         padding-left: 12px;
         padding-right: 12px;
@@ -344,6 +344,7 @@ component PluginTile inherits Rectangle {
                 icon: Icons.trash;
                 label: tile.remove-label;
                 tip: @tr("Remove");
+                tip-detail: @tr("Delete this plugin's folder from the plugins folder.");
                 clicked => { root.removed(); }
             }
             Rectangle {
@@ -353,7 +354,8 @@ component PluginTile inherits Rectangle {
                     checked: tile.on;
                     label: tile.title;
                     enabled: tile.enabled && !tile.locked;
-                    tip: tile.locked ? "" : tile.tooltip;
+                    tip: tile.locked || tile.tooltip == "" ? "" : tile.title;
+                    tip-detail: tile.tooltip;
                     toggled(on) => { root.switched(on); }
                 }
             }
@@ -436,7 +438,8 @@ export component PluginsPanel inherits VerticalLayout {
                 icon: Icons.reset;
                 enabled: all-on-enabled;
                 clicked => { root.all-on(); }
-                tip: @tr("Switch the built-in plugins back to the standard selection: the optional ones off, the rest on");
+                tip: @tr("Reset to defaults");
+                tip-detail: @tr("Switch the optional built-in plugins off and the rest on.");
             }
         }
     }
@@ -487,7 +490,8 @@ export component PluginsPanel inherits VerticalLayout {
                     text: @tr("Remove download");
                     icon: Icons.trash;
                     clicked => { root.remove-pack(); }
-                    tip: @tr("Delete the download the plugins here use. Switching one on gets it again.");
+                    tip: @tr("Remove download");
+                    tip-detail: @tr("Delete the download these plugins use. Switching any of these plugins on downloads it again.");
                 }
             }
             if g.status != "": Text {
@@ -535,7 +539,8 @@ export component PluginsPanel inherits VerticalLayout {
                 text: @tr("Install");
                 icon: Icons.plus;
                 clicked => { root.install(); }
-                tip: @tr("Pick a plugin's .zip file. You can also drop one onto this window.");
+                tip: @tr("Install");
+                tip-detail: @tr("Pick a plugin's .zip file. You can also drop the file onto this window.");
             }
         }
         if !has-added: Text {
@@ -585,7 +590,8 @@ export component PluginsFooter inherits Rectangle {
             text: @tr("Restart now");
             height: 32px;
             clicked => { root.restart(); }
-            tip: @tr("Start Telescope again to apply your changes");
+            tip: @tr("Restart now");
+            tip-detail: @tr("Restart Telescope to apply your changes.");
         }
     }
 }

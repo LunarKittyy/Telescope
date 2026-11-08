@@ -41,6 +41,7 @@ export component HeaderIconButton inherits Rectangle {
     in property <length> icon-size: Theme.icon;
     in property <string> label;
     in property <string> tip;
+    in property <string> tip-detail;
     in property <bool> enabled: true;
     callback clicked;
     width: Theme.u(18);
@@ -54,6 +55,7 @@ export component HeaderIconButton inherits Rectangle {
         icon-size: root.icon-size;
         label: root.label;
         tip: root.tip;
+        tip-detail: root.tip-detail;
         enabled: root.enabled;
         clicked => { root.clicked(); }
     }
@@ -175,7 +177,7 @@ export component Footer inherits Rectangle {
             accessible-role: text;
         }
         if readouts: FooterReadout { icon: Icons.film; value: fps; value-color: fps-color; name: @tr("Frame rate"); tip: fps-tip; least-width: Theme.u(24); }
-        if readouts: FooterReadout { icon: Icons.gauge; value: net; value-color: net-color; name: @tr("Throughput"); least-width: Theme.u(44); }
+        if readouts: FooterReadout { icon: Icons.gauge; value: net; value-color: net-color; name: @tr("Throughput"); tip: @tr("How much data per second reaches this computer."); least-width: Theme.u(44); }
     }
 }
 
@@ -286,7 +288,7 @@ component StreamTile inherits Rectangle {
     }
     FocusRing { shown: focus.has-focus; radius: Theme.r-card; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
     touch := TouchArea { mouse-cursor: pointer; clicked => { root.focus-requested(); } }
-    Tip { says: data.focused ? "" : @tr("Show this one's settings"); hover: touch.has-hover; focused: focus.has-focus && KeyFocus.keyboard; }
+    Tip { says: data.focused ? "" : @tr("Show settings"); detail: data.focused ? "" : @tr("Show this stream's settings in the cards."); hover: touch.has-hover; focused: focus.has-focus && KeyFocus.keyboard; }
     lay := HorizontalLayout {
         padding-left: 8px;
         padding-right: 6px;

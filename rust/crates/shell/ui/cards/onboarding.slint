@@ -61,7 +61,7 @@ component StepRow inherits HorizontalLayout {
             font-size: Theme.body;
             font-weight: 600;
             color: Theme.text;
-            Tip { says: step.tip; inert: true; }
+            Tip { says: step.tip != "" ? step.title : ""; detail: step.tip; inert: true; }
         }
         body := Text {
             text: step.text;
@@ -69,7 +69,7 @@ component StepRow inherits HorizontalLayout {
             font-family: Theme.font;
             font-size: Theme.body;
             color: step.kind == "status_ok" ? Theme.ok : step.kind == "status_warn" ? Theme.warn : step.kind == "status_err" ? Theme.err : Theme.dim;
-            Tip { says: step.tip; inert: true; }
+            Tip { says: step.tip != "" ? step.title : ""; detail: step.tip; inert: true; }
         }
         // A step that is stuck needs its how-to on the card: a tooltip can't be opened with the keyboard
         if step.kind == "status_warn" && step.tip != "": Text {
@@ -126,6 +126,7 @@ export component OnboardingCard inherits Card {
     out property <length> hint-extra: s0.hint-gap + s1.hint-gap + s2.hint-gap + s3.hint-gap;
     property <bool> any-button: steps[0].button != "" || steps[1].button != "" || steps[2].button != "" || steps[3].button != "";
     title: @tr("Get set up");
+    tip: @tr("Set up the virtual camera, the phone app and pairing step by step.");
     icon: Icons.check;
     has-action: asked;
     action-icon: Icons.v-close;

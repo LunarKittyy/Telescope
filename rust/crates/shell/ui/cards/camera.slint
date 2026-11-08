@@ -83,7 +83,7 @@ export component CameraCard inherits Card {
     in property <int> current-lens: -1;
     // Up to five tiles in a row, more lenses in rows as even as they can be
     in property <int> lens-columns: 1;
-    // Why a segment can't be picked, shown when it's hovered
+    // Why a segment can't be picked: the tooltip body of its option, shown when it's hovered
     in property <[string]> exposure-tips;
     in property <[string]> wb-tips;
     in property <[string]> focus-tips;
@@ -125,9 +125,10 @@ export component CameraCard inherits Card {
     in property <TileState> torch: { enabled: true };
     in property <int> noise-reduction: 1;
     in property <int> sharpening: 1;
-    // What a segment says on hover where its word alone would be ambiguous
-    in property <[string]> noise-tips;
-    in property <[string]> sharpening-tips;
+    // What each of Off, Fast and High quality does, for the tooltip body
+    in property <[string]> noise-tip-details;
+    in property <[string]> sharpening-tip-details;
+    property <[string]> mode-names: [@tr("Off"), @tr("Fast"), @tr("High quality")];
 
     callback lens-picked(int);
     callback exposure-picked(int);
@@ -147,6 +148,7 @@ export component CameraCard inherits Card {
     callback edge-picked(int);
 
     title: @tr("Camera");
+    tip: @tr("Exposure, white balance, focus, lenses and the phone camera's other settings.");
     icon: Icons.camera;
     note: info;
     // dim_until_paired: faded and disabled until there's a phone
@@ -164,7 +166,7 @@ export component CameraCard inherits Card {
                 horizontal-stretch: 1;
                 border-radius: Theme.r-ctl;
                 background: Theme.trough;
-                if lens-placeholder != "": Tip { says: lens-placeholder; inert: true; }
+                if lens-placeholder != "": Tip { says: @tr("Lenses"); detail: lens-placeholder; inert: true; }
             }
         }
     }
@@ -191,6 +193,7 @@ export component CameraCard inherits Card {
     RailRow {
         icon: Icons.exposure;
         label: @tr("Exposure");
+        tip-detail: @tr("Let the phone pick the exposure or set ISO and shutter speed yourself.");
         hue: root.hue;
         enabled: active;
         changed: exposure-mode != 0;
@@ -200,7 +203,8 @@ export component CameraCard inherits Card {
             label: @tr("Exposure");
             items: [@tr("Auto"), @tr("Manual")];
             disabled: [!active || exposure-disabled[0], !active || exposure-disabled[1]];
-            tips: exposure-tips;
+            tips: [@tr("Auto"), @tr("Manual")];
+            tip-details: ["", exposure-tips[1]];
             current: exposure-mode;
             picked(i) => { exposure-picked(i); }
         }
@@ -216,7 +220,8 @@ export component CameraCard inherits Card {
             enabled: active && iso-enabled;
             stops: iso-stops;
             current: iso-index;
-            tip: iso-enabled ? "ISO" : exposure-tips[1] != "" ? exposure-tips[1] : @tr("Set Exposure to Manual to use this");
+            tip: "ISO";
+            tip-detail: iso-enabled ? @tr("Higher ISO makes the picture brighter but grainier.") : exposure-tips[1] != "" ? exposure-tips[1] : @tr("Set Exposure to Manual to use this");
             moved(i) => { iso-picked(i); }
         }
     }
@@ -230,13 +235,15 @@ export component CameraCard inherits Card {
             enabled: active && shutter-enabled;
             stops: shutter-stops;
             current: shutter-index;
-            tip: shutter-enabled ? @tr("Shutter") : exposure-tips[1] != "" ? exposure-tips[1] : @tr("Set Exposure to Manual to use this");
+            tip: @tr("Shutter");
+            tip-detail: shutter-enabled ? @tr("Slower shutter speeds make the picture brighter but blur movement.") : exposure-tips[1] != "" ? exposure-tips[1] : @tr("Set Exposure to Manual to use this");
             moved(i) => { shutter-picked(i); }
         }
     }
     RailRow {
         icon: Icons.sun;
         label: @tr("Brightness");
+        tip-detail: @tr("Make the picture brighter or darker than the phone's automatic exposure.");
         hue: root.hue;
         enabled: active;
         changed: ae-comp != 0;
@@ -254,13 +261,15 @@ export component CameraCard inherits Card {
             has-default: true;
             default-value: 0;
             tip: @tr("Brightness");
-            tip-detail: @tr("Double-click to reset");
+            tip-detail: @tr("Make the picture brighter or darker than the phone's automatic exposure.");
+            tip-hint: @tr("Double-click to reset");
             moved(v) => { ae-moved(v); }
         }
     }
     RailRow {
         icon: Icons.thermometer;
         label: @tr("White balance");
+        tip-detail: @tr("Let the phone set the white balance or set it yourself.");
         hue: root.hue;
         enabled: active;
         changed: wb-mode != 0 || kelvin != 5500 || tint != 0;
@@ -270,7 +279,8 @@ export component CameraCard inherits Card {
             label: @tr("White balance");
             items: [@tr("Auto"), @tr("Manual")];
             disabled: [!active || wb-disabled[0], !active || wb-disabled[1]];
-            tips: wb-tips;
+            tips: [@tr("Auto"), @tr("Manual")];
+            tip-details: ["", wb-tips[1]];
             current: wb-mode;
             picked(i) => { wb-picked(i); }
         }
@@ -292,8 +302,9 @@ export component CameraCard inherits Card {
             readout: kelvin-text;
             has-default: true;
             default-value: 5500;
-            tip: wb-enabled || wb-tips[1] == "" ? @tr("Temperature") : wb-tips[1];
-            tip-detail: wb-enabled ? @tr("Double-click to reset") : wb-tips[1] == "" ? @tr("Set White balance to Manual to use this") : "";
+            tip: @tr("Temperature");
+            tip-detail: wb-enabled ? @tr("Make colours warmer or cooler.") : wb-tips[1] != "" ? wb-tips[1] : @tr("Set White balance to Manual to use this");
+            tip-hint: wb-enabled ? @tr("Double-click to reset") : "";
             moved(v) => { kelvin-moved(v); }
         }
     }
@@ -313,14 +324,16 @@ export component CameraCard inherits Card {
             readout: tint-text;
             has-default: true;
             default-value: 0;
-            tip: wb-enabled || wb-tips[1] == "" ? @tr("Tint") : wb-tips[1];
-            tip-detail: wb-enabled ? @tr("Double-click to reset") : wb-tips[1] == "" ? @tr("Set White balance to Manual to use this") : "";
+            tip: @tr("Tint");
+            tip-detail: wb-enabled ? @tr("Shift colours towards green or magenta.") : wb-tips[1] != "" ? wb-tips[1] : @tr("Set White balance to Manual to use this");
+            tip-hint: wb-enabled ? @tr("Double-click to reset") : "";
             moved(v) => { tint-moved(v); }
         }
     }
     RailRow {
         icon: Icons.focus;
         label: @tr("Focus");
+        tip-detail: @tr("Let the phone focus automatically, click the preview to focus on a point or set the distance yourself.");
         hue: root.hue;
         enabled: active;
         changed: focus-mode != 0;
@@ -330,7 +343,8 @@ export component CameraCard inherits Card {
             label: @tr("Focus");
             items: [@tr("Auto"), @tr("focus tap" => "Tap"), @tr("focus" => "Manual")];
             disabled: [!active || focus-disabled[0], !active || focus-disabled[1], !active || focus-disabled[2]];
-            tips: focus-tips;
+            tips: [@tr("Auto"), @tr("focus tap" => "Tap"), @tr("focus" => "Manual")];
+            tip-details: ["", focus-tips[1], focus-tips[2]];
             current: focus-mode;
             picked(i) => { focus-picked(i); }
         }
@@ -348,8 +362,8 @@ export component CameraCard inherits Card {
             step: 1;
             value: focus-pos;
             readout: focus-text;
-            tip: focus-enabled || focus-tips[2] == "" ? @tr("Distance") : focus-tips[2];
-            tip-detail: focus-enabled ? "" : focus-tips[2] == "" ? @tr("Set Focus to Manual to use this") : "";
+            tip: @tr("Distance");
+            tip-detail: focus-enabled ? @tr("How far away the camera focuses.") : focus-tips[2] != "" ? focus-tips[2] : @tr("Set Focus to Manual to use this");
             moved(v) => { focus-moved(v); }
         }
     }
@@ -367,7 +381,8 @@ export component CameraCard inherits Card {
                     icon: Icons.stabilize;
                     shortcut: "camera.stabilization";
                     text: @tr("Stabilization");
-                    tip: ois.tip;
+                    tip: @tr("Stabilisation");
+                    tip-detail: ois.tip;
                     hue: root.hue;
                     enabled: active && ois.enabled;
                     checked: ois.checked;
@@ -377,7 +392,8 @@ export component CameraCard inherits Card {
                     icon: Icons.moon;
                     shortcut: "camera.low_light";
                     text: @tr("Low light");
-                    tip: low-light.tip;
+                    tip: @tr("Low light");
+                    tip-detail: low-light.tip;
                     hue: root.hue;
                     enabled: active && low-light.enabled;
                     checked: low-light.checked;
@@ -390,7 +406,8 @@ export component CameraCard inherits Card {
                     icon: Icons.lock;
                     shortcut: "camera.black_level_lock";
                     text: @tr("Black level lock");
-                    tip: black-level-lock.tip;
+                    tip: @tr("Black level lock");
+                    tip-detail: black-level-lock.tip;
                     hue: root.hue;
                     enabled: active && black-level-lock.enabled;
                     checked: black-level-lock.checked;
@@ -400,7 +417,8 @@ export component CameraCard inherits Card {
                     icon: Icons.torch;
                     shortcut: "camera.torch";
                     text: @tr("Torch");
-                    tip: torch.tip;
+                    tip: @tr("Torch");
+                    tip-detail: torch.tip;
                     hue: root.hue;
                     enabled: active && torch.enabled;
                     checked: torch.checked;
@@ -412,7 +430,7 @@ export component CameraCard inherits Card {
     RailRow {
         icon: Icons.grain;
         label: @tr("Noise reduction");
-        tip: @tr("Smooths out grain in the picture");
+        tip-detail: @tr("Smooth out grain in the picture.");
         hue: root.hue;
         enabled: active;
         changed: noise-reduction != 1;
@@ -420,9 +438,10 @@ export component CameraCard inherits Card {
             hue: root.hue;
             shortcut: "camera.noise_reduction";
             label: @tr("Noise reduction");
-            items: [@tr("Off"), @tr("Fast"), @tr("High quality")];
+            items: mode-names;
             disabled: [!active, !active, !active];
-            tips: noise-tips;
+            tips: mode-names;
+            tip-details: noise-tip-details;
             current: noise-reduction;
             picked(i) => { nr-picked(i); }
         }
@@ -430,7 +449,7 @@ export component CameraCard inherits Card {
     RailRow {
         icon: Icons.sharpen;
         label: @tr("Sharpening");
-        tip: @tr("Crisps up the edges in the picture");
+        tip-detail: @tr("Make edges look crisper.");
         hue: root.hue;
         enabled: active;
         changed: sharpening != 1;
@@ -438,9 +457,10 @@ export component CameraCard inherits Card {
             hue: root.hue;
             shortcut: "camera.sharpening";
             label: @tr("Sharpening");
-            items: [@tr("Off"), @tr("Fast"), @tr("High quality")];
+            items: mode-names;
             disabled: [!active, !active, !active];
-            tips: sharpening-tips;
+            tips: mode-names;
+            tip-details: sharpening-tip-details;
             current: sharpening;
             picked(i) => { edge-picked(i); }
         }

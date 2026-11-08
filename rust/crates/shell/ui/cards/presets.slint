@@ -100,7 +100,8 @@ export component PresetsHeader inherits HorizontalLayout {
         has-icon: true;
         icon: Icons.bookmark;
         height: Theme.u(18);
-        tip: root.tip;
+        tip: root.label;
+        tip-detail: root.tip;
         shortcut: "presets.apply";
         clicked => {
             root.sub = "";

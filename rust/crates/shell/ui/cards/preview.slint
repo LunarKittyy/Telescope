@@ -216,8 +216,8 @@ export component PreviewCard inherits Rectangle {
                     raised: true;
                     icon: showing ? Icons.eye-off : Icons.eye;
                     label: toggle-text;
-                    tip: @tr("Stop drawing this preview");
-                    tip-detail: @tr("The camera output doesn't change.");
+                    tip: showing ? @tr("Hide preview") : @tr("Show preview");
+                    tip-detail: showing ? @tr("Stop drawing the preview without changing the camera output.") : "";
                     shortcut: "show_hide";
                     enabled: !popout;
                     clicked => { root.toggle(); }
@@ -231,7 +231,8 @@ export component PreviewCard inherits Rectangle {
                     hue: Theme.plugin-hue("preview");
                     checked: !camera-on;
                     enabled: camera-enabled;
-                    tip: camera-tip;
+                    tip: @tr("Camera");
+                    tip-detail: camera-tip;
                     shortcut: "streaming.camera";
                     toggled(on) => { root.camera-clicked(); }
                 }
@@ -244,8 +245,8 @@ export component PreviewCard inherits Rectangle {
                     name: @tr("Skeleton");
                     hue: Theme.plugin-hue("preview");
                     checked: skeleton-on;
-                    tip: @tr("Draw the skeleton MediaPipe finds");
-                    tip-detail: @tr("Doesn't show in the camera output.");
+                    tip: @tr("Skeleton");
+                    tip-detail: @tr("Draw the skeleton MediaPipe finds on the preview only, not in the camera output.");
                     shortcut: "skeleton";
                     toggled(on) => { root.skeleton-clicked(); }
                 }
@@ -258,8 +259,8 @@ export component PreviewCard inherits Rectangle {
                     hue: Theme.plugin-hue("preview");
                     checked: lenses-on;
                     enabled: lenses-enabled;
-                    tip: @tr("Keep showing what the phone's longer lenses see");
-                    tip-detail: @tr("Doesn't show in the camera output.");
+                    tip: @tr("Lens outlines");
+                    tip-detail: @tr("Always outline what the phone's longer lenses see. This only shows on the preview, not in the camera output.");
                     shortcut: "lens_outlines";
                     toggled(on) => { root.lenses-clicked(); }
                 }
@@ -272,7 +273,8 @@ export component PreviewCard inherits Rectangle {
                     hue: Theme.plugin-hue("preview");
                     checked: smooth-on;
                     enabled: !popout;
-                    tip: @tr("Shows every frame in the preview but uses a bit more CPU.");
+                    tip: @tr("Smooth");
+                    tip-detail: @tr("Show every frame in the preview at the cost of a bit more CPU.");
                     toggled(on) => { root.smooth-clicked(); }
                 }
                 IconButton {
@@ -280,6 +282,7 @@ export component PreviewCard inherits Rectangle {
                     icon: Icons.pop-out;
                     label: @tr("Pop out");
                     tip: @tr("Pop out");
+                    tip-detail: @tr("Open the preview in a separate window.");
                     shortcut: "pop_out";
                     clicked => { root.pop-out(); }
                 }
