@@ -2087,7 +2087,7 @@ mod tests {
         let mut e = env();
         let header = e.plugin.header_widget().unwrap();
         assert_eq!(header.component, "PhonePicker");
-        assert!(UI.contains("callback manage;") && UI.contains("@tr(\"Your devices: add, rename, remove\")"));
+        assert!(UI.contains("callback manage;") && UI.contains("@tr(\"Add, rename or remove the phones you've paired.\")"));
         assert_eq!(e.plugin.card().unwrap().ui.component, "ConnectionCard");
     }
 

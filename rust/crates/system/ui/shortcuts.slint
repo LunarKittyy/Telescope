@@ -115,6 +115,7 @@ component Strip inherits Rectangle {
             icon: Icons.pencil;
             label: item.edit-label;
             tip: @tr("Edit");
+            tip-detail: @tr("Change the keys of this shortcut.");
             clicked => { root.edit(); }
         }
         IconButton {
@@ -252,7 +253,8 @@ callback param-committed(int, string);
             sub: note-text;
             if system-shown: Button {
                 text: @tr("Open");
-                tip: @tr("Where your desktop lets you change the keys of global shortcuts");
+                tip: @tr("Global shortcuts");
+                tip-detail: @tr("Where your desktop lets you change the keys of global shortcuts.");
                 clicked => { root.open-system(); }
             }
         }
@@ -369,7 +371,8 @@ callback param-committed(int, string);
                     padding-top: 4px;
                     Button {
                         text: copy-text;
-                        tip: copy-tip;
+                        tip: @tr("Copy");
+                        tip-detail: copy-tip;
                         enabled: copy-enabled;
                         clicked => { root.copy-command(); }
                     }

@@ -83,12 +83,22 @@ fn section_title(section: &str) -> String {
 
 fn tip(name: &str) -> String {
     match name {
-        "exposure_time" => tr("The shutter speed: slower is brighter but blurs movement."),
-        "gain" => tr("The webcam's ISO: more is brighter but grainier."),
-        "backlight" => tr("Brightens a face in front of a bright window."),
+        "exposure_time" => tr("Longer exposure times make the picture brighter but blur movement."),
+        "gain" => tr("Higher gain makes the picture brighter but grainier."),
+        "backlight" => tr("Brighten a face in front of a bright window."),
         "anti_flicker" => tr("Set it to your mains frequency to stop lights flickering or banding."),
-        "dslr_exposure_comp" => tr("Exposure compensation: how much brighter or darker than the camera would pick"),
-        "frame_rate_drop" => tr("Lets the webcam lower its frame rate in dim light for a brighter picture."),
+        "dslr_exposure_comp" => tr("Make the picture brighter or darker than the webcam's automatic exposure."),
+        "frame_rate_drop" => tr("Let the webcam lower its frame rate in dim light for a brighter picture."),
+        "white_balance" => tr("Make colours warmer or cooler."),
+        "saturation" => tr("Make the picture more or less colourful."),
+        "hue" => tr("Shift every colour around the colour wheel."),
+        "contrast" => tr("Spread light and dark parts further apart or closer together."),
+        "gamma" => tr("Brighten or darken the midtones."),
+        "sharpness" => tr("Make edges crisper or softer."),
+        "focus" => tr("How far away the camera focuses."),
+        "dslr_aperture" => tr("Lower numbers open the lens wider and let in more light."),
+        "pan" => tr("Move the view left or right."),
+        "tilt" => tr("Move the view up or down."),
         _ => String::new(),
     }
 }
@@ -963,7 +973,7 @@ impl WebcamPlugin {
             "visible": !key.is_empty(),
             "status-text": text, "status-kind": kind, "status-tip": src.map(|s| s.name()).unwrap_or_default(),
             "size-items": size_items, "size-current": size_i, "size-enabled": !key.is_empty(),
-            "size-tip": tr("The size the webcam sends; Auto takes the largest up to 1080p that keeps the frame rate"),
+            "size-tip": tr("The size the webcam sends. Auto takes the largest up to 1080p that keeps the frame rate."),
             "fps-items": fps.iter().map(|f| format!("{f} fps")).collect::<Vec<_>>(), "fps-current": fps_i, "fps-enabled": !key.is_empty(),
             // Reset has nothing to put back on a DSLR, whose settings the camera holds
             "has-controls": self.controls(key).values().any(|c| !c.transient),

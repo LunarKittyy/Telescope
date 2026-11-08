@@ -33,6 +33,7 @@ component Strip inherits Rectangle {
     in property <string> sub;
     // strip.setToolTip
     in property <string> tip;
+    in property <string> tip-detail;
     in property <string> keywords;
     // A row of its card, on the card itself: a raised box with a line round it inside a card stacked two backgrounds and hid the switch
     min-height: Theme.row + Theme.u(8);
@@ -41,7 +42,7 @@ component Strip inherits Rectangle {
     accessible-label: title;
     accessible-description: sub;
     if keywords != "": SearchWords { words: keywords; }
-    Tip { says: root.tip; inert: true; }
+    Tip { says: root.tip; detail: root.tip-detail; inert: true; }
     VerticalLayout {
         padding-top: Theme.u(4);
         padding-bottom: Theme.u(4);
@@ -124,7 +125,8 @@ component CommandBox inherits HorizontalLayout {
             has-icon: true;
             icon: Icons.copy;
             icon-tint: Theme.text-dim;
-            tip: @tr("Copy the command, to paste in a terminal");
+            tip: @tr("Copy");
+            tip-detail: @tr("Copy the command to paste in a terminal.");
             clicked => { root.copy(root.command); }
         }
     }
@@ -137,6 +139,7 @@ component SpinChip inherits Rectangle {
     in property <string> label;
     in property <bool> enabled: true;
     in property <string> tip;
+    in property <string> tip-detail;
     callback committed(string);
     callback step(int);
     changed value => { input.text = root.value; }
@@ -164,7 +167,7 @@ component SpinChip inherits Rectangle {
             reject
         }
     }
-    Tip { says: root.tip; hover: touch.has-hover; inert: !root.enabled; }
+    Tip { says: root.tip; detail: root.tip-detail; hover: touch.has-hover; inert: !root.enabled; }
     input := TextInput {
         x: 11px;
         width: parent.width - 22px;
@@ -178,7 +181,7 @@ component SpinChip inherits Rectangle {
         vertical-alignment: center;
         single-line: true;
         accessible-label: root.label;
-        accessible-description: root.tip;
+        accessible-description: root.tip-detail != "" ? root.tip-detail : root.tip;
         accepted => {
             root.commit();
             if (!KeyFocus.keyboard) {

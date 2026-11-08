@@ -93,6 +93,7 @@ export component StatsCard inherits Card {
     callback view-picked(int);
 
     title: @tr("Stats");
+    tip: @tr("Live numbers about the running stream.");
     icon: Icons.chip;
 
     Segmented {
@@ -101,7 +102,7 @@ export component StatsCard inherits Card {
         disabled: [false, false];
         has-icons: [false, false];
         icons: [Icons.chip, Icons.chip];
-        tips: ["", view-tip];
+        tip-details: ["", view-tip];
         label: @tr("Stats view");
         current: view;
         picked(i) => { root.view-picked(i); }

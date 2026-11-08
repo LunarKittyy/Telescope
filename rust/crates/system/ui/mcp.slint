@@ -27,6 +27,7 @@ export component McpSettings inherits VerticalLayout {
 
     Card {
         title: @tr("MCP server");
+        tip: @tr("Let an AI app read and change Telescope's settings.");
         keywords: @tr("search" => "mcp ai claude model assistant agent connect access read only");
         icon: Icons.sliders;
         hue: Theme.plugin-hue("extras");
@@ -110,7 +111,8 @@ export component McpSettings inherits VerticalLayout {
                     IconButton {
                         icon: Icons.copy;
                         label: @tr("Copy");
-                        tip: copy-tip;
+                        tip: @tr("Copy");
+                        tip-detail: copy-tip;
                         clicked => { root.copy-clicked(); }
                     }
                 }
@@ -177,12 +179,13 @@ component Segment inherits Rectangle {
     in property <bool> enabled: true;
     in property <string> label;
     in property <string> tip;
+    in property <string> tip-detail;
     // The outline of state, in the accent while it is on
     in property <bool> outlined;
     callback clicked;
     accessible-role: button;
     accessible-label: label;
-    accessible-description: tip;
+    accessible-description: tip-detail != "" ? tip-detail : tip;
     accessible-enabled: enabled;
     accessible-action-default => { if (enabled) { clicked(); } }
     border-radius: Theme.r-ctl;
@@ -199,7 +202,7 @@ component Segment inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; x: 0px; y: 0px; width: parent.width; height: parent.height; }
-    usage := Tip { says: root.tip; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
@@ -232,7 +235,8 @@ export component McpButton inherits Rectangle {
         Segment {
             horizontal-stretch: 1;
             label: open-label;
-            tip: open-tip;
+            tip: @tr("MCP");
+            tip-detail: open-tip;
             outlined: activity == "change";
             clicked => { root.open(); }
             HorizontalLayout {
@@ -268,7 +272,8 @@ export component McpButton inherits Rectangle {
             width: Theme.u(18);
             enabled: can-undo;
             label: undo-label;
-            tip: undo-tip;
+            tip: @tr("Undo");
+            tip-detail: undo-tip;
             clicked => { root.undo(); }
             HorizontalLayout {
                 alignment: center;

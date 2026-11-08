@@ -74,10 +74,11 @@ export component WebcamCard inherits Card {
     property <int> tile-cols: max(1, min(root.tiles.length, floor((root.width - 34px + 8px) / 120px)));
 
     title: @tr("Webcam");
+    tip: @tr("Stream from webcams and capture cards plugged into this computer.");
     icon: Icons.video;
     action-icon: Icons.reset;
-    action-label: @tr("Put the webcam's picture settings back to its defaults");
     action-text: @tr("Reset");
+    action-tip-detail: @tr("Set the webcam's picture settings back to default.");
 
     Text {
         height: 18px;
@@ -94,6 +95,7 @@ export component WebcamCard inherits Card {
     RailRow {
         icon: Icons.grid;
         label: @tr("Resolution");
+        tip-detail: root.size-tip;
         hue: root.hue;
         enabled: root.size-enabled;
         ChoiceField {
@@ -102,7 +104,8 @@ export component WebcamCard inherits Card {
             items: root.size-items;
             current <=> root.size-current;
             enabled: root.size-enabled;
-            tip: root.size-tip;
+            tip: @tr("Resolution");
+            tip-detail: root.size-tip;
             picked(i) => { root.size-current = i; root.size-picked(i); }
         }
     }
@@ -113,6 +116,7 @@ export component WebcamCard inherits Card {
         enabled: root.fps-enabled;
         ChoiceField {
             caption: @tr("Frame rate");
+            tip: @tr("Frame rate");
             compact: true;
             items: root.fps-items;
             current <=> root.fps-current;
@@ -132,12 +136,15 @@ export component WebcamCard inherits Card {
             height: row.kind == "auto" ? self.preferred-height : 0;
             icon: Pick.control(row.name);
             label: row.label;
+            tip-detail: @tr("Let the webcam pick or set it yourself.");
             hue: root.hue;
             enabled: row.enabled;
             Segmented {
                 hue: root.hue;
                 horizontal-stretch: 1;
                 items: [@tr("Auto"), @tr("Manual")];
+                tips: [@tr("Auto"), @tr("Manual")];
+                tip-details: [@tr("Let the webcam pick or set it yourself."), @tr("Let the webcam pick or set it yourself.")];
                 current: row.checked ? 0 : 1;
                 picked(i) => { root.control-set(row.name, i == 0 ? 1 : 0); }
             }
@@ -151,7 +158,8 @@ export component WebcamCard inherits Card {
                 near-text: row.options[0];
                 far-text: row.options[2];
                 label: row.label;
-                tip: @tr("Drag to focus nearer or further away, the further the faster");
+                tip: row.label;
+                tip-hint: @tr("Drag to focus, the further the faster.");
                 hue: root.hue;
                 enabled: row.enabled;
                 moved(v) => { root.jog(row.name, v); }
@@ -159,7 +167,7 @@ export component WebcamCard inherits Card {
             }
             Button {
                 text: row.options[1];
-                tip: @tr("Focus once automatically");
+                tip: @tr("Focus once");
                 enabled: row.enabled;
                 clicked => { root.control-set(row.name, 1); }
             }
@@ -170,6 +178,8 @@ export component WebcamCard inherits Card {
             height: row.kind == "switch" ? 40px : 0;
             icon: Pick.icon(row.icon);
             text: row.label;
+            tip: row.label;
+            tip-detail: row.tip;
             hue: root.hue;
             checked: row.checked;
             enabled: row.enabled;
@@ -180,10 +190,13 @@ export component WebcamCard inherits Card {
             height: row.kind == "menu" ? self.preferred-height : 0;
             icon: Pick.control(row.name);
             label: row.label;
+            tip-detail: row.tip;
             hue: root.hue;
             enabled: row.enabled;
             ChoiceField {
                 name: row.label;
+                tip: row.label;
+                tip-detail: row.tip;
                 horizontal-stretch: 1;
                 items: row.options;
                 current: row.index;
@@ -196,6 +209,7 @@ export component WebcamCard inherits Card {
             height: row.kind == "slider" ? self.preferred-height : 0;
             icon: Pick.control(row.name);
             label: row.label;
+            tip-detail: row.tip;
             hue: root.hue;
             enabled: row.enabled;
             Slider {
@@ -210,7 +224,9 @@ export component WebcamCard inherits Card {
                 enabled: row.enabled;
                 has-default: true;
                 default-value: row.reset-to;
-                tip: row.tip != "" ? row.tip + "\n" + @tr("Double-click to reset") : @tr("Double-click to reset");
+                tip: row.label;
+                tip-detail: row.tip;
+                tip-hint: @tr("Double-click to reset");
                 moved(v) => { root.control-set(row.name, v); }
             }
         }
@@ -230,7 +246,7 @@ export component WebcamCard inherits Card {
                 items: tile.options;
                 current: root.tile-indexes[j];
                 enabled: tile.enabled;
-                tip: tile.tip;
+                tip: tile.label;
                 previous-label: @tr("Previous");
                 next-label: @tr("Next");
                 step(by) => { root.control-step(tile.name, by); }
@@ -244,7 +260,8 @@ export component WebcamCard inherits Card {
                 current: root.tile-indexes[j];
                 follows: true;
                 enabled: tile.enabled;
-                tip: tile.tip;
+                tip: tile.label;
+                tip-detail: tile.tip;
                 picked(i) => { root.control-set(tile.name, i); }
             }
         }

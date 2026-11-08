@@ -466,7 +466,7 @@ impl StatsPlugin {
             "view": if self.view == View::Nerd { 1 } else { 0 },
             "view-standard": tr("Standard"),
             "view-nerd": tr("Nerd"),
-            "view-tip": tr("Every number that can be measured, including what each plugin costs"),
+            "view-tip": tr("Show every number that can be measured, including what each plugin costs."),
         });
         let focused = host.focused_source_id();
         let shown = self.latest.as_ref().and_then(|snap| {

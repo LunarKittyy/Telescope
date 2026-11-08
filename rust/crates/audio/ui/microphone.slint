@@ -106,7 +106,7 @@ component LevelMeter inherits Rectangle {
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
     }
-    Tip { says: @tr("Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."); hover: touch.has-hover; }
+    Tip { says: @tr("Level"); detail: @tr("Yellow means the limiter is reducing loud peaks and red means the sound clipped."); hint: @tr("Click to clear"); hover: touch.has-hover; }
 }
 
 export component MicrophoneCard inherits Card {
@@ -156,6 +156,7 @@ export component MicrophoneCard inherits Card {
     callback donate;
 
     title: @tr("Microphone");
+    tip: @tr("Use the phone's microphone on this computer.");
     icon: Icons.v-mic;
     opacity: active ? 1 : 0.4;
     enabled: active;
@@ -164,7 +165,8 @@ export component MicrophoneCard inherits Card {
     action-text: mute-text;
     action-icon: muted ? Icons.v-mic-off : Icons.v-mic;
     action-tint: muted ? Theme.err : Theme.text-dim;
-    action-label: mute-tip;
+    action-label: mute-text;
+    action-tip-detail: mute-tip;
     action-shortcut: "microphone.mute";
     action => { root.mute-toggled(!muted); }
     has-switch: true;
@@ -172,7 +174,8 @@ export component MicrophoneCard inherits Card {
     switch-checked: on;
     switch-enabled: toggle-enabled;
     switch-label: toggle-name;
-    switch-tip: toggle-tip;
+    switch-tip: toggle-name;
+    switch-tip-detail: toggle-tip;
     switch-toggled(v) => { root.toggled(v); }
 
     changed confirm-asked => {
@@ -182,6 +185,8 @@ export component MicrophoneCard inherits Card {
     if here: RailRow {
         icon: Icons.mic;
         label: mic-label;
+        tip: @tr("Level");
+        tip-detail: @tr("Yellow means the limiter is reducing loud peaks and red means the sound clipped.");
         hue: root.hue;
         HorizontalLayout {
             spacing: Theme.gap;
@@ -201,6 +206,7 @@ export component MicrophoneCard inherits Card {
     if here: RailRow {
         icon: Icons.volume;
         label: @tr("Gain");
+        tip-detail: gain-tip;
         hue: root.hue;
         changed: gain != 0;
         Slider {
@@ -213,7 +219,9 @@ export component MicrophoneCard inherits Card {
             shortcut: "microphone.gain";
             has-default: true;
             default-value: 0;
-            tip: @tr("Double-click to reset");
+            tip: @tr("Gain");
+            tip-detail: gain-tip;
+            tip-hint: @tr("Double-click to reset");
             moved(v) => { root.gain-moved(v); }
         }
     }
@@ -223,12 +231,14 @@ export component MicrophoneCard inherits Card {
         hue: root.hue;
         changed: auto-level;
         checked: auto-level;
-        tip: @tr("Evens out quiet and loud speech.");
+        tip: @tr("Auto level");
+        tip-detail: @tr("Even out quiet and loud speech.");
         toggled(v) => { root.auto-toggled(v); }
     }
     if here: RailRow {
         icon: Icons.denoise;
         label: @tr("Noise reduction");
+        tip-detail: nr-tip;
         hue: root.hue;
         named: true;
         changed: nr;
@@ -254,7 +264,7 @@ export component MicrophoneCard inherits Card {
                     vertical-alignment: center;
                     accessible-role: none;
                 }
-                Tip { says: nr-note; inert: true; }
+                Tip { says: @tr("Noise reduction unavailable"); detail: nr-note; inert: true; }
             }
             VerticalLayout {
                 alignment: center;
@@ -263,7 +273,8 @@ export component MicrophoneCard inherits Card {
                     checked: nr;
                     enabled: nr-enabled;
                     label: @tr("Noise reduction");
-                    tip: nr-tip;
+                    tip: @tr("Noise reduction");
+                    tip-detail: nr-tip;
                     toggled(v) => { root.nr-toggled(v); }
                 }
             }

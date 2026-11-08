@@ -94,6 +94,7 @@ export component UpdatesSettings inherits Card {
     callback notes;
     callback retry;
     title: "Telescope";
+    tip: @tr("Check for new versions and install them.");
     keywords: @tr("search" => "update upgrade new version release download install latest");
     icon: Icons.v-update;
     hue: Theme.plugin-hue("extras");
@@ -101,6 +102,7 @@ export component UpdatesSettings inherits Card {
     action-icon: Icons.reset;
     action-label: @tr("Check now");
     action-text: @tr("Check now");
+    action-tip-detail: @tr("Look for a new version of Telescope.");
     action => { if (!busy) { root.check-now(); } }
     RailRow {
         icon: Icons.check;
@@ -123,7 +125,7 @@ export component UpdatesSettings inherits Card {
             current: channel;
             enabled: !busy;
             tip: @tr("Nightly");
-            tip-detail: @tr("Built from every change. Fixes first, less tested.");
+            tip-detail: @tr("Built from every change. Gets fixes first but is less tested.");
             picked(i) => { root.channel-picked(i); }
         }
     }
@@ -139,7 +141,8 @@ export component UpdatesSettings inherits Card {
         icon: Icons.folder;
         label: @tr("Keep this copy where it is");
         keywords: @tr("search" => "portable keep this copy where it is zip folder in place windows unzipped");
-        tip: @tr("Updates this unzipped folder in place instead of installing Telescope for your user.");
+        tip: @tr("Keep this copy where it is");
+        tip-detail: @tr("Update this unzipped folder in place instead of installing Telescope for your user.");
         hue: root.hue;
         checked: portable;
         toggled(on) => { root.portable-toggled(on); }
@@ -177,7 +180,8 @@ export component UpdatesSettings inherits Card {
             alignment: start;
             Button {
                 text: @tr("Go back to the Python version");
-                tip: back-tip;
+                tip: @tr("Go back to the Python version");
+                tip-detail: back-tip;
                 enabled: back-enabled;
                 clicked => { root.back-asked(); }
             }

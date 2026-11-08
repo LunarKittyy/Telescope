@@ -434,7 +434,7 @@ impl StartupPlugin {
         json!({
             "open-checked": self.autostart.enabled(),
             "open-enabled": !dev,
-            "open-tip": if dev { tr("Not in a dev profile") } else { String::new() },
+            "open-tip": if dev { tr("Not available in a dev profile.") } else { String::new() },
         })
     }
 

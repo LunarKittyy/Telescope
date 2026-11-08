@@ -717,9 +717,9 @@ impl McpPlugin {
             "activity": self.activity.name(),
             "can-undo": self.can_undo(),
             "open-label": tr("MCP server settings"),
-            "open-tip": if connected { tr("An AI app is connected. Open the MCP settings") } else { tr("No AI app is connected. Open the MCP settings") },
+            "open-tip": if connected { tr("An AI app is connected.") } else { tr("No AI app is connected. Open the MCP settings.") },
             "undo-label": tr("Undo what the AI changed"),
-            "undo-tip": if self.can_undo() { tr("Undo what the AI changed") } else { tr("The AI hasn't changed anything") },
+            "undo-tip": if self.can_undo() { tr("Undo what the AI changed.") } else { tr("The AI hasn't changed anything.") },
         })
     }
 
@@ -738,7 +738,7 @@ impl McpPlugin {
             "access-items": [tr("Read only"), tr("Read and change")],
             "access-current": if self.access == Access::ReadOnly { 0 } else { 1 },
             "command": Self::connect_entry(),
-            "copy-tip": tr("Copy the entry for an AI app's MCP settings"),
+            "copy-tip": tr("Copy the entry for an AI app's MCP settings."),
             "log": log,
             "log-empty": tr("Nothing yet"),
         })

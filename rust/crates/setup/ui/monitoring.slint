@@ -16,7 +16,8 @@ component AlertTiles inherits HorizontalLayout {
         icon: Icons.bell;
         text: @tr("Notify me");
         name: root.label + ": " + @tr("Notify me");
-        tip: root.notify-tip;
+        tip: @tr("Notify me");
+        tip-detail: root.notify-tip;
         hue: root.hue;
         enabled: root.enabled;
         checked <=> root.notify;
@@ -26,7 +27,8 @@ component AlertTiles inherits HorizontalLayout {
         icon: Icons.stop;
         text: @tr("Stop the stream");
         name: root.label + ": " + @tr("Stop the stream");
-        tip: root.stop-tip;
+        tip: @tr("Stop the stream");
+        tip-detail: root.stop-tip;
         hue: root.hue;
         enabled: root.enabled;
         checked <=> root.stop;
@@ -62,6 +64,7 @@ export component MonitoringCard inherits Card {
     callback alert-toggled(string, bool);
 
     title: @tr("Phone");
+    tip: @tr("Get a warning or stop the stream when the phone's battery is low or the phone is too hot.");
     icon: Icons.phone;
     opacity: active ? 1 : 0.4;
     enabled: active;
@@ -71,6 +74,7 @@ export component MonitoringCard inherits Card {
     RailRow {
         icon: Icons.battery;
         label: @tr("Battery under");
+        tip-detail: @tr("The battery level that counts as low, also while charging if the level keeps dropping.");
         hue: root.hue;
         enabled: root.active;
         changed: batt-alert != 20 || !batt-notify || batt-stop;
@@ -91,8 +95,8 @@ export component MonitoringCard inherits Card {
             has-level-icon: battery-icon == "battery-charging";
             has-default: true;
             default-value: 20;
-            tip: @tr("Counts as low at this level, even while charging if it keeps dropping");
-            tip-detail: battery-note;
+            tip: @tr("Battery under");
+            tip-detail: @tr("The battery level that counts as low, also while charging if the level keeps dropping.");
             moved(v) => { root.batt-moved(v); }
         }
     }
@@ -101,8 +105,8 @@ export component MonitoringCard inherits Card {
         enabled: root.active;
         AlertTiles {
             label: @tr("Battery under");
-            notify-tip: @tr("Show a notification when the battery runs low");
-            stop-tip: @tr("Stop the stream when the battery runs low, and at every restart until it's fine again");
+            notify-tip: @tr("Show a notification when the battery is low.");
+            stop-tip: @tr("Stop the stream when the battery is low, and again after each restart until the battery is no longer low.");
             enabled: root.active;
             hue: root.hue;
             notify <=> root.batt-notify;
@@ -114,6 +118,7 @@ export component MonitoringCard inherits Card {
     RailRow {
         icon: Icons.thermometer;
         label: @tr("Hotter than");
+        tip-detail: @tr("The temperature that counts as too hot.");
         hue: root.hue;
         enabled: root.active;
         changed: temp-alert != 45 || !temp-notify || temp-stop;
@@ -132,8 +137,8 @@ export component MonitoringCard inherits Card {
             level-text: temp-value;
             has-default: true;
             default-value: 45;
-            tip: @tr("The temperature that counts as too hot");
-            tip-detail: temp-note;
+            tip: @tr("Hotter than");
+            tip-detail: @tr("The temperature that counts as too hot.");
             moved(v) => { root.temp-moved(v); }
         }
     }
@@ -142,8 +147,8 @@ export component MonitoringCard inherits Card {
         enabled: root.active;
         AlertTiles {
             label: @tr("Hotter than");
-            notify-tip: @tr("Show a notification when the phone gets too hot");
-            stop-tip: @tr("Stop the stream when the phone gets too hot, and at every restart until it's fine again");
+            notify-tip: @tr("Show a notification when the phone is too hot.");
+            stop-tip: @tr("Stop the stream when the phone is too hot, and again after each restart until the phone cools down.");
             enabled: root.active;
             hue: root.hue;
             notify <=> root.temp-notify;

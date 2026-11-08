@@ -31,6 +31,7 @@ pub const MAX_GAIN_CHOICES: [i64; 4] = [12, 24, 36, 48];
 pub const DEFAULT_MAX_GAIN: i64 = 12;
 
 const SUDO_HINT: &str = n_("Asks for your password (pkexec or sudo): this changes system settings.");
+const SUDO_NEEDS: &str = n_("Needs your password (pkexec or sudo) because this changes system settings.");
 
 pub const AUTHOR_URL: &str = "https://github.com/LunarKittyy";
 pub const BUG_REPORT_URL: &str = "https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml";
@@ -362,10 +363,10 @@ impl SetupPlugin {
         json!({
             "linux": self.linux,
             "v4l-text": p.v4l.text, "v4l-kind": p.v4l.kind, "v4l-command": p.v4l_command,
-            "load-tip": tr(SUDO_HINT),
+            "load-tip": tr(SUDO_NEEDS),
             "persist-checked": p.persist_checked, "persist-enabled": p.persist_enabled,
             "persist-text": persist.text, "persist-kind": persist.kind, "persist-command": p.persist_command,
-            "persist-tip": format!("{}\n{}", tr("Also writes it to /etc/modprobe.d/ and /etc/modules-load.d/, so it survives a reboot."), tr(SUDO_HINT)),
+            "persist-tip": format!("{} {}", tr("Write the setting to /etc/modprobe.d/ and /etc/modules-load.d/ so the module loads after a reboot."), tr("Needs your password (pkexec or sudo).")),
             "extras-shown": p.extras_shown, "extras-text": p.extras.text, "extras-kind": p.extras.kind,
             "extras-button": p.extras_button, "extras-enabled": p.extras_enabled, "extras-tip": busy_tip,
             "uc-text": p.uc.text, "uc-kind": p.uc.kind, "uc-button": p.uc_button, "uc-tip": p.uc_tip, "uc-primary": p.uc_primary,
@@ -595,10 +596,10 @@ impl SetupPlugin {
         p.extras_button = !extras.is_empty();
         p.extras_enabled = !extras.is_empty() && !busy && !p.removing;
         p.extras_tip = if busy {
-            tr("Stop the streams going to them first")
+            tr("Stop the streams going to them first.")
         } else {
-            format!("{} {}", tr("Back to just the one camera; Add camera sets them up again."),
-                    if self.linux { tr("Asks for your password.") } else { tr("Windows asks for permission.") })
+            format!("{} {}", tr("Go back to one camera. Use Add camera to set up the others again."),
+                    if self.linux { tr("Needs your password.") } else { tr("Windows asks for permission.") })
         };
     }
 
@@ -640,17 +641,17 @@ impl SetupPlugin {
             (Line::new(tr("Ready"), "status_ok"), tr("Reinstall"), String::new(), false)
         } else if mf == "update" || (mf == "offer" && !uc_name.is_empty()) {
             let text = if mf == "update" { tr("Update ready") } else { tr("Some apps can't see it") };
-            (Line::new(text, "status_warn"), tr("Update"), tr("Installs the camera every Windows 11 app can see (Windows asks for admin access once)."), true)
+            (Line::new(text, "status_warn"), tr("Update"), tr("Install the camera every Windows 11 app can see (Windows asks for admin access once)."), true)
         } else if !uc_name.is_empty() && in_app_folder {
             // Registered by an older Telescope from the app's own folder, which any program running as this user can write to
             (Line::new(tr("Reinstall for a security fix"), "status_warn"), tr("Reinstall"),
-             tr("Moves the driver into Program Files (Windows asks for admin access once)."), true)
+             tr("Move the driver into Program Files (Windows asks for admin access once)."), true)
         } else if uc_name == UC_NAME {
             (Line::new(tr("Ready"), "status_ok"), tr("Reinstall"), String::new(), false)
         } else if !uc_name.is_empty() {
             // Registered by an older Telescope under UnityCapture's own name: works, just harder to find
             (Line::new(tr("Apps list it as “{name}”").field("name", uc_name), "status_warn"), tr("Rename"),
-             tr("Register it again as “{name}”").field("name", UC_NAME), true)
+             tr("Register it again as “{name}”.").field("name", UC_NAME), true)
         } else {
             let dlls = mf == "offer" || dlls; // the Windows 11 one comes with Telescope
             let text = if dlls { tr("Not installed") } else { tr("Not installed (Install driver downloads it first)") };

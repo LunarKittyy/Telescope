@@ -42,6 +42,7 @@ export component VirtualCameraSettings inherits Card {
     callback copy(string);
 
     title: @tr("Virtual camera");
+    tip: @tr("Set up the virtual camera that other apps see.");
     keywords: @tr("search" => "obs zoom teams discord webcam driver output device loopback");
     icon: Icons.video;
     hue: Theme.plugin-hue("streaming");
@@ -50,14 +51,15 @@ export component VirtualCameraSettings inherits Card {
         title: @tr("Kernel module");
         keywords: @tr("search" => "v4l2loopback linux virtual camera driver load unload check status not ready /dev/video missing fix modprobe");
         sub: v4l-text;
-        tip: @tr("Already says Ready? Leave these alone; they're only for fixing a \"not ready\" status.");
+        tip: @tr("Kernel module");
+        tip-detail: @tr("Only needed when the status isn't Ready.");
         StripTop {
             title: @tr("Kernel module");
             sub: v4l-text;
             sub-kind: v4l-kind;
             StripButton { text: @tr("Check"); clicked => { root.check-clicked(); } }
-            StripButton { text: @tr("Load"); tip: load-tip; clicked => { root.load-clicked(); } }
-            StripButton { text: @tr("Unload"); tip: load-tip; clicked => { root.unload-clicked(); } }
+            StripButton { text: @tr("Load"); tip: @tr("Load"); tip-detail: load-tip; clicked => { root.load-clicked(); } }
+            StripButton { text: @tr("Unload"); tip: @tr("Unload"); tip-detail: load-tip; clicked => { root.unload-clicked(); } }
         }
         if v4l-command != "": CommandBox { command: v4l-command; copy(c) => { root.copy(c); } }
     }
@@ -74,7 +76,8 @@ export component VirtualCameraSettings inherits Card {
                 checked <=> root.persist-checked;
                 enabled: root.persist-enabled;
                 label: @tr("Load when the computer starts");
-                tip: root.persist-tip;
+                tip: @tr("Load when the computer starts");
+                tip-detail: root.persist-tip;
                 toggled(on) => { root.persist-toggled(on); }
             }
         }
@@ -88,7 +91,7 @@ export component VirtualCameraSettings inherits Card {
             title: @tr("Driver");
             sub: uc-text;
             sub-kind: uc-kind;
-            StripButton { text: uc-button; tip: uc-tip; role: uc-primary ? "primary" : ""; enabled: uc-enabled; clicked => { root.uc-clicked(); } }
+            StripButton { text: uc-button; tip: uc-tip != "" ? @tr("Driver") : ""; tip-detail: uc-tip; role: uc-primary ? "primary" : ""; enabled: uc-enabled; clicked => { root.uc-clicked(); } }
         }
     }
     if !linux: Strip {
@@ -105,13 +108,15 @@ export component VirtualCameraSettings inherits Card {
                 text: adb-button;
                 role: "primary";
                 enabled: adb-enabled;
-                tip: @tr("Downloads adb from Google, for pairing and installing over USB");
+                tip: @tr("Download");
+                tip-detail: @tr("Download adb from Google for pairing and installing over USB.");
                 clicked => { root.adb-clicked(); }
             }
             if adb-row: StripButton {
                 text: @tr("Use my own adb");
                 enabled: adb-enabled;
-                tip: @tr("Pick an adb.exe or platform-tools zip you already have");
+                tip: @tr("Use my own");
+                tip-detail: @tr("Pick an adb.exe or platform-tools zip you already have.");
                 clicked => { root.own-adb-clicked(); }
             }
         }
@@ -125,7 +130,7 @@ export component VirtualCameraSettings inherits Card {
             title: @tr("Extra cameras");
             sub: extras-text;
             sub-kind: extras-kind;
-            if extras-button: StripButton { text: @tr("Remove"); tip: extras-tip; enabled: extras-enabled; clicked => { root.extras-clicked(); } }
+            if extras-button: StripButton { text: @tr("Remove"); tip: @tr("Remove"); tip-detail: extras-tip; enabled: extras-enabled; clicked => { root.extras-clicked(); } }
         }
     }
 }
@@ -160,6 +165,7 @@ export component VideoSettings inherits Card {
     callback copy(string);
 
     title: @tr("Video");
+    tip: @tr("Hardware acceleration, power saving, zoom range and the virtual camera's size.");
     keywords: @tr("search" => "picture quality image stream camera output");
     icon: Icons.chip;
     hue: Theme.plugin-hue("streaming");
@@ -176,8 +182,8 @@ export component VideoSettings inherits Card {
                 checked <=> root.hw-checked;
                 enabled: root.hw-enabled;
                 label: @tr("Hardware acceleration");
-                tip: @tr("Decodes the Light format on the graphics card from the next stream on.");
-                tip-detail: @tr("If the card fails the processor takes over until you restart Telescope.");
+                tip: @tr("Hardware acceleration");
+                tip-detail: @tr("Decode the Light format on the graphics card from the next stream on. If the card fails the processor takes over until you restart Telescope.");
                 toggled(on) => { root.hw-toggled(on); }
             }
         }
@@ -193,7 +199,8 @@ export component VideoSettings inherits Card {
                 hue: root.hue;
                 checked <=> root.saving-checked;
                 label: @tr("Power-saving effects");
-                tip: @tr("Uses less of the processor and battery while Background or Auto framing is on. They follow quick moves a little later.");
+                tip: @tr("Power-saving effects");
+                tip-detail: @tr("Use less processor and battery while Background or Auto framing is on. They follow quick movement a little later.");
                 toggled(on) => { root.saving-toggled(on); }
             }
         }
@@ -206,7 +213,8 @@ export component VideoSettings inherits Card {
             SpinChip {
                 value: root.zoom-text;
                 label: @tr("Max zoom");
-                tip: @tr("How far the Zoom slider goes. Past what the phone can zoom itself, the rest is cropped on this computer.");
+                tip: @tr("Max zoom");
+                tip-detail: @tr("How far the Zoom slider goes. Zoom beyond the phone's own range is cropped on this computer.");
                 committed(t) => { root.zoom-committed(t); }
                 step(d) => { root.zoom-step(d); }
             }
@@ -255,7 +263,7 @@ export component VideoSettings inherits Card {
             }
             VerticalLayout {
                 alignment: start;
-                StripButton { text: apply-text; tip: apply-tip; enabled: apply-enabled; clicked => { root.apply-clicked(); } }
+                StripButton { text: apply-text; tip: apply-text; tip-detail: apply-tip; enabled: apply-enabled; clicked => { root.apply-clicked(); } }
             }
         }
         if canvas-command != "": CommandBox { command: canvas-command; copy(c) => { root.copy(c); } }
@@ -272,6 +280,7 @@ export component MicrophoneLimits inherits Card {
     callback limiter-toggled(bool);
 
     title: @tr("Microphone");
+    tip: @tr("Maximum microphone gain and the limiter.");
     keywords: @tr("search" => "audio sound voice input volume");
     icon: Icons.mic;
     hue: Theme.plugin-hue("sound");
@@ -279,7 +288,8 @@ export component MicrophoneLimits inherits Card {
     Strip {
         title: @tr("Max gain");
         keywords: @tr("search" => "microphone volume loudness boost amplify quiet decibel db slider range");
-        tip: @tr("How far the Gain slider goes. Less range gives finer steps; more helps a quiet phone.");
+        tip: @tr("Max gain");
+        tip-detail: @tr("How far the Gain slider goes. Less range gives finer steps and more range helps a quiet phone.");
         StripTop { title: @tr("Max gain"); bare: true; }
         Segmented {
             hue: root.hue;
@@ -321,6 +331,7 @@ export component PhoneAppSettings inherits Card {
     callback pick-cancelled;
 
     title: @tr("Phone app");
+    tip: @tr("Install the Telescope app on a phone over USB.");
     keywords: @tr("search" => "android install apk usb");
     icon: Icons.phone;
     hue: Theme.plugin-hue("streaming");
@@ -339,7 +350,8 @@ export component PhoneAppSettings inherits Card {
                 icon: Icons.download;
                 icon-tint: Theme.text-dim;
                 enabled: apk-enabled;
-                tip: @tr("Installs the Telescope.apk that came with this app, or one you pick, on a phone plugged in over USB.");
+                tip: @tr("Install");
+                tip-detail: @tr("Install the Telescope.apk that came with this app, or an APK you pick, on a phone plugged in over USB.");
                 clicked => { root.apk-clicked(); }
             }
         }
@@ -385,6 +397,7 @@ export component LookSettings inherits Card {
     callback translate-clicked;
 
     title: @tr("Look");
+    tip: @tr("Theme, card colours and language.");
     keywords: @tr("search" => "appearance theme colors colours interface");
     icon: Icons.sliders;
     hue: Theme.plugin-hue("streaming");
@@ -405,7 +418,8 @@ export component LookSettings inherits Card {
     Strip {
         title: @tr("Card colours");
         keywords: @tr("search" => "color colour theme appearance monochrome colourful purple hue accent look");
-        tip: @tr("Every card in the main window gets its own colour.");
+        tip: @tr("Card colours");
+        tip-detail: @tr("Give every card in the main window a different colour.");
         StripTop { title: @tr("Card colours"); bare: true; }
         Segmented {
             hue: root.hue;
@@ -445,7 +459,8 @@ export component LookSettings inherits Card {
                 has-icon: true;
                 icon: Icons.pencil;
                 icon-tint: Theme.text-dim;
-                tip: help-text != "" ? help-text + "\n" + @tr("Fix a text or add a language, no coding needed") : @tr("Fix a text or add a language, no coding needed");
+                tip: @tr("Help translate");
+                tip-detail: @tr("Fix a text or add a language, no coding needed.");
                 clicked => { root.translate-clicked(); }
             }
         }
@@ -462,7 +477,8 @@ export component LookSettings inherits Card {
                 has-icon: true;
                 icon: Icons.reset;
                 icon-tint: Theme.text-dim;
-                tip: @tr("Start Telescope again in the language you picked");
+                tip: @tr("Restart");
+                tip-detail: @tr("Restart Telescope in the language you picked.");
                 clicked => { root.restart-clicked(); }
             }
         }
@@ -484,6 +500,7 @@ export component AboutSettings inherits Card {
     callback help-clicked;
 
     title: @tr("About");
+    tip: @tr("Version, log, bug reports and help.");
     keywords: @tr("search" => "info version help support credits");
     icon: Icons.help;
     hue: Theme.plugin-hue("streaming");
@@ -519,16 +536,17 @@ export component AboutSettings inherits Card {
         StripTop {
             title: @tr("Bug reports");
             // Natural widths: three buttons sharing the row equally squeeze the text next to them onto extra lines
-            if log-shown: StripButton { text: @tr("Open log"); tip: @tr("The full log, in the temp folder (the system clears it)."); clicked => { root.log-clicked(); } }
+            if log-shown: StripButton { text: @tr("Open log"); tip: @tr("Open log"); tip-detail: @tr("Open the full log. It's kept in the temp folder, which the system clears."); clicked => { root.log-clicked(); } }
             StripButton {
                 text: diag-text;
                 has-icon: true;
                 icon: Icons.copy;
                 icon-tint: Theme.text-dim;
-                tip: @tr("Copies info for a bug report, leaving out pairing tokens, addresses and file paths.");
+                tip: @tr("Copy diagnostics");
+                tip-detail: @tr("Copy info for a bug report without pairing tokens, addresses or file paths.");
                 clicked => { root.diag-clicked(); }
             }
-            StripButton { text: @tr("Report a bug"); tip: @tr("Copies the diagnostics and opens the bug form on GitHub."); clicked => { root.bug-clicked(); } }
+            StripButton { text: @tr("Report a bug"); tip: @tr("Report a bug"); tip-detail: @tr("Copy the diagnostics and open the bug form on GitHub."); clicked => { root.bug-clicked(); } }
         }
     }
     Strip {

@@ -837,7 +837,7 @@ fn in_a_dev_profile_the_sign_in_switch_is_off_with_a_reason() {
     let props = r.plugin.sign_in_props();
     let dev = telescope_core::config::dev_profile().is_some();
     assert_eq!(props["open-enabled"], json!(!dev));
-    assert_eq!(props["open-tip"] == json!("Not in a dev profile"), dev);
+    assert_eq!(props["open-tip"] == json!("Not available in a dev profile."), dev);
 }
 
 #[test]

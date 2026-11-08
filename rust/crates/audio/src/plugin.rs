@@ -25,7 +25,8 @@ use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, TrayAction, UiEvent,
 
 pub const NAME: &str = "microphone";
 const UI: &str = include_str!("../ui/microphone.slint");
-const NO_MIC_NOTE: &str = n_("Telescope doesn't pass on this camera's microphone. To use it, choose it as the microphone in your call app.");
+const NO_MIC_NOTE: &str = n_("Telescope doesn't pass on this camera's microphone. To use it, choose it as the microphone in the app that uses the camera.");
+const NO_MIC_TIP: &str = n_("This camera's microphone doesn't go through Telescope. Pick it as the microphone in the app that uses the camera instead.");
 pub const METER_MS: u64 = 33;
 pub const GAIN_MIN_DB: i32 = -24;
 /// Until Advanced says otherwise (max_gain_changed).
@@ -451,7 +452,7 @@ impl MicrophonePlugin {
             "here": self.here(),
             "muted": self.muted,
             "mute-text": if self.muted { tr("Unmute") } else { tr("Mute") },
-            "mute-tip": if self.muted { tr("Apps hear the mic again.") } else { tr("Apps hear silence, but the microphone stays connected.") },
+            "mute-tip": if self.muted { String::new() } else { tr("Send silence to apps without disconnecting the microphone.") },
         }));
         h.update_tray(&self.tray());
         self.meter.muted = self.muted;
@@ -604,7 +605,7 @@ impl MicrophonePlugin {
 
     fn source_words(&self) -> Value {
         if self.kind() == Kind::Other {
-            return json!({"mic-label": tr("Camera mic"), "toggle-name": tr("Camera microphone"), "toggle-tip": tr(NO_MIC_NOTE),
+            return json!({"mic-label": tr("Camera mic"), "toggle-name": tr("Camera microphone"), "toggle-tip": tr(NO_MIC_TIP),
                           "gain-tip": ""});
         }
         let phone = self.kind() == Kind::Phone;
@@ -618,9 +619,9 @@ impl MicrophonePlugin {
                 tr("Use the browser's microphone on this computer while streaming. Apps list it as “{name}”.")
             }.field("name", &name),
             "gain-tip": if phone {
-                tr("Makes the phone mic louder or quieter for other apps. The range is in Advanced.")
+                tr("Make the phone mic louder or quieter for other apps. The range is in Advanced.")
             } else {
-                tr("Makes the browser mic louder or quieter for other apps. The range is in Advanced.")
+                tr("Make the browser mic louder or quieter for other apps. The range is in Advanced.")
             },
         })
     }
@@ -828,7 +829,7 @@ impl MicrophonePlugin {
     /// Everything the card shows, for a fresh card or after set_config.
     fn render(&mut self, h: &mut dyn MicHost) {
         let mut props = self.source_words();
-        let nr_tip = if self.nr_problem.is_empty() { tr("Takes out typing, fans and room hiss.") } else { self.nr_problem.clone() };
+        let nr_tip = if self.nr_problem.is_empty() { tr("Remove typing, fan noise and room hiss.") } else { self.nr_problem.clone() };
         props["active"] = json!(self.card_on());
         props["auto-level"] = json!(self.auto_level);
         props["nr"] = json!(self.noise_reduction && self.nr_problem.is_empty());

@@ -68,11 +68,12 @@ export component BrowserCameraCard inherits Card {
     visible: shown;
     height: shown ? self.preferred-height : 0px;
     title: @tr("Browser camera");
+    tip: @tr("Stream from any device's web browser by scanning a code.");
     icon: Icons.wifi;
     has-action: true;
     action-icon: Icons.reset;
     action-text: @tr("New link");
-    action-label: @tr("Make a new code; the old one stops working");
+    action-tip-detail: @tr("Make a new code. The old code stops working.");
     action-enabled: new-link-enabled;
     action => { root.new-link(); }
 
@@ -146,7 +147,8 @@ export component BrowserCameraCard inherits Card {
                     name: @tr("Address");
                     compact: true;
                     items: addresses;
-                    tip: @tr("Which of this computer's addresses the code points to");
+                    tip: @tr("Address");
+                    tip-detail: @tr("Which of this computer's addresses the code points to.");
                     current: address-index;
                     picked(i) => { root.address-picked(i); }
                 }
@@ -154,7 +156,8 @@ export component BrowserCameraCard inherits Card {
             IconButton {
                 icon: Icons.copy;
                 label: @tr("Copy");
-                tip: @tr("Copy the link, to open it on a device that can't scan the code");
+                tip: @tr("Copy");
+                tip-detail: @tr("Copy the link to open it on a device that can't scan the code.");
                 enabled: url != "";
                 clicked => { root.copy(); }
             }
@@ -163,12 +166,14 @@ export component BrowserCameraCard inherits Card {
     RailRow {
         icon: Icons.grid;
         label: @tr("Resolution");
+        tip-detail: @tr("The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do.");
         hue: root.hue;
         ChoiceField {
             name: @tr("Resolution");
             compact: true;
             items: ["480p", "720p", "1080p"];
-            tip: @tr("The size the browser sends; a camera that can't do it sends what it can");
+            tip: @tr("Resolution");
+            tip-detail: @tr("The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do.");
             current: size-index;
             picked(i) => { root.size-picked(i); }
         }
@@ -179,6 +184,7 @@ export component BrowserCameraCard inherits Card {
         hue: root.hue;
         ChoiceField {
             name: @tr("Frame rate");
+            tip: @tr("Frame rate");
             compact: true;
             items: ["15 fps", "24 fps", "30 fps"];
             current: fps-index;

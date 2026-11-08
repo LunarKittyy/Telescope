@@ -119,6 +119,7 @@ export component PhoneList inherits ScrollList {
             icon: Icons.trash;
             label: row.remove-label;
             tip: @tr("Remove");
+            tip-detail: @tr("Forget this device.");
             clicked => { root.remove(row); }
         }
     }
@@ -184,17 +185,19 @@ export component ConnectionCard inherits Card {
     callback vcam-answered(bool, bool);
 
     title: @tr("Connection");
+    tip: @tr("Pair phones, pick a device and connect over Wi-Fi or USB.");
     icon: Icons.v-connection;
     has-action: true;
     // card_action takes line icons for help and plus
     action-icon: Icons.plus;
     action-label: @tr("Add device");
+    action-tip-detail: @tr("Pair a new phone or add another device to stream from.");
     action-shortcut: "connection.add_phone";
     action => { root.add-phone(); }
     has-extra: true;
     extra-icon: Icons.help;
-    extra-label: @tr("Open or close the setup guide: the virtual camera, the phone app and pairing");
-    extra-name: @tr("Setup guide");
+    extra-label: @tr("Setup guide");
+    extra-tip-detail: @tr("Open or close the step-by-step guide for the virtual camera, the phone app and pairing.");
     extra => { root.guide(); }
 
     changed add-open => {
@@ -267,7 +270,8 @@ export component ConnectionCard inherits Card {
             text: @tr("Switch to USB");
             role: "primary";
             hue: root.hue;
-            tip: @tr("The phone was plugged in; reconnect over the cable");
+            tip: @tr("Switch to USB");
+            tip-detail: @tr("Reconnect over USB now that the phone is plugged in.");
             clicked => { root.switch-usb(); }
         }
         if !update-shown && !switch-usb-shown && using-shown: Rectangle {
@@ -285,6 +289,7 @@ export component ConnectionCard inherits Card {
     RailRow {
         icon: Icons.v-connection;
         label: @tr("Connect via");
+        tip-detail: @tr("Use USB or Wi-Fi, or let Telescope pick.");
         hue: root.hue;
         enabled: route-shown;
         changed: route-current != 0;
@@ -293,6 +298,8 @@ export component ConnectionCard inherits Card {
             horizontal-stretch: 1;
             label: @tr("Connect via");
             items: [@tr("Auto"), "USB", "Wi-Fi"];
+            tips: [@tr("Auto"), "USB", "Wi-Fi"];
+            tip-details: [@tr("Use USB or Wi-Fi, or let Telescope pick."), @tr("Use USB or Wi-Fi, or let Telescope pick."), @tr("Use USB or Wi-Fi, or let Telescope pick.")];
             icons: [Icons.x, Icons.usb, Icons.wifi];
             has-icons: [false, true, true];
             disabled: [!route-shown, !route-shown, !route-shown];
@@ -575,7 +582,8 @@ export component PhonePicker inherits HorizontalLayout {
             icon: Icons.v-devices;
             icon-size: Theme.icon * 1.125;
             icon-tint: Theme.ink2;
-            tip: @tr("Your devices: add, rename, remove");
+            tip: @tr("Devices");
+            tip-detail: @tr("Add, rename or remove the phones you've paired.");
             accessible-label: @tr("Your devices");
             clicked => { root.manage(); }
         }
@@ -630,7 +638,8 @@ export component PhonePicker inherits HorizontalLayout {
                         sub: @tr("What your phones call it");
                         Button {
                             text: @tr("Change name");
-                            tip: @tr("The name your phones show for this computer");
+                            tip: @tr("Change name");
+                            tip-detail: @tr("Change the name your phones show for this computer.");
                             accessible-label: @tr("Change this computer's name");
                             clicked => {
                                 root.ask-name("", @tr("Rename this computer"), @tr("Name your phones show (applies to phones you pair from now on)"), computer-name);

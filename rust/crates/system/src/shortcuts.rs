@@ -815,7 +815,7 @@ impl ShortcutsPlugin {
             "save-enabled": problem.is_empty() || !blocking,
             "copy-enabled": !hold,
             "copy-text": if e.copied { tr("Copied") } else { tr("Copy command") },
-            "copy-tip": if hold { tr("A command can't hold a key down; pick another choice to copy one") }
+            "copy-tip": if hold { tr("A command can't hold a key down. Pick another choice to copy its command.") }
                         else { tr("A command line that does the same, for your desktop's own keyboard settings") },
         })
     }

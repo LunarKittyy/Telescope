@@ -424,7 +424,7 @@ fn a_source_with_no_mic_to_bring_over_starts_nothing_and_says_where_to_pick_it()
     r.set_config(json!({"enabled": true}));
     r.start("webcam:usb-c920"); // a webcam: no audio route
     assert_eq!(r.made(), 0);
-    assert!(r.h.status().contains("call app"));
+    assert!(r.h.status().contains("app that uses the camera"));
 }
 
 #[test]
@@ -433,7 +433,7 @@ fn a_webcam_picked_greys_the_switch_out_and_says_where_its_mic_is() {
     r.event(Event::SourceSelected { source_id: "webcam:usb-c920".into() });
     assert_eq!(r.h.text("mic-label"), "Camera mic");
     assert!(!r.h.on("toggle-enabled"));
-    assert!(r.h.status().contains("call app"));
+    assert!(r.h.status().contains("app that uses the camera"));
     r.event(Event::SourceSelected { source_id: "browser:b1".into() });
     assert!(r.h.text("mic-label") == "Browser mic" && r.h.on("toggle-enabled"));
     r.event(Event::SourceSelected { source_id: String::new() });
@@ -747,10 +747,10 @@ fn noise_reduction_reaches_the_worker_and_is_saved_per_phone() {
 
 #[test]
 fn without_rnnoise_the_switch_is_greyed_out_with_the_reason_and_the_audio_runs_as_before() {
-    let mut r = Rig::build(backend(), true, "RNNoise is missing from this copy of Telescope. Reinstalling brings it back.");
+    let mut r = Rig::build(backend(), true, "RNNoise is missing from this copy of Telescope. Reinstall Telescope to get it back.");
     r.set_config(json!({"enabled": true, "noise_reduction": true}));
     assert!(!r.h.on("nr-enabled") && !r.h.on("nr"));
-    assert_eq!(r.h.text("nr-note"), "RNNoise is missing from this copy of Telescope. Reinstalling brings it back.");
+    assert_eq!(r.h.text("nr-note"), "RNNoise is missing from this copy of Telescope. Reinstall Telescope to get it back.");
     r.start("phone");
     let w = r.worker();
     assert!(w.lock().unwrap().started && !w.lock().unwrap().noise_reduction);

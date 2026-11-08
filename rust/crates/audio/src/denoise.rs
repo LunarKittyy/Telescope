@@ -99,7 +99,7 @@ fn problem_of<T>(loaded: Option<&Result<T, Problem>>) -> String {
 
 pub fn problem_text((kind, error): &Problem) -> String {
     if *kind == "missing" {
-        return tr("RNNoise is missing from this copy of Telescope. Reinstalling brings it back.");
+        return tr("RNNoise is missing from this copy of Telescope. Reinstall Telescope to get it back.");
     }
     tr("Couldn't load RNNoise: {error}").field("error", error)
 }
