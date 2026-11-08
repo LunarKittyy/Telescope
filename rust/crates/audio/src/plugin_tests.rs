@@ -345,7 +345,7 @@ fn once_every_plugin_is_in_the_mic_says_again_whether_its_on() {
 fn on_follows_the_stream() {
     let mut r = Rig::new(backend());
     r.toggle(true);
-    assert_eq!(r.h.status(), "Off until the stream starts.");
+    assert_eq!(r.h.status(), "");
     r.start("phone");
     let w = r.worker();
     assert!(w.lock().unwrap().started && w.lock().unwrap().url == WIFI);

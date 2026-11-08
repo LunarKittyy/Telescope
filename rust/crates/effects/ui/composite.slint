@@ -51,7 +51,7 @@ export component CompositeCard inherits Card {
                 text: @tr("Not saved");
                 font-family: Theme.font;
                 font-size: Theme.body;
-                color: Theme.text-dim;
+                color: Theme.ink2;
                 vertical-alignment: center;
                 overflow: elide;
             }
@@ -61,10 +61,9 @@ export component CompositeCard inherits Card {
         text: @tr("Edit picture");
         tip: @tr("Edit picture");
         tip-detail: @tr("Open the editor for the layout.");
-        role: "quiet";
         has-icon: true;
         icon: Icons.pencil;
-        icon-tint: Theme.text-dim;
+        icon-tint: Theme.ink2;
         clicked => { root.edit-clicked(); }
     }
     if status != "": Note { text: status; }

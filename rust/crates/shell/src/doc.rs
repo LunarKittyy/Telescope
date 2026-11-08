@@ -248,11 +248,11 @@ export component TelescopeWindow inherits Window {
     in property <string> status-size;
     in property <string> fps: "-";
     in property <string> fps-tone;
-    property <color> fps-color: fps-tone == "warn" ? Theme.warn : fps-tone == "err" ? Theme.err : Theme.text;
+    property <color> fps-color: fps-tone == "warn" ? Theme.warn : fps-tone == "err" ? Theme.err : Theme.ink;
     in property <string> fps-tip;
     in property <string> net: "-";
     in property <string> net-tone;
-    property <color> net-color: net-tone == "warn" ? Theme.warn : Theme.text;
+    property <color> net-color: net-tone == "warn" ? Theme.warn : Theme.ink;
     callback start-clicked;
     callback settings-clicked;
     callback add-picked(string);
@@ -308,7 +308,7 @@ export component TelescopeWindow inherits Window {
     preferred-height: 900px;
     min-width: 560px;
     min-height: 520px;
-    background: Theme.bg;
+    background: Theme.ground;
     default-font-family: Theme.font;
     default-font-size: Theme.body;
     clipboard := TextInput { visible: false; width: 0px; height: 0px; }
@@ -632,7 +632,7 @@ pub struct SectionPlace {
 /// plugin's sections on them.
 pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlace]) -> String {
     let mut out = String::from("import { Theme, Icons, Folds, Reveal, TextField, WindowBox, KeyFocus, TipLayer, Motion } from \"@ui-kit/ui-kit.slint\";\n");
-    out.push_str("import { SettingsNav, ScrollPage, ResultsList, PluginsPanel, PluginsFooter, Ask, NavTab, Result, GroupView, UpdateRowView } from \"shell/settings.slint\";\n");
+    out.push_str("import { SettingsNav, ScrollPage, SettingsLayout, ResultsList, PluginsPanel, PluginsFooter, Ask, NavTab, Result, GroupView, UpdateRowView } from \"shell/settings.slint\";\n");
     let mut imported = Vec::new();
     for piece in sections.iter().flat_map(|s| std::iter::once(&s.piece).chain(s.footer.as_ref())) {
         let line = format!("import {{ {} as {}C }} from {};\n", piece.component, piece.id, quote(&piece.file));
@@ -678,7 +678,7 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
         let mut below = String::from("root.height - 16px");
         for f in footers.iter().rev() {
             out.push_str(&format!(
-                "    {id} := {id}C {{\n        x: 260px;\n        y: {below} - self.preferred-height;\n        width: root.width - 284px;\n        visible: !root.searching && root.current == {t};\n    }}\n", id = f.id));
+                "    {id} := {id}C {{\n        x: 260px;\n        y: {below} - self.preferred-height;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        visible: !root.searching && root.current == {t};\n    }}\n", id = f.id));
             below = format!("{}.y - 10px", f.id);
         }
     }
@@ -759,7 +759,7 @@ export component TelescopeSettings inherits Window {
     in property <length> least-height: 480px;
     min-width: least-width;
     min-height: least-height;
-    background: Theme.bg;
+    background: Theme.ground;
     default-font-family: Theme.font;
     default-font-size: Theme.body;
 "#;
@@ -816,7 +816,7 @@ const SETTINGS_RAIL: &str = r#"    Rectangle {
         font-family: Theme.font;
         font-size: 19px; // 14pt, which Qt draws at 19
         font-weight: 600;
-        color: Theme.text;
+        color: Theme.ink;
         vertical-alignment: center;
         accessible-role: text;
     }

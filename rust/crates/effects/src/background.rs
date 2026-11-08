@@ -5,7 +5,7 @@ use crate::cpu::Rgb;
 use crate::shared::mask_of;
 use crate::imgops::{blur_quick, compose, Gray};
 use crate::peek;
-use crate::shared::{no_pictures, Paired, PictureReader};
+use crate::shared::{no_pictures, thumb_of, Paired, PictureReader};
 use crate::vision_row;
 use serde_json::{json, Map, Value};
 use std::path::Path;
@@ -24,6 +24,8 @@ use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 pub const NAME: &str = "background";
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/vision_status.slint"), "\n", include_str!("../ui/background.slint"));
 pub const MODES: [(&str, &str); 3] = [("off", n_("Off")), ("blur", n_("Blur")), ("picture", n_("Picture"))];
+/// The picture control shows its picture this many columns wide, twice what it takes on a sharp screen.
+const THUMB_COLUMNS: usize = 96;
 const PICTURES: &str = n_("Pictures (*.png *.jpg *.jpeg *.webp *.bmp)");
 /// Edges are worked out at a quarter of the size, then scaled back up.
 const SMALL: f64 = 4.0;
@@ -134,6 +136,9 @@ pub struct BackgroundPlugin {
     picture_path: String,
     picture: Option<Arc<Rgb>>,
     picture_problem: String,
+    /// The picture's small copy for the Choose control, and whether the card has it yet.
+    thumb: Option<Frame>,
+    thumb_sent: bool,
     paired: Paired,
     reader: PictureReader,
     asked: Option<RequestId>,
@@ -168,6 +173,8 @@ impl BackgroundPlugin {
             picture_path: String::new(),
             picture: None,
             picture_problem: String::new(),
+            thumb: None,
+            thumb_sent: true,
             paired: Paired::default(),
             reader,
             asked: None,
@@ -197,27 +204,16 @@ impl BackgroundPlugin {
             "blur-text": self.blur.to_string(),
             "edges": self.edges,
             "edges-text": self.edges.to_string(),
-            "picture-text": if self.picture_path.is_empty() { tr("No picture yet") } else { file_name(&self.picture_path) },
+            "picture-text": file_name(&self.picture_path),
+            "has-picture": self.picture.is_some(),
+            "picture-problem": self.picture_problem,
             "picture-tip": self.picture_path,
         })
     }
 
-    /// _show_status: the card's own reason for the row, if there is one.
-    fn problem(&self) -> String {
-        if self.mode_name() != "picture" {
-            String::new()
-        } else if !self.picture_problem.is_empty() {
-            self.picture_problem.clone()
-        } else if self.picture.is_none() {
-            tr("Choose a picture to put behind you.")
-        } else {
-            String::new()
-        }
-    }
-
-    fn show(&self, host: &mut dyn Host) {
+    fn show(&mut self, host: &mut dyn Host) {
         let mut props = self.all_props();
-        let row = vision_row::props(&*host, self.mode != 0, &self.problem());
+        let row = vision_row::props(&*host, self.mode != 0, "");
         // The preview shows the blur only while it streams and the person can be told from the room; until then the bubble does
         let working = host.is_streaming() && row.get("vision-text").and_then(Value::as_str) == Some("");
         if let Value::Object(p) = &mut props {
@@ -227,6 +223,11 @@ impl BackgroundPlugin {
             p.insert("blur-peek".into(), json!(if self.mode_name() == "blur" && working { "" } else { "picture" }));
         }
         host.set_ui_props("card", &props);
+        if !self.thumb_sent {
+            self.thumb_sent = true;
+            let empty = Frame::new(0, 0, telescope_core::frame::PixelFormat::Rgba, Vec::new());
+            host.set_ui_image("card", "picture-thumb", self.thumb.as_ref().unwrap_or(&empty));
+        }
     }
 
     /// The stand-in scene blurred at this strength with the effect's own blur and edge, behind the person.
@@ -261,6 +262,8 @@ impl BackgroundPlugin {
         self.picture_path = path.to_string();
         let read = if path.is_empty() { None } else { (self.reader)(path).ok().filter(|f| f.width > 0 && f.height > 0) };
         self.picture = read.and_then(|f| Rgb::from_frame(&f)).map(Arc::new);
+        self.thumb = self.picture.as_ref().map(|p| thumb_of(p, THUMB_COLUMNS));
+        self.thumb_sent = false;
         self.picture_problem = if !path.is_empty() && self.picture.is_none() { tr("Telescope can't open that picture.") } else { String::new() };
     }
 }

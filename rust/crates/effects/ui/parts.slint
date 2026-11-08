@@ -1,12 +1,12 @@
 // What both cards of this crate are built from. The plugins join this file and their card into one source (Rust's concat!),
 // so it holds the only import line.
 
-import { Theme, Icons, Icon, FocusRing, KeyFocus, TouchRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, Stepper, SwitchTile, ToggleTile, PictureSegmented, Dial, RailRow, SwitchRow, TextField, NumberField, FlickBar, Tip, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu, Reveal, ColourField, WindowBox, TipLayer, Pad, ColourWheel } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, KeyFocus, TouchRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, Stepper, SwitchTile, ToggleTile, PictureSegmented, Dial, RailRow, SwitchRow, TextField, NumberField, FlickBar, Tip, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu, Reveal, ColourField, WindowBox, TipLayer, Pad, ColourWheel, Motion } from "@ui-kit/ui-kit.slint";
 
 global Status {
     public pure function color(kind: string) -> color {
         kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
-            : kind == "status_dim" ? Theme.text-dim : Theme.text
+            : kind == "status_dim" ? Theme.ink2 : Theme.ink
     }
 }
 
@@ -17,6 +17,114 @@ component Note inherits Text {
     font-size: Theme.body;
     color: Status.color(kind);
     wrap: word-wrap;
+}
+
+// The red mark that says something is wrong with a control (the Microphone's Noise reduction has the same one): the reason is its tooltip
+component ProblemMark inherits Rectangle {
+    in property <string> says;
+    in property <string> detail;
+    width: Theme.u(8);
+    height: Theme.u(8);
+    border-radius: self.height / 2;
+    background: Theme.err;
+    accessible-role: text;
+    accessible-label: detail != "" ? detail : says;
+    Text {
+        text: "!";
+        font-family: Theme.font;
+        font-size: Theme.small;
+        font-weight: 700;
+        color: Theme.on-hue;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        accessible-role: none;
+    }
+    Tip { says: root.says; detail: root.detail; inert: true; }
+}
+
+// The picture a card puts behind you, as the control that chooses it: a raised slot with the picture's own small copy in it and its file
+// name, or an empty slot ("Choose") until there is one. A picture that can't be opened shows the red mark with the reason as its tooltip.
+component PictureField inherits Rectangle {
+    in property <image> thumb;
+    in property <bool> has-picture;
+    // The file's name, or what the empty slot says
+    in property <string> name;
+    in property <string> problem;
+    in property <bool> enabled: true;
+    in property <string> tip;
+    in property <string> tip-detail;
+    in property <color> hue: Theme.accent;
+    callback clicked;
+    height: Theme.row;
+    horizontal-stretch: 1;
+    min-width: Theme.u(40);
+    border-radius: Theme.r-ctl;
+    background: !enabled ? Theme.trough : touch.pressed ? Theme.sel : touch.has-hover ? Theme.hover : Theme.raise;
+    animate background { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
+    accessible-role: button;
+    accessible-label: name;
+    accessible-description: problem != "" ? problem : tip;
+    accessible-action-default => { if (enabled) { clicked(); } }
+    forward-focus: focus;
+    focus := FocusScope {
+        enabled: root.enabled;
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+        key-pressed(e) => {
+            if (e.text == " " || e.text == "\n") { clicked(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: root.border-radius; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hover: touch.has-hover; focused: focus.has-focus && KeyFocus.keyboard; inert: !root.enabled; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
+        clicked => { root.clicked(); }
+    }
+    HorizontalLayout {
+        padding: Theme.u(3);
+        spacing: Theme.u(4);
+        // The slot: the picture cropped to it, or the empty slot's own glyph
+        Rectangle {
+            width: Theme.u(20);
+            border-radius: Theme.r-handle;
+            background: Theme.trough;
+            clip: true;
+            if has-picture: Image {
+                width: parent.width;
+                height: parent.height;
+                source: thumb;
+                image-fit: cover;
+                opacity: enabled ? 1 : 0.5;
+            }
+            if !has-picture: Icon {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                width: Theme.icon-small;
+                height: Theme.icon-small;
+                source: Icons.photo;
+                tint: Theme.dis;
+            }
+        }
+        Text {
+            text: name;
+            overflow: elide;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-value;
+            color: !enabled ? Theme.dis : has-picture ? Theme.ink : Theme.ink2;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            min-width: 0px;
+            accessible-role: none;
+        }
+        if problem != "": Rectangle {
+            width: Theme.u(8);
+            ProblemMark { y: (parent.height - self.height) / 2; says: @tr("Can't open this picture"); detail: problem; }
+        }
+        Rectangle { width: Theme.u(1); }
+    }
 }
 
 // control_row with a slider and its readout, and the tooltip the slider has in Qt
@@ -231,7 +339,7 @@ component CurveBox inherits Rectangle {
     in property <string> line;
     in property <[CurvePoint]> points: [{ x: 0, y: 0 }];
     in property <int> picked: -1;
-    in property <color> colour: Theme.text;
+    in property <color> colour: Theme.ink;
     in property <string> label;
     callback pressed(float, float, float, float, bool);
     callback moved(float, float, float, float);
@@ -243,7 +351,7 @@ component CurveBox inherits Rectangle {
     property <length> pad: 8px;
     property <length> area-w: self.width - 2 * pad;
     property <length> area-h: self.height - pad - (hue-curve ? 14px : pad);
-    property <color> tone: enabled ? colour : Theme.text-disabled;
+    property <color> tone: enabled ? colour : Theme.dis;
     forward-focus: focus;
     accessible-role: slider;
     accessible-label: label;
@@ -267,8 +375,8 @@ component CurveBox inherits Rectangle {
         height: area-h + 2px;
         border-radius: 4px;
         border-width: 1px;
-        border-color: Theme.border;
-        background: Theme.surface-sunk;
+        border-color: Theme.line;
+        background: Theme.stage;
     }
     if hue-curve: Rectangle {
         x: pad;
@@ -279,8 +387,8 @@ component CurveBox inherits Rectangle {
         opacity: enabled ? 1 : 0.4;
         background: @linear-gradient(90deg, #d96262 0%, #d99d62 8%, #d9d962 17%, #9dd962 25%, #62d962 33%, #62d99d 42%, #62d9d9 50%, #629dd9 58%, #6262d9 67%, #9d62d9 75%, #d962d9 83%, #d9629d 92%, #d96262 100%);
     }
-    for i in [1, 2, 3]: Rectangle { x: pad + area-w * i / 4; y: pad; width: 1px; height: area-h; background: Theme.border; }
-    for i in [1, 2, 3]: Rectangle { x: pad; y: pad + area-h * i / 4; width: area-w; height: 1px; background: Theme.border; }
+    for i in [1, 2, 3]: Rectangle { x: pad + area-w * i / 4; y: pad; width: 1px; height: area-h; background: Theme.line; }
+    for i in [1, 2, 3]: Rectangle { x: pad; y: pad + area-h * i / 4; width: area-w; height: 1px; background: Theme.line; }
     // The line nothing changes along
     // fill: a path keeps its viewbox's shape by default, and this box isn't square. A stroke sits half out of a path's box
     Path {
@@ -292,7 +400,7 @@ component CurveBox inherits Rectangle {
         viewbox-height: 100;
         fit: ImageFit.fill;
         commands: hue-curve ? "M 0 50 L 100 50" : "M 0 100 L 100 0";
-        stroke: Theme.border-strong;
+        stroke: Theme.line-strong;
         stroke-width: 1px;
     }
     Rectangle {
@@ -322,7 +430,7 @@ component CurveBox inherits Rectangle {
         border-radius: 5px;
         border-width: 1.5px;
         border-color: tone;
-        background: i == picked && enabled ? colour : Theme.surface;
+        background: i == picked && enabled ? colour : Theme.card;
     }
     FocusRing { shown: focus.has-focus; radius: 6px; x: 1px; y: 1px; width: root.width - 2px; height: root.height - 2px; }
     TouchArea {

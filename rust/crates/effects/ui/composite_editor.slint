@@ -32,14 +32,14 @@ component Chip inherits Rectangle {
     width: label.preferred-width + 18px;
     height: label.preferred-height + 6px;
     border-radius: self.height / 2;
-    background: Theme.surface-sunk.with-alpha(0.82);
+    background: Theme.stage.with-alpha(0.82);
     border-width: accent ? 1px : 0px;
     border-color: Theme.plugin-hue("streaming");
     label := Text {
         text: root.text;
         font-family: Theme.font;
         font-size: Theme.body;
-        color: accent ? Theme.accent-soft : Theme.text;
+        color: accent ? Theme.accent-soft : Theme.ink;
     }
 }
 
@@ -83,8 +83,8 @@ component PictureView inherits Rectangle {
     min-height: 320px;
     border-radius: 10px;
     border-width: 1px;
-    border-color: Theme.border;
-    background: Theme.surface-sunk;
+    border-color: Theme.line;
+    background: Theme.stage;
     accessible-role: slider;
     accessible-label: @tr("Picture preview");
     accessible-value: selected < 0 ? @tr("no picture picked") : @tr("picked") + " " + selected-tile.name + ", " + Spoken.percent(selected-tile.x) + "% " + @tr("from the left") + ", " + Spoken.percent(selected-tile.y) + "% " + @tr("from the top");
@@ -101,20 +101,20 @@ component PictureView inherits Rectangle {
             y: t.y * parent.height;
             width: t.w * parent.width;
             height: t.h * parent.height;
-            background: t.missing ? Theme.surface-raise.with-alpha(0.75) : transparent;
+            background: t.missing ? Theme.raise.with-alpha(0.75) : transparent;
             border-width: !t.missing && t.hover ? 1.5px : 0px;
             border-color: Theme.plugin-hue("streaming").with-alpha(0.55);
-            if t.missing: Dashes { x: 0; y: 0; width: parent.width; height: 1px; across: true; colour: Theme.text-faint; }
-            if t.missing: Dashes { x: 0; y: parent.height - 1px; width: parent.width; height: 1px; across: true; colour: Theme.text-faint; }
-            if t.missing: Dashes { x: 0; y: 0; width: 1px; height: parent.height; colour: Theme.text-faint; }
-            if t.missing: Dashes { x: parent.width - 1px; y: 0; width: 1px; height: parent.height; colour: Theme.text-faint; }
+            if t.missing: Dashes { x: 0; y: 0; width: parent.width; height: 1px; across: true; colour: Theme.faint; }
+            if t.missing: Dashes { x: 0; y: parent.height - 1px; width: parent.width; height: 1px; across: true; colour: Theme.faint; }
+            if t.missing: Dashes { x: 0; y: 0; width: 1px; height: parent.height; colour: Theme.faint; }
+            if t.missing: Dashes { x: parent.width - 1px; y: 0; width: 1px; height: parent.height; colour: Theme.faint; }
             if t.missing: Text {
                 width: parent.width - 12px;
                 text: t.gone;
                 wrap: word-wrap;
                 font-family: Theme.font;
                 font-size: Theme.body;
-                color: Theme.text-dim;
+                color: Theme.ink2;
                 horizontal-alignment: center;
                 vertical-alignment: center;
             }
@@ -128,14 +128,14 @@ component PictureView inherits Rectangle {
         width: area-w + 2px;
         height: area-h + 2px;
         border-width: 1px;
-        border-color: Theme.border-strong;
+        border-color: Theme.line-strong;
     }
     if selected >= 0: Rectangle {
         x: area-x + selected-tile.x * area-w;
         y: area-y + selected-tile.y * area-h;
         width: selected-tile.w * area-w;
         height: selected-tile.h * area-h;
-        Rectangle { x: -2px; y: -2px; width: parent.width + 4px; height: parent.height + 4px; border-width: 3.5px; border-color: Theme.surface-sunk.with-alpha(0.7); }
+        Rectangle { x: -2px; y: -2px; width: parent.width + 4px; height: parent.height + 4px; border-width: 3.5px; border-color: Theme.stage.with-alpha(0.7); }
         Rectangle { border-width: 1.5px; border-color: Theme.plugin-hue("streaming"); }
         if selected-tile.name != "" && parent.height > 40px: Chip {
             x: 6px;
@@ -154,7 +154,7 @@ component PictureView inherits Rectangle {
         y: area-y + g.y * area-h - self.height / 2;
         border-radius: min(self.width, self.height) / 2;
         border-width: 1.5px;
-        border-color: Theme.surface-sunk;
+        border-color: Theme.stage;
         background: g.hot ? white : Theme.plugin-hue("streaming");
     }
     if mode != "": Chip {
@@ -211,7 +211,7 @@ component SwatchRow inherits HorizontalLayout {
         y: (parent.height - self.height) / 2;
         border-radius: 7px;
         border-width: 1px;
-        border-color: touch.has-hover ? Theme.border-hover : Theme.border-strong;
+        border-color: touch.has-hover ? Theme.line-hover : Theme.line-strong;
         background: root.colour;
         accessible-role: button;
         accessible-label: label + ": " + code;
@@ -222,7 +222,7 @@ component SwatchRow inherits HorizontalLayout {
         text: code;
         font-family: Theme.font;
         font-size: Theme.body;
-        color: Theme.text-dim;
+        color: Theme.ink2;
         vertical-alignment: center;
     }
 }
@@ -236,7 +236,7 @@ export component CompositeEditor inherits Window {
     }
     changed width => { WindowBox.width = self.width; }
     changed height => { WindowBox.height = self.height; }
-    background: Theme.bg;
+    background: Theme.ground;
     min-width: 960px;
     min-height: 600px;
     in property <image> picture;
@@ -314,7 +314,7 @@ export component CompositeEditor inherits Window {
         spacing: 14px;
         VerticalLayout {
             spacing: 2px;
-            Text { text: @tr("Edit picture"); font-family: Theme.font; font-size: 19px; font-weight: 600; color: Theme.text; }
+            Text { text: @tr("Edit picture"); font-family: Theme.font; font-size: 19px; font-weight: 600; color: Theme.ink; }
         }
         HorizontalLayout {
             spacing: 12px;
@@ -349,10 +349,9 @@ export component CompositeEditor inherits Window {
                     width: self.preferred-width;
                     height: 32px;
                     spacing: 6px;
-                    Text { text: @tr("Start from"); font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; }
+                    Text { text: @tr("Start from"); font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; }
                     for label[i] in [@tr("Side by side"), @tr("Big and small"), @tr("Grid")]: Button {
                         text: label;
-                        role: "quiet";
                         enabled: starts-enabled;
                         tip: label;
                         tip-detail: @tr("Start a new layout with the running streams arranged like this.");
@@ -406,7 +405,7 @@ export component CompositeEditor inherits Window {
                                     text: row.text;
                                     font-family: Theme.font;
                                     font-size: Theme.body;
-                                    color: row.dim ? Theme.text-dim : Theme.text;
+                                    color: row.dim ? Theme.ink2 : Theme.ink;
                                     vertical-alignment: center;
                                     horizontal-stretch: 1;
                                     overflow: elide;
@@ -440,7 +439,7 @@ export component CompositeEditor inherits Window {
                             LabelRow {
                             label-width: 72px;
                                 label: @tr("Stream");
-                                shown-tile-name := Text { text: selected-tile.name; font-family: Theme.font; font-size: Theme.body; color: Theme.text; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; Tip { says: shown-tile-name.text; enabled: shown-tile-name.preferred-width > shown-tile-name.width; inert: true; } }
+                                shown-tile-name := Text { text: selected-tile.name; font-family: Theme.font; font-size: Theme.body; color: Theme.ink; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; Tip { says: shown-tile-name.text; enabled: shown-tile-name.preferred-width > shown-tile-name.width; inert: true; } }
                             }
                             SliderRow {
                                     label-width: 72px;
@@ -508,8 +507,8 @@ export component CompositeEditor inherits Window {
                                 label: @tr("Order");
                                 HorizontalLayout {
                                     spacing: 8px;
-                                    Button { y: 2px; text: @tr("Send back"); role: "quiet"; enabled: back-enabled; clicked => { root.restack(-1); } }
-                                    Button { y: 2px; text: @tr("Bring forward"); role: "quiet"; enabled: front-enabled; clicked => { root.restack(1); } }
+                                    Button { y: 2px; text: @tr("Send back"); enabled: back-enabled; clicked => { root.restack(-1); } }
+                                    Button { y: 2px; text: @tr("Bring forward"); enabled: front-enabled; clicked => { root.restack(1); } }
                                 }
                             }
                         }
@@ -542,7 +541,7 @@ export component CompositeEditor inherits Window {
                         LabelRow {
                             label-width: 72px;
                             label: @tr("Picture");
-                            shown-picture-name := Text { text: picture-name; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; Tip { says: shown-picture-name.text; enabled: shown-picture-name.preferred-width > shown-picture-name.width; inert: true; } }
+                            shown-picture-name := Text { text: picture-name; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; Tip { says: shown-picture-name.text; enabled: shown-picture-name.preferred-width > shown-picture-name.width; inert: true; } }
                             Button { y: 2px; text: @tr("Picture"); tip: @tr("Picture"); tip-detail: @tr("Show a picture behind the streams instead of the colour."); clicked => { root.picture-clicked(); } }
                             if has-picture: IconButton { y: 3px; icon: Icons.x; label: @tr("No picture"); clicked => { root.no-picture(); } }
                         }
@@ -577,7 +576,7 @@ export component CompositeEditor inherits Window {
             title: asking-name ? ask-title : @tr("Replace layout");
             if asking-name: VerticalLayout {
                 spacing: 12px;
-                Text { text: @tr("Name:"); font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
+                Text { text: @tr("Name:"); font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; }
                 name := TextField {
                     text: ask-start;
                     label: @tr("Name:");

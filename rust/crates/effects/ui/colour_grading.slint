@@ -222,7 +222,7 @@ export component ColourGradingCard inherits Card {
         moved(v) => { root.split-moved(v); }
     }
     HorizontalLayout {
-        spacing: 8px;
+        spacing: Theme.u(4);
         Segmented {
             hue: root.hue;
             margin: 0px;
@@ -236,24 +236,26 @@ export component ColourGradingCard inherits Card {
             current: page;
             picked(i) => { root.page-picked(i); }
         }
+        // Auto keeps one width whatever it is doing: its answer shows in the icon's colour and the tooltip, never in the label
         Button {
+            width: Theme.u(34);
             enabled: active && !auto-busy;
-            text: auto-label != "" ? auto-label : @tr("Auto");
+            text: @tr("Auto");
+            has-icon: true;
+            icon: Icons.sparkle;
+            icon-tint: auto-label == "" ? Theme.ink2 : auto-label == @tr("Looks fine") ? Theme.ok : Theme.warn;
             accessible-label: @tr("Auto colour grading");
-            tip: @tr("Auto");
-            tip-detail: @tr("Set white balance, brightness, contrast and colour from about a second of the picture. You can still adjust everything on the sliders.");
+            tip: auto-busy ? @tr("Looking at the picture") : auto-label != "" ? auto-label : @tr("Auto");
+            tip-detail: auto-busy || auto-label != "" ? "" : @tr("Set white balance, brightness, contrast and colour from about a second of the picture. You can still adjust everything on the sliders.");
             clicked => { root.auto-clicked(); }
         }
-        Rectangle {
-            width: 30px;
-            IconButton {
-                y: (parent.height - self.height) / 2;
-                icon: Icons.reset;
-                label: @tr("Reset grade");
-                tip: @tr("Reset grade");
-                tip-detail: @tr("Set everything except the LUT back to default.");
-                clicked => { root.reset-clicked(); }
-            }
+        IconButton {
+            icon: Icons.reset;
+            label: @tr("Reset grade");
+            raised: true;
+            tip: @tr("Reset grade");
+            tip-detail: @tr("Set everything except the LUT back to default.");
+            clicked => { root.reset-clicked(); }
         }
     }
 

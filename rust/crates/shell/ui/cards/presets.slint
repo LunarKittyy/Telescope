@@ -13,7 +13,7 @@ component MenuRow inherits Rectangle {
     callback clicked;
     height: 26px;
     border-radius: 5px;
-    background: enabled && (touch.has-hover || open) ? Theme.surface-hover : transparent;
+    background: enabled && (touch.has-hover || open) ? Theme.hover : transparent;
     accessible-role: button;
     accessible-label: text;
     accessible-enabled: enabled;
@@ -29,7 +29,7 @@ component MenuRow inherits Rectangle {
         text: root.text;
         font-family: Theme.font;
         font-size: Theme.body;
-        color: enabled ? Theme.text : Theme.text-disabled;
+        color: enabled ? Theme.ink : Theme.dis;
         vertical-alignment: center;
         overflow: elide;
     }
@@ -38,15 +38,15 @@ component MenuRow inherits Rectangle {
         text: "›";
         font-family: Theme.font;
         font-size: Theme.body;
-        color: enabled ? Theme.text-dim : Theme.text-disabled;
+        color: enabled ? Theme.ink2 : Theme.dis;
         vertical-alignment: center;
     }
 }
 
 component MenuFrame inherits Rectangle {
-    background: Theme.surface-raise;
+    background: Theme.raise;
     border-width: 1px;
-    border-color: Theme.border-hover;
+    border-color: Theme.line-hover;
     border-radius: 7px;
     drop-shadow-blur: 12px;
     drop-shadow-color: #00000080;
@@ -128,7 +128,7 @@ export component PresetsHeader inherits HorizontalLayout {
                 }
                 if names.length > 0: Rectangle {
                     height: 9px;
-                    Rectangle { y: 4px; height: 1px; background: Theme.border; }
+                    Rectangle { y: 4px; height: 1px; background: Theme.line; }
                 }
                 MenuRow {
                     text: save-text;
@@ -206,7 +206,7 @@ export component PresetsHeader inherits HorizontalLayout {
                         text: dialog-label;
                         font-family: Theme.font;
                         font-size: Theme.body;
-                        color: Theme.text;
+                        color: Theme.ink;
                     }
                     TextField {
                         label: dialog-label;

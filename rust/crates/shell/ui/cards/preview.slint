@@ -78,7 +78,7 @@ export component PreviewCard inherits Rectangle {
 
     visible: visible-card;
     preferred-height: 240px + Theme.row + Theme.u(8);
-    background: Theme.surface-sunk;
+    background: Theme.stage;
     border-radius: Theme.r-card;
     clip: true;
 
@@ -87,7 +87,7 @@ export component PreviewCard inherits Rectangle {
         surface := Rectangle {
             min-height: 240px;
             vertical-stretch: 1;
-            background: Theme.surface-sunk;
+            background: Theme.stage;
             accessible-role: image;
             accessible-label: @tr("Preview");
             if has-frame: Image {

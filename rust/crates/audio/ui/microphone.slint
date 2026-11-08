@@ -17,7 +17,7 @@ export struct MeterState {
 global Status {
     public pure function color(kind: string) -> color {
         kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
-            : kind == "status_dim" ? Theme.text-dim : Theme.text
+            : kind == "status_dim" ? Theme.ink2 : Theme.ink
     }
 }
 
@@ -45,16 +45,16 @@ component Zone inherits Rectangle {
     background: tone.with-alpha(alpha);
 }
 
-// LevelMeter: peak and RMS bars, a held peak marker, ticks under the bar and a clip light. A click clears the hold.
+// LevelMeter: peak and RMS bars, a held peak marker and ticks under the bar. The bar's end cap lights when the limiter works or the
+// sound clipped. A click clears the hold.
 component LevelMeter inherits Rectangle {
     in property <MeterState> state;
     callback clicked;
-    property <length> dot: 8px;
-    property <length> inset: 10px;
-    property <length> bar-h: 8px;
-    property <length> track-w: root.width - inset - dot - 6px - 1px;
-    property <length> top: (root.height - bar-h) / 2 - 2px;
-    min-width: 84px;
+    property <length> inset: Theme.u(5);
+    property <length> bar-h: Theme.u(4);
+    property <length> track-w: root.width - inset;
+    property <length> top: (root.height - bar-h) / 2 - Theme.u(1);
+    min-width: Theme.u(42);
     height: Theme.row;
     horizontal-stretch: 1;
     function tone(zone: int) -> color {
@@ -64,7 +64,7 @@ component LevelMeter inherits Rectangle {
         p * track-w
     }
     bar := Rectangle {
-        x: inset + 0.5px;
+        x: inset;
         y: top;
         width: track-w;
         height: bar-h;
@@ -79,34 +79,34 @@ component LevelMeter inherits Rectangle {
         Zone { from: 0.55; to: 0.85; level: state.rms; tone: tone(1); alpha: 1; track: track-w; height: bar-h; }
         Zone { from: 0.85; to: 1; level: state.rms; tone: tone(2); alpha: 1; track: track-w; height: bar-h; }
         if state.hold >= 0: Rectangle {
-            x: min(max(at(state.hold), 3px), track-w - bar-h / 2) - 1px;
-            width: 2px;
+            x: min(max(at(state.hold), Theme.u(1.5)), track-w - bar-h / 2) - Theme.u(0.5);
+            width: Theme.u(1);
             height: bar-h;
             background: state.muted ? Theme.ink2 : Theme.ink;
+        }
+        // The end cap: the limiter holding peaks down, or the sound clipping
+        Rectangle {
+            x: track-w - bar-h;
+            width: bar-h;
+            height: bar-h;
+            border-radius: bar-h / 2;
+            background: state.lit == "clip" ? Theme.err : state.lit == "limit" ? Theme.warn : transparent;
         }
     }
     // Ticks at -40, -30, -20, -12 and -6 dBFS
     for p in [0.16667, 0.25, 0.5, 0.7, 0.85]: Rectangle {
         x: inset + round(p * track-w / 1px) * 1px;
-        y: top + bar-h + 3px;
-        width: 1px;
-        height: 3px;
+        y: top + bar-h + Theme.u(1.5);
+        width: Theme.u(0.5);
+        height: Theme.u(1.5);
         background: Theme.line-strong;
-    }
-    Rectangle {
-        x: root.width - dot - 0.5px;
-        y: top + bar-h / 2 - dot / 2;
-        width: dot;
-        height: dot;
-        border-radius: dot / 2;
-        background: state.lit == "clip" ? Theme.err : state.lit == "limit" ? Theme.warn : Theme.trough;
     }
     // One area for the click and the tooltip: a second one on top would take the click
     touch := TouchArea {
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
     }
-    Tip { says: @tr("Level"); detail: @tr("Yellow means the limiter is reducing loud peaks and red means the sound clipped."); hint: @tr("Click to clear"); hover: touch.has-hover; }
+    Tip { says: @tr("Level"); detail: @tr("Yellow: the limiter is holding peaks down. Red: it clipped."); hint: @tr("Click to clear"); hover: touch.has-hover; }
 }
 
 export component MicrophoneCard inherits Card {
@@ -164,7 +164,7 @@ export component MicrophoneCard inherits Card {
     has-action: here;
     action-text: mute-text;
     action-icon: muted ? Icons.v-mic-off : Icons.v-mic;
-    action-tint: muted ? Theme.err : Theme.text-dim;
+    action-tint: muted ? Theme.err : Theme.ink2;
     action-label: mute-text;
     action-tip-detail: mute-tip;
     action-shortcut: "microphone.mute";
@@ -186,7 +186,7 @@ export component MicrophoneCard inherits Card {
         icon: Icons.mic;
         label: mic-label;
         tip: @tr("Level");
-        tip-detail: @tr("Yellow means the limiter is reducing loud peaks and red means the sound clipped.");
+        tip-detail: @tr("Yellow: the limiter is holding peaks down. Red: it clipped.");
         hue: root.hue;
         HorizontalLayout {
             spacing: Theme.gap;
@@ -301,26 +301,24 @@ export component MicrophoneCard inherits Card {
     question := PopupWindow {
         x: -root.absolute-position.x;
         y: -root.absolute-position.y;
-        width: WindowBox.cover-w(max(root.width, 460px));
+        width: WindowBox.cover-w(max(root.width, Theme.u(230)));
         height: WindowBox.cover-h(question-frame.preferred-height);
         close-policy: no-auto-close;
         question-frame := DialogFrame {
             x: WindowBox.left(self.width);
             y: WindowBox.top(self.height);
-            width: max(root.width, 460px);
+            width: max(root.width, Theme.u(230));
             height: self.preferred-height;
             dismissable: true;
             dismissed => { question.close(); root.confirm-answered(false); }
             title: @tr("Install VB-Cable");
-            Note { text: @tr("The phone's mic needs VB-Audio Virtual Cable on Windows."); kind: "status_none"; }
-            Note { text: @tr("VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."); }
+            Note { text: @tr("VB-Cable is made by VB-Audio. Telescope downloads it from vb-audio.com and opens its setup, which asks for admin. Restart the computer afterwards."); kind: "status_none"; }
             // VB-Audio's own two lines stay in English, as their licence asks for them word for word
             Note { text: origin + "\n" + donationware; }
             HorizontalLayout {
-                spacing: 8px;
+                spacing: Theme.u(4);
                 Button {
                     text: donate-text;
-                    role: "quiet";
                     clicked => { root.donate(); }
                 }
                 Rectangle { horizontal-stretch: 1; }

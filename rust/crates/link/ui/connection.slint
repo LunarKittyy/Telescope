@@ -27,7 +27,7 @@ export struct PhoneRow {
 global Status {
     public pure function color(kind: string) -> color {
         kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
-            : kind == "status_dim" ? Theme.text-dim : Theme.text
+            : kind == "status_dim" ? Theme.ink2 : Theme.ink
     }
 
     // The state's glyph in its chip: a tick for fine, a cross for wrong, a warning, three dots while it isn't known
@@ -430,7 +430,7 @@ export component ConnectionCard inherits Card {
                 font-family: Theme.font;
                 font-size: Theme.card-title;
                 font-weight: 600;
-                color: Theme.text;
+                color: Theme.ink;
                 horizontal-alignment: center;
             }
             // dialog_buttons: 4px above, 96px wide
@@ -479,7 +479,7 @@ export component ConnectionCard inherits Card {
                     text: @tr("Also switch it on at every startup");
                     font-family: Theme.font;
                     font-size: Theme.body;
-                    color: Theme.text;
+                    color: Theme.ink;
                     vertical-alignment: center;
                 }
             }

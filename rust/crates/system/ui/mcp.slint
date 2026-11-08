@@ -45,14 +45,14 @@ export component McpSettings inherits VerticalLayout {
                     text: none-text;
                     font-family: Theme.font;
                     font-size: Theme.body;
-                    color: Theme.text-faint;
+                    color: Theme.faint;
                     vertical-alignment: center;
                 }
                 for name in clients: Text {
                     text: name;
                     font-family: Theme.font;
                     font-size: Theme.body;
-                    color: Theme.text;
+                    color: Theme.ink;
                     overflow: elide;
                     vertical-alignment: center;
                 }
@@ -99,7 +99,7 @@ export component McpSettings inherits VerticalLayout {
                             text: command;
                             font-family: Theme.mono;
                             font-size: 12px;
-                            color: Theme.text;
+                            color: Theme.ink;
                             wrap: word-wrap;
                             vertical-alignment: center;
                             accessible-role: none;
@@ -129,7 +129,7 @@ export component McpSettings inherits VerticalLayout {
             text: log-empty;
             font-family: Theme.font;
             font-size: Theme.body;
-            color: Theme.text-faint;
+            color: Theme.faint;
             height: 28px;
             vertical-alignment: center;
         }
@@ -144,7 +144,7 @@ export component McpSettings inherits VerticalLayout {
                     text: row.time;
                     font-family: Theme.font;
                     font-size: Theme.small;
-                    color: Theme.text-faint;
+                    color: Theme.faint;
                     vertical-alignment: center;
                     accessible-role: none;
                 }
@@ -153,7 +153,7 @@ export component McpSettings inherits VerticalLayout {
                     text: row.who;
                     font-family: Theme.font;
                     font-size: Theme.small;
-                    color: Theme.text-dim;
+                    color: Theme.ink2;
                     overflow: elide;
                     vertical-alignment: center;
                     accessible-role: none;
@@ -164,7 +164,7 @@ export component McpSettings inherits VerticalLayout {
                     text: row.text;
                     font-family: Theme.font;
                     font-size: Theme.body;
-                    color: row.kind == "refused" ? Theme.warn : Theme.text;
+                    color: row.kind == "refused" ? Theme.warn : Theme.ink;
                     overflow: elide;
                     vertical-alignment: center;
                     accessible-role: none;

@@ -554,7 +554,7 @@ impl MicrophonePlugin {
         if let Some((text, action)) = self.backend.problem() {
             self.show(h, &text, "warn", action);
         } else if self.worker.is_none() && !self.preparing {
-            self.show(h, &tr("Off until the stream starts."), "dim", None);
+            self.show(h, "", "dim", None);
         }
     }
 

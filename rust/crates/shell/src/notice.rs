@@ -14,7 +14,7 @@ export component Notice inherits Window {
     in property <string> ok;
     callback close;
     title: heading;
-    background: Theme.bg;
+    background: Theme.ground;
     preferred-width: 480px;
     min-width: 360px;
     DialogFrame {
@@ -26,7 +26,7 @@ export component Notice inherits Window {
                 wrap: word-wrap;
                 font-family: Theme.font;
                 font-size: Theme.body;
-                color: Theme.text;
+                color: Theme.ink;
                 line-height-factor: Theme.line-factor(self.font-size);
             }
             HorizontalLayout {

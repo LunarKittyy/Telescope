@@ -236,7 +236,7 @@ fn picture_mode_puts_the_picture_behind_and_survives_a_bad_file() {
     let frame = Rgb::filled(64, 36, [200, 200, 200]);
     assert_eq!(rig.process(&frame), frame);
     rig.event(Event::StreamStopped);
-    assert_eq!(rig.shown("vision-text"), json!("Telescope can't open that picture."));
+    assert_eq!(rig.shown("picture-problem"), json!("Telescope can't open that picture."));
 }
 
 #[test]

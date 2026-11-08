@@ -100,7 +100,7 @@ fn picture_mode_puts_the_picture_behind_and_survives_a_bad_file() {
     let frame = grey_frame();
     assert_eq!(process(&mut plugin, &frame).data, frame.data);
     plugin.on_event(&mut host, &Event::StreamStopped);
-    let last = host.calls.iter().rev().filter_map(|c| c.strip_prefix("set_ui_props card ")).filter_map(|j| serde_json::from_str::<Value>(j).ok()).find_map(|v| v.get("vision-text").cloned());
+    let last = host.calls.iter().rev().filter_map(|c| c.strip_prefix("set_ui_props card ")).filter_map(|j| serde_json::from_str::<Value>(j).ok()).find_map(|v| v.get("picture-problem").cloned());
     assert_eq!(last, Some(json!("Telescope can't open that picture.")));
 }
 

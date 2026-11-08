@@ -90,7 +90,7 @@ export component WebcamCard inherits Card {
         accessible-label: @tr("Camera");
         accessible-description: root.status-tip;
         color: root.status-kind == "status_ok" ? Theme.ok : root.status-kind == "status_warn" ? Theme.warn
-            : root.status-kind == "status_err" ? Theme.err : Theme.text-dim;
+            : root.status-kind == "status_err" ? Theme.err : Theme.ink2;
     }
     RailRow {
         icon: Icons.grid;

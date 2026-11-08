@@ -37,6 +37,9 @@ export component ChromaKeyCard inherits Card {
     in property <string> pipette-tip;
     in property <string> picture-text;
     in property <string> picture-tip;
+    in property <image> picture-thumb;
+    in property <bool> has-picture;
+    in property <string> picture-problem;
     in property <string> picture-choose-tip;
     in property <string> status;
     in property <string> status-kind: "status_dim";
@@ -164,29 +167,16 @@ export component ChromaKeyCard inherits Card {
         label: @tr("Picture");
         hue: root.hue;
         enabled: active;
-        HorizontalLayout {
-            spacing: 8px;
-            Button {
-                enabled: active;
-                text: @tr("Choose");
-                tip: @tr("Choose picture");
-                tip-detail: picture-choose-tip;
-                clicked => { root.picture-clicked(); }
-            }
-            Rectangle {
-                horizontal-stretch: 1;
-                shown-picture-text := Text {
-                    width: parent.width;
-                    height: parent.height;
-                    text: picture-text;
-                    font-family: Theme.font;
-                    font-size: Theme.body;
-                    color: Theme.text-dim;
-                    vertical-alignment: center;
-                    overflow: elide;
-                }
-                Tip { says: shown-picture-text.text; enabled: shown-picture-text.preferred-width > shown-picture-text.width; inert: true; }
-            }
+        PictureField {
+            enabled: active;
+            thumb: picture-thumb;
+            has-picture: has-picture;
+            name: picture-text != "" ? picture-text : @tr("Choose");
+            problem: picture-problem;
+            hue: root.hue;
+            tip: @tr("Choose picture");
+            tip-detail: picture-choose-tip;
+            clicked => { root.picture-clicked(); }
         }
     }
     if status != "": Note {

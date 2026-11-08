@@ -37,8 +37,8 @@ component StepRow inherits HorizontalLayout {
             height: 28px;
             border-radius: 14px;
             border-width: 1px;
-            background: step.done ? Theme.fill : Theme.surface-raise;
-            border-color: step.done ? Theme.fill : Theme.border-strong;
+            background: step.done ? Theme.fill : Theme.raise;
+            border-color: step.done ? Theme.fill : Theme.line-strong;
             Text {
                 text: step.done ? "✓" : number;
                 font-family: Theme.font;
@@ -60,7 +60,7 @@ component StepRow inherits HorizontalLayout {
             font-family: Theme.font;
             font-size: Theme.body;
             font-weight: 600;
-            color: Theme.text;
+            color: Theme.ink;
             Tip { says: step.tip != "" ? step.title : ""; detail: step.tip; inert: true; }
         }
         body := Text {

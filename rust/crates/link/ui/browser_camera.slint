@@ -6,7 +6,7 @@ import { Theme, Icons, Icon, IconButton, Card, RailRow, ChoiceField, QrCode, Rev
 global Status {
     public pure function color(kind: string) -> color {
         kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
-            : kind == "status_dim" ? Theme.text-dim : Theme.text
+            : kind == "status_dim" ? Theme.ink2 : Theme.ink
     }
 }
 
