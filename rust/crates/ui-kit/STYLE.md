@@ -144,7 +144,7 @@ Keys and typing, the same on every slider (the focused slider takes them; tested
 
 Every one of these says what a drag says, `moved` then `released`, and says nothing when the value didn't change, so an owner never has to know how a value was set.
 
-At rest everything is muted: the fill and the handle's border in the quietened colour, the handle's inside in the card's (`tolerance`, `edges` and `spill` lie under a heavier veil, `Fills.rest-veil`, since their colours run bright along the whole track). While the slider is held its full colour comes up, handle included, and dims when it is let go. A simple colour change for now; the animations are a later pass.
+At rest everything is muted: the fill and the handle's border in the quietened colour, the handle's inside in the card's (`tolerance`, `edges` and `spill` lie under a heavier veil, `Fills.rest-veil`, since their colours run bright along the whole track). While the slider is held its full colour comes up, handle included, and dims when it is let go. The colour eases up and down (see Motion).
 
 ## Tiles, pictures, pads and dials
 
@@ -231,3 +231,30 @@ in `rust/` (with `SLINT_BACKEND=testing`, so nothing opens a window) writes `OUT
 ## Adding or changing a control
 
 Put it in `ui/widgets`, give it a `control-kind` from the table (add the kind here first if it is truly new), build it from tokens only, add it to the specimen sheet, and use it from the card. A card that needs a look the kit lacks asks for a new kind or a new variation of one, it doesn't draw its own.
+
+## Motion
+
+Everything that moves goes through `ui/widgets/motion.slint`, so how the app feels is tuned in one file. A motion is a spring that Slint steps itself (`easing: spring(bounce)`, `duration` is the spring's period). Give a spring a new target mid-move and it keeps its speed, so a retarget bends the movement and nothing restarts or fights. Springs only ask for frames while they move.
+
+Two families. Spatial motions (a place, a size) may overshoot a little when they are small and fast; effects (colour, opacity) never do and are held inside 0 and 1.
+
+| Motion | For | Spring |
+|---|---|---|
+| `Settle` | A handle, a strip or a height that something other than the person moved | 200 ms, no overshoot |
+| `Flick` | A switch's handle | 130 ms, bounce 0.35, about 6% overshoot |
+| `Pop` | A bubble's size coming in, from 0.9 | 150 ms, bounce 0.4 |
+| `Tone` | Hover, press and held colour (0 rest, 1 lit) | 90 ms up, 140 ms down, press at once |
+| `Fade` | An opacity: bubbles, tooltips | 120 ms in, 100 ms out |
+| `Unfold` | A card or section opening and closing | 170 ms open, 130 ms shut |
+| `Arrival` | Content that took a placeholder's place: half solid in the first frame, then up to full | via `Fade` |
+
+Rules:
+- The person always wins. A finger on a control, and every key, put it where it is going at once (`snap`); only a change from outside (Auto, Reset, a preset, the phone, an MCP client) and a click glide. Pointer folds ease, key folds snap.
+- A move across and down leads with one axis (`Motion.lead`, `Motion.trail`), so the path bows and never runs straight or turns a corner.
+- A colour that depends on state animates with `animate background { duration: Motion.tone-for(pressed); easing: Motion.tone; }`; a colour that comes up while held is a `Tone` and is mixed with `Theme.lit` or `mix`, which hold their factor between 0 and 1.
+- Nothing runs longer than about 400 ms, and no animation changes a card's height except a fold, which is the height change.
+- Reduced motion (the desktop's setting, `TELESCOPE_MOTION=full|reduced|off`, or the `Motion` global) snaps every move and keeps colour and opacity; off keeps nothing.
+- Springs are animated on a built-in element number (a border width), not on a property of the component and not on an x: the interpreter the app runs the kit through only carries the speed over for built-in non-geometry properties.
+- `transform-scale` (the bubble's pop) is drawn by the femtovg renderer and ignored by the software one, which the tests and renders use.
+- A motion that is not a child of a layout: an empty element in a layout takes a cell, so put them inside a Rectangle.
+

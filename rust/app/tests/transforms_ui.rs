@@ -152,7 +152,12 @@ fn tell(rig: &Rig, callback: &str, args: Vec<Json>) {
 /// The card is shown what the plugin last said.
 fn sync(rig: &Rig, w: &ComponentInstance) -> Vec<u8> {
     let (plugin, host) = &mut *rig.borrow_mut();
-    show(w, &props(host, plugin))
+    let shown = show(w, &props(host, plugin));
+    // The map's frame glides to a pan that came from outside the window: let it get there before anything measures it
+    offscreen::draw(w.window(), WIDTH as f32, 760.0, 1.0);
+    offscreen::skip(std::time::Duration::from_millis(600));
+    offscreen::draw(w.window(), WIDTH as f32, 760.0, 1.0);
+    shown
 }
 
 fn to_json(v: &Value) -> Json {
@@ -179,6 +184,9 @@ fn wire(rig: &Rig, w: &ComponentInstance, callbacks: &[&'static str]) {
 fn disc(w: &ComponentInstance, property: &str) -> (f64, f64) {
     let draw = |on: bool| {
         w.set_property(property, Value::Bool(on)).unwrap();
+        // Colours ease between the two states: let this one finish
+        offscreen::draw(w.window(), WIDTH as f32, 760.0, 1.0);
+        offscreen::skip(std::time::Duration::from_millis(600));
         offscreen::draw(w.window(), WIDTH as f32, 760.0, 1.0).expect("a picture").rgba
     };
     let (on, off) = (draw(true), draw(false));

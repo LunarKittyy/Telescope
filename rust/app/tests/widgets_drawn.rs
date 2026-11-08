@@ -123,6 +123,9 @@ fn zoom_slider_marks_sit_where_the_handle_would() {
     assert!((marks[0] - 7.0).abs() <= 1.0 && (marks[3] - 193.0).abs() <= 1.0, "the handle's ends: {marks:?}");
     for (value, mark) in [(100.0, marks[0]), (300.0, marks[1]), (700.0, marks[2]), (1000.0, marks[3])] {
         set(value);
+        // The handle glides to a value that was set from outside: let it arrive
+        draw(&ui);
+        offscreen::skip(std::time::Duration::from_millis(600));
         // The handle is a card-coloured box with a border in the card's colour, quietened at rest: its top edge is a run just below the top
         let handle = runs(&draw(&ui), 5, colour(&ui, "muted-red"));
         assert_eq!(handle.len(), 1, "{handle:?}");

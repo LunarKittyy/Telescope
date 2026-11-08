@@ -40,9 +40,10 @@ fn steps_of(source: &str, component: &str, before: Json, change: Json, probe: &s
     offscreen::pump();
     let mut seen = vec![y()];
     set(&change);
+    // Each turn is a frame's worth of time more, so every ease the change starts (an arrival's fade, a handle's glide) is stepped through too
     for _ in 0..8 {
         seen.push(y());
-        offscreen::pump();
+        offscreen::skip(std::time::Duration::from_millis(40));
     }
     seen.push(y());
     ui.hide().unwrap();
