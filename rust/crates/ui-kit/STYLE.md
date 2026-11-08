@@ -85,17 +85,19 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | Kind | Widget | May vary |
 |---|---|---|
 | `card` | Card | title, icon, hue, header action or switch |
-| `row` | FormRow | label |
+| `row` | FormRow, RailRow | label, or an icon and its tooltip word |
 | `section` | SectionHeading, Section | title, folding |
 | `button` | Button | text, icon, role (plain, primary, danger, quiet) |
 | `icon-button` | IconButton | icon |
 | `link` | LinkText | text, address |
 | `switch` | Switch | hue, danger |
-| `toggle` | SwitchTile | icon, name, hue |
-| `slider` | Slider | range, fill, readout, marks |
-| `segmented` | Segmented | options, icons, hue |
+| `toggle` | SwitchTile, ToggleTile | icon, name, hue |
+| `slider` | Slider | range, fill, readout, marks, the live value of a threshold bar |
+| `segmented` | Segmented, PictureSegmented | options, icons or drawings, hue |
 | `picker` | ChoiceField | options, icon, caption |
 | `field` | TextField, NumberField | text, placeholder, icon |
+| `pad` | Pad | ranges, the drawing on it, readout |
+| `dial` | Dial | stops |
 | `jog` | Jog | range |
 | `stepper` | Stepper | range |
 | `strip` | SettingRow | title, controls |
@@ -112,7 +114,7 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 
 A menu button is always a `picker`: the value and a chevron, never "..." in a label. Glyphs inside controls (the chevron, a clear cross, a tick, a plus, the stepper's arrows) are heavier than the card icons: a 2px stroke against the icons' 1.4px, and the picker's chevron is 16px.
 
-Every control in a card sits between the same two edges, the card's own: a label column then the control out to the right edge, or a row that runs across (`SwitchTile`, a full-width `Button`). No inset boxes, no tiles side by side that end at different places. A box that only groups (a status, a warnings list) isn't drawn: the rows sit on the card.
+Every control in a card sits between the same two edges, the card's own: a label column (an icon rail, below) then the control out to the right edge, or a row that runs across (`SwitchTile`, `ToggleTile`, a full-width `Button`). No inset boxes, no tiles side by side that end at different places. A box that only groups (a status, a warnings list) isn't drawn: the rows sit on the card.
 
 ## Sliders
 
@@ -120,12 +122,14 @@ One anatomy for every slider: a track, a handle, the value on the right, and a t
 
 - `plain`: the card's colour from the start of the track up to the handle.
 - `gradient`: the range's own colours along the whole track (`grad-a`, `grad-b`, `grad-c`), the handle taking the colour under it. Temperature, tint and saturation.
+- `temperature` (blue, grey, amber) and `tint` (green, grey, magenta): white balance, the same colours on every card, the handle taking the colour under it. Two ordinary sliders, never a pad: colour correction needs the whole track's travel for each and must not snap.
 - `vibrance`: pastels that grow more saturated to the right, the handle taking the colour under it.
 - `shadows` (black to grey), `highlights` (grey to white), `pivot` (black to white, so the handle marks the brightness contrast turns around).
 - `lift` (dark), `gamma` (mid), `gain` (bright), `offset` (a plain grey ramp): the four sliders under the colour wheels.
 - `contrast`: flat grey that fades into 45 degree black and white stripes, ending on a white one.
 - `tolerance`, `spill`: two colours from the card (`grad-a` to `grad-b`, left to right) with the handle taking the one under it. Chroma key's tolerance runs from the screen's colour to a grey, its spill from a skin tone with the screen's colour on it to a clean one.
 - `edges`: `grad-a` on the left, `grad-b` on the right and a step between them that is hard at the track's start and spreads over the whole track at its end, so the handle's place is the softness. The handle keeps the card's colour.
+- `threshold`: a bar as tall as the row whose fill is a live value (`level` on the handle's own scale, `has-level` off while there is none), so the handle is the level to warn at. It is the one fill that changes the anatomy: no readout column, the handle's number (`readout`) sits beside the handle on the side with room and the live one (`level-text`, with an optional `level-icon`) at the far end. The fill rounds its start like the bar and ends square where the value is; it is muted at rest and full colour while held, and with no live value the bar stays, empty, with a dash.
 
 The grey ramps keep the card's colour on the handle, since black or white would vanish into the track.
 
@@ -134,12 +138,25 @@ Keys and typing, the same on every slider (the focused slider takes them; tested
 - Arrow keys step by one `step` (`key-small`).
 - Shift with an arrow, Page Up and Page Down step by a tenth of the range in whole steps (`key-big`: 10 on 0 to 100, 100 on 0 to 1000).
 - Home and End go to the minimum and the maximum.
-- Enter on the slider, or a double-click on its value, opens a box with the number, unless the readout isn't that number (a word like "Chest"; one that starts with a digit, a plus or a minus is): then no box is offered and the keys above still work. Enter sets it (held to the range and rounded to the step, a non-number is dropped), Escape and clicking away leave the value as it was. After a key opened it, the focus goes back to the slider.
-- A slider with `typing` set (a value that isn't its position, like a shutter time) opens its box on a click and hands the text to `typed` for the owner to read. `type-in: false` turns the number box off.
+- Enter on the slider, or a click on its value, opens a box with the number, unless the readout isn't that number (a word like "Chest"; one that starts with a digit, a plus or a minus is): then no box is offered and the keys above still work. Enter sets it (held to the range and rounded to the step, a non-number is dropped), Escape and clicking away leave the value as it was. After a key opened it, the focus goes back to the slider.
+- A slider with `typing` set (a value that isn't its position, like a shutter time) opens its box on a click and hands the text to `typed` for the owner to read. `type-in: false` turns the number box off. A double-click on the track puts a slider that has a default (`has-default`) back to it.
 
 Every one of these says what a drag says, `moved` then `released`, and says nothing when the value didn't change, so an owner never has to know how a value was set.
 
 At rest everything is muted: the fill and the handle's border in the quietened colour, the handle's inside in the card's (`tolerance`, `edges` and `spill` lie under a heavier veil, `Fills.rest-veil`, since their colours run bright along the whole track). While the slider is held its full colour comes up, handle included, and dims when it is let go. A simple colour change for now; the animations are a later pass.
+
+## Tiles, pictures, pads and dials
+
+Four controls that the card redesigns need, built on the same states as the rest (muted at rest, a thick border and muted inside when active, `press` or `Theme.held` while held, `dis` on `trough` when disabled, the accent ring from the keyboard). Each keeps its size in every state, empty or disabled included.
+
+- `ToggleTile` (kind `toggle`): a `SwitchTile` without its switch. An icon and a name on a raised tile `Theme.tile` high, and the thick border in the card's colour is the state. With no text it is an icon tile (Previous, Play, Next), named by `name`. Space and Enter flip it.
+- `PictureSegmented` (kind `segmented`): a `Segmented` whose options are drawings. Same tiles, same picking, same keys (Tab stops, arrows move and pick, Space picks). The drawing is the caller's, put inside the control: option `i` goes in the square from `x: i * pitch`, `cell-width` by `art-height`, and reads `shown` and its own `disabled` for how to look. `show-names` writes each option's name under its drawing; otherwise the name is the tooltip. A drawing takes no pointer and draws no `border-width` (use a `Path` outline).
+- `Pad` (kind `pad`): one box that sets two numbers (Desk mode's sheet size; white balance is two sliders instead), `value-x` across and `value-y` up and down (`y-up` says which way is more), each with its own range and step. Its height is 2 for every 3 of its width unless the caller says otherwise (about 230 px in the card's 342 px column), and in a layout it can't be squeezed flatter than 1 for every 2 of width, so both axes get similar travel. A crosshair marks where both are neutral (`centre-x`, `centre-y`), the handle is a circle that takes the card's colour held, with a halo. What is drawn on it (the sheet) and any button on it (a Reset) are its children; a drawing can follow the handle through `handle-x` and `handle-y`, and `handle-fill` puts the colour under the handle in the handle. `readout` is a chip at a corner. The pad rounds its own corners over any drawing. Arrow keys move one step, Shift moves a tenth of the range, Home and a double-click go to the default (`has-default`, else the centre). It says `moved` then `released` with both numbers, like a slider, and nothing when neither changed. No typed value yet.
+- `Dial` (kind `dial`): a strip of ticks and stop names under a mark at the centre, for a value that moves in steps (ISO, shutter time). It sits in the card, never in a bubble. Drag it (the strip follows the pointer and settles on a stop), scroll over it (a mouse notch is a stop), click a name beside the mark, or use Left and Right, Up and Down, Shift with an arrow and Page Up and Page Down (a tenth of the stops), Home and End. The mark is muted at rest, and full colour with the border lit while the dial is held. Its value is a place in `stops`; with no stops it shows a dash and keeps its height.
+
+### Icon rail
+
+A card's label column is a column of icons: the icon is the label and the full word is its tooltip. `RailRow` (kind `row`) is the one row for that: an icon (`icon`, in the card's colour quietened, grey when disabled), the word it stands for (`label`: the tooltip, what a screen reader says and what the settings search finds), an optional longer `tip`, then the control. A row that goes on from the one above has `has-icon: false` and keeps the rail's room blank. Every card builds its rows from it so they all line up.
 
 ## Bubbles
 

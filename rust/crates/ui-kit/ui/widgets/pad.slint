@@ -1,0 +1,251 @@
+// One pad that sets two numbers: x across and y up and down.
+
+import { Theme } from "../theme.slint";
+import { Reveal } from "folds.slint";
+import { FocusRing, TouchRing } from "basics.slint";
+import { TipBody, TipUse } from "tip.slint";
+import { ShortcutMenu } from "shortcut-menu.slint";
+
+// A square of the surround's colour with a quarter circle cut out, over one corner (0 to 3 clockwise from the top left): the software renderer squares off a gradient's corners, so the drawing is rounded by covering them.
+component CornerCap inherits Path {
+    in property <int> corner;
+    in property <length> r;
+    width: r;
+    height: r;
+    viewbox-width: self.width / 1px;
+    viewbox-height: self.height / 1px;
+    property <string> k: "" + r / 1px;
+    commands: corner == 0 ? "M 0 0 L " + k + " 0 A " + k + " " + k + " 0 0 0 0 " + k + " Z"
+        : corner == 1 ? "M " + k + " 0 L " + k + " " + k + " A " + k + " " + k + " 0 0 0 0 0 Z"
+        : corner == 2 ? "M " + k + " " + k + " L 0 " + k + " A " + k + " " + k + " 0 0 0 " + k + " 0 Z"
+        : "M 0 " + k + " L 0 0 A " + k + " " + k + " 0 0 0 " + k + " " + k + " Z";
+}
+
+// Kind "pad": one box that sets two numbers (x across, y up and down) with the caller's drawing and buttons as its children, which can follow `handle-x` and `handle-y`, and it says `moved` then `released` like a slider.
+export component Pad inherits Rectangle {
+    in property <float> x-minimum: 0;
+    in property <float> x-maximum: 100;
+    in property <float> y-minimum: 0;
+    in property <float> y-maximum: 100;
+    // Where the parent says it is. A drag never writes here, so a parent's `value-x: temperature` keeps following temperature.
+    in-out property <float> value-x: 0;
+    in-out property <float> value-y: 0;
+    // Where the person last put it, shown until the parent says something new
+    property <float> local-x;
+    property <float> local-y;
+    property <bool> touched;
+    out property <float> shown-x: touched ? local-x : value-x;
+    out property <float> shown-y: touched ? local-y : value-y;
+    changed value-x => { touched = false; }
+    changed value-y => { touched = false; }
+    in property <float> step-x: 1;
+    in property <float> step-y: 1;
+    // y grows upward, as on a graph; off, it grows downward, as on a screen
+    in property <bool> y-up;
+    // Where the crosshair crosses
+    in property <float> centre-x: (x-minimum + x-maximum) / 2;
+    in property <float> centre-y: (y-minimum + y-maximum) / 2;
+    in property <bool> has-centre: true;
+    // A double-click and Home put the pad back here (the centre when it has no default)
+    in property <bool> has-default;
+    in property <float> default-x;
+    in property <float> default-y;
+    // The numbers in a small chip on the pad, bottom right or top left
+    in property <string> readout;
+    in property <bool> readout-top-left;
+    in property <string> label;
+    in property <color> hue: Theme.accent;
+    // The handle's inside: what colour lies under it, where the drawing has one
+    in property <color> handle-fill: Theme.card;
+    // The colour the pad sits on, which its rounded corners are cut out of
+    in property <color> surround: Theme.card;
+    in property <bool> enabled: true;
+    in property <string> tip;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
+    // The ids of the two settings it is, for the outline when something outside the window reads or changes them
+    in property <string> setting-x;
+    in property <string> setting-y;
+    out property <string> control-kind: "pad";
+    callback moved(float, float);
+    callback released(float, float);
+    // The handle's centre, in the pad's own coordinates, for a drawing that follows it
+    out property <length> handle-x: inset + fraction-x * (self.width - 2 * inset);
+    out property <length> handle-y: inset + (y-up ? 1 - fraction-y : fraction-y) * (self.height - 2 * inset);
+    // Where the handle's centre runs from and to
+    property <length> inset: Theme.u(6);
+    property <float> fraction-x: (shown-x - x-minimum) / max(0.0001, x-maximum - x-minimum);
+    property <float> fraction-y: (shown-y - y-minimum) / max(0.0001, y-maximum - y-minimum);
+    property <bool> dragging;
+    property <bool> held: dragging && touch.pressed;
+    // What the arrows move by: one step. Shift with an arrow moves by a tenth of the range, in whole steps
+    out property <float> key-small-x: max(0.0001, step-x);
+    out property <float> key-small-y: max(0.0001, step-y);
+    out property <float> key-big-x: max(0.0001, step-x) * max(1, round((x-maximum - x-minimum) / max(0.0001, step-x) / 10));
+    out property <float> key-big-y: max(0.0001, step-y) * max(1, round((y-maximum - y-minimum) / max(0.0001, step-y) / 10));
+    // Every way of setting the numbers goes through here, saying what a drag says: moved, then released
+    function set-to(vx: float, vy: float) {
+        if (!enabled) { return; }
+        let tx = clamp(vx, x-minimum, x-maximum);
+        let ty = clamp(vy, y-minimum, y-maximum);
+        if (tx != shown-x || ty != shown-y) {
+            local-x = tx;
+            local-y = ty;
+            touched = true;
+            moved(tx, ty);
+            released(tx, ty);
+        }
+    }
+    // The numbers the pointer is at, held to the step
+    function at-x(px: length) -> float {
+        round((x-minimum + clamp((px - inset) / max(1px, root.width - 2 * inset), 0, 1) * (x-maximum - x-minimum)) / max(0.0001, step-x)) * max(0.0001, step-x)
+    }
+    function at-y(py: length) -> float {
+        let f = clamp((py - inset) / max(1px, root.height - 2 * inset), 0, 1);
+        round((y-minimum + (y-up ? 1 - f : f) * (y-maximum - y-minimum)) / max(0.0001, step-y)) * max(0.0001, step-y)
+    }
+    function drag-to(px: length, py: length) {
+        if (!enabled) { return; }
+        let tx = clamp(at-x(px), x-minimum, x-maximum);
+        let ty = clamp(at-y(py), y-minimum, y-maximum);
+        if (tx != shown-x || ty != shown-y) {
+            local-x = tx;
+            local-y = ty;
+            touched = true;
+            moved(tx, ty);
+        }
+    }
+    // Both axes get similar travel: 3 across to 2 high unless the caller says otherwise, and in a layout never flatter than 2 across to 1 high
+    preferred-height: self.width * 2 / 3;
+    horizontal-stretch: 1;
+    min-width: Theme.u(48);
+    min-height: self.width / 2;
+    vertical-stretch: 0;
+    border-radius: Theme.r-ctl;
+    background: enabled ? Theme.raise : Theme.trough;
+    accessible-role: slider;
+    accessible-label: label;
+    accessible-value: readout;
+    accessible-description: tip;
+    accessible-action-increment => { if (enabled) { set-to(shown-x + step-x, shown-y); } }
+    accessible-action-decrement => { if (enabled) { set-to(shown-x - step-x, shown-y); } }
+    forward-focus: focus;
+    focus := FocusScope {
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+        enabled: root.enabled;
+        key-pressed(e) => {
+            let by-x = e.modifiers.shift ? key-big-x : key-small-x;
+            let by-y = e.modifiers.shift ? key-big-y : key-small-y;
+            if (e.text == Key.RightArrow) { set-to(shown-x + by-x, shown-y); return accept; }
+            if (e.text == Key.LeftArrow) { set-to(shown-x - by-x, shown-y); return accept; }
+            if (e.text == Key.UpArrow) { set-to(shown-x, shown-y + (y-up ? by-y : -by-y)); return accept; }
+            if (e.text == Key.DownArrow) { set-to(shown-x, shown-y + (y-up ? -by-y : by-y)); return accept; }
+            if (e.text == Key.Home) { set-to(has-default ? default-x : centre-x, has-default ? default-y : centre-y); return accept; }
+            reject
+        }
+    }
+    TouchRing { setting: root.setting-x; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
+    TouchRing { setting: root.setting-y; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
+    usage := TipUse { hover: touch.has-hover; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
+        scroll-event(e) => { usage.wheel(); reject }
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down) { usage.press(); }
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                dragging = true;
+                focus.focus();
+                drag-to(self.mouse-x, self.mouse-y);
+            }
+            if (e.kind == PointerEventKind.move && dragging && self.pressed) {
+                drag-to(self.mouse-x, self.mouse-y);
+            }
+            if (dragging && ((e.kind == PointerEventKind.up && e.button == PointerEventButton.left) || e.kind == PointerEventKind.cancel)) {
+                dragging = false;
+                released(shown-x, shown-y);
+            }
+        }
+        moved => {
+            if (self.pressed && dragging) { drag-to(self.mouse-x, self.mouse-y); }
+        }
+        double-clicked => {
+            set-to(has-default ? default-x : centre-x, has-default ? default-y : centre-y);
+        }
+    }
+    // The caller's drawing, and any buttons on it, which sit above the pad's own touch area so they answer first
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        @children
+    }
+    if has-centre: Rectangle {
+        x: inset + (centre-x - x-minimum) / max(0.0001, x-maximum - x-minimum) * (root.width - 2 * inset) - Theme.stroke / 2;
+        y: Theme.u(4);
+        width: Theme.stroke;
+        height: root.height - Theme.u(8);
+        border-radius: Theme.stroke / 2;
+        background: enabled ? Theme.ink.with-alpha(0.3) : Theme.dis.with-alpha(0.5);
+    }
+    if has-centre: Rectangle {
+        x: Theme.u(4);
+        y: inset + (y-up ? 1 - (centre-y - y-minimum) / max(0.0001, y-maximum - y-minimum) : (centre-y - y-minimum) / max(0.0001, y-maximum - y-minimum)) * (root.height - 2 * inset) - Theme.stroke / 2;
+        width: root.width - Theme.u(8);
+        height: Theme.stroke;
+        border-radius: Theme.stroke / 2;
+        background: enabled ? Theme.ink.with-alpha(0.3) : Theme.dis.with-alpha(0.5);
+    }
+    CornerCap { corner: 0; r: Theme.r-ctl; x: 0px; y: 0px; fill: surround; }
+    CornerCap { corner: 1; r: Theme.r-ctl; x: root.width - Theme.r-ctl; y: 0px; fill: surround; }
+    CornerCap { corner: 2; r: Theme.r-ctl; x: root.width - Theme.r-ctl; y: root.height - Theme.r-ctl; fill: surround; }
+    CornerCap { corner: 3; r: Theme.r-ctl; x: 0px; y: root.height - Theme.r-ctl; fill: surround; }
+    // A pad that can't be used lets the card show through what is drawn on it
+    if !enabled: Rectangle {
+        border-radius: Theme.r-ctl;
+        background: Theme.card;
+        opacity: 0.55;
+    }
+    if readout != "": Rectangle {
+        x: readout-top-left ? Theme.u(4) : root.width - self.width - Theme.u(4);
+        y: readout-top-left ? Theme.u(4) : root.height - self.height - Theme.u(4);
+        width: min(chip-text.preferred-width + Theme.u(8), root.width - Theme.u(8));
+        height: Theme.u(11);
+        border-radius: Theme.r-handle;
+        background: Theme.card.with-alpha(0.78);
+        chip-text := Text {
+            x: Theme.u(4);
+            width: parent.width - Theme.u(8);
+            height: parent.height;
+            text: readout;
+            font-family: Theme.font;
+            font-size: Theme.small;
+            font-weight: Theme.w-value;
+            color: enabled ? Theme.ink : Theme.dis;
+            vertical-alignment: center;
+            overflow: elide;
+            accessible-role: none;
+        }
+    }
+    // Held, a halo of the card's full colour round the handle, since a handle already in full colour on hover has nothing else to change
+    if held: Rectangle {
+        x: handle-x - self.width / 2;
+        y: handle-y - self.height / 2;
+        width: Theme.u(19);
+        height: Theme.u(19);
+        border-radius: self.width / 2;
+        background: hue.with-alpha(0.32);
+    }
+    handle := Rectangle {
+        width: Theme.u(12);
+        height: Theme.u(12);
+        x: handle-x - self.width / 2;
+        y: handle-y - self.height / 2;
+        border-radius: self.width / 2;
+        background: !enabled ? Theme.raise : handle-fill;
+        border-width: Theme.u(1.5);
+        border-color: !enabled ? Theme.dis : held ? hue : touch.has-hover ? hue : Theme.edge(hue);
+    }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+}

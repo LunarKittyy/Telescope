@@ -97,12 +97,10 @@ fn on_readout(ui: &ComponentInstance) -> LogicalPosition {
     LogicalPosition::new(10.0 + 300.0 - 28.0, 10.0 + 16.0)
 }
 
-fn double_click(ui: &ComponentInstance, position: LogicalPosition) {
+fn click(ui: &ComponentInstance, position: LogicalPosition) {
     ui.window().dispatch_event(WindowEvent::PointerMoved { position });
-    for _ in 0..2 {
-        ui.window().dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
-        ui.window().dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
-    }
+    ui.window().dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
+    ui.window().dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
 }
 
 #[test]
@@ -176,7 +174,7 @@ fn a_disabled_slider_takes_no_keys_and_no_typing() {
     }
     press(&ui, "\n");
     type_in(&ui, "5\n");
-    double_click(&ui, on_readout(&ui));
+    click(&ui, on_readout(&ui));
     type_in(&ui, "5\n");
     assert_eq!((value(&ui), said(&ui).0), (50.0, 0.0));
 }
@@ -210,14 +208,14 @@ fn escape_leaves_the_value_as_it_was_and_the_slider_keeps_its_keys() {
 }
 
 #[test]
-fn a_double_click_on_the_value_opens_the_box_too() {
+fn a_click_on_the_value_opens_the_box_too() {
     let ui = rig(&[]);
-    double_click(&ui, on_readout(&ui));
+    click(&ui, on_readout(&ui));
     type_in(&ui, "20");
     press(&ui, "\n");
     assert_eq!((value(&ui), said(&ui)), (20.0, (1.0, 1.0, 20.0, 20.0)));
     let again = rig(&[]);
-    double_click(&again, on_readout(&again));
+    click(&again, on_readout(&again));
     type_in(&again, "20");
     press(&again, Key::Escape);
     assert_eq!((value(&again), said(&again).0), (50.0, 0.0));
@@ -260,9 +258,9 @@ fn a_readout_that_is_a_word_offers_no_box_for_the_raw_number_but_keeps_its_keys(
     press(&ui, "\n");
     type_in(&ui, "72\n");
     assert_eq!(said(&ui).0, 0.0, "Enter opened no box, so the typed digits went nowhere");
-    double_click(&ui, on_readout(&ui));
+    click(&ui, on_readout(&ui));
     type_in(&ui, "72\n");
-    assert_eq!(said(&ui).0, 0.0, "a double-click on the word opens nothing either");
+    assert_eq!(said(&ui).0, 0.0, "a click on the word opens nothing either");
     for (key, wanted) in [(Key::RightArrow, 51.0), (Key::PageUp, 61.0), (Key::End, 100.0), (Key::Home, 0.0)] {
         press(&ui, key);
         assert_eq!(said(&ui).3, wanted);

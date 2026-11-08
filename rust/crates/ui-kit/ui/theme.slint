@@ -128,6 +128,8 @@ export global Theme {
     in-out property <length> unit: 2px;
     public pure function u(n: float) -> length { unit * n }
     out property <length> row: unit * 16;
+    // A tile that is a control of its own: a toggle tile, a picture option
+    out property <length> tile: unit * 20;
     out property <length> gap: unit * 3;
     out property <length> pad: unit * 8;
     // The thick outline of an active control

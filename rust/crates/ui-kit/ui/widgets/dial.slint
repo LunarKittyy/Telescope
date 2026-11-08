@@ -1,0 +1,225 @@
+// A row of stops to drag or scroll through, for a value that moves in steps (ISO, shutter time).
+
+import { Theme } from "../theme.slint";
+import { Reveal } from "folds.slint";
+import { FocusRing, TouchRing } from "basics.slint";
+import { TipBody, TipUse } from "tip.slint";
+import { ShortcutMenu } from "shortcut-menu.slint";
+
+// Kind "dial": a strip of ticks and stop names sliding under a mark at the centre, dragged, scrolled or keyed through, saying `moved` then `released` with the stop's place in `stops`; it sits in the card, never in a bubble.
+export component Dial inherits Rectangle {
+    // The stops in order, as they are written ("100", "1/60")
+    in property <[string]> stops;
+    // Where the parent says it is, as a place in `stops`. A drag never writes here, so a parent's `current: iso-index` keeps following it.
+    in-out property <int> current: 0;
+    // Where the person last put it, shown until the parent says something new
+    property <int> local;
+    property <bool> touched;
+    out property <int> shown: clamp(touched ? local : current, 0, max(0, stops.length - 1));
+    changed current => { touched = false; }
+    // What it is called, small in its top left corner and to a screen reader ("ISO")
+    in property <string> label;
+    in property <color> hue: Theme.accent;
+    in property <bool> enabled: true;
+    in property <string> tip;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
+    // The id of the setting it is, for the outline when something outside the window reads or changes it
+    in property <string> setting;
+    out property <string> control-kind: "dial";
+    callback moved(int);
+    callback released(int);
+    // What the arrows move by: one stop. Shift with an arrow and the Page keys move by a tenth of the stops
+    out property <int> key-big: max(1, round((stops.length - 1) / 10));
+    // Every way of setting a stop from the keyboard or the wheel goes through here, saying what a drag says: moved, then released
+    function set-to(i: int) {
+        if (!enabled) { return; }
+        let to = clamp(i, 0, max(0, stops.length - 1));
+        if (stops.length > 0 && to != shown) {
+            local = to;
+            touched = true;
+            moved(to);
+            released(to);
+        }
+    }
+    // The strip's place in stops, which a drag moves smoothly and which otherwise slides to the stop that is picked
+    property <float> pos: dragging ? drag-pos : shown;
+    animate pos { duration: dragging ? 0ms : 140ms; easing: ease-out; }
+    property <float> drag-pos;
+    property <float> drag-from;
+    property <length> drag-x;
+    property <bool> dragging;
+    property <bool> held: dragging && touch.pressed;
+    // The wheel's turns that haven't made a stop yet
+    property <float> wheel-sum;
+    // How far apart the stops are along the strip
+    property <length> pitch: clamp(root.width * 0.35, Theme.u(20), Theme.u(34));
+    property <length> mid: root.width / 2;
+    property <int> tick-count: stops.length > 0 ? (stops.length - 1) * 3 + 1 : 0;
+    property <length> big: round(Theme.body * 17 / 13 / 1px) * 1px;
+    height: Theme.u(24);
+    horizontal-stretch: 1;
+    min-width: Theme.u(40);
+    border-radius: Theme.r-ctl;
+    border-width: held ? Theme.stroke : 0px;
+    border-color: hue;
+    background: !enabled ? Theme.raise.mix(Theme.card, 0.4)
+        : held ? Theme.tint(hue)
+        : touch.has-hover ? Theme.hover : Theme.raise;
+    accessible-role: slider;
+    accessible-label: label;
+    accessible-value: stops.length > 0 ? stops[shown] : "";
+    accessible-value-minimum: 0;
+    accessible-value-maximum: max(0, stops.length - 1);
+    accessible-value-step: 1;
+    accessible-description: tip;
+    accessible-action-increment => { if (enabled) { set-to(shown + 1); } }
+    accessible-action-decrement => { if (enabled) { set-to(shown - 1); } }
+    forward-focus: focus;
+    focus := FocusScope {
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+        enabled: root.enabled;
+        key-pressed(e) => {
+            let by = e.modifiers.shift ? key-big : 1;
+            if (e.text == Key.RightArrow || e.text == Key.UpArrow) { set-to(shown + by); return accept; }
+            if (e.text == Key.LeftArrow || e.text == Key.DownArrow) { set-to(shown - by); return accept; }
+            if (e.text == Key.PageUp) { set-to(shown + key-big); return accept; }
+            if (e.text == Key.PageDown) { set-to(shown - key-big); return accept; }
+            if (e.text == Key.Home) { set-to(0); return accept; }
+            if (e.text == Key.End) { set-to(stops.length - 1); return accept; }
+            reject
+        }
+    }
+    TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
+    // The ticks: one at each stop, two small ones between, fading toward the ends
+    for t in tick-count: Rectangle {
+        property <bool> major: mod(t, 3) == 0;
+        property <length> at: mid + (t / 3 - pos) * pitch;
+        property <float> near: clamp((1 - abs(at - mid) / (root.width / 2)) / 0.45, 0, 1);
+        x: at - Theme.u(0.5);
+        y: root.height - Theme.u(3) - self.height;
+        width: Theme.u(1);
+        height: major ? Theme.u(3.5) : Theme.u(2);
+        border-radius: Theme.u(0.5);
+        background: enabled ? Theme.ink : Theme.dis;
+        opacity: near * (major ? 0.55 : 0.25);
+    }
+    // The names: the one under the mark large, its neighbours small and dim
+    for stop[i] in stops: Rectangle {
+        property <float> dist: abs(i - pos);
+        visible: dist < 1.6;
+        x: mid + (i - pos) * pitch - self.width / 2;
+        y: Theme.u(5);
+        width: pitch - Theme.u(3);
+        height: Theme.u(13);
+        Text {
+            width: parent.width;
+            height: parent.height;
+            text: stop;
+            font-family: Theme.font;
+            font-size: Theme.small + (big - Theme.small) * clamp(1 - dist, 0, 1);
+            font-weight: Theme.w-value;
+            color: !enabled ? Theme.dis : Theme.ink;
+            opacity: dist <= 1 ? 0.45 + 0.55 * (1 - dist) : max(0, 0.45 * (1.6 - dist) / 0.6);
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            overflow: elide;
+            accessible-role: none;
+        }
+    }
+    if stops.length == 0: Text {
+        x: mid - Theme.u(20);
+        y: Theme.u(5);
+        width: Theme.u(40);
+        height: Theme.u(13);
+        text: "-";
+        font-family: Theme.font;
+        font-size: big;
+        font-weight: Theme.w-value;
+        color: Theme.dis;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        accessible-role: none;
+    }
+    Text {
+        x: Theme.u(5);
+        y: Theme.u(2.5);
+        width: parent.width - Theme.u(10);
+        text: label;
+        font-family: Theme.font;
+        font-size: Theme.tiny;
+        font-weight: Theme.w-label;
+        color: enabled ? Theme.ink2 : Theme.dis;
+        overflow: elide;
+        accessible-role: none;
+    }
+    // The mark the stop under it is read against
+    Rectangle {
+        x: mid - Theme.u(1);
+        y: root.height - Theme.u(2.5) - self.height;
+        width: Theme.u(2);
+        height: Theme.u(5.5);
+        border-radius: Theme.u(1);
+        background: !enabled ? Theme.dis : held ? hue : Theme.muted(hue);
+    }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    usage := TipUse { hover: touch.has-hover; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
+        scroll-event(e) => {
+            usage.wheel();
+            wheel-sum += e.delta-y / 1px;
+            // A notch of a mouse wheel is 60 and makes a stop; a touchpad's smaller turns add up to one
+            let stops-turned = wheel-sum >= 0 ? floor(wheel-sum / 60) : ceil(wheel-sum / 60);
+            if (stops-turned != 0) {
+                wheel-sum -= stops-turned * 60;
+                set-to(shown + round(stops-turned));
+            }
+            accept
+        }
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down) { usage.press(); }
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                dragging = true;
+                focus.focus();
+                drag-from = shown;
+                drag-pos = shown;
+                drag-x = self.mouse-x;
+            }
+            if (e.kind == PointerEventKind.move && dragging && self.pressed) {
+                drag-pos = clamp(drag-from - (self.mouse-x - drag-x) / pitch, 0, max(0, stops.length - 1));
+                if (stops.length > 0 && round(drag-pos) != shown) {
+                    local = round(drag-pos);
+                    touched = true;
+                    root.moved(local);
+                }
+            }
+            if (dragging && ((e.kind == PointerEventKind.up && e.button == PointerEventButton.left) || e.kind == PointerEventKind.cancel)) {
+                dragging = false;
+                // A press that went nowhere on a name beside the mark picks that name
+                if (e.kind == PointerEventKind.up && abs(self.mouse-x - drag-x) < Theme.u(2) && stops.length > 0) {
+                    let to = clamp(round(drag-from + (self.mouse-x - mid) / pitch), 0, stops.length - 1);
+                    if (to != shown) {
+                        local = to;
+                        touched = true;
+                        root.moved(to);
+                    }
+                }
+                released(shown);
+            }
+        }
+        moved => {
+            if (self.pressed && dragging) {
+                drag-pos = clamp(drag-from - (self.mouse-x - drag-x) / pitch, 0, max(0, stops.length - 1));
+                if (stops.length > 0 && round(drag-pos) != shown) {
+                    local = round(drag-pos);
+                    touched = true;
+                    root.moved(local);
+                }
+            }
+        }
+    }
+    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+}

@@ -156,6 +156,140 @@ export component Segmented inherits Rectangle {
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
 }
 
+// Kind "segmented" with a drawing per option: option i is drawn by the caller in the square at x = i * pitch, cell-width by art-height, reading `shown` and `disabled`, and a drawing takes no pointer.
+export component PictureSegmented inherits Rectangle {
+    in property <[string]> items;
+    in property <[bool]> disabled;
+    // What to say on hover over each option, where it differs from its name (why it can't be picked); a name alone has a tip of its own
+    in property <[string]> tips;
+    in property <string> label;
+    // Where the parent says it is. Picking never writes here, so a parent's `current: mode` keeps following mode.
+    in-out property <int> current: 0;
+    property <int> local;
+    property <bool> touched;
+    out property <int> shown: touched ? local : current;
+    changed current => { touched = false; }
+    function pick(i: int) {
+        local = i;
+        touched = true;
+        picked(i);
+    }
+    // The option an arrow key sends the focus to, with how often that was asked so the same one can be asked again
+    property <int> arrow-to;
+    property <int> arrows;
+    function step(from: int, to: int) {
+        if (to < 0 || to >= items.length || disabled[to]) {
+            return;
+        }
+        if (from == shown) {
+            pick(to);
+        }
+        arrow-to = to;
+        arrows += 1;
+    }
+    in property <string> shortcut;
+    in property <string> setting;
+    // The card's colour, for the picked tile's border
+    in property <color> hue: Theme.accent;
+    // Each option's name under its drawing
+    in property <bool> show-names;
+    // The tile's height with the name, when shown, in it
+    in property <length> tile-height: Theme.u(24);
+    // Where the drawings go
+    out property <length> pitch: cell-width + Theme.gap;
+    out property <length> cell-width: (self.width - (max(1, items.length) - 1) * Theme.gap) / max(1, items.length);
+    out property <length> art-height: tile-height - (show-names ? Theme.u(9) : 0px);
+    out property <string> control-kind: "segmented";
+    callback picked(int);
+    height: tile-height;
+    horizontal-stretch: 1;
+    preferred-width: 0px;
+    accessible-role: tab-list;
+    accessible-label: label;
+    TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
+    for item[i] in items: seg := Rectangle {
+        property <bool> on: i == shown;
+        property <bool> off: disabled[i];
+        x: i * pitch;
+        width: cell-width;
+        height: tile-height;
+        border-radius: Theme.r-ctl;
+        border-width: on && !off ? Theme.stroke : 0px;
+        border-color: hue;
+        background: off ? Theme.raise.mix(Theme.card, 0.4)
+            : on ? (seg-touch.pressed ? Theme.held(hue) : Theme.tint(hue))
+            : seg-touch.pressed ? Theme.press
+            : seg-touch.has-hover ? Theme.hover : Theme.raise;
+        accessible-role: tab;
+        accessible-label: label + ": " + item;
+        accessible-checkable: true;
+        accessible-checked: on;
+        accessible-action-default => { if (!off) { pick(i); } }
+        property <int> asked: arrows;
+        changed asked => {
+            if (arrow-to == i) {
+                seg-focus.focus();
+            }
+        }
+        seg-focus := FocusScope {
+            enabled: !off;
+            focus-gained(reason) => {
+                if (reason == FocusReason.tab-navigation) {
+                    Reveal.show(root.absolute-position.x + seg.x, root.absolute-position.y, seg.width, root.height);
+                }
+            }
+            key-pressed(e) => {
+                if (e.text == " " || e.text == "\n") { pick(i); return accept; }
+                if (e.text == Key.LeftArrow) { step(i, i - 1); return accept; }
+                if (e.text == Key.RightArrow) { step(i, i + 1); return accept; }
+                reject
+            }
+        }
+        FocusRing { shown: seg-focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+        usage := TipUse { hover: seg-touch.has-hover; }
+        seg-touch := TouchArea {
+            mouse-cursor: off ? default : pointer;
+            scroll-event(e) => { usage.wheel(); reject }
+            pointer-event(e) => {
+                if (e.kind == PointerEventKind.down) {
+                    usage.press();
+                }
+                if (e.kind == PointerEventKind.down && !off) {
+                    seg-focus.focus();
+                }
+            }
+            clicked => {
+                if (!off) {
+                    pick(i);
+                }
+            }
+        }
+        if !usage.used: Tooltip { TipBody { says: tips[i] != "" ? tips[i] : item; } }
+        if show-names: Text {
+            y: tile-height - Theme.u(8);
+            width: parent.width;
+            height: Theme.u(7);
+            text: item;
+            font-family: Theme.font;
+            font-size: Theme.tiny;
+            font-weight: on ? Theme.w-value : Theme.w-label;
+            color: off ? Theme.dis : on || seg-touch.has-hover ? Theme.ink : Theme.ink2;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            overflow: elide;
+            // The tile is named by it already
+            accessible-role: none;
+        }
+    }
+    // The caller's drawings, over the tiles and under nothing: they take no pointer, so a press goes to the tile below
+    Rectangle {
+        width: parent.width;
+        height: art-height;
+        @children
+    }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+}
+
 // Kind "picker": the one style for anything that opens a list or a menu, everywhere: a raised box with the value and a chevron,
 // never "..." in a button. A caption makes it two lines (small caption over the value) until a card moves the caption into its row.
 export component ChoiceField inherits Rectangle {

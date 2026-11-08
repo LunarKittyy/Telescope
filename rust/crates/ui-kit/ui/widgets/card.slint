@@ -298,6 +298,38 @@ export component FormRow inherits HorizontalLayout {
     @children
 }
 
+// Kind "row", the card's rail layout: an icon is the label (its word is the tooltip), then the control out to the right edge; `has-icon: false` keeps the rail's room blank for a second control under the first.
+export component RailRow inherits HorizontalLayout {
+    in property <image> icon;
+    // A row that goes on from the one above has no icon, only the rail's room
+    in property <bool> has-icon: true;
+    // The word the icon stands for: its tooltip, what a screen reader calls the row and what the settings search finds
+    in property <string> label;
+    // A longer sentence for the tooltip, where the word alone isn't enough
+    in property <string> tip;
+    in property <string> keywords;
+    in property <color> hue: Theme.accent;
+    in property <bool> enabled: true;
+    out property <string> control-kind: "row";
+    spacing: Theme.u(4);
+    min-height: Theme.row;
+    Rectangle {
+        width: Theme.u(14);
+        accessible-role: none;
+        if has-icon: Icon {
+            x: Theme.u(0.5);
+            y: (parent.height - self.height) / 2;
+            source: icon;
+            tint: enabled ? Theme.edge(hue) : Theme.dis;
+            width: Theme.icon;
+            height: Theme.icon;
+        }
+        if has-icon && label != "": SettingMark { width: parent.width; height: parent.height; name: label; keywords: keywords; }
+        if has-icon && label != "": Tooltip { TipBody { says: tip != "" ? tip : label; } }
+    }
+    @children
+}
+
 // A section of a card that folds by its heading (add_section_heading plus collapse.py). key is the heading in English,
 // scope the card's fold-key.
 export component Section inherits VerticalLayout {

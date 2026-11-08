@@ -14,9 +14,15 @@ export global Fills {
     pure function vivid(i: int) -> color {
         i == 0 ? #e0aebf : i == 1 ? #e9b48f : i == 2 ? #cfe56d : i == 3 ? #33f0c0 : #3366ff
     }
+    // White balance: temperature runs blue, grey, amber and tint runs green, grey, magenta, the same on every card
+    pure function balance(kind: string, i: int) -> color {
+        kind == "temperature" ? (i == 0 ? #4a7fd4 : i == 1 ? #4a7fd4.mix(#9a9a9a, 0.5) : i == 2 ? #9a9a9a : i == 3 ? #9a9a9a.mix(#e8a45a, 0.5) : #e8a45a)
+            : (i == 0 ? #3fcf6e : i == 1 ? #3fcf6e.mix(#9a9a9a, 0.5) : i == 2 ? #9a9a9a : i == 3 ? #9a9a9a.mix(#e04fc8, 0.5) : #e04fc8)
+    }
     // The track's colour at stop i of 0 to 4, evenly spaced. "gradient" runs ga, gb, gc.
     public pure function stop(kind: string, i: int, ga: color, gb: color, gc: color) -> color {
-        kind == "gradient" ? (i == 0 ? ga : i == 1 ? ga.mix(gb, 0.5) : i == 2 ? gb : i == 3 ? gb.mix(gc, 0.5) : gc)
+        kind == "temperature" || kind == "tint" ? balance(kind, i)
+            : kind == "gradient" ? (i == 0 ? ga : i == 1 ? ga.mix(gb, 0.5) : i == 2 ? gb : i == 3 ? gb.mix(gc, 0.5) : gc)
             : kind == "tolerance" || kind == "spill" ? ga.mix(gb, 1 - i / 4)
             : kind == "vibrance" ? vivid(i)
             : grey(low(kind) + (high(kind) - low(kind)) * i / 4)
@@ -26,9 +32,11 @@ export global Fills {
         stop(kind, min(3, floor(clamp(fraction, 0, 1) * 4)), ga, gb, gc).mix(stop(kind, min(3, floor(clamp(fraction, 0, 1) * 4)) + 1, ga, gb, gc), 1 - (clamp(fraction, 0, 1) * 4 - min(3, floor(clamp(fraction, 0, 1) * 4))))
     }
     // True where the handle takes the colour under it; a grey ramp keeps the card's colour, since black or white would vanish
-    public pure function colours-handle(kind: string) -> bool { kind == "gradient" || kind == "vibrance" || kind == "tolerance" || kind == "spill" }
-    // The fills that are a ramp of stops: everything but plain, the zebra and the edge
-    public pure function is-ramp(kind: string) -> bool { !(kind == "plain" || kind == "contrast" || kind == "edges") }
+    public pure function colours-handle(kind: string) -> bool { kind == "gradient" || kind == "temperature" || kind == "tint" || kind == "vibrance" || kind == "tolerance" || kind == "spill" }
+    // The fills that are a ramp of stops: everything but plain, the zebra, the edge and the bar
+    public pure function is-ramp(kind: string) -> bool { !(kind == "plain" || kind == "contrast" || kind == "edges" || kind == "threshold") }
+    // The threshold bar: the track is as tall as the row and fills to a live value, and the handle sets the level it warns at
+    public pure function is-bar(kind: string) -> bool { kind == "threshold" }
     // How much of the card's own colour lies over a fill at rest. These three run along the whole track in the screen's own bright colours, so they
     // are put down further than a range's colours to weigh the same as a plain fill's quietened colour
     public pure function rest-veil(kind: string) -> float { kind == "tolerance" || kind == "edges" || kind == "spill" ? 0.68 : 0.5 }

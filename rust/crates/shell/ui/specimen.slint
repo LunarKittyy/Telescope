@@ -86,6 +86,185 @@ export component Cell inherits Window {
             enabled: !off;
             FormRow { label: "Mode"; Segmented { label: "Mode"; items: ["Auto", "Manual"]; hue: hue; } }
         }
+        // The controls the card redesigns need (STYLE.md: Toggle tile, Picture segmented, Pad, Threshold bar, Dial, Icon rail)
+        if kind == "toggle-tile": HorizontalLayout {
+            spacing: Theme.gap;
+            ToggleTile { text: long ? "Automatische Benachrichtigung bei Verbindungsabbruch" : "Stabilization"; icon: Icons.stabilize; checked: lit; hue: hue; enabled: !off; }
+            ToggleTile { text: "Torch"; icon: Icons.torch; hue: hue; enabled: !off; }
+        }
+        if kind == "toggle-icons": HorizontalLayout {
+            spacing: Theme.gap;
+            ToggleTile { name: "Previous"; icon: Icons.chevron; checked: lit; hue: hue; enabled: !off; }
+            ToggleTile { name: "Play"; icon: Icons.v-play; checked: lit; hue: hue; enabled: !off; }
+            ToggleTile { name: "Next"; icon: Icons.chevron; hue: hue; enabled: !off; }
+        }
+        if kind == "picture-swatches": swatches := PictureSegmented {
+            label: "Writing";
+            items: long ? ["Pergamentpapier mit Linien", "Weisses Papier", "Graues Papier"] : ["Cream", "White", "Grey"];
+            disabled: [off, off, off];
+            current: 0;
+            hue: hue;
+            for i in 3: Rectangle {
+                x: i * swatches.pitch + (swatches.cell-width - self.width) / 2;
+                y: (swatches.art-height - self.height) / 2;
+                width: Theme.u(24);
+                height: Theme.u(13);
+                border-radius: Theme.u(2);
+                background: off ? Theme.dis : i == 0 ? #d6d3ca : i == 1 ? #ffffff : #c4c4c4;
+                Path {
+                    x: Theme.u(3);
+                    y: Theme.u(3);
+                    width: parent.width - Theme.u(6);
+                    height: parent.height - Theme.u(6);
+                    viewbox-width: 36;
+                    viewbox-height: 14;
+                    commands: "M 0 7 C 4 0 8 14 12 7 S 20 0 24 7 S 32 14 36 7";
+                    stroke: off ? Theme.trough : i == 1 ? #111111 : #4a5568;
+                    stroke-width: 1.5px;
+                    fill: transparent;
+                }
+            }
+        }
+        if kind == "picture-shapes": shapes := PictureSegmented {
+            label: "Shape";
+            items: long ? ["Automatisch", "A4 hoch", "Letter", "Quadrat", "Bildfüllend"] : ["Auto", "A4", "Letter", "Square", "Fill"];
+            disabled: [off, off, off, off, off];
+            current: 1;
+            hue: hue;
+            show-names: true;
+            tile-height: Theme.u(24);
+            for i in 5: Path {
+                property <length> w: i == 0 ? Theme.u(10) : i == 1 ? Theme.u(7) : i == 2 ? Theme.u(8) : i == 3 ? Theme.u(10) : Theme.u(13);
+                property <length> h: i == 0 ? Theme.u(10) : i == 1 ? Theme.u(10) : i == 2 ? Theme.u(10) : i == 3 ? Theme.u(10) : Theme.u(8);
+                x: i * shapes.pitch + (shapes.cell-width - w) / 2;
+                y: (shapes.art-height - h) / 2;
+                width: w;
+                height: h;
+                viewbox-width: w / 1px;
+                viewbox-height: h / 1px;
+                commands: i == 0 ? "M 1 " + (h / 1px - 1) + " L " + (w / 2 / 1px) + " 1 L " + (w / 1px - 1) + " " + (h / 1px - 1) + " Z"
+                    : "M 1 1 L " + (w / 1px - 1) + " 1 L " + (w / 1px - 1) + " " + (h / 1px - 1) + " L 1 " + (h / 1px - 1) + " Z";
+                stroke: off ? Theme.dis : shapes.shown == i ? Theme.ink : Theme.ink2;
+                stroke-width: 1.5px;
+                fill: transparent;
+            }
+        }
+        if kind == "slider-wb": VerticalLayout {
+            spacing: 2px;
+            for name[i] in ["Temperature", "Tint"]: Slider {
+                label: name;
+                minimum: i == 0 ? 2000 : -50;
+                maximum: i == 0 ? 10000 : 50;
+                value: i == 0 ? 5500 : 10;
+                has-default: true;
+                default-value: i == 0 ? 5500 : 0;
+                hue: hue;
+                fill: i == 0 ? "temperature" : "tint";
+                readout: long ? "Farbtemperatur 5500 Kelvin" : i == 0 ? "5500 K" : "+10";
+                enabled: !off;
+            }
+        }
+        if kind == "pad-sheet": sheet-pad := Pad {
+            label: "Sheet size";
+            x-minimum: 20;
+            x-maximum: 200;
+            y-minimum: 20;
+            y-maximum: 200;
+            value-x: 120;
+            value-y: 90;
+            centre-x: 100;
+            centre-y: 100;
+            has-default: true;
+            default-x: 100;
+            default-y: 100;
+            hue: hue;
+            enabled: !off;
+            readout-top-left: true;
+            readout: long ? "Breite 120 % Höhe 90 % des Papiers" : "W 120%  H 90%";
+            Path {
+                x: Theme.u(6);
+                y: Theme.u(6);
+                width: max(1px, sheet-pad.handle-x - Theme.u(6));
+                height: max(1px, sheet-pad.handle-y - Theme.u(6));
+                viewbox-width: self.width / 1px;
+                viewbox-height: self.height / 1px;
+                commands: "M 1 1 L " + (self.width / 1px - 1) + " 1 L " + (self.width / 1px - 1) + " " + (self.height / 1px - 1) + " L 1 " + (self.height / 1px - 1) + " Z";
+                stroke: off ? Theme.dis : hue;
+                stroke-width: 2px;
+                fill: off ? transparent : Theme.tint(hue);
+            }
+            IconButton { x: parent.width - self.width - Theme.u(3); y: Theme.u(3); icon: Icons.reset; label: "Reset"; enabled: !off; }
+        }
+        if kind == "dial": HorizontalLayout {
+            spacing: Theme.gap;
+            Dial {
+                label: long ? "Lichtempfindlichkeit" : "ISO";
+                stops: empty ? [] : long ? ["100000", "2000000", "4000000", "8000000"] : ["100", "200", "400", "800", "1600", "3200"];
+                current: 2;
+                hue: hue;
+                enabled: !off;
+            }
+            Dial {
+                label: long ? "Belichtungszeit" : "Shutter";
+                stops: empty ? [] : long ? ["1/100000", "1/200000", "1/400000", "1/800000"] : ["1/15", "1/30", "1/60", "1/125", "1/250", "1/500"];
+                current: 2;
+                hue: hue;
+                enabled: !off;
+            }
+        }
+        if kind == "threshold": VerticalLayout {
+            spacing: Theme.u(3);
+            Slider {
+                label: "Battery";
+                fill: "threshold";
+                minimum: 0;
+                maximum: 100;
+                value: 20;
+                level: 74;
+                has-level: !empty;
+                level-text: empty ? "-" : long ? "74 % und lädt gerade" : "74%";
+                level-icon: Icons.bolt;
+                has-level-icon: !empty;
+                readout: "20%";
+                hue: Theme.plugin-hue("streaming");
+                enabled: !off;
+            }
+            Slider {
+                label: "Temperature";
+                fill: "threshold";
+                minimum: 20;
+                maximum: 60;
+                value: 45;
+                level: 38;
+                has-level: !empty;
+                level-text: empty ? "-" : "38°C";
+                readout: "45°C";
+                hue: Theme.plugin-hue("streaming");
+                enabled: !off;
+            }
+        }
+        if kind == "rail": VerticalLayout {
+            spacing: Theme.u(3);
+            RailRow {
+                icon: Icons.sun;
+                label: "Brightness";
+                hue: hue;
+                enabled: !off;
+                Slider { label: "Brightness"; minimum: -4; maximum: 4; step: 0.1; value: 0; hue: hue; readout: long ? "+0,0 Blendenstufen (Auto)" : "+0.0 EV"; enabled: !off; }
+            }
+            RailRow {
+                icon: Icons.thermometer;
+                label: "White balance";
+                hue: hue;
+                enabled: !off;
+                Segmented { label: "White balance"; items: ["Auto", "Manual"]; disabled: [off, off]; hue: hue; }
+            }
+            RailRow {
+                has-icon: false;
+                enabled: !off;
+                Slider { label: "Warmth"; minimum: 0; maximum: 100; value: 60; hue: hue; readout: "60%"; enabled: !off; }
+            }
+        }
     }
 }
 
@@ -108,3 +287,5 @@ export component Heading inherits Window {
         overflow: elide;
     }
 }
+
+import { ToggleTile, PictureSegmented, Pad, Dial, RailRow } from "@ui-kit/ui-kit.slint";

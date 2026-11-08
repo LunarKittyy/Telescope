@@ -2,7 +2,7 @@
 
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
-import { FocusRing, KeyFocus, TouchRing } from "basics.slint";
+import { Icon, FocusRing, KeyFocus, TouchRing } from "basics.slint";
 import { TipBody, TipUse } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { Fills, RampFill, ZebraFill, EdgeFill } from "fills.slint";
@@ -30,6 +30,13 @@ export component Slider inherits HorizontalLayout {
     in property <color> grad-a: Theme.ink2;
     in property <color> grad-b: Theme.ink2;
     in property <color> grad-c: Theme.ink2;
+    // The threshold fill: a row-high bar filled to a live value (level, on the handle's scale) with the handle as the level to warn at, both numbers on the bar
+    in property <float> level: 0;
+    in property <bool> has-level;
+    in property <string> level-text;
+    in property <image> level-icon;
+    in property <bool> has-level-icon;
+    property <bool> in-bar: Fills.is-bar(fill);
     // The slider goes both ways: a tick marks where it is neutral
     in property <bool> two-way: minimum < 0 && maximum > 0;
     in property <float> centre: minimum < 0 && maximum > 0 ? 0 : (minimum + maximum) / 2;
@@ -53,7 +60,7 @@ export component Slider inherits HorizontalLayout {
     // The value as a box beside the readout would hold it (LogSliderRow's spin box): a click on the readout types over it there, and
     // `typed` hands the text to the owner to read. Empty: the slider reads a typed number itself (below) and says it with moved and released.
     in property <string> typing;
-    // Without `typing`: Enter on the slider or a double-click on the readout opens a box for the number, Enter sets it and Escape leaves it as it was
+    // Without `typing`: Enter on the slider or a click on the readout opens a box for the number, Enter sets it and Escape leaves it as it was
     in property <bool> type-in: true;
     // A readout that is a word ("Chest", "Easy") or anything but a number isn't the slider's raw number, so no box offers one
     pure function reads-as-number(text: string) -> bool {
@@ -61,7 +68,7 @@ export component Slider inherits HorizontalLayout {
             || text.starts-with("5") || text.starts-with("6") || text.starts-with("7") || text.starts-with("8") || text.starts-with("9")
             || text.starts-with("+") || text.starts-with("-") || text.starts-with("\u{2212}")
     }
-    property <bool> can-type: enabled && has-readout && (typing != "" || (type-in && reads-as-number(readout)));
+    property <bool> can-type: enabled && (has-readout || in-bar) && (typing != "" || (type-in && reads-as-number(readout)));
     // The box was opened from the keyboard, so the focus goes back to the slider when it closes
     property <bool> typing-by-key;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
@@ -156,10 +163,29 @@ export component Slider inherits HorizontalLayout {
         }
         // The track. Each part rounds its own ends: a clip would square them off in the software renderer
         groove := Rectangle {
-            y: (parent.height - Theme.track) / 2;
-            height: Theme.track;
-            border-radius: Theme.track / 2;
+            y: in-bar ? 0px : (parent.height - Theme.track) / 2;
+            height: in-bar ? parent.height : Theme.track;
+            border-radius: in-bar ? Theme.r-ctl : Theme.track / 2;
             background: Theme.raise;
+            property <length> live-w: track.width * clamp((level - minimum) / max(0.0001, maximum - minimum), 0, 1);
+            property <color> live-colour: !enabled ? Theme.sel : track.held ? hue : Theme.muted(hue);
+            if has-level && in-bar && live-w > 0px: Rectangle {
+                x: 0px;
+                width: min(live-w, Theme.r-ctl * 2);
+                border-radius: Theme.r-ctl;
+                background: live-colour;
+            }
+            if has-level && in-bar && live-w > Theme.r-ctl: Rectangle {
+                x: Theme.r-ctl;
+                width: max(0px, min(live-w, track.width - Theme.r-ctl) - Theme.r-ctl);
+                background: live-colour;
+            }
+            if has-level && in-bar && live-w > track.width - Theme.r-ctl: Rectangle {
+                x: track.width - Theme.r-ctl * 2;
+                width: Theme.r-ctl * 2;
+                border-radius: Theme.r-ctl;
+                background: live-colour;
+            }
             if enabled && fill == "plain": Rectangle {
                 x: 0px;
                 y: 0px;
@@ -180,12 +206,12 @@ export component Slider inherits HorizontalLayout {
                 gb: grad-b;
                 softness: track.fraction;
             }
-            if enabled && fill != "plain": Rectangle {
+            if enabled && fill != "plain" && !in-bar: Rectangle {
                 border-radius: Theme.track / 2;
                 background: Theme.card;
                 opacity: track.held ? 0 : Fills.rest-veil(fill);
             }
-            if !enabled: Rectangle {
+            if !enabled && !in-bar: Rectangle {
                 x: 0px;
                 y: 0px;
                 height: parent.height;
@@ -210,13 +236,82 @@ export component Slider inherits HorizontalLayout {
             border-radius: Theme.u(1);
             background: enabled ? Theme.faint : Theme.dis;
         }
+        // The threshold bar's two numbers: the level beside the handle (on the side with room), the live value at the far end
+        if in-bar && !is-typing: Text {
+            property <bool> left-side: track.fraction > 0.5;
+            x: left-side ? handle.x - Theme.u(4) - self.width : handle.x + Theme.handle-w + Theme.u(4);
+            width: Theme.u(24);
+            height: parent.height;
+            text: readout;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-value;
+            // Over the full colour of a held bar the card's own dark reads, where the light ink wouldn't
+            color: !enabled ? Theme.dis : track.held && has-level && (left-side ? self.x + self.width - Theme.u(7) : self.x + Theme.u(7)) < groove.live-w ? Theme.card : Theme.ink;
+            horizontal-alignment: left-side ? right : left;
+            vertical-alignment: center;
+            overflow: elide;
+            accessible-role: none;
+        }
+        if in-bar && is-typing: TextInput {
+            property <bool> left-side: track.fraction > 0.5;
+            x: left-side ? handle.x - Theme.u(4) - self.width : handle.x + Theme.handle-w + Theme.u(4);
+            width: Theme.u(24);
+            height: parent.height;
+            text: root.typing != "" ? root.typing : "\{root.shown}";
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-value;
+            color: Theme.ink;
+            selection-background-color: Theme.fill;
+            selection-foreground-color: white;
+            horizontal-alignment: left-side ? right : left;
+            vertical-alignment: center;
+            single-line: true;
+            accessible-label: root.label;
+            init => { self.focus(); self.select-all(); }
+            accepted => { root.typing-done(self.text); }
+            changed has-focus => { if (!self.has-focus) { root.typing-done(self.text); } }
+            key-pressed(e) => {
+                if (e.text == Key.Escape) {
+                    root.is-typing = false;
+                    if (typing-by-key) { slider-focus.focus(); } else { KeyFocus.given-back += 1; }
+                    return accept;
+                }
+                reject
+            }
+        }
+        if in-bar && level-text != "": HorizontalLayout {
+            width: min(self.preferred-width, track.width / 2 - Theme.u(6));
+            x: track.width - Theme.u(5) - self.width;
+            y: 0px;
+            height: parent.height;
+            spacing: Theme.u(2);
+            if has-level-icon: Icon {
+                y: (parent.height - Theme.icon-small) / 2;
+                source: level-icon;
+                tint: !enabled ? Theme.dis : track.held && has-level && groove.live-w > parent.x + parent.width / 2 ? Theme.card : Theme.ink;
+                width: Theme.icon-small;
+                height: Theme.icon-small;
+            }
+            Text {
+                text: level-text;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                font-weight: Theme.w-value;
+                color: !enabled ? Theme.dis : track.held && has-level && groove.live-w > parent.x + parent.width / 2 ? Theme.card : Theme.ink;
+                vertical-alignment: center;
+                overflow: elide;
+                accessible-role: none;
+            }
+        }
         handle := Rectangle {
             width: Theme.handle-w;
             height: Theme.handle-h;
             y: (parent.height - self.height) / 2;
             border-radius: Theme.r-handle;
             x: track.fraction * (track.width - Theme.handle-w);
-            background: !enabled ? Theme.raise : track.held ? track.under : Theme.card;
+            background: !enabled ? Theme.raise : track.held && !in-bar ? track.under : Theme.card;
             border-width: Theme.stroke;
             border-color: !enabled ? Theme.dis : track.held ? track.under : touch.has-hover ? track.under : Theme.edge(track.under);
             FocusRing { shown: slider-focus.has-focus; radius: Theme.r-handle; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
@@ -260,18 +355,27 @@ export component Slider inherits HorizontalLayout {
                 }
             }
         }
+        if in-bar && can-type && !is-typing: TouchArea {
+            property <bool> left-side: track.fraction > 0.5;
+            x: left-side ? handle.x - Theme.u(4) - self.width : handle.x + Theme.handle-w + Theme.u(4);
+            width: Theme.u(24);
+            height: parent.height;
+            mouse-cursor: MouseCursor.text;
+            pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
+            changed has-hover => { readout-over = self.has-hover; }
+            clicked => { start-typing(false); }
+        }
         if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
         if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
     }
-    if has-readout: Rectangle {
+    if has-readout && !in-bar: Rectangle {
         width: readout-width;
         if can-type: typing-touch := TouchArea {
             enabled: root.enabled;
-            mouse-cursor: typing != "" ? MouseCursor.text : MouseCursor.default;
+            mouse-cursor: MouseCursor.text;
             pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
             changed has-hover => { readout-over = self.has-hover; }
-            clicked => { if (typing != "") { start-typing(false); } }
-            double-clicked => { start-typing(false); }
+            clicked => { start-typing(false); }
         }
         if !is-typing: Text {
             width: parent.width;

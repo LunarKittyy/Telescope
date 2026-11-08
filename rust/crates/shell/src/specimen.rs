@@ -57,6 +57,16 @@ const KINDS: &[Kind] = &[
     Kind { name: "section", label: "section", height: 44.0, at: MID, states: &["rest", "long"] },
     Kind { name: "scrollbar", label: "scrollbar", height: 104.0, at: (0.06, 0.2), states: &["rest", "hover", "held"] },
     Kind { name: "card", label: "card", height: 150.0, at: MID, states: &["rest", "off", "long"] },
+    // The controls of the card redesigns
+    Kind { name: "toggle-tile", label: "toggle tile", height: 64.0, at: (0.2, 0.5), states: &["rest", "on", "hover", "focus", "held", "off", "long"] },
+    Kind { name: "toggle-icons", label: "toggle tile (icons)", height: 64.0, at: (0.2, 0.5), states: &["rest", "on", "hover", "focus", "held", "off"] },
+    Kind { name: "picture-swatches", label: "picture segmented", height: 72.0, at: (0.5, 0.5), states: &["rest", "hover", "focus", "held", "off", "long"] },
+    Kind { name: "picture-shapes", label: "picture (named)", height: 72.0, at: (0.7, 0.5), states: &["rest", "hover", "focus", "held", "off", "long"] },
+    Kind { name: "slider-wb", label: "slider (white balance)", height: 80.0, at: (0.3, 0.25), states: &["rest", "hover", "held", "off", "long"] },
+    Kind { name: "pad-sheet", label: "pad (sheet)", height: 208.0, at: (0.55, 0.41), states: &["rest", "hover", "focus", "held", "off", "long"] },
+    Kind { name: "dial", label: "dial", height: 72.0, at: (0.25, 0.5), states: &["rest", "hover", "focus", "held", "off", "empty", "long"] },
+    Kind { name: "threshold", label: "slider (threshold)", height: 100.0, at: (0.5, 0.25), states: &["rest", "hover", "focus", "held", "off", "empty", "long"] },
+    Kind { name: "rail", label: "icon rail", height: 132.0, at: (0.5, 0.17), states: &["rest", "hover", "off", "long"] },
 ];
 
 const CELL_WIDTH: f32 = 300.0;
@@ -197,6 +207,35 @@ mod tests {
             for name in ["picker", "number"] {
                 let (rest, empty) = (draw(classic, name, "rest"), draw(classic, name, "empty"));
                 assert!(differing(&rest, &empty) > 20, "{name} (classic {classic}): no placeholder");
+            }
+        }
+    }
+
+    // The controls of the card redesigns answer the pointer too: hover and held each look like themselves, in both looks
+    #[test]
+    fn the_card_redesign_controls_answer_hover_and_held_in_both_looks() {
+        assert!(offscreen::install());
+        let doc = include_str!("../ui/specimen.slint");
+        let cells = crate::compile::compile("specimen.slint", doc, vec![], "Cell").expect("the cells compile");
+        let draw = |classic: bool, name: &str, state: &str| {
+            let kind = KINDS.iter().find(|k| k.name == name).expect("a kind of the sheet");
+            cell(&cells, classic, kind, state).expect("the cell draws")
+        };
+        for classic in [false, true] {
+            for name in ["toggle-tile", "toggle-icons", "picture-swatches", "picture-shapes", "pad-sheet", "dial", "threshold", "slider-wb"] {
+                let (rest, hover, held) = (draw(classic, name, "rest"), draw(classic, name, "hover"), draw(classic, name, "held"));
+                assert!(differing(&rest, &held) > 50, "{name} (classic {classic}): held looks like rest");
+                assert!(differing(&hover, &held) > 50, "{name} (classic {classic}): held looks like hover");
+            }
+            // A disabled one is there, and looks unlike one at rest
+            for name in ["toggle-tile", "picture-swatches", "pad-sheet", "dial", "threshold", "slider-wb", "rail"] {
+                let (rest, off) = (draw(classic, name, "rest"), draw(classic, name, "off"));
+                assert!(differing(&rest, &off) > 200, "{name} (classic {classic}): disabled can't be told from rest");
+            }
+            // With nothing to show yet, a dial and a bar keep their place and show it
+            for name in ["dial", "threshold"] {
+                let (rest, empty) = (draw(classic, name, "rest"), draw(classic, name, "empty"));
+                assert!(differing(&rest, &empty) > 100, "{name} (classic {classic}): no placeholder");
             }
         }
     }

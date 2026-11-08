@@ -180,3 +180,111 @@ export component SwitchTile inherits Rectangle {
         }
     }
 }
+
+// Kind "toggle", the tile that is its own switch: an icon and a name, the thick border in the card's colour is the state, and with no text it is an icon tile named by `name`.
+export component ToggleTile inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    // What a screen reader calls it, when there is no text or the text alone repeats in a card
+    in property <string> name: text;
+    in property <color> hue: Theme.accent;
+    // Where the parent says it is. A click never writes here, so a parent's `checked: on` keeps following on.
+    in-out property <bool> checked;
+    property <bool> local;
+    property <bool> touched;
+    out property <bool> shown: touched ? local : checked;
+    changed checked => { touched = false; }
+    in property <bool> enabled: true;
+    // A tooltip for the whole tile: say why it can't be used, or what an icon alone means
+    in property <string> tip;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
+    // The id of the setting it is, for the outline when something outside the window reads or changes it
+    in property <string> setting;
+    out property <string> control-kind: "toggle";
+    callback toggled(bool);
+    public function flip() {
+        if (enabled) {
+            local = !shown;
+            touched = true;
+            toggled(local);
+        }
+    }
+    // Got here by Tab, so it shows the ring; a click gives it the focus without one
+    property <bool> keyed;
+    property <bool> held: enabled && touch.pressed;
+    height: Theme.tile;
+    horizontal-stretch: 1;
+    min-width: 0px;
+    preferred-width: 0px;
+    border-radius: Theme.r-ctl;
+    border-width: shown && enabled ? Theme.stroke : 0px;
+    border-color: hue;
+    background: !enabled ? Theme.raise.mix(Theme.card, 0.4)
+        : shown ? (held ? Theme.held(hue) : Theme.tint(hue))
+        : held ? Theme.press
+        : touch.has-hover ? Theme.hover : Theme.raise;
+    accessible-role: switch;
+    accessible-label: name;
+    accessible-description: tip;
+    accessible-checkable: true;
+    accessible-checked: shown;
+    accessible-action-default => { flip(); }
+    forward-focus: focus;
+    focus := FocusScope {
+        focus-gained(reason) => {
+            if (reason == FocusReason.tab-navigation) {
+                keyed = true;
+                Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height);
+            }
+        }
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (e.text == " " || e.text == "\n") { flip(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus && keyed; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
+    usage := TipUse { hover: touch.has-hover; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down) {
+                keyed = false;
+                focus.focus();
+                usage.press();
+            }
+        }
+        scroll-event(e) => { usage.wheel(); reject }
+        clicked => { flip(); }
+    }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+    HorizontalLayout {
+        padding-left: Theme.u(6);
+        padding-right: Theme.u(6);
+        spacing: Theme.u(4);
+        alignment: text == "" ? center : start;
+        Icon {
+            source: icon;
+            tint: !enabled ? Theme.dis : shown ? hue : Theme.ink2;
+            width: Theme.icon;
+            height: Theme.icon;
+            y: (parent.height - self.height) / 2;
+        }
+        if text != "": Text {
+            text: root.text;
+            horizontal-stretch: 1;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-value;
+            color: !enabled ? Theme.dis : shown || touch.has-hover ? Theme.ink : Theme.ink2;
+            vertical-alignment: center;
+            overflow: elide;
+            // The tile carries this text as its name
+            accessible-role: none;
+        }
+    }
+    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
+}
