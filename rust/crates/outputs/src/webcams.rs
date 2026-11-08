@@ -502,6 +502,194 @@ pub fn linux_scanner() -> LinuxScanner {
     LinuxScanner::new(SYSFS, "/dev", None, Box::new(open_node), Box::new(stable_keys))
 }
 
+// ── Linux: DSLRs through gphoto2 ─────────────────────────────────────────────
+
+/// What a DSLR's location starts with, so the opener tells it from a V4L2 node.
+pub const GPHOTO_PREFIX: &str = "gphoto2:";
+/// How long `gphoto2 --auto-detect` gets before it counts as stuck.
+pub const GPHOTO_DETECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+/// What live view sends, roughly: gphoto2 doesn't say before it starts, and the stream is decoded from its own JPEGs.
+const GPHOTO_MODE: (u32, u32, f64) = (640, 426, 30.0);
+
+pub fn is_gphoto(location: &str) -> bool {
+    location.starts_with(GPHOTO_PREFIX)
+}
+
+/// (model, port) of each camera in the output of `gphoto2 --auto-detect`. Mass storage "cameras" can't do live view.
+pub fn parse_auto_detect(output: &str) -> Vec<(String, String)> {
+    let mut lines = output.lines().skip_while(|l| !l.trim_start().starts_with("----"));
+    lines.next();
+    lines.filter_map(|l| {
+        let l = l.trim_end();
+        let at = l.rfind(char::is_whitespace)?;
+        usable_camera(l[..at].trim(), l[at..].trim())
+    }).collect()
+}
+
+/// (model, port) when that is a camera live view can come from.
+pub fn usable_camera(model: &str, port: &str) -> Option<(String, String)> {
+    (!model.is_empty() && port.contains(':') && !model.to_lowercase().contains("mass storage")).then(|| (model.to_string(), port.to_string()))
+}
+
+/// A camera gphoto2 found, with what tells it apart from other cameras of its model ("" when sysfs doesn't know it).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Detected {
+    pub model: String,
+    pub port: String,
+    pub identity: String,
+}
+
+/// What stays the same for a USB camera however often it's replugged: its serial number when it has one, else the physical
+/// port it's in (not the bus device number, which changes every time). Looks the "usb:001,004" port up in sysfs (/sys/bus/usb/devices).
+pub fn usb_identity(port: &str, sysfs_usb: &std::path::Path) -> Option<String> {
+    let (bus, dev) = port.strip_prefix("usb:")?.split_once(',')?;
+    let (bus, dev): (u32, u32) = (bus.trim().parse().ok()?, dev.trim().parse().ok()?);
+    for e in std::fs::read_dir(sysfs_usb).ok()?.flatten() {
+        let folder = e.path();
+        let num = |name: &str| read(&folder.join(name)).parse::<u32>().ok();
+        if num("busnum") != Some(bus) || num("devnum") != Some(dev) {
+            continue;
+        }
+        let serial = read(&folder.join("serial"));
+        if !serial.is_empty() {
+            return Some(format!("usb-{}:{}-{serial}", read(&folder.join("idVendor")), read(&folder.join("idProduct"))));
+        }
+        return Some(format!("usb-port-{}", e.file_name().to_string_lossy()));
+    }
+    None
+}
+
+/// The webcam list entries for what gphoto2 found. A camera keeps its key when another of its model comes or goes and when it's
+/// replugged, so its settings stay with it. Cameras sysfs doesn't know fall back to their model (and port, when two share one).
+pub fn gphoto_devices(found: &[Detected]) -> Vec<Device> {
+    let mode = Mode::new("MJPG", GPHOTO_MODE.0, GPHOTO_MODE.1, &[GPHOTO_MODE.2]);
+    let mut devices: Vec<Device> = found.iter().map(|d| {
+        let twins = found.iter().filter(|f| f.model == d.model).count() > 1;
+        let key = if !d.identity.is_empty() { format!("gphoto2-{}", d.identity) }
+            else if twins { format!("gphoto2-{}-{}", d.model, d.port) } else { format!("gphoto2-{}", d.model) };
+        Device { key, name: d.model.clone(), location: format!("{GPHOTO_PREFIX}{}", d.port), modes: vec![mode.clone()] }
+    }).collect();
+    // The same order whichever way gphoto2 lists them, so the "(2)" stays on the same camera
+    devices.sort_by(|a, b| a.key.cmp(&b.key));
+    tell_apart(devices)
+}
+
+/// The port out of a gphoto location ("usb:001,004").
+pub fn gphoto_port(location: &str) -> &str {
+    location.strip_prefix(GPHOTO_PREFIX).unwrap_or(location)
+}
+
+/// Whether the camera's USB node is still there ("usb:001,004" is /dev/bus/usb/001/004).
+pub fn gphoto_present(location: &str, usb_root: &str) -> bool {
+    let Some((bus, dev)) = gphoto_port(location).strip_prefix("usb:").and_then(|p| p.split_once(',')) else { return true };
+    std::path::Path::new(usb_root).join(bus).join(dev).exists()
+}
+
+/// Runs `program --auto-detect` and gives its output. Err(true) when it isn't installed, Err(false) when it fails or takes
+/// longer than the limit.
+#[cfg(target_os = "linux")]
+pub fn run_auto_detect(program: &str, limit: std::time::Duration) -> Result<String, bool> {
+    use std::io::Read;
+    let mut child = std::process::Command::new(program).arg("--auto-detect").env("LC_ALL", "C").env("LANG", "C").env_remove("LANGUAGE")
+        .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::null()).spawn()
+        .map_err(|e| e.kind() == std::io::ErrorKind::NotFound)?;
+    let mut out = child.stdout.take().ok_or(false)?;
+    // Read on a thread, so a full pipe can't hold it up while the clock runs
+    let reader = std::thread::spawn(move || {
+        let mut s = String::new();
+        let _ = out.read_to_string(&mut s);
+        s
+    });
+    let started = std::time::Instant::now();
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if started.elapsed() < limit => std::thread::sleep(std::time::Duration::from_millis(20)),
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                let _ = reader.join();
+                return Err(false);
+            }
+        }
+    };
+    let text = reader.join().map_err(|_| false)?;
+    if status.success() { Ok(text) } else { Err(false) }
+}
+
+#[cfg(target_os = "linux")]
+#[derive(Default)]
+struct GphotoState {
+    found: Vec<Detected>,
+    running: bool,
+    missing: bool,
+}
+
+/// Looks for DSLRs now and then on a thread of its own, so a slow gphoto2 never holds up the webcam rescan: scan() gives
+/// what the last look found. Without gphoto2 installed it finds nothing and only checks again once a minute.
+#[cfg(target_os = "linux")]
+pub struct GphotoScanner {
+    program: String,
+    every: std::time::Duration,
+    limit: std::time::Duration,
+    /// Look through libgphoto2 when it can be loaded, instead of running the command.
+    library: bool,
+    state: std::sync::Arc<std::sync::Mutex<GphotoState>>,
+    last: Option<std::time::Instant>,
+}
+
+#[cfg(target_os = "linux")]
+impl GphotoScanner {
+    pub fn new(program: &str, every: std::time::Duration, limit: std::time::Duration) -> GphotoScanner {
+        GphotoScanner { program: program.into(), every, limit, library: false, state: Default::default(), last: None }
+    }
+
+    pub fn system() -> GphotoScanner {
+        GphotoScanner { library: true, ..GphotoScanner::new("gphoto2", std::time::Duration::from_secs(4), GPHOTO_DETECT_TIMEOUT) }
+    }
+
+    pub fn scan(&mut self) -> Vec<Device> {
+        let (missing, running) = {
+            let st = self.state.lock().unwrap();
+            (st.missing, st.running)
+        };
+        let wait = if missing { std::time::Duration::from_secs(60) } else { self.every };
+        if !running && self.last.is_none_or(|t| t.elapsed() >= wait) {
+            self.last = Some(std::time::Instant::now());
+            self.state.lock().unwrap().running = true;
+            let (state, program, limit, library) = (self.state.clone(), self.program.clone(), self.limit, self.library);
+            std::thread::spawn(move || {
+                // Through libgphoto2 when it's there (the release carries one, so no gphoto2 command is needed), else the command
+                let out = if library && crate::webcam_capture::gphoto_lib::available() {
+                    crate::webcam_capture::gphoto_lib::detect().map(|found| {
+                        found.iter().filter_map(|(m, p)| usable_camera(m, p)).collect::<Vec<_>>()
+                    }).map_err(|_| false)
+                } else {
+                    run_auto_detect(&program, limit).map(|text| parse_auto_detect(&text))
+                };
+                let mut st = state.lock().unwrap();
+                st.running = false;
+                match out {
+                    Ok(text) => {
+                        st.missing = false;
+                        st.found = text.into_iter().map(|(model, port)| {
+                            let identity = usb_identity(&port, std::path::Path::new("/sys/bus/usb/devices")).unwrap_or_default();
+                            Detected { model, port, identity }
+                        }).collect();
+                    }
+                    Err(true) => {
+                        st.missing = true;
+                        st.found.clear();
+                    }
+                    // Stuck or failed once: keep what was found
+                    Err(false) => {}
+                }
+            });
+        }
+        gphoto_devices(&self.state.lock().unwrap().found)
+    }
+}
+
 // ── Who has a camera open ────────────────────────────────────────────────────
 
 /// Linux: the name of another program that has path open, or "" (only programs of this user can be seen).

@@ -1,6 +1,7 @@
 //! Everything on the event bus: one variant per EventBus signal of the Python app's plugin.py, same name, same meaning.
 
 use crate::host::{Pick, RequestId, View};
+use crate::stats::Snapshot;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -145,6 +146,8 @@ events! {
     "stream_covered" => StreamCovered { covered: bool },
     /// The main window came on screen, or went to the tray or was minimized.
     "window_shown" => WindowShown { shown: bool },
+    /// A card was folded or unfolded, or its remembered fold loaded: its key ("<plugin>/<card title in English>") and whether it is folded now.
+    "card_folded" => CardFolded { key: String, folded: bool },
     /// Something waits for the phone to be ready (Automatic streaming), so it's checked even with the window hidden.
     "phone_wanted" => PhoneWanted { wanted: bool, held: bool },
     /// The camera went off (the stream is just the mic) or back on, or what the next start uses changed.
@@ -173,6 +176,8 @@ events! {
     "still_busy_changed" => StillBusyChanged { source_id: String, busy: bool },
     /// Photos were saved from a stream's phone, whichever plugin asked for them.
     "still_saved" => StillSaved { source_id: String, paths: Vec<String> },
+    /// What a stream's own camera can take for a photo changed (a DSLR's mode dial turned, or its live view started or ended); phones say it in phone_state_updated.
+    "still_caps_changed" => StillCapsChanged { source_id: String },
     /// A stream fell behind its frame rate, or caught up again; only the shown one is measured.
     "stream_behind" => StreamBehind { source_id: String, behind: bool },
 
@@ -196,6 +201,18 @@ events! {
     /// Not in plugin.py: the vision pack's download ended (VisionDownload.finished): "" when it's ready, else what went wrong,
     /// and the optional plugin that waited for it (to switch on when it worked).
     "vision_download_finished" => VisionDownloadFinished { error: String, switch_on: String },
+    /// Not in plugin.py: about once a second while a stream runs, how it's going as numbers (core::stats::Snapshot), with the last minute of each series.
+    "stats_updated" => StatsUpdated { snapshot: Snapshot },
+    /// Not in plugin.py: something outside the window (the MCP server) wants the picture of a stream measured, about a second of steady
+    /// frames, and whichever plugin can do that (Colour grading) answers with picture_measured and the same token. Nobody answering
+    /// means nothing here can measure, which the asker finds out from its own timeout.
+    "picture_measure_requested" => PictureMeasureRequested { token: String },
+    /// Not in plugin.py: the answer to picture_measure_requested: ok with the picture as numbers in data, or not with why in message.
+    "picture_measured" => PictureMeasured { token: String, ok: bool, message: String, data: Value },
+    /// Not in plugin.py: something outside the window (the MCP server) read or changed these settings (ids as "plugin.key"). The window
+    /// outlines the controls that show them for a moment: changed is true for a change and false for a read. A control that isn't on
+    /// screen is skipped, nothing is opened or scrolled to.
+    "settings_touched" => SettingsTouched { ids: Vec<String>, changed: bool },
     /// Not in plugin.py: an event a plugin someone added defines for itself, named "<plugin>.<what>".
     "custom" => Custom { name: String, data: Value },
 }

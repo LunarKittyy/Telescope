@@ -146,6 +146,17 @@ impl Rig {
     }
 }
 
+/// A tile as the card shows it: (its list, where it is in it), or None when the card has no such tile.
+fn tile(props: &Value, key: &str) -> Option<(Vec<String>, i64)> {
+    let at = props["tiles"].as_array()?.iter().position(|t| t["key"] == key)?;
+    let list = props["tiles"][at]["options"].as_array()?.iter().map(|o| o.as_str().unwrap().to_string()).collect();
+    Some((list, props["tile-indexes"][at].as_i64()?))
+}
+
+fn keys(props: &Value) -> Vec<String> {
+    props["tiles"].as_array().unwrap().iter().map(|t| t["key"].as_str().unwrap().to_string()).collect()
+}
+
 #[test]
 fn without_photos_the_button_is_off_and_the_card_says_why() {
     let mut rig = Rig::new(None, false);
@@ -167,14 +178,12 @@ fn the_card_shows_only_what_the_lens_has() {
     let mut rig = Rig::new(Some(json!({"size": [1920, 1080]})), true);
     let p = rig.props();
     assert!(p["take-enabled"] == true && p["info-shown"] == false);
-    for row in ["format-shown", "mode-shown", "shots-shown", "exposure-shown", "best-shown", "distortion-shown"] {
-        assert_eq!(p[row], false, "{row}");
-    }
+    assert!(keys(&p).is_empty() && p["best-shown"] == false, "a plain lens has the timer, the folder and nothing else");
     rig.host.still_caps = Some(full_json());
     rig.caps_changed();
     let p = rig.props();
-    assert!(p["format-shown"] == true && p["mode-shown"] == true);
-    assert_eq!((p["format-items"].as_array().unwrap().len(), p["mode-items"].as_array().unwrap().len()), (5, 5));
+    assert_eq!((tile(&p, "format").unwrap().0.len(), tile(&p, "mode").unwrap().0.len()), (5, 5));
+    assert_eq!(keys(&p), ["mode", "format", "shots", "exposure_s", "distortion"]);
 }
 
 #[test]
@@ -192,36 +201,34 @@ fn diagnostics_give_each_modes_own_size() {
 #[test]
 fn a_lens_switch_brings_that_lenss_options() {
     let mut rig = Rig::new(Some(full_json()), true);
-    assert!(rig.props()["mode-shown"] == true);
-    assert!(rig.props()["mode-items"].as_array().unwrap().contains(&json!("Full resolution")));
+    assert!(tile(&rig.props(), "mode").unwrap().0.contains(&"Full resolution".to_string()));
     rig.host.still_caps = Some(json!({"size": [1000, 1000]}));
     rig.event(Event::CameraSwitched { camera: json!({"id": "4"}) });
-    let p = rig.props();
-    assert!(p["mode-shown"] == false && p["format-shown"] == false);
+    assert!(keys(&rig.props()).is_empty());
 }
 
 #[test]
 fn picking_a_night_mode_hides_what_it_cant_do() {
     let mut rig = Rig::new(Some(full_json()), true);
-    rig.ui("choice-picked", vec![json!(0), json!(2)]);
+    rig.ui("tile-picked", vec![json!("mode"), json!(2)]);
     let p = rig.props();
-    assert!(p["format-shown"] == false && p["exposure-shown"] == false && p["best-shown"] == false);
-    assert_eq!(p["shots-items"], json!(["Single", "Burst"]));
+    assert!(tile(&p, "format").is_none() && tile(&p, "exposure_s").is_none() && p["best-shown"] == false);
+    assert_eq!(tile(&p, "shots").unwrap().0, ["Single", "Burst"]);
     assert_eq!(rig.plugin.get_config()["mode"], "night");
 }
 
 #[test]
 fn a_pick_for_another_lens_is_kept_when_this_one_cant_do_it() {
     let mut rig = Rig::new(Some(full_json()), true);
-    rig.ui("choice-picked", vec![json!(1), json!(3)]);
+    rig.ui("tile-picked", vec![json!("format"), json!(3)]);
     assert_eq!(rig.plugin.get_config()["format"], "raw");
     rig.host.still_caps = Some(json!({"size": [1000, 1000]}));
     rig.caps_changed();
-    assert_eq!(rig.props()["format-shown"], false);
+    assert!(tile(&rig.props(), "format").is_none());
     rig.host.still_caps = Some(full_json());
     rig.caps_changed();
     let p = rig.props();
-    assert_eq!((p["format-current"].as_i64(), rig.plugin.get_config()["format"].as_str()), (Some(3), Some("raw")));
+    assert_eq!((tile(&p, "format").map(|t| t.1), rig.plugin.get_config()["format"].as_str()), (Some(3), Some("raw")));
 }
 
 #[test]
@@ -356,16 +363,17 @@ fn quality_burst_and_the_other_boxes_are_picks_too() {
     let mut rig = Rig::new(Some(full_json()), true);
     rig.ui("quality-moved", vec![json!(80.0)]);
     assert_eq!((rig.plugin.get_config()["quality"].clone(), rig.props()["quality-text"].clone()), (json!(80), json!("80")));
-    rig.ui("choice-picked", vec![json!(2), json!(1)]);
-    assert_eq!(rig.props()["burst-shown"], true);
-    rig.ui("number-edited", vec![json!(0), json!("12")]);
-    rig.ui("number-edited", vec![json!(0), json!("1")]);
-    rig.ui("number-edited", vec![json!(0), json!("999")]);
-    rig.ui("number-edited", vec![json!(0), json!("abc")]);
-    assert_eq!(rig.plugin.get_config()["burst"], 12, "only what's a number in range is taken");
+    rig.ui("tile-picked", vec![json!("shots"), json!(1)]);
+    assert!(tile(&rig.props(), "burst").is_some());
+    // The dial runs from 2 to the most the lens takes, and only a place on it is taken
+    rig.ui("tile-picked", vec![json!("burst"), json!(10)]);
+    rig.ui("tile-picked", vec![json!("burst"), json!(999)]);
+    assert_eq!(rig.plugin.get_config()["burst"], 12, "only what's on the dial is taken");
+    let (list, at) = tile(&rig.props(), "burst").unwrap();
+    assert_eq!((list.first().map(String::as_str), list.last().map(String::as_str), at), (Some("2"), Some("60"), 10));
     rig.ui("timer-picked", vec![json!(2)]);
     rig.ui("best-toggled", vec![json!(false)]);
-    rig.ui("choice-picked", vec![json!(3), json!(2)]);
+    rig.ui("tile-picked", vec![json!("exposure_s"), json!(2)]);
     let cfg = rig.plugin.get_config();
     assert_eq!((&cfg["timer"], &cfg["best"], &cfg["exposure_s"]), (&json!(10), &json!(false), &json!(1)));
     let saves = rig.host.calls.iter().filter(|c| *c == "schedule_save").count();
@@ -439,44 +447,388 @@ fn the_pictures_folder_is_read_the_way_qt_reads_it() {
     assert_eq!(folder(Some("XDG_MUSIC_DIR=\"$HOME/Tunes\"\n")), "/home/me/Pictures");
 }
 
-// Typed into a QSpinBox in Python a key at a time: (keys, box 0 or 1, largest burst, value before, text after each key, text after
-// leaving, value after). The first key replaces the selected text.
-type Typing = (&'static str, usize, i64, i64, &'static [&'static str], &'static str, i64);
-const TYPED: [Typing; 14] = [
-    ("100", 0, 60, 5, &["1", "10", "10"], "10", 10),
-    ("1", 0, 60, 5, &["1"], "5", 5),
-    ("61", 0, 60, 5, &["6", "6"], "6", 6),
-    ("0", 0, 60, 5, &["0"], "5", 5),
-    ("a", 0, 60, 5, &["5"], "5", 5),
-    ("1x", 0, 60, 5, &["1", "1"], "5", 5),
-    ("007", 0, 60, 5, &["0", "00", "007"], "7", 7),
-    ("04", 0, 60, 5, &["0", "04"], "4", 4),
-    ("12", 1, 60, 5, &["1", "12"], "12", 12),
-    ("31", 1, 60, 5, &["3", "3"], "3", 3),
-    ("5", 0, 4, 3, &["3"], "3", 3),
-    ("1", 0, 4, 3, &["1"], "3", 3),
-    ("10", 0, 4, 3, &["1", "1"], "3", 3),
-    ("3", 0, 2, 2, &["2"], "2", 2),
-];
+// ── A camera of its own (a DSLR) ─────────────────────────────────────────────
+
+fn dslr_json() -> Value {
+    json!({"formats": ["jpeg", "raw"], "camera": true, "burst_max": 1,
+           "iso": {"values": ["100", "200", "400", "800"], "labels": ["100", "200", "400", "800"], "current": 2},
+           "shutter": {"values": ["0,0010s", "0,0250s", "30,0000s"], "labels": ["1/1000", "1/40", "30 s"], "current": 1}})
+}
+
+/// No phone paired, a DSLR picked and streaming.
+fn dslr(caps: Value) -> Rig {
+    let mut rig = Rig::new(Some(caps), true);
+    rig.event(Event::PhonesChanged { count: 0 });
+    rig.event(Event::SourceSelected { source_id: "webcam:cam".into() });
+    rig
+}
 
 #[test]
-fn the_number_boxes_take_keys_the_way_a_spin_box_does() {
-    for (keys, which, burst_max, before, shown, after, value) in TYPED {
-        let mut rig = Rig::new(Some(json!({"size": [1920, 1080], "burst_max": burst_max})), true);
-        rig.plugin.set_config(&json!({"folder": "/tmp/photos", "burst": before, "focus_steps": before})).unwrap();
-        rig.event(Event::PhoneStateUpdated { state: json!({}) });
-        let name = ["burst", "focus"][which];
-        let mut field = String::new();
-        for (n, key) in keys.chars().enumerate() {
-            let at = rig.plugin.sync[which];
-            let typed = if n == 0 { key.to_string() } else { format!("{field}{key}") };
-            rig.ui("number-edited", vec![json!(which), json!(typed)]);
-            field = if rig.plugin.sync[which] > at { rig.props()[format!("{name}-restore")].as_str().unwrap().to_string() } else { typed };
-            assert_eq!(field, shown[n], "{keys:?} after key {n}");
+fn the_card_shows_for_a_camera_that_takes_photos_and_not_for_other_sources() {
+    let mut rig = dslr(dslr_json());
+    let p = rig.props();
+    assert_eq!((p["shown"].clone(), p["active"].clone(), p["take-enabled"].clone()), (json!(true), json!(true), json!(true)));
+    // The browser camera has no stills service: the card goes
+    rig.host.still_caps = None;
+    rig.event(Event::SourceSelected { source_id: "browser".into() });
+    assert_eq!(rig.props()["shown"], false);
+    // ...and comes back with the camera's own
+    rig.host.still_caps = Some(dslr_json());
+    rig.event(Event::StillCapsChanged { source_id: "webcam:cam".into() });
+    assert_eq!(rig.props()["shown"], true);
+}
+
+#[test]
+fn the_card_offers_the_cameras_own_iso_and_shutter_lists_and_no_quality() {
+    let rig = dslr(dslr_json());
+    let p = rig.props();
+    let (iso, shutter) = (tile(&p, "iso").unwrap(), tile(&p, "shutter").unwrap());
+    assert_eq!((iso.0, iso.1), (["100", "200", "400", "800"].map(String::from).to_vec(), 2));
+    assert_eq!((shutter.0, shutter.1), (["1/1000", "1/40", "30 s"].map(String::from).to_vec(), 1));
+    assert_eq!(p["quality-shown"], false, "a camera keeps its own JPEG quality");
+    assert_eq!(tile(&p, "format").unwrap().0, ["JPEG", "RAW (DNG)", "RAW and JPEG"]);
+    assert_eq!(keys(&p), ["iso", "shutter", "format"], "the dials first, then the named choice");
+    assert_eq!(p["best-shown"], false);
+    // A phone's card has neither list
+    let phone = Rig::new(Some(full_json()), true);
+    assert!(tile(&phone.props(), "iso").is_none() && tile(&phone.props(), "shutter").is_none());
+}
+
+#[test]
+fn a_mode_without_iso_or_shutter_hides_both_and_forgets_what_was_picked() {
+    let mut rig = dslr(dslr_json());
+    rig.ui("tile-picked", vec![json!("iso"), json!(3)]);
+    assert_eq!(tile(&rig.props(), "iso").unwrap().1, 3);
+    let mut scene = dslr_json();
+    scene.as_object_mut().unwrap().remove("iso");
+    scene.as_object_mut().unwrap().remove("shutter");
+    rig.host.still_caps = Some(scene);
+    rig.event(Event::StillCapsChanged { source_id: "webcam:cam".into() });
+    let p = rig.props();
+    assert!(tile(&p, "iso").is_none() && tile(&p, "shutter").is_none());
+    // Back in M the camera's own value shows, not the pick from before the dial turned
+    rig.host.still_caps = Some(dslr_json());
+    rig.event(Event::StillCapsChanged { source_id: "webcam:cam".into() });
+    assert_eq!(tile(&rig.props(), "iso").unwrap().1, 2);
+}
+
+#[test]
+fn picks_from_the_cameras_lists_go_with_the_photo_without_a_quality_and_are_not_saved() {
+    let mut rig = dslr(dslr_json());
+    rig.ui("tile-picked", vec![json!("iso"), json!(3)]);
+    rig.ui("tile-picked", vec![json!("shutter"), json!(2)]);
+    rig.ui("tile-picked", vec![json!("format"), json!(2)]);
+    assert!(rig.plugin.get_config().get("iso").is_none() && rig.plugin.get_config().get("shutter").is_none());
+    rig.ui("take-clicked", vec![]);
+    let (options, folder) = rig.host.stills_taken[0].clone();
+    assert_eq!(folder, "/tmp/photos");
+    assert_eq!(options, json!({"format": "jpeg", "raw": 1, "rotation": 0, "iso": "800", "shutter": "30,0000s"}));
+    // Without a pick nothing is asked of the camera but the format
+    let mut quiet = dslr(dslr_json());
+    quiet.ui("take-clicked", vec![]);
+    assert_eq!(quiet.host.stills_taken[0].0, json!({"format": "jpeg", "rotation": 0}));
+}
+
+#[test]
+fn a_pick_stands_until_the_camera_reports_the_same() {
+    let mut rig = dslr(dslr_json());
+    rig.ui("tile-picked", vec![json!("iso"), json!(3)]);
+    // The camera still says 400: the pick shows
+    rig.event(Event::StillCapsChanged { source_id: "webcam:cam".into() });
+    assert_eq!(tile(&rig.props(), "iso").unwrap().1, 3);
+    let mut moved = dslr_json();
+    moved["iso"]["current"] = json!(3);
+    rig.host.still_caps = Some(moved);
+    rig.event(Event::StillCapsChanged { source_id: "webcam:cam".into() });
+    assert_eq!(tile(&rig.props(), "iso").unwrap().1, 3);
+    // Now the camera is the one that decides: a turn of its dial shows
+    let mut turned = dslr_json();
+    turned["iso"]["current"] = json!(0);
+    rig.host.still_caps = Some(turned);
+    rig.event(Event::StillCapsChanged { source_id: "webcam:cam".into() });
+    assert_eq!(tile(&rig.props(), "iso").unwrap().1, 0);
+}
+
+#[test]
+fn a_camera_says_camera_where_a_phone_says_phone() {
+    let mut rig = dslr(dslr_json());
+    rig.ui("take-clicked", vec![]);
+    let id = *rig.plugin.taking.last().unwrap();
+    rig.event(Event::RequestDone { request: id, ok: false, message: String::new(), data: json!({"ok": false, "files": []}) });
+    assert_eq!(rig.props()["status"], "The camera couldn't take the photo.");
+    // The host won't start a second one while one is on
+    rig.host.still_busy = true;
+    rig.plugin.take(&mut rig.host);
+    assert_eq!(rig.host.stills_taken.len(), 1, "nothing more started");
+    // The phone's wording is unchanged
+    let mut phone = Rig::new(Some(full_json()), true);
+    phone.ui("take-clicked", vec![]);
+    let id = *phone.plugin.taking.last().unwrap();
+    phone.event(Event::RequestDone { request: id, ok: false, message: String::new(), data: json!({"ok": false, "files": []}) });
+    assert_eq!(phone.props()["status"], "The phone couldn't take the photo.");
+}
+
+#[test]
+fn the_shortcuts_work_for_a_camera_and_not_for_a_source_without_photos() {
+    let mut rig = dslr(dslr_json());
+    assert_eq!(rig.plugin.run_action(&mut rig.host, "photos.take", &json!({})).as_deref(), Some("Take photo"));
+    assert_eq!(rig.host.stills_taken.len(), 1);
+    assert_eq!(rig.plugin.run_action(&mut rig.host, "photos.timer", &json!({"op": "next"})).as_deref(), Some("Photo timer: 3 s"));
+    rig.host.still_caps = None;
+    rig.event(Event::SourceSelected { source_id: "browser".into() });
+    assert!(rig.plugin.run_action(&mut rig.host, "photos.take", &json!({})).is_none());
+}
+
+#[test]
+fn the_self_timer_goes_with_a_camera_photo() {
+    let mut rig = dslr(dslr_json());
+    rig.ui("timer-picked", vec![json!(2)]);
+    rig.ui("take-clicked", vec![]);
+    assert_eq!(rig.host.stills_taken[0].0["timer_s"], 10);
+}
+
+#[test]
+fn camera_options_drop_the_quality_and_keep_only_picks_that_were_made() {
+    let mut options = json!({"format": "jpeg", "rotation": 0, "quality": 95});
+    camera_options(&mut options, None, Some("1/60"));
+    assert_eq!(options, json!({"format": "jpeg", "rotation": 0, "shutter": "1/60"}));
+}
+
+#[test]
+fn diagnostics_say_what_the_camera_offers_now() {
+    let rig = dslr(dslr_json());
+    let d: std::collections::HashMap<_, _> = rig.plugin.diagnostics().into_iter().collect();
+    assert_eq!((d["Photos"].as_str(), d["Photo settings"].as_str()), ("camera, jpeg, raw", "ISO, shutter speed"));
+    let scene = dslr(json!({"formats": ["jpeg"], "camera": true}));
+    let d: std::collections::HashMap<_, _> = scene.plugin.diagnostics().into_iter().collect();
+    assert_eq!((d["Photos"].as_str(), d["Photo settings"].as_str()), ("camera, jpeg", "none"));
+}
+
+// ── The tiles ────────────────────────────────────────────────────────────────
+
+#[test]
+fn tiles_fill_every_line_from_edge_to_edge_with_no_holes() {
+    // (row, column, columns taken) on a grid of 6
+    assert_eq!(flow(&[1, 1, 1], 3), [(0, 0, 2), (0, 2, 2), (0, 4, 2)]);
+    assert_eq!(flow(&[1, 1, 1], 2), [(0, 0, 3), (0, 3, 3), (1, 0, 6)], "the last one alone takes its line");
+    assert_eq!(flow(&[1, 1, 1, 1], 3), [(0, 0, 3), (0, 3, 3), (1, 0, 3), (1, 3, 3)], "four are two and two where three would fit");
+    assert_eq!(flow(&[1, 1], 3), [(0, 0, 3), (0, 3, 3)]);
+    assert_eq!(flow(&[1, 1, 1, 1, 1], 3), [(0, 0, 2), (0, 2, 2), (0, 4, 2), (1, 0, 3), (1, 3, 3)]);
+    // A wide tile is worth two: it shares a line with one other, or has its own
+    assert_eq!(flow(&[1, 2], 3), [(0, 0, 2), (0, 2, 4)]);
+    assert_eq!(flow(&[1, 1, 1, 1, 1, 1, 1, 2], 3), [(0, 0, 2), (0, 2, 2), (0, 4, 2), (1, 0, 2), (1, 2, 2), (1, 4, 2), (2, 0, 2), (2, 2, 4)]);
+    assert_eq!(flow(&[2], 3), [(0, 0, 6)]);
+    assert_eq!(flow(&[1, 1, 2], 2), [(0, 0, 3), (0, 3, 3), (1, 0, 6)]);
+    assert_eq!(flow(&[1, 1, 1], 1), [(0, 0, 6), (1, 0, 6), (2, 0, 6)]);
+    assert!(flow(&[], 3).is_empty());
+    // Whatever the mix, a line's tiles add up to the whole grid and none overlap
+    for cols in 1..=3 {
+        for mask in 0..256u32 {
+            let weights: Vec<usize> = (0..8).map(|i| 1 + ((mask >> i) & 1) as usize).collect();
+            let placed = flow(&weights, cols);
+            let rows = placed.iter().map(|p| p.0).max().unwrap() + 1;
+            for row in 0..rows {
+                let mut line: Vec<_> = placed.iter().filter(|p| p.0 == row).collect();
+                line.sort_by_key(|p| p.1);
+                assert_eq!(line.iter().map(|p| p.2).sum::<usize>(), GRID, "{weights:?} in {cols}: {placed:?}");
+                assert!(line.windows(2).all(|w| w[0].1 + w[0].2 == w[1].1) && line[0].1 == 0, "{weights:?} in {cols}: {placed:?}");
+            }
         }
-        rig.ui("number-left", vec![json!(which)]);
-        assert_eq!(rig.props()[format!("{name}-restore")].as_str().unwrap(), after, "{keys:?} after leaving");
-        let key = ["burst", "focus_steps"][which];
-        assert_eq!(rig.plugin.get_config()[key], value, "{keys:?}");
     }
+}
+
+#[test]
+fn a_dslr_has_its_dials_then_the_format_and_a_phone_its_named_choices_with_the_long_ones_wide() {
+    let rig = dslr(dslr_json());
+    let p = rig.props();
+    let at = |key: &str| p["tiles"].as_array().unwrap().iter().find(|t| t["key"] == key).unwrap().clone();
+    assert_eq!((at("iso")["kind"].clone(), at("shutter")["kind"].clone(), at("format")["kind"].clone()), (json!("dial"), json!("dial"), json!("choice")));
+    // Three in a line when they fit, and the format takes the line it is alone on when only two do
+    assert_eq!((at("format")["w3"].clone(), at("format")["w2"].clone()), (json!(2), json!(6)));
+    let mut phone = Rig::new(Some(full_json()), true);
+    phone.ui("tile-picked", vec![json!("shots"), json!(2)]);
+    let p = phone.props();
+    assert_eq!(keys(&p), ["mode", "format", "shots", "bracket", "distortion"]);
+    let wide: Vec<_> = p["tiles"].as_array().unwrap().iter().filter(|t| t["w3"].as_i64() > Some(2) || t["w2"].as_i64() == Some(6)).map(|t| t["key"].as_str().unwrap()).collect();
+    assert!(wide.contains(&"bracket") && wide.contains(&"distortion"), "{wide:?}");
+    assert_eq!(tile(&p, "bracket").unwrap().0[0], "3 photos, 1 EV apart");
+    let long = {
+        phone.ui("tile-picked", vec![json!("shots"), json!(0)]);
+        tile(&phone.props(), "exposure_s").unwrap().0
+    };
+    assert_eq!((long[0].as_str(), long[1].as_str(), long.last().map(String::as_str)), ("Like the video", "0.5 s", Some("30 s")));
+}
+
+#[test]
+fn a_dial_steps_along_its_list_and_stops_at_the_ends() {
+    let mut rig = dslr(dslr_json());
+    rig.ui("tile-step", vec![json!("iso"), json!(1)]);
+    assert_eq!(tile(&rig.props(), "iso").unwrap().1, 3);
+    rig.ui("tile-step", vec![json!("iso"), json!(1)]);
+    assert_eq!(tile(&rig.props(), "iso").unwrap().1, 3, "800 is the last");
+    for _ in 0..5 {
+        rig.ui("tile-step", vec![json!("iso"), json!(-1)]);
+    }
+    assert_eq!(tile(&rig.props(), "iso").unwrap().1, 0);
+    // What it stepped to goes with the photo, as a pick from the list does
+    rig.ui("take-clicked", vec![]);
+    assert_eq!(rig.host.stills_taken[0].0["iso"], "100");
+    // A named choice isn't a dial: the arrows aren't there and a step does nothing
+    rig.ui("tile-step", vec![json!("format"), json!(1)]);
+    assert_eq!(tile(&rig.props(), "format").unwrap().1, 0);
+}
+
+#[test]
+fn stepping_sends_no_new_tiles_that_would_rebuild_the_arrow_under_the_hand() {
+    let mut rig = dslr(dslr_json());
+    let before = rig.host.calls.len();
+    rig.ui("tile-step", vec![json!("shutter"), json!(1)]);
+    let sent: Vec<Value> = rig.host.calls[before..].iter().filter_map(|c| c.strip_prefix("set_ui_props card ")).map(|c| serde_json::from_str(c).unwrap()).collect();
+    assert!(!sent.is_empty() && sent.iter().all(|p| p.get("tiles").is_none() && p.get("tile-indexes").is_some()), "{sent:?}");
+    // A new list of tiles does go
+    let before = rig.host.calls.len();
+    let mut scene = dslr_json();
+    scene.as_object_mut().unwrap().remove("iso");
+    rig.host.still_caps = Some(scene);
+    rig.event(Event::StillCapsChanged { source_id: "webcam:cam".into() });
+    assert!(rig.host.calls[before..].iter().any(|c| c.starts_with("set_ui_props card ") && c.contains("\"tiles\"")));
+}
+
+fn hold_tick(rig: &mut Rig) {
+    rig.host.cancel_schedule(T_HOLD); // a timer that has fired is no longer waiting
+    rig.event(Event::TimerFired { owner: NAME.into(), token: T_HOLD.into() });
+}
+
+fn long_dslr() -> Value {
+    let values: Vec<String> = (0..45).map(|i| i.to_string()).collect();
+    let mut caps = dslr_json();
+    caps["shutter"] = json!({"values": values, "labels": values, "current": 0});
+    caps
+}
+
+#[test]
+fn a_held_arrow_steps_at_once_then_repeats_and_takes_bigger_steps_on_a_long_list() {
+    let mut rig = dslr(long_dslr());
+    rig.ui("tile-hold-down", vec![json!("shutter"), json!(1)]);
+    assert_eq!(tile(&rig.props(), "shutter").unwrap().1, 1, "one step as it goes down");
+    assert!(rig.host.is_scheduled(T_HOLD));
+    // Nothing more through the first pause, so a click is one step
+    for _ in 0..8 {
+        hold_tick(&mut rig);
+    }
+    assert_eq!(tile(&rig.props(), "shutter").unwrap().1, 1);
+    let mut seen = Vec::new();
+    for _ in 0..60 {
+        hold_tick(&mut rig);
+        seen.push(tile(&rig.props(), "shutter").unwrap().1);
+    }
+    let jumps: Vec<i64> = seen.windows(2).map(|w| w[1] - w[0]).filter(|j| *j != 0).collect();
+    assert!(jumps.contains(&1) && jumps.contains(&3), "single steps, then three at a time: {jumps:?}");
+    assert!(jumps.iter().position(|j| *j == 3).unwrap() > jumps.iter().position(|j| *j == 1).unwrap(), "{jumps:?}");
+    rig.ui("tile-hold-up", vec![]);
+    let at = tile(&rig.props(), "shutter").unwrap().1;
+    for _ in 0..20 {
+        hold_tick(&mut rig);
+    }
+    assert_eq!(tile(&rig.props(), "shutter").unwrap().1, at, "let go, so nothing more");
+    assert!(!rig.host.is_scheduled(T_HOLD));
+}
+
+#[test]
+fn a_held_arrow_stops_at_the_end_and_a_short_list_keeps_to_single_steps() {
+    let mut rig = dslr(long_dslr());
+    rig.ui("tile-hold-down", vec![json!("shutter"), json!(1)]);
+    for _ in 0..400 {
+        hold_tick(&mut rig);
+    }
+    assert_eq!(tile(&rig.props(), "shutter").unwrap().1, 44, "the last of 45");
+    assert!(!rig.host.is_scheduled(T_HOLD), "nothing left to wait for");
+    let mut short = dslr(dslr_json());
+    short.ui("tile-hold-down", vec![json!("iso"), json!(-1)]);
+    let mut seen = vec![tile(&short.props(), "iso").unwrap().1];
+    for _ in 0..40 {
+        hold_tick(&mut short);
+        seen.push(tile(&short.props(), "iso").unwrap().1);
+    }
+    assert!(seen.windows(2).all(|w| (w[0] - w[1]).abs() <= 1) && seen.last() == Some(&0), "{seen:?}");
+}
+
+#[test]
+fn a_hold_ends_when_its_tile_goes_or_the_plugin_stops() {
+    let mut rig = dslr(dslr_json());
+    rig.ui("tile-hold-down", vec![json!("iso"), json!(-1)]);
+    assert!(rig.host.is_scheduled(T_HOLD));
+    let mut scene = dslr_json();
+    scene.as_object_mut().unwrap().remove("iso");
+    rig.host.still_caps = Some(scene);
+    rig.event(Event::StillCapsChanged { source_id: "webcam:cam".into() });
+    assert!(!rig.host.is_scheduled(T_HOLD), "the dial under the hand is gone");
+    rig.host.still_caps = Some(dslr_json());
+    rig.event(Event::StillCapsChanged { source_id: "webcam:cam".into() });
+    rig.ui("tile-hold-down", vec![json!("iso"), json!(-1)]);
+    rig.plugin.shutdown(&mut rig.host);
+    assert!(!rig.host.is_scheduled(T_HOLD));
+    rig.ui("tile-hold-down", vec![json!("nothing"), json!(1)]);
+    assert!(!rig.host.is_scheduled(T_HOLD), "nothing to hold");
+}
+
+#[test]
+fn picks_made_on_one_camera_are_not_sent_with_another_cameras_photo() {
+    let mut rig = dslr(dslr_json());
+    rig.host.focused = Some("webcam:a".into());
+    rig.event(Event::DeviceChanged { source_id: "webcam:a".into() });
+    rig.ui("tile-picked", vec![json!("iso"), json!(3)]);
+    rig.ui("tile-picked", vec![json!("shutter"), json!(2)]);
+    assert_eq!(tile(&rig.props(), "iso").unwrap().1, 3);
+    // Another camera whose lists are word for word the same, so nothing in what it reports tells the two apart
+    rig.host.focused = Some("webcam:b".into());
+    rig.event(Event::DeviceChanged { source_id: "webcam:b".into() });
+    assert_eq!((tile(&rig.props(), "iso").unwrap().1, tile(&rig.props(), "shutter").unwrap().1), (2, 1), "the camera's own values show");
+    rig.ui("take-clicked", vec![]);
+    assert_eq!(rig.host.stills_taken[0].0, json!({"format": "jpeg", "rotation": 0}), "nothing from the other camera goes with it");
+    // The same camera again after the stream stops and starts keeps what was picked on it
+    let mut same = dslr(dslr_json());
+    same.host.focused = Some("webcam:a".into());
+    same.event(Event::DeviceChanged { source_id: "webcam:a".into() });
+    same.ui("tile-picked", vec![json!("iso"), json!(3)]);
+    same.host.focused = None;
+    same.event(Event::StreamStopped);
+    same.host.focused = Some("webcam:a".into());
+    same.event(Event::DeviceChanged { source_id: "webcam:a".into() });
+    assert_eq!(tile(&same.props(), "iso").unwrap().1, 3);
+}
+
+#[test]
+fn a_hold_ends_before_the_tiles_are_replaced_even_when_its_own_tile_stays() {
+    let mut rig = dslr(long_dslr());
+    rig.ui("tile-hold-down", vec![json!("shutter"), json!(1)]);
+    rig.ui("tile-hold-up", vec![]);
+    rig.ui("tile-hold-down", vec![json!("iso"), json!(1)]);
+    assert!(rig.host.is_scheduled(T_HOLD));
+    // The mode dial turns: the shutter tile goes and ISO stays, so a new list of tiles replaces the arrows
+    let mut scene = long_dslr();
+    scene.as_object_mut().unwrap().remove("shutter");
+    rig.host.still_caps = Some(scene);
+    rig.event(Event::StillCapsChanged { source_id: "webcam:cam".into() });
+    assert!(tile(&rig.props(), "iso").is_some() && tile(&rig.props(), "shutter").is_none());
+    assert!(!rig.host.is_scheduled(T_HOLD), "the arrow it was under is gone");
+    let at = tile(&rig.props(), "iso").unwrap().1;
+    for _ in 0..30 {
+        hold_tick(&mut rig);
+    }
+    assert_eq!(tile(&rig.props(), "iso").unwrap().1, at, "nothing keeps stepping after the release that never came");
+}
+
+#[test]
+fn a_camera_that_streams_again_brings_the_card_back_even_if_nobody_told_the_card_what_it_takes() {
+    let mut rig = dslr(dslr_json());
+    assert_eq!(rig.props()["shown"], true);
+    // The stream drops and the camera takes nothing for now
+    rig.host.still_caps = None;
+    rig.event(Event::StreamLost { source_id: "webcam:cam".into() });
+    assert_eq!((rig.props()["shown"].clone(), rig.props()["take-enabled"].clone()), (json!(false), json!(false)));
+    // It is back, and the only notice is that the stream is: the card asks
+    rig.host.still_caps = Some(dslr_json());
+    rig.event(Event::StreamConnected { source_id: "webcam:cam".into() });
+    assert_eq!((rig.props()["shown"].clone(), rig.props()["take-enabled"].clone()), (json!(true), json!(true)));
 }

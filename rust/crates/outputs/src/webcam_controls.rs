@@ -20,7 +20,7 @@ pub fn auto_of(name: &str) -> Option<&'static str> {
 }
 
 /// One setting a camera offers. unit says how to show the number: "" as it is, "100us" (exposure in 0.1 ms), "log2s",
-/// "kelvin", "arcsec" (pan and tilt) or "zoom".
+/// "kelvin", "arcsec" (pan and tilt) or "zoom"; a menu's choices go by "fstop" or "ev" (see choice_text).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Control {
     pub name: String,
@@ -35,11 +35,17 @@ pub struct Control {
     /// The camera says it does nothing right now (its auto partner is on).
     pub inactive: bool,
     pub unit: String,
+    /// A menu's choices as the camera words them, by menu entry (when the numbers say nothing).
+    pub labels: Vec<String>,
+    /// Not kept in the saved settings or put back by Reset: the camera holds it, and what it offers changes with its mode.
+    pub transient: bool,
+    /// A menu whose choices run in order (aperture, exposure compensation), so the card steps along them like a dial.
+    pub ordered: bool,
 }
 
 impl Control {
     pub fn new(name: &str, kind: &str, minimum: i64, maximum: i64, step: i64, default: i64, value: i64) -> Control {
-        Control { name: name.into(), kind: kind.into(), minimum, maximum, step, default, value, menu: Vec::new(), inactive: false, unit: String::new() }
+        Control { name: name.into(), kind: kind.into(), minimum, maximum, step, default, value, menu: Vec::new(), inactive: false, unit: String::new(), labels: Vec::new(), transient: false, ordered: false }
     }
 
     pub fn clamp(&self, value: i64) -> i64 {
@@ -116,6 +122,44 @@ pub fn shutter_text(seconds: f64) -> String {
     format!("1/{}", (1.0 / seconds).round_ties_even() as i64)
 }
 
+/// A number as a camera words it, with a decimal comma or point.
+fn camera_number(text: &str) -> Option<f64> {
+    text.trim().replace(',', ".").parse().ok()
+}
+
+/// An exposure compensation the way a camera's dial shows it, to one decimal with a sign: "-4,666" is "-4.7", "0,333" is "+0.3", "0" stays "0".
+pub fn ev_text(raw: &str) -> String {
+    let Some(v) = camera_number(raw) else { return raw.to_string() };
+    let tenths = (v * 10.0).round_ties_even() as i64;
+    if tenths == 0 { "0".into() } else { format!("{:+.1}", tenths as f64 / 10.0) }
+}
+
+/// An aperture as "f/5.6", whether the camera writes "f/5,6", "f/5.6" or just "5.6".
+pub fn fstop_text(raw: &str) -> String {
+    let number = raw.trim().trim_start_matches("f/").trim_start_matches('f');
+    match camera_number(number) {
+        Some(_) => format!("f/{}", number.replace(',', ".")),
+        None => raw.to_string(),
+    }
+}
+
+/// A menu entry (by its value) as the card shows it, in the camera's wording unless the control says how to tidy it.
+pub fn choice_text(control: &Control, entry: usize) -> String {
+    let raw = control.labels.get(entry).cloned().unwrap_or_else(|| entry.to_string());
+    match control.unit.as_str() {
+        "ev" => ev_text(&raw),
+        "fstop" => fstop_text(&raw),
+        _ => raw,
+    }
+}
+
+/// How many entries of an exposure compensation list make a whole stop: 3 for thirds, 2 for halves. A long press jumps by this much.
+pub fn stops_apart(control: &Control) -> usize {
+    let values: Vec<f64> = control.labels.iter().filter_map(|l| camera_number(l)).collect();
+    let gap = values.windows(2).map(|w| (w[1] - w[0]).abs()).filter(|g| *g > 1e-6).fold(f64::MAX, f64::min);
+    if gap == f64::MAX { 1 } else { ((1.0 / gap).round() as usize).clamp(1, 3) }
+}
+
 /// How the card shows a control's number.
 pub fn shown_value(control: &Control, value: i64) -> String {
     match control.unit.as_str() {
@@ -159,10 +203,35 @@ pub const V4L2_CONTROLS: [(u32, &str, &str); 19] = [
     (0x009A_090A, "focus", ""), (0x009A_090C, "focus_auto", ""), (0x009A_090D, "zoom", "zoom"),
 ];
 
+/// What the focus control is told: a tap toward Near or Far, and Focus (autofocus once).
+pub const NEAR: i64 = 0;
+pub const AUTOFOCUS: i64 = 1;
+pub const FAR: i64 = 2;
+/// A step of the jog is JOG_BASE plus how far out the handle is (1 to JOG_LEVELS), taken from it for Near. Level 1 is the smallest step
+/// and the last the biggest, with the ones between spread evenly in size on a log scale so the handle feels smooth all along.
+pub const JOG_BASE: i64 = 100;
+pub const JOG_LEVELS: i64 = 12;
+
+/// What to tell the focus control for a step at `level` (-JOG_LEVELS to JOG_LEVELS, negative toward Near); None for 0, which is at rest.
+pub fn jog_value(level: i64) -> Option<i64> {
+    let out = level.clamp(-JOG_LEVELS, JOG_LEVELS);
+    (out != 0).then(|| out.signum() * (JOG_BASE + out.abs()))
+}
+
 /// What reads and sets one camera's controls.
 pub trait Controls: Send {
     fn list(&mut self) -> Vec<Control>;
     fn set(&mut self, name: &str, value: i64) -> bool;
+    /// Sets a menu to the choice the card showed as `label` (the camera words its choices, and its list can change between the card
+    /// showing it and the click, so a place in the list would mean another choice). Cameras with fixed lists just take the number.
+    fn set_labelled(&mut self, name: &str, value: i64, _label: &str) -> bool {
+        self.set(name, value)
+    }
+    /// The camera is still doing what it was last asked, so a held button waits before sending the next step. Most
+    /// cameras answer at once.
+    fn busy(&mut self) -> bool {
+        false
+    }
 }
 
 /// Opens the node for one call (which works while a stream holds it too); None when it can't be opened.
@@ -501,6 +570,13 @@ mod win {
 
 /// What reads and sets a webcam's controls on this system, or None where that can't be done.
 pub fn controls_for(device: &crate::webcams::Device) -> Option<Box<dyn Controls>> {
+    if crate::webcams::is_gphoto(&device.location) {
+        // A DSLR's settings, while its live view streams through libgphoto2
+        #[cfg(target_os = "linux")]
+        return Some(Box::new(crate::webcam_capture::gphoto_lib::GphotoControls::new(&device.location)));
+        #[cfg(not(target_os = "linux"))]
+        return None;
+    }
     #[cfg(target_os = "linux")]
     {
         struct Owned(std::fs::File);
@@ -664,5 +740,42 @@ pub(crate) mod tests {
         assert_eq!(shown_value(&unit(Control::new("exposure_time", "int", -13, -1, 1, -6, -6), "log2s"), -6), "1/64");
         assert_eq!(shown_value(&unit(Control::new("pan", "int", -36000, 36000, 3600, 0, 0), "arcsec"), 7200), "+2°");
         assert_eq!(shown_value(&unit(Control::new("zoom", "int", 100, 500, 1, 100, 200), "zoom"), 200), "2.0×");
+    }
+
+    #[test]
+    fn exposure_compensation_reads_like_a_dial_in_thirds() {
+        // The D5100's own list, in a locale with a decimal comma
+        let shown: Vec<String> = ["-5", "-4,666", "-4,333", "-1,666", "-0,333", "0", "0,333", "0,666", "1", "2,333", "5"].iter().map(|r| ev_text(r)).collect();
+        assert_eq!(shown, ["-5.0", "-4.7", "-4.3", "-1.7", "-0.3", "0", "+0.3", "+0.7", "+1.0", "+2.3", "+5.0"]);
+        // A point works as well, and a word the camera made up is left alone
+        assert_eq!((ev_text("+0.333"), ev_text("-0.0"), ev_text("Auto")), ("+0.3".into(), "0".into(), "Auto".into()));
+    }
+
+    #[test]
+    fn apertures_read_as_f_numbers_whatever_the_cameras_decimal() {
+        let shown: Vec<String> = ["f/5,6", "f/5.6", "5.6", "f/22", "Auto"].iter().map(|r| fstop_text(r)).collect();
+        assert_eq!(shown, ["f/5.6", "f/5.6", "f/5.6", "f/22", "Auto"]);
+    }
+
+    #[test]
+    fn a_choice_is_tidied_only_where_the_control_says_how() {
+        let mut aperture = Control::new("dslr_aperture", "menu", 0, 1, 1, 0, 0);
+        aperture.labels = vec!["f/3,5".into(), "f/4".into()];
+        aperture.menu = vec![0, 1];
+        let plain = aperture.clone();
+        aperture.unit = "fstop".into();
+        assert_eq!((choice_text(&aperture, 0), choice_text(&plain, 0)), ("f/3.5".to_string(), "f/3,5".to_string()));
+        // A menu without the camera's words shows its numbers
+        let flicker = Control { menu: vec![0, 1, 2], ..Control::new("anti_flicker", "menu", 0, 2, 1, 2, 2) };
+        assert_eq!(choice_text(&flicker, 2), "2");
+    }
+
+    #[test]
+    fn a_long_press_on_exposure_compensation_jumps_a_whole_stop() {
+        let list = |labels: &[&str]| Control { labels: labels.iter().map(|s| s.to_string()).collect(), ..Control::new("dslr_exposure_comp", "menu", 0, 4, 1, 0, 0) };
+        assert_eq!(stops_apart(&list(&["-1", "-0,666", "-0,333", "0", "0,333"])), 3);
+        assert_eq!(stops_apart(&list(&["-1", "-0,5", "0", "0,5"])), 2);
+        assert_eq!(stops_apart(&list(&["-1", "0", "1"])), 1);
+        assert_eq!(stops_apart(&list(&["Auto"])), 1);
     }
 }

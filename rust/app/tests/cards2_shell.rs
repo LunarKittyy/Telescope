@@ -293,8 +293,8 @@ fn a_photo_is_taken_through_the_shell_and_every_plugin_hears_what_became_of_it()
     state.bus.emit(Event::PhoneStateUpdated { state: phone_state() });
     state.deliver_events();
     let card = props_of(&state, "photos", "card");
-    assert_eq!((&card["take-enabled"], &card["format-shown"]), (&json!(true), &json!(true)));
-    assert_eq!(card["format-items"], json!(["JPEG", "RAW (DNG)", "RAW and JPEG"]));
+    let format = card["tiles"].as_array().unwrap().iter().find(|t| t["key"] == "format").expect("a Format tile").clone();
+    assert_eq!((&card["take-enabled"], &format["options"]), (&json!(true), &json!(["JPEG", "RAW (DNG)", "RAW and JPEG"])));
 
     state.effects.clear();
     ui(&mut state, "photos", "card", "take-clicked", vec![]);

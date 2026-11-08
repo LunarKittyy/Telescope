@@ -357,8 +357,26 @@ impl Window {
         st.streams.source_id = s.focus.as_ref().map(|f| f.id_str().to_string());
         st.streams.main = flow.main_stream();
         st.streams.live = s.streams.iter().filter(|x| x.has_session()).map(|x| x.id_str().to_string()).collect();
+        // A stream with a camera of its own takes photos through it, and tells when what it can take changes
+        let bus = st.bus.sender();
+        let installed: Vec<(String, Arc<dyn telescope_core::source::SourceStills>)> = s.streams.iter().filter(|x| x.has_session()).filter_map(|src| {
+            let stills = src.kind.stills()?;
+            let (sender, id) = (bus.clone(), src.id_str().to_string());
+            stills.set_on_change(Box::new(move || sender.emit(Event::StillCapsChanged { source_id: id.clone() })));
+            Some((src.id_str().to_string(), stills))
+        }).collect();
+        // A service that is new, or says something else than the one it replaces, is announced: the camera may have published what
+        // it takes before anyone was listening (it streamed first, or came back on another port), and nothing else would tell the cards
+        for (id, stills) in &installed {
+            let before = st.source_stills.iter().find(|(old, _)| old == id).map(|(_, old)| old);
+            let news = before.is_none_or(|old| !std::ptr::addr_eq(Arc::as_ptr(old), Arc::as_ptr(stills)) && old.caps() != stills.caps());
+            if news {
+                bus.emit(Event::StillCapsChanged { source_id: id.clone() });
+            }
+        }
+        st.source_stills = installed;
         st.streams.stopping_all = s.stopping_all;
-        st.streams.ids = s.streams.iter().map(|x| x.id_str().to_string()).collect();
+        st.streams.ids =s.streams.iter().map(|x| x.id_str().to_string()).collect();
         st.streams.waking_id = s.wake_source.as_ref().filter(|_| s.waking).map(|w| w.id_str().to_string());
         st.streams.url = s.focus.as_ref().and_then(|f| f.session()).map(|x| x.url);
         st.streams.background = s.streams.iter().filter(|x| !crate::session::same(&s.focus, x))
@@ -632,33 +650,45 @@ impl Window {
             let data = serde_json::json!({"ok": false, "files": [], "code": "failed", "error": why});
             posts.push_event(plugin, Event::RequestDone { request, ok: false, message: why.into(), data });
         };
-        let Some(stills) = self.state.borrow().link.as_ref().and_then(|l| l.stills()) else { return fail(&tr("The phone couldn't take the photo.")) };
         let found = self.streams.flow.borrow().sessions.find(Some(source));
-        let target = found.as_ref().and_then(|src| Some((src.kind.as_phone()?.still_target()?, self.worker_of(src).map(|w| w.inner.clone()))));
-        let Some(((base, phone), worker)) = target else { return fail(&tr("The phone couldn't take the photo.")) };
+        // A stream with a camera of its own (a DSLR) takes the photo there, any other on its phone
+        let camera = found.as_ref().and_then(|src| src.kind.stills());
+        let worker = found.as_ref().and_then(|src| self.worker_of(src)).map(|w| w.inner.clone());
+        let is_camera = camera.is_some();
+        let phone = if is_camera {
+            None
+        } else {
+            let Some(stills) = self.state.borrow().link.as_ref().and_then(|l| l.stills()) else { return fail(&tr("The phone couldn't take the photo.")) };
+            let Some((base, phone)) = found.as_ref().and_then(|src| src.kind.as_phone()?.still_target()) else { return fail(&tr("The phone couldn't take the photo.")) };
+            Some((stills, base, phone))
+        };
         let alive = Arc::new(std::sync::atomic::AtomicBool::new(true));
         self.state.borrow_mut().still_alive.push((source.to_string(), alive.clone()));
         let (progress_posts, done_posts, owner, done_owner) = (posts.clone(), posts.clone(), plugin.to_string(), plugin.to_string());
-        let started = stills.take(
-            Some(source), &base, &phone, options, folder,
-            Box::new(move |data| {
-                // The phone may pause the video for it, or a long exposure holds it up: that's no dropped stream
-                if data.get("state").and_then(Value::as_str) == Some("capturing") {
-                    if let Some(worker) = &worker {
-                        worker.hold_for_photo(3.0);
-                    }
+        let on_progress: Box<dyn Fn(Value) + Send> = Box::new(move |data| {
+            // The phone may pause the video for it, or a long exposure holds it up: that's no dropped stream
+            if data.get("state").and_then(Value::as_str) == Some("capturing") {
+                if let Some(worker) = &worker {
+                    worker.hold_for_photo(3.0);
                 }
-                progress_posts.push_event(&owner, Event::RequestProgress { request, data });
-            }),
-            Box::new(move |data| {
-                let ok = data.get("ok").and_then(Value::as_bool) == Some(true);
-                let message = data.get("error").and_then(Value::as_str).unwrap_or("").to_string();
-                done_posts.push_event(&done_owner, Event::RequestDone { request, ok, message, data });
-            }),
-            Box::new(move || alive.load(std::sync::atomic::Ordering::SeqCst)),
-        );
+            }
+            progress_posts.push_event(&owner, Event::RequestProgress { request, data });
+        });
+        let on_done: Box<dyn FnOnce(Value) + Send> = Box::new(move |data| {
+            let ok = data.get("ok").and_then(Value::as_bool) == Some(true);
+            let message = data.get("error").and_then(Value::as_str).unwrap_or("").to_string();
+            done_posts.push_event(&done_owner, Event::RequestDone { request, ok, message, data });
+        });
+        let still_alive: Box<dyn Fn() -> bool + Send> = Box::new(move || alive.load(std::sync::atomic::Ordering::SeqCst));
+        let started = match (camera, phone) {
+            (Some(camera), _) => camera.take(options, folder, on_progress, on_done, still_alive),
+            (None, Some((stills, base, phone))) => stills.take(Some(source), &base, &phone, options, folder, on_progress, on_done, still_alive),
+            (None, None) => false,
+        };
         if started {
             self.state.borrow().bus.emit(Event::StillBusyChanged { source_id: source.to_string(), busy: true });
+        } else if is_camera {
+            fail(&tr("The camera is already taking a photo."));
         } else {
             fail(&tr("The phone is already taking a photo."));
         }

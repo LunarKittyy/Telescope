@@ -11,6 +11,7 @@ use telescope_core::host::{Host, ViewChange};
 use telescope_core::i18n::{n_, number, percent, tr, tr_ctx};
 use telescope_core::lens::{lens_name, lens_label};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo, StreamsBehind};
+use telescope_core::settings::SettingSpec;
 use telescope_core::time::monotonic_ns;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 use telescope_core::view::{self, lens_step, pan_for, shown_to_view, window, window_centre, zoom_detent, Geometry, PhoneZoomCaps, ViewStatus, ROTATIONS};
@@ -753,6 +754,20 @@ impl Plugin for TransformsPlugin {
             }
         }
         self.show_zoom_where(host);
+    }
+
+    fn settings(&self) -> Vec<SettingSpec> {
+        let turns: Vec<(&str, &str)> = view::ROTATIONS.iter().map(|(name, _)| (*name, *name)).collect();
+        vec![
+            SettingSpec::switch("flip_h", "Mirrors the picture left to right", false),
+            SettingSpec::switch("flip_v", "Turns the picture upside down by mirroring top to bottom", false),
+            SettingSpec::choice("rotation", "Turns the picture a quarter or half turn", &turns, "None"),
+            SettingSpec::number("zoom", "How far in the view is (the phone's own zoom may hold it lower)", 1.0, 30.0, 2, 1.0).unit("times"),
+            SettingSpec::number("pan_x", "Moves the zoomed view left (-1) or right (1)", -1.0, 1.0, 3, 0.0),
+            SettingSpec::number("pan_y", "Moves the zoomed view up (-1) or down (1)", -1.0, 1.0, 3, 0.0),
+            SettingSpec::number("stretch_x", "Makes the picture wider or narrower", 0.5, 2.0, 2, 1.0).unit("1 is unchanged"),
+            SettingSpec::number("stretch_y", "Makes the picture taller or shorter", 0.5, 2.0, 2, 1.0).unit("1 is unchanged"),
+        ]
     }
 
     fn get_config(&self) -> Value {

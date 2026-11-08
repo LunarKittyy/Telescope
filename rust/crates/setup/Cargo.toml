@@ -1,6 +1,6 @@
 [package]
 name = "telescope-setup"
-description = "Advanced settings (Setup) and the Phone card (Monitoring): the virtual camera, canvas, limits, look and About, and the phone's battery and heat"
+description = "Advanced settings (Setup), the Phone card (Monitoring) and the Stats card: the virtual camera, canvas, limits, look and About, the phone's battery and heat, and the numbers of a stream"
 edition.workspace = true
 version.workspace = true
 publish.workspace = true

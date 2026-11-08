@@ -100,8 +100,12 @@ pub struct FakeHost {
     pub packets: HashMap<String, Option<Arc<dyn PacketStepFactory>>>,
     /// What plugin_config() answers, by plugin name.
     pub plugin_configs: HashMap<String, Value>,
+    /// Stands in for a plugin's own rules in apply_preset: puts right the config it was given, as a plugin does for settings that depend on each other.
+    pub preset_rules: Option<fn(&str, &mut Value)>,
     /// Plugins has_plugin() says are there.
     pub plugins: Vec<String>,
+    /// What plugin_settings() lists.
+    pub settings: Vec<PluginSettings>,
     pub streaming: bool,
     pub focused: Option<String>,
     pub view: View,
@@ -121,6 +125,8 @@ pub struct FakeHost {
     pub actions: Vec<(String, ActionSpec)>,
     /// What run_action answers for an action id instead of "ran": a text, or None for a control that's off.
     pub action_answers: HashMap<String, Option<String>>,
+    /// What an action does to a plugin's config when it runs, by action id: the plugin and the config it is left with.
+    pub action_effects: HashMap<String, (String, Value)>,
     /// How often toggle_window ran: it shows, then hides.
     pub window_toggles: u32,
     pub window_active: bool,
@@ -138,6 +144,8 @@ pub struct FakeHost {
     pub can_turn_off: Option<(bool, String)>,
     /// What vision_state() answers instead of "off".
     pub vision: Option<String>,
+    /// What vision_state() says once someone has asked for people, as the real service moves on to loading.
+    pub vision_after_want: Option<String>,
     /// What vision_pack() answers.
     pub pack: crate::vision::VisionPack,
     /// What tracked_people() answers for each source id.
@@ -236,11 +244,21 @@ impl HostSettings for FakeHost {
     fn apply_preset(&mut self, name: &str, cfg: &Value) {
         self.note(format!("apply_preset {name} {cfg}"));
         if self.plugin_configs.contains_key(name) {
-            self.plugin_configs.insert(name.to_string(), cfg.clone());
+            let mut cfg = cfg.clone();
+            if let Some(rules) = self.preset_rules {
+                rules(name, &mut cfg);
+            }
+            self.plugin_configs.insert(name.to_string(), cfg);
         }
     }
     fn preset_plugins(&self) -> Vec<String> {
         self.preset_plugins.clone()
+    }
+    fn plugin_settings(&self) -> Vec<PluginSettings> {
+        self.settings.clone()
+    }
+    fn running_plugins(&self) -> Vec<(String, String)> {
+        self.plugins.iter().map(|p| (p.clone(), p.clone())).collect()
     }
     fn device_config(&self, source_id: Option<&str>, plugin_name: &str) -> Value {
         source_id.and_then(|id| self.device_configs.get(&(id.to_string(), plugin_name.to_string()))).cloned().unwrap_or_else(|| json!({}))
@@ -422,6 +440,9 @@ impl HostShell for FakeHost {
     }
     fn run_action(&mut self, plugin: &str, id: &str, params: &Value) -> Option<String> {
         self.note(format!("run_action {plugin} {id} {params}"));
+        if let Some((name, config)) = self.action_effects.get(id) {
+            self.plugin_configs.insert(name.clone(), config.clone());
+        }
         if let Some(answer) = self.action_answers.get(id) {
             return answer.clone();
         }
@@ -534,6 +555,9 @@ impl HostVision for FakeHost {
     }
     fn want_people(&mut self, owner: &str, on: bool) {
         self.note(format!("want_people {owner} {on}"));
+        if let (true, Some(next)) = (on, self.vision_after_want.clone()) {
+            self.vision = Some(next);
+        }
     }
     fn tracked_people(&self, source_id: Option<&str>) -> (Vec<Value>, u32) {
         self.tracked.get(source_id.unwrap_or("")).cloned().unwrap_or_default()
@@ -662,6 +686,9 @@ impl Host for FakeHost {
     }
     fn poster(&self) -> Option<Arc<dyn Poster>> {
         Some(Arc::new(FakePoster(self.posted.clone())))
+    }
+    fn want_stats(&mut self, owner: &str, on: bool) {
+        self.note(format!("want_stats {owner} {on}"));
     }
 }
 

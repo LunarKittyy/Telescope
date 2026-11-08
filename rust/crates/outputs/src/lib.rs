@@ -14,6 +14,7 @@ pub mod watch;
 pub mod webcam;
 pub mod webcam_capture;
 pub mod webcam_controls;
+pub mod webcam_hold;
 pub mod webcams;
 pub mod webcams_win;
 pub mod wincam;

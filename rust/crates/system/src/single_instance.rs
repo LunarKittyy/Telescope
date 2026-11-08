@@ -13,6 +13,9 @@ use telescope_core::i18n::tr;
 pub const INSTANCE_PORT: u16 = 47823;
 const ACTION: &[u8] = b"action:";
 const RAISE: &[u8] = b"raise:";
+/// `telescope mcp` opening a connection that stays: `mcp:{"key": ...}` and a newline, answered with a line `{"ok": ...}`, after which both
+/// sides send one JSON-RPC message per line.
+const MCP: &[u8] = b"mcp:";
 const MAX_REQUEST: usize = 16384;
 
 /// Where the lock lives (update_guard.instance_address).
@@ -138,6 +141,38 @@ impl Conn {
                 let _ = s.set_read_timeout(t);
                 let _ = s.set_write_timeout(t);
             }
+        }
+    }
+
+    /// Another handle on the same connection, for reading on one thread and writing on another.
+    pub fn try_clone(&self) -> std::io::Result<Conn> {
+        Ok(match self {
+            #[cfg(unix)]
+            Conn::Unix(s) => Conn::Unix(s.try_clone()?),
+            Conn::Tcp(s) => Conn::Tcp(s.try_clone()?),
+        })
+    }
+
+    /// Reads wait this long, or for ever.
+    pub fn set_read_wait(&self, t: Option<Duration>) {
+        self.set_timeout(t);
+    }
+
+    /// Writes wait this long, or for ever, whatever reads do. A connection is one socket, so this holds for every handle made by try_clone.
+    pub fn set_write_wait(&self, t: Option<Duration>) {
+        match self {
+            #[cfg(unix)]
+            Conn::Unix(s) => drop(s.set_write_timeout(t)),
+            Conn::Tcp(s) => drop(s.set_write_timeout(t)),
+        }
+    }
+
+    /// Ends the connection both ways, which also wakes a read that is waiting on another handle.
+    pub fn close(&self) {
+        match self {
+            #[cfg(unix)]
+            Conn::Unix(s) => drop(s.shutdown(std::net::Shutdown::Both)),
+            Conn::Tcp(s) => drop(s.shutdown(std::net::Shutdown::Both)),
         }
     }
 
@@ -382,6 +417,24 @@ fn read_request(conn: &mut Conn, first: &[u8]) -> Option<Value> {
 /// What the lock answers one connection with (listen_for_raise's body): raise:<user token> brings the window up;
 /// action:<json> carrying control_key runs on_action and sends back its {"ok", "text"}.
 pub fn answer(conn: &mut Conn, on_raise: &dyn Fn(), on_action: Option<&dyn Fn(Value) -> Value>, control_key: Option<&str>) {
+    answer_with(conn, on_raise, on_action, None, control_key);
+}
+
+/// What a connection that stays open (`telescope mcp`) is given once it is let in: it runs on a thread of its own with the connection
+/// and the bytes that came in after the handshake line, which are the start of what the connection says.
+pub type McpServe = Box<dyn FnOnce(Conn, Vec<u8>) + Send>;
+
+/// How long a `mcp:` handshake line may take to arrive in full, and how long it may get.
+const MCP_HANDSHAKE_WAIT: Duration = Duration::from_secs(3);
+const MCP_HANDSHAKE_MAX: usize = 4096;
+
+/// Whether an MCP connection is let in now: the thing that serves it, or the reason it isn't.
+pub type McpOpen = dyn Fn() -> Result<McpServe, String> + Send;
+
+/// answer, and mcp:<json with control_key> too: the same key check, then the connection is handed over to a thread of its own, so
+/// raises and `--action` carry on being answered while it stays open.
+pub fn answer_with(conn: &mut Conn, on_raise: &dyn Fn(), on_action: Option<&dyn Fn(Value) -> Value>, on_mcp: Option<&McpOpen>,
+                   control_key: Option<&str>) {
     conn.set_timeout(Some(Duration::from_secs(1)));
     let mut first = [0u8; 4096];
     let n = match conn.read(&mut first) {
@@ -389,6 +442,11 @@ pub fn answer(conn: &mut Conn, on_raise: &dyn Fn(), on_action: Option<&dyn Fn(Va
         Err(_) => return,
     };
     let message = &first[..n];
+    if message.starts_with(MCP) || (!message.is_empty() && MCP.starts_with(message)) {
+        // A connection may deliver the handshake in pieces (always can on TCP, which Windows uses)
+        let Some((line, after)) = read_mcp_handshake(conn, message) else { return };
+        return answer_mcp(conn, &line, after, on_mcp, control_key);
+    }
     let reply: Vec<u8> = if message.starts_with(ACTION) {
         let request = read_request(conn, message);
         let sent = request.as_ref().and_then(|r| r.get("key")).and_then(Value::as_str).unwrap_or("").to_string();
@@ -414,18 +472,115 @@ pub fn answer(conn: &mut Conn, on_raise: &dyn Fn(), on_action: Option<&dyn Fn(Va
     let _ = conn.write_all(&reply);
 }
 
+/// The handshake line after `mcp:` and whatever came in after its newline, read until the line is whole. None when it never is in time,
+/// grows too long or the other end goes.
+fn read_mcp_handshake(conn: &mut Conn, first: &[u8]) -> Option<(Vec<u8>, Vec<u8>)> {
+    let mut data = first.to_vec();
+    let deadline = Instant::now() + MCP_HANDSHAKE_WAIT;
+    let mut chunk = [0u8; 1024];
+    loop {
+        if data.len() >= MCP.len() {
+            if !data.starts_with(MCP) {
+                return None;
+            }
+            if let Some(end) = data.iter().position(|b| *b == b'\n') {
+                return Some((data[MCP.len()..end].to_vec(), data[end + 1..].to_vec()));
+            }
+        }
+        if data.len() >= MCP_HANDSHAKE_MAX || Instant::now() >= deadline {
+            return None;
+        }
+        match conn.read(&mut chunk) {
+            Ok(0) | Err(_) => return None,
+            Ok(n) => data.extend_from_slice(&chunk[..n]),
+        }
+    }
+}
+
+fn answer_mcp(conn: &mut Conn, line: &[u8], after: Vec<u8>, on_mcp: Option<&McpOpen>, control_key: Option<&str>) {
+    let say = |conn: &mut Conn, ok: bool, text: &str| {
+        let _ = conn.write_all(format!("{}\n", json!({"ok": ok, "text": text})).as_bytes());
+    };
+    let sent = serde_json::from_slice::<Value>(line).ok().and_then(|r| r.get("key").and_then(Value::as_str).map(str::to_string)).unwrap_or_default();
+    match (on_mcp, control_key) {
+        (None, _) => say(conn, false, "This Telescope has no MCP server."),
+        (Some(_), None) => say(conn, false, "Telescope couldn't write the key the MCP command needs next to its settings when it started. Restart it."),
+        (Some(open), Some(key)) if same(sent.as_bytes(), key.as_bytes()) => match open() {
+            Err(why) => say(conn, false, &why),
+            Ok(serve) => {
+                say(conn, true, "");
+                conn.set_timeout(None);
+                if let Ok(theirs) = conn.try_clone() {
+                    let _ = std::thread::Builder::new().name("mcp-client".into()).spawn(move || serve(theirs, after));
+                }
+            }
+        },
+        _ => say(conn, false, "Telescope turned that down: it didn't come from this user's Telescope command."),
+    }
+}
+
+/// Why an MCP connection couldn't be opened.
+#[derive(Debug, PartialEq)]
+pub enum McpRefused {
+    /// Nothing answers: Telescope isn't running.
+    NotRunning,
+    /// Telescope answered and said no, with why (the MCP server is off, another user's key).
+    Said(String),
+}
+
+/// For `telescope mcp`: a connection that stays open to the running copy's MCP server, past the key check. Reads on it
+/// wait for ever, since a model can take its time.
+pub fn connect_mcp(address: &Address, key_path: &Path) -> Result<Conn, McpRefused> {
+    let Ok(key) = std::fs::read(key_path) else { return Err(McpRefused::NotRunning) };
+    let Ok(mut c) = connect(address, Duration::from_secs(8)) else { return Err(McpRefused::NotRunning) };
+    let mut payload = MCP.to_vec();
+    payload.extend_from_slice(json!({"key": String::from_utf8_lossy(&key).trim()}).to_string().as_bytes());
+    payload.push(b'\n');
+    if c.write_all(&payload).is_err() {
+        return Err(McpRefused::NotRunning);
+    }
+    let mut line = Vec::new();
+    let mut byte = [0u8; 1];
+    while line.len() < 4096 {
+        match c.read(&mut byte) {
+            Ok(1) if byte[0] == b'\n' => break,
+            Ok(1) => line.push(byte[0]),
+            _ => return Err(McpRefused::Said("Telescope didn't understand that. Is it an older version? Update it to use MCP.".into())),
+        }
+    }
+    match serde_json::from_slice::<Value>(&line) {
+        Ok(answer) if answer["ok"] == true => {
+            c.set_timeout(None);
+            Ok(c)
+        }
+        Ok(answer) => Err(McpRefused::Said(answer["text"].as_str().unwrap_or("Telescope turned that down.").to_string())),
+        Err(_) => Err(McpRefused::Said("Telescope didn't understand that. Is it an older version? Update it to use MCP.".into())),
+    }
+}
+
 /// Answers later launches on a thread of its own until the lock is dropped with the process.
 pub fn listen(lock: Lock, on_raise: impl Fn() + Send + 'static, on_action: impl Fn(Value) -> Value + Send + 'static,
               control_key: Option<String>) {
     serve(move || lock.accept(), on_raise, on_action, control_key);
 }
 
+/// listen, and the MCP server's connections too.
+pub fn listen_with_mcp(lock: Lock, on_raise: impl Fn() + Send + 'static, on_action: impl Fn(Value) -> Value + Send + 'static,
+                       on_mcp: impl Fn() -> Result<McpServe, String> + Send + 'static, control_key: Option<String>) {
+    serve_with(move || lock.accept(), on_raise, on_action, Some(Box::new(on_mcp)), control_key);
+}
+
 /// listen's thread: a connection that fails to come in doesn't stop the ones after it.
-fn serve(mut accept: impl FnMut() -> std::io::Result<Conn> + Send + 'static, on_raise: impl Fn() + Send + 'static,
+fn serve(accept: impl FnMut() -> std::io::Result<Conn> + Send + 'static, on_raise: impl Fn() + Send + 'static,
          on_action: impl Fn(Value) -> Value + Send + 'static, control_key: Option<String>) {
+    serve_with(accept, on_raise, on_action, None, control_key);
+}
+
+fn serve_with(mut accept: impl FnMut() -> std::io::Result<Conn> + Send + 'static, on_raise: impl Fn() + Send + 'static,
+              on_action: impl Fn(Value) -> Value + Send + 'static, on_mcp: Option<Box<McpOpen>>, control_key: Option<String>) {
     std::thread::Builder::new().name("single-instance".into()).spawn(move || loop {
         match accept() {
-            Ok(mut conn) => answer(&mut conn, &on_raise, Some(&on_action), control_key.as_deref()),
+            Ok(mut conn) => answer_with(&mut conn, &on_raise, Some(&on_action), on_mcp.as_deref(), control_key.as_deref()),
             Err(_) => std::thread::sleep(Duration::from_millis(100)),
         }
     }).expect("couldn't start the single-instance thread");
@@ -536,6 +691,114 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.dir);
         }
+    }
+
+    /// A running copy with an MCP server that answers every line with its length, and may be switched off.
+    struct McpRunning {
+        run: Running,
+    }
+
+    fn mcp_running(name: &str, on: Arc<std::sync::atomic::AtomicBool>) -> McpRunning {
+        let address = test_address(name);
+        let Acquired::Lock(lock) = acquire(&address, Duration::ZERO) else { panic!("no lock") };
+        let dir = std::env::temp_dir().join(format!("telescope-si-{name}-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let key = write_control_key(&control_key_path(&dir.join("telescope_config.json")));
+        let raised = Arc::new(Mutex::new(0));
+        let r = raised.clone();
+        serve_with(move || lock.accept(), move || *r.lock().unwrap() += 1, |_| json!({"ok": true, "text": "action"}), Some(Box::new(move || {
+            if !on.load(std::sync::atomic::Ordering::SeqCst) {
+                return Err("MCP is off".to_string());
+            }
+            Ok(Box::new(|conn: Conn, after: Vec<u8>| {
+                let mut writer = conn.try_clone().unwrap();
+                for line in std::io::BufRead::lines(std::io::BufReader::new(std::io::Read::chain(std::io::Cursor::new(after), conn))).map_while(Result::ok) {
+                    let _ = writeln!(writer, "{}", line.len());
+                }
+            }) as McpServe)
+        })), key);
+        McpRunning { run: Running { address, raised, actions: Arc::default(), dir } }
+    }
+
+    #[test]
+    fn an_mcp_connection_stays_open_and_the_lock_still_answers_raises_meanwhile() {
+        let on = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let server = mcp_running("mcp-stays", on);
+        let mut conn = connect_mcp(&server.run.address, &server.run.key_path()).expect("let in");
+        conn.write_all(b"hello\n").unwrap();
+        let mut got = [0u8; 2];
+        conn.read_exact(&mut got).unwrap();
+        assert_eq!(&got, b"5\n");
+        assert_eq!(server.run.raise(), b"ok", "a raise is answered while the MCP connection is open");
+        conn.write_all(b"again!!\n").unwrap();
+        conn.read_exact(&mut got).unwrap();
+        assert_eq!(&got, b"7\n", "and the connection is still the same one");
+        assert_eq!(server.run.raises(), 1);
+    }
+
+    #[test]
+    fn an_mcp_connection_needs_the_key_and_is_turned_away_with_a_reason_while_off() {
+        let on = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let server = mcp_running("mcp-refused", on.clone());
+        assert_eq!(connect_mcp(&server.run.address, &server.run.key_path()).err(), Some(McpRefused::Said("MCP is off".into())));
+        on.store(true, std::sync::atomic::Ordering::SeqCst);
+        assert!(connect_mcp(&server.run.address, &server.run.key_path()).is_ok(), "switched on, the next try gets in");
+        let wrong = server.run.says(b"mcp:{\"key\":\"nope\"}\n");
+        assert!(String::from_utf8_lossy(&wrong).contains("turned that down"), "{}", String::from_utf8_lossy(&wrong));
+        let missing = server.run.says(b"mcp:\n");
+        assert!(String::from_utf8_lossy(&missing).contains("turned that down"));
+        // Not running at all
+        assert_eq!(connect_mcp(&test_address("mcp-nobody"), &server.run.key_path()).err(), Some(McpRefused::NotRunning));
+        assert_eq!(connect_mcp(&server.run.address, &server.run.dir.join("no-key")).err(), Some(McpRefused::NotRunning));
+    }
+
+    #[test]
+    fn a_handshake_that_arrives_in_pieces_still_gets_in_and_what_follows_it_is_kept() {
+        let on = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let server = mcp_running("mcp-pieces", on);
+        let key = std::fs::read_to_string(server.run.key_path()).unwrap();
+        let line = format!("mcp:{}\nfirst\n", json!({"key": key.trim()}));
+        let mut conn = connect(&server.run.address, Duration::from_secs(5)).unwrap();
+        // Split inside the prefix, inside the JSON and right after the newline, with a pause between each
+        let (a, rest) = line.as_bytes().split_at(2);
+        let (b, rest) = rest.split_at(9);
+        let newline = rest.iter().position(|c| *c == b'\n').unwrap() + 1;
+        let (c, d) = rest.split_at(newline);
+        for piece in [a, b, c, d] {
+            conn.write_all(piece).unwrap();
+            conn.flush().unwrap();
+            std::thread::sleep(Duration::from_millis(60));
+        }
+        let mut reply = Vec::new();
+        let mut byte = [0u8; 1];
+        while conn.read(&mut byte).map(|n| n == 1).unwrap_or(false) && byte[0] != b'\n' {
+            reply.push(byte[0]);
+        }
+        assert_eq!(serde_json::from_slice::<Value>(&reply).unwrap()["ok"], json!(true), "{}", String::from_utf8_lossy(&reply));
+        let mut got = [0u8; 2];
+        conn.read_exact(&mut got).unwrap();
+        assert_eq!(&got, b"5\n", "the line sent after the handshake was read, not dropped");
+    }
+
+    #[test]
+    fn a_handshake_that_never_ends_is_dropped() {
+        let on = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let server = mcp_running("mcp-endless", on);
+        let mut conn = connect(&server.run.address, Duration::from_secs(5)).unwrap();
+        conn.write_all(&[MCP, &vec![b'x'; MCP_HANDSHAKE_MAX]].concat()).unwrap();
+        let mut reply = Vec::new();
+        // Closed on us, which with bytes left unread can show as a reset
+        let _ = conn.read_to_end(&mut reply);
+        assert!(reply.is_empty(), "{}", String::from_utf8_lossy(&reply));
+        assert!(connect_mcp(&server.run.address, &server.run.key_path()).is_ok(), "and the next connection is served");
+    }
+
+    #[test]
+    fn a_copy_without_an_mcp_server_says_so() {
+        let run = Running::new("no-mcp");
+        let reply = run.says(&[MCP, b"{\"key\":\"x\"}\n"].concat());
+        assert!(String::from_utf8_lossy(&reply).contains("no MCP server"), "{}", String::from_utf8_lossy(&reply));
+        assert_eq!(connect_mcp(&run.address, &run.key_path()).err(), Some(McpRefused::Said("This Telescope has no MCP server.".into())));
     }
 
     #[test]

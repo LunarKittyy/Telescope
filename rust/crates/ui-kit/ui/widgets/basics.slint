@@ -22,6 +22,39 @@ export global KeyFocus {
     in-out property <int> given-back;
 }
 
+// A setting an outside caller (the MCP server) just read or changed, by its id ("colour_grading.contrast"). The window fills items
+// and lets `on` go false after a moment, which fades the outline, then clears them. Controls that carry that id draw a TouchRing.
+export struct TouchedSetting {
+    id: string,
+    on: bool,
+    changed: bool,
+}
+
+export global Touched {
+    in-out property <[TouchedSetting]> items;
+}
+
+// The outline round a control that was just touched from outside: a change is the stronger one. Fills its parent, which gives the shape.
+export component TouchRing inherits Rectangle {
+    in property <string> setting;
+    in property <length> radius: 7px;
+    if setting != "": Rectangle {
+        for t in Touched.items: Rectangle {
+            if t.id == root.setting: Rectangle {
+                x: -3px;
+                y: -3px;
+                width: root.width + 6px;
+                height: root.height + 6px;
+                border-radius: radius + 3px;
+                border-width: t.changed ? 2px : 1px;
+                border-color: Theme.accent;
+                opacity: t.on ? 1 : 0;
+                animate opacity { duration: 500ms; easing: ease-out; }
+            }
+        }
+    }
+}
+
 // theme.focus_ring: an accent outline drawn just outside a control while it has focus from the keyboard. A click can
 // leave a control focused, and the ring stays away for that (theme.keyboard_focus).
 export component FocusRing inherits Rectangle {
@@ -117,7 +150,10 @@ export component Button inherits Rectangle {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: root.enabled;
         key-pressed(e) => {
-            if (enabled && (e.text == " " || e.text == "\n")) { clicked(); return accept; }
+            if (enabled && (e.text == " " || e.text == "\n")) {
+                clicked();
+                return accept;
+            }
             reject
         }
     }
@@ -125,7 +161,9 @@ export component Button inherits Rectangle {
     usage := TipUse { hover: touch.has-hover; }
     touch := TouchArea {
         mouse-cursor: pointer;
-        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down) { usage.press(); }
+        }
         scroll-event(e) => { usage.wheel(); reject }
         clicked => { if (enabled) { root.clicked(); } }
     }

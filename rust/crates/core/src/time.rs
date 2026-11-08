@@ -1,5 +1,15 @@
 //! A clock shared by every crate, so frame and packet times compare.
 
+/// The local date and time as 20261107_153012, for naming a file after the moment it was made.
+pub fn local_stamp() -> String {
+    chrono::Local::now().format("%Y%m%d_%H%M%S").to_string()
+}
+
+/// The local time as 15:30:12, for a line of a log people read.
+pub fn local_clock() -> String {
+    chrono::Local::now().format("%H:%M:%S").to_string()
+}
+
 /// Monotonic nanoseconds since boot: the clock Python's time.monotonic() reads, for timing across processes.
 pub fn monotonic_ns() -> u64 {
     #[cfg(unix)]

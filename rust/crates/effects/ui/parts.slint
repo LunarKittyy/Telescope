@@ -1,7 +1,7 @@
 // What both cards of this crate are built from. The plugins join this file and their card into one source (Rust's concat!),
 // so it holds the only import line.
 
-import { Theme, Icons, Icon, FocusRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, TextField, NumberField, FlickBar, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu, Reveal } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, TouchRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, Stepper, SwitchTile, TextField, NumberField, FlickBar, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu, Reveal } from "@ui-kit/ui-kit.slint";
 
 global Status {
     public pure function color(kind: string) -> color {
@@ -55,10 +55,13 @@ component SliderRow inherits LabelRow {
     in property <string> hint;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
+    // The id of the setting it is, for the outline when something outside the window reads or changes it
+    in property <string> setting;
     callback moved(float);
     Rectangle {
         horizontal-stretch: 1;
         Slider {
+            setting: root.setting;
             tip: root.tip != "" && has-default && hint != "" ? root.tip + "\n" + hint : root.tip;
             shortcut: root.shortcut;
             width: parent.width;

@@ -23,11 +23,13 @@ from pathlib import Path
 # The Python updater turns a Linux tarball without main.py and telescope/ away (telescope/updates.py's install_linux)
 LINUX_FILES = ("start.sh", "main.py", "telescope/_build.py", "telescope-rs", "librnnoise.so", "THIRD_PARTY_NOTICES.txt", "ui-kit/ui-kit.slint", "telescope.png",
                "lib/fallback/libva.so.2", "lib/fallback/libva-drm.so.2", "lib/fallback/libdrm.so.2", "lib/fallback-fonts/libfontconfig.so.1",
-               "lib/fallback-fonts/libfreetype.so.6", "lib/fallback-fonts/fonts.conf")
+               "lib/fallback-fonts/libfreetype.so.6", "lib/fallback-fonts/fonts.conf",
+               "lib/gphoto2/libgphoto2.so.6", "lib/gphoto2/libgphoto2_port.so.12", "lib/gphoto2/camlibs/ptp2.so", "lib/gphoto2/iolibs/usb1.so")
 # What makes an AppImage one, and what the program needs at run time; the tarball's start.sh and Python files stay out of it
 APPIMAGE_FILES = ("AppRun", "telescope.desktop", "telescope.png", "telescope-rs", "librnnoise.so", "THIRD_PARTY_NOTICES.txt", "ui-kit/ui-kit.slint",
                   "lib/fallback/libva.so.2", "lib/fallback/libva-drm.so.2", "lib/fallback/libdrm.so.2", "lib/fallback-fonts/libfontconfig.so.1",
-                  "lib/fallback-fonts/libfreetype.so.6", "lib/fallback-fonts/fonts.conf")
+                  "lib/fallback-fonts/libfreetype.so.6", "lib/fallback-fonts/fonts.conf",
+                  "lib/gphoto2/libgphoto2.so.6", "lib/gphoto2/libgphoto2_port.so.12", "lib/gphoto2/camlibs/ptp2.so", "lib/gphoto2/iolibs/usb1.so")
 LINUX_LIBRARIES = ("lib/libavcodec.so.", "lib/libavutil.so.", "lib/libswresample.so.", "lib/libswscale.so.")
 # Python's windows updater wants the exe; check.ps1 and the rest of Telescope.iss want the other two folders
 WINDOWS_FILES = ("TelescopeDesktop.exe", "rnnoise.dll", "vcruntime140.dll", "THIRD_PARTY_NOTICES.txt", "ui-kit/ui-kit.slint", "virtualcamera/TelescopeCamera.dll",
@@ -145,6 +147,17 @@ def check_linux(name: str, folder: Path, args):
     # The system's libva when it has one, as start.sh does
     va = [lib / "fallback" / f for f in ("libdrm.so.2", "libva.so.2", "libva-drm.so.2")] if "not found" in linked else []
     check_ffmpeg_holds(name, va + [next(lib.glob("libavutil.so.*")), next(lib.glob("libavcodec.so.*"))])
+    check_gphoto2(name, folder)
+
+
+def check_gphoto2(name: str, folder: Path):
+    """The bundled libgphoto2 and its two drivers must resolve everything they link to, against the folder and the system (no camera needed)."""
+    gp = folder.resolve() / "lib" / "gphoto2"
+    for lib in ("libgphoto2.so.6", "libgphoto2_port.so.12", "camlibs/ptp2.so", "iolibs/usb1.so"):
+        env = dict(os.environ, LD_LIBRARY_PATH=str(gp))
+        out = subprocess.run(["ldd", str(gp / lib)], capture_output=True, text=True, env=env).stdout
+        if "not found" in out:
+            problems.append(f"{name}'s lib/gphoto2/{lib} lacks something it links to: {out}")
 
 
 def check_appimage(image: Path, args):

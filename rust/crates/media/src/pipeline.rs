@@ -11,6 +11,7 @@ use std::sync::Arc;
 use telescope_core::balance::{Balance, Place};
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, Touch};
 use telescope_core::media::{FramePipeline, StagedStep};
+use telescope_core::stats::{SourceStats, Timer};
 use telescope_core::time::{monotonic_ns, span};
 
 /// A plugin step that fails this many frames in a row is skipped until the next stream.
@@ -62,6 +63,8 @@ struct Entry {
     fails: u32,
     /// Its shader won't build here, so a step with a CPU way stays on that.
     no_shader: bool,
+    /// What it costs the stream's thread, filled while the stats ask.
+    timer: Option<Arc<Timer>>,
 }
 
 impl Entry {
@@ -119,6 +122,7 @@ pub struct Pipeline {
     balance: Arc<Balance>,
     /// The card failed a frame: steps that can run on the CPU stay there until the next stream, whatever the balance says.
     card_lost: bool,
+    stats: Option<Arc<SourceStats>>,
 }
 
 impl Default for Pipeline {
@@ -134,7 +138,11 @@ impl Pipeline {
 
     /// One that listens to this balance, for tests.
     fn with_balance(balance: Arc<Balance>) -> Pipeline {
-        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false }
+        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, stats: None }
+    }
+
+    fn timer_of(&self, owner: &str) -> Option<Arc<Timer>> {
+        self.stats.as_ref().map(|s| s.steps().timer(owner))
     }
 
     /// The stages in the order their steps run, for tests and diagnostics.
@@ -324,7 +332,7 @@ fn sound(frame: &Frame) -> bool {
 
 impl FramePipeline for Pipeline {
     fn set_steps(&mut self, steps: Vec<StagedStep>) {
-        let mut entries: Vec<Entry> = steps.into_iter().map(|s| Entry { owner: s.owner, stage: s.stage, kind: Kind::of(s.step), fails: 0, no_shader: false }).collect();
+        let mut entries: Vec<Entry> = steps.into_iter().map(|s| Entry { timer: self.timer_of(&s.owner), owner: s.owner, stage: s.stage, kind: Kind::of(s.step), fails: 0, no_shader: false }).collect();
         // Stable: as registered within a stage
         entries.sort_by_key(|e| e.stage);
         self.steps = entries;
@@ -332,7 +340,8 @@ impl FramePipeline for Pipeline {
 
     fn replace_steps(&mut self, owner: &str, stage: FrameStage, steps: Vec<FrameStep>) {
         self.steps.retain(|e| e.owner != owner);
-        let fresh = steps.into_iter().map(|step| Entry { owner: owner.to_string(), stage, kind: Kind::of(step), fails: 0, no_shader: false });
+        let timer = self.timer_of(owner);
+        let fresh: Vec<Entry> = steps.into_iter().map(|step| Entry { owner: owner.to_string(), stage, kind: Kind::of(step), fails: 0, no_shader: false, timer: timer.clone() }).collect();
         // First within the stage, where the window's own steps go
         let at = self.steps.iter().position(|e| e.stage >= stage).unwrap_or(self.steps.len());
         self.steps.splice(at..at, fresh);
@@ -348,10 +357,13 @@ impl FramePipeline for Pipeline {
         // Asked once, so a frame doesn't change its mind halfway
         let on_card = self.balance.place() == Place::Card;
         let mut off_card = false;
+        // Asked once a frame: a step is only timed while the stats panel wants every plugin's time
+        let timing = self.stats.as_ref().is_some_and(|s| s.steps().on());
         for i in 0..self.steps.len() {
             if self.steps[i].skipped() {
                 continue;
             }
+            let step_began = timing.then(monotonic_ns);
             let either = matches!(self.steps[i].kind, Kind::Either(..)) && !self.steps[i].no_shader && !self.card_lost;
             if either && !(on_card && self.gpu().is_some()) {
                 self.ready_on_card(i);
@@ -361,6 +373,9 @@ impl FramePipeline for Pipeline {
                 self.run_shader(i, &mut frame, &mut chain, ctx, time);
             } else {
                 self.run_cpu(i, &mut frame, &mut chain, ctx);
+            }
+            if let (Some(began), Some(timer)) = (step_began, &self.steps[i].timer) {
+                timer.add(monotonic_ns().saturating_sub(began));
             }
             frame.number = number;
         }
@@ -379,6 +394,13 @@ impl FramePipeline for Pipeline {
 
     fn is_empty(&self) -> bool {
         self.steps.is_empty()
+    }
+
+    fn set_stats(&mut self, stats: Arc<SourceStats>) {
+        self.stats = Some(stats);
+        for i in 0..self.steps.len() {
+            self.steps[i].timer = self.timer_of(&self.steps[i].owner);
+        }
     }
 }
 

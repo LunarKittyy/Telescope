@@ -1,59 +1,98 @@
 // The Photos card. Joined after parts.slint, which has the imports.
+// Values that run in order (ISO, shutter speed, how many) are dials, named choices are tiles, and both sit side by side as far as the
+// card is wide, laid out by the plugin (where each goes when three, two or one fit in a line, on a grid of 6 columns).
 
-// control_row with a drop-down and the tooltip it has in Qt
-component PickRow inherits FormRow {
-    in property <[string]> items;
-    in property <int> current;
-    in property <string> tip;
-    in property <string> shortcut;
-    callback picked(int);
-    Rectangle {
-        horizontal-stretch: 1;
-        ChoiceField {
-            enabled: root.enabled;
-            width: parent.width;
-            compact: true;
-            caption: root.label;
-            items: root.items;
-            current: root.current;
-            shortcut: root.shortcut;
-            tip: root.tip;
-            picked(i) => { root.picked(i); }
-        }
-    }
+export struct PhotoTile {
+    key: string,
+    label: string,
+    // "dial" steps along its list, "choice" opens it
+    kind: string,
+    options: [string],
+    tip: string,
+    shortcut: string,
+    r3: int,
+    c3: int,
+    w3: int,
+    r2: int,
+    c2: int,
+    w2: int,
 }
 
-// control_row with a number box (a QSpinBox without buttons)
-component NumberRow inherits FormRow {
-    in property <string> text;
-    // The text the box goes back to whenever sync changes (a refused key, leaving the box)
-    in property <string> restore;
-    in property <int> sync;
+// The folder photos go to, as a tile like the choices: a click picks another
+component FolderTile inherits Rectangle {
+    in property <string> caption;
+    in property <string> name;
     in property <string> tip;
-    callback edited(string);
-    callback left(string);
-    changed sync => { field.show-text(root.restore); }
-    HorizontalLayout {
-        alignment: start;
-        Rectangle {
-            width: 78px;
-            field := NumberField {
-                enabled: root.enabled;
-                width: parent.width;
-                height: 32px;
-                y: 2px;
-                label: root.label;
-                value: root.text;
-                edited(t) => { root.edited(t); }
-                committed(t) => { root.left(t); }
-            }
-            if tip != "": Tooltip { TipBody { says: root.tip; } }
+    in property <bool> enabled: true;
+    callback clicked;
+    height: 48px;
+    horizontal-stretch: 1;
+    min-width: 0px;
+    preferred-width: 0px;
+    border-radius: 10px;
+    border-width: 1px;
+    background: !enabled ? Theme.bg : touch.has-hover ? Theme.surface-hover : Theme.surface-raise;
+    border-color: !enabled ? Theme.border : touch.has-hover ? Theme.border-hover : Theme.border;
+    accessible-role: button;
+    accessible-label: caption + ": " + name;
+    accessible-description: tip;
+    accessible-action-default => { if (enabled) { clicked(); } }
+    forward-focus: focus;
+    focus := FocusScope {
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (e.text == " " || e.text == "\n") { clicked(); return accept; }
+            reject
         }
+    }
+    FocusRing { shown: focus.has-focus; radius: 10px; width: parent.width + 4px; height: parent.height + 4px; }
+    usage := TipUse { hover: touch.has-hover; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { focus.focus(); usage.press(); } }
+        scroll-event(e) => { usage.wheel(); reject }
+        clicked => { root.clicked(); }
+    }
+    if root.tip != "" && !usage.used: Tooltip { TipBody { says: root.tip; } }
+    // The caption's capitals and the value's read as one block centred top to bottom, like the choices
+    property <length> first-baseline: round((root.height / 1px - 26) / 2 + 8) * 1px;
+    Text {
+        x: 12px;
+        y: first-baseline - 11px * 1984 / 2048;
+        width: root.width - 12px - 34px;
+        text: root.caption;
+        font-family: Theme.font;
+        font-size: 11px;
+        color: enabled ? Theme.text-faint : Theme.text-disabled;
+        overflow: elide;
+        accessible-role: none;
+    }
+    Text {
+        x: 12px;
+        y: first-baseline + 18px - 13px * 1984 / 2048;
+        width: root.width - 12px - 34px;
+        text: root.name;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        font-weight: 600;
+        color: enabled ? Theme.text : Theme.text-disabled;
+        overflow: elide;
+        accessible-role: none;
+    }
+    Icon {
+        source: Icons.pencil;
+        tint: enabled ? Theme.text-dim : Theme.text-disabled;
+        x: parent.width - 12px - self.width;
+        width: 14px;
+        height: 14px;
+        accessible-role: none;
     }
 }
 
 export component PhotosCard inherits Card {
-    // Greyed out until a phone is paired, and gone for a source that isn't a phone
+    // Greyed out until a phone is paired, and gone for a source that isn't a phone or a camera that takes photos
     in property <bool> active: true;
     in property <bool> shown: true;
     in property <string> take-text;
@@ -66,58 +105,42 @@ export component PhotosCard inherits Card {
     in property <string> status-kind: "status_dim";
     in property <string> info;
     in property <bool> info-shown;
-    in property <[string]> format-items: [""];
-    in property <int> format-current;
-    in property <bool> format-shown;
+    // The tiles, and where each one is in its list. Apart because the list is only replaced when it changes: replacing it rebuilds
+    // every arrow, and a held one would never hear the release.
+    in property <[PhotoTile]> tiles;
+    in property <[int]> tile-indexes;
+    // How many lines the tiles make when three or two fit in one
+    in property <int> rows3;
+    in property <int> rows2;
+    // What a screen reader calls the arrows
+    in property <string> previous-label;
+    in property <string> next-label;
     in property <int> quality: 95;
     in property <string> quality-text;
     in property <bool> quality-shown;
     in property <string> reset-hint;
-    in property <[string]> mode-items: [""];
-    in property <int> mode-current;
-    in property <bool> mode-shown;
-    in property <string> mode-tip;
-    in property <[string]> shots-items: [""];
-    in property <int> shots-current;
-    in property <bool> shots-shown;
-    in property <string> burst-text;
-    in property <string> burst-restore;
-    in property <int> burst-sync;
-    in property <bool> burst-shown;
-    in property <[string]> bracket-items: ["", "", "", ""];
-    in property <int> bracket-current;
-    in property <bool> bracket-shown;
-    in property <string> focus-text;
-    in property <string> focus-restore;
-    in property <int> focus-sync;
-    in property <string> focus-tip;
-    in property <bool> focus-shown;
-    in property <[string]> exposure-items: [""];
-    in property <int> exposure-current;
-    in property <bool> exposure-shown;
-    in property <string> exposure-tip;
     in property <[string]> timer-items: ["", "", ""];
     in property <int> timer-current;
     in property <string> best-name;
     in property <string> best-tip;
     in property <bool> best;
     in property <bool> best-shown;
-    in property <[string]> distortion-items: ["", "", ""];
-    in property <int> distortion-current;
-    in property <bool> distortion-shown;
     in property <string> folder-name;
     in property <string> folder-tip;
-    in property <string> folder-tip-text;
-    in property <string> change-text;
     callback take-clicked;
     callback open-clicked;
-    callback choice-picked(int, int);
+    callback tile-picked(string, int);
+    // One step (-1 or 1) of a dial from a key or the wheel, and an arrow going down (with its way) and coming up
+    callback tile-step(string, int);
+    callback tile-hold-down(string, int);
+    callback tile-hold-up();
     callback quality-moved(float);
-    callback number-edited(int, string);
-    callback number-left(int, string);
     callback timer-picked(int);
     callback best-toggled(bool);
     callback folder-clicked;
+
+    // As many tiles side by side as are 128px wide with 8px between
+    property <int> cols: root.width >= 434px ? 3 : root.width >= 298px ? 2 : 1;
 
     title: @tr("Photos");
     icon: Icons.photo;
@@ -127,9 +150,7 @@ export component PhotosCard inherits Card {
 
     HorizontalLayout {
         spacing: 8px;
-        // action_button: 160 wide
-        Button { width: 160px; text: take-text; tip: take-tip; role: "primary"; enabled: active && take-enabled; shortcut: "photos.take"; clicked => { root.take-clicked(); } }
-        Rectangle { horizontal-stretch: 1; }
+        Button { horizontal-stretch: 1; preferred-width: 1000px; text: take-text; tip: take-tip; role: "primary"; enabled: active && take-enabled; shortcut: "photos.take"; clicked => { root.take-clicked(); } }
         if open-shown: Button { text: open-text; tip: open-tip; clicked => { root.open-clicked(); } }
     }
     if status != "": Rectangle {
@@ -148,12 +169,46 @@ export component PhotosCard inherits Card {
         Tooltip { TipBody { says: root.status; } }
     }
     if info-shown: Note { text: info; }
-    if format-shown: PickRow {
-        enabled: active;
-        label: @tr("Format");
-        items: format-items;
-        current: format-current;
-        picked(i) => { root.choice-picked(1, i); }
+    // Six columns of one width with 8px between, each tile as many of them as the plugin says: spanning grid cells would share a line out
+    // by tile rather than by columns taken, so a wide tile and a narrow one in the same line would come out the same width
+    grid := Rectangle {
+        property <int> rows: root.cols == 3 ? root.rows3 : root.cols == 2 ? root.rows2 : root.tiles.length;
+        property <length> column: (self.width - 40px) / 6;
+        visible: root.tiles.length > 0;
+        height: root.tiles.length > 0 ? grid.rows * 56px - 8px : 0px;
+        for tile[j] in root.tiles: Rectangle {
+            property <int> line: root.cols == 3 ? tile.r3 : root.cols == 2 ? tile.r2 : j;
+            property <int> start: root.cols == 3 ? tile.c3 : root.cols == 2 ? tile.c2 : 0;
+            property <int> span: root.cols == 3 ? tile.w3 : root.cols == 2 ? tile.w2 : 6;
+            x: start * (grid.column + 8px);
+            y: line * 56px;
+            width: span * grid.column + (span - 1) * 8px;
+            height: 48px;
+            if tile.kind == "dial": Stepper {
+                width: parent.width;
+                caption: tile.label;
+                items: tile.options;
+                current: root.tile-indexes[j];
+                enabled: active;
+                tip: tile.tip;
+                previous-label: root.previous-label;
+                next-label: root.next-label;
+                step(by) => { root.tile-step(tile.key, by); }
+                hold-down(by) => { root.tile-hold-down(tile.key, by); }
+                hold-up => { root.tile-hold-up(); }
+                picked(i) => { root.tile-picked(tile.key, i); }
+            }
+            if tile.kind == "choice": ChoiceField {
+                width: parent.width;
+                caption: tile.label;
+                items: tile.options;
+                current: root.tile-indexes[j];
+                enabled: active;
+                tip: tile.tip;
+                shortcut: tile.shortcut;
+                picked(i) => { root.tile-picked(tile.key, i); }
+            }
+        }
     }
     if quality-shown: SliderRow {
         enabled: active;
@@ -168,120 +223,38 @@ export component PhotosCard inherits Card {
         hint: reset-hint;
         moved(v) => { root.quality-moved(v); }
     }
-    if mode-shown: PickRow {
+    if best-shown: SwitchTile {
         enabled: active;
-        label: @tr("Mode");
-        items: mode-items;
-        current: mode-current;
-        tip: mode-tip;
-        shortcut: "photos.mode";
-        picked(i) => { root.choice-picked(0, i); }
+        icon: Icons.sliders;
+        text: best-name;
+        tip: best-tip;
+        hue: root.hue;
+        checked: best;
+        toggled(v) => { root.best-toggled(v); }
     }
-    if shots-shown: PickRow {
-        enabled: active;
-        label: @tr("Shots");
-        items: shots-items;
-        current: shots-current;
-        picked(i) => { root.choice-picked(2, i); }
-    }
-    if burst-shown: NumberRow {
-        enabled: active;
-        label: @tr("How many");
-        text: burst-text;
-        restore: burst-restore;
-        sync: burst-sync;
-        edited(t) => { root.number-edited(0, t); }
-        left(t) => { root.number-left(0, t); }
-    }
-    if bracket-shown: PickRow {
-        enabled: active;
-        label: @tr("Bracket");
-        items: bracket-items;
-        current: bracket-current;
-        picked(i) => { root.choice-picked(4, i); }
-    }
-    if focus-shown: NumberRow {
-        enabled: active;
-        label: @tr("Steps");
-        text: focus-text;
-        restore: focus-restore;
-        sync: focus-sync;
-        tip: focus-tip;
-        edited(t) => { root.number-edited(1, t); }
-        left(t) => { root.number-left(1, t); }
-    }
-    if exposure-shown: PickRow {
-        enabled: active;
-        label: @tr("Exposure");
-        items: exposure-items;
-        current: exposure-current;
-        tip: exposure-tip;
-        picked(i) => { root.choice-picked(3, i); }
-    }
-    FormRow {
-        label: @tr("Timer");
-        Segmented {
+    // The timer and the folder share a line, on the same columns as the tiles above: the timer takes the first third (or half)
+    foot := Rectangle {
+        property <length> column: (self.width - 40px) / 6;
+        property <int> timer-span: root.cols == 3 ? 2 : 3;
+        height: 48px;
+        ChoiceField {
+            x: 0px;
+            width: foot.timer-span * foot.column + (foot.timer-span - 1) * 8px;
+            caption: @tr("Timer");
             items: timer-items;
-            disabled: [!active, !active, !active];
-            label: @tr("Timer");
             current: timer-current;
+            enabled: active;
             shortcut: "photos.timer";
             picked(i) => { root.timer-picked(i); }
         }
-    }
-    if best-shown: FormRow {
-        label: "";
-        HorizontalLayout {
-            spacing: 10px;
-            Rectangle {
-                width: 36px;
-                Switch {
-                    enabled: active;
-                    y: (parent.height - self.height) / 2;
-                    checked: best;
-                    label: best-name;
-                    tip: best-tip;
-                    toggled(v) => { root.best-toggled(v); }
-                }
-            }
-            Text {
-                text: @tr("Best quality noise reduction and sharpening");
-                font-family: Theme.font;
-                font-size: Theme.body;
-                color: Theme.text;
-                vertical-alignment: center;
-                wrap: word-wrap;
-                horizontal-stretch: 1;
-            }
-        }
-    }
-    if distortion-shown: PickRow {
-        enabled: active;
-        label: @tr("Distortion fix");
-        items: distortion-items;
-        current: distortion-current;
-        picked(i) => { root.choice-picked(5, i); }
-    }
-    FormRow {
-        label: @tr("Save in");
-        HorizontalLayout {
-            spacing: 8px;
-            Rectangle {
-                horizontal-stretch: 1;
-                shown-folder-name := Text {
-                    width: parent.width;
-                    height: parent.height;
-                    text: folder-name;
-                    font-family: Theme.font;
-                    font-size: Theme.body;
-                    color: active ? Theme.text : Theme.text-disabled;
-                    vertical-alignment: center;
-                    overflow: elide;
-                    if shown-folder-name.preferred-width > shown-folder-name.width: Tooltip { TipBody { says: shown-folder-name.text; } }
-                }
-                Tooltip { TipBody { says: root.folder-tip; } }
-            }
-            Button { enabled: active; text: change-text; tip: folder-tip-text; clicked => { root.folder-clicked(); } }
+        FolderTile {
+            x: foot.timer-span * (foot.column + 8px);
+            width: parent.width - self.x;
+            caption: @tr("Save in");
+            name: folder-name;
+            tip: folder-tip;
+            enabled: active;
+            clicked => { root.folder-clicked(); }
         }
     }
     // Nothing to touch until a phone is paired

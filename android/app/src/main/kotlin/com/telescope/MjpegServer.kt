@@ -565,7 +565,7 @@ class MjpegServer(
     }
 
     inner class H264Client(private val socket: Socket, private val request: HttpWire.Request) {
-        val queue = H264ClientQueue()
+        val queue = H264ClientQueue(onWaited = { PhoneStats.shared.addQueue(it) })
         private val alive = AtomicBoolean(true)
         @Volatile var lastWriteAtMs: Long = System.currentTimeMillis()
             private set

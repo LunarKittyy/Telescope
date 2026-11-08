@@ -186,13 +186,170 @@ impl telescope_audio::backend::MicBackend for SceneMic {
     fn teardown(&self) {}
 }
 
+/// A Nikon D5100 in M mode as it was probed (libgphoto2's settings, in the Nikon driver's own wording with its decimal commas), run
+/// through the real mapping to the card's controls.
+#[cfg(target_os = "linux")]
+struct SceneRig;
+
+#[cfg(target_os = "linux")]
+impl telescope_outputs::webcam_capture::gphoto_lib::Rig for SceneRig {
+    fn preview(&mut self) -> Result<Vec<u8>, String> {
+        Err("no live view in scenes".into())
+    }
+    fn read(&mut self, name: &str) -> Option<telescope_outputs::webcam_capture::gphoto_lib::Setting> {
+        use telescope_outputs::webcam_capture::gphoto_lib::{Kind, Setting};
+        let choice = |value: &str, list: &[&str]| Setting { kind: Kind::Choice, readonly: false, value: value.into(), choices: list.iter().map(|s| s.to_string()).collect() };
+        Some(match name {
+            "autofocusdrive" => Setting { kind: Kind::Toggle, readonly: false, value: "0".into(), choices: Vec::new() },
+            "manualfocusdrive" => Setting { kind: Kind::Range { min: -32767.0, max: 32767.0, step: 1.0 }, readonly: false, value: "0".into(), choices: Vec::new() },
+            "f-number" => choice("f/5,6", &["f/3,5", "f/4", "f/4,5", "f/5", "f/5,6", "f/6,3", "f/7,1", "f/8", "f/9", "f/10", "f/11", "f/13", "f/14", "f/16", "f/18", "f/20", "f/22"]),
+            "exposurecompensation" => choice("0", &["-5", "-4,666", "-4,333", "-4", "-3,666", "-3,333", "-3", "-2,666", "-2,333", "-2", "-1,666", "-1,333", "-1", "-0,666",
+                                                    "-0,333", "0", "0,333", "0,666", "1", "1,333", "1,666", "2", "2,333", "2,666", "3", "3,333", "3,666", "4", "4,333", "4,666", "5"]),
+            "whitebalance" => choice("Automatic", &["Automatic", "Daylight", "Fluorescent", "Tungsten", "Flash", "Cloudy", "Shade", "Preset"]),
+            _ => return None,
+        })
+    }
+    fn write(&mut self, _name: &str, _value: &str) -> Result<(), String> {
+        Ok(())
+    }
+    fn restart_live_view(&mut self) {}
+    fn close(&mut self) {}
+}
+
+/// The D5100's settings for the Webcam card; a set is taken and shown, as the camera would.
+#[cfg(target_os = "linux")]
+struct SceneDslr(Vec<telescope_outputs::webcam_controls::Control>);
+
+#[cfg(target_os = "linux")]
+impl telescope_outputs::webcam_controls::Controls for SceneDslr {
+    fn list(&mut self) -> Vec<telescope_outputs::webcam_controls::Control> {
+        self.0.clone()
+    }
+    fn set(&mut self, name: &str, value: i64) -> bool {
+        if let Some(c) = self.0.iter_mut().find(|c| c.name == name && c.kind == "menu") {
+            c.value = value;
+        }
+        true
+    }
+}
+
+/// What the Photos card asks a stream's camera: a fixed answer for what it can take, and no photo ever taken.
+struct SceneStills(serde_json::Value);
+
+impl telescope_core::source::SourceStills for SceneStills {
+    fn caps(&self) -> Option<serde_json::Value> {
+        Some(self.0.clone())
+    }
+    fn busy(&self) -> bool {
+        false
+    }
+    fn take(&self, _: &serde_json::Value, _: &str, _: Box<dyn Fn(serde_json::Value) + Send>, _: Box<dyn FnOnce(serde_json::Value) + Send>, _: Box<dyn Fn() -> bool + Send>) -> bool {
+        false
+    }
+    fn set_on_change(&self, _: Box<dyn Fn() + Send + Sync>) {}
+}
+
+/// What a Nikon D5100 in M mode offers the Photos card (probe/allconfig_M.txt): its ISO and shutter speed lists as the camera words them.
+fn dslr_stills() -> serde_json::Value {
+    let iso = ["100", "125", "160", "200", "250", "320", "400", "500", "640", "800", "1000", "1250", "1600", "2000", "2500", "3200", "4000", "5000", "6400", "8000", "10000", "12800", "25600"];
+    let shutter = ["0,0002s", "0,0003s", "0,0004s", "0,0005s", "0,0006s", "0,0008s", "0,0010s", "0,0012s", "0,0015s", "0,0020s", "0,0025s", "0,0031s", "0,0040s", "0,0050s",
+                   "0,0062s", "0,0080s", "0,0100s", "0,0125s", "0,0166s", "0,0200s", "0,0250s", "0,0333s", "0,0400s", "0,0500s", "0,0666s", "0,0769s", "0,1000s", "0,1250s",
+                   "0,1666s", "0,2000s", "0,2500s", "0,3333s", "0,4000s", "0,5000s", "0,6250s", "0,7692s", "1,0000s", "1,3000s", "1,6000s", "2,0000s", "2,5000s", "3,0000s",
+                   "4,0000s", "5,0000s", "6,0000s", "8,0000s", "10,0000s", "13,0000s", "15,0000s", "20,0000s", "25,0000s", "30,0000s"];
+    // The gphoto code is Linux's: elsewhere the camera's own words stand in for the labels
+    #[cfg(target_os = "linux")]
+    let labels: Vec<String> = shutter.iter().map(|s| telescope_outputs::webcam_capture::gphoto_stills::shutter_label(s).unwrap()).collect();
+    #[cfg(not(target_os = "linux"))]
+    let labels: Vec<String> = shutter.iter().map(|s| s.to_string()).collect();
+    json!({"formats": ["jpeg", "raw"], "camera": true, "burst_max": 1,
+           "iso": {"values": iso, "labels": iso, "current": 6},
+           "shutter": {"values": shutter.to_vec(), "labels": labels, "current": 20}})
+}
+
+/// A flagship phone's lens: every mode, shot and extra the Photos card has.
+fn phone_stills() -> serde_json::Value {
+    json!({"formats": ["jpeg", "heic", "ultrahdr", "raw"], "size": [4080, 3072], "max_res": [8160, 6144], "max_res_raw": true,
+           "extensions": ["night", "hdr", "bokeh"], "exposure_max_ns": 30_000_000_000i64, "bracketing": true, "focus_bracketing": true,
+           "noise_reduction_hq": true, "sharpening_hq": true, "hot_pixel_hq": true, "distortion": true, "burst_max": 60})
+}
+
+/// A webcam with the settings a good USB one offers, for the Webcam card.
+struct SceneUsb;
+
+impl telescope_outputs::webcam_controls::Controls for SceneUsb {
+    fn list(&mut self) -> Vec<telescope_outputs::webcam_controls::Control> {
+        use telescope_outputs::webcam_controls::Control;
+        let mut time = Control::new("exposure_time", "int", 3, 2047, 1, 250, 250);
+        time.unit = "100us".into();
+        time.inactive = true;
+        let mut kelvin = Control::new("white_balance", "int", 2000, 6500, 1, 4000, 4000);
+        kelvin.unit = "kelvin".into();
+        kelvin.inactive = true;
+        let mut flicker = Control::new("anti_flicker", "menu", 0, 2, 1, 1, 1);
+        flicker.menu = vec![0, 1, 2];
+        vec![Control::new("exposure_auto", "bool", 0, 1, 1, 1, 1), time, Control::new("gain", "int", 0, 255, 1, 0, 0), flicker,
+             Control::new("white_balance_auto", "bool", 0, 1, 1, 1, 1), kelvin, Control::new("saturation", "int", 0, 255, 1, 128, 128),
+             Control::new("contrast", "int", 0, 255, 1, 128, 128), Control::new("focus_auto", "bool", 0, 1, 1, 1, 1)]
+    }
+    fn set(&mut self, _name: &str, _value: i64) -> bool {
+        true
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn dslr_controls() -> Box<dyn telescope_outputs::webcam_controls::Controls> {
+    Box::new(SceneDslr(telescope_outputs::webcam_capture::gphoto_lib::read_controls(&mut SceneRig)))
+}
+
+/// DSLRs are Linux's for now, so a scene of one has no settings to show elsewhere.
+#[cfg(not(target_os = "linux"))]
+fn dslr_controls() -> Box<dyn telescope_outputs::webcam_controls::Controls> {
+    Box::new(SceneUsb)
+}
+
+/// A webcam plugged in whose card a scene shows: the D5100 on a USB cable, or a webcam.
+#[derive(Clone, Copy, PartialEq)]
+enum Webcam {
+    Dslr,
+    Usb,
+}
+
+impl Webcam {
+    fn key(self) -> &'static str {
+        if self == Webcam::Dslr { "gphoto2-d5100" } else { "usb-brio" }
+    }
+
+    fn plugin(self) -> telescope_outputs::webcam::WebcamPlugin {
+        use telescope_outputs::webcam::{System, WebcamPlugin};
+        use telescope_outputs::webcams::{Device, Mode};
+        let dslr = self == Webcam::Dslr;
+        let device = if dslr {
+            Device { key: self.key().into(), name: "Nikon DSC D5100".into(), location: "gphoto2:usb:001,004".into(), modes: Vec::new() }
+        } else {
+            let modes = vec![Mode::new("MJPG", 1280, 720, &[30.0, 60.0]), Mode::new("MJPG", 1920, 1080, &[30.0]), Mode::new("MJPG", 640, 480, &[30.0])];
+            Device { key: self.key().into(), name: "Brio 100".into(), location: "/dev/video0".into(), modes }
+        };
+        let system = System { opener: Arc::new(|_, _| Err((false, "no camera in scenes".into()))), users: Arc::new(|_| String::new()), exists: Arc::new(|_| true) };
+        let controls: telescope_outputs::webcam::ControlsFor = Box::new(move |_| {
+            Some(if dslr { dslr_controls() } else { Box::new(SceneUsb) })
+        });
+        WebcamPlugin::new(Box::new(move || Ok(vec![device.clone()])), controls, system)
+    }
+}
+
 /// What a scene changes in the plugins services() loads.
 #[derive(Clone, Copy, Default)]
 struct Changes {
+    /// The Webcam plugin is there with this camera plugged in (and picked, by the scene).
+    webcam: Option<Webcam>,
     /// RNNoise's library isn't there (translation_scenes_audio.rnnoise_problem).
     no_rnnoise: bool,
     /// Stream output is there, on a computer that can't decode H.264 (translation_scenes_camera.stream_no_pyav).
     no_h264: bool,
+    /// The Stats card is there, which the window scenes leave out because its Tab stops move what they walk to.
+    stats: bool,
+    /// The MCP server is there, on the program's own handle (mcp_scene).
+    mcp: bool,
 }
 
 fn services(link: SceneLink) -> Arc<Services> {
@@ -224,6 +381,7 @@ fn services_with(link: SceneLink, changes: Changes) -> Arc<Services> {
                 Box::new(String::new)
             };
             // The effects as main.rs has them; the ones that reach this computer's desktop or cameras are left out
+            let stats = changes.stats.then(|| Box::new(telescope_setup::stats::StatsPlugin::new()) as Box<dyn telescope_core::plugin::Plugin>);
             let mut plugins = vec![
                 Box::new(setup_plugin()) as Box<dyn telescope_core::plugin::Plugin>,
                 Box::new(telescope_setup::monitoring::MonitoringPlugin::new()),
@@ -247,9 +405,97 @@ fn services_with(link: SceneLink, changes: Changes) -> Arc<Services> {
             if changes.no_h264 {
                 plugins.push(Box::new(telescope_outputs::stream_output::StreamOutputPlugin::new(false)));
             }
+            plugins.extend(stats);
+            if changes.mcp {
+                plugins.push(Box::new(telescope_system::mcp::McpPlugin::new(telescope_system::mcp::McpHandle::global())));
+            }
+            plugins.extend(changes.webcam.map(|w| Box::new(w.plugin()) as Box<dyn telescope_core::plugin::Plugin>));
             plugins
         }),
     })
+}
+
+thread_local! {
+    /// The AI apps a scene has connected, kept for as long as it is drawn.
+    static MCP_CLIENTS: std::cell::RefCell<Vec<telescope_system::mcp::Client>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// What the MCP scenes have an AI app do before they are drawn.
+#[derive(Clone, Copy)]
+enum Mcp {
+    /// Switched on, nothing connected.
+    Nobody,
+    /// Connected and at rest.
+    Connected,
+    /// Connected and a moment after it looked at something.
+    Reading,
+    /// Connected and a moment after it changed settings (so there is something to undo).
+    Changing,
+    /// Connected, at rest, with its changes there to undo.
+    Undoable,
+    /// Read only, with a refused change among what it did.
+    ReadOnly,
+}
+
+/// Runs tool calls as an AI app's connection would, on a thread of their own while the window's thread keeps processing.
+fn drive(w: &std::rc::Rc<telescope_shell::window::Window>, session: u64, calls: &[(&str, Value)]) {
+    let handle = telescope_system::mcp::McpHandle::global();
+    for (tool, args) in calls {
+        let (handle, tool, args) = (handle.clone(), tool.to_string(), args.clone());
+        let asked = std::thread::spawn(move || handle.call_as(session, &tool, args));
+        while !asked.is_finished() {
+            w.process();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        let _ = asked.join();
+    }
+    w.process();
+}
+
+/// The window with the MCP server on, after an AI app (named Claude Desktop) did what state says.
+fn mcp_scene(state: Mcp, page: Page, width: f32) -> Setup {
+    MCP_CLIENTS.with(|c| c.borrow_mut().clear());
+    let mut config = main_window_config(true);
+    config["plugin_configs"]["mcp"] = json!({"access": if matches!(state, Mcp::ReadOnly) { "read_only" } else { "read_and_change" }});
+    Setup {
+        page,
+        then: Some(Box::new(move |w| {
+            let handle = telescope_system::mcp::McpHandle::global();
+            if matches!(state, Mcp::Nobody) {
+                return;
+            }
+            let Ok(client) = handle.open_client() else { return };
+            let session = client.session();
+            handle.name_client(session, "Claude Desktop");
+            MCP_CLIENTS.with(|c| c.borrow_mut().push(client));
+            w.process();
+            let look = ("get", json!({"ids": ["colour_grading.contrast", "colour_grading.temperature"]}));
+            let change = ("set", json!({"changes": {"colour_grading.contrast": 1.2, "colour_grading.temperature": -14, "colour_grading.vibrance": 18}}));
+            match state {
+                Mcp::Nobody | Mcp::Connected => {}
+                Mcp::Reading => drive(w, session, &[("status", json!({})), look]),
+                Mcp::Changing | Mcp::Undoable => drive(w, session, &[("status", json!({})), look, change]),
+                Mcp::ReadOnly => {
+                    drive(w, session, &[("status", json!({})), ("describe", json!({"plugin": "colour_grading"})), look]);
+                    drive(w, session, &[("set", json!({"changes": {"colour_grading.contrast": 1.4}}))]);
+                }
+            }
+            // The outline would fade while the picture is still being drawn
+            w.keep_touches();
+            if matches!(state, Mcp::Connected | Mcp::Undoable | Mcp::ReadOnly) {
+                let calm = telescope_core::Event::TimerFired { owner: "mcp".into(), token: "calm".into() };
+                w.state.borrow_mut().deliver_to("mcp", &calm);
+                w.process();
+            }
+        })),
+        every_optional: false,
+        ..Setup::window(Some(services_with(quiet(), Changes { mcp: true, ..Changes::default() })), with_plugins_on(config, &["mcp", "colour_grading"]), width, 900.0)
+    }
+}
+
+fn with_plugins_on(mut config: Value, on: &[&str]) -> Value {
+    config["plugins"] = json!({"on": on});
+    config
 }
 
 /// translation_scenes_window.turned_off on the wide window, started through load_plugins (loaded_window).
@@ -257,6 +503,39 @@ fn turned_off(names: &[&str]) -> Setup {
     let mut config = main_window_config(true);
     config["plugins"] = json!({"off": names});
     Setup { every_optional: false, ..Setup::window(Some(services(quiet())), config, WIDTH_THREE_COL, 900.0) }
+}
+
+/// What a stream that dropped a few frames over a Wi-Fi link looks like to the Stats card.
+fn example_stats() -> telescope_core::stats::Snapshot {
+    use telescope_core::stats::{DropReason, Hub};
+    let hub = Hub::new();
+    hub.want("scene", true);
+    let now = telescope_core::time::monotonic_ns();
+    hub.snapshot_at(now, Some(0), Some(0));
+    let stats = hub.register("phone-1", 0);
+    stats.set_link("https://192.168.1.20:8443/v1/video.udp", false);
+    stats.set_target_fps(30);
+    // A minute of a stream that was steady, stumbled from 40 s in
+    let mut last = None;
+    for second in 1..=60u64 {
+        let rough = (40..=58).contains(&second);
+        stats.received(if rough { 17 } else { 29 + second % 2 }, if rough { 300_000 } else { 560_000 });
+        stats.decoded(if rough { 16 } else { 29 });
+        for _ in 0..if rough { 15 } else { 29 } {
+            stats.delivered();
+        }
+        if rough {
+            stats.repeated();
+            stats.dropped(DropReason::LostOnLink, 2);
+            stats.dropped(DropReason::WaitingForKeyframe, 1);
+        }
+        stats.steps().timer("colour").add(2_000_000);
+        stats.steps().timer("privacy_blur").add(7_000_000);
+        hub.hooks().timer("monitoring").add(400_000);
+        let cpu = 380_000_000 * second + if rough { 250_000_000 } else { 0 };
+        last = Some(hub.snapshot_at(now + second * 1_000_000_000, Some(cpu), Some((240 + second / 4) << 20)));
+    }
+    last.expect("a snapshot")
 }
 
 /// Never checks: the scenes show the card before its first check.
@@ -425,6 +704,88 @@ pub fn all() -> Vec<Scene> {
         page: Page::Card { plugin: "stream_output".into() },
         ..Setup::window(Some(services_with(quiet(), Changes { no_h264: true, ..Changes::default() })), main_window_config(true), CARD_WIDTH, 400.0)
     }));
+    // The Stats card with a stream's numbers in it: some drops, a slow step and a plugin that costs a little, in both views
+    for (id, view, phone) in [("stats-standard", "standard", false), ("stats-nerd", "nerd", false), ("stats-phone-standard", "standard", true), ("stats-phone-nerd", "nerd", true)] {
+        scenes.push(Scene::new(id, move || {
+            let mut config = main_window_config(true);
+            config["plugins"] = json!({"on": ["stats"]});
+            config["plugin_configs"]["stats"] = json!({"view": view});
+            Setup {
+                page: Page::Card { plugin: "stats".into() },
+                every_optional: false,
+                then: Some(Box::new(move |w| {
+                    w.state.borrow_mut().bus.emit(telescope_core::Event::StatsUpdated { snapshot: example_stats() });
+                    // A phone from this version, a few seconds into being asked for its own numbers
+                    if phone {
+                        let state = json!({
+                            "takes_stats": true, "phone_fps": 30, "camera_fps": 29.6, "battery_temp_c": 41.5, "wifi_band": "5", "wifi_rssi": -61, "wifi_mbps": 780,
+                            "heat_fps": 24, "stats": {"encode_ms": 9.2, "encode_max_ms": 16.5, "queue_ms": 4.0, "encoder_fps": 29.4, "thermal": 3, "thermal_headroom": 0.97}
+                        });
+                        w.state.borrow_mut().bus.emit(telescope_core::Event::PhoneStateUpdated { state });
+                    }
+                    w.process();
+                })),
+                ..Setup::window(Some(services_with(quiet(), Changes { stats: true, ..Changes::default() })), config, CARD_WIDTH, 700.0)
+            }
+        }));
+    }
+    // The MCP server: its settings page and the header button in each state
+    for (id, state) in [("mcp-settings", Mcp::Undoable), ("mcp-settings-read-only", Mcp::ReadOnly), ("mcp-settings-nobody", Mcp::Nobody)] {
+        scenes.push(Scene::new(id, move || mcp_scene(state, Page::Settings("mcp".into()), 940.0)));
+    }
+    for (id, state) in [("mcp-header-nobody", Mcp::Nobody), ("mcp-header-connected", Mcp::Connected), ("mcp-header-reading", Mcp::Reading),
+                        ("mcp-header-changing", Mcp::Changing), ("mcp-header-undoable", Mcp::Undoable)] {
+        scenes.push(Scene::new(id, move || mcp_scene(state, Page::Window, WIDTH_THREE_COL)));
+    }
+    // The controls an AI app changes get an outline for a moment
+    scenes.push(Scene::new("mcp-outline", || mcp_scene(Mcp::Changing, Page::Card { plugin: "colour_grading".into() }, CARD_WIDTH)));
+    // The Webcam card for a DSLR, a webcam, and a narrow card (where the strip of tiles wraps)
+    for (id, camera, width) in [("webcam-dslr", Webcam::Dslr, CARD_WIDTH), ("webcam-dslr-narrow", Webcam::Dslr, 350.0), ("webcam-usb", Webcam::Usb, CARD_WIDTH),
+                                ("webcam-usb-narrow", Webcam::Usb, 350.0)] {
+        scenes.push(Scene::new(id, move || {
+            let mut config = main_window_config(true);
+            config["plugins"] = json!({"on": ["webcam"]});
+            Setup {
+                page: Page::Card { plugin: "webcam".into() },
+                every_optional: false,
+                then: Some(Box::new(move |w| {
+                    w.state.borrow_mut().bus.emit(telescope_core::Event::SourceSelected { source_id: format!("webcam:{}", camera.key()) });
+                    w.process();
+                })),
+                ..Setup::window(Some(services_with(quiet(), Changes { webcam: Some(camera), ..Changes::default() })), config, width, 700.0)
+            }
+        }));
+    }
+    // The Photos card for a DSLR in M mode and for a phone, and with a narrow card (where the tiles wrap)
+    for (id, dslr, width) in [("photos-dslr", true, CARD_WIDTH), ("photos-dslr-narrow", true, 350.0), ("photos-phone", false, CARD_WIDTH), ("photos-phone-narrow", false, 350.0)] {
+        scenes.push(Scene::new(id, move || {
+            let mut config = main_window_config(true);
+            config["plugins"] = json!({"on": ["photos"]});
+            config["plugin_configs"]["photos"] = json!({"folder": "/home/me/Pictures/Telescope", "shots": "burst", "burst": 8, "exposure_s": 4});
+            Setup {
+                page: Page::Card { plugin: "photos".into() },
+                every_optional: false,
+                then: Some(Box::new(move |w| {
+                    let source = if dslr { "webcam:gphoto2-d5100" } else { "phone:a" };
+                    {
+                        let mut state = w.state.borrow_mut();
+                        state.streams.live.push(source.into());
+                        state.streams.source_id = Some(source.into());
+                        let caps = if dslr { dslr_stills() } else { phone_stills() };
+                        state.source_stills.push((source.into(), Arc::new(SceneStills(caps))));
+                        if dslr {
+                            state.bus.emit(telescope_core::Event::SourceSelected { source_id: source.into() });
+                        } else {
+                            state.bus.emit(telescope_core::Event::PhonesChanged { count: 1 });
+                        }
+                        state.bus.emit(telescope_core::Event::StillCapsChanged { source_id: source.into() });
+                    }
+                    w.process();
+                })),
+                ..Setup::window(Some(services(quiet())), config, width, 700.0)
+            }
+        }));
+    }
     // translation_scenes_audio.control_menu: right-clicks on a control with its shortcuts saved
     scenes.push(Scene::new("menu-control-mute", || {
         let mut config = mic_config();
@@ -592,7 +953,7 @@ pub fn run(words: &[String]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     // The plugins that say category = "extras" themselves in Python
-    const IN_EXTRAS: [&str; 4] = ["onboarding", "presets", "shortcuts", "updates"];
+    const IN_EXTRAS: [&str; 5] = ["mcp", "onboarding", "presets", "shortcuts", "updates"];
 
     // test_plugins_panel.py::test_every_built_in_plugin_picks_its_category_and_icon
     #[test]
@@ -743,10 +1104,15 @@ mod tests {
                 assert!(forward[6..round] == forward[round + 6..2 * round], "the first pass went another way than the second");
                 let scrolled = forward[..round].iter().filter_map(|s| s.rsplit(' ').next()?.split('/').next()?.parse::<f64>().ok()).fold(0.0, f64::max);
                 assert!(scrolled > view * 3.0, "Tab brought the column up to {scrolled}, so it stayed in what was in view");
-                // And back the way it came, from wherever it is
+                // And back the way it came, from wherever it is: the same control, wherever it scrolled to (going back reveals it at the other edge)
+                let place = || {
+                    let scrolled: f64 = (0..3).map(|c| number(&w.ui, &format!("scroll{c}"))).sum();
+                    format!("{:?}", telescope_shell::input::focused_box(&w.ui).map(|b| (b.0, b.1 as f64 + scrolled, b.2, b.3)))
+                };
+                let before = place();
                 let ahead = pressed(&w.ui, Key::Tab, 1, reads).remove(0);
-                let back = pressed(&w.ui, Key::Backtab, 1, reads).remove(0);
-                assert_eq!(back, forward[forward.len() - 1], "Shift+Tab undoes a Tab (after {ahead})");
+                pressed(&w.ui, Key::Backtab, 1, reads);
+                assert_eq!(place(), before, "Shift+Tab undoes a Tab (after {ahead})");
             })),
             ..Setup::window(Some(services(quiet())), main_window_config(true), size.0, size.1)
         });

@@ -106,6 +106,7 @@ pub struct ConnectionPlugin {
     same_phone: Option<SamePhone>,
     /// Ids in the picker's order, phones then sources.
     picker_ids: Vec<String>,
+    picker_names: Vec<String>,
     /// Its list is open, and what changed under it waits for it to close.
     picker_open: bool,
     picker_stale: bool,
@@ -133,7 +134,7 @@ impl ConnectionPlugin {
     pub fn new(link: Arc<dyn Link>, shared: Arc<Shared>) -> ConnectionPlugin {
         ConnectionPlugin {
             link, shared, poster: None, sources: Vec::new(), remembered: Vec::new(), active_key: None, no_phone_issue: None,
-            updating_phone: false, update_note: None, add: None, phones_open: false, add_from_phones: false, same_phone: None, picker_ids: Vec::new(),
+            updating_phone: false, update_note: None, add: None, phones_open: false, add_from_phones: false, same_phone: None, picker_ids: Vec::new(), picker_names: Vec::new(),
             picker_open: false, picker_stale: false, stale: true, adb_available: false, apk_bundled: false, downloader: adb_download::AdbDownloader::system(),
             outputs: None, vcam_source: None, adb_asked: None,
         }
@@ -215,12 +216,23 @@ impl ConnectionPlugin {
             (names, ids, current, c.phones.len() as u32)
         };
         if self.picker_open {
-            // The open list isn't rebuilt under the pointer, but what went away can't be picked
+            // The open list keeps its rows where they are: what went away greys out, what arrived is added at the end
+            for (id, name) in ids.iter().zip(&names) {
+                match self.picker_ids.iter().position(|p| p == id) {
+                    Some(i) => self.picker_names[i] = name.clone(),
+                    None => {
+                        self.picker_ids.push(id.clone());
+                        self.picker_names.push(name.clone());
+                    }
+                }
+            }
             let gone: Vec<bool> = self.picker_ids.iter().map(|id| !ids.contains(id)).collect();
+            let current = self.picker_ids.iter().position(|i| Some(i) == self.conn().selected_id.as_ref()).map_or(-1, |i| i as i64);
             self.picker_stale = true;
-            host.set_ui_props("header", &json!({"gone": gone}));
+            host.set_ui_props("header", &json!({"names": self.picker_names, "current": current, "gone": gone}));
         } else {
             self.picker_ids = ids;
+            self.picker_names = names.clone();
             host.set_ui_props("header", &json!({"names": names, "current": current, "gone": []}));
         }
         host.emit(Event::PhonesChanged { count });
@@ -2466,21 +2478,39 @@ mod tests {
     }
 
     #[test]
-    fn sources_changing_while_the_picker_is_open_wait_for_it_to_close() {
+    fn a_source_unplugged_while_the_picker_is_open_greys_out_and_leaves_when_it_closes() {
         let mut e = env();
         let source = |id: &str, name: &str| telescope_core::event::SourceName { id: id.into(), name: name.into() };
         e.add("id-a", "Pixel");
         e.plugin.on_event(&mut e.host, &Event::StreamSourcesChanged { sources: vec![source("webcam:a", "HD Webcam")] });
         e.ui("header", "picker-open", vec![json!(true)]);
-        e.plugin.on_event(&mut e.host, &Event::StreamSourcesChanged { sources: vec![source("webcam:b", "Brio")] });
-        // The open list isn't rebuilt under the pointer, and the unplugged one can't be picked
+        e.plugin.on_event(&mut e.host, &Event::StreamSourcesChanged { sources: vec![] });
         assert_eq!(e.props("header")["names"], json!(["Pixel", "HD Webcam"]));
         assert_eq!(e.props("header")["gone"], json!([false, true]));
 
         e.ui("header", "picker-open", vec![json!(false)]);
-        assert_eq!(e.props("header")["names"], json!(["Pixel", "Brio"]));
+        assert_eq!(e.props("header")["names"], json!(["Pixel"]));
         assert_eq!(e.props("header")["gone"], json!([]));
         assert_eq!(e.props("header")["current"], json!(0));
+    }
+
+    #[test]
+    fn a_source_plugged_in_while_the_picker_is_open_appears_without_moving_the_rest() {
+        let mut e = env();
+        let source = |id: &str, name: &str| telescope_core::event::SourceName { id: id.into(), name: name.into() };
+        e.add("id-a", "Pixel");
+        e.plugin.on_event(&mut e.host, &Event::StreamSourcesChanged { sources: vec![source("webcam:a", "HD Webcam")] });
+        e.ui("header", "picker-open", vec![json!(true)]);
+        e.plugin.on_event(&mut e.host, &Event::StreamSourcesChanged { sources: vec![source("webcam:b", "Brio"), source("webcam:a", "HD Webcam")] });
+        assert_eq!(e.props("header")["names"], json!(["Pixel", "HD Webcam", "Brio"]));
+        assert_eq!(e.props("header")["gone"], json!([false, false, false]));
+        // Picking a row of the open list picks that device
+        e.ui("header", "picked", vec![json!(2)]);
+        assert_eq!(e.shared.picked_source().as_deref(), Some("webcam:b"));
+
+        e.ui("header", "picker-open", vec![json!(false)]);
+        assert_eq!(e.props("header")["names"], json!(["Pixel", "Brio", "HD Webcam"]));
+        assert_eq!(e.props("header")["current"], json!(1));
     }
 
     fn browser_camera_offered(e: &mut Env) {

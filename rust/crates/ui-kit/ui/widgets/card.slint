@@ -103,6 +103,8 @@ export component Card inherits Rectangle {
     in property <string> switch-tip;
     // The action a key can stand in for: a right-click on the switch offers a keyboard shortcut
     in property <string> switch-shortcut;
+    // The id of the setting the switch is, for the outline when something outside the window reads or changes it
+    in property <string> switch-setting;
     callback switch-toggled(bool);
     // A second icon button before the action (Connection's setup guide)
     in property <bool> has-extra;
@@ -219,6 +221,7 @@ export component Card inherits Rectangle {
                     label: root.switch-label;
                     tip: root.switch-tip;
                     shortcut: root.switch-shortcut;
+                    setting: root.switch-setting;
                     toggled(on) => { root.switch-toggled(on); }
                 }
             }

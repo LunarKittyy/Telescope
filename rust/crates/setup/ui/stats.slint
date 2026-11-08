@@ -1,0 +1,125 @@
+// The Stats card. Joined after parts.slint, which has the imports.
+
+// One line of numbers: a heading with its rule, or a label with its value and a note under it
+export struct StatRow {
+    head: bool,
+    icon: string,
+    label: string,
+    value: string,
+    note: string,
+    kind: string,
+    // Slint path commands of the last minute in a 60px by 20px box, or empty
+    graph: string,
+}
+
+// Every row has the same columns: the label, a 60px slot for the graph that stays empty when there is none, and the value on a right edge.
+// A row is 28px tall, or 44px when it has a note, so the card keeps to two heights.
+component StatLine inherits Rectangle {
+    in property <StatRow> line;
+    property <color> ink: line.kind == "" || line.kind == "status_dim" ? Theme.text : Status.color(line.kind).brighter(0.12);
+    min-height: 28px;
+    accessible-role: text;
+    accessible-label: line.note == "" ? line.label + " " + line.value : line.label + " " + line.value + " " + line.note;
+    VerticalLayout {
+        padding-top: 4px;
+        padding-bottom: 4px;
+        spacing: 0px;
+        HorizontalLayout {
+            spacing: 10px;
+            min-height: 20px;
+            Text {
+                horizontal-stretch: 1;
+                min-width: 1px;
+                text: line.label;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                color: Theme.text-dim;
+                vertical-alignment: center;
+                wrap: word-wrap;
+                accessible-role: none;
+            }
+            Rectangle {
+                width: 60px;
+                accessible-role: none;
+                if line.graph != "": Path {
+                    width: 60px;
+                    height: 20px;
+                    y: (parent.height - self.height) / 2;
+                    viewbox-width: 60;
+                    viewbox-height: 20;
+                    commands: line.graph;
+                    stroke: line.kind == "status_warn" ? Theme.warn : Theme.text-faint;
+                    stroke-width: 1px;
+                }
+            }
+            Text {
+                width: 120px;
+                text: line.value;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                font-weight: 600;
+                color: ink;
+                horizontal-alignment: right;
+                vertical-alignment: center;
+                wrap: word-wrap;
+                accessible-role: none;
+            }
+        }
+        if line.note != "": Text {
+            text: line.note;
+            font-family: Theme.font;
+            font-size: Theme.small;
+            color: Theme.text-faint;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+            min-height: 16px;
+            wrap: word-wrap;
+            accessible-role: none;
+        }
+    }
+}
+
+export component StatsCard inherits Card {
+    // 0 is Standard, 1 is Nerd
+    in property <int> view;
+    in property <string> view-standard;
+    in property <string> view-nerd;
+    in property <string> view-tip;
+    // What the card says instead of numbers while no stream runs
+    in property <string> empty-text;
+    // The source the numbers are for, when more than one stream runs
+    in property <string> source-name;
+    in property <[StatRow]> rows;
+    callback view-picked(int);
+
+    title: @tr("Stats");
+    icon: Icons.chip;
+
+    Segmented {
+        items: [view-standard, view-nerd];
+        disabled: [false, false];
+        has-icons: [false, false];
+        icons: [Icons.chip, Icons.chip];
+        tips: ["", view-tip];
+        label: @tr("Stats view");
+        current: view;
+        picked(i) => { root.view-picked(i); }
+    }
+    if source-name != "": Text {
+        text: source-name;
+        font-family: Theme.font;
+        font-size: Theme.small;
+        color: Theme.text-faint;
+        overflow: elide;
+    }
+    if empty-text != "": Note { text: empty-text; kind: "status_dim"; }
+    for r in rows: VerticalLayout {
+        // The same gap above every heading and the same one below it
+        if r.head: VerticalLayout {
+            padding-top: 12px;
+            padding-bottom: 2px;
+            SectionHeading { text: r.label; icon: Icons.named(r.icon); }
+        }
+        if !r.head: StatLine { line: r; }
+    }
+}

@@ -104,6 +104,8 @@ pub enum Effect {
     Tray(TrayAction),
     FrameStep(String),
     OpenSettings(String),
+    /// Event::SettingsTouched: the controls showing these settings get an outline for a moment.
+    TouchSettings { ids: Vec<String>, changed: bool },
     Notify { title: String, body: String, urgent: bool },
     Start { interactive: bool },
     StartAgain(Option<String>),
@@ -348,6 +350,8 @@ pub struct State {
     pub shortcut_menu: Option<(String, Vec<telescope_core::ui::ShortcutEntry>)>,
     /// The photos being taken, by request: (plugin, the stream's id) for each, to say what became of them when they end.
     pub stills: Vec<(RequestId, String, String)>,
+    /// The streams that take photos with a camera of their own (a DSLR), by their id: the photo service of each, as of the last snapshot.
+    pub source_stills: Vec<(String, Arc<dyn telescope_core::source::SourceStills>)>,
     /// Photos' "still running" flags, by the stream they're taken on: cleared when that stream ends, which ends the photo.
     pub still_alive: Vec<(String, Arc<std::sync::atomic::AtomicBool>)>,
     /// Reads what's on the clipboard (the window pastes it into a hidden box); None before there is a window.
@@ -415,7 +419,7 @@ impl State {
             camera_on_shown: true,
             shown: None,
             tray_close_notified: false,
-            shortcut_menu: None, stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false,
+            shortcut_menu: None, stills: Vec::new(), source_stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false,
         }
     }
 
@@ -434,10 +438,16 @@ impl State {
         let mut plugin = self.slots.get_mut(i)?.plugin.take()?;
         let name = self.slots[i].info.name.clone();
         self.calls += 1;
+        // What a plugin's hooks cost is only timed while the Stats panel wants it
+        let hooks = telescope_core::stats::Hub::global();
+        let began = hooks.hooks().on().then(telescope_core::time::monotonic_ns);
         let result = {
             let mut ctx = crate::host::Ctx { state: self, me: name.clone() };
             catch_unwind(AssertUnwindSafe(|| f(plugin.as_mut(), &mut ctx)))
         };
+        if let Some(began) = began {
+            hooks.hooks().timer(&name).add(telescope_core::time::monotonic_ns().saturating_sub(began));
+        }
         self.slots[i].plugin = Some(plugin);
         self.calls -= 1;
         if self.calls == 0 && std::mem::take(&mut self.save_after_call) && !self.save_now() {
@@ -625,6 +635,9 @@ impl State {
     fn apply_config(&mut self, cfg: &mut Value) {
         let window = WindowState::from_config(cfg);
         self.collapse.load(cfg.get("collapsed"));
+        for key in self.collapse.keys() {
+            self.bus.emit(Event::CardFolded { key, folded: true });
+        }
         *self.slot_memory.borrow_mut() = window.output_slots.iter().filter_map(|(id, slot)| Some((id.clone(), u32::try_from(slot.as_u64()?).ok()?))).collect();
         self.selected = window.selected_device.clone();
         if profiles::spread_shared_settings(cfg, &self.device_local()) {
@@ -1031,6 +1044,9 @@ impl State {
                 if let Event::CameraOnChanged { on } = event {
                     self.camera_on_shown = on;
                 }
+                if let Event::SettingsTouched { ids, changed } = &event {
+                    self.effects.push(Effect::TouchSettings { ids: ids.clone(), changed: *changed });
+                }
                 if matches!(event, Event::SourceSelected { .. }) {
                     self.effects.push(Effect::SourceSelected);
                 }
@@ -1108,7 +1124,10 @@ impl State {
         let Event::RequestDone { request, data, .. } = event else { return };
         let Some(i) = self.stills.iter().position(|(r, ..)| r == request) else { return };
         let (_, _, source) = self.stills.remove(i);
-        let busy = self.link.as_ref().and_then(|l| l.stills()).is_some_and(|s| s.busy(Some(&source)));
+        let busy = match self.source_stills.iter().find(|(id, _)| *id == source) {
+            Some((_, camera)) => camera.busy(),
+            None => self.link.as_ref().and_then(|l| l.stills()).is_some_and(|s| s.busy(Some(&source))),
+        };
         self.bus.emit(Event::StillBusyChanged { source_id: source.clone(), busy });
         let files: Vec<String> = data.get("files").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect()).unwrap_or_default();
         if !files.is_empty() {

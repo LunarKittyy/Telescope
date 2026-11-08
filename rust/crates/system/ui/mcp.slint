@@ -1,0 +1,279 @@
+// The MCP server's tab in Settings and its button in the header. The texts that are lists or carry names come filled from Rust.
+
+import { Theme, Icons, Card, FormRow, Segmented, IconButton, Icon, FocusRing, TipBody, TipUse } from "@ui-kit/ui-kit.slint";
+
+// One line of the activity log: when, which AI app, what it did in words. kind is "" or "refused".
+export struct McpLogRow {
+    time: string,
+    who: string,
+    text: string,
+    kind: string,
+}
+
+export component McpSettings inherits VerticalLayout {
+    spacing: 12px;
+    // The AI apps connected now, by the name each gave; none: empty
+    in property <[string]> clients;
+    in property <string> none-text;
+    in property <[string]> access-items: ["", ""];
+    in property <int> access-current;
+    // The entry for the AI app's MCP config
+    in property <string> command;
+    in property <string> copy-tip;
+    in property <[McpLogRow]> log;
+    in property <string> log-empty;
+    callback access-picked(int);
+    callback copy-clicked;
+
+    Card {
+        title: @tr("MCP server");
+        keywords: @tr("search" => "mcp ai claude model assistant agent connect access read only");
+        icon: Icons.sliders;
+        hue: Theme.plugin-hue("extras");
+        FormRow {
+            label: @tr("Connected");
+            VerticalLayout {
+                horizontal-stretch: 1;
+                alignment: center;
+                spacing: 2px;
+                min-height: 36px;
+                if clients.length == 0: Text {
+                    text: none-text;
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    color: Theme.text-faint;
+                    vertical-alignment: center;
+                }
+                for name in clients: Text {
+                    text: name;
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    color: Theme.text;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+            }
+        }
+        FormRow {
+            label: @tr("Access");
+            Rectangle {
+                horizontal-stretch: 1;
+                Segmented {
+                    width: min(parent.width, 340px);
+                    x: 0;
+                    label: @tr("Access");
+                    items: access-items;
+                    disabled: [false, false];
+                    has-icons: [false, false];
+                    icons: [Icons.colour, Icons.colour];
+                    current: access-current;
+                    picked(i) => { root.access-picked(i); }
+                }
+            }
+        }
+        FormRow {
+            label: @tr("Command");
+            HorizontalLayout {
+                horizontal-stretch: 1;
+                spacing: 8px;
+                Rectangle {
+                    horizontal-stretch: 1;
+                    min-height: 36px;
+                    background: Theme.surface-sunk;
+                    border-radius: 6px;
+                    accessible-role: text;
+                    accessible-label: command;
+                    VerticalLayout {
+                        padding: 8px;
+                        Text {
+                            text: command;
+                            font-family: Theme.mono;
+                            font-size: 12px;
+                            color: Theme.text;
+                            wrap: word-wrap;
+                            vertical-alignment: center;
+                            accessible-role: none;
+                        }
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    IconButton {
+                        icon: Icons.copy;
+                        label: @tr("Copy");
+                        tip: copy-tip;
+                        clicked => { root.copy-clicked(); }
+                    }
+                }
+            }
+        }
+    }
+
+    Card {
+        title: @tr("Recent activity");
+        keywords: @tr("search" => "mcp ai log history what the ai did refused");
+        icon: Icons.notes;
+        hue: Theme.plugin-hue("extras");
+        if log.length == 0: Text {
+            text: log-empty;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: Theme.text-faint;
+            height: 28px;
+            vertical-alignment: center;
+        }
+        for row in log: Rectangle {
+            min-height: 26px;
+            accessible-role: text;
+            accessible-label: row.time + ", " + row.who + ", " + row.text;
+            HorizontalLayout {
+                spacing: 10px;
+                Text {
+                    width: 62px;
+                    text: row.time;
+                    font-family: Theme.font;
+                    font-size: Theme.small;
+                    color: Theme.text-faint;
+                    vertical-alignment: center;
+                    accessible-role: none;
+                }
+                Text {
+                    width: 110px;
+                    text: row.who;
+                    font-family: Theme.font;
+                    font-size: Theme.small;
+                    color: Theme.text-dim;
+                    overflow: elide;
+                    vertical-alignment: center;
+                    accessible-role: none;
+                }
+                Text {
+                    horizontal-stretch: 1;
+                    min-width: 1px;
+                    text: row.text;
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    color: row.kind == "refused" ? Theme.warn : Theme.text;
+                    overflow: elide;
+                    vertical-alignment: center;
+                    accessible-role: none;
+                }
+            }
+        }
+    }
+}
+
+// Half of the split header button: a segment with its own hover, focus and press
+component Segment inherits Rectangle {
+    in property <bool> enabled: true;
+    in property <string> label;
+    in property <string> tip;
+    callback clicked;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-description: tip;
+    accessible-enabled: enabled;
+    accessible-action-default => { if (enabled) { clicked(); } }
+    background: touch.pressed && enabled ? Theme.surface-hover : touch.has-hover && enabled ? Theme.surface-raise : transparent;
+    forward-focus: focus;
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (e.text == " " || e.text == "\n") { clicked(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: 6px; x: 0px; y: 0px; width: parent.width; height: parent.height; }
+    usage := TipUse { hover: touch.has-hover; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
+        scroll-event(e) => { usage.wheel(); reject }
+        clicked => { root.clicked(); }
+    }
+    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
+    @children
+}
+
+// The header's MCP button, there while the plugin is on. Left: whether an AI app is connected, and open the MCP settings. Right: undo what
+// the AI changed. activity is "" at rest, "read" while it looks at things and "change" while it moves things, and fades back on its own.
+export component McpButton inherits Rectangle {
+    in property <bool> shown;
+    in property <bool> connected;
+    in property <string> activity;
+    in property <bool> can-undo;
+    in property <string> open-label;
+    in property <string> open-tip;
+    in property <string> undo-label;
+    in property <string> undo-tip;
+    callback open;
+    callback undo;
+    visible: shown;
+    height: 36px;
+    width: shown ? 104px : 0px;
+    border-radius: 8px;
+    border-width: 1px;
+    clip: true;
+    border-color: activity == "change" ? Theme.accent : Theme.border;
+    animate border-color { duration: 400ms; easing: ease-out; }
+    HorizontalLayout {
+        Segment {
+            horizontal-stretch: 1;
+            label: open-label;
+            tip: open-tip;
+            clicked => { root.open(); }
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 10px;
+                spacing: 8px;
+                alignment: start;
+                VerticalLayout {
+                    width: 8px;
+                    alignment: center;
+                    Rectangle {
+                        height: 8px;
+                        border-radius: 4px;
+                        border-width: connected ? 0px : 1.5px;
+                        border-color: Theme.text-faint;
+                        background: !connected ? transparent : activity == "change" ? Theme.accent : activity == "read" ? Theme.accent-soft : Theme.ok;
+                        animate background { duration: 400ms; easing: ease-out; }
+                        accessible-role: none;
+                    }
+                }
+                Text {
+                    text: @tr("MCP");
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    font-weight: 600;
+                    color: connected ? Theme.text : Theme.text-dim;
+                    vertical-alignment: center;
+                    accessible-role: none;
+                }
+            }
+        }
+        Rectangle {
+            width: 1px;
+            background: Theme.border;
+        }
+        Segment {
+            width: 36px;
+            enabled: can-undo;
+            label: undo-label;
+            tip: undo-tip;
+            clicked => { root.undo(); }
+            HorizontalLayout {
+                alignment: center;
+                VerticalLayout {
+                    alignment: center;
+                    Icon {
+                        source: Icons.reset;
+                        tint: can-undo ? Theme.text-dim : Theme.text-disabled;
+                        width: 16px;
+                        height: 16px;
+                    }
+                }
+            }
+        }
+    }
+}

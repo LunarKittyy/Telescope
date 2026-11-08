@@ -2,7 +2,7 @@
 
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
-import { Icon, FocusRing } from "basics.slint";
+import { Icon, FocusRing, TouchRing } from "basics.slint";
 import { WindowBox } from "dialog.slint";
 import { FlickBar } from "scroll.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
@@ -47,6 +47,8 @@ export component Segmented inherits Rectangle {
     }
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
+    // The id of the setting it is, for the outline when something outside the window reads or changes it
+    in property <string> setting;
     // Room above and below the 32px track, to sit in a 36px form row; 0 for a row of its own (segmented_row alone)
     in property <length> margin: 2px;
     callback picked(int);
@@ -63,6 +65,7 @@ export component Segmented inherits Rectangle {
         border-color: Theme.border;
         border-radius: 8px;
     }
+    TouchRing { setting: root.setting; y: margin; width: parent.width; height: 32px; radius: 8px; }
     HorizontalLayout {
         y: margin;
         height: 32px;
@@ -170,6 +173,11 @@ export component ChoiceField inherits Rectangle {
     in property <bool> has-icon;
     in property <color> icon-tint: Theme.text-dim;
     in property <bool> bold;
+    // The value in the middle between room kept free at each side, no chevron, and the arrow keys asking for a step instead of
+    // picking: how a Stepper uses it, with its arrows in that room
+    in property <bool> centered;
+    in property <length> side: 30px;
+    callback nudged(int);
     in property <[string]> items;
     // Rows that are a group's title among its items (ComboItemDelegate's "heading"): not picked, and the arrows skip them
     in property <[bool]> headings;
@@ -179,7 +187,9 @@ export component ChoiceField inherits Rectangle {
     in-out property <int> current;
     property <int> local;
     property <bool> touched;
-    out property <int> shown: touched ? local : current;
+    // Shows what the parent says even right after a pick, which a camera may refuse: the parent moves `current` when it took it
+    in property <bool> follows;
+    out property <int> shown: touched && !follows ? local : current;
     changed current => { touched = false; }
     function pick(i: int) {
         local = i;
@@ -279,6 +289,8 @@ export component ChoiceField inherits Rectangle {
         key-pressed(e) => {
             if (e.modifiers.control || e.modifiers.meta) { return reject; }
             if ((e.modifiers.alt && (e.text == Key.DownArrow || e.text == Key.UpArrow)) || e.text == " " || e.text == "\n") { popup.show(); return accept; }
+            if (centered && (e.text == Key.LeftArrow || e.text == Key.UpArrow)) { nudged(-1); return accept; }
+            if (centered && (e.text == Key.RightArrow || e.text == Key.DownArrow)) { nudged(1); return accept; }
             if (e.text == Key.UpArrow && step(-1) != shown) { pick(step(-1)); return accept; }
             if (e.text == Key.DownArrow && step(1) != shown) { pick(step(1)); return accept; }
             if (e.text == Key.UpArrow || e.text == Key.DownArrow) { return accept; }
@@ -328,27 +340,29 @@ export component ChoiceField inherits Rectangle {
     // 9px under the caption's baseline (stacked_baselines, with Inter's capitals 8px tall at 11px and 9px at 13px)
     property <length> first-baseline: round((root.height / 1px - 26) / 2 + 8) * 1px;
     if !plain: Text {
-        x: has-icon ? 32px : 12px;
+        x: centered ? side : has-icon ? 32px : 12px;
         y: first-baseline - 11px * 1984 / 2048;
-        width: root.width - self.x - 30px;
+        width: root.width - self.x - (centered ? side : 30px);
         text: caption;
         font-family: Theme.font;
         font-size: 11px; // 0.88 of the body size, 11.44px, which Qt draws at 11
         color: enabled ? Theme.text-faint : Theme.text-disabled;
+        horizontal-alignment: centered ? center : left;
         overflow: elide;
     }
     if !plain: Text {
-        x: has-icon ? 32px : 12px;
+        x: centered ? side : has-icon ? 32px : 12px;
         y: first-baseline + 18px - 13px * 1984 / 2048;
-        width: root.width - self.x - 30px;
+        width: root.width - self.x - (centered ? side : 30px);
         text: items[shown];
         font-family: Theme.font;
         font-size: Theme.body;
         font-weight: 600;
         color: enabled ? Theme.text : Theme.text-disabled;
+        horizontal-alignment: centered ? center : left;
         overflow: elide;
     }
-    Icon {
+    if !centered: Icon {
         source: @image-url("../icons/chevron.svg");
         x: parent.width - 12px - self.width;
         width: plain ? 10px : 14px;

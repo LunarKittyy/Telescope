@@ -53,7 +53,7 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 ### Linux system setup
 
-<!-- due: .github/workflows/rust-package.yml rust/tools/package_linux.sh rust/tools/package_appimage.sh rust/tools/AppRun rust/tools/fonts.conf rust/tools/start.sh rust/tools/main_stub.py rust/tools/build_ffmpeg.sh rust/crates/outputs/src/linux_setup.rs rust/crates/outputs/src/v4l2.rs rust/crates/system/src/autostart.rs rust/crates/system/src/hotkeys_portal.rs -->
+<!-- due: .github/workflows/rust-package.yml rust/tools/package_linux.sh rust/tools/package_appimage.sh rust/tools/bundle_gphoto2.sh rust/tools/AppRun rust/tools/fonts.conf rust/tools/start.sh rust/tools/main_stub.py rust/tools/build_ffmpeg.sh rust/crates/outputs/src/linux_setup.rs rust/crates/outputs/src/v4l2.rs rust/crates/system/src/autostart.rs rust/crates/system/src/hotkeys_portal.rs -->
 
 - [ ] Module not loaded: Start asks once with the startup box ticked and after a reboot Start doesn't ask. Unticked, it asks again after a reboot.
 - [ ] Without pkexec (or with no polkit agent): Start shows the command banner, Copy command works and running it then Start streams.
@@ -100,7 +100,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Streaming
 
-<!-- due: android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/StreamStateMachine.kt android/app/src/main/kotlin/com/telescope/StreamLauncher.kt android/app/src/main/kotlin/com/telescope/H264Encoder.kt android/app/src/main/kotlin/com/telescope/H264Stream.kt android/app/src/main/kotlin/com/telescope/CodecFailure.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt android/app/src/main/kotlin/com/telescope/UdpVideo.kt android/app/src/main/kotlin/com/telescope/HttpWire.kt android/app/src/main/kotlin/com/telescope/DynamicBitrate.kt android/app/src/main/kotlin/com/telescope/DynamicFrameRate.kt android/app/src/main/kotlin/com/telescope/FrameRate.kt android/app/src/main/kotlin/com/telescope/FrameGate.kt android/app/src/main/kotlin/com/telescope/PendingLimiter.kt android/app/src/main/kotlin/com/telescope/RecentRuns.kt rust/crates/media/** rust/crates/outputs/src/lib.rs rust/crates/outputs/src/convert.rs rust/crates/outputs/src/held.rs rust/crates/outputs/src/stream_output.rs rust/crates/outputs/src/stream_output/** rust/crates/outputs/src/ui_check.rs rust/crates/outputs/src/watch.rs rust/crates/outputs/ui/stream_output.slint -->
+<!-- due: android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/StreamStateMachine.kt android/app/src/main/kotlin/com/telescope/StreamLauncher.kt android/app/src/main/kotlin/com/telescope/H264Encoder.kt android/app/src/main/kotlin/com/telescope/H264Stream.kt android/app/src/main/kotlin/com/telescope/CodecFailure.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt android/app/src/main/kotlin/com/telescope/UdpVideo.kt android/app/src/main/kotlin/com/telescope/HttpWire.kt android/app/src/main/kotlin/com/telescope/DynamicBitrate.kt android/app/src/main/kotlin/com/telescope/DynamicFrameRate.kt android/app/src/main/kotlin/com/telescope/FrameRate.kt android/app/src/main/kotlin/com/telescope/FrameGate.kt android/app/src/main/kotlin/com/telescope/PendingLimiter.kt android/app/src/main/kotlin/com/telescope/RecentRuns.kt android/app/src/main/kotlin/com/telescope/PhoneStats.kt rust/crates/media/** rust/crates/outputs/src/lib.rs rust/crates/outputs/src/convert.rs rust/crates/outputs/src/held.rs rust/crates/outputs/src/stream_output.rs rust/crates/outputs/src/stream_output/** rust/crates/outputs/src/ui_check.rs rust/crates/outputs/src/watch.rs rust/crates/outputs/ui/stream_output.slint -->
 
 - [ ] H.264 on a real phone: a fresh phone starts on Light and switching Format between Light and Heavy reconnects and streams on Wi-Fi and USB. Compare latency (a clock on screen) and the Mbps readout with MJPEG at the same size. A 30-minute run stays smooth, a reconnect (unplug, Wi-Fi off and on) recovers and changing resolution or lens mid-stream keeps working.
 - [ ] H.264 fallback: a size the encoder refuses (4:3 4K on most phones) stops with a banner to try a lower resolution or FPS and its Switch to Heavy button streams on Heavy. A phone without an encoder switches to Heavy automatically, with no banner.
@@ -133,6 +133,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Night, HDR and Bokeh on a phone whose maker offers them: the video pauses for a few seconds and picks up again without a reconnect, and the photo looks like the phone's own camera app.
 - [ ] A 10 s long exposure in the dark, an exposure bracket and a focus bracket: the brackets really step (brightness, then near to far) and the stream comes back after each.
 - [ ] Switching the lens or the size during a timer, and turning the camera off during one: the photo fails or goes ahead cleanly and the next one works.
+- [ ] The Photos card on a phone and on a DSLR in M mode: ISO, Shutter and How many step with their arrows, the mouse wheel and Left and Right, holding an arrow keeps going (in threes on a long list) and stops on release, and clicking the value opens the whole list. The tiles wrap cleanly when the card is narrow and Timer and Save in stay on one line.
 
 ### Microphone
 
@@ -180,12 +181,14 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Webcams
 
-<!-- due: rust/crates/outputs/src/webcam*.rs rust/crates/outputs/src/webcam/** rust/crates/outputs/src/webcams/** rust/crates/outputs/ui/webcam.slint -->
+<!-- due: rust/crates/outputs/src/webcam*.rs rust/crates/outputs/src/webcam/** rust/crates/outputs/src/webcam_capture/** rust/crates/outputs/src/webcams/** rust/crates/outputs/ui/webcam.slint -->
 
 - [ ] A USB webcam shows in the device picker under its own name, and Telescope's own cameras (Phone Camera, Telescope, OBS Virtual Camera) never do. Start streams it to the virtual camera and Background, Chroma key and Transforms work on it.
 - [ ] Resolution and Frame rate on the Webcam card change what arrives. 1080p at 30 fps on a USB 2 webcam shows MJPEG on the card.
 - [ ] With the webcam open in another app (a browser's camera test page will do) Start gives a banner naming the app on Linux. Closing it there lets the stream start without pressing anything.
 - [ ] Unplugging the webcam mid-stream shows the wait screen and plugging it back in picks the stream up again. Plugging one in while Telescope runs adds it to the picker within a few seconds.
+- [ ] Linux, from the AppImage or tarball on a machine without libgphoto2 installed: an older DSLR in live-view mode shows in the picker and streams. When it ends live view after a few minutes the stream carries on, and with the camera mounted in the file manager the stream says to unmount it.
+- [ ] On the same DSLR set to M, the Webcam card has a focus jog with a Focus button beside it, Aperture and Exposure dials and White balance, and each changes the live picture (Aperture on a D5100 about a second after the last click, when live view restarts once). Zooming the lens changes the aperture and the apertures offered, and the card follows within a couple of seconds. Dragging the jog toward Near or Far keeps moving the focus (the further out the handle, the bigger the steps), a click beside the handle is one small step, and letting go springs the handle back and stops the focus at once, with no steps left running afterwards. The arrows and the mouse wheel step Aperture and Exposure, and clicking the value opens the whole list. Turning the dial to a scene mode empties the list within a couple of seconds.
 - [ ] The Webcam card shows only the settings the camera has. Exposure on Manual makes Exposure time work, the change shows in the picture, and after an unplug and replug (or a Stop and Start) the camera has it again. Reset puts the defaults back.
 - [ ] Windows: the same, plus a camera with a built-in webcam mode or an HDMI capture card shows up and streams.
 
@@ -206,6 +209,17 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Tab through the tiles and switches, use rotation and pan shortcuts saved before this release, pan with arrow keys and Home on the pan pad, open and pick from a dropdown with the keyboard and inspect labels with a screen reader.
 - [ ] Your devices: Rename works, Change name changes what a newly paired phone shows and saved browsers are listed with the phones.
 - [ ] Plugins: installing a newer `.zip` of an added plugin asks, replaces it with its settings kept and leaves it switched off. One with a GitHub `repo` shows its link and, once a release is newer, a line about it on its tile. **Install updates without asking** asks before it goes on.
+
+### MCP server
+
+<!-- due: rust/crates/system/src/mcp.rs rust/crates/system/src/mcp_bridge.rs rust/crates/system/src/mcp_stats.rs rust/crates/system/src/remote.rs rust/crates/system/ui/mcp.slint rust/crates/shell/src/touched.rs rust/crates/system/src/single_instance.rs rust/crates/core/src/settings.rs docs/mcp.md -->
+
+- [ ] With the plugin off, `telescope mcp` started by an AI app still starts and says where to switch it on. After switching **MCP server** on and restarting, the same app connects without restarting it, and Telescope shows a notification for the first connection.
+- [ ] In Claude Desktop and one other MCP client (set up as in `docs/mcp.md`): `status`, `describe` and `get` answer, and `set` with Colour grading's Contrast moves the slider in the card and the picture at once. A wrong value names the problem and changes nothing. `revert` puts it back and leaves a slider moved by hand alone.
+- [ ] With a phone streaming and Colour grading on, `measure` gives numbers while sitting still and says why when the stream is off. Asking a model to colour grade the picture ends with sensible sliders and nothing outside the ranges.
+- [ ] With a phone streaming, `stats` and `watch` give the numbers the Stats panel shows (also with the Stats plugin off), and the stream and phone camera actions are refused.
+- [ ] The **MCP** button in the top bar: the dot shows when an AI app is connected, it lights while the AI reads or changes something, the left side opens the MCP tab and the right side undoes what the AI changed (greyed out with nothing to undo). On the MCP tab, **Read only** makes `set`, `revert` and `run_action` refuse with a line in the activity list marked as refused, and the last 30 calls are listed newest first.
+- [ ] When the AI sets Colour grading's Contrast and Temperature, those two sliders get an outline for about a second and a half. With the card folded nothing opens.
 
 ### Several cameras in one picture
 

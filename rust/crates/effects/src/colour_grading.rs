@@ -13,9 +13,18 @@ use std::time::Instant;
 use telescope_core::actions::{self, SliderSpec};
 use telescope_core::colour::{lattice, LEVELS};
 use telescope_core::event::Event;
+use crate::auto_fit::{self, Basic, Fit, Wb};
+use crate::auto_grade::{AutoState, CameraLock, MeasureStep, POST_MEASURED, T_HOLD, T_LABEL, T_TIMEOUT};
+use crate::auto_measure::Measurement;
+use crate::auto_tuning::{HOLD_TIMEOUT_MS, LABEL_MS, MEASURE_TIMEOUT_MS};
+use telescope_core::frame::{FrameStage, FrameStep};
 use telescope_core::host::{ColourStage, FileDialog, FileDialogKind, Host, RequestId};
+use telescope_core::people::{self, Track};
+use telescope_core::pose::Person;
+use telescope_core::view::Geometry;
 use telescope_core::i18n::{n_, number, percent, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
+use telescope_core::settings::SettingSpec;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
 pub const NAME: &str = "colour_grading";
@@ -41,6 +50,22 @@ const CANT_OPEN: &str = n_("Telescope can't open that file.");
 const CANT_SAVE: &str = n_("Telescope couldn't save the LUT there.");
 const SAVED: &str = n_("Saved {file}.");
 const SWITCH_TIP: &str = n_("Switch the grade off to see the camera's own colours");
+/// What vision is asked for under while Auto looks at the picture.
+const AUTO_TITLE: &str = "Auto colour grading";
+const AUTO_NO_STREAM: &str = n_("Start the stream first, so Auto has a picture to look at.");
+const AUTO_LABEL_FINE: &str = n_("Looks fine");
+const AUTO_LABEL_NO_STREAM: &str = n_("No stream");
+const AUTO_LABEL_NO_PICTURE: &str = n_("No picture");
+const AUTO_LOOKING: &str = n_("Looking at the picture…");
+const AUTO_NO_PICTURE: &str = n_("Auto couldn't get a steady picture to look at. Try again while nothing moves.");
+const AUTO_NOTHING: &str = n_("Nothing to change, the picture already looks right.");
+const AUTO_TAKEN_OFF: &str = n_("Nothing needs changing now, so Auto's earlier changes were taken off.");
+const AUTO_CHANGED: &str = n_("Auto changed {parts}.");
+const AUTO_NO_FACE: &str = n_("No face was found, so it went by the background and the brightness.");
+const AUTO_CONFLICT: &str = n_("The light is mixed or coloured, so white balance stayed as it was.");
+const AUTO_BACKED_OFF: &str = n_("Your own wheels and curves would have clipped the picture, so Auto went only part of the way.");
+const AUTO_DRIFTS: &str = n_("The camera adjusts itself, so this may drift.");
+const AUTO_PARTS: [&str; 5] = [n_("white balance"), n_("brightness"), n_("contrast and blacks"), n_("highlights"), n_("saturation")];
 /// .cube files kept parsed, so switching phones doesn't read a 65-point LUT again.
 const KEEP_PARSED: usize = 4;
 const MASTER_STEPS: [f64; 4] = [1000.0, 100.0, 100.0, 1000.0];
@@ -61,12 +86,13 @@ struct SliderDef {
     tip: &'static str,
 }
 
-const SLIDERS: [SliderDef; 7] = [
-    SliderDef { key: "temperature", label: n_("Temperature"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Warmer or cooler") },
-    SliderDef { key: "tint", label: n_("Tint"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("More magenta or more green") },
+const SLIDERS: [SliderDef; 8] = [
+    SliderDef { key: "temperature", label: n_("Temperature"), lo: -200.0, hi: 200.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Warmer or cooler") },
+    SliderDef { key: "tint", label: n_("Tint"), lo: -200.0, hi: 200.0, steps: 1.0, decimals: 0, signed: true, tip: n_("More magenta or more green") },
     SliderDef { key: "contrast", label: n_("Contrast"), lo: 0.0, hi: 2.0, steps: 100.0, decimals: 2, signed: false, tip: n_("Spreads the tones apart around the pivot") },
     SliderDef { key: "pivot", label: n_("Pivot"), lo: 0.0, hi: 1.0, steps: 1000.0, decimals: 3, signed: false, tip: n_("The level contrast turns around") },
     SliderDef { key: "saturation", label: n_("Saturation"), lo: 0.0, hi: 2.0, steps: 100.0, decimals: 0, signed: false, tip: n_("How colourful the picture is") },
+    SliderDef { key: "vibrance", label: n_("Vibrance"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Colours up the dull parts more than the strong ones, and spares skin") },
     SliderDef { key: "shadows", label: n_("Shadows"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Brightens or darkens the darker parts") },
     SliderDef { key: "highlights", label: n_("Highlights"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Brightens or darkens the brighter parts") },
 ];
@@ -78,6 +104,7 @@ fn slider_value(g: &Grade, key: &str) -> f64 {
         "contrast" => g.contrast,
         "pivot" => g.pivot,
         "saturation" => g.saturation,
+        "vibrance" => g.vibrance,
         "shadows" => g.shadows,
         _ => g.highlights,
     }
@@ -90,6 +117,7 @@ fn set_slider(g: &mut Grade, key: &str, v: f64) {
         "contrast" => g.contrast = v,
         "pivot" => g.pivot = v,
         "saturation" => g.saturation = v,
+        "vibrance" => g.vibrance = v,
         "shadows" => g.shadows = v,
         _ => g.highlights = v,
     }
@@ -173,6 +201,7 @@ pub struct ColourGradingPlugin {
     started: Instant,
     /// Where the switch and the compare were when a key held for them went down.
     held: [Option<bool>; 2],
+    auto: AutoState,
     #[cfg(test)]
     reads: usize,
 }
@@ -208,6 +237,7 @@ impl ColourGradingPlugin {
             export_note: (String::new(), "dim"),
             started: Instant::now(),
             held: [None; 2],
+            auto: AutoState::default(),
             #[cfg(test)]
             reads: 0,
         }
@@ -215,6 +245,22 @@ impl ColourGradingPlugin {
 
     pub fn grade(&self) -> &Grade {
         &self.grade
+    }
+
+    /// Where Auto reads the time people were seen at, for a test to run by hand.
+    #[cfg(test)]
+    pub(crate) fn set_auto_clock(&mut self, now: Arc<dyn Fn() -> u64 + Send + Sync>) {
+        self.auto.now = now;
+    }
+
+    /// What the last press of Auto measured and fitted.
+    pub fn last_auto(&self) -> Option<&(Measurement, Fit)> {
+        self.auto.last.as_ref()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn auto_shared(&self) -> Arc<crate::auto_grade::Shared> {
+        self.auto.shared.clone()
     }
 
     pub fn is_on(&self) -> bool {
@@ -459,6 +505,9 @@ impl ColourGradingPlugin {
         all.insert("on".into(), json!(self.on));
         all.insert("page".into(), json!(self.page));
         all.insert("active".into(), json!(self.paired.on()));
+        if let Value::Object(m) = self.auto.props() {
+            all.extend(m);
+        }
         Value::Object(all)
     }
 
@@ -488,12 +537,211 @@ impl ColourGradingPlugin {
         })
     }
 
+    // ── Auto ──────────────────────────────────────────────────────────
+
+    fn show_auto(&self, host: &mut dyn Host) {
+        host.set_ui_props("card", &self.auto.props());
+    }
+
+    fn say(&mut self, host: &mut dyn Host, text: String, kind: &'static str) {
+        self.auto.note = (text, kind);
+        self.show_auto(host);
+    }
+
+    /// The button says a word or two about how the last press went, then goes back to "Auto".
+    fn flash(&mut self, host: &mut dyn Host, label: &str) {
+        self.auto.label = tr(label);
+        host.cancel_schedule(T_LABEL);
+        host.schedule(LABEL_MS, T_LABEL);
+        self.show_auto(host);
+    }
+
+    /// What Auto last said in words, for tests and the log.
+    #[cfg(test)]
+    pub(crate) fn auto_note(&self) -> &str {
+        &self.auto.note.0
+    }
+
+    /// Where the phone's auto exposure and white balance get locked before measuring, waiting until it confirms. Nothing locks yet.
+    fn lock_camera(&mut self, _host: &mut dyn Host) -> CameraLock {
+        CameraLock::default()
+    }
+
+    fn auto_pressed(&mut self, host: &mut dyn Host) {
+        if self.auto.busy {
+            return;
+        }
+        let source = host.focused_source_id();
+        let Some(source) = source.filter(|_| host.is_streaming()) else {
+            self.say(host, tr(AUTO_NO_STREAM), "warn");
+            self.flash(host, AUTO_LABEL_NO_STREAM);
+            return;
+        };
+        let lock = self.lock_camera(host);
+        self.auto.lock = Some(lock);
+        // vision stays off until someone asks, and may need to load its models: wait for its first answer unless it can't answer
+        // no pack yet: fetch it for next time, and grade from the whole picture meanwhile (asking for people moves the state on)
+        let pack_missing = host.vision_state() == "missing" && host.vision_pack().available;
+        host.want_people(AUTO_TITLE, true);
+        if pack_missing {
+            host.download_vision();
+        }
+        self.auto.label.clear();
+        host.cancel_schedule(T_LABEL);
+        let hold = !matches!(host.vision_state().as_str(), "missing" | "failed");
+        self.auto.shared.start(&source, Geometry::from(&host.view()), hold);
+        host.schedule(if hold { HOLD_TIMEOUT_MS } else { MEASURE_TIMEOUT_MS }, if hold { T_HOLD } else { T_TIMEOUT });
+        self.auto.busy = true;
+        self.say(host, tr(AUTO_LOOKING), "dim");
+    }
+
+    /// Something outside the window (the MCP server) wants the picture as numbers: the same look Auto takes, with no slider moved.
+    fn probe_requested(&mut self, host: &mut dyn Host, token: &str) {
+        let refuse = |host: &mut dyn Host, why: &str| {
+            host.emit(Event::PictureMeasured { token: token.into(), ok: false, message: why.into(), data: Value::Null });
+        };
+        if self.auto.busy {
+            return refuse(host, "Something is already looking at the picture (Auto colour grading, or another measurement). Try again in a few seconds.");
+        }
+        let source = host.focused_source_id();
+        let Some(source) = source.filter(|_| host.is_streaming()) else {
+            return refuse(host, "No stream is running, so there is no picture to measure. Start the phone's stream first.");
+        };
+        self.auto.probe = Some(token.into());
+        self.auto.lock = Some(CameraLock::default());
+        self.auto.shared.start(&source, Geometry::from(&host.view()), false);
+        if host.vision_state() == "ready" {
+            host.want_people(AUTO_TITLE, true);
+        }
+        host.schedule(MEASURE_TIMEOUT_MS, T_TIMEOUT);
+        self.auto.busy = true;
+        self.say(host, tr(AUTO_LOOKING), "dim");
+    }
+
+    /// Stops looking without an answer (the stream ended or moved away).
+    fn auto_abort(&mut self, host: &mut dyn Host) {
+        if self.auto.busy {
+            if let Some(token) = self.auto.probe.take() {
+                host.emit(Event::PictureMeasured { token, ok: false, message: "The stream ended before the measurement was done.".into(), data: Value::Null });
+            }
+            self.auto.shared.stop();
+            self.auto.busy = false;
+            self.auto.lock = None;
+            host.cancel_schedule(T_TIMEOUT);
+            host.cancel_schedule(T_HOLD);
+            host.want_people(AUTO_TITLE, false);
+            self.say(host, String::new(), "dim");
+        }
+    }
+
+    /// The measurement is in (or ran out of time): fit it and put the sliders in.
+    fn auto_measured(&mut self, host: &mut dyn Host) {
+        if !self.auto.busy {
+            return;
+        }
+        host.cancel_schedule(T_TIMEOUT);
+        host.cancel_schedule(T_HOLD);
+        host.want_people(AUTO_TITLE, false);
+        self.auto.busy = false;
+        let lock = self.auto.lock.take().unwrap_or_default();
+        let source = self.auto.shared.source();
+        let measurement: Option<Measurement> = self.auto.shared.take();
+        if let Some(token) = self.auto.probe.take() {
+            let event = match measurement.filter(|m| !m.is_empty()) {
+                Some(m) => {
+                    let mut data = m.numbers();
+                    data["source"] = json!(source);
+                    data["picture"] = json!("the camera's own picture, before Telescope's view, effects and grade change it");
+                    Event::PictureMeasured { token, ok: true, message: String::new(), data }
+                }
+                None => Event::PictureMeasured { token, ok: false, message: "No steady picture to measure. Try again while nothing moves.".into(), data: Value::Null },
+            };
+            host.emit(event);
+            self.say(host, String::new(), "dim");
+            return;
+        }
+        let Some(m) = measurement.filter(|m| !m.is_empty()) else {
+            self.say(host, tr(AUTO_NO_PICTURE), "warn");
+            self.flash(host, AUTO_LABEL_NO_PICTURE);
+            return;
+        };
+        let fit = auto_fit::fit(&m, Some(&self.grade));
+        self.auto.last = Some((m, fit));
+        self.apply_fit(host, &fit, lock);
+    }
+
+    fn apply_fit(&mut self, host: &mut dyn Host, fit: &Fit, lock: CameraLock) {
+        let before = Basic::of(&self.grade);
+        let (a, b) = (before, fit.values);
+        let same = [a.temperature - b.temperature, a.tint - b.tint, a.lift - b.lift, a.gamma - b.gamma, a.gain - b.gain, a.contrast - b.contrast,
+                    a.pivot - b.pivot, a.highlights - b.highlights, a.saturation - b.saturation].iter().all(|d| d.abs() < 1e-6);
+        let mut sentences = Vec::new();
+        // Auto's values replace its earlier ones outright, so a picture that needs nothing now takes them off
+        let take_off = !fit.moved.any() && self.auto.wrote && !same;
+        let kind = if fit.moved.any() {
+            let m = fit.moved;
+            let parts: Vec<String> = [m.white_balance, m.exposure, m.levels, m.highlights, m.saturation].iter().zip(AUTO_PARTS)
+                .filter(|(on, _)| **on).map(|(_, p)| tr(p)).collect();
+            sentences.push(tr(AUTO_CHANGED).field("parts", parts.join(", ")));
+            "ok"
+        } else {
+            sentences.push(tr(if take_off { AUTO_TAKEN_OFF } else { AUTO_NOTHING }));
+            "dim"
+        };
+        if !fit.had_face {
+            sentences.push(tr(AUTO_NO_FACE));
+        }
+        if fit.wb == Wb::Conflict {
+            sentences.push(tr(AUTO_CONFLICT));
+        }
+        if fit.backed_off {
+            sentences.push(tr(AUTO_BACKED_OFF));
+        }
+        if lock.drifts && fit.moved.any() {
+            sentences.push(tr(AUTO_DRIFTS));
+        }
+        // Nothing to change leaves the sliders as the person has them, and a second press with the same answer changes nothing
+        if (fit.moved.any() || take_off) && !same {
+            self.auto.wrote = fit.moved.any();
+            fit.values.put(&mut self.grade);
+            self.show_all(host);
+            self.publish(host);
+            host.schedule_save();
+        }
+        self.say(host, sentences.join(" "), kind);
+        if !(fit.moved.any() || take_off) {
+            self.flash(host, AUTO_LABEL_FINE);
+        }
+    }
+
+    /// Frames are being looked at from now on, and the measurement has its own time to finish in.
+    fn auto_released(&mut self, host: &mut dyn Host) {
+        host.cancel_schedule(T_HOLD);
+        host.schedule(MEASURE_TIMEOUT_MS, T_TIMEOUT);
+    }
+
+    fn hear_people(&mut self, host: &mut dyn Host, source_id: &str, people: &[Value]) {
+        if self.auto.busy && self.auto.shared.source().is_some_and(|s| s == source_id) && host.focused_source_id().is_some_and(|f| f == source_id) {
+            if self.auto.shared.hear_people(people.iter().filter_map(Person::from_value).collect(), (self.auto.now)()) {
+                self.auto_released(host);
+            }
+        }
+    }
+
+    fn hear_tracks(&mut self, source_id: &str, tracks: &[Value]) {
+        if self.auto.busy && self.auto.shared.source().is_some_and(|s| s == source_id) {
+            let tracks = Track::all_from(tracks);
+            self.auto.shared.hear_main(people::main(&tracks).filter(|t| t.missing_s == 0.0).map(|t| t.bbox));
+        }
+    }
+
     // ── Doing what the card says ──────────────────────────────────────
 
     fn reset(&mut self, host: &mut dyn Host) {
         // the LUT has its own way off
         let (lut, strength) = (self.grade.lut.take(), self.grade.lut_strength);
         self.grade = Grade { lut, lut_strength: strength, ..Grade::default() };
+        self.auto.wrote = false;
         self.show_all(host);
         self.publish(host);
         host.schedule_save();
@@ -562,6 +810,7 @@ impl ColourGradingPlugin {
                 self.show(host, &self.curve_props());
             }
             "reset-clicked" => self.reset(host),
+            "auto-clicked" => self.auto_pressed(host),
             "wheel-pressed" => self.wheels[n(0) as usize % 4].press(),
             "wheel-dragged" => {
                 let i = n(0) as usize % 4;
@@ -682,6 +931,8 @@ impl Plugin for ColourGradingPlugin {
             when_off: n_("Without it there's no Colour grading card and the picture keeps the camera's colours.").into(),
             category: "look".into(),
             icon: "colour".into(),
+            // Auto reads the picture clean, before the other steps change it
+            frame_stage: FrameStage::Reading,
             optional: true,
             in_presets: true,
             // each phone has its own look to fix
@@ -691,6 +942,7 @@ impl Plugin for ColourGradingPlugin {
     }
 
     fn setup(&mut self, host: &mut dyn Host) {
+        self.auto.poster = host.poster();
         self.show(host, &ColourGradingPlugin::fixed_props());
         self.show_all(host);
     }
@@ -700,6 +952,8 @@ impl Plugin for ColourGradingPlugin {
     }
 
     fn shutdown(&mut self, host: &mut dyn Host) {
+        self.auto_abort(host);
+        self.auto.poster = None;
         host.set_colour_stage(OWNER, None, 0, None);
         host.colour_split(OWNER, None);
     }
@@ -709,6 +963,24 @@ impl Plugin for ColourGradingPlugin {
         if let Some(on) = self.paired.hear(event) {
             self.show(host, &json!({"active": on}));
         }
+        match event {
+            Event::PeopleSeen { source_id, people } => self.hear_people(host, source_id, people),
+            Event::PeopleTracked { source_id, tracks, .. } => self.hear_tracks(source_id, tracks),
+            Event::ViewChanged { view } => self.auto.shared.hear_view(Geometry::from(view)),
+            Event::PictureMeasureRequested { token } => self.probe_requested(host, token),
+            Event::Posted { owner, token, .. } if owner == NAME && token == POST_MEASURED => self.auto_measured(host),
+            Event::TimerFired { owner, token } if owner == NAME && token == T_LABEL => {
+                self.auto.label.clear();
+                self.show_auto(host);
+            }
+            Event::TimerFired { owner, token } if owner == NAME && token == T_TIMEOUT => self.auto_measured(host),
+            Event::TimerFired { owner, token } if owner == NAME && token == T_HOLD && self.auto.busy => {
+                if self.auto.shared.release() {
+                    self.auto_released(host);
+                }
+            }
+            _ => {}
+        }
         if let Event::RequestDone { request, ok, data, .. } = event {
             if let Some((id, ask)) = self.asked {
                 if id == *request {
@@ -717,6 +989,15 @@ impl Plugin for ColourGradingPlugin {
                 }
             }
         }
+    }
+
+    fn on_stream_stop(&mut self, host: &mut dyn Host) {
+        self.auto_abort(host);
+    }
+
+    fn frame_step(&mut self) -> Option<FrameStep> {
+        let poster = self.auto.poster.clone()?;
+        Some(FrameStep::Cpu(Box::new(MeasureStep { shared: self.auto.shared.clone(), poster })))
     }
 
     fn card(&mut self) -> Option<CardSpec> {
@@ -733,7 +1014,7 @@ impl Plugin for ColourGradingPlugin {
             actions::toggle_action("colour_grading.on", &tr("Colour grading"), &group, "", &[]),
             actions::toggle_action("colour_grading.compare", &tr("Compare before and after"), &group, "", &[]),
         ];
-        for key in ["temperature", "tint", "saturation", "contrast", "pivot", "shadows", "highlights"] {
+        for key in ["temperature", "tint", "saturation", "vibrance", "contrast", "pivot", "shadows", "highlights"] {
             let def = SLIDERS.iter().find(|d| d.key == key).expect("a slider by that key");
             let (scale, decimals, suffix) = if key == "saturation" { (100.0 / def.steps, 0, "%") } else { (1.0 / def.steps, def.decimals, "") };
             let step = match key {
@@ -848,6 +1129,28 @@ impl Plugin for ColourGradingPlugin {
         }
     }
 
+    fn settings(&self) -> Vec<SettingSpec> {
+        let mut out = vec![SettingSpec::switch("on", "Whether the grade is applied (off shows the camera's own colours)", true)];
+        for def in &SLIDERS {
+            let decimals = if def.key == "saturation" { 2 } else { def.decimals };
+            let default = slider_value(&Grade::default(), def.key);
+            let unit = match def.key {
+                "contrast" | "saturation" => "1 is unchanged",
+                "pivot" => "0 black to 1 white",
+                _ => "0 is unchanged",
+            };
+            out.push(SettingSpec::number(def.key, def.tip, def.lo, def.hi, decimals, default).unit(unit));
+        }
+        let masters = ["Lift master: raises or lowers the shadows, with white staying put", "Gamma master: brightens or darkens the midtones, with black and white staying put",
+                       "Gain master: raises or lowers the highlights, with black staying put", "Offset master: raises or lowers everything"];
+        for (i, name) in WHEELS.iter().enumerate() {
+            let (lo, hi) = MASTER_RANGE[i];
+            out.push(SettingSpec::number(&format!("masters.{name}"), masters[i], lo, hi, 2, MASTER_DEFAULT[i]));
+        }
+        out.push(SettingSpec::number("lut_strength", "How much of the loaded LUT file shows (needs a LUT loaded)", 0.0, 1.0, 2, 1.0));
+        out
+    }
+
     fn get_config(&self) -> Value {
         let g = &self.grade;
         let mut cfg = Map::new();
@@ -860,6 +1163,10 @@ impl Plugin for ColourGradingPlugin {
         cfg.insert("lut".into(), json!(self.lut_path));
         cfg.insert("lut_strength".into(), json!(g.lut_strength));
         for def in &SLIDERS {
+            // Vibrance came later: a grade without it saves exactly what older versions did
+            if def.key == "vibrance" && g.vibrance == 0.0 {
+                continue;
+            }
             cfg.insert(def.key.into(), json!(slider_value(g, def.key)));
         }
         Value::Object(cfg)
@@ -898,6 +1205,7 @@ impl Plugin for ColourGradingPlugin {
         self.lut_problem = problem;
         self.lut_path = path;
         self.grade = g;
+        self.auto.wrote = false;
         self.on = cfg.get("on") != Some(&Value::Bool(false));
         // once, with the whole grade, so the stream never sees half of it: the next hook with a host does it
         self.dirty = true;

@@ -1,0 +1,133 @@
+// A value that steps along its list like a camera's dial: an arrow at each side, the value between them under a small caption, and
+// a click on the value opens the whole list.
+
+import { Theme } from "../theme.slint";
+import { Icon } from "basics.slint";
+import { ChoiceField } from "choices.slint";
+
+// One of the two arrows. It reports going down and coming up rather than a click, so a held one can keep stepping.
+component StepArrow inherits Rectangle {
+    in property <int> dir;
+    in property <bool> enabled: true;
+    in property <string> label;
+    in property <string> description;
+    callback down;
+    callback up;
+    property <bool> holding;
+    function release() {
+        if (holding) {
+            holding = false;
+            up();
+        }
+    }
+    width: 28px;
+    border-radius: 8px;
+    background: !enabled ? transparent : touch.pressed ? Theme.fill : touch.has-hover ? Theme.border-strong : transparent;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-description: description;
+    accessible-action-default => { if (enabled) { down(); up(); } }
+    changed enabled => { if (!enabled) { release(); } }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left && !holding) {
+                holding = true;
+                down();
+            }
+            if (holding && ((e.kind == PointerEventKind.up && e.button == PointerEventButton.left) || e.kind == PointerEventKind.cancel)) { release(); }
+        }
+        scroll-event(e) => { reject }
+    }
+    // The kit's chevron (icons/chevron.svg), a quarter turn each way so it points along the list
+    Path {
+        width: 14px;
+        height: 14px;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        viewbox-width: 16;
+        viewbox-height: 16;
+        commands: dir < 0 ? "M 9.5 4.5 L 6 8 L 9.5 11.5" : "M 6.5 4.5 L 10 8 L 6.5 11.5";
+        stroke: !enabled ? Theme.text-disabled : touch.pressed ? white : touch.has-hover ? Theme.text : Theme.text-dim;
+        stroke-width: 1.4px;
+        stroke-line-cap: round;
+        stroke-line-join: round;
+        accessible-role: none;
+    }
+}
+
+export component Stepper inherits Rectangle {
+    in property <string> caption;
+    in property <[string]> items;
+    in property <int> current;
+    in property <bool> enabled: true;
+    in property <string> tip;
+    // What a screen reader calls the arrows
+    in property <string> previous-label;
+    in property <string> next-label;
+    // One step toward the start (-1) or the end (1) of the list: from the wheel or the arrow keys
+    callback step(int);
+    // An arrow went down or came up: the owner steps once now and keeps stepping while it's held
+    callback hold-down(int);
+    callback hold-up();
+    // An entry chosen from the list
+    callback picked(int);
+    // A smooth wheel sends many small turns: a step for each time they add up to this much
+    property <length> turned;
+    height: 48px;
+    horizontal-stretch: 1;
+    min-width: 0px;
+    preferred-width: 0px;
+    // Under the field, so what the field doesn't take (it passes the wheel on) reaches here
+    TouchArea {
+        enabled: root.enabled;
+        scroll-event(e) => {
+            turned += e.delta-y;
+            if (turned >= 30px) {
+                turned = 0px;
+                root.step(1);
+            } else if (turned <= -30px) {
+                turned = 0px;
+                root.step(-1);
+            }
+            accept
+        }
+    }
+    ChoiceField {
+        caption: root.caption;
+        name: root.caption;
+        items: root.items;
+        current: root.current;
+        enabled: root.enabled;
+        tip: root.tip;
+        centered: true;
+        side: 32px;
+        // What the stepper shows is the camera's value: a pick it refuses doesn't stay on screen
+        follows: true;
+        picked(i) => { root.picked(i); }
+        nudged(by) => { root.step(by); }
+    }
+    StepArrow {
+        x: 2px;
+        y: 2px;
+        height: parent.height - 4px;
+        dir: -1;
+        enabled: root.enabled && root.current > 0;
+        label: root.previous-label;
+        description: root.caption;
+        down => { root.hold-down(-1); }
+        up => { root.hold-up(); }
+    }
+    StepArrow {
+        x: parent.width - self.width - 2px;
+        y: 2px;
+        height: parent.height - 4px;
+        dir: 1;
+        enabled: root.enabled && root.current < root.items.length - 1;
+        label: root.next-label;
+        description: root.caption;
+        down => { root.hold-down(1); }
+        up => { root.hold-up(); }
+    }
+}

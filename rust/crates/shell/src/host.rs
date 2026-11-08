@@ -87,6 +87,15 @@ impl HostSettings for Ctx<'_> {
     fn move_device_settings(&mut self, old: &str, new: &str) {
         self.state.move_device_settings(old, new);
     }
+    fn plugin_settings(&self) -> Vec<PluginSettings> {
+        self.state.slots.iter().filter_map(|s| {
+            let settings = s.plugin.as_ref()?.settings();
+            (!settings.is_empty()).then(|| PluginSettings { name: s.info.name.clone(), title: s.info.title.clone(), settings })
+        }).collect()
+    }
+    fn running_plugins(&self) -> Vec<(String, String)> {
+        self.state.slots.iter().filter(|s| !s.info.name.is_empty()).map(|s| (s.info.name.clone(), s.info.title.clone())).collect()
+    }
 }
 
 impl HostStreams for Ctx<'_> {
@@ -467,17 +476,31 @@ impl Ctx<'_> {
     fn stills(&self) -> Option<Arc<dyn telescope_core::link::PhoneStills>> {
         self.state.link.as_ref().and_then(|l| l.stills())
     }
+
+    /// The photo service of a stream's own camera (a DSLR), for a stream that has one.
+    fn camera_stills(&self, id: &str) -> Option<Arc<dyn telescope_core::source::SourceStills>> {
+        self.state.source_stills.iter().find(|(s, _)| s == id).map(|(_, stills)| stills.clone())
+    }
 }
 
 impl HostStills for Ctx<'_> {
     fn still_caps(&self, source_id: Option<&str>) -> Option<Value> {
         let id = self.still_source(source_id)?;
+        if let Some(camera) = self.camera_stills(&id) {
+            return camera.caps();
+        }
         self.stills()?.caps(Some(&id))
     }
     fn take_still(&mut self, options: &Value, folder: &str, source_id: Option<&str>) -> Option<RequestId> {
         let id = self.still_source(source_id)?;
-        let stills = self.stills()?;
-        if stills.caps(Some(&id)).is_none() || stills.busy(Some(&id)) {
+        let ready = match self.camera_stills(&id) {
+            Some(camera) => camera.caps().is_some() && !camera.busy(),
+            None => {
+                let stills = self.stills()?;
+                stills.caps(Some(&id)).is_some() && !stills.busy(Some(&id))
+            }
+        };
+        if !ready {
             return None;
         }
         let request = self.state.request_id();
@@ -487,6 +510,9 @@ impl HostStills for Ctx<'_> {
     }
     fn still_busy(&self, source_id: Option<&str>) -> bool {
         let Some(id) = self.still_source(source_id) else { return false };
+        if let Some(camera) = self.camera_stills(&id) {
+            return camera.busy();
+        }
         self.stills().is_some_and(|s| s.busy(Some(&id)))
     }
 }
@@ -562,6 +588,9 @@ impl Host for Ctx<'_> {
     }
     fn poster(&self) -> Option<Arc<dyn telescope_core::host::Poster>> {
         Some(Arc::new(crate::shell::PluginPoster { owner: self.me.clone(), posts: self.state.posts.clone() }))
+    }
+    fn want_stats(&mut self, owner: &str, on: bool) {
+        telescope_core::stats::Hub::shared().want(owner, on);
     }
 }
 

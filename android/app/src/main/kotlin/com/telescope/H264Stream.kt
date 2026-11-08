@@ -51,6 +51,7 @@ object H264Stream {
 class H264ClientQueue(
     private val capacity: Int = 90,
     private val clock: () -> Long = System::currentTimeMillis,
+    private val onWaited: (Long) -> Unit = {},  // how long each packet waited, for the Stats card
 ) {
     private val lock = ReentrantLock()
     private val ready = lock.newCondition()
@@ -98,6 +99,7 @@ class H264ClientQueue(
         }
         val now = clock()
         val waited = now - queuedAt.remove()
+        onWaited(waited)
         if (shortestWaitMs < 0 || waited < shortestWaitMs) shortestWaitMs = waited
         writingSinceMs = now
         if (isKey.poll() == true) keyWriting = true

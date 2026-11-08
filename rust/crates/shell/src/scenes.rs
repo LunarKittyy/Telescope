@@ -30,7 +30,7 @@ pub enum Page {
     /// A control's right-click menu: the first control with this accessible label that isn't plain text, right-clicked in the
     /// middle, and this much (width, height) of the window from there.
     ControlMenu { label: String, size: (f32, f32) },
-    /// One plugin's card alone, CARD_WIDTH wide with CARD_MARGIN around it, as translation_scenes_audio.show_card and
+    /// One plugin's card alone, the setup's width wide (CARD_WIDTH usually) with CARD_MARGIN around it, as translation_scenes_audio.show_card and
     /// the other card scenes draw a card's panel in a widget of its own.
     Card { plugin: String },
     /// A window of a plugin's own, opened as its card opens it (plugin, the card's callback, the window's id).
@@ -171,9 +171,9 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
             }
             settle(&w);
             // One column at this width; the column keeps room for its scrollbar, so widen the window by what the card lacks
-            grown(&w, CARD_WIDTH, setup.height, scale).ok_or("nothing drawn")?;
-            let lack = w.card_rect(plugin).map_or(0.0, |(_, _, cw, _)| CARD_WIDTH - 2.0 * CARD_MARGIN - cw);
-            grown(&w, CARD_WIDTH + lack, setup.height, scale).and_then(|p| {
+            grown(&w, setup.width, setup.height, scale).ok_or("nothing drawn")?;
+            let lack = w.card_rect(plugin).map_or(0.0, |(_, _, cw, _)| setup.width - 2.0 * CARD_MARGIN - cw);
+            grown(&w, setup.width + lack, setup.height, scale).and_then(|p| {
                 let (x, y, cw, ch) = w.card_rect(plugin)?;
                 let m = CARD_MARGIN;
                 crop(&p, (x - m) * scale, (y - m) * scale, (cw + 2.0 * m) * scale, (ch + 2.0 * m) * scale)

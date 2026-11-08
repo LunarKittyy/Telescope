@@ -23,6 +23,7 @@ static SEEN: [Stage; STAGES.len()] = [NEW_STAGE; STAGES.len()];
 pub fn record(stage: &str, ns: u64) {
     let Some(i) = STAGES.iter().position(|s| *s == stage) else { return };
     let us = (ns / 1000).min(u32::MAX as u64 - 1) as u32;
+    crate::stats::note_stage(i, ns);
     let s = &SEEN[i];
     s.ring[s.next.fetch_add(1, Ordering::Relaxed) % WINDOW].store(us + 1, Ordering::Relaxed);
     let mut active = ACTIVE.load(Ordering::Relaxed);

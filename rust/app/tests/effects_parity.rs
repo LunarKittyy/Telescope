@@ -195,7 +195,8 @@ fn the_cards_say_they_are_what_python_says() {
     let t = TransformsPlugin::new().info();
     assert_eq!((g.name.as_str(), g.category.as_str(), g.icon.as_str(), g.optional, g.in_presets, g.device_local), ("colour_grading", "look", "colour", true, true, true));
     assert_eq!((t.name.as_str(), t.category.as_str(), t.icon.as_str(), t.pinned, t.in_presets, t.device_local), ("transforms", "camera", "crop", true, true, true));
-    assert_eq!(json!(g.frame_stage), json!("effects"));
+    // Python had Colour grading at the effects stage; here its frame step (Auto's measuring) reads the clean picture before the other steps
+    assert_eq!(json!(g.frame_stage), json!("reading"));
 }
 
 /// How close the key's picture has to be: the matte is looked up in the very tables Python uses and only the scaling around it

@@ -2,7 +2,7 @@
 
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
-import { Icon, FocusRing } from "basics.slint";
+import { Icon, FocusRing, TouchRing } from "basics.slint";
 import { TipBody, TipUse } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 
@@ -39,6 +39,8 @@ export component Switch inherits Rectangle {
     in property <string> shortcut;
     // A switch that's risky to leave on stays red while it is
     in property <bool> danger;
+    // The id of the setting it is ("transforms.flip_h"), which a caller outside the window outlines it by when it reads or changes it
+    in property <string> setting;
     callback toggled(bool);
     width: 36px;
     height: 20px;
@@ -67,6 +69,7 @@ export component Switch inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus && keyed; radius: 10px; width: parent.width + 4px; height: parent.height + 4px; }
+    TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: 10px; }
     usage := TipUse { hover: touch.has-hover; }
     touch := TouchArea {
         enabled: root.enabled;

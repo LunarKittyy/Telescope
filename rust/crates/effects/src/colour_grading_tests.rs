@@ -85,6 +85,25 @@ fn a_neutral_grade_puts_nothing_in_the_pipeline() {
 }
 
 #[test]
+fn vibrance_bakes_into_the_lut_and_saves_only_when_set() {
+    let mut r = Rig::new();
+    r.slider("vibrance", 70.0);
+    let stage = r.plugin.stage().expect("a stage");
+    assert!(stage.table.is_none() && stage.size == 33, "vibrance looks at every channel");
+    let want = Grade { vibrance: 70.0, ..Grade::default() };
+    for c in [[0.5, 0.45, 0.55], [0.2, 0.5, 0.8], [0.8, 0.6, 0.5], [0.3, 0.3, 0.3]] {
+        let (got, mut exact) = (sample_cube(&stage.rgb, 33, c), c);
+        want.apply(&mut exact);
+        assert!((0..3).all(|i| (got[i] - exact[i]).abs() < 0.02), "{c:?}: {got:?} vs {exact:?}");
+    }
+    assert_eq!(r.plugin.get_config()["vibrance"], json!(70.0));
+    r.slider("vibrance", 0.0);
+    assert!(r.plugin.stage().is_none() && r.plugin.get_config().get("vibrance").is_none());
+    r.plugin.set_config(&json!({"vibrance": 250.0})).unwrap();
+    assert_eq!(r.plugin.grade().vibrance, 100.0);
+}
+
+#[test]
 fn switching_the_grade_off_takes_it_out_and_back() {
     let mut r = Rig::new();
     r.slider("contrast", 1.4);
@@ -374,7 +393,7 @@ fn pages_show_one_at_a_time_and_the_channel_row_only_for_rgb() {
 fn shortcuts_reach_the_main_controls() {
     let mut r = Rig::new();
     let ids: Vec<String> = r.plugin.actions().into_iter().map(|a| a.id).collect();
-    assert_eq!(ids, ["colour_grading.on", "colour_grading.compare", "colour_grading.temperature", "colour_grading.tint", "colour_grading.saturation", "colour_grading.contrast",
+    assert_eq!(ids, ["colour_grading.on", "colour_grading.compare", "colour_grading.temperature", "colour_grading.tint", "colour_grading.saturation", "colour_grading.vibrance", "colour_grading.contrast",
                     "colour_grading.pivot", "colour_grading.shadows", "colour_grading.highlights", "colour_grading.lift_master", "colour_grading.gamma_master",
                     "colour_grading.gain_master", "colour_grading.offset_master", "colour_grading.lut_strength"]);
     assert_eq!(r.plugin.run_action(&mut r.host, "colour_grading.temperature", &json!({"op": "up", "amount": 5})), Some("Temperature: +5".into()));

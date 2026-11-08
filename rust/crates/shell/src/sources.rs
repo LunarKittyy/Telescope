@@ -1076,6 +1076,9 @@ impl SourceKind for PluginKind {
     fn camera_limited(&self, arrival: f32) -> bool {
         self.source().camera_limited(arrival)
     }
+    fn stills(&self) -> Option<Arc<dyn telescope_core::source::SourceStills>> {
+        self.source().stills()
+    }
     fn lost_hint(&self) -> String {
         Some(self.source().lost_hint()).filter(|h| !h.is_empty()).unwrap_or_else(|| tr("Open the Telescope page in it again."))
     }

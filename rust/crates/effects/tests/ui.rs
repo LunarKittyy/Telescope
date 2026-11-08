@@ -112,7 +112,7 @@ fn the_cards_have_what_their_plugins_use() {
     let mut photos = PhotosPlugin::new();
     compile(&mut photos);
     has_what_the_plugin_uses(&mut photos, &[
-        "take-clicked", "open-clicked", "choice-picked", "quality-moved", "number-edited", "timer-picked", "best-toggled", "folder-clicked",
+        "take-clicked", "open-clicked", "tile-picked", "tile-step", "tile-hold-down", "tile-hold-up", "quality-moved", "timer-picked", "best-toggled", "folder-clicked",
     ]);
     let mut composite = CompositePlugin::new();
     compile(&mut composite);

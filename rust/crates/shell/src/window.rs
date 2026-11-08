@@ -72,6 +72,9 @@ pub struct Window {
     pieces: Vec<PieceRef>,
     fold_version: Cell<i32>,
     save_timer: slint::Timer,
+    /// The controls an outside caller just touched (touched.rs), and the timers that fade and clear their outlines.
+    touches: RefCell<crate::touched::Touches>,
+    touch_timer: slint::Timer,
     pub(crate) services: Option<Arc<Services>>,
     pub(crate) opts: Option<WindowOptions>,
     pub streams: crate::streams::Streams,
@@ -361,6 +364,9 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
     if let Some(vision) = &state.vision {
         vision.attach(state.bus.sender());
     }
+    if services.is_some() {
+        telescope_core::stats::Hub::shared().start(state.bus.sender());
+    }
     let plugins = plugins(&state.bus.sender());
     // Filled in by the factory just now: the added plugins that are on but couldn't start
     let problems = services.as_ref().map(|s| s.plugin_problems.lock().unwrap_or_else(|e| e.into_inner()).clone()).unwrap_or_default();
@@ -407,6 +413,8 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         pieces,
         fold_version: Cell::new(0),
         save_timer: slint::Timer::default(),
+        touches: RefCell::default(),
+        touch_timer: slint::Timer::default(),
         services,
         opts,
         streams: crate::streams::Streams::new(),
@@ -498,9 +506,12 @@ impl Window {
             let Some(w) = weak.upgrade() else { return SValue::Void };
             if let Some(SValue::String(key)) = args.first() {
                 if w.state.borrow_mut().collapse.toggle(key) {
+                    let folded = w.state.borrow().collapse.is_folded(key);
+                    w.state.borrow_mut().bus.emit(Event::CardFolded { key: key.to_string(), folded });
                     w.fold_version.set(w.fold_version.get() + 1);
                     let _ = w.ui.set_global_property("Folds", "version", SValue::Number(w.fold_version.get() as f64));
                     w.schedule_save();
+                    w.process();
                 }
             }
             SValue::Void
@@ -1239,6 +1250,7 @@ impl Window {
             Effect::ToggleWindow => self.toggle_window(),
             Effect::KeepInTray(_) => {}
             Effect::OpenSettings(tab) => crate::settings::open(self, &tab),
+            Effect::TouchSettings { ids, changed } => self.touch_settings(&ids, changed),
             Effect::OpenUrl(url) => self.follow_url(&url),
             Effect::CopyText(text) => self.copy_text(&text),
             Effect::PluginHues(on) => {
@@ -1265,6 +1277,40 @@ impl Window {
                 let _ = self.ui.set_global_property("Shortcuts", "version", SValue::Number(version + 1.0));
             }
         }
+    }
+
+    /// Outlines the controls that show these settings, holds each for a moment, fades it and lets go. Every setting has its own expiry.
+    /// Nothing is opened or scrolled to.
+    fn touch_settings(self: &Rc<Self>, ids: &[String], changed: bool) {
+        self.touches.borrow_mut().touch(ids, changed, std::time::Instant::now());
+        self.run_touches();
+    }
+
+    /// Fades and clears what is due, then waits for the next one.
+    fn run_touches(self: &Rc<Self>) {
+        let next = self.touches.borrow_mut().tick(std::time::Instant::now());
+        self.show_touches();
+        let Some(wait) = next else { return self.touch_timer.stop() };
+        let weak = Rc::downgrade(self);
+        self.touch_timer.start(slint::TimerMode::SingleShot, wait.max(Duration::from_millis(10)), move || {
+            if let Some(w) = weak.upgrade() {
+                w.run_touches();
+            }
+        });
+    }
+
+    /// Keeps the outlines where they are instead of fading them, so a scene can draw one however long drawing takes.
+    pub fn keep_touches(&self) {
+        self.touch_timer.stop();
+    }
+
+    fn show_touches(&self) {
+        let rows: Vec<SValue> = self.touches.borrow().items().iter().map(|i| SValue::Struct(Struct::from_iter([
+            ("id".to_string(), SValue::String(i.id.as_str().into())),
+            ("on".to_string(), SValue::Bool(i.on)),
+            ("changed".to_string(), SValue::Bool(i.changed)),
+        ]))).collect();
+        let _ = self.ui.set_global_property("Touched", "items", SValue::Model(ModelRc::new(VecModel::from(rows))));
     }
 
     pub fn schedule_save(self: &Rc<Self>) {

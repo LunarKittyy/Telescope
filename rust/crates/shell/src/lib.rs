@@ -32,6 +32,7 @@ pub mod session;
 pub mod settings;
 pub mod switches;
 pub mod texts;
+pub mod touched;
 pub mod tray;
 pub mod shell;
 pub mod host;
