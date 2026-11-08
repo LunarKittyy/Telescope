@@ -35,8 +35,10 @@ const MARK_TIP: &str = n_("Drag the four corners of the sheet into place on the 
 const RESET_TIP: &str = n_("Put the width and height back to 100%");
 const CLEAN_TIP: &str = n_("Make the writing on the sheet stand out");
 const SHAPE_TIP: &str = n_("Auto works the shape out from the corners");
-const STRETCH_TIPS: [&str; 2] = [n_("Stretch the sheet sideways if it still looks squashed"), n_("Stretch the sheet up and down if it still looks squashed")];
-const RESET_HINT: &str = n_("Double-click to reset");
+const STRETCH_TIP: &str = n_("Stretch the sheet if it still looks squashed");
+const STRETCH_OFF_TIP: &str = n_("Fill uses the whole picture, so there is nothing to stretch");
+/// What the card's shape tiles are called: the same shapes, with Fill short and its full name in the tile's tooltip.
+const SHAPE_NAMES: [&str; 5] = [n_("Auto"), n_("A4"), n_("Letter"), n_("Square"), n_("Fill")];
 
 /// The frame step: the sheet, and the warp for the size of frame it saw last.
 struct DeskStep {
@@ -177,11 +179,13 @@ impl DeskPlugin {
 
     fn fixed_props() -> Value {
         let list = |l: &[(&str, &str)]| l.iter().map(|(_, t)| tr(t)).collect::<Vec<_>>();
+        // The shapes that need more than their name: Auto says what it does, Fill says it in full
+        let shape_tips = [tr(SHAPE_TIP), String::new(), String::new(), String::new(), tr("Fill the picture")];
         json!({
             "switch-name": tr("Desk mode"), "switch-help": tr(SWITCH_TIP), "mark-tip": tr(MARK_TIP), "done-text": tr("Done"),
             "cancel-text": tr("Cancel"), "reset-text": tr("Reset"), "reset-tip": tr(RESET_TIP), "clean-items": list(&CLEANUPS),
-            "clean-tip": tr(CLEAN_TIP), "shape-items": list(&SHAPES), "shape-tip": tr(SHAPE_TIP), "reset-hint": tr(RESET_HINT),
-            "stretch-tips": STRETCH_TIPS.iter().map(|t| tr(t)).collect::<Vec<_>>(),
+            "clean-tip": tr(CLEAN_TIP), "shape-items": SHAPE_NAMES.iter().map(|t| tr(t)).collect::<Vec<_>>(), "shape-tips": shape_tips,
+            "stretch-tip": tr(STRETCH_TIP), "stretch-off-tip": tr(STRETCH_OFF_TIP),
         })
     }
 

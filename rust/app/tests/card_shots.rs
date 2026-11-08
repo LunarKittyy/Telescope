@@ -1,10 +1,14 @@
-// Pictures of the Connection, Camera, Phone and Photos cards in their main states, in both looks, for a look by eye:
-// SHOTS=dir cargo test -p telescope-app --test cards_a_shots, each as NAME-new.png and NAME-classic.png at 2x.
+// Pictures of the eight redesigned cards in their main states, in both looks, for a look by eye:
+// CARD_SHOTS=dir cargo nextest run -p telescope-app --test card_shots, each as NAME-new.png and NAME-classic.png at 2x (NAME-dot-* with the dot change mark).
 use serde_json::{json, Value as Json};
 use slint::ComponentHandle;
 use slint_interpreter::Value;
 use telescope_core::plugin::Plugin;
 use telescope_core::ui::SlintSource;
+use telescope_effects::desk::DeskPlugin;
+use telescope_effects::framing::FramingPlugin;
+use telescope_effects::name_tag::NameTagPlugin;
+use telescope_effects::notes::NotesPlugin;
 use telescope_effects::photos::PhotosPlugin;
 use telescope_setup::monitoring::MonitoringPlugin;
 use telescope_shell::offscreen;
@@ -97,7 +101,7 @@ fn language(code: &str) -> std::sync::MutexGuard<'static, ()> {
 }
 
 fn out() -> Option<std::path::PathBuf> {
-    let dir = std::path::PathBuf::from(std::env::var("SHOTS").ok()?);
+    let dir = std::path::PathBuf::from(std::env::var("CARD_SHOTS").ok()?);
     std::fs::create_dir_all(&dir).unwrap();
     Some(dir)
 }
@@ -122,7 +126,6 @@ fn camera_shots() {
         "active": true, "lenses": [], "info": "", "lens-placeholder": "Start streaming to load lenses", "lens-columns": 3,
         "low-light": {"checked": false, "enabled": false, "tip": "Start streaming to use low light"},
     })]);
-
 }
 
 #[test]
@@ -133,7 +136,6 @@ fn phone_shots() {
     shoot(&dir, "phone-streaming", &phone, &[json!({"active": true, "battery-level": 74, "battery-has-level": true, "battery-value": "74%",
         "battery-icon": "battery-charging", "temp-level": 38.0, "temp-has-level": true, "temp-value": "38 °C", "temp-note": "Cool"})]);
     shoot(&dir, "phone-empty", &phone, &[json!({"active": true})]);
-
 }
 
 #[test]
@@ -188,4 +190,56 @@ fn german_shots() {
     let card = connection_card();
     shoot(&dir, "de-connection", &card, &[json!({"status-text": "Telescope auf dem Telefon braucht eine Aktualisierung", "status-kind": "status_warn", "route-shown": true,
         "update-shown": true, "update-text": "\u{dc}ber USB aktualisieren"})]);
+}
+
+#[test]
+fn desk_shots() {
+    let Some(dir) = out() else { return };
+    let _english = language("en");
+    let desk = card_of(&mut DeskPlugin::new(), "camera");
+    let on = json!({"on": true, "active": true});
+    shoot(&dir, "desk-default", &desk, &[on.clone()]);
+    shoot(&dir, "desk-changed", &desk, &[json!({"on": true, "active": true, "stretch": [120, 90], "stretch-text": ["120%", "90%"], "reset-shown": true, "clean-current": 1, "shape-current": 2})]);
+    shoot_marked(&dir, "desk-changed", &desk, &[json!({"on": true, "active": true, "stretch": [120, 90], "stretch-text": ["120%", "90%"], "reset-shown": true, "clean-current": 1, "shape-current": 2})], true);
+    shoot(&dir, "desk-picking", &desk, &[json!({"on": true, "active": true, "picking": true, "stretch": [100, 100]})]);
+    shoot(&dir, "desk-fill", &desk, &[json!({"on": true, "active": true, "shape-current": 4, "stretch-enabled": false})]);
+    shoot(&dir, "desk-unpaired", &desk, &[json!({"on": false, "active": false})]);
+    shoot(&dir, "desk-german", &desk, &[json!({"on": true, "active": true, "clean-items": ["Aus", "Kontrast", "Schwarzweiss"], "shape-items": ["Automatisch", "A4", "Letter", "Quadrat", "Füllen"], "stretch": [120, 90], "stretch-text": ["120 %", "90 %"], "reset-shown": true})]);
+}
+
+#[test]
+fn framing_shots() {
+    let Some(dir) = out() else { return };
+    let _english = language("en");
+    let framing = card_of(&mut FramingPlugin::new(), "vision");
+    let on = json!({"on": true, "active": true});
+    shoot(&dir, "framing-default", &framing, &[on.clone()]);
+    shoot(&dir, "framing-changed", &framing, &[json!({"on": true, "active": true, "framing": 20, "speed": 8, "room": 4, "hand": true, "framing-text": "Waist", "speed-text": "Snappy", "room-text": "Step"})]);
+    shoot_marked(&dir, "framing-changed", &framing, &[json!({"on": true, "active": true, "framing": 20, "speed": 8, "room": 4, "hand": true, "framing-text": "Waist", "speed-text": "Snappy", "room-text": "Step"})], true);
+    shoot(&dir, "framing-unpaired", &framing, &[json!({"on": false, "active": false})]);
+    shoot(&dir, "framing-german", &framing, &[json!({"on": true, "active": true, "framing": 20, "speed": 3, "room": 4, "framing-text": "Hüfte", "speed-text": "Gemütlich", "room-text": "Schritt", "fits": "Gemütlich\nSchwungvoll\nUmherstreifen"})]);
+    shoot(&dir, "framing-status", &framing, &[json!({"on": true, "active": true, "vision-text": "Needs a one-time download (about 47 MB).", "vision-download": true})]);
+}
+
+#[test]
+fn notes_shots() {
+    let Some(dir) = out() else { return };
+    let _english = language("en");
+    let notes = card_of(&mut NotesPlugin::new(), "on_screen");
+    shoot(&dir, "notes-empty", &notes, &[json!({"active": true})]);
+    shoot(&dir, "notes-hand", &notes, &[json!({"active": true, "text": "Good morning, everyone. Thanks for joining the call, let's start with the plan for the quarter.\n\nThen questions.", "size": 80, "size-text": "80", "scroll": 1, "show-auto": false, "send-enabled": true, "clear-enabled": true, "nav-enabled": true})]);
+    shoot_marked(&dir, "notes-hand", &notes, &[json!({"active": true, "text": "Good morning, everyone. Thanks for joining the call, let's start with the plan for the quarter.\n\nThen questions.", "size": 80, "size-text": "80", "scroll": 1, "show-auto": false, "send-enabled": true, "clear-enabled": true, "nav-enabled": true})], true);
+    shoot(&dir, "notes-auto", &notes, &[json!({"active": true, "text": "Good morning, everyone.", "size-text": "44", "speed": 6, "speed-text": "6", "send-enabled": true, "clear-enabled": true, "nav-enabled": true, "playing": true, "play-text": "Pause", "set-items": ["Notes 1", "Notes 2"]})]);
+    shoot(&dir, "notes-unpaired", &notes, &[json!({"active": false})]);
+}
+
+#[test]
+fn name_tag_shots() {
+    let Some(dir) = out() else { return };
+    let _english = language("en");
+    let tag = card_of(&mut NameTagPlugin::new(), "on_screen");
+    shoot(&dir, "nametag-empty", &tag, &[json!({"on": false})]);
+    shoot(&dir, "nametag-filled", &tag, &[json!({"on": true, "name": "Alex Rivera", "pronouns": "they/them", "second": "Designer", "position-current": 2, "style-current": 3, "size-current": 2})]);
+    shoot_marked(&dir, "nametag-filled", &tag, &[json!({"on": true, "name": "Alex Rivera", "pronouns": "they/them", "second": "Designer", "position-current": 2, "style-current": 3, "size-current": 2})], true);
+    shoot(&dir, "nametag-pill", &tag, &[json!({"on": true, "name": "Alex Rivera", "pronouns": "", "second": "", "position-current": 3, "style-current": 1, "size-current": 0})]);
 }

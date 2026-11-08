@@ -139,7 +139,7 @@ msgstr "Đang thiết lập…"
 msgid "Couldn't create the virtual microphone: {error}"
 msgstr "Không thể tạo mic ảo: {error}"
 
-#: rust/crates/audio/src/plugin.rs:713 rust/crates/link/src/plugin.rs:1106
+#: rust/crates/audio/src/plugin.rs:713
 msgid "Connecting…"
 msgstr "Đang kết nối…"
 
@@ -160,7 +160,7 @@ msgstr "Tải VB-Cable"
 msgid "Takes out typing, fans and room hiss."
 msgstr "Loại bỏ tiếng gõ phím, tiếng quạt và tiếng rít trong phòng."
 
-#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:639 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1411 rust/crates/link/src/plugin.rs:1418 rust/crates/outputs/src/stream_output.rs:956 rust/crates/system/src/shortcuts.rs:515 rust/crates/system/src/shortcuts.rs:517
+#: rust/crates/audio/src/plugin.rs:925 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:584 rust/crates/effects/src/notes.rs:641 rust/crates/link/src/browser/plugin.rs:606 rust/crates/link/src/plugin.rs:1409 rust/crates/link/src/plugin.rs:1416 rust/crates/outputs/src/stream_output.rs:956 rust/crates/system/src/shortcuts.rs:515 rust/crates/system/src/shortcuts.rs:517
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -203,7 +203,7 @@ msgstr "Tắt"
 msgid "Switch while held, back on release"
 msgstr "Chuyển đổi khi giữ, quay lại khi thả"
 
-#: rust/crates/audio/src/plugin.rs:1015 rust/crates/audio/src/plugin.rs:1100 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1365 rust/crates/outputs/src/stream_output.rs:620 rust/crates/outputs/src/stream_output.rs:637 rust/crates/shell/src/plugins/presets.rs:333 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
+#: rust/crates/audio/src/plugin.rs:1015 rust/crates/audio/src/plugin.rs:1100 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1363 rust/crates/outputs/src/stream_output.rs:620 rust/crates/outputs/src/stream_output.rs:637 rust/crates/shell/src/plugins/presets.rs:333 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
 msgid "Does"
 msgstr "Thao tác"
 
@@ -318,7 +318,7 @@ msgstr "Mic ảo đã dừng nhận âm thanh."
 msgid "Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."
 msgstr "Màu vàng nghĩa là bộ giới hạn đang nén các đỉnh âm thanh lớn và màu đỏ nghĩa là âm thanh bị méo tiếng (bấm để xóa)."
 
-#: rust/crates/audio/ui/microphone.slint:229 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/desk.rs:39 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:52 rust/crates/effects/src/photos.rs:482 rust/crates/effects/src/transforms.rs:38 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:163 rust/crates/outputs/ui/stream_output.slint:184 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:243 rust/crates/shell/ui/cards/camera.slint:274 rust/crates/shell/ui/cards/camera.slint:292
+#: rust/crates/audio/ui/microphone.slint:229 rust/crates/effects/src/background.rs:182 rust/crates/effects/src/chroma_key.rs:265 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:525 rust/crates/effects/src/framing.rs:370 rust/crates/effects/src/fun_pack.rs:337 rust/crates/effects/src/notes.rs:54 rust/crates/effects/src/photos.rs:452 rust/crates/effects/src/transforms.rs:38 rust/crates/effects/ui/composite_editor.slint:448 rust/crates/effects/ui/composite_editor.slint:464 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/outputs/ui/stream_output.slint:163 rust/crates/outputs/ui/stream_output.slint:184 rust/crates/outputs/ui/webcam.slint:190 rust/crates/outputs/ui/webcam.slint:190 rust/crates/shell/ui/cards/camera.slint:252 rust/crates/shell/ui/cards/camera.slint:291 rust/crates/shell/ui/cards/camera.slint:312
 msgid "Double-click to reset"
 msgstr "Nhấp đúp để đặt lại"
 
@@ -330,7 +330,7 @@ msgstr "Mức tự động"
 msgid "Evens out quiet and loud speech."
 msgstr "Cân bằng giọng nói nhỏ và to."
 
-#: rust/crates/audio/ui/microphone.slint:256 rust/crates/audio/ui/microphone.slint:268 rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1614 rust/crates/shell/ui/cards/camera.slint:379 rust/crates/shell/ui/cards/camera.slint:382
+#: rust/crates/audio/ui/microphone.slint:256 rust/crates/audio/ui/microphone.slint:268 rust/crates/shell/src/plugins/camera_control.rs:1315 rust/crates/shell/src/plugins/camera_control.rs:1664 rust/crates/shell/ui/cards/camera.slint:409 rust/crates/shell/ui/cards/camera.slint:417
 msgid "Noise reduction"
 msgstr "Giảm nhiễu"
 
@@ -342,7 +342,7 @@ msgstr "Mic điện thoại cần có VB-Audio Virtual Cable trên Windows."
 msgid "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."
 msgstr "VB-Cable do VB-Audio phát triển, không phải Telescope. Telescope có thể tải về tệp cài đặt từ vb-audio.com và mở trình thiết lập của chính VB-Audio, yêu cầu quyền quản trị. Hãy khởi động lại máy tính khi hoàn tất."
 
-#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:182 rust/crates/effects/ui/colour_grading.slint:468 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:483 rust/crates/link/ui/connection.slint:684 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:632 rust/crates/system/ui/shortcuts.slint:373 rust/crates/system/ui/updates.slint:215
+#: rust/crates/audio/ui/microphone.slint:340 rust/crates/effects/src/desk.rs:186 rust/crates/effects/ui/colour_grading.slint:468 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:929 rust/crates/link/ui/connection.slint:456 rust/crates/link/ui/connection.slint:657 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:632 rust/crates/system/ui/shortcuts.slint:373 rust/crates/system/ui/updates.slint:215
 msgid "Cancel"
 msgstr "Hủy"
 
@@ -368,19 +368,19 @@ msgstr "Bước sáng"
 msgid " stops"
 msgstr " bước sáng"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:480 rust/crates/link/src/plugin.rs:1366 rust/crates/outputs/src/stream_output.rs:621 rust/crates/outputs/ui/webcam.slint:212 rust/crates/shell/src/plugins/presets.rs:323
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:450 rust/crates/link/src/plugin.rs:1364 rust/crates/outputs/src/stream_output.rs:621 rust/crates/outputs/ui/webcam.slint:212 rust/crates/shell/src/plugins/presets.rs:323
 msgid "Next"
 msgstr "Tiếp theo"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:480 rust/crates/link/src/plugin.rs:1366 rust/crates/outputs/src/stream_output.rs:621 rust/crates/outputs/ui/webcam.slint:211 rust/crates/shell/src/plugins/presets.rs:323
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:450 rust/crates/link/src/plugin.rs:1364 rust/crates/outputs/src/stream_output.rs:621 rust/crates/outputs/ui/webcam.slint:211 rust/crates/shell/src/plugins/presets.rs:323
 msgid "Previous"
 msgstr "Trước đó"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1366 rust/crates/outputs/src/stream_output.rs:621
+#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1364 rust/crates/outputs/src/stream_output.rs:621
 msgid "Pick"
 msgstr "Chọn"
 
-#: rust/crates/core/src/actions.rs:215 rust/crates/link/src/plugin.rs:1367 rust/crates/outputs/src/stream_output.rs:622
+#: rust/crates/core/src/actions.rs:215 rust/crates/link/src/plugin.rs:1365 rust/crates/outputs/src/stream_output.rs:622
 msgid "Option"
 msgstr "Tùy chọn"
 
@@ -460,7 +460,7 @@ msgstr "Tiện ích bổ sung"
 msgid "Updates & About"
 msgstr "Bản cập nhật & Giới thiệu"
 
-#: rust/crates/core/src/plugin.rs:25 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:80 rust/crates/shell/src/plugins/camera_control.rs:1580 rust/crates/shell/ui/cards/camera.slint:143
+#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:39 rust/crates/effects/ui/photos.slint:274 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:80 rust/crates/shell/src/plugins/camera_control.rs:1630 rust/crates/shell/ui/cards/camera.slint:147
 msgid "Camera"
 msgstr "Camera"
 
@@ -524,7 +524,7 @@ msgid "Looking…"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:38 rust/crates/effects/src/photos.rs:487 rust/crates/effects/ui/background.slint:34 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:98 rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:384 rust/crates/shell/ui/cards/camera.slint:396
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:47 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:457 rust/crates/effects/ui/background.slint:34 rust/crates/effects/ui/photos.slint:274 rust/crates/link/src/browser/plugin.rs:579 rust/crates/outputs/src/webcam.rs:98 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:418 rust/crates/shell/ui/cards/camera.slint:436
 msgid "Off"
 msgstr "Tắt"
 
@@ -986,7 +986,7 @@ msgstr "Gain tổng"
 msgid "Offset master"
 msgstr "Offset tổng"
 
-#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:329 rust/crates/outputs/src/webcam.rs:49 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1365 rust/crates/shell/src/plugins/camera_control.rs:1606 rust/crates/shell/ui/cards/camera.slint:261 rust/crates/shell/ui/cards/camera.slint:264
+#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:329 rust/crates/outputs/src/webcam.rs:49 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1424 rust/crates/shell/src/plugins/camera_control.rs:1656 rust/crates/shell/ui/cards/camera.slint:279 rust/crates/shell/ui/cards/camera.slint:290
 msgid "Temperature"
 msgstr "Nhiệt độ màu"
 
@@ -994,7 +994,7 @@ msgstr "Nhiệt độ màu"
 msgid "Warmer or cooler"
 msgstr "Ấm hơn hoặc lạnh hơn"
 
-#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/ui/colour_grading.slint:329 rust/crates/shell/src/plugins/camera_control.rs:1373 rust/crates/shell/src/plugins/camera_control.rs:1608
+#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/ui/colour_grading.slint:329 rust/crates/shell/src/plugins/camera_control.rs:1432 rust/crates/shell/src/plugins/camera_control.rs:1658 rust/crates/shell/ui/cards/camera.slint:300 rust/crates/shell/ui/cards/camera.slint:311
 msgid "Tint"
 msgstr "Sắc thái"
 
@@ -1248,26 +1248,26 @@ msgid "Black and white"
 msgstr "Trắng đen"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:26 rust/crates/effects/ui/colour_grading.slint:214 rust/crates/link/ui/connection.slint:318 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:101 rust/crates/outputs/src/webcam.rs:958 rust/crates/outputs/ui/webcam.slint:121 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:187 rust/crates/shell/ui/cards/camera.slint:253 rust/crates/shell/ui/cards/camera.slint:309
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/desk.rs:41 rust/crates/effects/src/notes.rs:42 rust/crates/effects/src/photos.rs:27 rust/crates/effects/ui/colour_grading.slint:214 rust/crates/link/ui/connection.slint:293 rust/crates/outputs/src/stream_output.rs:293 rust/crates/outputs/src/webcam.rs:101 rust/crates/outputs/src/webcam.rs:958 rust/crates/outputs/ui/webcam.slint:121 rust/crates/shell/src/plugins/camera_control.rs:1308 rust/crates/shell/src/plugins/camera_control.rs:1310 rust/crates/shell/src/plugins/camera_control.rs:1312 rust/crates/shell/src/plugins/camera_control.rs:1635 rust/crates/shell/src/plugins/camera_control.rs:1636 rust/crates/shell/ui/cards/camera.slint:196 rust/crates/shell/ui/cards/camera.slint:266 rust/crates/shell/ui/cards/camera.slint:326
 msgid "Auto"
 msgstr "Tự động"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/desk.rs:41
 msgid "A4"
 msgstr "A4"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/desk.rs:41
 msgid "Letter"
 msgstr "Letter"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/desk.rs:41
 msgid "Square"
 msgstr "Hình vuông"
 
-#: rust/crates/effects/src/desk.rs:28
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/desk.rs:183
 msgid "Fill the picture"
 msgstr "Lấp đầy khung hình"
 
@@ -1292,66 +1292,70 @@ msgid "Auto works the shape out from the corners"
 msgstr "Tự động xác định hình dạng từ các góc"
 
 #: rust/crates/effects/src/desk.rs:38
-msgid "Stretch the sheet sideways if it still looks squashed"
-msgstr "Kéo giãn tờ giấy sang hai bên nếu trông vẫn bị ép ngang"
+msgid "Stretch the sheet if it still looks squashed"
+msgstr ""
 
-#: rust/crates/effects/src/desk.rs:38
-msgid "Stretch the sheet up and down if it still looks squashed"
-msgstr "Kéo giãn tờ giấy lên xuống nếu trông vẫn bị ép dọc"
+#: rust/crates/effects/src/desk.rs:39
+msgid "Fill uses the whole picture, so there is nothing to stretch"
+msgstr ""
 
-#: rust/crates/effects/src/desk.rs:170
+#: rust/crates/effects/src/desk.rs:41
+msgid "Fill"
+msgstr ""
+
+#: rust/crates/effects/src/desk.rs:172
 msgid "Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."
 msgstr "Các góc này bị chụm lại hoặc nằm trên một đường thẳng nên không dùng được. Hãy đánh dấu lại với mỗi góc ở một góc tờ giấy."
 
-#: rust/crates/effects/src/desk.rs:172
+#: rust/crates/effects/src/desk.rs:174
 msgid "Part of the sheet is outside the picture. Zoom out or mark it again."
 msgstr "Một phần tờ giấy nằm ngoài khung hình. Hãy thu nhỏ hoặc đánh dấu lại."
 
-#: rust/crates/effects/src/desk.rs:181 rust/crates/effects/src/desk.rs:387 rust/crates/effects/src/desk.rs:405 rust/crates/effects/ui/desk.slint:41
+#: rust/crates/effects/src/desk.rs:185 rust/crates/effects/src/desk.rs:391 rust/crates/effects/src/desk.rs:409 rust/crates/effects/ui/desk.slint:42
 msgid "Desk mode"
 msgstr "Chế độ bàn làm việc"
 
-#: rust/crates/effects/src/desk.rs:181 rust/crates/link/ui/connection.slint:435
+#: rust/crates/effects/src/desk.rs:185 rust/crates/link/ui/connection.slint:408
 msgid "Done"
 msgstr "Xong"
 
-#: rust/crates/effects/src/desk.rs:182 rust/crates/effects/ui/transforms.slint:47 rust/crates/outputs/ui/webcam.slint:71
+#: rust/crates/effects/src/desk.rs:186 rust/crates/effects/ui/transforms.slint:47 rust/crates/outputs/ui/webcam.slint:71
 msgid "Reset"
 msgstr "Đặt lại"
 
-#: rust/crates/effects/src/desk.rs:193
+#: rust/crates/effects/src/desk.rs:197
 msgid "Mark the sheet again"
 msgstr "Đánh dấu lại tờ giấy"
 
-#: rust/crates/effects/src/desk.rs:193 rust/crates/effects/src/desk.rs:388 rust/crates/effects/src/desk.rs:409
+#: rust/crates/effects/src/desk.rs:197 rust/crates/effects/src/desk.rs:392 rust/crates/effects/src/desk.rs:413
 msgid "Mark the sheet"
 msgstr "Đánh dấu tờ giấy"
 
-#: rust/crates/effects/src/desk.rs:252
+#: rust/crates/effects/src/desk.rs:256
 msgid "Drag the corners onto the sheet's corners, then press Enter."
 msgstr "Kéo các điểm góc vào các góc của tờ giấy, sau đó nhấn Enter."
 
-#: rust/crates/effects/src/desk.rs:254
+#: rust/crates/effects/src/desk.rs:258
 msgid "Start streaming to mark the sheet on the preview."
 msgstr "Bắt đầu truyền phát để đánh dấu tờ giấy trên khung xem trước."
 
-#: rust/crates/effects/src/desk.rs:297 rust/crates/effects/src/desk.rs:380
+#: rust/crates/effects/src/desk.rs:301 rust/crates/effects/src/desk.rs:384
 msgid "Desk and document mode"
 msgstr "Chế độ bàn làm việc và tài liệu"
 
-#: rust/crates/effects/src/desk.rs:298
+#: rust/crates/effects/src/desk.rs:302
 msgid "Straightens a sheet of paper you mark on the preview and can make the writing on it stand out."
 msgstr "Nắn thẳng tờ giấy bạn đánh dấu trên khung xem trước và làm nổi bật chữ viết trên đó."
 
-#: rust/crates/effects/src/desk.rs:299
+#: rust/crates/effects/src/desk.rs:303
 msgid "Without it there's no Desk mode card and the picture stays the way the camera sees it."
 msgstr "Nếu không có tiện ích này, sẽ không có thẻ Chế độ bàn làm việc và hình ảnh giữ nguyên góc nhìn của camera."
 
-#: rust/crates/effects/src/desk.rs:389 rust/crates/effects/src/desk.rs:413
+#: rust/crates/effects/src/desk.rs:393 rust/crates/effects/src/desk.rs:417
 msgid "Make the writing stand out"
 msgstr "Làm nổi bật chữ viết"
 
-#: rust/crates/effects/src/desk.rs:390 rust/crates/effects/src/desk.rs:415
+#: rust/crates/effects/src/desk.rs:394 rust/crates/effects/src/desk.rs:419
 msgid "Sheet shape"
 msgstr "Hình dạng tờ giấy"
 
@@ -1387,7 +1391,7 @@ msgstr "Di chuyển điểm đo sáng của điện thoại tới khuôn mặt b
 msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
 msgstr "Nếu không có tiện ích này, sẽ không có thẻ Phơi sáng theo khuôn mặt và điện thoại sẽ đo sáng theo điểm bạn chạm hoặc toàn bộ khung hình."
 
-#: rust/crates/effects/src/framing.rs:18 rust/crates/effects/ui/framing.slint:68
+#: rust/crates/effects/src/framing.rs:18 rust/crates/effects/ui/framing.slint:32
 msgid "Auto framing"
 msgstr "Căn khung tự động"
 
@@ -1502,7 +1506,7 @@ msgstr "Tốc độ điều chỉnh căn khung bắt kịp khi bạn di chuyển
 msgid "What you can do before the framing follows you: fidget, shift in your seat, lean over, take a step or move around"
 msgstr "Khoảng vận động trước khi căn khung đi theo bạn: cựa quậy, nhích người trên ghế, nghiêng người, bước một bước hoặc đi lại quanh phòng"
 
-#: rust/crates/effects/src/framing.rs:66 rust/crates/effects/ui/framing.slint:147
+#: rust/crates/effects/src/framing.rs:66
 msgid "Widen for something in your hand"
 msgstr "Mở rộng khi cầm vật trên tay"
 
@@ -1729,7 +1733,7 @@ msgstr "Hiển thị bên cạnh tên của bạn, như she/her hoặc they/them
 msgid "A smaller line under your name, like your role. Leave it empty for none"
 msgstr "Dòng nhỏ hơn dưới tên của bạn, chẳng hạn như vai trò. Để trống nếu không dùng"
 
-#: rust/crates/effects/src/name_tag.rs:91 rust/crates/effects/src/name_tag.rs:162 rust/crates/effects/src/name_tag.rs:213 rust/crates/effects/src/name_tag.rs:213 rust/crates/effects/src/name_tag.rs:225 rust/crates/effects/ui/name_tag.slint:58
+#: rust/crates/effects/src/name_tag.rs:91 rust/crates/effects/src/name_tag.rs:162 rust/crates/effects/src/name_tag.rs:213 rust/crates/effects/src/name_tag.rs:213 rust/crates/effects/src/name_tag.rs:225 rust/crates/effects/ui/name_tag.slint:66
 msgid "Name tag"
 msgstr "Bảng tên"
 
@@ -1771,129 +1775,137 @@ msgid "How big the notes are on the phone"
 msgstr "Kích thước ghi chú trên điện thoại"
 
 #: rust/crates/effects/src/notes.rs:49
+msgid "How fast the notes scroll on the phone"
+msgstr ""
+
+#: rust/crates/effects/src/notes.rs:50
+msgid "Only used when the notes scroll by themselves"
+msgstr ""
+
+#: rust/crates/effects/src/notes.rs:51
 msgid "Back to the line before"
 msgstr "Quay lại dòng trước"
 
-#: rust/crates/effects/src/notes.rs:50
+#: rust/crates/effects/src/notes.rs:52
 msgid "Start or pause scrolling on the phone"
 msgstr "Bắt đầu hoặc tạm dừng cuộn trên điện thoại"
 
-#: rust/crates/effects/src/notes.rs:51
+#: rust/crates/effects/src/notes.rs:53
 msgid "On to the next line"
 msgstr "Chuyển sang dòng tiếp theo"
 
-#: rust/crates/effects/src/notes.rs:107
+#: rust/crates/effects/src/notes.rs:109
 msgid "Notes only work with a phone as the camera."
 msgstr "Ghi chú chỉ hoạt động khi dùng điện thoại làm camera."
 
-#: rust/crates/effects/src/notes.rs:110
+#: rust/crates/effects/src/notes.rs:112
 msgid "Update Telescope on the phone to show notes there."
 msgstr "Cập nhật Telescope trên điện thoại để hiển thị ghi chú tại đó."
 
-#: rust/crates/effects/src/notes.rs:113
+#: rust/crates/effects/src/notes.rs:115
 msgid "These notes are too long to send to the phone."
 msgstr "Ghi chú này quá dài để gửi đến điện thoại."
 
-#: rust/crates/effects/src/notes.rs:121
+#: rust/crates/effects/src/notes.rs:123
 msgid "Switch to the front camera to have the phone's screen facing you."
 msgstr "Chuyển sang camera trước để màn hình điện thoại hướng về phía bạn."
 
-#: rust/crates/effects/src/notes.rs:127
+#: rust/crates/effects/src/notes.rs:129
 msgid "The notes were closed on the phone. Send again to show them."
 msgstr "Ghi chú đã bị đóng trên điện thoại. Hãy gửi lại để hiển thị."
 
-#: rust/crates/effects/src/notes.rs:130
+#: rust/crates/effects/src/notes.rs:132
 msgid "The notes show up on the phone once you close its preview."
 msgstr "Ghi chú sẽ xuất hiện trên điện thoại khi bạn đóng bản xem trước."
 
-#: rust/crates/effects/src/notes.rs:132
+#: rust/crates/effects/src/notes.rs:134
 msgid "Open Telescope on the phone to see the notes."
 msgstr "Mở Telescope trên điện thoại để xem ghi chú."
 
-#: rust/crates/effects/src/notes.rs:135
+#: rust/crates/effects/src/notes.rs:137
 msgid "The notes are up but the phone streams from its back camera."
 msgstr "Ghi chú đã sẵn sàng nhưng điện thoại đang truyền phát từ camera sau."
 
-#: rust/crates/effects/src/notes.rs:138
+#: rust/crates/effects/src/notes.rs:140
 msgid "Send again to show your changes on the phone."
 msgstr "Gửi lại để hiển thị các thay đổi của bạn trên điện thoại."
 
-#: rust/crates/effects/src/notes.rs:140
+#: rust/crates/effects/src/notes.rs:142
 msgid "The notes are on the phone's screen."
 msgstr "Ghi chú đang hiển thị trên màn hình điện thoại."
 
-#: rust/crates/effects/src/notes.rs:215
+#: rust/crates/effects/src/notes.rs:217
 #, python-brace-format
 msgid "Notes {n}"
 msgstr "Ghi chú {n}"
 
-#: rust/crates/effects/src/notes.rs:259 rust/crates/effects/src/notes.rs:518 rust/crates/effects/src/notes.rs:597 rust/crates/effects/ui/notes.slint:113
+#: rust/crates/effects/src/notes.rs:261 rust/crates/effects/src/notes.rs:520 rust/crates/effects/src/notes.rs:599 rust/crates/effects/ui/notes.slint:58 rust/crates/effects/ui/notes.slint:65
 msgid "Notes"
 msgstr "Ghi chú"
 
-#: rust/crates/effects/src/notes.rs:261
+#: rust/crates/effects/src/notes.rs:263
 msgctxt "notes"
 msgid "Previous"
 msgstr "Trước"
 
-#: rust/crates/effects/src/notes.rs:262
+#: rust/crates/effects/src/notes.rs:264
 msgctxt "notes"
 msgid "Next"
 msgstr "Tiếp"
 
-#: rust/crates/effects/src/notes.rs:262
+#: rust/crates/effects/src/notes.rs:264
 msgid "Send to phone"
 msgstr "Gửi đến điện thoại"
 
-#: rust/crates/effects/src/notes.rs:263
+#: rust/crates/effects/src/notes.rs:265
 msgid "Clear from phone"
 msgstr "Xóa khỏi điện thoại"
 
-#: rust/crates/effects/src/notes.rs:287
+#: rust/crates/effects/src/notes.rs:289
 msgid "Pause"
 msgstr "Tạm dừng"
 
-#: rust/crates/effects/src/notes.rs:287
+#: rust/crates/effects/src/notes.rs:289
 msgid "Play"
 msgstr "Phát"
 
-#: rust/crates/effects/src/notes.rs:519
+#: rust/crates/effects/src/notes.rs:521
 msgid "Shows your notes on the phone's screen right under the camera, to read while looking people in the eye."
 msgstr "Hiển thị ghi chú trên màn hình điện thoại ngay dưới camera, giúp bạn đọc mà vẫn nhìn thẳng vào mắt người đối diện."
 
-#: rust/crates/effects/src/notes.rs:520
+#: rust/crates/effects/src/notes.rs:522
 msgid "Without it there's no Notes card and the phone never shows notes."
 msgstr "Nếu không có tiện ích này, sẽ không có thẻ Ghi chú và điện thoại sẽ không bao giờ hiển thị ghi chú."
 
-#: rust/crates/effects/src/notes.rs:599 rust/crates/effects/src/notes.rs:644
+#: rust/crates/effects/src/notes.rs:601 rust/crates/effects/src/notes.rs:646
 msgid "Notes scroll speed"
 msgstr "Tốc độ cuộn ghi chú"
 
-#: rust/crates/effects/src/notes.rs:602 rust/crates/effects/src/notes.rs:617
+#: rust/crates/effects/src/notes.rs:604 rust/crates/effects/src/notes.rs:619
 msgid "Send notes"
 msgstr "Gửi ghi chú"
 
-#: rust/crates/effects/src/notes.rs:603 rust/crates/effects/src/notes.rs:621
+#: rust/crates/effects/src/notes.rs:605 rust/crates/effects/src/notes.rs:623
 msgid "Clear notes"
 msgstr "Xóa ghi chú"
 
-#: rust/crates/effects/src/notes.rs:604 rust/crates/effects/src/notes.rs:625
+#: rust/crates/effects/src/notes.rs:606 rust/crates/effects/src/notes.rs:627
 msgid "Next line"
 msgstr "Dòng tiếp theo"
 
-#: rust/crates/effects/src/notes.rs:605 rust/crates/effects/src/notes.rs:629
+#: rust/crates/effects/src/notes.rs:607 rust/crates/effects/src/notes.rs:631
 msgid "Previous line"
 msgstr "Dòng trước"
 
-#: rust/crates/effects/src/notes.rs:606 rust/crates/effects/src/notes.rs:639
+#: rust/crates/effects/src/notes.rs:608 rust/crates/effects/src/notes.rs:641
 msgid "Scroll notes"
 msgstr "Cuộn ghi chú"
 
-#: rust/crates/effects/src/notes.rs:638
+#: rust/crates/effects/src/notes.rs:640
 msgid "playing"
 msgstr "đang phát"
 
-#: rust/crates/effects/src/notes.rs:638
+#: rust/crates/effects/src/notes.rs:640
 msgid "paused"
 msgstr "đã tạm dừng"
 
@@ -2026,235 +2038,255 @@ msgctxt "search"
 msgid "on air sign busy light call meeting do not disturb webhook home assistant smart home"
 msgstr "biển báo đang lên sóng đèn báo bận cuộc gọi cuộc họp đừng làm phiền webhook trợ lý nhà nhà thông minh on air sign busy light call meeting do not disturb webhook home assistant smart home"
 
-#: rust/crates/effects/src/photos.rs:24
+#: rust/crates/effects/src/photos.rs:25
 msgid "JPEG"
 msgstr "JPEG"
 
-#: rust/crates/effects/src/photos.rs:24
+#: rust/crates/effects/src/photos.rs:25
 msgid "HEIC"
 msgstr "HEIC"
 
-#: rust/crates/effects/src/photos.rs:24
+#: rust/crates/effects/src/photos.rs:25
 msgid "Ultra HDR"
 msgstr "Ultra HDR"
 
-#: rust/crates/effects/src/photos.rs:24
+#: rust/crates/effects/src/photos.rs:25
 msgid "RAW (DNG)"
 msgstr "RAW (DNG)"
 
-#: rust/crates/effects/src/photos.rs:24
+#: rust/crates/effects/src/photos.rs:25
 msgid "RAW and JPEG"
 msgstr "RAW và JPEG"
 
-#: rust/crates/effects/src/photos.rs:26
+#: rust/crates/effects/src/photos.rs:27
 msgid "Normal"
 msgstr "Bình thường"
 
-#: rust/crates/effects/src/photos.rs:26
+#: rust/crates/effects/src/photos.rs:27
 msgid "Full resolution"
 msgstr "Độ phân giải đầy đủ"
 
-#: rust/crates/effects/src/photos.rs:26
+#: rust/crates/effects/src/photos.rs:27
 msgid "Night"
 msgstr "Ban đêm"
 
-#: rust/crates/effects/src/photos.rs:26
+#: rust/crates/effects/src/photos.rs:27
 msgid "HDR"
 msgstr "HDR"
 
-#: rust/crates/effects/src/photos.rs:26
+#: rust/crates/effects/src/photos.rs:27
 msgid "Bokeh"
 msgstr "Xóa phông"
 
-#: rust/crates/effects/src/photos.rs:29
+#: rust/crates/effects/src/photos.rs:30
 msgid "Single"
 msgstr "Đơn"
 
-#: rust/crates/effects/src/photos.rs:29
+#: rust/crates/effects/src/photos.rs:30
 msgid "Burst"
 msgstr "Liên tục"
 
-#: rust/crates/effects/src/photos.rs:29
+#: rust/crates/effects/src/photos.rs:30
 msgid "Exposure bracket"
 msgstr "Bao phơi sáng"
 
-#: rust/crates/effects/src/photos.rs:29
+#: rust/crates/effects/src/photos.rs:30
 msgid "Focus bracket"
 msgstr "Bao lấy nét"
 
-#: rust/crates/effects/src/photos.rs:32
+#: rust/crates/effects/src/photos.rs:33
 msgid "3 photos, 1 EV apart"
 msgstr "3 ảnh, cách nhau 1 EV"
 
-#: rust/crates/effects/src/photos.rs:32
+#: rust/crates/effects/src/photos.rs:33
 msgid "3 photos, 2 EV apart"
 msgstr "3 ảnh, cách nhau 2 EV"
 
-#: rust/crates/effects/src/photos.rs:33
+#: rust/crates/effects/src/photos.rs:34
 msgid "5 photos, 1 EV apart"
 msgstr "5 ảnh, cách nhau 1 EV"
 
-#: rust/crates/effects/src/photos.rs:33
+#: rust/crates/effects/src/photos.rs:34
 msgid "7 photos, 1 EV apart"
 msgstr "7 ảnh, cách nhau 1 EV"
 
-#: rust/crates/effects/src/photos.rs:38
-msgid "As the camera does it"
-msgstr "Theo camera"
-
-#: rust/crates/effects/src/photos.rs:38
+#: rust/crates/effects/src/photos.rs:39 rust/crates/effects/ui/photos.slint:274
 msgid "On"
 msgstr "Bật"
 
-#: rust/crates/effects/src/photos.rs:40
+#: rust/crates/effects/src/photos.rs:41
+msgid "As the camera does it"
+msgstr "Theo camera"
+
+#: rust/crates/effects/src/photos.rs:41
+msgid "Always fix the distortion"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:41
+msgid "Never fix the distortion"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:43
 msgid "Take a photo on the phone with the settings below"
 msgstr "Chụp ảnh trên điện thoại với các cài đặt bên dưới"
 
-#: rust/crates/effects/src/photos.rs:41
+#: rust/crates/effects/src/photos.rs:44
 msgid "Show the photos taken last"
 msgstr "Hiển thị những ảnh vừa chụp"
 
-#: rust/crates/effects/src/photos.rs:42
+#: rust/crates/effects/src/photos.rs:45
 msgid "The phone maker's own Night, HDR and Bokeh modes pause the video while they shoot"
 msgstr "Các chế độ Ban đêm, HDR và Xóa phông của nhà sản xuất điện thoại sẽ tạm dừng video trong khi chụp"
 
-#: rust/crates/effects/src/photos.rs:46
+#: rust/crates/effects/src/photos.rs:49
 msgid "Photos from the nearest focus to the farthest, for focus stacking"
 msgstr "Chụp ảnh từ điểm nét gần nhất đến xa nhất, dùng để xếp chồng độ nét"
 
-#: rust/crates/effects/src/photos.rs:47
+#: rust/crates/effects/src/photos.rs:50
 msgid "A long exposure keeps the video's ISO and the video stops while the shutter is open"
 msgstr "Phơi sáng lâu sẽ giữ nguyên ISO của video và video sẽ dừng trong khi màn trập mở"
 
-#: rust/crates/effects/src/photos.rs:48
+#: rust/crates/effects/src/photos.rs:51
 msgid "Takes a little longer and only changes the photo, not the video"
 msgstr "Mất thêm một chút thời gian và chỉ áp dụng cho ảnh chụp, không ảnh hưởng đến video"
 
-#: rust/crates/effects/src/photos.rs:49 rust/crates/shell/src/streams.rs:691
+#: rust/crates/effects/src/photos.rs:52
+msgid "This lens and mode have no extra noise reduction or sharpening to offer"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:53
+msgid "The camera keeps its own JPEG quality"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:54
+msgid "RAW photos have no quality setting"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:55 rust/crates/shell/src/streams.rs:691
 msgid "The camera is already taking a photo."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:50
+#: rust/crates/effects/src/photos.rs:56
 msgid "The camera couldn't take the photo."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:321
+#: rust/crates/effects/src/photos.rs:327
 msgid "Like the video"
 msgstr "Như video"
 
-#: rust/crates/effects/src/photos.rs:321 rust/crates/effects/src/photos.rs:487
+#: rust/crates/effects/src/photos.rs:327 rust/crates/effects/src/photos.rs:457
 #, python-brace-format
 msgid "{seconds} s"
 msgstr "{seconds} s"
 
-#: rust/crates/effects/src/photos.rs:478 rust/crates/effects/src/photos.rs:976 rust/crates/effects/src/photos.rs:992
+#: rust/crates/effects/src/photos.rs:447 rust/crates/effects/src/photos.rs:960 rust/crates/effects/src/photos.rs:976 rust/crates/effects/ui/photos.slint:130
 msgid "Take photo"
 msgstr "Chụp ảnh"
 
-#: rust/crates/effects/src/photos.rs:478
+#: rust/crates/effects/src/photos.rs:447
 msgid "Open folder"
 msgstr "Mở thư mục"
 
-#: rust/crates/effects/src/photos.rs:479
-msgid "Best quality noise reduction and sharpening"
-msgstr "Giảm nhiễu và tăng độ nét với chất lượng tốt nhất"
+#: rust/crates/effects/src/photos.rs:448
+msgid "Best quality"
+msgstr ""
 
-#: rust/crates/effects/src/photos.rs:512
+#: rust/crates/effects/src/photos.rs:482 rust/crates/effects/ui/photos.slint:161 rust/crates/effects/ui/photos.slint:162
 msgid "ISO"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:512 rust/crates/shell/src/plugins/camera_control.rs:1343 rust/crates/shell/src/plugins/camera_control.rs:1588 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:215
+#: rust/crates/effects/src/photos.rs:482 rust/crates/effects/ui/photos.slint:170 rust/crates/effects/ui/photos.slint:171 rust/crates/shell/src/plugins/camera_control.rs:1402 rust/crates/shell/src/plugins/camera_control.rs:1638 rust/crates/shell/ui/cards/camera.slint:223 rust/crates/shell/ui/cards/camera.slint:228
 msgid "Shutter"
 msgstr "Màn trập"
 
-#: rust/crates/effects/src/photos.rs:518
+#: rust/crates/effects/src/photos.rs:488 rust/crates/effects/ui/photos.slint:190 rust/crates/effects/ui/photos.slint:195
 msgid "Mode"
 msgstr "Chế độ"
 
-#: rust/crates/effects/src/photos.rs:521 rust/crates/outputs/src/stream_output.rs:794 rust/crates/outputs/src/stream_output.rs:1005 rust/crates/outputs/src/stream_output.rs:1008
+#: rust/crates/effects/src/photos.rs:491 rust/crates/effects/ui/photos.slint:201 rust/crates/effects/ui/photos.slint:205 rust/crates/outputs/src/stream_output.rs:794 rust/crates/outputs/src/stream_output.rs:1005 rust/crates/outputs/src/stream_output.rs:1008
 msgid "Format"
 msgstr "Định dạng"
 
-#: rust/crates/effects/src/photos.rs:524
+#: rust/crates/effects/src/photos.rs:494 rust/crates/effects/ui/photos.slint:212 rust/crates/effects/ui/photos.slint:217
 msgid "Shots"
 msgstr "Kiểu chụp"
 
-#: rust/crates/effects/src/photos.rs:526
+#: rust/crates/effects/src/photos.rs:496 rust/crates/effects/ui/photos.slint:238 rust/crates/effects/ui/photos.slint:243 rust/crates/effects/ui/photos.slint:244
 msgid "How many"
 msgstr "Số lượng"
 
-#: rust/crates/effects/src/photos.rs:526
+#: rust/crates/effects/src/photos.rs:496
 msgid "Steps"
 msgstr "Số bước"
 
-#: rust/crates/effects/src/photos.rs:537
+#: rust/crates/effects/src/photos.rs:507
 msgid "Bracket"
 msgstr "Bao phơi sáng"
 
-#: rust/crates/effects/src/photos.rs:542 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:182 rust/crates/shell/ui/cards/camera.slint:186
+#: rust/crates/effects/src/photos.rs:512 rust/crates/effects/ui/photos.slint:155 rust/crates/effects/ui/photos.slint:251 rust/crates/effects/ui/photos.slint:256 rust/crates/effects/ui/photos.slint:257 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:188 rust/crates/shell/ui/cards/camera.slint:195
 msgid "Exposure"
 msgstr "Độ phơi sáng"
 
-#: rust/crates/effects/src/photos.rs:547
+#: rust/crates/effects/src/photos.rs:517 rust/crates/effects/ui/photos.slint:267 rust/crates/effects/ui/photos.slint:273
 msgid "Distortion fix"
 msgstr "Sửa méo hình"
 
-#: rust/crates/effects/src/photos.rs:594
-msgid "This phone can't take photos from Telescope yet. Update the app on the phone."
-msgstr "Điện thoại này chưa thể chụp ảnh từ Telescope. Hãy cập nhật ứng dụng trên điện thoại."
-
-#: rust/crates/effects/src/photos.rs:597 rust/crates/effects/src/photos.rs:917
+#: rust/crates/effects/src/photos.rs:579 rust/crates/effects/src/photos.rs:901
 msgid "Start streaming to take photos."
 msgstr "Bắt đầu truyền phát để chụp ảnh."
 
-#: rust/crates/effects/src/photos.rs:782 rust/crates/effects/src/photos.rs:802
+#: rust/crates/effects/src/photos.rs:581
+msgid "This phone can't take photos from Telescope yet. Update the app on the phone."
+msgstr "Điện thoại này chưa thể chụp ảnh từ Telescope. Hãy cập nhật ứng dụng trên điện thoại."
+
+#: rust/crates/effects/src/photos.rs:766 rust/crates/effects/src/photos.rs:786
 msgid "Taking the photo…"
 msgstr "Đang chụp ảnh…"
 
-#: rust/crates/effects/src/photos.rs:796
+#: rust/crates/effects/src/photos.rs:780
 #, python-brace-format
 msgid "Taking the photo in {seconds} s"
 msgstr "Chụp ảnh sau {seconds} s"
 
-#: rust/crates/effects/src/photos.rs:798
+#: rust/crates/effects/src/photos.rs:782
 #, python-brace-format
 msgid "Photo {n} of {total}"
 msgstr "Ảnh {n} / {total}"
 
-#: rust/crates/effects/src/photos.rs:800
+#: rust/crates/effects/src/photos.rs:784
 msgid "Taking the photo, the video is paused…"
 msgstr "Đang chụp ảnh, video đang tạm dừng…"
 
-#: rust/crates/effects/src/photos.rs:816
+#: rust/crates/effects/src/photos.rs:800
 #, python-brace-format
 msgid "Saved {name}"
 msgstr "Đã lưu {name}"
 
-#: rust/crates/effects/src/photos.rs:821
+#: rust/crates/effects/src/photos.rs:805
 msgid "Photo saved"
 msgstr "Đã lưu ảnh"
 
-#: rust/crates/effects/src/photos.rs:836
+#: rust/crates/effects/src/photos.rs:820
 msgid "Save photos in"
 msgstr "Lưu ảnh vào"
 
-#: rust/crates/effects/src/photos.rs:851 rust/crates/effects/src/photos.rs:967 rust/crates/effects/ui/photos.slint:72
+#: rust/crates/effects/src/photos.rs:835 rust/crates/effects/src/photos.rs:951 rust/crates/effects/ui/photos.slint:122
 msgid "Photos"
 msgstr "Ảnh"
 
-#: rust/crates/effects/src/photos.rs:852
+#: rust/crates/effects/src/photos.rs:836
 msgid "Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:853
+#: rust/crates/effects/src/photos.rs:837
 msgid "Without it there's no Photos card and no Take photo shortcut."
 msgstr "Nếu không có tiện ích này, sẽ không có thẻ Ảnh và không có phím tắt Chụp ảnh."
 
-#: rust/crates/effects/src/photos.rs:969 rust/crates/effects/src/photos.rs:1007
+#: rust/crates/effects/src/photos.rs:953 rust/crates/effects/src/photos.rs:991
 msgid "Photo mode"
 msgstr "Chế độ chụp ảnh"
 
-#: rust/crates/effects/src/photos.rs:974 rust/crates/effects/src/photos.rs:1017
+#: rust/crates/effects/src/photos.rs:958 rust/crates/effects/src/photos.rs:1001
 msgid "Photo timer"
 msgstr "Hẹn giờ chụp ảnh"
 
@@ -2491,11 +2523,11 @@ msgstr "Lia sang trái/phải"
 msgid "Pan up/down"
 msgstr "Lia lên/xuống"
 
-#: rust/crates/effects/src/transforms.rs:618 rust/crates/effects/src/transforms.rs:686 rust/crates/effects/ui/desk.slint:105 rust/crates/effects/ui/transforms.slint:173
+#: rust/crates/effects/src/transforms.rs:618 rust/crates/effects/src/transforms.rs:686 rust/crates/effects/ui/transforms.slint:173
 msgid "Width"
 msgstr "Chiều rộng"
 
-#: rust/crates/effects/src/transforms.rs:619 rust/crates/effects/src/transforms.rs:686 rust/crates/effects/ui/desk.slint:120 rust/crates/effects/ui/transforms.slint:189
+#: rust/crates/effects/src/transforms.rs:619 rust/crates/effects/src/transforms.rs:686 rust/crates/effects/ui/transforms.slint:189
 msgid "Height"
 msgstr "Chiều cao"
 
@@ -2727,7 +2759,7 @@ msgstr ""
 msgid "Keep this picture under a name"
 msgstr "Lưu bố cục ảnh này dưới một tên gọi"
 
-#: rust/crates/effects/ui/composite_editor.slint:394 rust/crates/link/ui/connection.slint:114 rust/crates/setup/src/setup.rs:652 rust/crates/shell/src/plugins/presets.rs:183 rust/crates/shell/src/plugins/presets.rs:213
+#: rust/crates/effects/ui/composite_editor.slint:394 rust/crates/link/ui/connection.slint:115 rust/crates/setup/src/setup.rs:652 rust/crates/shell/src/plugins/presets.rs:183 rust/crates/shell/src/plugins/presets.rs:213
 msgid "Rename"
 msgstr "Đổi tên"
 
@@ -2803,7 +2835,7 @@ msgstr "Màu nền"
 msgid "Put a picture behind the streams instead of the colour"
 msgstr "Đặt một hình ảnh phía sau các luồng phát thay vì màu nền"
 
-#: rust/crates/effects/ui/composite_editor.slint:563 rust/crates/link/ui/connection.slint:644
+#: rust/crates/effects/ui/composite_editor.slint:563 rust/crates/link/ui/connection.slint:617
 msgid "Close"
 msgstr "Đóng"
 
@@ -2815,45 +2847,61 @@ msgstr "Thay thế bố cục"
 msgid "Name:"
 msgstr "Tên:"
 
-#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:489 rust/crates/link/ui/connection.slint:688 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:880 rust/crates/shell/ui/settings.slint:633
+#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:462 rust/crates/link/ui/connection.slint:661 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:880 rust/crates/shell/ui/settings.slint:633
 msgid "OK"
 msgstr "OK"
 
-#: rust/crates/effects/ui/composite_editor.slint:597 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:731 rust/crates/setup/src/stats_phone.rs:148
+#: rust/crates/effects/ui/composite_editor.slint:597 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:704 rust/crates/setup/src/stats_phone.rs:148
 msgid "No"
 msgstr "Không"
 
-#: rust/crates/effects/ui/composite_editor.slint:598 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:725 rust/crates/setup/src/stats_phone.rs:148 rust/crates/setup/src/stats_phone.rs:152
+#: rust/crates/effects/ui/composite_editor.slint:598 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:698 rust/crates/setup/src/stats_phone.rs:148 rust/crates/setup/src/stats_phone.rs:152
 msgid "Yes"
 msgstr "Có"
 
-#: rust/crates/effects/ui/desk.slint:54
+#: rust/crates/effects/ui/desk.slint:56
 msgid "Sheet"
 msgstr ""
 
-#: rust/crates/effects/ui/desk.slint:71 rust/crates/effects/ui/desk.slint:78
+#: rust/crates/effects/ui/desk.slint:78 rust/crates/effects/ui/desk.slint:84
 msgid "Writing"
 msgstr "Chữ viết"
 
-#: rust/crates/effects/ui/desk.slint:88 rust/crates/effects/ui/desk.slint:95 rust/crates/outputs/ui/stream_output.slint:117
+#: rust/crates/effects/ui/desk.slint:117 rust/crates/effects/ui/desk.slint:122 rust/crates/outputs/ui/stream_output.slint:117
 msgid "Shape"
 msgstr "Hình dạng"
+
+#: rust/crates/effects/ui/desk.slint:152 rust/crates/effects/ui/desk.slint:157
+msgid "Width and height"
+msgstr ""
+
+#: rust/crates/effects/ui/desk.slint:173
+msgid "W"
+msgstr ""
+
+#: rust/crates/effects/ui/desk.slint:173
+msgid "H"
+msgstr ""
 
 #: rust/crates/effects/ui/face_exposure.slint:39
 msgid "Follow my face"
 msgstr "Theo dõi khuôn mặt"
 
-#: rust/crates/effects/ui/framing.slint:88 rust/crates/outputs/src/webcam.rs:80
+#: rust/crates/effects/ui/framing.slint:52 rust/crates/effects/ui/framing.slint:58 rust/crates/outputs/src/webcam.rs:80
 msgid "Framing"
 msgstr "Căn khung"
 
-#: rust/crates/effects/ui/framing.slint:115 rust/crates/effects/ui/notes.slint:185
+#: rust/crates/effects/ui/framing.slint:91 rust/crates/effects/ui/framing.slint:97 rust/crates/effects/ui/notes.slint:151 rust/crates/effects/ui/notes.slint:157
 msgid "Speed"
 msgstr "Tốc độ"
 
-#: rust/crates/effects/ui/framing.slint:130
+#: rust/crates/effects/ui/framing.slint:114 rust/crates/effects/ui/framing.slint:120
 msgid "Room to move"
 msgstr "Khoảng vận động"
+
+#: rust/crates/effects/ui/framing.slint:141
+msgid "Things in hand"
+msgstr ""
 
 #: rust/crates/effects/ui/fun_pack.slint:52 rust/crates/effects/ui/fun_pack.slint:58
 msgid "Effect"
@@ -2871,7 +2919,7 @@ msgstr "Xóa sạch"
 msgid "Trails"
 msgstr "Vệt sáng"
 
-#: rust/crates/effects/ui/fun_pack.slint:131 rust/crates/outputs/src/webcam.rs:47 rust/crates/shell/ui/cards/camera.slint:229 rust/crates/shell/ui/cards/camera.slint:232
+#: rust/crates/effects/ui/fun_pack.slint:131 rust/crates/outputs/src/webcam.rs:47 rust/crates/shell/ui/cards/camera.slint:234 rust/crates/shell/ui/cards/camera.slint:240 rust/crates/shell/ui/cards/camera.slint:251
 msgid "Brightness"
 msgstr "Độ sáng"
 
@@ -2895,37 +2943,49 @@ msgstr "Xuống"
 msgid "Across"
 msgstr "Ngang"
 
-#: rust/crates/effects/ui/name_tag.slint:68 rust/crates/link/ui/connection.slint:614
+#: rust/crates/effects/ui/name_tag.slint:77 rust/crates/effects/ui/name_tag.slint:81 rust/crates/effects/ui/name_tag.slint:82 rust/crates/link/ui/connection.slint:587
 msgid "Name"
 msgstr "Tên"
 
-#: rust/crates/effects/ui/name_tag.slint:73
+#: rust/crates/effects/ui/name_tag.slint:89
+msgid "Pronouns and second line"
+msgstr ""
+
+#: rust/crates/effects/ui/name_tag.slint:95 rust/crates/effects/ui/name_tag.slint:96
 msgid "Pronouns"
 msgstr "Đại từ"
 
-#: rust/crates/effects/ui/name_tag.slint:79
+#: rust/crates/effects/ui/name_tag.slint:102 rust/crates/effects/ui/name_tag.slint:103
 msgid "Second line"
 msgstr "Dòng thứ hai"
 
-#: rust/crates/effects/ui/name_tag.slint:85
-msgid "Style"
-msgstr "Kiểu"
+#: rust/crates/effects/ui/name_tag.slint:112
+msgid "Position and style"
+msgstr ""
 
-#: rust/crates/effects/ui/name_tag.slint:91
+#: rust/crates/effects/ui/name_tag.slint:119
 msgid "Position"
 msgstr "Vị trí"
 
-#: rust/crates/effects/ui/name_tag.slint:97
+#: rust/crates/effects/ui/name_tag.slint:135
+msgid "Style"
+msgstr "Kiểu"
+
+#: rust/crates/effects/ui/name_tag.slint:165 rust/crates/effects/ui/name_tag.slint:169
 msgid "Size"
 msgstr "Kích thước"
 
-#: rust/crates/effects/ui/notes.slint:158
+#: rust/crates/effects/ui/notes.slint:113 rust/crates/effects/ui/notes.slint:119
 msgid "Text size"
 msgstr "Cỡ chữ"
 
-#: rust/crates/effects/ui/notes.slint:171 rust/crates/effects/ui/notes.slint:178
+#: rust/crates/effects/ui/notes.slint:134 rust/crates/effects/ui/notes.slint:144
 msgid "Scroll"
 msgstr "Cuộn"
+
+#: rust/crates/effects/ui/notes.slint:173
+msgid "Move through the notes"
+msgstr ""
 
 #: rust/crates/effects/ui/on_air.slint:75
 msgid "Now"
@@ -3089,15 +3149,19 @@ msgstr ""
 msgid "Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve."
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:141
+#: rust/crates/effects/ui/photos.slint:182
+msgid "Mode and format"
+msgstr ""
+
+#: rust/crates/effects/ui/photos.slint:283 rust/crates/effects/ui/photos.slint:288 rust/crates/effects/ui/photos.slint:297
 msgid "Quality"
 msgstr "Chất lượng"
 
-#: rust/crates/effects/ui/photos.slint:162 rust/crates/effects/ui/photos.slint:165
+#: rust/crates/effects/ui/photos.slint:317 rust/crates/effects/ui/photos.slint:323
 msgid "Timer"
 msgstr "Hẹn giờ"
 
-#: rust/crates/effects/ui/photos.slint:174
+#: rust/crates/effects/ui/photos.slint:333
 msgid "Save in"
 msgstr "Lưu vào"
 
@@ -3323,7 +3387,7 @@ msgstr "Trình duyệt, kết nối lần cuối {date}"
 msgid "This computer couldn't set up the video connection."
 msgstr "Máy tính này không thể thiết lập kết nối video."
 
-#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:361 rust/crates/link/ui/connection.slint:192 rust/crates/link/ui/connection.slint:602 rust/crates/shell/src/plugins/onboarding.rs:172
+#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:361 rust/crates/link/ui/connection.slint:191 rust/crates/link/ui/connection.slint:575 rust/crates/shell/src/plugins/onboarding.rs:172
 msgid "Add device"
 msgstr ""
 
@@ -3383,9 +3447,9 @@ msgstr "Chỉ Wi-Fi"
 msgid "Computer"
 msgstr "Máy tính"
 
-#: rust/crates/link/src/connection.rs:814 rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:459
-msgid "Checking…"
-msgstr "Đang kiểm tra…"
+#: rust/crates/link/src/connection.rs:814
+msgid "Checking"
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:816 rust/crates/setup/src/setup.rs:640 rust/crates/setup/src/setup.rs:649 rust/crates/setup/src/setup.rs:668 rust/crates/setup/src/setup.rs:692
 msgid "Ready"
@@ -3601,7 +3665,7 @@ msgstr "điện thoại cắm qua USB là một thiết bị khác"
 msgid "phone plugged in, but Telescope isn't open on it"
 msgstr "đã cắm điện thoại nhưng chưa mở Telescope trên điện thoại"
 
-#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1080 rust/crates/link/src/plugin.rs:1337 rust/crates/link/ui/connection.slint:553 rust/crates/link/ui/connection.slint:554
+#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1080 rust/crates/link/src/plugin.rs:1335 rust/crates/link/ui/connection.slint:526 rust/crates/link/ui/connection.slint:527
 msgid "No device yet"
 msgstr ""
 
@@ -3617,7 +3681,7 @@ msgstr "Không thể kết nối với điện thoại"
 msgid "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."
 msgstr "adb không thể mở kết nối đến điện thoại. Hãy rút phích cắm, cắm lại và thử lại."
 
-#: rust/crates/link/src/plugin.rs:406 rust/crates/link/ui/connection.slint:458
+#: rust/crates/link/src/plugin.rs:406 rust/crates/link/ui/connection.slint:431
 msgid "Set up the virtual camera"
 msgstr "Thiết lập camera ảo"
 
@@ -3742,101 +3806,105 @@ msgstr "Một điện thoại tên là {name} đã ghép đôi như thiết bị
 msgid "Phone app updated. Open Telescope on the phone."
 msgstr "Đã cập nhật ứng dụng điện thoại. Hãy mở Telescope trên điện thoại."
 
-#: rust/crates/link/src/plugin.rs:1081 rust/crates/link/src/plugin.rs:1103
+#: rust/crates/link/src/plugin.rs:1081 rust/crates/link/src/plugin.rs:1102
 msgctxt "status"
 msgid "Streaming"
 msgstr "Đang truyền phát"
 
 #: rust/crates/link/src/plugin.rs:1082
 #, python-brace-format
-msgid "Waiting for {source}…"
-msgstr "Đang chờ {source}…"
+msgid "Waiting for {source}"
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1083
 #, python-brace-format
 msgid "{source}, no pairing needed"
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:1098
-msgid "Reconnecting…"
-msgstr "Đang kết nối lại…"
+#: rust/crates/link/src/plugin.rs:1097 rust/crates/shell/src/streams.rs:924
+msgid "Reconnecting"
+msgstr "Đang kết nối lại"
 
-#: rust/crates/link/src/plugin.rs:1101
+#: rust/crates/link/src/plugin.rs:1100
 msgid "Streaming over USB"
 msgstr "Đang truyền phát qua USB"
 
-#: rust/crates/link/src/plugin.rs:1102
+#: rust/crates/link/src/plugin.rs:1101
 msgid "Streaming over Wi-Fi"
 msgstr "Đang truyền phát qua Wi-Fi"
 
-#: rust/crates/link/src/plugin.rs:1122
+#: rust/crates/link/src/plugin.rs:1105 rust/crates/shell/src/streams.rs:928
+msgid "Connecting"
+msgstr "Đang kết nối"
+
+#: rust/crates/link/src/plugin.rs:1121
 msgid "Updating the phone app over USB…"
 msgstr "Đang cập nhật ứng dụng điện thoại qua USB…"
 
-#: rust/crates/link/src/plugin.rs:1126
+#: rust/crates/link/src/plugin.rs:1125
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Ứng dụng Telescope trên {phone} cũ hơn bản này."
 
-#: rust/crates/link/src/plugin.rs:1202 rust/crates/setup/src/setup.rs:844 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:579 rust/crates/system/src/shortcuts.rs:817
+#: rust/crates/link/src/plugin.rs:1200 rust/crates/setup/src/setup.rs:844 rust/crates/shell/src/extra_cameras.rs:155 rust/crates/shell/src/streams.rs:579 rust/crates/system/src/shortcuts.rs:817
 msgid "Copy command"
 msgstr "Sao chép lệnh"
 
-#: rust/crates/link/src/plugin.rs:1210 rust/crates/link/src/plugin.rs:1362 rust/crates/link/src/plugin.rs:1411 rust/crates/link/src/plugin.rs:1418 rust/crates/setup/src/monitoring.rs:311 rust/crates/setup/src/stats.rs:349 rust/crates/setup/ui/monitoring.slint:135
+#: rust/crates/link/src/plugin.rs:1208 rust/crates/link/src/plugin.rs:1360 rust/crates/link/src/plugin.rs:1409 rust/crates/link/src/plugin.rs:1416 rust/crates/setup/src/monitoring.rs:322 rust/crates/setup/src/stats.rs:349 rust/crates/setup/ui/monitoring.slint:64
 msgid "Phone"
 msgstr "Điện thoại"
 
-#: rust/crates/link/src/plugin.rs:1210
+#: rust/crates/link/src/plugin.rs:1208
 #, python-brace-format
 msgid "Phone · {ip}"
 msgstr "Điện thoại · {ip}"
 
-#: rust/crates/link/src/plugin.rs:1211
+#: rust/crates/link/src/plugin.rs:1209
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes its camera settings on this computer, and unpairs it on the phone too if Telescope can reach it."
 msgstr "Gỡ bỏ \"{name}\"? Thao tác này sẽ xóa cài đặt camera của điện thoại trên máy tính này, đồng thời hủy ghép đôi trên điện thoại nếu Telescope kết nối được."
 
-#: rust/crates/link/src/plugin.rs:1214
+#: rust/crates/link/src/plugin.rs:1212
 #, python-brace-format
 msgid "Rename {name}"
 msgstr "Đổi tên {name}"
 
-#: rust/crates/link/src/plugin.rs:1215 rust/crates/link/src/plugin.rs:1222
+#: rust/crates/link/src/plugin.rs:1213 rust/crates/link/src/plugin.rs:1220
 #, python-brace-format
 msgid "Remove {name}"
 msgstr "Gỡ bỏ {name}"
 
-#: rust/crates/link/src/plugin.rs:1216
+#: rust/crates/link/src/plugin.rs:1214
 msgid "Remove phone"
 msgstr "Gỡ bỏ điện thoại"
 
-#: rust/crates/link/src/plugin.rs:1219
+#: rust/crates/link/src/plugin.rs:1217
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes the settings it had on this computer. It can still connect with the code, and starts from the defaults."
 msgstr "Gỡ bỏ \"{name}\"? Thao tác này sẽ xóa các cài đặt của thiết bị trên máy tính này. Thiết bị vẫn có thể kết nối bằng mã và sẽ bắt đầu lại từ mặc định."
 
-#: rust/crates/link/src/plugin.rs:1223
+#: rust/crates/link/src/plugin.rs:1221
 msgid "Remove browser"
 msgstr "Gỡ bỏ trình duyệt"
 
-#: rust/crates/link/src/plugin.rs:1523
+#: rust/crates/link/src/plugin.rs:1521
 msgid "Virtual camera is set up differently"
 msgstr "Camera ảo được thiết lập khác"
 
-#: rust/crates/link/src/plugin.rs:1524
+#: rust/crates/link/src/plugin.rs:1522
 #, python-brace-format
 msgid "v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:"
 msgstr "v4l2loopback đã nạp nhưng không có {device}: một ứng dụng khác đã thiết lập với các cài đặt khác. Hãy đóng ứng dụng đó và chạy lệnh này để chuyển giao cho Telescope:"
 
-#: rust/crates/link/src/plugin.rs:1534
+#: rust/crates/link/src/plugin.rs:1532
 msgid "The virtual camera is off"
 msgstr "Camera ảo đang tắt"
 
-#: rust/crates/link/src/plugin.rs:1534
+#: rust/crates/link/src/plugin.rs:1532
 msgid "Switching it on asks for your password."
 msgstr "Bật camera ảo sẽ yêu cầu mật khẩu của bạn."
 
-#: rust/crates/link/src/plugin.rs:1535 rust/crates/shell/src/plugins_tab.rs:622 rust/crates/shell/src/plugins_tab.rs:641
+#: rust/crates/link/src/plugin.rs:1533 rust/crates/shell/src/plugins_tab.rs:622 rust/crates/shell/src/plugins_tab.rs:641
 msgid "Switch on"
 msgstr "Bật"
 
@@ -3860,148 +3928,144 @@ msgstr "Kích thước mà trình duyệt gửi; camera không đáp ứng đư�
 msgid "Frame rate"
 msgstr "Tốc độ khung"
 
-#: rust/crates/link/ui/connection.slint:120 rust/crates/setup/ui/setup.slint:128 rust/crates/shell/src/plugins_tab.rs:607 rust/crates/shell/src/plugins_tab.rs:612 rust/crates/shell/ui/settings.slint:328
+#: rust/crates/link/ui/connection.slint:121 rust/crates/setup/ui/setup.slint:128 rust/crates/shell/src/plugins_tab.rs:607 rust/crates/shell/src/plugins_tab.rs:612 rust/crates/shell/ui/settings.slint:328
 msgid "Remove"
 msgstr "Gỡ bỏ"
 
-#: rust/crates/link/ui/connection.slint:187 rust/crates/link/ui/connection.slint:742 rust/crates/setup/src/stats.rs:340
+#: rust/crates/link/ui/connection.slint:186 rust/crates/link/ui/connection.slint:715 rust/crates/setup/src/stats.rs:340
 msgid "Connection"
 msgstr "Kết nối"
 
-#: rust/crates/link/ui/connection.slint:193
-msgid "Pair a phone over Wi-Fi or USB, or use the Browser camera"
-msgstr ""
-
-#: rust/crates/link/ui/connection.slint:198
+#: rust/crates/link/ui/connection.slint:196
 msgid "Open or close the setup guide: the virtual camera, the phone app and pairing"
 msgstr "Mở hoặc đóng hướng dẫn thiết lập: camera ảo, ứng dụng điện thoại và ghép đôi"
 
-#: rust/crates/link/ui/connection.slint:199 rust/crates/shell/src/plugins/onboarding.rs:205
+#: rust/crates/link/ui/connection.slint:197 rust/crates/shell/src/plugins/onboarding.rs:205
 msgid "Setup guide"
 msgstr "Hướng dẫn thiết lập"
 
-#: rust/crates/link/ui/connection.slint:286
+#: rust/crates/link/ui/connection.slint:266
 msgid "Switch to USB"
 msgstr "Chuyển sang USB"
 
-#: rust/crates/link/ui/connection.slint:288
+#: rust/crates/link/ui/connection.slint:268
 msgid "The phone was plugged in; reconnect over the cable"
 msgstr "Điện thoại đã được cắm cáp; kết nối lại qua dây cáp"
 
-#: rust/crates/link/ui/connection.slint:314
+#: rust/crates/link/ui/connection.slint:285 rust/crates/link/ui/connection.slint:292
 msgid "Connect via"
 msgstr "Kết nối qua"
 
-#: rust/crates/link/ui/connection.slint:322
+#: rust/crates/link/ui/connection.slint:298
 msgid "Automatic: USB when the phone's plugged in, Wi-Fi otherwise."
 msgstr "Tự động: USB khi cắm điện thoại, Wi-Fi trong trường hợp khác."
 
-#: rust/crates/link/ui/connection.slint:346
+#: rust/crates/link/ui/connection.slint:319
 msgid "Add a phone"
 msgstr "Thêm một điện thoại"
 
-#: rust/crates/link/ui/connection.slint:350
+#: rust/crates/link/ui/connection.slint:323
 msgid "What to add"
 msgstr "Mục cần thêm"
 
-#: rust/crates/link/ui/connection.slint:360
+#: rust/crates/link/ui/connection.slint:333
 msgid "Use it"
 msgstr "Dùng"
 
-#: rust/crates/link/ui/connection.slint:378
+#: rust/crates/link/ui/connection.slint:351
 msgid "Pairing code"
 msgstr "Mã ghép đôi"
 
-#: rust/crates/link/ui/connection.slint:435
+#: rust/crates/link/ui/connection.slint:408
 msgid "Back"
 msgstr "Quay lại"
 
-#: rust/crates/link/ui/connection.slint:459
+#: rust/crates/link/ui/connection.slint:432
 msgid "Telescope needs to switch on its virtual camera first. This asks for your password."
 msgstr "Trước tiên Telescope cần bật camera ảo của ứng dụng. Thao tác này sẽ yêu cầu mật khẩu của bạn."
 
-#: rust/crates/link/ui/connection.slint:467 rust/crates/link/ui/connection.slint:470
+#: rust/crates/link/ui/connection.slint:440 rust/crates/link/ui/connection.slint:443
 msgid "Also switch it on at every startup"
 msgstr "Đồng thời bật mỗi khi khởi động"
 
-#: rust/crates/link/ui/connection.slint:554
+#: rust/crates/link/ui/connection.slint:527
 msgid "Pick a device"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:558
+#: rust/crates/link/ui/connection.slint:531
 msgid "Device"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:559
+#: rust/crates/link/ui/connection.slint:532
 msgid "Which device to stream from"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:577
+#: rust/crates/link/ui/connection.slint:550
 msgid "Your devices: add, rename, remove"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:578 rust/crates/link/ui/connection.slint:595
+#: rust/crates/link/ui/connection.slint:551 rust/crates/link/ui/connection.slint:568
 msgid "Your devices"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:597
+#: rust/crates/link/ui/connection.slint:570
 msgid "Devices"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:603
+#: rust/crates/link/ui/connection.slint:576
 msgid "Add another device"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:610
+#: rust/crates/link/ui/connection.slint:583
 msgid "No devices yet"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:614
+#: rust/crates/link/ui/connection.slint:587
 msgid "Rename phone"
 msgstr "Đổi tên điện thoại"
 
-#: rust/crates/link/ui/connection.slint:624 rust/crates/setup/src/stats.rs:332
+#: rust/crates/link/ui/connection.slint:597 rust/crates/setup/src/stats.rs:332
 msgid "This computer"
 msgstr "Máy tính này"
 
-#: rust/crates/link/ui/connection.slint:629
+#: rust/crates/link/ui/connection.slint:602
 msgid "What your phones call it"
 msgstr "Tên hiển thị trên điện thoại"
 
-#: rust/crates/link/ui/connection.slint:631
+#: rust/crates/link/ui/connection.slint:604
 msgid "Change name"
 msgstr "Đổi tên"
 
-#: rust/crates/link/ui/connection.slint:632
+#: rust/crates/link/ui/connection.slint:605
 msgid "The name your phones show for this computer"
 msgstr "Tên máy tính này hiển thị trên điện thoại của bạn"
 
-#: rust/crates/link/ui/connection.slint:633
+#: rust/crates/link/ui/connection.slint:606
 msgid "Change this computer's name"
 msgstr "Đổi tên máy tính này"
 
-#: rust/crates/link/ui/connection.slint:635
+#: rust/crates/link/ui/connection.slint:608
 msgid "Rename this computer"
 msgstr "Đổi tên máy tính này"
 
-#: rust/crates/link/ui/connection.slint:635
+#: rust/crates/link/ui/connection.slint:608
 msgid "Name your phones show (applies to phones you pair from now on)"
 msgstr "Tên hiển thị trên điện thoại của bạn (áp dụng cho các điện thoại ghép đôi từ bây giờ)"
 
-#: rust/crates/link/ui/connection.slint:745 rust/crates/link/ui/connection.slint:752
+#: rust/crates/link/ui/connection.slint:718 rust/crates/link/ui/connection.slint:725
 msgid "UDP on Wi-Fi"
 msgstr "UDP qua Wi-Fi"
 
-#: rust/crates/link/ui/connection.slint:746
+#: rust/crates/link/ui/connection.slint:719
 msgctxt "search"
 msgid "udp tcp transport network lag freezes stutter wifi"
 msgstr "mạng giao thức lag giật đứng hình truyền tải udp tcp transport network lag freezes stutter wifi"
 
-#: rust/crates/link/ui/connection.slint:747
+#: rust/crates/link/ui/connection.slint:720
 msgid "It can stutter more than TCP, so try it and see."
 msgstr "Có thể bị giật nhiều hơn TCP, nên bạn hãy thử xem sao."
 
-#: rust/crates/link/ui/connection.slint:748
+#: rust/crates/link/ui/connection.slint:721
 msgid "Experimental"
 msgstr "Thử nghiệm"
 
@@ -4334,7 +4398,7 @@ msgstr "Chống nhấp nháy"
 msgid "Slow down in the dark"
 msgstr "Giảm tốc độ trong bóng tối"
 
-#: rust/crates/outputs/src/webcam.rs:49 rust/crates/outputs/src/webcam.rs:55 rust/crates/shell/ui/cards/camera.slint:248 rust/crates/shell/ui/cards/camera.slint:252
+#: rust/crates/outputs/src/webcam.rs:49 rust/crates/outputs/src/webcam.rs:55 rust/crates/shell/ui/cards/camera.slint:258 rust/crates/shell/ui/cards/camera.slint:265
 msgid "White balance"
 msgstr "Cân bằng trắng"
 
@@ -4346,7 +4410,7 @@ msgstr "Sắc độ"
 msgid "Sharpness"
 msgstr "Độ nét"
 
-#: rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/src/webcam.rs:78 rust/crates/outputs/src/webcam.rs:876 rust/crates/shell/ui/cards/camera.slint:300 rust/crates/shell/ui/cards/camera.slint:304 rust/crates/shell/ui/cards/camera.slint:308
+#: rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/src/webcam.rs:78 rust/crates/outputs/src/webcam.rs:876 rust/crates/shell/ui/cards/camera.slint:318 rust/crates/shell/ui/cards/camera.slint:325
 msgid "Focus"
 msgstr "Lấy nét"
 
@@ -4362,7 +4426,7 @@ msgstr ""
 msgid "Tilt"
 msgstr "Nghiêng"
 
-#: rust/crates/outputs/src/webcam.rs:77 rust/crates/shell/ui/cards/camera.slint:335
+#: rust/crates/outputs/src/webcam.rs:77 rust/crates/shell/ui/cards/camera.slint:353
 msgid "Image"
 msgstr "Hình ảnh"
 
@@ -4595,7 +4659,7 @@ msgstr "Webcam"
 msgid "Put the webcam's picture settings back to its defaults"
 msgstr "Đặt lại cài đặt hình ảnh của webcam về mặc định"
 
-#: rust/crates/outputs/ui/webcam.slint:121 rust/crates/shell/src/plugins/camera_control.rs:1249 rust/crates/shell/src/plugins/camera_control.rs:1251 rust/crates/shell/src/plugins/camera_control.rs:1585 rust/crates/shell/ui/cards/camera.slint:187 rust/crates/shell/ui/cards/camera.slint:253
+#: rust/crates/outputs/ui/webcam.slint:121 rust/crates/shell/src/plugins/camera_control.rs:1308 rust/crates/shell/src/plugins/camera_control.rs:1310 rust/crates/shell/src/plugins/camera_control.rs:1635 rust/crates/shell/ui/cards/camera.slint:196 rust/crates/shell/ui/cards/camera.slint:266
 msgid "Manual"
 msgstr "Tay"
 
@@ -4662,110 +4726,110 @@ msgstr "Các tệp của tiện ích đã thay đổi kể từ khi được b�
 msgid "Couldn't save the settings."
 msgstr "Không thể lưu cài đặt."
 
-#: rust/crates/setup/src/monitoring.rs:264
+#: rust/crates/setup/src/monitoring.rs:273
 msgid "Charging"
 msgstr "Đang sạc"
 
-#: rust/crates/setup/src/monitoring.rs:275 rust/crates/setup/src/stats_phone.rs:87
+#: rust/crates/setup/src/monitoring.rs:284 rust/crates/setup/src/stats_phone.rs:87
 msgid "Cool"
 msgstr "Mát"
 
-#: rust/crates/setup/src/monitoring.rs:275
+#: rust/crates/setup/src/monitoring.rs:284
 msgid "Warm"
 msgstr "Ấm"
 
-#: rust/crates/setup/src/monitoring.rs:275
+#: rust/crates/setup/src/monitoring.rs:284
 msgid "Hot"
 msgstr "Nóng"
 
-#: rust/crates/setup/src/monitoring.rs:276
+#: rust/crates/setup/src/monitoring.rs:285
 #, python-brace-format
 msgid "{temp} °C"
 msgstr "{temp} °C"
 
-#: rust/crates/setup/src/monitoring.rs:318
+#: rust/crates/setup/src/monitoring.rs:329
 #, python-brace-format
 msgid "{phone} battery is at {level}% and still dropping despite being plugged in - the charger may not be keeping up."
 msgstr "Pin {phone} đang ở mức {level} % và vẫn tiếp tục giảm dù đang cắm sạc - bộ sạc có thể không đáp ứng đủ."
 
-#: rust/crates/setup/src/monitoring.rs:320
+#: rust/crates/setup/src/monitoring.rs:331
 #, python-brace-format
 msgid "{phone} battery is at {level}%."
 msgstr "Pin {phone} đang ở mức {level} %."
 
-#: rust/crates/setup/src/monitoring.rs:322
+#: rust/crates/setup/src/monitoring.rs:333
 msgid "Stopped streaming."
 msgstr "Đã dừng truyền phát."
 
-#: rust/crates/setup/src/monitoring.rs:323
+#: rust/crates/setup/src/monitoring.rs:334
 msgid "Telescope - Low Battery"
 msgstr "Telescope - Pin yếu"
 
-#: rust/crates/setup/src/monitoring.rs:334
+#: rust/crates/setup/src/monitoring.rs:345
 #, python-brace-format
 msgid "Temperature is {temp} °C."
 msgstr "Nhiệt độ là {temp} °C."
 
-#: rust/crates/setup/src/monitoring.rs:336
+#: rust/crates/setup/src/monitoring.rs:347
 #, python-brace-format
 msgid "{phone}: temperature is {temp} °C."
 msgstr "{phone}: nhiệt độ là {temp} °C."
 
-#: rust/crates/setup/src/monitoring.rs:338
+#: rust/crates/setup/src/monitoring.rs:349
 msgid "Stopped streaming to let it cool down."
 msgstr "Đã dừng truyền phát để máy nguội bớt."
 
-#: rust/crates/setup/src/monitoring.rs:338
+#: rust/crates/setup/src/monitoring.rs:349
 msgid "Consider stopping charging or closing other apps."
 msgstr "Cân nhắc ngắt sạc hoặc đóng các ứng dụng khác."
 
-#: rust/crates/setup/src/monitoring.rs:339
+#: rust/crates/setup/src/monitoring.rs:350
 msgid "Telescope - Phone Running Hot"
 msgstr "Telescope - Điện thoại đang quá nóng"
 
-#: rust/crates/setup/src/monitoring.rs:353
+#: rust/crates/setup/src/monitoring.rs:364
 #, python-brace-format
 msgid "The phone's battery is at {level}%"
 msgstr "Pin của điện thoại đang ở mức {level} %"
 
-#: rust/crates/setup/src/monitoring.rs:355
+#: rust/crates/setup/src/monitoring.rs:366
 #, python-brace-format
 msgid "{phone}'s battery is at {level}%"
 msgstr "Pin của {phone} đang ở mức {level} %"
 
-#: rust/crates/setup/src/monitoring.rs:357
+#: rust/crates/setup/src/monitoring.rs:368
 #, python-brace-format
 msgid "Streaming stopped, as Monitoring stops it at {level}% or lower."
 msgstr "Đã dừng truyền phát, vì tính năng Giám sát sẽ dừng khi pin ở mức {level} % hoặc thấp hơn."
 
-#: rust/crates/setup/src/monitoring.rs:361
+#: rust/crates/setup/src/monitoring.rs:372
 #, python-brace-format
 msgid "The phone is at {temp} °C"
 msgstr "Điện thoại đang ở mức {temp} °C"
 
-#: rust/crates/setup/src/monitoring.rs:363
+#: rust/crates/setup/src/monitoring.rs:374
 #, python-brace-format
 msgid "{phone} is at {temp} °C"
 msgstr "{phone} đang ở mức {temp} °C"
 
-#: rust/crates/setup/src/monitoring.rs:365
+#: rust/crates/setup/src/monitoring.rs:376
 #, python-brace-format
 msgid "Streaming stopped to let it cool down, as Monitoring stops it at {temp} °C."
 msgstr "Đã dừng truyền phát để máy nguội bớt, vì tính năng Giám sát sẽ dừng ở mức {temp} °C."
 
-#: rust/crates/setup/src/monitoring.rs:373
+#: rust/crates/setup/src/monitoring.rs:384
 msgid "Start anyway"
 msgstr "Vẫn bắt đầu"
 
-#: rust/crates/setup/src/monitoring.rs:440
+#: rust/crates/setup/src/monitoring.rs:446
 msgid "Monitoring"
 msgstr "Giám sát"
 
-#: rust/crates/setup/src/monitoring.rs:441
+#: rust/crates/setup/src/monitoring.rs:447
 msgid "The phone's battery and temperature, with warnings when they get low or high."
 msgstr "Pin và nhiệt độ của điện thoại, cùng cảnh báo khi mức pin thấp hoặc nhiệt độ cao."
 
-#: rust/crates/setup/src/monitoring.rs:442
+#: rust/crates/setup/src/monitoring.rs:448
 msgid "Without it there's no Phone card and nothing warns you about a low battery or a hot phone."
 msgstr "Nếu không có tiện ích này, sẽ không có thẻ Điện thoại và không có gì cảnh báo bạn khi pin yếu hoặc điện thoại quá nóng."
 
@@ -5482,47 +5546,43 @@ msgstr ""
 msgid "Round trip, jitter and clock offset"
 msgstr ""
 
-#: rust/crates/setup/ui/monitoring.slint:92 rust/crates/setup/ui/monitoring.slint:93
+#: rust/crates/setup/ui/monitoring.slint:17 rust/crates/setup/ui/monitoring.slint:18
 msgid "Notify me"
 msgstr "Thông báo cho tôi"
 
-#: rust/crates/setup/ui/monitoring.slint:102 rust/crates/setup/ui/monitoring.slint:103
+#: rust/crates/setup/ui/monitoring.slint:27 rust/crates/setup/ui/monitoring.slint:28
 msgid "Stop the stream"
 msgstr "Dừng truyền phát"
 
-#: rust/crates/setup/ui/monitoring.slint:148
-msgid "Warnings"
-msgstr "Cảnh báo"
-
-#: rust/crates/setup/ui/monitoring.slint:154
+#: rust/crates/setup/ui/monitoring.slint:73 rust/crates/setup/ui/monitoring.slint:78 rust/crates/setup/ui/monitoring.slint:103
 msgid "Battery under"
 msgstr "Pin dưới mức"
 
-#: rust/crates/setup/ui/monitoring.slint:155
+#: rust/crates/setup/ui/monitoring.slint:94
 msgid "Counts as low at this level, even while charging if it keeps dropping"
 msgstr "Được tính là yếu ở mức này, kể cả khi đang sạc nếu pin vẫn tiếp tục giảm"
 
-#: rust/crates/setup/ui/monitoring.slint:156
+#: rust/crates/setup/ui/monitoring.slint:104
 msgid "Show a notification when the battery runs low"
 msgstr "Hiển thị thông báo khi pin yếu"
 
-#: rust/crates/setup/ui/monitoring.slint:157
+#: rust/crates/setup/ui/monitoring.slint:105
 msgid "Stop the stream when the battery runs low, and at every restart until it's fine again"
 msgstr "Dừng truyền phát khi pin yếu và ở mỗi lần khởi động lại cho đến khi pin bình thường trở lại"
 
-#: rust/crates/setup/ui/monitoring.slint:170
+#: rust/crates/setup/ui/monitoring.slint:116 rust/crates/setup/ui/monitoring.slint:121 rust/crates/setup/ui/monitoring.slint:144
 msgid "Hotter than"
 msgstr "Nóng hơn"
 
-#: rust/crates/setup/ui/monitoring.slint:171
+#: rust/crates/setup/ui/monitoring.slint:135
 msgid "The temperature that counts as too hot"
 msgstr "Mức nhiệt độ được tính là quá nóng"
 
-#: rust/crates/setup/ui/monitoring.slint:172
+#: rust/crates/setup/ui/monitoring.slint:145
 msgid "Show a notification when the phone gets too hot"
 msgstr "Hiển thị thông báo khi điện thoại quá nóng"
 
-#: rust/crates/setup/ui/monitoring.slint:173
+#: rust/crates/setup/ui/monitoring.slint:146
 msgid "Stop the stream when the phone gets too hot, and at every restart until it's fine again"
 msgstr "Dừng truyền phát khi điện thoại quá nóng và ở mỗi lần khởi động lại cho đến khi máy nguội bớt"
 
@@ -5908,196 +5968,218 @@ msgstr "Kéo trên ảnh để đánh dấu một vùng. Nhấn Esc để hủy.
 msgid "Drag the corners into place, then press Enter. Esc cancels."
 msgstr "Kéo các góc vào đúng vị trí rồi nhấn Enter. Nhấn Esc để hủy."
 
-#: rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:384 rust/crates/shell/ui/cards/camera.slint:396
+#: rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:418 rust/crates/shell/ui/cards/camera.slint:436
 msgid "Fast"
 msgstr "Nhanh"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:19 rust/crates/shell/ui/cards/camera.slint:384 rust/crates/shell/ui/cards/camera.slint:396
-msgid "High Quality"
-msgstr "Chất lượng cao"
+#: rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:418 rust/crates/shell/ui/cards/camera.slint:436
+msgid "High quality"
+msgstr ""
 
-#: rust/crates/shell/src/plugins/camera_control.rs:20
+#: rust/crates/shell/src/plugins/camera_control.rs:22
 msgid "Brightens a dark room when exposure is automatic but can drop the frame rate as low as 10 fps."
 msgstr "Làm sáng phòng tối khi độ phơi sáng ở chế độ tự động nhưng có thể làm giảm tốc độ khung hình xuống mức 10 fps."
 
-#: rust/crates/shell/src/plugins/camera_control.rs:22
+#: rust/crates/shell/src/plugins/camera_control.rs:24
 msgid "Manual exposure"
 msgstr "Độ phơi sáng thủ công"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:23
+#: rust/crates/shell/src/plugins/camera_control.rs:25
 msgid "Manual WB"
 msgstr "Cân bằng trắng thủ công"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:24
+#: rust/crates/shell/src/plugins/camera_control.rs:26
 msgid "Manual focus"
 msgstr "Lấy nét thủ công"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:25
+#: rust/crates/shell/src/plugins/camera_control.rs:27
 msgid "Point focus"
 msgstr "Lấy nét điểm"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:30
+#: rust/crates/shell/src/plugins/camera_control.rs:32
 msgid "Legacy"
 msgstr "Đời cũ"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:30
+#: rust/crates/shell/src/plugins/camera_control.rs:32
 msgid "Limited"
 msgstr "Giới hạn"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:30
+#: rust/crates/shell/src/plugins/camera_control.rs:32
 msgid "Full"
 msgstr "Đầy đủ"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:30
+#: rust/crates/shell/src/plugins/camera_control.rs:32
 msgid "Level 3"
 msgstr "Cấp độ 3"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:30
+#: rust/crates/shell/src/plugins/camera_control.rs:32
 msgid "External"
 msgstr "Bên ngoài"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:53
+#: rust/crates/shell/src/plugins/camera_control.rs:55
 #, python-brace-format
 msgid "{n} m"
 msgstr "{n} m"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:63 rust/crates/system/src/startup.rs:58
+#: rust/crates/shell/src/plugins/camera_control.rs:65 rust/crates/shell/src/plugins/camera_control.rs:338 rust/crates/system/src/startup.rs:58
 #, python-brace-format
 msgid "{n} s"
 msgstr "{n} s"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:78
+#: rust/crates/shell/src/plugins/camera_control.rs:80
 #, python-brace-format
 msgid "{n} EV"
 msgstr "{n} EV"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:370 rust/crates/shell/src/plugins/camera_control.rs:398
+#: rust/crates/shell/src/plugins/camera_control.rs:415 rust/crates/shell/src/plugins/camera_control.rs:443
 msgid "Start streaming to load lenses"
 msgstr "Bắt đầu truyền phát để tải ống kính"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:376
+#: rust/crates/shell/src/plugins/camera_control.rs:421
 msgid "No cameras available"
 msgstr "Không có camera khả dụng"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:502 rust/crates/shell/src/plugins/camera_control.rs:830
+#: rust/crates/shell/src/plugins/camera_control.rs:547 rust/crates/shell/src/plugins/camera_control.rs:875
 msgid "Optical image stabilization"
 msgstr "Chống rung quang học"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:641
+#: rust/crates/shell/src/plugins/camera_control.rs:686
 msgid "Loading lenses..."
 msgstr "Đang tải ống kính..."
 
-#: rust/crates/shell/src/plugins/camera_control.rs:698
+#: rust/crates/shell/src/plugins/camera_control.rs:743
 msgid "Unavailable"
 msgstr "Không khả dụng"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:778
+#: rust/crates/shell/src/plugins/camera_control.rs:823
 msgid "Full manual control"
 msgstr "Điều khiển thủ công hoàn toàn"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:778
+#: rust/crates/shell/src/plugins/camera_control.rs:823
 msgid "Limited manual control"
 msgstr "Điều khiển thủ công giới hạn"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:781
+#: rust/crates/shell/src/plugins/camera_control.rs:826
 #, python-brace-format
 msgid "Camera level: {level}"
 msgstr "Cấp độ camera: {level}"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:784
+#: rust/crates/shell/src/plugins/camera_control.rs:829
 #, python-brace-format
 msgid "Supports: {features}"
 msgstr "Hỗ trợ: {features}"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:787
+#: rust/crates/shell/src/plugins/camera_control.rs:832
 #, python-brace-format
 msgid "Not supported: {features}"
 msgstr "Không hỗ trợ: {features}"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:797
+#: rust/crates/shell/src/plugins/camera_control.rs:842
 msgid "This lens has no manual exposure"
 msgstr "Ống kính này không có độ phơi sáng thủ công"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:806
+#: rust/crates/shell/src/plugins/camera_control.rs:851
 msgid "This lens has no manual white balance"
 msgstr "Ống kính này không có cân bằng trắng thủ công"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:821
+#: rust/crates/shell/src/plugins/camera_control.rs:866
 msgid "This lens has no manual focus"
 msgstr "Ống kính này không có lấy nét thủ công"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:827
+#: rust/crates/shell/src/plugins/camera_control.rs:872
 msgid "This lens has no flash to use as a torch"
 msgstr "Ống kính này không có đèn flash để dùng làm đèn pin"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:830
+#: rust/crates/shell/src/plugins/camera_control.rs:875
 msgid "This lens has no optical stabilization"
 msgstr "Ống kính này không có chống rung quang học"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:916
+#: rust/crates/shell/src/plugins/camera_control.rs:961
 msgid "Click the preview to focus there"
 msgstr "Nhấp vào hình xem trước để lấy nét tại đó"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:918
+#: rust/crates/shell/src/plugins/camera_control.rs:963
 msgid "This lens can't focus on a point"
 msgstr "Ống kính này không thể lấy nét điểm"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1242 rust/crates/shell/src/plugins/camera_control.rs:1599
+#: rust/crates/shell/src/plugins/camera_control.rs:1195
+msgid "This phone's app is too old for low light"
+msgstr ""
+
+#: rust/crates/shell/src/plugins/camera_control.rs:1197
+msgid "Start streaming to use low light"
+msgstr ""
+
+#: rust/crates/shell/src/plugins/camera_control.rs:1256
+#, python-brace-format
+msgid "Noise reduction: {mode}"
+msgstr ""
+
+#: rust/crates/shell/src/plugins/camera_control.rs:1257
+#, python-brace-format
+msgid "Sharpening: {mode}"
+msgstr ""
+
+#: rust/crates/shell/src/plugins/camera_control.rs:1301 rust/crates/shell/src/plugins/camera_control.rs:1649
 msgid "Lens"
 msgstr "Ống kính"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1248 rust/crates/shell/src/plugins/camera_control.rs:1600
+#: rust/crates/shell/src/plugins/camera_control.rs:1307 rust/crates/shell/src/plugins/camera_control.rs:1650
 msgid "Exposure mode"
 msgstr "Chế độ phơi sáng"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1250 rust/crates/shell/src/plugins/camera_control.rs:1605
+#: rust/crates/shell/src/plugins/camera_control.rs:1309 rust/crates/shell/src/plugins/camera_control.rs:1655
 msgid "White balance mode"
 msgstr "Chế độ cân bằng trắng"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1252 rust/crates/shell/src/plugins/camera_control.rs:1610
+#: rust/crates/shell/src/plugins/camera_control.rs:1311 rust/crates/shell/src/plugins/camera_control.rs:1660
 msgid "Focus mode"
 msgstr "Chế độ lấy nét"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:309
+#: rust/crates/shell/src/plugins/camera_control.rs:1312 rust/crates/shell/src/plugins/camera_control.rs:1636
 msgid "Tap a point"
 msgstr "Chạm vào một điểm"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1253 rust/crates/shell/src/plugins/camera_control.rs:1586 rust/crates/shell/ui/cards/camera.slint:309
+#: rust/crates/shell/src/plugins/camera_control.rs:1312 rust/crates/shell/src/plugins/camera_control.rs:1636 rust/crates/shell/ui/cards/camera.slint:326
 msgctxt "focus"
 msgid "Manual"
 msgstr "Tay"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1256 rust/crates/shell/src/plugins/camera_control.rs:1615 rust/crates/shell/ui/cards/camera.slint:391 rust/crates/shell/ui/cards/camera.slint:394
+#: rust/crates/shell/src/plugins/camera_control.rs:1315 rust/crates/shell/src/plugins/camera_control.rs:1665 rust/crates/shell/ui/cards/camera.slint:427 rust/crates/shell/ui/cards/camera.slint:435
 msgid "Sharpening"
 msgstr "Tăng độ nét"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1308 rust/crates/shell/src/plugins/camera_control.rs:1613 rust/crates/shell/ui/cards/camera.slint:341
+#: rust/crates/shell/src/plugins/camera_control.rs:1367 rust/crates/shell/src/plugins/camera_control.rs:1663 rust/crates/shell/ui/cards/camera.slint:364
 msgid "Stabilization"
 msgstr "Chống rung"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1309 rust/crates/shell/src/plugins/camera_control.rs:1616 rust/crates/shell/ui/cards/camera.slint:361
+#: rust/crates/shell/src/plugins/camera_control.rs:1368 rust/crates/shell/src/plugins/camera_control.rs:1666 rust/crates/shell/ui/cards/camera.slint:387
 msgid "Black level lock"
 msgstr "Khóa mức đen"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1310 rust/crates/shell/src/plugins/camera_control.rs:1617 rust/crates/shell/ui/cards/camera.slint:351
+#: rust/crates/shell/src/plugins/camera_control.rs:1369 rust/crates/shell/src/plugins/camera_control.rs:1667 rust/crates/shell/ui/cards/camera.slint:374
 msgid "Low light"
 msgstr "Thiếu sáng"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1311 rust/crates/shell/src/plugins/camera_control.rs:1618 rust/crates/shell/ui/cards/camera.slint:371
+#: rust/crates/shell/src/plugins/camera_control.rs:1370 rust/crates/shell/src/plugins/camera_control.rs:1668 rust/crates/shell/ui/cards/camera.slint:397
 msgid "Torch"
 msgstr "Đèn pin"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1357 rust/crates/shell/src/plugins/camera_control.rs:1603
+#: rust/crates/shell/src/plugins/camera_control.rs:1416 rust/crates/shell/src/plugins/camera_control.rs:1653
 msgid "Compensation"
 msgstr "Bù sáng"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1383 rust/crates/shell/src/plugins/camera_control.rs:1611
+#: rust/crates/shell/src/plugins/camera_control.rs:1442 rust/crates/shell/src/plugins/camera_control.rs:1661
 msgid "Focus distance"
 msgstr "Khoảng cách lấy nét"
 
 #: rust/crates/shell/src/plugins/onboarding.rs:18
 msgid "Install the v4l2loopback package. Fedora and Nobara: v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms."
 msgstr "Cài đặt gói v4l2loopback. Fedora và Nobara: v4l2loopback (từ RPM Fusion). Debian, Ubuntu và Arch: v4l2loopback-dkms."
+
+#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:459
+msgid "Checking…"
+msgstr "Đang kiểm tra…"
 
 #: rust/crates/shell/src/plugins/onboarding.rs:133
 msgid "Starting a stream may ask for your password to switch it on."
@@ -6855,17 +6937,9 @@ msgstr "Camera đang tạo ít khung hình hơn mức yêu cầu. Ánh sáng y�
 msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
 msgstr "Camera của điện thoại đang tạo ít khung hình hơn yêu cầu. Ánh sáng mờ làm chậm tốc độ."
 
-#: rust/crates/shell/src/streams.rs:924
-msgid "Reconnecting"
-msgstr "Đang kết nối lại"
-
 #: rust/crates/shell/src/streams.rs:926
 msgid "Live"
 msgstr "Trực tiếp"
-
-#: rust/crates/shell/src/streams.rs:928
-msgid "Connecting"
-msgstr "Đang kết nối"
 
 #: rust/crates/shell/src/streams.rs:938
 msgid "Starting"
@@ -7009,18 +7083,34 @@ msgstr "Lỗi camera ảo: {error}"
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Đang truyền phát {size} ở tốc độ {fps} fps tới {camera}"
 
-#: rust/crates/shell/ui/cards/camera.slint:178
-msgctxt "camera section"
-msgid "Light"
-msgstr "Ánh sáng"
+#: rust/crates/shell/ui/cards/camera.slint:214 rust/crates/shell/ui/cards/camera.slint:228
+msgid "Set Exposure to Manual to use this"
+msgstr ""
 
-#: rust/crates/shell/ui/cards/camera.slint:279 rust/crates/shell/ui/cards/camera.slint:282
-msgid "Tint G–M"
-msgstr "Sắc thái G–M"
+#: rust/crates/shell/ui/cards/camera.slint:291 rust/crates/shell/ui/cards/camera.slint:312
+msgid "Set White balance to Manual to use this"
+msgstr ""
 
-#: rust/crates/shell/ui/cards/camera.slint:317 rust/crates/shell/ui/cards/camera.slint:320
+#: rust/crates/shell/ui/cards/camera.slint:326
+msgctxt "focus tap"
+msgid "Tap"
+msgstr ""
+
+#: rust/crates/shell/ui/cards/camera.slint:338 rust/crates/shell/ui/cards/camera.slint:346
 msgid "Distance"
 msgstr "Khoảng cách"
+
+#: rust/crates/shell/ui/cards/camera.slint:347
+msgid "Set Focus to Manual to use this"
+msgstr ""
+
+#: rust/crates/shell/ui/cards/camera.slint:410
+msgid "Smooths out grain in the picture"
+msgstr ""
+
+#: rust/crates/shell/ui/cards/camera.slint:428
+msgid "Crisps up the edges in the picture"
+msgstr ""
 
 #: rust/crates/shell/ui/cards/onboarding.slint:92
 msgid "QR code that downloads the phone app"
@@ -8266,6 +8356,15 @@ msgstr ""
 msgid "The download contains unexpected paths, so it wasn't used."
 msgstr "Bản tải về chứa các đường dẫn bất thường, nên không được sử dụng."
 
+#: rust/crates/shell/src/plugins/camera_control.rs:19
+msgid "High Quality"
+msgstr "Chất lượng cao"
+
+#: rust/crates/effects/src/name_tag.rs:19
+msgctxt "camera section"
+msgid "Light"
+msgstr "Ánh sáng"
+
 #: rust/crates/system/src/keys.rs:33
 msgid "Undo"
 msgstr ""
@@ -8331,55 +8430,55 @@ msgstr "Đó không phải là thư mục trong thư mục tiện ích bổ sung
 msgid "Streaming from any device's web browser, by scanning a code."
 msgstr "Truyền phát từ trình duyệt web của bất kỳ thiết bị nào bằng cách quét mã."
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1434
+#: rust/crates/shell/src/plugins/camera_control.rs:1493
 msgid "Exposure, white balance, focus, lenses and the phone camera's other settings."
 msgstr "Độ phơi sáng, cân bằng trắng, lấy nét, ống kính và các cài đặt khác của camera điện thoại."
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1435
+#: rust/crates/shell/src/plugins/camera_control.rs:1494
 msgid "Without it there's no Camera card and the phone uses its own automatic settings."
 msgstr "Nếu không có tiện ích này, sẽ không có thẻ Camera và điện thoại sẽ sử dụng các cài đặt tự động của chính nó."
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1589
+#: rust/crates/shell/src/plugins/camera_control.rs:1639
 msgctxt "search"
 msgid "exposure manual"
 msgstr "độ phơi sáng thủ công exposure manual"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1591
+#: rust/crates/shell/src/plugins/camera_control.rs:1641
 msgctxt "search"
 msgid "exposure manual speed"
 msgstr "độ phơi sáng thủ công tốc độ màn trập exposure manual speed"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1603
+#: rust/crates/shell/src/plugins/camera_control.rs:1653
 msgctxt "search"
 msgid "exposure ev brightness"
 msgstr "độ phơi sáng ev độ sáng bù sáng exposure ev brightness"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1606
+#: rust/crates/shell/src/plugins/camera_control.rs:1656
 msgctxt "search"
 msgid "white balance wb kelvin"
 msgstr "cân bằng trắng wb kelvin nhiệt độ màu white balance wb kelvin"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1608
+#: rust/crates/shell/src/plugins/camera_control.rs:1658
 msgctxt "search"
 msgid "white balance wb green magenta"
 msgstr "cân bằng trắng wb sắc thái green magenta white balance wb green magenta"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1611
+#: rust/crates/shell/src/plugins/camera_control.rs:1661
 msgctxt "search"
 msgid "manual focus"
 msgstr "lấy nét thủ công manual focus"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1618
+#: rust/crates/shell/src/plugins/camera_control.rs:1668
 msgctxt "search"
 msgid "flash light"
 msgstr "đèn flash đèn pin ánh sáng flash light"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1615
+#: rust/crates/shell/src/plugins/camera_control.rs:1665
 msgctxt "search"
 msgid "edge"
 msgstr "độ nét đường viền tăng độ nét edge"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1617
+#: rust/crates/shell/src/plugins/camera_control.rs:1667
 msgctxt "search"
 msgid "dark night brightness"
 msgstr "thiếu sáng ban đêm độ sáng tối dark night brightness"
@@ -8389,7 +8488,7 @@ msgctxt "after a number"
 msgid "%"
 msgstr " %"
 
-#: rust/crates/setup/src/monitoring.rs:174
+#: rust/crates/setup/src/monitoring.rs:181
 msgctxt "after a number"
 msgid " °C"
 msgstr " °C"
@@ -8398,7 +8497,7 @@ msgstr " °C"
 msgid "Add your phone"
 msgstr "Thêm điện thoại của bạn"
 
-#: rust/crates/effects/src/photos.rs:814
+#: rust/crates/effects/src/photos.rs:798
 #, python-brace-format
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"
@@ -8584,6 +8683,28 @@ msgstr "Không thể mở"
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "Không thể khởi động lại"
+
+#~ msgid "Stretch the sheet sideways if it still looks squashed"
+#~ msgstr "Kéo giãn tờ giấy sang hai bên nếu trông vẫn bị ép ngang"
+
+#~ msgid "Stretch the sheet up and down if it still looks squashed"
+#~ msgstr "Kéo giãn tờ giấy lên xuống nếu trông vẫn bị ép dọc"
+
+#~ msgid "Best quality noise reduction and sharpening"
+#~ msgstr "Giảm nhiễu và tăng độ nét với chất lượng tốt nhất"
+
+#, python-brace-format
+#~ msgid "Waiting for {source}…"
+#~ msgstr "Đang chờ {source}…"
+
+#~ msgid "Reconnecting…"
+#~ msgstr "Đang kết nối lại…"
+
+#~ msgid "Warnings"
+#~ msgstr "Cảnh báo"
+
+#~ msgid "Tint G–M"
+#~ msgstr "Sắc thái G–M"
 
 #~ msgid "Stop drawing this preview. The camera output doesn't change."
 #~ msgstr "Ngừng hiển thị bản xem trước này. Đầu ra của camera không thay đổi."

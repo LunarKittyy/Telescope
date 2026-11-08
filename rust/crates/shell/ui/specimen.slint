@@ -246,6 +246,29 @@ export component Cell inherits Window {
                 enabled: !off;
             }
         }
+        if kind == "anchor-frame": HorizontalLayout {
+            alignment: start;
+            AnchorFrame {
+                width: Theme.u(70);
+                height: Theme.u(49);
+                label: "Position";
+                items: long ? ["Unten links", "Unten in der Mitte", "Unten rechts", "Oben links", "Oben rechts"] : ["Bottom left", "Bottom centre", "Bottom right", "Top left", "Top right"];
+                across: [0, 0.5, 1, 0, 1];
+                down: [1, 1, 1, 0, 0];
+                moves: [-1, 1, 3, -1, 0, 2, 3, -1, 1, -1, 4, -1, -1, 4, -1, 0, 3, -1, -1, 2];
+                current: 1;
+                hue: hue;
+                enabled: !off;
+            }
+        }
+        if kind == "text-area": TextArea {
+            height: Theme.u(50);
+            label: "Notes";
+            skeleton: empty;
+            placeholder: "Type or paste your notes.";
+            text: empty ? "" : long ? "Guten Morgen zusammen, danke, dass ihr heute dabei seid. Wir beginnen mit dem Plan für das Quartal." : "Good morning, everyone.";
+            enabled: !off;
+        }
         if kind == "rail": VerticalLayout {
             spacing: Theme.u(3);
             RailRow {
@@ -293,7 +316,7 @@ export component Heading inherits Window {
     }
 }
 
-import { ToggleTile, PictureSegmented, Pad, Dial, RailRow } from "@ui-kit/ui-kit.slint";
+import { ToggleTile, PictureSegmented, Pad, Dial, RailRow, AnchorFrame, TextArea } from "@ui-kit/ui-kit.slint";
 
 // A control with its tooltip held up, anchored where the case says
 component TipSample inherits Rectangle {

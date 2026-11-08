@@ -1,38 +1,41 @@
 // The Name tag card. Joined after parts.slint, which has the imports.
 
-// control_row with a one-line text box, and the tooltip the box has in Qt
-component TextRow inherits FormRow {
-    in-out property <string> text;
-    in property <string> tip;
-    callback edited(string);
-    Rectangle {
-        horizontal-stretch: 1;
-        TextField {
-            width: parent.width;
-            height: 32px;
-            label: root.label;
-            text <=> root.text;
-            tip: root.tip;
-            edited(t) => { root.edited(t); }
-        }
+// One of a style's looks drawn on its tile: the bar, the pill, the light box or plain text with a shadow
+component StyleLook inherits Rectangle {
+    in property <int> look;
+    in property <string> text;
+    in property <bool> on;
+    in property <bool> off;
+    property <color> back: look == 2 ? #f2f2f2 : #111111;
+    property <color> ink: look == 2 ? #111111 : #ffffff;
+    height: Theme.u(12);
+    border-radius: look == 1 ? self.height / 2 : Theme.u(2);
+    background: off ? Theme.dis : look == 3 ? transparent : back;
+    if look == 3 && !off: Text {
+        x: Theme.u(0.5);
+        y: Theme.u(0.5);
+        width: parent.width;
+        height: parent.height;
+        text: root.text;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        font-weight: Theme.w-value;
+        color: #000000;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
     }
-}
-
-// control_row with a combo box
-component ChoiceRow inherits FormRow {
-    in property <[string]> items;
-    in property <int> current;
-    callback picked(int);
-    Rectangle {
-        horizontal-stretch: 1;
-        ChoiceField {
-            width: parent.width;
-            compact: true;
-            caption: root.label;
-            items: root.items;
-            current: root.current;
-            picked(i) => { root.picked(i); }
-        }
+    Text {
+        width: parent.width;
+        height: parent.height;
+        text: root.text;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        font-weight: Theme.w-value;
+        color: off ? Theme.trough : ink;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
     }
 }
 
@@ -46,11 +49,16 @@ export component NameTagCard inherits Card {
     in property <string> pronouns-tip;
     in property <string> second-tip;
     in property <[string]> style-items: ["", "", "", ""];
-    in property <int> style-current: 0;
+    // A pick shows at once, whether or not the plugin says it back
+    in-out property <int> style-current: 0;
     in property <[string]> position-items: ["", "", "", "", ""];
-    in property <int> position-current: 0;
+    in-out property <int> position-current: 0;
     in property <[string]> size-items: ["", "", ""];
-    in property <int> size-current: 1;
+    in-out property <int> size-current: 1;
+    // What the plugin starts from, for the mark on a row that has moved off it
+    in property <int> style-default: 0;
+    in property <int> position-default: 0;
+    in property <int> size-default: 1;
     callback switch-toggled-by-hand(bool);
     callback text-edited(int, string);
     callback choice-picked(int, int);
@@ -64,39 +72,125 @@ export component NameTagCard inherits Card {
     switch-tip: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    TextRow {
+    RailRow {
+        icon: Icons.person;
         label: @tr("Name");
-        text <=> root.name;
-        edited(t) => { root.text-edited(0, t); }
+        hue: root.hue;
+        changed: name != "";
+        TextField {
+            label: @tr("Name");
+            placeholder: @tr("Name");
+            text <=> root.name;
+            edited(t) => { root.text-edited(0, t); }
+        }
     }
-    TextRow {
-        label: @tr("Pronouns");
-        tip: pronouns-tip;
-        text <=> root.pronouns;
-        edited(t) => { root.text-edited(1, t); }
+    RailRow {
+        icon: Icons.chat;
+        label: @tr("Pronouns and second line");
+        hue: root.hue;
+        changed: pronouns != "" || second != "";
+        HorizontalLayout {
+            spacing: Theme.gap;
+            TextField {
+                label: @tr("Pronouns");
+                placeholder: @tr("Pronouns");
+                tip: pronouns-tip;
+                text <=> root.pronouns;
+                edited(t) => { root.text-edited(1, t); }
+            }
+            TextField {
+                label: @tr("Second line");
+                placeholder: @tr("Second line");
+                tip: second-tip;
+                text <=> root.second;
+                edited(t) => { root.text-edited(2, t); }
+            }
+        }
     }
-    TextRow {
-        label: @tr("Second line");
-        tip: second-tip;
-        text <=> root.second;
-        edited(t) => { root.text-edited(2, t); }
+    RailRow {
+        icon: Icons.layout;
+        label: @tr("Position and style");
+        hue: root.hue;
+        changed: position-current != position-default || style-current != style-default;
+        HorizontalLayout {
+            spacing: Theme.gap;
+            AnchorFrame {
+                width: Theme.u(70);
+                label: @tr("Position");
+                items: position-items;
+                // Bottom left, bottom centre, bottom right, top left, top right
+                across: [0, 0.5, 1, 0, 1];
+                down: [1, 1, 1, 0, 0];
+                moves: [-1, 1, 3, -1, 0, 2, 3, -1, 1, -1, 4, -1, -1, 4, -1, 0, 3, -1, -1, 2];
+                hue: root.hue;
+                current: position-current;
+                picked(i) => {
+                    root.position-current = i;
+                    root.choice-picked(1, i);
+                }
+            }
+            VerticalLayout {
+                spacing: Theme.gap;
+                for r in 2: looks := PictureSegmented {
+                    label: @tr("Style");
+                    items: [style-items[r * 2], style-items[r * 2 + 1]];
+                    disabled: [false, false];
+                    hue: root.hue;
+                    tile-height: Theme.u(23);
+                    // Each row holds two of the four looks and shows the picked one only when it is its own
+                    current: style-current - r * 2;
+                    picked(i) => {
+                        root.style-current = r * 2 + i;
+                        root.choice-picked(0, r * 2 + i);
+                    }
+                    for i in 2: Rectangle {
+                        x: i * looks.pitch;
+                        width: looks.cell-width;
+                        height: looks.art-height;
+                        StyleLook {
+                            width: r * 2 + i == 0 ? parent.width - Theme.u(8) : Theme.u(30);
+                            x: (parent.width - self.width) / 2;
+                            y: (parent.height - self.height) / 2;
+                            look: r * 2 + i;
+                            text: style-items[r * 2 + i];
+                            on: looks.shown == i;
+                        }
+                    }
+                }
+            }
+        }
     }
-    ChoiceRow {
-        label: @tr("Style");
-        items: style-items;
-        current: style-current;
-        picked(i) => { root.choice-picked(0, i); }
-    }
-    ChoiceRow {
-        label: @tr("Position");
-        items: position-items;
-        current: position-current;
-        picked(i) => { root.choice-picked(1, i); }
-    }
-    ChoiceRow {
+    RailRow {
+        icon: Icons.text-size;
         label: @tr("Size");
-        items: size-items;
-        current: size-current;
-        picked(i) => { root.choice-picked(2, i); }
+        hue: root.hue;
+        changed: size-current != size-default;
+        sizes := PictureSegmented {
+            label: @tr("Size");
+            items: size-items;
+            disabled: [false, false, false];
+            tips: size-items;
+            hue: root.hue;
+            tile-height: Theme.tile;
+            current: size-current;
+            picked(i) => {
+                root.size-current = i;
+                root.choice-picked(2, i);
+            }
+            for i in 3: Text {
+                x: i * sizes.pitch;
+                width: sizes.cell-width;
+                height: sizes.art-height;
+                text: "Aa";
+                font-family: Theme.font;
+                font-size: i == 0 ? Theme.small : i == 1 ? Theme.card-title : Theme.body * 2;
+                font-weight: Theme.w-value;
+                color: sizes.shown == i ? Theme.ink : Theme.ink2;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
     }
 }
+
+import { RailRow, PictureSegmented, AnchorFrame } from "@ui-kit/ui-kit.slint";

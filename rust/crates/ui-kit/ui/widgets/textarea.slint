@@ -1,0 +1,92 @@
+// Several lines of text that wrap, in a recessed box.
+
+import { Theme } from "../theme.slint";
+import { Reveal } from "folds.slint";
+import { Tip } from "tip.slint";
+
+// Kind "field", the many-line one: a recessed box (the `trough` surface, the thick accent outline while it has the focus) that wraps
+// its text and scrolls to keep the cursor in sight. Empty, it shows skeleton lines the shape of text instead of a sentence
+// (`skeleton`) or the `placeholder` where a card has one; the placeholder is also what a screen reader hears, and `tip` is the tooltip.
+export component TextArea inherits Rectangle {
+    in-out property <string> text;
+    in property <string> placeholder;
+    in property <string> label;
+    in property <bool> enabled: true;
+    // An empty box draws dim lines of text in place of the placeholder
+    in property <bool> skeleton;
+    in property <string> tip;
+    in property <string> tip-detail;
+    out property <bool> has-focus: input.has-focus;
+    out property <string> control-kind: "field";
+    callback edited(string);
+    min-height: Theme.u(48);
+    preferred-height: Theme.u(64);
+    vertical-stretch: 1;
+    border-radius: Theme.r-ctl;
+    border-width: input.has-focus && enabled ? Theme.stroke : 0px;
+    border-color: Theme.accent;
+    background: !enabled ? Theme.trough.mix(Theme.card, 0.4) : Theme.trough;
+    forward-focus: input;
+    accessible-role: text-input;
+    accessible-label: label;
+    accessible-value: text;
+    accessible-placeholder-text: placeholder;
+    flick := Flickable {
+        x: Theme.stroke;
+        y: Theme.stroke;
+        width: parent.width - 2 * Theme.stroke;
+        height: parent.height - 2 * Theme.stroke;
+        viewport-height: max(self.height, input.preferred-height + Theme.u(7));
+        touch := TouchArea {
+            width: flick.viewport-width;
+            height: flick.viewport-height;
+            mouse-cursor: MouseCursor.text;
+            clicked => { input.focus(); }
+        }
+        if text == "" && !skeleton && placeholder != "": Text {
+            x: Theme.u(5);
+            y: Theme.u(3.5);
+            width: flick.width - Theme.u(10);
+            text: placeholder;
+            wrap: word-wrap;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: enabled ? Theme.faint : Theme.dis;
+            accessible-role: none;
+        }
+        if text == "" && skeleton: VerticalLayout {
+            x: Theme.u(5);
+            y: Theme.u(5);
+            width: flick.width - Theme.u(10);
+            spacing: Theme.u(3);
+            for share in [0.8, 0.55, 0.7, 0.3]: Rectangle {
+                width: parent.width * share;
+                height: Theme.u(3);
+                border-radius: self.height / 2;
+                background: enabled ? Theme.raise : Theme.card;
+            }
+        }
+        input := TextInput {
+            x: Theme.u(5);
+            y: Theme.u(3.5);
+            width: flick.width - Theme.u(10);
+            text <=> root.text;
+            single-line: false;
+            accessible-role: none;
+            wrap: word-wrap;
+            enabled: root.enabled;
+            changed has-focus => { if (self.has-focus) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: enabled ? Theme.ink : Theme.dis;
+            selection-background-color: Theme.fill;
+            selection-foreground-color: white;
+            edited => { root.edited(self.text); }
+            cursor-position-changed(p) => {
+                if (p.y + flick.viewport-y < 0) { flick.viewport-y = -p.y; }
+                else if (p.y + Theme.u(11) + flick.viewport-y > flick.height - Theme.u(3.5)) { flick.viewport-y = -(p.y + Theme.u(11) - flick.height + Theme.u(3.5)); }
+            }
+        }
+    }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hover: touch.has-hover; inert: !root.enabled; }
+}

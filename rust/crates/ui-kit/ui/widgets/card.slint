@@ -327,13 +327,14 @@ export component RailRow inherits HorizontalLayout {
             width: Theme.icon;
             height: Theme.icon;
         }
-        if has-icon && changed && Theme.mark-dot && enabled: Rectangle {
+        if has-icon && changed && Theme.mark-dot: Rectangle {
             x: Theme.u(0.5) + Theme.icon - Theme.u(1.5);
-            y: (parent.height - Theme.icon) / 2 - Theme.u(0.5);
-            width: Theme.u(3);
-            height: Theme.u(3);
-            border-radius: Theme.u(1.5);
-            background: hue;
+            y: (parent.height - Theme.icon) / 2 - Theme.u(1);
+            width: Theme.u(3.5);
+            height: Theme.u(3.5);
+            border-radius: self.height / 2;
+            background: enabled ? hue : Theme.dis;
+            accessible-role: none;
         }
         if has-icon && label != "": SettingMark { width: parent.width; height: parent.height; name: label; keywords: keywords; }
         if has-icon && label != "": Rectangle {

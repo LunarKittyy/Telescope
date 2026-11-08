@@ -19,14 +19,15 @@ export component DeskCard inherits Card {
     in property <int> clean-current;
     in property <string> clean-tip;
     in property <[string]> shape-items: ["", "", "", "", ""];
+    in property <[string]> shape-tips: ["", "", "", "", ""];
     in property <int> shape-current;
-    in property <string> shape-tip;
     // Filling the picture leaves nothing to stretch
     in property <bool> stretch-enabled: true;
     in property <[float]> stretch: [100, 100];
     in property <[string]> stretch-text: ["100%", "100%"];
-    in property <[string]> stretch-tips: ["", ""];
-    in property <string> reset-hint;
+    in property <string> stretch-tip;
+    // Why the sheet can't be stretched now
+    in property <string> stretch-off-tip;
     in property <string> status;
     in property <string> status-kind: "status_dim";
     callback switch-toggled-by-hand(bool);
@@ -50,15 +51,146 @@ export component DeskCard inherits Card {
     switch-tip: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    FormRow {
+    RailRow {
+        icon: Icons.sheet;
         label: @tr("Sheet");
+        hue: root.hue;
+        enabled: active;
         HorizontalLayout {
-            spacing: 8px;
-            if !picking: Button { horizontal-stretch: 1; preferred-width: 1000px; enabled: active; text: mark-text; tip: mark-tip; shortcut: "desk.mark"; clicked => { root.mark-clicked(); } }
-            if picking: Button { horizontal-stretch: 1; preferred-width: 1000px; text: done-text; clicked => { root.done-clicked(); } }
+            spacing: Theme.gap;
+            if !picking: Button {
+                horizontal-stretch: 1;
+                preferred-width: 1000px;
+                enabled: active;
+                has-icon: true;
+                icon: Icons.corners;
+                text: mark-text;
+                tip: mark-tip;
+                shortcut: "desk.mark";
+                clicked => { root.mark-clicked(); }
+            }
+            if picking: Button { horizontal-stretch: 1; preferred-width: 1000px; role: "primary"; text: done-text; clicked => { root.done-clicked(); } }
             if picking: Button { horizontal-stretch: 1; preferred-width: 1000px; text: cancel-text; clicked => { root.cancel-clicked(); } }
-            // Always there, so the Mark button keeps its width
+        }
+    }
+    RailRow {
+        icon: Icons.contrast;
+        label: @tr("Writing");
+        tip: clean-tip;
+        hue: root.hue;
+        enabled: active;
+        changed: clean-current != 0;
+        swatches := PictureSegmented {
+            label: @tr("Writing");
+            items: clean-items;
+            disabled: [!active, !active, !active];
+            shortcut: "desk.writing";
+            hue: root.hue;
+            tile-height: Theme.tile;
+            current: clean-current;
+            picked(i) => { root.clean-picked(i); }
+            for i in 3: Rectangle {
+                x: i * swatches.pitch + (swatches.cell-width - self.width) / 2;
+                y: (swatches.art-height - self.height) / 2;
+                width: Theme.u(24);
+                height: Theme.u(13);
+                border-radius: Theme.u(2);
+                background: !active ? Theme.dis : i == 0 ? #d6d3ca : i == 1 ? #ffffff : #c4c4c4;
+                // A scribble on the paper: black ink on the white and the grey, bluish on the cream
+                Path {
+                    x: Theme.u(3);
+                    y: Theme.u(3);
+                    width: parent.width - Theme.u(6);
+                    height: parent.height - Theme.u(6);
+                    viewbox-width: 36;
+                    viewbox-height: 14;
+                    commands: "M 0 7 C 4 0 8 14 12 7 S 20 0 24 7 S 32 14 36 7";
+                    stroke: !active ? Theme.trough : i == 1 ? #111111 : #4a5568;
+                    stroke-width: 1.5px;
+                    fill: transparent;
+                }
+            }
+        }
+    }
+    RailRow {
+        icon: Icons.corners;
+        label: @tr("Shape");
+        hue: root.hue;
+        enabled: active;
+        changed: shape-current != 0;
+        shapes := PictureSegmented {
+            label: @tr("Shape");
+            items: shape-items;
+            tips: shape-tips;
+            disabled: [!active, !active, !active, !active, !active];
+            shortcut: "desk.shape";
+            hue: root.hue;
+            show-names: true;
+            tile-height: Theme.u(24);
+            current: shape-current;
+            picked(i) => { root.shape-picked(i); }
+            for i in 5: Path {
+                property <length> w: i == 0 ? Theme.u(10) : i == 1 ? Theme.u(7) : i == 2 ? Theme.u(8) : i == 3 ? Theme.u(10) : Theme.u(13);
+                property <length> h: i == 4 ? Theme.u(8) : Theme.u(10);
+                x: i * shapes.pitch + (shapes.cell-width - w) / 2;
+                y: (shapes.art-height - h) / 2 - Theme.u(1);
+                width: w;
+                height: h;
+                viewbox-width: w / 1px;
+                viewbox-height: h / 1px;
+                // Auto is an outline of a page found by its corners, the rest are the page's own shape
+                commands: i == 0 ? "M 1 " + (h / 1px - 1) + " L " + (w / 2 / 1px) + " 1 L " + (w / 1px - 1) + " " + (h / 1px - 1) + " Z"
+                    : "M 1 1 L " + (w / 1px - 1) + " 1 L " + (w / 1px - 1) + " " + (h / 1px - 1) + " L 1 " + (h / 1px - 1) + " Z";
+                stroke: !active ? Theme.dis : shapes.shown == i ? Theme.ink : Theme.ink2;
+                stroke-width: 1.5px;
+                fill: transparent;
+            }
+        }
+    }
+    RailRow {
+        icon: Icons.stretch;
+        label: @tr("Width and height");
+        hue: root.hue;
+        enabled: active && stretch-enabled;
+        changed: stretch[0] != 100 || stretch[1] != 100;
+        sheet-pad := Pad {
+            label: @tr("Width and height");
+            tip: stretch-enabled ? stretch-tip : stretch-off-tip;
+            enabled: active && stretch-enabled;
+            x-minimum: 50;
+            x-maximum: 200;
+            y-minimum: 50;
+            y-maximum: 200;
+            value-x: stretch[0];
+            value-y: stretch[1];
+            centre-x: 100;
+            centre-y: 100;
+            has-default: true;
+            default-x: 100;
+            default-y: 100;
+            hue: root.hue;
+            readout-top-left: true;
+            readout: @tr("W") + " " + stretch-text[0] + "  " + @tr("H") + " " + stretch-text[1];
+            moved(x, y) => {
+                root.stretch-moved(0, x);
+                root.stretch-moved(1, y);
+            }
+            // The sheet, from the pad's top left corner to the handle
+            Path {
+                x: Theme.u(6);
+                y: Theme.u(6);
+                width: max(1px, sheet-pad.handle-x - Theme.u(6));
+                height: max(1px, sheet-pad.handle-y - Theme.u(6));
+                viewbox-width: self.width / 1px;
+                viewbox-height: self.height / 1px;
+                commands: "M 1 1 L " + (self.width / 1px - 1) + " 1 L " + (self.width / 1px - 1) + " " + (self.height / 1px - 1) + " L 1 " + (self.height / 1px - 1) + " Z";
+                stroke: sheet-pad.enabled ? root.hue : Theme.dis;
+                stroke-width: 2px;
+                fill: sheet-pad.enabled ? Theme.tint(root.hue) : transparent;
+            }
             IconButton {
+                x: parent.width - self.width - Theme.u(3);
+                y: Theme.u(3);
                 enabled: active && reset-shown && !picking;
                 icon: Icons.reset;
                 label: reset-text;
@@ -67,71 +199,9 @@ export component DeskCard inherits Card {
             }
         }
     }
-    FormRow {
-        label: @tr("Writing");
-        Rectangle {
-            horizontal-stretch: 1;
-            ChoiceField {
-                enabled: active;
-                width: parent.width;
-                compact: true;
-                caption: @tr("Writing");
-                items: clean-items;
-                current: clean-current;
-                tip: root.clean-tip;
-                shortcut: "desk.writing";
-                picked(i) => { root.clean-picked(i); }
-            }
-        }
-    }
-    FormRow {
-        label: @tr("Shape");
-        Rectangle {
-            horizontal-stretch: 1;
-            ChoiceField {
-                enabled: active;
-                width: parent.width;
-                compact: true;
-                caption: @tr("Shape");
-                items: shape-items;
-                current: shape-current;
-                tip: root.shape-tip;
-                shortcut: "desk.shape";
-                picked(i) => { root.shape-picked(i); }
-            }
-        }
-    }
-    SliderRow {
-        label: @tr("Width");
-        enabled: active && (stretch-enabled);
-        tip: stretch-tips[0];
-        hint: reset-hint;
-        minimum: 50;
-        maximum: 200;
-        value: stretch[0];
-        readout: stretch-text[0];
-        hue: root.hue;
-        has-default: true;
-        default-value: 100;
-        marks: [100];
-        moved(v) => { root.stretch-moved(0, v); }
-    }
-    SliderRow {
-        label: @tr("Height");
-        enabled: active && (stretch-enabled);
-        tip: stretch-tips[1];
-        hint: reset-hint;
-        minimum: 50;
-        maximum: 200;
-        value: stretch[1];
-        readout: stretch-text[1];
-        hue: root.hue;
-        has-default: true;
-        default-value: 100;
-        marks: [100];
-        moved(v) => { root.stretch-moved(1, v); }
-    }
     if status != "": Note { text: status; kind: status-kind; }
     // Nothing to touch until a phone is paired
     blocked: !active;
 }
+
+import { RailRow, PictureSegmented, Pad } from "@ui-kit/ui-kit.slint";

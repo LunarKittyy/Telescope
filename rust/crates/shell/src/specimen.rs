@@ -67,7 +67,9 @@ const KINDS: &[Kind] = &[
     Kind { name: "pad-sheet", label: "pad (sheet)", height: 208.0, at: (0.55, 0.41), states: &["rest", "hover", "focus", "held", "off", "long"] },
     Kind { name: "dial", label: "dial", height: 72.0, at: (0.25, 0.5), states: &["rest", "hover", "focus", "held", "off", "empty", "long"] },
     Kind { name: "threshold", label: "slider (threshold)", height: 100.0, at: (0.5, 0.25), states: &["rest", "hover", "focus", "held", "off", "empty", "long"] },
-    Kind { name: "rail", label: "icon rail", height: 132.0, at: (0.5, 0.17), states: &["rest", "hover", "off", "long"] },
+    Kind { name: "rail", label: "icon rail", height: 132.0, at: (0.5, 0.17), states: &["rest", "on", "hover", "off", "long"] },
+    Kind { name: "anchor-frame", label: "anchor frame", height: 130.0, at: (0.34, 0.75), states: &["rest", "hover", "focus", "held", "off", "long"] },
+    Kind { name: "text-area", label: "text area", height: 130.0, at: (0.5, 0.5), states: &["rest", "hover", "focus", "off", "empty", "long"] },
 ];
 
 const CELL_WIDTH: f32 = 300.0;

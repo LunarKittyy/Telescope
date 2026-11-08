@@ -1,41 +1,5 @@
 // The Auto framing card. Joined after parts.slint and vision_status.slint.
 
-// control_row with slider_row: a slider that stays where the plugin puts it after a drag, and a readout in the card's shared column
-component FramingRow inherits FormRow {
-    in property <string> tip;
-    in property <string> hint;
-    in property <float> minimum;
-    in property <float> maximum;
-    in-out property <float> value;
-    in property <float> default-value;
-    in property <string> readout;
-    in property <color> hue;
-    in property <length> readout-width;
-    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
-    in property <string> shortcut;
-    callback moved(float);
-    Rectangle {
-        horizontal-stretch: 1;
-        Slider {
-            tip: root.tip + "\n" + root.hint;
-            shortcut: root.shortcut;
-            width: parent.width;
-            height: parent.height;
-            hue: root.hue;
-            enabled: root.enabled;
-            label: root.label;
-            minimum: root.minimum;
-            maximum: root.maximum;
-            value <=> root.value;
-            readout: root.readout;
-            readout-width: root.readout-width;
-            has-default: true;
-            default-value: root.default-value;
-            moved(v) => { root.moved(v); }
-        }
-    }
-}
-
 export component FramingCard inherits Card {
     // Greyed out until a phone is paired
     in property <bool> active: true;
@@ -77,31 +41,43 @@ export component FramingCard inherits Card {
     switch-tip: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    property <length> column: max(56px, ceil(widest.preferred-width / 1px) * 1px + 2px);
+    property <length> column: max(Theme.u(28), ceil(widest.preferred-width / 1px) * 1px + 2px);
 
     Rectangle {
-        height: 36px;
-        FramingRow {
+        height: Theme.row;
+        RailRow {
             width: parent.width;
             height: parent.height;
-            enabled: active;
+            icon: Icons.framing;
             label: @tr("Framing");
-            minimum: 0;
-            maximum: 30;
-            value <=> root.framing;
-            default-value: 10;
-            readout: framing-text;
-            readout-width: column;
-            tip: framing-tip;
-            shortcut: "framing.framing";
-            hint: reset-hint;
             hue: root.hue;
-            moved(v) => { root.framing-moved(v); }
+            enabled: active;
+            changed: framing != 10;
+            Slider {
+                enabled: active;
+                label: @tr("Framing");
+                tip: framing-tip;
+                tip-detail: reset-hint;
+                shortcut: "framing.framing";
+                hue: root.hue;
+                minimum: 0;
+                maximum: 30;
+                // Head, chest, waist and the whole body
+                marks: [0, 10, 20, 30];
+                value <=> root.framing;
+                readout: framing-text;
+                readout-width: column;
+                has-default: true;
+                default-value: 10;
+                moved(v) => { root.framing-moved(v); }
+            }
         }
         // Measures the widest word, out of the card's layout
         widest := Text {
             x: 0px;
             y: 0px;
+            width: 0px;
+            height: 0px;
             opacity: 0;
             text: fits;
             font-family: Theme.font;
@@ -110,62 +86,68 @@ export component FramingCard inherits Card {
             accessible-role: none;
         }
     }
-    FramingRow {
-        enabled: active;
+    RailRow {
+        icon: Icons.gauge;
         label: @tr("Speed");
-        minimum: 1;
-        maximum: 10;
-        value <=> root.speed;
-        default-value: 5;
-        readout: speed-text;
-        readout-width: column;
-        tip: speed-tip;
-        shortcut: "framing.speed";
-        hint: reset-hint;
         hue: root.hue;
-        moved(v) => { root.speed-moved(v); }
-    }
-    FramingRow {
         enabled: active;
-        label: @tr("Room to move");
-        minimum: 0;
-        maximum: 5;
-        value <=> root.room;
-        default-value: 2;
-        readout: room-text;
-        readout-width: column;
-        tip: room-tip;
-        hint: reset-hint;
-        hue: root.hue;
-        moved(v) => { root.room-moved(v); }
-    }
-    // Switch("Widen for something in your hand"): the text on the left, the track at the right end, the whole row toggling it
-    HorizontalLayout {
-        height: 32px;
-        spacing: 12px;
-        Text {
-            text: @tr("Widen for something in your hand");
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: active ? Theme.text : Theme.text-disabled;
-            vertical-alignment: center;
-            horizontal-stretch: 1;
-            accessible-role: none;
-            TouchArea {
-                mouse-cursor: MouseCursor.pointer;
-                clicked => {
-                    root.hand = !root.hand;
-                    root.hand-toggled(root.hand);
-                }
-            }
+        changed: speed != 5;
+        Slider {
+            enabled: active;
+            label: @tr("Speed");
+            tip: speed-tip;
+            tip-detail: reset-hint;
+            shortcut: "framing.speed";
+            hue: root.hue;
+            minimum: 1;
+            maximum: 10;
+            value <=> root.speed;
+            readout: speed-text;
+            readout-width: column;
+            has-default: true;
+            default-value: 5;
+            moved(v) => { root.speed-moved(v); }
         }
-        Switch {
+    }
+    RailRow {
+        icon: Icons.room;
+        label: @tr("Room to move");
+        hue: root.hue;
+        enabled: active;
+        changed: room != 2;
+        Slider {
+            enabled: active;
+            label: @tr("Room to move");
+            tip: room-tip;
+            tip-detail: reset-hint;
+            hue: root.hue;
+            minimum: 0;
+            maximum: 5;
+            value <=> root.room;
+            readout: room-text;
+            readout-width: column;
+            has-default: true;
+            default-value: 2;
+            moved(v) => { root.room-moved(v); }
+        }
+    }
+    RailRow {
+        icon: Icons.hand;
+        label: hand-name;
+        hue: root.hue;
+        enabled: active;
+        changed: hand;
+        ToggleTile {
+            text: @tr("Things in hand");
+            name: hand-name;
+            tip: hand-name;
             hue: root.hue;
             enabled: active;
-            y: (parent.height - self.height) / 2;
-            checked <=> root.hand;
-            label: hand-name;
-            toggled(v) => { root.hand-toggled(v); }
+            checked: root.hand;
+            toggled(v) => {
+                root.hand = v;
+                root.hand-toggled(v);
+            }
         }
     }
     if vision-text != "": VisionStatus {
@@ -176,3 +158,5 @@ export component FramingCard inherits Card {
     // Nothing to touch until a phone is paired
     blocked: !active;
 }
+
+import { RailRow, ToggleTile } from "@ui-kit/ui-kit.slint";
