@@ -1,7 +1,7 @@
 // The settings window (widgets/settings_window.py) and its Plugins tab (widgets/plugins_panel.py). The window itself
 // is written at startup by doc.rs, with every plugin's settings sections placed on their tabs.
 
-import { Theme, Icons, Icon, FocusRing, Button, IconButton, LinkText, Switch, SearchWords, SettingRow, TextField, Tip, TipBody, ColumnScrollbar } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, Button, IconButton, LinkText, Switch, Segmented, Worm, SearchWords, SettingRow, TextField, Tip, TipBody, ColumnScrollbar } from "@ui-kit/ui-kit.slint";
 
 export struct NavTab {
     id: string,
@@ -84,15 +84,17 @@ component NavItem inherits Rectangle {
         y: 1px;
         height: parent.height - 2px;
         border-radius: 7px;
-        background: selected ? Theme.fill : touch.has-hover ? Theme.surface-hover : transparent;
-        Icon { x: 13px; source: tab.icon; tint: selected ? white : Theme.text-dim; width: 16px; height: 16px; accessible-role: none; }
+        // The picked tab's own look is the worm's, which the column draws under the rows
+        background: !selected && touch.has-hover ? Theme.surface-hover : transparent;
+        Icon { x: 13px; source: tab.icon; tint: selected ? Theme.text : Theme.text-dim; width: 16px; height: 16px; accessible-role: none; }
         Text {
             x: 35px;
             width: parent.width - 45px;
             text: tab.name;
             font-family: Theme.font;
             font-size: Theme.body;
-            color: selected ? white : Theme.text-dim;
+            color: selected ? Theme.text : Theme.text-dim;
+            font-weight: selected ? 600 : 400;
             vertical-alignment: center;
             overflow: elide;
         }
@@ -140,6 +142,21 @@ export component SettingsNav inherits Rectangle {
                 if (root.range <= 0px) { return reject; }
                 offset = clamp(min(offset, range) - e.delta-y, 0px, range);
                 accept
+            }
+        }
+        // The picked tab's outline, in the rows' own scroll so scrolling doesn't make it lag
+        Rectangle {
+            y: -min(root.offset, root.range);
+            width: parent.width;
+            height: root.content;
+            Worm {
+                to-x: 0px;
+                to-y: 4px + current * 38px + 1px;
+                to-w: parent.width;
+                to-h: 36px;
+                radius: 7px;
+                hue: Theme.accent;
+                shown: current >= 0 && current < tabs.length;
             }
         }
         VerticalLayout {
@@ -437,35 +454,17 @@ export component PluginsPanel inherits VerticalLayout {
             clearable: true;
             edited => { root.filter-changed(); }
         }
-        Rectangle {
+        // The kit's Segmented: the picked one wears the worm, like every one-of choice
+        Segmented {
             width: 178px;
-            border-radius: 8px;
-            border-width: 1px;
-            background: Theme.surface-raise;
-            border-color: Theme.border;
-            accessible-role: tab-list;
-            HorizontalLayout {
-                padding: 3px;
-                spacing: 2px;
-                for label[i] in [@tr("plugins" => "All"), @tr("plugins" => "On"), @tr("plugins" => "Off")]: Rectangle {
-                    border-radius: 6px;
-                    background: i == filter ? (seg.has-hover ? Theme.fill-hover : Theme.fill) : seg.has-hover ? Theme.surface-hover : transparent;
-                    accessible-role: tab;
-                    accessible-label: filter-names[i];
-                    accessible-checked: i == filter;
-                    accessible-action-default => { filter = i; root.filter-changed(); }
-                    seg := TouchArea { clicked => { filter = i; root.filter-changed(); } }
-                    Text {
-                        text: label;
-                        font-family: Theme.font;
-                        font-size: Theme.body;
-                        font-weight: i == filter ? 600 : 400;
-                        color: i == filter ? white : seg.has-hover ? Theme.text : Theme.text-dim;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-                }
-            }
+            horizontal-stretch: 0;
+            items: [@tr("plugins" => "All"), @tr("plugins" => "On"), @tr("plugins" => "Off")];
+            disabled: [false, false, false];
+            has-icons: [false, false, false];
+            icons: [Icons.search, Icons.search, Icons.search];
+            label: @tr("Show");
+            current: filter;
+            picked(i) => { filter = i; root.filter-changed(); }
         }
     }
     VerticalLayout {

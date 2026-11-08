@@ -91,7 +91,7 @@ const OWN_CONTROLS: &[(&str, usize, usize)] = &[
     ("shell/ui/cards/preview.slint", 2, 1),
     ("shell/ui/frame.slint", 1, 1),
     ("shell/ui/preview.slint", 2, 1),
-    ("shell/ui/settings.slint", 5, 7),
+    ("shell/ui/settings.slint", 4, 6),
     ("system/ui/mcp.slint", 2, 1),
     ("system/ui/shortcuts.slint", 3, 2),
     ("system/ui/updates.slint", 0, 1),
