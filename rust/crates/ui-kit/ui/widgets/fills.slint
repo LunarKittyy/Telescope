@@ -17,6 +17,7 @@ export global Fills {
     // The track's colour at stop i of 0 to 4, evenly spaced. "gradient" runs ga, gb, gc.
     public pure function stop(kind: string, i: int, ga: color, gb: color, gc: color) -> color {
         kind == "gradient" ? (i == 0 ? ga : i == 1 ? ga.mix(gb, 0.5) : i == 2 ? gb : i == 3 ? gb.mix(gc, 0.5) : gc)
+            : kind == "tolerance" || kind == "spill" ? ga.mix(gb, i / 4)
             : kind == "vibrance" ? vivid(i)
             : grey(low(kind) + (high(kind) - low(kind)) * i / 4)
     }
@@ -25,9 +26,9 @@ export global Fills {
         stop(kind, min(3, floor(clamp(fraction, 0, 1) * 4)), ga, gb, gc).mix(stop(kind, min(3, floor(clamp(fraction, 0, 1) * 4)) + 1, ga, gb, gc), 1 - (clamp(fraction, 0, 1) * 4 - min(3, floor(clamp(fraction, 0, 1) * 4))))
     }
     // True where the handle takes the colour under it; a grey ramp keeps the card's colour, since black or white would vanish
-    public pure function colours-handle(kind: string) -> bool { kind == "gradient" || kind == "vibrance" }
-    // The fills that are a ramp of stops: everything but plain and the zebra
-    public pure function is-ramp(kind: string) -> bool { kind != "plain" && kind != "contrast" }
+    public pure function colours-handle(kind: string) -> bool { kind == "gradient" || kind == "vibrance" || kind == "tolerance" || kind == "spill" }
+    // The fills that are a ramp of stops: everything but plain, the zebra and the edge
+    public pure function is-ramp(kind: string) -> bool { !(kind == "plain" || kind == "contrast" || kind == "edges") }
     // The zebra's flat grey, before its stripes come in
     out property <color> zebra-grey: #808080;
 }
@@ -96,5 +97,38 @@ export component ZebraFill inherits Rectangle {
         width: r * 2;
         border-radius: r;
         background: #ffffff;
+    }
+}
+
+// Edges: the first colour on the left and the second on the right, with a step between them that is hard at the track's start and
+// spreads out to the whole track at its end, so the handle's place is how soft the edge is
+export component EdgeFill inherits Rectangle {
+    out property <string> control-kind: "slider";
+    in property <color> ga;
+    in property <color> gb;
+    // 0 to 1: how much of the track the step spreads over
+    in property <float> softness;
+    property <length> r: self.height / 2;
+    // The step's two ends along the strip between the caps, as a share of it
+    property <length> strip: max(1px, self.width - r * 2);
+    property <length> span: max(1px, softness * self.width);
+    property <float> from: clamp((self.width / 2 - span / 2 - r) / strip, 0, 1);
+    property <float> to: clamp((self.width / 2 + span / 2 - r) / strip, 0, 1);
+    Rectangle {
+        x: 0px;
+        width: r * 2;
+        border-radius: r;
+        background: ga;
+    }
+    Rectangle {
+        x: parent.width - r * 2;
+        width: r * 2;
+        border-radius: r;
+        background: gb;
+    }
+    Rectangle {
+        x: r;
+        width: parent.width - r * 2;
+        background: @linear-gradient(90deg, ga 0%, ga from * 100%, gb to * 100%, gb 100%);
     }
 }

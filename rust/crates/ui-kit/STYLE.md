@@ -24,6 +24,7 @@ Two looks share the same tokens: the new one and Classic (the deep blue of 5.0).
 | `card` | A card's surface, one tone above the window |
 | `raise` | A control's resting surface: picker, button, segment, switch track, slider track |
 | `hover`, `sel` | A control under the pointer, a pressed or open control, a tooltip |
+| `bubble` | A bubble's surface, a touch above the card so a control at rest in it still shows |
 | `trough` | Recessed: a disabled box, an off switch's inside |
 | `line`, `line-strong`, `line-hover` | The few real lines (a divider that splits meaning, a pad's crosshair) |
 | `ink` | Primary text, values |
@@ -96,6 +97,8 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | `strip` | SettingRow | title, controls |
 | `badge` | Tag | text, tint |
 | `dialog` | DialogFrame | title |
+| `bubble` | Bubble | what is inside, width |
+| `colour` | ColourField | colour, hex and channels shown |
 | `tip` | TipBody | text |
 | `icon` | Icon | picture, tint |
 | `outline` | FocusRing, TouchRing | radius |
@@ -117,10 +120,22 @@ One anatomy for every slider: a track, a handle, the value on the right, and a t
 - `shadows` (black to grey), `highlights` (grey to white), `pivot` (black to white, so the handle marks the brightness contrast turns around).
 - `lift` (dark), `gamma` (mid), `gain` (bright), `offset` (a plain grey ramp): the four sliders under the colour wheels.
 - `contrast`: flat grey that fades into 45 degree black and white stripes, ending on a white one.
+- `tolerance`, `spill`: two colours from the card (`grad-a` to `grad-b`) with the handle taking the one under it. Chroma key's tolerance runs from the screen's colour to a grey, its spill from a skin tone with the screen's colour on it to a clean one.
+- `edges`: `grad-a` on the left, `grad-b` on the right and a step between them that is hard at the track's start and spreads over the whole track at its end, so the handle's place is the softness. The handle keeps the card's colour.
 
 The grey ramps keep the card's colour on the handle, since black or white would vanish into the track.
 
 At rest everything is muted: the fill and the handle's border in the quietened colour, the handle's inside in the card's. While the slider is held its full colour comes up, handle included, and dims when it is let go. A simple colour change for now; the animations are a later pass.
+
+## Bubbles
+
+One popover for everything that needs one (the colour picker now; the live crop, the chasing dots and the like later). It is the kit's `Bubble`: a frame in the card's colour with a pointer at the control it belongs to, a `bubble` surface, `Theme.stroke` for its line and `r-bubble` for its corners. It sits inside the control it points at, as big as that control, and takes no room in the card, so opening it moves nothing. It opens above the control, flips below when it doesn't fit above, keeps its frame inside the window (`BubbleSpot` has the arithmetic) and puts the pointer over the control's middle. A press anywhere outside closes it and the card behind never sees that press; Escape closes it too. The focus goes in when it opens and back to the control when it closes. What goes inside is up to the caller, built from kit controls.
+
+Nothing moves when it opens or closes yet. `reveal` is the one number to ease later, 0 closed and 1 open.
+
+## Colours
+
+`ColourField` is the one way to pick a colour: a swatch as wide as its row that shows the colour itself, in a raised well so a colour near the card's own still reads as a control. A click opens a bubble with a saturation and brightness pad, a hue strip, a pipette that picks from the preview (the plugin starts that pick) and, behind a small switch, the exact values (hex, red, green, blue). The pad and strip hold full colour, not the muted look of a slider's fill, since the colour is what they are for. The plugin keeps hue, saturation and brightness as the pad left them so a grey or a black keeps its hue, and stores whatever it already stored.
 
 ## Adding or changing a control
 

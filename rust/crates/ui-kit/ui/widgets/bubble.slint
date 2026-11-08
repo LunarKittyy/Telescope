@@ -1,0 +1,155 @@
+// The one popover: a bubble that points at the control it belongs to.
+
+import { Theme } from "../theme.slint";
+import { WindowBox } from "dialog.slint";
+
+// Where a bubble goes, in window coordinates. Pure, so a test can ask without drawing anything.
+export global BubbleSpot {
+    // Room kept free between a bubble and the window's edge
+    out property <length> margin: Theme.u(4);
+    // Between the pointer's tip and the control
+    out property <length> gap: Theme.u(1);
+    // Whether it opens below the control: only when it doesn't fit above, and then where there is more room
+    public pure function below(anchor-y: length, anchor-h: length, h: length, window-h: length) -> bool {
+        anchor-y - gap - h < margin && (anchor-y + anchor-h + gap + h + margin <= window-h || window-h - anchor-y - anchor-h > anchor-y)
+    }
+    // The bubble's top edge, pointer included, kept inside the window whichever side it opened on
+    public pure function top(anchor-y: length, anchor-h: length, h: length, below: bool, window-h: length) -> length {
+        max(margin, min(below ? anchor-y + anchor-h + gap : anchor-y - gap - h, window-h - h - margin))
+    }
+    // Its left edge: centred on the control, pushed in from the window's sides
+    public pure function left(anchor-x: length, anchor-w: length, w: length, window-w: length) -> length {
+        max(margin, min(anchor-x + anchor-w / 2 - w / 2, window-w - w - margin))
+    }
+    // Where the pointer's tip sits along the bubble: over the control's middle, kept off the rounded corners
+    public pure function tip(anchor-x: length, anchor-w: length, left: length, w: length) -> length {
+        max(Theme.r-bubble + Theme.pointer-w / 2, min(anchor-x + anchor-w / 2 - left, w - Theme.r-bubble - Theme.pointer-w / 2))
+    }
+}
+
+// The pointer: a triangle whose base sits on the frame's edge, cutting the frame's line there, with its two sides drawn in the
+// frame's colour. `up` points it up (the bubble opened below its control). Its own origin is the middle of the frame's line.
+component Pointer inherits Rectangle {
+    in property <bool> up;
+    in property <color> hue;
+    property <length> w: Theme.pointer-w;
+    property <length> h: Theme.pointer-h;
+    property <length> s: Theme.stroke;
+    property <float> k: up ? -1 : 1;
+    // The inner edge of the sides' line, 45 degrees to the base: the stroke's half-width taken off along the slope
+    property <length> inset: s * 0.7071;
+    width: w;
+    height: h + 2 * s;
+    // The outer sides, drawn first so the fill below cuts the frame's line between them
+    Path {
+        width: parent.width;
+        height: parent.height;
+        viewbox-x: 0;
+        viewbox-y: up ? -(h + s) / 1px : -s / 1px;
+        viewbox-width: w / 1px;
+        viewbox-height: (h + 2 * s) / 1px;
+        commands: "M 0 0 L " + w / 2px + " " + k * h / 1px + " L " + w / 1px + " 0 Z";
+        stroke: hue;
+        stroke-width: s;
+        stroke-line-join: round;
+        fill: transparent;
+    }
+    Path {
+        width: parent.width;
+        height: parent.height;
+        viewbox-x: 0;
+        viewbox-y: up ? -(h + s) / 1px : -s / 1px;
+        viewbox-width: w / 1px;
+        viewbox-height: (h + 2 * s) / 1px;
+        commands: "M " + (inset - s / 2) / 1px + " " + -k * s / 2px + " L " + (w - inset + s / 2) / 1px + " " + -k * s / 2px + " L " + w / 2px + " " + k * (h - inset) / 1px + " Z";
+        fill: Theme.bubble;
+    }
+}
+
+// Kind "bubble". A frame in the card's colour with a pointer at the control it belongs to, in a pop-up that covers the window, so
+// nothing clips it and a press anywhere outside closes it (the card behind never sees that press). It sits inside the control
+// it points at, as big as the control, and takes no room in the card, so opening it moves nothing. It opens above the control and
+// flips below near the window's top; a pointer at the control's middle, the frame kept inside the window. Whatever it is given
+// goes inside. Escape closes it; the focus goes in and back to where it was.
+// Nothing moves yet when it opens or closes: `reveal` is the one number that a later pass can ease, 0 closed and 1 open.
+export component Bubble inherits Rectangle {
+    in property <color> hue: Theme.accent;
+    // The width of what's inside, and room inside is padding and the frame's line on top of that
+    in property <length> content-width: Theme.u(100);
+    // What a screen reader calls it
+    in property <string> label;
+    out property <bool> open: popup.is-open;
+    out property <string> control-kind: "bubble";
+    callback closed();
+    public function show() {
+        popup.show();
+    }
+    public function close() {
+        if (popup.is-open) {
+            popup.close();
+            root.closed();
+        }
+    }
+    popup := PopupWindow {
+        // The window's top left, the way a dialog in a pop-up covers it
+        x: -root.absolute-position.x;
+        y: -root.absolute-position.y;
+        width: WindowBox.cover-w(frame-w);
+        height: WindowBox.cover-h(total-h);
+        close-policy: no-auto-close;
+        property <length> window-w: WindowBox.width > 0 ? WindowBox.width : 4000px;
+        property <length> window-h: WindowBox.height > 0 ? WindowBox.height : 4000px;
+        // Room between the frame's outside and what's in it
+        property <length> inner: Theme.u(4) + Theme.stroke;
+        property <length> frame-w: min(root.content-width + 2 * inner, window-w - 2 * BubbleSpot.margin);
+        property <length> frame-h: body.preferred-height;
+        property <length> total-h: frame-h + Theme.pointer-h;
+        property <bool> flip: BubbleSpot.below(root.absolute-position.y, root.height, total-h, window-h);
+        property <length> bx: BubbleSpot.left(root.absolute-position.x, root.width, frame-w, window-w);
+        property <length> by: BubbleSpot.top(root.absolute-position.y, root.height, total-h, flip, window-h);
+        property <float> reveal: 1;
+        focus-in := FocusScope {
+            // Escape from anywhere inside, unless a box in it takes the key first
+            key-pressed(e) => {
+                if (e.text == Key.Escape) { root.close(); return accept; }
+                reject
+            }
+            // Everything outside the frame: a press there closes it
+            TouchArea {
+                pointer-event(e) => {
+                    if (e.kind == PointerEventKind.down) { root.close(); }
+                }
+            }
+            shell := Rectangle {
+                opacity: reveal;
+                frame := Rectangle {
+                    x: bx;
+                    y: by + (flip ? Theme.pointer-h : 0px);
+                    width: frame-w;
+                    height: frame-h;
+                    background: Theme.bubble;
+                    border-radius: Theme.r-bubble;
+                    border-width: Theme.stroke;
+                    border-color: root.hue;
+                    drop-shadow-blur: Theme.u(8);
+                    drop-shadow-offset-y: Theme.u(5);
+                    drop-shadow-color: #00000080;
+                    accessible-role: groupbox;
+                    accessible-label: root.label;
+                    // The frame's own face takes its presses, so only what lands beside it closes the bubble
+                    TouchArea { }
+                    body := VerticalLayout {
+                        padding: inner;
+                        @children
+                    }
+                }
+                Pointer {
+                    up: flip;
+                    hue: root.hue;
+                    x: bx + BubbleSpot.tip(root.absolute-position.x, root.width, bx, frame-w) - Theme.pointer-w / 2;
+                    y: flip ? by - Theme.stroke / 2 : by + frame-h - Theme.stroke / 2 - Theme.stroke;
+                }
+            }
+        }
+    }
+}

@@ -21,6 +21,8 @@ export global Theme {
     out property <color> raise: classic ? #1d222a : #303030;
     out property <color> hover: classic ? #242a33 : #3a3a3a;
     out property <color> sel: classic ? #2f3641 : #3b3b3b;
+    // A bubble's surface: a touch above the card, so a control at rest in it still shows
+    out property <color> bubble: classic ? #191e25 : #282828;
 
     // Lines: only where one splits meaning, never a box round everything
     out property <color> line: classic ? #232932 : #333333;
@@ -115,6 +117,7 @@ export global Theme {
     out property <length> r-ctl: radius;
     out property <length> r-card: radius * 4 / 3;
     out property <length> r-handle: radius * 2 / 3;
+    out property <length> r-bubble: radius * 7 / 3;
     out property <length> r-pill: 1000px;
 
     // The one spacing unit, and what follows from it
@@ -132,4 +135,7 @@ export global Theme {
     out property <length> handle-h: unit * 12;
     out property <length> switch-w: unit * 22;
     out property <length> switch-h: unit * 12;
+    // A bubble's pointer: as wide as two of its heights, so its sides run at 45 degrees
+    out property <length> pointer-h: unit * 4;
+    out property <length> pointer-w: unit * 8;
 }
