@@ -561,7 +561,7 @@ export component AboutSettings inherits Card {
         label: @tr("Log");
         named: true;
         hue: root.hue;
-        keywords: @tr("search" => "bug report diagnostics logs debug support problem issue help copy log file");
+        keywords: @tr("search" => "log file open show temp folder");
         Button { text: @tr("Open"); tip: @tr("Open log"); tip-detail: @tr("Open the full log. It's kept in the temp folder, which the system clears."); clicked => { root.log-clicked(); } }
     }
     RailRow {
@@ -569,7 +569,7 @@ export component AboutSettings inherits Card {
         label: @tr("Diagnostics");
         named: true;
         hue: root.hue;
-        keywords: @tr("search" => "bug report diagnostics logs debug support problem issue help copy log file");
+        keywords: @tr("search" => "copy diagnostics info system details");
         Button {
             text: diag-text;
             tip: @tr("Copy diagnostics");

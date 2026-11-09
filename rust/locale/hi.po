@@ -370,7 +370,7 @@ msgstr "नॉइज़ रिडक्शन"
 msgid "Noise reduction unavailable"
 msgstr ""
 
-#: rust/crates/audio/ui/microphone.slint:311 rust/crates/effects/src/desk.rs:189 rust/crates/effects/ui/colour_grading.slint:469 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:460 rust/crates/link/ui/connection.slint:677 rust/crates/setup/ui/setup.slint:414 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:535 rust/crates/system/ui/shortcuts.slint:344 rust/crates/system/ui/updates.slint:241
+#: rust/crates/audio/ui/microphone.slint:311 rust/crates/effects/src/desk.rs:189 rust/crates/effects/ui/colour_grading.slint:469 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:460 rust/crates/link/ui/connection.slint:677 rust/crates/setup/ui/setup.slint:414 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:535 rust/crates/system/ui/shortcuts.slint:347 rust/crates/system/ui/updates.slint:241
 msgid "Cancel"
 msgstr "रद्द करें"
 
@@ -2105,7 +2105,7 @@ msgstr "वेब पेज पर साइन दिखाएं"
 msgid "Scan"
 msgstr "स्कैन करें"
 
-#: rust/crates/effects/src/on_air_plugin.rs:444 rust/crates/effects/src/qr_reader.rs:473 rust/crates/link/ui/browser_camera.slint:172 rust/crates/link/ui/browser_camera.slint:173 rust/crates/setup/src/setup.rs:437 rust/crates/setup/ui/parts.slint:93 rust/crates/setup/ui/parts.slint:94 rust/crates/system/ui/mcp.slint:111 rust/crates/system/ui/mcp.slint:112 rust/crates/system/ui/shortcuts.slint:337
+#: rust/crates/effects/src/on_air_plugin.rs:444 rust/crates/effects/src/qr_reader.rs:473 rust/crates/link/ui/browser_camera.slint:172 rust/crates/link/ui/browser_camera.slint:173 rust/crates/setup/src/setup.rs:437 rust/crates/setup/ui/parts.slint:93 rust/crates/setup/ui/parts.slint:94 rust/crates/system/ui/mcp.slint:111 rust/crates/system/ui/mcp.slint:112 rust/crates/system/ui/shortcuts.slint:340
 msgid "Copy"
 msgstr "कॉपी करें"
 
@@ -3093,7 +3093,7 @@ msgstr "इफ़ेक्ट"
 msgid "Clean up"
 msgstr "साफ़ करें"
 
-#: rust/crates/effects/ui/fun_pack.slint:108 rust/crates/effects/ui/fun_pack.slint:109 rust/crates/system/ui/shortcuts.slint:117 rust/crates/ui-kit/ui/widgets/field.slint:127
+#: rust/crates/effects/ui/fun_pack.slint:108 rust/crates/effects/ui/fun_pack.slint:109 rust/crates/system/ui/shortcuts.slint:120 rust/crates/ui-kit/ui/widgets/field.slint:127
 msgid "Clear"
 msgstr "साफ़ करें"
 
@@ -6222,12 +6222,12 @@ msgstr "परिचय लेखक क्रेडिट वर्शन न�
 msgid "Log"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:564 rust/crates/setup/ui/setup.slint:572 rust/crates/setup/ui/setup.slint:585
+#: rust/crates/setup/ui/setup.slint:564
 msgctxt "search"
-msgid "bug report diagnostics logs debug support problem issue help copy log file"
-msgstr "बग रिपोर्ट डायग्नोस्टिक्स लॉग डीबग सहायता समस्या मदद कॉपी फ़ाइल bug report diagnostics logs debug support problem issue help copy log file"
+msgid "log file open show temp folder"
+msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:565 rust/crates/system/ui/shortcuts.slint:211
+#: rust/crates/setup/ui/setup.slint:565 rust/crates/system/ui/shortcuts.slint:214
 msgid "Open"
 msgstr "खोलें"
 
@@ -6243,6 +6243,11 @@ msgstr ""
 msgid "Diagnostics"
 msgstr ""
 
+#: rust/crates/setup/ui/setup.slint:572
+msgctxt "search"
+msgid "copy diagnostics info system details"
+msgstr ""
+
 #: rust/crates/setup/ui/setup.slint:575
 msgid "Copy diagnostics"
 msgstr "डायग्नोस्टिक्स कॉपी करें"
@@ -6254,6 +6259,11 @@ msgstr ""
 #: rust/crates/setup/ui/setup.slint:582
 msgid "Bug reports"
 msgstr "बग रिपोर्ट"
+
+#: rust/crates/setup/ui/setup.slint:585
+msgctxt "search"
+msgid "bug report diagnostics logs debug support problem issue help copy log file"
+msgstr "बग रिपोर्ट डायग्नोस्टिक्स लॉग डीबग सहायता समस्या मदद कॉपी फ़ाइल bug report diagnostics logs debug support problem issue help copy log file"
 
 #: rust/crates/setup/ui/setup.slint:586 rust/crates/setup/ui/setup.slint:586
 msgid "Report a bug"
@@ -6679,7 +6689,7 @@ msgstr "प्रीसेट का नाम बदलें"
 msgid "Save preset"
 msgstr "प्रीसेट सेव करें"
 
-#: rust/crates/shell/src/plugins/presets.rs:214 rust/crates/system/ui/shortcuts.slint:345
+#: rust/crates/shell/src/plugins/presets.rs:214 rust/crates/system/ui/shortcuts.slint:348
 msgid "Save"
 msgstr "सेव करें"
 
@@ -7801,7 +7811,7 @@ msgstr "हर जगह: {keys}"
 msgid "Windows can't use this key everywhere"
 msgstr "Windows इस की का उपयोग हर जगह नहीं कर सकता"
 
-#: rust/crates/system/src/hotkeys_windows.rs:61 rust/crates/system/ui/shortcuts.slint:199
+#: rust/crates/system/src/hotkeys_windows.rs:61 rust/crates/system/ui/shortcuts.slint:202
 msgid "Everywhere"
 msgstr "हर जगह"
 
@@ -8534,99 +8544,99 @@ msgstr ""
 msgid "Copy command line"
 msgstr "कमांड लाइन कॉपी करें"
 
-#: rust/crates/system/ui/shortcuts.slint:59
+#: rust/crates/system/ui/shortcuts.slint:62
 msgid "Edit"
 msgstr "एडिट करें"
 
-#: rust/crates/system/ui/shortcuts.slint:60
+#: rust/crates/system/ui/shortcuts.slint:63
 msgid "Change the keys of this shortcut."
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:86 rust/crates/system/ui/shortcuts.slint:307
+#: rust/crates/system/ui/shortcuts.slint:89 rust/crates/system/ui/shortcuts.slint:310
 msgid "Key"
 msgstr "की"
 
-#: rust/crates/system/ui/shortcuts.slint:103
+#: rust/crates/system/ui/shortcuts.slint:106
 msgid "Press a key"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:103
+#: rust/crates/system/ui/shortcuts.slint:106
 msgid "Press shortcut"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:180
+#: rust/crates/system/ui/shortcuts.slint:183
 msgid "Shortcuts"
 msgstr "शॉर्टकट"
 
-#: rust/crates/system/ui/shortcuts.slint:181
+#: rust/crates/system/ui/shortcuts.slint:184
 msgctxt "search"
 msgid "hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove"
 msgstr "हॉटकी कीबाइंडिंग म्यूट जोड़ें हटाएं hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove"
 
-#: rust/crates/system/ui/shortcuts.slint:186
+#: rust/crates/system/ui/shortcuts.slint:189
 msgid "Pick a control and the key for it"
 msgstr "एक कंट्रोल और उसके लिए की (key) चुनें"
 
-#: rust/crates/system/ui/shortcuts.slint:187
+#: rust/crates/system/ui/shortcuts.slint:190
 msgid "Add"
 msgstr "जोड़ें"
 
-#: rust/crates/system/ui/shortcuts.slint:195
+#: rust/crates/system/ui/shortcuts.slint:198
 msgid "No shortcuts yet"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:200
+#: rust/crates/system/ui/shortcuts.slint:203
 msgctxt "search"
 msgid "global system wide hotkeys background other apps"
 msgstr "ग्लोबल सिस्टम बैकग्राउंड अन्य ऐप global system wide hotkeys background other apps"
 
-#: rust/crates/system/ui/shortcuts.slint:205
+#: rust/crates/system/ui/shortcuts.slint:208
 msgid "Desktop shortcut settings"
 msgstr "डेस्कटॉप शॉर्टकट सेटिंग्स"
 
-#: rust/crates/system/ui/shortcuts.slint:209
+#: rust/crates/system/ui/shortcuts.slint:212
 msgctxt "search"
 msgid "global hotkeys portal kde plasma gnome desktop keys rebind"
 msgstr "ग्लोबल हॉटकी डेस्कटॉप बदलें global hotkeys portal kde plasma gnome desktop keys rebind"
 
-#: rust/crates/system/ui/shortcuts.slint:212
+#: rust/crates/system/ui/shortcuts.slint:215
 msgid "Global shortcuts"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:213
+#: rust/crates/system/ui/shortcuts.slint:216
 msgid "Where your desktop lets you change the keys of global shortcuts."
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:219 rust/crates/system/ui/shortcuts.slint:220
+#: rust/crates/system/ui/shortcuts.slint:222 rust/crates/system/ui/shortcuts.slint:223
 msgid "Notify when one runs"
 msgstr "चलने पर सूचना दें"
 
-#: rust/crates/system/ui/shortcuts.slint:221
+#: rust/crates/system/ui/shortcuts.slint:224
 msgid "While Telescope is in the background"
 msgstr "जब Telescope बैकग्राउंड में हो"
 
-#: rust/crates/system/ui/shortcuts.slint:222
+#: rust/crates/system/ui/shortcuts.slint:225
 msgctxt "search"
 msgid "notification notify toast confirmation popup"
 msgstr "सूचना नोटिफ़िकेशन पॉपअप notification notify toast confirmation popup"
 
-#: rust/crates/system/ui/shortcuts.slint:247
+#: rust/crates/system/ui/shortcuts.slint:250
 msgid "Keyboard shortcut"
 msgstr "कीबोर्ड शॉर्टकट"
 
-#: rust/crates/system/ui/shortcuts.slint:252 rust/crates/system/ui/shortcuts.slint:262
+#: rust/crates/system/ui/shortcuts.slint:255 rust/crates/system/ui/shortcuts.slint:265
 msgid "Find"
 msgstr "खोजें"
 
-#: rust/crates/system/ui/shortcuts.slint:261
+#: rust/crates/system/ui/shortcuts.slint:264
 msgid "Search"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:269 rust/crates/system/ui/shortcuts.slint:275
+#: rust/crates/system/ui/shortcuts.slint:272 rust/crates/system/ui/shortcuts.slint:278
 msgid "Control"
 msgstr "कंट्रोल"
 
-#: rust/crates/system/ui/shortcuts.slint:319
+#: rust/crates/system/ui/shortcuts.slint:322
 msgid "Also works while another app is in front"
 msgstr "दूसरा ऐप सामने होने पर भी काम करता है"
 
@@ -8652,39 +8662,39 @@ msgctxt "search"
 msgid "autostart login log in boot startup run on startup launch computer starts tray"
 msgstr "ऑटोस्टार्ट लॉगिन बूट स्टार्टअप कंप्यूटर चालू ट्रे autostart login log in boot startup run on startup launch computer starts tray"
 
-#: rust/crates/system/ui/startup.slint:50
+#: rust/crates/system/ui/startup.slint:54
 msgid "Automatic streaming"
 msgstr "ऑटोमैटिक स्ट्रीमिंग"
 
-#: rust/crates/system/ui/startup.slint:51
+#: rust/crates/system/ui/startup.slint:55
 msgid "Start and stop the stream automatically when an app uses the virtual camera."
 msgstr ""
 
-#: rust/crates/system/ui/startup.slint:52
+#: rust/crates/system/ui/startup.slint:56
 msgctxt "search"
 msgid "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 msgstr ""
 
-#: rust/crates/system/ui/startup.slint:59
+#: rust/crates/system/ui/startup.slint:63
 msgctxt "search"
 msgid "automatically begin streaming when phone device ready app opens the camera auto start"
 msgstr ""
 
-#: rust/crates/system/ui/startup.slint:74
+#: rust/crates/system/ui/startup.slint:78
 msgctxt "search"
 msgid "automatically end streaming idle no app uses the camera auto stop"
 msgstr "ऑटोमैटिक स्ट्रीमिंग समाप्त कोई ऐप नहीं ऑटो रोकें automatically end streaming idle no app uses the camera auto stop"
 
-#: rust/crates/system/ui/startup.slint:91
+#: rust/crates/system/ui/startup.slint:95
 msgctxt "search"
 msgid "delay timeout idle seconds minutes how long grace period auto stop"
 msgstr "देरी टाइमआउट सेकंड मिनट कितनी देर ऑटो रोकें delay timeout idle seconds minutes how long grace period auto stop"
 
-#: rust/crates/system/ui/startup.slint:126
+#: rust/crates/system/ui/startup.slint:130
 msgid "Tell me when it stops a stream"
 msgstr "स्ट्रीम रुकने पर मुझे बताएं"
 
-#: rust/crates/system/ui/startup.slint:129
+#: rust/crates/system/ui/startup.slint:133
 msgctxt "search"
 msgid "notification notify alert popup message"
 msgstr "सूचना नोटिफ़िकेशन अलर्ट पॉपअप संदेश notification notify alert popup message"

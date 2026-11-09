@@ -27,6 +27,10 @@ export component StartupSettings inherits Card {
 }
 
 export component AutomaticSettings inherits Card {
+    // What a row's list offers is found by the row too, as the old rows found it by their controls
+    pure function words(items: [string]) -> string {
+        items[0] + " " + items[1] + " " + items[2]
+    }
     in property <[string]> start-items;
     in-out property <int> start-current;
     in property <[string]> stop-items;
@@ -56,7 +60,7 @@ export component AutomaticSettings inherits Card {
         label: start-title;
         named: true;
         hue: root.hue;
-        keywords: @tr("search" => "automatically begin streaming when phone device ready app opens the camera auto start");
+        keywords: @tr("search" => "automatically begin streaming when phone device ready app opens the camera auto start") + " " + words(start-items);
         ChoiceField {
             width: Theme.u(130);
             compact: true;
@@ -71,7 +75,7 @@ export component AutomaticSettings inherits Card {
         label: stop-title;
         named: true;
         hue: root.hue;
-        keywords: @tr("search" => "automatically end streaming idle no app uses the camera auto stop");
+        keywords: @tr("search" => "automatically end streaming idle no app uses the camera auto stop") + " " + words(stop-items);
         ChoiceField {
             width: Theme.u(130);
             compact: true;

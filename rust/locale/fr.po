@@ -370,7 +370,7 @@ msgstr "Réduction du bruit"
 msgid "Noise reduction unavailable"
 msgstr ""
 
-#: rust/crates/audio/ui/microphone.slint:311 rust/crates/effects/src/desk.rs:189 rust/crates/effects/ui/colour_grading.slint:469 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:460 rust/crates/link/ui/connection.slint:677 rust/crates/setup/ui/setup.slint:414 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:535 rust/crates/system/ui/shortcuts.slint:344 rust/crates/system/ui/updates.slint:241
+#: rust/crates/audio/ui/microphone.slint:311 rust/crates/effects/src/desk.rs:189 rust/crates/effects/ui/colour_grading.slint:469 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:460 rust/crates/link/ui/connection.slint:677 rust/crates/setup/ui/setup.slint:414 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:535 rust/crates/system/ui/shortcuts.slint:347 rust/crates/system/ui/updates.slint:241
 msgid "Cancel"
 msgstr "Annuler"
 
@@ -2105,7 +2105,7 @@ msgstr "Afficher le panneau sur une page web"
 msgid "Scan"
 msgstr "Scanner"
 
-#: rust/crates/effects/src/on_air_plugin.rs:444 rust/crates/effects/src/qr_reader.rs:473 rust/crates/link/ui/browser_camera.slint:172 rust/crates/link/ui/browser_camera.slint:173 rust/crates/setup/src/setup.rs:437 rust/crates/setup/ui/parts.slint:93 rust/crates/setup/ui/parts.slint:94 rust/crates/system/ui/mcp.slint:111 rust/crates/system/ui/mcp.slint:112 rust/crates/system/ui/shortcuts.slint:337
+#: rust/crates/effects/src/on_air_plugin.rs:444 rust/crates/effects/src/qr_reader.rs:473 rust/crates/link/ui/browser_camera.slint:172 rust/crates/link/ui/browser_camera.slint:173 rust/crates/setup/src/setup.rs:437 rust/crates/setup/ui/parts.slint:93 rust/crates/setup/ui/parts.slint:94 rust/crates/system/ui/mcp.slint:111 rust/crates/system/ui/mcp.slint:112 rust/crates/system/ui/shortcuts.slint:340
 msgid "Copy"
 msgstr "Copier"
 
@@ -3093,7 +3093,7 @@ msgstr "Effet"
 msgid "Clean up"
 msgstr "Nettoyer"
 
-#: rust/crates/effects/ui/fun_pack.slint:108 rust/crates/effects/ui/fun_pack.slint:109 rust/crates/system/ui/shortcuts.slint:117 rust/crates/ui-kit/ui/widgets/field.slint:127
+#: rust/crates/effects/ui/fun_pack.slint:108 rust/crates/effects/ui/fun_pack.slint:109 rust/crates/system/ui/shortcuts.slint:120 rust/crates/ui-kit/ui/widgets/field.slint:127
 msgid "Clear"
 msgstr "Effacer"
 
@@ -6222,12 +6222,12 @@ msgstr "a propos auteur credits cree par version numero build about made by"
 msgid "Log"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:564 rust/crates/setup/ui/setup.slint:572 rust/crates/setup/ui/setup.slint:585
+#: rust/crates/setup/ui/setup.slint:564
 msgctxt "search"
-msgid "bug report diagnostics logs debug support problem issue help copy log file"
-msgstr "rapport de bug diagnostic journaux debogage assistance probleme aide copier fichier journal bug report diagnostics logs debug support problem issue help copy file"
+msgid "log file open show temp folder"
+msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:565 rust/crates/system/ui/shortcuts.slint:211
+#: rust/crates/setup/ui/setup.slint:565 rust/crates/system/ui/shortcuts.slint:214
 msgid "Open"
 msgstr "Ouvrir"
 
@@ -6243,6 +6243,11 @@ msgstr ""
 msgid "Diagnostics"
 msgstr ""
 
+#: rust/crates/setup/ui/setup.slint:572
+msgctxt "search"
+msgid "copy diagnostics info system details"
+msgstr ""
+
 #: rust/crates/setup/ui/setup.slint:575
 msgid "Copy diagnostics"
 msgstr "Copier le diagnostic"
@@ -6254,6 +6259,11 @@ msgstr ""
 #: rust/crates/setup/ui/setup.slint:582
 msgid "Bug reports"
 msgstr "Rapports de bugs"
+
+#: rust/crates/setup/ui/setup.slint:585
+msgctxt "search"
+msgid "bug report diagnostics logs debug support problem issue help copy log file"
+msgstr "rapport de bug diagnostic journaux debogage assistance probleme aide copier fichier journal bug report diagnostics logs debug support problem issue help copy file"
 
 #: rust/crates/setup/ui/setup.slint:586 rust/crates/setup/ui/setup.slint:586
 msgid "Report a bug"
@@ -6679,7 +6689,7 @@ msgstr "Renommer le préréglage"
 msgid "Save preset"
 msgstr "Enregistrer le préréglage"
 
-#: rust/crates/shell/src/plugins/presets.rs:214 rust/crates/system/ui/shortcuts.slint:345
+#: rust/crates/shell/src/plugins/presets.rs:214 rust/crates/system/ui/shortcuts.slint:348
 msgid "Save"
 msgstr "Enregistrer"
 
@@ -7801,7 +7811,7 @@ msgstr "Partout : {keys}"
 msgid "Windows can't use this key everywhere"
 msgstr "Windows ne peut pas utiliser cette touche partout"
 
-#: rust/crates/system/src/hotkeys_windows.rs:61 rust/crates/system/ui/shortcuts.slint:199
+#: rust/crates/system/src/hotkeys_windows.rs:61 rust/crates/system/ui/shortcuts.slint:202
 msgid "Everywhere"
 msgstr "Partout"
 
@@ -8534,99 +8544,99 @@ msgstr ""
 msgid "Copy command line"
 msgstr "Copier la ligne de commande"
 
-#: rust/crates/system/ui/shortcuts.slint:59
+#: rust/crates/system/ui/shortcuts.slint:62
 msgid "Edit"
 msgstr "Modifier"
 
-#: rust/crates/system/ui/shortcuts.slint:60
+#: rust/crates/system/ui/shortcuts.slint:63
 msgid "Change the keys of this shortcut."
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:86 rust/crates/system/ui/shortcuts.slint:307
+#: rust/crates/system/ui/shortcuts.slint:89 rust/crates/system/ui/shortcuts.slint:310
 msgid "Key"
 msgstr "Touche"
 
-#: rust/crates/system/ui/shortcuts.slint:103
+#: rust/crates/system/ui/shortcuts.slint:106
 msgid "Press a key"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:103
+#: rust/crates/system/ui/shortcuts.slint:106
 msgid "Press shortcut"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:180
+#: rust/crates/system/ui/shortcuts.slint:183
 msgid "Shortcuts"
 msgstr "Raccourcis"
 
-#: rust/crates/system/ui/shortcuts.slint:181
+#: rust/crates/system/ui/shortcuts.slint:184
 msgctxt "search"
 msgid "hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove"
 msgstr "raccourci raccourcis combinaison touches push to talk appuyer pour parler couper le son ajouter retirer hotkey hotkeys keybind keybinding keys mute add remove"
 
-#: rust/crates/system/ui/shortcuts.slint:186
+#: rust/crates/system/ui/shortcuts.slint:189
 msgid "Pick a control and the key for it"
 msgstr "Choisissez un réglage et la touche associée"
 
-#: rust/crates/system/ui/shortcuts.slint:187
+#: rust/crates/system/ui/shortcuts.slint:190
 msgid "Add"
 msgstr "Ajouter"
 
-#: rust/crates/system/ui/shortcuts.slint:195
+#: rust/crates/system/ui/shortcuts.slint:198
 msgid "No shortcuts yet"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:200
+#: rust/crates/system/ui/shortcuts.slint:203
 msgctxt "search"
 msgid "global system wide hotkeys background other apps"
 msgstr "global systeme arriere-plan autres applications raccourcis system wide hotkeys background other apps"
 
-#: rust/crates/system/ui/shortcuts.slint:205
+#: rust/crates/system/ui/shortcuts.slint:208
 msgid "Desktop shortcut settings"
 msgstr "Paramètres des raccourcis du bureau"
 
-#: rust/crates/system/ui/shortcuts.slint:209
+#: rust/crates/system/ui/shortcuts.slint:212
 msgctxt "search"
 msgid "global hotkeys portal kde plasma gnome desktop keys rebind"
 msgstr "raccourcis globaux portail kde plasma gnome bureau touches reaffecter global hotkeys portal desktop keys rebind"
 
-#: rust/crates/system/ui/shortcuts.slint:212
+#: rust/crates/system/ui/shortcuts.slint:215
 msgid "Global shortcuts"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:213
+#: rust/crates/system/ui/shortcuts.slint:216
 msgid "Where your desktop lets you change the keys of global shortcuts."
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:219 rust/crates/system/ui/shortcuts.slint:220
+#: rust/crates/system/ui/shortcuts.slint:222 rust/crates/system/ui/shortcuts.slint:223
 msgid "Notify when one runs"
 msgstr "Notifier lors de l'exécution d'un raccourci"
 
-#: rust/crates/system/ui/shortcuts.slint:221
+#: rust/crates/system/ui/shortcuts.slint:224
 msgid "While Telescope is in the background"
 msgstr "Lorsque Telescope est en arrière-plan"
 
-#: rust/crates/system/ui/shortcuts.slint:222
+#: rust/crates/system/ui/shortcuts.slint:225
 msgctxt "search"
 msgid "notification notify toast confirmation popup"
 msgstr "notification avertir toast confirmation pop-up notify popup"
 
-#: rust/crates/system/ui/shortcuts.slint:247
+#: rust/crates/system/ui/shortcuts.slint:250
 msgid "Keyboard shortcut"
 msgstr "Raccourci clavier"
 
-#: rust/crates/system/ui/shortcuts.slint:252 rust/crates/system/ui/shortcuts.slint:262
+#: rust/crates/system/ui/shortcuts.slint:255 rust/crates/system/ui/shortcuts.slint:265
 msgid "Find"
 msgstr "Rechercher"
 
-#: rust/crates/system/ui/shortcuts.slint:261
+#: rust/crates/system/ui/shortcuts.slint:264
 msgid "Search"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:269 rust/crates/system/ui/shortcuts.slint:275
+#: rust/crates/system/ui/shortcuts.slint:272 rust/crates/system/ui/shortcuts.slint:278
 msgid "Control"
 msgstr "Réglage"
 
-#: rust/crates/system/ui/shortcuts.slint:319
+#: rust/crates/system/ui/shortcuts.slint:322
 msgid "Also works while another app is in front"
 msgstr "Fonctionne aussi lorsqu'une autre application est au premier plan"
 
@@ -8652,39 +8662,39 @@ msgctxt "search"
 msgid "autostart login log in boot startup run on startup launch computer starts tray"
 msgstr "lancement automatique connexion session demarrage ordinateur s'allume zone de notification autostart login log in boot startup run on startup launch computer starts tray"
 
-#: rust/crates/system/ui/startup.slint:50
+#: rust/crates/system/ui/startup.slint:54
 msgid "Automatic streaming"
 msgstr "Diffusion automatique"
 
-#: rust/crates/system/ui/startup.slint:51
+#: rust/crates/system/ui/startup.slint:55
 msgid "Start and stop the stream automatically when an app uses the virtual camera."
 msgstr ""
 
-#: rust/crates/system/ui/startup.slint:52
+#: rust/crates/system/ui/startup.slint:56
 msgctxt "search"
 msgid "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 msgstr ""
 
-#: rust/crates/system/ui/startup.slint:59
+#: rust/crates/system/ui/startup.slint:63
 msgctxt "search"
 msgid "automatically begin streaming when phone device ready app opens the camera auto start"
 msgstr ""
 
-#: rust/crates/system/ui/startup.slint:74
+#: rust/crates/system/ui/startup.slint:78
 msgctxt "search"
 msgid "automatically end streaming idle no app uses the camera auto stop"
 msgstr "arrêter automatiquement la diffusion arrêt automatique inactif aucune application n'utilise la caméra fin automatique automatically end streaming idle no app uses the camera auto stop"
 
-#: rust/crates/system/ui/startup.slint:91
+#: rust/crates/system/ui/startup.slint:95
 msgctxt "search"
 msgid "delay timeout idle seconds minutes how long grace period auto stop"
 msgstr "délai délai d'attente inactif secondes minutes durée période de grâce arrêt automatique delay timeout idle seconds minutes how long grace period auto stop"
 
-#: rust/crates/system/ui/startup.slint:126
+#: rust/crates/system/ui/startup.slint:130
 msgid "Tell me when it stops a stream"
 msgstr "M'avertir lors de l'arrêt d'un flux"
 
-#: rust/crates/system/ui/startup.slint:129
+#: rust/crates/system/ui/startup.slint:133
 msgctxt "search"
 msgid "notification notify alert popup message"
 msgstr "notification notifier alerte popup pop-up message notification notify alert popup message"

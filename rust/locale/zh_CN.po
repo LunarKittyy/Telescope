@@ -370,7 +370,7 @@ msgstr "降噪"
 msgid "Noise reduction unavailable"
 msgstr ""
 
-#: rust/crates/audio/ui/microphone.slint:311 rust/crates/effects/src/desk.rs:189 rust/crates/effects/ui/colour_grading.slint:469 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:460 rust/crates/link/ui/connection.slint:677 rust/crates/setup/ui/setup.slint:414 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:535 rust/crates/system/ui/shortcuts.slint:344 rust/crates/system/ui/updates.slint:241
+#: rust/crates/audio/ui/microphone.slint:311 rust/crates/effects/src/desk.rs:189 rust/crates/effects/ui/colour_grading.slint:469 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:460 rust/crates/link/ui/connection.slint:677 rust/crates/setup/ui/setup.slint:414 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:535 rust/crates/system/ui/shortcuts.slint:347 rust/crates/system/ui/updates.slint:241
 msgid "Cancel"
 msgstr "取消"
 
@@ -2105,7 +2105,7 @@ msgstr "在网页上显示指示牌"
 msgid "Scan"
 msgstr "扫描"
 
-#: rust/crates/effects/src/on_air_plugin.rs:444 rust/crates/effects/src/qr_reader.rs:473 rust/crates/link/ui/browser_camera.slint:172 rust/crates/link/ui/browser_camera.slint:173 rust/crates/setup/src/setup.rs:437 rust/crates/setup/ui/parts.slint:93 rust/crates/setup/ui/parts.slint:94 rust/crates/system/ui/mcp.slint:111 rust/crates/system/ui/mcp.slint:112 rust/crates/system/ui/shortcuts.slint:337
+#: rust/crates/effects/src/on_air_plugin.rs:444 rust/crates/effects/src/qr_reader.rs:473 rust/crates/link/ui/browser_camera.slint:172 rust/crates/link/ui/browser_camera.slint:173 rust/crates/setup/src/setup.rs:437 rust/crates/setup/ui/parts.slint:93 rust/crates/setup/ui/parts.slint:94 rust/crates/system/ui/mcp.slint:111 rust/crates/system/ui/mcp.slint:112 rust/crates/system/ui/shortcuts.slint:340
 msgid "Copy"
 msgstr "复制"
 
@@ -3093,7 +3093,7 @@ msgstr "特效"
 msgid "Clean up"
 msgstr "清理"
 
-#: rust/crates/effects/ui/fun_pack.slint:108 rust/crates/effects/ui/fun_pack.slint:109 rust/crates/system/ui/shortcuts.slint:117 rust/crates/ui-kit/ui/widgets/field.slint:127
+#: rust/crates/effects/ui/fun_pack.slint:108 rust/crates/effects/ui/fun_pack.slint:109 rust/crates/system/ui/shortcuts.slint:120 rust/crates/ui-kit/ui/widgets/field.slint:127
 msgid "Clear"
 msgstr "清除"
 
@@ -6222,12 +6222,12 @@ msgstr "关于 作者 致谢 制作人员 版本号 构建版本 about author cr
 msgid "Log"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:564 rust/crates/setup/ui/setup.slint:572 rust/crates/setup/ui/setup.slint:585
+#: rust/crates/setup/ui/setup.slint:564
 msgctxt "search"
-msgid "bug report diagnostics logs debug support problem issue help copy log file"
-msgstr "问题报告 诊断信息 日志 调试 支持 问题 故障 帮助 复制日志文件 bug report diagnostics logs debug support problem issue help copy log file"
+msgid "log file open show temp folder"
+msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:565 rust/crates/system/ui/shortcuts.slint:211
+#: rust/crates/setup/ui/setup.slint:565 rust/crates/system/ui/shortcuts.slint:214
 msgid "Open"
 msgstr "打开"
 
@@ -6243,6 +6243,11 @@ msgstr ""
 msgid "Diagnostics"
 msgstr ""
 
+#: rust/crates/setup/ui/setup.slint:572
+msgctxt "search"
+msgid "copy diagnostics info system details"
+msgstr ""
+
 #: rust/crates/setup/ui/setup.slint:575
 msgid "Copy diagnostics"
 msgstr "复制诊断信息"
@@ -6254,6 +6259,11 @@ msgstr ""
 #: rust/crates/setup/ui/setup.slint:582
 msgid "Bug reports"
 msgstr "问题报告"
+
+#: rust/crates/setup/ui/setup.slint:585
+msgctxt "search"
+msgid "bug report diagnostics logs debug support problem issue help copy log file"
+msgstr "问题报告 诊断信息 日志 调试 支持 问题 故障 帮助 复制日志文件 bug report diagnostics logs debug support problem issue help copy log file"
 
 #: rust/crates/setup/ui/setup.slint:586 rust/crates/setup/ui/setup.slint:586
 msgid "Report a bug"
@@ -6679,7 +6689,7 @@ msgstr "重命名预设"
 msgid "Save preset"
 msgstr "保存预设"
 
-#: rust/crates/shell/src/plugins/presets.rs:214 rust/crates/system/ui/shortcuts.slint:345
+#: rust/crates/shell/src/plugins/presets.rs:214 rust/crates/system/ui/shortcuts.slint:348
 msgid "Save"
 msgstr "保存"
 
@@ -7795,7 +7805,7 @@ msgstr "全局：{keys}"
 msgid "Windows can't use this key everywhere"
 msgstr "Windows 无法在全局使用此按键"
 
-#: rust/crates/system/src/hotkeys_windows.rs:61 rust/crates/system/ui/shortcuts.slint:199
+#: rust/crates/system/src/hotkeys_windows.rs:61 rust/crates/system/ui/shortcuts.slint:202
 msgid "Everywhere"
 msgstr "全局"
 
@@ -8526,99 +8536,99 @@ msgstr ""
 msgid "Copy command line"
 msgstr "复制命令行"
 
-#: rust/crates/system/ui/shortcuts.slint:59
+#: rust/crates/system/ui/shortcuts.slint:62
 msgid "Edit"
 msgstr "编辑"
 
-#: rust/crates/system/ui/shortcuts.slint:60
+#: rust/crates/system/ui/shortcuts.slint:63
 msgid "Change the keys of this shortcut."
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:86 rust/crates/system/ui/shortcuts.slint:307
+#: rust/crates/system/ui/shortcuts.slint:89 rust/crates/system/ui/shortcuts.slint:310
 msgid "Key"
 msgstr "按键"
 
-#: rust/crates/system/ui/shortcuts.slint:103
+#: rust/crates/system/ui/shortcuts.slint:106
 msgid "Press a key"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:103
+#: rust/crates/system/ui/shortcuts.slint:106
 msgid "Press shortcut"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:180
+#: rust/crates/system/ui/shortcuts.slint:183
 msgid "Shortcuts"
 msgstr "快捷键"
 
-#: rust/crates/system/ui/shortcuts.slint:181
+#: rust/crates/system/ui/shortcuts.slint:184
 msgctxt "search"
 msgid "hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove"
 msgstr "热键 快捷键 按键绑定 一键对讲 静音 添加 移除 hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove"
 
-#: rust/crates/system/ui/shortcuts.slint:186
+#: rust/crates/system/ui/shortcuts.slint:189
 msgid "Pick a control and the key for it"
 msgstr "选择控件及其对应按键"
 
-#: rust/crates/system/ui/shortcuts.slint:187
+#: rust/crates/system/ui/shortcuts.slint:190
 msgid "Add"
 msgstr "添加"
 
-#: rust/crates/system/ui/shortcuts.slint:195
+#: rust/crates/system/ui/shortcuts.slint:198
 msgid "No shortcuts yet"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:200
+#: rust/crates/system/ui/shortcuts.slint:203
 msgctxt "search"
 msgid "global system wide hotkeys background other apps"
 msgstr "全局 系统级 热键 后台 其他应用 global system wide hotkeys background other apps"
 
-#: rust/crates/system/ui/shortcuts.slint:205
+#: rust/crates/system/ui/shortcuts.slint:208
 msgid "Desktop shortcut settings"
 msgstr "系统快捷键设置"
 
-#: rust/crates/system/ui/shortcuts.slint:209
+#: rust/crates/system/ui/shortcuts.slint:212
 msgctxt "search"
 msgid "global hotkeys portal kde plasma gnome desktop keys rebind"
 msgstr "全局热键 快捷键 桌面环境 按键 重新绑定 global hotkeys portal kde plasma gnome desktop keys rebind"
 
-#: rust/crates/system/ui/shortcuts.slint:212
+#: rust/crates/system/ui/shortcuts.slint:215
 msgid "Global shortcuts"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:213
+#: rust/crates/system/ui/shortcuts.slint:216
 msgid "Where your desktop lets you change the keys of global shortcuts."
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:219 rust/crates/system/ui/shortcuts.slint:220
+#: rust/crates/system/ui/shortcuts.slint:222 rust/crates/system/ui/shortcuts.slint:223
 msgid "Notify when one runs"
 msgstr "执行快捷键时发送通知"
 
-#: rust/crates/system/ui/shortcuts.slint:221
+#: rust/crates/system/ui/shortcuts.slint:224
 msgid "While Telescope is in the background"
 msgstr "当 Telescope 处于后台时"
 
-#: rust/crates/system/ui/shortcuts.slint:222
+#: rust/crates/system/ui/shortcuts.slint:225
 msgctxt "search"
 msgid "notification notify toast confirmation popup"
 msgstr "通知 提示 气泡 确认 弹窗 notification notify toast confirmation popup"
 
-#: rust/crates/system/ui/shortcuts.slint:247
+#: rust/crates/system/ui/shortcuts.slint:250
 msgid "Keyboard shortcut"
 msgstr "快捷键"
 
-#: rust/crates/system/ui/shortcuts.slint:252 rust/crates/system/ui/shortcuts.slint:262
+#: rust/crates/system/ui/shortcuts.slint:255 rust/crates/system/ui/shortcuts.slint:265
 msgid "Find"
 msgstr "查找"
 
-#: rust/crates/system/ui/shortcuts.slint:261
+#: rust/crates/system/ui/shortcuts.slint:264
 msgid "Search"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:269 rust/crates/system/ui/shortcuts.slint:275
+#: rust/crates/system/ui/shortcuts.slint:272 rust/crates/system/ui/shortcuts.slint:278
 msgid "Control"
 msgstr "控件"
 
-#: rust/crates/system/ui/shortcuts.slint:319
+#: rust/crates/system/ui/shortcuts.slint:322
 msgid "Also works while another app is in front"
 msgstr "其他应用位于前台时同样生效"
 
@@ -8644,39 +8654,39 @@ msgctxt "search"
 msgid "autostart login log in boot startup run on startup launch computer starts tray"
 msgstr "自启 登录 开机 开机启动 启动 电脑启动 托盘 autostart login log in boot startup run on startup launch computer starts tray"
 
-#: rust/crates/system/ui/startup.slint:50
+#: rust/crates/system/ui/startup.slint:54
 msgid "Automatic streaming"
 msgstr "自动串流"
 
-#: rust/crates/system/ui/startup.slint:51
+#: rust/crates/system/ui/startup.slint:55
 msgid "Start and stop the stream automatically when an app uses the virtual camera."
 msgstr ""
 
-#: rust/crates/system/ui/startup.slint:52
+#: rust/crates/system/ui/startup.slint:56
 msgctxt "search"
 msgid "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 msgstr ""
 
-#: rust/crates/system/ui/startup.slint:59
+#: rust/crates/system/ui/startup.slint:63
 msgctxt "search"
 msgid "automatically begin streaming when phone device ready app opens the camera auto start"
 msgstr ""
 
-#: rust/crates/system/ui/startup.slint:74
+#: rust/crates/system/ui/startup.slint:78
 msgctxt "search"
 msgid "automatically end streaming idle no app uses the camera auto stop"
 msgstr "自动结束串流 空闲 没有应用使用相机 自动停止 automatically end streaming idle no app uses the camera auto stop"
 
-#: rust/crates/system/ui/startup.slint:91
+#: rust/crates/system/ui/startup.slint:95
 msgctxt "search"
 msgid "delay timeout idle seconds minutes how long grace period auto stop"
 msgstr "延迟 超时 空闲 秒 分钟 多久 缓冲期 宽限期 自动停止 delay timeout idle seconds minutes how long grace period auto stop"
 
-#: rust/crates/system/ui/startup.slint:126
+#: rust/crates/system/ui/startup.slint:130
 msgid "Tell me when it stops a stream"
 msgstr "停止串流时通知我"
 
-#: rust/crates/system/ui/startup.slint:129
+#: rust/crates/system/ui/startup.slint:133
 msgctxt "search"
 msgid "notification notify alert popup message"
 msgstr "通知 提醒 弹窗 消息 notification notify alert popup message"
