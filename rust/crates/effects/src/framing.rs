@@ -30,6 +30,15 @@ const FRAMING_STEPS: i64 = 10;
 const HALF_WIDTH: [f64; 4] = [0.28, 0.75, 1.0, 1.2];
 /// At each, how far the box's top is above the eyes, in shoulder widths (at Head just above the hair).
 const HEADROOM: [f64; 4] = [0.4, 0.55, 0.55, 0.55];
+/// Where a body sits under the shoulder line before it has been seen, in shoulder widths; a lost landmark is stood in for by what was learned, so the box doesn't jump.
+const EYES_ABOVE: f64 = 0.6;
+const NOSE_UNDER_EYES: f64 = 0.0;
+const HIPS_BELOW: f64 = 1.4;
+const ANKLES_BELOW: f64 = 3.1;
+/// How much of a new measurement is taken into what was learned, per picture of the people (about a second to settle).
+const LEARN: f64 = 0.1;
+/// Nobody clear enough to frame for this long: the framing holds where it is before it widens, since a missed detection is not someone leaving.
+const HOLD_S: f64 = 1.5;
 /// How far under the eyes the chin is, in shoulder widths: Head ends just below it.
 const CHIN: f64 = 0.43;
 /// Chest ends this far under the shoulder line (about the armpits), in shoulder widths.
@@ -71,13 +80,8 @@ const HAND_OFF_S: f64 = 0.8;
 const HANDS: [&str; 5] = ["elbow", "wrist", "index", "pinky", "thumb"];
 
 const T_TICK: &str = "tick";
-/// The bubbles' timers: the Framing bubble's picture and the Speed bubble's dots, each running only while its bubble is up.
-const T_PEEK: &str = "peek";
+/// The Speed bubble's timer: its dots run only while it is up.
 const T_CHASE: &str = "chase";
-/// Why the framing asks for the people while the Framing bubble is up and Auto framing is off.
-const PEEK_OWNER: &str = "Auto framing bubble";
-/// A frame older than this is not what the preview shows now.
-const PEEK_FRESH_NS: u64 = 2_000_000_000;
 const SWITCH_TIP: &str = n_("Zoom and pan to follow you.");
 const FRAMING_TIP: &str = n_("How much of you is in the picture, from just your head to all of you.");
 const SPEED_TIP: &str = n_("How quickly the framing follows when you move.");
@@ -105,28 +109,80 @@ impl Target {
     }
 }
 
+/// How a person's body sits under their shoulder line, in shoulder widths: what stands in for a landmark the model has lost.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Proportions {
+    pub eyes: f64,
+    pub nose: f64,
+    pub hips: f64,
+    pub ankles: f64,
+}
+
+impl Default for Proportions {
+    fn default() -> Self {
+        Proportions { eyes: EYES_ABOVE, nose: NOSE_UNDER_EYES, hips: HIPS_BELOW, ankles: ANKLES_BELOW }
+    }
+}
+
+fn lowest(person: &Person, names: [&str; 2]) -> Option<f64> {
+    names.iter().filter_map(|n| person.point(n, SEEN)).map(|p| p.1).reduce(f64::max)
+}
+
+fn nudge(slot: &mut f64, value: f64, range: (f64, f64)) {
+    *slot += (value.clamp(range.0, range.1) - *slot) * LEARN;
+}
+
+impl Proportions {
+    /// Height of the eyes in an upright person: the eyes when seen, else the nose less its usual drop, else the usual height above the shoulders.
+    fn eyes_at(&self, person: &Person, sy: f64, width: f64) -> f64 {
+        let eyes = ["left_eye", "right_eye"].iter().filter_map(|n| person.point(n, SEEN)).map(|p| p.1).reduce(f64::min);
+        eyes.or_else(|| person.point("nose", SEEN).map(|p| p.1 - self.nose * width)).unwrap_or(sy - self.eyes * width)
+    }
+
+    /// Takes in what one person shows (a crowd isn't told apart from picture to picture, so nothing is learned from it).
+    pub fn learn(&mut self, people: &[Person], aspect: f64) {
+        let [one] = people else { return };
+        let (person, _) = upright(one, aspect);
+        let Some(((_, sy), width)) = body(&person, aspect) else { return };
+        let eyes = ["left_eye", "right_eye"].iter().filter_map(|n| person.point(n, SEEN)).map(|p| p.1).reduce(f64::min);
+        if let Some(eyes) = eyes {
+            nudge(&mut self.eyes, (sy - eyes) / width, (0.4, 1.4));
+            if let Some(nose) = person.point("nose", SEEN) {
+                nudge(&mut self.nose, (nose.1 - eyes) / width, (0.0, 0.3));
+            }
+        }
+        if let Some(hips) = lowest(&person, ["left_hip", "right_hip"]) {
+            nudge(&mut self.hips, (hips - sy) / width, (0.8, 2.5));
+        }
+        if let Some(ankles) = lowest(&person, ["left_ankle", "right_ankle"]) {
+            nudge(&mut self.ankles, (ankles - sy) / width, (2.5, 6.0));
+        }
+    }
+}
+
 /// Where the box ends at each of FRAMINGS, in picture heights: under the eyes (`eyes`) for Head, then down the body.
-fn bottoms(person: &Person, eyes: f64, sy: f64, width: f64) -> [f64; 4] {
-    let lowest = |names: [&str; 2], fallback: f64| {
-        names.iter().filter_map(|n| person.point(n, SEEN)).map(|p| p.1).reduce(f64::max).unwrap_or(fallback)
-    };
-    let hips = lowest(["left_hip", "right_hip"], sy + 1.4 * width);
-    let feet = lowest(["left_ankle", "right_ankle"], sy + 3.1 * width) + 0.25 * width;
+fn bottoms(person: &Person, eyes: f64, sy: f64, width: f64, props: &Proportions) -> [f64; 4] {
+    let hips = lowest(person, ["left_hip", "right_hip"]).unwrap_or(sy + props.hips * width);
+    let feet = lowest(person, ["left_ankle", "right_ankle"]).unwrap_or(sy + props.ankles * width) + 0.25 * width;
     let belt = (hips - BELT * width).max(sy + (CHEST + 0.25) * width);
     [eyes + CHIN * width, sy + CHEST * width, belt, feet.max(hips + width)]
 }
 
 /// (x0, y0, x1, y1) in the picture as shown around everyone, or None when nobody's clear enough to frame.
 pub fn target_box(people: &[Person], aspect: f64, framing: f64, hands: &[&str]) -> Option<Box4> {
+    target_box_with(people, aspect, framing, hands, &Proportions::default())
+}
+
+/// target_box with what a person's body is known to look like standing in for what the model has lost.
+pub fn target_box_with(people: &[Person], aspect: f64, framing: f64, hands: &[&str], props: &Proportions) -> Option<Box4> {
     let mut boxes: Vec<Box4> = Vec::new();
     for person in people {
         let (person, to_shown) = upright(person, aspect);
         let Some(((cx, sy), width)) = body(&person, aspect) else { continue };
-        let head = ["nose", "left_eye", "right_eye"].iter().filter_map(|n| person.point(n, SEEN)).map(|p| p.1).reduce(f64::min);
-        let eyes = head.unwrap_or(sy - 0.6 * width);
+        let eyes = props.eyes_at(&person, sy, width);
         let at = framing.max(0.0).min(FRAMINGS.len() as f64 - 1.0);
         let i = (at as usize).min(FRAMINGS.len() - 2);
-        let (f, bottoms) = (at - i as f64, bottoms(&person, eyes, sy, width));
+        let (f, bottoms) = (at - i as f64, bottoms(&person, eyes, sy, width, props));
         let bottom = bottoms[i] + (bottoms[i + 1] - bottoms[i]) * f;
         let top = eyes - (HEADROOM[i] + (HEADROOM[i + 1] - HEADROOM[i]) * f) * width;
         let half = (HALF_WIDTH[i] + (HALF_WIDTH[i + 1] - HALF_WIDTH[i]) * f) * width / aspect;
@@ -393,18 +449,20 @@ pub struct FramingPlugin {
     orientation: Turn,
     max_zoom: f64,
     steering: bool,
-    /// The last target had someone in it: the preview shows the framing at work.
-    framed: bool,
-    /// The Framing bubble is up: it gets a picture, so the people are asked for.
+    /// What the person's body has been seen to look like, for the landmarks the model loses
+    proportions: Proportions,
+    /// The last box someone was framed by, and when: held for a moment when nobody is found
+    last_box: Option<(Box4, f64)>,
+    /// How long that is (HOLD_S)
+    hold_s: f64,
+    /// The Framing bubble is up: its crop follows the slider.
     peeking: bool,
     /// The Speed bubble is up: its dots run.
     chasing: Option<Chase>,
     /// When the dots last moved, for the time they move by
     chased_at: Option<f64>,
-    /// What the Framing bubble last showed: the stream frame it holds a picture of (0 for the stand-in scene) and the part of it, so it is only redrawn when one of them changes
-    peek_shown: Option<(u64, [f64; 4])>,
-    /// What the Framing slider was last told about its bubble ("picture" or "")
-    peek_sent: &'static str,
+    /// What the Framing bubble last showed: the part of the stand-in scene, so it is only redrawn when it moves
+    peek_shown: Option<[f64; 4]>,
     /// set_config has no host: taking the view and the card's update wait for the next hook that has one.
     pending: bool,
     /// Settings that switched it off came in before that hook, as a device change's defaults do: it goes through off first.
@@ -447,12 +505,13 @@ impl FramingPlugin {
             orientation: Turn::default(),
             max_zoom: MAX_ZOOM,
             steering: false,
-            framed: false,
+            proportions: Proportions::default(),
+            last_box: None,
+            hold_s: HOLD_S,
             peeking: false,
             chasing: None,
             chased_at: None,
             peek_shown: None,
-            peek_sent: "picture",
             pending: false,
             cycle: false,
             clock: Box::new(clock),
@@ -485,21 +544,8 @@ impl FramingPlugin {
                "room-tip": tr(ROOM_TIP), "hand-name": tr(HAND_NAME), "hand-detail": tr(HAND_DETAIL), "fits": fits.join("\n")})
     }
 
-    /// The Framing bubble shows the crop unless the preview does: Auto framing is following someone right now.
-    fn peek_kind(&self) -> &'static str {
-        if self.steering && self.framed { "" } else { "picture" }
-    }
-
-    fn sync_peek(&mut self, host: &mut dyn Host) {
-        let kind = self.peek_kind();
-        if kind != self.peek_sent {
-            self.peek_sent = kind;
-            host.set_ui_props("card", &json!({"framing-peek": kind}));
-        }
-    }
-
     fn state_props(&self) -> Value {
-        json!({"framing-peek": self.peek_kind(), "on": self.switch, "hand": self.hand, "active": self.paired.on(), "framing": self.framing, "speed": self.speed, "room": self.room,
+        json!({"framing-peek": "picture", "on": self.switch, "hand": self.hand, "active": self.paired.on(), "framing": self.framing, "speed": self.speed, "room": self.room,
                "framing-text": self.framing_text(), "speed-text": self.speed_text(), "room-text": self.room_text()})
     }
 
@@ -548,20 +594,17 @@ impl FramingPlugin {
             host.schedule(TICK_MS, T_TICK);
         } else if !on && self.steering {
             self.steering = false;
-            self.framed = false;
+            self.last_box = None;
             host.cancel_schedule(T_TICK);
             host.want_people(TITLE, false);
             host.release_view(TITLE);
-            if !self.peeking {
-                self.people.clear();
-                self.seen_at = None;
-            }
+            self.people.clear();
+            self.seen_at = None;
         }
-        self.sync_peek(host);
         self.refresh_status(host, self.switch, String::new());
     }
 
-    /// The Framing bubble came up or went down: while it is up the people are asked for and a picture made 8 times a second.
+    /// The Framing bubble came up or went down: while it is up its crop follows the slider, and nothing runs while it is down.
     fn peek_open(&mut self, host: &mut dyn Host, open: bool) {
         if open == self.peeking {
             return;
@@ -569,57 +612,21 @@ impl FramingPlugin {
         self.peeking = open;
         self.peek_shown = None;
         if open {
-            host.want_people(PEEK_OWNER, true);
             self.draw_peek(host);
-            host.schedule(peek::PICTURE_MS, T_PEEK);
-        } else {
-            host.cancel_schedule(T_PEEK);
-            host.want_people(PEEK_OWNER, false);
-            if !self.steering {
-                self.people.clear();
-                self.seen_at = None;
-            }
         }
     }
 
-    /// The crop at this Framing, from the live picture when someone is in it and from the stand-in scene when not. The bubble crops the picture
-    /// itself, so a picture is handed over only when the frame is a new one (or the scene comes back) and a crop only when it moved.
+    /// The stand-in scene cropped around the sample person at this Framing, never the live picture (too small to read in a bubble); the photo goes over once, then only the crop moves.
     fn draw_peek(&mut self, host: &mut dyn Host) {
-        let now = (self.clock)();
-        let aspect = host.view_aspect() as f64;
-        let aspect = if aspect != 0.0 { aspect } else { 16.0 / 9.0 };
-        let fresh = self.seen_at.is_some_and(|seen| now - seen < LOST_S);
-        let view = host.view();
-        let shown = Self::start_from_view(&view).at;
-        let live = host.frames().stream_frame(host.focused_source_id().as_deref()).filter(|f| f.age(monotonic_ns()) < PEEK_FRESH_NS);
-        let found = if fresh { target_box(&self.people, aspect, self.framing_value(), &[]).map(|b| fit(b, self.max_zoom)) } else { None };
-        let (picture, window) = match (live, found) {
-            (Some(stream), Some(want)) => {
-                let window = peek::window_in((shown.x, shown.y, shown.zoom), (want.x, want.y, want.zoom));
-                // The scene has number 0 and a stream's frames never do
-                let number = stream.frame.number.max(1);
-                let known = self.peek_shown.is_some_and(|(n, _)| n == number);
-                (if known { None } else { peek::live_picture(&stream.frame).map(|f| (number, f)) }, window)
-            }
-            _ => {
-                let model = target_box(&[peek::sample_person()], peek::SAMPLE_ASPECT, self.framing_value(), &[]).map_or(Target::new(0.5, 0.5, 1.0), |b| fit(b, self.max_zoom));
-                let known = self.peek_shown.is_some_and(|(n, _)| n == 0);
-                (if known { None } else { Some((0, peek::scene_picture().clone())) }, (model.x, model.y, model.zoom))
-            }
-        };
-        let clip = peek::clip(window);
-        let (number, previous) = match (&picture, self.peek_shown) {
-            (Some((n, _)), _) => (*n, None),
-            (None, Some((n, clip))) => (n, Some(clip)),
-            (None, None) => return,
-        };
-        if let Some((_, frame)) = &picture {
-            host.set_ui_image("card", "framing-picture", frame);
+        let model = target_box(&[peek::sample_person()], peek::SAMPLE_ASPECT, self.framing_value(), &[]).map_or(Target::new(0.5, 0.5, 1.0), |b| fit(b, self.max_zoom));
+        let clip = peek::clip((model.x, model.y, model.zoom));
+        if self.peek_shown.is_none() {
+            host.set_ui_image("card", "framing-picture", peek::scene_picture());
         }
-        if previous != Some(clip) {
+        if self.peek_shown != Some(clip) {
             host.set_ui_props("card", &json!({"framing-clip": clip}));
         }
-        self.peek_shown = Some((number, clip));
+        self.peek_shown = Some(clip);
     }
 
     /// The Speed bubble came up or went down: its dots start hopping at once and run only while it is up.
@@ -693,8 +700,10 @@ impl FramingPlugin {
     }
 
     fn on_people(&mut self, host: &mut dyn Host, source_id: &str, people: &[Value]) {
-        if (self.steering || self.peeking) && source_id == host.focused_source_id().unwrap_or_default() {
+        if self.steering && source_id == host.focused_source_id().unwrap_or_default() {
             self.people = people.iter().filter_map(Person::from_value).collect();
+            let aspect = host.view_aspect() as f64;
+            self.proportions.learn(&self.people, if aspect != 0.0 { aspect } else { 16.0 / 9.0 });
             self.seen_at = Some((self.clock)());
         }
     }
@@ -708,6 +717,7 @@ impl FramingPlugin {
         let remap = turned(old, new);
         self.people = self.people.iter().map(|person| person.mapped(&remap)).collect();
         (self.spring, self.goal, self.smooth) = (None, None, None);
+        self.last_box = None;
         self.room_state.reset();
         self.ticked_at = None;
     }
@@ -730,9 +740,15 @@ impl FramingPlugin {
             }
         }
         self.widened = widened;
-        let found = target_box(people, aspect, self.framing_value(), &self.widened);
-        self.framed = found.is_some();
-        found.map_or(Target::new(0.5, 0.5, 1.0), |b| fit(b, self.max_zoom))
+        let found = target_box_with(people, aspect, self.framing_value(), &self.widened, &self.proportions);
+        // A person the model misses for a moment is not gone: keep framing where they were
+        let held = self.last_box.filter(|(_, at)| now - at < self.hold_s).map(|(b, _)| b);
+        if found.is_some() {
+            self.last_box = found.map(|b| (b, now));
+        } else if held.is_none() {
+            self.last_box = None;
+        }
+        found.or(held).map_or(Target::new(0.5, 0.5, 1.0), |b| fit(b, self.max_zoom))
     }
 
     fn tick(&mut self, host: &mut dyn Host) {
@@ -766,7 +782,6 @@ impl FramingPlugin {
         if (at.x - before.x).abs() + (at.y - before.y).abs() + (at.zoom - before.zoom).abs() > 1e-5 {
             self.steer(host, at);
         }
-        self.sync_peek(host);
     }
 
     fn steer(&self, host: &mut dyn Host, at: Target) {
@@ -824,10 +839,6 @@ impl Plugin for FramingPlugin {
                 self.tick(host);
                 host.schedule(TICK_MS, T_TICK);
             }
-            Event::TimerFired { owner, token } if owner == NAME && token == T_PEEK && self.peeking => {
-                self.draw_peek(host);
-                host.schedule(peek::PICTURE_MS, T_PEEK);
-            }
             Event::TimerFired { owner, token } if owner == NAME && token == T_CHASE && self.chasing.is_some() => {
                 self.chase_tick(host);
                 host.schedule(CHASE_MS, T_CHASE);
@@ -840,6 +851,7 @@ impl Plugin for FramingPlugin {
         self.catch_up(host);
         self.people.clear();
         (self.seen_at, self.spring, self.goal, self.smooth) = (None, None, None, None);
+        self.last_box = None;
         self.room_state.reset();
     }
 

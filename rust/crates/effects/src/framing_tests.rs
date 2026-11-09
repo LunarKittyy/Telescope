@@ -320,8 +320,8 @@ fn it_frames_the_person_on_the_shown_stream_and_goes_wide_when_they_leave() {
     let (zoom, pan_x, _) = r.last();
     assert!(zoom > 2.0 && pan_x > 0.0);
     r.host.view = View { zoom, pan_x, ..View::default() };
-    // Nobody seen since
-    r.run(10.0, None);
+    // Nobody seen since: it holds a moment, then goes wide
+    r.run(15.0, None);
     assert!(close(r.last().0 as f64, 1.0, 0.02));
 }
 
@@ -687,6 +687,8 @@ fn whole_runs_steer_as_python_does_tick_by_tick() {
         r.plugin.setup(&mut r.host);
         // Python's runs were recorded with the old fixed 4x ceiling
         r.plugin.max_zoom = 4.0;
+        // ...and without holding the framing for a person the model missed
+        r.plugin.hold_s = 0.0;
         r.configure(&run["config"]);
         for (i, op) in run["ops"].as_array().unwrap().iter().enumerate() {
             match op["op"].as_str().unwrap() {
@@ -760,24 +762,18 @@ impl Rig {
 }
 
 #[test]
-fn the_framing_bubble_shows_the_crop_unless_the_preview_already_shows_it() {
+fn the_framing_bubble_is_always_a_picture_whatever_the_framing_is_doing() {
     let mut r = Rig::new();
-    assert_eq!(r.prop("framing-peek"), json!("picture"), "off: the preview shows nothing of it");
+    assert_eq!(r.prop("framing-peek"), json!("picture"));
     r.switch(true);
-    assert_eq!(r.prop("framing-peek"), json!("picture"), "on, but nobody to follow yet");
     r.run(1.0, Some(&[at(0.6)]));
-    assert_eq!(r.prop("framing-peek"), json!(""), "following someone: the preview shows it");
+    assert_eq!(r.prop("framing-peek"), json!("picture"), "following someone: still the bubble, the zoom doesn't follow a drag at once");
     r.run(10.0, None);
-    assert_eq!(r.prop("framing-peek"), json!("picture"), "nobody seen for a while: back to the whole picture");
-    r.run(1.0, Some(&[at(0.6)]));
-    assert_eq!(r.prop("framing-peek"), json!(""));
     r.switch(false);
     assert_eq!(r.prop("framing-peek"), json!("picture"));
-    // something else holds the view: nothing is followed
     let mut other = Rig::new();
     other.host.view_owner = "Transforms".into();
     other.switch(true);
-    other.run(1.0, Some(&[at(0.6)]));
     assert_eq!(other.prop("framing-peek"), json!("picture"));
 }
 
@@ -788,69 +784,53 @@ fn the_card_starts_out_with_the_bubble_it_will_have() {
 }
 
 #[test]
-fn the_framing_bubble_costs_nothing_while_closed_and_hands_over_a_picture_once_then_only_crops_it() {
+fn the_framing_bubble_costs_nothing_while_closed_and_hands_over_the_photo_once_then_only_crops_it() {
     let mut r = Rig::new();
-    assert!(!r.host.is_scheduled(T_PEEK) && r.pictures() == 0);
-    // a stray timer while closed makes nothing
-    r.peek_event(T_PEEK);
+    assert!(r.pictures() == 0);
+    // a drag while closed makes nothing
+    r.ui("framing-moved", json!(5));
     assert_eq!(r.pictures(), 0);
     r.ui("framing-peek-open", json!(true));
-    assert!(r.host.scheduled.contains(&(peek::PICTURE_MS, T_PEEK.into())) && r.pictures() == 1);
-    assert_eq!(peek::PICTURE_MS, 125);
-    assert!(r.host.calls.iter().any(|c| c == "want_people Auto framing bubble true"), "the people are asked for while it is up");
+    assert_eq!(r.pictures(), 1);
+    assert!(r.host.scheduled.is_empty(), "no timer: nothing is redrawn by itself");
+    assert!(!r.host.calls.iter().any(|c| c.starts_with("want_people")), "the stand-in needs nobody found");
     let picture = &r.host.images[&("card".to_string(), "framing-picture".to_string())];
     assert_eq!((picture.width as usize, picture.height as usize), (peek::SCENE_WIDTH, peek::SCENE_HEIGHT));
     assert_eq!(r.clip().len(), 4);
-    // nothing changed: nothing is handed over again, not the picture and not the crop
-    let calls = r.host.calls.len();
-    r.peek_event(T_PEEK);
+    // a drag moves the crop and hands over nothing
+    let before = r.clip();
+    r.ui("framing-moved", json!(25));
+    assert_ne!(r.clip(), before);
     assert_eq!(r.pictures(), 1, "the photo is one picture the bubble crops");
-    assert_eq!(r.host.calls.len(), calls, "nothing is asked of the host: {:?}", &r.host.calls[calls..]);
+    // the same value again asks nothing of the host
+    let calls = r.host.calls.len();
+    r.ui("framing-moved", json!(25));
+    assert_eq!(r.host.calls.len(), calls, "{:?}", &r.host.calls[calls..]);
     r.ui("framing-peek-open", json!(false));
-    assert!(!r.host.is_scheduled(T_PEEK));
-    assert!(r.host.calls.iter().any(|c| c == "want_people Auto framing bubble false"));
-    r.peek_event(T_PEEK);
+    r.ui("framing-moved", json!(3));
     assert_eq!(r.pictures(), 1, "closed: nothing more is made");
     // opened again, it hands the picture over once more
     r.ui("framing-peek-open", json!(true));
     assert_eq!(r.pictures(), 2);
 }
 
-fn left_red_right_blue() -> StreamFrame {
-    let (w, h) = (320u32, 180u32);
-    let data = (0..w * h).flat_map(|i| if (i % w) < w / 2 { [255, 0, 0, 255] } else { [0, 0, 255, 255] }).collect();
-    StreamFrame { source_id: "phone".into(), name: "phone".into(), frame: Frame::new(w, h, telescope_core::frame::PixelFormat::Rgba, data) }
-}
-
 #[test]
-fn the_bubble_crops_the_live_picture_around_whoever_is_in_it_and_a_stand_in_scene_when_nobody_is() {
+fn the_bubble_shows_the_stand_in_scene_even_while_the_stream_has_someone_in_it() {
     let mut r = Rig::new();
-    r.host.stream_frames = vec![left_red_right_blue()];
+    r.host.stream_frames = vec![StreamFrame { source_id: "phone".into(), name: "phone".into(), frame: Frame::new(320, 180, telescope_core::frame::PixelFormat::Rgba, vec![255; 320 * 180 * 4]) }];
+    r.switch(true);
+    r.run(1.0, Some(&[at(0.8)]));
     r.ui("framing-peek-open", json!(true));
     let key = ("card".to_string(), "framing-picture".to_string());
-    let scene = r.host.images[&key].clone();
-    // someone on the right: the live frame is the picture and the crop is over the blue half
-    r.people("phone", &[at(0.8)]);
-    r.peek_event(T_PEEK);
-    let live = r.host.images[&key].clone();
-    assert_eq!((live.width, live.height), (320, 180), "the frame as it is, already small enough");
-    assert_ne!(scene.data, live.data, "the stand-in is another picture");
-    let clip = r.clip();
-    assert!(clip[0] >= 0.5 - 1e-9 && clip[2] < 1.0, "over the blue half: {clip:?}");
-    // the same frame again: not handed over twice
-    let pictures = r.pictures();
-    r.peek_event(T_PEEK);
-    assert_eq!(r.pictures(), pictures);
-    // a closer framing is still over the blue half, with no new picture
+    assert_eq!((r.host.images[&key].width as usize, r.host.images[&key].height as usize), (peek::SCENE_WIDTH, peek::SCENE_HEIGHT));
+    // the crop is the sample person's, wherever the real one stands, and it follows the slider
+    let near = r.clip();
+    r.run(1.0, Some(&[at(0.2)]));
     r.ui("framing-moved", json!(0));
     let closer = r.clip();
-    assert!(closer[0] >= 0.5 - 1e-9 && closer[2] < clip[2], "{closer:?} against {clip:?}");
-    assert_eq!(r.pictures(), pictures, "a drag only moves the crop");
-    // nobody now (seen too long ago): the stand-in again
-    *r.clock.lock().unwrap() += 10.0;
-    r.peek_event(T_PEEK);
-    assert_eq!(r.host.images[&key].data, scene.data, "the wall's colours, not the live picture's");
-    assert!(r.pictures() > pictures);
+    assert!(closer[2] < near[2], "{closer:?} against {near:?}");
+    assert_eq!(r.pictures(), 1);
+    assert!(r.host.images[&key].width as usize == peek::SCENE_WIDTH);
 }
 
 #[test]
@@ -1051,4 +1031,142 @@ fn the_chase_keeps_one_tempo_whatever_the_speed_does() {
         let b = dragged.step(1 + (i % 10) as i64, 0.016);
         assert!(close(a[0], b[0], 1e-9) && close(a[1], b[1], 1e-9), "tick {i}: you moved differently, {a:?} against {b:?}");
     }
+}
+
+/// Someone standing back as in the Framing photo: shoulders `w` wide (picture heights) at `sy`, landmarks named in `lost` unsure (as the model is when it loses them), a little jitter by `k`.
+fn walker(sy: f64, w: f64, lost: &[&str], k: usize, jitter: f64) -> Person {
+    shaped(sy, w, 0.77, lost, k, jitter)
+}
+
+/// The same with the eyes `eyes` shoulder widths above the shoulders.
+fn shaped(sy: f64, w: f64, eyes: f64, lost: &[&str], k: usize, jitter: f64) -> Person {
+    let a = |d: f64| d / ASPECT;
+    let x = 0.5;
+    let pts = [
+        ("nose", x, sy - (eyes - 0.08) * w), ("left_eye", x + a(0.08 * w), sy - eyes * w), ("right_eye", x - a(0.08 * w), sy - eyes * w),
+        ("left_shoulder", x + a(w / 2.0), sy), ("right_shoulder", x - a(w / 2.0), sy),
+        ("left_hip", x + a(0.3 * w), sy + 1.54 * w), ("right_hip", x - a(0.3 * w), sy + 1.54 * w),
+        ("left_ankle", x + a(0.25 * w), sy + 3.88 * w), ("right_ankle", x - a(0.25 * w), sy + 3.88 * w),
+    ];
+    Person::new(pts.iter().enumerate().map(|(i, &(n, px, py))| {
+        let wobble = |axis: usize| jitter * ((k * 7 + i * 13 + axis * 5) as f64 * 12.9898).sin();
+        (n, px + wobble(0) / ASPECT, py + wobble(1), if lost.contains(&n) { 0.2 } else { 0.9 })
+    }))
+}
+
+const LOSSES: [(&str, &[&str]); 7] = [
+    ("no eyes", &["left_eye", "right_eye"]), ("one eye", &["left_eye"]), ("no head", &["left_eye", "right_eye", "nose"]),
+    ("no hips", &["left_hip", "right_hip"]), ("one hip", &["left_hip"]), ("no ankles", &["left_ankle", "right_ankle"]), ("no legs", &["left_hip", "right_hip", "left_ankle", "right_ankle"]),
+];
+
+#[test]
+fn a_landmark_the_model_loses_does_not_move_the_box() {
+    // After a second of the person in full, as it is in real use
+    let mut proportions = Proportions::default();
+    for k in 0..20 {
+        proportions.learn(&[walker(0.4, 0.14, &[], k, 0.002)], ASPECT);
+    }
+    for level in [0.0, 0.5, 1.0, 1.3, 1.6, 2.0, 2.5, 3.0] {
+        let zoom_and_centre = |p: &Person, props: &Proportions| {
+            let t = fit(target_box_with(std::slice::from_ref(p), ASPECT, level, &[], props).unwrap(), 10.0);
+            (t.zoom, t.x, t.y)
+        };
+        let full = walker(0.4, 0.14, &[], 0, 0.0);
+        let whole = zoom_and_centre(&full, &proportions);
+        for (name, lost) in LOSSES {
+            let (zoom, x, y) = zoom_and_centre(&walker(0.4, 0.14, lost, 0, 0.0), &proportions);
+            assert!((zoom / whole.0).ln().abs() < 0.04, "{name} at {level}: zoom {zoom:.2} against {:.2}", whole.0);
+            assert!((x - whole.1).abs() < 0.01 && (y - whole.2).abs() < 0.02, "{name} at {level}: centre ({x:.3}, {y:.3}) against ({:.3}, {:.3})", whole.1, whole.2);
+        }
+    }
+    // Someone built differently is learned from, and the box holds still through the loss all the same
+    let mut learnt = Proportions::default();
+    for k in 0..60 {
+        learnt.learn(&[shaped(0.4, 0.14, 1.1, &[], k, 0.002)], ASPECT);
+    }
+    assert!(close(learnt.eyes, 1.1, 0.05), "{learnt:?}");
+    let at_level = |p: &Person, props: &Proportions| fit(target_box_with(std::slice::from_ref(p), ASPECT, 1.0, &[], props).unwrap(), 10.0).zoom;
+    let (whole, head_lost) = (at_level(&shaped(0.4, 0.14, 1.1, &[], 0, 0.0), &learnt), at_level(&shaped(0.4, 0.14, 1.1, &["left_eye", "right_eye", "nose"], 0, 0.0), &learnt));
+    assert!((head_lost / whole).ln().abs() < 0.03, "{head_lost} against {whole}");
+    // two people can't be told apart from one picture to the next: nothing is learned
+    let mut crowd = Proportions::default();
+    crowd.learn(&[shaped(0.4, 0.14, 1.1, &[], 0, 0.0), at(0.2)], ASPECT);
+    assert_eq!(crowd, Proportions::default());
+}
+
+/// Runs the plugin at `speed` and `level` over `frames` pictures of the people (one per tick), and gives back the zoom steered at each.
+fn zooms(speed: i64, level: f64, frames: usize, people: &dyn Fn(usize) -> Vec<Person>) -> Vec<f64> {
+    let mut r = Rig::new();
+    r.configure(&json!({"framing": level, "speed": speed, "on": true}));
+    r.ui("switch-toggled-by-hand", json!(true));
+    let mut out = Vec::new();
+    for k in 0..frames {
+        *r.clock.lock().unwrap() += 1.0 / 30.0;
+        r.people("phone", &people(k));
+        r.tick();
+        out.push(r.host.steered.last().map_or(1.0, |s| s.0 as f64));
+        r.host.view = View { zoom: r.last().0, pan_x: r.last().1, pan_y: r.last().2, ..View::default() };
+    }
+    out
+}
+
+/// The jumpiest step between two ticks, in log zoom, and how far the zoom ever was from `reference`, after `from`.
+fn worst(zoom: &[f64], reference: &[f64], from: usize) -> (f64, f64) {
+    let step = zoom.windows(2).skip(from).map(|w| (w[1] / w[0]).ln().abs()).fold(0.0, f64::max);
+    let off = zoom.iter().zip(reference).skip(from).map(|(a, b)| (a / b).ln().abs()).fold(0.0, f64::max);
+    (step, off)
+}
+
+#[test]
+fn the_zoom_stays_smooth_through_dropouts_and_flicker_at_every_level_and_speed() {
+    // Shoulders 0.14 of the picture high, jitter on every landmark, and every second or so the model loses something for a few pictures
+    let steady = |k: usize| vec![walker(0.4, 0.14, &[], k, 0.004)];
+    let flaky = |k: usize| {
+        let (cycle, into) = (k / 30, k % 30);
+        let lost: &[&str] = if into < 2 + cycle % 3 { LOSSES[cycle % LOSSES.len()].1 } else { &[] };
+        // A cycle in five the picture holds nobody for a few pictures, and one in seven a shoulder dips below what counts as seen
+        if cycle % 5 == 4 && into < 3 {
+            return Vec::new();
+        }
+        if cycle % 7 == 6 && into < 4 {
+            return vec![walker(0.4, 0.14, &["left_shoulder"], k, 0.004)];
+        }
+        vec![walker(0.4, 0.14, lost, k, 0.004)]
+    };
+    for speed in [4, 10] {
+        for level in [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0] {
+            let (calm, bumpy) = (zooms(speed, level, 600, &steady), zooms(speed, level, 600, &flaky));
+            let (step, off) = worst(&bumpy, &calm, 90);
+            let (calm_step, _) = worst(&calm, &calm, 90);
+            assert!(step < 0.02 + calm_step, "speed {speed} level {level}: a step of {step:.3} in log zoom");
+            assert!(off < 0.05, "speed {speed} level {level}: the zoom wandered {off:.3} from where it holds without dropouts");
+        }
+    }
+}
+
+#[test]
+fn a_big_change_of_target_glides_instead_of_snapping_at_the_quickest_speed() {
+    // Someone steps from far to close at once: the zoom goes there over a good many ticks
+    let stepped = |k: usize| vec![walker(0.4, if k < 120 { 0.1 } else { 0.28 }, &[], k, 0.0)];
+    let zoom = zooms(10, 1.0, 300, &stepped);
+    let (step, _) = worst(&zoom, &zoom, 100);
+    assert!(step < 0.12, "a step of {step:.3} in log zoom");
+    assert!(zoom[299] < zoom[119] * 0.6, "it went there: {} to {}", zoom[119], zoom[299]);
+    // The ceiling coming down while zoomed in past it is no snap either
+    let mut r = Rig::new();
+    r.configure(&json!({"framing": 0.0, "speed": 10, "on": true}));
+    r.ui("switch-toggled-by-hand", json!(true));
+    let mut seen = Vec::new();
+    for k in 0..240 {
+        if k == 120 {
+            r.event(Event::MaxZoomChanged { max_zoom: 3 });
+        }
+        *r.clock.lock().unwrap() += 1.0 / 30.0;
+        r.people("phone", &[walker(0.4, 0.1, &[], k, 0.0)]);
+        r.tick();
+        seen.push(r.last().0 as f64);
+        r.host.view = View { zoom: r.last().0, pan_x: r.last().1, pan_y: r.last().2, ..View::default() };
+    }
+    let (step, _) = worst(&seen, &seen, 100);
+    assert!(step < 0.12 && seen[239] < 3.1 && seen[119] > 5.0, "{step:.3}, {} to {}", seen[119], seen[239]);
 }
