@@ -317,7 +317,9 @@ export component Slider inherits HorizontalLayout {
             border-radius: Theme.stroke / 2;
             background: enabled ? Theme.ink2.with-alpha(0.7) : Theme.dis;
         }
+        // A mark on the centre line of a two-way slider is already drawn by that line
         for mark in marks: Rectangle {
+            visible: !two-way || abs(mark - centre) > 0.0001 * max(0.0001, maximum - minimum);
             x: track.inset - Theme.u(1) + (mark - minimum) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset);
             y: (parent.height - self.height) / 2;
             width: Theme.u(2);
