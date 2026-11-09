@@ -3289,7 +3289,7 @@ msgstr "pomarańczowy"
 
 #: rust/crates/effects/ui/parts.slint:237
 msgid "red"
-msgstr ""
+msgstr "czerwony"
 
 #: rust/crates/effects/ui/parts.slint:243
 msgid "neutral"
