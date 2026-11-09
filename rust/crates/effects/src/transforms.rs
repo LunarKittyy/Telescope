@@ -119,6 +119,8 @@ pub struct TransformsPlugin {
     /// set_config has no host: the window hears the settings with the next hook that has one.
     pending_view: bool,
     held: [Option<bool>; 2],
+    /// The map shape the card was last given, to tell when the frame's shape has moved.
+    map_aspect_sent: std::cell::Cell<f64>,
 }
 
 impl Default for TransformsPlugin {
@@ -157,6 +159,7 @@ impl TransformsPlugin {
             paired: Paired::default(),
             pending_view: false,
             held: [None; 2],
+            map_aspect_sent: std::cell::Cell::new(0.0),
         }
     }
 
@@ -283,7 +286,15 @@ impl TransformsPlugin {
     /// The map's shape follows the frame the window shows.
     fn show_map_aspect(&self, host: &mut dyn Host) {
         let aspect = self.map_aspect(host);
+        self.map_aspect_sent.set(aspect);
         self.show(host, &json!({"map-aspect": aspect}));
+    }
+
+    /// The first frame (or a new size) arrives after the stream starts, so the shape is looked at again when the frames have moved it.
+    fn follow_map_aspect(&self, host: &mut dyn Host) {
+        if (self.map_aspect(host) - self.map_aspect_sent.get()).abs() > 1e-6 {
+            self.show_map_aspect(host);
+        }
     }
 
     /// The map's shape: width over height of the phone's frame, as the window shows it.
@@ -573,7 +584,11 @@ impl Plugin for TransformsPlugin {
             }
             Event::ViewDragged { du, dv } => self.view_dragged(host, *du as f64, *dv as f64),
             Event::ViewScrolled { factor, u, v } => self.view_scrolled(host, *factor as f64, *u as f64, *v as f64),
-            Event::ViewStatus { status } => self.view_status(host, status),
+            Event::ViewStatus { status } => {
+                self.view_status(host, status);
+                self.follow_map_aspect(host);
+            }
+            Event::CameraOpened { .. } => self.follow_map_aspect(host),
             Event::ViewTaken { owner } => self.view_taken(host, owner),
             Event::TimerFired { owner, token } if owner == NAME && token == T_SETTLE => {
                 self.show_zoom_where(host);
