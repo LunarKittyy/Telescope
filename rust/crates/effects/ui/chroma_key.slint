@@ -137,8 +137,10 @@ export component ChromaKeyCard inherits Card {
                 picked(i) => { root.background-picked(i); }
             }
         }
-        Unfolding {
-            open: behind == 0;
+        PageGroup {
+        clip: colour-page.moving || picture-page.moving;
+        colour-page := Page {
+            shown: behind == 0;
             RailRow {
                 icon: Icons.colour;
                 label: @tr("Colour");
@@ -165,8 +167,8 @@ export component ChromaKeyCard inherits Card {
                 }
             }
         }
-        Unfolding {
-            open: behind == 1;
+        picture-page := Page {
+            shown: behind == 1;
             RailRow {
                 icon: Icons.photo;
                 label: @tr("Picture");
@@ -185,6 +187,7 @@ export component ChromaKeyCard inherits Card {
                     clicked => { root.picture-clicked(); }
                 }
             }
+        }
         }
         StatusUnfold { text: status; kind: status-kind; detail: status-detail; }
     }

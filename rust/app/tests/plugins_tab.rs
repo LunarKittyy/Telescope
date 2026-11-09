@@ -389,6 +389,11 @@ fn the_restart_button_restarts_telescope() {
     let (_w, s, _) = settings_with("plugins-restart", builtins(), |_, _| {});
     switch_named(&s.ui, "Presets").invoke_accessible_default_action();
     s.ui.invoke("answered", &[SValue::Bool(true)]).unwrap();
+    // The bar opens over a third of a second, looked at as it goes (it is made when it is first laid out)
+    for _ in 0..30 {
+        let _ = labelled(&s.ui, "Restart now");
+        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(50));
+    }
     let buttons: Vec<ElementHandle> = labelled(&s.ui, "Restart now").into_iter().filter(|e| e.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::Button)).collect();
     assert_eq!(buttons.len(), 1, "one button, in the footer");
     assert_eq!(s.ui.get_property("footer-note").unwrap(), SValue::String("Restart to apply 1 change".into()));

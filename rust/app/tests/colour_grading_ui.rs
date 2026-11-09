@@ -37,8 +37,8 @@ fn window(plugin: &mut ColourGradingPlugin) -> ComponentInstance {
     let doc = format!(
         "import {{ Theme }} from \"@ui-kit/ui-kit.slint\";\nimport {{ {c}, CurvePoint }} from \"plugin/card.slint\";\n\
          export component W inherits Window {{\n    width: {width}px;\n    height: {HEIGHT}px;\n    \
-         in-out property <int> page;\n    in-out property <int> curve;\n    in-out property <int> channel;\n    in-out property <string> curve-line;\n    in-out property <[CurvePoint]> curve-points;\n    in-out property <int> curve-picked;\n    in-out property <color> curve-colour;\n    \
-         {c} {{ hue: Theme.hue-camera; page: root.page; curve: root.curve; channel: root.channel; curve-line: root.curve-line; curve-points: root.curve-points; curve-picked: root.curve-picked; curve-colour: root.curve-colour; }}\n}}",
+         in-out property <int> page;\n    in-out property <int> curve;\n    in-out property <int> channel;\n    in-out property <string> curve-line;\n    in-out property <[CurvePoint]> curve-points;\n    in-out property <int> curve-picked;\n    in-out property <color> curve-colour;\n    out property <length> card-h: card.preferred-height;\n    \
+         card := {c} {{ hue: Theme.hue-camera; page: root.page; curve: root.curve; channel: root.channel; curve-line: root.curve-line; curve-points: root.curve-points; curve-picked: root.curve-picked; curve-colour: root.curve-colour; }}\n}}",
         c = card.ui.component,
         width = width()
     );
@@ -92,9 +92,11 @@ fn feed(w: &ComponentInstance, host: &FakeHost) {
     }
 }
 
-/// Hands the card what the plugin told it, and lets it lay out.
+/// Hands the card what the plugin told it, and lets it lay out and finish the move a page switch starts (the pages cross-fade).
 fn show(w: &ComponentInstance, host: &FakeHost) -> Vec<u8> {
     feed(w, host);
+    offscreen::draw(w.window(), width(), HEIGHT, 1.0).expect("a picture");
+    offscreen::skip(std::time::Duration::from_millis(900));
     offscreen::draw(w.window(), width(), HEIGHT, 1.0).expect("a picture").rgba
 }
 
@@ -263,5 +265,66 @@ fn shots() {
             ui(&mut plugin, &mut host, "curve-picked-by-hand", c);
             take(&host, &format!("hue{c}"));
         }
+    }
+}
+
+/// The card's height in each frame after Primaries is switched for another page (pictured when COLOUR_SHOTS names a folder).
+fn page_switch(from: usize, to: usize, shots: Option<&Path>, name: &str) -> Vec<f32> {
+    let _still = offscreen::freeze_clock();
+    let (mut plugin, mut host) = card();
+    let w = window(&mut plugin);
+    ui(&mut plugin, &mut host, "page-picked", from);
+    show(&w, &host);
+    let mut heights = vec![match w.get_property("card-h").unwrap() { slint_interpreter::Value::Number(n) => n as f32, v => panic!("{v:?}") }];
+    let mut pics = Vec::new();
+    ui(&mut plugin, &mut host, "page-picked", to);
+    feed(&w, &host);
+    for _ in 0..40 {
+        pics.push(offscreen::draw(w.window(), width(), HEIGHT, 1.0).expect("a picture"));
+        heights.push(match w.get_property("card-h").unwrap() { slint_interpreter::Value::Number(n) => n as f32, v => panic!("{v:?}") });
+        offscreen::skip(std::time::Duration::from_millis(16));
+    }
+    if let Some(dir) = shots {
+        // A few frames of the move, side by side, cut to the card's own height
+        let tallest = heights.iter().cloned().fold(0.0, f32::max).ceil() + 4.0;
+        let picked: Vec<_> = [0usize, 3, 6, 9, 12, 16, 22, 30].iter().map(|&i| offscreen::Picture { width: pics[i].width, height: pics[i].height, rgba: pics[i].rgba.clone() }).collect();
+        let (cw, ch) = (width() as usize, (tallest as usize).min(HEIGHT as usize));
+        let gap = 3;
+        let (sw, sh) = (4 * cw + 3 * gap, 2 * ch + gap);
+        let mut rgba = vec![96u8; sw * sh * 4];
+        for (n, p) in picked.iter().enumerate() {
+            let (ox, oy) = ((n % 4) * (cw + gap), (n / 4) * (ch + gap));
+            for y in 0..ch {
+                for x in 0..cw {
+                    let from = (y * p.width as usize + x) * 4;
+                    let to = ((oy + y) * sw + ox + x) * 4;
+                    rgba[to..to + 4].copy_from_slice(&p.rgba[from..from + 4]);
+                }
+            }
+        }
+        offscreen::Picture { width: sw as u32, height: sh as u32, rgba }.save_png(&dir.join(name)).unwrap();
+    }
+    heights
+}
+
+fn biggest_step(v: &[f32]) -> f32 {
+    v.windows(2).map(|w| (w[1] - w[0]).abs()).fold(0.0, f32::max)
+}
+
+#[test]
+fn switching_pages_moves_the_cards_height_from_one_page_to_the_other_in_one_go() {
+    let shots = std::env::var_os("COLOUR_SHOTS").map(PathBuf::from);
+    if let Some(dir) = &shots {
+        std::fs::create_dir_all(dir).unwrap();
+    }
+    let tag = std::env::var("COLOUR_TAG").unwrap_or_else(|_| "after".into());
+    for (from, to, name) in [(0, 1, "primaries-to-curves"), (1, 0, "curves-to-primaries"), (0, 2, "primaries-to-lut")] {
+        let h = page_switch(from, to, shots.as_deref(), &format!("colour-grading-{name}-{tag}.png"));
+        let (start, end) = (h[0], *h.last().unwrap());
+        assert!((start - end).abs() > 20.0, "{name}: the pages have different heights: {start} {end}");
+        let (low, high) = (start.min(end), start.max(end));
+        assert!(h.iter().all(|v| *v >= low - 1.0 && *v <= high + 1.0), "{name}: straight from one height to the other, never through a smaller or a bigger one: {h:?}");
+        assert!(biggest_step(&h) < (high - low) * 0.25, "{name}: no jump: {h:?}");
+        assert!(h[4] != start && (h[4] - end).abs() > 3.0, "{name}: it takes a few frames: {h:?}");
     }
 }

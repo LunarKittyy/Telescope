@@ -110,6 +110,10 @@ pub struct Window {
     /// The bar's pins, one row for each pin that has had one. It is changed in place, never replaced, so each pin's element in the bar
     /// lives on (and keeps its motion, or a drag that is under way) while a row's numbers change.
     bar_rows: Rc<VecModel<SValue>>,
+    /// The banners the window draws, and their rows. Changed in place too, so a banner that is up keeps its motion, and a banner that
+    /// has gone keeps its row until its strip has shut (banners.rs `View`).
+    banner_view: RefCell<crate::banners::View>,
+    banner_rows: Rc<VecModel<SValue>>,
 }
 
 /// _PopoutWindow: the picture alone on black, in a window of its own.
@@ -444,6 +448,8 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         bar_reveal: RefCell::new(None),
         bar_timer: slint::Timer::default(),
         bar_rows: Rc::new(VecModel::default()),
+        banner_view: RefCell::default(),
+        banner_rows: Rc::new(VecModel::default()),
     });
     WINDOW.with(|w| *w.borrow_mut() = Some(window.clone()));
     window.streams.flow.borrow_mut().slot_memory = window.state.borrow().slot_memory.clone();
@@ -602,6 +608,20 @@ impl Window {
             SValue::Void
         });
         let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("banner-closed", move |args| {
+            if let (Some(w), Some(SValue::String(key))) = (weak.upgrade(), args.first()) {
+                // Not inside the strip's own change handler: the row (and the strip) goes a moment after
+                let key = key.to_string();
+                let weak = Rc::downgrade(&w);
+                slint::Timer::single_shot(Duration::ZERO, move || {
+                    if let Some(w) = weak.upgrade() {
+                        w.banner_shut(&key);
+                    }
+                });
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
         let _ = ui.set_callback("banner-dismissed", move |args| {
             if let (Some(w), Some(SValue::String(key))) = (weak.upgrade(), args.first()) {
                 let pressed = w.state.borrow_mut().banners.dismiss(key);
@@ -634,6 +654,7 @@ impl Window {
     /// The bottom bar's callbacks: how it was measured, where a pin is held, an unpin from its menu.
     fn wire_bar(self: &Rc<Self>) {
         let _ = self.ui.set_property("bar-pins", SValue::Model(ModelRc::from(self.bar_rows.clone())));
+        let _ = self.ui.set_property("banners", SValue::Model(ModelRc::from(self.banner_rows.clone())));
         let num = |v: &SValue| match v { SValue::Number(n) => *n as f32, _ => 0.0 };
         let text = |v: &SValue| match v { SValue::String(s) => s.to_string(), _ => String::new() };
         let ui = &self.ui;
@@ -1537,19 +1558,22 @@ impl Window {
     }
 
     pub fn show_banners(&self) {
-        let s = self.state.borrow();
-        let rows: Vec<SValue> = s.banners.all().iter().map(|(key, issue)| {
-            let actions: Vec<SValue> = issue.actions.iter().map(|a| SValue::String(a.label.as_str().into())).collect();
-            SValue::Struct(Struct::from_iter([
-                ("key".to_string(), SValue::String(key.as_str().into())),
-                ("title".to_string(), SValue::String(issue.title.as_str().into())),
-                ("text".to_string(), SValue::String(issue.text.as_str().into())),
-                ("details".to_string(), SValue::String(issue.details.as_str().into())),
-                ("kind".to_string(), SValue::String(issue.kind.as_str().into())),
-                ("actions".to_string(), SValue::Model(ModelRc::new(VecModel::from(actions)))),
-            ]))
-        }).collect();
-        let _ = crate::same::set(&self.ui, "banners", SValue::Model(ModelRc::new(VecModel::from(rows))));
+        let edits = self.banner_view.borrow_mut().sync(self.state.borrow().banners.all());
+        let view = self.banner_view.borrow();
+        for edit in edits {
+            match edit {
+                crate::banners::Edit::Insert(i) => self.banner_rows.insert(i, banner_row(&view.rows()[i])),
+                crate::banners::Edit::Set(i) => self.banner_rows.set_row_data(i, banner_row(&view.rows()[i])),
+            }
+        }
+    }
+
+    /// A banner's strip has shut: its row goes now, unless the banner has come back since.
+    fn banner_shut(&self, key: &str) {
+        let at = self.banner_view.borrow_mut().remove_shut(key);
+        if let Some(i) = at {
+            self.banner_rows.remove(i);
+        }
     }
 
     pub(crate) fn set(&self, name: &str, text: impl Into<SharedString>) {
@@ -1687,6 +1711,22 @@ pub(crate) fn windowing() -> &'static str {
 }
 
 /// The window with every built-in plugin, on file.
+/// A banner's row for the window.
+fn banner_row(row: &crate::banners::Row) -> SValue {
+    let issue = &row.issue;
+    let actions: Vec<SValue> = issue.actions.iter().map(|a| SValue::String(a.label.as_str().into())).collect();
+    SValue::Struct(Struct::from_iter([
+        ("key".to_string(), SValue::String(row.key.as_str().into())),
+        ("title".to_string(), SValue::String(issue.title.as_str().into())),
+        ("text".to_string(), SValue::String(issue.text.as_str().into())),
+        ("details".to_string(), SValue::String(issue.details.as_str().into())),
+        ("kind".to_string(), SValue::String(issue.kind.as_str().into())),
+        ("actions".to_string(), SValue::Model(ModelRc::new(VecModel::from(actions)))),
+        ("open".to_string(), SValue::Bool(row.open)),
+        ("rev".to_string(), SValue::Number(f64::from(row.rev))),
+    ]))
+}
+
 pub fn build_app(file: ConfigFile, services: Arc<Services>, opts: Option<WindowOptions>) -> Result<Rc<Window>, String> {
     build(file, |bus| {
         let mut plugins = crate::plugins::builtins(Some(&services), bus);

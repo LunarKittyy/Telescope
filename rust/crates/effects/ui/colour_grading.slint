@@ -268,7 +268,12 @@ export component ColourGradingCard inherits Card {
     }
 
     // ── Primaries ─────────────────────────────────────────────────────
-    if page == 0: VerticalLayout {
+    PageGroup {
+    clip: pg0.moving || pg1.moving || pg2.moving;
+    pg0 := Page {
+    shown: page == 0;
+    lead: 0px;
+    VerticalLayout {
         spacing: Theme.u(4);
         padding-top: Theme.u(2);
         // The wheels, two by two: four of them side by side would be too small to set a colour with, and three in a row leaves offset alone
@@ -330,8 +335,12 @@ export component ColourGradingCard inherits Card {
         }
     }
 
+    }
     // ── Curves ────────────────────────────────────────────────────────
-    if page == 1: VerticalLayout {
+    pg1 := Page {
+    shown: page == 1;
+    lead: 0px;
+    VerticalLayout {
         spacing: Theme.u(4);
         padding-top: Theme.u(2);
         Segmented {
@@ -373,8 +382,12 @@ export component ColourGradingCard inherits Card {
         }
     }
 
+    }
     // ── LUT ───────────────────────────────────────────────────────────
-    if page == 2: VerticalLayout {
+    pg2 := Page {
+    shown: page == 2;
+    lead: 0px;
+    VerticalLayout {
         spacing: Theme.u(4);
         padding-top: Theme.u(2);
         UnfoldGroup {
@@ -464,6 +477,8 @@ export component ColourGradingCard inherits Card {
             }
             }
         }
+    }
+    }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;

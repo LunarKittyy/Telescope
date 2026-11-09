@@ -184,6 +184,8 @@ fn tiles(n: usize) -> Value {
 }
 
 fn widths(ui: &ComponentInstance) -> Vec<f32> {
+    // Read as the window is drawn: that is what asks for the next frame of a move
+    offscreen::draw(ui.window(), 400.0, 90.0, 1.0).unwrap();
     match ui.get_property("ws").unwrap() {
         Value::Model(m) => {
             use slint::Model;

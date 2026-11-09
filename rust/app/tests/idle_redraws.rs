@@ -128,3 +128,24 @@ fn the_settings_window_draws_nothing_but_its_caret() {
     assert!(blinks <= 4 * SECONDS, "the settings window drew {blinks} times in {SECONDS} s");
     telescope_shell::settings::forget();
 }
+
+#[test]
+fn banners_draw_nothing_once_they_have_opened_or_shut() {
+    let r = up("idle-redraws-banners");
+    r.show_issue("start", "Can't connect to the phone");
+    r.show_issue("vcam", "Couldn't add more virtual cameras");
+    settle(&r);
+    assert_eq!(r.banners_up().len(), 2);
+    assert_eq!(redraws_over(&r, r.w.ui.window()), 0, "two banners at rest");
+    // One goes and its row with it, a message changes under the other: each ends at rest too
+    r.w.state.borrow_mut().banners.clear(Some("start"), None);
+    r.show_issue("vcam", "Still no more virtual cameras");
+    settle(&r);
+    assert_eq!(r.rows("banners").len(), 1, "the shut banner's row is gone");
+    assert_eq!(redraws_over(&r, r.w.ui.window()), 0, "one banner at rest");
+    r.w.state.borrow_mut().banners.clear(None, None);
+    r.w.show_banners();
+    settle(&r);
+    assert!(r.rows("banners").is_empty());
+    assert_eq!(redraws_over(&r, r.w.ui.window()), 0, "none");
+}

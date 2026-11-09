@@ -225,7 +225,8 @@ export component Unfold {
 // whatever its period becomes. (A trailing edge that chased the leading edge's live value was tried: Slint doesn't hand a spring a
 // value that another spring is still moving until that one has stopped, so it waited for the lead to land.)
 // `pace` stretches the period for the second axis of a move across and down.
-component WormEdge {
+export component WormEdge {
+    out property <string> control-kind: "helper";
     in property <length> to;
     in property <bool> lead;
     in property <bool> snap;

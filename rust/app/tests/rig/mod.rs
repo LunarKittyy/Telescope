@@ -860,9 +860,14 @@ impl Rig {
         rows_of(&model)
     }
 
-    /// The banners up now, by key.
+    /// The banners up now (not the ones that are closing), by key.
+    pub fn banners_up(&self) -> Vec<BTreeMap<String, String>> {
+        self.rows("banners").into_iter().filter(|b| b["open"] == "true").collect()
+    }
+
+    /// The banner up now under this key.
     pub fn banner(&self, key: &str) -> Option<BTreeMap<String, String>> {
-        self.rows("banners").into_iter().find(|b| b["key"] == key)
+        self.banners_up().into_iter().find(|b| b["key"] == key)
     }
 
     pub fn tile(&self, id: &str) -> Option<BTreeMap<String, String>> {
