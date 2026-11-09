@@ -283,22 +283,25 @@ export component Slider inherits HorizontalLayout {
                 border-radius: Theme.track / 2;
                 background: Theme.lit(hue, held-tone.value);
             }
-            if enabled && Fills.is-ramp(fill): RampFill {
-                kind: fill;
-                ga: grad-a;
-                gb: grad-b;
-                gc: grad-c;
-            }
-            if enabled && fill == "contrast": ZebraFill { }
-            if enabled && fill == "edges": EdgeFill {
-                ga: grad-a;
-                gb: grad-b;
-                softness: track.fraction;
-            }
-            if enabled && fill != "plain" && !in-bar: Rectangle {
+            // At rest a fill fades towards the card: faded as one layer over a card-coloured base, since a veil drawn on top leaves its rounded ends' edge pixels bright
+            if enabled && fill != "plain": Rectangle {
                 border-radius: Theme.track / 2;
-                background: Theme.card;
-                opacity: Fills.rest-veil(fill) * (1 - held-tone.value);
+                background: in-bar ? transparent : Theme.card;
+                Rectangle {
+                    opacity: in-bar ? 1 : 1 - Fills.rest-veil(fill) * (1 - held-tone.value);
+                    if Fills.is-ramp(fill): RampFill {
+                        kind: fill;
+                        ga: grad-a;
+                        gb: grad-b;
+                        gc: grad-c;
+                    }
+                    if fill == "contrast": ZebraFill { }
+                    if fill == "edges": EdgeFill {
+                        ga: grad-a;
+                        gb: grad-b;
+                        softness: track.fraction;
+                    }
+                }
             }
             if !enabled && !in-bar: Rectangle {
                 x: 0px;
