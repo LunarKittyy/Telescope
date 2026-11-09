@@ -219,10 +219,21 @@ fn ensure(window: &Rc<Window>) -> Option<Rc<Settings>> {
     }
 }
 
-/// Builds the settings window ahead of the first click on it, while the app is idle: compiling its page is most of the 400 ms
-/// between the click and the window.
+/// Compiles the settings page ahead of the first click on it, while the app is idle: that is most of the 400 ms between the
+/// click and the window. The window itself isn't made, since a made window is a real one on Wayland, shown or not.
 pub fn prepare(window: &Rc<Window>) {
-    ensure(window);
+    if SETTINGS.with(|s| s.borrow().is_some()) || PLAN.with(|p| p.borrow().is_some()) {
+        return;
+    }
+    match plan(window) {
+        Ok(plan) => PLAN.with(|p| *p.borrow_mut() = Some(plan)),
+        Err(e) => log::error!("The settings window couldn't be prepared: {e}"),
+    }
+}
+
+/// Whether the page is compiled and waiting for the first open, for tests.
+pub fn prepared() -> bool {
+    PLAN.with(|p| p.borrow().is_some())
 }
 
 pub fn open(window: &Rc<Window>, tab: &str) {
@@ -249,6 +260,7 @@ pub fn open(window: &Rc<Window>, tab: &str) {
 
 /// Drops the settings window, so the next open builds it again (each scene has a window of its own).
 pub fn forget() {
+    PLAN.with(|p| *p.borrow_mut() = None);
     SETTINGS.with(|s| *s.borrow_mut() = None);
 }
 
@@ -257,7 +269,33 @@ pub fn current() -> Option<Rc<Settings>> {
     SETTINGS.with(|s| s.borrow().clone())
 }
 
+/// Everything the settings window needs except the window itself. Compiling the page is most of the cost of opening it, and
+/// creating the component makes a real empty toplevel on Wayland (winit maps it when made), so only this is ready ahead of the click.
+struct Plan {
+    sections: Vec<(String, SettingsSection)>,
+    places: Vec<SectionPlace>,
+    tabs: Vec<(String, String, Vec<usize>)>,
+    plugins_tab: Option<usize>,
+    pieces: Vec<(String, String, String)>,
+    tab_sections: Vec<Vec<(String, String)>>,
+    section_words: Vec<Vec<(String, String)>>,
+    panel: Panel,
+    def: slint_interpreter::ComponentDefinition,
+}
+
+thread_local! {
+    static PLAN: RefCell<Option<Plan>> = const { RefCell::new(None) };
+}
+
 pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
+    let plan = match PLAN.with(|p| p.borrow_mut().take()) {
+        Some(plan) => plan,
+        None => plan(window)?,
+    };
+    create(window, plan)
+}
+
+fn plan(window: &Rc<Window>) -> Result<Plan, String> {
     let mut sections: Vec<(String, SettingsSection)> = Vec::new();
     {
         let mut state = window.state.borrow_mut();
@@ -304,6 +342,11 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
     }
     let text = doc::settings(tabs.len(), plugins_tab, &places);
     let def = crate::compile::compile("settings.slint", &text, files, "TelescopeSettings")?;
+    Ok(Plan { sections, places, tabs, plugins_tab, pieces, tab_sections, section_words, panel, def })
+}
+
+fn create(window: &Rc<Window>, plan: Plan) -> Result<Rc<Settings>, String> {
+    let Plan { sections, places, tabs, plugins_tab, pieces, tab_sections, section_words, panel, def } = plan;
     // Under the main window, as Python's dialog has it as its parent
     let ui = crate::parent::make(&window.ui, || def.create()).map_err(|e| e.to_string())?;
     crate::motion::apply(&ui);
