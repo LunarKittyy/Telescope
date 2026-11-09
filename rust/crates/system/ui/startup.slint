@@ -103,7 +103,7 @@ export component AutomaticSettings inherits Card {
                 label: delay-title;
                 value: root.delay-text;
                 committed(text) => { root.delay-committed(text); }
-                step(d) => { root.delay-step(d); }
+                step(d) => { root.delay-step(-d); }
             }
             // At least as wide as the number box and as wide as its longest unit with the field's padding, as Qt's combo box is
             Rectangle {
