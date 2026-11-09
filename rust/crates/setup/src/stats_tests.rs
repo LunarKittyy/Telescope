@@ -609,7 +609,7 @@ fn a_line_with_a_star_pins_its_number_into_the_bar() {
     assert_eq!(row(&p, "Bitrate")["pin"], "throughput");
     assert_eq!(row(&p, "Frames in")["pin"], "stats.frames_in");
     assert_eq!(row(&p, "Frames in")["pinned"], false);
-    assert_eq!(row(&p, "Connection")["pin"], "", "a line with nothing to pin has no star");
+    assert_eq!(row(&p, "Connection")["pin"], "stats.connection", "a text line is starred too");
     tapped(&mut plugin, &mut host, "stats.frames_in", true);
     assert!(host.calls.iter().any(|c| c == "pin_to_bar stats.frames_in true"));
     assert_eq!(row(&props(&host), "Frames in")["pinned"], true);
@@ -727,19 +727,64 @@ fn the_cards_stars_match_what_is_pinned_the_camera_included() {
 }
 
 #[test]
-fn every_pinnable_stat_has_an_icon_of_its_own() {
+fn every_pinnable_stat_has_an_icon_of_its_own_or_names_itself() {
     let hub = Hub::new();
     let snap = snapshot(&hub, "phone");
     let all = rows(&snap, snap.sources.first().unwrap(), View::Nerd, &Context { streams: 2, ..Context::default() });
-    let mut icons: Vec<(String, &'static str)> = all.iter().filter(|r| r.pin.starts_with("stats.")).map(|r| (r.pin.clone(), pin_icon(&r.pin))).collect();
+    // The lines with a fixed place in the card wear an icon of their own; a plugin's own icon and the text readouts (a drop cause, a stage) are the exceptions
+    let mut icons: Vec<(String, &'static str)> = all.iter().filter(|r| r.pin.starts_with("stats.") && r.bar_icon.is_empty() && !pin_icon(&r.pin).is_empty()).map(|r| (r.pin.clone(), pin_icon(&r.pin))).collect();
+    // The phone's lines only show once a phone has said something, so their ids are checked here
+    use crate::stats_phone as ph;
+    for id in [ph::PIN_DELAY, ph::PIN_WIFI, ph::PIN_TEMPERATURE, ph::PIN_THROTTLING, ph::PIN_CAMERA_FPS, ph::PIN_ENCODER_FPS, ph::PIN_ENCODE, ph::PIN_QUEUE] {
+        icons.push((id.into(), pin_icon(id)));
+    }
+    assert!(icons.iter().all(|(_, i)| !i.is_empty()), "{icons:?}");
     // The window's own pins
     icons.push(("fps".into(), "film"));
     icons.push(("throughput".into(), "gauge"));
-    assert!(icons.iter().all(|(_, i)| !i.is_empty()), "{icons:?}");
     let mut names: Vec<&str> = icons.iter().map(|(_, i)| *i).collect();
     names.sort();
     names.dedup();
     assert_eq!(names.len(), icons.len(), "two stats share an icon: {icons:?}");
+    // Every line that can be read has a star, in both views, and no two share an id
+    let ids: Vec<&str> = all.iter().filter(|r| !r.head && r.kind != "status_dim").map(|r| r.pin.as_str()).collect();
+    assert!(ids.iter().all(|id| !id.is_empty()), "a line without a star: {:?}", all.iter().filter(|r| !r.head && r.kind != "status_dim" && r.pin.is_empty()).map(|r| &r.label).collect::<Vec<_>>());
+    let mut sorted = ids.clone();
+    sorted.sort();
+    sorted.dedup();
+    assert_eq!(sorted.len(), ids.len(), "two lines share an id: {ids:?}");
+}
+
+#[test]
+fn the_text_stats_can_be_pinned_and_read_in_the_bar() {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    tapped(&mut plugin, &mut host, "stats.connection", true);
+    tapped(&mut plugin, &mut host, "stats.reading_camera", true);
+    let offered = |id: &str| host.bar_offers.iter().find(|s| s.id == id).cloned().unwrap_or_else(|| panic!("{id} is offered: {:?}", host.bar_offers.iter().map(|s| &s.id).collect::<Vec<_>>()));
+    let connection = offered("stats.connection");
+    assert!(!connection.value.is_empty() && !connection.icon.is_empty(), "{connection:?}");
+    let reading = offered("stats.reading_camera");
+    assert!(!reading.value.is_empty() && !reading.icon.is_empty() && reading.icon != connection.icon, "{reading:?}");
+}
+
+#[test]
+fn plugins_are_listed_by_their_display_names_with_their_own_icons() {
+    let mut snap = snapshot(&Hub::new(), "phone");
+    let timing = NamedTiming { name: "qr_reader".into(), timing: Default::default() };
+    snap.sources[0].plugins = vec![timing.clone()];
+    snap.app.hooks = vec![NamedTiming { name: "mcp".into(), ..timing }];
+    let looks = vec![
+        PluginLook { name: "qr_reader".into(), title: "QR reader".into(), icon: "qr".into() },
+        PluginLook { name: "mcp".into(), title: "MCP".into(), icon: "plug".into() },
+    ];
+    let all = rows(&snap, &snap.sources[0], View::Nerd, &Context { looks, ..Context::default() });
+    let step = all.iter().find(|r| r.pin == "stats.step_qr_reader").expect("the frame step line");
+    assert_eq!((step.label.as_str(), step.bar_icon.as_str()), ("QR reader", "qr"));
+    let hook = all.iter().find(|r| r.pin == "stats.hook_mcp").expect("the events line");
+    assert_eq!(hook.label, "MCP");
+    // An unknown plugin keeps its id, tidied
+    assert_eq!(plugin_title("privacy_blur", &[]), "Privacy blur");
 }
 
 #[test]

@@ -10,6 +10,16 @@ use telescope_core::i18n::{number, tr, Fields};
 /// Seconds the phone's reading keeps being asked for while the card is up (its own lease is longer, so one missed ask costs nothing).
 pub const ASK_MS: u64 = 3_000;
 
+/// The ids the phone's lines go by in the bottom bar.
+pub(crate) const PIN_DELAY: &str = "stats.phone_delay";
+pub(crate) const PIN_WIFI: &str = "stats.phone_wifi";
+pub(crate) const PIN_TEMPERATURE: &str = "stats.phone_temperature";
+pub(crate) const PIN_THROTTLING: &str = "stats.phone_throttling";
+pub(crate) const PIN_CAMERA_FPS: &str = "stats.phone_camera_fps";
+pub(crate) const PIN_ENCODER_FPS: &str = "stats.phone_encoder_fps";
+pub(crate) const PIN_ENCODE: &str = "stats.phone_encode";
+pub(crate) const PIN_QUEUE: &str = "stats.phone_queue";
+
 /// Android's thermal status (PowerManager.THERMAL_STATUS_*) at which the phone lowers the frame rate by itself.
 const THROTTLING_FROM: i64 = 3;
 
@@ -112,7 +122,7 @@ pub fn rows(p: &PhoneReading, nerd: bool, delay: &[f32], period_ms: f32) -> Vec<
             _ => String::new(),
         };
         let slow = total as f32 > period_ms;
-        out.push(Row::line(&tr("Delay on the phone"), ms(total)).note(note).kind(if slow { "status_warn" } else { "" }).graph(delay, period_ms));
+        out.push(Row::line(&tr("Delay on the phone"), ms(total)).note(note).kind(if slow { "status_warn" } else { "" }).graph(delay, period_ms).pin(PIN_DELAY));
     } else if p.takes_stats {
         out.push(Row::line(&tr("Delay on the phone"), tr("Measuring")).kind("status_dim"));
     } else {
@@ -124,12 +134,12 @@ pub fn rows(p: &PhoneReading, nerd: bool, delay: &[f32], period_ms: f32) -> Vec<
             None => tr("{n} dBm").field("n", rssi),
         };
         let note = p.wifi_mbps.map(|m| tr("link speed {n} Mbps").field("n", m)).unwrap_or_default();
-        out.push(Row::line(&tr("Phone's Wi-Fi"), value).note(note).kind(signal_kind(rssi)));
+        out.push(Row::line(&tr("Phone's Wi-Fi"), value).note(note).kind(signal_kind(rssi)).pin(PIN_WIFI));
     } else if let Some(band) = &p.wifi_band {
-        out.push(Row::line(&tr("Phone's Wi-Fi"), tr("{band} GHz").field("band", band.clone())));
+        out.push(Row::line(&tr("Phone's Wi-Fi"), tr("{band} GHz").field("band", band.clone())).pin(PIN_WIFI));
     }
     if let Some(t) = p.battery_temp_c {
-        out.push(Row::line(&tr("Temperature"), tr("{n} °C").field("n", number(t, 1, false))));
+        out.push(Row::line(&tr("Temperature"), tr("{n} °C").field("n", number(t, 1, false))).pin(PIN_TEMPERATURE));
     }
     match p.thermal {
         Some(status) => {
@@ -146,10 +156,10 @@ pub fn rows(p: &PhoneReading, nerd: bool, delay: &[f32], period_ms: f32) -> Vec<
                 }
             }
             let value = if hot { tr("Yes, {level}").field("level", thermal_name(status).to_lowercase()) } else if capped { tr("Yes") } else { tr("No") };
-            out.push(Row::line(&tr("Throttling"), value).kind(if hot || capped { "status_warn" } else { "status_ok" }).note(note));
+            out.push(Row::line(&tr("Throttling"), value).kind(if hot || capped { "status_warn" } else { "status_ok" }).note(note).pin(PIN_THROTTLING));
         }
         None if p.heat_fps.is_some() => {
-            out.push(Row::line(&tr("Throttling"), tr("Yes")).kind("status_warn").note(tr("capped at {n}").field("n", whole_fps(p.heat_fps.unwrap_or(0)))));
+            out.push(Row::line(&tr("Throttling"), tr("Yes")).kind("status_warn").note(tr("capped at {n}").field("n", whole_fps(p.heat_fps.unwrap_or(0)))).pin(PIN_THROTTLING));
         }
         None => {}
     }
@@ -160,16 +170,16 @@ pub fn rows(p: &PhoneReading, nerd: bool, delay: &[f32], period_ms: f32) -> Vec<
                 let stepped = tr("stepped down to {n} for the link").field("n", whole_fps(cap));
                 note = if note.is_empty() { stepped } else { format!("{note}, {stepped}") };
             }
-            out.push(Row::line(&tr("Camera frame rate"), fps(camera)).note(note));
+            out.push(Row::line(&tr("Camera frame rate"), fps(camera)).note(note).pin(PIN_CAMERA_FPS));
         }
         if let Some(enc) = p.encoder_fps {
-            out.push(Row::line(&tr("Encoder frame rate"), fps(enc)));
+            out.push(Row::line(&tr("Encoder frame rate"), fps(enc)).pin(PIN_ENCODER_FPS));
         }
         if let (Some(avg), Some(max)) = (p.encode_ms, p.encode_max_ms) {
-            out.push(Row::line(&tr("From the camera"), ms(avg)).note(tr("slowest {n}").field("n", ms(max))));
+            out.push(Row::line(&tr("From the camera"), ms(avg)).note(tr("slowest {n}").field("n", ms(max))).pin(PIN_ENCODE));
         }
         if let Some(q) = p.queue_ms {
-            out.push(Row::line(&tr("Send queue"), ms(q)).note(tr("longest a packet waited")));
+            out.push(Row::line(&tr("Send queue"), ms(q)).note(tr("longest a packet waited")).pin(PIN_QUEUE));
         }
         out.push(Row::line(&tr("Round trip, jitter and clock offset"), tr("Not available yet")).kind("status_dim"));
     }

@@ -96,6 +96,9 @@ impl HostSettings for Ctx<'_> {
     fn running_plugins(&self) -> Vec<(String, String)> {
         self.state.slots.iter().filter(|s| !s.info.name.is_empty()).map(|s| (s.info.name.clone(), s.info.title.clone())).collect()
     }
+    fn plugin_looks(&self) -> Vec<telescope_core::host::PluginLook> {
+        self.state.slots.iter().filter(|s| !s.info.name.is_empty()).map(|s| telescope_core::host::PluginLook { name: s.info.name.clone(), title: s.info.title.clone(), icon: s.info.icon.clone() }).collect()
+    }
 }
 
 impl HostStreams for Ctx<'_> {

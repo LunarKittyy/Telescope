@@ -104,6 +104,8 @@ pub struct FakeHost {
     pub preset_rules: Option<fn(&str, &mut Value)>,
     /// Plugins has_plugin() says are there.
     pub plugins: Vec<String>,
+    /// What plugin_looks() lists.
+    pub looks: Vec<crate::host::PluginLook>,
     /// What plugin_settings() lists.
     pub settings: Vec<PluginSettings>,
     pub streaming: bool,
@@ -266,6 +268,9 @@ impl HostSettings for FakeHost {
     }
     fn running_plugins(&self) -> Vec<(String, String)> {
         self.plugins.iter().map(|p| (p.clone(), p.clone())).collect()
+    }
+    fn plugin_looks(&self) -> Vec<crate::host::PluginLook> {
+        self.looks.clone()
     }
     fn device_config(&self, source_id: Option<&str>, plugin_name: &str) -> Value {
         source_id.and_then(|id| self.device_configs.get(&(id.to_string(), plugin_name.to_string()))).cloned().unwrap_or_else(|| json!({}))
