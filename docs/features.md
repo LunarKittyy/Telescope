@@ -129,7 +129,11 @@ Photos go to the folder under **Save in** (a Telescope folder in your Pictures b
 
 An optional plugin for the look of the picture, switched on in Plugins (it needs no download). Like Background it runs on the computer and works with any phone and with Browser camera. Each phone gets its own grade and grades are saved in presets.
 
-**Primaries** has four colour wheels. Lift is the shadows, Gamma the midtones, Gain the highlights and Offset all of it. Drag a wheel towards a colour to push the picture that way and use the slider under it for the level. Below them are Temperature and Tint, Contrast with its Pivot, Saturation and then Shadows and Highlights for brightening or darkening only the darker or brighter parts. A double-click puts any wheel, slider or curve back where it started. With the keyboard the arrows move a wheel's dot and Home centres it.
+**Primaries** has four colour wheels. Lift is the shadows, Gamma the midtones, Gain the highlights and Offset all of it. Drag a wheel towards a colour to push the picture that way and use the slider under it for the level. Below them are Temperature and Tint, Contrast with its Pivot, Saturation, Vibrance and then Shadows and Highlights for brightening or darkening only the darker or brighter parts. A double-click puts any wheel, slider or curve back where it started. With the keyboard the arrows move a wheel's dot and Home centres it.
+
+**Auto** in the card's header sets Temperature, Tint, Gamma, Gain, Lift, Contrast, Highlights and Saturation from about a second of the picture, so the stream has to be running. Faces keep natural skin tones, which is why it uses the vision download and asks for it the first time if it isn't there yet. The sliders stay yours to change afterwards, and the button says **Looks fine** when there was nothing to correct.
+
+**Vibrance** is like Saturation but pushes the dull colours more than the strong ones and goes easy on skin tones. Drag it left to calm down the loudest colours.
 
 **Curves** has the RGB curves (all channels together, or red, green and blue on their own) plus Hue vs sat and Hue vs hue. On those two you pull a hue up to give it more colour or turn it towards the next hue along. Pulling it down does the opposite. Click to add a point and drag it, or double-click a point to take it off. In a curve that has keyboard focus **[** and **]** pick a point, the arrows move it and Delete removes it.
 
@@ -361,6 +365,10 @@ Shortcuts are global by default and also work while another app is in front.
 
 **Notify when one runs** shows a quick confirmation while Telescope is in the background. It's off by default.
 </details>
+
+## MCP server
+
+Optional, switched on under **Extras** in the Plugins tab of Settings. It lets an AI app like Claude Desktop read and change Telescope's settings, with a **Read only** switch in the MCP tab and an **MCP** button in the top bar that undoes what the AI changed. Telescope sends nothing to a model by itself. See [MCP server](mcp.md) for adding it to an AI app and what it can do.
 
 ## Plugins
 
