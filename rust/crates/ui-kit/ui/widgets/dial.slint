@@ -147,6 +147,37 @@ export component Dial inherits Rectangle {
         triggered => { shake-step = shake-step >= 3 ? 0 : shake-step + 1; }
     }
     property <length> shake-x: shaker.value * Theme.u(2);
+    // How fast the strip is going, in ticks a second, smoothed over about 150 ms by a timer that only runs while the strip is moving (or the speed is still dying away), so a dial at rest asks for nothing
+    property <float> speed;
+    // For a test: the speed, how far the names are back (1 at rest) and whether nothing is running
+    out property <float> pace: speed;
+    out property <float> name-calm: calm.value;
+    out property <bool> idle: travelled == 0 && speed == 0;
+    property <float> travelled;
+    property <float> last-pos;
+    property <bool> hot;
+    changed pos => {
+        travelled += abs(pos - last-pos);
+        last-pos = pos;
+    }
+    Timer {
+        interval: 50ms;
+        running: travelled > 0 || speed > 0;
+        triggered => {
+            speed += (travelled / 0.05 - speed) * 0.28;
+            travelled = 0;
+            if (speed < 0.2) { speed = 0; }
+            if (speed > 14) { hot = true; }
+            if (speed < 9) { hot = false; }
+        }
+    }
+    // Names only while the dial is calm: going fast their big size flickers on and off as the ticks go by, so the big name and the swell of the ones between go out (quick) and come back (a little slower), leaving the named full stops small and fixed
+    calm := Tone { on: !hot; fall: 120ms; rise: 220ms; }
+    // Read once as the dial is made, so the names start there and don't come up from nothing
+    init => {
+        calm.sync();
+        last-pos = pos;
+    }
     // Between ticks the value's own name stands in the middle, replacing the names of the ticks about it
     property <float> own: value-text != "" ? clamp(abs(shown-between) / 0.1, 0, 1) : 0;
     // The stops arriving after the dash that held their place (the phone names its ISOs late): half solid in the first frame, then up
@@ -208,9 +239,11 @@ export component Dial inherits Rectangle {
         property <float> dist: abs(i - pos);
         property <float> slots: dist / per;
         // The swell takes one tick, but a big name is only seen in the first two fifths of it, so the one leaving and the one arriving are never both clear; a labelled name beside the middle one fades up only once there is room for both
-        property <float> swell: clamp(1 - dist, 0, 1);
+        property <float> swell: clamp(1 - dist, 0, 1) * calm.value;
         property <float> room: Theme.u(20) / tick-pitch;
-        property <float> ramp: room <= 1 ? 1 : clamp((dist - 1) / (room - 1), 0, 1);
+        property <float> ramp-calm: room <= 1 ? 1 : clamp((dist - 1) / (room - 1), 0, 1);
+        // Going fast every labelled name shows small wherever it is, as a fixed point
+        property <float> ramp: ramp-calm + (1 - ramp-calm) * (1 - calm.value);
         property <float> far: slots <= 1 ? 1 : max(0, (1.6 - slots) / 0.6);
         property <float> grown: (Theme.small + (big - Theme.small) * swell) / big;
         visible: major ? slots < 1.6 : dist < 1;
@@ -246,7 +279,7 @@ export component Dial inherits Rectangle {
             transform-scale: grown;
             Rectangle {
                 cache-rendering-hint: grown < 0.9999;
-                opacity: solid * (1 - own) * min(1, clamp(1 - dist / 0.4, 0, 1) + (major ? 0.45 * ramp * far : 0));
+                opacity: solid * (1 - own) * min(1, clamp(1 - dist / 0.4, 0, 1) * calm.value + (major ? 0.45 * ramp * far : 0));
                 Text {
                     width: parent.width;
                     height: parent.height;
@@ -269,7 +302,7 @@ export component Dial inherits Rectangle {
         y: Theme.u(5);
         width: pitch * big / Theme.small;
         height: Theme.u(13);
-        opacity: solid * own;
+        opacity: solid * own * calm.value;
         Text {
             width: parent.width;
             height: parent.height;

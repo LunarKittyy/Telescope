@@ -334,3 +334,90 @@ fn a_dial_between_two_ticks_reads_as_the_owner_says_and_follows_its_between() {
     let dial = i_slint_backend_testing::ElementHandle::find_by_accessible_label(&ui, "ISO").find(|e| e.accessible_value().is_some()).expect("the dial");
     assert_eq!(dial.accessible_value().as_deref(), Some("37"));
 }
+
+const LONG: &str = r#"
+import { Dial } from "@ui-kit/ui-kit.slint";
+export component Test inherits Window {
+    width: 220px;
+    height: 70px;
+    out property <int> now: d.shown;
+    out property <float> pace: d.pace;
+    out property <float> calm: d.name-calm;
+    out property <bool> idle: d.idle;
+    d := Dial {
+        x: 10px;
+        y: 10px;
+        width: 200px;
+        label: "ISO";
+        stops: ["25", "32", "40", "50", "64", "80", "100", "125", "160", "200", "250", "320", "400", "500", "640", "800", "1000", "1250", "1600", "2000", "2500", "3200", "4000", "5000", "6400", "8000", "10000", "12800"];
+        per-label: 3;
+        label-from: 0;
+        free: true;
+        current: 3;
+    }
+}
+"#;
+
+/// Time passing a frame or so at a time, as it does: a timer fires once for a jump of any length.
+fn wait(ms: u64) {
+    let mut left = ms;
+    while left > 0 {
+        let by = left.min(20);
+        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(by));
+        left -= by;
+    }
+}
+
+fn notch(ui: &ComponentInstance) {
+    ui.window().dispatch_event(WindowEvent::PointerScrolled { position: at(110.0, 34.0), delta_x: 0.0, delta_y: 60.0 });
+}
+
+#[test]
+fn a_dial_going_fast_loses_its_big_names_and_gets_them_back_when_it_slows() {
+    let ui = rig(LONG, (220.0, 70.0));
+    ui.window().dispatch_event(WindowEvent::PointerMoved { position: at(110.0, 34.0) });
+    assert_eq!((number(&ui, "calm"), number(&ui, "pace")), (1.0, 0.0), "at rest the names are there");
+    // Rapid wheel notches, one every 30 ms
+    for _ in 0..16 {
+        notch(&ui);
+        wait(30);
+    }
+    assert!(number(&ui, "pace") > 14.0, "fast: {}", number(&ui, "pace"));
+    wait(150);
+    assert!(number(&ui, "calm") < 0.5, "the names have gone: {}", number(&ui, "calm"));
+    // Stopped: they come back, and nothing keeps running
+    wait(1500);
+    assert!(number(&ui, "calm") > 0.99, "{}", number(&ui, "calm"));
+    assert!(truth(&ui, "idle"), "a dial at rest has no timer running");
+}
+
+#[test]
+fn a_careful_dial_keeps_its_names() {
+    let ui = rig(LONG, (220.0, 70.0));
+    ui.window().dispatch_event(WindowEvent::PointerMoved { position: at(110.0, 34.0) });
+    // A tick every quarter of a second
+    let mut lowest = 1.0_f64;
+    for _ in 0..8 {
+        notch(&ui);
+        for _ in 0..5 {
+            wait(50);
+            lowest = lowest.min(number(&ui, "calm"));
+        }
+    }
+    assert!(lowest > 0.99, "a careful turn never loses the names: {lowest}");
+    assert!(number(&ui, "pace") < 9.0, "{}", number(&ui, "pace"));
+}
+
+#[test]
+fn a_dial_at_rest_runs_nothing() {
+    let ui = rig(LONG, (220.0, 70.0));
+    wait(2000);
+    assert!(truth(&ui, "idle"));
+}
+
+fn truth(ui: &ComponentInstance, name: &str) -> bool {
+    match ui.get_property(name).unwrap() {
+        Value::Bool(b) => b,
+        other => panic!("{name} is {other:?}"),
+    }
+}
