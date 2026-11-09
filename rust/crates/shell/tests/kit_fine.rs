@@ -113,6 +113,70 @@ fn a_slider_does_not_jump_when_shift_is_pressed_or_let_go() {
     up(&ui, at(200.0, 25.0));
 }
 
+/// What `read` says after a press at `from` and a Shift drag far past `to` (the pointer leaves the control, the drag is still held).
+fn shift_dragged_far(doc: &str, size: (f32, f32), from: (f32, f32), to: (f32, f32), read: &str) -> f64 {
+    let ui = rig(doc, size);
+    down(&ui, at(from.0, from.1));
+    shift(&ui, true);
+    // Many small moves, as a hand makes them, out to a pointer far outside the window
+    let steps = 200;
+    for i in 1..=steps {
+        let t = i as f32 / steps as f32;
+        drag(&ui, at(from.0 + (to.0 - from.0) * t, from.1 + (to.1 - from.1) * t));
+    }
+    let after = number(&ui, read);
+    shift(&ui, false);
+    up(&ui, at(to.0, to.1));
+    after
+}
+
+#[test]
+fn a_long_shift_drag_on_a_slider_reaches_both_ends_of_its_range() {
+    assert_eq!(shift_dragged_far(SLIDER, (340.0, 60.0), (170.0, 25.0), (5000.0, 25.0), "now"), 1000.0);
+    assert_eq!(shift_dragged_far(SLIDER, (340.0, 60.0), (170.0, 25.0), (-5000.0, 25.0), "now"), 0.0);
+}
+
+const STEPPED: &str = r#"
+import { Slider } from "@ui-kit/ui-kit.slint";
+export component Test inherits Window {
+    width: 240px;
+    height: 60px;
+    out property <float> now: s.shown;
+    s := Slider { x: 10px; y: 10px; width: 220px; label: "Brightness"; minimum: -8; maximum: 8; step: 1; value: 0; }
+}
+"#;
+
+#[test]
+fn a_stepped_slider_moves_one_step_at_a_time_by_drag_with_or_without_shift_and_by_keys() {
+    for held in [false, true] {
+        let ui = rig(STEPPED, (240.0, 60.0));
+        down(&ui, at(120.0, 25.0));
+        shift(&ui, held);
+        let mut last = number(&ui, "now");
+        for i in 1..=400 {
+            drag(&ui, at(120.0 + i as f32 * 0.5, 25.0));
+            let now = number(&ui, "now");
+            assert!((now - last).abs() <= 1.0, "Shift {held}: {last} to {now} in a half pixel step");
+            last = now;
+        }
+        for i in 1..=400 {
+            drag(&ui, at(320.0 - i as f32 * 1.5, 25.0));
+            let now = number(&ui, "now");
+            assert!((now - last).abs() <= 1.0, "Shift {held}: {last} to {now} going back");
+            last = now;
+        }
+        shift(&ui, false);
+        up(&ui, at(20.0, 25.0));
+    }
+    let ui = rig(STEPPED, (240.0, 60.0));
+    press(&ui, Key::Tab);
+    press(&ui, Key::RightArrow);
+    assert_eq!(number(&ui, "now"), 1.0);
+    press(&ui, Key::LeftArrow);
+    press(&ui, Key::LeftArrow);
+    assert_eq!(number(&ui, "now"), -1.0);
+}
+
 const PAD: &str = r#"
 import { Pad } from "@ui-kit/ui-kit.slint";
 export component Test inherits Window {
@@ -130,6 +194,14 @@ fn a_pad_goes_a_tenth_as_far_with_shift_across_and_up() {
     assert_fine(PAD, (340.0, 230.0), (160.0, 110.0), (160.0, 150.0), "now-y");
 }
 
+#[test]
+fn a_long_shift_drag_on_a_pad_reaches_the_ends_of_both_ranges() {
+    assert_eq!(shift_dragged_far(PAD, (340.0, 230.0), (160.0, 110.0), (6000.0, 110.0), "now-x"), 1000.0);
+    assert_eq!(shift_dragged_far(PAD, (340.0, 230.0), (160.0, 110.0), (-6000.0, 110.0), "now-x"), 0.0);
+    assert_eq!(shift_dragged_far(PAD, (340.0, 230.0), (160.0, 110.0), (160.0, 4000.0), "now-y"), 1000.0);
+    assert_eq!(shift_dragged_far(PAD, (340.0, 230.0), (160.0, 110.0), (160.0, -4000.0), "now-y"), 0.0);
+}
+
 const JOG: &str = r#"
 import { Jog } from "@ui-kit/ui-kit.slint";
 export component Test inherits Window {
@@ -145,6 +217,12 @@ fn a_jog_goes_a_tenth_as_far_with_shift() {
     assert_fine(JOG, (240.0, 60.0), (120.0, 25.0), (150.0, 25.0), "now");
 }
 
+#[test]
+fn a_long_shift_drag_on_a_jog_reaches_its_end() {
+    assert_eq!(shift_dragged_far(JOG, (240.0, 60.0), (120.0, 25.0), (3000.0, 25.0), "now"), 1.0);
+    assert_eq!(shift_dragged_far(JOG, (240.0, 60.0), (120.0, 25.0), (-3000.0, 25.0), "now"), -1.0);
+}
+
 const BAR: &str = r#"
 import { ScrollBar } from "@ui-kit/ui-kit.slint";
 export component Test inherits Window {
@@ -158,6 +236,11 @@ export component Test inherits Window {
 #[test]
 fn a_scroll_bar_goes_a_tenth_as_far_with_shift() {
     assert_fine(BAR, (60.0, 220.0), (15.0, 20.0), (15.0, 60.0), "now");
+}
+
+#[test]
+fn a_long_shift_drag_on_a_scroll_bar_reaches_its_end() {
+    assert_eq!(shift_dragged_far(BAR, (60.0, 220.0), (15.0, 20.0), (15.0, 9000.0), "now"), 800.0);
 }
 
 const WHEEL: &str = r#"
@@ -262,6 +345,12 @@ fn a_dial_goes_between_the_ticks_with_shift_a_tenth_as_far() {
     assert_eq!(number(&ui, "now"), 4.0, "a tick further is the next whole tick");
     assert_eq!(number(&ui, "betweens"), 1.0, "and says nothing between ticks any more");
     up(&ui, at(110.0 - 4.0 * TICK, 34.0));
+}
+
+#[test]
+fn a_long_shift_drag_on_a_dial_reaches_its_last_tick_and_its_first() {
+    assert_eq!(shift_dragged_far(DIAL, (220.0, 70.0), (110.0, 34.0), (-9000.0, 34.0), "place"), 10.0);
+    assert_eq!(shift_dragged_far(DIAL, (220.0, 70.0), (110.0, 34.0), (9000.0, 34.0), "place"), 0.0);
 }
 
 #[test]

@@ -1118,3 +1118,20 @@ fn the_noise_and_sharpening_rows_say_which_row_they_are_on_hover() {
     assert_eq!(p["noise-tip-details"][2], "Reduce noise as much as possible, even if the frame rate drops.");
     assert_eq!(p["sharpening-tip-details"][0], "");
 }
+
+#[test]
+fn brightness_readout_moves_by_the_phones_step_with_every_unit() {
+    for step in [0.167, 0.333, 0.5, 1.0] {
+        let mut r = Rig::new();
+        r.cam.ae_step = step;
+        let mut last: Option<f64> = None;
+        for units in -6..=6_i64 {
+            r.cam.on_ae_comp_changed(units);
+            let shown: f64 = r.cam.ae_text.trim_end_matches(" EV").parse().unwrap();
+            if let Some(before) = last {
+                assert!((shown - before - step).abs() < 0.011, "step {step}: {before} to {shown} at {units} is not one step ({})", r.cam.ae_text);
+            }
+            last = Some(shown);
+        }
+    }
+}

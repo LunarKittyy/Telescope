@@ -436,13 +436,15 @@ export component Slider inherits HorizontalLayout {
         touch := TouchArea {
             enabled: root.enabled;
             property <float> picked: clamp((self.mouse-x - track.inset) / (track.width - 2 * track.inset), 0, 1);
+            // Where the pointer is along the track, past either end too, so Shift's tenth is counted from the pointer's own place
+            property <float> beyond: (self.mouse-x - track.inset) / (track.width - 2 * track.inset);
             // Where the pointer puts the handle once Shift's slower going is counted, 0 to 1 along the track
             property <float> eff: picked;
             property <bool> shift-now;
             // The pointer is on the handle as it is drawn now
             property <bool> on-handle: abs(self.mouse-x - (handle.x + Theme.handle-w / 2)) <= Theme.handle-w / 2 + Theme.u(1);
             function drag() {
-                eff = (fine.at(minimum + picked * (maximum - minimum), shift-now, minimum, maximum) - minimum) / max(0.0001, maximum - minimum);
+                eff = (fine.at(minimum + beyond * (maximum - minimum), shift-now, minimum, maximum) - minimum) / max(0.0001, maximum - minimum);
                 let v = snapped(round((minimum + eff * (maximum - minimum)) / step) * step);
                 if (pending) {
                     // A drag that starts on the track is no click: it takes hold at once
@@ -464,7 +466,7 @@ export component Slider inherits HorizontalLayout {
                 if (e.kind == PointerEventKind.down) { usage.press(); }
                 // A second press while the first click waits is the double-click's, which `double-clicked` answers
                 if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left && !pending) {
-                    fine.begin(minimum + picked * (maximum - minimum));
+                    fine.begin(minimum + beyond * (maximum - minimum));
                     eff = picked;
                     glide.sync();
                     dragging = true;
