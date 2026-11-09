@@ -106,7 +106,7 @@ export component Footer inherits Rectangle {
     in property <length> right-chip-x;
     // How much of the bar's left the status may use
     in property <length> status-room: root.width - 2 * Theme.u(8);
-    callback pin-measured(string, length);
+    callback pin-measured(string, length, length);
     callback drag-started(string);
     callback drag-moved(string, length);
     callback drag-ended(string);
@@ -132,7 +132,7 @@ export component Footer inherits Rectangle {
     for pin[i] in pins: PinReadout {
         pin: pin;
         bar-w: root.width;
-        measured(w) => { root.pin-measured(pin.id, w); }
+        measured(w, plain) => { root.pin-measured(pin.id, w, plain); }
         drag-started => { root.drag-started(pin.id); }
         drag-moved(cx) => { root.drag-moved(pin.id, cx); }
         drag-ended => { root.drag-ended(pin.id); }

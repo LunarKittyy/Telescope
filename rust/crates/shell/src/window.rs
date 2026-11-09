@@ -646,8 +646,8 @@ impl Window {
         });
         let weak = Rc::downgrade(self);
         let _ = ui.set_callback("bar-pin-measured", move |args| {
-            if let (Some(w), [id, width]) = (weak.upgrade(), args) {
-                w.state.borrow_mut().bar.measured(&text(id), num(width));
+            if let (Some(w), [id, width, plain]) = (weak.upgrade(), args) {
+                w.state.borrow_mut().bar.measured(&text(id), num(width), num(plain));
                 w.show_bar();
             }
             SValue::Void

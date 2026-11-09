@@ -98,6 +98,8 @@ pub struct Bar {
     own: BTreeMap<String, BarStat>,
     offers: BTreeMap<String, Vec<BarStat>>,
     widths: BTreeMap<String, f32>,
+    /// The same without the dim text a pin drops first (the camera's size).
+    plain: BTreeMap<String, f32>,
     last_x: BTreeMap<String, f32>,
     /// Every id that has had a row this run, in the order it got one: the Slint list keeps this order, so a row is always the same pin.
     rows: Vec<String>,
@@ -235,11 +237,16 @@ impl Bar {
     }
 
     /// A pin's real width in logical px. Kept as the widest seen while the bar has pins to show, so the digits changing don't move the rest.
-    pub fn measured(&mut self, id: &str, width: f32) {
-        let width = (width * 2.0).ceil() / 2.0;
+    pub fn measured(&mut self, id: &str, width: f32, plain: f32) {
+        let half = |w: f32| (w * 2.0).ceil() / 2.0;
         let held = self.widths.entry(id.to_string()).or_insert(0.0);
-        if width > *held {
-            *held = width;
+        if half(width) > *held {
+            *held = half(width);
+            self.dirty = true;
+        }
+        let held = self.plain.entry(id.to_string()).or_insert(0.0);
+        if half(plain) > *held {
+            *held = half(plain);
             self.dirty = true;
         }
     }
@@ -259,7 +266,13 @@ impl Bar {
     }
 
     fn width_of(&self, id: &str, room: f32) -> f32 {
-        self.widths.get(id).copied().unwrap_or(GUESS_WIDTH).min((room * WIDEST_SHARE).max(self.metrics.chip))
+        let cap = (room * WIDEST_SHARE).max(self.metrics.chip);
+        let full = self.widths.get(id).copied().unwrap_or(GUESS_WIDTH);
+        // Too wide for its share: the pin drops its dim text (its Slint does that when it is given less than all it wants), so it needs only the rest
+        match self.plain.get(id) {
+            Some(plain) if full > cap && *plain > 0.0 => plain.min(cap),
+            _ => full.min(cap),
+        }
     }
 
     /// The two lists as they are drawn: the pins as pinned, the camera forced in while it has to be, and a held pin where it would land.
@@ -285,6 +298,7 @@ impl Bar {
         // Widths are forgotten while nothing shows, so the next stream's (a longer camera name) is measured again
         if !self.shows_any() && !self.widths.is_empty() {
             self.widths.clear();
+            self.plain.clear();
         }
 
         // Each side from its own edge inwards: the left as drawn, the right reversed

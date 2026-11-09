@@ -237,9 +237,9 @@ fn a_row_keeps_its_pin_and_a_returning_pin_is_told() {
 #[test]
 fn widths_hold_the_widest_value_seen_and_are_forgotten_when_nothing_shows() {
     let mut b = bar(600.0);
-    b.measured(FPS, 30.0);
-    b.measured(FPS, 44.0);
-    b.measured(FPS, 36.0);
+    b.measured(FPS, 30.0, 30.0);
+    b.measured(FPS, 44.0, 44.0);
+    b.measured(FPS, 36.0, 36.0);
     assert_eq!(row(&b.view(), FPS).w, 44.0);
     b.set_own(vec![stat(CAMERA, ""), stat(FPS, ""), stat(THROUGHPUT, "")]);
     b.view();
@@ -250,7 +250,7 @@ fn widths_hold_the_widest_value_seen_and_are_forgotten_when_nothing_shows() {
 #[test]
 fn a_long_name_is_cut_to_a_share_of_the_room() {
     let mut b = bar(600.0);
-    b.measured(CAMERA, 900.0);
+    b.measured(CAMERA, 900.0, 900.0);
     assert!(row(&b.view(), CAMERA).w <= (600.0 - 32.0) * 0.45 + 0.01);
 }
 
@@ -259,8 +259,8 @@ fn the_camera_is_the_last_to_fold_and_the_left_chip_sits_after_it() {
     let mut b = bar(600.0);
     b.set_own(vec![stat(CAMERA, "Phone"), stat("a", "1"), stat("b", "1"), stat(FPS, "30"), stat(THROUGHPUT, "12")]);
     b.load(Some((vec!["camera".into(), "a".into(), "b".into()], vec!["fps".into(), "throughput".into()])));
-    b.measured(CAMERA, 171.0);
-    for width in [330.0, 260.0, 200.0, 120.0] {
+    b.measured(CAMERA, 171.0, 88.0);
+    for width in [220.0, 160.0, 120.0] {
         b.set_metrics(Metrics { width, pad: 16.0, gap: 16.0, chip: 24.0 });
         let v = b.view();
         assert_eq!(row(&v, CAMERA).state, State::Shown, "the camera stays at {width}");
@@ -269,4 +269,15 @@ fn the_camera_is_the_last_to_fold_and_the_left_chip_sits_after_it() {
         assert_eq!(chip.x, 16.0 + row(&v, CAMERA).w + 16.0, "the chip is at the inner end of the left side, after the camera: {width}");
         assert_eq!(chip.count, 2);
     }
+}
+
+#[test]
+fn a_pin_too_wide_for_its_share_takes_only_what_it_needs_without_its_dim_text() {
+    let mut b = bar(600.0);
+    b.measured(CAMERA, 171.0, 88.0);
+    // Room for all of it: the whole width
+    assert_eq!(row(&b.view(), CAMERA).w, 171.0);
+    // Cut to a share of a small bar, the dim text goes and so does its room
+    b.set_metrics(Metrics { width: 330.0, pad: 16.0, gap: 16.0, chip: 24.0 });
+    assert_eq!(row(&b.view(), CAMERA).w, 88.0);
 }

@@ -495,3 +495,20 @@ fn folding_and_unfolding_are_motions_both_ways() {
     assert!(unfold.last().unwrap().1 > 0.95);
     let _ = x_wide;
 }
+
+#[test]
+fn the_cameras_size_goes_before_its_name_is_cut() {
+    let r = full_bar("bar-camera-size");
+    let size = |r: &Rig| i_slint_backend_testing::ElementHandle::find_by_accessible_label(&r.w.ui, "1920 \u{d7} 1080").count();
+    resize(&r, 1400.0);
+    assert_eq!(size(&r), 1, "room for both");
+    let camera = pin(&r, "camera");
+    let full = num(&camera, "w");
+    // Room runs short: the pin is cut to a share of the bar, which has room for the name but not the size after it
+    resize(&r, 330.0);
+    assert_eq!(pin(&r, "camera")["state"], "0", "the camera stays");
+    assert!(num(&pin(&r, "camera"), "w") < full, "its pin is narrower than with the size");
+    assert_eq!(size(&r), 0, "the size is the first to go");
+    resize(&r, 1400.0);
+    assert_eq!(size(&r), 1, "and it comes back");
+}

@@ -75,8 +75,8 @@ export component PinReadout inherits Rectangle {
     out property <string> control-kind: "readout";
     in property <BarPin> pin;
     in property <length> bar-w;
-    // How wide it would like to be, for Rust to keep the widest it has been
-    callback measured(length);
+    // How wide it would like to be, with everything on it and without the dim text, for Rust to keep the widest of each
+    callback measured(length, length);
     callback drag-started;
     callback drag-moved(length);
     callback drag-ended;
@@ -88,12 +88,17 @@ export component PinReadout inherits Rectangle {
     out property <length> at: place.value * 1px;
     property <length> drag-x;
     property <bool> here;
-    property <length> natural: lay.preferred-width;
+    // How wide it would be with everything on it, whether or not the size it was given leaves room for the dim text after the value
+    property <length> natural: (pin.icon != "" ? Theme.icon-small + Theme.u(3) : 0px) + val.preferred-width + (pin.sub != "" ? Theme.u(3) + sub-ruler.preferred-width : 0px);
+    property <length> plain: natural - (pin.sub != "" ? Theme.u(3) + sub-ruler.preferred-width : 0px);
+    // The dim text (the camera's size) is the first to go when the room is short, so the name is cut last
+    property <bool> sub-fits: pin.w + 0.5px >= natural;
     init => {
         here = true;
-        root.measured(natural);
+        root.measured(natural, plain);
     }
-    changed natural => { root.measured(natural); }
+    changed natural => { root.measured(natural, plain); }
+    changed plain => { root.measured(natural, plain); }
     fade := Fade { shown: here && pin.state == 0; }
     // Folded pins slide into their chip while they fade; a pin that is hidden follows its place at once, so it comes back where it belongs
     place := Settle { to: (dragging ? drag-x : pin.x) / 1px; snap: dragging || pin.state == 2; }
@@ -107,11 +112,18 @@ export component PinReadout inherits Rectangle {
     accessible-label: pin.name;
     accessible-value: pin.value;
     tip := Tip { says: pin.name; detail: pin.tip; hover: touch.has-hover && !dragging && pin.state == 0; }
+    sub-ruler := Text {
+        visible: false;
+        text: pin.sub;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        accessible-role: none;
+    }
     lay := HorizontalLayout {
         spacing: Theme.u(3);
         alignment: end;
         if pin.icon != "": Icon { y: (parent.height - self.height) / 2; source: Icons.named(pin.icon); tint: Theme.faint; width: Theme.icon-small; height: Theme.icon-small; }
-        Text {
+        val := Text {
             text: pin.value;
             font-family: Theme.font;
             font-size: Theme.body;
@@ -123,13 +135,12 @@ export component PinReadout inherits Rectangle {
             min-width: 0px;
             accessible-role: none;
         }
-        if pin.sub != "": Text {
+        if pin.sub != "" && sub-fits: Text {
             text: pin.sub;
             font-family: Theme.font;
             font-size: Theme.body;
             color: Theme.faint;
             vertical-alignment: center;
-            accessible-role: none;
         }
     }
     touch := TouchArea {

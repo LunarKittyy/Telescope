@@ -296,7 +296,7 @@ export component TelescopeWindow inherits Window {
     out property <length> bar-gap: Theme.u(8);
     out property <length> bar-chip: Theme.u(14);
     callback bar-resized;
-    callback bar-pin-measured(string, length);
+    callback bar-pin-measured(string, length, length);
     callback bar-drag-started(string);
     callback bar-drag-moved(string, length);
     callback bar-drag-ended(string);
@@ -512,7 +512,7 @@ const BODY_BOTTOM: &str = r#"        }
         left-chip-x: root.bar-left-chip-x;
         right-folded: root.bar-right-folded;
         right-chip-x: root.bar-right-chip-x;
-        pin-measured(id, w) => { root.bar-pin-measured(id, w); }
+        pin-measured(id, w, plain) => { root.bar-pin-measured(id, w, plain); }
         drag-started(id) => { root.bar-drag-started(id); }
         drag-moved(id, x) => { root.bar-drag-moved(id, x); }
         drag-ended(id) => { root.bar-drag-ended(id); }

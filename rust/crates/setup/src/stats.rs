@@ -454,7 +454,7 @@ fn pin_icon(id: &str) -> &'static str {
     match id {
         PIN_FRAMES_IN => "download",
         PIN_DECODED => "cube",
-        PIN_REPEATED => "reset",
+        PIN_REPEATED => "repeat",
         PIN_DROPPED => "skip_next",
         PIN_CPU => "chip",
         PIN_MEMORY => "memory",
