@@ -80,6 +80,10 @@ cpal = "0.18"
 naga = { version = "30", default-features = false, features = ["wgsl-in"] }
 slint-interpreter = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "accessibility"] }
 
+# femtovg 0.27 (the version Slint 1.18 takes) drops every pipeline a flush didn't use and compiles it again on the next one, which was most of a frame's cost: see vendor/femtovg/PATCH.txt
+[patch.crates-io]
+femtovg = { path = "vendor/femtovg" }
+
 [profile.release]
 opt-level = 3
 lto = "thin"

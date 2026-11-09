@@ -30,6 +30,9 @@ pub fn use_app_id(id: String) {
     let _ = APP_ID.set(id);
 }
 
+/// How long after start the Settings window is built in the background.
+const SETTINGS_PREPARED_AFTER: Duration = Duration::from_millis(2000);
+
 /// Called once when the window has been shown (or put in the tray), before the event loop runs.
 #[derive(Clone)]
 pub struct ShownHook(pub Arc<dyn Fn() + Send + Sync>);
@@ -1139,7 +1142,7 @@ impl Window {
 
     fn set_window_props(ui: &ComponentInstance, plugin: &str, id: &str, props: &Value) {
         for (k, v) in props.as_object().into_iter().flatten() {
-            if let Err(e) = ui.set_property(k, to_property(ui, k, v)) {
+            if let Err(e) = crate::same::set(ui, k, to_property(ui, k, v)) {
                 log::warn!("{plugin} set {k} on its window {id}: {e:?}");
             }
         }
@@ -1158,7 +1161,7 @@ impl Window {
         };
         for (k, v) in props.as_object().into_iter().flatten() {
             let name = format!("{}-{k}", r.id);
-            if let Err(e) = self.ui.set_property(&name, to_property(&self.ui, &name, v)) {
+            if let Err(e) = crate::same::set(&self.ui, &name, to_property(&self.ui, &name, v)) {
                 log::warn!("{plugin} set {k} on its {ui}: {e:?}");
             }
         }
@@ -1368,7 +1371,7 @@ impl Window {
                 ("actions".to_string(), SValue::Model(ModelRc::new(VecModel::from(actions)))),
             ]))
         }).collect();
-        let _ = self.ui.set_property("banners", SValue::Model(ModelRc::new(VecModel::from(rows))));
+        let _ = crate::same::set(&self.ui, "banners", SValue::Model(ModelRc::new(VecModel::from(rows))));
     }
 
     pub(crate) fn set(&self, name: &str, text: impl Into<SharedString>) {
@@ -1599,6 +1602,13 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         window.show_window();
     }
     window.process();
+    // Settings is built while nobody is waiting for it, so the first click only shows it
+    let weak = Rc::downgrade(&window);
+    slint::Timer::single_shot(SETTINGS_PREPARED_AFTER, move || {
+        if let Some(w) = weak.upgrade() {
+            crate::settings::prepare(&w);
+        }
+    });
     slint::run_event_loop_until_quit().map_err(|e| e.to_string())?;
     drop(tray_timer);
     let _ = window.ui.hide();

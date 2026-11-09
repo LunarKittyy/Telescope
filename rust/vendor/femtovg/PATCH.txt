@@ -1,0 +1,9 @@
+femtovg 0.27.0 from crates.io with one change, in src/renderer/wgpu.rs (search for "Telescope patch"): the pipeline cache keeps
+pipelines a flush didn't use until it holds more than 128, instead of dropping them after every flush.
+
+Why: a Slint frame flushes several times, and each flush dropped the pipelines the other flushes used, so every frame compiled
+shaders again (naga to SPIR-V and a Vulkan pipeline each). Measured on a 1388x900 window: 8.3 ms a frame for a still window and
+17.5 ms for an animating slider, 1.9 ms and 2.4 ms with the patch.
+
+femtovg 0.28 fixes this (a least recently used cache), but Slint 1.18 asks for femtovg 0.27. Delete this folder and the [patch] in
+Cargo.toml when Slint moves to femtovg 0.28 or later. Examples, tests and the book were left out of the copy.
