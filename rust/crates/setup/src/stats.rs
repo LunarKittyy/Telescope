@@ -4,7 +4,7 @@
 use serde_json::{json, Value};
 use telescope_core::bar::{self, BarStat};
 use telescope_core::event::Event;
-use telescope_core::host::Host;
+use telescope_core::host::{Host, PluginLook};
 use telescope_core::i18n::{n_, number, tr, Fields};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::stats::{DropReason, NamedTiming, Route, Snapshot, SourceSnapshot, Transport};
@@ -23,6 +23,10 @@ const PIN_DROPPED: &str = "stats.dropped";
 const PIN_CPU: &str = "stats.cpu";
 const PIN_MEMORY: &str = "stats.memory";
 const PIN_TOTAL: &str = "stats.total_throughput";
+const PIN_CONNECTION: &str = "stats.connection";
+const PIN_READING: &str = "stats.reading_camera";
+const PIN_STEPS_ON: &str = "stats.steps_on";
+const PIN_MOVES: &str = "stats.balancer_moves";
 
 /// How many plugins each of the per-plugin lists shows, slowest first.
 const LISTED: usize = 8;
@@ -58,6 +62,9 @@ pub struct Row {
     pub graph: String,
     /// The id of the bottom bar readout this line can be pinned as, or empty.
     pub pin: String,
+    /// The icon its pin wears in the bar when that isn't the one `pin_icon` knows (a plugin's own), and the name the bar gives it when that isn't the label.
+    pub bar_icon: String,
+    pub bar_name: String,
 }
 
 impl Row {
@@ -77,6 +84,13 @@ impl Row {
     /// The line gets a star, which pins its number into the bottom bar under this id.
     pub(crate) fn pin(mut self, id: &str) -> Row {
         self.pin = id.into();
+        self
+    }
+
+    /// A plugin's own line: its icon in the bar and a name that says which list it is from.
+    pub(crate) fn bar(mut self, icon: &str, name: String) -> Row {
+        self.bar_icon = icon.into();
+        self.bar_name = name;
         self
     }
 
@@ -174,6 +188,8 @@ pub struct Context {
     pub camera: Option<String>,
     /// How many streams run.
     pub streams: usize,
+    /// How the plugins are shown to people, so a list of them names them the way the Plugins tab does.
+    pub looks: Vec<PluginLook>,
 }
 
 fn fps(v: f32) -> String {
@@ -265,10 +281,36 @@ fn slowest_first(list: &[NamedTiming]) -> Vec<&NamedTiming> {
 }
 
 /// The listed plugins by shown name, so a row keeps its place while the timings move.
-fn fixed_order(list: &[NamedTiming]) -> Vec<&NamedTiming> {
+fn fixed_order<'a>(list: &'a [NamedTiming], looks: &[PluginLook]) -> Vec<&'a NamedTiming> {
     let mut list = slowest_first(list);
-    list.sort_by_key(|t| plugin_label(&t.name));
+    list.sort_by_key(|t| plugin_title(&t.name, looks));
     list
+}
+
+/// A plugin's name as people read it (what the Plugins tab calls it, translated), or the id tidied up when no plugin by that name is known.
+fn plugin_title(name: &str, looks: &[PluginLook]) -> String {
+    match looks.iter().find(|l| l.name == name && !l.title.is_empty()) {
+        Some(look) => tr(&look.title),
+        None => plugin_label(name),
+    }
+}
+
+/// A plugin's own icon, for its line's pin in the bar; the chip when none is known.
+fn plugin_icon(name: &str, looks: &[PluginLook]) -> String {
+    looks.iter().find(|l| l.name == name && !l.icon.is_empty()).map_or_else(|| "plug".to_string(), |l| l.icon.clone())
+}
+
+/// A drop cause as part of a pin's id: stable whatever the language.
+fn drop_key(reason: DropReason) -> &'static str {
+    match reason {
+        DropReason::LostOnLink => "lost_on_link",
+        DropReason::Late => "late",
+        DropReason::DecoderFailed => "decoder_failed",
+        DropReason::WaitingForKeyframe => "waiting_for_keyframe",
+        DropReason::Paced => "paced",
+        DropReason::StepFailed => "step_failed",
+        DropReason::Unknown => "unknown",
+    }
 }
 
 /// min / average / max of a series, and how many seconds ago its biggest value was.
@@ -345,7 +387,7 @@ pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> V
         for reason in DropReason::ALL {
             let n = s.drops.of(reason);
             if n > 0 {
-                out.push(Row::line(&reason_label(reason), n.to_string()));
+                out.push(Row::line(&reason_label(reason), n.to_string()).pin(&format!("stats.dropped_{}", drop_key(reason))));
             }
         }
     }
@@ -362,7 +404,7 @@ pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> V
         Transport::Tcp => tr("TCP"),
         Transport::Local | Transport::Unknown => String::new(),
     };
-    out.push(Row::line(&tr("Connection"), route).note(transport));
+    out.push(Row::line(&tr("Connection"), route).note(transport).pin(PIN_CONNECTION));
     let mut bitrate = Row::line(&tr("Bitrate"), mbps(s.now.mbps as f64)).graph(&s.series.mbps, 1.0).pin(bar::THROUGHPUT);
     if let (Some(asked), true) = (ctx.asked_mbps, s.link.route != Route::Local) {
         bitrate = bitrate.note(asked_text(asked));
@@ -386,22 +428,22 @@ pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> V
     if let Some(name) = ctx.camera.as_ref().filter(|n| !n.is_empty()) {
         out.push(Row::line(&tr("Camera"), name.clone()).pin(bar::CAMERA));
     }
-    out.push(Row::line(&tr("Reading the virtual camera"), apps));
+    out.push(Row::line(&tr("Reading the virtual camera"), apps).pin(PIN_READING));
 
     if nerd {
         out.push(Row::head("chip", &tr("On this computer")));
         let balance = &snap.app.balance;
         let place = if balance.on_card { tr("The graphics card") } else { tr("The processor") };
-        out.push(Row::line(&tr("Frame steps run on"), place).note(if balance.pinned { tr("held there on purpose") } else { String::new() }));
-        out.push(Row::line(&tr("Balancer moves"), balance.moves.to_string()));
-        for m in balance.recent.iter().rev().take(MOVES_LISTED) {
+        out.push(Row::line(&tr("Frame steps run on"), place).note(if balance.pinned { tr("held there on purpose") } else { String::new() }).pin(PIN_STEPS_ON));
+        out.push(Row::line(&tr("Balancer moves"), balance.moves.to_string()).pin(PIN_MOVES));
+        for (i, m) in balance.recent.iter().rev().take(MOVES_LISTED).enumerate() {
             let label = if m.to_card { tr("Moved to the graphics card") } else { tr("Moved to the processor") };
             let ago = tr("{n} s ago").field("n", number(m.seconds_ago as f64, 0, false));
             let why = match m.why {
                 telescope_core::balance::Why::CardBusy => tr("frames waited {n} for the card").field("n", ms(m.wait_ms)),
                 telescope_core::balance::Why::CardClear => tr("the card was clear for a while"),
             };
-            out.push(Row::line(&label, ago).note(why));
+            out.push(Row::line(&label, ago).note(why).pin(&format!("stats.balancer_move_{i}")));
         }
         let period = 1000.0 / target;
         for t in &s.stages {
@@ -412,22 +454,26 @@ pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> V
                 "camera" => s.series.camera_ms.as_slice(),
                 _ => &[],
             };
-            out.push(Row::line(&stage_label(&t.name), ms(t.timing.mean_ms)).note(timing_note(t.timing.max_ms)).kind(if slow { "status_warn" } else { "" }).graph(series, period));
+            out.push(Row::line(&stage_label(&t.name), ms(t.timing.mean_ms)).note(timing_note(t.timing.max_ms)).kind(if slow { "status_warn" } else { "" }).graph(series, period).pin(&format!("stats.stage_{}", t.name)));
         }
 
         out.push(Row::head("plug", &tr("Each plugin's frame step")));
         if s.plugins.is_empty() {
             out.push(Row::line(&tr("Measuring"), String::new()).kind("status_dim"));
         }
-        for t in fixed_order(&s.plugins) {
-            out.push(Row::line(&plugin_label(&t.name), ms(t.timing.mean_ms)).note(timing_note(t.timing.max_ms)));
+        for t in fixed_order(&s.plugins, &ctx.looks) {
+            let label = plugin_title(&t.name, &ctx.looks);
+            let bar_name = tr("{plugin}, frame step").field("plugin", label.clone());
+            out.push(Row::line(&label, ms(t.timing.mean_ms)).note(timing_note(t.timing.max_ms)).pin(&format!("stats.step_{}", t.name)).bar(&plugin_icon(&t.name, &ctx.looks), bar_name));
         }
         out.push(Row::head("plug", &tr("Each plugin's events and card updates")));
         if snap.app.hooks.is_empty() {
             out.push(Row::line(&tr("Measuring"), String::new()).kind("status_dim"));
         }
-        for t in fixed_order(&snap.app.hooks) {
-            out.push(Row::line(&plugin_label(&t.name), ms(t.timing.mean_ms)).note(timing_note(t.timing.max_ms)));
+        for t in fixed_order(&snap.app.hooks, &ctx.looks) {
+            let label = plugin_title(&t.name, &ctx.looks);
+            let bar_name = tr("{plugin}, events and card updates").field("plugin", label.clone());
+            out.push(Row::line(&label, ms(t.timing.mean_ms)).note(timing_note(t.timing.max_ms)).pin(&format!("stats.hook_{}", t.name)).bar(&plugin_icon(&t.name, &ctx.looks), bar_name));
         }
 
     }
@@ -449,7 +495,7 @@ pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> V
 }
 
 /// The icon a pinned readout wears in the bar, one of its own for each so two numbers never look alike (the fps and throughput icons are the
-/// window's, which draws those two itself).
+/// window's, which draws those two itself). A line without one is a text readout: the bar says its name with its value.
 fn pin_icon(id: &str) -> &'static str {
     match id {
         PIN_FRAMES_IN => "download",
@@ -459,6 +505,19 @@ fn pin_icon(id: &str) -> &'static str {
         PIN_CPU => "chip",
         PIN_MEMORY => "memory",
         PIN_TOTAL => "layers",
+        PIN_CONNECTION => "link",
+        PIN_READING => "eye",
+        PIN_STEPS_ON => "layout",
+        PIN_MOVES => "compare",
+        stats_phone::PIN_DELAY => "timer",
+        stats_phone::PIN_WIFI => "wifi",
+        stats_phone::PIN_TEMPERATURE => "thermometer",
+        stats_phone::PIN_THROTTLING => "alert",
+        stats_phone::PIN_CAMERA_FPS => "aperture",
+        stats_phone::PIN_ENCODER_FPS => "video",
+        stats_phone::PIN_ENCODE => "phone",
+        stats_phone::PIN_QUEUE => "send-phone",
+        // Every other line (a drop cause, a stage of the pipeline, a balancer move) is a text readout that names itself, and a plugin's line brings its own icon
         _ => "",
     }
 }
@@ -492,7 +551,11 @@ pub fn offers(snap: &Snapshot, s: Option<&SourceSnapshot>, ctx: &Context) -> Vec
                 "status_warn" => "warn",
                 _ => "",
             };
-            out.push(BarStat { id: row.pin.clone(), name: row.label.clone(), tip: String::new(), icon: pin_icon(&row.pin).into(), value: row.value.clone(), sub: String::new(), tone: tone.into() });
+            let icon = if row.bar_icon.is_empty() { pin_icon(&row.pin).to_string() } else { row.bar_icon.clone() };
+            let name = if row.bar_name.is_empty() { row.label.clone() } else { row.bar_name.clone() };
+            // Without an icon the bar has no other way to say what the number is: it reads "Name: value", cut short with the whole of it in the tooltip
+            let (value, tip) = if icon.is_empty() { (format!("{}: {}", row.label, row.value), if row.note.is_empty() { format!("{}: {}", row.label, row.value) } else { format!("{}: {}, {}", row.label, row.value, row.note) }) } else { (row.value.clone(), row.note.clone()) };
+            out.push(BarStat { id: row.pin.clone(), name, tip, icon, value, sub: String::new(), tone: tone.into() });
         }
     }
     out
@@ -576,6 +639,7 @@ impl StatsPlugin {
             phone_delay: delay_series(&self.phone_delay, telescope_core::time::monotonic_ns()),
             camera: host.bar_stat(bar::CAMERA).map(|s| s.value),
             streams: self.latest.as_ref().map_or(0, |snap| snap.sources.len()),
+            looks: host.plugin_looks(),
         }
     }
 

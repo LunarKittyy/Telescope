@@ -486,6 +486,10 @@ export component Slider inherits HorizontalLayout {
             double-clicked => {
                 if (has-default) {
                     pend.cancel();
+                    // The reset glides back even though the pointer is on the handle: only a drag under way puts it at once
+                    glide.sync();
+                    dragging = false;
+                    caught = false;
                     local = default-value;
                     touched = true;
                     root.moved(local);

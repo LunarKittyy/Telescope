@@ -7,10 +7,21 @@ import { Icon, FocusRing, KeyFocus } from "basics.slint";
 import { Tip } from "tip.slint";
 import { Motion, Settle, Fade, Tone } from "motion.slint";
 
-// Kind "toggle". The star that pins a line's number into the bottom bar: a bare icon, dim at rest, in the card's colour while pinned.
+// Kind "helper". Covers its parent and says whether the pointer is over it (a row that reveals something while hovered, like a quiet star). It takes no press.
+export component RowHover inherits Rectangle {
+    out property <string> control-kind: "helper";
+    out property <bool> over: touch.has-hover;
+    touch := TouchArea { }
+}
+
+// Kind "toggle". The star that pins a line's reading into the bottom bar: a bare icon, dim at rest, in the card's colour while pinned.
+// A list of them is quiet: with `reveal-on` an unpinned star is invisible until the row it belongs to is hovered (`row-hover`), the star itself is hovered
+// or it has the keyboard focus, and fades in and out with it; a pinned one always shows. Its room is there either way, so nothing shifts.
 export component PinStar inherits Rectangle {
     out property <string> control-kind: "toggle";
     in property <bool> pinned;
+    in property <bool> reveal-on;
+    in property <bool> row-hover;
     in property <bool> locked;
     in property <string> label;
     in property <color> hue: Theme.accent;
@@ -30,7 +41,11 @@ export component PinStar inherits Rectangle {
     }
     FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
     hover := Tone { on: touch.has-hover && !locked; }
+    // How much of the star shows: all of it, or (for a quiet one) as the row, the pointer or the keys call for it
+    out property <bool> wanted: !reveal-on || pinned || row-hover || touch.has-hover || focus.has-focus;
+    shown := Fade { shown: root.wanted; }
     Icon {
+        opacity: shown.value;
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
         width: Theme.icon;
@@ -44,6 +59,7 @@ export component PinStar inherits Rectangle {
         clicked => { if (!locked) { root.toggled(); } }
     }
     Tip {
+        enabled: root.wanted;
         says: locked ? @tr("Pinned while several streams run") : pinned ? @tr("Unpin from the bottom bar") : @tr("Pin to the bottom bar");
         hover: touch.has-hover;
         focused: focus.has-focus && KeyFocus.keyboard;

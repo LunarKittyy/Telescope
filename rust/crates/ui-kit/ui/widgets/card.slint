@@ -186,12 +186,14 @@ export component Card inherits Rectangle {
             height: Theme.row;
             Rectangle {
                 width: Theme.u(9);
+                // Always there so the icon can show the title's tooltip, whether or not the card folds
                 chip-touch := TouchArea {
-                    enabled: foldable;
                     mouse-cursor: foldable ? pointer : default;
-                    clicked => { person-folds(); Folds.toggle(fold-key); }
+                    clicked => { if (foldable) { person-folds(); Folds.toggle(fold-key); } }
                 }
                 Icon { source: icon; tint: enabled ? hue : Theme.dis; width: Theme.u(9); height: Theme.u(9); accessible-role: none; }
+                // The icon is part of the header: it shows the title's tooltip, not nothing and not a name of its own
+                Tip { says: root.tip != "" ? root.title : ""; detail: root.tip; hover: chip-touch.has-hover; }
             }
             fold-title := FoldTitle {
                 key: foldable ? fold-key : "";
@@ -405,10 +407,13 @@ export component RailRow inherits HorizontalLayout {
             accessible-role: none;
         }
         if has-icon && label != "": SettingMark { width: parent.width; height: parent.height; name: label; keywords: keywords; }
-        if has-icon && label != "": Rectangle {
+        // A bare icon is the row's label, so its tip is the word it stands for (or the row's sentence). In a named row the icon is part of the row and
+        // shows the row's own tip, the one its name and its control show, so the same thing never says two different things
+        if has-icon && label != "" && !named: Rectangle {
             Tip { says: tip != "" ? tip : label; detail: tip-detail; hint: tip-hint; hover: icon-touch.has-hover; inert: !enabled; }
             icon-touch := TouchArea { mouse-cursor: default; }
         }
+        if has-icon && named && tip != "": Tip { says: tip; detail: tip-detail; hint: tip-hint; inert: true; }
     }
     if named: Text {
         horizontal-stretch: 1;
@@ -422,6 +427,7 @@ export component RailRow inherits HorizontalLayout {
         overflow: elide;
         // The row is named by it already
         accessible-role: none;
+        if tip != "": Tip { says: tip; detail: tip-detail; hint: tip-hint; inert: true; }
     }
     @children
 }
@@ -488,8 +494,8 @@ export component SwitchRow inherits Rectangle {
             }
             if problem != "": Rectangle {
                 width: Theme.u(8);
-                // The "!" sits a pixel above the row's middle: its mass is in its upper stem, so centred it reads low against the switch
-                ProblemMark { y: (parent.height - self.height) / 2 - Theme.u(0.5); says: problem-title; detail: problem; }
+                // Centred on the row's middle, which is the switch's: the mark draws its own "!" so nothing needs lifting
+                ProblemMark { y: (parent.height - self.height) / 2; says: problem-title; detail: problem; }
             }
             VerticalLayout {
                 alignment: center;

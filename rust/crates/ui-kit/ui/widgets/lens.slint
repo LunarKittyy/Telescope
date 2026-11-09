@@ -135,11 +135,11 @@ export component LensRow inherits Rectangle {
     init => { keep(); }
     changed lenses => { keep(); }
     // How present each tile is (its width, 0 to 1), and how present its drawing is
-    s0 := Unfold { open: root.count > 0; }
-    s1 := Unfold { open: root.count > 1; }
-    s2 := Unfold { open: root.count > 2; }
-    s3 := Unfold { open: root.count > 3; }
-    s4 := Unfold { open: root.count > 4; }
+    s0 := Unfold { open: root.count > 0; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
+    s1 := Unfold { open: root.count > 1; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
+    s2 := Unfold { open: root.count > 2; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
+    s3 := Unfold { open: root.count > 3; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
+    s4 := Unfold { open: root.count > 4; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
     d0 := Fade { shown: root.lenses.length > 0; }
     d1 := Fade { shown: root.lenses.length > 1; }
     d2 := Fade { shown: root.lenses.length > 2; }

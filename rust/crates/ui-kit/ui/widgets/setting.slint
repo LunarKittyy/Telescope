@@ -141,17 +141,24 @@ export component ProblemMark inherits Rectangle {
     background: Theme.err;
     accessible-role: AccessibleRole.text;
     accessible-label: detail != "" ? detail : says;
-    Text {
-        width: parent.width;
-        height: parent.height;
-        text: "!";
-        font-family: Theme.font;
-        font-size: Theme.small;
-        font-weight: 700;
-        color: Theme.on-hue;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-        accessible-role: none;
+    // The "!" is drawn, not typeset: a font's metrics put its ink off the middle, so the stem and the dot are centred by their own height
+    // (a stem of three units, a gap and a dot of one, which leaves the same room above and below inside the circle)
+    property <length> ink-top: (root.height - Theme.u(5)) / 2;
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: ink-top;
+        width: Theme.u(1);
+        height: Theme.u(3);
+        border-radius: self.width / 2;
+        background: Theme.on-hue;
+    }
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: ink-top + Theme.u(4);
+        width: Theme.u(1);
+        height: Theme.u(1);
+        border-radius: self.width / 2;
+        background: Theme.on-hue;
     }
     Tip { says: root.says; detail: root.detail; inert: true; }
 }

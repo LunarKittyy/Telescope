@@ -216,6 +216,10 @@ pub trait HostSettings {
     fn running_plugins(&self) -> Vec<(String, String)> {
         Vec::new()
     }
+    /// How each registered plugin is shown to people: its display title (in English) and its icon by name, for a list that names plugins (Stats).
+    fn plugin_looks(&self) -> Vec<PluginLook> {
+        Vec::new()
+    }
     /// Changes declared settings of a running plugin, given as {"key": value}. All of them are checked first and nothing changes unless
     /// every one is fine (the problems come back together). The change goes in through the plugin's own apply_preset, so its checks
     /// apply too, and is saved. Gives the plugin's settings afterwards.
@@ -235,6 +239,14 @@ pub trait HostSettings {
         }).collect();
         if kept.is_empty() { Ok(after) } else { Err(kept) }
     }
+}
+
+/// A plugin as people see it: what the Plugins tab calls it and its icon.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PluginLook {
+    pub name: String,
+    pub title: String,
+    pub icon: String,
 }
 
 /// A running plugin's declared settings.

@@ -18,7 +18,7 @@ export struct StatRow {
 }
 
 // Every line has the same columns, set from the kit's spacing: the label, a slot for the graph that stays empty when there is none, the
-// value on a right edge and the star. A line is one row tall, or a row and a small note under it when it has one.
+// value on a right edge and the star (unpinned stars show while the row is hovered or has the keys, their room is always there). A line is one row tall, or a row and a small note under it when it has one.
 component StatLine inherits Rectangle {
     in property <StatRow> line;
     in property <color> hue: Theme.accent;
@@ -27,8 +27,11 @@ component StatLine inherits Rectangle {
     min-height: Theme.u(14);
     accessible-role: text;
     accessible-label: line.note == "" ? line.label + " " + line.value : line.label + " " + line.value + " " + line.note;
+    row-hover := RowHover { }
     VerticalLayout {
         spacing: 0px;
+        // The line's own height and no more, so the graph and the star centre on the value line whether or not a note hangs under it
+        alignment: start;
         HorizontalLayout {
             spacing: Theme.u(4);
             min-height: Theme.u(14);
@@ -77,6 +80,8 @@ component StatLine inherits Rectangle {
                 accessible-role: none;
                 if line.pin != "": PinStar {
                     y: (parent.height - self.height) / 2;
+                    reveal-on: true;
+                    row-hover: row-hover.over;
                     pinned: line.pinned;
                     locked: line.locked;
                     label: line.label;

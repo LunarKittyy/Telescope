@@ -38,6 +38,8 @@ export component ColourWheel inherits Rectangle {
     // Shift is held while the puck is dragged: its moves are a tenth the size
     out property <bool> fine;
     property <bool> held: touch.pressed;
+    // A double-click's reset glides back even though the pointer is on the puck: only a drag that is under way puts it at once, and the next press starts one
+    property <bool> resetting;
     height: Theme.u(62);
     horizontal-stretch: 1;
     min-width: Theme.u(44);
@@ -50,8 +52,8 @@ export component ColourWheel inherits Rectangle {
     // The puck glides to a place that something other than the person set (Auto, Reset, an AI app), across first and then down so its path
     // bows; a finger or a key has it at once
     property <bool> quick;
-    glide-x := Settle { to: puck-x; snap: held; pace: Motion.lead; }
-    glide-y := Settle { to: puck-y; snap: held; pace: Motion.trail; }
+    glide-x := Settle { to: puck-x; snap: held && !resetting; pace: Motion.lead; }
+    glide-y := Settle { to: puck-y; snap: held && !resetting; pace: Motion.trail; }
     held-tone := Tone { on: held && enabled; instant-in: true; }
     hover-tone := Tone { on: touch.has-hover && enabled; }
     Timer {
@@ -210,6 +212,7 @@ export component ColourWheel inherits Rectangle {
         pointer-event(e) => {
             if (e.kind == PointerEventKind.down) { usage.press(); }
             if (e.button == PointerEventButton.left && e.kind == PointerEventKind.down) {
+                resetting = false;
                 self.from-x = self.mouse-x;
                 self.from-y = self.mouse-y;
                 fine = e.modifiers.shift;
@@ -225,7 +228,12 @@ export component ColourWheel inherits Rectangle {
                 root.released();
             }
         }
-        double-clicked => { root.reset(); }
+        double-clicked => {
+            glide-x.sync();
+            glide-y.sync();
+            resetting = true;
+            root.reset();
+        }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
 }

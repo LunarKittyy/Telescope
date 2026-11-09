@@ -994,20 +994,12 @@ fn the_first_hop_comes_on_the_first_tick() {
 }
 
 #[test]
-fn a_new_speed_starts_the_chase_moving_at_once_instead_of_after_the_hold() {
-    let mut chase = Chase::new();
-    // Hop to the next spot and a little way into the hold there, where nothing moves
-    chase.step(5, Chase::MOVE_S + 0.1);
-    let held = chase.step(5, 0.1)[0];
-    let still = chase.step(5, 0.1)[0];
-    assert!(close(held, still, 1e-9), "still holding");
-    chase.start_move();
-    let moved = chase.step(5, 0.08)[0];
-    assert!((moved - still).abs() > 0.05, "you are moving now: {still} then {moved}");
-    // In the middle of a hop it carries on as it was
-    let mut mid = Chase::new();
-    mid.step(5, 0.05);
-    let before = mid.at;
-    mid.start_move();
-    assert_eq!(before, mid.at);
+fn the_chase_keeps_one_tempo_whatever_the_speed_does() {
+    // One stand-in that is never touched, one whose Speed is changed on every tick as if the slider were being dragged: you are in the same place throughout
+    let (mut quiet, mut dragged) = (Chase::new(), Chase::new());
+    for i in 0..600 {
+        let a = quiet.step(5, 0.016);
+        let b = dragged.step(1 + (i % 10) as i64, 0.016);
+        assert!(close(a[0], b[0], 1e-9) && close(a[1], b[1], 1e-9), "tick {i}: you moved differently, {a:?} against {b:?}");
+    }
 }
