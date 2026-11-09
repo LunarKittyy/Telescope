@@ -92,6 +92,7 @@
     <string name="wait_for_computer_hint">允许已配对的电脑在屏幕关闭时开启相机。</string>
     <string name="stop_streaming">停止串流</string>
     <string name="status_title">状态</string>
+    <string name="more">更多</string>
     <string name="status_not_streaming">未串流</string>
     <string name="status_starting">正在启动…</string>
     <string name="status_streaming">正在串流</string>
@@ -100,6 +101,16 @@
     <string name="status_mic_only">仅串流麦克风，相机已关闭</string>
     <string name="status_camera_taken">其他应用正在使用相机。相机空闲后将继续串流。</string>
     <string name="streaming_started_remotely">已从电脑端启动串流</string>
+    <string name="settings">设置</string>
+    <string name="back">返回</string>
+    <string name="look_title">外观</string>
+    <string name="theme_label">主题</string>
+    <string name="look_dark">深色</string>
+    <string name="look_classic">经典</string>
+    <string name="look_oled">OLED</string>
+    <string name="look_light">浅色</string>
+    <string name="diagnostics_section">诊断信息</string>
+    <string name="help_section">需要帮助？</string>
     <string name="about_title">关于</string>
     <string name="copy_diagnostics">复制诊断信息</string>
     <string name="diagnostics_copied">诊断信息已复制到剪贴板</string>
@@ -121,6 +132,7 @@
     <string name="preview_stream_starting">串流正在启动，请稍后重试。</string>
     <string name="preview_no_cameras">未找到相机。</string>
     <string name="preview_may_stretch">预览画面可能拉伸 - 无法读取相机信息。</string>
+    <string name="notes_close">关闭提词器</string>
     <string name="notif_channel_streaming">串流</string>
     <string name="notif_channel_streaming_desc">在相机向电脑串流时显示</string>
     <string name="notif_channel_waiting">正在等待电脑</string>
