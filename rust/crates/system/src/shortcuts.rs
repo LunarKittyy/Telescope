@@ -999,6 +999,26 @@ impl ShortcutsPlugin {
                     self.refresh(host);
                 }
             }
+            // The arrow keys in a number's box: Up raises it and Down lowers it by one in the last place it shows (the box sends Down as +1)
+            "param-step" => {
+                let Some(e) = self.editor.as_ref() else { return };
+                let Some((_, action)) = e.action.as_deref().and_then(|id| self.action(id)).cloned() else { return };
+                let Some(p) = usize::try_from(int(0)).ok().and_then(|i| action.params.get(i)) else { return };
+                let Some(name) = p["name"].as_str().filter(|_| p["kind"] == "number") else { return };
+                let by = -int(1).signum() as f64;
+                let step = 10f64.powi(-(p["decimals"].as_u64().unwrap_or(0) as i32));
+                // An empty box takes its lowest value first
+                let value = match e.params.get(name).and_then(number) {
+                    Some(n) => n + by * step,
+                    None => p["minimum"].as_f64().unwrap_or(0.0),
+                };
+                let value = clean_value(p, Some(&json!(value)));
+                let name = name.to_string();
+                if let Some(e) = self.editor.as_mut() {
+                    e.params.insert(name, value);
+                }
+                self.refresh(host);
+            }
             "key-pressed" => {
                 let keys = keys::keys_from_slint(&text(0), flag(1), flag(2), flag(3), flag(4));
                 // A bare modifier waits for the key that comes with it; anything else without a name changes nothing
@@ -1309,6 +1329,35 @@ mod tests {
         let rows = controls(plugin);
         let start = rows.iter().position(|r| *r == format!("# {}", group.to_uppercase())).unwrap();
         start + rows[start..].iter().position(|r| r == label).unwrap()
+    }
+
+    #[test]
+    fn the_arrow_keys_step_a_number_in_the_editor() {
+        let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+T", "camera.torch", json!({}), false)]), false, true);
+        host.actions[2].1.current = Some(30.0);
+        plugin.settings_sections();
+        ui(&mut plugin, &mut host, "add", json!([]));
+        let zoom = row_of(&plugin, "Transforms", "Zoom");
+        ui(&mut plugin, &mut host, "control-picked", json!([zoom]));
+        choose(&mut plugin, &mut host, "Does", "Set to");
+        let at = plugin.section_props()["params"][1]["at"].clone();
+        // The box sends Down as +1, so Up raises the number
+        ui(&mut plugin, &mut host, "param-step", json!([at, -1]));
+        assert_eq!(plugin.section_props()["params"][1]["text"], json!("31"));
+        ui(&mut plugin, &mut host, "param-step", json!([at, 1]));
+        ui(&mut plugin, &mut host, "param-step", json!([at, 1]));
+        assert_eq!(plugin.section_props()["params"][1]["text"], json!("29"));
+        // Past its range it stays at the end
+        for _ in 0..400 {
+            ui(&mut plugin, &mut host, "param-step", json!([at, -1]));
+        }
+        let top = plugin.section_props()["params"][1]["text"].as_str().unwrap().to_string();
+        ui(&mut plugin, &mut host, "param-step", json!([at, -1]));
+        assert_eq!(plugin.section_props()["params"][1]["text"], json!(top));
+        // A step on a choice, or on nothing, changes nothing
+        ui(&mut plugin, &mut host, "param-step", json!([0, 1]));
+        ui(&mut plugin, &mut host, "param-step", json!([99, 1]));
+        assert_eq!(plugin.section_props()["params"][1]["text"], json!(top));
     }
 
     #[test]

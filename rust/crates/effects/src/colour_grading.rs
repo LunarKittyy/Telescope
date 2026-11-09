@@ -532,7 +532,6 @@ impl ColourGradingPlugin {
             "switch-name": tr("Colour grading"),
             "switch-help": tr(SWITCH_TIP),
             "wheel-labels": WHEEL_NAMES.iter().map(|w| tr("{wheel} colour").field("wheel", tr(w))).collect::<Vec<_>>(),
-            "reset-hint": tr("Double-click to reset"),
             "master-tips": WHEEL_TIPS.iter().map(|t| tr(t)).collect::<Vec<_>>(),
             "master-labels": MASTER_LABELS.iter().map(|t| tr(t)).collect::<Vec<_>>(),
             "wheel-tip": tr(WHEEL_TIP),

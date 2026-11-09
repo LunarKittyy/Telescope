@@ -218,7 +218,6 @@ impl BackgroundPlugin {
 
     fn fixed_props() -> Value {
         json!({
-            "reset-hint": tr("Double-click to reset"),
             "edges-tip": tr("How soft the edge around you is."),
             "picture-choose-tip": tr("Pick the picture that goes behind you."),
         })

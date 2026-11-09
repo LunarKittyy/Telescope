@@ -460,7 +460,6 @@ export component CompositeEditor inherits Window {
                                 value: border;
                                 readout: border-text;
                                 tip-detail: @tr("How thick the border is.");
-                                tip-hint: @tr("Double-click to reset");
                                 has-default: true;
                                 default-value: 0;
                                 moved(v) => { root.border-moved(v); }
@@ -495,7 +494,6 @@ export component CompositeEditor inherits Window {
                                 value: radius;
                                 readout: radius-text;
                                 tip-detail: @tr("How round the corners are.");
-                                tip-hint: @tr("Double-click to reset");
                                 has-default: true;
                                 default-value: 0;
                                 moved(v) => { root.radius-moved(v); }

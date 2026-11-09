@@ -121,7 +121,6 @@
     <string name="preview_stream_starting">Luồng phát đang bắt đầu. Hãy thử lại trong giây lát.</string>
     <string name="preview_no_cameras">Không tìm thấy camera nào.</string>
     <string name="preview_may_stretch">Hình xem trước có thể bị giãn - không thể đọc thông tin camera.</string>
-    <string name="notes_close">Đóng ghi chú</string>
     <string name="notif_channel_streaming">Truyền phát</string>
     <string name="notif_channel_streaming_desc">Hiển thị trong khi camera đang truyền phát đến máy tính của bạn</string>
     <string name="notif_channel_waiting">Đang chờ máy tính</string>

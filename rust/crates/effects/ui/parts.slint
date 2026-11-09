@@ -1,7 +1,7 @@
 // What both cards of this crate are built from. The plugins join this file and their card into one source (Rust's concat!),
 // so it holds the only import line.
 
-import { Theme, Icons, Icon, FocusRing, KeyFocus, TouchRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, Stepper, SwitchTile, ToggleTile, PictureSegmented, Dial, RailRow, SwitchRow, TextField, NumberField, FlickBar, Tip, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu, Reveal, ColourField, WindowBox, TipLayer, Pad, ColourWheel, Motion, Status, UnfoldGroup, Unfolding, Arrival } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, KeyFocus, TouchRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, Stepper, SwitchTile, ToggleTile, PictureSegmented, Dial, RailRow, SwitchRow, TextField, NumberField, FlickBar, Tip, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu, Reveal, ColourField, WindowBox, TipLayer, Pad, ColourWheel, Motion, Status, UnfoldGroup, Unfolding, PictureField } from "@ui-kit/ui-kit.slint";
 
 global StatusInk {
     public pure function color(kind: string) -> color {
@@ -62,124 +62,6 @@ component StatusUnfold inherits Unfolding {
     }
 }
 
-component ProblemMark inherits Rectangle {
-    in property <string> says;
-    in property <string> detail;
-    width: Theme.u(8);
-    height: Theme.u(8);
-    border-radius: self.height / 2;
-    background: Theme.err;
-    accessible-role: text;
-    accessible-label: detail != "" ? detail : says;
-    Text {
-        text: "!";
-        font-family: Theme.font;
-        font-size: Theme.small;
-        font-weight: 700;
-        color: Theme.on-hue;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-        accessible-role: none;
-    }
-    Tip { says: root.says; detail: root.detail; inert: true; }
-}
-
-// A file a card takes, as the control that chooses it (the picture behind you, a LUT): a raised slot with the picture's own small copy in it and its file
-// name, or an empty slot ("Choose") until there is one. A picture that can't be opened shows the red mark with the reason as its tooltip.
-component PictureField inherits Rectangle {
-    in property <image> thumb;
-    in property <bool> has-picture;
-    // Something is chosen (a picture with no thumbnail, a LUT): its name reads in full ink, the empty slot's words dimmer
-    in property <bool> set: has-picture;
-    // The empty slot's glyph, and the thumbnail's place for something with no picture of its own
-    in property <image> empty-icon: Icons.photo;
-    // The file's name, or what the empty slot says
-    in property <string> name;
-    in property <string> problem;
-    in property <bool> enabled: true;
-    in property <string> tip;
-    in property <string> tip-detail;
-    in property <color> hue: Theme.accent;
-    callback clicked;
-    height: Theme.row;
-    horizontal-stretch: 1;
-    min-width: Theme.u(40);
-    border-radius: Theme.r-ctl;
-    background: !enabled ? Theme.trough : touch.pressed ? Theme.sel : touch.has-hover ? Theme.hover : Theme.raise;
-    animate background { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
-    accessible-role: button;
-    accessible-label: name;
-    accessible-description: problem != "" ? problem : tip;
-    accessible-action-default => { if (enabled) { clicked(); } }
-    forward-focus: focus;
-    focus := FocusScope {
-        enabled: root.enabled;
-        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
-        key-pressed(e) => {
-            if (e.text == " " || e.text == "\n") { clicked(); return accept; }
-            reject
-        }
-    }
-    FocusRing { shown: focus.has-focus; radius: root.border-radius; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
-    usage := Tip { says: root.tip; detail: root.tip-detail; hover: touch.has-hover; focused: focus.has-focus && KeyFocus.keyboard; inert: !root.enabled; }
-    touch := TouchArea {
-        enabled: root.enabled;
-        mouse-cursor: pointer;
-        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
-        clicked => { root.clicked(); }
-    }
-    HorizontalLayout {
-        padding: Theme.u(3);
-        spacing: Theme.u(4);
-        // The slot: the picture cropped to it, or the empty slot's own glyph
-        Rectangle {
-            width: Theme.u(20);
-            border-radius: Theme.r-handle;
-            background: Theme.trough;
-            clip: true;
-            // The picture takes the empty slot's place in one frame and comes up to full
-            if has-picture: Rectangle {
-                width: parent.width;
-                height: parent.height;
-                opacity: arrival.solid;
-                arrival := Arrival { }
-                Image {
-                    width: parent.width;
-                    height: parent.height;
-                    source: thumb;
-                    image-fit: cover;
-                    opacity: enabled ? 1 : 0.5;
-                }
-            }
-            if !has-picture: Icon {
-                x: (parent.width - self.width) / 2;
-                y: (parent.height - self.height) / 2;
-                width: Theme.icon-small;
-                height: Theme.icon-small;
-                source: empty-icon;
-                tint: set ? hue : Theme.dis;
-            }
-        }
-        Text {
-            text: name;
-            overflow: elide;
-            font-family: Theme.font;
-            font-size: Theme.body;
-            font-weight: Theme.w-value;
-            color: !enabled ? Theme.dis : set ? Theme.ink : Theme.ink2;
-            vertical-alignment: center;
-            horizontal-stretch: 1;
-            min-width: 0px;
-            accessible-role: none;
-        }
-        if problem != "": Rectangle {
-            width: Theme.u(8);
-            ProblemMark { y: (parent.height - self.height) / 2; says: @tr("Can't open this picture"); detail: problem; }
-        }
-        Rectangle { width: Theme.u(1); }
-    }
-}
-
 // control_row with a slider and its readout, and the tooltip the slider has in Qt
 // FormRow with the label column a window sets for itself
 component LabelRow inherits HorizontalLayout {
@@ -221,8 +103,6 @@ component SliderRow inherits LabelRow {
     in property <color> grad-a: Theme.ink2;
     in property <color> grad-b: Theme.ink2;
     in property <color> grad-c: Theme.ink2;
-    // "Double-click to reset", added to the tip of a slider that has a default
-    in property <string> hint;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     // The id of the setting it is, for the outline when something outside the window reads or changes it
@@ -239,7 +119,7 @@ component SliderRow inherits LabelRow {
             peek-picture: root.peek-picture;
             peek-changed(o) => { root.peek-changed(o); }
             setting: root.setting;
-            tip: root.tip-detail != "" || root.tip-hint != "" ? (root.tip != "" ? root.tip : root.label) : root.tip != "" && has-default && hint != "" ? root.tip + "\n" + hint : root.tip;
+            tip: root.tip != "" ? root.tip : root.tip-detail != "" || root.tip-hint != "" || root.has-default ? root.label : "";
             tip-detail: root.tip-detail;
             tip-hint: root.has-default ? root.tip-hint : "";
             shortcut: root.shortcut;
@@ -285,8 +165,6 @@ component RailSlider inherits Rectangle {
     in property <color> grad-a: Theme.ink2;
     in property <color> grad-b: Theme.ink2;
     in property <color> grad-c: Theme.ink2;
-    // "Double-click to reset", added to the tip of a slider that has a default
-    in property <string> hint;
     // The tooltip's body under the title (tip, or the label when tip is empty) and its hint line; either one switches the tip to title, body and hint
     in property <string> tip-detail;
     in property <string> tip-hint;
@@ -315,7 +193,7 @@ component RailSlider inherits Rectangle {
                 peek-picture: root.peek-picture;
                 peek-changed(o) => { root.peek-changed(o); }
                 setting: root.setting;
-                tip: root.tip-detail != "" || root.tip-hint != "" ? (root.tip != "" ? root.tip : root.label) : root.tip != "" && root.has-default && root.hint != "" ? root.tip + "\n" + root.hint : root.tip;
+                tip: root.tip != "" ? root.tip : root.tip-detail != "" || root.tip-hint != "" || root.has-default ? root.label : "";
                 tip-detail: root.tip-detail;
                 tip-hint: root.has-default ? root.tip-hint : "";
                 shortcut: root.shortcut;

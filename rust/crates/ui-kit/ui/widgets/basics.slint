@@ -73,6 +73,8 @@ export component FocusRing inherits Rectangle {
 
 // A link the person can click: the text in the accent colour, which opens its address.
 export component LinkText inherits Rectangle {
+    // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font), the same as every other word in a kit control
+    property <length> lift: 1phx;
     in property <string> text;
     in property <string> url;
     in property <length> font-size: Theme.small;
@@ -99,7 +101,9 @@ export component LinkText inherits Rectangle {
     FocusRing { shown: focus.has-focus; radius: Theme.r-handle; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
     touch := TouchArea { mouse-cursor: pointer; clicked => { root.opened(url); } }
     label := Text {
+        y: -lift;
         width: parent.width;
+        height: parent.height;
         text: root.text;
         font-family: Theme.font;
         font-size: root.font-size;
@@ -111,7 +115,7 @@ export component LinkText inherits Rectangle {
     // The underline of a link under the pointer, as long as the words show
     if touch.has-hover: Rectangle {
         x: 0px;
-        y: parent.height / 2 + root.font-size * 0.62;
+        y: parent.height / 2 + root.font-size * 0.62 - lift;
         width: min(label.preferred-width, parent.width);
         height: 1px;
         background: Theme.ink;

@@ -23,7 +23,6 @@ export component ChromaKeyCard inherits Card {
     in property <[float]> slider-value: [40, 30, 60];
     in property <[string]> slider-tips: ["", "", ""];
     in property <[string]> slider-text: ["40", "30", "60"];
-    in property <string> reset-hint;
     in property <int> behind: 0;
     in property <color> backdrop-colour: #1e222a;
     // The screen being keyed, which the three sliders' fills are drawn from
@@ -104,7 +103,6 @@ export component ChromaKeyCard inherits Card {
         label: name;
         tip: name;
         tip-detail: slider-tips[i];
-        tip-hint: root.reset-hint;
         shortcut: i == 0 ? "chroma_key.tolerance" : "";
         minimum: 0;
         maximum: 100;

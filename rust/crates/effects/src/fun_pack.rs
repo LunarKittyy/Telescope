@@ -336,7 +336,6 @@ impl FunPackPlugin {
             "clean-tip": tr("Let the next keyframe through to restore the picture."),
             "clear-tip": tr("Remove all clones, or all light trails in Light painting."),
             "direction-tip": tr("Which way the bands run."),
-            "reset-hint": tr("Double-click to reset"),
         })
     }
 

@@ -122,7 +122,6 @@
     <string name="preview_stream_starting">Le flux démarre. Réessayez dans un instant.</string>
     <string name="preview_no_cameras">Aucune caméra trouvée.</string>
     <string name="preview_may_stretch">L\'aperçu peut sembler déformé - impossible de lire les informations de la caméra.</string>
-    <string name="notes_close">Fermer les notes</string>
     <string name="notif_channel_streaming">Diffusion</string>
     <string name="notif_channel_streaming_desc">S\'affiche pendant que la caméra diffuse vers votre ordinateur</string>
     <string name="notif_channel_waiting">En attente de l\'ordinateur</string>

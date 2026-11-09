@@ -138,7 +138,6 @@ export component CinemaSettings inherits Card {
     in property <float> zebra-level: 95;
     in property <string> zebra-readout: "95%";
     in property <string> zebra-tip;
-    in property <string> reset-hint;
     callback colour-picked(int);
     callback peaking-moved(float);
     callback zebra-moved(float);
@@ -154,7 +153,7 @@ export component CinemaSettings inherits Card {
         named: true;
         hue: root.hue;
         Segmented {
-            width: Theme.u(130);
+            width: Theme.control-w;
             hue: root.hue;
             items: [@tr("Red"), @tr("Green"), @tr("Blue"), @tr("White")];
             tips: [@tr("Red"), @tr("Green"), @tr("Blue"), @tr("White")];
@@ -177,7 +176,6 @@ export component CinemaSettings inherits Card {
         hue: root.hue;
         has-default: true;
         default-value: 5;
-        tip-hint: reset-hint;
         moved(v) => { root.peaking-moved(v); }
     }
     RailSlider {
@@ -191,7 +189,6 @@ export component CinemaSettings inherits Card {
         hue: root.hue;
         has-default: true;
         default-value: 95;
-        tip-hint: reset-hint;
         moved(v) => { root.zebra-moved(v); }
     }
     RailRow {

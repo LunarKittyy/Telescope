@@ -30,7 +30,6 @@ export component FunPackCard inherits Card {
     in property <[float]> slider-default: [3, 5, 6, 20, 0];
     in property <[string]> slider-tips: ["", "", "", "", ""];
     in property <[string]> slider-text: ["3", "5", "6", "20", "0"];
-    in property <string> reset-hint;
     in property <string> effect-tip;
     in property <bool> show-direction;
     in property <int> direction: 0;
@@ -129,7 +128,6 @@ export component FunPackCard inherits Card {
             hue: root.hue;
             has-default: true;
             default-value: slider-default[0];
-            tip-hint: root.reset-hint;
             moved(v) => { root.slider-moved(0, v); }
         }
         }
@@ -147,7 +145,6 @@ export component FunPackCard inherits Card {
             hue: root.hue;
             has-default: true;
             default-value: slider-default[1];
-            tip-hint: root.reset-hint;
             moved(v) => { root.slider-moved(1, v); }
         }
         }
@@ -165,7 +162,6 @@ export component FunPackCard inherits Card {
             hue: root.hue;
             has-default: true;
             default-value: slider-default[2];
-            tip-hint: root.reset-hint;
             moved(v) => { root.slider-moved(2, v); }
         }
         }
@@ -183,7 +179,6 @@ export component FunPackCard inherits Card {
             hue: root.hue;
             has-default: true;
             default-value: slider-default[3];
-            tip-hint: root.reset-hint;
             moved(v) => { root.slider-moved(3, v); }
         }
         }
@@ -202,7 +197,6 @@ export component FunPackCard inherits Card {
             hue: root.hue;
             has-default: true;
             default-value: slider-default[4];
-            tip-hint: root.reset-hint;
             moved(v) => { root.slider-moved(4, v); }
         }
         }

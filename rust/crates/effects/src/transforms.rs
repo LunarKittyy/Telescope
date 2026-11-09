@@ -35,7 +35,6 @@ const T_SETTLE: &str = "settle";
 const RESET_TIP: &str = n_("Set flip, rotation, zoom, pan and stretch back to default.");
 const PAN_TIP: &str = n_("Drag to move. Double-click to centre.");
 const STRETCH_TIPS: [&str; 2] = [n_("Stretch or squeeze the picture horizontally."), n_("Stretch or squeeze the picture vertically.")];
-const RESET_HINT: &str = n_("Double-click to reset");
 
 /// A hand-edited or damaged config value becomes the default instead of breaking every frame.
 fn number_of(value: Option<&Value>, default: f64, lo: f64, hi: f64) -> f64 {
@@ -303,7 +302,7 @@ impl TransformsPlugin {
 
     fn fixed_props() -> Value {
         let add = |action: &str| tr("Add shortcut for {action}…").field("action", tr(action));
-        json!({"reset-help": tr(RESET_TIP), "pan-tip": tr(PAN_TIP), "pan-add-x": add("Pan left/right"), "pan-add-y": add("Pan up/down"), "reset-hint": tr(RESET_HINT),
+        json!({"reset-help": tr(RESET_TIP), "pan-tip": tr(PAN_TIP), "pan-add-x": add("Pan left/right"), "pan-add-y": add("Pan up/down"),
                "stretch-tips": STRETCH_TIPS.iter().map(|t| tr(t)).collect::<Vec<_>>()})
     }
 

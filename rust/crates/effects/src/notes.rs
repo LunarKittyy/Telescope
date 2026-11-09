@@ -55,7 +55,6 @@ const BY_HAND_TIP: &str = n_("Only used with Auto scrolling.");
 const BACK_TIP: &str = n_("Go back one line.");
 const PLAY_TIP: &str = n_("Start or pause scrolling on the phone.");
 const NEXT_TIP: &str = n_("Go to the next line.");
-const RESET_HINT: &str = n_("Double-click to reset");
 
 /// How big the notes control is on the wire, as the phone client sends it.
 pub fn body_size(text: &str) -> usize {
@@ -299,7 +298,7 @@ impl NotesPlugin {
         json!({
             "set-tip": tr(SET_TIP), "new-tip": tr(NEW_TIP), "delete-tip": tr(DELETE_TIP),
             "placeholder": tr(PLACEHOLDER), "editor-tip": tr(EDITOR_TIP), "scroll-tip": tr(SCROLL_TIP), "editor-label": tr("Script"), "size-tip": tr(SIZE_TIP), "speed-tip": tr(SPEED_TIP), "by-hand-tip": tr(BY_HAND_TIP),
-            "scroll-items": SCROLLS.iter().map(|(_, t)| tr(t)).collect::<Vec<_>>(), "reset-hint": tr(RESET_HINT),
+            "scroll-items": SCROLLS.iter().map(|(_, t)| tr(t)).collect::<Vec<_>>(),
             "back-text": tr_ctx("notes", "Previous"), "back-tip": tr(BACK_TIP), "play-tip": tr(PLAY_TIP),
             "next-text": tr_ctx("notes", "Next"), "next-tip": tr(NEXT_TIP), "send-text": tr("Send to phone"),
             "clear-text": tr("Clear from phone"),

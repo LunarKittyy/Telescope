@@ -122,7 +122,6 @@
     <string name="preview_stream_starting">Lo streaming si sta avviando. Riprova tra un momento.</string>
     <string name="preview_no_cameras">Nessuna fotocamera trovata.</string>
     <string name="preview_may_stretch">L\'anteprima potrebbe apparire allungata - impossibile leggere le informazioni della fotocamera.</string>
-    <string name="notes_close">Chiudi le note</string>
     <string name="notif_channel_streaming">Streaming</string>
     <string name="notif_channel_streaming_desc">Mostrato mentre la fotocamera sta trasmettendo al tuo computer</string>
     <string name="notif_channel_waiting">In attesa del computer</string>

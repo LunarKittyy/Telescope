@@ -83,7 +83,6 @@ export component TransformsCard inherits Card {
     in property <string> pan-tip;
     in property <string> pan-add-x;
     in property <string> pan-add-y;
-    in property <string> reset-hint;
     in property <[string]> stretch-tips: ["", ""];
     callback reset-clicked;
     callback flip-toggled(int, bool);
@@ -103,6 +102,7 @@ export component TransformsCard inherits Card {
     reset-detail: reset-help;
     reset-lit: flips[0] || flips[1] || rotation != 0 || zoom != 1 || pan-x != 0 || pan-y != 0 || stretch-x != 100 || stretch-y != 100;
     reset-label: @tr("Reset");
+    reset-shortcut: "transforms.reset";
     reset => { root.reset-clicked(); }
 
     RailRow {
@@ -179,7 +179,6 @@ export component TransformsCard inherits Card {
                     label: @tr("Zoom");
                     tip: @tr("Zoom");
                     tip-detail: root.zoom-tip;
-                    tip-hint: root.reset-hint;
                     shortcut: "transforms.zoom";
                     setting: "transforms.zoom";
                     minimum: 1;
@@ -219,7 +218,7 @@ export component TransformsCard inherits Card {
                         vertical-alignment: center;
                     }
                 }
-                Tip { says: @tr("Zoom"); detail: root.zoom-tip; hint: root.reset-hint; inert: true; }
+                Tip { says: @tr("Zoom"); detail: root.zoom-tip; hint: @tr("Double-click to reset"); inert: true; }
             }
         }
     }
@@ -253,7 +252,6 @@ export component TransformsCard inherits Card {
         label: @tr("Width");
         tip: @tr("Width");
         tip-detail: stretch-tips[0];
-        tip-hint: reset-hint;
         shortcut: "transforms.stretch_x";
         setting: "transforms.stretch_x";
         minimum: 50;
@@ -271,7 +269,6 @@ export component TransformsCard inherits Card {
         label: @tr("Height");
         tip: @tr("Height");
         tip-detail: stretch-tips[1];
-        tip-hint: reset-hint;
         shortcut: "transforms.stretch_y";
         setting: "transforms.stretch_y";
         minimum: 50;

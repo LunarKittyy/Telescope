@@ -124,7 +124,6 @@
     <string name="preview_stream_starting">Strumień się uruchamia. Spróbuj ponownie za chwilę.</string>
     <string name="preview_no_cameras">Nie znaleziono kamer.</string>
     <string name="preview_may_stretch">Podgląd może wyglądać na rozciągnięty - nie udało się odczytać informacji o kamerze.</string>
-    <string name="notes_close">Zamknij notatki</string>
     <string name="notif_channel_streaming">Przesyłanie</string>
     <string name="notif_channel_streaming_desc">Wyświetlane, gdy kamera strumieniuje obraz do komputera</string>
     <string name="notif_channel_waiting">Oczekiwanie na komputer</string>

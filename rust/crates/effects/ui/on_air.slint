@@ -14,7 +14,7 @@ component UrlRow inherits RailRow {
     callback edited(string);
     named: true;
     TextField {
-        width: Theme.u(130);
+        width: Theme.control-w;
         label: root.label;
         placeholder: root.placeholder;
         text <=> root.text;
@@ -126,7 +126,7 @@ export component OnAirSettings inherits VerticalLayout {
             named: true;
             hue: Theme.plugin-hue("on_screen");
             ChoiceField {
-                width: Theme.u(130);
+                width: Theme.control-w;
                 compact: true;
                 name: @tr("On air when");
                 items: trigger-items;
@@ -184,7 +184,7 @@ export component OnAirSettings inherits VerticalLayout {
                     named: true;
                     hue: Theme.plugin-hue("on_screen");
                     ChoiceField {
-                        width: Theme.u(130);
+                        width: Theme.control-w;
                         compact: true;
                         name: @tr("Address");
                         items: held-addresses;

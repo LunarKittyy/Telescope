@@ -62,7 +62,7 @@ export component AutomaticSettings inherits Card {
         hue: root.hue;
         keywords: @tr("search" => "automatically begin streaming when phone device ready app opens the camera auto start") + " " + words(start-items);
         ChoiceField {
-            width: Theme.u(130);
+            width: Theme.control-w;
             compact: true;
             name: start-title;
             items: start-items;
@@ -77,7 +77,7 @@ export component AutomaticSettings inherits Card {
         hue: root.hue;
         keywords: @tr("search" => "automatically end streaming idle no app uses the camera auto stop") + " " + words(stop-items);
         ChoiceField {
-            width: Theme.u(130);
+            width: Theme.control-w;
             compact: true;
             name: stop-title;
             items: stop-items;
