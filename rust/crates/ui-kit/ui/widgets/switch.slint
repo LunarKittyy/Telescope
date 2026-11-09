@@ -72,13 +72,14 @@ export component Switch inherits Rectangle {
     height: Theme.switch-h;
     border-radius: Theme.r-ctl;
     property <color> lit: danger ? Theme.err : hue;
-    border-width: shown && enabled ? Theme.stroke : 0px;
-    border-color: lit;
+    property <bool> over-it: touch.has-hover || row-hover;
+    border-width: !enabled ? Theme.outline-w : shown ? Theme.stroke : Theme.ctl-outline-w(over-it, held);
+    border-color: !enabled ? Theme.dis-outline : shown ? lit : Theme.ctl-outline(over-it, held);
     background: !enabled ? Theme.trough
         : shown ? (held ? Theme.held(lit) : Theme.tint(lit))
         : held ? Theme.press
         : touch.has-hover || row-hover ? Theme.hover : Theme.raise;
-    animate background, border-width { duration: Motion.tone-for(held || quick); easing: Motion.tone; }
+    animate background, border-width, border-color { duration: Motion.tone-for(held || quick); easing: Motion.tone; }
     accessible-role: switch;
     accessible-label: label;
     accessible-checkable: true;
@@ -280,8 +281,8 @@ export component ToggleTile inherits Rectangle {
     // The outline and the muted inside fade in and out together (a multi-select tile has no worm: nothing travels between the tiles)
     fade := Tone { on: shown && enabled; snap: quick; rise: Motion.tile-in; fall: Motion.tile-out; }
     out property <float> lit: fade.value;
-    border-width: enabled ? Theme.stroke : 0px;
-    border-color: hue.with-alpha(lit);
+    border-width: !enabled ? Theme.outline-w : max(Theme.ctl-outline-w(touch.has-hover, held), lit > 0.01 ? Theme.stroke : 0px);
+    border-color: !enabled ? Theme.dis-outline : lit > 0.01 ? hue.with-alpha(lit) : Theme.ctl-outline(touch.has-hover, held);
     property <color> at-rest: !enabled ? Theme.raise.mix(Theme.card, 0.4)
         : held ? Theme.press
         : touch.has-hover ? Theme.hover : Theme.raise;

@@ -1,7 +1,7 @@
 // The settings window (widgets/settings_window.py) and its Plugins tab (widgets/plugins_panel.py). The window itself
 // is written at startup by doc.rs, with every plugin's settings sections placed on their tabs.
 
-import { Theme, Icons, Icon, FocusRing, Button, IconButton, LinkText, Switch, Segmented, Worm, SearchWords, SettingRow, TextField, Tip, TipBody, ColumnScrollbar, Motion, DialogFrame, DialogButtons, Status, Card, RailRow, SwitchRow, Unfolding, UnfoldGroup } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Ghost, FocusRing, Button, IconButton, LinkText, Switch, Segmented, Worm, SearchWords, SettingRow, TextField, Tip, TipBody, ColumnScrollbar, Motion, DialogFrame, DialogButtons, Status, Card, RailRow, SwitchRow, Unfolding, UnfoldGroup } from "@ui-kit/ui-kit.slint";
 
 export struct NavTab {
     id: string,
@@ -80,13 +80,13 @@ component NavItem inherits Rectangle {
     accessible-item-selected: selected;
     accessible-action-default => { clicked(); }
     touch := TouchArea { clicked => { root.clicked(); } }
-    Rectangle {
+    Ghost {
         y: Theme.u(0.5);
         height: parent.height - Theme.u(1);
-        border-radius: Theme.r-ctl;
         // The picked tab's own look is the worm's, which the column draws under the rows
-        background: selected ? transparent : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : transparent;
-        animate background { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
+        plain: selected;
+        over: touch.has-hover;
+        held: touch.pressed;
         Icon { x: Theme.u(6.5); y: (parent.height - self.height) / 2; source: tab.icon; tint: selected ? Theme.accent : Theme.ink2; width: Theme.icon; height: Theme.icon; accessible-role: none; }
         Text {
             x: Theme.u(17.5);
@@ -259,8 +259,8 @@ export component ResultsList inherits VerticalLayout {
             for r[i] in results: Rectangle {
                 height: Theme.u(26);
                 border-radius: Theme.r-ctl;
-                border-width: i == current ? Theme.stroke : 0px;
-                border-color: Theme.accent;
+                border-width: i == current ? Theme.stroke : row-touch.has-hover ? Theme.outline-w-over : 0px;
+                border-color: i == current ? Theme.accent : Theme.outline-hover;
                 background: i == current ? Theme.tint(Theme.accent) : row-touch.has-hover ? Theme.hover : transparent;
                 animate background { duration: Motion.tone-for(row-touch.pressed); easing: Motion.tone; }
                 accessible-role: list-item;
@@ -517,7 +517,7 @@ export component Ask inherits Rectangle {
     // What the dialog is left with: Escape and a press beside it are a no
     property <bool> answer;
     // The window dims and clears with the dialog
-    background: #000000.with-alpha(0.5 * dlg.presence);
+    background: Theme.scrim.with-alpha(Theme.scrim-a * dlg.presence);
     TouchArea { }
     FocusScope {
         init => { self.focus(); }

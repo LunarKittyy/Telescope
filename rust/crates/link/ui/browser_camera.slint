@@ -1,7 +1,7 @@
 // The Browser camera card: the code to scan, what's connected, and the
 // size and rate the browser is asked to send.
 
-import { Theme, Icons, Icon, IconButton, Card, RailRow, ChoiceField, QrCode, Reveal, Tip, Status, UnfoldGroup, Unfolding } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Well, IconButton, Card, RailRow, ChoiceField, QrCode, Reveal, Tip, Status, UnfoldGroup, Unfolding } from "@ui-kit/ui-kit.slint";
 
 global StatusInk {
     public pure function color(kind: string) -> color {
@@ -88,12 +88,11 @@ export component BrowserCameraCard inherits Card {
             cell: 5px;
             label: url;
         }
-        if url == "": Rectangle {
+        if url == "": Well {
             x: (parent.width - self.width) / 2;
             width: Theme.u(56);
             height: Theme.u(56);
-            border-radius: Theme.r-ctl;
-            background: Theme.trough;
+            rim: Theme.dis-outline;
         }
         Tip { says: note-title; detail: note-text; inert: true; }
     }

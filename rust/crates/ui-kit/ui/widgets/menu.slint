@@ -18,11 +18,13 @@ export component MenuSurface inherits Rectangle {
     pop := Pop { to: arrived && !root.leaving ? 1 : 0; }
     background: Theme.raise;
     border-radius: Theme.r-ctl;
+    border-width: Theme.pop-outline-w;
+    border-color: Theme.pop-outline;
     opacity: fade.value;
     transform-scale: pop.scale;
     transform-origin: { x: root.width / 2, y: 0px };
     drop-shadow-blur: Theme.u(6);
-    drop-shadow-color: #00000080;
+    drop-shadow-color: Theme.shadow;
     @children
 }
 
@@ -49,6 +51,8 @@ export component MenuItem inherits Rectangle {
     if !separator: Rectangle {
         border-radius: Theme.r-handle;
         background: root.current && root.enabled ? Theme.hover : transparent;
+        border-width: root.current && root.enabled ? Theme.outline-w-over : 0px;
+        border-color: Theme.outline-hover;
         animate background { duration: Motion.tone-for(false); easing: Motion.tone; }
         touch := TouchArea {
             enabled: root.enabled;

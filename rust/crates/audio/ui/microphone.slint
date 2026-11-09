@@ -1,7 +1,7 @@
 // The Microphone card. Texts with blanks come
 // filled from Rust; the Install VB-Cable question is a popup inside the card.
 
-import { Theme, Icons, Icon, Button, Card, RailRow, SwitchRow, Slider, Switch, Tip, TipBody, DialogFrame, DialogButtons, WindowBox, Status, UnfoldGroup, Unfolding } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Well, Button, Card, RailRow, SwitchRow, Slider, Switch, Tip, TipBody, DialogFrame, DialogButtons, WindowBox, Status, UnfoldGroup, Unfolding } from "@ui-kit/ui-kit.slint";
 
 // The meter's numbers from the plugin: bar ends and the held marker as 0..1 along it, and which light is on.
 export struct MeterState {
@@ -49,13 +49,12 @@ component LevelMeter inherits Rectangle {
     function at(p: float) -> length {
         p * track-w
     }
-    bar := Rectangle {
+    bar := Well {
         x: inset;
         y: top;
         width: track-w;
         height: bar-h;
         border-radius: bar-h / 2;
-        background: Theme.trough;
         clip: true;
         // Peak at 55%, RMS on top at full colour; zones at -18 and -6 dBFS
         Zone { from: 0; to: 0.55; level: state.peak; tone: tone(0); alpha: 0.55; track: track-w; height: bar-h; }
@@ -79,12 +78,13 @@ component LevelMeter inherits Rectangle {
         height: Theme.u(1.5);
         background: Theme.line-strong;
     }
-    Rectangle {
+    Well {
         x: root.width - dot;
         y: top + bar-h / 2 - dot / 2;
         width: dot;
         height: dot;
         border-radius: dot / 2;
+        rim: Theme.dis-outline;
         background: state.lit == "clip" ? Theme.err : state.lit == "limit" ? Theme.warn : Theme.trough;
     }
     // One area for the click and the tooltip: a second one on top would take the click

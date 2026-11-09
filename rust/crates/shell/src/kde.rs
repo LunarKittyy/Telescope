@@ -305,12 +305,17 @@ mod tests {
     }
 
     #[test]
-    fn the_scheme_comes_from_the_themes_two_looks() {
+    fn the_scheme_comes_from_the_themes_looks() {
         i_slint_backend_testing::init_no_event_loop();
         let doc = "import { Theme } from \"@ui-kit/ui-kit.slint\";\nexport { Theme }\nexport component Probe inherits Window { }\n";
         let ui = crate::compile::compile("probe.slint", doc, vec![], "Probe").unwrap().create().unwrap();
         assert_eq!(Scheme::of(&ui), Some(NEW));
-        ui.set_global_property("Theme", "classic", Value::Bool(true)).unwrap();
+        ui.set_global_property("Theme", "look", Value::Number(1.0)).unwrap();
         assert_eq!(Scheme::of(&ui), Some(CLASSIC));
+        ui.set_global_property("Theme", "look", Value::Number(2.0)).unwrap();
+        assert_eq!(Scheme::of(&ui).map(|s| s.bar), Some([0, 0, 0]), "OLED's bar is black");
+        ui.set_global_property("Theme", "look", Value::Number(3.0)).unwrap();
+        let light = Scheme::of(&ui).unwrap();
+        assert!(light.bar.iter().all(|c| *c > 200) && light.ink.iter().all(|c| *c < 60), "Light has a pale bar and dark ink: {light:?}");
     }
 }

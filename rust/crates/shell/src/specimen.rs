@@ -1,8 +1,8 @@
-//! The specimen sheet: every kit control kind in every state, in the new look and in Classic, drawn offscreen as one picture
+//! The specimen sheet: every kit control kind in every state, in each of the four looks, drawn offscreen as one picture
 //! per look. Rows are kinds and columns are states, so a kind that lacks a hover or a disabled look shows as a gap in the grid
 //! or as a cell that looks like its neighbour. The last column is a long text, what a German translation would give.
-//! `cargo run -p telescope-shell --bin shell-specimen -- OUT` in rust/ writes OUT/new.png and OUT/classic.png (each is one picture of every kind), and the tooltip sheet beside
-//! them as OUT/tips-new.png and OUT/tips-classic.png (STYLE.md).
+//! `cargo run -p telescope-shell --bin shell-specimen -- OUT` in rust/ writes OUT/new.png, classic.png, oled.png and light.png (each is one picture of every kind), and the tooltip sheet beside
+//! them as OUT/tips-new.png, tips-classic.png and so on (STYLE.md).
 
 use crate::offscreen::{self, Picture};
 use slint::platform::{Key, PointerEventButton, WindowEvent};
@@ -95,9 +95,9 @@ fn fail(e: impl std::fmt::Display) -> String {
 }
 
 /// One control in one state, drawn on its own.
-fn cell(def: &ComponentDefinition, classic: bool, kind: &Kind, state: &str) -> Result<Picture, String> {
+fn cell(def: &ComponentDefinition, look: usize, kind: &Kind, state: &str) -> Result<Picture, String> {
     let ui = def.create().map_err(fail)?;
-    ui.set_global_property("Theme", "classic", Value::Bool(classic)).map_err(fail)?;
+    ui.set_global_property("Theme", "look", Value::Number(look as f64)).map_err(fail)?;
     ui.set_property("kind", Value::String(kind.name.into())).map_err(fail)?;
     for (flag, name) in [("off", "off"), ("empty", "empty"), ("long", "long"), ("on", "lit")] {
         ui.set_property(name, Value::Bool(state == flag)).map_err(fail)?;
@@ -124,10 +124,24 @@ fn cell(def: &ComponentDefinition, classic: bool, kind: &Kind, state: &str) -> R
     Ok(picture)
 }
 
+/// The colour behind the controls in this look: Theme.stage, so the sheet's own table of colours is the theme's.
+fn stage(look: usize) -> Result<[u8; 4], String> {
+    let doc = include_str!("../ui/specimen.slint");
+    let ui = crate::compile::compile("specimen.slint", doc, vec![], "Heading")?.create().map_err(fail)?;
+    ui.set_global_property("Theme", "look", Value::Number(look as f64)).map_err(fail)?;
+    match ui.get_global_property("Theme", "stage") {
+        Ok(Value::Brush(b)) => {
+            let c = b.color();
+            Ok([c.red(), c.green(), c.blue(), 255])
+        }
+        other => Err(format!("Theme.stage isn't a colour: {other:?}")),
+    }
+}
+
 /// A heading of the sheet, in a cell this wide.
-fn heading(def: &ComponentDefinition, classic: bool, text: &str, column: bool, width: f32) -> Result<Picture, String> {
+fn heading(def: &ComponentDefinition, look: usize, text: &str, column: bool, width: f32) -> Result<Picture, String> {
     let ui = def.create().map_err(fail)?;
-    ui.set_global_property("Theme", "classic", Value::Bool(classic)).map_err(fail)?;
+    ui.set_global_property("Theme", "look", Value::Number(look as f64)).map_err(fail)?;
     ui.set_property("text", Value::String(text.into())).map_err(fail)?;
     ui.set_property("column", Value::Bool(column)).map_err(fail)?;
     ui.show().map_err(fail)?;
@@ -142,9 +156,9 @@ const TIP_CASES: &[&str] = &["name", "detail", "keys", "long", "tint", "tint-key
 const TIP_CELL: (f32, f32) = (300.0, 170.0);
 const TIP_COLUMNS: usize = 4;
 
-fn tip_cell(def: &ComponentDefinition, classic: bool, case: &str) -> Result<Picture, String> {
+fn tip_cell(def: &ComponentDefinition, look: usize, case: &str) -> Result<Picture, String> {
     let ui = def.create().map_err(fail)?;
-    ui.set_global_property("Theme", "classic", Value::Bool(classic)).map_err(fail)?;
+    ui.set_global_property("Theme", "look", Value::Number(look as f64)).map_err(fail)?;
     ui.set_global_property("WindowBox", "width", Value::Number(TIP_CELL.0 as f64)).map_err(fail)?;
     ui.set_global_property("WindowBox", "height", Value::Number(TIP_CELL.1 as f64)).map_err(fail)?;
     ui.set_property("case", Value::String(case.into())).map_err(fail)?;
@@ -159,15 +173,15 @@ fn tip_cell(def: &ComponentDefinition, classic: bool, case: &str) -> Result<Pict
     Ok(picture)
 }
 
-fn tips_sheet(cells: &ComponentDefinition, classic: bool) -> Result<Picture, String> {
+fn tips_sheet(cells: &ComponentDefinition, look: usize) -> Result<Picture, String> {
     let (cw, ch) = (TIP_CELL.0 as usize, TIP_CELL.1 as usize);
     let rows = TIP_CASES.len().div_ceil(TIP_COLUMNS);
     let (width, height) = (TIP_COLUMNS * (cw + GAP) - GAP, rows * (ch + GAP) - GAP);
-    let background: [u8; 4] = if classic { [10, 12, 15, 255] } else { [13, 13, 13, 255] };
+    let background = stage(look)?;
     let rgba = background.iter().copied().cycle().take(width * height * 4).collect();
     let mut out = Picture { width: width as u32, height: height as u32, rgba };
     for (i, case) in TIP_CASES.iter().enumerate() {
-        blit(&mut out, &tip_cell(cells, classic, case)?, (i % TIP_COLUMNS) * (cw + GAP), (i / TIP_COLUMNS) * (ch + GAP));
+        blit(&mut out, &tip_cell(cells, look, case)?, (i % TIP_COLUMNS) * (cw + GAP), (i / TIP_COLUMNS) * (ch + GAP));
     }
     Ok(out)
 }
@@ -182,22 +196,22 @@ fn blit(sheet: &mut Picture, picture: &Picture, x: usize, y: usize) {
     }
 }
 
-fn sheet(cells: &ComponentDefinition, headings: &ComponentDefinition, classic: bool) -> Result<Picture, String> {
+fn sheet(cells: &ComponentDefinition, headings: &ComponentDefinition, look: usize) -> Result<Picture, String> {
     let (label_w, cell_w, head_h) = (LABEL_WIDTH as usize, CELL_WIDTH as usize, HEADING_HEIGHT as usize);
     let width = label_w + GAP + COLUMNS.len() * (cell_w + GAP);
     let height = head_h + GAP + KINDS.iter().map(|k| k.height as usize + GAP).sum::<usize>();
-    let background: [u8; 4] = if classic { [10, 12, 15, 255] } else { [13, 13, 13, 255] };
+    let background = stage(look)?;
     let rgba = background.iter().copied().cycle().take(width * height * 4).collect();
     let mut out = Picture { width: width as u32, height: height as u32, rgba };
     for (i, (_, name)) in COLUMNS.iter().enumerate() {
-        blit(&mut out, &heading(headings, classic, name, true, CELL_WIDTH)?, label_w + GAP + i * (cell_w + GAP), 0);
+        blit(&mut out, &heading(headings, look, name, true, CELL_WIDTH)?, label_w + GAP + i * (cell_w + GAP), 0);
     }
     let mut y = head_h + GAP;
     for kind in KINDS {
-        blit(&mut out, &heading(headings, classic, kind.label, false, LABEL_WIDTH)?, 0, y + (kind.height as usize - head_h) / 2);
+        blit(&mut out, &heading(headings, look, kind.label, false, LABEL_WIDTH)?, 0, y + (kind.height as usize - head_h) / 2);
         for (i, (state, _)) in COLUMNS.iter().enumerate() {
             if kind.states.contains(state) {
-                blit(&mut out, &cell(cells, classic, kind, state)?, label_w + GAP + i * (cell_w + GAP), y);
+                blit(&mut out, &cell(cells, look, kind, state)?, label_w + GAP + i * (cell_w + GAP), y);
             }
         }
         y += kind.height as usize + GAP;
@@ -205,7 +219,7 @@ fn sheet(cells: &ComponentDefinition, headings: &ComponentDefinition, classic: b
     Ok(out)
 }
 
-/// Writes out/new.png and out/classic.png and, for the tooltips, out/tips-new.png and out/tips-classic.png; how many pictures.
+/// Writes out/{new,classic,oled,light}.png and, for the tooltips, out/tips-{new,classic,oled,light}.png; how many pictures.
 pub fn render(out: &Path) -> Result<usize, String> {
     if !offscreen::install() {
         return Err("a window system was already set up".into());
@@ -215,11 +229,11 @@ pub fn render(out: &Path) -> Result<usize, String> {
     let cells = crate::compile::compile("specimen.slint", doc, vec![], "Cell")?;
     let headings = crate::compile::compile("specimen.slint", doc, vec![], "Heading")?;
     let tips = crate::compile::compile("specimen.slint", doc, vec![], "TipCell")?;
-    for (name, classic) in [("new", false), ("classic", true)] {
-        sheet(&cells, &headings, classic)?.save_png(&out.join(format!("{name}.png")))?;
-        tips_sheet(&tips, classic)?.save_png(&out.join(format!("tips-{name}.png")))?;
+    for (name, look) in [("new", 0), ("classic", 1), ("oled", 2), ("light", 3)] {
+        sheet(&cells, &headings, look)?.save_png(&out.join(format!("{name}.png")))?;
+        tips_sheet(&tips, look)?.save_png(&out.join(format!("tips-{name}.png")))?;
     }
-    Ok(4)
+    Ok(8)
 }
 
 #[cfg(test)]
@@ -238,58 +252,58 @@ mod tests {
         assert!(offscreen::install());
         let doc = include_str!("../ui/specimen.slint");
         let cells = crate::compile::compile("specimen.slint", doc, vec![], "Cell").expect("the cells compile");
-        let draw = |classic: bool, name: &str, state: &str| {
+        let draw = |look: usize, name: &str, state: &str| {
             let kind = KINDS.iter().find(|k| k.name == name).expect("a kind of the sheet");
-            cell(&cells, classic, kind, state).expect("the cell draws")
+            cell(&cells, look, kind, state).expect("the cell draws")
         };
-        for classic in [false, true] {
+        for look in 0..4 {
             // The text boxes hover over their text too (the box swallows the pointer), the link and the strip answer it
             for name in ["field", "number", "link", "icon-button"] {
-                let (rest, hover) = (draw(classic, name, "rest"), draw(classic, name, "hover"));
-                assert!(differing(&rest, &hover) > 50, "{name} (classic {classic}): hover looks like rest");
+                let (rest, hover) = (draw(look, name, "rest"), draw(look, name, "hover"));
+                assert!(differing(&rest, &hover) > 50, "{name} (look {look}): hover looks like rest");
             }
             // Held is not hover, and not rest
             for name in ["switch", "toggle", "picker", "segmented", "stepper"] {
-                let (rest, hover, held) = (draw(classic, name, "rest"), draw(classic, name, "hover"), draw(classic, name, "held"));
-                assert!(differing(&rest, &held) > 50, "{name} (classic {classic}): held looks like rest");
-                assert!(differing(&hover, &held) > 50, "{name} (classic {classic}): held looks like hover");
+                let (rest, hover, held) = (draw(look, name, "rest"), draw(look, name, "hover"), draw(look, name, "held"));
+                assert!(differing(&rest, &held) > 50, "{name} (look {look}): held looks like rest");
+                assert!(differing(&hover, &held) > 50, "{name} (look {look}): held looks like hover");
             }
             // A disabled icon button is there, on a surface of its own
-            let (rest, off) = (draw(classic, "icon-button", "rest"), draw(classic, "icon-button", "off"));
-            assert!(differing(&rest, &off) > 200, "icon-button (classic {classic}): disabled can't be told from rest");
+            let (rest, off) = (draw(look, "icon-button", "rest"), draw(look, "icon-button", "off"));
+            assert!(differing(&rest, &off) > 200, "icon-button (look {look}): disabled can't be told from rest");
             // A box with nothing in it shows its placeholder
             for name in ["picker", "number"] {
-                let (rest, empty) = (draw(classic, name, "rest"), draw(classic, name, "empty"));
-                assert!(differing(&rest, &empty) > 20, "{name} (classic {classic}): no placeholder");
+                let (rest, empty) = (draw(look, name, "rest"), draw(look, name, "empty"));
+                assert!(differing(&rest, &empty) > 20, "{name} (look {look}): no placeholder");
             }
         }
     }
 
-    // The controls of the card redesigns answer the pointer too: hover and held each look like themselves, in both looks
+    // The controls of the card redesigns answer the pointer too: hover and held each look like themselves, in every look
     #[test]
     fn the_card_redesign_controls_answer_hover_and_held_in_both_looks() {
         assert!(offscreen::install());
         let doc = include_str!("../ui/specimen.slint");
         let cells = crate::compile::compile("specimen.slint", doc, vec![], "Cell").expect("the cells compile");
-        let draw = |classic: bool, name: &str, state: &str| {
+        let draw = |look: usize, name: &str, state: &str| {
             let kind = KINDS.iter().find(|k| k.name == name).expect("a kind of the sheet");
-            cell(&cells, classic, kind, state).expect("the cell draws")
+            cell(&cells, look, kind, state).expect("the cell draws")
         };
-        for classic in [false, true] {
+        for look in 0..4 {
             for name in ["toggle-tile", "toggle-icons", "picture-swatches", "picture-shapes", "pad-sheet", "pad-map", "wheel", "dial", "threshold", "slider-wb"] {
-                let (rest, hover, held) = (draw(classic, name, "rest"), draw(classic, name, "hover"), draw(classic, name, "held"));
-                assert!(differing(&rest, &held) > 50, "{name} (classic {classic}): held looks like rest");
-                assert!(differing(&hover, &held) > 50, "{name} (classic {classic}): held looks like hover");
+                let (rest, hover, held) = (draw(look, name, "rest"), draw(look, name, "hover"), draw(look, name, "held"));
+                assert!(differing(&rest, &held) > 50, "{name} (look {look}): held looks like rest");
+                assert!(differing(&hover, &held) > 50, "{name} (look {look}): held looks like hover");
             }
             // A disabled one is there, and looks unlike one at rest
             for name in ["toggle-tile", "picture-swatches", "pad-sheet", "pad-map", "wheel", "dial", "threshold", "slider-wb", "rail"] {
-                let (rest, off) = (draw(classic, name, "rest"), draw(classic, name, "off"));
-                assert!(differing(&rest, &off) > 200, "{name} (classic {classic}): disabled can't be told from rest");
+                let (rest, off) = (draw(look, name, "rest"), draw(look, name, "off"));
+                assert!(differing(&rest, &off) > 200, "{name} (look {look}): disabled can't be told from rest");
             }
             // With nothing to show yet, a dial and a bar keep their place and show it
             for name in ["dial", "threshold"] {
-                let (rest, empty) = (draw(classic, name, "rest"), draw(classic, name, "empty"));
-                assert!(differing(&rest, &empty) > 100, "{name} (classic {classic}): no placeholder");
+                let (rest, empty) = (draw(look, name, "rest"), draw(look, name, "empty"));
+                assert!(differing(&rest, &empty) > 100, "{name} (look {look}): no placeholder");
             }
         }
     }

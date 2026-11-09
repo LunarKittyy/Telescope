@@ -116,7 +116,7 @@ impl Wrap {
         );
         let definition = telescope_shell::compile::compile("wrapper.slint", &doc, vec![("plugin/card.slint".to_string(), source)], "W").unwrap_or_else(|e| panic!("{e}"));
         let w = definition.create().unwrap();
-        w.set_global_property("Theme", "classic", Value::Bool(classic)).unwrap();
+        w.set_global_property("Theme", "look", Value::Number(f64::from(u8::from(classic)))).unwrap();
         let said: Said = Rc::default();
         for (name, _) in kind.callbacks {
             let log = said.clone();

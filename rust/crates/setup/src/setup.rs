@@ -14,7 +14,7 @@ use std::path::Path;
 use std::sync::Arc;
 use telescope_core::canvas;
 use telescope_core::event::Event;
-use telescope_core::host::{FileDialog, FileDialogKind, Host, Poster, RequestId};
+use telescope_core::host::{FileDialog, FileDialogKind, Host, Look, Poster, RequestId};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::link::Link;
 use telescope_core::media::Media;
@@ -236,8 +236,8 @@ pub struct SetupPlugin {
     pub hw_decode: bool,
     pub power_saving: bool,
     pub plugin_hues: bool,
-    /// The Classic theme: the deep blue of 5.0
-    pub classic_theme: bool,
+    /// The look of the windows (Appearance)
+    pub look: Look,
     pub language: String,
     /// set_config has no host: the others hear the loaded values with the next hook that has one.
     pending: bool,
@@ -272,7 +272,7 @@ impl SetupPlugin {
             hw_decode: false,
             power_saving: false,
             plugin_hues: true,
-            classic_theme: false,
+            look: Look::Dark,
             language: String::new(),
             pending: true,
             panel: Panel::new(apk_bundled),
@@ -318,7 +318,7 @@ impl SetupPlugin {
             host.emit(Event::MaxGainChanged { max_gain: self.max_gain_i32() });
             host.emit(Event::LimiterChanged { on: self.limiter });
             host.set_plugin_hues(self.plugin_hues);
-            host.set_classic_theme(self.classic_theme);
+            host.set_look(self.look);
             host.set_power_saving(self.power_saving);
         }
     }
@@ -419,7 +419,7 @@ impl SetupPlugin {
         let draft = self.languages.iter().any(|l| l.code == current_language() && l.draft);
         json!({
             "hues-current": if self.plugin_hues { 0 } else { 1 },
-            "theme-current": if self.classic_theme { 1 } else { 0 },
+            "theme-current": self.look.index(),
             "lang-items": self.language_items(), "lang-current": self.panel.lang_current,
             "lang-restart": self.restart_needed(),
             "help-text": if draft { tr("This translation is a first draft and some texts might read a bit oddly.") }
@@ -898,9 +898,9 @@ impl SetupPlugin {
         host.schedule_save();
     }
 
-    pub fn on_classic_theme(&mut self, host: &mut dyn Host, on: bool) {
-        self.classic_theme = on;
-        host.set_classic_theme(on);
+    pub fn on_look(&mut self, host: &mut dyn Host, look: Look) {
+        self.look = look;
+        host.set_look(look);
         host.schedule_save();
     }
 
@@ -1188,7 +1188,7 @@ impl Plugin for SetupPlugin {
             ("phone-app", "pick-done") => self.phone_picked(host, Some(index.max(0) as usize)),
             ("phone-app", "pick-cancelled") => self.phone_picked(host, None),
             ("look", "hues-picked") => self.on_plugin_hues(host, index == 0),
-            ("look", "theme-picked") => self.on_classic_theme(host, index == 1),
+            ("look", "theme-picked") => self.on_look(host, Look::from_index(index)),
             ("look", "lang-picked") => self.on_language(host, index.max(0) as usize),
             ("look", "restart-clicked") => {
                 host.restart_app();
@@ -1229,8 +1229,8 @@ impl Plugin for SetupPlugin {
             "language": self.language,
         });
         // Written only once chosen, so a config that never touched the theme stays as an older Telescope wrote it
-        if self.classic_theme {
-            cfg["classic_theme"] = json!(true);
+        if self.look != Look::Dark {
+            cfg["look"] = json!(self.look.name());
         }
         cfg
     }
@@ -1249,7 +1249,12 @@ impl Plugin for SetupPlugin {
         self.hw_decode = telescope_core::media::hardware_decode_on(Some(cfg));
         self.power_saving = cfg.get("power_saving") == Some(&Value::Bool(true));
         self.plugin_hues = cfg.get("plugin_hues") != Some(&Value::Bool(false));
-        self.classic_theme = cfg.get("classic_theme") == Some(&Value::Bool(true));
+        // A config an older Telescope wrote says classic_theme instead
+        self.look = match cfg.get("look").and_then(Value::as_str).and_then(Look::from_name) {
+            Some(look) => look,
+            None if cfg.get("classic_theme") == Some(&Value::Bool(true)) => Look::Classic,
+            None => Look::Dark,
+        };
         self.language = cfg.get("language").and_then(Value::as_str).unwrap_or("").to_string();
         self.pending = true;
         Ok(())

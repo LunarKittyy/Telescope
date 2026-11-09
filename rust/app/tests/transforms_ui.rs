@@ -74,7 +74,7 @@ fn window(plugin: &mut TransformsPlugin) -> ComponentInstance {
     let errors: Vec<String> = result.diagnostics().filter(|d| d.level() == slint_interpreter::DiagnosticLevel::Error).map(|d| d.to_string()).collect();
     assert!(errors.is_empty(), "{}", errors.join("\n"));
     let w = result.component("W").unwrap().create().unwrap();
-    w.set_global_property("Theme", "classic", Value::Bool(true)).unwrap();
+    w.set_global_property("Theme", "look", Value::Number(1.0)).unwrap();
     w.show().unwrap();
     w
 }

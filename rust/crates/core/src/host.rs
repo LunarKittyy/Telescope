@@ -189,6 +189,46 @@ pub trait SensorReader: Send + Sync {
     fn reading(&self, source_id: Option<&str>) -> Option<Value>;
 }
 
+/// The looks the window can wear, in the order Appearance lists them. The index is what the window's `Theme.look` takes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Look {
+    /// The dark look
+    #[default]
+    Dark,
+    /// The deep blue of 5.0
+    Classic,
+    /// True black, layers told apart by their outlines
+    Oled,
+    Light,
+}
+
+impl Look {
+    pub const ALL: [Look; 4] = [Look::Dark, Look::Classic, Look::Oled, Look::Light];
+
+    /// The look at this place in Appearance's list; Dark for anything else.
+    pub fn from_index(index: i64) -> Look {
+        Self::ALL.get(usize::try_from(index).unwrap_or(usize::MAX)).copied().unwrap_or_default()
+    }
+
+    pub fn index(self) -> usize {
+        self as usize
+    }
+
+    /// What the settings file calls it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Look::Dark => "dark",
+            Look::Classic => "classic",
+            Look::Oled => "oled",
+            Look::Light => "light",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Look> {
+        Self::ALL.into_iter().find(|l| l.name() == name)
+    }
+}
+
 /// Saving and reading settings: this plugin's, another's, and each device's.
 pub trait HostSettings {
     /// Persist all plugin config soon, coalescing rapid successive calls.
@@ -379,8 +419,8 @@ pub trait HostShell {
     /// Whether every card gets its group's colour (true) or the accent colour (theme.set_plugin_hues). A host without a
     /// window ignores it.
     fn set_plugin_hues(&mut self, _on: bool) {}
-    /// Whether the window draws the Classic theme (the deep blue of 5.0) instead of the new look. A host without a window ignores it.
-    fn set_classic_theme(&mut self, _on: bool) {}
+    /// Which look the window draws (Appearance in Settings). A host without a window ignores it.
+    fn set_look(&mut self, _look: Look) {}
     /// Asks the person for a file or folder. Event::RequestDone says how it went: ok with data {"path", "filter"} for
     /// the pick, not ok with an empty message when it was cancelled. None on a host that can't show a dialog.
     fn pick_file(&mut self, _dialog: &FileDialog) -> Option<RequestId> {

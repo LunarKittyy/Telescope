@@ -572,7 +572,7 @@ export component CompositeEditor inherits Window {
 
     // QInputDialog and QMessageBox, inside the window: it's the window they belong to
     if asking-name || confirming: Rectangle {
-        background: #00000080;
+        background: Theme.scrim.with-alpha(Theme.scrim-a);
         TouchArea { }
         DialogFrame {
             width: Theme.u(210);

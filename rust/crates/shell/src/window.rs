@@ -1320,8 +1320,8 @@ impl Window {
         });
         crate::keys::watch_plugin_keys(&ui, Rc::downgrade(self));
         Self::set_window_props(&ui, plugin, id, &spec.ui.props);
-        if let Ok(classic) = self.ui.get_global_property("Theme", "classic") {
-            let _ = ui.set_global_property("Theme", "classic", classic);
+        if let Ok(look) = self.ui.get_global_property("Theme", "look") {
+            let _ = ui.set_global_property("Theme", "look", look);
         }
         crate::motion::apply(&ui);
         let _ = ui.show();
@@ -1491,14 +1491,15 @@ impl Window {
                 let _ = self.ui.set_global_property("Theme", "own-hues", SValue::Bool(on));
                 crate::settings::set_hues(on);
             }
-            Effect::ClassicTheme(on) => {
-                let _ = self.ui.set_global_property("Theme", "classic", SValue::Bool(on));
+            Effect::Look(look) => {
+                let index = SValue::Number(look.index() as f64);
+                let _ = self.ui.set_global_property("Theme", "look", index.clone());
                 for (_, _, open) in self.plugin_windows.borrow().iter() {
-                    let _ = open.set_global_property("Theme", "classic", SValue::Bool(on));
+                    let _ = open.set_global_property("Theme", "look", index.clone());
                     crate::frame::dress(open);
                 }
                 crate::frame::dress(&self.ui);
-                crate::settings::set_classic(on);
+                crate::settings::set_look(look);
             }
             Effect::RestartCanvas { plugin, request, shows_command } => self.restart_canvas(&plugin, request, shows_command),
             Effect::RemoveExtras { plugin, request } => self.remove_extras(&plugin, request),

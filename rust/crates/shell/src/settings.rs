@@ -98,20 +98,13 @@ fn model(rows: Vec<SValue>) -> SValue {
     SValue::Model(ModelRc::new(VecModel::from(rows)))
 }
 
-/// Theme.plugin-hue for the Plugins tab: the same colours, per theme.
-fn hue(group: &str, own: bool, classic: bool) -> slint::Color {
-    let hex = if !own { "#aa9cf5" } else if classic {
-        match group {
-            "camera" => "#7fd3c4", "look" => "#e6a6e0", "vision" => "#bcd98c", "preview" => "#f2b48c",
-            "on_screen" => "#f2a0bf", "sound" => "#e8d08a", "streaming" => "#8cc4f2", _ => "#b9bdcc",
-        }
-    } else {
-        match group {
-            "camera" => "#4fbcb3", "look" => "#dc7ea2", "vision" => "#79bf8e", "preview" => "#e39a5e",
-            "on_screen" => "#b894dc", "sound" => "#cdb173", "streaming" => "#6aa6d8", _ => "#a3abbd",
-        }
-    };
-    crate::source::parse_color(hex).unwrap_or_default()
+/// Theme.plugin-hue for the Plugins tab, asked of the main window's Theme so there is one table of colours (the window's own own-hues decides
+/// whether they are the cards' colours or the accent).
+fn hue(ui: &ComponentInstance, group: &str) -> slint::Color {
+    match ui.invoke_global("Theme", "plugin-hue", &[SValue::String(group.into())]) {
+        Ok(SValue::Brush(b)) => b.color(),
+        _ => slint::Color::default(),
+    }
 }
 
 pub struct Settings {
@@ -193,10 +186,10 @@ pub fn set_hues(on: bool) {
     }
 }
 
-/// Host::set_classic_theme reaches the settings window too.
-pub fn set_classic(on: bool) {
+/// Host::set_look reaches the settings window too.
+pub fn set_look(look: telescope_core::host::Look) {
     if let Some(settings) = SETTINGS.with(|s| s.borrow().clone()) {
-        let _ = settings.ui.set_global_property("Theme", "classic", SValue::Bool(on));
+        let _ = settings.ui.set_global_property("Theme", "look", SValue::Number(look.index() as f64));
         crate::frame::dress(&settings.ui);
         settings.show_panel();
     }
@@ -213,8 +206,8 @@ fn ensure(window: &Rc<Window>) -> Option<Rc<Settings>> {
                 if let Ok(own) = window.ui.get_global_property("Theme", "own-hues") {
                     let _ = s.ui.set_global_property("Theme", "own-hues", own);
                 }
-                if let Ok(classic) = window.ui.get_global_property("Theme", "classic") {
-                    let _ = s.ui.set_global_property("Theme", "classic", classic);
+                if let Ok(look) = window.ui.get_global_property("Theme", "look") {
+                    let _ = s.ui.set_global_property("Theme", "look", look);
                 }
                 Some(s)
             }
@@ -797,8 +790,9 @@ impl Settings {
         let query = match self.ui.get_property("plugin-query") { Ok(SValue::String(q)) => q.to_string(), _ => String::new() };
         let filter = match self.ui.get_property("plugin-filter") { Ok(SValue::Number(1.0)) => Filter::On, Ok(SValue::Number(2.0)) => Filter::Off, _ => Filter::All };
         let panel = self.panel.borrow();
-        let own = self.window.upgrade().is_none_or(|w| w.ui.get_global_property("Theme", "own-hues").map_or(true, |v| v == SValue::Bool(true)));
-        let classic = self.window.upgrade().is_some_and(|w| w.ui.get_global_property("Theme", "classic").map_or(false, |v| v == SValue::Bool(true)));
+        // The main window's Theme knows the look and whether the cards have colours of their own
+        let window = self.window.upgrade();
+        let hue_of = |group: &str| window.as_ref().map_or_else(|| hue(&self.ui, group), |w| hue(&w.ui, group));
         let link = |l: &Option<plugins_tab::Link>| l.as_ref().map(|l| (l.text.clone(), l.url.clone())).unwrap_or_default();
         let groups: Vec<SValue> = panel.shown(&query, filter).into_iter().map(|(g, count)| {
             let tall = g.tiles.iter().map(tile_extra).max().unwrap_or(0);
@@ -808,7 +802,7 @@ impl Settings {
                 let (byline_link, byline_url) = link(&t.byline_link);
                 SValue::Struct(Struct::from_iter([
                     ("name".to_string(), s(&t.name)), ("title".to_string(), s(&t.title)), ("about".to_string(), s(&t.about)),
-                    ("icon".to_string(), SValue::Image(icon(&t.icon))), ("hue".to_string(), SValue::Brush(slint::Brush::SolidColor(hue(&t.group, own, classic)))),
+                    ("icon".to_string(), SValue::Image(icon(&t.icon))), ("hue".to_string(), SValue::Brush(slint::Brush::SolidColor(hue_of(&t.group)))),
                     ("on".to_string(), SValue::Bool(t.on)), ("locked".to_string(), SValue::Bool(t.locked)), ("enabled".to_string(), SValue::Bool(t.enabled)),
                     ("tooltip".to_string(), s(&t.tooltip)), ("note".to_string(), s(&t.note)), ("note-kind".to_string(), s(&t.note_kind)),
                     ("note-link".to_string(), s(&note_link)), ("note-url".to_string(), s(&note_url)),
@@ -820,7 +814,7 @@ impl Settings {
             }).collect();
             SValue::Struct(Struct::from_iter([
                 ("id".to_string(), s(&g.id)), ("title".to_string(), s(&g.title)), ("count".to_string(), s(&count)),
-                ("icon".to_string(), SValue::Image(icon(group_icon(&g.id)))), ("hue".to_string(), SValue::Brush(slint::Brush::SolidColor(hue(&g.id, own, classic)))),
+                ("icon".to_string(), SValue::Image(icon(group_icon(&g.id)))), ("hue".to_string(), SValue::Brush(slint::Brush::SolidColor(hue_of(&g.id)))),
                 ("tiles".to_string(), model(tiles)), ("tile-height".to_string(), SValue::Number((94 + tall) as f64)),
                 ("remove-pack".to_string(), SValue::Bool(g.remove_pack)), ("status".to_string(), s(&g.status)),
             ]))

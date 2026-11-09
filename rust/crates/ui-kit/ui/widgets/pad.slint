@@ -221,6 +221,8 @@ export component Pad inherits Rectangle {
     vertical-stretch: 0;
     border-radius: Theme.r-ctl;
     background: enabled ? Theme.raise : Theme.trough;
+    border-width: !enabled ? Theme.outline-w : Theme.ctl-outline-w(touch.has-hover, held);
+    border-color: !enabled ? Theme.dis-outline : Theme.ctl-outline(touch.has-hover, held);
     accessible-role: slider;
     accessible-label: label;
     accessible-value: spoken;

@@ -25,8 +25,8 @@ export component TextArea inherits Rectangle {
     preferred-height: Theme.u(64);
     vertical-stretch: 1;
     border-radius: Theme.r-ctl;
-    border-width: input.has-focus && enabled ? Theme.stroke : 0px;
-    border-color: Theme.accent;
+    border-width: !enabled ? Theme.outline-w : input.has-focus ? Theme.stroke : Theme.outline-w;
+    border-color: !enabled ? Theme.dis-outline : input.has-focus ? Theme.accent : Theme.outline;
     background: !enabled ? Theme.trough.mix(Theme.card, 0.4) : Theme.trough;
     forward-focus: input;
     accessible-role: text-input;
@@ -82,7 +82,7 @@ export component TextArea inherits Rectangle {
             font-size: Theme.body;
             color: enabled ? Theme.ink : Theme.dis;
             selection-background-color: Theme.fill;
-            selection-foreground-color: white;
+            selection-foreground-color: Theme.on-fill;
             edited => { root.edited(self.text); }
             cursor-position-changed(p) => {
                 if (p.y + flick.viewport-y < 0) { flick.viewport-y = -p.y; }

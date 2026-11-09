@@ -203,8 +203,8 @@ pub struct FakeHost {
     pub report: String,
     /// What set_plugin_hues last said (None until it's called).
     pub plugin_hues: Option<bool>,
-    /// What set_classic_theme last said (None until it's called).
-    pub classic_theme: Option<bool>,
+    /// What set_look last said (None until it's called).
+    pub look: Option<crate::host::Look>,
     /// What set_power_saving last said (None until it's called).
     pub power_saving: Option<bool>,
     /// What the plugin last offered the bottom bar (offer_bar_stats), and the ids pinned to it (bar_pins), which pin_to_bar changes.
@@ -485,9 +485,9 @@ impl HostShell for FakeHost {
         self.note(format!("set_plugin_hues {on}"));
         self.plugin_hues = Some(on);
     }
-    fn set_classic_theme(&mut self, on: bool) {
-        self.note(format!("set_classic_theme {on}"));
-        self.classic_theme = Some(on);
+    fn set_look(&mut self, look: crate::host::Look) {
+        self.note(format!("set_look {}", look.name()));
+        self.look = Some(look);
     }
     fn pick_file(&mut self, dialog: &FileDialog) -> Option<RequestId> {
         self.note(format!("pick_file {:?} {}", dialog.kind, dialog.title));

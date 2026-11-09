@@ -256,6 +256,8 @@ export component ColourField inherits Rectangle {
     horizontal-stretch: 1;
     border-radius: Theme.r-ctl;
     background: !enabled ? Theme.raise.mix(Theme.card, 0.4) : open || touch.pressed ? Theme.sel : touch.has-hover ? Theme.hover : Theme.raise;
+    border-width: !enabled ? Theme.outline-w : Theme.ctl-outline-w(touch.has-hover || open, touch.pressed);
+    border-color: !enabled ? Theme.dis-outline : Theme.ctl-outline(touch.has-hover || open, touch.pressed);
     accessible-role: button;
     accessible-label: label;
     accessible-value: hex;

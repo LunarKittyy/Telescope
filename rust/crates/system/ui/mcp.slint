@@ -1,6 +1,6 @@
 // The MCP server's tab in Settings and its button in the header. The texts that are lists or carry names come filled from Rust.
 
-import { Theme, Icons, Card, RailRow, Segmented, IconButton, Icon, FocusRing, KeyFocus, Tip, Motion, Status } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Well, Card, RailRow, Segmented, IconButton, Icon, FocusRing, KeyFocus, Tip, Motion, Status } from "@ui-kit/ui-kit.slint";
 
 // One line of the activity log: when, which AI app, what it did in words. kind is "" or "refused".
 export struct McpLogRow {
@@ -83,12 +83,10 @@ export component McpSettings inherits VerticalLayout {
             hue: Theme.plugin-hue("extras");
             HorizontalLayout {
                 spacing: Theme.gap;
-                Rectangle {
+                Well {
                     horizontal-stretch: 1;
                     min-width: 0px;
                     min-height: Theme.row;
-                    background: Theme.trough;
-                    border-radius: Theme.r-ctl;
                     accessible-role: text;
                     accessible-label: command;
                     VerticalLayout {
@@ -180,10 +178,10 @@ component Segment inherits Rectangle {
     accessible-enabled: enabled;
     accessible-action-default => { if (enabled) { clicked(); } }
     border-radius: Theme.r-ctl;
-    border-width: outlined ? Theme.stroke : 0px;
-    border-color: Theme.accent;
+    border-width: outlined ? Theme.stroke : !enabled ? Theme.outline-w : Theme.ctl-outline-w(touch.has-hover, touch.pressed);
+    border-color: outlined ? Theme.accent : !enabled ? Theme.dis-outline : Theme.ctl-outline(touch.has-hover, touch.pressed);
     background: !enabled ? Theme.trough : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : Theme.raise;
-    animate background, border-width { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
+    animate background, border-width, border-color { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
     forward-focus: focus;
     focus := FocusScope {
         enabled: root.enabled;

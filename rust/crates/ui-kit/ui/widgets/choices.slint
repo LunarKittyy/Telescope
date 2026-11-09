@@ -138,7 +138,9 @@ export component Segmented inherits Rectangle {
             background: off ? Theme.raise.mix(Theme.card, 0.4)
                 : seg-touch.pressed && !on ? Theme.press
                 : seg-touch.has-hover && !on ? Theme.hover : Theme.raise;
-            animate background { duration: Motion.tone-for(seg-touch.pressed || quick); easing: Motion.tone; }
+            border-width: off ? Theme.outline-w : Theme.ctl-outline-w(seg-touch.has-hover && !on, seg-touch.pressed && !on);
+            border-color: off ? Theme.dis-outline : Theme.ctl-outline(seg-touch.has-hover && !on, seg-touch.pressed && !on);
+            animate background, border-width, border-color { duration: Motion.tone-for(seg-touch.pressed || quick); easing: Motion.tone; }
             accessible-role: tab;
             accessible-label: label + ": " + item;
             accessible-checkable: true;
@@ -407,7 +409,9 @@ export component PictureSegmented inherits Rectangle {
         background: off ? Theme.raise.mix(Theme.card, 0.4)
             : seg-touch.pressed && !on ? Theme.press
             : seg-touch.has-hover && !on ? Theme.hover : Theme.raise;
-        animate background { duration: Motion.tone-for(seg-touch.pressed || quick); easing: Motion.tone; }
+        border-width: off ? Theme.outline-w : Theme.ctl-outline-w(seg-touch.has-hover && !on, seg-touch.pressed && !on);
+        border-color: off ? Theme.dis-outline : Theme.ctl-outline(seg-touch.has-hover && !on, seg-touch.pressed && !on);
+        animate background, border-width, border-color { duration: Motion.tone-for(seg-touch.pressed || quick); easing: Motion.tone; }
         property <bool> held: seg-touch.pressed;
         changed held => { if (held) { press-i = i; } else if (press-i == i) { press-i = -1; } }
         property <bool> over: seg-touch.has-hover;
@@ -657,6 +661,8 @@ export component ChoiceField inherits Rectangle {
     preferred-width: Theme.control-w;
     border-radius: Theme.r-ctl;
     background: !enabled ? Theme.raise.mix(Theme.card, 0.4) : open ? Theme.sel : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : Theme.raise;
+    border-width: !enabled ? Theme.outline-w : Theme.ctl-outline-w(touch.has-hover || open, touch.pressed);
+    border-color: !enabled ? Theme.dis-outline : Theme.ctl-outline(touch.has-hover || open, touch.pressed);
     accessible-role: combobox;
     accessible-label: caption != "" ? caption : name;
     accessible-value: shown < 0 ? placeholder : items[shown];
@@ -831,8 +837,10 @@ export component ChoiceField inherits Rectangle {
             height: popup.list-h;
             background: Theme.raise;
             border-radius: Theme.r-ctl;
+            border-width: Theme.pop-outline-w;
+            border-color: Theme.pop-outline;
             drop-shadow-blur: 12px;
-            drop-shadow-color: #00000080;
+            drop-shadow-color: Theme.shadow;
             // The list's own face takes its presses, so one between the rows isn't a press outside
             TouchArea { }
             list := Flickable {
@@ -869,6 +877,8 @@ export component ChoiceField inherits Rectangle {
                         height: headings[i] ? 32px : max(26px, line.preferred-height + 10px);
                         border-radius: Theme.r-handle;
                         background: headings[i] || is-gone ? transparent : lit ? Theme.sel : transparent;
+                        border-width: headings[i] || is-gone || !lit ? 0px : Theme.outline-w-over;
+                        border-color: Theme.outline-hover;
                         if headings[i]: Rectangle {
                             y: 2px;
                             height: parent.height - 3px;

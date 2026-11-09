@@ -68,6 +68,8 @@ export component AnchorFrame inherits Rectangle {
     preferred-height: Theme.u(49);
     border-radius: Theme.r-ctl;
     background: enabled ? Theme.trough : Theme.trough.mix(Theme.card, 0.4);
+    border-width: Theme.outline-w;
+    border-color: enabled ? Theme.outline : Theme.dis-outline;
     accessible-role: tab-list;
     accessible-label: label;
     TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
@@ -80,6 +82,8 @@ export component AnchorFrame inherits Rectangle {
         border-radius: Theme.r-ctl / 2;
         // The picture the anchors are places on, as a quieter surface and no line round it
         background: root.enabled ? Theme.raise.mix(Theme.trough, 0.5) : Theme.trough.mix(Theme.card, 0.4);
+        border-width: Theme.outline-w;
+        border-color: root.enabled ? Theme.line-strong : Theme.dis-outline;
         accessible-role: none;
     }
     for item[i] in items: zone := Rectangle {

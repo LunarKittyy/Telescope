@@ -32,7 +32,7 @@ fn shots_of_the_bubble_outline() {
     let _still = offscreen::freeze_clock();
     for classic in [false, true] {
         let ui = make(BUBBLES, 360.0, 330.0);
-        ui.set_global_property("Theme", "classic", Value::Bool(classic)).unwrap();
+        ui.set_global_property("Theme", "look", Value::Number(f64::from(u8::from(classic)))).unwrap();
         let pic = offscreen::draw(ui.window(), 360.0, 330.0, 3.0).unwrap();
         save(&dir, if classic { "bubble-outline-classic.png" } else { "bubble-outline-new.png" }, &pic);
     }
@@ -85,7 +85,7 @@ fn a_held_bubble_points_at_the_handle_and_follows_it() {
 
 fn themed(doc: &str, w: f32, h: f32, classic: bool) -> slint_interpreter::ComponentInstance {
     let ui = make(doc, w, h);
-    ui.set_global_property("Theme", "classic", Value::Bool(classic)).unwrap();
+    ui.set_global_property("Theme", "look", Value::Number(f64::from(u8::from(classic)))).unwrap();
     ui
 }
 

@@ -1,7 +1,7 @@
 // What this crate's cards are built from. The plugins join this file and their card into one source (Rust's concat!),
 // so it holds the only import line.
 
-import { Theme, Icons, Icon, FocusRing, Button, Card, SearchWords, Section, SectionHeading, Switch, SwitchTile, ToggleTile, RailRow, Slider, Segmented, ChoiceField, TextField, NumberField, KeyFocus, Tip, TipBody, Reveal, LinkText, IconButton, SwitchRow, Unfolding, UnfoldGroup, Page, PageGroup, Tone, PinStar, RowHover, Status as KitStatus } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Well, FocusRing, Button, Card, SearchWords, Section, SectionHeading, Switch, SwitchTile, ToggleTile, RailRow, Slider, Segmented, ChoiceField, TextField, NumberField, KeyFocus, Tip, TipBody, Reveal, LinkText, IconButton, SwitchRow, Unfolding, UnfoldGroup, Page, PageGroup, Tone, PinStar, RowHover, Status as KitStatus } from "@ui-kit/ui-kit.slint";
 
 global Status {
     public pure function color(kind: string) -> color {
@@ -65,12 +65,10 @@ component CommandRow inherits Unfolding {
         has-icon: false;
         HorizontalLayout {
             spacing: Theme.gap;
-            Rectangle {
+            Well {
                 horizontal-stretch: 1;
                 min-width: 0px;
                 min-height: Theme.row;
-                background: Theme.trough;
-                border-radius: Theme.r-ctl;
                 accessible-role: text;
                 accessible-label: held;
                 VerticalLayout {

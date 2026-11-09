@@ -82,8 +82,8 @@ component KeyBox inherits Rectangle {
     horizontal-stretch: 1;
     border-radius: Theme.r-ctl;
     // The outline is the focus: this box takes the keys you press
-    border-width: focus.has-focus ? Theme.stroke : 0px;
-    border-color: Theme.accent;
+    border-width: focus.has-focus ? Theme.stroke : Theme.ctl-outline-w(touch.has-hover, false);
+    border-color: focus.has-focus ? Theme.accent : Theme.ctl-outline(touch.has-hover, false);
     background: touch.has-hover && !focus.has-focus ? Theme.hover : Theme.raise;
     accessible-role: text-input;
     accessible-label: @tr("Key");
