@@ -8,7 +8,7 @@ Tried Telescope on a phone that isn't here? [Tell me how it went](https://github
 
 | Device | Android | App build | USB pairing | Wi-Fi pairing | Lens selection | Zoom on Auto | Manual exposure | Manual WB | Focus | OIS toggle | H.264 | Microphone | Reconnect | Battery/temp | Stop/start |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Samsung Galaxy S10+ (SM-G975F) | 12 | 3.1.0-nightly.374 | ✅ | ✅ | ⚠️ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Samsung Galaxy S10+ (SM-G975F) | 12 | 3.1.0-nightly.374 | ✅ | ✅ | ⚠️ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Samsung Galaxy S25 Ultra (SM-S938U) | 17 | ➖ | ✅ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ➖ | ✅ | ✅ |
 | vivo V2413 | 16 | 3.1.0-nightly.374 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Xiaomi Poco M6 Pro (2312FPCA6G) | 16 | 3.4.0 | ✅ | ✅ | ⚠️ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
