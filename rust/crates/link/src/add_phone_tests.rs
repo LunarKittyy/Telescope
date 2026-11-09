@@ -249,7 +249,7 @@ fn a_plugged_in_phone_waits_to_be_picked() {
     // Left plugged in, it would otherwise pair before the phone being scanned
     let mut r = Rig::open(&[PIXEL]);
     r.add_phone();
-    assert!(r.text("usb-text").contains("Pick a phone below"), "{}", r.text("usb-text"));
+    assert!(r.text("usb-text").contains("Pick a phone to pair"), "{}", r.text("usb-text"));
     assert_eq!(r.picks(), ["Pair Pixel 7"]);
     assert_eq!(r.broadcasts(0), Vec::<String>::new());
 }

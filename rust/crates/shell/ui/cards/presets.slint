@@ -70,7 +70,7 @@ export component PresetsHeader inherits HorizontalLayout {
         running: root.leaving;
         triggered => {
             root.leaving = false;
-            sub-popup.close();
+            root.sub = "";
             menu.close();
         }
     }
@@ -82,19 +82,21 @@ export component PresetsHeader inherits HorizontalLayout {
     // Which question is up, so a change of `dialog` eases the right one out and then closes its pop-up
     property <bool> name-up;
     property <bool> replace-up;
+    property <bool> name-going;
+    property <bool> replace-going;
     changed dialog => {
         if (self.dialog == "name") {
             root.name-text = root.dialog-text;
             root.name-up = true;
             name-popup.show();
         } else if (root.name-up) {
-            name-frame.leave();
+            root.name-going = true;
         }
         if (self.dialog == "replace") {
             root.replace-up = true;
             replace-popup.show();
         } else if (root.replace-up) {
-            replace-frame.leave();
+            root.replace-going = true;
         }
     }
 
@@ -114,12 +116,18 @@ export component PresetsHeader inherits HorizontalLayout {
         }
     }
 
+    // One pop-up holds the menu and, beside it, the Rename or Delete list once that is asked for: a second pop-up would take the first one's place
     menu := PopupWindow {
         x: 0;
         y: root.below;
-        width: Theme.u(95);
+        width: Theme.u(95) * 2 + Theme.u(2);
+        height: Theme.u(200);
         close-policy: close-on-click-outside;
         MenuSurface {
+            x: 0px;
+            y: 0px;
+            width: Theme.u(95);
+            height: self.preferred-height;
             leaving: root.leaving;
             VerticalLayout {
                 padding: Theme.u(2.5);
@@ -152,7 +160,7 @@ export component PresetsHeader inherits HorizontalLayout {
                     current: root.current == 1001 || root.sub == "rename";
                     hovered => { root.current = 1001; }
                     left => { root.current = -1; }
-                    activate => { root.sub = "rename"; sub-popup.show(); }
+                    activate => { root.sub = "rename"; root.sub-current = -1; }
                 }
                 SubmenuItem {
                     title: delete-text;
@@ -160,19 +168,16 @@ export component PresetsHeader inherits HorizontalLayout {
                     current: root.current == 1002 || root.sub == "delete";
                     hovered => { root.current = 1002; }
                     left => { root.current = -1; }
-                    activate => { root.sub = "delete"; sub-popup.show(); }
+                    activate => { root.sub = "delete"; root.sub-current = -1; }
                 }
             }
         }
-    }
-
-    // The Rename or Delete submenu: the names again, opening beside the menu
-    sub-popup := PopupWindow {
-        x: Theme.u(95);
-        y: root.below + Theme.u(2.5) + Theme.u(13) * names.length + (names.length > 0 ? Theme.u(4.5) : 0px) + Theme.u(13);
-        width: Theme.u(95);
-        close-policy: close-on-click-outside;
-        MenuSurface {
+        // The Rename or Delete list: the names again, level with the row that opened it
+        if root.sub != "": MenuSurface {
+            x: Theme.u(95) + Theme.u(2);
+            y: Theme.u(2.5) + Theme.u(13) * names.length + (names.length > 0 ? Theme.u(4.5) : 0px) + Theme.u(13) * (root.sub == "rename" ? 1 : 2);
+            width: Theme.u(95);
+            height: self.preferred-height;
             leaving: root.leaving;
             VerticalLayout {
                 padding: Theme.u(2.5);
@@ -196,6 +201,13 @@ export component PresetsHeader inherits HorizontalLayout {
     }
 
     name-popup := PopupWindow {
+        // The question eases out when asked to; only something inside the pop-up can tell its frame
+        Rectangle {
+            width: 0px;
+            height: 0px;
+            property <bool> bye: root.name-going;
+            changed bye => { if (self.bye) { name-frame.leave(); } }
+        }
         x: -root.absolute-position.x;
         y: -root.absolute-position.y;
         width: WindowBox.cover-w(Theme.u(190));
@@ -213,7 +225,7 @@ export component PresetsHeader inherits HorizontalLayout {
                 height: self.preferred-height;
                 dismissable: true;
                 dismissed => { root.dialog-cancelled(); }
-                left => { root.name-up = false; name-popup.close(); }
+                left => { root.name-going = false; root.name-up = false; name-popup.close(); }
                 title: dialog-title;
                 VerticalLayout {
                     spacing: Theme.u(3);
@@ -239,6 +251,13 @@ export component PresetsHeader inherits HorizontalLayout {
     }
 
     replace-popup := PopupWindow {
+        // The question eases out when asked to; only something inside the pop-up can tell its frame
+        Rectangle {
+            width: 0px;
+            height: 0px;
+            property <bool> bye: root.replace-going;
+            changed bye => { if (self.bye) { replace-frame.leave(); } }
+        }
         x: -root.absolute-position.x;
         y: -root.absolute-position.y;
         width: WindowBox.cover-w(Theme.u(200));
@@ -256,7 +275,7 @@ export component PresetsHeader inherits HorizontalLayout {
                 height: self.preferred-height;
                 dismissable: true;
                 dismissed => { root.replace-answered(false); }
-                left => { root.replace-up = false; replace-popup.close(); }
+                left => { root.replace-going = false; root.replace-up = false; replace-popup.close(); }
                 title: replace-title;
                 subtitle: confirm-text;
                 DialogButtons {

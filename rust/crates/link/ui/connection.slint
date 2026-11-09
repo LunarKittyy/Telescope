@@ -215,7 +215,6 @@ export component ConnectionCard inherits Card {
             add-popup.show();
         } else if (self.add-up) {
             self.add-going = true;
-            add-frame.leave();
         }
     }
 
@@ -225,7 +224,6 @@ export component ConnectionCard inherits Card {
             vcam-popup.show();
         } else if (self.vcam-up) {
             self.vcam-going = true;
-            vcam-frame.leave();
         }
     }
 
@@ -268,15 +266,19 @@ export component ConnectionCard inherits Card {
             tip-detail: @tr("Reconnect over USB now that the phone is plugged in.");
             clicked => { root.switch-usb(); }
         }
-        // How it is connected, as plain dim text: no surface
-        if !update-shown && !switch-usb-shown && using-shown: Text {
-            text: using-text;
-            font-family: Theme.font;
-            font-size: Theme.body;
-            font-weight: Theme.w-value;
-            color: Theme.ink2;
-            vertical-alignment: center;
-            horizontal-stretch: 0;
+        // How it is connected, as plain dim text: no surface, lifted a pixel like every kit text
+        if !update-shown && !switch-usb-shown && using-shown: Rectangle {
+            width: using-label.preferred-width;
+            using-label := Text {
+                y: -1phx;
+                height: parent.height;
+                text: using-text;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                font-weight: Theme.w-value;
+                color: Theme.ink2;
+                vertical-alignment: center;
+            }
         }
     }
     RailRow {
@@ -303,6 +305,13 @@ export component ConnectionCard inherits Card {
     }
 
     add-popup := PopupWindow {
+        // The card asks the dialog to ease out; only something inside the pop-up can tell its frame
+        Rectangle {
+            width: 0px;
+            height: 0px;
+            property <bool> bye: root.add-going;
+            changed bye => { if (self.bye) { add-frame.leave(); } }
+        }
         close-policy: no-auto-close;
         x: -root.absolute-position.x;
         y: -root.absolute-position.y;
@@ -436,6 +445,13 @@ export component ConnectionCard inherits Card {
     }
 
     vcam-popup := PopupWindow {
+        // The card asks the dialog to ease out; only something inside the pop-up can tell its frame
+        Rectangle {
+            width: 0px;
+            height: 0px;
+            property <bool> bye: root.vcam-going;
+            changed bye => { if (self.bye) { vcam-frame.leave(); } }
+        }
         close-policy: no-auto-close;
         x: -root.absolute-position.x;
         y: -root.absolute-position.y;
@@ -526,7 +542,6 @@ export component PhonePicker inherits HorizontalLayout {
             phones-popup.show();
         } else if (self.phones-up) {
             self.phones-going = true;
-            phones-frame.leave();
         }
     }
 
@@ -570,6 +585,13 @@ export component PhonePicker inherits HorizontalLayout {
         }
 
             phones-popup := PopupWindow {
+        // The card asks the dialog to ease out; only something inside the pop-up can tell its frame
+        Rectangle {
+            width: 0px;
+            height: 0px;
+            property <bool> bye: root.phones-going;
+            changed bye => { if (self.bye) { phones-frame.leave(); } }
+        }
             close-policy: no-auto-close;
             x: -phones-anchor.absolute-position.x;
             y: -phones-anchor.absolute-position.y;

@@ -482,6 +482,13 @@ fn lens_panel_load_select_placeholder_and_clear() {
     r.start();
     r.phone_says("pixel", tiles(json!([lens("wide", "Wide", false), lens("tele", "Tele", true)])));
     r.pump();
+    // The row changes with motion, then the control takes it over
+    for _ in 0..4 {
+        // Animations start when the window is next drawn
+        telescope_shell::offscreen::draw(r.w.ui.window(), 1300.0, 900.0, 1.0);
+        telescope_shell::offscreen::skip(std::time::Duration::from_millis(200));
+        r.pump();
+    }
     assert!(found(&r, "Loading lenses...").is_none(), "tiles in its place");
     let tile = |name: &str| ElementHandle::find_by_accessible_label(&r.w.ui, &format!("Lens: {name}")).find(|e| e.accessible_checked().is_some()).unwrap_or_else(|| panic!("no {name} tile"));
     assert_eq!((tile("Wide").accessible_checked(), tile("Tele").accessible_checked()), (Some(false), Some(true)));
@@ -492,6 +499,12 @@ fn lens_panel_load_select_placeholder_and_clear() {
     assert_eq!(card_prop(&r, "current-lens"), slint_interpreter::Value::Number(0.0));
     r.w.stop_all_streams();
     r.pump();
+    for _ in 0..12 {
+        // Animations start when the window is next drawn
+        telescope_shell::offscreen::draw(r.w.ui.window(), 1300.0, 900.0, 1.0);
+        telescope_shell::offscreen::skip(std::time::Duration::from_millis(200));
+        r.pump();
+    }
     assert_eq!(card_prop(&r, "lens-placeholder"), slint_interpreter::Value::String("Start streaming to load lenses".into()), "cleared");
     assert!(ElementHandle::find_by_accessible_label(&r.w.ui, "Wide").next().is_none());
 }

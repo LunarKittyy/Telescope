@@ -416,7 +416,7 @@ impl ChromaKeyPlugin {
         self.picture = if path.is_empty() { None } else { (self.reader)(path).ok().filter(|f| f.width > 0 && f.height > 0) };
         self.thumb = self.picture.as_ref().map(|p| crate::shared::picture_thumb(p, 96));
         self.thumb_sent = false;
-        self.picture_problem = if !path.is_empty() && self.picture.is_none() { tr("Telescope can't open that picture.") } else { String::new() };
+        self.picture_problem = if !path.is_empty() && self.picture.is_none() { tr("Can't open that picture") } else { String::new() };
     }
 
     // ── The stream ────────────────────────────────────────────────────

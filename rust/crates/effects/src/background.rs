@@ -293,7 +293,7 @@ impl BackgroundPlugin {
         self.picture = read.and_then(|f| Rgb::from_frame(&f)).map(Arc::new);
         self.thumb = self.picture.as_ref().map(|p| thumb_of(p, THUMB_COLUMNS));
         self.thumb_sent = false;
-        self.picture_problem = if !path.is_empty() && self.picture.is_none() { tr("Telescope can't open that picture.") } else { String::new() };
+        self.picture_problem = if !path.is_empty() && self.picture.is_none() { tr("Can't open that picture") } else { String::new() };
     }
 }
 

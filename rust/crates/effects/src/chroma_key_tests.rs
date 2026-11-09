@@ -433,7 +433,7 @@ fn a_picture_that_wont_open_or_is_missing_says_so() {
     let mut r = Rig::new(true);
     r.plugin.set_config(&json!({"on": true, "background": "picture", "picture": "/pics/gone.png"})).unwrap();
     r.event(Event::PhonesChanged { count: 1 });
-    assert_eq!(r.shown("picture-problem"), json!("Telescope can't open that picture."));
+    assert_eq!(r.shown("picture-problem"), json!("Can't open that picture"));
     assert_eq!(r.shown("picture-text"), json!("gone.png"));
     r.plugin.set_config(&json!({"on": true, "background": "picture"})).unwrap();
     r.event(Event::PhonesChanged { count: 1 });

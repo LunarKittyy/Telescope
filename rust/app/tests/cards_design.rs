@@ -81,7 +81,6 @@ fn a_card_fades_itself_when_idle_and_has_no_buttons_without_a_surface() {
 fn a_status_is_a_status_not_a_paragraph() {
     // The few places a sentence is the point: a question a dialog asks before it does something, or a licence line
     const SENTENCES: &[(&str, usize)] = &[
-        ("audio/ui/microphone.slint", 3),
         ("link/ui/connection.slint", 4),
         ("effects/ui/composite_editor.slint", 2),
     ];
@@ -97,14 +96,61 @@ fn a_status_is_a_status_not_a_paragraph() {
 }
 
 #[test]
-fn rows_that_come_and_go_unfold_in_the_cards_that_were_swept() {
-    // `if state: Row` pops in: these cards use Unfolding for what their state shows and hides
-    for rel in ["effects/ui/background.slint", "effects/ui/fun_pack.slint", "effects/ui/colour_grading.slint"] {
-        let text = std::fs::read_to_string(crates().join(rel)).unwrap();
-        assert!(text.contains("Unfolding {"), "{rel} unfolds its conditional rows");
+fn rows_that_come_and_go_unfold_in_every_card() {
+    // `if state: Row` pops in. A card's own rows (the first level inside it, four spaces in) come and go through Unfolding, a status that
+    // shuts keeps its last words (StatusUnfold, VisionStatus), and the Settings pages are left out
+    let mut problems = Vec::new();
+    let mut swept = 0;
+    for (rel, text) in cards() {
+        if !rel.contains("/ui/") || rel.contains("composite_editor") || rel.contains("plugin-host") {
+            continue;
+        }
+        if text.contains("export component") && text.contains("inherits Card") {
+            swept += 1;
+        }
         for (n, line) in lines(&text) {
-            let l = line.trim_start();
-            assert!(!(l.starts_with("if ") && (l.contains(": RailSlider") || l.contains(": RailRow"))) || l.contains("vision") || l.contains("status"), "{rel}:{n}: {l} pops in");
+            let Some(rest) = line.strip_prefix("    if ") else { continue };
+            if line.starts_with("     ") {
+                continue;
+            }
+            if ["RailRow", "RailSlider", "SwitchRow", "VisionStatus", "StatusLine", "Button", "Note"].iter().any(|k| rest.contains(&format!(": {k} {{"))) {
+                problems.push(format!("{rel}:{n}: {} pops in: put it in an UnfoldGroup with an Unfolding", line.trim()));
+            }
         }
     }
+    assert!(swept > 15, "found only {swept} cards");
+    report("rows that pop in", problems);
+}
+
+#[test]
+fn sizes_are_tokens_not_pixels() {
+    // Theme.u(n), row, gap, pad, r-ctl, body and the rest. What stays: 0px, a hairline of 1px or half a pixel, the 1px a length is divided or multiplied by to
+    // make a number, the lines of a drawn path (stroke widths, viewboxes), and the preview's own marks, whose window has a Theme of its own
+    const OWN_THEME: &[&str] = &["shell/ui/preview.slint"];
+    let mut problems = Vec::new();
+    for (rel, text) in cards() {
+        if OWN_THEME.contains(&rel.as_str()) || !rel.contains("/ui/") || rel.contains("plugin-host") {
+            continue;
+        }
+        for (n, line) in lines(&text) {
+            if ["stroke-width", "viewbox", "commands"].iter().any(|k| line.contains(k)) {
+                continue;
+            }
+            let bytes = line.as_bytes();
+            for (at, _) in line.match_indices("px") {
+                let start = line[..at].rfind(|c: char| !(c.is_ascii_digit() || c == '.')).map_or(0, |i| i + 1);
+                let number = &line[start..at];
+                if number.is_empty() || start > 0 && (bytes[start - 1].is_ascii_alphabetic() || bytes[start - 1] == b'-' && start > 1 && bytes[start - 2].is_ascii_alphabetic()) {
+                    continue;
+                }
+                let before = line[..start].trim_end();
+                if number == "0" || number == "1" || number == "0.5" || ["1000", "10000", "100000"].contains(&number) || (before.ends_with('/') || before.ends_with('*')) && number == "1" {
+                    continue;
+                }
+                problems.push(format!("{rel}:{n}: {number}px in `{}`", line.trim()));
+                break;
+            }
+        }
+    }
+    report("pixel sizes in cards", problems);
 }

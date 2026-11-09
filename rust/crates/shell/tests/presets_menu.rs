@@ -39,15 +39,12 @@ fn labelled(w: &window::Window, label: &str) -> Vec<ElementHandle> {
     ElementHandle::find_by_accessible_label(&w.ui, label).collect()
 }
 
-/// Where a pop-up's top left is, since its elements report their place inside it: the menu opens 6px under the Presets
-/// button, the Rename and Delete list beside it, level with the row that opened it.
-fn popup_origin(w: &Rc<window::Window>, presets: Option<usize>) -> (f32, f32) {
+/// Where the pop-up's top left is, since its elements report their place inside it: the menu opens 6px under the Presets button, and
+/// the Rename and Delete list is in the same pop-up, beside it.
+fn popup_origin(w: &Rc<window::Window>, _beside: Option<usize>) -> (f32, f32) {
     let button = labelled(w, "Presets").into_iter().next().unwrap();
     let (p, s) = (button.absolute_position(), button.size());
-    match presets {
-        None => (p.x, p.y + s.height + 6.0),
-        Some(n) => (p.x + 190.0, p.y + s.height + 6.0 + 4.0 + 26.0 * n as f32 + if n > 0 { 9.0 } else { 0.0 } + 26.0),
-    }
+    (p.x, p.y + s.height + 6.0)
 }
 
 /// Clicks the nth element with this label at its centre, like a mouse would; origin is where its pop-up starts.
@@ -65,6 +62,9 @@ fn open_menu(w: &Rc<window::Window>) {
 
 fn menu_row(w: &Rc<window::Window>, label: &str) {
     press_in(w, label, 0, popup_origin(w, None));
+    // The menu eases out after a pick, and a prompt eases in
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(400));
+    w.process();
 }
 
 #[test]
@@ -89,6 +89,9 @@ fn the_menu_loads_renames_and_deletes_a_preset_by_clicking() {
     menu_row(&w, "Save current as…");
     assert!(!labelled(&w, "Save preset").is_empty(), "Save opens its prompt");
     press_in(&w, "Save", 0, (0.0, 0.0));
+    // The prompt eases out before its pop-up goes
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(400));
+    w.process();
     assert!(labelled(&w, "Save preset").is_empty(), "the prompt closes");
     *level.lock().unwrap() = 9;
 
@@ -97,23 +100,54 @@ fn the_menu_loads_renames_and_deletes_a_preset_by_clicking() {
     menu_row(&w, "Preset 1");
     assert_eq!(*level.lock().unwrap(), 3, "clicking the preset loads it");
 
+    // A picture of the menu and of its Rename list, when asked for (CARD_SHOTS=dir)
+    if let Ok(dir) = std::env::var("CARD_SHOTS") {
+        let shot = |name: &str| {
+            telescope_shell::offscreen::skip(std::time::Duration::from_millis(400));
+            w.process();
+            let pic = telescope_shell::offscreen::draw(w.ui.window(), 1300.0, 900.0, 2.0).expect("a picture");
+            let (cw, ch) = (pic.width as usize / 2 - 100, 560usize);
+            let mut rgba = Vec::new();
+            for y in 0..ch {
+                rgba.extend_from_slice(&pic.rgba[(y * pic.width as usize) * 4..(y * pic.width as usize + cw) * 4]);
+            }
+            telescope_shell::offscreen::Picture { width: cw as u32, height: ch as u32, rgba }.save_png(&std::path::Path::new(&dir).join(name)).unwrap();
+        };
+        open_menu(&w);
+        shot("presets-menu.png");
+        press_in(&w, "Rename", 0, popup_origin(&w, None));
+        shot("presets-menu-rename.png");
+        click_at(&w, 900.0, 700.0);
+        telescope_shell::offscreen::skip(std::time::Duration::from_millis(400));
+        w.process();
+    }
+
     // Rename opens its prompt, and typing a name and confirming renames the preset
     open_menu(&w);
-    menu_row(&w, "Rename");
-    press_in(&w, "Preset 1", 1, popup_origin(&w, Some(1)));
+    press_in(&w, "Rename", 0, popup_origin(&w, None));
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(400));
+    w.process();
+    press_in(&w, "Preset 1", 1, popup_origin(&w, None));
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(400));
+    w.process();
     assert!(!labelled(&w, "Rename preset").is_empty(), "Rename opens its prompt");
     for c in "Desk".chars() {
         w.ui.window().dispatch_event(WindowEvent::KeyPressed { text: c.to_string().into() });
         w.ui.window().dispatch_event(WindowEvent::KeyReleased { text: c.to_string().into() });
     }
     press_in(&w, "Rename", 0, (0.0, 0.0));
+    // The prompt eases out before its pop-up goes
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(400));
+    w.process();
     assert!(labelled(&w, "Rename preset").is_empty(), "the prompt closes");
     open_menu(&w);
     assert!(!labelled(&w, "Desk").is_empty() && labelled(&w, "Preset 1").is_empty(), "the preset has its new name");
 
     // Delete removes it
     menu_row(&w, "Delete");
-    press_in(&w, "Desk", 1, popup_origin(&w, Some(1)));
+    press_in(&w, "Desk", 1, popup_origin(&w, None));
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(400));
+    w.process();
     open_menu(&w);
     assert!(labelled(&w, "Desk").is_empty(), "the preset is gone");
 }

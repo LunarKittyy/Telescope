@@ -130,7 +130,7 @@ fn file_widget(dir: &Path, name: &str, file: &str, component: &str, props: &str,
 fn grading_header_shots() {
     let Some(dir) = out() else { return };
     let card = card_of(&mut ColourGradingPlugin::new(), "look");
-    let on = json!({"active": true, "on": true, "page": 0});
+    let on = json!({"active": true, "on": true, "page": 0, "auto-ready": true});
     shoot(&dir, "grading-header", &card, 406.0, &[on.clone()], &nothing);
     shoot(&dir, "grading-header-narrow", &card, 387.0, &[on.clone()], &nothing);
     shoot(&dir, "grading-header-icon-only", &card, 336.0, &[on.clone()], &nothing);
@@ -175,7 +175,7 @@ fn background_shots() {
     shoot(&dir, "background-blur", &card, 406.0, &[base.clone(), json!({"mode": 1})], &nothing);
     shoot(&dir, "background-picture-empty", &card, 406.0, &[base.clone(), json!({"mode": 2, "picture-text": ""})], &nothing);
     shoot(&dir, "background-picture-set", &card, 406.0, &[base.clone(), json!({"mode": 2, "picture-text": "beach.png", "has-picture": true})], &thumb);
-    shoot(&dir, "background-picture-problem", &card, 406.0, &[base, json!({"mode": 2, "picture-text": "gone.png", "picture-problem": "Telescope can't open that picture."})], &nothing);
+    shoot(&dir, "background-picture-problem", &card, 406.0, &[base, json!({"mode": 2, "picture-text": "gone.png", "picture-problem": "Can't open that picture"})], &nothing);
     let chroma = card_of(&mut ChromaKeyPlugin::new(), "look");
     shoot(&dir, "chroma-picture", &chroma, 406.0, &[json!({"active": true, "on": true, "behind": 1, "picture-text": "beach.png", "has-picture": true})], &thumb);
 }
@@ -287,4 +287,186 @@ fn the_microphone_meter_and_gain_slider_share_one_track() {
     let (meter, slider) = (inside(meter), inside(slider));
     assert_eq!(meter[0].0, slider[0].0, "starts: {meter:?} {slider:?}");
     assert!((meter.last().unwrap().1 as i64 - slider.last().unwrap().1 as i64).abs() <= 1, "ends: {meter:?} {slider:?}");
+}
+
+fn lens(id: &str, number: &str, rest: &str, name: &str) -> Json {
+    json!({"id": id, "number": number, "unit": "x", "rest": rest, "name": name})
+}
+
+/// The lens row as the card sets it for `n` lenses.
+fn lens_props(n: usize) -> Json {
+    let all = [lens("ultra", "0.5", "Ultra", "Ultra"), lens("wide", "0.6", "Wide", "Wide"), lens("main", "1", "Main", "Main"), lens("tele", "2", "Zoom", "Zoom"), lens("tele5", "5", "Tele", "Tele")];
+    let lenses: Vec<Json> = all[..n].to_vec();
+    let names: Vec<Json> = lenses.iter().map(|l| l["name"].clone()).collect();
+    json!({"lenses": lenses, "lens-names": names, "lens-columns": n.max(1), "current-lens": if n > 0 { 1 } else { -1 }})
+}
+
+/// Every 16 ms of the lens row changing from `from` lenses to `to`, as film/NAME-NN.png (the top of the card, 2x).
+#[test]
+fn lens_row_film() {
+    let Some(dir) = out() else { return };
+    let film = dir.join("lens-film");
+    std::fs::create_dir_all(&film).unwrap();
+    offscreen::install();
+    let (source, component, base) = card_of(&mut CameraControl::new(), "camera");
+    let def = telescope_shell::compile::compile("card.slint", &source, vec![], &component).expect("the card compiles");
+    let set = |ui: &slint_interpreter::ComponentInstance, props: &Json| {
+        for (key, value) in props.as_object().unwrap() {
+            ui.set_property(key, to_property(ui, key, value)).unwrap_or_else(|e| panic!("{key}: {e:?}"));
+        }
+    };
+    // None is the dim placeholders before the phone has said
+    for (name, from, to) in [("3to2", 3, 2), ("3to5", 3, 5), ("5to2", 5, 2), ("none-to-3", 0, 3), ("none-to-5", 0, 5), ("2to5-midway-back", 2, 5)] {
+        let ui = def.create().unwrap();
+        set(&ui, &base);
+        set(&ui, &json!({"active": true}));
+        set(&ui, &lens_props(from));
+        ui.window().set_size(slint::LogicalSize::new(406.0, 2400.0));
+        ui.show().unwrap();
+        offscreen::pump();
+        let Value::Number(h) = ui.get_property("shot-height").unwrap() else { panic!("height") };
+        let (w, h) = (406.0_f32, (h as f32).ceil() + 24.0);
+        ui.window().set_size(slint::LogicalSize::new(w, h));
+        settle();
+        let shoot_row = |n: usize| {
+            let pic = offscreen::draw(ui.window(), w, h, 2.0).expect("a picture");
+            // The card's header is cut off: the lens row sits under it
+            let (x0, y0, cw, ch) = (0usize, 100usize, pic.width as usize, 130usize);
+            let mut rgba = Vec::with_capacity(cw * ch * 4);
+            for y in y0..y0 + ch {
+                rgba.extend_from_slice(&pic.rgba[(y * pic.width as usize + x0) * 4..(y * pic.width as usize + x0 + cw) * 4]);
+            }
+            offscreen::Picture { width: cw as u32, height: ch as u32, rgba }.save_png(&film.join(format!("{name}-{n:02}.png"))).unwrap();
+        };
+        shoot_row(0);
+        // The clock is held and moved by hand, 16 ms at a time, so every film is the same
+        let _held = offscreen::freeze_clock();
+        // Time the drawing took has passed since the last tick: tick now, so the change starts from this moment
+        offscreen::skip(std::time::Duration::ZERO);
+        set(&ui, &lens_props(to));
+        for n in 1..=24 {
+            offscreen::skip(std::time::Duration::from_millis(16));
+            if name == "2to5-midway-back" && n == 7 {
+                // Changes its mind half way: back to two
+                set(&ui, &lens_props(2));
+            }
+            shoot_row(n);
+        }
+        ui.hide().unwrap();
+    }
+}
+
+/// A card's source from the .slint files its plugin joins (as the plugin does), for a film of it.
+fn card_from_files(files: &[&str], component: &str, group: &str, props: Json) -> Card {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../crates");
+    let source: String = files.iter().map(|f| std::fs::read_to_string(root.join(f)).unwrap()).collect::<Vec<_>>().join("\n");
+    let head = format!("export component {component} inherits");
+    let at = source.find(&head).expect("the card's component");
+    // The interpreter instantiates the last component of a file: a second one after the card (Cinema's settings) is left off
+    let end = source[at + head.len()..].find("\nexport component ").map_or(source.len(), |i| at + head.len() + i);
+    let source = &source[..end];
+    let open = at + source[at..].find('{').unwrap() + 1;
+    let source = format!("{}\n    out property <length> shot-height: root.preferred-height;\n    hue: Theme.plugin-hue(\"{group}\");{}\nexport {{ Theme }}", &source[..open], &source[open..]);
+    (source, component.to_string(), props)
+}
+
+/// Frames of a card going from props `a` to props `b` and back, at 0, 32, 64, 96, 160 and 480 ms, as NAME-open-N.png and NAME-close-N.png
+/// (the whole card, 2x, clock held and moved by hand).
+fn unfold_film(dir: &Path, name: &str, card: &Card, base: Json, a: Json, b: Json) {
+    offscreen::install();
+    let (source, component, props) = card;
+    let def = telescope_shell::compile::compile("card.slint", source, vec![], component).expect("the card compiles");
+    let set = |ui: &slint_interpreter::ComponentInstance, parts: &[&Json]| {
+        for part in parts {
+            for (key, value) in part.as_object().unwrap() {
+                // A property a card doesn't have (`on` on a card with no switch) is left out
+                if let Err(e) = ui.set_property(key, to_property(ui, key, value)) {
+                    assert!(matches!(e, slint_interpreter::SetPropertyError::NoSuchProperty), "{name} {key}: {e:?}");
+                }
+            }
+        }
+    };
+    let width = 406.0_f32;
+    let ui = def.create().unwrap();
+    set(&ui, &[props, &base, &a]);
+    ui.window().set_size(slint::LogicalSize::new(width, 2400.0));
+    ui.show().unwrap();
+    offscreen::pump();
+    let height = |ui: &slint_interpreter::ComponentInstance| match ui.get_property("shot-height") {
+        Ok(Value::Number(h)) => h as f32,
+        other => panic!("{name}: no preferred height: {other:?}"),
+    };
+    // The taller of the two states sets the window, so neither is cut off
+    set(&ui, &[&b]);
+    settle();
+    let tall = height(&ui).max({
+        set(&ui, &[&a]);
+        settle();
+        height(&ui)
+    });
+    let h = tall.ceil() + 24.0;
+    ui.window().set_size(slint::LogicalSize::new(width, h));
+    settle();
+    for (way, from, to) in [("open", &a, &b), ("close", &b, &a)] {
+        set(&ui, &[from]);
+        settle();
+        let _held = offscreen::freeze_clock();
+        offscreen::skip(std::time::Duration::ZERO);
+        let frame = |n: usize| {
+            offscreen::draw(ui.window(), width, h, 2.0).expect("a picture").save_png(&dir.join(format!("{name}-{way}-{n}.png"))).unwrap();
+        };
+        frame(0);
+        set(&ui, &[to]);
+        let mut at = 0;
+        for (n, ms) in [32u64, 64, 96, 160, 480].into_iter().enumerate() {
+            offscreen::skip(std::time::Duration::from_millis(ms - at));
+            at = ms;
+            frame(n + 1);
+        }
+    }
+    ui.hide().unwrap();
+}
+
+#[test]
+fn unfolding_rows_film() {
+    let Some(dir) = out() else { return };
+    let film = dir.join("unfold");
+    std::fs::create_dir_all(&film).unwrap();
+    let on = json!({"active": true, "on": true});
+    let fx = |files: &[&str], c: &str, g: &str| card_from_files(files, c, g, json!({}));
+    let vision: &[&str] = &["effects/ui/parts.slint", "effects/ui/vision_status.slint"];
+    let join = |extra: &str| {
+        let mut v = vision.to_vec();
+        v.push(Box::leak(extra.to_string().into_boxed_str()));
+        v
+    };
+    unfold_film(&film, "chroma-behind", &fx(&["effects/ui/parts.slint", "effects/ui/chroma_key.slint"], "ChromaKeyCard", "look"), on.clone(), json!({"behind": 0}), json!({"behind": 1}));
+    unfold_film(&film, "chroma-status", &fx(&["effects/ui/parts.slint", "effects/ui/chroma_key.slint"], "ChromaKeyCard", "look"), on.clone(), json!({"status": ""}), json!({"status": "Picked from the preview", "status-kind": "status_warn"}));
+    unfold_film(&film, "photos-status", &fx(&["effects/ui/parts.slint", "effects/ui/photos.slint"], "PhotosCard", "camera"), on.clone(), json!({"status": ""}), json!({"status": "Saved to Pictures", "status-kind": "status_ok"}));
+    unfold_film(&film, "photos-exposure", &fx(&["effects/ui/parts.slint", "effects/ui/photos.slint"], "PhotosCard", "camera"), on.clone(), json!({"iso-options": [], "shutter-options": []}), json!({"iso-options": ["100", "200", "400"], "shutter-options": ["1/60", "1/125"]}));
+    unfold_film(&film, "framing-vision", &fx(&join("effects/ui/framing.slint"), "FramingCard", "vision"), on.clone(), json!({"vision-text": ""}), json!({"vision-text": "Needs a download", "vision-download": true}));
+    unfold_film(&film, "face-held", &fx(&join("effects/ui/face_exposure.slint"), "FaceExposureCard", "camera"), on.clone(), json!({"held": false, "vision-text": ""}), json!({"held": true, "held-note": "Manual", "follow-tip": "Go back to following your face.", "vision-text": ""}));
+    unfold_film(&film, "face-vision", &fx(&join("effects/ui/face_exposure.slint"), "FaceExposureCard", "camera"), on.clone(), json!({"held": false, "vision-text": ""}), json!({"vision-text": "Looking for a face", "vision-download": false}));
+    unfold_film(&film, "background-blur", &fx(&join("effects/ui/background.slint"), "BackgroundCard", "look"), on.clone(), json!({"mode": 0}), json!({"mode": 1}));
+    unfold_film(&film, "privacy-vision", &fx(&join("effects/ui/privacy_blur.slint"), "PrivacyBlurCard", "vision"), on.clone(), json!({"vision-text": ""}), json!({"vision-text": "Needs a download", "vision-download": true}));
+    unfold_film(&film, "cinema-level", &fx(&["effects/ui/parts.slint", "effects/ui/cinema.slint"], "CinemaCard", "preview"), json!({"active": true}), json!({"level-note-shown": false}), json!({"level-note-shown": true, "level-note": "This phone has no tilt sensor."}));
+    unfold_film(&film, "notes-status", &fx(&["effects/ui/parts.slint", "effects/ui/notes.slint"], "NotesCard", "on_screen"), on.clone(), json!({"status": ""}), json!({"status": "Sent to the phone", "status-kind": "status_ok"}));
+    unfold_film(&film, "desk-status", &fx(&["effects/ui/parts.slint", "effects/ui/desk.slint"], "DeskCard", "extras"), on.clone(), json!({"status": ""}), json!({"status": "Sheet unclear", "status-kind": "status_warn"}));
+    unfold_film(&film, "qr-status", &fx(&["effects/ui/parts.slint", "effects/ui/qr_reader.slint"], "QrReaderCard", "vision"), on.clone(), json!({"status": "", "copy-shown": false}), json!({"status": "Copied", "copy-shown": true, "copy-text": "Copy again"}));
+    unfold_film(&film, "composite-rows", &fx(&["effects/ui/parts.slint", "effects/ui/composite.slint"], "CompositeCard", "on_screen"), on.clone(), json!({"edit-shown": false, "status": ""}), json!({"edit-shown": true, "status": "Needs two streams"}));
+    let mic = card_from_files(&["audio/ui/microphone.slint"], "MicrophoneCard", "sound", json!({}));
+    unfold_film(&film, "mic-here", &mic, json!({"active": true, "on": true}), json!({"here": false}), json!({"here": true}));
+    unfold_film(&film, "mic-status", &mic, json!({"active": true, "on": true, "here": true}), json!({"status-text": "", "fix-shown": false}), json!({"status-short": "Stopped", "status-text": "The virtual microphone stopped taking audio.", "status-kind": "status_err", "fix-shown": true, "fix-text": "Install VB-Cable"}));
+    let out_card = card_from_files(&["outputs/ui/stream_output.slint"], "StreamOutputCard", "streaming", json!({}));
+    unfold_film(&film, "stream-format", &out_card, json!({"active": true}), json!({"h264": true}), json!({"h264": false}));
+    let browser = card_from_files(&["link/ui/browser_camera.slint"], "BrowserCameraCard", "streaming", json!({"shown": true}));
+    unfold_film(&film, "browser-warning", &browser, json!({}), json!({"mic-text": "", "hint-text": ""}), json!({"mic-text": "No microphone: the browser blocked it", "hint-text": ""}));
+}
+
+#[test]
+fn desk_tile_shots() {
+    let Some(dir) = out() else { return };
+    let card = card_of(&mut telescope_effects::desk::DeskPlugin::new(), "extras");
+    shoot(&dir, "desk", &card, 406.0, &[json!({"active": true, "on": true, "clean-current": 1, "shape-current": 0})], &nothing);
+    shoot(&dir, "desk-shape-a4", &card, 406.0, &[json!({"active": true, "on": true, "clean-current": 2, "shape-current": 2})], &nothing);
 }

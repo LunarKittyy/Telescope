@@ -45,6 +45,8 @@ fn stream_quality_and_bitrate_reset_on_a_double_click() {
         ui.set_property("bitrate-tip", Value::String("All the way right is Dynamic".into())).unwrap();
         ui.window().set_size(slint::LogicalSize::new(460.0, 400.0));
         ui.show().unwrap();
+        // The row for this format unfolds
+        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(400));
         let slider = ElementHandle::find_by_accessible_label(&ui, label).find(|e| e.accessible_value_maximum().is_some()).expect("the slider");
         double_click(ui.window(), &slider);
         if name == "bitrate-moved" {
@@ -101,6 +103,8 @@ impl Drawn {
                 self.ui.set_property(name, to_slint(value, &like)).unwrap();
             }
         }
+        // The row for the format unfolds, the other folds away
+        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(400));
     }
 
     /// What was done on the card reaches the plugin, and the card shows the outcome.
