@@ -212,7 +212,7 @@ export component PreviewCard inherits Rectangle {
         }
         Rectangle {
             background: Theme.card;
-            // One rule: every control is an icon with its word in the tooltip. Actions are plain icon buttons, the ones that stay on are tiles with the outline
+            // Every control is an icon with its word in the tooltip (Smooth is the one that also shows its word). Actions are plain icon buttons, the ones that stay on are tiles with the outline
             HorizontalLayout {
                 padding-left: Theme.pad;
                 padding-right: Theme.pad;
@@ -271,12 +271,12 @@ export component PreviewCard inherits Rectangle {
                     shortcut: "lens_outlines";
                     toggled(on) => { root.lenses-clicked(); }
                 }
+                // The one tile that says its word: people look for it by name, so its label is always shown and never cut
                 ToggleTile {
-                    width: Theme.row;
                     height: Theme.row;
-                    horizontal-stretch: 0;
+                    natural: true;
                     icon: Icons.film;
-                    name: @tr("Smooth");
+                    text: @tr("Smooth");
                     hue: Theme.plugin-hue("preview");
                     checked: smooth-on;
                     enabled: !popout;

@@ -260,10 +260,22 @@ export component ToggleTile inherits Rectangle {
     // Got here by Tab, so it shows the ring; a click gives it the focus without one
     property <bool> keyed;
     property <bool> held: enabled && touch.pressed;
+    // The tile is as wide as its icon and its whole word and never narrower, instead of an equal share of the row (one tile with a label among icon-only ones, where
+    // the label is there to be found). The row it sits in gives way elsewhere, not here.
+    in property <bool> natural;
+    property <length> natural-w: 2 * Theme.u(6) + (icon.width > 0 ? Theme.icon + Theme.u(4) : 0px) + word.preferred-width;
+    word := Text {
+        visible: false;
+        text: root.text;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        font-weight: Theme.w-value;
+        accessible-role: none;
+    }
     height: Theme.tile;
-    horizontal-stretch: 1;
-    min-width: 0px;
-    preferred-width: 0px;
+    horizontal-stretch: natural ? 0 : 1;
+    min-width: natural ? natural-w : 0px;
+    preferred-width: natural ? natural-w : 0px;
     border-radius: Theme.r-ctl;
     // The outline and the muted inside fade in and out together (a multi-select tile has no worm: nothing travels between the tiles)
     fade := Tone { on: shown && enabled; snap: quick; rise: Motion.tile-in; fall: Motion.tile-out; }
