@@ -219,14 +219,6 @@ impl Chase {
         Target::new(a.0 + (b.0 - a.0) * eased, (a.1 + (b.1 - a.1) * eased - bow).clamp(0.0, 1.0), 1.0)
     }
 
-    /// Skips what is left of the hold before the next hop, so a Speed that was just changed shows at once instead of after the wait.
-    pub fn start_move(&mut self) {
-        let into = self.at.rem_euclid(Self::HOLD_S + Self::MOVE_S);
-        if into < Self::HOLD_S {
-            self.at += Self::HOLD_S - into;
-        }
-    }
-
     /// Runs `dt` seconds on at this Speed: you (x, y), the framing, and the two copies of it, each from 0 to 1 across the room.
     pub fn step(&mut self, speed: i64, dt: f64) -> [f64; 8] {
         self.at += dt;
@@ -676,10 +668,7 @@ impl FramingPlugin {
     fn set_speed(&mut self, host: &mut dyn Host, value: i64) {
         if value != self.speed {
             self.speed = value;
-            // The bubble's dots take the new pace now, not after the pause they hold still for
-            if let Some(chase) = self.chasing.as_mut() {
-                chase.start_move();
-            }
+            // The dots' hops keep their own clock whatever the slider does: a new Speed is seen in the next hop, never by skipping the pause
             host.set_ui_props("card", &json!({"speed": value, "speed-text": self.speed_text()}));
             host.schedule_save();
         }
