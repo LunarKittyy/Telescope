@@ -35,7 +35,7 @@ fn shoot_with(dir: &std::path::Path, name: &str, card: &(String, String, Json), 
     let def = telescope_shell::compile::compile("card.slint", source, vec![], component).expect("the card compiles");
     for classic in [false, true] {
         let ui = def.create().unwrap();
-        ui.set_global_property("Theme", "classic", Value::Bool(classic)).unwrap();
+        ui.set_global_property("Theme", "look", Value::Number(f64::from(u8::from(classic)))).unwrap();
         for part in std::iter::once(base).chain(props) {
             for (key, value) in part.as_object().unwrap() {
                 ui.set_property(key, to_property(&ui, key, value)).unwrap_or_else(|e| panic!("{key}: {e:?}"));
@@ -66,7 +66,7 @@ fn shoot_held(dir: &std::path::Path, name: &str, element: &str, nth: usize, card
     let def = telescope_shell::compile::compile("card.slint", source, vec![], component).expect("the card compiles");
     for classic in [false, true] {
         let ui = def.create().unwrap();
-        ui.set_global_property("Theme", "classic", Value::Bool(classic)).unwrap();
+        ui.set_global_property("Theme", "look", Value::Number(f64::from(u8::from(classic)))).unwrap();
         for part in std::iter::once(base).chain(props) {
             for (key, value) in part.as_object().unwrap() {
                 ui.set_property(key, to_property(&ui, key, value)).unwrap_or_else(|e| panic!("{key}: {e:?}"));

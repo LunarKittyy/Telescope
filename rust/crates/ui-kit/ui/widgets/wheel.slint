@@ -139,7 +139,10 @@ export component ColourWheel inherits Rectangle {
         height: 2 * r;
         border-radius: r;
         background: !enabled ? Theme.trough : touch.has-hover || held ? Theme.hover.mix(Theme.sel, t - 0.05) : Theme.raise.mix(Theme.hover, t - 0.05);
-        animate background { duration: Motion.tone-for(held); easing: Motion.tone; }
+        // The outer ring carries the disc's outline where fills can't tell it from the card
+        border-width: t < 0.95 ? 0px : !enabled ? Theme.outline-w : Theme.ctl-outline-w(touch.has-hover, held);
+        border-color: !enabled ? Theme.dis-outline : Theme.ctl-outline(touch.has-hover, held);
+        animate background, border-width, border-color { duration: Motion.tone-for(held); easing: Motion.tone; }
     }
     // The crosshair and the two rings inside, quiet: where the puck is, not a scale to read
     Rectangle { x: cx - radius + Theme.u(2); y: cy - cross / 2; width: 2 * radius - Theme.u(4); height: cross; background: enabled ? Theme.ink.with-alpha(0.16) : Theme.dis.with-alpha(0.3); }

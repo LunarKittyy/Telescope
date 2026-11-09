@@ -169,6 +169,8 @@ export component Card inherits Rectangle {
     out property <string> control-kind: "card";
     background: Theme.card;
     border-radius: Theme.r-card;
+    border-width: Theme.card-outline-w;
+    border-color: Theme.card-outline;
     on-fade := Fade { shown: !root.idle; }
     opacity: Motion.between(0.4, 1, on-fade.value);
     out property <float> presence: on-fade.value;

@@ -1,7 +1,7 @@
 // The window around the cards (app.py _build_header, _build_footer, widgets/banner.py, widgets/tiles.py). The window
 // itself is written by the shell at startup (doc.rs), which places every plugin's card between these.
 
-import { Theme, Icons, Icon, FocusRing, KeyFocus, Button, IconButton, Tip, TipBody, TipUse, ShortcutMenu, Arrival, Motion, Fade, Settle, Unfold, MenuSurface, MenuItem, BarPin, PinReadout, PinChip } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Well, FocusRing, KeyFocus, Button, IconButton, Tip, TipBody, TipUse, ShortcutMenu, Arrival, Motion, Fade, Settle, Unfold, MenuSurface, MenuItem, BarPin, PinReadout, PinChip } from "@ui-kit/ui-kit.slint";
 
 export struct BannerData {
     key: string,
@@ -285,9 +285,8 @@ component BannerBody inherits HorizontalLayout {
         alignment: start;
         Text { text: data.title; accessible-label: root.live ? self.text : ""; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.ink; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); }
         if data.text != "": Text { text: data.text; accessible-label: root.live ? self.text : ""; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); }
-        if data.details != "": Rectangle {
-            background: #00000040;
-            border-radius: Theme.r-ctl;
+        if data.details != "": Well {
+            background: Theme.well;
             HorizontalLayout {
                 padding-left: Theme.u(4);
                 padding-right: Theme.u(4);
@@ -355,13 +354,15 @@ export component Banner inherits Rectangle {
     visible: unfold.value > 0;
     accessible-role: groupbox;
     accessible-label: root.open ? data.title : "";
-    card := Rectangle {
+    card := Well {
         x: 0px;
         y: unfold.value * gap.value * 1px;
         width: parent.width;
         height: unfold.value * root.words-h;
         border-radius: Theme.r-card;
         background: (data.kind == "warn" ? Theme.warn : Theme.err).mix(Theme.card, 0.14);
+        rim-w: Theme.card-outline-w;
+        rim: (data.kind == "warn" ? Theme.warn : Theme.err).mix(Theme.card, 0.6);
         animate background { duration: Motion.tone-for(false); easing: Motion.tone; }
         clip: true;
         words := Rectangle {
@@ -437,9 +438,9 @@ component StreamTile inherits Rectangle {
     callback stop-requested;
     width: lay.preferred-width;
     border-radius: Theme.r-card;
-    border-width: data.focused ? Theme.stroke : 0px;
+    border-width: data.focused ? Theme.stroke : touch.has-hover ? Theme.outline-w-over : Theme.card-outline-w;
     background: touch.has-hover ? Theme.hover : Theme.card;
-    border-color: Theme.accent;
+    border-color: data.focused ? Theme.accent : touch.has-hover ? Theme.outline-hover : Theme.card-outline;
     accessible-role: button;
     accessible-label: data.name;
     accessible-description: data.state;
@@ -461,11 +462,11 @@ component StreamTile inherits Rectangle {
         padding-top: Theme.u(4);
         padding-bottom: Theme.u(4);
         spacing: Theme.u(5);
-        Rectangle {
+        Well {
             width: Theme.u(64);
             height: Theme.u(36);
-            border-radius: Theme.r-ctl;
             background: Theme.stage;
+            rim: Theme.dis-outline;
             clip: true;
             if data.has-thumb: Image { source: data.thumb; width: parent.width; height: parent.height; image-fit: contain; }
             if !data.has-thumb: Text { text: "…"; color: Theme.faint; font-family: Theme.font; }

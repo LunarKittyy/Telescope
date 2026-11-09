@@ -4,7 +4,7 @@
 
 use slint_interpreter::ComponentInstance;
 
-/// Dresses the frame of a window that was just shown, once the system has made it, and again when the look changes (Classic on or off).
+/// Dresses the frame of a window that was just shown, once the system has made it, and again when the look changes (the look changes).
 pub(crate) fn dress(ui: &ComponentInstance) {
     #[cfg(windows)]
     {
@@ -54,9 +54,10 @@ fn windows_frame(hwnd: isize, (caption, text): (Option<u32>, Option<u32>)) {
         // SAFETY: hwnd is this process's window and value outlives the call at the size passed; Windows 10 refuses the colours, which is fine
         let _ = unsafe { DwmSetWindowAttribute(hwnd, attribute, &value as *const u32 as *const c_void, 4) };
     };
-    // The app is dark, so the title bar is too (it darkens the buttons as well); the caption takes the top bar's colour and the text the
-    // bar's ink, both Windows 11 only
-    set(DWMWA_USE_IMMERSIVE_DARK_MODE, 1);
+    // A dark look gets a dark title bar (it darkens the buttons as well), Light a light one; the caption takes the top bar's colour and the
+    // text the bar's ink, both Windows 11 only
+    let dark = caption.is_none_or(|c| (c & 0xff) + (c >> 8 & 0xff) + (c >> 16 & 0xff) < 3 * 128);
+    set(DWMWA_USE_IMMERSIVE_DARK_MODE, u32::from(dark));
     if let Some(c) = caption {
         set(DWMWA_CAPTION_COLOR, c);
     }

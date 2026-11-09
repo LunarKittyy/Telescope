@@ -163,10 +163,11 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
     }, setup.services, None);
     EVERY_OPTIONAL.with(|e| e.set(false));
     let w = w?;
-    // SCENES_CLASSIC=1 draws every scene in the Classic theme
-    if std::env::var_os("SCENES_CLASSIC").is_some() {
-        let _ = w.ui.set_global_property("Theme", "classic", slint_interpreter::Value::Bool(true));
-        crate::settings::set_classic(true);
+    // SCENES_LOOK=classic (or oled, or light) draws every scene in that look; SCENES_CLASSIC=1 is the old way to say classic
+    let named = std::env::var("SCENES_LOOK").ok().and_then(|n| telescope_core::host::Look::from_name(&n));
+    if let Some(look) = named.or_else(|| std::env::var_os("SCENES_CLASSIC").map(|_| telescope_core::host::Look::Classic)) {
+        let _ = w.ui.set_global_property("Theme", "look", slint_interpreter::Value::Number(look.index() as f64));
+        crate::settings::set_look(look);
     }
     settle(&w);
     if let Some(then) = setup.then {

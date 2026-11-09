@@ -50,9 +50,9 @@ export component TextField inherits Rectangle {
     out property <string> control-kind: "field";
     height: Theme.row;
     border-radius: Theme.r-ctl;
-    border-width: input.has-focus && enabled ? Theme.stroke : 0px;
+    border-width: !enabled ? Theme.outline-w : input.has-focus ? Theme.stroke : Theme.ctl-outline-w(touch.has-hover, false);
     background: !enabled ? Theme.raise.mix(Theme.card, 0.4) : touch.has-hover && !input.has-focus ? Theme.hover : Theme.raise;
-    border-color: Theme.accent;
+    border-color: !enabled ? Theme.dis-outline : input.has-focus ? Theme.accent : Theme.ctl-outline(touch.has-hover, false);
     forward-focus: input;
     accessible-role: text-input;
     accessible-label: label;
@@ -99,9 +99,9 @@ export component TextField inherits Rectangle {
             enabled: root.enabled;
             font-family: Theme.font;
             font-size: Theme.body;
-            color: self.has-focus ? white : transparent;
+            color: self.has-focus ? Theme.ink : transparent;
             selection-background-color: Theme.fill;
-            selection-foreground-color: white;
+            selection-foreground-color: Theme.on-fill;
             vertical-alignment: center;
             single-line: true;
             horizontal-alignment: root.align-right ? right : left;
@@ -227,7 +227,9 @@ export component PictureField inherits Rectangle {
     min-width: Theme.u(40);
     border-radius: Theme.r-ctl;
     background: !enabled ? Theme.trough : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : Theme.raise;
-    animate background { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
+    border-width: !enabled ? Theme.outline-w : Theme.ctl-outline-w(touch.has-hover, touch.pressed);
+    border-color: !enabled ? Theme.dis-outline : Theme.ctl-outline(touch.has-hover, touch.pressed);
+    animate background, border-width, border-color { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
     accessible-role: button;
     accessible-label: name;
     accessible-description: problem != "" ? problem : tip;
@@ -257,6 +259,8 @@ export component PictureField inherits Rectangle {
             width: Theme.u(20);
             border-radius: Theme.r-handle;
             background: Theme.trough;
+            border-width: Theme.outline-w;
+            border-color: Theme.dis-outline;
             clip: true;
             // The picture takes the empty slot's place in one frame and comes up to full
             if has-picture: Rectangle {

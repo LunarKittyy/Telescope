@@ -699,12 +699,12 @@ fn setup_plugin_canvas_config() {
 fn setup_plugin_config_round_trip() {
     let mut r = Rig::linux();
     let cfg = json!({"canvas_preset": "Custom...", "custom_canvas_w": 2048, "custom_canvas_h": 1536, "max_zoom": 15, "max_gain": 36,
-                     "limiter": false, "hw_decode": true, "power_saving": true, "plugin_hues": false, "classic_theme": true, "language": "sv"});
+                     "limiter": false, "hw_decode": true, "power_saving": true, "plugin_hues": false, "look": "classic", "language": "sv"});
     r.plugin.set_config(&cfg).unwrap();
     assert_eq!(r.plugin.get_config(), cfg);
     r.plugin.on_plugins_ready(&mut r.host);
     assert_eq!(r.host.plugin_hues, Some(false));
-    assert_eq!(r.host.classic_theme, Some(true));
+    assert_eq!(r.host.look, Some(Look::Classic));
 }
 
 #[test]
@@ -834,12 +834,27 @@ fn setup_dialog_canvas_dimension_selection_and_result_messages() {
 fn the_theme_applies_and_saves() {
     let mut r = Rig::linux();
     assert_eq!(r.plugin.look_props()["theme-current"], json!(0));
-    r.ui("look", "theme-picked", vec![json!(1)]);
-    assert_eq!(r.host.classic_theme, Some(true));
-    assert_eq!(r.plugin.get_config()["classic_theme"], json!(true));
-    assert_eq!(r.plugin.look_props()["theme-current"], json!(1));
+    for (index, look) in [(1, Look::Classic), (2, Look::Oled), (3, Look::Light)] {
+        r.ui("look", "theme-picked", vec![json!(index)]);
+        assert_eq!(r.host.look, Some(look));
+        assert_eq!(r.plugin.get_config()["look"], json!(look.name()));
+        assert_eq!(r.plugin.look_props()["theme-current"], json!(index));
+    }
     r.ui("look", "theme-picked", vec![json!(0)]);
-    assert_eq!(r.host.classic_theme, Some(false));
+    assert_eq!(r.host.look, Some(Look::Dark));
+    assert!(r.plugin.get_config().get("look").is_none(), "the default look leaves the config as an older Telescope wrote it");
+}
+
+#[test]
+fn a_config_from_before_the_looks_loads_classic_as_classic() {
+    let mut r = Rig::linux();
+    r.plugin.set_config(&json!({"classic_theme": true})).unwrap();
+    r.plugin.on_plugins_ready(&mut r.host);
+    assert_eq!(r.host.look, Some(Look::Classic));
+    r.plugin.set_config(&json!({"classic_theme": false})).unwrap();
+    assert_eq!(r.plugin.look_props()["theme-current"], json!(0));
+    r.plugin.set_config(&json!({"look": "oled", "classic_theme": true})).unwrap();
+    assert_eq!(r.plugin.look_props()["theme-current"], json!(2));
 }
 
 #[test]

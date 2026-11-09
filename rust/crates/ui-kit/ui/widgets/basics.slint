@@ -135,8 +135,10 @@ export component Button inherits Rectangle {
     // The card's colour, for a primary button inside a card (the new look fills it with this; Classic stays violet)
     in property <color> hue: Theme.fill;
     property <bool> wears-hue: role == "primary" && !Theme.classic && hue != Theme.fill;
+    // The raised square (not a filled button): in OLED it is told from the card by its outline
+    property <bool> plain: !filled && !wears-hue;
     // The text, and the glyph, of a button with a fill of its own
-    property <color> ink-on-fill: role == "go" ? Theme.go-ink : role == "stop" ? Theme.stop-ink : wears-hue ? Theme.on-hue : white;
+    property <color> ink-on-fill: role == "go" ? Theme.go-ink : role == "stop" ? Theme.stop-ink : wears-hue ? Theme.on-hue : Theme.on-fill;
     property <bool> filled: role == "primary" || role == "danger" || role == "go" || role == "stop";
     in property <length> icon-size: Theme.icon-small;
     // A square of colour before the text, as a QPushButton draws a swatch icon
@@ -176,17 +178,17 @@ export component Button inherits Rectangle {
     preferred-width: max(lay.preferred-width, reserved-w, dialog ? Theme.u(40) : 0px);
     border-radius: Theme.r-ctl;
     // Stop streaming's thick outline sits inside the button, so the button keeps its size in both states
-    border-width: enabled && role == "stop" ? Theme.stop-edge-w : 0px;
-    border-color: Theme.stop-edge;
+    border-width: !enabled ? Theme.outline-w : role == "stop" ? Theme.stop-edge-w : plain ? Theme.ctl-outline-w(touch.has-hover, touch.pressed) : role == "danger" ? Theme.outline-w : 0px;
+    border-color: !enabled ? Theme.dis-outline : role == "stop" ? Theme.stop-edge : plain ? Theme.ctl-outline(touch.has-hover, touch.pressed) : role == "danger" ? Theme.danger-outline : transparent;
     background: !enabled ? Theme.trough
         : role == "go" ? (touch.pressed ? Theme.go-press : touch.has-hover ? Theme.go-hover : Theme.go-fill)
         : role == "stop" ? (touch.pressed ? Theme.stop-press : touch.has-hover ? Theme.stop-hover : Theme.stop-fill)
-        : wears-hue ? (touch.pressed ? hue.mix(black, 0.15) : touch.has-hover ? hue.mix(white, 0.15) : hue)
-        : role == "danger" ? Theme.err.mix(Theme.card, touch.pressed ? 0.35 : touch.has-hover ? 0.5 : 0.42)
+        : wears-hue ? (touch.pressed ? hue.mix(Theme.shade, 0.85) : touch.has-hover ? hue.mix(Theme.hue-hover-to, 0.85) : hue)
+        : role == "danger" ? (touch.pressed ? Theme.danger-press : touch.has-hover ? Theme.danger-hover : Theme.danger)
         : role == "primary" ? (touch.pressed ? Theme.fill-press : touch.has-hover ? Theme.fill-hover : Theme.fill)
         : (touch.pressed ? Theme.sel : touch.has-hover ? Theme.hover : Theme.raise);
     // A press comes in at once and a hover, a release or Start becoming Stop eases
-    animate background, border-width { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
+    animate background, border-width, border-color { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
     accessible-role: button;
     accessible-label: text;
     accessible-description: tip == text ? "" : tip-detail == "" ? tip : tip + ". " + tip-detail;
@@ -221,7 +223,7 @@ export component Button inherits Rectangle {
         width: parent.width;
         height: parent.height;
         border-radius: root.border-radius;
-        background: filled || wears-hue ? #000000 : Theme.ink;
+        background: filled || wears-hue ? Theme.shade : Theme.ink;
         opacity: (filled || wears-hue ? 0.2 : 0.1) * press-t.value;
     }
     // Measures the widest text the label can be, out of the way
@@ -304,7 +306,9 @@ export component IconButton inherits Rectangle {
     height: Theme.row;
     border-radius: Theme.r-ctl;
     background: !enabled ? Theme.trough : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : bare ? transparent : Theme.raise;
-    animate background { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
+    border-width: !enabled ? Theme.outline-w : bare && !touch.has-hover && !touch.pressed ? 0px : Theme.ctl-outline-w(touch.has-hover, touch.pressed);
+    border-color: !enabled ? Theme.dis-outline : Theme.ctl-outline(touch.has-hover, touch.pressed);
+    animate background, border-width, border-color { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
     accessible-role: button;
     accessible-label: label;
     accessible-enabled: enabled;

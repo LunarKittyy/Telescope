@@ -172,12 +172,12 @@ export component Dial inherits Rectangle {
     horizontal-stretch: 1;
     min-width: Theme.u(40);
     border-radius: Theme.r-ctl;
-    border-width: held ? Theme.stroke : 0px;
-    border-color: hue;
+    border-width: !enabled ? Theme.outline-w : held ? Theme.stroke : Theme.ctl-outline-w(touch.has-hover, false);
+    border-color: !enabled ? Theme.dis-outline : held ? hue : Theme.ctl-outline(touch.has-hover, false);
     background: !enabled ? Theme.raise.mix(Theme.card, 0.4)
         : held ? Theme.tint(hue)
         : touch.has-hover ? Theme.hover : Theme.raise;
-    animate background, border-width { duration: Motion.tone-for(held); easing: Motion.tone; }
+    animate background, border-width, border-color { duration: Motion.tone-for(held); easing: Motion.tone; }
     accessible-role: slider;
     accessible-label: label;
     accessible-value: read;
@@ -297,7 +297,7 @@ export component Dial inherits Rectangle {
         font-weight: Theme.w-value;
         color: Theme.ink;
         selection-background-color: Theme.fill;
-        selection-foreground-color: white;
+        selection-foreground-color: Theme.on-fill;
         horizontal-alignment: center;
         vertical-alignment: center;
         single-line: true;

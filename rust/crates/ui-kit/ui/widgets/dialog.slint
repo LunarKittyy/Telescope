@@ -61,10 +61,12 @@ export component DialogFrame inherits Rectangle {
     transform-scale: pop.scale;
     background: Theme.card;
     border-radius: Theme.r-card;
+    border-width: Theme.pop-outline-w;
+    border-color: Theme.pop-outline;
     out property <string> control-kind: "dialog";
     drop-shadow-blur: 28px;
     drop-shadow-offset-y: 6px;
-    drop-shadow-color: #000000a0;
+    drop-shadow-color: Theme.shadow-strong;
     if dismissable: TouchArea {
         x: -5000px;
         y: -5000px;

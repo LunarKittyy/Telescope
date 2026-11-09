@@ -16,7 +16,7 @@ A setting for roundness, text size or density would only change one of these thr
 
 ## Colour tokens
 
-Two looks share the same tokens: the new one and Classic (the deep blue of 5.0). Each token has one value per look, set by `Theme.classic`. The old names (`bg`, `surface`, `border`, `text-dim` and so on) are aliases for cards not yet moved over.
+Four looks share the same tokens: Dark (the new one), Classic (the deep blue of 5.0), OLED and Light. Each token has one value per look, written `pick(dark, classic, oled, light)` and chosen by `Theme.look` (0 to 3, set from Appearance in Settings; `Theme.classic`, `oled` and `light` are the same as booleans). Every colour a widget draws is a token: a literal colour in a .slint file is only for what is content (a picture's overlay, a colour a person picked, a gradient that depicts a value) and never for what is UI. The old names (`bg`, `surface`, `border`, `text-dim` and so on) are aliases for cards not yet moved over.
 
 | Token | For |
 |---|---|
@@ -31,6 +31,10 @@ Two looks share the same tokens: the new one and Classic (the deep blue of 5.0).
 | `ink` | Primary text, values |
 | `ink2`, `faint` | Secondary text: nearly white, so hierarchy comes from size and weight |
 | `dis` | Disabled |
+| `outline`, `outline-hover`, `outline-press`, `outline-w`, `outline-w-over` | OLED only (transparent and 0 elsewhere): a control's outline at rest, hovered or open, and held, and its widths (hairline at rest, `stroke` hovered or held). Read them through `Theme.ctl-outline(over, held)` and `ctl-outline-w(over, held)` |
+| `card-outline`, `card-outline-w`, `pop-outline`, `pop-outline-w`, `dis-outline` | OLED only: a card's hairline, a popup's (menu, tip, dialog, dropdown list; a shadow can't lift anything off black), a disabled box's |
+| `shadow`, `shadow-strong`, `scrim`, `scrim-a`, `well`, `shade`, `on-fill` | What a popup casts, the dimming behind a dialog and its strength, a recess's darkening, a pressed face's darkening, and the text on a violet fill |
+| `danger`, `danger-hover`, `danger-press`, `danger-outline` | The red button |
 | `accent`, `accent-soft` | Links and the keyboard focus ring |
 | `fill` | The one filled violet button (Start streaming) |
 | `ok`, `warn`, `err` | Status |
@@ -38,7 +42,14 @@ Two looks share the same tokens: the new one and Classic (the deep blue of 5.0).
 
 Category colours stay: a card's hue goes on its icon and on its controls' active state. `Theme.muted(hue)` is the hue quietened for rest, `Theme.tint(hue)` the muted inside of an active control and `Theme.held(hue)` the same while it is held down.
 
-`tests/colours.rs` measures the category hues in OKLCH, in both looks: each within 0.04 of the middle lightness, chroma under 0.14, at least 3:1 against the card, and at least 30 degrees of hue from `ok`, `warn` and `err` (greys have no hue to compare). A colour that fails is listed in the test's `KNOWN` with why, and the test fails again when a colour changes either way. Add a ninth hue and the test says whether it fits.
+### The four looks
+
+- **Dark** is the redesign: layers told apart by fill, from `stage` up through `card`, `raise`, `hover` and `press`.
+- **Classic** is 5.0's deep blue, kept as it was.
+- **OLED** is true black (`stage`, `chrome`, `ground`, `trough`, `card`, `raise`, `bubble` are all `#000000`), with the card hues of Dark. A fill can't tell layers apart on black, so an outline does: a hairline `card-outline` round a card, a brighter `outline` round every control at rest, and a thick `stroke` in `outline-hover` or `outline-press` when it is hovered, open or held (the fills still step a hair, `#121212` to `#262626`, only as reinforcement). Popups get `pop-outline`; their shadows can't show. Widgets never ask "is this OLED": they draw `border-width: Theme.ctl-outline-w(over, held)` and the looks that layer by fill return 0.
+- **Light** layers by fill the other way up: `card` is white on a `ground` a step darker, and `raise`, `hover`, `press` step darker from the card as Dark's step lighter. Greys are truly neutral (only lightness makes them ours), violet stays the brand colour (a deeper `accent` and `fill`), the card hues are darker variants of Dark's (the same hue angles at OKLCH lightness 0.53, so each clears 5:1 on white), and a hue-filled button takes white text and darkens on hover (`hue-hover-to`).
+
+`tests/colours.rs` measures the category hues in OKLCH, in all four looks: each within 0.04 of the middle lightness, chroma under 0.14, at least 3:1 against the card, and at least 30 degrees of hue from `ok`, `warn` and `err` (greys have no hue to compare). A colour that fails is listed in the test's `KNOWN` with why, and the test fails again when a colour changes either way. Add a ninth hue and the test says whether it fits.
 
 ## Type
 
@@ -106,6 +117,8 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | `strip` | SettingRow | title, controls: a row of a Settings card, on the card itself (no box of its own) |
 | `badge` | Tag, ProblemMark | text, tint, detail (tooltip); the round red "!" and its reason |
 | `status` | Status | one coloured word or short phrase, kind (quiet, ok, warn, err), detail (tooltip) |
+| `well` | Well | what is in it: a recessed box for a command, an empty slot, a meter's track (outlined in OLED) |
+| `ghost` | Ghost | a row on no fill that answers the pointer (a tab, a search result) |
 | `list-row` | ListRow | name, a dim line, icon, the row's buttons: a raised strip in a list (dialogs, devices) |
 | `dialog` | DialogFrame | title |
 | `menu` | MenuSurface, MenuItem | the rows: a context menu, the Presets menu |
@@ -267,7 +280,7 @@ How a control has one:
 - A `Tip` goes in a control (not in a layout) and covers it, so that is what the tooltip points at. It isn't under an `if`: nothing tells a tooltip its control was removed, though the window takes a tooltip down within a second of its control going.
 - Every window has a `TipLayer` as its last child, which draws the tooltip over everything, and the kit's pop-ups (`DialogFrame`, `Bubble`) hold one each since a pop-up covers the window's. Without a layer a tooltip simply doesn't show.
 
-`tests/tooltips.rs` has the timing, the placement and the parts; the specimen's second sheet (`tips-new.png`, `tips-classic.png`) draws a name, a detail, keys, a long detail, a tint and a tooltip flipped above and held in from the edge.
+`tests/tooltips.rs` has the timing, the placement and the parts; the specimen's second sheet (`tips-new.png`, `tips-classic.png`, `tips-oled.png`, `tips-light.png`) draws a name, a detail, keys, a long detail, a tint and a tooltip flipped above and held in from the edge.
 
 ## Colours
 
@@ -275,13 +288,13 @@ How a control has one:
 
 ## Specimen sheet
 
-Every kind in every state, side by side, in the new look and in Classic. Rows are kinds and columns are rest, on, hover, focus, held, disabled, placeholder and a long text (what a German translation gives). A kind with no cell in a column has no such state. Read it as a picture: a kind whose hover or held cell looks like its rest cell is the usual fault, and so is a long text that is cut off or runs out of its row.
+Every kind in every state, side by side, in each of the four looks. Rows are kinds and columns are rest, on, hover, focus, held, disabled, placeholder and a long text (what a German translation gives). A kind with no cell in a column has no such state. Read it as a picture: a kind whose hover or held cell looks like its rest cell is the usual fault, and so is a long text that is cut off or runs out of its row.
 
 ```
 cargo run -p telescope-shell --bin shell-specimen -- OUT
 ```
 
-in `rust/` (with `SLINT_BACKEND=testing`, so nothing opens a window) writes `OUT/new.png` and `OUT/classic.png`. The cells are drawn from `crates/shell/ui/specimen.slint` and the grid is laid out in `crates/shell/src/specimen.rs`: a new kind or a new state is a line in its `KINDS` table and a block in the .slint file. Regenerate it after changing a widget and look at what moved.
+in `rust/` (with `SLINT_BACKEND=testing`, so nothing opens a window) writes `OUT/new.png`, `classic.png`, `oled.png` and `light.png` (and `tips-` ones for the tooltips). The cells are drawn from `crates/shell/ui/specimen.slint` and the grid is laid out in `crates/shell/src/specimen.rs`: a new kind or a new state is a line in its `KINDS` table and a block in the .slint file. Regenerate it after changing a widget and look at what moved.
 
 ## Shot tests
 

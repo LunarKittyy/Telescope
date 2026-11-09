@@ -33,13 +33,13 @@ export component UpdateButton inherits Rectangle {
         padding-right: 13px;
         spacing: 8px;
         alignment: center;
-        Icon { source: Icons.v-update; tint: white; width: 16px; height: 16px; y: (parent.height - self.height) / 2; accessible-role: none; }
+        Icon { source: Icons.v-update; tint: Theme.on-fill; width: 16px; height: 16px; y: (parent.height - self.height) / 2; accessible-role: none; }
         Text {
             text: @tr("Update");
             font-family: Theme.font;
             font-size: Theme.body;
             font-weight: 600;
-            color: white;
+            color: Theme.on-fill;
             vertical-alignment: center;
         }
     }

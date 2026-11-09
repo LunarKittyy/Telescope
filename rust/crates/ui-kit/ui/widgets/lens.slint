@@ -217,7 +217,9 @@ export component LensRow inherits Rectangle {
         opacity: clamp(w[k] * 1.4 - 0.2, 0, 1);
         // The picked tile's own colour is the worm's, which lies over this
         background: press-i == k && shown != k ? Theme.press : hover-i == k && shown != k ? Theme.hover : Theme.raise;
-        animate background { duration: Motion.tone-for(press-i == k || quick); easing: Motion.tone; }
+        border-width: Theme.ctl-outline-w(hover-i == k && shown != k, press-i == k && shown != k);
+        border-color: Theme.ctl-outline(hover-i == k && shown != k, press-i == k && shown != k);
+        animate background, border-width, border-color { duration: Motion.tone-for(press-i == k || quick); easing: Motion.tone; }
         // Dim until its lens has been drawn in, dim again as it goes
         Rectangle {
             background: Theme.trough;

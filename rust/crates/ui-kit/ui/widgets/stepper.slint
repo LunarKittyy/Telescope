@@ -24,6 +24,8 @@ component StepArrow inherits Rectangle {
     width: Theme.row;
     border-radius: Theme.r-ctl;
     background: !enabled ? transparent : touch.pressed ? Theme.press : touch.has-hover ? Theme.sel : transparent;
+    border-width: enabled && (touch.has-hover || touch.pressed) ? Theme.ctl-outline-w(touch.has-hover, touch.pressed) : 0px;
+    border-color: Theme.ctl-outline(touch.has-hover, touch.pressed);
     accessible-role: button;
     accessible-label: label;
     accessible-description: description;

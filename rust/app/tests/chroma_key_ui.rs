@@ -78,7 +78,7 @@ impl Rig {
         );
         let definition = telescope_shell::compile::compile("wrapper.slint", &doc, vec![("plugin/card.slint".to_string(), source)], "W").unwrap_or_else(|e| panic!("{e}"));
         let w = definition.create().unwrap();
-        w.set_global_property("Theme", "classic", Value::Bool(classic)).unwrap();
+        w.set_global_property("Theme", "look", Value::Number(f64::from(u8::from(classic)))).unwrap();
         let said: Moves = Rc::new(RefCell::new(Vec::new()));
         for name in ["colour-moved", "hex-typed", "channel-typed", "pipette-clicked"] {
             let log = said.clone();

@@ -310,8 +310,8 @@ impl HostShell for Ctx<'_> {
     fn set_plugin_hues(&mut self, on: bool) {
         self.state.effects.push(Effect::PluginHues(on));
     }
-    fn set_classic_theme(&mut self, on: bool) {
-        self.state.effects.push(Effect::ClassicTheme(on));
+    fn set_look(&mut self, look: telescope_core::host::Look) {
+        self.state.effects.push(Effect::Look(look));
     }
     fn set_shortcut_menu(&mut self, bindings: Option<Vec<telescope_core::ui::ShortcutEntry>>) {
         self.state.shortcut_menu = bindings.map(|b| (self.me.clone(), b));

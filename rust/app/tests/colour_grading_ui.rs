@@ -37,8 +37,8 @@ fn window(plugin: &mut ColourGradingPlugin) -> ComponentInstance {
     let doc = format!(
         "import {{ Theme }} from \"@ui-kit/ui-kit.slint\";\nimport {{ {c}, CurvePoint }} from \"plugin/card.slint\";\n\
          export component W inherits Window {{\n    width: {width}px;\n    height: {HEIGHT}px;\n    \
-         in-out property <int> page;\n    in-out property <int> curve;\n    in-out property <int> channel;\n    in-out property <string> curve-line;\n    in-out property <[CurvePoint]> curve-points;\n    in-out property <int> curve-picked;\n    in-out property <color> curve-colour;\n    out property <length> card-h: card.preferred-height;\n    \
-         card := {c} {{ hue: Theme.hue-camera; page: root.page; curve: root.curve; channel: root.channel; curve-line: root.curve-line; curve-points: root.curve-points; curve-picked: root.curve-picked; curve-colour: root.curve-colour; }}\n}}",
+         in-out property <int> page;\n    in-out property <int> curve;\n    in-out property <int> channel;\n    in-out property <string> curve-line;\n    in-out property <[CurvePoint]> curve-points;\n    in-out property <int> curve-picked;\n    out property <length> card-h: card.preferred-height;\n    \
+         card := {c} {{ hue: Theme.hue-camera; page: root.page; curve: root.curve; channel: root.channel; curve-line: root.curve-line; curve-points: root.curve-points; curve-picked: root.curve-picked; }}\n}}",
         c = card.ui.component,
         width = width()
     );
@@ -76,19 +76,12 @@ fn told(host: &FakeHost, key: &str) -> Json {
 
 /// Hands the card what the plugin told it.
 fn feed(w: &ComponentInstance, host: &FakeHost) {
-    for key in ["page", "curve", "channel", "curve-line", "curve-points", "curve-picked", "curve-colour"] {
+    for key in ["page", "curve", "channel", "curve-line", "curve-points", "curve-picked"] {
         let value = told(host, key);
         if value.is_null() {
             continue;
         }
-        let value = match (key, value.as_str()) {
-            ("curve-colour", Some(hex)) => {
-                let n = u32::from_str_radix(hex.trim_start_matches('#'), 16).unwrap();
-                slint_interpreter::Value::Brush(slint::Brush::SolidColor(slint::Color::from_rgb_u8((n >> 16) as u8, (n >> 8) as u8, n as u8)))
-            }
-            _ => from_json(&value),
-        };
-        w.set_property(key, value).unwrap();
+        w.set_property(key, from_json(&value)).unwrap();
     }
 }
 

@@ -1,5 +1,5 @@
-//! shell-specimen OUT: every kit control kind by state, in the new look and in Classic, drawn offscreen as OUT/new.png and
-//! OUT/classic.png, and the tooltip sheet as OUT/tips-new.png and OUT/tips-classic.png (see rust/crates/ui-kit/STYLE.md).
+//! shell-specimen OUT: every kit control kind by state, in each look, drawn offscreen as OUT/new.png, classic.png, oled.png and
+//! light.png, and the tooltip sheet as OUT/tips-new.png, tips-classic.png and so on (see rust/crates/ui-kit/STYLE.md).
 
 fn main() {
     let Some(out) = std::env::args().nth(1) else {

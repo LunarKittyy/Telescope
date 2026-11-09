@@ -35,7 +35,7 @@ fn shoot(dir: &std::path::Path, name: &str, zoom: f64, pan: (f64, f64), lenses: 
     let (source, component, base) = card();
     let def = telescope_shell::compile::compile("card.slint", &source, vec![], &component).expect("the card compiles");
     let ui = def.create().unwrap();
-    ui.set_global_property("Theme", "classic", Value::Bool(false)).unwrap();
+    ui.set_global_property("Theme", "look", Value::Number(0.0)).unwrap();
     let props = json!({"active": true, "zoom": zoom, "pan-x": pan.0, "pan-y": pan.1, "pan-enabled": zoom > 1.0, "zoom-text": format!("{zoom:.1}\u{d7}"), "lens-outlines": outlines(lenses)});
     for part in [&base, &props] {
         for (key, value) in part.as_object().unwrap() {

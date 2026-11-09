@@ -34,9 +34,6 @@ const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("
 
 const LUT_FILES: &str = n_("LUT files (*.cube)");
 const EXPORT_SIZES: [(u32, &str); 2] = [(33, n_("33-point LUT (*.cube)")), (65, n_("65-point LUT (*.cube)"))];
-const CHANNEL_COLOURS: [&str; 4] = ["#e7eaef", "#ef6f6b", "#5fc98c", "#8cc4f2"];
-/// The Look group's hue, which a hue curve is drawn in.
-const LOOK_HUE: &str = "#e6a6e0";
 const WHEEL_NAMES: [&str; 4] = [n_("Lift"), n_("Gamma"), n_("Gain"), n_("Offset")];
 const WHEEL_TIPS: [&str; 4] = [
     n_("Change the colour and level of the shadows without changing white."),
@@ -445,7 +442,6 @@ impl ColourGradingPlugin {
     }
 
     fn curve_props(&self) -> Value {
-        let tone = self.curve == 0;
         let line: String = self.editor.line(200).iter().enumerate()
             .map(|(i, (x, y))| format!("{} {:.1} {:.1}", if i == 0 { "M" } else { "L" }, x * 1000.0, (1.0 - y) * 1000.0)).collect::<Vec<_>>().join(" ");
         json!({
@@ -454,7 +450,6 @@ impl ColourGradingPlugin {
             "curve-line": line,
             "curve-points": self.editor.points.iter().map(|p| json!({"x": p.0, "y": p.1})).collect::<Vec<_>>(),
             "curve-picked": self.editor.picked,
-            "curve-colour": if tone { CHANNEL_COLOURS[self.channel] } else { LOOK_HUE },
             "grade-lit": self.off_default(),
         })
     }

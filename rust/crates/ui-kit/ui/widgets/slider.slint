@@ -256,6 +256,8 @@ export component Slider inherits HorizontalLayout {
             height: in-bar ? parent.height : Theme.track;
             border-radius: in-bar ? Theme.r-ctl : Theme.track / 2;
             background: Theme.raise;
+            border-width: Theme.outline-w;
+            border-color: enabled ? Theme.outline : Theme.dis-outline;
             property <length> live-w: track.width * clamp((level - minimum) / max(0.0001, maximum - minimum), 0, 1);
             property <color> live-colour: !enabled ? Theme.sel : Theme.lit(hue, held-tone.value);
             if has-level && in-bar && live-w > 0px: Rectangle {
@@ -355,7 +357,7 @@ export component Slider inherits HorizontalLayout {
             font-weight: Theme.w-value;
             color: Theme.ink;
             selection-background-color: Theme.fill;
-            selection-foreground-color: white;
+            selection-foreground-color: Theme.on-fill;
             horizontal-alignment: left-side ? right : left;
             vertical-alignment: center;
             single-line: true;
@@ -553,7 +555,7 @@ export component Slider inherits HorizontalLayout {
             font-weight: Theme.w-value;
             color: Theme.ink;
             selection-background-color: Theme.fill;
-            selection-foreground-color: white;
+            selection-foreground-color: Theme.on-fill;
             horizontal-alignment: right;
             vertical-alignment: center;
             single-line: true;

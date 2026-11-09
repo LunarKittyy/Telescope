@@ -52,7 +52,7 @@ fn shoot(dir: &Path, name: &str, card: &Card, width: f32, props: &[Json], then: 
     let def = telescope_shell::compile::compile("card.slint", source, vec![], component).expect("the card compiles");
     for classic in [false, true] {
         let ui = def.create().unwrap();
-        ui.set_global_property("Theme", "classic", Value::Bool(classic)).unwrap();
+        ui.set_global_property("Theme", "look", Value::Number(f64::from(u8::from(classic)))).unwrap();
         for part in std::iter::once(base).chain(props) {
             for (key, value) in part.as_object().unwrap() {
                 ui.set_property(key, to_property(&ui, key, value)).unwrap_or_else(|e| panic!("{key}: {e:?}"));
@@ -114,7 +114,7 @@ fn file_card(dir: &Path, name: &str, file: &str, component: &str, props: &str, s
     let def = result.component("W").unwrap();
     for classic in [false, true] {
         let w = def.create().unwrap();
-        w.set_global_property("Theme", "classic", Value::Bool(classic)).unwrap();
+        w.set_global_property("Theme", "look", Value::Number(f64::from(u8::from(classic)))).unwrap();
         w.show().unwrap();
         offscreen::pump();
         let pic = offscreen::draw(w.window(), size.0, size.1, 2.0).expect("a picture");
@@ -224,7 +224,7 @@ fn preview_beside_a_card_shot() {
     let def = result.component("W").unwrap();
     for classic in [false, true] {
         let w = def.create().unwrap();
-        w.set_global_property("Theme", "classic", Value::Bool(classic)).unwrap();
+        w.set_global_property("Theme", "look", Value::Number(f64::from(u8::from(classic)))).unwrap();
         w.show().unwrap();
         offscreen::pump();
         let pic = offscreen::draw(w.window(), 900.0, 380.0, 2.0).expect("a picture");
@@ -253,7 +253,7 @@ export component W inherits Window {
     let def = telescope_shell::compile::compile("tips.slint", doc, vec![], "W").expect("compiles");
     for classic in [false, true] {
         let ui = def.create().unwrap();
-        ui.set_global_property("Theme", "classic", Value::Bool(classic)).unwrap();
+        ui.set_global_property("Theme", "look", Value::Number(f64::from(u8::from(classic)))).unwrap();
         ui.show().unwrap();
         offscreen::pump();
         let pic = offscreen::draw(ui.window(), 330.0, 250.0, 2.0).expect("a picture");

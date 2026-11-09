@@ -451,12 +451,12 @@ export component LookSettings inherits Card {
         label: @tr("Theme");
         named: true;
         hue: root.hue;
-        keywords: @tr("search" => "theme classic dark blue appearance look old");
+        keywords: @tr("search" => "theme classic dark blue appearance look old oled black light white");
         Segmented {
             width: Theme.control-w;
             hue: root.hue;
             label: @tr("Theme");
-            items: [@tr("Default"), @tr("Classic")];
+            items: [@tr("Dark"), @tr("Classic"), @tr("OLED"), @tr("Light")];
             current <=> root.theme-current;
             picked(i) => { root.theme-current = i; root.theme-picked(i); }
         }

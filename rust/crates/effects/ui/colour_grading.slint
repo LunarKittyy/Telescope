@@ -136,7 +136,6 @@ export component ColourGradingCard inherits Card {
     in property <string> curve-line;
     in property <[CurvePoint]> curve-points: [{ x: 0, y: 0 }];
     in property <int> curve-picked: -1;
-    in property <color> curve-colour: #e7eaef;
     // The LUT page
     in property <string> lut-text: @tr("No LUT loaded");
     in property <string> lut-path;
@@ -372,7 +371,8 @@ export component ColourGradingCard inherits Card {
             line: curve-line;
             points: curve-points;
             picked: curve-picked;
-            colour: curve-colour;
+            // The curve is drawn in the channel it edits (all: the ink), or in the Look group's colour for a hue curve
+            colour: curve != 0 ? Theme.plugin-hue("look") : channel == 0 ? Theme.ink : channel == 1 ? Theme.err : channel == 2 ? Theme.ok : Theme.plugin-hue("streaming");
             label: @tr("Curve");
             pressed(x, y, w, h, right) => { root.curve-pressed(x, y, w, h, right); }
             moved(x, y, w, h) => { root.curve-moved(x, y, w, h); }

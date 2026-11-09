@@ -218,6 +218,8 @@ export component ListRow inherits Rectangle {
     out property <string> control-kind: "list-row";
     height: sub != "" ? Theme.row + Theme.u(8) : Theme.row + Theme.u(4);
     background: enabled ? Theme.raise : Theme.raise.mix(Theme.card, 0.4);
+    border-width: Theme.outline-w;
+    border-color: enabled ? Theme.outline : Theme.dis-outline;
     border-radius: Theme.r-ctl;
     accessible-role: groupbox;
     accessible-label: title;
@@ -264,4 +266,32 @@ export component ListRow inherits Rectangle {
             @children
         }
     }
+}
+
+// Kind "well": a recessed box for something to read (a command to copy, an empty slot, a meter's track): the trough, outlined in OLED where a
+// fill can't show it. `rim` and `rim-w` let a caller that wears another surface (a banner) draw its own edge.
+export component Well inherits Rectangle {
+    out property <string> control-kind: "well";
+    in property <color> rim: Theme.outline;
+    in property <length> rim-w: Theme.outline-w;
+    background: Theme.trough;
+    border-radius: Theme.r-ctl;
+    border-width: rim-w;
+    border-color: rim;
+    @children
+}
+
+// Kind "ghost": a row on no fill at rest that answers the pointer (a tab of the settings column, a search result): a fill while hovered or
+// held, and an outline too in OLED. `plain` keeps it on no fill whatever the pointer does (the picked tab, which has its own outline).
+export component Ghost inherits Rectangle {
+    out property <string> control-kind: "ghost";
+    in property <bool> over;
+    in property <bool> held;
+    in property <bool> plain;
+    border-radius: Theme.r-ctl;
+    background: plain ? transparent : held ? Theme.press : over ? Theme.hover : transparent;
+    border-width: plain || !(over || held) ? 0px : Theme.ctl-outline-w(over, held);
+    border-color: Theme.ctl-outline(over, held);
+    animate background { duration: Motion.tone-for(held); easing: Motion.tone; }
+    @children
 }

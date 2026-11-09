@@ -40,7 +40,7 @@ fn shoot_marked(dir: &std::path::Path, name: &str, card: &(String, String, Json)
     let def = telescope_shell::compile::compile("card.slint", source, vec![], component).expect("the card compiles");
     for classic in [false, true] {
         let ui = def.create().unwrap();
-        ui.set_global_property("Theme", "classic", Value::Bool(classic)).unwrap();
+        ui.set_global_property("Theme", "look", Value::Number(f64::from(u8::from(classic)))).unwrap();
         ui.set_global_property("Theme", "mark-dot", Value::Bool(dot)).unwrap();
         for part in std::iter::once(base).chain(props) {
             for (key, value) in part.as_object().unwrap() {
@@ -279,7 +279,7 @@ export component W inherits Window {
         let mut sizes = Vec::new();
         for streaming in [false, true] {
             let ui = def.create().unwrap();
-            ui.set_global_property("Theme", "classic", Value::Bool(classic)).unwrap();
+            ui.set_global_property("Theme", "look", Value::Number(f64::from(u8::from(classic)))).unwrap();
             ui.set_property("streaming", Value::Bool(streaming)).unwrap();
             ui.set_property("label", Value::String(if streaming { "Stop streaming" } else { "Start streaming" }.into())).unwrap();
             ui.show().unwrap();

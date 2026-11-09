@@ -141,6 +141,8 @@ component KeyCap inherits Rectangle {
     height: Theme.u(8);
     border-radius: Theme.r-handle;
     background: Theme.card;
+    border-width: Theme.outline-w;
+    border-color: Theme.outline;
     preferred-width: max(Theme.u(8), cap.preferred-width + Theme.u(4));
     horizontal-stretch: 0;
     cap := Text {
@@ -175,7 +177,7 @@ export component TipBody inherits Rectangle {
     border-color: Theme.line-hover;
     drop-shadow-blur: Theme.u(6);
     drop-shadow-offset-y: Theme.u(2);
-    drop-shadow-color: #00000080;
+    drop-shadow-color: Theme.shadow;
     preferred-width: lay.preferred-width;
     preferred-height: lay.preferred-height;
     lay := VerticalLayout {

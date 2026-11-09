@@ -59,6 +59,8 @@ export component Jog inherits Rectangle {
     min-width: Theme.u(48);
     border-radius: Theme.r-ctl;
     background: !enabled ? Theme.raise.mix(Theme.card, 0.4) : touch.has-hover || dragging ? Theme.hover : Theme.raise;
+    border-width: !enabled ? Theme.outline-w : Theme.ctl-outline-w(touch.has-hover, dragging);
+    border-color: !enabled ? Theme.dis-outline : Theme.ctl-outline(touch.has-hover, dragging);
     accessible-role: slider;
     accessible-label: label;
     accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
