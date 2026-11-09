@@ -29,6 +29,7 @@ component SubmenuItem inherits Rectangle {
         font-size: Theme.body;
         color: root.enabled ? Theme.ink2 : Theme.dis;
         vertical-alignment: center;
+        accessible-role: none;
     }
 }
 
@@ -116,84 +117,104 @@ export component PresetsHeader inherits HorizontalLayout {
         }
     }
 
+    // How tall each list is on its own: its rows and the padding (the three commands and the divider under the names)
+    property <length> main-content: Theme.u(5) + Theme.u(13) * (names.length + 3) + (names.length > 0 ? Theme.u(4.5) : 0px);
+    property <length> sub-content: Theme.u(5) + Theme.u(13) * names.length;
+    // What the window leaves below the button, once its edge is allowed for (unknown: no limit)
+    property <length> room: WindowBox.height > 0px ? max(Theme.u(40), WindowBox.height - root.absolute-position.y - root.below - Theme.u(4)) : 100000px;
+    property <length> main-h: min(main-content, room);
+    property <length> sub-h: min(sub-content, room);
+    // Level with the row that opened it, moved up as far as it takes to keep the whole list in the room
+    property <length> sub-y: max(0px, min(Theme.u(2.5) + Theme.u(13) * names.length + (names.length > 0 ? Theme.u(4.5) : 0px) + Theme.u(13) * (root.sub == "rename" ? 1 : 2), room - sub-h));
     // One pop-up holds the menu and, beside it, the Rename or Delete list once that is asked for: a second pop-up would take the first one's place
     menu := PopupWindow {
         x: 0;
         y: root.below;
         width: Theme.u(95) * 2 + Theme.u(2);
-        height: Theme.u(200);
+        height: root.sub != "" ? max(root.main-h, root.sub-y + root.sub-h) : root.main-h;
         close-policy: close-on-click-outside;
         MenuSurface {
             x: 0px;
             y: 0px;
             width: Theme.u(95);
-            height: self.preferred-height;
+            height: root.main-h;
             leaving: root.leaving;
-            VerticalLayout {
-                padding: Theme.u(2.5);
-                spacing: 0px;
-                for name[i] in names: MenuItem {
-                    title: name;
-                    current: root.current == i;
-                    hovered => { root.current = i; }
-                    left => { root.current = -1; }
-                    activate => {
-                        // Before closing: the row goes with the menu, and what follows the close doesn't run
-                        root.apply(name);
-                        root.leave();
+            // A list longer than the room scrolls
+            Flickable {
+                viewport-height: root.main-content;
+                interactive: root.main-content > root.main-h;
+                VerticalLayout {
+                    width: parent.width;
+                    padding: Theme.u(2.5);
+                    spacing: 0px;
+                    for name[i] in names: MenuItem {
+                        title: name;
+                        current: root.current == i;
+                        hovered => { root.current = i; }
+                        left => { root.current = -1; }
+                        activate => {
+                            // Before closing: the row goes with the menu, and what follows the close doesn't run
+                            root.apply(name);
+                            root.leave();
+                        }
                     }
-                }
-                if names.length > 0: MenuItem { separator: true; }
-                MenuItem {
-                    title: save-text;
-                    current: root.current == 1000;
-                    hovered => { root.current = 1000; }
-                    left => { root.current = -1; }
-                    activate => {
-                        root.leave();
-                        root.save-clicked();
+                    if names.length > 0: MenuItem { separator: true; }
+                    MenuItem {
+                        title: save-text;
+                        current: root.current == 1000;
+                        hovered => { root.current = 1000; }
+                        left => { root.current = -1; }
+                        activate => {
+                            root.leave();
+                            root.save-clicked();
+                        }
                     }
-                }
-                SubmenuItem {
-                    title: rename-text;
-                    enabled: names.length > 0;
-                    current: root.current == 1001 || root.sub == "rename";
-                    hovered => { root.current = 1001; }
-                    left => { root.current = -1; }
-                    activate => { root.sub = "rename"; root.sub-current = -1; }
-                }
-                SubmenuItem {
-                    title: delete-text;
-                    enabled: names.length > 0;
-                    current: root.current == 1002 || root.sub == "delete";
-                    hovered => { root.current = 1002; }
-                    left => { root.current = -1; }
-                    activate => { root.sub = "delete"; root.sub-current = -1; }
+                    SubmenuItem {
+                        title: rename-text;
+                        enabled: names.length > 0;
+                        current: root.current == 1001 || root.sub == "rename";
+                        hovered => { root.current = 1001; }
+                        left => { root.current = -1; }
+                        activate => { root.sub = "rename"; root.sub-current = -1; }
+                    }
+                    SubmenuItem {
+                        title: delete-text;
+                        enabled: names.length > 0;
+                        current: root.current == 1002 || root.sub == "delete";
+                        hovered => { root.current = 1002; }
+                        left => { root.current = -1; }
+                        activate => { root.sub = "delete"; root.sub-current = -1; }
+                    }
                 }
             }
         }
         // The Rename or Delete list: the names again, level with the row that opened it
         if root.sub != "": MenuSurface {
             x: Theme.u(95) + Theme.u(2);
-            y: Theme.u(2.5) + Theme.u(13) * names.length + (names.length > 0 ? Theme.u(4.5) : 0px) + Theme.u(13) * (root.sub == "rename" ? 1 : 2);
+            y: root.sub-y;
             width: Theme.u(95);
-            height: self.preferred-height;
+            height: root.sub-h;
             leaving: root.leaving;
-            VerticalLayout {
-                padding: Theme.u(2.5);
-                spacing: 0px;
-                for name[i] in names: MenuItem {
-                    title: name;
-                    current: root.sub-current == i;
-                    hovered => { root.sub-current = i; }
-                    left => { root.sub-current = -1; }
-                    activate => {
-                        if (root.sub == "rename") {
-                            root.rename-clicked(name);
-                        } else {
-                            root.delete-clicked(name);
+            Flickable {
+                viewport-height: root.sub-content;
+                interactive: root.sub-content > root.sub-h;
+                VerticalLayout {
+                    width: parent.width;
+                    padding: Theme.u(2.5);
+                    spacing: 0px;
+                    for name[i] in names: MenuItem {
+                        title: name;
+                        current: root.sub-current == i;
+                        hovered => { root.sub-current = i; }
+                        left => { root.sub-current = -1; }
+                        activate => {
+                            if (root.sub == "rename") {
+                                root.rename-clicked(name);
+                            } else {
+                                root.delete-clicked(name);
+                            }
+                            root.leave();
                         }
-                        root.leave();
                     }
                 }
             }
@@ -228,6 +249,7 @@ export component PresetsHeader inherits HorizontalLayout {
                 left => { root.name-going = false; root.name-up = false; name-popup.close(); }
                 title: dialog-title;
                 VerticalLayout {
+                    width: parent.width;
                     spacing: Theme.u(3);
                     Text {
                         text: dialog-label;

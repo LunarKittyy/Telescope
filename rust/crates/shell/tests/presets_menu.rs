@@ -152,3 +152,63 @@ fn the_menu_loads_renames_and_deletes_a_preset_by_clicking() {
     assert!(labelled(&w, "Desk").is_empty(), "the preset is gone");
 }
 
+
+fn many_presets(count: usize) -> (Rc<window::Window>, Arc<Mutex<i64>>) {
+    telescope_shell::offscreen::install();
+    let dir = telescope_core::testing::scratch_dir("presets-menu-many");
+    let level = Arc::new(Mutex::new(3));
+    let plugin_level = level.clone();
+    let w = window::build(
+        ConfigFile::at(dir.join(CONFIG_FILENAME)),
+        move |_| vec![Box::new(telescope_shell::plugins::presets::PresetsPlugin::new()), Box::new(Dial(plugin_level))],
+        None,
+        None,
+    )
+    .unwrap();
+    w.ui.window().set_size(slint::LogicalSize::new(1300.0, 900.0));
+    w.ui.show().unwrap();
+    w.process();
+    for _ in 0..count {
+        open_menu(&w);
+        menu_row(&w, "Save current as…");
+        press_in(&w, "Save", 0, (0.0, 0.0));
+        telescope_shell::offscreen::skip(std::time::Duration::from_millis(400));
+        w.process();
+    }
+    (w, level)
+}
+
+#[test]
+fn the_delete_list_of_many_presets_is_all_inside_the_menu_and_the_last_one_can_be_picked() {
+    let (w, _) = many_presets(8);
+    open_menu(&w);
+    menu_row(&w, "Delete");
+    assert!(!labelled(&w, "Preset 8").is_empty());
+    press_in(&w, "Preset 8", 1, popup_origin(&w, None));
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(400));
+    w.process();
+    open_menu(&w);
+    assert!(labelled(&w, "Preset 8").is_empty(), "the last of eight is gone: the click reached it");
+    assert!(!labelled(&w, "Preset 7").is_empty());
+}
+
+#[test]
+fn the_menu_commands_are_buttons_a_screen_reader_can_activate() {
+    let (w, _) = many_presets(1);
+    open_menu(&w);
+    for label in ["Preset 1", "Save current as…", "Rename", "Delete"] {
+        let row = labelled(&w, label).into_iter().find(|e| e.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::Button)).unwrap_or_else(|| panic!("{label} is no button"));
+        assert_eq!(row.accessible_label().as_deref(), Some(label));
+    }
+    // The default action does what a click does: Rename opens its list, whose rows can be activated the same way
+    let rename = labelled(&w, "Rename").into_iter().find(|e| e.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::Button)).unwrap();
+    rename.invoke_accessible_default_action();
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(100));
+    w.process();
+    let names: Vec<_> = labelled(&w, "Preset 1").into_iter().filter(|e| e.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::Button)).collect();
+    assert_eq!(names.len(), 2, "the list is up beside the menu");
+    names[1].invoke_accessible_default_action();
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(400));
+    w.process();
+    assert!(!labelled(&w, "Rename preset").is_empty(), "activating a name in the Rename list asks for its new name");
+}
