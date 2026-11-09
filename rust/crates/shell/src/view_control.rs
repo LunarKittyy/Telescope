@@ -253,9 +253,9 @@ impl ViewController {
             if self.sent.is_none_or(|s| s.ratio != p.ratio) {
                 self.sent_ratio_at = now;
             }
-            // A new lens animates on the phone, so only a crop on the same lens gets a handover
-            match self.sent.filter(|s| !self.owner.is_empty() && s.ratio == p.ratio) {
-                Some(old) => self.gate.begin(old, p, (with_crop(view, rest(view, &old, desktop)), with_crop(view, desktop)), now),
+            // A lens that switches takes a while on the phone, so its frames are looked for as a crop's are
+            match self.sent.filter(|_| !self.owner.is_empty()) {
+                Some(old) => self.gate.begin(old, p, (with_crop(view, rest(view, &old, desktop)), with_crop(view, desktop)), view, now),
                 None => self.gate.end(),
             }
             out.push(Said::Restep);
@@ -263,7 +263,7 @@ impl ViewController {
             out.push(Said::Zoom(p));
         } else if self.gate.underway() {
             match self.gate.still_for(self.sent, !self.owner.is_empty(), now) {
-                Some(old) => self.gate.retarget((with_crop(view, rest(view, &old, desktop)), with_crop(view, desktop))),
+                Some(old) => self.gate.retarget((with_crop(view, rest(view, &old, desktop)), with_crop(view, desktop)), view),
                 None => self.gate.end(),
             }
             out.push(Said::Restep);
@@ -515,7 +515,7 @@ mod tests {
         assert!(gate.waiting());
         gate.for_frame("p1", &from_phone(&old), 100.1, false);
         assert!(gate.waiting());
-        gate.for_frame("p1", &from_phone(&old), 101.6, false);
+        gate.for_frame("p1", &from_phone(&old), 102.1, false);
         assert!(!gate.waiting());
     }
 
