@@ -3289,7 +3289,7 @@ msgstr "橙色"
 
 #: rust/crates/effects/ui/parts.slint:237
 msgid "red"
-msgstr ""
+msgstr "红色"
 
 #: rust/crates/effects/ui/parts.slint:243
 msgid "neutral"
