@@ -233,12 +233,16 @@ fn a_double_click_on_the_handle_glides_back_to_the_default_over_several_frames()
 }
 
 #[test]
-fn a_held_slider_takes_its_colour_up_at_once_and_lets_it_down_over_a_few_frames() {
+fn a_held_slider_takes_its_colour_up_over_a_few_frames_and_lets_it_down_the_same_way() {
     let _still = offscreen::freeze_clock();
     let ui = make(SLIDER, 340.0, 48.0);
     num(&ui, "lit");
     press(&ui, 100.0, 24.0);
-    assert_eq!(num(&ui, "lit"), 1.0, "full colour as soon as it's held");
+    let up = trace(&ui, "lit", 20);
+    assert!(up[0] < 0.5, "not full colour the moment it's held: {up:?}");
+    assert!(up.windows(2).all(|w| w[1] >= w[0] - 0.0001), "it only goes up: {up:?}");
+    assert!(up.iter().filter(|v| **v > 0.1 && **v < 0.9).count() >= 2, "it takes a few frames on the way: {up:?}");
+    assert!((*up.last().unwrap() - 1.0).abs() < 0.01, "and gets to full colour: {up:?}");
     release(&ui, 100.0, 24.0);
     let t = trace(&ui, "lit", 20);
     assert!(t.windows(2).all(|w| w[1] <= w[0] + 0.0001), "it only goes down: {t:?}");

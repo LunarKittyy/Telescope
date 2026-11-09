@@ -51,11 +51,19 @@ impl Address {
     }
 }
 
+/// Test runs only: a name that scopes `sole_user_of`'s claim, and leaves the Python dev profile out of it.
+pub const CLAIM_SCOPE_ENV: &str = "TELESCOPE_CLAIM_SCOPE";
+
 /// Whether this is the only copy using a name every copy on this kind of profile shares (the virtual mic's source), and if so keeps it that way for as
 /// long as this process runs: profiles each have a lock of their own, while Python's dev profiles all share one, which counts too.
 pub fn sole_user_of(name: &str) -> bool {
-    let shared = telescope_core::config::dev_profile().is_some().then(|| Address::for_profile(true));
-    sole_user_at(&Address::Abstract(format!("telescope-{}-shared-{name}", uid())), shared.as_ref())
+    // A test run sets this to claim in a name of its own, so a dev desktop running on the same machine doesn't count as another user
+    let scope = std::env::var(CLAIM_SCOPE_ENV).ok().filter(|v| !v.is_empty());
+    let Some(scope) = scope else {
+        let shared = telescope_core::config::dev_profile().is_some().then(|| Address::for_profile(true));
+        return sole_user_at(&Address::Abstract(format!("telescope-{}-shared-{name}", uid())), shared.as_ref());
+    };
+    sole_user_at(&Address::Abstract(format!("telescope-{}-shared-{name}-{scope}", uid())), None)
 }
 
 fn sole_user_at(claim: &Address, python: Option<&Address>) -> bool {
