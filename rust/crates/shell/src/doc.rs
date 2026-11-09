@@ -50,7 +50,7 @@ pub struct HeaderPlace {
 pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> String {
     let mut out = String::new();
     out.push_str("import { Theme, Icons, Folds, Reveal, Shortcuts, TextCap, WindowBox, ColumnScrollbar, KeyFocus, Touched, TipLayer, PeekLayer, Motion } from \"@ui-kit/ui-kit.slint\";\n");
-    out.push_str("import { Footer, BannerArea, StreamTiles, HeaderIconButton, StartButton, BannerData, TileData } from \"shell/frame.slint\";\n");
+    out.push_str("import { Footer, BannerArea, StreamTiles, HeaderIconButton, StartButton, BannerData, TileData, BarPin } from \"shell/frame.slint\";\n");
     let mut imported = Vec::new();
     for piece in cards.iter().map(|c| &c.piece).chain(headers.iter().map(|h| &h.piece)) {
         let line = format!("import {{ {} as {}C }} from {};\n", piece.component, piece.id, quote(&piece.file));
@@ -276,13 +276,32 @@ export component TelescopeWindow inherits Window {
     // Set from `status` when it is the streaming sentence: the camera and the size it names
     in property <string> status-camera;
     in property <string> status-size;
+    // What the shown stream reports, which the window turns into the bar's own pins (bar.rs): the frame rate and throughput as text and a tone
     in property <string> fps: "-";
     in property <string> fps-tone;
-    property <color> fps-color: fps-tone == "warn" ? Theme.warn : fps-tone == "err" ? Theme.err : Theme.ink;
     in property <string> fps-tip;
     in property <string> net: "-";
     in property <string> net-tone;
-    property <color> net-color: net-tone == "warn" ? Theme.warn : Theme.ink;
+    // The bottom bar's pins as bar.rs placed them, and what folded
+    in property <[BarPin]> bar-pins;
+    in property <int> bar-left-folded;
+    in property <length> bar-left-chip-x;
+    in property <int> bar-right-folded;
+    in property <length> bar-right-chip-x;
+    in property <length> bar-status-room;
+    in property <bool> bar-status-shown: true;
+    // What bar.rs needs to lay the pins out: the bar's width, the room at its edges and between pins, and the chip's width
+    out property <length> bar-width: root.width;
+    out property <length> bar-pad: Theme.u(8);
+    out property <length> bar-gap: Theme.u(8);
+    out property <length> bar-chip: Theme.u(14);
+    callback bar-resized;
+    changed width => { root.bar-resized(); }
+    callback bar-pin-measured(string, length);
+    callback bar-drag-started(string);
+    callback bar-drag-moved(string, length);
+    callback bar-drag-ended(string);
+    callback bar-unpin(string);
     callback start-clicked;
     callback settings-clicked;
     callback add-picked(string);
@@ -487,13 +506,18 @@ const BODY_BOTTOM: &str = r#"        }
         width: root.width;
         status: root.status;
         status-kind: root.status-kind;
-        camera: root.status-camera;
-        size: root.status-size;
-        fps: root.fps;
-        fps-color: root.fps-color;
-        fps-tip: root.fps-tip;
-        net: root.net;
-        net-color: root.net-color;
+        status-shown: root.bar-status-shown;
+        status-room: root.bar-status-room;
+        pins: root.bar-pins;
+        left-folded: root.bar-left-folded;
+        left-chip-x: root.bar-left-chip-x;
+        right-folded: root.bar-right-folded;
+        right-chip-x: root.bar-right-chip-x;
+        pin-measured(id, w) => { root.bar-pin-measured(id, w); }
+        drag-started(id) => { root.bar-drag-started(id); }
+        drag-moved(id, x) => { root.bar-drag-moved(id, x); }
+        drag-ended(id) => { root.bar-drag-ended(id); }
+        unpin(id) => { root.bar-unpin(id); }
     }
     }
     // Last, so a tooltip draws over everything

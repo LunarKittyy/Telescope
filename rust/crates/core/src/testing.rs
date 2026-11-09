@@ -205,6 +205,11 @@ pub struct FakeHost {
     pub classic_theme: Option<bool>,
     /// What set_power_saving last said (None until it's called).
     pub power_saving: Option<bool>,
+    /// What the plugin last offered the bottom bar (offer_bar_stats), and the ids pinned to it (bar_pins), which pin_to_bar changes.
+    pub bar_offers: Vec<crate::bar::BarStat>,
+    /// What the window itself reads out (the camera, frame rate and throughput), which bar_stat() answers besides the offers.
+    pub bar_own: Vec<crate::bar::BarStat>,
+    pub bar_pinned: Vec<String>,
     /// Runs inside stop_stream, for a test that looks at what the plugin holds at that moment.
     pub on_stop: Option<Box<dyn FnMut() + Send>>,
     next_request: u64,
@@ -505,6 +510,28 @@ impl HostUi for FakeHost {
     }
     fn open_window(&mut self, id: &str, window: &crate::ui::WindowSpec) {
         self.note(format!("open_window {id} {}", window.ui.component));
+    }
+    fn offer_bar_stats(&mut self, stats: &[crate::bar::BarStat]) {
+        self.bar_offers = stats.to_vec();
+    }
+    fn bar_pins(&self) -> Vec<String> {
+        self.bar_pinned.clone()
+    }
+    fn pin_to_bar(&mut self, id: &str, pinned: bool) {
+        self.note(format!("pin_to_bar {id} {pinned}"));
+        let was = self.bar_pinned.iter().any(|p| p == id);
+        if pinned && !was {
+            self.bar_pinned.push(id.to_string());
+        } else if !pinned && was {
+            self.bar_pinned.retain(|p| p != id);
+        } else {
+            return;
+        }
+        let pinned = self.bar_pinned.clone();
+        self.events.push(Event::BarPinsChanged { pinned });
+    }
+    fn bar_stat(&self, id: &str) -> Option<crate::bar::BarStat> {
+        self.bar_own.iter().chain(&self.bar_offers).find(|s| s.id == id).cloned()
     }
     fn close_window(&mut self, id: &str) {
         self.note(format!("close_window {id}"));
