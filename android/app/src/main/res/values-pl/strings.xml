@@ -95,6 +95,7 @@
     <string name="wait_for_computer_hint">Pozwala sparowanemu komputerowi włączyć kamerę przy wyłączonym ekranie.</string>
     <string name="stop_streaming">Zatrzymaj strumieniowanie</string>
     <string name="status_title">Status</string>
+    <string name="more">Więcej</string>
     <string name="status_not_streaming">Nie przesyła</string>
     <string name="status_starting">Uruchamianie…</string>
     <string name="status_streaming">Przesyłanie</string>
@@ -103,6 +104,16 @@
     <string name="status_mic_only">Strumieniowanie mikrofonu, kamera wyłączona</string>
     <string name="status_camera_taken">Inna aplikacja używa kamery. Strumieniowanie zostanie wznowione, gdy kamera będzie wolna.</string>
     <string name="streaming_started_remotely">Strumieniowanie uruchomione z twojego komputera</string>
+    <string name="settings">Ustawienia</string>
+    <string name="back">Wstecz</string>
+    <string name="look_title">Wygląd</string>
+    <string name="theme_label">Motyw</string>
+    <string name="look_dark">Ciemny</string>
+    <string name="look_classic">Klasyczny</string>
+    <string name="look_oled">OLED</string>
+    <string name="look_light">Jasny</string>
+    <string name="diagnostics_section">Diagnostyka</string>
+    <string name="help_section">Potrzebujesz pomocy?</string>
     <string name="about_title">Informacje</string>
     <string name="copy_diagnostics">Skopiuj dane diagnostyczne</string>
     <string name="diagnostics_copied">Dane diagnostyczne skopiowano do schowka</string>
@@ -124,6 +135,7 @@
     <string name="preview_stream_starting">Strumień się uruchamia. Spróbuj ponownie za chwilę.</string>
     <string name="preview_no_cameras">Nie znaleziono kamer.</string>
     <string name="preview_may_stretch">Podgląd może wyglądać na rozciągnięty - nie udało się odczytać informacji o kamerze.</string>
+    <string name="notes_close">Zamknij teleprompter</string>
     <string name="notif_channel_streaming">Przesyłanie</string>
     <string name="notif_channel_streaming_desc">Wyświetlane, gdy kamera strumieniuje obraz do komputera</string>
     <string name="notif_channel_waiting">Oczekiwanie na komputer</string>

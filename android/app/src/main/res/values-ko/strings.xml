@@ -92,6 +92,7 @@
     <string name="wait_for_computer_hint">화면이 꺼져 있어도 페어링된 컴퓨터가 카메라를 시작할 수 있게 해요.</string>
     <string name="stop_streaming">스트리밍 중지</string>
     <string name="status_title">상태</string>
+    <string name="more">더보기</string>
     <string name="status_not_streaming">스트리밍 중 아님</string>
     <string name="status_starting">시작 중…</string>
     <string name="status_streaming">스트리밍 중</string>
@@ -100,6 +101,16 @@
     <string name="status_mic_only">카메라 끔, 마이크 스트리밍 중</string>
     <string name="status_camera_taken">다른 앱에서 카메라를 사용하고 있어요. 카메라를 사용할 수 있게 되면 스트리밍이 계속돼요.</string>
     <string name="streaming_started_remotely">컴퓨터에서 스트리밍을 시작했어요</string>
+    <string name="settings">설정</string>
+    <string name="back">뒤로</string>
+    <string name="look_title">모양</string>
+    <string name="theme_label">테마</string>
+    <string name="look_dark">다크</string>
+    <string name="look_classic">클래식</string>
+    <string name="look_oled">OLED</string>
+    <string name="look_light">라이트</string>
+    <string name="diagnostics_section">진단</string>
+    <string name="help_section">도움이 필요하세요?</string>
     <string name="about_title">정보</string>
     <string name="copy_diagnostics">진단 정보 복사</string>
     <string name="diagnostics_copied">진단 정보를 클립보드에 복사했어요</string>
@@ -121,6 +132,7 @@
     <string name="preview_stream_starting">스트림을 시작하는 중이에요. 잠시 후 다시 시도해 보세요.</string>
     <string name="preview_no_cameras">카메라를 찾을 수 없어요.</string>
     <string name="preview_may_stretch">미리보기가 늘어나 보일 수 있어요 - 카메라 정보를 읽지 못했어요.</string>
+    <string name="notes_close">텔레프롬프터 닫기</string>
     <string name="notif_channel_streaming">스트리밍</string>
     <string name="notif_channel_streaming_desc">카메라가 컴퓨터로 스트리밍 중일 때 표시돼요</string>
     <string name="notif_channel_waiting">컴퓨터 기다리는 중</string>

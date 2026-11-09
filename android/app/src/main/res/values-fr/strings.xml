@@ -93,6 +93,7 @@
     <string name="wait_for_computer_hint">Permet à un ordinateur associé de démarrer la caméra lorsque l\'écran est éteint.</string>
     <string name="stop_streaming">Arrêter la diffusion</string>
     <string name="status_title">État</string>
+    <string name="more">Plus</string>
     <string name="status_not_streaming">Ne diffuse pas</string>
     <string name="status_starting">Démarrage…</string>
     <string name="status_streaming">Diffusion</string>
@@ -101,6 +102,16 @@
     <string name="status_mic_only">Diffusion du micro, caméra désactivée</string>
     <string name="status_camera_taken">Une autre application utilise la caméra. La diffusion reprendra dès qu\'elle sera libérée.</string>
     <string name="streaming_started_remotely">Diffusion démarrée depuis votre ordinateur</string>
+    <string name="settings">Paramètres</string>
+    <string name="back">Retour</string>
+    <string name="look_title">Apparence</string>
+    <string name="theme_label">Thème</string>
+    <string name="look_dark">Sombre</string>
+    <string name="look_classic">Classique</string>
+    <string name="look_oled">OLED</string>
+    <string name="look_light">Clair</string>
+    <string name="diagnostics_section">Diagnostic</string>
+    <string name="help_section">Besoin d\'aide ?</string>
     <string name="about_title">À propos</string>
     <string name="copy_diagnostics">Copier le diagnostic</string>
     <string name="diagnostics_copied">Diagnostic copié dans le presse-papiers</string>
@@ -122,6 +133,7 @@
     <string name="preview_stream_starting">Le flux démarre. Réessayez dans un instant.</string>
     <string name="preview_no_cameras">Aucune caméra trouvée.</string>
     <string name="preview_may_stretch">L\'aperçu peut sembler déformé - impossible de lire les informations de la caméra.</string>
+    <string name="notes_close">Fermer le prompteur</string>
     <string name="notif_channel_streaming">Diffusion</string>
     <string name="notif_channel_streaming_desc">S\'affiche pendant que la caméra diffuse vers votre ordinateur</string>
     <string name="notif_channel_waiting">En attente de l\'ordinateur</string>
