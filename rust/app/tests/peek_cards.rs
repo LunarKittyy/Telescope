@@ -317,13 +317,13 @@ fn scheduled(w: &Wrap, token: &str) -> bool {
 }
 
 #[test]
-fn the_framing_slider_gets_a_picture_bubble_only_while_the_preview_cant_show_the_crop() {
+fn the_framing_slider_gets_a_picture_bubble_while_it_is_held() {
     let mut w = framing(140.0, false);
     let height = w.card_height();
     assert!(!w.up() && !scheduled(&w, "peek"));
     w.hold("Framing");
     assert!(w.up() && w.peek_kind() == "picture");
-    assert!(scheduled(&w, "peek"), "the plugin makes pictures while it is up");
+    assert!(!scheduled(&w, "peek"), "the stand-in picture is made once, nothing runs while it is up");
     assert_eq!(w.peek_picture(), (peek::SCENE_WIDTH as u32, peek::SCENE_HEIGHT as u32), "and the bubble holds one");
     assert_eq!(w.peek_numbers().len(), 4, "with the part of it to show");
     assert_eq!(w.card_height(), height, "the card did not move");
@@ -334,7 +334,7 @@ fn the_framing_slider_gets_a_picture_bubble_only_while_the_preview_cant_show_the
 }
 
 #[test]
-fn with_auto_framing_following_someone_the_preview_shows_it_and_the_slider_has_no_bubble() {
+fn with_auto_framing_following_someone_the_slider_still_gets_its_bubble_with_the_stand_in_scene() {
     let mut w = framing(140.0, false);
     w.plugin.on_ui(&mut w.host, &UiEvent { ui: "card".into(), callback: "switch-toggled-by-hand".into(), args: vec![json!(true)] });
     w.feed();
@@ -345,8 +345,10 @@ fn with_auto_framing_following_someone_the_preview_shows_it_and_the_slider_has_n
     }
     w.draw();
     w.hold("Framing");
-    assert!(!w.up(), "the preview already shows the crop");
+    assert!(w.up() && w.peek_kind() == "picture", "the zoom doesn't follow a drag at once, so the bubble is the feedback");
+    assert_eq!(w.peek_picture(), (peek::SCENE_WIDTH as u32, peek::SCENE_HEIGHT as u32), "always the stand-in scene");
     w.let_go();
+    assert!(!w.up());
     // and the speed slider, which is about time, still has its bubble
     w.hold("Speed");
     assert!(w.up() && w.peek_kind() == "chase");
