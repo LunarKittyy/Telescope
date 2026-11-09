@@ -11,6 +11,7 @@ export component CompositeCard inherits Card {
     in property <string> layout-tip;
     in property <bool> edit-shown;
     in property <string> status;
+    in property <string> status-detail;
     callback switch-toggled-by-hand(bool);
     callback layout-picked(int);
     callback edit-clicked;
@@ -26,46 +27,50 @@ export component CompositeCard inherits Card {
     switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    RailRow {
-        icon: Icons.layout;
-        label: @tr("Layout");
-        hue: root.hue;
-        Rectangle {
-            horizontal-stretch: 1;
-            ChoiceField {
-                width: parent.width;
-                compact: true;
-                caption: @tr("Layout");
-                items: layout-items;
-                current: layout-current;
-                enabled: layout-enabled;
-                tip: @tr("Layout");
-                tip-detail: root.layout-tip;
-                shortcut: "composite.layout";
-                picked(i) => { root.layout-picked(i); }
-            }
-            // The combo box's placeholder while no saved layout is picked
-            if layout-current < 0: Text {
-                x: 11px;
-                width: parent.width - 40px;
-                text: @tr("Not saved");
-                font-family: Theme.font;
-                font-size: Theme.body;
-                color: Theme.text-dim;
-                vertical-alignment: center;
-                overflow: elide;
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.layout;
+            label: @tr("Layout");
+            hue: root.hue;
+            Rectangle {
+                horizontal-stretch: 1;
+                ChoiceField {
+                    width: parent.width;
+                    compact: true;
+                    caption: @tr("Layout");
+                    items: layout-items;
+                    current: layout-current;
+                    enabled: layout-enabled;
+                    tip: @tr("Layout");
+                    tip-detail: root.layout-tip;
+                    shortcut: "composite.layout";
+                    picked(i) => { root.layout-picked(i); }
+                }
+                // The combo box's placeholder while no saved layout is picked
+                if layout-current < 0: Text {
+                    x: Theme.u(5.5);
+                    width: parent.width - Theme.u(20);
+                    text: @tr("Not saved");
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    color: Theme.ink2;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
             }
         }
+        Unfolding {
+            open: edit-shown;
+            Button {
+                text: @tr("Edit picture");
+                tip: @tr("Edit picture");
+                tip-detail: @tr("Open the editor for the layout.");
+                has-icon: true;
+                icon: Icons.pencil;
+                icon-tint: Theme.ink2;
+                clicked => { root.edit-clicked(); }
+            }
+        }
+        StatusUnfold { text: status; detail: status-detail; }
     }
-    if edit-shown: Button {
-        text: @tr("Edit picture");
-        tip: @tr("Edit picture");
-        tip-detail: @tr("Open the editor for the layout.");
-        role: "quiet";
-        has-icon: true;
-        icon: Icons.pencil;
-        icon-tint: Theme.text-dim;
-        clicked => { root.edit-clicked(); }
-    }
-    if status != "": Note { text: status; }
 }

@@ -99,8 +99,9 @@ component WheelCell inherits VerticalLayout {
 }
 
 export component ColourGradingCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     in property <string> reset-hint;
     in property <bool> on: true;
     in property <string> switch-name;
@@ -151,6 +152,8 @@ export component ColourGradingCard inherits Card {
     in property <bool> replace-open;
     // Auto: busy while it looks at the picture
     in property <bool> auto-busy;
+    // A stream is there for Auto to look at
+    in property <bool> auto-ready: true;
     in property <string> auto-label;
     callback switch-toggled-by-hand(bool);
     callback compare-toggled(bool);
@@ -181,8 +184,13 @@ export component ColourGradingCard inherits Card {
     title: @tr("Colour grading");
     tip: @tr("Change the colours of the picture with colour wheels, curves and LUT files.");
     icon: Icons.colour;
-    opacity: active ? 1 : 0.4;
     enabled: active;
+    // Anything the grade has set off default, which lights the card's Reset
+    in property <bool> grade-lit;
+    has-reset: true;
+    reset-lit: grade-lit;
+    reset-label: @tr("Reset grade");
+    reset => { root.reset-clicked(); }
     has-switch: true;
     switch-shortcut: "colour_grading.on";
     switch-setting: "colour_grading.on";
@@ -193,74 +201,80 @@ export component ColourGradingCard inherits Card {
     switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    SwitchRow {
-        icon: Icons.compare;
-        label: @tr("Compare");
-        hue: root.hue;
-        enabled: active;
-        checked: compare;
-        shortcut: "colour_grading.compare";
-        tip: @tr("Compare");
-        tip-detail: @tr("Show the ungraded picture left of the line on the preview. Apps always get the graded picture.");
-        toggled(v) => { root.compare-toggled(v); }
-    }
-    // A hidden row keeps its height out of the layout with visible and max-height
-    if compare: RailSlider {
-        icon: Icons.split;
-        enabled: active;
-        label: @tr("Split");
-        tip: @tr("Split");
-        tip-detail: @tr("Move the line between before and after.");
-        tip-hint: root.reset-hint;
-        minimum: 0;
-        maximum: 100;
-        value: split;
-        readout: split-text;
-        hue: root.hue;
-        has-default: true;
-        default-value: 50;
-        moved(v) => { root.split-moved(v); }
-    }
-    HorizontalLayout {
-        spacing: 8px;
-        Segmented {
+    UnfoldGroup {
+        SwitchRow {
+            icon: Icons.compare;
+            label: @tr("Compare");
             hue: root.hue;
-            margin: 0px;
-            items: [@tr("Primaries"), @tr("Curves"), @tr("LUT")];
-            disabled: [!active, !active, !active];
-            has-icons: [false, false, false];
-            icons: [Icons.colour, Icons.colour, Icons.colour];
-            label: @tr("Page");
-            tips: [@tr("Primaries"), @tr("Curves"), @tr("LUT")];
-            tip-details: [@tr("Colour wheels and sliders."), @tr("Brightness, hue and saturation curves."), @tr("Load a LUT file or export the grade.")];
-            current: page;
-            picked(i) => { root.page-picked(i); }
+            enabled: active;
+            checked: compare;
+            shortcut: "colour_grading.compare";
+            tip: @tr("Compare");
+            tip-detail: @tr("Show the ungraded picture left of the line on the preview. Apps always get the graded picture.");
+            toggled(v) => { root.compare-toggled(v); }
         }
-        Button {
-            enabled: active && !auto-busy;
-            text: auto-label != "" ? auto-label : @tr("Auto");
-            accessible-label: @tr("Auto colour grading");
-            tip: @tr("Auto");
-            tip-detail: @tr("Set white balance, brightness, contrast and colour from about a second of the picture. You can still adjust everything on the sliders.");
-            clicked => { root.auto-clicked(); }
+        // A hidden row keeps its height out of the layout with visible and max-height
+        Unfolding {
+            open: compare;
+            RailSlider {
+            icon: Icons.split;
+            enabled: active;
+            label: @tr("Split");
+            tip: @tr("Split");
+            tip-detail: @tr("Move the line between before and after.");
+            tip-hint: root.reset-hint;
+            minimum: 0;
+            maximum: 100;
+            value: split;
+            readout: split-text;
+            hue: root.hue;
+            has-default: true;
+            default-value: 50;
+            moved(v) => { root.split-moved(v); }
         }
-        Rectangle {
-            width: 30px;
-            IconButton {
-                y: (parent.height - self.height) / 2;
-                icon: Icons.reset;
-                label: @tr("Reset grade");
-                tip: @tr("Reset grade");
-                tip-detail: @tr("Set everything except the LUT back to default.");
-                clicked => { root.reset-clicked(); }
+        }
+    }
+    // The pages and Auto on one row. Where the card is too narrow for the pages and Auto's word, Auto is its icon alone, so no page name is ever cut
+    header-row := Rectangle {
+        height: Theme.row;
+        accessible-role: none;
+        property <bool> icon-only: self.width < pages.min-width + Theme.u(4) + Theme.u(34);
+        HorizontalLayout {
+            spacing: Theme.u(4);
+            pages := Segmented {
+                hue: root.hue;
+                margin: 0px;
+                items: [@tr("Primaries"), @tr("Curves"), @tr("LUT")];
+                disabled: [!active, !active, !active];
+                has-icons: [false, false, false];
+                icons: [Icons.colour, Icons.colour, Icons.colour];
+                label: @tr("Page");
+                tips: [@tr("Primaries"), @tr("Curves"), @tr("LUT")];
+                tip-details: [@tr("Colour wheels and sliders."), @tr("Brightness, hue and saturation curves."), @tr("Load a LUT file or export the grade.")];
+                current: page;
+                picked(i) => { root.page-picked(i); }
+            }
+            // Auto keeps one width whatever it is doing: its answer shows in the icon's colour and the tooltip, never in the label. Without a
+            // stream it is dimmed, and its tooltip says why.
+            Button {
+                width: header-row.icon-only ? Theme.row : Theme.u(34);
+                enabled: active && !auto-busy && auto-ready;
+                text: header-row.icon-only ? "" : @tr("Auto");
+                has-icon: true;
+                icon: Icons.sparkle;
+                icon-tint: auto-label == "" ? Theme.ink2 : auto-label == @tr("Looks fine") ? Theme.ok : Theme.warn;
+                accessible-label: @tr("Auto colour grading");
+                tip: auto-busy ? @tr("Looking at the picture") : !auto-ready ? @tr("Auto") : auto-label != "" ? auto-label : @tr("Auto");
+                tip-detail: auto-busy ? "" : !auto-ready ? @tr("Start the stream first, so Auto has a picture to look at.") : auto-label != "" ? "" : @tr("Set white balance, brightness, contrast and colour from about a second of the picture. You can still adjust everything on the sliders.");
+                clicked => { root.auto-clicked(); }
             }
         }
     }
 
     // ── Primaries ─────────────────────────────────────────────────────
     if page == 0: VerticalLayout {
-        spacing: 8px;
-        padding-top: 4px;
+        spacing: Theme.u(4);
+        padding-top: Theme.u(2);
         // The wheels, two by two: four of them side by side would be too small to set a colour with, and three in a row leaves offset alone
         GridLayout {
             spacing: Theme.u(5);
@@ -324,8 +338,8 @@ export component ColourGradingCard inherits Card {
 
     // ── Curves ────────────────────────────────────────────────────────
     if page == 1: VerticalLayout {
-        spacing: 8px;
-        padding-top: 4px;
+        spacing: Theme.u(4);
+        padding-top: Theme.u(2);
         Segmented {
             hue: root.hue;
             margin: 0px;
@@ -367,91 +381,95 @@ export component ColourGradingCard inherits Card {
 
     // ── LUT ───────────────────────────────────────────────────────────
     if page == 2: VerticalLayout {
-        spacing: 8px;
-        padding-top: 4px;
-        RailRow {
-            icon: Icons.cube;
-            label: @tr("LUT");
-            hue: root.hue;
-            enabled: active;
-            changed: lut-loaded;
-            HorizontalLayout {
-                spacing: 8px;
-                Button {
-                    enabled: active;
-                    text: @tr("Load");
-                    tip: @tr("Load LUT");
-                    tip-detail: @tr("Pick a .cube LUT file to apply on top of the grade.");
-                    clicked => { root.load-clicked(); }
-                }
-                shown-lut-text := Text {
-                    text: lut-text;
-                    horizontal-stretch: 1;
-                    font-family: Theme.font;
-                    font-size: Theme.body;
-                    color: Theme.dim;
-                    vertical-alignment: center;
-                    overflow: elide;
-                    Tip { says: shown-lut-text.text; enabled: shown-lut-text.preferred-width > shown-lut-text.width; inert: true; }
-                }
-                if lut-loaded: Rectangle {
-                    width: 34px;
-                    IconButton {
-                        icon: Icons.v-close;
+        spacing: Theme.u(4);
+        padding-top: Theme.u(2);
+        UnfoldGroup {
+            RailRow {
+                icon: Icons.cube;
+                label: @tr("LUT");
+                hue: root.hue;
+                enabled: active;
+                changed: lut-loaded;
+                HorizontalLayout {
+                    spacing: Theme.u(4);
+                    // The slot is the LUT: empty until one is loaded, then it reads the file's name
+                    PictureField {
+                        enabled: active;
+                        has-picture: false;
+                        set: lut-loaded;
+                        empty-icon: Icons.cube;
+                        name: lut-text != "" ? lut-text : @tr("Load");
+                        problem: lut-note;
+                        hue: root.hue;
+                        tip: @tr("Load LUT");
+                        tip-detail: @tr("Pick a .cube LUT file to apply on top of the grade.");
+                        clicked => { root.load-clicked(); }
+                    }
+                    if lut-loaded: IconButton {
+                        raised: true;
+                        icon: Icons.x;
                         label: @tr("Remove LUT");
                         tip: @tr("Remove LUT");
                         clicked => { root.clear-clicked(); }
                     }
-                }
+                    }
+
+            }
+            Unfolding {
+                open: lut-loaded;
+                RailSlider {
+                icon: Icons.gauge;
+                enabled: active;
+                label: @tr("Strength");
+                tip: @tr("Strength");
+                tip-detail: @tr("How strongly the LUT is applied.");
+                tip-hint: root.reset-hint;
+                shortcut: "colour_grading.lut_strength";
+                setting: "colour_grading.lut_strength";
+                minimum: 0;
+                maximum: 100;
+                value: strength;
+                readout: strength-text;
+                hue: root.hue;
+                has-default: true;
+                default-value: 100;
+                moved(v) => { root.strength-moved(v); }
+            }
             }
         }
-        if lut-loaded: RailSlider {
-            icon: Icons.gauge;
-            enabled: active;
-            label: @tr("Strength");
-            tip: @tr("Strength");
-            tip-detail: @tr("How strongly the LUT is applied.");
-            tip-hint: root.reset-hint;
-            shortcut: "colour_grading.lut_strength";
-            setting: "colour_grading.lut_strength";
-            minimum: 0;
-            maximum: 100;
-            value: strength;
-            readout: strength-text;
-            hue: root.hue;
-            has-default: true;
-            default-value: 100;
-            moved(v) => { root.strength-moved(v); }
-        }
-        if lut-note != "": Note {
-            text: lut-note;
-            kind: "status_warn";
-        }
-        RailRow {
-            icon: Icons.download;
-            label: @tr("Export");
-            hue: root.hue;
-            enabled: active;
-            HorizontalLayout {
-                Button {
-                    enabled: active;
-                    text: @tr("Export grade");
-                    tip: @tr("Export grade");
-                    tip-detail: @tr("Save the grade and LUT as a .cube file to use in other apps.");
-                    clicked => { root.export-clicked(); }
+        UnfoldGroup {
+            RailRow {
+                icon: Icons.download;
+                label: @tr("Export");
+                hue: root.hue;
+                enabled: active;
+                HorizontalLayout {
+                    Button {
+                        enabled: active;
+                        text: @tr("Export grade");
+                        tip: @tr("Export grade");
+                        tip-detail: @tr("Save the grade and LUT as a .cube file to use in other apps.");
+                        clicked => { root.export-clicked(); }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
                 }
+            }
+            Unfolding {
+                open: export-note != "";
+                RailRow {
+                has-icon: false;
+                StatusLine { text: export-note; kind: "status_" + export-kind; }
+            }
+            }
+            Unfolding {
+                open: replace-open;
+                HorizontalLayout {
+                spacing: Theme.u(4);
+                Button { text: @tr("Replace"); clicked => { root.replace-answered(true); } }
+                Button { text: @tr("Cancel"); clicked => { root.replace-answered(false); } }
                 Rectangle { horizontal-stretch: 1; }
             }
-        }
-        if export-note != "": Note {
-            text: export-note;
-            kind: "status_" + export-kind;
-        }
-        if replace-open: HorizontalLayout {
-            spacing: 8px;
-            Button { text: @tr("Replace"); clicked => { root.replace-answered(true); } }
-            Button { text: @tr("Cancel"); clicked => { root.replace-answered(false); } }
-            Rectangle { horizontal-stretch: 1; }
+            }
         }
     }
     // Nothing to touch until a phone is paired

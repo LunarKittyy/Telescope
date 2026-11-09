@@ -1,27 +1,13 @@
 // The Browser camera card: the code to scan, what's connected, and the
 // size and rate the browser is asked to send.
 
-import { Theme, Icons, Icon, IconButton, Card, RailRow, ChoiceField, QrCode, Reveal, Tip } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, IconButton, Card, RailRow, ChoiceField, QrCode, Reveal, Tip, Status, UnfoldGroup, Unfolding } from "@ui-kit/ui-kit.slint";
 
-global Status {
+global StatusInk {
     public pure function color(kind: string) -> color {
         kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
-            : kind == "status_dim" ? Theme.text-dim : Theme.text
+            : kind == "status_dim" ? Theme.ink2 : Theme.ink
     }
-}
-
-// wrapped_note: a QLabel#dim, so body size
-component Note inherits Text {
-    in property <string> kind: "status_dim";
-    // False takes it out of its layout, height and all
-    in property <bool> shown: true;
-    visible: shown;
-    font-family: Theme.font;
-    font-size: Theme.body;
-    color: Status.color(kind);
-    wrap: word-wrap;
-    line-height-factor: Theme.line-factor(self.font-size);
-    height: shown ? self.preferred-height : 0px;
 }
 
 export component BrowserCameraCard inherits Card {
@@ -48,6 +34,21 @@ export component BrowserCameraCard inherits Card {
     in property <string> note-title;
     in property <string> note-text;
     in property <bool> new-link-enabled;
+    // What was wrong last, kept while its line folds away
+    property <string> held-warn;
+    property <string> held-detail;
+    function keep() {
+        if (mic-text != "") {
+            held-warn = @tr("No microphone");
+            held-detail = mic-text;
+        } else if (hint-text != "") {
+            held-warn = @tr("Not connected yet");
+            held-detail = hint-text;
+        }
+    }
+    init => { keep(); }
+    changed mic-text => { keep(); }
+    changed hint-text => { keep(); }
     callback new-link;
     callback address-picked(int);
     callback copy;
@@ -96,33 +97,46 @@ export component BrowserCameraCard inherits Card {
         }
         Tip { says: note-title; detail: note-text; inert: true; }
     }
-    HorizontalLayout {
-        alignment: center;
-        spacing: Theme.u(3);
-        shown-status := Text {
-            text: status-text;
-            font-family: Theme.font;
-            font-size: Theme.body;
-            font-weight: Theme.w-label;
-            color: Status.color(status-kind);
-            overflow: elide;
-            vertical-alignment: center;
-            accessible-description: status-tip;
-            Tip { says: status-tip; enabled: status-tip != ""; inert: true; }
+    // What is wrong, as a short warning that unfolds under the status with the sentence as its tooltip
+    UnfoldGroup {
+        HorizontalLayout {
+            alignment: center;
+            spacing: Theme.u(3);
+            shown-status := Text {
+                text: status-text;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                font-weight: Theme.w-label;
+                color: StatusInk.color(status-kind);
+                overflow: elide;
+                vertical-alignment: center;
+                accessible-description: status-tip;
+                Tip { says: status-tip != "" ? status-tip : status-text; detail: show-list ? list-text : ""; enabled: status-tip != "" || show-list; inert: true; }
+            }
+            Icon {
+                y: (parent.height - self.height) / 2;
+                source: Icons.help;
+                tint: Theme.faint;
+                width: Theme.icon-small;
+                height: Theme.icon-small;
+                accessible-role: none;
+                Tip { says: note-title; detail: note-text; inert: true; }
+            }
         }
-        Icon {
-            y: (parent.height - self.height) / 2;
-            source: Icons.help;
-            tint: Theme.faint;
-            width: Theme.icon-small;
-            height: Theme.icon-small;
-            accessible-role: none;
-            Tip { says: note-title; detail: note-text; inert: true; }
+        Unfolding {
+            open: mic-text != "" || hint-text != "";
+            lead: Theme.gap;
+            HorizontalLayout {
+                alignment: center;
+                Status {
+                    horizontal: "center";
+                    text: held-warn;
+                    detail: held-detail;
+                    kind: "warn";
+                }
+            }
         }
     }
-    Note { text: list-text; shown: show-list; }
-    Note { text: mic-text; kind: "status_warn"; shown: mic-text != ""; }
-    Note { text: hint-text; kind: "status_warn"; shown: hint-text != ""; }
     // The link and its copy button in one row; the picker stands in for the link's text when this computer has more than one address
     RailRow {
         icon: Icons.link;
@@ -153,7 +167,7 @@ export component BrowserCameraCard inherits Card {
                     picked(i) => { root.address-picked(i); }
                 }
             }
-            IconButton {
+            IconButton { raised: true;
                 icon: Icons.copy;
                 label: @tr("Copy");
                 tip: @tr("Copy");

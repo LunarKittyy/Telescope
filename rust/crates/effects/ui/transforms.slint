@@ -56,8 +56,9 @@ component ZoomMap inherits Rectangle {
 }
 
 export component TransformsCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     in property <[bool]> flips: [false, false];
     in property <int> rotation: 0;
     in property <float> zoom: 1;
@@ -79,7 +80,6 @@ export component TransformsCard inherits Card {
     in property <float> stretch-y: 100;
     in property <string> stretch-x-text;
     in property <string> stretch-y-text;
-    in property <string> reset-tip;
     in property <string> pan-tip;
     in property <string> pan-add-x;
     in property <string> pan-add-y;
@@ -97,15 +97,13 @@ export component TransformsCard inherits Card {
     title: @tr("Transforms");
     tip: @tr("Zoom, pan, flip, rotate and stretch the picture.");
     icon: Icons.crop;
-    opacity: active ? 1 : 0.4;
     enabled: active;
-    has-action: true;
-    action-icon: Icons.reset;
-    // card_action(tr("Reset"), "reset", …)
-    action-text: @tr("Reset");
-    action-tip-detail: reset-tip;
-    action-shortcut: "transforms.reset";
-    action => { root.reset-clicked(); }
+    in property <string> reset-help;
+    has-reset: true;
+    reset-detail: reset-help;
+    reset-lit: flips[0] || flips[1] || rotation != 0 || zoom != 1 || pan-x != 0 || pan-y != 0 || stretch-x != 100 || stretch-y != 100;
+    reset-label: @tr("Reset");
+    reset => { root.reset-clicked(); }
 
     RailRow {
         icon: Icons.mirror;

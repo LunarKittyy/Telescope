@@ -485,7 +485,7 @@ fn a_copy_wayland_ignores_says_to_click_copy() {
     rig.read("https://example.com");
     rig.timer("check");
     assert_eq!(rig.host.clipboard.as_deref(), Some("old"));
-    assert!(rig.props()["status"].as_str().unwrap().contains("Click Copy"));
+    assert!(rig.props()["status"].as_str().unwrap().contains("Found a code"));
     assert_eq!(rig.props()["status-kind"], "status_warn");
     assert_eq!(rig.notified(), ["send_notification QR code found"]);
     rig.host.clipboard_deaf = false;

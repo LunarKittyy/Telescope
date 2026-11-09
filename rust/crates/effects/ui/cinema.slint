@@ -1,8 +1,9 @@
 // The Cinema tools card and its settings. Joined after parts.slint, which has the imports.
 
 export component CinemaCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     in-out property <bool> peaking;
     in-out property <bool> zebras;
     in-out property <bool> false-colour;
@@ -24,72 +25,69 @@ export component CinemaCard inherits Card {
     title: @tr("Cinema tools");
     tip: @tr("Show focus peaking, zebras, false colour, scopes, guides and a level on the preview.");
     icon: Icons.focus;
-    opacity: active ? 1 : 0.4;
 
-    RailRow {
-        icon: Icons.sliders;
-        label: @tr("Tools");
-        hue: root.hue;
-        enabled: active;
-        changed: peaking || zebras || false-colour || level;
-        VerticalLayout {
-            spacing: Theme.gap;
-            HorizontalLayout {
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.sliders;
+            label: @tr("Tools");
+            hue: root.hue;
+            enabled: active;
+            changed: peaking || zebras || false-colour || level;
+            VerticalLayout {
                 spacing: Theme.gap;
-                ToggleTile {
-                    icon: Icons.focus;
-                    text: switch-names[0];
-                    tip: switch-names[0];
-                    tip-detail: switch-tips[0];
-                    shortcut: "cinema.peaking";
-                    hue: root.hue;
-                    enabled: active;
-                    checked: peaking;
-                    toggled(v) => { root.tool-toggled(0, v); }
+                HorizontalLayout {
+                    spacing: Theme.gap;
+                    ToggleTile {
+                        icon: Icons.focus;
+                        text: switch-names[0];
+                        tip: switch-names[0];
+                        tip-detail: switch-tips[0];
+                        shortcut: "cinema.peaking";
+                        hue: root.hue;
+                        enabled: active;
+                        checked: peaking;
+                        toggled(v) => { root.tool-toggled(0, v); }
+                    }
+                    ToggleTile {
+                        icon: Icons.stripes;
+                        text: switch-names[1];
+                        tip: switch-names[1];
+                        tip-detail: switch-tips[1];
+                        shortcut: "cinema.zebras";
+                        hue: root.hue;
+                        enabled: active;
+                        checked: zebras;
+                        toggled(v) => { root.tool-toggled(1, v); }
+                    }
                 }
-                ToggleTile {
-                    icon: Icons.stripes;
-                    text: switch-names[1];
-                    tip: switch-names[1];
-                    tip-detail: switch-tips[1];
-                    shortcut: "cinema.zebras";
-                    hue: root.hue;
-                    enabled: active;
-                    checked: zebras;
-                    toggled(v) => { root.tool-toggled(1, v); }
-                }
-            }
-            HorizontalLayout {
-                spacing: Theme.gap;
-                ToggleTile {
-                    icon: Icons.colour;
-                    text: switch-names[2];
-                    tip: switch-names[2];
-                    tip-detail: switch-tips[2];
-                    shortcut: "cinema.false_colour";
-                    hue: root.hue;
-                    enabled: active;
-                    checked: false-colour;
-                    toggled(v) => { root.tool-toggled(2, v); }
-                }
-                ToggleTile {
-                    icon: Icons.level;
-                    text: switch-names[3];
-                    tip: switch-names[3];
-                    tip-detail: switch-tips[3];
-                    shortcut: "cinema.level";
-                    hue: root.hue;
-                    enabled: active;
-                    checked: level;
-                    toggled(v) => { root.tool-toggled(3, v); }
+                HorizontalLayout {
+                    spacing: Theme.gap;
+                    ToggleTile {
+                        icon: Icons.colour;
+                        text: switch-names[2];
+                        tip: switch-names[2];
+                        tip-detail: switch-tips[2];
+                        shortcut: "cinema.false_colour";
+                        hue: root.hue;
+                        enabled: active;
+                        checked: false-colour;
+                        toggled(v) => { root.tool-toggled(2, v); }
+                    }
+                    ToggleTile {
+                        icon: Icons.level;
+                        text: switch-names[3];
+                        tip: switch-names[3];
+                        tip-detail: switch-tips[3];
+                        shortcut: "cinema.level";
+                        hue: root.hue;
+                        enabled: active;
+                        checked: level;
+                        toggled(v) => { root.tool-toggled(3, v); }
+                    }
                 }
             }
         }
-    }
-    Note {
-        text: level-note;
-        visible: level-note-shown;
-        height: level-note-shown ? self.preferred-height : 0px;
+        StatusUnfold { text: level-note-shown ? @tr("Level unavailable") : ""; kind: "status_warn"; detail: level-note; }
     }
     RailRow {
         icon: Icons.grid;

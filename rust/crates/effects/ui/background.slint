@@ -1,8 +1,9 @@
 // The Background card. Joined after parts.slint and vision_row.slint.
 
 export component BackgroundCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     in property <int> mode: 0;
     in property <float> blur: 6;
     in property <string> blur-text: "6";
@@ -15,6 +16,9 @@ export component BackgroundCard inherits Card {
     in property <string> reset-hint;
     in property <string> picture-text;
     in property <string> picture-tip;
+    in property <image> picture-thumb;
+    in property <bool> has-picture;
+    in property <string> picture-problem;
     in property <string> picture-choose-tip;
     in property <string> vision-text;
     in property <bool> vision-download;
@@ -28,98 +32,96 @@ export component BackgroundCard inherits Card {
     title: @tr("Background");
     tip: @tr("Blur the background or replace it with a picture.");
     icon: Icons.image;
-    opacity: active ? 1 : 0.4;
     enabled: active;
 
-    RailRow {
-        icon: Icons.image;
-        label: @tr("Background");
-        tip-detail: @tr("Keep the background, blur it or replace it with a picture.");
-        hue: root.hue;
-        enabled: active;
-        Segmented {
-            hue: root.hue;
-            horizontal-stretch: 1;
-            items: [@tr("Off"), @tr("Blur"), @tr("Picture")];
-            disabled: [!active, !active, !active];
-            has-icons: [false, false, false];
-            icons: [Icons.image, Icons.image, Icons.image];
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.image;
             label: @tr("Background");
-            tips: [@tr("Off"), @tr("Blur"), @tr("Picture")];
-            current: mode;
-            shortcut: "background.mode";
-            picked(i) => { root.mode-picked(i); }
+            tip-detail: @tr("Keep the background, blur it or replace it with a picture.");
+            hue: root.hue;
+            enabled: active;
+            Segmented {
+                hue: root.hue;
+                horizontal-stretch: 1;
+                items: [@tr("Off"), @tr("Blur"), @tr("Picture")];
+                disabled: [!active, !active, !active];
+                has-icons: [false, false, false];
+                icons: [Icons.image, Icons.image, Icons.image];
+                label: @tr("Background");
+                tips: [@tr("Off"), @tr("Blur"), @tr("Picture")];
+                current: mode;
+                shortcut: "background.mode";
+                picked(i) => { root.mode-picked(i); }
+            }
         }
-    }
-    if mode == 1: RailSlider {
-        icon: Icons.blur;
-        enabled: active;
-        label: @tr("Blur");
-        tip: @tr("Blur");
-        tip-hint: reset-hint;
-        shortcut: "background.blur";
-        minimum: 1;
-        maximum: 10;
-        value: blur;
-        peek: blur-peek;
-        peek-picture: blur-picture;
-        peek-changed(o) => { root.blur-peek-open(o); }
-        readout: blur-text;
-        hue: root.hue;
-        has-default: true;
-        default-value: 6;
-        moved(v) => { root.blur-moved(v); }
-    }
-    if mode == 2: RailRow {
-        icon: Icons.photo;
-        label: @tr("Picture");
-        hue: root.hue;
-        enabled: active;
-        HorizontalLayout {
-            spacing: 8px;
-            Button {
+        Unfolding {
+            open: mode == 1;
+            RailSlider {
+            icon: Icons.blur;
+            enabled: active;
+            label: @tr("Blur");
+            tip: @tr("Blur");
+            tip-hint: reset-hint;
+            shortcut: "background.blur";
+            minimum: 1;
+            maximum: 10;
+            value: blur;
+            peek: blur-peek;
+            peek-picture: blur-picture;
+            peek-changed(o) => { root.blur-peek-open(o); }
+            readout: blur-text;
+            hue: root.hue;
+            has-default: true;
+            default-value: 6;
+            moved(v) => { root.blur-moved(v); }
+        }
+        }
+        Unfolding {
+            open: mode == 2;
+            RailRow {
+            icon: Icons.photo;
+            label: @tr("Picture");
+            hue: root.hue;
+            enabled: active;
+            PictureField {
                 enabled: active;
-                text: @tr("Choose");
+                thumb: picture-thumb;
+                has-picture: has-picture;
+                set: has-picture || picture-text != "";
+                name: picture-text != "" ? picture-text : @tr("Choose");
+                problem: picture-problem;
+                hue: root.hue;
                 tip: @tr("Choose picture");
                 tip-detail: picture-choose-tip;
                 clicked => { root.picture-clicked(); }
             }
-            Rectangle {
-                horizontal-stretch: 1;
-                shown-picture := Text {
-                    width: parent.width;
-                    height: parent.height;
-                    text: picture-text;
-                    font-family: Theme.font;
-                    font-size: Theme.body;
-                    color: Theme.text-dim;
-                    vertical-alignment: center;
-                    overflow: elide;
-                }
-                Tip { says: picture-text; enabled: shown-picture.preferred-width > shown-picture.width; inert: true; }
-            }
         }
-    }
-    if mode != 0: RailSlider {
-        icon: Icons.edges;
-        enabled: active;
-        label: @tr("Edges");
-        tip: @tr("Edges");
-        tip-detail: edges-tip;
-        tip-hint: root.reset-hint;
-        minimum: 0;
-        maximum: 10;
-        value: edges;
-        readout: edges-text;
-        hue: root.hue;
-        has-default: true;
-        default-value: 3;
-        moved(v) => { root.edges-moved(v); }
-    }
-    if vision-text != "": VisionStatus {
-        text: vision-text;
-        download: vision-download;
-        download-clicked => { root.download-clicked(); }
+        }
+        Unfolding {
+            open: mode != 0;
+            RailSlider {
+            icon: Icons.edges;
+            enabled: active;
+            label: @tr("Edges");
+            tip: @tr("Edges");
+            tip-detail: edges-tip;
+            tip-hint: root.reset-hint;
+            minimum: 0;
+            maximum: 10;
+            value: edges;
+            readout: edges-text;
+            hue: root.hue;
+            has-default: true;
+            default-value: 3;
+            moved(v) => { root.edges-moved(v); }
+        }
+        }
+        VisionStatus {
+            text: vision-text;
+            download: vision-download;
+            download-clicked => { root.download-clicked(); }
+        }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;

@@ -165,16 +165,17 @@ impl DeskPlugin {
         })
     }
 
-    fn status(&self) -> (String, &'static str) {
+    /// (a short word, the sentence for its tooltip, its kind).
+    fn status(&self) -> (String, String, &'static str) {
         // The preview says what to drag while the corners are placed, and the Mark button is the way in
         if self.picking {
-            (String::new(), "dim")
+            (String::new(), String::new(), "dim")
         } else if self.refused {
-            (tr("Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."), "status_warn")
+            (tr("Sheet unclear"), tr("Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."), "status_warn")
         } else if self.on && self.off_picture() {
-            (tr("Part of the sheet is outside the picture. Zoom out or mark it again."), "status_warn")
+            (tr("Sheet cut off"), tr("Part of the sheet is outside the picture. Zoom out or mark it again."), "status_warn")
         } else {
-            (String::new(), "dim")
+            (String::new(), String::new(), "dim")
         }
     }
 
@@ -185,7 +186,7 @@ impl DeskPlugin {
         let shape_details = [tr(SHAPE_TIP), String::new(), String::new(), String::new(), tr(SHAPE_FILL_TIP)];
         json!({
             "switch-name": tr("Desk mode"), "switch-help": tr(SWITCH_TIP), "mark-tip": tr(MARK_TIP), "done-text": tr("Done"),
-            "cancel-text": tr("Cancel"), "reset-text": tr("Reset"), "reset-tip": tr(RESET_TIP), "clean-items": list(&CLEANUPS),
+            "cancel-text": tr("Cancel"), "reset-text": tr("Reset"), "reset-help": tr(RESET_TIP), "clean-items": list(&CLEANUPS),
             "clean-tip": tr(CLEAN_TIP), "shape-items": SHAPE_NAMES.iter().map(|t| tr(t)).collect::<Vec<_>>(), "shape-tips": shape_tips, "shape-details": shape_details,
             "stretch-tip": tr(STRETCH_TIP), "stretch-off-tip": tr(STRETCH_OFF_TIP),
         })
@@ -193,14 +194,14 @@ impl DeskPlugin {
 
     fn state_props(&self) -> Value {
         let fill = self.shape == "fill";
-        let (status, kind) = self.status();
+        let (status, detail, kind) = self.status();
         json!({
             "active": self.paired.on(), "on": self.on, "picking": self.picking,
             "mark-text": if self.corners.is_some() { tr("Mark the sheet again") } else { tr("Mark the sheet") },
             "reset-shown": !fill && self.stretch != [100, 100],
             "clean-current": index_of(&CLEANUPS, &self.cleanup), "shape-current": index_of(&SHAPES, &self.shape),
             "stretch-enabled": !fill, "stretch": self.stretch, "stretch-text": self.stretch.map(|v| format!("{v}%")),
-            "status": status, "status-kind": if kind == "dim" { "status_dim" } else { kind },
+            "status": status, "status-detail": detail, "status-kind": if kind == "dim" { "status_dim" } else { kind },
         })
     }
 
@@ -257,7 +258,8 @@ impl DeskPlugin {
         let start = self.corners.map(|c| c.map(|[x, y]| [x as f32, y as f32]));
         if !host.pick_on_preview(NAME, PickKind::Quad, start, &tr("Drag the corners onto the sheet's corners, then press Enter.")) {
             let mut props = self.state_props();
-            props["status"] = json!(tr("Start streaming to mark the sheet on the preview."));
+            props["status"] = json!(tr("Not streaming"));
+            props["status-detail"] = json!(tr("Start streaming to mark the sheet on the preview."));
             props["status-kind"] = json!("status_warn");
             host.set_ui_props("card", &props);
         }

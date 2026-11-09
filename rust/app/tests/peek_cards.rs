@@ -71,7 +71,7 @@ const NOTES: Kind = Kind { group: "on_screen", extra: &[], images: &[], callback
 const BACKGROUND: Kind = Kind {
     group: "look",
     extra: &[("blur-peek", "string"), ("vision-text", "string"), ("vision-download", "bool")],
-    images: &["blur-picture"],
+    images: &["blur-picture", "picture-thumb"],
     callbacks: &[("blur-moved", "float"), ("blur-peek-open", "bool"), ("mode-picked", "int")],
 };
 

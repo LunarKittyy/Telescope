@@ -129,17 +129,21 @@ fn the_status_says_what_stands_in_the_way_first() {
         f(&mut x);
         notes_status(&x)
     };
-    assert_eq!(with(|f| f.phone = false).1, "dim");
-    assert!(with(|f| f.takes_notes = Some(false)).0.contains("Update Telescope"));
-    assert_eq!(with(|f| f.too_long = true).1, "status_err");
-    assert!(with(|f| f.streaming = false).0.is_empty(), "the Send button is off, and says nothing more");
-    assert!(with(|f| f.front = Some(false)).0.contains("front camera"));
-    assert!(with(|f| f.sent = true).0.contains("Open Telescope"));
-    assert_eq!(with(|f| { f.sent = true; f.shown = true; }), ("The notes are on the phone's screen.".to_string(), "status_ok"));
-    assert!(with(|f| { f.sent = true; f.shown = true; f.front = Some(false); }).0.contains("back camera"));
-    assert!(with(|f| { f.sent = true; f.shown = true; f.edited = true; }).0.contains("Send again"));
-    assert!(with(|f| { f.sent = true; f.closed = true; }).0.contains("closed on the phone"));
-    assert!(with(|f| { f.sent = true; f.preview = true; }).0.contains("preview"));
+    assert_eq!(with(|f| f.phone = false), Say::NoPhone);
+    assert_eq!(with(|f| f.takes_notes = Some(false)), Say::Update);
+    assert_eq!(with(|f| f.too_long = true).word().1, "status_err");
+    assert_eq!(with(|f| f.streaming = false), Say::Nothing, "the Send button is off, and says nothing more");
+    // Which camera the phone streams from is not the card's to talk about
+    assert_eq!(with(|f| f.front = Some(false)), Say::Nothing);
+    assert_eq!(with(|f| f.sent = true), Say::NotShown);
+    assert_eq!(with(|f| { f.sent = true; f.shown = true; }), Say::Up);
+    assert_eq!(with(|f| { f.sent = true; f.shown = true; f.front = Some(false); }), Say::Up);
+    assert_eq!(with(|f| { f.sent = true; f.shown = true; f.edited = true; }), Say::Edited);
+    assert_eq!(with(|f| { f.sent = true; f.closed = true; }), Say::Closed);
+    assert_eq!(with(|f| { f.sent = true; f.preview = true; }), Say::Preview);
+    // A word on the card, a sentence in its tooltip
+    assert_eq!(Say::Up.word().0, "On the phone");
+    assert!(Say::Up.detail().contains("phone's screen"));
 }
 
 #[test]
@@ -221,7 +225,7 @@ fn an_older_phone_is_asked_to_update_instead() {
     r.streaming("p", state(false, false, false, "front", json!({})));
     r.type_text("Hello");
     assert!(!r.enabled("send-enabled"));
-    assert!(r.status().contains("Update Telescope on the phone"));
+    assert_eq!(r.status(), "Update the phone app");
     r.click("send-clicked");
     assert!(r.sent().is_empty());
 }
@@ -233,7 +237,7 @@ fn a_browser_camera_has_no_screen_for_notes() {
     r.type_text("Hello");
     r.event(Event::SourceSelected { source_id: "browser:abc".into() });
     assert!(!r.enabled("send-enabled"));
-    assert!(r.status().contains("phone as the camera"));
+    assert_eq!(r.status(), "Phone only");
 }
 
 #[test]
@@ -255,11 +259,11 @@ fn the_card_says_when_the_phone_has_them_but_not_on_screen() {
     r.type_text("Hello");
     r.click("send-clicked");
     r.state(state(true, true, false, "front", json!({})));
-    assert!(r.status().contains("Open Telescope on the phone"));
+    assert_eq!(r.status(), "Not on the phone yet");
     r.state(state(true, true, true, "front", json!({})));
-    assert_eq!(r.status(), "The notes are on the phone's screen.");
+    assert_eq!(r.status(), "On the phone");
     r.type_text("Hello again");
-    assert!(r.status().contains("Send again"));
+    assert_eq!(r.status(), "Send again");
 }
 
 #[test]
@@ -269,11 +273,11 @@ fn the_card_says_when_the_notes_were_closed_or_wait_for_preview() {
     r.type_text("Hello");
     r.click("send-clicked");
     r.state(state(true, true, false, "front", json!({"notes_closed": true})));
-    assert!(r.status().contains("closed on the phone"));
+    assert_eq!(r.status(), "Closed on the phone");
     r.state(state(true, true, false, "front", json!({"notes_preview": true})));
-    assert!(r.status().contains("close its preview"));
+    assert_eq!(r.status(), "Waiting for the phone");
     r.click("send-clicked");
-    assert_eq!(r.status(), "The notes are on the phone's screen.");
+    assert_eq!(r.status(), "On the phone");
 }
 
 #[test]
@@ -457,25 +461,15 @@ fn the_shortcuts_do_what_the_buttons_do_when_the_buttons_would_work() {
     assert_eq!(r.run("notes.send", json!({})), None);
     r.streaming("p", default_state());
     r.type_text("One\nTwo");
-    assert_eq!(r.run("notes.send", json!({})), Some("Send notes".into()));
+    assert_eq!(r.run("notes.send", json!({})), Some("Send script".into()));
     r.sent();
     assert_eq!(r.run("notes.next", json!({})), Some("Next line".into()));
-    assert_eq!(r.run("notes.play", json!({"mode": "on"})), Some("Scroll notes: playing".into()));
+    assert_eq!(r.run("notes.play", json!({"mode": "on"})), Some("Scroll script: playing".into()));
     assert_eq!(r.sent().last(), Some(&json!({"action": "notes_style", "size": 44, "speed": 3, "playing": 1})));
-    assert_eq!(r.run("notes.speed", json!({"op": "set", "value": 7})), Some("Notes scroll speed: 7".into()));
+    assert_eq!(r.run("notes.speed", json!({"op": "set", "value": 7})), Some("Teleprompter speed: 7".into()));
     assert_eq!(r.plugin.speed, 7);
-    assert_eq!(r.run("notes.clear", json!({})), Some("Clear notes".into()));
+    assert_eq!(r.run("notes.clear", json!({})), Some("Clear script".into()));
     assert_eq!(r.run("notes.next", json!({})), None);
-}
-
-#[test]
-fn switching_to_the_front_lens_clears_the_hint() {
-    let mut r = Rig::new();
-    r.streaming("p", state(true, false, false, "back", json!({})));
-    r.type_text("Hello");
-    assert!(r.status().contains("front camera"));
-    r.event(Event::CameraSwitched { camera: json!({"id": "1", "facing": "front"}) });
-    assert!(!r.status().contains("front camera"));
 }
 
 #[test]
@@ -502,7 +496,7 @@ fn sent_notes_are_followed_by_asking_the_phone_its_state() {
     assert_eq!(asks(&r), 2);
     // The answer comes back as the stream's state
     r.state(state(true, true, true, "front", json!({})));
-    assert!(r.plugin.diagnostics().contains(&("Notes".into(), "on the phone".into())));
+    assert!(r.plugin.diagnostics().contains(&("Teleprompter".into(), "on the phone".into())));
     r.plugin.on_stream_stop(&mut r.host);
     assert!(r.host.scheduled.is_empty(), "no polling once the stream stopped");
     r.event(Event::TimerFired { owner: NAME.into(), token: T_POLL.into() });

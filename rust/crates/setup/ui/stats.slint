@@ -16,7 +16,7 @@ export struct StatRow {
 // A row is 28px tall, or 44px when it has a note, so the card keeps to two heights.
 component StatLine inherits Rectangle {
     in property <StatRow> line;
-    property <color> ink: line.kind == "" || line.kind == "status_dim" ? Theme.text : Status.color(line.kind).brighter(0.12);
+    property <color> ink: line.kind == "" || line.kind == "status_dim" ? Theme.ink : Status.color(line.kind).brighter(0.12);
     min-height: 28px;
     accessible-role: text;
     accessible-label: line.note == "" ? line.label + " " + line.value : line.label + " " + line.value + " " + line.note;
@@ -33,7 +33,7 @@ component StatLine inherits Rectangle {
                 text: line.label;
                 font-family: Theme.font;
                 font-size: Theme.body;
-                color: Theme.text-dim;
+                color: Theme.ink2;
                 vertical-alignment: center;
                 wrap: word-wrap;
                 accessible-role: none;
@@ -48,7 +48,7 @@ component StatLine inherits Rectangle {
                     viewbox-width: 60;
                     viewbox-height: 20;
                     commands: line.graph;
-                    stroke: line.kind == "status_warn" ? Theme.warn : Theme.text-faint;
+                    stroke: line.kind == "status_warn" ? Theme.warn : Theme.faint;
                     stroke-width: 1px;
                 }
             }
@@ -69,7 +69,7 @@ component StatLine inherits Rectangle {
             text: line.note;
             font-family: Theme.font;
             font-size: Theme.small;
-            color: Theme.text-faint;
+            color: Theme.faint;
             horizontal-alignment: right;
             vertical-alignment: center;
             min-height: 16px;
@@ -111,7 +111,7 @@ export component StatsCard inherits Card {
         text: source-name;
         font-family: Theme.font;
         font-size: Theme.small;
-        color: Theme.text-faint;
+        color: Theme.faint;
         overflow: elide;
     }
     if empty-text != "": Note { text: empty-text; kind: "status_dim"; }

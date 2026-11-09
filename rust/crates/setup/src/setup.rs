@@ -379,7 +379,7 @@ impl SetupPlugin {
         let p = &self.panel;
         let status = p.canvas_status.clone().unwrap_or_default();
         let (apply, tip) = if self.linux {
-            let note = tr("Applying stops the stream, unloads v4l2loopback and loads it again. Close OBS and anything else using the virtual camera first.");
+            let note = tr("Applying stops the stream and reloads the virtual camera. Close OBS and other apps using it first.");
             (tr("Apply and reload"), format!("{note}\n{}", tr(SUDO_HINT)))
         } else {
             (tr("Apply"), tr("Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."))
@@ -856,7 +856,7 @@ impl SetupPlugin {
         self.panel.canvas_status = Some(if ok {
             Line::new(if self.linux { tr("Done - loopback reloaded.") } else { tr("Done - canvas updated.") }, "status_ok")
         } else if msg.to_lowercase().contains("in use") {
-            Line::new(tr("Failed: module is still in use. Close OBS and any other app using the virtual camera, then try again."), "status_err")
+            Line::new(tr("Failed: still in use. Close OBS and other apps using it, then try again."), "status_err")
         } else {
             Line::new(tr("Failed: {message}").field("message", msg), "status_err")
         });

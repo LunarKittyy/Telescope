@@ -29,17 +29,17 @@ export struct StreamRow {
 component Chip inherits Rectangle {
     in property <string> text;
     in property <bool> accent;
-    width: label.preferred-width + 18px;
-    height: label.preferred-height + 6px;
+    width: label.preferred-width + Theme.u(9);
+    height: label.preferred-height + Theme.u(3);
     border-radius: self.height / 2;
-    background: Theme.surface-sunk.with-alpha(0.82);
+    background: Theme.stage.with-alpha(0.82);
     border-width: accent ? 1px : 0px;
     border-color: Theme.plugin-hue("streaming");
     label := Text {
         text: root.text;
         font-family: Theme.font;
         font-size: Theme.body;
-        color: accent ? Theme.accent-soft : Theme.text;
+        color: accent ? Theme.accent-soft : Theme.ink;
     }
 }
 
@@ -48,11 +48,11 @@ component Dashes {
     in property <color> colour;
     in property <bool> across;
     property <length> long: across ? root.width : root.height;
-    for i in ceil(long / 6px): Rectangle {
-        x: across ? i * 6px : 0;
-        y: across ? 0 : i * 6px;
-        width: across ? min(4px, long - i * 6px) : 1px;
-        height: across ? 1px : min(4px, long - i * 6px);
+    for i in ceil(long / Theme.u(3)): Rectangle {
+        x: across ? i * Theme.u(3) : 0;
+        y: across ? 0 : i * Theme.u(3);
+        width: across ? min(Theme.u(2), long - i * Theme.u(3)) : 1px;
+        height: across ? 1px : min(Theme.u(2), long - i * Theme.u(3));
         background: colour;
     }
 }
@@ -72,19 +72,17 @@ component PictureView inherits Rectangle {
     callback pointer(string, length, length, length, length, bool, bool, bool, bool);
     callback wheel(length, length, length, length, float);
     callback key(string, bool);
-    property <length> pad: 14px;
+    property <length> pad: Theme.u(7);
     property <length> room-w: root.width - 2 * pad;
     property <length> room-h: root.height - 2 * pad;
     out property <length> area-w: round(min(room-w, room-h * aspect) / 1px) * 1px;
     out property <length> area-h: round(area-w / aspect / 1px) * 1px;
     property <length> area-x: round((root.width - area-w) / 2 / 1px) * 1px;
     property <length> area-y: round((root.height - area-h) / 2 / 1px) * 1px;
-    min-width: 520px;
-    min-height: 320px;
-    border-radius: 10px;
-    border-width: 1px;
-    border-color: Theme.border;
-    background: Theme.surface-sunk;
+    min-width: Theme.u(260);
+    min-height: Theme.u(160);
+    border-radius: Theme.r-card;
+    background: Theme.stage;
     accessible-role: slider;
     accessible-label: @tr("Picture preview");
     accessible-value: selected < 0 ? @tr("no picture picked") : @tr("picked") + " " + selected-tile.name + ", " + Spoken.percent(selected-tile.x) + "% " + @tr("from the left") + ", " + Spoken.percent(selected-tile.y) + "% " + @tr("from the top");
@@ -101,20 +99,20 @@ component PictureView inherits Rectangle {
             y: t.y * parent.height;
             width: t.w * parent.width;
             height: t.h * parent.height;
-            background: t.missing ? Theme.surface-raise.with-alpha(0.75) : transparent;
-            border-width: !t.missing && t.hover ? 1.5px : 0px;
+            background: t.missing ? Theme.raise.with-alpha(0.75) : transparent;
+            border-width: !t.missing && t.hover ? Theme.u(0.75) : 0px;
             border-color: Theme.plugin-hue("streaming").with-alpha(0.55);
-            if t.missing: Dashes { x: 0; y: 0; width: parent.width; height: 1px; across: true; colour: Theme.text-faint; }
-            if t.missing: Dashes { x: 0; y: parent.height - 1px; width: parent.width; height: 1px; across: true; colour: Theme.text-faint; }
-            if t.missing: Dashes { x: 0; y: 0; width: 1px; height: parent.height; colour: Theme.text-faint; }
-            if t.missing: Dashes { x: parent.width - 1px; y: 0; width: 1px; height: parent.height; colour: Theme.text-faint; }
+            if t.missing: Dashes { x: 0; y: 0; width: parent.width; height: 1px; across: true; colour: Theme.faint; }
+            if t.missing: Dashes { x: 0; y: parent.height - 1px; width: parent.width; height: 1px; across: true; colour: Theme.faint; }
+            if t.missing: Dashes { x: 0; y: 0; width: 1px; height: parent.height; colour: Theme.faint; }
+            if t.missing: Dashes { x: parent.width - 1px; y: 0; width: 1px; height: parent.height; colour: Theme.faint; }
             if t.missing: Text {
-                width: parent.width - 12px;
+                width: parent.width - Theme.u(6);
                 text: t.gone;
                 wrap: word-wrap;
                 font-family: Theme.font;
                 font-size: Theme.body;
-                color: Theme.text-dim;
+                color: Theme.ink2;
                 horizontal-alignment: center;
                 vertical-alignment: center;
             }
@@ -125,41 +123,41 @@ component PictureView inherits Rectangle {
     Rectangle {
         x: area-x - 1px;
         y: area-y - 1px;
-        width: area-w + 2px;
-        height: area-h + 2px;
+        width: area-w + Theme.u(1);
+        height: area-h + Theme.u(1);
         border-width: 1px;
-        border-color: Theme.border-strong;
+        border-color: Theme.line-strong;
     }
     if selected >= 0: Rectangle {
         x: area-x + selected-tile.x * area-w;
         y: area-y + selected-tile.y * area-h;
         width: selected-tile.w * area-w;
         height: selected-tile.h * area-h;
-        Rectangle { x: -2px; y: -2px; width: parent.width + 4px; height: parent.height + 4px; border-width: 3.5px; border-color: Theme.surface-sunk.with-alpha(0.7); }
-        Rectangle { border-width: 1.5px; border-color: Theme.plugin-hue("streaming"); }
-        if selected-tile.name != "" && parent.height > 40px: Chip {
-            x: 6px;
-            y: 6px;
+        Rectangle { x: -Theme.u(1); y: -Theme.u(1); width: parent.width + Theme.u(2); height: parent.height + Theme.u(2); border-width: Theme.u(1.75); border-color: Theme.stage.with-alpha(0.7); }
+        Rectangle { border-width: Theme.u(0.75); border-color: Theme.plugin-hue("streaming"); }
+        if selected-tile.name != "" && parent.height > Theme.u(20): Chip {
+            x: Theme.u(3);
+            y: Theme.u(3);
             text: selected-tile.name;
         }
     }
     for g in grips: Rectangle {
-        property <length> grow: g.hot ? 2px : 0px;
-        property <length> long: g.corner ? 10px + grow : 16px + grow;
-        property <length> short: g.corner ? 10px + grow : 6px + grow / 2;
+        property <length> grow: g.hot ? Theme.u(1) : 0px;
+        property <length> long: g.corner ? Theme.u(5) + grow : Theme.u(8) + grow;
+        property <length> short: g.corner ? Theme.u(5) + grow : Theme.u(3) + grow / 2;
         // Qt's 1.5 px pen sits half outside the box
-        width: (g.corner || g.wide ? long : short) + 1.5px;
-        height: (g.corner || g.wide ? (g.corner ? long : short) : long) + 1.5px;
+        width: (g.corner || g.wide ? long : short) + Theme.u(0.75);
+        height: (g.corner || g.wide ? (g.corner ? long : short) : long) + Theme.u(0.75);
         x: area-x + g.x * area-w - self.width / 2;
         y: area-y + g.y * area-h - self.height / 2;
         border-radius: min(self.width, self.height) / 2;
-        border-width: 1.5px;
-        border-color: Theme.surface-sunk;
+        border-width: Theme.u(0.75);
+        border-color: Theme.stage;
         background: g.hot ? white : Theme.plugin-hue("streaming");
     }
     if mode != "": Chip {
-        x: area-x + 8px;
-        y: area-y + 8px;
+        x: area-x + Theme.u(4);
+        y: area-y + Theme.u(4);
         text: mode;
         accent: true;
     }
@@ -204,14 +202,14 @@ component SwatchRow inherits HorizontalLayout {
     in property <string> code;
     in property <color> colour;
     callback clicked;
-    spacing: 10px;
+    spacing: Theme.u(5);
     Rectangle {
-        width: 52px;
-        height: 30px;
+        width: Theme.u(26);
+        height: Theme.u(15);
         y: (parent.height - self.height) / 2;
-        border-radius: 7px;
+        border-radius: Theme.u(3.5);
         border-width: 1px;
-        border-color: touch.has-hover ? Theme.border-hover : Theme.border-strong;
+        border-color: touch.has-hover ? Theme.line-hover : Theme.line-strong;
         background: root.colour;
         accessible-role: button;
         accessible-label: label + ": " + code;
@@ -222,7 +220,7 @@ component SwatchRow inherits HorizontalLayout {
         text: code;
         font-family: Theme.font;
         font-size: Theme.body;
-        color: Theme.text-dim;
+        color: Theme.ink2;
         vertical-alignment: center;
     }
 }
@@ -236,9 +234,9 @@ export component CompositeEditor inherits Window {
     }
     changed width => { WindowBox.width = self.width; }
     changed height => { WindowBox.height = self.height; }
-    background: Theme.bg;
-    min-width: 960px;
-    min-height: 600px;
+    background: Theme.ground;
+    min-width: Theme.u(480);
+    min-height: Theme.u(300);
     in property <image> picture;
     in property <int> canvas-width: 1920;
     in property <int> canvas-height: 1080;
@@ -307,17 +305,17 @@ export component CompositeEditor inherits Window {
     callback close-clicked;
 
     VerticalLayout {
-        padding-left: 20px;
-        padding-right: 20px;
-        padding-top: 18px;
-        padding-bottom: 18px;
-        spacing: 14px;
+        padding-left: Theme.u(10);
+        padding-right: Theme.u(10);
+        padding-top: Theme.u(9);
+        padding-bottom: Theme.u(9);
+        spacing: Theme.u(7);
         VerticalLayout {
-            spacing: 2px;
-            Text { text: @tr("Edit picture"); font-family: Theme.font; font-size: 19px; font-weight: 600; color: Theme.text; }
+            spacing: Theme.u(1);
+            Text { text: @tr("Edit picture"); font-family: Theme.font; font-size: Theme.u(9.5); font-weight: 600; color: Theme.ink; }
         }
         HorizontalLayout {
-            spacing: 12px;
+            spacing: Theme.u(6);
             vertical-stretch: 1;
             Rectangle {
                 horizontal-stretch: 1;
@@ -344,15 +342,14 @@ export component CompositeEditor inherits Window {
                 }
                 // The card's header widget in Qt, right of the title
                 starts := HorizontalLayout {
-                    x: parent.width - self.width - 17px;
-                    y: 15px;
+                    x: parent.width - self.width - Theme.u(8.5);
+                    y: Theme.u(7.5);
                     width: self.preferred-width;
-                    height: 32px;
-                    spacing: 6px;
-                    Text { text: @tr("Start from"); font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; }
+                    height: Theme.u(16);
+                    spacing: Theme.u(3);
+                    Text { text: @tr("Start from"); font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; }
                     for label[i] in [@tr("Side by side"), @tr("Big and small"), @tr("Grid")]: Button {
                         text: label;
-                        role: "quiet";
                         enabled: starts-enabled;
                         tip: label;
                         tip-detail: @tr("Start a new layout with the running streams arranged like this.");
@@ -361,7 +358,7 @@ export component CompositeEditor inherits Window {
                 }
             }
             Rectangle {
-                width: 384px;
+                width: Theme.u(192);
                 property <length> side-y;
                 property <bool> overflows: column.preferred-height > self.height;
                 side := Flickable {
@@ -369,8 +366,8 @@ export component CompositeEditor inherits Window {
                     viewport-y <=> side-y;
                 column := VerticalLayout {
                     x: 0;
-                    width: 374px; // Qt narrows it for the bar: here the width would hang on the height it gives
-                    spacing: 12px;
+                    width: Theme.u(187); // Qt narrows it for the bar: here the width would hang on the height it gives
+                    spacing: Theme.u(6);
                     alignment: start;
                     SideCard {
                         title: @tr("Layout");
@@ -381,7 +378,7 @@ export component CompositeEditor inherits Window {
                         action-tip-detail: @tr("Save this layout under a new name.");
                         action => { root.save-clicked(); }
                         HorizontalLayout {
-                            spacing: 6px;
+                            spacing: Theme.u(3);
                             ChoiceField {
                                 compact: true;
                                 y: (parent.height - self.height) / 2;
@@ -392,8 +389,8 @@ export component CompositeEditor inherits Window {
                                 enabled: layout-enabled;
                                 picked(i) => { root.layout-picked(i); }
                             }
-                            IconButton { icon: Icons.pencil; label: @tr("Rename"); tip: @tr("Rename"); tip-detail: @tr("Rename this layout."); clicked => { if (saved) { root.rename-clicked(); } } }
-                            IconButton { icon: Icons.trash; label: @tr("Delete"); tip: @tr("Delete"); tip-detail: @tr("Delete this layout."); clicked => { if (saved) { root.delete-clicked(); } } }
+                            IconButton { raised: true; icon: Icons.pencil; label: @tr("Rename"); tip: @tr("Rename"); tip-detail: @tr("Rename this layout."); clicked => { if (saved) { root.rename-clicked(); } } }
+                            IconButton { raised: true; icon: Icons.trash; label: @tr("Delete"); tip: @tr("Delete"); tip-detail: @tr("Delete this layout."); clicked => { if (saved) { root.delete-clicked(); } } }
                         }
                     }
                     SideCard {
@@ -401,20 +398,20 @@ export component CompositeEditor inherits Window {
                         icon: Icons.video;
                         VerticalLayout {
                             for row[i] in streams: HorizontalLayout {
-                                spacing: 12px;
+                                spacing: Theme.u(6);
                                 Text {
                                     text: row.text;
                                     font-family: Theme.font;
                                     font-size: Theme.body;
-                                    color: row.dim ? Theme.text-dim : Theme.text;
+                                    color: row.dim ? Theme.ink2 : Theme.ink;
                                     vertical-alignment: center;
                                     horizontal-stretch: 1;
                                     overflow: elide;
                                 }
                                 Rectangle {
-                                    width: 36px;
+                                    width: Theme.u(18);
                                     // 32 px only beside the note, which leaves its spare height to the rows in Qt
-                                    height: few-streams ? 32px : 28px;
+                                    height: few-streams ? Theme.u(16) : Theme.u(14);
                                     Switch {
                                         y: (parent.height - self.height) / 2;
                                         checked: row.on;
@@ -424,7 +421,7 @@ export component CompositeEditor inherits Window {
                                 }
                             }
                         }
-                        if few-streams: Note { text: @tr("Start two or more streams"); }
+                        if few-streams: Note { text: @tr("Needs two streams"); kind: "status_dim"; }
                     }
                     SideCard {
                         title: @tr("Picked stream");
@@ -436,14 +433,14 @@ export component CompositeEditor inherits Window {
                         action-enabled: fit-enabled;
                         action => { root.fit-clicked(); }
                         if tile-shown: VerticalLayout {
-                            spacing: 2px;
+                            spacing: Theme.u(1);
                             LabelRow {
-                            label-width: 72px;
+                            label-width: Theme.u(36);
                                 label: @tr("Stream");
-                                shown-tile-name := Text { text: selected-tile.name; font-family: Theme.font; font-size: Theme.body; color: Theme.text; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; Tip { says: shown-tile-name.text; enabled: shown-tile-name.preferred-width > shown-tile-name.width; inert: true; } }
+                                shown-tile-name := Text { text: selected-tile.name; font-family: Theme.font; font-size: Theme.body; color: Theme.ink; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; Tip { says: shown-tile-name.text; enabled: shown-tile-name.preferred-width > shown-tile-name.width; inert: true; } }
                             }
                             SliderRow {
-                                    label-width: 72px;
+                                    label-width: Theme.u(36);
                                     hue: Theme.plugin-hue("streaming");
                                 label: @tr("Zoom");
                                 tip-hint: @tr("Scroll to zoom and drag with the right mouse button to move. Double-click to reset.");
@@ -456,7 +453,7 @@ export component CompositeEditor inherits Window {
                                 moved(v) => { root.zoom-moved(v); }
                             }
                             SliderRow {
-                                    label-width: 72px;
+                                    label-width: Theme.u(36);
                                     hue: Theme.plugin-hue("streaming");
                                 label: @tr("Border");
                                 maximum: border-max;
@@ -469,7 +466,7 @@ export component CompositeEditor inherits Window {
                                 moved(v) => { root.border-moved(v); }
                             }
                             LabelRow {
-                            label-width: 72px;
+                            label-width: Theme.u(36);
                                 label: @tr("Colour");
                                 SwatchRow {
                                     label: @tr("Border colour");
@@ -480,7 +477,7 @@ export component CompositeEditor inherits Window {
                             }
                             if colour-target == "border": VerticalLayout {
                                 for name[i] in [@tr("Red"), @tr("Green"), @tr("Blue")]: SliderRow {
-                                    label-width: 72px;
+                                    label-width: Theme.u(36);
                                     hue: Theme.plugin-hue("streaming");
                                     label: name;
                                     minimum: 0;
@@ -491,7 +488,7 @@ export component CompositeEditor inherits Window {
                                 }
                             }
                             SliderRow {
-                                    label-width: 72px;
+                                    label-width: Theme.u(36);
                                     hue: Theme.plugin-hue("streaming");
                                 label: @tr("Corners");
                                 maximum: radius-max;
@@ -504,12 +501,12 @@ export component CompositeEditor inherits Window {
                                 moved(v) => { root.radius-moved(v); }
                             }
                             LabelRow {
-                            label-width: 72px;
+                            label-width: Theme.u(36);
                                 label: @tr("Order");
                                 HorizontalLayout {
-                                    spacing: 8px;
-                                    Button { y: 2px; text: @tr("Send back"); role: "quiet"; enabled: back-enabled; clicked => { root.restack(-1); } }
-                                    Button { y: 2px; text: @tr("Bring forward"); role: "quiet"; enabled: front-enabled; clicked => { root.restack(1); } }
+                                    spacing: Theme.u(4);
+                                    Button { y: Theme.u(1); text: @tr("Send back"); enabled: back-enabled; clicked => { root.restack(-1); } }
+                                    Button { y: Theme.u(1); text: @tr("Bring forward"); enabled: front-enabled; clicked => { root.restack(1); } }
                                 }
                             }
                         }
@@ -518,7 +515,7 @@ export component CompositeEditor inherits Window {
                         title: @tr("Background");
                         icon: Icons.image;
                         LabelRow {
-                            label-width: 72px;
+                            label-width: Theme.u(36);
                             label: @tr("Colour");
                             SwatchRow {
                                 label: @tr("Background colour");
@@ -529,7 +526,7 @@ export component CompositeEditor inherits Window {
                         }
                         if colour-target == "background": VerticalLayout {
                             for name[i] in [@tr("Red"), @tr("Green"), @tr("Blue")]: SliderRow {
-                                    label-width: 72px;
+                                    label-width: Theme.u(36);
                                     hue: Theme.plugin-hue("streaming");
                                 label: name;
                                 minimum: 0;
@@ -540,11 +537,11 @@ export component CompositeEditor inherits Window {
                             }
                         }
                         LabelRow {
-                            label-width: 72px;
+                            label-width: Theme.u(36);
                             label: @tr("Picture");
-                            shown-picture-name := Text { text: picture-name; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; Tip { says: shown-picture-name.text; enabled: shown-picture-name.preferred-width > shown-picture-name.width; inert: true; } }
-                            Button { y: 2px; text: @tr("Picture"); tip: @tr("Picture"); tip-detail: @tr("Show a picture behind the streams instead of the colour."); clicked => { root.picture-clicked(); } }
-                            if has-picture: IconButton { y: 3px; icon: Icons.x; label: @tr("No picture"); clicked => { root.no-picture(); } }
+                            shown-picture-name := Text { text: picture-name; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; Tip { says: shown-picture-name.text; enabled: shown-picture-name.preferred-width > shown-picture-name.width; inert: true; } }
+                            Button { y: Theme.u(1); text: @tr("Picture"); tip: @tr("Picture"); tip-detail: @tr("Show a picture behind the streams instead of the colour."); clicked => { root.picture-clicked(); } }
+                            if has-picture: IconButton { raised: true; y: Theme.u(1.5); icon: Icons.x; label: @tr("No picture"); clicked => { root.no-picture(); } }
                         }
                     }
                 }
@@ -552,7 +549,7 @@ export component CompositeEditor inherits Window {
                 if overflows: FlickBar {
                     x: parent.width - self.width;
                     y: 0;
-                    width: 10px;
+                    width: Theme.u(5);
                     height: parent.height;
                     content: column.preferred-height;
                     viewport: parent.height;
@@ -561,9 +558,9 @@ export component CompositeEditor inherits Window {
             }
         }
         HorizontalLayout {
-            padding-top: 4px;
+            padding-top: Theme.u(2);
             alignment: end;
-            Button { width: 96px; text: @tr("Close"); clicked => { root.close-clicked(); } }
+            Button { width: Theme.u(48); text: @tr("Close"); clicked => { root.close-clicked(); } }
         }
     }
 
@@ -572,12 +569,12 @@ export component CompositeEditor inherits Window {
         background: #00000080;
         TouchArea { }
         DialogFrame {
-            width: 420px;
+            width: Theme.u(210);
             height: self.preferred-height;
             title: asking-name ? ask-title : @tr("Replace layout");
             if asking-name: VerticalLayout {
-                spacing: 12px;
-                Text { text: @tr("Name:"); font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
+                spacing: Theme.u(6);
+                Text { text: @tr("Name:"); font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; }
                 name := TextField {
                     text: ask-start;
                     label: @tr("Name:");
@@ -585,20 +582,20 @@ export component CompositeEditor inherits Window {
                     init => { self.focus(); }
                 }
                 HorizontalLayout {
-                    spacing: 8px;
+                    spacing: Theme.u(4);
                     alignment: end;
-                    Button { width: 96px; text: @tr("Cancel"); clicked => { root.name-cancelled(); } }
-                    Button { width: 96px; text: @tr("OK"); role: "primary"; hue: Theme.plugin-hue("streaming"); clicked => { root.name-entered(name.text); } }
+                    Button { width: Theme.u(48); text: @tr("Cancel"); clicked => { root.name-cancelled(); } }
+                    Button { width: Theme.u(48); text: @tr("OK"); role: "primary"; hue: Theme.plugin-hue("streaming"); clicked => { root.name-entered(name.text); } }
                 }
             }
             if confirming: VerticalLayout {
-                spacing: 12px;
+                spacing: Theme.u(6);
                 Note { text: confirm-text; kind: ""; }
                 HorizontalLayout {
-                    spacing: 8px;
+                    spacing: Theme.u(4);
                     alignment: end;
-                    Button { width: 96px; text: @tr("No"); clicked => { root.replace-answered(false); } }
-                    Button { width: 96px; text: @tr("Yes"); role: "primary"; hue: Theme.plugin-hue("streaming"); clicked => { root.replace-answered(true); } }
+                    Button { width: Theme.u(48); text: @tr("No"); clicked => { root.replace-answered(false); } }
+                    Button { width: Theme.u(48); text: @tr("Yes"); role: "primary"; hue: Theme.plugin-hue("streaming"); clicked => { root.replace-answered(true); } }
                 }
             }
         }

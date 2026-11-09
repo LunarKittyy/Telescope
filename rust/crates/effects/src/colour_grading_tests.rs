@@ -231,7 +231,7 @@ fn a_lut_file_loads_shows_its_strength_and_comes_off_again() {
     assert_eq!(r.plugin.get_config()["lut"], json!(path.display().to_string()));
     r.ui("clear-clicked", vec![]);
     assert!(r.plugin.stage().is_none());
-    assert_eq!(r.shown("lut-text"), json!("No LUT loaded"));
+    assert_eq!(r.shown("lut-text"), json!(""));
     assert!(r.saves() >= 3);
 }
 

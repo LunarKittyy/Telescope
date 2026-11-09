@@ -1,6 +1,6 @@
 // The video stage (plugins/preview.py): the letterboxed picture and the toolbar under it, no card chrome.
 
-import { Theme, Icons, Icon, IconButton, ToggleTile } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, IconButton, ToggleTile, Arrival } from "@ui-kit/ui-kit.slint";
 import { PreviewMarks, PreviewPick, LensOutline, SkeletonLine } from "../../shell/preview.slint";
 
 // A shape a plugin draws on the preview (add_preview_layer), in px of the picture's rect
@@ -77,25 +77,32 @@ export component PreviewCard inherits Rectangle {
     callback smooth-clicked;
 
     visible: visible-card;
-    preferred-height: 240px + Theme.row + Theme.u(8);
-    background: Theme.surface-sunk;
+    preferred-height: Theme.u(120) + Theme.row + Theme.u(8);
+    background: Theme.stage;
     border-radius: Theme.r-card;
     clip: true;
 
     VerticalLayout {
         spacing: 0px;
         surface := Rectangle {
-            min-height: 240px;
+            min-height: Theme.u(120);
             vertical-stretch: 1;
-            background: Theme.surface-sunk;
+            background: Theme.stage;
             accessible-role: image;
             accessible-label: @tr("Preview");
-            if has-frame: Image {
+            // The first picture takes the idle text's place in one frame and comes up to full
+            if has-frame: Rectangle {
                 width: parent.width;
                 height: parent.height;
-                source: frame;
-                image-fit: contain;
-                image-rendering: smooth;
+                opacity: arrival.solid;
+                arrival := Arrival { }
+                Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: frame;
+                    image-fit: contain;
+                    image-rendering: smooth;
+                }
             }
             if has-frame && has-overlay: Image {
                 width: parent.width;
@@ -143,16 +150,16 @@ export component PreviewCard inherits Rectangle {
             }
             if !has-frame: VerticalLayout {
                 alignment: center;
-                spacing: 12px;
+                spacing: Theme.u(6);
                 if camera-off: HorizontalLayout {
                     alignment: center;
-                    Icon { source: Icons.camera-off; tint: Theme.dis; width: 52px; height: 52px; accessible-role: none; }
+                    Icon { source: Icons.camera-off; tint: Theme.dis; width: Theme.u(26); height: Theme.u(26); accessible-role: none; }
                 }
                 Text {
                     text: stage-text;
                     horizontal-alignment: center;
                     font-family: Theme.font;
-                    font-size: camera-off ? 15px : 13px;
+                    font-size: camera-off ? Theme.u(7.5) : Theme.u(6.5);
                     color: camera-off ? Theme.ink2 : Theme.faint;
                 }
             }
@@ -173,18 +180,18 @@ export component PreviewCard inherits Rectangle {
                     if u < 0 || u > 1 || v < 0 || v > 1 || e.delta-y == 0 {
                         return reject;
                     }
-                    root.view-wheel(u, v, e.delta-y / 60px); // a notch of the wheel is 60 px here
+                    root.view-wheel(u, v, e.delta-y / Theme.u(30)); // a notch of the wheel is 60 px here
                     accept
                 }
             }
             if has-frame && marker-shown: Rectangle {
-                x: pic-x + marker-u * pic-width - 22px;
-                y: pic-y + marker-v * pic-height - 22px;
-                width: 44px;
-                height: 44px;
-                border-width: 2px;
+                x: pic-x + marker-u * pic-width - Theme.u(11);
+                y: pic-y + marker-v * pic-height - Theme.u(11);
+                width: Theme.u(22);
+                height: Theme.u(22);
+                border-width: Theme.u(1);
                 border-color: Theme.accent-soft;
-                border-radius: 6px;
+                border-radius: Theme.r-ctl;
             }
             if picking: PreviewPick {
                 width: parent.width;

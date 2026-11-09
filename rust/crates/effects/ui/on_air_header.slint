@@ -6,7 +6,7 @@ export component OnAirButton inherits Rectangle {
     in property <string> tip;
     callback clicked;
     visible: shown;
-    height: 36px;
+    height: Theme.u(18);
     width: shown ? button.min-width : 0px;
     button := Button {
         width: parent.width;

@@ -1134,7 +1134,7 @@ impl Plugin for WebcamPlugin {
                 self.set_jog(host, &name, jog_level(offset));
                 return;
             }
-            "action" => self.reset_controls(host),
+            "action" | "reset" => self.reset_controls(host),
             _ => return,
         }
         self.render(host);

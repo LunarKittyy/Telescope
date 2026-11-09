@@ -29,7 +29,7 @@ component Note inherits Text {
     in property <string> kind: "status_dim";
     font-family: Theme.font;
     font-size: Theme.body;
-    color: kind == "status_warn" ? Theme.warn : kind == "" ? Theme.text : Theme.text-dim;
+    color: kind == "status_warn" ? Theme.warn : kind == "" ? Theme.ink : Theme.ink2;
     wrap: word-wrap;
     vertical-alignment: center;
 }
@@ -43,8 +43,8 @@ component Strip inherits Rectangle {
     min-height: 48px;
     border-radius: 9px;
     border-width: 1px;
-    border-color: touch.has-hover ? Theme.border-hover : Theme.border;
-    background: Theme.surface-raise;
+    border-color: touch.has-hover ? Theme.line-hover : Theme.line;
+    background: Theme.raise;
     menu := ContextMenuArea {
         Menu {
             MenuItem {
@@ -74,14 +74,14 @@ component Strip inherits Rectangle {
                     width: min(key.preferred-width + 16px, 150px);
                     border-radius: 6px;
                     border-width: 1px;
-                    border-color: Theme.border-strong;
-                    background: Theme.bg;
+                    border-color: Theme.line-strong;
+                    background: Theme.ground;
                     key := Text {
                         text: item.keys;
                         font-family: Theme.font;
                         font-size: Theme.body;
                         font-weight: 600;
-                        color: Theme.text;
+                        color: Theme.ink;
                         overflow: elide;
                         width: parent.width - 16px;
                         horizontal-alignment: center;
@@ -99,18 +99,18 @@ component Strip inherits Rectangle {
                 text: item.does;
                 font-family: Theme.font;
                 font-size: Theme.body;
-                color: Theme.text;
+                color: Theme.ink;
                 overflow: elide;
             }
             Text {
                 text: item.where;
                 font-family: Theme.font;
                 font-size: Theme.small;
-                color: item.ok ? Theme.text-dim : Theme.warn;
+                color: item.ok ? Theme.ink2 : Theme.warn;
                 overflow: elide;
             }
         }
-        IconButton {
+        IconButton { raised: true;
             y: (parent.height - self.height) / 2;
             icon: Icons.pencil;
             label: item.edit-label;
@@ -118,7 +118,7 @@ component Strip inherits Rectangle {
             tip-detail: @tr("Change the keys of this shortcut.");
             clicked => { root.edit(); }
         }
-        IconButton {
+        IconButton { raised: true;
             y: (parent.height - self.height) / 2;
             icon: Icons.trash;
             label: item.remove-label;
@@ -136,8 +136,8 @@ component KeyBox inherits Rectangle {
     horizontal-stretch: 1;
     border-radius: 7px;
     border-width: 1px;
-    background: Theme.surface-raise;
-    border-color: focus.has-focus ? Theme.accent : touch.has-hover ? Theme.border-hover : Theme.border-strong;
+    background: Theme.raise;
+    border-color: focus.has-focus ? Theme.accent : touch.has-hover ? Theme.line-hover : Theme.line-strong;
     accessible-role: text-input;
     accessible-label: @tr("Key");
     accessible-value: text;
@@ -159,10 +159,10 @@ component KeyBox inherits Rectangle {
             text: root.text != "" ? root.text : focus.has-focus ? @tr("Press a key") : "Press shortcut";
             font-family: Theme.font;
             font-size: Theme.body;
-            color: root.text != "" ? Theme.text : Theme.text-faint;
+            color: root.text != "" ? Theme.ink : Theme.faint;
             vertical-alignment: center;
         }
-        if root.text != "": IconButton {
+        if root.text != "": IconButton { raised: true;
             width: 26px;
             height: 26px;
             y: (parent.height - self.height) / 2;

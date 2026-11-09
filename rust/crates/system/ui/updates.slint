@@ -6,7 +6,7 @@ import { Theme, Icons, Icon, Button, Card, RailRow, SwitchRow, ChoiceField, Swit
 global Status {
     public pure function color(kind: string) -> color {
         kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
-            : kind == "status_dim" ? Theme.text-dim : Theme.text
+            : kind == "status_dim" ? Theme.ink2 : Theme.ink
     }
 }
 
@@ -147,25 +147,23 @@ export component UpdatesSettings inherits Card {
         checked: portable;
         toggled(on) => { root.portable-toggled(on); }
     }
-    // Qt's control_row keeps its height with nothing shown in it, so these three rows do too
-    RailRow {
+    // Rows that have nothing to say are left out, so the card is only as tall as what it shows
+    if status-text != "": RailRow {
         has-icon: false;
         Note { text: status-text; kind: status-kind; horizontal-stretch: 1; }
     }
-    RailRow {
+    if actions-shown: RailRow {
         has-icon: false;
         HorizontalLayout {
-            visible: actions-shown;
-            spacing: 8px;
+            spacing: Theme.u(4);
             alignment: start;
             Button { text: @tr("What's new"); clicked => { root.notes(); } }
             Button { text: update-text; role: "primary"; hue: Theme.plugin-hue("extras"); enabled: update-enabled; clicked => { root.update(); } }
         }
     }
-    RailRow {
+    if retry-shown: RailRow {
         has-icon: false;
         HorizontalLayout {
-            visible: retry-shown;
             alignment: start;
             Button { text: @tr("Try again"); enabled: !busy; clicked => { root.retry(); } }
         }

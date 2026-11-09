@@ -23,7 +23,7 @@ use telescope_core::people::{self, Track};
 use telescope_core::pose::Person;
 use telescope_core::view::Geometry;
 use telescope_core::i18n::{n_, number, percent, tr};
-use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
+use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::settings::SettingSpec;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
@@ -46,7 +46,6 @@ const WHEEL_TIPS: [&str; 4] = [
 ];
 const WHEEL_TIP: &str = n_("Drag towards a colour to add it.");
 const WHEEL_HINT: &str = n_("Hold Shift to go slower. Double-click to reset.");
-const NO_LUT: &str = n_("No LUT loaded");
 const CANT_OPEN: &str = n_("Telescope can't open that file.");
 const CANT_SAVE: &str = n_("Telescope couldn't save the LUT there.");
 const SAVED: &str = n_("Saved {file}.");
@@ -423,7 +422,16 @@ impl ColourGradingPlugin {
             "wheel-colour": self.wheels.iter().map(|w| wheel_colour(w.x, w.y, 1.6)).collect::<Vec<_>>(),
             "master-value": masters,
             "master-text": texts,
+            "grade-lit": self.off_default(),
         })
+    }
+
+    /// Anything Reset would change: every setting but the LUT, which has its own way off.
+    fn off_default(&self) -> bool {
+        let (g, d) = (&self.grade, Grade::default());
+        g.temperature != d.temperature || g.tint != d.tint || g.wheels != d.wheels || g.masters != d.masters || g.contrast != d.contrast
+            || g.pivot != d.pivot || g.shadows != d.shadows || g.highlights != d.highlights || g.saturation != d.saturation
+            || g.vibrance != d.vibrance || g.curves != d.curves || g.hue_sat != d.hue_sat || g.hue_hue != d.hue_hue
     }
 
     fn slider_text(def: &SliderDef, value: f64) -> String {
@@ -433,7 +441,7 @@ impl ColourGradingPlugin {
     fn slider_props(&self) -> Value {
         let values: Vec<f64> = SLIDERS.iter().map(|d| (slider_value(&self.grade, d.key) * d.steps).round_ties_even() / d.steps).collect();
         let texts: Vec<String> = SLIDERS.iter().map(|d| Self::slider_text(d, slider_value(&self.grade, d.key))).collect();
-        json!({"slider-value": values, "slider-text": texts})
+        json!({"slider-value": values, "slider-text": texts, "grade-lit": self.off_default()})
     }
 
     fn curve_props(&self) -> Value {
@@ -447,13 +455,14 @@ impl ColourGradingPlugin {
             "curve-points": self.editor.points.iter().map(|p| json!({"x": p.0, "y": p.1})).collect::<Vec<_>>(),
             "curve-picked": self.editor.picked,
             "curve-colour": if tone { CHANNEL_COLOURS[self.channel] } else { LOOK_HUE },
+            "grade-lit": self.off_default(),
         })
     }
 
     fn lut_props(&self) -> Value {
         let name = Path::new(&self.lut_path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         json!({
-            "lut-text": if self.lut_path.is_empty() { tr(NO_LUT) } else { name },
+            "lut-text": name,
             "lut-path": self.lut_path,
             "lut-loaded": !self.lut_path.is_empty(),
             "strength": (self.grade.lut_strength * 100.0).round_ties_even(),
@@ -946,6 +955,7 @@ impl Plugin for ColourGradingPlugin {
 
     fn setup(&mut self, host: &mut dyn Host) {
         self.auto.poster = host.poster();
+        self.auto.ready = host.is_streaming() && host.focused_source_id().is_some();
         self.show(host, &ColourGradingPlugin::fixed_props());
         self.show_all(host);
     }
@@ -994,8 +1004,15 @@ impl Plugin for ColourGradingPlugin {
         }
     }
 
+    fn on_stream_start(&mut self, host: &mut dyn Host, _stream: &StreamInfo) {
+        self.auto.ready = true;
+        self.show_auto(host);
+    }
+
     fn on_stream_stop(&mut self, host: &mut dyn Host) {
         self.auto_abort(host);
+        self.auto.ready = false;
+        self.show_auto(host);
     }
 
     fn frame_step(&mut self) -> Option<FrameStep> {

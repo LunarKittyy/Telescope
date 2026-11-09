@@ -199,9 +199,9 @@
  },
  {
   "name": "notes",
-  "title": "Notes",
-  "about": "Shows your notes on the phone's screen right under the camera, to read while looking people in the eye.",
-  "when_off": "Without it there's no Notes card and the phone never shows notes.",
+  "title": "Teleprompter",
+  "about": "Shows your script on the phone's screen right under the camera, to read while looking people in the eye.",
+  "when_off": "Without it there's no Teleprompter card and the phone never shows a script.",
   "required": false,
   "optional": true,
   "needs_vision": false,

@@ -179,7 +179,11 @@ pub struct ChromaKeyPlugin {
     picture_path: String,
     picture: Option<Frame>,
     picture_problem: String,
-    status: Option<String>,
+    /// The picture's small copy for the Choose control, and whether the card has it yet.
+    thumb: Option<Frame>,
+    thumb_sent: bool,
+    /// What the last pick said: a short word, and the sentence for its tooltip.
+    status: Option<(String, String)>,
     paired: Paired,
     held: Option<bool>,
     /// Keying waits while the screen's colour is picked, so the screen shows to click on.
@@ -216,6 +220,8 @@ impl ChromaKeyPlugin {
             picture_path: String::new(),
             picture: None,
             picture_problem: String::new(),
+            thumb: None,
+            thumb_sent: true,
             status: None,
             paired: Paired::default(),
             held: None,
@@ -246,17 +252,6 @@ impl ChromaKeyPlugin {
 
     // ── What the card shows ───────────────────────────────────────────
 
-    /// The text under the controls: why the picture behind you isn't there yet.
-    fn note(&self) -> String {
-        if self.on && self.background == "picture" && !self.picture_problem.is_empty() {
-            self.picture_problem.clone()
-        } else if self.on && self.background == "picture" && self.picture.is_none() {
-            tr("Choose a picture to put behind you.")
-        } else {
-            String::new()
-        }
-    }
-
     fn fixed_props() -> Value {
         json!({
             "switch-name": tr("Chroma key"),
@@ -271,7 +266,7 @@ impl ChromaKeyPlugin {
 
     fn all_props(&self) -> Value {
         let picked_tip = if self.picked.is_some() { tr("The colour picked from the preview. Click to pick again.") } else { String::new() };
-        let text = self.note();
+        let text = self.status_text();
         let (r, g, b) = (self.colour[2], self.colour[1], self.colour[0]);
         json!({
             "active": self.paired.on(),
@@ -290,22 +285,30 @@ impl ChromaKeyPlugin {
             "colour-v": self.hsv.2,
             "colour-hex": hex([r, g, b]),
             "channel-value": [r, g, b],
-            "picture-text": if self.picture_path.is_empty() { tr("No picture yet") } else { file_name(&self.picture_path) },
+            "picture-text": file_name(&self.picture_path),
+            "has-picture": self.picture.is_some(),
+            "picture-problem": self.picture_problem,
             "picture-tip": self.picture_path,
             "status": text,
+            "status-detail": self.status.as_ref().map(|s| s.1.clone()).unwrap_or_default(),
             "status-kind": if self.status_text().is_empty() { "status_dim" } else { "status_warn" },
         })
     }
 
     /// What the status line says: a message from the last pick, else the note about the picture.
     fn status_text(&self) -> String {
-        self.status.clone().unwrap_or_else(|| self.note())
+        self.status.as_ref().map(|s| s.0.clone()).unwrap_or_default()
     }
 
-    fn show(&self, host: &mut dyn Host) {
+    fn show(&mut self, host: &mut dyn Host) {
         let mut props = self.all_props();
         props["status"] = json!(self.status_text());
         host.set_ui_props("card", &props);
+        if !self.thumb_sent {
+            self.thumb_sent = true;
+            let empty = Frame::new(0, 0, telescope_core::frame::PixelFormat::Rgba, Vec::new());
+            host.set_ui_image("card", "picture-thumb", self.thumb.as_ref().unwrap_or(&empty));
+        }
     }
 
     fn catch_up(&mut self, host: &mut dyn Host) {
@@ -348,7 +351,7 @@ impl ChromaKeyPlugin {
 
     fn pick(&mut self, host: &mut dyn Host) {
         if !host.pick_on_preview(NAME, PickKind::Point, None, &tr("Click the screen behind you on the preview. Esc cancels.")) {
-            self.status = Some(tr("Start streaming to pick the screen's colour on the preview."));
+            self.status = Some((tr("Not streaming"), tr("Start streaming to pick the screen's colour on the preview.")));
             self.show(host);
         }
     }
@@ -366,7 +369,7 @@ impl ChromaKeyPlugin {
         };
         let colour = sample(&frame, at[0] as f64, at[1] as f64);
         if !keyable(colour) {
-            self.status = Some(tr("That spot has hardly any colour. Click the screen itself."));
+            self.status = Some((tr("No colour there"), tr("That spot has hardly any colour. Click the screen itself.")));
             self.show(host);
             return;
         }
@@ -384,7 +387,7 @@ impl ChromaKeyPlugin {
 
     fn pick_backdrop(&mut self, host: &mut dyn Host) {
         if !host.pick_on_preview(BACKDROP_OWNER, PickKind::Point, None, &tr("Click a colour on the preview. Esc cancels.")) {
-            self.status = Some(tr("Start streaming to pick a colour on the preview."));
+            self.status = Some((tr("Not streaming"), tr("Start streaming to pick a colour on the preview.")));
             self.show(host);
         }
     }
@@ -411,7 +414,9 @@ impl ChromaKeyPlugin {
     fn load_picture(&mut self, path: &str) {
         self.picture_path = path.to_string();
         self.picture = if path.is_empty() { None } else { (self.reader)(path).ok().filter(|f| f.width > 0 && f.height > 0) };
-        self.picture_problem = if !path.is_empty() && self.picture.is_none() { tr("Telescope can't open that picture.") } else { String::new() };
+        self.thumb = self.picture.as_ref().map(|p| crate::shared::picture_thumb(p, 96));
+        self.thumb_sent = false;
+        self.picture_problem = if !path.is_empty() && self.picture.is_none() { tr("Can't open that picture") } else { String::new() };
     }
 
     // ── The stream ────────────────────────────────────────────────────

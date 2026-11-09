@@ -26,6 +26,24 @@ pub fn no_pictures() -> PictureReader {
     Arc::new(|_| Err("no picture reader".into()))
 }
 
+/// A small copy of a picture for a control to show: at most this many columns wide.
+pub(crate) fn thumb_of(rgb: &crate::cpu::Rgb, columns: usize) -> Frame {
+    let small = crate::scopes::shrink(rgb, columns);
+    let mut data = Vec::with_capacity(small.w * small.h * 4);
+    for p in small.data.as_chunks::<3>().0 {
+        data.extend_from_slice(&[p[0], p[1], p[2], 255]);
+    }
+    Frame::new(small.w as u32, small.h as u32, telescope_core::frame::PixelFormat::Rgba, data)
+}
+
+/// The same for a frame, empty when it can't be read.
+pub(crate) fn picture_thumb(frame: &Frame, columns: usize) -> Frame {
+    match crate::cpu::Rgb::from_frame(frame) {
+        Some(rgb) => thumb_of(&rgb, columns),
+        None => Frame::new(0, 0, telescope_core::frame::PixelFormat::Rgba, Vec::new()),
+    }
+}
+
 /// A colour as "#rrggbb".
 pub fn hex(rgb: [u8; 3]) -> String {
     format!("#{:02x}{:02x}{:02x}", rgb[0], rgb[1], rgb[2])

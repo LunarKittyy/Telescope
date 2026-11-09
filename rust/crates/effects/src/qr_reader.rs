@@ -588,7 +588,7 @@ impl QrReaderPlugin {
         if reached {
             self.show(host, &shown, "status_ok");
         } else {
-            self.show(host, &tr("Found a code. Click Copy to put it on the clipboard."), "status_warn");
+            self.show(host, &tr("Found a code"), "status_warn");
         }
         if self.notify {
             if reached {

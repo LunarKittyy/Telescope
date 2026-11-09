@@ -205,6 +205,8 @@ pub struct AutoState {
     pub shared: Arc<Shared>,
     pub poster: Option<Arc<dyn Poster>>,
     pub busy: bool,
+    /// A stream is running for Auto to look at; without one the button is dimmed.
+    pub ready: bool,
     /// The token of an outside measuring request (picture_measure_requested) this measurement answers, instead of changing any slider.
     pub probe: Option<String>,
     pub lock: Option<CameraLock>,
@@ -219,12 +221,12 @@ pub struct AutoState {
 
 impl Default for AutoState {
     fn default() -> AutoState {
-        AutoState { now: Arc::new(monotonic_ns), shared: Arc::default(), poster: None, busy: false, probe: None, lock: None, wrote: false, note: (String::new(), "dim"), label: String::new(), last: None }
+        AutoState { now: Arc::new(monotonic_ns), shared: Arc::default(), poster: None, busy: false, ready: false, probe: None, lock: None, wrote: false, note: (String::new(), "dim"), label: String::new(), last: None }
     }
 }
 
 impl AutoState {
     pub fn props(&self) -> Value {
-        json!({"auto-busy": self.busy, "auto-label": if self.busy { tr(LOOKING_LABEL) } else { self.label.clone() }})
+        json!({"auto-busy": self.busy, "auto-ready": self.ready, "auto-label": if self.busy { tr(LOOKING_LABEL) } else { self.label.clone() }})
     }
 }

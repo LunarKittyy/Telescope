@@ -45,14 +45,14 @@ export component McpSettings inherits VerticalLayout {
                     text: none-text;
                     font-family: Theme.font;
                     font-size: Theme.body;
-                    color: Theme.text-faint;
+                    color: Theme.faint;
                     vertical-alignment: center;
                 }
                 for name in clients: Text {
                     text: name;
                     font-family: Theme.font;
                     font-size: Theme.body;
-                    color: Theme.text;
+                    color: Theme.ink;
                     overflow: elide;
                     vertical-alignment: center;
                 }
@@ -99,7 +99,7 @@ export component McpSettings inherits VerticalLayout {
                             text: command;
                             font-family: Theme.mono;
                             font-size: 12px;
-                            color: Theme.text;
+                            color: Theme.ink;
                             wrap: word-wrap;
                             vertical-alignment: center;
                             accessible-role: none;
@@ -108,7 +108,7 @@ export component McpSettings inherits VerticalLayout {
                 }
                 VerticalLayout {
                     alignment: center;
-                    IconButton {
+                    IconButton { raised: true;
                         icon: Icons.copy;
                         label: @tr("Copy");
                         tip: @tr("Copy");
@@ -129,7 +129,7 @@ export component McpSettings inherits VerticalLayout {
             text: log-empty;
             font-family: Theme.font;
             font-size: Theme.body;
-            color: Theme.text-faint;
+            color: Theme.faint;
             height: 28px;
             vertical-alignment: center;
         }
@@ -144,7 +144,7 @@ export component McpSettings inherits VerticalLayout {
                     text: row.time;
                     font-family: Theme.font;
                     font-size: Theme.small;
-                    color: Theme.text-faint;
+                    color: Theme.faint;
                     vertical-alignment: center;
                     accessible-role: none;
                 }
@@ -153,7 +153,7 @@ export component McpSettings inherits VerticalLayout {
                     text: row.who;
                     font-family: Theme.font;
                     font-size: Theme.small;
-                    color: Theme.text-dim;
+                    color: Theme.ink2;
                     overflow: elide;
                     vertical-alignment: center;
                     accessible-role: none;
@@ -164,7 +164,7 @@ export component McpSettings inherits VerticalLayout {
                     text: row.text;
                     font-family: Theme.font;
                     font-size: Theme.body;
-                    color: row.kind == "refused" ? Theme.warn : Theme.text;
+                    color: row.kind == "refused" ? Theme.warn : Theme.ink;
                     overflow: elide;
                     vertical-alignment: center;
                     accessible-role: none;
@@ -229,42 +229,29 @@ export component McpButton inherits Rectangle {
     callback undo;
     visible: shown;
     height: Theme.u(18);
-    width: shown ? Theme.u(56) + Theme.gap + Theme.u(18) : 0px;
+    width: shown ? Theme.u(18) + Theme.u(1) + Theme.u(18) : 0px;
     HorizontalLayout {
         spacing: Theme.u(1);
         Segment {
-            horizontal-stretch: 1;
+            width: Theme.u(18);
             label: open-label;
             tip: @tr("MCP");
             tip-detail: open-tip;
-            outlined: activity == "change";
+            outlined: activity != "";
             clicked => { root.open(); }
+            // The MCP glyph on a raised square like the bar's other buttons: an AI app's work on the picture is the outline
+            // (the Segment's own), and whether one is connected is in the tooltip
             HorizontalLayout {
-                padding-left: Theme.u(6);
-                padding-right: Theme.u(5);
-                spacing: Theme.u(4);
-                alignment: start;
+                alignment: center;
                 VerticalLayout {
-                    width: Theme.u(4);
                     alignment: center;
-                    Rectangle {
-                        height: Theme.u(4);
-                        border-radius: self.height / 2;
-                        border-width: connected ? 0px : Theme.u(0.75);
-                        border-color: Theme.faint;
-                        background: !connected ? transparent : activity == "change" ? Theme.accent : activity == "read" ? Theme.accent-soft : Theme.ok;
-                        animate background { duration: Motion.fades ? Motion.outline-out : 0ms; easing: Motion.tone; }
-                        accessible-role: none;
+                    Icon {
+                        source: Icons.plug;
+                        tint: connected ? Theme.ink : Theme.ink2;
+                        width: Theme.icon;
+                        height: Theme.icon;
+                        animate tint { duration: Motion.fades ? Motion.outline-out : 0ms; easing: Motion.tone; }
                     }
-                }
-                Text {
-                    text: @tr("MCP");
-                    font-family: Theme.font;
-                    font-size: Theme.body;
-                    font-weight: Theme.w-value;
-                    color: connected ? Theme.ink : Theme.ink2;
-                    vertical-alignment: center;
-                    accessible-role: none;
                 }
             }
         }

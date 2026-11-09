@@ -51,8 +51,9 @@ component ShotArt inherits Rectangle {
 }
 
 export component PhotosCard inherits Card {
-    // Greyed out until a phone is paired, and gone for a source that isn't a phone or a camera that takes photos
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired, and gone for a source that isn't a phone or a camera that takes photos
     in property <bool> shown: true;
     in property <string> take-text;
     in property <string> take-tip;
@@ -109,6 +110,16 @@ export component PhotosCard inherits Card {
     in property <string> folder-name;
     in property <bool> folder-changed;
     in property <string> folder-tip;
+    // The last options there were, kept while the Exposure row folds away
+    property <[string]> held-iso;
+    property <[string]> held-shutter;
+    function keep() {
+        if (iso-options.length > 0) { held-iso = iso-options; }
+        if (shutter-options.length > 0) { held-shutter = shutter-options; }
+    }
+    init => { keep(); }
+    changed iso-options => { keep(); }
+    changed shutter-options => { keep(); }
     callback take-clicked;
     callback open-clicked;
     callback tile-picked(string, int);
@@ -125,61 +136,52 @@ export component PhotosCard inherits Card {
     tip: @tr("Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it.");
     icon: Icons.photo;
     visible: shown;
-    opacity: active ? 1 : 0.4;
     enabled: active;
 
-    RailRow {
-        icon: Icons.aperture;
-        label: @tr("Take photo");
-        hue: root.hue;
-        enabled: active;
-        HorizontalLayout {
-            spacing: Theme.gap;
-            Button { horizontal-stretch: 1; preferred-width: 1000px; text: take-text; tip: take-text; tip-detail: take-tip; role: "primary"; hue: root.hue; enabled: active && take-enabled; shortcut: "photos.take"; clicked => { root.take-clicked(); } }
-            IconButton { icon: Icons.folder; label: open-text; tip: open-text; tip-detail: open-tip; enabled: active && open-enabled; clicked => { root.open-clicked(); } }
-        }
-    }
-    if status != "": RailRow {
-        has-icon: false;
-        Text {
-            horizontal-stretch: 1;
-            height: Theme.row;
-            text: status;
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: Status.color(status-kind);
-            vertical-alignment: center;
-            overflow: elide;
-            Tip { says: root.status; inert: true; }
-        }
-    }
-    if iso-options.length > 0 || shutter-options.length > 0: RailRow {
-        icon: Icons.exposure;
-        label: @tr("Exposure");
-        hue: root.hue;
-        enabled: active;
-        HorizontalLayout {
-            spacing: Theme.gap;
-            if iso-options.length > 0: Dial {
-                label: @tr("ISO");
-                tip: @tr("ISO");
-                tip-detail: @tr("Higher ISO makes the photo brighter but grainier.");
-                hue: root.hue;
-                enabled: active;
-                stops: iso-options;
-                current: iso-index;
-                moved(i) => { root.tile-picked("iso", i); }
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.aperture;
+            label: @tr("Take photo");
+            hue: root.hue;
+            enabled: active;
+            HorizontalLayout {
+                spacing: Theme.gap;
+                Button { horizontal-stretch: 1; preferred-width: 1000px; text: take-text; tip: take-text; tip-detail: take-tip; role: "primary"; hue: root.hue; enabled: active && take-enabled; shortcut: "photos.take"; clicked => { root.take-clicked(); } }
+                IconButton { raised: true; icon: Icons.folder; label: open-text; tip: open-text; tip-detail: open-tip; enabled: active && open-enabled; clicked => { root.open-clicked(); } }
             }
-            if shutter-options.length > 0: Dial {
-                label: @tr("Shutter");
-                tip: @tr("Shutter");
-                tip-detail: @tr("Slower shutter speeds make the photo brighter but blur movement.");
-                hue: root.hue;
-                enabled: active;
-                stops: shutter-options;
-                current: shutter-index;
-                moved(i) => { root.tile-picked("shutter", i); }
-            }
+        }
+        StatusUnfold { text: status; kind: status-kind; }
+        Unfolding {
+            open: iso-options.length > 0 || shutter-options.length > 0;
+            RailRow {
+                    icon: Icons.exposure;
+                    label: @tr("Exposure");
+                    hue: root.hue;
+                    enabled: active;
+                    HorizontalLayout {
+                        spacing: Theme.gap;
+                        if held-iso.length > 0: Dial {
+                            label: @tr("ISO");
+                            tip: @tr("ISO");
+                            tip-detail: @tr("Higher ISO makes the photo brighter but grainier.");
+                            hue: root.hue;
+                            enabled: active;
+                            stops: held-iso;
+                            current: iso-index;
+                            moved(i) => { root.tile-picked("iso", i); }
+                        }
+                        if held-shutter.length > 0: Dial {
+                            label: @tr("Shutter");
+                            tip: @tr("Shutter");
+                            tip-detail: @tr("Slower shutter speeds make the photo brighter but blur movement.");
+                            hue: root.hue;
+                            enabled: active;
+                            stops: held-shutter;
+                            current: shutter-index;
+                            moved(i) => { root.tile-picked("shutter", i); }
+                        }
+                    }
+                }
         }
     }
     RailRow {
@@ -347,7 +349,7 @@ export component PhotosCard inherits Card {
         changed: folder-changed;
         Button {
             horizontal-stretch: 1;
-            preferred-width: 1000px;
+            preferred-width: Theme.u(500);
             shrinks: true;
             text: folder-name;
             tip: @tr("Save in");

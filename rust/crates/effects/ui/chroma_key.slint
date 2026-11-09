@@ -10,8 +10,9 @@ component Swatch inherits Rectangle {
 }
 
 export component ChromaKeyCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     in property <bool> on: false;
     in property <string> switch-name;
     in property <string> switch-help;
@@ -37,8 +38,12 @@ export component ChromaKeyCard inherits Card {
     in property <string> pipette-tip;
     in property <string> picture-text;
     in property <string> picture-tip;
+    in property <image> picture-thumb;
+    in property <bool> has-picture;
+    in property <string> picture-problem;
     in property <string> picture-choose-tip;
     in property <string> status;
+    in property <string> status-detail;
     in property <string> status-kind: "status_dim";
     callback switch-toggled-by-hand(bool);
     callback screen-picked(int);
@@ -53,7 +58,6 @@ export component ChromaKeyCard inherits Card {
     title: @tr("Chroma key");
     tip: @tr("Replace a green or blue screen behind you with a colour or a picture.");
     icon: Icons.eyedropper;
-    opacity: active ? 1 : 0.4;
     enabled: active;
     has-switch: true;
     switch-shortcut: "chroma_key.on";
@@ -73,7 +77,7 @@ export component ChromaKeyCard inherits Card {
         Rectangle {
             horizontal-stretch: 1;
             HorizontalLayout {
-                spacing: 8px;
+                spacing: Theme.u(4);
                 Segmented {
                     hue: root.hue;
                     items: [@tr("Green"), @tr("Blue"), @tr("Picked")];
@@ -116,82 +120,75 @@ export component ChromaKeyCard inherits Card {
         default-value: i == 0 ? 40 : i == 1 ? 30 : 60;
         moved(v) => { root.slider-moved(i, v); }
     }
-    RailRow {
-        icon: Icons.person;
-        label: @tr("Behind you");
-        tip-detail: @tr("Put a colour or a picture where the screen was.");
-        hue: root.hue;
-        enabled: active;
-        Segmented {
-            hue: root.hue;
-            items: [@tr("Colour"), @tr("Picture")];
-            disabled: [!active, !active];
-            has-icons: [false, false];
-            icons: [Icons.image, Icons.image];
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.person;
             label: @tr("Behind you");
-            tips: [@tr("Colour"), @tr("Picture")];
-            current: behind;
-            picked(i) => { root.background-picked(i); }
-        }
-    }
-    if behind == 0: RailRow {
-        icon: Icons.colour;
-        label: @tr("Colour");
-        hue: root.hue;
-        enabled: active;
-        ColourField {
-            enabled: active;
-            colour: backdrop-colour;
-            h: colour-h;
-            s: colour-s;
-            v: colour-v;
-            hex: colour-hex;
-            channels: channel-value;
+            tip-detail: @tr("Put a colour or a picture where the screen was.");
             hue: root.hue;
-            label: @tr("Colour behind you");
-            tip: @tr("Colour");
-            tip-detail: colour-tip;
-            pipette-tip: pipette-tip;
-            can-pick: active;
-            moved(h, s, v) => { root.colour-moved(h, s, v); }
-            hex-typed(text) => { root.hex-typed(text); }
-            channel-typed(i, text) => { root.channel-typed(i, text); }
-            pipette-clicked => { root.pipette-clicked(); }
+            enabled: active;
+            Segmented {
+                hue: root.hue;
+                items: [@tr("Colour"), @tr("Picture")];
+                disabled: [!active, !active];
+                has-icons: [false, false];
+                icons: [Icons.image, Icons.image];
+                label: @tr("Behind you");
+                tips: [@tr("Colour"), @tr("Picture")];
+                current: behind;
+                picked(i) => { root.background-picked(i); }
+            }
         }
-    }
-    if behind == 1: RailRow {
-        icon: Icons.photo;
-        label: @tr("Picture");
-        hue: root.hue;
-        enabled: active;
-        HorizontalLayout {
-            spacing: 8px;
-            Button {
+        Unfolding {
+            open: behind == 0;
+            RailRow {
+                icon: Icons.colour;
+                label: @tr("Colour");
+                hue: root.hue;
                 enabled: active;
-                text: @tr("Choose");
-                tip: @tr("Choose picture");
-                tip-detail: picture-choose-tip;
-                clicked => { root.picture-clicked(); }
-            }
-            Rectangle {
-                horizontal-stretch: 1;
-                shown-picture-text := Text {
-                    width: parent.width;
-                    height: parent.height;
-                    text: picture-text;
-                    font-family: Theme.font;
-                    font-size: Theme.body;
-                    color: Theme.text-dim;
-                    vertical-alignment: center;
-                    overflow: elide;
+                ColourField {
+                    enabled: active;
+                    colour: backdrop-colour;
+                    h: colour-h;
+                    s: colour-s;
+                    v: colour-v;
+                    hex: colour-hex;
+                    channels: channel-value;
+                    hue: root.hue;
+                    label: @tr("Colour behind you");
+                    tip: @tr("Colour");
+                    tip-detail: colour-tip;
+                    pipette-tip: pipette-tip;
+                    can-pick: active;
+                    moved(h, s, v) => { root.colour-moved(h, s, v); }
+                    hex-typed(text) => { root.hex-typed(text); }
+                    channel-typed(i, text) => { root.channel-typed(i, text); }
+                    pipette-clicked => { root.pipette-clicked(); }
                 }
-                Tip { says: shown-picture-text.text; enabled: shown-picture-text.preferred-width > shown-picture-text.width; inert: true; }
             }
         }
-    }
-    if status != "": Note {
-        text: status;
-        kind: status-kind;
+        Unfolding {
+            open: behind == 1;
+            RailRow {
+                icon: Icons.photo;
+                label: @tr("Picture");
+                hue: root.hue;
+                enabled: active;
+                PictureField {
+                    enabled: active;
+                    thumb: picture-thumb;
+                    has-picture: has-picture;
+                    set: has-picture || picture-text != "";
+                    name: picture-text != "" ? picture-text : @tr("Choose");
+                    problem: picture-problem;
+                    hue: root.hue;
+                    tip: @tr("Choose picture");
+                    tip-detail: picture-choose-tip;
+                    clicked => { root.picture-clicked(); }
+                }
+            }
+        }
+        StatusUnfold { text: status; kind: status-kind; detail: status-detail; }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;

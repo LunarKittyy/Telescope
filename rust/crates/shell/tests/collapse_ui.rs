@@ -402,6 +402,7 @@ export component Test inherits Window {
     width: 420px;
     height: 1800px;
     in property <[Lens]> lenses;
+    in property <[string]> lens-names;
     in property <int> columns: 1;
     VerticalLayout {
         alignment: start;
@@ -411,6 +412,7 @@ export component Test inherits Window {
             active: true;
             fold-key: "camera_control/Camera";
             lenses: root.lenses;
+            lens-names: root.lens-names;
             lens-columns: root.columns;
         }
     }
@@ -434,10 +436,12 @@ fn a_row_that_grows_once_folding_is_installed_gets_its_new_height() {
         ("name".to_string(), Value::String(format!("Back {i}mm").into())),
     ]))).collect();
     ui.set_property("columns", Value::Number(3.0)).unwrap();
+    let names: Vec<Value> = (0..5).map(|i| Value::String(format!("Back {i}mm").into())).collect();
+    ui.set_property("lens-names", Value::Model(slint::ModelRc::new(slint::VecModel::from(names)))).unwrap();
     ui.set_property("lenses", Value::Model(slint::ModelRc::new(slint::VecModel::from(lenses)))).unwrap();
     slint::platform::update_timers_and_animations();
     let bottom = card().absolute_position().y + card().size().height;
-    let tiles: Vec<ElementHandle> = (0..5).map(|i| ElementHandle::find_by_accessible_label(&ui, &format!("Back {i}mm")).next().unwrap_or_else(|| panic!("no tile {i}"))).collect();
+    let tiles: Vec<ElementHandle> = (0..5).map(|i| ElementHandle::find_by_accessible_label(&ui, &format!("Lens: Back {i}mm")).next().unwrap_or_else(|| panic!("no tile {i}"))).collect();
     let first_row = tiles[0].absolute_position().y;
     let last_row = tiles[4].absolute_position().y;
     assert!(last_row > first_row, "two rows of tiles");

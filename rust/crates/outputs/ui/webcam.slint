@@ -59,7 +59,10 @@ export component WebcamCard inherits Card {
     in property <[ControlRow]> tiles;
     in property <[int]> tile-indexes;
     in property <bool> has-controls;
-    has-action: has-controls;
+    has-reset: has-controls;
+    reset-lit: has-controls;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Set the webcam's picture settings back to default.");
     callback size-picked(int);
     callback fps-picked(int);
     callback control-set(string, float);
@@ -71,17 +74,14 @@ export component WebcamCard inherits Card {
     callback hold-up();
 
     // As many tiles side by side as are 112px wide with 8px between, the last one taking the rest of its line when it's alone on it
-    property <int> tile-cols: max(1, min(root.tiles.length, floor((root.width - 34px + 8px) / 120px)));
+    property <int> tile-cols: max(1, min(root.tiles.length, floor((root.width - Theme.u(17) + Theme.u(4)) / Theme.u(60))));
 
     title: @tr("Webcam");
     tip: @tr("Stream from webcams and capture cards plugged into this computer.");
     icon: Icons.video;
-    action-icon: Icons.reset;
-    action-text: @tr("Reset");
-    action-tip-detail: @tr("Set the webcam's picture settings back to default.");
 
     Text {
-        height: 18px;
+        height: Theme.u(9);
         text: root.status-text;
         overflow: elide;
         vertical-alignment: center;
@@ -90,7 +90,7 @@ export component WebcamCard inherits Card {
         accessible-label: @tr("Camera");
         accessible-description: root.status-tip;
         color: root.status-kind == "status_ok" ? Theme.ok : root.status-kind == "status_warn" ? Theme.warn
-            : root.status-kind == "status_err" ? Theme.err : Theme.text-dim;
+            : root.status-kind == "status_err" ? Theme.err : Theme.ink2;
     }
     RailRow {
         icon: Icons.grid;
@@ -152,8 +152,8 @@ export component WebcamCard inherits Card {
         // Drag the jog toward Near or Far, the further the faster, and it springs back to stop. Focus runs autofocus once
         HorizontalLayout {
             visible: row.kind == "jog";
-            height: row.kind == "jog" ? 32px : 0;
-            spacing: 8px;
+            height: row.kind == "jog" ? Theme.u(16) : 0;
+            spacing: Theme.u(4);
             Jog {
                 near-text: row.options[0];
                 far-text: row.options[2];
@@ -175,7 +175,7 @@ export component WebcamCard inherits Card {
         SwitchTile {
             visible: row.kind == "switch";
             // Not its preferred-height: that is only the text's, and drops the tile's own 40px
-            height: row.kind == "switch" ? 40px : 0;
+            height: row.kind == "switch" ? Theme.u(20) : 0;
             icon: Pick.icon(row.icon);
             text: row.label;
             tip: row.label;
@@ -235,12 +235,12 @@ export component WebcamCard inherits Card {
     GridLayout {
         visible: root.tiles.length > 0;
         height: root.tiles.length > 0 ? self.preferred-height : 0;
-        spacing: 8px;
+        spacing: Theme.u(4);
         for tile[j] in root.tiles: Rectangle {
             row: floor(j / root.tile-cols);
             col: mod(j, root.tile-cols);
             colspan: j == root.tiles.length - 1 && mod(root.tiles.length, root.tile-cols) == 1 ? root.tile-cols : 1;
-            height: 48px;
+            height: Theme.u(24);
             if tile.kind == "stepper": Stepper {
                 caption: tile.label;
                 items: tile.options;

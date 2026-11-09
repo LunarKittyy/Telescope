@@ -171,13 +171,13 @@ fn notes_on_a_phone_streaming_in_the_background_stay_sent() {
     let ui = |st: &mut State, callback: &str, args: Vec<Value>| st.ui_event("notes", UiEvent { ui: "card".into(), callback: callback.into(), args });
     ui(&mut st, "text-edited", vec![json!("Say hello")]);
     ui(&mut st, "send-clicked", vec![]);
-    assert_eq!(diagnostic(&mut st, "notes", "Notes"), "on the phone");
+    assert_eq!(diagnostic(&mut st, "notes", "Teleprompter"), "on the phone");
     focus(&mut st, "tablet", &["phone"]);
     focus(&mut st, "phone", &["tablet"]);
-    assert_eq!(diagnostic(&mut st, "notes", "Notes"), "on the phone", "the phone kept streaming, so it still shows them");
+    assert_eq!(diagnostic(&mut st, "notes", "Teleprompter"), "on the phone", "the phone kept streaming, so it still shows them");
     focus(&mut st, "tablet", &[]);
     focus(&mut st, "phone", &["tablet"]);
-    assert_eq!(diagnostic(&mut st, "notes", "Notes"), "not sent", "its stream stopped meanwhile");
+    assert_eq!(diagnostic(&mut st, "notes", "Teleprompter"), "not sent", "its stream stopped meanwhile");
 }
 
 #[test]

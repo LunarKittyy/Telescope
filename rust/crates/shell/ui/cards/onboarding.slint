@@ -28,17 +28,17 @@ component StepRow inherits HorizontalLayout {
     in property <bool> button-column;
     callback clicked;
     // How much more room Qt's size hints want for its text than it needs at this width
-    out property <length> hint-gap: max(0px, step.title-lines * 16px - title.preferred-height) + max(0px, step.text-lines * 16px - body.preferred-height);
-    spacing: 14px;
+    out property <length> hint-gap: max(0px, step.title-lines * Theme.u(8) - title.preferred-height) + max(0px, step.text-lines * Theme.u(8) - body.preferred-height);
+    spacing: Theme.u(7);
     VerticalLayout {
         alignment: start;
         Rectangle {
-            width: 28px;
-            height: 28px;
-            border-radius: 14px;
+            width: Theme.u(14);
+            height: Theme.u(14);
+            border-radius: Theme.u(7);
             border-width: 1px;
-            background: step.done ? Theme.fill : Theme.surface-raise;
-            border-color: step.done ? Theme.fill : Theme.border-strong;
+            background: step.done ? Theme.fill : Theme.raise;
+            border-color: step.done ? Theme.fill : Theme.line-strong;
             Text {
                 text: step.done ? "✓" : number;
                 font-family: Theme.font;
@@ -50,8 +50,8 @@ component StepRow inherits HorizontalLayout {
     }
     VerticalLayout {
         horizontal-stretch: 1;
-        padding-top: 3px;
-        spacing: 4px;
+        padding-top: Theme.u(1.5);
+        spacing: Theme.u(2);
         alignment: start;
         title := Text {
             text: step.title;
@@ -60,7 +60,7 @@ component StepRow inherits HorizontalLayout {
             font-family: Theme.font;
             font-size: Theme.body;
             font-weight: 600;
-            color: Theme.text;
+            color: Theme.ink;
             Tip { says: step.tip != "" ? step.title : ""; detail: step.tip; inert: true; }
         }
         body := Text {
@@ -81,10 +81,10 @@ component StepRow inherits HorizontalLayout {
             color: Theme.ink2;
         }
         if qr-shown: HorizontalLayout {
-            padding-top: 4px;
+            padding-top: Theme.u(2);
             alignment: start;
             qr := Rectangle {
-                property <length> cell: 3px;
+                property <length> cell: Theme.u(1.5);
                 width: (qr-size + 8) * cell;
                 height: self.width;
                 background: white;
@@ -103,11 +103,11 @@ component StepRow inherits HorizontalLayout {
     VerticalLayout {
         alignment: start;
         // A hidden button takes no room, as in Qt, unless another step's button holds the column open
-        width: button-column ? 160px : 0px;
+        width: button-column ? Theme.u(80) : 0px;
         if step.button != "": Button {
             text: step.button;
             role: step.primary ? "primary" : "";
-            height: 32px;
+            height: Theme.u(16);
             enabled: !step.busy;
             clicked => { root.clicked(); }
         }
@@ -133,8 +133,8 @@ export component OnboardingCard inherits Card {
     action-label: @tr("Close the setup guide");
     action => { root.close(); }
     VerticalLayout {
-        padding-top: 4px;
-        spacing: 22px;
+        padding-top: Theme.u(2);
+        spacing: Theme.u(11);
         alignment: start;
         s0 := StepRow {
             number: 1;

@@ -448,11 +448,11 @@ impl Connection {
         let now_on = if self.stream_route().is_some_and(|r| is_usb(&r)) { "USB" } else { "Wi-Fi" };
         let kept = route_choice_label(self.route_pref);
         let hint = match preference {
-            RoutePreference::Usb => format!(" {}", tr("Check the cable and that Telescope is open on the phone.")),
-            RoutePreference::Wifi => format!(" {}", tr("Check that it's on the same network as this computer.")),
+            RoutePreference::Usb => format!(" {}", tr("Check the cable and the phone app.")),
+            RoutePreference::Wifi => format!(" {}", tr("Check it's on the same network.")),
             RoutePreference::Auto => String::new(),
         };
-        let text = tr("Still streaming over {now}, so Connect via stays on {kept}.").field("now", now_on).field("kept", &kept) + &hint;
+        let text = tr("Still streaming over {now}, so it stays on {kept}.").field("now", now_on).field("kept", &kept) + &hint;
         ProbeOutcome::Refuse { title, text, preference }
     }
 
@@ -1415,7 +1415,7 @@ mod tests {
         let outcome = c.on_route_probed(probe_id, &phone.id, preference, &Resolution::new(PhoneStatus::Unreachable), true, 1.0);
         let ProbeOutcome::Refuse { title, text, .. } = outcome else { panic!("{outcome:?}") };
         assert_eq!(title, "Can't reach Pixel over Wi-Fi");
-        assert!(text.contains("Still streaming over USB, so Connect via stays on Automatic."));
+        assert!(text.contains("Still streaming over USB, so it stays on Automatic."));
         assert_eq!(c.route_pref, RoutePreference::Auto);
         // Try again, on the same Wi-Fi now
         let RouteChange::Probe { probe_id, phone, preference } = c.set_route_preference(RoutePreference::Wifi, true, 2.0) else { panic!() };

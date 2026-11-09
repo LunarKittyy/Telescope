@@ -1,7 +1,7 @@
 // The Connection plugin: the card, the phone picker in the header, the Add
 // phone and Your phones dialogs (as popups) and the UDP row in Settings. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Tip, TipBody, Button, IconButton, LinkText, Card, RailRow, Segmented, ChoiceField, TextField, TextCap, Switch, SettingRow, Tag, DialogFrame, WindowBox, FlickBar, QrCode } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Tip, TipBody, Button, IconButton, LinkText, Card, RailRow, Segmented, ChoiceField, TextField, TextCap, Switch, SettingRow, Tag, Status, ListRow, DialogFrame, DialogButtons, WindowBox, FlickBar, QrCode, UnfoldGroup, Unfolding } from "@ui-kit/ui-kit.slint";
 
 // A plugged-in phone the Add device dialog can pair over USB.
 export struct UsbPick {
@@ -24,10 +24,10 @@ export struct PhoneRow {
     confirm: string,
 }
 
-global Status {
+global StatusInk {
     public pure function color(kind: string) -> color {
         kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
-            : kind == "status_dim" ? Theme.text-dim : Theme.text
+            : kind == "status_dim" ? Theme.ink2 : Theme.ink
     }
 
     // The state's glyph in its chip: a tick for fine, a cross for wrong, a warning, three dots while it isn't known
@@ -44,7 +44,7 @@ component Note inherits Text {
     visible: shown;
     font-family: Theme.font;
     font-size: Theme.body;
-    color: Status.color(kind);
+    color: StatusInk.color(kind);
     wrap: word-wrap;
     // Qt's line pitch, so a wrapped note lines up line by line
     line-height-factor: Theme.line-factor(self.font-size);
@@ -66,7 +66,7 @@ component ScrollList inherits Rectangle {
     flick := Flickable {
         viewport-height: wanted;
         rows := VerticalLayout {
-            width: flick.width - (gutter ? 14px : 0px);
+            width: flick.width - (gutter ? Theme.u(7) : 0px);
             spacing: gap;
             alignment: start;
             @children
@@ -74,13 +74,13 @@ component ScrollList inherits Rectangle {
     }
     if scrolls: FlickBar {
         x: parent.width - self.width;
-        width: 6px;
+        width: Theme.u(3);
         height: flick.height;
         content: flick.viewport-height;
         viewport: flick.height;
         position <=> flick.viewport-y;
-        least-thumb: 24px;
-        thumb-radius: 3px;
+        least-thumb: Theme.u(12);
+        thumb-radius: Theme.u(1.5);
         pages: false;
     }
 }
@@ -89,8 +89,8 @@ component ScrollList inherits Rectangle {
 export component UsbPicks inherits ScrollList {
     in property <[UsbPick]> picks;
     callback pick(string);
-    cap: 4 * 32px + 3 * 6px;
-    gap: 6px;
+    cap: 4 * Theme.row + 3 * Theme.u(3);
+    gap: Theme.u(3);
     gutter: picks.length > 4;
     for p in picks: HorizontalLayout {
         alignment: start;
@@ -98,24 +98,26 @@ export component UsbPicks inherits ScrollList {
     }
 }
 
-// Your phones' strips: about six, then a scroll bar instead of a dialog that grows off the screen (_PhoneRows).
+// Your devices' rows: about six, then a scroll bar instead of a dialog that grows off the screen (_PhoneRows).
 export component PhoneList inherits ScrollList {
     in property <[PhoneRow]> rows-shown;
     callback rename(PhoneRow);
     callback remove(PhoneRow);
-    cap: 320px;
-    gap: 8px;
+    cap: Theme.u(160);
+    gap: Theme.gap;
     gutter: rows-shown.length > 6;
-    for row in rows-shown: SettingRow {
+    for row in rows-shown: ListRow {
         title: row.name;
         sub: row.sub;
         if row.renamable: IconButton {
+            raised: true;
             icon: Icons.pencil;
             label: row.rename-label;
             tip: @tr("Rename");
             clicked => { root.rename(row); }
         }
         IconButton {
+            raised: true;
             icon: Icons.trash;
             label: row.remove-label;
             tip: @tr("Remove");
@@ -200,64 +202,54 @@ export component ConnectionCard inherits Card {
     extra-tip-detail: @tr("Open or close the step-by-step guide for the virtual camera, the phone app and pairing.");
     extra => { root.guide(); }
 
+    // A dialog the card closes eases out first (`leave()`), and its pop-up goes in `left`; one that a press beside it dismissed has
+    // eased out already and goes at once
+    property <bool> add-up;
+    property <bool> add-going;
+    property <bool> vcam-up;
+    property <bool> vcam-going;
     changed add-open => {
         if (self.add-open) {
             self.add-page = 0;
+            self.add-up = true;
             add-popup.show();
-        } else {
-            add-popup.close();
+        } else if (self.add-up) {
+            self.add-going = true;
         }
     }
 
     changed vcam-open => {
         if (self.vcam-open) {
+            self.vcam-up = true;
             vcam-popup.show();
-        } else {
-            vcam-popup.close();
+        } else if (self.vcam-up) {
+            self.vcam-going = true;
         }
     }
 
-    // One line of status: a chip with the state's glyph, the state in a word, and a slot at the right that holds the way it is going (or
+    // One line of status: the state's glyph, the state in a word, and a slot at the right that holds the way it is going (or
     // the button that fixes it, or nothing yet). It keeps its height whatever is in the slot, so nothing moves when a device connects.
     HorizontalLayout {
         spacing: Theme.u(4);
-        height: Theme.u(18);
+        height: Theme.row;
         Rectangle {
-            width: Theme.u(14);
+            width: Theme.u(9);
             accessible-role: none;
-            Rectangle {
+            Icon {
+                x: (parent.width - self.width) / 2;
                 y: (parent.height - self.height) / 2;
-                width: Theme.u(14);
-                height: Theme.u(14);
-                border-radius: self.height / 2;
-                background: Status.color(status-kind).with-alpha(0.16);
-                Icon {
-                    x: (parent.width - self.width) / 2;
-                    y: (parent.height - self.height) / 2;
-                    source: Status.chip(status-kind);
-                    tint: Status.color(status-kind);
-                    width: Theme.icon;
-                    height: Theme.icon;
-                    accessible-role: none;
-                }
+                source: StatusInk.chip(status-kind);
+                tint: StatusInk.color(status-kind);
+                width: Theme.icon;
+                height: Theme.icon;
+                accessible-role: none;
             }
         }
-        shown-status-text := Text {
-            horizontal-stretch: 1;
+        Status {
             text: status-text;
-            font-family: Theme.font;
-            font-size: Theme.body;
-            font-weight: Theme.w-value;
-            color: Status.color(status-kind);
-            vertical-alignment: center;
-            overflow: elide;
-            // What the note under it used to say, and the whole state when it is cut off
-            Tip {
-                says: note-text == "" || shown-status-text.preferred-width > shown-status-text.width ? shown-status-text.text : note-text;
-                detail: note-text != "" && shown-status-text.preferred-width > shown-status-text.width ? note-text : "";
-                enabled: note-text != "" || shown-status-text.preferred-width > shown-status-text.width;
-                inert: true;
-            }
+            // What the note under it used to say
+            detail: note-text;
+            kind: status-kind == "status_ok" ? "ok" : status-kind == "status_warn" ? "warn" : status-kind == "status_err" ? "err" : "";
         }
         if update-shown: Button {
             text: update-text;
@@ -274,16 +266,19 @@ export component ConnectionCard inherits Card {
             tip-detail: @tr("Reconnect over USB now that the phone is plugged in.");
             clicked => { root.switch-usb(); }
         }
+        // How it is connected, as plain dim text: no surface, lifted a pixel like every kit text
         if !update-shown && !switch-usb-shown && using-shown: Rectangle {
-            width: using-tag.width;
-            using-tag := Tag { y: (parent.height - self.height) / 2; text: using-text; tint: Theme.ink2; }
-        }
-        if !update-shown && !switch-usb-shown && !using-shown: Rectangle {
-            width: Theme.u(60);
-            height: Theme.row;
-            y: (parent.height - self.height) / 2;
-            border-radius: Theme.r-ctl;
-            background: Theme.trough;
+            width: using-label.preferred-width;
+            using-label := Text {
+                y: -1phx;
+                height: parent.height;
+                text: using-text;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                font-weight: Theme.w-value;
+                color: Theme.ink2;
+                vertical-alignment: center;
+            }
         }
     }
     RailRow {
@@ -310,23 +305,30 @@ export component ConnectionCard inherits Card {
     }
 
     add-popup := PopupWindow {
+        // The card asks the dialog to ease out; only something inside the pop-up can tell its frame
+        Rectangle {
+            width: 0px;
+            height: 0px;
+            property <bool> bye: root.add-going;
+            changed bye => { if (self.bye) { add-frame.leave(); } }
+        }
         close-policy: no-auto-close;
         x: -root.absolute-position.x;
         y: -root.absolute-position.y;
-        width: WindowBox.cover-w(max(root.width, 460px));
+        width: WindowBox.cover-w(max(root.width, Theme.u(230)));
         height: WindowBox.cover-h(add-frame.preferred-height);
         add-frame := DialogFrame {
             x: WindowBox.left(self.width);
             y: WindowBox.top(self.height);
-            width: max(root.width, 460px);
+            width: max(root.width, Theme.u(230));
             // The window's height caps the dialog, and the code is what gives way
             height: WindowBox.cap(self.preferred-height);
             dismissable: true;
             // A pairing with its code showing isn't lost to a stray click: that takes Back or Done
-            dismissed => { if (paired || qr-size == 0) { root.add-closed(); } }
+            dismissed => { if (paired || qr-size == 0) { root.add-up = false; add-popup.close(); root.add-closed(); } }
+            left => { if (root.add-going) { root.add-going = false; root.add-up = false; add-popup.close(); } }
             property <bool> on-source: other-name != "" && !paired && add-page == 1;
             title: @tr("Add a phone");
-            subtitle: on-source ? "" : add-subtitle;
             if other-name != "" && !paired: Segmented {
                 hue: root.hue;
                 label: @tr("What to add");
@@ -359,7 +361,7 @@ export component ConnectionCard inherits Card {
                 // A long payload makes more modules than the dialog's width holds at 6px. Whole device pixels each, or the
                 // white gaps between dark cells show on a scaled screen
                 function fit(room: length) -> length {
-                    return min(6px, max(1phx, floor(room / modules / 1phx) * 1phx));
+                    return min(Theme.u(3), max(1phx, floor(room / modules / 1phx) * 1phx));
                 }
                 property <length> full: modules * fit(self.width);
                 min-height: 0px;
@@ -381,7 +383,7 @@ export component ConnectionCard inherits Card {
                 label: "Wi-Fi";
                 hue: root.hue;
                 enabled: false;
-                Note { text: wifi-text; vertical-alignment: center; }
+                Status { text: wifi-text; }
             }
             if usb-shown && !paired && !add-frame.on-source: RailRow {
                 icon: Icons.usb;
@@ -392,15 +394,10 @@ export component ConnectionCard inherits Card {
                     spacing: Theme.u(3);
                     alignment: center;
                     // One line of where the cable stands; the whole sentence is its tooltip when it doesn't fit
-                    usb-line := Text {
+                    Status {
                         text: usb-text;
-                        font-family: Theme.font;
-                        font-size: Theme.body;
-                        color: Status.color(usb-kind);
-                        overflow: elide;
-                        vertical-alignment: center;
-                        height: Theme.row;
-                        Tip { says: usb-text; enabled: usb-line.preferred-width > usb-line.width; inert: true; }
+                        kind: usb-kind == "status_ok" ? "ok" : usb-kind == "status_warn" ? "warn" : usb-kind == "status_err" ? "err" : "";
+                        font-weight: 400;
                     }
                     if usb-link-text != "": HorizontalLayout {
                         alignment: start;
@@ -430,18 +427,14 @@ export component ConnectionCard inherits Card {
                 font-family: Theme.font;
                 font-size: Theme.card-title;
                 font-weight: 600;
-                color: Theme.text;
+                color: Theme.ink;
                 horizontal-alignment: center;
             }
-            // dialog_buttons: 4px above, 96px wide
-            HorizontalLayout {
-                alignment: end;
-                padding-top: 4px;
+            DialogButtons {
                 Button {
-                    width: 96px;
-                    height: 32px;
                     text: paired ? @tr("Done") : @tr("Back");
                     role: paired ? "primary" : "";
+                    dialog: true;
                     hue: root.hue;
                     clicked => {
                         if (paired) { root.add-closed(); } else { root.add-back(); }
@@ -452,22 +445,30 @@ export component ConnectionCard inherits Card {
     }
 
     vcam-popup := PopupWindow {
+        // The card asks the dialog to ease out; only something inside the pop-up can tell its frame
+        Rectangle {
+            width: 0px;
+            height: 0px;
+            property <bool> bye: root.vcam-going;
+            changed bye => { if (self.bye) { vcam-frame.leave(); } }
+        }
         close-policy: no-auto-close;
         x: -root.absolute-position.x;
         y: -root.absolute-position.y;
-        width: WindowBox.cover-w(max(root.width, 460px));
+        width: WindowBox.cover-w(max(root.width, Theme.u(230)));
         height: WindowBox.cover-h(vcam-frame.preferred-height);
         vcam-frame := DialogFrame {
             x: WindowBox.left(self.width);
             y: WindowBox.top(self.height);
-            width: max(root.width, 460px);
+            width: max(root.width, Theme.u(230));
             height: self.preferred-height;
             dismissable: true;
-            dismissed => { root.vcam-answered(false, false); }
+            dismissed => { root.vcam-up = false; vcam-popup.close(); root.vcam-answered(false, false); }
+            left => { if (root.vcam-going) { root.vcam-going = false; root.vcam-up = false; vcam-popup.close(); } }
             title: @tr("Set up the virtual camera");
             Note { text: @tr("Telescope needs to switch on its virtual camera first. This asks for your password."); kind: ""; }
             HorizontalLayout {
-                spacing: 8px;
+                spacing: Theme.u(4);
                 alignment: start;
                 Switch {
                     hue: root.hue;
@@ -479,24 +480,16 @@ export component ConnectionCard inherits Card {
                     text: @tr("Also switch it on at every startup");
                     font-family: Theme.font;
                     font-size: Theme.body;
-                    color: Theme.text;
+                    color: Theme.ink;
                     vertical-alignment: center;
                 }
             }
-            HorizontalLayout {
-                alignment: end;
-                spacing: 8px;
+            DialogButtons {
+                Button { text: @tr("Cancel"); dialog: true; clicked => { root.vcam-answered(false, false); } }
                 Button {
-                    width: 96px;
-                    height: 32px;
-                    text: @tr("Cancel");
-                    clicked => { root.vcam-answered(false, false); }
-                }
-                Button {
-                    width: 96px;
-                    height: 32px;
                     text: @tr("OK");
                     role: "primary";
+                    dialog: true;
                     hue: root.hue;
                     clicked => { root.vcam-answered(true, root.vcam-persist); }
                 }
@@ -532,7 +525,7 @@ export component PhonePicker inherits HorizontalLayout {
     property <string> name-text;
     // The row Remove asks about
     property <PhoneRow> removing;
-    spacing: 8px;
+    spacing: Theme.u(4);
 
     function ask-name(id: string, title: string, label: string, text: string) {
         naming = id;
@@ -541,17 +534,20 @@ export component PhonePicker inherits HorizontalLayout {
         name-text = text;
     }
 
+    property <bool> phones-up;
+    property <bool> phones-going;
     changed phones-open => {
         if (self.phones-open) {
+            self.phones-up = true;
             phones-popup.show();
-        } else {
-            phones-popup.close();
+        } else if (self.phones-up) {
+            self.phones-going = true;
         }
     }
 
     // The header's controls are one height, centred on the bar by the layout that holds this
     ChoiceField {
-        min-width: 180px;
+        min-width: Theme.u(90);
         height: Theme.u(18);
         compact: true;
         bold: true;
@@ -580,7 +576,7 @@ export component PhonePicker inherits HorizontalLayout {
             padding-x: 0px;
             has-icon: true;
             icon: Icons.v-devices;
-            icon-size: Theme.icon * 1.125;
+            icon-size: Theme.icon;
             icon-tint: Theme.ink2;
             tip: @tr("Devices");
             tip-detail: @tr("Add, rename or remove the phones you've paired.");
@@ -589,69 +585,97 @@ export component PhonePicker inherits HorizontalLayout {
         }
 
             phones-popup := PopupWindow {
+        // The card asks the dialog to ease out; only something inside the pop-up can tell its frame
+        Rectangle {
+            width: 0px;
+            height: 0px;
+            property <bool> bye: root.phones-going;
+            changed bye => { if (self.bye) { phones-frame.leave(); } }
+        }
             close-policy: no-auto-close;
             x: -phones-anchor.absolute-position.x;
             y: -phones-anchor.absolute-position.y;
-            width: WindowBox.cover-w(460px);
+            width: WindowBox.cover-w(Theme.u(230));
             height: WindowBox.cover-h(phones-frame.preferred-height);
             phones-frame := DialogFrame {
                 x: WindowBox.left(self.width);
                 y: WindowBox.top(self.height);
-                width: 460px;
+                width: Theme.u(230);
                 height: self.preferred-height;
                 dismissable: true;
-                dismissed => { root.phones-closed(); }
+                dismissed => { root.phones-up = false; phones-popup.close(); root.phones-closed(); }
+                left => { if (root.phones-going) { root.phones-going = false; root.phones-up = false; phones-popup.close(); } }
                 title: @tr("Your devices");
-                Card {
-                    title: @tr("Devices");
-                    icon: Icons.v-devices;
-                    hue: Theme.plugin-hue("streaming");
-                    has-action: true;
-                    action-icon: Icons.plus;
-                    action-text: @tr("Add device");
-                    action-label: @tr("Add another device");
-                    action-shortcut: "connection.add_phone";
-                    // In its place: pop-ups don't stack
-                    action => {
-                        root.phones-closed();
-                        root.add-phone();
+                // A heading for each group, then its rows: no cards inside a dialog
+                HorizontalLayout {
+                    spacing: Theme.u(4);
+                    Text {
+                        horizontal-stretch: 1;
+                        text: @tr("Devices");
+                        font-family: Theme.font;
+                        font-size: Theme.small;
+                        font-weight: 600;
+                        color: Theme.ink2;
+                        vertical-alignment: center;
+                        accessible-role: none;
                     }
-                    if rows.length == 0: Note { text: @tr("No devices yet"); }
-                    if rows.length > 0: PhoneList {
-                        rows-shown: rows;
-                        rename(row) => {
-                            root.ask-name(row.id, @tr("Rename phone"), @tr("Name"), row.name);
+                    Button {
+                        text: @tr("Add device");
+                        has-icon: true;
+                        icon: Icons.plus;
+                        icon-tint: Theme.ink2;
+                        tip: @tr("Add another device");
+                        shortcut: "connection.add_phone";
+                        // In its place: pop-ups don't stack
+                        clicked => {
+                            root.phones-closed();
+                            root.add-phone();
+                        }
+                    }
+                }
+                if rows.length == 0: Text {
+                    text: @tr("No devices yet");
+                    font-family: Theme.font;
+                    font-size: Theme.body;
+                    color: Theme.ink2;
+                    horizontal-alignment: center;
+                    accessible-role: none;
+                }
+                if rows.length > 0: PhoneList {
+                    rows-shown: rows;
+                    rename(row) => {
+                        root.ask-name(row.id, @tr("Rename phone"), @tr("Name"), row.name);
+                        name-popup.show();
+                    }
+                    remove(row) => {
+                        root.removing = row;
+                        confirm-popup.show();
+                    }
+                }
+                Text {
+                    text: @tr("This computer");
+                    font-family: Theme.font;
+                    font-size: Theme.small;
+                    font-weight: 600;
+                    color: Theme.ink2;
+                    accessible-role: none;
+                }
+                ListRow {
+                    title: computer-name;
+                    sub: @tr("What your phones call it");
+                    Button {
+                        text: @tr("Change name");
+                        tip: @tr("Change name");
+                        tip-detail: @tr("Change the name your phones show for this computer.");
+                        accessible-label: @tr("Change this computer's name");
+                        clicked => {
+                            root.ask-name("", @tr("Rename this computer"), @tr("Name your phones show (applies to phones you pair from now on)"), computer-name);
                             name-popup.show();
                         }
-                        remove(row) => {
-                            root.removing = row;
-                            confirm-popup.show();
-                        }
                     }
                 }
-                Card {
-                    title: @tr("This computer");
-                    icon: Icons.monitor;
-                    hue: Theme.plugin-hue("streaming");
-                    SettingRow {
-                        title: computer-name;
-                        sub: @tr("What your phones call it");
-                        Button {
-                            text: @tr("Change name");
-                            tip: @tr("Change name");
-                            tip-detail: @tr("Change the name your phones show for this computer.");
-                            accessible-label: @tr("Change this computer's name");
-                            clicked => {
-                                root.ask-name("", @tr("Rename this computer"), @tr("Name your phones show (applies to phones you pair from now on)"), computer-name);
-                                name-popup.show();
-                            }
-                        }
-                    }
-                }
-                HorizontalLayout {
-                    alignment: end;
-                    padding-top: 4px;
-                    Button { width: 96px; height: 32px; text: @tr("Close"); clicked => { root.phones-closed(); } }
+                DialogButtons {
+                    Button { text: @tr("Close"); dialog: true; clicked => { root.phones-closed(); } }
                 }
             }
         }
@@ -662,22 +686,22 @@ export component PhonePicker inherits HorizontalLayout {
             close-policy: no-auto-close;
             x: -phones-anchor.absolute-position.x;
             y: -phones-anchor.absolute-position.y;
-            width: WindowBox.cover-w(400px);
+            width: WindowBox.cover-w(Theme.u(200));
             height: WindowBox.cover-h(name-frame.preferred-height);
             name-frame := DialogFrame {
                 x: WindowBox.left(self.width);
                 y: WindowBox.top(self.height);
-                width: 400px;
+                width: Theme.u(200);
                 height: self.preferred-height;
                 dismissable: true;
                 dismissed => { phones-popup.show(); }
                 title: name-title;
-                Note { text: name-label; kind: ""; }
                 name-field := TextField {
                     // setMaxLength(MAX_NAME_CHARS)
                     property <string> kept: name-text;
                     text: name-text;
                     label: name-label;
+                    tip: name-label;
                     init => { self.focus-all(); }
                     edited(text) => {
                         if (text.character-count > 64) {
@@ -688,15 +712,13 @@ export component PhonePicker inherits HorizontalLayout {
                     }
                     accepted => { ok.clicked(); }
                 }
-                HorizontalLayout {
-                    alignment: end;
-                    spacing: 8px;
-                    Button { width: 96px; height: 32px; text: @tr("Cancel"); clicked => { phones-popup.show(); } }
+                DialogButtons {
+                    Button { text: @tr("Cancel"); dialog: true; clicked => { phones-popup.show(); } }
                     ok := Button {
-                        width: 96px;
-                        height: 32px;
                         text: @tr("OK");
                         role: "primary";
+                        dialog: true;
+                        hue: Theme.plugin-hue("streaming");
                         clicked => {
                             if (naming == "") {
                                 root.rename-computer(name-field.text);
@@ -714,31 +736,28 @@ export component PhonePicker inherits HorizontalLayout {
             close-policy: no-auto-close;
             x: -phones-anchor.absolute-position.x;
             y: -phones-anchor.absolute-position.y;
-            width: WindowBox.cover-w(400px);
+            width: WindowBox.cover-w(Theme.u(200));
             height: WindowBox.cover-h(confirm-frame.preferred-height);
             confirm-frame := DialogFrame {
                 x: WindowBox.left(self.width);
                 y: WindowBox.top(self.height);
-                width: 400px;
+                width: Theme.u(200);
                 height: self.preferred-height;
                 dismissable: true;
                 // No, the button that is already the default
                 dismissed => { phones-popup.show(); }
                 title: removing.confirm-title;
                 Note { text: removing.confirm; kind: ""; }
-                HorizontalLayout {
-                    alignment: end;
-                    spacing: 8px;
+                DialogButtons {
                     Button {
-                        width: 96px;
-                        height: 32px;
                         text: @tr("Yes");
+                        dialog: true;
                         clicked => {
                             root.remove(removing.id);
                             phones-popup.show();
                         }
                     }
-                    Button { width: 96px; height: 32px; text: @tr("No"); role: "primary"; hue: Theme.plugin-hue("streaming"); clicked => { phones-popup.show(); } }
+                    Button { text: @tr("No"); role: "primary"; dialog: true; hue: Theme.plugin-hue("streaming"); clicked => { phones-popup.show(); } }
                 }
             }
         }
