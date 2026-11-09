@@ -159,7 +159,8 @@ export component PhotosCard inherits Card {
                     enabled: active;
                     HorizontalLayout {
                         spacing: Theme.gap;
-                        if held-iso.length > 0: Dial {
+                        // A dial the camera stopped offering goes while the other is still on; with neither, both stay until the row has closed
+                        if held-iso.length > 0 && (iso-options.length > 0 || shutter-options.length == 0): Dial {
                             label: @tr("ISO");
                             tip: @tr("ISO");
                             tip-detail: @tr("Higher ISO makes the photo brighter but grainier.");
@@ -169,7 +170,7 @@ export component PhotosCard inherits Card {
                             current: iso-index;
                             moved(i) => { root.tile-picked("iso", i); }
                         }
-                        if held-shutter.length > 0: Dial {
+                        if held-shutter.length > 0 && (shutter-options.length > 0 || iso-options.length == 0): Dial {
                             label: @tr("Shutter");
                             tip: @tr("Shutter");
                             tip-detail: @tr("Slower shutter speeds make the photo brighter but blur movement.");

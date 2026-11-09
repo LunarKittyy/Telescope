@@ -93,6 +93,7 @@
     <string name="wait_for_computer_hint">स्क्रीन बंद होने पर भी पेयर किए गए कंप्यूटर को कैमरा शुरू करने देता है.</string>
     <string name="stop_streaming">स्ट्रीमिंग रोकें</string>
     <string name="status_title">स्थिति</string>
+    <string name="more">और</string>
     <string name="status_not_streaming">स्ट्रीम नहीं हो रहा है</string>
     <string name="status_starting">शुरू हो रहा है…</string>
     <string name="status_streaming">स्ट्रीम हो रहा है</string>
@@ -101,6 +102,16 @@
     <string name="status_mic_only">माइक स्ट्रीम हो रहा है, कैमरा बंद</string>
     <string name="status_camera_taken">कोई अन्य ऐप कैमरे का उपयोग कर रहा है. इसके खाली होते ही स्ट्रीमिंग जारी रहेगी.</string>
     <string name="streaming_started_remotely">आपके कंप्यूटर से स्ट्रीमिंग शुरू हुई</string>
+    <string name="settings">सेटिंग्स</string>
+    <string name="back">वापस</string>
+    <string name="look_title">लुक</string>
+    <string name="theme_label">थीम</string>
+    <string name="look_dark">डार्क</string>
+    <string name="look_classic">क्लासिक</string>
+    <string name="look_oled">OLED</string>
+    <string name="look_light">लाइट</string>
+    <string name="diagnostics_section">डायग्नोस्टिक्स</string>
+    <string name="help_section">मदद चाहिए?</string>
     <string name="about_title">परिचय</string>
     <string name="copy_diagnostics">डायग्नोस्टिक्स कॉपी करें</string>
     <string name="diagnostics_copied">डायग्नोस्टिक्स क्लिपबोर्ड पर कॉपी किए गए</string>
@@ -122,6 +133,7 @@
     <string name="preview_stream_starting">स्ट्रीम शुरू हो रही है. कुछ देर में फिर कोशिश करें.</string>
     <string name="preview_no_cameras">कोई कैमरा नहीं मिला.</string>
     <string name="preview_may_stretch">प्रीव्यू खिंचा हुआ दिख सकता है - कैमरे की जानकारी नहीं पढ़ी जा सकी.</string>
+    <string name="notes_close">टेलीप्रॉम्प्टर बंद करें</string>
     <string name="notif_channel_streaming">स्ट्रीमिंग</string>
     <string name="notif_channel_streaming_desc">कैमरा आपके कंप्यूटर पर स्ट्रीम होने के दौरान दिखाया जाता है</string>
     <string name="notif_channel_waiting">कंप्यूटर का इंतज़ार किया जा रहा है</string>

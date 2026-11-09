@@ -332,3 +332,31 @@ fn each_kind_draws_something_of_its_own_in_the_same_box() {
     assert!(differing(&shots[0], &shots[1], 0..330, 0..420) > 100);
     assert!(differing(&shots[1], &shots[2], 0..330, 0..420) > 100);
 }
+
+/// The first row down the slider's column that isn't the window's own background: the bubble's top edge (or its shadow's).
+fn top_edge(p: &telescope_shell::offscreen::Picture, x: usize) -> usize {
+    let w = p.width as usize;
+    let ground = [p.rgba[x * 4], p.rgba[x * 4 + 1], p.rgba[x * 4 + 2]];
+    (0..p.height as usize).find(|y| p.rgba[(y * w + x) * 4..(y * w + x) * 4 + 3] != ground).unwrap_or(0)
+}
+
+#[test]
+fn a_bubble_changing_what_it_draws_keeps_its_height_all_the_way() {
+    let _still = telescope_shell::offscreen::freeze_clock();
+    let w = open();
+    w.set_property("words", Value::String("Hello there".into())).unwrap();
+    w.set_property("numbers", Value::Model(slint::ModelRc::new(slint::VecModel::from(vec![Value::Number(14.0)])))).unwrap();
+    w.set_property("kind", Value::String("picture".into())).unwrap();
+    press_at(&w, TRACK_X, TALL_Y);
+    wait(&w, 500);
+    let before = top_edge(&draw(&w), 200);
+    assert!(before > 0 && before < 160, "the bubble is up above the slider: {before}");
+    // Another drawing comes while the old one is still on its way out: both are in the bubble, one over the other
+    w.set_property("kind", Value::String("text".into())).unwrap();
+    for ms in 0..12 {
+        telescope_shell::offscreen::skip(Duration::from_millis(30));
+        let top = top_edge(&draw(&w), 200);
+        assert!(top.abs_diff(before) <= 2, "{ms}: the bubble's top moved from {before} to {top}");
+    }
+    release_at(&w, TRACK_X, TALL_Y);
+}

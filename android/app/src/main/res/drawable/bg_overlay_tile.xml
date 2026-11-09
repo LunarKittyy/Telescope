@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Controls over the camera preview: a dark see-through square with a faint edge, like an unpicked lens tile -->
+<!-- Controls over the camera preview: a see-through square in the chrome colour with a faint edge, like an unpicked lens tile -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <corners android:radius="12dp" />
-    <solid android:color="@color/colorOverlay" />
-    <stroke android:width="1dp" android:color="#33FFFFFF" />
+    <corners android:radius="@dimen/ts_radius" />
+    <solid android:color="?attr/tsOverlay" />
+    <stroke android:width="1dp" android:color="?attr/tsOverlayEdge" />
 </shape>

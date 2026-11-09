@@ -15,6 +15,8 @@ export component Test inherits Window {
     in property <float> st: 1;
     in property <float> start: 50;
     in property <bool> on: true;
+    in property <bool> resets: false;
+    in property <bool> allow: true;
     in property <string> box;
     in property <string> words;
     out property <int> moves;
@@ -32,6 +34,9 @@ export component Test inherits Window {
         step: st;
         value: start;
         enabled: on;
+        has-default: resets;
+        default-value: 0;
+        type-in: allow;
         typing: box;
         readout: words;
         moved(v) => { moves += 1; last-moved = v; }
@@ -276,4 +281,61 @@ fn a_readout_that_leads_with_a_number_still_offers_the_box() {
         press(&ui, "\n");
         assert_eq!(said(&ui).3, 72.0, "a readout of {words}");
     }
+}
+
+fn wait(ms: u64) {
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(ms));
+}
+
+#[test]
+fn a_key_pressed_while_a_track_click_waits_is_not_overwritten_by_the_click() {
+    let ui = rig(&[("resets", Value::Bool(true))]);
+    // A click on the track away from the handle waits for a possible double-click before it moves anything
+    click(&ui, LogicalPosition::new(30.0, 26.0));
+    press(&ui, Key::Home);
+    assert_eq!(said(&ui).3, 0.0);
+    wait(500);
+    assert_eq!((value(&ui), said(&ui).0), (0.0, 1.0), "the waiting click was dropped, not applied after Home");
+}
+
+#[test]
+fn a_typed_value_also_drops_a_waiting_track_click() {
+    let ui = rig(&[("resets", Value::Bool(true))]);
+    click(&ui, LogicalPosition::new(30.0, 26.0));
+    press(&ui, "\n");
+    type_in(&ui, "72");
+    press(&ui, "\n");
+    wait(500);
+    assert_eq!((value(&ui), said(&ui).0), (72.0, 1.0));
+}
+
+#[test]
+fn a_track_click_that_waits_while_the_slider_is_disabled_moves_nothing() {
+    let ui = rig(&[("resets", Value::Bool(true))]);
+    click(&ui, LogicalPosition::new(30.0, 26.0));
+    ui.set_property("on", Value::Bool(false)).unwrap();
+    wait(500);
+    assert_eq!((value(&ui), said(&ui).0), (50.0, 0.0));
+}
+
+#[test]
+fn a_track_click_alone_still_lands_once_the_wait_is_over() {
+    let ui = rig(&[("resets", Value::Bool(true))]);
+    click(&ui, LogicalPosition::new(30.0, 26.0));
+    assert_eq!(said(&ui).0, 0.0, "it waits first");
+    wait(500);
+    assert_eq!(said(&ui).0, 1.0);
+    assert!(value(&ui) < 20.0, "{}", value(&ui));
+}
+
+#[test]
+fn a_slider_in_other_units_than_its_number_offers_no_box() {
+    let ui = rig(&[("words", Value::String("+1.0 EV".into())), ("allow", Value::Bool(false))]);
+    press(&ui, "\n");
+    type_in(&ui, "72\n");
+    click(&ui, on_readout(&ui));
+    type_in(&ui, "72\n");
+    assert_eq!(said(&ui).0, 0.0, "nothing was typed into the slider's own units");
+    press(&ui, Key::RightArrow);
+    assert_eq!(said(&ui).3, 51.0, "the keys still work");
 }

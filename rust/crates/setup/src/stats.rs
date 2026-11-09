@@ -694,7 +694,7 @@ impl StatsPlugin {
     /// The phone only measures while the card can be seen with a stream running: it's asked every few seconds, and told to stop when that ends.
     fn ask_phone(&mut self, host: &mut dyn Host) {
         self.follow_focus(host);
-        let want = self.visible() && host.is_streaming();
+        let want = (self.visible() || self.pinned(host, "stats.phone_")) && host.is_streaming();
         if want {
             if !self.asking {
                 self.asking = true;
@@ -740,9 +740,14 @@ impl StatsPlugin {
         }
     }
 
-    /// The costly numbers are only taken while the Nerd view can be seen.
+    /// Whether a number of this card is pinned into the bar (ids starting with `prefix`), which keeps it measured while the window is up.
+    fn pinned(&self, host: &dyn Host, prefix: &str) -> bool {
+        self.window_shown && host.bar_pins().iter().any(|p| p.starts_with(prefix))
+    }
+
+    /// The costly numbers are taken while the Nerd view can be seen, and while any of this card's numbers is pinned into the bar.
     fn want(&mut self, host: &mut dyn Host) {
-        let want = self.visible() && self.view == View::Nerd;
+        let want = (self.visible() && self.view == View::Nerd) || self.pinned(host, "stats.");
         if want != self.wanting {
             self.wanting = want;
             host.want_stats(NAME, want);
@@ -784,7 +789,11 @@ impl Plugin for StatsPlugin {
             }
             Event::CameraWatched { watched } => self.watched = Some(*watched),
             // A pin from the bar's own menu or from another card: the stars follow, and what the bar wants read changes
-            Event::BarPinsChanged { .. } => self.show(host),
+            Event::BarPinsChanged { .. } => {
+                self.want(host);
+                self.ask_phone(host);
+                self.show(host);
+            }
             Event::PhoneStateUpdated { state } => self.take_phone_state(host, state),
             // The answers to this card's own asks come back as polls, for the shown stream only
             Event::PhonePolled { shown: true, state, .. } => self.take_phone_state(host, state),

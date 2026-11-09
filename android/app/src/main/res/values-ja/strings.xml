@@ -92,6 +92,7 @@
     <string name="wait_for_computer_hint">画面がオフでも、ペアリング済みのコンピューターからカメラを開始できるようにします。</string>
     <string name="stop_streaming">ストリーミング停止</string>
     <string name="status_title">ステータス</string>
+    <string name="more">その他</string>
     <string name="status_not_streaming">ストリーミング停止中</string>
     <string name="status_starting">開始中…</string>
     <string name="status_streaming">ストリーミング中</string>
@@ -100,6 +101,16 @@
     <string name="status_mic_only">マイクをストリーミング中、カメラはオフ</string>
     <string name="status_camera_taken">別のアプリがカメラを使用しています。カメラが解放されるとストリーミングが再開されます。</string>
     <string name="streaming_started_remotely">コンピューターからストリーミングが開始されました</string>
+    <string name="settings">設定</string>
+    <string name="back">戻る</string>
+    <string name="look_title">外観</string>
+    <string name="theme_label">テーマ</string>
+    <string name="look_dark">ダーク</string>
+    <string name="look_classic">クラシック</string>
+    <string name="look_oled">OLED</string>
+    <string name="look_light">ライト</string>
+    <string name="diagnostics_section">診断情報</string>
+    <string name="help_section">お困りですか？</string>
     <string name="about_title">情報</string>
     <string name="copy_diagnostics">診断情報をコピー</string>
     <string name="diagnostics_copied">診断情報をクリップボードにコピーしました</string>
@@ -121,6 +132,7 @@
     <string name="preview_stream_starting">ストリームを開始しています。しばらくしてから再試行してください。</string>
     <string name="preview_no_cameras">カメラが見つかりません。</string>
     <string name="preview_may_stretch">プレビューが引き伸ばされて表示される可能性があります - カメラ情報を読み取れませんでした。</string>
+    <string name="notes_close">テレプロンプターを閉じる</string>
     <string name="notif_channel_streaming">ストリーミング</string>
     <string name="notif_channel_streaming_desc">カメラがコンピューターへストリーミング中に表示されます</string>
     <string name="notif_channel_waiting">コンピューターを待機中</string>

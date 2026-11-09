@@ -93,6 +93,7 @@
     <string name="wait_for_computer_hint">Permite que una computadora vinculada inicie la cámara mientras la pantalla está apagada.</string>
     <string name="stop_streaming">Detener transmisión</string>
     <string name="status_title">Estado</string>
+    <string name="more">Más</string>
     <string name="status_not_streaming">No está transmitiendo</string>
     <string name="status_starting">Iniciando…</string>
     <string name="status_streaming">Transmitiendo</string>
@@ -101,6 +102,16 @@
     <string name="status_mic_only">Transmitiendo el micrófono, cámara desactivada</string>
     <string name="status_camera_taken">Otra app está usando la cámara. La transmisión continuará cuando esté libre.</string>
     <string name="streaming_started_remotely">Transmisión iniciada desde tu computadora</string>
+    <string name="settings">Configuración</string>
+    <string name="back">Atrás</string>
+    <string name="look_title">Aspecto</string>
+    <string name="theme_label">Tema</string>
+    <string name="look_dark">Oscuro</string>
+    <string name="look_classic">Clásico</string>
+    <string name="look_oled">OLED</string>
+    <string name="look_light">Claro</string>
+    <string name="diagnostics_section">Diagnóstico</string>
+    <string name="help_section">¿Necesitas ayuda?</string>
     <string name="about_title">Acerca de</string>
     <string name="copy_diagnostics">Copiar diagnóstico</string>
     <string name="diagnostics_copied">Diagnóstico copiado al portapapeles</string>
@@ -122,6 +133,7 @@
     <string name="preview_stream_starting">La transmisión se está iniciando. Intenta de nuevo en un momento.</string>
     <string name="preview_no_cameras">No se encontraron cámaras.</string>
     <string name="preview_may_stretch">La vista previa puede verse estirada - no se pudo leer la información de la cámara.</string>
+    <string name="notes_close">Cerrar el teleprómpter</string>
     <string name="notif_channel_streaming">Transmisión</string>
     <string name="notif_channel_streaming_desc">Se muestra mientras la cámara está transmitiendo a tu computadora</string>
     <string name="notif_channel_waiting">Esperando a la computadora</string>

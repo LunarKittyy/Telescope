@@ -285,6 +285,41 @@ struct Plan {
 
 thread_local! {
     static PLAN: RefCell<Option<Plan>> = const { RefCell::new(None) };
+    // What plugins said about their sections after the plan was made, for the window that is yet to be created
+    static LATE: RefCell<Late> = RefCell::new(Late::default());
+}
+
+#[derive(Default)]
+struct Late {
+    props: Vec<(String, String, serde_json::Map<String, serde_json::Value>)>,
+    images: Vec<(String, String, String, slint::Image)>,
+}
+
+/// Keeps a section's new properties while the page is prepared but not yet a window, so the window starts out with them (the plan only holds the ones from when it was made).
+pub fn hold_props(plugin: &str, ui: &str, props: &serde_json::Value) {
+    if !prepared() {
+        return;
+    }
+    let Some(new) = props.as_object() else { return };
+    LATE.with(|l| {
+        let mut late = l.borrow_mut();
+        match late.props.iter_mut().find(|(p, u, _)| p == plugin && u == ui) {
+            Some((_, _, held)) => held.extend(new.iter().map(|(k, v)| (k.clone(), v.clone()))),
+            None => late.props.push((plugin.into(), ui.into(), new.clone())),
+        }
+    });
+}
+
+/// The same for a section's picture.
+pub fn hold_image(plugin: &str, ui: &str, prop: &str, image: slint::Image) {
+    if !prepared() {
+        return;
+    }
+    LATE.with(|l| {
+        let mut late = l.borrow_mut();
+        late.images.retain(|(p, u, n, _)| !(p == plugin && u == ui && n == prop));
+        late.images.push((plugin.into(), ui.into(), prop.into(), image));
+    });
 }
 
 pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
@@ -296,6 +331,8 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
 }
 
 fn plan(window: &Rc<Window>) -> Result<Plan, String> {
+    // What the plugins say from here on is newer than the plan; what they said before is in it
+    LATE.with(|l| *l.borrow_mut() = Late::default());
     let mut sections: Vec<(String, SettingsSection)> = Vec::new();
     {
         let mut state = window.state.borrow_mut();
@@ -385,6 +422,13 @@ fn create(window: &Rc<Window>, plan: Plan) -> Result<Rc<Settings>, String> {
         seen: RefCell::new(String::new()),
     });
     settings.wire(&places, &sections);
+    let late = LATE.with(|l| std::mem::take(&mut *l.borrow_mut()));
+    for (plugin, ui, props) in late.props {
+        settings.set_props(&plugin, &ui, &serde_json::Value::Object(props));
+    }
+    for (plugin, ui, prop, image) in late.images {
+        settings.set_image(&plugin, &ui, &prop, image);
+    }
     settings.show_panel();
     settings.start_watching();
     settings.show_row(0);

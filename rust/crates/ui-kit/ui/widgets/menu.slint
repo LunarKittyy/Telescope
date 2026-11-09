@@ -54,6 +54,10 @@ export component MenuItem inherits Rectangle {
         border-width: root.current && root.enabled ? Theme.outline-w-over : 0px;
         border-color: Theme.outline-hover;
         animate background { duration: Motion.tone-for(false); easing: Motion.tone; }
+        accessible-role: button;
+        accessible-label: root.title;
+        accessible-enabled: root.enabled;
+        accessible-action-default => { if (root.enabled) { root.activate(); } }
         touch := TouchArea {
             enabled: root.enabled;
             pointer-event(e) => {
@@ -83,6 +87,7 @@ export component MenuItem inherits Rectangle {
             color: root.enabled ? Theme.ink : Theme.dis;
             vertical-alignment: center;
             overflow: elide;
+            accessible-role: none;
         }
     }
 }

@@ -639,6 +639,20 @@ fn the_map_has_the_shape_of_the_frame_the_window_shows_and_no_picture() {
     assert!(!r.host.calls.iter().any(|c| c.starts_with("set_ui_image")), "the map never asks for a picture");
 }
 
+#[test]
+fn the_map_takes_the_frames_shape_once_the_first_frame_has_come() {
+    let mut r = Rig::new();
+    r.host.aspect = 0.0;
+    r.plugin.on_stream_start(&mut r.host, &stream());
+    assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 16.0 / 9.0), "no frame yet, so the usual shape");
+    r.host.aspect = 4.0 / 3.0;
+    r.event(Event::CameraOpened { source_id: "phone".into(), slot: 0, width: 640, height: 480 });
+    assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 4.0 / 3.0), "the first frame's shape is taken up");
+    r.host.aspect = 3.0 / 4.0;
+    r.event(Event::ViewStatus { status: json!({"streaming": true, "caps": null, "sent": null, "sent_ratio_at": 0.0, "desktop_zoom": 1.0}) });
+    assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 3.0 / 4.0), "a new size is followed too");
+}
+
 fn outlines(r: &Rig) -> Vec<(f64, f64, f64, f64)> {
     r.shown("lens-outlines").as_array().unwrap().iter()
         .map(|o| ["x0", "y0", "x1", "y1"].map(|k| o[k].as_f64().unwrap()))

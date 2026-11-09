@@ -241,6 +241,7 @@ export component CameraCard inherits Card {
             step: 1;
             value: ae-comp;
             readout: ae-text;
+            type-in: false;
             has-default: true;
             default-value: 0;
             tip: @tr("Brightness");
@@ -342,6 +343,7 @@ export component CameraCard inherits Card {
             step: 1;
             value: focus-pos;
             readout: focus-text;
+            type-in: false;
             tip: @tr("Distance");
             tip-detail: focus-enabled ? @tr("How far away the camera focuses.") : focus-tips[2] != "" ? focus-tips[2] : @tr("Set Focus to Manual to use this");
             moved(v) => { focus-moved(v); }

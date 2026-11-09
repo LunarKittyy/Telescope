@@ -95,6 +95,7 @@
     <string name="wait_for_computer_hint">Позволяет сопряженному компьютеру запустить камеру при выключенном экране.</string>
     <string name="stop_streaming">Остановить трансляцию</string>
     <string name="status_title">Статус</string>
+    <string name="more">Ещё</string>
     <string name="status_not_streaming">Нет трансляции</string>
     <string name="status_starting">Запуск…</string>
     <string name="status_streaming">Трансляция</string>
@@ -103,6 +104,16 @@
     <string name="status_mic_only">Трансляция микрофона, камера выключена</string>
     <string name="status_camera_taken">Камера занята другим приложением. Трансляция продолжится, когда она освободится.</string>
     <string name="streaming_started_remotely">Трансляция запущена с твоего компьютера</string>
+    <string name="settings">Настройки</string>
+    <string name="back">Назад</string>
+    <string name="look_title">Оформление</string>
+    <string name="theme_label">Тема</string>
+    <string name="look_dark">Тёмная</string>
+    <string name="look_classic">Классическая</string>
+    <string name="look_oled">OLED</string>
+    <string name="look_light">Светлая</string>
+    <string name="diagnostics_section">Диагностика</string>
+    <string name="help_section">Нужна помощь?</string>
     <string name="about_title">О приложении</string>
     <string name="copy_diagnostics">Скопировать диагностику</string>
     <string name="diagnostics_copied">Диагностика скопирована в буфер обмена</string>
@@ -124,6 +135,7 @@
     <string name="preview_stream_starting">Трансляция запускается. Попробуй снова через пару секунд.</string>
     <string name="preview_no_cameras">Камеры не найдены.</string>
     <string name="preview_may_stretch">Предпросмотр может выглядеть растянутым - не удалось прочитать данные камеры.</string>
+    <string name="notes_close">Закрыть телесуфлёр</string>
     <string name="notif_channel_streaming">Трансляция</string>
     <string name="notif_channel_streaming_desc">Показывается во время трансляции с камеры на компьютер</string>
     <string name="notif_channel_waiting">Ожидание компьютера</string>

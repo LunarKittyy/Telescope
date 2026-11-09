@@ -522,3 +522,50 @@ fn centred_words_sit_with_their_capitals_on_the_middle_of_their_box_and_a_tile_b
         assert!((above - below).abs() <= 1.0 + 1.0 / scale, "scale {scale}: the block has {above} above and {below} below");
     }
 }
+
+const LEAVING_PAGES: &str = r#"
+import { PageGroup, Page, Theme } from "@ui-kit/ui-kit.slint";
+export component T inherits Window {
+    width: 200px;
+    height: 100px;
+    background: Theme.card;
+    in property <int> tab: 1;
+    out property <int> a-clicks;
+    out property <int> b-clicks;
+    out property <float> b-value: b.value;
+    PageGroup {
+        x: 0px;
+        y: 0px;
+        width: 200px;
+        clip: a.moving || b.moving;
+        a := Page { shown: tab == 0; lead: 0px; Rectangle { height: 40px; TouchArea { clicked => { a-clicks += 1; } } } }
+        b := Page { shown: tab == 1; lead: 0px; Rectangle { height: 40px; TouchArea { clicked => { b-clicks += 1; } } } }
+    }
+}
+"#;
+
+fn tap(ui: &slint_interpreter::ComponentInstance, x: f32, y: f32) {
+    pointer_to(ui, x, y);
+    press(ui, x, y);
+    release(ui, x, y);
+}
+
+#[test]
+fn a_page_that_is_leaving_takes_no_clicks_and_the_one_that_comes_takes_them() {
+    let _still = offscreen::freeze_clock();
+    let ui = make(LEAVING_PAGES, 200.0, 100.0);
+    step(800);
+    tap(&ui, 100.0, 20.0);
+    assert_eq!((num(&ui, "a-clicks"), num(&ui, "b-clicks")), (0.0, 1.0), "the second page is up");
+    // The second page is the later one, so it is drawn over the first: going back, it must not keep the pointer
+    set(&ui, "tab", Value::Number(0.0));
+    for _ in 0..40 {
+        step(FRAME);
+        tap(&ui, 100.0, 20.0);
+        assert_eq!(num(&ui, "b-clicks"), 1.0, "the leaving page took a click at value {}", num(&ui, "b-value"));
+    }
+    step(800);
+    tap(&ui, 100.0, 20.0);
+    assert_eq!(num(&ui, "b-clicks"), 1.0);
+    assert!(num(&ui, "a-clicks") > 0.0, "the page that came answers once it is up");
+}

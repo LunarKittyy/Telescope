@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The desktop's one corner radius (6 px) and what follows from it (theme.slint: r-ctl, r-card, r-handle), scaled to the phone's 44dp controls -->
+    <dimen name="ts_radius">8dp</dimen>
+    <dimen name="ts_radius_card">11dp</dimen>
+    <!-- A card's padding at the sides, and above its title -->
+    <dimen name="ts_card_pad">18dp</dimen>
+    <dimen name="ts_card_pad_top">12dp</dimen>
+    <dimen name="ts_card_pad_bottom">16dp</dimen>
+</resources>
