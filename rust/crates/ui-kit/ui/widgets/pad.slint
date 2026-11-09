@@ -251,6 +251,10 @@ export component Pad inherits Rectangle {
         }
         double-clicked => {
             pend.cancel();
+            // The reset glides back even though the pointer is on the handle: only a drag under way puts it at once
+            glide-x.sync();
+            glide-y.sync();
+            dragging = false;
             set-to(has-default ? default-x : centre-x, has-default ? default-y : centre-y);
         }
     }

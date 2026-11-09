@@ -403,6 +403,7 @@ export component T inherits Window {
     in-out property <float> vy: 0;
     in-out property <int> moves;
     out property <length> hx: pad.handle-x;
+    out property <length> hy: pad.handle-y;
     pad := Pad {
         x: 10px; y: 10px; width: 300px; height: 200px; label: "Balance";
         x-minimum: 2000; x-maximum: 10000; step-x: 100; y-minimum: -50; y-maximum: 50; step-y: 1; y-up: true;
@@ -411,6 +412,29 @@ export component T inherits Window {
     }
 }
 "#;
+
+// A double-click on the handle itself is a reset, not a drag: the handle glides back over several frames instead of jumping under the pointer
+#[test]
+fn a_double_click_on_the_pan_maps_handle_glides_back_to_the_default() {
+    let _still = offscreen::freeze_clock();
+    let ui = make(PADS, 340.0, 230.0);
+    set(&ui, "vx", Value::Number(9000.0));
+    step(800);
+    let (hx, hy) = (10.0 + num(&ui, "hx"), 10.0 + num(&ui, "hy"));
+    press(&ui, hx, hy);
+    release(&ui, hx, hy);
+    step(60);
+    press(&ui, hx, hy);
+    release(&ui, hx, hy);
+    let mut t = vec![num(&ui, "hx")];
+    for _ in 0..40 {
+        step(FRAME);
+        t.push(num(&ui, "hx"));
+    }
+    let start = 10.0 + t[0];
+    assert!(start > 150.0, "the handle was well to the right, and the first frame hasn't jumped to the default: {t:?}");
+    assert!(t.iter().filter(|v| **v < t[0] - 8.0 && **v > t.last().unwrap() + 8.0).count() >= 4, "several frames on the way: {t:?}");
+}
 
 #[test]
 fn a_double_click_on_the_pan_map_resets_without_the_handle_first_jumping_to_the_click() {

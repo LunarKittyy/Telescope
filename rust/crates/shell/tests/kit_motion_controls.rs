@@ -205,6 +205,33 @@ fn a_click_on_the_track_waits_for_a_double_click_and_a_double_click_resets_witho
     assert!(t.iter().all(|v| *v < 0.5), "and never went towards the click: {t:?}");
 }
 
+// The rule is "no glide while a drag has hold of the handle", not "none while the pointer is on it": a double-click on the handle is a reset, and it glides back
+#[test]
+fn a_double_click_on_the_handle_glides_back_to_the_default_over_several_frames() {
+    let _still = offscreen::freeze_clock();
+    let ui = make(DEFAULTED, 340.0, 48.0);
+    num(&ui, "place");
+    offscreen::draw(ui.window(), 340.0, 48.0, 1.0);
+    let track = ElementHandle::find_by_accessible_label(&ui, "Level").next().expect("the track");
+    let (left, width) = (track.absolute_position().x, track.size().width);
+    set(&ui, "v", slint_interpreter::Value::Number(80.0));
+    step(800);
+    offscreen::draw(ui.window(), 340.0, 48.0, 1.0);
+    assert!((num(&ui, "place") - 0.8).abs() < 0.01, "the handle is at 80: {}", num(&ui, "place"));
+    // Both clicks land on the handle itself
+    let x = left + 7.0 + 0.8 * (width - 14.0);
+    press(&ui, x, 24.0);
+    release(&ui, x, 24.0);
+    step(100);
+    press(&ui, x, 24.0);
+    release(&ui, x, 24.0);
+    let t = trace(&ui, "place", 40);
+    assert!(t[0] > 0.6, "the first frame has not jumped to the default: {t:?}");
+    assert!(t.iter().filter(|v| **v > 0.25 && **v < 0.75).count() >= 4, "it takes several frames on the way: {t:?}");
+    assert!(t.windows(2).all(|w| w[1] <= w[0] + 0.0001), "one move, back: {t:?}");
+    assert!((t.last().unwrap() - 0.2).abs() < 0.01, "and it ends on the default: {t:?}");
+}
+
 #[test]
 fn a_held_slider_takes_its_colour_up_at_once_and_lets_it_down_over_a_few_frames() {
     let _still = offscreen::freeze_clock();
