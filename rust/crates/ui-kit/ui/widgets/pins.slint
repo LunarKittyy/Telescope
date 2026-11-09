@@ -99,6 +99,9 @@ export component PinReadout inherits Rectangle {
     }
     changed natural => { root.measured(natural, plain); }
     changed plain => { root.measured(natural, plain); }
+    // A pin that comes back from hidden says how wide it is again: the bar forgets widths while nothing shows, and a row that kept its text has nothing else to report
+    property <int> st: pin.state;
+    changed st => { root.measured(natural, plain); }
     fade := Fade { shown: here && pin.state == 0; }
     // Folded pins slide into their chip while they fade; a pin that is hidden follows its place at once, so it comes back where it belongs
     place := Settle { to: (dragging ? drag-x : pin.x) / 1px; snap: dragging || pin.state == 2; }

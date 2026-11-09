@@ -203,18 +203,20 @@ fn a_pin_its_side_and_its_order_are_kept_and_the_defaults_are_not_written() {
 #[test]
 fn a_damaged_pins_entry_starts_from_the_defaults() {
     let r = without_stats("bar-damaged");
-    for bad in [json!("left"), json!({"left": "camera"}), json!({"left": [1, null], "right": {"a": 1}}), json!(7)] {
+    let defaults = (vec!["camera".to_string()], vec!["fps".to_string(), "throughput".to_string()]);
+    for bad in [json!("left"), json!({"left": "camera"}), json!({"left": ["camera"], "right": 5}), json!({"left": [1, null], "right": {"a": 1}}), json!(7)] {
         let mut cfg = r.w.state.borrow().file.load();
         cfg["bar_pins"] = bad.clone();
         r.w.state.borrow().file.save(&mut cfg);
         r.w.state.borrow_mut().apply_saved_config();
-        let pins = r.w.state.borrow().bar.persisted();
-        if bad.is_object() {
-            assert!(pins.0.iter().chain(&pins.1).all(|p| !p.is_empty()), "{bad}: {pins:?}");
-        } else {
-            assert_eq!(pins.0, ["camera"], "{bad}");
-        }
+        assert_eq!(r.w.state.borrow().bar.persisted(), defaults, "{bad}");
     }
+    // A side that is missing is empty, and ids that aren't text or repeat are dropped
+    let mut cfg = r.w.state.borrow().file.load();
+    cfg["bar_pins"] = json!({"left": ["camera", 3, "camera"]});
+    r.w.state.borrow().file.save(&mut cfg);
+    r.w.state.borrow_mut().apply_saved_config();
+    assert_eq!(r.w.state.borrow().bar.persisted(), (vec!["camera".to_string()], vec![]));
 }
 
 #[test]
@@ -511,4 +513,37 @@ fn the_cameras_size_goes_before_its_name_is_cut() {
     assert_eq!(size(&r), 0, "the size is the first to go");
     resize(&r, 1400.0);
     assert_eq!(size(&r), 1, "and it comes back");
+}
+
+#[test]
+fn pins_that_come_back_after_everything_was_unpinned_are_measured_again() {
+    let r = with_stats("bar-remeasure");
+    r.start();
+    reports(&r, 0, "A Camera With A Rather Long Name", 30, "12.4 Mbps");
+    let wide = num(&pin(&r, "camera"), "w");
+    assert!(wide > 100.0, "{wide}");
+    for id in ["camera", "fps", "throughput"] {
+        r.w.unpin_from_bar(id);
+    }
+    settle(&r);
+    r.w.state.borrow_mut().bar.pin("camera", true);
+    r.w.process();
+    settle(&r);
+    assert!((num(&pin(&r, "camera"), "w") - wide).abs() < 1.0, "the camera is as wide as it was, not the guess: {} against {wide}", num(&pin(&r, "camera"), "w"));
+}
+
+#[test]
+fn the_status_word_starts_after_the_pins_on_its_left() {
+    let r = Rig::seeded("bar-status-left", json!({"bar_pins": {"left": ["fps"], "right": ["throughput"]}}), |_, heard| vec![Box::new(Listener::new("panel", heard)) as Box<dyn Plugin>]);
+    shown(&r);
+    r.start();
+    r.worker(0).says("fps", "30 fps  1920x1080");
+    r.worker(0).says("net", "12.4 Mbps");
+    r.worker(0).says("reconnecting", "Reconnecting");
+    r.pump();
+    settle(&r);
+    assert!(r.flag("bar-status-shown"));
+    let fps = pin(&r, "fps");
+    let number = |name: &str| match r.w.ui.get_property(name) { Ok(slint_interpreter::Value::Number(n)) => n as f32, other => panic!("{name} {other:?}") };
+    assert!(number("bar-status-x") >= num(&fps, "x") + num(&fps, "w"), "the status starts after the frame rate: {} against {fps:?}", number("bar-status-x"));
 }

@@ -741,3 +741,17 @@ fn every_pinnable_stat_has_an_icon_of_its_own() {
     names.dedup();
     assert_eq!(names.len(), icons.len(), "two stats share an icon: {icons:?}");
 }
+
+#[test]
+fn the_apps_numbers_stay_offered_while_the_focused_stream_is_not_in_the_snapshot_yet() {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    tapped(&mut plugin, &mut host, "stats.memory", true);
+    tapped(&mut plugin, &mut host, "stats.frames_in", true);
+    assert!(host.bar_offers.iter().any(|s| s.id == "stats.frames_in"));
+    // A second stream took the focus before the next tick: the snapshot only knows the first
+    host.focused = Some("phone-b".into());
+    plugin.on_focus_gained(&mut host, &stream("phone-b"));
+    let ids: Vec<&str> = host.bar_offers.iter().map(|s| s.id.as_str()).collect();
+    assert_eq!(ids, ["stats.memory"], "the app's own number stays, the stream's go until it reports");
+}

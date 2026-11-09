@@ -281,3 +281,34 @@ fn a_pin_too_wide_for_its_share_takes_only_what_it_needs_without_its_dim_text() 
     b.set_metrics(Metrics { width: 330.0, pad: 16.0, gap: 16.0, chip: 24.0 });
     assert_eq!(row(&b.view(), CAMERA).w, 88.0);
 }
+
+#[test]
+fn a_drop_with_the_camera_forced_in_lands_where_it_was_shown() {
+    let mut b = bar(900.0);
+    b.set_own(vec![stat(CAMERA, "Phone"), stat("a", "1"), stat("b", "1"), stat(FPS, "30")]);
+    b.load(Some((vec!["a".into(), "b".into()], vec!["fps".into()])));
+    b.set_streams(2);
+    // Shown as [camera, a, b]; drop the frame rate between the camera and a
+    b.drag_start(FPS);
+    b.drag_to(FPS, 60.0);
+    b.view();
+    b.drag_end(FPS);
+    assert_eq!(b.persisted().0, vec!["fps".to_string(), "a".to_string(), "b".to_string()], "the camera was never pinned: it is not saved, and does not move the drop a slot");
+    // The camera stays in front of it on screen
+    let v = b.view();
+    assert!(row(&v, CAMERA).x < row(&v, FPS).x && row(&v, FPS).x < row(&v, "a").x, "{:?}", v.rows.iter().map(|r| (&r.id, r.x)).collect::<Vec<_>>());
+}
+
+#[test]
+fn the_status_word_makes_room_for_the_pins_on_the_left() {
+    let mut b = bar(600.0);
+    b.set_own(vec![stat(CAMERA, ""), stat(FPS, "30"), stat(THROUGHPUT, "12")]);
+    b.load(Some((vec!["fps".into()], vec!["throughput".into()])));
+    let v = b.view();
+    let fps = row(&v, FPS);
+    assert_eq!(v.status_x, fps.x + fps.w + 16.0);
+    assert!(v.status_x + v.status_room <= row(&v, THROUGHPUT).x, "and ends before the right side");
+    // With nothing on the left it starts at the edge
+    b.load(Some((vec![], vec!["fps".into(), "throughput".into()])));
+    assert_eq!(b.view().status_x, 16.0);
+}

@@ -78,7 +78,8 @@ pub struct View {
     /// Pins that were hidden last time and are drawn now: the bar puts them in place first and lets them fade in a moment later, so a
     /// pin that comes back appears where it belongs instead of sliding there from where it left.
     pub returning: Vec<String>,
-    /// How much of the bar's left the status word may use before the right side's first pin.
+    /// Where the status word starts (after the left side's pins) and how much room it has before the right side's first pin.
+    pub status_x: f32,
     pub status_room: f32,
 }
 
@@ -275,12 +276,18 @@ impl Bar {
         }
     }
 
-    /// The two lists as they are drawn: the pins as pinned, the camera forced in while it has to be, and a held pin where it would land.
-    fn lists(&self) -> (Vec<String>, Vec<String>) {
-        let (mut left, mut right) = (self.left.clone(), self.right.clone());
+    /// The pinned lists with the camera put in front on the left while it has to be shown and isn't pinned: what is on screen, before any drag.
+    fn base(&self) -> (Vec<String>, Vec<String>) {
+        let (mut left, right) = (self.left.clone(), self.right.clone());
         if self.forced(bar::CAMERA) && !left.iter().chain(&right).any(|p| p == bar::CAMERA) {
             left.insert(0, bar::CAMERA.to_string());
         }
+        (left, right)
+    }
+
+    /// The two lists as they are drawn: the pins as pinned, the camera forced in while it has to be, and a held pin where it would land.
+    fn lists(&self) -> (Vec<String>, Vec<String>) {
+        let (mut left, mut right) = self.base();
         if let Some(d) = &self.drag {
             left.retain(|p| *p != d.id);
             right.retain(|p| *p != d.id);
@@ -375,14 +382,17 @@ impl Bar {
         }
         self.drawn = drawn;
         let right_edge = rows.iter().filter(|r| r.side == Side::Right && r.state == State::Shown).map(|r| r.x).chain(right_chip.map(|c| c.x)).fold(m.width - m.pad, f32::min);
-        let status_room = (right_edge - m.pad - if right_edge < m.width - m.pad { m.gap } else { 0.0 }).max(0.0);
-        View { rows, left: left_chip, right: right_chip, returning, status_room }
+        let left_edge = rows.iter().filter(|r| r.side == Side::Left && r.state == State::Shown).map(|r| r.x + r.w).chain(left_chip.map(|c| c.x + m.chip)).fold(m.pad, f32::max);
+        let status_x = if left_edge > m.pad { left_edge + m.gap } else { m.pad };
+        let status_room = (right_edge - status_x - if right_edge < m.width - m.pad { m.gap } else { 0.0 }).max(0.0);
+        View { rows, left: left_chip, right: right_chip, returning, status_x, status_room }
     }
 
     /// A pin was taken hold of.
     pub fn drag_start(&mut self, id: &str) {
         let Some(side) = self.side_of(id) else { return };
-        let list = if side == Side::Left { &self.left } else { &self.right };
+        let (left, right) = self.base();
+        let list = if side == Side::Left { &left } else { &right };
         let index = list.iter().position(|p| p == id).unwrap_or(0);
         self.drag = Some(Drag { id: id.to_string(), side, index });
         self.dirty = true;
@@ -397,10 +407,7 @@ impl Bar {
         let room = (m.width - 2.0 * m.pad).max(0.0);
         let side = if x < m.width / 2.0 { Side::Left } else { Side::Right };
         // The other pins on that side, packed from their edge the way they would be without this one: where their centres are
-        let (mut left, mut right) = (self.left.clone(), self.right.clone());
-        if self.forced(bar::CAMERA) && !left.iter().chain(&right).any(|p| p == bar::CAMERA) {
-            left.insert(0, bar::CAMERA.to_string());
-        }
+        let (mut left, mut right) = self.base();
         left.retain(|p| p != id);
         right.retain(|p| p != id);
         let list = if side == Side::Left { &left } else { &right };
@@ -433,10 +440,17 @@ impl Bar {
         let Some(d) = self.drag.take().filter(|d| d.id == id) else { return false };
         self.dirty = true;
         let before = (self.left.clone(), self.right.clone());
-        self.left.retain(|p| *p != d.id);
-        self.right.retain(|p| *p != d.id);
-        let list = if d.side == Side::Left { &mut self.left } else { &mut self.right };
+        // The index counts the camera when it is only there because two streams run, so it is put in the lists for the drop and taken out again
+        let (mut left, mut right) = self.base();
+        let camera_pinned = before.0.iter().chain(&before.1).any(|p| p == bar::CAMERA);
+        left.retain(|p| *p != d.id);
+        right.retain(|p| *p != d.id);
+        let list = if d.side == Side::Left { &mut left } else { &mut right };
         list.insert(d.index.min(list.len()), d.id.clone());
+        if d.id != bar::CAMERA && !camera_pinned {
+            left.retain(|p| p != bar::CAMERA);
+        }
+        (self.left, self.right) = (left, right);
         before != (self.left.clone(), self.right.clone())
     }
 

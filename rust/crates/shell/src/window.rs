@@ -773,6 +773,7 @@ impl Window {
             if rn > 0.0 {
                 let _ = crate::same::set(ui, "bar-right-chip-x", SValue::Number(rx));
             }
+            let _ = crate::same::set(ui, "bar-status-x", SValue::Number(view.status_x as f64));
             let _ = crate::same::set(ui, "bar-status-room", SValue::Number(view.status_room as f64));
         };
         self.bar_timer.stop();

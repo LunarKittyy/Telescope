@@ -288,6 +288,7 @@ export component TelescopeWindow inherits Window {
     in property <length> bar-left-chip-x;
     in property <int> bar-right-folded;
     in property <length> bar-right-chip-x;
+    in property <length> bar-status-x: Theme.u(8);
     in property <length> bar-status-room;
     in property <bool> bar-status-shown: true;
     // What bar.rs needs to lay the pins out: the bar's width, the room at its edges and between pins, and the chip's width
@@ -506,6 +507,7 @@ const BODY_BOTTOM: &str = r#"        }
         status: root.status;
         status-kind: root.status-kind;
         status-shown: root.bar-status-shown;
+        status-x: root.bar-status-x;
         status-room: root.bar-status-room;
         pins: root.bar-pins;
         left-folded: root.bar-left-folded;

@@ -104,7 +104,8 @@ export component Footer inherits Rectangle {
     in property <length> left-chip-x;
     in property <int> right-folded;
     in property <length> right-chip-x;
-    // How much of the bar's left the status may use
+    // Where the status starts (after the pins on the left) and how much of the bar it may use
+    in property <length> status-x: Theme.u(8);
     in property <length> status-room: root.width - 2 * Theme.u(8);
     callback pin-measured(string, length, length);
     callback drag-started(string);
@@ -115,7 +116,7 @@ export component Footer inherits Rectangle {
     background: Theme.chrome;
     status-fade := Fade { shown: status-shown && status != ""; }
     shown-status := Text {
-        x: Theme.u(8);
+        x: status-x;
         width: max(0px, status-room);
         height: parent.height;
         text: status;

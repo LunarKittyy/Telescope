@@ -479,10 +479,15 @@ fn tidy(rows: Vec<Row>) -> Vec<Row> {
 
 /// What the bottom bar can show from the card: every line with a "stats." star, as the bar reads it. The window's own readouts (frame
 /// rate, throughput, camera) are not offered here, the window has them.
-pub fn offers(snap: &Snapshot, s: &SourceSnapshot, ctx: &Context) -> Vec<BarStat> {
+///
+/// `s` is the stream the panels show; without it (it is not in the snapshot yet, a second stream that has just started) only the app's own
+/// numbers, which don't depend on a stream, are offered.
+pub fn offers(snap: &Snapshot, s: Option<&SourceSnapshot>, ctx: &Context) -> Vec<BarStat> {
     let mut out = Vec::new();
-    for row in rows(snap, s, View::Nerd, ctx) {
-        if !row.head && row.pin.starts_with("stats.") && row.kind != "status_dim" {
+    let Some(source) = s.or(snap.sources.first()) else { return out };
+    for row in rows(snap, source, View::Nerd, ctx) {
+        let app_wide = matches!(row.pin.as_str(), PIN_CPU | PIN_MEMORY | PIN_TOTAL);
+        if !row.head && row.pin.starts_with("stats.") && row.kind != "status_dim" && (s.is_some() || app_wide) {
             let tone = match row.kind.as_str() {
                 "status_warn" => "warn",
                 _ => "",
@@ -585,9 +590,8 @@ impl StatsPlugin {
     /// The numbers the bar can pin, for the shown stream (and the app's, which don't depend on it). Nothing while there is nothing to read.
     fn offer(&self, host: &mut dyn Host) {
         let focused = host.focused_source_id();
-        let shown = self.latest.as_ref().and_then(|snap| Some((snap, shown_source(snap, focused.as_ref())?)));
-        let stats = match shown {
-            Some((snap, source)) if host.bar_pins().iter().any(|p| p.starts_with("stats.")) => offers(snap, source, &self.context(host)),
+        let stats = match self.latest.as_ref() {
+            Some(snap) if host.bar_pins().iter().any(|p| p.starts_with("stats.")) => offers(snap, shown_source(snap, focused.as_ref()), &self.context(host)),
             _ => Vec::new(),
         };
         host.offer_bar_stats(&stats);

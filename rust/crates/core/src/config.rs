@@ -537,11 +537,16 @@ impl WindowState {
 fn bar_pins_from(value: Option<&Value>) -> Option<(Vec<String>, Vec<String>)> {
     let object = value?.as_object()?;
     let mut seen = std::collections::BTreeSet::new();
-    let mut side = |name: &str| -> Vec<String> {
-        object.get(name).and_then(Value::as_array).map(|ids| ids.iter().filter_map(Value::as_str).filter(|id| seen.insert(id.to_string())).map(str::to_string).collect()).unwrap_or_default()
+    // A side that is missing is empty; one that is not a list means the entry is damaged
+    let mut side = |name: &str| -> Option<Vec<String>> {
+        match object.get(name) {
+            None => Some(Vec::new()),
+            Some(Value::Array(ids)) => Some(ids.iter().filter_map(Value::as_str).filter(|id| seen.insert(id.to_string())).map(str::to_string).collect()),
+            Some(_) => None,
+        }
     };
-    let left = side("left");
-    let right = side("right");
+    let left = side("left")?;
+    let right = side("right")?;
     Some((left, right))
 }
 
