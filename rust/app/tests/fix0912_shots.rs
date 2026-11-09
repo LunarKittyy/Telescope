@@ -46,6 +46,9 @@ fn the_stats_card_with_a_hovered_row() {
         let ui = def.create().unwrap();
         ui.set_property("rows", to_property(&ui, "rows", &rows)).unwrap();
         ui.set_property("view", Value::Number(1.0)).unwrap();
+        // The card is told its two labels by the plugin; a harness that doesn't leaves two empty tiles
+        ui.set_property("view-standard", Value::String("Standard".into())).unwrap();
+        ui.set_property("view-nerd", Value::String("Nerd".into())).unwrap();
         ui.window().set_size(slint::LogicalSize::new(360.0, 900.0));
         ui.show().unwrap();
         offscreen::pump();
@@ -89,4 +92,10 @@ fn the_preview_buttons_with_smooth_on_and_off_at_two_widths() {
         pic.save_png(&dir.join(format!("preview-buttons-{}px-smooth-{}.png", width as u32, if on { "on" } else { "off" }))).unwrap();
         ui.hide().unwrap();
     }
+}
+
+#[test]
+fn the_specimen_sheet_for_a_look_at_every_segmented() {
+    let Some(dir) = out() else { return };
+    assert_eq!(telescope_shell::specimen::render(&dir.join("specimen")), Ok(4));
 }
