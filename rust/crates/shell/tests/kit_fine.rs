@@ -425,3 +425,37 @@ fn truth(ui: &ComponentInstance, name: &str) -> bool {
         other => panic!("{name} is {other:?}"),
     }
 }
+
+#[test]
+fn grabbing_the_dial_again_while_the_readout_swells_keeps_it_following() {
+    // Press again at every moment of the swell, and after a wheel notch too: the readout says each new value and settles small, then big
+    for gap in (0..400).step_by(40) {
+        for by_wheel in [false, true] {
+            let ui = rig(LONG, (220.0, 70.0));
+            ui.window().dispatch_event(WindowEvent::PointerMoved { position: at(110.0, 34.0) });
+            if by_wheel {
+                notch(&ui);
+            } else {
+                down(&ui, at(110.0, 34.0));
+                drag(&ui, at(110.0 - 30.0, 34.0));
+                wait(40);
+                up(&ui, at(110.0 - 30.0, 34.0));
+            }
+            wait(gap);
+            let from = if by_wheel { 110.0 } else { 80.0 };
+            down(&ui, at(from, 34.0));
+            let mut seen = Vec::new();
+            for k in 1..=8 {
+                drag(&ui, at(from - k as f32 * 23.0, 34.0));
+                wait(20);
+                seen.push(text(&ui, "read"));
+            }
+            assert!(seen.windows(2).all(|w| w[0] != w[1]), "gap {gap} wheel {by_wheel}: every tick says its value: {seen:?}");
+            wait(400);
+            assert!(number(&ui, "scale") < 0.8, "small while held: {}", number(&ui, "scale"));
+            up(&ui, at(from - 8.0 * 23.0, 34.0));
+            wait(700);
+            assert_eq!(number(&ui, "scale"), 1.0, "and big at rest");
+        }
+    }
+}
