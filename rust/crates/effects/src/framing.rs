@@ -37,8 +37,8 @@ const OMEGA_FAST: f64 = 9.0;
 const TICK_MS: u64 = 33;
 /// The Speed bubble's pictures are moved this often (60 a second, as the window draws), only while it is up.
 const CHASE_MS: u64 = 16;
-/// Closer than this gets too soft to be worth it.
-pub const MAX_ZOOM: f64 = 4.0;
+/// How close it may zoom until Settings says (its Max zoom, which it then follows: how soft is too soft is the person's call).
+pub const MAX_ZOOM: f64 = 10.0;
 /// Nobody seen for this long: back to the whole picture.
 const LOST_S: f64 = 2.0;
 /// The framing lets the target's centre wander this far (of the window's size) at Speed 5...
@@ -592,7 +592,7 @@ impl FramingPlugin {
                 (if known { None } else { peek::live_picture(&stream.frame).map(|f| (number, f)) }, window)
             }
             _ => {
-                let model = target_box(&[peek::sample_person()], peek::SAMPLE_ASPECT, self.framing_value(), &[]).map_or(Target::new(0.5, 0.5, 1.0), |b| fit(b, MAX_ZOOM));
+                let model = target_box(&[peek::sample_person()], peek::SAMPLE_ASPECT, self.framing_value(), &[]).map_or(Target::new(0.5, 0.5, 1.0), |b| fit(b, self.max_zoom));
                 let known = self.peek_shown.is_some_and(|(n, _)| n == 0);
                 (if known { None } else { Some((0, peek::scene_picture().clone())) }, (model.x, model.y, model.zoom))
             }
@@ -808,7 +808,7 @@ impl Plugin for FramingPlugin {
         match event {
             Event::PeopleSeen { source_id, people } => self.on_people(host, source_id, people),
             Event::ViewChanged { view } => self.on_view_changed(view),
-            Event::MaxZoomChanged { max_zoom } => self.max_zoom = MAX_ZOOM.min(*max_zoom as f64),
+            Event::MaxZoomChanged { max_zoom } => self.max_zoom = (*max_zoom as f64).max(1.0),
             e if vision_row::changes_it(e) => self.show_status(host),
             Event::TimerFired { owner, token } if owner == NAME && token == T_TICK && self.steering => {
                 self.tick(host);

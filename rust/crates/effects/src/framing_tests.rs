@@ -113,10 +113,10 @@ fn rotating_the_view_keeps_the_same_part_of_the_person_in_frame() {
 
 #[test]
 fn the_window_keeps_the_box_and_stays_in_the_picture() {
-    let target = fit((0.4, 0.2, 0.6, 0.5), MAX_ZOOM);
+    let target = fit((0.4, 0.2, 0.6, 0.5), 4.0);
     assert!(close(target.zoom, 1.0 / 0.3, 1e-9) && close(target.x, 0.5, 1e-9));
-    let corner = fit((0.0, 0.0, 0.1, 0.1), MAX_ZOOM);
-    assert!(corner.zoom == MAX_ZOOM && close(corner.x, 0.125, 1e-9) && close(corner.y, 0.125, 1e-9));
+    let corner = fit((0.0, 0.0, 0.1, 0.1), 4.0);
+    assert!(corner.zoom == 4.0 && close(corner.x, 0.125, 1e-9) && close(corner.y, 0.125, 1e-9));
     assert_eq!(fit((-0.2, 0.0, 1.2, 1.0), MAX_ZOOM).zoom, 1.0);
 }
 
@@ -459,12 +459,12 @@ fn a_device_without_it_lets_go_at_the_next_hook() {
 }
 
 #[test]
-fn the_max_zoom_setting_can_only_lower_it() {
+fn the_max_zoom_setting_is_followed_both_ways() {
     let mut r = Rig::new();
     r.event(Event::MaxZoomChanged { max_zoom: 2 });
     assert_eq!(r.plugin.max_zoom, 2.0);
-    r.event(Event::MaxZoomChanged { max_zoom: 10 });
-    assert_eq!(r.plugin.max_zoom, MAX_ZOOM);
+    r.event(Event::MaxZoomChanged { max_zoom: 24 });
+    assert_eq!(r.plugin.max_zoom, 24.0);
 }
 
 #[test]
@@ -656,6 +656,8 @@ fn whole_runs_steer_as_python_does_tick_by_tick() {
         r.host.view = view_of(&run["view"]);
         r.host.view_owner = run["owner"].as_str().unwrap().into();
         r.plugin.setup(&mut r.host);
+        // Python's runs were recorded with the old fixed 4x ceiling
+        r.plugin.max_zoom = 4.0;
         r.configure(&run["config"]);
         for (i, op) in run["ops"].as_array().unwrap().iter().enumerate() {
             match op["op"].as_str().unwrap() {
@@ -683,7 +685,10 @@ fn whole_runs_steer_as_python_does_tick_by_tick() {
                     }
                     r.event(Event::ViewChanged { view: r.host.view.clone() });
                 }
-                "max_zoom" => r.event(Event::MaxZoomChanged { max_zoom: op["most"].as_i64().unwrap() as i32 }),
+                "max_zoom" => {
+                    r.event(Event::MaxZoomChanged { max_zoom: op["most"].as_i64().unwrap() as i32 });
+                    r.plugin.max_zoom = r.plugin.max_zoom.min(4.0);
+                }
                 "focus" => r.plugin.on_focus_gained(&mut r.host, &StreamInfo { source_id: "phone".into(), url: "url".into(), session: 0 }),
                 "config" => r.configure(&op["config"]),
                 other => panic!("{other}"),
