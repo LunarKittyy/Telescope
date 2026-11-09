@@ -455,14 +455,14 @@ fn a_lens_that_can_only_meter_takes_a_meter_point_and_tap_a_point_stays_off() {
 }
 
 #[test]
-fn compensation_snaps_and_all_three_reset_on_a_double_click() {
-    // Brightness snaps to 0; all three have a default a double-click goes back to (the slider's own job in ui-kit)
+fn compensation_moves_freely_and_all_three_reset_on_a_double_click() {
+    // Brightness doesn't snap to 0 (its centre line shows where 0 is); all three have a default a double-click goes back to (the slider's own job in ui-kit)
     let card = include_str!("../../ui/cards/camera.slint");
     let brightness = &card[card.find("shortcut: \"camera.compensation\";").unwrap()..];
     let brightness = &brightness[..brightness.find("moved(v)").unwrap()];
-    assert!(brightness.contains("marks: [0];") && brightness.contains("default-value: 0;"));
+    assert!(!brightness.contains("marks:") && brightness.contains("default-value: 0;"));
     assert_eq!(card.matches("has-default: true;").count(), 3);
-    assert_eq!(card.matches("marks:").count(), 1);
+    assert_eq!(card.matches("marks:").count(), 0);
     let mut r = Rig::new();
     r.streaming();
     r.cam.kelvin.enabled = true;

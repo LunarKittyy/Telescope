@@ -790,7 +790,8 @@ fn camera_tip(s: &Stage, text: &str) -> bool {
     s.send(WindowEvent::PointerMoved { position: LogicalPosition::new(600.0, 200.0) });
     s.r.skip(20);
     s.send(WindowEvent::PointerMoved { position: LogicalPosition::new(p.x + size.width / 2.0, p.y + size.height / 2.0) });
-    s.r.skip(600);
+    // Just after a change tips wait longer (Tips.quiet-factor)
+    s.r.skip(1400);
     let shown = s.says(text);
     s.send(WindowEvent::PointerMoved { position: LogicalPosition::new(600.0, 200.0) });
     s.r.skip(20);
