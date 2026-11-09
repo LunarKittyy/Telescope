@@ -1364,8 +1364,9 @@ impl Window {
         }
         let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else {
             // Not a card or a header: one of its settings sections, if the settings window has been built
-            if let Some(settings) = crate::settings::current() {
-                settings.set_props(plugin, ui, props);
+            match crate::settings::current() {
+                Some(settings) => settings.set_props(plugin, ui, props),
+                None => crate::settings::hold_props(plugin, ui, props),
             }
             return;
         };
@@ -1395,11 +1396,10 @@ impl Window {
                     log::warn!("{plugin} set {prop} on its {ui}: {e:?}");
                 }
             }
-            None => {
-                if let Some(settings) = crate::settings::current() {
-                    settings.set_image(plugin, ui, prop, image);
-                }
-            }
+            None => match crate::settings::current() {
+                Some(settings) => settings.set_image(plugin, ui, prop, image),
+                None => crate::settings::hold_image(plugin, ui, prop, image),
+            },
         }
     }
 
