@@ -283,13 +283,17 @@ fn opening_a_bubble_moves_nothing_in_the_card() {
 
 #[test]
 fn near_the_top_it_opens_below_and_stays_in_the_window() {
+    // the held slider's colour fades in, so the clock is still and both are drawn at the same point of it
+    let _still = telescope_shell::offscreen::freeze_clock();
     let plain = open();
     plain.set_property("kind", Value::String("".into())).unwrap();
     press_at(&plain, TOP_X, TOP_Y);
+    wait(&plain, 250);
     let held = draw(&plain);
     let w = open();
     press_at(&w, TOP_X, TOP_Y);
     assert!(up(&w));
+    wait(&w, 250);
     let shown = draw(&w);
     // there is no room above the slider: the bubble is below it, over what the first slider has under it
     assert!(differing(&held, &shown, 40..170, 0..320) > 1000);
