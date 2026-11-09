@@ -2,6 +2,7 @@ use super::*;
 use telescope_core::balance::{Balance, Place};
 use std::sync::Arc;
 use telescope_core::stats::{DropReason, Hub};
+use telescope_core::host::HostUi;
 use telescope_core::testing::FakeHost;
 use crate::stats_phone::PhoneReading;
 
@@ -216,6 +217,30 @@ fn the_costly_numbers_are_only_asked_for_while_nerd_is_showing() {
     plugin.shutdown(&mut host);
     assert_eq!(wants(&host).last().map(String::as_str), Some("want_stats stats false"));
     assert!(!plugin.wanting());
+}
+
+#[test]
+fn a_pinned_number_keeps_the_costly_measuring_going_while_the_card_is_folded() {
+    let mut host = FakeHost::new();
+    let mut plugin = StatsPlugin::new();
+    let wants = |host: &FakeHost| host.calls.iter().filter(|c| c.starts_with("want_stats")).cloned().collect::<Vec<_>>();
+    plugin.on_plugins_ready(&mut host);
+    assert!(wants(&host).is_empty());
+    host.pin_to_bar("stats.step_zoom", true);
+    for event in std::mem::take(&mut host.events) {
+        plugin.on_event(&mut host, &event);
+    }
+    assert_eq!(wants(&host), ["want_stats stats true"], "a pin in Standard view still needs the numbers");
+    plugin.on_event(&mut host, &Event::CardFolded { key: FOLD_KEY.into(), folded: true });
+    assert!(plugin.wanting(), "folding the card leaves the bar's readout measured");
+    plugin.on_event(&mut host, &Event::WindowShown { shown: false });
+    assert!(!plugin.wanting(), "a window in the tray measures nothing");
+    plugin.on_event(&mut host, &Event::WindowShown { shown: true });
+    host.pin_to_bar("stats.step_zoom", false);
+    for event in std::mem::take(&mut host.events) {
+        plugin.on_event(&mut host, &event);
+    }
+    assert!(!plugin.wanting(), "unpinning lets it go");
 }
 
 #[test]

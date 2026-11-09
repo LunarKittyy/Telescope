@@ -88,6 +88,7 @@ export component UpdatesSettings inherits Card {
     callback back-answered(bool);
     changed back-open => {
         if (self.back-open) {
+            self.back-answer = false;
             back-popup.show();
         } else {
             back-popup.close();
@@ -225,7 +226,12 @@ export component UpdatesSettings inherits Card {
             width: max(root.width, Theme.u(230));
             height: self.preferred-height;
             dismissable: true;
-            left => { back-popup.close(); root.back-answered(root.back-answer); }
+            left => {
+                back-popup.close();
+                // A press outside never sets the answer, so it must not keep the last one
+                root.back-answered(root.back-answer);
+                root.back-answer = false;
+            }
             title: @tr("Go back to the Python version?");
             Text {
                 text: back-text;

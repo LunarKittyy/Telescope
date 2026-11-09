@@ -909,3 +909,16 @@ fn a_source_with_a_mic_of_its_own_comes_before_the_phones_routes() {
     assert_eq!(routes.audio("phone-1").unwrap().0, "https://10.0.0.5/v1/audio");
     assert!(routes.audio("nobody").is_none());
 }
+
+#[test]
+fn the_compact_label_follows_the_status_in_any_language() {
+    telescope_core::i18n::set_translator(|key| match key {
+        "Downloading VB-Cable from vb-audio.com…" => Some("VB-Cable wird von vb-audio.com heruntergeladen…".to_string()),
+        "Downloading…" => Some("Wird geladen…".to_string()),
+        "Connecting…" => Some("Verbindung wird hergestellt, einen Moment bitte…".to_string()),
+        _ => None,
+    });
+    assert_eq!(short_of(&tr(DOWNLOADING), "dim", None), "Wird geladen…");
+    assert_eq!(short_of(&tr(CONNECTING), "dim", None), tr(CONNECTING));
+    assert_eq!(short_of("something else", "dim", None), tr("On elsewhere"));
+}
