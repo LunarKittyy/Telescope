@@ -113,7 +113,7 @@ class WaitingService : Service() {
                 .setContentText(if (streaming) CameraStreamService.streamingText(context, cameraOff)
                     else context.getString(R.string.notif_waiting))
                 .setSmallIcon(R.drawable.ic_notification)
-                .setColor(ContextCompat.getColor(context, R.color.colorPrimary))
+                .setColor(context.lookColor(R.attr.tsFill))
                 .setContentIntent(open)
                 .addAction(0, context.getString(R.string.notif_stop_waiting), stop)
                 .setOngoing(true)

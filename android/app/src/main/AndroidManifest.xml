@@ -30,7 +30,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
-        android:theme="@style/Theme.Telescope">
+        android:theme="@style/Theme.Telescope.Dark">
 
         <activity
             android:name=".MainActivity"
@@ -60,11 +60,17 @@
             android:exported="false" />
 
         <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Telescope.Dark" />
+
+        <activity
             android:name=".PreviewActivity"
             android:exported="false"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.Telescope" />
+            android:theme="@style/Theme.Telescope.Dark" />
 
         <!-- The computer's notes next to the front camera; turns with the phone, since it may sit sideways in a holder -->
         <activity
@@ -73,7 +79,7 @@
             android:launchMode="singleTop"
             android:screenOrientation="fullUser"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
-            android:theme="@style/Theme.Telescope" />
+            android:theme="@style/Theme.Telescope.Dark" />
 
         <activity
             android:name="com.journeyapps.barcodescanner.CaptureActivity"

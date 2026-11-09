@@ -8,7 +8,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/colorBackground">
+    android:background="?attr/tsGround">
 
     <!-- Header bar -->
     <LinearLayout
@@ -17,7 +17,7 @@
         android:layout_height="wrap_content"
         android:minHeight="56dp"
         android:orientation="horizontal"
-        android:background="@color/colorHeader"
+        android:background="?attr/tsChrome"
         android:paddingStart="16dp"
         android:paddingEnd="12dp"
         android:paddingTop="10dp"
@@ -80,13 +80,32 @@
             app:iconSize="16dp"
             app:iconPadding="6dp" />
 
+        <!-- Look and About: the desktop opens its Settings from the same corner of the top bar -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSettings"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:minWidth="0dp"
+            android:minHeight="36dp"
+            android:layout_marginStart="8dp"
+            android:padding="0dp"
+            app:cornerRadius="8dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:contentDescription="@string/settings"
+            app:icon="@drawable/ic_sliders"
+            app:iconSize="16dp"
+            app:iconPadding="0dp"
+            app:iconGravity="textStart" />
+
     </LinearLayout>
 
     <!-- A hairline under the header, like the desktop's top bar -->
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="@color/colorBorder" />
+        android:background="?attr/tsLine" />
 
     <ScrollView
         android:layout_width="match_parent"
@@ -121,7 +140,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="10dp"
                         app:headerIcon="@drawable/ic_update"
-                        app:headerHue="@color/colorStreamingText"
+                        app:headerHue="?attr/tsOk"
                         app:headerTitle="@string/update_available" />
 
                     <TextView
@@ -160,7 +179,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="14dp"
                         app:headerIcon="@drawable/ic_check"
-                        app:headerHue="@color/hueLavender"
+                        app:headerHue="?attr/tsAccent"
                         app:headerTitle="@string/setup_title" />
 
                     <LinearLayout
@@ -190,7 +209,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="10dp"
                         app:headerIcon="@drawable/ic_link"
-                        app:headerHue="@color/hueSky"
+                        app:headerHue="?attr/tsHueStreaming"
                         app:headerTitle="@string/pair_title" />
 
                     <TextView
@@ -237,7 +256,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="6dp"
                         app:headerIcon="@drawable/ic_wifi"
-                        app:headerHue="@color/hueMint"
+                        app:headerHue="?attr/tsHueCamera"
                         app:headerTitle="@string/network_title" />
 
                     <com.google.android.material.switchmaterial.SwitchMaterial
@@ -259,7 +278,7 @@
                         android:layout_height="1dp"
                         android:layout_marginTop="12dp"
                         android:layout_marginBottom="4dp"
-                        android:background="@color/colorBorder" />
+                        android:background="?attr/tsLine" />
 
                     <com.google.android.material.switchmaterial.SwitchMaterial
                         android:id="@+id/checkWaitForComputer"
@@ -285,8 +304,10 @@
                 android:layout_height="wrap_content"
                 android:minHeight="56dp"
                 android:layout_marginBottom="10dp"
-                android:backgroundTint="@color/colorStop"
-                app:strokeColor="@color/colorStop"
+                android:backgroundTint="?attr/tsStopBtn"
+                android:textColor="?attr/tsStopBtnInk"
+                app:strokeColor="?attr/tsStopBtnEdge"
+                app:strokeWidth="?attr/tsStopBtnEdgeW"
                 android:text="@string/stop_streaming"
                 android:visibility="gone" />
 
@@ -294,7 +315,7 @@
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="10dp">
+                android:layout_marginBottom="0dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -307,7 +328,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="12dp"
                         app:headerIcon="@drawable/ic_phone"
-                        app:headerHue="@color/hueRose"
+                        app:headerHue="?attr/tsHueOnScreen"
                         app:headerTitle="@string/status_title" />
 
                     <LinearLayout
@@ -344,7 +365,7 @@
                                 android:layout_height="wrap_content"
                                 android:fontFamily="sans-serif-medium"
                                 android:textAppearance="@style/TextAppearance.Telescope.Body"
-                                android:textColor="@color/colorOnSurfaceDim" />
+                                android:textColor="?attr/tsInk2" />
                             <!-- Where the stream goes and at what, while a computer is watching -->
                             <TextView
                                 android:id="@+id/tvStatusDetail"
@@ -355,147 +376,6 @@
                                 android:visibility="gone" />
                         </LinearLayout>
                     </LinearLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- About: diagnostics and updates -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <com.telescope.CardHeader
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
-                        app:headerIcon="@drawable/ic_help"
-                        app:headerHue="@color/hueLavender"
-                        app:headerTitle="@string/about_title" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnCopyDiagnostics"
-                        style="?attr/materialButtonOutlinedStyle"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:minHeight="48dp"
-                        android:text="@string/copy_diagnostics"
-                        app:icon="@drawable/ic_copy"
-                        app:iconSize="18dp"
-                        app:iconGravity="textStart" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnReportBug"
-                        style="?attr/materialButtonOutlinedStyle"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:minHeight="48dp"
-                        android:layout_marginTop="6dp"
-                        android:text="@string/report_bug"
-                        app:icon="@drawable/ic_pop_out"
-                        app:iconSize="18dp"
-                        app:iconGravity="textStart" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnHelp"
-                        style="?attr/materialButtonOutlinedStyle"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:minHeight="48dp"
-                        android:layout_marginTop="6dp"
-                        android:text="@string/troubleshooting"
-                        app:icon="@drawable/ic_pop_out"
-                        app:iconSize="18dp"
-                        app:iconGravity="textStart" />
-
-                    <!-- Updates, under a section heading like the desktop's -->
-                    <LinearLayout
-                        android:id="@+id/sectionUpdates"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="18dp"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical">
-                        <ImageView
-                            android:layout_width="14dp"
-                            android:layout_height="14dp"
-                            android:src="@drawable/ic_update"
-                            app:tint="@color/colorOnSurfaceFaint"
-                            android:importantForAccessibility="no" />
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:text="@string/updates_section"
-                            android:textAppearance="@style/TextAppearance.Telescope.Section" />
-                        <View
-                            android:layout_width="0dp"
-                            android:layout_height="1dp"
-                            android:layout_weight="1"
-                            android:layout_marginStart="10dp"
-                            android:background="@color/colorBorder" />
-                    </LinearLayout>
-
-                    <com.google.android.material.switchmaterial.SwitchMaterial
-                        android:id="@+id/switchNightly"
-                        style="@style/Widget.Telescope.Switch"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/nightly_updates" />
-
-                    <TextView
-                        android:id="@+id/tvNightlyHint"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginEnd="56dp"
-                        android:text="@string/nightly_updates_hint"
-                        android:textAppearance="@style/TextAppearance.Telescope.Hint" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnCheckUpdates"
-                        style="?attr/materialButtonOutlinedStyle"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:minHeight="48dp"
-                        android:layout_marginTop="12dp"
-                        android:text="@string/check_for_updates"
-                        app:icon="@drawable/ic_update"
-                        app:iconSize="18dp"
-                        app:iconGravity="textStart" />
-
-                    <!-- Shown only in a language whose translation is a first draft (bool translation_is_draft) -->
-                    <TextView
-                        android:id="@+id/tvTranslationDraft"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="14dp"
-                        android:gravity="center_horizontal"
-                        android:text="@string/translation_draft"
-                        android:textAppearance="@style/TextAppearance.Telescope.Hint"
-                        android:visibility="gone" />
-
-                    <TextView
-                        android:id="@+id/tvAppVersion"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
-                        android:gravity="center_horizontal"
-                        android:textAppearance="@style/TextAppearance.Telescope.Hint" />
-
-                    <!-- Same credit as the desktop's About card -->
-                    <TextView
-                        android:id="@+id/tvMadeBy"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:gravity="center_horizontal"
-                        android:textColorLink="@color/colorAccent"
-                        android:textAppearance="@style/TextAppearance.Telescope.Hint" />
-
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
