@@ -413,6 +413,7 @@ export component Pad inherits Rectangle {
             y: by;
             width: bw;
             height: bh;
+            // fitted: the viewbox is the box less one stroke, so a unit is a pixel
             viewbox-width: mw / 1px;
             viewbox-height: mh / 1px;
             stroke: Theme.ink.with-alpha(root.enabled ? 0.22 + 0.38 * lit.value : 0.13);
