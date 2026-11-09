@@ -251,7 +251,7 @@ fn a_start_problem_banner_clears_on_the_next_start_and_on_a_working_stream() {
     r.show_issue("vcam", "Resize");
     r.worker(0).says("ok", "Streaming");
     r.pump();
-    assert!(r.rows("banners").is_empty(), "{:?}", r.rows("banners"));
+    assert!(r.banners_up().is_empty(), "{:?}", r.banners_up());
 }
 
 #[test]

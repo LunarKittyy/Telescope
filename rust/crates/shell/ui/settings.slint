@@ -475,13 +475,20 @@ export component PluginsPanel inherits VerticalLayout {
 }
 
 // The restart bar kept under the Plugins tab's page: in the warning colour so it is noticed, and the one place a pending restart shows.
+// `amount` (0 to 1) is how far it has opened, from the window's own Unfold: the page above it gives up the same room as it grows, so
+// the bar opens and shuts with everything round it moving, and the words fade up as it opens.
 export component PluginsFooter inherits Rectangle {
     in property <string> note;
+    in property <float> amount: 1;
     callback restart;
-    height: Theme.u(27);
+    height: Theme.u(27) * amount;
     border-radius: Theme.r-card;
     background: Theme.warn;
+    clip: true;
     HorizontalLayout {
+        y: 0px;
+        height: Theme.u(27);
+        opacity: clamp(root.amount * 1.4 - 0.2, 0, 1);
         padding-left: Theme.u(8);
         padding-right: Theme.u(5);
         padding-top: Theme.u(5);
@@ -490,6 +497,7 @@ export component PluginsFooter inherits Rectangle {
         Text { horizontal-stretch: 1; text: note; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; color: Theme.stage; vertical-alignment: center; }
         Button {
             text: @tr("Restart now");
+            enabled: root.amount >= 1;
             clicked => { root.restart(); }
             tip: @tr("Restart now");
             tip-detail: @tr("Restart Telescope to apply your changes.");
