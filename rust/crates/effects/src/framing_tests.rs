@@ -70,9 +70,38 @@ fn framing_goes_smoothly_from_the_face_to_the_whole_body() {
     let box_at = |f: f64| target_box(std::slice::from_ref(&feet), ASPECT, f, &[]).unwrap();
     let heights: Vec<f64> = (0..31).map(|f| box_at(f as f64 / 10.0).3).collect();
     assert!(heights.windows(2).all(|h| h[0] <= h[1] + 1e-9));
-    assert!(heights[0] < 0.4 && 0.75 <= heights[20] && heights[30] > 0.95);
-    // The top stays above the head
-    assert_eq!(box_at(0.0).1, box_at(3.0).1);
+    assert!(heights[0] < 0.4 && 0.7 <= heights[20] && heights[30] > 0.95);
+    // Every step to the right shows more, on every side, and the top stays above the head (eyes at 0.26)
+    let boxes: Vec<Box4> = (0..31).map(|f| box_at(f as f64 / 10.0)).collect();
+    assert!(boxes.windows(2).all(|b| b[1].0 <= b[0].0 + 1e-9 && b[1].1 <= b[0].1 + 1e-9 && b[1].2 >= b[0].2 - 1e-9));
+    assert!(boxes.iter().all(|b| b.1 < 0.26));
+    // and the zoom never jumps by more than a step's worth
+    let zooms: Vec<f64> = boxes.iter().map(|b| fit(*b, MAX_ZOOM).zoom).collect();
+    assert!(zooms.windows(2).all(|z| z[1] <= z[0] + 1e-9 && z[0] / z[1] < 1.2), "{zooms:?}");
+}
+
+#[test]
+fn the_levels_end_where_the_body_does() {
+    // shoulders at 0.4, a shoulder width of 0.1 * ASPECT picture heights, eyes at 0.26, nose at 0.28, hips at 0.75
+    let (sy, width, hips) = (0.4, 0.1 * ASPECT, 0.75);
+    let box_at = |f: f64| target_box(&[at(0.5)], ASPECT, f, &[]).unwrap();
+    let bottom_of = |f: f64| {
+        let t = fit(box_at(f), MAX_ZOOM);
+        t.y + 0.5 / t.zoom
+    };
+    // Head: from above the hair to under the chin, and no shoulders, neither in the box nor in the window it makes
+    let head = box_at(0.0);
+    assert!(head.1 < 0.26 && 0.26 - head.1 < 0.5 * width, "a little above the hair: {head:?}");
+    assert!(head.3 > 0.28 && head.3 < sy - 0.1 * width, "under the chin, over the shoulders: {head:?}");
+    assert!(head.2 - head.0 < 0.1, "no wider than the shoulders: {head:?}");
+    assert!(bottom_of(0.0) < sy - 0.1 * width, "the window holds no shoulders: {}", bottom_of(0.0));
+    // Chest: about the armpits, well above the belt
+    let chest = box_at(1.0);
+    assert!(chest.3 > sy + 0.2 * width && chest.3 < sy + 0.6 * width && chest.3 < hips - width, "{chest:?}");
+    // Waist: at belt height, a little over the hip points
+    let waist = box_at(2.0);
+    assert!(waist.3 <= hips && waist.3 > hips - 0.3 * width, "{waist:?}");
+    assert!(bottom_of(2.0) <= hips + 1e-9 && bottom_of(2.0) > hips - 0.3 * width, "{}", bottom_of(2.0));
 }
 
 #[test]
@@ -839,7 +868,7 @@ fn the_photo_crop_is_closer_the_closer_the_framing() {
     }
     assert!(widths.windows(2).all(|w| w[0] <= w[1]), "{widths:?}");
     assert!(widths[3] > 2.0 * widths[0], "{widths:?}");
-    // and by the photo's own points it holds the head and shoulders at the closest, not the hips, and the feet at the widest
+    // and by the photo's own points it holds just the head at the closest, the shoulders at Chest, down to the belt at Waist, and the feet at the widest
     let person = peek::sample_person();
     let holds = |clip: &[f64], name: &str| {
         let (x, y) = person.point(name, telescope_core::pose::SEEN).unwrap();
@@ -847,9 +876,17 @@ fn the_photo_crop_is_closer_the_closer_the_framing() {
     };
     r.ui("framing-moved", json!(0));
     let close = r.clip();
-    assert!(["nose", "left_eye", "right_eye", "left_shoulder", "right_shoulder"].iter().all(|n| holds(&close, n)), "{close:?}");
-    assert!(!holds(&close, "left_hip") && !holds(&close, "right_hip"), "{close:?}");
+    assert!(["nose", "left_eye", "right_eye", "left_ear", "right_ear"].iter().all(|n| holds(&close, n)), "{close:?}");
+    assert!(!holds(&close, "left_shoulder") && !holds(&close, "right_shoulder"), "no shoulders: {close:?}");
     assert!(close[1] < 0.07, "room above the head: {close:?}");
+    r.ui("framing-moved", json!(10));
+    let chest = r.clip();
+    assert!(["nose", "left_shoulder", "right_shoulder"].iter().all(|n| holds(&chest, n)), "{chest:?}");
+    assert!(!holds(&chest, "left_elbow") && !holds(&chest, "left_hip") && !holds(&chest, "right_hip"), "{chest:?}");
+    r.ui("framing-moved", json!(20));
+    let waist = r.clip();
+    let (_, hips) = person.point("left_hip", telescope_core::pose::SEEN).unwrap();
+    assert!((waist[1] + waist[3] - hips).abs() < 0.06 && holds(&waist, "left_elbow"), "belt height: {waist:?} against hips at {hips}");
     r.ui("framing-moved", json!(30));
     let wide = r.clip();
     assert!(["nose", "left_wrist", "right_wrist", "left_knee", "left_ankle", "right_ankle"].iter().all(|n| holds(&wide, n)), "{wide:?}");

@@ -26,8 +26,16 @@ pub const FRAMINGS: [&str; 4] = [n_("Head"), n_("Chest"), n_("Waist"), n_("Body"
 pub const FRAMING_DEFAULT: f64 = 1.0;
 /// Slider steps between two of them.
 const FRAMING_STEPS: i64 = 10;
-/// At each, half the box's width in shoulder widths.
-const HALF_WIDTH: [f64; 4] = [0.5, 0.85, 1.05, 1.2];
+/// At each, half the box's width in shoulder widths (at Head about the head's own width, so it never pulls the shoulders in).
+const HALF_WIDTH: [f64; 4] = [0.28, 0.75, 1.0, 1.2];
+/// At each, how far the box's top is above the eyes, in shoulder widths (at Head just above the hair).
+const HEADROOM: [f64; 4] = [0.4, 0.55, 0.55, 0.55];
+/// How far under the eyes the chin is, in shoulder widths: Head ends just below it.
+const CHIN: f64 = 0.43;
+/// Chest ends this far under the shoulder line (about the armpits), in shoulder widths.
+const CHEST: f64 = 0.4;
+/// Waist ends this far above the hip points (they sit a little under the belt), in shoulder widths.
+const BELT: f64 = 0.15;
 // Translators: Speed 1 to 10, slowest first, as a playful word for each step; keep them short
 pub const SPEEDS: [&str; 10] = [n_("Sloth"), n_("Lazy"), n_("Mellow"), n_("Calm"), n_("Easy"), n_("Steady"), n_("Brisk"), n_("Quick"), n_("Snappy"), n_("Zippy")];
 pub const SPEED_DEFAULT: i64 = 5;
@@ -97,14 +105,15 @@ impl Target {
     }
 }
 
-/// Where the box ends at each of FRAMINGS, in picture heights.
-fn bottoms(person: &Person, sy: f64, width: f64) -> [f64; 4] {
+/// Where the box ends at each of FRAMINGS, in picture heights: under the eyes (`eyes`) for Head, then down the body.
+fn bottoms(person: &Person, eyes: f64, sy: f64, width: f64) -> [f64; 4] {
     let lowest = |names: [&str; 2], fallback: f64| {
         names.iter().filter_map(|n| person.point(n, SEEN)).map(|p| p.1).reduce(f64::max).unwrap_or(fallback)
     };
     let hips = lowest(["left_hip", "right_hip"], sy + 1.4 * width);
     let feet = lowest(["left_ankle", "right_ankle"], sy + 3.1 * width) + 0.25 * width;
-    [sy - 0.1 * width, sy + 0.6 * width, hips, feet.max(hips + width)]
+    let belt = (hips - BELT * width).max(sy + (CHEST + 0.25) * width);
+    [eyes + CHIN * width, sy + CHEST * width, belt, feet.max(hips + width)]
 }
 
 /// (x0, y0, x1, y1) in the picture as shown around everyone, or None when nobody's clear enough to frame.
@@ -114,11 +123,12 @@ pub fn target_box(people: &[Person], aspect: f64, framing: f64, hands: &[&str]) 
         let (person, to_shown) = upright(person, aspect);
         let Some(((cx, sy), width)) = body(&person, aspect) else { continue };
         let head = ["nose", "left_eye", "right_eye"].iter().filter_map(|n| person.point(n, SEEN)).map(|p| p.1).reduce(f64::min);
-        let top = head.unwrap_or(sy - 0.6 * width) - 0.55 * width;
+        let eyes = head.unwrap_or(sy - 0.6 * width);
         let at = framing.max(0.0).min(FRAMINGS.len() as f64 - 1.0);
         let i = (at as usize).min(FRAMINGS.len() - 2);
-        let (f, bottoms) = (at - i as f64, bottoms(&person, sy, width));
+        let (f, bottoms) = (at - i as f64, bottoms(&person, eyes, sy, width));
         let bottom = bottoms[i] + (bottoms[i + 1] - bottoms[i]) * f;
+        let top = eyes - (HEADROOM[i] + (HEADROOM[i + 1] - HEADROOM[i]) * f) * width;
         let half = (HALF_WIDTH[i] + (HALF_WIDTH[i + 1] - HALF_WIDTH[i]) * f) * width / aspect;
         let (mut x0, mut y0, mut x1, mut y1) = (cx - half, top, cx + half, bottom);
         // Room for what's in the hand

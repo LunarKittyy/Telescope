@@ -647,7 +647,7 @@ fn framing_levels() {
     let dir = PathBuf::from(dir);
     std::fs::create_dir_all(&dir).unwrap();
     let mut single = Vec::new();
-    for (n, along) in [0.0f32, 0.2, 0.4, 0.6, 0.8, 1.0].into_iter().enumerate() {
+    for (n, along) in [0.0f32, 1.0 / 3.0, 0.5, 2.0 / 3.0, 5.0 / 6.0, 1.0].into_iter().enumerate() {
         let mut w = framing(150.0, false);
         w.hold_at("Framing", along);
         let shot = offscreen::draw(w.w.window(), WIDTH, HEIGHT, 2.0).expect("a picture");
