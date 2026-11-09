@@ -10,6 +10,8 @@ mod extra_cameras;
 pub mod file_dialog;
 pub mod flow;
 mod frame;
+#[cfg(all(unix, not(target_os = "macos")))]
+mod kde;
 pub mod handover;
 pub mod layout;
 pub mod motion;

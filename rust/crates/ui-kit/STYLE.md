@@ -178,7 +178,7 @@ Two or more switches that belong together are `ToggleTile`s, each its own tile w
 
 The top bar's controls are one height (`Theme.u(18)`, a little taller than a card's row), all raised squares or raised buttons: the device picker, the devices button, Presets, Settings, Add camera, the MCP button (two raised segments side by side, outlined in the accent while an AI is changing things). A layout of their own centres each on the bar's height (a `y` inside a layout is ignored). The preview's chin follows the card rule: every control is an icon with its word in the tooltip, the actions (Hide, Pop out) are raised icon buttons and the ones that stay on (Camera, Skeleton, Lens outlines, Smooth) are icon `ToggleTile`s lit with the outline in the preview's colour. The window's footer is the top bar's colour: the streaming camera in ink and its size dim on the left (or the status in a word), and while streaming the frame rate and throughput on the right as readouts in a card's value type, each behind a small icon with its full name as the tooltip, in a box wide enough for its widest value. Nothing in it is a dot or a pill.
 
-The OS title bar: on Windows 11 the caption takes the top bar's colour (`Theme.chrome`) and its text the bar's ink, set again when the look changes (`frame::dress`). KDE and GNOME draw their own from the system's colour scheme.
+The OS title bar: on Windows 11 and on KDE Plasma the caption takes the top bar's colour (`Theme.chrome`) and its text the bar's ink, set again when the look changes (`frame::dress`, and `kde.rs` for Plasma). GNOME and the other desktops draw their own from the system.
 
 ### Icons
 
