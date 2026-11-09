@@ -765,12 +765,12 @@ fn the_framing_bubble_costs_nothing_while_closed_and_hands_over_a_picture_once_t
     assert_eq!(peek::PICTURE_MS, 125);
     assert!(r.host.calls.iter().any(|c| c == "want_people Auto framing bubble true"), "the people are asked for while it is up");
     let picture = &r.host.images[&("card".to_string(), "framing-picture".to_string())];
-    assert_eq!((picture.width as usize, picture.height as usize), (peek::WIDTH, peek::HEIGHT));
+    assert_eq!((picture.width as usize, picture.height as usize), (peek::SCENE_WIDTH, peek::SCENE_HEIGHT));
     assert_eq!(r.clip().len(), 4);
     // nothing changed: nothing is handed over again, not the picture and not the crop
     let calls = r.host.calls.len();
     r.peek_event(T_PEEK);
-    assert_eq!(r.pictures(), 1, "the stand-in scene is one picture the bubble crops");
+    assert_eq!(r.pictures(), 1, "the photo is one picture the bubble crops");
     assert_eq!(r.host.calls.len(), calls, "nothing is asked of the host: {:?}", &r.host.calls[calls..]);
     r.ui("framing-peek-open", json!(false));
     assert!(!r.host.is_scheduled(T_PEEK));
@@ -820,7 +820,7 @@ fn the_bubble_crops_the_live_picture_around_whoever_is_in_it_and_a_stand_in_scen
 }
 
 #[test]
-fn the_stand_in_crop_is_closer_the_closer_the_framing() {
+fn the_photo_crop_is_closer_the_closer_the_framing() {
     let mut r = Rig::new();
     r.ui("framing-peek-open", json!(true));
     let mut widths = Vec::new();
@@ -834,13 +834,20 @@ fn the_stand_in_crop_is_closer_the_closer_the_framing() {
     }
     assert!(widths.windows(2).all(|w| w[0] <= w[1]), "{widths:?}");
     assert!(widths[3] > 2.0 * widths[0], "{widths:?}");
-    // and it is over the head at the closest, which the picture's skin tone says
+    // and by the photo's own points it holds the head and shoulders at the closest, not the hips, and the feet at the widest
+    let person = peek::sample_person();
+    let holds = |clip: &[f64], name: &str| {
+        let (x, y) = person.point(name, telescope_core::pose::SEEN).unwrap();
+        x >= clip[0] && x <= clip[0] + clip[2] && y >= clip[1] && y <= clip[1] + clip[3]
+    };
     r.ui("framing-moved", json!(0));
-    let clip = r.clip();
-    let scene = peek::scene_picture();
-    let (x, y) = (((clip[0] + clip[2] / 2.0) * scene.width as f64) as usize, ((clip[1] + clip[3] / 2.0) * scene.height as f64) as usize);
-    let at = (y * scene.width as usize + x) * 4;
-    assert!(scene.data[at] > 200, "the crop's middle is the stand-in's face: {:?}", &scene.data[at..at + 4]);
+    let close = r.clip();
+    assert!(["nose", "left_eye", "right_eye", "left_shoulder", "right_shoulder"].iter().all(|n| holds(&close, n)), "{close:?}");
+    assert!(!holds(&close, "left_hip") && !holds(&close, "right_hip"), "{close:?}");
+    assert!(close[1] < 0.07, "room above the head: {close:?}");
+    r.ui("framing-moved", json!(30));
+    let wide = r.clip();
+    assert!(["nose", "left_wrist", "right_wrist", "left_knee", "left_ankle", "right_ankle"].iter().all(|n| holds(&wide, n)), "{wide:?}");
 }
 
 #[test]

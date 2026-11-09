@@ -17,16 +17,32 @@ fn the_blur_sample_has_a_person_to_leave_out_and_a_wall_to_blur() {
     assert_eq!((small.w, small_mask.h), (WIDTH / 2, HEIGHT / 2));
 }
 
-#[test]
-fn the_standing_scene_is_one_the_framing_code_can_use() {
+/// Between the shoulders and a hand's width down, which is the front of the sweater.
+fn chest() -> (f64, f64) {
     let person = sample_person();
-    assert!(person.point("left_shoulder", SEEN).is_some() && person.point("nose", SEEN).is_some());
-    let (rgb, _) = (scene().0.clone(), ());
-    // the nose is on the skin tone of the drawn head and a point just under the shoulders' line is on the drawn shirt
-    let nose = person.point("nose", SEEN).unwrap();
-    assert_eq!(rgb.at((nose.0 * WIDTH as f64) as usize, (nose.1 * HEIGHT as f64) as usize), [224, 172, 140]);
-    let shoulder = person.point("left_shoulder", SEEN).unwrap();
-    assert_eq!(rgb.at(((shoulder.0 - 0.02) * WIDTH as f64) as usize, ((shoulder.1 + 0.05) * HEIGHT as f64) as usize), [52, 78, 140]);
+    let (l, r) = (person.point("left_shoulder", SEEN).unwrap(), person.point("right_shoulder", SEEN).unwrap());
+    ((l.0 + r.0) / 2.0, (l.1 + r.1) / 2.0 + 0.06)
+}
+
+#[test]
+fn the_framing_photo_is_one_the_framing_code_can_use() {
+    let person = sample_person();
+    for name in ["nose", "left_eye", "right_eye", "left_shoulder", "right_shoulder", "left_hip", "right_hip", "left_ankle", "right_ankle"] {
+        assert!(person.point(name, SEEN).is_some(), "{name}");
+    }
+    let photo = scene();
+    assert_eq!((photo.w, photo.h), (SCENE_WIDTH, SCENE_HEIGHT));
+    assert!((photo.w as f64 / photo.h as f64 - SAMPLE_ASPECT).abs() < 1e-9, "the shape the framing code is told it has");
+    // the person stands in the middle with the whole of them in the picture and some ground under the feet
+    let (x, y) = chest();
+    assert!((x - 0.5).abs() < 0.02, "{x}");
+    let ankle = person.point("left_ankle", SEEN).unwrap().1.max(person.point("right_ankle", SEEN).unwrap().1);
+    assert!(ankle < 0.9, "the feet are {ankle} of the way down");
+    // the chest is on the dark green sweater, and the sky above the head is the light grey it is in the photo
+    let [r, g, b] = photo.at((x * photo.w as f64) as usize, (y * photo.h as f64) as usize);
+    assert!(g > r && g > b && (r as u32 + g as u32 + b as u32) < 240, "{r} {g} {b}");
+    let sky = photo.at(photo.w / 2, 4);
+    assert!(sky.iter().all(|c| *c > 110), "{sky:?}");
 }
 
 #[test]
@@ -58,14 +74,17 @@ fn a_clip_is_the_window_slid_in_to_stay_inside_the_picture() {
 }
 
 #[test]
-fn the_scene_picture_is_made_once_at_the_bubbles_size() {
+fn the_scene_picture_is_decoded_once_at_twice_the_bubbles_size() {
     let picture = scene_picture();
-    assert_eq!((picture.width as usize, picture.height as usize), (WIDTH, HEIGHT));
-    assert!(std::ptr::eq(picture, scene_picture()), "kept, not drawn again");
-    // the nose is on the skin tone, so what the bubble crops is the scene the framing code reads
-    let nose = sample_person().point("nose", SEEN).unwrap();
-    let at = ((nose.1 * HEIGHT as f64) as usize * WIDTH + (nose.0 * WIDTH as f64) as usize) * 4;
-    assert_eq!(&picture.data[at..at + 4], &[224, 172, 140, 255]);
+    assert_eq!((picture.width as usize, picture.height as usize), (SCENE_WIDTH, SCENE_HEIGHT));
+    assert_eq!((SCENE_WIDTH, SCENE_HEIGHT), (2 * WIDTH, 2 * HEIGHT));
+    assert!(std::ptr::eq(picture, scene_picture()), "kept, not decoded again");
+    // the picture is the photo the framing code reads, opaque
+    let (x, y) = chest();
+    let (x, y) = ((x * SCENE_WIDTH as f64) as usize, (y * SCENE_HEIGHT as f64) as usize);
+    let at = (y * SCENE_WIDTH + x) * 4;
+    assert_eq!(&picture.data[at..at + 3], &scene().at(x, y));
+    assert_eq!(picture.data[at + 3], 255);
 }
 
 #[test]
