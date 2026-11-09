@@ -84,17 +84,18 @@ export component Pad inherits Rectangle {
     callback moved(float, float);
     callback released(float, float);
     // The handle's centre, in the pad's own coordinates, for a drawing that follows it
-    out property <length> handle-x: inset-x + frac-x * (self.width - 2 * inset-x);
-    out property <length> handle-y: inset-y + (y-up ? 1 - frac-y : frac-y) * (self.height - 2 * inset-y);
-    // How far along each range the drawn value is. The glides run in the numbers' own units, not in fractions of a range, so a range that
-    // changes (the pan map's, when the zoom goes from 1x to 1.5x) moves the handle with it at once instead of gliding it from 0
-    property <float> frac-x: (glide-x.value - x-minimum) / max(0.0001, x-maximum - x-minimum);
-    property <float> frac-y: (glide-y.value - y-minimum) / max(0.0001, y-maximum - y-minimum);
-    // Where the handle is drawn: it glides to numbers that something other than the person changed, across first and then down so its path bows
+    out property <length> handle-x: glide-x.value * root.width;
+    out property <length> handle-y: y-up ? root.height * (1 - glide-y.value) : glide-y.value * root.height;
+    // Where the handle's centre is heading, as a share of the pad: along the room it has once the frame is full size, kept inside the range
+    property <length> aim-inset-x: framed ? min(box-w, root.width) / 2 : Theme.u(6);
+    property <length> aim-inset-y: framed ? min(box-h, root.height) / 2 : Theme.u(6);
+    property <float> aim-x: clamp((shown-x - x-minimum) / max(0.0001, x-maximum - x-minimum), 0, 1);
+    property <float> aim-y: clamp((shown-y - y-minimum) / max(0.0001, y-maximum - y-minimum), 0, 1);
+    // The handle glides in places on the pad, not in numbers, so a range that closes under it (the zoom going to 1x) never sends it across the pad; y-up turns the place over
     property <bool> quick;
     // Only a finger puts it somewhere at once: a key, Home and the double-click's reset glide, retargeting what is still moving
-    glide-x := Settle { to: shown-x; snap: dragging; pace: Motion.lead; }
-    glide-y := Settle { to: shown-y; snap: dragging; pace: Motion.trail; }
+    glide-x := Settle { to: (aim-inset-x + aim-x * (root.width - 2 * aim-inset-x)) / max(1px, root.width); snap: dragging; pace: Motion.lead; }
+    glide-y := Settle { to: (aim-inset-y + aim-y * (root.height - 2 * aim-inset-y)) / max(1px, root.height); snap: dragging; pace: Motion.trail; }
     // The frame's size: it starts at the pad's own size (nothing to travel from while there is no frame) and eases to the box it is given and
     // back, so it comes in as a frame closing in on the picture, and goes out the same way
     frame-w := Settle { to: (framed ? box-w : root.width) / 1px; }
@@ -253,22 +254,37 @@ export component Pad inherits Rectangle {
             set-to(has-default ? default-x : centre-x, has-default ? default-y : centre-y);
         }
     }
-    // The caller's drawing, and any buttons on it, which sit above the pad's own touch area so they answer first
+    // The caller's drawing, and any buttons on it, above the pad's own touch area so they answer first, clipped round so no corner caps are needed
     Rectangle {
         width: parent.width;
         height: parent.height;
+        border-radius: Theme.r-ctl;
+        clip: true;
         @children
+        // What lies outside the frame, dimmed, without anti-aliasing: femtovg on wgpu loses parts of a stroke drawn after an anti-aliased fill like it, and the frame's outline covers the jagged hole edge
+        if frame-shown: Path {
+            width: root.width;
+            height: root.height;
+            viewbox-width: root.width / 1px;
+            viewbox-height: root.height / 1px;
+            fill: Theme.stage.with-alpha(0.6);
+            fill-rule: FillRule.evenodd;
+            anti-alias: false;
+            commands: "M0 0H\{root.width / 1px}V\{root.height / 1px}H0Z"
+                + "M\{(mx + mr) / 1px} \{my / 1px}H\{(mx + mw - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mx + mw) / 1px} \{(my + mr) / 1px}V\{(my + mh - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mx + mw - mr) / 1px} \{(my + mh) / 1px}H\{(mx + mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{mx / 1px} \{(my + mh - mr) / 1px}V\{(my + mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mx + mr) / 1px} \{my / 1px}Z";
+        }
     }
     // A frame handle: what lies outside it dimmed, and the frame outlined in the card's colour (quiet at rest, full colour held), tinted inside while
     // held. Every number is in whole physical pixels from one set (`fx`, `fy`, `fw`, `fh`), the dimmed surround's hole and the outline run on the
     // same line (the middle of the outline's stroke, so the surround's edge always lies under the outline and nothing can show past it), and the
-    // surround's outer edge is the pad's own rounded edge, so there are no slivers in the corners to cover.
+    // surround's outer edge is the pad's own rounded clip, so there are no slivers in the corners to cover.
     property <length> px-x: self.absolute-position.x;
     property <length> px-y: self.absolute-position.y;
     property <length> fw: round(frame-w.value * 1px / 1phx) * 1phx;
     property <length> fh: round(frame-h.value * 1px / 1phx) * 1phx;
-    property <length> fx: round((px-x + handle-x - fw / 2) / 1phx) * 1phx - px-x;
-    property <length> fy: round((px-y + handle-y - fh / 2) / 1phx) * 1phx - px-y;
+    // The frame stays inside the pad while it grows and moves
+    property <length> fx: round((px-x + max(fw / 2, min(handle-x, root.width - fw / 2)) - fw / 2) / 1phx) * 1phx - px-x;
+    property <length> fy: round((px-y + max(fh / 2, min(handle-y, root.height - fh / 2)) - fh / 2) / 1phx) * 1phx - px-y;
     property <length> fr: min(Theme.r-ctl, min(fw, fh) / 2);
     // The outline's middle line: half a stroke in from the frame's edge
     property <length> half: Theme.stroke / 2;
@@ -277,17 +293,6 @@ export component Pad inherits Rectangle {
     property <length> my: fy + half;
     property <length> mw: fw - Theme.stroke;
     property <length> mh: fh - Theme.stroke;
-    property <length> pr: min(Theme.r-ctl, min(root.width, root.height) / 2);
-    if frame-shown: Path {
-        width: root.width;
-        height: root.height;
-        viewbox-width: root.width / 1px;
-        viewbox-height: root.height / 1px;
-        fill: Theme.stage.with-alpha(0.6);
-        fill-rule: FillRule.evenodd;
-        commands: "M\{pr / 1px} 0H\{(root.width - pr) / 1px}A\{pr / 1px} \{pr / 1px} 0 0 1 \{root.width / 1px} \{pr / 1px}V\{(root.height - pr) / 1px}A\{pr / 1px} \{pr / 1px} 0 0 1 \{(root.width - pr) / 1px} \{root.height / 1px}H\{pr / 1px}A\{pr / 1px} \{pr / 1px} 0 0 1 0 \{(root.height - pr) / 1px}V\{pr / 1px}A\{pr / 1px} \{pr / 1px} 0 0 1 \{pr / 1px} 0Z"
-            + "M\{(mx + mr) / 1px} \{my / 1px}H\{(mx + mw - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mx + mw) / 1px} \{(my + mr) / 1px}V\{(my + mh - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mx + mw - mr) / 1px} \{(my + mh) / 1px}H\{(mx + mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{mx / 1px} \{(my + mh - mr) / 1px}V\{(my + mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mx + mr) / 1px} \{my / 1px}Z";
-    }
     if has-centre: Rectangle {
         x: inset-x + (centre-x - x-minimum) / max(0.0001, x-maximum - x-minimum) * (root.width - 2 * inset-x) - Theme.stroke / 2;
         y: Theme.u(4);
@@ -304,11 +309,16 @@ export component Pad inherits Rectangle {
         border-radius: Theme.stroke / 2;
         background: enabled ? Theme.ink.with-alpha(0.3) : Theme.dis.with-alpha(0.5);
     }
-    CornerCap { corner: 0; r: Theme.r-ctl; x: 0px; y: 0px; fill: surround; }
-    CornerCap { corner: 1; r: Theme.r-ctl; x: root.width - Theme.r-ctl; y: 0px; fill: surround; }
-    CornerCap { corner: 2; r: Theme.r-ctl; x: root.width - Theme.r-ctl; y: root.height - Theme.r-ctl; fill: surround; }
-    CornerCap { corner: 3; r: Theme.r-ctl; x: 0px; y: root.height - Theme.r-ctl; fill: surround; }
-    // The frame's outline, over the corner caps: the stroke is centred on `half` in from the frame's edge, so its outer edge is the frame's edge
+    // The tint while held is its own rectangle on the outline's middle line: femtovg on wgpu knocks out parts of a stroke over a fill of the same path
+    if frame-shown && held-tone.value > 0.01: Rectangle {
+        x: mx;
+        y: my;
+        width: mw;
+        height: mh;
+        border-radius: mr;
+        background: hue.with-alpha(0.14 * held-tone.value);
+    }
+    // The frame's outline: the stroke is centred on `half` in from the frame's edge, so its outer edge is the frame's edge
     if frame-shown: Path {
         x: fx;
         y: fy;
@@ -319,7 +329,6 @@ export component Pad inherits Rectangle {
         viewbox-height: mh / 1px;
         stroke: !enabled ? Theme.dis : Theme.lit(hue, max(held-tone.value, hover-tone.value));
         stroke-width: Theme.stroke;
-        fill: hue.with-alpha(0.14 * held-tone.value);
         commands: "M\{mr / 1px} 0H\{(mw - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{mw / 1px} \{mr / 1px}V\{(mh - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mw - mr) / 1px} \{mh / 1px}H\{mr / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 0 \{(mh - mr) / 1px}V\{mr / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{mr / 1px} 0Z";
     }
     // A pad that can't be used lets the card show through what is drawn on it (a frame handle's pad keeps its picture: the frame goes grey instead)
