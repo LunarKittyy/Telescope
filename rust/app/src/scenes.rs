@@ -1003,6 +1003,28 @@ pub fn all() -> Vec<Scene> {
             }
         }
     }
+    // The rest of the Settings pages and the search, the same way (r2set-<page>-<2000|narrow>)
+    for tab in ["general", "video", "audio", "devices", "shortcuts", "plugins"] {
+        for (label, size) in [("2000", (2000.0, 1000.0)), ("narrow", (720.0, 700.0))] {
+            scenes.push(Scene::new(format!("r2set-{tab}-{label}"), move || {
+                let services = services_with(quiet(), Changes { streaming: true, ..Changes::default() });
+                let mut config = main_window_config(true);
+                if tab == "shortcuts" {
+                    config["plugin_configs"]["shortcuts"] = json!({"bindings": [
+                        {"id": "a", "keys": "Ctrl+Shift+M", "action": "microphone.mute", "params": {}, "global": true},
+                        {"id": "b", "keys": "F8", "action": "camera.torch", "params": {}, "global": false}], "notify": true});
+                }
+                Setup { page: Page::Settings(tab.into()), ..Setup::window(Some(services), config, size.0, size.1) }
+            }));
+        }
+    }
+    for (label, size) in [("2000", (2000.0, 1000.0)), ("narrow", (720.0, 700.0))] {
+        scenes.push(Scene::new(format!("r2set-mcp-{label}"), move || mcp_scene(Mcp::Undoable, Page::Settings("mcp".into()), size.0)));
+        scenes.push(Scene::new(format!("r2set-search-{label}"), move || {
+            let services = services_with(quiet(), Changes { on_air: true, streaming: true, ..Changes::default() });
+            Setup { page: Page::SettingsSearch { tab: "general".into(), query: "camera".into() }, ..Setup::window(Some(services), main_window_config(true), size.0, size.1) }
+        }));
+    }
     for &tab in SETTINGS_PAGES {
         scenes.push(Scene::new(format!("settings-{tab}"), move || Setup {
             page: Page::Settings(tab.into()),

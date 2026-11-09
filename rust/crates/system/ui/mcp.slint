@@ -1,6 +1,6 @@
 // The MCP server's tab in Settings and its button in the header. The texts that are lists or carry names come filled from Rust.
 
-import { Theme, Icons, Card, RailRow, Segmented, IconButton, Icon, FocusRing, KeyFocus, Tip, Motion } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Card, RailRow, Segmented, IconButton, Icon, FocusRing, KeyFocus, Tip, Motion, Status } from "@ui-kit/ui-kit.slint";
 
 // One line of the activity log: when, which AI app, what it did in words. kind is "" or "refused".
 export struct McpLogRow {
@@ -11,7 +11,7 @@ export struct McpLogRow {
 }
 
 export component McpSettings inherits VerticalLayout {
-    spacing: 12px;
+    spacing: Theme.u(7);
     // The AI apps connected now, by the name each gave; none: empty
     in property <[string]> clients;
     in property <string> none-text;
@@ -29,30 +29,31 @@ export component McpSettings inherits VerticalLayout {
         title: @tr("MCP server");
         tip: @tr("Let an AI app read and change Telescope's settings.");
         keywords: @tr("search" => "mcp ai claude model assistant agent connect access read only");
-        icon: Icons.sliders;
+        icon: Icons.plug;
         hue: Theme.plugin-hue("extras");
         RailRow {
-            icon: Icons.plug;
+            icon: Icons.devices;
             label: @tr("Connected");
+            named: true;
             hue: Theme.plugin-hue("extras");
-            enabled: true;
             VerticalLayout {
-                horizontal-stretch: 1;
                 alignment: center;
-                spacing: 2px;
-                min-height: 36px;
+                spacing: Theme.u(1);
                 if clients.length == 0: Text {
                     text: none-text;
                     font-family: Theme.font;
                     font-size: Theme.body;
                     color: Theme.faint;
+                    horizontal-alignment: right;
                     vertical-alignment: center;
                 }
                 for name in clients: Text {
                     text: name;
                     font-family: Theme.font;
                     font-size: Theme.body;
+                    font-weight: Theme.w-value;
                     color: Theme.ink;
+                    horizontal-alignment: right;
                     overflow: elide;
                     vertical-alignment: center;
                 }
@@ -61,44 +62,41 @@ export component McpSettings inherits VerticalLayout {
         RailRow {
             icon: Icons.lock;
             label: @tr("Access");
+            named: true;
             hue: Theme.plugin-hue("extras");
-            enabled: true;
-            Rectangle {
-                horizontal-stretch: 1;
-                Segmented {
-                    width: min(parent.width, 340px);
-                    x: 0;
-                    label: @tr("Access");
-                    items: access-items;
-                    disabled: [false, false];
-                    has-icons: [false, false];
-                    icons: [Icons.colour, Icons.colour];
-                    current: access-current;
-                    picked(i) => { root.access-picked(i); }
-                }
+            Segmented {
+                width: Theme.u(130);
+                hue: Theme.plugin-hue("extras");
+                label: @tr("Access");
+                items: access-items;
+                disabled: [false, false];
+                has-icons: [false, false];
+                icons: [Icons.colour, Icons.colour];
+                current: access-current;
+                picked(i) => { root.access-picked(i); }
             }
         }
+        // The line to paste into the AI app's config, in monospace in a recessed well with a button that copies it
         RailRow {
             icon: Icons.keyboard;
             label: @tr("Command");
             hue: Theme.plugin-hue("extras");
-            enabled: true;
             HorizontalLayout {
-                horizontal-stretch: 1;
-                spacing: 8px;
+                spacing: Theme.gap;
                 Rectangle {
                     horizontal-stretch: 1;
-                    min-height: 36px;
+                    min-width: 0px;
+                    min-height: Theme.row;
                     background: Theme.trough;
                     border-radius: Theme.r-ctl;
                     accessible-role: text;
                     accessible-label: command;
                     VerticalLayout {
-                        padding: 8px;
+                        padding: Theme.u(4);
                         Text {
                             text: command;
                             font-family: Theme.mono;
-                            font-size: 12px;
+                            font-size: Theme.mono-size;
                             color: Theme.ink;
                             wrap: word-wrap;
                             vertical-alignment: center;
@@ -107,8 +105,8 @@ export component McpSettings inherits VerticalLayout {
                     }
                 }
                 VerticalLayout {
-                    alignment: center;
-                    IconButton { raised: true;
+                    alignment: start;
+                    IconButton {
                         icon: Icons.copy;
                         label: @tr("Copy");
                         tip: @tr("Copy");
@@ -125,22 +123,15 @@ export component McpSettings inherits VerticalLayout {
         keywords: @tr("search" => "mcp ai log history what the ai did refused");
         icon: Icons.notes;
         hue: Theme.plugin-hue("extras");
-        if log.length == 0: Text {
-            text: log-empty;
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: Theme.faint;
-            height: 28px;
-            vertical-alignment: center;
-        }
+        if log.length == 0: Status { text: log-empty; }
         for row in log: Rectangle {
-            min-height: 26px;
+            min-height: Theme.row;
             accessible-role: text;
             accessible-label: row.time + ", " + row.who + ", " + row.text;
             HorizontalLayout {
-                spacing: 10px;
+                spacing: Theme.gap;
                 Text {
-                    width: 62px;
+                    width: Theme.u(31);
                     text: row.time;
                     font-family: Theme.font;
                     font-size: Theme.small;
@@ -149,7 +140,7 @@ export component McpSettings inherits VerticalLayout {
                     accessible-role: none;
                 }
                 Text {
-                    width: 110px;
+                    width: Theme.u(45);
                     text: row.who;
                     font-family: Theme.font;
                     font-size: Theme.small;

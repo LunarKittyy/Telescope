@@ -21,6 +21,8 @@ pub use crate::layout::{WIDTH_THREE_COL, WIDTH_TWO_COL};
 pub enum Page {
     Window,
     Settings(String),
+    /// The settings window on a tab with this typed into its search box.
+    SettingsSearch { tab: String, query: String },
     /// The type name of the component that frames the popup, and of the one that opens it at its own top left (positions
     /// inside a popup start from the popup).
     Dialog { frame: String, owner: String },
@@ -252,6 +254,17 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
             crate::offscreen::draw(settings.ui.window(), setup.width, setup.height, scale);
             let picture = crate::offscreen::draw(settings.ui.window(), setup.width, setup.height, scale)
                 .and_then(|p| cut_out(&settings.ui, &p, frame, owner, scale));
+            crate::settings::forget();
+            picture
+        }
+        Page::SettingsSearch { tab, query } => {
+            crate::settings::open(&w, tab);
+            let settings = crate::settings::current().ok_or("no settings window")?;
+            let typed = crate::source::from_json(&json!(query));
+            let _ = settings.ui.set_property("query", typed.clone());
+            let _ = settings.ui.invoke("query-changed", &[typed]);
+            settle(&w);
+            let picture = crate::offscreen::draw(settings.ui.window(), setup.width, setup.height, scale);
             crate::settings::forget();
             picture
         }

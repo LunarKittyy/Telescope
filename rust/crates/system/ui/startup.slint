@@ -1,7 +1,7 @@
 // The Startup plugin: the sign-in switch on the General tab and the Automatic
 // streaming card on Streaming. Texts that are lists, or have blanks, come filled from Rust.
 
-import { Theme, Icons, Card, SettingRow, SwitchRow, RailRow, Switch, ChoiceField, NumberField } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Card, SwitchRow, RailRow, ChoiceField, NumberField } from "@ui-kit/ui-kit.slint";
 
 export component StartupSettings inherits Card {
     in-out property <bool> open-checked;
@@ -13,18 +13,16 @@ export component StartupSettings inherits Card {
     tip: @tr("Open Telescope when you sign in.");
     keywords: @tr("search" => "login boot autostart run on startup tray minimized");
     icon: Icons.monitor;
-    SettingRow {
-        title: @tr("Open Telescope when I sign in");
+    SwitchRow {
+        icon: Icons.monitor;
+        label: @tr("Open Telescope when I sign in");
         keywords: @tr("search" => "autostart login log in boot startup run on startup launch computer starts tray");
-        Switch {
-            hue: root.hue;
-            checked <=> root.open-checked;
-            enabled: open-enabled;
-            label: @tr("Open Telescope when I sign in");
-            tip: open-tip != "" ? @tr("Open Telescope when I sign in") : "";
-            tip-detail: open-tip;
-            toggled(on) => { root.open-toggled(on); }
-        }
+        hue: root.hue;
+        checked <=> root.open-checked;
+        enabled: open-enabled;
+        tip: open-tip != "" ? @tr("Open Telescope when I sign in") : "";
+        tip-detail: open-tip;
+        toggled(on) => { root.open-toggled(on); }
     }
 }
 

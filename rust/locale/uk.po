@@ -227,7 +227,7 @@ msgstr "Перемикати під час утримування, поверт�
 msgid "Does"
 msgstr "Дія"
 
-#: rust/crates/audio/src/plugin.rs:1045 rust/crates/audio/src/plugin.rs:1111 rust/crates/audio/ui/microphone.slint:165 rust/crates/setup/ui/setup.slint:282
+#: rust/crates/audio/src/plugin.rs:1045 rust/crates/audio/src/plugin.rs:1111 rust/crates/audio/ui/microphone.slint:165 rust/crates/setup/ui/setup.slint:316
 msgid "Microphone"
 msgstr "Мікрофон"
 
@@ -370,7 +370,7 @@ msgstr "Шумозаглушення"
 msgid "Noise reduction unavailable"
 msgstr ""
 
-#: rust/crates/audio/ui/microphone.slint:311 rust/crates/effects/src/desk.rs:189 rust/crates/effects/ui/colour_grading.slint:469 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:460 rust/crates/link/ui/connection.slint:677 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:635 rust/crates/system/ui/shortcuts.slint:380 rust/crates/system/ui/updates.slint:241
+#: rust/crates/audio/ui/microphone.slint:311 rust/crates/effects/src/desk.rs:189 rust/crates/effects/ui/colour_grading.slint:469 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:460 rust/crates/link/ui/connection.slint:677 rust/crates/setup/ui/setup.slint:414 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:535 rust/crates/system/ui/shortcuts.slint:344 rust/crates/system/ui/updates.slint:241
 msgid "Cancel"
 msgstr "Скасувати"
 
@@ -468,7 +468,7 @@ msgstr "Загальні"
 msgid "Streaming"
 msgstr "Трансляція"
 
-#: rust/crates/core/src/plugin.rs:15 rust/crates/setup/ui/setup.slint:167
+#: rust/crates/core/src/plugin.rs:15 rust/crates/setup/ui/setup.slint:199
 msgid "Video"
 msgstr "Відео"
 
@@ -496,7 +496,7 @@ msgstr "Оновлення та відомості"
 msgid "Camera"
 msgstr "Камера"
 
-#: rust/crates/core/src/plugin.rs:26 rust/crates/setup/ui/setup.slint:399
+#: rust/crates/core/src/plugin.rs:26 rust/crates/setup/ui/setup.slint:436
 msgid "Look"
 msgstr "Вигляд"
 
@@ -600,11 +600,11 @@ msgstr "Без нього картка «Фон» відсутня, а фон з
 msgid "Background blur"
 msgstr "Розмиття фону"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:83 rust/crates/effects/ui/chroma_key.slint:88 rust/crates/effects/ui/cinema.slint:157 rust/crates/effects/ui/cinema.slint:158 rust/crates/effects/ui/colour_grading.slint:358 rust/crates/effects/ui/colour_grading.slint:363 rust/crates/effects/ui/composite_editor.slint:479 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:355
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:83 rust/crates/effects/ui/chroma_key.slint:88 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:358 rust/crates/effects/ui/colour_grading.slint:363 rust/crates/effects/ui/composite_editor.slint:479 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:355
 msgid "Green"
 msgstr "Зелений"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:83 rust/crates/effects/ui/chroma_key.slint:88 rust/crates/effects/ui/cinema.slint:157 rust/crates/effects/ui/cinema.slint:158 rust/crates/effects/ui/colour_grading.slint:358 rust/crates/effects/ui/colour_grading.slint:363 rust/crates/effects/ui/composite_editor.slint:479 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:355
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:83 rust/crates/effects/ui/chroma_key.slint:88 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:358 rust/crates/effects/ui/colour_grading.slint:363 rust/crates/effects/ui/composite_editor.slint:479 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:355
 msgid "Blue"
 msgstr "Синій"
 
@@ -769,11 +769,11 @@ msgstr "Парад RGB"
 msgid "Vectorscope"
 msgstr "Вектороскоп"
 
-#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:157 rust/crates/effects/ui/cinema.slint:158 rust/crates/effects/ui/colour_grading.slint:358 rust/crates/effects/ui/colour_grading.slint:363 rust/crates/effects/ui/composite_editor.slint:479 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:355
+#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:358 rust/crates/effects/ui/colour_grading.slint:363 rust/crates/effects/ui/composite_editor.slint:479 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:355
 msgid "Red"
 msgstr "Червоний"
 
-#: rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/cinema.slint:157 rust/crates/effects/ui/cinema.slint:158
+#: rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160
 msgid "White"
 msgstr "Білий"
 
@@ -796,15 +796,15 @@ msgstr "4 × 4"
 msgid "Golden ratio"
 msgstr "Золотий перетин"
 
-#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:201 rust/crates/effects/ui/cinema.slint:202
+#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:205 rust/crates/effects/ui/cinema.slint:206
 msgid "Small"
 msgstr "Малий"
 
-#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:201 rust/crates/effects/ui/cinema.slint:202
+#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:205 rust/crates/effects/ui/cinema.slint:206
 msgid "Medium"
 msgstr "Середній"
 
-#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:201 rust/crates/effects/ui/cinema.slint:202
+#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:205 rust/crates/effects/ui/cinema.slint:206
 msgid "Large"
 msgstr "Великий"
 
@@ -2105,7 +2105,7 @@ msgstr "Показувати табличку на вебсторінці"
 msgid "Scan"
 msgstr "Сканувати"
 
-#: rust/crates/effects/src/on_air_plugin.rs:444 rust/crates/effects/src/qr_reader.rs:473 rust/crates/link/ui/browser_camera.slint:172 rust/crates/link/ui/browser_camera.slint:173 rust/crates/setup/src/setup.rs:437 rust/crates/setup/ui/parts.slint:122 rust/crates/setup/ui/parts.slint:126 rust/crates/system/ui/mcp.slint:113 rust/crates/system/ui/mcp.slint:114 rust/crates/system/ui/shortcuts.slint:374
+#: rust/crates/effects/src/on_air_plugin.rs:444 rust/crates/effects/src/qr_reader.rs:473 rust/crates/link/ui/browser_camera.slint:172 rust/crates/link/ui/browser_camera.slint:173 rust/crates/setup/src/setup.rs:437 rust/crates/setup/ui/parts.slint:93 rust/crates/setup/ui/parts.slint:94 rust/crates/system/ui/mcp.slint:111 rust/crates/system/ui/mcp.slint:112 rust/crates/system/ui/shortcuts.slint:337
 msgid "Copy"
 msgstr "Копіювати"
 
@@ -2705,19 +2705,19 @@ msgstr ""
 msgid "Which scope is drawn on the preview."
 msgstr ""
 
-#: rust/crates/effects/ui/cinema.slint:153 rust/crates/effects/ui/cinema.slint:162
+#: rust/crates/effects/ui/cinema.slint:153 rust/crates/effects/ui/cinema.slint:164
 msgid "Peaking colour"
 msgstr "Колір пікінгу"
 
-#: rust/crates/effects/ui/cinema.slint:169
+#: rust/crates/effects/ui/cinema.slint:171
 msgid "Peaking sensitivity"
 msgstr "Чутливість пікінгу"
 
-#: rust/crates/effects/ui/cinema.slint:183
+#: rust/crates/effects/ui/cinema.slint:185
 msgid "Zebras from"
 msgstr "Зебра від"
 
-#: rust/crates/effects/ui/cinema.slint:197 rust/crates/effects/ui/cinema.slint:206
+#: rust/crates/effects/ui/cinema.slint:199 rust/crates/effects/ui/cinema.slint:210
 msgid "Scope size"
 msgstr "Розмір відеоскопа"
 
@@ -2813,7 +2813,7 @@ msgstr "Усі"
 msgid "Channel"
 msgstr "Канал"
 
-#: rust/crates/effects/ui/colour_grading.slint:401 rust/crates/setup/ui/setup.slint:61 rust/crates/setup/ui/setup.slint:61
+#: rust/crates/effects/ui/colour_grading.slint:401 rust/crates/setup/ui/setup.slint:86 rust/crates/setup/ui/setup.slint:86
 msgid "Load"
 msgstr "Завантажити"
 
@@ -3013,7 +3013,7 @@ msgstr "Замінити макет"
 msgid "Name:"
 msgstr "Назва:"
 
-#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:462 rust/crates/link/ui/connection.slint:679 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:881 rust/crates/shell/ui/settings.slint:636
+#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:462 rust/crates/link/ui/connection.slint:679 rust/crates/setup/ui/setup.slint:415 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:882 rust/crates/shell/ui/settings.slint:536
 msgid "OK"
 msgstr "ОК"
 
@@ -3093,7 +3093,7 @@ msgstr "Ефект"
 msgid "Clean up"
 msgstr "Відновити"
 
-#: rust/crates/effects/ui/fun_pack.slint:108 rust/crates/effects/ui/fun_pack.slint:109 rust/crates/system/ui/shortcuts.slint:171 rust/crates/ui-kit/ui/widgets/field.slint:127
+#: rust/crates/effects/ui/fun_pack.slint:108 rust/crates/effects/ui/fun_pack.slint:109 rust/crates/system/ui/shortcuts.slint:117 rust/crates/ui-kit/ui/widgets/field.slint:127
 msgid "Clear"
 msgstr "Очистити"
 
@@ -3427,7 +3427,7 @@ msgstr ""
 msgid "Needs a download"
 msgstr ""
 
-#: rust/crates/effects/ui/vision_status.slint:28 rust/crates/setup/ui/setup.slint:111
+#: rust/crates/effects/ui/vision_status.slint:28 rust/crates/setup/ui/setup.slint:143
 msgid "Download"
 msgstr "Завантажити"
 
@@ -4191,7 +4191,7 @@ msgstr ""
 msgid "Frame rate"
 msgstr "Кадрів/с"
 
-#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:133 rust/crates/setup/ui/setup.slint:133 rust/crates/shell/src/plugins_tab.rs:606 rust/crates/shell/src/plugins_tab.rs:611 rust/crates/shell/ui/settings.slint:346
+#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:22 rust/crates/setup/ui/setup.slint:22 rust/crates/shell/src/plugins_tab.rs:606 rust/crates/shell/src/plugins_tab.rs:611 rust/crates/shell/ui/settings.slint:319
 msgid "Remove"
 msgstr "Вилучити"
 
@@ -5625,7 +5625,7 @@ msgstr ""
 msgid "From the phone"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:355 rust/crates/setup/ui/setup.slint:44
+#: rust/crates/setup/src/stats.rs:355 rust/crates/setup/ui/setup.slint:68
 msgid "Virtual camera"
 msgstr "Віртуальна камера"
 
@@ -5908,371 +5908,371 @@ msgstr ""
 msgid "Stop the stream when the phone is too hot, and again after each restart until the phone cools down."
 msgstr ""
 
-#: rust/crates/setup/ui/parts.slint:127
+#: rust/crates/setup/ui/parts.slint:95
 msgid "Copy the command to paste in a terminal."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:45
-msgid "Set up the virtual camera that other apps see."
-msgstr ""
-
-#: rust/crates/setup/ui/setup.slint:46
-msgctxt "search"
-msgid "obs zoom teams discord webcam driver output device loopback"
-msgstr "вебкамера драйвер пристрій виводу лупбек obs zoom teams discord webcam driver output device loopback"
-
-#: rust/crates/setup/ui/setup.slint:51 rust/crates/setup/ui/setup.slint:54 rust/crates/setup/ui/setup.slint:57
-msgid "Kernel module"
-msgstr "Модуль ядра"
-
-#: rust/crates/setup/ui/setup.slint:52
-msgctxt "search"
-msgid "v4l2loopback linux virtual camera driver load unload check status not ready /dev/video missing fix modprobe"
-msgstr "лінукс віртуальна камера драйвер завантажити вивантажити перевірити статус не готово відсутній виправити v4l2loopback linux virtual camera driver load unload check status not ready /dev/video missing fix modprobe"
-
-#: rust/crates/setup/ui/setup.slint:55
-msgid "Only needed when the status isn't Ready."
-msgstr ""
-
-#: rust/crates/setup/ui/setup.slint:60
-msgid "Check"
-msgstr "Перевірити"
-
-#: rust/crates/setup/ui/setup.slint:62 rust/crates/setup/ui/setup.slint:62
-msgid "Unload"
-msgstr "Вивантажити"
-
-#: rust/crates/setup/ui/setup.slint:67 rust/crates/setup/ui/setup.slint:71 rust/crates/setup/ui/setup.slint:78 rust/crates/setup/ui/setup.slint:79
-msgid "Load when the computer starts"
-msgstr "Завантажувати під час запуску комп'ютера"
-
-#: rust/crates/setup/ui/setup.slint:68
-msgctxt "search"
-msgid "boot startup reboot persist permanent every start modprobe v4l2loopback driver survive restart"
-msgstr "автозапуск запуск перезавантаження збереження постійно щоразу драйвер пережити перезапуск boot startup reboot persist permanent every start modprobe v4l2loopback driver survive restart"
-
-#: rust/crates/setup/ui/setup.slint:87 rust/crates/setup/ui/setup.slint:91 rust/crates/setup/ui/setup.slint:94
-msgid "Driver"
-msgstr "Драйвер"
-
-#: rust/crates/setup/ui/setup.slint:88
-msgctxt "search"
-msgid "unitycapture unity video capture windows virtual camera install reinstall rename register missing not showing obs zoom"
-msgstr "віртуальна камера встановити перевстановити перейменувати зареєструвати відсутній не відображається unitycapture unity video capture windows virtual camera install reinstall rename register missing not showing obs zoom"
-
-#: rust/crates/setup/ui/setup.slint:99
-msgctxt "search"
-msgid "adb android debug bridge usb pairing download get platform-tools google own cable"
-msgstr "створення пари завантажити отримати власний кабель adb android debug bridge usb pairing download get platform-tools google own cable"
-
-#: rust/crates/setup/ui/setup.slint:112
-msgid "Download adb from Google for pairing and installing over USB."
-msgstr ""
-
-#: rust/crates/setup/ui/setup.slint:116
-msgid "Use my own adb"
-msgstr ""
-
-#: rust/crates/setup/ui/setup.slint:118
-msgid "Use my own"
-msgstr ""
-
-#: rust/crates/setup/ui/setup.slint:119
-msgid "Pick an adb.exe or platform-tools zip you already have."
-msgstr ""
-
-#: rust/crates/setup/ui/setup.slint:126 rust/crates/setup/ui/setup.slint:130
+#: rust/crates/setup/ui/setup.slint:18
 msgid "Extra cameras"
 msgstr "Додаткові камери"
 
-#: rust/crates/setup/ui/setup.slint:127
+#: rust/crates/setup/ui/setup.slint:21
 msgctxt "search"
 msgid "multiple second cameras add camera several streams remove virtual cameras"
 msgstr "кілька камер друга камера додати камеру кілька потоків вилучити віртуальні камери multiple second cameras add camera several streams remove virtual cameras"
 
-#: rust/crates/setup/ui/setup.slint:168
+#: rust/crates/setup/ui/setup.slint:69
+msgid "Set up the virtual camera that other apps see."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:70
+msgctxt "search"
+msgid "obs zoom teams discord webcam driver output device loopback"
+msgstr "вебкамера драйвер пристрій виводу лупбек obs zoom teams discord webcam driver output device loopback"
+
+#: rust/crates/setup/ui/setup.slint:77
+msgid "Kernel module"
+msgstr "Модуль ядра"
+
+#: rust/crates/setup/ui/setup.slint:78
+msgid "Only needed when the status isn't Ready."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:81
+msgctxt "search"
+msgid "v4l2loopback linux virtual camera driver load unload check status not ready /dev/video missing fix modprobe"
+msgstr "лінукс віртуальна камера драйвер завантажити вивантажити перевірити статус не готово відсутній виправити v4l2loopback linux virtual camera driver load unload check status not ready /dev/video missing fix modprobe"
+
+#: rust/crates/setup/ui/setup.slint:85
+msgid "Check"
+msgstr "Перевірити"
+
+#: rust/crates/setup/ui/setup.slint:87 rust/crates/setup/ui/setup.slint:87
+msgid "Unload"
+msgstr "Вивантажити"
+
+#: rust/crates/setup/ui/setup.slint:96 rust/crates/setup/ui/setup.slint:97
+msgid "Load when the computer starts"
+msgstr "Завантажувати під час запуску комп'ютера"
+
+#: rust/crates/setup/ui/setup.slint:99
+msgctxt "search"
+msgid "boot startup reboot persist permanent every start modprobe v4l2loopback driver survive restart"
+msgstr "автозапуск запуск перезавантаження збереження постійно щоразу драйвер пережити перезапуск boot startup reboot persist permanent every start modprobe v4l2loopback driver survive restart"
+
+#: rust/crates/setup/ui/setup.slint:121 rust/crates/setup/ui/setup.slint:125
+msgid "Driver"
+msgstr "Драйвер"
+
+#: rust/crates/setup/ui/setup.slint:124
+msgctxt "search"
+msgid "unitycapture unity video capture windows virtual camera install reinstall rename register missing not showing obs zoom"
+msgstr "віртуальна камера встановити перевстановити перейменувати зареєструвати відсутній не відображається unitycapture unity video capture windows virtual camera install reinstall rename register missing not showing obs zoom"
+
+#: rust/crates/setup/ui/setup.slint:136
+msgctxt "search"
+msgid "adb android debug bridge usb pairing download get platform-tools google own cable"
+msgstr "створення пари завантажити отримати власний кабель adb android debug bridge usb pairing download get platform-tools google own cable"
+
+#: rust/crates/setup/ui/setup.slint:144
+msgid "Download adb from Google for pairing and installing over USB."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:148
+msgid "Use my own adb"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:150
+msgid "Use my own"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:151
+msgid "Pick an adb.exe or platform-tools zip you already have."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:200
 msgid "Hardware acceleration, power saving, zoom range and the virtual camera's size."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:169
+#: rust/crates/setup/ui/setup.slint:201
 msgctxt "search"
 msgid "picture quality image stream camera output"
 msgstr "якість картинки зображення потік вихідний потік камери picture quality image stream camera output"
 
-#: rust/crates/setup/ui/setup.slint:174 rust/crates/setup/ui/setup.slint:178 rust/crates/setup/ui/setup.slint:184 rust/crates/setup/ui/setup.slint:185
+#: rust/crates/setup/ui/setup.slint:208 rust/crates/setup/ui/setup.slint:209
 msgid "Hardware acceleration"
 msgstr "Апаратне прискорення"
 
-#: rust/crates/setup/ui/setup.slint:175
+#: rust/crates/setup/ui/setup.slint:210
+msgid "Decode the Light format on the graphics card from the next stream on. If the card fails the processor takes over until you restart Telescope."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:211
 msgctxt "search"
 msgid "hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu processor laptop 4k"
 msgstr "апаратне прискорення відеокарта графічний процесор декодування швидше процесор ноутбук hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu processor laptop 4k"
 
-#: rust/crates/setup/ui/setup.slint:186
-msgid "Decode the Light format on the graphics card from the next stream on. If the card fails the processor takes over until you restart Telescope."
-msgstr ""
-
-#: rust/crates/setup/ui/setup.slint:192 rust/crates/setup/ui/setup.slint:196 rust/crates/setup/ui/setup.slint:201 rust/crates/setup/ui/setup.slint:202
+#: rust/crates/setup/ui/setup.slint:221 rust/crates/setup/ui/setup.slint:222
 msgid "Power-saving effects"
 msgstr "Енергоощадні ефекти"
 
-#: rust/crates/setup/ui/setup.slint:193
+#: rust/crates/setup/ui/setup.slint:223
+msgid "Use less processor and battery while Background or Auto framing is on. They follow quick movement a little later."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:224
 msgctxt "search"
 msgid "battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
 msgstr "батарея акумулятор живлення енергія вати ноутбук процесор навантаження вентилятор нагрів повільно розмиття кадрування легші ефекти якість battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
 
-#: rust/crates/setup/ui/setup.slint:194 rust/crates/setup/ui/setup.slint:197
-msgid "Background and Auto framing update less often"
-msgstr "Фон та автокадрування оновлюються рідше"
-
-#: rust/crates/setup/ui/setup.slint:203
-msgid "Use less processor and battery while Background or Auto framing is on. They follow quick movement a little later."
-msgstr ""
-
-#: rust/crates/setup/ui/setup.slint:209 rust/crates/setup/ui/setup.slint:212 rust/crates/setup/ui/setup.slint:215 rust/crates/setup/ui/setup.slint:216
+#: rust/crates/setup/ui/setup.slint:231 rust/crates/setup/ui/setup.slint:239
 msgid "Max zoom"
 msgstr "Макс. масштаб"
 
-#: rust/crates/setup/ui/setup.slint:210
+#: rust/crates/setup/ui/setup.slint:232
+msgid "How far the Zoom slider goes. Zoom beyond the phone's own range is cropped on this computer."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:235
 msgctxt "search"
 msgid "zoom limit magnify telephoto digital crop 10x 30x slider range"
 msgstr "масштаб наближення ліміт збільшення телеоб'єктив цифровий обрізка повзунок діапазон zoom limit magnify telephoto digital crop 10x 30x slider range"
 
-#: rust/crates/setup/ui/setup.slint:217
-msgid "How far the Zoom slider goes. Zoom beyond the phone's own range is cropped on this computer."
-msgstr ""
-
-#: rust/crates/setup/ui/setup.slint:224 rust/crates/setup/ui/setup.slint:227 rust/crates/setup/ui/setup.slint:232 rust/crates/setup/ui/setup.slint:242 rust/crates/setup/ui/setup.slint:250
+#: rust/crates/setup/ui/setup.slint:248 rust/crates/setup/ui/setup.slint:256 rust/crates/setup/ui/setup.slint:271 rust/crates/setup/ui/setup.slint:279
 msgid "Canvas size"
 msgstr "Розмір полотна"
 
-#: rust/crates/setup/ui/setup.slint:225
+#: rust/crates/setup/ui/setup.slint:251
 msgctxt "search"
 msgid "resolution output size 1080p 720p 4k portrait landscape aspect ratio custom width height pixels apply reload"
 msgstr "роздільна здатність вихідний розмір портрет пейзаж альбомна співвідношення сторін власний ширина висота пікселі застосувати перезавантажити resolution output size 1080p 720p 4k portrait landscape aspect ratio custom width height pixels apply reload"
 
-#: rust/crates/setup/ui/setup.slint:283
+#: rust/crates/setup/ui/setup.slint:317
 msgid "Maximum microphone gain and the limiter."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:284
+#: rust/crates/setup/ui/setup.slint:318
 msgctxt "search"
 msgid "audio sound voice input volume"
 msgstr "аудіо звук голос вхідний гучність audio sound voice input volume"
 
-#: rust/crates/setup/ui/setup.slint:289 rust/crates/setup/ui/setup.slint:291 rust/crates/setup/ui/setup.slint:293 rust/crates/setup/ui/setup.slint:297
+#: rust/crates/setup/ui/setup.slint:324 rust/crates/setup/ui/setup.slint:332
 msgid "Max gain"
 msgstr "Макс. підсилення"
 
-#: rust/crates/setup/ui/setup.slint:290
+#: rust/crates/setup/ui/setup.slint:325
+msgid "How far the Gain slider goes. Less range gives finer steps and more range helps a quiet phone."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:328
 msgctxt "search"
 msgid "microphone volume loudness boost amplify quiet decibel db slider range"
 msgstr "мікрофон гучність підсилення підсилити тихий децибели дб повзунок діапазон microphone volume loudness boost amplify quiet decibel db slider range"
 
-#: rust/crates/setup/ui/setup.slint:292
-msgid "How far the Gain slider goes. Less range gives finer steps and more range helps a quiet phone."
-msgstr ""
-
-#: rust/crates/setup/ui/setup.slint:304 rust/crates/setup/ui/setup.slint:308 rust/crates/setup/ui/setup.slint:313
+#: rust/crates/setup/ui/setup.slint:340 rust/crates/setup/ui/setup.slint:341
 msgid "Limiter"
 msgstr "Лімітер"
 
-#: rust/crates/setup/ui/setup.slint:305
+#: rust/crates/setup/ui/setup.slint:342
+msgid "Keeps loud sounds from clipping"
+msgstr "Запобігає перевантаженню гучних звуків"
+
+#: rust/crates/setup/ui/setup.slint:343
 msgctxt "search"
 msgid "microphone audio compressor distortion clipping loud peaks sound"
 msgstr "мікрофон аудіо компресор спотворення перевантаження кліпінг гучні піки звук microphone audio compressor distortion clipping loud peaks sound"
 
-#: rust/crates/setup/ui/setup.slint:306 rust/crates/setup/ui/setup.slint:309
-msgid "Keeps loud sounds from clipping"
-msgstr "Запобігає перевантаженню гучних звуків"
-
-#: rust/crates/setup/ui/setup.slint:333
+#: rust/crates/setup/ui/setup.slint:363
 msgid "Phone app"
 msgstr "Додаток на телефоні"
 
-#: rust/crates/setup/ui/setup.slint:334
+#: rust/crates/setup/ui/setup.slint:364
 msgid "Install the Telescope app on a phone over USB."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:335
+#: rust/crates/setup/ui/setup.slint:365
 msgctxt "search"
 msgid "android install apk usb"
 msgstr "андроїд встановити встановлення android install apk usb"
 
-#: rust/crates/setup/ui/setup.slint:341
+#: rust/crates/setup/ui/setup.slint:375
 msgctxt "search"
 msgid "phone app install usb android reinstall newer version sideload cable"
 msgstr "додаток на телефоні встановити перевстановити новіша версія кабель phone app install usb android reinstall newer version sideload cable"
 
-#: rust/crates/setup/ui/setup.slint:353 rust/crates/shell/ui/settings.slint:538 rust/crates/shell/ui/settings.slint:541
+#: rust/crates/setup/ui/setup.slint:382 rust/crates/shell/ui/settings.slint:430 rust/crates/shell/ui/settings.slint:431
 msgid "Install"
 msgstr "Встановити"
 
-#: rust/crates/setup/ui/setup.slint:354
+#: rust/crates/setup/ui/setup.slint:383
 msgid "Install the Telescope.apk that came with this app, or an APK you pick, on a phone plugged in over USB."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:362 rust/crates/setup/ui/setup.slint:373
+#: rust/crates/setup/ui/setup.slint:393 rust/crates/setup/ui/setup.slint:400
 msgid "Select device"
 msgstr "Виберіть пристрій"
 
-#: rust/crates/setup/ui/setup.slint:368
+#: rust/crates/setup/ui/setup.slint:394
 msgid "More than one phone is plugged in. Which one should get the app?"
 msgstr "Підключено більше ніж один телефон. На який із них встановити додаток?"
 
-#: rust/crates/setup/ui/setup.slint:400
+#: rust/crates/setup/ui/setup.slint:437
 msgid "Theme, card colours and language."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:401
+#: rust/crates/setup/ui/setup.slint:438
 msgctxt "search"
 msgid "appearance theme colors colours interface"
 msgstr "вигляд тема кольори інтерфейс оформлення appearance theme colors colours interface"
 
-#: rust/crates/setup/ui/setup.slint:406 rust/crates/setup/ui/setup.slint:408 rust/crates/setup/ui/setup.slint:412
+#: rust/crates/setup/ui/setup.slint:444 rust/crates/setup/ui/setup.slint:445
+msgid "Help translate"
+msgstr "Допомогти з перекладом"
+
+#: rust/crates/setup/ui/setup.slint:446
+msgid "Fix a text or add a language, no coding needed."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:451 rust/crates/setup/ui/setup.slint:458
 msgid "Theme"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:407
+#: rust/crates/setup/ui/setup.slint:454
 msgctxt "search"
 msgid "theme classic dark blue appearance look old"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:413
+#: rust/crates/setup/ui/setup.slint:459
 msgid "Default"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:413
+#: rust/crates/setup/ui/setup.slint:459
 msgid "Classic"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:419 rust/crates/setup/ui/setup.slint:421 rust/crates/setup/ui/setup.slint:423 rust/crates/setup/ui/setup.slint:427
+#: rust/crates/setup/ui/setup.slint:466 rust/crates/setup/ui/setup.slint:467 rust/crates/setup/ui/setup.slint:475
 msgid "Card colours"
 msgstr "Кольори карток"
 
-#: rust/crates/setup/ui/setup.slint:420
+#: rust/crates/setup/ui/setup.slint:468
+msgid "Give every card in the main window a different colour."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:471
 msgctxt "search"
 msgid "color colour theme appearance monochrome colourful purple hue accent look"
 msgstr "колір кольори тема вигляд монохромний кольоровий фіолетовий відтінок акцент color colour theme appearance monochrome colourful purple hue accent look"
 
-#: rust/crates/setup/ui/setup.slint:422
-msgid "Give every card in the main window a different colour."
-msgstr ""
-
-#: rust/crates/setup/ui/setup.slint:429
+#: rust/crates/setup/ui/setup.slint:476
 msgid "Colourful"
 msgstr "Кольоровий"
 
-#: rust/crates/setup/ui/setup.slint:429
+#: rust/crates/setup/ui/setup.slint:476
 msgid "Monochrome"
 msgstr "Монохромний"
 
-#: rust/crates/setup/ui/setup.slint:435 rust/crates/setup/ui/setup.slint:438 rust/crates/setup/ui/setup.slint:442
+#: rust/crates/setup/ui/setup.slint:484 rust/crates/setup/ui/setup.slint:491
 msgid "Language"
 msgstr "Мова"
 
-#: rust/crates/setup/ui/setup.slint:436
+#: rust/crates/setup/ui/setup.slint:487
 msgctxt "search"
 msgid "language translation translate locale"
 msgstr "мова переклад перекласти локаль language translation translate locale"
 
-#: rust/crates/setup/ui/setup.slint:457 rust/crates/setup/ui/setup.slint:461
-msgid "Help translate"
-msgstr "Допомогти з перекладом"
-
-#: rust/crates/setup/ui/setup.slint:462
-msgid "Fix a text or add a language, no coding needed."
+#: rust/crates/setup/ui/setup.slint:504
+msgid "Restart to switch"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:468
+#: rust/crates/setup/ui/setup.slint:504
 msgid "Restart Telescope to switch to it."
 msgstr "Перезапустіть Telescope, щоб перейти на неї."
 
-#: rust/crates/setup/ui/setup.slint:474 rust/crates/shell/ui/settings.slint:589 rust/crates/shell/ui/settings.slint:592
+#: rust/crates/setup/ui/setup.slint:506 rust/crates/shell/ui/settings.slint:490 rust/crates/shell/ui/settings.slint:492
 msgid "Restart now"
 msgstr "Перезапустити зараз"
 
-#: rust/crates/setup/ui/setup.slint:478 rust/crates/shell/src/plugins_tab.rs:625
+#: rust/crates/setup/ui/setup.slint:510 rust/crates/shell/src/plugins_tab.rs:625
 msgid "Restart"
 msgstr "Перезапустити"
 
-#: rust/crates/setup/ui/setup.slint:479
+#: rust/crates/setup/ui/setup.slint:511
 msgid "Restart Telescope in the language you picked."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:500
+#: rust/crates/setup/ui/setup.slint:534
 msgid "About"
 msgstr "Про програму"
 
-#: rust/crates/setup/ui/setup.slint:501
+#: rust/crates/setup/ui/setup.slint:535
 msgid "Version, log, bug reports and help."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:502
+#: rust/crates/setup/ui/setup.slint:536
 msgctxt "search"
 msgid "info version help support credits"
 msgstr "інформація інфо версія довідка підтримка подяки автори info version help support credits"
 
-#: rust/crates/setup/ui/setup.slint:513
+#: rust/crates/setup/ui/setup.slint:547
 msgctxt "search"
 msgid "about author credits made by version number build"
 msgstr "про програму автор подяки розробник створено версія номер збірка about author credits made by version number build"
 
-#: rust/crates/setup/ui/setup.slint:527
+#: rust/crates/setup/ui/setup.slint:561
 msgid "Log"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:530 rust/crates/setup/ui/setup.slint:538 rust/crates/setup/ui/setup.slint:551
+#: rust/crates/setup/ui/setup.slint:564 rust/crates/setup/ui/setup.slint:572 rust/crates/setup/ui/setup.slint:585
 msgctxt "search"
 msgid "bug report diagnostics logs debug support problem issue help copy log file"
 msgstr "звіт про помилку діагностика журнали журнал налагодження підтримка проблема довідка скопіювати файл журналу bug report diagnostics logs debug support problem issue help copy log file"
 
-#: rust/crates/setup/ui/setup.slint:531 rust/crates/system/ui/shortcuts.slint:255
+#: rust/crates/setup/ui/setup.slint:565 rust/crates/system/ui/shortcuts.slint:211
 msgid "Open"
 msgstr "Відкрити"
 
-#: rust/crates/setup/ui/setup.slint:531
+#: rust/crates/setup/ui/setup.slint:565
 msgid "Open log"
 msgstr "Відкрити журнал"
 
-#: rust/crates/setup/ui/setup.slint:531
+#: rust/crates/setup/ui/setup.slint:565
 msgid "Open the full log. It's kept in the temp folder, which the system clears."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:535
+#: rust/crates/setup/ui/setup.slint:569
 msgid "Diagnostics"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:541
+#: rust/crates/setup/ui/setup.slint:575
 msgid "Copy diagnostics"
 msgstr "Скопіювати діагностику"
 
-#: rust/crates/setup/ui/setup.slint:542
+#: rust/crates/setup/ui/setup.slint:576
 msgid "Copy info for a bug report without pairing tokens, addresses or file paths."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:548
+#: rust/crates/setup/ui/setup.slint:582
 msgid "Bug reports"
 msgstr "Звіти про помилки"
 
-#: rust/crates/setup/ui/setup.slint:552 rust/crates/setup/ui/setup.slint:552
+#: rust/crates/setup/ui/setup.slint:586 rust/crates/setup/ui/setup.slint:586
 msgid "Report a bug"
 msgstr "Повідомити про помилку"
 
-#: rust/crates/setup/ui/setup.slint:552
+#: rust/crates/setup/ui/setup.slint:586
 msgid "Copy the diagnostics and open the bug form on GitHub."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:556
+#: rust/crates/setup/ui/setup.slint:590
 msgid "Need help?"
 msgstr "Потрібна допомога?"
 
-#: rust/crates/setup/ui/setup.slint:559
+#: rust/crates/setup/ui/setup.slint:593
 msgctxt "search"
 msgid "help support troubleshooting question faq problem not working stuck ask"
 msgstr "допомога підтримка усунення несправностей питання часті питання проблема не працює зависло запитати help support troubleshooting question faq problem not working stuck ask"
 
-#: rust/crates/setup/ui/setup.slint:560
+#: rust/crates/setup/ui/setup.slint:594
 msgid "Troubleshooting"
 msgstr "Усунення несправностей"
 
@@ -6679,7 +6679,7 @@ msgstr "Перейменувати пресет"
 msgid "Save preset"
 msgstr "Зберегти пресет"
 
-#: rust/crates/shell/src/plugins/presets.rs:214 rust/crates/system/ui/shortcuts.slint:381
+#: rust/crates/shell/src/plugins/presets.rs:214 rust/crates/system/ui/shortcuts.slint:345
 msgid "Save"
 msgstr "Зберегти"
 
@@ -6725,7 +6725,7 @@ msgstr ""
 msgid "Start with the phone's camera off and stream only its mic."
 msgstr ""
 
-#: rust/crates/shell/src/plugins/preview.rs:138 rust/crates/shell/src/tray.rs:76 rust/crates/shell/ui/settings.slint:467
+#: rust/crates/shell/src/plugins/preview.rs:138 rust/crates/shell/src/tray.rs:76 rust/crates/shell/ui/settings.slint:383
 msgid "Show"
 msgstr "Показати"
 
@@ -7016,49 +7016,49 @@ msgstr "Вкладка"
 msgid "Check that it's still on."
 msgstr "Перевірте, чи пристрій досі увімкнено."
 
-#: rust/crates/shell/src/settings.rs:738
+#: rust/crates/shell/src/settings.rs:739
 msgid "Nothing matches every word. These match some of them."
 msgstr "Жоден результат не містить усіх слів. Ось збіги для деяких із них."
 
-#: rust/crates/shell/src/settings.rs:740
+#: rust/crates/shell/src/settings.rs:741
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)."
 msgstr "Нічого не знайдено за запитом «{text}». Спробуйте менше слів або вкажіть дію (роздільна здатність, мікрофон, автозапуск)."
 
-#: rust/crates/shell/src/settings.rs:742 rust/crates/shell/ui/settings.slint:254
+#: rust/crates/shell/src/settings.rs:743 rust/crates/shell/ui/settings.slint:255
 msgid "Search results"
 msgstr "Результати пошуку"
 
-#: rust/crates/shell/src/settings.rs:804
+#: rust/crates/shell/src/settings.rs:805
 #, python-brace-format
 msgid "Remove {plugin}"
 msgstr "Вилучити {plugin}"
 
-#: rust/crates/shell/src/settings.rs:823
+#: rust/crates/shell/src/settings.rs:824
 msgid "Check for updates"
 msgstr "Перевіряти наявність оновлень"
 
-#: rust/crates/shell/src/settings.rs:824
+#: rust/crates/shell/src/settings.rs:825
 msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
 msgstr "Раз на день перевіряє наявність нових версій доданих плагінів, що публікують релізи на GitHub, і повідомляє про них тут. Нічого не завантажується."
 
-#: rust/crates/shell/src/settings.rs:825
+#: rust/crates/shell/src/settings.rs:826
 msgid "Install updates without asking"
 msgstr "Встановлювати оновлення без запиту"
 
-#: rust/crates/shell/src/settings.rs:825
+#: rust/crates/shell/src/settings.rs:826
 msgid "Installs new versions of the plugins you switched on and switches them on again."
 msgstr "Встановлює нові версії увімкнених вами плагінів і вмикає їх знову."
 
-#: rust/crates/shell/src/settings.rs:826
+#: rust/crates/shell/src/settings.rs:827
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "Небезпечно! Той, хто керує репозиторієм плагіна, зможе запускати новий код на цьому комп'ютері щоразу під час публікації релізу."
 
-#: rust/crates/shell/src/settings.rs:914
+#: rust/crates/shell/src/settings.rs:915
 msgid "Install a plugin"
 msgstr "Встановити плагін"
 
-#: rust/crates/shell/src/settings.rs:916
+#: rust/crates/shell/src/settings.rs:917
 msgid "Plugins (*.zip)"
 msgstr "Плагіни (*.zip)"
 
@@ -7619,74 +7619,74 @@ msgstr ""
 msgid "Show this stream's settings in the cards."
 msgstr ""
 
-#: rust/crates/shell/ui/settings.slint:123
+#: rust/crates/shell/ui/settings.slint:124
 msgid "Settings tabs"
 msgstr "Вкладки налаштувань"
 
-#: rust/crates/shell/ui/settings.slint:347
+#: rust/crates/shell/ui/settings.slint:320
 msgid "Delete this plugin's folder from the plugins folder."
 msgstr ""
 
-#: rust/crates/shell/ui/settings.slint:436 rust/crates/shell/ui/settings.slint:440
-msgid "Reset to defaults"
-msgstr "Скинути до стандартних"
-
-#: rust/crates/shell/ui/settings.slint:441
-msgid "Switch the optional built-in plugins off and the rest on."
-msgstr ""
-
-#: rust/crates/shell/ui/settings.slint:451 rust/crates/shell/ui/settings.slint:452
+#: rust/crates/shell/ui/settings.slint:367 rust/crates/shell/ui/settings.slint:368
 msgid "Search plugins"
 msgstr "Пошук плагінів"
 
-#: rust/crates/shell/ui/settings.slint:463
+#: rust/crates/shell/ui/settings.slint:379
 msgctxt "plugins"
 msgid "All"
 msgstr "Усі"
 
-#: rust/crates/shell/ui/settings.slint:463
+#: rust/crates/shell/ui/settings.slint:379
 msgctxt "plugins"
 msgid "On"
 msgstr "Увімк."
 
-#: rust/crates/shell/ui/settings.slint:463
+#: rust/crates/shell/ui/settings.slint:379
 msgctxt "plugins"
 msgid "Off"
 msgstr "Вимк."
 
-#: rust/crates/shell/ui/settings.slint:489 rust/crates/shell/ui/settings.slint:492
+#: rust/crates/shell/ui/settings.slint:389 rust/crates/shell/ui/settings.slint:391
+msgid "Reset to defaults"
+msgstr "Скинути до стандартних"
+
+#: rust/crates/shell/ui/settings.slint:392
+msgid "Switch the optional built-in plugins off and the rest on."
+msgstr ""
+
+#: rust/crates/shell/ui/settings.slint:403
 msgid "Remove download"
 msgstr "Вилучити завантаження"
 
-#: rust/crates/shell/ui/settings.slint:493
+#: rust/crates/shell/ui/settings.slint:404
 msgid "Delete the download these plugins use. Switching any of these plugins on downloads it again."
 msgstr ""
 
-#: rust/crates/shell/ui/settings.slint:526
+#: rust/crates/shell/ui/settings.slint:421
 msgid "Show all plugins"
 msgstr "Показати всі плагіни"
 
-#: rust/crates/shell/ui/settings.slint:535
+#: rust/crates/shell/ui/settings.slint:425
 msgid "Added plugins"
 msgstr "Додані плагіни"
 
-#: rust/crates/shell/ui/settings.slint:542
+#: rust/crates/shell/ui/settings.slint:432
 msgid "Pick a plugin's .zip file. You can also drop the file onto this window."
 msgstr ""
 
-#: rust/crates/shell/ui/settings.slint:546
+#: rust/crates/shell/ui/settings.slint:438
 msgid "No plugins added yet"
 msgstr ""
 
-#: rust/crates/shell/ui/settings.slint:568
+#: rust/crates/shell/ui/settings.slint:468
 msgid "How plugins work"
 msgstr "Як працюють плагіни"
 
-#: rust/crates/shell/ui/settings.slint:569
+#: rust/crates/shell/ui/settings.slint:469
 msgid "Open plugins folder"
 msgstr "Відкрити папку плагінів"
 
-#: rust/crates/shell/ui/settings.slint:593
+#: rust/crates/shell/ui/settings.slint:493
 msgid "Restart Telescope to apply your changes."
 msgstr ""
 
@@ -7807,7 +7807,7 @@ msgstr "Усюди: {keys}"
 msgid "Windows can't use this key everywhere"
 msgstr "Windows не може використовувати цю клавішу всюди"
 
-#: rust/crates/system/src/hotkeys_windows.rs:61 rust/crates/system/ui/shortcuts.slint:246
+#: rust/crates/system/src/hotkeys_windows.rs:61 rust/crates/system/ui/shortcuts.slint:199
 msgid "Everywhere"
 msgstr "Усюди"
 
@@ -7968,7 +7968,7 @@ msgstr ""
 msgid "Without it AI apps can't connect to Telescope."
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:1261 rust/crates/system/ui/mcp.slint:238
+#: rust/crates/system/src/mcp.rs:1261 rust/crates/system/ui/mcp.slint:229
 msgid "MCP"
 msgstr ""
 
@@ -8517,120 +8517,124 @@ msgstr "Перевірка наявності нових версій Telescope 
 msgid "Let an AI app read and change Telescope's settings."
 msgstr ""
 
-#: rust/crates/system/ui/mcp.slint:63 rust/crates/system/ui/mcp.slint:71
+#: rust/crates/system/ui/mcp.slint:64 rust/crates/system/ui/mcp.slint:70
 msgid "Access"
 msgstr ""
 
-#: rust/crates/system/ui/mcp.slint:83
+#: rust/crates/system/ui/mcp.slint:82
 msgid "Command"
 msgstr ""
 
-#: rust/crates/system/ui/mcp.slint:124
+#: rust/crates/system/ui/mcp.slint:122
 msgid "Recent activity"
 msgstr ""
 
-#: rust/crates/system/ui/mcp.slint:125
+#: rust/crates/system/ui/mcp.slint:123
 msgctxt "search"
 msgid "mcp ai log history what the ai did refused"
 msgstr ""
 
-#: rust/crates/system/ui/mcp.slint:262
+#: rust/crates/system/ui/mcp.slint:253
 msgid "Undo"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:51
+#: rust/crates/system/ui/shortcuts.slint:39
 msgid "Copy command line"
 msgstr "Скопіювати командний рядок"
 
-#: rust/crates/system/ui/shortcuts.slint:117
+#: rust/crates/system/ui/shortcuts.slint:59
 msgid "Edit"
 msgstr "Редагувати"
 
-#: rust/crates/system/ui/shortcuts.slint:118
+#: rust/crates/system/ui/shortcuts.slint:60
 msgid "Change the keys of this shortcut."
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:142 rust/crates/system/ui/shortcuts.slint:350
+#: rust/crates/system/ui/shortcuts.slint:86 rust/crates/system/ui/shortcuts.slint:307
 msgid "Key"
 msgstr "Клавіша"
 
-#: rust/crates/system/ui/shortcuts.slint:159
+#: rust/crates/system/ui/shortcuts.slint:103
 msgid "Press a key"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:227
+#: rust/crates/system/ui/shortcuts.slint:103
+msgid "Press shortcut"
+msgstr ""
+
+#: rust/crates/system/ui/shortcuts.slint:180
 msgid "Shortcuts"
 msgstr "Гарячі клавіші"
 
-#: rust/crates/system/ui/shortcuts.slint:228
+#: rust/crates/system/ui/shortcuts.slint:181
 msgctxt "search"
 msgid "hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove"
 msgstr "гарячі клавіші комбінація клавіш клавіші натисни і говори вимкнути звук додати вилучити hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove"
 
-#: rust/crates/system/ui/shortcuts.slint:233
+#: rust/crates/system/ui/shortcuts.slint:186
 msgid "Pick a control and the key for it"
 msgstr "Виберіть елемент керування та клавішу для нього"
 
-#: rust/crates/system/ui/shortcuts.slint:234
+#: rust/crates/system/ui/shortcuts.slint:187
 msgid "Add"
 msgstr "Додати"
 
-#: rust/crates/system/ui/shortcuts.slint:242
+#: rust/crates/system/ui/shortcuts.slint:195
 msgid "No shortcuts yet"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:247
+#: rust/crates/system/ui/shortcuts.slint:200
 msgctxt "search"
 msgid "global system wide hotkeys background other apps"
 msgstr "глобальні системні гарячі клавіші фон інші додатки фоновий режим global system wide hotkeys background other apps"
 
-#: rust/crates/system/ui/shortcuts.slint:251
+#: rust/crates/system/ui/shortcuts.slint:205
 msgid "Desktop shortcut settings"
 msgstr "Налаштування комбінацій клавіш середовища"
 
-#: rust/crates/system/ui/shortcuts.slint:252
+#: rust/crates/system/ui/shortcuts.slint:209
 msgctxt "search"
 msgid "global hotkeys portal kde plasma gnome desktop keys rebind"
 msgstr "глобальні гарячі клавіші портал графічне середовище перепризначити global hotkeys portal kde plasma gnome desktop keys rebind"
 
-#: rust/crates/system/ui/shortcuts.slint:256
+#: rust/crates/system/ui/shortcuts.slint:212
 msgid "Global shortcuts"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:257
+#: rust/crates/system/ui/shortcuts.slint:213
 msgid "Where your desktop lets you change the keys of global shortcuts."
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:262 rust/crates/system/ui/shortcuts.slint:267
+#: rust/crates/system/ui/shortcuts.slint:219 rust/crates/system/ui/shortcuts.slint:220
 msgid "Notify when one runs"
 msgstr "Сповіщати під час спрацьовування"
 
-#: rust/crates/system/ui/shortcuts.slint:263
+#: rust/crates/system/ui/shortcuts.slint:221
+msgid "While Telescope is in the background"
+msgstr "Коли Telescope у фоновому режимі"
+
+#: rust/crates/system/ui/shortcuts.slint:222
 msgctxt "search"
 msgid "notification notify toast confirmation popup"
 msgstr "сповіщення повідомлення підтвердження спливаюче notification notify toast confirmation popup"
 
-#: rust/crates/system/ui/shortcuts.slint:264
-msgid "While Telescope is in the background"
-msgstr "Коли Telescope у фоновому режимі"
-
-#: rust/crates/system/ui/shortcuts.slint:290
+#: rust/crates/system/ui/shortcuts.slint:247
 msgid "Keyboard shortcut"
 msgstr "Комбінація клавіш"
 
-#: rust/crates/system/ui/shortcuts.slint:295 rust/crates/system/ui/shortcuts.slint:305
+#: rust/crates/system/ui/shortcuts.slint:252 rust/crates/system/ui/shortcuts.slint:262
 msgid "Find"
 msgstr "Знайти"
 
-#: rust/crates/system/ui/shortcuts.slint:304
+#: rust/crates/system/ui/shortcuts.slint:261
 msgid "Search"
 msgstr ""
 
-#: rust/crates/system/ui/shortcuts.slint:312 rust/crates/system/ui/shortcuts.slint:318
+#: rust/crates/system/ui/shortcuts.slint:269 rust/crates/system/ui/shortcuts.slint:275
 msgid "Control"
 msgstr "Елемент керування"
 
-#: rust/crates/system/ui/shortcuts.slint:362
+#: rust/crates/system/ui/shortcuts.slint:319
 msgid "Also works while another app is in front"
 msgstr "Працює також, коли активний інший додаток"
 
@@ -8647,48 +8651,48 @@ msgctxt "search"
 msgid "login boot autostart run on startup tray minimized"
 msgstr "вхід у систему запуск автозапуск згорнуто область сповіщень трей login boot autostart run on startup tray minimized"
 
-#: rust/crates/system/ui/startup.slint:17 rust/crates/system/ui/startup.slint:23 rust/crates/system/ui/startup.slint:24
+#: rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:23
 msgid "Open Telescope when I sign in"
 msgstr "Відкривати Telescope під час входу в систему"
 
-#: rust/crates/system/ui/startup.slint:18
+#: rust/crates/system/ui/startup.slint:19
 msgctxt "search"
 msgid "autostart login log in boot startup run on startup launch computer starts tray"
 msgstr "автозапуск вхід у систему запуск комп'ютера старт трей область сповіщень autostart login log in boot startup run on startup launch computer starts tray"
 
-#: rust/crates/system/ui/startup.slint:52
+#: rust/crates/system/ui/startup.slint:50
 msgid "Automatic streaming"
 msgstr "Автоматична трансляція"
 
-#: rust/crates/system/ui/startup.slint:53
+#: rust/crates/system/ui/startup.slint:51
 msgid "Start and stop the stream automatically when an app uses the virtual camera."
 msgstr ""
 
-#: rust/crates/system/ui/startup.slint:54
+#: rust/crates/system/ui/startup.slint:52
 msgctxt "search"
 msgid "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 msgstr ""
 
-#: rust/crates/system/ui/startup.slint:61
+#: rust/crates/system/ui/startup.slint:59
 msgctxt "search"
 msgid "automatically begin streaming when phone device ready app opens the camera auto start"
 msgstr ""
 
-#: rust/crates/system/ui/startup.slint:76
+#: rust/crates/system/ui/startup.slint:74
 msgctxt "search"
 msgid "automatically end streaming idle no app uses the camera auto stop"
 msgstr "автоматично завершити трансляцію бездіяльність жоден додаток не використовує камеру автозупинка automatically end streaming idle no app uses the camera auto stop"
 
-#: rust/crates/system/ui/startup.slint:93
+#: rust/crates/system/ui/startup.slint:91
 msgctxt "search"
 msgid "delay timeout idle seconds minutes how long grace period auto stop"
 msgstr "затримка таймаут бездіяльність секунди хвилини скільки часу період очікування автозупинка delay timeout idle seconds minutes how long grace period auto stop"
 
-#: rust/crates/system/ui/startup.slint:128
+#: rust/crates/system/ui/startup.slint:126
 msgid "Tell me when it stops a stream"
 msgstr "Повідомляти мене про зупинку трансляції"
 
-#: rust/crates/system/ui/startup.slint:131
+#: rust/crates/system/ui/startup.slint:129
 msgctxt "search"
 msgid "notification notify alert popup message"
 msgstr "сповіщення сповістити попередження спливаюче повідомлення notification notify alert popup message"
@@ -9164,6 +9168,9 @@ msgstr "Не вдалося відкрити"
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "Не вдалося перезапустити"
+
+#~ msgid "Background and Auto framing update less often"
+#~ msgstr "Фон та автокадрування оновлюються рідше"
 
 #~ msgid "Test on"
 #~ msgstr "Перевірити: увімк."

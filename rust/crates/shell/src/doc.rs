@@ -745,7 +745,7 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
         out.push_str("    }\n");
         if Some(t) == plugins_tab {
             out.push_str(&format!(
-                "    if root.footer-shown && !root.searching && root.current == {t}: PluginsFooter {{\n        x: 260px;\n        y: root.height - 70px;\n        width: root.width - 284px;\n        note: root.footer-note;\n        restart => {{ root.restart(); }}\n    }}\n"));
+                "    if root.footer-shown && !root.searching && root.current == {t}: PluginsFooter {{\n        x: 260px;\n        y: root.height - 70px;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        note: root.footer-note;\n        restart => {{ root.restart(); }}\n    }}\n"));
         }
         let mut below = String::from("root.height - 16px");
         for f in footers.iter().rev() {
@@ -904,7 +904,6 @@ const PLUGINS_PANEL: &str = r#"        PluginsPanel {
             narrowed: root.narrowed;
             query <=> root.plugin-query;
             filter <=> root.plugin-filter;
-            columns: max(parent.inner-width < 400px ? 1 : 2, min(3, floor((parent.inner-width + 10px) / 240px)));
             has-added: root.has-added;
             update-rows: root.update-rows;
             switched(name, on) => { root.plugin-switched(name, on); }
@@ -924,7 +923,7 @@ const PLUGINS_PANEL: &str = r#"        PluginsPanel {
 const SETTINGS_BOTTOM: &str = r#"    ResultsList {
         x: 260px;
         y: 53px;
-        width: root.width - 276px;
+        width: min(root.width - 276px, SettingsLayout.content-max);
         height: root.height - 69px;
         visible: root.searching;
         results: root.results;
