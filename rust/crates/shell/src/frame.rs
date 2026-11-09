@@ -1,6 +1,6 @@
 //! The frame the system draws around a window: on Windows the title bar is the top bar's colour in the look that is on (Windows 11; Windows
-//! 10 keeps its own) and shows the app's icon. Elsewhere the system's own frame and the icon property are left alone: KDE draws its title bars
-//! from the system's colour scheme, and GNOME's are the system's too.
+//! 10 keeps its own) and shows the app's icon. On KDE Plasma it's the same colours (kde.rs). GNOME and the other desktops keep the system's
+//! own frame.
 
 use slint_interpreter::ComponentInstance;
 
@@ -11,7 +11,9 @@ pub(crate) fn dress(ui: &ComponentInstance) {
         let colours = (colour(ui, "chrome"), colour(ui, "ink"));
         crate::screen::when_made(ui, |w| hwnd_of(w), move |_, hwnd| windows_frame(hwnd, colours));
     }
-    #[cfg(not(windows))]
+    #[cfg(all(unix, not(target_os = "macos")))]
+    crate::kde::dress(ui);
+    #[cfg(not(any(windows, all(unix, not(target_os = "macos")))))]
     let _ = ui;
 }
 

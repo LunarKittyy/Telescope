@@ -5874,6 +5874,7 @@ dependencies = [
  "wayland-backend",
  "wayland-client",
  "wayland-protocols",
+ "wayland-protocols-plasma",
  "windows",
  "x11-dl",
  "zbus",
