@@ -1,6 +1,6 @@
 # Next release
 
-The next release follows 5.0.5. Everything ticked here is merged and not released yet. The new look lives on the `ui/new-look` branch, the rest is in the Rust desktop's history since 5.0.5.
+The next release follows 5.0.5. Everything ticked here is merged and not released yet. The new look is merged too. All of it is in the Rust desktop's history since 5.0.5.
 
 - [x] [Auto colour grading](#auto-colour-grading)
 - [x] [Stats](#stats)
@@ -89,7 +89,7 @@ A review of the Rust desktop in November 2026 looking at threads, error handling
 The desktop window got redone, with IBM Plex Sans as its font. Merged:
 
 - Design tokens for every size, radius, spacing and colour, and a UI kit of controls built on them (`STYLE.md` is the guide). Everything that used to have its own hard-coded colour is on tokens now
-- Four looks to pick in Appearance: Dark, Classic (the old deep blue), OLED and Light
+- Four looks to pick in the Look section of General: Dark, Classic (the old deep blue), OLED and Light
 - Every card rebuilt on the kit, with an icon rail, sliders whose fill shows what they mean, dials, wheels and a pad for Desk mode's sheet size
 - A shared motion kit (switches, sliders, folds, pages, banners and menus all move the same way) that follows the system's reduced-motion setting
 - Tooltips with a title, what the control does and a hint, quiet while someone is adjusting and quick while reading

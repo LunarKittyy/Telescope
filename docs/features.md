@@ -341,7 +341,7 @@ Updating installs the new version for your user instead (Start menu entry and un
 
 Click a card's title to fold it down to its header and click again to open it. Section titles inside a card work the same way. Folds are remembered after a restart and saved for the whole app, not per phone. Shortcuts keep working on folded controls. Tab reaches the titles and Space or Enter folds them.
 
-**Monochrome** under **Card colours** in General puts every card in the app's purple instead of its own colour.
+The **Look** section of General in Settings picks the window's look (**Dark**, **Classic**, **OLED** or **Light**) and the **Card colours**. **Monochrome** puts every card in the app's purple instead of its own colour.
 </details>
 
 ## Keyboard shortcuts
