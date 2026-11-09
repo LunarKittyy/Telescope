@@ -340,10 +340,11 @@ import { Dial } from "@ui-kit/ui-kit.slint";
 export component Test inherits Window {
     width: 220px;
     height: 70px;
+    in property <float> start-between: 0;
+    in property <string> text;
     out property <int> now: d.shown;
-    out property <float> pace: d.pace;
-    out property <float> calm: d.name-calm;
-    out property <bool> idle: d.idle;
+    out property <string> read: d.read;
+    out property <float> scale: d.grown;
     d := Dial {
         x: 10px;
         y: 10px;
@@ -354,6 +355,8 @@ export component Test inherits Window {
         label-from: 0;
         free: true;
         current: 3;
+        between: start-between;
+        value-text: text;
     }
 }
 "#;
@@ -373,46 +376,47 @@ fn notch(ui: &ComponentInstance) {
 }
 
 #[test]
-fn a_dial_going_fast_loses_its_big_names_and_gets_them_back_when_it_slows() {
+fn the_readout_is_always_the_value_and_swells_when_the_dial_is_let_go() {
     let ui = rig(LONG, (220.0, 70.0));
     ui.window().dispatch_event(WindowEvent::PointerMoved { position: at(110.0, 34.0) });
-    assert_eq!((number(&ui, "calm"), number(&ui, "pace")), (1.0, 0.0), "at rest the names are there");
-    // Rapid wheel notches, one every 30 ms
-    for _ in 0..16 {
+    assert_eq!((text(&ui, "read").as_str(), number(&ui, "scale")), ("50", 1.0), "at rest it is big");
+    // Rapid wheel notches: the readout says the value after every one and is smaller while they come
+    let names = ["25", "32", "40", "50", "64", "80", "100", "125", "160", "200", "250", "320", "400", "500", "640", "800", "1000", "1250", "1600"];
+    for _ in 0..12 {
         notch(&ui);
         wait(30);
+        assert_eq!(text(&ui, "read"), names[number(&ui, "now") as usize], "never blank, never behind");
     }
-    assert!(number(&ui, "pace") > 14.0, "fast: {}", number(&ui, "pace"));
+    assert!(number(&ui, "scale") < 0.9, "smaller while it moves: {}", number(&ui, "scale"));
+    // Let go: about 200 ms after the last step it swells, over a moment
     wait(150);
-    assert!(number(&ui, "calm") < 0.5, "the names have gone: {}", number(&ui, "calm"));
-    // Stopped: they come back, and nothing keeps running
-    wait(1500);
-    assert!(number(&ui, "calm") > 0.99, "{}", number(&ui, "calm"));
-    assert!(truth(&ui, "idle"), "a dial at rest has no timer running");
+    assert!(number(&ui, "scale") < 0.9, "not yet: {}", number(&ui, "scale"));
+    wait(150);
+    let mid = number(&ui, "scale");
+    assert!(mid > 0.78 && mid < 1.0, "on its way: {mid}");
+    wait(600);
+    assert_eq!(number(&ui, "scale"), 1.0, "and at rest it is big and plain");
 }
 
 #[test]
-fn a_careful_dial_keeps_its_names() {
+fn a_held_drag_keeps_the_readout_small_and_a_release_swells_it() {
     let ui = rig(LONG, (220.0, 70.0));
-    ui.window().dispatch_event(WindowEvent::PointerMoved { position: at(110.0, 34.0) });
-    // A tick every quarter of a second
-    let mut lowest = 1.0_f64;
-    for _ in 0..8 {
-        notch(&ui);
-        for _ in 0..5 {
-            wait(50);
-            lowest = lowest.min(number(&ui, "calm"));
-        }
-    }
-    assert!(lowest > 0.99, "a careful turn never loses the names: {lowest}");
-    assert!(number(&ui, "pace") < 9.0, "{}", number(&ui, "pace"));
+    down(&ui, at(110.0, 34.0));
+    wait(400);
+    assert!(number(&ui, "scale") < 0.8, "small while held: {}", number(&ui, "scale"));
+    drag(&ui, at(110.0 - 40.0, 34.0));
+    wait(100);
+    up(&ui, at(110.0 - 40.0, 34.0));
+    wait(700);
+    assert_eq!(number(&ui, "scale"), 1.0);
 }
 
 #[test]
-fn a_dial_at_rest_runs_nothing() {
+fn the_readout_says_the_owners_words_between_two_ticks() {
     let ui = rig(LONG, (220.0, 70.0));
-    wait(2000);
-    assert!(truth(&ui, "idle"));
+    ui.set_property("start-between", Value::Number(0.3)).unwrap();
+    ui.set_property("text", Value::String("52".into())).unwrap();
+    assert_eq!(text(&ui, "read"), "52");
 }
 
 fn truth(ui: &ComponentInstance, name: &str) -> bool {

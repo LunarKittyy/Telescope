@@ -64,6 +64,8 @@ export component Dial inherits Rectangle {
         if (stops.length > 0 && (to != shown || shown-between != 0)) {
             strip.sync();
             quick = true;
+            recent = true;
+            step-timer.restart();
             local = to;
             local-between = 0;
             touched = true;
@@ -84,6 +86,8 @@ export component Dial inherits Rectangle {
         if (abs(to - shown-place) > 0.00001) {
             strip.sync();
             quick = true;
+            recent = true;
+            step-timer.restart();
             local = i;
             local-between = to - i;
             touched = true;
@@ -147,39 +151,20 @@ export component Dial inherits Rectangle {
         triggered => { shake-step = shake-step >= 3 ? 0 : shake-step + 1; }
     }
     property <length> shake-x: shaker.value * Theme.u(2);
-    // How fast the strip is going, in ticks a second, smoothed over about 150 ms by a timer that only runs while the strip is moving (or the speed is still dying away), so a dial at rest asks for nothing
-    property <float> speed;
-    // For a test: the speed, how far the names are back (1 at rest) and whether nothing is running
-    out property <float> pace: speed;
-    out property <float> name-calm: calm.value;
-    out property <bool> idle: travelled == 0 && speed == 0;
-    property <float> travelled;
-    property <float> last-pos;
-    property <bool> hot;
-    changed pos => {
-        travelled += abs(pos - last-pos);
-        last-pos = pos;
+    // The readout is smaller while the dial is being moved (a drag held, wheel notches or keys coming) and swells when it is let go (about 200 ms after the last step), and shrinks again quickly when it moves
+    property <bool> recent;
+    step-timer := Timer {
+        interval: 200ms;
+        running: root.recent;
+        triggered => { root.recent = false; }
     }
-    Timer {
-        interval: 50ms;
-        running: travelled > 0 || speed > 0;
-        triggered => {
-            speed += (travelled / 0.05 - speed) * 0.28;
-            travelled = 0;
-            if (speed < 0.2) { speed = 0; }
-            if (speed > 14) { hot = true; }
-            if (speed < 9) { hot = false; }
-        }
-    }
-    // Names only while the dial is calm: going fast their big size flickers on and off as the ticks go by, so the big name and the swell of the ones between go out (quick) and come back (a little slower), leaving the named full stops small and fixed
-    calm := Tone { on: !hot; fall: 120ms; rise: 220ms; }
-    // Read once as the dial is made, so the names start there and don't come up from nothing
-    init => {
-        calm.sync();
-        last-pos = pos;
-    }
-    // Between ticks the value's own name stands in the middle, replacing the names of the ticks about it
-    property <float> own: value-text != "" ? clamp(abs(shown-between) / 0.1, 0, 1) : 0;
+    settled := Tone { on: !(held || recent); fall: 120ms; rise: 260ms; }
+    // Read once as the dial is made, so it starts at its big size
+    init => { settled.sync(); }
+    // The readout's scale: a layer while it is scaled (femtovg hints glyphs and rounds a text scale, so a font size or a plain scale moves in whole pixels, with the same height for several frames and then a jump; a layer is a picture of the text, which scales in fractions of a pixel). At rest the scale is 1 and there is no layer, so the text is plain and pixel sharp
+    out property <float> grown: (Theme.body + (big - Theme.body) * settled.value) / big;
+    // What the readout says: the value, in the owner's words between two ticks
+    out property <string> read: stops.length == 0 ? "" : shown-between != 0 && value-text != "" ? value-text : stops[shown];
     // The stops arriving after the dash that held their place (the phone names its ISOs late): half solid in the first frame, then up
     arriving := Fade { shown: stops.length > 0; }
     property <float> solid: Motion.between(Motion.arrive-from, 1, arriving.value);
@@ -195,7 +180,7 @@ export component Dial inherits Rectangle {
     animate background, border-width { duration: Motion.tone-for(held); easing: Motion.tone; }
     accessible-role: slider;
     accessible-label: label;
-    accessible-value: stops.length == 0 ? "" : shown-between != 0 && value-text != "" ? value-text : stops[shown];
+    accessible-value: read;
     accessible-value-minimum: 0;
     accessible-value-maximum: max(0, stops.length - 1);
     accessible-value-step: 1;
@@ -232,36 +217,52 @@ export component Dial inherits Rectangle {
         background: enabled ? Theme.ink : Theme.dis;
         opacity: near * (major ? 0.55 : 0.25) * solid;
     }
-    // The names: a labelled tick keeps its name small and dim at a distance and swells as it comes to the mark, an unlabelled one is named only while it is at the mark. The swell is a scale of the large text, not a font size, and the scaled text is a layer (`cache-rendering-hint`, only while it is scaled): femtovg hints its glyphs and rounds a text scale to sixteenths, so a font size or a plain scale moves in whole pixels (the same height for several frames, then a jump, and the word bobbing), where a layer is a picture of the word that scales and moves in fractions of a pixel. At rest there is no layer, so the word is drawn as plain text, pixel sharp; the box is the same size on every frame, so the word is laid out the same way on every frame.
+    // The names of the full stops, small, sliding by with their ticks and fading out as they come to the readout, so they never lie over it; the ticks between are not named
     for stop[i] in stops: Rectangle {
         property <bool> major: per-label <= 1 || mod(i + 1000 * per-label - label-from, per-label) == 0;
-        // Ticks from the mark, and labelled steps from it
-        property <float> dist: abs(i - pos);
-        property <float> slots: dist / per;
-        // The swell takes one tick, but a big name is only seen in the first two fifths of it, so the one leaving and the one arriving are never both clear; a labelled name beside the middle one fades up only once there is room for both
-        property <float> swell: clamp(1 - dist, 0, 1) * calm.value;
-        property <float> room: Theme.u(20) / tick-pitch;
-        property <float> ramp-calm: room <= 1 ? 1 : clamp((dist - 1) / (room - 1), 0, 1);
-        // Going fast every labelled name shows small wherever it is, as a fixed point
-        property <float> ramp: ramp-calm + (1 - ramp-calm) * (1 - calm.value);
+        property <length> from-mid: abs(mid + (i - pos) * tick-pitch - mid);
+        property <float> slots: abs(i - pos) / per;
         property <float> far: slots <= 1 ? 1 : max(0, (1.6 - slots) / 0.6);
-        property <float> grown: (Theme.small + (big - Theme.small) * swell) / big;
-        visible: major ? slots < 1.6 : dist < 1;
-        // An unlabelled tick's name stays at the mark and dissolves into the next one's, a labelled one slides in with its tick
-        x: (major ? mid + (i - pos) * tick-pitch : mid) - self.width / 2 + shake-x;
+        // Clear of the readout when its near edge touches the readout's, in full a label's width further
+        property <length> inner: rt.preferred-width * grown / 2 + name.preferred-width / 2 + Theme.u(5);
+        property <float> clear: clamp((from-mid - inner) / Theme.u(14), 0, 1);
+        visible: major && slots < 1.6;
+        x: mid + (i - pos) * tick-pitch - self.width / 2 + shake-x;
         y: Theme.u(5);
         width: pitch - Theme.u(3);
         height: Theme.u(13);
-        // Past a tick the name keeps the small size: plain text, which draws crisp
+        opacity: solid * 0.45 * clear * far;
+        name := Text {
+            width: parent.width;
+            height: parent.height;
+            text: stop;
+            font-family: Theme.font;
+            font-size: Theme.small;
+            font-weight: Theme.w-value;
+            color: !enabled ? Theme.dis : Theme.ink;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            overflow: elide;
+            accessible-role: none;
+        }
+    }
+    // The readout: always the current value, at the mark, only its text changes
+    Rectangle {
+        visible: stops.length > 0 && !is-typing;
+        width: pitch * big / Theme.small;
+        height: Theme.u(13);
+        x: mid - self.width / 2 + shake-x;
+        y: Theme.u(5);
+        transform-scale: grown;
         Rectangle {
-            visible: dist >= 1;
-            opacity: solid * (major ? 0.45 * ramp * far : 0);
-            Text {
+            cache-rendering-hint: grown < 0.9999;
+            opacity: solid;
+            rt := Text {
                 width: parent.width;
                 height: parent.height;
-                text: stop;
+                text: read;
                 font-family: Theme.font;
-                font-size: Theme.small;
+                font-size: big;
                 font-weight: Theme.w-value;
                 color: !enabled ? Theme.dis : Theme.ink;
                 horizontal-alignment: center;
@@ -269,52 +270,6 @@ export component Dial inherits Rectangle {
                 overflow: elide;
                 accessible-role: none;
             }
-        }
-        Rectangle {
-            visible: dist < 1 && !is-typing;
-            width: parent.width * big / Theme.small;
-            height: parent.height;
-            x: (parent.width - self.width) / 2;
-            y: 0px;
-            transform-scale: grown;
-            Rectangle {
-                cache-rendering-hint: grown < 0.9999;
-                opacity: solid * (1 - own) * min(1, clamp(1 - dist / 0.4, 0, 1) * calm.value + (major ? 0.45 * ramp * far : 0));
-                Text {
-                    width: parent.width;
-                    height: parent.height;
-                    text: stop;
-                    font-family: Theme.font;
-                    font-size: big;
-                    font-weight: Theme.w-value;
-                    color: !enabled ? Theme.dis : Theme.ink;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    overflow: elide;
-                    accessible-role: none;
-                }
-            }
-        }
-    }
-    // Between two ticks: its own name at the mark
-    if value-text != "" && !is-typing: Rectangle {
-        x: mid - self.width / 2 + shake-x;
-        y: Theme.u(5);
-        width: pitch * big / Theme.small;
-        height: Theme.u(13);
-        opacity: solid * own * calm.value;
-        Text {
-            width: parent.width;
-            height: parent.height;
-            text: value-text;
-            font-family: Theme.font;
-            font-size: big;
-            font-weight: Theme.w-value;
-            color: !enabled ? Theme.dis : Theme.ink;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-            overflow: elide;
-            accessible-role: none;
         }
     }
     if stops.length == 0: Text {
@@ -336,7 +291,7 @@ export component Dial inherits Rectangle {
         y: Theme.u(5);
         width: pitch;
         height: Theme.u(13);
-        text: value-text != "" && shown-between != 0 ? value-text : stops[shown];
+        text: read;
         font-family: Theme.font;
         font-size: big;
         font-weight: Theme.w-value;
