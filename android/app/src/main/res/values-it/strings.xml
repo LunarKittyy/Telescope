@@ -93,6 +93,7 @@
     <string name="wait_for_computer_hint">Consente a un computer associato di avviare la fotocamera a schermo spento.</string>
     <string name="stop_streaming">Interrompi streaming</string>
     <string name="status_title">Stato</string>
+    <string name="more">Altro</string>
     <string name="status_not_streaming">Non in streaming</string>
     <string name="status_starting">Avvio in corso…</string>
     <string name="status_streaming">In streaming</string>
@@ -101,6 +102,16 @@
     <string name="status_mic_only">Streaming del microfono, fotocamera disattivata</string>
     <string name="status_camera_taken">Un\'altra app sta usando la fotocamera. Lo streaming riprenderà quando sarà libera.</string>
     <string name="streaming_started_remotely">Streaming avviato dal tuo computer</string>
+    <string name="settings">Impostazioni</string>
+    <string name="back">Indietro</string>
+    <string name="look_title">Aspetto</string>
+    <string name="theme_label">Tema</string>
+    <string name="look_dark">Scuro</string>
+    <string name="look_classic">Classico</string>
+    <string name="look_oled">OLED</string>
+    <string name="look_light">Chiaro</string>
+    <string name="diagnostics_section">Diagnostica</string>
+    <string name="help_section">Serve aiuto?</string>
     <string name="about_title">Info</string>
     <string name="copy_diagnostics">Copia diagnostica</string>
     <string name="diagnostics_copied">Diagnostica copiata negli appunti</string>
@@ -122,6 +133,7 @@
     <string name="preview_stream_starting">Lo streaming si sta avviando. Riprova tra un momento.</string>
     <string name="preview_no_cameras">Nessuna fotocamera trovata.</string>
     <string name="preview_may_stretch">L\'anteprima potrebbe apparire allungata - impossibile leggere le informazioni della fotocamera.</string>
+    <string name="notes_close">Chiudi il teleprompter</string>
     <string name="notif_channel_streaming">Streaming</string>
     <string name="notif_channel_streaming_desc">Mostrato mentre la fotocamera sta trasmettendo al tuo computer</string>
     <string name="notif_channel_waiting">In attesa del computer</string>
