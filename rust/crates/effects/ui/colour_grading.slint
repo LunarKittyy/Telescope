@@ -253,7 +253,7 @@ export component ColourGradingCard inherits Card {
             // Auto keeps one width whatever it is doing: its answer shows in the icon's colour and the tooltip, never in the label. Without a
             // stream it is dimmed, and its tooltip says why.
             Button {
-                width: header-row.icon-only ? Theme.row : Theme.u(34);
+                width: header-row.icon-only ? Theme.row : self.preferred-width;
                 enabled: active && !auto-busy && auto-ready;
                 text: header-row.icon-only ? "" : @tr("Auto");
                 has-icon: true;
