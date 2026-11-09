@@ -193,119 +193,150 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Pairing: what this phone is paired with, or how to pair it -->
-            <com.google.android.material.card.MaterialCardView
+            <!-- Pair and Network. While streaming they fold under "More" (MainActivity.updateStatusText moves the block below Status, so Stop stays put) -->
+            <LinearLayout
+                android:id="@+id/moreBlock"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="10dp">
+                android:orientation="vertical">
 
-                <LinearLayout
+                <com.telescope.LookButton
+                    android:id="@+id/btnMore"
+                    app:role="quiet"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:paddingStart="@dimen/ts_card_pad"
-                    android:paddingEnd="@dimen/ts_card_pad"
-                    android:paddingTop="@dimen/ts_card_pad_top"
-                    android:paddingBottom="@dimen/ts_card_pad_bottom">
+                    android:minHeight="48dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="10dp"
+                    android:text="@string/more"
+                    android:visibility="gone"
+                    app:icon="@drawable/ic_chevron_down"
+                    app:iconSize="16dp"
+                    app:iconGravity="end" />
 
-                    <com.telescope.CardHeader
-                        android:id="@+id/headerPairing"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="10dp"
-                        app:headerIcon="@drawable/ic_link"
-                        app:headerHue="?attr/tsHueStreaming"
-                        app:headerTitle="@string/pair_title" />
+                <LinearLayout
+                    android:id="@+id/moreBody"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
 
-                    <TextView
-                        android:id="@+id/tvPairingHint"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
-                        android:text="@string/pair_hint"
-                        android:textAppearance="@style/TextAppearance.Telescope.Label" />
+                <!-- Pairing: what this phone is paired with, or how to pair it -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp">
 
                     <LinearLayout
-                        android:id="@+id/layoutComputers"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical" />
+                        android:orientation="vertical"
+                        android:paddingStart="@dimen/ts_card_pad"
+                        android:paddingEnd="@dimen/ts_card_pad"
+                        android:paddingTop="@dimen/ts_card_pad_top"
+                        android:paddingBottom="@dimen/ts_card_pad_bottom">
 
-                    <com.telescope.LookButton
-                        android:id="@+id/btnScanPair"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:minHeight="48dp"
-                        android:text="@string/scan_pairing_code"
-                        app:icon="@drawable/ic_qr_scan"
-                        app:iconSize="20dp"
-                        app:iconGravity="textStart" />
+                        <com.telescope.CardHeader
+                            android:id="@+id/headerPairing"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="10dp"
+                            app:headerIcon="@drawable/ic_link"
+                            app:headerHue="?attr/tsHueStreaming"
+                            app:headerTitle="@string/pair_title" />
 
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                        <TextView
+                            android:id="@+id/tvPairingHint"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="12dp"
+                            android:text="@string/pair_hint"
+                            android:textAppearance="@style/TextAppearance.Telescope.Label" />
 
-            <!-- Network -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="10dp">
+                        <LinearLayout
+                            android:id="@+id/layoutComputers"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
 
-                <LinearLayout
+                        <com.telescope.LookButton
+                            android:id="@+id/btnScanPair"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:minHeight="48dp"
+                            android:text="@string/scan_pairing_code"
+                            app:icon="@drawable/ic_qr_scan"
+                            app:iconSize="20dp"
+                            app:iconGravity="textStart" />
+
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Network -->
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:paddingStart="@dimen/ts_card_pad"
-                    android:paddingEnd="@dimen/ts_card_pad"
-                    android:paddingTop="@dimen/ts_card_pad_top"
-                    android:paddingBottom="@dimen/ts_card_pad_bottom">
+                    android:layout_marginBottom="10dp">
 
-                    <com.telescope.CardHeader
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="6dp"
-                        app:headerIcon="@drawable/ic_wifi"
-                        app:headerHue="?attr/tsHueCamera"
-                        app:headerTitle="@string/network_title" />
+                        android:orientation="vertical"
+                        android:paddingStart="@dimen/ts_card_pad"
+                        android:paddingEnd="@dimen/ts_card_pad"
+                        android:paddingTop="@dimen/ts_card_pad_top"
+                        android:paddingBottom="@dimen/ts_card_pad_bottom">
 
-                    <com.telescope.LookSwitch
-                        android:id="@+id/checkLocalOnly"
-                        app:switchHue="?attr/tsHueCamera"
-                        android:textAppearance="@style/TextAppearance.Telescope.Label"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/local_only" />
+                        <com.telescope.CardHeader
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="6dp"
+                            app:headerIcon="@drawable/ic_wifi"
+                            app:headerHue="?attr/tsHueCamera"
+                            app:headerTitle="@string/network_title" />
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginEnd="56dp"
-                        android:text="@string/local_only_hint"
-                        android:textAppearance="@style/TextAppearance.Telescope.Hint" />
+                        <com.telescope.LookSwitch
+                            android:id="@+id/checkLocalOnly"
+                            app:switchHue="?attr/tsHueCamera"
+                            android:textAppearance="@style/TextAppearance.Telescope.Label"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/local_only" />
 
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginTop="12dp"
-                        android:layout_marginBottom="4dp"
-                        android:background="?attr/tsLine" />
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="56dp"
+                            android:text="@string/local_only_hint"
+                            android:textAppearance="@style/TextAppearance.Telescope.Hint" />
 
-                    <com.telescope.LookSwitch
-                        android:id="@+id/checkWaitForComputer"
-                        app:switchHue="?attr/tsHueCamera"
-                        android:textAppearance="@style/TextAppearance.Telescope.Label"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/wait_for_computer" />
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginTop="12dp"
+                            android:layout_marginBottom="4dp"
+                            android:background="?attr/tsLine" />
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginEnd="56dp"
-                        android:text="@string/wait_for_computer_hint"
-                        android:textAppearance="@style/TextAppearance.Telescope.Hint" />
+                        <com.telescope.LookSwitch
+                            android:id="@+id/checkWaitForComputer"
+                            app:switchHue="?attr/tsHueCamera"
+                            android:textAppearance="@style/TextAppearance.Telescope.Label"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/wait_for_computer" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="56dp"
+                            android:text="@string/wait_for_computer_hint"
+                            android:textAppearance="@style/TextAppearance.Telescope.Hint" />
+
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
 
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
 
             <!-- Streams start from the computer; this only stops one, and is gone otherwise -->
             <com.telescope.LookButton
@@ -318,7 +349,7 @@
                 android:text="@string/stop_streaming"
                 android:visibility="gone" />
 
-            <!-- Status, drawn like the desktop's connection status: a tinted round icon, then the state -->
+            <!-- Status, drawn like the desktop's: the state as a coloured word -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -336,56 +367,29 @@
                     <com.telescope.CardHeader
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
+                        android:layout_marginBottom="6dp"
                         app:headerIcon="@drawable/ic_phone"
                         app:headerHue="?attr/tsHueOnScreen"
                         app:headerTitle="@string/status_title" />
 
-                    <LinearLayout
+                    <!-- The desktop's Status row: one coloured word, with the route and the quality as tags under it -->
+                    <TextView
+                        android:id="@+id/tvStatus"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:background="@drawable/bg_inset"
-                        android:padding="10dp">
+                        android:fontFamily="@font/ibm_plex_sans_semibold"
+                        android:textSize="16sp"
+                        android:textColor="?attr/tsInk2" />
 
-                        <FrameLayout
-                            android:id="@+id/statusChip"
-                            android:layout_width="34dp"
-                            android:layout_height="34dp"
-                            android:background="@drawable/bg_status_chip"
-                            android:importantForAccessibility="no">
-                            <ImageView
-                                android:id="@+id/ivStatus"
-                                android:layout_width="18dp"
-                                android:layout_height="18dp"
-                                android:layout_gravity="center"
-                                android:src="@drawable/ic_preview_open" />
-                        </FrameLayout>
+                    <!-- Where the stream goes and at what, while a computer is watching -->
+                    <LinearLayout
+                        android:id="@+id/layoutStatusTags"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="vertical"
+                        android:visibility="gone" />
 
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:layout_marginStart="12dp"
-                            android:orientation="vertical">
-                            <TextView
-                                android:id="@+id/tvStatus"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:fontFamily="@font/ibm_plex_sans_semibold"
-                                android:textAppearance="@style/TextAppearance.Telescope.Body"
-                                android:textColor="?attr/tsInk2" />
-                            <!-- Where the stream goes and at what, while a computer is watching -->
-                            <TextView
-                                android:id="@+id/tvStatusDetail"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:textAppearance="@style/TextAppearance.Telescope.Label"
-                                android:visibility="gone" />
-                        </LinearLayout>
-                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

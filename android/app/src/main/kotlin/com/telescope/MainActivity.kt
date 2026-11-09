@@ -46,6 +46,9 @@ class MainActivity : LookActivity() {
     private lateinit var btnPreview: com.google.android.material.button.MaterialButton
     private lateinit var btnBlackScreen: MaterialButton
     private lateinit var blackScreen: BlackScreen
+    private lateinit var moreBlock: View
+    private lateinit var moreBody: View
+    private lateinit var btnMore: LookButton
     private lateinit var cardPermissions: CardView
     private lateinit var layoutPermissionsContainer: LinearLayout
     private lateinit var cardUpdate: View
@@ -130,6 +133,10 @@ class MainActivity : LookActivity() {
         layoutComputers            = findViewById(R.id.layoutComputers)
         btnPreview                 = findViewById(R.id.btnPreview)
         btnBlackScreen             = findViewById(R.id.btnBlackScreen)
+        moreBlock                  = findViewById(R.id.moreBlock)
+        moreBody                   = findViewById(R.id.moreBody)
+        btnMore                    = findViewById(R.id.btnMore)
+        btnMore.setOnClickListener { setMoreOpen(!moreOpen, animate = true) }
         cardPermissions            = findViewById(R.id.cardPermissions)
         layoutPermissionsContainer = findViewById(R.id.layoutPermissionsContainer)
 
@@ -790,6 +797,7 @@ class MainActivity : LookActivity() {
         btnToggle.setText(if (busy) R.string.cancel else R.string.stop_streaming)
         btnBlackScreen.visibility = if (streaming) View.VISIBLE else View.GONE
         blackScreen.onStreamState(streaming, busy)
+        trimForStream(streaming || busy)
         if (streaming) {
             // The camera stays on while the computer reconnects; say so rather than claim it's getting video.
             val viewed = service?.hasViewer == true
@@ -800,36 +808,99 @@ class MainActivity : LookActivity() {
                 service?.cameraOff == true -> R.string.status_mic_only
                 else -> R.string.status_streaming
             })
-            tintStatus(if (viewed && !taken) R.attr.tsOk else R.attr.tsWarn)
-            showStatusDetail(if (viewed && !taken) statusDetail() else null)
+            val tone = if (viewed && !taken) R.attr.tsOk else R.attr.tsWarn
+            tvStatus.setTextColor(attrColor(tone))
+            showStatusDetail(if (viewed && !taken) statusDetail() else emptyList(), tone)
         } else {
             tvStatus.setText(if (busy) R.string.status_starting else R.string.status_not_streaming)
-            tintStatus(R.attr.tsInk2)
-            showStatusDetail(null)
+            tvStatus.setTextColor(attrColor(R.attr.tsInk2))
+            showStatusDetail(emptyList(), R.attr.tsInk2)
         }
         if (::cardUpdate.isInitialized && cardUpdate.visibility == View.VISIBLE) renderUpdate()
     }
 
-    // "To newmoon over USB" and "At 1080p 30 fps", each on its own line; the size and rate only with the camera on
-    private fun statusDetail(): String? {
-        val svc = service ?: return null
+    // While a stream runs Main keeps Status, Stop, Preview and Black screen; Pair and Network fold under "More", below Status so Stop stays put.
+    // When the stream ends everything is back, and the fold forgets it was open.
+    private var trimmed: Boolean? = null
+
+    private fun trimForStream(inStream: Boolean) {
+        if (trimmed == inStream) return
+        trimmed = inStream
+        val content = moreBlock.parent as android.view.ViewGroup
+        content.removeView(moreBlock)
+        content.addView(moreBlock, if (inStream) content.childCount else content.indexOfChild(btnToggle))
+        btnMore.visibility = if (inStream) View.VISIBLE else View.GONE
+        if (!inStream) moreOpen = false
+        setMoreOpen(!inStream || moreOpen, animate = false)
+    }
+
+    private var foldAnimator: android.animation.ValueAnimator? = null
+
+    // The kit's Unfold: the rows open and shut in height and opacity together, 170 ms open and 130 ms shut, and not at all with animations off
+    private fun setMoreOpen(open: Boolean, animate: Boolean) {
+        if (animate) moreOpen = open
+        btnMore.icon = androidx.core.content.ContextCompat.getDrawable(this, if (moreOpen && trimmed == true) R.drawable.ic_chevron_up else R.drawable.ic_chevron_down)
+        btnMore.contentDescription = null
+        foldAnimator?.cancel()
+        val body = moreBody
+        val shown = open
+        if (!animate || !Motion.on()) {
+            body.layoutParams = body.layoutParams.apply { height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT }
+            body.alpha = 1f
+            body.visibility = if (shown) View.VISIBLE else View.GONE
+            return
+        }
+        val from: Int
+        val to: Int
+        val wasShown = body.visibility == View.VISIBLE
+        if (shown) {
+            body.visibility = View.VISIBLE
+            body.measure(
+                View.MeasureSpec.makeMeasureSpec((moreBlock.width), View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+            from = if (wasShown) body.height else 0
+            to = body.measuredHeight
+        } else {
+            from = body.height
+            to = 0
+        }
+        foldAnimator = android.animation.ValueAnimator.ofInt(from, to).apply {
+            duration = if (shown) 170L else 130L
+            interpolator = android.view.animation.DecelerateInterpolator()
+            addUpdateListener {
+                val h = it.animatedValue as Int
+                body.layoutParams = body.layoutParams.apply { height = h }
+                body.alpha = if (to == 0) it.animatedFraction.let { f -> 1f - f } else it.animatedFraction
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(a: android.animation.Animator) {
+                    body.layoutParams = body.layoutParams.apply { height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT }
+                    body.alpha = 1f
+                    body.visibility = if (shown) View.VISIBLE else View.GONE
+                }
+                override fun onAnimationCancel(a: android.animation.Animator) {}
+            })
+            start()
+        }
+    }
+
+    // "To newmoon over USB" and "At 1080p 30 fps", each its own tag; the size and rate only with the camera on
+    private fun statusDetail(): List<String> {
+        val svc = service ?: return emptyList()
         val quality = if (svc.cameraOff) null else svc.liveQuality()?.let { (p, fps) -> getString(R.string.status_quality, p, fps) }
-        return listOfNotNull(CameraStreamService.routeText(this), quality).joinToString("\n").ifEmpty { null }
+        return listOfNotNull(CameraStreamService.routeText(this), quality)
     }
 
-    private fun showStatusDetail(text: String?) {
-        val detail = findViewById<TextView>(R.id.tvStatusDetail)
-        detail.text = text
-        detail.visibility = if (text == null) View.GONE else View.VISIBLE
-    }
-
-    // The status text, its icon and the round chip behind it, in one colour
-    private fun tintStatus(attr: Int) {
-        val color = attrColor(attr)
-        tvStatus.setTextColor(color)
-        findViewById<ImageView>(R.id.ivStatus).imageTintList = ColorStateList.valueOf(color)
-        findViewById<View>(R.id.statusChip).backgroundTintList =
-            ColorStateList.valueOf(androidx.core.graphics.ColorUtils.setAlphaComponent(color, 36))
+    private fun showStatusDetail(lines: List<String>, tone: Int) {
+        val tags = findViewById<LinearLayout>(R.id.layoutStatusTags)
+        if (tags.tag == lines.toString() + tone) return
+        tags.tag = lines.toString() + tone
+        tags.removeAllViews()
+        lines.forEach { line ->
+            tags.addView(lookTag(line, attrColor(tone)), LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(if (tags.childCount == 0) 0 else 6) })
+        }
+        tags.visibility = if (lines.isEmpty()) View.GONE else View.VISIBLE
     }
 
     // All IPv4 addresses with Wi-Fi ones first (reachable through VPN for desktop streaming)
@@ -859,6 +930,8 @@ class MainActivity : LookActivity() {
 
 
     companion object {
+        // Whether the stream's "More" fold is open; it forgets when the stream ends (trimForStream)
+        private var moreOpen = false
         private const val RC_PERMS = 100
         // Android's "Large" font is 1.15 and its largest 1.3 or more; from there a setup step stacks its button
         private const val STACK_FONT_SCALE = 1.3f

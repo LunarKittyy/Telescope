@@ -33,6 +33,10 @@ class BlackScreen(private val activity: AppCompatActivity, private val status: (
     private val hidden = mutableMapOf<View, Int>()  // the main screen's views TalkBack skips while black
 
     init {
+        // The surface is black in every look; only the hint's colour comes from the look (Light borrows Dark's, as its own would vanish on black)
+        val hintColour = android.view.ContextThemeWrapper(activity, Look.current(activity).overVideo.theme).attrColor(R.attr.tsDis)
+        overlay.findViewById<TextView>(R.id.blackHintText).setTextColor(hintColour)
+        hintStatus.setTextColor(hintColour)
         overlay.visibility = View.GONE
         overlay.setOnClickListener {
             if (state.tap(SystemClock.uptimeMillis()) == BlackScreenState.Tap.Wake) leave() else showHint()

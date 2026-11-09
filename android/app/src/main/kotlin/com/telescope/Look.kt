@@ -27,6 +27,9 @@ enum class Look(val key: String, @StyleRes val theme: Int, @StringRes val label:
     // Dark icons in the navigation bar, as the theme gives the status bar's
     val light get() = this == LIGHT
 
+    // The look a screen over live video or a black surface wears: Light's pale tiles and dark ink would vanish there, so it borrows Dark's
+    val overVideo get() = if (this == LIGHT) DARK else this
+
     companion object {
         // What an install that never picked a look wears, as on the desktop (no look saved is Dark; the phone never had a classic_theme to carry over)
         val DEFAULT = DARK
@@ -46,11 +49,15 @@ enum class Look(val key: String, @StyleRes val theme: Int, @StringRes val label:
 abstract class LookActivity : AppCompatActivity() {
     private lateinit var wearing: Look
 
+    // The look this screen is drawn in for the saved one; screens over video or black override it with `overVideo`
+    protected open fun dressedIn(saved: Look): Look = saved
+
     override fun onCreate(savedInstanceState: Bundle?) {
         wearing = Look.current(this)
-        setTheme(wearing.theme)
+        val dressed = dressedIn(wearing)
+        setTheme(dressed.theme)
         super.onCreate(savedInstanceState)
-        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightNavigationBars = wearing.light
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightNavigationBars = dressed.light
     }
 
     override fun onResume() {
@@ -82,7 +89,7 @@ fun Context.lookColor(@AttrRes attr: Int): Int = ContextThemeWrapper(this, Look.
 @ColorInt
 fun Context.tint(@ColorInt hue: Int): Int = ColorUtils.blendARGB(attrColor(R.attr.tsCard), hue, 0.16f)
 
-// A dialog in the look: a card's surface and corners, with the outline OLED gives a popup
+// A dialog in the look: a card's surface and corners, with the outline OLED gives a popup. It comes in with a short fade and scale (none with animations off).
 fun Context.lookDialog(): MaterialAlertDialogBuilder {
     val shape = ShapeAppearanceModel.builder(this, R.style.ShapeAppearance_Telescope_Dialog, 0).build()
     val background = MaterialShapeDrawable(shape).apply {
@@ -102,6 +109,7 @@ fun MaterialAlertDialogBuilder.showLook(action: LookButton.Role = LookButton.Rol
     val dialog = create()
     dialog.setOnShowListener {
         val ctx = dialog.context
+        dialog.window?.decorView?.let { popIn(it) }
         val d = ctx.resources.displayMetrics.density
         val accent = ctx.attrColor(R.attr.tsAccent)
         listOf(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE, androidx.appcompat.app.AlertDialog.BUTTON_NEGATIVE, androidx.appcompat.app.AlertDialog.BUTTON_NEUTRAL)
@@ -133,3 +141,16 @@ fun MaterialAlertDialogBuilder.showLook(action: LookButton.Role = LookButton.Rol
     dialog.show()
     return dialog
 }
+
+// The desktop's dialog arrives with a fade and a small scale; at most 200 ms, and nothing at all when Android's animations are off
+fun popIn(view: android.view.View) {
+    if (!Motion.on()) return
+    view.alpha = 0f
+    view.scaleX = POP_FROM
+    view.scaleY = POP_FROM
+    view.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(POP_MS)
+        .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+}
+
+private const val POP_MS = 180L
+private const val POP_FROM = 0.94f
