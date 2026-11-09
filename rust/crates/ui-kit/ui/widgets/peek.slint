@@ -113,88 +113,93 @@ export component PeekLayer inherits Rectangle {
         x: -root.absolute-position.x;
         y: -root.absolute-position.y;
         accessible-role: none;
-        if Peeks.kind == "picture" || picture-fade.value > 0.005: PeekBoxFrame {
-            z: Peeks.kind == "picture" ? 2 : 1;
-            opacity: opacity-of("picture", picture-fade.value);
-            background: Theme.trough;
-            // Four numbers in `values` (x, y, width, height as fractions of the picture) crop it: the renderer does the crop, so a framing change costs no new picture
-            property <bool> clipped: picture-values.length >= 4;
-            Image {
-                width: parent.width;
-                height: parent.height;
-                source: picture-photo;
-                image-fit: contain;
-                source-clip-x: parent.clipped ? round(picture-values[0] * picture-photo.width) : 0;
-                source-clip-y: parent.clipped ? round(picture-values[1] * picture-photo.height) : 0;
-                source-clip-width: parent.clipped ? max(1, round(picture-values[2] * picture-photo.width)) : picture-photo.width;
-                source-clip-height: parent.clipped ? max(1, round(picture-values[3] * picture-photo.height)) : picture-photo.height;
-            }
-        }
-        if Peeks.kind == "chase" || chase-fade.value > 0.005: PeekBoxFrame {
-            z: Peeks.kind == "chase" ? 2 : 1;
-            opacity: opacity-of("chase", chase-fade.value);
-            background: Theme.trough;
-            // What the framing moves, the crop's frame, in the card's colour with two fading copies behind it, so speed reads as the space
-            // between them; and the thing it follows, you, a head and shoulders. `values` is you (x, y), the frame, the first and second copy.
-            for copy[i] in [6, 4, 2]: Rectangle {
-                width: PeekBox.frame-w;
-                height: PeekBox.frame-h;
-                x: round(PeekBox.frame-at(chase-values.length > copy ? chase-values[copy] : 0.5, parent.width, self.width) / 1phx) * 1phx;
-                y: round(PeekBox.frame-at(chase-values.length > copy + 1 ? chase-values[copy + 1] : 0.5, parent.height, self.height) / 1phx) * 1phx;
-                border-radius: min(Theme.r-ctl, self.height / 2);
-                border-width: Theme.stroke;
-                border-color: Peeks.hue.with-alpha(i == 2 ? 1.0 : i == 1 ? 0.4 : 0.18);
-            }
-            // Drawn after the frames so it is never hidden behind one
-            Rectangle {
-                width: Theme.u(11);
-                height: Theme.u(10);
-                x: round((PeekBox.frame-at(chase-values.length > 0 ? chase-values[0] : 0.5, parent.width, PeekBox.frame-w) + (PeekBox.frame-w - self.width) / 2) / 1phx) * 1phx;
-                y: round((PeekBox.frame-at(chase-values.length > 1 ? chase-values[1] : 0.5, parent.height, PeekBox.frame-h) + (PeekBox.frame-h - self.height) / 2) / 1phx) * 1phx;
-                // The head
-                Rectangle {
-                    width: Theme.u(4.5);
-                    height: Theme.u(4.5);
-                    x: (parent.width - self.width) / 2;
-                    y: 0px;
-                    border-radius: self.height / 2;
-                    border-width: Theme.stroke;
-                    border-color: Theme.ink2;
-                }
-                // The shoulders: a dome as wide as the mark
-                Path {
-                    x: 0px;
-                    y: Theme.u(5.5);
+        // The drawings overlap in one box of the bubble's fixed size, so a change from one to another never makes the bubble taller
+        Rectangle {
+            width: PeekBox.w;
+            height: PeekBox.h;
+            if Peeks.kind == "picture" || picture-fade.value > 0.005: PeekBoxFrame {
+                z: Peeks.kind == "picture" ? 2 : 1;
+                opacity: opacity-of("picture", picture-fade.value);
+                background: Theme.trough;
+                // Four numbers in `values` (x, y, width, height as fractions of the picture) crop it: the renderer does the crop, so a framing change costs no new picture
+                property <bool> clipped: picture-values.length >= 4;
+                Image {
                     width: parent.width;
-                    height: Theme.u(4.5);
-                    viewbox-width: 100;
-                    viewbox-height: 40;
-                    // fitted: a decoration (the arc the target hops along), any scale will do
-                    commands: "M 6 40 A 44 34 0 0 1 94 40";
-                    stroke: Theme.ink2;
-                    stroke-width: Theme.stroke;
-                    stroke-line-cap: round;
+                    height: parent.height;
+                    source: picture-photo;
+                    image-fit: contain;
+                    source-clip-x: parent.clipped ? round(picture-values[0] * picture-photo.width) : 0;
+                    source-clip-y: parent.clipped ? round(picture-values[1] * picture-photo.height) : 0;
+                    source-clip-width: parent.clipped ? max(1, round(picture-values[2] * picture-photo.width)) : picture-photo.width;
+                    source-clip-height: parent.clipped ? max(1, round(picture-values[3] * picture-photo.height)) : picture-photo.height;
                 }
             }
-        }
-        if Peeks.kind == "text" || text-fade.value > 0.005: PeekBoxFrame {
-            z: Peeks.kind == "text" ? 2 : 1;
-            opacity: opacity-of("text", text-fade.value);
-            background: Theme.stage;
-            clip: true;
-            Text {
-                x: Theme.u(4);
-                y: Theme.u(3);
-                width: parent.width - Theme.u(8);
-                height: parent.height - Theme.u(3);
-                text: text-words != "" ? text-words : "Aa Bb";
-                wrap: word-wrap;
-                overflow: clip;
-                vertical-alignment: top;
-                font-family: Theme.font;
-                font-weight: Theme.w-label;
-                font-size: text-values.length > 0 ? PeekBox.text-size(text-values[0]) : Theme.body;
-                color: Theme.ink;
+            if Peeks.kind == "chase" || chase-fade.value > 0.005: PeekBoxFrame {
+                z: Peeks.kind == "chase" ? 2 : 1;
+                opacity: opacity-of("chase", chase-fade.value);
+                background: Theme.trough;
+                // What the framing moves, the crop's frame, in the card's colour with two fading copies behind it, so speed reads as the space
+                // between them; and the thing it follows, you, a head and shoulders. `values` is you (x, y), the frame, the first and second copy.
+                for copy[i] in [6, 4, 2]: Rectangle {
+                    width: PeekBox.frame-w;
+                    height: PeekBox.frame-h;
+                    x: round(PeekBox.frame-at(chase-values.length > copy ? chase-values[copy] : 0.5, parent.width, self.width) / 1phx) * 1phx;
+                    y: round(PeekBox.frame-at(chase-values.length > copy + 1 ? chase-values[copy + 1] : 0.5, parent.height, self.height) / 1phx) * 1phx;
+                    border-radius: min(Theme.r-ctl, self.height / 2);
+                    border-width: Theme.stroke;
+                    border-color: Peeks.hue.with-alpha(i == 2 ? 1.0 : i == 1 ? 0.4 : 0.18);
+                }
+                // Drawn after the frames so it is never hidden behind one
+                Rectangle {
+                    width: Theme.u(11);
+                    height: Theme.u(10);
+                    x: round((PeekBox.frame-at(chase-values.length > 0 ? chase-values[0] : 0.5, parent.width, PeekBox.frame-w) + (PeekBox.frame-w - self.width) / 2) / 1phx) * 1phx;
+                    y: round((PeekBox.frame-at(chase-values.length > 1 ? chase-values[1] : 0.5, parent.height, PeekBox.frame-h) + (PeekBox.frame-h - self.height) / 2) / 1phx) * 1phx;
+                    // The head
+                    Rectangle {
+                        width: Theme.u(4.5);
+                        height: Theme.u(4.5);
+                        x: (parent.width - self.width) / 2;
+                        y: 0px;
+                        border-radius: self.height / 2;
+                        border-width: Theme.stroke;
+                        border-color: Theme.ink2;
+                    }
+                    // The shoulders: a dome as wide as the mark
+                    Path {
+                        x: 0px;
+                        y: Theme.u(5.5);
+                        width: parent.width;
+                        height: Theme.u(4.5);
+                        viewbox-width: 100;
+                        viewbox-height: 40;
+                        // fitted: a decoration (the arc the target hops along), any scale will do
+                        commands: "M 6 40 A 44 34 0 0 1 94 40";
+                        stroke: Theme.ink2;
+                        stroke-width: Theme.stroke;
+                        stroke-line-cap: round;
+                    }
+                }
+            }
+            if Peeks.kind == "text" || text-fade.value > 0.005: PeekBoxFrame {
+                z: Peeks.kind == "text" ? 2 : 1;
+                opacity: opacity-of("text", text-fade.value);
+                background: Theme.stage;
+                clip: true;
+                Text {
+                    x: Theme.u(4);
+                    y: Theme.u(3);
+                    width: parent.width - Theme.u(8);
+                    height: parent.height - Theme.u(3);
+                    text: text-words != "" ? text-words : "Aa Bb";
+                    wrap: word-wrap;
+                    overflow: clip;
+                    vertical-alignment: top;
+                    font-family: Theme.font;
+                    font-weight: Theme.w-label;
+                    font-size: text-values.length > 0 ? PeekBox.text-size(text-values[0]) : Theme.body;
+                    color: Theme.ink;
+                }
             }
         }
     }
