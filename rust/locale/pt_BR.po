@@ -644,7 +644,7 @@ msgstr "A cor escolhida na pré-visualização. Clique para escolher novamente."
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Clique na tela atrás de você na pré-visualização. Esc cancela."
 
-#: rust/crates/effects/src/chroma_key.rs:353 rust/crates/effects/src/chroma_key.rs:389 rust/crates/effects/src/desk.rs:261 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:533 rust/crates/setup/src/stats.rs:674 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:576 rust/crates/shell/src/streams.rs:1600 rust/crates/shell/src/window.rs:1566 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:353 rust/crates/effects/src/chroma_key.rs:389 rust/crates/effects/src/desk.rs:261 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:559 rust/crates/setup/src/stats.rs:700 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:576 rust/crates/shell/src/streams.rs:1600 rust/crates/shell/src/window.rs:1568 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Não está transmitindo"
 
@@ -4183,7 +4183,7 @@ msgstr "Resolução"
 msgid "The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do."
 msgstr ""
 
-#: rust/crates/link/ui/browser_camera.slint:197 rust/crates/link/ui/browser_camera.slint:200 rust/crates/link/ui/browser_camera.slint:201 rust/crates/outputs/ui/stream_output.slint:66 rust/crates/outputs/ui/stream_output.slint:71 rust/crates/outputs/ui/stream_output.slint:77 rust/crates/outputs/ui/webcam.slint:114 rust/crates/outputs/ui/webcam.slint:118 rust/crates/outputs/ui/webcam.slint:119 rust/crates/shell/src/window.rs:710
+#: rust/crates/link/ui/browser_camera.slint:197 rust/crates/link/ui/browser_camera.slint:200 rust/crates/link/ui/browser_camera.slint:201 rust/crates/outputs/ui/stream_output.slint:66 rust/crates/outputs/ui/stream_output.slint:71 rust/crates/outputs/ui/stream_output.slint:77 rust/crates/outputs/ui/webcam.slint:114 rust/crates/outputs/ui/webcam.slint:118 rust/crates/outputs/ui/webcam.slint:119 rust/crates/shell/src/window.rs:712
 msgid "Frame rate"
 msgstr "Quadros/s"
 
@@ -5459,11 +5459,11 @@ msgstr "A câmera virtual, seu tamanho, câmeras adicionais, limites de vídeo e
 msgid "Use my own adb…"
 msgstr "Usar meu próprio adb…"
 
-#: rust/crates/setup/src/stats.rs:96 rust/crates/setup/src/stats.rs:377 rust/crates/setup/src/stats_phone.rs:174
+#: rust/crates/setup/src/stats.rs:96 rust/crates/setup/src/stats.rs:377 rust/crates/setup/src/stats.rs:468 rust/crates/setup/src/stats_phone.rs:174
 msgid "Not available yet"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:180 rust/crates/setup/src/stats_phone.rs:78 rust/crates/setup/src/stats_phone.rs:82
+#: rust/crates/setup/src/stats.rs:180 rust/crates/setup/src/stats_phone.rs:78 rust/crates/setup/src/stats_phone.rs:82 rust/crates/shell/src/window.rs:707
 #, python-brace-format
 msgid "{n} fps"
 msgstr ""
@@ -5621,7 +5621,7 @@ msgstr ""
 msgid "From the phone"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:380 rust/crates/setup/ui/setup.slint:68 rust/crates/shell/src/window.rs:709
+#: rust/crates/setup/src/stats.rs:380 rust/crates/setup/ui/setup.slint:68 rust/crates/shell/src/window.rs:711
 msgid "Virtual camera"
 msgstr "Câmera virtual"
 
@@ -5721,36 +5721,36 @@ msgstr ""
 msgid "All streams"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:514
+#: rust/crates/setup/src/stats.rs:540
 msgid "Standard"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:515
+#: rust/crates/setup/src/stats.rs:541
 msgid "Nerd"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:516
+#: rust/crates/setup/src/stats.rs:542
 msgid "Show every number that can be measured, including what each plugin costs."
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:517 rust/crates/setup/src/stats.rs:674
+#: rust/crates/setup/src/stats.rs:543 rust/crates/setup/src/stats.rs:700
 msgid "Start a stream to see its numbers."
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:529
+#: rust/crates/setup/src/stats.rs:555
 #, python-brace-format
 msgid "Stream on virtual camera {n}"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:663 rust/crates/setup/ui/stats.slint:117
+#: rust/crates/setup/src/stats.rs:689 rust/crates/setup/ui/stats.slint:121
 msgid "Stats"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:664
+#: rust/crates/setup/src/stats.rs:690
 msgid "Numbers about the stream as it runs: frames in and out, dropped frames and why, the link and bitrate, how long each step takes and what the app uses."
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:665
+#: rust/crates/setup/src/stats.rs:691
 msgid "Without it there's no Stats card. The stream carries on the same."
 msgstr ""
 
@@ -6286,11 +6286,11 @@ msgstr "ajuda suporte solucao de problemas duvida pergunta faq nao funciona trav
 msgid "Troubleshooting"
 msgstr "Solução de problemas"
 
-#: rust/crates/setup/ui/stats.slint:118
+#: rust/crates/setup/ui/stats.slint:122
 msgid "Live numbers about the running stream."
 msgstr ""
 
-#: rust/crates/setup/ui/stats.slint:135
+#: rust/crates/setup/ui/stats.slint:139
 msgid "Stats view"
 msgstr ""
 
@@ -7134,7 +7134,7 @@ msgid "Could not save settings. Check disk space and permissions."
 msgstr "Não foi possível salvar as configurações. Verifique o espaço em disco e as permissões."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1576 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1578 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "Iniciar"
 
@@ -7424,32 +7424,32 @@ msgstr "Telescope - Pré-visualização de vídeo"
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: rust/crates/shell/src/window.rs:711
+#: rust/crates/shell/src/window.rs:713
 msgid "How much data per second reaches this computer."
 msgstr ""
 
-#: rust/crates/shell/src/window.rs:711
+#: rust/crates/shell/src/window.rs:713
 msgid "Throughput"
 msgstr "Taxa de dados"
 
-#: rust/crates/shell/src/window.rs:1575 rust/crates/shell/src/window.rs:1576
+#: rust/crates/shell/src/window.rs:1577 rust/crates/shell/src/window.rs:1578
 msgid "Start mic only"
 msgstr "Iniciar apenas microfone"
 
-#: rust/crates/shell/src/window.rs:1575
+#: rust/crates/shell/src/window.rs:1577
 msgid "Start streaming"
 msgstr "Iniciar transmissão"
 
-#: rust/crates/shell/src/window.rs:1581
+#: rust/crates/shell/src/window.rs:1583
 msgid "Stop streaming"
 msgstr "Parar transmissão"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1582 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/window.rs:1584 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "Parar"
 
-#: rust/crates/shell/src/window.rs:1841 rust/crates/shell/src/worker.rs:1160
+#: rust/crates/shell/src/window.rs:1843 rust/crates/shell/src/worker.rs:1160
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Transmitindo {size} a {fps} fps para {camera}"
@@ -8821,15 +8821,15 @@ msgstr "Recolhido. Pressione Espaço ou Enter para expandir."
 msgid "Expanded. Press Space or Enter to collapse."
 msgstr "Expandido. Pressione Espaço ou Enter para recolher."
 
-#: rust/crates/ui-kit/ui/widgets/pins.slint:46
+#: rust/crates/ui-kit/ui/widgets/pins.slint:47
 msgid "Pinned while several streams run"
 msgstr ""
 
-#: rust/crates/ui-kit/ui/widgets/pins.slint:46
+#: rust/crates/ui-kit/ui/widgets/pins.slint:47
 msgid "Unpin from the bottom bar"
 msgstr ""
 
-#: rust/crates/ui-kit/ui/widgets/pins.slint:46
+#: rust/crates/ui-kit/ui/widgets/pins.slint:47
 msgid "Pin to the bottom bar"
 msgstr ""
 

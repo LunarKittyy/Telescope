@@ -445,23 +445,49 @@ pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> V
         let total: f32 = snap.sources.iter().map(|x| x.now.mbps).sum();
         out.push(Row::line(&tr("All streams"), mbps(total as f64)).pin(PIN_TOTAL));
     }
+    tidy(out)
+}
+
+/// The icon a pinned readout wears in the bar, one of its own for each so two numbers never look alike (the fps and throughput icons are the
+/// window's, which draws those two itself).
+fn pin_icon(id: &str) -> &'static str {
+    match id {
+        PIN_FRAMES_IN => "download",
+        PIN_DECODED => "cube",
+        PIN_REPEATED => "reset",
+        PIN_DROPPED => "skip_next",
+        PIN_CPU => "chip",
+        PIN_MEMORY => "memory",
+        PIN_TOTAL => "layers",
+        _ => "",
+    }
+}
+
+/// A line the phone or this computer can't measure isn't shown, and a heading with nothing left under it goes too.
+fn tidy(rows: Vec<Row>) -> Vec<Row> {
+    let missing = tr("Not available yet");
+    let lines: Vec<Row> = rows.into_iter().filter(|r| r.head || !(r.kind == "status_dim" && r.value == missing)).collect();
+    let mut out: Vec<Row> = Vec::new();
+    for (i, row) in lines.iter().enumerate() {
+        if row.head && lines.get(i + 1).is_none_or(|next| next.head) {
+            continue;
+        }
+        out.push(row.clone());
+    }
     out
 }
 
 /// What the bottom bar can show from the card: every line with a "stats." star, as the bar reads it. The window's own readouts (frame
 /// rate, throughput, camera) are not offered here, the window has them.
 pub fn offers(snap: &Snapshot, s: &SourceSnapshot, ctx: &Context) -> Vec<BarStat> {
-    let mut icon = String::new();
     let mut out = Vec::new();
     for row in rows(snap, s, View::Nerd, ctx) {
-        if row.head {
-            icon = row.icon.clone();
-        } else if row.pin.starts_with("stats.") && row.kind != "status_dim" {
+        if !row.head && row.pin.starts_with("stats.") && row.kind != "status_dim" {
             let tone = match row.kind.as_str() {
                 "status_warn" => "warn",
                 _ => "",
             };
-            out.push(BarStat { id: row.pin.clone(), name: row.label.clone(), tip: String::new(), icon: icon.clone(), value: row.value.clone(), sub: String::new(), tone: tone.into() });
+            out.push(BarStat { id: row.pin.clone(), name: row.label.clone(), tip: String::new(), icon: pin_icon(&row.pin).into(), value: row.value.clone(), sub: String::new(), tone: tone.into() });
         }
     }
     out

@@ -84,7 +84,7 @@ fn stats_card_shots() {
     let snap = hub.snapshot_at(telescope_core::time::monotonic_ns() + 30_000_000_000, Some(1_000_000_000), Some(200 << 20));
     let mut host = FakeHost::new();
     host.focused = Some("phone".into());
-    host.bar_pinned = vec!["fps".into(), "throughput".into(), "stats.frames_in".into()];
+    host.bar_pinned = vec!["camera".into(), "fps".into(), "throughput".into(), "stats.frames_in".into()];
     host.bar_own = vec![telescope_core::bar::BarStat::new("camera", "Virtual camera", "", "Phone Camera")];
     let mut plugin = StatsPlugin::new();
     plugin.on_event(&mut host, &Event::StatsUpdated { snapshot: snap });

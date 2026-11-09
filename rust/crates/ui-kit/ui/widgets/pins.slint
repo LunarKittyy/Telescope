@@ -36,7 +36,8 @@ export component PinStar inherits Rectangle {
         width: Theme.icon;
         height: Theme.icon;
         source: pinned ? Icons.star-filled : Icons.star;
-        tint: locked ? Theme.dis : pinned ? Theme.edge(hue).mix(Theme.ink, hover.value * 0.4) : Theme.faint.mix(Theme.ink, hover.value);
+        // Quiet at rest so a column of them doesn't compete with the numbers; the card's colour once pinned
+        tint: pinned ? (locked ? Theme.edge(hue).mix(Theme.dis, 0.55) : Theme.edge(hue).mix(Theme.ink, 1 - hover.value * 0.4)) : Theme.ink2.mix(Theme.dis, hover.value);
     }
     touch := TouchArea {
         mouse-cursor: locked ? MouseCursor.default : MouseCursor.pointer;
@@ -197,7 +198,7 @@ export component PinChip inherits Rectangle {
         font-family: Theme.font;
         font-size: Theme.body;
         font-weight: Theme.w-value;
-        color: Theme.faint.mix(Theme.ink, tone.value);
+        color: Theme.ink.mix(Theme.faint, tone.value);
         vertical-alignment: center;
         horizontal-alignment: center;
         accessible-role: none;

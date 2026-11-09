@@ -288,37 +288,50 @@ impl Bar {
         }
 
         // Each side from its own edge inwards: the left as drawn, the right reversed
-        let outer_in = |ids: &[String], right: bool| -> Vec<(String, f32)> {
-            let mut list: Vec<(String, f32)> = ids.iter().filter(|id| self.present(id).is_some()).map(|id| (id.clone(), self.width_of(id, room))).collect();
+        let outer_in = |ids: &[String], right: bool| -> Vec<(String, f32, bool)> {
+            let mut list: Vec<(String, f32, bool)> = ids.iter().filter(|id| self.present(id).is_some()).map(|id| (id.clone(), self.width_of(id, room), id == bar::CAMERA)).collect();
             if right {
                 list.reverse();
             }
             list
         };
         let (l, r) = (outer_in(&left_ids, false), outer_in(&right_ids, true));
-        let fit = fold(&l.iter().map(|p| p.1).collect::<Vec<_>>(), &r.iter().map(|p| p.1).collect::<Vec<_>>(), room, m.gap, m.chip);
+        let sticky = |p: &Vec<(String, f32, bool)>| p.iter().map(|x| (x.1, x.2)).collect::<Vec<_>>();
+        let fit = fold(&sticky(&l), &sticky(&r), room, m.gap, m.chip);
 
         let mut placed: BTreeMap<String, (State, Side, f32, f32)> = BTreeMap::new();
         let mut cursor = m.pad;
-        for (id, w) in l.iter().take(fit.left_shown) {
-            placed.insert(id.clone(), (State::Shown, Side::Left, cursor, *w));
-            cursor += w + m.gap;
+        for (i, (id, w, _)) in l.iter().enumerate() {
+            if !fit.left[i] {
+                placed.insert(id.clone(), (State::Shown, Side::Left, cursor, *w));
+                cursor += w + m.gap;
+            }
         }
-        let left_chip = (fit.left_shown < l.len()).then(|| Chip { count: l.len() - fit.left_shown, x: cursor });
-        for (id, w) in l.iter().skip(fit.left_shown) {
-            placed.insert(id.clone(), (State::Folded, Side::Left, left_chip.map_or(m.pad, |c| c.x), *w));
+        let held_left = fit.left.iter().filter(|f| **f).count();
+        let left_chip = (held_left > 0).then(|| Chip { count: held_left, x: cursor });
+        for (i, (id, w, _)) in l.iter().enumerate() {
+            if fit.left[i] {
+                placed.insert(id.clone(), (State::Folded, Side::Left, left_chip.map_or(m.pad, |c| c.x), *w));
+            }
         }
         let mut cursor = m.width - m.pad;
-        for (id, w) in r.iter().take(fit.right_shown) {
-            cursor -= w;
-            placed.insert(id.clone(), (State::Shown, Side::Right, cursor, *w));
-            cursor -= m.gap;
+        let mut any_right_shown = false;
+        for (i, (id, w, _)) in r.iter().enumerate() {
+            if !fit.right[i] {
+                cursor -= w;
+                placed.insert(id.clone(), (State::Shown, Side::Right, cursor, *w));
+                cursor -= m.gap;
+                any_right_shown = true;
+            }
         }
         // The left edge of the pins that stay, or the right edge of the bar when none does
-        let inner = if fit.right_shown == 0 { m.width - m.pad } else { cursor + m.gap };
-        let right_chip = (fit.right_shown < r.len()).then(|| Chip { count: r.len() - fit.right_shown, x: inner - m.chip - if fit.right_shown == 0 { 0.0 } else { m.gap } });
-        for (id, w) in r.iter().skip(fit.right_shown) {
-            placed.insert(id.clone(), (State::Folded, Side::Right, right_chip.map_or(m.width - m.pad - w, |c| c.x), *w));
+        let inner = if any_right_shown { cursor + m.gap } else { m.width - m.pad };
+        let held_right = fit.right.iter().filter(|f| **f).count();
+        let right_chip = (held_right > 0).then(|| Chip { count: held_right, x: inner - m.chip - if any_right_shown { m.gap } else { 0.0 } });
+        for (i, (id, w, _)) in r.iter().enumerate() {
+            if fit.right[i] {
+                placed.insert(id.clone(), (State::Folded, Side::Right, right_chip.map_or(m.width - m.pad - w, |c| c.x), *w));
+            }
         }
 
         // Every pin that has had a row keeps it, hidden when it is neither pinned nor readable
@@ -418,41 +431,50 @@ impl Bar {
     }
 }
 
-/// How many pins each side keeps once the folding is done.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Which pins of each side are folded, from the side's own edge inwards.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Fit {
-    pub left_shown: usize,
-    pub right_shown: usize,
+    pub left: Vec<bool>,
+    pub right: Vec<bool>,
 }
 
-/// Folds pins into "+N" until both sides fit in `room`. Each list is the pins' widths from its own edge inwards, so the last one is the
-/// innermost. While they don't fit, the side that is wider at that moment (its chip counted) folds its innermost pin.
-pub fn fold(left: &[f32], right: &[f32], room: f32, gap: f32, chip: f32) -> Fit {
-    let side = |widths: &[f32], shown: usize| -> f32 {
-        let pins: f32 = widths[..shown].iter().sum::<f32>() + gap * shown.saturating_sub(1) as f32;
-        if shown < widths.len() {
-            pins + if shown > 0 { gap } else { 0.0 } + chip
+/// Folds pins into "+N" until both sides fit in `room`. Each list is the pins' (width, sticky) from its own edge inwards, so the last one is
+/// the innermost. While they don't fit, the side that is wider at that moment (its chip counted) folds its innermost pin that is not sticky;
+/// a sticky pin (the camera, which names the bar) is never folded, whatever it costs the other pins.
+pub fn fold(left: &[(f32, bool)], right: &[(f32, bool)], room: f32, gap: f32, chip: f32) -> Fit {
+    let width = |pins: &[(f32, bool)], folded: &[bool]| -> f32 {
+        let shown: Vec<f32> = pins.iter().zip(folded).filter(|(_, f)| !**f).map(|(p, _)| p.0).collect();
+        let any_folded = folded.iter().any(|f| *f);
+        let pins_w: f32 = shown.iter().sum::<f32>() + gap * shown.len().saturating_sub(1) as f32;
+        if any_folded {
+            pins_w + if shown.is_empty() { 0.0 } else { gap } + chip
         } else {
-            pins
+            pins_w
         }
     };
-    let (mut l, mut r) = (left.len(), right.len());
+    let innermost = |pins: &[(f32, bool)], folded: &[bool]| (0..pins.len()).rev().find(|i| !folded[*i] && !pins[*i].1);
+    let (mut l, mut r) = (vec![false; left.len()], vec![false; right.len()]);
     loop {
-        let (wl, wr) = (side(left, l), side(right, r));
+        let (wl, wr) = (width(left, &l), width(right, &r));
         let between = if wl > 0.0 && wr > 0.0 { gap } else { 0.0 };
         if wl + wr + between <= room + 0.001 {
             break;
         }
-        let pick_left = if wl >= wr { l > 0 } else { r == 0 };
-        if pick_left && l > 0 {
-            l -= 1;
-        } else if r > 0 {
-            r -= 1;
+        let (cl, cr) = (innermost(left, &l), innermost(right, &r));
+        // The wider side folds, or the other when that one has nothing it may fold
+        let pick_left = match (cl, cr) {
+            (Some(_), Some(_)) => wl >= wr,
+            (Some(_), None) => true,
+            (None, Some(_)) => false,
+            (None, None) => break,
+        };
+        if pick_left {
+            l[cl.unwrap()] = true;
         } else {
-            break;
+            r[cr.unwrap()] = true;
         }
     }
-    Fit { left_shown: l, right_shown: r }
+    Fit { left: l, right: r }
 }
 
 #[cfg(test)]

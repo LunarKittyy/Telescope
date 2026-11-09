@@ -95,7 +95,7 @@ fn the_camera_the_frame_rate_and_the_throughput_are_pinned_to_begin_with() {
     assert_eq!(shown_ids(&r), ["camera", "fps", "throughput"]);
     let (camera, fps, net) = (pin(&r, "camera"), pin(&r, "fps"), pin(&r, "throughput"));
     assert_eq!((camera["value"].as_str(), camera["sub"].as_str(), camera["side"].as_str()), ("Phone Camera", "1920 \u{d7} 1080", "0"));
-    assert_eq!((fps["value"].as_str(), fps["side"].as_str(), net["value"].as_str(), net["side"].as_str()), ("30", "1", "12.4 Mbps", "1"));
+    assert_eq!((fps["value"].as_str(), fps["side"].as_str(), net["value"].as_str(), net["side"].as_str()), ("30 fps", "1", "12.4 Mbps", "1"));
     let x = |p: &Row| p["x"].parse::<f32>().unwrap();
     assert!(x(&camera) < x(&fps) && x(&fps) < x(&net), "left side from the left edge, right side from the right");
     assert!(x(&net) + net["w"].parse::<f32>().unwrap() <= 900.0 - 15.9, "the right edge is the bar's padding");
@@ -116,7 +116,7 @@ fn per_stream_pins_follow_the_focused_stream_and_never_the_one_that_reported_las
     reports(&r, 1, "Camera B", 24, "5 Mbps");
     // The panels show the second stream it was added last? Whatever they show is what the bar shows
     let shown = r.shown().expect("a focused stream");
-    let (name, fps, net) = if shown == "pixel" { ("Camera A", "30", "10 Mbps") } else { ("Camera B", "24", "5 Mbps") };
+    let (name, fps, net) = if shown == "pixel" { ("Camera A", "30 fps", "10 Mbps") } else { ("Camera B", "24 fps", "5 Mbps") };
     assert_eq!((pin(&r, "camera")["value"].as_str(), pin(&r, "fps")["value"].as_str(), pin(&r, "throughput")["value"].as_str()), (name, fps, net));
     // The other stream reports again: the bar does not move
     let other = if shown == "pixel" { 1 } else { 0 };
@@ -129,7 +129,7 @@ fn per_stream_pins_follow_the_focused_stream_and_never_the_one_that_reported_las
     let to = if shown == "pixel" { "oneplus" } else { "pixel" };
     focus(&r, to);
     // Each stream's own last numbers: the other one's report of 99 was kept for it, as the number alone
-    let (name, fps, net) = if to == "pixel" { ("Camera A", "99", "99 Mbps") } else { ("Camera B", "24", "5 Mbps") };
+    let (name, fps, net) = if to == "pixel" { ("Camera A", "99 fps", "99 Mbps") } else { ("Camera B", "24 fps", "5 Mbps") };
     assert_eq!((pin(&r, "camera")["value"].as_str(), pin(&r, "fps")["value"].as_str(), pin(&r, "throughput")["value"].as_str()), (name, fps, net));
     focus(&r, &shown);
     assert_eq!(pin(&r, "camera")["value"], if shown == "pixel" { "Camera A" } else { "Camera B" });

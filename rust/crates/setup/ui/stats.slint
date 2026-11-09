@@ -85,16 +85,20 @@ component StatLine inherits Rectangle {
                 }
             }
         }
-        if line.note != "": Text {
-            text: line.note;
-            font-family: Theme.font;
-            font-size: Theme.small;
-            color: Theme.faint;
-            horizontal-alignment: right;
-            vertical-alignment: center;
-            min-height: Theme.u(8);
-            wrap: word-wrap;
-            accessible-role: none;
+        // The note ends where the value does, not under the star
+        if line.note != "": HorizontalLayout {
+            padding-right: Theme.u(18);
+            Text {
+                text: line.note;
+                font-family: Theme.font;
+                font-size: Theme.small;
+                color: Theme.faint;
+                horizontal-alignment: right;
+                vertical-alignment: center;
+                min-height: Theme.u(8);
+                wrap: word-wrap;
+                accessible-role: none;
+            }
         }
     }
 }

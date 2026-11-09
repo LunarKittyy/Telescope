@@ -63,24 +63,45 @@ fn a_pin_with_nothing_to_read_takes_no_room_and_keeps_its_place() {
     assert_eq!(row(&v, THROUGHPUT).x, 600.0 - 16.0 - 40.0, "nothing is left for it");
 }
 
+fn pins(widths: &[f32]) -> Vec<(f32, bool)> {
+    widths.iter().map(|w| (*w, false)).collect()
+}
+
+fn count(flags: &[bool]) -> usize {
+    flags.iter().filter(|f| **f).count()
+}
+
 #[test]
 fn nothing_folds_while_it_fits() {
-    let fit = fold(&[40.0, 40.0], &[40.0, 40.0], 230.0, 16.0, 24.0);
-    assert_eq!(fit, Fit { left_shown: 2, right_shown: 2 });
+    let fit = fold(&pins(&[40.0, 40.0]), &pins(&[40.0, 40.0]), 230.0, 16.0, 24.0);
+    assert_eq!((count(&fit.left), count(&fit.right)), (0, 0));
 }
 
 #[test]
 fn the_fuller_side_folds_its_innermost_pins_first() {
-    // Left 3 pins (40 each, 112 + gaps = 152), right 1 pin (40): room 150 needs the left to give one up
-    let fit = fold(&[40.0, 40.0, 40.0], &[40.0], 200.0, 16.0, 24.0);
-    assert_eq!(fit, Fit { left_shown: 2, right_shown: 1 });
+    // Left 3 pins (40 each, 112 + gaps = 152), right 1 pin (40): room 200 needs the left to give one up
+    let fit = fold(&pins(&[40.0, 40.0, 40.0]), &pins(&[40.0]), 200.0, 16.0, 24.0);
+    assert_eq!((fit.left.clone(), fit.right.clone()), (vec![false, false, true], vec![false]));
     // Both sides full: the wider one goes first, and they take turns as the other becomes the wider
-    let fit = fold(&[40.0, 40.0, 40.0], &[40.0, 40.0, 40.0], 200.0, 16.0, 24.0);
-    assert!(fit.left_shown < 3 && fit.right_shown < 3, "{fit:?}");
-    assert!((fit.left_shown as i32 - fit.right_shown as i32).abs() <= 1, "{fit:?}");
+    let fit = fold(&pins(&[40.0, 40.0, 40.0]), &pins(&[40.0, 40.0, 40.0]), 200.0, 16.0, 24.0);
+    assert!(count(&fit.left) > 0 && count(&fit.right) > 0, "{fit:?}");
+    assert!((count(&fit.left) as i32 - count(&fit.right) as i32).abs() <= 1, "{fit:?}");
     // Folding down to a chip alone
-    let fit = fold(&[40.0, 40.0], &[], 30.0, 16.0, 24.0);
-    assert_eq!(fit, Fit { left_shown: 0, right_shown: 0 });
+    let fit = fold(&pins(&[40.0, 40.0]), &[], 30.0, 16.0, 24.0);
+    assert_eq!((count(&fit.left), count(&fit.right)), (2, 0));
+}
+
+#[test]
+fn a_sticky_pin_is_never_folded_whatever_the_room() {
+    // The camera is the outermost on the left; everything else folds, it stays however narrow
+    let left = vec![(120.0, true), (40.0, false), (40.0, false)];
+    let fit = fold(&left, &pins(&[40.0, 40.0]), 100.0, 16.0, 24.0);
+    assert_eq!(fit.left, vec![false, true, true]);
+    assert_eq!(fit.right, vec![true, true]);
+    // A sticky pin on the inner end doesn't stop the ones outside it from folding, innermost foldable first
+    let left = vec![(40.0, false), (40.0, false), (120.0, true)];
+    let fit = fold(&left, &[], 150.0, 16.0, 24.0);
+    assert_eq!(fit.left, vec![true, true, false]);
 }
 
 #[test]
@@ -231,4 +252,21 @@ fn a_long_name_is_cut_to_a_share_of_the_room() {
     let mut b = bar(600.0);
     b.measured(CAMERA, 900.0);
     assert!(row(&b.view(), CAMERA).w <= (600.0 - 32.0) * 0.45 + 0.01);
+}
+
+#[test]
+fn the_camera_is_the_last_to_fold_and_the_left_chip_sits_after_it() {
+    let mut b = bar(600.0);
+    b.set_own(vec![stat(CAMERA, "Phone"), stat("a", "1"), stat("b", "1"), stat(FPS, "30"), stat(THROUGHPUT, "12")]);
+    b.load(Some((vec!["camera".into(), "a".into(), "b".into()], vec!["fps".into(), "throughput".into()])));
+    b.measured(CAMERA, 171.0);
+    for width in [330.0, 260.0, 200.0, 120.0] {
+        b.set_metrics(Metrics { width, pad: 16.0, gap: 16.0, chip: 24.0 });
+        let v = b.view();
+        assert_eq!(row(&v, CAMERA).state, State::Shown, "the camera stays at {width}");
+        assert_eq!(row(&v, "a").state, State::Folded, "{width}");
+        let chip = v.left.expect("the left side's chip");
+        assert_eq!(chip.x, 16.0 + row(&v, CAMERA).w + 16.0, "the chip is at the inner end of the left side, after the camera: {width}");
+        assert_eq!(chip.count, 2);
+    }
 }

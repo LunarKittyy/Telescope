@@ -16,7 +16,7 @@ use std::time::Duration;
 use telescope_core::bar::{self, BarStat};
 use telescope_core::config::ConfigFile;
 use telescope_core::event::Event;
-use telescope_core::i18n::tr;
+use telescope_core::i18n::{tr, Fields};
 use telescope_core::link::{RoutePrefs, StreamRequest};
 use telescope_core::plugin::{Plugin, PluginInfo};
 use telescope_core::services::Services;
@@ -703,11 +703,13 @@ impl Window {
         let text = |name: &str| match self.ui.get_property(name) { Ok(SValue::String(s)) => s.to_string(), _ => String::new() };
         let number = |name: &str| match self.ui.get_property(name) { Ok(SValue::Number(n)) => n as f32, _ => 0.0 };
         let reading = |value: String| if value == "-" { String::new() } else { value };
+        // The frame rate is said with its unit like the other readouts
+        let rate = |value: String| if value == "-" || value.is_empty() { String::new() } else { tr("{n} fps").field("n", value) };
         let tone = |name: &str| match text(name).as_str() { "warn" => "warn", "err" => "err", _ => "" }.to_string();
         let camera = text("status-camera");
         let own = vec![
             BarStat { sub: text("status-size"), tip: camera.clone(), ..BarStat::new(bar::CAMERA, &tr("Virtual camera"), "", &camera) },
-            BarStat { tip: text("fps-tip"), tone: tone("fps-tone"), ..BarStat::new(bar::FPS, &tr("Frame rate"), "film", &reading(text("fps"))) },
+            BarStat { tip: text("fps-tip"), tone: tone("fps-tone"), ..BarStat::new(bar::FPS, &tr("Frame rate"), "film", &rate(text("fps"))) },
             BarStat { tip: tr("How much data per second reaches this computer."), tone: tone("net-tone"), ..BarStat::new(bar::THROUGHPUT, &tr("Throughput"), "gauge", &reading(text("net"))) },
         ];
         let streams = self.streams.flow.try_borrow().ok().map(|flow| flow.sessions.streams.len());

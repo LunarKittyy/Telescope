@@ -54,6 +54,7 @@ export global Icons {
     out property <image> level: @image-url("icons/level.svg");
     out property <image> link: @image-url("icons/link.svg");
     out property <image> lock: @image-url("icons/lock.svg");
+    out property <image> memory: @image-url("icons/memory.svg");
     out property <image> mic: @image-url("icons/mic.svg");
     out property <image> mic-off: @image-url("icons/mic_off.svg");
     out property <image> mirror: @image-url("icons/mirror.svg");
@@ -158,6 +159,7 @@ export global Icons {
             : name == "connection" ? link
             : name == "copy" ? copy
             : name == "crop" ? crop
+            : name == "cube" ? cube
             : name == "download" ? download
             : name == "eye" ? eye
             : name == "eye_off" ? eye-off
@@ -170,6 +172,8 @@ export global Icons {
             : name == "help" ? help
             : name == "image" ? image
             : name == "keyboard" ? keyboard
+            : name == "layers" ? layers
+            : name == "memory" ? memory
             : name == "layout" ? layout
             : name == "lock" ? lock
             : name == "mic" ? mic
@@ -188,6 +192,7 @@ export global Icons {
             : name == "reset" ? reset
             : name == "search" ? search
             : name == "skeleton" ? skeleton
+            : name == "skip_next" ? skip-next
             : name == "sliders" ? sliders
             : name == "snapshot" ? snapshot
             : name == "sparkle" ? sparkle
