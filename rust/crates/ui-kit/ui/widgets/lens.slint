@@ -6,7 +6,7 @@ import { Reveal } from "folds.slint";
 import { FocusRing, TouchRing, KeyFocus } from "basics.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { Tip } from "tip.slint";
-import { Motion, Worm, WormFill, Unfold, Fade } from "motion.slint";
+import { Motion, WormEdge, WormFill, Unfold, Fade } from "motion.slint";
 
 // One lens as the row holds it. `id` is the phone's own name for it (the row never reads it), the rest is what its tile says.
 export struct LensTile {
@@ -92,7 +92,8 @@ export component LensRow inherits Rectangle {
     accessible-role: tab-list;
     accessible-label: label;
     function pick(i: int) {
-        worm.sync();
+        le.value;
+        re.value;
         local = i;
         touched = true;
         picked(i);
@@ -159,22 +160,52 @@ export component LensRow inherits Rectangle {
     // Everything has arrived where it was going
     out property <bool> settled: abs(w[0] - (count > 0 ? 1 : 0)) < 0.004 && abs(w[1] - (count > 1 ? 1 : 0)) < 0.004 && abs(w[2] - (count > 2 ? 1 : 0)) < 0.004
         && abs(w[3] - (count > 3 ? 1 : 0)) < 0.004 && abs(w[4] - (count > 4 ? 1 : 0)) < 0.004;
-    // Where the picked outline is now, for a test
-    out property <length> worm-left: worm.left;
-    out property <length> worm-right: worm.right;
     // The pointer is on a tile, or holds one down (-1 for none)
     property <int> hover-i: -1;
     property <int> press-i: -1;
-    // The worm glides for a pick until it has arrived, and rests after, so tiles that reflow carry it along with no lag (see PictureSegmented)
+    // The outline is the picked tile's own: its two edges are tile numbers (0 is the first tile, 1.5 halfway between the second and the third) on the
+    // worm's springs, and where a tile number is on the screen is read from the tiles every frame. So a row that reflows (placeholders becoming
+    // lenses, a lens coming or going) carries the outline along from the first frame, never at a place the tile has left; a spring that chased the
+    // tile's own moving place would wait for it to stop (a spring is only retargeted by a value that is at rest). A pick between two lenses
+    // glides: the edge on the side it travels to leads and the other trails (see Worm). The first place it is given is never travelled to.
     property <bool> gliding;
-    changed shown => { gliding = true; glide-end.restart(); }
-    property <bool> worm-rest: worm.at-rest;
+    property <bool> forward: true;
+    property <int> was: -1;
+    changed shown => {
+        if (was >= 0 && shown >= 0) {
+            forward = shown > was;
+            gliding = true;
+            glide-end.restart();
+        }
+        was = shown;
+    }
+    property <length> target: clamp(shown, 0, 4) * 1px;
+    le := WormEdge { to: root.target; lead: !root.forward; snap: !root.gliding; }
+    re := WormEdge { to: root.target; lead: root.forward; snap: !root.gliding; }
+    // A place between two tiles' edges: `f` is a tile number
+    function edge-at(f: float, right: bool) -> length {
+        let i = clamp(floor(f), 0, 4);
+        let j = min(4, i + 1);
+        let t = clamp(f - i, 0, 1);
+        let a = xs[i] + (right ? unit * w[i] : 0px);
+        let b = xs[j] + (right ? unit * w[j] : 0px);
+        return a + (b - a) * t;
+    }
+    property <length> ring-l: edge-at(le.value / 1px, false);
+    property <length> ring-r: edge-at(re.value / 1px, true);
+    // Where the picked outline is now, for a test
+    out property <length> worm-left: ring-l;
+    out property <length> worm-right: ring-r;
+    property <bool> worm-rest: abs(le.value - target) < 0.01px && abs(re.value - target) < 0.01px;
     changed worm-rest => { if (worm-rest) { gliding = false; } }
     glide-end := Timer {
         interval: 900ms;
         running: root.gliding;
         triggered => { root.gliding = false; }
     }
+    // The outline is there while the picked tile is: it fades in and out where the tile is
+    property <bool> ring-on: shown >= 0 && shown < root.lenses.length && w[min(4, shown)] > 0.5;
+    ring-fade := Fade { shown: root.ring-on; }
     TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
     // Layer 1, the tiles' surfaces; a dim tile has no lens yet, or its lens is leaving
     for k in 5: Rectangle {
@@ -193,7 +224,7 @@ export component LensRow inherits Rectangle {
             opacity: 1 - drawn[k];
         }
     }
-    WormFill { wx: worm.x; wy: worm.y; ww: worm.width; wh: worm.height; colour: worm.inside; presence: worm.presence; radius: worm.radius; }
+    WormFill { wx: ring-l; wy: 0px; ww: max(0px, ring-r - ring-l); wh: root.height; colour: press-i == shown ? Theme.held(root.hue) : Theme.tint(root.hue); presence: ring-fade.value; radius: Theme.r-ctl; }
     // Layer 2, what each tile says: only while there is something to say (the tile has a lens, or is fading out)
     for k in 5: Rectangle {
         x: xs[k];
@@ -258,17 +289,18 @@ export component LensRow inherits Rectangle {
             }
         }
     }
-    // The outline last, over the tiles and what they say; it takes the picked tile's place as it grows, slides or shrinks
-    worm := Worm {
-        to-x: xs[max(0, min(4, shown))];
-        to-y: 0px;
-        to-w: unit * w[max(0, min(4, shown))];
-        to-h: root.height;
-        hue: root.hue;
-        snap: !gliding;
-        outline-only: true;
-        shown: shown >= 0 && shown < root.lenses.length && w[min(4, shown)] > 0.5;
-        pressed: press-i == shown;
+    // The outline last, over the tiles and what they say
+    Rectangle {
+        x: ring-l;
+        y: 0px;
+        width: max(0px, ring-r - ring-l);
+        height: root.height;
+        visible: ring-fade.value > 0 && self.width > 0px;
+        opacity: ring-fade.value;
+        border-radius: Theme.r-ctl;
+        border-width: Theme.stroke;
+        border-color: root.hue;
+        background: transparent;
     }
     if lenses.length == 0 && placeholder != "": Tip { says: root.label; detail: placeholder; inert: true; }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }

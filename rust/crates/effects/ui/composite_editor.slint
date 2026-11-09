@@ -474,7 +474,10 @@ export component CompositeEditor inherits Window {
                                     clicked => { root.colour-clicked("border"); }
                                 }
                             }
-                            if colour-target == "border": VerticalLayout {
+                            Unfolding {
+ open: colour-target == "border";
+ lead: Theme.u(1);
+ {
                                 for name[i] in [@tr("Red"), @tr("Green"), @tr("Blue")]: SliderRow {
                                     label-width: Theme.u(36);
                                     hue: Theme.plugin-hue("streaming");
@@ -486,6 +489,7 @@ export component CompositeEditor inherits Window {
                                     moved(v) => { root.channel-moved(i, v); }
                                 }
                             }
+ }
                             SliderRow {
                                     label-width: Theme.u(36);
                                     hue: Theme.plugin-hue("streaming");
@@ -522,7 +526,10 @@ export component CompositeEditor inherits Window {
                                 clicked => { root.colour-clicked("background"); }
                             }
                         }
-                        if colour-target == "background": VerticalLayout {
+                        Unfolding {
+ open: colour-target == "background";
+ lead: Theme.u(1);
+ {
                             for name[i] in [@tr("Red"), @tr("Green"), @tr("Blue")]: SliderRow {
                                     label-width: Theme.u(36);
                                     hue: Theme.plugin-hue("streaming");
@@ -534,6 +541,7 @@ export component CompositeEditor inherits Window {
                                 moved(v) => { root.channel-moved(i, v); }
                             }
                         }
+ }
                         LabelRow {
                             label-width: Theme.u(36);
                             label: @tr("Picture");

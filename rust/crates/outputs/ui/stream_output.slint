@@ -1,7 +1,7 @@
 // The Stream output card: resolution, frame rate and shape as three
 // tiles, Light or Heavy, then JPEG quality or bitrate. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Card, RailRow, Slider, Segmented, ChoiceField, UnfoldGroup, Unfolding } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Card, RailRow, Slider, Segmented, ChoiceField, UnfoldGroup, Unfolding, Page, PageGroup } from "@ui-kit/ui-kit.slint";
 
 export component StreamOutputCard inherits Card {
     in property <bool> active: true;
@@ -115,8 +115,10 @@ export component StreamOutputCard inherits Card {
                 picked(i) => { root.format-picked(i == 0); }
             }
         }
-        Unfolding {
-            open: !root.h264;
+        PageGroup {
+        clip: quality-page.moving || bitrate-page.moving;
+        quality-page := Page {
+            shown: !root.h264;
             RailRow {
                     icon: Icons.gem;
                     label: @tr("JPEG quality");
@@ -142,8 +144,8 @@ export component StreamOutputCard inherits Card {
                     }
                 }
         }
-        Unfolding {
-            open: root.h264;
+        bitrate-page := Page {
+            shown: root.h264;
             RailRow {
                     icon: Icons.gauge;
                     label: @tr("Bitrate");
@@ -167,6 +169,7 @@ export component StreamOutputCard inherits Card {
                         moved(v) => { root.bitrate = v; root.bitrate-moved(v); }
                     }
                 }
+        }
         }
     }
 }

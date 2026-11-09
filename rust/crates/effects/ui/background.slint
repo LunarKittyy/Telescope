@@ -54,8 +54,10 @@ export component BackgroundCard inherits Card {
                 picked(i) => { root.mode-picked(i); }
             }
         }
-        Unfolding {
-            open: mode == 1;
+        PageGroup {
+        clip: blur-page.moving || picture-page.moving;
+        blur-page := Page {
+            shown: mode == 1;
             RailSlider {
             icon: Icons.blur;
             enabled: active;
@@ -75,8 +77,8 @@ export component BackgroundCard inherits Card {
             moved(v) => { root.blur-moved(v); }
         }
         }
-        Unfolding {
-            open: mode == 2;
+        picture-page := Page {
+            shown: mode == 2;
             RailRow {
             icon: Icons.photo;
             label: @tr("Picture");
@@ -94,6 +96,7 @@ export component BackgroundCard inherits Card {
                 tip-detail: picture-choose-tip;
                 clicked => { root.picture-clicked(); }
             }
+        }
         }
         }
         Unfolding {

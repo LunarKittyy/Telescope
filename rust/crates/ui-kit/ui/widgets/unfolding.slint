@@ -25,7 +25,9 @@ export component Unfolding inherits Rectangle {
     in property <length> lead: Theme.gap;
     // How far open, 0 to 1, for a test
     out property <float> value: unfold.value;
-    unfold := Unfold { open: root.open; snap: root.snap; }
+    // One period both ways: a row that goes as another comes (Off, Blur, Picture) and the one that comes always add up to one row's height, so
+    // the card goes from the old height to the new one and never through a smaller one (a quicker shut than open made it dip first)
+    unfold := Unfold { open: root.open; snap: root.snap; open-for: Motion.unfold-open; close-for: Motion.unfold-open; }
     // What is inside goes out of reach as it shuts: a tip of one of its rows goes down with it
     changed open => { if (!open) { Tips.dismiss(); } }
     min-height: 0px;
@@ -40,6 +42,53 @@ export component Unfolding inherits Rectangle {
         height: max(parent.height - lead, self.preferred-height);
         spacing: Theme.gap;
         opacity: clamp(unfold.value * 1.4 - 0.2, 0, 1);
+        @children
+    }
+}
+
+// Kind "helper". Pages: the contents of a tabbed place (a card's Primaries, Curves and LUT), one `Page` for each, in a PageGroup. Never
+// `if tab == 0: Rows`, which swaps them at once and makes the card jump to the other page's height. The page that is picked grows to its
+// height while the one that was up shrinks away, on the same spring (so the two always add up to one page's worth: the card's height
+// moves from one page's to the other's with no dip), and the words cross-fade over it. All the pages are drawn from the top of the group
+// and overlap, each fading with how far open it is. A tab picked mid-way turns the whole move round from where it is. Give the group
+// `clip: p0.moving || p1.moving` (the pages' ids) so what is taller than the group is cut while it moves and never when it is at rest
+// (a focus ring at the edge is never cut).
+//     PageGroup { clip: a.moving || b.moving; a := Page { shown: tab == 0; Rows } b := Page { shown: tab == 1; Rows } }
+export component PageGroup inherits Rectangle {
+    out property <string> control-kind: "helper";
+    vertical-stretch: 0;
+    VerticalLayout {
+        spacing: 0px;
+        @children
+    }
+}
+
+export component Page inherits Rectangle {
+    out property <string> control-kind: "helper";
+    in property <bool> shown;
+    // A change that has to be there now (a window being built; reduced motion asks for that by itself)
+    in property <bool> snap;
+    // How far open, 0 to 1, for a test
+    out property <float> value: unfold.value;
+    // Between shut and open, for the group's clip
+    out property <bool> moving: unfold.value > 0 && unfold.value < 1;
+    // The gap above, carried like Unfolding's: it opens and shuts with the page, so the two pages' gaps add up to one
+    in property <length> lead: Theme.gap;
+    // One period for both ways: the page that goes and the page that comes are mirror images, so together they are always one page's height
+    unfold := Unfold { open: root.shown; snap: root.snap; open-for: Motion.reflow-open; close-for: Motion.reflow-open; }
+    changed shown => { if (!shown) { Tips.dismiss(); } }
+    min-height: 0px;
+    vertical-stretch: 0;
+    preferred-height: unfold.value * (rows.preferred-height + lead);
+    max-height: unfold.value > 0 ? 100000px : 0px;
+    visible: unfold.value > 0;
+    // Drawn from the top of the group whatever this page's place in it is
+    rows := VerticalLayout {
+        x: 0px;
+        y: root.lead - root.y;
+        width: parent.width;
+        height: self.preferred-height;
+        opacity: clamp((unfold.value - 0.25) * 1.7, 0, 1);
         @children
     }
 }

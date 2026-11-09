@@ -108,6 +108,22 @@ component StatLine inherits Rectangle {
     }
 }
 
+// The rows of one view of the stats
+component StatsList inherits VerticalLayout {
+    in property <[StatRow]> rows;
+    in property <color> hue;
+    callback pin-toggled(string, bool);
+    for r in rows: VerticalLayout {
+        // The same gap above every heading and the same one below it
+        if r.head: VerticalLayout {
+            padding-top: Theme.u(6);
+            padding-bottom: Theme.u(1);
+            SectionHeading { text: r.label; icon: Icons.named(r.icon); }
+        }
+        if !r.head: StatLine { line: r; hue: root.hue; pin-toggled(id, on) => { root.pin-toggled(id, on); } }
+    }
+}
+
 export component StatsCard inherits Card {
     // 0 is Standard, 1 is Nerd
     in property <int> view;
@@ -128,10 +144,28 @@ export component StatsCard inherits Card {
     icon: Icons.chip;
     // Nothing to read while no stream runs: the card fades like the others do, and the rows go
     idle: rows.length == 0;
-    // The rows stay while they fold away
+    // The rows stay while they fold away. A switch of view (Standard, Nerd) brings a whole new list: the list that was up is kept as it was in the
+    // layer that is going and the new one comes in on the other, so the two cross-fade and the card goes straight from one height to the other
     property <[StatRow]> held;
-    changed rows => { if (rows.length > 0) { held = rows; } }
-    init => { if (rows.length > 0) { held = rows; } }
+    property <[StatRow]> kept-a;
+    property <[StatRow]> kept-b;
+    property <bool> on-b;
+    property <int> seen-view;
+    function take() {
+        if (rows.length > 0) {
+            if (view != seen-view) {
+                if (on-b) { kept-b = held; } else { kept-a = held; }
+                on-b = !on-b;
+                seen-view = view;
+            }
+            held = rows;
+        }
+    }
+    changed rows => { take(); }
+    init => {
+        seen-view = view;
+        if (rows.length > 0) { held = rows; }
+    }
 
     UnfoldGroup {
         Segmented {
@@ -147,18 +181,15 @@ export component StatsCard inherits Card {
         }
         StatusRow { text: root.empty-text; detail: root.empty-detail; kind: "status_dim"; }
         StatusRow { text: root.source-name; kind: ""; }
-        Unfolding {
-            open: rows.length > 0;
-            VerticalLayout {
-                for r in held: VerticalLayout {
-                    // The same gap above every heading and the same one below it
-                    if r.head: VerticalLayout {
-                        padding-top: Theme.u(6);
-                        padding-bottom: Theme.u(1);
-                        SectionHeading { text: r.label; icon: Icons.named(r.icon); }
-                    }
-                    if !r.head: StatLine { line: r; hue: root.hue; pin-toggled(id, on) => { root.pin-toggled(id, on); } }
-                }
+        PageGroup {
+            clip: layer-a.moving || layer-b.moving;
+            layer-a := Page {
+                shown: !root.on-b && rows.length > 0;
+                StatsList { rows: root.on-b ? root.kept-a : root.held; hue: root.hue; pin-toggled(id, on) => { root.pin-toggled(id, on); } }
+            }
+            layer-b := Page {
+                shown: root.on-b && rows.length > 0;
+                StatsList { rows: root.on-b ? root.held : root.kept-b; hue: root.hue; pin-toggled(id, on) => { root.pin-toggled(id, on); } }
             }
         }
     }
