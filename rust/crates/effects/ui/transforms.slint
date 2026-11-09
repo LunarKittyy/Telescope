@@ -16,6 +16,8 @@ component ZoomMap inherits Rectangle {
     in property <string> setting-x;
     in property <string> setting-y;
     in property <float> aspect: 1.7778;
+    // What the phone's longer lenses see, as boxes on the map
+    in property <[PadMark]> marks;
     callback moved(float, float);
     callback grabbed(bool);
     height: Theme.u(76);
@@ -40,6 +42,7 @@ component ZoomMap inherits Rectangle {
         has-default: true;
         default-x: 0.5;
         default-y: 0.5;
+        marks: root.marks;
         enabled: root.enabled;
         hue: root.hue;
         tip: root.tip;
@@ -76,6 +79,8 @@ export component TransformsCard inherits Card {
     in property <string> pan-text;
     // The map's shape: the frame's width over its height
     in property <float> map-aspect: 1.7778;
+    // The boxes the phone's longer lenses see (the preview's Lens outlines, at no zoom), drawn thinly on the map
+    in property <[PadMark]> lens-outlines;
     in property <float> stretch-x: 100;
     in property <float> stretch-y: 100;
     in property <string> stretch-x-text;
@@ -238,6 +243,7 @@ export component TransformsCard inherits Card {
             tip-hint: root.pan-tip;
             label: @tr("Pan");
             aspect: root.map-aspect;
+            marks: root.lens-outlines;
             shortcut: "transforms.pan_x transforms.pan_y";
             shortcut-adds: [{ id: "transforms.pan_x", text: root.pan-add-x }, { id: "transforms.pan_y", text: root.pan-add-y }];
             setting-x: "transforms.pan_x";

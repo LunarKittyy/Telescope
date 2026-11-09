@@ -260,6 +260,18 @@ impl TransformsPlugin {
         })
     }
 
+    /// The longer lenses' boxes on the pan map: `view::lens_boxes` (as the preview) with nothing zoomed, flipped or turned.
+    fn lens_outlines(&self) -> Value {
+        let streaming = self.stream.is_some() && self.status.streaming;
+        let caps = self.status.caps.as_ref().filter(|_| streaming);
+        let boxes = view::lens_boxes(caps, &Geometry::default());
+        json!(boxes.into_iter().map(|(_, x0, y0, x1, y1)| json!({"x0": x0, "y0": y0, "x1": x1, "y1": y1})).collect::<Vec<_>>())
+    }
+
+    fn show_lens_outlines(&self, host: &mut dyn Host) {
+        self.show(host, &json!({"lens-outlines": self.lens_outlines()}));
+    }
+
     fn pan_props(&self) -> Value {
         json!({
             "pan-x": self.pan_x,
@@ -308,7 +320,7 @@ impl TransformsPlugin {
 
     fn all_props(&self) -> Value {
         let mut all = Map::new();
-        for part in [self.flip_props(), self.zoom_props(), self.pan_props(), self.stretch_props()] {
+        for part in [self.flip_props(), self.zoom_props(), self.pan_props(), self.stretch_props(), json!({"lens-outlines": self.lens_outlines()})] {
             if let Value::Object(m) = part {
                 all.extend(m);
             }
@@ -489,6 +501,10 @@ impl TransformsPlugin {
             // Checks the dot again once a new ratio had time to take, in case no phone state comes in between
             host.schedule(((LENS_SETTLE_S * 1000.0) as u64) + 100, T_SETTLE);
         }
+        let was = (old.streaming, old.caps.as_ref().map(|c| c.lens_zooms.clone()));
+        if was != (status.streaming, status.caps.as_ref().map(|c| c.lens_zooms.clone())) {
+            self.show_lens_outlines(host);
+        }
         self.zoom_where = if status.sent.is_none() {
             if status.streaming { tr("Zoomed on this computer: this lens can't zoom itself") } else { tr("Zoomed on this computer") }
         } else if status.desktop_zoom > 1.0 {
@@ -512,6 +528,7 @@ impl TransformsPlugin {
         self.session = None;
         self.live_lens.clear();
         self.show_map_aspect(host);
+        self.show_lens_outlines(host);
         self.show_zoom_where(host);
     }
 }
@@ -711,12 +728,14 @@ impl Plugin for TransformsPlugin {
         self.stream = Some(stream.url.clone());
         self.session = Some(stream.session);
         self.show_map_aspect(host);
+        self.show_lens_outlines(host);
     }
 
     fn on_focus_gained(&mut self, host: &mut dyn Host, stream: &StreamInfo) {
         self.stream = Some(stream.url.clone());
         self.session = Some(stream.session);
         self.show_map_aspect(host);
+        self.show_lens_outlines(host);
         if let Some((live, default, tele)) = self.behind.take(host, stream.session) {
             self.live_lens = live;
             self.default_lens = default;

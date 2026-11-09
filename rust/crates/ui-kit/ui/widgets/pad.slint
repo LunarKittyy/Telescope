@@ -5,7 +5,7 @@ import { Reveal } from "folds.slint";
 import { FocusRing, TouchRing, KeyFocus } from "basics.slint";
 import { Tip } from "tip.slint";
 import { ShortcutMenu, ShortcutEntry } from "shortcut-menu.slint";
-import { Motion, Settle, Tone, ClickWait } from "motion.slint";
+import { Motion, Settle, Tone, Fade, ClickWait } from "motion.slint";
 
 // A square of the surround's colour with a quarter circle cut out, over one corner (0 to 3 clockwise from the top left): the software renderer squares off a gradient's corners, so the drawing is rounded by covering them.
 export component CornerCap inherits Path {
@@ -21,6 +21,14 @@ export component CornerCap inherits Path {
         : corner == 1 ? "M " + k + " 0 L " + k + " " + k + " A " + k + " " + k + " 0 0 0 0 0 Z"
         : corner == 2 ? "M " + k + " " + k + " L 0 " + k + " A " + k + " " + k + " 0 0 0 " + k + " 0 Z"
         : "M 0 " + k + " L 0 0 A " + k + " " + k + " 0 0 0 " + k + " " + k + " Z";
+}
+
+// A box drawn on a pad, as shares of the pad's width and height (0 to 1): a place the frame handle can match, like the view a longer lens has.
+export struct PadMark {
+    x0: float,
+    y0: float,
+    x1: float,
+    y1: float,
 }
 
 // Kind "pad": one box that sets two numbers (x across, y up and down) with the caller's drawing and buttons as its children, which can follow `handle-x` and `handle-y`, and it says `moved` then `released` like a slider. With `box-w` and `box-h` the handle is a frame of that size instead of a puck (the crop on a map): a press inside it keeps hold of where it was grabbed, a press outside centres it there, and what lies outside it is dimmed.
@@ -67,6 +75,8 @@ export component Pad inherits Rectangle {
     // The size of a frame handle, as it lies on the pad; 0 for the round puck. The frame's centre runs from half its size in to half its size in
     in property <length> box-w: 0;
     in property <length> box-h: 0;
+    // Up to four boxes drawn thinly over the pad: a frame of one's size is pulled onto it while dragged, and the box brightens under the frame
+    in property <[PadMark]> marks;
     in property <string> tip;
     in property <string> tip-detail;
     // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
@@ -109,6 +119,16 @@ export component Pad inherits Rectangle {
         running: quick;
         triggered => { quick = false; }
     }
+    // The mark the frame is the size of (the first, as there is usually one), -1 for none
+    pure function fits(m: PadMark) -> bool {
+        framed && m.x1 > m.x0 && m.y1 > m.y0
+            && abs((m.x1 - m.x0) * root.width - box-w) <= box-w * 0.02 + 0.5px
+            && abs((m.y1 - m.y0) * root.height - box-h) <= box-h * 0.02 + 0.5px
+    }
+    property <int> hit: marks.length > 0 && fits(marks[0]) ? 0 : marks.length > 1 && fits(marks[1]) ? 1 : marks.length > 2 && fits(marks[2]) ? 2 : marks.length > 3 && fits(marks[3]) ? 3 : -1;
+    property <PadMark> hit-mark: hit == 0 ? marks[0] : hit == 1 ? marks[1] : hit == 2 ? marks[2] : marks[3];
+    property <length> hit-x: (hit-mark.x0 + hit-mark.x1) / 2 * root.width;
+    property <length> hit-y: (hit-mark.y0 + hit-mark.y1) / 2 * root.height;
     // Where the handle's centre runs from and to
     property <bool> framed: box-w > 0px && box-h > 0px;
     property <length> inset-x: frame-shown ? frame-w.value * 1px / 2 : Theme.u(6);
@@ -161,10 +181,26 @@ export component Pad inherits Rectangle {
         let f = clamp((py - inset-y) / max(1px, root.height - 2 * inset-y), 0, 1);
         round((y-minimum + (y-up ? 1 - f : f) * (y-maximum - y-minimum)) / max(0.0001, step-y)) * max(0.0001, step-y)
     }
+    // A soft detent: the frame is exactly on the mark within snap-hold, at the pointer from snap-reach out, and eases between, so it never jumps or sticks
+    property <length> snap-reach: Theme.u(5);
+    property <length> snap-hold: Theme.u(1.5);
+    // How much of the way to the pointer the dragged frame goes: 1 when nothing pulls on it
+    function pull(px: length, py: length) -> float {
+        if (!(dragging && touch.pressed && hit >= 0)) { return 1; }
+        let dx = (clamp(px, inset-x, max(inset-x, root.width - inset-x)) - hit-x) / 1px;
+        let dy = (clamp(py, inset-y, max(inset-y, root.height - inset-y)) - hit-y) / 1px;
+        let d = sqrt(dx * dx + dy * dy);
+        let reach = snap-reach / 1px;
+        let hold = snap-hold / 1px;
+        d >= reach ? 1 : d <= hold ? 0 : (d - hold) * reach / ((reach - hold) * d)
+    }
     function drag-to(px: length, py: length) {
         if (!enabled) { return; }
-        let tx = clamp(at-x(px), x-minimum, x-maximum);
-        let ty = clamp(at-y(py), y-minimum, y-maximum);
+        let s = pull(px, py);
+        let qx = hit < 0 ? px : hit-x + (clamp(px, inset-x, max(inset-x, root.width - inset-x)) - hit-x) * s;
+        let qy = hit < 0 ? py : hit-y + (clamp(py, inset-y, max(inset-y, root.height - inset-y)) - hit-y) * s;
+        let tx = clamp(at-x(qx), x-minimum, x-maximum);
+        let ty = clamp(at-y(qy), y-minimum, y-maximum);
         if (tx != shown-x || ty != shown-y) {
             local-x = tx;
             local-y = ty;
@@ -346,6 +382,48 @@ export component Pad inherits Rectangle {
         stroke: !enabled ? Theme.dis : Theme.lit(hue, max(held-tone.value, hover-tone.value));
         stroke-width: Theme.stroke;
         commands: "M\{mr / 1px} 0H\{(mw - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{mw / 1px} \{mr / 1px}V\{(mh - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mw - mr) / 1px} \{mh / 1px}H\{mr / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 0 \{(mh - mr) / 1px}V\{mr / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{mr / 1px} 0Z";
+    }
+    // The marks sit above the frame's outline so one under it still lights its edge; four fixed places keep their last box while fading out
+    for slot in 4: Rectangle {
+        width: root.width;
+        height: root.height;
+        property <bool> here: slot < root.marks.length;
+        property <PadMark> want: root.marks[slot];
+        property <PadMark> held;
+        init => { if (here) { held = want; } }
+        changed want => { if (here) { held = want; } }
+        // A box not on show takes its new place at once, one on show moves there
+        property <bool> unseen: presence.value < 0.01;
+        gx0 := Settle { to: held.x0; snap: unseen; }
+        gy0 := Settle { to: held.y0; snap: unseen; }
+        gx1 := Settle { to: held.x1; snap: unseen; }
+        gy1 := Settle { to: held.y1; snap: unseen; }
+        presence := Fade { shown: here; }
+        // On the frame: the frame's size and its middle on this box's middle
+        property <bool> on-it: here && root.fits(want) && abs(root.handle-x - (want.x0 + want.x1) / 2 * root.width) < 1.5px && abs(root.handle-y - (want.y0 + want.y1) / 2 * root.height) < 1.5px;
+        lit := Tone { on: on-it; }
+        property <length> sw: Theme.stroke / 2;
+        property <length> bx: round((root.px-x + gx0.value * root.width) / 1phx) * 1phx - root.px-x;
+        property <length> by: round((root.px-y + gy0.value * root.height) / 1phx) * 1phx - root.px-y;
+        property <length> bw: round((root.px-x + gx1.value * root.width) / 1phx) * 1phx - root.px-x - bx;
+        property <length> bh: round((root.px-y + gy1.value * root.height) / 1phx) * 1phx - root.px-y - by;
+        property <length> mr: max(0px, min(Theme.r-ctl, min(bw, bh) / 2) - sw / 2);
+        property <length> mw: bw - sw;
+        property <length> mh: bh - sw;
+        Path {
+            visible: presence.value > 0.01 && mw > 2 * sw && mh > 2 * sw;
+            opacity: presence.value;
+            x: bx;
+            y: by;
+            width: bw;
+            height: bh;
+            // fitted: the viewbox is the box less one stroke, so a unit is a pixel
+            viewbox-width: mw / 1px;
+            viewbox-height: mh / 1px;
+            stroke: Theme.ink.with-alpha(root.enabled ? 0.22 + 0.38 * lit.value : 0.13);
+            stroke-width: sw;
+            commands: "M\{mr / 1px} 0H\{(mw - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{mw / 1px} \{mr / 1px}V\{(mh - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mw - mr) / 1px} \{mh / 1px}H\{mr / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 0 \{(mh - mr) / 1px}V\{mr / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{mr / 1px} 0Z";
+        }
     }
     // A pad that can't be used lets the card show through what is drawn on it (a frame handle's pad keeps its picture: the frame goes grey instead)
     if !enabled && !frame-shown: Rectangle {
