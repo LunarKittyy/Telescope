@@ -121,7 +121,6 @@
     <string name="preview_stream_starting">ストリームを開始しています。しばらくしてから再試行してください。</string>
     <string name="preview_no_cameras">カメラが見つかりません。</string>
     <string name="preview_may_stretch">プレビューが引き伸ばされて表示される可能性があります - カメラ情報を読み取れませんでした。</string>
-    <string name="notes_close">ノートを閉じる</string>
     <string name="notif_channel_streaming">ストリーミング</string>
     <string name="notif_channel_streaming_desc">カメラがコンピューターへストリーミング中に表示されます</string>
     <string name="notif_channel_waiting">コンピューターを待機中</string>

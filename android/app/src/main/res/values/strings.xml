@@ -177,8 +177,8 @@
     <string name="preview_no_cameras">No cameras found.</string>
     <string name="preview_may_stretch">Preview may look stretched - couldn\'t read camera info.</string>
 
-    <!-- Notes screen: the notes sent from the computer, shown right under the front camera -->
-    <string name="notes_close">Close the notes</string>
+    <!-- Teleprompter screen: the script sent from the computer, shown right under the front camera -->
+    <string name="notes_close">Close the teleprompter</string>
 
     <!-- Notifications -->
     <string name="notif_channel_streaming">Streaming</string>

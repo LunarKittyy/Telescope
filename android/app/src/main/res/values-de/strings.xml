@@ -122,7 +122,6 @@
     <string name="preview_stream_starting">Der Stream startet. Versuche es gleich noch einmal.</string>
     <string name="preview_no_cameras">Keine Kameras gefunden.</string>
     <string name="preview_may_stretch">Vorschau wirkt eventuell verzerrt - Kamerainformationen konnten nicht gelesen werden.</string>
-    <string name="notes_close">Notizen schließen</string>
     <string name="notif_channel_streaming">Streaming</string>
     <string name="notif_channel_streaming_desc">Wird angezeigt, während die Kamera zu deinem Computer streamt</string>
     <string name="notif_channel_waiting">Wartet auf den Computer</string>

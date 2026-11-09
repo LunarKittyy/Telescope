@@ -124,7 +124,6 @@
     <string name="preview_stream_starting">Трансляция запускается. Попробуй снова через пару секунд.</string>
     <string name="preview_no_cameras">Камеры не найдены.</string>
     <string name="preview_may_stretch">Предпросмотр может выглядеть растянутым - не удалось прочитать данные камеры.</string>
-    <string name="notes_close">Закрыть заметки</string>
     <string name="notif_channel_streaming">Трансляция</string>
     <string name="notif_channel_streaming_desc">Показывается во время трансляции с камеры на компьютер</string>
     <string name="notif_channel_waiting">Ожидание компьютера</string>

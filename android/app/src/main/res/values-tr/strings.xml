@@ -122,7 +122,6 @@
     <string name="preview_stream_starting">Yayın başlıyor. Birazdan tekrar dene.</string>
     <string name="preview_no_cameras">Kamera bulunamadı.</string>
     <string name="preview_may_stretch">Önizleme uzatılmış görünebilir - kamera bilgileri okunamadı.</string>
-    <string name="notes_close">Notları kapat</string>
     <string name="notif_channel_streaming">Yayın</string>
     <string name="notif_channel_streaming_desc">Kamera bilgisayarına yayın yaparken gösterilir</string>
     <string name="notif_channel_waiting">Bilgisayar bekleniyor</string>

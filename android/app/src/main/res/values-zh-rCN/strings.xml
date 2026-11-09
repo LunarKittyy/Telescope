@@ -121,7 +121,6 @@
     <string name="preview_stream_starting">串流正在启动，请稍后重试。</string>
     <string name="preview_no_cameras">未找到相机。</string>
     <string name="preview_may_stretch">预览画面可能拉伸 - 无法读取相机信息。</string>
-    <string name="notes_close">关闭笔记</string>
     <string name="notif_channel_streaming">串流</string>
     <string name="notif_channel_streaming_desc">在相机向电脑串流时显示</string>
     <string name="notif_channel_waiting">正在等待电脑</string>
