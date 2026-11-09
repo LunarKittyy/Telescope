@@ -1,6 +1,6 @@
 // The video stage (plugins/preview.py): the letterboxed picture and the toolbar under it, no card chrome.
 
-import { Theme, Icons, Icon, IconButton, ToggleTile, Arrival } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, IconButton, ToggleTile, Arrival, FineAxis } from "@ui-kit/ui-kit.slint";
 import { PreviewMarks, PreviewPick, LensOutline, SkeletonLine } from "../../shell/preview.slint";
 
 // A shape a plugin draws on the preview (add_preview_layer), in px of the picture's rect
@@ -163,6 +163,9 @@ export component PreviewCard inherits Rectangle {
                     color: camera-off ? Theme.ink2 : Theme.faint;
                 }
             }
+            // Shift while dragging goes finer: the picture follows a tenth of the pointer's travel
+            fine-u := FineAxis { }
+            fine-v := FineAxis { }
             if has-frame: TouchArea {
                 mouse-cursor: stage-cursor == "cross" ? MouseCursor.crosshair : stage-cursor == "grab" ? MouseCursor.grab : stage-cursor == "grabbing" ? MouseCursor.grabbing : MouseCursor.default;
                 pointer-event(e) => {
@@ -171,7 +174,13 @@ export component PreviewCard inherits Rectangle {
                         : e.button != PointerEventButton.left ? ""
                         : e.kind == PointerEventKind.down ? "down" : e.kind == PointerEventKind.up ? "up" : "";
                     if kind != "" {
-                        root.view-pointer(kind, (self.mouse-x - pic-x) / max(pic-width, 1px), (self.mouse-y - pic-y) / max(pic-height, 1px), pic-width / 1px, pic-height / 1px);
+                        let u = (self.mouse-x - pic-x) / max(pic-width, 1px);
+                        let v = (self.mouse-y - pic-y) / max(pic-height, 1px);
+                        if kind == "down" {
+                            fine-u.begin(u);
+                            fine-v.begin(v);
+                        }
+                        root.view-pointer(kind, kind == "move" ? fine-u.at(u, e.modifiers.shift, -100000, 100000) : u, kind == "move" ? fine-v.at(v, e.modifiers.shift, -100000, 100000) : v, pic-width / 1px, pic-height / 1px);
                     }
                 }
                 scroll-event(e) => {

@@ -1,0 +1,28 @@
+// Shift while dragging goes finer, the same on every control that is dragged: one factor, one way of keeping the value from jumping.
+
+// The fraction of a drag's distance a Shift-held drag moves: the colour wheel's tenth (WHEEL_FINE in effects/src/editors.rs says the same)
+export global Fine {
+    out property <float> factor: 0.1;
+}
+
+// Kind "helper". One axis of a drag: `at` takes where the pointer would put the value (in the control's own units) and whether Shift is held, and gives where the value goes: the pointer's own place, except that every move made with Shift held counts a tenth, and what was held back stays held back after Shift is let go, so the value never jumps when Shift is pressed or released mid-drag. Held to lo and hi; what the value would be past an end is not forgotten, so coming back takes the same way back, as the colour wheel's puck does at its rim.
+export component FineAxis {
+    out property <string> control-kind: "helper";
+    // Shift was held at the last move
+    out property <bool> fine;
+    // What the pointer's place is off from the value's, in the control's units
+    property <float> held-back;
+    property <float> last;
+    // A drag begins with the pointer at `u`
+    public function begin(u: float) {
+        held-back = 0;
+        last = u;
+        fine = false;
+    }
+    public function at(u: float, shift: bool, lo: float, hi: float) -> float {
+        fine = shift;
+        if (shift) { held-back += (u - last) * (1 - Fine.factor); }
+        last = u;
+        return clamp(u - held-back, lo, hi);
+    }
+}

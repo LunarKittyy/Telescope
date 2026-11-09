@@ -9,6 +9,7 @@ import { NumberField } from "field.slint";
 import { Switch } from "switch.slint";
 import { Unfold, Fade } from "motion.slint";
 import { Tip } from "tip.slint";
+import { FineAxis } from "fine.slint";
 
 // The colour at a hue (0 to 1) on the pad's top right corner, and what the hue strip shows there
 global Hues {
@@ -31,11 +32,18 @@ component SatPad inherits Rectangle {
     property <float> shown-v: touched ? lv : v;
     changed s => { touched = false; }
     changed v => { touched = false; }
+    // Shift while dragging goes finer: the handle follows a tenth of the pointer's travel
+    fine-x := FineAxis { }
+    fine-y := FineAxis { }
+    property <bool> shift-now;
     function put(x: length, y: length) {
         ls = clamp(x / root.width, 0, 1);
         lv = 1 - clamp(y / root.height, 0, 1);
         touched = true;
         moved(ls, lv);
+    }
+    function put-fine(x: length, y: length) {
+        put(fine-x.at(x / 1px, shift-now, -100000, 100000) * 1px, fine-y.at(y / 1px, shift-now, -100000, 100000) * 1px);
     }
     function nudge(ds: float, dv: float) {
         ls = clamp(shown-s + ds, 0, 1);
@@ -88,9 +96,15 @@ component SatPad inherits Rectangle {
     TouchArea {
         mouse-cursor: crosshair;
         pointer-event(e) => {
-            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) { focus.focus(); put(self.mouse-x, self.mouse-y); }
+            shift-now = e.modifiers.shift;
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                focus.focus();
+                fine-x.begin(self.mouse-x / 1px);
+                fine-y.begin(self.mouse-y / 1px);
+                put(self.mouse-x, self.mouse-y);
+            }
         }
-        moved => { if (self.pressed) { put(self.mouse-x, self.mouse-y); } }
+        moved => { if (self.pressed) { put-fine(self.mouse-x, self.mouse-y); } }
     }
 }
 
@@ -104,6 +118,9 @@ component HueStrip inherits Rectangle {
     property <float> shown: touched ? lh : h;
     changed h => { touched = false; }
     property <length> inset: Theme.handle-w / 2;
+    // Shift while dragging goes finer: the handle follows a tenth of the pointer's travel
+    fine := FineAxis { }
+    property <bool> shift-now;
     function put(x: length) {
         lh = clamp((x - inset) / (root.width - 2 * inset), 0, 1);
         touched = true;
@@ -162,9 +179,14 @@ component HueStrip inherits Rectangle {
     }
     TouchArea {
         pointer-event(e) => {
-            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) { focus.focus(); put(self.mouse-x); }
+            shift-now = e.modifiers.shift;
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                focus.focus();
+                fine.begin(self.mouse-x / 1px);
+                put(self.mouse-x);
+            }
         }
-        moved => { if (self.pressed) { put(self.mouse-x); } }
+        moved => { if (self.pressed) { put(fine.at(self.mouse-x / 1px, shift-now, -100000, 100000) * 1px); } }
     }
 }
 

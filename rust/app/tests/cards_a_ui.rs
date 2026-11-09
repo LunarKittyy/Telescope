@@ -63,7 +63,7 @@ fn the_camera_card_dials_tiles_and_segments_say_what_they_picked() {
     let names = ["iso-picked", "shutter-picked", "ois-toggled", "low-light-toggled", "torch-toggled", "exposure-picked", "nr-picked", "edge-picked", "focus-picked"];
     let (ui, heard) = card(&source, &component, &base, &names);
     for (key, value) in json!({"active": true, "iso-enabled": true, "shutter-enabled": true, "iso-stops": ["100", "200", "400", "800"], "iso-index": 2,
-                               "shutter-stops": ["1/30", "1/60", "1/125"], "shutter-index": 1, "ois": {"checked": true, "enabled": true, "tip": ""},
+                               "iso-between": 0, "shutter-between": 0, "shutter-stops": ["1/30", "1/60", "1/125"], "shutter-index": 1, "ois": {"checked": true, "enabled": true, "tip": ""},
                                "low-light": {"checked": false, "enabled": true, "tip": ""}, "torch": {"checked": false, "enabled": true, "tip": ""},
                                "noise-reduction": 1, "sharpening": 1}).as_object().unwrap() {
         ui.set_property(key, to_property(&ui, key, value)).unwrap();

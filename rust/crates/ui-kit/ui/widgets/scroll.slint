@@ -2,6 +2,7 @@
 // coordinates and the thumb stays under it (a TouchArea on the thumb would measure from something that moves with it).
 
 import { Theme } from "../theme.slint";
+import { FineAxis } from "fine.slint";
 
 // A thumb over a trough, in `offset` terms (0 at the top); a drag or a click in the trough says where to go with scrolled.
 export component ScrollBar inherits Rectangle {
@@ -24,6 +25,9 @@ export component ScrollBar inherits Rectangle {
     property <bool> over-thumb: touch.mouse-y >= thumb-y && touch.mouse-y < thumb-y + thumb-h;
     property <bool> dragging;
     property <length> start-offset;
+    // Shift while dragging the handle goes finer: the page follows a tenth of the pointer's travel
+    fine := FineAxis { }
+    property <bool> shift-now;
     Rectangle {
         x: before;
         width: max(0px, root.width - before - after);
@@ -34,9 +38,11 @@ export component ScrollBar inherits Rectangle {
     }
     touch := TouchArea {
         pointer-event(e) => {
+            shift-now = e.modifiers.shift;
             if (e.button == PointerEventButton.left && e.kind == PointerEventKind.down) {
                 start-offset = clamp(offset, 0px, range);
                 dragging = over-thumb;
+                fine.begin(0);
                 if (!over-thumb && pages) {
                     root.scrolled(clamp(self.mouse-y < thumb-y ? start-offset - viewport : start-offset + viewport, 0px, range));
                 }
@@ -47,7 +53,7 @@ export component ScrollBar inherits Rectangle {
         }
         moved => {
             if (dragging && self.pressed) {
-                root.scrolled(clamp(start-offset + (self.mouse-y - self.pressed-y) * range / travel, 0px, range));
+                root.scrolled(clamp(start-offset + fine.at((self.mouse-y - self.pressed-y) / 1px, shift-now, -100000, 100000) * 1px * range / travel, 0px, range));
             }
         }
     }

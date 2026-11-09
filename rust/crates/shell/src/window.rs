@@ -115,6 +115,7 @@ pub struct Window {
 /// _PopoutWindow: the picture alone on black, in a window of its own.
 const POPOUT: &str = r#"
 import { PreviewMarks, PreviewPick, LensOutline, SkeletonLine } from "shell/preview.slint";
+import { FineAxis } from "@ui-kit/ui-kit.slint";
 
 export struct LayerPath { commands: string, stroke: color, width: length, fill: color, evenodd: bool }
 export struct LayerText { x: length, y: length, text: string, color: color, size: length }
@@ -211,6 +212,9 @@ export component PreviewPopout inherits Window {
         font: layer-font;
     }
     // The card's stage, as it's the same FrameLabel in Qt
+    // Shift while dragging goes finer: the picture follows a tenth of the pointer's travel
+    fine-u := FineAxis { }
+    fine-v := FineAxis { }
     if has-frame: TouchArea {
         mouse-cursor: stage-cursor == "cross" ? MouseCursor.crosshair : stage-cursor == "grab" ? MouseCursor.grab : stage-cursor == "grabbing" ? MouseCursor.grabbing : MouseCursor.default;
         pointer-event(e) => {
@@ -219,7 +223,13 @@ export component PreviewPopout inherits Window {
                 : e.button != PointerEventButton.left ? ""
                 : e.kind == PointerEventKind.down ? "down" : e.kind == PointerEventKind.up ? "up" : "";
             if kind != "" {
-                root.view-pointer(kind, (self.mouse-x - pic-x) / max(pic-width, 1px), (self.mouse-y - pic-y) / max(pic-height, 1px), pic-width / 1px, pic-height / 1px);
+                let u = (self.mouse-x - pic-x) / max(pic-width, 1px);
+                let v = (self.mouse-y - pic-y) / max(pic-height, 1px);
+                if kind == "down" {
+                    fine-u.begin(u);
+                    fine-v.begin(v);
+                }
+                root.view-pointer(kind, kind == "move" ? fine-u.at(u, e.modifiers.shift, -100000, 100000) : u, kind == "move" ? fine-v.at(v, e.modifiers.shift, -100000, 100000) : v, pic-width / 1px, pic-height / 1px);
             }
         }
         scroll-event(e) => {

@@ -8,6 +8,7 @@ import { Peek } from "peek.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { Fills, RampFill, ZebraFill, EdgeFill } from "fills.slint";
 import { Motion, Settle, Tone, ClickWait } from "motion.slint";
+import { FineAxis } from "fine.slint";
 
 // Kind "slider", one anatomy for every slider: a track, a handle, the value on the right and, when it goes both ways, a tick at the
 // centre. Only the fill varies, by name: "plain" is the card's colour up to the handle, "gradient" the range's own colours along the
@@ -184,7 +185,9 @@ export component Slider inherits HorizontalLayout {
             let held = d * 0.35 + 0.65 * 4 * d * d * d;
             return clamp((n + held) * max(0.0001, step) / span, 0, 1);
         }
-        property <float> pointer-fraction: detent(touch.picked);
+        // Shift while dragging goes finer: the value follows a tenth of the pointer's travel
+        fine := FineAxis { }
+        property <float> pointer-fraction: detent(touch.eff);
         // A handle that glides to the pointer sticks to it once it arrives
         changed fraction => {
             if (dragging && !caught && !pending && abs(fraction - target) * (self.width - Theme.handle-w) < Theme.u(2)) {
@@ -431,10 +434,14 @@ export component Slider inherits HorizontalLayout {
         touch := TouchArea {
             enabled: root.enabled;
             property <float> picked: clamp((self.mouse-x - track.inset) / (track.width - 2 * track.inset), 0, 1);
+            // Where the pointer puts the handle once Shift's slower going is counted, 0 to 1 along the track
+            property <float> eff: picked;
+            property <bool> shift-now;
             // The pointer is on the handle as it is drawn now
             property <bool> on-handle: abs(self.mouse-x - (handle.x + Theme.handle-w / 2)) <= Theme.handle-w / 2 + Theme.u(1);
             function drag() {
-                let v = snapped(round((minimum + picked * (maximum - minimum)) / step) * step);
+                eff = (fine.at(minimum + picked * (maximum - minimum), shift-now, minimum, maximum) - minimum) / max(0.0001, maximum - minimum);
+                let v = snapped(round((minimum + eff * (maximum - minimum)) / step) * step);
                 if (pending) {
                     // A drag that starts on the track is no click: it takes hold at once
                     if (abs(self.mouse-x - press-x) > Theme.u(2)) {
@@ -451,9 +458,12 @@ export component Slider inherits HorizontalLayout {
             }
             scroll-event(e) => { usage.wheel(); reject }
             pointer-event(e) => {
+                shift-now = e.modifiers.shift;
                 if (e.kind == PointerEventKind.down) { usage.press(); }
                 // A second press while the first click waits is the double-click's, which `double-clicked` answers
                 if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left && !pending) {
+                    fine.begin(minimum + picked * (maximum - minimum));
+                    eff = picked;
                     glide.sync();
                     dragging = true;
                     press-x = self.mouse-x;

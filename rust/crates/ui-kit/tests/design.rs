@@ -398,3 +398,73 @@ fn an_icon_takes_no_tooltip_of_its_own() {
     }
     assert!(problems.is_empty(), "an Icon with a Tip inside: {problems:?}");
 }
+
+/// The .slint files with a pointer that moves with a button down that are not setting a value from it, and why; everything else dragged goes through the kit's `FineAxis` (Shift is a tenth as far).
+const DRAGS_THAT_ARE_NOT_VALUES: &[(&str, &str)] = &[
+    ("ui-kit/ui/widgets/menu.slint", "the pointer only hovers a row"),
+    ("ui-kit/ui/widgets/pins.slint", "a pin is carried along the bar by the pointer, it sets no number"),
+    ("ui-kit/ui/widgets/wheel.slint", "it reports Shift and the owner takes the pace from the same tenth (WHEEL_FINE in effects/src/editors.rs)"),
+    ("effects/ui/composite_editor.slint", "Shift there already means stretch, and Alt crop"),
+];
+
+/// Whether a .slint file handles a pointer moving with a button down: a TouchArea's `moved` callback or a move pointer-event.
+fn handles_drags(text: &str) -> bool {
+    let moved = text.match_indices("moved =>").any(|(i, _)| !text[..i].chars().next_back().is_some_and(|c| c.is_alphanumeric() || c == '-'));
+    moved || text.contains("PointerEventKind.move")
+}
+
+#[test]
+fn everything_that_is_dragged_goes_through_the_kits_fine_handling() {
+    let mut files = Vec::new();
+    // The kit's own widgets too: slint_files leaves the kit out for the cards' checks
+    slint_files(&crates(), &mut files);
+    if let Ok(entries) = std::fs::read_dir(kit().join("ui/widgets")) {
+        files.extend(entries.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "slint")));
+    }
+    // And the window's own pop-out, which is a Slint source inside a Rust file
+    files.push(crates().join("shell/src/window.rs"));
+    let skip: BTreeMap<&str, &str> = DRAGS_THAT_ARE_NOT_VALUES.iter().copied().collect();
+    let mut problems = Vec::new();
+    let mut dragged = 0;
+    for file in files {
+        let rel = file.canonicalize().unwrap().strip_prefix(crates().canonicalize().unwrap()).unwrap().to_string_lossy().replace('\\', "/");
+        let text = std::fs::read_to_string(&file).unwrap();
+        if !handles_drags(&text) {
+            continue;
+        }
+        dragged += 1;
+        if skip.contains_key(rel.as_str()) {
+            continue;
+        }
+        if !text.contains("FineAxis") {
+            problems.push(format!("{rel} handles a drag without FineAxis: Shift must make it a tenth as far (add one, or list it in DRAGS_THAT_ARE_NOT_VALUES with the reason)"));
+        }
+    }
+    for f in skip.keys() {
+        let text = std::fs::read_to_string(crates().join(f)).unwrap_or_else(|_| panic!("DRAGS_THAT_ARE_NOT_VALUES names {f}, which doesn't exist"));
+        assert!(handles_drags(&text), "{f} no longer handles a drag: take it off DRAGS_THAT_ARE_NOT_VALUES");
+    }
+    assert!(dragged >= 10, "found the dragged controls: {dragged}");
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+#[test]
+fn there_is_one_fine_factor_and_it_is_the_colour_wheels() {
+    let fine = std::fs::read_to_string(kit().join("ui/widgets/fine.slint")).unwrap();
+    assert!(fine.contains("out property <float> factor: 0.1;"), "Fine.factor is a tenth");
+    let editors = std::fs::read_to_string(crates().join("effects/src/editors.rs")).unwrap();
+    assert!(editors.contains("const WHEEL_FINE: f64 = 0.1;"));
+    // No widget names a factor of its own: everything goes through Fine
+    let mut files: Vec<_> = std::fs::read_dir(kit().join("ui/widgets")).unwrap().flatten().map(|e| e.path()).collect();
+    files.sort();
+    for file in files {
+        if file.file_name().is_some_and(|n| n == "fine.slint") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&file).unwrap();
+        for (i, line) in text.lines().enumerate() {
+            let low = line.to_lowercase();
+            assert!(!(low.contains("fine") && low.contains("0.1") && low.contains('*')), "{}:{}: a factor of its own: {line}", file.display(), i + 1);
+        }
+    }
+}

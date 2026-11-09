@@ -5,19 +5,35 @@ import { Reveal } from "folds.slint";
 import { FocusRing, TouchRing, KeyFocus } from "basics.slint";
 import { Tip } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
-import { Motion, Settle, Tone, Fade } from "motion.slint";
+import { Motion, Settle, Tone, Fade, Flick } from "motion.slint";
+import { Fine, FineAxis } from "fine.slint";
 
-// Kind "dial": a strip of ticks and stop names sliding under a mark at the centre, dragged, scrolled or keyed through, saying `moved` then `released` with the stop's place in `stops`; it sits in the card, never in a bubble.
+// Kind "dial": a strip of ticks, one for every value, with the names of the labelled ones sliding under a mark at the centre, dragged, scrolled or keyed through, saying `moved` then `released` with the tick's place in `stops`; it sits in the card, never in a bubble. Shift while dragging or scrolling goes a tenth as far and, on a `free` dial, between the ticks (`moved-between`); a click on the value types one. See STYLE.md.
 export component Dial inherits Rectangle {
-    // The stops in order, as they are written ("100", "1/60")
+    // Every value the dial can sit on, in order, as it is written ("100", "1/60"): a tick each
     in property <[string]> stops;
+    // How many ticks make a step of the scale (a camera's full stop is three third-stops): only every `per-label`th is named in the strip, the first being `label-from`. The rest are shown when the dial is on them
+    in property <int> per-label: 1;
+    in property <int> label-from: 0;
     // Where the parent says it is, as a place in `stops`. A drag never writes here, so a parent's `current: iso-index` keeps following it.
     in-out property <int> current: 0;
+    // How far from that tick it is towards the next or the previous one (a fraction of a tick, -0.5 to 0.5), with the value as it reads there
+    in property <float> between: 0;
+    in property <string> value-text;
+    // The values are not only the ticks: Shift goes between them and a typed value is the owner's to read (`typed`)
+    in property <bool> free: false;
+    // Counts up when the owner could not use what was typed: the numbers shake and the value stays
+    in property <int> rejected: 0;
     // Where the person last put it, shown until the parent says something new
     property <int> local;
+    property <float> local-between;
     property <bool> touched;
     out property <int> shown: clamp(touched ? local : current, 0, max(0, stops.length - 1));
+    out property <float> shown-between: touched ? local-between : between;
+    // The place it sits at, in ticks
+    out property <float> shown-place: shown + shown-between;
     changed current => { touched = false; }
+    changed between => { touched = false; }
     // What it is called, small in its top left corner and to a screen reader ("ISO")
     in property <string> label;
     in property <color> hue: Theme.accent;
@@ -33,30 +49,56 @@ export component Dial inherits Rectangle {
     in property <string> setting;
     out property <string> control-kind: "dial";
     callback moved(int);
+    // The dial sits between two ticks: the nearer tick's place and how far from it, -0.5 to 0.5
+    callback moved-between(int, float);
     callback released(int);
-    // What the arrows move by: one stop. Shift with an arrow and the Page keys move by a tenth of the stops
+    // A value typed over the dial's own, as it was written
+    callback typed(string);
+    // What the arrows move by: one tick. Shift with an arrow and the Page keys move by a tenth of the ticks
     out property <int> key-big: max(1, round((stops.length - 1) / 10));
-    // Every way of setting a stop from the keyboard or the wheel goes through here, saying what a drag says: moved, then released
+    property <int> last-tick: max(0, stops.length - 1);
+    // Every way of setting a tick from the keyboard or the wheel goes through here, saying what a drag says: moved, then released
     function set-to(i: int) {
         if (!enabled) { return; }
-        let to = clamp(i, 0, max(0, stops.length - 1));
-        if (stops.length > 0 && to != shown) {
+        let to = clamp(i, 0, last-tick);
+        if (stops.length > 0 && (to != shown || shown-between != 0)) {
             strip.sync();
             quick = true;
             local = to;
+            local-between = 0;
             touched = true;
             moved(to);
             released(to);
         }
     }
-    // The strip's place in stops, which a drag moves smoothly and which otherwise slides to the stop that is picked
+    // The tick `by` ticks past the place, the way `dir` goes: from between two ticks the first step reaches the next one that way
+    function step-by(dir: int, by: int) {
+        let p = shown-place;
+        set-to(dir > 0 ? floor(p + 0.0001) + by : ceil(p - 0.0001) - by);
+    }
+    // A place between the ticks, from Shift and the wheel
+    function set-place(p: float) {
+        if (!enabled || stops.length == 0) { return; }
+        let to = clamp(p, 0, last-tick);
+        let i = round(to);
+        if (abs(to - shown-place) > 0.00001) {
+            strip.sync();
+            quick = true;
+            local = i;
+            local-between = to - i;
+            touched = true;
+            if (to == i) { moved(i); } else { moved-between(i, to - i); }
+            released(i);
+        }
+    }
+    // The strip's place in stops, which a drag moves smoothly and which otherwise slides to the tick that is picked
     property <float> pos: strip.value;
-    // Where the strip is now, in stops, for a test
+    // Where the strip is now, in ticks, for a test
     out property <float> strip-place: strip.value;
-    // A key or a wheel turn just set it: the strip is there at once. A drag follows the finger, and a stop that something else picked is slid to.
+    // A key or a wheel turn just set it: the strip is there at once. A drag follows the finger, and a tick that something else picked is slid to.
     property <bool> quick;
     // Only a finger puts the strip somewhere at once: a key or a wheel notch slides it, retargeting a slide still going
-    strip := Settle { to: dragging ? drag-pos : shown; snap: dragging; }
+    strip := Settle { to: dragging ? drag-pos : shown-place; snap: dragging; }
     held-tone := Tone { on: held; instant-in: true; }
     Timer {
         interval: 80ms;
@@ -67,14 +109,46 @@ export component Dial inherits Rectangle {
     property <float> drag-from;
     property <length> drag-x;
     property <bool> dragging;
+    property <bool> shift-now;
     property <bool> held: dragging && touch.pressed;
-    // The wheel's turns that haven't made a stop yet
+    // Shift's slower going while a drag is on
+    fine := FineAxis { }
+    // The wheel's turns that haven't made a tick yet
     property <float> wheel-sum;
-    // How far apart the stops are along the strip
+    // How far apart the labelled ticks are along the strip, and the ticks themselves
     property <length> pitch: clamp(root.width * 0.35, Theme.u(20), Theme.u(34));
+    property <float> per: max(1, per-label);
+    property <length> tick-pitch: pitch / per;
     property <length> mid: root.width / 2;
-    property <int> tick-count: stops.length > 0 ? (stops.length - 1) * 3 + 1 : 0;
     property <length> big: round(Theme.body * 17 / 13 / 1px) * 1px;
+    // Typing over the value
+    property <bool> is-typing;
+    property <bool> typing-by-key;
+    function start-typing(by-key: bool) {
+        if (enabled && free && stops.length > 0) {
+            typing-by-key = by-key;
+            is-typing = true;
+        }
+    }
+    function typing-done(text: string, apply: bool) {
+        if (is-typing) {
+            is-typing = false;
+            if (typing-by-key) { focus.focus(); } else { KeyFocus.given-back += 1; }
+            if (apply && text != "") { touched = false; typed(text); }
+        }
+    }
+    // A value the owner would not have: the numbers shake, one way, the other, and back
+    property <int> shake-step;
+    changed rejected => { shake-step = 1; }
+    shaker := Flick { to: shake-step == 1 ? 1 : shake-step == 2 ? -1 : 0; }
+    Timer {
+        interval: 90ms;
+        running: shake-step != 0;
+        triggered => { shake-step = shake-step >= 3 ? 0 : shake-step + 1; }
+    }
+    property <length> shake-x: shaker.value * Theme.u(2);
+    // Between ticks the value's own name stands in the middle, replacing the names of the ticks about it
+    property <float> own: value-text != "" ? clamp(abs(shown-between) / 0.1, 0, 1) : 0;
     // The stops arriving after the dash that held their place (the phone names its ISOs late): half solid in the first frame, then up
     arriving := Fade { shown: stops.length > 0; }
     property <float> solid: Motion.between(Motion.arrive-from, 1, arriving.value);
@@ -90,33 +164,34 @@ export component Dial inherits Rectangle {
     animate background, border-width { duration: Motion.tone-for(held); easing: Motion.tone; }
     accessible-role: slider;
     accessible-label: label;
-    accessible-value: stops.length > 0 ? stops[shown] : "";
+    accessible-value: stops.length == 0 ? "" : shown-between != 0 && value-text != "" ? value-text : stops[shown];
     accessible-value-minimum: 0;
     accessible-value-maximum: max(0, stops.length - 1);
     accessible-value-step: 1;
     accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
-    accessible-action-increment => { if (enabled) { set-to(shown + 1); } }
-    accessible-action-decrement => { if (enabled) { set-to(shown - 1); } }
+    accessible-action-increment => { if (enabled) { step-by(1, 1); } }
+    accessible-action-decrement => { if (enabled) { step-by(-1, 1); } }
     forward-focus: focus;
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: root.enabled;
         key-pressed(e) => {
             let by = e.modifiers.shift ? key-big : 1;
-            if (e.text == Key.RightArrow || e.text == Key.UpArrow) { set-to(shown + by); return accept; }
-            if (e.text == Key.LeftArrow || e.text == Key.DownArrow) { set-to(shown - by); return accept; }
-            if (e.text == Key.PageUp) { set-to(shown + key-big); return accept; }
-            if (e.text == Key.PageDown) { set-to(shown - key-big); return accept; }
+            if (e.text == Key.RightArrow || e.text == Key.UpArrow) { step-by(1, by); return accept; }
+            if (e.text == Key.LeftArrow || e.text == Key.DownArrow) { step-by(-1, by); return accept; }
+            if (e.text == Key.PageUp) { step-by(1, key-big); return accept; }
+            if (e.text == Key.PageDown) { step-by(-1, key-big); return accept; }
             if (e.text == Key.Home) { set-to(0); return accept; }
             if (e.text == Key.End) { set-to(stops.length - 1); return accept; }
+            if (e.text == "\n" && free) { start-typing(true); return accept; }
             reject
         }
     }
     TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
-    // The ticks: one at each stop, two small ones between, fading toward the ends
-    for t in tick-count: Rectangle {
-        property <bool> major: mod(t, 3) == 0;
-        property <length> at: mid + (t / 3 - pos) * pitch;
+    // The ticks: one for every value, the labelled ones taller, fading toward the ends
+    for stop[t] in stops: Rectangle {
+        property <bool> major: per-label <= 1 || mod(t + 1000 * per-label - label-from, per-label) == 0;
+        property <length> at: mid + (t - pos) * tick-pitch;
         property <float> near: clamp((1 - abs(at - mid) / (root.width / 2)) / 0.45, 0, 1);
         x: at - Theme.u(0.5);
         y: root.height - Theme.u(3) - self.height;
@@ -126,30 +201,83 @@ export component Dial inherits Rectangle {
         background: enabled ? Theme.ink : Theme.dis;
         opacity: near * (major ? 0.55 : 0.25) * solid;
     }
-    // The names: the one under the mark large, its neighbours small and dim
+    // The names: a labelled tick keeps its name small and dim at a distance and swells as it comes to the mark, an unlabelled one is named only while it is at the mark. The swell is a scale of the large text, not a font size, and the scaled text is a layer (`cache-rendering-hint`, only while it is scaled): femtovg hints its glyphs and rounds a text scale to sixteenths, so a font size or a plain scale moves in whole pixels (the same height for several frames, then a jump, and the word bobbing), where a layer is a picture of the word that scales and moves in fractions of a pixel. At rest there is no layer, so the word is drawn as plain text, pixel sharp; the box is the same size on every frame, so the word is laid out the same way on every frame.
     for stop[i] in stops: Rectangle {
+        property <bool> major: per-label <= 1 || mod(i + 1000 * per-label - label-from, per-label) == 0;
+        // Ticks from the mark, and labelled steps from it
         property <float> dist: abs(i - pos);
-        visible: dist < 1.6;
-        x: mid + (i - pos) * pitch - self.width / 2;
+        property <float> slots: dist / per;
+        // The swell takes one tick; a labelled name beside the middle one fades up only once there is room for both
+        property <float> swell: clamp(1 - dist, 0, 1);
+        property <float> room: Theme.u(20) / tick-pitch;
+        property <float> ramp: room <= 1 ? 1 : clamp((dist - 1) / (room - 1), 0, 1);
+        property <float> far: slots <= 1 ? 1 : max(0, (1.6 - slots) / 0.6);
+        property <float> grown: (Theme.small + (big - Theme.small) * swell) / big;
+        visible: major ? slots < 1.6 : dist < 1;
+        // An unlabelled tick's name stays at the mark and dissolves into the next one's, a labelled one slides in with its tick
+        x: (major ? mid + (i - pos) * tick-pitch : mid) - self.width / 2 + shake-x;
         y: Theme.u(5);
         width: pitch - Theme.u(3);
         height: Theme.u(13);
-        // The size between the small and the large is a scale of the large text, not a font size: a font size is rounded to whole pixels,
-        // so the names would jump from one size to the next, where a scale is anti-aliased and moves in fractions of a pixel. The box
-        // is made as much larger as the text is made smaller, so it still ends where the stop's room does.
-        property <float> grown: (Theme.small + (big - Theme.small) * clamp(1 - dist, 0, 1)) / big;
-        Text {
-            width: parent.width / grown;
-            height: parent.height / grown;
+        // Past a tick the name keeps the small size: plain text, which draws crisp
+        Rectangle {
+            visible: dist >= 1;
+            opacity: solid * (major ? 0.45 * ramp * far : 0);
+            Text {
+                width: parent.width;
+                height: parent.height;
+                text: stop;
+                font-family: Theme.font;
+                font-size: Theme.small;
+                font-weight: Theme.w-value;
+                color: !enabled ? Theme.dis : Theme.ink;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                overflow: elide;
+                accessible-role: none;
+            }
+        }
+        Rectangle {
+            visible: dist < 1 && !is-typing;
+            width: parent.width * big / Theme.small;
+            height: parent.height;
             x: (parent.width - self.width) / 2;
-            y: (parent.height - self.height) / 2;
+            y: 0px;
             transform-scale: grown;
-            text: stop;
+            Rectangle {
+                cache-rendering-hint: grown < 0.9999;
+                opacity: solid * (1 - own) * min(1, swell * swell + (major ? 0.45 * ramp * far : 0));
+                Text {
+                    width: parent.width;
+                    height: parent.height;
+                    text: stop;
+                    font-family: Theme.font;
+                    font-size: big;
+                    font-weight: Theme.w-value;
+                    color: !enabled ? Theme.dis : Theme.ink;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    overflow: elide;
+                    accessible-role: none;
+                }
+            }
+        }
+    }
+    // Between two ticks: its own name at the mark
+    if value-text != "" && !is-typing: Rectangle {
+        x: mid - self.width / 2 + shake-x;
+        y: Theme.u(5);
+        width: pitch * big / Theme.small;
+        height: Theme.u(13);
+        opacity: solid * own;
+        Text {
+            width: parent.width;
+            height: parent.height;
+            text: value-text;
             font-family: Theme.font;
             font-size: big;
             font-weight: Theme.w-value;
             color: !enabled ? Theme.dis : Theme.ink;
-            opacity: solid * (dist <= 1 ? 0.45 + 0.55 * (1 - dist) : max(0, 0.45 * (1.6 - dist) / 0.6));
             horizontal-alignment: center;
             vertical-alignment: center;
             overflow: elide;
@@ -170,6 +298,33 @@ export component Dial inherits Rectangle {
         vertical-alignment: center;
         accessible-role: none;
     }
+    if is-typing: TextInput {
+        x: mid - self.width / 2;
+        y: Theme.u(5);
+        width: pitch;
+        height: Theme.u(13);
+        text: value-text != "" && shown-between != 0 ? value-text : stops[shown];
+        font-family: Theme.font;
+        font-size: big;
+        font-weight: Theme.w-value;
+        color: Theme.ink;
+        selection-background-color: Theme.fill;
+        selection-foreground-color: white;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        single-line: true;
+        accessible-label: root.label;
+        init => { self.focus(); self.select-all(); }
+        accepted => { root.typing-done(self.text, true); }
+        changed has-focus => { if (!self.has-focus) { root.typing-done(self.text, false); } }
+        key-pressed(e) => {
+            if (e.text == Key.Escape) {
+                root.typing-done(self.text, false);
+                return accept;
+            }
+            reject
+        }
+    }
     Text {
         x: Theme.u(5);
         y: Theme.u(2.5);
@@ -182,7 +337,7 @@ export component Dial inherits Rectangle {
         overflow: elide;
         accessible-role: none;
     }
-    // The mark the stop under it is read against
+    // The mark the tick under it is read against
     Rectangle {
         x: mid - Theme.u(1);
         y: root.height - Theme.u(2.5) - self.height;
@@ -194,43 +349,62 @@ export component Dial inherits Rectangle {
     FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
     usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
-        enabled: root.enabled;
+        enabled: root.enabled && !is-typing;
         mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
         scroll-event(e) => {
             usage.wheel();
-            wheel-sum += e.delta-y / 1px;
-            // A notch of a mouse wheel is 60 and makes a stop; a touchpad's smaller turns add up to one
-            let stops-turned = wheel-sum >= 0 ? floor(wheel-sum / 60) : ceil(wheel-sum / 60);
-            if (stops-turned != 0) {
-                wheel-sum -= stops-turned * 60;
-                set-to(shown + round(stops-turned));
+            // Shift often turns a wheel sideways
+            wheel-sum += (e.delta-y != 0px ? e.delta-y : e.delta-x) / 1px;
+            // A notch of a mouse wheel is 60 and makes a tick; a touchpad's smaller turns add up to one
+            let turned = wheel-sum >= 0 ? floor(wheel-sum / 60) : ceil(wheel-sum / 60);
+            if (turned != 0) {
+                wheel-sum -= turned * 60;
+                if (e.modifiers.shift && free) {
+                    set-place(shown-place + turned * Fine.factor);
+                } else {
+                    set-to(round(shown-place + turned));
+                }
             }
             accept
         }
+        // The pointer's place on the strip, in ticks, as a plain drag would have it
+        function at-pointer() -> float { drag-from - (self.mouse-x - drag-x) / tick-pitch }
+        function follow() {
+            let p = fine.at(at-pointer(), shift-now, 0, last-tick);
+            drag-pos = p;
+            if (stops.length > 0) {
+                let q = free && fine.fine ? p : round(p);
+                let i = round(q);
+                if (i != shown || abs(q - i - shown-between) > 0.0005) {
+                    local = i;
+                    local-between = q - i;
+                    touched = true;
+                    if (q == i) { root.moved(i); } else { root.moved-between(i, q - i); }
+                }
+            }
+        }
         pointer-event(e) => {
+            shift-now = e.modifiers.shift;
             if (e.kind == PointerEventKind.down) { usage.press(); }
             if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
                 dragging = true;
                 focus.focus();
-                drag-from = shown;
-                drag-pos = shown;
+                drag-from = shown-place;
+                drag-pos = shown-place;
                 drag-x = self.mouse-x;
+                fine.begin(shown-place);
             }
-            if (e.kind == PointerEventKind.move && dragging && self.pressed) {
-                drag-pos = clamp(drag-from - (self.mouse-x - drag-x) / pitch, 0, max(0, stops.length - 1));
-                if (stops.length > 0 && round(drag-pos) != shown) {
-                    local = round(drag-pos);
-                    touched = true;
-                    root.moved(local);
-                }
-            }
+            if (e.kind == PointerEventKind.move && dragging && self.pressed) { follow(); }
             if (dragging && ((e.kind == PointerEventKind.up && e.button == PointerEventButton.left) || e.kind == PointerEventKind.cancel)) {
                 dragging = false;
-                // A press that went nowhere on a name beside the mark picks that name
+                // A press that went nowhere: on a tick beside the mark it picks that tick, on the mark's own it types over the value
                 if (e.kind == PointerEventKind.up && abs(self.mouse-x - drag-x) < Theme.u(2) && stops.length > 0) {
-                    let to = clamp(round(drag-from + (self.mouse-x - mid) / pitch), 0, stops.length - 1);
-                    if (to != shown) {
+                    let to = clamp(round(drag-from + (self.mouse-x - mid) / tick-pitch), 0, last-tick);
+                    if (to == round(drag-from)) {
+                        start-typing(false);
+                    } else if (to != shown) {
                         local = to;
+                        local-between = 0;
                         touched = true;
                         root.moved(to);
                     }
@@ -239,14 +413,7 @@ export component Dial inherits Rectangle {
             }
         }
         moved => {
-            if (self.pressed && dragging) {
-                drag-pos = clamp(drag-from - (self.mouse-x - drag-x) / pitch, 0, max(0, stops.length - 1));
-                if (stops.length > 0 && round(drag-pos) != shown) {
-                    local = round(drag-pos);
-                    touched = true;
-                    root.moved(local);
-                }
-            }
+            if (self.pressed && dragging) { follow(); }
         }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
