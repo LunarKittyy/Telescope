@@ -1314,6 +1314,9 @@ class CameraStreamService : Service() {
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIF_ID, buildNotification())
     }
 
+    // The look changed: the running notification takes its colour again, with no restart
+    fun refreshNotification() = showStreamNotification()
+
     private fun startForegroundCompat(withMic: Boolean = AudioStreamer.permitted(this)) {
         val n = buildNotification()
         // Type parameter only works on R+; pre-R relies on manifest declaration.

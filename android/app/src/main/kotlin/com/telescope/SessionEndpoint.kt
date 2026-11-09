@@ -54,6 +54,20 @@ object StreamOwner {
     fun busyOther(owner: PairedComputer) = ControlResult(ok = false, error = BUSY_OTHER, computer = owner.name)
 }
 
+// Counts the app screens on show: the first one up and the last one gone are the only changes anyone needs to hear of.
+class VisibleScreens(private val onFirst: () -> Unit, private val onNone: () -> Unit) {
+    private var count = 0
+
+    @Synchronized
+    fun started() { if (count++ == 0) onFirst() }
+
+    @Synchronized
+    fun stopped() { if (count > 0 && --count == 0) onNone() }
+
+    @Synchronized
+    fun any(): Boolean = count > 0
+}
+
 // Refcount design: Activity, stream service and waiting service hold tags; first acquire binds port, last release closes.
 object SessionEndpoint {
     const val OWNER_ACTIVITY = "activity"
@@ -144,6 +158,20 @@ object SessionEndpoint {
         announcer?.stop()
         announcer = null
     }
+
+    // Each app screen (main, settings) calls these from onStart/onStop, so moving between them never drops the endpoint.
+    private var appContext: Context? = null
+    private val screens = VisibleScreens(
+        onFirst = { appContext?.let { acquire(it, OWNER_ACTIVITY) } },
+        onNone = { release(OWNER_ACTIVITY) },
+    )
+
+    fun screenStarted(context: Context) {
+        appContext = context.applicationContext
+        screens.started()
+    }
+
+    fun screenStopped() = screens.stopped()
 
     @Synchronized
     fun isHeldBy(owner: String): Boolean = owner in owners

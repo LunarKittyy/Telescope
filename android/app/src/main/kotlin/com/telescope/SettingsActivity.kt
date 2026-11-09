@@ -56,12 +56,14 @@ class SettingsActivity : LookActivity() {
 
     override fun onStart() {
         super.onStart()
+        SessionEndpoint.screenStarted(this)  // the phone stays reachable while Settings is up
         Updater.addListener(updateListener)
         renderVersion()
     }
 
     override fun onStop() {
         Updater.removeListener(updateListener)
+        SessionEndpoint.screenStopped()
         super.onStop()
     }
 

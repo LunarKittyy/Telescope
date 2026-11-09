@@ -159,6 +159,7 @@ class PreviewActivity : LookActivity() {
 
     override fun onStart() {
         super.onStart()
+        SessionEndpoint.screenStarted(this)
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED) {
             Toast.makeText(this, getString(R.string.preview_camera_permission), Toast.LENGTH_SHORT).show()
@@ -174,6 +175,7 @@ class PreviewActivity : LookActivity() {
     }
 
     override fun onStop() {
+        SessionEndpoint.screenStopped()
         // onStart can finish early (no camera permission) before registering or binding
         if (receiverRegistered) {
             unregisterReceiver(screenOffReceiver)

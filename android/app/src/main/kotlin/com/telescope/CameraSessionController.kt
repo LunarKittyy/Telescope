@@ -934,8 +934,12 @@ class CameraSessionController(
         currentTargetSurfaces().map { surface ->
             OutputConfiguration(surface).also { cfg ->
                 physId?.let { cfg.setPhysicalCameraId(it) }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !streamUseCaseRefused)
-                    applyStreamUseCase(cfg, surface)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    // Encoder (or its gate) frames carry the sensor's own clock, the one SENSOR_INFO_TIMESTAMP_SOURCE names; the default for video is monotonic
+                    if (encoder != null && (surface === encoder?.inputSurface || surface === gate?.inputSurface))
+                        cfg.setTimestampBase(OutputConfiguration.TIMESTAMP_BASE_SENSOR)
+                    if (!streamUseCaseRefused) applyStreamUseCase(cfg, surface)
+                }
             }
         } + stills.map { still -> StillCapture.outputConfig(still, physId) }
 

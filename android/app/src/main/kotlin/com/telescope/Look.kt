@@ -41,6 +41,9 @@ enum class Look(val key: String, @StyleRes val theme: Int, @StringRes val label:
 
         fun save(context: Context, look: Look) {
             StreamPrefs.of(context).edit().putString(KEY, look.key).apply()
+            // A notification already up keeps the old colour until it is posted again
+            val service = CameraStreamService.instance
+            if (service?.isStreaming == true) service.refreshNotification() else WaitingService.showStreaming(context, false)
         }
     }
 }
