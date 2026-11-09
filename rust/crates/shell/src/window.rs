@@ -30,6 +30,9 @@ pub fn use_app_id(id: String) {
     let _ = APP_ID.set(id);
 }
 
+/// How long after start the Settings window is built in the background.
+const SETTINGS_PREPARED_AFTER: Duration = Duration::from_millis(2000);
+
 /// Called once when the window has been shown (or put in the tray), before the event loop runs.
 #[derive(Clone)]
 pub struct ShownHook(pub Arc<dyn Fn() + Send + Sync>);
@@ -1599,6 +1602,13 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         window.show_window();
     }
     window.process();
+    // Settings is built while nobody is waiting for it, so the first click only shows it
+    let weak = Rc::downgrade(&window);
+    slint::Timer::single_shot(SETTINGS_PREPARED_AFTER, move || {
+        if let Some(w) = weak.upgrade() {
+            crate::settings::prepare(&w);
+        }
+    });
     slint::run_event_loop_until_quit().map_err(|e| e.to_string())?;
     drop(tray_timer);
     let _ = window.ui.hide();

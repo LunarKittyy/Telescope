@@ -202,10 +202,11 @@ pub fn set_classic(on: bool) {
     }
 }
 
-pub fn open(window: &Rc<Window>, tab: &str) {
+/// The settings window, built now if it wasn't yet (without showing it).
+fn ensure(window: &Rc<Window>) -> Option<Rc<Settings>> {
     let existing = SETTINGS.with(|s| s.borrow().clone());
-    let settings = match existing {
-        Some(s) => s,
+    match existing {
+        Some(s) => Some(s),
         None => match build(window) {
             Ok(s) => {
                 SETTINGS.with(|slot| *slot.borrow_mut() = Some(s.clone()));
@@ -215,14 +216,24 @@ pub fn open(window: &Rc<Window>, tab: &str) {
                 if let Ok(classic) = window.ui.get_global_property("Theme", "classic") {
                     let _ = s.ui.set_global_property("Theme", "classic", classic);
                 }
-                s
+                Some(s)
             }
             Err(e) => {
                 log::error!("The settings window couldn't be built: {e}");
-                return;
+                None
             }
         },
-    };
+    }
+}
+
+/// Builds the settings window ahead of the first click on it, while the app is idle: compiling its page is most of the 400 ms
+/// between the click and the window.
+pub fn prepare(window: &Rc<Window>) {
+    ensure(window);
+}
+
+pub fn open(window: &Rc<Window>, tab: &str) {
+    let Some(settings) = ensure(window) else { return };
     let coming_up = !settings.ui.window().is_visible();
     if !tab.is_empty() {
         settings.show_tab(tab);
