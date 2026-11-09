@@ -107,6 +107,10 @@ export global Theme {
 
     // Status
     out property <color> ok: pick(#79bf8e, #5fc98c, #79bf8e, #377c4f);
+    // The Update button: a deep green that white text reads on (Classic keeps its old bright one)
+    out property <color> update-fill: pick(#2e6b45, ok, #2e6b45, #2e6b45);
+    out property <color> update-hover: pick(#357a4f, ok.brighter(0.1), #357a4f, #357a4f);
+    out property <color> update-press: pick(#275a3a, ok.darker(0.2), #275a3a, #275a3a);
     out property <color> warn: pick(#ef8a4e, #f0b65c, #ef8a4e, #aa4d00);
     out property <color> err: pick(#ec6b69, #ef6f6b, #ec6b69, #b63a3d);
 

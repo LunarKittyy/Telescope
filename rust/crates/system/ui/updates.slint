@@ -19,7 +19,7 @@ export component UpdateButton inherits Rectangle {
     width: shown ? lay.preferred-width : 0px;
     height: 36px;
     border-radius: 10px;
-    background: touch.pressed ? Theme.ok.darker(0.2) : touch.has-hover ? Theme.ok.brighter(0.1) : Theme.ok;
+    background: touch.pressed ? Theme.update-press : touch.has-hover ? Theme.update-hover : Theme.update-fill;
     accessible-role: button;
     accessible-label: @tr("Update");
     accessible-description: tip;
