@@ -194,8 +194,10 @@ mod wayland {
                 let connection = Connection::from_backend(unsafe { Backend::from_foreign_display(display.cast()) });
                 let mut queue = connection.new_event_queue();
                 let mut state = State::default();
-                connection.display().get_registry(&queue.handle(), ());
+                let registry = connection.display().get_registry(&queue.handle(), ());
                 let _ = queue.roundtrip(&mut state);
+                // Nothing dispatches this queue again, so the registry goes or every later output change piles up in it
+                let _ = connection.backend().destroy_object(&registry.id());
                 state.manager.map(|manager| Painter { connection, queue, manager, palettes: RefCell::default() })
             });
             let Some(painter) = painter else { return Some(()) };
