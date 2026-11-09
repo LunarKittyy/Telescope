@@ -55,9 +55,11 @@ Conecta el teléfono por cable o por Wi-Fi. Puedes usar hasta cuatro a la vez, c
 
 La mayoría de estas funciones son complementos que activas cuando los necesitas. También hay gradación de color, desenfoque de privacidad, una etiqueta de nombre, notas junto a la lente y otros complementos. Puedes instalar también complementos de otras personas.
 
-[Todo lo que puede hacer Telescope](docs/features.md) está en la documentación, junto con [una comparación](https://telescope.webcam/compare.html) con DroidCam, Iriun y Camo.
+La [documentación](docs/README.md) incluye [todo lo que puede hacer Telescope](docs/features.md), además de solución de problemas, configuración manual y complementos. En el sitio hay [una comparación](https://telescope.webcam/compare.html) con DroidCam, Iriun y Camo.
 
 ## Preguntas frecuentes
+
+**¿Dónde está la documentación?** Aquí: [Documentación](docs/README.md).
 
 <details>
 <summary><b>¿De verdad es gratis?</b></summary>
