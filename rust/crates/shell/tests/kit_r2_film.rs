@@ -6,7 +6,7 @@ use motion_film::*;
 use slint::platform::{Key, WindowEvent};
 use slint::ComponentHandle;
 use slint_interpreter::Value;
-use telescope_shell::offscreen;
+use telescope_shell::offscreen::{self, Picture};
 
 fn tag() -> &'static str {
     if std::env::var_os("FILM_BEFORE").is_some() { "before" } else { "after" }
@@ -271,6 +271,82 @@ fn the_pan_map() {
     let at_15 = offscreen::draw(ui.window(), 340.0, 230.0, 3.0).unwrap();
     save(&dir, &format!("pan-1.5x-{}.png", tag()), &strip(&[at_15], (10.0, 5.0, 320.0, 220.0), 3.0, 1));
     let _ = key;
+}
+
+// The pan map as the Transforms card builds it: the pad's range is the crop's centre, which narrows to a point at 1.0x, and the frame is the pad's size over the zoom.
+const ZOOM_MAP: &str = r#"
+import { Pad, Theme } from "@ui-kit/ui-kit.slint";
+export component T inherits Window {
+    width: 340px;
+    height: 230px;
+    background: Theme.card;
+    in property <float> zoom: 1;
+    in property <float> pan-x: 0;
+    in property <float> pan-y: 0;
+    property <float> span: 1 - 1 / max(1, zoom);
+    out property <length> hx: pad.handle-x;
+    out property <length> hy: pad.handle-y;
+    pad := Pad {
+        x: 20px; y: 15px; width: 300px; height: 200px; label: "Pan";
+        x-minimum: 0.5 * (1 - root.span); x-maximum: 0.5 * (1 + root.span);
+        y-minimum: 0.5 * (1 - root.span); y-maximum: 0.5 * (1 + root.span);
+        value-x: 0.5 + root.pan-x * root.span / 2; value-y: 0.5 + root.pan-y * root.span / 2;
+        step-x: 0.005; step-y: 0.005;
+        box-w: self.width / max(1, root.zoom); box-h: self.height / max(1, root.zoom);
+        has-centre: false; has-default: true; default-x: 0.5; default-y: 0.5; hue: #aa9cf5;
+        Rectangle { background: #2a5a6a; }
+    }
+}
+"#;
+
+/// The frame's centre every frame, in the pad's pixels, while `each` moves the zoom; it must never jump from one frame to the next and
+/// never leave the pad. Returns the pictures for the film too.
+fn pan_frames(ui: &slint_interpreter::ComponentInstance, frames: usize, mut each: impl FnMut(usize)) -> Vec<Picture> {
+    let mut last: Option<(f32, f32)> = None;
+    film(ui, (340.0, 230.0), 1.0, frames, |i| {
+        each(i);
+        let now = (num(ui, "hx"), num(ui, "hy"));
+        assert!(now.0 >= -0.5 && now.0 <= 300.5 && now.1 >= -0.5 && now.1 <= 200.5, "frame {i}: the frame's centre {now:?} is outside the pad");
+        if let Some(before) = last {
+            let jump = (now.0 - before.0).abs().max((now.1 - before.1).abs());
+            assert!(jump < 40.0, "frame {i}: the frame's centre jumped {jump} px, from {before:?} to {now:?}");
+        }
+        last = Some(now);
+    })
+}
+
+#[test]
+fn the_pan_map_zooming_out_fast() {
+    let shots = shots();
+    let _still = offscreen::freeze_clock();
+    let ui = make(ZOOM_MAP, 340.0, 230.0);
+    set(&ui, "pan-x", Value::Number(0.8));
+    set(&ui, "pan-y", Value::Number(-0.6));
+    set(&ui, "zoom", Value::Number(1.5));
+    step(800);
+    // To 1.0x at once, before the frame has finished growing: it grows from where it is, to the pad's size
+    set(&ui, "zoom", Value::Number(1.0));
+    let pictures = pan_frames(&ui, 24, |_| {});
+    if let Some(dir) = &shots {
+        save(dir, &format!("pan-zoom-out-{}.png", tag()), &strip(&pictures, (10.0, 5.0, 320.0, 220.0), 1.0, 4));
+    }
+}
+
+#[test]
+fn the_pan_map_zooming_back_and_forth() {
+    let shots = shots();
+    let _still = offscreen::freeze_clock();
+    let ui = make(ZOOM_MAP, 340.0, 230.0);
+    set(&ui, "pan-x", Value::Number(0.5));
+    set(&ui, "pan-y", Value::Number(0.5));
+    // 1.0x, in to 1.5x and out again before either has finished, three times as fast as a hand does it
+    let pictures = pan_frames(&ui, 36, |i| {
+        let zoom = if (i / 6) % 2 == 0 { 1.5 } else { 1.0 };
+        set(&ui, "zoom", Value::Number(zoom));
+    });
+    if let Some(dir) = &shots {
+        save(dir, &format!("pan-back-and-forth-{}.png", tag()), &strip(&pictures, (10.0, 5.0, 320.0, 220.0), 1.0, 6));
+    }
 }
 
 const DIAL: &str = r#"
