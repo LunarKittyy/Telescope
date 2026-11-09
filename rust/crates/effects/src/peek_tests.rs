@@ -74,10 +74,11 @@ fn a_clip_is_the_window_slid_in_to_stay_inside_the_picture() {
 }
 
 #[test]
-fn the_scene_picture_is_decoded_once_at_twice_the_bubbles_size() {
+fn the_scene_picture_is_decoded_once_at_the_size_of_the_photo() {
     let picture = scene_picture();
     assert_eq!((picture.width as usize, picture.height as usize), (SCENE_WIDTH, SCENE_HEIGHT));
-    assert_eq!((SCENE_WIDTH, SCENE_HEIGHT), (2 * WIDTH, 2 * HEIGHT));
+    assert_eq!((SCENE_WIDTH, SCENE_HEIGHT), (1280, 720));
+    assert_eq!(SCENE_WIDTH * HEIGHT, SCENE_HEIGHT * WIDTH, "the bubble's shape");
     assert!(std::ptr::eq(picture, scene_picture()), "kept, not decoded again");
     // the picture is the photo the framing code reads, opaque
     let (x, y) = chest();

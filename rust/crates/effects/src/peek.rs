@@ -20,9 +20,9 @@ pub const PICTURE_MS: u64 = 125;
 /// has to be more than a few of those pixels wide to blur the way a real one does. It is made once, the first time a bubble needs it.
 pub const BLUR_WIDTH: usize = 960;
 pub const BLUR_HEIGHT: usize = 540;
-/// The Framing bubble's photo is twice the bubble's size, so a crop of it is still sharp on a sharp screen.
-pub const SCENE_WIDTH: usize = 2 * WIDTH;
-pub const SCENE_HEIGHT: usize = 2 * HEIGHT;
+/// The Framing bubble's photo is far bigger than the bubble, since the tightest levels crop a small part of it and a crop must still be sharp on a sharp screen.
+pub const SCENE_WIDTH: usize = 1280;
+pub const SCENE_HEIGHT: usize = 720;
 /// The shape of the Framing photo and of the blur's drawn sample.
 pub const SAMPLE_ASPECT: f64 = WIDTH as f64 / HEIGHT as f64;
 
@@ -100,7 +100,7 @@ fn draw_scene(f: &Figure, w: usize, h: usize) -> (Rgb, Gray) {
     (rgb, mask.blur(1.2))
 }
 
-/// Someone standing a few steps back (704 x 396, with some ground under the feet), so every Framing level from head and shoulders to the whole body has something different to show.
+/// Someone standing a few steps back (1280 x 720, with some ground under the feet), so every Framing level from head and shoulders to the whole body has something different to show.
 const SCENE_JPEG: &[u8] = include_bytes!("../assets/framing-scene.jpg");
 
 fn scene() -> &'static Rgb {
