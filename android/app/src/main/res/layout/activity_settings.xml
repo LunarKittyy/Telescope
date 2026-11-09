@@ -18,21 +18,21 @@
         android:background="?attr/tsChrome"
         android:paddingStart="8dp"
         android:paddingEnd="12dp"
-        android:paddingTop="10dp"
-        android:paddingBottom="10dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
         android:gravity="center_vertical">
 
-        <com.google.android.material.button.MaterialButton
+        <com.telescope.LookButton
             android:id="@+id/btnBack"
-            style="?attr/materialButtonOutlinedStyle"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:minWidth="0dp"
-            android:minHeight="36dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:minWidth="48dp"
+            android:minHeight="48dp"
             android:padding="0dp"
-            app:cornerRadius="8dp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
+            android:insetLeft="4dp"
+            android:insetRight="4dp"
+            android:insetTop="4dp"
+            android:insetBottom="4dp"
             android:contentDescription="@string/back"
             app:icon="@drawable/ic_back"
             app:iconSize="16dp"
@@ -54,7 +54,7 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="?attr/tsLine" />
+        android:background="?attr/tsCardOutline" />
 
     <ScrollView
         android:layout_width="match_parent"
@@ -78,7 +78,10 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="16dp">
+                    android:paddingStart="@dimen/ts_card_pad"
+                    android:paddingEnd="@dimen/ts_card_pad"
+                    android:paddingTop="@dimen/ts_card_pad_top"
+                    android:paddingBottom="@dimen/ts_card_pad_bottom">
 
                     <com.telescope.CardHeader
                         android:layout_width="match_parent"
@@ -104,17 +107,15 @@
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
                             android:text="@string/theme_label"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/ibm_plex_sans_semibold"
                             android:textAppearance="@style/TextAppearance.Telescope.Body" />
                     </LinearLayout>
 
-                    <com.google.android.material.button.MaterialButtonToggleGroup
+                    <com.telescope.LookSegmented
                         android:id="@+id/lookGroup"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        app:singleSelection="true"
-                        app:selectionRequired="true" />
+                        android:layout_marginTop="6dp" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -130,7 +131,10 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="16dp">
+                    android:paddingStart="@dimen/ts_card_pad"
+                    android:paddingEnd="@dimen/ts_card_pad"
+                    android:paddingTop="@dimen/ts_card_pad_top"
+                    android:paddingBottom="@dimen/ts_card_pad_bottom">
 
                     <com.telescope.CardHeader
                         android:layout_width="match_parent"
@@ -140,9 +144,10 @@
                         app:headerHue="?attr/tsOk"
                         app:headerTitle="@string/updates_section" />
 
-                    <com.google.android.material.switchmaterial.SwitchMaterial
+                    <com.telescope.LookSwitch
                         android:id="@+id/switchNightly"
-                        style="@style/Widget.Telescope.Switch"
+                        app:switchHue="?attr/tsOk"
+                        android:textAppearance="@style/TextAppearance.Telescope.Label"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/nightly_updates" />
@@ -154,9 +159,8 @@
                         android:text="@string/nightly_updates_hint"
                         android:textAppearance="@style/TextAppearance.Telescope.Hint" />
 
-                    <com.google.android.material.button.MaterialButton
+                    <com.telescope.LookButton
                         android:id="@+id/btnCheckUpdates"
-                        style="?attr/materialButtonOutlinedStyle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"
@@ -178,7 +182,10 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="16dp">
+                    android:paddingStart="@dimen/ts_card_pad"
+                    android:paddingEnd="@dimen/ts_card_pad"
+                    android:paddingTop="@dimen/ts_card_pad_top"
+                    android:paddingBottom="@dimen/ts_card_pad_bottom">
 
                     <com.telescope.CardHeader
                         android:layout_width="match_parent"
@@ -209,7 +216,7 @@
                                 android:id="@+id/tvAppVersion"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:fontFamily="sans-serif-medium"
+                                android:fontFamily="@font/ibm_plex_sans_semibold"
                                 android:textAppearance="@style/TextAppearance.Telescope.Body" />
                             <!-- Same credit as the desktop's About card -->
                             <TextView
@@ -240,17 +247,10 @@
                             android:layout_marginStart="8dp"
                             android:text="@string/diagnostics_section"
                             android:textAppearance="@style/TextAppearance.Telescope.Section" />
-                        <View
-                            android:layout_width="0dp"
-                            android:layout_height="1dp"
-                            android:layout_weight="1"
-                            android:layout_marginStart="10dp"
-                            android:background="?attr/tsLine" />
                     </LinearLayout>
 
-                    <com.google.android.material.button.MaterialButton
+                    <com.telescope.LookButton
                         android:id="@+id/btnCopyDiagnostics"
-                        style="?attr/materialButtonOutlinedStyle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"
@@ -260,9 +260,8 @@
                         app:iconSize="18dp"
                         app:iconGravity="textStart" />
 
-                    <com.google.android.material.button.MaterialButton
+                    <com.telescope.LookButton
                         android:id="@+id/btnReportBug"
-                        style="?attr/materialButtonOutlinedStyle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"
@@ -290,17 +289,10 @@
                             android:layout_marginStart="8dp"
                             android:text="@string/help_section"
                             android:textAppearance="@style/TextAppearance.Telescope.Section" />
-                        <View
-                            android:layout_width="0dp"
-                            android:layout_height="1dp"
-                            android:layout_weight="1"
-                            android:layout_marginStart="10dp"
-                            android:background="?attr/tsLine" />
                     </LinearLayout>
 
-                    <com.google.android.material.button.MaterialButton
+                    <com.telescope.LookButton
                         android:id="@+id/btnHelp"
-                        style="?attr/materialButtonOutlinedStyle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"

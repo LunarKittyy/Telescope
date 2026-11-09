@@ -2,18 +2,14 @@ package com.telescope
 
 import android.content.Context
 import android.content.res.ColorStateList
-import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
 import android.view.View
 import android.view.Gravity
-import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.core.graphics.ColorUtils
 
-// A card's title row as the desktop draws it (the kit's card header, rust/crates/ui-kit/ui/widgets): the icon in
-// the card's hue on a square of the same hue, then the title
+// A card's title row as the desktop draws it (ui-kit widgets/card.slint): the icon bare in the card's hue, then the title, in a row 44dp tall
 class CardHeader @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : LinearLayout(context, attrs) {
 
     val title: TextView
@@ -29,24 +25,18 @@ class CardHeader @JvmOverloads constructor(context: Context, attrs: AttributeSet
 
         val density = resources.displayMetrics.density
         fun dp(v: Int) = (v * density).toInt()
-        val chip = FrameLayout(context).apply {
-            background = GradientDrawable().apply {
-                cornerRadius = 9 * density
-                setColor(ColorUtils.setAlphaComponent(hue, (0.14f * 255).toInt()))
-            }
-            importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
-        }
-        chip.addView(ImageView(context).apply {
+        minimumHeight = dp(44)
+        addView(ImageView(context).apply {
             if (icon != 0) setImageResource(icon)
             imageTintList = ColorStateList.valueOf(hue)
-        }, FrameLayout.LayoutParams(dp(18), dp(18), Gravity.CENTER))
-        addView(chip, LayoutParams(dp(34), dp(34)))
+            importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+        }, LayoutParams(dp(20), dp(20)))
 
         title = TextView(context).apply {
             this.text = text
             setTextAppearance(R.style.TextAppearance_Telescope_CardTitle)
         }
-        addView(title, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) })
+        addView(title, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(11) })
     }
 
     // The card's one button, at the end of the title row like the desktop's header action

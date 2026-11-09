@@ -26,6 +26,7 @@ import android.widget.ImageView
 import android.view.WindowManager
 import android.widget.*
 import androidx.cardview.widget.CardView
+import androidx.core.content.res.ResourcesCompat
 import com.google.android.material.button.MaterialButton
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -38,7 +39,7 @@ class MainActivity : LookActivity() {
     private lateinit var checkLocalOnly: CompoundButton
     private lateinit var checkWaitForComputer: CompoundButton
     private lateinit var tvStatus: TextView
-    private lateinit var btnScanPair: com.google.android.material.button.MaterialButton
+    private lateinit var btnScanPair: LookButton
     private lateinit var tvPairingTitle: TextView
     private lateinit var tvPairingHint: TextView
     private lateinit var layoutComputers: LinearLayout
@@ -119,14 +120,8 @@ class MainActivity : LookActivity() {
         btnScanPair                = findViewById(R.id.btnScanPair)
         val pairingHeader = findViewById<CardHeader>(R.id.headerPairing)
         tvPairingTitle             = pairingHeader.title
-        btnRemoveAll = MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+        btnRemoveAll = LookButton(this).apply {
             setText(R.string.remove_all)
-            textSize = 13f
-            minimumHeight = 0
-            minHeight = dp(36)
-            insetTop = 0
-            insetBottom = 0
-            setPadding(dp(12), 0, dp(12), 0)
             visibility = View.GONE
             setOnClickListener { confirmRemoveAll() }
         }
@@ -374,7 +369,7 @@ class MainActivity : LookActivity() {
             .setTitle(R.string.pairing_failed)
             .setMessage(message)
             .setPositiveButton(R.string.ok, null)
-            .show()
+            .showLook()
     }
 
     // Connected Wi-Fi network (not validated/internet-filtered; uses NOT_VPN to exclude VPN)
@@ -455,14 +450,14 @@ class MainActivity : LookActivity() {
                     startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                         Uri.parse("package:$packageName")))
                 }
-                .show()
+                .showLook()
             return
         }
         Updater.downloadAndInstall(this, manifest)
     }
 
     // Top right of the pairing card, with two or more computers paired
-    private lateinit var btnRemoveAll: MaterialButton
+    private lateinit var btnRemoveAll: LookButton
 
     // Whether the paired computers list is unfolded past COMPUTERS_SHOWN
     private var showAllComputers = false
@@ -490,7 +485,7 @@ class MainActivity : LookActivity() {
                 text = if (folded) getString(R.string.show_all_computers, computers.size) else getString(R.string.show_fewer)
                 setTextAppearance(R.style.TextAppearance_Telescope_Body)
                 setTextColor(attrColor(R.attr.tsHueStreaming))
-                typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+                typeface = ResourcesCompat.getFont(this@MainActivity, R.font.ibm_plex_sans_semibold)
                 gravity = android.view.Gravity.CENTER
                 minHeight = dp(44)
                 isClickable = true
@@ -507,14 +502,9 @@ class MainActivity : LookActivity() {
         styleScanButton(primary = false)
     }
 
+    // The one main action while no computer is paired wears the card's colour; with one, it is an ordinary button
     private fun styleScanButton(primary: Boolean) {
-        val fill = if (primary) R.attr.tsFill else R.attr.tsBtnFill
-        val text = if (primary) R.attr.tsOnFill else R.attr.tsInk
-        btnScanPair.backgroundTintList = attrColors(fill)
-        btnScanPair.setTextColor(attrColor(text))
-        btnScanPair.iconTint = attrColors(text)
-        btnScanPair.strokeColor = attrColors(if (primary) R.attr.tsFill else R.attr.tsBtnEdge)
-        btnScanPair.strokeWidth = attrPx(R.attr.tsBtnEdgeW)
+        btnScanPair.setRole(if (primary) LookButton.Role.PRIMARY else LookButton.Role.PLAIN, attrColor(R.attr.tsHueStreaming))
     }
 
     private fun buildComputerRow(computer: PairedComputer): View {
@@ -541,7 +531,7 @@ class MainActivity : LookActivity() {
         textBlock.addView(TextView(this).apply {
             text = computer.name
             setTextAppearance(R.style.TextAppearance_Telescope_Body)
-            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+            typeface = ResourcesCompat.getFont(this@MainActivity, R.font.ibm_plex_sans_semibold)
         })
         textBlock.addView(TextView(this).apply {
             val date = java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM)
@@ -551,7 +541,7 @@ class MainActivity : LookActivity() {
         })
         row.addView(textBlock)
         // An icon, so a long name or a large font keeps the row's width instead of breaking mid-word
-        row.addView(MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+        row.addView(LookButton(this).apply {
             setIconResource(R.drawable.ic_trash)
             iconSize = dp(18)
             iconPadding = 0
@@ -561,13 +551,11 @@ class MainActivity : LookActivity() {
             minWidth = 0
             minimumHeight = 0
             minHeight = 0
-            insetTop = 0
-            insetBottom = 0
             contentDescription = getString(R.string.remove_computer_title, computer.name)
             androidx.appcompat.widget.TooltipCompat.setTooltipText(this, getString(R.string.remove))
             setOnClickListener { confirmRemoveComputer(computer) }
             // Start, not left: in Persian or Arabic the button sits on the left, and the gap goes on its right
-            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginStart = dp(12) }
+            layoutParams = LinearLayout.LayoutParams(dp(44), dp(48)).apply { marginStart = dp(12) }
         })
         return row
     }
@@ -579,7 +567,7 @@ class MainActivity : LookActivity() {
             .setMessage(R.string.remove_all_message)
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.remove_all) { _, _ -> PairedComputers.removeAll(this) }
-            .show()
+            .showLook(LookButton.Role.DANGER)
     }
 
     // Removing a computer revokes only its token; the others keep working.
@@ -589,7 +577,7 @@ class MainActivity : LookActivity() {
             .setMessage(R.string.remove_computer_message)
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.remove) { _, _ -> PairedComputers.remove(this, computer.id) }
-            .show()
+            .showLook(LookButton.Role.DANGER)
     }
 
     // One step of the setup card. permission == null is the battery exemption, which has no prompt of
@@ -676,7 +664,7 @@ class MainActivity : LookActivity() {
         TextView(this).apply {
             text = step.label
             setTextAppearance(R.style.TextAppearance_Telescope_Body)
-            setTypeface(null, android.graphics.Typeface.BOLD)
+            typeface = ResourcesCompat.getFont(this@MainActivity, R.font.ibm_plex_sans_semibold)
             if (step.done) setTextColor(attrColor(R.attr.tsInk2))
             textBlock.addView(this)
         }
@@ -705,12 +693,9 @@ class MainActivity : LookActivity() {
             askedBefore = askedBefore(perm),
             showRationale = ActivityCompat.shouldShowRequestPermissionRationale(this, perm),
         )
-        val btn = if (primary) {
-            MaterialButton(this)
-        } else {
-            MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle)
-        }
+        val btn = LookButton(this)
         btn.apply {
+            setRole(if (primary) LookButton.Role.PRIMARY else LookButton.Role.PLAIN, attrColor(R.attr.tsAccent))
             setText(if (action == SetupSteps.Action.SETTINGS) R.string.open_settings else R.string.allow)
             setOnClickListener {
                 when {

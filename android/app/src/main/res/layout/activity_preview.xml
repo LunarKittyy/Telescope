@@ -24,7 +24,7 @@
         android:drawableStart="@drawable/ic_crop_small"
         android:drawablePadding="8dp"
         android:drawableTint="?attr/tsHueCamera"
-        android:fontFamily="sans-serif-medium"
+        android:fontFamily="@font/ibm_plex_sans_semibold"
         android:textColor="?attr/tsInk"
         android:textSize="14sp"
         android:background="@drawable/bg_overlay_tile"

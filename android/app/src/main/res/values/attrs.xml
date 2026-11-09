@@ -5,4 +5,20 @@
         <attr name="headerHue" format="color" />
         <attr name="headerTitle" format="string" />
     </declare-styleable>
+    <declare-styleable name="LookSwitch">
+        <attr name="switchHue" format="color" />
+        <attr name="switchDanger" format="boolean" />
+    </declare-styleable>
+    <!-- The desktop's button roles: plain (the raised square), quiet (the same with dimmer text), primary (the card's colour), danger, stop and update -->
+    <declare-styleable name="LookButton">
+        <attr name="role" format="enum">
+            <enum name="plain" value="0" />
+            <enum name="quiet" value="1" />
+            <enum name="primary" value="2" />
+            <enum name="danger" value="3" />
+            <enum name="stop" value="4" />
+            <enum name="update" value="5" />
+        </attr>
+        <attr name="buttonHue" format="color" />
+    </declare-styleable>
 </resources>

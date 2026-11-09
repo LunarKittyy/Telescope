@@ -71,16 +71,6 @@
     <attr name="tsCardOutlineW" format="dimension" />
     <attr name="tsPopOutlineW" format="dimension" />
     <attr name="tsStopEdgeW" format="dimension" />
-    <attr name="tsCardEdge" format="color" />
-    <attr name="tsCardEdgeW" format="dimension" />
-    <attr name="tsBtnFill" format="color" />
-    <attr name="tsBtnEdge" format="color" />
-    <attr name="tsBtnEdgeW" format="dimension" />
-    <attr name="tsBtnDisEdge" format="color" />
-    <attr name="tsStopBtn" format="color" />
-    <attr name="tsStopBtnEdge" format="color" />
-    <attr name="tsStopBtnEdgeW" format="dimension" />
-    <attr name="tsStopBtnInk" format="color" />
     <attr name="tsOverlay" format="color" />
     <attr name="tsOverlayEdge" format="color" />
     <attr name="tsScrimA" format="float" />

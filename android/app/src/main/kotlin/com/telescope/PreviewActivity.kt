@@ -485,7 +485,7 @@ class PreviewActivity : LookActivity() {
             tile.addView(TextView(this).apply {
                 text = lens.label.first
                 textSize = 16f
-                typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+                typeface = androidx.core.content.res.ResourcesCompat.getFont(this@PreviewActivity, R.font.ibm_plex_sans_semibold)
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             })
             if (lens.label.second.isNotEmpty()) tile.addView(TextView(this).apply {
@@ -508,11 +508,11 @@ class PreviewActivity : LookActivity() {
             val selected = v.tag == currentCameraId
             v.isSelected = selected
             v.background = android.graphics.drawable.GradientDrawable().apply {
-                cornerRadius = 12 * density
+                cornerRadius = 8 * density
                 setColor(if (selected) androidx.core.graphics.ColorUtils.compositeColors(
-                    androidx.core.graphics.ColorUtils.setAlphaComponent(hue, 46),
+                    androidx.core.graphics.ColorUtils.setAlphaComponent(hue, 41),
                     attrColor(R.attr.tsOverlay)) else attrColor(R.attr.tsOverlay))
-                setStroke((1 * density).toInt(), if (selected) hue else attrColor(R.attr.tsOverlayEdge))
+                setStroke(((if (selected) 2 else 1) * density).toInt(), if (selected) hue else attrColor(R.attr.tsOverlayEdge))
             }
             (v.getChildAt(0) as? TextView)?.setTextColor(
                 if (selected) hue else attrColor(R.attr.tsInk))
