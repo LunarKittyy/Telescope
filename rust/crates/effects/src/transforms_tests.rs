@@ -638,3 +638,66 @@ fn the_map_has_the_shape_of_the_frame_the_window_shows_and_no_picture() {
     assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 9.0 / 16.0));
     assert!(!r.host.calls.iter().any(|c| c.starts_with("set_ui_image")), "the map never asks for a picture");
 }
+
+fn outlines(r: &Rig) -> Vec<(f64, f64, f64, f64)> {
+    r.shown("lens-outlines").as_array().unwrap().iter()
+        .map(|o| ["x0", "y0", "x1", "y1"].map(|k| o[k].as_f64().unwrap()))
+        .map(|b| (b[0], b[1], b[2], b[3])).collect()
+}
+
+fn two_lenses() -> PhoneZoomCaps {
+    PhoneZoomCaps { ratio_max: 10.0, crop_max: 4.0, freeform: true, lens_zooms: vec![2.0, 5.0] }
+}
+
+#[test]
+fn the_pan_map_outlines_the_longer_lenses_the_preview_does() {
+    let mut r = Rig::new();
+    r.plugin.on_stream_start(&mut r.host, &stream());
+    assert!(r.shown("lens-outlines").as_array().is_none_or(|a| a.is_empty()), "nothing before there is a phone to ask");
+    r.view_status(&status(1.0, 1.0));
+    let one = outlines(&r);
+    assert_eq!(one.len(), 1);
+    // the same box the preview draws for it (view::lens_boxes) with nothing zoomed or panned
+    let boxes = view::lens_boxes(Some(&tele()), &Geometry::default());
+    assert_eq!(one[0], (boxes[0].1, boxes[0].2, boxes[0].3, boxes[0].4));
+    assert!((one[0].0 - (0.5 - 0.5 / 3.7)).abs() < 1e-9 && (one[0].2 - (0.5 + 0.5 / 3.7)).abs() < 1e-9);
+    // zoom, pan, flip and rotation don't move them: they stand for the views the lenses have
+    r.zoom(200);
+    r.ui("map-moved", vec![json!(0.6), json!(0.5)]);
+    r.run("transforms.rotation", json!({"op": "set", "option": "90 CW"}));
+    assert_eq!(outlines(&r), one);
+}
+
+#[test]
+fn the_outlines_follow_the_phones_lenses() {
+    let mut r = Rig::new();
+    r.plugin.on_stream_start(&mut r.host, &stream());
+    r.view_status(&status(1.0, 1.0));
+    assert_eq!(outlines(&r).len(), 1);
+    // another phone with two longer lenses
+    r.view_status(&ViewStatus { caps: Some(two_lenses()), ..status(1.0, 1.0) });
+    let two = outlines(&r);
+    assert_eq!(two.len(), 2);
+    assert!(two[1].0 > two[0].0, "the longer lens sees less: {two:?}");
+    // a phone with none
+    r.view_status(&ViewStatus { caps: Some(PhoneZoomCaps { lens_zooms: vec![], ..two_lenses() }), ..status(1.0, 1.0) });
+    assert!(outlines(&r).is_empty());
+    // and they go when the stream does, and come back with it
+    r.view_status(&ViewStatus { caps: Some(two_lenses()), ..status(1.0, 1.0) });
+    r.plugin.on_stream_stop(&mut r.host);
+    assert!(outlines(&r).is_empty());
+    r.plugin.on_stream_start(&mut r.host, &stream());
+    assert_eq!(outlines(&r).len(), 2, "the status it had is still the phone's");
+}
+
+#[test]
+fn the_outlines_are_not_sent_again_for_a_status_that_changes_nothing_about_them() {
+    let mut r = Rig::new();
+    r.plugin.on_stream_start(&mut r.host, &stream());
+    r.view_status(&status(1.0, 1.0));
+    let sent = |r: &Rig| r.host.calls.iter().filter(|c| c.contains("lens-outlines")).count();
+    let before = sent(&r);
+    r.view_status(&status(3.7, now_s()));
+    r.view_status(&status(1.0, now_s()));
+    assert_eq!(sent(&r), before);
+}
