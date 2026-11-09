@@ -163,11 +163,14 @@ fn a_switch_row_has_a_quiet_word_a_picker_has_a_real_width_and_the_reset_button_
     assert_eq!(word.len(), 1, "the word is there for a screen reader too");
     let row = labelled(&ui, "Notify me")[0].absolute_position();
     assert!(word[0].absolute_position().x > row.x + 100.0, "next to the switch, at the right");
+    if let Some(dir) = shots2() {
+        save(&dir, "rows.png", &offscreen::draw(ui.window(), 420.0, 200.0, 2.0).unwrap());
+    }
     set(&ui, "word", Value::String("".into()));
     step(FRAME);
     assert!(labelled(&ui, "Soon").is_empty(), "no word, no room taken");
     if let Some(dir) = shots2() {
-        save(&dir, "rows.png", &offscreen::draw(ui.window(), 420.0, 200.0, 2.0).unwrap());
+        save(&dir, "rows-no-word.png", &offscreen::draw(ui.window(), 420.0, 200.0, 2.0).unwrap());
     }
 }
 
