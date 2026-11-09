@@ -370,3 +370,31 @@ fn a_folds_state_words_are_for_screen_readers_only() {
     }
     assert!(problems.is_empty(), "FoldText belongs in accessible-description only:\n{}", problems.join("\n"));
 }
+
+/// An icon that is part of a row or a control never carries a tooltip of its own: the row or control says it (a `Tip` inside an `Icon` would name the picture
+/// instead of the thing). A bare icon that is the whole label gets its tip from the row, drawn beside the `Icon`, not inside it; a help mark (`Icons.help`) is its own control and may carry one.
+#[test]
+fn an_icon_takes_no_tooltip_of_its_own() {
+    let mut files = Vec::new();
+    slint_files(&crates(), &mut files);
+    slint_files(&kit().join("ui"), &mut files);
+    let mut problems = Vec::new();
+    for file in files {
+        let text = std::fs::read_to_string(&file).unwrap();
+        let mut from = 0;
+        while let Some(i) = text[from..].find("Icon {") {
+            let at = from + i;
+            from = at + 6;
+            let before = text[..at].chars().next_back();
+            if before.is_some_and(|c| c.is_alphanumeric() || c == '-') {
+                continue;
+            }
+            let block = braced(&text, at + 5);
+            // A help mark ("?") is the whole of what it is: its tip is its job
+            if block.contains("Tip {") && !block.contains("Icons.help") {
+                problems.push(file.display().to_string());
+            }
+        }
+    }
+    assert!(problems.is_empty(), "an Icon with a Tip inside: {problems:?}");
+}
