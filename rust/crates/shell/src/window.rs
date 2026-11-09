@@ -1489,6 +1489,9 @@ impl Window {
             Effect::CopyText(text) => self.copy_text(&text),
             Effect::PluginHues(on) => {
                 let _ = self.ui.set_global_property("Theme", "own-hues", SValue::Bool(on));
+                if let Some(question) = self.slots_question() {
+                    let _ = question.set_global_property("Theme", "own-hues", SValue::Bool(on));
+                }
                 crate::settings::set_hues(on);
             }
             Effect::Look(look) => {
@@ -1497,6 +1500,10 @@ impl Window {
                 for (_, _, open) in self.plugin_windows.borrow().iter() {
                     let _ = open.set_global_property("Theme", "look", index.clone());
                     crate::frame::dress(open);
+                }
+                if let Some(question) = self.slots_question() {
+                    let _ = question.set_global_property("Theme", "look", index.clone());
+                    crate::frame::dress(&question);
                 }
                 crate::frame::dress(&self.ui);
                 crate::settings::set_look(look);
