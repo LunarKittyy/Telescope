@@ -31,9 +31,16 @@ export global TipSpot {
 
 // The tip that is up. Written by the `Tip` that owns it, drawn by every TipLayer.
 export global Tips {
-    // How long a hover rests before the first tip, and how long after one went down the next shows at once
+    // How long the pointer rests before the first tip, and how long after one went down the next is warm
     out property <duration> delay: 500ms;
     out property <duration> warm-for: 1s;
+    // The rest a warm tip waits for, so passing over controls doesn't flash a chain of tips
+    out property <duration> warm-rest: 100ms;
+    // The pointer rests while it stays inside this circle, whose centre is where it last left the circle
+    out property <length> rest-radius: 4px;
+    // For this long after a value changed the wait is longer by this factor
+    out property <duration> quiet-for: 2500ms;
+    out property <float> quiet-factor: 2.5;
     in-out property <bool> shown;
     in-out property <int> owner;
     in-out property <string> says;
@@ -51,14 +58,41 @@ export global Tips {
     out property <int> epoch;
     property <duration> went-down: -100s;
     property <duration> last-beat;
+    // Bumped each time the pointer leaves its rest circle: a tip that was counting restarts its wait
+    out property <int> rest-gen;
+    property <length> rest-x: -100000px;
+    property <length> rest-y: -100000px;
+    // A press, the wheel or a drag ended the warm time: it stays ended until a tip shows again
+    property <bool> cold;
+    property <duration> changed-at: -100s;
     public function claim() -> int {
         last-id += 1;
         return last-id;
     }
-    // A tip up, or gone down a moment ago: the next one shows at once
+    // A tip up, or gone down a moment ago, and nothing pressed since: the next one needs only a short rest
     public function is-warm() -> bool {
-        return shown || animation-tick() - went-down < warm-for;
+        return !cold && (shown || animation-tick() - went-down < warm-for);
     }
+    // A value was just changed: for a while the wait is longer
+    public function is-quiet() -> bool {
+        return animation-tick() - changed-at < quiet-for;
+    }
+    // How long the pointer has to rest on a control before its tip shows
+    public function wait() -> duration {
+        return (is-warm() ? warm-rest : delay) * (is-quiet() ? quiet-factor : 1);
+    }
+    // The window says where the pointer is (its input watch does, on every move)
+    public function moved(x: length, y: length) {
+        if ((x - rest-x) * (x - rest-x) + (y - rest-y) * (y - rest-y) > rest-radius * rest-radius) {
+            rest-x = x;
+            rest-y = y;
+            rest-gen += 1;
+        }
+    }
+    // A press, a drag start or the wheel anywhere: the next tip needs the whole wait again
+    public function cool() { cold = true; }
+    // A value was changed from the window (a slider, dial, switch, choice, field)
+    public function changed() { changed-at = animation-tick(); }
     public function show(id: int, text: string, more: string, note: string, caps: [string], colour: color, x: length, y: length, w: length, h: length) {
         owner = id;
         says = text;
@@ -71,6 +105,7 @@ export global Tips {
         aw = w;
         ah = h;
         last-beat = animation-tick();
+        if (!shown) { cold = false; }
         shown = true;
     }
     public function hide(id: int) {
@@ -240,7 +275,7 @@ export component TipLayer inherits Rectangle {
 }
 
 // Kind "helper". Goes in a control (not in a layout), covering it: what the tip explains. Tells the window to show its tip when the pointer has
-// rested on it (`hover`) for a moment, at once when another tip was up a second ago or the keyboard focus is on it (`focused`), and
+// rested on it (`hover`) for a moment (a short one when another tip was up a second ago, a longer one just after a value changed), at once when the keyboard focus is on it (`focused`), and
 // takes it down when the pointer leaves, a press or the wheel lands on it (until the pointer leaves), or it is disabled.
 export component Tip inherits Rectangle {
     out property <string> control-kind: "helper";
@@ -266,6 +301,9 @@ export component Tip inherits Rectangle {
     property <bool> wheeled;
     property <bool> over;
     property <int> id;
+    // How long this hover waits before its tip shows (Tips.wait when it began), and the pointer rest it last counted from
+    property <duration> waiting: Tips.delay;
+    property <int> rest: Tips.rest-gen;
     // A held bubble is up: it stands in front of the tooltips for as long as it is
     // The `dismiss` that was current when the pointer last came in or the focus last arrived: a dismiss since then keeps the tip down
     property <int> seen;
@@ -281,10 +319,21 @@ export component Tip inherits Rectangle {
     width: 100%;
     height: 100%;
     init => { id = Tips.claim(); }
-    public function press() { used = true; }
+    public function press() {
+        used = true;
+        Tips.cool();
+    }
     public function wheel() {
         used = true;
         wheeled = true;
+        Tips.cool();
+    }
+    // Counts the wait from now, as long as it is for the pointer or the focus to rest
+    function arm() {
+        if (want && !up) {
+            waiting = Tips.wait();
+            wait-timer.restart();
+        }
     }
     function present() {
         Tips.show(id, says, detail, hint, caps, hue, ax, ay, aw, ah);
@@ -306,11 +355,12 @@ export component Tip inherits Rectangle {
     changed focused => { if (focused) { seen = Tips.epoch; } }
     changed want => {
         if (want) {
-            if (focused || Tips.is-warm()) { present(); }
+            if (focused) { present(); } else { arm(); }
         } else {
             Tips.hide(id);
         }
     }
+    changed rest => { arm(); }
     changed says => { refresh(); }
     changed detail => { refresh(); }
     changed hint => { refresh(); }
@@ -332,8 +382,8 @@ export component Tip inherits Rectangle {
         }
         changed has-hover => { root.over = self.has-hover; }
     }
-    Timer {
-        interval: Tips.delay;
+    wait-timer := Timer {
+        interval: root.waiting;
         running: root.want && !root.up;
         triggered => { root.present(); }
     }

@@ -545,6 +545,7 @@ impl Window {
                 let _ = ui.set_callback(&format!("{}-{cb}", piece.id), move |args| {
                     if let Some(w) = weak.upgrade() {
                         let event = UiEvent { ui: ui_name.clone(), callback: callback.clone(), args: args.iter().map(to_json).collect() };
+                        crate::input::tips(&w.ui, "changed", &[]);
                         w.state.borrow_mut().ui_event(&plugin, event);
                         w.process();
                     }
@@ -1247,7 +1248,7 @@ impl Window {
         let (file, text) = source_of(plugin, id, &spec.ui);
         let component = &spec.ui.component;
         // Its file goes through the loader as a card's does, so its texts are translated
-        let doc = format!("export {{ {component} }} from \"{file}\";\nexport {{ KeyFocus, WindowBox, Theme, Motion }} from \"@ui-kit/ui-kit.slint\";\n");
+        let doc = format!("export {{ {component} }} from \"{file}\";\nexport {{ KeyFocus, WindowBox, Theme, Motion, Tips }} from \"@ui-kit/ui-kit.slint\";\n");
         let files = match &spec.ui.source {
             SlintSource::Text(_) => vec![(file.clone(), text.clone())],
             SlintSource::File(_) => Vec::new(),

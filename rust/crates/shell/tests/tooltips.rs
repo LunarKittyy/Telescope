@@ -145,6 +145,8 @@ fn says(w: &ComponentInstance) -> String {
 }
 
 fn move_to(w: &ComponentInstance, p: LogicalPosition) {
+    // The app's input watch (input.rs) tells Tips where the pointer is on every move, which a test window has no winit event for
+    w.invoke_global("Tips", "moved", &[Value::Number(p.x as f64), Value::Number(p.y as f64)]).unwrap();
     w.window().dispatch_event(WindowEvent::PointerMoved { position: p });
     telescope_shell::offscreen::pump();
 }
@@ -390,14 +392,16 @@ fn the_first_tip_waits_for_a_rest_and_the_next_one_comes_up_at_once() {
     assert_eq!(says(&w), LONG);
     // Straight onto a neighbour: its own tip, with no wait
     move_to(&w, at(245.0, 24.0));
-    wait(&w, 20);
+    wait(&w, 50);
+    assert_eq!(popups(&w), 0, "a warm tip still waits for the pointer to settle");
+    wait(&w, 100);
     assert_eq!((popups(&w), says(&w).as_str()), (1, "An icon"));
     // Off to nothing: down at once, and for a second the next control's tip is at once too
     move_to(&w, at(EMPTY.0, EMPTY.1));
     wait(&w, 100);
     assert_eq!(popups(&w), 0, "down when the pointer leaves");
     move_to(&w, at(28.0, 70.0));
-    wait(&w, 50);
+    wait(&w, 150);
     assert_eq!((popups(&w), says(&w).as_str()), (1, "A flag"), "warm for a second after the last one went down");
     // Left alone for longer, the wait is back
     move_to(&w, at(EMPTY.0, EMPTY.1));
@@ -407,6 +411,143 @@ fn the_first_tip_waits_for_a_rest_and_the_next_one_comes_up_at_once() {
     assert_eq!(popups(&w), 0, "cold again: the wait is back");
     wait(&w, 300);
     assert_eq!(popups(&w), 1);
+}
+
+/// Tips.cool(), the press that the window's input watch reports for a press anywhere
+fn cool(w: &ComponentInstance) {
+    w.invoke_global("Tips", "cool", &[]).unwrap();
+}
+
+fn warm(w: &ComponentInstance) {
+    // One tip up and down again, so the next is warm
+    move_to(w, at(EMPTY.0, EMPTY.1));
+    wait(w, 1500);
+    move_to(w, at(BUTTON.0, BUTTON.1));
+    wait(w, 700);
+    assert_eq!(popups(w), 1);
+    move_to(w, at(EMPTY.0, EMPTY.1));
+    wait(w, 100);
+    assert_eq!(popups(w), 0);
+}
+
+#[test]
+fn a_click_ends_the_warm_time_so_the_next_tip_waits_the_whole_delay() {
+    let (w, _) = open();
+    warm(&w);
+    // Warm: a tip on a rest of about 100 ms
+    move_to(&w, at(28.0, 70.0));
+    wait(&w, 150);
+    assert_eq!(popups(&w), 1, "warm before the click");
+    // Click that control, then go to another one
+    press(&w, at(28.0, 70.0), PointerEventButton::Left);
+    release(&w, at(28.0, 70.0), PointerEventButton::Left);
+    wait(&w, 50);
+    move_to(&w, at(245.0, 24.0));
+    wait(&w, 300);
+    assert_eq!(popups(&w), 0, "the click made it cold: no tip after 300 ms");
+    wait(&w, 300);
+    assert_eq!((popups(&w), says(&w).as_str()), (1, "An icon"), "up after the whole delay");
+    // The wheel does the same, and so does a press where there is no control (the window tells Tips)
+    move_to(&w, at(EMPTY.0, EMPTY.1));
+    wait(&w, 100);
+    move_to(&w, at(28.0, 70.0));
+    wait(&w, 150);
+    assert_eq!(popups(&w), 1, "warm again once a tip has shown");
+    w.window().dispatch_event(WindowEvent::PointerScrolled { position: at(28.0, 70.0), delta_x: 0.0, delta_y: -40.0 });
+    telescope_shell::offscreen::pump();
+    move_to(&w, at(245.0, 24.0));
+    wait(&w, 300);
+    assert_eq!(popups(&w), 0, "cold after the wheel");
+    wait(&w, 300);
+    assert_eq!(popups(&w), 1);
+    move_to(&w, at(EMPTY.0, EMPTY.1));
+    wait(&w, 100);
+    move_to(&w, at(130.0, 70.0));
+    wait(&w, 150);
+    assert_eq!(popups(&w), 1, "warm once more");
+    move_to(&w, at(EMPTY.0, EMPTY.1));
+    wait(&w, 100);
+    cool(&w);
+    move_to(&w, at(130.0, 70.0));
+    wait(&w, 300);
+    assert_eq!(popups(&w), 0, "cold after a press anywhere");
+    wait(&w, 300);
+    assert_eq!(popups(&w), 1);
+}
+
+#[test]
+fn the_wait_counts_from_where_the_pointer_rests_not_from_where_it_came_in() {
+    let (w, _) = open();
+    // Over the slider for two seconds, moving: never a tip
+    for i in 0..20 {
+        move_to(&w, at(40.0 + i as f32 * 12.0, SLIDER.1));
+        wait(&w, 100);
+        assert_eq!(popups(&w), 0, "still moving at step {i}");
+    }
+    // Settled: the tip comes a delay after the last move, not before
+    wait(&w, 300);
+    assert_eq!(popups(&w), 0, "300 ms of rest");
+    wait(&w, 300);
+    assert_eq!(popups(&w), 1, "600 ms of rest");
+}
+
+#[test]
+fn a_pixel_or_two_of_jitter_is_still_a_rest_but_a_slow_creep_is_not() {
+    let (w, _) = open();
+    move_to(&w, at(SLIDER.0, SLIDER.1));
+    for i in 0..4 {
+        wait(&w, 100);
+        move_to(&w, at(SLIDER.0 + if i % 2 == 0 { 2.0 } else { -2.0 }, SLIDER.1 + 1.0));
+    }
+    wait(&w, 150);
+    assert_eq!(popups(&w), 1, "jitter inside 4 px kept the rest going");
+    move_to(&w, at(EMPTY.0, EMPTY.1));
+    wait(&w, 1500);
+    // 1.5 px every 100 ms leaves the 4 px circle every third step: the wait never completes
+    for i in 0..30 {
+        move_to(&w, at(SLIDER.0 + i as f32 * 1.5, SLIDER.1));
+        wait(&w, 100);
+        assert_eq!(popups(&w), 0, "creeping, step {i}");
+    }
+}
+
+#[test]
+fn passing_over_controls_while_warm_does_not_flash_a_chain_of_tips() {
+    let (w, _) = open();
+    warm(&w);
+    for p in [(28.0, 70.0), (130.0, 70.0), (245.0, 24.0), (160.0, 178.0), (160.0, 234.0)] {
+        move_to(&w, at(p.0, p.1));
+        wait(&w, 60);
+        assert_eq!(popups(&w), 0, "passing {p:?}");
+    }
+    wait(&w, 100);
+    assert_eq!(popups(&w), 1, "settled on the last: its tip, after a short rest");
+    assert_eq!(says(&w), "Which one");
+}
+
+#[test]
+fn after_a_value_changed_the_next_tip_waits_two_and_a_half_times_as_long_for_a_few_seconds() {
+    let (w, _) = open();
+    w.invoke_global("Tips", "changed", &[]).unwrap();
+    wait(&w, 1000);
+    move_to(&w, at(BUTTON.0, BUTTON.1));
+    wait(&w, 900);
+    assert_eq!(popups(&w), 0, "900 ms in, past the usual wait");
+    wait(&w, 450);
+    assert_eq!(popups(&w), 1, "up after 2.5 times 500 ms");
+    // Warm waits are stretched too
+    w.invoke_global("Tips", "changed", &[]).unwrap();
+    move_to(&w, at(245.0, 24.0));
+    wait(&w, 150);
+    assert_eq!(popups(&w), 0, "a warm tip waits 250 ms just after a change");
+    wait(&w, 150);
+    assert_eq!(popups(&w), 1);
+    // A few seconds on it is back to normal
+    move_to(&w, at(EMPTY.0, EMPTY.1));
+    wait(&w, 3000);
+    move_to(&w, at(28.0, 70.0));
+    wait(&w, 600);
+    assert_eq!(popups(&w), 1, "quiet is over");
 }
 
 #[test]
