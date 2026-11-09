@@ -81,12 +81,14 @@ export component StreamOutputCard inherits Card {
     }
     RailRow {
         icon: Icons.aspect;
-        label: @tr("Shape");
+        label: @tr("Aspect ratio");
+        tip-detail: @tr("How wide the picture is compared to its height.");
         hue: root.hue;
         enabled: active;
         ChoiceField {
-            caption: @tr("Shape");
-            tip: @tr("Shape");
+            caption: @tr("Aspect ratio");
+            tip: @tr("Aspect ratio");
+            tip-detail: @tr("How wide the picture is compared to its height.");
             compact: true;
             shortcut: "stream.aspect_ratio";
             items: root.ar-items;
@@ -99,6 +101,7 @@ export component StreamOutputCard inherits Card {
         RailRow {
             icon: Icons.layers;
             label: @tr("Format");
+            tip-detail: @tr("The codec: how the phone compresses the picture before sending it.");
             hue: root.hue;
             enabled: active;
             Segmented {

@@ -189,14 +189,14 @@ fn framings_sliders_and_the_hand_tile_reach_the_plugin() {
         offscreen::skip(std::time::Duration::from_millis(400));
         assert!(!r.said(callback).is_empty(), "{label} says nothing");
     }
-    r.click_as("Things in hand", AccessibleRole::Switch);
+    r.click_as("Show hands", AccessibleRole::Switch);
     assert_eq!(r.said("hand-toggled").iter().map(|a| matches!(a[0], Value::Bool(true))).collect::<Vec<_>>(), [true]);
 }
 
 #[test]
 fn framings_tile_does_nothing_while_no_phone_is_paired() {
     let r = rig(&mut FramingPlugin::new(), json!({"active": false}), FRAMING);
-    r.click_as("Things in hand", AccessibleRole::Switch);
+    r.click_as("Show hands", AccessibleRole::Switch);
     assert!(r.said("hand-toggled").is_empty());
 }
 

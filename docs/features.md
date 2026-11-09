@@ -32,7 +32,7 @@ Optional. It finds you in the picture and moves zoom and pan to keep you framed.
 - **Framing** sets how much of you is in the shot, from just your head to your whole body. Two people get framed together. With nobody in view for two seconds it zooms back out
 - **Speed** goes from **Sloth** to **Zippy**. **Easy** is the default
 - **Room to move** is how far you can shift before the framing follows (**Fidget** to **Roam**, while **Off** follows every move)
-- **Things in hand** (off by default) makes room when you hold something out to the side
+- **Show hands** (off by default) widens the view so your hands are in it too, for when you hold something out to the side
 - Zoom and Pan on the Transforms card are greyed out while it's on. Flip and rotation still work and your own zoom and pan come back when you switch it off
 - The skeleton button under the preview shows what the framing is reacting to. It never appears in the camera output
 
