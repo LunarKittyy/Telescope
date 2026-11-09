@@ -479,6 +479,8 @@ fn pinning_again_while_a_pin_is_going_turns_it_round_from_where_it_is() {
 #[test]
 fn folding_and_unfolding_are_motions_both_ways() {
     let r = full_bar("bar-motion-fold");
+    // Real time must not run the fade out between the resize and its first frame (a slow machine does that)
+    let _still = offscreen::freeze_clock();
     resize(&r, 1400.0);
     let (x_wide, a_wide) = on_screen(&r, "Memory");
     assert_eq!(a_wide, 1.0);
