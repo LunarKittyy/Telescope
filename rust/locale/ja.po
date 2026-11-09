@@ -7757,7 +7757,7 @@ msgstr "それ以降の新機能は使えなくなります。Luaで書かれた
 #: rust/crates/system/src/going_back.rs:231
 #, python-brace-format
 msgid "{version} won't check for updates by itself, so it doesn't offer this version back. You can turn that on again in its settings."
-msgstr ""
+msgstr "{version}は自動でアップデートを確認しないため、このバージョンに戻す案内は出ません。そのバージョンの設定から再度オンにできます。"
 
 #: rust/crates/system/src/going_back.rs:234
 #, python-brace-format
