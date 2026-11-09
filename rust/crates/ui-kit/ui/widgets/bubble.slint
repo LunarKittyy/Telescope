@@ -114,6 +114,7 @@ export component BubbleFrame inherits Rectangle {
         accessible-role: groupbox;
         accessible-label: root.label;
         if takes-presses: TouchArea { }
+        // The face, then the line, as two paths: femtovg on wgpu knocks out parts of a stroke over an anti-aliased fill of its own shape (a step in the top edge)
         Path {
             x: 0px;
             y: flip ? -ph : 0px;
@@ -125,10 +126,24 @@ export component BubbleFrame inherits Rectangle {
             viewbox-height: (ch + ph) / 1px;
             // fitted: the viewbox is the box less one stroke, so a unit is a pixel
             commands: root.outline;
+            stroke-width: Theme.stroke;
+            fill: Theme.bubble;
+            anti-alias: false;
+        }
+        Path {
+            x: 0px;
+            y: flip ? -ph : 0px;
+            width: frame-w;
+            height: frame-h + ph;
+            viewbox-x: 0;
+            viewbox-y: flip ? -ph / 1px : 0;
+            viewbox-width: cw / 1px;
+            viewbox-height: (ch + ph) / 1px;
+            // fitted: the same box and viewbox as the face
+            commands: root.outline;
             stroke: root.hue;
             stroke-width: Theme.stroke;
             stroke-line-join: round;
-            fill: Theme.bubble;
         }
         body := VerticalLayout {
             padding: inner;
