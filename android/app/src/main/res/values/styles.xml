@@ -4,39 +4,39 @@
     <style name="TextAppearance.Telescope.AppTitle" parent="">
         <item name="android:textSize">18sp</item>
         <item name="android:textStyle">bold</item>
-        <item name="android:textColor">@color/colorOnSurface</item>
+        <item name="android:textColor">?attr/tsInk</item>
     </style>
     <style name="TextAppearance.Telescope.CardTitle" parent="">
         <item name="android:textSize">16sp</item>
         <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:textColor">@color/colorOnSurface</item>
+        <item name="android:textColor">?attr/tsInk</item>
     </style>
     <style name="TextAppearance.Telescope.Label" parent="">
         <item name="android:textSize">13sp</item>
-        <item name="android:textColor">@color/colorOnSurfaceDim</item>
+        <item name="android:textColor">?attr/tsInk2</item>
     </style>
     <style name="TextAppearance.Telescope.Body" parent="">
         <item name="android:textSize">14sp</item>
-        <item name="android:textColor">@color/colorOnSurface</item>
+        <item name="android:textColor">?attr/tsInk</item>
     </style>
     <!-- A heading inside a card, followed by a hairline (the desktop's add_section_heading) -->
     <style name="TextAppearance.Telescope.Section" parent="">
         <item name="android:textSize">12sp</item>
         <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:textColor">@color/colorOnSurfaceFaint</item>
+        <item name="android:textColor">?attr/tsFaint</item>
     </style>
     <style name="TextAppearance.Telescope.Hint" parent="">
         <item name="android:textSize">12sp</item>
-        <item name="android:textColor">@color/colorOnSurfaceFaint</item>
+        <item name="android:textColor">?attr/tsFaint</item>
     </style>
 
     <!-- Card: same radius and hairline border as the desktop cards. -->
     <style name="Widget.Telescope.Card" parent="Widget.MaterialComponents.CardView">
-        <item name="cardBackgroundColor">@color/colorSurface</item>
+        <item name="cardBackgroundColor">?attr/tsCard</item>
         <item name="cardCornerRadius">14dp</item>
         <item name="cardElevation">0dp</item>
-        <item name="strokeColor">@color/colorBorder</item>
-        <item name="strokeWidth">1dp</item>
+        <item name="strokeColor">?attr/tsCardEdge</item>
+        <item name="strokeWidth">?attr/tsCardEdgeW</item>
     </style>
 
     <style name="Widget.Telescope.Button" parent="Widget.MaterialComponents.Button">
@@ -48,7 +48,7 @@
         <item name="backgroundTint">@color/button_fill</item>
         <item name="android:textColor">@color/button_text</item>
         <item name="strokeColor">@color/button_stroke</item>
-        <item name="strokeWidth">1dp</item>
+        <item name="strokeWidth">?attr/tsBtnEdgeW</item>
         <!-- Flat like the cards. The raised shadow also showed through as a lighter box when
              a button is restyled with a transparent fill (Pair another computer). -->
         <item name="android:stateListAnimator">@null</item>
@@ -60,14 +60,14 @@
         <item name="backgroundTint">@color/button_secondary_fill</item>
         <item name="android:textColor">@color/button_secondary_text</item>
         <item name="iconTint">@color/button_secondary_text</item>
-        <item name="strokeColor">@color/colorOutline</item>
-        <item name="rippleColor">@color/colorOutline</item>
+        <item name="strokeColor">@color/button_secondary_stroke</item>
+        <item name="rippleColor">?attr/tsLineStrong</item>
     </style>
 
     <!-- Dialogs like the desktop's: a card's surface and corners, ordinary buttons and the main action filled -->
     <style name="ThemeOverlay.Telescope.Dialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
-        <item name="colorSurface">@color/colorSurface</item>
-        <item name="colorOnSurface">@color/colorOnSurface</item>
+        <item name="colorSurface">?attr/tsCard</item>
+        <item name="colorOnSurface">?attr/tsInk</item>
         <item name="shapeAppearanceOverlay">@style/ShapeAppearance.Telescope.Dialog</item>
         <item name="elevationOverlayEnabled">false</item>
         <item name="materialAlertDialogTitleTextStyle">@style/Telescope.DialogTitle</item>
@@ -83,10 +83,10 @@
     <style name="Telescope.DialogTitle" parent="MaterialAlertDialog.MaterialComponents.Title.Text">
         <item name="android:textSize">18sp</item>
         <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:textColor">@color/colorOnSurface</item>
+        <item name="android:textColor">?attr/tsInk</item>
     </style>
     <style name="Telescope.DialogBody" parent="MaterialAlertDialog.MaterialComponents.Body.Text">
-        <item name="android:textColor">@color/colorOnSurfaceDim</item>
+        <item name="android:textColor">?attr/tsInk2</item>
     </style>
     <style name="Widget.Telescope.DialogButton" parent="Widget.Telescope.Button.Outlined">
         <item name="android:layout_marginStart">8dp</item>
@@ -97,6 +97,7 @@
 
     <style name="Widget.Telescope.Switch" parent="Widget.MaterialComponents.CompoundButton.Switch">
         <item name="android:textAppearance">@style/TextAppearance.Telescope.Body</item>
+        <item name="android:textColor">?attr/tsInk</item>
         <item name="android:minHeight">48dp</item>
         <item name="android:thumb">@drawable/switch_thumb</item>
         <item name="track">@drawable/switch_track</item>

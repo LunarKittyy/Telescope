@@ -35,7 +35,6 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import java.util.concurrent.Executor
 
@@ -48,7 +47,7 @@ private enum class AspectOption(val label: String, val ratio: Float) {
         R4_3("4:3", 3f / 4f),
     }
 
-class PreviewActivity : AppCompatActivity() {
+class PreviewActivity : LookActivity() {
 
     private lateinit var textureView: TextureView
     private lateinit var btnClose: ImageButton
@@ -492,7 +491,7 @@ class PreviewActivity : AppCompatActivity() {
             if (lens.label.second.isNotEmpty()) tile.addView(TextView(this).apply {
                 text = lens.label.second
                 textSize = 11f
-                setTextColor(resources.getColor(R.color.colorOnSurfaceDim, theme))
+                setTextColor(attrColor(R.attr.tsInk2))
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             })
             lensContainer.addView(tile)
@@ -503,7 +502,7 @@ class PreviewActivity : AppCompatActivity() {
     // The picked lens is drawn like the desktop's picked tile: a wash of the Camera card's mint and a mint border
     private fun refreshPillSelection() {
         val density = resources.displayMetrics.density
-        val hue = resources.getColor(R.color.hueMint, theme)
+        val hue = attrColor(R.attr.tsHueCamera)
         for (i in 0 until lensContainer.childCount) {
             val v = lensContainer.getChildAt(i) as? LinearLayout ?: continue
             val selected = v.tag == currentCameraId
@@ -512,11 +511,11 @@ class PreviewActivity : AppCompatActivity() {
                 cornerRadius = 12 * density
                 setColor(if (selected) androidx.core.graphics.ColorUtils.compositeColors(
                     androidx.core.graphics.ColorUtils.setAlphaComponent(hue, 46),
-                    resources.getColor(R.color.colorOverlay, theme)) else resources.getColor(R.color.colorOverlay, theme))
-                setStroke((1 * density).toInt(), if (selected) hue else 0x33FFFFFF)
+                    attrColor(R.attr.tsOverlay)) else attrColor(R.attr.tsOverlay))
+                setStroke((1 * density).toInt(), if (selected) hue else attrColor(R.attr.tsOverlayEdge))
             }
             (v.getChildAt(0) as? TextView)?.setTextColor(
-                if (selected) hue else resources.getColor(R.color.colorOnSurface, theme))
+                if (selected) hue else attrColor(R.attr.tsInk))
         }
     }
 

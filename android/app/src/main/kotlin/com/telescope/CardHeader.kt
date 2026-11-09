@@ -22,7 +22,7 @@ class CardHeader @JvmOverloads constructor(context: Context, attrs: AttributeSet
         orientation = HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         val a = context.obtainStyledAttributes(attrs, R.styleable.CardHeader)
-        val hue = a.getColor(R.styleable.CardHeader_headerHue, context.getColor(R.color.colorAccent))
+        val hue = a.getColor(R.styleable.CardHeader_headerHue, context.attrColor(R.attr.tsAccent))
         val icon = a.getResourceId(R.styleable.CardHeader_headerIcon, 0)
         val text = a.getString(R.styleable.CardHeader_headerTitle)
         a.recycle()

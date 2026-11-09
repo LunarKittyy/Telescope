@@ -5,28 +5,28 @@
         <shape android:shape="rectangle">
             <size android:width="44dp" android:height="24dp" />
             <corners android:radius="12dp" />
-            <solid android:color="@color/colorOutline" />
+            <solid android:color="?attr/tsLineStrong" />
         </shape>
     </item>
     <item android:state_enabled="false">
         <shape android:shape="rectangle">
             <size android:width="44dp" android:height="24dp" />
             <corners android:radius="12dp" />
-            <solid android:color="@color/colorSurfaceRaised" />
+            <solid android:color="?attr/tsRaise" />
         </shape>
     </item>
     <item android:state_checked="true">
         <shape android:shape="rectangle">
             <size android:width="44dp" android:height="24dp" />
             <corners android:radius="12dp" />
-            <solid android:color="@color/colorPrimary" />
+            <solid android:color="?attr/tsFill" />
         </shape>
     </item>
     <item>
         <shape android:shape="rectangle">
             <size android:width="44dp" android:height="24dp" />
             <corners android:radius="12dp" />
-            <solid android:color="@color/colorOutline" />
+            <solid android:color="?attr/tsLineStrong" />
         </shape>
     </item>
 </selector>

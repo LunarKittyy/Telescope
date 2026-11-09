@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The desktop's "alert" line icon (rust/crates/ui-kit/ui/icons/alert.svg) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="16"
+    android:viewportHeight="16">
+    <path
+        android:pathData="M7.02 3.11A1.1 1.1 0 0 1 8.98 3.11L13.68 12.3A1.1 1.1 0 0 1 12.7 13.9L3.3 13.9A1.1 1.1 0 0 1 2.32 12.3zM8 6.5v2.2M8 10.6a0.9 0.9 0 1 0 0 1.8a0.9 0.9 0 1 0 0-1.8z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

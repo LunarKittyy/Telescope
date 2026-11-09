@@ -21,22 +21,18 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
-import android.text.method.LinkMovementMethod
 import android.view.View
 import android.widget.ImageView
 import android.view.WindowManager
 import android.widget.*
-import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.core.text.HtmlCompat
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : LookActivity() {
 
     private lateinit var btnToggle: MaterialButton
     private lateinit var checkLocalOnly: CompoundButton
@@ -51,14 +47,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var blackScreen: BlackScreen
     private lateinit var cardPermissions: CardView
     private lateinit var layoutPermissionsContainer: LinearLayout
-    private lateinit var btnCopyDiagnostics: MaterialButton
     private lateinit var cardUpdate: View
     private lateinit var tvUpdateTitle: TextView
     private lateinit var tvUpdateText: TextView
     private lateinit var btnUpdate: MaterialButton
-    private lateinit var switchNightly: CompoundButton
-    private lateinit var tvAppVersion: TextView
-    private lateinit var btnCheckUpdates: com.google.android.material.button.MaterialButton
     // An update waiting for "Allow from this source" to be switched on in Settings.
     private var pendingUpdate: UpdateManifest? = null
 
@@ -145,7 +137,6 @@ class MainActivity : AppCompatActivity() {
         btnBlackScreen             = findViewById(R.id.btnBlackScreen)
         cardPermissions            = findViewById(R.id.cardPermissions)
         layoutPermissionsContainer = findViewById(R.id.layoutPermissionsContainer)
-        btnCopyDiagnostics         = findViewById(R.id.btnCopyDiagnostics)
 
         checkLocalOnly.isChecked = StreamPrefs.localOnly(this)
         checkLocalOnly.setOnCheckedChangeListener { _, checked ->
@@ -169,6 +160,7 @@ class MainActivity : AppCompatActivity() {
 
         btnToggle.setOnClickListener { onToggleClicked() }
         btnPreview.setOnClickListener { startActivity(Intent(this, PreviewActivity::class.java)) }
+        findViewById<View>(R.id.btnSettings).setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
         btnBlackScreen.setOnClickListener { blackScreen.enter() }
         // Icon only, so a long press says what it does
         androidx.appcompat.widget.TooltipCompat.setTooltipText(btnBlackScreen, getString(R.string.black_screen_description))
@@ -182,36 +174,11 @@ class MainActivity : AppCompatActivity() {
             }
             scanLauncher.launch(opts)
         }
-        btnCopyDiagnostics.setOnClickListener { copyDiagnostics() }
-        findViewById<View>(R.id.btnReportBug).setOnClickListener { reportBug() }
-        findViewById<View>(R.id.btnHelp).setOnClickListener { openUrl(HELP_URL) }
-        findViewById<TextView>(R.id.tvMadeBy).apply {
-            text = HtmlCompat.fromHtml(getString(R.string.made_by, AUTHOR_URL), HtmlCompat.FROM_HTML_MODE_LEGACY)
-            movementMethod = LinkMovementMethod.getInstance()
-        }
-
         cardUpdate    = findViewById(R.id.cardUpdate)
         tvUpdateTitle = findViewById<CardHeader>(R.id.headerUpdate).title
         tvUpdateText  = findViewById(R.id.tvUpdateText)
         btnUpdate     = findViewById(R.id.btnUpdate)
-        switchNightly = findViewById(R.id.switchNightly)
-        tvAppVersion  = findViewById(R.id.tvAppVersion)
-        btnCheckUpdates = findViewById(R.id.btnCheckUpdates)
         btnUpdate.setOnClickListener { startUpdate() }
-        btnCheckUpdates.setOnClickListener { Updater.check(this) }
-        if (resources.getBoolean(R.bool.translation_is_draft)) findViewById<View>(R.id.tvTranslationDraft).visibility = View.VISIBLE
-        if (Updater.canUpdate()) {
-            switchNightly.isChecked = Updater.channel(this) == UpdateLogic.NIGHTLY
-            switchNightly.setOnCheckedChangeListener { _, checked ->
-                Updater.setChannel(this, if (checked) UpdateLogic.NIGHTLY else UpdateLogic.STABLE)
-            }
-        } else {
-            switchNightly.visibility = View.GONE
-            findViewById<View>(R.id.sectionUpdates).visibility = View.GONE
-            findViewById<View>(R.id.tvNightlyHint).visibility = View.GONE
-            btnCheckUpdates.visibility = View.GONE
-        }
-
         checkPermissions()
     }
 
@@ -403,7 +370,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showPairingFailure(message: String) {
-        MaterialAlertDialogBuilder(this)
+        lookDialog()
             .setTitle(R.string.pairing_failed)
             .setMessage(message)
             .setPositiveButton(R.string.ok, null)
@@ -429,15 +396,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderUpdate() {
         val state = Updater.state
-        val versionLine = when (state) {
-            is Updater.State.UpToDate -> R.string.version_up_to_date
-            is Updater.State.Checking -> R.string.version_checking
-            is Updater.State.CheckFailed -> R.string.version_check_failed
-            else -> R.string.version
-        }
-        tvAppVersion.text = getString(versionLine, BuildConfig.VERSION_NAME)
-        btnCheckUpdates.isEnabled = state !is Updater.State.Checking &&
-            state !is Updater.State.Downloading && state !is Updater.State.Installing
         val streaming = service?.isStreaming == true || isBusy()
         val manifest = when (state) {
             is Updater.State.Available -> state.manifest
@@ -489,7 +447,7 @@ class MainActivity : AppCompatActivity() {
         if (!canInstallUpdates()) {
             // Android asks once per app; after that, each update is a single confirm.
             pendingUpdate = manifest
-            MaterialAlertDialogBuilder(this)
+            lookDialog()
                 .setTitle(R.string.allow_installs_title)
                 .setMessage(R.string.allow_installs_message)
                 .setNegativeButton(R.string.cancel) { _, _ -> pendingUpdate = null }
@@ -531,7 +489,7 @@ class MainActivity : AppCompatActivity() {
             TextView(this).apply {
                 text = if (folded) getString(R.string.show_all_computers, computers.size) else getString(R.string.show_fewer)
                 setTextAppearance(R.style.TextAppearance_Telescope_Body)
-                setTextColor(resources.getColor(R.color.hueSky, theme))
+                setTextColor(attrColor(R.attr.tsHueStreaming))
                 typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
                 gravity = android.view.Gravity.CENTER
                 minHeight = dp(44)
@@ -550,13 +508,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun styleScanButton(primary: Boolean) {
-        val fill = if (primary) R.color.colorPrimary else R.color.colorSurfaceHover
-        val text = if (primary) R.color.colorOnPrimary else R.color.colorOnSurface
-        btnScanPair.backgroundTintList = ColorStateList.valueOf(resources.getColor(fill, theme))
-        btnScanPair.setTextColor(resources.getColor(text, theme))
-        btnScanPair.iconTint = ColorStateList.valueOf(resources.getColor(text, theme))
-        btnScanPair.strokeColor = ColorStateList.valueOf(resources.getColor(R.color.colorOutline, theme))
-        btnScanPair.strokeWidth = if (primary) 0 else dp(1)
+        val fill = if (primary) R.attr.tsFill else R.attr.tsBtnFill
+        val text = if (primary) R.attr.tsOnFill else R.attr.tsInk
+        btnScanPair.backgroundTintList = attrColors(fill)
+        btnScanPair.setTextColor(attrColor(text))
+        btnScanPair.iconTint = attrColors(text)
+        btnScanPair.strokeColor = attrColors(if (primary) R.attr.tsFill else R.attr.tsBtnEdge)
+        btnScanPair.strokeWidth = attrPx(R.attr.tsBtnEdgeW)
     }
 
     private fun buildComputerRow(computer: PairedComputer): View {
@@ -572,7 +530,7 @@ class MainActivity : AppCompatActivity() {
         }
         row.addView(ImageView(this).apply {
             setImageResource(R.drawable.ic_monitor)
-            imageTintList = ColorStateList.valueOf(resources.getColor(R.color.hueSky, theme))
+            imageTintList = ColorStateList.valueOf(attrColor(R.attr.tsHueStreaming))
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(12) }
         })
@@ -616,7 +574,7 @@ class MainActivity : AppCompatActivity() {
 
     // Every computer's token goes at once; pairing any of them again starts from scratch
     private fun confirmRemoveAll() {
-        MaterialAlertDialogBuilder(this)
+        lookDialog()
             .setTitle(R.string.remove_all_title)
             .setMessage(R.string.remove_all_message)
             .setNegativeButton(R.string.cancel, null)
@@ -626,7 +584,7 @@ class MainActivity : AppCompatActivity() {
 
     // Removing a computer revokes only its token; the others keep working.
     private fun confirmRemoveComputer(computer: PairedComputer) {
-        MaterialAlertDialogBuilder(this)
+        lookDialog()
             .setTitle(getString(R.string.remove_computer_title, computer.name))
             .setMessage(R.string.remove_computer_message)
             .setNegativeButton(R.string.cancel, null)
@@ -719,7 +677,7 @@ class MainActivity : AppCompatActivity() {
             text = step.label
             setTextAppearance(R.style.TextAppearance_Telescope_Body)
             setTypeface(null, android.graphics.Typeface.BOLD)
-            if (step.done) setTextColor(resources.getColor(R.color.colorOnSurfaceDim, theme))
+            if (step.done) setTextColor(attrColor(R.attr.tsInk2))
             textBlock.addView(this)
         }
         if (!step.done) {
@@ -734,7 +692,7 @@ class MainActivity : AppCompatActivity() {
         if (step.done) {
             row.addView(ImageView(this).apply {
                 setImageResource(R.drawable.ic_check)
-                imageTintList = ColorStateList.valueOf(resources.getColor(R.color.colorStreamingText, theme))
+                imageTintList = attrColors(R.attr.tsOk)
                 contentDescription = getString(R.string.setup_allowed)
                 layoutParams = LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginStart = dp(12) }
             })
@@ -857,11 +815,11 @@ class MainActivity : AppCompatActivity() {
                 service?.cameraOff == true -> R.string.status_mic_only
                 else -> R.string.status_streaming
             })
-            tintStatus(if (viewed && !taken) R.color.colorStreamingText else R.color.colorWarn)
+            tintStatus(if (viewed && !taken) R.attr.tsOk else R.attr.tsWarn)
             showStatusDetail(if (viewed && !taken) statusDetail() else null)
         } else {
             tvStatus.setText(if (busy) R.string.status_starting else R.string.status_not_streaming)
-            tintStatus(R.color.colorOnSurfaceDim)
+            tintStatus(R.attr.tsInk2)
             showStatusDetail(null)
         }
         if (::cardUpdate.isInitialized && cardUpdate.visibility == View.VISIBLE) renderUpdate()
@@ -881,33 +839,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     // The status text, its icon and the round chip behind it, in one colour
-    private fun tintStatus(colorRes: Int) {
-        val color = resources.getColor(colorRes, theme)
+    private fun tintStatus(attr: Int) {
+        val color = attrColor(attr)
         tvStatus.setTextColor(color)
         findViewById<ImageView>(R.id.ivStatus).imageTintList = ColorStateList.valueOf(color)
         findViewById<View>(R.id.statusChip).backgroundTintList =
             ColorStateList.valueOf(androidx.core.graphics.ColorUtils.setAlphaComponent(color, 36))
-    }
-
-    private fun copyDiagnostics() {
-        val live = service?.buildDiagnosticsReport()
-            ?: (CameraStreamService.reportHeader() + "Not streaming\n" + CameraStreamService.cameraReport(
-                runCatching { CameraStreamService.enumerateCameras(getSystemService(CAMERA_SERVICE) as CameraManager) }
-                    .getOrDefault(emptyList())))
-        val report = RecentRuns.report(live, RecentRuns.load(this))
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("Telescope diagnostics", report))
-        Toast.makeText(this, R.string.diagnostics_copied, Toast.LENGTH_SHORT).show()
-    }
-
-    private fun reportBug() {
-        copyDiagnostics()
-        openUrl(BUG_REPORT_URL)
-    }
-
-    private fun openUrl(url: String) {
-        runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-            .onFailure { Toast.makeText(this, getString(R.string.no_browser, url), Toast.LENGTH_LONG).show() }
     }
 
     // All IPv4 addresses with Wi-Fi ones first (reachable through VPN for desktop streaming)
@@ -938,9 +875,6 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val RC_PERMS = 100
-        private const val AUTHOR_URL = "https://github.com/LunarKittyy"
-        private const val HELP_URL = "https://github.com/${UpdateLogic.REPO}/blob/master/docs/troubleshooting.md"
-        private const val BUG_REPORT_URL = "https://github.com/${UpdateLogic.REPO}/issues/new?template=bug.yml"
         // Android's "Large" font is 1.15 and its largest 1.3 or more; from there a setup step stacks its button
         private const val STACK_FONT_SCALE = 1.3f
         // Paired computers listed before "Show all"
