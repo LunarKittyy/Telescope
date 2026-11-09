@@ -477,7 +477,7 @@ export component CompositeEditor inherits Window {
                             Unfolding {
  open: colour-target == "border";
  lead: Theme.u(1);
- {
+ VerticalLayout {
                                 for name[i] in [@tr("Red"), @tr("Green"), @tr("Blue")]: SliderRow {
                                     label-width: Theme.u(36);
                                     hue: Theme.plugin-hue("streaming");
@@ -529,7 +529,7 @@ export component CompositeEditor inherits Window {
                         Unfolding {
  open: colour-target == "background";
  lead: Theme.u(1);
- {
+ VerticalLayout {
                             for name[i] in [@tr("Red"), @tr("Green"), @tr("Blue")]: SliderRow {
                                     label-width: Theme.u(36);
                                     hue: Theme.plugin-hue("streaming");

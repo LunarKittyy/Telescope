@@ -13,6 +13,14 @@ use telescope_core::ui::{SlintSource, UiEvent};
 use telescope_outputs::stream_output::StreamOutputPlugin;
 use telescope_shell::source::to_slint;
 
+/// Time for the pages to cross over (they are looked at as they go: a page's move starts when it is first laid out).
+fn let_it_move(ui: &ComponentInstance) {
+    for _ in 0..30 {
+        let _ = ElementHandle::find_by_accessible_label(ui, "").count();
+        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(50));
+    }
+}
+
 fn double_click(window: &slint::Window, e: &ElementHandle) {
     let (p, s) = (e.absolute_position(), e.size());
     let position = LogicalPosition::new(p.x + s.width / 3.0, p.y + s.height / 2.0);
@@ -46,7 +54,7 @@ fn stream_quality_and_bitrate_reset_on_a_double_click() {
         ui.window().set_size(slint::LogicalSize::new(460.0, 400.0));
         ui.show().unwrap();
         // The row for this format unfolds
-        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(400));
+        let_it_move(&ui);
         let slider = ElementHandle::find_by_accessible_label(&ui, label).find(|e| e.accessible_value_maximum().is_some()).expect("the slider");
         double_click(ui.window(), &slider);
         if name == "bitrate-moved" {
@@ -104,7 +112,7 @@ impl Drawn {
             }
         }
         // The row for the format unfolds, the other folds away
-        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(400));
+        let_it_move(&self.ui);
     }
 
     /// What was done on the card reaches the plugin, and the card shows the outcome.

@@ -226,6 +226,7 @@ export component Unfold {
 // value that another spring is still moving until that one has stopped, so it waited for the lead to land.)
 // `pace` stretches the period for the second axis of a move across and down.
 export component WormEdge {
+    out property <string> control-kind: "helper";
     in property <length> to;
     in property <bool> lead;
     in property <bool> snap;
