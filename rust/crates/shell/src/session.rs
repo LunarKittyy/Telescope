@@ -41,6 +41,11 @@ pub struct StreamSession {
     pub worker: Option<Rc<dyn Worker>>,
 }
 
+/// The frame rate out of a worker's fps report ("30 fps  1920x1080" is "30"): the footer says the size on its own.
+pub fn fps_reading(msg: &str) -> String {
+    msg.split("  ").next().unwrap_or("").trim_end_matches(" fps").to_string()
+}
+
 /// What a source keeps about its own stream (Source's attributes).
 pub struct SourceState {
     pub session: Option<StreamSession>,
@@ -94,7 +99,7 @@ impl SourceState {
     /// A status report from this stream's worker, kept for the footer and its tile.
     pub fn note_status(&mut self, kind: &str, msg: &str) {
         match kind {
-            "fps" => self.fps_text = msg.into(),
+            "fps" => self.fps_text = fps_reading(msg),
             "net" | "net_warn" => self.net_text = msg.into(),
             "ok" => {
                 self.connected = true;

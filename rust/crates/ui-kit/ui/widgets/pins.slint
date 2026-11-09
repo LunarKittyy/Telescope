@@ -1,0 +1,227 @@
+// What the bottom bar and the Stats card pin to it: the star on a stat's line, one pin of the bar and the "+N" chip that folds the ones that
+// do not fit.
+
+import { Theme } from "../theme.slint";
+import { Icons } from "../icons.slint";
+import { Icon, FocusRing, KeyFocus } from "basics.slint";
+import { Tip } from "tip.slint";
+import { Motion, Settle, Fade, Tone } from "motion.slint";
+
+// Kind "toggle". The star that pins a line's number into the bottom bar: a bare icon, dim at rest, in the card's colour while pinned.
+export component PinStar inherits Rectangle {
+    out property <string> control-kind: "toggle";
+    in property <bool> pinned;
+    in property <bool> locked;
+    in property <string> label;
+    in property <color> hue: Theme.accent;
+    callback toggled;
+    width: Theme.u(14);
+    height: Theme.u(14);
+    accessible-role: button;
+    accessible-label: label;
+    accessible-checked: pinned;
+    accessible-action-default => { if (!locked) { toggled(); } }
+    forward-focus: focus;
+    focus := FocusScope {
+        key-pressed(e) => {
+            if ((e.text == " " || e.text == "\n") && !locked) { toggled(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    hover := Tone { on: touch.has-hover && !locked; }
+    Icon {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: Theme.icon;
+        height: Theme.icon;
+        source: pinned ? Icons.star-filled : Icons.star;
+        // Quiet at rest so a column of them doesn't compete with the numbers; the card's colour once pinned
+        tint: pinned ? (locked ? Theme.edge(hue).mix(Theme.dis, 0.55) : Theme.edge(hue).mix(Theme.ink, 1 - hover.value * 0.4)) : Theme.ink2.mix(Theme.dis, hover.value);
+    }
+    touch := TouchArea {
+        mouse-cursor: locked ? MouseCursor.default : MouseCursor.pointer;
+        clicked => { if (!locked) { root.toggled(); } }
+    }
+    Tip {
+        says: locked ? @tr("Pinned while several streams run") : pinned ? @tr("Unpin from the bottom bar") : @tr("Pin to the bottom bar");
+        hover: touch.has-hover;
+        focused: focus.has-focus && KeyFocus.keyboard;
+    }
+}
+
+// Kind "readout". One pin of the bottom bar: a small icon and the value in the type of a card's value readout (or the camera's name and its dim size), the
+// full name in its tooltip. Rust says where it goes (`x`, `w`), whether it is in its place, folded into the "+N" chip or gone, and the
+// bar draws that: the place is a Settle, so a pin that is moved (another pin came or went, the bar was resized, a drag let go) glides from
+// where it is, and its opacity is a Fade. A pin that is held follows the pointer and says where it is for Rust to make room.
+// state: 0 in its place, 1 folded into the chip of its side, 2 not drawn (it fades out where it was).
+export struct BarPin {
+    id: string,
+    name: string,
+    tip: string,
+    icon: string,
+    value: string,
+    sub: string,
+    tone: string,
+    state: int,
+    // 0 left, 1 right
+    side: int,
+    x: length,
+    w: length,
+    locked: bool,
+}
+
+export component PinReadout inherits Rectangle {
+    out property <string> control-kind: "readout";
+    in property <BarPin> pin;
+    in property <length> bar-w;
+    // How wide it would like to be, with everything on it and without the dim text, for Rust to keep the widest of each
+    callback measured(length, length);
+    callback drag-started;
+    callback drag-moved(length);
+    callback drag-ended;
+    // Right click: where, in the bar
+    callback menu-asked(length);
+    out property <bool> dragging;
+    // How far it has come (0 gone, 1 solid) and where it is, for a test
+    out property <float> presence: fade.value;
+    out property <length> at: place.value * 1px;
+    property <length> drag-x;
+    property <bool> here;
+    // How wide it would be with everything on it, whether or not the size it was given leaves room for the dim text after the value
+    property <length> natural: (pin.icon != "" ? Theme.icon-small + Theme.u(3) : 0px) + val.preferred-width + (pin.sub != "" ? Theme.u(3) + sub-ruler.preferred-width : 0px);
+    property <length> plain: natural - (pin.sub != "" ? Theme.u(3) + sub-ruler.preferred-width : 0px);
+    // The dim text (the camera's size) is the first to go when the room is short, so the name is cut last
+    property <bool> sub-fits: pin.w + 0.5px >= natural;
+    init => {
+        here = true;
+        root.measured(natural, plain);
+    }
+    changed natural => { root.measured(natural, plain); }
+    changed plain => { root.measured(natural, plain); }
+    // A pin that comes back from hidden says how wide it is again: the bar forgets widths while nothing shows, and a row that kept its text has nothing else to report
+    property <int> st: pin.state;
+    changed st => { root.measured(natural, plain); }
+    fade := Fade { shown: here && pin.state == 0; }
+    // Folded pins slide into their chip while they fade; a pin that is hidden follows its place at once, so it comes back where it belongs
+    place := Settle { to: (dragging ? drag-x : pin.x) / 1px; snap: dragging || pin.state == 2; }
+    x: round(place.value * 1px / 1phx) * 1phx;
+    y: Theme.u(4);
+    width: pin.w;
+    height: Theme.u(12);
+    opacity: fade.value;
+    visible: fade.value > 0.001;
+    accessible-role: text;
+    accessible-label: pin.name;
+    accessible-value: pin.value;
+    tip := Tip { says: pin.name; detail: pin.tip; hover: touch.has-hover && !dragging && pin.state == 0; }
+    sub-ruler := Text {
+        visible: false;
+        text: pin.sub;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        accessible-role: none;
+    }
+    lay := HorizontalLayout {
+        spacing: Theme.u(3);
+        alignment: end;
+        if pin.icon != "": Icon { y: (parent.height - self.height) / 2; source: Icons.named(pin.icon); tint: Theme.faint; width: Theme.icon-small; height: Theme.icon-small; }
+        val := Text {
+            text: pin.value;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-value;
+            color: pin.tone == "err" ? Theme.err : pin.tone == "warn" ? Theme.warn : Theme.ink;
+            vertical-alignment: center;
+            horizontal-alignment: right;
+            overflow: elide;
+            min-width: 0px;
+            accessible-role: none;
+        }
+        if pin.sub != "" && sub-fits: Text {
+            text: pin.sub;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: Theme.faint;
+            vertical-alignment: center;
+        }
+    }
+    touch := TouchArea {
+        enabled: pin.state == 0;
+        // Where inside the pin the pointer took hold, and whether a press is down
+        property <length> grab;
+        property <bool> down;
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                down = true;
+                grab = self.mouse-x;
+                tip.press();
+            } else if (e.kind == PointerEventKind.down && e.button == PointerEventButton.right) {
+                tip.press();
+                root.menu-asked(root.x + self.mouse-x);
+            } else if (e.kind == PointerEventKind.up || e.kind == PointerEventKind.cancel) {
+                down = false;
+                if (dragging) {
+                    dragging = false;
+                    root.drag-ended();
+                }
+            }
+        }
+        moved => {
+            if (down && !dragging && abs(self.mouse-x - grab) > Theme.u(2)) {
+                drag-x = root.x;
+                dragging = true;
+                root.drag-started();
+            }
+            if (dragging) {
+                drag-x = clamp(root.x + self.mouse-x - grab, 0px, max(0px, bar-w - pin.w));
+                root.drag-moved(drag-x + pin.w / 2);
+            }
+        }
+    }
+}
+
+// Kind "readout". "+N": the pins of one side that did not fit, at that side's inner end. A click opens them.
+export component PinChip inherits Rectangle {
+    out property <string> control-kind: "readout";
+    in property <int> count;
+    in property <length> to-x;
+    in property <string> label;
+    callback clicked;
+    // Its count stays while it fades away
+    property <int> held: 0;
+    changed count => { if (count > 0) { held = count; } }
+    init => { if (count > 0) { held = count; } }
+    fade := Fade { shown: count > 0; }
+    place := Settle { to: to-x / 1px; snap: count == 0; }
+    x: round(place.value * 1px / 1phx) * 1phx;
+    y: Theme.u(4);
+    width: Theme.u(14);
+    height: Theme.u(12);
+    opacity: fade.value;
+    visible: fade.value > 0.001;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-value: "+" + held;
+    accessible-action-default => { root.clicked(); }
+    tone := Tone { on: touch.has-hover; }
+    Text {
+        text: "+" + held;
+        width: parent.width;
+        height: parent.height;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        font-weight: Theme.w-value;
+        color: Theme.ink.mix(Theme.faint, tone.value);
+        vertical-alignment: center;
+        horizontal-alignment: center;
+        accessible-role: none;
+    }
+    touch := TouchArea {
+        enabled: count > 0;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    Tip { says: label; hover: touch.has-hover; }
+}
+

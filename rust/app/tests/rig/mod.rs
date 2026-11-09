@@ -33,6 +33,11 @@ static TURN: Mutex<()> = Mutex::new(());
 
 pub type Log = Arc<Mutex<Vec<String>>>;
 
+thread_local! {
+    /// What Rig::seeded writes to the settings file before the window reads it.
+    static SEED: std::cell::RefCell<Option<Value>> = const { std::cell::RefCell::new(None) };
+}
+
 fn note(log: &Log, what: impl Into<String>) {
     log.lock().unwrap().push(what.into());
 }
@@ -680,6 +685,12 @@ impl Rig {
         Rig::built(name, false, plugins)
     }
 
+    /// As with, from a settings file that already says `config`.
+    pub fn seeded(name: &str, config: Value, plugins: impl FnOnce(&Arc<FakeLink>, &Log) -> Vec<Box<dyn Plugin>>) -> Rig {
+        SEED.with(|s| *s.borrow_mut() = Some(config));
+        Rig::built(name, false, plugins)
+    }
+
     /// As new, with a tray.
     pub fn with_tray(name: &str) -> Rig {
         Rig::built(name, true, |_, heard| vec![Box::new(Listener::new("panel", heard)) as Box<dyn Plugin>, Box::new(Listener::new("microphone", heard))])
@@ -712,6 +723,9 @@ impl Rig {
         offscreen::install();
         offscreen::drop_jobs();
         let dir = telescope_core::testing::scratch_dir(name);
+        if let Some(mut config) = SEED.with(|s| s.borrow_mut().take()) {
+            ConfigFile::at(dir.join(CONFIG_FILENAME)).save(&mut config);
+        }
         let link = Arc::new(FakeLink::default());
         link.pair("pixel", "Pixel");
         link.pair("oneplus", "OnePlus");

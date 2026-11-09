@@ -395,6 +395,8 @@ fn eliding_label_keeps_its_full_text_available() {
     r.w.ui.set_property("fps", slint_interpreter::Value::String("30".into())).unwrap();
     r.w.ui.set_property("net", slint_interpreter::Value::String("12.4 Mbps".into())).unwrap();
     r.w.ui.set_property("status", slint_interpreter::Value::String(long.into())).unwrap();
+    // The window works the bar out whenever it has processed what came in
+    r.w.process();
     hover();
     assert_eq!(says(long), 2, "the line and its tooltip");
     let line = i_slint_backend_testing::ElementHandle::find_by_accessible_label(&r.w.ui, long).next().expect("the line");

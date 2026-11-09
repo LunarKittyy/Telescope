@@ -6,16 +6,17 @@ use crate::layout::Region;
 use crate::shell::{Effect, State};
 use crate::source::{scan, to_json, to_property};
 use serde_json::Value;
-use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use slint_interpreter::{ComponentInstance, Struct, Value as SValue};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
+use telescope_core::bar::{self, BarStat};
 use telescope_core::config::ConfigFile;
 use telescope_core::event::Event;
-use telescope_core::i18n::tr;
+use telescope_core::i18n::{tr, Fields};
 use telescope_core::link::{RoutePrefs, StreamRequest};
 use telescope_core::plugin::{Plugin, PluginInfo};
 use telescope_core::services::Services;
@@ -103,6 +104,12 @@ pub struct Window {
     pub(crate) plugin_windows: RefCell<Vec<(String, String, ComponentInstance)>>,
     popout_asks: Cell<i32>,
     painted_gen: Cell<i32>,
+    /// The bar's pins that come back from hidden are put in place first and shown after this fires (bar.rs `View::returning`).
+    bar_reveal: RefCell<Option<crate::bar::View>>,
+    bar_timer: slint::Timer,
+    /// The bar's pins, one row for each pin that has had one. It is changed in place, never replaced, so each pin's element in the bar
+    /// lives on (and keeps its motion, or a drag that is under way) while a row's numbers change.
+    bar_rows: Rc<VecModel<SValue>>,
 }
 
 /// _PopoutWindow: the picture alone on black, in a window of its own.
@@ -434,6 +441,9 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         plugin_windows: RefCell::default(),
         popout_asks: Cell::new(0),
         painted_gen: Cell::new(0),
+        bar_reveal: RefCell::new(None),
+        bar_timer: slint::Timer::default(),
+        bar_rows: Rc::new(VecModel::default()),
     });
     WINDOW.with(|w| *w.borrow_mut() = Some(window.clone()));
     window.streams.flow.borrow_mut().slot_memory = window.state.borrow().slot_memory.clone();
@@ -608,6 +618,7 @@ impl Window {
             let input = crate::keys::key_input(&args[0], released, typing, w.modal());
             SValue::Bool(w.key(&input))
         });
+        self.wire_bar();
         let weak = Rc::downgrade(self);
         let _ = ui.set_callback("settings-clicked", move |_| {
             if let Some(w) = weak.upgrade() {
@@ -618,6 +629,171 @@ impl Window {
         });
         let _ = ui.set_property("window-title", SValue::String(if telescope_core::config::dev_profile().is_some() { tr("Telescope (dev)") } else { "Telescope".to_string() }.into()));
         self.show_idle();
+    }
+
+    /// The bottom bar's callbacks: how it was measured, where a pin is held, an unpin from its menu.
+    fn wire_bar(self: &Rc<Self>) {
+        let _ = self.ui.set_property("bar-pins", SValue::Model(ModelRc::from(self.bar_rows.clone())));
+        let num = |v: &SValue| match v { SValue::Number(n) => *n as f32, _ => 0.0 };
+        let text = |v: &SValue| match v { SValue::String(s) => s.to_string(), _ => String::new() };
+        let ui = &self.ui;
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("bar-resized", move |_| {
+            if let Some(w) = weak.upgrade() {
+                w.process();
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("bar-pin-measured", move |args| {
+            if let (Some(w), [id, width, plain]) = (weak.upgrade(), args) {
+                w.state.borrow_mut().bar.measured(&text(id), num(width), num(plain));
+                w.show_bar();
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("bar-drag-started", move |args| {
+            if let (Some(w), Some(id)) = (weak.upgrade(), args.first()) {
+                w.state.borrow_mut().bar.drag_start(&text(id));
+                w.show_bar();
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("bar-drag-moved", move |args| {
+            if let (Some(w), [id, x]) = (weak.upgrade(), args) {
+                w.state.borrow_mut().bar.drag_to(&text(id), num(x));
+                w.show_bar();
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("bar-drag-ended", move |args| {
+            if let (Some(w), Some(id)) = (weak.upgrade(), args.first()) {
+                let moved = w.state.borrow_mut().bar.drag_end(&text(id));
+                if moved {
+                    w.state.borrow_mut().effects.push(Effect::SaveSoon);
+                }
+                w.process();
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("bar-unpin", move |args| {
+            if let (Some(w), Some(id)) = (weak.upgrade(), args.first()) {
+                w.unpin_from_bar(&text(id));
+            }
+            SValue::Void
+        });
+    }
+
+    /// Takes a readout off the bar (its menu's Unpin), and tells the plugins.
+    pub fn unpin_from_bar(self: &Rc<Self>, id: &str) {
+        let mut st = self.state.borrow_mut();
+        if st.bar.pin(id, false) {
+            st.effects.push(Effect::SaveSoon);
+        }
+        drop(st);
+        self.process();
+    }
+
+    /// The bar's own readouts, from what the shown stream reported, and the pins as bar.rs lays them out now.
+    pub fn show_bar(self: &Rc<Self>) {
+        let text = |name: &str| match self.ui.get_property(name) { Ok(SValue::String(s)) => s.to_string(), _ => String::new() };
+        let number = |name: &str| match self.ui.get_property(name) { Ok(SValue::Number(n)) => n as f32, _ => 0.0 };
+        let reading = |value: String| if value == "-" { String::new() } else { value };
+        // The frame rate is said with its unit like the other readouts
+        let rate = |value: String| if value == "-" || value.is_empty() { String::new() } else { tr("{n} fps").field("n", value) };
+        let tone = |name: &str| match text(name).as_str() { "warn" => "warn", "err" => "err", _ => "" }.to_string();
+        let camera = text("status-camera");
+        let own = vec![
+            BarStat { sub: text("status-size"), tip: camera.clone(), ..BarStat::new(bar::CAMERA, &tr("Virtual camera"), "", &camera) },
+            BarStat { tip: text("fps-tip"), tone: tone("fps-tone"), ..BarStat::new(bar::FPS, &tr("Frame rate"), "film", &rate(text("fps"))) },
+            BarStat { tip: tr("How much data per second reaches this computer."), tone: tone("net-tone"), ..BarStat::new(bar::THROUGHPUT, &tr("Throughput"), "gauge", &reading(text("net"))) },
+        ];
+        let streams = self.streams.flow.try_borrow().ok().map(|flow| flow.sessions.streams.len());
+        let status_shown = camera.is_empty();
+        let _ = crate::same::set(&self.ui, "bar-status-shown", SValue::Bool(status_shown));
+        let view = {
+            let mut st = self.state.borrow_mut();
+            if let Some(n) = streams {
+                st.bar.set_streams(n);
+            }
+            st.bar.set_own(own);
+            st.bar.set_metrics(crate::bar::Metrics { width: number("bar-width"), pad: number("bar-pad"), gap: number("bar-gap"), chip: number("bar-chip") });
+            if let Some(ids) = st.bar.pins_changed() {
+                st.bus.emit(Event::BarPinsChanged { pinned: ids });
+            }
+            if !st.bar.take_dirty() {
+                return;
+            }
+            st.bar.view()
+        };
+        self.push_bar(view);
+    }
+
+    fn push_bar(self: &Rc<Self>, view: crate::bar::View) {
+        use crate::bar::State;
+        let rows = |view: &crate::bar::View, hold: &[String]| -> Vec<SValue> {
+            view.rows.iter().map(|r| {
+                let state = if hold.contains(&r.id) { State::Hidden } else { r.state };
+                SValue::Struct(Struct::from_iter([
+                    ("id".to_string(), SValue::String(r.id.as_str().into())),
+                    ("name".to_string(), SValue::String(r.name.as_str().into())),
+                    ("tip".to_string(), SValue::String(r.tip.as_str().into())),
+                    ("icon".to_string(), SValue::String(r.icon.as_str().into())),
+                    ("value".to_string(), SValue::String(r.value.as_str().into())),
+                    ("sub".to_string(), SValue::String(r.sub.as_str().into())),
+                    ("tone".to_string(), SValue::String(r.tone.as_str().into())),
+                    ("state".to_string(), SValue::Number(match state { State::Shown => 0.0, State::Folded => 1.0, State::Hidden => 2.0 })),
+                    ("side".to_string(), SValue::Number(if r.side == bar::Side::Left { 0.0 } else { 1.0 })),
+                    ("x".to_string(), SValue::Number(r.x as f64)),
+                    ("w".to_string(), SValue::Number(r.w as f64)),
+                    ("locked".to_string(), SValue::Bool(r.locked)),
+                ]))
+            }).collect()
+        };
+        let set_all = |view: &crate::bar::View, hold: &[String]| {
+            let ui = &self.ui;
+            for (i, row) in rows(view, hold).into_iter().enumerate() {
+                match self.bar_rows.row_data(i) {
+                    Some(old) if crate::same::equal(&old, &row) => {}
+                    Some(_) => self.bar_rows.set_row_data(i, row),
+                    None => self.bar_rows.push(row),
+                }
+            }
+            let chip = |c: &Option<crate::bar::Chip>| c.map_or((0.0, 0.0), |c| (c.count as f64, c.x as f64));
+            let ((ln, lx), (rn, rx)) = (chip(&view.left), chip(&view.right));
+            let _ = crate::same::set(ui, "bar-left-folded", SValue::Number(ln));
+            if ln > 0.0 {
+                let _ = crate::same::set(ui, "bar-left-chip-x", SValue::Number(lx));
+            }
+            let _ = crate::same::set(ui, "bar-right-folded", SValue::Number(rn));
+            if rn > 0.0 {
+                let _ = crate::same::set(ui, "bar-right-chip-x", SValue::Number(rx));
+            }
+            let _ = crate::same::set(ui, "bar-status-x", SValue::Number(view.status_x as f64));
+            let _ = crate::same::set(ui, "bar-status-room", SValue::Number(view.status_room as f64));
+        };
+        self.bar_timer.stop();
+        self.bar_reveal.borrow_mut().take();
+        if view.returning.is_empty() {
+            set_all(&view, &[]);
+            return;
+        }
+        // Pins coming back are put where they belong while they are still hidden, and shown a moment later
+        set_all(&view, &view.returning);
+        *self.bar_reveal.borrow_mut() = Some(view);
+        let weak = Rc::downgrade(self);
+        self.bar_timer.start(slint::TimerMode::SingleShot, Duration::from_millis(30), move || {
+            if let Some(w) = weak.upgrade() {
+                let view = w.bar_reveal.borrow_mut().take();
+                if let Some(view) = view {
+                    w.push_bar(crate::bar::View { returning: Vec::new(), ..view });
+                }
+            }
+        });
     }
 
     /// Colour grading's compare: the shown stream's picture before its colour step left of the line.
@@ -719,6 +895,7 @@ impl Window {
     pub fn process(self: &Rc<Self>) {
         self.sync_camera(); // the events below may be about it, and plugins read it back
         for _ in 0..50 {
+            self.show_bar();
             self.state.borrow_mut().deliver_events();
             let queued = self.state.borrow().effects.len();
             if queued == 0 {
@@ -739,6 +916,7 @@ impl Window {
         self.sync_camera();
         self.show_add_button();
         self.show_banners();
+        self.show_bar();
         self.paint_pick();
         self.paint_layers();
     }

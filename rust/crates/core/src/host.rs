@@ -395,6 +395,21 @@ pub trait HostUi {
     fn open_window(&mut self, _id: &str, _window: &crate::ui::WindowSpec) {}
     /// Closes this plugin's window with this id, if it's open ("closed" still comes).
     fn close_window(&mut self, _id: &str) {}
+    /// The readouts this plugin can put in the bottom bar, as they read now; each call replaces the last. A pinned one shows its value
+    /// and one with an empty value takes no room. Offer nothing (or switch the plugin off) and its pins vanish quietly, to come back
+    /// with the plugin. The ids are kept in the settings, so they stay the same from run to run.
+    fn offer_bar_stats(&mut self, _stats: &[crate::bar::BarStat]) {}
+    /// The ids pinned to the bottom bar now, left side first, each side in the order it is drawn.
+    fn bar_pins(&self) -> Vec<String> {
+        Vec::new()
+    }
+    /// Pins a readout to the bar (at the inner end of its side, the right one for a new pin) or takes it off. Event::BarPinsChanged
+    /// follows when something changed. The camera stays pinned while two or more streams run.
+    fn pin_to_bar(&mut self, _id: &str, _pinned: bool) {}
+    /// What the bar reads for this id now, from any plugin or the window's own (see core::bar), or None while nothing offers it.
+    fn bar_stat(&self, _id: &str) -> Option<crate::bar::BarStat> {
+        None
+    }
 }
 
 /// The shown stream's view: zoom, pan, flip, rotation and stretch, done before the plugins see the frame.

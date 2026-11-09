@@ -2,6 +2,7 @@
 
 pub mod admin;
 pub mod banners;
+pub mod bar;
 pub mod collapse;
 pub mod compile;
 pub mod doc;

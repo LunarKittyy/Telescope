@@ -1,7 +1,7 @@
 // The window around the cards (app.py _build_header, _build_footer, widgets/banner.py, widgets/tiles.py). The window
 // itself is written by the shell at startup (doc.rs), which places every plugin's card between these.
 
-import { Theme, Icons, Icon, FocusRing, KeyFocus, Button, IconButton, Tip, TipBody, TipUse, ShortcutMenu, Arrival } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, KeyFocus, Button, IconButton, Tip, TipBody, TipUse, ShortcutMenu, Arrival, Motion, Fade, MenuSurface, MenuItem, BarPin, PinReadout, PinChip } from "@ui-kit/ui-kit.slint";
 
 export struct BannerData {
     key: string,
@@ -90,98 +90,153 @@ export component StartButton inherits Rectangle {
     }
 }
 
-// One of the footer's readouts: a small icon and the value, in the type of a card's value readout; the full name is its tooltip. The width
-// holds for the widest value it shows, so the readouts to its left don't move with the digits.
-component FooterReadout inherits Rectangle {
-    in property <image> icon;
-    in property <string> value;
-    in property <color> value-color: Theme.ink;
-    in property <string> name;
-    in property <string> tip;
-    in property <length> least-width: Theme.u(24);
-    height: Theme.u(12);
-    width: max(lay.preferred-width, least-width);
-    accessible-role: text;
-    accessible-label: name;
-    accessible-value: value;
-    // It takes the place of nothing in one frame, so it comes up to full
-    opacity: arrival.solid;
-    arrival := Arrival { }
-    Tip { says: root.name; detail: root.tip; inert: true; }
-    lay := HorizontalLayout {
-        spacing: Theme.u(3);
-        Icon { y: (parent.height - self.height) / 2; source: root.icon; tint: Theme.faint; width: Theme.icon-small; height: Theme.icon-small; accessible-role: none; }
-        Text { text: root.value; horizontal-stretch: 1; font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; color: root.value-color; vertical-alignment: center; horizontal-alignment: right; accessible-role: none; }
-    }
-}
-
-// The bar under the window, the top bar's colour. Left: which camera is streaming and at what size, or the status in a word. Right, while
-// streaming: the frame rate and the throughput. Nothing else on it: no dot, no badge.
+// The bar under the window, the top bar's colour. The pins are the readouts people pinned from the Stats card (the camera, the frame rate
+// and the throughput to begin with), each side stacking from its own edge and folding the innermost ones into "+N" when they do not
+// fit. Not streaming (or while the stream says something else), the status is a dim word on the left. No dot, no badge.
 export component Footer inherits Rectangle {
     in property <string> status;
     in property <string> status-kind: "status_dim";
-    // The camera and size of a stream that is going, from the streaming sentence; empty for any other status
-    in property <string> camera;
-    in property <string> size;
-    in property <string> fps;
-    in property <color> fps-color: Theme.ink;
-    in property <string> fps-tip;
-    in property <string> net;
-    in property <color> net-color: Theme.ink;
-    property <bool> streaming: camera != "";
-    // Frames and throughput only mean something while there is a stream
-    property <bool> readouts: fps != "-" && fps != "";
+    // The status is a word of its own (anything but the streaming sentence, which the camera pin says)
+    in property <bool> status-shown: true;
+    in property <[BarPin]> pins;
+    // How many pins each side folded, and where its chip goes
+    in property <int> left-folded;
+    in property <length> left-chip-x;
+    in property <int> right-folded;
+    in property <length> right-chip-x;
+    // Where the status starts (after the pins on the left) and how much of the bar it may use
+    in property <length> status-x: Theme.u(8);
+    in property <length> status-room: root.width - 2 * Theme.u(8);
+    callback pin-measured(string, length, length);
+    callback drag-started(string);
+    callback drag-moved(string, length);
+    callback drag-ended(string);
+    callback unpin(string);
     height: Theme.u(20);
     background: Theme.chrome;
-    HorizontalLayout {
-        padding-left: Theme.u(8);
-        padding-right: Theme.u(8);
-        padding-top: Theme.u(4);
-        padding-bottom: Theme.u(4);
-        spacing: Theme.u(8);
-        if streaming: HorizontalLayout {
-            horizontal-stretch: 1;
-            spacing: Theme.u(4);
-            accessible-role: text;
-            accessible-label: root.status;
-            shown-camera := Text {
-                text: camera;
-                overflow: elide;
-                font-family: Theme.font;
-                font-size: Theme.body;
-                font-weight: Theme.w-value;
-                color: Theme.ink;
-                vertical-alignment: center;
-                horizontal-stretch: 0;
-                min-width: 0px;
-                accessible-role: none;
-                Tip { says: shown-camera.text; detail: root.size; enabled: shown-camera.preferred-width > shown-camera.width; inert: true; }
-            }
-            Text {
-                text: size;
-                font-family: Theme.font;
-                font-size: Theme.body;
-                color: Theme.faint;
-                vertical-alignment: center;
-                horizontal-stretch: 0;
-                accessible-role: none;
-            }
-            Rectangle { horizontal-stretch: 1; }
-        }
-        if !streaming: shown-status := Text {
-            horizontal-stretch: 1;
-            text: status;
-            overflow: elide;
-            Tip { says: shown-status.text; enabled: shown-status.preferred-width > shown-status.width; inert: true; }
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: StatusColors.of(status-kind);
-            vertical-alignment: center;
-            accessible-role: text;
-        }
-        if readouts: FooterReadout { icon: Icons.film; value: fps; value-color: fps-color; name: @tr("Frame rate"); tip: fps-tip; least-width: Theme.u(24); }
-        if readouts: FooterReadout { icon: Icons.gauge; value: net; value-color: net-color; name: @tr("Throughput"); tip: @tr("How much data per second reaches this computer."); least-width: Theme.u(44); }
+    status-fade := Fade { shown: status-shown && status != ""; }
+    shown-status := Text {
+        x: status-x;
+        width: max(0px, status-room);
+        height: parent.height;
+        text: status;
+        overflow: elide;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: StatusColors.of(status-kind);
+        vertical-alignment: center;
+        opacity: status-fade.value;
+        visible: status-fade.value > 0.001;
+        accessible-role: text;
+        Tip { says: shown-status.text; enabled: shown-status.preferred-width > shown-status.width; inert: true; }
     }
+    for pin[i] in pins: PinReadout {
+        pin: pin;
+        bar-w: root.width;
+        measured(w, plain) => { root.pin-measured(pin.id, w, plain); }
+        drag-started => { root.drag-started(pin.id); }
+        drag-moved(cx) => { root.drag-moved(pin.id, cx); }
+        drag-ended => { root.drag-ended(pin.id); }
+        menu-asked(x) => {
+            root.menu-pin = pin.id;
+            root.menu-locked = pin.locked;
+            root.menu-x = x;
+            root.menu-current = -1;
+            root.leaving = false;
+            menu.show();
+        }
+    }
+    PinChip {
+        count: left-folded;
+        to-x: left-chip-x;
+        label: @tr("More");
+        clicked => { root.open-folded(0, self.x); }
+    }
+    PinChip {
+        count: right-folded;
+        to-x: right-chip-x;
+        label: @tr("More");
+        clicked => { root.open-folded(1, self.x); }
+    }
+
+    // The right-click menu of a pin, and the folded pins' list, are pop-ups above the bar that ease out before they go
+    property <string> menu-pin;
+    property <bool> menu-locked;
+    property <length> menu-x;
+    property <int> menu-current: -1;
+    property <bool> leaving;
+    property <int> folded-side: -1;
+    property <length> folded-x;
+    function leave() { leaving = true; }
+    function open-folded(side: int, x: length) {
+        root.folded-side = side;
+        root.folded-x = x;
+        root.leaving = false;
+        list.show();
+    }
+    Timer {
+        interval: Motion.fade-out + 40ms;
+        running: root.leaving;
+        triggered => {
+            root.leaving = false;
+            menu.close();
+            list.close();
+        }
+    }
+    menu := PopupWindow {
+        x: clamp(root.menu-x - Theme.u(4), 0px, max(0px, root.width - Theme.u(60)));
+        y: -(Theme.u(18) + Theme.u(3));
+        width: Theme.u(60);
+        height: Theme.u(18);
+        close-policy: close-on-click-outside;
+        MenuSurface {
+            width: parent.width;
+            height: parent.height;
+            leaving: root.leaving;
+            VerticalLayout {
+                padding: Theme.u(2.5);
+                MenuItem {
+                    title: @tr("Unpin");
+                    enabled: !root.menu-locked;
+                    current: root.menu-current == 0;
+                    hovered => { root.menu-current = 0; }
+                    left => { root.menu-current = -1; }
+                    activate => {
+                        root.unpin(root.menu-pin);
+                        root.leave();
+                    }
+                }
+            }
+        }
+    }
+    list := PopupWindow {
+        x: clamp(root.folded-x, 0px, max(0px, root.width - Theme.u(120)));
+        y: -(root.folded-count * Theme.u(13) + Theme.u(5) + Theme.u(3));
+        width: Theme.u(120);
+        height: root.folded-count * Theme.u(13) + Theme.u(5);
+        close-policy: close-on-click-outside;
+        MenuSurface {
+            width: parent.width;
+            height: parent.height;
+            leaving: root.leaving;
+            VerticalLayout {
+                padding: Theme.u(2.5);
+                for pin in pins: HorizontalLayout {
+                    if pin.state == 1 && pin.side == root.folded-side: HorizontalLayout {
+                        height: Theme.u(13);
+                        padding-left: Theme.u(4);
+                        padding-right: Theme.u(4);
+                        spacing: Theme.u(3);
+                        if pin.icon != "": Icon { y: (parent.height - self.height) / 2; source: Icons.named(pin.icon); tint: Theme.faint; width: Theme.icon-small; height: Theme.icon-small; }
+                        Text { text: pin.name; horizontal-stretch: 1; min-width: 0px; overflow: elide; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; }
+                        Text { text: pin.value; font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; color: pin.tone == "err" ? Theme.err : pin.tone == "warn" ? Theme.warn : Theme.ink; vertical-alignment: center; horizontal-alignment: right; }
+                    }
+                }
+            }
+        }
+    }
+    // How many pins the open list holds
+    property <int> folded-count: folded-side == 0 ? left-folded : folded-side == 1 ? right-folded : 0;
 }
 
 // A banner's action: the kit's button.

@@ -281,6 +281,8 @@ pub struct State {
     pub panels: Panels,
     pub collapse: Collapsing,
     pub banners: Banners,
+    /// The pins in the bottom bar and what plugins offer it (bar.rs).
+    pub bar: crate::bar::Bar,
     pub file: ConfigFile,
     pub bus: EventBus,
     pub effects: Vec<Effect>,
@@ -374,6 +376,7 @@ impl State {
             panels: Panels::default(),
             collapse: Collapsing::default(),
             banners: Banners::default(),
+            bar: crate::bar::Bar::new(),
             file,
             bus,
             effects: Vec::new(),
@@ -642,6 +645,10 @@ impl State {
         }
         *self.slot_memory.borrow_mut() = window.output_slots.iter().filter_map(|(id, slot)| Some((id.clone(), u32::try_from(slot.as_u64()?).ok()?))).collect();
         self.selected = window.selected_device.clone();
+        self.bar.load(window.bar_pins.clone());
+        if let Some(ids) = self.bar.pins_changed() {
+            self.bus.emit(Event::BarPinsChanged { pinned: ids });
+        }
         if profiles::spread_shared_settings(cfg, &self.device_local()) {
             self.file.save(cfg);
         }
@@ -929,7 +936,7 @@ impl State {
             }).collect();
         sections.extend(self.unsaved_profiles.iter().cloned());
         sections.extend(self.profile_sections(&cfg, self.selected.as_deref()));
-        let window = WindowState { selected_device: self.selected.clone(), collapsed: self.collapse.keys(), output_slots: self.slot_memory.borrow().iter().map(|(id, slot)| (id.clone(), json!(slot))).collect() };
+        let window = WindowState { selected_device: self.selected.clone(), collapsed: self.collapse.keys(), output_slots: self.slot_memory.borrow().iter().map(|(id, slot)| (id.clone(), json!(slot))).collect(), bar_pins: Some(self.bar.persisted()) };
         merge_for_save(&mut cfg, &window, &sections);
         profiles::drop_unchanged(&mut cfg, &self.changes_only, &self.defaults());
         if self.file.save(&mut cfg) {

@@ -325,6 +325,24 @@ impl HostUi for Ctx<'_> {
     fn set_ui_props(&mut self, ui: &str, props: &Value) {
         self.state.effects.push(Effect::Props { plugin: self.me.clone(), ui: ui.into(), props: props.clone() });
     }
+    fn offer_bar_stats(&mut self, stats: &[telescope_core::bar::BarStat]) {
+        let me = self.me.clone();
+        self.state.bar.offer(&me, stats);
+    }
+    fn bar_pins(&self) -> Vec<String> {
+        self.state.bar.pinned()
+    }
+    fn pin_to_bar(&mut self, id: &str, pinned: bool) {
+        if self.state.bar.pin(id, pinned) {
+            if let Some(ids) = self.state.bar.pins_changed() {
+                self.state.bus.emit(Event::BarPinsChanged { pinned: ids });
+            }
+            self.state.effects.push(Effect::SaveSoon);
+        }
+    }
+    fn bar_stat(&self, id: &str) -> Option<telescope_core::bar::BarStat> {
+        self.state.bar.stat(id).cloned()
+    }
     fn update_tray_action(&mut self, action: &TrayAction) {
         if let Some(i) = self.state.index(&self.me) {
             match self.state.slots[i].tray.iter_mut().find(|a| a.id == action.id) {

@@ -54,6 +54,7 @@ export global Icons {
     out property <image> level: @image-url("icons/level.svg");
     out property <image> link: @image-url("icons/link.svg");
     out property <image> lock: @image-url("icons/lock.svg");
+    out property <image> memory: @image-url("icons/memory.svg");
     out property <image> mic: @image-url("icons/mic.svg");
     out property <image> mic-off: @image-url("icons/mic_off.svg");
     out property <image> mirror: @image-url("icons/mirror.svg");
@@ -71,6 +72,7 @@ export global Icons {
     out property <image> plus: @image-url("icons/plus.svg");
     out property <image> pop-out: @image-url("icons/pop_out.svg");
     out property <image> qr: @image-url("icons/qr.svg");
+    out property <image> repeat: @image-url("icons/repeat.svg");
     out property <image> reset: @image-url("icons/reset.svg");
     out property <image> room: @image-url("icons/room.svg");
     out property <image> rotate: @image-url("icons/rotate.svg");
@@ -90,6 +92,8 @@ export global Icons {
     out property <image> sparkle: @image-url("icons/sparkle.svg");
     out property <image> split: @image-url("icons/split.svg");
     out property <image> stabilize: @image-url("icons/stabilize.svg");
+    out property <image> star: @image-url("icons/star.svg");
+    out property <image> star-filled: @image-url("icons/star_filled.svg");
     out property <image> stop: @image-url("icons/stop.svg");
     out property <image> stretch: @image-url("icons/stretch.svg");
     out property <image> stretch-tall: @image-url("icons/stretch_tall.svg");
@@ -156,16 +160,21 @@ export global Icons {
             : name == "connection" ? link
             : name == "copy" ? copy
             : name == "crop" ? crop
+            : name == "cube" ? cube
             : name == "download" ? download
             : name == "eye" ? eye
             : name == "eye_off" ? eye-off
             : name == "eyedropper" ? eyedropper
+            : name == "film" ? film
             : name == "focus" ? focus
+            : name == "gauge" ? gauge
             : name == "framing" ? framing
             : name == "heavy" ? heavy
             : name == "help" ? help
             : name == "image" ? image
             : name == "keyboard" ? keyboard
+            : name == "layers" ? layers
+            : name == "memory" ? memory
             : name == "layout" ? layout
             : name == "lock" ? lock
             : name == "mic" ? mic
@@ -181,9 +190,11 @@ export global Icons {
             : name == "pop_out" ? pop-out
             : name == "preset" ? bookmark
             : name == "qr" ? qr
+            : name == "repeat" ? repeat
             : name == "reset" ? reset
             : name == "search" ? search
             : name == "skeleton" ? skeleton
+            : name == "skip_next" ? skip-next
             : name == "sliders" ? sliders
             : name == "snapshot" ? snapshot
             : name == "sparkle" ? sparkle

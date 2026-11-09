@@ -2,6 +2,7 @@
 
 pub mod actions;
 pub mod audio;
+pub mod bar;
 pub mod bus;
 pub mod canvas;
 pub mod balance;

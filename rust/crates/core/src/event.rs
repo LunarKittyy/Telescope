@@ -203,6 +203,9 @@ events! {
     "vision_download_finished" => VisionDownloadFinished { error: String, switch_on: String },
     /// Not in plugin.py: about once a second while a stream runs, how it's going as numbers (core::stats::Snapshot), with the last minute of each series.
     "stats_updated" => StatsUpdated { snapshot: Snapshot },
+    /// Not in plugin.py: the readouts pinned to the bottom bar changed (a pin, an unpin, or the bar's own readouts came or went): every id
+    /// pinned now, left side first. A card with a star for each readout redraws it from this.
+    "bar_pins_changed" => BarPinsChanged { pinned: Vec<String> },
     /// Not in plugin.py: something outside the window (the MCP server) wants the picture of a stream measured, about a second of steady
     /// frames, and whichever plugin can do that (Colour grading) answers with picture_measured and the same token. Nobody answering
     /// means nothing here can measure, which the asker finds out from its own timeout.

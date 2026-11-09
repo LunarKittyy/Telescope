@@ -2,6 +2,7 @@
 //! rest. Per-plugin times only get measured while the Nerd view is open and the window is showing (Host::want_stats), and the phone's side comes from its state, which it only measures while the card is up (the `stats` control).
 
 use serde_json::{json, Value};
+use telescope_core::bar::{self, BarStat};
 use telescope_core::event::Event;
 use telescope_core::host::Host;
 use telescope_core::i18n::{n_, number, tr, Fields};
@@ -13,6 +14,15 @@ use telescope_core::ui::{CardSpec, SlintSource, UiEvent, UiSpec};
 pub const NAME: &str = "stats";
 const PHONE: &str = "phone";
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/stats.slint"));
+
+/// The ids this card's readouts go by in the bottom bar. The frame rate, the throughput and the camera are the window's own (core::bar).
+const PIN_FRAMES_IN: &str = "stats.frames_in";
+const PIN_DECODED: &str = "stats.decoded";
+const PIN_REPEATED: &str = "stats.repeated";
+const PIN_DROPPED: &str = "stats.dropped";
+const PIN_CPU: &str = "stats.cpu";
+const PIN_MEMORY: &str = "stats.memory";
+const PIN_TOTAL: &str = "stats.total_throughput";
 
 /// How many plugins each of the per-plugin lists shows, slowest first.
 const LISTED: usize = 8;
@@ -46,6 +56,8 @@ pub struct Row {
     pub kind: String,
     /// The last minute as Slint path commands in a GRAPH_W by GRAPH_H box, or empty.
     pub graph: String,
+    /// The id of the bottom bar readout this line can be pinned as, or empty.
+    pub pin: String,
 }
 
 impl Row {
@@ -59,6 +71,12 @@ impl Row {
 
     pub(crate) fn note(mut self, note: String) -> Row {
         self.note = note;
+        self
+    }
+
+    /// The line gets a star, which pins its number into the bottom bar under this id.
+    pub(crate) fn pin(mut self, id: &str) -> Row {
+        self.pin = id.into();
         self
     }
 
@@ -78,8 +96,11 @@ impl Row {
         Row::line(label, tr("Not available yet")).kind("status_dim")
     }
 
-    fn json(&self) -> Value {
-        json!({"head": self.head, "icon": self.icon, "label": self.label, "value": self.value, "note": self.note, "kind": self.kind, "graph": self.graph})
+    fn json(&self, pinned: &[String], locked: bool) -> Value {
+        let is_pinned = !self.pin.is_empty() && pinned.contains(&self.pin);
+        let locked = locked && self.pin == bar::CAMERA;
+        json!({"head": self.head, "icon": self.icon, "label": self.label, "value": self.value, "note": self.note, "kind": self.kind, "graph": self.graph,
+            "pin": self.pin, "pinned": is_pinned, "locked": locked && is_pinned})
     }
 }
 
@@ -149,6 +170,10 @@ pub struct Context {
     pub phone: Option<PhoneReading>,
     /// The phone's delay each second of the last minute, oldest first.
     pub phone_delay: Vec<f32>,
+    /// The virtual camera's name as the bar reads it, while the shown stream has one.
+    pub camera: Option<String>,
+    /// How many streams run.
+    pub streams: usize,
 }
 
 fn fps(v: f32) -> String {
@@ -305,18 +330,18 @@ pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> V
     let judged = s.seconds >= 3;
     let behind = judged && s.now.received_fps < target * 0.85;
     out.push(Row::line(&tr("Frames in"), fps(s.now.received_fps)).kind(if behind { "status_warn" } else { "" })
-        .note(tr("asked for {n}").field("n", fps(target))).graph(&s.series.received_fps, target));
+        .note(tr("asked for {n}").field("n", fps(target))).graph(&s.series.received_fps, target).pin(PIN_FRAMES_IN));
     if nerd {
-        out.push(Row::line(&tr("Decoded"), fps(s.now.decoded_fps)).note(count(s.totals.decoded)).graph(&s.series.decoded_fps, target));
+        out.push(Row::line(&tr("Decoded"), fps(s.now.decoded_fps)).note(count(s.totals.decoded)).graph(&s.series.decoded_fps, target).pin(PIN_DECODED));
     }
-    out.push(Row::line(&tr("Frames out"), fps(s.now.delivered_fps)).note(count(s.totals.delivered)).graph(&s.series.delivered_fps, target));
-    out.push(Row::line(&tr("Repeated"), fps(s.now.repeated_fps)).note(count(s.totals.repeated)).graph(&s.series.repeated_fps, target));
+    out.push(Row::line(&tr("Frames out"), fps(s.now.delivered_fps)).note(count(s.totals.delivered)).graph(&s.series.delivered_fps, target).pin(bar::FPS));
+    out.push(Row::line(&tr("Repeated"), fps(s.now.repeated_fps)).note(count(s.totals.repeated)).graph(&s.series.repeated_fps, target).pin(PIN_REPEATED));
 
     out.push(Row::head("stop", &tr("Dropped frames")));
     if s.drops.total() == 0 {
-        out.push(Row::line(&tr("Dropped"), tr("None")).kind("status_ok"));
+        out.push(Row::line(&tr("Dropped"), tr("None")).kind("status_ok").pin(PIN_DROPPED));
     } else {
-        out.push(Row::line(&tr("Dropped"), fps(s.now.dropped_fps)).note(count(s.drops.total())).kind(if s.now.dropped_fps > 0.0 { "status_warn" } else { "" }).graph(&s.series.dropped_fps, 3.0));
+        out.push(Row::line(&tr("Dropped"), fps(s.now.dropped_fps)).note(count(s.drops.total())).kind(if s.now.dropped_fps > 0.0 { "status_warn" } else { "" }).graph(&s.series.dropped_fps, 3.0).pin(PIN_DROPPED));
         for reason in DropReason::ALL {
             let n = s.drops.of(reason);
             if n > 0 {
@@ -338,7 +363,7 @@ pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> V
         Transport::Local | Transport::Unknown => String::new(),
     };
     out.push(Row::line(&tr("Connection"), route).note(transport));
-    let mut bitrate = Row::line(&tr("Bitrate"), mbps(s.now.mbps as f64)).graph(&s.series.mbps, 1.0);
+    let mut bitrate = Row::line(&tr("Bitrate"), mbps(s.now.mbps as f64)).graph(&s.series.mbps, 1.0).pin(bar::THROUGHPUT);
     if let (Some(asked), true) = (ctx.asked_mbps, s.link.route != Route::Local) {
         bitrate = bitrate.note(asked_text(asked));
     }
@@ -358,6 +383,9 @@ pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> V
         Some(false) => tr("Nothing"),
         None => tr("Not known"),
     };
+    if let Some(name) = ctx.camera.as_ref().filter(|n| !n.is_empty()) {
+        out.push(Row::line(&tr("Camera"), name.clone()).pin(bar::CAMERA));
+    }
     out.push(Row::line(&tr("Reading the virtual camera"), apps));
 
     if nerd {
@@ -402,15 +430,70 @@ pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> V
             out.push(Row::line(&plugin_label(&t.name), ms(t.timing.mean_ms)).note(timing_note(t.timing.max_ms)));
         }
 
-        out.push(Row::head("monitor", &tr("The app")));
-        out.push(match snap.app.cpu_percent {
-            Some(c) => Row::line(&tr("Processor"), tr("{n}% of one core").field("n", number(c as f64, 0, false))).graph(&snap.app.series.cpu_percent, 100.0),
-            None => Row::later(&tr("Processor")),
-        });
-        out.push(match snap.app.memory_mb {
-            Some(m) => Row::line(&tr("Memory"), tr("{n} MB").field("n", number(m as f64, 0, false))).graph(&snap.app.series.memory_mb, 0.0),
-            None => Row::later(&tr("Memory")),
-        });
+    }
+    out.push(Row::head("monitor", &tr("The app")));
+    out.push(match snap.app.cpu_percent {
+        Some(c) => Row::line(&tr("Processor"), tr("{n}% of one core").field("n", number(c as f64, 0, false))).graph(&snap.app.series.cpu_percent, 100.0).pin(PIN_CPU),
+        None => Row::later(&tr("Processor")),
+    });
+    out.push(match snap.app.memory_mb {
+        Some(m) => Row::line(&tr("Memory"), tr("{n} MB").field("n", number(m as f64, 0, false))).graph(&snap.app.series.memory_mb, 0.0).pin(PIN_MEMORY),
+        None => Row::later(&tr("Memory")),
+    });
+    // The sum of every stream, which stays put whichever one the card shows
+    if snap.sources.len() > 1 {
+        let total: f32 = snap.sources.iter().map(|x| x.now.mbps).sum();
+        out.push(Row::line(&tr("All streams"), mbps(total as f64)).pin(PIN_TOTAL));
+    }
+    tidy(out)
+}
+
+/// The icon a pinned readout wears in the bar, one of its own for each so two numbers never look alike (the fps and throughput icons are the
+/// window's, which draws those two itself).
+fn pin_icon(id: &str) -> &'static str {
+    match id {
+        PIN_FRAMES_IN => "download",
+        PIN_DECODED => "cube",
+        PIN_REPEATED => "repeat",
+        PIN_DROPPED => "skip_next",
+        PIN_CPU => "chip",
+        PIN_MEMORY => "memory",
+        PIN_TOTAL => "layers",
+        _ => "",
+    }
+}
+
+/// A line the phone or this computer can't measure isn't shown, and a heading with nothing left under it goes too.
+fn tidy(rows: Vec<Row>) -> Vec<Row> {
+    let missing = tr("Not available yet");
+    let lines: Vec<Row> = rows.into_iter().filter(|r| r.head || !(r.kind == "status_dim" && r.value == missing)).collect();
+    let mut out: Vec<Row> = Vec::new();
+    for (i, row) in lines.iter().enumerate() {
+        if row.head && lines.get(i + 1).is_none_or(|next| next.head) {
+            continue;
+        }
+        out.push(row.clone());
+    }
+    out
+}
+
+/// What the bottom bar can show from the card: every line with a "stats." star, as the bar reads it. The window's own readouts (frame
+/// rate, throughput, camera) are not offered here, the window has them.
+///
+/// `s` is the stream the panels show; without it (it is not in the snapshot yet, a second stream that has just started) only the app's own
+/// numbers, which don't depend on a stream, are offered.
+pub fn offers(snap: &Snapshot, s: Option<&SourceSnapshot>, ctx: &Context) -> Vec<BarStat> {
+    let mut out = Vec::new();
+    let Some(source) = s.or(snap.sources.first()) else { return out };
+    for row in rows(snap, source, View::Nerd, ctx) {
+        let app_wide = matches!(row.pin.as_str(), PIN_CPU | PIN_MEMORY | PIN_TOTAL);
+        if !row.head && row.pin.starts_with("stats.") && row.kind != "status_dim" && (s.is_some() || app_wide) {
+            let tone = match row.kind.as_str() {
+                "status_warn" => "warn",
+                _ => "",
+            };
+            out.push(BarStat { id: row.pin.clone(), name: row.label.clone(), tip: String::new(), icon: pin_icon(&row.pin).into(), value: row.value.clone(), sub: String::new(), tone: tone.into() });
+        }
     }
     out
 }
@@ -456,42 +539,62 @@ impl StatsPlugin {
     }
 
     fn props(&self, host: &dyn Host) -> Value {
-        let context = Context {
-            asked_mbps: host.plugin_config("stream_output").and_then(|c| c.get("bitrate_mbps").and_then(Value::as_f64)),
-            watched: self.watched,
-            phone: self.phone.clone(),
-            phone_delay: delay_series(&self.phone_delay, telescope_core::time::monotonic_ns()),
-        };
+        let context = self.context(host);
         let mut props = json!({
             "view": if self.view == View::Nerd { 1 } else { 0 },
             "view-standard": tr("Standard"),
             "view-nerd": tr("Nerd"),
             "view-tip": tr("Show every number that can be measured, including what each plugin costs."),
+            "empty-detail": tr("Start a stream to see its numbers."),
         });
+        let pinned = host.bar_pins();
+        let locked = host.stream_count() >= 2;
         let focused = host.focused_source_id();
         let shown = self.latest.as_ref().and_then(|snap| {
             Some((snap, shown_source(snap, focused.as_ref())?))
         });
         match shown {
             Some((snap, source)) => {
-                props["rows"] = Value::Array(rows(snap, source, self.view, &context).iter().map(Row::json).collect());
+                props["rows"] = Value::Array(rows(snap, source, self.view, &context).iter().map(|r| r.json(&pinned, locked)).collect());
                 props["empty-text"] = json!("");
                 props["source-name"] = json!(if snap.sources.len() > 1 { tr("Stream on virtual camera {n}").field("n", source.slot) } else { String::new() });
             }
             None => {
                 props["rows"] = json!([]);
-                props["empty-text"] = json!(tr("Start a stream to see its numbers."));
+                props["empty-text"] = json!(tr("Not streaming"));
                 props["source-name"] = json!("");
             }
         }
         props
     }
 
+    fn context(&self, host: &dyn Host) -> Context {
+        Context {
+            asked_mbps: host.plugin_config("stream_output").and_then(|c| c.get("bitrate_mbps").and_then(Value::as_f64)),
+            watched: self.watched,
+            phone: self.phone.clone(),
+            phone_delay: delay_series(&self.phone_delay, telescope_core::time::monotonic_ns()),
+            camera: host.bar_stat(bar::CAMERA).map(|s| s.value),
+            streams: self.latest.as_ref().map_or(0, |snap| snap.sources.len()),
+        }
+    }
+
     fn show(&self, host: &mut dyn Host) {
         if self.window_shown {
             let props = self.props(host);
             host.set_ui_props("card", &props);
+            self.offer(host);
         }
+    }
+
+    /// The numbers the bar can pin, for the shown stream (and the app's, which don't depend on it). Nothing while there is nothing to read.
+    fn offer(&self, host: &mut dyn Host) {
+        let focused = host.focused_source_id();
+        let stats = match self.latest.as_ref() {
+            Some(snap) if host.bar_pins().iter().any(|p| p.starts_with("stats.")) => offers(snap, shown_source(snap, focused.as_ref()), &self.context(host)),
+            _ => Vec::new(),
+        };
+        host.offer_bar_stats(&stats);
     }
 
     /// The card can be seen: the window is up and the card isn't folded.
@@ -598,7 +701,7 @@ impl Plugin for StatsPlugin {
     }
 
     fn card(&mut self) -> Option<CardSpec> {
-        let props = json!({"view": 0, "empty-text": tr("Start a stream to see its numbers."), "rows": []});
+        let props = json!({"view": 0, "empty-text": tr("Not streaming"), "empty-detail": tr("Start a stream to see its numbers."), "rows": []});
         Some(CardSpec { ui: UiSpec { source: SlintSource::Text(UI.into()), component: "StatsCard".into(), props }, region: "right".into() })
     }
 
@@ -616,6 +719,8 @@ impl Plugin for StatsPlugin {
                 self.show(host);
             }
             Event::CameraWatched { watched } => self.watched = Some(*watched),
+            // A pin from the bar's own menu or from another card: the stars follow, and what the bar wants read changes
+            Event::BarPinsChanged { .. } => self.show(host),
             Event::PhoneStateUpdated { state } => self.take_phone_state(host, state),
             // The answers to this card's own asks come back as polls, for the shown stream only
             Event::PhonePolled { shown: true, state, .. } => self.take_phone_state(host, state),
@@ -666,6 +771,13 @@ impl Plugin for StatsPlugin {
     }
 
     fn on_ui(&mut self, host: &mut dyn Host, event: &UiEvent) {
+        if event.ui == "card" && event.callback == "pin-toggled" {
+            if let Some(id) = event.args.first().and_then(Value::as_str) {
+                host.pin_to_bar(id, event.args.get(1).and_then(Value::as_bool).unwrap_or(true));
+            }
+            self.show(host);
+            return;
+        }
         if event.ui == "card" && event.callback == "view-picked" {
             let view = if event.args.first().and_then(Value::as_i64) == Some(1) { View::Nerd } else { View::Standard };
             if view != self.view {
@@ -679,6 +791,7 @@ impl Plugin for StatsPlugin {
 
     fn shutdown(&mut self, host: &mut dyn Host) {
         self.window_shown = false;
+        host.offer_bar_stats(&[]);
         self.ask_phone(host);
         if self.wanting {
             self.wanting = false;
