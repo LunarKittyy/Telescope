@@ -54,7 +54,7 @@ export component ColourWheel inherits Rectangle {
     property <bool> quick;
     glide-x := Settle { to: puck-x; snap: held && !resetting; pace: Motion.lead; }
     glide-y := Settle { to: puck-y; snap: held && !resetting; pace: Motion.trail; }
-    held-tone := Tone { on: held && enabled; instant-in: true; }
+    held-tone := Tone { on: held && enabled; }
     hover-tone := Tone { on: touch.has-hover && enabled; }
     Timer {
         interval: 80ms;

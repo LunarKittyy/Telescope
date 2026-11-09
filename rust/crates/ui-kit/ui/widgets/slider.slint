@@ -203,7 +203,7 @@ export component Slider inherits HorizontalLayout {
             }
         }
         // How far the colour has come from muted to full while held, and how far the handle's edge has come while it is under the pointer
-        held-tone := Tone { on: track.held; instant-in: true; }
+        held-tone := Tone { on: track.held; }
         hover-tone := Tone { on: touch.has-hover && enabled; }
         Timer {
             interval: 80ms;

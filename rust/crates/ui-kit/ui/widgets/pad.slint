@@ -113,7 +113,7 @@ export component Pad inherits Rectangle {
     frame-h := Settle { to: (framed ? box-h : root.height) / 1px; }
     // Drawn while it is there, and while it is still closing back out to the pad's size
     property <bool> frame-shown: framed || abs(frame-w.value * 1px - root.width) > 0.5px || abs(frame-h.value * 1px - root.height) > 0.5px;
-    held-tone := Tone { on: held; instant-in: true; }
+    held-tone := Tone { on: held; }
     hover-tone := Tone { on: touch.has-hover && enabled; }
     Timer {
         interval: 80ms;

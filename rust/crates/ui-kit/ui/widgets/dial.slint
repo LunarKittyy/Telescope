@@ -103,7 +103,7 @@ export component Dial inherits Rectangle {
     property <bool> quick;
     // Only a finger puts the strip somewhere at once: a key or a wheel notch slides it, retargeting a slide still going
     strip := Settle { to: dragging ? drag-pos : shown-place; snap: dragging; }
-    held-tone := Tone { on: held; instant-in: true; }
+    held-tone := Tone { on: held; }
     Timer {
         interval: 80ms;
         running: quick;
