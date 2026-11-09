@@ -252,21 +252,97 @@ mod tests {
     #[cfg(target_os = "linux")]
     type Calls = std::sync::Arc<std::sync::Mutex<Vec<String>>>;
 
-    /// A private session bus with a FileChooser that answers every dialog with answer (code, uri), recording the calls.
+    /// A private session bus with a FileChooser that answers every dialog with the answer it was made with, recording the calls. The bus daemon
+    /// is killed when this goes out of scope, even when a test fails half way: a daemon left running holds the test's output open, which is what
+    /// made a failed run hang with no end.
     #[cfg(target_os = "linux")]
-    fn fake_portal(answer: (u32, &'static str)) -> Option<(std::process::Child, String, Calls)> {
+    struct FakePortal {
+        daemon: std::process::Child,
+        address: String,
+        calls: Calls,
+        config: std::path::PathBuf,
+    }
+
+    #[cfg(target_os = "linux")]
+    impl Drop for FakePortal {
+        fn drop(&mut self) {
+            let _ = self.daemon.kill();
+            let _ = self.daemon.wait();
+            let _ = std::fs::remove_file(&self.config);
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    impl FakePortal {
+        /// The bus connection a test asks through
+        fn connect(&self) -> zbus::blocking::Connection {
+            zbus::blocking::connection::Builder::address(self.address.as_str()).unwrap().build().unwrap()
+        }
+    }
+
+    /// The bus the daemon is made with: its own, on a socket in the temp folder, so it needs no desktop session (no XDG_RUNTIME_DIR, no logind, no
+    /// system bus configuration or activation), and open to any caller.
+    #[cfg(target_os = "linux")]
+    const BUS_CONFIG: &str = r#"<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <type>session</type>
+  <listen>unix:tmpdir=/tmp</listen>
+  <auth>EXTERNAL</auth>
+  <policy context="default">
+    <allow send_destination="*" eavesdrop="true"/>
+    <allow eavesdrop="true"/>
+    <allow own="*"/>
+  </policy>
+</busconfig>
+"#;
+
+    /// None, with the reason on stderr, when this machine can't make a private bus (no dbus-daemon, or it doesn't start in time): the test then has
+    /// nothing to test and says so. Anything that goes wrong after the bus is up is a failure.
+    #[cfg(target_os = "linux")]
+    fn fake_portal(answer: (u32, &'static str)) -> Option<FakePortal> {
         use std::io::BufRead;
         use zbus::blocking::{Connection, MessageIterator};
         use zbus::zvariant::{OwnedValue, Value as Z};
-        let mut daemon = std::process::Command::new("dbus-daemon").args(["--session", "--nofork", "--print-address"])
-            .stdout(std::process::Stdio::piped()).spawn().ok()?;
-        let mut address = String::new();
-        std::io::BufReader::new(daemon.stdout.take()?).read_line(&mut address).ok()?;
-        let address = address.trim().to_string();
-        let conn = zbus::blocking::connection::Builder::address(address.as_str()).ok()?.build().ok()?;
-        conn.request_name("org.freedesktop.portal.Desktop").ok()?;
-        let calls: std::sync::Arc<std::sync::Mutex<Vec<String>>> = Default::default();
-        let seen = calls.clone();
+        static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        let config = std::env::temp_dir().join(format!("telescope-bus-{}-{}.conf", std::process::id(), NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)));
+        std::fs::write(&config, BUS_CONFIG).ok()?;
+        let config_arg = format!("--config-file={}", config.display());
+        let daemon = match std::process::Command::new("dbus-daemon").args([config_arg.as_str(), "--nofork", "--print-address"])
+            .stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::null()).spawn() {
+            Ok(d) => d,
+            Err(e) => {
+                eprintln!("no private bus: dbus-daemon doesn't start ({e})");
+                let _ = std::fs::remove_file(&config);
+                return None;
+            }
+        };
+        // From here on every way out kills the daemon (FakePortal's drop)
+        let mut portal = FakePortal { daemon, address: String::new(), calls: Default::default(), config };
+        let out = portal.daemon.stdout.take()?;
+        // The address comes as the daemon's first line; waiting on it is bounded, so a daemon that never gets that far is a skipped test and not a hung one
+        let (said, heard) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut line = String::new();
+            let _ = std::io::BufReader::new(out).read_line(&mut line);
+            let _ = said.send(line.trim().to_string());
+        });
+        match heard.recv_timeout(std::time::Duration::from_secs(10)) {
+            Ok(address) if !address.is_empty() => portal.address = address,
+            other => {
+                eprintln!("no private bus: the daemon gave no address ({other:?})");
+                return None;
+            }
+        }
+        let Some(conn) = zbus::blocking::connection::Builder::address(portal.address.as_str()).ok().and_then(|b| b.build().ok()) else {
+            eprintln!("no private bus: can't connect to {}", portal.address);
+            return None;
+        };
+        if conn.request_name("org.freedesktop.portal.Desktop").is_err() {
+            eprintln!("no private bus: can't take the portal's name");
+            return None;
+        }
+        let seen = portal.calls.clone();
+        let answer = (answer.0, answer.1.to_string());
         std::thread::spawn(move || {
             let c: Connection = conn;
             for msg in MessageIterator::from(&c).flatten() {
@@ -283,41 +359,49 @@ mod tests {
                 let handle = format!("/org/freedesktop/portal/desktop/request/{sender}/{token}");
                 let path = zbus::zvariant::ObjectPath::try_from(handle.as_str()).unwrap();
                 let _ = c.send(&zbus::Message::method_return(&header).unwrap().build(&(path,)).unwrap());
-                let results = std::collections::HashMap::from([("uris", Z::from(vec![answer.1]))]);
+                let results = std::collections::HashMap::from([("uris", Z::from(vec![answer.1.as_str()]))]);
                 let _ = c.emit_signal(None::<zbus::names::BusName>, handle.as_str(), "org.freedesktop.portal.Request", "Response", &(answer.0, results));
             }
         });
-        Some((daemon, address, calls))
+        Some(portal)
+    }
+
+    /// `portal::ask`, which waits for as long as a person takes, with a deadline: the fake portal answers at once, so one that doesn't is a test that fails
+    /// instead of one that hangs. (The waiting thread is left behind when that happens; the test process ends with the test.)
+    #[cfg(target_os = "linux")]
+    fn ask_within_a_deadline(conn: &zbus::blocking::Connection, dialog: &FileDialog) -> Answer {
+        let (conn, asked) = (conn.clone(), dialog.clone());
+        let (said, heard) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = said.send(portal::ask(&conn, &asked));
+        });
+        match heard.recv_timeout(std::time::Duration::from_secs(20)) {
+            Ok(answer) => answer.expect("the portal answered"),
+            Err(_) => panic!("the fake portal never answered the {:?} dialog in 20 s", dialog.title),
+        }
     }
 
     #[cfg(target_os = "linux")]
     #[test]
     fn the_portal_asks_for_a_file_and_says_which_was_picked() {
-        let Some((mut daemon, address, calls)) = fake_portal((0, "file:///tmp/My%20LUTs/film.cube")) else {
-            eprintln!("needs dbus-daemon");
-            return;
-        };
-        let conn = zbus::blocking::connection::Builder::address(address.as_str()).unwrap().build().unwrap();
+        let Some(portal) = fake_portal((0, "file:///tmp/My%20LUTs/film.cube")) else { return };
+        let conn = portal.connect();
         let open = FileDialog { kind: FileDialogKind::Open, title: "Load a LUT".into(), start: "/tmp".into(), filters: vec!["LUT files (*.cube)".into()] };
-        let (ok, message, data) = portal::ask(&conn, &open).unwrap();
+        let (ok, message, data) = ask_within_a_deadline(&conn, &open);
         assert!(ok && message.is_empty());
         assert_eq!(data, json!({"path": "/tmp/My LUTs/film.cube", "filter": "LUT files (*.cube)"}));
         let save = FileDialog { kind: FileDialogKind::Save, title: "Export the grade".into(), start: "/tmp/grade.cube".into(), filters: vec![] };
-        assert!(portal::ask(&conn, &save).unwrap().0);
-        assert_eq!(*calls.lock().unwrap(), ["OpenFile Load a LUT  dir=false", "SaveFile Export the grade grade.cube dir=false"]);
-        let _ = daemon.kill();
-        let _ = daemon.wait();
+        assert!(ask_within_a_deadline(&conn, &save).0);
+        assert_eq!(*portal.calls.lock().unwrap(), ["OpenFile Load a LUT  dir=false", "SaveFile Export the grade grade.cube dir=false"]);
     }
 
     #[cfg(target_os = "linux")]
     #[test]
     fn a_cancelled_dialog_is_not_ok_with_no_reason() {
-        let Some((mut daemon, address, _)) = fake_portal((1, "")) else { return };
-        let conn = zbus::blocking::connection::Builder::address(address.as_str()).unwrap().build().unwrap();
+        let Some(portal) = fake_portal((1, "")) else { return };
+        let conn = portal.connect();
         let folder = FileDialog { kind: FileDialogKind::Folder, title: "Pick".into(), start: String::new(), filters: vec![] };
-        assert_eq!(portal::ask(&conn, &folder).unwrap(), (false, String::new(), json!({})));
-        let _ = daemon.kill();
-        let _ = daemon.wait();
+        assert_eq!(ask_within_a_deadline(&conn, &folder), (false, String::new(), json!({})));
     }
 
     #[test]
