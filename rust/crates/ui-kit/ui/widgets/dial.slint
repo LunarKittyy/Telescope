@@ -207,7 +207,7 @@ export component Dial inherits Rectangle {
         // Ticks from the mark, and labelled steps from it
         property <float> dist: abs(i - pos);
         property <float> slots: dist / per;
-        // The swell takes one tick; a labelled name beside the middle one fades up only once there is room for both
+        // The swell takes one tick, but a big name is only seen in the first two fifths of it, so the one leaving and the one arriving are never both clear; a labelled name beside the middle one fades up only once there is room for both
         property <float> swell: clamp(1 - dist, 0, 1);
         property <float> room: Theme.u(20) / tick-pitch;
         property <float> ramp: room <= 1 ? 1 : clamp((dist - 1) / (room - 1), 0, 1);
@@ -246,7 +246,7 @@ export component Dial inherits Rectangle {
             transform-scale: grown;
             Rectangle {
                 cache-rendering-hint: grown < 0.9999;
-                opacity: solid * (1 - own) * min(1, swell * swell + (major ? 0.45 * ramp * far : 0));
+                opacity: solid * (1 - own) * min(1, clamp(1 - dist / 0.4, 0, 1) + (major ? 0.45 * ramp * far : 0));
                 Text {
                     width: parent.width;
                     height: parent.height;
