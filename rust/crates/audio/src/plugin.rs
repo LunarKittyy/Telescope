@@ -25,6 +25,10 @@ use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, TrayAction, UiEvent,
 
 pub const NAME: &str = "microphone";
 const UI: &str = include_str!("../ui/microphone.slint");
+// Statuses the compact label is told apart by, so they are compared as the translated text and never by their shape
+const SETTING_UP: &str = n_("Setting up…");
+const CONNECTING: &str = n_("Connecting…");
+const DOWNLOADING: &str = n_("Downloading VB-Cable from vb-audio.com…");
 const NO_MIC_NOTE: &str = n_("Telescope doesn't pass on this camera's microphone. To use it, choose it as the microphone in the app that uses the camera.");
 const NO_MIC_TIP: &str = n_("This camera's microphone doesn't go through Telescope. Pick it as the microphone in the app that uses the camera instead.");
 pub const METER_MS: u64 = 33;
@@ -100,9 +104,9 @@ fn short_of(text: &str, kind: &str, action_url: Option<&str>) -> String {
         String::new()
     } else if text == tr(NO_MIC_NOTE) {
         tr("No mic")
-    } else if text.ends_with('…') && text.len() < 24 {
+    } else if text == tr(SETTING_UP) || text == tr(CONNECTING) {
         text.to_string()
-    } else if text.starts_with("Downloading VB-Cable") {
+    } else if text == tr(DOWNLOADING) {
         tr("Downloading…")
     } else if action_url == Some(INSTALL) {
         tr("Needs VB-Cable")
@@ -698,7 +702,7 @@ impl MicrophonePlugin {
         }
         self.gen += 1;
         self.preparing = true;
-        self.show(h, &tr("Setting up…"), "dim", None);
+        self.show(h, &tr(SETTING_UP), "dim", None);
         let (gen, backend, poster) = (self.gen, self.backend.clone(), self.poster.clone());
         (self.run_job)(Box::new(move || {
             let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| backend.prepare())).unwrap_or_else(|e| {
@@ -733,7 +737,7 @@ impl MicrophonePlugin {
             self.show(h, &tr(NO_MIC_NOTE), "dim", None);
             return;
         };
-        self.show(h, &tr("Connecting…"), "dim", None);
+        self.show(h, &tr(CONNECTING), "dim", None);
         self.audio_key = key.clone();
         let poster = self.poster.clone();
         let status: OnStatus = Arc::new(move |kind, text| {
@@ -792,7 +796,7 @@ impl MicrophonePlugin {
             return;
         }
         self.installing = true;
-        self.show(h, &tr("Downloading VB-Cable from vb-audio.com…"), "dim", None);
+        self.show(h, &tr(DOWNLOADING), "dim", None);
         let (backend, poster) = (self.backend.clone(), self.poster.clone());
         (self.run_job)(Box::new(move || {
             let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| backend.install())).unwrap_or_else(|e| {
