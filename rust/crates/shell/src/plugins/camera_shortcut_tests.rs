@@ -73,10 +73,10 @@ fn checkable_button_modes() {
 fn slider_steps_in_shown_units() {
     let lens = json!({"id": "0", "label": "Main", "current": true, "aeCompMin": -8, "aeCompMax": 8, "aeCompStep": 1.0 / 3.0});
     let mut r = Rig::new(one_lens(lens, json!({})));
-    assert_eq!(r.run("camera.compensation", json!({"op": "up", "amount": 1.0})).as_deref(), Some("Compensation: +1.0 EV"));
+    assert_eq!(r.run("camera.compensation", json!({"op": "up", "amount": 1.0})).as_deref(), Some("Compensation: +1.00 EV"));
     assert_eq!(r.cam.ae.value, 3);
     // Never less than one step
-    assert_eq!(r.run("camera.compensation", json!({"op": "down", "amount": 0.3})).as_deref(), Some("Compensation: +0.7 EV"));
+    assert_eq!(r.run("camera.compensation", json!({"op": "down", "amount": 0.3})).as_deref(), Some("Compensation: +0.67 EV"));
     assert_eq!(r.cam.ae.value, 2);
     r.run("camera.compensation", json!({"op": "up", "amount": 20}));
     assert_eq!(r.cam.ae.value, 8, "clamped to the end");

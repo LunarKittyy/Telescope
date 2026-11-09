@@ -83,8 +83,13 @@ pub fn ns_to_display(ns: i64) -> String {
     format!("1/{grouped}")
 }
 
-fn ev_text(ev: f64) -> String {
-    tr("{n} EV").field("n", number(ev, 1, true))
+/// Decimals that tell every step of the phone's compensation apart: a step of 1/6 or 1/3 EV is no tenth, so one decimal would round it by turns to 0.1 and 0.2.
+fn ev_decimals(step: f64) -> usize {
+    if (step * 10.0 - (step * 10.0).round()).abs() < 0.01 { 1 } else { 2 }
+}
+
+fn ev_text(units: i64, step: f64) -> String {
+    tr("{n} EV").field("n", number(units as f64 * step, ev_decimals(step), true))
 }
 
 fn signed(v: i64) -> String {
@@ -865,7 +870,7 @@ impl CameraControl {
         self.set_focus_slider_value(view.focus_distance);
 
         self.set_ae(view.ae_comp, true);
-        self.ae_text = ev_text(view.ae_comp as f64 * self.ae_step);
+        self.ae_text = ev_text(view.ae_comp, self.ae_step);
         self.set_nr(view.nr_mode_index, true);
         self.set_edge(view.edge_mode_index, true);
         self.set_bll(view.black_level_lock, true);
@@ -1130,7 +1135,7 @@ impl CameraControl {
     }
 
     fn on_ae_comp_changed(&mut self, steps: i64) {
-        self.ae_text = ev_text(steps as f64 * self.ae_step);
+        self.ae_text = ev_text(steps, self.ae_step);
         self.send(json!({"action": "ae_comp", "value": steps}));
         self.out.saves += 1;
     }
@@ -1213,7 +1218,7 @@ impl CameraControl {
         }
         if let Some(ae) = num("ae_comp")? {
             self.set_ae(ae as i64, false);
-            self.ae_text = ev_text(ae as i64 as f64 * self.ae_step);
+            self.ae_text = ev_text(ae as i64, self.ae_step);
         }
         if let Some(nr) = num("nr_mode")? {
             self.set_nr(mode_index(Some(nr)), false);
@@ -1764,7 +1769,7 @@ impl Plugin for CameraControl {
             actions::log_slider_action(&iso, self.iso.get_value()),
             actions::log_slider_action(&shutter, self.shutter.get_value() * 1e-6),
             slider("camera.compensation", &tr("Compensation"), &search("exposure ev brightness"), self.ae.min as f64 * s,
-                   self.ae.max as f64 * s, 1.0, 1, " EV", true, self.ae.value as f64 * s),
+                   self.ae.max as f64 * s, 1.0, ev_decimals(s), " EV", true, self.ae.value as f64 * s),
             actions::choice_action("camera.wb_mode", &tr("White balance mode"), &g, "wb", &two),
             slider("camera.temperature", &tr("Temperature"), &search("white balance wb kelvin"), WB_MIN_K as f64, WB_MAX_K as f64, 100.0,
                    0, " K", true, self.kelvin.value as f64),
