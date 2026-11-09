@@ -61,37 +61,18 @@ It needs a model runtime like ONNX Runtime, which is large with GPU support, so 
 
 Heavy generative edits (StreamDiffusion and the like) would need Telescope to send frames to a program the user runs themselves. That crosses the line plugins aren't allowed to cross and mostly needs a high-end GPU, so it's not part of this.
 
-### An MCP server
+### More for the MCP server
 
-Lets an AI app like Claude Desktop read and change Telescope's settings, so someone can describe the look they want and the model works out which settings get there. It can also just help people find things. Lua plugins can't reach outside Telescope, which makes this a built-in optional plugin, off by default. The AI app starts a small `telescope mcp` command that talks to the running Telescope over a local socket (a named pipe on Windows) without opening a network port.
+The MCP server is built (see [next.md](next.md#an-mcp-server)). What's left of the idea:
 
-A few broad tools instead of one per slider:
-
-- `describe` lists every setting with its range, current value and what it does
-- `set` changes several settings at once, so the camera doesn't show each step
-- `measure` gives the picture as numbers, like the histogram, clipping and the face's brightness and colour
-- `snapshot` and `revert`, with a snapshot taken automatically when a model connects and a Revert button in the window
-- `show` opens the right tab and highlights a setting with the keyboard navigation's highlight, for when someone asks where something is
-- `frame` sends a small frame, only when the user allows it
-
-Frames are off by default. A middle step could blur the person out with the vision mask. The model then sees the room and the light but not them. Telescope shows when a model is connected and separately when it's getting frames. Installing plugins and phone controls that are hard to undo stay out of reach. Changes land in the camera straight away, which matters in a live call. A preview mode where changes wait until accepted would help if the preview and the output can be kept apart.
-
-Two parts are worth doing even without the MCP part:
-
-- **Settings in plugin.json.** Plugins declare their settings with type, range and a short description. Without that a model can only guess what a value does, and check-plugin and the docs can use it too
-- **Measuring the picture.** The numbers `measure` gives are what [Auto colour grading](next.md#auto-colour-grading) needs, and one version can serve both
+- `frame` sending a small frame, only when the user allows it, and off by default. A middle step could blur the person out with the vision mask, so the model sees the room and the light but not them. Telescope would show when a model is connected and separately when it's getting frames
+- `show` opening the right tab and highlighting a setting, for when someone asks where something is
+- A preview mode where changes wait until accepted, which needs the preview and the output to be kept apart
+- More plugins declaring their settings so the model can reach them
 
 ### Not for now
 
 - **Live captions** would be the most useful accessibility plugin on this list but need Whisper or Vosk and a model. That means a second optional download like the vision one. Worth deciding on its own
-
-## Older DSLRs over USB
-
-Cameras with a webcam mode or clean HDMI out already work as webcams from 4.4. Older DSLRs have neither but can still send live view over USB, which gphoto2 speaks for most of them. A Nikon D5100 tested in October 2026 sent 640×426 MJPEG at a steady 30 fps for 15 minutes through `gphoto2 --capture-movie --stdout`. A source could read that same stream from the `gphoto2` command most distros ship, so the app adds no library. The picture looks like a decent 480p webcam with real background blur.
-
-The camera ends live view every few minutes and gphoto2 starts it again (the mirror clicks and about a second of frames goes missing). The source has to hold the last frame through that gap. Some desktops also open a camera as a drive the moment it's plugged in, and gphoto2 can't reach it until that lets go. It would be Linux only. Windows has no gphoto2 and the vendor SDKs come with licences and one SDK per brand. Not every camera can do it either (a Samsung NX300 only shows up as a USB drive).
-
-Small once webcam support is in and settled.
 
 ## A guide to unusual setups
 
