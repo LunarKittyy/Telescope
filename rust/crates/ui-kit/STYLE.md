@@ -93,7 +93,7 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | `icon-button` | IconButton | icon (a raised square at rest; `bare` only for an icon inside a field) |
 | `link` | LinkText | text, address |
 | `switch` | Switch | hue, danger |
-| `toggle` | SwitchTile, ToggleTile | icon, name, hue |
+| `toggle` | SwitchTile, ToggleTile, PinStar | icon, name, hue; the star that pins a stat's number into the bottom bar |
 | `slider` | Slider | range, fill, readout, marks, the live value of a threshold bar |
 | `segmented` | Segmented, PictureSegmented, LensRow, AnchorFrame | options, icons or drawings, places in a frame, lenses that come and go, hue |
 | `picker` | ChoiceField, PictureField | options, icon, caption; a file as a thumbnail and its name |
@@ -116,6 +116,7 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | `outline` | FocusRing, TouchRing, Worm | radius, the picked cell's place (the inside is a `WormFill` under the text) |
 | `scrollbar` | ScrollBar, ColumnScrollbar, FlickBar | extent |
 | `image` | QrCode | picture |
+| `readout` | PinReadout, PinChip | a pin of the bottom bar (its icon, value and place) and the "+N" that holds the pins that did not fit |
 | `helper` | no drawing of its own (search words, `Tip`, `TipLayer`, `Peek`, `PeekLayer`, shortcut menu, `Unfolding`, `UnfoldGroup`, `DialogButtons`, `LensArt`, the motions) | nothing |
 
 A menu button is always a `picker`: the value and a chevron, never "..." in a label. Glyphs inside controls (the chevron, a clear cross, a tick, a plus, the stepper's arrows) are heavier than the card icons: a 2px stroke against the icons' 1.4px, and the picker's chevron is 16px.

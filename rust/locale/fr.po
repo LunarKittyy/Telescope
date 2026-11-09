@@ -5742,7 +5742,7 @@ msgstr ""
 msgid "Stream on virtual camera {n}"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:663 rust/crates/setup/ui/stats.slint:158
+#: rust/crates/setup/src/stats.rs:663 rust/crates/setup/ui/stats.slint:117
 msgid "Stats"
 msgstr ""
 
@@ -6286,23 +6286,11 @@ msgstr "aide assistance depannage question faq probleme ne fonctionne pas bloque
 msgid "Troubleshooting"
 msgstr "Dépannage"
 
-#: rust/crates/setup/ui/stats.slint:55
-msgid "Pinned while several streams run"
-msgstr ""
-
-#: rust/crates/setup/ui/stats.slint:55
-msgid "Unpin from the bottom bar"
-msgstr ""
-
-#: rust/crates/setup/ui/stats.slint:55
-msgid "Pin to the bottom bar"
-msgstr ""
-
-#: rust/crates/setup/ui/stats.slint:159
+#: rust/crates/setup/ui/stats.slint:118
 msgid "Live numbers about the running stream."
 msgstr ""
 
-#: rust/crates/setup/ui/stats.slint:176
+#: rust/crates/setup/ui/stats.slint:135
 msgid "Stats view"
 msgstr ""
 
@@ -7623,23 +7611,23 @@ msgstr "Détacher"
 msgid "Open the preview in a separate window."
 msgstr ""
 
-#: rust/crates/shell/ui/frame.slint:310 rust/crates/shell/ui/frame.slint:316
+#: rust/crates/shell/ui/frame.slint:151 rust/crates/shell/ui/frame.slint:157
 msgid "More"
 msgstr ""
 
-#: rust/crates/shell/ui/frame.slint:357
+#: rust/crates/shell/ui/frame.slint:198
 msgid "Unpin"
 msgstr ""
 
-#: rust/crates/shell/ui/frame.slint:461 rust/crates/shell/ui/frame.slint:462
+#: rust/crates/shell/ui/frame.slint:302 rust/crates/shell/ui/frame.slint:303
 msgid "Dismiss"
 msgstr "Ignorer"
 
-#: rust/crates/shell/ui/frame.slint:507
+#: rust/crates/shell/ui/frame.slint:348
 msgid "Show settings"
 msgstr ""
 
-#: rust/crates/shell/ui/frame.slint:507
+#: rust/crates/shell/ui/frame.slint:348
 msgid "Show this stream's settings in the cards."
 msgstr ""
 
@@ -8832,6 +8820,18 @@ msgstr "Réduit. Appuyez sur Espace ou Entrée pour développer."
 #: rust/crates/ui-kit/ui/widgets/folds.slint:13
 msgid "Expanded. Press Space or Enter to collapse."
 msgstr "Développé. Appuyez sur Espace ou Entrée pour réduire."
+
+#: rust/crates/ui-kit/ui/widgets/pins.slint:46
+msgid "Pinned while several streams run"
+msgstr ""
+
+#: rust/crates/ui-kit/ui/widgets/pins.slint:46
+msgid "Unpin from the bottom bar"
+msgstr ""
+
+#: rust/crates/ui-kit/ui/widgets/pins.slint:46
+msgid "Pin to the bottom bar"
+msgstr ""
 
 #: rust/crates/ui-kit/ui/widgets/shortcut-menu.slint:35
 msgid "Add keyboard shortcut…"

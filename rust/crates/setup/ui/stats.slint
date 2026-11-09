@@ -17,47 +17,6 @@ export struct StatRow {
     locked: bool,
 }
 
-// The star that pins a line's number into the bottom bar: a bare icon, dim at rest, in the card's colour while pinned.
-component PinStar inherits Rectangle {
-    in property <bool> pinned;
-    in property <bool> locked;
-    in property <string> label;
-    in property <color> hue: Theme.accent;
-    callback toggled;
-    width: Theme.u(14);
-    height: Theme.u(14);
-    accessible-role: button;
-    accessible-label: label;
-    accessible-checked: pinned;
-    accessible-action-default => { if (!locked) { toggled(); } }
-    forward-focus: focus;
-    focus := FocusScope {
-        key-pressed(e) => {
-            if ((e.text == " " || e.text == "\n") && !locked) { toggled(); return accept; }
-            reject
-        }
-    }
-    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
-    hover := Tone { on: touch.has-hover && !locked; }
-    Icon {
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        width: Theme.icon;
-        height: Theme.icon;
-        source: pinned ? Icons.star-filled : Icons.star;
-        tint: locked ? Theme.dis : pinned ? Theme.edge(hue).mix(Theme.ink, hover.value * 0.4) : Theme.faint.mix(Theme.ink, hover.value);
-    }
-    touch := TouchArea {
-        mouse-cursor: locked ? MouseCursor.default : MouseCursor.pointer;
-        clicked => { if (!locked) { root.toggled(); } }
-    }
-    Tip {
-        says: locked ? @tr("Pinned while several streams run") : pinned ? @tr("Unpin from the bottom bar") : @tr("Pin to the bottom bar");
-        hover: touch.has-hover;
-        focused: focus.has-focus && KeyFocus.keyboard;
-    }
-}
-
 // Every line has the same columns, set from the kit's spacing: the label, a slot for the graph that stays empty when there is none, the
 // value on a right edge and the star. A line is one row tall, or a row and a small note under it when it has one.
 component StatLine inherits Rectangle {
