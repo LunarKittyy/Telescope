@@ -230,7 +230,9 @@ export component ScrollPage inherits Flickable {
         @children
     }
     ColumnScrollbar {
-        x: parent.width - 11px;
+        // Takes presses over its whole gutter, the room beside the content included
+        before: 8px;
+        x: parent.width - 8px - 11px;
         height: parent.height;
         visible: bar;
         content: root.content;

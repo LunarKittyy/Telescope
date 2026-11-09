@@ -13,6 +13,9 @@ export component ScrollBar inherits Rectangle {
     in property <length> thumb-radius: 5px;
     // A click in the trough goes a page up or down
     in property <bool> pages: true;
+    // The bar's box can be wider than the handle: the room before and after it, which takes presses like the rest (no dead pixels beside the handle)
+    in property <length> before: 0px;
+    in property <length> after: 0px;
     callback scrolled(length);
     property <length> range: max(0px, content - viewport);
     property <length> thumb-h: min(root.height, max(least-thumb, viewport * viewport / max(1px, content)));
@@ -22,6 +25,8 @@ export component ScrollBar inherits Rectangle {
     property <bool> dragging;
     property <length> start-offset;
     Rectangle {
+        x: before;
+        width: max(0px, root.width - before - after);
         y: thumb-y;
         height: thumb-h;
         border-radius: thumb-radius;
@@ -48,15 +53,20 @@ export component ScrollBar inherits Rectangle {
     }
 }
 
-// QScrollBar:vertical in theme.py: an 11px groove with a rounded handle, dragged or clicked to page.
+// QScrollBar:vertical in theme.py: an 11px handle that is dragged or clicked to page. `before` and `after` are the room each side of it up to what
+// is there (the cards, the preview, the window's edge): the box takes presses over all of it and only the handle is drawn.
 export component ColumnScrollbar {
     out property <string> control-kind: "scrollbar";
     in property <length> content;
     in-out property <length> offset;
     in property <length> viewport;
-    width: 11px;
+    in property <length> before: 0px;
+    in property <length> after: 0px;
+    width: before + 11px + after;
     y: 0;
     ScrollBar {
+        before: root.before;
+        after: root.after;
         width: parent.width;
         height: parent.height;
         content: root.content;
