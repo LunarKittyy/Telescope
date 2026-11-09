@@ -254,30 +254,16 @@ export component Pad inherits Rectangle {
             set-to(has-default ? default-x : centre-x, has-default ? default-y : centre-y);
         }
     }
-    // The caller's drawing, and any buttons on it, above the pad's own touch area so they answer first, clipped round so no corner caps are needed
+    // The caller's drawing, and any buttons on it, above the pad's own touch area so they answer first. 
     Rectangle {
         width: parent.width;
         height: parent.height;
-        border-radius: Theme.r-ctl;
-        clip: true;
         @children
-        // What lies outside the frame, dimmed, without anti-aliasing: femtovg on wgpu loses parts of a stroke drawn after an anti-aliased fill like it, and the frame's outline covers the jagged hole edge
-        if frame-shown: Path {
-            width: root.width;
-            height: root.height;
-            viewbox-width: root.width / 1px;
-            viewbox-height: root.height / 1px;
-            fill: Theme.stage.with-alpha(0.6);
-            fill-rule: FillRule.evenodd;
-            anti-alias: false;
-            commands: "M0 0H\{root.width / 1px}V\{root.height / 1px}H0Z"
-                + "M\{(mx + mr) / 1px} \{my / 1px}H\{(mx + mw - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mx + mw) / 1px} \{(my + mr) / 1px}V\{(my + mh - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mx + mw - mr) / 1px} \{(my + mh) / 1px}H\{(mx + mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{mx / 1px} \{(my + mh - mr) / 1px}V\{(my + mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mx + mr) / 1px} \{my / 1px}Z";
-        }
     }
     // A frame handle: what lies outside it dimmed, and the frame outlined in the card's colour (quiet at rest, full colour held), tinted inside while
     // held. Every number is in whole physical pixels from one set (`fx`, `fy`, `fw`, `fh`), the dimmed surround's hole and the outline run on the
     // same line (the middle of the outline's stroke, so the surround's edge always lies under the outline and nothing can show past it), and the
-    // surround's outer edge is the pad's own rounded clip, so there are no slivers in the corners to cover.
+    // surround's outer edge is the pad's own rounded corners, which the corner path covers, so there are no slivers in the corners to cover.
     property <length> px-x: self.absolute-position.x;
     property <length> px-y: self.absolute-position.y;
     property <length> fw: round(frame-w.value * 1px / 1phx) * 1phx;
@@ -293,6 +279,19 @@ export component Pad inherits Rectangle {
     property <length> my: fy + half;
     property <length> mw: fw - Theme.stroke;
     property <length> mh: fh - Theme.stroke;
+    property <length> pr: min(Theme.r-ctl, min(root.width, root.height) / 2);
+    // On a layer of its own: femtovg on wgpu loses parts of a stroke drawn after an anti-aliased fill like this on the same surface
+    if frame-shown: Path {
+        width: root.width;
+        height: root.height;
+        viewbox-width: root.width / 1px;
+        viewbox-height: root.height / 1px;
+        fill: Theme.stage.with-alpha(0.6);
+        fill-rule: FillRule.evenodd;
+        cache-rendering-hint: true;
+        commands: "M\{pr / 1px} 0H\{(root.width - pr) / 1px}A\{pr / 1px} \{pr / 1px} 0 0 1 \{root.width / 1px} \{pr / 1px}V\{(root.height - pr) / 1px}A\{pr / 1px} \{pr / 1px} 0 0 1 \{(root.width - pr) / 1px} \{root.height / 1px}H\{pr / 1px}A\{pr / 1px} \{pr / 1px} 0 0 1 0 \{(root.height - pr) / 1px}V\{pr / 1px}A\{pr / 1px} \{pr / 1px} 0 0 1 \{pr / 1px} 0Z"
+            + "M\{(mx + mr) / 1px} \{my / 1px}H\{(mx + mw - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mx + mw) / 1px} \{(my + mr) / 1px}V\{(my + mh - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mx + mw - mr) / 1px} \{(my + mh) / 1px}H\{(mx + mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{mx / 1px} \{(my + mh - mr) / 1px}V\{(my + mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mx + mr) / 1px} \{my / 1px}Z";
+    }
     if has-centre: Rectangle {
         x: inset-x + (centre-x - x-minimum) / max(0.0001, x-maximum - x-minimum) * (root.width - 2 * inset-x) - Theme.stroke / 2;
         y: Theme.u(4);
@@ -308,6 +307,19 @@ export component Pad inherits Rectangle {
         height: Theme.stroke;
         border-radius: Theme.stroke / 2;
         background: enabled ? Theme.ink.with-alpha(0.3) : Theme.dis.with-alpha(0.5);
+    }
+    // The pad's four corners in the surround's colour as one path on a layer of its own, so their square bounds leave no fringe of their own
+    Path {
+        width: root.width;
+        height: root.height;
+        viewbox-width: root.width / 1px;
+        viewbox-height: root.height / 1px;
+        fill: surround;
+        cache-rendering-hint: true;
+        commands: "M0 0H\{pr / 1px}A\{pr / 1px} \{pr / 1px} 0 0 0 0 \{pr / 1px}Z"
+            + "M\{root.width / 1px} 0V\{pr / 1px}A\{pr / 1px} \{pr / 1px} 0 0 0 \{(root.width - pr) / 1px} 0Z"
+            + "M\{root.width / 1px} \{root.height / 1px}H\{(root.width - pr) / 1px}A\{pr / 1px} \{pr / 1px} 0 0 0 \{root.width / 1px} \{(root.height - pr) / 1px}Z"
+            + "M0 \{root.height / 1px}V\{(root.height - pr) / 1px}A\{pr / 1px} \{pr / 1px} 0 0 0 \{pr / 1px} \{root.height / 1px}Z";
     }
     // The tint while held is its own rectangle on the outline's middle line: femtovg on wgpu knocks out parts of a stroke over a fill of the same path
     if frame-shown && held-tone.value > 0.01: Rectangle {
