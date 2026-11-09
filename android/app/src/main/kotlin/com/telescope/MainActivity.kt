@@ -198,7 +198,7 @@ class MainActivity : LookActivity() {
         renderPairing()
         renderUpdate()
         // Reachable while screen is up; service holds reference after screen goes dark
-        SessionEndpoint.acquire(this, SessionEndpoint.OWNER_ACTIVITY)
+        SessionEndpoint.screenStarted(this)
         syncWaitForComputer()
         // Notes the computer sent while the app wasn't on screen, and that weren't closed since
         if (NotesBoard.wantsScreen && CameraStreamService.instance?.isStreaming == true) startActivity(NotesActivity.intent(this))
@@ -246,7 +246,7 @@ class MainActivity : LookActivity() {
         Updater.removeListener(updateListener)
         unbind()
         unregisterReceiver(pairReceiver)
-        SessionEndpoint.release(SessionEndpoint.OWNER_ACTIVITY)
+        SessionEndpoint.screenStopped()
         super.onStop()
     }
 
