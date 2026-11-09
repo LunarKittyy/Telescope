@@ -252,11 +252,13 @@ struct LogRow {
     /// The box takes decimals (QDoubleSpinBox) rather than whole numbers.
     double: bool,
     shutter: bool,
+    /// How many typed values the dial has had that could not be used: the dial shakes when it counts up.
+    rejected: i64,
 }
 
 impl LogRow {
     fn new(v_min: f64, v_max: f64, spin_scale: f64, double: bool, shutter: bool) -> LogRow {
-        LogRow { v_min, v_max, pos: 0.0, spin: v_min * spin_scale, shown: v_min, enabled: false, spin_scale, double, shutter }
+        LogRow { v_min, v_max, pos: 0.0, spin: v_min * spin_scale, shown: v_min, enabled: false, spin_scale, double, shutter, rejected: 0 }
     }
 
     fn to_spin(&self, val: f64) -> f64 {
@@ -318,6 +320,8 @@ impl LogRow {
 struct Stop {
     name: String,
     value: f64,
+    /// A full stop, which the dial names in its strip (the thirds between are only ticks until the dial is on one).
+    major: bool,
 }
 
 /// The ISO values a camera app offers, a third of a stop apart.
@@ -335,23 +339,91 @@ const SHUTTER_SECONDS: [f64; 21] = [0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.3, 1.6, 2.0,
 
 /// The stops a dial turns through inside a lens's range: ISO from low to high, shutter times from slow to fast, so right is more light
 /// for one and a faster shutter for the other. A stop a few per cent past the range counts as its end, which the card holds it to.
+/// Every third stop is a full stop (25, 50, 100 and 1/8000, 1/4000, 1/2000 and so on), the others are the thirds between them.
 fn dial_stops(shutter: bool, v_min: f64, v_max: f64) -> Vec<Stop> {
     let inside = |v: f64| v >= v_min * 0.97 && v <= v_max * 1.03;
-    if !shutter {
-        return ISO_STOPS.iter().map(|v| f64::from(*v)).filter(|v| inside(*v)).map(|v| Stop { name: format!("{v}"), value: v }).collect();
-    }
-    let slow = SHUTTER_SECONDS.iter().rev().map(|s| {
-        let n = if s.fract() == 0.0 { format!("{s}") } else { number(*s, 1, false) };
-        Stop { name: tr("{n} s").field("n", n), value: (s * 1e9).round() }
-    });
-    let fast = SHUTTER_FRACTIONS.iter().rev().map(|d| Stop { name: format!("1/{d}"), value: (1e9 / f64::from(*d)).round() });
-    slow.chain(fast).filter(|s| inside(s.value)).collect()
+    let all: Vec<Stop> = if !shutter {
+        ISO_STOPS.iter().map(|v| Stop { name: format!("{v}"), value: f64::from(*v), major: false }).collect()
+    } else {
+        let slow = SHUTTER_SECONDS.iter().rev().map(|s| {
+            let n = if s.fract() == 0.0 { format!("{s}") } else { number(*s, 1, false) };
+            Stop { name: tr("{n} s").field("n", n), value: (s * 1e9).round(), major: false }
+        });
+        let fast = SHUTTER_FRACTIONS.iter().rev().map(|d| Stop { name: format!("1/{d}"), value: (1e9 / f64::from(*d)).round(), major: false });
+        slow.chain(fast).collect()
+    };
+    all.into_iter().enumerate().map(|(i, s)| Stop { major: i % 3 == 0, ..s }).filter(|s| inside(s.value)).collect()
+}
+
+/// Where in the list the first full stop is, for the dial's `label-from`.
+fn first_major(stops: &[Stop]) -> usize {
+    stops.iter().position(|s| s.major).unwrap_or(0)
 }
 
 /// The place in `stops` closest to a value (on the log scale, as a stop is), 0 when there are none.
 fn nearest_stop(stops: &[Stop], value: f64) -> usize {
     let distance = |s: &Stop| (value.max(1e-9) / s.value).ln().abs();
     stops.iter().enumerate().min_by(|a, b| distance(a.1).total_cmp(&distance(b.1))).map_or(0, |(i, _)| i)
+}
+
+/// Where a value sits on the dial: the nearest stop and how far from it towards the next one that way (a fraction of a tick, kept to half a tick past the ends), on the tick itself within a half per cent of its value.
+fn dial_place(stops: &[Stop], value: f64) -> (usize, f64) {
+    let i = nearest_stop(stops, value);
+    if stops.len() < 2 {
+        return (i, 0.0);
+    }
+    let value = value.max(1e-9);
+    let here = stops[i].value;
+    let rising = stops[stops.len() - 1].value > stops[0].value;
+    let later = (value / here).ln() * if rising { 1.0 } else { -1.0 } >= 0.0;
+    // The next tick's value that way, or where the one beyond the end would be
+    let next = if later {
+        if i + 1 < stops.len() { stops[i + 1].value } else { here * (here / stops[i - 1].value) }
+    } else if i > 0 {
+        stops[i - 1].value
+    } else {
+        here * (here / stops[1].value)
+    };
+    let off = ((value / here).ln() / (next / here).ln()).clamp(0.0, 0.5);
+    if off < 0.005 {
+        return (i, 0.0);
+    }
+    (i, if later { off } else { -off })
+}
+
+/// The value a dial's place stands for: `off` of the way from stop `i` to the one beside it, on the log scale the stops are on.
+fn dial_value(stops: &[Stop], i: usize, off: f64) -> Option<f64> {
+    let here = stops.get(i)?.value;
+    if off == 0.0 {
+        return Some(here);
+    }
+    let j = if off > 0.0 { i + 1 } else { i.checked_sub(1)? };
+    let there = stops.get(j)?.value;
+    Some(here * (there / here).powf(off.abs()))
+}
+
+/// An exposure time as it is written (1/250, 0.5, 0.5 s, 2s, 30", 8 ms; a bare number below 1 is seconds and one from 1 up is the n of 1/n, as on a camera), in nanoseconds, or None when it isn't one.
+fn parse_shutter(text: &str) -> Option<f64> {
+    let t = text.trim().to_lowercase().replace(',', ".");
+    let number = |part: &str| part.trim().parse::<f64>().ok().filter(|v| v.is_finite() && *v > 0.0);
+    let ns = if let Some(n) = t.strip_prefix("1/") {
+        1e9 / number(n.trim_end_matches('s'))?
+    } else if let Some(ms) = t.strip_suffix("ms") {
+        number(ms)? * 1e6
+    } else if let Some(sec) = t.strip_suffix("sec").or_else(|| t.strip_suffix('s')).or_else(|| t.strip_suffix('"')) {
+        number(sec)? * 1e9
+    } else {
+        let n = number(&t)?;
+        if n >= 1.0 { 1e9 / n } else { n * 1e9 }
+    };
+    Some(ns.round())
+}
+
+/// An ISO as it is written: 400 or ISO 400.
+fn parse_iso(text: &str) -> Option<f64> {
+    let t = text.trim().to_lowercase();
+    let t = t.strip_prefix("iso").unwrap_or(&t);
+    t.trim().replace(',', ".").parse::<f64>().ok().filter(|v| v.is_finite() && *v > 0.0).map(f64::round)
 }
 
 /// A QSlider: a whole-number value inside its range.
@@ -908,6 +980,18 @@ impl CameraControl {
         self.out.saves += 1;
     }
 
+    /// A dial turned to a value (held to the lens's range). False when the dial is off.
+    fn set_dial_value(&mut self, iso: bool, value: f64) -> bool {
+        let row = if iso { &mut self.iso } else { &mut self.shutter };
+        if !row.enabled {
+            return false;
+        }
+        let val = value.clamp(row.v_min, row.v_max);
+        row.set_value(val);
+        if iso { self.on_iso_changed(val) } else { self.on_shutter_changed(val) }
+        true
+    }
+
     fn on_iso_changed(&mut self, val: f64) {
         if self.manual_exp {
             self.send(json!({"action": "iso", "value": val as i64}));
@@ -1257,7 +1341,13 @@ impl CameraControl {
         props["lens-columns"] = json!(lens_columns(self.lenses.cameras.len()));
         for (key, row) in [("iso", &self.iso), ("shutter", &self.shutter)] {
             let stops = dial_stops(row.shutter, row.v_min, row.v_max);
-            props[format!("{key}-index")] = json!(nearest_stop(&stops, row.shown));
+            let (index, between) = dial_place(&stops, row.shown);
+            props[format!("{key}-index")] = json!(index);
+            props[format!("{key}-between")] = json!(between);
+            // What the dial reads between two ticks, where no tick's name is the value
+            props[format!("{key}-text")] = json!(if between == 0.0 { String::new() } else if row.shutter { ns_to_display(actions::round_half_even(row.shown) as i64) } else { format!("{}", actions::round_half_even(row.shown) as i64) });
+            props[format!("{key}-rejected")] = json!(row.rejected);
+            props[format!("{key}-label-from")] = json!(first_major(&stops));
             props[format!("{key}-stops")] = json!(stops.iter().map(|s| s.name.as_str()).collect::<Vec<_>>());
         }
         // The words alone are the same on both rows, so each segment's tooltip says which row it is
@@ -1597,15 +1687,30 @@ impl Plugin for CameraControl {
             }
             "iso-picked" | "shutter-picked" => {
                 let iso = event.callback == "iso-picked";
-                let row = if iso { &mut self.iso } else { &mut self.shutter };
-                if !row.enabled {
-                    return;
-                }
+                let row = if iso { &self.iso } else { &self.shutter };
                 let stops = dial_stops(row.shutter, row.v_min, row.v_max);
                 let Some(stop) = stops.get((n(0) as usize).min(stops.len().saturating_sub(1))) else { return };
-                let val = stop.value.clamp(row.v_min, row.v_max);
-                row.set_value(val);
-                if iso { self.on_iso_changed(val) } else { self.on_shutter_changed(val) }
+                self.set_dial_value(iso, stop.value);
+            }
+            "iso-fine" | "shutter-fine" => {
+                let iso = event.callback == "iso-fine";
+                let row = if iso { &self.iso } else { &self.shutter };
+                let stops = dial_stops(row.shutter, row.v_min, row.v_max);
+                let Some(value) = dial_value(&stops, n(0) as usize, n(1)) else { return };
+                self.set_dial_value(iso, value.round());
+            }
+            "iso-typed" | "shutter-typed" => {
+                let iso = event.callback == "iso-typed";
+                let text = event.args.first().and_then(Value::as_str).unwrap_or("");
+                match if iso { parse_iso(text) } else { parse_shutter(text) } {
+                    Some(value) if self.set_dial_value(iso, value) => {}
+                    _ => {
+                        let row = if iso { &mut self.iso } else { &mut self.shutter };
+                        if row.enabled {
+                            row.rejected += 1;
+                        }
+                    }
+                }
             }
             "ae-moved" => self.set_ae(n(0).round() as i64, false),
             "wb-picked" => {

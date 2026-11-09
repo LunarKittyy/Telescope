@@ -1,6 +1,8 @@
 // What the card's stage and the pop-out both draw on the picture (FrameLabel). Their windows have Theme globals of their
 // own, so colours and the font come in as properties.
 
+import { FineAxis } from "@ui-kit/widgets/fine.slint";
+
 export struct LensOutline { label: string, x0: float, y0: float, x1: float, y1: float }
 export struct SkeletonLine { x0: float, y0: float, x1: float, y1: float, sure: bool, out: bool }
 
@@ -173,11 +175,20 @@ export component PreviewPick {
             }
             reject
         }
+        // Shift while dragging goes finer: the pick follows a tenth of the pointer's travel
+        fine-u := FineAxis { }
+        fine-v := FineAxis { }
         TouchArea {
             mouse-cursor: pick-cursor == "cross" ? MouseCursor.crosshair : pick-cursor == "move" ? MouseCursor.move : pick-cursor == "grab" ? MouseCursor.grab : MouseCursor.default;
             pointer-event(e) => {
-                let u = (self.mouse-x - pic-x) / max(pic-width, 1px);
-                let v = (self.mouse-y - pic-y) / max(pic-height, 1px);
+                let raw-u = (self.mouse-x - pic-x) / max(pic-width, 1px);
+                let raw-v = (self.mouse-y - pic-y) / max(pic-height, 1px);
+                if e.kind == PointerEventKind.down {
+                    fine-u.begin(raw-u);
+                    fine-v.begin(raw-v);
+                }
+                let u = e.kind == PointerEventKind.move && self.pressed ? fine-u.at(raw-u, e.modifiers.shift, -100000, 100000) : raw-u;
+                let v = e.kind == PointerEventKind.move && self.pressed ? fine-v.at(raw-v, e.modifiers.shift, -100000, 100000) : raw-v;
                 let kind = e.kind == PointerEventKind.move ? "move"
                     : e.button == PointerEventButton.right ? (e.kind == PointerEventKind.down ? "right" : "")
                     : e.button != PointerEventButton.left ? ""

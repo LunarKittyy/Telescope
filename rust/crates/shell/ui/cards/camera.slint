@@ -36,9 +36,17 @@ export component CameraCard inherits Card {
     // The stops the dials turn through, as they are written, and where the lens now is among them
     in property <[string]> iso-stops;
     in property <int> iso-index;
+    in property <float> iso-between;
+    in property <string> iso-text;
+    in property <int> iso-rejected;
+    in property <int> iso-label-from;
     in property <bool> iso-enabled;
     in property <[string]> shutter-stops;
     in property <int> shutter-index;
+    in property <float> shutter-between;
+    in property <string> shutter-text;
+    in property <int> shutter-rejected;
+    in property <int> shutter-label-from;
     in property <bool> shutter-enabled;
     in property <int> ae-comp;
     in property <int> ae-min: -8;
@@ -73,6 +81,10 @@ export component CameraCard inherits Card {
     callback exposure-picked(int);
     callback iso-picked(int);
     callback shutter-picked(int);
+    callback iso-fine(int, float);
+    callback shutter-fine(int, float);
+    callback iso-typed(string);
+    callback shutter-typed(string);
     callback ae-moved(float);
     callback wb-picked(int);
     callback kelvin-moved(float);
@@ -173,9 +185,17 @@ export component CameraCard inherits Card {
             enabled: active && iso-enabled;
             stops: iso-stops;
             current: iso-index;
+            between: iso-between;
+            value-text: iso-text;
+            rejected: iso-rejected;
+            per-label: 3;
+            label-from: iso-label-from;
+            free: true;
             tip: "ISO";
             tip-detail: iso-enabled ? @tr("Higher ISO makes the picture brighter but grainier.") : exposure-tips[1] != "" ? exposure-tips[1] : @tr("Set Exposure to Manual to use this");
             moved(i) => { iso-picked(i); }
+            moved-between(i, off) => { iso-fine(i, off); }
+            typed(text) => { iso-typed(text); }
         }
     }
     RailRow {
@@ -191,9 +211,17 @@ export component CameraCard inherits Card {
             enabled: active && shutter-enabled;
             stops: shutter-stops;
             current: shutter-index;
+            between: shutter-between;
+            value-text: shutter-text;
+            rejected: shutter-rejected;
+            per-label: 3;
+            label-from: shutter-label-from;
+            free: true;
             tip: @tr("Shutter");
             tip-detail: shutter-enabled ? @tr("Slower shutter speeds make the picture brighter but blur movement.") : exposure-tips[1] != "" ? exposure-tips[1] : @tr("Set Exposure to Manual to use this");
             moved(i) => { shutter-picked(i); }
+            moved-between(i, off) => { shutter-fine(i, off); }
+            typed(text) => { shutter-typed(text); }
         }
     }
     RailRow {

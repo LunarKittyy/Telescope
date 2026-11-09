@@ -6,6 +6,7 @@ import { FocusRing, TouchRing, KeyFocus } from "basics.slint";
 import { Tip } from "tip.slint";
 import { ShortcutMenu, ShortcutEntry } from "shortcut-menu.slint";
 import { Motion, Settle, Tone, Fade, ClickWait } from "motion.slint";
+import { FineAxis } from "fine.slint";
 
 // A square of the surround's colour with a quarter circle cut out, over one corner (0 to 3 clockwise from the top left): the software renderer squares off a gradient's corners, so the drawing is rounded by covering them.
 export component CornerCap inherits Path {
@@ -150,6 +151,10 @@ export component Pad inherits Rectangle {
     property <length> grab-dx;
     property <length> grab-dy;
     property <bool> dragging;
+    // Shift while dragging goes finer: the handle follows a tenth of the pointer's travel
+    fine-x := FineAxis { }
+    fine-y := FineAxis { }
+    property <bool> shift-now;
     // A press has the handle and is dragging it (a screen reader and an owner that wants to know)
     out property <bool> held: dragging && touch.pressed;
     // What the arrows move by: one step. Shift with an arrow moves by a tenth of the range, in whole steps
@@ -245,6 +250,7 @@ export component Pad inherits Rectangle {
         mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
         scroll-event(e) => { usage.wheel(); reject }
         pointer-event(e) => {
+            shift-now = e.modifiers.shift;
             if (e.kind == PointerEventKind.down) { usage.press(); }
             if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
                 dragging = true;
@@ -254,6 +260,8 @@ export component Pad inherits Rectangle {
                 grab-dy = inside ? handle-y - self.mouse-y : 0px;
                 press-px = self.mouse-x;
                 press-py = self.mouse-y;
+                fine-x.begin((self.mouse-x + grab-dx) / 1px);
+                fine-y.begin((self.mouse-y + grab-dy) / 1px);
                 let on-puck = !frame-shown && abs(self.mouse-x - handle-x) <= Theme.u(8) && abs(self.mouse-y - handle-y) <= Theme.u(8);
                 if (!inside && !on-puck && has-default && !pending) {
                     pend-x = self.mouse-x;
@@ -283,7 +291,7 @@ export component Pad inherits Rectangle {
                     return;
                 }
             }
-            drag-to(self.mouse-x + grab-dx, self.mouse-y + grab-dy);
+            drag-to(fine-x.at((self.mouse-x + grab-dx) / 1px, shift-now, -100000, 100000) * 1px, fine-y.at((self.mouse-y + grab-dy) / 1px, shift-now, -100000, 100000) * 1px);
         }
         double-clicked => {
             pend.cancel();
