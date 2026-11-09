@@ -296,7 +296,6 @@ export component TelescopeWindow inherits Window {
     out property <length> bar-gap: Theme.u(8);
     out property <length> bar-chip: Theme.u(14);
     callback bar-resized;
-    changed width => { root.bar-resized(); }
     callback bar-pin-measured(string, length);
     callback bar-drag-started(string);
     callback bar-drag-moved(string, length);
@@ -343,7 +342,7 @@ export component TelescopeWindow inherits Window {
         WindowBox.width = self.width;
         WindowBox.height = self.height;
     }
-    changed width => { WindowBox.width = self.width; }
+    changed width => { WindowBox.width = self.width; root.bar-resized(); }
     changed height => { WindowBox.height = self.height; }
     // Where the focus goes when a text box lets go of it: the scope all the window's keys pass through
     public function focus-home() { keys.focus(); }

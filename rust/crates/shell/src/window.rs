@@ -6,7 +6,7 @@ use crate::layout::Region;
 use crate::shell::{Effect, State};
 use crate::source::{scan, to_json, to_property};
 use serde_json::Value;
-use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use slint_interpreter::{ComponentInstance, Struct, Value as SValue};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -107,6 +107,9 @@ pub struct Window {
     /// The bar's pins that come back from hidden are put in place first and shown after this fires (bar.rs `View::returning`).
     bar_reveal: RefCell<Option<crate::bar::View>>,
     bar_timer: slint::Timer,
+    /// The bar's pins, one row for each pin that has had one. It is changed in place, never replaced, so each pin's element in the bar
+    /// lives on (and keeps its motion, or a drag that is under way) while a row's numbers change.
+    bar_rows: Rc<VecModel<SValue>>,
 }
 
 /// _PopoutWindow: the picture alone on black, in a window of its own.
@@ -440,6 +443,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         painted_gen: Cell::new(0),
         bar_reveal: RefCell::new(None),
         bar_timer: slint::Timer::default(),
+        bar_rows: Rc::new(VecModel::default()),
     });
     WINDOW.with(|w| *w.borrow_mut() = Some(window.clone()));
     window.streams.flow.borrow_mut().slot_memory = window.state.borrow().slot_memory.clone();
@@ -629,6 +633,7 @@ impl Window {
 
     /// The bottom bar's callbacks: how it was measured, where a pin is held, an unpin from its menu.
     fn wire_bar(self: &Rc<Self>) {
+        let _ = self.ui.set_property("bar-pins", SValue::Model(ModelRc::from(self.bar_rows.clone())));
         let num = |v: &SValue| match v { SValue::Number(n) => *n as f32, _ => 0.0 };
         let text = |v: &SValue| match v { SValue::String(s) => s.to_string(), _ => String::new() };
         let ui = &self.ui;
@@ -749,7 +754,13 @@ impl Window {
         };
         let set_all = |view: &crate::bar::View, hold: &[String]| {
             let ui = &self.ui;
-            let _ = crate::same::set(ui, "bar-pins", SValue::Model(ModelRc::new(VecModel::from(rows(view, hold)))));
+            for (i, row) in rows(view, hold).into_iter().enumerate() {
+                match self.bar_rows.row_data(i) {
+                    Some(old) if crate::same::equal(&old, &row) => {}
+                    Some(_) => self.bar_rows.set_row_data(i, row),
+                    None => self.bar_rows.push(row),
+                }
+            }
             let chip = |c: &Option<crate::bar::Chip>| c.map_or((0.0, 0.0), |c| (c.count as f64, c.x as f64));
             let ((ln, lx), (rn, rx)) = (chip(&view.left), chip(&view.right));
             let _ = crate::same::set(ui, "bar-left-folded", SValue::Number(ln));

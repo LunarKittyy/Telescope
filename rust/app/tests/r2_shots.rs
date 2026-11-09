@@ -97,7 +97,7 @@ fn file_widget(dir: &Path, name: &str, file: &str, component: &str, props: &str,
     };
     offscreen::install();
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join(file);
-    let bare = component == "Footer" || component == "PhonePicker";
+    let bare = component == "PhonePicker";
     let doc = format!(
         "import {{ {component} }} from \"{}\";\nimport {{ Theme, WindowBox }} from \"@ui-kit/ui-kit.slint\";\nexport {{ Theme }}\nexport component W inherits Window {{\n    width: {}px;\n    height: {}px;\n    background: Theme.ground;\n    init => {{ WindowBox.width = self.width; WindowBox.height = self.height; }}\n    {alias}\n    c := {component} {{ x: {}px; y: {}px; {} {props} }}\n}}",
         path.display(),
@@ -210,13 +210,6 @@ fn connection_dialog_shots() {
     file_widget(&dir, "add-a-phone-usb", f, "ConnectionCard", "status-text: \"No phone\"; add-subtitle: \"Pair a phone\"; usb-text: \"USB debugging is off\"; usb-action: \"Turn it on\"; qr-size: 0; wifi-text: \"This computer isn't on a network\";", (560.0, 520.0), &|ui| {
         let _ = ui.set_property("add-open", Value::Bool(true));
     });
-}
-
-#[test]
-fn bar_shots() {
-    let Some(dir) = out() else { return };
-    file_widget(&dir, "bottom-bar-streaming", "crates/shell/ui/frame.slint", "Footer", "status: \"Streaming 1920 \u{d7} 1080 at 30 fps to Phone Camera\"; camera: \"Phone Camera\"; size: \"1920 \u{d7} 1080\"; fps: \"30\"; net: \"12.4 Mbps\";", (900.0, 56.0), &nothing);
-    file_widget(&dir, "bottom-bar-idle", "crates/shell/ui/frame.slint", "Footer", "status: \"Not streaming\"; fps: \"-\"; net: \"-\";", (900.0, 56.0), &nothing);
 }
 
 #[test]

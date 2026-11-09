@@ -758,7 +758,7 @@ impl Window {
         }
         match kind {
             "fps" => {
-                self.set("fps", msg.split("  ").next().unwrap_or("").trim_end_matches(" fps").to_string()); // the status line already gives the size
+                self.set("fps", crate::session::fps_reading(msg)); // the status line already gives the size
                 let pending = source.state.borrow().pending_resolution;
                 let size = msg.rsplit(' ').next().and_then(|t| t.split_once('x')).and_then(|(w, h)| Some((w.parse().ok()?, h.parse().ok()?)));
                 if pending.is_some() && size == pending {
