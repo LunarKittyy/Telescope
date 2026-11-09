@@ -224,7 +224,7 @@ export component Dial inherits Rectangle {
         property <float> slots: abs(i - pos) / per;
         property <float> far: slots <= 1 ? 1 : max(0, (1.6 - slots) / 0.6);
         // Clear of the readout when its near edge touches the readout's, in full a label's width further
-        property <length> inner: rt.preferred-width * grown / 2 + name.preferred-width / 2 + Theme.u(1);
+        property <length> inner: rt.preferred-width * grown / 2 + name.preferred-width / 2 + Theme.u(5);
         property <float> clear: clamp((from-mid - inner) / Theme.u(14), 0, 1);
         visible: major && slots < 1.6;
         x: mid + (i - pos) * tick-pitch - self.width / 2 + shake-x;
