@@ -75,14 +75,20 @@ export component Segmented inherits Rectangle {
     preferred-width: 0px;
     // Room for the longest name in every segment (up to a limit, so a long list can still give way): the row it sits in gives way to
     // this, a segment never does, so no name is cut by what is next to it
-    out property <length> needed: items.length * (names.preferred-width + Theme.u(8) + (has-icons.length > 0 ? Theme.icon-small + Theme.u(3) : 0px)) + max(0, items.length - 1) * Theme.gap;
+    out property <length> needed: names.preferred-width + items.length * Theme.u(8) + icon-room * items.length + max(0, items.length - 1) * Theme.gap;
     min-width: min(needed, Theme.u(130));
-    // Measures the widest name at the picked weight, out of the way
+    // What an icon before a name takes
+    property <length> icon-room: has-icons.length > 0 ? Theme.icon-small + Theme.u(3) : 0px;
+    // How much of its own room every segment can have: all of it while the row is wide enough, and the same share of it for each while it isn't, so
+    // the minimums never add up to more than the row and a long name gives way in proportion instead of pushing past the card
+    property <float> fit: min(1, max(0, root.width - max(0, items.length - 1) * Theme.gap) / max(1px, names.preferred-width + items.length * (Theme.u(8) + icon-room)));
+    // Measures every name at the picked weight, out of the way
     Rectangle {
         width: 0px;
         height: 0px;
         opacity: 0;
-        names := VerticalLayout {
+        names := HorizontalLayout {
+            spacing: 0px;
             for item in items: Text { text: item; font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; accessible-role: none; }
         }
     }
@@ -122,10 +128,10 @@ export component Segmented inherits Rectangle {
             property <bool> on: i == shown;
             property <bool> off: disabled[i];
             horizontal-stretch: 1;
-            // A picked segment is bold, so every one keeps room for its bold text and the picked one never loses its end, down to a
-            // floor: a long option then gives way and ends in an ellipsis rather than pushing the row out of its card
-            // All too wide at first, so the layout takes the same off each: equal widths, as Qt's equal stretches give
-            min-width: min(bold-width.preferred-width + Theme.u(8), Theme.u(24));
+            // A picked segment is bold, so every one keeps room for its bold text and the picked one never loses its end. The row shares what is
+            // left equally, so a long name only takes more than the others when it must (equal widths as Qt's equal stretches give, while the
+            // names fit), and a row too narrow for all of them shrinks every name's room by the same share and ends it in an ellipsis
+            min-width: (bold-width.preferred-width + Theme.u(8) + (has-icons[i] ? Theme.icon-small + Theme.u(3) : 0px)) * root.fit;
             preferred-width: 1000px;
             border-radius: Theme.r-ctl;
             // The picked one's own colour is the worm's, which lies over this
@@ -208,7 +214,7 @@ export component Segmented inherits Rectangle {
             property <bool> on: i == shown;
             property <bool> off: disabled[i];
             horizontal-stretch: 1;
-            min-width: min(bold-copy.preferred-width + Theme.u(8), Theme.u(24));
+            min-width: (bold-copy.preferred-width + Theme.u(8) + (has-icons[i] ? Theme.icon-small + Theme.u(3) : 0px)) * root.fit;
             preferred-width: 1000px;
             bold-copy := Text { text: item; font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; visible: false; }
             HorizontalLayout {
@@ -648,7 +654,7 @@ export component ChoiceField inherits Rectangle {
     horizontal-stretch: 1;
     for item in items: SearchWords { words: item; control: true; }
     min-width: 0px;
-    preferred-width: 0px;
+    preferred-width: Theme.control-w;
     border-radius: Theme.r-ctl;
     background: !enabled ? Theme.raise.mix(Theme.card, 0.4) : open ? Theme.sel : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : Theme.raise;
     accessible-role: combobox;

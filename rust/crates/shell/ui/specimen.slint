@@ -1,7 +1,7 @@
 // One cell of the specimen sheet (src/specimen.rs): one kit control in one state, on a card's surface. Read crates/ui-kit/STYLE.md.
 // The sheet draws this window once per control, state and look, and puts the pictures in a grid.
 
-import { Theme, KeyFocus, Icons, Button, IconButton, LinkText, Switch, SwitchTile, Segmented, ChoiceField, Slider, TextField, NumberField, Jog, Stepper, SettingRow, Tag, TipBody, Card, FormRow, SectionHeading, ScrollBar } from "@ui-kit/ui-kit.slint";
+import { Theme, KeyFocus, Icons, Button, IconButton, LinkText, Switch, SwitchTile, Segmented, ChoiceField, Slider, TextField, NumberField, Jog, Stepper, SettingRow, Tag, TipBody, Card, FormRow, SectionHeading, ScrollBar, Status, ListRow, ProblemMark, PictureField, LensRow, LensTile, SwitchRow } from "@ui-kit/ui-kit.slint";
 export { Theme, KeyFocus }
 // Tooltips (the second sheet): the tip, the window it is drawn in and the globals it reads
 import { Tip, Tips, TipLayer, WindowBox } from "@ui-kit/ui-kit.slint";
@@ -301,6 +301,67 @@ export component Cell inherits Window {
             placeholder: "Type or paste your notes.";
             text: empty ? "" : long ? "Guten Morgen zusammen, danke, dass ihr heute dabei seid. Wir beginnen mit dem Plan für das Quartal." : "Good morning, everyone.";
             enabled: !off;
+        }
+        // What round 2 and the follow-up added (STYLE.md)
+        if kind == "status": VerticalLayout {
+            spacing: 0px;
+            Status { text: long ? "Der virtuelle Mikrofon-Treiber wurde angehalten" : "Streaming"; kind: "ok"; }
+            Status { text: long ? "Skizze unklar, bitte das Blatt gerade halten" : "Sheet unclear"; kind: "warn"; detail: "Hold the sheet flat and in view."; }
+            Status { text: long ? "Der virtuelle Mikrofon-Treiber wurde angehalten" : "Stopped"; kind: "err"; detail: "The virtual microphone stopped taking audio."; }
+            Status { text: long ? "Wartet auf das Telefon, bis es sich meldet" : "Waiting for the phone"; }
+        }
+        if kind == "list-row": VerticalLayout {
+            spacing: Theme.gap;
+            ListRow {
+                title: long ? "Christophs Telefon im Wohnzimmer (Pixel 8 Pro)" : "Luna's phone";
+                sub: long ? "Über WLAN verbunden, zuletzt vor zwei Minuten gesehen" : "Wi-Fi";
+                enabled: !off;
+                IconButton { icon: Icons.pencil; label: "Rename"; enabled: !off; }
+                IconButton { icon: Icons.trash; label: "Forget"; enabled: !off; }
+            }
+        }
+        if kind == "problem": HorizontalLayout {
+            alignment: start;
+            spacing: Theme.gap;
+            ProblemMark { says: "Unavailable"; detail: "RNNoise is missing."; }
+            Tag { text: long ? "Experimentell und noch nicht stabil" : "Experimental"; tint: Theme.err; }
+        }
+        if kind == "picture-field": PictureField {
+            has-picture: false;
+            set: !empty;
+            name: empty ? "Choose" : long ? "Ein sehr langer Dateiname für ein Hintergrundbild.jpg" : "beach.jpg";
+            problem: lit ? "This picture can't be opened." : "";
+            hue: hue;
+            enabled: !off;
+        }
+        if kind == "lens-row": LensRow {
+            label: "Lens";
+            hue: hue;
+            lenses: empty ? [] : [{ id: "a", number: "0.5", unit: "x", rest: long ? "Ultraweitwinkel" : "Ultra", name: "Ultra" }, { id: "b", number: "1", unit: "x", rest: "Main", name: "Main" }, { id: "c", number: "5", unit: "x", rest: long ? "Teleobjektiv" : "Tele", name: "Tele" }];
+            current: 1;
+            tile-height: Theme.u(27);
+        }
+        if kind == "switch-row": SwitchRow {
+            icon: Icons.bell;
+            label: long ? "Benachrichtigen, wenn ein Stream von selbst endet" : "Notify me";
+            word: lit ? "Soon" : "";
+            problem: off ? "RNNoise is missing." : "";
+            problem-title: "Unavailable";
+            checked: lit;
+            enabled: !off;
+            hue: hue;
+        }
+        if kind == "card-header": Card {
+            title: long ? "Belichtung und Weißabgleich" : "Colour";
+            icon: Icons.colour;
+            hue: hue;
+            idle: off;
+            has-reset: true;
+            reset-lit: lit;
+            reset-label: "Reset";
+            has-switch: true;
+            switch-checked: true;
+            FormRow { label: "Mode"; Segmented { label: "Mode"; items: ["Auto", "Manual"]; hue: hue; } }
         }
         if kind == "rail": VerticalLayout {
             spacing: Theme.u(3);

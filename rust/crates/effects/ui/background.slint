@@ -13,7 +13,6 @@ export component BackgroundCard inherits Card {
     in property <float> edges: 3;
     in property <string> edges-text: "3";
     in property <string> edges-tip;
-    in property <string> reset-hint;
     in property <string> picture-text;
     in property <string> picture-tip;
     in property <image> picture-thumb;
@@ -62,7 +61,6 @@ export component BackgroundCard inherits Card {
             enabled: active;
             label: @tr("Blur");
             tip: @tr("Blur");
-            tip-hint: reset-hint;
             shortcut: "background.blur";
             minimum: 1;
             maximum: 10;
@@ -106,7 +104,6 @@ export component BackgroundCard inherits Card {
             label: @tr("Edges");
             tip: @tr("Edges");
             tip-detail: edges-tip;
-            tip-hint: root.reset-hint;
             minimum: 0;
             maximum: 10;
             value: edges;

@@ -251,7 +251,7 @@ export component VideoSettings inherits Card {
             keywords: @tr("search" => "resolution output size 1080p 720p 4k portrait landscape aspect ratio custom width height pixels apply reload");
             // The list opens as wide as it needs
             ChoiceField {
-                width: Theme.u(130);
+                width: Theme.control-w;
                 compact: true;
                 name: @tr("Canvas size");
                 items: root.canvas-items;
@@ -327,7 +327,7 @@ export component MicrophoneLimits inherits Card {
         hue: root.hue;
         keywords: @tr("search" => "microphone volume loudness boost amplify quiet decibel db slider range");
         Segmented {
-            width: Theme.u(130);
+            width: Theme.control-w;
             hue: root.hue;
             label: @tr("Max gain");
             items: root.gain-items;
@@ -395,7 +395,7 @@ export component PhoneAppSettings inherits Card {
                 named: true;
                 hue: root.hue;
                 ChoiceField {
-                    width: Theme.u(130);
+                    width: Theme.control-w;
                     compact: true;
                     name: @tr("Select device");
                     items: root.pick-items;
@@ -453,7 +453,7 @@ export component LookSettings inherits Card {
         hue: root.hue;
         keywords: @tr("search" => "theme classic dark blue appearance look old");
         Segmented {
-            width: Theme.u(90);
+            width: Theme.control-w;
             hue: root.hue;
             label: @tr("Theme");
             items: [@tr("Default"), @tr("Classic")];
@@ -470,7 +470,7 @@ export component LookSettings inherits Card {
         hue: root.hue;
         keywords: @tr("search" => "color colour theme appearance monochrome colourful purple hue accent look");
         Segmented {
-            width: Theme.u(110);
+            width: Theme.control-w;
             hue: root.hue;
             label: @tr("Card colours");
             items: [@tr("Colourful"), @tr("Monochrome")];
@@ -486,7 +486,7 @@ export component LookSettings inherits Card {
             hue: root.hue;
             keywords: @tr("search" => "language translation translate locale");
             ChoiceField {
-                width: Theme.u(130);
+                width: Theme.control-w;
                 compact: true;
                 name: @tr("Language");
                 items: root.lang-items;
@@ -548,12 +548,13 @@ export component AboutSettings inherits Card {
         HorizontalLayout {
             spacing: 0px;
             alignment: end;
-            Text { text: made-before; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; }
+            // Lifted a pixel like the link beside it and every other word the kit centres
+            Rectangle { width: before-text.preferred-width; before-text := Text { y: -1phx; width: parent.width; height: parent.height; text: made-before; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; } }
             VerticalLayout {
                 alignment: center;
                 LinkText { text: made-link; url: ""; font-size: Theme.body; horizontal-stretch: 0; opened(u) => { root.author-clicked(); } }
             }
-            if made-after != "": Text { text: made-after; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; }
+            if made-after != "": Rectangle { width: after-text.preferred-width; after-text := Text { y: -1phx; width: parent.width; height: parent.height; text: made-after; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; } }
         }
     }
     if log-shown: RailRow {

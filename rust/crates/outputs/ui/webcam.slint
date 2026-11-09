@@ -226,7 +226,6 @@ export component WebcamCard inherits Card {
                 default-value: row.reset-to;
                 tip: row.label;
                 tip-detail: row.tip;
-                tip-hint: @tr("Double-click to reset");
                 moved(v) => { root.control-set(row.name, v); }
             }
         }

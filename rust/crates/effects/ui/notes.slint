@@ -30,7 +30,6 @@ export component NotesCard inherits Card {
     in property <string> speed-tip;
     // Why the speed and Play are greyed out by hand
     in property <string> by-hand-tip;
-    in property <string> reset-hint;
     // By hand has no speed and no Play: they stay, greyed out
     in property <bool> show-auto: true;
     in property <bool> playing;
@@ -128,7 +127,6 @@ export component NotesCard inherits Card {
             label: @tr("Text size");
             tip: @tr("Text size");
             tip-detail: size-tip;
-            tip-hint: reset-hint;
             hue: root.hue;
             minimum: 16;
             maximum: 120;
@@ -172,7 +170,6 @@ export component NotesCard inherits Card {
             label: @tr("Speed");
             tip: @tr("Speed");
             tip-detail: show-auto ? speed-tip : by-hand-tip;
-            tip-hint: show-auto ? reset-hint : "";
             shortcut: "notes.speed";
             hue: root.hue;
             minimum: 1;

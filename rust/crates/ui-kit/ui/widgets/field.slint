@@ -3,10 +3,12 @@
 
 import { Reveal } from "folds.slint";
 import { Theme } from "../theme.slint";
-import { Icon, KeyFocus } from "basics.slint";
+import { Icon, KeyFocus, FocusRing } from "basics.slint";
 import { Icons } from "../icons.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { Tip } from "tip.slint";
+import { Motion, Arrival } from "motion.slint";
+import { ProblemMark } from "setting.slint";
 
 // setMaxLength: what of new text over a cap stays, given the text before (telescope_core::names::fit_to_cap). Slint can't
 // cut a string, so the window answers; with nobody to ask it gives "".
@@ -197,4 +199,104 @@ export component NumberField inherits Rectangle {
         }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+}
+
+// Kind "picker": a file a card takes, as the control that chooses it (the picture behind you, a LUT): a raised slot with the file's own small picture in it
+// and its name, or an empty slot ("Choose") until there is one. A file that can't be opened shows the red mark with the reason as its tooltip.
+// Clicking it (or Space or Enter) says `clicked`; the card opens its file dialog.
+export component PictureField inherits Rectangle {
+    in property <image> thumb;
+    in property <bool> has-picture;
+    // Something is chosen (a picture with no thumbnail, a LUT): its name reads in full ink, the empty slot's words dimmer
+    in property <bool> set: has-picture;
+    // The empty slot's glyph, and the thumbnail's place for something with no picture of its own
+    in property <image> empty-icon: Icons.photo;
+    // The file's name, or what the empty slot says
+    in property <string> name;
+    in property <string> problem;
+    // The red mark's tooltip name, over `problem`'s reason
+    in property <string> problem-title: @tr("Can't open this picture");
+    in property <bool> enabled: true;
+    in property <string> tip;
+    in property <string> tip-detail;
+    in property <color> hue: Theme.accent;
+    out property <string> control-kind: "picker";
+    callback clicked;
+    height: Theme.row;
+    horizontal-stretch: 1;
+    min-width: Theme.u(40);
+    border-radius: Theme.r-ctl;
+    background: !enabled ? Theme.trough : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : Theme.raise;
+    animate background { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
+    accessible-role: button;
+    accessible-label: name;
+    accessible-description: problem != "" ? problem : tip;
+    accessible-action-default => { if (enabled) { clicked(); } }
+    forward-focus: focus;
+    focus := FocusScope {
+        enabled: root.enabled;
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+        key-pressed(e) => {
+            if (e.text == " " || e.text == "\n") { clicked(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: root.border-radius; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hover: touch.has-hover; focused: focus.has-focus && KeyFocus.keyboard; inert: !root.enabled; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
+        clicked => { root.clicked(); }
+    }
+    HorizontalLayout {
+        padding: Theme.u(3);
+        spacing: Theme.u(4);
+        // The slot: the picture cropped to it, or the empty slot's own glyph
+        Rectangle {
+            width: Theme.u(20);
+            border-radius: Theme.r-handle;
+            background: Theme.trough;
+            clip: true;
+            // The picture takes the empty slot's place in one frame and comes up to full
+            if has-picture: Rectangle {
+                width: parent.width;
+                height: parent.height;
+                opacity: arrival.solid;
+                arrival := Arrival { }
+                Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: thumb;
+                    image-fit: cover;
+                    opacity: enabled ? 1 : 0.5;
+                }
+            }
+            if !has-picture: Icon {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                width: Theme.icon-small;
+                height: Theme.icon-small;
+                source: empty-icon;
+                tint: set ? hue : Theme.dis;
+            }
+        }
+        Text {
+            text: name;
+            overflow: elide;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-value;
+            color: !enabled ? Theme.dis : set ? Theme.ink : Theme.ink2;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            min-width: 0px;
+            accessible-role: none;
+        }
+        if problem != "": Rectangle {
+            width: Theme.u(8);
+            ProblemMark { y: (parent.height - self.height) / 2; says: problem-title; detail: problem; }
+        }
+        Rectangle { width: Theme.u(1); }
+    }
 }

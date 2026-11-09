@@ -95,8 +95,8 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | `switch` | Switch | hue, danger |
 | `toggle` | SwitchTile, ToggleTile | icon, name, hue |
 | `slider` | Slider | range, fill, readout, marks, the live value of a threshold bar |
-| `segmented` | Segmented, PictureSegmented, AnchorFrame | options, icons or drawings, places in a frame, hue |
-| `picker` | ChoiceField | options, icon, caption |
+| `segmented` | Segmented, PictureSegmented, LensRow, AnchorFrame | options, icons or drawings, places in a frame, lenses that come and go, hue |
+| `picker` | ChoiceField, PictureField | options, icon, caption; a file as a thumbnail and its name |
 | `field` | TextField, NumberField, TextArea | text, placeholder, icon, skeleton lines |
 | `pad` | Pad | ranges, the drawing on it, readout, a frame handle for a map |
 | `wheel` | ColourWheel | the puck's place, the colour it adds, hue |
@@ -104,7 +104,7 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | `jog` | Jog | range |
 | `stepper` | Stepper | range |
 | `strip` | SettingRow | title, controls: a row of a Settings card, on the card itself (no box of its own) |
-| `badge` | Tag | text, tint, detail (tooltip) |
+| `badge` | Tag, ProblemMark | text, tint, detail (tooltip); the round red "!" and its reason |
 | `status` | Status | one coloured word or short phrase, kind (quiet, ok, warn, err), detail (tooltip) |
 | `list-row` | ListRow | name, a dim line, icon, the row's buttons: a raised strip in a list (dialogs, devices) |
 | `dialog` | DialogFrame | title |
@@ -116,7 +116,7 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | `outline` | FocusRing, TouchRing, Worm | radius, the picked cell's place (the inside is a `WormFill` under the text) |
 | `scrollbar` | ScrollBar, ColumnScrollbar, FlickBar | extent |
 | `image` | QrCode | picture |
-| `helper` | no drawing of its own (search words, `Tip`, `TipLayer`, `Peek`, `PeekLayer`, shortcut menu, `Unfolding`, `UnfoldGroup`, `DialogButtons`, the motions) | nothing |
+| `helper` | no drawing of its own (search words, `Tip`, `TipLayer`, `Peek`, `PeekLayer`, shortcut menu, `Unfolding`, `UnfoldGroup`, `DialogButtons`, `LensArt`, the motions) | nothing |
 
 A menu button is always a `picker`: the value and a chevron, never "..." in a label. Glyphs inside controls (the chevron, a clear cross, a tick, a plus, the stepper's arrows) are heavier than the card icons: a 2px stroke against the icons' 1.4px, and the picker's chevron is 16px.
 
@@ -220,7 +220,12 @@ The cost rule: a live picture in a bubble is a small, low-frame-rate copy (about
 - Every button has a surface at rest: `Button` (every role) and `IconButton` are raised squares; only an icon inside a field is `bare`. `Button.reserve` lists every text a label can be, so the button never changes width; `Button.dialog` gives an even floor for a dialog's button row (`DialogButtons`).
 - `Card`: the header's one reset button (`has-reset`, `reset-lit`, `reset-label`: icon only, lit only while something is off its default), `idle` (fades to the disabled look and back), a card with nothing under its header is no fold (no hover, no cursor), `action-reserve` for a header action whose text changes.
 - `ListRow` (kind `list-row`): a raised strip in a list, name and a dim line on the left, its buttons on the right; a dialog is a title, section headings with ListRows or controls, and a `DialogButtons` row, never a Card inside a Card.
-- `SwitchRow.problem`: the round red "!" before the switch (a pixel above the middle), tooltip name and body from `problem-title` and `problem`.
+- `SwitchRow.problem`: the round red "!" (`ProblemMark`) before the switch (a pixel above the middle), tooltip name and body from `problem-title` and `problem`. `SwitchRow.word` is a short dim word next to the switch, where a second line of text under the row would have said it: one word or two, never a sentence.
+- `PictureField` (kind `picker`): a file a card takes (the picture behind you, a LUT) as a raised slot with its thumbnail or an empty glyph and its name; a file that can't be opened gets a `ProblemMark` with the reason. The state is in the control, never in a line of text beside it.
+- `LensRow` (kind `segmented`): the lens tiles, up to five in a row. Each tile's width is its own spring and its drawing fades with it, so three lenses becoming two or five reflow with motion (the others slide, a new one grows, a lost one shrinks and keeps what it said while it goes), and a change mid-way turns round from where everything is. More lenses than five are rows of a `PictureSegmented` with the same `LensArt`.
+- `Card.reset-shortcut` is the reset button's own shortcut (a right-click on the button offers it); the card keeps no copy of it.
+- Settings rows share one width for the control at their right edge, `Theme.control-w`; a `ChoiceField` prefers it too, so one in a layout that gives it no width still has a real one.
+- `Status` shows a tooltip with its whole text only when the text is cut short (and its `detail` when it has one). `LinkText` lifts its words one physical pixel like every other word the kit centres, so it sits on the line of what is beside it. A `Segmented` gives each name its own room while the row has it and shrinks every name's room by the same share when the row is too narrow, so it fits at any width a card gives it. A held bubble that changes what it draws (`Peek`) fades the new drawing in over the old.
 - `Unfolding` in an `UnfoldGroup`: rows that appear with a state open and shut in height and opacity, both ways, turning round mid-way; never `if state: Row`.
 - Menus: `MenuSurface` and `MenuItem` (kind `menu`) are the one menu look and motion.
 - Sliders and pads with a default say "Double-click to reset" themselves, so `tip` is only the name; a first click waits for the double-click interval (`ClickWait`), a drag never does.
@@ -262,6 +267,10 @@ cargo run -p telescope-shell --bin shell-specimen -- OUT
 ```
 
 in `rust/` (with `SLINT_BACKEND=testing`, so nothing opens a window) writes `OUT/new.png` and `OUT/classic.png`. The cells are drawn from `crates/shell/ui/specimen.slint` and the grid is laid out in `crates/shell/src/specimen.rs`: a new kind or a new state is a line in its `KINDS` table and a block in the .slint file. Regenerate it after changing a widget and look at what moved.
+
+## Shot tests
+
+The tests named `*_shots.rs` in `app/tests` and the film tests in `crates/shell/tests` (`kit_motion_film.rs`, `kit_r2_film.rs`, `kit_leftovers.rs`) draw pictures from the real kit and card sources with the software renderer and save PNGs when `CARD_SHOTS`, `MOTION_SHOTS` or `KIT2_SHOTS` names a folder; without it they pass and draw nothing to disk. They are snapshots in the sense of pictures, not in the sense of stored pictures: nothing is compared with an earlier PNG and none is committed, so a change in how a widget looks is found by regenerating the pictures and looking. What the same tests assert (sizes, where things are, how a motion moves frame by frame) is checked every run. Render them under `SLINT_BACKEND=testing` so no window opens.
 
 ## Adding or changing a control
 

@@ -427,7 +427,7 @@ export component Slider inherits HorizontalLayout {
             text: root.peek-text;
             changed open => { root.peek-changed(self.open); }
         }
-        usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.hint-line; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover || readout-over; inert: !root.enabled; focused: slider-focus.has-focus && KeyFocus.keyboard; }
+        usage := Tip { says: root.tip != "" ? root.tip : root.has-default ? root.label : ""; detail: root.tip-detail; hint: root.hint-line; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover || readout-over; inert: !root.enabled; focused: slider-focus.has-focus && KeyFocus.keyboard; }
         touch := TouchArea {
             enabled: root.enabled;
             property <float> picked: clamp((self.mouse-x - track.inset) / (track.width - 2 * track.inset), 0, 1);

@@ -480,7 +480,7 @@ impl FramingPlugin {
     fn fixed_props() -> Value {
         let fits: Vec<String> = FRAMINGS.iter().chain(&SPEEDS).chain(&ROOMS).map(|t| tr(t)).collect();
         json!({"switch-name": tr(TITLE), "switch-help": tr(SWITCH_TIP), "framing-tip": tr(FRAMING_TIP), "speed-tip": tr(SPEED_TIP),
-               "room-tip": tr(ROOM_TIP), "reset-hint": tr("Double-click to reset"), "hand-name": tr(HAND_NAME), "hand-detail": tr(HAND_DETAIL), "fits": fits.join("\n")})
+               "room-tip": tr(ROOM_TIP), "hand-name": tr(HAND_NAME), "hand-detail": tr(HAND_DETAIL), "fits": fits.join("\n")})
     }
 
     /// The Framing bubble shows the crop unless the preview does: Auto framing is following someone right now.

@@ -150,6 +150,8 @@ export global Theme {
     in-out property <length> unit: 2px;
     public pure function u(n: float) -> length { unit * n }
     out property <length> row: unit * 16;
+    // How wide the control at the right of a settings row is (a picker, a text box, a segmented choice), the same in every row so the column of them lines up
+    out property <length> control-w: unit * 130;
     // A tile that is a control of its own: a toggle tile, a picture option
     out property <length> tile: unit * 20;
     out property <length> gap: unit * 3;

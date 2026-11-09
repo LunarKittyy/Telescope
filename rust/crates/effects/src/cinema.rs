@@ -152,7 +152,6 @@ impl CinemaPlugin {
             "zebra-readout": format!("{}%", look.zebra_level),
             "peaking-tip": tr(SENSITIVITY_TIP),
             "zebra-tip": tr(ZEBRA_FROM_TIP),
-            "reset-hint": tr("Double-click to reset"),
         })
     }
 

@@ -22,7 +22,6 @@ export component FramingCard inherits Card {
     in property <string> framing-tip;
     in property <string> speed-tip;
     in property <string> room-tip;
-    in property <string> reset-hint;
     in property <string> switch-name;
     in property <string> switch-help;
     in property <string> hand-name;
@@ -72,7 +71,6 @@ export component FramingCard inherits Card {
                 label: @tr("Framing");
                 tip: @tr("Framing");
                 tip-detail: framing-tip;
-                tip-hint: reset-hint;
                 shortcut: "framing.framing";
                 hue: root.hue;
                 minimum: 0;
@@ -117,7 +115,6 @@ export component FramingCard inherits Card {
             label: @tr("Speed");
             tip: @tr("Speed");
             tip-detail: speed-tip;
-            tip-hint: reset-hint;
             shortcut: "framing.speed";
             hue: root.hue;
             minimum: 1;
@@ -145,7 +142,6 @@ export component FramingCard inherits Card {
             label: @tr("Room to move");
             tip: @tr("Room to move");
             tip-detail: room-tip;
-            tip-hint: reset-hint;
             hue: root.hue;
             minimum: 0;
             maximum: 5;

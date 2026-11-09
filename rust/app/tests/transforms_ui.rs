@@ -43,7 +43,7 @@ fn window(plugin: &mut TransformsPlugin) -> ComponentInstance {
     let kinds: [(&str, &[&str]); 6] = [
         ("bool", &["active", "pan-enabled", "zoom-free"]),
         ("float", &["pan-x", "pan-y", "rotation", "stretch-x", "stretch-y", "zoom", "zoom-max", "map-aspect"]),
-        ("string", &["dot-level", "dot-tip", "pan-add-x", "pan-add-y", "pan-tip", "reset-hint", "reset-help", "stretch-x-text", "stretch-y-text", "zoom-text", "zoom-tip"]),
+        ("string", &["dot-level", "dot-tip", "pan-add-x", "pan-add-y", "pan-tip", "reset-help", "stretch-x-text", "stretch-y-text", "zoom-text", "zoom-tip"]),
         ("[bool]", &["flips"]),
         ("[float]", &["zoom-marks"]),
         ("[string]", &["stretch-tips"]),

@@ -78,9 +78,8 @@ fn every_exported_widget_says_its_kind() {
 const OWN_CONTROLS: &[(&str, usize, usize)] = &[
     ("audio/ui/microphone.slint", 0, 1),
     ("effects/ui/composite_editor.slint", 7, 3),
-    ("effects/ui/parts.slint", 1, 2),
+    ("effects/ui/parts.slint", 1, 1),
     ("setup/ui/parts.slint", 0, 1),
-    ("shell/ui/cards/camera.slint", 1, 0),
     ("shell/ui/cards/onboarding.slint", 1, 0),
     ("shell/ui/cards/preview.slint", 1, 1),
     ("shell/ui/frame.slint", 1, 1),

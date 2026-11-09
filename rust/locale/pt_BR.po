@@ -25,7 +25,7 @@ msgstr "Abrir instalação novamente"
 msgid "Needs VB-Audio Virtual Cable, a free virtual audio cable by VB-Audio."
 msgstr "Precisa do VB-Audio Virtual Cable, um cabo de áudio virtual gratuito da VB-Audio."
 
-#: rust/crates/audio/src/backend.rs:169 rust/crates/audio/ui/microphone.slint:301
+#: rust/crates/audio/src/backend.rs:169 rust/crates/audio/ui/microphone.slint:300
 msgid "Install VB-Cable"
 msgstr "Instalar o VB-Cable"
 
@@ -180,7 +180,7 @@ msgstr "Obter o VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr ""
 
-#: rust/crates/audio/src/plugin.rs:948 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:598 rust/crates/effects/src/notes.rs:684 rust/crates/link/src/browser/plugin.rs:612 rust/crates/link/src/plugin.rs:1409 rust/crates/link/src/plugin.rs:1416 rust/crates/outputs/src/stream_output.rs:948 rust/crates/system/src/shortcuts.rs:515 rust/crates/system/src/shortcuts.rs:517
+#: rust/crates/audio/src/plugin.rs:948 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:598 rust/crates/effects/src/notes.rs:683 rust/crates/link/src/browser/plugin.rs:612 rust/crates/link/src/plugin.rs:1409 rust/crates/link/src/plugin.rs:1416 rust/crates/outputs/src/stream_output.rs:948 rust/crates/system/src/shortcuts.rs:515 rust/crates/system/src/shortcuts.rs:517
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -203,7 +203,7 @@ msgstr "ligado"
 msgid "off"
 msgstr "desligado"
 
-#: rust/crates/audio/src/plugin.rs:999 rust/crates/audio/src/plugin.rs:1121 rust/crates/audio/ui/microphone.slint:221 rust/crates/audio/ui/microphone.slint:231 rust/crates/audio/ui/microphone.slint:235 rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:281 rust/crates/outputs/src/webcam.rs:46
+#: rust/crates/audio/src/plugin.rs:999 rust/crates/audio/src/plugin.rs:1121 rust/crates/audio/ui/microphone.slint:221 rust/crates/audio/ui/microphone.slint:231 rust/crates/audio/ui/microphone.slint:235 rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:277 rust/crates/outputs/src/webcam.rs:46
 msgid "Gain"
 msgstr "Ganho"
 
@@ -350,35 +350,31 @@ msgstr ""
 msgid "Use the phone's microphone on this computer."
 msgstr ""
 
-#: rust/crates/audio/ui/microphone.slint:237 rust/crates/effects/src/background.rs:221 rust/crates/effects/src/chroma_key.rs:260 rust/crates/effects/src/cinema.rs:155 rust/crates/effects/src/colour_grading.rs:535 rust/crates/effects/src/framing.rs:483 rust/crates/effects/src/fun_pack.rs:339 rust/crates/effects/src/notes.rs:58 rust/crates/effects/src/photos.rs:455 rust/crates/effects/src/transforms.rs:38 rust/crates/effects/ui/composite_editor.slint:463 rust/crates/effects/ui/composite_editor.slint:498 rust/crates/effects/ui/desk.slint:175 rust/crates/effects/ui/desk.slint:200 rust/crates/outputs/ui/stream_output.slint:138 rust/crates/outputs/ui/stream_output.slint:166 rust/crates/outputs/ui/webcam.slint:229 rust/crates/shell/ui/cards/camera.slint:346 rust/crates/shell/ui/cards/camera.slint:388 rust/crates/shell/ui/cards/camera.slint:410 rust/crates/ui-kit/ui/widgets/pad.slint:74 rust/crates/ui-kit/ui/widgets/slider.slint:68
-msgid "Double-click to reset"
-msgstr "Clique duas vezes para redefinir"
-
-#: rust/crates/audio/ui/microphone.slint:243 rust/crates/audio/ui/microphone.slint:247
+#: rust/crates/audio/ui/microphone.slint:242 rust/crates/audio/ui/microphone.slint:246
 msgid "Auto level"
 msgstr "Nível automático"
 
-#: rust/crates/audio/ui/microphone.slint:248
+#: rust/crates/audio/ui/microphone.slint:247
 msgid "Even out quiet and loud speech."
 msgstr ""
 
-#: rust/crates/audio/ui/microphone.slint:253 rust/crates/audio/ui/microphone.slint:258 rust/crates/shell/src/plugins/camera_control.rs:1323 rust/crates/shell/src/plugins/camera_control.rs:1672 rust/crates/shell/ui/cards/camera.slint:513 rust/crates/shell/ui/cards/camera.slint:521
+#: rust/crates/audio/ui/microphone.slint:252 rust/crates/audio/ui/microphone.slint:257 rust/crates/shell/src/plugins/camera_control.rs:1323 rust/crates/shell/src/plugins/camera_control.rs:1672 rust/crates/shell/ui/cards/camera.slint:385 rust/crates/shell/ui/cards/camera.slint:393
 msgid "Noise reduction"
 msgstr "Redução de ruído"
 
-#: rust/crates/audio/ui/microphone.slint:261
+#: rust/crates/audio/ui/microphone.slint:260
 msgid "Noise reduction unavailable"
 msgstr ""
 
-#: rust/crates/audio/ui/microphone.slint:312 rust/crates/effects/src/desk.rs:189 rust/crates/effects/ui/colour_grading.slint:469 rust/crates/effects/ui/composite_editor.slint:587 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:488 rust/crates/link/ui/connection.slint:716 rust/crates/setup/ui/setup.slint:414 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:535 rust/crates/system/ui/shortcuts.slint:347 rust/crates/system/ui/updates.slint:241
+#: rust/crates/audio/ui/microphone.slint:311 rust/crates/effects/src/desk.rs:189 rust/crates/effects/ui/colour_grading.slint:462 rust/crates/effects/ui/composite_editor.slint:585 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:488 rust/crates/link/ui/connection.slint:716 rust/crates/setup/ui/setup.slint:414 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/ui/settings.slint:535 rust/crates/system/ui/shortcuts.slint:347 rust/crates/system/ui/updates.slint:241
 msgid "Cancel"
 msgstr "Cancelar"
 
-#: rust/crates/audio/ui/microphone.slint:314 rust/crates/audio/ui/microphone.slint:315
+#: rust/crates/audio/ui/microphone.slint:313 rust/crates/audio/ui/microphone.slint:314
 msgid "Download and install"
 msgstr "Baixar e instalar"
 
-#: rust/crates/audio/ui/microphone.slint:316
+#: rust/crates/audio/ui/microphone.slint:315
 msgid "Telescope downloads VB-Cable from vb-audio.com and opens its setup, which asks for admin. Restart the computer afterwards."
 msgstr ""
 
@@ -400,11 +396,11 @@ msgstr "Pontos"
 msgid " stops"
 msgstr " pontos"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:453 rust/crates/link/src/plugin.rs:1364 rust/crates/outputs/src/stream_output.rs:619 rust/crates/outputs/ui/webcam.slint:251 rust/crates/shell/src/plugins/presets.rs:323
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:453 rust/crates/link/src/plugin.rs:1364 rust/crates/outputs/src/stream_output.rs:619 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:323
 msgid "Next"
 msgstr "Próxima"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:453 rust/crates/link/src/plugin.rs:1364 rust/crates/outputs/src/stream_output.rs:619 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:323
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:453 rust/crates/link/src/plugin.rs:1364 rust/crates/outputs/src/stream_output.rs:619 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:323
 msgid "Previous"
 msgstr "Anterior"
 
@@ -480,7 +476,7 @@ msgstr "Áudio"
 msgid "Virtual camera & phone"
 msgstr "Câmera virtual e celular"
 
-#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1067
+#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1087
 msgid "Keyboard shortcuts"
 msgstr "Atalhos de teclado"
 
@@ -492,7 +488,7 @@ msgstr "Plugins"
 msgid "Updates & About"
 msgstr "Atualizações e Sobre"
 
-#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:39 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:287 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:90 rust/crates/shell/src/plugins/camera_control.rs:1638 rust/crates/shell/ui/cards/camera.slint:213 rust/crates/shell/ui/cards/preview.slint:241
+#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:39 rust/crates/effects/ui/photos.slint:284 rust/crates/effects/ui/photos.slint:286 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:90 rust/crates/shell/src/plugins/camera_control.rs:1638 rust/crates/shell/ui/cards/camera.slint:89 rust/crates/shell/ui/cards/preview.slint:241
 msgid "Camera"
 msgstr "Câmera"
 
@@ -552,15 +548,15 @@ msgid "Looking…"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:51 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:460 rust/crates/effects/ui/background.slint:47 rust/crates/effects/ui/background.slint:52 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:287 rust/crates/link/src/browser/plugin.rs:585 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:194
+#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:26 rust/crates/effects/src/framing.rs:51 rust/crates/effects/src/fun_pack.rs:37 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:459 rust/crates/effects/ui/background.slint:46 rust/crates/effects/ui/background.slint:51 rust/crates/effects/ui/photos.slint:284 rust/crates/effects/ui/photos.slint:286 rust/crates/link/src/browser/plugin.rs:585 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:70
 msgid "Off"
 msgstr "Desligado"
 
-#: rust/crates/effects/src/background.rs:26 rust/crates/effects/ui/background.slint:47 rust/crates/effects/ui/background.slint:52 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:64
+#: rust/crates/effects/src/background.rs:26 rust/crates/effects/ui/background.slint:46 rust/crates/effects/ui/background.slint:51 rust/crates/effects/ui/background.slint:62 rust/crates/effects/ui/background.slint:63
 msgid "Blur"
 msgstr "Desfoque"
 
-#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/background.slint:47 rust/crates/effects/ui/background.slint:52 rust/crates/effects/ui/background.slint:84 rust/crates/effects/ui/chroma_key.slint:132 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:174 rust/crates/effects/ui/composite_editor.slint:323 rust/crates/effects/ui/composite_editor.slint:541 rust/crates/effects/ui/composite_editor.slint:543 rust/crates/effects/ui/composite_editor.slint:543
+#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/background.slint:46 rust/crates/effects/ui/background.slint:51 rust/crates/effects/ui/background.slint:82 rust/crates/effects/ui/chroma_key.slint:130 rust/crates/effects/ui/chroma_key.slint:135 rust/crates/effects/ui/chroma_key.slint:172 rust/crates/effects/ui/composite_editor.slint:323 rust/crates/effects/ui/composite_editor.slint:539 rust/crates/effects/ui/composite_editor.slint:541 rust/crates/effects/ui/composite_editor.slint:541
 msgid "Picture"
 msgstr "Imagem"
 
@@ -568,51 +564,51 @@ msgstr "Imagem"
 msgid "Pictures (*.png *.jpg *.jpeg *.webp *.bmp)"
 msgstr "Imagens (*.png *.jpg *.jpeg *.webp *.bmp)"
 
-#: rust/crates/effects/src/background.rs:222 rust/crates/effects/src/chroma_key.rs:41 rust/crates/effects/src/fun_pack.rs:70
+#: rust/crates/effects/src/background.rs:221 rust/crates/effects/src/chroma_key.rs:41 rust/crates/effects/src/fun_pack.rs:70
 msgid "How soft the edge around you is."
 msgstr ""
 
-#: rust/crates/effects/src/background.rs:223 rust/crates/effects/src/chroma_key.rs:263
+#: rust/crates/effects/src/background.rs:222 rust/crates/effects/src/chroma_key.rs:262
 msgid "Pick the picture that goes behind you."
 msgstr ""
 
-#: rust/crates/effects/src/background.rs:286 rust/crates/effects/src/chroma_key.rs:410
+#: rust/crates/effects/src/background.rs:285 rust/crates/effects/src/chroma_key.rs:409
 msgid "Choose a picture"
 msgstr "Escolha uma imagem"
 
-#: rust/crates/effects/src/background.rs:296 rust/crates/effects/src/chroma_key.rs:419
+#: rust/crates/effects/src/background.rs:295 rust/crates/effects/src/chroma_key.rs:418
 msgid "Can't open that picture"
 msgstr ""
 
-#: rust/crates/effects/src/background.rs:304 rust/crates/effects/src/background.rs:398 rust/crates/effects/src/background.rs:401 rust/crates/effects/src/background.rs:419 rust/crates/effects/ui/background.slint:32 rust/crates/effects/ui/background.slint:40 rust/crates/effects/ui/background.slint:51 rust/crates/effects/ui/composite_editor.slint:515
+#: rust/crates/effects/src/background.rs:303 rust/crates/effects/src/background.rs:397 rust/crates/effects/src/background.rs:400 rust/crates/effects/src/background.rs:418 rust/crates/effects/ui/background.slint:31 rust/crates/effects/ui/background.slint:39 rust/crates/effects/ui/background.slint:50 rust/crates/effects/ui/composite_editor.slint:513
 msgid "Background"
 msgstr "Plano de fundo"
 
-#: rust/crates/effects/src/background.rs:305
+#: rust/crates/effects/src/background.rs:304
 msgid "Blurs the background behind you or swaps it for a picture."
 msgstr "Desfoca o fundo atrás de você ou o substitui por uma imagem."
 
-#: rust/crates/effects/src/background.rs:306
+#: rust/crates/effects/src/background.rs:305
 msgid "Without it there's no Background card and the background stays as the camera sees it."
 msgstr "Sem ele, o cartão Plano de fundo não aparece e o fundo fica como a câmera o vê."
 
-#: rust/crates/effects/src/background.rs:400 rust/crates/effects/src/background.rs:426
+#: rust/crates/effects/src/background.rs:399 rust/crates/effects/src/background.rs:425
 msgid "Background blur"
 msgstr "Desfoque de fundo"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:83 rust/crates/effects/ui/chroma_key.slint:88 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:358 rust/crates/effects/ui/colour_grading.slint:363 rust/crates/effects/ui/composite_editor.slint:479 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:355
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87 rust/crates/effects/ui/cinema.slint:158 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/colour_grading.slint:352 rust/crates/effects/ui/colour_grading.slint:357 rust/crates/effects/ui/composite_editor.slint:478 rust/crates/effects/ui/composite_editor.slint:526 rust/crates/ui-kit/ui/widgets/colour.slint:355
 msgid "Green"
 msgstr "Verde"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:83 rust/crates/effects/ui/chroma_key.slint:88 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:358 rust/crates/effects/ui/colour_grading.slint:363 rust/crates/effects/ui/composite_editor.slint:479 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:355
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87 rust/crates/effects/ui/cinema.slint:158 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/colour_grading.slint:352 rust/crates/effects/ui/colour_grading.slint:357 rust/crates/effects/ui/composite_editor.slint:478 rust/crates/effects/ui/composite_editor.slint:526 rust/crates/ui-kit/ui/widgets/colour.slint:355
 msgid "Blue"
 msgstr "Azul"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/ui/chroma_key.slint:83 rust/crates/effects/ui/chroma_key.slint:88
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87
 msgid "Picked"
 msgstr "Escolhida"
 
-#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/chroma_key.slint:132 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:146 rust/crates/effects/ui/chroma_key.slint:159 rust/crates/effects/ui/composite_editor.slint:470 rust/crates/effects/ui/composite_editor.slint:519
+#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/chroma_key.slint:130 rust/crates/effects/ui/chroma_key.slint:135 rust/crates/effects/ui/chroma_key.slint:144 rust/crates/effects/ui/chroma_key.slint:157 rust/crates/effects/ui/composite_editor.slint:469 rust/crates/effects/ui/composite_editor.slint:517
 msgid "Colour"
 msgstr "Cor"
 
@@ -624,7 +620,7 @@ msgstr ""
 msgid "Remove the screen's colour from your edges and skin."
 msgstr ""
 
-#: rust/crates/effects/src/chroma_key.rs:257 rust/crates/effects/src/chroma_key.rs:445 rust/crates/effects/src/chroma_key.rs:560 rust/crates/effects/src/chroma_key.rs:564 rust/crates/effects/src/chroma_key.rs:582 rust/crates/effects/ui/chroma_key.slint:58
+#: rust/crates/effects/src/chroma_key.rs:257 rust/crates/effects/src/chroma_key.rs:444 rust/crates/effects/src/chroma_key.rs:559 rust/crates/effects/src/chroma_key.rs:563 rust/crates/effects/src/chroma_key.rs:581 rust/crates/effects/ui/chroma_key.slint:57
 msgid "Chroma key"
 msgstr "Chroma key"
 
@@ -632,59 +628,59 @@ msgstr "Chroma key"
 msgid "Replace the green or blue screen behind you."
 msgstr ""
 
-#: rust/crates/effects/src/chroma_key.rs:261
+#: rust/crates/effects/src/chroma_key.rs:260
 msgid "Pick the colour that goes behind you."
 msgstr ""
 
-#: rust/crates/effects/src/chroma_key.rs:262 rust/crates/ui-kit/ui/widgets/colour.slint:299
+#: rust/crates/effects/src/chroma_key.rs:261 rust/crates/ui-kit/ui/widgets/colour.slint:299
 msgid "Pick from the preview"
 msgstr ""
 
-#: rust/crates/effects/src/chroma_key.rs:268
+#: rust/crates/effects/src/chroma_key.rs:267
 msgid "The colour picked from the preview. Click to pick again."
 msgstr "A cor escolhida na pré-visualização. Clique para escolher novamente."
 
-#: rust/crates/effects/src/chroma_key.rs:353
+#: rust/crates/effects/src/chroma_key.rs:352
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Clique na tela atrás de você na pré-visualização. Esc cancela."
 
-#: rust/crates/effects/src/chroma_key.rs:354 rust/crates/effects/src/chroma_key.rs:390 rust/crates/effects/src/desk.rs:261 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:965 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:576 rust/crates/shell/src/streams.rs:1600 rust/crates/shell/src/window.rs:1388 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:353 rust/crates/effects/src/chroma_key.rs:389 rust/crates/effects/src/desk.rs:261 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:965 rust/crates/shell/src/session.rs:88 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:576 rust/crates/shell/src/streams.rs:1600 rust/crates/shell/src/window.rs:1391 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Não está transmitindo"
 
-#: rust/crates/effects/src/chroma_key.rs:354
+#: rust/crates/effects/src/chroma_key.rs:353
 msgid "Start streaming to pick the screen's colour on the preview."
 msgstr "Inicie a transmissão para escolher a cor da tela na pré-visualização."
 
-#: rust/crates/effects/src/chroma_key.rs:372
+#: rust/crates/effects/src/chroma_key.rs:371
 msgid "No colour there"
 msgstr ""
 
-#: rust/crates/effects/src/chroma_key.rs:372
+#: rust/crates/effects/src/chroma_key.rs:371
 msgid "That spot has hardly any colour. Click the screen itself."
 msgstr "Esse ponto quase não tem cor. Clique na própria tela."
 
-#: rust/crates/effects/src/chroma_key.rs:389
+#: rust/crates/effects/src/chroma_key.rs:388
 msgid "Click a colour on the preview. Esc cancels."
 msgstr ""
 
-#: rust/crates/effects/src/chroma_key.rs:390
+#: rust/crates/effects/src/chroma_key.rs:389
 msgid "Start streaming to pick a colour on the preview."
 msgstr ""
 
-#: rust/crates/effects/src/chroma_key.rs:446
+#: rust/crates/effects/src/chroma_key.rs:445
 msgid "Swaps a green or blue screen behind you for a colour or a picture, with no download."
 msgstr "Substitui uma tela verde ou azul atrás de você por uma cor ou imagem, sem nenhum download."
 
-#: rust/crates/effects/src/chroma_key.rs:447
+#: rust/crates/effects/src/chroma_key.rs:446
 msgid "Without it there's no Chroma key card and a green screen stays green."
 msgstr "Sem ele, não há o cartão Chroma key e uma tela verde continua verde."
 
-#: rust/crates/effects/src/chroma_key.rs:562 rust/crates/effects/src/chroma_key.rs:597
+#: rust/crates/effects/src/chroma_key.rs:561 rust/crates/effects/src/chroma_key.rs:596
 msgid "Chroma key tolerance"
 msgstr "Tolerância do chroma key"
 
-#: rust/crates/effects/src/chroma_key.rs:565 rust/crates/effects/src/chroma_key.rs:591
+#: rust/crates/effects/src/chroma_key.rs:564 rust/crates/effects/src/chroma_key.rs:590
 msgid "Chroma key screen"
 msgstr "Tela do chroma key"
 
@@ -728,28 +724,28 @@ msgstr "Zebras"
 msgid "False colour"
 msgstr "Falsa cor"
 
-#: rust/crates/effects/src/cinema.rs:317 rust/crates/effects/src/cinema.rs:412 rust/crates/effects/ui/cinema.slint:25 rust/crates/effects/ui/cinema.slint:147
+#: rust/crates/effects/src/cinema.rs:316 rust/crates/effects/src/cinema.rs:411 rust/crates/effects/ui/cinema.slint:25 rust/crates/effects/ui/cinema.slint:146
 msgid "Cinema tools"
 msgstr "Ferramentas de cinema"
 
-#: rust/crates/effects/src/cinema.rs:318
+#: rust/crates/effects/src/cinema.rs:317
 msgid "Focus peaking, zebras, false colour, scopes, framing guides and a level on the preview, for judging focus, exposure, framing and a straight horizon."
 msgstr "Focus peaking, zebras, cores falsas, scopes, guias de enquadramento e um nível na pré-visualização, para avaliar foco, exposição, enquadramento e um horizonte reto."
 
-#: rust/crates/effects/src/cinema.rs:319
+#: rust/crates/effects/src/cinema.rs:318
 msgid "Without it there's no Cinema tools card and the preview shows just the picture."
 msgstr "Sem ele, não há o cartão Ferramentas de cinema e a pré-visualização mostra apenas a imagem."
 
-#: rust/crates/effects/src/cinema.rs:372
+#: rust/crates/effects/src/cinema.rs:371
 msgctxt "search"
 msgid "focus peaking zebras false colour color scopes waveform parade vectorscope histogram exposure monitor grid guides rule of thirds golden ratio composition framing"
 msgstr "destaque de foco pico de foco foco peaking zebras falsa cor cores falsas scopes osciloscópio forma de onda parade rgb vetorscópio histograma exposição monitor grade guias regra dos terços proporção áurea composição enquadramento focus peaking zebras false colour color scopes waveform parade vectorscope histogram exposure monitor grid guides rule of thirds golden ratio composition framing"
 
-#: rust/crates/effects/src/cinema.rs:414 rust/crates/effects/src/cinema.rs:433 rust/crates/effects/ui/cinema.slint:94 rust/crates/effects/ui/cinema.slint:104 rust/crates/effects/ui/cinema.slint:106
+#: rust/crates/effects/src/cinema.rs:413 rust/crates/effects/src/cinema.rs:432 rust/crates/effects/ui/cinema.slint:94 rust/crates/effects/ui/cinema.slint:104 rust/crates/effects/ui/cinema.slint:106
 msgid "Guides"
 msgstr "Guias"
 
-#: rust/crates/effects/src/cinema.rs:415 rust/crates/effects/src/cinema.rs:434 rust/crates/effects/ui/cinema.slint:114 rust/crates/effects/ui/cinema.slint:121 rust/crates/effects/ui/cinema.slint:122
+#: rust/crates/effects/src/cinema.rs:414 rust/crates/effects/src/cinema.rs:433 rust/crates/effects/ui/cinema.slint:114 rust/crates/effects/ui/cinema.slint:121 rust/crates/effects/ui/cinema.slint:122
 msgid "Scope"
 msgstr "Scope"
 
@@ -769,11 +765,11 @@ msgstr "Parade RGB"
 msgid "Vectorscope"
 msgstr "Vetorscópio"
 
-#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:358 rust/crates/effects/ui/colour_grading.slint:363 rust/crates/effects/ui/composite_editor.slint:479 rust/crates/effects/ui/composite_editor.slint:528 rust/crates/ui-kit/ui/widgets/colour.slint:355
+#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:158 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/colour_grading.slint:352 rust/crates/effects/ui/colour_grading.slint:357 rust/crates/effects/ui/composite_editor.slint:478 rust/crates/effects/ui/composite_editor.slint:526 rust/crates/ui-kit/ui/widgets/colour.slint:355
 msgid "Red"
 msgstr "Vermelho"
 
-#: rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160
+#: rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/cinema.slint:158 rust/crates/effects/ui/cinema.slint:159
 msgid "White"
 msgstr "Branco"
 
@@ -796,15 +792,15 @@ msgstr "4 × 4"
 msgid "Golden ratio"
 msgstr "Proporção áurea"
 
-#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:205 rust/crates/effects/ui/cinema.slint:206
+#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:202 rust/crates/effects/ui/cinema.slint:203
 msgid "Small"
 msgstr "Pequeno"
 
-#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:205 rust/crates/effects/ui/cinema.slint:206
+#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:202 rust/crates/effects/ui/cinema.slint:203
 msgid "Medium"
 msgstr "Médio"
 
-#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:205 rust/crates/effects/ui/cinema.slint:206
+#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:202 rust/crates/effects/ui/cinema.slint:203
 msgid "Large"
 msgstr "Grande"
 
@@ -864,15 +860,15 @@ msgstr "LUT de 33 pontos (*.cube)"
 msgid "65-point LUT (*.cube)"
 msgstr "LUT de 65 pontos (*.cube)"
 
-#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:281
+#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:277
 msgid "Lift"
 msgstr "Lift"
 
-#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:281 rust/crates/outputs/src/webcam.rs:51
+#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:277 rust/crates/outputs/src/webcam.rs:51
 msgid "Gamma"
 msgstr "Gama"
 
-#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:281
+#: rust/crates/effects/src/colour_grading.rs:40 rust/crates/effects/ui/colour_grading.slint:277
 msgid "Offset"
 msgstr "Offset"
 
@@ -917,11 +913,11 @@ msgstr "{file} salvo."
 msgid "Turn the grade off to see the camera's original colours."
 msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:55 rust/crates/effects/ui/colour_grading.slint:268
+#: rust/crates/effects/src/colour_grading.rs:55 rust/crates/effects/ui/colour_grading.slint:264
 msgid "Start the stream first, so Auto has a picture to look at."
 msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:56 rust/crates/effects/ui/colour_grading.slint:265
+#: rust/crates/effects/src/colour_grading.rs:56 rust/crates/effects/ui/colour_grading.slint:261
 msgid "Looks fine"
 msgstr ""
 
@@ -929,7 +925,7 @@ msgstr ""
 msgid "No stream"
 msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:58 rust/crates/effects/ui/composite_editor.slint:544
+#: rust/crates/effects/src/colour_grading.rs:58 rust/crates/effects/ui/composite_editor.slint:542
 msgid "No picture"
 msgstr "Sem imagem"
 
@@ -1006,7 +1002,7 @@ msgstr "Gain master"
 msgid "Offset master"
 msgstr "Offset master"
 
-#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:313 rust/crates/outputs/src/webcam.rs:49 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1432 rust/crates/shell/src/plugins/camera_control.rs:1664 rust/crates/shell/ui/cards/camera.slint:375 rust/crates/shell/ui/cards/camera.slint:386
+#: rust/crates/effects/src/colour_grading.rs:90 rust/crates/effects/ui/colour_grading.slint:308 rust/crates/outputs/src/webcam.rs:49 rust/crates/setup/src/stats_phone.rs:132 rust/crates/shell/src/plugins/camera_control.rs:1432 rust/crates/shell/src/plugins/camera_control.rs:1664 rust/crates/shell/ui/cards/camera.slint:249 rust/crates/shell/ui/cards/camera.slint:260
 msgid "Temperature"
 msgstr "Temperatura"
 
@@ -1014,7 +1010,7 @@ msgstr "Temperatura"
 msgid "Make the picture warmer or cooler."
 msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/ui/colour_grading.slint:313 rust/crates/shell/src/plugins/camera_control.rs:1440 rust/crates/shell/src/plugins/camera_control.rs:1666 rust/crates/shell/ui/cards/camera.slint:397 rust/crates/shell/ui/cards/camera.slint:408
+#: rust/crates/effects/src/colour_grading.rs:91 rust/crates/effects/ui/colour_grading.slint:308 rust/crates/shell/src/plugins/camera_control.rs:1440 rust/crates/shell/src/plugins/camera_control.rs:1666 rust/crates/shell/ui/cards/camera.slint:270 rust/crates/shell/ui/cards/camera.slint:281
 msgid "Tint"
 msgstr "Matiz"
 
@@ -1023,7 +1019,7 @@ msgid "Shift the picture towards magenta or green."
 msgstr ""
 
 #. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
-#: rust/crates/effects/src/colour_grading.rs:92 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:313 rust/crates/outputs/src/webcam.rs:50
+#: rust/crates/effects/src/colour_grading.rs:92 rust/crates/effects/src/desk.rs:26 rust/crates/effects/ui/colour_grading.slint:308 rust/crates/outputs/src/webcam.rs:50
 msgid "Contrast"
 msgstr "Contraste"
 
@@ -1031,7 +1027,7 @@ msgstr "Contraste"
 msgid "Spread the tones apart around the pivot."
 msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:93 rust/crates/effects/ui/colour_grading.slint:313
+#: rust/crates/effects/src/colour_grading.rs:93 rust/crates/effects/ui/colour_grading.slint:308
 msgid "Pivot"
 msgstr "Pivô"
 
@@ -1039,7 +1035,7 @@ msgstr "Pivô"
 msgid "The brightness level that contrast leaves unchanged."
 msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:94 rust/crates/effects/ui/colour_grading.slint:313 rust/crates/outputs/src/webcam.rs:50
+#: rust/crates/effects/src/colour_grading.rs:94 rust/crates/effects/ui/colour_grading.slint:308 rust/crates/outputs/src/webcam.rs:50
 msgid "Saturation"
 msgstr "Saturação"
 
@@ -1047,7 +1043,7 @@ msgstr "Saturação"
 msgid "Make the picture more or less colourful."
 msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:95 rust/crates/effects/ui/colour_grading.slint:313
+#: rust/crates/effects/src/colour_grading.rs:95 rust/crates/effects/ui/colour_grading.slint:308
 msgid "Vibrance"
 msgstr ""
 
@@ -1055,7 +1051,7 @@ msgstr ""
 msgid "Boost dull colours more than strong colours and skin tones."
 msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:96 rust/crates/effects/ui/colour_grading.slint:313
+#: rust/crates/effects/src/colour_grading.rs:96 rust/crates/effects/ui/colour_grading.slint:308
 msgid "Shadows"
 msgstr "Sombras"
 
@@ -1063,7 +1059,7 @@ msgstr "Sombras"
 msgid "Brighten or darken the shadows."
 msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:97 rust/crates/effects/ui/colour_grading.slint:313
+#: rust/crates/effects/src/colour_grading.rs:97 rust/crates/effects/ui/colour_grading.slint:308
 msgid "Highlights"
 msgstr "Realces"
 
@@ -1084,7 +1080,7 @@ msgstr "Exportar a gradação"
 msgid "{file} is already there. Replace it?"
 msgstr "{file} já existe. Substituir?"
 
-#: rust/crates/effects/src/colour_grading.rs:532 rust/crates/effects/src/colour_grading.rs:941 rust/crates/effects/src/colour_grading.rs:1032 rust/crates/effects/src/colour_grading.rs:1034 rust/crates/effects/src/colour_grading.rs:1076 rust/crates/effects/ui/colour_grading.slint:184
+#: rust/crates/effects/src/colour_grading.rs:532 rust/crates/effects/src/colour_grading.rs:940 rust/crates/effects/src/colour_grading.rs:1031 rust/crates/effects/src/colour_grading.rs:1033 rust/crates/effects/src/colour_grading.rs:1075 rust/crates/effects/ui/colour_grading.slint:181
 msgid "Colour grading"
 msgstr "Gradação de cor"
 
@@ -1093,19 +1089,19 @@ msgstr "Gradação de cor"
 msgid "{wheel} colour"
 msgstr "Cor de {wheel}"
 
-#: rust/crates/effects/src/colour_grading.rs:942
+#: rust/crates/effects/src/colour_grading.rs:941
 msgid "Colour wheels, curves and LUT files for the look of the picture."
 msgstr "Círculos cromáticos, curvas e arquivos LUT para o visual da imagem."
 
-#: rust/crates/effects/src/colour_grading.rs:943
+#: rust/crates/effects/src/colour_grading.rs:942
 msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
 msgstr "Sem ele, não há o cartão Gradação de cor e a imagem mantém as cores da câmera."
 
-#: rust/crates/effects/src/colour_grading.rs:1035 rust/crates/effects/src/colour_grading.rs:1081
+#: rust/crates/effects/src/colour_grading.rs:1034 rust/crates/effects/src/colour_grading.rs:1080
 msgid "Compare before and after"
 msgstr "Comparar antes e depois"
 
-#: rust/crates/effects/src/colour_grading.rs:1059 rust/crates/effects/src/colour_grading.rs:1094
+#: rust/crates/effects/src/colour_grading.rs:1058 rust/crates/effects/src/colour_grading.rs:1093
 msgid "LUT strength"
 msgstr "Intensidade do LUT"
 
@@ -1125,7 +1121,7 @@ msgstr "Esticar"
 msgid "Crop"
 msgstr "Cortar"
 
-#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:228 rust/crates/effects/ui/transforms.slint:238 rust/crates/effects/ui/transforms.slint:240 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:227 rust/crates/effects/ui/transforms.slint:237 rust/crates/effects/ui/transforms.slint:239 rust/crates/outputs/src/webcam.rs:56
 msgid "Pan"
 msgstr "Panorâmica"
 
@@ -1284,7 +1280,7 @@ msgid "Black and white"
 msgstr "Preto e branco"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/desk.rs:42 rust/crates/effects/src/notes.rs:44 rust/crates/effects/src/photos.rs:27 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/effects/ui/colour_grading.slint:267 rust/crates/effects/ui/colour_grading.slint:267 rust/crates/link/ui/connection.slint:295 rust/crates/link/ui/connection.slint:296 rust/crates/outputs/src/stream_output.rs:291 rust/crates/outputs/src/webcam.rs:111 rust/crates/outputs/src/webcam.rs:968 rust/crates/outputs/ui/webcam.slint:145 rust/crates/outputs/ui/webcam.slint:146 rust/crates/shell/src/plugins/camera_control.rs:1316 rust/crates/shell/src/plugins/camera_control.rs:1318 rust/crates/shell/src/plugins/camera_control.rs:1320 rust/crates/shell/src/plugins/camera_control.rs:1643 rust/crates/shell/src/plugins/camera_control.rs:1644 rust/crates/shell/ui/cards/camera.slint:279 rust/crates/shell/ui/cards/camera.slint:281 rust/crates/shell/ui/cards/camera.slint:361 rust/crates/shell/ui/cards/camera.slint:363 rust/crates/shell/ui/cards/camera.slint:425 rust/crates/shell/ui/cards/camera.slint:427
+#: rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/desk.rs:42 rust/crates/effects/src/notes.rs:44 rust/crates/effects/src/photos.rs:27 rust/crates/effects/ui/colour_grading.slint:258 rust/crates/effects/ui/colour_grading.slint:263 rust/crates/effects/ui/colour_grading.slint:263 rust/crates/link/ui/connection.slint:295 rust/crates/link/ui/connection.slint:296 rust/crates/outputs/src/stream_output.rs:291 rust/crates/outputs/src/webcam.rs:111 rust/crates/outputs/src/webcam.rs:968 rust/crates/outputs/ui/webcam.slint:145 rust/crates/outputs/ui/webcam.slint:146 rust/crates/shell/src/plugins/camera_control.rs:1316 rust/crates/shell/src/plugins/camera_control.rs:1318 rust/crates/shell/src/plugins/camera_control.rs:1320 rust/crates/shell/src/plugins/camera_control.rs:1643 rust/crates/shell/src/plugins/camera_control.rs:1644 rust/crates/shell/ui/cards/camera.slint:154 rust/crates/shell/ui/cards/camera.slint:156 rust/crates/shell/ui/cards/camera.slint:235 rust/crates/shell/ui/cards/camera.slint:237 rust/crates/shell/ui/cards/camera.slint:297 rust/crates/shell/ui/cards/camera.slint:299
 msgid "Auto"
 msgstr "Auto"
 
@@ -1367,7 +1363,7 @@ msgstr "Modo mesa"
 msgid "Done"
 msgstr "Concluído"
 
-#: rust/crates/effects/src/desk.rs:189 rust/crates/effects/ui/transforms.slint:105 rust/crates/outputs/ui/webcam.slint:64
+#: rust/crates/effects/src/desk.rs:189 rust/crates/effects/ui/transforms.slint:104 rust/crates/outputs/ui/webcam.slint:64
 msgid "Reset"
 msgstr "Redefinir"
 
@@ -1435,7 +1431,7 @@ msgstr "Move o ponto de medição do celular para o seu rosto para manter você 
 msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
 msgstr "Sem ele, não há o cartão Exposição no meu rosto e o celular faz a medição no ponto onde você toca ou na imagem inteira."
 
-#: rust/crates/effects/src/framing.rs:20 rust/crates/effects/ui/framing.slint:44
+#: rust/crates/effects/src/framing.rs:20 rust/crates/effects/ui/framing.slint:43
 msgid "Auto framing"
 msgstr "Enquadramento automático"
 
@@ -1682,61 +1678,61 @@ msgstr ""
 msgid "Which way the bands run."
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:351
+#: rust/crates/effects/src/fun_pack.rs:350
 #, python-brace-format
 msgid "Taking it in {n}…"
 msgstr "Capturando em {n}…"
 
-#: rust/crates/effects/src/fun_pack.rs:353
+#: rust/crates/effects/src/fun_pack.rs:352
 msgid "Take the empty room again"
 msgstr "Capturar ambiente vazio novamente"
 
-#: rust/crates/effects/src/fun_pack.rs:355 rust/crates/effects/src/fun_pack.rs:710 rust/crates/effects/src/fun_pack.rs:739
+#: rust/crates/effects/src/fun_pack.rs:354 rust/crates/effects/src/fun_pack.rs:709 rust/crates/effects/src/fun_pack.rs:738
 msgid "Take the empty room"
 msgstr "Capturar ambiente vazio"
 
-#: rust/crates/effects/src/fun_pack.rs:357
+#: rust/crates/effects/src/fun_pack.rs:356
 #, python-brace-format
 msgid "Copying you in {n}…"
 msgstr "Copiando você em {n}…"
 
-#: rust/crates/effects/src/fun_pack.rs:357 rust/crates/effects/src/fun_pack.rs:711 rust/crates/effects/src/fun_pack.rs:747
+#: rust/crates/effects/src/fun_pack.rs:356 rust/crates/effects/src/fun_pack.rs:710 rust/crates/effects/src/fun_pack.rs:746
 msgid "Add a clone"
 msgstr "Adicionar um clone"
 
-#: rust/crates/effects/src/fun_pack.rs:363
+#: rust/crates/effects/src/fun_pack.rs:362
 msgid "The picture changed, so take the empty room again."
 msgstr "A imagem mudou; capture o ambiente vazio novamente."
 
-#: rust/crates/effects/src/fun_pack.rs:365
+#: rust/crates/effects/src/fun_pack.rs:364
 msgid "Take the empty room first."
 msgstr "Capture o ambiente vazio primeiro."
 
-#: rust/crates/effects/src/fun_pack.rs:468
+#: rust/crates/effects/src/fun_pack.rs:467
 msgid "Take the empty room first, so you can be cut out."
 msgstr "Capture o ambiente vazio primeiro para que você possa ser recortado."
 
-#: rust/crates/effects/src/fun_pack.rs:612 rust/crates/effects/src/fun_pack.rs:702 rust/crates/effects/ui/fun_pack.slint:49
+#: rust/crates/effects/src/fun_pack.rs:611 rust/crates/effects/src/fun_pack.rs:701 rust/crates/effects/ui/fun_pack.slint:48
 msgid "Fun pack"
 msgstr "Pacote de diversão"
 
-#: rust/crates/effects/src/fun_pack.rs:613
+#: rust/crates/effects/src/fun_pack.rs:612
 msgid "Silly effects: clones, an invisibility cloak, light painting, retro looks and datamosh."
 msgstr "Efeitos divertidos: clones, capa de invisibilidade, pintura com luz, visuais retrô e datamosh."
 
-#: rust/crates/effects/src/fun_pack.rs:614
+#: rust/crates/effects/src/fun_pack.rs:613
 msgid "Without it there's no Fun pack card and the picture has no effects."
 msgstr "Sem ele, não há o cartão Pacote de diversão e a imagem fica sem efeitos."
 
-#: rust/crates/effects/src/fun_pack.rs:706 rust/crates/effects/src/fun_pack.rs:762
+#: rust/crates/effects/src/fun_pack.rs:705 rust/crates/effects/src/fun_pack.rs:761
 msgid "Datamosh smear"
 msgstr "Borrão do datamosh"
 
-#: rust/crates/effects/src/fun_pack.rs:709 rust/crates/effects/src/fun_pack.rs:732
+#: rust/crates/effects/src/fun_pack.rs:708 rust/crates/effects/src/fun_pack.rs:731
 msgid "Fun pack effect"
 msgstr "Efeito do pacote de diversão"
 
-#: rust/crates/effects/src/fun_pack.rs:712 rust/crates/effects/src/fun_pack.rs:754
+#: rust/crates/effects/src/fun_pack.rs:711 rust/crates/effects/src/fun_pack.rs:753
 msgid "Clean up the datamosh"
 msgstr "Limpar o datamosh"
 
@@ -1854,146 +1850,146 @@ msgstr ""
 msgid "Go to the next line."
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:129
+#: rust/crates/effects/src/notes.rs:128
 msgid "Phone only"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:130
+#: rust/crates/effects/src/notes.rs:129
 msgid "Update the phone app"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:131
+#: rust/crates/effects/src/notes.rs:130
 msgid "Too long"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:132
+#: rust/crates/effects/src/notes.rs:131
 msgid "Closed on the phone"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:133
+#: rust/crates/effects/src/notes.rs:132
 msgid "Waiting for the phone"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:134
+#: rust/crates/effects/src/notes.rs:133
 msgid "Not on the phone yet"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:135
+#: rust/crates/effects/src/notes.rs:134
 msgid "Send again"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:136
+#: rust/crates/effects/src/notes.rs:135
 msgid "On the phone"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:143
+#: rust/crates/effects/src/notes.rs:142
 msgid "The teleprompter only works with a phone as the camera."
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:144
+#: rust/crates/effects/src/notes.rs:143
 msgid "Update Telescope on the phone to show a script there."
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:145
+#: rust/crates/effects/src/notes.rs:144
 msgid "This script is too long to send to the phone."
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:146
+#: rust/crates/effects/src/notes.rs:145
 msgid "The script was closed on the phone. Send again to show it."
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:147
+#: rust/crates/effects/src/notes.rs:146
 msgid "The script shows up on the phone once you close its preview."
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:148
+#: rust/crates/effects/src/notes.rs:147
 msgid "Open Telescope on the phone to see the script."
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:149
+#: rust/crates/effects/src/notes.rs:148
 msgid "Send again to show your changes on the phone."
 msgstr "Envie novamente para mostrar suas alterações no celular."
 
-#: rust/crates/effects/src/notes.rs:150
+#: rust/crates/effects/src/notes.rs:149
 msgid "The script is on the phone's screen."
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:257
+#: rust/crates/effects/src/notes.rs:256
 #, python-brace-format
 msgid "Script {n}"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:301 rust/crates/effects/ui/notes.slint:71
+#: rust/crates/effects/src/notes.rs:300 rust/crates/effects/ui/notes.slint:70
 msgid "Script"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:303
+#: rust/crates/effects/src/notes.rs:302
 msgctxt "notes"
 msgid "Previous"
 msgstr "Anterior"
 
-#: rust/crates/effects/src/notes.rs:304
+#: rust/crates/effects/src/notes.rs:303
 msgctxt "notes"
 msgid "Next"
 msgstr "Próximo"
 
-#: rust/crates/effects/src/notes.rs:304
+#: rust/crates/effects/src/notes.rs:303
 msgid "Send to phone"
 msgstr "Enviar ao celular"
 
-#: rust/crates/effects/src/notes.rs:305
+#: rust/crates/effects/src/notes.rs:304
 msgid "Clear from phone"
 msgstr "Limpar do celular"
 
-#: rust/crates/effects/src/notes.rs:332
+#: rust/crates/effects/src/notes.rs:331
 msgid "Pause"
 msgstr "Pausar"
 
-#: rust/crates/effects/src/notes.rs:332
+#: rust/crates/effects/src/notes.rs:331
 msgid "Play"
 msgstr "Reproduzir"
 
-#: rust/crates/effects/src/notes.rs:563 rust/crates/effects/src/notes.rs:642 rust/crates/effects/ui/notes.slint:64
+#: rust/crates/effects/src/notes.rs:562 rust/crates/effects/src/notes.rs:641 rust/crates/effects/ui/notes.slint:63
 msgid "Teleprompter"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:564
+#: rust/crates/effects/src/notes.rs:563
 msgid "Shows your script on the phone's screen right under the camera, to read while looking people in the eye."
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:565
+#: rust/crates/effects/src/notes.rs:564
 msgid "Without it there's no Teleprompter card and the phone never shows a script."
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:644 rust/crates/effects/src/notes.rs:689
+#: rust/crates/effects/src/notes.rs:643 rust/crates/effects/src/notes.rs:688
 msgid "Teleprompter speed"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:647 rust/crates/effects/src/notes.rs:662
+#: rust/crates/effects/src/notes.rs:646 rust/crates/effects/src/notes.rs:661
 msgid "Send script"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:648 rust/crates/effects/src/notes.rs:666
+#: rust/crates/effects/src/notes.rs:647 rust/crates/effects/src/notes.rs:665
 msgid "Clear script"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:649 rust/crates/effects/src/notes.rs:670
+#: rust/crates/effects/src/notes.rs:648 rust/crates/effects/src/notes.rs:669
 msgid "Next line"
 msgstr "Próxima linha"
 
-#: rust/crates/effects/src/notes.rs:650 rust/crates/effects/src/notes.rs:674
+#: rust/crates/effects/src/notes.rs:649 rust/crates/effects/src/notes.rs:673
 msgid "Previous line"
 msgstr "Linha anterior"
 
-#: rust/crates/effects/src/notes.rs:651 rust/crates/effects/src/notes.rs:684
+#: rust/crates/effects/src/notes.rs:650 rust/crates/effects/src/notes.rs:683
 msgid "Scroll script"
 msgstr ""
 
-#: rust/crates/effects/src/notes.rs:683
+#: rust/crates/effects/src/notes.rs:682
 msgid "playing"
 msgstr "reproduzindo"
 
-#: rust/crates/effects/src/notes.rs:683
+#: rust/crates/effects/src/notes.rs:682
 msgid "paused"
 msgstr "pausado"
 
@@ -2198,7 +2194,7 @@ msgstr "5 fotos, intervalo de 1 EV"
 msgid "7 photos, 1 EV apart"
 msgstr "7 fotos, intervalo de 1 EV"
 
-#: rust/crates/effects/src/photos.rs:39 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:287
+#: rust/crates/effects/src/photos.rs:39 rust/crates/effects/ui/photos.slint:284 rust/crates/effects/ui/photos.slint:286
 msgid "On"
 msgstr "Ligado"
 
@@ -2274,12 +2270,12 @@ msgstr ""
 msgid "Like the video"
 msgstr "Igual ao vídeo"
 
-#: rust/crates/effects/src/photos.rs:330 rust/crates/effects/src/photos.rs:460
+#: rust/crates/effects/src/photos.rs:330 rust/crates/effects/src/photos.rs:459
 #, python-brace-format
 msgid "{seconds} s"
 msgstr "{seconds} s"
 
-#: rust/crates/effects/src/photos.rs:450 rust/crates/effects/src/photos.rs:963 rust/crates/effects/src/photos.rs:979 rust/crates/effects/ui/photos.slint:144
+#: rust/crates/effects/src/photos.rs:450 rust/crates/effects/src/photos.rs:962 rust/crates/effects/src/photos.rs:978 rust/crates/effects/ui/photos.slint:143
 msgid "Take photo"
 msgstr "Tirar foto"
 
@@ -2291,102 +2287,102 @@ msgstr "Abrir pasta"
 msgid "Best quality"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:485 rust/crates/effects/ui/photos.slint:164 rust/crates/effects/ui/photos.slint:165
+#: rust/crates/effects/src/photos.rs:484 rust/crates/effects/ui/photos.slint:163 rust/crates/effects/ui/photos.slint:164
 msgid "ISO"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:485 rust/crates/effects/ui/photos.slint:174 rust/crates/effects/ui/photos.slint:175 rust/crates/shell/src/plugins/camera_control.rs:1410 rust/crates/shell/src/plugins/camera_control.rs:1646 rust/crates/shell/ui/cards/camera.slint:308 rust/crates/shell/ui/cards/camera.slint:314 rust/crates/shell/ui/cards/camera.slint:319
+#: rust/crates/effects/src/photos.rs:484 rust/crates/effects/ui/photos.slint:173 rust/crates/effects/ui/photos.slint:174 rust/crates/shell/src/plugins/camera_control.rs:1410 rust/crates/shell/src/plugins/camera_control.rs:1646 rust/crates/shell/ui/cards/camera.slint:183 rust/crates/shell/ui/cards/camera.slint:189 rust/crates/shell/ui/cards/camera.slint:194
 msgid "Shutter"
 msgstr "Obturador"
 
-#: rust/crates/effects/src/photos.rs:491 rust/crates/effects/ui/photos.slint:197 rust/crates/effects/ui/photos.slint:202
+#: rust/crates/effects/src/photos.rs:490 rust/crates/effects/ui/photos.slint:196 rust/crates/effects/ui/photos.slint:201
 msgid "Mode"
 msgstr "Modo"
 
-#: rust/crates/effects/src/photos.rs:494 rust/crates/effects/ui/photos.slint:208 rust/crates/effects/ui/photos.slint:212 rust/crates/outputs/src/stream_output.rs:786 rust/crates/outputs/src/stream_output.rs:997 rust/crates/outputs/src/stream_output.rs:1000 rust/crates/outputs/ui/stream_output.slint:101 rust/crates/outputs/ui/stream_output.slint:112
+#: rust/crates/effects/src/photos.rs:493 rust/crates/effects/ui/photos.slint:207 rust/crates/effects/ui/photos.slint:211 rust/crates/outputs/src/stream_output.rs:786 rust/crates/outputs/src/stream_output.rs:997 rust/crates/outputs/src/stream_output.rs:1000 rust/crates/outputs/ui/stream_output.slint:101 rust/crates/outputs/ui/stream_output.slint:112
 msgid "Format"
 msgstr "Formato"
 
-#: rust/crates/effects/src/photos.rs:497 rust/crates/effects/ui/photos.slint:220 rust/crates/effects/ui/photos.slint:225
+#: rust/crates/effects/src/photos.rs:496 rust/crates/effects/ui/photos.slint:219 rust/crates/effects/ui/photos.slint:224
 msgid "Shots"
 msgstr "Disparos"
 
-#: rust/crates/effects/src/photos.rs:499 rust/crates/effects/ui/photos.slint:247 rust/crates/effects/ui/photos.slint:251 rust/crates/effects/ui/photos.slint:253 rust/crates/effects/ui/photos.slint:254
+#: rust/crates/effects/src/photos.rs:498 rust/crates/effects/ui/photos.slint:246 rust/crates/effects/ui/photos.slint:250 rust/crates/effects/ui/photos.slint:252 rust/crates/effects/ui/photos.slint:253
 msgid "How many"
 msgstr "Quantidade"
 
-#: rust/crates/effects/src/photos.rs:499
+#: rust/crates/effects/src/photos.rs:498
 msgid "Steps"
 msgstr "Passos"
 
-#: rust/crates/effects/src/photos.rs:510
+#: rust/crates/effects/src/photos.rs:509
 msgid "Bracket"
 msgstr "Bracketing"
 
-#: rust/crates/effects/src/photos.rs:515 rust/crates/effects/ui/photos.slint:158 rust/crates/effects/ui/photos.slint:261 rust/crates/effects/ui/photos.slint:265 rust/crates/effects/ui/photos.slint:267 rust/crates/effects/ui/photos.slint:268 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:270 rust/crates/shell/ui/cards/camera.slint:278
+#: rust/crates/effects/src/photos.rs:514 rust/crates/effects/ui/photos.slint:157 rust/crates/effects/ui/photos.slint:260 rust/crates/effects/ui/photos.slint:264 rust/crates/effects/ui/photos.slint:266 rust/crates/effects/ui/photos.slint:267 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:145 rust/crates/shell/ui/cards/camera.slint:153
 msgid "Exposure"
 msgstr "Exposição"
 
-#: rust/crates/effects/src/photos.rs:520 rust/crates/effects/ui/photos.slint:278 rust/crates/effects/ui/photos.slint:284
+#: rust/crates/effects/src/photos.rs:519 rust/crates/effects/ui/photos.slint:277 rust/crates/effects/ui/photos.slint:283
 msgid "Distortion fix"
 msgstr "Correção de distorção"
 
-#: rust/crates/effects/src/photos.rs:582 rust/crates/effects/src/photos.rs:904
+#: rust/crates/effects/src/photos.rs:581 rust/crates/effects/src/photos.rs:903
 msgid "Start streaming to take photos."
 msgstr "Inicie a transmissão para tirar fotos."
 
-#: rust/crates/effects/src/photos.rs:584
+#: rust/crates/effects/src/photos.rs:583
 msgid "This phone can't take photos from Telescope yet. Update the app on the phone."
 msgstr "Este celular ainda não pode tirar fotos pelo Telescope. Atualize o app no celular."
 
-#: rust/crates/effects/src/photos.rs:769 rust/crates/effects/src/photos.rs:789
+#: rust/crates/effects/src/photos.rs:768 rust/crates/effects/src/photos.rs:788
 msgid "Taking the photo…"
 msgstr "Tirando a foto…"
 
-#: rust/crates/effects/src/photos.rs:783
+#: rust/crates/effects/src/photos.rs:782
 #, python-brace-format
 msgid "Taking the photo in {seconds} s"
 msgstr "Tirando a foto em {seconds} s"
 
-#: rust/crates/effects/src/photos.rs:785
+#: rust/crates/effects/src/photos.rs:784
 #, python-brace-format
 msgid "Photo {n} of {total}"
 msgstr "Foto {n} de {total}"
 
-#: rust/crates/effects/src/photos.rs:787
+#: rust/crates/effects/src/photos.rs:786
 msgid "Taking the photo, the video is paused…"
 msgstr "Tirando a foto, o vídeo está pausado…"
 
-#: rust/crates/effects/src/photos.rs:803
+#: rust/crates/effects/src/photos.rs:802
 #, python-brace-format
 msgid "Saved {name}"
 msgstr "Salvo {name}"
 
-#: rust/crates/effects/src/photos.rs:808
+#: rust/crates/effects/src/photos.rs:807
 msgid "Photo saved"
 msgstr "Foto salva"
 
-#: rust/crates/effects/src/photos.rs:823
+#: rust/crates/effects/src/photos.rs:822
 msgid "Save photos in"
 msgstr "Salvar fotos em"
 
-#: rust/crates/effects/src/photos.rs:838 rust/crates/effects/src/photos.rs:954 rust/crates/effects/ui/photos.slint:135
+#: rust/crates/effects/src/photos.rs:837 rust/crates/effects/src/photos.rs:953 rust/crates/effects/ui/photos.slint:134
 msgid "Photos"
 msgstr "Fotos"
 
-#: rust/crates/effects/src/photos.rs:839
+#: rust/crates/effects/src/photos.rs:838
 msgid "Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:840
+#: rust/crates/effects/src/photos.rs:839
 msgid "Without it there's no Photos card and no Take photo shortcut."
 msgstr "Sem ele não há o cartão Fotos nem o atalho Tirar foto."
 
-#: rust/crates/effects/src/photos.rs:956 rust/crates/effects/src/photos.rs:994
+#: rust/crates/effects/src/photos.rs:955 rust/crates/effects/src/photos.rs:993
 msgid "Photo mode"
 msgstr "Modo de foto"
 
-#: rust/crates/effects/src/photos.rs:961 rust/crates/effects/src/photos.rs:1004
+#: rust/crates/effects/src/photos.rs:960 rust/crates/effects/src/photos.rs:1003
 msgid "Photo timer"
 msgstr "Temporizador de foto"
 
@@ -2527,165 +2523,165 @@ msgstr ""
 msgid "Stretch or squeeze the picture vertically."
 msgstr ""
 
-#: rust/crates/effects/src/transforms.rs:62
+#: rust/crates/effects/src/transforms.rs:61
 #, python-brace-format
 msgid "Switched to {lens}"
 msgstr "Mudou para {lens}"
 
-#: rust/crates/effects/src/transforms.rs:67
+#: rust/crates/effects/src/transforms.rs:66
 msgid "the telephoto"
 msgstr "a teleobjetiva"
 
-#: rust/crates/effects/src/transforms.rs:69
+#: rust/crates/effects/src/transforms.rs:68
 msgid "the main camera"
 msgstr "a câmera principal"
 
-#: rust/crates/effects/src/transforms.rs:70
+#: rust/crates/effects/src/transforms.rs:69
 #, python-brace-format
 msgid "Panned past what {tele} can see, so it's on {live}. Pan back to switch again."
 msgstr "A panorâmica foi além do alcance de {tele}, então a imagem está em {live}. Mova de volta para alternar novamente."
 
-#: rust/crates/effects/src/transforms.rs:73
+#: rust/crates/effects/src/transforms.rs:72
 #, python-brace-format
 msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
 msgstr "O celular continuou em {live} por conta própria, provavelmente por estar escuro demais ou perto demais para {tele}. Ele mudará assim que puder."
 
-#: rust/crates/effects/src/transforms.rs:79
+#: rust/crates/effects/src/transforms.rs:78
 msgid "It can wobble for a moment while it switches."
 msgstr "A imagem pode tremer por um momento durante a troca."
 
-#: rust/crates/effects/src/transforms.rs:224
+#: rust/crates/effects/src/transforms.rs:223
 #, python-brace-format
 msgid "{n}×"
 msgstr "{n}×"
 
-#: rust/crates/effects/src/transforms.rs:235
+#: rust/crates/effects/src/transforms.rs:234
 msgid "Dots mark where the phone switches to another lens"
 msgstr "Os pontos marcam onde o celular alterna para outra lente"
 
-#: rust/crates/effects/src/transforms.rs:238
+#: rust/crates/effects/src/transforms.rs:237
 #, python-brace-format
 msgid "{owner} is moving the zoom and pan"
 msgstr "{owner} está ajustando o zoom e a panorâmica"
 
-#: rust/crates/effects/src/transforms.rs:305
+#: rust/crates/effects/src/transforms.rs:304
 #, python-brace-format
 msgid "Add shortcut for {action}…"
 msgstr "Adicionar atalho para {action}…"
 
-#: rust/crates/effects/src/transforms.rs:494
+#: rust/crates/effects/src/transforms.rs:493
 msgid "Zoomed on this computer: this lens can't zoom itself"
 msgstr "Zoom aplicado neste computador: esta lente não tem zoom próprio"
 
-#: rust/crates/effects/src/transforms.rs:494
+#: rust/crates/effects/src/transforms.rs:493
 msgid "Zoomed on this computer"
 msgstr "Zoom aplicado neste computador"
 
-#: rust/crates/effects/src/transforms.rs:496
+#: rust/crates/effects/src/transforms.rs:495
 msgid "Zoomed on the phone's sensor as far as this lens allows, the rest on this computer"
 msgstr "Zoom aplicado no sensor do celular até o limite desta lente; o restante neste computador"
 
-#: rust/crates/effects/src/transforms.rs:498
+#: rust/crates/effects/src/transforms.rs:497
 msgid "Zoomed on the phone's sensor"
 msgstr "Zoom aplicado no sensor do celular"
 
-#: rust/crates/effects/src/transforms.rs:524 rust/crates/effects/src/transforms.rs:608 rust/crates/effects/ui/transforms.slint:97
+#: rust/crates/effects/src/transforms.rs:523 rust/crates/effects/src/transforms.rs:607 rust/crates/effects/ui/transforms.slint:96
 msgid "Transforms"
 msgstr "Transformações"
 
-#: rust/crates/effects/src/transforms.rs:525 rust/crates/effects/ui/transforms.slint:98
+#: rust/crates/effects/src/transforms.rs:524 rust/crates/effects/ui/transforms.slint:97
 msgid "Zoom, pan, flip, rotate and stretch the picture."
 msgstr "Zoom, panorâmica, inversão, rotação e esticamento da imagem."
 
-#: rust/crates/effects/src/transforms.rs:526
+#: rust/crates/effects/src/transforms.rs:525
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "Sem ele, não há o cartão Transformações e a imagem é transmitida exatamente como o celular a envia."
 
-#: rust/crates/effects/src/transforms.rs:611 rust/crates/effects/src/transforms.rs:664 rust/crates/effects/ui/composite_editor.slint:445 rust/crates/effects/ui/transforms.slint:164 rust/crates/effects/ui/transforms.slint:179 rust/crates/effects/ui/transforms.slint:180 rust/crates/effects/ui/transforms.slint:222 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/transforms.rs:610 rust/crates/effects/src/transforms.rs:663 rust/crates/effects/ui/composite_editor.slint:445 rust/crates/effects/ui/transforms.slint:164 rust/crates/effects/ui/transforms.slint:179 rust/crates/effects/ui/transforms.slint:180 rust/crates/effects/ui/transforms.slint:221 rust/crates/outputs/src/webcam.rs:56
 msgid "Zoom"
 msgstr "Zoom"
 
-#: rust/crates/effects/src/transforms.rs:612 rust/crates/effects/src/transforms.rs:674
+#: rust/crates/effects/src/transforms.rs:611 rust/crates/effects/src/transforms.rs:673
 msgid "Pan left/right"
 msgstr "Panorâmica esquerda/direita"
 
-#: rust/crates/effects/src/transforms.rs:613 rust/crates/effects/src/transforms.rs:674
+#: rust/crates/effects/src/transforms.rs:612 rust/crates/effects/src/transforms.rs:673
 msgid "Pan up/down"
 msgstr "Panorâmica cima/baixo"
 
-#: rust/crates/effects/src/transforms.rs:614 rust/crates/effects/src/transforms.rs:682 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/desk.slint:165 rust/crates/effects/ui/desk.slint:172 rust/crates/effects/ui/desk.slint:173 rust/crates/effects/ui/transforms.slint:253 rust/crates/effects/ui/transforms.slint:254
+#: rust/crates/effects/src/transforms.rs:613 rust/crates/effects/src/transforms.rs:681 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/desk.slint:165 rust/crates/effects/ui/desk.slint:172 rust/crates/effects/ui/desk.slint:173 rust/crates/effects/ui/transforms.slint:252 rust/crates/effects/ui/transforms.slint:253
 msgid "Width"
 msgstr "Largura"
 
-#: rust/crates/effects/src/transforms.rs:615 rust/crates/effects/src/transforms.rs:682 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:190 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/desk.slint:198 rust/crates/effects/ui/transforms.slint:271 rust/crates/effects/ui/transforms.slint:272
+#: rust/crates/effects/src/transforms.rs:614 rust/crates/effects/src/transforms.rs:681 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/transforms.slint:269 rust/crates/effects/ui/transforms.slint:270
 msgid "Height"
 msgstr "Altura"
 
-#: rust/crates/effects/src/transforms.rs:622 rust/crates/effects/src/transforms.rs:642
+#: rust/crates/effects/src/transforms.rs:621 rust/crates/effects/src/transforms.rs:641
 msgid "Flip horizontal"
 msgstr "Inverter horizontalmente"
 
-#: rust/crates/effects/src/transforms.rs:623 rust/crates/effects/src/transforms.rs:642
+#: rust/crates/effects/src/transforms.rs:622 rust/crates/effects/src/transforms.rs:641
 msgid "Flip vertical"
 msgstr "Inverter verticalmente"
 
-#: rust/crates/effects/src/transforms.rs:624 rust/crates/effects/src/transforms.rs:656 rust/crates/effects/ui/transforms.slint:144 rust/crates/effects/ui/transforms.slint:154 rust/crates/effects/ui/transforms.slint:155 rust/crates/effects/ui/transforms.slint:155 rust/crates/effects/ui/transforms.slint:155 rust/crates/effects/ui/transforms.slint:155
+#: rust/crates/effects/src/transforms.rs:623 rust/crates/effects/src/transforms.rs:655 rust/crates/effects/ui/transforms.slint:144 rust/crates/effects/ui/transforms.slint:154 rust/crates/effects/ui/transforms.slint:155 rust/crates/effects/ui/transforms.slint:155 rust/crates/effects/ui/transforms.slint:155 rust/crates/effects/ui/transforms.slint:155
 msgid "Rotation"
 msgstr "Rotação"
 
-#: rust/crates/effects/src/transforms.rs:631 rust/crates/effects/src/transforms.rs:687
+#: rust/crates/effects/src/transforms.rs:630 rust/crates/effects/src/transforms.rs:686
 msgid "Reset transforms"
 msgstr "Redefinir transformações"
 
-#: rust/crates/effects/ui/background.slint:33
+#: rust/crates/effects/ui/background.slint:32
 msgid "Blur the background or replace it with a picture."
 msgstr ""
 
-#: rust/crates/effects/ui/background.slint:41
+#: rust/crates/effects/ui/background.slint:40
 msgid "Keep the background, blur it or replace it with a picture."
 msgstr ""
 
-#: rust/crates/effects/ui/background.slint:92 rust/crates/effects/ui/chroma_key.slint:182
+#: rust/crates/effects/ui/background.slint:90 rust/crates/effects/ui/chroma_key.slint:180
 msgid "Choose"
 msgstr ""
 
-#: rust/crates/effects/ui/background.slint:95 rust/crates/effects/ui/chroma_key.slint:185
+#: rust/crates/effects/ui/background.slint:93 rust/crates/effects/ui/chroma_key.slint:183
 msgid "Choose picture"
 msgstr ""
 
-#: rust/crates/effects/ui/background.slint:106 rust/crates/effects/ui/background.slint:107 rust/crates/effects/ui/chroma_key.slint:101 rust/crates/effects/ui/fun_pack.slint:123
+#: rust/crates/effects/ui/background.slint:104 rust/crates/effects/ui/background.slint:105 rust/crates/effects/ui/chroma_key.slint:100 rust/crates/effects/ui/fun_pack.slint:122
 msgid "Edges"
 msgstr "Bordas"
 
-#: rust/crates/effects/ui/chroma_key.slint:59
+#: rust/crates/effects/ui/chroma_key.slint:58
 msgid "Replace a green or blue screen behind you with a colour or a picture."
 msgstr ""
 
-#: rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/chroma_key.slint:87
+#: rust/crates/effects/ui/chroma_key.slint:72 rust/crates/effects/ui/chroma_key.slint:86
 msgid "Screen"
 msgstr "Tela"
 
-#: rust/crates/effects/ui/chroma_key.slint:74
+#: rust/crates/effects/ui/chroma_key.slint:73
 msgid "Use green, blue or a colour picked from the preview as the screen colour."
 msgstr ""
 
-#: rust/crates/effects/ui/chroma_key.slint:101
+#: rust/crates/effects/ui/chroma_key.slint:100
 msgid "Tolerance"
 msgstr "Tolerância"
 
-#: rust/crates/effects/ui/chroma_key.slint:101
+#: rust/crates/effects/ui/chroma_key.slint:100
 msgid "Spill"
 msgstr "Vazamento"
 
-#: rust/crates/effects/ui/chroma_key.slint:126 rust/crates/effects/ui/chroma_key.slint:136
+#: rust/crates/effects/ui/chroma_key.slint:124 rust/crates/effects/ui/chroma_key.slint:134
 msgid "Behind you"
 msgstr "Atrás de você"
 
-#: rust/crates/effects/ui/chroma_key.slint:127
+#: rust/crates/effects/ui/chroma_key.slint:125
 msgid "Put a colour or a picture where the screen was."
 msgstr ""
 
-#: rust/crates/effects/ui/chroma_key.slint:158
+#: rust/crates/effects/ui/chroma_key.slint:156
 msgid "Colour behind you"
 msgstr "Cor atrás de você"
 
@@ -2705,151 +2701,151 @@ msgstr ""
 msgid "Which scope is drawn on the preview."
 msgstr ""
 
-#: rust/crates/effects/ui/cinema.slint:153 rust/crates/effects/ui/cinema.slint:164
+#: rust/crates/effects/ui/cinema.slint:152 rust/crates/effects/ui/cinema.slint:163
 msgid "Peaking colour"
 msgstr "Cor do peaking"
 
-#: rust/crates/effects/ui/cinema.slint:171
+#: rust/crates/effects/ui/cinema.slint:170
 msgid "Peaking sensitivity"
 msgstr "Sensibilidade do peaking"
 
-#: rust/crates/effects/ui/cinema.slint:185
+#: rust/crates/effects/ui/cinema.slint:183
 msgid "Zebras from"
 msgstr "Zebras a partir de"
 
-#: rust/crates/effects/ui/cinema.slint:199 rust/crates/effects/ui/cinema.slint:210
+#: rust/crates/effects/ui/cinema.slint:196 rust/crates/effects/ui/cinema.slint:207
 msgid "Scope size"
 msgstr "Tamanho do scope"
 
-#: rust/crates/effects/ui/colour_grading.slint:144
+#: rust/crates/effects/ui/colour_grading.slint:141
 msgid "No LUT loaded"
 msgstr "Nenhum LUT carregado"
 
-#: rust/crates/effects/ui/colour_grading.slint:185
+#: rust/crates/effects/ui/colour_grading.slint:182
 msgid "Change the colours of the picture with colour wheels, curves and LUT files."
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:192
+#: rust/crates/effects/ui/colour_grading.slint:189
 msgid "Reset grade"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:207 rust/crates/effects/ui/colour_grading.slint:212
+#: rust/crates/effects/ui/colour_grading.slint:204 rust/crates/effects/ui/colour_grading.slint:209
 msgid "Compare"
 msgstr "Comparar"
 
-#: rust/crates/effects/ui/colour_grading.slint:213
+#: rust/crates/effects/ui/colour_grading.slint:210
 msgid "Show the ungraded picture left of the line on the preview. Apps always get the graded picture."
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:222 rust/crates/effects/ui/colour_grading.slint:223
+#: rust/crates/effects/ui/colour_grading.slint:219 rust/crates/effects/ui/colour_grading.slint:220
 msgid "Split"
 msgstr "Divisão"
 
-#: rust/crates/effects/ui/colour_grading.slint:224
+#: rust/crates/effects/ui/colour_grading.slint:221
 msgid "Move the line between before and after."
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:247 rust/crates/effects/ui/colour_grading.slint:252
+#: rust/crates/effects/ui/colour_grading.slint:243 rust/crates/effects/ui/colour_grading.slint:248
 msgid "Primaries"
 msgstr "Primárias"
 
-#: rust/crates/effects/ui/colour_grading.slint:247 rust/crates/effects/ui/colour_grading.slint:252
+#: rust/crates/effects/ui/colour_grading.slint:243 rust/crates/effects/ui/colour_grading.slint:248
 msgid "Curves"
 msgstr "Curvas"
 
-#: rust/crates/effects/ui/colour_grading.slint:247 rust/crates/effects/ui/colour_grading.slint:252 rust/crates/effects/ui/colour_grading.slint:389
+#: rust/crates/effects/ui/colour_grading.slint:243 rust/crates/effects/ui/colour_grading.slint:248 rust/crates/effects/ui/colour_grading.slint:383
 msgid "LUT"
 msgstr "LUT"
 
-#: rust/crates/effects/ui/colour_grading.slint:251
+#: rust/crates/effects/ui/colour_grading.slint:247
 msgid "Page"
 msgstr "Página"
 
-#: rust/crates/effects/ui/colour_grading.slint:253
+#: rust/crates/effects/ui/colour_grading.slint:249
 msgid "Colour wheels and sliders."
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:253
+#: rust/crates/effects/ui/colour_grading.slint:249
 msgid "Brightness, hue and saturation curves."
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:253
+#: rust/crates/effects/ui/colour_grading.slint:249
 msgid "Load a LUT file or export the grade."
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:266
+#: rust/crates/effects/ui/colour_grading.slint:262
 msgid "Auto colour grading"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:267
+#: rust/crates/effects/ui/colour_grading.slint:263
 msgid "Looking at the picture"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:268
+#: rust/crates/effects/ui/colour_grading.slint:264
 msgid "Set white balance, brightness, contrast and colour from about a second of the picture. You can still adjust everything on the sliders."
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:346 rust/crates/effects/ui/colour_grading.slint:351
+#: rust/crates/effects/ui/colour_grading.slint:340 rust/crates/effects/ui/colour_grading.slint:345
 msgid "RGB"
 msgstr "RGB"
 
-#: rust/crates/effects/ui/colour_grading.slint:346 rust/crates/effects/ui/colour_grading.slint:351
+#: rust/crates/effects/ui/colour_grading.slint:340 rust/crates/effects/ui/colour_grading.slint:345
 msgid "Hue vs sat"
 msgstr "Matiz vs sat"
 
-#: rust/crates/effects/ui/colour_grading.slint:346 rust/crates/effects/ui/colour_grading.slint:351
+#: rust/crates/effects/ui/colour_grading.slint:340 rust/crates/effects/ui/colour_grading.slint:345
 msgid "Hue vs hue"
 msgstr "Matiz vs matiz"
 
-#: rust/crates/effects/ui/colour_grading.slint:350 rust/crates/effects/ui/colour_grading.slint:373
+#: rust/crates/effects/ui/colour_grading.slint:344 rust/crates/effects/ui/colour_grading.slint:367
 msgid "Curve"
 msgstr "Curva"
 
-#: rust/crates/effects/ui/colour_grading.slint:358 rust/crates/effects/ui/colour_grading.slint:363
+#: rust/crates/effects/ui/colour_grading.slint:352 rust/crates/effects/ui/colour_grading.slint:357
 msgid "All"
 msgstr "Todos"
 
-#: rust/crates/effects/ui/colour_grading.slint:362 rust/crates/system/ui/updates.slint:164 rust/crates/system/ui/updates.slint:172
+#: rust/crates/effects/ui/colour_grading.slint:356 rust/crates/system/ui/updates.slint:164 rust/crates/system/ui/updates.slint:172
 msgid "Channel"
 msgstr "Canal"
 
-#: rust/crates/effects/ui/colour_grading.slint:401 rust/crates/setup/ui/setup.slint:86 rust/crates/setup/ui/setup.slint:86
+#: rust/crates/effects/ui/colour_grading.slint:395 rust/crates/setup/ui/setup.slint:86 rust/crates/setup/ui/setup.slint:86
 msgid "Load"
 msgstr "Carregar"
 
-#: rust/crates/effects/ui/colour_grading.slint:404
+#: rust/crates/effects/ui/colour_grading.slint:398
 msgid "Load LUT"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:405
+#: rust/crates/effects/ui/colour_grading.slint:399
 msgid "Pick a .cube LUT file to apply on top of the grade."
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:411 rust/crates/effects/ui/colour_grading.slint:412
+#: rust/crates/effects/ui/colour_grading.slint:405 rust/crates/effects/ui/colour_grading.slint:406
 msgid "Remove LUT"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:423 rust/crates/effects/ui/colour_grading.slint:424
+#: rust/crates/effects/ui/colour_grading.slint:417 rust/crates/effects/ui/colour_grading.slint:418
 msgid "Strength"
 msgstr "Intensidade"
 
-#: rust/crates/effects/ui/colour_grading.slint:425
+#: rust/crates/effects/ui/colour_grading.slint:419
 msgid "How strongly the LUT is applied."
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:443
+#: rust/crates/effects/ui/colour_grading.slint:436
 msgid "Export"
 msgstr "Exportar"
 
-#: rust/crates/effects/ui/colour_grading.slint:449 rust/crates/effects/ui/colour_grading.slint:450
+#: rust/crates/effects/ui/colour_grading.slint:442 rust/crates/effects/ui/colour_grading.slint:443
 msgid "Export grade"
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:451
+#: rust/crates/effects/ui/colour_grading.slint:444
 msgid "Save the grade and LUT as a .cube file to use in other apps."
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:468 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:679
+#: rust/crates/effects/ui/colour_grading.slint:461 rust/crates/shell/src/plugins/presets.rs:184 rust/crates/shell/src/plugins_tab.rs:679
 msgid "Replace"
 msgstr "Substituir"
 
@@ -2969,59 +2965,59 @@ msgstr "Borda"
 msgid "How thick the border is."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:472
+#: rust/crates/effects/ui/composite_editor.slint:471
 msgid "Border colour"
 msgstr "Cor da borda"
 
-#: rust/crates/effects/ui/composite_editor.slint:493
+#: rust/crates/effects/ui/composite_editor.slint:492
 msgid "Corners"
 msgstr "Cantos"
 
-#: rust/crates/effects/ui/composite_editor.slint:497
+#: rust/crates/effects/ui/composite_editor.slint:496
 msgid "How round the corners are."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:505
+#: rust/crates/effects/ui/composite_editor.slint:503
 msgid "Order"
 msgstr "Ordem"
 
-#: rust/crates/effects/ui/composite_editor.slint:508
+#: rust/crates/effects/ui/composite_editor.slint:506
 msgid "Send back"
 msgstr "Para trás"
 
-#: rust/crates/effects/ui/composite_editor.slint:509
+#: rust/crates/effects/ui/composite_editor.slint:507
 msgid "Bring forward"
 msgstr "Para frente"
 
-#: rust/crates/effects/ui/composite_editor.slint:521
+#: rust/crates/effects/ui/composite_editor.slint:519
 msgid "Background colour"
 msgstr "Cor de fundo"
 
-#: rust/crates/effects/ui/composite_editor.slint:543
+#: rust/crates/effects/ui/composite_editor.slint:541
 msgid "Show a picture behind the streams instead of the colour."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:563 rust/crates/link/ui/connection.slint:678
+#: rust/crates/effects/ui/composite_editor.slint:561 rust/crates/link/ui/connection.slint:678
 msgid "Close"
 msgstr "Fechar"
 
-#: rust/crates/effects/ui/composite_editor.slint:574
+#: rust/crates/effects/ui/composite_editor.slint:572
 msgid "Replace layout"
 msgstr "Substituir layout"
 
-#: rust/crates/effects/ui/composite_editor.slint:577 rust/crates/effects/ui/composite_editor.slint:580 rust/crates/shell/src/plugins/presets.rs:184
+#: rust/crates/effects/ui/composite_editor.slint:575 rust/crates/effects/ui/composite_editor.slint:578 rust/crates/shell/src/plugins/presets.rs:184
 msgid "Name:"
 msgstr "Nome:"
 
-#: rust/crates/effects/ui/composite_editor.slint:588 rust/crates/link/ui/connection.slint:490 rust/crates/link/ui/connection.slint:718 rust/crates/setup/ui/setup.slint:415 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:882 rust/crates/shell/ui/settings.slint:536
+#: rust/crates/effects/ui/composite_editor.slint:586 rust/crates/link/ui/connection.slint:490 rust/crates/link/ui/connection.slint:718 rust/crates/setup/ui/setup.slint:415 rust/crates/shell/src/extra_cameras.rs:99 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:893 rust/crates/shell/ui/settings.slint:536
 msgid "OK"
 msgstr "OK"
 
-#: rust/crates/effects/ui/composite_editor.slint:597 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:760 rust/crates/setup/src/stats_phone.rs:148
+#: rust/crates/effects/ui/composite_editor.slint:595 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:760 rust/crates/setup/src/stats_phone.rs:148
 msgid "No"
 msgstr "Não"
 
-#: rust/crates/effects/ui/composite_editor.slint:598 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:753 rust/crates/setup/src/stats_phone.rs:148 rust/crates/setup/src/stats_phone.rs:152
+#: rust/crates/effects/ui/composite_editor.slint:596 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:753 rust/crates/setup/src/stats_phone.rs:148 rust/crates/setup/src/stats_phone.rs:152
 msgid "Yes"
 msgstr "Sim"
 
@@ -3065,67 +3061,67 @@ msgstr ""
 msgid "Follow my face"
 msgstr "Seguir meu rosto"
 
-#: rust/crates/effects/ui/framing.slint:45
+#: rust/crates/effects/ui/framing.slint:44
 msgid "Zoom and pan automatically to keep you in the picture."
 msgstr ""
 
-#: rust/crates/effects/ui/framing.slint:65 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/framing.slint:73 rust/crates/outputs/src/webcam.rs:80
+#: rust/crates/effects/ui/framing.slint:64 rust/crates/effects/ui/framing.slint:71 rust/crates/effects/ui/framing.slint:72 rust/crates/outputs/src/webcam.rs:80
 msgid "Framing"
 msgstr "Enquadramento"
 
-#: rust/crates/effects/ui/framing.slint:110 rust/crates/effects/ui/framing.slint:117 rust/crates/effects/ui/framing.slint:118 rust/crates/effects/ui/notes.slint:166 rust/crates/effects/ui/notes.slint:172 rust/crates/effects/ui/notes.slint:173
+#: rust/crates/effects/ui/framing.slint:108 rust/crates/effects/ui/framing.slint:115 rust/crates/effects/ui/framing.slint:116 rust/crates/effects/ui/notes.slint:164 rust/crates/effects/ui/notes.slint:170 rust/crates/effects/ui/notes.slint:171
 msgid "Speed"
 msgstr "Velocidade"
 
-#: rust/crates/effects/ui/framing.slint:138 rust/crates/effects/ui/framing.slint:145 rust/crates/effects/ui/framing.slint:146
+#: rust/crates/effects/ui/framing.slint:135 rust/crates/effects/ui/framing.slint:142 rust/crates/effects/ui/framing.slint:143
 msgid "Room to move"
 msgstr "Espaço para mover"
 
-#: rust/crates/effects/ui/fun_pack.slint:50
+#: rust/crates/effects/ui/fun_pack.slint:49
 msgid "Silly effects like clones, an invisibility cloak, light painting, retro looks and datamosh."
 msgstr ""
 
-#: rust/crates/effects/ui/fun_pack.slint:57 rust/crates/effects/ui/fun_pack.slint:65 rust/crates/effects/ui/fun_pack.slint:66
+#: rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/fun_pack.slint:64 rust/crates/effects/ui/fun_pack.slint:65
 msgid "Effect"
 msgstr "Efeito"
 
-#: rust/crates/effects/ui/fun_pack.slint:101 rust/crates/effects/ui/fun_pack.slint:102
+#: rust/crates/effects/ui/fun_pack.slint:100 rust/crates/effects/ui/fun_pack.slint:101
 msgid "Clean up"
 msgstr "Restaurar"
 
-#: rust/crates/effects/ui/fun_pack.slint:108 rust/crates/effects/ui/fun_pack.slint:109 rust/crates/system/ui/shortcuts.slint:120 rust/crates/ui-kit/ui/widgets/field.slint:127
+#: rust/crates/effects/ui/fun_pack.slint:107 rust/crates/effects/ui/fun_pack.slint:108 rust/crates/system/ui/shortcuts.slint:120 rust/crates/ui-kit/ui/widgets/field.slint:129
 msgid "Clear"
 msgstr "Limpar"
 
-#: rust/crates/effects/ui/fun_pack.slint:141
+#: rust/crates/effects/ui/fun_pack.slint:139
 msgid "Trails"
 msgstr "Rastros"
 
-#: rust/crates/effects/ui/fun_pack.slint:159 rust/crates/outputs/src/webcam.rs:47 rust/crates/shell/ui/cards/camera.slint:326 rust/crates/shell/ui/cards/camera.slint:333 rust/crates/shell/ui/cards/camera.slint:344
+#: rust/crates/effects/ui/fun_pack.slint:156 rust/crates/outputs/src/webcam.rs:47 rust/crates/shell/ui/cards/camera.slint:201 rust/crates/shell/ui/cards/camera.slint:208 rust/crates/shell/ui/cards/camera.slint:219
 msgid "Brightness"
 msgstr "Brilho"
 
-#: rust/crates/effects/ui/fun_pack.slint:177
+#: rust/crates/effects/ui/fun_pack.slint:173
 msgid "Spread"
 msgstr "Dispersão"
 
-#: rust/crates/effects/ui/fun_pack.slint:195
+#: rust/crates/effects/ui/fun_pack.slint:190
 msgid "Smear"
 msgstr "Borrão"
 
-#: rust/crates/effects/ui/fun_pack.slint:213 rust/crates/effects/ui/fun_pack.slint:224
+#: rust/crates/effects/ui/fun_pack.slint:207 rust/crates/effects/ui/fun_pack.slint:218
 msgid "Direction"
 msgstr "Direção"
 
-#: rust/crates/effects/ui/fun_pack.slint:218 rust/crates/effects/ui/fun_pack.slint:219
+#: rust/crates/effects/ui/fun_pack.slint:212 rust/crates/effects/ui/fun_pack.slint:213
 msgid "Down"
 msgstr "Para baixo"
 
-#: rust/crates/effects/ui/fun_pack.slint:218 rust/crates/effects/ui/fun_pack.slint:219
+#: rust/crates/effects/ui/fun_pack.slint:212 rust/crates/effects/ui/fun_pack.slint:213
 msgid "Across"
 msgstr "Para o lado"
 
-#: rust/crates/effects/ui/fun_pack.slint:230
+#: rust/crates/effects/ui/fun_pack.slint:224
 msgid "Not ready"
 msgstr ""
 
@@ -3165,19 +3161,19 @@ msgstr "Estilo"
 msgid "Size"
 msgstr "Tamanho"
 
-#: rust/crates/effects/ui/notes.slint:65
+#: rust/crates/effects/ui/notes.slint:64
 msgid "Show your script on the phone's screen so you can read it while looking into the camera."
 msgstr ""
 
-#: rust/crates/effects/ui/notes.slint:122 rust/crates/effects/ui/notes.slint:128 rust/crates/effects/ui/notes.slint:129
+#: rust/crates/effects/ui/notes.slint:121 rust/crates/effects/ui/notes.slint:127 rust/crates/effects/ui/notes.slint:128
 msgid "Text size"
 msgstr "Tamanho do texto"
 
-#: rust/crates/effects/ui/notes.slint:147 rust/crates/effects/ui/notes.slint:157
+#: rust/crates/effects/ui/notes.slint:145 rust/crates/effects/ui/notes.slint:155
 msgid "Scroll"
 msgstr "Rolagem"
 
-#: rust/crates/effects/ui/notes.slint:189
+#: rust/crates/effects/ui/notes.slint:186
 msgid "Move through the script"
 msgstr ""
 
@@ -3247,143 +3243,139 @@ msgstr "Ao sair do ar"
 msgid "Send a test"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:177
-msgid "Can't open this picture"
-msgstr ""
-
-#: rust/crates/effects/ui/parts.slint:359
+#: rust/crates/effects/ui/parts.slint:237
 msgid "pink"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:359
+#: rust/crates/effects/ui/parts.slint:237
 msgid "magenta"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:359
+#: rust/crates/effects/ui/parts.slint:237
 msgid "purple"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:359
+#: rust/crates/effects/ui/parts.slint:237
 msgid "blue"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:359
+#: rust/crates/effects/ui/parts.slint:237
 msgid "sky blue"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:359
+#: rust/crates/effects/ui/parts.slint:237
 msgid "cyan"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:359
+#: rust/crates/effects/ui/parts.slint:237
 msgid "spring green"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:359
+#: rust/crates/effects/ui/parts.slint:237
 msgid "green"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:359
+#: rust/crates/effects/ui/parts.slint:237
 msgid "lime"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:359
+#: rust/crates/effects/ui/parts.slint:237
 msgid "yellow"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:359
+#: rust/crates/effects/ui/parts.slint:237
 msgid "orange"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:359
+#: rust/crates/effects/ui/parts.slint:237
 msgid "red"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:365
+#: rust/crates/effects/ui/parts.slint:243
 msgid "neutral"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:365
+#: rust/crates/effects/ui/parts.slint:243
 msgid "towards"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:368
+#: rust/crates/effects/ui/parts.slint:246
 msgid "points, none picked"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:368
+#: rust/crates/effects/ui/parts.slint:246
 msgid "point"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:368
+#: rust/crates/effects/ui/parts.slint:246
 msgid "in"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:368
+#: rust/crates/effects/ui/parts.slint:246
 msgid "out"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:375
+#: rust/crates/effects/ui/parts.slint:253
 msgid "centred"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:376 rust/crates/effects/ui/parts.slint:378
+#: rust/crates/effects/ui/parts.slint:254 rust/crates/effects/ui/parts.slint:256
 msgid "left"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:376 rust/crates/effects/ui/parts.slint:378
+#: rust/crates/effects/ui/parts.slint:254 rust/crates/effects/ui/parts.slint:256
 msgid "right"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:377 rust/crates/effects/ui/parts.slint:378
+#: rust/crates/effects/ui/parts.slint:255 rust/crates/effects/ui/parts.slint:256
 msgid "up"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:377 rust/crates/effects/ui/parts.slint:378
+#: rust/crates/effects/ui/parts.slint:255 rust/crates/effects/ui/parts.slint:256
 msgid "down"
 msgstr ""
 
-#: rust/crates/effects/ui/parts.slint:412
+#: rust/crates/effects/ui/parts.slint:290
 msgid "Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve."
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:136
+#: rust/crates/effects/ui/photos.slint:135
 msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:166
+#: rust/crates/effects/ui/photos.slint:165
 msgid "Higher ISO makes the photo brighter but grainier."
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:176
+#: rust/crates/effects/ui/photos.slint:175
 msgid "Slower shutter speeds make the photo brighter but blur movement."
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:189
+#: rust/crates/effects/ui/photos.slint:188
 msgid "Mode and format"
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:213
+#: rust/crates/effects/ui/photos.slint:212
 msgid "The file type photos are saved as."
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:295 rust/crates/effects/ui/photos.slint:300 rust/crates/effects/ui/photos.slint:309
+#: rust/crates/effects/ui/photos.slint:294 rust/crates/effects/ui/photos.slint:299 rust/crates/effects/ui/photos.slint:308
 msgid "Quality"
 msgstr "Qualidade"
 
-#: rust/crates/effects/ui/photos.slint:310
+#: rust/crates/effects/ui/photos.slint:309
 msgid "Higher quality gives bigger and cleaner JPEG files."
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:328 rust/crates/effects/ui/photos.slint:334
+#: rust/crates/effects/ui/photos.slint:326 rust/crates/effects/ui/photos.slint:332
 msgid "Timer"
 msgstr "Temporizador"
 
-#: rust/crates/effects/ui/photos.slint:346 rust/crates/effects/ui/photos.slint:355
+#: rust/crates/effects/ui/photos.slint:344 rust/crates/effects/ui/photos.slint:353
 msgid "Save in"
 msgstr "Salvar em"
 
-#: rust/crates/effects/ui/photos.slint:356
+#: rust/crates/effects/ui/photos.slint:354
 msgid "The folder path photos are saved in."
 msgstr ""
 
@@ -3419,9 +3411,13 @@ msgstr "De ponta-cabeça"
 msgid "Flip the picture top to bottom."
 msgstr ""
 
-#: rust/crates/effects/ui/transforms.slint:210
+#: rust/crates/effects/ui/transforms.slint:209
 msgid "Lens switch"
 msgstr ""
+
+#: rust/crates/effects/ui/transforms.slint:221 rust/crates/ui-kit/ui/widgets/pad.slint:74 rust/crates/ui-kit/ui/widgets/slider.slint:68
+msgid "Double-click to reset"
+msgstr "Clique duas vezes para redefinir"
 
 #: rust/crates/effects/ui/vision_status.slint:24
 msgid "Needs a download"
@@ -4586,7 +4582,7 @@ msgstr "FPS"
 msgid "JPEG quality"
 msgstr "Qualidade do JPEG"
 
-#: rust/crates/outputs/src/stream_output.rs:788 rust/crates/outputs/src/stream_output.rs:1017 rust/crates/outputs/ui/stream_output.slint:150 rust/crates/outputs/ui/stream_output.slint:161 rust/crates/outputs/ui/stream_output.slint:164 rust/crates/setup/src/stats.rs:341
+#: rust/crates/outputs/src/stream_output.rs:788 rust/crates/outputs/src/stream_output.rs:1017 rust/crates/outputs/ui/stream_output.slint:149 rust/crates/outputs/ui/stream_output.slint:160 rust/crates/outputs/ui/stream_output.slint:163 rust/crates/setup/src/stats.rs:341
 msgid "Bitrate"
 msgstr "Taxa de bits"
 
@@ -4672,7 +4668,7 @@ msgstr "Anticintilação"
 msgid "Slow down in the dark"
 msgstr "Reduzir velocidade no escuro"
 
-#: rust/crates/outputs/src/webcam.rs:49 rust/crates/outputs/src/webcam.rs:55 rust/crates/shell/ui/cards/camera.slint:352 rust/crates/shell/ui/cards/camera.slint:360
+#: rust/crates/outputs/src/webcam.rs:49 rust/crates/outputs/src/webcam.rs:55 rust/crates/shell/ui/cards/camera.slint:226 rust/crates/shell/ui/cards/camera.slint:234
 msgid "White balance"
 msgstr "Balanço de branco"
 
@@ -4684,7 +4680,7 @@ msgstr "Matiz"
 msgid "Sharpness"
 msgstr "Nitidez"
 
-#: rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/src/webcam.rs:78 rust/crates/outputs/src/webcam.rs:886 rust/crates/shell/ui/cards/camera.slint:416 rust/crates/shell/ui/cards/camera.slint:424
+#: rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/src/webcam.rs:78 rust/crates/outputs/src/webcam.rs:886 rust/crates/shell/ui/cards/camera.slint:288 rust/crates/shell/ui/cards/camera.slint:296
 msgid "Focus"
 msgstr "Foco"
 
@@ -4700,7 +4696,7 @@ msgstr ""
 msgid "Tilt"
 msgstr "Inclinação"
 
-#: rust/crates/outputs/src/webcam.rs:77 rust/crates/shell/ui/cards/camera.slint:453
+#: rust/crates/outputs/src/webcam.rs:77 rust/crates/shell/ui/cards/camera.slint:325
 msgid "Image"
 msgstr "Imagem"
 
@@ -4728,7 +4724,7 @@ msgstr ""
 msgid "Let the webcam lower its frame rate in dim light for a brighter picture."
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:92 rust/crates/shell/ui/cards/camera.slint:387
+#: rust/crates/outputs/src/webcam.rs:92 rust/crates/shell/ui/cards/camera.slint:261
 msgid "Make colours warmer or cooler."
 msgstr ""
 
@@ -4748,7 +4744,7 @@ msgstr ""
 msgid "Make edges crisper or softer."
 msgstr ""
 
-#: rust/crates/outputs/src/webcam.rs:98 rust/crates/shell/ui/cards/camera.slint:447
+#: rust/crates/outputs/src/webcam.rs:98 rust/crates/shell/ui/cards/camera.slint:319
 msgid "How far away the camera focuses."
 msgstr ""
 
@@ -4973,7 +4969,7 @@ msgstr ""
 msgid "Let the webcam pick or set it yourself."
 msgstr ""
 
-#: rust/crates/outputs/ui/webcam.slint:145 rust/crates/outputs/ui/webcam.slint:146 rust/crates/shell/src/plugins/camera_control.rs:1316 rust/crates/shell/src/plugins/camera_control.rs:1318 rust/crates/shell/src/plugins/camera_control.rs:1643 rust/crates/shell/ui/cards/camera.slint:279 rust/crates/shell/ui/cards/camera.slint:281 rust/crates/shell/ui/cards/camera.slint:361 rust/crates/shell/ui/cards/camera.slint:363
+#: rust/crates/outputs/ui/webcam.slint:145 rust/crates/outputs/ui/webcam.slint:146 rust/crates/shell/src/plugins/camera_control.rs:1316 rust/crates/shell/src/plugins/camera_control.rs:1318 rust/crates/shell/src/plugins/camera_control.rs:1643 rust/crates/shell/ui/cards/camera.slint:154 rust/crates/shell/ui/cards/camera.slint:156 rust/crates/shell/ui/cards/camera.slint:235 rust/crates/shell/ui/cards/camera.slint:237
 msgid "Manual"
 msgstr "Manual"
 
@@ -6218,71 +6214,71 @@ msgctxt "search"
 msgid "about author credits made by version number build"
 msgstr "sobre autor creditos feito por criado por numero da versao build about author credits made by version number build"
 
-#: rust/crates/setup/ui/setup.slint:561
+#: rust/crates/setup/ui/setup.slint:562
 msgid "Log"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:564
+#: rust/crates/setup/ui/setup.slint:565
 msgctxt "search"
 msgid "log file open show temp folder"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:565 rust/crates/system/ui/shortcuts.slint:214
+#: rust/crates/setup/ui/setup.slint:566 rust/crates/system/ui/shortcuts.slint:214
 msgid "Open"
 msgstr "Abrir"
 
-#: rust/crates/setup/ui/setup.slint:565
+#: rust/crates/setup/ui/setup.slint:566
 msgid "Open log"
 msgstr "Abrir log"
 
-#: rust/crates/setup/ui/setup.slint:565
+#: rust/crates/setup/ui/setup.slint:566
 msgid "Open the full log. It's kept in the temp folder, which the system clears."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:569
+#: rust/crates/setup/ui/setup.slint:570
 msgid "Diagnostics"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:572
+#: rust/crates/setup/ui/setup.slint:573
 msgctxt "search"
 msgid "copy diagnostics info system details"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:575
+#: rust/crates/setup/ui/setup.slint:576
 msgid "Copy diagnostics"
 msgstr "Copiar diagnósticos"
 
-#: rust/crates/setup/ui/setup.slint:576
+#: rust/crates/setup/ui/setup.slint:577
 msgid "Copy info for a bug report without pairing tokens, addresses or file paths."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:582
+#: rust/crates/setup/ui/setup.slint:583
 msgid "Bug reports"
 msgstr "Relatórios de erros"
 
-#: rust/crates/setup/ui/setup.slint:585
+#: rust/crates/setup/ui/setup.slint:586
 msgctxt "search"
 msgid "bug report diagnostics logs debug support problem issue help copy log file"
 msgstr "relatorio de erro diagnosticos logs depuracao suporte problema ajuda copiar arquivo de log bug report diagnostics logs debug support problem issue help copy log file"
 
-#: rust/crates/setup/ui/setup.slint:586 rust/crates/setup/ui/setup.slint:586
+#: rust/crates/setup/ui/setup.slint:587 rust/crates/setup/ui/setup.slint:587
 msgid "Report a bug"
 msgstr "Relatar um problema"
 
-#: rust/crates/setup/ui/setup.slint:586
+#: rust/crates/setup/ui/setup.slint:587
 msgid "Copy the diagnostics and open the bug form on GitHub."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:590
+#: rust/crates/setup/ui/setup.slint:591
 msgid "Need help?"
 msgstr "Precisa de ajuda?"
 
-#: rust/crates/setup/ui/setup.slint:593
+#: rust/crates/setup/ui/setup.slint:594
 msgctxt "search"
 msgid "help support troubleshooting question faq problem not working stuck ask"
 msgstr "ajuda suporte solucao de problemas duvida pergunta faq nao funciona travado perguntar help support troubleshooting question faq problem not working stuck ask"
 
-#: rust/crates/setup/ui/setup.slint:594
+#: rust/crates/setup/ui/setup.slint:595
 msgid "Troubleshooting"
 msgstr "Solução de problemas"
 
@@ -6352,11 +6348,11 @@ msgstr "Arraste pela imagem para marcar uma área. Esc cancela."
 msgid "Drag the corners into place, then press Enter. Esc cancels."
 msgstr "Arraste os cantos para a posição e pressione Enter. Esc cancela."
 
-#: rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:194
+#: rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:70
 msgid "Fast"
 msgstr "Rápido"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:194
+#: rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:70
 msgid "High quality"
 msgstr ""
 
@@ -6518,7 +6514,7 @@ msgstr ""
 msgid "Start streaming to use low light"
 msgstr ""
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1309 rust/crates/shell/src/plugins/camera_control.rs:1657 rust/crates/shell/ui/cards/camera.slint:243
+#: rust/crates/shell/src/plugins/camera_control.rs:1309 rust/crates/shell/src/plugins/camera_control.rs:1657 rust/crates/shell/ui/cards/camera.slint:107 rust/crates/shell/ui/cards/camera.slint:118
 msgid "Lens"
 msgstr "Lente"
 
@@ -6538,28 +6534,28 @@ msgstr "Modo de foco"
 msgid "Tap a point"
 msgstr "Toque no ponto"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1320 rust/crates/shell/src/plugins/camera_control.rs:1644 rust/crates/shell/ui/cards/camera.slint:425 rust/crates/shell/ui/cards/camera.slint:427
+#: rust/crates/shell/src/plugins/camera_control.rs:1320 rust/crates/shell/src/plugins/camera_control.rs:1644 rust/crates/shell/ui/cards/camera.slint:297 rust/crates/shell/ui/cards/camera.slint:299
 msgctxt "focus"
 msgid "Manual"
 msgstr "Manual"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1323 rust/crates/shell/src/plugins/camera_control.rs:1673 rust/crates/shell/ui/cards/camera.slint:532 rust/crates/shell/ui/cards/camera.slint:540
+#: rust/crates/shell/src/plugins/camera_control.rs:1323 rust/crates/shell/src/plugins/camera_control.rs:1673 rust/crates/shell/ui/cards/camera.slint:404 rust/crates/shell/ui/cards/camera.slint:412
 msgid "Sharpening"
 msgstr "Nitidez"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1375 rust/crates/shell/src/plugins/camera_control.rs:1671 rust/crates/shell/ui/cards/camera.slint:464
+#: rust/crates/shell/src/plugins/camera_control.rs:1375 rust/crates/shell/src/plugins/camera_control.rs:1671 rust/crates/shell/ui/cards/camera.slint:336
 msgid "Stabilization"
 msgstr "Estabilização"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1376 rust/crates/shell/src/plugins/camera_control.rs:1674 rust/crates/shell/ui/cards/camera.slint:489 rust/crates/shell/ui/cards/camera.slint:490
+#: rust/crates/shell/src/plugins/camera_control.rs:1376 rust/crates/shell/src/plugins/camera_control.rs:1674 rust/crates/shell/ui/cards/camera.slint:361 rust/crates/shell/ui/cards/camera.slint:362
 msgid "Black level lock"
 msgstr "Travar pretos"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1377 rust/crates/shell/src/plugins/camera_control.rs:1675 rust/crates/shell/ui/cards/camera.slint:475 rust/crates/shell/ui/cards/camera.slint:476
+#: rust/crates/shell/src/plugins/camera_control.rs:1377 rust/crates/shell/src/plugins/camera_control.rs:1675 rust/crates/shell/ui/cards/camera.slint:347 rust/crates/shell/ui/cards/camera.slint:348
 msgid "Low light"
 msgstr "Pouca luz"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1378 rust/crates/shell/src/plugins/camera_control.rs:1676 rust/crates/shell/ui/cards/camera.slint:500 rust/crates/shell/ui/cards/camera.slint:501
+#: rust/crates/shell/src/plugins/camera_control.rs:1378 rust/crates/shell/src/plugins/camera_control.rs:1676 rust/crates/shell/ui/cards/camera.slint:372 rust/crates/shell/ui/cards/camera.slint:373
 msgid "Torch"
 msgstr "Lanterna"
 
@@ -7029,49 +7025,49 @@ msgstr "Aba"
 msgid "Check that it's still on."
 msgstr "Verifique se ainda está ligado."
 
-#: rust/crates/shell/src/settings.rs:739
+#: rust/crates/shell/src/settings.rs:750
 msgid "Nothing matches every word. These match some of them."
 msgstr "Nenhum resultado corresponde a todas as palavras. Estes correspondem a algumas delas."
 
-#: rust/crates/shell/src/settings.rs:741
+#: rust/crates/shell/src/settings.rs:752
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)."
 msgstr "Nenhum resultado para “{text}”. Tente usar menos palavras ou descrever a função (resolução, microfone, inicialização)."
 
-#: rust/crates/shell/src/settings.rs:743 rust/crates/shell/ui/settings.slint:255
+#: rust/crates/shell/src/settings.rs:754 rust/crates/shell/ui/settings.slint:255
 msgid "Search results"
 msgstr "Resultados da pesquisa"
 
-#: rust/crates/shell/src/settings.rs:805
+#: rust/crates/shell/src/settings.rs:816
 #, python-brace-format
 msgid "Remove {plugin}"
 msgstr "Remover {plugin}"
 
-#: rust/crates/shell/src/settings.rs:824
+#: rust/crates/shell/src/settings.rs:835
 msgid "Check for updates"
 msgstr "Verificar atualizações"
 
-#: rust/crates/shell/src/settings.rs:825
+#: rust/crates/shell/src/settings.rs:836
 msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
 msgstr "Verifica uma vez por dia se há novas versões de plugins adicionados que publicam lançamentos no GitHub e as menciona aqui. Nada é baixado."
 
-#: rust/crates/shell/src/settings.rs:826
+#: rust/crates/shell/src/settings.rs:837
 msgid "Install updates without asking"
 msgstr "Instalar atualizações sem perguntar"
 
-#: rust/crates/shell/src/settings.rs:826
+#: rust/crates/shell/src/settings.rs:837
 msgid "Installs new versions of the plugins you switched on and switches them on again."
 msgstr "Instala novas versões dos plugins que você ativou e os ativa novamente."
 
-#: rust/crates/shell/src/settings.rs:827
+#: rust/crates/shell/src/settings.rs:838
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "Perigoso! Quem controla o repositório de um plugin pode executar código novo neste computador sempre que publicar um lançamento."
 
-#: rust/crates/shell/src/settings.rs:915
+#: rust/crates/shell/src/settings.rs:926
 msgid "Install a plugin"
 msgstr "Instalar um plugin"
 
-#: rust/crates/shell/src/settings.rs:917
+#: rust/crates/shell/src/settings.rs:928
 msgid "Plugins (*.zip)"
 msgstr "Plugins (*.zip)"
 
@@ -7134,7 +7130,7 @@ msgid "Could not save settings. Check disk space and permissions."
 msgstr "Não foi possível salvar as configurações. Verifique o espaço em disco e as permissões."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1398 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1401 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "Iniciar"
 
@@ -7416,32 +7412,32 @@ msgstr "Clique com o botão direito no ícone da bandeja do sistema para sair."
 msgid "Telescope is still running"
 msgstr "O Telescope ainda está em execução"
 
-#: rust/crates/shell/src/window.rs:113
+#: rust/crates/shell/src/window.rs:116
 msgid "Telescope - Video Preview"
 msgstr "Telescope - Pré-visualização de vídeo"
 
-#: rust/crates/shell/src/window.rs:616
+#: rust/crates/shell/src/window.rs:619
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: rust/crates/shell/src/window.rs:1397 rust/crates/shell/src/window.rs:1398
+#: rust/crates/shell/src/window.rs:1400 rust/crates/shell/src/window.rs:1401
 msgid "Start mic only"
 msgstr "Iniciar apenas microfone"
 
-#: rust/crates/shell/src/window.rs:1397
+#: rust/crates/shell/src/window.rs:1400
 msgid "Start streaming"
 msgstr "Iniciar transmissão"
 
-#: rust/crates/shell/src/window.rs:1403
+#: rust/crates/shell/src/window.rs:1406
 msgid "Stop streaming"
 msgstr "Parar transmissão"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1404 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/window.rs:1407 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "Parar"
 
-#: rust/crates/shell/src/window.rs:1656 rust/crates/shell/src/worker.rs:1160
+#: rust/crates/shell/src/window.rs:1666 rust/crates/shell/src/worker.rs:1160
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Transmitindo {size} a {fps} fps para {camera}"
@@ -7482,72 +7478,68 @@ msgstr "Transmissão perdida - reconectando"
 msgid "Virtual camera error: {error}"
 msgstr "Erro na câmera virtual: {error}"
 
-#: rust/crates/shell/ui/cards/camera.slint:136
-msgid "Lenses"
-msgstr ""
-
-#: rust/crates/shell/ui/cards/camera.slint:214
+#: rust/crates/shell/ui/cards/camera.slint:90
 msgid "Exposure, white balance, focus, lenses and the phone camera's other settings."
 msgstr "Exposição, balanço de branco, foco, lentes e outras configurações da câmera do celular."
 
-#: rust/crates/shell/ui/cards/camera.slint:271
+#: rust/crates/shell/ui/cards/camera.slint:146
 msgid "Let the phone pick the exposure or set ISO and shutter speed yourself."
 msgstr ""
 
-#: rust/crates/shell/ui/cards/camera.slint:291 rust/crates/shell/ui/cards/camera.slint:302
+#: rust/crates/shell/ui/cards/camera.slint:166 rust/crates/shell/ui/cards/camera.slint:177
 msgid "Higher ISO makes the picture brighter but grainier."
 msgstr ""
 
-#: rust/crates/shell/ui/cards/camera.slint:291 rust/crates/shell/ui/cards/camera.slint:302 rust/crates/shell/ui/cards/camera.slint:309 rust/crates/shell/ui/cards/camera.slint:320
+#: rust/crates/shell/ui/cards/camera.slint:166 rust/crates/shell/ui/cards/camera.slint:177 rust/crates/shell/ui/cards/camera.slint:184 rust/crates/shell/ui/cards/camera.slint:195
 msgid "Set Exposure to Manual to use this"
 msgstr ""
 
-#: rust/crates/shell/ui/cards/camera.slint:309 rust/crates/shell/ui/cards/camera.slint:320
+#: rust/crates/shell/ui/cards/camera.slint:184 rust/crates/shell/ui/cards/camera.slint:195
 msgid "Slower shutter speeds make the picture brighter but blur movement."
 msgstr ""
 
-#: rust/crates/shell/ui/cards/camera.slint:327 rust/crates/shell/ui/cards/camera.slint:345
+#: rust/crates/shell/ui/cards/camera.slint:202 rust/crates/shell/ui/cards/camera.slint:220
 msgid "Make the picture brighter or darker than the phone's automatic exposure."
 msgstr ""
 
-#: rust/crates/shell/ui/cards/camera.slint:353
+#: rust/crates/shell/ui/cards/camera.slint:227
 msgid "Let the phone set the white balance or set it yourself."
 msgstr ""
 
-#: rust/crates/shell/ui/cards/camera.slint:387 rust/crates/shell/ui/cards/camera.slint:409
+#: rust/crates/shell/ui/cards/camera.slint:261 rust/crates/shell/ui/cards/camera.slint:282
 msgid "Set White balance to Manual to use this"
 msgstr ""
 
-#: rust/crates/shell/ui/cards/camera.slint:409
+#: rust/crates/shell/ui/cards/camera.slint:282
 msgid "Shift colours towards green or magenta."
 msgstr ""
 
-#: rust/crates/shell/ui/cards/camera.slint:417
+#: rust/crates/shell/ui/cards/camera.slint:289
 msgid "Let the phone focus automatically, click the preview to focus on a point or set the distance yourself."
 msgstr ""
 
-#: rust/crates/shell/ui/cards/camera.slint:425 rust/crates/shell/ui/cards/camera.slint:427
+#: rust/crates/shell/ui/cards/camera.slint:297 rust/crates/shell/ui/cards/camera.slint:299
 msgctxt "focus tap"
 msgid "Tap"
 msgstr ""
 
-#: rust/crates/shell/ui/cards/camera.slint:438 rust/crates/shell/ui/cards/camera.slint:446
+#: rust/crates/shell/ui/cards/camera.slint:310 rust/crates/shell/ui/cards/camera.slint:318
 msgid "Distance"
 msgstr "Distância"
 
-#: rust/crates/shell/ui/cards/camera.slint:447
+#: rust/crates/shell/ui/cards/camera.slint:319
 msgid "Set Focus to Manual to use this"
 msgstr ""
 
-#: rust/crates/shell/ui/cards/camera.slint:465
+#: rust/crates/shell/ui/cards/camera.slint:337
 msgid "Stabilisation"
 msgstr ""
 
-#: rust/crates/shell/ui/cards/camera.slint:514
+#: rust/crates/shell/ui/cards/camera.slint:386
 msgid "Smooth out grain in the picture."
 msgstr ""
 
-#: rust/crates/shell/ui/cards/camera.slint:533
+#: rust/crates/shell/ui/cards/camera.slint:405
 msgid "Make edges look crisper."
 msgstr ""
 
@@ -8243,11 +8235,11 @@ msgstr "Os atalhos globais não estão disponíveis neste ambiente de desktop, e
 msgid "Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings."
 msgstr "Não foi possível abrir as configurações de atalhos do sistema. Procure por Atalhos nas Configurações do sistema."
 
-#: rust/crates/system/src/shortcuts.rs:1068
+#: rust/crates/system/src/shortcuts.rs:1088
 msgid "Keys for Telescope's controls, including ones that work in other apps."
 msgstr "Teclas para os controles do Telescope, incluindo atalhos que funcionam em outros apps."
 
-#: rust/crates/system/src/shortcuts.rs:1069
+#: rust/crates/system/src/shortcuts.rs:1089
 msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
 msgstr "Sem ele, nenhum atalho funciona e Atalhos de teclado não aparece nas Configurações (seus atalhos são mantidos para quando ele voltar)."
 
@@ -8805,6 +8797,10 @@ msgstr ""
 msgid "B"
 msgstr ""
 
+#: rust/crates/ui-kit/ui/widgets/field.slint:218
+msgid "Can't open this picture"
+msgstr ""
+
 #: rust/crates/ui-kit/ui/widgets/folds.slint:12
 msgid "Collapsed. Press Space or Enter to expand."
 msgstr "Recolhido. Pressione Espaço ou Enter para expandir."
@@ -8982,7 +8978,7 @@ msgstr " °C"
 msgid "Add your phone"
 msgstr "Adicionar seu celular"
 
-#: rust/crates/effects/src/photos.rs:801
+#: rust/crates/effects/src/photos.rs:800
 #, python-brace-format
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"
@@ -9015,37 +9011,37 @@ msgstr ""
 "O microfone do celular continua transmitindo e a câmera\n"
 "volta quando algum app a abrir."
 
-#: rust/crates/effects/src/transforms.rs:622
+#: rust/crates/effects/src/transforms.rs:621
 msgctxt "search"
 msgid "mirror"
 msgstr "espelhar espelho espelhamento mirror"
 
-#: rust/crates/effects/src/transforms.rs:623
+#: rust/crates/effects/src/transforms.rs:622
 msgctxt "search"
 msgid "mirror upside down"
 msgstr "espelhar de ponta-cabeça inverter virar invertido ponta cabeça mirror upside down"
 
-#: rust/crates/effects/src/transforms.rs:624
+#: rust/crates/effects/src/transforms.rs:623
 msgctxt "search"
 msgid "rotate turn"
 msgstr "rotacionar girar rotação giro virar rotate turn"
 
-#: rust/crates/effects/src/transforms.rs:625
+#: rust/crates/effects/src/transforms.rs:624
 msgctxt "search"
 msgid "crop framing"
 msgstr "cortar corte enquadramento enquadrar crop framing"
 
-#: rust/crates/effects/src/transforms.rs:626
+#: rust/crates/effects/src/transforms.rs:625
 msgctxt "search"
 msgid "framing move"
 msgstr "enquadramento mover movimentar deslocar posicionar framing move"
 
-#: rust/crates/effects/src/transforms.rs:628
+#: rust/crates/effects/src/transforms.rs:627
 msgctxt "search"
 msgid "stretch squish aspect wide"
 msgstr "esticar comprimir achatar proporção aspecto horizontal largura stretch squish aspect wide"
 
-#: rust/crates/effects/src/transforms.rs:629
+#: rust/crates/effects/src/transforms.rs:628
 msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "esticar comprimir achatar proporção aspecto vertical altura stretch squish aspect tall"

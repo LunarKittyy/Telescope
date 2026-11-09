@@ -1,7 +1,7 @@
 //! The specimen sheet: every kit control kind in every state, in the new look and in Classic, drawn offscreen as one picture
 //! per look. Rows are kinds and columns are states, so a kind that lacks a hover or a disabled look shows as a gap in the grid
 //! or as a cell that looks like its neighbour. The last column is a long text, what a German translation would give.
-//! `cargo run -p telescope-shell --bin shell-specimen -- OUT` in rust/ writes OUT/new.png and OUT/classic.png, and the tooltip sheet beside
+//! `cargo run -p telescope-shell --bin shell-specimen -- OUT` in rust/ writes OUT/new.png and OUT/classic.png (each is one picture of every kind), and the tooltip sheet beside
 //! them as OUT/tips-new.png and OUT/tips-classic.png (STYLE.md).
 
 use crate::offscreen::{self, Picture};
@@ -75,6 +75,14 @@ const KINDS: &[Kind] = &[
     Kind { name: "rail", label: "icon rail", height: 132.0, at: (0.5, 0.17), states: &["rest", "on", "hover", "off", "long"] },
     Kind { name: "anchor-frame", label: "anchor frame", height: 130.0, at: (0.34, 0.75), states: &["rest", "hover", "focus", "held", "off", "long"] },
     Kind { name: "text-area", label: "text area", height: 130.0, at: (0.5, 0.5), states: &["rest", "hover", "focus", "off", "empty", "long"] },
+    // Round 2 and the follow-up
+    Kind { name: "status", label: "status", height: 136.0, at: (0.3, 0.37), states: &["rest", "long"] },
+    Kind { name: "list-row", label: "list row", height: 64.0, at: (0.9, 0.5), states: &["rest", "hover", "off", "long"] },
+    Kind { name: "problem", label: "problem mark and tag", height: 44.0, at: (0.06, 0.5), states: &["rest", "long"] },
+    Kind { name: "picture-field", label: "picture field", height: 56.0, at: MID, states: &["rest", "on", "hover", "focus", "held", "off", "empty", "long"] },
+    Kind { name: "lens-row", label: "lens row", height: 88.0, at: (0.5, 0.5), states: &["rest", "hover", "focus", "held", "empty", "long"] },
+    Kind { name: "switch-row", label: "switch row (word, problem)", height: 56.0, at: (0.9, 0.5), states: &["rest", "on", "hover", "focus", "held", "off", "long"] },
+    Kind { name: "card-header", label: "card header (reset, switch)", height: 120.0, at: (0.78, 0.2), states: &["rest", "on", "hover", "off", "long"] },
 ];
 
 const CELL_WIDTH: f32 = 300.0;

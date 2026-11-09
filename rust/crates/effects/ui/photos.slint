@@ -100,7 +100,6 @@ export component PhotosCard inherits Card {
     in property <string> quality-text;
     in property <bool> quality-enabled: true;
     in property <string> quality-tip;
-    in property <string> reset-hint;
     in property <[string]> timer-items: ["", "", ""];
     in property <int> timer-current;
     in property <string> best-name;
@@ -308,7 +307,6 @@ export component PhotosCard inherits Card {
             default-value: 95;
             tip: @tr("Quality");
             tip-detail: quality-tip != "" ? quality-tip : @tr("Higher quality gives bigger and cleaner JPEG files.");
-            tip-hint: quality-tip != "" ? "" : reset-hint;
             moved(v) => { root.quality-moved(v); }
         }
     }

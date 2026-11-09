@@ -257,7 +257,6 @@ impl ChromaKeyPlugin {
             "switch-name": tr("Chroma key"),
             "switch-help": tr("Replace the green or blue screen behind you."),
             "slider-tips": SLIDER_TIPS.iter().map(|t| tr(t)).collect::<Vec<_>>(),
-            "reset-hint": tr("Double-click to reset"),
             "colour-tip": tr("Pick the colour that goes behind you."),
             "pipette-tip": tr("Pick from the preview"),
             "picture-choose-tip": tr("Pick the picture that goes behind you."),

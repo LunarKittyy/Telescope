@@ -1,14 +1,9 @@
 // The Camera card, built from ui-kit's widgets: an icon rail, then one column of controls.
 
-import { Theme, Icons, Icon, Tip, Card, RailRow, Segmented, Slider, ToggleTile, Dial, ShortcutMenu, Arrival, PictureSegmented, Unfold, Fade } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Tip, Card, RailRow, Segmented, Slider, ToggleTile, Dial, ShortcutMenu, PictureSegmented, LensRow, LensArt, LensTile } from "@ui-kit/ui-kit.slint";
 
-export struct Lens {
-    id: string,
-    number: string,
-    unit: string,
-    rest: string,
-    name: string,
-}
+// One lens as the phone says it: the kit's tile is the card's own struct
+export { LensTile as Lens }
 
 // A toggle tile as the card holds it: on or off, usable, and why not.
 export struct TileState {
@@ -17,131 +12,12 @@ export struct TileState {
     tip: string,
 }
 
-// What a lens tile shows: its number and unit over its focal length. The tile itself and its outline are the PictureSegmented's.
-component LensArt inherits Rectangle {
-    in property <Lens> lens;
-    in property <bool> on;
-    in property <color> hue;
-    VerticalLayout {
-        alignment: center;
-        spacing: Theme.u(1);
-        HorizontalLayout {
-            alignment: center;
-            spacing: Theme.u(0.5);
-            Text {
-                text: lens.number;
-                font-family: Theme.font;
-                font-size: Theme.body * 1.25;
-                font-weight: Theme.w-value;
-                color: on ? hue : Theme.ink;
-            }
-            Text {
-                text: lens.unit;
-                font-family: Theme.font;
-                font-size: Theme.small;
-                font-weight: Theme.w-label;
-                color: on ? hue : Theme.ink2;
-                vertical-alignment: bottom;
-                height: Theme.u(9);
-            }
-        }
-        // Always there, empty or not, so the focal length sits on the same baseline in every tile
-        Text {
-            text: lens.rest;
-            height: Theme.small * 1.3;
-            font-family: Theme.font;
-            font-size: Theme.small;
-            color: on ? hue : Theme.ink2;
-            horizontal-alignment: center;
-            overflow: elide;
-        }
-    }
-}
-
-// The lens tiles while the row is changing: up to five slots, each one a spring of how present its tile is. A tile that comes grows from nothing,
-// one that goes shrinks to nothing and fades, the others make room, and every tile's drawing fades in or out with it, all at once; a change
-// mid-way turns round from where it is. The tiles are as wide as the row leaves them (the same gaps and widths as the PictureSegmented's), so when
-// everything has settled the real control takes the row over with nothing to see. Before the phone has said, three dim tiles are the row.
-component LensFlow inherits Rectangle {
-    in property <[Lens]> lenses;
-    in property <int> current: -1;
-    in property <color> hue;
-    in property <string> placeholder;
-    // How many tiles the row has room for: the lenses, or three dim ones until the phone has said
-    property <int> count: lenses.length > 0 ? lenses.length : 3;
-    // What each tile was, for as long as it is leaving
-    property <Lens> h0;
-    property <Lens> h1;
-    property <Lens> h2;
-    property <Lens> h3;
-    property <Lens> h4;
-    property <[Lens]> held: [h0, h1, h2, h3, h4];
-    function keep() {
-        if (lenses.length > 0) { h0 = lenses[0]; }
-        if (lenses.length > 1) { h1 = lenses[1]; }
-        if (lenses.length > 2) { h2 = lenses[2]; }
-        if (lenses.length > 3) { h3 = lenses[3]; }
-        if (lenses.length > 4) { h4 = lenses[4]; }
-    }
-    init => { keep(); }
-    changed lenses => { keep(); }
-    s0 := Unfold { open: root.count > 0; }
-    s1 := Unfold { open: root.count > 1; }
-    s2 := Unfold { open: root.count > 2; }
-    s3 := Unfold { open: root.count > 3; }
-    s4 := Unfold { open: root.count > 4; }
-    d0 := Fade { shown: root.lenses.length > 0; }
-    d1 := Fade { shown: root.lenses.length > 1; }
-    d2 := Fade { shown: root.lenses.length > 2; }
-    d3 := Fade { shown: root.lenses.length > 3; }
-    d4 := Fade { shown: root.lenses.length > 4; }
-    property <[float]> w: [s0.value, s1.value, s2.value, s3.value, s4.value];
-    property <[float]> drawn: [d0.value, d1.value, d2.value, d3.value, d4.value];
-    // Everything has arrived where it was going: the real control can take over
-    out property <bool> settled: abs(w[0] - (count > 0 ? 1 : 0)) < 0.004 && abs(w[1] - (count > 1 ? 1 : 0)) < 0.004 && abs(w[2] - (count > 2 ? 1 : 0)) < 0.004
-        && abs(w[3] - (count > 3 ? 1 : 0)) < 0.004 && abs(w[4] - (count > 4 ? 1 : 0)) < 0.004
-        && abs(drawn[0] - (lenses.length > 0 ? 1 : 0)) < 0.004 && abs(drawn[1] - (lenses.length > 1 ? 1 : 0)) < 0.004 && abs(drawn[2] - (lenses.length > 2 ? 1 : 0)) < 0.004
-        && abs(drawn[3] - (lenses.length > 3 ? 1 : 0)) < 0.004 && abs(drawn[4] - (lenses.length > 4 ? 1 : 0)) < 0.004;
-    // The gap between a tile and the next is as present as the smaller of the two, so the row always adds up to its width
-    property <[length]> gaps: [Theme.gap * min(w[0], w[1]), Theme.gap * min(w[1], w[2]), Theme.gap * min(w[2], w[3]), Theme.gap * min(w[3], w[4])];
-    property <float> total: max(0.001, w[0] + w[1] + w[2] + w[3] + w[4]);
-    property <length> unit: (root.width - gaps[0] - gaps[1] - gaps[2] - gaps[3]) / total;
-    property <[length]> xs: [0px, unit * w[0] + gaps[0], unit * (w[0] + w[1]) + gaps[0] + gaps[1], unit * (w[0] + w[1] + w[2]) + gaps[0] + gaps[1] + gaps[2], unit * (w[0] + w[1] + w[2] + w[3]) + gaps[0] + gaps[1] + gaps[2] + gaps[3]];
-    height: Theme.u(27);
-    for k in 5: Rectangle {
-        x: xs[k];
-        width: unit * w[k];
-        height: parent.height;
-        border-radius: Theme.r-ctl;
-        clip: true;
-        background: root.current == k ? Theme.tint(root.hue) : Theme.raise.mix(Theme.trough, drawn[k]);
-        opacity: clamp(w[k] * 1.4 - 0.2, 0, 1);
-        // Only while there is something to draw (the tile has a lens, or is fading out)
-        if k < root.lenses.length || drawn[k] > 0.002: LensArt {
-            opacity: drawn[k];
-            lens: k < root.lenses.length ? root.lenses[k] : root.held[k];
-            hue: root.hue;
-            on: root.current == k;
-        }
-    }
-    // The picked one's outline while the tiles move, where the control's own will be
-    if current >= 0 && current < count: Rectangle {
-        x: xs[current];
-        width: unit * w[current];
-        height: parent.height;
-        border-radius: Theme.r-ctl;
-        border-width: Theme.stroke;
-        border-color: root.hue;
-    }
-    if lenses.length == 0 && placeholder != "": Tip { says: @tr("Lenses"); detail: placeholder; inert: true; }
-}
-
 export component CameraCard inherits Card {
     in property <bool> active;
     idle: !active;
     // A source that isn't a phone is picked: the card has nothing to do then
     in property <bool> phone-only-hidden;
-    in property <[Lens]> lenses;
+    in property <[LensTile]> lenses;
     in property <[string]> lens-names;
     in property <int> current-lens: -1;
     // Up to five tiles in a row, more lenses in rows as even as they can be
@@ -217,32 +93,31 @@ export component CameraCard inherits Card {
     enabled: active;
     visible: !phone-only-hidden;
 
-    // The lens tiles: dim ones before the phone has told its lenses, and the row changes with motion when the real count arrives or changes
-    // (LensFlow draws it while anything moves, and the PictureSegmented, the one control with one outline, takes over once it has settled).
-    // More than five lenses go in rows of the control's own, with no flow.
+    // The lens tiles: dim ones before the phone has told its lenses, and the row reflows with motion when the real count arrives or changes. Up to five
+    // tiles are the kit's LensRow; more than five lenses, or fewer columns than lenses, go in rows of a PictureSegmented (one outline that goes across and down).
     RailRow {
         has-icon: false;
         Rectangle {
-            // The tiles' rows: one, or as many as the control's own grid has
+            // The tiles' rows: one, or as many as the grid has
+            property <bool> grid: lenses.length > 5 || lens-columns < lenses.length;
             property <int> rows: grid ? floor((lenses.length + max(1, lens-columns) - 1) / max(1, lens-columns)) : 1;
             height: rows * Theme.u(27) + (rows - 1) * Theme.gap;
-            // More than five lenses, or fewer columns than lenses, are rows of the control's own: no flow
-            property <bool> grid: lenses.length > 5 || lens-columns < lenses.length;
-            property <bool> control-shown: grid || (lenses.length > 0 && flow.settled);
-            flow := LensFlow {
+            if !grid: LensRow {
                 width: parent.width;
-                visible: !control-shown;
+                label: @tr("Lens");
                 lenses: root.lenses;
-                current: current-lens;
-                hue: root.hue;
                 placeholder: lens-placeholder;
+                shortcut: "camera.lens";
+                hue: root.hue;
+                tile-height: Theme.u(27);
+                current: current-lens;
+                picked(i) => { lens-picked(i); }
             }
-            // The lenses are one choice, laid out in columns, with one outline that goes across and down between them
-            if control-shown: lens-tiles := PictureSegmented {
+            if grid: lens-tiles := PictureSegmented {
                 width: parent.width;
                 label: @tr("Lens");
                 items: lens-names;
-                disabled: [false, false, false, false, false, false, false, false, false];
+                disabled: [false, false, false, false, false, false, false, false, false, false, false, false];
                 tips: lens-names;
                 shortcut: "camera.lens";
                 columns: lens-columns;
@@ -343,7 +218,6 @@ export component CameraCard inherits Card {
             default-value: 0;
             tip: @tr("Brightness");
             tip-detail: @tr("Make the picture brighter or darker than the phone's automatic exposure.");
-            tip-hint: @tr("Double-click to reset");
             moved(v) => { ae-moved(v); }
         }
     }
@@ -385,7 +259,6 @@ export component CameraCard inherits Card {
             default-value: 5500;
             tip: @tr("Temperature");
             tip-detail: wb-enabled ? @tr("Make colours warmer or cooler.") : wb-tips[1] != "" ? wb-tips[1] : @tr("Set White balance to Manual to use this");
-            tip-hint: wb-enabled ? @tr("Double-click to reset") : "";
             moved(v) => { kelvin-moved(v); }
         }
     }
@@ -407,7 +280,6 @@ export component CameraCard inherits Card {
             default-value: 0;
             tip: @tr("Tint");
             tip-detail: wb-enabled ? @tr("Shift colours towards green or magenta.") : wb-tips[1] != "" ? wb-tips[1] : @tr("Set White balance to Manual to use this");
-            tip-hint: wb-enabled ? @tr("Double-click to reset") : "";
             moved(v) => { tint-moved(v); }
         }
     }
