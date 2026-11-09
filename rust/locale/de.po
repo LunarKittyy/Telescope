@@ -644,7 +644,7 @@ msgstr "Die aus der Vorschau gewählte Farbe. Klicken, um erneut auszuwählen."
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Klicke in der Vorschau auf den Screen hinter dir. Esc bricht ab."
 
-#: rust/crates/effects/src/chroma_key.rs:353 rust/crates/effects/src/chroma_key.rs:389 rust/crates/effects/src/desk.rs:261 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:559 rust/crates/setup/src/stats.rs:700 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:576 rust/crates/shell/src/streams.rs:1600 rust/crates/shell/src/window.rs:1568 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:353 rust/crates/effects/src/chroma_key.rs:389 rust/crates/effects/src/desk.rs:261 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:564 rust/crates/setup/src/stats.rs:704 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:238 rust/crates/shell/src/stream_flow.rs:253 rust/crates/shell/src/streams.rs:576 rust/crates/shell/src/streams.rs:1600 rust/crates/shell/src/window.rs:1569 rust/crates/shell/src/worker.rs:516 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Streamt nicht"
 
@@ -2080,7 +2080,7 @@ msgstr "Der On-Air-Webhook konnte nicht gesendet werden"
 msgid "It answered: {error}"
 msgstr "Antwort: {error}"
 
-#: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:422 rust/crates/shell/src/doc.rs:423 rust/crates/shell/src/doc.rs:851
+#: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:423 rust/crates/shell/src/doc.rs:424 rust/crates/shell/src/doc.rs:853
 msgid "Settings"
 msgstr "Einstellungen"
 
@@ -5721,36 +5721,36 @@ msgstr ""
 msgid "All streams"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:540
+#: rust/crates/setup/src/stats.rs:545
 msgid "Standard"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:541
+#: rust/crates/setup/src/stats.rs:546
 msgid "Nerd"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:542
+#: rust/crates/setup/src/stats.rs:547
 msgid "Show every number that can be measured, including what each plugin costs."
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:543 rust/crates/setup/src/stats.rs:700
+#: rust/crates/setup/src/stats.rs:548 rust/crates/setup/src/stats.rs:704
 msgid "Start a stream to see its numbers."
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:555
+#: rust/crates/setup/src/stats.rs:560
 #, python-brace-format
 msgid "Stream on virtual camera {n}"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:689 rust/crates/setup/ui/stats.slint:121
+#: rust/crates/setup/src/stats.rs:693 rust/crates/setup/ui/stats.slint:121
 msgid "Stats"
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:690
+#: rust/crates/setup/src/stats.rs:694
 msgid "Numbers about the stream as it runs: frames in and out, dropped frames and why, the link and bitrate, how long each step takes and what the app uses."
 msgstr ""
 
-#: rust/crates/setup/src/stats.rs:691
+#: rust/crates/setup/src/stats.rs:695
 msgid "Without it there's no Stats card. The stream carries on the same."
 msgstr ""
 
@@ -6294,15 +6294,15 @@ msgstr ""
 msgid "Stats view"
 msgstr ""
 
-#: rust/crates/shell/src/doc.rs:432 rust/crates/shell/src/doc.rs:433
+#: rust/crates/shell/src/doc.rs:433 rust/crates/shell/src/doc.rs:434
 msgid "Add camera"
 msgstr "Kamera hinzufügen"
 
-#: rust/crates/shell/src/doc.rs:434
+#: rust/crates/shell/src/doc.rs:435
 msgid "Stream another camera at the same time on a separate virtual camera."
 msgstr ""
 
-#: rust/crates/shell/src/doc.rs:889 rust/crates/shell/src/doc.rs:890
+#: rust/crates/shell/src/doc.rs:891 rust/crates/shell/src/doc.rs:892
 msgid "Search settings"
 msgstr "Einstellungen durchsuchen"
 
@@ -7134,7 +7134,7 @@ msgid "Could not save settings. Check disk space and permissions."
 msgstr "Einstellungen konnten nicht gespeichert werden. Prüfe Speicherplatz und Berechtigungen."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1578 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1579 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "Start"
 
@@ -7432,24 +7432,24 @@ msgstr ""
 msgid "Throughput"
 msgstr "Durchsatz"
 
-#: rust/crates/shell/src/window.rs:1577 rust/crates/shell/src/window.rs:1578
+#: rust/crates/shell/src/window.rs:1578 rust/crates/shell/src/window.rs:1579
 msgid "Start mic only"
 msgstr "Nur Mikrofon starten"
 
-#: rust/crates/shell/src/window.rs:1577
+#: rust/crates/shell/src/window.rs:1578
 msgid "Start streaming"
 msgstr "Streaming starten"
 
-#: rust/crates/shell/src/window.rs:1583
+#: rust/crates/shell/src/window.rs:1584
 msgid "Stop streaming"
 msgstr "Streaming stoppen"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1584 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/window.rs:1585 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "Stopp"
 
-#: rust/crates/shell/src/window.rs:1843 rust/crates/shell/src/worker.rs:1160
+#: rust/crates/shell/src/window.rs:1844 rust/crates/shell/src/worker.rs:1160
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Streamt {size} mit {fps} fps an {camera}"
@@ -7611,23 +7611,23 @@ msgstr "Eigenes Fenster"
 msgid "Open the preview in a separate window."
 msgstr ""
 
-#: rust/crates/shell/ui/frame.slint:151 rust/crates/shell/ui/frame.slint:157
+#: rust/crates/shell/ui/frame.slint:152 rust/crates/shell/ui/frame.slint:158
 msgid "More"
 msgstr ""
 
-#: rust/crates/shell/ui/frame.slint:198
+#: rust/crates/shell/ui/frame.slint:199
 msgid "Unpin"
 msgstr ""
 
-#: rust/crates/shell/ui/frame.slint:302 rust/crates/shell/ui/frame.slint:303
+#: rust/crates/shell/ui/frame.slint:303 rust/crates/shell/ui/frame.slint:304
 msgid "Dismiss"
 msgstr "Schließen"
 
-#: rust/crates/shell/ui/frame.slint:348
+#: rust/crates/shell/ui/frame.slint:349
 msgid "Show settings"
 msgstr ""
 
-#: rust/crates/shell/ui/frame.slint:348
+#: rust/crates/shell/ui/frame.slint:349
 msgid "Show this stream's settings in the cards."
 msgstr ""
 
