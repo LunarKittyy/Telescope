@@ -37,7 +37,7 @@ Avoid: kamu, kau, gawai, peranti, mengalirkan, aliran, bungkam, aplikasikan, pen
 | install / reinstall / uninstall | instal / instal ulang / uninstal |
 | download (verb / noun) | unduh / unduhan |
 | rename | Ganti nama |
-| remove / delete | Hapus / Hapus permanen |
+| remove / delete | Hapus / Hapus (add "permanen" only where the text stresses it cannot be undone) |
 | reset / dismiss | Reset / Tutup |
 | apply (pending changes) / apply (a preset) | Terapkan / Gunakan |
 | Restart now | Mulai ulang sekarang |
