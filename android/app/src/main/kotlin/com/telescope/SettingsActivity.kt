@@ -14,7 +14,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.text.HtmlCompat
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.button.MaterialButtonToggleGroup
 
 // The phone's Settings, like the computer's: Look (the theme, applied the moment it is picked), Updates and About
 class SettingsActivity : LookActivity() {
@@ -66,46 +65,18 @@ class SettingsActivity : LookActivity() {
         super.onStop()
     }
 
-    // One button per look, the picked one drawn like the desktop's picked segment: its colour round it and a wash of it inside
-    private fun buildLookChoices(group: MaterialButtonToggleGroup) {
-        val hue = attrColor(R.attr.tsHueStreaming)
-        val fill = android.content.res.ColorStateList(
-            arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-            intArrayOf(tint(hue), attrColor(R.attr.tsBtnFill)),
-        )
-        val edge = android.content.res.ColorStateList(
-            arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-            intArrayOf(hue, attrColor(R.attr.tsBtnEdge)),
-        )
+    // One square per look, the picked one outlined in the card's colour as on the desktop's Segmented
+    private fun buildLookChoices(group: LookSegmented) {
         val current = Look.current(this)
-        Look.entries.forEach { look ->
-            val button = MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-                id = View.generateViewId()
-                setText(look.label)
-                tag = look
-                isAllCaps = false
-                minWidth = 0
-                minimumWidth = 0
-                insetTop = 0
-                insetBottom = 0
-                minHeight = dp(44)
-                setPadding(dp(4), 0, dp(4), 0)
-                backgroundTintList = fill
-                strokeColor = edge
-                strokeWidth = dp(1)
-                setTextColor(attrColor(R.attr.tsInk))
-                rippleColor = attrColors(R.attr.tsLineStrong)
+        group.hue = attrColor(R.attr.tsHueStreaming)
+        group.setChoices(Look.entries.map { getString(it.label) }, Look.entries.indexOf(current))
+        group.onPicked = { i ->
+            val look = Look.entries[i]
+            if (look != Look.current(this)) {
+                Look.save(this, look)
+                // The outline travels to the new square first, then the new theme reaches every colour at once (the screens behind rebuild when they come back)
+                group.postDelayed({ if (!isFinishing) recreate() }, if (Motion.on()) 220L else 0L)
             }
-            group.addView(button, android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            if (look == current) group.check(button.id)
-        }
-        group.addOnButtonCheckedListener { g, id, checked ->
-            if (!checked) return@addOnButtonCheckedListener
-            val look = g.findViewById<View>(id).tag as Look
-            if (look == Look.current(this)) return@addOnButtonCheckedListener
-            Look.save(this, look)
-            // The new theme reaches every colour at once, and the screens behind this one rebuild when they come back
-            recreate()
         }
     }
 

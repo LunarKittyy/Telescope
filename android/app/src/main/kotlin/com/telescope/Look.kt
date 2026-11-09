@@ -28,7 +28,7 @@ enum class Look(val key: String, @StyleRes val theme: Int, @StringRes val label:
     val light get() = this == LIGHT
 
     companion object {
-        // What a new install wears, as on the desktop
+        // What an install that never picked a look wears, as on the desktop (no look saved is Dark; the phone never had a classic_theme to carry over)
         val DEFAULT = DARK
         private const val KEY = "look"
 
@@ -91,4 +91,45 @@ fun Context.lookDialog(): MaterialAlertDialogBuilder {
         strokeWidth = attrPx(R.attr.tsPopOutlineW).toFloat()
     }
     return MaterialAlertDialogBuilder(this).setBackground(background)
+}
+
+// The desktop's held(hue): more of the card's colour over the card, for a pressed active control
+@ColorInt
+fun Context.held(@ColorInt hue: Int): Int = ColorUtils.blendARGB(attrColor(R.attr.tsCard), hue, 0.34f)
+
+// Shows the dialog with its buttons as the desktop's: Cancel and the like raised, the action (primary, or danger for a removal) last
+fun MaterialAlertDialogBuilder.showLook(action: LookButton.Role = LookButton.Role.PRIMARY): androidx.appcompat.app.AlertDialog {
+    val dialog = create()
+    dialog.setOnShowListener {
+        val ctx = dialog.context
+        val d = ctx.resources.displayMetrics.density
+        val accent = ctx.attrColor(R.attr.tsAccent)
+        listOf(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE, androidx.appcompat.app.AlertDialog.BUTTON_NEGATIVE, androidx.appcompat.app.AlertDialog.BUTTON_NEUTRAL)
+            .mapNotNull { dialog.getButton(it) as? com.google.android.material.button.MaterialButton }
+            .forEach { button ->
+                val positive = button === dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
+                button.apply {
+                    isAllCaps = false
+                    typeface = androidx.core.content.res.ResourcesCompat.getFont(ctx, R.font.ibm_plex_sans_semibold)
+                    textSize = 14f
+                    cornerRadius = (8 * d).toInt()
+                    insetTop = (2 * d).toInt()
+                    insetBottom = (2 * d).toInt()
+                    minHeight = (48 * d).toInt()
+                    minWidth = (80 * d).toInt()
+                    stateListAnimator = null
+                    dressAs(if (positive) action else LookButton.Role.PLAIN, accent)
+                }
+            }
+        // The row of buttons sits as far in from the dialog's edge as the text does, and the buttons a card's gap apart
+        (dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)?.parent as? android.view.ViewGroup)?.apply {
+            setPaddingRelative((20 * d).toInt(), (8 * d).toInt(), (20 * d).toInt(), (18 * d).toInt())
+            for (i in 0 until childCount) (getChildAt(i).layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.apply {
+                marginStart = (6 * d).toInt()
+                marginEnd = 0
+            }
+        }
+    }
+    dialog.show()
+    return dialog
 }

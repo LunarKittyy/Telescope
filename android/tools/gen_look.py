@@ -28,19 +28,6 @@ SKIP = {"mono", "mono-size", "font"}
 
 # Only on the phone, written like theme.slint's own tokens (they may use any token above). Each is "colour" or "length"
 PHONE = [
-    # A card's edge: Classic keeps the hairline the phone always had, OLED the outline, the other looks have no edge (a fill tells the layers apart)
-    ("card-edge", "colour", "pick(transparent, line, card-outline, transparent)"),
-    ("card-edge-w", "length", "pick(0, 1, 1, 0)"),
-    # Ordinary buttons: the raised fill (Classic keeps the lighter one it always had), the outline OLED draws, the hairline Classic keeps
-    ("btn-fill", "colour", "pick(raise, hover, raise, raise)"),
-    ("btn-edge", "colour", "pick(transparent, line-strong, outline, transparent)"),
-    ("btn-edge-w", "length", "pick(0, 1, outline-w, 0)"),
-    ("btn-dis-edge", "colour", "pick(transparent, line, dis-outline, transparent)"),
-    # The Stop button, until the buttons are restyled: Classic keeps the red it always had
-    ("stop-btn", "colour", "pick(stop-fill, #b04a46, stop-fill, stop-fill)"),
-    ("stop-btn-edge", "colour", "pick(stop-edge, #b04a46, stop-edge, stop-edge)"),
-    ("stop-btn-edge-w", "length", "pick(stop-edge-w, 1, stop-edge-w, stop-edge-w)"),
-    ("stop-btn-ink", "colour", "pick(stop-ink, #ffffff, stop-ink, stop-ink)"),
     # Chips over the camera preview: the chrome colour, a little see-through, with a faint edge
     ("overlay", "colour", "chrome.mix(transparent, 0.702)"),
     ("overlay-edge", "colour", "pick(#ffffff33, #ffffff33, #ffffff33, #00000033)"),
