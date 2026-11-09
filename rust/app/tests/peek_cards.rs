@@ -324,7 +324,7 @@ fn the_framing_slider_gets_a_picture_bubble_only_while_the_preview_cant_show_the
     w.hold("Framing");
     assert!(w.up() && w.peek_kind() == "picture");
     assert!(scheduled(&w, "peek"), "the plugin makes pictures while it is up");
-    assert_eq!(w.peek_picture(), (peek::WIDTH as u32, peek::HEIGHT as u32), "and the bubble holds one");
+    assert_eq!(w.peek_picture(), (peek::SCENE_WIDTH as u32, peek::SCENE_HEIGHT as u32), "and the bubble holds one");
     assert_eq!(w.peek_numbers().len(), 4, "with the part of it to show");
     assert_eq!(w.card_height(), height, "the card did not move");
     w.let_go();
@@ -637,4 +637,31 @@ fn speed_film() {
     }
     stack(&[&before[0], &before[1]]).save_png(&dir.join("before.png")).unwrap();
     stack(&[&after[0], &after[1]]).save_png(&dir.join("after.png")).unwrap();
+}
+
+/// The Framing bubble held along the slider, from the tightest to the widest, each alone and all in one strip, at twice the size:
+/// SHOTS=dir cargo test --test peek_cards framing_levels
+#[test]
+fn framing_levels() {
+    let Ok(dir) = std::env::var("SHOTS") else { return };
+    let dir = PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut single = Vec::new();
+    for (n, along) in [0.0f32, 0.2, 0.4, 0.6, 0.8, 1.0].into_iter().enumerate() {
+        let mut w = framing(150.0, false);
+        w.hold_at("Framing", along);
+        let shot = offscreen::draw(w.w.window(), WIDTH, HEIGHT, 2.0).expect("a picture");
+        // the bubble's outline is the accent colour above the card's header; the picture sits 20 pixels inside it
+        let accent = |x: usize, y: usize| {
+            let p = &shot.rgba[(y * shot.width as usize + x) * 4..];
+            p[1] as i32 > p[0] as i32 + 50 && p[1] as i32 > p[2] as i32 + 30
+        };
+        let on: Vec<(usize, usize)> = (100..300).flat_map(|y| (0..shot.width as usize).map(move |x| (x, y))).filter(|&(x, y)| accent(x, y)).collect();
+        let (x0, y0) = (on.iter().map(|p| p.0).min().unwrap(), on.iter().map(|p| p.1).min().unwrap());
+        let one = tile(std::slice::from_ref(&shot), (x0 + 20, y0 + 20, 352, 198), 1);
+        one.save_png(&dir.join(format!("framing-{n}.png"))).unwrap();
+        single.push(one);
+        w.let_go();
+    }
+    tile(&single, (0, 0, 352, 198), 3).save_png(&dir.join("framing-levels.png")).unwrap();
 }

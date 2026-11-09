@@ -5765,6 +5765,8 @@ dependencies = [
  "telescope-ui-kit",
  "ureq",
  "windows",
+ "zune-core",
+ "zune-jpeg",
 ]
 
 [[package]]

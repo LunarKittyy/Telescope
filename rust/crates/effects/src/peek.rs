@@ -1,11 +1,15 @@
-//! The pictures the held bubbles show (the kit's `Peek`): a stand-in scene with a person in it and where a framing window sits in a picture.
-//! The bubble crops the picture itself, so what is made here is the scene once and a live frame shrunk, only while a bubble is up.
+//! The pictures the held bubbles show (the kit's `Peek`): a photo of someone standing for the Framing bubble, a drawn sample for the blur's, and where a framing window sits in a picture.
+//! The bubble crops the picture itself, so what is made here is the photo decoded once and a live frame shrunk, only while a bubble is up.
 
 use crate::cpu::Rgb;
 use crate::imgops::Gray;
 use std::sync::OnceLock;
 use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::pose::Person;
+use zune_core::bytestream::ZCursor;
+use zune_core::colorspace::ColorSpace;
+use zune_core::options::DecoderOptions;
+use zune_jpeg::JpegDecoder;
 
 /// The bubble's picture is 176 x 99 logical pixels: this is twice that, so a sharp screen has something to show.
 pub const WIDTH: usize = 352;
@@ -16,7 +20,10 @@ pub const PICTURE_MS: u64 = 125;
 /// has to be more than a few of those pixels wide to blur the way a real one does. It is made once, the first time a bubble needs it.
 pub const BLUR_WIDTH: usize = 960;
 pub const BLUR_HEIGHT: usize = 540;
-/// The shape of the stand-in scene.
+/// The Framing bubble's photo is twice the bubble's size, so a crop of it is still sharp on a sharp screen.
+pub const SCENE_WIDTH: usize = 2 * WIDTH;
+pub const SCENE_HEIGHT: usize = 2 * HEIGHT;
+/// The shape of the Framing photo and of the blur's drawn sample.
 pub const SAMPLE_ASPECT: f64 = WIDTH as f64 / HEIGHT as f64;
 
 fn mix(a: [f64; 3], b: [f64; 3], t: f64) -> [f64; 3] {
@@ -40,12 +47,10 @@ struct Figure {
     ankles_half: f64,
 }
 
-/// Standing a few steps back, so every Framing level (head, chest, waist, the whole body) has something different to show.
-const STANDING: Figure = Figure { head: (0.5, 0.21), head_r: 0.065, shoulders_y: 0.33, shoulders_half: 0.0675, hips_y: 0.66, hips_half: 0.04, ankles_y: 0.93, ankles_half: 0.035 };
 /// Close to the camera as on a call, which is what the blur sample shows: a head and shoulders that fill a good part of the picture.
 const PORTRAIT: Figure = Figure { head: (0.5, 0.34), head_r: 0.13, shoulders_y: 0.58, shoulders_half: 0.22, hips_y: 1.4, hips_half: 0.2, ankles_y: 2.0, ankles_half: 0.12 };
 
-/// A scene with something behind a person to blur or frame, and the person's mask: a wall with shelves and things standing on them, someone in front.
+/// A scene with something behind a person to blur, and the person's mask: a wall with shelves and things standing on them, someone in front.
 fn draw_scene(f: &Figure, w: usize, h: usize) -> (Rgb, Gray) {
     let mut rgb = Rgb::new(w, h);
     let mut mask = Gray::new(w, h);
@@ -95,9 +100,17 @@ fn draw_scene(f: &Figure, w: usize, h: usize) -> (Rgb, Gray) {
     (rgb, mask.blur(1.2))
 }
 
-fn scene() -> &'static (Rgb, Gray) {
-    static SCENE: OnceLock<(Rgb, Gray)> = OnceLock::new();
-    SCENE.get_or_init(|| draw_scene(&STANDING, WIDTH, HEIGHT))
+/// Someone standing a few steps back (704 x 396, with some ground under the feet), so every Framing level from head and shoulders to the whole body has something different to show.
+const SCENE_JPEG: &[u8] = include_bytes!("../assets/framing-scene.jpg");
+
+fn scene() -> &'static Rgb {
+    static SCENE: OnceLock<Rgb> = OnceLock::new();
+    SCENE.get_or_init(|| {
+        let mut decoder = JpegDecoder::new_with_options(ZCursor::new(SCENE_JPEG), DecoderOptions::default().jpeg_set_out_colorspace(ColorSpace::RGB));
+        let data = decoder.decode().expect("the bundled framing photo decodes");
+        let (w, h) = decoder.dimensions().expect("a decoded photo has a size");
+        Rgb { w, h, data }
+    })
 }
 
 fn portrait() -> &'static (Rgb, Gray) {
@@ -105,20 +118,17 @@ fn portrait() -> &'static (Rgb, Gray) {
     SCENE.get_or_init(|| draw_scene(&PORTRAIT, BLUR_WIDTH, BLUR_HEIGHT))
 }
 
-/// The person the standing scene draws, in the picture as shown: where the framing code looks for them.
+/// The person in the Framing photo as the app's own pose model finds them in it, as fractions of the picture: where the framing code looks for them.
+const PHOTO_POINTS: [(&str, f64, f64); 17] = [
+    ("nose", 0.5011, 0.0890), ("left_eye", 0.5080, 0.0744), ("right_eye", 0.4914, 0.0776), ("left_ear", 0.5143, 0.0902), ("right_ear", 0.4836, 0.0943),
+    ("left_shoulder", 0.5490, 0.2045), ("right_shoulder", 0.4531, 0.2106), ("left_elbow", 0.5638, 0.3510), ("right_elbow", 0.4398, 0.3564),
+    ("left_wrist", 0.5667, 0.4649), ("right_wrist", 0.4384, 0.4624), ("left_hip", 0.5298, 0.4703), ("right_hip", 0.4720, 0.4696),
+    ("left_knee", 0.5265, 0.6787), ("right_knee", 0.4694, 0.6762), ("left_ankle", 0.5243, 0.8700), ("right_ankle", 0.4720, 0.8689),
+];
+
+/// The person the Framing photo shows, in the picture as shown.
 pub fn sample_person() -> Person {
-    let f = &STANDING;
-    Person::new([
-        ("nose", f.head.0, f.head.1 + 0.012, 1.0),
-        ("left_eye", f.head.0 - 0.009, f.head.1 - 0.012, 1.0),
-        ("right_eye", f.head.0 + 0.009, f.head.1 - 0.012, 1.0),
-        ("left_shoulder", f.head.0 + f.shoulders_half, f.shoulders_y, 1.0),
-        ("right_shoulder", f.head.0 - f.shoulders_half, f.shoulders_y, 1.0),
-        ("left_hip", f.head.0 + f.hips_half, f.hips_y, 1.0),
-        ("right_hip", f.head.0 - f.hips_half, f.hips_y, 1.0),
-        ("left_ankle", f.head.0 + f.ankles_half, f.ankles_y, 1.0),
-        ("right_ankle", f.head.0 - f.ankles_half, f.ankles_y, 1.0),
-    ])
+    Person::new(PHOTO_POINTS.iter().map(|&(name, x, y)| (name, x, y, 1.0)))
 }
 
 /// The blur's sample at its own size (BLUR_WIDTH x BLUR_HEIGHT): the picture and the person's mask, someone close to the camera.
@@ -174,10 +184,10 @@ pub fn clip(window: (f64, f64, f64)) -> [f64; 4] {
     [cx - half, cy - half, size, size]
 }
 
-/// The stand-in scene as a picture the card can show, made once: the bubble crops it with `clip` and never needs another.
+/// The Framing photo as a picture the card can show, decoded once: the bubble crops it with `clip` and never needs another.
 pub fn scene_picture() -> &'static Frame {
     static PICTURE: OnceLock<Frame> = OnceLock::new();
-    PICTURE.get_or_init(|| rgba(&scene().0))
+    PICTURE.get_or_init(|| rgba(scene()))
 }
 
 /// The largest a live frame is handed to the bubble: twice the box, so a crop of it is still sharp on a sharp screen.
