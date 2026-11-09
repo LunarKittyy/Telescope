@@ -136,6 +136,8 @@
     <!-- Status card. Keep the ● (streaming) or ○ (not streaming) at the start. -->
     <string name="stop_streaming">Stop streaming</string>
     <string name="status_title">Status</string>
+    <!-- The fold on the main screen that holds Pair and Network while streaming -->
+    <string name="more">More</string>
     <string name="status_not_streaming">Not streaming</string>
     <string name="status_starting">Starting…</string>
     <string name="status_streaming">Streaming</string>

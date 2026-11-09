@@ -286,7 +286,7 @@ class CameraStreamService : Service() {
             // progress, so the bar is one full segment in the app's colour
             builder.setStyle(NotificationCompat.ProgressStyle().setStyledByProgress(false)
                 .setProgressSegments(listOf(NotificationCompat.ProgressStyle.Segment(100)
-                    .setColor(context.lookColor(R.attr.tsFill))))
+                    .setColor(context.lookColor(R.attr.tsAccent))))
                 .setProgress(100))
             builder.setContentTitle(context.getString(R.string.notif_streaming_title))
             // The chip's text; without it the chip shows the app's name
@@ -1300,7 +1300,7 @@ class CameraStreamService : Service() {
         return asLiveUpdate(this, NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Telescope").setContentText(streamingText(this, cameraOff))
             .setSmallIcon(R.drawable.ic_notification)
-            .setColor(lookColor(R.attr.tsFill))
+            .setColor(lookColor(R.attr.tsAccent))
             .setColorized(false)
             .setContentIntent(pi).setOngoing(true)).build()
     }

@@ -28,7 +28,10 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
 // The computer's notes on a black screen, the line being read right under the front camera; the stream runs on in the service
-class NotesActivity : AppCompatActivity(), NotesBoard.Listener {
+class NotesActivity : LookActivity(), NotesBoard.Listener {
+
+    // Black stays black in every look; only the close tile follows the look, and Light borrows Dark's over black
+    override fun dressedIn(saved: Look) = saved.overVideo
 
     private lateinit var root: FrameLayout
     private lateinit var column: FrameLayout
@@ -94,7 +97,7 @@ class NotesActivity : AppCompatActivity(), NotesBoard.Listener {
         column = TallColumn(this)
         text = TextView(this).apply {
             setTextColor(TEXT_COLOUR)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            typeface = androidx.core.content.res.ResourcesCompat.getFont(this@NotesActivity, R.font.ibm_plex_sans_medium)
             setLineSpacing(0f, 1.12f)
             includeFontPadding = false
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES

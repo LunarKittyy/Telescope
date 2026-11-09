@@ -3,4 +3,7 @@
     <!-- The launcher icon's background: an icon can't follow the look, so it keeps Classic's ground. Every other colour
          is a theme attribute (look_attrs.xml), generated from the desktop's theme.slint by tools/gen_look.py. -->
     <color name="launcher_background">#0f1216</color>
+    <!-- The scanner's laser line and result dots wear the accent of the dark looks (the camera picture behind is dark in every look, so Light's deeper accent would be lost) -->
+    <color name="zxing_viewfinder_laser">#aa9cf5</color>
+    <color name="zxing_possible_result_points">#aa9cf5</color>
 </resources>

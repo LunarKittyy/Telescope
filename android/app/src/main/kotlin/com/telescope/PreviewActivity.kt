@@ -49,6 +49,9 @@ private enum class AspectOption(val label: String, val ratio: Float) {
 
 class PreviewActivity : LookActivity() {
 
+    // Controls over live video keep a see-through dark tile in every look, so Light borrows Dark's
+    override fun dressedIn(saved: Look) = saved.overVideo
+
     private lateinit var textureView: TextureView
     private lateinit var btnClose: ImageButton
     private lateinit var lensContainer: LinearLayout
@@ -479,23 +482,27 @@ class PreviewActivity : LookActivity() {
                 minimumWidth = dp(76)
                 setPadding(dp(14), dp(6), dp(14), dp(6))
                 setOnClickListener { onSelect(lens.id) }
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(58))
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(58), if (entries.size >= 3) 1f else 0f)
                     .apply { marginEnd = dp(8) }
             }
             tile.addView(TextView(this).apply {
                 text = lens.label.first
+                gravity = Gravity.CENTER
                 textSize = 16f
                 typeface = androidx.core.content.res.ResourcesCompat.getFont(this@PreviewActivity, R.font.ibm_plex_sans_semibold)
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             })
             if (lens.label.second.isNotEmpty()) tile.addView(TextView(this).apply {
                 text = lens.label.second
+                gravity = Gravity.CENTER
                 textSize = 11f
                 setTextColor(attrColor(R.attr.tsInk2))
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             })
             lensContainer.addView(tile)
         }
+        // Gaps between tiles only, so the row's two ends sit on the screen's margins
+        (lensContainer.getChildAt(lensContainer.childCount - 1)?.layoutParams as? LinearLayout.LayoutParams)?.marginEnd = 0
         refreshPillSelection()
     }
 
@@ -514,8 +521,9 @@ class PreviewActivity : LookActivity() {
                     attrColor(R.attr.tsOverlay)) else attrColor(R.attr.tsOverlay))
                 setStroke(((if (selected) 2 else 1) * density).toInt(), if (selected) hue else attrColor(R.attr.tsOverlayEdge))
             }
-            (v.getChildAt(0) as? TextView)?.setTextColor(
-                if (selected) hue else attrColor(R.attr.tsInk))
+            // Both lines wear the hue when picked, as the desktop's tile does
+            (v.getChildAt(0) as? TextView)?.setTextColor(if (selected) hue else attrColor(R.attr.tsInk))
+            (v.getChildAt(1) as? TextView)?.setTextColor(if (selected) hue else attrColor(R.attr.tsInk2))
         }
     }
 
