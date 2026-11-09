@@ -22,6 +22,7 @@ pub mod preview;
 pub mod plugins_tab;
 pub mod scenes;
 mod screen;
+pub mod same;
 pub mod search;
 pub mod profiles;
 pub mod snapshot;

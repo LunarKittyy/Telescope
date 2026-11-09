@@ -531,7 +531,7 @@ impl Settings {
         let Some((_, _, id)) = self.pieces.iter().find(|p| p.0 == plugin && p.1 == ui) else { return };
         for (k, v) in props.as_object().into_iter().flatten() {
             let name = format!("{id}-{k}");
-            let _ = self.ui.set_property(&name, to_property(&self.ui, &name, v));
+            let _ = crate::same::set(&self.ui, &name, to_property(&self.ui, &name, v));
         }
     }
 
@@ -734,7 +734,7 @@ impl Settings {
         }
         let (hits, partial) = search_ex(&self.entries.borrow(), text, 12);
         let rows: Vec<SValue> = hits.iter().map(|e| SValue::Struct(Struct::from_iter([("name".to_string(), s(&e.name)), ("path".to_string(), s(&e.path()))]))).collect();
-        let _ = self.ui.set_property("results", model(rows));
+        let _ = crate::same::set(&self.ui, "results", model(rows));
         let _ = self.ui.set_property("result", SValue::Number(0.0));
         let _ = self.ui.set_property("results-note", s(&if partial && !hits.is_empty() { tr("Nothing matches every word. These match some of them.") } else { String::new() }));
         let _ = self.ui.set_property("results-empty", s(&if hits.is_empty() {
@@ -813,7 +813,7 @@ impl Settings {
                 ("remove-pack".to_string(), SValue::Bool(g.remove_pack)), ("status".to_string(), s(&g.status)),
             ]))
         }).collect();
-        let _ = self.ui.set_property("groups", model(groups));
+        let _ = crate::same::set(&self.ui, "groups", model(groups));
         let _ = self.ui.set_property("narrowed", SValue::Bool(!query.trim().is_empty() || filter != Filter::All));
         let _ = self.ui.set_property("empty-note", s(&Panel::empty_note(&query, filter)));
         let _ = self.ui.set_property("all-on-enabled", SValue::Bool(panel.all_on_enabled));
@@ -826,7 +826,7 @@ impl Settings {
             update_row("auto", tr("Install updates without asking"), tr("Installs new versions of the plugins you switched on and switches them on again."),
                        &tr("Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."), true, u.auto_on, u.auto_enabled),
         ]).collect();
-        let _ = self.ui.set_property("update-rows", model(rows));
+        let _ = crate::same::set(&self.ui, "update-rows", model(rows));
         let _ = self.plugins_tab;
     }
 

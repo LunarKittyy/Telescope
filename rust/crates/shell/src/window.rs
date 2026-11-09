@@ -1139,7 +1139,7 @@ impl Window {
 
     fn set_window_props(ui: &ComponentInstance, plugin: &str, id: &str, props: &Value) {
         for (k, v) in props.as_object().into_iter().flatten() {
-            if let Err(e) = ui.set_property(k, to_property(ui, k, v)) {
+            if let Err(e) = crate::same::set(ui, k, to_property(ui, k, v)) {
                 log::warn!("{plugin} set {k} on its window {id}: {e:?}");
             }
         }
@@ -1158,7 +1158,7 @@ impl Window {
         };
         for (k, v) in props.as_object().into_iter().flatten() {
             let name = format!("{}-{k}", r.id);
-            if let Err(e) = self.ui.set_property(&name, to_property(&self.ui, &name, v)) {
+            if let Err(e) = crate::same::set(&self.ui, &name, to_property(&self.ui, &name, v)) {
                 log::warn!("{plugin} set {k} on its {ui}: {e:?}");
             }
         }
@@ -1368,7 +1368,7 @@ impl Window {
                 ("actions".to_string(), SValue::Model(ModelRc::new(VecModel::from(actions)))),
             ]))
         }).collect();
-        let _ = self.ui.set_property("banners", SValue::Model(ModelRc::new(VecModel::from(rows))));
+        let _ = crate::same::set(&self.ui, "banners", SValue::Model(ModelRc::new(VecModel::from(rows))));
     }
 
     pub(crate) fn set(&self, name: &str, text: impl Into<SharedString>) {

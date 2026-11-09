@@ -256,7 +256,7 @@ impl Window {
                 ("id".to_string(), SValue::String(id.into())),
                 ("name".to_string(), SValue::String(name.into())),
             ]))).collect();
-            let _ = self.ui.set_property("add-choices", SValue::Model(ModelRc::new(VecModel::from(rows))));
+            let _ = crate::same::set(&self.ui, "add-choices", SValue::Model(ModelRc::new(VecModel::from(rows))));
         }
     }
 
@@ -963,7 +963,7 @@ impl Window {
         };
         let ids: Vec<String> = entries.iter().map(|(src, ..)| src.id_str().to_string()).collect();
         self.streams.thumbs.borrow_mut().retain(|id, _| ids.contains(id));
-        let _ = self.ui.set_property("tiles", SValue::Model(ModelRc::new(VecModel::from(rows))));
+        let _ = crate::same::set(&self.ui, "tiles", SValue::Model(ModelRc::new(VecModel::from(rows))));
     }
 
     /// _update_thumbnails: each tile gets its stream's newest frame, small, while there are tiles and someone can see them.
