@@ -184,7 +184,7 @@ fn fs_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
     } else if (shader_type_int != SHADER_TYPE_Stencil && shader_type_int != SHADER_TYPE_FilterImage) {
         // Not stencil fill
         // Combine alpha
-        result *= strokeAlpha * scissor;
+        result *= edgeCoverage(strokeAlpha, result) * scissor;
     }
 
     return result;
@@ -248,6 +248,16 @@ fn strokeMask(vertex: VertexOutput, params: Params) -> f32 {
     // Using this smoothstep preduces maybe better results when combined with fringe_width of 2, but it may look blurrier
     // maybe this should be controlled via flag
     //return smoothstep(0.0, 1.0, (1.0-abs(vertex.ftcoord.x*2.0-1.0))*params.stroke_mult) * smoothstep(0.0, 1.0, vertex.ftcoord.y);
+}
+
+// Telescope patch: edge coverage blends in sRGB, so a half covered edge pixel of a light colour on black comes out far too dim; raise partial coverage of non-dark colours (see PATCH.txt)
+const EDGE_GAMMA_BOOST: f32 = 0.9;
+fn edgeCoverage(coverage: f32, colour: vec4<f32>) -> f32 {
+    if (coverage <= 0.0 || coverage >= 1.0 || colour.a <= 0.0) {
+        return coverage;
+    }
+    let luma = dot(colour.rgb / colour.a, vec3<f32>(0.2126, 0.7152, 0.0722));
+    return pow(coverage, 1.0 / (1.0 + EDGE_GAMMA_BOOST * smoothstep(0.08, 0.3, luma)));
 }
 
 // Interleaved gradient noise dither (see the GLSL shader / issue femtovg/femtovg#239):

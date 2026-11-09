@@ -74,6 +74,16 @@ float strokeMask() {
 }
 #endif
 
+// Telescope patch: edge coverage blends in sRGB, so a half covered edge pixel of a light colour on black comes out far too dim; raise partial coverage of non-dark colours (see PATCH.txt)
+#define EDGE_GAMMA_BOOST 0.9
+float edgeCoverage(float coverage, vec4 colour) {
+    if (coverage <= 0.0 || coverage >= 1.0 || colour.a <= 0.0) {
+        return coverage;
+    }
+    float luma = dot(colour.rgb / colour.a, vec3(0.2126, 0.7152, 0.0722));
+    return pow(coverage, 1.0 / (1.0 + EDGE_GAMMA_BOOST * smoothstep(0.08, 0.3, luma)));
+}
+
 // Interleaved gradient noise (Jimenez 2014): a cheap, deterministic, screen-space
 // ordered dither. Offsetting the gradient colour by up to +/-0.5 of an 8-bit step
 // before the framebuffer quantizes it spreads the rounding spatially, breaking up
@@ -264,7 +274,7 @@ void main(void) {
 #if SELECT_SHADER != SHADER_TYPE_Stencil && SELECT_SHADER != SHADER_TYPE_FilterImage && SELECT_SHADER != SHADER_TYPE_FilterImageColorMatrix
         // Not stencil fill
         // Combine alpha
-        result *= strokeAlpha * scissor;
+        result *= edgeCoverage(strokeAlpha, result) * scissor;
 #endif
 #endif
 

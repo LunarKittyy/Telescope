@@ -1,9 +1,16 @@
-femtovg 0.27.0 from crates.io with one change, in src/renderer/wgpu.rs (search for "Telescope patch"): the pipeline cache keeps
+femtovg 0.27.0 from crates.io with two changes. The first is in src/renderer/wgpu.rs (search for "Telescope patch"): the pipeline cache keeps
 pipelines a flush didn't use until it holds more than 128, instead of dropping them after every flush.
 
 Why: a Slint frame flushes several times, and each flush dropped the pipelines the other flushes used, so every frame compiled
 shaders again (naga to SPIR-V and a Vulkan pipeline each). Measured on a 1388x900 window: 8.3 ms a frame for a still window and
 17.5 ms for an animating slider, 1.9 ms and 2.4 ms with the patch.
 
-femtovg 0.28 fixes this (a least recently used cache), but Slint 1.18 asks for femtovg 0.27. Delete this folder and the [patch] in
-Cargo.toml when Slint moves to femtovg 0.28 or later. Examples, tests and the book were left out of the copy.
+femtovg 0.28 fixes this (a least recently used cache), but Slint 1.18 asks for femtovg 0.27. Drop the first change when Slint moves to femtovg 0.28 or later (the folder and the [patch] in Cargo.toml stay while the second one is wanted). Examples, tests and the book were left out of the copy.
+
+Second change, in src/renderer/wgpu/shader.wgsl and src/renderer/opengl/main-fs.glsl (search for "Telescope patch"): partial edge coverage is raised to the power 1 / (1 + 0.9 * w),
+where w goes from 0 to 1 as the colour being drawn (unpremultiplied, taken from the paint) goes from luma 0.08 to 0.3.
+
+Why: femtovg blends edge coverage in sRGB, so a half covered pixel of a light or mid grey on black comes out at about a fifth of the brightness a half covered pixel should have. Straight 1 px
+outlines land on whole pixels at full colour, so rounded corners and diagonals looked thinner and dimmer. Coverage of exactly 0 and 1 is returned as it is, so pixel-aligned edges and fill
+interiors are identical, and opacity, gradients, images and glyph masks are not touched. Colours below luma 0.08 (dark text and fills) are not raised, because dark on light already blends heavy.
+The constants were tuned on the OLED look until a card's rounded corner carried as much light as the same length of straight edge (0.85 before, 1.00 after).
