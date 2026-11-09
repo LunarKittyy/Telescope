@@ -42,6 +42,9 @@ export global Motion {
     out property <duration> outline-out: 240ms;
     out property <duration> unfold-open: 170ms;
     out property <duration> unfold-close: 130ms;
+    // The lens row's tiles making room for one another: slow enough to follow with the eye (the pace of the Name tag's position move), shutting a touch quicker than opening
+    out property <duration> reflow-open: 400ms;
+    out property <duration> reflow-close: 340ms;
 
     // The curve every colour change takes: critically damped, so a colour never passes either end
     out property <easing> tone: spring(0.0);
@@ -198,6 +201,9 @@ export component Unfold {
     out property <string> control-kind: "helper";
     in property <bool> open;
     in property <bool> snap;
+    // The periods of the opening and the shutting; a fold of a card's rows keeps the usual, a row of tiles that reflow asks for the slower
+    in property <duration> open-for: Motion.unfold-open;
+    in property <duration> close-for: Motion.unfold-close;
     out property <float> value: clamp(bar.border-width / 1px, 0, 1);
     // See Settle.sync
     public function sync() { value; }
@@ -207,7 +213,7 @@ export component Unfold {
         height: 0px;
         border-width: root.open ? 1px : 0px;
         animate border-width {
-            duration: snap || !Motion.moves ? 0ms : root.open ? Motion.unfold-open : Motion.unfold-close;
+            duration: snap || !Motion.moves ? 0ms : root.open ? root.open-for : root.close-for;
             easing: spring(0.0);
         }
     }
