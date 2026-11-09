@@ -466,16 +466,20 @@ impl WaitScreenPlugin {
 
     fn props(&self, host: &dyn Host, pick_error: &str, unreadable: bool, preview: (u32, u32)) -> Value {
         let (w, h) = self.size(host);
-        let note = if !pick_error.is_empty() {
-            tr("Couldn't use that image: {problem}. Keeping the current wait screen.").field("problem", pick_error)
+        // A short line under the picture, with the sentence as its tooltip
+        let (note, detail, kind) = if !pick_error.is_empty() {
+            (tr("Couldn't use that image"), tr("{problem}. Keeping the current wait screen.").field("problem", pick_error), "status_err")
         } else if unreadable {
-            tr("Couldn't read that image, so the default screen is showing. Choose another one.")
+            (tr("Couldn't read that image"), tr("The default screen is showing. Choose another one."), "status_err")
         } else {
-            tr("Shown at {size}, the size the stream opens the camera at. Still images and GIFs work; transparent parts show the dark background.")
-                .field("size", format!("{w} \u{d7} {h}"))
+            (
+                tr("Shown at {size}").field("size", format!("{w} \u{d7} {h}")),
+                tr("The size the stream opens the camera at. Still images and GIFs work; transparent parts show the dark background."),
+                "status_dim",
+            )
         };
         json!({
-            "preview-width": preview.0, "preview-height": preview.1, "picture-note": note,
+            "preview-width": preview.0, "preview-height": preview.1, "picture-note": note, "picture-detail": detail, "picture-kind": kind,
             "default-enabled": self.image_path.is_some(), "mirror-checked": self.mirror,
         })
     }

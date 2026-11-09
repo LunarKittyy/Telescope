@@ -1,7 +1,7 @@
 // What this crate's cards are built from. The plugins join this file and their card into one source (Rust's concat!),
 // so it holds the only import line.
 
-import { Theme, Icons, Icon, FocusRing, Button, Card, SearchWords, Section, SectionHeading, Switch, SwitchTile, ToggleTile, RailRow, Slider, Segmented, ChoiceField, TextField, NumberField, KeyFocus, Tip, TipBody, Reveal } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, Button, Card, SearchWords, Section, SectionHeading, Switch, SwitchTile, ToggleTile, RailRow, Slider, Segmented, ChoiceField, TextField, NumberField, KeyFocus, Tip, TipBody, Reveal, LinkText, IconButton, SwitchRow, Unfolding, UnfoldGroup, Status as KitStatus } from "@ui-kit/ui-kit.slint";
 
 global Status {
     public pure function color(kind: string) -> color {
@@ -20,181 +20,82 @@ component Note inherits Text {
     line-height-factor: Theme.line-factor(self.font-size);
 }
 
-// A button in a setting_row: as wide as its words, plain until it's the primary one
-component StripButton inherits Button {
-    font-weight: self.role == "primary" ? 600 : 400;
-    gap: 6px;
-}
-
-// setting_row's raised strip: what goes in it is the top row (StripTop) and anything below it
-component Strip inherits Rectangle {
-    in property <string> title;
-    in property <string> sub;
-    // strip.setToolTip
-    in property <string> tip;
-    in property <string> tip-detail;
-    in property <string> keywords;
-    // A row of its card, on the card itself: a raised box with a line round it inside a card stacked two backgrounds and hid the switch
-    min-height: Theme.row + Theme.u(8);
-    accessible-role: groupbox;
-    accessible-id: "setting";
-    accessible-label: title;
-    accessible-description: sub;
-    if keywords != "": SearchWords { words: keywords; }
-    Tip { says: root.tip; detail: root.tip-detail; inert: true; }
-    VerticalLayout {
-        padding-top: Theme.u(4);
-        padding-bottom: Theme.u(4);
-        spacing: Theme.u(4);
-        @children
-    }
-}
-
-// setting_row's top: the name with its line under it (in a status colour) on the left, the controls on the right
-component StripTop inherits HorizontalLayout {
-    in property <string> title;
-    in property <string> sub;
-    in property <string> sub-kind;
-    in property <bool> enabled: true;
-    // A row with a control is as tall as Qt's 32px controls, a heading over segments as tall as its text
-    in property <bool> bare;
-    min-height: bare ? 0px : 32px;
-    spacing: 12px;
-    VerticalLayout {
-        horizontal-stretch: 1;
-        spacing: 1px;
-        alignment: center;
-        Text {
-            // A QLabel's 17px line, a pixel under Slint's
-            max-height: bare ? 17px : 100000px;
-            text: title;
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: enabled ? Theme.ink : Theme.dis;
-            wrap: word-wrap;
-            line-height-factor: Theme.line-factor(self.font-size);
-            // The strip is named by it already, and so is a switch in it
-            accessible-role: none;
-            // A line that only explains goes in a tooltip; one in a status colour is a status and stays
-            Tip { says: sub-kind == "" ? sub : ""; inert: true; }
-        }
-        Text {
-            visible: sub != "" && sub-kind != "";
-            height: sub != "" && sub-kind != "" ? max(self.preferred-height, 16px) : 0px;
-            text: sub;
-            font-family: Theme.font;
-            font-size: Theme.small;
-            color: !enabled ? Theme.dis : sub-kind == "" ? Theme.faint : Status.color(sub-kind);
-            wrap: word-wrap;
-            line-height-factor: Theme.line-factor(self.font-size);
+// A line of status that is a row of its own, unfolding in and out with its words (never `if text != ""`), and keeping its last words
+// while it shuts. Put it in an UnfoldGroup after the row it hangs from. `text` is a plugin's own line, `kind` its own status kind.
+component StatusRow inherits Unfolding {
+    in property <string> text;
+    in property <string> kind: "status_dim";
+    // The sentence that goes with it (a line that can be long gives its words here)
+    in property <string> detail;
+    property <string> held-text;
+    property <string> held-kind;
+    property <string> held-detail;
+    function keep() {
+        if (text != "") {
+            held-text = text;
+            held-kind = kind;
+            held-detail = detail;
         }
     }
-    VerticalLayout {
-        alignment: center;
-        HorizontalLayout {
-            spacing: 8px;
-            alignment: end;
-            @children
+    init => { keep(); }
+    changed text => { keep(); }
+    changed kind => { keep(); }
+    changed detail => { keep(); }
+    open: text != "";
+    RailRow {
+        has-icon: false;
+        KitStatus {
+            text: held-text;
+            detail: held-detail;
+            kind: held-kind == "status_ok" ? "ok" : held-kind == "status_warn" ? "warn" : held-kind == "status_err" ? "err" : "";
+            horizontal: "end";
         }
     }
 }
 
-// CommandBox: a command to run by hand, monospaced, with a button that copies it. Hidden while there's none.
-component CommandBox inherits HorizontalLayout {
+// A command to run by hand, in monospace in a recessed well with a button that copies it. A row that unfolds in and out with the command.
+component CommandRow inherits Unfolding {
     in property <string> command;
     callback copy(string);
-    spacing: 8px;
-    Text {
-        horizontal-stretch: 1;
-        text: command;
-        font-family: Theme.mono;
-        font-size: Theme.mono-size;
-        color: Theme.ink;
-        wrap: word-wrap;
-        vertical-alignment: center;
-    }
-    VerticalLayout {
-        alignment: start;
-        Button {
-            height: 30px;
-            padding-x: 11px;
-            gap: 6px;
-            text: @tr("Copy");
-            has-icon: true;
-            icon: Icons.copy;
-            icon-tint: Theme.ink2;
-            tip: @tr("Copy");
-            tip-detail: @tr("Copy the command to paste in a terminal.");
-            clicked => { root.copy(root.command); }
-        }
-    }
-}
-
-// NoScrollSpinBox#chip_spin: an 80x32 number box with its suffix and no arrows drawn, stepped by the keys or the wheel. What's
-// typed is said on Enter or when the box is left, and the box then shows its value again whatever was made of it (NumberField).
-component SpinChip inherits Rectangle {
-    in property <string> value;
-    in property <string> label;
-    in property <bool> enabled: true;
-    in property <string> tip;
-    in property <string> tip-detail;
-    callback committed(string);
-    callback step(int);
-    changed value => { input.text = root.value; }
-    function commit() {
-        let typed = input.text;
-        if (typed != root.value) {
-            root.committed(typed);
-        }
-        input.text = root.value;
-    }
-    width: 80px;
-    height: 32px;
-    border-radius: 7px;
-    border-width: 1px;
-    background: Theme.ground;
-    border-color: !enabled ? Theme.line : input.has-focus ? Theme.accent : touch.has-hover ? Theme.line-hover : Theme.line-strong;
-    forward-focus: input;
-    touch := TouchArea {
-        enabled: root.enabled;
-        mouse-cursor: MouseCursor.text;
-        clicked => { input.focus(); }
-        scroll-event(e) => {
-            if (e.delta-y > 0) { root.step(1); return accept; }
-            if (e.delta-y < 0) { root.step(-1); return accept; }
-            reject
-        }
-    }
-    Tip { says: root.tip; detail: root.tip-detail; hover: touch.has-hover; inert: !root.enabled; }
-    input := TextInput {
-        x: 11px;
-        width: parent.width - 22px;
-        height: parent.height;
-        text: root.value;
-        enabled: root.enabled;
-        font-family: Theme.font;
-        font-size: Theme.body;
-        font-weight: 600;
-        color: !root.enabled ? Theme.dis : Theme.ink;
-        vertical-alignment: center;
-        single-line: true;
-        accessible-label: root.label;
-        accessible-description: root.tip-detail != "" ? root.tip-detail : root.tip;
-        accepted => {
-            root.commit();
-            if (!KeyFocus.keyboard) {
-                self.clear-focus();
-                KeyFocus.given-back += 1;
+    property <string> held;
+    init => { if (command != "") { held = command; } }
+    changed command => { if (command != "") { held = command; } }
+    open: command != "";
+    RailRow {
+        has-icon: false;
+        HorizontalLayout {
+            spacing: Theme.gap;
+            Rectangle {
+                horizontal-stretch: 1;
+                min-width: 0px;
+                min-height: Theme.row;
+                background: Theme.trough;
+                border-radius: Theme.r-ctl;
+                accessible-role: text;
+                accessible-label: held;
+                VerticalLayout {
+                    padding: Theme.u(4);
+                    Text {
+                        text: held;
+                        font-family: Theme.mono;
+                        font-size: Theme.mono-size;
+                        color: Theme.ink;
+                        wrap: word-wrap;
+                        vertical-alignment: center;
+                        accessible-role: none;
+                    }
+                }
             }
-        }
-        changed has-focus => {
-            if (self.has-focus) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } else { root.commit(); }
-        }
-        key-pressed(e) => {
-            if (e.text == Key.UpArrow) { root.step(1); return accept; }
-            if (e.text == Key.DownArrow) { root.step(-1); return accept; }
-            if (e.text == Key.Escape) { self.text = root.value; return accept; }
-            reject
+            VerticalLayout {
+                alignment: start;
+                IconButton {
+                    icon: Icons.copy;
+                    label: @tr("Copy");
+                    tip: @tr("Copy");
+                    tip-detail: @tr("Copy the command to paste in a terminal.");
+                    clicked => { root.copy(root.held); }
+                }
+            }
         }
     }
 }

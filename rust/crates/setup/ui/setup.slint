@@ -1,6 +1,30 @@
 // Setup's cards in Settings. Joined after parts.slint, which has the
 // imports. Texts with blanks, and the ones that change with what the system says, come filled from Rust.
 
+// The cameras Add camera set up, for streaming several cameras at once: there only while there are any, hanging from the row above
+component ExtraCameraRows inherits UnfoldGroup {
+    in property <color> hue;
+    in property <bool> shown;
+    in property <string> text;
+    in property <string> kind;
+    in property <bool> button;
+    in property <bool> enabled;
+    in property <string> tip;
+    callback removed;
+    Unfolding {
+        open: shown;
+        RailRow {
+            icon: Icons.camera;
+            label: @tr("Extra cameras");
+            named: true;
+            hue: root.hue;
+            keywords: @tr("search" => "multiple second cameras add camera several streams remove virtual cameras");
+            if button: Button { text: @tr("Remove"); tip: @tr("Remove"); tip-detail: root.tip; enabled: root.enabled; clicked => { root.removed(); } }
+        }
+    }
+    StatusRow { text: shown ? root.text : ""; kind: root.kind; detail: root.text; }
+}
+
 // Virtual camera, on Virtual camera & phone: the kernel module on Linux, the driver and adb on Windows, and extra cameras
 export component VirtualCameraSettings inherits Card {
     in property <bool> linux: true;
@@ -47,90 +71,98 @@ export component VirtualCameraSettings inherits Card {
     icon: Icons.video;
     hue: Theme.plugin-hue("streaming");
 
-    if linux: Strip {
-        title: @tr("Kernel module");
-        keywords: @tr("search" => "v4l2loopback linux virtual camera driver load unload check status not ready /dev/video missing fix modprobe");
-        sub: v4l-text;
-        tip: @tr("Kernel module");
-        tip-detail: @tr("Only needed when the status isn't Ready.");
-        StripTop {
-            title: @tr("Kernel module");
-            sub: v4l-text;
-            sub-kind: v4l-kind;
-            StripButton { text: @tr("Check"); clicked => { root.check-clicked(); } }
-            StripButton { text: @tr("Load"); tip: @tr("Load"); tip-detail: load-tip; clicked => { root.load-clicked(); } }
-            StripButton { text: @tr("Unload"); tip: @tr("Unload"); tip-detail: load-tip; clicked => { root.unload-clicked(); } }
-        }
-        if v4l-command != "": CommandBox { command: v4l-command; copy(c) => { root.copy(c); } }
-    }
-    if linux: Strip {
-        title: @tr("Load when the computer starts");
-        keywords: @tr("search" => "boot startup reboot persist permanent every start modprobe v4l2loopback driver survive restart");
-        sub: persist-text;
-        StripTop {
-            title: @tr("Load when the computer starts");
-            sub: persist-text;
-            sub-kind: persist-kind;
-            Switch {
-                hue: root.hue;
-                checked <=> root.persist-checked;
-                enabled: root.persist-enabled;
-                label: @tr("Load when the computer starts");
-                tip: @tr("Load when the computer starts");
-                tip-detail: root.persist-tip;
-                toggled(on) => { root.persist-toggled(on); }
+    if linux: UnfoldGroup {
+        RailRow {
+            icon: Icons.chip;
+            label: @tr("Kernel module");
+            tip-detail: @tr("Only needed when the status isn't Ready.");
+            named: true;
+            hue: root.hue;
+            keywords: @tr("search" => "v4l2loopback linux virtual camera driver load unload check status not ready /dev/video missing fix modprobe");
+            HorizontalLayout {
+                spacing: Theme.gap;
+                alignment: end;
+                Button { text: @tr("Check"); clicked => { root.check-clicked(); } }
+                Button { text: @tr("Load"); tip: @tr("Load"); tip-detail: load-tip; clicked => { root.load-clicked(); } }
+                Button { text: @tr("Unload"); tip: @tr("Unload"); tip-detail: load-tip; clicked => { root.unload-clicked(); } }
             }
         }
-        if persist-command != "": CommandBox { command: persist-command; copy(c) => { root.copy(c); } }
+        StatusRow { text: v4l-text; kind: v4l-kind; detail: v4l-text; }
+        CommandRow { command: v4l-command; copy(c) => { root.copy(c); } }
     }
-    if !linux: Strip {
-        title: @tr("Driver");
-        keywords: @tr("search" => "unitycapture unity video capture windows virtual camera install reinstall rename register missing not showing obs zoom");
-        sub: uc-text;
-        StripTop {
-            title: @tr("Driver");
-            sub: uc-text;
-            sub-kind: uc-kind;
-            StripButton { text: uc-button; tip: uc-tip != "" ? @tr("Driver") : ""; tip-detail: uc-tip; role: uc-primary ? "primary" : ""; enabled: uc-enabled; clicked => { root.uc-clicked(); } }
+    if linux: UnfoldGroup {
+        SwitchRow {
+            icon: Icons.bolt;
+            label: @tr("Load when the computer starts");
+            tip: @tr("Load when the computer starts");
+            tip-detail: root.persist-tip;
+            keywords: @tr("search" => "boot startup reboot persist permanent every start modprobe v4l2loopback driver survive restart");
+            hue: root.hue;
+            checked <=> root.persist-checked;
+            enabled: root.persist-enabled;
+            toggled(on) => { root.persist-toggled(on); }
+        }
+        StatusRow { text: persist-text; kind: persist-kind; detail: persist-text; }
+        CommandRow { command: persist-command; copy(c) => { root.copy(c); } }
+        ExtraCameraRows {
+            hue: root.hue;
+            shown: extras-shown;
+            text: extras-text;
+            kind: extras-kind;
+            button: extras-button;
+            enabled: extras-enabled;
+            tip: extras-tip;
+            removed => { root.extras-clicked(); }
         }
     }
-    if !linux: Strip {
-        title: "ADB";
-        keywords: @tr("search" => "adb android debug bridge usb pairing download get platform-tools google own cable");
-        sub: adb-text;
-        StripTop {
-            title: "ADB";
-            sub: adb-text;
-            sub-kind: adb-kind;
-            // Not bundled (Google's licence doesn't allow passing it on), so it's fetched from Google when asked, or one got
-            // another way is picked
-            if adb-row: StripButton {
-                text: adb-button;
-                role: "primary";
-                enabled: adb-enabled;
-                tip: @tr("Download");
-                tip-detail: @tr("Download adb from Google for pairing and installing over USB.");
-                clicked => { root.adb-clicked(); }
-            }
-            if adb-row: StripButton {
-                text: @tr("Use my own adb");
-                enabled: adb-enabled;
-                tip: @tr("Use my own");
-                tip-detail: @tr("Pick an adb.exe or platform-tools zip you already have.");
-                clicked => { root.own-adb-clicked(); }
+    if !linux: UnfoldGroup {
+        RailRow {
+            icon: Icons.chip;
+            label: @tr("Driver");
+            named: true;
+            hue: root.hue;
+            keywords: @tr("search" => "unitycapture unity video capture windows virtual camera install reinstall rename register missing not showing obs zoom");
+            Button { text: uc-button; tip: uc-tip != "" ? @tr("Driver") : ""; tip-detail: uc-tip; role: uc-primary ? "primary" : ""; hue: root.hue; enabled: uc-enabled; clicked => { root.uc-clicked(); } }
+        }
+        StatusRow { text: uc-text; kind: uc-kind; detail: uc-text; }
+    }
+    // Not bundled (Google's licence doesn't allow passing it on), so it's fetched from Google when asked, or one got another way is picked
+    if !linux: UnfoldGroup {
+        RailRow {
+            icon: Icons.usb;
+            label: "ADB";
+            named: true;
+            hue: root.hue;
+            keywords: @tr("search" => "adb android debug bridge usb pairing download get platform-tools google own cable");
+            HorizontalLayout {
+                spacing: Theme.gap;
+                alignment: end;
+                if adb-row: Button {
+                    text: adb-button;
+                    enabled: adb-enabled;
+                    tip: @tr("Download");
+                    tip-detail: @tr("Download adb from Google for pairing and installing over USB.");
+                    clicked => { root.adb-clicked(); }
+                }
+                if adb-row: Button {
+                    text: @tr("Use my own adb");
+                    enabled: adb-enabled;
+                    tip: @tr("Use my own");
+                    tip-detail: @tr("Pick an adb.exe or platform-tools zip you already have.");
+                    clicked => { root.own-adb-clicked(); }
+                }
             }
         }
-    }
-    // The ones Add camera set up, for streaming several cameras at once
-    if extras-shown: Strip {
-        title: @tr("Extra cameras");
-        keywords: @tr("search" => "multiple second cameras add camera several streams remove virtual cameras");
-        sub: extras-text;
-        StripTop {
-            title: @tr("Extra cameras");
-            sub: extras-text;
-            sub-kind: extras-kind;
-            if extras-button: StripButton { text: @tr("Remove"); tip: @tr("Remove"); tip-detail: extras-tip; enabled: extras-enabled; clicked => { root.extras-clicked(); } }
+        StatusRow { text: adb-text; kind: adb-kind; detail: adb-text; }
+        ExtraCameraRows {
+            hue: root.hue;
+            shown: extras-shown;
+            text: extras-text;
+            kind: extras-kind;
+            button: extras-button;
+            enabled: extras-enabled;
+            tip: extras-tip;
+            removed => { root.extras-clicked(); }
         }
     }
 }
@@ -170,103 +202,105 @@ export component VideoSettings inherits Card {
     icon: Icons.chip;
     hue: Theme.plugin-hue("streaming");
 
-    Strip {
-        title: @tr("Hardware acceleration");
-        keywords: @tr("search" => "hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu processor laptop 4k");
-        sub: hw-line;
-        StripTop {
-            title: @tr("Hardware acceleration");
-            sub: hw-line;
-            Switch {
-                hue: root.hue;
-                checked <=> root.hw-checked;
-                enabled: root.hw-enabled;
-                label: @tr("Hardware acceleration");
-                tip: @tr("Hardware acceleration");
-                tip-detail: @tr("Decode the Light format on the graphics card from the next stream on. If the card fails the processor takes over until you restart Telescope.");
-                toggled(on) => { root.hw-toggled(on); }
-            }
+    UnfoldGroup {
+        SwitchRow {
+            icon: Icons.chip;
+            label: @tr("Hardware acceleration");
+            tip: @tr("Hardware acceleration");
+            tip-detail: @tr("Decode the Light format on the graphics card from the next stream on. If the card fails the processor takes over until you restart Telescope.");
+            keywords: @tr("search" => "hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu processor laptop 4k");
+            hue: root.hue;
+            checked <=> root.hw-checked;
+            enabled: root.hw-enabled;
+            toggled(on) => { root.hw-toggled(on); }
         }
+        StatusRow { text: hw-line; kind: "status_dim"; detail: hw-line; }
     }
-    Strip {
-        title: @tr("Power-saving effects");
+    SwitchRow {
+        icon: Icons.battery;
+        label: @tr("Power-saving effects");
+        tip: @tr("Power-saving effects");
+        tip-detail: @tr("Use less processor and battery while Background or Auto framing is on. They follow quick movement a little later.");
         keywords: @tr("search" => "battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality");
-        sub: @tr("Background and Auto framing update less often");
-        StripTop {
-            title: @tr("Power-saving effects");
-            sub: @tr("Background and Auto framing update less often");
-            Switch {
-                hue: root.hue;
-                checked <=> root.saving-checked;
-                label: @tr("Power-saving effects");
-                tip: @tr("Power-saving effects");
-                tip-detail: @tr("Use less processor and battery while Background or Auto framing is on. They follow quick movement a little later.");
-                toggled(on) => { root.saving-toggled(on); }
-            }
-        }
+        hue: root.hue;
+        checked <=> root.saving-checked;
+        toggled(on) => { root.saving-toggled(on); }
     }
-    Strip {
-        title: @tr("Max zoom");
+    RailRow {
+        icon: Icons.zoom;
+        label: @tr("Max zoom");
+        tip-detail: @tr("How far the Zoom slider goes. Zoom beyond the phone's own range is cropped on this computer.");
+        named: true;
+        hue: root.hue;
         keywords: @tr("search" => "zoom limit magnify telephoto digital crop 10x 30x slider range");
-        StripTop {
-            title: @tr("Max zoom");
-            SpinChip {
-                value: root.zoom-text;
-                label: @tr("Max zoom");
-                tip: @tr("Max zoom");
-                tip-detail: @tr("How far the Zoom slider goes. Zoom beyond the phone's own range is cropped on this computer.");
-                committed(t) => { root.zoom-committed(t); }
-                step(d) => { root.zoom-step(d); }
-            }
+        // Saved once it's typed (on Enter or when the box is left), not at every digit
+        NumberField {
+            width: Theme.u(45);
+            label: @tr("Max zoom");
+            value: root.zoom-text;
+            committed(t) => { root.zoom-committed(t); }
+            step(d) => { root.zoom-step(-d); }
         }
     }
-    Strip {
-        title: @tr("Canvas size");
-        keywords: @tr("search" => "resolution output size 1080p 720p 4k portrait landscape aspect ratio custom width height pixels apply reload");
-        StripTop {
-            title: @tr("Canvas size");
-            // The row fits the dialog; the list opens as wide as it needs
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.aspect;
+            label: @tr("Canvas size");
+            named: true;
+            hue: root.hue;
+            keywords: @tr("search" => "resolution output size 1080p 720p 4k portrait landscape aspect ratio custom width height pixels apply reload");
+            // The list opens as wide as it needs
             ChoiceField {
-                width: 244px;
+                width: Theme.u(130);
                 compact: true;
-                caption: @tr("Canvas size");
+                name: @tr("Canvas size");
                 items: root.canvas-items;
                 current <=> root.canvas-current;
                 picked(i) => { root.canvas-current = i; root.canvas-picked(i); }
             }
         }
-        if custom-shown: HorizontalLayout {
-            spacing: 8px;
-            NumberField {
-                horizontal-stretch: 1;
-                label: @tr("Canvas size");
-                value: root.custom-w-text;
-                committed(text) => { root.custom-committed("w", text); }
-                step(d) => { root.custom-step("w", -d); }
-            }
-            Text { text: "×"; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; }
-            NumberField {
-                horizontal-stretch: 1;
-                label: @tr("Canvas size");
-                value: root.custom-h-text;
-                committed(text) => { root.custom-committed("h", text); }
-                step(d) => { root.custom-step("h", -d); }
-            }
-        }
-        HorizontalLayout {
-            spacing: 8px;
-            Note {
-                horizontal-stretch: 1;
-                visible: canvas-status-shown;
-                text: canvas-status;
-                kind: canvas-status-kind;
-            }
-            VerticalLayout {
-                alignment: start;
-                StripButton { text: apply-text; tip: apply-text; tip-detail: apply-tip; enabled: apply-enabled; clicked => { root.apply-clicked(); } }
+        Unfolding {
+            open: custom-shown;
+            RailRow {
+                has-icon: false;
+                HorizontalLayout {
+                    spacing: Theme.gap;
+                    alignment: end;
+                    NumberField {
+                        width: Theme.u(45);
+                        label: @tr("Canvas size");
+                        value: root.custom-w-text;
+                        committed(text) => { root.custom-committed("w", text); }
+                        step(d) => { root.custom-step("w", -d); }
+                    }
+                    Text { text: "×"; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; }
+                    NumberField {
+                        width: Theme.u(45);
+                        label: @tr("Canvas size");
+                        value: root.custom-h-text;
+                        committed(text) => { root.custom-committed("h", text); }
+                        step(d) => { root.custom-step("h", -d); }
+                    }
+                }
             }
         }
-        if canvas-command != "": CommandBox { command: canvas-command; copy(c) => { root.copy(c); } }
+        Unfolding {
+            open: true;
+            RailRow {
+                has-icon: false;
+                HorizontalLayout {
+                    spacing: Theme.gap;
+                    KitStatus {
+                        text: canvas-status-shown ? canvas-status : "";
+                        detail: canvas-status-shown ? canvas-status : "";
+                        kind: canvas-status-kind == "status_ok" ? "ok" : canvas-status-kind == "status_warn" ? "warn" : canvas-status-kind == "status_err" ? "err" : "";
+                        horizontal: "end";
+                    }
+                    Button { text: apply-text; tip: apply-text; tip-detail: apply-tip; enabled: apply-enabled; clicked => { root.apply-clicked(); } }
+                }
+            }
+        }
+        CommandRow { command: canvas-command; copy(c) => { root.copy(c); } }
     }
 }
 
@@ -285,35 +319,31 @@ export component MicrophoneLimits inherits Card {
     icon: Icons.mic;
     hue: Theme.plugin-hue("sound");
 
-    Strip {
-        title: @tr("Max gain");
-        keywords: @tr("search" => "microphone volume loudness boost amplify quiet decibel db slider range");
-        tip: @tr("Max gain");
+    RailRow {
+        icon: Icons.volume;
+        label: @tr("Max gain");
         tip-detail: @tr("How far the Gain slider goes. Less range gives finer steps and more range helps a quiet phone.");
-        StripTop { title: @tr("Max gain"); bare: true; }
+        named: true;
+        hue: root.hue;
+        keywords: @tr("search" => "microphone volume loudness boost amplify quiet decibel db slider range");
         Segmented {
+            width: Theme.u(130);
             hue: root.hue;
-            margin: 0px;
             label: @tr("Max gain");
             items: root.gain-items;
             current <=> root.gain-current;
             picked(i) => { root.gain-current = i; root.gain-picked(i); }
         }
     }
-    Strip {
-        title: @tr("Limiter");
+    SwitchRow {
+        icon: Icons.level;
+        label: @tr("Limiter");
+        tip: @tr("Limiter");
+        tip-detail: @tr("Keeps loud sounds from clipping");
         keywords: @tr("search" => "microphone audio compressor distortion clipping loud peaks sound");
-        sub: @tr("Keeps loud sounds from clipping");
-        StripTop {
-            title: @tr("Limiter");
-            sub: @tr("Keeps loud sounds from clipping");
-            Switch {
-                hue: root.hue;
-                checked <=> root.limiter-checked;
-                label: @tr("Limiter");
-                toggled(on) => { root.limiter-toggled(on); }
-            }
-        }
+        hue: root.hue;
+        checked <=> root.limiter-checked;
+        toggled(on) => { root.limiter-toggled(on); }
     }
 }
 
@@ -336,15 +366,14 @@ export component PhoneAppSettings inherits Card {
     icon: Icons.phone;
     hue: Theme.plugin-hue("streaming");
 
-    Strip {
-        title: "Telescope.apk";
-        keywords: @tr("search" => "phone app install usb android reinstall newer version sideload cable");
-        sub: apk-text;
-        StripTop {
-            title: "Telescope.apk";
-            sub: apk-text;
-            sub-kind: apk-kind;
-            StripButton {
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.phone;
+            label: "Telescope.apk";
+            named: true;
+            hue: root.hue;
+            keywords: @tr("search" => "phone app install usb android reinstall newer version sideload cable");
+            Button {
                 text: apk-button;
                 has-icon: true;
                 icon: Icons.download;
@@ -355,28 +384,36 @@ export component PhoneAppSettings inherits Card {
                 clicked => { root.apk-clicked(); }
             }
         }
+        StatusRow { text: apk-text; kind: apk-kind; detail: apk-text; }
         // QInputDialog.getItem's question, asked in the card
-        if pick-shown: VerticalLayout {
-            spacing: 8px;
-            Text {
-                text: @tr("Select device");
-                font-family: Theme.font;
-                font-size: Theme.body;
-                font-weight: 600;
-                color: Theme.ink;
-            }
-            Note { text: @tr("More than one phone is plugged in. Which one should get the app?"); }
-            HorizontalLayout {
-                spacing: 8px;
+        Unfolding {
+            open: pick-shown;
+            RailRow {
+                icon: Icons.usb;
+                label: @tr("Select device");
+                tip-detail: @tr("More than one phone is plugged in. Which one should get the app?");
+                named: true;
+                hue: root.hue;
                 ChoiceField {
+                    width: Theme.u(130);
                     compact: true;
-                    caption: @tr("Select device");
+                    name: @tr("Select device");
                     items: root.pick-items;
                     current <=> root.pick-current;
                     picked(i) => { root.pick-current = i; }
                 }
-                Button { text: "OK"; role: "primary"; clicked => { root.pick-done(root.pick-current); } }
-                Button { text: "Cancel"; clicked => { root.pick-cancelled(); } }
+            }
+        }
+        Unfolding {
+            open: pick-shown;
+            RailRow {
+                has-icon: false;
+                HorizontalLayout {
+                    spacing: Theme.gap;
+                    alignment: end;
+                    Button { text: @tr("Cancel"); clicked => { root.pick-cancelled(); } }
+                    Button { text: @tr("OK"); role: "primary"; hue: root.hue; clicked => { root.pick-done(root.pick-current); } }
+                }
             }
         }
     }
@@ -401,13 +438,22 @@ export component LookSettings inherits Card {
     keywords: @tr("search" => "appearance theme colors colours interface");
     icon: Icons.sliders;
     hue: Theme.plugin-hue("streaming");
+    // Fixing a text or adding a language is the card's one action
+    has-action: true;
+    action-icon: Icons.pencil;
+    action-text: @tr("Help translate");
+    action-label: @tr("Help translate");
+    action-tip-detail: @tr("Fix a text or add a language, no coding needed.");
+    action => { root.translate-clicked(); }
 
-    Strip {
-        title: @tr("Theme");
+    RailRow {
+        icon: Icons.sun;
+        label: @tr("Theme");
+        named: true;
+        hue: root.hue;
         keywords: @tr("search" => "theme classic dark blue appearance look old");
-        StripTop { title: @tr("Theme"); bare: true; }
         Segmented {
-            margin: 0px;
+            width: Theme.u(90);
             hue: root.hue;
             label: @tr("Theme");
             items: [@tr("Default"), @tr("Classic")];
@@ -415,75 +461,63 @@ export component LookSettings inherits Card {
             picked(i) => { root.theme-current = i; root.theme-picked(i); }
         }
     }
-    Strip {
-        title: @tr("Card colours");
-        keywords: @tr("search" => "color colour theme appearance monochrome colourful purple hue accent look");
+    RailRow {
+        icon: Icons.colour;
+        label: @tr("Card colours");
         tip: @tr("Card colours");
         tip-detail: @tr("Give every card in the main window a different colour.");
-        StripTop { title: @tr("Card colours"); bare: true; }
+        named: true;
+        hue: root.hue;
+        keywords: @tr("search" => "color colour theme appearance monochrome colourful purple hue accent look");
         Segmented {
+            width: Theme.u(110);
             hue: root.hue;
-            margin: 0px;
             label: @tr("Card colours");
-            // Qt has this on the Colourful segment alone; the kit's segments have no tooltips of their own
             items: [@tr("Colourful"), @tr("Monochrome")];
             current <=> root.hues-current;
             picked(i) => { root.hues-current = i; root.hues-picked(i); }
         }
     }
-    Strip {
-        title: @tr("Language");
-        keywords: @tr("search" => "language translation translate locale");
-        StripTop {
-            title: @tr("Language");
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.chat;
+            label: @tr("Language");
+            named: true;
+            hue: root.hue;
+            keywords: @tr("search" => "language translation translate locale");
             ChoiceField {
-                width: 221px;
+                width: Theme.u(130);
                 compact: true;
-                caption: @tr("Language");
+                name: @tr("Language");
                 items: root.lang-items;
                 current <=> root.lang-current;
                 picked(i) => { root.lang-current = i; root.lang-picked(i); }
             }
         }
-        // A first draft says so; any other language asks for help, both beside the same button
-        HorizontalLayout {
-            spacing: 8px;
-            Rectangle { horizontal-stretch: 1; }
-            StripButton {
-                y: (parent.height - self.height) / 2;
-                height: 30px;
-                padding-x: 11px;
-                gap: 6px;
-                text: @tr("Help translate");
-                has-icon: true;
-                icon: Icons.pencil;
-                icon-tint: Theme.ink2;
-                tip: @tr("Help translate");
-                tip-detail: @tr("Fix a text or add a language, no coding needed.");
-                clicked => { root.translate-clicked(); }
-            }
-        }
-        if lang-restart: HorizontalLayout {
-            spacing: 8px;
-            Note { horizontal-stretch: 1; kind: "status_warn"; text: @tr("Restart Telescope to switch to it."); vertical-alignment: center; }
-            StripButton {
-                y: (parent.height - self.height) / 2;
-                height: 30px;
-                padding-x: 11px;
-                gap: 6px;
-                text: @tr("Restart now");
-                has-icon: true;
-                icon: Icons.reset;
-                icon-tint: Theme.ink2;
-                tip: @tr("Restart");
-                tip-detail: @tr("Restart Telescope in the language you picked.");
-                clicked => { root.restart-clicked(); }
+        // Switching asks for a restart: the word and its button, there only after another language is picked
+        Unfolding {
+            open: lang-restart;
+            RailRow {
+                has-icon: false;
+                HorizontalLayout {
+                    spacing: Theme.gap;
+                    KitStatus { text: @tr("Restart to switch"); detail: @tr("Restart Telescope to switch to it."); kind: "warn"; horizontal: "end"; }
+                    Button {
+                        text: @tr("Restart now");
+                        has-icon: true;
+                        icon: Icons.reset;
+                        icon-tint: Theme.ink2;
+                        tip: @tr("Restart");
+                        tip-detail: @tr("Restart Telescope in the language you picked.");
+                        clicked => { root.restart-clicked(); }
+                    }
+                }
             }
         }
     }
 }
 
-// About, on Updates & About: the version, bug reports and where to find help
+// About, on Updates & About: who made it, the log, diagnostics, bug reports and where to find help. One row each, the button at the right edge
 export component AboutSettings inherits Card {
     in property <string> version-text;
     in property <string> made-before;
@@ -501,58 +535,62 @@ export component AboutSettings inherits Card {
     tip: @tr("Version, log, bug reports and help.");
     keywords: @tr("search" => "info version help support credits");
     icon: Icons.help;
-    hue: Theme.plugin-hue("streaming");
+    hue: Theme.plugin-hue("extras");
 
-    Strip {
-        title: "Telescope";
+    RailRow {
+        icon: Icons.person;
+        label: "Telescope";
+        tip: "Telescope";
+        tip-detail: version-text;
+        named: true;
+        hue: root.hue;
         keywords: @tr("search" => "about author credits made by version number build");
-        sub: version-text;
-        StripTop {
-            title: "Telescope";
-            sub: version-text;
-            // A credit, not a Tab stop
-            HorizontalLayout {
-                alignment: end;
-                Text { text: made-before; font-family: Theme.font; font-size: Theme.body; color: Theme.ink; vertical-alignment: center; }
-                Text {
-                    text: made-link;
-                    font-family: Theme.font;
-                    font-size: Theme.body;
-                    color: Theme.accent;
-                    vertical-alignment: center;
-                    TouchArea { mouse-cursor: MouseCursor.pointer; clicked => { root.author-clicked(); } }
-                    // Qt underlines a link
-                    Rectangle { y: parent.height - 1px; height: 1px; background: Theme.accent; }
-                }
-                Text { text: made-after; font-family: Theme.font; font-size: Theme.body; color: Theme.ink; vertical-alignment: center; }
+        HorizontalLayout {
+            spacing: 0px;
+            alignment: end;
+            Text { text: made-before; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; }
+            VerticalLayout {
+                alignment: center;
+                LinkText { text: made-link; url: ""; font-size: Theme.body; horizontal-stretch: 0; opened(u) => { root.author-clicked(); } }
             }
+            if made-after != "": Text { text: made-after; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; }
         }
     }
-    Strip {
-        title: @tr("Bug reports");
+    if log-shown: RailRow {
+        icon: Icons.notes;
+        label: @tr("Log");
+        named: true;
+        hue: root.hue;
+        keywords: @tr("search" => "log file open show temp folder");
+        Button { text: @tr("Open"); tip: @tr("Open log"); tip-detail: @tr("Open the full log. It's kept in the temp folder, which the system clears."); clicked => { root.log-clicked(); } }
+    }
+    RailRow {
+        icon: Icons.copy;
+        label: @tr("Diagnostics");
+        named: true;
+        hue: root.hue;
+        keywords: @tr("search" => "copy diagnostics info system details");
+        Button {
+            text: diag-text;
+            tip: @tr("Copy diagnostics");
+            tip-detail: @tr("Copy info for a bug report without pairing tokens, addresses or file paths.");
+            clicked => { root.diag-clicked(); }
+        }
+    }
+    RailRow {
+        icon: Icons.alert;
+        label: @tr("Bug reports");
+        named: true;
+        hue: root.hue;
         keywords: @tr("search" => "bug report diagnostics logs debug support problem issue help copy log file");
-        StripTop {
-            title: @tr("Bug reports");
-            // Natural widths: three buttons sharing the row equally squeeze the text next to them onto extra lines
-            if log-shown: StripButton { text: @tr("Open log"); tip: @tr("Open log"); tip-detail: @tr("Open the full log. It's kept in the temp folder, which the system clears."); clicked => { root.log-clicked(); } }
-            StripButton {
-                text: diag-text;
-                has-icon: true;
-                icon: Icons.copy;
-                icon-tint: Theme.ink2;
-                tip: @tr("Copy diagnostics");
-                tip-detail: @tr("Copy info for a bug report without pairing tokens, addresses or file paths.");
-                clicked => { root.diag-clicked(); }
-            }
-            StripButton { text: @tr("Report a bug"); tip: @tr("Report a bug"); tip-detail: @tr("Copy the diagnostics and open the bug form on GitHub."); clicked => { root.bug-clicked(); } }
-        }
+        Button { text: @tr("Report a bug"); tip: @tr("Report a bug"); tip-detail: @tr("Copy the diagnostics and open the bug form on GitHub."); clicked => { root.bug-clicked(); } }
     }
-    Strip {
-        title: @tr("Need help?");
+    RailRow {
+        icon: Icons.help;
+        label: @tr("Need help?");
+        named: true;
+        hue: root.hue;
         keywords: @tr("search" => "help support troubleshooting question faq problem not working stuck ask");
-        StripTop {
-            title: @tr("Need help?");
-            StripButton { text: @tr("Troubleshooting"); clicked => { root.help-clicked(); } }
-        }
+        Button { text: @tr("Troubleshooting"); clicked => { root.help-clicked(); } }
     }
 }

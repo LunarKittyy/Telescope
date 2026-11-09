@@ -151,8 +151,10 @@ export component CinemaSettings inherits Card {
     RailRow {
         icon: Icons.colour;
         label: @tr("Peaking colour");
+        named: true;
         hue: root.hue;
         Segmented {
+            width: Theme.u(130);
             hue: root.hue;
             items: [@tr("Red"), @tr("Green"), @tr("Blue"), @tr("White")];
             tips: [@tr("Red"), @tr("Green"), @tr("Blue"), @tr("White")];
@@ -195,8 +197,10 @@ export component CinemaSettings inherits Card {
     RailRow {
         icon: Icons.aspect;
         label: @tr("Scope size");
+        named: true;
         hue: root.hue;
         Segmented {
+            width: Theme.u(100);
             hue: root.hue;
             items: [@tr("Small"), @tr("Medium"), @tr("Large")];
             tips: [@tr("Small"), @tr("Medium"), @tr("Large")];

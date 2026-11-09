@@ -1,27 +1,31 @@
 // The On Air sign's tab in Settings: three cards. Joined after parts.slint, which has the imports.
 
-// control_row with a one-line text box and the tooltip the box has in Qt
+// The plugin's own status kinds as the kit's Status says them
+global SignKind {
+    public pure function of(kind: string) -> string {
+        kind == "status_ok" ? "ok" : kind == "status_warn" ? "warn" : kind == "status_err" ? "err" : ""
+    }
+}
+
+// A named row with a one-line text box at the right edge, as wide as every other control of the page
 component UrlRow inherits RailRow {
     in-out property <string> text;
     in property <string> placeholder;
     callback edited(string);
-    Rectangle {
-        horizontal-stretch: 1;
-        TextField {
-            width: parent.width;
-            height: 32px;
-            label: root.label;
-            placeholder: root.placeholder;
-            text <=> root.text;
-            tip: root.tip;
-            tip-detail: root.tip-detail;
-            edited(t) => { root.edited(t); }
-        }
+    named: true;
+    TextField {
+        width: Theme.u(130);
+        label: root.label;
+        placeholder: root.placeholder;
+        text <=> root.text;
+        tip: root.tip;
+        tip-detail: root.tip-detail;
+        edited(t) => { root.edited(t); }
     }
 }
 
 export component OnAirSettings inherits VerticalLayout {
-    spacing: 12px;
+    spacing: Theme.u(7);
     // Whether it's on air now, and what that's called
     in property <string> state-text;
     in property <string> state-kind: "status_dim";
@@ -67,6 +71,43 @@ export component OnAirSettings inherits VerticalLayout {
     callback off-edited(string);
     callback test-clicked(bool);
 
+    // What the rows that come and go said last, kept while they fold away
+    property <string> held-problem;
+    property <string> held-url;
+    property <[int]> held-cells;
+    property <int> held-size;
+    property <[string]> held-addresses;
+    property <int> held-address;
+    property <string> held-url-problem;
+    property <string> held-test;
+    property <string> held-test-kind;
+    function keep() {
+        if (problem != "") { held-problem = problem; }
+        if (url-shown) {
+            held-url = url-text;
+            held-cells = qr-cells;
+            held-size = qr-size;
+            held-addresses = addresses;
+            held-address = address-current;
+        }
+        if (url-problem != "") { held-url-problem = url-problem; }
+        if (test-text != "") {
+            held-test = test-text;
+            held-test-kind = test-kind;
+        }
+    }
+    init => { keep(); }
+    changed problem => { keep(); }
+    changed url-shown => { keep(); }
+    changed url-text => { keep(); }
+    changed qr-cells => { keep(); }
+    changed qr-size => { keep(); }
+    changed addresses => { keep(); }
+    changed address-current => { keep(); }
+    changed url-problem => { keep(); }
+    changed test-text => { keep(); }
+    changed test-kind => { keep(); }
+
     Card {
         title: @tr("On Air sign");
         tip: @tr("Shows the people around you that your camera or microphone is in use.");
@@ -75,36 +116,24 @@ export component OnAirSettings inherits VerticalLayout {
         RailRow {
             icon: Icons.bell;
             label: @tr("Now");
+            named: true;
             hue: Theme.plugin-hue("on_screen");
-            enabled: true;
-            shown-state-text := Text {
-                text: state-text;
-                font-family: Theme.font;
-                font-size: Theme.body;
-                color: StatusInk.color(state-kind);
-                vertical-alignment: center;
-                overflow: elide;
-                Tip { says: shown-state-text.text; enabled: shown-state-text.preferred-width > shown-state-text.width; inert: true; }
-                horizontal-stretch: 1;
-            }
+            Status { text: state-text; kind: SignKind.of(state-kind); horizontal: "end"; }
         }
         RailRow {
             icon: Icons.bolt;
             label: @tr("On air when");
+            named: true;
             hue: Theme.plugin-hue("on_screen");
-            enabled: true;
-            Rectangle {
-                horizontal-stretch: 1;
-                ChoiceField {
-                    width: parent.width;
-                    compact: true;
-                    caption: @tr("On air when");
-                    items: trigger-items;
-                    current: trigger-current;
-                    tip: @tr("On air when");
-                    tip-detail: root.trigger-tip;
-                    picked(i) => { root.trigger-picked(i); }
-                }
+            ChoiceField {
+                width: Theme.u(130);
+                compact: true;
+                name: @tr("On air when");
+                items: trigger-items;
+                current: trigger-current;
+                tip: @tr("On air when");
+                tip-detail: root.trigger-tip;
+                picked(i) => { root.trigger-picked(i); }
             }
         }
     }
@@ -119,107 +148,108 @@ export component OnAirSettings inherits VerticalLayout {
         action-text: @tr("New link");
         action-enabled: page;
         action => { root.new-link-clicked(); }
-        // The row is named as a whole, so the text in it is skipped by screen readers (the switch says it) and the search finds the row
-        Rectangle {
-            height: page-row.preferred-height;
-            accessible-role: groupbox;
-            accessible-id: "setting";
-            accessible-label: @tr("Show the sign on a web page");
-            page-row := HorizontalLayout {
-                spacing: 10px;
-                alignment: start;
-                Switch {
-                    y: (parent.height - self.height) / 2;
-                    checked: page;
-                    label: page-name;
-                    toggled(v) => { root.page-toggled(v); }
+        UnfoldGroup {
+            SwitchRow {
+                icon: Icons.monitor;
+                label: @tr("Show the sign on a web page");
+                hue: Theme.plugin-hue("on_screen");
+                checked: page;
+                toggled(v) => { root.page-toggled(v); }
+            }
+            Unfolding {
+                open: problem != "";
+                RailRow {
+                    has-icon: false;
+                    Status { text: @tr("The page didn't start"); detail: held-problem; kind: "err"; horizontal: "end"; }
                 }
-                Text {
-                    text: @tr("Show the sign on a web page");
-                    accessible-role: none;
-                    font-family: Theme.font;
-                    font-size: Theme.body;
-                    color: Theme.ink;
-                    vertical-alignment: center;
+            }
+            Unfolding {
+                open: url-shown;
+                RailRow {
+                    icon: Icons.qr;
+                    label: qr-label;
+                    named: true;
+                    hue: Theme.plugin-hue("on_screen");
+                    HorizontalLayout {
+                        alignment: end;
+                        QrCode { cells: held-cells; size: held-size; cell: 4px; label: qr-label; }
+                    }
+                }
+            }
+            Unfolding {
+                open: url-shown && address-shown;
+                RailRow {
+                    icon: Icons.wifi;
+                    label: @tr("Address");
+                    named: true;
+                    hue: Theme.plugin-hue("on_screen");
+                    ChoiceField {
+                        width: Theme.u(130);
+                        compact: true;
+                        name: @tr("Address");
+                        items: held-addresses;
+                        current: held-address;
+                        tip: @tr("Address");
+                        tip-detail: root.address-tip;
+                        picked(i) => { root.address-picked(i); }
+                    }
+                }
+            }
+            Unfolding {
+                open: url-shown;
+                // The sentences about opening the link and the browser's warning are its tooltip
+                RailRow {
+                    icon: Icons.link;
+                    label: @tr("Link");
+                    tip-detail: page-note;
+                    hue: Theme.plugin-hue("on_screen");
+                    HorizontalLayout {
+                        spacing: Theme.gap;
+                        Text {
+                            text: held-url;
+                            font-family: Theme.font;
+                            font-size: Theme.body;
+                            color: Theme.ink;
+                            vertical-alignment: center;
+                            overflow: elide;
+                            horizontal-stretch: 1;
+                            min-width: 0px;
+                        }
+                        Button { text: copy-text; tip: copy-text; tip-detail: copy-tip; clicked => { root.copy-clicked(); } }
+                    }
                 }
             }
         }
-        if problem != "": Note { text: problem; kind: "status_err"; }
-        if url-shown: RailRow {
-            icon: Icons.qr;
-            label: @tr("Scan");
-            hue: Theme.plugin-hue("on_screen");
-            enabled: true;
-            VerticalLayout {
-                padding-top: 4px;
-                padding-bottom: 4px;
-                alignment: start;
-                HorizontalLayout {
-                    alignment: start;
-                    QrCode { cells: qr-cells; size: qr-size; cell: 4px; label: qr-label; }
-                }
-            }
-        }
-        if address-shown: RailRow {
-            icon: Icons.wifi;
-            label: @tr("Address");
-            hue: Theme.plugin-hue("on_screen");
-            enabled: true;
-            Rectangle {
-                horizontal-stretch: 1;
-                ChoiceField {
-                    width: parent.width;
-                    compact: true;
-                    caption: @tr("Address");
-                    items: addresses;
-                    current: address-current;
-                    tip: @tr("Address");
-                    tip-detail: root.address-tip;
-                    picked(i) => { root.address-picked(i); }
-                }
-            }
-        }
-        if url-shown: RailRow {
-            icon: Icons.link;
-            label: @tr("Link");
-            hue: Theme.plugin-hue("on_screen");
-            enabled: true;
-            HorizontalLayout {
-                spacing: 8px;
-                Text {
-                    text: url-text;
-                    font-family: Theme.font;
-                    font-size: Theme.body;
-                    color: Theme.ink;
-                    vertical-alignment: center;
-                    overflow: elide;
-                    horizontal-stretch: 1;
-                }
-                Button { text: copy-text; tip: copy-text; tip-detail: copy-tip; clicked => { root.copy-clicked(); } }
-            }
-        }
-        if url-shown: Note { text: page-note; }
     }
     Card {
         title: @tr("Webhook");
         keywords: @tr("search" => "smart home light home assistant url http request automation");
         icon: Icons.plug;
         hue: Theme.plugin-hue("on_screen");
-        UrlRow {
-            icon: Icons.link;
-            hue: Theme.plugin-hue("on_screen");
-            label: @tr("Address");
-            placeholder: "http://homeassistant.local:8123/api/webhook/…";
-            text <=> root.webhook-url;
-            edited(t) => { root.url-edited(t); }
+        UnfoldGroup {
+            UrlRow {
+                icon: Icons.link;
+                hue: Theme.plugin-hue("on_screen");
+                label: @tr("Address");
+                placeholder: "http://homeassistant.local:8123/api/webhook/…";
+                text <=> root.webhook-url;
+                edited(t) => { root.url-edited(t); }
+            }
+            Unfolding {
+                open: url-problem != "";
+                RailRow {
+                    has-icon: false;
+                    Status { text: held-url-problem; kind: "err"; horizontal: "end"; }
+                }
+            }
         }
-        if url-problem != "": Note { text: url-problem; kind: "status_err"; }
         RailRow {
             icon: Icons.send-phone;
             label: @tr("Method");
+            named: true;
             hue: Theme.plugin-hue("on_screen");
-            enabled: true;
             Segmented {
+                width: Theme.u(60);
                 items: ["POST", "GET"];
                 tips: ["POST", "GET"];
                 tip-details: [@tr("POST sends the text as the request body and GET adds it to the address."), @tr("POST sends the text as the request body and GET adds it to the address.")];
@@ -248,11 +278,26 @@ export component OnAirSettings inherits VerticalLayout {
             text <=> root.webhook-off;
             edited(t) => { root.off-edited(t); }
         }
-        HorizontalLayout {
-            spacing: 8px;
-            Button { text: @tr("Test on"); horizontal-stretch: 1; clicked => { root.test-clicked(true); } }
-            Button { text: @tr("Test off"); horizontal-stretch: 1; clicked => { root.test-clicked(false); } }
+        UnfoldGroup {
+            RailRow {
+                icon: Icons.play;
+                label: @tr("Send a test");
+                named: true;
+                hue: Theme.plugin-hue("on_screen");
+                HorizontalLayout {
+                    spacing: Theme.gap;
+                    alignment: end;
+                    Button { text: @tr("On air"); clicked => { root.test-clicked(true); } }
+                    Button { text: @tr("Off air"); clicked => { root.test-clicked(false); } }
+                }
+            }
+            Unfolding {
+                open: test-text != "";
+                RailRow {
+                    has-icon: false;
+                    Status { text: held-test; kind: SignKind.of(held-test-kind); horizontal: "end"; }
+                }
+            }
         }
-        if test-text != "": Note { text: test-text; kind: test-kind; }
     }
 }

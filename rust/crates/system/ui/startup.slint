@@ -1,7 +1,7 @@
 // The Startup plugin: the sign-in switch on the General tab and the Automatic
 // streaming card on Streaming. Texts that are lists, or have blanks, come filled from Rust.
 
-import { Theme, Icons, Card, SettingRow, Switch, ChoiceField, NumberField } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Card, SwitchRow, RailRow, ChoiceField, NumberField } from "@ui-kit/ui-kit.slint";
 
 export component StartupSettings inherits Card {
     in-out property <bool> open-checked;
@@ -13,22 +13,24 @@ export component StartupSettings inherits Card {
     tip: @tr("Open Telescope when you sign in.");
     keywords: @tr("search" => "login boot autostart run on startup tray minimized");
     icon: Icons.monitor;
-    SettingRow {
-        title: @tr("Open Telescope when I sign in");
+    SwitchRow {
+        icon: Icons.monitor;
+        label: @tr("Open Telescope when I sign in");
         keywords: @tr("search" => "autostart login log in boot startup run on startup launch computer starts tray");
-        Switch {
-            hue: root.hue;
-            checked <=> root.open-checked;
-            enabled: open-enabled;
-            label: @tr("Open Telescope when I sign in");
-            tip: open-tip != "" ? @tr("Open Telescope when I sign in") : "";
-            tip-detail: open-tip;
-            toggled(on) => { root.open-toggled(on); }
-        }
+        hue: root.hue;
+        checked <=> root.open-checked;
+        enabled: open-enabled;
+        tip: open-tip != "" ? @tr("Open Telescope when I sign in") : "";
+        tip-detail: open-tip;
+        toggled(on) => { root.open-toggled(on); }
     }
 }
 
 export component AutomaticSettings inherits Card {
+    // What a row's list offers is found by the row too, as the old rows found it by their controls
+    pure function words(items: [string]) -> string {
+        items[0] + " " + items[1] + " " + items[2]
+    }
     in property <[string]> start-items;
     in-out property <int> start-current;
     in property <[string]> stop-items;
@@ -53,55 +55,63 @@ export component AutomaticSettings inherits Card {
     tip: @tr("Start and stop the stream automatically when an app uses the virtual camera.");
     keywords: @tr("search" => "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free");
     icon: Icons.bolt;
-    SettingRow {
-        title: start-title;
-        keywords: @tr("search" => "automatically begin streaming when phone device ready app opens the camera auto start");
+    RailRow {
+        icon: Icons.play;
+        label: start-title;
+        named: true;
+        hue: root.hue;
+        keywords: @tr("search" => "automatically begin streaming when phone device ready app opens the camera auto start") + " " + words(start-items);
         ChoiceField {
-            width: 320px;
+            width: Theme.u(130);
             compact: true;
-            caption: start-title;
+            name: start-title;
             items: start-items;
             current <=> root.start-current;
             picked(i) => { root.start-current = i; root.start-picked(i); }
         }
     }
-    SettingRow {
-        title: stop-title;
-        keywords: @tr("search" => "automatically end streaming idle no app uses the camera auto stop");
+    RailRow {
+        icon: Icons.stop;
+        label: stop-title;
+        named: true;
+        hue: root.hue;
+        keywords: @tr("search" => "automatically end streaming idle no app uses the camera auto stop") + " " + words(stop-items);
         ChoiceField {
-            width: 320px;
+            width: Theme.u(130);
             compact: true;
-            caption: stop-title;
+            name: stop-title;
             items: stop-items;
             current <=> root.stop-current;
             picked(i) => { root.stop-current = i; root.stop-picked(i); }
         }
     }
-    SettingRow {
+    RailRow {
+        icon: Icons.timer;
+        label: delay-title;
+        tip-detail: delay-sub;
+        named: true;
+        hue: root.hue;
         enabled: stops;
-        title: delay-title;
         keywords: @tr("search" => "delay timeout idle seconds minutes how long grace period auto stop");
-        sub: delay-sub;
         HorizontalLayout {
-            spacing: 8px;
+            spacing: Theme.gap;
+            alignment: end;
             // Saved once it's typed (on Enter or when the box is left), not at every digit
             NumberField {
-                y: (parent.height - self.height) / 2;
-                width: 90px;
+                width: Theme.u(45);
                 enabled: stops;
                 label: delay-title;
                 value: root.delay-text;
                 committed(text) => { root.delay-committed(text); }
                 step(d) => { root.delay-step(d); }
             }
-            // At least 90px and as wide as its longest unit with the field's 41px of padding, as Qt's combo box is
+            // At least as wide as the number box and as wide as its longest unit with the field's padding, as Qt's combo box is
             Rectangle {
-                width: max(90px, longest-unit.preferred-width + 41px);
+                width: max(Theme.u(45), longest-unit.preferred-width + Theme.u(21));
                 ChoiceField {
-                    y: (parent.height - self.height) / 2;
                     compact: true;
                     enabled: stops;
-                    caption: delay-title;
+                    name: delay-title;
                     items: unit-items;
                     current <=> root.unit-current;
                     picked(i) => { root.unit-current = i; root.unit-picked(i); }
@@ -115,16 +125,13 @@ export component AutomaticSettings inherits Card {
             }
         }
     }
-    SettingRow {
+    SwitchRow {
+        icon: Icons.bell;
+        label: @tr("Tell me when it stops a stream");
+        hue: root.hue;
         enabled: stops;
-        title: @tr("Tell me when it stops a stream");
         keywords: @tr("search" => "notification notify alert popup message");
-        Switch {
-            hue: root.hue;
-            checked <=> root.notify-checked;
-            enabled: stops;
-            label: @tr("Tell me when it stops a stream");
-            toggled(on) => { root.notify-toggled(on); }
-        }
+        checked <=> root.notify-checked;
+        toggled(on) => { root.notify-toggled(on); }
     }
 }

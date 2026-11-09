@@ -770,16 +770,29 @@ export component ConnectionSettings inherits Card {
     callback udp-toggled(bool);
     title: @tr("Connection");
     icon: Icons.v-connection;
-    SettingRow {
-        title: @tr("UDP on Wi-Fi");
+    // Named, with a quiet word where a pill used to be: the sentence about it is the tooltip of the word and of the icon
+    RailRow {
+        icon: Icons.wifi;
+        label: @tr("UDP on Wi-Fi");
+        tip-detail: @tr("It can stutter more than TCP, so try it and see.");
+        named: true;
+        hue: root.hue;
         keywords: @tr("search" => "udp tcp transport network lag freezes stutter wifi");
-        sub: @tr("It can stutter more than TCP, so try it and see.");
-        Tag { text: @tr("Experimental"); }
-        Switch {
-            hue: root.hue;
-            checked: udp;
-            label: @tr("UDP on Wi-Fi");
-            toggled(on) => { root.udp-toggled(on); }
+        Status {
+            horizontal-stretch: 0;
+            text: @tr("Experimental");
+            font-weight: Theme.w-label;
+            detail: @tr("It can stutter more than TCP, so try it and see.");
+            horizontal: "end";
+        }
+        VerticalLayout {
+            alignment: center;
+            Switch {
+                hue: root.hue;
+                checked: udp;
+                label: @tr("UDP on Wi-Fi");
+                toggled(on) => { root.udp-toggled(on); }
+            }
         }
     }
 }

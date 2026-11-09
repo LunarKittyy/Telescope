@@ -479,7 +479,7 @@ fn setup_plugin_builds_its_cards_and_syncs_config() {
     assert_eq!(r.host.clipboard.as_deref(), Some("Telescope test report"));
     assert_eq!(r.plugin.about_props()["diag-text"], json!("Copied"));
     r.plugin.on_event(&mut r.host, &Event::TimerFired { owner: NAME.into(), token: "copied".into() });
-    assert_eq!(r.plugin.about_props()["diag-text"], json!("Copy diagnostics"));
+    assert_eq!(r.plugin.about_props()["diag-text"], json!("Copy"));
     r.host.clipboard = None;
     r.ui("about", "bug-clicked", vec![]);
     assert_eq!(r.host.clipboard.as_deref(), Some("Telescope test report"));

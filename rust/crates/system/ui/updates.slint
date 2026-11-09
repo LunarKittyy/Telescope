@@ -1,23 +1,13 @@
 // The Updates plugin: the green Update button in the header and the Telescope card on
 // Updates & About. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Button, Card, RailRow, SwitchRow, ChoiceField, Switch, DialogFrame, WindowBox } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, Card, RailRow, SwitchRow, ChoiceField, DialogFrame, DialogButtons, WindowBox, Status, UnfoldGroup, Unfolding } from "@ui-kit/ui-kit.slint";
 
-global Status {
-    public pure function color(kind: string) -> color {
-        kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
-            : kind == "status_dim" ? Theme.ink2 : Theme.ink
+// The kit's Status takes ok, warn and err; the plugin says it the way the other cards' notes did
+global StatusKind {
+    public pure function of(kind: string) -> string {
+        kind == "status_ok" ? "ok" : kind == "status_warn" ? "warn" : kind == "status_err" ? "err" : ""
     }
-}
-
-component Note inherits Text {
-    in property <string> kind: "status_dim";
-    font-family: Theme.font;
-    font-size: Theme.body;
-    font-weight: kind == "val" ? 600 : 400;
-    color: Status.color(kind);
-    wrap: word-wrap;
-    vertical-alignment: center;
 }
 
 // Green, not the accent blue: Start streaming stays the one primary button in the header
@@ -77,6 +67,23 @@ export component UpdatesSettings inherits Card {
     in property <string> back-text;
     in property <string> back-action;
     in property <bool> back-action-enabled;
+    // What the status line and the update button said last, kept while their rows fold away
+    property <string> held-status;
+    property <string> held-kind;
+    property <string> held-update;
+    function keep() {
+        if (status-text != "") {
+            held-status = status-text;
+            held-kind = status-kind;
+        }
+        if (update-text != "") { held-update = update-text; }
+    }
+    init => { keep(); }
+    changed status-text => { keep(); }
+    changed status-kind => { keep(); }
+    changed update-text => { keep(); }
+    // The way out of the question: said once the dialog has faded
+    property <bool> back-answer;
     callback back-asked;
     callback back-answered(bool);
     changed back-open => {
@@ -104,23 +111,65 @@ export component UpdatesSettings inherits Card {
     action-text: @tr("Check now");
     action-tip-detail: @tr("Look for a new version of Telescope.");
     action => { if (!busy) { root.check-now(); } }
-    RailRow {
-        icon: Icons.check;
-        label: @tr("This version");
-        hue: root.hue;
-        keywords: @tr("search" => "current build number");
-        Note { text: version-text; kind: "val"; horizontal-stretch: 1; }
+    // The rows that are there only in some states unfold in and out under the row they belong to
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.check;
+            label: @tr("This version");
+            named: true;
+            hue: root.hue;
+            keywords: @tr("search" => "current build number");
+            Text {
+                text: version-text;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                font-weight: Theme.w-value;
+                color: Theme.ink;
+                vertical-alignment: center;
+                horizontal-alignment: right;
+            }
+        }
+        Unfolding {
+            open: status-text != "";
+            RailRow {
+                has-icon: false;
+                Status { text: held-status; kind: StatusKind.of(held-kind); horizontal: "end"; }
+            }
+        }
+        Unfolding {
+            open: actions-shown;
+            RailRow {
+                has-icon: false;
+                HorizontalLayout {
+                    spacing: Theme.gap;
+                    alignment: end;
+                    Button { text: @tr("What's new"); clicked => { root.notes(); } }
+                    Button { text: held-update; role: "primary"; hue: Theme.plugin-hue("extras"); enabled: update-enabled; clicked => { root.update(); } }
+                }
+            }
+        }
+        Unfolding {
+            open: retry-shown;
+            RailRow {
+                has-icon: false;
+                HorizontalLayout {
+                    alignment: end;
+                    Button { text: @tr("Try again"); enabled: !busy; clicked => { root.retry(); } }
+                }
+            }
+        }
     }
     RailRow {
         icon: Icons.layers;
         label: @tr("Channel");
+        named: true;
         hue: root.hue;
         keywords: @tr("search" => "stable nightly beta release track builds testing");
         enabled: !busy;
         ChoiceField {
+            width: Theme.u(70);
             compact: true;
-            y: (parent.height - self.height) / 2;
-            caption: @tr("Channel");
+            name: @tr("Channel");
             items: channels;
             current: channel;
             enabled: !busy;
@@ -147,42 +196,20 @@ export component UpdatesSettings inherits Card {
         checked: portable;
         toggled(on) => { root.portable-toggled(on); }
     }
-    // Rows that have nothing to say are left out, so the card is only as tall as what it shows
-    if status-text != "": RailRow {
-        has-icon: false;
-        Note { text: status-text; kind: status-kind; horizontal-stretch: 1; }
-    }
-    if actions-shown: RailRow {
-        has-icon: false;
-        HorizontalLayout {
-            spacing: Theme.u(4);
-            alignment: start;
-            Button { text: @tr("What's new"); clicked => { root.notes(); } }
-            Button { text: update-text; role: "primary"; hue: Theme.plugin-hue("extras"); enabled: update-enabled; clicked => { root.update(); } }
-        }
-    }
-    if retry-shown: RailRow {
-        has-icon: false;
-        HorizontalLayout {
-            alignment: start;
-            Button { text: @tr("Try again"); enabled: !busy; clicked => { root.retry(); } }
-        }
-    }
     if back-shown: RailRow {
         icon: Icons.reset;
         label: @tr("Older version");
+        named: true;
         hue: root.hue;
         keywords: @tr("search" => "go back downgrade python previous old version revert undo rust");
         enabled: !busy;
-        HorizontalLayout {
-            alignment: start;
-            Button {
-                text: @tr("Go back to the Python version");
-                tip: @tr("Go back to the Python version");
-                tip-detail: back-tip;
-                enabled: back-enabled;
-                clicked => { root.back-asked(); }
-            }
+        Button {
+            shrinks: true;
+            text: @tr("Go back to the Python version");
+            tip: @tr("Go back to the Python version");
+            tip-detail: back-tip;
+            enabled: back-enabled;
+            clicked => { root.back-asked(); }
         }
     }
 
@@ -190,23 +217,28 @@ export component UpdatesSettings inherits Card {
         close-policy: no-auto-close;
         x: -root.absolute-position.x;
         y: -root.absolute-position.y;
-        width: WindowBox.cover-w(max(root.width, 460px));
+        width: WindowBox.cover-w(max(root.width, Theme.u(230)));
         height: WindowBox.cover-h(back-frame.preferred-height);
         back-frame := DialogFrame {
             x: WindowBox.left(self.width);
             y: WindowBox.top(self.height);
-            width: max(root.width, 460px);
+            width: max(root.width, Theme.u(230));
             height: self.preferred-height;
             dismissable: true;
-            dismissed => { root.back-answered(false); }
+            left => { back-popup.close(); root.back-answered(root.back-answer); }
             title: @tr("Go back to the Python version?");
-            Note { text: back-text; kind: ""; }
-            HorizontalLayout {
-                alignment: end;
-                spacing: 8px;
+            Text {
+                text: back-text;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                color: Theme.ink2;
+                wrap: word-wrap;
+                line-height-factor: Theme.line-factor(self.font-size);
+            }
+            DialogButtons {
+                Button { text: back-action; dialog: true; enabled: back-action-enabled; clicked => { root.back-answer = true; back-frame.leave(); } }
                 // The way out is the highlighted one: going back is the thing to be sure about
-                Button { height: 32px; text: back-action; enabled: back-action-enabled; clicked => { root.back-answered(true); } }
-                Button { width: 96px; height: 32px; text: @tr("Cancel"); role: "primary"; hue: Theme.plugin-hue("extras"); clicked => { root.back-answered(false); } }
+                Button { text: @tr("Cancel"); dialog: true; role: "primary"; hue: Theme.plugin-hue("extras"); clicked => { root.back-answer = false; back-frame.leave(); } }
             }
         }
     }

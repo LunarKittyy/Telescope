@@ -806,7 +806,8 @@ mod tests {
         for lang in embedded.available().iter().map(String::as_str).chain(["pseudo"]) {
             let (a, b) = (embedded.catalog(lang).unwrap(), folder.catalog(lang).unwrap());
             assert_eq!(a.len(), b.len(), "{lang}");
-            assert!(a.len() > 1400, "{lang} has only {} texts", a.len());
+            // A floor that catches a missing catalogue: a changed English text starts over untranslated until the next translation pass
+            assert!(a.len() > 1300, "{lang} has only {} texts", a.len());
             assert_eq!(embedded.is_draft(lang), folder.is_draft(lang), "{lang}");
         }
     }
