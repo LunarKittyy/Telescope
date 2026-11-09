@@ -56,6 +56,11 @@ pub fn end_press(window: &slint::Window) {
     window.dispatch_event(slint::platform::WindowEvent::PointerExited);
 }
 
+/// Tells the window's `Tips` something that happened (where the pointer is, a press, a change). A window that doesn't export `Tips` has no tips to tell.
+pub fn tips(ui: &ComponentInstance, what: &str, args: &[Value]) {
+    let _ = ui.invoke_global("Tips", what, args);
+}
+
 /// A key that moves the focus: from here on the rings show.
 pub fn focus_key(ui: &ComponentInstance) {
     let _ = ui.set_global_property("KeyFocus", "keyboard", Value::Bool(true));
@@ -136,6 +141,7 @@ pub fn watch(ui: &ComponentInstance, mut then: impl FnMut(&slint::Window, &Windo
             WindowEvent::MouseInput { state: ElementState::Pressed, .. } => {
                 if let Some(ui) = weak.upgrade() {
                     pressed_at(&ui, cursor.get());
+                    tips(&ui, "cool", &[]);
                 }
                 Some(Pointer::Pressed)
             }
@@ -143,6 +149,9 @@ pub fn watch(ui: &ComponentInstance, mut then: impl FnMut(&slint::Window, &Windo
             WindowEvent::CursorMoved { position, .. } => {
                 let at = position.to_logical::<f32>(window.scale_factor() as f64);
                 cursor.set(LogicalPosition::new(at.x, at.y));
+                if let Some(ui) = weak.upgrade() {
+                    tips(&ui, "moved", &[Value::Number(at.x as f64), Value::Number(at.y as f64)]);
+                }
                 Some(Pointer::Moved { button_down: if press.held() { button_down(window) } else { None } })
             }
             WindowEvent::CursorLeft { .. } => {
@@ -151,6 +160,12 @@ pub fn watch(ui: &ComponentInstance, mut then: impl FnMut(&slint::Window, &Windo
                     window.dispatch_event(slint::platform::WindowEvent::PointerExited);
                 }
                 Some(Pointer::Left { taken: on_wayland(window) })
+            }
+            WindowEvent::MouseWheel { .. } => {
+                if let Some(ui) = weak.upgrade() {
+                    tips(&ui, "cool", &[]);
+                }
+                None
             }
             WindowEvent::Focused(false) => Some(Pointer::Unfocused),
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed => {

@@ -54,7 +54,7 @@ pub struct HeaderPlace {
 /// The window's document. cards are in registration order; panels says where each one shows.
 pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> String {
     let mut out = String::new();
-    out.push_str("import { Theme, Icons, Folds, Reveal, Shortcuts, TextCap, WindowBox, ColumnScrollbar, KeyFocus, Touched, TipLayer, PeekLayer, Motion, BarPin } from \"@ui-kit/ui-kit.slint\";\n");
+    out.push_str("import { Theme, Icons, Folds, Reveal, Shortcuts, TextCap, WindowBox, ColumnScrollbar, KeyFocus, Touched, Tips, TipLayer, PeekLayer, Motion, BarPin } from \"@ui-kit/ui-kit.slint\";\n");
     out.push_str("import { Footer, BannerArea, StreamTiles, HeaderIconButton, StartButton, BannerData, TileData } from \"shell/frame.slint\";\n");
     let mut imported = Vec::new();
     for piece in cards.iter().map(|c| &c.piece).chain(headers.iter().map(|h| &h.piece)) {
@@ -64,7 +64,7 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
             out.push_str(&line);
         }
     }
-    out.push_str("export { Folds, Theme, Reveal, Shortcuts, TextCap, WindowBox, KeyFocus, Touched, Motion }\n");
+    out.push_str("export { Folds, Theme, Reveal, Shortcuts, TextCap, WindowBox, KeyFocus, Touched, Tips, Motion }\n");
     out.push_str(&FRAME_TOP.field("three", WIDTH_THREE_COL).field("two", WIDTH_TWO_COL).field("margin_sum", MARGIN + MARGIN_RIGHT));
 
     // Column geometry for each mode, relative to the body's left edge
@@ -772,7 +772,7 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
             out.push_str(&line);
         }
     }
-    out.push_str("export { Folds, Theme, Reveal, WindowBox, KeyFocus, Motion }\n");
+    out.push_str("export { Folds, Theme, Reveal, WindowBox, KeyFocus, Tips, Motion }\n");
     out.push_str(SETTINGS_TOP);
     for t in 0..tabs {
         out.push_str(&format!("    in-out property page{t}-offset <=> page{t}.offset;\n    out property page{t}-height <=> page{t}.height;\n"));
