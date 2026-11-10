@@ -6,6 +6,7 @@ import { FocusRing, TouchRing, KeyFocus } from "basics.slint";
 import { Tip } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { Motion, Settle, Tone } from "motion.slint";
+import { Grip } from "fine.slint";
 
 // Kind "wheel": a disc inside a ring of hues, each hue where a puck pointing at it would push the picture, and a puck on the disc that is dragged (it doesn't jump to the pointer, and it never snaps), moved with the arrows, and put back in the middle by Home, Delete, Backspace or a double-click. The pointer goes out in radii of the disc, from where it went down; holding Shift while dragging goes slower (a tenth as far), and the puck takes a dot and the pointer a crosshair while it does. It says `pressed`, `dragged` while held and `released`, and the owner works out the puck.
 export component ColourWheel inherits Rectangle {
@@ -216,7 +217,7 @@ export component ColourWheel inherits Rectangle {
         mouse-cursor: self.pressed ? (fine ? MouseCursor.crosshair : MouseCursor.grabbing) : MouseCursor.grab;
         scroll-event(e) => { usage.wheel(); reject }
         pointer-event(e) => {
-            if (e.kind == PointerEventKind.down) { usage.press(); }
+            if (e.kind == PointerEventKind.down) { usage.press(); Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
             if (e.button == PointerEventButton.left && e.kind == PointerEventKind.down) {
                 resetting = false;
                 self.from-x = self.mouse-x;
@@ -225,7 +226,7 @@ export component ColourWheel inherits Rectangle {
                 focus.focus();
                 root.pressed();
             }
-            if (e.kind == PointerEventKind.move && self.pressed) {
+            if (e.kind == PointerEventKind.move && self.pressed && !Grip.cut) {
                 fine = e.modifiers.shift;
                 root.dragged((self.mouse-x - self.from-x) / radius, (self.mouse-y - self.from-y) / radius, e.modifiers.shift);
             }

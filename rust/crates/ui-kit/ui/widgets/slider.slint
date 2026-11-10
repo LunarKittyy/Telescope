@@ -8,7 +8,7 @@ import { Peek } from "peek.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { Fills, RampFill, ZebraFill, EdgeFill } from "fills.slint";
 import { Motion, Settle, Tone, ClickWait } from "motion.slint";
-import { FineAxis } from "fine.slint";
+import { FineAxis, Grip } from "fine.slint";
 
 // Kind "slider", one anatomy for every slider: a track, a handle, the value on the right and, when it goes both ways, a tick at the
 // centre. Only the fill varies, by name: "plain" is the card's colour up to the handle, "gradient" the range's own colours along the
@@ -487,7 +487,7 @@ export component Slider inherits HorizontalLayout {
             scroll-event(e) => { usage.wheel(); reject }
             pointer-event(e) => {
                 shift-now = e.modifiers.shift;
-                if (e.kind == PointerEventKind.down) { usage.press(); }
+                if (e.kind == PointerEventKind.down) { usage.press(); Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
                 // A second press while the first click waits is the double-click's, which `double-clicked` answers
                 if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left && !pending) {
                     fine.begin(minimum + beyond * (maximum - minimum));
@@ -506,7 +506,7 @@ export component Slider inherits HorizontalLayout {
                         root.moved(local);
                     }
                 }
-                if (e.kind == PointerEventKind.move && dragging && self.pressed) {
+                if (e.kind == PointerEventKind.move && dragging && self.pressed && !Grip.cut) {
                     drag();
                 }
                 if (dragging && ((e.kind == PointerEventKind.up && e.button == PointerEventButton.left) || e.kind == PointerEventKind.cancel)) {
@@ -517,7 +517,7 @@ export component Slider inherits HorizontalLayout {
                 }
             }
             moved => {
-                if (self.pressed && dragging) {
+                if (self.pressed && dragging && !Grip.cut) {
                     drag();
                 }
             }

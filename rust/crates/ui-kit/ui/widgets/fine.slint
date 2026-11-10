@@ -1,5 +1,23 @@
 // Shift while dragging goes finer, the same on every control that is dragged: one factor, one way of keeping the value from jumping.
 
+// Kind "helper". The press that holds the pointer, so a drag survives its container going away without still changing anything. Every control
+// that is dragged takes its press here and stops on `cut`; a container that goes away calls `leave` with its box. A drag is the only press
+// held at a time, so one place is enough.
+export global Grip {
+    property <length> x;
+    property <length> y;
+    // The held press sits in something that has gone away: moves change nothing until the next press
+    out property <bool> cut;
+    public function take(px: length, py: length) {
+        x = px;
+        y = py;
+        cut = false;
+    }
+    public function leave(bx: length, by: length, w: length, h: length) {
+        if (x >= bx && x <= bx + w && y >= by && y <= by + h) { cut = true; }
+    }
+}
+
 // The fraction of a drag's distance a Shift-held drag moves: the colour wheel's tenth (WHEEL_FINE in effects/src/editors.rs says the same)
 export global Fine {
     out property <float> factor: 0.1;
