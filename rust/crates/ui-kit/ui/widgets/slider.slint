@@ -29,6 +29,8 @@ export component Slider inherits HorizontalLayout {
     changed enabled => {
         if (!enabled) {
             pend.cancel();
+            key-live = false;
+            slider-focus.clear-focus();
             if (is-typing) {
                 is-typing = false;
                 KeyFocus.given-back += 1;
@@ -132,6 +134,7 @@ export component Slider inherits HorizontalLayout {
     // Keys glide the handle too (it retargets as each repeat lands, keeping its speed)
     function set-to(v: float) { apply(v, false); }
     function apply(v: float, instantly: bool) {
+        if (!enabled) { return; }
         pend.cancel();
         let to = clamp(v, minimum, maximum);
         if (to != shown) {
@@ -249,6 +252,7 @@ export component Slider inherits HorizontalLayout {
             changed has-focus => { if (!self.has-focus) { key-live = false; } }
             enabled: root.enabled;
             key-pressed(e) => {
+                if (!root.enabled) { return reject; }
                 if (e.text == Key.UpArrow || e.text == Key.RightArrow || e.text == Key.DownArrow || e.text == Key.LeftArrow || e.text == Key.PageUp || e.text == Key.PageDown || e.text == Key.Home || e.text == Key.End) {
                     key-live = true;
                     key-idle = 0;

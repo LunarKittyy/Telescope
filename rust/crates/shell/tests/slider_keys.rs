@@ -185,6 +185,18 @@ fn a_disabled_slider_takes_no_keys_and_no_typing() {
 }
 
 #[test]
+fn a_slider_with_the_focus_that_goes_disabled_takes_no_more_keys() {
+    let ui = rig(&[]);
+    press(&ui, Key::RightArrow);
+    assert_eq!((value(&ui), said(&ui).0), (51.0, 1.0));
+    ui.set_property("on", Value::Bool(false)).unwrap();
+    for key in [Key::RightArrow, Key::PageUp, Key::Home, Key::End] {
+        press(&ui, key);
+    }
+    assert_eq!((value(&ui), said(&ui).0, said(&ui).1), (51.0, 1.0, 1.0));
+}
+
+#[test]
 fn enter_opens_a_box_for_the_value_and_enter_sets_it_like_a_drag_would() {
     let ui = rig(&[]);
     press(&ui, "\n");
