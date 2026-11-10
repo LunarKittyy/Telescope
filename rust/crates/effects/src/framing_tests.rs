@@ -717,6 +717,8 @@ fn whole_runs_steer_as_python_does_tick_by_tick() {
                     r.event(Event::ViewChanged { view: r.host.view.clone() });
                 }
                 "max_zoom" => {
+                    // Python never clamped what it held when the ceiling dropped, so it is told the ceiling only ever rises here
+                    r.plugin.max_zoom = 1.0;
                     r.event(Event::MaxZoomChanged { max_zoom: op["most"].as_i64().unwrap() as i32 });
                     r.plugin.max_zoom = r.plugin.max_zoom.min(4.0);
                 }
@@ -1188,6 +1190,31 @@ fn lowering_the_ceiling_a_little_moves_a_held_framing_down_to_it() {
         r.tick();
         zoom = r.last().0 as f64;
         r.host.view = View { zoom: r.last().0, pan_x: r.last().1, pan_y: r.last().2, ..View::default() };
+    }
+    assert!(zoom < 9.05, "settled at the new ceiling: {zoom}");
+}
+
+#[test]
+fn lowering_the_ceiling_moves_a_roaming_slow_framing_down_to_it() {
+    let mut r = Rig::new();
+    r.configure(&json!({"framing": 0.0, "speed": 1, "room": 5, "on": true}));
+    r.ui("switch-toggled-by-hand", json!(true));
+    r.event(Event::MaxZoomChanged { max_zoom: 10 });
+    let (mut zoom, mut before) = (0.0, 0.0);
+    for k in 0..4000 {
+        if k == 2000 {
+            assert!(zoom > 9.5, "held at the ceiling first: {zoom}");
+            r.event(Event::MaxZoomChanged { max_zoom: 9 });
+        }
+        *r.clock.lock().unwrap() += 1.0 / 30.0;
+        r.people("phone", &[walker(0.4, 0.02, &[], k, 0.0)]);
+        r.tick();
+        before = zoom;
+        zoom = r.last().0 as f64;
+        r.host.view = View { zoom: r.last().0, pan_x: r.last().1, pan_y: r.last().2, ..View::default() };
+        if k > 2000 {
+            assert!((zoom - before).abs() < 0.05, "glides, no jump: {before} to {zoom}");
+        }
     }
     assert!(zoom < 9.05, "settled at the new ceiling: {zoom}");
 }
