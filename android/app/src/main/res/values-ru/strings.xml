@@ -46,16 +46,9 @@
     <string name="setup_allowed">Разрешено</string>
     <string name="allow">Разрешить</string>
     <string name="open_settings">Открыть настройки</string>
-    <string name="pair_title">Связать с компьютером</string>
-    <string name="pair_hint">На компьютере открой Telescope и нажми «Добавить телефон». По USB телефон связывается без сканирования.</string>
-    <string name="scan_pairing_code">Сканировать код сопряжения</string>
-    <string name="pair_another">Связать еще один компьютер</string>
-    <string name="paired_computer_title">Сопряженный компьютер</string>
     <string name="paired_computers_title">Сопряженные компьютеры</string>
     <string name="paired_on">Сопряжено %1$s</string>
     <string name="remove">Убрать</string>
-    <string name="show_all_computers">Показать все %1$d</string>
-    <string name="show_fewer">Показать меньше</string>
     <string name="cancel">Отмена</string>
     <string name="ok">ОК</string>
     <string name="remove_computer_title">Убрать %1$s?</string>
@@ -95,7 +88,6 @@
     <string name="wait_for_computer_hint">Позволяет сопряженному компьютеру запустить камеру при выключенном экране.</string>
     <string name="stop_streaming">Остановить трансляцию</string>
     <string name="status_title">Статус</string>
-    <string name="more">Ещё</string>
     <string name="status_not_streaming">Нет трансляции</string>
     <string name="status_starting">Запуск…</string>
     <string name="status_streaming">Трансляция</string>

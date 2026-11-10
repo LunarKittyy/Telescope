@@ -46,16 +46,9 @@
     <string name="setup_allowed">已允许</string>
     <string name="allow">允许</string>
     <string name="open_settings">打开设置</string>
-    <string name="pair_title">与电脑配对</string>
-    <string name="pair_hint">在电脑上打开 Telescope 并点击“添加手机”。通过 USB 连接时，手机无需扫描即可配对。</string>
-    <string name="scan_pairing_code">扫描配对码</string>
-    <string name="pair_another">配对另一台电脑</string>
-    <string name="paired_computer_title">已配对的电脑</string>
     <string name="paired_computers_title">已配对的电脑</string>
     <string name="paired_on">已于 %1$s 配对</string>
     <string name="remove">移除</string>
-    <string name="show_all_computers">显示全部 %1$d 台</string>
-    <string name="show_fewer">收起</string>
     <string name="cancel">取消</string>
     <string name="ok">确定</string>
     <string name="remove_computer_title">移除 %1$s？</string>
@@ -92,7 +85,6 @@
     <string name="wait_for_computer_hint">允许已配对的电脑在屏幕关闭时开启相机。</string>
     <string name="stop_streaming">停止串流</string>
     <string name="status_title">状态</string>
-    <string name="more">更多</string>
     <string name="status_not_streaming">未串流</string>
     <string name="status_starting">正在启动…</string>
     <string name="status_streaming">正在串流</string>

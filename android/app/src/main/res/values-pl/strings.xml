@@ -46,16 +46,9 @@
     <string name="setup_allowed">Zezwolono</string>
     <string name="allow">Zezwól</string>
     <string name="open_settings">Otwórz ustawienia</string>
-    <string name="pair_title">Sparuj ze swoim komputerem</string>
-    <string name="pair_hint">Na komputerze otwórz Telescope i kliknij Dodaj telefon. Przez USB telefon paruje się bez skanowania.</string>
-    <string name="scan_pairing_code">Zeskanuj kod parowania</string>
-    <string name="pair_another">Sparuj inny komputer</string>
-    <string name="paired_computer_title">Sparowany komputer</string>
     <string name="paired_computers_title">Sparowane komputery</string>
     <string name="paired_on">Sparowano %1$s</string>
     <string name="remove">Usuń</string>
-    <string name="show_all_computers">Pokaż wszystkie %1$d</string>
-    <string name="show_fewer">Pokaż mniej</string>
     <string name="cancel">Anuluj</string>
     <string name="ok">OK</string>
     <string name="remove_computer_title">Czy chcesz usunąć %1$s?</string>
@@ -95,7 +88,6 @@
     <string name="wait_for_computer_hint">Pozwala sparowanemu komputerowi włączyć kamerę przy wyłączonym ekranie.</string>
     <string name="stop_streaming">Zatrzymaj strumieniowanie</string>
     <string name="status_title">Status</string>
-    <string name="more">Więcej</string>
     <string name="status_not_streaming">Nie przesyła</string>
     <string name="status_starting">Uruchamianie…</string>
     <string name="status_streaming">Przesyłanie</string>

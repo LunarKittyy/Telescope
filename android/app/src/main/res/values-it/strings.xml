@@ -46,16 +46,9 @@
     <string name="setup_allowed">Consentito</string>
     <string name="allow">Consenti</string>
     <string name="open_settings">Apri impostazioni</string>
-    <string name="pair_title">Associa al tuo computer</string>
-    <string name="pair_hint">Sul computer, apri Telescope e fai clic su Aggiungi telefono. Tramite USB, il telefono si associa senza scansionare.</string>
-    <string name="scan_pairing_code">Scansiona codice di associazione</string>
-    <string name="pair_another">Associa un altro computer</string>
-    <string name="paired_computer_title">Computer associato</string>
     <string name="paired_computers_title">Computer associati</string>
     <string name="paired_on">Associato il %1$s</string>
     <string name="remove">Rimuovi</string>
-    <string name="show_all_computers">Mostra tutti (%1$d)</string>
-    <string name="show_fewer">Mostra meno</string>
     <string name="cancel">Annulla</string>
     <string name="ok">OK</string>
     <string name="remove_computer_title">Vuoi rimuovere %1$s?</string>
@@ -93,7 +86,6 @@
     <string name="wait_for_computer_hint">Consente a un computer associato di avviare la fotocamera a schermo spento.</string>
     <string name="stop_streaming">Interrompi streaming</string>
     <string name="status_title">Stato</string>
-    <string name="more">Altro</string>
     <string name="status_not_streaming">Non in streaming</string>
     <string name="status_starting">Avvio in corso…</string>
     <string name="status_streaming">In streaming</string>

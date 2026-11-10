@@ -73,21 +73,23 @@
     <string name="allow">Allow</string>
     <string name="open_settings">Open settings</string>
 
-    <!-- Pairing card -->
-    <string name="pair_title">Pair with your computer</string>
-    <!-- "Add phone" is the name of a button in the desktop app: keep it the same as the desktop translation -->
-    <string name="pair_hint">On your computer, open Telescope and click Add phone. Over USB, the phone pairs without scanning.</string>
-    <string name="scan_pairing_code">Scan pairing code</string>
-    <string name="pair_another">Pair another computer</string>
-    <!-- Heading over the list when there's exactly one computer, and when there are more -->
-    <string name="paired_computer_title">Paired computer</string>
+    <!-- Pairing card on the main screen. The line under it says what pairing does while nothing is paired -->
+    <string name="pairing_title">Pairing</string>
+    <string name="pair_intro">Pair with Telescope on your computer so it can use this phone\'s camera.</string>
+    <string name="pair_a_computer">Pair a computer</string>
+    <string name="manage">Manage</string>
+    <string name="pair_new">Pair new</string>
+    <plurals name="computers_paired">
+        <item quantity="one">%1$d computer paired</item>
+        <item quantity="other">%1$d computers paired</item>
+    </plurals>
+    <!-- The screen that lists the paired computers: its title, the card's heading and what it says with none left -->
+    <string name="manage_computers">Manage computers</string>
     <string name="paired_computers_title">Paired computers</string>
+    <string name="no_computers_paired">No computers paired.</string>
     <!-- %1$s is a date, already written the phone's way -->
     <string name="paired_on">Paired %1$s</string>
     <string name="remove">Remove</string>
-    <!-- Under the first few paired computers: unfolds the rest. %1$d is how many there are, always more than 3 -->
-    <string name="show_all_computers">Show all %1$d</string>
-    <string name="show_fewer">Show fewer</string>
     <string name="cancel">Cancel</string>
     <string name="ok">OK</string>
     <!-- %1$s is the computer's name -->
@@ -138,8 +140,6 @@
     <!-- Status card. Keep the ● (streaming) or ○ (not streaming) at the start. -->
     <string name="stop_streaming">Stop streaming</string>
     <string name="status_title">Status</string>
-    <!-- The fold on the main screen that holds Pair and Network while streaming -->
-    <string name="more">More</string>
     <string name="status_not_streaming">Not streaming</string>
     <string name="status_starting">Starting…</string>
     <string name="status_streaming">Streaming</string>

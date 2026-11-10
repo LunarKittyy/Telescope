@@ -39,16 +39,12 @@ class MainActivity : LookActivity() {
     private lateinit var checkLocalOnly: CompoundButton
     private lateinit var checkWaitForComputer: CompoundButton
     private lateinit var tvStatus: TextView
-    private lateinit var btnScanPair: LookButton
-    private lateinit var tvPairingTitle: TextView
-    private lateinit var tvPairingHint: TextView
-    private lateinit var layoutComputers: LinearLayout
+    private lateinit var tvPairingLine: TextView
+    private lateinit var btnPairFirst: LookButton
+    private lateinit var rowPairedButtons: View
     private lateinit var btnPreview: com.google.android.material.button.MaterialButton
     private lateinit var btnBlackScreen: MaterialButton
     private lateinit var blackScreen: BlackScreen
-    private lateinit var moreBlock: View
-    private lateinit var moreBody: View
-    private lateinit var btnMore: LookButton
     private lateinit var cardPermissions: CardView
     private lateinit var layoutPermissionsContainer: LinearLayout
     private lateinit var cardUpdate: View
@@ -95,6 +91,22 @@ class MainActivity : LookActivity() {
         result.contents?.let { handleQrScan(it) }
     }
 
+    // Manage's "Pair new" closes it and asks for the scanner from here, where pairing lives
+    private val manageLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == ManageActivity.RESULT_PAIR_NEW) launchScan()
+    }
+
+    private fun launchScan() {
+        val opts = ScanOptions().apply {
+            setPrompt(getString(R.string.scan_prompt))
+            setBeepEnabled(false)
+            setOrientationLocked(false)
+            setBarcodeImageEnabled(false)
+            setCaptureActivity(ScanActivity::class.java)
+        }
+        scanLauncher.launch(opts)
+    }
+
     // Registered at runtime; gated on DUMP permission (adb-only, not other apps).
     private val pairReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -120,23 +132,14 @@ class MainActivity : LookActivity() {
         blackScreen = BlackScreen(this) { tvStatus.text }
         checkLocalOnly             = findViewById(R.id.checkLocalOnly)
         checkWaitForComputer       = findViewById(R.id.checkWaitForComputer)
-        btnScanPair                = findViewById(R.id.btnScanPair)
-        val pairingHeader = findViewById<CardHeader>(R.id.headerPairing)
-        tvPairingTitle             = pairingHeader.title
-        btnRemoveAll = LookButton(this).apply {
-            setText(R.string.remove_all)
-            visibility = View.GONE
-            setOnClickListener { confirmRemoveAll() }
-        }
-        pairingHeader.setAction(btnRemoveAll)
-        tvPairingHint              = findViewById(R.id.tvPairingHint)
-        layoutComputers            = findViewById(R.id.layoutComputers)
+        tvPairingLine              = findViewById(R.id.tvPairingLine)
+        btnPairFirst               = findViewById(R.id.btnPairFirst)
+        rowPairedButtons           = findViewById(R.id.rowPairedButtons)
+        btnPairFirst.setOnClickListener { launchScan() }
+        findViewById<View>(R.id.btnPairNew).setOnClickListener { launchScan() }
+        findViewById<View>(R.id.btnManage).setOnClickListener { manageLauncher.launch(Intent(this, ManageActivity::class.java)) }
         btnPreview                 = findViewById(R.id.btnPreview)
         btnBlackScreen             = findViewById(R.id.btnBlackScreen)
-        moreBlock                  = findViewById(R.id.moreBlock)
-        moreBody                   = findViewById(R.id.moreBody)
-        btnMore                    = findViewById(R.id.btnMore)
-        btnMore.setOnClickListener { setMoreOpen(!moreOpen, animate = true) }
         cardPermissions            = findViewById(R.id.cardPermissions)
         layoutPermissionsContainer = findViewById(R.id.layoutPermissionsContainer)
 
@@ -166,16 +169,6 @@ class MainActivity : LookActivity() {
         btnBlackScreen.setOnClickListener { blackScreen.enter() }
         // Icon only, so a long press says what it does
         androidx.appcompat.widget.TooltipCompat.setTooltipText(btnBlackScreen, getString(R.string.black_screen_description))
-        btnScanPair.setOnClickListener {
-            val opts = ScanOptions().apply {
-                setPrompt(getString(R.string.scan_prompt))
-                setBeepEnabled(false)
-                setOrientationLocked(false)
-                setBarcodeImageEnabled(false)
-                setCaptureActivity(ScanActivity::class.java)
-            }
-            scanLauncher.launch(opts)
-        }
         cardUpdate    = findViewById(R.id.cardUpdate)
         tvUpdateTitle = findViewById<CardHeader>(R.id.headerUpdate).title
         tvUpdateText  = findViewById(R.id.tvUpdateText)
@@ -447,128 +440,12 @@ class MainActivity : LookActivity() {
         installUpdate(manifest) { pendingUpdate = it }
     }
 
-    // Top right of the pairing card, with two or more computers paired
-    private lateinit var btnRemoveAll: LookButton
-
-    // Whether the paired computers list is unfolded past COMPUTERS_SHOWN
-    private var showAllComputers = false
-
-    // The pairing card: how to pair when nothing is paired, otherwise the list of computers.
+    // The pairing card: what pairing is and one button while nothing is paired, otherwise how many are and two buttons
     private fun renderPairing() {
-        val paired = PairedComputers.list(this)
-        val computers = paired.computers
-        layoutComputers.removeAllViews()
-        btnRemoveAll.visibility = if (paired.offersRemoveAll) View.VISIBLE else View.GONE
-        if (computers.isEmpty()) {
-            tvPairingTitle.setText(R.string.pair_title)
-            tvPairingHint.visibility = View.VISIBLE
-            btnScanPair.setText(R.string.scan_pairing_code)
-            styleScanButton(primary = true)
-            return
-        }
-        tvPairingTitle.text = getString(if (computers.size == 1) R.string.paired_computer_title else R.string.paired_computers_title)
-        tvPairingHint.visibility = View.GONE
-        // Newest first, and only the first few until asked, so a long list doesn't push the other cards off the screen
-        val folded = computers.size > COMPUTERS_SHOWN && !showAllComputers
-        paired.shown(COMPUTERS_SHOWN, showAllComputers).forEach { layoutComputers.addView(buildComputerRow(it)) }
-        if (computers.size > COMPUTERS_SHOWN) layoutComputers.addView(
-            TextView(this).apply {
-                text = if (folded) getString(R.string.show_all_computers, computers.size) else getString(R.string.show_fewer)
-                setTextAppearance(R.style.TextAppearance_Telescope_Body)
-                setTextColor(attrColor(R.attr.tsHueStreaming))
-                typeface = ResourcesCompat.getFont(this@MainActivity, R.font.ibm_plex_sans_semibold)
-                gravity = android.view.Gravity.CENTER
-                minHeight = dp(44)
-                isClickable = true
-                isFocusable = true
-                val ripple = android.util.TypedValue()
-                theme.resolveAttribute(android.R.attr.selectableItemBackground, ripple, true)
-                setBackgroundResource(ripple.resourceId)
-                setOnClickListener { showAllComputers = folded; renderPairing() }
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
-                ).apply { bottomMargin = dp(4) }
-            })
-        btnScanPair.setText(R.string.pair_another)
-        styleScanButton(primary = false)
-    }
-
-    // The one main action while no computer is paired wears the card's colour; with one, it is an ordinary button
-    private fun styleScanButton(primary: Boolean) {
-        btnScanPair.setRole(if (primary) LookButton.Role.PRIMARY else LookButton.Role.PLAIN, attrColor(R.attr.tsHueStreaming))
-    }
-
-    private fun buildComputerRow(computer: PairedComputer): View {
-        // An inset row like the desktop's phone list: the computer's icon, its name and when it was paired
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.CENTER_VERTICAL
-            setBackgroundResource(R.drawable.bg_inset)
-            setPadding(dp(12), dp(10), dp(10), dp(10))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { bottomMargin = dp(8) }
-        }
-        row.addView(ImageView(this).apply {
-            setImageResource(R.drawable.ic_monitor)
-            imageTintList = ColorStateList.valueOf(attrColor(R.attr.tsHueStreaming))
-            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(12) }
-        })
-        val textBlock = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        textBlock.addView(TextView(this).apply {
-            text = computer.name
-            setTextAppearance(R.style.TextAppearance_Telescope_Body)
-            typeface = ResourcesCompat.getFont(this@MainActivity, R.font.ibm_plex_sans_semibold)
-        })
-        textBlock.addView(TextView(this).apply {
-            val date = java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM)
-                .format(java.util.Date(computer.pairedAtMs))
-            text = getString(R.string.paired_on, date)
-            setTextAppearance(R.style.TextAppearance_Telescope_Hint)
-        })
-        row.addView(textBlock)
-        // An icon, so a long name or a large font keeps the row's width instead of breaking mid-word
-        row.addView(LookButton(this).apply {
-            setIconResource(R.drawable.ic_trash)
-            iconSize = dp(18)
-            iconPadding = 0
-            iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
-            setPadding(0, 0, 0, 0)
-            minimumWidth = 0
-            minWidth = 0
-            minimumHeight = 0
-            minHeight = 0
-            contentDescription = getString(R.string.remove_computer_title, computer.name)
-            androidx.appcompat.widget.TooltipCompat.setTooltipText(this, getString(R.string.remove))
-            setOnClickListener { confirmRemoveComputer(computer) }
-            // Start, not left: in Persian or Arabic the button sits on the left, and the gap goes on its right
-            layoutParams = LinearLayout.LayoutParams(dp(44), dp(48)).apply { marginStart = dp(12) }
-        })
-        return row
-    }
-
-    // Every computer's token goes at once; pairing any of them again starts from scratch
-    private fun confirmRemoveAll() {
-        lookDialog()
-            .setTitle(R.string.remove_all_title)
-            .setMessage(R.string.remove_all_message)
-            .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton(R.string.remove_all) { _, _ -> PairedComputers.removeAll(this) }
-            .showLook(LookButton.Role.DANGER)
-    }
-
-    // Removing a computer revokes only its token; the others keep working.
-    private fun confirmRemoveComputer(computer: PairedComputer) {
-        lookDialog()
-            .setTitle(getString(R.string.remove_computer_title, computer.name))
-            .setMessage(R.string.remove_computer_message)
-            .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton(R.string.remove) { _, _ -> PairedComputers.remove(this, computer.id) }
-            .showLook(LookButton.Role.DANGER)
+        val count = PairedComputers.list(this).computers.size
+        btnPairFirst.visibility = if (count == 0) View.VISIBLE else View.GONE
+        rowPairedButtons.visibility = if (count == 0) View.GONE else View.VISIBLE
+        tvPairingLine.text = if (count == 0) getString(R.string.pair_intro) else resources.getQuantityString(R.plurals.computers_paired, count, count)
     }
 
     // One step of the setup card. permission == null is the battery exemption, which has no prompt of
@@ -781,7 +658,6 @@ class MainActivity : LookActivity() {
         btnToggle.setText(if (busy) R.string.cancel else R.string.stop_streaming)
         btnBlackScreen.visibility = if (streaming) View.VISIBLE else View.GONE
         blackScreen.onStreamState(streaming, busy)
-        trimForStream(streaming || busy)
         if (streaming) {
             // The camera stays on while the computer reconnects; say so rather than claim it's getting video.
             val viewed = service?.hasViewer == true
@@ -801,71 +677,6 @@ class MainActivity : LookActivity() {
             showStatusDetail(emptyList(), R.attr.tsInk2)
         }
         if (::cardUpdate.isInitialized && cardUpdate.visibility == View.VISIBLE) renderUpdate()
-    }
-
-    // While a stream runs Main keeps Status, Stop, Preview and Black screen; Pair and Network fold under "More", below Status so Stop stays put.
-    // When the stream ends everything is back, and the fold forgets it was open.
-    private var trimmed: Boolean? = null
-
-    private fun trimForStream(inStream: Boolean) {
-        if (trimmed == inStream) return
-        trimmed = inStream
-        val content = moreBlock.parent as android.view.ViewGroup
-        content.removeView(moreBlock)
-        content.addView(moreBlock, if (inStream) content.childCount else content.indexOfChild(btnToggle))
-        btnMore.visibility = if (inStream) View.VISIBLE else View.GONE
-        if (!inStream) moreOpen = false
-        setMoreOpen(!inStream || moreOpen, animate = false)
-    }
-
-    private var foldAnimator: android.animation.ValueAnimator? = null
-
-    // The kit's Unfold: the rows open and shut in height and opacity together, 170 ms open and 130 ms shut, and not at all with animations off
-    private fun setMoreOpen(open: Boolean, animate: Boolean) {
-        if (animate) moreOpen = open
-        btnMore.icon = androidx.core.content.ContextCompat.getDrawable(this, if (moreOpen && trimmed == true) R.drawable.ic_chevron_up else R.drawable.ic_chevron_down)
-        btnMore.contentDescription = null
-        foldAnimator?.cancel()
-        val body = moreBody
-        val shown = open
-        if (!animate || !Motion.on()) {
-            body.layoutParams = body.layoutParams.apply { height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT }
-            body.alpha = 1f
-            body.visibility = if (shown) View.VISIBLE else View.GONE
-            return
-        }
-        val from: Int
-        val to: Int
-        val wasShown = body.visibility == View.VISIBLE
-        if (shown) {
-            body.visibility = View.VISIBLE
-            body.measure(
-                View.MeasureSpec.makeMeasureSpec((moreBlock.width), View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
-            from = if (wasShown) body.height else 0
-            to = body.measuredHeight
-        } else {
-            from = body.height
-            to = 0
-        }
-        foldAnimator = android.animation.ValueAnimator.ofInt(from, to).apply {
-            duration = if (shown) 170L else 130L
-            interpolator = android.view.animation.DecelerateInterpolator()
-            addUpdateListener {
-                val h = it.animatedValue as Int
-                body.layoutParams = body.layoutParams.apply { height = h }
-                body.alpha = if (to == 0) it.animatedFraction.let { f -> 1f - f } else it.animatedFraction
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(a: android.animation.Animator) {
-                    body.layoutParams = body.layoutParams.apply { height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT }
-                    body.alpha = 1f
-                    body.visibility = if (shown) View.VISIBLE else View.GONE
-                }
-                override fun onAnimationCancel(a: android.animation.Animator) {}
-            })
-            start()
-        }
     }
 
     // "To newmoon over USB" and "At 1080p 30 fps", each its own tag; the size and rate only with the camera on
@@ -914,13 +725,9 @@ class MainActivity : LookActivity() {
 
 
     companion object {
-        // Whether the stream's "More" fold is open; it forgets when the stream ends (trimForStream)
-        private var moreOpen = false
         private const val RC_PERMS = 100
         // Android's "Large" font is 1.15 and its largest 1.3 or more; from there a setup step stacks its button
         private const val STACK_FONT_SCALE = 1.3f
-        // Paired computers listed before "Show all"
-        private const val COMPUTERS_SHOWN = 3
         // Lets the desktop app push a pairing payload straight over adb when
         // there's no camera-scannable QR code involved (USB pairing) - the
         // same JSON shape and handleQrScan() logic as the QR flow, just

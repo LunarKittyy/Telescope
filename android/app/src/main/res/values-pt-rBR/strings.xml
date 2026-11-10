@@ -46,16 +46,9 @@
     <string name="setup_allowed">Permitido</string>
     <string name="allow">Permitir</string>
     <string name="open_settings">Abrir configurações</string>
-    <string name="pair_title">Parear com seu computador</string>
-    <string name="pair_hint">No seu computador, abra o Telescope e clique em Adicionar celular. Por USB, o celular pareia sem escanear.</string>
-    <string name="scan_pairing_code">Escanear código de pareamento</string>
-    <string name="pair_another">Parear outro computador</string>
-    <string name="paired_computer_title">Computador pareado</string>
     <string name="paired_computers_title">Computadores pareados</string>
     <string name="paired_on">Pareado em %1$s</string>
     <string name="remove">Remover</string>
-    <string name="show_all_computers">Mostrar todos os %1$d</string>
-    <string name="show_fewer">Mostrar menos</string>
     <string name="cancel">Cancelar</string>
     <string name="ok">OK</string>
     <string name="remove_computer_title">Remover %1$s?</string>
@@ -93,7 +86,6 @@
     <string name="wait_for_computer_hint">Permite que um computador pareado inicie a câmera com a tela desligada.</string>
     <string name="stop_streaming">Parar transmissão</string>
     <string name="status_title">Status</string>
-    <string name="more">Mais</string>
     <string name="status_not_streaming">Não está transmitindo</string>
     <string name="status_starting">Iniciando…</string>
     <string name="status_streaming">Transmitindo</string>
