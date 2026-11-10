@@ -666,6 +666,16 @@ fn the_map_follows_a_decoded_size_change_that_has_no_event_of_its_own() {
     assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 16.0 / 9.0));
 }
 
+#[test]
+fn the_map_follows_any_sources_decoded_size_change() {
+    let mut r = Rig::new();
+    r.host.aspect = 16.0 / 9.0;
+    r.plugin.on_stream_start(&mut r.host, &stream());
+    r.host.aspect = 9.0 / 16.0;
+    r.event(Event::FrameSizeChanged { source_id: "browser".into(), width: 720, height: 1280 });
+    assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 9.0 / 16.0));
+}
+
 fn outlines(r: &Rig) -> Vec<(f64, f64, f64, f64)> {
     r.shown("lens-outlines").as_array().unwrap().iter()
         .map(|o| ["x0", "y0", "x1", "y1"].map(|k| o[k].as_f64().unwrap()))
