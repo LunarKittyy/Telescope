@@ -462,6 +462,38 @@ pub struct Deps {
     pub pace: Pace,
 }
 
+/// When the next animation frame is due, scheduled from the due time of the one before and not from when its send finished, so what a send costs doesn't slow the animation. One far behind starts over from now instead of rushing to catch up.
+#[derive(Default)]
+struct Beat {
+    due: Option<Instant>,
+    /// How late a frame may start and still count as on time (timers wake a little late).
+    slack: Duration,
+}
+
+impl Beat {
+    /// When the frame about to be sent counts as started: its due time when it is on time, now when it is early (it was woken) or far behind.
+    fn start(&self, now: Instant) -> Instant {
+        match self.due {
+            Some(due) if now >= due && now - due <= self.slack => due,
+            _ => now,
+        }
+    }
+
+    /// The frame started at started shows for seconds: how long to wait from now for the next.
+    fn next(&mut self, started: Instant, seconds: f64, now: Instant) -> Duration {
+        let shows = Duration::from_secs_f64(seconds);
+        let due = started + shows;
+        self.due = Some(due);
+        self.slack = shows / 2;
+        due.saturating_duration_since(now)
+    }
+
+    /// Nothing is animating: the next frame starts when it is sent.
+    fn reset(&mut self) {
+        self.due = None;
+    }
+}
+
 /// Prepared frames for one size: the format they're in and each with how long it shows.
 type Prepared = ((u32, u32), PixelFormat, Vec<(Frame, f64)>);
 
@@ -495,6 +527,7 @@ impl ScreenJob {
         let filter_open = self.deps.filter_probe.as_ref().and_then(|probe| probe());
         let mut i = 0;
         let mut checked = Instant::now();
+        let mut beat = Beat::default();
         loop {
             // Cleared before the stop is looked at: a stop and its wake coming after that leave the wake set
             self.nudge.clear();
@@ -508,16 +541,19 @@ impl ScreenJob {
                 }
             }
             let (frame, seconds) = &frames[i];
+            let started = beat.start(Instant::now());
             cam.send(frame)?;
             if self.watched.load(Ordering::SeqCst) {
                 i = (i + 1) % frames.len();
-                self.nudge.wait(Duration::from_secs_f64(*seconds));
+                self.nudge.wait(beat.next(started, *seconds, Instant::now()));
             } else if let Some(open) = filter_open.as_ref().filter(|open| !open()) {
+                beat.reset();
                 // Until an app opens the camera there's nowhere to send, and it shows its own screen until our first
                 // frame lands: send the moment it's there (and at the idle pace regardless, should the probe be wrong).
                 let until = Instant::now() + pace.idle;
                 while !self.nudge.wait(pace.filter_poll) && !open() && Instant::now() < until {}
             } else {
+                beat.reset();
                 self.nudge.wait(pace.idle);
             }
         }
@@ -1386,6 +1422,63 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// The animation's frames as the feed would time them on a made-up clock: each send takes send and each wake from a wait comes late after it. Each frame as (when it was due to start, when its send began), from the first, in ms.
+    fn beats(seconds: f64, send: Duration, late: Duration, frames: usize) -> Vec<(f64, f64)> {
+        let base = Instant::now();
+        let (mut beat, mut now) = (Beat::default(), base);
+        let mut out = Vec::new();
+        for _ in 0..frames {
+            let started = beat.start(now);
+            out.push(((started - base).as_secs_f64() * 1000.0, (now - base).as_secs_f64() * 1000.0));
+            now += send;
+            now += beat.next(started, seconds, now) + late;
+        }
+        out
+    }
+
+    #[test]
+    fn a_slow_send_does_not_slow_the_animation() {
+        // 100 ms frames: each is due 100 ms after the one before, however long the send takes
+        for send in [1, 20, 60, 99] {
+            let beats = beats(0.1, Duration::from_millis(send), Duration::ZERO, 50);
+            for (k, (due, began)) in beats.iter().enumerate() {
+                assert!((due - k as f64 * 100.0).abs() < 0.01, "send {send} ms: frame {k} due at {due} ms");
+                assert!((began - due).abs() < 0.01, "send {send} ms: frame {k} began at {began} ms");
+            }
+        }
+    }
+
+    #[test]
+    fn timers_waking_a_little_late_do_not_add_up() {
+        let beats = beats(1.0 / 15.0, Duration::from_millis(5), Duration::from_millis(2), 150);
+        let (due, began) = beats[149];
+        assert!((due - 149.0 * 1000.0 / 15.0).abs() < 0.01, "frame 149 due at {due} ms");
+        assert!((began - due - 2.0).abs() < 0.01, "and began {} ms after that", began - due);
+    }
+
+    #[test]
+    fn an_animation_far_behind_starts_over_instead_of_rushing_to_catch_up() {
+        // A send taking 130 ms of a 100 ms frame: no frame starts before the one before is out, and none is more than half a frame late
+        let beats = beats(0.1, Duration::from_millis(130), Duration::ZERO, 20);
+        for pair in beats.windows(2) {
+            assert!(pair[1].1 - pair[0].1 >= 130.0 - 0.01, "{pair:?}");
+        }
+        assert!(beats.iter().all(|(due, began)| began - due <= 50.0 + 0.01), "{beats:?}");
+        assert!(beats[19].0 > 19.0 * 100.0, "it plays slower, which is all the camera allows");
+    }
+
+    #[test]
+    fn a_wake_before_the_frame_is_due_starts_the_next_one_then() {
+        let (mut beat, base) = (Beat::default(), Instant::now());
+        beat.next(base, 0.1, base + Duration::from_millis(5));
+        assert_eq!(beat.start(base + Duration::from_millis(40)), base + Duration::from_millis(40));
+        assert_eq!(beat.start(base + Duration::from_millis(100)), base + Duration::from_millis(100));
+        assert_eq!(beat.start(base + Duration::from_millis(130)), base + Duration::from_millis(100), "30 ms late is on time");
+        assert_eq!(beat.start(base + Duration::from_millis(180)), base + Duration::from_millis(180), "80 ms late is a new start");
+        beat.reset();
+        assert_eq!(beat.start(base + Duration::from_millis(130)), base + Duration::from_millis(130));
     }
 
     /// A camera that takes this long over each send and notes when each began.
