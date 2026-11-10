@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex};
 use telescope_core::actions::{self, Choice, SliderSpec};
 use telescope_core::config::clamped_int;
 use telescope_core::event::Event;
-use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStep, ShaderStep};
+use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStep, PixelFormat, ShaderStep, Touch};
 use telescope_core::host::{Host, Poster, View};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::image::with_spares;
@@ -157,12 +157,23 @@ pub(crate) struct Runner {
 }
 
 impl Runner {
-    pub(crate) fn run(&mut self, frame: &Rgb, look: &Look, mask: Option<Gray>) -> Rgb {
+    /// Starts the effect afresh when the look names another one, or has been reset.
+    fn pick(&mut self, look: &Look) {
         let id = (look.effect.clone(), look.reset);
         if self.name.as_ref() != Some(&id) {
             self.name = Some(id);
             self.effect = Effect::named(&look.effect);
         }
+    }
+
+    /// The effect on a frame's own data, for the ones that need no RGB picture. False when this one does (the frame is left alone).
+    pub(crate) fn run_frame(&mut self, frame: &mut Frame, look: &Look) -> bool {
+        self.pick(look);
+        self.effect.as_mut().is_some_and(|e| e.run_frame(frame, look).is_some())
+    }
+
+    pub(crate) fn run(&mut self, frame: &Rgb, look: &Look, mask: Option<Gray>) -> Rgb {
+        self.pick(look);
         match &mut self.effect {
             Some(e) => e.run(frame, look, Inputs { mask }),
             None => frame.clone(),
@@ -186,6 +197,23 @@ impl CpuStep for FunStep {
         with_spares(&mut spares, || self.run(frame, ctx));
         self.spares = spares;
     }
+
+    fn touch(&self, ctx: &dyn FrameContext) -> Touch {
+        let s = self.hub.state.lock().unwrap();
+        let shown = s.focused == ctx.source_id();
+        let look = if shown { &*s.look } else { &*self.frozen };
+        let effect = look.effect.as_str();
+        // the room and pose are the shown stream's
+        if !shown && fx::PLATE.contains(&effect) {
+            return Touch::Nothing;
+        }
+        if shown && s.grab.is_some() {
+            return Touch::Changes;
+        }
+        // clones with none taken and a cloak with no empty room hand the picture on as it is
+        let idle = matches!(effect, "clones" | "cloak") && look.plate.is_none() && look.clones.is_none();
+        if idle { Touch::Nothing } else { Touch::Changes }
+    }
 }
 
 impl FunStep {
@@ -199,19 +227,32 @@ impl FunStep {
         if !shown && fx::PLATE.contains(&look.effect.as_str()) {
             return;
         }
-        let Some(rgb) = Rgb::from_frame(frame) else { return };
+        if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) {
+            return;
+        }
+        let size = (frame.width as usize, frame.height as usize);
         let edges = fx::EDGES.contains(&look.effect.as_str());
+        let mut grab = None;
         if shown {
             let taken = look.plate.as_ref().map(|p| (p.w, p.h)).or_else(|| look.clones.as_ref().map(|c| (c.picture.w, c.picture.h)));
             let mut s = self.hub.state.lock().unwrap();
-            if taken.is_some_and(|t| t != (rgb.w, rgb.h)) && !s.stale_sent {
+            if taken.is_some_and(|t| t != size) && !s.stale_sent {
                 // a new stream size: what was taken no longer lines up
                 s.stale_sent = true;
                 s.mailbox.push(Taken::Reshaped);
                 s.post();
             }
-            let grab = s.grab.take();
-            drop(s);
+            grab = s.grab.take();
+        }
+        // Taking the room or a clone needs the picture; the effects that only need a plane of it work on the frame as it is
+        if grab.is_none() {
+            let done = if shown { self.hub.runner.lock().unwrap().run_frame(frame, &look) } else { self.own.run_frame(frame, &look) };
+            if done {
+                return;
+            }
+        }
+        let Some(rgb) = Rgb::from_frame(frame) else { return };
+        if shown {
             if let Some(grab) = grab {
                 let taken = match grab {
                     Grab::Plate => Taken::Plate(rgb.clone()),
