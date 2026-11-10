@@ -1,7 +1,7 @@
 // The Presets menu in the real window, clicked with pointer events: save, load, rename and delete take effect.
 use i_slint_backend_testing::ElementHandle;
 use serde_json::{json, Value};
-use slint::platform::{PointerEventButton, WindowEvent};
+use slint::platform::{Key, PointerEventButton, WindowEvent};
 use slint::{ComponentHandle, LogicalPosition};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -211,4 +211,43 @@ fn the_menu_commands_are_buttons_a_screen_reader_can_activate() {
     telescope_shell::offscreen::skip(std::time::Duration::from_millis(400));
     w.process();
     assert!(!labelled(&w, "Rename preset").is_empty(), "activating a name in the Rename list asks for its new name");
+}
+
+fn key(w: &Rc<window::Window>, text: impl Into<slint::SharedString>) {
+    let text: slint::SharedString = text.into();
+    w.ui.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+    w.ui.window().dispatch_event(WindowEvent::KeyReleased { text });
+    w.process();
+}
+
+fn settle(w: &Rc<window::Window>) {
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(400));
+    w.process();
+    telescope_shell::offscreen::pump();
+}
+
+#[test]
+fn a_save_prompt_still_closes_after_the_replace_question_took_its_place() {
+    let (w, _) = many_presets(1);
+    // Save under the name that is taken: the replace question opens where the name prompt was going out
+    open_menu(&w);
+    menu_row(&w, "Save current as…");
+    for c in "Preset 1".chars() {
+        key(&w, c.to_string());
+    }
+    key(&w, "\n");
+    settle(&w);
+    assert!(!labelled(&w, "Replace preset").is_empty(), "the taken name asks whether to replace");
+    press_in(&w, "Cancel", 0, (0.0, 0.0));
+    settle(&w);
+    assert!(labelled(&w, "Replace preset").is_empty(), "Cancel closes the question");
+    // The next Save prompt must still close on Cancel, again on Cancel, and on Save
+    for how in ["Cancel", "Cancel", "Save"] {
+        open_menu(&w);
+        menu_row(&w, "Save current as…");
+        assert!(!labelled(&w, "Save preset").is_empty(), "the prompt opens (then {how})");
+        press_in(&w, how, 0, (0.0, 0.0));
+        settle(&w);
+        assert!(labelled(&w, "Save preset").is_empty(), "the prompt closes on {how}");
+    }
 }
