@@ -257,10 +257,19 @@ fn what_the_thumbnails_cost() {
         });
         publish();
         r.w.update_thumbnails();
-        let t = time(20, |_| {
+        // What the UI thread spends on a tick of the preview's timer; the frames in between are the stream's
+        let mut spent = Vec::new();
+        for _ in 0..20 {
+            std::thread::sleep(std::time::Duration::from_millis(40));
+            r.pump();
             publish();
+            let t = Instant::now();
             r.w.update_thumbnails();
-        });
+            spent.push(t.elapsed().as_secs_f64() * 1000.0);
+        }
+        let t = Timing { mean: spent.iter().sum::<f64>() / spent.len() as f64, best: spent.iter().cloned().fold(f64::MAX, f64::min) };
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        r.pump();
         let mut hash = 0xcbf29ce484222325u64;
         let tiles = match r.w.ui.get_property("tiles") {
             Ok(SValue::Model(m)) => m,

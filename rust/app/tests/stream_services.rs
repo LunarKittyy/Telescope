@@ -431,6 +431,8 @@ fn each_tile_shows_its_own_streams_picture() {
     r.worker(0).slot().publish(rig::frame());
     r.worker(1).slot().publish(rig::frame());
     r.w.update_thumbnails();
+    // Their own thread scales them and wakes the window when they're ready
+    r.until("both tiles have their pictures", |_| shown("pixel") == "true" && shown("oneplus") == "true");
     assert_eq!((shown("pixel"), shown("oneplus")), ("true".to_string(), "true".to_string()), "the stream the panels don't show has one too");
     r.w.refresh_tiles();
     assert_eq!(shown("pixel"), "true", "a tile that's written again keeps its picture");
