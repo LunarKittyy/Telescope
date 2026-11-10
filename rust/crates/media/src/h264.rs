@@ -466,7 +466,7 @@ fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool) -
         };
         for u in units {
             units_in += 1;
-            match codec.decode(&u, |f| newest = Some(f)) {
+            match codec.decode_newest(&u) {
                 Ok(n) => count += n,
                 // Joined mid-GOP, say: skip until a keyframe
                 Err(Fault::Invalid) if !strict => {}
@@ -478,6 +478,17 @@ fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool) -
             }
         }
     });
+    // Only the newest picture is downloaded and converted; the ones it replaced never were
+    if fault.is_none() {
+        match codec.take_newest() {
+            Ok(frame) => newest = frame,
+            // A picture that couldn't be taken doesn't count as finished
+            Err(Fault::Invalid) if !strict => count = count.saturating_sub(1),
+            Err(Fault::Invalid) => fault = Some("the decoder refused the stream".to_string()),
+            Err(Fault::Broken(why)) => fault = Some(why),
+        }
+    }
+    codec.drop_newest();
     match fault {
         Some(why) => Err(why),
         None => Ok(Fed { newest, count, units: units_in }),
@@ -868,6 +879,42 @@ pub(crate) mod tests {
         }
     }
 
+    /// What a chunk of several access units gave before only the newest picture was extracted: every one converted, the last kept.
+    fn newest_the_old_way(codec: &mut Codec, data: &[u8]) -> (Option<Frame>, u32) {
+        let (mut newest, mut count) = (None, 0);
+        codec.parse(data, |c, unit| count += c.decode(unit, |f| newest = Some(f)).unwrap());
+        (newest, count)
+    }
+
+    #[test]
+    fn a_burst_keeps_the_picture_extracting_each_one_would_have_kept() {
+        let Some(packets) = testenc::h264_moving(40, 128, 96, 10, "high") else { return };
+        let _turn = card_test();
+        for hardware in [false, true] {
+            for group in [1usize, 3, 4, 7] {
+                let mut new = H264::new(hardware, None).unwrap();
+                if hardware && new.hw().is_none() {
+                    eprintln!("no graphics card decoder; skipped");
+                    continue;
+                }
+                let mut old = Codec::h264(if hardware { new.hw() } else { None }).unwrap();
+                let mut kept = 0;
+                for chunk in packets.chunks(group) {
+                    let data = chunk.concat();
+                    let (got, count) = new.feed(&data);
+                    let (want, want_count) = newest_the_old_way(&mut old, &data);
+                    assert_eq!(count, want_count, "{group} units a chunk, hardware {hardware}");
+                    assert_eq!(got.is_some(), want.is_some());
+                    if let (Some(got), Some(want)) = (got, want) {
+                        assert!(got.data == want.data, "{group} units a chunk, hardware {hardware}: a different picture was kept");
+                        kept += 1;
+                    }
+                }
+                assert!(kept > 5, "pictures came out");
+            }
+        }
+    }
+
     #[test]
     fn a_real_card_gives_the_same_picture_as_software() {
         let Some(packets) = testenc::h264(&[40, 90, 140, 200], 320, 240, 5) else { return };
@@ -1031,6 +1078,44 @@ mod bench {
             let avg = |p: &[u8]| p.iter().map(|&b| b as u64).sum::<u64>() / p.len() as u64;
             println!("{:?}: {frames} frames at 1080p, {ms:.2} ms each, hardware failed: {}, last frame Y/U/V {}/{}/{}",
                      dec.hw(), hardware_failed(), avg(y), avg(u), avg(v));
+        }
+    }
+
+    /// A stream fed in chunks of several access units, as after a stall: only the newest picture of each chunk is kept.
+    /// cargo test --release -p telescope-media --lib -- --ignored --nocapture burst_feeding
+    #[test]
+    #[ignore = "a measurement, needs the clips"]
+    fn burst_feeding() {
+        use crate::ffmpeg::decode_bench::{digest, packets};
+        for hardware in [false, true] {
+            for name in ["p1080.h264", "p4k.h264"] {
+                let Some(packets) = packets(name) else { continue };
+                for group in [1usize, 2, 4, 8] {
+                    let mut best = f64::MAX;
+                    let (mut hash, mut backend, mut finished) = (0, None, 0);
+                    for _ in 0..3 {
+                        let mut dec = H264::new(hardware, None).unwrap();
+                        let (mut newest, mut times) = (Vec::new(), Vec::new());
+                        finished = 0;
+                        for chunk in packets.chunks(group) {
+                            let data = chunk.concat();
+                            let began = Instant::now();
+                            let (f, n) = dec.feed(&data);
+                            times.push(began.elapsed().as_secs_f64() * 1e3);
+                            finished += n;
+                            newest.extend(f);
+                        }
+                        assert!(newest.len() > 10, "no pictures kept");
+                        let total: f64 = times.iter().sum();
+                        if total < best {
+                            best = total;
+                            hash = digest(&newest);
+                            backend = dec.hw();
+                        }
+                    }
+                    println!("{:>7?} {name:11} {group} access units per feed: {:6.2} ms per picture, {finished} pictures, kept hash {hash:016x}", backend, best / finished.max(1) as f64);
+                }
+            }
         }
     }
 }
