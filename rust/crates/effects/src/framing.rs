@@ -833,7 +833,14 @@ impl Plugin for FramingPlugin {
         match event {
             Event::PeopleSeen { source_id, people } => self.on_people(host, source_id, people),
             Event::ViewChanged { view } => self.on_view_changed(view),
-            Event::MaxZoomChanged { max_zoom } => self.max_zoom = (*max_zoom as f64).max(1.0),
+            Event::MaxZoomChanged { max_zoom } => {
+                let max_zoom = (*max_zoom as f64).max(1.0);
+                // A held spot above a lowered ceiling would stay (it is near enough), so it lets go and follows the new one
+                if max_zoom < self.max_zoom {
+                    self.room_state.reset();
+                }
+                self.max_zoom = max_zoom;
+            }
             e if vision_row::changes_it(e) => self.show_status(host),
             Event::TimerFired { owner, token } if owner == NAME && token == T_TICK && self.steering => {
                 self.tick(host);

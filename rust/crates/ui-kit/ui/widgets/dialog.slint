@@ -36,6 +36,7 @@ export component DialogFrame inherits Rectangle {
     out property <float> presence: fade.value;
     init => { arrived = true; }
     public function leave() {
+        if (leaving) { return; }
         sync();
         leaving = true;
     }
@@ -57,6 +58,11 @@ export component DialogFrame inherits Rectangle {
             }
         }
     }
+    // The layout sits in a key scope, which hides its size from this frame, so the frame asks for it
+    min-width: body.min-width;
+    min-height: body.min-height;
+    preferred-width: body.preferred-width;
+    preferred-height: body.preferred-height;
     opacity: fade.value;
     transform-scale: pop.scale;
     background: Theme.card;
@@ -79,7 +85,16 @@ export component DialogFrame inherits Rectangle {
     // The dialog's own face takes its clicks, so the one behind it only gets what lands beside the dialog
     if dismissable: TouchArea { }
     // From the top: a layout left to fill a popup that's still the old size would spread its rows
-    VerticalLayout {
+    // Keys meant for a control in a dialog that is fading away go nowhere, so the first decision (Cancel, Save) stands
+    FocusScope {
+        enabled: false;
+        width: parent.width;
+        height: parent.height;
+        capture-key-pressed(e) => { if (root.leaving) { accept } else { reject } }
+        capture-key-released(e) => { if (root.leaving) { accept } else { reject } }
+    body := VerticalLayout {
+        width: parent.width;
+        height: parent.height;
         alignment: start;
         padding-left: Theme.u(10);
         padding-right: Theme.u(10);
@@ -105,6 +120,14 @@ export component DialogFrame inherits Rectangle {
             }
         }
         @children
+    }
+    }
+    // A dialog that is fading away takes no more presses: the first decision stands
+    if leaving: TouchArea {
+        x: -5000px;
+        y: -5000px;
+        width: 10000px;
+        height: 10000px;
     }
     // A tooltip of a control in the dialog: the pop-up covers the window's own layer
     TipLayer { }

@@ -52,6 +52,12 @@ export component Unfolding inherits Rectangle {
             @children
         }
     }
+    // A row on its way out still fades, but nothing in it can be clicked any more
+    if !open && unfold.value > 0: TouchArea {
+        width: parent.width;
+        height: parent.height;
+        mouse-cursor: MouseCursor.default;
+    }
 }
 
 // Kind "helper". Pages: the contents of a tabbed place (a card's Primaries, Curves and LUT), one `Page` for each, in a PageGroup. Never

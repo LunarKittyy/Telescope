@@ -5,6 +5,10 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.appcompat.app.AppCompatActivity
 
+// A held update installs once the screen is back from "Allow from this source", but never over a stream that started meanwhile
+fun shouldResumePendingUpdate(hasPending: Boolean, canInstall: Boolean, streaming: Boolean): Boolean =
+    hasPending && canInstall && !streaming
+
 fun AppCompatActivity.canInstallUpdates(): Boolean = packageManager.canRequestPackageInstalls()
 
 // Installs the update, or first asks for "Allow from this source", which Android asks once per app. `waitForAllow` holds the update until the screen is back from that setting.

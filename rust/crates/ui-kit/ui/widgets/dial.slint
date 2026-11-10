@@ -134,11 +134,18 @@ export component Dial inherits Rectangle {
             is-typing = true;
         }
     }
+    // A box that is open when the dial goes disabled is dropped, so nothing typed in it is sent
+    changed enabled => {
+        if (!enabled && is-typing) {
+            is-typing = false;
+            KeyFocus.given-back += 1;
+        }
+    }
     function typing-done(text: string, apply: bool) {
         if (is-typing) {
             is-typing = false;
             if (typing-by-key) { focus.focus(); } else { KeyFocus.given-back += 1; }
-            if (apply && text != "") { touched = false; typed(text); }
+            if (apply && enabled && text != "") { touched = false; typed(text); }
         }
     }
     // A value the owner would not have: the numbers shake, one way, the other, and back
@@ -301,6 +308,7 @@ export component Dial inherits Rectangle {
         horizontal-alignment: center;
         vertical-alignment: center;
         single-line: true;
+        enabled: root.enabled;
         accessible-label: root.label;
         init => { self.focus(); self.select-all(); }
         accepted => { root.typing-done(self.text, true); }

@@ -191,7 +191,7 @@ export component Button inherits Rectangle {
     animate background, border-width, border-color { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
     accessible-role: button;
     accessible-label: text;
-    accessible-description: tip == text ? "" : tip-detail == "" ? tip : tip + ". " + tip-detail;
+    accessible-description: (tip == text ? "" : tip) + (tip == text || tip == "" || tip-detail == "" ? "" : ". ") + tip-detail;
     accessible-action-default => { if (enabled) { clicked(); } }
     forward-focus: focus;
     focus := FocusScope {
@@ -312,7 +312,7 @@ export component IconButton inherits Rectangle {
     accessible-role: button;
     accessible-label: label;
     accessible-enabled: enabled;
-    accessible-description: tip == label ? "" : tip-detail == "" ? tip : tip + ". " + tip-detail;
+    accessible-description: (tip == label ? "" : tip) + (tip == label || tip == "" || tip-detail == "" ? "" : ". ") + tip-detail;
     accessible-action-default => { if (enabled) { clicked(); } }
     forward-focus: focus;
     focus := FocusScope {

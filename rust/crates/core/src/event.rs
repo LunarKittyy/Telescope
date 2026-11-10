@@ -180,6 +180,8 @@ events! {
     "still_caps_changed" => StillCapsChanged { source_id: String },
     /// A stream fell behind its frame rate, or caught up again; only the shown one is measured.
     "stream_behind" => StreamBehind { source_id: String, behind: bool },
+    /// Not in plugin.py: a stream's decoded frames changed size (a rotated phone, a Browser camera turning), whichever kind of source it is.
+    "frame_size_changed" => FrameSizeChanged { source_id: String, width: u32, height: u32 },
 
     /// Not in plugin.py: a pick_on_preview ended, with the pick or None when cancelled (Python's on_done callback).
     "preview_picked" => PreviewPicked { owner: String, pick: Option<Pick> },
