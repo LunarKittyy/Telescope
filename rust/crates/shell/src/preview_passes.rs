@@ -43,13 +43,9 @@ pub struct PassWork {
 
 /// The frame as RGBA at this size.
 fn copy_of(scaler: &mut dyn Scaler, frame: &Frame, w: u32, h: u32) -> Option<Frame> {
-    let rgb = scaler.rgb(frame, w, h);
-    if rgb.len() != (w * h * 3) as usize {
+    let rgba = scaler.rgba(frame, w, h);
+    if rgba.len() != (w * h * 4) as usize {
         return None;
-    }
-    let mut rgba = Vec::with_capacity((w * h * 4) as usize);
-    for p in rgb.as_chunks::<3>().0 {
-        rgba.extend_from_slice(&[p[0], p[1], p[2], 255]);
     }
     Some(Frame::new(w, h, PixelFormat::Rgba, rgba))
 }
@@ -127,7 +123,8 @@ impl PassWork {
         for (owner, pass) in passes {
             let Some(layer) = guarded(owner, "paint", || pass.paint(w, h, scale)).flatten().filter(|l| (l.width, l.height) == (w, h) && l.format == PixelFormat::Rgba) else { continue };
             match out.as_mut() {
-                None => out = Some(layer.data.as_ref().clone()),
+                // A pass hands over the only reference to the picture it just painted, so it's taken as it is
+                None => out = Some(Arc::try_unwrap(layer.data).unwrap_or_else(|shared| shared.as_ref().clone())),
                 Some(below) => over(below, &layer.data),
             }
         }
@@ -139,6 +136,15 @@ impl PassWork {
 /// `top` laid over `below`, both RGBA with straight alpha.
 fn over(below: &mut [u8], top: &[u8]) {
     for (b, t) in below.as_chunks_mut::<4>().0.iter_mut().zip(top.as_chunks::<4>().0) {
+        // Nothing of the top leaves what's below as it is, and all of it hides what's below: the sums come to the same
+        match t[3] {
+            0 => continue,
+            255 => {
+                *b = *t;
+                continue;
+            }
+            _ => {}
+        }
         let (ta, ba) = (t[3] as f32 / 255.0, b[3] as f32 / 255.0);
         let out = ta + ba * (1.0 - ta);
         if out <= 0.0 {
@@ -164,6 +170,46 @@ mod tests {
         assert!((below[0] as i32 - 128).abs() <= 1 && (below[2] as i32 - 255).abs() <= 1);
         // nothing over nothing leaves it
         assert_eq!(&below[4..], &[10, 20, 30, 0]);
+    }
+
+    /// `over` as it was before the clear and solid pixels got their short cuts.
+    fn over_before(below: &mut [u8], top: &[u8]) {
+        for (b, t) in below.as_chunks_mut::<4>().0.iter_mut().zip(top.as_chunks::<4>().0) {
+            let (ta, ba) = (t[3] as f32 / 255.0, b[3] as f32 / 255.0);
+            let out = ta + ba * (1.0 - ta);
+            if out <= 0.0 {
+                continue;
+            }
+            for c in 0..3 {
+                b[c] = ((t[c] as f32 * ta + b[c] as f32 * ba * (1.0 - ta)) / out).round() as u8;
+            }
+            b[3] = (out * 255.0).round() as u8;
+        }
+    }
+
+    #[test]
+    fn laying_pictures_over_each_other_gives_the_bytes_it_always_did() {
+        let mut s = 12345u32;
+        let mut noise = |n: usize| -> Vec<u8> {
+            (0..n)
+                .map(|_| {
+                    s ^= s << 13;
+                    s ^= s >> 17;
+                    s ^= s << 5;
+                    (s >> 9) as u8
+                })
+                .collect()
+        };
+        let (mut below, mut top) = (noise(4 * 5000), noise(4 * 5000));
+        // Plenty of clear and solid pixels among the in-between ones, on both
+        for (i, (b, t)) in below.chunks_exact_mut(4).zip(top.chunks_exact_mut(4)).enumerate() {
+            b[3] = [0, 255, b[3], b[3]][i % 4];
+            t[3] = [t[3], 0, 255, t[3], 0][i % 5];
+        }
+        let mut before = below.clone();
+        over_before(&mut before, &top);
+        over(&mut below, &top);
+        assert_eq!(below, before);
     }
 
     struct Tints;
