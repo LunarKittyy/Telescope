@@ -2,6 +2,7 @@
 
 import { Theme } from "../theme.slint";
 import { Motion, Unfold } from "motion.slint";
+import { Grip } from "fine.slint";
 import { Tips } from "tip.slint";
 
 // Kind "helper". A column with no spacing of its own, for a row and the Unfolding that hangs from it: the Unfolding takes the card's gap
@@ -29,7 +30,12 @@ export component Unfolding inherits Rectangle {
     // the card goes from the old height to the new one and never through a smaller one (a quicker shut than open made it dip first)
     unfold := Unfold { open: root.open; snap: root.snap; open-for: Motion.unfold-open; close-for: Motion.unfold-open; }
     // What is inside goes out of reach as it shuts: a tip of one of its rows goes down with it
-    changed open => { if (!open) { Tips.dismiss(); } }
+    changed open => {
+        if (!open) {
+            Tips.dismiss();
+            Grip.leave(rows.absolute-position.x, rows.absolute-position.y, rows.width, rows.height);
+        }
+    }
     min-height: 0px;
     vertical-stretch: 0;
     preferred-height: unfold.value * (rows.preferred-height + lead);
@@ -90,7 +96,12 @@ export component Page inherits Rectangle {
     in property <length> lead: Theme.gap;
     // One period for both ways: the page that goes and the page that comes are mirror images, so together they are always one page's height
     unfold := Unfold { open: root.shown; snap: root.snap; open-for: Motion.reflow-open; close-for: Motion.reflow-open; }
-    changed shown => { if (!shown) { Tips.dismiss(); } }
+    changed shown => {
+        if (!shown) {
+            Tips.dismiss();
+            Grip.leave(rows.absolute-position.x, rows.absolute-position.y, rows.width, rows.height);
+        }
+    }
     min-height: 0px;
     vertical-stretch: 0;
     preferred-height: unfold.value * (rows.preferred-height + lead);

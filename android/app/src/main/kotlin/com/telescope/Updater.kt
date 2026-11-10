@@ -102,6 +102,7 @@ object Updater {
     fun downloadAndInstall(context: Context, manifest: UpdateManifest) {
         val app = context.applicationContext
         if (UpdateLogic.apkAsset(manifest) == null) return
+        if (streamBusyNow()) return
         set(State.Downloading(manifest, 0))
         Thread {
             val apk = File(File(app.cacheDir, "updates").apply { mkdirs() }, "Telescope.apk")
@@ -112,6 +113,11 @@ object Updater {
             if (problem != null) {
                 apk.delete()
                 set(State.Failed(problem, selected))
+                return@Thread
+            }
+            // Last look before the installer opens, since a stream can start during the download
+            if (streamBusyNow()) {
+                set(State.Available(selected))
                 return@Thread
             }
             set(State.Installing(selected))

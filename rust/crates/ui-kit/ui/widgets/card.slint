@@ -8,6 +8,7 @@ import { Switch } from "switch.slint";
 import { Tip, Tips } from "tip.slint";
 import { SearchWords, SettingMark, ProblemMark } from "setting.slint";
 import { Motion, Unfold, Fade } from "motion.slint";
+import { Grip } from "fine.slint";
 
 // collapse.py's _FoldButton: the title as a named keyboard toggle that folds what's under it. A blank key: no folding.
 component FoldTitle inherits Rectangle {
@@ -315,7 +316,13 @@ export component Card inherits Rectangle {
             }
         }
     }
-    changed folded => { Tips.dismiss(); if (folded) { fold-title.take-focus(); } }
+    changed folded => {
+        Tips.dismiss();
+        if (folded) {
+            fold-title.take-focus();
+            Grip.leave(rows.absolute-position.x, rows.absolute-position.y, rows.width, rows.height);
+        }
+    }
     // dim_until_paired's setEnabled(False): over the rows and outside the layout, so it takes no row of its own. The
     // header stays out of it: a dimmed card still folds.
     if blocked: TouchArea {
@@ -543,7 +550,13 @@ export component Section inherits VerticalLayout {
     out property <bool> folded: fold-key != "" && Folds.is-folded(fold-key, Folds.version);
     out property <string> control-kind: "section";
     spacing: unfold.value * Theme.gap;
-    changed folded => { Tips.dismiss(); if (folded) { section-title.take-focus(); } }
+    changed folded => {
+        Tips.dismiss();
+        if (folded) {
+            section-title.take-focus();
+            Grip.leave(rows.absolute-position.x, rows.absolute-position.y, rows.width, rows.height);
+        }
+    }
     // A person's fold (a click or a key, both the same) glides; state that came from somewhere else (loaded when the window is built, a plugin
     // switched on) is there at once. Set by the person's toggle and never by another control, and a quiet moment later it clears.
     property <bool> by-person;

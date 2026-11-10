@@ -3,6 +3,7 @@
 
 import { Theme } from "../theme.slint";
 import { Motion, Fade, Pop } from "motion.slint";
+import { Grip } from "fine.slint";
 
 // Kind "menu": a raised surface with `r-ctl` corners and a soft shadow, no line round it. It pops in from a little under its size and
 // fades in when it is made, and goes the same way when `leaving` is set (the owner keeps the pop-up until `Motion.fade-out` + 40 ms later).
@@ -25,6 +26,8 @@ export component MenuSurface inherits Rectangle {
     transform-origin: { x: root.width / 2, y: 0px };
     drop-shadow-blur: Theme.u(6);
     drop-shadow-color: Theme.shadow;
+    // A drag that was under way in it lets go
+    changed leaving => { if (leaving) { Grip.leave(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
     @children
     // A menu that is easing out still shows its rows, but takes no more presses: the first pick stands
     if root.leaving: TouchArea {

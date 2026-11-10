@@ -396,3 +396,168 @@ fn a_bubble_that_is_fading_away_takes_no_click_and_no_key_in_its_controls() {
     key(&ui, "\n");
     assert_eq!(hits(&ui), 0.0, "and neither does anything while it fades away");
 }
+
+// A drag that is already under way when its container goes away keeps its grab, so it has to stop changing things by itself
+fn drag_stays_quiet(ui: &ComponentInstance, label: &str, size: (f32, f32), leave: impl Fn(&ComponentInstance)) {
+    use i_slint_backend_testing::ElementHandle;
+    let e = ElementHandle::find_by_accessible_label(ui, label).next().unwrap_or_else(|| panic!("no {label}"));
+    let (p, s) = (e.absolute_position(), e.size());
+    let (y, x0) = (p.y + s.height / 2.0, p.x + s.width * 0.25);
+    press(ui, x0, y);
+    for i in 1..4 {
+        pointer_to(ui, x0 + 8.0 * i as f32, y);
+        step(FRAME);
+    }
+    assert!(hits(ui) > 0.0, "the drag changes the value while its container is up");
+    leave(ui);
+    step(FRAME);
+    offscreen::draw(ui.window(), size.0, size.1, 1.0);
+    set(ui, "hits", Value::Number(0.0));
+    for i in 4..8 {
+        pointer_to(ui, x0 + 8.0 * i as f32, y);
+        step(FRAME);
+    }
+    assert_eq!(hits(ui), 0.0, "and changes nothing once the container is going away");
+    release(ui, x0 + 64.0, y);
+}
+
+const BUBBLE_DRAG: &str = r#"
+import { Theme, Bubble, Slider } from "@ui-kit/ui-kit.slint";
+export component T inherits Window {
+    width: 400px;
+    height: 300px;
+    background: Theme.card;
+    in-out property <int> hits;
+    public function go() { b.show(); }
+    public function away() { b.close(); }
+    Rectangle {
+        x: 100px;
+        y: 200px;
+        width: 100px;
+        height: 30px;
+        b := Bubble {
+            width: parent.width;
+            height: parent.height;
+            label: "Box";
+            Slider { width: 240px; label: "Level"; minimum: 0; maximum: 100; step: 1; value: 10; moved(v) => { hits += 1; } }
+        }
+    }
+}
+"#;
+
+#[test]
+fn a_drag_in_a_bubble_that_fades_away_changes_nothing_more() {
+    let _still = offscreen::freeze_clock();
+    let ui = make(BUBBLE_DRAG, 400.0, 300.0);
+    ui.invoke("go", &[]).unwrap();
+    step(FRAME);
+    offscreen::draw(ui.window(), 400.0, 300.0, 1.0);
+    step(500);
+    offscreen::draw(ui.window(), 400.0, 300.0, 1.0);
+    drag_stays_quiet(&ui, "Level", (400.0, 300.0), |ui| {
+        ui.invoke("away", &[]).unwrap();
+    });
+}
+
+const MENU_DRAG: &str = r#"
+import { Theme, MenuSurface, Slider } from "@ui-kit/ui-kit.slint";
+export component T inherits Window {
+    width: 300px;
+    height: 100px;
+    background: Theme.card;
+    in-out property <bool> going;
+    in-out property <int> hits;
+    MenuSurface {
+        x: 10px;
+        y: 10px;
+        width: 260px;
+        height: 60px;
+        leaving: going;
+        Slider { x: 10px; y: 10px; width: 240px; label: "Level"; minimum: 0; maximum: 100; step: 1; value: 10; moved(v) => { hits += 1; } }
+    }
+}
+"#;
+
+#[test]
+fn a_drag_in_a_menu_that_eases_out_changes_nothing_more() {
+    let _still = offscreen::freeze_clock();
+    let ui = make(MENU_DRAG, 300.0, 100.0);
+    step(500);
+    offscreen::draw(ui.window(), 300.0, 100.0, 1.0);
+    drag_stays_quiet(&ui, "Level", (300.0, 100.0), |ui| set(ui, "going", Value::Bool(true)));
+}
+
+const FOLD_DRAG: &str = r#"
+import { Theme, Card, Section, Slider, Folds } from "@ui-kit/ui-kit.slint";
+export { Folds }
+export component T inherits Window {
+    width: 300px;
+    height: 300px;
+    background: Theme.card;
+    in-out property <int> hits;
+    VerticalLayout {
+        alignment: start;
+        x: 10px;
+        width: 280px;
+        Card {
+            title: "Card";
+            fold-key: "t/Card";
+            Slider { label: "Level"; minimum: 0; maximum: 100; step: 1; value: 10; moved(v) => { hits += 1; } }
+        }
+        Section {
+            scope: "t/Part";
+            key: "Part";
+            title: "Part";
+            Slider { label: "Other"; minimum: 0; maximum: 100; step: 1; value: 10; moved(v) => { hits += 1; } }
+        }
+    }
+}
+"#;
+
+fn fold_drag(title: &'static str, label: &str) {
+    use i_slint_backend_testing::ElementHandle;
+    use std::cell::RefCell;
+    use std::collections::HashSet;
+    use std::rc::Rc;
+    let _still = offscreen::freeze_clock();
+    let ui = make(FOLD_DRAG, 300.0, 300.0);
+    let folded: Rc<RefCell<HashSet<String>>> = Rc::default();
+    let version = Rc::new(std::cell::Cell::new(1.0));
+    let f = folded.clone();
+    ui.set_global_callback("Folds", "is-folded", move |a| match &a[0] {
+        Value::String(k) => Value::Bool(f.borrow().contains(k.as_str())),
+        _ => Value::Bool(false),
+    })
+    .unwrap();
+    let weak = ui.as_weak();
+    ui.set_global_callback("Folds", "toggle", move |a| {
+        if let Value::String(k) = &a[0] {
+            let mut set = folded.borrow_mut();
+            if !set.remove(k.as_str()) {
+                set.insert(k.to_string());
+            }
+        }
+        version.set(version.get() + 1.0);
+        weak.unwrap().set_global_property("Folds", "version", Value::Number(version.get())).unwrap();
+        Value::Void
+    })
+    .unwrap();
+    ui.set_global_property("Folds", "version", Value::Number(1.0)).unwrap();
+    offscreen::draw(ui.window(), 300.0, 300.0, 1.0);
+    step(FRAME);
+    // The title's own default action folds it by a person, so it eases shut with the pointer still held on the slider
+    drag_stays_quiet(&ui, label, (300.0, 300.0), |ui| {
+        let t = ElementHandle::find_by_accessible_label(ui, title).find(|e| e.accessible_checkable() == Some(true)).expect("the title");
+        t.invoke_accessible_default_action();
+    });
+}
+
+#[test]
+fn a_drag_in_a_card_that_folds_away_changes_nothing_more() {
+    fold_drag("Card", "Level");
+}
+
+#[test]
+fn a_drag_in_a_section_that_folds_away_changes_nothing_more() {
+    fold_drag("Part", "Other");
+}

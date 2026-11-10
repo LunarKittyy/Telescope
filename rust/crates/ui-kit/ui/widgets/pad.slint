@@ -6,7 +6,7 @@ import { FocusRing, TouchRing, KeyFocus } from "basics.slint";
 import { Tip } from "tip.slint";
 import { ShortcutMenu, ShortcutEntry } from "shortcut-menu.slint";
 import { Motion, Settle, Tone, Fade, ClickWait } from "motion.slint";
-import { FineAxis } from "fine.slint";
+import { FineAxis, Grip } from "fine.slint";
 
 // A square of the surround's colour with a quarter circle cut out, over one corner (0 to 3 clockwise from the top left): the software renderer squares off a gradient's corners, so the drawing is rounded by covering them.
 export component CornerCap inherits Path {
@@ -257,7 +257,7 @@ export component Pad inherits Rectangle {
         scroll-event(e) => { usage.wheel(); reject }
         pointer-event(e) => {
             shift-now = e.modifiers.shift;
-            if (e.kind == PointerEventKind.down) { usage.press(); }
+            if (e.kind == PointerEventKind.down) { usage.press(); Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
             if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
                 dragging = true;
                 focus.focus();
@@ -277,14 +277,14 @@ export component Pad inherits Rectangle {
                     drag-to(self.mouse-x + grab-dx, self.mouse-y + grab-dy);
                 }
             }
-            if (e.kind == PointerEventKind.move && dragging && self.pressed) { follow(); }
+            if (e.kind == PointerEventKind.move && dragging && self.pressed && !Grip.cut) { follow(); }
             if (dragging && ((e.kind == PointerEventKind.up && e.button == PointerEventButton.left) || e.kind == PointerEventKind.cancel)) {
                 dragging = false;
                 if (!pending) { released(shown-x, shown-y); }
             }
         }
         moved => {
-            if (self.pressed && dragging) { follow(); }
+            if (self.pressed && dragging && !Grip.cut) { follow(); }
         }
         // The pointer moved with the button down: a drag that starts away from the handle ends the wait and takes hold at once
         function follow() {
