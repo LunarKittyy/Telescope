@@ -327,6 +327,34 @@ pub fn rgb_to_420(rgb: &[u8], w: usize, h: usize, data: &mut [u8], nv12: bool) {
     }
 }
 
+avx2_too! {
+    /// One row of RGBA as R, G, B.
+    fn drop_alpha_row(from: &[u8], to: &mut [u8]) {
+        for (o, p) in to.as_chunks_mut::<3>().0.iter_mut().zip(from.as_chunks::<4>().0) {
+            *o = [p[0], p[1], p[2]];
+        }
+    }
+}
+
+avx2_too! {
+    /// One row of R, G, B as RGBA with alpha 255.
+    fn add_alpha_row(from: &[u8], to: &mut [u8]) {
+        for (o, p) in to.as_chunks_mut::<4>().0.iter_mut().zip(from.as_chunks::<3>().0) {
+            *o = [p[0], p[1], p[2], 255];
+        }
+    }
+}
+
+/// RGBA rows `w` pixels wide as R, G, B into `rgb`, the picture's rows spread over the workers when it is big.
+pub fn drop_alpha(rgba: &[u8], w: usize, rgb: &mut [u8]) {
+    over_rows(rgb, w * 3, |y, line| drop_alpha_row(&rgba[y * w * 4..][..w * 4], line));
+}
+
+/// R, G, B rows `w` pixels wide as RGBA with alpha 255 into `rgba`.
+pub fn add_alpha(rgb: &[u8], w: usize, rgba: &mut [u8]) {
+    over_rows(rgba, w * 4, |y, line| add_alpha_row(&rgb[y * w * 3..][..w * 3], line));
+}
+
 /// The frame as 3 bytes a pixel (R, G, B). I420 is BT.601 video range with each chroma sample shared by its 2 x 2 pixels, as
 /// OpenCV's YUV conversions read it. None for a format that isn't one of the picture formats.
 pub fn frame_rgb(frame: &Frame) -> Option<Vec<u8>> {
@@ -696,6 +724,22 @@ pub fn grey_of(r: u8, g: u8, b: u8) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_alpha_comes_off_and_goes_back_on_in_any_size_of_picture() {
+        // Tall enough to be spread over the workers, with a width that isn't a multiple of anything
+        for (w, h) in [(1usize, 1usize), (7, 3), (101, 600), (640, 480)] {
+            let rgba: Vec<u8> = (0..w * h * 4).map(|i| (i * 31 % 251) as u8).collect();
+            let mut rgb = vec![0; w * h * 3];
+            drop_alpha(&rgba, w, &mut rgb);
+            let want: Vec<u8> = rgba.as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect();
+            assert_eq!(rgb, want, "{w}x{h}");
+            let mut back = vec![0; w * h * 4];
+            add_alpha(&rgb, w, &mut back);
+            let want: Vec<u8> = rgba.as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2], 255]).collect();
+            assert_eq!(back, want, "{w}x{h}");
+        }
+    }
 
     #[test]
     fn byte_rounds_and_clamps_as_round_and_clamp_do() {

@@ -44,6 +44,33 @@ impl Rect {
     }
 }
 
+/// A non-negative number to the nearest whole one, halves up, as a byte (f32::round, which is a libm call, gives the same).
+#[inline(always)]
+fn round_byte(v: f32) -> u8 {
+    let whole = v as i32;
+    (whole + ((v - whole as f32) >= 0.5) as i32).clamp(0, 255) as u8
+}
+
+/// colour over one RGBA pixel, coverage 0..1 of its alpha.
+#[inline(always)]
+fn blend_pixel(d: &mut [u8], rgb: [u8; 3], alpha: f32) {
+    if alpha <= 0.0 {
+        return;
+    }
+    let da = d[3] as f32 / 255.0;
+    if da == 0.0 {
+        // Over nothing: its own colour, and the alpha it came with
+        d[..3].copy_from_slice(&rgb);
+        d[3] = round_byte(alpha * 255.0);
+        return;
+    }
+    let out = alpha + da * (1.0 - alpha);
+    for c in 0..3 {
+        d[c] = round_byte((rgb[c] as f32 * alpha + d[c] as f32 * da * (1.0 - alpha)) / out);
+    }
+    d[3] = round_byte(out * 255.0);
+}
+
 /// A transparent picture to draw on: R, G, B, A with straight alpha.
 pub struct Canvas {
     pub w: usize,
@@ -62,16 +89,7 @@ impl Canvas {
             return;
         }
         let i = (y as usize * self.w + x as usize) * 4;
-        let d = &mut self.data[i..i + 4];
-        let da = d[3] as f32 / 255.0;
-        let out = alpha + da * (1.0 - alpha);
-        if out <= 0.0 {
-            return;
-        }
-        for c in 0..3 {
-            d[c] = ((rgb[c] as f32 * alpha + d[c] as f32 * da * (1.0 - alpha)) / out).round().clamp(0.0, 255.0) as u8;
-        }
-        d[3] = (out * 255.0).round().clamp(0.0, 255.0) as u8;
+        blend_pixel(&mut self.data[i..i + 4], rgb, alpha);
     }
 
     /// A rectangle with sharp edges: the pixels whose centres are inside it.
@@ -136,12 +154,25 @@ impl Canvas {
 
     /// A picture (B, G, R, A) laid over the canvas with its top left at (x, y).
     pub fn image(&mut self, image: &Bgra, x: i64, y: i64) {
-        for row in 0..image.h {
-            for col in 0..image.w {
-                let p = image.at(col, row);
-                self.blend(x + col as i64, y + row as i64, [p[2], p[1], p[0]], p[3] as f32 / 255.0);
-            }
+        // The columns and rows of the picture that land on the canvas
+        let (cols, rows) = ((-x).max(0) as usize..image.w.min((self.w as i64 - x).max(0) as usize), (-y).max(0) as usize..image.h.min((self.h as i64 - y).max(0) as usize));
+        if cols.is_empty() {
+            return;
         }
+        if rows.is_empty() {
+            return;
+        }
+        // Rows of the canvas from the first one the picture lands on, spread over the workers when the picture is big
+        let (top, canvas_w) = ((y + rows.start as i64) as usize, self.w);
+        let band = &mut self.data[top * canvas_w * 4..(top + rows.len()) * canvas_w * 4];
+        telescope_core::image::over_rows(band, canvas_w * 4, |i, line| {
+            let row = rows.start + i;
+            let from = &image.data[(row * image.w + cols.start) * 4..(row * image.w + cols.end) * 4];
+            let to = (x + cols.start as i64) as usize * 4;
+            for (d, p) in line[to..to + from.len()].chunks_exact_mut(4).zip(from.chunks_exact(4)) {
+                blend_pixel(d, [p[2], p[1], p[0]], p[3] as f32 / 255.0);
+            }
+        });
     }
 
     pub fn is_empty(&self) -> bool {
@@ -361,6 +392,45 @@ impl CinemaLayer {
 /// QPainter.drawImage with SmoothPixmapTransform: bilinear on premultiplied colour, so see-through pixels don't darken what's
 /// next to them.
 fn smooth_scale(src: &[u8], w: usize, h: usize, tw: usize, th: usize) -> Vec<u8> {
+    // The source's colour already multiplied by its alpha, once for each pixel instead of for every time it's read
+    let premultiplied: Vec<[f32; 4]> = src
+        .chunks_exact(4)
+        .take(w * h)
+        .map(|p| {
+            let a = p[3] as f32 / 255.0;
+            [p[0] as f32 * a, p[1] as f32 * a, p[2] as f32 * a, p[3] as f32]
+        })
+        .collect();
+    // Which two source columns each output column mixes, and how much of the second
+    let columns: Vec<(usize, usize, f32)> = (0..tw)
+        .map(|tx| {
+            let sx = (((tx as f32 + 0.5) * w as f32 / tw as f32) - 0.5).clamp(0.0, (w - 1) as f32);
+            let x0 = sx.floor() as usize;
+            (x0, (x0 + 1).min(w - 1), sx.fract())
+        })
+        .collect();
+    let mut out = vec![0u8; tw * th * 4];
+    telescope_core::image::over_rows(&mut out, tw * 4, |ty, line| {
+        let sy = (((ty as f32 + 0.5) * h as f32 / th as f32) - 0.5).clamp(0.0, (h - 1) as f32);
+        let (y0, fy) = (sy.floor() as usize, sy.fract());
+        let y1 = (y0 + 1).min(h - 1);
+        let (upper, lower) = (&premultiplied[y0 * w..][..w], &premultiplied[y1 * w..][..w]);
+        for (o, &(x0, x1, fx)) in line.chunks_exact_mut(4).zip(&columns) {
+            let (a, b, c, d) = (&upper[x0], &upper[x1], &lower[x0], &lower[x1]);
+            let mix: [f32; 4] = std::array::from_fn(|i| (a[i] * (1.0 - fx) + b[i] * fx) * (1.0 - fy) + (c[i] * (1.0 - fx) + d[i] * fx) * fy);
+            let alpha = mix[3] / 255.0;
+            for (o, colour) in o[..3].iter_mut().zip(&mix[..3]) {
+                *o = if alpha > 0.0 { round_byte(colour / alpha) } else { 0 };
+            }
+            o[3] = round_byte(mix[3]);
+        }
+    });
+    out
+}
+
+/// What smooth_scale did before it was sped up, to check the new one against byte for byte.
+#[cfg(test)]
+fn smooth_scale_reference(src: &[u8], w: usize, h: usize, tw: usize, th: usize) -> Vec<u8> {
     let at = |x: usize, y: usize| -> [f32; 4] {
         let p = &src[(y * w + x) * 4..][..4];
         let a = p[3] as f32 / 255.0;
@@ -428,3 +498,7 @@ impl PreviewPass for CinemaLayer {
 #[cfg(test)]
 #[path = "cinema_paint_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "cinema_paint_speed_tests.rs"]
+mod speed_tests;

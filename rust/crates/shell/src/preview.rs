@@ -90,18 +90,21 @@ fn block_on<F: std::future::Future>(future: F) -> F::Output {
     }
 }
 
-/// The CPU fallback: media's scaler to RGB, then Slint uploads it.
+/// The CPU fallback: media's scaler to RGB, straight into the buffer Slint uploads from.
 pub struct CpuPainter(pub Box<dyn Scaler>);
 
 impl Painter for CpuPainter {
     fn paint(&mut self, frame: &Frame, width: u32, height: u32) -> Option<slint::Image> {
-        let rgb = self.0.rgb(frame, width, height);
-        if rgb.len() != (width * height * 3) as usize {
-            return None;
-        }
-        let buffer = slint::SharedPixelBuffer::<slint::Rgb8Pixel>::clone_from_slice(&rgb, width, height);
-        Some(slint::Image::from_rgb8(buffer))
+        let mut buffer = slint::SharedPixelBuffer::<slint::Rgb8Pixel>::new(width, height);
+        self.0.rgb_into(frame, width, height, buffer.make_mut_bytes()).then(|| slint::Image::from_rgb8(buffer))
     }
+}
+
+/// An RGBA picture width x height as the RGB image Slint shows, filled in one pass.
+pub fn rgb_image(rgba: &[u8], width: u32, height: u32) -> slint::Image {
+    let mut buffer = slint::SharedPixelBuffer::<slint::Rgb8Pixel>::new(width, height);
+    telescope_core::image::drop_alpha(rgba, width as usize, buffer.make_mut_bytes());
+    slint::Image::from_rgb8(buffer)
 }
 
 /// _fit_within: the frame's size scaled down to fit inside the stage, keeping its shape, never up.

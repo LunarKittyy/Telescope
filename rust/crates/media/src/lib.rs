@@ -167,22 +167,70 @@ impl PreviewScaler {
     }
 }
 
-impl Scaler for PreviewScaler {
-    fn rgb(&mut self, frame: &Frame, width: u32, height: u32) -> Vec<u8> {
-        if let Some(gpu) = self.gpu.get_or_insert_with(gpu::Gpu::shared) {
-            match gpu.rgba(frame, width, height) {
-                Ok(rgba) => return rgba.as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect(),
-                Err(why) => {
-                    log::warn!("The preview can't be drawn on the graphics card ({why}); drawing it on the processor");
-                    self.gpu = Some(None);
-                }
+impl PreviewScaler {
+    /// The picture as RGBA straight off the graphics card; None when there's no card or it failed (the processor takes over).
+    fn card_rgba(&mut self, frame: &Frame, width: u32, height: u32) -> Option<Vec<u8>> {
+        let gpu = self.gpu.get_or_insert_with(gpu::Gpu::shared).clone()?;
+        match gpu.rgba(frame, width, height) {
+            Ok(rgba) => Some(rgba),
+            Err(why) => {
+                log::warn!("The preview can't be drawn on the graphics card ({why}); drawing it on the processor");
+                self.gpu = Some(None);
+                None
             }
         }
+    }
+
+    /// The picture as RGB from FFmpeg's scaler, or ours without it.
+    fn processor_rgb(&mut self, frame: &Frame, width: u32, height: u32) -> Vec<u8> {
         #[cfg(ffmpeg)]
         if let (Some(cpu), PixelFormat::I420) = (&mut self.cpu, frame.format) {
             return cpu.rgb(frame, width, height);
         }
         plain_scale::rgb(frame, width, height)
+    }
+}
+
+impl Scaler for PreviewScaler {
+    fn rgb(&mut self, frame: &Frame, width: u32, height: u32) -> Vec<u8> {
+        match self.card_rgba(frame, width, height) {
+            Some(rgba) if rgba.len() == width as usize * height as usize * 4 => {
+                let mut rgb = vec![0; rgba.len() / 4 * 3];
+                telescope_core::image::drop_alpha(&rgba, width as usize, &mut rgb);
+                rgb
+            }
+            Some(rgba) => rgba.as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect(),
+            None => self.processor_rgb(frame, width, height),
+        }
+    }
+
+    fn rgba(&mut self, frame: &Frame, width: u32, height: u32) -> Vec<u8> {
+        if let Some(rgba) = self.card_rgba(frame, width, height) {
+            return rgba;
+        }
+        let rgb = self.processor_rgb(frame, width, height);
+        if rgb.len() != width as usize * height as usize * 3 {
+            return Vec::new();
+        }
+        let mut rgba = vec![0; rgb.len() / 3 * 4];
+        telescope_core::image::add_alpha(&rgb, width as usize, &mut rgba);
+        rgba
+    }
+
+    fn rgb_into(&mut self, frame: &Frame, width: u32, height: u32, out: &mut [u8]) -> bool {
+        let rgb = match self.card_rgba(frame, width, height) {
+            Some(rgba) if out.len() == width as usize * height as usize * 3 && rgba.len() == out.len() / 3 * 4 => {
+                telescope_core::image::drop_alpha(&rgba, width as usize, out);
+                return true;
+            }
+            Some(rgba) => rgba.as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect(),
+            None => self.processor_rgb(frame, width, height),
+        };
+        let fits = rgb.len() == out.len();
+        if fits {
+            out.copy_from_slice(&rgb);
+        }
+        fits
     }
 }
 
@@ -288,6 +336,22 @@ mod tests {
         let rgb = scaler.rgb(&pink(64, 48), 32, 24);
         assert_eq!(rgb.len(), 32 * 24 * 3);
         assert!(is_pink(&rgb));
+    }
+
+    #[test]
+    fn the_preview_gives_the_same_picture_as_rgb_rgba_or_into_a_buffer() {
+        for ffmpeg in [false, true] {
+            let mut scaler = PreviewScaler { gpu: Some(None), ..PreviewScaler::new(ffmpeg && ffmpeg_available()) };
+            let frame = pink(64, 48);
+            let rgb = scaler.rgb(&frame, 32, 24);
+            let rgba = scaler.rgba(&frame, 32, 24);
+            assert_eq!(rgba.len(), 32 * 24 * 4);
+            assert!(rgba.as_chunks::<4>().0.iter().zip(rgb.as_chunks::<3>().0).all(|(a, c)| a[..3] == c[..] && a[3] == 255));
+            let mut into = vec![0; 32 * 24 * 3];
+            assert!(scaler.rgb_into(&frame, 32, 24, &mut into));
+            assert_eq!(into, rgb);
+            assert!(!scaler.rgb_into(&frame, 32, 24, &mut [0; 30]));
+        }
     }
 
     #[test]
