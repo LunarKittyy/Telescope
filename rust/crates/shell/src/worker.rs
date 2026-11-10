@@ -974,16 +974,13 @@ impl Shared {
     }
 
     /// The thread that runs the frame steps on what decoding hands it, newest first, so decoding goes straight on to the next picture.
-    /// busy is set while a picture goes through the steps.
-    fn spawn_steps(self: &Arc<Self>, frames: Arc<Newest<(u64, Frame)>>, busy: Arc<AtomicBool>) -> std::thread::JoinHandle<()> {
+    fn spawn_steps(self: &Arc<Self>, frames: Arc<Newest<(u64, Frame)>>) -> std::thread::JoinHandle<()> {
         let s = self.clone();
         std::thread::Builder::new().name("stream-steps".into()).spawn(move || {
             let _counting = telescope_core::stats::bind(&s.stats);
             let _priority = telescope_core::system::prioritise_thread("frame steps");
             while let Some((seq, frame)) = frames.take() {
-                busy.store(true, Ordering::SeqCst);
                 s.publish(seq, frame);
-                busy.store(false, Ordering::SeqCst);
             }
         }).expect("a thread for the frame steps")
     }
@@ -992,7 +989,7 @@ impl Shared {
     /// the steps haven't taken by the time the next is decoded is dropped, so slow steps skip frames instead of lagging.
     fn read_h264(self: &Arc<Self>, reader: &mut dyn FrameReader) -> Ended {
         let newest: Arc<Newest<(u64, Frame)>> = Arc::default();
-        let steps = self.spawn_steps(newest.clone(), Arc::default());
+        let steps = self.spawn_steps(newest.clone());
         // Dropped on the way out, a panic in the reader included, so the steps thread has ended before the reader is reported finished
         let _steps = FeedThreads { newest: newest.clone(), threads: vec![steps] };
         loop {
@@ -1026,21 +1023,12 @@ impl Shared {
         // The newest picture number passed to the steps, so a decoder that finishes behind another one doesn't put an older picture in front of it
         let handed = Arc::new(Mutex::new(0u64));
         // Made first so it is dropped last: the decoders have ended before the steps are told no more comes
-        let steps_busy = Arc::new(AtomicBool::new(false));
-        let _steps = FeedThreads { newest: frames.clone(), threads: vec![self.spawn_steps(frames.clone(), steps_busy.clone())] };
+        let _steps = FeedThreads { newest: frames.clone(), threads: vec![self.spawn_steps(frames.clone())] };
         let threads: Vec<_> = decoders.drain(..).map(|mut decoder| {
-            let (s, newest, frames, broken, handed, steps_busy) = (self.clone(), newest.clone(), frames.clone(), broken.clone(), handed.clone(), steps_busy.clone());
+            let (s, newest, frames, broken, handed) = (self.clone(), newest.clone(), frames.clone(), broken.clone(), handed.clone());
             std::thread::spawn(move || {
                 let _counting = telescope_core::stats::bind(&s.stats);
-                let busy = || {
-                    // A picture waiting while the steps are busy with another means they are behind. One waiting for steps that are free is just not taken yet
-                    let full = steps_busy.load(Ordering::SeqCst) && frames.is_waiting();
-                    if full {
-                        s.shed(1);
-                    }
-                    full
-                };
-                decode_jpegs(decoder.as_mut(), &newest, &broken, &s.stats, busy, |seq, frame| {
+                decode_jpegs(decoder.as_mut(), &newest, &broken, &s.stats, |seq, frame| {
                     let mut handed = handed.lock().unwrap();
                     if seq < *handed {
                         s.shed(1);
@@ -1407,14 +1395,10 @@ impl Pacer {
 }
 
 /// Decodes the newest packets until the feed is finished. A packet that makes the decoder panic is dropped; a few in a row set broken and end the thread.
-fn decode_jpegs(decoder: &mut dyn Decoder, newest: &Newest<(u64, telescope_core::media::Packet)>, broken: &AtomicBool, stats: &SourceStats, mut skip: impl FnMut() -> bool, mut publish: impl FnMut(u64, Frame)) {
+fn decode_jpegs(decoder: &mut dyn Decoder, newest: &Newest<(u64, telescope_core::media::Packet)>, broken: &AtomicBool, stats: &SourceStats, mut publish: impl FnMut(u64, Frame)) {
     const MAX_CRASHES_IN_A_ROW: u32 = 3;
     let mut crashes = 0;
     while let Some((seq, packet)) = newest.take() {
-        // The steps haven't taken the last picture yet, so decoding this one would only burn a core: skip() drops it
-        if skip() {
-            continue;
-        }
         // The decoders time themselves (perf's "decode"), so this doesn't
         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| decoder.decode(&packet))) {
             Ok(decoded) => {
@@ -1568,7 +1552,7 @@ mod tests {
         let mut flaky = Flaky(0);
         newest.put((1, Packet { data: vec![0], time_ns: 0 }));
         newest.finish();
-        decode_jpegs(&mut flaky, &newest, &broken, &SourceStats::detached(), || false, |seq, _| published.lock().unwrap().push(seq));
+        decode_jpegs(&mut flaky, &newest, &broken, &SourceStats::detached(), |seq, _| published.lock().unwrap().push(seq));
         assert!(!broken.load(Ordering::SeqCst) && published.lock().unwrap().is_empty());
         // A decoder that crashes every time ends its thread and says so
         struct Dead;
@@ -1591,7 +1575,7 @@ mod tests {
                 newest.finish();
             })
         };
-        decode_jpegs(&mut Dead, &newest, &broken, &SourceStats::detached(), || false, |_, _| {});
+        decode_jpegs(&mut Dead, &newest, &broken, &SourceStats::detached(), |_, _| {});
         assert!(broken.load(Ordering::SeqCst));
         feeder.join().unwrap();
     }
@@ -3582,24 +3566,6 @@ mod tests {
         println!("{made} pictures in 1.2 s");
         // One after the other, 15 + 15 ms a picture makes 40 of them; side by side they come every 15 ms, about 80
         assert!(made > 55, "decode and steps overlap: {made} pictures in 1.2 s");
-    }
-
-    #[test]
-    fn jpeg_decoders_leave_alone_packets_the_steps_could_not_take_a_picture_of() {
-        let opener: Opener = Arc::new(|_| {
-            Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }) as Box<dyn VideoFeed>).into())
-        });
-        let (busy, gate) = (Arc::new(Busy::default()), Arc::new(Gate::default()));
-        let _opens = GateOpener(gate.clone());
-        let (cams, log) = (Arc::new(Cams::default()), Log::default());
-        let w = start(setup(opener), Arc::new(GatedMedia(busy.clone(), Some(gate.clone()))), &cams, &log);
-        // The steps hold the second picture for good and one more waits behind it; every packet after that is dropped undecoded
-        wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) >= 30);
-        let decodes = busy.decodes.load(Ordering::Relaxed);
-        assert!(decodes <= 4, "{decodes} pictures were decoded for steps that took one");
-        assert!(w.shared.frames_shed.load(Ordering::SeqCst) >= 20);
-        gate.open();
-        w.stop();
     }
 
     #[test]

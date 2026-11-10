@@ -292,11 +292,6 @@ impl<T> Newest<T> {
         replaced
     }
 
-    /// Whether an item is waiting for a taker.
-    pub fn is_waiting(&self) -> bool {
-        self.item.lock().unwrap().0.is_some()
-    }
-
     /// No more items come; take() hands out what's left, then None.
     pub fn finish(&self) {
         self.item.lock().unwrap().1 = true;
@@ -330,16 +325,6 @@ mod tests {
         newest.finish();
         assert_eq!(newest.take(), Some("new"));
         assert_eq!(newest.take(), None);
-    }
-
-    #[test]
-    fn newest_says_whether_an_item_is_waiting() {
-        let newest = Newest::default();
-        assert!(!newest.is_waiting());
-        newest.put(1);
-        assert!(newest.is_waiting());
-        newest.take();
-        assert!(!newest.is_waiting());
     }
 
     #[test]
