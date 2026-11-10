@@ -113,10 +113,63 @@ class H264StreamTest {
         val q = H264ClientQueue(clock = { now })
         q.offer(p(1), key = true)
         now = 1_500
+        q.maxWaitMs = Long.MAX_VALUE
         assertFalse(q.offer(p(2), key = false))  // no limit: kept
         q.maxWaitMs = 1_000
         assertTrue(q.offer(p(3), key = false))   // over it: dropped, and a keyframe asked for
         assertEquals(0, q.size())
+    }
+
+    private class Catchup(val maxAgeMs: Long, val firstIsKey: Boolean, val keyAsks: Int, val delivered: Int)
+
+    // 30 fps with a keyframe a second, a viewer that reads nothing for stallMs and then everything at once
+    private fun catchUp(maxWaitMs: Long?, stallMs: Long): Catchup {
+        var now = 0L
+        val q = H264ClientQueue(clock = { now })
+        if (maxWaitMs != null) q.maxWaitMs = maxWaitMs
+        val offeredAt = HashMap<Int, Long>()
+        val keys = HashSet<Int>()
+        var wantKey = false
+        var asks = 0
+        var maxAge = 0L
+        var first: Boolean? = null
+        var delivered = 0
+        var frame = 0
+        while (now < stallMs + 2_000) {
+            if (now % 33 == 0L) {
+                val key = wantKey || frame % 30 == 0
+                wantKey = false
+                offeredAt[frame] = now
+                if (key) keys.add(frame)
+                if (q.offer(byteArrayOf((frame shr 8).toByte(), frame.toByte()), key)) { asks++; wantKey = true }
+                frame++
+            }
+            if (now >= stallMs) {
+                while (true) {
+                    val packet = q.poll(0) ?: break
+                    val n = ((packet[0].toInt() and 0xFF) shl 8) or (packet[1].toInt() and 0xFF)
+                    if (first == null) first = n in keys
+                    maxAge = maxOf(maxAge, now - offeredAt.getValue(n))
+                    delivered++
+                    q.written(packet.size, done = true)
+                }
+            }
+            now++
+        }
+        return Catchup(maxAge, first == true, asks, delivered)
+    }
+
+    @Test
+    fun `a viewer that stalls and catches up sees at most the latency budget of old video in every mode`() {
+        val old = catchUp(Long.MAX_VALUE, 2_500)  // what Auto and a fixed bitrate did: no age limit, only 90 packets
+        val now = catchUp(null, 2_500)
+        println("catch-up after a 2.5 s stall: oldest frame shown %d ms before, %d ms now; keyframe asks %d -> %d; delivered %d -> %d"
+            .format(old.maxAgeMs, now.maxAgeMs, old.keyAsks, now.keyAsks, old.delivered, now.delivered))
+        assertTrue(old.maxAgeMs >= 2_400)
+        assertTrue(now.maxAgeMs <= H264Stream.LATENCY_BUDGET_MS + 33, "oldest frame shown was ${now.maxAgeMs} ms old")
+        assertTrue(now.firstIsKey, "recovery starts at a keyframe")
+        assertTrue(now.keyAsks >= 1)
+        assertTrue(now.delivered > 0)
     }
 
     @Test

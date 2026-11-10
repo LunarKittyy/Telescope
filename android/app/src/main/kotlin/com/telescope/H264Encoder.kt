@@ -26,7 +26,9 @@ class H264Encoder(
     // at 1080p), so a refused setup is retried with a fresh encoder and fewer of them.
     // INTRA_REFRESH spreads the picture's refresh over a second of frames instead of a keyframe burst every second,
     // which a thin link swallows more easily; only where the encoder lists it, and dropped first when a setup fails.
-    enum class Extra { LOW_LATENCY, REALTIME, INTRA_REFRESH }
+    // ENCODER_LATENCY asks the encoder to hold no frames back (KEY_LATENCY, Android 11+, which many encoders ignore);
+    // dropped before the others, so an encoder that refuses it still gets the rest.
+    enum class Extra { LOW_LATENCY, REALTIME, INTRA_REFRESH, ENCODER_LATENCY }
 
     // High compresses better than Baseline at the same bitrate; with no B-frames it adds no delay either
     enum class Profile(val wire: String) { HIGH("high"), BASELINE("baseline"), ANY("auto") }
@@ -39,8 +41,10 @@ class H264Encoder(
         val ATTEMPTS: List<Attempt> = listOf(
             Attempt(Extra.values().toSet(), Profile.HIGH),
             Attempt(Extra.values().toSet(), Profile.BASELINE),
-            Attempt(Extra.values().toSet() - Extra.INTRA_REFRESH, Profile.HIGH),
-            Attempt(Extra.values().toSet() - Extra.INTRA_REFRESH, Profile.BASELINE),
+            Attempt(Extra.values().toSet() - Extra.ENCODER_LATENCY, Profile.HIGH),
+            Attempt(Extra.values().toSet() - Extra.ENCODER_LATENCY, Profile.BASELINE),
+            Attempt(Extra.values().toSet() - Extra.ENCODER_LATENCY - Extra.INTRA_REFRESH, Profile.HIGH),
+            Attempt(Extra.values().toSet() - Extra.ENCODER_LATENCY - Extra.INTRA_REFRESH, Profile.BASELINE),
             Attempt(emptySet(), Profile.HIGH),
             Attempt(emptySet(), Profile.BASELINE),
             Attempt(emptySet(), Profile.ANY),
@@ -217,6 +221,9 @@ class H264Encoder(
             if (Extra.REALTIME in attempt.extras) setInteger(MediaFormat.KEY_PRIORITY, 0)
             if (Extra.LOW_LATENCY in attempt.extras && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
+            }
+            if (Extra.ENCODER_LATENCY in attempt.extras && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                setInteger(MediaFormat.KEY_LATENCY, 1)
             }
             // Baseline has no B-frames, so every packet can be shown as soon as it's decoded. Otherwise ask for none.
             when (attempt.profile) {

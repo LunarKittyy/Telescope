@@ -24,4 +24,12 @@ class H264EncoderTest {
             }
         }
     }
+
+    @Test
+    fun `the encoder latency hint is the first extra to go, so an encoder that refuses it keeps the rest`() {
+        val attempts = H264Encoder.ATTEMPTS
+        val withoutHint = attempts.first { H264Encoder.Extra.ENCODER_LATENCY !in it.extras && it.extras.isNotEmpty() }
+        assertEquals(all - H264Encoder.Extra.ENCODER_LATENCY, withoutHint.extras)
+        assertTrue(attempts.indexOf(withoutHint) <= 2)
+    }
 }
