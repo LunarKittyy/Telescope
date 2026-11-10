@@ -307,11 +307,12 @@ class PreviewActivity : LookActivity() {
                 }
                 override fun onDisconnected(camera: CameraDevice) {
                     camera.close()
-                    if (myGeneration == standaloneGeneration) cameraDevice = null
+                    // A stream started from the computer took the camera: leave rather than freeze, so a lens tap can't take it back
+                    if (myGeneration == standaloneGeneration) { cameraDevice = null; lostCamera(null) }
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
                     camera.close()
-                    if (myGeneration == standaloneGeneration) cameraDevice = null
+                    if (myGeneration == standaloneGeneration) { cameraDevice = null; lostCamera(null) }
                 }
             }, handler)
         } catch (_: Exception) {}
@@ -344,7 +345,7 @@ class PreviewActivity : LookActivity() {
         }
     }
 
-    private fun lostCamera(e: Exception) {
+    private fun lostCamera(e: Exception?) {
         android.util.Log.w(TAG, "Preview lost the camera", e)
         runOnUiThread { finish() }
     }
