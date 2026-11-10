@@ -9,8 +9,15 @@ use telescope_core::Event;
 
 /// The person mask of this frame as a picture of its own size, when the stream has one that fits.
 pub(crate) fn mask_of(ctx: &dyn FrameContext, frame: &Frame) -> Option<crate::imgops::Gray> {
+    let m = mask_shared(ctx, frame)?;
+    Some(crate::imgops::Gray { w: frame.width as usize, h: frame.height as usize, data: m.to_vec() })
+}
+
+/// The same mask without copying it. The vision service hands out one Arc for as long as the mask hasn't changed, so a step can
+/// tell an unchanged mask by `Arc::ptr_eq` and keep what it worked out from it (holding the Arc, so the address can't be reused).
+pub(crate) fn mask_shared(ctx: &dyn FrameContext, frame: &Frame) -> Option<Arc<Vec<u8>>> {
     let m = ctx.person_mask(frame)?;
-    (m.len() == (frame.width * frame.height) as usize).then(|| crate::imgops::Gray { w: frame.width as usize, h: frame.height as usize, data: m.to_vec() })
+    (m.len() == (frame.width * frame.height) as usize).then_some(m)
 }
 
 /// Reads a picture file (a PNG, JPEG, WebP or BMP) into a frame. The binary makes one from its Media.

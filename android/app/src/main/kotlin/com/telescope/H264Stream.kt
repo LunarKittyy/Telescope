@@ -15,6 +15,7 @@ object H264Stream {
     const val MAX_BPS = 100_000_000       // what the desktop's slider goes up to
     const val AUTO_MAX_BPS = 30_000_000   // Auto stays at most this, as it always has
     const val DYNAMIC = -1  // the bitrate control's value for DynamicBitrate
+    const val LATENCY_BUDGET_MS = 1_000L  // the oldest a waiting packet may get, in every bitrate mode; past it the viewer skips ahead
 
     // Roughly 8 Mbps for 1080p30, scaled by pixels per second.
     private fun sized(width: Int, height: Int, fps: Int): Long = width.toLong() * height * fps.coerceAtLeast(1) * 13 / 100
@@ -61,8 +62,8 @@ class H264ClientQueue(
     private var config: ByteArray? = null
     private var waitingForKey = true
 
-    /** A backlog whose oldest packet waited longer than this also overflows (Dynamic skips ahead rather than lag). */
-    @Volatile var maxWaitMs: Long = Long.MAX_VALUE
+    /** A backlog whose oldest packet waited longer than this also overflows: every mode skips ahead rather than lag. */
+    @Volatile var maxWaitMs: Long = H264Stream.LATENCY_BUDGET_MS
 
     private var shortestWaitMs = -1L  // since the last takeQueueMs(); -1 = nothing went out
     private var writingSinceMs = -1L  // a packet handed to the sender and not yet written

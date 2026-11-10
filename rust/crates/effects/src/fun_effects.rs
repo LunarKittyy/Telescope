@@ -223,23 +223,7 @@ impl Effect {
                 while frames.len() > spread + 1 {
                     frames.pop_back();
                 }
-                let size = if look.across { sw } else { sh };
-                let bands = 45.min(size);
-                let mut out = Rgb::new(sw, sh);
-                let last = frames.len() - 1;
-                for b in 0..bands {
-                    let (lo, hi) = (b * size / bands, (b + 1) * size / bands);
-                    let src = &frames[last.min(b * spread / (bands - 1).max(1))];
-                    for y in 0..sh {
-                        for x in 0..sw {
-                            let inside = if look.across { (lo..hi).contains(&x) } else { (lo..hi).contains(&y) };
-                            if inside {
-                                out.set(x, y, src.at(x, y));
-                            }
-                        }
-                    }
-                }
-                out.linear_exact(w, h)
+                slit_bands(frames, look.across, spread, sw, sh).linear_exact(w, h)
             }
             Effect::Stick => stick_figure(frame, look),
             Effect::Webcam(c) => c.run(frame),
@@ -253,6 +237,29 @@ impl Effect {
             Effect::Ascii(glyphs) => ascii(frame, glyphs),
         }
     }
+}
+
+/// Slit's picture at the reduced size: each of up to 45 bands (columns across, rows otherwise) taken from an older frame, the
+/// further along the older, so motion smears into a ripple.
+fn slit_bands(frames: &VecDeque<Rgb>, across: bool, spread: usize, sw: usize, sh: usize) -> Rgb {
+    let size = if across { sw } else { sh };
+    let bands = 45.min(size);
+    let mut out = Rgb::scratch(sw, sh);
+    let last = frames.len() - 1;
+    for b in 0..bands {
+        let (lo, hi) = (b * size / bands, (b + 1) * size / bands);
+        let src = &frames[last.min(b * spread / (bands - 1).max(1))].data;
+        if across {
+            for y in 0..sh {
+                let span = (y * sw + lo) * 3..(y * sw + hi) * 3;
+                out.data[span.clone()].copy_from_slice(&src[span]);
+            }
+        } else {
+            let span = lo * sw * 3..hi * sw * 3;
+            out.data[span.clone()].copy_from_slice(&src[span]);
+        }
+    }
+    out
 }
 
 // ── Stick figure ───────────────────────────────────────────────────────

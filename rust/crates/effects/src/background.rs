@@ -2,7 +2,7 @@
 
 use crate::compositor::cover;
 use crate::cpu::Rgb;
-use crate::shared::mask_of;
+use crate::shared::mask_shared;
 use crate::imgops::{blur_quick, compose, Gray};
 use crate::peek;
 use crate::shared::{no_pictures, thumb_of, Paired, PictureReader};
@@ -42,11 +42,16 @@ pub fn blurred(frame: &Rgb, strength: i64, mask: Option<&Gray>) -> Rgb {
 /// `blurred`, scaled up to w x h instead of the frame's own size: the same blur, so a small copy needs no full-size picture made and shrunk.
 fn blurred_to(frame: &Rgb, strength: i64, mask: Option<&Gray>, w: usize, h: usize) -> Rgb {
     let (sw, sh) = ((frame.w / BLUR_SMALL).max(1), (frame.h / BLUR_SMALL).max(1));
+    blurred_by(frame, strength, mask.map(|m| m.shrink(sw, sh)).as_ref(), w, h)
+}
+
+/// `blurred_to` with the mask already shrunk to the blur's working size (an eighth of the frame).
+fn blurred_by(frame: &Rgb, strength: i64, rest: Option<&Gray>, w: usize, h: usize) -> Rgb {
+    let (sw, sh) = ((frame.w / BLUR_SMALL).max(1), (frame.h / BLUR_SMALL).max(1));
     let small = frame.shrink(sw, sh);
     let sigma = (1.0 + strength as f64 * 1.2) * SMALL / BLUR_SMALL as f64;
     let plain = small.blur(sigma);
-    let Some(mask) = mask else { return plain.linear_exact(w, h) };
-    let rest = mask.shrink(sw, sh);
+    let Some(rest) = rest else { return plain.linear_exact(w, h) };
     if rest.data.iter().all(|m| *m == 0) {
         // nobody to leave out
         return plain.linear_exact(w, h);
@@ -107,6 +112,16 @@ struct Step {
     spares: Vec<Vec<u8>>,
     /// A mask has come since the app started, so vision works and having none now means it lost track: the room stays hidden.
     had_mask: Arc<AtomicBool>,
+    /// What the last mask led to, so an unchanged mask isn't feathered and shrunk again
+    derived: Option<Derived>,
+}
+
+/// The mask kept (so an unchanged one is known by its address) with its feathered copy for one edge setting and its eighth-size copy.
+struct Derived {
+    src: Arc<Vec<u8>>,
+    size: (usize, usize),
+    soft: Option<(i64, Gray)>,
+    rest: Option<Gray>,
 }
 
 impl CpuStep for Step {
@@ -122,22 +137,39 @@ impl Step {
         if self.settings.mode == 0 {
             return;
         }
-        let mask = mask_of(ctx, frame);
+        let mask = mask_shared(ctx, frame);
         if mask.is_none() && !self.had_mask.load(Ordering::Relaxed) {
             return;
         }
         let Some(rgb) = Rgb::from_frame(frame) else { return };
         let Some(mask) = mask else { return self.hide_all(frame, &rgb) };
         self.had_mask.store(true, Ordering::Relaxed);
-        let edges = mask.soften(self.settings.edges);
-        match (MODES[self.settings.mode].0, &self.settings.picture) {
-            ("blur", _) => compose(&rgb, &edges, &blurred(&rgb, self.settings.blur, Some(&mask))).write_to(frame),
+        let size = (rgb.w, rgb.h);
+        let mut derived = match self.derived.take() {
+            Some(d) if Arc::ptr_eq(&d.src, &mask) && d.size == size => d,
+            _ => Derived { src: mask, size, soft: None, rest: None },
+        };
+        let src = derived.src.clone();
+        let whole = || Gray { w: size.0, h: size.1, data: src.to_vec() };
+        if derived.soft.as_ref().is_none_or(|(e, _)| *e != self.settings.edges) {
+            derived.soft = Some((self.settings.edges, whole().soften(self.settings.edges)));
+        }
+        let mode = (MODES[self.settings.mode].0, self.settings.picture.clone());
+        match mode {
+            ("blur", _) => {
+                if derived.rest.is_none() {
+                    derived.rest = Some(whole().shrink((rgb.w / BLUR_SMALL).max(1), (rgb.h / BLUR_SMALL).max(1)));
+                }
+                let edges = &derived.soft.as_ref().unwrap().1;
+                compose(&rgb, edges, &blurred_by(&rgb, self.settings.blur, derived.rest.as_ref(), rgb.w, rgb.h)).write_to(frame);
+            }
             ("picture", Some(picture)) => {
-                let picture = picture.clone();
-                compose(&rgb, &edges, self.covering(&picture, &rgb)).write_to(frame);
+                let edges = &derived.soft.as_ref().unwrap().1;
+                compose(&rgb, edges, self.covering(&picture, &rgb)).write_to(frame);
             }
             _ => {}
         }
+        self.derived = Some(derived);
     }
 
     fn covering(&mut self, picture: &Rgb, rgb: &Rgb) -> &Rgb {
@@ -433,7 +465,7 @@ impl Plugin for BackgroundPlugin {
             return None;
         }
         let settings = Settings { mode: self.mode, blur: self.blur, edges: self.edges, picture: self.picture.clone() };
-        Some(FrameStep::Cpu(Box::new(Step { settings, covered: None, spares: Vec::new(), had_mask: self.had_mask.clone() })))
+        Some(FrameStep::Cpu(Box::new(Step { settings, covered: None, spares: Vec::new(), had_mask: self.had_mask.clone(), derived: None })))
     }
 
     fn get_config(&self) -> Value {

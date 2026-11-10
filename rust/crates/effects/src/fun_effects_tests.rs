@@ -272,3 +272,61 @@ fn reused_buffers_leave_nothing_of_the_last_frame_behind() {
     telescope_core::image::with_spares(&mut held, || run(&look("crt"), &frames));
     assert!(held.len() >= 2, "the buffers came back: {}", held.len());
 }
+
+// ── Slit: copying each band's span, against the scan it replaced ──
+
+fn slit_reference(frames: &VecDeque<Rgb>, across: bool, spread: usize, sw: usize, sh: usize) -> Rgb {
+    let size = if across { sw } else { sh };
+    let bands = 45.min(size);
+    let mut out = Rgb::new(sw, sh);
+    let last = frames.len() - 1;
+    for b in 0..bands {
+        let (lo, hi) = (b * size / bands, (b + 1) * size / bands);
+        let src = &frames[last.min(b * spread / (bands - 1).max(1))];
+        for y in 0..sh {
+            for x in 0..sw {
+                let inside = if across { (lo..hi).contains(&x) } else { (lo..hi).contains(&y) };
+                if inside {
+                    out.set(x, y, src.at(x, y));
+                }
+            }
+        }
+    }
+    out
+}
+
+fn slit_history(sw: usize, sh: usize, count: usize) -> VecDeque<Rgb> {
+    (0..count).map(|n| Rgb { w: sw, h: sh, data: (0..sw * sh * 3).map(|i| (i.wrapping_mul(31).wrapping_add(n * 97) >> 3) as u8).collect() }).collect()
+}
+
+#[test]
+fn slit_bands_match_the_full_scan_byte_for_byte() {
+    for (sw, sh) in [(1, 1), (7, 5), (44, 46), (45, 45), (100, 61), (160, 90)] {
+        for spread in [1usize, 2, 7, 30] {
+            for count in [1, spread + 1] {
+                let frames = slit_history(sw, sh, count);
+                for across in [true, false] {
+                    assert!(slit_bands(&frames, across, spread, sw, sh) == slit_reference(&frames, across, spread, sw, sh), "{sw}x{sh} spread {spread} frames {count} across {across}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture"]
+fn bench_slit() {
+    for (sw, sh) in [(960usize, 540usize), (1920, 1080)] {
+        let frames = slit_history(sw, sh, 31);
+        for across in [true, false] {
+            let best = |f: &dyn Fn() -> Rgb| (0..5).map(|_| {
+                let start = std::time::Instant::now();
+                std::hint::black_box(f());
+                start.elapsed().as_secs_f64() * 1000.0
+            }).fold(f64::MAX, f64::min);
+            let old = best(&|| slit_reference(&frames, across, 30, sw, sh));
+            let new = best(&|| slit_bands(&frames, across, 30, sw, sh));
+            println!("slit bands {}x{} across {across}: old {old:.2} ms, new {new:.2} ms", sw * 2, sh * 2);
+        }
+    }
+}

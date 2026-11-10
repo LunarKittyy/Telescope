@@ -61,6 +61,7 @@ impl Rgb {
         }
         let d = &frame.data;
         match frame.format {
+            PixelFormat::Rgba if d.len() == w * h * 4 => telescope_core::image::drop_alpha(d, w, &mut out.data),
             PixelFormat::Rgba | PixelFormat::Bgra => {
                 let (r, b) = if frame.format == PixelFormat::Rgba { (0, 2) } else { (2, 0) };
                 for (o, p) in out.data.as_chunks_mut::<3>().0.iter_mut().zip(d.as_chunks::<4>().0) {
@@ -82,12 +83,15 @@ impl Rgb {
         match format {
             PixelFormat::Rgba | PixelFormat::Bgra => {
                 let (r, b) = if format == PixelFormat::Rgba { (0, 2) } else { (2, 0) };
-                for (p, o) in d.as_chunks_mut::<4>().0.iter_mut().zip(self.data.as_chunks::<3>().0) {
-                    p[r] = o[0];
-                    p[1] = o[1];
-                    p[b] = o[2];
-                    p[3] = 255;
-                }
+                telescope_core::image::over_rows(d, w * 4, |y, line| {
+                    let Some(row) = self.data.get(y * w * 3..(y + 1) * w * 3) else { return };
+                    for (p, o) in line.as_chunks_mut::<4>().0.iter_mut().zip(row.as_chunks::<3>().0) {
+                        p[r] = o[0];
+                        p[1] = o[1];
+                        p[b] = o[2];
+                        p[3] = 255;
+                    }
+                });
             }
             PixelFormat::I420 | PixelFormat::Nv12 => rgb_to_420(&self.data, w, h, d, format == PixelFormat::Nv12),
             _ => {}

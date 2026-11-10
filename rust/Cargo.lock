@@ -5785,6 +5785,7 @@ dependencies = [
  "serde",
  "serde_json",
  "slint-interpreter",
+ "socket2",
  "str0m",
  "telescope-core",
  "telescope-media",

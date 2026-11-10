@@ -1,7 +1,7 @@
 //! The Privacy blur plugin (plugins/privacy_blur.py): when someone else shows up, blurs everyone but you, the whole background, or puts the wait screen up instead. A CPU step for the same reason as Background: the person mask only reaches FrameContext.
 
 use crate::cpu::Rgb;
-use crate::shared::mask_of;
+use crate::shared::mask_shared;
 use crate::imgops::{blur_f32, compose, Gray};
 use crate::shared::Paired;
 use crate::vision_row;
@@ -150,6 +150,21 @@ pub fn boxes_mask(boxes: &[Box4], w: usize, h: usize) -> Weight {
     Weight { w: sw, h: sh, data: blur_f32(&mask, sw, sh, 1, (EDGE * sw as f64).max(0.5)) }
 }
 
+/// The weight of the last mask seen: the mask itself (kept so an unchanged one is known by its address), the frame size and the weight.
+type KeptWeight = (Arc<Vec<u8>>, (usize, usize), Weight);
+
+/// `Weight::from_mask` of a mask that fills a w x h frame, not worked out again for the same mask at the same size.
+fn kept_weight(kept: &mut Option<KeptWeight>, mask: Arc<Vec<u8>>, size: (usize, usize), (sw, sh): (usize, usize)) -> Weight {
+    if let Some((m, s, weight)) = kept {
+        if Arc::ptr_eq(m, &mask) && *s == size {
+            return weight.clone();
+        }
+    }
+    let weight = Weight::from_mask(&Gray { w: size.0, h: size.1, data: mask.to_vec() }, sw, sh);
+    *kept = Some((mask, size, weight.clone()));
+    weight
+}
+
 /// frame with its blurred copy laid over it by weight; None leaves the frame as it is.
 pub fn laid_over(frame: &Rgb, weight: &Weight) -> Option<Rgb> {
     if weight.data.iter().copied().fold(f32::NEG_INFINITY, f32::max) < 0.01 {
@@ -166,7 +181,7 @@ fn replaced(frame: &mut Frame, out: Option<Rgb>) {
     }
 }
 
-fn apply(frame: &mut Frame, blur: &Blur, view: &Geometry, ctx: &dyn FrameContext) {
+fn apply(frame: &mut Frame, blur: &Blur, view: &Geometry, ctx: &dyn FrameContext, kept: &mut Option<KeptWeight>) {
     if !blur.active || blur.covered {
         return;
     }
@@ -183,7 +198,7 @@ fn apply(frame: &mut Frame, blur: &Blur, view: &Geometry, ctx: &dyn FrameContext
         blurred(&rgb).write_to(frame);
         return;
     }
-    let Some(found) = mask_of(ctx, frame).map(|m| Weight::from_mask(&m, sw, sh)) else {
+    let Some(found) = mask_shared(ctx, frame).map(|m| kept_weight(kept, m, (w, h), (sw, sh))) else {
         // No mask new enough to tell anyone from the room, and a box around you would show what's behind you
         blurred(&rgb).write_to(frame);
         return;
@@ -213,6 +228,7 @@ fn apply(frame: &mut Frame, blur: &Blur, view: &Geometry, ctx: &dyn FrameContext
 /// The step every stream gets: the blur and view it was handed out with stay when the panels move away, and a stream left behind blurs whenever the shown one does.
 struct Step {
     blur: Blur,
+    kept: Option<KeptWeight>,
     view: Geometry,
     shown_blurs: Arc<AtomicBool>,
     spares: Vec<Vec<u8>>,
@@ -234,7 +250,7 @@ impl Step {
     fn run(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
         if self.blur.active {
             // a stream left blurred stays blurred behind the panels
-            apply(frame, &self.blur, &self.view, ctx);
+            apply(frame, &self.blur, &self.view, ctx, &mut self.kept);
         } else if self.shown_blurs.load(Ordering::Relaxed) {
             // the shown camera blurs, so every camera does, all of it (nobody to tell apart here)
             if let Some(rgb) = Rgb::from_frame(frame) {
@@ -620,7 +636,7 @@ impl Plugin for PrivacyBlurPlugin {
     }
 
     fn frame_step(&mut self) -> Option<FrameStep> {
-        Some(FrameStep::Cpu(Box::new(Step { spares: Vec::new(), blur: self.blur.clone(), view: self.view, shown_blurs: self.shown_blurs.clone() })))
+        Some(FrameStep::Cpu(Box::new(Step { spares: Vec::new(), kept: None, blur: self.blur.clone(), view: self.view, shown_blurs: self.shown_blurs.clone() })))
     }
 
     fn get_config(&self) -> Value {

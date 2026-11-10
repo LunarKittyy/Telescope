@@ -242,7 +242,7 @@ fn an_emoji_in_a_name_keeps_its_colours() {
 #[test]
 fn a_tag_goes_on_nv12_as_on_i420() {
     let (w, h) = (64usize, 48usize);
-    let tag = Tag { x: 8, y: 8, width: 16, height: 16, ink: vec![200; 16 * 16 * 3], keep: vec![40; 16 * 16] };
+    let tag = Tag::new(8, 8, 16, 16, vec![200; 16 * 16 * 3], vec![40; 16 * 16]);
     let mut i420 = vec![120u8; w * h];
     i420.extend(vec![90u8; (w / 2) * (h / 2)]);
     i420.extend(vec![170u8; (w / 2) * (h / 2)]);
@@ -257,4 +257,140 @@ fn a_tag_goes_on_nv12_as_on_i420() {
         assert_eq!((a.data[w * h + i], a.data[w * h + cw * ch + i]), (b.data[w * h + i * 2], b.data[w * h + i * 2 + 1]));
     }
     assert_ne!(a.data[8 * w + 8], 120);
+}
+
+// ── Cached YUV terms, against the per-frame version they replaced ──
+
+/// The apply this replaced, kept to compare every byte against.
+fn apply_reference(frame: &mut Frame, tag: &Tag) {
+    let (w, h) = (frame.width as usize, frame.height as usize);
+    if tag.x + tag.width > w || tag.y + tag.height > h {
+        return;
+    }
+    match frame.format {
+        PixelFormat::Rgba | PixelFormat::Bgra => {
+            let swap = frame.format == PixelFormat::Bgra;
+            let data = frame.data_mut();
+            for ty in 0..tag.height {
+                for tx in 0..tag.width {
+                    let t = ty * tag.width + tx;
+                    let i = ((tag.y + ty) * w + tag.x + tx) * 4;
+                    for c in 0..3 {
+                        let ink = tag.ink[t * 3 + if swap { 2 - c } else { c }];
+                        data[i + c] = blend(data[i + c], tag.keep[t], ink);
+                    }
+                }
+            }
+        }
+        PixelFormat::I420 | PixelFormat::Nv12 => {
+            let nv12 = frame.format == PixelFormat::Nv12;
+            let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+            let data = frame.data_mut();
+            let (luma, chroma) = data.split_at_mut(w * h);
+            // Where a chroma cell's U and V are
+            let places = |i: usize| if nv12 { (i * 2, i * 2 + 1) } else { (i, cw * ch + i) };
+            for ty in 0..tag.height {
+                for tx in 0..tag.width {
+                    let t = ty * tag.width + tx;
+                    let alpha = 255.0 - tag.keep[t] as f32;
+                    let (y, _, _) = yuv_of([tag.ink[t * 3], tag.ink[t * 3 + 1], tag.ink[t * 3 + 2]]);
+                    let i = (tag.y + ty) * w + tag.x + tx;
+                    let under = luma[i] as f32;
+                    luma[i] = (under * tag.keep[t] as f32 / 255.0 + y + 16.0 * alpha / 255.0).round().clamp(0.0, 255.0) as u8;
+                }
+            }
+            // Chroma is shared by 2 x 2 pixels: each takes the average of the tag over the pixels it covers
+            let (cx0, cy0) = (tag.x / 2, tag.y / 2);
+            let (cx1, cy1) = ((tag.x + tag.width).div_ceil(2), (tag.y + tag.height).div_ceil(2));
+            for cy in cy0..cy1.min(ch) {
+                for cx in cx0..cx1.min(cw) {
+                    let (mut su, mut sv, mut keep, mut alpha, mut n) = (0.0, 0.0, 0.0, 0.0, 0.0);
+                    for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                        let (x, y) = (cx * 2 + dx, cy * 2 + dy);
+                        // Pixels of the 2 x 2 that the tile doesn't cover count as no tag
+                        let inside = x >= tag.x && x < tag.x + tag.width && y >= tag.y && y < tag.y + tag.height;
+                        let (k, a, u, v) = if inside {
+                            let t = (y - tag.y) * tag.width + x - tag.x;
+                            let (_, u, v) = yuv_of([tag.ink[t * 3], tag.ink[t * 3 + 1], tag.ink[t * 3 + 2]]);
+                            (tag.keep[t] as f32, 255.0 - tag.keep[t] as f32, u, v)
+                        } else {
+                            (255.0, 0.0, 0.0, 0.0)
+                        };
+                        if x < w && y < h {
+                            su += u;
+                            sv += v;
+                            keep += k;
+                            alpha += a;
+                            n += 1.0;
+                        }
+                    }
+                    let (u, v) = places(cy * cw + cx);
+                    chroma[u] = (chroma[u] as f32 * keep / n / 255.0 + su / n + 128.0 * alpha / n / 255.0).round().clamp(0.0, 255.0) as u8;
+                    chroma[v] = (chroma[v] as f32 * keep / n / 255.0 + sv / n + 128.0 * alpha / n / 255.0).round().clamp(0.0, 255.0) as u8;
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn test_tag(x: usize, y: usize, width: usize, height: usize) -> Tag {
+    let ink = (0..width * height * 3).map(|i| (i.wrapping_mul(37) >> 2) as u8).collect();
+    let keep = (0..width * height).map(|i| ((i * 29) >> 1) as u8).collect();
+    Tag::new(x, y, width, height, ink, keep)
+}
+
+fn yuv_frame(w: usize, h: usize, format: PixelFormat) -> Frame {
+    let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+    let mut data: Vec<u8> = (0..w * h).map(|i| (i * 7 >> 2) as u8).collect();
+    if format == PixelFormat::Nv12 {
+        data.extend((0..cw * ch * 2).map(|i| (i * 13 >> 1) as u8));
+    } else {
+        data.extend((0..cw * ch * 2).map(|i| (i * 11 >> 1) as u8));
+    }
+    Frame::new(w as u32, h as u32, format, data)
+}
+
+#[test]
+fn cached_yuv_apply_matches_the_per_frame_one_byte_for_byte() {
+    for format in [PixelFormat::I420, PixelFormat::Nv12] {
+        for (w, h) in [(64usize, 48usize), (65, 49), (130, 70)] {
+            for (x, y, tw, th) in [(0, 0, 16, 16), (1, 1, 17, 15), (w - 17, h - 15, 17, 15), (3, 5, w - 3, h - 5), (0, 0, w, h), (w - 1, h - 1, 1, 1)] {
+                let tag = test_tag(x, y, tw, th);
+                let (mut a, mut b) = (yuv_frame(w, h, format), yuv_frame(w, h, format));
+                apply_reference(&mut a, &tag);
+                // twice, so the second goes through what the first cached
+                apply(&mut b, &tag);
+                let mut c = yuv_frame(w, h, format);
+                apply(&mut c, &tag);
+                assert!(a.data == b.data && a.data == c.data, "{format:?} {w}x{h} tag {x},{y} {tw}x{th}");
+            }
+        }
+    }
+    // the same tag on a frame of another size works out its terms again
+    let tag = test_tag(1, 1, 17, 15);
+    for (w, h) in [(64usize, 48usize), (65, 49), (64, 48)] {
+        let (mut a, mut b) = (yuv_frame(w, h, PixelFormat::I420), yuv_frame(w, h, PixelFormat::I420));
+        apply_reference(&mut a, &tag);
+        apply(&mut b, &tag);
+        assert!(a.data == b.data, "{w}x{h}");
+    }
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture"]
+fn bench_tag_apply() {
+    for (w, h, tw, th) in [(1920usize, 1080usize, 640usize, 130usize), (3840, 2160, 1280, 260)] {
+        let tag = test_tag(101, 801 % (h - th), tw, th);
+        let mut frame = yuv_frame(w, h, PixelFormat::I420);
+        let best = |f: &mut dyn FnMut()| (0..7).map(|_| {
+            let start = std::time::Instant::now();
+            f();
+            start.elapsed().as_secs_f64() * 1000.0
+        }).fold(f64::MAX, f64::min);
+        apply(&mut frame, &tag);
+        let new = best(&mut || apply(&mut frame, &tag));
+        let old = best(&mut || apply_reference(&mut frame, &tag));
+        println!("tag apply {w}x{h} tile {tw}x{th}: old {old:.3} ms, new {new:.3} ms");
+    }
 }

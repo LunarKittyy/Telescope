@@ -1047,10 +1047,7 @@ impl Window {
             None
         };
         let image = match tinted.filter(|f| passes.iter().any(|(_, p)| p.tints()) && f.data.len() == (w * h * 4) as usize) {
-            Some(shown) => {
-                let rgb: Vec<u8> = shown.data.as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect();
-                slint::Image::from_rgb8(slint::SharedPixelBuffer::<slint::Rgb8Pixel>::clone_from_slice(&rgb, w, h))
-            }
+            Some(shown) => crate::preview::rgb_image(&shown.data, w, h),
             None => {
                 let mut painter = self.painter.borrow_mut();
                 if painter.is_none() {

@@ -599,7 +599,7 @@ class MjpegServer(
             // Resized only on a real change: a keyframe's worth of rate shouldn't mean a syscall every sample.
             if (bytes == sendBuffer || (bytes > 0 && sendBuffer > 0 && bytes in sendBuffer * 4 / 5..sendBuffer * 5 / 4)) return
             sendBuffer = bytes
-            queue.maxWaitMs = if (bytes > 0) DYNAMIC_MAX_WAIT_MS else Long.MAX_VALUE
+            queue.maxWaitMs = if (bytes > 0) DYNAMIC_MAX_WAIT_MS else H264Stream.LATENCY_BUDGET_MS
             try { socket.sendBufferSize = if (bytes > 0) bytes else UNLIMITED_SEND_BUFFER } catch (_: Exception) {}
         }
 

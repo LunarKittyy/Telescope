@@ -91,6 +91,25 @@ pub trait VideoFeed: Send {
     fn skipped_frames(&self) -> Option<std::sync::Arc<std::sync::atomic::AtomicU32>> {
         None
     }
+    /// Whether this data (as read() gave it) lets decoding start afresh, for the reader that drops a stale backlog up to one.
+    /// Annex-B H.264 by default: an IDR slice or a sequence parameter set in it (the phone sends one just ahead of an IDR, as a write of its own over TCP).
+    fn is_keyframe(&self, data: &[u8]) -> bool {
+        data.windows(4).any(|w| w[..3] == [0, 0, 1] && matches!(w[3] & 0x1F, 5 | 7))
+    }
+    /// Whether each packet read is a whole picture (or a unit the decoder can start at), so a reader may drop whole packets to catch up.
+    /// A byte stream cut into chunks (TCP's H.264) isn't: dropping chunks cuts pictures in half.
+    fn packetized(&self) -> bool {
+        true
+    }
+    /// Asks the sender for a keyframe, soon; false if this feed has no way to. Called on the thread that reads.
+    fn request_keyframe(&mut self) -> bool {
+        false
+    }
+    /// When (monotonic nanoseconds) the packet read last should reach the screen, for a feed that evens out a sender's bursts. The reader decodes at once
+    /// and waits for this afterwards, so the wait hides behind the decoding instead of adding to it.
+    fn show_at_ns(&mut self) -> Option<u64> {
+        None
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -138,6 +157,28 @@ pub type TimingProbe = std::sync::Arc<dyn Fn() -> Option<String> + Send + Sync>;
 pub trait Scaler: Send {
     /// RGB24, width * height * 3 bytes.
     fn rgb(&mut self, frame: &Frame, width: u32, height: u32) -> Vec<u8>;
+
+    /// The same picture as RGBA with alpha 255, width * height * 4 bytes (empty when rgb gives the wrong size).
+    fn rgba(&mut self, frame: &Frame, width: u32, height: u32) -> Vec<u8> {
+        let rgb = self.rgb(frame, width, height);
+        if rgb.len() != width as usize * height as usize * 3 {
+            return Vec::new();
+        }
+        let mut rgba = vec![0; rgb.len() / 3 * 4];
+        crate::image::add_alpha(&rgb, width as usize, &mut rgba);
+        rgba
+    }
+
+    /// The picture as RGB into `out` (width * height * 3 bytes), so the caller's own buffer is the one that's filled. False when
+    /// it didn't fit and out is left as it was.
+    fn rgb_into(&mut self, frame: &Frame, width: u32, height: u32, out: &mut [u8]) -> bool {
+        let rgb = self.rgb(frame, width, height);
+        let fits = rgb.len() == out.len();
+        if fits {
+            out.copy_from_slice(&rgb);
+        }
+        fits
+    }
 }
 
 /// What the media crate offers the rest of the app.
@@ -316,6 +357,33 @@ impl<T> Newest<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A scaler that only knows rgb, as most do.
+    struct Greys(usize);
+
+    impl Scaler for Greys {
+        fn rgb(&mut self, _frame: &Frame, width: u32, height: u32) -> Vec<u8> {
+            (0..width as usize * height as usize * 3).map(|i| (i % 251) as u8).take(self.0).collect()
+        }
+    }
+
+    #[test]
+    fn a_scaler_that_only_gives_rgb_gives_rgba_and_fills_a_buffer_too() {
+        let frame = Frame::new(1, 1, crate::frame::PixelFormat::Rgba, vec![0; 4]);
+        let mut scaler = Greys(usize::MAX);
+        let rgb = scaler.rgb(&frame, 5, 3);
+        let rgba = scaler.rgba(&frame, 5, 3);
+        assert_eq!(rgba.len(), 5 * 3 * 4);
+        assert!(rgba.as_chunks::<4>().0.iter().zip(rgb.as_chunks::<3>().0).all(|(a, c)| a[..3] == c[..] && a[3] == 255));
+        let mut out = vec![0; 5 * 3 * 3];
+        assert!(scaler.rgb_into(&frame, 5, 3, &mut out));
+        assert_eq!(out, rgb);
+        assert!(!scaler.rgb_into(&frame, 5, 3, &mut [0; 10]), "a buffer of the wrong size isn't filled");
+        // A picture of the wrong size is none
+        assert!(Greys(10).rgba(&frame, 5, 3).is_empty());
+        let mut out = vec![9; 5 * 3 * 3];
+        assert!(!Greys(10).rgb_into(&frame, 5, 3, &mut out) && out.iter().all(|v| *v == 9));
+    }
 
     #[test]
     fn newest_hands_over_only_the_latest_item() {
