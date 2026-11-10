@@ -31,6 +31,7 @@ class SettingsActivity : LookActivity() {
     // A stream can start or stop from the computer while Settings is open, so the Update button follows it
     private val streamPoller = object : Runnable {
         override fun run() {
+            Updater.recoverStuckInstall()
             renderUpdate()
             uiHandler.postDelayed(this, 1000)
         }
@@ -78,6 +79,7 @@ class SettingsActivity : LookActivity() {
 
     override fun onResume() {
         super.onResume()
+        Updater.recoverStuckInstall()
         val waiting = pendingUpdate
         if (shouldResumePendingUpdate(waiting != null, canInstallUpdates(), streaming())) {
             pendingUpdate = null
@@ -119,8 +121,7 @@ class SettingsActivity : LookActivity() {
     }
 
     private fun streaming(): Boolean {
-        val state = CameraStreamService.instance?.state ?: StreamState.Idle
-        return state != StreamState.Idle && state != StreamState.Failed
+        return streamBusyNow()
     }
 
     // The found update shows here with its install action; the button checks again otherwise

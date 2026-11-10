@@ -9,6 +9,15 @@ import androidx.appcompat.app.AppCompatActivity
 fun shouldResumePendingUpdate(hasPending: Boolean, canInstall: Boolean, streaming: Boolean): Boolean =
     hasPending && canInstall && !streaming
 
+// Read straight from the running service and the start window, since an activity's bound service can lag behind a start that came from the computer
+fun streamBusyNow(): Boolean {
+    val state = CameraStreamService.instance?.state ?: StreamState.Idle
+    return streamBusy(state, SessionStartWindow.open())
+}
+
+fun streamBusy(state: StreamState, startWindowOpen: Boolean): Boolean =
+    startWindowOpen || (state != StreamState.Idle && state != StreamState.Failed)
+
 fun AppCompatActivity.canInstallUpdates(): Boolean = packageManager.canRequestPackageInstalls()
 
 // Installs the update, or first asks for "Allow from this source", which Android asks once per app. `waitForAllow` holds the update until the screen is back from that setting.
