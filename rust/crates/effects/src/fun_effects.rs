@@ -4,10 +4,12 @@
 
 use crate::cpu::Rgb;
 use crate::cv_draw::{plain_scale_from_height, plain_text_width, Canvas};
-use crate::imgops::{compose, times, Gray, Remap};
+use crate::imgops::{compose, shrink_plane, times, Gray, Remap};
 use std::collections::VecDeque;
 use telescope_core::avx2_too;
-use telescope_core::image::{over_rows, rint};
+use telescope_core::frame::{Frame, PixelFormat};
+use telescope_core::image::{over_bands, resize_area, resize_linear_into, rint};
+use telescope_core::workers::each_part;
 use std::sync::Arc;
 
 /// Masks from the empty room are worked out at a quarter of the size.
@@ -141,7 +143,7 @@ pub enum Effect {
     Cloak(PlateMask),
     Light(Option<Rgb>),
     Slit(VecDeque<Rgb>, Option<(usize, usize)>),
-    Stick,
+    Stick(Option<StickPaper>),
     Webcam(Webcam),
     Vhs(Vhs),
     Crt(Option<Crt>),
@@ -155,13 +157,28 @@ impl Effect {
             "cloak" => Effect::Cloak(PlateMask::default()),
             "light" => Effect::Light(None),
             "slit" => Effect::Slit(VecDeque::new(), None),
-            "stick" => Effect::Stick,
+            "stick" => Effect::Stick(None),
             "webcam" => Effect::Webcam(Webcam::new()),
             "vhs" => Effect::Vhs(Vhs::new()),
             "crt" => Effect::Crt(None),
             "ascii" => Effect::Ascii(None),
             _ => return None,
         })
+    }
+
+    /// The effects that need no RGB picture work on the frame's own data (VHS, ASCII, stick figure); None for the rest, frame untouched.
+    pub fn run_frame(&mut self, frame: &mut Frame, look: &Look) -> Option<()> {
+        let (w, h) = (frame.width as usize, frame.height as usize);
+        match self {
+            Effect::Vhs(v) if frame.format == PixelFormat::I420 => v.run_i420(frame.data_mut(), w, h).then_some(()),
+            Effect::Ascii(glyphs) if matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12) && frame.data.len() >= w * h => {
+                let out = ascii_from_luma(&frame.data[..w * h], w, h, glyphs);
+                out.write_to(frame);
+                Some(())
+            }
+            Effect::Stick(paper) => stick_figure(paper, w, h, look).write_over(frame).then_some(()),
+            _ => None,
+        }
     }
 
     pub fn run(&mut self, frame: &Rgb, look: &Look, inputs: Inputs) -> Rgb {
@@ -188,29 +205,7 @@ impl Effect {
                 };
                 compose(&plate, &mask.soften(look.edges), frame)
             }
-            Effect::Light(trail) => {
-                let level = (150 + look.brightness * 10) as u8;
-                let lit = frame.gray().above(level);
-                let mut lights = Rgb::new(w, h);
-                for (i, m) in lit.data.iter().enumerate() {
-                    if *m != 0 {
-                        lights.data[i * 3..i * 3 + 3].copy_from_slice(&frame.data[i * 3..i * 3 + 3]);
-                    }
-                }
-                let next = match trail.as_ref().filter(|t| (t.w, t.h) == (w, h)) {
-                    None => lights,
-                    Some(t) => {
-                        // 1: gone in about half a second, 10: hangs around for seconds. At least a level off each time: rounding
-                        // alone would keep a faint trail for good at long fades
-                        let keep = (0.80 + look.fade as f64 * 0.019) as f32;
-                        let data = t.data.iter().zip(&lights.data).map(|(&old, &new)| ((old as f32 * keep).round_ties_even().min(255.0) as u8).saturating_sub(1).max(new)).collect();
-                        Rgb { w, h, data }
-                    }
-                };
-                let out = Rgb { w, h, data: frame.data.iter().zip(&next.data).map(|(&a, &b)| a.max(b)).collect() };
-                *trail = Some(next);
-                out
-            }
+            Effect::Light(trail) => light(trail, frame, look),
             Effect::Slit(frames, shape) => {
                 let small = frame.area((w / 2).max(1), (h / 2).max(1));
                 if *shape != Some((small.w, small.h)) {
@@ -225,7 +220,7 @@ impl Effect {
                 }
                 slit_bands(frames, look.across, spread, sw, sh).linear_exact(w, h)
             }
-            Effect::Stick => stick_figure(frame, look),
+            Effect::Stick(paper) => stick_figure(paper, w, h, look).picture(),
             Effect::Webcam(c) => c.run(frame),
             Effect::Vhs(v) => v.run(frame),
             Effect::Crt(c) => {
@@ -235,6 +230,58 @@ impl Effect {
                 c.as_ref().unwrap().run(frame)
             }
             Effect::Ascii(glyphs) => ascii(frame, glyphs),
+        }
+    }
+}
+
+/// Light painting in one pass, with the trail kept in place.
+fn light(trail: &mut Option<Rgb>, frame: &Rgb, look: &Look) -> Rgb {
+    let (w, h) = (frame.w, frame.h);
+    let level = (150 + look.brightness * 10) as u8;
+    // 1: gone in about half a second, 10: seconds; a level off each time or rounding keeps a faint trail for good
+    let keep = (0.80 + look.fade as f64 * 0.019) as f32;
+    let fresh = trail.as_ref().is_none_or(|t| (t.w, t.h) != (w, h));
+    if fresh {
+        *trail = Some(Rgb::scratch(w, h));
+    }
+    let mut out = Rgb::scratch(w, h);
+    let rl = w * 3;
+    if rl > 0 {
+        let held = trail.as_mut().unwrap();
+        over_two(&mut out.data, &mut held.data, rl, |first, out, held| {
+            for (i, (o, t)) in out.chunks_exact_mut(rl).zip(held.chunks_exact_mut(rl)).enumerate() {
+                light_row(&frame.data[(first + i) * rl..][..rl], t, o, level, keep, fresh);
+            }
+        });
+    }
+    out
+}
+
+/// over_bands for two pictures of the same shape: band(first row, its rows of a, the same rows of b).
+fn over_two(a: &mut [u8], b: &mut [u8], row_len: usize, band: impl Fn(usize, &mut [u8], &mut [u8]) + Sync) {
+    const BANDS: usize = 8;
+    let rows = a.len() / row_len.max(1);
+    if rows < 256 || a.len() < 512 * 1024 {
+        band(0, a, b);
+        return;
+    }
+    let per_band = rows.div_ceil(BANDS);
+    let mut parts: Vec<(usize, &mut [u8], &mut [u8])> = a.chunks_mut(per_band * row_len).zip(b.chunks_mut(per_band * row_len)).enumerate().map(|(i, (x, y))| (i * per_band, x, y)).collect();
+    each_part(&mut parts, |_, (first, x, y)| band(*first, x, y));
+}
+
+avx2_too! {
+    /// One row of light painting: the trail (held, or fresh from what's lit now) and the picture over it.
+    fn light_row(frame: &[u8], trail: &mut [u8], out: &mut [u8], level: u8, keep: f32, fresh: bool) {
+        for ((f, t), o) in frame.as_chunks::<3>().0.iter().zip(trail.as_chunks_mut::<3>().0).zip(out.as_chunks_mut::<3>().0) {
+            let grey = ((f[0] as u32 * 9798 + f[1] as u32 * 19235 + f[2] as u32 * 3735 + (1 << 14)) >> 15) as u8;
+            let lit = grey > level;
+            for c in 0..3 {
+                let lights = if lit { f[c] } else { 0 };
+                let next = if fresh { lights } else { ((t[c] as f32 * keep).round_ties_even().min(255.0) as u8).saturating_sub(1).max(lights) };
+                t[c] = next;
+                o[c] = f[c].max(next);
+            }
         }
     }
 }
@@ -267,20 +314,67 @@ fn slit_bands(frames: &VecDeque<Rgb>, across: bool, spread: usize, sw: usize, sh
 pub const PAPER: [u8; 3] = [240, 236, 232];
 pub const INK: [u8; 3] = [28, 32, 40];
 
-fn stick_figure(frame: &Rgb, look: &Look) -> Rgb {
-    let (w, h) = (frame.w, frame.h);
-    let mut out = fit(look.plate.as_deref(), w, h).unwrap_or_else(|| Rgb::filled(w, h, PAPER));
-    let thick = 3.max(h / 70) as i32;
-    let ink = [INK[0], INK[1], INK[2], 0];
-    let (fw, fh) = (w as f64, h as f64);
-    let mut canvas = Canvas { data: &mut out.data, w, h, channels: 3 };
-    for &((x0, y0), (x1, y1)) in &look.lines {
-        canvas.line(((x0 * fw) as i32, (y0 * fh) as i32), ((x1 * fw) as i32, (y1 * fh) as i32), ink, thick);
+/// The stick figure's picture, kept while the size, the room and the lines stay the same.
+pub struct StickPaper {
+    size: (usize, usize),
+    plate: Option<Arc<Rgb>>,
+    lines: Vec<((f64, f64), (f64, f64))>,
+    heads: Vec<((f64, f64), f64)>,
+    drawn: Rgb,
+    /// The same picture in a frame's own format, for a step that writes it straight over the frame
+    packed: Option<Frame>,
+}
+
+impl StickPaper {
+    /// A picture of its own, as the effect hands out a picture a later stage may draw on.
+    fn picture(&self) -> Rgb {
+        let mut out = Rgb::scratch(self.drawn.w, self.drawn.h);
+        out.data.copy_from_slice(&self.drawn.data);
+        out
     }
-    for &((x, y), r) in &look.heads {
-        canvas.circle(((x * fw) as i32, (y * fh) as i32), thick.max((r * fh) as i32), ink, thick);
+
+    /// Puts the picture over frame in its format. False when this can't say how (a format Rgb doesn't know, or another size).
+    pub fn write_over(&mut self, frame: &mut Frame) -> bool {
+        let format = frame.format;
+        if (frame.width as usize, frame.height as usize) != self.size || !matches!(format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) {
+            return false;
+        }
+        if self.packed.as_ref().is_none_or(|p| p.format != format) {
+            let mut packed = Frame::new(frame.width, frame.height, format, vec![0; format.size(frame.width, frame.height)]);
+            self.drawn.write_to(&mut packed);
+            self.packed = Some(packed);
+        }
+        let packed = self.packed.as_ref().unwrap();
+        let data = frame.data_mut();
+        if data.len() != packed.data.len() {
+            return false;
+        }
+        data.copy_from_slice(&packed.data);
+        true
     }
-    out
+}
+
+pub fn stick_figure<'a>(paper: &'a mut Option<StickPaper>, w: usize, h: usize, look: &Look) -> &'a mut StickPaper {
+    let same_plate = |held: &Option<Arc<Rgb>>| match (held, &look.plate) {
+        (None, None) => true,
+        (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+        _ => false,
+    };
+    if !paper.as_ref().is_some_and(|p| p.size == (w, h) && same_plate(&p.plate) && p.lines == look.lines && p.heads == look.heads) {
+        let mut out = fit(look.plate.as_deref(), w, h).unwrap_or_else(|| Rgb::filled(w, h, PAPER));
+        let thick = 3.max(h / 70) as i32;
+        let ink = [INK[0], INK[1], INK[2], 0];
+        let (fw, fh) = (w as f64, h as f64);
+        let mut canvas = Canvas { data: &mut out.data, w, h, channels: 3 };
+        for &((x0, y0), (x1, y1)) in &look.lines {
+            canvas.line(((x0 * fw) as i32, (y0 * fh) as i32), ((x1 * fw) as i32, (y1 * fh) as i32), ink, thick);
+        }
+        for &((x, y), r) in &look.heads {
+            canvas.circle(((x * fw) as i32, (y * fh) as i32), thick.max((r * fh) as i32), ink, thick);
+        }
+        *paper = Some(StickPaper { size: (w, h), plate: look.plate.clone(), lines: look.lines.clone(), heads: look.heads.clone(), drawn: out, packed: None });
+    }
+    paper.as_mut().unwrap()
 }
 
 // ── Randomness ─────────────────────────────────────────────────────────
@@ -485,10 +579,41 @@ impl Vhs {
         let smear = |g: &Gray| roll(g, shift).box_blur(9, 1);
         let (cr, cb) = (smear(&cr), smear(&cb));
         let mut y = y.box_blur(3, 1);
-        // each line a little off
+        self.roughen(&mut y, 255);
+        let mut out = Rgb::scratch(sw, sh);
+        from_ycc(&y.data, &cr.data, &cb.data, &mut out.data);
+        out.linear_exact(w, h)
+    }
+
+    /// The same look on the planes of an I420 picture in place, with no trip through RGB. False for a buffer too short.
+    pub fn run_i420(&mut self, data: &mut [u8], w: usize, h: usize) -> bool {
+        let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+        if w == 0 || h == 0 || data.len() < w * h + 2 * cw * ch {
+            return false;
+        }
+        self.t += 1;
+        let (sw, sh) = ((w / 3).max(1), (h / 2).max(1));
+        let (luma, chroma) = data.split_at_mut(w * h);
+        let mut y = Gray { w: sw, h: sh, data: resize_area(luma, w, h, 1, sw, sh) }.box_blur(3, 1);
+        // video's luma has 219 levels between black and white
+        self.roughen(&mut y, 219);
+        resize_linear_into(&y.data, sw, sh, 1, luma, w, (0, 0, w, h));
+        // The RGB look smears by 9 of its 3-pixel columns, 27 pixels: 12 chroma columns is 24, and the shift scales the same way
+        let shift = ((sw / 120).max(1) * 3).div_ceil(2);
+        for plane in chroma.chunks_exact_mut(cw * ch).take(2) {
+            let mut g = Gray::scratch(cw, ch);
+            g.data.copy_from_slice(plane);
+            plane.copy_from_slice(&roll(&g, shift).box_blur(12, 1).data);
+        }
+        true
+    }
+
+    /// Each line a little off, and the tracking band. `range` is the levels between black and white in this luma.
+    fn roughen(&mut self, y: &mut Gray, range: i32) {
+        let (sw, sh) = (y.w, y.h);
         for line in y.data.chunks_exact_mut(sw) {
             let n = self.noise.between(-12, 12);
-            let by = n.unsigned_abs() as u8;
+            let by = ((n.unsigned_abs() as i32 * range + 127) / 255) as u8;
             if n < 0 {
                 line.iter_mut().for_each(|v| *v = v.saturating_sub(by));
             } else {
@@ -498,13 +623,11 @@ impl Vhs {
         let band = ((sh as i64 - ((self.t * 3) % (sh + 40)) as i64).rem_euclid(sh as i64)) as usize;
         let (lo, hi) = (band.saturating_sub(6), (band + 6).min(sh));
         let slide = self.noise.between(-8, 8);
+        let bright = ((40 * range + 127) / 255) as u8;
         for line in y.data.chunks_exact_mut(sw).take(hi).skip(lo) {
             line.rotate_right(slide.rem_euclid(sw as i32) as usize);
-            line.iter_mut().for_each(|v| *v = v.saturating_add(40));
+            line.iter_mut().for_each(|v| *v = v.saturating_add(bright));
         }
-        let mut out = Rgb::scratch(sw, sh);
-        from_ycc(&y.data, &cr.data, &cb.data, &mut out.data);
-        out.linear_exact(w, h)
     }
 }
 
@@ -560,6 +683,93 @@ pub struct Crt {
     bend: Remap,
     /// What each colour of each pixel is multiplied by
     shade: Vec<u8>,
+    glow: Glow,
+}
+
+/// The glow, worked out at a third of the size (shrunk, blurred and bent there) and scaled back up as it's added.
+struct Glow {
+    w: usize,
+    h: usize,
+    bend: Remap,
+    /// For each column and row of the full picture, the two small ones it sits between and how far towards the second, in 256ths
+    columns: Vec<(u32, u32, u16)>,
+    rows: Vec<(u32, u32, u16)>,
+}
+
+/// The axis of a picture n pixels across, from -1 to 1.
+fn axis(n: usize) -> Vec<f32> {
+    (0..n).map(|i| if i + 1 == n && n > 1 { 1.0 } else if n == 1 { -1.0 } else { (-1.0 + i as f64 * (2.0 / (n - 1) as f64)) as f32 }).collect()
+}
+
+/// Where the screen's pixel at (px, py) looks in a picture w x h, in pixels, and whether it's off the bulge.
+fn bend_at(px: f32, py: f32, w: usize, h: usize) -> (f32, f32, bool) {
+    let bulge = 1.0 + 0.06 * (px * px + py * py);
+    let (mx, my) = ((px * bulge + 1.0) * (w - 1) as f32 / 2.0, (py * bulge + 1.0) * (h - 1) as f32 / 2.0);
+    (mx, my, (px * bulge).abs() > 1.0 || (py * bulge).abs() > 1.0)
+}
+
+/// How each of n2 pixels samples a line of n: the two it lies between and the weight of the second in 256ths.
+fn taps(n: usize, n2: usize) -> Vec<(u32, u32, u16)> {
+    (0..n2).map(|i| {
+        let p = ((i as f64 + 0.5) * n as f64 / n2 as f64 - 0.5).max(0.0);
+        let i0 = (p.floor() as usize).min(n - 1);
+        (i0 as u32, (i0 + 1).min(n - 1) as u32, ((p - i0 as f64) * 256.0).round().min(256.0) as u16)
+    }).collect()
+}
+
+impl Glow {
+    fn new(w: usize, h: usize) -> Glow {
+        let (sw, sh) = ((w / 3).max(1), (h / 3).max(1));
+        let (xs, ys) = (axis(sw), axis(sh));
+        let mut places = Vec::with_capacity(sw * sh);
+        for &py in &ys {
+            for &px in &xs {
+                // off the bulge it looks at the nearest edge, so no dark rim is blurred in; the shade is black there anyway
+                let (mx, my, _) = bend_at(px, py, sw, sh);
+                let (mx, my) = (mx.clamp(0.0, (sw - 1) as f32), my.clamp(0.0, (sh - 1) as f32));
+                places.push((rint((mx * 32.0) as f64), rint((my * 32.0) as f64)));
+            }
+        }
+        Glow { w: sw, h: sh, bend: Remap::new(sw, sh, sw, sh, &places), columns: taps(sw, w), rows: taps(sh, h) }
+    }
+
+    /// The glow of a picture w x h: small and bent, then widened to the picture's width so that each full row is just a blend of two.
+    fn of(&self, picture: &[u8], w: usize, h: usize) -> Rgb {
+        let soft = Rgb { w: self.w, h: self.h, data: resize_area(picture, w, h, 3, self.w, self.h) }.box_blur(3, 3);
+        let mut bent = Rgb::scratch(self.w, self.h);
+        self.bend.run(&soft.data, &mut bent.data);
+        let mut wide = Rgb::scratch(w, self.h);
+        let sl = self.w * 3;
+        over_bands(&mut wide.data, w * 3, |first, part| {
+            for (i, line) in part.chunks_exact_mut(w * 3).enumerate() {
+                let row = &bent.data[(first + i) * sl..][..sl];
+                for (o, &(x0, x1, wx)) in line.as_chunks_mut::<3>().0.iter_mut().zip(&self.columns) {
+                    let (p, q, wx) = (&row[x0 as usize * 3..][..3], &row[x1 as usize * 3..][..3], wx as u32);
+                    for c in 0..3 {
+                        o[c] = ((p[c] as u32 * (256 - wx) + q[c] as u32 * wx + 128) >> 8) as u8;
+                    }
+                }
+            }
+        });
+        wide
+    }
+
+    /// Pixels first..end of row y of the full-size glow, blended from the two rows of the widened one it lies between.
+    fn row(&self, wide: &Rgb, y: usize, (first, end): (usize, usize), out: &mut [u8]) {
+        let (y0, y1, wy) = self.rows[y];
+        let rl = wide.w * 3;
+        let (a, b) = (&wide.data[y0 as usize * rl + first * 3..][..(end - first) * 3], &wide.data[y1 as usize * rl + first * 3..][..(end - first) * 3]);
+        blend(a, b, wy as u32, out);
+    }
+}
+
+avx2_too! {
+    /// a and b mixed, b by wy in 256ths.
+    fn blend(a: &[u8], b: &[u8], wy: u32, out: &mut [u8]) {
+        for ((o, &p), &q) in out.iter_mut().zip(a).zip(b) {
+            *o = ((p as u32 * (256 - wy) + q as u32 * wy + 128) >> 8) as u8;
+        }
+    }
 }
 
 avx2_too! {
@@ -575,7 +785,6 @@ avx2_too! {
 
 impl Crt {
     pub fn new(w: usize, h: usize) -> Crt {
-        let axis = |n: usize| -> Vec<f32> { (0..n).map(|i| if i + 1 == n && n > 1 { 1.0 } else if n == 1 { -1.0 } else { (-1.0 + i as f64 * (2.0 / (n - 1) as f64)) as f32 }).collect() };
         let (xs, ys) = (axis(w), axis(h));
         let pitch = 2.max(h / 270);
         let triad = [[1.0f32, 0.82, 0.82], [0.82, 1.0, 0.82], [0.82, 0.82, 1.0]];
@@ -584,9 +793,7 @@ impl Crt {
             for x in 0..w {
                 let px = xs[x];
                 let r2 = px * px + py * py;
-                let bulge = 1.0 + 0.06 * r2;
-                let (mx, my) = ((px * bulge + 1.0) * (w - 1) as f32 / 2.0, (py * bulge + 1.0) * (h - 1) as f32 / 2.0);
-                let edge = (px * bulge).abs() > 1.0 || (py * bulge).abs() > 1.0;
+                let (mx, my, edge) = bend_at(px, py, w, h);
                 places.push(if edge { Remap::OUTSIDE } else { (rint((mx * 32.0) as f64), rint((my * 32.0) as f64)) });
                 let mut s = (1.15 - 0.45 * r2).clamp(0.0, 1.0);
                 if y % pitch == pitch - 1 {
@@ -597,18 +804,31 @@ impl Crt {
                 shade.extend([2, 1, 0].map(|c| if edge { 0 } else { ((s * t[c]) * 255.0) as u8 }));
             }
         }
-        Crt { w, h, bend: Remap::new(w, h, w, h, &places), shade }
+        Crt { w, h, bend: Remap::new(w, h, w, h, &places), shade, glow: Glow::new(w, h) }
     }
 
+    /// The picture bent row by row, each row glowed and shaded before the next, so the whole bent picture is never held.
     pub fn run(&self, frame: &Rgb) -> Rgb {
         let (w, h) = (self.w, self.h);
-        let mut bent = Rgb::scratch(w, h);
-        self.bend.run(&frame.data[..w * h * 3], &mut bent.data);
-        // a little glow
-        let glow = bent.box_blur(9, 9);
+        let src = &frame.data[..w * h * 3];
+        let glow = self.glow.of(src, w, h);
         let mut out = Rgb::scratch(w, h);
         let rl = w * 3;
-        over_rows(&mut out.data, rl, |y, line| crt_row(&bent.data[y * rl..][..rl], &glow.data[y * rl..][..rl], &self.shade[y * rl..][..rl], line));
+        over_bands(&mut out.data, rl, |first, part| {
+            let (mut bent, mut soft) = (vec![0u8; rl], vec![0u8; rl]);
+            for (i, line) in part.chunks_exact_mut(rl).enumerate() {
+                let y = first + i;
+                // beyond the bulge the screen is black
+                let (from, to) = self.bend.span(y);
+                let (before, rest) = line.split_at_mut(from * 3);
+                let (middle, after) = rest.split_at_mut((to - from) * 3);
+                before.fill(0);
+                after.fill(0);
+                self.bend.run_row(src, y, &mut bent);
+                self.glow.row(&glow, y, (from, to), &mut soft[from * 3..to * 3]);
+                crt_row(&bent[from * 3..to * 3], &soft[from * 3..to * 3], &self.shade[y * rl + from * 3..y * rl + to * 3], middle);
+            }
+        });
         out
     }
 }
@@ -619,6 +839,8 @@ impl Crt {
 pub struct AsciiGlyphs {
     cell: (usize, usize),
     glyphs: Vec<u8>,
+    /// The same as rows of R, G, B pixels as they're drawn (green, a third as much blue), so a row of a glyph is copied in one go
+    coloured: Vec<u8>,
 }
 
 impl AsciiGlyphs {
@@ -631,38 +853,66 @@ impl AsciiGlyphs {
             let mut canvas = Canvas { data: &mut glyphs[i * cw * ch..(i + 1) * cw * ch], w: cw, h: ch, channels: 1 };
             canvas.plain_text(&text, ((cw as i32 - tw).div_euclid(2), ch as i32 - 3), scale, [255, 0, 0, 0]);
         }
-        AsciiGlyphs { cell: (cw, ch), glyphs }
+        let coloured = glyphs.iter().flat_map(|&t| [0, t, t / 3]).collect();
+        AsciiGlyphs { cell: (cw, ch), glyphs, coloured }
     }
+}
+
+const ASCII_COLUMNS: usize = 150;
+
+/// The cell's size and how many fit: (cell width, cell height, columns, rows).
+fn ascii_cells(w: usize, h: usize) -> (usize, usize, usize, usize) {
+    let cw = 4.max(w / ASCII_COLUMNS);
+    let ch = cw * 2;
+    (cw, ch, w / cw, h / ch)
 }
 
 /// The picture in characters, green on black, about 150 across.
 fn ascii(frame: &Rgb, held: &mut Option<AsciiGlyphs>) -> Rgb {
-    const COLUMNS: usize = 150;
     let (w, h) = (frame.w, frame.h);
-    let cw = 4.max(w / COLUMNS);
-    let ch = cw * 2;
-    let (cols, rows) = (w / cw, h / ch);
-    let mut out = Rgb::new(w, h);
+    let (_, _, cols, rows) = ascii_cells(w, h);
     if cols == 0 || rows == 0 {
-        return out;
+        return Rgb::new(w, h);
     }
+    let gray = frame.shrink(cols, rows).gray();
+    ascii_drawn(&gray.data, w, h, held)
+}
+
+/// The same from a video-range luma plane (the first w x h bytes of an I420 or NV12 frame); a character can differ at a step.
+pub fn ascii_from_luma(luma: &[u8], w: usize, h: usize, held: &mut Option<AsciiGlyphs>) -> Rgb {
+    let (_, _, cols, rows) = ascii_cells(w, h);
+    if cols == 0 || rows == 0 || luma.len() < w * h {
+        return Rgb::new(w, h);
+    }
+    let small = shrink_plane(&luma[..w * h], w, h, cols, rows);
+    let levels: Vec<u8> = small.iter().map(|&y| ((y.saturating_sub(16) as u32 * 255 + 109) / 219).min(255) as u8).collect();
+    ascii_drawn(&levels, w, h, held)
+}
+
+/// The characters for cols x rows brightness levels, drawn a row of each cell at a time.
+fn ascii_drawn(levels: &[u8], w: usize, h: usize, held: &mut Option<AsciiGlyphs>) -> Rgb {
+    let (cw, ch, cols, rows) = ascii_cells(w, h);
     if held.as_ref().is_none_or(|g| g.cell != (cw, ch)) {
         *held = Some(AsciiGlyphs::new(cw, ch));
     }
-    let glyphs = &held.as_ref().unwrap().glyphs;
-    let gray = frame.shrink(cols, rows).gray();
-    for row in 0..rows {
-        for col in 0..cols {
-            let index = gray.data[row * cols + col] as usize * ASCII_RAMP.len() / 256;
-            let glyph = &glyphs[index * cw * ch..(index + 1) * cw * ch];
-            for y in 0..ch {
-                for x in 0..cw {
-                    let text = glyph[y * cw + x];
-                    out.set(col * cw + x, row * ch + y, [0, text, text / 3]);
-                }
+    let glyphs = &held.as_ref().unwrap().coloured;
+    let mut out = Rgb::scratch(w, h);
+    let (rl, cell_bytes) = (w * 3, cw * 3);
+    over_bands(&mut out.data, rl, |first, part| {
+        for (i, line) in part.chunks_exact_mut(rl).enumerate() {
+            let (row, y) = ((first + i) / ch, (first + i) % ch);
+            if row >= rows {
+                line.fill(0);
+                continue;
+            }
+            let (text, margin) = line.split_at_mut(cols * cell_bytes);
+            margin.fill(0);
+            for (cell, &level) in text.chunks_exact_mut(cell_bytes).zip(&levels[row * cols..][..cols]) {
+                let index = level as usize * ASCII_RAMP.len() / 256;
+                cell.copy_from_slice(&glyphs[(index * ch + y) * cell_bytes..][..cell_bytes]);
             }
         }
-    }
+    });
     out
 }
 

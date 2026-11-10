@@ -23,11 +23,20 @@ fn effect(uv: vec2<f32>) -> vec4<f32> {
     let last = vec2<i32>(ceil(hi));
     var sum = vec3<f32>(0.0);
     var total = 0.0;
-    for (var y = first.y; y < last.y; y++) {
-        let wy = min(f32(y + 1), hi.y) - max(f32(y), lo.y);
-        for (var x = first.x; x < last.x; x++) {
-            let wx = min(f32(x + 1), hi.x) - max(f32(x), lo.x);
-            sum += sample((vec2<f32>(f32(x), f32(y)) + 0.5) / size).rgb * (wx * wy);
+    // Two pixels a tap on each axis: a linear sample between two pixel centres mixes them, so a pair of weights is one tap
+    for (var y = first.y; y < last.y; y += 2) {
+        let wy0 = min(f32(y + 1), hi.y) - max(f32(y), lo.y);
+        var wy1 = 0.0;
+        if y + 1 < last.y { wy1 = min(f32(y + 2), hi.y) - max(f32(y + 1), lo.y); }
+        let wy = wy0 + wy1;
+        let ty = f32(y) + 0.5 + wy1 / wy;
+        for (var x = first.x; x < last.x; x += 2) {
+            let wx0 = min(f32(x + 1), hi.x) - max(f32(x), lo.x);
+            var wx1 = 0.0;
+            if x + 1 < last.x { wx1 = min(f32(x + 2), hi.x) - max(f32(x + 1), lo.x); }
+            let wx = wx0 + wx1;
+            let tx = f32(x) + 0.5 + wx1 / wx;
+            sum += sample(vec2<f32>(tx, ty) / size).rgb * (wx * wy);
             total += wx * wy;
         }
     }
