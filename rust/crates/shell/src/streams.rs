@@ -100,6 +100,12 @@ pub struct Streams {
     thumbs: RefCell<std::collections::HashMap<String, (slint::Image, u64)>>,
     /// By source: the number of the newest frame handed to the thumbnail thread, so one isn't handed over twice.
     thumb_asked: RefCell<std::collections::HashMap<String, u64>>,
+    /// By source: which run of that id its thumbnails belong to, so a late picture from a stopped stream never lands on a new one.
+    thumb_runs: RefCell<std::collections::HashMap<String, u64>>,
+    /// Counts the runs handed out.
+    thumb_run_count: Cell<u64>,
+    /// Set when the thumbnail thread couldn't be started, so it isn't tried and warned about every tick.
+    thumb_failed: Cell<bool>,
     /// Scales the frames for the tiles (started with the first tile that shows).
     thumb_worker: RefCell<Option<ThumbWorker>>,
     /// Whether a wake for a new frame is waiting on the event loop (WakingSlot): a frame that comes meanwhile adds none.
@@ -127,7 +133,7 @@ struct ThumbShared {
     waiting: Mutex<ThumbWaiting>,
     asked: std::sync::Condvar,
     /// Filled by the worker, emptied by the UI thread: each stream's newest finished picture and the number of the frame it's from.
-    finished: Mutex<std::collections::HashMap<String, (slint::SharedPixelBuffer<slint::Rgb8Pixel>, u64)>>,
+    finished: Mutex<std::collections::HashMap<String, (slint::SharedPixelBuffer<slint::Rgb8Pixel>, u64, u64)>>,
 }
 
 #[derive(Default)]
@@ -139,6 +145,8 @@ struct ThumbWaiting {
 struct ThumbJob {
     frame: telescope_core::Frame,
     number: u64,
+    /// The run of the stream's id the frame is from.
+    run: u64,
     size: (u32, u32),
 }
 
@@ -162,9 +170,15 @@ impl ThumbWorker {
             for (id, job) in batch {
                 let (w, h) = job.size;
                 let mut buffer = slint::SharedPixelBuffer::<slint::Rgb8Pixel>::new(w, h);
-                if scaler.rgb_into(&job.frame, w, h, buffer.make_mut_bytes()) {
-                    work.finished.lock().unwrap_or_else(|e| e.into_inner()).insert(id, (buffer, job.number));
-                    made = true;
+                // A scaler that panics costs that one picture, not every tile's updates from then on
+                let scaled = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| scaler.rgb_into(&job.frame, w, h, buffer.make_mut_bytes())));
+                match scaled {
+                    Ok(true) => {
+                        work.finished.lock().unwrap_or_else(|e| e.into_inner()).insert(id, (buffer, job.number, job.run));
+                        made = true;
+                    }
+                    Ok(false) => {}
+                    Err(_) => log::warn!("The stream tiles' scaler panicked; skipping that picture"),
                 }
             }
             if made {
@@ -185,7 +199,7 @@ impl ThumbWorker {
         self.shared.asked.notify_one();
     }
 
-    fn take(&self) -> Vec<(String, (slint::SharedPixelBuffer<slint::Rgb8Pixel>, u64))> {
+    fn take(&self) -> Vec<(String, (slint::SharedPixelBuffer<slint::Rgb8Pixel>, u64, u64))> {
         std::mem::take(&mut *self.shared.finished.lock().unwrap_or_else(|e| e.into_inner())).into_iter().collect()
     }
 }
@@ -1053,6 +1067,7 @@ impl Window {
         let ids: Vec<String> = entries.iter().map(|(src, ..)| src.id_str().to_string()).collect();
         self.streams.thumbs.borrow_mut().retain(|id, _| ids.contains(id));
         self.streams.thumb_asked.borrow_mut().retain(|id, _| ids.contains(id));
+        self.streams.thumb_runs.borrow_mut().retain(|id, _| ids.contains(id));
         let _ = crate::same::set(&self.ui, "tiles", SValue::Model(ModelRc::new(VecModel::from(rows))));
     }
 
@@ -1068,11 +1083,12 @@ impl Window {
         // Pictures the thread finished since the last look first, then the frames that came after them
         self.show_finished_thumbnails();
         let mut worker = self.streams.thumb_worker.borrow_mut();
-        if worker.is_none() {
+        if worker.is_none() && !self.streams.thumb_failed.get() {
             let weak = self.ui.as_weak();
             *worker = ThumbWorker::start(services.media.scaler(), move || {
                 let _ = weak.upgrade_in_event_loop(|_| with_window(|w| w.show_finished_thumbnails()));
             });
+            self.streams.thumb_failed.set(worker.is_none());
         }
         let Some(worker) = worker.as_ref() else { return };
         let flow = self.streams.flow.borrow();
@@ -1087,7 +1103,11 @@ impl Window {
             let scale = window.scale_factor();
             let room = ((THUMB.0 * scale).round() as u32, (THUMB.1 * scale).round() as u32);
             let size = crate::preview::fit_within((frame.width, frame.height), room);
-            worker.ask(id.clone(), ThumbJob { frame, number, size });
+            let run = *self.streams.thumb_runs.borrow_mut().entry(id.clone()).or_insert_with(|| {
+                self.streams.thumb_run_count.set(self.streams.thumb_run_count.get() + 1);
+                self.streams.thumb_run_count.get()
+            });
+            worker.ask(id.clone(), ThumbJob { frame, number, run, size });
             self.streams.thumb_asked.borrow_mut().insert(id, number);
         }
     }
@@ -1101,9 +1121,9 @@ impl Window {
         }
         let Ok(SValue::Model(tiles)) = self.ui.get_property("tiles") else { return };
         let flow = self.streams.flow.borrow();
-        for (id, (buffer, number)) in finished {
-            // A stream that ended meanwhile has no tile to show it on
-            if !flow.sessions.streams.iter().any(|src| src.id_str() == id) {
+        for (id, (buffer, number, run)) in finished {
+            // A stream that ended meanwhile has no tile to show it on, and one that took its id since isn't the picture's
+            if !flow.sessions.streams.iter().any(|src| src.id_str() == id) || self.streams.thumb_runs.borrow().get(&id) != Some(&run) {
                 continue;
             }
             let image = slint::Image::from_rgb8(buffer);
@@ -1985,7 +2005,7 @@ mod thumb_tests {
     }
 
     fn job(grey: u8, number: u64) -> ThumbJob {
-        ThumbJob { frame: telescope_core::Frame::new(2, 2, PixelFormat::Rgba, vec![grey; 16]), number, size: (2, 1) }
+        ThumbJob { frame: telescope_core::Frame::new(2, 2, PixelFormat::Rgba, vec![grey; 16]), number, run: 1, size: (2, 1) }
     }
 
     fn wait_for(what: &str, cond: impl Fn() -> bool) {
@@ -2015,7 +2035,7 @@ mod thumb_tests {
         assert!(worker.take().is_empty(), "nothing finished while it's held");
         release.send(()).unwrap();
         wait_for("both streams' pictures", || told.load(SeqCst) >= 2);
-        let mut got: Vec<(String, u64, u8)> = worker.take().into_iter().map(|(id, (b, n))| (id, n, b.as_bytes()[0])).collect();
+        let mut got: Vec<(String, u64, u8)> = worker.take().into_iter().map(|(id, (b, n, _))| (id, n, b.as_bytes()[0])).collect();
         got.sort();
         // b's frame came with a's second and third, so which of them it was scaled with doesn't matter: the newest of each is what's left
         assert_eq!(got, [("a".to_string(), 12, 3), ("b".to_string(), 13, 4)]);
@@ -2036,6 +2056,50 @@ mod thumb_tests {
         worker.ask("a".into(), job(1, 1));
         std::thread::sleep(Duration::from_millis(100));
         assert!(worker.take().is_empty());
+    }
+
+    #[test]
+    fn a_scaler_that_panics_once_only_loses_that_picture() {
+        struct Once(bool);
+        impl Scaler for Once {
+            fn rgb(&mut self, frame: &telescope_core::Frame, width: u32, height: u32) -> Vec<u8> {
+                if !std::mem::replace(&mut self.0, true) {
+                    panic!("scaler failed on purpose");
+                }
+                vec![frame.data[0]; width as usize * height as usize * 3]
+            }
+        }
+        let told = Arc::new(AtomicUsize::new(0));
+        let ring = told.clone();
+        let worker = ThumbWorker::start(Box::new(Once(false)), move || {
+            ring.fetch_add(1, SeqCst);
+        })
+        .expect("a thread");
+        worker.ask("a".into(), job(1, 1));
+        std::thread::sleep(Duration::from_millis(100));
+        assert!(worker.take().is_empty());
+        worker.ask("a".into(), job(7, 2));
+        wait_for("a picture after the panic", || told.load(SeqCst) >= 1);
+        let got = worker.take();
+        assert_eq!(got.len(), 1);
+        assert_eq!((got[0].1).1, 2);
+    }
+
+    #[test]
+    fn pictures_carry_the_run_they_were_asked_for() {
+        let (seen, _scaled) = mpsc::channel();
+        let told = Arc::new(AtomicUsize::new(0));
+        let ring = told.clone();
+        let worker = ThumbWorker::start(Box::new(Grey { seen, hold_first: None }), move || {
+            ring.fetch_add(1, SeqCst);
+        })
+        .expect("a thread");
+        let mut old = job(1, 5);
+        old.run = 3;
+        worker.ask("a".into(), old);
+        wait_for("the picture", || told.load(SeqCst) >= 1);
+        let got = worker.take();
+        assert_eq!((got[0].1).2, 3, "the picture says which run of the id it's for, so the window can drop it for a newer one");
     }
 
     #[test]
