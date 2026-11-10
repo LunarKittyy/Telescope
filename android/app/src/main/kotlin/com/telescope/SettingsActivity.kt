@@ -119,8 +119,7 @@ class SettingsActivity : LookActivity() {
     }
 
     private fun streaming(): Boolean {
-        val state = CameraStreamService.instance?.state ?: StreamState.Idle
-        return state != StreamState.Idle && state != StreamState.Failed
+        return streamBusyNow()
     }
 
     // The found update shows here with its install action; the button checks again otherwise
