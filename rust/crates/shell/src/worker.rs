@@ -1741,12 +1741,22 @@ mod tests {
         locked: Mutex<Option<(u32, u32)>>,
         /// The open camera reports itself outdated once.
         outdated: AtomicBool,
+        /// What each send takes, in ms.
+        send_cost_ms: AtomicU64,
+        /// Every send: when it began, the number of the frame and how old it was then, in ms.
+        timeline: Mutex<Vec<(Instant, u64, f64)>>,
     }
 
     struct Cam(Arc<Cams>, (u32, u32));
 
     impl VideoOutput for Cam {
         fn send(&mut self, frame: &Frame) -> Result<(), String> {
+            let age = telescope_core::time::monotonic_ns().saturating_sub(frame.time_ns) as f64 / 1e6;
+            self.0.timeline.lock().unwrap().push((Instant::now(), frame.number, age));
+            let cost = self.0.send_cost_ms.load(Ordering::Relaxed);
+            if cost > 0 {
+                std::thread::sleep(Duration::from_millis(cost));
+            }
             self.0.sent.lock().unwrap().push(frame.data[0]);
             self.0.sent_at.lock().unwrap().push((frame.data[0], Instant::now()));
             self.0.formats.lock().unwrap().push(frame.format);
@@ -3407,5 +3417,150 @@ mod tests {
         assert!(step.mean_ms < step.max_ms);
         assert_eq!((s.target_fps, s.link.route, s.link.transport), (30, telescope_core::stats::Route::Usb, telescope_core::stats::Transport::Tcp));
         assert!(Hub::shared().snapshot().sources.iter().all(|s| s.source_id != "stats-test"), "gone with the worker");
+    }
+
+    // Timing benches: ignored, run by hand with `cargo test -p telescope-shell --lib timing_bench -- --ignored --nocapture --test-threads 1`.
+
+    /// A feed that waits each gap (ms) in turn and hands over a packet stamped with the moment it came in, then waits to be stopped.
+    struct Stamped {
+        gaps: VecDeque<u64>,
+        stop: Arc<AtomicBool>,
+    }
+
+    impl VideoFeed for Stamped {
+        fn read(&mut self) -> Result<Packet, FeedEnd> {
+            loop {
+                if self.stop.load(Ordering::SeqCst) {
+                    return Err(FeedEnd::Stopped);
+                }
+                match self.gaps.pop_front() {
+                    Some(gap) => {
+                        std::thread::sleep(Duration::from_millis(gap));
+                        return Ok(Packet { data: vec![1], time_ns: telescope_core::time::monotonic_ns() });
+                    }
+                    None => std::thread::sleep(Duration::from_millis(5)),
+                }
+            }
+        }
+        fn stopper(&self) -> Box<dyn FeedStopper> {
+            Box::new(Stop(self.stop.clone()))
+        }
+    }
+
+    /// What the decoders of a bench did: pictures and the time spent decoding them.
+    #[derive(Default)]
+    struct Busy {
+        decodes: AtomicU64,
+        busy_ns: AtomicU64,
+    }
+
+    /// A decoder that takes this many ms a picture; its pictures carry their packet's arrival time.
+    struct Timed(u64, Arc<Busy>);
+
+    impl Decoder for Timed {
+        fn decode(&mut self, packet: &Packet) -> Decoded {
+            let began = Instant::now();
+            std::thread::sleep(Duration::from_millis(self.0));
+            self.1.decodes.fetch_add(1, Ordering::Relaxed);
+            self.1.busy_ns.fetch_add(began.elapsed().as_nanos() as u64, Ordering::Relaxed);
+            let mut frame = grey(4, 2, 1);
+            frame.time_ns = packet.time_ns;
+            Decoded { newest: Some(frame), count: 1 }
+        }
+        fn hardware(&self) -> bool {
+            false
+        }
+    }
+
+    /// Decoding takes the first number of ms a picture, the frame steps the second.
+    struct TimedMedia(u64, u64, Arc<Busy>);
+
+    impl Media for TimedMedia {
+        fn decoder(&self, _codec: Codec, _options: &DecodeOptions) -> Result<Box<dyn Decoder>, String> {
+            Ok(Box::new(Timed(self.0, self.2.clone())))
+        }
+        fn scaler(&self) -> Box<dyn Scaler> {
+            FakeMedia.scaler()
+        }
+        fn pipeline(&self) -> Result<Box<dyn FramePipeline>, String> {
+            Ok(Box::new(SlowStep(self.1)))
+        }
+    }
+
+    fn percentile(sorted: &[f64], p: f64) -> f64 {
+        if sorted.is_empty() { return 0.0; }
+        sorted[((sorted.len() - 1) as f64 * p).round() as usize]
+    }
+
+    /// What a run of the camera loop put out, after a second of settling: new pictures a second, how long they were old when sent (median, 95th percentile), and the gaps
+    /// between new pictures (median, 95th percentile) in ms.
+    struct Out { fps: f64, age: (f64, f64), gap: (f64, f64) }
+
+    fn measure(cams: &Cams, from: Instant, to: Instant) -> Out {
+        let timeline = cams.timeline.lock().unwrap();
+        let mut last = u64::MAX;
+        let mut fresh: Vec<(Instant, f64)> = Vec::new();
+        for (at, number, age) in timeline.iter() {
+            if *number != last && *at >= from && *at < to {
+                fresh.push((*at, *age));
+            }
+            last = *number;
+        }
+        let mut ages: Vec<f64> = fresh.iter().map(|f| f.1).collect();
+        let mut gaps: Vec<f64> = fresh.windows(2).map(|w| w[1].0.duration_since(w[0].0).as_secs_f64() * 1000.0).collect();
+        ages.sort_by(|a, b| a.total_cmp(b));
+        gaps.sort_by(|a, b| a.total_cmp(b));
+        Out { fps: fresh.len() as f64 / to.duration_since(from).as_secs_f64(), age: (percentile(&ages, 0.5), percentile(&ages, 0.95)), gap: (percentile(&gaps, 0.5), percentile(&gaps, 0.95)) }
+    }
+
+    /// Runs a stream of these gaps (ms) through a decoder and steps costing the given ms and a camera costing send_ms a send, for secs seconds, and reports.
+    fn run_bench(label: &str, own_decoder: bool, decode_ms: u64, steps_ms: u64, send_ms: u64, gaps: Vec<u64>, secs: u64) {
+        let busy = Arc::new(Busy::default());
+        let gaps = Mutex::new(Some(gaps));
+        let b = busy.clone();
+        let opener: Opener = Arc::new(move |_| {
+            let feed = Stamped { gaps: gaps.lock().unwrap().take().unwrap_or_default().into(), stop: Arc::default() };
+            Ok(Opened { codec: Codec::Mjpeg, feed: Box::new(feed), own_decoder: own_decoder.then(|| Box::new(Timed(decode_ms, b.clone())) as Box<dyn Decoder>) })
+        });
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        cams.send_cost_ms.store(send_ms, Ordering::Relaxed);
+        let w = start(setup(opener), Arc::new(TimedMedia(decode_ms, steps_ms, busy.clone())), &cams, &log);
+        std::thread::sleep(Duration::from_millis(1500));
+        let (from, d0, p0, a0, s0) = (Instant::now(), busy.decodes.load(Ordering::Relaxed), *w.shared.published.lock().unwrap(), w.shared.frames_arrived.load(Ordering::Relaxed), w.shared.frames_shed.load(Ordering::Relaxed));
+        let busy0 = busy.busy_ns.load(Ordering::Relaxed);
+        std::thread::sleep(Duration::from_secs(secs));
+        let to = Instant::now();
+        let wall = to.duration_since(from).as_secs_f64();
+        let decoders = if own_decoder { 1 } else { mjpeg_decoders() };
+        let (decodes, published, arrived, shed) = (busy.decodes.load(Ordering::Relaxed) - d0, *w.shared.published.lock().unwrap() - p0, w.shared.frames_arrived.load(Ordering::Relaxed) - a0, w.shared.frames_shed.load(Ordering::Relaxed) - s0);
+        let occupancy = (busy.busy_ns.load(Ordering::Relaxed) - busy0) as f64 / 1e9 / wall / decoders as f64 * 100.0;
+        let out = measure(&cams, from, to);
+        w.stop();
+        println!("{label}: arrived {:.1}/s, decoded {:.1}/s, published {:.1}/s, shed {:.1}/s, decoder busy {occupancy:.0}% of {decoders}, sent new {:.1}/s, age median {:.1} ms p95 {:.1} ms, gap median {:.1} ms p95 {:.1} ms",
+                 arrived as f64 / wall, decodes as f64 / wall, published as f64 / wall, shed as f64 / wall, out.fps, out.age.0, out.age.1, out.gap.0, out.gap.1);
+    }
+
+    #[test]
+    #[ignore]
+    fn timing_bench_heavy_decoders_and_frame_steps() {
+        // Stage costs typical of 1080p and 4K MJPEG on a desktop (decode, frame steps), a saturating 200 fps source and a 30 fps one
+        for (size, decode, steps) in [("1080p", 8, 6), ("4K", 35, 20), ("4K slow steps", 35, 40)] {
+            for (own, how) in [(true, "one decoder"), (false, "two decoders")] {
+                for (rate, gap) in [("200 fps", 5), ("30 fps", 33)] {
+                    run_bench(&format!("{size}, {how}, {rate}"), own, decode, steps, 0, vec![gap; 10_000 / gap as usize], 4);
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn timing_bench_virtual_camera_pacing() {
+        // 30 fps steadily, and 5 pictures 8 ms apart then 126 ms (30 fps in all), through cameras that take 1, 10, 20 and 30 ms a send
+        for send in [1, 10, 20, 30] {
+            run_bench(&format!("steady 30 fps, send {send} ms"), false, 0, 0, send, vec![33; 300], 6);
+            let clumps: Vec<u64> = (0..300).map(|i| if i % 5 == 4 { 126 } else { 8 }).collect();
+            run_bench(&format!("clumps of five, send {send} ms"), false, 0, 0, send, clumps, 6);
+        }
     }
 }

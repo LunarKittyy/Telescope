@@ -1387,4 +1387,60 @@ mod tests {
             }
         }
     }
+
+    /// A camera that takes this long over each send and notes when each began.
+    struct SlowCam(Duration, Arc<Mutex<Vec<Instant>>>);
+
+    impl VideoOutput for SlowCam {
+        fn send(&mut self, _frame: &Frame) -> Result<(), String> {
+            self.1.lock().unwrap().push(Instant::now());
+            std::thread::sleep(self.0);
+            Ok(())
+        }
+        fn size(&self) -> (u32, u32) {
+            (4, 4)
+        }
+        fn device(&self) -> String {
+            "fake".into()
+        }
+        fn outdated(&self) -> bool {
+            false
+        }
+    }
+
+    /// Plays an animation of frames each showing for seconds through a camera taking send_ms a send, for run_secs; the start of each send, in ms from the first.
+    fn play(seconds: f64, send_ms: u64, run_secs: u64) -> Vec<f64> {
+        let deps = Deps {
+            open_camera: Arc::new(|_, _, _, _| Err("none".into())), loader: Arc::new(|_, _, _, _| Err("none".into())),
+            locked: Arc::new(|| None), filter_probe: None, i420: false, pace: Pace::default(),
+        };
+        let job = Arc::new(ScreenJob { deps, shown: Mutex::new((DEFAULT_SIZE, None, false)), watched: AtomicBool::new(true), nudge: Nudge::default() });
+        let stop = Arc::new(Stop::default());
+        let sends = Arc::new(Mutex::new(Vec::new()));
+        let frames = vec![(Frame::new(4, 4, PixelFormat::Rgba, vec![0; 64]), seconds), (Frame::new(4, 4, PixelFormat::Rgba, vec![0; 64]), seconds)];
+        let thread = {
+            let (job, stop, sends) = (job.clone(), stop.clone(), sends.clone());
+            std::thread::spawn(move || job.feed(&mut SlowCam(Duration::from_millis(send_ms), sends), &frames, &stop).unwrap())
+        };
+        std::thread::sleep(Duration::from_secs(run_secs));
+        stop.set();
+        job.wake();
+        thread.join().unwrap();
+        let sends = sends.lock().unwrap();
+        sends.iter().map(|t| t.duration_since(sends[0]).as_secs_f64() * 1000.0).collect()
+    }
+
+    #[test]
+    #[ignore]
+    fn timing_bench_animation_speed() {
+        // A 15 fps animation (the slowest a GIF plays) and a 30 fps one, through cameras taking 1, 5, 10 and 20 ms a send
+        for seconds in [1.0 / 15.0, 1.0 / 30.0] {
+            for send in [1, 5, 10, 20] {
+                let at = play(seconds, send, 4);
+                let n = at.len() - 1;
+                let drift = at[n] - n as f64 * seconds * 1000.0;
+                println!("{:.1} fps animation, send {send} ms: played at {:.2} fps, {drift:.0} ms behind its own timeline after {n} frames", 1.0 / seconds, n as f64 / (at[n] / 1000.0));
+            }
+        }
+    }
 }
