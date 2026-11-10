@@ -1170,3 +1170,24 @@ fn a_big_change_of_target_glides_instead_of_snapping_at_the_quickest_speed() {
     let (step, _) = worst(&seen, &seen, 100);
     assert!(step < 0.12 && seen[239] < 3.1 && seen[119] > 5.0, "{step:.3}, {} to {}", seen[119], seen[239]);
 }
+
+#[test]
+fn lowering_the_ceiling_a_little_moves_a_held_framing_down_to_it() {
+    let mut r = Rig::new();
+    r.configure(&json!({"framing": 0.0, "speed": 10, "on": true}));
+    r.ui("switch-toggled-by-hand", json!(true));
+    r.event(Event::MaxZoomChanged { max_zoom: 10 });
+    let mut zoom = 0.0;
+    for k in 0..600 {
+        if k == 300 {
+            assert!(zoom > 9.5, "held at the ceiling first: {zoom}");
+            r.event(Event::MaxZoomChanged { max_zoom: 9 });
+        }
+        *r.clock.lock().unwrap() += 1.0 / 30.0;
+        r.people("phone", &[walker(0.4, 0.02, &[], k, 0.0)]);
+        r.tick();
+        zoom = r.last().0 as f64;
+        r.host.view = View { zoom: r.last().0, pan_x: r.last().1, pan_y: r.last().2, ..View::default() };
+    }
+    assert!(zoom < 9.05, "settled at the new ceiling: {zoom}");
+}
