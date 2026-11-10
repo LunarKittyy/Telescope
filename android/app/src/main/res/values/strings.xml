@@ -169,6 +169,8 @@
     <string name="troubleshooting">Troubleshooting</string>
     <string name="nightly_updates">Nightly updates</string>
     <string name="nightly_updates_hint">Built from every change: fixes arrive sooner, with less testing.</string>
+    <!-- Spoken by a screen reader after a choice in a row of choices is picked. %1$s is the choice -->
+    <string name="choice_selected">%1$s selected</string>
     <string name="updates_section">Updates</string>
     <string name="check_for_updates">Check for updates</string>
     <!-- Shown in About only while this language's translation is a first draft -->

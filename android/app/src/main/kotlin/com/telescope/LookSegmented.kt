@@ -11,6 +11,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.ColorUtils
+import androidx.core.view.AccessibilityDelegateCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 
 // The desktop's Segmented (ui-kit widgets/choices.slint): a raised square per choice, the picked one outlined in the card's colour by one shape that stretches onto it
 class LookSegmented @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : LinearLayout(context, attrs) {
@@ -59,6 +62,15 @@ class LookSegmented @JvmOverloads constructor(context: Context, attrs: Attribute
                 isFocusable = true
                 setPadding((6 * d).toInt(), 0, (6 * d).toInt(), 0)
                 setOnClickListener { pick(i, fromUser = true) }
+                // A radio choice to screen readers, so the picked one is told apart
+                ViewCompat.setAccessibilityDelegate(this, object : AccessibilityDelegateCompat() {
+                    override fun onInitializeAccessibilityNodeInfo(host: android.view.View, info: AccessibilityNodeInfoCompat) {
+                        super.onInitializeAccessibilityNodeInfo(host, info)
+                        info.className = android.widget.RadioButton::class.java.name
+                        info.isCheckable = true
+                        info.isChecked = host.isSelected
+                    }
+                })
             }
             addView(tile, LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
                 if (i > 0) marginStart = (7 * d).toInt()
@@ -75,10 +87,13 @@ class LookSegmented @JvmOverloads constructor(context: Context, attrs: Attribute
         for (k in 0 until childCount) {
             val tile = getChildAt(k) as TextView
             val on = k == i
+            tile.isSelected = on
             tile.typeface = if (on) semibold else medium
             tile.setTextColor(context.attrColor(if (on) R.attr.tsInk else R.attr.tsInk2))
         }
         retarget()
+        // The tile's own state change is not always spoken, so say the new pick
+        if (fromUser) (getChildAt(i) as TextView).let { it.announceForAccessibility(context.getString(R.string.choice_selected, it.text)) }
         if (fromUser) onPicked(i)
     }
 
