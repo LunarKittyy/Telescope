@@ -310,7 +310,7 @@ impl Bar {
 
         // Each side from its own edge inwards: the left as drawn, the right reversed
         let outer_in = |ids: &[String], right: bool| -> Vec<(String, f32, bool)> {
-            let mut list: Vec<(String, f32, bool)> = ids.iter().filter(|id| self.present(id).is_some()).map(|id| (id.clone(), self.width_of(id, room), id == bar::CAMERA)).collect();
+            let mut list: Vec<(String, f32, bool)> = ids.iter().filter(|id| self.present(id).is_some()).map(|id| (id.clone(), self.width_of(id, room), id == bar::CAMERA || self.dragging() == Some(id.as_str()))).collect();
             if right {
                 list.reverse();
             }
@@ -468,7 +468,8 @@ pub struct Fit {
 
 /// Folds pins into "+N" until both sides fit in `room`. Each list is the pins' (width, sticky) from its own edge inwards, so the last one is
 /// the innermost. While they don't fit, the side that is wider at that moment (its chip counted) folds its innermost pin that is not sticky;
-/// a sticky pin (the camera, which names the bar) is never folded, whatever it costs the other pins.
+/// a sticky pin (the camera, which names the bar, and the pin being dragged, which has to stay under the pointer) is never folded, whatever it
+/// costs the other pins.
 pub fn fold(left: &[(f32, bool)], right: &[(f32, bool)], room: f32, gap: f32, chip: f32) -> Fit {
     let width = |pins: &[(f32, bool)], folded: &[bool]| -> f32 {
         let shown: Vec<f32> = pins.iter().zip(folded).filter(|(_, f)| !**f).map(|(p, _)| p.0).collect();
