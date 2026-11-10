@@ -46,6 +46,8 @@ pub const MAX_PAYLOAD: usize = 1100;
 pub const MAX_PARTS: usize = MAX_FRAME_BYTES.div_ceil(MAX_PAYLOAD);
 /// Bytes held across all frames in reassembly.
 pub const MAX_HELD_BYTES: usize = 64 * 1024 * 1024;
+/// The socket's receive buffer: a 4K keyframe is several hundred KB of datagrams arriving in a burst.
+const RECEIVE_BUFFER: usize = 4 << 20;
 
 /// Phones UDP didn't get through from, for the rest of this run.
 static UDP_FAILED: Mutex<Option<HashSet<String>>> = Mutex::new(None);
@@ -458,6 +460,13 @@ impl Udp {
         let _ = self.sock.set_nonblocking(false);
     }
 
+    /// The next whole frame in order, if one is waiting.
+    fn take(&mut self) -> Option<Packet> {
+        let (data, frames) = self.frames.take()?;
+        self.skipped.fetch_add(frames - 1, Ordering::Relaxed);
+        Some(Packet { data, time_ns: telescope_core::time::monotonic_ns() })
+    }
+
     fn chase(&mut self, now: f64) {
         let (nacks, want_key) = self.frames.chase(now);
         for (seq, missing) in nacks {
@@ -508,7 +517,7 @@ impl UdpFeed {
 
     fn open_udp(&mut self) -> Result<(), String> {
         let sock = UdpSocket::bind("0.0.0.0:0").map_err(|e| e.to_string())?;
-        set_receive_buffer(&sock, 4 << 20);
+        set_receive_buffer(&sock, RECEIVE_BUFFER);
         sock.set_read_timeout(Some(Duration::from_millis(5))).map_err(|e| e.to_string())?;
         let port = sock.local_addr().map_err(|e| e.to_string())?.port();
         let url = format!("{}?port={port}", self.url);
@@ -548,18 +557,16 @@ impl UdpFeed {
     }
 }
 
-#[cfg(unix)]
-fn set_receive_buffer(sock: &UdpSocket, bytes: i32) {
-    use std::os::fd::AsRawFd;
-    // SAFETY: a valid socket and a pointer to an int that lives for the call
-    unsafe {
-        libc::setsockopt(sock.as_raw_fd(), libc::SOL_SOCKET, libc::SO_RCVBUF, (&bytes as *const i32).cast(), size_of::<i32>() as _);
+/// Asks for a receive buffer of `bytes` (SO_RCVBUF), so a keyframe's burst of datagrams waits in it while the thread is elsewhere. The system may
+/// give less (Linux caps it at net.core.rmem_max) and Windows' default is far smaller than a keyframe; what it gave is read back for the log.
+fn set_receive_buffer(sock: &UdpSocket, bytes: usize) {
+    let sock = socket2::SockRef::from(sock);
+    if let Err(e) = sock.set_recv_buffer_size(bytes) {
+        log::debug!("UDP video: couldn't ask for a {bytes} byte receive buffer ({e})");
     }
-}
-
-#[cfg(not(unix))]
-fn set_receive_buffer(_sock: &UdpSocket, _bytes: i32) {
-    // Windows keeps its default buffer for now (setsockopt needs the WinSock bindings)
+    if let Ok(got) = sock.recv_buffer_size() {
+        log::debug!("UDP video: receive buffer is {got} bytes");
+    }
 }
 
 impl VideoFeed for UdpFeed {
@@ -590,10 +597,13 @@ impl VideoFeed for UdpFeed {
             }
             udp.hello(now, false);
             udp.report(now);
+            // A picture that came whole with the last datagrams goes out before waiting for any more
+            if let Some(packet) = udp.take() {
+                return Ok(packet);
+            }
             udp.receive(origin);
-            if let Some((data, frames)) = udp.frames.take() {
-                udp.skipped.fetch_add(frames - 1, Ordering::Relaxed);
-                return Ok(Packet { data, time_ns: telescope_core::time::monotonic_ns() });
+            if let Some(packet) = udp.take() {
+                return Ok(packet);
             }
             udp.chase(now);
         }
@@ -615,6 +625,22 @@ impl VideoFeed for UdpFeed {
 
     fn skipped_frames(&self) -> Option<Arc<AtomicU32>> {
         self.udp.as_ref().map(|u| u.skipped.clone())
+    }
+
+    // Once it has fallen back to TCP, what it reads is the H.264 byte stream's slices
+    fn packetized(&self) -> bool {
+        self.tcp.is_none()
+    }
+
+    fn request_keyframe(&mut self) -> bool {
+        let Some(udp) = self.udp.as_mut() else { return false };
+        let now = clock(self.origin);
+        // Shares the chase's pacing, so the two together never ask more often than KEY_ASK_S
+        if due(now, udp.last_key_ask, KEY_ASK_S) {
+            udp.last_key_ask = now;
+            udp.send(&[KEYFRAME]);
+        }
+        true
     }
 }
 
@@ -1040,6 +1066,67 @@ mod tests {
         assert!(counts.windows(2).all(|w| w[0] <= w[1]));
     }
 
+    /// A feed on a phone that says nothing, to put datagrams and frames into by hand.
+    fn quiet_feed() -> (UdpFeed, FakePhone) {
+        let phone = fake_phone(vec![], Behaviour { silent: true, ..Default::default() });
+        let feed = UdpFeed::open(&url(&phone), &PhoneAuth::new("secret", ""), Duration::from_secs(1), StopHandle::default()).unwrap();
+        (feed, phone)
+    }
+
+    #[test]
+    fn frames_that_are_already_whole_go_out_without_waiting_for_more_datagrams() {
+        let _one = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        forget_failures();
+        let (mut feed, _phone) = quiet_feed();
+        let udp = feed.udp.as_mut().unwrap();
+        // Long enough that a read waiting on the socket before looking at what's whole would show
+        udp.sock.set_read_timeout(Some(Duration::from_millis(400))).unwrap();
+        for seq in 0..3 {
+            for p in fragments(seq, b"frame", seq == 0, 10) {
+                udp.frames.add(&p, 0.0);
+            }
+        }
+        let began = Instant::now();
+        for _ in 0..3 {
+            assert_eq!(feed.read().unwrap().data, b"frame");
+        }
+        assert!(began.elapsed() < Duration::from_millis(300), "{:?}", began.elapsed());
+    }
+
+    #[test]
+    fn asking_for_a_keyframe_sends_the_ask_once_in_a_while_and_only_over_udp() {
+        let _one = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        forget_failures();
+        let (mut feed, _phone) = quiet_feed();
+        let listener = UdpSocket::bind("127.0.0.1:0").unwrap();
+        listener.set_read_timeout(Some(Duration::from_millis(500))).unwrap();
+        feed.udp.as_mut().unwrap().phone = listener.local_addr().unwrap();
+        assert!(feed.request_keyframe());
+        assert!(feed.request_keyframe());
+        let mut asks = 0;
+        let mut buf = [0u8; 64];
+        let mut seal = Seal::new(&KEY, TO_PHONE).unwrap();
+        while let Ok((n, _)) = listener.recv_from(&mut buf) {
+            if seal.open(&buf[..n]).as_deref() == Some(&[KEYFRAME][..]) {
+                asks += 1;
+            }
+            listener.set_read_timeout(Some(Duration::from_millis(100))).unwrap();
+        }
+        assert_eq!(asks, 1);
+        feed.udp = None;
+        assert!(!feed.request_keyframe());
+    }
+
+    #[test]
+    fn the_receive_buffer_is_asked_for_and_is_not_smaller_than_the_default() {
+        let fresh = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let default = socket2::SockRef::from(&fresh).recv_buffer_size().unwrap();
+        set_receive_buffer(&fresh, RECEIVE_BUFFER);
+        let got = socket2::SockRef::from(&fresh).recv_buffer_size().unwrap();
+        // Linux caps what it gives at net.core.rmem_max, Windows gives it all; either is at least what it had
+        assert!(got >= default, "{got} < {default}");
+    }
+
     #[test]
     fn frames_skipped_to_resync_on_a_keyframe_are_counted() {
         let _one = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
@@ -1063,7 +1150,17 @@ mod tests {
         let phone = fake_phone(frames(3), Behaviour { refused: true, ..Default::default() });
         let mut feed = UdpFeed::open(&url(&phone), &PhoneAuth::new("secret", ""), Duration::from_secs(3), StopHandle::default()).unwrap();
         assert!(feed.fell_back);
+        // Slices of a byte stream now, which a reader can't drop up to a keyframe, and no keyframe to ask for
+        assert!(!feed.packetized() && !feed.request_keyframe());
         assert!(!read_all(&mut feed, 10).is_empty());
+    }
+
+    #[test]
+    fn udp_frames_are_whole_pictures_a_reader_may_drop() {
+        let _one = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        forget_failures();
+        let (feed, _phone) = quiet_feed();
+        assert!(feed.packetized());
     }
 
     #[test]
