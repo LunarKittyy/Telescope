@@ -584,6 +584,8 @@ pub struct StatsPlugin {
     asking: bool,
     /// A `stats` 1 went out and no 0 has since, so one is owed.
     phone_on: bool,
+    /// What the card was last given, so the same numbers aren't handed over again.
+    sent: Option<Value>,
 }
 
 impl Default for StatsPlugin {
@@ -594,7 +596,7 @@ impl Default for StatsPlugin {
 
 impl StatsPlugin {
     pub fn new() -> StatsPlugin {
-        StatsPlugin { view: View::Standard, latest: None, window_shown: true, watched: None, wanting: false, phone: None, phone_delay: Vec::new(), phone_source: None, folded: false, asking: false, phone_on: false }
+        StatsPlugin { view: View::Standard, latest: None, window_shown: true, watched: None, wanting: false, phone: None, phone_delay: Vec::new(), phone_source: None, folded: false, asking: false, phone_on: false, sent: None }
     }
 
     pub fn view(&self) -> View {
@@ -648,10 +650,18 @@ impl StatsPlugin {
         }
     }
 
-    fn show(&self, host: &mut dyn Host) {
+    fn show(&mut self, host: &mut dyn Host) {
         if self.window_shown {
-            let props = self.props(host);
-            host.set_ui_props("card", &props);
+            // A folded card shows nothing, so its rows aren't built until it opens; the bar's numbers carry on
+            if self.visible() {
+                let props = self.props(host);
+                if self.sent.as_ref() != Some(&props) {
+                    host.set_ui_props("card", &props);
+                    self.sent = Some(props);
+                }
+            } else {
+                self.sent = None;
+            }
             self.offer(host);
         }
     }
@@ -808,6 +818,7 @@ impl Plugin for StatsPlugin {
             }
             Event::WindowShown { shown } => {
                 self.window_shown = *shown;
+                self.sent = None;
                 self.want(host);
                 self.ask_phone(host);
                 self.show(host);

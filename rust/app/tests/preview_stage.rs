@@ -689,6 +689,12 @@ fn layers_tint_the_preview_copy_and_not_the_frame_apps_get() {
     let frame = Frame::new(64, 36, PixelFormat::Rgba, [0, 0, 0, 255].repeat(64 * 36));
     let sent = frame.clone();
     s.show(0, frame);
+    // The tint is made on a worker, and its first picture asks for a repaint
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    while !s.has_frame() && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        s.r.w.paint_preview();
+    }
     assert_eq!(s.pixel(), (255, 0, 0), "the picture on the stage");
     assert!(sent.data.chunks(4).all(|p| p == [0, 0, 0, 255]), "the frame itself");
     assert!(s.r.worker(0).slot().latest().unwrap().0.data.chunks(4).all(|p| p == [0, 0, 0, 255]), "what the stream still holds");

@@ -244,6 +244,22 @@ fn a_pinned_number_keeps_the_costly_measuring_going_while_the_card_is_folded() {
 }
 
 #[test]
+fn a_folded_card_builds_nothing_until_it_opens_and_unchanged_numbers_are_not_resent() {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    let sets = |host: &FakeHost| host.calls.iter().filter(|c| c.starts_with("set_ui_props card ")).count();
+    assert_eq!(sets(&host), 1);
+    let snap = plugin.latest.clone().unwrap();
+    plugin.on_event(&mut host, &Event::StatsUpdated { snapshot: snap.clone() });
+    assert_eq!(sets(&host), 1, "the same numbers aren't handed over twice");
+    plugin.on_event(&mut host, &Event::CardFolded { key: FOLD_KEY.into(), folded: true });
+    plugin.on_event(&mut host, &Event::StatsUpdated { snapshot: snap });
+    assert_eq!(sets(&host), 1, "a folded card isn't fed");
+    plugin.on_event(&mut host, &Event::CardFolded { key: FOLD_KEY.into(), folded: false });
+    assert_eq!(sets(&host), 2, "opening it brings the numbers up to date");
+}
+
+#[test]
 fn a_hidden_window_costs_nothing_to_draw() {
     let hub = Hub::new();
     let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));

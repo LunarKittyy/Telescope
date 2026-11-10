@@ -1033,21 +1033,27 @@ impl Window {
         if !self.logged.replace(true) {
             log::info!("Preview: {}x{} {:?} frames shown at {w}x{h}", frame.width, frame.height, frame.format);
         }
-        // Passes that tint the picture, or want a look at it, work on a CPU copy at the size it is painted at
-        let tinted = if self.passes.borrow().needs_copy(&passes) {
+        // Passes that tint the picture, or want a look at it, get a CPU copy at the size it is painted at, made on a worker so the
+        // window never waits on the graphics card for it; a tint is painted a frame late, from the worker's last result
+        let tints = passes.iter().any(|(_, p)| p.tints());
+        let mut worker_up = true;
+        if self.passes.borrow().needs_copy(&passes) {
             let scaler = || self.services.as_ref().map(|s| s.media.scaler());
-            let mut work = self.passes.borrow_mut();
-            work.copy(scaler, &frame, w, h).map(|copy| {
-                work.analyse(&passes, &copy, &self.state.borrow().preview_dirty);
-                let mut shown = copy;
-                crate::preview_passes::PassWork::tint(&passes, &mut shown);
-                shown
-            })
+            let dirty = self.state.borrow().preview_dirty.clone();
+            worker_up = self.passes.borrow_mut().submit(scaler, &passes, &frame, (w, h), &dirty);
+        }
+        if !tints {
+            self.passes.borrow_mut().stop_tinting();
+        }
+        let tinted = if tints && worker_up {
+            // Nothing yet for this run of tinting or this size: what's up stays until the worker's first picture asks for a paint
+            let Some(image) = self.passes.borrow().tinted(w, h) else { return };
+            Some(image)
         } else {
             None
         };
-        let image = match tinted.filter(|f| passes.iter().any(|(_, p)| p.tints()) && f.data.len() == (w * h * 4) as usize) {
-            Some(shown) => crate::preview::rgb_image(&shown.data, w, h),
+        let image = match tinted {
+            Some(image) => image,
             None => {
                 let mut painter = self.painter.borrow_mut();
                 if painter.is_none() {
@@ -1836,11 +1842,15 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         window.show_window();
     }
     window.process();
+    // Building the cards' pages leaves freed memory behind
+    (app_hooks().release_memory)();
     // Settings is built while nobody is waiting for it, so the first click only shows it
     let weak = Rc::downgrade(&window);
     slint::Timer::single_shot(SETTINGS_PREPARED_AFTER, move || {
         if let Some(w) = weak.upgrade() {
             crate::settings::prepare(&w);
+            // The compiler leaves a lot of freed memory behind
+            (app_hooks().release_memory)();
         }
     });
     slint::run_event_loop_until_quit().map_err(|e| e.to_string())?;

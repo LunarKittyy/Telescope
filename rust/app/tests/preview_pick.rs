@@ -62,6 +62,12 @@ fn a_pick_carries_the_picture_shown_before_any_tint() {
     r.worker(0).slot().publish(frame);
     r.w.paint_preview();
     let id = r.w.ui.definition().properties().map(|p| p.0).find(|n| n.ends_with("-has-frame")).expect("the preview card");
+    // A tint is made on a worker, and its first picture asks for a repaint
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    while r.w.ui.get_property(&id).unwrap() != SValue::Bool(true) && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        r.w.paint_preview();
+    }
     assert_eq!(r.w.ui.get_property(&id).unwrap(), SValue::Bool(true), "the preview painted the frame");
     let done = r.w.state.borrow_mut().call(picker, |_, host| host.finish_pick("picker"));
     assert_eq!(done, Some(true));
