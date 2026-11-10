@@ -514,15 +514,15 @@ export component T inherits Window {
 }
 "#;
 
-fn fold_drag(title: &'static str, label: &str) {
+fn fold_drag(title: &'static str, label: &str, key: &'static str, by_person: bool) {
     use i_slint_backend_testing::ElementHandle;
-    use std::cell::RefCell;
+    use std::cell::{Cell, RefCell};
     use std::collections::HashSet;
     use std::rc::Rc;
     let _still = offscreen::freeze_clock();
     let ui = make(FOLD_DRAG, 300.0, 300.0);
     let folded: Rc<RefCell<HashSet<String>>> = Rc::default();
-    let version = Rc::new(std::cell::Cell::new(1.0));
+    let version = Rc::new(Cell::new(1.0));
     let f = folded.clone();
     ui.set_global_callback("Folds", "is-folded", move |a| match &a[0] {
         Value::String(k) => Value::Bool(f.borrow().contains(k.as_str())),
@@ -530,34 +530,136 @@ fn fold_drag(title: &'static str, label: &str) {
     })
     .unwrap();
     let weak = ui.as_weak();
-    ui.set_global_callback("Folds", "toggle", move |a| {
-        if let Value::String(k) = &a[0] {
+    let toggle = {
+        let (folded, version) = (folded.clone(), version.clone());
+        move |k: &str| {
             let mut set = folded.borrow_mut();
-            if !set.remove(k.as_str()) {
+            if !set.remove(k) {
                 set.insert(k.to_string());
             }
+            version.set(version.get() + 1.0);
+            weak.unwrap().set_global_property("Folds", "version", Value::Number(version.get())).unwrap();
         }
-        version.set(version.get() + 1.0);
-        weak.unwrap().set_global_property("Folds", "version", Value::Number(version.get())).unwrap();
+    };
+    let on_toggle = toggle.clone();
+    ui.set_global_callback("Folds", "toggle", move |a| {
+        if let Value::String(k) = &a[0] {
+            on_toggle(k.as_str());
+        }
         Value::Void
     })
     .unwrap();
     ui.set_global_property("Folds", "version", Value::Number(1.0)).unwrap();
     offscreen::draw(ui.window(), 300.0, 300.0, 1.0);
     step(FRAME);
-    // The title's own default action folds it by a person, so it eases shut with the pointer still held on the slider
     drag_stays_quiet(&ui, label, (300.0, 300.0), |ui| {
-        let t = ElementHandle::find_by_accessible_label(ui, title).find(|e| e.accessible_checkable() == Some(true)).expect("the title");
-        t.invoke_accessible_default_action();
+        if by_person {
+            // The title's own default action folds it by a person, so it eases shut with the pointer still held on the slider
+            let t = ElementHandle::find_by_accessible_label(ui, title).find(|e| e.accessible_checkable() == Some(true)).expect("the title");
+            t.invoke_accessible_default_action();
+        } else {
+            // State that came from somewhere else folds at once, in the same frame the rows go
+            toggle(key);
+        }
     });
 }
 
 #[test]
 fn a_drag_in_a_card_that_folds_away_changes_nothing_more() {
-    fold_drag("Card", "Level");
+    fold_drag("Card", "Level", "t/Card", true);
 }
 
 #[test]
 fn a_drag_in_a_section_that_folds_away_changes_nothing_more() {
-    fold_drag("Part", "Other");
+    fold_drag("Part", "Other", "t/Part/Part", true);
+}
+
+#[test]
+fn a_drag_in_a_card_that_snaps_shut_on_its_own_changes_nothing_more() {
+    fold_drag("Card", "Level", "t/Card", false);
+}
+
+#[test]
+fn a_drag_in_a_section_that_snaps_shut_on_its_own_changes_nothing_more() {
+    fold_drag("Part", "Other", "t/Part/Part", false);
+}
+
+const WAIT_DOC: &str = r#"
+import { Theme, MenuSurface, Slider, Stepper } from "@ui-kit/ui-kit.slint";
+export component T inherits Window {
+    width: 300px;
+    height: 200px;
+    background: Theme.card;
+    in-out property <bool> going;
+    in-out property <int> hits;
+    in-out property <int> other;
+    in-out property <int> holds;
+    in-out property <int> lets-go;
+    MenuSurface {
+        x: 10px;
+        y: 10px;
+        width: 260px;
+        height: 110px;
+        leaving: going;
+        Slider { x: 10px; y: 10px; width: 240px; label: "Level"; minimum: 0; maximum: 100; step: 1; value: 10; has-default: true; default-value: 50; moved(v) => { hits += 1; } }
+        Stepper { x: 10px; y: 56px; width: 240px; caption: "Zoom"; items: ["1x", "2x", "3x"]; current: 1; previous-label: "Previous"; next-label: "Next"; hold-down(d) => { holds += 1; } hold-up => { lets-go += 1; } }
+    }
+    Slider { x: 10px; y: 120px; width: 240px; label: "Elsewhere"; minimum: 0; maximum: 100; step: 1; value: 10; moved(v) => { other += 1; } }
+}
+"#;
+
+// A click on a track away from the handle waits for a second one, then moves the handle: the wait is the press's own and outlives later presses
+fn click_wait(press_elsewhere: bool) {
+    use i_slint_backend_testing::ElementHandle;
+    let _still = offscreen::freeze_clock();
+    let ui = make(WAIT_DOC, 300.0, 200.0);
+    step(500);
+    offscreen::draw(ui.window(), 300.0, 200.0, 1.0);
+    let find = |label: &str| ElementHandle::find_by_accessible_label(&ui, label).filter(|e| e.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::Slider)).next().unwrap_or_else(|| panic!("no {label}"));
+    let (a, b) = (find("Level"), find("Elsewhere"));
+    let (pa, sa) = (a.absolute_position(), a.size());
+    let (pb, sb) = (b.absolute_position(), b.size());
+    press(&ui, pa.x + sa.width * 0.8, pa.y + sa.height / 2.0);
+    release(&ui, pa.x + sa.width * 0.8, pa.y + sa.height / 2.0);
+    step(FRAME);
+    set(&ui, "going", Value::Bool(true));
+    step(FRAME);
+    offscreen::draw(ui.window(), 300.0, 200.0, 1.0);
+    if press_elsewhere {
+        press(&ui, pb.x + sb.width * 0.5, pb.y + sb.height / 2.0);
+        release(&ui, pb.x + sb.width * 0.5, pb.y + sb.height / 2.0);
+    }
+    step(600);
+    assert_eq!(num(&ui, "hits"), 0.0, "a click that was waiting when its container went does not move the handle");
+}
+
+#[test]
+fn a_click_waiting_in_a_menu_that_eases_out_moves_nothing() {
+    click_wait(false);
+}
+
+#[test]
+fn a_press_elsewhere_does_not_bring_back_a_click_that_was_waiting() {
+    click_wait(true);
+}
+
+#[test]
+fn a_held_arrow_in_a_menu_that_eases_out_lets_go() {
+    use i_slint_backend_testing::ElementHandle;
+    let _still = offscreen::freeze_clock();
+    let ui = make(WAIT_DOC, 300.0, 200.0);
+    step(500);
+    offscreen::draw(ui.window(), 300.0, 200.0, 1.0);
+    let next = ElementHandle::find_by_accessible_label(&ui, "Next").next().expect("the next arrow");
+    let (p, s) = (next.absolute_position(), next.size());
+    press(&ui, p.x + s.width / 2.0, p.y + s.height / 2.0);
+    step(FRAME);
+    assert_eq!(num(&ui, "holds"), 1.0, "the press takes hold");
+    assert_eq!(num(&ui, "lets-go"), 0.0, "and holds");
+    set(&ui, "going", Value::Bool(true));
+    step(FRAME);
+    assert_eq!(num(&ui, "lets-go"), 1.0, "it lets go when its container goes, the button still down");
+    release(&ui, p.x + s.width / 2.0, p.y + s.height / 2.0);
+    step(FRAME);
+    assert_eq!(num(&ui, "lets-go"), 1.0, "and lets go once");
 }

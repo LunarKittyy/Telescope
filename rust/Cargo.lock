@@ -5759,6 +5759,7 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
+ "slint",
  "slint-interpreter",
  "telescope-core",
  "telescope-media",

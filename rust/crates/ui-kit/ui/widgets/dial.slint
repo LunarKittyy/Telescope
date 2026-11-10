@@ -6,7 +6,7 @@ import { FocusRing, TouchRing, KeyFocus } from "basics.slint";
 import { Tip } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { Motion, Settle, Tone, Fade, Flick } from "motion.slint";
-import { Fine, FineAxis, Grip } from "fine.slint";
+import { Fine, FineAxis, Grip, Hold } from "fine.slint";
 
 // Kind "dial": a strip of ticks, one for every value, with the names of the labelled ones sliding under a mark at the centre, dragged, scrolled or keyed through, saying `moved` then `released` with the tick's place in `stops`; it sits in the card, never in a bubble. Shift while dragging or scrolling goes a tenth as far and, on a `free` dial, between the ticks (`moved-between`); a click on the value types one. See STYLE.md.
 export component Dial inherits Rectangle {
@@ -345,6 +345,7 @@ export component Dial inherits Rectangle {
     FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
     usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
+        property <Hold> grip;
         enabled: root.enabled && !is-typing;
         mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
         scroll-event(e) => {
@@ -381,7 +382,7 @@ export component Dial inherits Rectangle {
         }
         pointer-event(e) => {
             shift-now = e.modifiers.shift;
-            if (e.kind == PointerEventKind.down) { usage.press(); Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
+            if (e.kind == PointerEventKind.down) { usage.press(); grip = Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
             if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
                 dragging = true;
                 focus.focus();
@@ -390,11 +391,11 @@ export component Dial inherits Rectangle {
                 drag-x = self.mouse-x;
                 fine.begin(shown-place);
             }
-            if (e.kind == PointerEventKind.move && dragging && self.pressed && !Grip.cut) { follow(); }
+            if (e.kind == PointerEventKind.move && dragging && self.pressed && !Grip.cut(grip)) { follow(); }
             if (dragging && ((e.kind == PointerEventKind.up && e.button == PointerEventButton.left) || e.kind == PointerEventKind.cancel)) {
                 dragging = false;
                 // A press that went nowhere: on a tick beside the mark it picks that tick, on the mark's own it types over the value
-                if (e.kind == PointerEventKind.up && abs(self.mouse-x - drag-x) < Theme.u(2) && stops.length > 0) {
+                if (e.kind == PointerEventKind.up && abs(self.mouse-x - drag-x) < Theme.u(2) && stops.length > 0 && !Grip.cut(grip)) {
                     let to = clamp(round(drag-from + (self.mouse-x - mid) / tick-pitch), 0, last-tick);
                     if (to == round(drag-from)) {
                         start-typing(false);
@@ -409,7 +410,7 @@ export component Dial inherits Rectangle {
             }
         }
         moved => {
-            if (self.pressed && dragging && !Grip.cut) { follow(); }
+            if (self.pressed && dragging && !Grip.cut(grip)) { follow(); }
         }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }

@@ -6,7 +6,7 @@ import { Reveal } from "folds.slint";
 import { FocusRing, KeyFocus } from "basics.slint";
 import { Tip } from "tip.slint";
 import { Settle } from "motion.slint";
-import { FineAxis, Grip } from "fine.slint";
+import { FineAxis, Grip, Hold } from "fine.slint";
 
 export component Jog inherits Rectangle {
     // What the two ends are called, in the track's own corners
@@ -131,12 +131,13 @@ export component Jog inherits Rectangle {
     // Back to the middle in a moment rather than a jump, but never behind a hand that's moving it
     glide := Settle { to: root.offset; snap: root.dragging; }
     touch := TouchArea {
+        property <Hold> grip;
         enabled: root.enabled;
         mouse-cursor: MouseCursor.ew-resize;
         scroll-event(e) => { usage.wheel(); reject }
         pointer-event(e) => {
             shift-now = e.modifiers.shift;
-            if (e.kind == PointerEventKind.down) { usage.press(); Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
+            if (e.kind == PointerEventKind.down) { usage.press(); grip = Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
             if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
                 focus.focus();
                 fine.begin(self.mouse-x / 1px);
@@ -147,12 +148,12 @@ export component Jog inherits Rectangle {
             }
             if (e.kind == PointerEventKind.up && e.button == PointerEventButton.left) {
                 if (dragging) { let-go(); }
-                else if (!on-handle) { tapped(self.mouse-x < root.width / 2 ? -1 : 1); }
+                else if (!on-handle && !Grip.cut(grip)) { tapped(self.mouse-x < root.width / 2 ? -1 : 1); }
             }
             if (e.kind == PointerEventKind.cancel && dragging) { let-go(); }
         }
         moved => {
-            if (self.pressed && !Grip.cut) {
+            if (self.pressed && !Grip.cut(grip)) {
                 if (!dragging && abs(self.mouse-x - pressed-at) > 4px) {
                     dragging = true;
                     fine.begin(self.mouse-x / 1px);
