@@ -108,6 +108,9 @@ export component AnchorFrame inherits Rectangle {
                 zone-focus.focus();
             }
         }
+        // A frame that goes off with the focus on an anchor lets go of it
+        property <bool> live: root.enabled;
+        changed live => { if (!live) { zone-focus.clear-focus(); } }
         zone-focus := FocusScope {
             enabled: root.enabled;
             focus-gained(reason) => {
@@ -116,6 +119,7 @@ export component AnchorFrame inherits Rectangle {
                 }
             }
             key-pressed(e) => {
+                if (!root.enabled) { return reject; }
                 if (e.text == " " || e.text == "\n") { pick(i); return accept; }
                 if (e.text == Key.LeftArrow) { go(i, 0); return accept; }
                 if (e.text == Key.RightArrow) { go(i, 1); return accept; }

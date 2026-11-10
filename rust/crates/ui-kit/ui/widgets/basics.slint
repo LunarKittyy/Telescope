@@ -319,7 +319,7 @@ export component IconButton inherits Rectangle {
         enabled: root.enabled;
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         key-pressed(e) => {
-            if (e.text == " " || e.text == "\n") { clicked(); return accept; }
+            if (enabled && (e.text == " " || e.text == "\n")) { clicked(); return accept; }
             reject
         }
     }

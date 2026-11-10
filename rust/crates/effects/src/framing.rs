@@ -835,9 +835,11 @@ impl Plugin for FramingPlugin {
             Event::ViewChanged { view } => self.on_view_changed(view),
             Event::MaxZoomChanged { max_zoom } => {
                 let max_zoom = (*max_zoom as f64).max(1.0);
-                // A held spot above a lowered ceiling would stay (it is near enough), so it lets go and follows the new one
+                // Nothing stored may sit above a lowered ceiling (a held spot would stay, being near enough), so it lets go and the spring glides down
                 if max_zoom < self.max_zoom {
                     self.room_state.reset();
+                    let clamp = |t: Target| Target::new(t.x, t.y, t.zoom.min(max_zoom));
+                    (self.smooth, self.goal) = (self.smooth.map(clamp), self.goal.map(clamp));
                 }
                 self.max_zoom = max_zoom;
             }

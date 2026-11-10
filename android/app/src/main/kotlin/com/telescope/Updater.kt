@@ -59,10 +59,16 @@ object Updater {
     // Local builds ("dev") are signed with a debug key, so no release could install over them anyway.
     fun canUpdate(): Boolean = BuildConfig.CHANNEL != "dev"
 
+    // An install the user walked away from goes back to Available, so the button works again.
+    fun recoverStuckInstall() {
+        val installing = state as? State.Installing ?: return
+        if (canUpdate() && UpdateLogic.installStuck(installing.sinceMs, System.currentTimeMillis())) installCancelled()
+    }
+
     // Once each time the app starts, then daily while it stays open.
     fun maybeCheck(context: Context) {
         if (!canUpdate()) return
-        (state as? State.Installing)?.let { if (UpdateLogic.installStuck(it.sinceMs, System.currentTimeMillis())) installCancelled() }
+        recoverStuckInstall()
         if (state !is State.Idle && state !is State.UpToDate && state !is State.CheckFailed) return
         val last = prefs(context).getLong(KEY_LAST_CHECK, 0)
         if (!checkedThisRun || UpdateLogic.checkDue(last, System.currentTimeMillis())) check(context)
