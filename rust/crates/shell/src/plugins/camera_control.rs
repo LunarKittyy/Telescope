@@ -431,6 +431,57 @@ fn parse_iso(text: &str) -> Option<f64> {
     t.trim().replace(',', ".").parse::<f64>().ok().filter(|v| v.is_finite() && *v > 0.0).map(f64::round)
 }
 
+/// A decimal as it is typed: a dot or a comma for the point, a plus, a hyphen or a true minus sign in front.
+fn parse_decimal(text: &str) -> Option<f64> {
+    let t = text.trim().replace('\u{2212}', "-").replace(',', ".");
+    t.parse::<f64>().ok().filter(|v| v.is_finite())
+}
+
+/// What is left of a typed value once one of its units is taken off the end (and nothing else is touched).
+fn without_unit<'a>(text: &'a str, units: &[&str]) -> &'a str {
+    let t = text.trim();
+    let lower = t.to_lowercase();
+    for unit in units.iter().filter(|u| !u.is_empty()) {
+        if lower.len() == t.len() && lower.ends_with(unit) {
+            if let Some(rest) = t.get(..t.len() - unit.len()) {
+                return rest.trim();
+            }
+        }
+    }
+    t
+}
+
+/// The unit a readout template writes after its number, in the current language ("EV", "m").
+fn readout_unit(template: &str) -> String {
+    tr(template).replace("{n}", "").trim().to_lowercase()
+}
+
+/// Brightness as it is typed (1, +1, -0.7, 1,5, 1 EV), in the phone's compensation steps: the nearest step, held to the phone's range.
+fn parse_ev_steps(text: &str, step: f64, min: i64, max: i64) -> Option<i64> {
+    if step <= 0.0 || !step.is_finite() {
+        return None;
+    }
+    let ev = parse_decimal(without_unit(text, &["ev", &readout_unit("{n} EV")]))?;
+    Some((ev / step).round().clamp(min as f64, max as f64) as i64)
+}
+
+/// Focus distance as it is typed (0.5, 2 m, 1,5 metres, inf, ∞), as a slider position on the scale the readout uses: the nearest position, held to the lens's nearest distance. Too far to tell from infinity is infinity, as the readout says it.
+fn parse_focus_position(text: &str, max_diopters: f64) -> Option<i64> {
+    if max_diopters <= 0.0 || !max_diopters.is_finite() {
+        return None;
+    }
+    let body = without_unit(text, &["metres", "metre", "meters", "meter", "m", &readout_unit("{n} m")]).to_lowercase();
+    if matches!(body.as_str(), "inf" | "infinity" | "infinite" | "∞") {
+        return Some(0);
+    }
+    let metres = parse_decimal(&body).filter(|m| *m > 0.0)?;
+    let diopters = 1.0 / metres;
+    if diopters <= 0.01 {
+        return Some(0);
+    }
+    Some((diopters / max_diopters * FOCUS_STEPS as f64).round().clamp(0.0, FOCUS_STEPS as f64) as i64)
+}
+
 /// A QSlider: a whole-number value inside its range.
 #[derive(Clone, Debug)]
 struct IntSlider {
@@ -1718,6 +1769,12 @@ impl Plugin for CameraControl {
                 }
             }
             "ae-moved" => self.set_ae(n(0).round() as i64, false),
+            "ae-typed" => {
+                let text = event.args.first().and_then(Value::as_str).unwrap_or("");
+                if let Some(steps) = parse_ev_steps(text, self.ae_step, self.ae.min, self.ae.max) {
+                    self.set_ae(steps, false);
+                }
+            }
             "wb-picked" => {
                 if self.wb.enabled.get(n(0) as usize) == Some(&true) {
                     self.set_wb_mode(n(0) as usize == 1);
@@ -1731,6 +1788,14 @@ impl Plugin for CameraControl {
                 let pos = n(0).round() as i64;
                 if self.focus_slider.set(pos) {
                     self.on_focus_slider(self.focus_slider.value);
+                }
+            }
+            "focus-typed" if self.focus_slider.enabled => {
+                let text = event.args.first().and_then(Value::as_str).unwrap_or("");
+                if let Some(pos) = parse_focus_position(text, self.focus_max_diopters) {
+                    if self.focus_slider.set(pos) {
+                        self.on_focus_slider(self.focus_slider.value);
+                    }
                 }
             }
             "ois-toggled" => self.set_ois(b(0)),
