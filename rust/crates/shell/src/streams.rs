@@ -1783,8 +1783,11 @@ impl FlowHost for Host<'_> {
         let services = self.w.services.clone().expect("streams need services");
         // Setup's switch counts from the next stream on, as h264_reader.set_hardware does; --vaapi turns it on for a run
         let setup = self.w.state.borrow().plugin_config("setup");
-        let chosen = telescope_core::media::hardware_decode_on(setup.as_ref());
-        let hardware = source.kind.card_decoding() && (chosen || self.w.opts.as_ref().is_some_and(|o| o.hardware_decode));
+        // A choice made in Setup decides; with none, the stream's own thread looks for the card (finding it opens a decoder, which takes a while)
+        let choice = telescope_core::media::hardware_decode_choice(setup.as_ref());
+        let card = source.kind.card_decoding();
+        let hardware = card && (choice == Some(true) || self.w.opts.as_ref().is_some_and(|o| o.hardware_decode));
+        let hardware_default = card && choice.is_none();
         let id = self.w.streams.next_worker.get() + 1;
         self.w.streams.next_worker.set(id);
         let opener = source.kind.opener().unwrap_or_else(|| Arc::new(|_| Err(tr("Couldn't reach the device."))));
@@ -1794,7 +1797,7 @@ impl FlowHost for Host<'_> {
         self.w.state.borrow().state_owners.claim(source.id_str(), id);
         let vision = self.w.state.borrow().vision_feed().map(|feed| crate::worker::VisionFeed { owner: id, ..feed });
         let setup = WorkerSetup { url: url.into(), opener, width: params.0, height: params.1, fps: params.2, canvas,
-                                  slot: source.slot(), source_id: source.id_str().into(), hardware_decode: hardware,
+                                  slot: source.slot(), source_id: source.id_str().into(), hardware_decode: hardware, hardware_default,
                                   plugin_source: source.kind.as_phone().is_none(), waiting_text: source.kind.waiting_text(),
                                   vision, steps, gate: Some(self.w.state.borrow().vc.gate()) };
         let slot: Arc<dyn FrameSlot> = services.media.stream_frames().map(|f| f.new_slot()).unwrap_or_else(local_slot);

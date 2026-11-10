@@ -47,7 +47,7 @@ type Said = Arc<Mutex<Vec<WorkerEvent>>>;
 
 fn start(opener: Opener, media: Arc<dyn Media>, steps: Vec<StagedStep>) -> (StreamWorker, Arc<dyn FrameSlot>, Said) {
     let setup = WorkerSetup { url: "http://phone/v1/video".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0, source_id: "p".into(),
-                              hardware_decode: false, plugin_source: false, waiting_text: None, vision: None, steps, gate: None };
+                              hardware_decode: false, hardware_default: false, plugin_source: false, waiting_text: None, vision: None, steps, gate: None };
     let slot = FfmpegMedia.stream_frames().expect("media's frame store").new_slot();
     let said: Said = Arc::default();
     let log = said.clone();

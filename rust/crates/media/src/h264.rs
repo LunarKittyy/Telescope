@@ -1081,6 +1081,33 @@ mod bench {
         }
     }
 
+    /// Process CPU time in seconds (user and system, every thread) from /proc.
+    fn cpu_seconds() -> f64 {
+        let stat = std::fs::read_to_string("/proc/self/stat").unwrap_or_default();
+        let fields: Vec<&str> = stat.rsplit(')').next().unwrap_or("").split_whitespace().collect();
+        let ticks = |i: usize| fields.get(i).and_then(|f| f.parse::<f64>().ok()).unwrap_or(0.0);
+        (ticks(11) + ticks(12)) / 100.0
+    }
+
+    /// Decode time and CPU of a whole clip a frame at a time, software against the card.
+    /// cargo test --release -p telescope-media --lib -- --ignored --nocapture card_against_software
+    #[test]
+    #[ignore = "a measurement, needs the clips and a VA-API card"]
+    fn card_against_software() {
+        use crate::ffmpeg::decode_bench::packets;
+        for name in ["p1080.h264", "p4k.h264"] {
+            let Some(packets) = packets(name) else { continue };
+            for hardware in [false, true, false, true] {
+                let mut dec = H264::new(hardware, None).unwrap();
+                let (cpu, began) = (cpu_seconds(), Instant::now());
+                let frames: u32 = packets.iter().map(|p| dec.feed(p).1).sum();
+                let (wall, cpu) = (began.elapsed().as_secs_f64(), cpu_seconds() - cpu);
+                println!("{name:11} {:>9?}: {frames} pictures, {:.2} ms each, {:.2} ms of cpu each, hardware failed: {}",
+                         dec.hw(), wall * 1e3 / frames as f64, cpu * 1e3 / frames as f64, hardware_failed());
+            }
+        }
+    }
+
     /// A stream fed in chunks of several access units, as after a stall: only the newest picture of each chunk is kept.
     /// cargo test --release -p telescope-media --lib -- --ignored --nocapture burst_feeding
     #[test]

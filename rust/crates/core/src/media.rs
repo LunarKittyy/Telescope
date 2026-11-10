@@ -291,10 +291,21 @@ pub trait StreamFrames: FrameStore {
     fn set_streams(&self, streams: Vec<(String, String, Arc<dyn FrameSlot>)>);
 }
 
-/// Whether Setup's saved settings ask for the graphics card decoder. Off unless turned on, as in Python: beside a heavy game the decoder's
-/// jobs wait for the app's own graphics work, and the picture stutters where the processor holds 30 fps.
-pub fn hardware_decode_on(setup: Option<&serde_json::Value>) -> bool {
-    setup.and_then(|c| c.get("hw_decode")) == Some(&serde_json::Value::Bool(true))
+/// What Setup's saved settings say about decoding on the graphics card: Some for a choice made there, None for one never made. Older
+/// versions always saved `hw_decode`, so a false only counts as a choice when `hw_decode_chosen` came with it; a value that isn't a
+/// boolean is no choice either.
+pub fn hardware_decode_choice(setup: Option<&serde_json::Value>) -> Option<bool> {
+    match setup.and_then(|c| c.get("hw_decode")) {
+        Some(serde_json::Value::Bool(true)) => Some(true),
+        Some(serde_json::Value::Bool(false)) => setup.and_then(|c| c.get("hw_decode_chosen")).is_some_and(|v| v == &serde_json::Value::Bool(true)).then_some(false),
+        Some(_) | None => None,
+    }
+}
+
+/// Whether decoding on the graphics card is on when nobody chose: on Linux when the card found is VA-API, which decodes H.264 well
+/// there. Anything else stays in software until it's turned on.
+pub fn hardware_decode_default(linux: bool, device: Option<&str>) -> bool {
+    linux && device == Some("vaapi")
 }
 
 /// Decoding as it stands (h264_reader's hardware_device, decoding_backends, hardware_failed).
