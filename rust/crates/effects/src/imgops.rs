@@ -1011,4 +1011,27 @@ mod tests {
         let out = mask.shrink(120, 67);
         assert_eq!((out.w, out.h, out.data.len()), (120, 67, 120 * 67));
     }
+
+    #[test]
+    #[ignore = "timing bench, run with --release -- --ignored --nocapture"]
+    fn bench_mask_work() {
+        for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+            let mut m = Gray::new(w, h);
+            for y in 0..h {
+                for x in w / 3..2 * w / 3 {
+                    m.data[y * w + x] = 255;
+                }
+            }
+            let shared = std::sync::Arc::new(m.data.clone());
+            let best = |f: &mut dyn FnMut()| (0..5).map(|_| {
+                let start = std::time::Instant::now();
+                f();
+                start.elapsed().as_secs_f64() * 1000.0
+            }).fold(f64::MAX, f64::min);
+            let copy = best(&mut || { std::hint::black_box(Gray { w, h, data: shared.to_vec() }); });
+            let soft = best(&mut || { std::hint::black_box(m.soften(3)); });
+            let eighth = best(&mut || { std::hint::black_box(m.shrink((w / 8).max(1), (h / 8).max(1))); });
+            println!("mask {w}x{h}: owned copy {copy:.3} ms, soften(3) {soft:.3} ms, shrink to an eighth {eighth:.3} ms");
+        }
+    }
 }

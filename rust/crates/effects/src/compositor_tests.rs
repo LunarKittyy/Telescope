@@ -277,3 +277,163 @@ fn i420_frames_are_drawn_in_their_own_planes() {
     assert!(close(px(&comp.render(&packed, PixelFormat::I420).unwrap(), 18, 32), [0, 255, 0]));
     assert_eq!(bgr(DEFAULT_BACKGROUND), [0x1a, 0x15, 0x15]);
 }
+
+// ── Item: paste without allocation, against the old version ──
+
+/// The paste this replaced, kept to compare every byte against.
+fn paste_reference(canvas: &mut [u8], kind: Kind, cw: usize, chh: usize, content: Content, bx: (usize, usize, usize, usize), radius: usize) {
+    let (x, y, w, h) = bx;
+    let r = radius.min(w / 2).min(h / 2);
+    let masks = if r > 0 { Some(corner_masks(r)) } else { None };
+    for (p, plane) in planes(kind, cw, chh).into_iter().enumerate() {
+        let full = plane.w == cw;
+        let (px0, py0, px1, py1) = if full { (x, y, x + w, y + h) } else { plane_box(2, bx) };
+        let (bw, ch) = (px1 - px0, plane.ch);
+        let source = |i: usize| -> u8 {
+            match &content {
+                Content::Colour(c) => c[if full { i % ch } else { p }],
+                Content::Picture(planes) => planes[p][i],
+            }
+        };
+        let data = &mut canvas[plane.at..plane.at + plane.w * plane.h * ch];
+        if full {
+            let corners = [(x, y), (x + w - r, y), (x, y + h - r), (x + w - r, y + h - r)];
+            let under: Vec<u8> = if r > 0 {
+                corners.iter().flat_map(|&(cx0, cy0)| (0..r).flat_map(move |yy| {
+                    let at = ((cy0 + yy) * plane.w + cx0) * ch;
+                    at..at + r * ch
+                })).map(|at| data[at]).collect()
+            } else {
+                Vec::new()
+            };
+            for yy in 0..py1 - py0 {
+                let start = ((py0 + yy) * plane.w + px0) * ch;
+                let row = &mut data[start..start + bw * ch];
+                match &content {
+                    Content::Picture(planes) => row.copy_from_slice(&planes[p][yy * bw * ch..(yy + 1) * bw * ch]),
+                    Content::Colour(_) => row.iter_mut().enumerate().for_each(|(i, v)| *v = source(i)),
+                }
+            }
+            if let Some(m) = &masks {
+                let mut kept = under.into_iter();
+                for (corner, &(cx0, cy0)) in corners.iter().enumerate() {
+                    let (inside, outside) = &m[corner];
+                    for yy in 0..r {
+                        for xx in 0..r * ch {
+                            let at = ((cy0 + yy) * plane.w + cx0) * ch + xx;
+                            let k = yy * r + xx / ch;
+                            data[at] = blend(data[at], kept.next().unwrap_or(0), inside[k], outside[k]);
+                        }
+                    }
+                }
+            }
+            continue;
+        }
+        // A half-size colour plane: samples whose pixels are all well inside are copied, the rest blended by coverage
+        let empty: CornerMasks = Default::default();
+        let m = masks.as_deref().unwrap_or(&empty);
+        let inside = |l: usize, lo: usize, hi: usize| l >= lo && l < hi;
+        for cy in py0..py1 {
+            let rows: Vec<usize> = [2 * cy, 2 * cy + 1].into_iter().filter(|l| *l < chh).collect();
+            let in_v = rows.iter().all(|&l| inside(l, y, y + h));
+            let plain_v = rows.iter().all(|&l| inside(l, y + r, y + h - r));
+            for cx in px0..px1 {
+                let i = (cy - py0) * bw + (cx - px0);
+                let at = cy * plane.w + cx;
+                let cols: Vec<usize> = [2 * cx, 2 * cx + 1].into_iter().filter(|l| *l < cw).collect();
+                let in_h = cols.iter().all(|&l| inside(l, x, x + w));
+                let plain_h = cols.iter().all(|&l| inside(l, x + r, x + w - r));
+                if in_v && in_h && (plain_v || plain_h) {
+                    data[at] = source(i);
+                    continue;
+                }
+                let n = (rows.len() * cols.len()) as f32;
+                let sum: f32 = rows.iter().flat_map(|&ly| cols.iter().map(move |&lx| (lx, ly))).map(|(lx, ly)| coverage(lx, ly, bx, r, m)).sum();
+                let cov = if n > 0.0 { sum / n } else { 0.0 };
+                if cov >= 1.0 {
+                    data[at] = source(i);
+                } else if cov > 0.0 {
+                    data[at] = blend(source(i), data[at], cov, 1.0 - cov);
+                }
+            }
+        }
+    }
+}
+
+fn paste_cases() -> Vec<((usize, usize), (usize, usize, usize, usize), usize)> {
+    let mut cases = Vec::new();
+    for size in [(64, 48), (65, 49), (1920, 1080)] {
+        for bx in [(0, 0, size.0, size.1), (3, 5, size.0 / 2 + 1, size.1 / 2 + 1), (1, 1, size.0 - 2, size.1 - 3), (size.0 / 3, size.1 / 3, size.0 / 3 + 1, size.1 / 3 + 1)] {
+            for r in [0, 1, 5, 40] {
+                cases.push((size, bx, r));
+            }
+        }
+    }
+    cases
+}
+
+#[test]
+fn paste_matches_the_allocating_version_byte_for_byte() {
+    for kind in [Kind::I420, Kind::Rgba] {
+        for ((cw, chh), bx, r) in paste_cases() {
+            let len = kind.format().size(cw as u32, chh as u32);
+            let canvas = noise(len, 1, 1, 9);
+            let pics: Vec<Vec<u8>> = planes(kind, cw, chh).iter().enumerate().map(|(p, pl)| {
+                let (px0, py0, px1, py1) = if pl.w == cw { (bx.0, bx.1, bx.0 + bx.2, bx.1 + bx.3) } else { plane_box(2, bx) };
+                noise((px1 - px0) * (py1 - py0) * pl.ch, 1, 1, 20 + p as u64)
+            }).collect();
+            let colour = vec![200, 90, 30, 255];
+            for pic in [true, false] {
+                let (mut a, mut b) = (canvas.clone(), canvas.clone());
+                let content = |_: ()| if pic { Content::Picture(&pics) } else { Content::Colour(colour.clone()) };
+                paste(&mut a, kind, cw, chh, content(()), bx, r);
+                paste_reference(&mut b, kind, cw, chh, content(()), bx, r);
+                assert!(a == b, "{kind:?} {cw}x{chh} {bx:?} r{r} picture {pic}");
+            }
+        }
+    }
+}
+
+fn best_of(n: usize, mut f: impl FnMut()) -> f64 {
+    (0..n).map(|_| {
+        let start = Instant::now();
+        f();
+        start.elapsed().as_secs_f64() * 1000.0
+    }).fold(f64::MAX, f64::min)
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture"]
+fn bench_paste() {
+    for (cw, chh) in [(1920usize, 1080usize), (3840, 2160)] {
+        for r in [0usize, 24] {
+            let bx = (0, 0, cw, chh);
+            let canvas = vec![7u8; Kind::I420.format().size(cw as u32, chh as u32)];
+            let pics: Vec<Vec<u8>> = planes(Kind::I420, cw, chh).iter().map(|pl| vec![99u8; pl.w * pl.h]).collect();
+            let (mut a, mut b) = (canvas.clone(), canvas.clone());
+            let new = best_of(5, || paste(&mut a, Kind::I420, cw, chh, Content::Picture(&pics), bx, r));
+            let old = best_of(5, || paste_reference(&mut b, Kind::I420, cw, chh, Content::Picture(&pics), bx, r));
+            println!("paste {cw}x{chh} r{r}: old {old:.2} ms, new {new:.2} ms");
+        }
+    }
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture"]
+fn bench_two_tile_render() {
+    for (w, h) in [(1920u32, 1080u32), (3840, 2160)] {
+        for radius in [0i64, 24] {
+            let mut tiles = vec![t("a", 0.0, 0.0, 0.5, 1.0), t("b", 0.5, 0.0, 0.5, 1.0)];
+            tiles.iter_mut().for_each(|tile| tile.radius = radius);
+            let mut data = noise(w as usize, h as usize, 1, 3);
+            data.extend(vec![128u8; 2 * (w as usize / 2) * (h as usize / 2)]);
+            let frame = Frame::new(w, h, PixelFormat::I420, data);
+            let all: Frames = [("a", 1u64), ("b", 2)].iter().map(|(s, n)| (s.to_string(), (frame.clone(), Some(*n)))).collect();
+            let mut comp = Compositor::default();
+            comp.prepare(&Layout::of(tiles), (w, h));
+            comp.render(&all, PixelFormat::I420);
+            let took = best_of(5, || { std::hint::black_box(comp.render(&all, PixelFormat::I420)); });
+            println!("render two tiles {w}x{h} radius {radius}: {took:.2} ms");
+        }
+    }
+}

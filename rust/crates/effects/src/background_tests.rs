@@ -501,3 +501,85 @@ fn the_blur_sample_leaves_the_person_sharp_as_the_effect_does() {
     let wall = (20, 40);
     assert_ne!(at(wall.0, wall.1), scene.at(wall.0, wall.1));
 }
+
+// ── Masks kept between frames ──
+
+/// A context that hands out the same Arc until the test swaps it, as the vision service does for an unchanged mask.
+struct Held(std::cell::RefCell<Arc<Vec<u8>>>);
+
+impl FrameContext for Held {
+    fn source_id(&self) -> &str {
+        "phone"
+    }
+    fn person_mask(&self, _: &Frame) -> Option<Arc<Vec<u8>>> {
+        Some(self.0.borrow().clone())
+    }
+    fn colour_preview(&self, frame: &Frame) -> Frame {
+        frame.clone()
+    }
+}
+
+fn step_in(mode: &str, blur: i64, edges: i64) -> Step {
+    let mode = MODES.iter().position(|(k, _)| *k == mode).unwrap();
+    Step { settings: Settings { mode, blur, edges, picture: None }, covered: None, spares: Vec::new(), had_mask: Arc::default(), derived: None }
+}
+
+fn varied_mask(w: usize, h: usize, seed: usize) -> Gray {
+    Gray { w, h, data: (0..w * h).map(|i| if (i % w + seed * 5) % 41 < 20 { 255 } else { (i * 7 % 256) as u8 }).collect() }
+}
+
+#[test]
+fn a_kept_mask_gives_the_same_picture_as_working_it_out_each_frame() {
+    let (w, h) = (96, 54);
+    let source = stripes(w, h);
+    let mut blur_step = step_in("blur", 4, 3);
+    let held = Held(Arc::new(varied_mask(w, h, 0).data.clone()).into());
+    for round in 0..6 {
+        // the mask changes on round 3; the edge setting on rounds 2 and 4
+        if round == 3 {
+            *held.0.borrow_mut() = Arc::new(varied_mask(w, h, 1).data.clone());
+        }
+        if round == 2 || round == 4 {
+            blur_step.settings.edges = round as i64;
+        }
+        let mask = Gray { w, h, data: held.0.borrow().to_vec() };
+        let want = compose(&source, &mask.soften(blur_step.settings.edges), &blurred(&source, 4, Some(&mask)));
+        let mut frame = frame_of(&source);
+        blur_step.process(&mut frame, &held);
+        assert_eq!(Rgb::from_frame(&frame).unwrap(), Rgb::from_frame(&{ let mut f = frame_of(&source); want.write_to(&mut f); f }).unwrap(), "round {round}");
+    }
+    // the same size with a new mask Arc of equal bytes is a new mask, and a new frame size starts again
+    let held = Held(Arc::new(varied_mask(64, 36, 2).data.clone()).into());
+    let small = stripes(64, 36);
+    let mask = Gray { w: 64, h: 36, data: held.0.borrow().to_vec() };
+    let want = compose(&small, &mask.soften(blur_step.settings.edges), &blurred(&small, 4, Some(&mask)));
+    let mut frame = frame_of(&small);
+    blur_step.process(&mut frame, &held);
+    let mut expected = frame_of(&small);
+    want.write_to(&mut expected);
+    assert_eq!(frame.data, expected.data);
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture"]
+fn bench_background_with_an_unchanged_mask() {
+    for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+        let source = stripes(w, h);
+        let held = Held(Arc::new(varied_mask(w, h, 0).data.clone()).into());
+        let mut step = step_in("blur", 4, 3);
+        let best = |f: &mut dyn FnMut()| (0..5).map(|_| {
+            let start = std::time::Instant::now();
+            f();
+            start.elapsed().as_secs_f64() * 1000.0
+        }).fold(f64::MAX, f64::min);
+        let mut frame = frame_of(&source);
+        step.process(&mut frame, &held);
+        let new = best(&mut || step.process(&mut frame, &held));
+        let old = best(&mut || {
+            let mask = Gray { w, h, data: held.0.borrow().to_vec() };
+            let edges = mask.soften(3);
+            compose(&source, &edges, &blurred(&source, 4, Some(&mask))).write_to(&mut frame);
+        });
+        println!("background blur {w}x{h}, unchanged mask: old {old:.2} ms, new {new:.2} ms");
+    }
+}
