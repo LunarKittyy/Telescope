@@ -219,7 +219,7 @@ export component PinChip inherits Rectangle {
     accessible-role: button;
     accessible-label: label;
     accessible-value: "+" + held;
-    accessible-action-default => { root.clicked(); }
+    accessible-action-default => { if (root.count > 0) { root.clicked(); } }
     forward-focus: focus;
     focus := FocusScope {
         enabled: root.count > 0;

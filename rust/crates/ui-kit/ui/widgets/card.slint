@@ -292,12 +292,26 @@ export component Card inherits Rectangle {
             clip: unfold.value < 1;
             // The rows fade as the box closes round them, so a clipped handle or outline never shows as a stray arc
             opacity: clamp((unfold.value - 0.75) / 0.2, 0, 1);
-            rows := VerticalLayout {
+            // Keys meant for a row that is folding away go nowhere while it fades (a disabled scope sees them first), and Tab still moves on
+            FocusScope {
+                enabled: false;
                 width: parent.width;
-                height: max(parent.height, self.preferred-height);
-                spacing: Theme.gap;
-                visible: unfold.value > 0;
-                @children
+                height: parent.height;
+                capture-key-pressed(e) => { if (!root.folded || e.text == Key.Tab || e.text == Key.Backtab) { reject } else { accept } }
+                capture-key-released(e) => { if (!root.folded || e.text == Key.Tab || e.text == Key.Backtab) { reject } else { accept } }
+                rows := VerticalLayout {
+                    width: parent.width;
+                    height: max(parent.height, self.preferred-height);
+                    spacing: Theme.gap;
+                    visible: unfold.value > 0;
+                    @children
+                }
+            }
+            // Rows on their way out still fade, but nothing in them can be clicked any more
+            if root.folded && unfold.value > 0: TouchArea {
+                width: parent.width;
+                height: parent.height;
+                mouse-cursor: MouseCursor.default;
             }
         }
     }
@@ -572,12 +586,26 @@ export component Section inherits VerticalLayout {
         max-height: unfold.value > 0 ? 100000px : 0px;
         vertical-stretch: unfold.value > 0 ? 1 : 0;
         clip: unfold.value < 1;
-        rows := VerticalLayout {
+        // Keys meant for a row that is folding away go nowhere while it fades (a disabled scope sees them first), and Tab still moves on
+        FocusScope {
+            enabled: false;
             width: parent.width;
-            height: max(parent.height, self.preferred-height);
-            spacing: Theme.gap;
-            visible: unfold.value > 0;
-            @children
+            height: parent.height;
+            capture-key-pressed(e) => { if (!root.folded || e.text == Key.Tab || e.text == Key.Backtab) { reject } else { accept } }
+            capture-key-released(e) => { if (!root.folded || e.text == Key.Tab || e.text == Key.Backtab) { reject } else { accept } }
+            rows := VerticalLayout {
+                width: parent.width;
+                height: max(parent.height, self.preferred-height);
+                spacing: Theme.gap;
+                visible: unfold.value > 0;
+                @children
+            }
+        }
+        // Rows on their way out still fade, but nothing in them can be clicked any more
+        if root.folded && unfold.value > 0: TouchArea {
+            width: parent.width;
+            height: parent.height;
+            mouse-cursor: MouseCursor.default;
         }
     }
 }

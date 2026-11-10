@@ -75,10 +75,13 @@ export component ColourWheel inherits Rectangle {
     accessible-action-increment => { if (enabled) { glide-x.sync(); glide-y.sync(); quick = true; root.key("right", false); } }
     accessible-action-decrement => { if (enabled) { glide-x.sync(); glide-y.sync(); quick = true; root.key("left", false); } }
     forward-focus: focus;
+    // A wheel that goes off while it has the focus lets go of it
+    changed enabled => { if (!enabled) { focus.clear-focus(); } }
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: root.enabled;
         key-pressed(e) => {
+            if (!root.enabled) { return reject; }
             if (e.text == Key.LeftArrow) { glide-x.sync(); glide-y.sync(); quick = true; root.key("left", e.modifiers.shift); return accept; }
             if (e.text == Key.RightArrow) { glide-x.sync(); glide-y.sync(); quick = true; root.key("right", e.modifiers.shift); return accept; }
             if (e.text == Key.UpArrow) { glide-x.sync(); glide-y.sync(); quick = true; root.key("up", e.modifiers.shift); return accept; }

@@ -235,11 +235,12 @@ export component PictureField inherits Rectangle {
     accessible-description: problem != "" ? problem : tip;
     accessible-action-default => { if (enabled) { clicked(); } }
     forward-focus: focus;
+    changed enabled => { if (!enabled) { focus.clear-focus(); } }
     focus := FocusScope {
         enabled: root.enabled;
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         key-pressed(e) => {
-            if (e.text == " " || e.text == "\n") { clicked(); return accept; }
+            if (root.enabled && (e.text == " " || e.text == "\n")) { clicked(); return accept; }
             reject
         }
     }

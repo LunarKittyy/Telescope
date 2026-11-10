@@ -66,14 +66,19 @@ export component Jog inherits Rectangle {
     accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
     accessible-action-increment => { if (enabled) { tapped(1); } }
     accessible-action-decrement => { if (enabled) { tapped(-1); } }
-    changed enabled => { if (!enabled && dragging) { let-go(); } }
+    changed enabled => {
+        if (!enabled) {
+            focus.clear-focus();
+            if (dragging) { let-go(); }
+        }
+    }
     forward-focus: focus;
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         focus-lost => { if (dragging) { let-go(); } }
         enabled: root.enabled;
         key-pressed(e) => {
-            if (e.modifiers.control || e.modifiers.meta || e.modifiers.alt) { return reject; }
+            if (!root.enabled || e.modifiers.control || e.modifiers.meta || e.modifiers.alt) { return reject; }
             if (e.text == Key.LeftArrow || e.text == Key.DownArrow) { tapped(-1); return accept; }
             if (e.text == Key.RightArrow || e.text == Key.UpArrow) { tapped(1); return accept; }
             reject

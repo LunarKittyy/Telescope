@@ -211,6 +211,9 @@ export component Bubble inherits Rectangle {
         // Set once the content is made, so the pop and the fade start from nothing
         property <bool> arrived;
         focus-in := FocusScope {
+            // Keys meant for a control in a bubble that is fading away go nowhere (Tab and Escape still work)
+            capture-key-pressed(e) => { if (!root.leaving || e.text == Key.Tab || e.text == Key.Backtab || e.text == Key.Escape) { reject } else { accept } }
+            capture-key-released(e) => { if (!root.leaving || e.text == Key.Tab || e.text == Key.Backtab || e.text == Key.Escape) { reject } else { accept } }
             // Escape from anywhere inside, unless a box in it takes the key first
             key-pressed(e) => {
                 if (e.text == Key.Escape) { root.close(); return accept; }
@@ -243,6 +246,11 @@ export component Bubble inherits Rectangle {
                 }
                 // A tooltip of a control in the bubble: the pop-up covers the window's own layer
                 TipLayer { }
+                // A bubble that is fading away takes no more presses
+                if root.leaving: TouchArea {
+                    width: parent.width;
+                    height: parent.height;
+                }
             }
         }
     }

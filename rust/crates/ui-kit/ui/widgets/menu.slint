@@ -26,6 +26,12 @@ export component MenuSurface inherits Rectangle {
     drop-shadow-blur: Theme.u(6);
     drop-shadow-color: Theme.shadow;
     @children
+    // A menu that is easing out still shows its rows, but takes no more presses: the first pick stands
+    if root.leaving: TouchArea {
+        width: parent.width;
+        height: parent.height;
+        mouse-cursor: MouseCursor.default;
+    }
 }
 
 // A row of a menu, or a divider (`separator`). `current` is the row the pointer or the keys are on. The release of the right-click that
