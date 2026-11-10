@@ -357,6 +357,8 @@ struct Shared {
     // When the newest published frame's packet came in, for the delivery log; publish overwrites the frame's own time
     newest_arrival: AtomicU64,
     frames_arrived: AtomicU64,
+    /// Frames that arrived and were dropped before the steps because they couldn't keep up, so the rate that counts is what is left.
+    frames_shed: AtomicU64,
     /// Frames that made it through the steps and into the slot, which the camera loop counts the ones it skipped from. Locked around the slot's
     /// publish and the camera loop's read of the slot, so a count and the frame it was read with always agree.
     published: Mutex<u64>,
@@ -491,7 +493,7 @@ impl StreamWorker {
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
             photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_colour: Mutex::new(None), gate: setup.gate,
-            seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), published: Mutex::new(0), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
+            seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), frames_shed: AtomicU64::new(0), published: Mutex::new(0), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
             last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), fps_cell: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
             handover_thread: Mutex::new(None),
@@ -760,6 +762,12 @@ impl Shared {
         self.settle.lock().unwrap().arrived(Instant::now());
     }
 
+    /// A frame that arrived is dropped because the next stage hadn't taken the one before.
+    fn shed(&self, frames: u64) {
+        self.frames_shed.fetch_add(frames, Ordering::Relaxed);
+        self.stats.dropped(DropReason::Paced, frames);
+    }
+
     /// Resize and run the plugin steps on frame, then make it the frame the camera sends. One frame at a time, and
     /// never one older than what's already out. Whether it went out: a frame that breaks on the way is dropped.
     fn publish(&self, seq: u64, frame: Frame) -> bool {
@@ -979,7 +987,9 @@ impl Shared {
                 }
             }).expect("a thread for the frame steps")
         };
-        let ended = loop {
+        // Dropped on the way out, a panic in the reader included, so the steps thread has ended before the reader is reported finished
+        let _steps = StepsThread { newest: newest.clone(), thread: Some(steps) };
+        loop {
             if self.stopped() {
                 break Ended::Stopped;
             }
@@ -990,7 +1000,7 @@ impl Shared {
                 Ok(f) => {
                     self.count_arrived(f.count, f.bytes);
                     if newest.put((self.next_seq(), f.frame)) {
-                        self.stats.dropped(DropReason::Paced, 1);
+                        self.shed(1);
                     }
                 }
                 Err(FeedEnd::Stopped) if self.stopped() => break Ended::Stopped,
@@ -999,10 +1009,7 @@ impl Shared {
                     break Ended::Dropped;
                 }
             }
-        };
-        newest.finish();
-        let _ = steps.join();
-        ended
+        }
     }
 
     /// JPEGs: the newest packet goes to the decoders; one nobody took in time is dropped, so a slow decoder skips
@@ -1034,7 +1041,7 @@ impl Shared {
                     self.count_arrived(1, packet.data.len() as u64);
                     // A packet no decoder had taken yet is replaced by this one, so a slow decoder skips frames instead of lagging
                     if newest.put((self.next_seq(), packet)) {
-                        self.stats.dropped(DropReason::Paced, 1);
+                        self.shed(1);
                     }
                 }
                 Err(FeedEnd::Stopped) if self.stopped() => break Ended::Stopped,
@@ -1187,6 +1194,7 @@ impl Shared {
                                 &[("size", &size), ("fps", &fps.to_string()), ("camera", &shown_as)]));
         let period = Duration::from_secs_f64(1.0 / fps as f64);
         let (mut t0, mut bytes0, mut recv0) = (Instant::now(), self.bytes_total.load(Ordering::Relaxed), self.frames_arrived.load(Ordering::Relaxed));
+        let mut shed0 = self.frames_shed.load(Ordering::Relaxed);
         let mut weak_streak = 0;
         let mut last_sent: Option<Instant> = None;
         let mut last_preview = Instant::now() - Duration::from_secs(1);
@@ -1294,21 +1302,24 @@ impl Shared {
                 let recv_now = self.frames_arrived.load(Ordering::Relaxed);
                 let arrival_fps = (recv_now - recv0) as f64 / secs;
                 *self.last_arrival_fps.lock().unwrap() = arrival_fps as f32;
-                self.status("fps", &format!("{arrival_fps:.1} fps  {src_w}x{src_h}"));
+                // What the steps took of them: frames dropped on the way in (a decoder or steps that can't keep up) don't count as keeping up
+                let shed_now = self.frames_shed.load(Ordering::Relaxed);
+                let delivered_fps = (recv_now - recv0).saturating_sub(shed_now - shed0) as f64 / secs;
+                self.status("fps", &format!("{delivered_fps:.1} fps  {src_w}x{src_h}"));
                 let bytes_now = self.bytes_total.load(Ordering::Relaxed);
                 let mbps = (bytes_now - bytes0) as f64 * 8.0 / secs / 1_000_000.0;
                 // Warn only if frames sustainedly arrive well under the target rate. A window that started while the
                 // phone was still settling says nothing about the link, and nothing at all is a dropped link.
                 let judged = self.settle.lock().unwrap().judges(t0);
-                let struggling = judged && arrival_fps > 0.0 && arrival_fps < fps as f64 * 0.85;
+                let struggling = judged && delivered_fps > 0.0 && delivered_fps < fps as f64 * 0.85;
                 weak_streak = if struggling { weak_streak + 1 } else { 0 };
                 let net_kind = if weak_streak >= 2 { "net_warn" } else { "net" };
-                watch.window(secs, arrival_fps as f32, mbps as f32, judged, &context);
-                telescope_core::perf::note_window(self.slot_number, telescope_core::time::monotonic_ns(), arrival_fps as f32, mbps as f32);
+                watch.window(secs, delivered_fps as f32, mbps as f32, judged, &context);
+                telescope_core::perf::note_window(self.slot_number, telescope_core::time::monotonic_ns(), delivered_fps as f32, mbps as f32);
                 // Once as the warning appears, so a copy of the diagnostics says which stage was the slow part
                 if weak_streak == 2 {
                     let probe = self.timing_probe.lock().unwrap().clone();
-                    let mut parts = vec![format!("Frames aren't keeping up ({arrival_fps:.1} of {fps} fps).")];
+                    let mut parts = vec![format!("Frames aren't keeping up ({delivered_fps:.1} of {fps} fps).")];
                     parts.extend(probe.and_then(|p| p()).map(|line| format!("{line}.")));
                     parts.extend(telescope_core::perf::stage_line());
                     parts.push(format!("In front: {}.", telescope_core::perf::foreground().label()));
@@ -1317,7 +1328,7 @@ impl Shared {
                 // Frames but no bytes means the reader can't tell
                 let counted = bytes_now > bytes0 || recv_now == recv0;
                 self.status(net_kind, &if counted { format!("{mbps:.1} Mbps") } else { "-".into() });
-                (t0, bytes0, recv0) = (Instant::now(), bytes_now, recv_now);
+                (t0, bytes0, recv0, shed0) = (Instant::now(), bytes_now, recv_now, shed_now);
             }
         }
         drop(cam);
@@ -1351,6 +1362,21 @@ fn decode_jpegs(decoder: &mut dyn Decoder, newest: &Newest<(u64, telescope_core:
                     return;
                 }
             }
+        }
+    }
+}
+
+/// The thread that runs the steps for H.264, which is told no more frames come and waited for when this goes.
+struct StepsThread {
+    newest: Arc<Newest<(u64, Frame)>>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+impl Drop for StepsThread {
+    fn drop(&mut self) {
+        self.newest.finish();
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
         }
     }
 }
@@ -2580,15 +2606,15 @@ mod tests {
         }
     }
 
-    /// A reader whose every picture takes 15 ms to decode, until stopped.
-    struct Paced(Arc<AtomicBool>);
+    /// A reader whose every picture takes this many ms to decode, until stopped.
+    struct Paced(Arc<AtomicBool>, u64);
 
     impl FrameReader for Paced {
         fn read(&mut self) -> Result<ReadFrame, FeedEnd> {
             if self.0.load(Ordering::SeqCst) {
                 return Err(FeedEnd::Stopped);
             }
-            std::thread::sleep(Duration::from_millis(15));
+            std::thread::sleep(Duration::from_millis(self.1));
             Ok(ReadFrame { frame: grey(4, 2, 1), bytes: 1, count: 1 })
         }
         fn stopper(&self) -> Box<dyn FeedStopper> {
@@ -2599,13 +2625,13 @@ mod tests {
         }
     }
 
-    /// Steps that take 15 ms a picture.
-    struct SlowStep;
+    /// Steps that take this many ms a picture.
+    struct SlowStep(u64);
 
     impl FramePipeline for SlowStep {
         fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
         fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
-            std::thread::sleep(Duration::from_millis(15));
+            std::thread::sleep(Duration::from_millis(self.0));
             frame
         }
         fn is_empty(&self) -> bool {
@@ -2613,7 +2639,8 @@ mod tests {
         }
     }
 
-    struct PacedMedia;
+    /// Decoding takes the first number of ms a picture, the steps the second.
+    struct PacedMedia(u64, u64);
 
     impl Media for PacedMedia {
         fn decoder(&self, codec: Codec, options: &DecodeOptions) -> Result<Box<dyn Decoder>, String> {
@@ -2623,10 +2650,10 @@ mod tests {
             FakeMedia.scaler()
         }
         fn frame_reader(&self, _feed: Box<dyn VideoFeed>, _decoder: Box<dyn Decoder>) -> Result<Box<dyn FrameReader>, String> {
-            Ok(Box::new(Paced(Arc::default())))
+            Ok(Box::new(Paced(Arc::default(), self.0)))
         }
         fn pipeline(&self) -> Result<Box<dyn FramePipeline>, String> {
-            Ok(Box::new(SlowStep))
+            Ok(Box::new(SlowStep(self.1)))
         }
     }
 
@@ -2637,7 +2664,7 @@ mod tests {
             Ok((Codec::H264, Box::new(feed) as Box<dyn VideoFeed>).into())
         });
         let (cams, log) = (Arc::new(Cams::default()), Log::default());
-        let w = start(setup(opener), Arc::new(PacedMedia), &cams, &log);
+        let w = start(setup(opener), Arc::new(PacedMedia(15, 15)), &cams, &log);
         wait_for(|| w.shared.slot.latest().is_some());
         let first = w.shared.slot.latest().unwrap().1;
         std::thread::sleep(Duration::from_millis(1200));
@@ -2646,6 +2673,96 @@ mod tests {
         println!("{made} pictures in 1.2 s");
         // One after the other, 15 + 15 ms a picture makes 40 of them; side by side they come every 15 ms, about 80
         assert!(made > 55, "decode and steps overlap: {made} pictures in 1.2 s");
+    }
+
+    /// Whether the stream warned that frames aren't keeping up, within 20 s.
+    fn warns(log: &Log) -> bool {
+        let until = Instant::now() + Duration::from_secs(20);
+        let warned = || log.lock().unwrap().iter().any(|e| matches!(e, WorkerEvent::Status(kind, _) if kind == "net_warn"));
+        while !warned() && Instant::now() < until {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        warned()
+    }
+
+    #[test]
+    fn frames_the_steps_cannot_keep_up_with_are_warned_about_though_they_arrive_on_time() {
+        // 200 pictures a second decoded, 20 a second through the steps
+        let opener: Opener = Arc::new(|_: &telescope_core::media::OpenStop| {
+            let feed = Script { steps: VecDeque::new(), stop: Arc::default(), gone: Arc::default() };
+            Ok((Codec::H264, Box::new(feed) as Box<dyn VideoFeed>).into())
+        });
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = start(setup(opener), Arc::new(PacedMedia(5, 50)), &cams, &log);
+        let warned = warns(&log);
+        let arrived = w.shared.frames_arrived.load(Ordering::SeqCst);
+        w.stop();
+        assert!(arrived > 300, "frames did arrive fast: {arrived}");
+        assert!(warned, "slow steps are a stream that can't keep up");
+    }
+
+    #[test]
+    fn jpegs_the_steps_cannot_keep_up_with_are_warned_about_too() {
+        let opener: Opener = Arc::new(|_| {
+            Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }) as Box<dyn VideoFeed>).into())
+        });
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = start(setup(opener), Arc::new(PacedMedia(0, 50)), &cams, &log);
+        let warned = warns(&log);
+        w.stop();
+        assert!(warned, "slow steps are a stream that can't keep up");
+    }
+
+    #[test]
+    fn a_fast_stream_through_fast_steps_is_not_warned_about() {
+        let opener: Opener = Arc::new(|_: &telescope_core::media::OpenStop| {
+            let feed = Script { steps: VecDeque::new(), stop: Arc::default(), gone: Arc::default() };
+            Ok((Codec::H264, Box::new(feed) as Box<dyn VideoFeed>).into())
+        });
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = start(setup(opener), Arc::new(PacedMedia(10, 5)), &cams, &log);
+        std::thread::sleep(Duration::from_secs(9));
+        w.stop();
+        assert!(!log.lock().unwrap().iter().any(|e| matches!(e, WorkerEvent::Status(kind, _) if kind == "net_warn")));
+    }
+
+    /// A reader that gives a few pictures and then panics.
+    struct Panics(u8);
+
+    impl FrameReader for Panics {
+        fn read(&mut self) -> Result<ReadFrame, FeedEnd> {
+            assert!(self.0 > 0, "the reader broke");
+            self.0 -= 1;
+            std::thread::sleep(Duration::from_millis(5));
+            Ok(ReadFrame { frame: grey(4, 2, 1), bytes: 1, count: 1 })
+        }
+        fn stopper(&self) -> Box<dyn FeedStopper> {
+            Box::new(Stop(Arc::default()))
+        }
+        fn hardware(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn a_reader_that_panics_leaves_no_steps_thread_behind() {
+        let opener: Opener = Arc::new(|_: &telescope_core::media::OpenStop| {
+            let feed = Script { steps: VecDeque::new(), stop: Arc::default(), gone: Arc::default() };
+            Ok((Codec::H264, Box::new(feed) as Box<dyn VideoFeed>).into())
+        });
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = start(setup(opener), Arc::new(PacedMedia(1, 1)), &cams, &log);
+        wait_for(|| w.shared.slot.latest().is_some());
+        w.stop();
+        let holders = Arc::strong_count(&w.shared);
+        // The worker is stopped, so read_h264 is called by hand on its state
+        w.shared.stop.store(false, Ordering::SeqCst);
+        let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| w.shared.read_h264(&mut Panics(5))));
+        assert!(caught.is_err(), "the panic goes on up");
+        assert_eq!(Arc::strong_count(&w.shared), holders, "the steps thread has ended and let go");
+        let published = *w.shared.published.lock().unwrap();
+        std::thread::sleep(Duration::from_millis(50));
+        assert_eq!(*w.shared.published.lock().unwrap(), published, "and nothing is published after");
     }
 
     #[test]
