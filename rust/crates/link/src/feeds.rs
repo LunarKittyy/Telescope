@@ -89,9 +89,16 @@ impl VideoFeed for H264Feed {
 pub struct MjpegFeed {
     resp: Box<dyn Read + Send>,
     boundary: Vec<u8>,
+    /// What has arrived, of which everything before `pos` has been handed on.
     buf: Vec<u8>,
+    pos: usize,
+    /// Where a read lands before it joins buf; kept between reads so none asks for a fresh vector the size of what's left of the picture.
+    scratch: Vec<u8>,
     stop: StopHandle,
 }
+
+/// The most one read asks for, however much of the picture is left.
+const MAX_READ: usize = 256 * 1024;
 
 impl MjpegFeed {
     pub fn open(url: &str, auth: &PhoneAuth, timeout: Duration, stop: StopHandle) -> Result<MjpegFeed, String> {
@@ -103,25 +110,33 @@ impl MjpegFeed {
     }
 
     pub fn from_reader(resp: Box<dyn Read + Send>, boundary: Vec<u8>, stop: StopHandle) -> MjpegFeed {
-        MjpegFeed { resp, boundary, buf: Vec::new(), stop }
+        MjpegFeed { resp, boundary, buf: Vec::new(), pos: 0, scratch: Vec::new(), stop }
+    }
+
+    /// What has arrived and not been handed on.
+    fn unread(&self) -> &[u8] {
+        &self.buf[self.pos..]
     }
 
     /// Whatever has arrived, at most n bytes; false at the end.
     fn recv(&mut self, n: usize) -> std::io::Result<bool> {
-        let mut chunk = vec![0u8; n];
-        let got = self.resp.read(&mut chunk)?;
-        self.buf.extend_from_slice(&chunk[..got]);
+        let n = n.min(MAX_READ);
+        if self.scratch.len() < n {
+            self.scratch.resize(n, 0);
+        }
+        let got = self.resp.read(&mut self.scratch[..n])?;
+        self.buf.extend_from_slice(&self.scratch[..got]);
         Ok(got > 0)
     }
 
     fn read_line(&mut self) -> std::io::Result<Option<Vec<u8>>> {
         loop {
-            if let Some(i) = self.buf.windows(2).position(|w| w == b"\r\n") {
-                let line = self.buf[..i].to_vec();
-                self.buf.drain(..i + 2);
+            if let Some(i) = self.unread().windows(2).position(|w| w == b"\r\n") {
+                let line = self.unread()[..i].to_vec();
+                self.pos += i + 2;
                 return Ok(Some(line));
             }
-            if self.buf.len() > MAX_PART_HEADER_BYTES || !self.recv(MJPEG_CHUNK)? {
+            if self.unread().len() > MAX_PART_HEADER_BYTES || !self.recv(MJPEG_CHUNK)? {
                 return Ok(None);
             }
         }
@@ -129,6 +144,9 @@ impl MjpegFeed {
 
     /// The next part's JPEG, or None when the stream ends or breaks the rules.
     pub fn read_part(&mut self) -> std::io::Result<Option<Vec<u8>>> {
+        // What the last part left behind (its CRLF and a little of what follows) moves to the front, once a part rather than once a line
+        self.buf.drain(..self.pos);
+        self.pos = 0;
         loop {
             let Some(line) = self.read_line()? else { return Ok(None) };
             let stripped = line.trim_ascii();
@@ -147,14 +165,16 @@ impl MjpegFeed {
             }
         }
         let Some(length) = length.filter(|n| *n > 0 && *n as usize <= MAX_FRAME_BYTES).map(|n| n as usize) else { return Ok(None) };
-        while self.buf.len() < length {
-            let want = (length - self.buf.len()).max(MJPEG_CHUNK);
+        while self.unread().len() < length {
+            let want = (length - self.unread().len()).max(MJPEG_CHUNK);
             if !self.recv(want)? {
                 return Ok(None);
             }
         }
         // The part's trailing CRLF is left for the next boundary scan, which skips it as an empty line
-        Ok(Some(self.buf.drain(..length).collect()))
+        let part = self.unread()[..length].to_vec();
+        self.pos += length;
+        Ok(Some(part))
     }
 }
 
@@ -404,5 +424,207 @@ mod tests {
         let started = std::time::Instant::now();
         assert!(open_feed_stoppable(&url, &PhoneAuth::new("t", ""), Duration::from_secs(30), &open).is_err());
         assert!(started.elapsed() < Duration::from_secs(5));
+    }
+}
+
+#[cfg(test)]
+mod mjpeg_bench {
+    use super::*;
+    use std::time::Instant;
+
+    /// A reader that gives at most `cap` bytes a read, as TLS and a socket do.
+    struct Capped {
+        data: Vec<u8>,
+        at: usize,
+        cap: usize,
+    }
+
+    impl Read for Capped {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            let n = buf.len().min(self.cap).min(self.data.len() - self.at);
+            buf[..n].copy_from_slice(&self.data[self.at..self.at + n]);
+            self.at += n;
+            Ok(n)
+        }
+    }
+
+    fn stream(frames: usize, size: usize) -> Vec<u8> {
+        let mut out = Vec::new();
+        for f in 0..frames {
+            let jpeg: Vec<u8> = (0..size).map(|i| (i.wrapping_mul(31).wrapping_add(f)) as u8).collect();
+            out.extend(format!("--frame\r\nContent-Type: image/jpeg\r\nContent-Length: {}\r\n\r\n", jpeg.len()).into_bytes());
+            out.extend(jpeg);
+            out.extend(b"\r\n");
+        }
+        out
+    }
+
+    #[test]
+    #[ignore = "timed: cargo test -p telescope-link --release mjpeg_bench -- --ignored --nocapture"]
+    fn multipart_parsing_time_by_picture_size_and_read_size() {
+        let frames = 100;
+        for (name, size) in [("1080p JPEG 400 KB", 400_000), ("4K JPEG 1.6 MB", 1_600_000)] {
+            let data = stream(frames, size);
+            for cap in [4096, 16 * 1024, 64 * 1024] {
+                let best = (0..5).map(|_| {
+                    let mut feed = MjpegFeed::from_reader(Box::new(Capped { data: data.clone(), at: 0, cap }), b"--frame".to_vec(), StopHandle::default());
+                    let began = Instant::now();
+                    let mut n = 0;
+                    while feed.read().is_ok() {
+                        n += 1;
+                    }
+                    assert_eq!(n, frames);
+                    began.elapsed().as_secs_f64() * 1e3 / frames as f64
+                }).fold(f64::MAX, f64::min);
+                println!("{name:<20} reads of {:>2} KiB: {best:.3} ms a picture", cap / 1024);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod mjpeg_same {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    /// Gives at most a seeded random few bytes a read, and counts the reads.
+    struct Choppy {
+        data: Vec<u8>,
+        at: usize,
+        seed: u64,
+        max: usize,
+        reads: Arc<AtomicUsize>,
+    }
+
+    impl Read for Choppy {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            self.reads.fetch_add(1, Ordering::SeqCst);
+            self.seed = self.seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            let cap = 1 + (self.seed >> 33) as usize % self.max;
+            let n = buf.len().min(cap).min(self.data.len() - self.at);
+            buf[..n].copy_from_slice(&self.data[self.at..self.at + n]);
+            self.at += n;
+            Ok(n)
+        }
+    }
+
+    /// The parser as it was before it kept one buffer with a cursor: a vector for every read and a drain from the front for every line and part.
+    struct Old {
+        resp: Box<dyn Read + Send>,
+        boundary: Vec<u8>,
+        buf: Vec<u8>,
+    }
+
+    impl Old {
+        fn recv(&mut self, n: usize) -> std::io::Result<bool> {
+            let mut chunk = vec![0u8; n];
+            let got = self.resp.read(&mut chunk)?;
+            self.buf.extend_from_slice(&chunk[..got]);
+            Ok(got > 0)
+        }
+
+        fn read_line(&mut self) -> std::io::Result<Option<Vec<u8>>> {
+            loop {
+                if let Some(i) = self.buf.windows(2).position(|w| w == b"\r\n") {
+                    let line = self.buf[..i].to_vec();
+                    self.buf.drain(..i + 2);
+                    return Ok(Some(line));
+                }
+                if self.buf.len() > MAX_PART_HEADER_BYTES || !self.recv(MJPEG_CHUNK)? {
+                    return Ok(None);
+                }
+            }
+        }
+
+        fn read_part(&mut self) -> std::io::Result<Option<Vec<u8>>> {
+            loop {
+                let Some(line) = self.read_line()? else { return Ok(None) };
+                let stripped = line.trim_ascii();
+                if stripped == self.boundary.as_slice() || stripped == [self.boundary.as_slice(), b"--"].concat().as_slice() {
+                    break;
+                }
+            }
+            let mut length: Option<i64> = None;
+            loop {
+                let Some(line) = self.read_line()? else { return Ok(None) };
+                if line.is_empty() {
+                    break;
+                }
+                if line.to_ascii_lowercase().starts_with(b"content-length:") {
+                    length = std::str::from_utf8(&line[15..]).ok().and_then(|v| v.trim().parse().ok());
+                }
+            }
+            let Some(length) = length.filter(|n| *n > 0 && *n as usize <= MAX_FRAME_BYTES).map(|n| n as usize) else { return Ok(None) };
+            while self.buf.len() < length {
+                let want = (length - self.buf.len()).max(MJPEG_CHUNK);
+                if !self.recv(want)? {
+                    return Ok(None);
+                }
+            }
+            Ok(Some(self.buf.drain(..length).collect()))
+        }
+    }
+
+    /// A stream with every kind of part and mess in it, from a seed.
+    fn stream(seed: u64) -> Vec<u8> {
+        let mut s = seed;
+        let mut next = move |n: usize| {
+            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            (s >> 33) as usize % n
+        };
+        let mut out = Vec::new();
+        for _ in 0..(3 + next(6)) {
+            match next(10) {
+                // Junk before the boundary, and a part with no length
+                0 => out.extend(b"preamble\r\nmore\r\n"),
+                1 => out.extend(b"--frame\r\nContent-Type: image/jpeg\r\n\r\n"),
+                // A part whose headers are huge
+                2 => out.extend(format!("--frame\r\nX-Pad: {}\r\n\r\n", "x".repeat(5000)).into_bytes()),
+                _ => {
+                    let size = 1 + next(30_000);
+                    let jpeg: Vec<u8> = (0..size).map(|i| (i * 7 + size) as u8).collect();
+                    out.extend(format!("--frame\r\nContent-Type: image/jpeg\r\nContent-Length: {size}\r\n\r\n").into_bytes());
+                    out.extend(jpeg);
+                    out.extend(b"\r\n");
+                }
+            }
+        }
+        // Sometimes the end is cut short
+        if next(3) == 0 {
+            let cut = out.len() - next(out.len().min(2000));
+            out.truncate(cut);
+        }
+        out
+    }
+
+    fn parts<F: FnMut() -> std::io::Result<Option<Vec<u8>>>>(mut read: F) -> Vec<Option<Vec<u8>>> {
+        let mut got = Vec::new();
+        while let Ok(part) = read() {
+            let end = part.is_none();
+            got.push(part);
+            if end {
+                break;
+            }
+        }
+        got
+    }
+
+    #[test]
+    fn the_parts_and_the_reads_made_are_the_same_as_before_for_any_stream_and_read_size() {
+        let mut seen = 0;
+        for seed in 0..300u64 {
+            let data = stream(seed);
+            for max in [1usize, 7, 4096, 5000, 65_536] {
+                let (old_reads, new_reads) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicUsize::new(0)));
+                let choppy = |reads: &Arc<AtomicUsize>| Choppy { data: data.clone(), at: 0, seed, max, reads: reads.clone() };
+                let mut old = Old { resp: Box::new(choppy(&old_reads)), boundary: b"--frame".to_vec(), buf: Vec::new() };
+                let mut new = MjpegFeed::from_reader(Box::new(choppy(&new_reads)), b"--frame".to_vec(), StopHandle::default());
+                let (a, b) = (parts(|| old.read_part()), parts(|| new.read_part()));
+                assert_eq!(a, b, "seed {seed}, reads of up to {max}");
+                assert_eq!(old_reads.load(Ordering::SeqCst), new_reads.load(Ordering::SeqCst), "seed {seed}, reads of up to {max}");
+                seen += a.iter().flatten().count();
+            }
+        }
+        assert!(seen > 1000, "{seen}");
     }
 }
