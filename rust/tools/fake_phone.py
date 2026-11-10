@@ -565,7 +565,7 @@ def main():
     res = args.res or ("1080" if args.video_file or (args.heavy and not args.jpegs) else None)
     source = args.video_file
     clip = args.clip
-    if (source or res) and not (args.heavy and args.jpegs):
+    if (source or (res and not clip)) and not (args.heavy and args.jpegs):
         clip = prepare_clip(source, res, args.fps, args.clip_seconds)
     jpegs = None
     if args.heavy and args.jpegs:
