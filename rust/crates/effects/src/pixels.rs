@@ -1,7 +1,7 @@
 //! Frames as plain RGB, for Desk mode.
 
 use telescope_core::frame::{Frame, PixelFormat};
-use telescope_core::image::rgb_to_420;
+use telescope_core::image::{rgb_to_420, spare_bytes};
 
 pub use telescope_core::image::frame_rgb as to_rgb;
 
@@ -9,13 +9,18 @@ pub use telescope_core::image::frame_rgb as to_rgb;
 pub fn put_rgb(frame: &mut Frame, rgb: &[u8]) {
     let (w, h) = (frame.width as usize, frame.height as usize);
     let format = frame.format;
-    let data = frame.data_mut();
-    match format {
-        PixelFormat::Rgba => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(d, p)| d[..3].copy_from_slice(p)),
-        PixelFormat::Bgra => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(d, p)| d[..3].copy_from_slice(&[p[2], p[1], p[0]])),
-        PixelFormat::I420 | PixelFormat::Nv12 => rgb_to_420(rgb, w, h, data, format == PixelFormat::Nv12),
-        _ => {}
+    if rgb.len() < w * h * 3 || !matches!(format, PixelFormat::Rgba | PixelFormat::Bgra | PixelFormat::I420 | PixelFormat::Nv12) {
+        return;
     }
+    // Written whole into a spare buffer that then replaces the pixels, so a panic leaves the frame as it was
+    let mut out = spare_bytes(format.size(frame.width, frame.height));
+    match format {
+        // The alpha stays what the picture had
+        PixelFormat::Rgba => out.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).zip(frame.data.as_chunks::<4>().0).for_each(|((d, p), old)| *d = [p[0], p[1], p[2], old[3]]),
+        PixelFormat::Bgra => out.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).zip(frame.data.as_chunks::<4>().0).for_each(|((d, p), old)| *d = [p[2], p[1], p[0], old[3]]),
+        _ => rgb_to_420(rgb, w, h, &mut out, format == PixelFormat::Nv12),
+    }
+    frame.replace_data(out);
 }
 
 #[cfg(test)]
