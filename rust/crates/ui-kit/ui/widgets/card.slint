@@ -320,7 +320,8 @@ export component Card inherits Rectangle {
         Tips.dismiss();
         if (folded) {
             fold-title.take-focus();
-            Grip.leave(rows.absolute-position.x, rows.absolute-position.y, rows.width, rows.height);
+            // Rows that snap shut are gone before they can be measured, so what is under their top edge goes with them
+            Grip.leave(rows.absolute-position.x, rows.absolute-position.y, rows.width, !by-person ? 100000px : rows.height);
         }
     }
     // dim_until_paired's setEnabled(False): over the rows and outside the layout, so it takes no row of its own. The
@@ -554,7 +555,8 @@ export component Section inherits VerticalLayout {
         Tips.dismiss();
         if (folded) {
             section-title.take-focus();
-            Grip.leave(rows.absolute-position.x, rows.absolute-position.y, rows.width, rows.height);
+            // Rows that snap shut are gone before they can be measured, so what is under their top edge goes with them
+            Grip.leave(rows.absolute-position.x, rows.absolute-position.y, rows.width, !by-person ? 100000px : rows.height);
         }
     }
     // A person's fold (a click or a key, both the same) glides; state that came from somewhere else (loaded when the window is built, a plugin

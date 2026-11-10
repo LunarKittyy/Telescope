@@ -33,7 +33,8 @@ export component Unfolding inherits Rectangle {
     changed open => {
         if (!open) {
             Tips.dismiss();
-            Grip.leave(rows.absolute-position.x, rows.absolute-position.y, rows.width, rows.height);
+            // Rows that snap shut are gone before they can be measured, so what is under their top edge goes with them
+            Grip.leave(rows.absolute-position.x, rows.absolute-position.y, rows.width, snap ? 100000px : rows.height);
         }
     }
     min-height: 0px;
@@ -99,7 +100,8 @@ export component Page inherits Rectangle {
     changed shown => {
         if (!shown) {
             Tips.dismiss();
-            Grip.leave(rows.absolute-position.x, rows.absolute-position.y, rows.width, rows.height);
+            // Rows that snap shut are gone before they can be measured, so what is under their top edge goes with them
+            Grip.leave(rows.absolute-position.x, rows.absolute-position.y, rows.width, snap ? 100000px : rows.height);
         }
     }
     min-height: 0px;
