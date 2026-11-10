@@ -569,3 +569,89 @@ fn a_page_that_is_leaving_takes_no_clicks_and_the_one_that_comes_takes_them() {
     assert_eq!(num(&ui, "b-clicks"), 1.0);
     assert!(num(&ui, "a-clicks") > 0.0, "the page that came answers once it is up");
 }
+
+const KEYED_PAGES: &str = r#"
+import { PageGroup, Page, Theme } from "@ui-kit/ui-kit.slint";
+export component T inherits Window {
+    width: 200px;
+    height: 160px;
+    background: Theme.card;
+    in property <int> tab: 0;
+    out property <int> a-keys;
+    out property <int> b-keys;
+    out property <float> a-value: a.value;
+    out property <bool> a-focused: af.has-focus;
+    PageGroup {
+        x: 0px;
+        y: 0px;
+        width: 200px;
+        clip: a.moving || b.moving;
+        a := Page { shown: tab == 0; lead: 0px; Rectangle { height: 40px; af := FocusScope { key-pressed(e) => { a-keys += 1; accept } } } }
+        b := Page { shown: tab == 1; lead: 0px; Rectangle { height: 40px; bf := FocusScope { key-pressed(e) => { b-keys += 1; accept } } } }
+    }
+}
+"#;
+
+const KEYED_ROWS: &str = r#"
+import { Unfolding, UnfoldGroup, Theme } from "@ui-kit/ui-kit.slint";
+export component T inherits Window {
+    width: 200px;
+    height: 80px;
+    background: Theme.card;
+    in property <bool> more: true;
+    out property <int> u-keys;
+    out property <float> u-value: u.value;
+    UnfoldGroup {
+        x: 0px;
+        y: 0px;
+        width: 200px;
+        u := Unfolding { open: more; lead: 0px; Rectangle { height: 40px; uf := FocusScope { key-pressed(e) => { u-keys += 1; accept } } } }
+    }
+}
+"#;
+
+#[test]
+fn a_page_that_is_leaving_takes_no_keys_while_it_still_fades() {
+    let _still = offscreen::freeze_clock();
+    let ui = make(KEYED_PAGES, 200.0, 160.0);
+    step(800);
+    key(&ui, Key::Tab);
+    assert!(truth(&ui, "a-focused"), "Tab lands on the first page's control, so the wrappers add no stop");
+    space(&ui);
+    assert_eq!(num(&ui, "a-keys"), 1.0);
+    set(&ui, "tab", Value::Number(1.0));
+    step(FRAME);
+    assert!(num(&ui, "a-value") > 0.5 && num(&ui, "a-value") < 1.0, "still fading at {}", num(&ui, "a-value"));
+    space(&ui);
+    assert_eq!(num(&ui, "a-keys"), 1.0, "a key to the page that is going does nothing");
+    // Going back, the page takes its keys again
+    set(&ui, "tab", Value::Number(0.0));
+    step(800);
+    space(&ui);
+    assert_eq!(num(&ui, "a-keys"), 2.0);
+}
+
+#[test]
+fn rows_that_are_folding_away_take_no_keys_either() {
+    let _still = offscreen::freeze_clock();
+    let ui = make(KEYED_ROWS, 200.0, 80.0);
+    step(800);
+    key(&ui, Key::Tab);
+    space(&ui);
+    assert_eq!(num(&ui, "u-keys"), 1.0, "the row is the one stop");
+    set(&ui, "more", Value::Bool(false));
+    step(FRAME);
+    assert!(num(&ui, "u-value") > 0.0 && num(&ui, "u-value") < 1.0);
+    space(&ui);
+    assert_eq!(num(&ui, "u-keys"), 1.0);
+}
+
+fn truth(ui: &slint_interpreter::ComponentInstance, name: &str) -> bool {
+    matches!(ui.get_property(name).unwrap(), Value::Bool(true))
+}
+
+fn space(ui: &slint_interpreter::ComponentInstance) {
+    let text: slint::SharedString = " ".into();
+    ui.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+    ui.window().dispatch_event(WindowEvent::KeyReleased { text });
+}
