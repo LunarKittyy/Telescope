@@ -8,7 +8,9 @@
 //! Two limits keep that queue from turning a slow decoder into seconds of delay. Both only ever drop whole packets up to a keyframe, so what the
 //! decoder is given next always decodes cleanly:
 //! - age: once the oldest packet has waited STALE_AFTER, everything before the newest keyframe in the queue is dropped (by whichever thread notices
-//!   first). With no keyframe in the queue the feed is asked for one (about once a second) and the queue carries on as it was until it comes.
+//!   first). With no keyframe in the queue the feed is asked for one (about once a second, then less often while it stays unanswered) and the queue
+//!   carries on as it was until it comes. Nothing is dropped before the first picture is out (the stream's setup may be what's waiting), nor from a
+//!   feed whose packets are slices of a byte stream (packetized).
 //! - size: a queue holding MAX_QUEUED_BYTES makes the feed-reader thread stop reading until it drains, as the connection pushing back, unless the
 //!   feed took a keyframe request, which gets room to wait for the keyframe.
 
@@ -32,8 +34,10 @@ const MAX_QUEUED_BYTES: u64 = 4 * 1024 * 1024;
 /// The same once the feed has been asked for a keyframe, which is on its way and has to be read to be of any use.
 const MAX_QUEUED_BYTES_ASKED: u64 = 16 * 1024 * 1024;
 
-/// How often a feed is asked for a keyframe while the queue is stale and holds none.
+/// How often a feed is asked for a keyframe while the queue is stale and holds none, and how far that backs off while the asks go unanswered (a
+/// phone on intra refresh has no IDR to give).
 const KEY_ASK_EVERY: Duration = Duration::from_secs(1);
+const KEY_ASK_BACKOFF: Duration = Duration::from_secs(5);
 
 /// The longest a decoded picture waits to be shown, whatever the feed says.
 const MAX_HOLD: Duration = Duration::from_millis(250);
@@ -58,6 +62,8 @@ struct Queue {
     dropped_bytes: u64,
     /// The queue is stale and has no keyframe to go to: the feed-reader thread asks for one.
     want_key: bool,
+    /// A picture has come out of the decoder, so what's queued is no longer what its setup waits for (a TCP phone sends its SPS and PPS once).
+    shown: bool,
 }
 
 impl Queue {
@@ -69,7 +75,7 @@ impl Queue {
     /// Drops what has waited too long, up to the newest keyframe behind it (a keyframe in front has nothing to drop up to).
     fn trim(&mut self, now: Instant, stale_after: Duration) {
         let Some(oldest) = self.packets.front() else { return };
-        if now.saturating_duration_since(oldest.at) < stale_after {
+        if !self.shown || now.saturating_duration_since(oldest.at) < stale_after {
             return;
         }
         let Some(key) = self.packets.iter().rposition(|q| q.key).filter(|&i| i > 0) else {
@@ -123,6 +129,8 @@ pub struct Reader {
     max_bytes: u64,
     pending_bytes: u64,
     pending_frames: u32,
+    /// A picture has been returned (Queue::shown).
+    shown: bool,
 }
 
 /// Ends the feed's blocked read, for however many copies of it are asked for.
@@ -150,11 +158,13 @@ impl Reader {
         let g = gone.clone();
         // What the feed drops on its own thread (UDP giving up on a frame) counts for the stream that opened it
         let counting = telescope_core::stats::current();
+        // Made here, so a thread that can't start still ends the queue when its closure is dropped
+        let ends = Ender(shared.clone());
         let spawned = std::thread::Builder::new().name("feed-reader".into()).spawn(move || {
+            let _ends = ends;
             let _counting = counting.as_ref().map(telescope_core::stats::bind);
             let _priority = telescope_core::system::prioritise_thread("frame receive");
-            let _ends = Ender(sh.clone());
-            let (mut last_ask, mut can_ask) = (None::<Instant>, false);
+            let (mut last_ask, mut can_ask, mut ask_every) = (None::<Instant>, false, KEY_ASK_EVERY);
             loop {
                 for _ in 0..d.swap(0, Ordering::Relaxed) {
                     feed.decoded();
@@ -168,9 +178,11 @@ impl Reader {
                     let limit = if can_ask { MAX_QUEUED_BYTES_ASKED } else { MAX_QUEUED_BYTES };
                     (q.bytes > limit, std::mem::take(&mut q.want_key))
                 };
-                if ask && last_ask.is_none_or(|t| t.elapsed() >= KEY_ASK_EVERY) {
+                if ask && last_ask.is_none_or(|t| t.elapsed() >= ask_every) {
                     last_ask = Some(Instant::now());
-                    can_ask |= feed.request_keyframe();
+                    can_ask = feed.request_keyframe();
+                    // An ask that goes unanswered is made less often
+                    ask_every = (ask_every * 2).min(KEY_ASK_BACKOFF);
                 }
                 if full {
                     std::thread::sleep(Duration::from_millis(2));
@@ -179,7 +191,13 @@ impl Reader {
                 let read = feed.read();
                 match read {
                     Ok(packet) => {
-                        let (key, show_at_ns) = (feed.is_keyframe(&packet.data), feed.show_at_ns());
+                        // Slices of a byte stream have no keyframes to land on: cut anywhere, they cut a picture in half
+                        let key = feed.packetized() && feed.is_keyframe(&packet.data);
+                        let show_at_ns = feed.show_at_ns();
+                        if key {
+                            // The one it asked for (or the phone's own) is here: no more room to wait for it, and asks start over
+                            (can_ask, ask_every) = (false, KEY_ASK_EVERY);
+                        }
                         let mut q = sh.lock();
                         q.push(Queued { packet, at: Instant::now(), key, show_at_ns });
                         q.trim(Instant::now(), sh.stale_after);
@@ -197,7 +215,7 @@ impl Reader {
         if let Err(e) = spawned {
             log::error!("Couldn't start the thread that reads the stream: {e}");
         }
-        Reader { shared, decoded, decoded_flag, skipped, stop, gone, decoder, max_bytes: MAX_BYTES_WITHOUT_FRAME, pending_bytes: 0, pending_frames: 0 }
+        Reader { shared, decoded, decoded_flag, skipped, stop, gone, decoder, max_bytes: MAX_BYTES_WITHOUT_FRAME, pending_bytes: 0, pending_frames: 0, shown: false }
     }
 
     /// The next packet read, waiting for one; the end of the feed once the thread has gone.
@@ -247,6 +265,10 @@ impl FrameReader for Reader {
                 telescope_core::stats::note_drop(DropReason::WaitingForKeyframe, skipped as u64);
             }
             if let Some(frame) = decoded.newest {
+                if !self.shown {
+                    self.shown = true;
+                    self.shared.lock().shown = true;
+                }
                 match &self.decoded_flag {
                     Some(flag) => flag.store(true, Ordering::SeqCst),
                     None => {
@@ -678,21 +700,26 @@ mod age_tests {
         }
     }
 
-    /// Notes which packets it was given and when, and sits on the first for `stall`.
+    /// Notes which packets it was given and when, and sits on the `stall_at`th for `stall`. Packets numbered below `silent_until` give no picture.
     struct Logging {
         got: Arc<Mutex<Vec<(u8, Instant)>>>,
         stall: Duration,
+        stall_at: usize,
+        silent_until: u8,
     }
 
     impl Decoder for Logging {
         fn decode(&mut self, packet: &Packet) -> Decoded {
-            let first = {
+            let stalls = {
                 let mut got = self.got.lock().unwrap();
                 got.push((packet.data[5], Instant::now()));
-                got.len() == 1
+                got.len() == self.stall_at
             };
-            if first {
+            if stalls {
                 std::thread::sleep(self.stall);
+            }
+            if packet.data[5] < self.silent_until {
+                return Decoded { newest: None, count: 0 };
             }
             Decoded { newest: Some(Frame::new(2, 2, PixelFormat::I420, vec![0; 6])), count: 1 }
         }
@@ -701,9 +728,10 @@ mod age_tests {
         }
     }
 
+    /// Stalls on its second packet, after the first has given a picture (what's queued is only dropped once the stream is showing).
     fn logging(stall: Duration) -> (Logging, Arc<Mutex<Vec<(u8, Instant)>>>) {
         let got = Arc::new(Mutex::new(Vec::new()));
-        (Logging { got: got.clone(), stall }, got)
+        (Logging { got: got.clone(), stall, stall_at: 2, silent_until: 0 }, got)
     }
 
     fn ids(got: &Mutex<Vec<(u8, Instant)>>) -> Vec<u8> {
@@ -722,8 +750,8 @@ mod age_tests {
             bytes += f.bytes;
             count += f.count;
         }
-        // Packets 1 to 3 waited out the stall and lead to nothing a decoder could start from but the keyframe after them
-        assert_eq!(ids(&got), [0, 4, 5, 6]);
+        // Packets 2 and 3 waited out the stall and lead to nothing a decoder could start from but the keyframe after them
+        assert_eq!(ids(&got), [0, 1, 4, 5, 6]);
         assert_eq!((bytes, count), (total, 7));
     }
 
@@ -737,20 +765,58 @@ mod age_tests {
         while r.read().is_ok() {}
         assert_eq!(asked.load(Ordering::SeqCst), 1);
         // Nothing was dropped without a keyframe to land on, and the one that came ended the backlog
-        let got = ids(&got);
-        assert_eq!(got.first(), Some(&0));
-        assert_eq!(got.last(), Some(&99));
-        assert_eq!(got.len(), 2, "{got:?}");
+        assert_eq!(ids(&got), [0, 1, 99]);
+    }
+
+    #[test]
+    fn nothing_is_dropped_before_the_first_picture_is_out() {
+        // A TCP phone sends its SPS and PPS once: a decoder that was slow to start (or got only those so far) must still be given them
+        let packets: Vec<Packet> = (0..7).map(|i| packet(i, i == 0 || i == 4)).collect();
+        let (feed, _) = Scripted::new(packets, vec![], Duration::ZERO);
+        let (mut decoder, got) = logging(Duration::from_millis(400));
+        (decoder.stall_at, decoder.silent_until) = (1, 4);
+        let mut r = Reader::with_budget(Box::new(feed), Box::new(decoder), Duration::from_millis(150));
+        while r.read().is_ok() {}
+        assert_eq!(ids(&got), [0, 1, 2, 3, 4, 5, 6]);
+    }
+
+    #[test]
+    fn a_feed_of_byte_stream_slices_is_never_cut_up_to_a_keyframe() {
+        struct Slices(Scripted);
+        impl VideoFeed for Slices {
+            fn read(&mut self) -> Result<Packet, FeedEnd> {
+                self.0.read()
+            }
+            fn stopper(&self) -> Box<dyn FeedStopper> {
+                Box::new(NoStop)
+            }
+            fn packetized(&self) -> bool {
+                false
+            }
+        }
+        let packets: Vec<Packet> = (0..7).map(|i| packet(i, i == 0 || i == 4)).collect();
+        let (feed, _) = Scripted::new(packets, vec![], Duration::ZERO);
+        let (decoder, got) = logging(Duration::from_millis(400));
+        let mut r = Reader::with_budget(Box::new(Slices(feed)), Box::new(decoder), Duration::from_millis(150));
+        while r.read().is_ok() {}
+        assert_eq!(ids(&got), [0, 1, 2, 3, 4, 5, 6]);
+    }
+
+    #[test]
+    fn a_sequence_parameter_set_counts_as_a_place_to_start() {
+        let (feed, _) = Scripted::new(vec![], vec![], Duration::ZERO);
+        assert!(feed.is_keyframe(&[0, 0, 0, 1, 0x67, 1, 2]) && feed.is_keyframe(&[9, 0, 0, 1, 0x65, 1]));
+        assert!(!feed.is_keyframe(&[0, 0, 0, 1, 0x41, 1, 2]));
     }
 
     #[test]
     fn a_keyframe_in_front_has_nothing_to_drop_up_to() {
-        let packets: Vec<Packet> = (0..5).map(|i| packet(i, i == 1)).collect();
+        let packets: Vec<Packet> = (0..5).map(|i| packet(i, i == 2)).collect();
         let (feed, _) = Scripted::new(packets, vec![], Duration::ZERO);
         let (decoder, got) = logging(Duration::from_millis(400));
         let mut r = Reader::with_budget(Box::new(feed), Box::new(decoder), Duration::from_millis(150));
         while r.read().is_ok() {}
-        // Packet 0 went in front of the stall; the keyframe is the front of what's left, with delta frames only behind it
+        // Packet 1 went in front of the stall; the keyframe is the front of what's left, with delta frames only behind it
         assert_eq!(ids(&got), [0, 1, 2, 3, 4]);
     }
 
@@ -758,14 +824,15 @@ mod age_tests {
     fn a_picture_is_decoded_at_once_and_shown_when_the_feed_wants_it() {
         let (mut feed, _) = Scripted::new(vec![packet(0, true)], vec![], Duration::ZERO);
         let began = Instant::now();
-        feed.show_first_at = Some(telescope_core::time::monotonic_ns() + 150_000_000);
+        feed.show_first_at = Some(telescope_core::time::monotonic_ns() + 240_000_000);
         let (decoder, got) = logging(Duration::ZERO);
         let mut r = Reader::new(Box::new(feed), Box::new(decoder));
         assert!(r.read().is_ok());
         let shown = began.elapsed();
         let decoded_at = got.lock().unwrap()[0].1.duration_since(began);
-        assert!(decoded_at < Duration::from_millis(100), "{decoded_at:?}");
-        assert!(shown >= Duration::from_millis(140), "{shown:?}");
+        // Judged against each other, so a busy machine moves both: the wait comes after the decoding, not before it
+        assert!(shown >= Duration::from_millis(230), "{shown:?}");
+        assert!(decoded_at + Duration::from_millis(100) <= shown, "{decoded_at:?} then {shown:?}");
     }
 }
 

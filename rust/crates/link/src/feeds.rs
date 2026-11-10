@@ -83,6 +83,11 @@ impl VideoFeed for H264Feed {
     fn stopper(&self) -> Box<dyn FeedStopper> {
         Box::new(self.stop.clone())
     }
+
+    // Reads are slices of a byte stream, cut wherever the connection cut them
+    fn packetized(&self) -> bool {
+        false
+    }
 }
 
 /// /v1/video's multipart/x-mixed-replace, one JPEG per packet.
@@ -199,6 +204,11 @@ impl VideoFeed for MjpegFeed {
 
     fn stopper(&self) -> Box<dyn FeedStopper> {
         Box::new(self.stop.clone())
+    }
+
+    // Every JPEG stands alone
+    fn is_keyframe(&self, _data: &[u8]) -> bool {
+        true
     }
 }
 

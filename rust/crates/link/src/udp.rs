@@ -627,6 +627,11 @@ impl VideoFeed for UdpFeed {
         self.udp.as_ref().map(|u| u.skipped.clone())
     }
 
+    // Once it has fallen back to TCP, what it reads is the H.264 byte stream's slices
+    fn packetized(&self) -> bool {
+        self.tcp.is_none()
+    }
+
     fn request_keyframe(&mut self) -> bool {
         let Some(udp) = self.udp.as_mut() else { return false };
         let now = clock(self.origin);
@@ -1145,7 +1150,17 @@ mod tests {
         let phone = fake_phone(frames(3), Behaviour { refused: true, ..Default::default() });
         let mut feed = UdpFeed::open(&url(&phone), &PhoneAuth::new("secret", ""), Duration::from_secs(3), StopHandle::default()).unwrap();
         assert!(feed.fell_back);
+        // Slices of a byte stream now, which a reader can't drop up to a keyframe, and no keyframe to ask for
+        assert!(!feed.packetized() && !feed.request_keyframe());
         assert!(!read_all(&mut feed, 10).is_empty());
+    }
+
+    #[test]
+    fn udp_frames_are_whole_pictures_a_reader_may_drop() {
+        let _one = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        forget_failures();
+        let (feed, _phone) = quiet_feed();
+        assert!(feed.packetized());
     }
 
     #[test]
