@@ -20,4 +20,19 @@ class LookTest {
     fun `a saved look comes back as it was picked`() {
         Look.entries.forEach { assertEquals(it, Look.of(it.key)) }
     }
+
+    @Test
+    fun `a stream on its own notification leaves the waiting one to refresh too`() {
+        assertEquals(true, Look.waitingNotificationNeedsRefresh(streaming = true, streamCovered = false))
+    }
+
+    @Test
+    fun `a stream under waiting refreshes the one shared notification`() {
+        assertEquals(false, Look.waitingNotificationNeedsRefresh(streaming = true, streamCovered = true))
+    }
+
+    @Test
+    fun `waiting alone refreshes its notification`() {
+        assertEquals(true, Look.waitingNotificationNeedsRefresh(streaming = false, streamCovered = false))
+    }
 }

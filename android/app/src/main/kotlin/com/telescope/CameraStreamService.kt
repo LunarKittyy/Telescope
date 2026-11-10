@@ -497,6 +497,8 @@ class CameraStreamService : Service() {
     // In the foreground on its own; false while running under WaitingService.
     private var inForeground = false
     @Volatile private var covered = false
+    // Whether WaitingService shows this stream's notification
+    val coveredByWaiting get() = covered
     private var wakeLock: PowerManager.WakeLock? = null
     private val wifiLocks = mutableListOf<android.net.wifi.WifiManager.WifiLock>()
     private var thermalListener: Any? = null  // PowerManager.OnThermalStatusChangedListener, Android 10 and newer
