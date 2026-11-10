@@ -46,16 +46,9 @@
     <string name="setup_allowed">İzin verildi</string>
     <string name="allow">İzin ver</string>
     <string name="open_settings">Ayarları aç</string>
-    <string name="pair_title">Bilgisayarınla eşleştir</string>
-    <string name="pair_hint">Bilgisayarında Telescope\'u aç ve Telefon ekle\'ye tıkla. USB üzerinden telefon tarama yapmadan eşleşir.</string>
-    <string name="scan_pairing_code">Eşleştirme kodunu tara</string>
-    <string name="pair_another">Başka bir bilgisayarla eşleştir</string>
-    <string name="paired_computer_title">Eşleştirilen bilgisayar</string>
     <string name="paired_computers_title">Eşleştirilen bilgisayarlar</string>
     <string name="paired_on">%1$s tarihinde eşleştirildi</string>
     <string name="remove">Kaldır</string>
-    <string name="show_all_computers">Tümünü göster (%1$d)</string>
-    <string name="show_fewer">Daha az göster</string>
     <string name="cancel">İptal</string>
     <string name="ok">Tamam</string>
     <string name="remove_computer_title">%1$s adlı bilgisayarı kaldırmak istiyor musun?</string>
@@ -93,7 +86,6 @@
     <string name="wait_for_computer_hint">Eşleştirilmiş bir bilgisayarın ekran kapalıyken kamerayı başlatmasını sağlar.</string>
     <string name="stop_streaming">Yayını durdur</string>
     <string name="status_title">Durum</string>
-    <string name="more">Daha fazla</string>
     <string name="status_not_streaming">Yayın yapmıyor</string>
     <string name="status_starting">Başlatılıyor…</string>
     <string name="status_streaming">Yayın yapıyor</string>

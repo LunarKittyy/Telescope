@@ -46,16 +46,9 @@
     <string name="setup_allowed">अनुमति दी गई</string>
     <string name="allow">अनुमति दें</string>
     <string name="open_settings">सेटिंग्स खोलें</string>
-    <string name="pair_title">अपने कंप्यूटर से पेयर करें</string>
-    <string name="pair_hint">अपने कंप्यूटर पर Telescope खोलें और फ़ोन जोड़ें पर क्लिक करें. USB पर, फ़ोन बिना स्कैन किए पेयर हो जाता है.</string>
-    <string name="scan_pairing_code">पेयरिंग कोड स्कैन करें</string>
-    <string name="pair_another">दूसरा कंप्यूटर पेयर करें</string>
-    <string name="paired_computer_title">पेयर किया गया कंप्यूटर</string>
     <string name="paired_computers_title">पेयर किए गए कंप्यूटर</string>
     <string name="paired_on">%1$s को पेयर किया गया</string>
     <string name="remove">हटाएं</string>
-    <string name="show_all_computers">सभी %1$d दिखाएं</string>
-    <string name="show_fewer">कम दिखाएं</string>
     <string name="cancel">रद्द करें</string>
     <string name="ok">ठीक है</string>
     <string name="remove_computer_title">%1$s को हटाएं?</string>
@@ -93,7 +86,6 @@
     <string name="wait_for_computer_hint">स्क्रीन बंद होने पर भी पेयर किए गए कंप्यूटर को कैमरा शुरू करने देता है.</string>
     <string name="stop_streaming">स्ट्रीमिंग रोकें</string>
     <string name="status_title">स्थिति</string>
-    <string name="more">और</string>
     <string name="status_not_streaming">स्ट्रीम नहीं हो रहा है</string>
     <string name="status_starting">शुरू हो रहा है…</string>
     <string name="status_streaming">स्ट्रीम हो रहा है</string>

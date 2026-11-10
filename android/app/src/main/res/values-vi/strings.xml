@@ -46,16 +46,9 @@
     <string name="setup_allowed">Đã cho phép</string>
     <string name="allow">Cho phép</string>
     <string name="open_settings">Mở cài đặt</string>
-    <string name="pair_title">Ghép đôi với máy tính của bạn</string>
-    <string name="pair_hint">Trên máy tính, hãy mở Telescope và nhấp vào Thêm điện thoại. Qua USB, điện thoại sẽ ghép đôi mà không cần quét.</string>
-    <string name="scan_pairing_code">Quét mã ghép đôi</string>
-    <string name="pair_another">Ghép đôi một máy tính khác</string>
-    <string name="paired_computer_title">Máy tính đã ghép đôi</string>
     <string name="paired_computers_title">Các máy tính đã ghép đôi</string>
     <string name="paired_on">Đã ghép đôi %1$s</string>
     <string name="remove">Gỡ bỏ</string>
-    <string name="show_all_computers">Hiển thị tất cả %1$d</string>
-    <string name="show_fewer">Thu gọn</string>
     <string name="cancel">Hủy</string>
     <string name="ok">OK</string>
     <string name="remove_computer_title">Gỡ bỏ %1$s?</string>
@@ -92,7 +85,6 @@
     <string name="wait_for_computer_hint">Cho phép máy tính đã ghép đôi bật camera khi màn hình tắt.</string>
     <string name="stop_streaming">Dừng truyền phát</string>
     <string name="status_title">Trạng thái</string>
-    <string name="more">Thêm</string>
     <string name="status_not_streaming">Không truyền phát</string>
     <string name="status_starting">Đang khởi động…</string>
     <string name="status_streaming">Đang truyền phát</string>

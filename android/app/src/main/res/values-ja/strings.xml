@@ -46,16 +46,9 @@
     <string name="setup_allowed">許可済み</string>
     <string name="allow">許可</string>
     <string name="open_settings">設定を開く</string>
-    <string name="pair_title">コンピューターとペアリング</string>
-    <string name="pair_hint">コンピューターでTelescopeを開き、「スマートフォンを追加」をクリックします。USB接続の場合、スマートフォンはスキャンなしでペアリングされます。</string>
-    <string name="scan_pairing_code">ペアリング コードをスキャン</string>
-    <string name="pair_another">別のコンピューターをペアリング</string>
-    <string name="paired_computer_title">ペアリング済みのコンピューター</string>
     <string name="paired_computers_title">ペアリング済みのコンピューター</string>
     <string name="paired_on">%1$sにペアリング済み</string>
     <string name="remove">削除</string>
-    <string name="show_all_computers">%1$d台をすべて表示</string>
-    <string name="show_fewer">表示数を減らす</string>
     <string name="cancel">キャンセル</string>
     <string name="ok">OK</string>
     <string name="remove_computer_title">%1$sを削除しますか？</string>
@@ -92,7 +85,6 @@
     <string name="wait_for_computer_hint">画面がオフでも、ペアリング済みのコンピューターからカメラを開始できるようにします。</string>
     <string name="stop_streaming">ストリーミング停止</string>
     <string name="status_title">ステータス</string>
-    <string name="more">その他</string>
     <string name="status_not_streaming">ストリーミング停止中</string>
     <string name="status_starting">開始中…</string>
     <string name="status_streaming">ストリーミング中</string>
