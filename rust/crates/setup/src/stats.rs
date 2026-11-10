@@ -273,16 +273,16 @@ fn asked_text(asked: f64) -> String {
     }
 }
 
-fn slowest_first(list: &[NamedTiming]) -> Vec<&NamedTiming> {
+fn slowest_first(list: &[NamedTiming], listed: usize) -> Vec<&NamedTiming> {
     let mut list: Vec<&NamedTiming> = list.iter().collect();
     list.sort_by(|a, b| b.timing.mean_ms.total_cmp(&a.timing.mean_ms));
-    list.truncate(LISTED);
+    list.truncate(listed);
     list
 }
 
 /// The listed plugins by shown name, so a row keeps its place while the timings move.
-fn fixed_order<'a>(list: &'a [NamedTiming], looks: &[PluginLook]) -> Vec<&'a NamedTiming> {
-    let mut list = slowest_first(list);
+fn fixed_order<'a>(list: &'a [NamedTiming], looks: &[PluginLook], listed: usize) -> Vec<&'a NamedTiming> {
+    let mut list = slowest_first(list, listed);
     list.sort_by_key(|t| plugin_title(&t.name, looks));
     list
 }
@@ -352,7 +352,7 @@ pub fn summary(snap: &Snapshot, s: &SourceSnapshot, phone: Option<&PhoneReading>
         series_line("app memory", "MB", &snap.app.series.memory_mb),
     ];
     out.extend(lines.into_iter().flatten());
-    let slowest: Vec<String> = slowest_first(&s.plugins).iter().take(3).map(|t| format!("{} {:.1} ms", t.name, t.timing.mean_ms)).collect();
+    let slowest: Vec<String> = slowest_first(&s.plugins, 3).iter().take(3).map(|t| format!("{} {:.1} ms", t.name, t.timing.mean_ms)).collect();
     if !slowest.is_empty() {
         out.push(("Stats slowest plugin steps".to_string(), slowest.join(", ")));
     }
@@ -364,6 +364,11 @@ pub fn summary(snap: &Snapshot, s: &SourceSnapshot, phone: Option<&PhoneReading>
 
 /// The rows for one source's numbers.
 pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> Vec<Row> {
+    rows_listing(snap, s, view, ctx, LISTED)
+}
+
+/// The rows with each plugin list cut to `listed` lines; the card shows a few, the bar's offers need them all.
+fn rows_listing(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context, listed: usize) -> Vec<Row> {
     let nerd = view == View::Nerd;
     let target = s.target_fps.max(1) as f32;
     let period_ms = 1000.0 / target;
@@ -461,7 +466,7 @@ pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> V
         if s.plugins.is_empty() {
             out.push(Row::line(&tr("Measuring"), String::new()).kind("status_dim"));
         }
-        for t in fixed_order(&s.plugins, &ctx.looks) {
+        for t in fixed_order(&s.plugins, &ctx.looks, listed) {
             let label = plugin_title(&t.name, &ctx.looks);
             let bar_name = tr("{plugin}, frame step").field("plugin", label.clone());
             out.push(Row::line(&label, ms(t.timing.mean_ms)).note(timing_note(t.timing.max_ms)).pin(&format!("stats.step_{}", t.name)).bar(&plugin_icon(&t.name, &ctx.looks), bar_name));
@@ -470,7 +475,7 @@ pub fn rows(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context) -> V
         if snap.app.hooks.is_empty() {
             out.push(Row::line(&tr("Measuring"), String::new()).kind("status_dim"));
         }
-        for t in fixed_order(&snap.app.hooks, &ctx.looks) {
+        for t in fixed_order(&snap.app.hooks, &ctx.looks, listed) {
             let label = plugin_title(&t.name, &ctx.looks);
             let bar_name = tr("{plugin}, events and card updates").field("plugin", label.clone());
             out.push(Row::line(&label, ms(t.timing.mean_ms)).note(timing_note(t.timing.max_ms)).pin(&format!("stats.hook_{}", t.name)).bar(&plugin_icon(&t.name, &ctx.looks), bar_name));
@@ -544,7 +549,7 @@ fn tidy(rows: Vec<Row>) -> Vec<Row> {
 pub fn offers(snap: &Snapshot, s: Option<&SourceSnapshot>, ctx: &Context) -> Vec<BarStat> {
     let mut out = Vec::new();
     let Some(source) = s.or(snap.sources.first()) else { return out };
-    for row in rows(snap, source, View::Nerd, ctx) {
+    for row in rows_listing(snap, source, View::Nerd, ctx, usize::MAX) {
         let app_wide = matches!(row.pin.as_str(), PIN_CPU | PIN_MEMORY | PIN_TOTAL);
         if !row.head && row.pin.starts_with("stats.") && row.kind != "status_dim" && (s.is_some() || app_wide) {
             let tone = match row.kind.as_str() {

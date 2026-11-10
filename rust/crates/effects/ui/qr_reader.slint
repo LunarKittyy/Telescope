@@ -52,7 +52,7 @@ export component QrReaderCard inherits Card {
                 has-icon: false;
                 HorizontalLayout {
                     spacing: Theme.u(4);
-                    StatusLine { text: held-status; kind: held-kind; }
+                    StatusLine { text: found.open ? status : held-status; kind: found.open ? status-kind : held-kind; }
                     if copy-shown: Button { text: copy-text; tip: copy-text; tip-detail: copy-tip; clicked => { root.copy-clicked(); } }
                 }
             }

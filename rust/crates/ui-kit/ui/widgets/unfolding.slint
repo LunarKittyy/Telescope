@@ -36,13 +36,21 @@ export component Unfolding inherits Rectangle {
     max-height: unfold.value > 0 ? 100000px : 0px;
     clip: unfold.value < 1;
     visible: unfold.value > 0;
-    rows := VerticalLayout {
-        y: lead;
+    // Keys meant for a row that is folding away go nowhere while it fades (a disabled scope still sees them first), and Tab still moves on
+    FocusScope {
+        enabled: false;
         width: parent.width;
-        height: max(parent.height - lead, self.preferred-height);
-        spacing: Theme.gap;
-        opacity: clamp(unfold.value * 1.4 - 0.2, 0, 1);
-        @children
+        height: parent.height;
+        capture-key-pressed(e) => { if (root.open || e.text == Key.Tab || e.text == Key.Backtab) { reject } else { accept } }
+        capture-key-released(e) => { if (root.open || e.text == Key.Tab || e.text == Key.Backtab) { reject } else { accept } }
+        rows := VerticalLayout {
+            y: lead;
+            width: parent.width;
+            height: max(parent.height - lead, self.preferred-height);
+            spacing: Theme.gap;
+            opacity: clamp(unfold.value * 1.4 - 0.2, 0, 1);
+            @children
+        }
     }
 }
 
@@ -85,15 +93,23 @@ export component Page inherits Rectangle {
     // The page that comes is on top of the one that goes where they overlap, so its rows get the pointer first
     z: shown ? 2 : 1;
     // Drawn from the top of the group whatever this page's place in it is
-    rows := VerticalLayout {
-        x: 0px;
-        y: root.lead - root.y;
+    // Out of the keyboard as soon as it is not the page shown, though it still fades: a disabled scope sees keys first, and Tab still moves on
+    FocusScope {
+        enabled: false;
         width: parent.width;
-        height: self.preferred-height;
-        opacity: clamp((unfold.value - 0.25) * 1.7, 0, 1);
-        // Out of the keyboard and the pointer once it can't be seen
-        visible: unfold.value > 0.25;
-        @children
+        height: parent.height;
+        capture-key-pressed(e) => { if (root.shown || e.text == Key.Tab || e.text == Key.Backtab) { reject } else { accept } }
+        capture-key-released(e) => { if (root.shown || e.text == Key.Tab || e.text == Key.Backtab) { reject } else { accept } }
+        rows := VerticalLayout {
+            x: 0px;
+            y: root.lead - root.y;
+            width: parent.width;
+            height: self.preferred-height;
+            opacity: clamp((unfold.value - 0.25) * 1.7, 0, 1);
+            // Out of the keyboard and the pointer once it can't be seen
+            visible: unfold.value > 0.25;
+            @children
+        }
     }
     // A page on its way out still fades over the one coming, but nothing in it can be clicked any more
     if !shown && unfold.value > 0: TouchArea {

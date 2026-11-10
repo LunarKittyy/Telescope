@@ -88,12 +88,15 @@ export component PresetsHeader inherits HorizontalLayout {
     changed dialog => {
         if (self.dialog == "name") {
             root.name-text = root.dialog-text;
+            // A pop-up that was replaced before it finished going never reset these, and a stale "going" would hide the next close
+            root.name-going = false;
             root.name-up = true;
             name-popup.show();
         } else if (root.name-up) {
             root.name-going = true;
         }
         if (self.dialog == "replace") {
+            root.replace-going = false;
             root.replace-up = true;
             replace-popup.show();
         } else if (root.replace-up) {

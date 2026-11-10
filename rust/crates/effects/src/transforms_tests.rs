@@ -653,6 +653,19 @@ fn the_map_takes_the_frames_shape_once_the_first_frame_has_come() {
     assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 3.0 / 4.0), "a new size is followed too");
 }
 
+#[test]
+fn the_map_follows_a_decoded_size_change_that_has_no_event_of_its_own() {
+    let mut r = Rig::new();
+    r.host.aspect = 16.0 / 9.0;
+    r.plugin.on_stream_start(&mut r.host, &stream());
+    r.host.aspect = 4.0 / 3.0;
+    r.event(Event::PhoneStateUpdated { state: json!({}) });
+    assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 4.0 / 3.0));
+    r.host.aspect = 16.0 / 9.0;
+    r.event(Event::PhonePolled { source_id: "phone".into(), session: 1, shown: true, state: json!({}) });
+    assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 16.0 / 9.0));
+}
+
 fn outlines(r: &Rig) -> Vec<(f64, f64, f64, f64)> {
     r.shown("lens-outlines").as_array().unwrap().iter()
         .map(|o| ["x0", "y0", "x1", "y1"].map(|k| o[k].as_f64().unwrap()))

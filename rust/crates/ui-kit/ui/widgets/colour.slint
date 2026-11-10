@@ -250,6 +250,8 @@ export component ColourField inherits Rectangle {
     callback channel-typed(int, string);
     callback pipette-clicked();
     public function show() { if (enabled) { bubble.show(); } }
+    // A bubble that is open when the field goes disabled closes, and takes no change while it fades
+    changed enabled => { if (!enabled) { bubble.close(); } }
     // Whether the exact values show in the bubble
     property <bool> show-values;
     height: Theme.row;
@@ -309,12 +311,12 @@ export component ColourField inherits Rectangle {
                     v: root.v;
                     colour: root.colour;
                     label: @tr("Saturation and brightness");
-                    moved(s, v) => { root.moved(root.h, s, v); }
+                    moved(s, v) => { if (root.enabled) { root.moved(root.h, s, v); } }
                 }
                 HueStrip {
                     h: root.h;
                     label: @tr("Hue");
-                    moved(h) => { root.moved(h, root.s, root.v); }
+                    moved(h) => { if (root.enabled) { root.moved(h, root.s, root.v); } }
                 }
                 HorizontalLayout {
                     spacing: Theme.u(4);
@@ -323,7 +325,7 @@ export component ColourField inherits Rectangle {
                         label: @tr("Pick from the preview");
                         tip: root.pipette-tip;
                         enabled: root.can-pick;
-                        clicked => { bubble.close(); root.pipette-clicked(); }
+                        clicked => { if (root.enabled) { bubble.close(); root.pipette-clicked(); } }
                     }
                     Rectangle { horizontal-stretch: 1; }
                     Text {
@@ -368,7 +370,7 @@ export component ColourField inherits Rectangle {
                         value: root.hex;
                         label: @tr("Hex");
                         keeps-focus: true;
-                        committed(text) => { root.hex-typed(text); }
+                        committed(text) => { if (root.enabled) { root.hex-typed(text); } }
                     }
                     HorizontalLayout {
                         spacing: Theme.u(2);
@@ -377,7 +379,7 @@ export component ColourField inherits Rectangle {
                             letter: letter;
                             value: "\{root.channels[i]}";
                             label: [@tr("Red"), @tr("Green"), @tr("Blue")][i];
-                            committed(text) => { root.channel-typed(i, text); }
+                            committed(text) => { if (root.enabled) { root.channel-typed(i, text); } }
                         }
                     }
                 }

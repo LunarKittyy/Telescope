@@ -213,6 +213,22 @@ fn escape_leaves_the_value_as_it_was_and_the_slider_keeps_its_keys() {
 }
 
 #[test]
+fn a_box_that_is_open_when_the_slider_goes_disabled_commits_nothing() {
+    let ui = rig(&[]);
+    press(&ui, "\n");
+    type_in(&ui, "72");
+    ui.set_property("on", Value::Bool(false)).unwrap();
+    press(&ui, "\n");
+    assert_eq!((value(&ui), said(&ui).0), (50.0, 0.0), "Enter after the slider went disabled sets nothing");
+    let owned = rig(&[("box", Value::String("5".into()))]);
+    press(&owned, "\n");
+    type_in(&owned, "9");
+    owned.set_property("on", Value::Bool(false)).unwrap();
+    press(&owned, "\n");
+    assert_eq!(owned.get_property("typed-text").unwrap(), Value::String("".into()), "a box with an owner hands over nothing either");
+}
+
+#[test]
 fn a_click_on_the_value_opens_the_box_too() {
     let ui = rig(&[]);
     click(&ui, on_readout(&ui));

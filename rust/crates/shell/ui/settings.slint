@@ -301,6 +301,8 @@ component PluginRow inherits Rectangle {
         icon: tile.icon;
         label: tile.title;
         named: true;
+        // The row carries the marker itself (its description, the whole row)
+        searchable: false;
         hue: tile.on ? tile.hue : Theme.dis;
         // The row is named by its text already, the tooltip is the row's
         tip: "";

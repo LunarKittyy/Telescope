@@ -159,6 +159,15 @@
                         android:text="@string/nightly_updates_hint"
                         android:textAppearance="@style/TextAppearance.Telescope.Hint" />
 
+                    <!-- What the check found: a newer version, its progress, or why it failed -->
+                    <TextView
+                        android:id="@+id/tvUpdateStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:visibility="gone"
+                        android:textAppearance="@style/TextAppearance.Telescope.Label" />
+
                     <com.telescope.LookButton
                         android:id="@+id/btnCheckUpdates"
                         android:layout_width="match_parent"
