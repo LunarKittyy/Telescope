@@ -68,9 +68,9 @@ class SettingsActivity : LookActivity() {
     override fun onResume() {
         super.onResume()
         val waiting = pendingUpdate
-        if (waiting != null && canInstallUpdates()) {
+        if (shouldResumePendingUpdate(waiting != null, canInstallUpdates(), streaming())) {
             pendingUpdate = null
-            Updater.downloadAndInstall(this, waiting)
+            Updater.downloadAndInstall(this, waiting!!)
         }
     }
 

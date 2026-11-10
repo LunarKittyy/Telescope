@@ -182,9 +182,9 @@ class MainActivity : LookActivity() {
         checkPermissions()
         Updater.maybeCheck(this)
         val waiting = pendingUpdate
-        if (waiting != null && canInstallUpdates()) {
+        if (shouldResumePendingUpdate(waiting != null, canInstallUpdates(), service?.isStreaming == true || isBusy())) {
             pendingUpdate = null
-            Updater.downloadAndInstall(this, waiting)
+            Updater.downloadAndInstall(this, waiting!!)
         }
     }
 
