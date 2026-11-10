@@ -122,7 +122,7 @@ pub fn false_colour(frame: &Rgb, luma: Option<&Gray>) -> Rgb {
         }
     };
     let lut = false_lut();
-    let mut out = Rgb::new(frame.w, frame.h);
+    let mut out = Rgb::scratch(frame.w, frame.h);
     for (o, &v) in out.data.as_chunks_mut::<3>().0.iter_mut().zip(&y.data) {
         o.copy_from_slice(&lut[v as usize]);
     }
@@ -134,33 +134,75 @@ pub fn peaking_threshold(sensitivity: i64) -> i64 {
     200 - sensitivity.clamp(1, 10) * 15
 }
 
-/// cv2.Sobel(grey, CV_16S, dx, dy, ksize=3) turned to cv2.convertScaleAbs: |gradient| held to 255. The edges mirror (BORDER_REFLECT_101).
-fn sobel_abs(grey: &Gray, dx: bool) -> Vec<u8> {
+/// BORDER_REFLECT_101: where a pixel outside 0..n reads from.
+fn reflect(i: isize, n: isize) -> isize {
+    if n == 1 {
+        0
+    } else if i < 0 {
+        -i
+    } else if i >= n {
+        2 * (n - 1) - i
+    } else {
+        i
+    }
+}
+
+/// cv2.Sobel(grey, CV_16S, dx, dy, ksize=3) turned to cv2.convertScaleAbs at one pixel: |gradient| held to 255, both directions. The
+/// edges mirror (BORDER_REFLECT_101).
+fn sobel_at_edge(grey: &Gray, x: usize, y: usize) -> (u8, u8) {
     let (w, h) = (grey.w as isize, grey.h as isize);
-    let at = |x: isize, y: isize| -> i32 {
-        let r = |i: isize, n: isize| if n == 1 { 0 } else if i < 0 { -i } else if i >= n { 2 * (n - 1) - i } else { i };
-        grey.data[(r(y, h) * w + r(x, w)) as usize] as i32
-    };
-    let mut out = vec![0u8; grey.data.len()];
+    let at = |x: isize, y: isize| -> i32 { grey.data[(reflect(y, h) * w + reflect(x, w)) as usize] as i32 };
+    let (x, y) = (x as isize, y as isize);
+    let gx = (at(x + 1, y - 1) - at(x - 1, y - 1)) + 2 * (at(x + 1, y) - at(x - 1, y)) + (at(x + 1, y + 1) - at(x - 1, y + 1));
+    let gy = (at(x - 1, y + 1) - at(x - 1, y - 1)) + 2 * (at(x, y + 1) - at(x, y - 1)) + (at(x + 1, y + 1) - at(x + 1, y - 1));
+    (gx.unsigned_abs().min(255) as u8, gy.unsigned_abs().min(255) as u8)
+}
+
+/// Whether the two gradients together are past the threshold, as the preview marks an edge.
+#[inline]
+fn is_edge(gx: u8, gy: u8, threshold: i64) -> bool {
+    ((gx as f32 * 0.5 + gy as f32 * 0.5).round_ties_even() as i64) > threshold
+}
+
+/// Where the frame has sharp edges (what's in focus): both Sobel gradients and the threshold in one pass, with the mirrored edge only
+/// worked out for the border pixels.
+pub fn peaking_mask(frame: &Rgb, sensitivity: i64) -> Vec<bool> {
+    let grey = frame.gray();
+    let threshold = peaking_threshold(sensitivity) / 2;
+    let (w, h) = (grey.w, grey.h);
+    let mut out = vec![false; w * h];
+    if w < 3 || h < 3 {
+        for y in 0..h {
+            for x in 0..w {
+                let (gx, gy) = sobel_at_edge(&grey, x, y);
+                out[y * w + x] = is_edge(gx, gy, threshold);
+            }
+        }
+        return out;
+    }
     for y in 0..h {
-        for x in 0..w {
-            let g = if dx {
-                (at(x + 1, y - 1) - at(x - 1, y - 1)) + 2 * (at(x + 1, y) - at(x - 1, y)) + (at(x + 1, y + 1) - at(x - 1, y + 1))
-            } else {
-                (at(x - 1, y + 1) - at(x - 1, y - 1)) + 2 * (at(x, y + 1) - at(x, y - 1)) + (at(x + 1, y + 1) - at(x + 1, y - 1))
-            };
-            out[(y * w + x) as usize] = g.unsigned_abs().min(255) as u8;
+        if y == 0 || y == h - 1 {
+            for x in 0..w {
+                let (gx, gy) = sobel_at_edge(&grey, x, y);
+                out[y * w + x] = is_edge(gx, gy, threshold);
+            }
+            continue;
+        }
+        for x in [0, w - 1] {
+            let (gx, gy) = sobel_at_edge(&grey, x, y);
+            out[y * w + x] = is_edge(gx, gy, threshold);
+        }
+        let (r0, r1, r2) = (&grey.data[(y - 1) * w..y * w], &grey.data[y * w..(y + 1) * w], &grey.data[(y + 1) * w..(y + 2) * w]);
+        let row = &mut out[y * w + 1..y * w + w - 1];
+        for (i, o) in row.iter_mut().enumerate() {
+            let (a, b, c) = (i, i + 1, i + 2);
+            let (a0, c0, a1, c1, a2, c2) = (r0[a] as i32, r0[c] as i32, r1[a] as i32, r1[c] as i32, r2[a] as i32, r2[c] as i32);
+            let gx = (c0 - a0) + 2 * (c1 - a1) + (c2 - a2);
+            let gy = (a2 - a0) + 2 * (r2[b] as i32 - r0[b] as i32) + (c2 - c0);
+            *o = is_edge(gx.unsigned_abs().min(255) as u8, gy.unsigned_abs().min(255) as u8, threshold);
         }
     }
     out
-}
-
-/// Where the frame has sharp edges (what's in focus).
-pub fn peaking_mask(frame: &Rgb, sensitivity: i64) -> Vec<bool> {
-    let grey = frame.gray();
-    let (gx, gy) = (sobel_abs(&grey, true), sobel_abs(&grey, false));
-    let threshold = peaking_threshold(sensitivity) / 2;
-    gx.iter().zip(&gy).map(|(&x, &y)| ((x as f32 * 0.5 + y as f32 * 0.5).round_ties_even() as i64) > threshold).collect()
 }
 
 /// Whether the zebras' diagonal stripes cover a pixel; phase moves them along.
@@ -236,9 +278,9 @@ fn peaking_rgb(key: &str) -> [u8; 3] {
 
 /// A mask grown back to the frame's size when it was judged on a smaller copy: scaled smoothly and cut half way, so edges don't
 /// come out as steps.
-fn full(mask: &[bool], from: (usize, usize), to: (usize, usize)) -> Vec<bool> {
+fn full(mask: Vec<bool>, from: (usize, usize), to: (usize, usize)) -> Vec<bool> {
     if from == to {
-        return mask.to_vec();
+        return mask;
     }
     let grey = Gray { w: from.0, h: from.1, data: mask.iter().map(|&m| if m { 255 } else { 0 }).collect() };
     grey.linear_exact(to.0, to.1).data.iter().map(|&v| v > 127).collect()
@@ -252,25 +294,37 @@ pub fn tint(look: &Look, frame: &mut Rgb, phase: &mut usize) {
         return;
     }
     let (w, h) = (frame.w, frame.h);
-    let small = scopes::shrink(frame, WORK_WIDTH);
     let scaled = scopes::shrunk_size(w, h, WORK_WIDTH).is_some();
+    // A frame that is small enough is judged as it is, not copied
+    let shrunk;
+    let small = if scaled {
+        shrunk = scopes::shrink(frame, WORK_WIDTH);
+        &shrunk
+    } else {
+        &*frame
+    };
     let size = (small.w, small.h);
-    let luma = (look.false_colour || look.zebras).then(|| scopes::luma(&small));
+    let luma = (look.false_colour || look.zebras).then(|| scopes::luma(small));
     let mut zebras = None;
     let mut peaks = None;
     if look.zebras {
         *phase = (*phase + 1) % ZEBRA_PERIOD;
         let from = zebra_from(look.zebra_level);
         let bright: Vec<bool> = luma.as_ref().unwrap().data.iter().map(|&v| v >= from).collect();
-        let bright = full(&bright, size, (w, h));
+        let mut stripes = full(bright, size, (w, h));
         // The stripes are drawn at the frame's own size, so they stay crisp however it was judged
-        zebras = Some(bright.iter().enumerate().map(|(i, &b)| b && stripe(i % w, i / w, *phase)).collect::<Vec<bool>>());
+        for (y, row) in stripes.chunks_exact_mut(w).enumerate() {
+            for (x, lit) in row.iter_mut().enumerate() {
+                *lit = *lit && stripe(x, y, *phase);
+            }
+        }
+        zebras = Some(stripes);
     }
     if look.peaking {
-        peaks = Some(full(&peaking_mask(&small, look.peaking_level), size, (w, h)));
+        peaks = Some(full(peaking_mask(small, look.peaking_level), size, (w, h)));
     }
     if look.false_colour {
-        let coloured = false_colour(&small, luma.as_ref());
+        let coloured = false_colour(small, luma.as_ref());
         *frame = if scaled { coloured.linear_exact(w, h) } else { coloured };
     }
     if let Some(mask) = zebras {
