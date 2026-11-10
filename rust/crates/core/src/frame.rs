@@ -84,6 +84,22 @@ impl Frame {
         Arc::make_mut(&mut self.data)
     }
 
+    /// Whole new pixels in place of the old ones, which stay as they were for anyone still holding them; with nobody else, the old buffer goes back to the spares.
+    pub fn replace_data(&mut self, data: Vec<u8>) {
+        debug_assert_eq!(data.len(), self.format.size(self.width, self.height));
+        self.decoded = None;
+        if let Ok(old) = Arc::try_unwrap(std::mem::replace(&mut self.data, Arc::new(data))) {
+            crate::image::keep_bytes(old);
+        }
+    }
+
+    /// Done with this frame: its pixels go back to the spares unless something else still holds them.
+    pub fn recycle(self) {
+        if let Ok(old) = Arc::try_unwrap(self.data) {
+            crate::image::keep_bytes(old);
+        }
+    }
+
     /// The frame with the BGR its pixels were converted from, which effects read in place of the lossier pixels.
     pub fn with_bgr(mut self, picture: Arc<Bgr>) -> Frame {
         self.decoded = Some(Decoded { of: Arc::downgrade(&self.data), picture });
@@ -293,5 +309,19 @@ mod tests {
         s.sort();
         assert_eq!(s, FrameStage::ALL);
         assert_eq!(serde_json::to_value(FrameStage::Colour).unwrap(), "colour");
+    }
+
+    #[test]
+    fn replacing_the_pixels_leaves_other_holders_alone_and_recycles_a_sole_buffer() {
+        let mut a = Frame::new(2, 2, PixelFormat::Rgba, vec![1; 16]);
+        let b = a.clone();
+        a.replace_data(vec![2; 16]);
+        assert_eq!((a.data[0], b.data[0]), (2, 1));
+        let mut lent = Vec::new();
+        crate::image::with_spares(&mut lent, || {
+            let mut sole = Frame::new(200, 100, PixelFormat::Rgba, vec![1; 80_000]);
+            sole.replace_data(vec![3; 80_000]);
+            assert_eq!(crate::image::spare_bytes(80_000).capacity(), 80_000, "the old buffer comes back out");
+        });
     }
 }

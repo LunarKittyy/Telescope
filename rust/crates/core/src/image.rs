@@ -51,40 +51,95 @@ pub fn rint(v: f64) -> i32 {
     }
 }
 
+/// The buffers lent to this thread's work, and what they may hold.
+struct Lent {
+    held: Vec<Vec<u8>>,
+    /// How many buffers the work has asked for (a step's own pool keeps only that many).
+    asked: usize,
+    /// Set for a pipeline's shared pool: the most bytes it keeps between steps.
+    cap: Option<usize>,
+}
+
 thread_local! {
-    // The buffers a frame step lent this thread for one frame, and how many it has asked for. None outside that, so nothing is left
-    // behind once the step is gone
-    static SPARES: RefCell<Option<(Vec<Vec<u8>>, usize)>> = const { RefCell::new(None) };
+    // None outside a lend, so nothing is left behind once the step is gone
+    static SPARES: RefCell<Option<Lent>> = const { RefCell::new(None) };
 }
 
 /// How many buffers a step keeps, and the size below which one isn't worth keeping.
 const SPARE_BUFFERS: usize = 12;
 const SPARE_ABOVE: usize = 16 * 1024;
+/// The most buffers a shared pool holds while a step works (the bytes cap decides what stays after).
+const SHARED_BUFFERS: usize = 24;
 
 /// Runs a frame's work with held's buffers to draw on (spare_bytes) and whatever it finishes with added to them (keep_bytes).
 /// Only as many as the frame asked for stay, the biggest ones, so buffers nothing draws on don't pile up.
+/// Inside a SparePool's scope the pipeline's pool is used instead and held is left as it is.
 pub fn with_spares<R>(held: &mut Vec<Vec<u8>>, work: impl FnOnce() -> R) -> R {
+    if SPARES.with_borrow(Option::is_some) {
+        return work();
+    }
     struct Back<'a>(&'a mut Vec<Vec<u8>>);
     impl Drop for Back<'_> {
         fn drop(&mut self) {
-            let (mut kept, asked) = SPARES.with_borrow_mut(Option::take).unwrap_or_default();
+            let (mut kept, asked) = SPARES.with_borrow_mut(Option::take).map(|l| (l.held, l.asked)).unwrap_or_default();
             kept.sort_by_key(|b| std::cmp::Reverse(b.capacity()));
             kept.truncate(asked);
             *self.0 = kept;
         }
     }
-    SPARES.with_borrow_mut(|s| *s = Some((std::mem::take(held), 0)));
+    SPARES.with_borrow_mut(|s| *s = Some(Lent { held: std::mem::take(held), asked: 0, cap: None }));
     let _back = Back(held);
     work()
+}
+
+/// One pool of spare buffers for all the steps of a pipeline, which run one after another: the most it keeps is a number of bytes,
+/// not of buffers, so the peak is what the biggest step needs and not the sum of every step's.
+#[derive(Default)]
+pub struct SparePool {
+    held: Vec<Vec<u8>>,
+}
+
+impl SparePool {
+    /// Runs one step's work drawing on this pool (with_spares inside it joins in), keeping at most `cap` bytes of buffers afterwards.
+    pub fn scope<R>(&mut self, cap: usize, work: impl FnOnce() -> R) -> R {
+        struct Back<'a>(&'a mut Vec<Vec<u8>>, usize);
+        impl Drop for Back<'_> {
+            fn drop(&mut self) {
+                let Some(mut lent) = SPARES.with_borrow_mut(Option::take) else { return };
+                lent.held.sort_by_key(|b| std::cmp::Reverse(b.capacity()));
+                let mut total = 0;
+                lent.held.retain(|b| {
+                    let fits = total + b.capacity() <= self.1;
+                    if fits {
+                        total += b.capacity();
+                    }
+                    fits
+                });
+                *self.0 = lent.held;
+            }
+        }
+        // Inside another lend the outer one carries on: taking over would lose its buffers
+        if SPARES.with_borrow(Option::is_some) {
+            return work();
+        }
+        SPARES.with_borrow_mut(|s| *s = Some(Lent { held: std::mem::take(&mut self.held), asked: 0, cap: Some(cap) }));
+        let _back = Back(&mut self.held, cap);
+        work()
+    }
+
+    /// Bytes held between steps.
+    pub fn bytes(&self) -> usize {
+        self.held.iter().map(Vec::capacity).sum()
+    }
 }
 
 /// A buffer of len bytes for work that writes every one of them: what's in it is whatever was left there.
 pub fn spare_bytes(len: usize) -> Vec<u8> {
     let found = SPARES.with_borrow_mut(|s| {
-        let (held, asked) = s.as_mut()?;
-        *asked += 1;
-        let (i, _) = held.iter().enumerate().filter(|(_, b)| b.capacity() >= len).min_by_key(|(_, b)| b.capacity())?;
-        Some(held.swap_remove(i))
+        let lent = s.as_mut()?;
+        lent.asked += 1;
+        let (i, _) = lent.held.iter().enumerate().filter(|(_, b)| b.capacity() >= len).min_by_key(|(_, b)| b.capacity())?;
+        Some(lent.held.swap_remove(i))
     });
     match found {
         Some(mut buffer) => {
@@ -102,12 +157,13 @@ pub fn keep_bytes(buffer: Vec<u8>) {
     }
     // Nothing to do this late in a thread's life
     let _ = SPARES.try_with(|s| {
-        if let Some((held, _)) = s.borrow_mut().as_mut() {
-            if held.len() < SPARE_BUFFERS {
-                held.push(buffer);
-            } else if let Some(smallest) = held.iter_mut().min_by_key(|b| b.capacity()).filter(|b| b.capacity() < buffer.capacity()) {
-                *smallest = buffer;
-            }
+        let mut s = s.borrow_mut();
+        let Some(lent) = s.as_mut() else { return };
+        let limit = if lent.cap.is_some() { SHARED_BUFFERS } else { SPARE_BUFFERS };
+        if lent.held.len() < limit {
+            lent.held.push(buffer);
+        } else if let Some(smallest) = lent.held.iter_mut().min_by_key(|b| b.capacity()).filter(|b| b.capacity() < buffer.capacity()) {
+            *smallest = buffer;
         }
     });
 }
@@ -1014,5 +1070,18 @@ mod tests {
             swap_red_blue(&bgr, &mut rgb);
             assert_eq!(rgb, (0..w).flat_map(|x| [x * 3 + 2, x * 3 + 1, x * 3].map(|v| v as u8)).collect::<Vec<_>>());
         }
+    }
+
+    #[test]
+    fn a_shared_pool_keeps_bytes_not_buffers_and_steps_with_their_own_join_in() {
+        let mut pool = SparePool::default();
+        pool.scope(250_000, || {
+            let mut mine = Vec::new();
+            with_spares(&mut mine, || (0..6).map(|_| spare_bytes(100_000)).collect::<Vec<_>>().into_iter().for_each(keep_bytes));
+            assert!(mine.is_empty(), "the step's own pool isn't used inside");
+        });
+        assert_eq!(pool.bytes(), 200_000, "two of the six fit under the cap");
+        pool.scope(50_000, || ());
+        assert_eq!(pool.bytes(), 0);
     }
 }

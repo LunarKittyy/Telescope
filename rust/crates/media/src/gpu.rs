@@ -8,6 +8,7 @@ use crate::transfers;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 use telescope_core::frame::{Frame, PixelFormat, ShaderStep};
+use telescope_core::image::spare_bytes;
 use telescope_core::shader;
 use telescope_core::time::{monotonic_ns, span};
 use wgpu::naga;
@@ -334,12 +335,12 @@ impl Gpu {
         buf
     }
 
-    fn download(&self, enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<Vec<Vec<u8>>, String> {
+    fn download(&self, enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<Vec<u8>, String> {
         self.download_timed(enc, textures, bpp).map(|(planes, _)| planes)
     }
 
-    /// Copies textures into one buffer, waits for the card and hands back each one's rows without padding, and how long the wait was in ns.
-    fn download_timed(&self, mut enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<(Vec<Vec<u8>>, u64), String> {
+    /// Copies textures into one buffer, waits for the card and hands back each one's rows without padding, the planes one after another in one buffer, and how long the wait was in ns.
+    fn download_timed(&self, mut enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<(Vec<u8>, u64), String> {
         let mut offsets = Vec::new();
         let mut size = 0u64;
         for (t, b) in textures.iter().zip(bpp) {
@@ -377,15 +378,17 @@ impl Gpu {
         let waited = monotonic_ns().saturating_sub(began);
         let began = monotonic_ns();
         let mapped = slice.get_mapped_range().map_err(|e| e.to_string())?;
-        let mut out = Vec::new();
+        // Rows go straight into one buffer from the spares, so the readback is the only copy
+        let total: usize = textures.iter().zip(bpp).map(|(t, b)| (t.width() * b) as usize * t.height() as usize).sum();
+        let mut out = spare_bytes(total);
+        let mut put = 0;
         for ((t, b), off) in textures.iter().zip(bpp).zip(&offsets) {
             let (row, stride) = ((t.width() * b) as usize, aligned_row(t.width() * b) as usize);
-            let mut plane = Vec::with_capacity(row * t.height() as usize);
             for y in 0..t.height() as usize {
                 let at = *off as usize + y * stride;
-                plane.extend_from_slice(&mapped[at..at + row]);
+                out[put..put + row].copy_from_slice(&mapped[at..at + row]);
+                put += row;
             }
-            out.push(plane);
         }
         drop(mapped);
         buf.unmap();
@@ -457,7 +460,7 @@ impl Gpu {
         };
         held.waited_ns += waited;
         self.give_back(targets);
-        let mut result = Frame::new(w, h, held.format, out.concat());
+        let mut result = Frame::new(w, h, held.format, out);
         result.number = held.number;
         result.time_ns = held.time_ns;
         Ok(result)
@@ -560,7 +563,7 @@ impl Gpu {
         // Enough samples per output pixel that shrinking a lot still averages instead of skipping pixels
         let taps = (frame.width.div_ceil(out_w)).max(frame.height.div_ceil(out_h)).clamp(1, 8);
         self.convert_pass(&mut enc, &planes.views, planes.mode, &target, taps, (planes.width, planes.height));
-        let out = self.download(enc, &[&target], &[4])?.pop().unwrap_or_default();
+        let out = self.download(enc, &[&target], &[4])?;
         used.push(target);
         self.give_back(used);
         Ok(out)
@@ -617,6 +620,10 @@ pub struct Held {
 }
 
 impl Held {
+    pub fn size(&self) -> (u32, u32) {
+        (self.width, self.height)
+    }
+
     pub fn take_waited(&mut self) -> u64 {
         std::mem::take(&mut self.waited_ns)
     }
@@ -840,7 +847,7 @@ mod tests {
         let target = window.picture(32, 18);
         window.paint(&frame, &target).unwrap();
         let enc = window.device.create_command_encoder(&Default::default());
-        let painted = window.download(enc, &[&target], &[4]).unwrap().pop().unwrap();
+        let painted = window.download(enc, &[&target], &[4]).unwrap();
         assert_eq!(painted, gpu.rgba(&frame, 32, 18).unwrap());
     }
 
