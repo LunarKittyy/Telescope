@@ -1,7 +1,7 @@
 // What both cards of this crate are built from. The plugins join this file and their card into one source (Rust's concat!),
 // so it holds the only import line.
 
-import { Theme, Icons, Icon, FocusRing, KeyFocus, TouchRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, Stepper, SwitchTile, ToggleTile, PictureSegmented, Dial, RailRow, SwitchRow, TextField, NumberField, FlickBar, Tip, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu, Reveal, ColourField, WindowBox, TipLayer, Pad, PadMark, ColourWheel, Motion, Status, UnfoldGroup, Unfolding, Page, PageGroup, PictureField, FineAxis } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, KeyFocus, TouchRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, Stepper, SwitchTile, ToggleTile, PictureSegmented, Dial, RailRow, SwitchRow, TextField, NumberField, FlickBar, Tip, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu, Reveal, ColourField, WindowBox, TipLayer, Pad, PadMark, ColourWheel, Motion, Status, UnfoldGroup, Unfolding, Page, PageGroup, PictureField, FineAxis, Grip, Hold } from "@ui-kit/ui-kit.slint";
 
 global StatusInk {
     public pure function color(kind: string) -> color {
@@ -366,21 +366,36 @@ component CurveBox inherits Rectangle {
         background: i == picked && enabled ? colour : Theme.card;
     }
     FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; x: 1px; y: 1px; width: root.width - Theme.u(1); height: root.height - Theme.u(1); }
-    TouchArea {
+    // A drag held in something that goes away lets the editor go by itself, and its moves stop
+    property <int> gone: Grip.leaves;
+    changed gone => {
+        if (touch.holding && Grip.cut(touch.grip)) {
+            touch.holding = false;
+            root.released();
+        }
+    }
+    touch := TouchArea {
+        property <Hold> grip;
+        property <bool> holding;
         enabled: root.enabled;
         mouse-cursor: MouseCursor.crosshair;
         pointer-event(e) => {
             shift-now = e.modifiers.shift;
             if (e.kind == PointerEventKind.down && (e.button == PointerEventButton.left || e.button == PointerEventButton.right)) {
+                grip = Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                holding = true;
                 focus.focus();
                 fine-x.begin(self.mouse-x / 1px);
                 fine-y.begin(self.mouse-y / 1px);
                 root.pressed(self.mouse-x / 1px, self.mouse-y / 1px, root.width / 1px, root.height / 1px, e.button == PointerEventButton.right);
             }
-            if (e.kind == PointerEventKind.move && self.pressed) {
+            if (e.kind == PointerEventKind.move && self.pressed && holding && !Grip.cut(grip)) {
                 root.moved(fine-x.at(self.mouse-x / 1px, shift-now, -100000, 100000), fine-y.at(self.mouse-y / 1px, shift-now, -100000, 100000), root.width / 1px, root.height / 1px);
             }
-            if (e.kind == PointerEventKind.up) { root.released(); }
+            if ((e.kind == PointerEventKind.up || e.kind == PointerEventKind.cancel) && holding) {
+                holding = false;
+                root.released();
+            }
         }
         double-clicked => { root.double-clicked(self.mouse-x / 1px, self.mouse-y / 1px, root.width / 1px, root.height / 1px); }
     }

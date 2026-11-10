@@ -8,7 +8,7 @@ import { Peek } from "peek.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { Fills, RampFill, ZebraFill, EdgeFill } from "fills.slint";
 import { Motion, Settle, Tone, ClickWait } from "motion.slint";
-import { FineAxis, Grip } from "fine.slint";
+import { FineAxis, Grip, Hold } from "fine.slint";
 
 // Kind "slider", one anatomy for every slider: a track, a handle, the value on the right and, when it goes both ways, a tick at the
 // centre. Only the fill varies, by name: "plain" is the card's colour up to the handle, "gradient" the range's own colours along the
@@ -212,7 +212,7 @@ export component Slider inherits HorizontalLayout {
         }
         pend := ClickWait {
             elapsed => {
-                if (!enabled) { return; }
+                if (!enabled || Grip.cut(touch.grip)) { return; }
                 local = pending-v;
                 touched = true;
                 root.moved(local);
@@ -458,6 +458,7 @@ export component Slider inherits HorizontalLayout {
         }
         usage := Tip { says: root.tip != "" ? root.tip : root.has-default ? root.label : ""; detail: root.tip-detail; hint: root.hint-line; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover || readout-over; inert: !root.enabled; focused: slider-focus.has-focus && KeyFocus.keyboard; }
         touch := TouchArea {
+            property <Hold> grip;
             enabled: root.enabled;
             property <float> picked: clamp((self.mouse-x - track.inset) / (track.width - 2 * track.inset), 0, 1);
             // Where the pointer is along the track, past either end too, so Shift's tenth is counted from the pointer's own place
@@ -487,7 +488,7 @@ export component Slider inherits HorizontalLayout {
             scroll-event(e) => { usage.wheel(); reject }
             pointer-event(e) => {
                 shift-now = e.modifiers.shift;
-                if (e.kind == PointerEventKind.down) { usage.press(); Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
+                if (e.kind == PointerEventKind.down) { usage.press(); grip = Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
                 // A second press while the first click waits is the double-click's, which `double-clicked` answers
                 if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left && !pending) {
                     fine.begin(minimum + beyond * (maximum - minimum));
@@ -506,7 +507,7 @@ export component Slider inherits HorizontalLayout {
                         root.moved(local);
                     }
                 }
-                if (e.kind == PointerEventKind.move && dragging && self.pressed && !Grip.cut) {
+                if (e.kind == PointerEventKind.move && dragging && self.pressed && !Grip.cut(grip)) {
                     drag();
                 }
                 if (dragging && ((e.kind == PointerEventKind.up && e.button == PointerEventButton.left) || e.kind == PointerEventKind.cancel)) {
@@ -517,7 +518,7 @@ export component Slider inherits HorizontalLayout {
                 }
             }
             moved => {
-                if (self.pressed && dragging && !Grip.cut) {
+                if (self.pressed && dragging && !Grip.cut(grip)) {
                     drag();
                 }
             }

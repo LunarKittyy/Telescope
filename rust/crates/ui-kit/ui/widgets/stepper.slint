@@ -4,6 +4,7 @@
 import { Theme } from "../theme.slint";
 import { Icon } from "basics.slint";
 import { ChoiceField } from "choices.slint";
+import { Grip, Hold } from "fine.slint";
 
 // One of the two arrows. It reports going down and coming up rather than a click, so a held one can keep stepping.
 component StepArrow inherits Rectangle {
@@ -31,11 +32,16 @@ component StepArrow inherits Rectangle {
     accessible-description: description;
     accessible-action-default => { if (enabled) { down(); up(); } }
     changed enabled => { if (!enabled) { release(); } }
+    // A held arrow keeps its owner stepping, so one in something that goes away lets go by itself
+    property <Hold> grip;
+    property <int> gone: Grip.leaves;
+    changed gone => { if (holding && Grip.cut(grip)) { release(); } }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
         pointer-event(e) => {
             if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left && !holding) {
+                grip = Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
                 holding = true;
                 down();
             }

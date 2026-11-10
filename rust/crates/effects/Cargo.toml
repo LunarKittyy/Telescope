@@ -24,6 +24,7 @@ i-slint-backend-testing = "=1.18.1"
 # the pipeline frame steps run on in the app, so tests run the real shaders
 telescope-media.workspace = true
 slint-interpreter.workspace = true
+slint.workspace = true
 telescope-ui-kit.workspace = true
 
 [target.'cfg(windows)'.dependencies]
