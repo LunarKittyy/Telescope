@@ -7,6 +7,8 @@ import android.content.Intent
 import android.hardware.camera2.CameraManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.text.method.LinkMovementMethod
 import android.view.View
 import android.widget.CompoundButton
@@ -25,6 +27,14 @@ class SettingsActivity : LookActivity() {
     private var pendingUpdate: UpdateManifest? = null
 
     private val updateListener: () -> Unit = { runOnUiThread { renderVersion() } }
+    private val uiHandler = Handler(Looper.getMainLooper())
+    // A stream can start or stop from the computer while Settings is open, so the Update button follows it
+    private val streamPoller = object : Runnable {
+        override fun run() {
+            renderUpdate()
+            uiHandler.postDelayed(this, 1000)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,18 +73,20 @@ class SettingsActivity : LookActivity() {
         SessionEndpoint.screenStarted(this)  // the phone stays reachable while Settings is up
         Updater.addListener(updateListener)
         renderVersion()
+        uiHandler.postDelayed(streamPoller, 1000)
     }
 
     override fun onResume() {
         super.onResume()
         val waiting = pendingUpdate
-        if (waiting != null && canInstallUpdates()) {
+        if (shouldResumePendingUpdate(waiting != null, canInstallUpdates(), streaming())) {
             pendingUpdate = null
-            Updater.downloadAndInstall(this, waiting)
+            Updater.downloadAndInstall(this, waiting!!)
         }
     }
 
     override fun onStop() {
+        uiHandler.removeCallbacks(streamPoller)
         Updater.removeListener(updateListener)
         SessionEndpoint.screenStopped()
         super.onStop()
