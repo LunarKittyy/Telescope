@@ -32,6 +32,7 @@ export component Segmented inherits Rectangle {
     out property <int> shown: touched ? local : current;
     changed current => { touched = false; }
     function pick(i: int) {
+        if (disabled[i]) { return; }
         worm.sync();
         local = i;
         touched = true;
@@ -170,6 +171,8 @@ export component Segmented inherits Rectangle {
                     seg-focus.focus();
                 }
             }
+            // An option that goes off with the focus on it lets go of it
+            changed off => { if (off) { seg-focus.clear-focus(); } }
             seg-focus := FocusScope {
                 enabled: !off;
                 focus-gained(reason) => {
@@ -178,6 +181,7 @@ export component Segmented inherits Rectangle {
                     }
                 }
                 key-pressed(e) => {
+                    if (off) { return reject; }
                     if (e.text == " " || e.text == "\n") { quick = true; pick(i); return accept; }
                     if (e.text == Key.LeftArrow) { step(i, i - 1); return accept; }
                     if (e.text == Key.RightArrow) { step(i, i + 1); return accept; }
@@ -284,6 +288,7 @@ export component PictureSegmented inherits Rectangle {
     out property <int> shown: touched ? local : current;
     changed current => { touched = false; }
     function pick(i: int) {
+        if (disabled[i]) { return; }
         worm.sync();
         local = i;
         touched = true;
@@ -427,6 +432,8 @@ export component PictureSegmented inherits Rectangle {
                 seg-focus.focus();
             }
         }
+        // An option that goes off with the focus on it lets go of it
+        changed off => { if (off) { seg-focus.clear-focus(); } }
         seg-focus := FocusScope {
             enabled: !off;
             focus-gained(reason) => {
@@ -435,6 +442,7 @@ export component PictureSegmented inherits Rectangle {
                 }
             }
             key-pressed(e) => {
+                if (off) { return reject; }
                 if (e.text == " " || e.text == "\n") { quick = true; pick(i); return accept; }
                 if (e.text == Key.LeftArrow) { go(i, -1, 0); return accept; }
                 if (e.text == Key.RightArrow) { go(i, 1, 0); return accept; }
@@ -543,6 +551,7 @@ export component ChoiceField inherits Rectangle {
     out property <int> shown: touched && !follows ? local : current;
     changed current => { touched = false; }
     function pick(i: int) {
+        if (!enabled) { return; }
         local = i;
         touched = true;
         picked(i);
@@ -594,6 +603,18 @@ export component ChoiceField inherits Rectangle {
         root.open = false;
         popup.close();
         focus.focus();
+    }
+    // A field that goes off with its list up (or a key scan under way) drops them and lets go of the focus
+    changed enabled => {
+        if (!enabled) {
+            settling = false;
+            best = -1;
+            hl = -1;
+            closing = false;
+            root.open = false;
+            popup.close();
+            focus.clear-focus();
+        }
     }
     // Close the list and hand the focus back. Every way out eases it out (a pick, a click outside, Escape, Tab, the window losing focus);
     // `gently: false` is only for what must be gone this frame (reduced motion asks for that by itself)
@@ -675,7 +696,7 @@ export component ChoiceField inherits Rectangle {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: root.enabled;
         key-pressed(e) => {
-            if (e.modifiers.control || e.modifiers.meta) { return reject; }
+            if (!root.enabled || e.modifiers.control || e.modifiers.meta) { return reject; }
             if ((e.modifiers.alt && (e.text == Key.DownArrow || e.text == Key.UpArrow)) || e.text == " " || e.text == "\n") { open-list(); return accept; }
             if (centered && (e.text == Key.LeftArrow || e.text == Key.UpArrow)) { nudged(-1); return accept; }
             if (centered && (e.text == Key.RightArrow || e.text == Key.DownArrow)) { nudged(1); return accept; }
