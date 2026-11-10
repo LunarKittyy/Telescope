@@ -8,11 +8,11 @@ use crate::imgops;
 use crate::shared::Paired;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 use telescope_core::actions;
 use telescope_core::event::Event;
-use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, Touch};
+use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat, Touch};
 use telescope_core::host::{Host, Poster, PreviewLayer, Shape};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
@@ -340,13 +340,27 @@ struct Shared {
     looked_at: Mutex<Option<Instant>>,
 }
 
-/// The frame step: now and then hands a picture to a thread that looks for a code in it. The frame itself goes on untouched.
+/// The newest picture waiting for the reader's worker: a newer one replaces an older one still there.
+#[derive(Default)]
+struct Slot {
+    frame: Mutex<Option<Frame>>,
+    wake: Condvar,
+    closed: AtomicBool,
+}
+
+/// The frame step: now and then hands a picture to one long-lived worker that looks for a code in it. The frame itself goes on untouched.
 struct Reader {
     shared: Arc<Shared>,
     poster: Arc<dyn Poster>,
+    slot: Arc<Slot>,
+    started: bool,
 }
 
 impl Reader {
+    fn new(shared: Arc<Shared>, poster: Arc<dyn Poster>) -> Reader {
+        Reader { shared, poster, slot: Arc::default(), started: false }
+    }
+
     /// Whether it's time for another look at this stream.
     fn due(&self, source_id: &str, now: Instant) -> bool {
         if !self.shared.on.load(Ordering::SeqCst) || self.shared.busy.load(Ordering::SeqCst) || *self.shared.focused.lock().unwrap() != source_id {
@@ -354,6 +368,39 @@ impl Reader {
         }
         let every = if self.shared.pending.load(Ordering::SeqCst) { PENDING } else { EVERY };
         !self.shared.looked_at.lock().unwrap().is_some_and(|at| now.duration_since(at) < every)
+    }
+
+    fn start(&mut self) -> bool {
+        let (shared, poster, slot) = (self.shared.clone(), self.poster.clone(), self.slot.clone());
+        let spawned = std::thread::Builder::new().name("qr-reader".into()).spawn(move || loop {
+            let frame = {
+                let mut held = slot.frame.lock().unwrap();
+                loop {
+                    if slot.closed.load(Ordering::SeqCst) {
+                        return;
+                    }
+                    if let Some(frame) = held.take() {
+                        break frame;
+                    }
+                    held = slot.wake.wait(held).unwrap();
+                }
+            };
+            // A miss is reported too, so a code that's gone stops being outlined; a code Python can't read reports nothing
+            match look(&frame) {
+                Ok(Some((text, corners))) => poster.post(POST_FOUND, json!({"text": text, "corners": corners})),
+                Ok(None) => poster.post(POST_FOUND, json!({"text": "", "corners": null})),
+                Err(Unreadable) => {}
+            }
+            shared.busy.store(false, Ordering::SeqCst);
+        });
+        spawned.is_ok()
+    }
+}
+
+impl Drop for Reader {
+    fn drop(&mut self) {
+        self.slot.closed.store(true, Ordering::SeqCst);
+        self.slot.wake.notify_all();
     }
 }
 
@@ -367,30 +414,33 @@ impl CpuStep for Reader {
         if !self.due(ctx.source_id(), now) {
             return;
         }
+        if !self.started {
+            self.started = self.start();
+            if !self.started {
+                return;
+            }
+        }
         *self.shared.looked_at.lock().unwrap() = Some(now);
         self.shared.busy.store(true, Ordering::SeqCst);
-        let (shared, poster, frame) = (self.shared.clone(), self.poster.clone(), frame.clone());
-        let spawned = std::thread::Builder::new().name("qr-reader".into()).spawn(move || {
-            // A miss is reported too, so a code that's gone stops being outlined; a code Python can't read reports nothing
-            match look(&frame) {
-                Ok(Some((text, corners))) => poster.post(POST_FOUND, json!({"text": text, "corners": corners})),
-                Ok(None) => poster.post(POST_FOUND, json!({"text": "", "corners": null})),
-                Err(Unreadable) => {}
-            }
-            shared.busy.store(false, Ordering::SeqCst);
-        });
-        if spawned.is_err() {
-            self.shared.busy.store(false, Ordering::SeqCst);
-        }
+        *self.slot.frame.lock().unwrap() = Some(frame.clone());
+        self.slot.wake.notify_one();
     }
 }
 
 /// The picture shrunk to `WIDTH` if it's wider, as a grey one, and what's in it.
 fn look(frame: &Frame) -> Result<Option<(String, Corners)>, Unreadable> {
-    let Some(rgb) = Rgb::from_frame(frame) else { return Ok(None) };
-    let (w, h) = (rgb.w, rgb.h);
+    let (w, h) = (frame.width as usize, frame.height as usize);
     let scale = (WIDTH / w as f64).min(1.0);
     let (dw, dh) = (((w as f64 * scale).round_ties_even() as usize).max(1), ((h as f64 * scale).round_ties_even() as usize).max(1));
+    // Video frames are read from their Y plane: shrunk first and put into full range after, so the 4K picture is never converted to colour
+    if matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12) && frame.data.len() >= w * h {
+        let mut grey = imgops::resize_area(&frame.data[..w * h], w, h, 1, dw, dh);
+        for g in grey.iter_mut() {
+            *g = ((*g as i32 - 16).max(0) * 255 / 219).min(255) as u8;
+        }
+        return try_read_code(&grey, dw, dh);
+    }
+    let Some(rgb) = Rgb::from_frame(frame) else { return Ok(None) };
     let small = rgb.area(dw, dh);
     try_read_code(&small.gray().data, dw, dh)
 }
@@ -710,7 +760,7 @@ impl Plugin for QrReaderPlugin {
 
     fn frame_step(&mut self) -> Option<FrameStep> {
         let poster = self.poster.clone()?;
-        Some(FrameStep::Cpu(Box::new(Reader { shared: self.shared.clone(), poster })))
+        Some(FrameStep::Cpu(Box::new(Reader::new(self.shared.clone(), poster))))
     }
 
     fn get_config(&self) -> Value {
