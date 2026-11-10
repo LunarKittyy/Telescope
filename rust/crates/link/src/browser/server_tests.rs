@@ -709,11 +709,12 @@ fn a_reader_that_falls_behind_starts_again_at_a_keyframe() {
     let gen = feed.connect();
     feed.note_rtc(gen, "H264", "");
     let (_, mut reader) = BrowserVideo::open(feed.clone()).unwrap();
+    // A frame every 10 ms for two seconds, with nothing reading them
     for n in 0..200u32 {
-        feed.put_video(gen, Codec::H264, vec![0, 0, 0, 1, 0x41, n as u8], 0, 0);
+        feed.put_video_at(gen, Codec::H264, vec![0, 0, 0, 1, 0x41, n as u8], 0, 0, n as u64 * 10_000_000);
     }
     assert!(feed.take_keyframe_wish());
-    feed.put_video(gen, Codec::H264, vec![0, 0, 0, 1, 0x65, 9], 0, 0);
+    feed.put_video_at(gen, Codec::H264, vec![0, 0, 0, 1, 0x65, 9], 0, 0, 2_000_000_000);
     let first = reader.read().unwrap().data;
     assert_eq!(first, [0, 0, 0, 1, 0x65, 9], "the old frames went and the keyframe is next");
     assert!(feed.next_frame(gen, Duration::from_millis(50)).is_none()); // nothing newer

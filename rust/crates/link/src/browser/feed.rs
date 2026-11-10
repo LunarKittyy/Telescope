@@ -3,8 +3,8 @@
 //!
 //! Python kept only the newest decoded frame, since aiortc had decoded it already. Here the frames are still encoded
 //! and an H.264 frame can't be skipped without breaking the ones after it, so they queue in order; a reader that falls
-//! too far behind drops the queue and waits for the next keyframe, which the connection is asked for. They leave here
-//! by the sender's own timestamps, since Firefox sends in bursts.
+//! too far behind drops the queue and waits for the next keyframe, which the connection is asked for. Each frame carries
+//! the time the sender's own timestamps give it (Firefox sends in bursts); the reader shows it then, after decoding it.
 
 use serde_json::{json, Value};
 use std::collections::VecDeque;
@@ -17,15 +17,13 @@ use telescope_core::pace::EvenTiming;
 
 /// A page that sends no id of its own (an older one).
 pub const DEFAULT_ID: &str = "default";
-/// Frames waiting for the stream past this many: it fell behind.
-const MAX_QUEUED: usize = 90;
+/// A frame that has waited this long for the stream (the reader's own queue behind it drops what's stale on the same budget): it fell behind.
+const MAX_AGE_NS: u64 = 600_000_000;
 /// A second of mic at most, so a stalled reader can't build up delay.
 const MAX_AUDIO_BYTES: usize = 48_000 * 2;
 /// How long the video waits for a browser to be there, and for its next frame before the stream reconnects.
 pub const OPEN_WAIT: Duration = Duration::from_secs(1);
 pub const FRAME_WAIT: Duration = Duration::from_secs(3);
-/// The longest a held frame sleeps before looking for a stop.
-const HOLD_NAP: Duration = Duration::from_millis(20);
 
 /// What the page says it sends: its size and rate, and what holds it back ("cpu", "bandwidth" or "").
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -136,6 +134,11 @@ impl BrowserFeed {
     }
 
     pub fn put_video(&self, gen: u64, codec: Codec, data: Vec<u8>, frame_bytes: u64, made_ns: u64) {
+        self.put_video_at(gen, codec, data, frame_bytes, made_ns, telescope_core::time::monotonic_ns());
+    }
+
+    /// put_video, for a frame that arrived at arrived_ns on the monotonic clock.
+    pub(super) fn put_video_at(&self, gen: u64, codec: Codec, data: Vec<u8>, frame_bytes: u64, made_ns: u64, arrived_ns: u64) {
         let mut s = self.lock();
         if gen != s.gen {
             return;
@@ -145,7 +148,7 @@ impl BrowserFeed {
             return;
         }
         s.resync = false;
-        if s.frames.len() >= MAX_QUEUED {
+        if s.frames.front().is_some_and(|oldest| arrived_ns.saturating_sub(oldest.arrived_ns) > MAX_AGE_NS) {
             // Fell behind: start again at the next keyframe instead of building up delay
             s.frames.clear();
             s.resync = !is_keyframe(codec, &data);
@@ -156,7 +159,7 @@ impl BrowserFeed {
         }
         s.frame_seq += 1;
         let seq = s.frame_seq;
-        s.frames.push_back(Frame { seq, codec, data, made_ns, arrived_ns: telescope_core::time::monotonic_ns() });
+        s.frames.push_back(Frame { seq, codec, data, made_ns, arrived_ns });
         if frame_bytes > 0 {
             s.frame_bytes = frame_bytes;
         }
@@ -496,13 +499,17 @@ impl Drop for BrowserAudio {
 }
 
 /// The video as the stream reads it (BrowserReader): open waits for a browser and its answered offer, then frames
-/// come off the feed in order until the browser goes or goes quiet.
+/// come off the feed in order until the browser goes or goes quiet. A frame comes out as soon as it's there; the time
+/// the sender's timestamps give it goes to the reader (show_at_ns), which waits for it after decoding.
 pub struct BrowserVideo {
     feed: Arc<BrowserFeed>,
     gen: u64,
+    codec: Codec,
     stopped: Arc<AtomicBool>,
     pace: EvenTiming,
     told: bool,
+    /// When the frame read last should be shown.
+    show_at: Option<u64>,
 }
 
 impl BrowserVideo {
@@ -510,21 +517,7 @@ impl BrowserVideo {
     pub fn open(feed: Arc<BrowserFeed>) -> Option<(Codec, BrowserVideo)> {
         let gen = feed.wait_connected(OPEN_WAIT)?;
         let codec = feed.wait_codec(gen, super::rtc::ANSWER_TIMEOUT)?;
-        Some((codec, BrowserVideo { feed, gen, stopped: Arc::default(), pace: EvenTiming::new(), told: false }))
-    }
-
-    /// Waits until a frame is due, in short sleeps so a stop is noticed soon. False if the stream stopped.
-    fn hold_until(&self, due_ns: u64) -> bool {
-        loop {
-            let left = due_ns.saturating_sub(telescope_core::time::monotonic_ns());
-            if left == 0 {
-                return true;
-            }
-            if self.stopped.load(Ordering::SeqCst) {
-                return false;
-            }
-            std::thread::sleep(Duration::from_nanos(left).min(HOLD_NAP));
-        }
+        Some((codec, BrowserVideo { feed, gen, codec, stopped: Arc::default(), pace: EvenTiming::new(), told: false, show_at: None }))
     }
 }
 
@@ -545,12 +538,9 @@ impl VideoFeed for BrowserVideo {
             }
             // In short waits, so a stop is noticed soon
             if let Some(frame) = self.feed.next_frame(self.gen, Duration::from_millis(200)) {
-                let due = self.pace.due(frame.made_ns, frame.arrived_ns);
+                self.show_at = Some(self.pace.due(frame.made_ns, frame.arrived_ns));
                 if self.pace.hold_ns() > 0 && !std::mem::replace(&mut self.told, true) {
                     log::info!("Browser camera: frames come in bursts, holding them back a little to even them out");
-                }
-                if !self.hold_until(due) {
-                    return Err(FeedEnd::Stopped);
                 }
                 return Ok(Packet { data: frame.data, time_ns: frame.arrived_ns });
             }
@@ -565,6 +555,19 @@ impl VideoFeed for BrowserVideo {
     }
 
     fn decoded(&mut self) {}
+
+    fn is_keyframe(&self, data: &[u8]) -> bool {
+        is_keyframe(self.codec, data)
+    }
+
+    fn request_keyframe(&mut self) -> bool {
+        self.feed.ask_keyframe();
+        true
+    }
+
+    fn show_at_ns(&mut self) -> Option<u64> {
+        self.show_at.take()
+    }
 }
 
 #[cfg(test)]
@@ -587,5 +590,55 @@ mod tests {
         stopper.stop();
         assert_eq!(rx.recv_timeout(Duration::from_secs(2)), Ok(true));
         assert_eq!(feed.page_config().1["audio"], false);
+    }
+
+    const MS: u64 = 1_000_000;
+
+    fn h264(key: bool, n: u8) -> Vec<u8> {
+        vec![0, 0, 0, 1, if key { 0x65 } else { 0x41 }, n]
+    }
+
+    #[test]
+    fn frames_that_waited_too_long_are_dropped_up_to_a_keyframe_which_is_asked_for() {
+        let feed = BrowserFeed::new();
+        let gen = feed.connect();
+        feed.put_video_at(gen, Codec::H264, h264(true, 0), 0, 0, 0);
+        feed.put_video_at(gen, Codec::H264, h264(false, 1), 0, 0, 500 * MS);
+        // Half a second behind is still within the budget
+        assert!(!feed.take_keyframe_wish());
+        feed.put_video_at(gen, Codec::H264, h264(false, 2), 0, 0, 700 * MS);
+        assert!(feed.take_keyframe_wish());
+        assert!(feed.next_frame(gen, Duration::from_millis(10)).is_none());
+        feed.put_video_at(gen, Codec::H264, h264(false, 3), 0, 0, 710 * MS);
+        feed.put_video_at(gen, Codec::H264, h264(true, 4), 0, 0, 720 * MS);
+        assert_eq!(feed.next_frame(gen, Duration::from_millis(10)).unwrap().data, h264(true, 4));
+    }
+
+    #[test]
+    fn a_frame_comes_out_at_once_and_the_time_to_show_it_goes_to_the_reader() {
+        let feed = Arc::new(BrowserFeed::new());
+        let gen = feed.connect();
+        feed.note_rtc(gen, "H264", "");
+        let (_, mut video) = BrowserVideo::open(feed.clone()).unwrap();
+        let later = telescope_core::time::monotonic_ns() + 5_000_000_000;
+        feed.put_video_at(gen, Codec::H264, h264(true, 0), 0, 0, later);
+        let began = Instant::now();
+        assert!(video.read().is_ok());
+        assert!(began.elapsed() < Duration::from_secs(1), "{:?}", began.elapsed());
+        assert_eq!(video.show_at_ns(), Some(later));
+        assert_eq!(video.show_at_ns(), None);
+    }
+
+    #[test]
+    fn the_reader_can_tell_keyframes_and_ask_for_one() {
+        let feed = Arc::new(BrowserFeed::new());
+        let gen = feed.connect();
+        feed.note_rtc(gen, "VP8", "");
+        let (codec, mut video) = BrowserVideo::open(feed.clone()).unwrap();
+        assert_eq!(codec, Codec::Vp8);
+        assert!(video.is_keyframe(&[0x10, 0, 0]) && !video.is_keyframe(&[0x11, 0, 0]));
+        assert!(!feed.take_keyframe_wish());
+        assert!(video.request_keyframe());
+        assert!(feed.take_keyframe_wish());
     }
 }
