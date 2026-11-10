@@ -18,7 +18,7 @@ export component PrivacyBlurCard inherits Card {
     callback download-clicked;
 
     title: @tr("Privacy blur");
-    tip: @tr("Blur the other people or show the wait screen when someone else is in the picture.");
+    tip: @tr("Blur the whole picture or show the wait screen when more than one person is in it.");
     icon: Icons.eye-off;
     enabled: active;
     has-switch: true;
@@ -39,7 +39,7 @@ export component PrivacyBlurCard inherits Card {
             enabled: active;
             compact: true;
             caption: @tr("Privacy blur: what happens");
-            items: [@tr("Blur the others"), @tr("Blur all but me"), @tr("Show the wait screen")];
+            items: [@tr("Blur the whole picture"), @tr("Show the wait screen")];
             current: mode;
             shortcut: "privacy_blur.mode";
             tip: @tr("Privacy blur: what happens");
