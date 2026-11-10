@@ -172,7 +172,9 @@ export component Footer inherits Rectangle {
     property <int> folded-side: -1;
     property <length> folded-x;
     function leave() { leaving = true; }
-    function open-folded(side: int, x: length) {
+    // How tall the folded pins' list is, for a test
+    out property <length> list-height: min(root.folded-count * Theme.u(13) + Theme.u(5), max(Theme.u(18), root.absolute-position.y - Theme.u(6)));
+    public function open-folded(side: int, x: length) {
         root.folded-side = side;
         root.folded-x = x;
         root.leaving = false;
@@ -215,25 +217,32 @@ export component Footer inherits Rectangle {
     }
     list := PopupWindow {
         x: clamp(root.folded-x, 0px, max(0px, root.width - Theme.u(120)));
-        y: -(root.folded-count * Theme.u(13) + Theme.u(5) + Theme.u(3));
+        y: -(root.list-height + Theme.u(3));
         width: Theme.u(120);
-        height: root.folded-count * Theme.u(13) + Theme.u(5);
+        // As tall as its rows, or as much of the window above the bar as there is, and then it scrolls
+        height: root.list-height;
         close-policy: close-on-click-outside;
         MenuSurface {
             width: parent.width;
             height: parent.height;
             leaving: root.leaving;
-            VerticalLayout {
-                padding: Theme.u(2.5);
-                for pin in pins: HorizontalLayout {
-                    if pin.state == 1 && pin.side == root.folded-side: HorizontalLayout {
-                        height: Theme.u(13);
-                        padding-left: Theme.u(4);
-                        padding-right: Theme.u(4);
-                        spacing: Theme.u(3);
-                        if pin.icon != "": Icon { y: (parent.height - self.height) / 2; source: Icons.named(pin.icon); tint: Theme.faint; width: Theme.icon-small; height: Theme.icon-small; }
-                        Text { text: pin.name; horizontal-stretch: 1; min-width: 0px; overflow: elide; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; }
-                        Text { text: pin.value; font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; color: pin.tone == "err" ? Theme.err : pin.tone == "warn" ? Theme.warn : Theme.ink; vertical-alignment: center; horizontal-alignment: right; }
+            Flickable {
+                viewport-width: self.width;
+                viewport-height: rows.preferred-height;
+                rows := VerticalLayout {
+                    width: parent.width;
+                    height: self.preferred-height;
+                    padding: Theme.u(2.5);
+                    for pin in pins: HorizontalLayout {
+                        if pin.state == 1 && pin.side == root.folded-side: HorizontalLayout {
+                            height: Theme.u(13);
+                            padding-left: Theme.u(4);
+                            padding-right: Theme.u(4);
+                            spacing: Theme.u(3);
+                            if pin.icon != "": Icon { y: (parent.height - self.height) / 2; source: Icons.named(pin.icon); tint: Theme.faint; width: Theme.icon-small; height: Theme.icon-small; }
+                            Text { text: pin.name; horizontal-stretch: 1; min-width: 0px; overflow: elide; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; }
+                            Text { text: pin.value; font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; color: pin.tone == "err" ? Theme.err : pin.tone == "warn" ? Theme.warn : Theme.ink; vertical-alignment: center; horizontal-alignment: right; }
+                        }
                     }
                 }
             }

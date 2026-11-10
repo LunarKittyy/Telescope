@@ -560,3 +560,45 @@ fn content_that_takes_a_placeholders_place_starts_half_solid_and_comes_up_to_ful
     assert!(seen.iter().all(|v| *v <= 1.0001), "{seen:?}");
     assert!(seen[4] > 0.8 && *seen.last().unwrap() == 1.0, "full within a tenth of a second or so: {seen:?}");
 }
+
+const FOLDING: &str = r#"
+import { Unfolding, UnfoldGroup, Button, Theme } from "@ui-kit/ui-kit.slint";
+export component T inherits Window {
+    width: 200px;
+    height: 120px;
+    background: Theme.card;
+    in-out property <bool> shown: true;
+    in-out property <int> clicks;
+    out property <float> open: u.value;
+    UnfoldGroup {
+        x: 10px;
+        y: 10px;
+        width: 180px;
+        u := Unfolding {
+            open: shown;
+            lead: 0px;
+            Button { text: "Go"; clicked => { root.clicks += 1; } }
+        }
+    }
+}
+"#;
+
+#[test]
+fn a_row_that_is_folding_away_takes_no_click() {
+    let _still = offscreen::freeze_clock();
+    let ui = make(FOLDING, 200.0, 120.0);
+    step(FRAME);
+    press(&ui, 30.0, 20.0);
+    release(&ui, 30.0, 20.0);
+    assert_eq!(num(&ui, "clicks"), 1.0, "a click on it counts while it is open");
+    set(&ui, "clicks", Value::Number(0.0));
+    set(&ui, "shown", Value::Bool(false));
+    step(FRAME);
+    let mid = num(&ui, "open");
+    assert!(mid > 0.0 && mid < 1.0, "it is part way: {mid}");
+    for y in [12.0, 18.0, 24.0, 30.0] {
+        press(&ui, 30.0, y);
+        release(&ui, 30.0, y);
+    }
+    assert_eq!(num(&ui, "clicks"), 0.0, "and while it folds away nothing in it is clicked");
+}
