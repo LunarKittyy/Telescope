@@ -973,20 +973,23 @@ impl Shared {
         }
     }
 
+    /// The thread that runs the frame steps on what decoding hands it, newest first, so decoding goes straight on to the next picture.
+    fn spawn_steps(self: &Arc<Self>, frames: Arc<Newest<(u64, Frame)>>) -> std::thread::JoinHandle<()> {
+        let s = self.clone();
+        std::thread::Builder::new().name("stream-steps".into()).spawn(move || {
+            let _counting = telescope_core::stats::bind(&s.stats);
+            let _priority = telescope_core::system::prioritise_thread("frame steps");
+            while let Some((seq, frame)) = frames.take() {
+                s.publish(seq, frame);
+            }
+        }).expect("a thread for the frame steps")
+    }
+
     /// H.264: this thread decodes, and a second one runs the steps, so the next picture decodes while the last goes through them. One that
     /// the steps haven't taken by the time the next is decoded is dropped, so slow steps skip frames instead of lagging.
     fn read_h264(self: &Arc<Self>, reader: &mut dyn FrameReader) -> Ended {
         let newest: Arc<Newest<(u64, Frame)>> = Arc::default();
-        let steps = {
-            let (s, newest) = (self.clone(), newest.clone());
-            std::thread::Builder::new().name("stream-steps".into()).spawn(move || {
-                let _counting = telescope_core::stats::bind(&s.stats);
-                let _priority = telescope_core::system::prioritise_thread("frame steps");
-                while let Some((seq, frame)) = newest.take() {
-                    s.publish(seq, frame);
-                }
-            }).expect("a thread for the frame steps")
-        };
+        let steps = self.spawn_steps(newest.clone());
         // Dropped on the way out, a panic in the reader included, so the steps thread has ended before the reader is reported finished
         let _steps = FeedThreads { newest: newest.clone(), threads: vec![steps] };
         loop {
@@ -1012,16 +1015,30 @@ impl Shared {
         }
     }
 
-    /// JPEGs: the newest packet goes to the decoders; one nobody took in time is dropped, so a slow decoder skips
-    /// frames instead of letting them queue up as lag.
+    /// JPEGs: the newest packet goes to the decoders; one nobody took in time is dropped, so a slow decoder skips frames instead of letting them queue up as lag. The decoders hand their pictures to one steps thread the way H.264's reader does, so a decoder never waits for the steps.
     fn read_jpegs(self: &Arc<Self>, feed: &mut dyn VideoFeed, decoders: &mut Vec<Box<dyn Decoder>>) -> Ended {
         let newest: Arc<Newest<(u64, telescope_core::media::Packet)>> = Arc::default();
+        let frames: Arc<Newest<(u64, Frame)>> = Arc::default();
         let broken = Arc::new(AtomicBool::new(false));
+        // The newest picture number passed to the steps, so a decoder that finishes behind another one doesn't put an older picture in front of it
+        let handed = Arc::new(Mutex::new(0u64));
+        // Made first so it is dropped last: the decoders have ended before the steps are told no more comes
+        let _steps = FeedThreads { newest: frames.clone(), threads: vec![self.spawn_steps(frames.clone())] };
         let threads: Vec<_> = decoders.drain(..).map(|mut decoder| {
-            let (s, newest, broken) = (self.clone(), newest.clone(), broken.clone());
+            let (s, newest, frames, broken, handed) = (self.clone(), newest.clone(), frames.clone(), broken.clone(), handed.clone());
             std::thread::spawn(move || {
                 let _counting = telescope_core::stats::bind(&s.stats);
-                decode_jpegs(decoder.as_mut(), &newest, &broken, &s.stats, |seq, frame| { s.publish(seq, frame); })
+                decode_jpegs(decoder.as_mut(), &newest, &broken, &s.stats, |seq, frame| {
+                    let mut handed = handed.lock().unwrap();
+                    if seq < *handed {
+                        s.shed(1);
+                    } else {
+                        *handed = seq;
+                        if frames.put((seq, frame)) {
+                            s.shed(1);
+                        }
+                    }
+                })
             })
         }).collect();
         // Dropped on the way out, a panic in the feed included, so the decoders have ended before the reader is reported finished
@@ -1193,7 +1210,7 @@ impl Shared {
         let (mut t0, mut bytes0, mut recv0) = (Instant::now(), self.bytes_total.load(Ordering::Relaxed), self.frames_arrived.load(Ordering::Relaxed));
         let mut shed0 = self.frames_shed.load(Ordering::Relaxed);
         let mut weak_streak = 0;
-        let mut last_sent: Option<Instant> = None;
+        let mut pacer = Pacer::new(period);
         let mut last_preview = Instant::now() - Duration::from_secs(1);
         let (mut seen, mut fitted): (u64, Option<Frame>) = (0, None);
         // Frames that came in while the last one was being paced, each with how many had been published by then, and the newest one sent
@@ -1209,11 +1226,8 @@ impl Shared {
         while !self.stopped() && !self.restart_vcam.is_set() && !self.parked.load(Ordering::SeqCst) && !reader_done.is_set() {
             // A new frame goes out as soon as it's ready. The last one is resent only after two periods without one,
             // so a frame that's a little late isn't held back behind a resend.
-            let now = Instant::now();
-            let pace_left = last_sent.map_or(Duration::ZERO, |t| (t + period / 2).saturating_duration_since(now));
-            let resend_in = last_sent.map_or(Duration::ZERO, |t| (t + 2 * period).saturating_duration_since(now));
             // Frames are picked up while the pacing runs, so a burst isn't thinned down to its last frame
-            let wait = if queued.is_empty() { resend_in } else { pace_left };
+            let wait = pacer.wait(Instant::now(), !queued.is_empty());
             if queued.is_empty() || !wait.is_zero() {
                 self.slot.wait_newer(seen, wait.min(Duration::from_millis(100)).max(Duration::from_millis(1)));
             }
@@ -1236,15 +1250,14 @@ impl Shared {
                     }
                 }
             }
-            // A burst from the phone is paced to at most twice the camera's rate
-            let paced = last_sent.is_some_and(|t| t.elapsed() < period / 2);
-            let due = last_sent.is_none_or(|t| t.elapsed() >= 2 * period);
-            let next = if paced { None } else { queued.pop_front() };
-            if next.is_none() && (paced || !due || fitted.is_none()) {
-                continue;
-            }
+            let next = match pacer.pick(Instant::now(), &mut queued, fitted.is_some()) {
+                Pick::Wait => continue,
+                Pick::New(frame, at) => Some((frame, at)),
+                Pick::Resend => None,
+            };
             {
                 let new_frame = next.is_some();
+                let started = Instant::now();
                 let (src, fresh_at) = match next {
                     Some((src, at)) => {
                         // A frame a plugin replaced in the slot goes out again but isn't another one
@@ -1279,7 +1292,7 @@ impl Shared {
                 if let (true, Some(log)) = (new_frame, delivery_log.as_mut()) {
                     log.delivered(src.number, self.newest_arrival.load(Ordering::Relaxed), src.time_ns);
                 }
-                last_sent = Some(Instant::now());
+                pacer.sent(started, Instant::now());
                 let preview = self.preview_size.load(Ordering::Relaxed);
                 if preview != 0 && last_preview.elapsed() >= Duration::from_millis(33) {
                     last_preview = Instant::now();
@@ -1331,6 +1344,53 @@ impl Shared {
         drop(cam);
         self.vcam_free.set();
         ok
+    }
+}
+
+/// What the camera loop does next.
+enum Pick {
+    /// Nothing is due yet.
+    Wait,
+    /// A picture waiting in the queue goes out, with how many had been published when it was.
+    New(Frame, u64),
+    /// Nothing new came in time, so the last picture goes again.
+    Resend,
+}
+
+/// When the camera loop sends, as decisions on a clock it is handed so tests can run it on a made-up one. The gap between sends is counted from where the last one began, so what it costs to fit, convert and send a picture comes out of the gap instead of adding to it; the wait before a resend is counted from where it ended, so a resend never lands on the moment a new picture is due.
+struct Pacer {
+    period: Duration,
+    began: Option<Instant>,
+    ended: Option<Instant>,
+}
+
+impl Pacer {
+    fn new(period: Duration) -> Pacer {
+        Pacer { period, began: None, ended: None }
+    }
+
+    /// The last send began and ended at these moments.
+    fn sent(&mut self, began: Instant, ended: Instant) {
+        self.began = Some(began);
+        self.ended = Some(ended);
+    }
+
+    /// How long until the loop has something to do: a queued picture waits out the gap, the last one is resent only after two periods without a new one, so a frame that's a little late isn't held back behind a resend.
+    fn wait(&self, now: Instant, queued: bool) -> Duration {
+        let (from, after) = if queued { (self.began, self.period / 2) } else { (self.ended, 2 * self.period) };
+        from.map_or(Duration::ZERO, |t| (t + after).saturating_duration_since(now))
+    }
+
+    /// What goes out at now: a burst from the phone is paced to at most twice the camera's rate, oldest first.
+    fn pick(&self, now: Instant, queue: &mut std::collections::VecDeque<(Frame, u64)>, have_last: bool) -> Pick {
+        let paced = self.began.is_some_and(|t| now.saturating_duration_since(t) < self.period / 2);
+        let due = self.ended.is_none_or(|t| now.saturating_duration_since(t) >= 2 * self.period);
+        if !paced {
+            if let Some((frame, at)) = queue.pop_front() {
+                return Pick::New(frame, at);
+            }
+        }
+        if paced || !due || !have_last { Pick::Wait } else { Pick::Resend }
     }
 }
 
@@ -1741,12 +1801,22 @@ mod tests {
         locked: Mutex<Option<(u32, u32)>>,
         /// The open camera reports itself outdated once.
         outdated: AtomicBool,
+        /// What each send takes, in ms.
+        send_cost_ms: AtomicU64,
+        /// Every send: when it began, the number of the frame and how old it was then, in ms.
+        timeline: Mutex<Vec<(Instant, u64, f64)>>,
     }
 
     struct Cam(Arc<Cams>, (u32, u32));
 
     impl VideoOutput for Cam {
         fn send(&mut self, frame: &Frame) -> Result<(), String> {
+            let age = telescope_core::time::monotonic_ns().saturating_sub(frame.time_ns) as f64 / 1e6;
+            self.0.timeline.lock().unwrap().push((Instant::now(), frame.number, age));
+            let cost = self.0.send_cost_ms.load(Ordering::Relaxed);
+            if cost > 0 {
+                std::thread::sleep(Duration::from_millis(cost));
+            }
             self.0.sent.lock().unwrap().push(frame.data[0]);
             self.0.sent_at.lock().unwrap().push((frame.data[0], Instant::now()));
             self.0.formats.lock().unwrap().push(frame.format);
@@ -3398,7 +3468,9 @@ mod tests {
         assert_eq!(s.totals.decoded, 18);
         // What was decoded either went out, or is accounted for
         let published = *w.shared.published.lock().unwrap();
-        assert_eq!(s.totals.decoded, published + s.drops.late + s.drops.step_failed);
+        // Pictures the steps couldn't take in time are shed after decoding, which the shed count has with the packets that were never decoded
+        let shed_after_decoding = w.shared.frames_shed.load(Ordering::SeqCst) - (s.totals.received - s.totals.decoded - s.drops.decoder_failed);
+        assert_eq!(s.totals.decoded, published + s.drops.late + s.drops.step_failed + shed_after_decoding);
         assert!(s.totals.delivered <= published && s.totals.delivered + s.drops.paced >= published, "{s:?}");
         assert!(s.totals.repeated >= 1, "the camera resent the last frame while nothing came: {s:?}");
         assert_eq!((s.drops.lost_on_link, s.drops.waiting_for_keyframe, s.drops.unknown), (0, 0, 0));
@@ -3407,5 +3479,388 @@ mod tests {
         assert!(step.mean_ms < step.max_ms);
         assert_eq!((s.target_fps, s.link.route, s.link.transport), (30, telescope_core::stats::Route::Usb, telescope_core::stats::Transport::Tcp));
         assert!(Hub::shared().snapshot().sources.iter().all(|s| s.source_id != "stats-test"), "gone with the worker");
+    }
+
+    // Heavy: the decoders hand pictures to the steps thread and go straight on decoding.
+
+    /// A gate the steps wait at until it opens, after letting the first picture through (the one a stream is checked with as it opens).
+    #[derive(Default)]
+    struct Gate(Mutex<bool>, Condvar, AtomicU64);
+
+    impl Gate {
+        fn open(&self) {
+            *self.0.lock().unwrap() = true;
+            self.1.notify_all();
+        }
+    }
+
+    /// Opens the gate when dropped, so a failing test doesn't leave the worker waiting on it.
+    struct GateOpener(Arc<Gate>);
+
+    impl Drop for GateOpener {
+        fn drop(&mut self) {
+            self.0.open();
+        }
+    }
+
+    /// Steps that hold every picture but the first until the gate opens.
+    struct Held(Arc<Gate>);
+
+    impl FramePipeline for Held {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            if self.0.2.fetch_add(1, Ordering::SeqCst) == 0 {
+                return frame;
+            }
+            let _open = self.0.1.wait_while(self.0.0.lock().unwrap(), |open| !*open).unwrap();
+            frame
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+    }
+
+    /// A decoder that takes as many ms as its packet's first byte says.
+    struct Uneven;
+
+    impl Decoder for Uneven {
+        fn decode(&mut self, packet: &Packet) -> Decoded {
+            std::thread::sleep(Duration::from_millis(packet.data[0] as u64));
+            Decoded { newest: Some(grey(4, 2, 1)), count: 1 }
+        }
+        fn hardware(&self) -> bool {
+            false
+        }
+    }
+
+    /// Decoders from the first, steps from the second.
+    struct GatedMedia(Arc<Busy>, Option<Arc<Gate>>);
+
+    impl Media for GatedMedia {
+        fn decoder(&self, _codec: Codec, _options: &DecodeOptions) -> Result<Box<dyn Decoder>, String> {
+            Ok(if self.1.is_some() { Box::new(Timed(0, self.0.clone())) as Box<dyn Decoder> } else { Box::new(Uneven) })
+        }
+        fn scaler(&self) -> Box<dyn Scaler> {
+            FakeMedia.scaler()
+        }
+        fn pipeline(&self) -> Result<Box<dyn FramePipeline>, String> {
+            Ok(match &self.1 {
+                Some(gate) => Box::new(Held(gate.clone())),
+                None => Box::new(Pass),
+            })
+        }
+    }
+
+    #[test]
+    fn jpeg_decoders_do_not_wait_for_the_steps_on_the_last_picture() {
+        let opener: Opener = Arc::new(|_| {
+            Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }) as Box<dyn VideoFeed>).into())
+        });
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = start(setup(opener), Arc::new(PacedMedia(15, 15)), &cams, &log);
+        wait_for(|| w.shared.slot.latest().is_some());
+        let first = w.shared.slot.latest().unwrap().1;
+        std::thread::sleep(Duration::from_millis(1200));
+        let made = w.shared.slot.latest().unwrap().1 - first;
+        w.stop();
+        println!("{made} pictures in 1.2 s");
+        // One after the other, 15 + 15 ms a picture makes 40 of them; side by side they come every 15 ms, about 80
+        assert!(made > 55, "decode and steps overlap: {made} pictures in 1.2 s");
+    }
+
+    #[test]
+    fn jpegs_dropped_before_the_steps_count_as_shed_and_the_rest_come_out() {
+        let steps: Vec<Step> = (0..20u8).map(Step::Frame).collect();
+        let (opener, _opens) = scripted(vec![Some(steps)]);
+        let opener2 = opener.clone();
+        let (busy, gate) = (Arc::new(Busy::default()), Arc::new(Gate::default()));
+        let _opens = GateOpener(gate.clone());
+        // One decoder of the source's own, so no picture can pass another
+        let own: Opener = Arc::new(move |stop| {
+            let opened = opener2(stop)?;
+            Ok(Opened { own_decoder: Some(Box::new(Timed(2, busy.clone()))), ..opened })
+        });
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = start(setup(own), Arc::new(GatedMedia(Arc::default(), Some(gate.clone()))), &cams, &log);
+        wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) == 20);
+        wait_for(|| w.shared.frames_shed.load(Ordering::SeqCst) >= 1);
+        gate.open();
+        // Every packet is now either shed on the way or comes out of the steps
+        wait_for(|| *w.shared.published.lock().unwrap() + w.shared.frames_shed.load(Ordering::SeqCst) == 20);
+        w.stop();
+    }
+
+    #[test]
+    fn two_decoders_finishing_out_of_order_never_put_an_older_picture_in_front() {
+        let opener: Opener = Arc::new(|_| Err("not opened".into()));
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = start(setup(opener), Arc::new(GatedMedia(Arc::default(), None)), &cams, &log);
+        w.stop();
+        // The worker is stopped, so read_jpegs is called by hand on its state, with two decoders whatever the machine has
+        w.shared.stop.store(false, Ordering::SeqCst);
+        // Slow and fast pictures alternating, so the second decoder keeps finishing ahead of the first
+        let steps: VecDeque<Step> = (0..60).flat_map(|i| [Step::Frame(if i % 2 == 0 { 30 } else { 1 }), Step::Pause(Duration::from_millis(4))]).chain([Step::End]).collect();
+        let mut feed = Script { steps, stop: Arc::default(), gone: Arc::default() };
+        let (arrived, published, shed) = (w.shared.frames_arrived.load(Ordering::SeqCst), *w.shared.published.lock().unwrap(), w.shared.frames_shed.load(Ordering::SeqCst));
+        w.shared.read_jpegs(&mut feed, &mut vec![Box::new(Uneven), Box::new(Uneven)]);
+        let (arrived, published, shed) = (w.shared.frames_arrived.load(Ordering::SeqCst) - arrived, *w.shared.published.lock().unwrap() - published, w.shared.frames_shed.load(Ordering::SeqCst) - shed);
+        // A picture that came out behind a newer one would be dropped as late and counted as neither
+        assert_eq!((arrived, published + shed), (60, 60), "published {published}, shed {shed}");
+    }
+
+    // The camera loop's pacing, on a made-up clock.
+
+    /// The loop's decisions with pictures coming in at the times given (ms) and the camera taking cost ms a send, until the time given: each send as (began, number of the picture, or None for a resend, how old it was when sent), all in ms.
+    fn run_pacer(fps: u32, cost: u64, arrivals: &[u64], until: u64) -> Vec<(u64, Option<u64>, u64)> {
+        let base = Instant::now();
+        let at = |ms: u64| base + Duration::from_millis(ms);
+        let mut pacer = Pacer::new(Duration::from_secs_f64(1.0 / fps as f64));
+        let mut queue: VecDeque<(Frame, u64)> = VecDeque::new();
+        let (mut now, mut seen, mut have_last) = (0u64, 0usize, false);
+        let mut sent = Vec::new();
+        let version = |t: u64| arrivals.iter().filter(|a| **a <= t).count();
+        while now < until {
+            let wait = pacer.wait(at(now), !queue.is_empty());
+            if (queue.is_empty() || !wait.is_zero()) && version(now) <= seen {
+                // The slot wakes the loop for a new picture, or the wait runs out (a millisecond at least, a tenth of a second at most)
+                let timeout = (wait.as_millis() as u64).clamp(1, 100);
+                now = match arrivals.get(version(now)) {
+                    Some(arrival) if *arrival < now + timeout => *arrival,
+                    _ => now + timeout,
+                };
+            }
+            // Only the newest of what came in meanwhile is seen, as the slot keeps one picture
+            if version(now) > seen {
+                seen = version(now);
+                let mut frame = grey(4, 2, 1);
+                (frame.number, frame.time_ns) = (seen as u64, arrivals[seen - 1] * 1_000_000);
+                queue.push_back((frame, seen as u64));
+                while queue.len() > BURST_KEPT {
+                    queue.pop_front();
+                }
+            }
+            match pacer.pick(at(now), &mut queue, have_last) {
+                Pick::Wait => continue,
+                Pick::New(frame, _) => {
+                    have_last = true;
+                    sent.push((now, Some(frame.number), now - frame.time_ns / 1_000_000));
+                }
+                Pick::Resend => sent.push((now, None, 0)),
+            }
+            pacer.sent(at(now), at(now + cost));
+            now += cost;
+        }
+        sent.retain(|s| s.0 < until);
+        sent
+    }
+
+    fn new_sends(sent: &[(u64, Option<u64>, u64)]) -> Vec<(u64, Option<u64>, u64)> {
+        sent.iter().filter(|s| s.1.is_some()).cloned().collect()
+    }
+
+    #[test]
+    fn a_steady_30_fps_source_goes_out_whole_whatever_the_camera_takes_a_send() {
+        // 90 pictures 33 ms apart (30 fps), through cameras taking up to nearly a whole frame a send
+        let arrivals: Vec<u64> = (0..90).map(|i| i * 100 / 3).collect();
+        for cost in [1, 10, 20, 30] {
+            let sent = new_sends(&run_pacer(30, cost, &arrivals, 3200));
+            assert_eq!(sent.len(), 90, "send {cost} ms: {} of 90 went out", sent.len());
+            assert!(sent.iter().all(|s| s.2 <= 1), "send {cost} ms: a picture waited {} ms", sent.iter().map(|s| s.2).max().unwrap());
+        }
+    }
+
+    #[test]
+    fn the_gap_between_sends_is_counted_from_where_the_last_began() {
+        // Pictures 8 ms apart: sends are 16.7 ms apart when the camera is quicker than that, and as quick as the camera allows when it isn't
+        let arrivals: Vec<u64> = (0..3).map(|i| i * 8).collect();
+        let began: Vec<u64> = new_sends(&run_pacer(30, 1, &arrivals, 200)).iter().map(|s| s.0).collect();
+        assert_eq!(began, [0, 17, 34]);
+        let began: Vec<u64> = new_sends(&run_pacer(30, 12, &arrivals, 200)).iter().map(|s| s.0).collect();
+        assert_eq!(began, [0, 17, 34], "12 ms of sending comes out of the 17 ms gap");
+        // Five of them, the camera taking 25 ms: it picks up the newest each time it is free
+        let arrivals: Vec<u64> = (0..5).map(|i| i * 8).collect();
+        let began: Vec<u64> = new_sends(&run_pacer(30, 25, &arrivals, 200)).iter().map(|s| s.0).collect();
+        assert_eq!(began, [0, 25, 50], "a send longer than the gap is followed at once");
+    }
+
+    #[test]
+    fn clumps_of_five_pictures_all_go_out_through_cameras_that_keep_up_with_them() {
+        // Five pictures 8 ms apart then a quiet 126 ms, 30 fps in all. A camera that takes longer than the pictures are apart sees only the newest of those that come while it sends
+        let arrivals: Vec<u64> = (0..30).map(|i| (i / 5) * 166 + (i % 5) * 8).collect();
+        for cost in [1, 10] {
+            let sent = new_sends(&run_pacer(30, cost, &arrivals, 1200));
+            assert_eq!(sent.len(), 30, "send {cost} ms: {} of 30 went out", sent.len());
+            // Never more than the clump's own pacing behind: three sends' gaps at most
+            let most = 3 * cost.max(17);
+            assert!(sent.iter().all(|s| s.2 <= most), "send {cost} ms: a picture waited {} ms", sent.iter().map(|s| s.2).max().unwrap());
+        }
+    }
+
+    #[test]
+    fn the_last_picture_is_resent_two_periods_after_the_last_send_ended() {
+        // However long a send takes, including longer than two periods, resends are two periods apart where one ends and the next begins
+        for cost in [1, 20, 30, 70] {
+            let began: Vec<u64> = run_pacer(30, cost, &[0], 600).iter().map(|s| s.0).collect();
+            assert!(began.len() >= 4, "send {cost} ms: {began:?}");
+            assert!(began.windows(2).all(|w| (cost + 66..=cost + 68).contains(&(w[1] - w[0]))), "send {cost} ms: {began:?}");
+        }
+    }
+
+    #[test]
+    fn a_slow_send_does_not_bring_a_resend_ahead_of_a_phone_frame_that_is_nearly_due() {
+        // A 15 fps phone on a 30 fps camera through 20 ms sends: the resend is due 87 ms after a send began, a new picture 67 ms after the last
+        let arrivals: Vec<u64> = (0..30).map(|i| i * 200 / 3).collect();
+        let sent = run_pacer(30, 20, &arrivals, 1940);
+        assert_eq!(sent.iter().filter(|s| s.1.is_none()).count(), 0, "a picture was resent: {sent:?}");
+        assert_eq!(sent.len(), 30);
+        // A picture a few ms late goes straight out too
+        let late: Vec<u64> = (0..30).map(|i| i * 200 / 3 + if i % 3 == 1 { 15 } else { 0 }).collect();
+        let sent = run_pacer(30, 20, &late, 1940);
+        assert_eq!(sent.iter().filter(|s| s.1.is_none()).count(), 0, "a late picture waited behind a resend: {sent:?}");
+    }
+
+    // Timing benches: ignored, run by hand with `cargo test -p telescope-shell --lib timing_bench -- --ignored --nocapture --test-threads 1`.
+
+    /// A feed that waits each gap (ms) in turn and hands over a packet stamped with the moment it came in, then waits to be stopped.
+    struct Stamped {
+        gaps: VecDeque<u64>,
+        stop: Arc<AtomicBool>,
+    }
+
+    impl VideoFeed for Stamped {
+        fn read(&mut self) -> Result<Packet, FeedEnd> {
+            loop {
+                if self.stop.load(Ordering::SeqCst) {
+                    return Err(FeedEnd::Stopped);
+                }
+                match self.gaps.pop_front() {
+                    Some(gap) => {
+                        std::thread::sleep(Duration::from_millis(gap));
+                        return Ok(Packet { data: vec![1], time_ns: telescope_core::time::monotonic_ns() });
+                    }
+                    None => std::thread::sleep(Duration::from_millis(5)),
+                }
+            }
+        }
+        fn stopper(&self) -> Box<dyn FeedStopper> {
+            Box::new(Stop(self.stop.clone()))
+        }
+    }
+
+    /// What the decoders of a bench did: pictures and the time spent decoding them.
+    #[derive(Default)]
+    struct Busy {
+        decodes: AtomicU64,
+        busy_ns: AtomicU64,
+    }
+
+    /// A decoder that takes this many ms a picture; its pictures carry their packet's arrival time.
+    struct Timed(u64, Arc<Busy>);
+
+    impl Decoder for Timed {
+        fn decode(&mut self, packet: &Packet) -> Decoded {
+            let began = Instant::now();
+            std::thread::sleep(Duration::from_millis(self.0));
+            self.1.decodes.fetch_add(1, Ordering::Relaxed);
+            self.1.busy_ns.fetch_add(began.elapsed().as_nanos() as u64, Ordering::Relaxed);
+            let mut frame = grey(4, 2, 1);
+            frame.time_ns = packet.time_ns;
+            Decoded { newest: Some(frame), count: 1 }
+        }
+        fn hardware(&self) -> bool {
+            false
+        }
+    }
+
+    /// Decoding takes the first number of ms a picture, the frame steps the second.
+    struct TimedMedia(u64, u64, Arc<Busy>);
+
+    impl Media for TimedMedia {
+        fn decoder(&self, _codec: Codec, _options: &DecodeOptions) -> Result<Box<dyn Decoder>, String> {
+            Ok(Box::new(Timed(self.0, self.2.clone())))
+        }
+        fn scaler(&self) -> Box<dyn Scaler> {
+            FakeMedia.scaler()
+        }
+        fn pipeline(&self) -> Result<Box<dyn FramePipeline>, String> {
+            Ok(Box::new(SlowStep(self.1)))
+        }
+    }
+
+    fn percentile(sorted: &[f64], p: f64) -> f64 {
+        if sorted.is_empty() { return 0.0; }
+        sorted[((sorted.len() - 1) as f64 * p).round() as usize]
+    }
+
+    /// What a run of the camera loop put out, after a second of settling: new pictures a second, how long they were old when sent (median, 95th percentile), and the gaps
+    /// between new pictures (median, 95th percentile) in ms.
+    struct Out { fps: f64, age: (f64, f64), gap: (f64, f64) }
+
+    fn measure(cams: &Cams, from: Instant, to: Instant) -> Out {
+        let timeline = cams.timeline.lock().unwrap();
+        let mut last = u64::MAX;
+        let mut fresh: Vec<(Instant, f64)> = Vec::new();
+        for (at, number, age) in timeline.iter() {
+            if *number != last && *at >= from && *at < to {
+                fresh.push((*at, *age));
+            }
+            last = *number;
+        }
+        let mut ages: Vec<f64> = fresh.iter().map(|f| f.1).collect();
+        let mut gaps: Vec<f64> = fresh.windows(2).map(|w| w[1].0.duration_since(w[0].0).as_secs_f64() * 1000.0).collect();
+        ages.sort_by(|a, b| a.total_cmp(b));
+        gaps.sort_by(|a, b| a.total_cmp(b));
+        Out { fps: fresh.len() as f64 / to.duration_since(from).as_secs_f64(), age: (percentile(&ages, 0.5), percentile(&ages, 0.95)), gap: (percentile(&gaps, 0.5), percentile(&gaps, 0.95)) }
+    }
+
+    /// Runs a stream of these gaps (ms) through a decoder and steps costing the given ms and a camera costing send_ms a send, for secs seconds, and reports.
+    fn run_bench(label: &str, own_decoder: bool, decode_ms: u64, steps_ms: u64, send_ms: u64, gaps: Vec<u64>, secs: u64) {
+        let busy = Arc::new(Busy::default());
+        let gaps = Mutex::new(Some(gaps));
+        let b = busy.clone();
+        let opener: Opener = Arc::new(move |_| {
+            let feed = Stamped { gaps: gaps.lock().unwrap().take().unwrap_or_default().into(), stop: Arc::default() };
+            Ok(Opened { codec: Codec::Mjpeg, feed: Box::new(feed), own_decoder: own_decoder.then(|| Box::new(Timed(decode_ms, b.clone())) as Box<dyn Decoder>) })
+        });
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        cams.send_cost_ms.store(send_ms, Ordering::Relaxed);
+        let w = start(setup(opener), Arc::new(TimedMedia(decode_ms, steps_ms, busy.clone())), &cams, &log);
+        std::thread::sleep(Duration::from_millis(1500));
+        let (from, d0, p0, a0, s0) = (Instant::now(), busy.decodes.load(Ordering::Relaxed), *w.shared.published.lock().unwrap(), w.shared.frames_arrived.load(Ordering::Relaxed), w.shared.frames_shed.load(Ordering::Relaxed));
+        let busy0 = busy.busy_ns.load(Ordering::Relaxed);
+        std::thread::sleep(Duration::from_secs(secs));
+        let to = Instant::now();
+        let wall = to.duration_since(from).as_secs_f64();
+        let decoders = if own_decoder { 1 } else { mjpeg_decoders() };
+        let (decodes, published, arrived, shed) = (busy.decodes.load(Ordering::Relaxed) - d0, *w.shared.published.lock().unwrap() - p0, w.shared.frames_arrived.load(Ordering::Relaxed) - a0, w.shared.frames_shed.load(Ordering::Relaxed) - s0);
+        let occupancy = (busy.busy_ns.load(Ordering::Relaxed) - busy0) as f64 / 1e9 / wall / decoders as f64 * 100.0;
+        let out = measure(&cams, from, to);
+        w.stop();
+        println!("{label}: arrived {:.1}/s, decoded {:.1}/s, published {:.1}/s, shed {:.1}/s, decoder busy {occupancy:.0}% of {decoders}, sent new {:.1}/s, age median {:.1} ms p95 {:.1} ms, gap median {:.1} ms p95 {:.1} ms",
+                 arrived as f64 / wall, decodes as f64 / wall, published as f64 / wall, shed as f64 / wall, out.fps, out.age.0, out.age.1, out.gap.0, out.gap.1);
+    }
+
+    #[test]
+    #[ignore]
+    fn timing_bench_heavy_decoders_and_frame_steps() {
+        // Stage costs typical of 1080p and 4K MJPEG on a desktop (decode, frame steps), a saturating 200 fps source and a 30 fps one
+        for (size, decode, steps) in [("1080p", 8, 6), ("4K", 35, 20), ("4K slow steps", 35, 40)] {
+            for (own, how) in [(true, "one decoder"), (false, "two decoders")] {
+                for (rate, gap) in [("200 fps", 5), ("30 fps", 33)] {
+                    run_bench(&format!("{size}, {how}, {rate}"), own, decode, steps, 0, vec![gap; 10_000 / gap as usize], 4);
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn timing_bench_virtual_camera_pacing() {
+        // 30 fps steadily, and 5 pictures 8 ms apart then 126 ms (30 fps in all), through cameras that take 1, 10, 20 and 30 ms a send
+        for send in [1, 10, 20, 30] {
+            run_bench(&format!("steady 30 fps, send {send} ms"), false, 0, 0, send, vec![33; 300], 6);
+            let clumps: Vec<u64> = (0..300).map(|i| if i % 5 == 4 { 126 } else { 8 }).collect();
+            run_bench(&format!("clumps of five, send {send} ms"), false, 0, 0, send, clumps, 6);
+        }
     }
 }
