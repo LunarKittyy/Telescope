@@ -220,6 +220,15 @@ export component PinChip inherits Rectangle {
     accessible-label: label;
     accessible-value: "+" + held;
     accessible-action-default => { root.clicked(); }
+    forward-focus: focus;
+    focus := FocusScope {
+        enabled: root.count > 0;
+        key-pressed(e) => {
+            if ((e.text == " " || e.text == "\n") && root.count > 0) { root.clicked(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
     tone := Tone { on: touch.has-hover; }
     Text {
         text: "+" + held;
@@ -238,6 +247,6 @@ export component PinChip inherits Rectangle {
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
     }
-    Tip { says: label; hover: touch.has-hover; }
+    Tip { says: label; hover: touch.has-hover; focused: focus.has-focus && KeyFocus.keyboard; }
 }
 
