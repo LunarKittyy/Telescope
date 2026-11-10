@@ -25,17 +25,32 @@ struct Turn {
     quarters: u32,
 }
 
-/// `plane` (w x h, `bpp` bytes a pixel) turned clockwise by 1 or 3 quarters: h x w.
-fn turn_plane(plane: &[u8], w: usize, h: usize, bpp: usize, quarters: u32) -> Vec<u8> {
-    let mut out = vec![0u8; plane.len()];
-    for y in 0..h {
-        for x in 0..w {
-            let (nx, ny) = if quarters == 1 { (h - 1 - y, x) } else { (y, w - 1 - x) };
-            let (from, to) = ((y * w + x) * bpp, (ny * h + nx) * bpp);
-            out[to..to + bpp].copy_from_slice(&plane[from..from + bpp]);
+/// Pixels along each side of the blocks a turn works through: a block's source rows and destination columns both stay in the cache.
+const BLOCK: usize = 64;
+
+/// `plane` (w x h, `bpp` bytes a pixel) turned clockwise by 1 or 3 quarters (h x w) into `out`. Blocks at a time, so neither the rows
+/// read nor the columns written walk the whole picture for every pixel.
+fn turn_plane(plane: &[u8], w: usize, h: usize, bpp: usize, quarters: u32, out: &mut [u8]) {
+    match bpp {
+        1 => turn_blocks::<1>(plane, w, h, quarters, out),
+        2 => turn_blocks::<2>(plane, w, h, quarters, out),
+        4 => turn_blocks::<4>(plane, w, h, quarters, out),
+        _ => unreachable!("planes have 1, 2 or 4 bytes a pixel"),
+    }
+}
+
+fn turn_blocks<const B: usize>(plane: &[u8], w: usize, h: usize, quarters: u32, out: &mut [u8]) {
+    for by in (0..h).step_by(BLOCK) {
+        for bx in (0..w).step_by(BLOCK) {
+            for y in by..(by + BLOCK).min(h) {
+                let row = &plane[y * w * B..(y + 1) * w * B];
+                for x in bx..(bx + BLOCK).min(w) {
+                    let to = if quarters == 1 { x * h + (h - 1 - y) } else { (w - 1 - x) * h + y } * B;
+                    out[to..to + B].copy_from_slice(&row[x * B..(x + 1) * B]);
+                }
+            }
         }
     }
-    out
 }
 
 /// The frame turned by a quarter or three (clockwise); the same frame for other counts or formats it can't turn.
@@ -43,20 +58,27 @@ pub fn turn_frame(frame: &Frame, quarters: u32) -> Frame {
     if quarters % 4 != 1 && quarters % 4 != 3 {
         return frame.clone();
     }
+    let q = quarters % 4;
     let (w, h) = (frame.width as usize, frame.height as usize);
-    let data: Vec<u8> = match frame.format {
-        PixelFormat::Rgba | PixelFormat::Bgra => turn_plane(&frame.data, w, h, 4, quarters % 4),
+    let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+    let mut data = vec![0u8; frame.data.len()];
+    match frame.format {
+        PixelFormat::Rgba | PixelFormat::Bgra => turn_plane(&frame.data, w, h, 4, q, &mut data),
         PixelFormat::I420 => {
-            let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
             let (y, u, v) = frame.i420_planes().expect("an I420 frame has planes");
-            [turn_plane(y, w, h, 1, quarters % 4), turn_plane(u, cw, ch, 1, quarters % 4), turn_plane(v, cw, ch, 1, quarters % 4)].concat()
+            let (oy, rest) = data.split_at_mut(w * h);
+            let (ou, ov) = rest.split_at_mut(cw * ch);
+            turn_plane(y, w, h, 1, q, oy);
+            turn_plane(u, cw, ch, 1, q, ou);
+            turn_plane(v, cw, ch, 1, q, ov);
         }
         PixelFormat::Nv12 => {
-            let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
             let (y, uv) = frame.data.split_at(w * h);
-            [turn_plane(y, w, h, 1, quarters % 4), turn_plane(uv, cw, ch, 2, quarters % 4)].concat()
+            let (oy, ouv) = data.split_at_mut(w * h);
+            turn_plane(y, w, h, 1, q, oy);
+            turn_plane(uv, cw, ch, 2, q, ouv);
         }
-    };
+    }
     let mut out = Frame::new(frame.height, frame.width, frame.format, data);
     out.number = frame.number;
     out.time_ns = frame.time_ns;
@@ -489,6 +511,27 @@ mod tests {
                     step.process(&mut f, &NoCtx);
                 }
                 println!("{name} {format:?}: {:.2} ms a frame", t.elapsed().as_secs_f64() * 1000.0 / 60.0);
+            }
+        }
+    }
+
+    /// Run by hand for the cost of a quarter turn: cargo test --release -p telescope-core turn_cost -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn turn_cost() {
+        for (w, h) in [(1920, 1080), (3840, 2160)] {
+            for format in [PixelFormat::I420, PixelFormat::Nv12, PixelFormat::Rgba] {
+                let f = Frame::new(w, h, format, (0..format.size(w, h)).map(|i| (i * 31 % 251) as u8).collect());
+                for quarters in [1, 3] {
+                    for _ in 0..3 {
+                        std::hint::black_box(turn_frame(&f, quarters));
+                    }
+                    let t = std::time::Instant::now();
+                    for _ in 0..30 {
+                        std::hint::black_box(turn_frame(&f, quarters));
+                    }
+                    println!("turn {w}x{h} {format:?} {quarters}/4: {:.2} ms a frame", t.elapsed().as_secs_f64() * 1000.0 / 30.0);
+                }
             }
         }
     }
