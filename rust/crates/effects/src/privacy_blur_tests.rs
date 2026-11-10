@@ -557,3 +557,18 @@ fn each_state_makes_the_picture_python_makes() {
         assert_eq!(sha(&out.data), case["sha"], "{case}");
     }
 }
+
+#[test]
+fn a_kept_weight_is_the_one_from_mask_gives() {
+    let (w, h) = (96usize, 64usize);
+    let data: Vec<u8> = (0..w * h).map(|i| (i * 13 % 256) as u8).collect();
+    let mask = Arc::new(data.clone());
+    let (sw, sh) = ((w / SMALL).max(1), (h / SMALL).max(1));
+    let want = Weight::from_mask(&Gray { w, h, data }, sw, sh);
+    let mut kept = None;
+    assert_eq!(kept_weight(&mut kept, mask.clone(), (w, h), (sw, sh)), want);
+    assert_eq!(kept_weight(&mut kept, mask, (w, h), (sw, sh)), want);
+    let other = Arc::new(vec![9u8; w * h]);
+    let want = Weight::from_mask(&Gray { w, h, data: vec![9; w * h] }, sw, sh);
+    assert_eq!(kept_weight(&mut kept, other, (w, h), (sw, sh)), want);
+}

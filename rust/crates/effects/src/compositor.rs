@@ -344,28 +344,53 @@ fn paste(canvas: &mut [u8], kind: Kind, cw: usize, chh: usize, content: Content,
         let empty: CornerMasks = Default::default();
         let m = masks.as_deref().unwrap_or(&empty);
         let inside = |l: usize, lo: usize, hi: usize| l >= lo && l < hi;
+        // The luma lines or columns of one sample: at most two, the last of an odd size has one
+        let lines = |c: usize, limit: usize| -> ([usize; 2], usize) {
+            let n = if 2 * c + 1 < limit { 2 } else if 2 * c < limit { 1 } else { 0 };
+            ([2 * c, 2 * c + 1], n)
+        };
+        let all_in = |(l, n): ([usize; 2], usize), lo: usize, hi: usize| l[..n].iter().all(|&v| inside(v, lo, hi));
+        // the samples of a row whose columns are all inside the box are one run; the cells beside it are the edge
+        let run_lo = (px0..px1).find(|&cx| all_in(lines(cx, cw), x, x + w)).unwrap_or(px1);
+        let run_hi = (run_lo..px1).rev().find(|&cx| all_in(lines(cx, cw), x, x + w)).map_or(run_lo, |c| c + 1);
         for cy in py0..py1 {
-            let rows: Vec<usize> = [2 * cy, 2 * cy + 1].into_iter().filter(|l| *l < chh).collect();
-            let in_v = rows.iter().all(|&l| inside(l, y, y + h));
-            let plain_v = rows.iter().all(|&l| inside(l, y + r, y + h - r));
-            for cx in px0..px1 {
+            let rows = lines(cy, chh);
+            let in_v = all_in(rows, y, y + h);
+            let plain_v = all_in(rows, y + r, y + h - r);
+            let cell = |cx: usize, data: &mut [u8]| {
                 let i = (cy - py0) * bw + (cx - px0);
                 let at = cy * plane.w + cx;
-                let cols: Vec<usize> = [2 * cx, 2 * cx + 1].into_iter().filter(|l| *l < cw).collect();
-                let in_h = cols.iter().all(|&l| inside(l, x, x + w));
-                let plain_h = cols.iter().all(|&l| inside(l, x + r, x + w - r));
+                let cols = lines(cx, cw);
+                let in_h = all_in(cols, x, x + w);
+                let plain_h = all_in(cols, x + r, x + w - r);
                 if in_v && in_h && (plain_v || plain_h) {
                     data[at] = source(i);
-                    continue;
+                    return;
                 }
-                let n = (rows.len() * cols.len()) as f32;
-                let sum: f32 = rows.iter().flat_map(|&ly| cols.iter().map(move |&lx| (lx, ly))).map(|(lx, ly)| coverage(lx, ly, bx, r, m)).sum();
+                let n = (rows.1 * cols.1) as f32;
+                let mut sum = 0f32;
+                for &ly in &rows.0[..rows.1] {
+                    for &lx in &cols.0[..cols.1] {
+                        sum += coverage(lx, ly, bx, r, m);
+                    }
+                }
                 let cov = if n > 0.0 { sum / n } else { 0.0 };
                 if cov >= 1.0 {
                     data[at] = source(i);
                 } else if cov > 0.0 {
                     data[at] = blend(source(i), data[at], cov, 1.0 - cov);
                 }
+            };
+            if in_v && plain_v && run_lo < run_hi {
+                (px0..run_lo).chain(run_hi..px1).for_each(|cx| cell(cx, data));
+                let (start, i) = (cy * plane.w + run_lo, (cy - py0) * bw + (run_lo - px0));
+                let span = &mut data[start..start + (run_hi - run_lo)];
+                match &content {
+                    Content::Picture(planes) => span.copy_from_slice(&planes[p][i..i + span.len()]),
+                    Content::Colour(c) => span.fill(c[p]),
+                }
+            } else {
+                (px0..px1).for_each(|cx| cell(cx, data));
             }
         }
     }
