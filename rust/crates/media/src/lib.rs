@@ -29,6 +29,8 @@ pub mod transfers;
 mod yuv;
 #[cfg(test)]
 mod guard_alloc;
+#[cfg(all(test, ffmpeg, target_os = "linux"))]
+mod card_bench;
 #[cfg(ffmpeg)]
 #[allow(dead_code)] // the tests use the rest of what it makes
 mod testenc;
