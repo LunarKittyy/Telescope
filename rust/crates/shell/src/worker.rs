@@ -97,6 +97,8 @@ pub struct WorkerSetup {
     pub slot: u32,
     pub source_id: String,
     pub hardware_decode: bool,
+    /// Nobody chose in Setup: the card is used when the computer has a VA-API one (looked for on the stream's own thread).
+    pub hardware_default: bool,
     /// A plugin's StreamSource: it has no other route to hand over to.
     pub plugin_source: bool,
     /// Why a plugin source isn't streaming yet, shown while the stream waits to try again (WebcamReader.waiting_text).
@@ -334,6 +336,7 @@ struct Shared {
     vision: Option<VisionFeed>,
     gate: Option<Arc<crate::handover::ViewGate>>,
     hardware: bool,
+    hardware_default: bool,
     plugin_source: bool,
     size: Mutex<(Option<u32>, Option<u32>)>,
     fps: AtomicU32,
@@ -487,7 +490,7 @@ impl StreamWorker {
         let tap = media.packet_tap();
         let shared = Arc::new(Shared {
             url: Mutex::new(setup.url), opener: Mutex::new(setup.opener), waiting_text: setup.waiting_text, media, outputs, events,
-            slot_number: setup.slot, source_id: setup.source_id, vision: setup.vision, hardware: setup.hardware_decode,
+            slot_number: setup.slot, source_id: setup.source_id, vision: setup.vision, hardware: setup.hardware_decode, hardware_default: setup.hardware_default,
             plugin_source: setup.plugin_source, size: Mutex::new((setup.width, setup.height)),
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
@@ -697,6 +700,11 @@ impl Shared {
         self.stop.load(Ordering::SeqCst)
     }
 
+    /// Whether the card decodes because nobody chose otherwise. The first look for the card opens a decoder, so it's made here and not on the window's thread.
+    fn default_card(&self) -> bool {
+        self.hardware_default && telescope_core::media::hardware_decode_default(cfg!(target_os = "linux"), self.media.decoding_status().hardware_device.as_deref())
+    }
+
     fn join_handover(&self) {
         let t = self.handover_thread.lock().unwrap().take();
         if let Some(t) = t {
@@ -728,6 +736,7 @@ impl Shared {
         match codec {
             Codec::Mjpeg => Ok(Cap::Jpegs { feed, decoder: self.media.decoder(codec, &options)?, own: false }),
             _ => {
+                let options = DecodeOptions { hardware: self.hardware || self.default_card() };
                 let mut decoder = match &self.tap {
                     Some(tap) => self.media.decoder_with_tap(codec, &options, tap.clone())?,
                     None => self.media.decoder(codec, &options)?,
@@ -1878,7 +1887,7 @@ mod tests {
 
     fn setup(opener: Opener) -> WorkerSetup {
         WorkerSetup { url: "http://phone/v1/video".into(), opener, width: None, height: None, fps: 30,
-                      canvas: (None, None), slot: 0, source_id: "p".into(), hardware_decode: false, waiting_text: None, vision: None,
+                      canvas: (None, None), slot: 0, source_id: "p".into(), hardware_decode: false, hardware_default: false, waiting_text: None, vision: None,
                       plugin_source: false, steps: Vec::new(), gate: None }
     }
 
@@ -2742,6 +2751,56 @@ mod tests {
         assert!(made > 55, "decode and steps overlap: {made} pictures in 1.2 s");
     }
 
+    /// A computer with (or without) a VA-API card that notes what each decoder was asked for and which thread looked for the card.
+    struct CardMedia(Option<&'static str>, Arc<Mutex<(Vec<bool>, Vec<std::thread::ThreadId>)>>);
+
+    impl Media for CardMedia {
+        fn decoder(&self, codec: Codec, options: &DecodeOptions) -> Result<Box<dyn Decoder>, String> {
+            self.1.lock().unwrap().0.push(options.hardware);
+            FakeMedia.decoder(codec, options)
+        }
+        fn decoding_status(&self) -> telescope_core::media::DecodingStatus {
+            self.1.lock().unwrap().1.push(std::thread::current().id());
+            telescope_core::media::DecodingStatus { hardware_device: self.0.map(str::to_string), ..Default::default() }
+        }
+        fn scaler(&self) -> Box<dyn Scaler> {
+            FakeMedia.scaler()
+        }
+        fn frame_reader(&self, _feed: Box<dyn VideoFeed>, _decoder: Box<dyn Decoder>) -> Result<Box<dyn FrameReader>, String> {
+            Ok(Box::new(Paced(Arc::default(), 5)))
+        }
+        fn pipeline(&self) -> Result<Box<dyn FramePipeline>, String> {
+            FakeMedia.pipeline()
+        }
+    }
+
+    /// What the first H.264 decoder of a stream was asked for, and whether the thread that started it was the one that looked for the card.
+    fn card_asked(device: Option<&'static str>, hardware_decode: bool, hardware_default: bool) -> (bool, usize, bool) {
+        let opener: Opener = Arc::new(|_: &telescope_core::media::OpenStop| {
+            let feed = Script { steps: VecDeque::new(), stop: Arc::default(), gone: Arc::default() };
+            Ok((Codec::H264, Box::new(feed) as Box<dyn VideoFeed>).into())
+        });
+        let seen = Arc::default();
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = start(WorkerSetup { hardware_decode, hardware_default, ..setup(opener) }, Arc::new(CardMedia(device, Arc::clone(&seen))), &cams, &log);
+        wait_for(|| w.shared.slot.latest().is_some());
+        w.stop();
+        let seen = seen.lock().unwrap();
+        (seen.0[0], seen.1.len(), seen.1.contains(&std::thread::current().id()))
+    }
+
+    #[test]
+    fn a_stream_nobody_chose_decoding_for_uses_a_vaapi_card_found_off_the_windows_thread() {
+        let (on, looks, here) = card_asked(Some("vaapi"), false, true);
+        assert_eq!((on, looks > 0, here), (cfg!(target_os = "linux"), cfg!(target_os = "linux"), false));
+        // Another kind of card, or none, stays in software until it's turned on
+        assert_eq!(card_asked(Some("cuda"), false, true).0, false);
+        assert_eq!(card_asked(None, false, true).0, false);
+        // A choice made in Setup is not second-guessed, and costs no look for the card
+        assert_eq!(card_asked(Some("vaapi"), false, false), (false, 0, false));
+        assert_eq!(card_asked(None, true, false), (true, 0, false));
+    }
+
     /// Whether the stream warned that frames aren't keeping up, within 20 s.
     fn warns(log: &Log) -> bool {
         let until = Instant::now() + Duration::from_secs(20);
@@ -3053,7 +3112,7 @@ mod tests {
             Ok((codec, Box::new(Feed { packets: Arc::new(Mutex::new(VecDeque::from([Some(5)]))), stop: Arc::default(), endless: None }) as Box<dyn VideoFeed>).into())
         });
         let setup = WorkerSetup { url: url.into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0, waiting_text: None,
-                                  source_id: source.into(), hardware_decode: false, plugin_source: false, vision: None, steps: Vec::new(), gate: None };
+                                  source_id: source.into(), hardware_decode: false, hardware_default: false, plugin_source: false, vision: None, steps: Vec::new(), gate: None };
         let cams = Arc::new(Cams::default());
         let w = StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(cams.clone())),
                                     telescope_media_free_slot(Duration::ZERO), Arc::new(|_| {})).unwrap();
@@ -3138,7 +3197,7 @@ mod tests {
             Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }) as Box<dyn VideoFeed>).into())
         });
         let setup = WorkerSetup { url: "https://phone/v1/video".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0,
-                                  waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, plugin_source: false, vision, steps, gate };
+                                  waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, hardware_default: false, plugin_source: false, vision, steps, gate };
         StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(Arc::new(Cams::default()))),
                             telescope_media_free_slot(Duration::ZERO), Arc::new(|_| {})).unwrap()
     }
@@ -3150,7 +3209,7 @@ mod tests {
         });
         let vision = VisionFeed { service: Arc::<Masks>::default(), upright: Arc::default(), frame_sizes: Arc::default(), motion: None, owners: Arc::default(), owner: 1 };
         let setup = WorkerSetup { url: "https://phone/v1/video".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0,
-                                  waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, plugin_source: false, vision: Some(vision), steps: Vec::new(), gate: None };
+                                  waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, hardware_default: false, plugin_source: false, vision: Some(vision), steps: Vec::new(), gate: None };
         let (seen, log) = (Arc::new(Seen::default()), Arc::new(Mutex::new(Vec::new())));
         let sink = log.clone();
         let events: Events = Arc::new(move |e| {

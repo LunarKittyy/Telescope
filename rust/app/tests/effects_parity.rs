@@ -266,7 +266,8 @@ fn frame_rgb(rgb: &Rgb) -> Frame {
 /// but the CRT, whose bend leaves the ring of pixels half off the picture black and glows a little less there.
 fn fun_limits(effect: &str) -> (u32, f64, f64) {
     match effect {
-        "crt" => (4, 0.03, 0.0),
+        // The glow is worked out at a third of the size: a few pixels move, the picture looks the same
+        "crt" => (16, 0.3, 0.006),
         _ => (0, 0.0, 0.0),
     }
 }

@@ -145,3 +145,33 @@ fn forced_copy_cost() {
         println!("{w}x{h} I420 forced copy: best {:.2} ms, median {:.2} ms a frame", rounds[0], rounds[6]);
     }
 }
+
+/// Draws a few thousand pixels in place, as the name tag does.
+struct Tag;
+
+impl telescope_core::frame::CpuStep for Tag {
+    fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+        let w = frame.width as usize;
+        for row in 0..40 {
+            frame.data_mut()[row * w..row * w + 200].fill(235);
+        }
+    }
+}
+
+/// A stream's CPU steps in a row (view, stretch, a grade, a tag), the work that runs one after another on the stream's thread, with the input held only here.
+#[test]
+#[ignore]
+fn stream_steps_cost() {
+    for (w, h) in [(1920, 1080), (3840, 2160)] {
+        let source = noise(w, h, PixelFormat::I420);
+        let steps = || {
+            let mut all = view_steps(View { zoom: 1.3, flip_h: true, ..View::default() })();
+            all.extend(view_steps(View { stretch_y: 1.1, ..View::default() })());
+            all.extend(grade_steps());
+            all.push(StagedStep { owner: "tag".into(), stage: FrameStage::Overlay, step: FrameStep::Cpu(Box::new(Tag)) });
+            all
+        };
+        let (best, median) = cost(steps, &source, false);
+        println!("{w}x{h} I420 stream steps (view, stretch, grade, tag): best {best:.2} ms, median {median:.2} ms a frame");
+    }
+}

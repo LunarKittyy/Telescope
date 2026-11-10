@@ -1,8 +1,6 @@
-//! The Privacy blur plugin (plugins/privacy_blur.py): when someone else shows up, blurs everyone but you, the whole background, or puts the wait screen up instead. A CPU step for the same reason as Background: the person mask only reaches FrameContext.
+//! The Privacy blur plugin (plugins/privacy_blur.py): when more than one person is in the picture, blurs all of it or puts the wait screen up instead. Kept as small as it can be, so anything it gets wrong is the people detection's doing.
 
 use crate::cpu::Rgb;
-use crate::shared::mask_shared;
-use crate::imgops::{blur_f32, compose, Gray};
 use crate::shared::Paired;
 use crate::vision_row;
 use serde_json::{json, Map, Value};
@@ -15,32 +13,26 @@ use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep,
 use telescope_core::host::Host;
 use telescope_core::i18n::{n_, tr};
 use telescope_core::image::with_spares;
-use telescope_core::people::{self, Box4, Track};
+use telescope_core::people;
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
+use telescope_core::pose::Person;
 use telescope_core::time::monotonic_ns;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
-use telescope_core::view::{upright_to_shown, Geometry};
 
 pub const NAME: &str = "privacy_blur";
 /// What it asks the host and the Wait screen for things under.
 const TITLE: &str = n_("Privacy blur");
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/vision_status.slint"), "\n", include_str!("../ui/privacy_blur.slint"));
-/// What happens while someone else is in the picture: the other people get blurred, everything but you gets blurred, or the wait screen goes up in place of the whole picture.
-pub const MODES: [(&str, &str); 3] = [("others", n_("Blur the others")), ("background", n_("Blur all but me")), ("wait", n_("Show the wait screen"))];
-/// Blurring stops once there's been one person (or nobody) for this long.
-pub const OFF_S: f64 = 5.0;
-/// A person's box from their landmarks grows by this much of its size each way (arms, a chair).
-const GROW: f64 = 0.4;
-/// And upwards by this much of its width more, since the landmarks stop at the eyes.
-const HEAD: f64 = 1.0;
-/// Someone else's box grown this little (each way, and upwards) is kept out of yours.
-const NEAR: (f64, f64) = (0.15, 0.5);
+/// What happens while more than one person is in the picture: all of it gets blurred, or the wait screen goes up in place of it.
+pub const MODES: [(&str, &str); 2] = [("blur", n_("Blur the whole picture")), ("wait", n_("Show the wait screen"))];
+/// The modes a key binding may still name from before they went: they mean the whole picture, as a saved mode does.
+const GONE: [&str; 2] = ["Blur the others", "Blur all but me"];
+/// Blurring stops once there's been one person (or nobody) in every update for this long, in seconds. People are counted raw, so a second person the model loses for a moment shouldn't end it, and four seconds still feels quick once they've gone.
+pub const OFF_S: f64 = 4.0;
 /// The blur is worked out at a sixteenth of the size.
 const SMALL: usize = 16;
-/// The edge of a blurred box fades over this much of the picture.
-const EDGE: f64 = 0.04;
 
-/// When to blur, from the steady people count: on as soon as it says two or more (core::people only counts someone new after a couple of updates in a row), off once it has said one or none for OFF_S.
+/// When to blur, from how many people the latest update found: on at the first update that says two or more, off once it has said one or none for OFF_S.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Trigger {
     pub on: bool,
@@ -67,37 +59,9 @@ impl Trigger {
     }
 }
 
-/// What a frame step needs, frozen: handed over whole with each new step.
-#[derive(Clone, Debug, PartialEq)]
-struct Blur {
-    mode: &'static str,
-    active: bool,
-    /// Your box, in the picture as shown at zoom 1.
-    you: Option<Box4>,
-    /// Everyone else's.
-    others: Vec<Box4>,
-    /// The wait screen is up in place of the picture.
-    covered: bool,
-    /// You were found when blurring started but aren't now: everyone in the picture is someone else.
-    away: bool,
-}
-
-impl Default for Blur {
-    fn default() -> Self {
-        Blur { mode: MODES[0].0, active: false, you: None, others: Vec::new(), covered: false, away: false }
-    }
-}
-
-pub fn grown(b: Box4, by: f64, head: f64) -> Box4 {
-    let (w, h) = (b.2 - b.0, b.3 - b.1);
-    (b.0 - w * by, b.1 - h * by - w * head, b.2 + w * by, b.3 + h * by)
-}
-
-/// box from the picture as shown at zoom 1 into the frame as shown now (0..1, not clipped).
-pub fn shown_box(b: Box4, view: &Geometry) -> Box4 {
-    let corners = [(b.0, b.1), (b.0, b.3), (b.2, b.1), (b.2, b.3)].map(|(x, y)| upright_to_shown(view, x, y));
-    let fold = |f: fn(f64, f64) -> f64, pick: fn(&(f64, f64)) -> f64| corners.iter().map(pick).reduce(f).unwrap();
-    (fold(f64::min, |p| p.0), fold(f64::min, |p| p.1), fold(f64::max, |p| p.0), fold(f64::max, |p| p.1))
+/// How many of these people have a usable box: what the model found, not what tracking has made steady.
+pub fn found_in(people: &[Value]) -> u32 {
+    people.iter().filter_map(Person::from_value).filter(|p| people::box_of(p).is_some()).count() as u32
 }
 
 /// frame blurred past recognising anyone, at a sixteenth of the size and scaled back up.
@@ -105,183 +69,46 @@ pub fn blurred(frame: &Rgb) -> Rgb {
     frame.shrink((frame.w / SMALL).max(1), (frame.h / SMALL).max(1)).blur(2.0).linear_exact(frame.w, frame.h)
 }
 
-/// 0..1 at a sixteenth of the frame: where its blurred copy goes.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Weight {
-    pub w: usize,
-    pub h: usize,
-    pub data: Vec<f32>,
-}
-
-impl Weight {
-    fn from_mask(mask: &Gray, w: usize, h: usize) -> Weight {
-        Weight { w, h, data: mask.shrink(w, h).data.iter().map(|m| *m as f32 / 255.0).collect() }
-    }
-
-    fn with(mut self, other: &Weight, f: impl Fn(f32, f32) -> f32) -> Weight {
-        self.data.iter_mut().zip(&other.data).for_each(|(a, b)| *a = f(*a, *b));
-        self
-    }
-
-    fn map(mut self, f: impl Fn(f32) -> f32) -> Weight {
-        self.data.iter_mut().for_each(|a| *a = f(*a));
-        self
-    }
-}
-
-/// np.maximum over float32: a NaN can't come up here.
-fn most(a: f32, b: f32) -> f32 {
-    if a >= b { a } else { b }
-}
-
-/// 1 inside any of boxes (0..1 of the frame of w x h), fading out at the edges.
-pub fn boxes_mask(boxes: &[Box4], w: usize, h: usize) -> Weight {
-    let (sw, sh) = ((w / SMALL).max(1), (h / SMALL).max(1));
-    let mut mask = vec![0f32; sw * sh];
-    for b in boxes {
-        let (c0, c1) = (((b.0 * sw as f64) as i64).max(0), ((b.2 * sw as f64).ceil() as i64).min(sw as i64));
-        let (r0, r1) = (((b.1 * sh as f64) as i64).max(0), ((b.3 * sh as f64).ceil() as i64).min(sh as i64));
-        if c1 > c0 && r1 > r0 {
-            for r in r0 as usize..r1 as usize {
-                mask[r * sw + c0 as usize..r * sw + c1 as usize].fill(1.0);
-            }
-        }
-    }
-    Weight { w: sw, h: sh, data: blur_f32(&mask, sw, sh, 1, (EDGE * sw as f64).max(0.5)) }
-}
-
-/// The weight of the last mask seen: the mask itself (kept so an unchanged one is known by its address), the frame size and the weight.
-type KeptWeight = (Arc<Vec<u8>>, (usize, usize), Weight);
-
-/// `Weight::from_mask` of a mask that fills a w x h frame, not worked out again for the same mask at the same size.
-fn kept_weight(kept: &mut Option<KeptWeight>, mask: Arc<Vec<u8>>, size: (usize, usize), (sw, sh): (usize, usize)) -> Weight {
-    if let Some((m, s, weight)) = kept {
-        if Arc::ptr_eq(m, &mask) && *s == size {
-            return weight.clone();
-        }
-    }
-    let weight = Weight::from_mask(&Gray { w: size.0, h: size.1, data: mask.to_vec() }, sw, sh);
-    *kept = Some((mask, size, weight.clone()));
-    weight
-}
-
-/// frame with its blurred copy laid over it by weight; None leaves the frame as it is.
-pub fn laid_over(frame: &Rgb, weight: &Weight) -> Option<Rgb> {
-    if weight.data.iter().copied().fold(f32::NEG_INFINITY, f32::max) < 0.01 {
-        return None;
-    }
-    let bytes = weight.data.iter().map(|v| (v * 255.0).clamp(0.0, 255.0) as u8).collect();
-    let mask = Gray { w: weight.w, h: weight.h, data: bytes }.linear_exact(frame.w, frame.h);
-    Some(compose(&blurred(frame), &mask, frame))
-}
-
-fn replaced(frame: &mut Frame, out: Option<Rgb>) {
-    if let Some(out) = out {
-        out.write_to(frame);
-    }
-}
-
-fn apply(frame: &mut Frame, blur: &Blur, view: &Geometry, ctx: &dyn FrameContext, kept: &mut Option<KeptWeight>) {
-    if !blur.active || blur.covered {
-        return;
-    }
-    let Some(rgb) = Rgb::from_frame(frame) else { return };
-    let (w, h) = (rgb.w, rgb.h);
-    let (sw, sh) = ((w / SMALL).max(1), (h / SMALL).max(1));
-    let boxes = |list: &[Box4], by: f64, head: f64| {
-        let shown: Vec<Box4> = list.iter().map(|b| shown_box(grown(*b, by, head), view)).collect();
-        boxes_mask(&shown, w, h)
-    };
-    let away = blur.away && blur.mode == "others";
-    if blur.mode == "wait" || (blur.you.is_none() && !away) {
-        // nobody to go by (by hand without the vision download), or no wait screen to show
-        blurred(&rgb).write_to(frame);
-        return;
-    }
-    let Some(found) = mask_shared(ctx, frame).map(|m| kept_weight(kept, m, (w, h), (sw, sh))) else {
-        // No mask new enough to tell anyone from the room, and a box around you would show what's behind you
-        blurred(&rgb).write_to(frame);
-        return;
-    };
-    let Some(you_box) = blur.you else {
-        // you're away: whoever is there gets blurred, all of them
-        let weight = if blur.others.is_empty() { found } else { boxes(&blur.others, GROW, HEAD).with(&found, most) };
-        replaced(frame, laid_over(&rgb, &weight));
-        return;
-    };
-    // you: the person mask inside your box
-    let mut you = found.clone().with(&boxes(&[you_box], GROW, HEAD).map(|v| (v * 2.0).min(1.0)), |a, b| a * b);
-    if !blur.others.is_empty() {
-        // but not someone sitting right next to you
-        you = you.with(&boxes(&blur.others, NEAR.0, NEAR.1), |a, b| a * (1.0 - b));
-    }
-    let weight = if blur.mode == "others" && !blur.others.is_empty() {
-        // anyone the mask finds who isn't you, the whole of them
-        boxes(&blur.others, GROW, HEAD).with(&found, most).with(&you, |a, b| a * (1.0 - b))
-    } else {
-        // all but you (also others with nobody else found yet, from Blur now)
-        you.map(|v| 1.0 - v)
-    };
-    replaced(frame, laid_over(&rgb, &weight));
-}
-
-/// The step every stream gets: the blur and view it was handed out with stay when the panels move away, and a stream left behind blurs whenever the shown one does.
+/// The step every stream gets: what it was handed out with stays when the panels move away, and a stream left behind blurs whenever the shown one does.
 struct Step {
-    blur: Blur,
-    kept: Option<KeptWeight>,
-    view: Geometry,
+    active: bool,
+    covered: bool,
     shown_blurs: Arc<AtomicBool>,
     spares: Vec<Vec<u8>>,
 }
 
 impl CpuStep for Step {
     fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
-        if self.blur.active || self.shown_blurs.load(Ordering::Relaxed) { Touch::Changes } else { Touch::Nothing }
+        if self.active || self.shown_blurs.load(Ordering::Relaxed) { Touch::Changes } else { Touch::Nothing }
     }
 
-    fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
+    fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+        // the wait screen goes over the picture further on, so there's nothing to blur while it's up
+        let blurs = if self.active { !self.covered } else { self.shown_blurs.load(Ordering::Relaxed) };
+        if !blurs {
+            return;
+        }
         let mut spares = std::mem::take(&mut self.spares);
-        with_spares(&mut spares, || self.run(frame, ctx));
+        with_spares(&mut spares, || {
+            if let Some(rgb) = Rgb::from_frame(frame) {
+                blurred(&rgb).write_to(frame);
+            }
+        });
         self.spares = spares;
     }
 }
 
-impl Step {
-    fn run(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
-        if self.blur.active {
-            // a stream left blurred stays blurred behind the panels
-            apply(frame, &self.blur, &self.view, ctx, &mut self.kept);
-        } else if self.shown_blurs.load(Ordering::Relaxed) {
-            // the shown camera blurs, so every camera does, all of it (nobody to tell apart here)
-            if let Some(rgb) = Rgb::from_frame(frame) {
-                blurred(&rgb).write_to(frame);
-            }
-        }
-    }
-}
-
-/// What's kept of a stream the panels moved away from, to pick up where it was (_state in Python).
-#[derive(Clone, Debug, Default)]
-struct Kept {
-    trigger: Trigger,
-    tracks: Vec<Track>,
-    you_id: Option<u64>,
-    you_box: Option<Box4>,
-    others: Vec<Box4>,
-}
-
 pub struct PrivacyBlurPlugin {
-    state: Kept,
-    blur: Blur,
+    trigger: Trigger,
+    active: bool,
     auto: bool,
     now: bool,
     mode: usize,
     /// Asked for people (the switch is on, or Blur now is down).
     wanting: bool,
-    behind: HashMap<String, Kept>,
+    behind: HashMap<String, Trigger>,
     covered: bool,
     asked_cover: bool,
-    view: Geometry,
     shown_blurs: Arc<AtomicBool>,
     held: HashMap<String, Option<bool>>,
     paired: Paired,
@@ -305,8 +132,8 @@ impl PrivacyBlurPlugin {
     /// With the clock that says how long people have been gone, in seconds.
     pub fn with_clock(clock: Box<dyn Fn() -> f64 + Send>) -> PrivacyBlurPlugin {
         PrivacyBlurPlugin {
-            state: Kept::default(),
-            blur: Blur::default(),
+            trigger: Trigger::default(),
+            active: false,
             auto: false,
             now: false,
             mode: 0,
@@ -314,7 +141,6 @@ impl PrivacyBlurPlugin {
             behind: HashMap::new(),
             covered: false,
             asked_cover: false,
-            view: Geometry::default(),
             shown_blurs: Arc::new(AtomicBool::new(false)),
             held: HashMap::new(),
             paired: Paired::default(),
@@ -324,74 +150,30 @@ impl PrivacyBlurPlugin {
         }
     }
 
-    /// You: whoever was there longest when blurring started, while they're still followed. Once their track is gone, whoever is where you were last seen (the model lost you for a while). Anyone else is never you, so None while you're away.
-    fn you(&self) -> Option<Track> {
-        let tracks = &self.state.tracks;
-        let Some(you_box) = self.state.you_box else { return people::main(tracks).cloned() };
-        if let Some(held) = tracks.iter().find(|t| Some(t.id) == self.state.you_id) {
-            return Some(held.clone());
-        }
-        // max() keeps the first of equals
-        let mut best: Option<&Track> = None;
-        for t in tracks {
-            if best.is_none_or(|b| people::overlap(t.bbox, you_box) > people::overlap(b.bbox, you_box)) {
-                best = Some(t);
-            }
-        }
-        best.filter(|b| people::overlap(b.bbox, you_box) > 0.1).cloned()
+    /// Whether the wait screen is wanted now.
+    fn wants_cover(&self) -> bool {
+        self.active && MODES[self.mode].0 == "wait"
     }
 
-    /// Whether the wait screen is wanted now, for what `update` works out.
-    fn wants_cover(&self, active: bool) -> bool {
-        active && MODES[self.mode].0 == "wait"
-    }
-
-    /// The part of _update that needs no host: what frames get now, from the switches and the latest people.
+    /// The part of update that needs no host: whether frames get blurred now, from the switches and the people count.
     fn work_out(&mut self) {
-        let active = self.now || (self.auto && self.state.trigger.on);
-        if !active {
-            self.state.you_id = None;
-            self.state.you_box = None;
-            self.state.others = Vec::new();
-        }
-        let you = if active { self.you() } else { None };
-        let gone = you.is_none();
-        if let Some(you) = &you {
-            self.state.you_id = Some(you.id);
-            self.state.you_box = Some(you.bbox);
-        }
-        let others: Vec<Box4> = self.state.tracks.iter().filter(|t| you.as_ref().is_none_or(|y| t.id != y.id)).map(|t| t.bbox).collect();
-        if active && !others.is_empty() {
-            self.state.others = others;
-        }
-        self.blur = Blur {
-            mode: MODES[self.mode].0,
-            active,
-            you: you.map(|y| y.bbox),
-            others: self.state.others.clone(),
-            covered: self.covered && self.wants_cover(active),
-            away: active && gone && self.state.you_box.is_some(),
-        };
+        self.active = self.now || (self.auto && self.trigger.on);
     }
 
-    /// _update: frames, what's asked of others, and the card.
+    /// Frames, what's asked of others, and the card.
     fn update(&mut self, host: &mut dyn Host) {
         let want = self.auto || self.now;
         if want != self.wanting {
             self.wanting = want;
             host.want_people(TITLE, want);
         }
-        let before = self.blur.clone();
-        let view = Geometry::from(&host.view());
+        let before = (self.active, self.covered && self.wants_cover());
         self.work_out();
-        self.shown_blurs.store(self.blur.active, Ordering::Relaxed);
-        // the view moves all the time under Auto framing, and only a blur has any use for it
-        let moved = view != self.view;
-        self.view = view;
-        if before != self.blur || (moved && self.blur.active) {
+        self.shown_blurs.store(self.active, Ordering::Relaxed);
+        if before != (self.active, self.covered && self.wants_cover()) {
             host.refresh_frame_step();
         }
-        let want_cover = self.wants_cover(self.blur.active);
+        let want_cover = self.wants_cover();
         if want_cover != self.asked_cover {
             self.asked_cover = want_cover;
             // Wait screen answers through stream_covered
@@ -401,7 +183,7 @@ impl PrivacyBlurPlugin {
     }
 
     fn show(&mut self, host: &mut dyn Host) {
-        let problem = if self.wants_cover(self.blur.active) && !self.covered { tr("With Wait screen switched off in Plugins the whole picture gets blurred instead.") } else { String::new() };
+        let problem = if self.wants_cover() && !self.covered { tr("With Wait screen switched off in Plugins the whole picture gets blurred instead.") } else { String::new() };
         let mut props = self.all_props();
         if let (Value::Object(p), Value::Object(row)) = (&mut props, vision_row::props(&*host, self.auto || !problem.is_empty(), &problem)) {
             p.extend(row);
@@ -419,8 +201,8 @@ impl PrivacyBlurPlugin {
 
     fn fixed_props() -> Value {
         json!({
-            "switch-help": tr("Blur automatically when another person appears in the picture."),
-            "mode-tip": tr("What happens while someone else is in the picture."),
+            "switch-help": tr("Blur automatically when more than one person is in the picture."),
+            "mode-tip": tr("What happens while more than one person is in the picture."),
             "now-tip": tr("Blur the picture until you click again."),
         })
     }
@@ -432,15 +214,15 @@ impl PrivacyBlurPlugin {
         }
     }
 
-    fn set_state(&mut self, host: &mut dyn Host, state: Kept) {
-        self.state = state;
+    fn set_trigger(&mut self, host: &mut dyn Host, trigger: Trigger) {
+        self.trigger = trigger;
         self.update(host);
     }
 
     fn set_auto(&mut self, host: &mut dyn Host, on: bool) {
         if on != self.auto {
             self.auto = on;
-            self.state.trigger.reset();
+            self.trigger.reset();
         }
         self.update(host);
     }
@@ -476,7 +258,7 @@ impl Plugin for PrivacyBlurPlugin {
         PluginInfo {
             name: NAME.into(),
             title: TITLE.into(),
-            about: n_("Blurs the other people, everything but you, or puts the wait screen up when someone else walks in. It's a proof of concept and can't guarantee privacy.").into(),
+            about: n_("Blurs the whole picture, or puts the wait screen up, when more than one person is in it. It only knows about the people the vision models find, so it can miss someone and can't guarantee privacy.").into(),
             when_off: n_("Without it there's no Privacy blur card and nothing gets hidden when someone walks in.").into(),
             category: "vision".into(),
             icon: "eye_off".into(),
@@ -512,11 +294,11 @@ impl Plugin for PrivacyBlurPlugin {
             self.show(host);
         }
         match event {
-            Event::PeopleTracked { source_id, tracks, count } if *source_id == host.focused_source_id().unwrap_or_default() => {
-                self.state.tracks = Track::all_from(tracks);
+            // the model's own count of this update, not the steadied one in PeopleTracked
+            Event::PeopleSeen { source_id, people } if *source_id == host.focused_source_id().unwrap_or_default() => {
                 if self.auto {
                     let now = (self.clock)();
-                    self.state.trigger.update(*count, now);
+                    self.trigger.update(found_in(people), now);
                 }
                 self.update(host);
             }
@@ -524,7 +306,6 @@ impl Plugin for PrivacyBlurPlugin {
                 self.covered = *covered;
                 self.update(host);
             }
-            Event::ViewChanged { .. } => self.update(host),
             _ => {}
         }
     }
@@ -532,22 +313,22 @@ impl Plugin for PrivacyBlurPlugin {
     fn on_focus_lost(&mut self, host: &mut dyn Host) {
         // The stream carries on blurred (frame_step), and coming back to it picks up where it was
         self.catch_up(host);
-        self.behind.insert(host.focused_source_id().unwrap_or_default(), self.state.clone());
+        self.behind.insert(host.focused_source_id().unwrap_or_default(), self.trigger.clone());
     }
 
     fn on_focus_gained(&mut self, host: &mut dyn Host, _stream: &StreamInfo) {
         self.catch_up(host);
         let sid = host.focused_source_id().unwrap_or_default();
         if let Some(kept) = self.behind.remove(&sid) {
-            self.set_state(host, kept);
+            self.set_trigger(host, kept);
             return;
         }
-        let (tracks, count) = host.tracked_people(Some(&sid));
+        let (_, count) = host.tracked_people(Some(&sid));
         let mut trigger = Trigger::default();
         if self.auto {
             trigger.update(count, (self.clock)());
         }
-        self.set_state(host, Kept { trigger, tracks: Track::all_from(&tracks), ..Kept::default() });
+        self.set_trigger(host, trigger);
     }
 
     fn on_stream_stop(&mut self, host: &mut dyn Host) {
@@ -556,7 +337,7 @@ impl Plugin for PrivacyBlurPlugin {
         if !host.is_streaming() {
             self.behind.clear();
         }
-        self.set_state(host, Kept::default());
+        self.set_trigger(host, Trigger::default());
     }
 
     fn card(&mut self) -> Option<CardSpec> {
@@ -610,9 +391,13 @@ impl Plugin for PrivacyBlurPlugin {
             "privacy_blur.now" => self.toggled(host, id, &tr("Blur now"), params, self.now, Self::set_now),
             "privacy_blur.auto" => self.toggled(host, id, &tr("Privacy blur when someone walks in"), params, self.auto, Self::set_switch),
             "privacy_blur.mode" => {
+                let mut params = params.clone();
+                if params.get("option").and_then(Value::as_str).is_some_and(|o| GONE.contains(&o)) {
+                    params["option"] = json!(MODES[0].1);
+                }
                 let shown: Vec<String> = MODES.iter().map(|(_, t)| tr(t)).collect();
                 let options: Vec<Choice> = MODES.iter().zip(&shown).map(|((_, t), s)| Choice { value: t, shown: s, enabled: true }).collect();
-                let (said, pick) = actions::choice_target(params, &options, Some(self.mode), true)?;
+                let (said, pick) = actions::choice_target(&params, &options, Some(self.mode), true)?;
                 if pick {
                     self.set_mode(host, said);
                 }
@@ -636,7 +421,7 @@ impl Plugin for PrivacyBlurPlugin {
     }
 
     fn frame_step(&mut self) -> Option<FrameStep> {
-        Some(FrameStep::Cpu(Box::new(Step { spares: Vec::new(), kept: None, blur: self.blur.clone(), view: self.view, shown_blurs: self.shown_blurs.clone() })))
+        Some(FrameStep::Cpu(Box::new(Step { spares: Vec::new(), active: self.active, covered: self.covered && self.wants_cover(), shown_blurs: self.shown_blurs.clone() })))
     }
 
     fn get_config(&self) -> Value {
@@ -647,14 +432,15 @@ impl Plugin for PrivacyBlurPlugin {
     }
 
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
+        // a saved mode that's gone (Blur the others, Blur all but me) means the whole picture
         self.mode = cfg.get("mode").and_then(Value::as_str).and_then(|m| MODES.iter().position(|(k, _)| *k == m)).unwrap_or(0);
         let on = cfg.get("on") == Some(&Value::Bool(true));
         if on != self.auto {
             self.auto = on;
-            self.state.trigger.reset();
+            self.trigger.reset();
         }
         self.work_out();
-        self.shown_blurs.store(self.blur.active, Ordering::Relaxed);
+        self.shown_blurs.store(self.active, Ordering::Relaxed);
         // what it asks of the others and the card: the next hook with a host
         self.pending = true;
         Ok(())
@@ -668,7 +454,7 @@ impl Plugin for PrivacyBlurPlugin {
     }
 
     fn diagnostics(&self) -> Vec<(String, String)> {
-        let state = if self.blur.active { "blurring" } else if self.auto { "on" } else { "off" };
+        let state = if self.active { "blurring" } else if self.auto { "on" } else { "off" };
         vec![("Privacy blur".into(), format!("{state}, {}", MODES[self.mode].0))]
     }
 }

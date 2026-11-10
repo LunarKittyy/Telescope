@@ -31,9 +31,6 @@ pub fn use_app_id(id: String) {
     let _ = APP_ID.set(id);
 }
 
-/// How long after start the Settings window is built in the background.
-const SETTINGS_PREPARED_AFTER: Duration = Duration::from_millis(2000);
-
 /// Called once when the window has been shown (or put in the tray), before the event loop runs.
 #[derive(Clone)]
 pub struct ShownHook(pub Arc<dyn Fn() + Send + Sync>);
@@ -1011,11 +1008,21 @@ impl Window {
         if dirty {
             self.painted.set(0);
         }
-        if number == self.painted.get() {
+        // A tint is painted a frame late, so a frame already painted is painted again once the worker's result for it is in: that is
+        // what brings a stream that stopped sending up to date
+        let tints = passes.iter().any(|(_, p)| p.tints());
+        let source = {
+            use std::hash::{Hash, Hasher};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            (stream_gen, self.preview_source()).hash(&mut hasher);
+            hasher.finish()
+        };
+        let again = number == self.painted.get();
+        if again && !(tints && self.passes.borrow().tint_newer(source)) {
             return;
         }
         // Half the frames on the card unless Smooth is on; what it skips only changes what's painted here
-        if !self.cadence.borrow_mut().due(number, popout.is_some() || on("smooth-on"), self.painted.get() == 0) {
+        if !again && !self.cadence.borrow_mut().due(number, popout.is_some() || on("smooth-on"), self.painted.get() == 0) {
             return;
         }
         let stage = match &popout {
@@ -1033,21 +1040,30 @@ impl Window {
         if !self.logged.replace(true) {
             log::info!("Preview: {}x{} {:?} frames shown at {w}x{h}", frame.width, frame.height, frame.format);
         }
-        // Passes that tint the picture, or want a look at it, work on a CPU copy at the size it is painted at
-        let tinted = if self.passes.borrow().needs_copy(&passes) {
+        // Passes that tint the picture, or want a look at it, get a CPU copy at the size it is painted at, made on a worker so the
+        // window never waits on the graphics card for it; a tint is painted a frame late, from the worker's last result
+        let mut worker_up = true;
+        if !again && self.passes.borrow().needs_copy(&passes) {
             let scaler = || self.services.as_ref().map(|s| s.media.scaler());
-            let mut work = self.passes.borrow_mut();
-            work.copy(scaler, &frame, w, h).map(|copy| {
-                work.analyse(&passes, &copy, &self.state.borrow().preview_dirty);
-                let mut shown = copy;
-                crate::preview_passes::PassWork::tint(&passes, &mut shown);
-                shown
-            })
+            let dirty = self.state.borrow().preview_dirty.clone();
+            worker_up = self.passes.borrow_mut().submit(scaler, &passes, &frame, crate::preview_passes::FrameId { source, number }, (w, h), &dirty);
+        }
+        if !tints {
+            self.passes.borrow_mut().stop_tinting();
+        }
+        let tinted = if tints && worker_up {
+            // Nothing yet for this stream, run of tinting or size: what's up stays until the worker's first picture asks for a paint,
+            // unless the worker has had so long that it can't be making one
+            let image = self.passes.borrow_mut().tinted(w, h, source);
+            if image.is_none() && !self.passes.borrow().tint_gave_up() {
+                return;
+            }
+            image
         } else {
             None
         };
-        let image = match tinted.filter(|f| passes.iter().any(|(_, p)| p.tints()) && f.data.len() == (w * h * 4) as usize) {
-            Some(shown) => crate::preview::rgb_image(&shown.data, w, h),
+        let image = match tinted {
+            Some(image) => image,
             None => {
                 let mut painter = self.painter.borrow_mut();
                 if painter.is_none() {
@@ -1836,13 +1852,8 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         window.show_window();
     }
     window.process();
-    // Settings is built while nobody is waiting for it, so the first click only shows it
-    let weak = Rc::downgrade(&window);
-    slint::Timer::single_shot(SETTINGS_PREPARED_AFTER, move || {
-        if let Some(w) = weak.upgrade() {
-            crate::settings::prepare(&w);
-        }
-    });
+    // Building the cards' pages leaves freed memory behind
+    (app_hooks().release_memory)();
     slint::run_event_loop_until_quit().map_err(|e| e.to_string())?;
     drop(tray_timer);
     let _ = window.ui.hide();

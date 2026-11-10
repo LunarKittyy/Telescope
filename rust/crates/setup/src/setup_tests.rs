@@ -708,21 +708,43 @@ fn setup_plugin_config_round_trip() {
 }
 
 #[test]
-fn hardware_decoding_is_off_unless_saved_on() {
+fn hardware_decoding_follows_the_card_until_a_choice_is_made() {
     let mut r = Rig::linux();
-    assert_eq!(r.plugin.get_config()["hw_decode"], json!(false), "a new install");
+    let fresh = r.plugin.get_config();
+    assert_eq!((&fresh["hw_decode"], fresh.get("hw_decode_chosen")), (&json!(false), None), "a new install saves the false older versions did, with no mark");
+    assert!(!r.plugin.hw_decode(), "and nothing is on before a card is found");
+    r.plugin.show_graphics_card(Some("vaapi"), false);
+    assert!(r.plugin.hw_decode() && r.plugin.video_props()["hw-checked"] == json!(true), "VA-API is on by default");
+    r.plugin.show_graphics_card(Some("cuda"), false);
+    assert!(!r.plugin.hw_decode(), "any other card stays off until turned on");
+    r.plugin.show_graphics_card(None, false);
+    assert!(!r.plugin.hw_decode());
+    r.plugin.show_graphics_card(Some("vaapi"), false);
+    // Settings from before there was a default: older versions always saved a false, and one nobody chose counts as untouched
+    r.plugin.set_config(&json!({"hw_decode": false})).unwrap();
+    assert!(r.plugin.hw_decode(), "a saved false without the mark is the old default");
     r.plugin.set_config(&json!({})).unwrap();
-    assert_eq!(r.plugin.get_config()["hw_decode"], json!(false), "settings from before it was saved");
-    // Turned on, it stays on across a save and a read
+    assert!(r.plugin.hw_decode(), "settings from before it was saved");
+    // Switched off here, it stays off across a save and a read
+    r.ui("video", "hw-toggled", vec![json!(false)]);
+    let saved = r.plugin.get_config();
+    assert_eq!((&saved["hw_decode"], &saved["hw_decode_chosen"]), (&json!(false), &json!(true)));
+    r.plugin.set_config(&saved).unwrap();
+    assert!(!r.plugin.hw_decode(), "a choice to switch it off is kept");
+    // Turned on, it stays on, and a card that isn't VA-API is used then
     r.ui("video", "hw-toggled", vec![json!(true)]);
     let saved = r.plugin.get_config();
     assert_eq!(saved["hw_decode"], json!(true));
     r.plugin.set_config(&saved).unwrap();
-    assert_eq!(r.plugin.get_config()["hw_decode"], json!(true), "a choice made here");
-    // Anything that isn't plainly true stays off, as it always did
-    for saved in [json!(false), json!("yes"), json!(1)] {
+    r.plugin.show_graphics_card(Some("cuda"), false);
+    assert!(r.plugin.hw_decode(), "a choice made here");
+    // Anything that isn't plainly true or false is no choice, so the default for the card found
+    for saved in [json!("yes"), json!(1)] {
         r.plugin.set_config(&json!({"hw_decode": saved})).unwrap();
-        assert_eq!(r.plugin.get_config()["hw_decode"], json!(false), "{saved}");
+        r.plugin.show_graphics_card(Some("vaapi"), false);
+        assert!(r.plugin.hw_decode(), "{saved}");
+        r.plugin.show_graphics_card(Some("cuda"), false);
+        assert!(!r.plugin.hw_decode(), "{saved}");
     }
     r.ui("video", "hw-toggled", vec![json!(true)]);
     assert_eq!(r.plugin.get_config()["hw_decode"], json!(true));
@@ -732,6 +754,22 @@ fn hardware_decoding_is_off_unless_saved_on() {
     assert_eq!(r.plugin.diagnostics()[0].1, "processor (graphics card failed; processor until restart)");
     r.media.status.lock().unwrap().backends = vec![];
     assert_eq!(r.plugin.diagnostics()[0].1, "not streaming (graphics card failed; processor until restart)");
+}
+
+#[test]
+fn the_stream_decoder_choice_reads_the_saved_settings_and_the_card() {
+    use telescope_core::media::{hardware_decode_choice, hardware_decode_default};
+    let vaapi = Some("vaapi");
+    // Never chosen: the card decides, on Linux only
+    assert!(hardware_decode_default(true, vaapi) && !hardware_decode_default(false, vaapi));
+    assert!(!hardware_decode_default(true, Some("cuda")) && !hardware_decode_default(true, None));
+    assert_eq!(hardware_decode_choice(Some(&json!({}))), None);
+    assert_eq!(hardware_decode_choice(None), None);
+    assert_eq!(hardware_decode_choice(Some(&json!({"hw_decode": false}))), None, "an old config's false");
+    // Chosen: the card doesn't matter
+    assert_eq!(hardware_decode_choice(Some(&json!({"hw_decode": false, "hw_decode_chosen": true}))), Some(false));
+    assert_eq!(hardware_decode_choice(Some(&json!({"hw_decode": true}))), Some(true));
+    assert_eq!(hardware_decode_choice(Some(&json!({"hw_decode": "yes"}))), None, "not a boolean");
 }
 
 #[test]

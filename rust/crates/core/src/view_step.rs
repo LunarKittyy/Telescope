@@ -7,7 +7,7 @@
 
 use crate::frame::{CpuStep, Frame, FrameContext, FrameStep, PixelFormat};
 use crate::host::View;
-use crate::image::{frame_rgb, keep_bytes, resample_linear, rgb_to_420, rint, with_spares, Tap};
+use crate::image::{frame_rgb, keep_bytes, resample_linear, rgb_to_420, rint, spare_bytes, with_spares, Tap};
 use crate::view::window;
 
 /// Quarter turns clockwise in a rotation of degrees (0 for none).
@@ -316,13 +316,15 @@ impl Resample {
             rgb = resample(rgb, w, h, plan);
         }
         let format = frame.format;
-        let data = frame.data_mut();
+        // Written whole into a spare buffer that then replaces the pixels, so a panic leaves the frame as it was
+        let mut data = spare_bytes(format.size(frame.width, frame.height));
         match format {
             PixelFormat::Rgba => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(o, p)| *o = [p[0], p[1], p[2], 255]),
             PixelFormat::Bgra => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(o, p)| *o = [p[2], p[1], p[0], 255]),
-            PixelFormat::I420 => rgb_to_420(&rgb, w, h, data, false),
-            PixelFormat::Nv12 => rgb_to_420(&rgb, w, h, data, true),
+            PixelFormat::I420 => rgb_to_420(&rgb, w, h, &mut data, false),
+            PixelFormat::Nv12 => rgb_to_420(&rgb, w, h, &mut data, true),
         }
+        frame.replace_data(data);
         keep_bytes(rgb);
     }
 }

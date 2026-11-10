@@ -7,9 +7,10 @@
 use crate::gpu::{self, Gpu, Held, MaskPlane};
 use crate::transfers;
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use telescope_core::balance::{Balance, Place};
-use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, Touch};
+use telescope_core::image::SparePool;
+use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat, Touch};
 use telescope_core::media::{FramePipeline, StagedStep};
 use telescope_core::stats::{SourceStats, Timer};
 use telescope_core::time::{monotonic_ns, span};
@@ -82,6 +83,9 @@ impl Entry {
     }
 }
 
+/// How many pictures' worth of RGB the shared spare pool keeps between steps.
+const SPARE_POOL_FRAMES: usize = 5;
+
 /// Frames between two looks at what a frame costs.
 const TALLY_FRAMES: u32 = 300;
 
@@ -123,6 +127,8 @@ pub struct Pipeline {
     /// The card failed a frame: steps that can run on the CPU stay there until the next stream, whatever the balance says.
     card_lost: bool,
     stats: Option<Arc<SourceStats>>,
+    /// The spare buffers every CPU step of this stream draws on.
+    pool: SparePool,
 }
 
 impl Default for Pipeline {
@@ -138,7 +144,7 @@ impl Pipeline {
 
     /// One that listens to this balance, for tests.
     fn with_balance(balance: Arc<Balance>) -> Pipeline {
-        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, stats: None }
+        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, stats: None, pool: SparePool::default() }
     }
 
     fn timer_of(&self, owner: &str) -> Option<Arc<Timer>> {
@@ -159,9 +165,10 @@ impl Pipeline {
         let Some(gpu) = self.gpu.clone().flatten() else { return };
         if let (Some(held), false) = (chain.held.as_mut(), chain.ahead.is_empty()) {
             chain.downs += 1;
-            match gpu.land(held) {
-                Ok(out) => {
-                    *frame = out;
+            let cap = SPARE_POOL_FRAMES * held.size().0 as usize * held.size().1 as usize * 3;
+            let landed = self.pool.scope(cap, || gpu.land(held).map(|out| std::mem::replace(frame, out).recycle()));
+            match landed {
+                Ok(()) => {
                     chain.waited_ns += held.take_waited();
                     for i in chain.ahead.drain(..) {
                         self.steps[i].fails = 0;
@@ -203,21 +210,31 @@ impl Pipeline {
         self.bring_down(chain, frame, touch == Touch::Reads);
         let entry = &mut self.steps[i];
         let step = entry.kind.cpu();
-        // A clone shares the pixels, so keeping the frame to fall back on only costs a copy if the step changes it
-        let before = frame.clone();
-        match catch_unwind(AssertUnwindSafe(|| step.process(frame, ctx))) {
+        // A step that changes pixels in place would copy them all if a clone kept the old ones, so only one that failed on its last frame
+        // gets that fallback; a built-in step that panics the first time may hand on a half-changed frame. Whole-frame writers build a new
+        // buffer and swap it in, so they leave this one intact either way.
+        let before = (entry.fails > 0).then(|| frame.clone());
+        let (size, format) = ((frame.width, frame.height), frame.format);
+        let was = Arc::downgrade(&frame.data);
+        let cap = SPARE_POOL_FRAMES * frame.width as usize * frame.height as usize * 3;
+        let pool = &mut self.pool;
+        match catch_unwind(AssertUnwindSafe(|| pool.scope(cap, || step.process(frame, ctx)))) {
             Ok(()) if sound(frame) => entry.fails = 0,
             Ok(()) => {
                 entry.failed(&format!("handed back {}x{} {:?} with {} bytes", frame.width, frame.height, frame.format, frame.data.len()));
-                *frame = before.clone();
+                *frame = before.clone().unwrap_or_else(|| neutral(size, format, frame.number, frame.time_ns));
             }
             Err(_) => {
                 entry.failed("it panicked");
-                *frame = before.clone();
+                match &before {
+                    Some(before) => *frame = before.clone(),
+                    None if !sound(frame) => *frame = neutral(size, format, frame.number, frame.time_ns),
+                    None => {}
+                }
             }
         }
         // A step that said it only reads and then didn't: the frame in hand wins
-        if !Arc::ptr_eq(&frame.data, &before.data) {
+        if !std::ptr::eq(Weak::as_ptr(&was), Arc::as_ptr(&frame.data)) {
             self.bring_down(chain, frame, false);
         }
     }
@@ -323,6 +340,18 @@ impl Drop for Trial {
     fn drop(&mut self) {
         self.0.trial_done(self.1);
     }
+}
+
+/// A flat dark picture of this size, for a step that broke the frame it was given when there is no copy to go back to.
+fn neutral((w, h): (u32, u32), format: PixelFormat, number: u64, time_ns: u64) -> Frame {
+    let (luma, rest) = (w as usize * h as usize, format.size(w, h));
+    let data = match format {
+        PixelFormat::I420 | PixelFormat::Nv12 => [vec![16; luma], vec![128; rest - luma]].concat(),
+        _ => [0, 0, 0, 255].repeat(luma),
+    };
+    let mut out = Frame::new(w, h, format, data);
+    (out.number, out.time_ns) = (number, time_ns);
+    out
 }
 
 /// Whether a step handed back something the rest of the stream can use.
@@ -571,20 +600,119 @@ pub(crate) mod tests {
         let mut p = Pipeline::new();
         p.set_steps(vec![step("broken", FrameStage::Effects, Counts(calls.clone())), step("mangler", FrameStage::Effects, Mangles)]);
         let source = grey(4, 2, 1);
-        for _ in 0..STEP_FAILS_BEFORE_SKIP + 10 {
+        for n in 0..STEP_FAILS_BEFORE_SKIP + 10 {
             let out = quietly(|| p.process(source.clone(), &NoContext));
-            assert_eq!(out.data, source.data, "passed through, what the step did to it left behind");
             assert_eq!((out.width, out.height), (4, 2));
+            assert_eq!(out.data.len(), out.format.size(4, 2), "a whole picture comes out");
+            // The first failure has no copy to go back to (a built-in step may hand on a half-changed frame); after that there is
+            if n > 0 {
+                assert_eq!(out.data, source.data, "passed through, what the step did to it left behind");
+            }
         }
         assert_eq!(*calls.lock().unwrap(), STEP_FAILS_BEFORE_SKIP, "skipped from then on");
         assert!(p.steps[0].skipped() && p.steps[1].skipped());
-        // What the decoder made is never changed under it
+        // What the decoder made is never changed under it while somebody else holds it
         assert_eq!(source.data[0], 1);
         // The next stream's pipeline tries them again, and steps after a broken one still run
         p.set_steps(vec![step("broken", FrameStage::Effects, Panics), step("fine", FrameStage::Overlay, Push(5, seen.clone()))]);
         let out = quietly(|| p.process(grey(4, 2, 1), &NoContext));
         assert_eq!(out.data[0], 5);
         assert_eq!(*seen.lock().unwrap(), [5]);
+    }
+
+    /// Notes where the pixels were when the step got them and when it was done.
+    struct Where(Arc<std::sync::Mutex<Vec<(usize, usize)>>>);
+
+    impl CpuStep for Where {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            let was = frame.data.as_ptr() as usize;
+            frame.data_mut()[0] = 3;
+            self.0.lock().unwrap().push((was, frame.data.as_ptr() as usize));
+        }
+    }
+
+    #[test]
+    fn an_in_place_step_that_works_does_not_copy_the_picture() {
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("tag", FrameStage::Overlay, Where(seen.clone()))]);
+        p.process(grey(64, 64, 1), &NoContext);
+        let seen = seen.lock().unwrap();
+        assert_eq!(seen[0].0, seen[0].1, "changed where it was");
+    }
+
+    /// Breaks the picture halfway, then panics twice.
+    struct BreaksOnce(Arc<std::sync::Mutex<u32>>);
+
+    impl CpuStep for BreaksOnce {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            let n = {
+                let mut n = self.0.lock().unwrap();
+                *n += 1;
+                *n
+            };
+            frame.data_mut()[0] = 200;
+            if n <= 2 {
+                panic!("broken")
+            }
+        }
+    }
+
+    #[test]
+    fn a_panicking_in_place_step_hands_on_one_half_changed_frame_then_rolls_back_until_it_works_again() {
+        let calls = Arc::new(std::sync::Mutex::new(0));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("tag", FrameStage::Overlay, BreaksOnce(calls.clone()))]);
+        let out = quietly(|| p.process(grey(8, 8, 1), &NoContext));
+        assert_eq!(out.data[0], 200, "accepted: the first failure hands on what the step had done");
+        assert_eq!(p.steps[0].fails, 1);
+        let out = quietly(|| p.process(grey(8, 8, 1), &NoContext));
+        assert_eq!(out.data[0], 1, "a step that failed last frame is rolled back");
+        let out = p.process(grey(8, 8, 1), &NoContext);
+        assert_eq!(out.data[0], 200, "its good frame stands");
+        assert_eq!(p.steps[0].fails, 0, "and it is back to running without a copy");
+    }
+
+    /// Writes a whole new picture into a spare buffer, then panics before swapping it in.
+    struct RewritesThenPanics;
+
+    impl CpuStep for RewritesThenPanics {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            let mut out = telescope_core::image::spare_bytes(frame.data.len());
+            out.fill(9);
+            if out.len() > 1 {
+                panic!("before the swap")
+            }
+            frame.replace_data(out);
+        }
+    }
+
+    #[test]
+    fn a_whole_frame_writer_that_panics_leaves_the_frame_intact_with_no_copy() {
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("fx", FrameStage::Effects, RewritesThenPanics)]);
+        let source = grey(8, 8, 1);
+        let out = quietly(|| p.process(source.clone(), &NoContext));
+        assert_eq!(out.data, source.data);
+        assert!(Arc::ptr_eq(&out.data, &source.data), "not even copied");
+        assert_eq!(p.steps[0].fails, 1);
+    }
+
+    #[test]
+    fn steps_share_one_spare_pool_capped_by_bytes() {
+        use telescope_core::image::{keep_bytes, spare_bytes};
+        struct Hoards;
+        impl CpuStep for Hoards {
+            fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {
+                let held: Vec<Vec<u8>> = (0..10).map(|_| spare_bytes(300_000)).collect();
+                held.into_iter().for_each(keep_bytes);
+            }
+        }
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("a", FrameStage::Effects, Hoards), step("b", FrameStage::Overlay, Hoards)]);
+        p.process(grey(256, 256, 1), &NoContext);
+        let cap = SPARE_POOL_FRAMES * 256 * 256 * 3;
+        assert!(p.pool.bytes() > 0 && p.pool.bytes() <= cap, "{} of {cap}", p.pool.bytes());
     }
 
     const INVERT: &str = "fn effect(uv: vec2<f32>) -> vec4<f32> { let c = sample(uv); return vec4<f32>(1.0 - c.rgb, 1.0); }";

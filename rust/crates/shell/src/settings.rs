@@ -219,8 +219,8 @@ fn ensure(window: &Rc<Window>) -> Option<Rc<Settings>> {
     }
 }
 
-/// Compiles the settings page ahead of the first click on it, while the app is idle: that is most of the 400 ms between the
-/// click and the window. The window itself isn't made, since a made window is a real one on Wayland, shown or not.
+/// Compiles the settings page without making the window (a made window is a real one on Wayland, shown or not). The app
+/// doesn't call it any more: the page is compiled on the first open, so a launch that never opens Settings doesn't hold it.
 pub fn prepare(window: &Rc<Window>) {
     if SETTINGS.with(|s| s.borrow().is_some()) || PLAN.with(|p| p.borrow().is_some()) {
         return;
@@ -237,7 +237,12 @@ pub fn prepared() -> bool {
 }
 
 pub fn open(window: &Rc<Window>, tab: &str) {
+    let first = SETTINGS.with(|s| s.borrow().is_none());
     let Some(settings) = ensure(window) else { return };
+    if first {
+        // The compiler leaves a lot of freed memory behind; trimmed once the window is up, not on the click
+        slint::Timer::single_shot(std::time::Duration::from_millis(500), || (crate::window::app_hooks().release_memory)());
+    }
     let coming_up = !settings.ui.window().is_visible();
     if !tab.is_empty() {
         settings.show_tab(tab);

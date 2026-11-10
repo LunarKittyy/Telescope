@@ -35,6 +35,8 @@ pub struct Slot {
     pub tray: Vec<TrayAction>,
     /// get_config() right after setup, which a device profile starts from.
     pub defaults: Value,
+    /// Its hook timer in the stats hub, looked up the first time one is timed.
+    pub timer: Option<Arc<telescope_core::stats::Timer>>,
 }
 
 /// The plugins' packet step makers by owner, in the order they came on (HostPackets).
@@ -446,12 +448,14 @@ impl State {
         // What a plugin's hooks cost is only timed while the Stats panel wants it
         let hooks = telescope_core::stats::Hub::global();
         let began = hooks.hooks().on().then(telescope_core::time::monotonic_ns);
-        let result = {
-            let mut ctx = crate::host::Ctx { state: self, me: name.clone() };
-            catch_unwind(AssertUnwindSafe(|| f(plugin.as_mut(), &mut ctx)))
+        let (result, name) = {
+            let mut ctx = crate::host::Ctx { state: self, me: name };
+            let result = catch_unwind(AssertUnwindSafe(|| f(plugin.as_mut(), &mut ctx)));
+            (result, ctx.me)
         };
         if let Some(began) = began {
-            hooks.hooks().timer(&name).add(telescope_core::time::monotonic_ns().saturating_sub(began));
+            let timer = self.slots[i].timer.get_or_insert_with(|| hooks.hooks().timer(&name));
+            timer.add(telescope_core::time::monotonic_ns().saturating_sub(began));
         }
         self.slots[i].plugin = Some(plugin);
         self.calls -= 1;
@@ -478,7 +482,7 @@ impl State {
     pub fn register(&mut self, plugin: Box<dyn Plugin>) -> Result<(), String> {
         let info = plugin.info();
         let i = self.slots.len();
-        self.slots.push(Slot { plugin: Some(plugin), info: info.clone(), card: None, header: None, actions: vec![], tray: vec![], defaults: json!({}) });
+        self.slots.push(Slot { plugin: Some(plugin), info: info.clone(), card: None, header: None, actions: vec![], tray: vec![], defaults: json!({}), timer: None });
         let made = self.call(i, |p, host| {
             p.setup(host);
             let card = p.card();

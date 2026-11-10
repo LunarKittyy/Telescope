@@ -1,5 +1,6 @@
 use super::*;
-use telescope_core::frame::PixelFormat;
+use telescope_core::frame::{FrameStage, PixelFormat};
+use telescope_core::media::{Media, StagedStep};
 use telescope_core::testing::FakeHost;
 
 const W: usize = 160;
@@ -456,5 +457,139 @@ fn the_card_uses_the_vision_pack_as_soon_as_it_is_downloaded() {
         assert_eq!(status(&r).0, "", "nothing to say once it's there");
         r.pick("cloak");
         assert_eq!(status(&r).0, "");
+    }
+}
+
+#[test]
+fn a_clone_or_cloak_with_nothing_taken_leaves_the_frame_where_it_is() {
+    use telescope_core::frame::Touch;
+    let mut r = Rig::new();
+    for effect in ["clones", "cloak"] {
+        r.pick(effect);
+        let Some(FrameStep::Cpu(step)) = r.plugin.frame_step() else { panic!("a CPU step") };
+        assert_eq!(step.touch(&Ctx("phone")), Touch::Nothing, "{effect} with nothing taken");
+    }
+    // Taking the empty room needs the picture, and with it taken both have something to do
+    r.pick("cloak");
+    r.count_down("plate", 3);
+    let Some(FrameStep::Cpu(step)) = r.plugin.frame_step() else { panic!("a CPU step") };
+    assert_eq!(step.touch(&Ctx("phone")), Touch::Changes, "the room is about to be taken");
+    r.stream("phone", &room());
+    assert!(r.plugin.plate.is_some());
+    for effect in ["cloak", "clones"] {
+        r.pick(effect);
+        let Some(FrameStep::Cpu(step)) = r.plugin.frame_step() else { panic!("a CPU step") };
+        assert_eq!(step.touch(&Ctx("phone")), Touch::Changes, "{effect} with the room taken");
+    }
+    // A stream behind the panels has no room or figure of its own
+    for effect in ["stick", "cloak", "clones"] {
+        r.pick(effect);
+        let Some(FrameStep::Cpu(step)) = r.plugin.frame_step() else { panic!("a CPU step") };
+        assert_eq!(step.touch(&Ctx("elsewhere")), Touch::Nothing, "{effect} elsewhere");
+    }
+    r.pick("vhs");
+    let Some(FrameStep::Cpu(step)) = r.plugin.frame_step() else { panic!("a CPU step") };
+    assert_eq!(step.touch(&Ctx("elsewhere")), Touch::Changes);
+}
+
+#[test]
+fn the_effects_that_need_a_plane_work_on_an_i420_frame_without_an_rgb_picture() {
+    let big = rgb_big();
+    for effect in ["vhs", "ascii", "stick"] {
+        let mut r = Rig::new();
+        r.pick(effect);
+        let Some(FrameStep::Cpu(mut step)) = r.plugin.frame_step() else { panic!("a CPU step") };
+        let mut f = Frame::new(big.w as u32, big.h as u32, PixelFormat::I420, vec![0; PixelFormat::I420.size(big.w as u32, big.h as u32)]);
+        big.write_to(&mut f);
+        let before = f.data.clone();
+        step.process(&mut f, &Ctx("phone"));
+        assert_eq!((f.width as usize, f.height as usize, f.format, f.data.len()), (big.w, big.h, PixelFormat::I420, before.len()), "{effect}");
+        assert_ne!(f.data, before, "{effect} changed the picture");
+    }
+}
+
+// ── Game Boy: two pixels a tap, against one pixel a tap ──
+
+const GAME_BOY_BEFORE_LOOP: &str = r#"
+    var sum = vec3<f32>(0.0);
+    var total = 0.0;
+    for (var y = first.y; y < last.y; y++) {
+        let wy = min(f32(y + 1), hi.y) - max(f32(y), lo.y);
+        for (var x = first.x; x < last.x; x++) {
+            let wx = min(f32(x + 1), hi.x) - max(f32(x), lo.x);
+            sum += sample((vec2<f32>(f32(x), f32(y)) + 0.5) / size).rgb * (wx * wy);
+            total += wx * wy;
+        }
+    }
+"#;
+
+/// The shader as it was written before its cell average took two pixels a read.
+fn game_boy_before() -> String {
+    let now = GAME_BOY;
+    let (from, to) = (now.find("    var sum = vec3<f32>(0.0);").unwrap(), now.find("    let rgb = round(sum / total * 255.0);").unwrap());
+    format!("{}{}{}", &now[..from], GAME_BOY_BEFORE_LOOP.trim_start_matches('\n'), &now[to..])
+}
+
+fn shaded(wgsl: &str) -> impl FnMut(Frame) -> Frame {
+    let mut pipeline = telescope_media::FfmpegMedia.pipeline().expect("a frame pipeline");
+    let step = FrameStep::Shader(ShaderStep { wgsl: wgsl.into(), uniforms: json!({}), textures: Vec::new() });
+    pipeline.set_steps(vec![StagedStep { owner: NAME.into(), stage: FrameStage::Effects, step }]);
+    move |frame| pipeline.process(frame, &Ctx("phone"))
+}
+
+fn photo_frame(w: usize, h: usize) -> Frame {
+    let mut rgb = Rgb::new(w, h);
+    let mut n = 99u32;
+    for y in 0..h {
+        for x in 0..w {
+            n = n.wrapping_mul(1664525).wrapping_add(1013904223);
+            let (fx, fy) = (x as f32 / w as f32, y as f32 / h as f32);
+            let inside = ((fx - 0.5).powi(2) + (fy - 0.6).powi(2)).sqrt() < 0.22;
+            let base = if inside { [215.0, 170.0, 60.0 + 80.0 * fx] } else { [90.0 + 120.0 * fy, 140.0 + 80.0 * fy, 230.0 - 60.0 * fy] };
+            rgb.set(x, y, base.map(|c| (c + (n >> 29) as f32 - 3.0).clamp(0.0, 255.0) as u8));
+        }
+    }
+    frame_of(&rgb)
+}
+
+#[test]
+fn the_game_boy_with_two_pixels_a_tap_draws_the_same_four_shades() {
+    if telescope_media::gpu::Gpu::shared().is_none() {
+        eprintln!("no graphics card here: the shader comparison is skipped");
+        return;
+    }
+    // 1080 / 144 is 7.5 pixels a cell, so the cells' edges fall inside pixels; 2160 / 144 is 15, an odd number of whole pixels
+    for (w, h) in [(1920usize, 1080usize), (3840, 2160), (1280, 720)] {
+        let frame = photo_frame(w, h);
+        let (before, now) = (shaded(&game_boy_before())(frame.clone()), shaded(GAME_BOY)(frame));
+        let differing = before.data.chunks(4).zip(now.data.chunks(4)).filter(|(a, b)| a != b).count() as f64 / (w * h) as f64;
+        println!("game boy {w}x{h}: {:.3}% of pixels land on another shade", differing * 100.0);
+        assert!(differing < 0.01, "{w}x{h}: {differing}");
+        let shades: std::collections::HashSet<[u8; 4]> = now.data.chunks(4).map(|p| [p[0], p[1], p[2], p[3]]).collect();
+        assert!(shades.len() <= 4, "{}", shades.len());
+    }
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture"]
+fn bench_game_boy() {
+    if telescope_media::gpu::Gpu::shared().is_none() {
+        eprintln!("no graphics card here");
+        return;
+    }
+    for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+        let frame = photo_frame(w, h);
+        for (name, wgsl) in [("before", game_boy_before()), ("after", GAME_BOY.to_string())] {
+            let mut run = shaded(&wgsl);
+            run(frame.clone());
+            let mut times: Vec<f64> = (0..9).map(|_| {
+                let input = frame.clone();
+                let start = std::time::Instant::now();
+                std::hint::black_box(run(input));
+                start.elapsed().as_secs_f64() * 1000.0
+            }).collect();
+            times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            println!("game boy {name} {w}x{h}: {:.2} ms through the pipeline (median of 9)", times[4]);
+        }
     }
 }
