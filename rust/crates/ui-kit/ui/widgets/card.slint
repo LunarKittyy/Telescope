@@ -385,6 +385,8 @@ export component RailRow inherits HorizontalLayout {
     in property <bool> changed;
     // Its name as text beside the icon, for a row whose icon alone says little (a lone switch row: SwitchRow)
     in property <bool> named;
+    // False for a row that is found by a marker of its own around it (a plugin's row), so the search never lists it twice
+    in property <bool> searchable: true;
     out property <string> control-kind: "row";
     spacing: Theme.u(4);
     min-height: Theme.row;
@@ -408,7 +410,7 @@ export component RailRow inherits HorizontalLayout {
             background: enabled ? hue : Theme.dis;
             accessible-role: none;
         }
-        if has-icon && label != "": SettingMark { width: parent.width; height: parent.height; name: label; keywords: keywords; }
+        if has-icon && label != "" && searchable: SettingMark { width: parent.width; height: parent.height; name: label; keywords: keywords; }
         // A bare icon is the row's label, so its tip is the word it stands for (or the row's sentence). In a named row the icon is part of the row and
         // shows the row's own tip, the one its name and its control show, so the same thing never says two different things
         if has-icon && label != "" && !named: Rectangle {
