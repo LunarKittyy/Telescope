@@ -404,6 +404,41 @@ fn a_code_in_the_picture_goes_to_the_clipboard_once() {
 }
 
 #[test]
+fn a_step_dropped_with_a_picture_waiting_leaves_the_next_step_able_to_look() {
+    let mut rig = Rig::new();
+    rig.set_config(json!({"on": true}));
+    let (shared, poster) = (rig.plugin.shared.clone(), rig.plugin.poster.clone().unwrap());
+    // A picture queued but never taken, as when the step goes while its worker hasn't woken yet
+    let waiting = Reader::new(shared.clone(), poster);
+    shared.busy.store(true, Ordering::SeqCst);
+    *waiting.slot.frame.lock().unwrap() = Some(video_frame("hello"));
+    drop(waiting);
+    assert!(!shared.busy.load(Ordering::SeqCst), "the dropped step's look is over");
+    // And through the real thing: queue a frame, drop at once, a new step still answers
+    let frame = video_frame("WIFI:T:WPA;S:Telescope;P:hunter22;;");
+    for _ in 0..20 {
+        let mut old = cpu(rig.plugin.frame_step());
+        old.process(&mut frame.clone(), &NoContext);
+        drop(old);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while shared.busy.load(Ordering::SeqCst) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        rig.host.take_posted();
+        *shared.looked_at.lock().unwrap() = None;
+        let mut next = cpu(rig.plugin.frame_step());
+        assert_eq!(look_via(&mut *next, &frame, &rig.host)["text"], "WIFI:T:WPA;S:Telescope;P:hunter22;;");
+        drop(next);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while shared.busy.load(Ordering::SeqCst) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        rig.host.take_posted();
+        *shared.looked_at.lock().unwrap() = None;
+    }
+}
+
+#[test]
 fn a_wide_frame_is_shrunk_before_it_is_looked_at() {
     let mut rig = Rig::new();
     rig.set_config(json!({"on": true}));

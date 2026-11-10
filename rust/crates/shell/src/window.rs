@@ -1011,11 +1011,21 @@ impl Window {
         if dirty {
             self.painted.set(0);
         }
-        if number == self.painted.get() {
+        // A tint is painted a frame late, so a frame already painted is painted again once the worker's result for it is in: that is
+        // what brings a stream that stopped sending up to date
+        let tints = passes.iter().any(|(_, p)| p.tints());
+        let source = {
+            use std::hash::{Hash, Hasher};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            (stream_gen, self.preview_source()).hash(&mut hasher);
+            hasher.finish()
+        };
+        let again = number == self.painted.get();
+        if again && !(tints && self.passes.borrow().tint_newer(source)) {
             return;
         }
         // Half the frames on the card unless Smooth is on; what it skips only changes what's painted here
-        if !self.cadence.borrow_mut().due(number, popout.is_some() || on("smooth-on"), self.painted.get() == 0) {
+        if !again && !self.cadence.borrow_mut().due(number, popout.is_some() || on("smooth-on"), self.painted.get() == 0) {
             return;
         }
         let stage = match &popout {
@@ -1035,20 +1045,23 @@ impl Window {
         }
         // Passes that tint the picture, or want a look at it, get a CPU copy at the size it is painted at, made on a worker so the
         // window never waits on the graphics card for it; a tint is painted a frame late, from the worker's last result
-        let tints = passes.iter().any(|(_, p)| p.tints());
         let mut worker_up = true;
-        if self.passes.borrow().needs_copy(&passes) {
+        if !again && self.passes.borrow().needs_copy(&passes) {
             let scaler = || self.services.as_ref().map(|s| s.media.scaler());
             let dirty = self.state.borrow().preview_dirty.clone();
-            worker_up = self.passes.borrow_mut().submit(scaler, &passes, &frame, (w, h), &dirty);
+            worker_up = self.passes.borrow_mut().submit(scaler, &passes, &frame, crate::preview_passes::FrameId { source, number }, (w, h), &dirty);
         }
         if !tints {
             self.passes.borrow_mut().stop_tinting();
         }
         let tinted = if tints && worker_up {
-            // Nothing yet for this run of tinting or this size: what's up stays until the worker's first picture asks for a paint
-            let Some(image) = self.passes.borrow().tinted(w, h) else { return };
-            Some(image)
+            // Nothing yet for this stream, run of tinting or size: what's up stays until the worker's first picture asks for a paint,
+            // unless the worker has had so long that it can't be making one
+            let image = self.passes.borrow_mut().tinted(w, h, source);
+            if image.is_none() && !self.passes.borrow().tint_gave_up() {
+                return;
+            }
+            image
         } else {
             None
         };

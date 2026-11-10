@@ -401,6 +401,10 @@ impl Drop for Reader {
     fn drop(&mut self) {
         self.slot.closed.store(true, Ordering::SeqCst);
         self.slot.wake.notify_all();
+        // A picture still waiting will never be looked at, so the look it was queued for is over
+        if self.slot.frame.lock().unwrap().take().is_some() {
+            self.shared.busy.store(false, Ordering::SeqCst);
+        }
     }
 }
 

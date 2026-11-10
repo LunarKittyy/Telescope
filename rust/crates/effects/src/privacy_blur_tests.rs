@@ -311,6 +311,17 @@ fn keys_do_what_the_card_does() {
 }
 
 #[test]
+fn a_key_bound_to_a_mode_that_is_gone_picks_the_whole_picture() {
+    for old in ["Blur the others", "Blur all but me"] {
+        let mut rig = Rig::new();
+        rig.plugin.run_action(&mut rig.host, "privacy_blur.mode", &json!({"op": "set", "option": "Show the wait screen"}));
+        assert_eq!(rig.plugin.get_config()["mode"], json!("wait"));
+        assert!(rig.plugin.run_action(&mut rig.host, "privacy_blur.mode", &json!({"op": "set", "option": old})).is_some(), "{old}");
+        assert_eq!(rig.plugin.get_config()["mode"], json!("blur"), "{old}");
+    }
+}
+
+#[test]
 fn settings_round_trip_and_shutdown_lets_go() {
     let mut rig = Rig::new();
     rig.plugin.set_config(&json!({"on": true, "mode": "wait"})).unwrap();

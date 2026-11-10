@@ -534,6 +534,11 @@ impl Window {
         workers.iter().find(|w| w.live.get()).and_then(|w| w.inner.slot().latest())
     }
 
+    /// The id of the stream the panels show, so what's made from its frames isn't taken for another's.
+    pub fn preview_source(&self) -> Option<String> {
+        self.streams.workers.borrow().iter().find(|w| w.live.get()).and_then(|w| w.inner.source_id().map(str::to_string))
+    }
+
     /// The worker a source's session streams through, while it has one.
     fn worker_of(&self, src: &crate::session::Source) -> Option<Rc<ShellWorker>> {
         let worker = src.session()?.worker?;

@@ -25,6 +25,8 @@ const TITLE: &str = n_("Privacy blur");
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/vision_status.slint"), "\n", include_str!("../ui/privacy_blur.slint"));
 /// What happens while more than one person is in the picture: all of it gets blurred, or the wait screen goes up in place of it.
 pub const MODES: [(&str, &str); 2] = [("blur", n_("Blur the whole picture")), ("wait", n_("Show the wait screen"))];
+/// The modes a key binding may still name from before they went: they mean the whole picture, as a saved mode does.
+const GONE: [&str; 2] = ["Blur the others", "Blur all but me"];
 /// Blurring stops once there's been one person (or nobody) in every update for this long, in seconds. People are counted raw, so a second person the model loses for a moment shouldn't end it, and four seconds still feels quick once they've gone.
 pub const OFF_S: f64 = 4.0;
 /// The blur is worked out at a sixteenth of the size.
@@ -389,9 +391,13 @@ impl Plugin for PrivacyBlurPlugin {
             "privacy_blur.now" => self.toggled(host, id, &tr("Blur now"), params, self.now, Self::set_now),
             "privacy_blur.auto" => self.toggled(host, id, &tr("Privacy blur when someone walks in"), params, self.auto, Self::set_switch),
             "privacy_blur.mode" => {
+                let mut params = params.clone();
+                if params.get("option").and_then(Value::as_str).is_some_and(|o| GONE.contains(&o)) {
+                    params["option"] = json!(MODES[0].1);
+                }
                 let shown: Vec<String> = MODES.iter().map(|(_, t)| tr(t)).collect();
                 let options: Vec<Choice> = MODES.iter().zip(&shown).map(|((_, t), s)| Choice { value: t, shown: s, enabled: true }).collect();
-                let (said, pick) = actions::choice_target(params, &options, Some(self.mode), true)?;
+                let (said, pick) = actions::choice_target(&params, &options, Some(self.mode), true)?;
                 if pick {
                     self.set_mode(host, said);
                 }
