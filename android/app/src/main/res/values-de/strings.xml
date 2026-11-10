@@ -46,16 +46,9 @@
     <string name="setup_allowed">Erlaubt</string>
     <string name="allow">Erlauben</string>
     <string name="open_settings">Einstellungen öffnen</string>
-    <string name="pair_title">Mit deinem Computer koppeln</string>
-    <string name="pair_hint">Öffne Telescope auf deinem Computer und klicke auf „Gerät hinzufügen“. Über USB koppelt sich das Smartphone ohne Scannen.</string>
-    <string name="scan_pairing_code">Kopplungscode scannen</string>
-    <string name="pair_another">Einen weiteren Computer koppeln</string>
-    <string name="paired_computer_title">Gekoppelter Computer</string>
     <string name="paired_computers_title">Gekoppelte Computer</string>
     <string name="paired_on">Gekoppelt am %1$s</string>
     <string name="remove">Entfernen</string>
-    <string name="show_all_computers">Alle %1$d anzeigen</string>
-    <string name="show_fewer">Weniger anzeigen</string>
     <string name="cancel">Abbrechen</string>
     <string name="ok">OK</string>
     <string name="remove_computer_title">%1$s entfernen?</string>
@@ -93,7 +86,6 @@
     <string name="wait_for_computer_hint">Ermöglicht einem gekoppelten Computer, die Kamera bei ausgeschaltetem Bildschirm zu starten.</string>
     <string name="stop_streaming">Streaming stoppen</string>
     <string name="status_title">Status</string>
-    <string name="more">Mehr</string>
     <string name="status_not_streaming">Streamt nicht</string>
     <string name="status_starting">Startet…</string>
     <string name="status_streaming">Streaming</string>

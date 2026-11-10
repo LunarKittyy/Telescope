@@ -40,11 +40,9 @@ class PairedComputerListTest {
     }
 
     @Test
-    fun `the newest three show until Show all unfolds the rest`() {
+    fun `the Manage screen lists the newest first`() {
         val list = (1..5).fold(PairedComputerList()) { l, i -> l.withAdded(PairedComputer("$i", "PC $i", "t$i", i * 1000L)) }
-        assertEquals(listOf("5", "4", "3"), list.shown(3, showAll = false).map { it.id })
-        assertEquals(listOf("5", "4", "3", "2", "1"), list.shown(3, showAll = true).map { it.id })
-        assertEquals(listOf("a"), PairedComputerList().withAdded(pc("a", "ta")).shown(3, showAll = false).map { it.id })
+        assertEquals(listOf("5", "4", "3", "2", "1"), list.newestFirst.map { it.id })
     }
 
     @Test

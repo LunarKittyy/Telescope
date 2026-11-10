@@ -46,16 +46,9 @@
     <string name="setup_allowed">Diizinkan</string>
     <string name="allow">Izinkan</string>
     <string name="open_settings">Buka pengaturan</string>
-    <string name="pair_title">Sandingkan dengan komputer Anda</string>
-    <string name="pair_hint">Di komputer Anda, buka Telescope dan klik Tambahkan ponsel. Melalui USB, ponsel tersanding tanpa memindai.</string>
-    <string name="scan_pairing_code">Pindai kode penyandingan</string>
-    <string name="pair_another">Sandingkan komputer lain</string>
-    <string name="paired_computer_title">Komputer tersanding</string>
     <string name="paired_computers_title">Komputer tersanding</string>
     <string name="paired_on">Tersanding %1$s</string>
     <string name="remove">Hapus</string>
-    <string name="show_all_computers">Tampilkan semua %1$d</string>
-    <string name="show_fewer">Tampilkan lebih sedikit</string>
     <string name="cancel">Batal</string>
     <string name="ok">OK</string>
     <string name="remove_computer_title">Ingin menghapus %1$s?</string>
@@ -92,7 +85,6 @@
     <string name="wait_for_computer_hint">Memungkinkan komputer yang tersanding mengaktifkan kamera saat layar mati.</string>
     <string name="stop_streaming">Hentikan streaming</string>
     <string name="status_title">Status</string>
-    <string name="more">Lainnya</string>
     <string name="status_not_streaming">Tidak streaming</string>
     <string name="status_starting">Memulai…</string>
     <string name="status_streaming">Streaming</string>
