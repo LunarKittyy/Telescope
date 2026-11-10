@@ -25,7 +25,16 @@ export component Slider inherits HorizontalLayout {
     out property <float> shown: touched ? local : value;
     // A click on the track that is still waiting out the double-click interval is dropped when anything else sets the value
     changed value => { touched = false; pend.cancel(); }
-    changed enabled => { if (!enabled) { pend.cancel(); } }
+    // A disabled slider drops a waiting click and an open typed box, which would otherwise still commit
+    changed enabled => {
+        if (!enabled) {
+            pend.cancel();
+            if (is-typing) {
+                is-typing = false;
+                KeyFocus.given-back += 1;
+            }
+        }
+    }
     in property <float> step: 1;
     in property <string> readout;
     in property <string> label;
@@ -143,6 +152,7 @@ export component Slider inherits HorizontalLayout {
     function typing-done(text: string) {
         if (is-typing) {
             is-typing = false;
+            if (!enabled) { return; }
             if (typing-by-key) { slider-focus.focus(); } else { KeyFocus.given-back += 1; }
             if (typing != "") {
                 if (text != typing) { typed(text); }
@@ -369,6 +379,7 @@ export component Slider inherits HorizontalLayout {
             vertical-alignment: center;
             single-line: true;
             accessible-label: root.label;
+            enabled: root.enabled;
             init => { self.focus(); self.select-all(); }
             accepted => { root.typing-done(self.text); }
             changed has-focus => { if (!self.has-focus) { root.typing-done(self.text); } }
@@ -567,6 +578,7 @@ export component Slider inherits HorizontalLayout {
             vertical-alignment: center;
             single-line: true;
             accessible-label: root.label;
+            enabled: root.enabled;
             init => { self.focus(); self.select-all(); }
             accepted => { root.typing-done(self.text); }
             changed has-focus => { if (!self.has-focus) { root.typing-done(self.text); } }
