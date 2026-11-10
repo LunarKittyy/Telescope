@@ -439,6 +439,98 @@ fn a_pad_says_nothing_when_nothing_changed_and_a_disabled_one_ignores_everything
 }
 
 #[test]
+fn a_waiting_pad_click_does_not_land_after_home() {
+    let ui = rig(PAD, (340.0, 230.0), &[("sx", num(7000.0))]);
+    click(&ui, at(10.0 + 20.0, 10.0 + 20.0));
+    press(&ui, Key::Home);
+    assert_eq!((number(&ui, "now-x"), number(&ui, "now-y")), (5500.0, 0.0));
+    let moves = number(&ui, "moves");
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(400));
+    assert_eq!((number(&ui, "now-x"), number(&ui, "now-y")), (5500.0, 0.0), "the queued click must not move it again");
+    assert_eq!(number(&ui, "moves"), moves);
+}
+
+#[test]
+fn a_waiting_pad_click_is_dropped_when_the_parent_moves_the_numbers_or_the_pad_is_disabled() {
+    let ui = rig(PAD, (340.0, 230.0), &[("sx", num(7000.0))]);
+    click(&ui, at(10.0 + 20.0, 10.0 + 20.0));
+    ui.set_property("sx", num(3000.0)).unwrap();
+    // The window's change handlers run on its next turn, long before the wait is over
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(10));
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(400));
+    assert_eq!((number(&ui, "now-x"), number(&ui, "moves"), number(&ui, "releases")), (3000.0, 0.0, 0.0), "an outside change wins");
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(2000));
+    click(&ui, at(10.0 + 20.0, 10.0 + 20.0));
+    ui.set_property("on", yes(false)).unwrap();
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(400));
+    assert_eq!((number(&ui, "now-x"), number(&ui, "moves"), number(&ui, "releases")), (3000.0, 0.0, 0.0), "a disabled pad answers nothing");
+}
+
+const COLOUR: &str = r##"
+import { ColourField } from "@ui-kit/ui-kit.slint";
+export component Test inherits Window {
+    width: 340px;
+    height: 400px;
+    in property <bool> on: true;
+    out property <int> moves;
+    out property <int> hexes;
+    out property <bool> now-open: field.open;
+    field := ColourField {
+        x: 10px;
+        y: 300px;
+        width: 200px;
+        label: "Backdrop";
+        colour: #336699;
+        h: 0.58;
+        s: 0.66;
+        v: 0.6;
+        hex: "#336699";
+        enabled: on;
+        moved(a, b, c) => { moves += 1; }
+        hex-typed(t) => { hexes += 1; }
+    }
+}
+"##;
+
+#[test]
+fn a_colour_bubble_that_is_open_when_the_field_goes_disabled_changes_nothing() {
+    let ui = rig(COLOUR, (340.0, 400.0), &[]);
+    press(&ui, Key::Tab);
+    press(&ui, " ");
+    assert!(truth(&ui, "now-open"), "the bubble opened");
+    press(&ui, Key::RightArrow);
+    assert_eq!(number(&ui, "moves"), 1.0, "the open bubble's pad takes keys");
+    ui.set_property("on", yes(false)).unwrap();
+    press(&ui, Key::RightArrow);
+    press(&ui, Key::UpArrow);
+    assert_eq!(number(&ui, "moves"), 1.0, "a disabled field's bubble changes nothing");
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(600));
+    assert!(!truth(&ui, "now-open"), "and it closes");
+}
+
+const CHIP: &str = r#"
+import { PinChip } from "@ui-kit/ui-kit.slint";
+export component Test inherits Window {
+    width: 200px;
+    height: 60px;
+    in property <int> n: 3;
+    out property <int> opened;
+    PinChip { count: n; to-x: 20px; label: "More"; clicked => { opened += 1; } }
+}
+"#;
+
+#[test]
+fn the_plus_n_chip_takes_the_keyboard_focus_and_opens_on_space_and_enter() {
+    let ui = rig(CHIP, (200.0, 60.0), &[]);
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(600));
+    press(&ui, Key::Tab);
+    press(&ui, " ");
+    assert_eq!(number(&ui, "opened"), 1.0, "Space opens the folded pins");
+    press(&ui, "\n");
+    assert_eq!(number(&ui, "opened"), 2.0, "and so does Enter");
+}
+
+#[test]
 fn a_button_on_a_pad_is_pressed_and_the_pad_stays_put() {
     let ui = rig(PAD, (340.0, 230.0), &[]);
     click(&ui, at(10.0 + 260.0, 10.0 + 16.0));

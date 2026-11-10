@@ -312,3 +312,26 @@ fn the_status_word_makes_room_for_the_pins_on_the_left() {
     b.load(Some((vec![], vec!["fps".into(), "throughput".into()])));
     assert_eq!(b.view().status_x, 16.0);
 }
+
+#[test]
+fn the_pin_being_dragged_is_never_folded_away_under_the_pointer() {
+    let mut b = bar(560.0);
+    let right: Vec<String> = (0..5).map(|i| format!("r{i}")).collect();
+    let mut stats = vec![stat(CAMERA, "Phone")];
+    stats.extend(right.iter().map(|id| stat(id, "1")));
+    b.set_own(stats);
+    b.load(Some((vec!["camera".into()], right.clone())));
+    b.measured(CAMERA, 230.0, 230.0);
+    for id in &right {
+        b.measured(id, 80.0, 80.0);
+    }
+    assert_eq!(row(&b.view(), "r4").state, State::Shown, "the outermost pin sits at the edge before it is taken");
+    b.drag_start("r4");
+    b.drag_to("r4", 290.0);
+    let v = b.view();
+    assert_eq!(row(&v, "r4").state, State::Shown, "{:?}", v.rows.iter().map(|r| (&r.id, r.state)).collect::<Vec<_>>());
+    assert_eq!(row(&v, CAMERA).state, State::Shown);
+    b.drag_end("r4");
+    let v = b.view();
+    assert!((0..5).any(|i| row(&v, &format!("r{i}")).state == State::Folded), "once let go it is folded like any other when it does not fit");
+}

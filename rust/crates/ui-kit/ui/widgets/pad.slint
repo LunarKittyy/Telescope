@@ -47,8 +47,10 @@ export component Pad inherits Rectangle {
     property <bool> touched;
     out property <float> shown-x: touched ? local-x : value-x;
     out property <float> shown-y: touched ? local-y : value-y;
-    changed value-x => { touched = false; }
-    changed value-y => { touched = false; }
+    // A click that is still waiting out the double-click interval is dropped when anything else sets the numbers or the pad goes disabled
+    changed value-x => { touched = false; pend.cancel(); }
+    changed value-y => { touched = false; pend.cancel(); }
+    changed enabled => { if (!enabled) { pend.cancel(); } }
     in property <float> step-x: 1;
     in property <float> step-y: 1;
     // y grows upward, as on a graph; off, it grows downward, as on a screen
@@ -143,6 +145,7 @@ export component Pad inherits Rectangle {
     property <bool> pending: pend.waiting;
     pend := ClickWait {
         elapsed => {
+            if (!enabled) { return; }
             drag-to(pend-x, pend-y);
             if (!dragging) { released(shown-x, shown-y); }
         }
@@ -165,6 +168,7 @@ export component Pad inherits Rectangle {
     // Every way of setting the numbers goes through here, saying what a drag says: moved, then released
     function set-to(vx: float, vy: float) {
         if (!enabled) { return; }
+        pend.cancel();
         let tx = clamp(vx, x-minimum, x-maximum);
         let ty = clamp(vy, y-minimum, y-maximum);
         if (tx != shown-x || ty != shown-y) {

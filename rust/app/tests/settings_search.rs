@@ -28,7 +28,7 @@ struct Mine;
 
 impl Plugin for Mine {
     fn info(&self) -> PluginInfo {
-        PluginInfo { name: "mine".into(), ..Default::default() }
+        PluginInfo { name: "mine".into(), title: "Sparkly mine".into(), ..Default::default() }
     }
     fn settings_sections(&mut self) -> Vec<SettingsSection> {
         vec![SettingsSection {
@@ -97,6 +97,14 @@ fn a_plugins_own_section_is_searchable_without_doing_anything() {
     assert_eq!(names(&win, "magnify"), ["Max zoom"], "a row's own words find only that row");
     assert!(names(&win, "twinkly").contains(&"Sparkles".to_string()), "the section's words");
     assert!(!names(&win, "sparkels").is_empty());
+    settings::forget();
+}
+
+#[test]
+fn a_plugin_row_on_the_plugins_tab_is_one_search_result() {
+    let (_r, win) = opened("search-plugin-row");
+    let found: Vec<_> = win.entries().into_iter().filter(|e| e.name == "Sparkly mine").collect();
+    assert_eq!(found.len(), 1, "one marker for the row, not one more from its icon column: {:?}", found.iter().map(|e| (&e.tab, e.target)).collect::<Vec<_>>());
     settings::forget();
 }
 
