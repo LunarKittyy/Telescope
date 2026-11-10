@@ -965,27 +965,44 @@ impl Shared {
         }
     }
 
-    fn read_h264(&self, reader: &mut dyn FrameReader) -> Ended {
-        loop {
+    /// H.264: this thread decodes, and a second one runs the steps, so the next picture decodes while the last goes through them. One that
+    /// the steps haven't taken by the time the next is decoded is dropped, so slow steps skip frames instead of lagging.
+    fn read_h264(self: &Arc<Self>, reader: &mut dyn FrameReader) -> Ended {
+        let newest: Arc<Newest<(u64, Frame)>> = Arc::default();
+        let steps = {
+            let (s, newest) = (self.clone(), newest.clone());
+            std::thread::Builder::new().name("stream-steps".into()).spawn(move || {
+                let _counting = telescope_core::stats::bind(&s.stats);
+                let _priority = telescope_core::system::prioritise_thread("frame steps");
+                while let Some((seq, frame)) = newest.take() {
+                    s.publish(seq, frame);
+                }
+            }).expect("a thread for the frame steps")
+        };
+        let ended = loop {
             if self.stopped() {
-                return Ended::Stopped;
+                break Ended::Stopped;
             }
             if let Some(moved) = self.take_handover() {
-                return Ended::Moved(moved);
+                break Ended::Moved(moved);
             }
             match reader.read() {
                 Ok(f) => {
                     self.count_arrived(f.count, f.bytes);
-                    let seq = self.next_seq();
-                    self.publish(seq, f.frame);
+                    if newest.put((self.next_seq(), f.frame)) {
+                        self.stats.dropped(DropReason::Paced, 1);
+                    }
                 }
-                Err(FeedEnd::Stopped) if self.stopped() => return Ended::Stopped,
+                Err(FeedEnd::Stopped) if self.stopped() => break Ended::Stopped,
                 Err(e) => {
                     log::info!("The stream ended: {e:?}");
-                    return Ended::Dropped;
+                    break Ended::Dropped;
                 }
             }
-        }
+        };
+        newest.finish();
+        let _ = steps.join();
+        ended
     }
 
     /// JPEGs: the newest packet goes to the decoders; one nobody took in time is dropped, so a slow decoder skips
@@ -2561,6 +2578,74 @@ mod tests {
         fn pipeline(&self) -> Result<Box<dyn FramePipeline>, String> {
             Ok(Box::new(Pass))
         }
+    }
+
+    /// A reader whose every picture takes 15 ms to decode, until stopped.
+    struct Paced(Arc<AtomicBool>);
+
+    impl FrameReader for Paced {
+        fn read(&mut self) -> Result<ReadFrame, FeedEnd> {
+            if self.0.load(Ordering::SeqCst) {
+                return Err(FeedEnd::Stopped);
+            }
+            std::thread::sleep(Duration::from_millis(15));
+            Ok(ReadFrame { frame: grey(4, 2, 1), bytes: 1, count: 1 })
+        }
+        fn stopper(&self) -> Box<dyn FeedStopper> {
+            Box::new(Stop(self.0.clone()))
+        }
+        fn hardware(&self) -> bool {
+            false
+        }
+    }
+
+    /// Steps that take 15 ms a picture.
+    struct SlowStep;
+
+    impl FramePipeline for SlowStep {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            std::thread::sleep(Duration::from_millis(15));
+            frame
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+    }
+
+    struct PacedMedia;
+
+    impl Media for PacedMedia {
+        fn decoder(&self, codec: Codec, options: &DecodeOptions) -> Result<Box<dyn Decoder>, String> {
+            FakeMedia.decoder(codec, options)
+        }
+        fn scaler(&self) -> Box<dyn Scaler> {
+            FakeMedia.scaler()
+        }
+        fn frame_reader(&self, _feed: Box<dyn VideoFeed>, _decoder: Box<dyn Decoder>) -> Result<Box<dyn FrameReader>, String> {
+            Ok(Box::new(Paced(Arc::default())))
+        }
+        fn pipeline(&self) -> Result<Box<dyn FramePipeline>, String> {
+            Ok(Box::new(SlowStep))
+        }
+    }
+
+    #[test]
+    fn decoding_the_next_picture_does_not_wait_for_the_steps_on_the_last() {
+        let opener: Opener = Arc::new(|_: &telescope_core::media::OpenStop| {
+            let feed = Script { steps: VecDeque::new(), stop: Arc::default(), gone: Arc::default() };
+            Ok((Codec::H264, Box::new(feed) as Box<dyn VideoFeed>).into())
+        });
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = start(setup(opener), Arc::new(PacedMedia), &cams, &log);
+        wait_for(|| w.shared.slot.latest().is_some());
+        let first = w.shared.slot.latest().unwrap().1;
+        std::thread::sleep(Duration::from_millis(1200));
+        let made = w.shared.slot.latest().unwrap().1 - first;
+        w.stop();
+        println!("{made} pictures in 1.2 s");
+        // One after the other, 15 + 15 ms a picture makes 40 of them; side by side they come every 15 ms, about 80
+        assert!(made > 55, "decode and steps overlap: {made} pictures in 1.2 s");
     }
 
     #[test]
