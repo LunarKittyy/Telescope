@@ -233,7 +233,10 @@ pub struct SetupPlugin {
     pub max_zoom: i64,
     pub max_gain: Value,
     pub limiter: bool,
-    pub hw_decode: bool,
+    /// The switch as the user left it: None until they touch it, when the graphics card is on if it's VA-API.
+    pub hw_choice: Option<bool>,
+    /// The graphics card this computer has, once looked for.
+    hw_device: Option<String>,
     pub power_saving: bool,
     pub plugin_hues: bool,
     /// The look of the windows (Appearance)
@@ -269,7 +272,8 @@ impl SetupPlugin {
             max_zoom: DEFAULT_MAX_ZOOM,
             max_gain: json!(DEFAULT_MAX_GAIN),
             limiter: true,
-            hw_decode: false,
+            hw_choice: None,
+            hw_device: None,
             power_saving: false,
             plugin_hues: true,
             look: Look::Dark,
@@ -385,7 +389,7 @@ impl SetupPlugin {
             (tr("Apply"), tr("Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."))
         };
         json!({
-            "hw-enabled": p.hw_enabled, "hw-checked": self.hw_decode && (p.hw_enabled || p.hw_line.is_empty()), "hw-line": p.hw_line,
+            "hw-enabled": p.hw_enabled, "hw-checked": self.hw_decode() && (p.hw_enabled || p.hw_line.is_empty()), "hw-line": p.hw_line,
             "saving-checked": self.power_saving,
             "zoom-text": format!("{}×", self.max_zoom),
             "canvas-items": self.canvas_items(), "canvas-current": p.canvas_current,
@@ -506,6 +510,7 @@ impl SetupPlugin {
     }
 
     pub fn show_graphics_card(&mut self, device: Option<&str>, failed: bool) {
+        self.hw_device = device.map(str::to_string);
         self.panel.hw_enabled = device.is_some();
         self.panel.hw_found = device.map(hw_name);
         self.show_hardware_failed(failed);
@@ -888,7 +893,7 @@ impl SetupPlugin {
 
     /// The decoder for the next stream: the window reads it from these settings when it starts one.
     pub fn on_hw_decode(&mut self, host: &mut dyn Host, on: bool) {
-        self.hw_decode = on;
+        self.hw_choice = Some(on);
         host.schedule_save();
     }
 
@@ -926,13 +931,19 @@ impl SetupPlugin {
         host.schedule(2000, "copied");
     }
 
+    /// Whether decoding is on the graphics card: what was chosen, else the default for the card found.
+    pub fn hw_decode(&self) -> bool {
+        self.hw_choice.unwrap_or_else(|| telescope_core::media::hardware_decode_default(self.linux, self.hw_device.as_deref()))
+    }
+
     fn decoding(&self) -> String {
         let status = self.media.decoding_status();
-        let chosen = if self.hw_decode { "graphics card" } else { "processor" };
+        let hw_decode = self.hw_decode();
+        let chosen = if hw_decode { "graphics card" } else { "processor" };
         if status.backends.is_empty() {
-            return if self.hw_decode && status.hardware_failed {
+            return if hw_decode && status.hardware_failed {
                 "not streaming (graphics card failed; processor until restart)".to_string()
-            } else if self.hw_decode && status.hardware_slow {
+            } else if hw_decode && status.hardware_slow {
                 "not streaming (graphics card was too slow; processor for now)".to_string()
             } else {
                 format!("not streaming ({chosen} selected)")
@@ -941,10 +952,10 @@ impl SetupPlugin {
         let mut text = status.backends.iter()
             .map(|b| if b == "processor" { "processor".to_string() } else { format!("graphics card ({b})") })
             .collect::<Vec<_>>().join(", ");
-        if self.hw_decode != status.backends.iter().any(|b| b != "processor") {
-            text += &if self.hw_decode && status.hardware_failed {
+        if hw_decode != status.backends.iter().any(|b| b != "processor") {
+            text += &if hw_decode && status.hardware_failed {
                 " (graphics card failed; processor until restart)".to_string()
-            } else if self.hw_decode && status.hardware_slow {
+            } else if hw_decode && status.hardware_slow {
                 " (graphics card was too slow; processor for now)".to_string()
             } else {
                 format!(" ({chosen} selected for the next connection)")
@@ -1223,11 +1234,15 @@ impl Plugin for SetupPlugin {
             "max_zoom": self.max_zoom,
             "max_gain": self.max_gain,
             "limiter": self.limiter,
-            "hw_decode": self.hw_decode,
+            "hw_decode": self.hw_choice.unwrap_or(false),
             "power_saving": self.power_saving,
             "plugin_hues": self.plugin_hues,
             "language": self.language,
         });
+        // Always written, as older versions did; a false only counts as a choice with the mark beside it, so an untouched switch keeps its default
+        if self.hw_choice == Some(false) {
+            cfg["hw_decode_chosen"] = json!(true);
+        }
         // Written only once chosen, so a config that never touched the theme stays as an older Telescope wrote it
         if self.look != Look::Dark {
             cfg["look"] = json!(self.look.name());
@@ -1246,7 +1261,7 @@ impl Plugin for SetupPlugin {
             _ => json!(DEFAULT_MAX_GAIN),
         };
         self.limiter = cfg.get("limiter") != Some(&Value::Bool(false)); // only an explicit off turns it off
-        self.hw_decode = telescope_core::media::hardware_decode_on(Some(cfg));
+        self.hw_choice = telescope_core::media::hardware_decode_choice(Some(cfg));
         self.power_saving = cfg.get("power_saving") == Some(&Value::Bool(true));
         self.plugin_hues = cfg.get("plugin_hues") != Some(&Value::Bool(false));
         // A config an older Telescope wrote says classic_theme instead

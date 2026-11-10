@@ -146,7 +146,9 @@ pub struct Codec {
     hw_device: *mut ff::AVBufferRef,
     sws: *mut ff::SwsContext,
     pub hw: Option<Hw>,
-    /// Whether the card copies its pictures out as I420. Most only give NV12, and asking again would be a failed call per frame.
+    /// Whether to ask the card for I420 at the copy. Off: the card's own NV12 is taken and split here, since a driver's conversion to
+    /// I420 runs on the graphics card's compute queue and waits behind a game's work (48 ms a 4K picture beside one, 9 ms as NV12).
+    /// Only tests and benches turn it on, to compare.
     pub(crate) card_gives_i420: bool,
     /// What to fail on purpose, and how many pictures have been good so far.
     pub forced: Option<(Forced, u32)>,
@@ -220,7 +222,7 @@ impl Codec {
                 hw_device: ptr::null_mut(),
                 sws: ptr::null_mut(),
                 hw,
-                card_gives_i420: true,
+                card_gives_i420: false,
                 forced: if hw.is_some() { Forced::asked() } else { None },
                 pictures: 0,
                 #[cfg(test)]
@@ -405,7 +407,7 @@ impl Codec {
     /// The card's picture in sw_frame, in main memory.
     unsafe fn copy_off_the_card(&mut self) -> Result<(), Fault> {
         ff::av_frame_unref(self.sw_frame);
-        // Ask for I420 so the driver converts while it copies; one that only gives NV12 is split in take_frame
+        // The card's own NV12 is split in take_frame, unless a test asked for I420
         if self.card_gives_i420 {
             (*self.sw_frame).format = ff::AVPixelFormat::AV_PIX_FMT_YUV420P as i32;
         }
