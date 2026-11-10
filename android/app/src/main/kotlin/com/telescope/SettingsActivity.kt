@@ -20,6 +20,9 @@ class SettingsActivity : LookActivity() {
 
     private lateinit var tvAppVersion: TextView
     private lateinit var btnCheckUpdates: MaterialButton
+    private lateinit var tvUpdateStatus: TextView
+    // An update waiting for "Allow from this source" to be switched on
+    private var pendingUpdate: UpdateManifest? = null
 
     private val updateListener: () -> Unit = { runOnUiThread { renderVersion() } }
 
@@ -33,13 +36,14 @@ class SettingsActivity : LookActivity() {
 
         tvAppVersion = findViewById(R.id.tvAppVersion)
         btnCheckUpdates = findViewById(R.id.btnCheckUpdates)
+        tvUpdateStatus = findViewById(R.id.tvUpdateStatus)
         val nightly = findViewById<CompoundButton>(R.id.switchNightly)
         if (Updater.canUpdate()) {
             nightly.isChecked = Updater.channel(this) == UpdateLogic.NIGHTLY
             nightly.setOnCheckedChangeListener { _, checked ->
                 Updater.setChannel(this, if (checked) UpdateLogic.NIGHTLY else UpdateLogic.STABLE)
             }
-            btnCheckUpdates.setOnClickListener { Updater.check(this) }
+            btnCheckUpdates.setOnClickListener { onUpdateButton() }
         } else {
             findViewById<View>(R.id.cardUpdates).visibility = View.GONE
         }
@@ -59,6 +63,15 @@ class SettingsActivity : LookActivity() {
         SessionEndpoint.screenStarted(this)  // the phone stays reachable while Settings is up
         Updater.addListener(updateListener)
         renderVersion()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val waiting = pendingUpdate
+        if (waiting != null && canInstallUpdates()) {
+            pendingUpdate = null
+            Updater.downloadAndInstall(this, waiting)
+        }
     }
 
     override fun onStop() {
@@ -90,9 +103,63 @@ class SettingsActivity : LookActivity() {
             else -> R.string.version
         }
         tvAppVersion.text = getString(line, BuildConfig.VERSION_NAME)
+        renderUpdate()
+    }
+
+    private fun streaming(): Boolean {
+        val state = CameraStreamService.instance?.state ?: StreamState.Idle
+        return state != StreamState.Idle && state != StreamState.Failed
+    }
+
+    // The found update shows here with its install action; the button checks again otherwise
+    private fun renderUpdate() {
         val state = Updater.state
-        btnCheckUpdates.isEnabled = state !is Updater.State.Checking &&
-            state !is Updater.State.Downloading && state !is Updater.State.Installing
+        val manifest = when (state) {
+            is Updater.State.Available -> state.manifest
+            is Updater.State.Downloading -> state.manifest
+            is Updater.State.Installing -> state.manifest
+            is Updater.State.Failed -> state.manifest
+            else -> null
+        }
+        if (manifest == null) {
+            tvUpdateStatus.visibility = View.GONE
+            btnCheckUpdates.setText(R.string.check_for_updates)
+            btnCheckUpdates.isEnabled = state !is Updater.State.Checking
+            return
+        }
+        val version = "Telescope ${UpdateLogic.displayVersion(manifest)}"
+        tvUpdateStatus.visibility = View.VISIBLE
+        when (state) {
+            is Updater.State.Downloading -> {
+                tvUpdateStatus.text = getString(R.string.update_downloading, version, state.percent)
+                btnCheckUpdates.setText(R.string.updating)
+                btnCheckUpdates.isEnabled = false
+            }
+            is Updater.State.Installing -> {
+                tvUpdateStatus.text = getString(R.string.update_installing, version)
+                btnCheckUpdates.setText(R.string.updating)
+                btnCheckUpdates.isEnabled = false
+            }
+            is Updater.State.Failed -> {
+                tvUpdateStatus.text = state.message
+                btnCheckUpdates.setText(R.string.try_again)
+                btnCheckUpdates.isEnabled = !streaming()
+            }
+            else -> {
+                tvUpdateStatus.text = getString(if (streaming()) R.string.update_stop_streaming_first else R.string.update_found, version)
+                btnCheckUpdates.setText(R.string.update)
+                btnCheckUpdates.isEnabled = !streaming()
+            }
+        }
+    }
+
+    private fun onUpdateButton() {
+        val manifest = when (val state = Updater.state) {
+            is Updater.State.Available -> state.manifest
+            is Updater.State.Failed -> state.manifest
+            else -> null
+        }
+        if (manifest == null) Updater.check(this) else if (!streaming()) installUpdate(manifest) { pendingUpdate = it }
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()

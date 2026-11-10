@@ -437,8 +437,6 @@ class MainActivity : LookActivity() {
         }
     }
 
-    private fun canInstallUpdates(): Boolean = packageManager.canRequestPackageInstalls()
-
     private fun startUpdate() {
         val manifest = when (val state = Updater.state) {
             is Updater.State.Available -> state.manifest
@@ -446,21 +444,7 @@ class MainActivity : LookActivity() {
             else -> null
         } ?: return
         if (service?.isStreaming == true || isBusy()) return
-        if (!canInstallUpdates()) {
-            // Android asks once per app; after that, each update is a single confirm.
-            pendingUpdate = manifest
-            lookDialog()
-                .setTitle(R.string.allow_installs_title)
-                .setMessage(R.string.allow_installs_message)
-                .setNegativeButton(R.string.cancel) { _, _ -> pendingUpdate = null }
-                .setPositiveButton(R.string.open_settings) { _, _ ->
-                    startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                        Uri.parse("package:$packageName")))
-                }
-                .showLook()
-            return
-        }
-        Updater.downloadAndInstall(this, manifest)
+        installUpdate(manifest) { pendingUpdate = it }
     }
 
     // Top right of the pairing card, with two or more computers paired

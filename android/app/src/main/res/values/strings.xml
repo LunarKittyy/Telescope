@@ -20,6 +20,8 @@
     <string name="update_available">Update available</string>
     <string name="update_failed_title">Update didn\'t finish</string>
     <string name="update">Update</string>
+    <!-- In Settings, after checking for updates. %1$s is a version such as Telescope 1.2.3 -->
+    <string name="update_found">%1$s is available.</string>
     <string name="updating">Updating…</string>
     <string name="try_again">Try again</string>
     <!-- %1$s is "Telescope 1.2.3", %2$d the percentage done -->
@@ -169,6 +171,8 @@
     <string name="troubleshooting">Troubleshooting</string>
     <string name="nightly_updates">Nightly updates</string>
     <string name="nightly_updates_hint">Built from every change: fixes arrive sooner, with less testing.</string>
+    <!-- Spoken by a screen reader after a choice in a row of choices is picked. %1$s is the choice -->
+    <string name="choice_selected">%1$s selected</string>
     <string name="updates_section">Updates</string>
     <string name="check_for_updates">Check for updates</string>
     <!-- Shown in About only while this language's translation is a first draft -->
