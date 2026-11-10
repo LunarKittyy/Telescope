@@ -122,6 +122,24 @@ class UdpLatencyTest {
     }
 
     @Test
+    fun `a keyframe's repairs are not held to the rate, so they all go out before they expire`() {
+        fun sentIn(key: Boolean): Int {
+            var now = 0L
+            val q = UdpSendQueue(clock = { now })
+            q.repairBps = UdpVideoClient.repairBpsFor(2_000_000)  // the slowest Dynamic paces at: 2 Mbps
+            repeat(140) { q.offerRepair(1, it, ByteArray(1100), key) }  // a 150 KB keyframe asked for in full
+            var n = 0
+            while (now < UdpVideoClient.REPAIR_TTL_MS) { while (q.poll(0) is UdpJob.Repair) n++; now++ }
+            return n
+        }
+        val held = sentIn(false)
+        val exempt = sentIn(true)
+        println("150 KB keyframe asked for again on a thin link: %d of 140 datagrams out before they expire with the quota, %d without".format(held, exempt))
+        assertTrue(held < 140)
+        assertEquals(140, exempt)
+    }
+
+    @Test
     fun `a repair asked for again after it went out is sent again`() {
         var now = 0L
         val q = UdpSendQueue(clock = { now })
@@ -161,10 +179,11 @@ class UdpLatencyTest {
         }
         try {
             tell(byteArrayOf(UdpWire.HELLO))
-            client.offer(ByteArray(600_000) { 7 }, key = true)
+            client.offer(ByteArray(10), key = true)
+            client.offer(ByteArray(600_000) { 7 }, key = false)  // a keyframe's repairs aren't paced, so a plain frame
             val parts = drain(700)
             assertTrue(parts >= 540, "the frame itself: $parts datagrams")
-            tell(ByteBuffer.allocate(5).put(UdpWire.NACK).putInt(0).array())  // all of frame 0
+            tell(ByteBuffer.allocate(5).put(UdpWire.NACK).putInt(1).array())  // all of frame 1
             val early = drain(100)
             val total = early + drain(500)
             println("whole-frame NACK for %d datagrams: %d arrived in the first 100 ms, %d in all".format(parts, early, total))
@@ -178,19 +197,22 @@ class UdpLatencyTest {
 
     // ---- pacing isn't congestion
 
-    private class Climb(val bitrate: Int, val ceiling: Int, val maxPressureMs: Long, val atCeilingMs: Long?)
+    private class Climb(val bitrate: Int, val ceiling: Int, val maxPressureMs: Long, val atCeilingMs: Long?, val lateMaxBitrate: Int)
 
     // The real queue, transmitter, pacer, link and Dynamic against a desktop that gets every datagram the moment it
     // goes out, in virtual time. Frames use the whole budget, and pacing is the 1.2 times the video that Dynamic
     // settles on once it has found where the link fills up. Nothing in the path is congested, so Dynamic must climb.
-    private fun zeroDelay(width: Int, height: Int, fps: Int, seconds: Int): Climb {
+    // [blockedAtBps]: each send blocks as long as its bytes take at that rate; [still]: small frames, a keyframe of 0.25 s of video
+    private fun zeroDelay(width: Int, height: Int, fps: Int, seconds: Int, blockedAtBps: Int = 0, still: Boolean = false, startBps: Int = 0): Climb {
         val ceiling = H264Stream.dynamicCeiling(width, height, fps)
-        val dynamic = DynamicBitrate(ceiling / 2, ceiling)
+        val dynamic = DynamicBitrate(if (startBps > 0) startBps else ceiling / 2, ceiling)
         var bitrate = dynamic.bitrate
         val link = UdpLink()
         var nowNs = 0L
         val nowMs = { nowNs / 1_000_000 }
-        val queue = UdpSendQueue(clock = nowMs)
+        var wantKey = true
+        val queue = UdpSendQueue(clock = nowMs, onNeedKey = { wantKey = true }, onStale = { link.stale(it) })
+        var advance: (Long) -> Unit = {}
 
         // The desktop
         var counter = 0L
@@ -199,6 +221,7 @@ class UdpLatencyTest {
         var wholeAtMs = 0L
         val seen = HashMap<Int, Int>()
         val emit = { part: ByteArray ->
+            if (blockedAtBps > 0) advance(nowNs + part.size * 8_000_000_000L / blockedAtBps)
             val b = ByteBuffer.wrap(part)
             val frame = b.int; b.short; val count = b.short.toInt()
             counter++
@@ -215,6 +238,7 @@ class UdpLatencyTest {
         var encodedBps = 0.0
         var maxPressure = 0L
         var atCeiling: Long? = null
+        var lateMax = 0
         val periodNs = 1_000_000_000L / fps
         var nextFrame = 0L
         var nextReport = 100_000_000L
@@ -228,8 +252,9 @@ class UdpLatencyTest {
                 if (next > target) break
                 nowNs = next
                 if (next == nextFrame) {
-                    val size = bitrate / 8 / fps
-                    queue.offer(ByteArray(size), key = frameNo == 0)
+                    val key = wantKey || frameNo % fps == 0
+                    val size = if (!still) bitrate / 8 / fps else if (key) bitrate / 8 / 4 else bitrate / 8 / fps / 5
+                    if (queue.offer(ByteArray(size), key)) wantKey = true else if (key) wantKey = false
                     frameNo++
                     encodedBytes += size
                     rateBytes += size
@@ -252,6 +277,7 @@ class UdpLatencyTest {
                         encodedBytes = 0
                         dynamic.update(sample)?.let { bitrate = it }
                         if (atCeiling == null && bitrate >= ceiling) atCeiling = ms
+                        if (ms > seconds * 500L) lateMax = maxOf(lateMax, bitrate)
                     }
                     nextSample += 250_000_000L
                 }
@@ -259,6 +285,7 @@ class UdpLatencyTest {
             nowNs = maxOf(nowNs, target)
         }
 
+        advance = ::advanceTo
         transmitter = UdpTransmitter(link, { nowNs }, { advanceTo(nowNs + it) }, emit)
         transmitter.paceBps = (bitrate * UdpVideoClient.PACE_FLOOR).toInt()
         while (nowNs < seconds * 1_000_000_000L) {
@@ -270,7 +297,16 @@ class UdpLatencyTest {
                 advanceTo(minOf(nextFrame, nextReport, nextSample))
             }
         }
-        return Climb(bitrate, ceiling, maxPressure, atCeiling)
+        return Climb(bitrate, ceiling, maxPressure, atCeiling, lateMax)
+    }
+
+    @Test
+    fun `a socket that blocks on every keyframe makes Dynamic cut, though the frames behind it are dropped unsent`() {
+        // 5 Mbps into a socket that takes 4: each keyframe blocks 0.3 s and the frames behind it age out unsent
+        val r = zeroDelay(1920, 1080, 30, 60, blockedAtBps = 4_000_000, still = true, startBps = 5_000_000)
+        println("keyframes blocking a 4 Mbps socket, video starting at 5.0 Mbps: ends at %.1f Mbps, never above %.1f Mbps in the second half; queue read up to %d ms"
+            .format(r.bitrate / 1e6, r.lateMaxBitrate / 1e6, r.maxPressureMs))
+        assertTrue(r.lateMaxBitrate <= 4_000_000, "kept up to ${r.lateMaxBitrate}")
     }
 
     @Test

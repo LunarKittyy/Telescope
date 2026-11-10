@@ -19,6 +19,7 @@ object UdpWire {
     const val MAX_PAYLOAD = 1100  // a fragment's bytes: with the headers and the tag a datagram stays under 1200
     const val HEADER = 9          // frame (u32), index (u16), count (u16), flags (u8)
     const val FLAG_KEY = 1
+    const val FLAGS_AT = 8        // where the flags are in a fragment (after the frame, index and count)
     const val TO_DESKTOP: Byte = 1
     const val TO_PHONE: Byte = 2
     const val NACK: Byte = 1      // + frame (u32) + indexes (u16 each); none means the whole frame
@@ -99,6 +100,7 @@ class UdpLink {
     private var fresh = false
     private var extraMs = Long.MAX_VALUE  // the shortest a trip took past the quickest one
     private var waitMs = Long.MAX_VALUE   // the shortest a frame waited on the phone
+    private var staleMs = 0L              // the longest a frame waited before the phone dropped it, unsent
     private var lastTakeMs = -1L
     private var lastReportMs = 0L
     private var batchExpected = 0L  // datagrams towards the next loss share (LOSS_DATAGRAMS)
@@ -125,6 +127,10 @@ class UdpLink {
         sentAt[frame] = nowMs
         waitMs = minOf(waitMs, startedMs - queuedMs)
     }
+
+    /** The phone dropped a frame unsent after it waited waitedMs: the link couldn't keep up, which counts as a queue that long. */
+    @Synchronized
+    fun stale(waitedMs: Long) { staleMs = maxOf(staleMs, waitedMs) }
 
     @Synchronized
     fun report(r: UdpReport, nowMs: Long) {
@@ -207,7 +213,8 @@ class UdpLink {
         if (gave) loss = maxOf(loss, GAVE_UP_LOSS)
         val wait = maxOf(if (waitMs == Long.MAX_VALUE) 0L else waitMs, waitingMs)
         val router = if (extraMs == Long.MAX_VALUE) 0L else extraMs
-        val queue = maxOf(wait, router)
+        val queue = maxOf(wait, router, staleMs)
+        staleMs = 0
         expected = 0; got = 0; bytes = 0; clockMs = 0; gaveUp = 0; fresh = false
         extraMs = Long.MAX_VALUE; waitMs = Long.MAX_VALUE
         return if (first) null else Take(queue, sent, loss, router, if (gave) maxOf(lately, GAVE_UP_LOSS) else lately)  // the first one only starts the count
@@ -310,8 +317,9 @@ class UdpSendQueue(
     private val capacity: Int = UdpVideoClient.QUEUE,
     private val clock: () -> Long,
     private val onNeedKey: () -> Unit = {},
+    private val onStale: (waitedMs: Long) -> Unit = {},  // frames dropped unsent, and how long the oldest had waited
 ) {
-    private class Wanted(val id: Long, val plain: ByteArray, val expiresMs: Long)
+    private class Wanted(val id: Long, val plain: ByteArray, val key: Boolean, val expiresMs: Long)
 
     private val lock = ReentrantLock()
     private val ready = lock.newCondition()
@@ -319,6 +327,7 @@ class UdpSendQueue(
     private val repairs = java.util.ArrayDeque<Wanted>()
     private val wanted = HashSet<Long>()
     private var waitingForKey = true
+    private var cleared = false  // dropStale started over rather than jumping to a keyframe
     private var credit = 0.0
     private var creditMs = Long.MIN_VALUE
 
@@ -326,24 +335,33 @@ class UdpSendQueue(
     @Volatile var repairBps: Int = UdpVideoClient.repairBpsFor(0)
 
     /** From the encoder's thread; true when it should be asked for a keyframe (the backlog was dropped). */
-    fun offer(frame: ByteArray, key: Boolean): Boolean = lock.withLock {
-        if (waitingForKey && !key) return false
-        if (live.size >= capacity) {
-            live.clear()
-            waitingForKey = true
-            if (!key) return true
+    fun offer(frame: ByteArray, key: Boolean): Boolean {
+        var dropped = -1L
+        val ask = lock.withLock {
+            if (waitingForKey && !key) return@withLock false
+            if (live.size >= capacity) {
+                dropped = maxOf(maxAgeMs, clock() - live.peek().atMs)
+                live.clear()
+                waitingForKey = true
+                if (!key) return@withLock true
+            }
+            live.add(UdpJob.Live(frame, key, clock()))
+            waitingForKey = false
+            ready.signalAll()
+            false
         }
-        live.add(UdpJob.Live(frame, key, clock()))
-        waitingForKey = false
-        ready.signalAll()
-        false
+        if (dropped >= 0) onStale(dropped)
+        return ask
     }
 
-    /** Queue one datagram of frame [seq] to go out again; false when it's already waiting or too many are. */
-    fun offerRepair(seq: Int, index: Int, plain: ByteArray): Boolean = lock.withLock {
+    /**
+     * Queue one datagram of frame [seq] to go out again; false when it's already waiting or too many are. A keyframe's
+     * datagrams ([key]) are exempt from the rate: without them the desktop gives up and asks for another keyframe.
+     */
+    fun offerRepair(seq: Int, index: Int, plain: ByteArray, key: Boolean = false): Boolean = lock.withLock {
         val id = (seq.toLong() shl 16) or index.toLong()
         if (repairs.size >= UdpVideoClient.REPAIR_QUEUE || !wanted.add(id)) return false
-        repairs.add(Wanted(id, plain, clock() + UdpVideoClient.REPAIR_TTL_MS))
+        repairs.add(Wanted(id, plain, key, clock() + UdpVideoClient.REPAIR_TTL_MS))
         ready.signalAll()
         true
     }
@@ -351,18 +369,20 @@ class UdpSendQueue(
     /** The next thing to send, waiting up to [timeoutMs] for one; null when nothing is due. */
     fun poll(timeoutMs: Long): UdpJob? {
         var ask = false
+        var dropped = -1L
         var waitNs = TimeUnit.MILLISECONDS.toNanos(timeoutMs)
         var job: UdpJob? = null
         lock.withLock {
             while (job == null) {
                 val now = clock()
-                if (dropStale(now)) ask = true
+                val waited = dropStale(now)
+                if (waited >= 0) { dropped = maxOf(dropped, waited); if (cleared) ask = true }
                 dropExpired(now)
                 refill(now)
-                if (repairs.isNotEmpty() && credit > 0) {
+                if (repairs.isNotEmpty() && (credit > 0 || repairs.peek().key)) {
                     val r = repairs.remove()
                     wanted.remove(r.id)
-                    credit -= r.plain.size
+                    if (!r.key) credit -= r.plain.size
                     job = UdpJob.Repair(r.plain)
                 } else {
                     job = live.poll()
@@ -376,6 +396,7 @@ class UdpSendQueue(
                 waitNs -= step - ready.awaitNanos(step)
             }
         }
+        if (dropped >= 0) onStale(dropped)
         if (ask) onNeedKey()
         return job
     }
@@ -385,18 +406,21 @@ class UdpSendQueue(
 
     fun size(): Int = lock.withLock { live.size }
 
-    // Whether a keyframe is needed. The oldest waiting frame is past its age: go on from a young keyframe, or start over.
-    private fun dropStale(now: Long): Boolean {
-        val head = live.peek() ?: return false
-        if (now - head.atMs <= maxAgeMs) return false
+    // The oldest frame is past its age: go on from a young keyframe or start over (cleared); returns its wait, -1 if none dropped
+    private fun dropStale(now: Long): Long {
+        cleared = false
+        val head = live.peek() ?: return -1
+        val waited = now - head.atMs
+        if (waited <= maxAgeMs) return -1
         val young = live.indexOfFirst { it.key && now - it.atMs <= maxAgeMs }
         if (young >= 0) {
             repeat(young) { live.remove() }
-            return false
+            return waited
         }
         live.clear()
         waitingForKey = true
-        return true
+        cleared = true
+        return waited
     }
 
     private fun dropExpired(now: Long) {
@@ -422,10 +446,14 @@ class UdpTransmitter(
     /** Bits per second Dynamic spreads datagrams out at (UdpVideoClient.paceFor), 0 for as fast as they go. */
     @Volatile var paceBps = 0
 
+    private var sleptNs = 0L  // the pacer's own sleeps, which are intended and not a queue
+
+    // Everything but those sleeps counts as the frame's wait: also a send that blocks because the link is full
     fun frame(seq: Int, parts: List<ByteArray>, queuedMs: Long) {
-        val startedMs = clockNs() / 1_000_000
+        sleptNs = 0
         for (part in parts) { pace(part.size); emit(part) }
-        link.sent(seq, queuedMs, clockNs() / 1_000_000, startedMs)
+        val nowMs = clockNs() / 1_000_000
+        link.sent(seq, queuedMs, nowMs, startedMs = nowMs - sleptNs / 1_000_000)
     }
 
     // Beside the live frames, on the same schedule
@@ -435,8 +463,11 @@ class UdpTransmitter(
     private fun pace(bytes: Int) {
         val waitNs = pacer.waitNs(bytes, paceBps, clockNs())
         if (waitNs <= 0) return
+        val before = clockNs()
         sleepNs(waitNs)
-        pacer.woke(clockNs())
+        val after = clockNs()
+        sleptNs += after - before
+        pacer.woke(after)
     }
 }
 
@@ -454,7 +485,7 @@ class UdpVideoClient(
     private val udp = DatagramSocket().apply { sendBufferSize = SEND_BUFFER }
     @Volatile private var peer = peer
     @Volatile private var closed = false
-    private val queue = UdpSendQueue(clock = ::nowMs, onNeedKey = requestKeyFrame)
+    private val queue = UdpSendQueue(clock = ::nowMs, onNeedKey = requestKeyFrame, onStale = { link.stale(it) })
     private val link = UdpLink()
     private var sendBuffer = 0  // what Dynamic last limited the socket's send buffer to; 0 = not limited
     private val transmitter = UdpTransmitter(link, System::nanoTime,
@@ -549,10 +580,11 @@ class UdpVideoClient(
                 val seq = b.int
                 val parts = synchronized(sent) { sent[seq] } ?: return
                 // Sent by the sender thread, paced and for a little while only: this thread has reports to read
-                if (!b.hasRemaining()) parts.forEachIndexed { i, part -> queue.offerRepair(seq, i, part) }
+                val key = parts.firstOrNull()?.let { it[UdpWire.FLAGS_AT].toInt() and UdpWire.FLAG_KEY != 0 } ?: false
+                if (!b.hasRemaining()) parts.forEachIndexed { i, part -> queue.offerRepair(seq, i, part, key) }
                 while (b.remaining() >= 2) {
                     val i = b.short.toInt() and 0xFFFF
-                    parts.getOrNull(i)?.let { queue.offerRepair(seq, i, it) }
+                    parts.getOrNull(i)?.let { queue.offerRepair(seq, i, it, key) }
                 }
             }
             UdpWire.REPORT -> UdpReport.parse(plain)?.let { link.report(it, nowMs()) }
@@ -609,7 +641,8 @@ class UdpVideoClient(
         }
         const val QUEUE = 8              // frames waiting to go out; more and the link (or the phone) is stuck
         const val MAX_AGE_MS = 300L      // a frame that waited this long isn't sent: the picture would show old video
-        const val REPAIR_TTL_MS = 250L   // a datagram asked for again is sent within this or not at all (the desktop gives up then)
+        // The desktop gives up 250 ms after it noticed a loss (GIVE_UP_S in udp.rs), and the NACK has spent a delay and a trip by now
+        const val REPAIR_TTL_MS = 200L
         const val REPAIR_QUEUE = 512     // datagrams waiting to be sent again
         const val REPAIR_BURST = 32 * 1024
         // What may go out again each second: a share of the pace, so a whole-frame request can't crowd out live video

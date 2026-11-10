@@ -32,4 +32,13 @@ class H264EncoderTest {
         assertEquals(all - H264Encoder.Extra.ENCODER_LATENCY, withoutHint.extras)
         assertTrue(attempts.indexOf(withoutHint) <= 2)
     }
+
+    @Test
+    fun `before Android 11 the latency hint is left out and no attempt is tried twice`() {
+        val old = H264Encoder.attemptsFor(29)
+        assertEquals(old.size, old.toSet().size)
+        assertTrue(old.none { H264Encoder.Extra.ENCODER_LATENCY in it.extras })
+        assertEquals(H264Encoder.ATTEMPTS, H264Encoder.attemptsFor(30))
+        assertEquals(H264Encoder.ATTEMPTS.size - 2, old.size)
+    }
 }

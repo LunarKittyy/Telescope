@@ -50,6 +50,10 @@ class H264Encoder(
             Attempt(emptySet(), Profile.ANY),
         )
 
+        // Before Android 11 there is no KEY_LATENCY, so attempts that differ only by it are the same one and aren't tried twice
+        fun attemptsFor(sdk: Int): List<Attempt> =
+            ATTEMPTS.map { if (sdk >= Build.VERSION_CODES.R) it else it.copy(extras = it.extras - Extra.ENCODER_LATENCY) }.distinct()
+
         // Set once an encoder ignored KEY_MAX_B_FRAMES at High; Baseline from then on, until the app restarts
         @Volatile var highReorders = false
         private const val REORDERS_TO_DROP_HIGH = 3
@@ -133,7 +137,7 @@ class H264Encoder(
     init {
         var opened: Pair<MediaCodec, Surface>? = null
         var failure: Exception? = null
-        for (attempt in ATTEMPTS) {
+        for (attempt in attemptsFor(Build.VERSION.SDK_INT)) {
             val mc = try { MediaCodec.createEncoderByType(MIME) } catch (e: Exception) { failure = e; break }
             val caps = try { mc.codecInfo.getCapabilitiesForType(MIME).videoCapabilities } catch (_: Exception) { null }
             // 4:3 4K is past what H.264 encoders do (its usual 4K tops out near 4096x2304), and the camera then fails
