@@ -184,6 +184,7 @@ impl Drop for Converter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ffmpeg::Padded;
 
     #[test]
     fn the_ends_of_each_range_land_on_the_ends_of_the_other() {
@@ -272,5 +273,54 @@ mod tests {
         // Unspecified, BT.470 B/G and SMPTE 170M are what Python's swscale treats as BT.601; BT.709 and BT.2020 aren't
         assert!([2, 3, 5, 6, 99].iter().all(|&m| is_bt601(m)));
         assert!(![1, 4, 7, 9, 10].iter().any(|&m| is_bt601(m)));
+    }
+
+    /// cargo test --release -p telescope-media --lib -- --ignored --nocapture what_the_round_trip_costs
+    #[test]
+    #[ignore = "a measurement"]
+    fn what_the_round_trip_costs() {
+        use std::time::Instant;
+        let med = |mut v: Vec<f64>| {
+            v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            v[v.len() / 2]
+        };
+        for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+            let pic = a_picture(w, h);
+            let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+            let (y, rest) = pic.split_at(w * h);
+            let (u, v) = rest.split_at(cw * ch);
+            let mut conv = Converter::default();
+            let (mut load, mut scale, mut back, mut whole) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+            let mut padded = Padded::default();
+            let stride = padded_stride(w * 3);
+            let mut bgr = vec![0u8; stride * h + 4096];
+            let mut hash = 0u64;
+            for round in 0..20 {
+                let t = Instant::now();
+                let (src, src_stride) = padded.load_i420(w, h, (y, u, v));
+                load.push(t.elapsed().as_secs_f64() * 1e3);
+                let t = Instant::now();
+                unsafe {
+                    let sws = ff::sws_getContext(w as i32, h as i32, ff::AVPixelFormat::AV_PIX_FMT_YUV420P, w as i32, h as i32, ff::AVPixelFormat::AV_PIX_FMT_BGR24,
+                                                 ff::SwsFlags::SWS_BILINEAR as i32, ptr::null_mut(), ptr::null_mut(), ptr::null());
+                    let dst = [bgr.as_mut_ptr(), ptr::null_mut(), ptr::null_mut(), ptr::null_mut()];
+                    let dst_stride = [stride as i32, 0, 0, 0];
+                    ff::sws_scale(sws, src.as_ptr(), src_stride.as_ptr(), 0, h as i32, dst.as_ptr(), dst_stride.as_ptr());
+                    ff::sws_freeContext(sws);
+                }
+                scale.push(t.elapsed().as_secs_f64() * 1e3);
+                let t = Instant::now();
+                let out = bgr_to_i420(&bgr, stride, w, h);
+                back.push(t.elapsed().as_secs_f64() * 1e3);
+                let t = Instant::now();
+                let (out2, _) = conv.standard(pic.clone(), w, h, bt709());
+                whole.push(t.elapsed().as_secs_f64() * 1e3);
+                if round == 0 {
+                    hash = out.iter().chain(out2.iter()).fold(1469598103934665603u64, |a, &b| (a ^ b as u64).wrapping_mul(1099511628211));
+                }
+            }
+            println!("{w}x{h}: load {:.2} ms, sws (with its context made each time) {:.2} ms, bgr to i420 {:.2} ms, standard() whole incl. a 12 MB clone {:.2} ms, hash {hash:016x}",
+                     med(load), med(scale), med(back), med(whole));
+        }
     }
 }
