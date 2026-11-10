@@ -197,13 +197,13 @@ class UdpLatencyTest {
 
     // ---- pacing isn't congestion
 
-    private class Climb(val bitrate: Int, val ceiling: Int, val maxPressureMs: Long, val atCeilingMs: Long?, val lateMaxBitrate: Int)
+    private class Climb(val bitrate: Int, val ceiling: Int, val maxPressureMs: Long, val atCeilingMs: Long?, val lateMaxBitrate: Int, val path: List<Int> = emptyList())
 
     // The real queue, transmitter, pacer, link and Dynamic against a desktop that gets every datagram the moment it
     // goes out, in virtual time. Frames use the whole budget, and pacing is the 1.2 times the video that Dynamic
     // settles on once it has found where the link fills up. Nothing in the path is congested, so Dynamic must climb.
     // [blockedAtBps]: each send blocks as long as its bytes take at that rate; [still]: small frames, a keyframe of 0.25 s of video
-    private fun zeroDelay(width: Int, height: Int, fps: Int, seconds: Int, blockedAtBps: Int = 0, still: Boolean = false, startBps: Int = 0): Climb {
+    private fun zeroDelay(width: Int, height: Int, fps: Int, seconds: Int, blockedAtBps: Int = 0, still: Boolean = false, startBps: Int = 0, keySeconds: Double = 0.25): Climb {
         val ceiling = H264Stream.dynamicCeiling(width, height, fps)
         val dynamic = DynamicBitrate(if (startBps > 0) startBps else ceiling / 2, ceiling)
         var bitrate = dynamic.bitrate
@@ -211,7 +211,8 @@ class UdpLatencyTest {
         var nowNs = 0L
         val nowMs = { nowNs / 1_000_000 }
         var wantKey = true
-        val queue = UdpSendQueue(clock = nowMs, onNeedKey = { wantKey = true }, onStale = { link.stale(it) })
+        lateinit var transmitter: UdpTransmitter
+        val queue = UdpSendQueue(clock = nowMs, onNeedKey = { wantKey = true }, onStale = { link.stale(it) }, paced = { transmitter.pacedMs })
         var advance: (Long) -> Unit = {}
 
         // The desktop
@@ -239,12 +240,12 @@ class UdpLatencyTest {
         var maxPressure = 0L
         var atCeiling: Long? = null
         var lateMax = 0
+        val path = ArrayList<Int>()
         val periodNs = 1_000_000_000L / fps
         var nextFrame = 0L
         var nextReport = 100_000_000L
         var nextSample = 250_000_000L
         var lastSample = 0L
-        lateinit var transmitter: UdpTransmitter
 
         fun advanceTo(target: Long) {
             while (true) {
@@ -253,7 +254,7 @@ class UdpLatencyTest {
                 nowNs = next
                 if (next == nextFrame) {
                     val key = wantKey || frameNo % fps == 0
-                    val size = if (!still) bitrate / 8 / fps else if (key) bitrate / 8 / 4 else bitrate / 8 / fps / 5
+                    val size = if (!still) bitrate / 8 / fps else if (key) (bitrate / 8 * keySeconds).toInt() else bitrate / 8 / fps / 5
                     if (queue.offer(ByteArray(size), key)) wantKey = true else if (key) wantKey = false
                     frameNo++
                     encodedBytes += size
@@ -277,6 +278,7 @@ class UdpLatencyTest {
                         encodedBytes = 0
                         dynamic.update(sample)?.let { bitrate = it }
                         if (atCeiling == null && bitrate >= ceiling) atCeiling = ms
+                        if (ms % 5_000L < 250) path.add(bitrate)
                         if (ms > seconds * 500L) lateMax = maxOf(lateMax, bitrate)
                     }
                     nextSample += 250_000_000L
@@ -292,12 +294,12 @@ class UdpLatencyTest {
             val job = queue.poll(0)
             if (job is UdpJob.Live) {
                 val parts = UdpWire.fragments(seq, H264Stream.withDelimiter(job.frame), job.key)
-                transmitter.frame(seq++, parts, job.atMs)
+                transmitter.frame(seq++, parts, job.atMs, job.pacedAtMs)
             } else {
                 advanceTo(minOf(nextFrame, nextReport, nextSample))
             }
         }
-        return Climb(bitrate, ceiling, maxPressure, atCeiling, lateMax)
+        return Climb(bitrate, ceiling, maxPressure, atCeiling, lateMax, path)
     }
 
     @Test
@@ -307,6 +309,41 @@ class UdpLatencyTest {
         println("keyframes blocking a 4 Mbps socket, video starting at 5.0 Mbps: ends at %.1f Mbps, never above %.1f Mbps in the second half; queue read up to %d ms"
             .format(r.bitrate / 1e6, r.lateMaxBitrate / 1e6, r.maxPressureMs))
         assertTrue(r.lateMaxBitrate <= 4_000_000, "kept up to ${r.lateMaxBitrate}")
+    }
+
+    @Test
+    fun `a big keyframe paced out doesn't read as congestion or collapse Dynamic`() {
+        // A still scene on an unconstrained link, its keyframe 0.4 s of video, paced at 1.2 times the video: it takes
+        // 0.33 s to go out and the frames behind it wait that long on purpose
+        for (start in listOf(5_000_000, 10_000_000)) {
+            val r = zeroDelay(1920, 1080, 30, 60, still = true, startBps = start, keySeconds = 0.4)
+            println("0.4 s keyframes paced at 1.2x, video starting at %d Mbps: %s Mbps every 5 s; queue read up to %d ms"
+                .format(start / 1_000_000, r.path.joinToString(" ") { "%.1f".format(it / 1e6) }, r.maxPressureMs))
+            assertTrue(r.bitrate >= start * 0.9, "ended at ${r.bitrate}")
+            assertTrue(r.maxPressureMs <= DynamicBitrate.CLEAR_MS, "queue read ${r.maxPressureMs} ms")
+        }
+    }
+
+    @Test
+    fun `frames waiting out the sender's own pacing aren't stale`() {
+        var now = 0L
+        var slept = 0L
+        var asks = 0
+        val stale = ArrayList<Long>()
+        val q = UdpSendQueue(clock = { now }, onNeedKey = { asks++ }, onStale = { stale.add(it) }, paced = { slept })
+        q.offer(byteArrayOf(1), key = true)
+        q.poll(0)  // the keyframe goes out, paced
+        now = 33; q.offer(byteArrayOf(2), key = false)
+        now = 66; q.offer(byteArrayOf(3), key = false)
+        now = 450; slept = 400  // 0.4 s of it was pacing
+        assertEquals(17, q.oldestAgeMs())
+        assertEquals(2, (q.poll(0) as UdpJob.Live).frame[0].toInt())
+        assertEquals(0, asks)
+        assertTrue(stale.isEmpty())
+        now = 900  // now it waits on something else for half a second
+        assertEquals(null, q.poll(0))
+        assertEquals(1, asks)
+        assertTrue(stale.single() >= UdpVideoClient.MAX_AGE_MS)
     }
 
     @Test
