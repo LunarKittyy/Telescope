@@ -825,3 +825,20 @@ fn the_apps_numbers_stay_offered_while_the_focused_stream_is_not_in_the_snapshot
     let ids: Vec<&str> = host.bar_offers.iter().map(|s| s.id.as_str()).collect();
     assert_eq!(ids, ["stats.memory"], "the app's own number stays, the stream's go until it reports");
 }
+
+#[test]
+fn a_pinned_plugin_timing_is_still_offered_when_it_is_not_among_the_listed_slowest() {
+    let hub = Hub::new();
+    let now = telescope_core::time::monotonic_ns();
+    hub.snapshot_at(now, Some(0), Some(0));
+    hub.register("phone", 0).set_target_fps(30);
+    hub.hooks().timer("quiet").add(MS);
+    for i in 0..10 {
+        hub.hooks().timer(&format!("busy_{i}")).add((10 + i) * MS);
+    }
+    let snap = hub.snapshot_at(now + SECOND, Some(SECOND), Some(0));
+    let source = &snap.sources[0];
+    assert!(!rows(&snap, source, View::Nerd, &Context::default()).iter().any(|r| r.pin == "stats.hook_quiet"));
+    let offered = offers(&snap, Some(source), &Context::default());
+    assert!(offered.iter().any(|o| o.id == "stats.hook_quiet"));
+}

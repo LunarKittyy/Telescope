@@ -588,7 +588,8 @@ impl Plugin for TransformsPlugin {
                 self.view_status(host, status);
                 self.follow_map_aspect(host);
             }
-            Event::CameraOpened { .. } => self.follow_map_aspect(host),
+            // The decoded size changing has no event of its own, so the regular phone readings stand in for it while streaming
+            Event::CameraOpened { .. } | Event::PhonePolled { .. } | Event::PhoneStateUpdated { .. } => self.follow_map_aspect(host),
             Event::ViewTaken { owner } => self.view_taken(host, owner),
             Event::TimerFired { owner, token } if owner == NAME && token == T_SETTLE => {
                 self.show_zoom_where(host);
