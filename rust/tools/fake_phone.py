@@ -8,7 +8,7 @@ For scripted sessions it can also pair from a desktop's QR offer (pair()), switc
 the network for a while (drop()) and be plugged in over USB (plug()), which fake_adb.py answers for.
 
   python fake_phone.py [CLIP.h264] [--host 127.0.0.2] [--fps 30] [--token TOKEN] [--record FILE]
-                       [--video-file ANY_VIDEO] [--res 1080|4k] [--clip-seconds 10] [--heavy]
+                       [--video-file ANY_VIDEO] [--res 1080|4k] [--clip-seconds 10] [--heavy [--jpegs DIR]]
                        [--audio speech|FILE] [--phones N] [--name NAME]
 
 Without a clip it makes a short test pattern with ffmpeg.
@@ -557,16 +557,21 @@ def main():
     parser.add_argument("--res", choices=sorted(SIZES), help="1080 or 4k for --video-file, --heavy or a test pattern")
     parser.add_argument("--clip-seconds", type=float, default=10, help="how much of --video-file to loop")
     parser.add_argument("--heavy", action="store_true", help="send MJPEG on /v1/video, as Heavy does")
+    parser.add_argument("--jpegs", type=Path, help="with --heavy: a folder of .jpg frames to loop instead of encoding a video")
     parser.add_argument("--audio", metavar="speech|FILE", help="serve /v1/audio: a generated speech-like signal, or this file")
     parser.add_argument("--phones", type=int, default=1, help="how many phones to start (127.0.0.2, 127.0.0.3, ...)")
     parser.add_argument("--name", default=PHONE_NAME)
     args = parser.parse_args()
-    res = args.res or ("1080" if args.video_file or args.heavy else None)
+    res = args.res or ("1080" if args.video_file or (args.heavy and not args.jpegs) else None)
     source = args.video_file
     clip = args.clip
-    if source or res:
+    if (source or res) and not (args.heavy and args.jpegs):
         clip = prepare_clip(source, res, args.fps, args.clip_seconds)
-    jpegs = prepare_jpegs(source, res, args.fps, args.clip_seconds) if args.heavy else None
+    jpegs = None
+    if args.heavy and args.jpegs:
+        jpegs = [f.read_bytes() for f in sorted(args.jpegs.glob("*.jpg"))]
+    elif args.heavy:
+        jpegs = prepare_jpegs(source, res, args.fps, args.clip_seconds)
     audio = prepare_audio(args.audio) if args.audio else None
     recorder = Recorder(args.record) if args.record else None
     base, last = args.host.rsplit(".", 1)
