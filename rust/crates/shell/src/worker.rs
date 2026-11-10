@@ -988,7 +988,7 @@ impl Shared {
             }).expect("a thread for the frame steps")
         };
         // Dropped on the way out, a panic in the reader included, so the steps thread has ended before the reader is reported finished
-        let _steps = StepsThread { newest: newest.clone(), thread: Some(steps) };
+        let _steps = FeedThreads { newest: newest.clone(), threads: vec![steps] };
         loop {
             if self.stopped() {
                 break Ended::Stopped;
@@ -1024,7 +1024,9 @@ impl Shared {
                 decode_jpegs(decoder.as_mut(), &newest, &broken, &s.stats, |seq, frame| { s.publish(seq, frame); })
             })
         }).collect();
-        let ended = loop {
+        // Dropped on the way out, a panic in the feed included, so the decoders have ended before the reader is reported finished
+        let _decoders = FeedThreads { newest: newest.clone(), threads };
+        loop {
             if self.stopped() {
                 break Ended::Stopped;
             }
@@ -1047,12 +1049,7 @@ impl Shared {
                 Err(FeedEnd::Stopped) if self.stopped() => break Ended::Stopped,
                 Err(_) => break Ended::Dropped,
             }
-        };
-        newest.finish();
-        for t in threads {
-            let _ = t.join();
         }
-        ended
     }
 
     fn reconnect(self: &Arc<Self>) -> Option<Cap> {
@@ -1366,16 +1363,16 @@ fn decode_jpegs(decoder: &mut dyn Decoder, newest: &Newest<(u64, telescope_core:
     }
 }
 
-/// The thread that runs the steps for H.264, which is told no more frames come and waited for when this goes.
-struct StepsThread {
-    newest: Arc<Newest<(u64, Frame)>>,
-    thread: Option<std::thread::JoinHandle<()>>,
+/// The threads that work through what a reader hands over, told no more comes and waited for when this goes (a panic in the reader too).
+struct FeedThreads<T> {
+    newest: Arc<Newest<T>>,
+    threads: Vec<std::thread::JoinHandle<()>>,
 }
 
-impl Drop for StepsThread {
+impl<T> Drop for FeedThreads<T> {
     fn drop(&mut self) {
         self.newest.finish();
-        if let Some(thread) = self.thread.take() {
+        for thread in self.threads.drain(..) {
             let _ = thread.join();
         }
     }
@@ -2742,6 +2739,26 @@ mod tests {
         fn hardware(&self) -> bool {
             false
         }
+    }
+
+    #[test]
+    fn a_feed_that_panics_leaves_no_decoder_threads_behind() {
+        let opener: Opener = Arc::new(|_| {
+            Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }) as Box<dyn VideoFeed>).into())
+        });
+        let (cams, log) = (Arc::new(Cams::default()), Log::default());
+        let w = start(setup(opener), Arc::new(PacedMedia(1, 1)), &cams, &log);
+        wait_for(|| w.shared.slot.latest().is_some());
+        w.stop();
+        let holders = Arc::strong_count(&w.shared);
+        w.shared.stop.store(false, Ordering::SeqCst);
+        let mut feed = Script { steps: VecDeque::from([Step::Frame(1), Step::Frame(2), Step::Frame(3), Step::Crash]), stop: Arc::default(), gone: Arc::default() };
+        let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| w.shared.read_jpegs(&mut feed, &mut jpeg_decoders(&w.shared))));
+        assert!(caught.is_err(), "the panic goes on up");
+        assert_eq!(Arc::strong_count(&w.shared), holders, "the decoder threads have ended and let go");
+        let published = *w.shared.published.lock().unwrap();
+        std::thread::sleep(Duration::from_millis(50));
+        assert_eq!(*w.shared.published.lock().unwrap(), published, "and nothing is published after");
     }
 
     #[test]
