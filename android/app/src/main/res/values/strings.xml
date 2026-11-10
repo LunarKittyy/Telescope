@@ -20,6 +20,8 @@
     <string name="update_available">Update available</string>
     <string name="update_failed_title">Update didn\'t finish</string>
     <string name="update">Update</string>
+    <!-- In Settings, after checking for updates. %1$s is a version such as Telescope 1.2.3 -->
+    <string name="update_found">%1$s is available.</string>
     <string name="updating">Updating…</string>
     <string name="try_again">Try again</string>
     <!-- %1$s is "Telescope 1.2.3", %2$d the percentage done -->
