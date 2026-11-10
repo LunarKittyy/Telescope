@@ -62,7 +62,7 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 ### Updates and settings from older versions
 
-<!-- due: android/app/src/main/kotlin/com/telescope/Updater.kt android/app/src/main/kotlin/com/telescope/UpdateLogic.kt android/app/src/main/kotlin/com/telescope/UpdateHttp.kt .github/write_manifest.py .github/workflows/release.yml installer/** rust/crates/system/src/updates.rs rust/crates/system/src/updates_plugin.rs rust/crates/system/ui/updates.slint rust/crates/system/src/update_guard.rs rust/crates/system/src/going_back.rs rust/crates/system/src/going_back_tests.rs rust/crates/system/src/going_back_python_tests.rs -->
+<!-- due: android/app/src/main/kotlin/com/telescope/Updater.kt android/app/src/main/kotlin/com/telescope/UpdateLogic.kt android/app/src/main/kotlin/com/telescope/UpdateHttp.kt android/app/src/main/kotlin/com/telescope/UpdateInstall.kt .github/write_manifest.py .github/workflows/release.yml installer/** rust/crates/system/src/updates.rs rust/crates/system/src/updates_plugin.rs rust/crates/system/ui/updates.slint rust/crates/system/src/update_guard.rs rust/crates/system/src/going_back.rs rust/crates/system/src/going_back_tests.rs rust/crates/system/src/going_back_python_tests.rs -->
 
 - [ ] Desktop on the previous nightly on Linux: the Update button appears, Update and restart replaces the app and it comes back on the new version with the stream working. On Windows `windows_pass.py` does the update and what's left is checking that the stream works after it.
 - [ ] AppImage on the previous nightly: Update and restart replaces the file in place, it comes back on the new version and the app menu entry still starts it.
