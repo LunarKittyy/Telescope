@@ -56,6 +56,8 @@ pub enum WorkerEvent {
     MoveFailed(String),
     /// The virtual camera opened at this width and height.
     VcamOpened(u32, u32),
+    /// The frames coming in changed size (also the first frame's size), at this width and height.
+    FrameSizeChanged(u32, u32),
     /// A picture for the preview, RGB24 at the size set_preview_size() asked for.
     Preview(Vec<u8>, u32, u32),
     /// The decoder changed mid-stream and has nothing to start from until a keyframe.
@@ -805,9 +807,16 @@ impl Shared {
         }
         if let Some(feed) = &self.vision {
             let size = (frame.width, frame.height);
-            let mut sizes = feed.frame_sizes.lock().unwrap();
-            if sizes.get(&self.source_id) != Some(&size) {
-                sizes.insert(self.source_id.clone(), size);
+            let changed = {
+                let mut sizes = feed.frame_sizes.lock().unwrap();
+                let changed = sizes.get(&self.source_id) != Some(&size);
+                if changed {
+                    sizes.insert(self.source_id.clone(), size);
+                }
+                changed
+            };
+            if changed {
+                (self.events)(WorkerEvent::FrameSizeChanged(size.0, size.1));
             }
         }
         // vision looks for people in the frame before the view (view_controller.process_frame)
@@ -2843,6 +2852,28 @@ mod tests {
                                   waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, plugin_source: false, vision, steps, gate };
         StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(Arc::new(Cams::default()))),
                             telescope_media_free_slot(Duration::ZERO), Arc::new(|_| {})).unwrap()
+    }
+
+    #[test]
+    fn a_size_change_is_reported_once() {
+        let opener: Opener = Arc::new(|_| {
+            Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }) as Box<dyn VideoFeed>).into())
+        });
+        let vision = VisionFeed { service: Arc::<Masks>::default(), upright: Arc::default(), frame_sizes: Arc::default(), motion: None, owners: Arc::default(), owner: 1 };
+        let setup = WorkerSetup { url: "https://phone/v1/video".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0,
+                                  waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, plugin_source: false, vision: Some(vision), steps: Vec::new(), gate: None };
+        let (seen, log) = (Arc::new(Seen::default()), Arc::new(Mutex::new(Vec::new())));
+        let sink = log.clone();
+        let events: Events = Arc::new(move |e| {
+            if matches!(e, WorkerEvent::FrameSizeChanged(..)) {
+                sink.lock().unwrap().push(e)
+            }
+        });
+        let w = StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(Arc::new(Cams::default()))),
+                                    telescope_media_free_slot(Duration::ZERO), events).unwrap();
+        wait_for(|| seen.sources.lock().unwrap().len() >= 5);
+        w.stop();
+        assert_eq!(log.lock().unwrap().len(), 1, "one event for many frames of one size: {:?}", log.lock().unwrap());
     }
 
     #[test]
