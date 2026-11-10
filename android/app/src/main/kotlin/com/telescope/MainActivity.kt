@@ -182,7 +182,7 @@ class MainActivity : LookActivity() {
         checkPermissions()
         Updater.maybeCheck(this)
         val waiting = pendingUpdate
-        if (shouldResumePendingUpdate(waiting != null, canInstallUpdates(), streamBusyNow() || isBusy())) {
+        if (shouldResumePendingUpdate(waiting != null, canInstallUpdates(), streamBusyNow() || starting)) {
             pendingUpdate = null
             Updater.downloadAndInstall(this, waiting!!)
         }
@@ -391,7 +391,7 @@ class MainActivity : LookActivity() {
 
     private fun renderUpdate() {
         val state = Updater.state
-        val streaming = service?.isStreaming == true || isBusy()
+        val streaming = streamBusyNow() || starting
         val manifest = when (state) {
             is Updater.State.Available -> state.manifest
             is Updater.State.Downloading -> state.manifest
@@ -436,7 +436,7 @@ class MainActivity : LookActivity() {
             is Updater.State.Failed -> state.manifest
             else -> null
         } ?: return
-        if (service?.isStreaming == true || isBusy()) return
+        if (streamBusyNow() || starting) return
         installUpdate(manifest) { pendingUpdate = it }
     }
 
