@@ -9,7 +9,7 @@ import { NumberField } from "field.slint";
 import { Switch } from "switch.slint";
 import { Unfold, Fade } from "motion.slint";
 import { Tip } from "tip.slint";
-import { FineAxis } from "fine.slint";
+import { FineAxis, Grip } from "fine.slint";
 
 // The colour at a hue (0 to 1) on the pad's top right corner, and what the hue strip shows there
 global Hues {
@@ -97,6 +97,7 @@ component SatPad inherits Rectangle {
         mouse-cursor: crosshair;
         pointer-event(e) => {
             shift-now = e.modifiers.shift;
+            if (e.kind == PointerEventKind.down) { Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
             if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
                 focus.focus();
                 fine-x.begin(self.mouse-x / 1px);
@@ -104,7 +105,7 @@ component SatPad inherits Rectangle {
                 put(self.mouse-x, self.mouse-y);
             }
         }
-        moved => { if (self.pressed) { put-fine(self.mouse-x, self.mouse-y); } }
+        moved => { if (self.pressed && !Grip.cut) { put-fine(self.mouse-x, self.mouse-y); } }
     }
 }
 
@@ -180,13 +181,14 @@ component HueStrip inherits Rectangle {
     TouchArea {
         pointer-event(e) => {
             shift-now = e.modifiers.shift;
+            if (e.kind == PointerEventKind.down) { Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
             if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
                 focus.focus();
                 fine.begin(self.mouse-x / 1px);
                 put(self.mouse-x);
             }
         }
-        moved => { if (self.pressed) { put(fine.at(self.mouse-x / 1px, shift-now, -100000, 100000) * 1px); } }
+        moved => { if (self.pressed && !Grip.cut) { put(fine.at(self.mouse-x / 1px, shift-now, -100000, 100000) * 1px); } }
     }
 }
 

@@ -6,7 +6,7 @@ import { FocusRing, TouchRing, KeyFocus } from "basics.slint";
 import { Tip } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 import { Motion, Settle, Tone, Fade, Flick } from "motion.slint";
-import { Fine, FineAxis } from "fine.slint";
+import { Fine, FineAxis, Grip } from "fine.slint";
 
 // Kind "dial": a strip of ticks, one for every value, with the names of the labelled ones sliding under a mark at the centre, dragged, scrolled or keyed through, saying `moved` then `released` with the tick's place in `stops`; it sits in the card, never in a bubble. Shift while dragging or scrolling goes a tenth as far and, on a `free` dial, between the ticks (`moved-between`); a click on the value types one. See STYLE.md.
 export component Dial inherits Rectangle {
@@ -381,7 +381,7 @@ export component Dial inherits Rectangle {
         }
         pointer-event(e) => {
             shift-now = e.modifiers.shift;
-            if (e.kind == PointerEventKind.down) { usage.press(); }
+            if (e.kind == PointerEventKind.down) { usage.press(); Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
             if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
                 dragging = true;
                 focus.focus();
@@ -390,7 +390,7 @@ export component Dial inherits Rectangle {
                 drag-x = self.mouse-x;
                 fine.begin(shown-place);
             }
-            if (e.kind == PointerEventKind.move && dragging && self.pressed) { follow(); }
+            if (e.kind == PointerEventKind.move && dragging && self.pressed && !Grip.cut) { follow(); }
             if (dragging && ((e.kind == PointerEventKind.up && e.button == PointerEventButton.left) || e.kind == PointerEventKind.cancel)) {
                 dragging = false;
                 // A press that went nowhere: on a tick beside the mark it picks that tick, on the mark's own it types over the value
@@ -409,7 +409,7 @@ export component Dial inherits Rectangle {
             }
         }
         moved => {
-            if (self.pressed && dragging) { follow(); }
+            if (self.pressed && dragging && !Grip.cut) { follow(); }
         }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }

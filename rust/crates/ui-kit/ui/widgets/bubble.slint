@@ -4,6 +4,7 @@ import { Theme } from "../theme.slint";
 import { WindowBox } from "dialog.slint";
 import { TipLayer } from "tip.slint";
 import { Motion, Pop, Fade } from "motion.slint";
+import { Grip } from "fine.slint";
 
 // Where a bubble goes, in window coordinates. Pure, so a test can ask without drawing anything.
 export global BubbleSpot {
@@ -230,6 +231,9 @@ export component Bubble inherits Rectangle {
                 fade := Fade { shown: popup.arrived && !root.leaving; }
                 pop := Pop { to: popup.arrived && !root.leaving ? 1 : 0; }
                 opacity: fade.value;
+                // A drag that was under way in it lets go
+                property <bool> gone: root.leaving;
+                changed gone => { if (gone) { Grip.leave(self.absolute-position.x, self.absolute-position.y, self.width, self.height); } }
                 drawn := BubbleFrame {
                     pop-scale: pop.scale;
                     hue: root.hue;

@@ -5,6 +5,7 @@ import { Theme } from "../theme.slint";
 import { WindowBox } from "window-box.slint";
 import { TipLayer } from "tip.slint";
 import { Motion, Fade, Pop } from "motion.slint";
+import { Grip } from "fine.slint";
 export { WindowBox }
 
 // A dialog that sets `dismissable` goes by its x and y in a pop-up covering the whole window (WindowBox.cover-w and cover-h),
@@ -44,6 +45,8 @@ export component DialogFrame inherits Rectangle {
         fade.sync();
         pop.sync();
     }
+    // A drag that was under way in it lets go
+    changed leaving => { if (leaving) { Grip.leave(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
     fade := Fade { shown: arrived && !leaving; }
     pop := Pop { to: arrived && !leaving ? 1 : 0; }
     Timer {
