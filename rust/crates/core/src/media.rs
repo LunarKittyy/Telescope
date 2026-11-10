@@ -91,6 +91,20 @@ pub trait VideoFeed: Send {
     fn skipped_frames(&self) -> Option<std::sync::Arc<std::sync::atomic::AtomicU32>> {
         None
     }
+    /// Whether this data (as read() gave it) lets decoding start afresh, for the reader that drops a stale backlog up to one.
+    /// Annex-B H.264 by default: an IDR slice in it.
+    fn is_keyframe(&self, data: &[u8]) -> bool {
+        data.windows(4).any(|w| w[..3] == [0, 0, 1] && w[3] & 0x1F == 5)
+    }
+    /// Asks the sender for a keyframe, soon; false if this feed has no way to. Called on the thread that reads.
+    fn request_keyframe(&mut self) -> bool {
+        false
+    }
+    /// When (monotonic nanoseconds) the packet read last should reach the screen, for a feed that evens out a sender's bursts. The reader decodes at once
+    /// and waits for this afterwards, so the wait hides behind the decoding instead of adding to it.
+    fn show_at_ns(&mut self) -> Option<u64> {
+        None
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
