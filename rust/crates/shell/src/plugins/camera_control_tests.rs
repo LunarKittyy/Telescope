@@ -726,7 +726,7 @@ fn the_card_compiles_and_has_every_property_the_plugin_sets() {
     let callbacks: Vec<String> = def.callbacks().map(|c| c.replace('_', "-")).collect();
     for cb in ["lens-picked", "exposure-picked", "iso-picked", "shutter-picked", "ae-moved", "wb-picked", "kelvin-moved", "tint-moved",
                "focus-picked", "focus-moved", "ois-toggled", "low-light-toggled", "bll-toggled", "torch-toggled", "nr-picked", "edge-picked",
-               "iso-fine", "shutter-fine", "iso-typed", "shutter-typed"] {
+               "iso-fine", "shutter-fine", "iso-typed", "shutter-typed", "ae-typed", "focus-typed"] {
         assert!(callbacks.contains(&cb.to_string()), "camera.slint has no {cb}");
     }
 }
@@ -1134,4 +1134,125 @@ fn brightness_readout_moves_by_the_phones_step_with_every_unit() {
             last = Some(shown);
         }
     }
+}
+
+// ── typed values in the Brightness and Focus boxes ──
+
+#[test]
+fn typed_brightness_is_read_in_ev_and_lands_on_the_nearest_step() {
+    for text in ["1", "+1", "1 EV", "1ev", " +1.0 EV ", "1,0"] {
+        assert_eq!(parse_ev_steps(text, 0.5, -6, 6), Some(2), "{text}");
+    }
+    assert_eq!(parse_ev_steps("-0.7", 0.5, -6, 6), Some(-1));
+    assert_eq!(parse_ev_steps("-0.7", 0.167, -12, 12), Some(-4));
+    assert_eq!(parse_ev_steps("1,5", 1.0 / 3.0, -12, 12), Some(5));
+    assert_eq!(parse_ev_steps("\u{2212}0,5 EV", 0.5, -6, 6), Some(-1), "the minus sign Swedish writes and a decimal comma");
+    assert_eq!(parse_ev_steps("0", 0.5, -6, 6), Some(0));
+    assert_eq!(parse_ev_steps("40", 0.5, -6, 6), Some(6), "past the range is held to it");
+    assert_eq!(parse_ev_steps("-40", 0.5, -6, 6), Some(-6));
+    for bad in ["", "EV", "abc", "inf", "nan", "1e999", "1 m"] {
+        assert_eq!(parse_ev_steps(bad, 0.5, -6, 6), None, "{bad:?}");
+    }
+    assert_eq!(parse_ev_steps("1", 0.0, -6, 6), None, "a phone with no step has nothing to land on");
+}
+
+#[test]
+fn a_brightness_readout_typed_back_lands_on_the_same_step() {
+    for step in [0.1_f64, 0.167, 1.0 / 6.0, 0.25, 0.333, 1.0 / 3.0, 0.5, 1.0] {
+        let max = (3.0 / step).round() as i64;
+        for steps in -max..=max {
+            let readout = ev_text(steps, step);
+            assert_eq!(parse_ev_steps(&readout, step, -max, max), Some(steps), "step {step}: {readout}");
+        }
+    }
+}
+
+#[test]
+fn typing_brightness_sets_the_step_and_the_readout_follows() {
+    let mut r = Rig::new();
+    r.streaming();
+    r.cam.ae_step = 0.5;
+    r.cam.ae.set_range(-4, 4);
+    r.clear();
+    r.ui("ae-typed", vec![json!("1")]);
+    assert!(r.sent().contains(&json!({"action": "ae_comp", "value": 2})));
+    assert_eq!(r.props()["ae-comp"], 2);
+    assert_eq!(r.props()["ae-text"], "+1.0 EV");
+    r.clear();
+    r.ui("ae-typed", vec![json!("99")]);
+    assert_eq!(r.props()["ae-comp"], 4);
+    assert_eq!(r.props()["ae-text"], "+2.0 EV");
+    r.clear();
+    r.ui("ae-typed", vec![json!("nonsense")]);
+    assert!(r.sent().is_empty(), "nothing changed");
+    assert_eq!(r.props()["ae-comp"], 4);
+}
+
+#[test]
+fn typed_focus_distance_is_read_in_metres_and_lands_on_the_nearest_position() {
+    // A lens that focuses as near as 0.1 m: 10 dioptres across 1000 positions
+    for text in ["0.5", "0,5", "0.5 m", "0.5m", " 0.50 m ", "0.5 metres"] {
+        assert_eq!(parse_focus_position(text, 10.0), Some(200), "{text}");
+    }
+    assert_eq!(parse_focus_position("2 m", 10.0), Some(50));
+    assert_eq!(parse_focus_position("0.1", 10.0), Some(1000), "the near limit");
+    assert_eq!(parse_focus_position("0.01", 10.0), Some(1000), "nearer than the lens goes is held to the limit");
+    for text in ["inf", "INF", "Infinity", "∞", "∞ m", "1000", "100 m"] {
+        assert_eq!(parse_focus_position(text, 10.0), Some(0), "{text}: too far to tell from infinity");
+    }
+    for bad in ["", "m", "0", "-1", "-2 m", "abc", "nan", "1 EV"] {
+        assert_eq!(parse_focus_position(bad, 10.0), None, "{bad:?}");
+    }
+    assert_eq!(parse_focus_position("1", 0.0), None, "no scale, no distance");
+}
+
+#[test]
+fn a_focus_readout_typed_back_reads_the_same_and_lands_on_the_same_position_where_it_can_tell() {
+    for max_diopters in [2.0, 5.0, 8.0, 10.0, 12.5] {
+        let mut r = Rig::new();
+        r.cam.focus_max_diopters = max_diopters;
+        for pos in 0..=FOCUS_STEPS {
+            r.cam.on_focus_slider(pos);
+            let readout = r.cam.focus_text.clone();
+            let back = parse_focus_position(&readout, max_diopters).unwrap_or_else(|| panic!("{readout} is not read"));
+            r.cam.on_focus_slider(back);
+            assert_eq!(r.cam.focus_text, readout, "max {max_diopters}: {pos} reads {readout} but comes back as {back}");
+            // A readout with two decimals can't tell the nearest positions apart, so exact where it can
+            let metres = 1.0 / (pos as f64 / FOCUS_STEPS as f64 * max_diopters);
+            if readout != "∞" && metres * metres * max_diopters / FOCUS_STEPS as f64 > 0.02 {
+                assert_eq!(back, pos, "max {max_diopters}: {readout}");
+            }
+        }
+    }
+}
+
+#[test]
+fn typing_a_focus_distance_moves_the_slider_and_the_readout_follows() {
+    let mut r = Rig::new();
+    r.streaming();
+    r.cam.focus_max_diopters = 8.0;
+    r.cam.manual_focus = true;
+    r.cam.focus_slider.enabled = true;
+    r.clear();
+    r.ui("focus-typed", vec![json!("0.5")]);
+    assert_eq!(r.props()["focus-pos"], 250);
+    assert_eq!(r.props()["focus-text"], "0.50 m");
+    assert!(r.sent().contains(&json!({"action": "focus_distance", "value": 2.0})));
+    r.ui("focus-typed", vec![json!("inf")]);
+    assert_eq!(r.props()["focus-pos"], 0);
+    assert_eq!(r.props()["focus-text"], "∞");
+    r.clear();
+    r.ui("focus-typed", vec![json!("far away")]);
+    assert!(r.sent().is_empty(), "nothing changed");
+    assert_eq!(r.props()["focus-pos"], 0);
+}
+
+#[test]
+fn a_focus_slider_that_is_off_takes_nothing_typed() {
+    let mut r = Rig::new();
+    r.streaming();
+    r.clear();
+    r.ui("focus-typed", vec![json!("0.5")]);
+    assert!(r.sent().is_empty());
+    assert_eq!(r.props()["focus-pos"], 0);
 }

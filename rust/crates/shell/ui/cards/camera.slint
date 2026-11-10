@@ -86,11 +86,13 @@ export component CameraCard inherits Card {
     callback iso-typed(string);
     callback shutter-typed(string);
     callback ae-moved(float);
+    callback ae-typed(string);
     callback wb-picked(int);
     callback kelvin-moved(float);
     callback tint-moved(float);
     callback focus-picked(int);
     callback focus-moved(float);
+    callback focus-typed(string);
     callback ois-toggled(bool);
     callback low-light-toggled(bool);
     callback bll-toggled(bool);
@@ -241,12 +243,13 @@ export component CameraCard inherits Card {
             step: 1;
             value: ae-comp;
             readout: ae-text;
-            type-in: false;
+            typing: ae-text;
             has-default: true;
             default-value: 0;
             tip: @tr("Brightness");
             tip-detail: @tr("Make the picture brighter or darker than the phone's automatic exposure.");
             moved(v) => { ae-moved(v); }
+            typed(text) => { ae-typed(text); }
         }
     }
     RailRow {
@@ -343,10 +346,11 @@ export component CameraCard inherits Card {
             step: 1;
             value: focus-pos;
             readout: focus-text;
-            type-in: false;
+            typing: focus-text;
             tip: @tr("Distance");
             tip-detail: focus-enabled ? @tr("How far away the camera focuses.") : focus-tips[2] != "" ? focus-tips[2] : @tr("Set Focus to Manual to use this");
             moved(v) => { focus-moved(v); }
+            typed(text) => { focus-typed(text); }
         }
     }
     RailRow {
