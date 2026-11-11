@@ -306,7 +306,11 @@ impl i_slint_core::item_tree::ItemTree for Instance {
                     _ => 0.0,
                 }
             };
-            let (x, y, width, height) = (field("x"), field("y"), field("width"), field("height"));
+            // Same order as upstream, which walks the BTreeMap of fields: height, width, x, y. Evaluating height can create a ComponentContainer's component, which x then reads.
+            let height = field("height");
+            let width = field("width");
+            let x = field("x");
+            let y = field("y");
             return LogicalRect::new(
                 i_slint_core::lengths::LogicalPoint::new(x, y),
                 i_slint_core::lengths::LogicalSize::new(width, height),

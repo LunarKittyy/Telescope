@@ -7,7 +7,7 @@ again), then read x, y, width and height back out of the map. A profile of the d
 of the window thread, malloc, free and memmove at about 40 % of it.
 
 What it does now: the expression is borrowed from the compilation unit (the cell is only borrowed while it is read, as before), and when it is the usual
-Expression::Struct the four fields are evaluated one by one. Any other expression shape takes the old path, so results are the same. The dependencies the
+Expression::Struct the four fields are evaluated one by one, in the order upstream gets them from the field map (height, width, x, y), because evaluating height can create a ComponentContainer's component, which x reads. Any other expression shape takes the old path, so results are the same. The dependencies the
 evaluation reads are tracked exactly as before, because the same sub-expressions are evaluated in the same context.
 
 Measured (release, window thread CPU over 40 s after 25 s warm-up, fake phone, headless nested KWin, one run each):
