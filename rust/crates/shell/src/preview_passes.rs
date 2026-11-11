@@ -358,17 +358,16 @@ impl PassWork {
     pub fn overlay(&mut self, passes: &[(String, Arc<dyn PreviewPass>)], w: u32, h: u32, scale: f32) -> Option<Image> {
         self.painted_at = Some(Instant::now());
         self.size = (w, h);
-        let mut out: Option<Vec<u8>> = None;
+        let mut out: Option<SharedPixelBuffer<Rgba8Pixel>> = None;
         for (owner, pass) in passes {
             let Some(layer) = guarded(owner, "paint", || pass.paint(w, h, scale)).flatten().filter(|l| (l.width, l.height) == (w, h) && l.format == PixelFormat::Rgba) else { continue };
             match out.as_mut() {
-                // A pass hands over the only reference to the picture it just painted, so it's taken as it is
-                None => out = Some(Arc::try_unwrap(layer.data).unwrap_or_else(|shared| shared.as_ref().clone())),
-                Some(below) => over(below, &layer.data),
+                // The first picture is copied once, into what Slint shows, and the pass can keep its own to paint on again
+                None => out = Some(SharedPixelBuffer::clone_from_slice(&layer.data, w, h)),
+                Some(below) => over(below.make_mut_bytes(), &layer.data),
             }
         }
-        let buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(&out?, w, h);
-        Some(Image::from_rgba8(buffer))
+        Some(Image::from_rgba8(out?))
     }
 }
 

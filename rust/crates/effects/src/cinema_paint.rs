@@ -76,11 +76,28 @@ pub struct Canvas {
     pub w: usize,
     pub h: usize,
     pub data: Vec<u8>,
+    /// The smallest rectangle (x0, y0, x1, y1, ends excluded) that holds everything drawn since the canvas was made over `data`.
+    inked: Option<Inked>,
 }
+
+/// A rectangle of the canvas as (x0, y0, x1, y1), ends excluded.
+type Inked = (usize, usize, usize, usize);
 
 impl Canvas {
     pub fn new(w: usize, h: usize) -> Canvas {
-        Canvas { w, h, data: vec![0; w * h * 4] }
+        Canvas::over(w, h, vec![0; w * h * 4])
+    }
+
+    /// A canvas with this picture on it already (R, G, B, A, w x h pixels).
+    pub fn over(w: usize, h: usize, data: Vec<u8>) -> Canvas {
+        Canvas { w, h, data, inked: None }
+    }
+
+    fn ink(&mut self, x0: usize, y0: usize, x1: usize, y1: usize) {
+        self.inked = Some(match self.inked {
+            None => (x0, y0, x1, y1),
+            Some((a, b, c, d)) => (a.min(x0), b.min(y0), c.max(x1), d.max(y1)),
+        });
     }
 
     /// colour over what is there already, coverage 0..1 of its alpha.
@@ -90,6 +107,7 @@ impl Canvas {
         }
         let i = (y as usize * self.w + x as usize) * 4;
         blend_pixel(&mut self.data[i..i + 4], rgb, alpha);
+        self.ink(x as usize, y as usize, x as usize + 1, y as usize + 1);
     }
 
     /// A rectangle with sharp edges: the pixels whose centres are inside it.
@@ -164,6 +182,8 @@ impl Canvas {
         }
         // Rows of the canvas from the first one the picture lands on, spread over the workers when the picture is big
         let (top, canvas_w) = ((y + rows.start as i64) as usize, self.w);
+        let left = (x + cols.start as i64) as usize;
+        self.ink(left, top, left + cols.len(), top + rows.len());
         let band = &mut self.data[top * canvas_w * 4..(top + rows.len()) * canvas_w * 4];
         telescope_core::image::over_rows(band, canvas_w * 4, |i, line| {
             let row = rows.start + i;
@@ -177,6 +197,11 @@ impl Canvas {
 
     pub fn is_empty(&self) -> bool {
         self.data.as_chunks::<4>().0.iter().all(|p| p[3] == 0)
+    }
+
+    /// Whether nothing shows inside this rectangle.
+    fn is_empty_in(&self, (x0, y0, x1, y1): Inked) -> bool {
+        (y0..y1).all(|y| self.data[(y * self.w + x0) * 4..(y * self.w + x1) * 4].as_chunks::<4>().0.iter().all(|p| p[3] == 0))
     }
 }
 
@@ -283,7 +308,39 @@ pub fn scope_target(rect: Rect, image: (usize, usize), size: &str, scale: f64) -
 /// The tools as a preview pass: the pixel tools in tint(), the scope worked out in analyse() and drawn in paint().
 pub struct CinemaLayer {
     state: Mutex<State>,
+    cache: Mutex<Cache>,
     clock: Arc<dyn Fn() -> f64 + Send + Sync>,
+}
+
+/// What paint() keeps between paints.
+#[derive(Default)]
+struct Cache {
+    still: Option<Still>,
+    held: Option<Held>,
+}
+
+/// What the picture is made for: change any of it and the guides and legend are painted again.
+#[derive(PartialEq)]
+struct StillKey {
+    size: (usize, usize),
+    scale: u64,
+    guides: &'static str,
+    false_colour: bool,
+    language: String,
+}
+
+/// The guides and legend alone, painted for a key.
+struct Still {
+    key: StillKey,
+    /// Whether anything of it shows.
+    shows: bool,
+    frame: Frame,
+}
+
+/// The picture last handed out with the level guide and scope on it, and the rectangle they cover.
+struct Held {
+    frame: Frame,
+    moved: Option<Inked>,
 }
 
 struct State {
@@ -310,7 +367,7 @@ impl Default for CinemaLayer {
 
 impl CinemaLayer {
     pub fn with_clock(clock: Arc<dyn Fn() -> f64 + Send + Sync>) -> CinemaLayer {
-        CinemaLayer { state: Mutex::new(State { look: Look::default(), phase: 0, scope: None, level: None, painted_at: 0.0 }), clock }
+        CinemaLayer { state: Mutex::new(State { look: Look::default(), phase: 0, scope: None, level: None, painted_at: 0.0 }), cache: Mutex::default(), clock }
     }
 
     pub fn look(&self) -> Look {
@@ -318,7 +375,12 @@ impl CinemaLayer {
     }
 
     pub fn set_look(&self, look: Look) {
+        let draws = draws_anything(&look);
         self.state.lock().unwrap().look = look;
+        // With every tool off nothing paints again for a while: the pictures kept for the next paint are let go
+        if !draws {
+            *self.cache.lock().unwrap() = Cache::default();
+        }
     }
 
     pub fn level(&self) -> Option<(Level, f64)> {
@@ -356,36 +418,105 @@ impl CinemaLayer {
         self.state.lock().unwrap().scope = scope;
     }
 
-    /// Everything the layer draws, at this size, or None when nothing shows.
+    /// Everything the layer draws, at this size, or None when nothing shows. Always painted whole from nothing: paint() makes the
+    /// same picture without redoing what hasn't changed.
     pub fn paint_canvas(&self, width: usize, height: usize, scale: f64) -> Option<Canvas> {
         let now = (self.clock)();
-        let (look, level, scope) = {
-            let mut state = self.state.lock().unwrap();
-            state.painted_at = now;
-            (state.look.clone(), state.level, state.scope.clone())
-        };
+        let (look, level, scope) = self.seen_by_paint(now);
         let rect = Rect { x: 0.0, y: 0.0, w: width as f64, h: height as f64 };
         let mut canvas = Canvas::new(width, height);
-        if let Some(shares) = guide_lines(look.guides) {
-            paint_guides(&mut canvas, rect, &shares, scale);
-        }
-        if look.false_colour {
-            paint_legend(&mut canvas, rect, scale);
-        }
-        if let (true, Some((level, at))) = (look.level, level) {
-            if now - at < LEVEL_STALE_S {
-                paint_level(&mut canvas, rect, &level, scale);
-            }
-        }
-        if let (Some((name, image)), true) = (scope, look.scope != "off") {
-            if name == look.scope {
-                let (x, y, w, h) = scope_target(rect, (image.w, image.h), look.scope_size, scale);
-                let (tw, th) = ((w.round() as usize).max(1), (h.round() as usize).max(1));
-                let scaled = Bgra { w: tw, h: th, data: smooth_scale(&image.data, image.w, image.h, tw, th) };
-                canvas.image(&scaled, x.round() as i64, y.round() as i64);
-            }
-        }
+        paint_still(&mut canvas, &look, rect, scale);
+        paint_moving(&mut canvas, &look, level, scope.as_ref(), rect, scale, now);
         (!canvas.is_empty()).then_some(canvas)
+    }
+
+    /// Notes that the preview is drawing this layer, and what it has to draw.
+    fn seen_by_paint(&self, now: f64) -> (Look, Option<(Level, f64)>, Option<(String, Bgra)>) {
+        let mut state = self.state.lock().unwrap();
+        state.painted_at = now;
+        (state.look.clone(), state.level, state.scope.clone())
+    }
+
+    /// paint_canvas as a frame, made cheaply: the guides and legend are painted once for a size and look, and a paint after that
+    /// only puts back what moved (the level guide, the scope) on a picture it keeps, once the preview has let go of it.
+    fn paint_frame(&self, width: usize, height: usize, scale: f64) -> Option<Frame> {
+        let now = (self.clock)();
+        let (look, level, scope) = self.seen_by_paint(now);
+        let rect = Rect { x: 0.0, y: 0.0, w: width as f64, h: height as f64 };
+        let mut cache = self.cache.lock().unwrap();
+        if !draws_anything(&look) {
+            *cache = Cache::default();
+            return None;
+        }
+        let key = StillKey { size: (width, height), scale: scale.to_bits(), guides: look.guides, false_colour: look.false_colour, language: telescope_core::i18n::language() };
+        if cache.still.as_ref().is_none_or(|s| s.key != key) {
+            let mut canvas = Canvas::new(width, height);
+            paint_still(&mut canvas, &look, rect, scale);
+            let shows = !canvas.is_empty();
+            cache.still = Some(Still { key, shows, frame: Frame::new(width as u32, height as u32, PixelFormat::Rgba, canvas.data) });
+            cache.held = None;
+        }
+        let Cache { still: Some(still), held } = &mut *cache else { return None };
+        let scope = scope.filter(|(name, _)| look.scope != "off" && *name == look.scope);
+        let level = level.filter(|&(_, at)| look.level && now - at < LEVEL_STALE_S);
+        if level.is_none() && scope.is_none() {
+            // Nothing moves any more: the picture that had it on is no use
+            *held = None;
+            return still.shows.then(|| still.frame.clone());
+        }
+        // The picture handed out last time, if the preview is done with it, needs only what moved on it put back
+        let reused = held.take().and_then(|mut h| Arc::try_unwrap(std::mem::take(&mut h.frame.data)).ok().map(|data| (data, h.moved)));
+        let data = match reused {
+            Some((mut data, moved)) => {
+                if let Some((x0, y0, x1, y1)) = moved {
+                    for y in y0..y1 {
+                        let at = (y * width + x0) * 4..(y * width + x1) * 4;
+                        data[at.clone()].copy_from_slice(&still.frame.data[at]);
+                    }
+                }
+                data
+            }
+            None => still.frame.data.to_vec(),
+        };
+        let mut canvas = Canvas::over(width, height, data);
+        paint_moving(&mut canvas, &look, level, scope.as_ref(), rect, scale, now);
+        let moved = canvas.inked;
+        let shows = still.shows || moved.is_some_and(|m| !canvas.is_empty_in(m));
+        let frame = Frame::new(width as u32, height as u32, PixelFormat::Rgba, canvas.data);
+        *held = Some(Held { frame: frame.clone(), moved });
+        shows.then_some(frame)
+    }
+}
+
+/// Whether any tool draws over the preview with this look (the pixel tools tint it instead).
+fn draws_anything(look: &Look) -> bool {
+    guide_lines(look.guides).is_some() || look.false_colour || look.level || look.scope != "off"
+}
+
+/// What stays where it is while the preview keeps its size: the framing guides and the false colour legend.
+fn paint_still(canvas: &mut Canvas, look: &Look, rect: Rect, scale: f64) {
+    if let Some(shares) = guide_lines(look.guides) {
+        paint_guides(canvas, rect, &shares, scale);
+    }
+    if look.false_colour {
+        paint_legend(canvas, rect, scale);
+    }
+}
+
+/// What changes with the tilt and the picture: the level guide, then the scope.
+fn paint_moving(canvas: &mut Canvas, look: &Look, level: Option<(Level, f64)>, scope: Option<&(String, Bgra)>, rect: Rect, scale: f64, now: f64) {
+    if let (true, Some((level, at))) = (look.level, level) {
+        if now - at < LEVEL_STALE_S {
+            paint_level(canvas, rect, &level, scale);
+        }
+    }
+    if let (Some((name, image)), true) = (scope, look.scope != "off") {
+        if *name == look.scope {
+            let (x, y, w, h) = scope_target(rect, (image.w, image.h), look.scope_size, scale);
+            let (tw, th) = ((w.round() as usize).max(1), (h.round() as usize).max(1));
+            let scaled = Bgra { w: tw, h: th, data: smooth_scale(&image.data, image.w, image.h, tw, th) };
+            canvas.image(&scaled, x.round() as i64, y.round() as i64);
+        }
     }
 }
 
@@ -490,8 +621,7 @@ impl PreviewPass for CinemaLayer {
     }
 
     fn paint(&self, width: u32, height: u32, scale: f32) -> Option<Frame> {
-        let canvas = self.paint_canvas(width as usize, height as usize, scale as f64)?;
-        Some(Frame::new(width, height, PixelFormat::Rgba, canvas.data))
+        self.paint_frame(width as usize, height as usize, scale as f64)
     }
 }
 

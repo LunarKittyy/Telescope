@@ -273,7 +273,7 @@
   "input": {},
   "output": {
    "start_on": "off",
-   "stop_idle": "off",
+   "stop_idle": "own",
    "stop_delay_s": 15,
    "notify_stop": true
   }
@@ -318,7 +318,7 @@
   },
   "output": {
    "start_on": "off",
-   "stop_idle": "off",
+   "stop_idle": "own",
    "stop_delay_s": 15,
    "notify_stop": true
   }
@@ -345,7 +345,7 @@
   },
   "output": {
    "start_on": "ready",
-   "stop_idle": "off",
+   "stop_idle": "own",
    "stop_delay_s": 3600,
    "notify_stop": true
   }
@@ -358,7 +358,7 @@
   },
   "output": {
    "start_on": "ready",
-   "stop_idle": "off",
+   "stop_idle": "own",
    "stop_delay_s": 15,
    "notify_stop": true
   }
@@ -371,7 +371,7 @@
   },
   "output": {
    "start_on": "ready",
-   "stop_idle": "off",
+   "stop_idle": "own",
    "stop_delay_s": 15,
    "notify_stop": true
   }
@@ -384,7 +384,7 @@
   },
   "output": {
    "start_on": "ready",
-   "stop_idle": "off",
+   "stop_idle": "own",
    "stop_delay_s": 10,
    "notify_stop": true
   }
@@ -444,7 +444,7 @@
   },
   "output": {
    "start_on": "off",
-   "stop_idle": "off",
+   "stop_idle": "own",
    "stop_delay_s": 15,
    "notify_stop": true
   }
@@ -456,7 +456,7 @@
   },
   "output": {
    "start_on": "off",
-   "stop_idle": "off",
+   "stop_idle": "own",
    "stop_delay_s": 15,
    "notify_stop": true
   }
@@ -480,7 +480,7 @@
   },
   "output": {
    "start_on": "off",
-   "stop_idle": "off",
+   "stop_idle": "own",
    "stop_delay_s": 15,
    "notify_stop": true
   }
@@ -492,7 +492,7 @@
   },
   "output": {
    "start_on": "off",
-   "stop_idle": "off",
+   "stop_idle": "own",
    "stop_delay_s": 15,
    "notify_stop": true
   }
