@@ -549,17 +549,17 @@ impl Instance {
                 content_height: lv.content_height.clone(),
                 ctx_sub: sub.clone(),
             };
-            let changed = repeater.ensure_updated_listview_callback(
-                factory,
-                &props,
-                listview_width,
-                listview_height,
-            );
+            // Subscribed before the update reads the row count or runs row init code, so a change made during either still causes another walk
             if let (true, RepeaterOrConditional::Repeater(r)) = (in_walk, repeater) {
                 Pin::as_ref(r).track_model_changes();
                 Pin::as_ref(r).track_row_count_changes();
             }
-            changed
+            repeater.ensure_updated_listview_callback(
+                factory,
+                &props,
+                listview_width,
+                listview_height,
+            )
         } else {
             repeater.ensure_updated(factory)
         }

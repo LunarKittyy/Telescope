@@ -652,9 +652,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         self.data().project_ref().is_dirty.register_as_dependency();
     }
 
-    /// Telescope patch: register the model's row count with the current tracker, which a change outside the instantiated rows of a ListView doesn't flag otherwise (see PATCH.txt)
+    /// Telescope patch: register the model and its row count with the current tracker, which a change outside the instantiated rows of a ListView doesn't flag otherwise (see PATCH.txt)
     pub fn track_row_count_changes(self: Pin<&Self>) {
-        self.data().project_ref().model.get_untracked().model_tracker().track_row_count_changes();
+        self.model().model_tracker().track_row_count_changes();
     }
 
     /// Register the instance generation as a dependency of the current
