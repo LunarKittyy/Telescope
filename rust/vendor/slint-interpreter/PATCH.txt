@@ -1,4 +1,4 @@
-slint-interpreter 1.18.1 from crates.io with one change, in item_tree_vtable.rs (search for "Telescope patch"): ItemTree::item_geometry no longer clones
+slint-interpreter 1.18.1 from crates.io with two changes, both in ItemTree::item_geometry (search for "Telescope patch"): ItemTree::item_geometry no longer clones
 the item's geometry expression and no longer builds a Struct from it.
 
 Why: Slint asks every item for its geometry on every walk of the item tree (rendering, hit testing, dirty tracking). The interpreter answered by cloning the
@@ -12,7 +12,7 @@ evaluation reads are tracked exactly as before, because the same sub-expressions
 
 Second change, in item_tree_vtable.rs and instance.rs (search for "Telescope patch"): ItemTree::item_geometry now remembers each item's rect. Instance has one cache entry per flat tree index
 (created on first use) holding the last rect and a PropertyTracker. The geometry is only evaluated again when the tracker is dirty, that is when a property the geometry expression read has changed;
-the tracker is registered as a dependency of whatever is being evaluated (the window's redraw tracker, a layout), so invalidation reaches them exactly as before. The renderer (femtovg has no
+the tracker is registered as a dependency of whatever is being evaluated (the window's redraw tracker, a layout), so a change reaches them as it did before. One difference: evaluating an item's geometry can itself change a property it already read (a ComponentContainer creating its component), and a tracker forgets a change made while it evaluates. So a dirty entry is evaluated until two passes in a row agree (at most 4), which costs extra only when the entry was dirty. The renderer (femtovg has no
 partial rendering) still walks every item that is not inside a cached layer on each frame, so this makes each visit cheap instead of making fewer visits. Items in a repeated row live in their own
 Instance, so a repeater adding or removing rows never reuses an entry for a different item.
 

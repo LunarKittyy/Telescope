@@ -248,12 +248,23 @@ impl i_slint_core::item_tree::ItemTree for Instance {
             return item_geometry_uncached(this, item_index);
         };
         let entry = cell.get_or_init(Default::default);
-        if let Some(rect) = entry.tracker.as_ref().evaluate_if_dirty(|| item_geometry_uncached(this, item_index)) {
+        let tracker = entry.tracker.as_ref();
+        if tracker.is_dirty() {
+            // Evaluating can have side effects that change what was already read (a ComponentContainer creating its component sets properties), and the tracker forgets
+            // a change made while it evaluates. So evaluate until two passes in a row agree, which also leaves the tracker holding the dependencies of the last pass.
+            let mut rect = tracker.evaluate_as_dependency_root(|| item_geometry_uncached(this, item_index));
+            for _ in 0..3 {
+                let again = tracker.evaluate_as_dependency_root(|| item_geometry_uncached(this, item_index));
+                let settled = again == rect;
+                rect = again;
+                if settled {
+                    break;
+                }
+            }
             entry.rect.set(rect);
-            rect
-        } else {
-            entry.rect.get()
         }
+        tracker.register_as_dependency_to_current_binding();
+        entry.rect.get()
     }
 
     fn accessible_role(self: Pin<&Self>, item_index: u32) -> AccessibleRole {
