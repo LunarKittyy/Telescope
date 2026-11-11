@@ -253,6 +253,12 @@ fn aliases(piece: &Piece) -> String {
     out
 }
 
+/// Whether a card is drawn once into a layer of its own and reused until something in it changes. Every card but the preview's: its
+/// picture changes with every frame, and everything in a layer with it would be drawn again each time.
+fn caches(card: &CardPlace) -> bool {
+    !card.fold_key.starts_with("preview/")
+}
+
 /// Where card i sits in each mode: its column and the card above it there.
 fn card_element(i: usize, card: &CardPlace, cards: &[CardPlace], cols: &[[(Vec<usize>, Option<f32>); 3]; 3]) -> String {
     let id = &card.piece.id;
@@ -274,8 +280,9 @@ fn card_element(i: usize, card: &CardPlace, cards: &[CardPlace], cols: &[[(Vec<u
         }
     });
     let extra = if card.region == Region::Center { mode_expr(|m| format!("root.extra{}", place(m).0)) } else { "0px".into() };
+    let cache = if caches(card) { "                cache-rendering-hint: true;\n" } else { "" };
     format!(
-        "            {id} := {id}C {{\n                x: {x};\n                y: {y};\n                width: {w};\n                height: self.preferred-height + {extra};\n                fold-key: root.card-folds ? {key} : \"\";\n                hue: Theme.plugin-hue({cat});\n            }}\n",
+        "            {id} := {id}C {{\n                x: {x};\n                y: {y};\n                width: {w};\n                height: self.preferred-height + {extra};\n                fold-key: root.card-folds ? {key} : \"\";\n                hue: Theme.plugin-hue({cat});\n{cache}            }}\n",
         key = quote(&card.fold_key),
         cat = quote(&card.category),
     )
@@ -588,6 +595,25 @@ export component Hinted inherits Card {
         let cards = vec![CardPlace { piece, region: Region::Right, fold_key: "one/Stage".into(), category: "sound".into() }];
         let doc = window(&cards, &Panels::default(), &[]);
         assert!(doc.contains("hue: Theme.plugin-hue(\"sound\");"), "{doc}");
+    }
+
+    #[test]
+    fn every_card_but_the_previews_is_drawn_into_a_cached_layer() {
+        i_slint_backend_testing::init_no_event_loop();
+        let (other, f0) = piece("p0", "plugins/one/card.slint", "Stage", STAGE);
+        let (preview, f1) = piece("p1", "plugins/preview/card.slint", "Stage", STAGE);
+        let cards = vec![
+            CardPlace { piece: other, region: Region::Right, fold_key: "one/Stage".into(), category: "sound".into() },
+            CardPlace { piece: preview, region: Region::Center, fold_key: "preview/Stage".into(), category: "preview".into() },
+        ];
+        let mut panels = Panels::default();
+        panels.place(Region::Right, 0, false, "sound");
+        panels.place(Region::Center, 1, false, "preview");
+        let doc = window(&cards, &panels, &[]);
+        let block = |id: &str| doc.split(&format!("{id} := {id}C {{")).nth(1).and_then(|r| r.split("            }").next()).unwrap_or_else(|| panic!("{id} in {doc}")).to_string();
+        assert!(block("p0").contains("cache-rendering-hint: true;"), "{doc}");
+        assert!(!block("p1").contains("cache-rendering-hint"), "{doc}");
+        crate::compile::compile("window.slint", &doc, vec![f0, f1], "TelescopeWindow").unwrap_or_else(|e| panic!("{e}\n{doc}"));
     }
 
     #[test]
