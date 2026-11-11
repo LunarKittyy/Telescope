@@ -199,6 +199,13 @@ pub struct SubComponentInstance {
     pub menubar: RefCell<Option<vtable::VRc<i_slint_core::menus::MenuVTable>>>,
 }
 
+// Telescope patch: an item's last geometry and the tracker that knows when a property it read has changed
+#[derive(Default)]
+pub struct GeometryCacheEntry {
+    pub tracker: Pin<Box<i_slint_core::properties::PropertyTracker>>,
+    pub rect: std::cell::Cell<i_slint_core::lengths::LogicalRect>,
+}
+
 /// Top-level item tree handed to i-slint-core via `VRc<ItemTreeVTable, _>`.
 pub struct Instance {
     pub root_sub_component: Pin<Rc<SubComponentInstance>>,
@@ -215,6 +222,8 @@ pub struct Instance {
     /// Parallel table mapping each flat tree index whose children are dynamically
     /// z-ordered to the per-child z sources. `None` for every other node.
     pub z_sort_table: Box<[Option<Vec<llr::ZSource>>]>,
+    // Telescope patch: one cached geometry per flat tree index, filled on first use (see PATCH.txt)
+    pub geometry_cache: Box<[OnceCell<GeometryCacheEntry>]>,
     pub globals: Rc<GlobalStorage>,
     pub self_weak: OnceCell<VWeak<ItemTreeVTable, Instance>>,
     /// When this `Instance` is a repeated entry, points back to the parent
@@ -765,6 +774,7 @@ fn build_instance(
     let root_sub_component =
         build_sub_component_instance(compilation_unit, item_tree.root, parent_for_root);
     let (tree_nodes, dynamic_table, item_table, z_sort_table) = build_tree_nodes(&item_tree.tree);
+    let tree_nodes_len = tree_nodes.len();
 
     let vrc = VRc::new(Instance {
         root_sub_component,
@@ -772,6 +782,7 @@ fn build_instance(
         dynamic_table: dynamic_table.into_boxed_slice(),
         item_table: item_table.into_boxed_slice(),
         z_sort_table: z_sort_table.into_boxed_slice(),
+        geometry_cache: (0..tree_nodes_len).map(|_| OnceCell::new()).collect(),
         globals,
         self_weak: OnceCell::new(),
         parent_instance: parent,

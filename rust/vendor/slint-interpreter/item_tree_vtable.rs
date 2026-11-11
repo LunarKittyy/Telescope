@@ -242,93 +242,18 @@ impl i_slint_core::item_tree::ItemTree for Instance {
     }
 
     fn item_geometry(self: Pin<&Self>, item_index: u32) -> LogicalRect {
-        // `item_index` is the flat tree index. Resolve it via `item_table`
-        // into the owning sub-component, then look up the geometry by
-        // the item's `index_in_tree`. `sc.geometries` is keyed by the
-        // sub-component-local tree index (set by `generate_item_indices`),
-        // not by the raw `ItemInstanceIdx` slot.
+        // Telescope patch: remember each item's geometry until a property it read changes (see PATCH.txt)
         let this = self.get_ref();
-        let Some(entry) = this.item_table.get(item_index as usize).and_then(Option::as_ref) else {
-            return LogicalRect::default();
+        let Some(cell) = this.geometry_cache.get(item_index as usize) else {
+            return item_geometry_uncached(this, item_index);
         };
-        let mut owner_rc = this.root_sub_component.clone();
-        for &sub_idx in entry.0.iter() {
-            owner_rc = owner_rc.sub_components[sub_idx].clone();
-        }
-        let cu = owner_rc.compilation_unit.clone();
-        let sc = &cu.sub_components[owner_rc.sub_component_idx];
-        let item = &sc.items[entry.1];
-        // When the flat tree crosses into a sub-component (non-empty path)
-        // and lands on its root element (local tree index 0), the inner
-        // root's geometry can duplicate the parent's placement: the
-        // compiler's `adjust_geometry_for_injected_parent` pass hoists the
-        // original position into an injected wrapper item, and the inner
-        // root applies the same offset again via its `y: root-1_y`
-        // binding. So read the wrapper's geometry from the *parent*
-        // sub-component at the placement slot and never query the inner
-        // root. Fall through when the parent
-        // has no entry (the sub-component was placed directly with no
-        // wrapper, e.g. `box := SpinBox {}` inside a Window — then the
-        // inner root's own geometry is the correct placement).
-        // Telescope patch: borrow the geometry expression from the compilation unit instead of cloning the whole expression tree, and read x, y, width and height one by one instead of
-        // building a Struct (a HashMap) for every item on every walk (see PATCH.txt)
-        let parent_placement = if !entry.0.is_empty() && item.index_in_tree == 0 {
-            let mut parent_rc = this.root_sub_component.clone();
-            for &sub_idx in &entry.0[..entry.0.len() - 1] {
-                parent_rc = parent_rc.sub_components[sub_idx].clone();
-            }
-            let placement = entry.0[entry.0.len() - 1];
-            let parent_sc = &cu.sub_components[parent_rc.sub_component_idx];
-            let placement_idx = parent_sc.sub_components[placement].index_in_tree as usize;
-            parent_sc
-                .geometries
-                .get(placement_idx)
-                .and_then(|g| g.as_ref())
-                .map(|expr| (expr, parent_rc))
+        let entry = cell.get_or_init(Default::default);
+        if let Some(rect) = entry.tracker.as_ref().evaluate_if_dirty(|| item_geometry_uncached(this, item_index)) {
+            entry.rect.set(rect);
+            rect
         } else {
-            None
-        };
-        let (expr_cell, ctx_owner) = if let Some(pair) = parent_placement {
-            pair
-        } else {
-            let tree_local_idx = item.index_in_tree as usize;
-            match sc.geometries.get(tree_local_idx) {
-                Some(Some(expr)) => (expr, owner_rc),
-                _ => return LogicalRect::default(),
-            }
-        };
-        let expr = expr_cell.borrow();
-        let mut ctx = crate::eval::EvalContext::new(ctx_owner);
-        if let i_slint_compiler::llr::Expression::Struct { values, .. } = &*expr {
-            let mut field = |name: &str| -> f32 {
-                match values.get(name).map(|e| crate::eval::eval_expression(&mut ctx, e)) {
-                    Some(crate::Value::Number(n)) => n as f32,
-                    _ => 0.0,
-                }
-            };
-            // Same order as upstream, which walks the BTreeMap of fields: height, width, x, y. Evaluating height can create a ComponentContainer's component, which x then reads.
-            let height = field("height");
-            let width = field("width");
-            let x = field("x");
-            let y = field("y");
-            return LogicalRect::new(
-                i_slint_core::lengths::LogicalPoint::new(x, y),
-                i_slint_core::lengths::LogicalSize::new(width, height),
-            );
+            entry.rect.get()
         }
-        let crate::Value::Struct(s) = crate::eval::eval_expression(&mut ctx, &expr) else {
-            return LogicalRect::default();
-        };
-        let as_f32 = |name: &str| -> f32 {
-            match s.get_field(name) {
-                Some(crate::Value::Number(n)) => *n as f32,
-                _ => 0.0,
-            }
-        };
-        LogicalRect::new(
-            i_slint_core::lengths::LogicalPoint::new(as_f32("x"), as_f32("y")),
-            i_slint_core::lengths::LogicalSize::new(as_f32("width"), as_f32("height")),
-        )
     }
 
     fn accessible_role(self: Pin<&Self>, item_index: u32) -> AccessibleRole {
@@ -544,4 +469,94 @@ fn accessibility_action_args(action: &AccessibilityAction) -> Vec<crate::Value> 
         }
         _ => Vec::new(),
     }
+}
+
+// Telescope patch: what ItemTree::item_geometry did before it got a cache, unchanged apart from taking the instance directly
+fn item_geometry_uncached(this: &Instance, item_index: u32) -> LogicalRect {
+    // `item_index` is the flat tree index. Resolve it via `item_table`
+    // into the owning sub-component, then look up the geometry by
+    // the item's `index_in_tree`. `sc.geometries` is keyed by the
+    // sub-component-local tree index (set by `generate_item_indices`),
+    // not by the raw `ItemInstanceIdx` slot.
+    let Some(entry) = this.item_table.get(item_index as usize).and_then(Option::as_ref) else {
+        return LogicalRect::default();
+    };
+    let mut owner_rc = this.root_sub_component.clone();
+    for &sub_idx in entry.0.iter() {
+        owner_rc = owner_rc.sub_components[sub_idx].clone();
+    }
+    let cu = owner_rc.compilation_unit.clone();
+    let sc = &cu.sub_components[owner_rc.sub_component_idx];
+    let item = &sc.items[entry.1];
+    // When the flat tree crosses into a sub-component (non-empty path)
+    // and lands on its root element (local tree index 0), the inner
+    // root's geometry can duplicate the parent's placement: the
+    // compiler's `adjust_geometry_for_injected_parent` pass hoists the
+    // original position into an injected wrapper item, and the inner
+    // root applies the same offset again via its `y: root-1_y`
+    // binding. So read the wrapper's geometry from the *parent*
+    // sub-component at the placement slot and never query the inner
+    // root. Fall through when the parent
+    // has no entry (the sub-component was placed directly with no
+    // wrapper, e.g. `box := SpinBox {}` inside a Window — then the
+    // inner root's own geometry is the correct placement).
+    // Telescope patch: borrow the geometry expression from the compilation unit instead of cloning the whole expression tree, and read x, y, width and height one by one instead of
+    // building a Struct (a HashMap) for every item on every walk (see PATCH.txt)
+    let parent_placement = if !entry.0.is_empty() && item.index_in_tree == 0 {
+        let mut parent_rc = this.root_sub_component.clone();
+        for &sub_idx in &entry.0[..entry.0.len() - 1] {
+            parent_rc = parent_rc.sub_components[sub_idx].clone();
+        }
+        let placement = entry.0[entry.0.len() - 1];
+        let parent_sc = &cu.sub_components[parent_rc.sub_component_idx];
+        let placement_idx = parent_sc.sub_components[placement].index_in_tree as usize;
+        parent_sc
+            .geometries
+            .get(placement_idx)
+            .and_then(|g| g.as_ref())
+            .map(|expr| (expr, parent_rc))
+    } else {
+        None
+    };
+    let (expr_cell, ctx_owner) = if let Some(pair) = parent_placement {
+        pair
+    } else {
+        let tree_local_idx = item.index_in_tree as usize;
+        match sc.geometries.get(tree_local_idx) {
+            Some(Some(expr)) => (expr, owner_rc),
+            _ => return LogicalRect::default(),
+        }
+    };
+    let expr = expr_cell.borrow();
+    let mut ctx = crate::eval::EvalContext::new(ctx_owner);
+    if let i_slint_compiler::llr::Expression::Struct { values, .. } = &*expr {
+        let mut field = |name: &str| -> f32 {
+            match values.get(name).map(|e| crate::eval::eval_expression(&mut ctx, e)) {
+                Some(crate::Value::Number(n)) => n as f32,
+                _ => 0.0,
+            }
+        };
+        // Same order as upstream, which walks the BTreeMap of fields: height, width, x, y. Evaluating height can create a ComponentContainer's component, which x then reads.
+        let height = field("height");
+        let width = field("width");
+        let x = field("x");
+        let y = field("y");
+        return LogicalRect::new(
+            i_slint_core::lengths::LogicalPoint::new(x, y),
+            i_slint_core::lengths::LogicalSize::new(width, height),
+        );
+    }
+    let crate::Value::Struct(s) = crate::eval::eval_expression(&mut ctx, &expr) else {
+        return LogicalRect::default();
+    };
+    let as_f32 = |name: &str| -> f32 {
+        match s.get_field(name) {
+            Some(crate::Value::Number(n)) => *n as f32,
+            _ => 0.0,
+        }
+    };
+    LogicalRect::new(
+        i_slint_core::lengths::LogicalPoint::new(as_f32("x"), as_f32("y")),
+        i_slint_core::lengths::LogicalSize::new(as_f32("width"), as_f32("height")),
+    )
 }
