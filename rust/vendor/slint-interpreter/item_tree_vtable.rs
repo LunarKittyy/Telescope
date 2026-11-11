@@ -251,13 +251,19 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         let tracker = entry.tracker.as_ref();
         if tracker.is_dirty() {
             // Evaluating can change what was already read (a ComponentContainer creating its component sets properties), which leaves the tracker dirty again.
-            // Evaluate again while that happens, and if it never settles leave the entry dirty so the next query tries again.
+            // Evaluate again while that happens. If it has not settled after GEOMETRY_PASSES, do not cache: answer from an uncached evaluation in the caller's own
+            // tracking context (as upstream does) so the caller depends on the inputs itself, and leave the entry dirty so the next query starts over.
+            let mut settled = false;
             let mut rect = LogicalRect::default();
             for _ in 0..GEOMETRY_PASSES {
                 rect = tracker.evaluate_as_dependency_root_keeping_invalidation(|| item_geometry_uncached(this, item_index));
                 if !tracker.is_dirty() {
+                    settled = true;
                     break;
                 }
+            }
+            if !settled {
+                return item_geometry_uncached(this, item_index);
             }
             entry.rect.set(rect);
         }

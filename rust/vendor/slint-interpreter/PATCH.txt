@@ -14,9 +14,9 @@ Second change, in item_tree_vtable.rs and instance.rs (search for "Telescope pat
 (created on first use) holding the last rect and a PropertyTracker. The geometry is only evaluated again when the tracker is dirty, that is when a property the geometry expression read has changed;
 the tracker is registered as a dependency of whatever is being evaluated (the window's redraw tracker, a layout), so a change reaches them as it did before. One difference from upstream's other caches: evaluating an item's geometry can itself invalidate a property it already read (a ComponentContainer creating its component sets properties), and
 PropertyTracker::evaluate_as_dependency_root forgets such a change because it clears the dirty flag after the closure. The vendored i-slint-core has a variant that clears it before (see
-vendor/i-slint-core/PATCH.txt), so the tracker is still dirty afterwards. The cache evaluates once; while the tracker is dirty again it evaluates again, at most 8 times in one query. If it still
-has not settled the entry is left dirty and the next query tries again (the rect returned meanwhile is the last pass's). An ordinary item is evaluated once. A chain of factories that needs more
-than 8 passes converges over several queries instead of caching a stale answer as clean. The renderer (femtovg has no
+vendor/i-slint-core/PATCH.txt), so the tracker is still dirty afterwards. The cache evaluates once; while the tracker is dirty again it evaluates again, at most 8 times in one query. If it has not settled after 8 passes nothing is cached
+for that query: the geometry is evaluated once more directly in the caller's own tracking context, exactly as without the cache, and the entry stays dirty so the next query starts over.
+Nothing guarantees such a chain ever settles; it just costs what it cost before the cache. An ordinary item is evaluated once. The renderer (femtovg has no
 partial rendering) still walks every item that is not inside a cached layer on each frame, so this makes each visit cheap instead of making fewer visits. Items in a repeated row live in their own
 Instance, so a repeater adding or removing rows never reuses an entry for a different item.
 
