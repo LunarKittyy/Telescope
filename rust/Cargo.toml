@@ -85,6 +85,8 @@ slint-interpreter = { version = "1.18", default-features = false, features = ["s
 # femtovg 0.27 (the version Slint 1.18 takes) drops every pipeline a flush didn't use and compiles it again on the next one, which was most of a frame's cost: see vendor/femtovg/PATCH.txt
 [patch.crates-io]
 femtovg = { path = "vendor/femtovg" }
+# The Slint interpreter (1.18.1) clones every item's geometry expression and builds a hash map from it on every walk of the item tree: see vendor/slint-interpreter/PATCH.txt
+slint-interpreter = { path = "vendor/slint-interpreter" }
 
 [profile.release]
 opt-level = 3
