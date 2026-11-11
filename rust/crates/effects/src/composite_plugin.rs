@@ -166,7 +166,7 @@ impl Shared {
     fn run_clock(&self) {
         let period = 1_000_000_000 / FALLBACK_FPS;
         loop {
-            let wait = {
+            {
                 let mut hub = self.hub();
                 if hub.shut {
                     return;
@@ -176,20 +176,24 @@ impl Shared {
                     continue;
                 }
                 hub.ticks += 1;
-                Self::clock_wait(hub.main_frame.as_ref().map(|(_, at)| *at), monotonic_ns(), period)
-            };
-            std::thread::sleep(Duration::from_nanos(wait));
+                let wait = Self::clock_wait(hub.main_frame.as_ref().map(|(_, at)| *at), monotonic_ns(), period);
+                // the wake lets shutdown cut the sleep short
+                let (hub, _) = self.wake.wait_timeout(hub, Duration::from_nanos(wait)).unwrap_or_else(|e| e.into_inner());
+                if hub.shut {
+                    return;
+                }
+            }
             if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.draw_stalled(monotonic_ns()))).is_err() {
                 log::error!("Drawing the picture while its stream stalls failed");
             }
         }
     }
 
-    /// How long the clock sleeps (ns): a frame time while the stream is stalled or unheard from, else until its newest frame would be
-    /// three frame times old, so a clock that wakes just before each new frame doesn't stay locked to the frame rate.
+    /// How long the clock sleeps (ns): a frame time while the stream is stalled or unheard from, else until its newest frame counts as
+    /// stalled (two frame times old, as `draw_stalled` sees it). A frame stamped in the future counts as new, so it never exceeds that.
     fn clock_wait(last_frame: Option<u64>, now: u64, period: u64) -> u64 {
         match last_frame {
-            Some(at) if now.saturating_sub(at) < 2 * period => at + 3 * period - now,
+            Some(at) if now.saturating_sub(at) < 2 * period => 2 * period - now.saturating_sub(at),
             _ => period,
         }
     }

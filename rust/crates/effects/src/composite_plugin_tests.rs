@@ -366,11 +366,33 @@ fn the_clock_sleeps_until_the_newest_frame_would_stall() {
     // no frame yet or a stalled one: a frame time
     assert_eq!(Shared::clock_wait(None, 10 * period, period), period);
     assert_eq!(Shared::clock_wait(Some(0), 3 * period, period), period);
-    // a fresh one: until it is three frame times old
-    assert_eq!(Shared::clock_wait(Some(0), 0, period), 3 * period);
-    assert_eq!(Shared::clock_wait(Some(0), period, period), 2 * period);
-    // just before it counts as stalled: still more than a frame time
-    assert_eq!(Shared::clock_wait(Some(0), 2 * period - 1, period), period + 1);
+    // a fresh one: until it is two frame times old, when draw_stalled takes over
+    assert_eq!(Shared::clock_wait(Some(0), 0, period), 2 * period);
+    assert_eq!(Shared::clock_wait(Some(0), period, period), period);
+    // just before it counts as stalled: a nanosecond more
+    assert_eq!(Shared::clock_wait(Some(0), 2 * period - 1, period), 1);
+    // a frame stamped in the future is new, and never makes the clock sleep for long
+    assert_eq!(Shared::clock_wait(Some(10 * period), 0, period), 2 * period);
+}
+
+#[test]
+fn a_slow_main_stream_does_not_hold_back_a_faster_one() {
+    let mut r = rig();
+    r.plugin.shutdown(&mut r.host);
+    r.two_streams(0.0);
+    let main = solid([255, 0, 0], (90, 160));
+    let (period, t0) = (SECOND / 30, monotonic_ns());
+    let sent = numbered(r.process(&main, "a"), 1, t0);
+    r.store.set(0, stream("a", "Phone A", sent));
+    r.set_main(&main, t0);
+    // 12 fps main: the clock wakes when its frame is two periods old, before the next one is due
+    let wake = t0 + Shared::clock_wait(Some(t0), t0, period);
+    r.store.set(1, stream("b", "Phone B", numbered(solid([0, 255, 255], (90, 160)), 3, wake)));
+    assert!(r.draw_stalled(wake) && px(&r.store.last().1, 90, 280) == [0, 255, 255]);
+    // and it keeps waking each period until the main's next frame arrives
+    assert_eq!(Shared::clock_wait(Some(t0), wake, period), period);
+    r.store.set(1, stream("b", "Phone B", numbered(solid([255, 255, 0], (90, 160)), 4, wake + period)));
+    assert!(r.draw_stalled(wake + period) && px(&r.store.last().1, 90, 280) == [255, 255, 0]);
 }
 
 #[test]
