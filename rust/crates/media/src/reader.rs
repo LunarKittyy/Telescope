@@ -95,6 +95,8 @@ impl Queue {
 struct Shared {
     queue: Mutex<Queue>,
     ready: Condvar,
+    /// Notified when the queue has been read from, for the feed-reader thread waiting for room.
+    room: Condvar,
     stale_after: Duration,
 }
 
@@ -151,7 +153,7 @@ impl Reader {
         let stop: Arc<dyn FeedStopper> = Arc::from(feed.stopper());
         let decoded_flag = feed.decoded_flag();
         let skipped = feed.skipped_frames();
-        let shared = Arc::new(Shared { queue: Mutex::default(), ready: Condvar::new(), stale_after });
+        let shared = Arc::new(Shared { queue: Mutex::default(), ready: Condvar::new(), room: Condvar::new(), stale_after });
         let decoded = Arc::new(AtomicU32::new(0));
         let (sh, d) = (shared.clone(), decoded.clone());
         let gone = Arc::new(AtomicBool::new(false));
@@ -172,10 +174,10 @@ impl Reader {
                 if g.load(Ordering::Relaxed) {
                     return;
                 }
+                let limit = if can_ask { MAX_QUEUED_BYTES_ASKED } else { MAX_QUEUED_BYTES };
                 let (full, ask) = {
                     let mut q = sh.lock();
                     q.trim(Instant::now(), sh.stale_after);
-                    let limit = if can_ask { MAX_QUEUED_BYTES_ASKED } else { MAX_QUEUED_BYTES };
                     (q.bytes > limit, std::mem::take(&mut q.want_key))
                 };
                 if ask && last_ask.is_none_or(|t| t.elapsed() >= ask_every) {
@@ -185,7 +187,8 @@ impl Reader {
                     ask_every = (ask_every * 2).min(KEY_ASK_BACKOFF);
                 }
                 if full {
-                    std::thread::sleep(Duration::from_millis(2));
+                    // Woken by the decoder side reading; the timeout is for the checks above (a keyframe ask, the Reader dropped)
+                    let _ = sh.room.wait_timeout_while(sh.lock(), Duration::from_millis(50), |q| q.bytes > limit);
                     continue;
                 }
                 let read = feed.read();
@@ -227,6 +230,7 @@ impl Reader {
             self.pending_bytes += std::mem::take(&mut q.dropped_bytes);
             if let Some(next) = q.packets.pop_front() {
                 q.bytes -= next.packet.data.len() as u64;
+                self.shared.room.notify_one();
                 return Ok(next);
             }
             if let Some(end) = &q.end {
@@ -240,6 +244,7 @@ impl Reader {
 impl Drop for Reader {
     fn drop(&mut self) {
         self.gone.store(true, Ordering::Relaxed);
+        self.shared.room.notify_all();
     }
 }
 
@@ -833,6 +838,68 @@ mod age_tests {
         // Judged against each other, so a busy machine moves both: the wait comes after the decoding, not before it
         assert!(shown >= Duration::from_millis(230), "{shown:?}");
         assert!(decoded_at + Duration::from_millis(100) <= shown, "{decoded_at:?} then {shown:?}");
+    }
+}
+
+/// What the feed-reader thread costs while the decoder is behind and the queue is full.
+#[cfg(all(test, target_os = "linux"))]
+mod wakeups {
+    use super::*;
+    use telescope_core::media::Decoded;
+
+    struct Endless;
+
+    struct NoStop;
+
+    impl FeedStopper for NoStop {
+        fn stop(&self) {}
+    }
+
+    impl VideoFeed for Endless {
+        fn read(&mut self) -> Result<Packet, FeedEnd> {
+            Ok(Packet { data: vec![0; 1 << 20], time_ns: 0 })
+        }
+        fn stopper(&self) -> Box<dyn FeedStopper> {
+            Box::new(NoStop)
+        }
+    }
+
+    struct Slow;
+
+    impl Decoder for Slow {
+        fn decode(&mut self, _: &Packet) -> Decoded {
+            std::thread::sleep(Duration::from_millis(100));
+            Decoded { newest: None, count: 0 }
+        }
+        fn hardware(&self) -> bool {
+            false
+        }
+    }
+
+    fn feed_thread_switches() -> u64 {
+        for task in std::fs::read_dir("/proc/self/task").unwrap().flatten() {
+            let dir = task.path();
+            if std::fs::read_to_string(dir.join("comm")).is_ok_and(|c| c.trim() == "feed-reader") {
+                let status = std::fs::read_to_string(dir.join("status")).unwrap();
+                return status.lines().filter(|l| l.contains("ctxt_switches")).filter_map(|l| l.split_whitespace().nth(1)?.parse::<u64>().ok()).sum();
+            }
+        }
+        0
+    }
+
+    /// cargo test -p telescope-media --release --lib -- --ignored --nocapture full_queue_wakeups
+    #[test]
+    #[ignore = "a measurement"]
+    fn full_queue_wakeups() {
+        let mut reader = Reader::new(Box::new(Endless), Box::new(Slow));
+        reader.max_bytes = u64::MAX;
+        std::thread::spawn(move || {
+            let _ = reader.read();
+        });
+        std::thread::sleep(Duration::from_millis(500));
+        let before = feed_thread_switches();
+        std::thread::sleep(Duration::from_secs(3));
+        println!("feed thread, queue full, decoder at 10 packets/s: {:.0} context switches/s", (feed_thread_switches() - before) as f64 / 3.0);
     }
 }
 

@@ -568,37 +568,42 @@ fn boxed(src: &[u8], w: usize, h: usize, ch: usize, kw: usize, kh: usize) -> Vec
     out
 }
 
-/// A rectangle's minimum (erode) or maximum (dilate), one axis at a time.
+/// a and b side by side, the smaller (erode) or the larger (dilate) of each pair, into a.
+fn pick_into(a: &mut [u8], b: &[u8], erode: bool) {
+    if erode {
+        a.iter_mut().zip(b).for_each(|(a, b)| *a = (*a).min(*b));
+    } else {
+        a.iter_mut().zip(b).for_each(|(a, b)| *a = (*a).max(*b));
+    }
+}
+
+/// A rectangle's minimum (erode) or maximum (dilate), one axis at a time, a row of whole slices at a time so each step vectorises.
 fn morph(src: &[u8], w: usize, h: usize, k: usize, erode: bool) -> Vec<u8> {
-    let half = (k / 2) as isize;
-    let pick = |a: u8, b: u8| if erode { a.min(b) } else { a.max(b) };
-    let start = if erode { 255 } else { 0 };
+    let half = k / 2;
     let mut across = vec![0u8; w * h];
-    for y in 0..h {
-        for x in 0..w {
-            let mut v = start;
-            for j in -half..=half {
-                let xx = x as isize + j;
-                if xx >= 0 && (xx as usize) < w {
-                    v = pick(v, src[y * w + xx as usize]);
-                }
-            }
-            across[y * w + x] = v;
-        }
-    }
     let mut out = vec![0u8; w * h];
-    for y in 0..h {
-        for x in 0..w {
-            let mut v = start;
-            for j in -half..=half {
-                let yy = y as isize + j;
-                if yy >= 0 && (yy as usize) < h {
-                    v = pick(v, across[yy as usize * w + x]);
-                }
-            }
-            out[y * w + x] = v;
-        }
+    if w == 0 || h == 0 {
+        return out;
     }
+    over_rows(&mut across, w, |y, line| {
+        let row = &src[y * w..][..w];
+        line.copy_from_slice(row);
+        for j in 1..=half.min(w - 1) {
+            pick_into(&mut line[..w - j], &row[j..], erode);
+            pick_into(&mut line[j..], &row[..w - j], erode);
+        }
+    });
+    over_rows(&mut out, w, |y, line| {
+        line.copy_from_slice(&across[y * w..][..w]);
+        for j in 1..=half {
+            if y >= j {
+                pick_into(line, &across[(y - j) * w..][..w], erode);
+            }
+            if y + j < h {
+                pick_into(line, &across[(y + j) * w..][..w], erode);
+            }
+        }
+    });
     out
 }
 
@@ -1083,6 +1088,73 @@ mod tests {
         }
         let out = mask.shrink(120, 67);
         assert_eq!((out.w, out.h, out.data.len()), (120, 67, 120 * 67));
+    }
+
+    /// The rectangle's minimum or maximum as it was first written: a window at a time, one axis after the other.
+    fn morph_slowly(src: &[u8], w: usize, h: usize, k: usize, erode: bool) -> Vec<u8> {
+        let half = (k / 2) as isize;
+        let pick = |a: u8, b: u8| if erode { a.min(b) } else { a.max(b) };
+        let start = if erode { 255 } else { 0 };
+        let mut across = vec![0u8; w * h];
+        for y in 0..h {
+            for x in 0..w {
+                let mut v = start;
+                for j in -half..=half {
+                    let xx = x as isize + j;
+                    if xx >= 0 && (xx as usize) < w {
+                        v = pick(v, src[y * w + xx as usize]);
+                    }
+                }
+                across[y * w + x] = v;
+            }
+        }
+        let mut out = vec![0u8; w * h];
+        for y in 0..h {
+            for x in 0..w {
+                let mut v = start;
+                for j in -half..=half {
+                    let yy = y as isize + j;
+                    if yy >= 0 && (yy as usize) < h {
+                        v = pick(v, across[yy as usize * w + x]);
+                    }
+                }
+                out[y * w + x] = v;
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn erode_and_dilate_take_the_same_rectangle_as_a_plain_window() {
+        let mut n = 7u32;
+        for (w, h, k) in [(1usize, 1usize, 9usize), (3, 40, 9), (40, 3, 9), (37, 29, 9), (64, 48, 3), (50, 50, 1), (20, 20, 25)] {
+            let src: Vec<u8> = (0..w * h).map(|_| {
+                n = n.wrapping_mul(1664525).wrapping_add(1013904223);
+                if n >> 28 == 0 { 255 } else { (n >> 24) as u8 }
+            }).collect();
+            for erode in [true, false] {
+                assert_eq!(morph(&src, w, h, k, erode), morph_slowly(&src, w, h, k, erode), "{w}x{h} k={k} erode={erode}");
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "timing bench, run with --release -- --ignored --nocapture"]
+    fn bench_dilate() {
+        for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+            let mut m = Gray::new(w, h);
+            for y in h / 5..h * 4 / 5 {
+                m.data[y * w + w / 3..y * w + w / 2].fill(255);
+            }
+            let best = |f: &mut dyn FnMut()| (0..5).map(|_| {
+                let start = std::time::Instant::now();
+                f();
+                start.elapsed().as_secs_f64() * 1000.0
+            }).fold(f64::MAX, f64::min);
+            let before = best(&mut || { std::hint::black_box(morph_slowly(&m.data, w, h, 9, false)); });
+            let now = best(&mut || { std::hint::black_box(m.dilate(9)); });
+            println!("dilate(9) {w}x{h}: plain windows {before:.2} ms, now {now:.2} ms");
+        }
     }
 
     #[test]

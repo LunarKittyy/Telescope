@@ -110,6 +110,8 @@ pub struct Streams {
     thumb_worker: RefCell<Option<ThumbWorker>>,
     /// Whether a wake for a new frame is waiting on the event loop (WakingSlot): a frame that comes meanwhile adds none.
     pub(crate) frame_wake: Arc<std::sync::atomic::AtomicBool>,
+    /// Set while nothing shows a preview (window hidden or minimised, no pop-out): frames then ask the window for no wake.
+    pub(crate) frame_unwanted: Arc<std::sync::atomic::AtomicBool>,
     /// How many ended workers have stopped and let go of their stream's state, for a test to wait for before it checks what they left.
     pub cleaned: Arc<std::sync::atomic::AtomicU32>,
 }
@@ -1806,7 +1808,7 @@ impl FlowHost for Host<'_> {
                                   plugin_source: source.kind.as_phone().is_none(), waiting_text: source.kind.waiting_text(),
                                   vision, steps, gate: Some(self.w.state.borrow().vc.gate()) };
         let slot: Arc<dyn FrameSlot> = services.media.stream_frames().map(|f| f.new_slot()).unwrap_or_else(local_slot);
-        let slot: Arc<dyn FrameSlot> = Arc::new(WakingSlot { inner: slot, pending: self.w.streams.frame_wake.clone() });
+        let slot: Arc<dyn FrameSlot> = Arc::new(WakingSlot { inner: slot, pending: self.w.streams.frame_wake.clone(), unwanted: self.w.streams.frame_unwanted.clone() });
         let weak = self.w.ui.as_weak();
         let events: crate::worker::Events = Arc::new(move |e| {
             if matches!(e, WorkerEvent::Preview(..)) {
@@ -1880,6 +1882,8 @@ fn ask_keyframe(source: &SourceRef) {
 struct WakingSlot {
     inner: Arc<dyn FrameSlot>,
     pending: Arc<std::sync::atomic::AtomicBool>,
+    /// Nothing shows a preview: no wake is asked for, and the window's 10 Hz timer paints once it's shown again.
+    unwanted: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl WakingSlot {
@@ -1890,7 +1894,7 @@ impl WakingSlot {
     /// `send` asks the event loop to run frame_ready, and says whether it took the job.
     fn wake_with(&self, send: impl FnOnce() -> bool) {
         use std::sync::atomic::Ordering::SeqCst;
-        if self.pending.swap(true, SeqCst) {
+        if self.unwanted.load(SeqCst) || self.pending.swap(true, SeqCst) {
             return;
         }
         if !send() {
@@ -1959,7 +1963,7 @@ mod wake_tests {
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering::SeqCst};
 
     fn waking() -> WakingSlot {
-        WakingSlot { inner: local_slot(), pending: Arc::new(AtomicBool::new(false)) }
+        WakingSlot { inner: local_slot(), pending: Arc::new(AtomicBool::new(false)), unwanted: Arc::new(AtomicBool::new(false)) }
     }
 
     #[test]
@@ -1974,6 +1978,20 @@ mod wake_tests {
         slot.pending.store(false, SeqCst);
         slot.wake_with(|| { sent.fetch_add(1, SeqCst); true });
         assert_eq!(sent.load(SeqCst), 2);
+    }
+
+    #[test]
+    fn no_wake_is_asked_for_while_nothing_shows_a_preview() {
+        let slot = waking();
+        slot.unwanted.store(true, SeqCst);
+        let sent = AtomicUsize::new(0);
+        for _ in 0..30 {
+            slot.wake_with(|| { sent.fetch_add(1, SeqCst); true });
+        }
+        assert_eq!(sent.load(SeqCst), 0);
+        slot.unwanted.store(false, SeqCst);
+        slot.wake_with(|| { sent.fetch_add(1, SeqCst); true });
+        assert_eq!(sent.load(SeqCst), 1);
     }
 
     #[test]

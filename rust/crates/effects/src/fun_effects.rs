@@ -5,6 +5,7 @@
 use crate::cpu::Rgb;
 use crate::cv_draw::{plain_scale_from_height, plain_text_width, Canvas};
 use crate::imgops::{compose, shrink_plane, times, Gray, Remap};
+use std::borrow::Cow;
 use std::collections::VecDeque;
 use telescope_core::avx2_too;
 use telescope_core::frame::{Frame, PixelFormat};
@@ -60,20 +61,20 @@ fn fits(iw: usize, ih: usize, w: usize, h: usize) -> bool {
     (iw, ih) == (w, h) || (iw * h).abs_diff(ih * w) as f64 <= (iw * h).max(ih * w) as f64 * 0.01
 }
 
-/// image at frame's size, or None when it's missing or a different shape, which stretching would only bend.
-fn fit(image: Option<&Rgb>, w: usize, h: usize) -> Option<Rgb> {
+/// image at frame's size, or None when it's missing or a different shape, which stretching would only bend. One that is the right size is borrowed.
+fn fit(image: Option<&Rgb>, w: usize, h: usize) -> Option<Cow<'_, Rgb>> {
     let image = image?;
     if (image.w, image.h) == (w, h) {
-        return Some(image.clone());
+        return Some(Cow::Borrowed(image));
     }
-    fits(image.w, image.h, w, h).then(|| image.linear_exact(w, h))
+    fits(image.w, image.h, w, h).then(|| Cow::Owned(image.linear_exact(w, h)))
 }
 
-fn fit_gray(mask: &Gray, w: usize, h: usize) -> Option<Gray> {
+fn fit_gray(mask: &Gray, w: usize, h: usize) -> Option<Cow<'_, Gray>> {
     if (mask.w, mask.h) == (w, h) {
-        return Some(mask.clone());
+        return Some(Cow::Borrowed(mask));
     }
-    fits(mask.w, mask.h, w, h).then(|| mask.linear_exact(w, h))
+    fits(mask.w, mask.h, w, h).then(|| Cow::Owned(mask.linear_exact(w, h)))
 }
 
 /// Where a frame differs from the empty room: someone in front of it, without the vision download.
@@ -361,7 +362,7 @@ pub fn stick_figure<'a>(paper: &'a mut Option<StickPaper>, w: usize, h: usize, l
         _ => false,
     };
     if !paper.as_ref().is_some_and(|p| p.size == (w, h) && same_plate(&p.plate) && p.lines == look.lines && p.heads == look.heads) {
-        let mut out = fit(look.plate.as_deref(), w, h).unwrap_or_else(|| Rgb::filled(w, h, PAPER));
+        let mut out = fit(look.plate.as_deref(), w, h).map_or_else(|| Rgb::filled(w, h, PAPER), Cow::into_owned);
         let thick = 3.max(h / 70) as i32;
         let ink = [INK[0], INK[1], INK[2], 0];
         let (fw, fh) = (w as f64, h as f64);

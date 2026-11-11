@@ -521,7 +521,7 @@ impl FrameContext for Held {
 
 fn step_in(mode: &str, blur: i64, edges: i64) -> Step {
     let mode = MODES.iter().position(|(k, _)| *k == mode).unwrap();
-    Step { settings: Settings { mode, blur, edges, picture: None }, covered: None, spares: Vec::new(), had_mask: Arc::default(), derived: None }
+    Step { settings: Settings { mode, blur, edges, picture: None }, covered: None, spares: Vec::new(), covered_yuv: None, had_mask: Arc::default(), derived: None, quarter: None }
 }
 
 fn varied_mask(w: usize, h: usize, seed: usize) -> Gray {
@@ -581,5 +581,311 @@ fn bench_background_with_an_unchanged_mask() {
             compose(&source, &edges, &blurred(&source, 4, Some(&mask))).write_to(&mut frame);
         });
         println!("background blur {w}x{h}, unchanged mask: old {old:.2} ms, new {new:.2} ms");
+    }
+}
+
+// ── Frames in YUV ──
+
+/// A frame as the decoder makes it: I420.
+fn i420_of(rgb: &Rgb) -> Frame {
+    let mut frame = Frame::new(rgb.w as u32, rgb.h as u32, PixelFormat::I420, vec![0; PixelFormat::I420.size(rgb.w as u32, rgb.h as u32)]);
+    rgb.write_to(&mut frame);
+    frame
+}
+
+/// The vision service's way: a small mask made once and handed out at any size, the same Arc for as long as it asks the same size.
+struct Served {
+    base: Gray,
+    made: std::cell::RefCell<Vec<((usize, usize), Arc<Vec<u8>>)>>,
+}
+
+impl Served {
+    fn new(base: Gray) -> Served {
+        Served { base, made: Default::default() }
+    }
+
+    fn at(&self, w: usize, h: usize) -> Arc<Vec<u8>> {
+        let mut made = self.made.borrow_mut();
+        if let Some((_, m)) = made.iter().find(|(size, _)| *size == (w, h)) {
+            return m.clone();
+        }
+        let mask = Arc::new(self.base.linear_exact(w, h).data.clone());
+        made.push(((w, h), mask.clone()));
+        mask
+    }
+}
+
+impl FrameContext for Served {
+    fn source_id(&self) -> &str {
+        "phone"
+    }
+    fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        Some(self.at(frame.width as usize, frame.height as usize))
+    }
+    fn person_mask_at(&self, _: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        Some(self.at(w, h))
+    }
+    fn colour_preview(&self, frame: &Frame) -> Frame {
+        frame.clone()
+    }
+}
+
+
+/// (wall ms, cpu ms) a call takes, the best wall of a few runs and the cpu over all of them (every thread of the process, so work spread over the workers counts in full).
+pub(crate) fn measure(f: &mut dyn FnMut()) -> (f64, f64) {
+    let cpu = || {
+        let stat = std::fs::read_to_string("/proc/self/stat").unwrap_or_default();
+        let fields: Vec<&str> = stat.rsplit_once(')').map_or("", |(_, rest)| rest).split_whitespace().collect();
+        let ticks = |i: usize| fields.get(i).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
+        (ticks(11) + ticks(12)) / 100.0 * 1000.0
+    };
+    f();
+    let runs = 60;
+    let before = cpu();
+    let wall = (0..runs).map(|_| {
+        let start = std::time::Instant::now();
+        f();
+        start.elapsed().as_secs_f64() * 1000.0
+    }).fold(f64::MAX, f64::min);
+    (wall, (cpu() - before) / runs as f64)
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture --test-threads 1"]
+fn bench_background_in_yuv() {
+    for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+        let (scene, mask) = peek::sample_scene(w, h);
+        let served = Served::new(mask.shrink(256, 144));
+        let source = i420_of(&scene);
+        let mut step = step_in("blur", 6, 3);
+        let mut frame = source.clone();
+        step.process(&mut frame, &served);
+        let (sw, sh) = ((w / BLUR_SMALL).max(1), (h / BLUR_SMALL).max(1));
+        let whole = Gray { w, h, data: served.at(w, h).to_vec() };
+        let (soft, rest) = (whole.soften(3), whole.shrink(sw, sh));
+        // the RGB way as it was, with the mask kept for a steady picture and worked out again for a moved one
+        let old_steady = measure(&mut || {
+            let mut frame = source.clone();
+            let rgb = Rgb::from_frame(&frame).unwrap();
+            compose(&rgb, &soft, &blurred_by(&rgb, 6, Some(&rest), w, h)).write_to(&mut frame);
+        });
+        let old_moved = measure(&mut || {
+            let mut frame = source.clone();
+            let rgb = Rgb::from_frame(&frame).unwrap();
+            let whole = Gray { w, h, data: served.at(w, h).to_vec() };
+            let (soft, rest) = (whole.soften(3), whole.shrink(sw, sh));
+            compose(&rgb, &soft, &blurred_by(&rgb, 6, Some(&rest), w, h)).write_to(&mut frame);
+        });
+        let new_steady = measure(&mut || {
+            let mut frame = source.clone();
+            step.process(&mut frame, &served);
+        });
+        let new_moved = measure(&mut || {
+            let mut frame = source.clone();
+            // a mask the model has just made: the same bytes at a new address
+            for (_, m) in served.made.borrow_mut().iter_mut() {
+                *m = Arc::new(m.to_vec());
+            }
+            step.process(&mut frame, &served);
+        });
+        println!("background blur {w}x{h} (wall ms, cpu ms): steady mask old {old_steady:.2?} new {new_steady:.2?}; moved mask old {old_moved:.2?} new {new_moved:.2?}");
+    }
+}
+
+/// How far two pictures are apart: (PSNR in dB, the share of values more than 3 levels off, the worst gap).
+fn apart(a: &Rgb, b: &Rgb) -> (f64, f64, u8) {
+    let (mut sum, mut off, mut worst) = (0f64, 0usize, 0u8);
+    for (x, y) in a.data.iter().zip(&b.data) {
+        let d = x.abs_diff(*y);
+        sum += (d as f64).powi(2);
+        off += (d > 3) as usize;
+        worst = worst.max(d);
+    }
+    let mse = (sum / a.data.len() as f64).max(1e-9);
+    (10.0 * (255.0f64 * 255.0 / mse).log10(), off as f64 / a.data.len() as f64, worst)
+}
+
+/// What the RGB way makes of an I420 frame: the whole picture at full size, the mask at full size, composed.
+fn in_rgb(frame: &Frame, served: &Served, blur: i64, edges: i64, behind: Option<&Rgb>) -> Rgb {
+    let rgb = Rgb::from_frame(frame).unwrap();
+    let mask = Gray { w: rgb.w, h: rgb.h, data: served.at(rgb.w, rgb.h).to_vec() };
+    let under = match behind {
+        Some(picture) => cover(picture, rgb.w, rgb.h),
+        None => blurred(&rgb, blur, Some(&mask)),
+    };
+    // through YUV and back, as a frame goes, so only what the method changes is measured
+    let mut out = frame.clone();
+    compose(&rgb, &mask.soften(edges), &under).write_to(&mut out);
+    Rgb::from_frame(&out).unwrap()
+}
+
+#[test]
+fn the_blur_on_yuv_planes_looks_like_the_one_in_rgb() {
+    let (scene, mask) = peek::sample_scene(960, 540);
+    let served = Served::new(mask.shrink(256, 144));
+    let frame = i420_of(&scene);
+    // (blur, edges, least PSNR, most share of values over 3 levels off), set a little past what each measures
+    for (blur, edges, least, share) in [(6, 3, 44.0, 0.02), (1, 0, 39.0, 0.16), (10, 10, 45.0, 0.01), (4, 5, 43.0, 0.045)] {
+        let mut step = step_in("blur", blur, edges);
+        let mut got = frame.clone();
+        step.process(&mut got, &served);
+        let want = in_rgb(&frame, &served, blur, edges, None);
+        let (psnr, off, worst) = apart(&Rgb::from_frame(&got).unwrap(), &want);
+        // the planes are averaged before the colours are worked out, so saturated colours come out a level or two apart
+        assert!(psnr > least && off < share, "blur {blur} edges {edges}: {psnr:.1} dB, {:.3}% off by more than 3, worst {worst}", off * 100.0);
+    }
+}
+
+#[test]
+fn a_picture_on_yuv_planes_looks_like_the_one_in_rgb() {
+    let (scene, mask) = peek::sample_scene(960, 540);
+    let served = Served::new(mask.shrink(256, 144));
+    let frame = i420_of(&scene);
+    let behind = peek::sample_scene(480, 270).0;
+    let mut step = step_in("picture", 6, 3);
+    step.settings.picture = Some(Arc::new(behind.clone()));
+    let mut got = frame.clone();
+    step.process(&mut got, &served);
+    let want = in_rgb(&frame, &served, 6, 3, Some(&behind));
+    let (psnr, off, worst) = apart(&Rgb::from_frame(&got).unwrap(), &want);
+    assert!(psnr > 60.0 && off < 0.0005, "{psnr:.1} dB, {:.3}% off by more than 3, worst {worst}", off * 100.0);
+}
+
+#[test]
+fn with_no_one_in_the_mask_the_whole_frame_is_the_background() {
+    let (scene, _) = peek::sample_scene(960, 540);
+    let served = Served::new(Gray::new(256, 144));
+    let frame = i420_of(&scene);
+    let mut step = step_in("blur", 6, 3);
+    let mut got = frame.clone();
+    step.process(&mut got, &served);
+    let want = in_rgb(&frame, &served, 6, 3, None);
+    let (psnr, off, worst) = apart(&Rgb::from_frame(&got).unwrap(), &want);
+    assert!(psnr > 44.0 && off < 0.025, "{psnr:.1} dB, {:.3}% off by more than 3, worst {worst}", off * 100.0);
+    assert_ne!(got.data, frame.data);
+}
+
+#[test]
+fn with_everyone_in_the_mask_the_frame_is_left_as_it_was() {
+    let (scene, _) = peek::sample_scene(960, 540);
+    let served = Served::new(Gray::filled(256, 144, 255));
+    let frame = i420_of(&scene);
+    let mut step = step_in("blur", 6, 3);
+    let mut got = frame.clone();
+    step.process(&mut got, &served);
+    assert_eq!(got.data, frame.data);
+}
+
+#[test]
+fn a_frame_in_yuv_waits_for_a_mask_and_then_hides_the_room_if_it_goes() {
+    let (scene, mask) = peek::sample_scene(480, 270);
+    let frame = i420_of(&scene);
+    let mut step = step_in("blur", 6, 3);
+    let mut got = frame.clone();
+    step.process(&mut got, &Ctx(None, Default::default()));
+    assert_eq!(got.data, frame.data, "no mask yet");
+    step.process(&mut got, &Served::new(mask.shrink(256, 144)));
+    assert_ne!(got.data, frame.data);
+    let mut lost = frame.clone();
+    step.process(&mut lost, &Ctx(None, Default::default()));
+    assert_ne!(lost.data, frame.data, "the mask went away and the room stays hidden");
+}
+
+#[test]
+fn odd_sized_frames_in_yuv_come_out_the_same_size() {
+    for (w, h) in [(101usize, 57usize), (7, 5), (2, 2), (640, 361)] {
+        let (scene, mask) = peek::sample_scene(w, h);
+        let served = Served::new(mask.shrink(256.min(w), 144.min(h)));
+        for mode in ["blur", "picture"] {
+            let mut step = step_in(mode, 5, 4);
+            step.settings.picture = Some(Arc::new(Rgb::filled(8, 8, [10, 200, 30])));
+            let mut frame = i420_of(&scene);
+            step.process(&mut frame, &served);
+            assert_eq!((frame.width as usize, frame.height as usize, frame.data.len()), (w, h, PixelFormat::I420.size(w as u32, h as u32)), "{mode} {w}x{h}");
+        }
+    }
+}
+
+/// Writes a picture as a binary PPM, for looking at.
+pub(crate) fn dump_ppm(path: &std::path::Path, rgb: &Rgb) {
+    let mut bytes = format!("P6\n{} {}\n255\n", rgb.w, rgb.h).into_bytes();
+    bytes.extend_from_slice(&rgb.data);
+    std::fs::write(path, bytes).unwrap();
+}
+
+/// Reads a binary PPM (no comments).
+pub(crate) fn read_ppm(path: &str) -> Rgb {
+    let bytes = std::fs::read(path).unwrap();
+    let mut parts = bytes.splitn(5, |b| b.is_ascii_whitespace());
+    assert_eq!(parts.next().unwrap(), b"P6");
+    let mut number = || std::str::from_utf8(parts.next().unwrap()).unwrap().parse::<usize>().unwrap();
+    let (w, h, _) = (number(), number(), number());
+    let data = parts.next().unwrap().to_vec();
+    Rgb { w, h, data }
+}
+
+/// Old, new and the gap between them times four, written as PPMs for a look.
+pub(crate) fn dump_look(name: &str, old: &Rgb, new: &Rgb) {
+    let Ok(dir) = std::env::var("LOOK_DIR") else { return };
+    let dir = std::path::Path::new(&dir);
+    std::fs::create_dir_all(dir).unwrap();
+    let diff = Rgb { w: old.w, h: old.h, data: old.data.iter().zip(&new.data).map(|(a, b)| (a.abs_diff(*b) as u32 * 4).min(255) as u8).collect() };
+    dump_ppm(&dir.join(format!("{name}_old.ppm")), old);
+    dump_ppm(&dir.join(format!("{name}_new.ppm")), new);
+    dump_ppm(&dir.join(format!("{name}_diff4x.ppm")), &diff);
+}
+
+/// A hard-edged, saturated card: colour bars, a checkerboard and thin lines in pure colours.
+pub(crate) fn test_card(w: usize, h: usize) -> Rgb {
+    let bars = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [255, 0, 255], [0, 255, 255], [255, 255, 255], [0, 0, 0]];
+    let mut data = Vec::with_capacity(w * h * 3);
+    for y in 0..h {
+        for x in 0..w {
+            let p = if y < h / 3 {
+                bars[x * bars.len() / w]
+            } else if y < 2 * h / 3 {
+                if (x / 24 + y / 24) % 2 == 0 { [255, 40, 0] } else { [0, 60, 255] }
+            } else if (x / 3) % 2 == 0 {
+                bars[(y * 8 / h) % 8]
+            } else {
+                [20, 200, 40]
+            };
+            data.extend_from_slice(&p);
+        }
+    }
+    Rgb { w, h, data }
+}
+
+/// A centred ellipse as a person mask at the size the model works at.
+pub(crate) fn ellipse_mask(w: usize, h: usize) -> Gray {
+    let mut data = vec![0u8; w * h];
+    for y in 0..h {
+        for x in 0..w {
+            let (dx, dy) = ((x as f64 + 0.5) / w as f64 - 0.5, (y as f64 + 0.5) / h as f64 - 0.5);
+            let d = (dx / 0.18).powi(2) + (dy / 0.38).powi(2);
+            data[y * w + x] = (255.0 * (1.5 - d).clamp(0.0, 1.0)) as u8;
+        }
+    }
+    Gray { w, h, data }
+}
+
+#[test]
+#[ignore = "writes pictures to look at: LOOK_DIR=out LOOK_FRAME=frame.ppm cargo test -- --ignored look_at_background"]
+fn look_at_background_blur_old_and_new() {
+    let mut pictures = vec![("card", test_card(1920, 1080))];
+    if let Ok(path) = std::env::var("LOOK_FRAME") {
+        pictures.push(("clip", read_ppm(&path)));
+    }
+    for (name, scene) in pictures {
+        let served = Served::new(ellipse_mask(256, 144));
+        let frame = i420_of(&scene);
+        let mut step = step_in("blur", 6, 3);
+        let mut got = frame.clone();
+        step.process(&mut got, &served);
+        let want = in_rgb(&frame, &served, 6, 3, None);
+        let new = Rgb::from_frame(&got).unwrap();
+        let (psnr, off, worst) = apart(&new, &want);
+        println!("background blur {name}: {psnr:.1} dB, {:.3}% off by more than 3, worst {worst}", off * 100.0);
+        dump_look(&format!("background_{name}"), &want, &new);
     }
 }

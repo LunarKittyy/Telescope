@@ -575,3 +575,148 @@ fn a_long_hex_with_alpha_sets_the_colour_and_the_box_shows_it_as_six_digits() {
     r.ui("hex-typed", vec![json!("#12345")]);
     assert_eq!(r.shown("colour-hex"), json!("#123456"), "five digits is a typo: it reverts");
 }
+
+#[test]
+fn the_saved_picture_is_held_in_full_only_while_it_is_behind_you() {
+    let reads = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let (given, counted) = (flat(10, 10, [0, 0, 200]), reads.clone());
+    let mut p = ChromaKeyPlugin::with_reader(Arc::new(move |_| {
+        counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok(given.clone())
+    }));
+    let mut cfg = json!({"on": false, "background": "picture", "picture": "/pics/red.png"});
+    p.set_config(&cfg).unwrap();
+    // off: read once for the card's thumb and not kept
+    assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst), 1);
+    assert!(p.picture.is_none() && p.has_picture && p.thumb.is_some());
+    assert_eq!(p.all_props()["has-picture"], json!(true));
+    // switched on: read again for the stream, once
+    cfg["on"] = json!(true);
+    p.set_config(&cfg).unwrap();
+    assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst), 2);
+    assert_eq!(shader(&mut p).uniforms["backdrop"][3], json!(1.0));
+    shader(&mut p);
+    assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst), 2);
+    // a colour behind you needs none of it
+    cfg["background"] = json!("colour");
+    p.set_config(&cfg).unwrap();
+    assert!(p.picture.is_none() && p.has_picture);
+}
+
+
+/// A plugin set up on a host with a poster, reading pictures through a counted reader that may be told to fail or wait.
+struct Reading {
+    plugin: ChromaKeyPlugin,
+    host: FakeHost,
+    reads: Arc<std::sync::atomic::AtomicUsize>,
+    gate: Arc<Mutex<bool>>,
+    works: Arc<Mutex<bool>>,
+}
+
+impl Reading {
+    fn new() -> Reading {
+        let reads = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let (gate, works) = (Arc::new(Mutex::new(true)), Arc::new(Mutex::new(true)));
+        let (counted, open, good, given) = (reads.clone(), gate.clone(), works.clone(), flat(10, 10, [0, 0, 200]));
+        let reader: PictureReader = Arc::new(move |_| {
+            counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            while !*open.lock().unwrap() {
+                std::thread::sleep(std::time::Duration::from_millis(2));
+            }
+            if *good.lock().unwrap() { Ok(given.clone()) } else { Err("gone".into()) }
+        });
+        let mut plugin = ChromaKeyPlugin::with_reader(reader);
+        let mut host = FakeHost::new();
+        plugin.setup(&mut host);
+        plugin.on_event(&mut host, &Event::PhonesChanged { count: 1 });
+        plugin.set_config(&json!({"on": false, "background": "picture", "picture": "/pics/red.png"})).unwrap();
+        Reading { plugin, host, reads, gate, works }
+    }
+
+    fn reads(&self) -> usize {
+        self.reads.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    fn switch(&mut self, on: bool) {
+        self.plugin.on_ui(&mut self.host, &UiEvent { ui: "card".into(), callback: "switch-toggled-by-hand".into(), args: vec![json!(on)] });
+    }
+
+    /// Waits for the thread's post and delivers it the way the host does.
+    fn land(&mut self) {
+        for _ in 0..1000 {
+            let posted = self.host.take_posted();
+            if let Some((token, data)) = posted.into_iter().next() {
+                self.plugin.on_event(&mut self.host, &Event::Posted { owner: NAME.into(), token, data });
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        panic!("nothing was posted");
+    }
+}
+
+#[test]
+fn switching_the_key_on_reads_the_picture_off_the_calling_thread() {
+    let mut r = Reading::new();
+    assert_eq!(r.reads(), 1);
+    *r.gate.lock().unwrap() = false;
+    r.switch(true);
+    // not here yet: the colour until it lands
+    assert!(r.plugin.picture.is_none());
+    assert_eq!(shader(&mut r.plugin).uniforms["backdrop"][3], json!(0.0));
+    *r.gate.lock().unwrap() = true;
+    r.land();
+    assert_eq!(shader(&mut r.plugin).uniforms["backdrop"][3], json!(1.0));
+    assert_eq!(r.reads(), 2);
+}
+
+#[test]
+fn a_read_that_finishes_after_the_key_went_off_is_dropped() {
+    let mut r = Reading::new();
+    *r.gate.lock().unwrap() = false;
+    r.switch(true);
+    r.switch(false);
+    *r.gate.lock().unwrap() = true;
+    r.land();
+    assert!(r.plugin.picture.is_none());
+    // and a later switching on reads again and keeps that one
+    r.switch(true);
+    r.land();
+    assert!(r.plugin.picture.is_some());
+}
+
+#[test]
+fn a_read_for_an_old_path_is_not_kept() {
+    let mut r = Reading::new();
+    *r.gate.lock().unwrap() = false;
+    r.switch(true);
+    // the path changes (its own read is done here) while the old one's thread is still out
+    *r.gate.lock().unwrap() = true;
+    r.plugin.set_config(&json!({"on": false, "background": "colour", "picture": "/pics/other.png"})).unwrap();
+    r.land();
+    assert!(r.plugin.picture.is_none());
+}
+
+#[test]
+fn a_picture_that_went_missing_says_so_once_and_is_not_read_again_until_switched_on_again() {
+    let mut r = Reading::new();
+    *r.works.lock().unwrap() = false;
+    r.switch(true);
+    r.land();
+    let shown = |r: &Reading| r.host.calls.iter().rev().filter_map(|c| c.strip_prefix("set_ui_props card ")).filter_map(|j| serde_json::from_str::<Value>(j).ok()).find_map(|v| v.get("picture-problem").cloned());
+    assert_eq!(shown(&r), Some(json!("Can't open that picture")));
+    let after_fail = r.reads();
+    for tolerance in [10.0, 20.0, 30.0] {
+        r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: "slider-moved".into(), args: vec![json!(0), json!(tolerance)] });
+        shader(&mut r.plugin);
+    }
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    assert_eq!(r.reads(), after_fail);
+    assert!(r.host.take_posted().is_empty());
+    // off and on again is a new try
+    *r.works.lock().unwrap() = true;
+    r.switch(false);
+    r.switch(true);
+    r.land();
+    assert!(r.plugin.picture.is_some());
+}

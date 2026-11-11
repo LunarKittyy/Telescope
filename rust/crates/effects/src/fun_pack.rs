@@ -29,6 +29,7 @@ use telescope_core::view::{upright_to_shown, Geometry};
 pub const NAME: &str = "fun_pack";
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/vision_status.slint"), "\n", include_str!("../ui/fun_pack.slint"));
 const GAME_BOY: &str = include_str!("game_boy.wgsl");
+const CRT: &str = include_str!("crt.wgsl");
 const T_TICK: &str = "tick";
 const T_TAKEN: &str = "taken";
 const COUNTDOWN_S: i64 = 3;
@@ -815,7 +816,12 @@ impl Plugin for FunPackPlugin {
             return None;
         }
         let frozen = self.hub.state.lock().unwrap().look.clone();
-        Some(FrameStep::Cpu(Box::new(FunStep { hub: self.hub.clone(), frozen, own: Runner::default(), spares: Vec::new() })))
+        let step = Box::new(FunStep { hub: self.hub.clone(), frozen, own: Runner::default(), spares: Vec::new() });
+        if effect == "crt" {
+            // On the card while it has room, so it adds no trip down and back up between the steps that already run there
+            return Some(FrameStep::Either(ShaderStep { wgsl: CRT.into(), uniforms: json!({}), textures: Vec::new() }, step));
+        }
+        Some(FrameStep::Cpu(step))
     }
 
     fn get_config(&self) -> Value {
@@ -854,3 +860,7 @@ pub fn english_name(effect: &str) -> &'static str {
 #[cfg(test)]
 #[path = "fun_pack_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "crt_card_tests.rs"]
+mod crt_card_tests;

@@ -12,7 +12,8 @@ use telescope_core::event::Event;
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, Touch};
 use telescope_core::host::Host;
 use telescope_core::i18n::{n_, tr};
-use telescope_core::image::with_spares;
+use telescope_core::image::{planes_up_to_420, rgb_planes, small_rgb, spare_bytes, with_spares};
+use telescope_core::frame::PixelFormat;
 use telescope_core::people;
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::pose::Person;
@@ -69,6 +70,21 @@ pub fn blurred(frame: &Rgb) -> Rgb {
     frame.shrink((frame.w / SMALL).max(1), (frame.h / SMALL).max(1)).blur(2.0).linear_exact(frame.w, frame.h)
 }
 
+/// `blurred` for a frame in I420, done on its planes: the frame is shrunk and blurred small as a picture and its planes scaled back up into the new frame, so no RGB picture is made at the frame's size. False for a frame in another format, which the caller blurs as RGB.
+fn blur_planes(frame: &mut Frame) -> bool {
+    let (w, h) = (frame.width as usize, frame.height as usize);
+    if frame.format != PixelFormat::I420 || w < 2 || h < 2 || frame.i420_planes().is_none() {
+        return false;
+    }
+    let (sw, sh) = ((w / SMALL).max(1), (h / SMALL).max(1));
+    let Some(small) = small_rgb(frame, sw, sh, false) else { return false };
+    let small = Rgb { w: sw, h: sh, data: small }.blur(2.0);
+    let mut out = spare_bytes(frame.data.len());
+    planes_up_to_420(&rgb_planes(&small.data), (sw, sh), &mut out, (w, h));
+    frame.replace_data(out);
+    true
+}
+
 /// The step every stream gets: what it was handed out with stays when the panels move away, and a stream left behind blurs whenever the shown one does.
 struct Step {
     active: bool,
@@ -90,6 +106,9 @@ impl CpuStep for Step {
         }
         let mut spares = std::mem::take(&mut self.spares);
         with_spares(&mut spares, || {
+            if blur_planes(frame) {
+                return;
+            }
             if let Some(rgb) = Rgb::from_frame(frame) {
                 blurred(&rgb).write_to(frame);
             }

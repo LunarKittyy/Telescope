@@ -3,6 +3,7 @@
 use serde_json::Value;
 use std::sync::{Arc, Mutex};
 use telescope_core::frame::{Frame, PixelFormat};
+use telescope_core::image::frame_rgb;
 use telescope_core::motion::*;
 use telescope_core::vision::{Turn, Upright};
 
@@ -206,10 +207,23 @@ fn small_zones_and_sensitivity() {
     let (left, right) = ((LEFT[0], LEFT[1], LEFT[2], LEFT[3]), (RIGHT[0], RIGHT[1], RIGHT[2], RIGHT[3]));
     assert_eq!(zones(&[small, left], 5), [0]);
     assert!(zones(&[right], 1).is_empty(), "a tiny thing in a big zone, at the lowest");
-    // and the pictures Python made of them
+    // and the pictures Python made of them: the grey copy made from the whole RGB picture is still byte for byte what it made
     let want = &recorded()["detector"];
-    assert_eq!((fnv(&a.data), fnv(&b.data), fnv(&change)), (want["grey"].as_str().unwrap().to_string(), want["grey_square"].as_str().unwrap().to_string(), want["change"].as_str().unwrap().to_string()));
+    let (first, second) = (plain(), scene(100.0, Some(500), 12));
+    let whole = |f: &Frame| grey_copy(&frame_rgb(f).unwrap(), W, H, WIDTH);
+    let (a0, b0) = (whole(&first), whole(&second));
+    let mut d = Detector::new();
+    d.change(&a0, 0.0);
+    let change0 = d.change(&b0, 0.1).expect("a change");
+    assert_eq!((fnv(&a0.data), fnv(&b0.data), fnv(&change0)), (want["grey"].as_str().unwrap().to_string(), want["grey_square"].as_str().unwrap().to_string(), want["change"].as_str().unwrap().to_string()));
     assert_eq!([b.h as u64, b.w as u64], [want["shape"][0].as_u64().unwrap(), want["shape"][1].as_u64().unwrap()]);
+    // the one made from the shrunk planes is close to it: the same where nothing is, a hard edge a few levels off
+    for (new, old) in [(&a, &a0), (&b, &b0)] {
+        assert_eq!((new.w, new.h), (old.w, old.h));
+        let off = new.data.iter().zip(&old.data).filter(|(x, y)| x.abs_diff(**y) > 8).count();
+        assert!(off * 100 < new.data.len(), "{off} of {} grey values are far from the whole-picture ones", new.data.len());
+    }
+    assert!(change.iter().zip(&change0).filter(|(x, y)| x.abs_diff(**y) > 20).count() * 50 < change.len());
     assert_eq!(want["small_zones"], serde_json::json!([0]));
 }
 
@@ -333,4 +347,36 @@ fn the_picture_is_turned_the_way_its_shown_before_it_is_looked_at() {
         t += 0.1;
     }
     assert_eq!(m.moving("s", "trap"), [0]);
+}
+
+
+/// (wall ms, cpu ms) a call takes, the best wall of a few runs and the cpu over all of them (every thread of the process, so work spread over the workers counts in full).
+fn measure(f: &mut dyn FnMut()) -> (f64, f64) {
+    let cpu = || {
+        let stat = std::fs::read_to_string("/proc/self/stat").unwrap_or_default();
+        let fields: Vec<&str> = stat.rsplit_once(')').map_or("", |(_, rest)| rest).split_whitespace().collect();
+        let ticks = |i: usize| fields.get(i).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
+        (ticks(11) + ticks(12)) / 100.0 * 1000.0
+    };
+    f();
+    let runs = 60;
+    let before = cpu();
+    let wall = (0..runs).map(|_| {
+        let start = std::time::Instant::now();
+        f();
+        start.elapsed().as_secs_f64() * 1000.0
+    }).fold(f64::MAX, f64::min);
+    (wall, (cpu() - before) / runs as f64)
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture --test-threads 1"]
+fn bench_grey_copy() {
+    for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+        let size = PixelFormat::I420.size(w as u32, h as u32);
+        let frame = Frame::new(w as u32, h as u32, PixelFormat::I420, (0..size).map(|i| (60 + i % 90) as u8).collect());
+        let old = measure(&mut || { grey_copy(&frame_rgb(&frame).unwrap(), w, h, WIDTH); });
+        let new = measure(&mut || { grey(&frame).unwrap(); });
+        println!("motion grey copy {w}x{h} (wall ms, cpu ms): old {old:.2?} new {new:.2?}");
+    }
 }
