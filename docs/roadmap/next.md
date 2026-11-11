@@ -8,6 +8,9 @@ The next release follows 5.0.5. Everything ticked here is merged and not release
 - [x] [Older DSLRs over USB](#older-dslrs-over-usb)
 - [x] [Fixes from a review of the port](#fixes-from-a-review-of-the-port)
 - [x] [The new look](#the-new-look)
+- [x] [Lighter on the processor and memory](#lighter-on-the-processor-and-memory)
+- [x] [Hardware decoding on by default](#hardware-decoding-on-by-default)
+- [x] [A simpler Privacy blur](#a-simpler-privacy-blur)
 
 ## Auto colour grading
 
@@ -93,7 +96,26 @@ The desktop window got redone, with IBM Plex Sans as its font. Merged:
 - Every card rebuilt on the kit, with an icon rail, sliders whose fill shows what they mean, dials, wheels and a pad for Desk mode's sheet size
 - A shared motion kit (switches, sliders, folds, pages, banners and menus all move the same way) that follows the system's reduced-motion setting
 - Tooltips with a title, what the control does and a hint, quiet while someone is adjusting and quick while reading
-- Settings window redone in the same style, and built in the background so the first click is fast
+- Settings window redone in the same style, and built the first time it's opened instead of at start
 - Framing got steadier. Levels end at the head, chest, belt and feet, zoom follows the Max zoom setting, and the Framing bubble always shows a stand-in scene. Shape is called Aspect ratio now and Things in hand is Show hands
 - The pan map outlines the phone's longer lenses, and a zoom change on the phone is followed in the frames so the picture never jumps
 - KDE Plasma title bars take the app's colours
+
+## Lighter on the processor and memory
+
+Work on running many effects at 1080p and 4K. Merged:
+
+- The Fun pack effects are much cheaper, and Clones and cloak skip a frame with nothing taken
+- Whole-frame results go into reused buffers instead of copying the frame first, and zoom and stretch keep their buffers between frames
+- The preview's tint, zebras, peaking and false colour work off the window's thread, and a folded Stats card does nothing
+- The QR reader keeps one worker and reads the brightness plane
+- Quarter turns work in blocks, and Light decodes the next picture while the last goes through the frame steps
+- Starting without opening Settings uses 122 MB instead of 173 MB, since Settings is built on its first open
+
+## Hardware decoding on by default
+
+On Linux it's on by default when the card is VA-API, including for a config that never chose. A choice made in Setup always wins, and Windows and other cards stay off until switched on. The decoder asks the card for NV12 so a game's work on the card doesn't hold the copy up. The decoder in a child process is [dropped](dropped.md).
+
+## A simpler Privacy blur
+
+With more than one person in the picture it blurs all of it or shows the wait screen. **Blur the others** and **Blur all but me** are gone and count as **Blur the whole picture**, including on keys bound to them.

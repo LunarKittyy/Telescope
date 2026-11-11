@@ -13,3 +13,7 @@ A stream that an OBS Browser Source or a second Telescope could open would let a
 ## More than four cameras (October 2026)
 
 The limit itself is a few constants (`vcam.MAX_SLOTS`, `composite.MAX_TILES` and `kSlots` in the Windows camera DLL). The work is in adding virtual cameras for people who already have four set up (root on Linux, a rebuilt and re-registered camera on Windows) and in laptops that can't keep up once every extra stream gets decoded and run through effects.
+
+## The decoder in a child process (November 2026)
+
+The idea was to run the video decoder in a separate process so hardware decoding could come back without a game on the graphics card stalling the app. It didn't fix the stall. The stall came from the driver's I420 conversion queuing behind the game's work, and asking the card for NV12 and splitting it on the processor did. Hardware decoding is on by default with VA-API again without it.
