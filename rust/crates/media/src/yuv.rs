@@ -3,7 +3,7 @@
 //! which is also what the Python app hands its virtual camera: it converts to BGR with the stream's matrix and range
 //! (PyAV's swscale), and OpenCV's BGR-to-I420 writes BT.601 limited. So the frame carries no matrix or range of its own.
 //! The conversion here goes straight from YUV to YUV (a matrix per pixel, clamped where the 8-bit BGR would be) and lands within
-//! 2 levels of that trip through BGR on real pictures. The BGR itself, which the effects read, is only made when one asks.
+//! 3 levels of that trip through BGR (a picture with an odd height still takes the trip, as swscale stretches its chroma). The BGR itself, which the effects read, is only made when one asks.
 
 use crate::ffmpeg::{aligned_start, padded_stride, Padded};
 use ffmpeg_sys_next as ff;
@@ -33,14 +33,11 @@ fn is_bt601(matrix: i32) -> bool {
     coefficients(matrix) == coefficients(5)
 }
 
-// The path a picture used to take (through BGR and back), kept as what the tests measure the matrix against
-#[cfg(test)]
+// The path a picture used to take (through BGR and back): what the tests measure the matrix against, and what a picture with an odd height still takes
 const SHIFT: u32 = 20;
-#[cfg(test)]
 const ROUND: i32 = 1 << (SHIFT - 1);
 
 /// What bgr_to_i420 reads.
-#[cfg(test)]
 struct Rows<'a> {
     bgr: &'a [u8],
     stride: usize,
@@ -49,7 +46,6 @@ struct Rows<'a> {
     cw: usize,
 }
 
-#[cfg(test)]
 #[inline(always)]
 fn i420_rows(p: &Rows, luma: &mut [u8], u: &mut [u8], v: &mut [u8]) {
     for y in 0..p.height {
@@ -69,7 +65,7 @@ fn i420_rows(p: &Rows, luma: &mut [u8], u: &mut [u8], v: &mut [u8]) {
     }
 }
 
-#[cfg(all(test, target_arch = "x86_64"))]
+#[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 fn i420_rows_avx2(p: &Rows, luma: &mut [u8], u: &mut [u8], v: &mut [u8]) {
     i420_rows(p, luma, u, v);
@@ -77,7 +73,6 @@ fn i420_rows_avx2(p: &Rows, luma: &mut [u8], u: &mut [u8], v: &mut [u8]) {
 
 /// BGR (rows `stride` bytes apart) to I420 the way OpenCV's COLOR_BGR2YUV_I420 does it: BT.601 limited, fixed point
 /// with 20 bits, and a 2 x 2 block's chroma from its top left pixel.
-#[cfg(test)]
 fn bgr_to_i420(bgr: &[u8], stride: usize, width: usize, height: usize) -> Vec<u8> {
     let (cw, ch) = (width.div_ceil(2), height.div_ceil(2));
     let mut out = vec![0u8; width * height + 2 * cw * ch];
@@ -195,7 +190,8 @@ fn luma_row(gain: i16, black: i16, y: &[u8], offsets: &Offsets, out: &mut [u8]) 
 
 /// The planes of `src` (packed I420, in the encoding `m` is for) as BT.601 limited in `out`: what going through 8-bit BGR does
 /// (the clamping included), without making the BGR. Each chroma sample colours its 2 x 2 pixels, and the top left one's colour
-/// gives the sample back; swscale's own chroma step is a smoothing that, measured on real frames, changes no byte by more than 2.
+/// gives the sample back, which is what swscale does too when the height is even (a picture with an odd height gets its chroma
+/// stretched and takes `standard`'s old way).
 #[inline(always)]
 fn matrix_rows(m: &Matrix, src: &[u8], out: &mut [u8], scratch: &mut Scratch, width: usize, height: usize) {
     let (cw, ch) = (width.div_ceil(2), height.div_ceil(2));
@@ -326,6 +322,13 @@ impl Converter {
         if i420.len() < width * height + 2 * cw * ch || width == 0 || height == 0 {
             log::warn!("A {width}x{height} picture in matrix {} couldn't be converted; showing it as BT.601", enc.matrix);
             return (i420, None);
+        }
+        if height % 2 == 1 {
+            // swscale scales the chroma of a picture with an odd height in a way the rows below don't follow, so it still goes through BGR
+            if let Some(bgr) = bgr_of(&i420, width, height, enc) {
+                let out = bgr_to_i420(&bgr.data[bgr.start..][..bgr.stride * height], bgr.stride, width, height);
+                return (out, Some(lazy_bgr(i420, width, height, enc)));
+            }
         }
         let matrix = match self.matrix {
             Some((for_enc, m)) if for_enc == enc => m,
@@ -483,8 +486,8 @@ mod tests {
                 }
             }
         }
-        // Every matrix swscale doesn't read as BT.601 and both ranges; an odd size has its chroma stretched a little by swscale, so it gets a little more room
-        for (w, h, room) in [(384, 256, 3), (385, 257, 5)] {
+        // Every matrix swscale doesn't read as BT.601 and both ranges
+        for (w, h, room) in [(384, 256, 3), (385, 256, 3), (385, 257, 3)] {
             let source = a_natural_picture(w, h);
             for matrix in [1, 4, 7, 9, 10] {
                 for full_range in [false, true] {
@@ -495,6 +498,48 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// Flat luma with chroma that jumps from one colour to its opposite along a line: a row boundary (the sample rows from `at` down are the second colour) or a column one.
+    fn a_sharp_chroma_edge(w: usize, h: usize, luma: u8, at: usize, columns: bool) -> Vec<u8> {
+        let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+        let mut out = vec![luma; w * h];
+        for (first, second) in [(16u8, 240u8), (240, 16)] {
+            for y in 0..ch {
+                for x in 0..cw {
+                    let after = if columns { x >= at } else { y >= at };
+                    out.push(if after { second } else { first });
+                }
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn sharp_chroma_edges_come_out_as_the_old_path_has_them() {
+        // Both of the matrices the direct conversion takes over from swscale (BT.709 and BT.2020), a range of lumas, and even and odd sizes (an odd height goes the old way, so those check the route)
+        let (mut bad, mut top) = (0, 0);
+        for (w, h, room) in [(32, 16, 3), (33, 16, 3), (64, 48, 3), (65, 48, 3), (33, 17, 3), (32, 17, 3)] {
+            for matrix in [1, 9] {
+                for luma in [30u8, 60, 128, 200] {
+                    for columns in [false, true] {
+                        for at in [1, 4, 8] {
+                            let source = a_sharp_chroma_edge(w, h, luma, at, columns);
+                            let enc = Encoding { matrix, full_range: false };
+                            let got = Converter::default().standard(source.clone(), w, h, enc).0;
+                            let diff = worst(&got, &through_bgr(&source, w, h, enc));
+                            if diff > room {
+                                println!("SHARP matrix {matrix} {w}x{h} luma {luma} columns {columns} at {at}: {diff} levels from the old path");
+                                bad += 1;
+                            }
+                            top = top.max(diff);
+                        }
+                    }
+                }
+            }
+        }
+        println!("SHARP worst {top}, over the room {bad}");
+        assert_eq!(bad, 0);
     }
 
     #[test]
