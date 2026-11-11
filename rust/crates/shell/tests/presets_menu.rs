@@ -1,7 +1,7 @@
 // The Presets menu in the real window, clicked with pointer events: save, load, rename and delete take effect.
 use i_slint_backend_testing::ElementHandle;
 use serde_json::{json, Value};
-use slint::platform::{Key, PointerEventButton, WindowEvent};
+use slint::platform::{PointerEventButton, WindowEvent};
 use slint::{ComponentHandle, LogicalPosition};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};

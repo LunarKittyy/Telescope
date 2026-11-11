@@ -900,6 +900,7 @@ impl Crt {
 /// The ramp's characters as OpenCV's Hershey Plain draws them in a cell this size.
 pub struct AsciiGlyphs {
     cell: (usize, usize),
+    #[cfg(test)]
     glyphs: Vec<u8>,
     /// The same as rows of R, G, B pixels as they're drawn (green, a third as much blue), so a row of a glyph is copied in one go
     coloured: Vec<u8>,
@@ -916,7 +917,7 @@ impl AsciiGlyphs {
             canvas.plain_text(&text, ((cw as i32 - tw).div_euclid(2), ch as i32 - 3), scale, [255, 0, 0, 0]);
         }
         let coloured = glyphs.iter().flat_map(|&t| [0, t, t / 3]).collect();
-        AsciiGlyphs { cell: (cw, ch), glyphs, coloured }
+        AsciiGlyphs { cell: (cw, ch), #[cfg(test)] glyphs, coloured }
     }
 }
 
