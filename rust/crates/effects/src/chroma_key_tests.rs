@@ -575,3 +575,30 @@ fn a_long_hex_with_alpha_sets_the_colour_and_the_box_shows_it_as_six_digits() {
     r.ui("hex-typed", vec![json!("#12345")]);
     assert_eq!(r.shown("colour-hex"), json!("#123456"), "five digits is a typo: it reverts");
 }
+
+#[test]
+fn the_saved_picture_is_held_in_full_only_while_it_is_behind_you() {
+    let reads = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let (given, counted) = (flat(10, 10, [0, 0, 200]), reads.clone());
+    let mut p = ChromaKeyPlugin::with_reader(Arc::new(move |_| {
+        counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok(given.clone())
+    }));
+    let mut cfg = json!({"on": false, "background": "picture", "picture": "/pics/red.png"});
+    p.set_config(&cfg).unwrap();
+    // off: read once for the card's thumb and not kept
+    assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst), 1);
+    assert!(p.picture.is_none() && p.has_picture && p.thumb.is_some());
+    assert_eq!(p.all_props()["has-picture"], json!(true));
+    // switched on: read again for the stream, once
+    cfg["on"] = json!(true);
+    p.set_config(&cfg).unwrap();
+    assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst), 2);
+    assert_eq!(shader(&mut p).uniforms["backdrop"][3], json!(1.0));
+    shader(&mut p);
+    assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst), 2);
+    // a colour behind you needs none of it
+    cfg["background"] = json!("colour");
+    p.set_config(&cfg).unwrap();
+    assert!(p.picture.is_none() && p.has_picture);
+}

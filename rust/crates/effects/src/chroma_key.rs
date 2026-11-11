@@ -177,7 +177,10 @@ pub struct ChromaKeyPlugin {
     sliders: [i64; 3],
     background: &'static str,
     picture_path: String,
+    /// The picture in full, kept only while it's what's behind you (it can be 4K); the card and the thumb need no more.
     picture: Option<Frame>,
+    /// Whether the picture could be read when it was chosen or loaded.
+    has_picture: bool,
     picture_problem: String,
     /// The picture's small copy for the Choose control, and whether the card has it yet.
     thumb: Option<Frame>,
@@ -219,6 +222,7 @@ impl ChromaKeyPlugin {
             background: "colour",
             picture_path: String::new(),
             picture: None,
+            has_picture: false,
             picture_problem: String::new(),
             thumb: None,
             thumb_sent: true,
@@ -285,7 +289,7 @@ impl ChromaKeyPlugin {
             "colour-hex": hex([r, g, b]),
             "channel-value": [r, g, b],
             "picture-text": file_name(&self.picture_path),
-            "has-picture": self.picture.is_some(),
+            "has-picture": self.has_picture,
             "picture-problem": self.picture_problem,
             "picture-tip": self.picture_path,
             "status": text,
@@ -321,6 +325,7 @@ impl ChromaKeyPlugin {
     /// _changed: everything the settings decide has to be shown, kept and handed to the stream again.
     fn changed(&mut self, host: &mut dyn Host) {
         self.status = None;
+        self.settle_picture();
         self.show(host);
         host.schedule_save();
         host.refresh_frame_step();
@@ -410,12 +415,33 @@ impl ChromaKeyPlugin {
         self.asked = host.pick_file(&dialog);
     }
 
+    fn read_picture(&self) -> Option<Frame> {
+        if self.picture_path.is_empty() {
+            return None;
+        }
+        (self.reader)(&self.picture_path).ok().filter(|f| f.width > 0 && f.height > 0)
+    }
+
+    /// Reads the picture for the card (its thumb and whether it opens); settle_picture decides whether it stays in full.
     fn load_picture(&mut self, path: &str) {
         self.picture_path = path.to_string();
-        self.picture = if path.is_empty() { None } else { (self.reader)(path).ok().filter(|f| f.width > 0 && f.height > 0) };
+        self.picture = self.read_picture();
+        self.has_picture = self.picture.is_some();
         self.thumb = self.picture.as_ref().map(|p| crate::shared::picture_thumb(p, 96));
         self.thumb_sent = false;
-        self.picture_problem = if !path.is_empty() && self.picture.is_none() { tr("Can't open that picture") } else { String::new() };
+        self.picture_problem = if !path.is_empty() && !self.has_picture { tr("Can't open that picture") } else { String::new() };
+    }
+
+    /// The full picture is held only while the key is on with a picture behind you, and read again when it's wanted.
+    fn settle_picture(&mut self) {
+        if !self.has_picture {
+            return;
+        }
+        if !(self.on && self.background == "picture") {
+            self.picture = None;
+        } else if self.picture.is_none() {
+            self.picture = self.read_picture();
+        }
     }
 
     // ── The stream ────────────────────────────────────────────────────
@@ -618,6 +644,7 @@ impl Plugin for ChromaKeyPlugin {
             return None;
         }
         let key = self.key_colour()?;
+        self.settle_picture();
         let keys = self.tables(key).texture();
         let (picture, size, use_picture) = match (&self.picture, self.background) {
             (Some(p), "picture") => (p.clone(), [p.width as f32, p.height as f32], 1.0),
@@ -654,9 +681,10 @@ impl Plugin for ChromaKeyPlugin {
         self.colour = bgr(cfg.get("colour")).unwrap_or(DEFAULT_COLOUR);
         self.hsv = rgb_to_hsv([self.colour[2], self.colour[1], self.colour[0]], (self.hsv.0, self.hsv.1));
         let picture = cfg.get("picture").and_then(Value::as_str).unwrap_or("").to_string();
-        self.load_picture(&picture);
         self.background = cfg.get("background").and_then(Value::as_str).and_then(|b| BACKGROUNDS.iter().find(|(k, _)| *k == b)).map_or("colour", |(k, _)| *k);
         self.on = cfg.get("on") == Some(&Value::Bool(true));
+        self.load_picture(&picture);
+        self.settle_picture();
         for (i, (name, default)) in SLIDERS.iter().enumerate() {
             self.sliders[i] = clamped_int(cfg.get(*name).unwrap_or(&Value::Null), *default, 0, 100);
         }
