@@ -26,6 +26,8 @@ pub mod desk;
 pub mod face_exposure;
 pub mod framing;
 pub mod fun_effects;
+mod light_planes;
+mod slit_planes;
 pub mod fun_pack;
 pub mod imgops;
 pub mod mosh;

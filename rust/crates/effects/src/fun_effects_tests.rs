@@ -620,7 +620,7 @@ fn bench_fun_effects() {
                 moved.set(x, y, [240, 220, 20]);
             }
         }
-        for name in ["light", "webcam", "vhs", "crt", "ascii", "stick", "clones", "cloak"] {
+        for name in ["light", "slit", "webcam", "vhs", "crt", "ascii", "stick", "clones", "cloak"] {
             let look = Look { effect: name.into(), plate: Some(plate.clone()), lines: vec![((0.3, 0.2), (0.5, 0.7))], heads: vec![((0.4, 0.15), 0.05)], ..Look::default() };
             let mut e = Effect::named(name).unwrap();
             let mut i = 0;
@@ -637,7 +637,7 @@ fn bench_fun_effects() {
             frame.write_to(&mut f);
             f
         };
-        for name in ["vhs", "ascii", "stick", "crt", "light", "webcam"] {
+        for name in ["vhs", "ascii", "stick", "crt", "light", "slit", "webcam"] {
             let look = Look { effect: name.into(), lines: vec![((0.3, 0.2), (0.5, 0.7))], heads: vec![((0.4, 0.15), 0.05)], ..Look::default() };
             let mut e = Effect::named(name).unwrap();
             let mut f = i420.clone();
