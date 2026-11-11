@@ -74,12 +74,13 @@ impl<T> Mailbox<T> {
 }
 
 /// A thread that lives as long as its handle, working on the newest job put in.
-struct Worker<T: Send + 'static> {
+pub(crate) struct Worker<T: Send + 'static> {
     mailbox: Arc<Mailbox<T>>,
+    thread: Option<std::thread::JoinHandle<()>>,
 }
 
 impl<T: Send + 'static> Worker<T> {
-    fn start(name: &str, mut run: impl FnMut(T) + Send + 'static) -> Worker<T> {
+    pub(crate) fn start(name: &str, mut run: impl FnMut(T) + Send + 'static) -> Worker<T> {
         let mailbox = Mailbox::new();
         let inbox = mailbox.clone();
         let spawned = std::thread::Builder::new().name(name.into()).spawn(move || {
@@ -87,13 +88,21 @@ impl<T: Send + 'static> Worker<T> {
                 run(job);
             }
         });
-        if let Err(e) = spawned {
+        if let Err(e) = &spawned {
             log::error!("Couldn't start the {name} thread: {e}");
         }
-        Worker { mailbox }
+        Worker { mailbox, thread: spawned.ok() }
     }
 
-    fn put(&self, job: T) {
+    /// Closes the mailbox and waits for the job in hand to finish, so nothing it uses is still in use afterwards.
+    pub(crate) fn finish(mut self) {
+        self.mailbox.close();
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+
+    pub(crate) fn put(&self, job: T) {
         self.mailbox.put(job);
     }
 }

@@ -1144,3 +1144,53 @@ fn the_skeleton_follows_the_zoom_and_marks_an_arm_held_out() {
     assert_eq!(lines.iter().filter(|l| l["out"] == true).count(), 2, "shoulder to elbow and elbow to wrist, not the side of the body or the face");
     assert!(lit_near(&s, s.at(0.5, 0.3)), "drawn where the zoom put it");
 }
+
+/// The CPU fallback's painter, as the app uses it when the window can't take the card's textures.
+fn threaded(s: &Stage) {
+    use telescope_core::media::Media;
+    s.r.w.use_painter(Box::new(telescope_shell::preview::ThreadedPainter::for_window(telescope_media::FfmpegMedia.scaler())));
+}
+
+#[test]
+fn the_fallback_painter_never_holds_the_window_up_and_the_picture_lands_when_it_is_made() {
+    let s = on_air("stage-threaded");
+    threaded(&s);
+    s.show(0, blue(1920, 1080));
+    assert!(!s.has_frame(), "the scaler runs on a thread of its own, so nothing is there yet");
+    s.r.until("the picture lands", |_| s.has_frame());
+    let scale = s.r.w.ui.window().scale_factor();
+    let stage = ((s.number("stage-width") * scale).round() as u32, (s.number("stage-height") * scale).round() as u32);
+    assert_eq!(s.image_size(), telescope_shell::preview::fit_within((1920, 1080), stage));
+    let (r, g, b) = s.pixel();
+    assert!(b > 200 && r < 60 && g < 60, "{:?}", (r, g, b));
+    // The next frame is another picture, with no help from the 10 Hz timer
+    s.show(0, grey(1920, 1080));
+    s.r.until("the next picture lands", |_| s.pixel().2 < 150);
+    assert!(s.pixel().0 > 100);
+}
+
+#[test]
+fn the_fallback_painter_still_paints_again_for_a_resize_and_a_stream_switch() {
+    let s = on_air_capped("stage-threaded-resize");
+    threaded(&s);
+    s.show(0, grey(1920, 1080));
+    s.r.until("the picture lands", |_| s.has_frame());
+    let first = s.image_size();
+    s.r.w.ui.window().set_size(slint::PhysicalSize::new(700, 500));
+    s.r.w.process();
+    s.r.w.paint_preview();
+    let scale = s.r.w.ui.window().scale_factor();
+    let stage = ((s.number("stage-width") * scale).round() as u32, (s.number("stage-height") * scale).round() as u32);
+    let want = telescope_shell::preview::fit_within((1920, 1080), stage);
+    assert_ne!(want, first, "the window really got smaller");
+    s.r.until("the same frame at the new size", |_| s.image_size() == want);
+    // A new stream's first frame is painted whatever the frame count says
+    s.r.stop(None);
+    s.r.pump();
+    s.r.start();
+    s.r.until("the second worker", |r| r.workers_made() == 2);
+    s.r.worker(1).says("ok", "Streaming");
+    s.r.pump();
+    s.show(1, blue(640, 360));
+    s.r.until("the new stream's picture", |_| s.pixel().2 > 200);
+}

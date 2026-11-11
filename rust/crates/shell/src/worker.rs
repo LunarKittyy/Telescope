@@ -705,7 +705,8 @@ impl Shared {
 
     /// Whether the card decodes because nobody chose otherwise. The first look for the card opens a decoder, so it's made here and not on the window's thread.
     fn default_card(&self) -> bool {
-        self.hardware_default && telescope_core::media::hardware_decode_default(cfg!(target_os = "linux"), self.media.decoding_status().hardware_device.as_deref())
+        // VA-API is Linux-only, so nothing looks for a card elsewhere
+        cfg!(target_os = "linux") && self.hardware_default && telescope_core::media::hardware_decode_default(cfg!(target_os = "linux"), self.media.decoding_status().hardware_device.as_deref())
     }
 
     fn join_handover(&self) {

@@ -6,7 +6,7 @@ mod motion_film;
 
 use motion_film::*;
 use slint::ComponentHandle;
-use slint_interpreter::{ComponentInstance, Value};
+use slint_interpreter::Value;
 use telescope_shell::offscreen;
 
 /// A deterministic run of numbers (no random crate in the tests).

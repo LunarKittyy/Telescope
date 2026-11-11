@@ -1200,7 +1200,7 @@ fn lowering_the_ceiling_moves_a_roaming_slow_framing_down_to_it() {
     r.configure(&json!({"framing": 0.0, "speed": 1, "room": 5, "on": true}));
     r.ui("switch-toggled-by-hand", json!(true));
     r.event(Event::MaxZoomChanged { max_zoom: 10 });
-    let (mut zoom, mut before) = (0.0, 0.0);
+    let mut zoom = 0.0;
     for k in 0..4000 {
         if k == 2000 {
             assert!(zoom > 9.5, "held at the ceiling first: {zoom}");
@@ -1209,7 +1209,7 @@ fn lowering_the_ceiling_moves_a_roaming_slow_framing_down_to_it() {
         *r.clock.lock().unwrap() += 1.0 / 30.0;
         r.people("phone", &[walker(0.4, 0.02, &[], k, 0.0)]);
         r.tick();
-        before = zoom;
+        let before = zoom;
         zoom = r.last().0 as f64;
         r.host.view = View { zoom: r.last().0, pan_x: r.last().1, pan_y: r.last().2, ..View::default() };
         if k > 2000 {

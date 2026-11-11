@@ -1131,3 +1131,104 @@ mod timing {
         }
     }
 }
+
+#[cfg(test)]
+mod preview_bench {
+    use super::*;
+    use std::time::Instant;
+
+    /// A picture with gradients, edges and noise, as I420 or NV12.
+    pub(super) fn picture(w: u32, h: u32, nv12: bool) -> Frame {
+        let (cw, ch) = (chroma(w) as usize, chroma(h) as usize);
+        let mut noise = 2463534242u32;
+        let mut data = Vec::with_capacity((w * h) as usize + 2 * cw * ch);
+        for y in 0..h {
+            for x in 0..w {
+                noise ^= noise << 13;
+                noise ^= noise >> 17;
+                noise ^= noise << 5;
+                let edge = if (x / 64 + y / 64) % 5 == 0 { 40 } else { 0 };
+                let fine = if (x / 3 + y / 3) % 2 == 0 { 12 } else { 0 };
+                data.push(16u8.saturating_add((x * 150 / w + y * 60 / h) as u8).saturating_add(edge).saturating_add(fine).saturating_add((noise & 7) as u8).min(235));
+            }
+        }
+        let u = |i: usize| (90 + (i % cw) * 70 / cw + (i / cw) % 7) as u8;
+        let v = |i: usize| (150 - (i % cw) * 60 / cw + (i / cw) % 5) as u8;
+        if nv12 {
+            for i in 0..cw * ch {
+                data.push(u(i));
+                data.push(v(i));
+            }
+            Frame::new(w, h, PixelFormat::Nv12, data)
+        } else {
+            data.extend((0..cw * ch).map(u));
+            data.extend((0..cw * ch).map(v));
+            Frame::new(w, h, PixelFormat::I420, data)
+        }
+    }
+
+    /// What painting the preview costs the thread that asks for it (the UI's), before and after the card has finished.
+    /// cargo test --release -p telescope-media --lib -- --ignored --nocapture what_the_preview_paint_costs
+    #[test]
+    #[ignore = "a measurement, needs a graphics card"]
+    fn what_the_preview_paint_costs() {
+        let gpu = Gpu::shared().expect("a graphics card");
+        println!("on {}", gpu.adapter_name);
+        for (w, h) in [(1920, 1080), (3840, 2160)] {
+            for nv12 in [false, true] {
+                // Several frames in turn, so each one comes in cold from memory as a decoded one does
+                let frames: Vec<Frame> = (0..8).map(|_| picture(w, h, nv12)).collect();
+                let target = gpu.picture(960, 540);
+                let (mut asked, mut done) = (Vec::new(), Vec::new());
+                for i in 0..80 {
+                    let start = Instant::now();
+                    gpu.paint(&frames[i % frames.len()], &target).unwrap();
+                    let a = start.elapsed().as_nanos() as u64;
+                    gpu.device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
+                    if i >= 10 {
+                        asked.push(a);
+                        done.push(start.elapsed().as_nanos() as u64);
+                    }
+                }
+                let med = |mut v: Vec<u64>| { v.sort(); v[v.len() / 2] as f64 / 1e6 };
+                println!("{w}x{h} {:<5} paint() returns after {:5.2} ms, card done after {:5.2} ms", if nv12 { "NV12" } else { "I420" }, med(asked), med(done));
+            }
+        }
+    }
+
+    /// What the fallback costs the UI thread when the card can't hand its texture to the window: the readback, and the processor's own scaler.
+    /// cargo test --release -p telescope-media --lib -- --ignored --nocapture what_the_preview_fallback_costs
+    #[test]
+    #[ignore = "a measurement, needs a graphics card"]
+    fn what_the_preview_fallback_costs() {
+        let gpu = Gpu::shared().expect("a graphics card");
+        for (w, h) in [(1920, 1080), (3840, 2160)] {
+            let frames: Vec<Frame> = (0..8).map(|_| picture(w, h, false)).collect();
+            let (mut card, mut cpu) = (Vec::new(), Vec::new());
+            #[cfg(ffmpeg)]
+            let mut scaler = crate::ffmpeg::CpuScaler::default();
+            for i in 0..60 {
+                let f = &frames[i % frames.len()];
+                let start = Instant::now();
+                let rgba = gpu.rgba(f, 960, 540).unwrap();
+                let mut rgb = vec![0u8; 960 * 540 * 3];
+                telescope_core::image::drop_alpha(&rgba, 960, &mut rgb);
+                let a = start.elapsed().as_nanos() as u64;
+                #[cfg(ffmpeg)]
+                let b = {
+                    let start = Instant::now();
+                    let _ = scaler.rgb(f, 960, 540);
+                    start.elapsed().as_nanos() as u64
+                };
+                #[cfg(not(ffmpeg))]
+                let b = 0;
+                if i >= 10 {
+                    card.push(a);
+                    cpu.push(b);
+                }
+            }
+            let med = |mut v: Vec<u64>| { v.sort(); v[v.len() / 2] as f64 / 1e6 };
+            println!("{w}x{h} I420 to 960x540 RGB: through the card {:5.2} ms, swscale on the processor {:5.2} ms", med(card), med(cpu));
+        }
+    }
+}

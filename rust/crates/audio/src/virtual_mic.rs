@@ -314,6 +314,7 @@ mod tests {
         d
     }
 
+    #[cfg(unix)]
     #[test]
     fn a_command_with_a_lot_of_output_isnt_held_up_by_it() {
         let started = Instant::now();

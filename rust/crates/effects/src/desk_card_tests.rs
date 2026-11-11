@@ -62,6 +62,11 @@ fn plugin(config: Value) -> DeskPlugin {
     p
 }
 
+/// A card the frames really go to: Windows' software renderer (WARP) is found as a card, but the steps stay on the CPU there.
+fn real_card() -> bool {
+    telescope_media::gpu::Gpu::shared().is_some_and(|gpu| !gpu.adapter_name.contains("Basic Render"))
+}
+
 /// The picture through the desk step on the card (as a step that can run either way) and on the CPU: (card, cpu).
 fn both(config: Value, picture: &Rgb) -> (Rgb, Rgb) {
     both_of(config, rgba(picture))
@@ -94,7 +99,7 @@ fn difference(card: &Rgb, cpu: &Rgb) -> (u8, f64, f64, f64) {
 
 #[test]
 fn the_desk_on_the_card_looks_like_the_one_on_the_cpu() {
-    if telescope_media::gpu::Gpu::shared().is_none() {
+    if !real_card() {
         eprintln!("no graphics card here: the shader comparison is skipped");
         return;
     }
@@ -165,7 +170,7 @@ fn coloured(w: usize, h: usize, format: PixelFormat) -> Frame {
 
 #[test]
 fn the_desk_on_the_card_keeps_the_cpus_chroma_for_yuv_frames() {
-    if telescope_media::gpu::Gpu::shared().is_none() {
+    if !real_card() {
         eprintln!("no graphics card here: the shader comparison is skipped");
         return;
     }
