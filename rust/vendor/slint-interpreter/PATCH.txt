@@ -30,6 +30,21 @@ The main window and the Settings window drew byte for byte the same before and a
 Measured with the cache on top (same setup, two runs each, base then patched back to back): 4K all on 13.5 -> 11.5 %, 4K nothing loaded 3.1 -> 3.1 % (no change, within noise), 1080p all on 10.3 -> 8.6 %, 1080p nothing loaded 2.2 -> 1.85 %.
 Pixels: the main window, Settings, a resize, and a card folding and unfolding (mid-animation too) drew byte for byte the same.
 
+Third change, in item_tree_vtable.rs and instance.rs (search for "Telescope patch"): ItemTree::parent_node and sub_component_path_of no longer search the tree on every call.
+
+Why: the core asks for an item's parent on every walk (absolute positions, hit testing, dirty tracking). For an item in a repeated row the interpreter found the row's place in its parent by walking
+the parent's whole sub-component tree for the path and then scanning dynamic_table for the matching repeater, each time. After the geometry cache this was about 15 % of the window thread at 4K
+with everything on (Instance::parent_node 8.1 % and sub_component_path_of 7.2 % self time).
+
+What it does now: the tree of one instance never changes after build_instance (repeaters and conditionals put their rows in their own Instance, and sub_components is filled once), so where a
+sub-component sits below its root is found once and kept in SubComponentInstance::path_in_root, and a repeated Instance keeps the flat index of its placeholder in the parent in parent_flat_index
+(only set when the lookup succeeds). Embedded components (ComponentContainer) and popups take the same path as before. resolve_item_rc_from_ref uses the same cached path.
+
+Measured (release, window thread CPU over 40 s after 25 s warm-up, everything on, two runs each, base then patched back to back): 4K 11.3 -> 9.9 %, 1080p 8.8 -> 7.0 %.
+Pixels: main window, three window sizes, folding and unfolding cards drew byte for byte the same.
+
+Drop it with the rest of this folder.
+
 Drop it when Slint stops cloning and boxing in item_geometry (nothing upstream is known yet; check the release notes after 1.18.1), then remove this folder and the
 slint-interpreter line under [patch.crates-io] in rust/Cargo.toml. Tests and the lockfile were left out of the copy, and so were the [[test]] entries for them in Cargo.toml.
 Slint's GPL-3 option is what Telescope uses; the licence files are kept in LICENSES.

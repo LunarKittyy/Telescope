@@ -29,10 +29,11 @@ i_slint_core::ItemTreeVTable_static!(static INTERPRETER_INSTANCE_VT for Instance
 /// Find the `sub_component_path` (sequence of `SubComponentInstanceIdx`)
 /// from the parent instance's root to the given sub-component. Used by
 /// `parent_node` to match entries in the parent's `dynamic_table`.
-pub(crate) fn sub_component_path_of(
-    target: &crate::instance::SubComponentInstance,
+// Telescope patch: the path never changes once the instance is built, so it is found once per sub-component (see PATCH.txt)
+pub(crate) fn sub_component_path_of<'a>(
+    target: &'a crate::instance::SubComponentInstance,
     parent_root: &Instance,
-) -> Vec<i_slint_compiler::llr::SubComponentInstanceIdx> {
+) -> &'a [i_slint_compiler::llr::SubComponentInstanceIdx] {
     fn walk(
         current: &crate::instance::SubComponentInstance,
         target_ptr: *const crate::instance::SubComponentInstance,
@@ -50,9 +51,11 @@ pub(crate) fn sub_component_path_of(
         }
         false
     }
-    let mut path = Vec::new();
-    walk(&parent_root.root_sub_component, target as *const _, &mut path);
-    path
+    target.path_in_root.get_or_init(|| {
+        let mut path = Vec::new();
+        walk(&parent_root.root_sub_component, target as *const _, &mut path);
+        path.into_boxed_slice()
+    })
 }
 
 impl i_slint_core::item_tree::ItemTree for Instance {
@@ -181,16 +184,25 @@ impl i_slint_core::item_tree::ItemTree for Instance {
             // is a DynamicTree and walks one more level up to its parent
             // item. Returning the DynamicTree's own parent here skips that
             // adjustment and gives the caller the wrong node.
-            let rep_idx = *repeater_idx;
-            let parent_path = sub_component_path_of(&parent_sub, &parent_root_vrc);
-            for (flat, entry) in parent_root_vrc.dynamic_table.iter().enumerate() {
-                if let Some((path, idx)) = entry.as_ref()
-                    && path.as_ref() == parent_path.as_slice()
-                    && *idx == rep_idx
-                {
-                    *result = i_slint_core::items::ItemRc::new(parent_dyn, flat as u32).downgrade();
-                    return;
+            // Telescope patch: the placeholder's flat index is looked up once per instance (see PATCH.txt)
+            let flat = match this.parent_flat_index.get() {
+                Some(flat) => Some(*flat),
+                None => {
+                    let rep_idx = *repeater_idx;
+                    let parent_path = sub_component_path_of(&parent_sub, &parent_root_vrc);
+                    let flat = parent_root_vrc.dynamic_table.iter().position(|entry| {
+                        entry.as_ref().is_some_and(|(path, idx)| {
+                            path.as_ref() == parent_path && *idx == rep_idx
+                        })
+                    });
+                    if let Some(flat) = flat {
+                        let _ = this.parent_flat_index.set(flat as u32);
+                    }
+                    flat.map(|flat| flat as u32)
                 }
+            };
+            if let Some(flat) = flat {
+                *result = i_slint_core::items::ItemRc::new(parent_dyn, flat).downgrade();
             }
         } else {
             // Popup case: ItemRc::new_root on the parent instance, which the

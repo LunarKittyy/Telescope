@@ -2690,7 +2690,7 @@ pub(crate) fn resolve_item_rc_from_ref(
     let owner = try_walk_to(ctx, *parent_level, local_reference)?;
     let parent_inst = owner.root.get().and_then(|w| w.upgrade())?;
     let full_path = crate::item_tree_vtable::sub_component_path_of(&owner, &parent_inst);
-    let flat_idx = find_flat_item_index(&parent_inst.item_table, &full_path, *item_index)?;
+    let flat_idx = find_flat_item_index(&parent_inst.item_table, full_path, *item_index)?;
     Some((parent_inst, flat_idx))
 }
 
