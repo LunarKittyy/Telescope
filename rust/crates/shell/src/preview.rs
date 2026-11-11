@@ -270,7 +270,8 @@ pub fn step(due: bool, ready: bool, tints: bool) -> Step {
     match (due, ready) {
         (true, _) => Step::Paint,
         (false, false) => Step::Skip,
-        (false, true) if tints => Step::Paint,
+        // A tinting pass paints the picture itself, so a fallback picture waiting is of no use
+        (false, true) if tints => Step::Skip,
         (false, true) => Step::Take,
     }
 }
@@ -550,7 +551,7 @@ mod tests {
         assert_eq!(step(false, true, false), Step::Take);
         assert_eq!(step(false, false, false), Step::Skip);
         assert_eq!(step(true, true, false), Step::Paint);
-        assert_eq!(step(false, true, true), Step::Paint, "a tinting pass paints the picture itself");
+        assert_eq!(step(false, true, true), Step::Skip, "a tinting pass paints the picture itself, so no repaints for a picture it never takes");
         let (scaler, runs) = flat(5);
         let woke = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let counter = woke.clone();

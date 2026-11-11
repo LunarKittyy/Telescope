@@ -1065,6 +1065,13 @@ impl Window {
         let resized = self.painted_size.get() != (w, h);
         let again = number == self.painted.get();
         let ready = self.painter.borrow().as_ref().is_some_and(|p| p.ready());
+        // A tinting pass paints the picture itself: what the fallback finished meanwhile is dropped, or it would stay waiting for ever
+        if tints && ready {
+            if let Some(p) = self.painter.borrow_mut().as_mut() {
+                let _ = p.paint_ready(w, h);
+            }
+        }
+        let ready = ready && !tints;
         if again && !resized && !ready && !(tints && self.passes.borrow().tint_newer(source)) {
             return;
         }
