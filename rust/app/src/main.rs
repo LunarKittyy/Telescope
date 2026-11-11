@@ -358,9 +358,9 @@ fn take_lock(wait: bool, remote: &telescope_system::shortcuts::RemoteActions, sp
 fn remove_stale_mic() {
     #[cfg(target_os = "linux")]
     {
-        use telescope_audio::virtual_mic::{remove_stale_source, run_within, source};
+        use telescope_audio::virtual_mic::{remove_stale_source_in_background, run_within, source};
         if telescope_system::single_instance::sole_user_of(source()) {
-            remove_stale_source(&|cmd| run_within(cmd, std::time::Duration::from_secs(2)));
+            remove_stale_source_in_background(|cmd: &[String]| run_within(cmd, std::time::Duration::from_secs(2)));
         }
     }
 }

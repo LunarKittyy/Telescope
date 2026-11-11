@@ -247,6 +247,18 @@ impl Gpu {
         })
     }
 
+    /// Lets go of the kept textures and download buffers (the stream stopped), so they don't hold the card's memory while idle.
+    pub fn release_idle(&self) {
+        self.pool.lock().unwrap().clear();
+        self.downloads.lock().unwrap().clear();
+    }
+
+    /// How many bytes of textures are kept for the next frame, for tests.
+    #[cfg(test)]
+    pub(crate) fn kept_bytes(&self) -> usize {
+        self.pool.lock().unwrap().bytes()
+    }
+
     /// Hands textures back for the next frame of the same size.
     fn give_back(&self, textures: impl IntoIterator<Item = wgpu::Texture>) {
         let mut pool = self.pool.lock().unwrap();
