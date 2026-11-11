@@ -376,3 +376,32 @@ fn what_the_pieces_of_a_paint_cost() {
         println!("PIECE {w}x{h} analyse parade (own thread)      mean {:7.2} ms  best {:7.2} ms", t.mean, t.best);
     }
 }
+
+/// What the window spends when a frame wakes it and the card has nothing to paint (a frame the cadence skips, or one already shown), and on a tick of its 10 Hz timer.
+#[test]
+#[ignore]
+fn what_a_wake_and_a_tick_cost() {
+    for frame in [(1920, 1080), (3840, 2160)] {
+        let s = Stage::on_air("wake-cost");
+        let slot = s.r.worker(0).slot();
+        let pictures: Vec<Frame> = (0..4).map(|i| picture(frame.0, frame.1, i + 1)).collect();
+        slot.publish(pictures[0].clone());
+        s.r.w.paint_preview();
+        let same = time(2000, |_| s.r.w.frame_ready());
+        let mut each = Vec::new();
+        for i in 0..200 {
+            slot.publish(pictures[i % 4].clone());
+            let t = Instant::now();
+            s.r.w.frame_ready();
+            each.push(t.elapsed().as_secs_f64() * 1000.0);
+        }
+        let mean = |odd: usize| each.iter().skip(odd).step_by(2).sum::<f64>() / (each.len() / 2) as f64;
+        let tick = time(2000, |_| {
+            s.r.w.paint_preview();
+            s.r.w.paint_layers();
+            s.r.w.watch_focus();
+            s.r.w.update_thumbnails();
+        });
+        println!("WAKE {}x{} same frame {:.3} ms, new frames: even {:.3} ms odd {:.3} ms, 10 Hz tick {:.3} ms", frame.0, frame.1, same.mean, mean(0), mean(1), tick.mean);
+    }
+}
