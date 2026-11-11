@@ -7,7 +7,7 @@ forgotten and the stale result is cached as clean. The new method clears the fla
 Why a new method and not a change to the old one: evaluate_as_dependency_root has many callers that rely on the old order, or would at least change behaviour with the new one (a render or layout
 pass that sets properties it read would stay dirty and ask for another frame forever). Callers in 1.18.1, all left as they were: PropertyTracker::evaluate and evaluate_if_dirty, item_rendering.rs
 (scale factor), graphics/boxshadowcache.rs, window.rs (redraw tracker, popup trackers), properties/ffi.rs, the winit backend's accesskit.rs and the Qt backend's qt_accessible.rs. Only
-slint-interpreter's item_geometry calls the new method.
+slint-interpreter's item_geometry and its Instance::ensure_instantiated call the new method.
 
 Measured together with the cache: see vendor/slint-interpreter/PATCH.txt.
 

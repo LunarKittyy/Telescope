@@ -1,4 +1,4 @@
-slint-interpreter 1.18.1 from crates.io with two changes (the second needs vendor/i-slint-core), both in ItemTree::item_geometry (search for "Telescope patch"): ItemTree::item_geometry no longer clones
+slint-interpreter 1.18.1 from crates.io with four changes (the second and fourth need vendor/i-slint-core), the first two in ItemTree::item_geometry (search for "Telescope patch"): ItemTree::item_geometry no longer clones
 the item's geometry expression and no longer builds a Struct from it.
 
 Why: Slint asks every item for its geometry on every walk of the item tree (rendering, hit testing, dirty tracking). The interpreter answered by cloning the
@@ -42,6 +42,23 @@ sub-component sits below its root is found once and kept in SubComponentInstance
 
 Measured (release, window thread CPU over 40 s after 25 s warm-up, everything on, two runs each, base then patched back to back): 4K 11.3 -> 9.9 %, 1080p 8.8 -> 7.0 %.
 Pixels: main window, three window sizes, folding and unfolding cards drew byte for byte the same.
+
+Drop it with the rest of this folder.
+
+Fourth change, in instance.rs (search for "Telescope patch"): Instance::ensure_instantiated only walks its repeaters, conditionals and ComponentContainers when something they read has changed.
+
+Why: the core runs ensure_instantiated on the whole tree before every frame and every input event. Each call went through every dynamic node of every instance, cloned Rc's and the
+compilation unit for each, read each repeater's model property and collected each repeater's rows into a fresh Vec to recurse into them, even when nothing had changed. After the
+parent lookup cache this was the largest interpreter cost left on the window thread at 4K with everything on (Instance::ensure_updated 6.9 % and PropertyHandle::update for the model 4.2 % self time).
+
+What it does now: every Instance with dynamic nodes has a PropertyTracker that records what its last walk read (the models, the repeaters' dirty flags, the conditions, a ListView's
+viewport and row heights, the ComponentContainer's factory). A child instance's tracker is registered with its parent's before the child walks, so a change anywhere below marks every
+instance above it dirty, and a clean instance answers straight away. The walk uses the keeping-invalidation variant from vendor/i-slint-core, so a change the walk itself causes (a row's
+init setting a property another repeater's model reads) leaves the tracker dirty for the next call. A ListView sets its dirty flag without reading it, so the walk registers it
+explicitly. A walk that re-enters the same instance (from init code) walks as before without the tracker. Direct ensure_updated calls (get_subtree_range, get_subtree) are unchanged.
+Rows still appear, update and go in the same call as before: the tracker only skips walks that would have changed nothing.
+
+Measured (release, window thread CPU over 40 s after 25 s warm-up, everything on, two runs each, base then patched back to back): 4K 9.9 -> 8.4 %, 1080p 7.0 -> 6.5 %.
 
 Drop it with the rest of this folder.
 
