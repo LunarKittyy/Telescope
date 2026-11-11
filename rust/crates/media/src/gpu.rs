@@ -1207,8 +1207,6 @@ mod preview_bench {
             let (mut card, mut cpu) = (Vec::new(), Vec::new());
             #[cfg(ffmpeg)]
             let mut scaler = crate::ffmpeg::CpuScaler::default();
-            #[cfg(ffmpeg)]
-            use telescope_core::media::Scaler;
             for i in 0..60 {
                 let f = &frames[i % frames.len()];
                 let start = Instant::now();

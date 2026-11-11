@@ -84,6 +84,7 @@ struct Region<'a> {
 }
 
 impl Region<'_> {
+    #[cfg(test)]
     fn at(&self, x: usize, y: usize, c: usize) -> u8 {
         self.data[((self.y0 + y) * self.stride + self.x0 + x) * self.ch + c]
     }
