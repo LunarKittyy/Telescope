@@ -252,6 +252,7 @@ pub fn open(window: &Rc<Window>, tab: &str) {
     crate::frame::dress(&settings.ui);
     crate::parent::attach(&settings.ui, &window.ui);
     if coming_up {
+        settings.start_watching();
         if settings.fitted.get() {
             settings.centre(&settings.ui);
         }
@@ -1043,11 +1044,16 @@ impl Settings {
         }
     }
 
-    /// Polls the vision download and the update check while the window lives, and shows what they've come to.
+    /// Polls the vision download and the update check while the window is shown, and shows what they've come to.
     fn start_watching(self: &Rc<Self>) {
         let weak = Rc::downgrade(self);
         self.watch.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(600), move || {
             let Some(s) = weak.upgrade() else { return };
+            // Hidden: rests until open() starts it again, which also catches up on what changed meanwhile
+            if !s.ui.window().is_visible() {
+                s.watch.stop();
+                return;
+            }
             poll_updates(s.panel.borrow().admin.as_ref());
             let sign = format!("{} {}", s.panel.borrow().download_sign(), CHECKED.with(|c| c.get()));
             if *s.seen.borrow() != sign {

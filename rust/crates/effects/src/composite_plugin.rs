@@ -162,9 +162,11 @@ impl Shared {
     }
 
     /// The clock: rests until there's a stream on the camera to keep moving, then draws while that stream stalls.
+    /// While frames arrive it sleeps until the newest one would count as stalled, instead of looking every frame time.
     fn run_clock(&self) {
+        let period = 1_000_000_000 / FALLBACK_FPS;
         loop {
-            {
+            let wait = {
                 let mut hub = self.hub();
                 if hub.shut {
                     return;
@@ -174,11 +176,21 @@ impl Shared {
                     continue;
                 }
                 hub.ticks += 1;
-            }
-            std::thread::sleep(Duration::from_nanos(1_000_000_000 / FALLBACK_FPS));
+                Self::clock_wait(hub.main_frame.as_ref().map(|(_, at)| *at), monotonic_ns(), period)
+            };
+            std::thread::sleep(Duration::from_nanos(wait));
             if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.draw_stalled(monotonic_ns()))).is_err() {
                 log::error!("Drawing the picture while its stream stalls failed");
             }
+        }
+    }
+
+    /// How long the clock sleeps (ns): a frame time while the stream is stalled or unheard from, else until its newest frame would be
+    /// three frame times old, so a clock that wakes just before each new frame doesn't stay locked to the frame rate.
+    fn clock_wait(last_frame: Option<u64>, now: u64, period: u64) -> u64 {
+        match last_frame {
+            Some(at) if now.saturating_sub(at) < 2 * period => at + 3 * period - now,
+            _ => period,
         }
     }
 }
@@ -267,7 +279,12 @@ impl CompositePlugin {
         let size = self.size();
         let on = self.on;
         let mut hub = self.shared.hub();
-        hub.compositor.prepare(&self.layout, size);
+        // Off, nothing draws: the background (a canvas-sized picture) is only worked out while it's on
+        if on {
+            hub.compositor.prepare(&self.layout, size);
+        } else {
+            hub.compositor = Compositor::new(self.reader.clone());
+        }
         hub.on = on;
     }
 
@@ -464,7 +481,7 @@ impl CompositePlugin {
 
     fn set_on(&mut self, host: &mut dyn Host, on: bool) {
         self.on = on;
-        self.shared.hub().on = on;
+        self.prepare();
         self.wake_clock();
         self.show(host);
         host.schedule_save();
