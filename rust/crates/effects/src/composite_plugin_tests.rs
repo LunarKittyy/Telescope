@@ -359,3 +359,32 @@ fn the_card_says_where_the_picture_goes() {
 
 #[path = "composite_editor_tests.rs"]
 mod editor_tests;
+
+#[test]
+fn the_clock_sleeps_until_the_newest_frame_would_stall() {
+    let period = SECOND / 30;
+    // no frame yet or a stalled one: a frame time
+    assert_eq!(Shared::clock_wait(None, 10 * period, period), period);
+    assert_eq!(Shared::clock_wait(Some(0), 3 * period, period), period);
+    // a fresh one: until it is three frame times old
+    assert_eq!(Shared::clock_wait(Some(0), 0, period), 3 * period);
+    assert_eq!(Shared::clock_wait(Some(0), period, period), 2 * period);
+    // just before it counts as stalled: still more than a frame time
+    assert_eq!(Shared::clock_wait(Some(0), 2 * period - 1, period), period + 1);
+}
+
+#[test]
+#[ignore = "timing: how often the clock wakes while frames arrive"]
+fn bench_clock_wakes_while_frames_arrive() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    let frame = solid([255, 0, 0], (90, 160));
+    let before = r.plugin.shared.hub().ticks;
+    let start = Instant::now();
+    while start.elapsed() < Duration::from_secs(3) {
+        r.process(&frame, "a");
+        std::thread::sleep(Duration::from_millis(33));
+    }
+    let wakes = r.plugin.shared.hub().ticks - before;
+    println!("clock wakes per second at 30 fps: {:.1}", wakes as f64 / start.elapsed().as_secs_f64());
+}

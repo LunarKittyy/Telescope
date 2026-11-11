@@ -1798,6 +1798,8 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     let weak = Rc::downgrade(&window);
     window.preview_timer.start(slint::TimerMode::Repeated, Duration::from_millis(100), move || {
         if let Some(w) = weak.upgrade() {
+            let seen = w.ui.window().is_visible() && !w.ui.window().is_minimized();
+            w.streams.frame_unwanted.store(!(seen || w.popout.borrow().is_some()), std::sync::atomic::Ordering::SeqCst);
             w.paint_preview();
             w.paint_pick();
             w.paint_layers();
