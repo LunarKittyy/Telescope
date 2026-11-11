@@ -776,6 +776,8 @@ class CameraStreamService : Service() {
             initialStreamHeight = streamHeight,
             initialPhoneFps     = initialFps,
             onFrame        = { bytes -> server?.sendFrame(bytes) },
+            frameWanted    = { server?.wantsJpeg() ?: true },
+            onFrameSkipped = { server?.countFrame() },
             // A callback from a controller that's been replaced or stopped only goes in the history.
             onStateChanged = { newState, op, error ->
                 if (controller === ctrl) setState(newState, op, error) else stateMachine.record(op, error)

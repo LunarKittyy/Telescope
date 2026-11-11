@@ -36,7 +36,10 @@ class AudioStreamer(private val context: Context, private val onChunk: (ByteArra
         val active = AtomicBoolean(true).also { running = it }
         // The audio server restarting ends or freezes the recording: open a new one rather than stay quiet
         val loop = MicLoop(::open, onChunk, active).also { this.loop = it }
-        Thread({ loop.run(first) }, "mic-record").start()
+        Thread({
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)  // a late read drops audio samples
+            loop.run(first)
+        }, "mic-record").start()
         Thread({
             while (active.get()) {
                 try { Thread.sleep(MicLoop.STALL_MS / 2) } catch (_: InterruptedException) { break }

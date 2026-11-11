@@ -60,6 +60,19 @@ class H264StreamTest {
     }
 
     @Test
+    fun `an overflowing keyframe is kept, with the config in front`() {
+        val q = H264ClientQueue(capacity = 3)
+        q.offerConfig(p(9))
+        q.offer(p(1), key = true)
+        q.offer(p(2), key = false)
+        q.offer(p(3), key = false)
+        assertFalse(q.offer(p(4), key = true))
+        assertArrayEquals(p(9), q.poll(0))
+        assertArrayEquals(p(4), q.poll(0))
+        assertNull(q.poll(0))
+    }
+
+    @Test
     fun `a new config replaces the backlog and waits for the next keyframe`() {
         val q = H264ClientQueue()
         q.offer(p(1), key = true)

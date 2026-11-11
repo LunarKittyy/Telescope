@@ -26,4 +26,12 @@ class FrameRateTest {
         now += 5_000
         assertEquals(0.0, rate.fps())
     }
+
+    @Test
+    fun `the default clock is monotonic and counts in milliseconds`() {
+        val rate = FrameRate(windowMs = 200)
+        val start = System.nanoTime()
+        while (System.nanoTime() - start < 150_000_000L) { rate.tick(); Thread.sleep(10) }
+        assertEquals(100.0, rate.fps(), 30.0)
+    }
 }
