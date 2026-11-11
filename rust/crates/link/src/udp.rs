@@ -430,6 +430,12 @@ fn clock(origin: Instant) -> f64 {
     origin.elapsed().as_secs_f64()
 }
 
+// How many times this thread entered the wait for the socket, for tests
+#[cfg(test)]
+thread_local! {
+    static READINESS_WAITS: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
 /// Waits until a datagram can be read from the (non-blocking) socket, or `limit` passes; whether one can.
 #[cfg(unix)]
 fn wait_readable(sock: &UdpSocket, limit: Duration) -> bool {
@@ -507,6 +513,8 @@ impl Udp {
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock && !waited => {
                     waited = true;
+                    #[cfg(test)]
+                    READINESS_WAITS.with(|n| n.set(n.get() + 1));
                     if !wait_readable(&self.sock, self.patience()) {
                         break;
                     }
@@ -1151,11 +1159,14 @@ mod tests {
                 udp.frames.add(&p, 0.0);
             }
         }
+        let waits = READINESS_WAITS.with(|n| n.get());
         let began = Instant::now();
         for _ in 0..3 {
             assert_eq!(feed.read().unwrap().data, b"frame");
         }
-        assert!(began.elapsed() < Duration::from_millis(15), "{:?}", began.elapsed());
+        assert_eq!(READINESS_WAITS.with(|n| n.get()), waits, "a frame that was ready waited on the socket first");
+        // Only a backstop: the counter above is the real check
+        assert!(began.elapsed() < Duration::from_millis(250), "{:?}", began.elapsed());
     }
 
     #[test]
@@ -1390,6 +1401,7 @@ mod tests {
         assert!(*closed.lock().unwrap(), "the phone holds the session and a stream slot until it times out");
     }
 
+    #[cfg(target_os = "linux")]
     fn switches() -> i64 {
         let mut u: libc::rusage = unsafe { std::mem::zeroed() };
         // SAFETY: the call fills the struct it's given
@@ -1397,6 +1409,7 @@ mod tests {
         u.ru_nvcsw + u.ru_nivcsw
     }
 
+    #[cfg(target_os = "linux")]
     fn cpu_us() -> i64 {
         let mut u: libc::rusage = unsafe { std::mem::zeroed() };
         // SAFETY: the call fills the struct it's given
@@ -1405,6 +1418,7 @@ mod tests {
     }
 
     /// cargo test -p telescope-link --release --lib -- --ignored --nocapture receive_cost
+    #[cfg(target_os = "linux")]
     #[test]
     #[ignore = "a measurement"]
     fn receive_cost() {
