@@ -13,7 +13,7 @@ use telescope_core::actions::{self, Choice, SliderSpec};
 use telescope_core::config::clamped_int;
 use telescope_core::event::Event;
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat, ShaderStep, Touch};
-use telescope_core::host::{FileDialog, FileDialogKind, Host, PickKind, RequestId};
+use telescope_core::host::{FileDialog, FileDialogKind, Host, PickKind, Poster, RequestId};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
@@ -166,6 +166,12 @@ fn bgr(value: Option<&Value>) -> Option<[u8; 3]> {
 /// What the baked tables were made from: the key colour and the sliders.
 type TablesKey = (String, [i64; 3]);
 
+/// A read of the picture that has finished: which read it was, for what path, and what came of it.
+type Landed = (u64, String, Option<Frame>);
+
+/// Posted by the thread that read the picture.
+const POST_PICTURE: &str = "picture_read";
+
 pub struct ChromaKeyPlugin {
     on: bool,
     screen: &'static str,
@@ -193,6 +199,14 @@ pub struct ChromaKeyPlugin {
     picking: bool,
     last: Arc<Mutex<Option<Frame>>>,
     reader: PictureReader,
+    /// Where a read of the saved picture is done: on a thread, with the host's poster to say it landed.
+    poster: Option<Arc<dyn Poster>>,
+    /// Which read counts: the newest one started, and whether it's still out.
+    read_gen: u64,
+    reading: bool,
+    /// The picture couldn't be read when it was wanted; no more tries until the path changes or the key goes off and on.
+    read_failed: bool,
+    landed: Arc<Mutex<Vec<Landed>>>,
     asked: Option<RequestId>,
     /// set_config has no host: the card hears the settings with the next hook that has one.
     pending: bool,
@@ -232,6 +246,11 @@ impl ChromaKeyPlugin {
             picking: false,
             last: Arc::new(Mutex::new(None)),
             reader,
+            poster: None,
+            read_gen: 0,
+            reading: false,
+            read_failed: false,
+            landed: Arc::new(Mutex::new(Vec::new())),
             asked: None,
             pending: true,
             cached: None,
@@ -430,6 +449,46 @@ impl ChromaKeyPlugin {
         self.thumb = self.picture.as_ref().map(|p| crate::shared::picture_thumb(p, 96));
         self.thumb_sent = false;
         self.picture_problem = if !path.is_empty() && !self.has_picture { tr("Can't open that picture") } else { String::new() };
+        self.read_failed = false;
+        // a read still out was for the old path
+        self.read_gen += 1;
+        self.reading = false;
+    }
+
+    /// Reads the picture for the stream on a thread; false when there's nowhere to post the result.
+    fn read_on_thread(&mut self) -> bool {
+        let Some(poster) = self.poster.clone() else { return false };
+        self.read_gen += 1;
+        let (gen, path, reader, landed) = (self.read_gen, self.picture_path.clone(), self.reader.clone(), self.landed.clone());
+        let spawned = std::thread::Builder::new().name("chroma-key-picture".into()).spawn(move || {
+            let frame = reader(&path).ok().filter(|f| f.width > 0 && f.height > 0);
+            landed.lock().unwrap().push((gen, path, frame));
+            poster.post(POST_PICTURE, json!({"gen": gen}));
+        });
+        self.reading = spawned.is_ok();
+        spawned.is_ok()
+    }
+
+    /// A read finished: keep it if it's still the one wanted, else drop it.
+    fn picture_landed(&mut self, host: &mut dyn Host) {
+        let done: Vec<Landed> = std::mem::take(&mut *self.landed.lock().unwrap());
+        let Some((_, _, frame)) = done.into_iter().find(|(gen, path, _)| *gen == self.read_gen && *path == self.picture_path) else { return };
+        if !std::mem::take(&mut self.reading) || !self.has_picture || !(self.on && self.background == "picture") {
+            return;
+        }
+        match frame {
+            Some(frame) => {
+                self.picture = Some(frame);
+                host.refresh_frame_step();
+            }
+            None => self.picture_unreadable(host),
+        }
+    }
+
+    fn picture_unreadable(&mut self, host: &mut dyn Host) {
+        self.read_failed = true;
+        self.picture_problem = tr("Can't open that picture");
+        self.show(host);
     }
 
     /// The full picture is held only while the key is on with a picture behind you, and read again when it's wanted.
@@ -439,8 +498,16 @@ impl ChromaKeyPlugin {
         }
         if !(self.on && self.background == "picture") {
             self.picture = None;
-        } else if self.picture.is_none() {
+            // a read still out is for a time that's gone, and the next switching on may try again
+            self.read_gen += 1;
+            self.reading = false;
+            self.read_failed = false;
+        } else if self.picture.is_none() && !self.reading && !self.read_failed && !self.read_on_thread() {
             self.picture = self.read_picture();
+            if self.picture.is_none() {
+                self.read_failed = true;
+                self.picture_problem = tr("Can't open that picture");
+            }
         }
     }
 
@@ -483,6 +550,7 @@ impl Plugin for ChromaKeyPlugin {
 
     fn setup(&mut self, host: &mut dyn Host) {
         host.set_ui_props("card", &ChromaKeyPlugin::fixed_props());
+        self.poster = host.poster();
         self.show(host);
     }
 
@@ -502,6 +570,7 @@ impl Plugin for ChromaKeyPlugin {
                     host.refresh_frame_step();
                 }
             }
+            Event::Posted { owner, token, .. } if owner == NAME && token == POST_PICTURE => self.picture_landed(host),
             Event::PreviewPicked { owner, pick: Some(pick) } if owner == NAME => self.picked_point(host, pick),
             Event::PreviewPicked { owner, pick: Some(pick) } if owner == BACKDROP_OWNER => self.picked_backdrop(host, pick),
             Event::RequestDone { request, ok, data, .. } if self.asked == Some(*request) => {
