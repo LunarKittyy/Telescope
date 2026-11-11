@@ -974,6 +974,38 @@ mod tests {
     }
 
     #[test]
+    fn odd_sized_pictures_come_back_from_the_card_with_the_chroma_the_cpu_makes() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        for (w, h) in [(641usize, 361usize), (7, 5), (640, 361), (641, 360)] {
+            // Hard edges in the colour, the last column and row included, so any shifted chroma cell shows
+            let mut rgba = vec![255u8; w * h * 4];
+            let mut n = 7u32;
+            for (i, p) in rgba.chunks_exact_mut(4).enumerate() {
+                let (x, y) = (i % w, i / w);
+                n = n.wrapping_mul(1664525).wrapping_add(1013904223);
+                let edge = if (x / 3 + y / 5) % 2 == 0 { 220 } else { 30 };
+                let last = if x + 1 == w || y + 1 == h { 255 } else { 0 };
+                p[0] = (edge as u32 + (n >> 29)).min(255) as u8;
+                p[1] = (x * 255 / w) as u8;
+                p[2] = (last as u32).max((y * 255 / h) as u32) as u8;
+            }
+            let frame = Frame::new(w as u32, h as u32, PixelFormat::Rgba, rgba);
+            let rgb = telescope_core::image::frame_rgb(&frame).unwrap();
+            for nv12 in [false, true] {
+                let mut expected = vec![0u8; w * h + 2 * chroma(w as u32) as usize * chroma(h as u32) as usize];
+                telescope_core::image::rgb_to_420(&rgb, w, h, &mut expected, nv12);
+                let mut held = gpu.lift(&frame).unwrap();
+                held.format = if nv12 { PixelFormat::Nv12 } else { PixelFormat::I420 };
+                let out = gpu.land(&mut held).unwrap();
+                gpu.put_down(held);
+                assert_eq!(out.data.len(), expected.len());
+                let worst = out.data.iter().zip(expected.iter()).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
+                assert!(worst <= 2, "{w}x{h} nv12 {nv12}: worst difference {worst}");
+            }
+        }
+    }
+
+    #[test]
     fn the_preview_is_scaled_and_converted_on_the_card() {
         let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
         // Left half black, right half white, shrunk four times: still black on the left and white on the right
