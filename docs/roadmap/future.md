@@ -74,6 +74,34 @@ The MCP server is built (see [next.md](next.md#an-mcp-server)). What's left of t
 
 - **Live captions** would be the most useful accessibility plugin on this list but need Whisper or Vosk and a model. That means a second optional download like the vision one. Worth deciding on its own
 
+## Smaller things for after 5.1.0
+
+Decided, but small enough that none of them needs a release of its own.
+
+### Auto framing that follows one person
+
+With several people in view, Auto framing frames the whole group. A choice of one person to follow would keep the frame on them, the way it already follows a single person, and ignore whoever walks past behind. The open part is how to choose. Clicking someone in the preview is the obvious way, and the other is following whoever talks. Small to medium, on top of the people tracking that's there.
+
+### Cleaner edges for Background
+
+Background replacement can eat the edges of things that aren't a person. A chair back or light clothing against a bright wall partly dissolves into the new background. Tuning the mask threshold and edge softening on those cases should help, and so might smoothing the mask over a few frames. The hard part is finding settings that fix this without making hair and hands worse. Small to medium.
+
+### Stick figure with crossed legs and close-ups
+
+The stick figure gets the pose wrong when legs are crossed, and in a close-up it turns into a huge head on a pair of shoulders. The close-up needs the drawing to scale to the body that's visible instead of assuming a whole one, and the crossed legs need the leg joints to be trusted less when they overlap. Small.
+
+### Pausing effects while nothing reads the camera
+
+When no app is using the virtual camera, the effects keep running on frames nobody sees. They could pause while the phone stays connected, and pick up again as soon as an app opens the camera. Telescope already knows when an app has the camera open, since the idle stop uses that. Lowers the cost of leaving Telescope running all day. Medium, since the decoder, effects and vision all have to stop and start cleanly.
+
+### A hot phone
+
+When the phone gets hot, the phone app lowers the frame rate, but some cameras offer no lower rate, so nothing changes and the phone keeps heating. It could drop to a smaller picture at that point instead of waiting for critical heat, the way it already goes to 720p there, and pause with a message at extreme heat. Small, mostly in the phone app, and it needs a real phone to try.
+
+### A faster interface underneath
+
+The work on Slint's interpreter continues, mainly cheaper struct field lookups and fewer allocations while the window updates. Nobody sees it except as a lighter window, like the rest of [Lighter on the processor and memory](next.md#lighter-on-the-processor-and-memory). Medium.
+
 ## A guide to unusual setups
 
 A doc with tips for using Telescope in ways it wasn't built around, starting with Tailscale. Pairing over Tailscale already works (the QR code carries the Tailscale address after the LAN ones) and it doesn't matter where either device is. That covers a lot without writing any new networking code:
