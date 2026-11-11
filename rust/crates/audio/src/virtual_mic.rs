@@ -50,10 +50,13 @@ pub fn run_within(cmd: &[String], limit: Duration) -> (bool, String) {
         Ok(c) => c,
         Err(e) => return (false, e.to_string()),
     };
+    // Drained while it runs: output past the pipe's size would otherwise block the child until the limit
+    let stdout = child.stdout.take().map(drain);
+    let stderr = child.stderr.take().map(drain);
     let until = Instant::now() + limit;
-    loop {
+    let status = loop {
         match child.try_wait() {
-            Ok(Some(_)) => break,
+            Ok(Some(status)) => break status,
             Ok(None) if Instant::now() < until => std::thread::sleep(Duration::from_millis(10)),
             Ok(None) => {
                 let _ = child.kill();
@@ -62,15 +65,19 @@ pub fn run_within(cmd: &[String], limit: Duration) -> (bool, String) {
             }
             Err(e) => return (false, e.to_string()),
         }
-    }
-    match child.wait_with_output() {
-        Ok(out) => {
-            let ok = out.status.success();
-            let text = String::from_utf8_lossy(if ok { &out.stdout } else { &out.stderr }).trim().to_string();
-            (ok, text)
-        }
-        Err(e) => (false, e.to_string()),
-    }
+    };
+    let collect = |h: Option<std::thread::JoinHandle<Vec<u8>>>| h.and_then(|h| h.join().ok()).unwrap_or_default();
+    let (stdout, stderr) = (collect(stdout), collect(stderr));
+    let ok = status.success();
+    (ok, String::from_utf8_lossy(if ok { &stdout } else { &stderr }).trim().to_string())
+}
+
+fn drain(mut pipe: impl std::io::Read + Send + 'static) -> std::thread::JoinHandle<Vec<u8>> {
+    std::thread::spawn(move || {
+        let mut text = Vec::new();
+        let _ = pipe.read_to_end(&mut text);
+        text
+    })
 }
 
 /// shutil.which.
@@ -157,7 +164,34 @@ pub fn linux_setup(run: Run, fifo: Option<PathBuf>) -> (Vec<u32>, String) {
     linux_setup_at(run, || fifo.map(Ok).unwrap_or_else(fifo_path))
 }
 
+/// Whether a start-up cleanup of an earlier run's source is still going, so creating the source waits for it.
+static CLEANING: (std::sync::Mutex<bool>, std::sync::Condvar) = (std::sync::Mutex::new(false), std::sync::Condvar::new());
+
+/// Unloads a source a crashed run left behind on a worker thread, so the window needn't wait for pactl. Creating the
+/// source waits for it, so the cleanup can't remove the new one.
+pub fn remove_stale_source_in_background(run: impl Fn(&[String]) -> (bool, String) + Send + 'static) {
+    *CLEANING.0.lock().unwrap_or_else(|e| e.into_inner()) = true;
+    std::thread::spawn(move || {
+        remove_stale_source(&run);
+        *CLEANING.0.lock().unwrap_or_else(|e| e.into_inner()) = false;
+        CLEANING.1.notify_all();
+    });
+}
+
+fn wait_for_cleanup() {
+    let mut busy = CLEANING.0.lock().unwrap_or_else(|e| e.into_inner());
+    let until = Instant::now() + Duration::from_secs(10);
+    while *busy {
+        let left = until.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            return;
+        }
+        busy = CLEANING.1.wait_timeout(busy, left).unwrap_or_else(|e| e.into_inner()).0;
+    }
+}
+
 fn linux_setup_at(run: Run, fifo: impl FnOnce() -> std::io::Result<PathBuf>) -> (Vec<u32>, String) {
+    wait_for_cleanup();
     let (ok, out) = run(&strings(&["pactl", "list", "short", "modules"]));
     if !ok {
         return (Vec::new(), tr("The sound server didn't answer (pactl list failed)."));
@@ -248,6 +282,33 @@ mod tests {
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();
         d
+    }
+
+    #[test]
+    fn a_command_with_a_lot_of_output_isnt_held_up_by_it() {
+        let started = Instant::now();
+        let (ok, out) = run_within(&strings(&["sh", "-c", "head -c 1000000 /dev/zero | tr '\\0' x"]), Duration::from_secs(5));
+        assert!(ok && out.len() == 1_000_000, "{ok} {}", out.len());
+        assert!(started.elapsed() < Duration::from_secs(3));
+        let (ok, err) = run_within(&strings(&["sh", "-c", "head -c 500000 /dev/zero | tr '\\0' e >&2; exit 3"]), Duration::from_secs(5));
+        assert!(!ok && err.len() == 500_000);
+    }
+
+    #[test]
+    fn creating_the_source_waits_for_the_start_up_cleanup() {
+        let order = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let o = order.clone();
+        remove_stale_source_in_background(move |cmd: &[String]| {
+            if cmd[1] == "list" {
+                std::thread::sleep(Duration::from_millis(300));
+                o.lock().unwrap().push("cleanup");
+            }
+            (true, String::new())
+        });
+        let p = Pactl::new("", false);
+        let fifo = scratch("wait").join("mic.fifo");
+        linux_setup(&|c| { if c[1] == "load-module" { order.lock().unwrap().push("setup"); } p.run(c) }, Some(fifo));
+        assert_eq!(*order.lock().unwrap(), vec!["cleanup", "setup"]);
     }
 
     #[test]
