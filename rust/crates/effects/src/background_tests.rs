@@ -889,3 +889,96 @@ fn look_at_background_blur_old_and_new() {
         dump_look(&format!("background_{name}"), &want, &new);
     }
 }
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture --test-threads 1"]
+fn bench_background_at_the_vision_rate() {
+    for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+        let (scene, mask) = peek::sample_scene(w, h);
+        let served = Served::new(mask.shrink(256, 144));
+        let source = i420_of(&scene);
+        let mut step = step_in("blur", 6, 3);
+        let mut frame = source.clone();
+        step.process(&mut frame, &served);
+        // a new mask every third frame, as the vision service makes them
+        let mut n = 0usize;
+        let mut run = || {
+            n += 1;
+            if n % 3 == 0 {
+                for (_, m) in served.made.borrow_mut().iter_mut() {
+                    *m = Arc::new(m.to_vec());
+                }
+            }
+            let mut frame = source.clone();
+            step.process(&mut frame, &served);
+        };
+        run();
+        let start = std::time::Instant::now();
+        (0..60).for_each(|_| run());
+        println!("background blur {w}x{h} vision rate, mean wall ms: {:.2}", start.elapsed().as_secs_f64() * 1000.0 / 60.0);
+    }
+}
+
+#[test]
+fn kept_expanded_masks_and_blur_weights_give_what_a_fresh_step_gives_in_yuv() {
+    let (w, h) = (160, 90);
+    let (scene, mask) = peek::sample_scene(w, h);
+    let served = Served::new(mask.shrink(40, 22));
+    let source = i420_of(&scene);
+    let mut kept = step_in("blur", 4, 3);
+    // frames on the same mask, then the edge setting and the strength move, then a new mask
+    for round in 0..6 {
+        if round == 2 {
+            kept.settings.edges = 6;
+        }
+        if round == 3 {
+            kept.settings.blur = 9;
+        }
+        if round == 5 {
+            for (_, m) in served.made.borrow_mut().iter_mut() {
+                *m = Arc::new(m.iter().map(|v| 255 - v).collect());
+            }
+        }
+        let mut fresh = step_in("blur", kept.settings.blur, kept.settings.edges);
+        let (mut a, mut b) = (source.clone(), source.clone());
+        kept.process(&mut a, &served);
+        fresh.process(&mut b, &served);
+        assert!(a.data == b.data, "round {round}");
+    }
+}
+
+/// One quarter-size mask whatever the frame size, as the vision service hands it out when two sizes round to the same quarter.
+struct OneMask(Arc<Vec<u8>>);
+
+impl FrameContext for OneMask {
+    fn source_id(&self) -> &str {
+        "phone"
+    }
+    fn person_mask(&self, _: &Frame) -> Option<Arc<Vec<u8>>> {
+        Some(self.0.clone())
+    }
+    fn person_mask_at(&self, _: &Frame, _: usize, _: usize) -> Option<Arc<Vec<u8>>> {
+        Some(self.0.clone())
+    }
+    fn colour_preview(&self, frame: &Frame) -> Frame {
+        frame.clone()
+    }
+}
+
+#[test]
+fn a_resize_that_keeps_the_quarter_size_mask_gives_what_a_fresh_step_gives() {
+    let (scene, mask) = peek::sample_scene(160, 90);
+    let served = OneMask(Arc::new(mask.shrink(40, 22).data.clone()));
+    let mut kept = step_in("blur", 4, 3);
+    // 160x90 to 162x90 keeps the 40x22 mask, then to 163x88 and back
+    for (w, h) in [(160, 90), (162, 90), (163, 88), (160, 90), (162, 90)] {
+        let (scene, _) = peek::sample_scene(w, h);
+        let source = i420_of(&scene);
+        let mut fresh = step_in("blur", 4, 3);
+        let (mut a, mut b) = (source.clone(), source.clone());
+        kept.process(&mut a, &served);
+        fresh.process(&mut b, &served);
+        assert!(a.data == b.data, "{w}x{h}");
+    }
+    let _ = scene;
+}

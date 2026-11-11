@@ -102,6 +102,10 @@ struct Chain {
     mask: Option<(u32, u32, Option<Arc<Vec<u8>>>)>,
     /// What it has waited for the card so far.
     waited_ns: u64,
+    /// Whether the steps are being timed, so the readbacks are too.
+    timing: bool,
+    /// How long the readbacks took, which isn't the cost of the step that happened to trigger one.
+    down_ns: u64,
 }
 
 /// Transfers over the last TALLY_FRAMES frames.
@@ -135,6 +139,8 @@ pub struct Pipeline {
     pool: SparePool,
     /// Whether this pipeline is counted in ON_THE_CARD.
     on_card: bool,
+    /// How long the last frame spent bringing pictures down from the card (measured while the steps are timed).
+    last_readback_ns: u64,
 }
 
 impl Drop for Pipeline {
@@ -160,7 +166,7 @@ impl Pipeline {
 
     /// One that listens to this balance, for tests.
     fn with_balance(balance: Arc<Balance>) -> Pipeline {
-        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, stats: None, pool: SparePool::default(), on_card: false }
+        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0 }
     }
 
     fn timer_of(&self, owner: &str) -> Option<Arc<Timer>> {
@@ -187,7 +193,11 @@ impl Pipeline {
         if let (Some(held), false) = (chain.held.as_mut(), chain.ahead.is_empty()) {
             chain.downs += 1;
             let cap = SPARE_POOL_FRAMES * held.size().0 as usize * held.size().1 as usize * 3;
+            let down_began = chain.timing.then(monotonic_ns);
             let landed = self.pool.scope(cap, || gpu.land(held).map(|out| std::mem::replace(frame, out).recycle()));
+            if let Some(began) = down_began {
+                chain.down_ns += monotonic_ns().saturating_sub(began);
+            }
             match landed {
                 Ok(()) => {
                     chain.waited_ns += held.take_waited();
@@ -409,11 +419,13 @@ impl FramePipeline for Pipeline {
         let mut off_card = false;
         // Asked once a frame: a step is only timed while the stats panel wants every plugin's time
         let timing = self.stats.as_ref().is_some_and(|s| s.steps().on());
+        chain.timing = timing;
         for i in 0..self.steps.len() {
             if self.steps[i].skipped() {
                 continue;
             }
             let step_began = timing.then(monotonic_ns);
+            let down_before = chain.down_ns;
             let either = matches!(self.steps[i].kind, Kind::Either(..)) && !self.steps[i].no_shader && !self.card_lost;
             if either && !(on_card && self.gpu().is_some()) {
                 self.ready_on_card(i);
@@ -425,12 +437,14 @@ impl FramePipeline for Pipeline {
                 self.run_cpu(i, &mut frame, &mut chain, ctx);
             }
             if let (Some(began), Some(timer)) = (step_began, &self.steps[i].timer) {
-                timer.add(monotonic_ns().saturating_sub(began));
+                // Bringing the picture down from the card is the card's cost (the readback figure), not this step's
+                timer.add(monotonic_ns().saturating_sub(began).saturating_sub(chain.down_ns - down_before));
             }
             frame.number = number;
         }
         self.bring_down(&mut chain, &mut frame, false);
         frame.number = number;
+        self.last_readback_ns = chain.down_ns;
         if chain.downs > 0 {
             self.balance.note_wait(chain.waited_ns);
         }
@@ -806,6 +820,45 @@ pub(crate) mod tests {
             p.process(grey(8, 8, 126), &NoContext);
             assert_eq!(p.last_transfers, want, "{what}");
         }
+    }
+
+    /// Reads the picture and takes its time over it, noting how long it really took.
+    struct Slow(Arc<std::sync::atomic::AtomicU64>);
+
+    impl CpuStep for Slow {
+        fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
+            Touch::Reads
+        }
+        fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {
+            let began = monotonic_ns();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+            self.0.fetch_add(monotonic_ns() - began, Ordering::SeqCst);
+        }
+    }
+
+    #[test]
+    fn a_step_isnt_charged_for_bringing_the_picture_down_from_the_card() {
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let hub = telescope_core::stats::Hub::new();
+        let stats = hub.register("timing", 1);
+        hub.want("test", true);
+        let own = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let mut p = Pipeline::new();
+        p.set_stats(stats.clone());
+        p.set_steps(vec![shader(INVERT), step("reader", FrameStage::Effects, Slow(own.clone()))]);
+        let mut readback_ns = 0;
+        for _ in 0..6 {
+            p.process(grey(1920, 1080, 126), &NoContext);
+            readback_ns += p.last_readback_ns;
+        }
+        assert!(readback_ns > 0, "the readback was measured");
+        let timing = stats.steps().timer("reader").take();
+        assert_eq!(timing.count, 6);
+        let (own_ms, readback_ms) = (own.load(Ordering::SeqCst) as f64 / 6e6, readback_ns as f64 / 6e6);
+        // Its own time (the sleep and a few microseconds of bookkeeping), without the readback that came before it
+        assert!(timing.mean_ms as f64 <= own_ms + 0.3, "charged {:.2} ms for a step that took {own_ms:.2} ms, with a readback of {readback_ms:.2} ms in front of it", timing.mean_ms);
     }
 
     #[test]

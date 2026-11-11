@@ -427,27 +427,37 @@ pub fn straighten(rgb: &[u8], w: usize, h: usize, sheet: &Sheet, warp: &Warp) ->
     straighten_with(rgb, w, h, sheet, warp, &warp_map(w, h, &warp.matrix, rw, rh))
 }
 
+/// The sheet straightened with no cleanup: each row is remapped straight into the frame-sized picture, with only the borders filled.
+fn straightened_in_place(rgb: &[u8], w: usize, h: usize, warp: &Warp, map: &Remap) -> Vec<u8> {
+    let (x, y, rw, rh) = warp.rect;
+    let mut out = spare_bytes(w * h * 3);
+    over_rows(&mut out, w * 3, |row, line| match row.checked_sub(y).filter(|r| *r < rh) {
+        Some(r) => {
+            let (left, rest) = line.split_at_mut(x * 3);
+            let (middle, right) = rest.split_at_mut(rw * 3);
+            left.fill(BACKDROP);
+            right.fill(BACKDROP);
+            map.run_row(rgb, r, middle);
+        }
+        None => line.fill(BACKDROP),
+    });
+    out
+}
+
 /// straighten with its warp_map already made.
 pub fn straighten_with(rgb: &[u8], w: usize, h: usize, sheet: &Sheet, warp: &Warp, map: &Remap) -> Vec<u8> {
     let (x, y, rw, rh) = warp.rect;
+    if !matches!(sheet.cleanup.as_str(), "contrast" | "bw") {
+        return straightened_in_place(rgb, w, h, warp, map);
+    }
     let mut flat = spare_bytes(rw * rh * 3);
     map.run(rgb, &mut flat);
-    let cleaned = match sheet.cleanup.as_str() {
-        "contrast" => {
-            flat = whiten(&flat, rw, rh);
-            true
-        }
-        "bw" => {
-            flat = black_and_white(&flat, rw, rh);
-            true
-        }
-        _ => false,
-    };
+    flat = if sheet.cleanup == "contrast" { whiten(&flat, rw, rh) } else { black_and_white(&flat, rw, rh) };
     if (rw, rh) == (w, h) {
         return flat;
     }
     let mut out = spare_bytes(w * h * 3);
-    out.fill(if cleaned { PAPER } else { BACKDROP });
+    out.fill(PAPER);
     for row in 0..rh {
         out[((y + row) * w + x) * 3..][..rw * 3].copy_from_slice(&flat[row * rw * 3..][..rw * 3]);
     }

@@ -53,21 +53,43 @@ fn blurred_by(frame: &Rgb, strength: i64, rest: Option<&Gray>, w: usize, h: usiz
 
 /// The blur at its working size: `small` (an eighth of the frame) blurred, with the people in `rest` (the mask shrunk to the same size) left out.
 fn blurred_small(small: &Rgb, strength: i64, rest: Option<&Gray>) -> Rgb {
-    let (sw, sh) = (small.w, small.h);
-    let sigma = (1.0 + strength as f64 * 1.2) * SMALL / BLUR_SMALL as f64;
-    let plain = small.blur(sigma);
-    let Some(rest) = rest else { return plain };
-    if rest.data.iter().all(|m| *m == 0) {
-        // nobody to leave out
-        return plain;
+    let weights = rest.and_then(|r| Weights::of(r, strength));
+    blurred_with(small, strength, weights.as_ref())
+}
+
+/// What the person-excluding blur takes from the mask alone: the background share of each pixel and that share blurred. Made once for a mask and a strength.
+struct Weights {
+    rest: Vec<f32>,
+    spread: Vec<f32>,
+}
+
+impl Weights {
+    /// None where nobody is in the mask, so the blur is the plain one.
+    fn of(rest: &Gray, strength: i64) -> Option<Weights> {
+        if rest.data.iter().all(|m| *m == 0) {
+            return None;
+        }
+        let share: Vec<f32> = rest.data.iter().map(|m| 1.0 - *m as f32 / 255.0).collect();
+        let spread = blur_quick(&share, rest.w, rest.h, 1, blur_sigma(strength));
+        Some(Weights { rest: share, spread })
     }
-    let rest: Vec<f32> = rest.data.iter().map(|m| 1.0 - *m as f32 / 255.0).collect();
-    let spread = blur_quick(&rest, sw, sh, 1, sigma);
-    let kept: Vec<f32> = small.data.as_chunks::<3>().0.iter().zip(&rest).flat_map(|(p, r)| p.map(|v| v as f32 * r)).collect();
+}
+
+fn blur_sigma(strength: i64) -> f64 {
+    (1.0 + strength as f64 * 1.2) * SMALL / BLUR_SMALL as f64
+}
+
+/// `blurred_small` with the mask's weights already made (None for the plain blur).
+fn blurred_with(small: &Rgb, strength: i64, weights: Option<&Weights>) -> Rgb {
+    let (sw, sh) = (small.w, small.h);
+    let sigma = blur_sigma(strength);
+    let plain = small.blur(sigma);
+    let Some(Weights { rest, spread }) = weights else { return plain };
+    let kept: Vec<f32> = small.data.as_chunks::<3>().0.iter().zip(rest).flat_map(|(p, r)| p.map(|v| v as f32 * r)).collect();
     let total = blur_quick(&kept, sw, sh, 3, sigma);
     let mut out = Rgb::scratch(sw, sh);
     let colours = out.data.as_chunks_mut::<3>().0.iter_mut().zip(total.as_chunks::<3>().0).zip(plain.data.as_chunks::<3>().0);
-    for ((o, (v, p)), s) in colours.map(|((o, v), p)| (o, (v, p))).zip(&spread) {
+    for ((o, (v, p)), s) in colours.map(|((o, v), p)| (o, (v, p))).zip(spread) {
         // where there's next to no background, the plain blur
         let weight = (s * 4.0).clamp(0.0, 1.0);
         for c in 0..3 {
@@ -147,8 +169,20 @@ struct Step {
 struct Quarter {
     src: Arc<Vec<u8>>,
     size: (usize, usize),
+    /// The frame's size, which everything kept here is made for (two sizes can share a quarter-size mask)
+    full: (usize, usize),
     soft: Option<(i64, Gray)>,
     rest: Option<Gray>,
+    /// The feathered mask scaled up to the luma and chroma planes' sizes, for the edge setting in `soft`
+    wide: Option<Wide>,
+    /// The blur's weights for one strength
+    weights: Option<(i64, Option<Weights>)>,
+}
+
+/// A feathered mask at the size of the luma plane and of a chroma plane.
+struct Wide {
+    luma: Vec<u8>,
+    chroma: Vec<u8>,
 }
 
 /// The mask kept (so an unchanged one is known by its address) with its feathered copy for one edge setting and its eighth-size copy.
@@ -236,12 +270,13 @@ impl Step {
         if let Some(src) = mask {
             self.had_mask.store(true, Ordering::Relaxed);
             let mut q = match self.quarter.take() {
-                Some(q) if Arc::ptr_eq(&q.src, &src) && q.size == (qw, qh) => q,
-                _ => Quarter { src, size: (qw, qh), soft: None, rest: None },
+                Some(q) if Arc::ptr_eq(&q.src, &src) && q.size == (qw, qh) && q.full == (w, h) => q,
+                _ => Quarter { src, size: (qw, qh), full: (w, h), soft: None, rest: None, wide: None, weights: None },
             };
             if q.soft.as_ref().is_none_or(|(e, _)| *e != edges) {
                 let whole = Gray { w: qw, h: qh, data: q.src.to_vec() };
                 q.soft = Some((edges, if edges <= 0 { whole } else { whole.blur(edges as f64 * 0.6) }));
+                q.wide = None;
             }
             if blur && q.rest.is_none() {
                 let whole = Gray { w: qw, h: qh, data: q.src.to_vec() };
@@ -254,7 +289,14 @@ impl Step {
         if blur {
             let (sw, sh) = ((w / BLUR_SMALL).max(1), (h / BLUR_SMALL).max(1));
             let Some(small) = small_rgb(frame, sw, sh, false) else { return false };
-            let blurred = blurred_small(&Rgb { w: sw, h: sh, data: small }, self.settings.blur, quarter.as_ref().and_then(|q| q.rest.as_ref()));
+            let strength = self.settings.blur;
+            if let Some(q) = quarter.as_mut() {
+                if q.weights.as_ref().is_none_or(|(s, _)| *s != strength) {
+                    q.weights = Some((strength, q.rest.as_ref().and_then(|r| Weights::of(r, strength))));
+                }
+            }
+            let weights = quarter.as_ref().and_then(|q| q.weights.as_ref()).and_then(|(_, w)| w.as_ref());
+            let blurred = blurred_with(&Rgb { w: sw, h: sh, data: small }, strength, weights);
             planes_up_to_420(&rgb_planes(&blurred.data), (sw, sh), &mut out, (w, h));
         } else if let Some(picture) = picture {
             if self.covered_yuv.as_ref().is_none_or(|(s, _)| *s != (w, h)) {
@@ -265,14 +307,16 @@ impl Step {
             }
             out.copy_from_slice(&self.covered_yuv.as_ref().unwrap().1);
         }
-        let soft = quarter.as_ref().and_then(|q| q.soft.as_ref()).map(|(_, g)| g).filter(|g| g.data.iter().any(|&v| v != 0));
-        if let (Some(soft), Some((sy, su, sv))) = (soft, frame.i420_planes()) {
-            let (oy, chroma) = out.split_at_mut(w * h);
-            let (ou, ov) = chroma.split_at_mut(cw * ch);
-            lay_over(sy, &resize_linear_fixed(&soft.data, qw, qh, 1, w, h), oy, w);
-            let edge = resize_linear_fixed(&soft.data, qw, qh, 1, cw, ch);
-            lay_over(su, &edge, ou, cw);
-            lay_over(sv, &edge, ov, cw);
+        if let Some(q) = quarter.as_mut() {
+            let soft = q.soft.as_ref().map(|(_, g)| g).filter(|g| g.data.iter().any(|&v| v != 0));
+            if let (Some(soft), Some((sy, su, sv))) = (soft, frame.i420_planes()) {
+                let wide = q.wide.get_or_insert_with(|| Wide { luma: resize_linear_fixed(&soft.data, qw, qh, 1, w, h), chroma: resize_linear_fixed(&soft.data, qw, qh, 1, cw, ch) });
+                let (oy, chroma) = out.split_at_mut(w * h);
+                let (ou, ov) = chroma.split_at_mut(cw * ch);
+                lay_over(sy, &wide.luma, oy, w);
+                lay_over(su, &wide.chroma, ou, cw);
+                lay_over(sv, &wide.chroma, ov, cw);
+            }
         }
         frame.replace_data(out);
         self.quarter = quarter;
