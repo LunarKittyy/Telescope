@@ -46,15 +46,20 @@ pub fn py_round(v: f64) -> usize {
     v.round_ties_even().max(0.0) as usize
 }
 
-/// The frame shrunk to just cover size, keeping its shape (vision.model_input). A linear step to twice that and an area step
-/// from there looks like one area step at a fraction of the cost. None when it's small enough already.
-pub fn model_input(frame: &Rgb, size: (usize, usize)) -> Option<Rgb> {
-    let (w, h) = (frame.w, frame.h);
+/// The size model_input shrinks a w x h frame to; None when it's small enough already.
+pub fn model_input_size(w: usize, h: usize, size: (usize, usize)) -> Option<(usize, usize)> {
     let scale = (size.0 as f64 / w as f64).max(size.1 as f64 / h as f64);
     if scale >= 1.0 {
         return None;
     }
-    let out = (py_round(w as f64 * scale).max(1), py_round(h as f64 * scale).max(1));
+    Some((py_round(w as f64 * scale).max(1), py_round(h as f64 * scale).max(1)))
+}
+
+/// The frame shrunk to just cover size, keeping its shape (vision.model_input). A linear step to twice that and an area step
+/// from there looks like one area step at a fraction of the cost. None when it's small enough already.
+pub fn model_input(frame: &Rgb, size: (usize, usize)) -> Option<Rgb> {
+    let (w, h) = (frame.w, frame.h);
+    let out = model_input_size(w, h, size)?;
     if out.0 * 2 < w && out.1 * 2 < h {
         return Some(frame.linear(out.0 * 2, out.1 * 2).area(out.0, out.1));
     }

@@ -287,6 +287,9 @@ impl FrameContext for Ctx {
     fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
         self.vision.as_ref()?.person_mask(&self.source_id, frame)
     }
+    fn person_mask_at(&self, frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        self.vision.as_ref()?.person_mask_at(&self.source_id, frame, w, h)
+    }
     fn colour_preview(&self, frame: &Frame) -> Frame {
         frame.clone()
     }

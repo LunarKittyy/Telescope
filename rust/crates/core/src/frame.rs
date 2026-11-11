@@ -184,6 +184,18 @@ pub trait FrameContext {
     /// the model, so this is the newest mask there is, about a frame behind the picture. None also means the last one got too old, and a step
     /// that hides things has to stay safe on it.
     fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>>;
+    /// person_mask at w x h instead of the frame's size, for a step that works smaller (a blur, a feathered edge): the mask is made at that size, so the full-size one is never built. The answer is None or kept as person_mask's is; the default shrinks person_mask's.
+    fn person_mask_at(&self, frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        let mask = self.person_mask(frame)?;
+        let (fw, fh) = (frame.width as usize, frame.height as usize);
+        if mask.len() != fw * fh {
+            return None;
+        }
+        if (w, h) == (fw, fh) {
+            return Some(mask);
+        }
+        Some(Arc::new(crate::image::resize_area(&mask, fw, fh, 1, w, h)))
+    }
     /// For a final-stage step: the frame as the preview shows it, with a colour_split drawn in.
     fn colour_preview(&self, frame: &Frame) -> Frame;
 }

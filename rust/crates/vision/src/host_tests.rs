@@ -142,3 +142,51 @@ fn people_are_tracked_steadily_and_reach_the_bus() {
     assert_eq!(h.shared.tracking.lock().unwrap().update("phone", &[person], service::monotonic()).1, 0);
     h.shutdown();
 }
+
+fn yuv_frame(w: usize, h: usize) -> Frame {
+    let size = telescope_core::frame::PixelFormat::I420.size(w as u32, h as u32);
+    Frame::new(w as u32, h as u32, telescope_core::frame::PixelFormat::I420, (0..size).map(|i| (60 + i % 90) as u8).collect())
+}
+
+#[test]
+fn the_models_get_small_pictures_made_from_the_planes() {
+    let sizes = |f: &Frame| (model_rgb(f).map(|p| (p.w, p.h, p.data.len())), people_rgb(f).map(|p| (p.w, p.h, p.data.len())));
+    assert_eq!(sizes(&yuv_frame(1920, 1080)), (Some((256, 144, 256 * 144 * 3)), Some((640, 360, 640 * 360 * 3))));
+    assert_eq!(sizes(&yuv_frame(640, 480)), (Some((256, 192, 256 * 192 * 3)), Some((640, 480, 640 * 480 * 3))));
+    // a frame already small enough for a model goes in as it is
+    assert_eq!(sizes(&yuv_frame(200, 100)), (Some((200, 100, 200 * 100 * 3)), Some((200, 100, 200 * 100 * 3))));
+}
+
+
+/// (wall ms, cpu ms) a call takes, the best wall of a few runs and the cpu over all of them (every thread of the process, so work spread over the workers counts in full).
+fn measure(f: &mut dyn FnMut()) -> (f64, f64) {
+    let cpu = || {
+        let stat = std::fs::read_to_string("/proc/self/stat").unwrap_or_default();
+        let fields: Vec<&str> = stat.rsplit_once(')').map_or("", |(_, rest)| rest).split_whitespace().collect();
+        let ticks = |i: usize| fields.get(i).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
+        (ticks(11) + ticks(12)) / 100.0 * 1000.0
+    };
+    f();
+    let runs = 60;
+    let before = cpu();
+    let wall = (0..runs).map(|_| {
+        let start = std::time::Instant::now();
+        f();
+        start.elapsed().as_secs_f64() * 1000.0
+    }).fold(f64::MAX, f64::min);
+    (wall, (cpu() - before) / runs as f64)
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture --test-threads 1"]
+fn bench_model_pictures() {
+    for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+        let frame = yuv_frame(w, h);
+        let (pw, ph) = ops::people_size(w, h, service::PEOPLE_WIDTH);
+        let old = measure(&mut || { let full = rgb(&frame).unwrap(); crate::ops::model_input(&full, ops::MODEL_SIZE).unwrap(); });
+        let new = measure(&mut || { model_rgb(&frame).unwrap(); });
+        let old_people = measure(&mut || { rgb(&frame).unwrap().area(pw, ph); });
+        let new_people = measure(&mut || { people_rgb(&frame).unwrap(); });
+        println!("vision pictures {w}x{h} (wall ms, cpu ms): segmenter input old {old:.2?} new {new:.2?}; people input old {old_people:.2?} new {new_people:.2?}");
+    }
+}

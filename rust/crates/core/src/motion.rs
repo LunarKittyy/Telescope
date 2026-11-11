@@ -4,7 +4,7 @@
 
 use crate::actions::round_half_even;
 use crate::frame::Frame;
-use crate::image::{frame_rgb, grey_of, resize_area};
+use crate::image::{grey_of, resize_area, small_grey};
 use crate::vision::{Turn, Upright};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::{Arc, Mutex};
@@ -118,7 +118,14 @@ pub fn grey_copy(rgb: &[u8], w: usize, h: usize, width: usize) -> Grey {
 
 /// The frame as a small blurred grey copy; None for a frame that can't be read as a picture.
 pub fn grey(frame: &Frame) -> Option<Grey> {
-    Some(grey_copy(&frame_rgb(frame)?, frame.width as usize, frame.height as usize, WIDTH))
+    let (w, h) = (frame.width as usize, frame.height as usize);
+    if w == 0 {
+        return None;
+    }
+    let size = (WIDTH, (round_half_even(h as f64 * WIDTH as f64 / w as f64) as usize).max(1));
+    // shrunk before it's grey, so a big frame is never turned into a full-size picture
+    let data = small_grey(frame, size.0, size.1)?;
+    Some(blur5(&Grey { w: size.0, h: size.1, data }))
 }
 
 /// cv2.flip and cv2.rotate by a view's flips and turn: the small picture turned the way the picture is shown.
