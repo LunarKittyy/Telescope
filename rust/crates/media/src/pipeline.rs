@@ -188,7 +188,7 @@ impl Pipeline {
     }
 
     /// Brings frame up to date with the card, and drops the card's copy unless keep.
-    fn bring_down(&mut self, chain: &mut Chain, frame: &mut Frame, keep: bool) {
+    fn bring_down(&mut self, chain: &mut Chain, frame: &mut Frame, ctx: &dyn FrameContext, keep: bool) {
         let Some(gpu) = self.gpu.clone().flatten() else { return };
         if let (Some(held), false) = (chain.held.as_mut(), chain.ahead.is_empty()) {
             chain.downs += 1;
@@ -207,13 +207,20 @@ impl Pipeline {
                 }
                 Err(why) => {
                     // The frame in hand is the last good one, and what the card did after it is lost with it
-                    for i in chain.ahead.drain(..) {
+                    let lost: Vec<usize> = chain.ahead.drain(..).collect();
+                    for &i in &lost {
                         if matches!(self.steps[i].kind, Kind::Shader(_)) {
                             self.steps[i].failed(&why);
                         }
                     }
                     self.lost_card(&why);
                     gpu.put_down(chain.held.take().unwrap());
+                    // Steps with a CPU half do their work on the frame in hand now, in order, so this frame isn't missing them; card-only steps stay lost
+                    for i in lost {
+                        if matches!(self.steps[i].kind, Kind::Either(..)) {
+                            self.run_cpu(i, frame, chain, ctx);
+                        }
+                    }
                 }
             }
         }
@@ -238,7 +245,7 @@ impl Pipeline {
         if touch == Touch::Nothing {
             return;
         }
-        self.bring_down(chain, frame, touch == Touch::Reads);
+        self.bring_down(chain, frame, ctx, touch == Touch::Reads);
         let entry = &mut self.steps[i];
         let step = entry.kind.cpu();
         // A step that changes pixels in place would copy them all if a clone kept the old ones, so only one that failed on its last frame
@@ -266,13 +273,20 @@ impl Pipeline {
         }
         // A step that said it only reads and then didn't: the frame in hand wins
         if !std::ptr::eq(Weak::as_ptr(&was), Arc::as_ptr(&frame.data)) {
-            self.bring_down(chain, frame, false);
+            self.bring_down(chain, frame, ctx, false);
         }
     }
 
     fn run_shader(&mut self, i: usize, frame: &mut Frame, chain: &mut Chain, ctx: &dyn FrameContext, time: f32) {
         let Some(gpu) = self.gpu() else { return self.steps[i].failed("no graphics card to run shaders on") };
         let entry = &mut self.steps[i];
+        // A step with a CPU half may need uniforms that depend on this frame's size
+        if let Kind::Either(slot, cpu) = &mut entry.kind {
+            let (w, h) = (frame.width, frame.height);
+            if let Ok(Some(uniforms)) = catch_unwind(AssertUnwindSafe(|| cpu.card_uniforms(w, h))) {
+                slot.set_uniforms(&gpu, uniforms);
+            }
+        }
         let slot = entry.kind.slot();
         if let Err(why) = slot.prepare(&gpu) {
             // A shader that doesn't build never will: say so once and leave it out, or run the CPU way
@@ -288,7 +302,7 @@ impl Pipeline {
         if slot.wants_mask() {
             // The vision model looks at the picture as it is here, and answers once per frame
             if !chain.mask.as_ref().is_some_and(|(w, h, _)| (*w, *h) == (frame.width, frame.height)) {
-                self.bring_down(chain, frame, true);
+                self.bring_down(chain, frame, ctx, true);
                 let asked = catch_unwind(AssertUnwindSafe(|| ctx.person_mask(frame))).unwrap_or(None);
                 chain.mask = Some((frame.width, frame.height, asked));
             }
@@ -296,9 +310,11 @@ impl Pipeline {
                 masked = gpu.keep_mask(&mut self.mask, mask, *w, *h);
             }
         }
+        // Read the way the CPU reads it if any step here has a CPU way that takes chroma by its block, so both ways see the same colours
+        let block_chroma = self.steps.iter().any(|e| matches!(&e.kind, Kind::Either(_, cpu) if cpu.card_block_chroma()));
         let entry = &mut self.steps[i];
         if chain.held.is_none() {
-            match gpu.lift(frame) {
+            match gpu.lift_with(frame, block_chroma) {
                 Ok(held) => {
                     chain.held = Some(held);
                     chain.ups += 1;
@@ -442,7 +458,7 @@ impl FramePipeline for Pipeline {
             }
             frame.number = number;
         }
-        self.bring_down(&mut chain, &mut frame, false);
+        self.bring_down(&mut chain, &mut frame, ctx, false);
         frame.number = number;
         self.last_readback_ns = chain.down_ns;
         if chain.downs > 0 {
@@ -1109,9 +1125,29 @@ pub(crate) mod tests {
         p.gpu = Some(Some(gpu.clone()));
         p.process(grey(8, 8, 100), &NoContext);
         assert_eq!(p.last_transfers, (1, 1));
+        // Two steps with a CPU half and a card-only one after them, none read back yet when the card goes
+        struct Plus(u8);
+        impl CpuStep for Plus {
+            fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+                frame.data_mut().iter_mut().for_each(|v| *v = v.saturating_add(self.0));
+            }
+        }
+        let (mut chain, _) = either(Place::Card);
+        chain.gpu = Some(Some(gpu.clone()));
+        let Kind::Either(_, invert) = chain.steps.remove(0).kind else { panic!("two ways") };
+        let shader = || ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let staged = |owner: &str, step| StagedStep { owner: owner.into(), stage: FrameStage::Effects, step };
+        chain.set_steps(vec![
+            staged("first", FrameStep::Either(shader(), invert)),
+            staged("second", FrameStep::Either(shader(), Box::new(Plus(10)))),
+            staged("card only", FrameStep::Shader(shader())),
+        ]);
         gpu.lose();
-        // The frame on the card when it went is the last that isn't changed
-        p.process(grey(8, 8, 100), &NoContext);
+        // The frame on the card when it went is the last that isn't changed, but the steps that could run on the CPU still do, in order
+        assert_eq!(p.process(grey(8, 8, 100), &NoContext).data[0], 167);
+        let out = chain.process(grey(8, 8, 100), &NoContext);
+        assert_eq!(chain.last_transfers, (1, 1), "it was the readback that failed");
+        assert_eq!(out.data[0], 177, "invert, then plus 10, as the CPU makes it; the card-only step is lost with the card");
         for _ in 0..STEP_FAILS_BEFORE_SKIP + 5 {
             assert_eq!(p.process(grey(8, 8, 100), &NoContext).data[0], 167);
             assert_eq!(p.last_transfers, (0, 0));

@@ -85,7 +85,7 @@ impl Rig {
 
     /// The step run on a frame, with the posts it made delivered back to the plugin.
     fn run(&mut self, mut f: Frame) -> Frame {
-        if let Some(FrameStep::Cpu(mut step)) = self.plugin.frame_step() {
+        if let Some(FrameStep::Either(_, mut step)) = self.plugin.frame_step() {
             step.process(&mut f, &Ctx);
         }
         let posts: Vec<(String, Value)> = self.host.posted.lock().unwrap().drain(..).collect();
@@ -202,7 +202,7 @@ fn a_stream_behind_the_panels_keeps_the_straightening_it_had() {
     let step = r.plugin.frame_step();
     r.config(json!({}));
     let mut f = frame();
-    let Some(FrameStep::Cpu(mut step)) = step else { panic!("a step") };
+    let Some(FrameStep::Either(_, mut step)) = step else { panic!("a step") };
     step.process(&mut f, &Ctx);
     assert!(f.data[(10 * W + W / 2) * 4] > 200);
 }
@@ -275,7 +275,7 @@ fn the_warp_is_worked_out_once_until_something_changes() {
     let mut r = Rig::new(true);
     assert!(r.plugin.frame_step().is_none());
     r.config(json!({"on": true, "corners": corners_json()}));
-    let Some(FrameStep::Cpu(mut step)) = r.plugin.frame_step() else { panic!("a step") };
+    let Some(FrameStep::Either(_, mut step)) = r.plugin.frame_step() else { panic!("a step") };
     let posts = |r: &Rig| r.host.posted.lock().unwrap().len();
     step.process(&mut frame(), &Ctx);
     step.process(&mut frame(), &Ctx);
@@ -289,7 +289,7 @@ fn the_warp_is_worked_out_once_until_something_changes() {
     let first = matrix(&r);
     r.ui("shape-picked", vec![json!(4)]);
     r.host.posted.lock().unwrap().clear();
-    let Some(FrameStep::Cpu(mut filled)) = r.plugin.frame_step() else { panic!("a step") };
+    let Some(FrameStep::Either(_, mut filled)) = r.plugin.frame_step() else { panic!("a step") };
     let mut out = frame();
     filled.process(&mut out, &Ctx);
     assert_eq!(posts(&r), 1);
@@ -304,10 +304,28 @@ fn the_warp_is_worked_out_once_until_something_changes() {
 }
 
 #[test]
+fn the_card_way_tells_the_preview_its_warp_as_the_cpu_way_does() {
+    let mut r = Rig::new(true);
+    r.config(json!({"on": true, "corners": corners_json(), "shape": "fill"}));
+    let Some(FrameStep::Either(_, mut step)) = r.plugin.frame_step() else { panic!("a step") };
+    let posts = |r: &Rig| r.host.posted.lock().unwrap().len();
+    step.card_uniforms(W as u32, H as u32);
+    step.card_uniforms(W as u32, H as u32);
+    assert_eq!(posts(&r), 1);
+    step.card_uniforms(160, 90);
+    assert_eq!(posts(&r), 2);
+    let posted: Vec<(String, Value)> = r.host.posted.lock().unwrap().drain(..).collect();
+    for (token, data) in posted {
+        r.event(Event::Posted { owner: NAME.into(), token, data });
+    }
+    assert!(r.host.warp.is_some(), "the preview has a warp to map clicks back");
+}
+
+#[test]
 fn a_frame_too_small_to_hold_a_sheet_passes_through() {
     let mut r = Rig::new(true);
     r.config(json!({"on": true, "corners": corners_json()}));
-    let Some(FrameStep::Cpu(mut step)) = r.plugin.frame_step() else { panic!("a step") };
+    let Some(FrameStep::Either(_, mut step)) = r.plugin.frame_step() else { panic!("a step") };
     for (w, h) in [(0, 0), (1, 1), (1, 40)] {
         let mut f = Frame::new(w, h, PixelFormat::Rgba, vec![9; (w * h * 4) as usize]);
         step.process(&mut f, &Ctx);
