@@ -226,6 +226,9 @@ pub struct Instance {
     pub z_sort_table: Box<[Option<Vec<llr::ZSource>>]>,
     // Telescope patch: one cached geometry per flat tree index, filled on first use (see PATCH.txt)
     pub geometry_cache: Box<[OnceCell<GeometryCacheEntry>]>,
+    // Telescope patch: dirty when a property the last ensure_instantiated walk read has changed (None without dynamic nodes), and a flag set while that walk runs (see PATCH.txt)
+    pub instantiation_tracker: Option<Pin<Box<i_slint_core::properties::PropertyTracker<true>>>>,
+    pub instantiating: std::cell::Cell<bool>,
     pub globals: Rc<GlobalStorage>,
     pub self_weak: OnceCell<VWeak<ItemTreeVTable, Instance>>,
     /// When this `Instance` is a repeated entry, points back to the parent
@@ -495,6 +498,11 @@ impl Instance {
     /// container item directly — the repeater slot stays a no-op
     /// `Conditional` with `model: false`.
     pub fn ensure_updated(&self, tree_index: u32) -> bool {
+        self.ensure_updated_impl(tree_index, false)
+    }
+
+    // Telescope patch: `in_walk` is set by the tracked ensure_instantiated walk, which must also see a ListView's dirty flag (see PATCH.txt)
+    fn ensure_updated_impl(&self, tree_index: u32, in_walk: bool) -> bool {
         let Some((sub, rep_idx)) = self.dynamic_at(tree_index) else { return false };
         if let Some(cc) = component_container_item(&sub, rep_idx) {
             return cc.ensure_updated();
@@ -541,6 +549,11 @@ impl Instance {
                 content_height: lv.content_height.clone(),
                 ctx_sub: sub.clone(),
             };
+            // Subscribed before the update reads the row count or runs row init code, so a change made during either still causes another walk
+            if let (true, RepeaterOrConditional::Repeater(r)) = (in_walk, repeater) {
+                Pin::as_ref(r).track_model_changes();
+                Pin::as_ref(r).track_row_count_changes();
+            }
             repeater.ensure_updated_listview_callback(
                 factory,
                 &props,
@@ -557,10 +570,29 @@ impl Instance {
     /// event dispatch, so the visit pass only has to register dependencies.
     /// Returns `true` if any instance was created or removed.
     pub fn ensure_instantiated(&self) -> bool {
+        // Telescope patch: walk only when a property the last walk read has changed (see PATCH.txt)
+        let Some(tracker) = self.instantiation_tracker.as_ref() else { return false };
+        if self.instantiating.get() {
+            return self.instantiate_dynamic_nodes();
+        }
+        let tracker = tracker.as_ref();
+        // Registered before the walk, so a change the walk itself causes below this instance also leaves the caller dirty.
+        tracker.register_as_dependency_to_current_binding();
+        if !tracker.is_dirty() {
+            return false;
+        }
+        self.instantiating.set(true);
+        let changed =
+            tracker.evaluate_as_dependency_root_keeping_invalidation(|| self.instantiate_dynamic_nodes());
+        self.instantiating.set(false);
+        changed
+    }
+
+    fn instantiate_dynamic_nodes(&self) -> bool {
         let mut changed = false;
         for idx in 0..self.dynamic_table.len() {
             if self.dynamic_table[idx].is_some() {
-                changed |= self.ensure_updated(idx as u32);
+                changed |= self.ensure_updated_impl(idx as u32, true);
             }
         }
         changed
@@ -779,6 +811,7 @@ fn build_instance(
         build_sub_component_instance(compilation_unit, item_tree.root, parent_for_root);
     let (tree_nodes, dynamic_table, item_table, z_sort_table) = build_tree_nodes(&item_tree.tree);
     let tree_nodes_len = tree_nodes.len();
+    let has_dynamic_nodes = dynamic_table.iter().any(Option::is_some);
 
     let vrc = VRc::new(Instance {
         root_sub_component,
@@ -787,6 +820,8 @@ fn build_instance(
         item_table: item_table.into_boxed_slice(),
         z_sort_table: z_sort_table.into_boxed_slice(),
         geometry_cache: (0..tree_nodes_len).map(|_| OnceCell::new()).collect(),
+        instantiation_tracker: has_dynamic_nodes.then(|| Box::pin(Default::default())),
+        instantiating: std::cell::Cell::new(false),
         globals,
         self_weak: OnceCell::new(),
         parent_instance: parent,
