@@ -403,7 +403,7 @@ fn clock(origin: Instant) -> f64 {
 struct Udp {
     sock: UdpSocket,
     /// The session's HTTP response: closing it ends the phone's side too.
-    _response: crate::https::Response,
+    _response: Option<crate::https::Response>,
     phone: SocketAddr,
     seal_in: Seal,
     seal_out: Seal,
@@ -536,7 +536,7 @@ impl UdpFeed {
         let ip: std::net::IpAddr = std::net::ToSocketAddrs::to_socket_addrs(&(host.as_str(), phone_port)).ok()
             .and_then(|mut a| a.next()).map(|a| a.ip()).ok_or("no address")?;
         let now = clock(self.origin);
-        let mut udp = Udp { sock, _response: resp, phone: SocketAddr::new(ip, phone_port), seal_in: Seal::new(&key, TO_DESKTOP)?,
+        let mut udp = Udp { sock, _response: Some(resp), phone: SocketAddr::new(ip, phone_port), seal_in: Seal::new(&key, TO_DESKTOP)?,
                             seal_out: Seal::new(&key, TO_PHONE)?, frames: Reassembler::new(), opened_at: now, received: 0,
                             last_hello: 0.0, last_report: NEVER, last_key_ask: NEVER, decoded_any: Arc::new(AtomicBool::new(false)),
                             skipped: Arc::new(AtomicU32::new(0)) };
@@ -1323,6 +1323,61 @@ mod tests {
         assert!(feed.open_udp().is_err());
         std::thread::sleep(Duration::from_millis(200));
         assert!(*closed.lock().unwrap(), "the phone holds the session and a stream slot until it times out");
+    }
+
+    fn switches() -> i64 {
+        let mut u: libc::rusage = unsafe { std::mem::zeroed() };
+        // SAFETY: the call fills the struct it's given
+        unsafe { libc::getrusage(libc::RUSAGE_THREAD, &mut u) };
+        u.ru_nvcsw + u.ru_nivcsw
+    }
+
+    fn cpu_us() -> i64 {
+        let mut u: libc::rusage = unsafe { std::mem::zeroed() };
+        // SAFETY: the call fills the struct it's given
+        unsafe { libc::getrusage(libc::RUSAGE_THREAD, &mut u) };
+        (u.ru_utime.tv_sec + u.ru_stime.tv_sec) * 1_000_000 + (u.ru_utime.tv_usec + u.ru_stime.tv_usec) as i64
+    }
+
+    /// cargo test -p telescope-link --release --lib -- --ignored --nocapture receive_cost
+    #[test]
+    #[ignore = "a measurement"]
+    fn receive_cost() {
+        for (name, frame_bytes) in [("1080p, 60 KB frames", 60_000usize), ("4K, 250 KB frames", 250_000)] {
+            let sock = UdpSocket::bind("127.0.0.1:0").unwrap();
+            set_receive_buffer(&sock, RECEIVE_BUFFER);
+            sock.set_read_timeout(Some(Duration::from_millis(5))).unwrap();
+            let addr = sock.local_addr().unwrap();
+            let phone = UdpSocket::bind("127.0.0.1:0").unwrap();
+            let phone_addr = phone.local_addr().unwrap();
+            let origin = Instant::now();
+            let mut udp = Udp { sock, _response: None, phone: phone_addr, seal_in: Seal::new(&KEY, TO_DESKTOP).unwrap(),
+                                seal_out: Seal::new(&KEY, TO_PHONE).unwrap(), frames: Reassembler::new(), opened_at: 0.0, received: 0,
+                                last_hello: 0.0, last_report: NEVER, last_key_ask: NEVER, decoded_any: Arc::new(AtomicBool::new(false)),
+                                skipped: Arc::new(AtomicU32::new(0)) };
+            let sender = std::thread::spawn(move || {
+                let mut seal = Seal::new(&KEY, TO_DESKTOP).unwrap();
+                let data = vec![7u8; frame_bytes];
+                for seq in 0..90u32 {
+                    let t0 = Instant::now();
+                    for p in fragments(seq, &data, seq % 30 == 0, MAX_PAYLOAD) {
+                        phone.send_to(&seal.seal(&p), addr).unwrap();
+                    }
+                    std::thread::sleep(Duration::from_millis(33).saturating_sub(t0.elapsed()));
+                }
+            });
+            let (mut got, start, sw0, cpu0) = (0, Instant::now(), switches(), cpu_us());
+            while got < 89 && start.elapsed() < Duration::from_secs(6) {
+                udp.receive(origin);
+                while udp.take().is_some() {
+                    got += 1;
+                }
+                udp.chase(clock(origin));
+            }
+            sender.join().unwrap();
+            let secs = start.elapsed().as_secs_f64();
+            println!("{name}: {got} frames, {:.0} switches/s, {:.3} ms thread CPU per frame", (switches() - sw0) as f64 / secs, (cpu_us() - cpu0) as f64 / 1000.0 / got.max(1) as f64);
+        }
     }
 
     #[test]
