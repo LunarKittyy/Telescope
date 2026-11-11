@@ -19,7 +19,7 @@ use std::time::Duration;
 use telescope_core::bus::BusSender;
 use telescope_core::event::Event;
 use telescope_core::frame::Frame;
-use telescope_core::image::frame_rgb;
+use telescope_core::image::{frame_rgb, small_rgb};
 use telescope_core::people::PeopleTracking;
 use telescope_core::vision::{turned, Turn, Upright, VisionPack, VisionService};
 
@@ -62,6 +62,23 @@ fn emit(bus: &Mutex<Option<BusSender>>, event: Event) {
 /// The frame as RGB for the models; None for a format that has no picture.
 fn rgb(frame: &Frame) -> Option<Rgb> {
     frame_rgb(frame).map(|data| Rgb::new(frame.width as usize, frame.height as usize, data))
+}
+
+/// The frame as RGB at the size the segmenter takes (see ops::model_input), shrunk on its planes first so a big frame is never made into RGB at full size.
+fn model_rgb(frame: &Frame) -> Option<Rgb> {
+    let (w, h) = (frame.width as usize, frame.height as usize);
+    let Some((mw, mh)) = ops::model_input_size(w, h, ops::MODEL_SIZE) else { return rgb(frame) };
+    small_rgb(frame, mw, mh, true).map(|data| Rgb::new(mw, mh, data))
+}
+
+/// The frame as RGB at the size the pose model gets (see ops::people_size), shrunk on its planes first.
+fn people_rgb(frame: &Frame) -> Option<Rgb> {
+    let (w, h) = (frame.width as usize, frame.height as usize);
+    let (pw, ph) = ops::people_size(w, h, service::PEOPLE_WIDTH);
+    if pw >= w {
+        return rgb(frame);
+    }
+    small_rgb(frame, pw, ph, true).map(|data| Rgb::new(pw, ph, data))
 }
 
 impl VisionHost {
@@ -155,7 +172,12 @@ impl VisionService for VisionHost {
 
     fn person_mask(&self, source_id: &str, frame: &Frame) -> Option<Arc<Vec<u8>>> {
         let shared = frame.clone();
-        self.shared.vision.newest_mask(source_id, frame.number, frame.width as usize, frame.height as usize, Box::new(move || rgb(&shared)))
+        self.shared.vision.newest_mask(source_id, frame.number, frame.width as usize, frame.height as usize, Box::new(move || model_rgb(&shared)))
+    }
+
+    fn person_mask_at(&self, source_id: &str, frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        let shared = frame.clone();
+        self.shared.vision.newest_mask(source_id, frame.number, w, h, Box::new(move || model_rgb(&shared)))
     }
 
     fn want_people(&self, owner: &str, on: bool) {
@@ -167,7 +189,7 @@ impl VisionService for VisionHost {
     }
 
     fn feed_raw(&self, source_id: &str, frame: &Frame, upright: Upright) {
-        self.shared.vision.feed_raw(source_id, &mut || rgb(frame), upright);
+        self.shared.vision.feed_raw(source_id, &mut || people_rgb(frame), upright);
     }
 
     fn tracked_people(&self, source_id: &str) -> (Vec<Value>, u32) {

@@ -387,3 +387,66 @@ fn an_i420_frame_goes_through_too() {
     let luma = &frame.data[..64 * 36];
     assert!(luma.iter().all(|v| (*v as i32 - 120).abs() < 12), "{:?}", &luma[..8]);
 }
+
+fn i420_scene(w: usize, h: usize) -> Frame {
+    let (scene, _) = crate::peek::sample_scene(w, h);
+    let mut frame = Frame::new(w as u32, h as u32, PixelFormat::I420, vec![0; PixelFormat::I420.size(w as u32, h as u32)]);
+    scene.write_to(&mut frame);
+    frame
+}
+
+#[test]
+fn the_blur_on_yuv_planes_looks_like_the_one_in_rgb() {
+    for (w, h) in [(960usize, 540usize), (641, 361)] {
+        let frame = i420_scene(w, h);
+        let mut want = frame.clone();
+        blurred(&Rgb::from_frame(&frame).unwrap()).write_to(&mut want);
+        let mut got = frame.clone();
+        assert!(blur_planes(&mut got));
+        assert_eq!((got.width, got.height, got.data.len()), (frame.width, frame.height, frame.data.len()));
+        let (a, b) = (Rgb::from_frame(&got).unwrap(), Rgb::from_frame(&want).unwrap());
+        let sum: f64 = a.data.iter().zip(&b.data).map(|(x, y)| (x.abs_diff(*y) as f64).powi(2)).sum();
+        let psnr = 10.0 * (255.0f64 * 255.0 / (sum / a.data.len() as f64).max(1e-9)).log10();
+        let off = a.data.iter().zip(&b.data).filter(|(x, y)| x.abs_diff(**y) > 3).count() as f64 / a.data.len() as f64;
+        // the planes are averaged before the colours are worked out, so saturated colours come out a level or two apart; a flat colour doesn't (below)
+        // sizes that don't divide into the working size are a little further off
+        let (least, share) = if w % 16 == 0 && h % 4 == 0 { (38.0, 0.20) } else { (35.0, 0.35) };
+        assert!(psnr > least && off < share, "{w}x{h}: {psnr:.1} dB, {:.3}% off by more than 3", off * 100.0);
+    }
+}
+
+#[test]
+fn a_frame_that_isnt_yuv_is_left_to_the_rgb_blur() {
+    let mut frame = Frame::new(4, 4, PixelFormat::Rgba, vec![9; 64]);
+    assert!(!blur_planes(&mut frame));
+    assert_eq!(*frame.data, vec![9; 64]);
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture --test-threads 1"]
+fn bench_privacy_blur() {
+    for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+        let source = i420_scene(w, h);
+        let old = crate::background::tests::measure(&mut || {
+            let mut frame = source.clone();
+            blurred(&Rgb::from_frame(&frame).unwrap()).write_to(&mut frame);
+        });
+        let new = crate::background::tests::measure(&mut || {
+            let mut frame = source.clone();
+            blur_planes(&mut frame);
+        });
+        println!("privacy blur {w}x{h} (wall ms, cpu ms): old {old:.2?} new {new:.2?}");
+    }
+}
+
+#[test]
+fn a_flat_colour_stays_the_colour_on_yuv_planes() {
+    for colour in [[200u8, 60, 40], [30, 200, 90], [120, 120, 120], [250, 250, 5], [5, 5, 5]] {
+        let mut frame = Frame::new(640, 360, PixelFormat::I420, vec![0; PixelFormat::I420.size(640, 360)]);
+        Rgb::filled(640, 360, colour).write_to(&mut frame);
+        let before = Rgb::from_frame(&frame).unwrap();
+        assert!(blur_planes(&mut frame));
+        let after = Rgb::from_frame(&frame).unwrap();
+        assert!(before.data.iter().zip(&after.data).all(|(a, b)| a.abs_diff(*b) <= 2), "{colour:?}: {:?} became {:?}", before.at(5, 5), after.at(5, 5));
+    }
+}

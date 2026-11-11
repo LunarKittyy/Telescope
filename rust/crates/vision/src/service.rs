@@ -502,7 +502,7 @@ impl Vision {
         p.motion.used();
         p.at = now;
         let (w, h) = people_size(frame.w, frame.h, PEOPLE_WIDTH);
-        p.frame = Some((frame.area(w, h), upright));
+        p.frame = Some((if (frame.w, frame.h) == (w, h) { frame } else { frame.area(w, h) }, upright));
         if p.thread.is_none() && !self.inner.hold_people.load(Ordering::SeqCst) {
             let quit = Arc::new(AtomicBool::new(false));
             p.quit = Some(quit.clone());
