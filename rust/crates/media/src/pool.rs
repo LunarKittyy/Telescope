@@ -6,6 +6,8 @@ use std::hash::Hash;
 
 /// How many of one size are kept: a frame's steps want a few at once.
 const PER_SIZE: usize = 4;
+/// A size untouched for this many takes and gives is dropped, so a picture size nobody uses any more doesn't stay.
+const IDLE_TICKS: u64 = 1200;
 
 struct Sized<T> {
     items: Vec<(T, usize)>,
@@ -43,12 +45,31 @@ impl<K: Hash + Eq + Copy, T> Pool<K, T> {
             size.items.push((item, bytes));
             self.bytes += bytes;
         }
+        let tick = self.tick;
+        let stale: Vec<K> = self.sizes.iter().filter(|(_, s)| s.used + IDLE_TICKS < tick).map(|(k, _)| *k).collect();
+        for key in stale {
+            if let Some(gone) = self.sizes.remove(&key) {
+                self.bytes -= gone.items.iter().map(|(_, b)| b).sum::<usize>();
+            }
+        }
         while self.bytes > self.budget {
             let Some(oldest) = self.sizes.iter().min_by_key(|(_, s)| s.used).map(|(k, _)| *k) else { break };
             if let Some(gone) = self.sizes.remove(&oldest) {
                 self.bytes -= gone.items.iter().map(|(_, b)| b).sum::<usize>();
             }
         }
+    }
+
+    /// Lets go of everything kept (the stream stopped, so nothing will ask for it soon).
+    pub fn clear(&mut self) {
+        self.sizes.clear();
+        self.bytes = 0;
+    }
+
+    /// How many bytes are kept.
+    #[cfg(test)]
+    pub fn bytes(&self) -> usize {
+        self.bytes
     }
 
     /// How many are kept in all.
@@ -83,6 +104,25 @@ mod tests {
         fn drop(&mut self) {
             self.0.fetch_sub(1, Ordering::SeqCst);
         }
+    }
+
+    #[test]
+    fn a_size_nobody_asks_for_any_more_is_let_go_after_a_while() {
+        let alive = Arc::new(AtomicUsize::new(0));
+        let mut pool = Pool::new(1 << 30);
+        for _ in 0..4 {
+            pool.give((3840, 2160), Tex::new(&alive), 33_000_000);
+        }
+        assert_eq!(pool.bytes(), 4 * 33_000_000);
+        // the preview moved to a smaller size and works there
+        for _ in 0..(IDLE_TICKS as usize) {
+            let t = pool.take((1280, 720)).unwrap_or_else(|| Tex::new(&alive));
+            pool.give((1280, 720), t, 3_600_000);
+        }
+        assert_eq!(pool.bytes(), 3_600_000);
+        assert_eq!(alive.load(Ordering::SeqCst), 1);
+        pool.clear();
+        assert_eq!((pool.bytes(), alive.load(Ordering::SeqCst)), (0, 0));
     }
 
     #[test]
