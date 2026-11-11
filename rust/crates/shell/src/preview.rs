@@ -12,10 +12,17 @@ pub trait Painter {
     /// The picture, or None when it can't be shown (yet).
     fn paint(&mut self, frame: &Frame, width: u32, height: u32) -> Option<slint::Image>;
 
-    /// A picture was asked for that isn't ready, so the frame that asked is painted again whatever the cadence says.
-    fn catching_up(&self) -> bool {
+    /// A finished picture is waiting to be taken in, so the window paints again whatever the cadence says.
+    fn ready(&self) -> bool {
         false
     }
+
+    /// A different stream: what was made for the last one isn't shown.
+    fn restart(&mut self) {}
+
+    /// What the frames of the next paints are derived from besides their own data (Colour Compare's line and its before picture),
+    /// so a frame made again from the same source is still the same job.
+    fn derived_from(&mut self, _tag: u64) {}
 }
 
 /// Draws frames into textures on the device it was made on (media's scaler, through the app's wiring).
@@ -106,28 +113,30 @@ impl Painter for CpuPainter {
     }
 }
 
-/// Which picture a threaded painter has: the frame (its data's address and number) and the size.
-type PaintKey = (usize, u64, u32, u32);
-
-fn paint_key(frame: &Frame, width: u32, height: u32) -> PaintKey {
-    (Arc::as_ptr(&frame.data) as usize, frame.number, width, height)
-}
+/// Which picture a threaded painter has: the frame's number, the size and what the frame is derived from.
+type PaintKey = (u64, u32, u32, u64);
 
 struct PaintJob {
     frame: Frame,
-    width: u32,
-    height: u32,
+    key: PaintKey,
+    epoch: u64,
 }
 
+type Made = (PaintKey, slint::SharedPixelBuffer<slint::Rgb8Pixel>);
+
 /// The CPU fallback off the window's thread: the scaler (which may wait on a graphics card's readback) runs on a thread of its own, and the
-/// window gets the picture when it's made (`wake` asks it to paint again). The window sees nothing for a frame the first time, then the
-/// picture for that same frame; a newer frame replaces one still being made.
+/// window gets the picture when it's made (`wake` asks it to paint again). The newest picture made for the stream at the size asked for is
+/// shown even when a newer frame has come since, so a scaler slower than the frames still puts pictures up at its own pace; a newer frame
+/// replaces one still waiting to be made.
 pub struct ThreadedPainter {
     scaler: Option<Box<dyn Scaler>>,
     wake: Arc<dyn Fn() + Send + Sync>,
     worker: Option<crate::preview_passes::Worker<PaintJob>>,
-    made: Arc<std::sync::Mutex<Option<(PaintKey, slint::SharedPixelBuffer<slint::Rgb8Pixel>)>>>,
+    made: Arc<std::sync::Mutex<Option<Made>>>,
     asked: Option<PaintKey>,
+    tag: u64,
+    // Counts streams, so a picture still being made for the last one is dropped
+    epoch: Arc<std::sync::atomic::AtomicU64>,
 }
 
 impl ThreadedPainter {
@@ -141,44 +150,71 @@ impl ThreadedPainter {
 
     /// The thread starts with the first frame to paint.
     pub fn new(scaler: Box<dyn Scaler>, wake: Arc<dyn Fn() + Send + Sync>) -> ThreadedPainter {
-        ThreadedPainter { scaler: Some(scaler), wake, worker: None, made: Arc::default(), asked: None }
+        ThreadedPainter { scaler: Some(scaler), wake, worker: None, made: Arc::default(), asked: None, tag: 0, epoch: Arc::default() }
+    }
+
+    fn ask(&mut self, frame: &Frame, key: PaintKey) {
+        if self.worker.is_none() {
+            let Some(mut scaler) = self.scaler.take() else { return };
+            let (made, wake, epoch) = (self.made.clone(), self.wake.clone(), self.epoch.clone());
+            self.worker = Some(crate::preview_passes::Worker::start("preview-paint", move |job: PaintJob| {
+                let (width, height) = (job.key.1, job.key.2);
+                let mut buffer = slint::SharedPixelBuffer::<slint::Rgb8Pixel>::new(width, height);
+                if scaler.rgb_into(&job.frame, width, height, buffer.make_mut_bytes()) {
+                    let mut slot = made.lock().unwrap_or_else(|e| e.into_inner());
+                    if job.epoch == epoch.load(std::sync::atomic::Ordering::SeqCst) {
+                        *slot = Some((job.key, buffer));
+                        drop(slot);
+                        wake();
+                    }
+                }
+            }));
+        }
+        self.asked = Some(key);
+        if let Some(worker) = &self.worker {
+            worker.put(PaintJob { frame: frame.clone(), key, epoch: self.epoch.load(std::sync::atomic::Ordering::SeqCst) });
+        }
     }
 }
 
 impl Painter for ThreadedPainter {
     fn paint(&mut self, frame: &Frame, width: u32, height: u32) -> Option<slint::Image> {
-        let key = paint_key(frame, width, height);
+        let key = (frame.number, width, height, self.tag);
         let ready = {
             let mut made = self.made.lock().unwrap_or_else(|e| e.into_inner());
-            made.take_if(|(k, _)| *k == key)
+            // A picture of another size is no use for this one
+            made.take_if(|(k, _)| (k.1, k.2) != (width, height));
+            made.take()
         };
-        if let Some((_, buffer)) = ready {
-            // Painted again later (a repaint of the same frame), it's made again
-            self.asked = None;
+        if let Some((made_key, buffer)) = ready {
+            if made_key == key {
+                // Painted again later (a repaint of the same frame), it's made again
+                self.asked = None;
+            } else if self.asked != Some(key) {
+                // An older frame's picture goes up while the newest is made
+                self.ask(frame, key);
+            }
             return Some(slint::Image::from_rgb8(buffer));
         }
-        if self.asked == Some(key) {
-            return None;
+        if self.asked != Some(key) {
+            self.ask(frame, key);
         }
-        if self.worker.is_none() {
-            let mut scaler = self.scaler.take()?;
-            let (made, wake) = (self.made.clone(), self.wake.clone());
-            self.worker = Some(crate::preview_passes::Worker::start("preview-paint", move |job: PaintJob| {
-                let mut buffer = slint::SharedPixelBuffer::<slint::Rgb8Pixel>::new(job.width, job.height);
-                let key = paint_key(&job.frame, job.width, job.height);
-                if scaler.rgb_into(&job.frame, job.width, job.height, buffer.make_mut_bytes()) {
-                    *made.lock().unwrap_or_else(|e| e.into_inner()) = Some((key, buffer));
-                    wake();
-                }
-            }));
-        }
-        self.asked = Some(key);
-        self.worker.as_ref()?.put(PaintJob { frame: frame.clone(), width, height });
         None
     }
 
-    fn catching_up(&self) -> bool {
-        self.asked.is_some()
+    fn ready(&self) -> bool {
+        self.made.lock().unwrap_or_else(|e| e.into_inner()).is_some()
+    }
+
+    fn restart(&mut self) {
+        let mut made = self.made.lock().unwrap_or_else(|e| e.into_inner());
+        self.epoch.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        *made = None;
+        self.asked = None;
+    }
+
+    fn derived_from(&mut self, tag: u64) {
+        self.tag = tag;
     }
 }
 
@@ -288,8 +324,8 @@ mod tests {
         assert!(!wants_frames(false, false, true));
     }
 
-    /// A scaler that paints the frame's first byte, after a pause.
-    struct Flat(std::time::Duration);
+    /// A scaler that paints the frame's first byte, after a pause, counting its runs.
+    struct Flat(std::time::Duration, Arc<std::sync::atomic::AtomicUsize>);
 
     impl Scaler for Flat {
         fn rgb(&mut self, frame: &Frame, width: u32, height: u32) -> Vec<u8> {
@@ -297,6 +333,7 @@ mod tests {
         }
         fn rgb_into(&mut self, frame: &Frame, width: u32, height: u32, out: &mut [u8]) -> bool {
             std::thread::sleep(self.0);
+            self.1.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let rgb = self.rgb(frame, width, height);
             out.copy_from_slice(&rgb);
             true
@@ -317,29 +354,97 @@ mod tests {
         }
     }
 
+    fn flat(ms: u64) -> (Box<dyn Scaler>, Arc<std::sync::atomic::AtomicUsize>) {
+        let runs = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        (Box::new(Flat(std::time::Duration::from_millis(ms), runs.clone())), runs)
+    }
+
     #[test]
     fn the_threaded_painter_never_makes_the_caller_wait_and_hands_back_the_picture_for_the_same_frame() {
         let woke = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let counter = woke.clone();
-        let mut painter = ThreadedPainter::new(Box::new(Flat(std::time::Duration::from_millis(50))), Arc::new(move || {
+        let mut painter = ThreadedPainter::new(flat(50).0, Arc::new(move || {
             counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         }));
         let frame = grey(90, 7);
         let began = std::time::Instant::now();
         assert!(painter.paint(&frame, 2, 2).is_none(), "nothing yet for a frame it hasn't seen");
         assert!(began.elapsed() < std::time::Duration::from_millis(40), "the caller waited for the scaler");
-        assert!(painter.catching_up());
+        assert!(!painter.ready());
         assert!(painter.paint(&frame, 2, 2).is_none(), "still being made, and asked for once only");
         until(|| woke.load(std::sync::atomic::Ordering::SeqCst) == 1);
+        assert!(painter.ready());
         let image = painter.paint(&frame, 2, 2).expect("the picture for the frame that asked");
         assert_eq!(image.to_rgb8().unwrap().as_slice()[0].r, 90);
-        assert!(!painter.catching_up());
-        // A later frame, or the same one at another size, is made afresh
-        assert!(painter.paint(&grey(200, 8), 2, 2).is_none());
+        assert!(!painter.ready());
+        // The same frame at another size is made afresh
+        assert!(painter.paint(&frame, 4, 2).is_none());
         until(|| woke.load(std::sync::atomic::Ordering::SeqCst) == 2);
-        assert!(painter.paint(&frame, 2, 2).is_none(), "an older frame's picture isn't taken for the newer one");
-        until(|| woke.load(std::sync::atomic::Ordering::SeqCst) == 3);
-        assert_eq!(painter.paint(&frame, 2, 2).unwrap().to_rgb8().unwrap().as_slice()[0].r, 90);
+        assert_eq!(painter.paint(&frame, 4, 2).unwrap().to_rgb8().unwrap().width(), 4);
+    }
+
+    #[test]
+    fn a_scaler_slower_than_the_frames_still_puts_pictures_up_at_a_steady_rate() {
+        let (scaler, runs) = flat(40);
+        let mut painter = ThreadedPainter::new(scaler, Arc::new(|| {}));
+        let began = std::time::Instant::now();
+        let (mut shown, mut times) = (Vec::new(), Vec::new());
+        let mut number = 0;
+        // 100 fps against a scaler that takes 40 ms: a picture is never for the newest frame
+        while began.elapsed() < std::time::Duration::from_millis(800) {
+            number += 1;
+            if let Some(image) = painter.paint(&grey(number as u8, number), 2, 2) {
+                shown.push(image.to_rgb8().unwrap().as_slice()[0].r as u64);
+                times.push(began.elapsed().as_millis());
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert!(shown.len() >= 10, "{} pictures in 800 ms", shown.len());
+        assert!(shown.windows(2).all(|w| w[0] < w[1]), "pictures went back: {shown:?}");
+        let longest = times.windows(2).map(|t| t[1] - t[0]).max().unwrap();
+        assert!(longest < 200, "a gap of {longest} ms between pictures");
+        assert!(runs.load(std::sync::atomic::Ordering::SeqCst) >= shown.len());
+    }
+
+    #[test]
+    fn a_frame_made_again_from_the_same_source_is_scaled_once() {
+        // Colour Compare gives each retry of a stalled stream's frame a new copy of its data
+        let (scaler, runs) = flat(30);
+        let woke = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = woke.clone();
+        let mut painter = ThreadedPainter::new(scaler, Arc::new(move || {
+            counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }));
+        painter.derived_from(5);
+        assert!(painter.paint(&grey(60, 3), 2, 2).is_none());
+        for _ in 0..5 {
+            assert!(painter.paint(&grey(60, 3), 2, 2).is_none());
+        }
+        until(|| woke.load(std::sync::atomic::Ordering::SeqCst) == 1);
+        assert!(painter.paint(&grey(60, 3), 2, 2).is_some(), "the picture lands");
+        assert!(!painter.ready());
+        assert_eq!(runs.load(std::sync::atomic::Ordering::SeqCst), 1);
+        // The Compare line moved: the same frame is a new job
+        painter.derived_from(6);
+        assert!(painter.paint(&grey(60, 3), 2, 2).is_none());
+        until(|| woke.load(std::sync::atomic::Ordering::SeqCst) == 2);
+        assert_eq!(runs.load(std::sync::atomic::Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn a_new_stream_doesn_t_show_the_last_ones_picture() {
+        let woke = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = woke.clone();
+        let mut painter = ThreadedPainter::new(flat(10).0, Arc::new(move || {
+            counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }));
+        assert!(painter.paint(&grey(90, 7), 2, 2).is_none());
+        until(|| woke.load(std::sync::atomic::Ordering::SeqCst) == 1);
+        painter.restart();
+        assert!(!painter.ready());
+        assert!(painter.paint(&grey(200, 7), 2, 2).is_none());
+        until(|| woke.load(std::sync::atomic::Ordering::SeqCst) == 2);
+        assert_eq!(painter.paint(&grey(200, 7), 2, 2).unwrap().to_rgb8().unwrap().as_slice()[0].r, 200);
     }
 
     #[test]

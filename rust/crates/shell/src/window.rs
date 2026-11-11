@@ -90,6 +90,7 @@ pub struct Window {
     painted_size: Cell<(u32, u32)>,
     /// The stage the last paint filled, so a resized stage can be told from a frame of another size
     painted_stage: Cell<(u32, u32)>,
+    painted_source: Cell<u64>,
     /// What passes on the preview (tint, analyse, paint) have in hand.
     passes: RefCell<crate::preview_passes::PassWork>,
     /// The layers' shapes last handed to the preview card, so they're only set again when they change.
@@ -449,6 +450,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         painted: Cell::new(0),
         painted_size: Cell::new((0, 0)),
         painted_stage: Cell::new((0, 0)),
+        painted_source: Cell::new(0),
         passes: RefCell::default(),
         layers_drawn: RefCell::default(),
         logged: Cell::new(false),
@@ -832,6 +834,18 @@ impl Window {
     }
 
     /// Colour grading's compare: the shown stream's picture before its colour step left of the line.
+    /// What the Compare split of the shown frame is made from: its line and the before picture, the same for every retry of one frame.
+    fn colour_split_tag(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let st = self.state.borrow();
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        if let (Some(position), Some(id)) = (st.colour.split(), st.streams.source_id.as_deref()) {
+            position.to_bits().hash(&mut hasher);
+            st.colour_before.lock().unwrap().get(id).map(|b| std::sync::Arc::as_ptr(&b.data) as usize).hash(&mut hasher);
+        }
+        hasher.finish()
+    }
+
     pub fn with_colour_split(&self, frame: telescope_core::Frame) -> telescope_core::Frame {
         let st = self.state.borrow();
         let (Some(position), Some(id)) = (st.colour.split(), st.streams.source_id.as_deref()) else { return frame };
@@ -1025,6 +1039,11 @@ impl Window {
             (stream_gen, self.preview_source()).hash(&mut hasher);
             hasher.finish()
         };
+        if self.painted_source.replace(source) != source {
+            if let Some(p) = self.painter.borrow_mut().as_mut() {
+                p.restart();
+            }
+        }
         let stage = match &popout {
             Some(p) => (p.window().size().width, p.window().size().height),
             None => {
@@ -1040,14 +1059,15 @@ impl Window {
         let (w, h) = crate::preview::fit_within((frame.width, frame.height), stage);
         let resized = self.painted_size.get() != (w, h);
         let again = number == self.painted.get();
-        if again && !resized && !(tints && self.passes.borrow().tint_newer(source)) {
+        let ready = self.painter.borrow().as_ref().is_some_and(|p| p.ready());
+        if again && !resized && !ready && !(tints && self.passes.borrow().tint_newer(source)) {
             return;
         }
         // Half the frames on the card unless Smooth is on; what it skips only changes what's painted here, and a resized stage paints at once
-        let catching_up = self.painter.borrow().as_ref().is_some_and(|p| p.catching_up());
-        if !again && !self.cadence.borrow_mut().due(number, popout.is_some() || on("smooth-on"), self.painted.get() == 0 || self.painted_stage.get() != stage || catching_up) {
+        if !again && !self.cadence.borrow_mut().due(number, popout.is_some() || on("smooth-on"), self.painted.get() == 0 || self.painted_stage.get() != stage || ready) {
             return;
         }
+        let tag = self.colour_split_tag();
         let frame = if picking { frame } else { self.with_colour_split(frame) };
         if !self.logged.replace(true) {
             log::info!("Preview: {}x{} {:?} frames shown at {w}x{h}", frame.width, frame.height, frame.format);
@@ -1082,7 +1102,12 @@ impl Window {
                     let Some(services) = &self.services else { return };
                     *painter = Some(Box::new(crate::preview::CpuPainter(services.media.scaler())));
                 }
-                let Some(image) = painter.as_mut().and_then(|p| p.paint(&frame, w, h)) else { return };
+                let Some(image) = painter.as_mut().and_then(|p| {
+                    p.derived_from(tag);
+                    p.paint(&frame, w, h)
+                }) else {
+                    return;
+                };
                 image
             }
         };
