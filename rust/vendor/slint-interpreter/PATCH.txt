@@ -1,4 +1,4 @@
-slint-interpreter 1.18.1 from crates.io with two changes, both in ItemTree::item_geometry (search for "Telescope patch"): ItemTree::item_geometry no longer clones
+slint-interpreter 1.18.1 from crates.io with two changes (the second needs vendor/i-slint-core), both in ItemTree::item_geometry (search for "Telescope patch"): ItemTree::item_geometry no longer clones
 the item's geometry expression and no longer builds a Struct from it.
 
 Why: Slint asks every item for its geometry on every walk of the item tree (rendering, hit testing, dirty tracking). The interpreter answered by cloning the
@@ -12,7 +12,11 @@ evaluation reads are tracked exactly as before, because the same sub-expressions
 
 Second change, in item_tree_vtable.rs and instance.rs (search for "Telescope patch"): ItemTree::item_geometry now remembers each item's rect. Instance has one cache entry per flat tree index
 (created on first use) holding the last rect and a PropertyTracker. The geometry is only evaluated again when the tracker is dirty, that is when a property the geometry expression read has changed;
-the tracker is registered as a dependency of whatever is being evaluated (the window's redraw tracker, a layout), so a change reaches them as it did before. One difference: evaluating an item's geometry can itself change a property it already read (a ComponentContainer creating its component), and a tracker forgets a change made while it evaluates. So a dirty entry is evaluated until two passes in a row agree (at most 4), which costs extra only when the entry was dirty. The renderer (femtovg has no
+the tracker is registered as a dependency of whatever is being evaluated (the window's redraw tracker, a layout), so a change reaches them as it did before. One difference from upstream's other caches: evaluating an item's geometry can itself invalidate a property it already read (a ComponentContainer creating its component sets properties), and
+PropertyTracker::evaluate_as_dependency_root forgets such a change because it clears the dirty flag after the closure. The vendored i-slint-core has a variant that clears it before (see
+vendor/i-slint-core/PATCH.txt), so the tracker is still dirty afterwards. The cache evaluates once; while the tracker is dirty again it evaluates again, at most 8 times in one query. If it still
+has not settled the entry is left dirty and the next query tries again (the rect returned meanwhile is the last pass's). An ordinary item is evaluated once. A chain of factories that needs more
+than 8 passes converges over several queries instead of caching a stale answer as clean. The renderer (femtovg has no
 partial rendering) still walks every item that is not inside a cached layer on each frame, so this makes each visit cheap instead of making fewer visits. Items in a repeated row live in their own
 Instance, so a repeater adding or removing rows never reuses an entry for a different item.
 

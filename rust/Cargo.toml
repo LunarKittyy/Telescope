@@ -87,6 +87,8 @@ slint-interpreter = { version = "1.18", default-features = false, features = ["s
 femtovg = { path = "vendor/femtovg" }
 # The Slint interpreter (1.18.1) clones every item's geometry expression and builds a hash map from it on every walk of the item tree: see vendor/slint-interpreter/PATCH.txt
 slint-interpreter = { path = "vendor/slint-interpreter" }
+# The tracker behind the interpreter's geometry cache has to keep an invalidation raised while it evaluates: see vendor/i-slint-core/PATCH.txt
+i-slint-core = { path = "vendor/i-slint-core" }
 
 [profile.release]
 opt-level = 3

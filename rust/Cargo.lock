@@ -2530,8 +2530,6 @@ dependencies = [
 [[package]]
 name = "i-slint-core"
 version = "1.18.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed2ea15059d70bc31b1a8b1eb4c34f2c5df04cb7e53f36179b43c0261231d646"
 dependencies = [
  "accesskit",
  "bitflags 2.13.2",

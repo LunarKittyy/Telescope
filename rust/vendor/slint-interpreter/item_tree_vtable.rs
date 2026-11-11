@@ -250,14 +250,12 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         let entry = cell.get_or_init(Default::default);
         let tracker = entry.tracker.as_ref();
         if tracker.is_dirty() {
-            // Evaluating can have side effects that change what was already read (a ComponentContainer creating its component sets properties), and the tracker forgets
-            // a change made while it evaluates. So evaluate until two passes in a row agree, which also leaves the tracker holding the dependencies of the last pass.
-            let mut rect = tracker.evaluate_as_dependency_root(|| item_geometry_uncached(this, item_index));
-            for _ in 0..3 {
-                let again = tracker.evaluate_as_dependency_root(|| item_geometry_uncached(this, item_index));
-                let settled = again == rect;
-                rect = again;
-                if settled {
+            // Evaluating can change what was already read (a ComponentContainer creating its component sets properties), which leaves the tracker dirty again.
+            // Evaluate again while that happens, and if it never settles leave the entry dirty so the next query tries again.
+            let mut rect = LogicalRect::default();
+            for _ in 0..GEOMETRY_PASSES {
+                rect = tracker.evaluate_as_dependency_root_keeping_invalidation(|| item_geometry_uncached(this, item_index));
+                if !tracker.is_dirty() {
                     break;
                 }
             }
@@ -571,3 +569,6 @@ fn item_geometry_uncached(this: &Instance, item_index: u32) -> LogicalRect {
         i_slint_core::lengths::LogicalSize::new(as_f32("width"), as_f32("height")),
     )
 }
+
+// Telescope patch: how many times an item's geometry is evaluated in one query when evaluating keeps invalidating it
+const GEOMETRY_PASSES: usize = 8;
