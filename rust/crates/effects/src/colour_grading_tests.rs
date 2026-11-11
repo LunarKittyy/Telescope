@@ -19,10 +19,29 @@ impl Rig {
 
     fn event(&mut self, e: Event) {
         self.plugin.on_event(&mut self.host, &e);
+        self.settle();
     }
 
     fn ui(&mut self, callback: &str, args: Vec<Value>) {
         self.plugin.on_ui(&mut self.host, &UiEvent { ui: "card".into(), callback: callback.into(), args });
+        self.settle();
+    }
+
+    /// Delivers the posts of a stage baked on its thread (until none is running), as the window would.
+    fn settle(&mut self) {
+        let deadline = Instant::now() + std::time::Duration::from_secs(10);
+        while self.plugin.baking() && Instant::now() < deadline {
+            let mine: Vec<(String, Value)> = {
+                let mut posted = self.host.posted.lock().unwrap();
+                let (mine, rest): (Vec<_>, Vec<_>) = posted.drain(..).partition(|(t, _)| t == "stage_baked");
+                *posted = rest;
+                mine
+            };
+            for (token, data) in mine {
+                self.plugin.on_event(&mut self.host, &Event::Posted { owner: "colour_grading".into(), token, data });
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
     }
 
     /// Moves a slider on the Primaries page to a value in its own units.
@@ -32,7 +51,8 @@ impl Rig {
     }
 
     /// What the pipeline was last told: Some(true) for a stage, Some(false) for none, None before any.
-    fn published(&self) -> Option<bool> {
+    fn published(&mut self) -> Option<bool> {
+        self.settle();
         self.host.calls.iter().rev().find_map(|c| c.strip_prefix("set_colour_stage colour_grading ").map(|r| r.starts_with("true")))
     }
 
@@ -513,4 +533,72 @@ fn the_stage_hands_the_pipeline_the_grade_itself_for_stages_that_come_after_anot
     change(&mut at);
     let want = r.plugin.grade().eval([0.5, 0.25, 0.75]);
     assert_eq!(at, want.to_vec());
+}
+
+#[test]
+#[ignore = "bench: cargo test --release -p telescope-effects --lib stage_build_cost -- --ignored --nocapture"]
+fn stage_build_cost() {
+    let mut p = ColourGradingPlugin::new();
+    p.grade.temperature = 20.0;
+    p.grade.saturation = 1.3;
+    p.grade.shadows = 20.0;
+    p.grade.vibrance = 15.0;
+    p.grade.hue_sat = vec![(0.0, 0.0), (0.3, 0.2), (0.6, -0.1)];
+    p.grade.curves[0] = vec![(0.0, 0.0), (0.4, 0.35), (1.0, 1.0)];
+    let t = Instant::now();
+    for _ in 0..20 {
+        std::hint::black_box(p.stage());
+    }
+    println!("stage 33^3: {:.2} ms", t.elapsed().as_secs_f64() * 50.0);
+    let t = Instant::now();
+    for _ in 0..5 {
+        let mut rgb = lattice(65);
+        p.grade.apply(&mut rgb);
+        std::hint::black_box(rgb);
+    }
+    println!("lattice 65^3: {:.2} ms", t.elapsed().as_secs_f64() * 200.0);
+}
+
+#[test]
+fn a_drag_is_baked_on_a_thread_and_only_the_newest_grade_is_handed_over() {
+    let mut r = Rig::new();
+    let i = SLIDERS.iter().position(|d| d.key == "contrast").unwrap();
+    for step in 1..=30 {
+        // no settle between moves, as a fast drag
+        r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: "slider-moved".into(), args: vec![json!(i), json!(1.0 + step as f64 * 0.02)] });
+    }
+    assert_eq!(r.published(), Some(true));
+    let handed = r.host.calls.iter().filter(|c| c.starts_with("set_colour_stage colour_grading true")).count();
+    assert!(handed <= 3, "moves made while a bake ran are folded into one: {handed} stages handed over");
+    assert!((r.plugin.grade().contrast - 1.6).abs() < 1e-9);
+    let want = r.plugin.stage().unwrap();
+    let last = r.host.colour_stages.last().and_then(|(_, s)| s.clone()).expect("the newest stage");
+    assert_eq!((last.size, &last.rgb, &last.table), (want.size, &want.rgb, &want.table), "the stage handed over is the last grade's");
+}
+
+#[test]
+fn switching_off_while_a_bake_runs_leaves_the_pipeline_with_no_stage() {
+    let mut r = Rig::new();
+    let i = SLIDERS.iter().position(|d| d.key == "contrast").unwrap();
+    r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: "slider-moved".into(), args: vec![json!(i), json!(1.5)] });
+    r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: "switch-toggled-by-hand".into(), args: vec![json!(false)] });
+    assert_eq!(r.published(), Some(false));
+    r.event(Event::PhonesChanged { count: 1 });
+    assert_eq!(r.published(), Some(false), "a bake that finished late doesn't put the grade back");
+}
+
+#[test]
+fn a_saved_lut_isnt_read_while_the_effect_is_off_and_is_when_it_goes_on() {
+    let mut r = Rig::new();
+    let dir = scratch_dir("colour_lazy_lut");
+    let path = dir.join("look.cube");
+    write_lut(&path, invert(5), 5);
+    r.plugin.set_config(&json!({"on": false, "lut": path.to_string_lossy()})).unwrap();
+    assert_eq!(r.plugin.reads, 0, "off: no parse");
+    assert_eq!(r.plugin.get_config()["lut"], json!(path.to_string_lossy()), "and the path is still saved");
+    r.plugin.set_on(&mut r.host, true);
+    r.settle();
+    assert_eq!(r.plugin.reads, 1);
+    assert!(r.plugin.grade().lut.is_some());
+    assert_eq!(r.published(), Some(true));
 }

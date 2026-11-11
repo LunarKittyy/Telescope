@@ -8,7 +8,7 @@ use crate::grade::{self, Grade, CHANNELS, LINEAR, MASTER_DEFAULT, MASTER_RANGE, 
 use crate::shared::{number_in, Paired};
 use serde_json::{json, Map, Value};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use telescope_core::actions::{self, SliderSpec};
 use telescope_core::colour::{lattice, LEVELS};
@@ -18,7 +18,7 @@ use crate::auto_grade::{AutoState, CameraLock, MeasureStep, POST_MEASURED, T_HOL
 use crate::auto_measure::Measurement;
 use crate::auto_tuning::{HOLD_TIMEOUT_MS, LABEL_MS, MEASURE_TIMEOUT_MS};
 use telescope_core::frame::{FrameStage, FrameStep};
-use telescope_core::host::{ColourStage, FileDialog, FileDialogKind, Host, RequestId};
+use telescope_core::host::{ColourStage, FileDialog, FileDialogKind, Host, Poster, RequestId};
 use telescope_core::people::{self, Track};
 use telescope_core::pose::Person;
 use telescope_core::view::Geometry;
@@ -32,6 +32,8 @@ pub const NAME: &str = "colour_grading";
 pub const OWNER: &str = NAME;
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/colour_grading.slint"));
 
+/// Posted by the thread that baked a stage.
+const POST_STAGE: &str = "stage_baked";
 const LUT_FILES: &str = n_("LUT files (*.cube)");
 const EXPORT_SIZES: [(u32, &str); 2] = [(33, n_("33-point LUT (*.cube)")), (65, n_("65-point LUT (*.cube)"))];
 const WHEEL_NAMES: [&str; 4] = [n_("Lift"), n_("Gamma"), n_("Gain"), n_("Offset")];
@@ -173,11 +175,31 @@ fn stamp(path: &Path) -> Option<(u128, u64)> {
     Some((ns, meta.len()))
 }
 
+/// The pipeline's stage for a grade that changes the picture: its lattice, and exact tables when each channel stands alone.
+fn build_stage(g: &Grade) -> ColourStage {
+    let size = g.lut_size();
+    let mut rgb = lattice(size as usize);
+    g.apply(&mut rgb);
+    let table = g.per_channel().then(|| {
+        let mut ramp: Vec<f32> = (0..LEVELS).flat_map(|i| [i as f32 / (LEVELS - 1) as f32; 3]).collect();
+        g.apply(&mut ramp);
+        Arc::new(ramp)
+    });
+    let grade = g.clone();
+    ColourStage::new(size, Arc::new(rgb), table).with_eval(move |px: &mut [f32]| grade.apply(px))
+}
+
 pub struct ColourGradingPlugin {
     grade: Grade,
     on: bool,
     lut_path: String,
     lut_problem: String,
+    /// The saved LUT file isn't read while the effect is off: it is when the effect goes on.
+    lut_deferred: bool,
+    /// Counts publishes; a bake is only handed over if nothing was published since it began.
+    stage_gen: u64,
+    stage_busy: bool,
+    stage_slot: Arc<Mutex<Option<(u64, ColourStage)>>>,
     /// 0 tone curves, 1 hue vs sat, 2 hue vs hue.
     curve: usize,
     channel: usize,
@@ -218,6 +240,10 @@ impl ColourGradingPlugin {
             on: true,
             lut_path: String::new(),
             lut_problem: String::new(),
+            lut_deferred: false,
+            stage_gen: 0,
+            stage_busy: false,
+            stage_slot: Arc::default(),
             curve: 0,
             channel: 0,
             page: 0,
@@ -268,26 +294,60 @@ impl ColourGradingPlugin {
 
     /// The grade as the pipeline takes it, or None for no change at all (off, or a grade that does nothing).
     pub fn stage(&self) -> Option<ColourStage> {
-        let g = &self.grade;
-        if !self.on || g.is_identity() {
+        if !self.on || self.grade.is_identity() {
             return None;
         }
-        let size = g.lut_size();
-        let mut rgb = lattice(size as usize);
-        g.apply(&mut rgb);
-        let table = g.per_channel().then(|| {
-            let mut ramp: Vec<f32> = (0..LEVELS).flat_map(|i| [i as f32 / (LEVELS - 1) as f32; 3]).collect();
-            g.apply(&mut ramp);
-            Arc::new(ramp)
-        });
-        let grade = g.clone();
-        Some(ColourStage::new(size, Arc::new(rgb), table).with_eval(move |px: &mut [f32]| grade.apply(px)))
+        Some(build_stage(&self.grade))
     }
 
+    /// Tells the pipeline. Baking the lattice takes milliseconds (tens with a detailed LUT), so a grade that changes the picture is baked
+    /// on a thread, one at a time: edits that come while it runs are folded into the next bake, and only the newest is handed over.
     fn publish(&mut self, host: &mut dyn Host) {
         self.dirty = false;
-        let stage = self.stage();
-        host.set_colour_stage(OWNER, stage, 0, None);
+        self.stage_gen += 1;
+        let wanted = self.on && !self.grade.is_identity();
+        let poster = self.auto.poster.clone().filter(|_| wanted);
+        let Some(poster) = poster else {
+            host.set_colour_stage(OWNER, self.stage(), 0, None);
+            return;
+        };
+        if !self.stage_busy && !self.bake_on_thread(poster) {
+            host.set_colour_stage(OWNER, self.stage(), 0, None);
+        }
+    }
+
+    /// Whether a stage is being baked on its thread (for a test to wait on).
+    #[cfg(test)]
+    pub(crate) fn baking(&self) -> bool {
+        self.stage_busy
+    }
+
+    /// Starts baking the grade as it is now; false when there was no thread to do it on.
+    fn bake_on_thread(&mut self, poster: Arc<dyn Poster>) -> bool {
+        let (grade, generation, slot) = (self.grade.clone(), self.stage_gen, self.stage_slot.clone());
+        let spawned = std::thread::Builder::new().name("colour-grading-bake".into()).spawn(move || {
+            let stage = build_stage(&grade);
+            *slot.lock().unwrap_or_else(|e| e.into_inner()) = Some((generation, stage));
+            poster.post(POST_STAGE, Value::Null);
+        });
+        self.stage_busy = spawned.is_ok();
+        spawned.is_ok()
+    }
+
+    /// A bake finished: its stage goes to the pipeline unless the grade changed since, in which case the newest is baked next.
+    fn stage_baked(&mut self, host: &mut dyn Host) {
+        self.stage_busy = false;
+        let Some((generation, stage)) = self.stage_slot.lock().unwrap_or_else(|e| e.into_inner()).take() else { return };
+        if generation == self.stage_gen {
+            host.set_colour_stage(OWNER, Some(stage), 0, None);
+        } else if self.on && !self.grade.is_identity() {
+            if let Some(poster) = self.auto.poster.clone() {
+                if self.bake_on_thread(poster) {
+                    return;
+                }
+            }
+            host.set_colour_stage(OWNER, self.stage(), 0, None);
+        }
     }
 
     /// Settings were loaded without a host to tell: the card shows them and the pipeline gets the grade, once.
@@ -340,6 +400,7 @@ impl ColourGradingPlugin {
     fn load_lut(&mut self, host: &mut dyn Host, path: &str) {
         let (lut, problem) = if path.is_empty() { (None, String::new()) } else { self.read_lut(path) };
         self.lut_path = path.to_string();
+        self.lut_deferred = false;
         self.lut_problem = problem;
         self.grade.lut = lut;
         self.show(host, &self.lut_props());
@@ -776,6 +837,13 @@ impl ColourGradingPlugin {
 
     fn set_on(&mut self, host: &mut dyn Host, on: bool) {
         self.on = on;
+        if on && std::mem::take(&mut self.lut_deferred) {
+            let path = self.lut_path.clone();
+            let (lut, problem) = self.read_lut(&path);
+            self.grade.lut = lut;
+            self.lut_problem = problem;
+            self.show(host, &self.lut_props());
+        }
         self.show(host, &json!({"on": on}));
         self.publish(host);
         host.schedule_save();
@@ -976,6 +1044,7 @@ impl Plugin for ColourGradingPlugin {
             Event::ViewChanged { view } => self.auto.shared.hear_view(Geometry::from(view)),
             Event::PictureMeasureRequested { token } => self.probe_requested(host, token),
             Event::Posted { owner, token, .. } if owner == NAME && token == POST_MEASURED => self.auto_measured(host),
+            Event::Posted { owner, token, .. } if owner == NAME && token == POST_STAGE => self.stage_baked(host),
             Event::TimerFired { owner, token } if owner == NAME && token == T_LABEL => {
                 self.auto.label.clear();
                 self.show_auto(host);
@@ -1214,13 +1283,15 @@ impl Plugin for ColourGradingPlugin {
         g.hue_hue = points(cfg.get("hue_hue"), &neutral, false);
         g.lut_strength = number_in(cfg.get("lut_strength"), 1.0, 0.0, 1.0);
         let path = cfg.get("lut").and_then(Value::as_str).unwrap_or("").to_string();
-        let (lut, problem) = if path.is_empty() { (None, String::new()) } else { self.read_lut(&path) };
+        self.on = cfg.get("on") != Some(&Value::Bool(false));
+        // Off: the file waits until the effect is switched on, so a LUT nobody uses costs no parse or memory
+        self.lut_deferred = !self.on && !path.is_empty();
+        let (lut, problem) = if path.is_empty() || self.lut_deferred { (None, String::new()) } else { self.read_lut(&path) };
         g.lut = lut;
         self.lut_problem = problem;
         self.lut_path = path;
         self.grade = g;
         self.auto.wrote = false;
-        self.on = cfg.get("on") != Some(&Value::Bool(false));
         // once, with the whole grade, so the stream never sees half of it: the next hook with a host does it
         self.dirty = true;
         Ok(())
