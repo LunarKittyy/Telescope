@@ -67,6 +67,10 @@ impl CpuStep for DeskStep {
         let (_, warp, _) = self.made.as_ref().expect("made above");
         Some(card_params(card_rows(warp), warp.rect))
     }
+
+    fn card_block_chroma(&self) -> bool {
+        true
+    }
 }
 
 /// The card's uniforms (desk.wgsl's Params) for a warp.

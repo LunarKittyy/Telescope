@@ -29,6 +29,18 @@ fn yuv_to_rgb(y: f32, u: f32, v: f32) -> vec3<f32> {
     return clamp(vec3<f32>(c + 1.596027 * e, c - 0.391762 * d - 0.812968 * e, c + 2.017232 * d) / 255.0, vec3<f32>(0.0), vec3<f32>(1.0));
 }
 
+// The same by index, as the CPU reads it: pixel (x, y) takes the chroma sample (x / 2, y / 2), whatever the size
+fn source_by_block(uv: vec2<f32>, mode: u32) -> vec3<f32> {
+    let size = vec2<i32>(i32(settings.z), i32(settings.w));
+    let at = clamp(vec2<i32>(floor(uv * vec2<f32>(size))), vec2<i32>(0), size - 1);
+    let y = textureLoad(p0, at, 0).r;
+    if mode == 0u {
+        return yuv_to_rgb(y, textureLoad(p1, at / 2, 0).r, textureLoad(p2, at / 2, 0).r);
+    }
+    let c = textureLoad(p1, at / 2, 0).rg;
+    return yuv_to_rgb(y, c.r, c.g);
+}
+
 fn source(uv: vec2<f32>, mode: u32) -> vec3<f32> {
     if mode == 0u {
         return yuv_to_rgb(textureSampleLevel(p0, smp, uv, 0.0).r, textureSampleLevel(p1, smp, uv, 0.0).r, textureSampleLevel(p2, smp, uv, 0.0).r);
@@ -46,9 +58,12 @@ fn rgb_at(uv: vec2<f32>) -> vec3<f32> {
 
 @fragment
 fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
-    let mode = settings.x;
+    let mode = settings.x & 7u;
     if mode <= 2u {
         let taps = settings.y;
+        if (settings.x & 8u) != 0u && mode <= 1u && taps <= 1u {
+            return vec4<f32>(source_by_block(in.uv, mode), 1.0);
+        }
         if taps <= 1u {
             return vec4<f32>(source(in.uv, mode), 1.0);
         }

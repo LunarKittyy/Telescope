@@ -297,6 +297,10 @@ pub trait CpuStep: Send {
     fn card_uniforms(&mut self, _width: u32, _height: u32) -> Option<Value> {
         None
     }
+    /// For the CPU half of an Either: whether the card reads YUV chroma as the CPU does (a sample repeated over its 2 x 2 block, not blended).
+    fn card_block_chroma(&self) -> bool {
+        false
+    }
 }
 
 /// A frame step as a GPU shader, the only kind a Lua or WASM plugin hands over: plain data the host compiles and runs.

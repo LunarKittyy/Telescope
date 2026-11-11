@@ -13,6 +13,8 @@ use telescope_core::shader;
 use telescope_core::time::{monotonic_ns, span};
 use wgpu::naga;
 
+/// Set on the convert shader's mode to read YUV chroma by index, a sample for its 2 x 2 block, as the CPU does (taps stay 1).
+const BLOCK_CHROMA: u32 = 8;
 const CONVERT: &str = include_str!("shaders/convert.wgsl");
 /// What a working picture on the card is kept as: gamma-encoded RGBA, like the camera's own values.
 const WORK: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
@@ -319,7 +321,11 @@ impl Gpu {
 
     /// One pass of the convert shader from planes into target. taps: samples a side per output pixel, for shrinking.
     fn convert_pass(&self, enc: &mut wgpu::CommandEncoder, planes: &[wgpu::TextureView; 3], mode: Mode, target: &wgpu::Texture, taps: u32, src_size: (u32, u32)) {
-        let settings: [u32; 4] = [mode as u32, taps.max(1), src_size.0, src_size.1];
+        self.convert_pass_with(enc, planes, mode, target, taps, src_size, false);
+    }
+
+    fn convert_pass_with(&self, enc: &mut wgpu::CommandEncoder, planes: &[wgpu::TextureView; 3], mode: Mode, target: &wgpu::Texture, taps: u32, src_size: (u32, u32), block_chroma: bool) {
+        let settings: [u32; 4] = [mode as u32 | if block_chroma { BLOCK_CHROMA } else { 0 }, taps.max(1), src_size.0, src_size.1];
         let buf = self.uniform(bytemuck_u32(&settings));
         let view = target.create_view(&Default::default());
         let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -416,6 +422,11 @@ impl Gpu {
 
     /// Puts a frame on the card, ready for shaders.
     pub fn lift(&self, frame: &Frame) -> Result<Held, String> {
+        self.lift_with(frame, false)
+    }
+
+    /// As lift, with block_chroma reading YUV chroma a sample to its 2 x 2 block as the CPU does, where lift blends it linearly.
+    pub fn lift_with(&self, frame: &Frame, block_chroma: bool) -> Result<Held, String> {
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) {
             return Err(format!("{:?} frames can't go on the card", frame.format));
         }
@@ -425,7 +436,7 @@ impl Gpu {
         let mut enc = self.device.create_command_encoder(&Default::default());
         let planes = self.upload(frame, &mut used);
         let (a, b) = (self.texture(w, h, WORK), self.texture(w, h, WORK));
-        self.convert_pass(&mut enc, &planes.views, planes.mode, &a, 1, (planes.width, planes.height));
+        self.convert_pass_with(&mut enc, &planes.views, planes.mode, &a, 1, (planes.width, planes.height), block_chroma);
         span("upload", began);
         Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, waited_ns: 0 })
     }

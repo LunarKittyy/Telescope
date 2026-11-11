@@ -64,17 +64,23 @@ fn plugin(config: Value) -> DeskPlugin {
 
 /// The picture through the desk step on the card (as a step that can run either way) and on the CPU: (card, cpu).
 fn both(config: Value, picture: &Rgb) -> (Rgb, Rgb) {
+    both_of(config, rgba(picture))
+}
+
+/// The same for a frame of any format, both read back as RGB the same way.
+fn both_of(config: Value, frame: Frame) -> (Rgb, Rgb) {
     let mut p = plugin(config);
     let mut pipeline = telescope_media::FfmpegMedia.pipeline().expect("a frame pipeline");
     let Some(step @ FrameStep::Either(..)) = p.frame_step() else { panic!("plain straightening runs either way") };
     pipeline.set_steps(vec![StagedStep { owner: NAME.into(), stage: FrameStage::Geometry, step }]);
     let before = telescope_media::transfers::totals();
-    let card = Rgb::from_frame(&pipeline.process(rgba(picture), &Ctx)).unwrap();
+    let card = pipeline.process(frame.clone(), &Ctx);
+    assert_eq!(card.format, frame.format);
     assert!(telescope_media::transfers::totals().up > before.up, "the frame didn't go to the card");
     let Some(FrameStep::Either(_, mut cpu)) = p.frame_step() else { panic!("a step") };
-    let mut f = rgba(picture);
+    let mut f = frame;
     cpu.process(&mut f, &Ctx);
-    (card, Rgb::from_frame(&f).unwrap())
+    (Rgb::from_frame(&card).unwrap(), Rgb::from_frame(&f).unwrap())
 }
 
 /// (max, mean, psnr, share of values off by more than 3)
@@ -134,6 +140,43 @@ fn the_desk_card_borders_and_edges_land_where_the_cpu_puts_them() {
         for (x, y) in [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)] {
             let (a, b) = (card.data[(y * w + x) * 3], cpu.data[(y * w + x) * 3]);
             assert!(a.abs_diff(b) <= 1, "{config} corner {x},{y}: {a} against {b}");
+        }
+    }
+}
+
+/// The desk with saturated blocks and stripes laid over it, so chroma has sharp edges to get wrong, as a frame of the format.
+fn coloured(w: usize, h: usize, format: PixelFormat) -> Frame {
+    let mut rgb = desk(w, h);
+    let colours = [[235, 20, 20], [20, 220, 30], [30, 40, 240], [240, 230, 20], [230, 30, 220], [20, 220, 230]];
+    for y in 0..h {
+        for x in 0..w {
+            let (bx, by) = (x / 7, y / 9);
+            if (bx + 2 * by) % 5 == 0 {
+                rgb.set(x, y, colours[(bx / 5 + by) % colours.len()]);
+            } else if x % 11 == 0 && y > h / 2 {
+                rgb.set(x, y, colours[x % 6]);
+            }
+        }
+    }
+    let mut f = Frame::new(w as u32, h as u32, format, vec![0; format.size(w as u32, h as u32)]);
+    rgb.write_to(&mut f);
+    f
+}
+
+#[test]
+fn the_desk_on_the_card_keeps_the_cpus_chroma_for_yuv_frames() {
+    if telescope_media::gpu::Gpu::shared().is_none() {
+        eprintln!("no graphics card here: the shader comparison is skipped");
+        return;
+    }
+    for format in [PixelFormat::I420, PixelFormat::Nv12] {
+        for (w, h) in [(1920usize, 1080usize), (1283, 721)] {
+            for (name, config) in [("auto", json!({})), ("fill", json!({"shape": "fill"}))] {
+                let (card, cpu) = both_of(config, coloured(w, h, format));
+                let (max, mean, psnr, over) = difference(&card, &cpu);
+                println!("desk {format:?} {w}x{h} {name}: max {max}, mean {mean:.3}, psnr {psnr:.1} dB, {:.3}% of values off by more than 3", over * 100.0);
+                assert!(psnr >= 45.0 && mean < 1.0 && over < 0.01, "{format:?} {w}x{h} {name}: max {max}, psnr {psnr}, mean {mean}, over {over}");
+            }
         }
     }
 }

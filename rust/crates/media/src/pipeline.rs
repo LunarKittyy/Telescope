@@ -310,9 +310,11 @@ impl Pipeline {
                 masked = gpu.keep_mask(&mut self.mask, mask, *w, *h);
             }
         }
+        // Read the way the CPU reads it if any step here has a CPU way that takes chroma by its block, so both ways see the same colours
+        let block_chroma = self.steps.iter().any(|e| matches!(&e.kind, Kind::Either(_, cpu) if cpu.card_block_chroma()));
         let entry = &mut self.steps[i];
         if chain.held.is_none() {
-            match gpu.lift(frame) {
+            match gpu.lift_with(frame, block_chroma) {
                 Ok(held) => {
                     chain.held = Some(held);
                     chain.ups += 1;
