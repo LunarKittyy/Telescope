@@ -836,3 +836,65 @@ mod age_tests {
     }
 }
 
+/// What the feed-reader thread costs while the decoder is behind and the queue is full.
+#[cfg(all(test, target_os = "linux"))]
+mod wakeups {
+    use super::*;
+    use telescope_core::media::Decoded;
+
+    struct Endless;
+
+    struct NoStop;
+
+    impl FeedStopper for NoStop {
+        fn stop(&self) {}
+    }
+
+    impl VideoFeed for Endless {
+        fn read(&mut self) -> Result<Packet, FeedEnd> {
+            Ok(Packet { data: vec![0; 1 << 20], time_ns: 0 })
+        }
+        fn stopper(&self) -> Box<dyn FeedStopper> {
+            Box::new(NoStop)
+        }
+    }
+
+    struct Slow;
+
+    impl Decoder for Slow {
+        fn decode(&mut self, _: &Packet) -> Decoded {
+            std::thread::sleep(Duration::from_millis(100));
+            Decoded { newest: None, count: 0 }
+        }
+        fn hardware(&self) -> bool {
+            false
+        }
+    }
+
+    fn feed_thread_switches() -> u64 {
+        for task in std::fs::read_dir("/proc/self/task").unwrap().flatten() {
+            let dir = task.path();
+            if std::fs::read_to_string(dir.join("comm")).is_ok_and(|c| c.trim() == "feed-reader") {
+                let status = std::fs::read_to_string(dir.join("status")).unwrap();
+                return status.lines().filter(|l| l.contains("ctxt_switches")).filter_map(|l| l.split_whitespace().nth(1)?.parse::<u64>().ok()).sum();
+            }
+        }
+        0
+    }
+
+    /// cargo test -p telescope-media --release --lib -- --ignored --nocapture full_queue_wakeups
+    #[test]
+    #[ignore = "a measurement"]
+    fn full_queue_wakeups() {
+        let mut reader = Reader::new(Box::new(Endless), Box::new(Slow));
+        reader.max_bytes = u64::MAX;
+        std::thread::spawn(move || {
+            let _ = reader.read();
+        });
+        std::thread::sleep(Duration::from_millis(500));
+        let before = feed_thread_switches();
+        std::thread::sleep(Duration::from_secs(3));
+        println!("feed thread, queue full, decoder at 10 packets/s: {:.0} context switches/s", (feed_thread_switches() - before) as f64 / 3.0);
+    }
+}
+
