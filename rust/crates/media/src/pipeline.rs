@@ -7,6 +7,7 @@
 use crate::gpu::{self, Gpu, Held, MaskPlane};
 use crate::transfers;
 use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Weak};
 use telescope_core::balance::{Balance, Place};
 use telescope_core::image::SparePool;
@@ -114,6 +115,9 @@ struct Tally {
     masks: u64,
 }
 
+/// How many pipelines are using the card now; the last one to stop lets go of what it kept.
+static ON_THE_CARD: AtomicUsize = AtomicUsize::new(0);
+
 /// Runs one stream's steps. The graphics card is only opened once a shader step comes along.
 pub struct Pipeline {
     steps: Vec<Entry>,
@@ -129,6 +133,18 @@ pub struct Pipeline {
     stats: Option<Arc<SourceStats>>,
     /// The spare buffers every CPU step of this stream draws on.
     pool: SparePool,
+    /// Whether this pipeline is counted in ON_THE_CARD.
+    on_card: bool,
+}
+
+impl Drop for Pipeline {
+    fn drop(&mut self) {
+        if self.on_card && ON_THE_CARD.fetch_sub(1, Ordering::SeqCst) == 1 {
+            if let Some(gpu) = self.gpu.take().flatten() {
+                gpu.release_idle();
+            }
+        }
+    }
 }
 
 impl Default for Pipeline {
@@ -144,7 +160,7 @@ impl Pipeline {
 
     /// One that listens to this balance, for tests.
     fn with_balance(balance: Arc<Balance>) -> Pipeline {
-        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, stats: None, pool: SparePool::default() }
+        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, stats: None, pool: SparePool::default(), on_card: false }
     }
 
     fn timer_of(&self, owner: &str) -> Option<Arc<Timer>> {
@@ -157,7 +173,12 @@ impl Pipeline {
     }
 
     fn gpu(&mut self) -> Option<Arc<Gpu>> {
-        self.gpu.get_or_insert_with(Gpu::shared).clone()
+        let gpu = self.gpu.get_or_insert_with(Gpu::shared).clone();
+        if gpu.is_some() && !self.on_card {
+            self.on_card = true;
+            ON_THE_CARD.fetch_add(1, Ordering::SeqCst);
+        }
+        gpu
     }
 
     /// Brings frame up to date with the card, and drops the card's copy unless keep.
@@ -785,6 +806,18 @@ pub(crate) mod tests {
             p.process(grey(8, 8, 126), &NoContext);
             assert_eq!(p.last_transfers, want, "{what}");
         }
+    }
+
+    #[test]
+    fn the_card_lets_go_of_what_it_kept_when_the_last_stream_stops() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let mut p = Pipeline::new();
+        p.set_steps(vec![shader(INVERT)]);
+        p.process(grey(64, 64, 126), &NoContext);
+        assert!(gpu.kept_bytes() > 0, "a frame leaves its textures for the next");
+        drop(p);
+        // another test's stream may be running; only when none is, nothing stays kept
+        assert!(gpu.kept_bytes() == 0 || ON_THE_CARD.load(Ordering::SeqCst) > 0);
     }
 
     #[test]

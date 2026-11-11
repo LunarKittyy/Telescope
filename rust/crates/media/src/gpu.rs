@@ -253,6 +253,12 @@ impl Gpu {
         self.downloads.lock().unwrap().clear();
     }
 
+    /// How many bytes of textures are kept for the next frame, for tests.
+    #[cfg(test)]
+    pub(crate) fn kept_bytes(&self) -> usize {
+        self.pool.lock().unwrap().bytes()
+    }
+
     /// Hands textures back for the next frame of the same size.
     fn give_back(&self, textures: impl IntoIterator<Item = wgpu::Texture>) {
         let mut pool = self.pool.lock().unwrap();
