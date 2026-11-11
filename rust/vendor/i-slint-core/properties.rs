@@ -1367,7 +1367,7 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
     }
 
     /// Telescope patch: like [`Self::evaluate_as_dependency_root`], but the dirty flag is cleared before `f` runs instead of after, so a property that `f` itself invalidates
-    /// (after having read it) leaves the tracker dirty. Returns `f`'s result. Nothing else uses this, see PATCH.txt.
+    /// (after having read it) leaves the tracker dirty. Returns `f`'s result. Only slint-interpreter uses this, see PATCH.txt.
     pub fn evaluate_as_dependency_root_keeping_invalidation<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> R {
         // clear all the nodes so that we can start from scratch
         unsafe { *self.holder.dep_nodes.get() = Default::default() };

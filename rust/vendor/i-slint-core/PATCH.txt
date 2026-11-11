@@ -1,4 +1,4 @@
-i-slint-core 1.18.1 from crates.io with one addition, in properties.rs (search for "Telescope patch"): PropertyTracker::evaluate_as_dependency_root_keeping_invalidation.
+i-slint-core 1.18.1 from crates.io with two additions. The first is in properties.rs (search for "Telescope patch"): PropertyTracker::evaluate_as_dependency_root_keeping_invalidation.
 
 Why: the interpreter's geometry cache (vendor/slint-interpreter/PATCH.txt) uses a PropertyTracker per item. evaluate_as_dependency_root clears the tracker's dirty flag after running the
 closure, so a property the closure itself invalidates after reading it (an item whose width makes a ComponentContainer create its component, which sets a property height read earlier) is
@@ -14,3 +14,7 @@ Measured together with the cache: see vendor/slint-interpreter/PATCH.txt.
 Drop it together with the geometry cache, or when upstream's evaluate_as_dependency_root stops losing an invalidation raised during evaluation. Then remove this folder and the i-slint-core line
 under [patch.crates-io] in rust/Cargo.toml. Tests, benches, the lockfile and the [[bench]] entry in Cargo.toml were left out of the copy. Slint's GPL-3 option is what Telescope uses; the licence
 files are kept in LICENSES.
+
+Second addition, in model/repeater.rs (search for "Telescope patch"): Repeater::track_row_count_changes registers the model's row count with the current tracker. The
+interpreter's instantiation walk uses it for a ListView, whose dirty flag stays unset when rows are added or removed beyond the instantiated ones (see vendor/slint-interpreter/PATCH.txt).
+Drop it with the interpreter's fourth change.

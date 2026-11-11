@@ -54,8 +54,8 @@ parent lookup cache this was the largest interpreter cost left on the window thr
 What it does now: every Instance with dynamic nodes has a PropertyTracker that records what its last walk read (the models, the repeaters' dirty flags, the conditions, a ListView's
 viewport and row heights, the ComponentContainer's factory). A child instance's tracker is registered with its parent's before the child walks, so a change anywhere below marks every
 instance above it dirty, and a clean instance answers straight away. The walk uses the keeping-invalidation variant from vendor/i-slint-core, so a change the walk itself causes (a row's
-init setting a property another repeater's model reads) leaves the tracker dirty for the next call. A ListView sets its dirty flag without reading it, so the walk registers it
-explicitly. A walk that re-enters the same instance (from init code) walks as before without the tracker. Direct ensure_updated calls (get_subtree_range, get_subtree) are unchanged.
+init setting a property another repeater's model reads) leaves the tracker dirty for the next call. A ListView sets its dirty flag without reading it, and a row added or removed outside its
+instantiated rows doesn't set it, so the walk registers the dirty flag and the model's row count (Repeater::track_row_count_changes in vendor/i-slint-core). A walk that re-enters the same instance (from init code) walks as before without the tracker. Direct ensure_updated calls (get_subtree_range, get_subtree) are unchanged.
 Rows still appear, update and go in the same call as before: the tracker only skips walks that would have changed nothing.
 
 Measured (release, window thread CPU over 40 s after 25 s warm-up, everything on, two runs each, base then patched back to back): 4K 9.9 -> 8.4 %, 1080p 7.0 -> 6.5 %.

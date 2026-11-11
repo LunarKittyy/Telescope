@@ -77,14 +77,6 @@ impl RepeaterOrConditional {
     /// tracking scope. Layout expressions use this instead of instantiating,
     /// so they re-evaluate after the `ensure_instantiated` pass materializes
     /// instance changes.
-    // Telescope patch: register the model and its dirty flag with the current tracker, as Repeater::visit does (see PATCH.txt)
-    pub fn track_model_changes(&self) {
-        match self {
-            Self::Repeater(r) => Pin::as_ref(r).track_model_changes(),
-            Self::Conditional(c) => Pin::as_ref(c).track_model_changes(),
-        }
-    }
-
     pub fn track_instance_changes(&self) {
         match self {
             Self::Repeater(r) => Pin::as_ref(r).track_instance_changes(),
@@ -557,15 +549,17 @@ impl Instance {
                 content_height: lv.content_height.clone(),
                 ctx_sub: sub.clone(),
             };
-            if in_walk {
-                repeater.track_model_changes();
-            }
-            repeater.ensure_updated_listview_callback(
+            let changed = repeater.ensure_updated_listview_callback(
                 factory,
                 &props,
                 listview_width,
                 listview_height,
-            )
+            );
+            if let (true, RepeaterOrConditional::Repeater(r)) = (in_walk, repeater) {
+                Pin::as_ref(r).track_model_changes();
+                Pin::as_ref(r).track_row_count_changes();
+            }
+            changed
         } else {
             repeater.ensure_updated(factory)
         }
