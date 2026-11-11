@@ -39,6 +39,8 @@ const ANKLES_BELOW: f64 = 3.1;
 const LEARN: f64 = 0.1;
 /// Nobody clear enough to frame for this long: the framing holds where it is before it widens, since a missed detection is not someone leaving.
 const HOLD_S: f64 = 1.5;
+/// Two or more people seen together: the group is everyone seen in this long, since the model reports only some of them each time and framing each report made it jump.
+const GROUP_S: f64 = 3.0;
 /// How far under the eyes the chin is, in shoulder widths: Head ends just below it.
 const CHIN: f64 = 0.43;
 /// Chest ends this far under the shoulder line (about the armpits), in shoulder widths.
@@ -174,7 +176,7 @@ pub fn target_box(people: &[Person], aspect: f64, framing: f64, hands: &[&str]) 
 }
 
 /// target_box with what a person's body is known to look like standing in for what the model has lost.
-pub fn target_box_with(people: &[Person], aspect: f64, framing: f64, hands: &[&str], props: &Proportions) -> Option<Box4> {
+pub fn target_box_with<'a>(people: impl IntoIterator<Item = &'a Person>, aspect: f64, framing: f64, hands: &[&str], props: &Proportions) -> Option<Box4> {
     let mut boxes: Vec<Box4> = Vec::new();
     for person in people {
         let (person, to_shown) = upright(person, aspect);
@@ -438,6 +440,10 @@ pub struct FramingPlugin {
     status_problem: String,
     // Following
     people: Vec<Person>,
+    /// Each report of the people from the last GROUP_S, with when it came
+    recent: VecDeque<(f64, Vec<Person>)>,
+    /// When two or more people were last in one report
+    together_at: Option<f64>,
     seen_at: Option<f64>,
     spring: Option<Spring>,
     goal: Option<Target>,
@@ -494,6 +500,8 @@ impl FramingPlugin {
             status_active: false,
             status_problem: String::new(),
             people: Vec::new(),
+            recent: VecDeque::new(),
+            together_at: None,
             seen_at: None,
             spring: None,
             goal: None,
@@ -599,6 +607,7 @@ impl FramingPlugin {
             host.want_people(TITLE, false);
             host.release_view(TITLE);
             self.people.clear();
+            self.forget_group();
             self.seen_at = None;
         }
         self.refresh_status(host, self.switch, String::new());
@@ -703,9 +712,28 @@ impl FramingPlugin {
         if self.steering && source_id == host.focused_source_id().unwrap_or_default() {
             self.people = people.iter().filter_map(Person::from_value).collect();
             let aspect = host.view_aspect() as f64;
-            self.proportions.learn(&self.people, if aspect != 0.0 { aspect } else { 16.0 / 9.0 });
-            self.seen_at = Some((self.clock)());
+            let aspect = if aspect != 0.0 { aspect } else { 16.0 / 9.0 };
+            self.proportions.learn(&self.people, aspect);
+            let now = (self.clock)();
+            self.seen_at = Some(now);
+            self.remember(now, aspect);
         }
+    }
+
+    /// Keeps this report for GROUP_S, and notes it when two or more people are in it.
+    fn remember(&mut self, now: f64, aspect: f64) {
+        while self.recent.front().is_some_and(|(at, _)| now - at >= GROUP_S) {
+            self.recent.pop_front();
+        }
+        if self.people.iter().filter(|p| body(p, aspect).is_some()).count() >= 2 {
+            self.together_at = Some(now);
+        }
+        self.recent.push_back((now, self.people.clone()));
+    }
+
+    fn forget_group(&mut self) {
+        self.recent.clear();
+        self.together_at = None;
     }
 
     fn on_view_changed(&mut self, view: &View) {
@@ -716,6 +744,9 @@ impl FramingPlugin {
         }
         let remap = turned(old, new);
         self.people = self.people.iter().map(|person| person.mapped(&remap)).collect();
+        for (_, seen) in &mut self.recent {
+            *seen = seen.iter().map(|person| person.mapped(&remap)).collect();
+        }
         (self.spring, self.goal, self.smooth) = (None, None, None);
         self.last_box = None;
         self.room_state.reset();
@@ -740,7 +771,13 @@ impl FramingPlugin {
             }
         }
         self.widened = widened;
-        let found = target_box_with(people, aspect, self.framing_value(), &self.widened, &self.proportions);
+        // Once two or more have been seen together, everyone seen lately counts, so a report that misses some of them doesn't move the framing
+        let group = fresh && self.together_at.is_some_and(|at| now - at < GROUP_S);
+        let found = if group {
+            target_box_with(self.recent.iter().filter(|(at, _)| now - at < GROUP_S).flat_map(|(_, seen)| seen), aspect, self.framing_value(), &self.widened, &self.proportions)
+        } else {
+            target_box_with(people, aspect, self.framing_value(), &self.widened, &self.proportions)
+        };
         // A person the model misses for a moment is not gone: keep framing where they were
         let held = self.last_box.filter(|(_, at)| now - at < self.hold_s).map(|(b, _)| b);
         if found.is_some() {
@@ -859,6 +896,7 @@ impl Plugin for FramingPlugin {
     fn on_focus_gained(&mut self, host: &mut dyn Host, _stream: &StreamInfo) {
         self.catch_up(host);
         self.people.clear();
+        self.forget_group();
         (self.seen_at, self.spring, self.goal, self.smooth) = (None, None, None, None);
         self.last_box = None;
         self.room_state.reset();

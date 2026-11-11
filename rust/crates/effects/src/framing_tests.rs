@@ -326,6 +326,34 @@ fn it_frames_the_person_on_the_shown_stream_and_goes_wide_when_they_leave() {
 }
 
 #[test]
+fn a_group_is_framed_whole_even_when_the_model_reports_one_of_them_at_a_time() {
+    let mut r = Rig::new();
+    r.switch(true);
+    let crowd = [at(0.2), at(0.5), at(0.8)];
+    // Mostly one at a time, a different one each report, and two now and then
+    let mut zooms = Vec::new();
+    for i in 0..240 {
+        *r.clock.lock().unwrap() += 1.0 / 30.0;
+        if i % 30 == 0 {
+            r.people("phone", &[crowd[0].clone(), crowd[2].clone()]);
+        } else if i % 3 == 0 {
+            r.people("phone", std::slice::from_ref(&crowd[(i / 3) % 3]));
+        }
+        r.tick();
+        if i >= 120 {
+            zooms.push(r.last().0);
+        }
+    }
+    let (low, high) = zooms.iter().fold((f32::MAX, f32::MIN), |(l, h), z| (l.min(*z), h.max(*z)));
+    assert!(high < 1.8 && high - low < 0.05, "zoom {low} to {high}");
+    // One person alone still gets the close framing
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(4.0, Some(&[at(0.2)]));
+    assert!(r.last().0 > 2.5);
+}
+
+#[test]
 fn a_flipped_view_pans_the_other_way_to_the_same_person() {
     let mut r = Rig::new();
     r.host.view = View { flip_h: true, ..View::default() };
