@@ -7,6 +7,7 @@
 
 use telescope_core::i18n::Fields;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use telescope_core::config::dev_profile;
 use telescope_core::i18n::tr;
@@ -46,6 +47,9 @@ pub fn run_within(cmd: &[String], limit: Duration) -> (bool, String) {
     let Some((exe, args)) = cmd.split_first() else { return (false, String::new()) };
     let mut command = std::process::Command::new(exe);
     command.args(args).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped());
+    // Its own process group, so what it started can be stopped with it
+    #[cfg(unix)]
+    std::os::unix::process::CommandExt::process_group(&mut command, 0);
     let mut child = match command.spawn() {
         Ok(c) => c,
         Err(e) => return (false, e.to_string()),
@@ -59,25 +63,51 @@ pub fn run_within(cmd: &[String], limit: Duration) -> (bool, String) {
             Ok(Some(status)) => break status,
             Ok(None) if Instant::now() < until => std::thread::sleep(Duration::from_millis(10)),
             Ok(None) => {
-                let _ = child.kill();
+                stop_group(&mut child);
                 let _ = child.wait();
                 return (false, format!("Command '{}' timed out after {} seconds", cmd.join(" "), limit.as_secs()));
             }
             Err(e) => return (false, e.to_string()),
         }
     };
-    let collect = |h: Option<std::thread::JoinHandle<Vec<u8>>>| h.and_then(|h| h.join().ok()).unwrap_or_default();
-    let (stdout, stderr) = (collect(stdout), collect(stderr));
+    // Something it left running can hold the pipes open past its exit: give the readers a moment, then stop it
+    let (out, out_done) = stdout.unzip();
+    let (err, err_done) = stderr.unzip();
+    let finished = [out_done, err_done].into_iter().flatten().map(|done| done.recv_timeout(PIPE_GRACE).is_ok()).collect::<Vec<_>>();
+    if finished.contains(&false) {
+        stop_group(&mut child);
+    }
+    let text = |buffer: Option<Arc<Mutex<Vec<u8>>>>| buffer.map(|b| std::mem::take(&mut *b.lock().unwrap())).unwrap_or_default();
+    let (out, err) = (text(out), text(err));
     let ok = status.success();
-    (ok, String::from_utf8_lossy(if ok { &stdout } else { &stderr }).trim().to_string())
+    (ok, String::from_utf8_lossy(if ok { &out } else { &err }).trim().to_string())
 }
 
-fn drain(mut pipe: impl std::io::Read + Send + 'static) -> std::thread::JoinHandle<Vec<u8>> {
+/// How long the readers get to reach the end of a pipe after the command is gone.
+const PIPE_GRACE: Duration = Duration::from_millis(500);
+
+/// Stops the command and everything it started in its group, which also closes the pipes they held.
+fn stop_group(child: &mut std::process::Child) {
+    #[cfg(unix)]
+    {
+        // SAFETY: kill on a negative pid signals only the group we made for this child
+        unsafe { libc::kill(-(child.id() as i32), libc::SIGKILL) };
+    }
+    let _ = child.kill();
+}
+
+/// Reads a pipe on a thread into a buffer that can be taken at any time; the receiver hears when the pipe ended.
+fn drain(mut pipe: impl std::io::Read + Send + 'static) -> (Arc<Mutex<Vec<u8>>>, std::sync::mpsc::Receiver<()>) {
+    let (buffer, (send, done)) = (Arc::new(Mutex::new(Vec::new())), std::sync::mpsc::channel());
+    let kept = buffer.clone();
     std::thread::spawn(move || {
-        let mut text = Vec::new();
-        let _ = pipe.read_to_end(&mut text);
-        text
-    })
+        let mut chunk = [0u8; 8192];
+        while let Ok(n @ 1..) = pipe.read(&mut chunk) {
+            kept.lock().unwrap().extend_from_slice(&chunk[..n]);
+        }
+        let _ = send.send(());
+    });
+    (buffer, done)
 }
 
 /// shutil.which.
@@ -292,6 +322,40 @@ mod tests {
         assert!(started.elapsed() < Duration::from_secs(3));
         let (ok, err) = run_within(&strings(&["sh", "-c", "head -c 500000 /dev/zero | tr '\\0' e >&2; exit 3"]), Duration::from_secs(5));
         assert!(!ok && err.len() == 500_000);
+    }
+
+    #[cfg(unix)]
+    fn gone(pid: &str) -> bool {
+        // a stopped process may stay a zombie until whatever adopted it looks
+        std::fs::read_to_string(format!("/proc/{pid}/stat")).map_or(true, |s| s.rsplit(") ").next().is_some_and(|rest| rest.starts_with('Z')))
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_timeout_stops_what_the_command_started_and_frees_its_readers() {
+        let dir = scratch("timeout");
+        let file = dir.join("pid");
+        let script = format!("sleep 30 & echo $! > {}; wait", file.display());
+        let started = Instant::now();
+        let (ok, text) = run_within(&strings(&["sh", "-c", &script]), Duration::from_millis(300));
+        assert!(!ok && text.contains("timed out"), "{text}");
+        assert!(started.elapsed() < Duration::from_secs(3), "{:?}", started.elapsed());
+        let pid = std::fs::read_to_string(&file).unwrap().trim().to_string();
+        let mut waited = 0;
+        while !gone(&pid) && waited < 100 {
+            std::thread::sleep(Duration::from_millis(20));
+            waited += 1;
+        }
+        assert!(gone(&pid), "the grandchild {pid} is still running");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_command_that_leaves_something_holding_its_output_still_returns() {
+        let started = Instant::now();
+        let (ok, out) = run_within(&strings(&["sh", "-c", "echo done; sleep 30 & exit 0"]), Duration::from_secs(5));
+        assert!(ok && out == "done", "{ok} {out}");
+        assert!(started.elapsed() < Duration::from_secs(3), "{:?}", started.elapsed());
     }
 
     #[test]
