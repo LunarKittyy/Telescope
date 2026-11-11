@@ -169,6 +169,8 @@ struct Step {
 struct Quarter {
     src: Arc<Vec<u8>>,
     size: (usize, usize),
+    /// The frame's size, which everything kept here is made for (two sizes can share a quarter-size mask)
+    full: (usize, usize),
     soft: Option<(i64, Gray)>,
     rest: Option<Gray>,
     /// The feathered mask scaled up to the luma and chroma planes' sizes, for the edge setting in `soft`
@@ -268,8 +270,8 @@ impl Step {
         if let Some(src) = mask {
             self.had_mask.store(true, Ordering::Relaxed);
             let mut q = match self.quarter.take() {
-                Some(q) if Arc::ptr_eq(&q.src, &src) && q.size == (qw, qh) => q,
-                _ => Quarter { src, size: (qw, qh), soft: None, rest: None, wide: None, weights: None },
+                Some(q) if Arc::ptr_eq(&q.src, &src) && q.size == (qw, qh) && q.full == (w, h) => q,
+                _ => Quarter { src, size: (qw, qh), full: (w, h), soft: None, rest: None, wide: None, weights: None },
             };
             if q.soft.as_ref().is_none_or(|(e, _)| *e != edges) {
                 let whole = Gray { w: qw, h: qh, data: q.src.to_vec() };

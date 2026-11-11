@@ -946,3 +946,39 @@ fn kept_expanded_masks_and_blur_weights_give_what_a_fresh_step_gives_in_yuv() {
         assert!(a.data == b.data, "round {round}");
     }
 }
+
+/// One quarter-size mask whatever the frame size, as the vision service hands it out when two sizes round to the same quarter.
+struct OneMask(Arc<Vec<u8>>);
+
+impl FrameContext for OneMask {
+    fn source_id(&self) -> &str {
+        "phone"
+    }
+    fn person_mask(&self, _: &Frame) -> Option<Arc<Vec<u8>>> {
+        Some(self.0.clone())
+    }
+    fn person_mask_at(&self, _: &Frame, _: usize, _: usize) -> Option<Arc<Vec<u8>>> {
+        Some(self.0.clone())
+    }
+    fn colour_preview(&self, frame: &Frame) -> Frame {
+        frame.clone()
+    }
+}
+
+#[test]
+fn a_resize_that_keeps_the_quarter_size_mask_gives_what_a_fresh_step_gives() {
+    let (scene, mask) = peek::sample_scene(160, 90);
+    let served = OneMask(Arc::new(mask.shrink(40, 22).data.clone()));
+    let mut kept = step_in("blur", 4, 3);
+    // 160x90 to 162x90 keeps the 40x22 mask, then to 163x88 and back
+    for (w, h) in [(160, 90), (162, 90), (163, 88), (160, 90), (162, 90)] {
+        let (scene, _) = peek::sample_scene(w, h);
+        let source = i420_of(&scene);
+        let mut fresh = step_in("blur", 4, 3);
+        let (mut a, mut b) = (source.clone(), source.clone());
+        kept.process(&mut a, &served);
+        fresh.process(&mut b, &served);
+        assert!(a.data == b.data, "{w}x{h}");
+    }
+    let _ = scene;
+}
