@@ -410,7 +410,7 @@ fn the_blur_on_yuv_planes_looks_like_the_one_in_rgb() {
         let off = a.data.iter().zip(&b.data).filter(|(x, y)| x.abs_diff(**y) > 3).count() as f64 / a.data.len() as f64;
         // the planes are averaged before the colours are worked out, so saturated colours come out a level or two apart; a flat colour doesn't (below)
         // sizes that don't divide into the working size are a little further off
-        let (least, share) = if w % 16 == 0 && h % 4 == 0 { (38.0, 0.20) } else { (35.0, 0.35) };
+        let (least, share) = if w % 16 == 0 && h % 4 == 0 { (39.0, 0.17) } else { (37.5, 0.31) };
         assert!(psnr > least && off < share, "{w}x{h}: {psnr:.1} dB, {:.3}% off by more than 3", off * 100.0);
     }
 }
@@ -448,5 +448,29 @@ fn a_flat_colour_stays_the_colour_on_yuv_planes() {
         assert!(blur_planes(&mut frame));
         let after = Rgb::from_frame(&frame).unwrap();
         assert!(before.data.iter().zip(&after.data).all(|(a, b)| a.abs_diff(*b) <= 2), "{colour:?}: {:?} became {:?}", before.at(5, 5), after.at(5, 5));
+    }
+}
+
+#[test]
+#[ignore = "writes pictures to look at: LOOK_DIR=out LOOK_FRAME=frame.ppm cargo test -- --ignored look_at_privacy"]
+fn look_at_privacy_blur_old_and_new() {
+    use crate::background::tests::{dump_look, read_ppm, test_card};
+    let mut pictures = vec![("card", test_card(1920, 1080))];
+    if let Ok(path) = std::env::var("LOOK_FRAME") {
+        pictures.push(("clip", read_ppm(&path)));
+    }
+    for (name, scene) in pictures {
+        let (w, h) = (scene.w, scene.h);
+        let mut frame = Frame::new(w as u32, h as u32, PixelFormat::I420, vec![0; PixelFormat::I420.size(w as u32, h as u32)]);
+        scene.write_to(&mut frame);
+        let mut want = frame.clone();
+        blurred(&Rgb::from_frame(&frame).unwrap()).write_to(&mut want);
+        let mut got = frame.clone();
+        assert!(blur_planes(&mut got));
+        let (old, new) = (Rgb::from_frame(&want).unwrap(), Rgb::from_frame(&got).unwrap());
+        let sum: f64 = old.data.iter().zip(&new.data).map(|(x, y)| (x.abs_diff(*y) as f64).powi(2)).sum();
+        let worst = old.data.iter().zip(&new.data).map(|(x, y)| x.abs_diff(*y)).max().unwrap();
+        println!("privacy blur {name}: {:.1} dB, worst {worst}", 10.0 * (255.0f64 * 255.0 / (sum / old.data.len() as f64).max(1e-9)).log10());
+        dump_look(&format!("privacy_{name}"), &old, &new);
     }
 }

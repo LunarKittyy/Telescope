@@ -724,14 +724,15 @@ fn the_blur_on_yuv_planes_looks_like_the_one_in_rgb() {
     let (scene, mask) = peek::sample_scene(960, 540);
     let served = Served::new(mask.shrink(256, 144));
     let frame = i420_of(&scene);
-    for (blur, edges) in [(6, 3), (1, 0), (10, 10), (4, 5)] {
+    // (blur, edges, least PSNR, most share of values over 3 levels off), set a little past what each measures
+    for (blur, edges, least, share) in [(6, 3, 44.0, 0.02), (1, 0, 39.0, 0.16), (10, 10, 45.0, 0.01), (4, 5, 43.0, 0.045)] {
         let mut step = step_in("blur", blur, edges);
         let mut got = frame.clone();
         step.process(&mut got, &served);
         let want = in_rgb(&frame, &served, blur, edges, None);
         let (psnr, off, worst) = apart(&Rgb::from_frame(&got).unwrap(), &want);
         // the planes are averaged before the colours are worked out, so saturated colours come out a level or two apart
-        assert!(psnr > 38.0 && off < 0.20, "blur {blur} edges {edges}: {psnr:.1} dB, {:.3}% off by more than 3, worst {worst}", off * 100.0);
+        assert!(psnr > least && off < share, "blur {blur} edges {edges}: {psnr:.1} dB, {:.3}% off by more than 3, worst {worst}", off * 100.0);
     }
 }
 
@@ -747,7 +748,7 @@ fn a_picture_on_yuv_planes_looks_like_the_one_in_rgb() {
     step.process(&mut got, &served);
     let want = in_rgb(&frame, &served, 6, 3, Some(&behind));
     let (psnr, off, worst) = apart(&Rgb::from_frame(&got).unwrap(), &want);
-    assert!(psnr > 38.0 && off < 0.01, "{psnr:.1} dB, {:.3}% off by more than 3, worst {worst}", off * 100.0);
+    assert!(psnr > 60.0 && off < 0.0005, "{psnr:.1} dB, {:.3}% off by more than 3, worst {worst}", off * 100.0);
 }
 
 #[test]
@@ -760,7 +761,7 @@ fn with_no_one_in_the_mask_the_whole_frame_is_the_background() {
     step.process(&mut got, &served);
     let want = in_rgb(&frame, &served, 6, 3, None);
     let (psnr, off, worst) = apart(&Rgb::from_frame(&got).unwrap(), &want);
-    assert!(psnr > 38.0 && off < 0.03, "{psnr:.1} dB, {:.3}% off by more than 3, worst {worst}", off * 100.0);
+    assert!(psnr > 44.0 && off < 0.025, "{psnr:.1} dB, {:.3}% off by more than 3, worst {worst}", off * 100.0);
     assert_ne!(got.data, frame.data);
 }
 
@@ -802,5 +803,89 @@ fn odd_sized_frames_in_yuv_come_out_the_same_size() {
             step.process(&mut frame, &served);
             assert_eq!((frame.width as usize, frame.height as usize, frame.data.len()), (w, h, PixelFormat::I420.size(w as u32, h as u32)), "{mode} {w}x{h}");
         }
+    }
+}
+
+/// Writes a picture as a binary PPM, for looking at.
+pub(crate) fn dump_ppm(path: &std::path::Path, rgb: &Rgb) {
+    let mut bytes = format!("P6\n{} {}\n255\n", rgb.w, rgb.h).into_bytes();
+    bytes.extend_from_slice(&rgb.data);
+    std::fs::write(path, bytes).unwrap();
+}
+
+/// Reads a binary PPM (no comments).
+pub(crate) fn read_ppm(path: &str) -> Rgb {
+    let bytes = std::fs::read(path).unwrap();
+    let mut parts = bytes.splitn(5, |b| b.is_ascii_whitespace());
+    assert_eq!(parts.next().unwrap(), b"P6");
+    let mut number = || std::str::from_utf8(parts.next().unwrap()).unwrap().parse::<usize>().unwrap();
+    let (w, h, _) = (number(), number(), number());
+    let data = parts.next().unwrap().to_vec();
+    Rgb { w, h, data }
+}
+
+/// Old, new and the gap between them times four, written as PPMs for a look.
+pub(crate) fn dump_look(name: &str, old: &Rgb, new: &Rgb) {
+    let Ok(dir) = std::env::var("LOOK_DIR") else { return };
+    let dir = std::path::Path::new(&dir);
+    std::fs::create_dir_all(dir).unwrap();
+    let diff = Rgb { w: old.w, h: old.h, data: old.data.iter().zip(&new.data).map(|(a, b)| (a.abs_diff(*b) as u32 * 4).min(255) as u8).collect() };
+    dump_ppm(&dir.join(format!("{name}_old.ppm")), old);
+    dump_ppm(&dir.join(format!("{name}_new.ppm")), new);
+    dump_ppm(&dir.join(format!("{name}_diff4x.ppm")), &diff);
+}
+
+/// A hard-edged, saturated card: colour bars, a checkerboard and thin lines in pure colours.
+pub(crate) fn test_card(w: usize, h: usize) -> Rgb {
+    let bars = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [255, 0, 255], [0, 255, 255], [255, 255, 255], [0, 0, 0]];
+    let mut data = Vec::with_capacity(w * h * 3);
+    for y in 0..h {
+        for x in 0..w {
+            let p = if y < h / 3 {
+                bars[x * bars.len() / w]
+            } else if y < 2 * h / 3 {
+                if (x / 24 + y / 24) % 2 == 0 { [255, 40, 0] } else { [0, 60, 255] }
+            } else if (x / 3) % 2 == 0 {
+                bars[(y * 8 / h) % 8]
+            } else {
+                [20, 200, 40]
+            };
+            data.extend_from_slice(&p);
+        }
+    }
+    Rgb { w, h, data }
+}
+
+/// A centred ellipse as a person mask at the size the model works at.
+pub(crate) fn ellipse_mask(w: usize, h: usize) -> Gray {
+    let mut data = vec![0u8; w * h];
+    for y in 0..h {
+        for x in 0..w {
+            let (dx, dy) = ((x as f64 + 0.5) / w as f64 - 0.5, (y as f64 + 0.5) / h as f64 - 0.5);
+            let d = (dx / 0.18).powi(2) + (dy / 0.38).powi(2);
+            data[y * w + x] = (255.0 * (1.5 - d).clamp(0.0, 1.0)) as u8;
+        }
+    }
+    Gray { w, h, data }
+}
+
+#[test]
+#[ignore = "writes pictures to look at: LOOK_DIR=out LOOK_FRAME=frame.ppm cargo test -- --ignored look_at_background"]
+fn look_at_background_blur_old_and_new() {
+    let mut pictures = vec![("card", test_card(1920, 1080))];
+    if let Ok(path) = std::env::var("LOOK_FRAME") {
+        pictures.push(("clip", read_ppm(&path)));
+    }
+    for (name, scene) in pictures {
+        let served = Served::new(ellipse_mask(256, 144));
+        let frame = i420_of(&scene);
+        let mut step = step_in("blur", 6, 3);
+        let mut got = frame.clone();
+        step.process(&mut got, &served);
+        let want = in_rgb(&frame, &served, 6, 3, None);
+        let new = Rgb::from_frame(&got).unwrap();
+        let (psnr, off, worst) = apart(&new, &want);
+        println!("background blur {name}: {psnr:.1} dB, {:.3}% off by more than 3, worst {worst}", off * 100.0);
+        dump_look(&format!("background_{name}"), &want, &new);
     }
 }

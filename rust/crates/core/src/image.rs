@@ -453,7 +453,7 @@ fn small_yuv_rgb(y: &[u8], u: &[u8], v: &[u8], (w, h): (usize, usize), (cw, ch):
     out
 }
 
-/// The frame as R, G, B shrunk by area to w x h, with luma under black counting as black when `floored` (frame_rgb's way; Rgb::from_frame's isn't). The shrinking is done on the planes (or the RGBA) before the colours are worked out, so a big frame costs a read of its pixels and a small conversion, not a full-size picture; the colours can differ from converting first by a level or so. A frame that has its decoder's BGR is read as it is.
+/// The frame as R, G, B shrunk by area to w x h, with luma under black counting as black when `floored` (frame_rgb's way; Rgb::from_frame's isn't). The shrinking is done on the planes (or the RGBA) before the colours are worked out, so a big frame costs a read of its pixels and a small conversion, not a full-size picture; the colours can differ from converting first by a level or so. A frame that has its decoder's BGR is shrunk from that.
 pub fn small_rgb(frame: &Frame, w: usize, h: usize, floored: bool) -> Option<Vec<u8>> {
     let (fw, fh) = (frame.width as usize, frame.height as usize);
     if (w, h) == (fw, fh) {
@@ -461,14 +461,28 @@ pub fn small_rgb(frame: &Frame, w: usize, h: usize, floored: bool) -> Option<Vec
     }
     let (cw, ch) = (fw.div_ceil(2), fh.div_ceil(2));
     let d = &frame.data;
+    if let Some(bgr) = frame.bgr().filter(|_| w > 0 && h > 0 && w <= fw && h <= fh) {
+        // shrunk from the BGR as it is, by the same area average as before (a whole picture's copy only when its rows have padding), then red and blue swapped on the small one
+        let rows;
+        let whole = if bgr.stride == fw * 3 {
+            bgr.data.get(bgr.start..bgr.start + fw * fh * 3)
+        } else {
+            rows = (0..fh).filter_map(|y| bgr.data.get(bgr.start + y * bgr.stride..)?.get(..fw * 3)).flatten().copied().collect::<Vec<u8>>();
+            Some(&rows[..]).filter(|r| r.len() == fw * fh * 3)
+        };
+        if let Some(whole) = whole {
+            let mut out = resize_area(whole, fw, fh, 3, w, h);
+            out.as_chunks_mut::<3>().0.iter_mut().for_each(|p| p.swap(0, 2));
+            return Some(out);
+        }
+    }
     if w > 0 && h > 0 && frame.bgr().is_none() {
         match frame.format {
             PixelFormat::I420 | PixelFormat::Nv12 if d.len() >= fw * fh + 2 * cw * ch => {
                 let (luma, rest) = d.split_at(fw * fh);
                 let y = shrunk(luma, fw, fh, 1, w, h);
-                // chroma at half the size when the planes divide into whole blocks that way (the quick way), else at the same size
-                let half = (w.div_ceil(2), h.div_ceil(2));
-                let size = if cw.is_multiple_of(half.0) && ch.is_multiple_of(half.1) { half } else { (w, h) };
+                // chroma shrunk to the colour picture's own size, so it isn't averaged down a second time
+                let size = (w, h);
                 let (u, v) = if frame.format == PixelFormat::I420 {
                     (shrunk(&rest[..cw * ch], cw, ch, 1, size.0, size.1), shrunk(&rest[cw * ch..cw * ch * 2], cw, ch, 1, size.0, size.1))
                 } else {
@@ -1223,13 +1237,14 @@ mod tests {
     #[test]
     fn a_small_picture_from_the_planes_is_the_shrunk_full_one_to_a_few_levels() {
         for format in [PixelFormat::I420, PixelFormat::Nv12] {
-            for (w, h, tw, th) in [(640usize, 360usize, 64usize, 36usize), (641, 361, 64, 36), (1920, 1080, 256, 144), (1920, 1080, 240, 135), (100, 80, 50, 40)] {
+            // the most levels off each size measures, the sizes that don't divide a little further
+            for (w, h, tw, th, limit) in [(640usize, 360usize, 64usize, 36usize, 2u8), (641, 361, 64, 36, 3), (1920, 1080, 256, 144, 3), (1920, 1080, 240, 135, 2), (100, 80, 50, 40, 1)] {
                 let frame = smooth(w, h, format);
                 let want = resize_area(&frame_rgb(&frame).unwrap(), w, h, 3, tw, th);
                 let got = small_rgb(&frame, tw, th, true).unwrap();
                 assert_eq!(got.len(), tw * th * 3);
                 let worst = got.iter().zip(&want).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
-                assert!(worst <= 3, "{format:?} {w}x{h} to {tw}x{th}: {worst} levels off");
+                assert!(worst <= limit, "{format:?} {w}x{h} to {tw}x{th}: {worst} levels off");
             }
         }
     }
@@ -1245,6 +1260,50 @@ mod tests {
         let frame = smooth(64, 48, PixelFormat::I420).with_bgr(std::sync::Arc::new(bgr));
         let want = resize_area(&frame_rgb(&frame).unwrap(), 64, 48, 3, 16, 12);
         assert_eq!(small_rgb(&frame, 16, 12, true).unwrap(), want);
+    }
+
+    #[test]
+    fn a_small_picture_from_bgr_with_padded_rows_is_the_shrunk_full_one() {
+        for (w, h, tw, th, pad) in [(640usize, 360usize, 256usize, 144usize, 0usize), (641, 361, 100, 60, 7), (1920, 1080, 240, 135, 64), (1920, 1080, 256, 144, 0)] {
+            let stride = w * 3 + pad;
+            let data = (0..stride * h).map(|i| (((i % stride) / 3 * 255 / w + (i / stride) * 40 / h) % 251) as u8).collect();
+            let frame = smooth(w, h, PixelFormat::I420).with_bgr(std::sync::Arc::new(crate::frame::Bgr { data, start: 0, stride }));
+            let want = resize_area(&frame_rgb(&frame).unwrap(), w, h, 3, tw, th);
+            let got = small_rgb(&frame, tw, th, true).unwrap();
+            assert_eq!(got, want, "{w}x{h} to {tw}x{th} stride {stride}");
+        }
+    }
+
+    #[test]
+    #[ignore = "timing bench, run with --release -- --ignored --nocapture --test-threads 1"]
+    fn bench_small_picture_from_bgr() {
+        for (w, h, tw, th) in [(1920usize, 1080usize, 256usize, 144usize), (3840, 2160, 256, 144), (1920, 1080, 480, 270), (3840, 2160, 960, 540)] {
+            let data = (0..w * h * 3).map(|i| (i * 7 % 251) as u8).collect();
+            let frame = smooth(w, h, PixelFormat::I420).with_bgr(std::sync::Arc::new(crate::frame::Bgr { data, start: 0, stride: w * 3 }));
+            let time = |f: &dyn Fn()| {
+                f();
+                (0..30).map(|_| { let t = std::time::Instant::now(); f(); t.elapsed().as_secs_f64() * 1000.0 }).fold(f64::MAX, f64::min)
+            };
+            let old = time(&|| { let full = frame_rgb(&frame).unwrap(); keep_bytes(resize_area(&full, w, h, 3, tw, th)); keep_bytes(full); });
+            let new = time(&|| keep_bytes(small_rgb(&frame, tw, th, true).unwrap()));
+            println!("bgr {w}x{h} to {tw}x{th}: old {old:.2} ms, new {new:.2} ms");
+        }
+    }
+
+    #[test]
+    fn chroma_is_not_averaged_down_twice() {
+        // colour in pairs of columns: halving the chroma again would smear them to grey at 640x360
+        let (w, h) = (1280usize, 720usize);
+        let (cw, ch) = (w / 2, h / 2);
+        let mut data = vec![128u8; w * h];
+        data.extend((0..cw * ch).map(|i| if i % cw / 2 % 2 == 0 { 60 } else { 200 }));
+        data.extend(std::iter::repeat_n(128u8, cw * ch));
+        let frame = Frame::new(w as u32, h as u32, PixelFormat::I420, data);
+        let got = small_rgb(&frame, 640, 360, true).unwrap();
+        let want = resize_area(&frame_rgb(&frame).unwrap(), w, h, 3, 640, 360);
+        let worst = got.iter().zip(&want).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
+        assert!(worst <= 1, "{worst} levels off");
+        assert!(got[2].abs_diff(got[8]) > 20, "the neighbouring columns keep their colours");
     }
 
     #[test]

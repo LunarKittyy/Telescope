@@ -143,6 +143,10 @@ struct MadeMask {
     mask: Arc<Vec<u8>>,
     /// When its frame was handed over.
     at: f64,
+    /// The same mask at other sizes asked for since, dropped with it when the next one comes.
+    sizes: Vec<(usize, usize, Arc<Vec<u8>>)>,
+    /// Which inference this is, so a size made outside the lock is only kept if it still belongs.
+    generation: u64,
 }
 
 impl MadeMask {
@@ -158,7 +162,7 @@ impl MadeMask {
 pub(crate) struct NewestMask {
     job: Option<MaskJob>,
     /// What was last asked for, so a second step on one frame doesn't ask again.
-    asked: Option<(u64, usize, usize)>,
+    asked: Option<u64>,
     mask: Option<MadeMask>,
     /// How many frames the thread has finished, with a mask or without.
     done: u64,
@@ -362,8 +366,8 @@ impl Vision {
         };
         let sv = self.stream(key);
         let mut n = sv.newest.lock().unwrap();
-        if n.asked != Some((seq, w, h)) {
-            n.asked = Some((seq, w, h));
+        if n.asked != Some(seq) {
+            n.asked = Some(seq);
             n.job = Some(MaskJob { seq, size: (w, h), picture, at: monotonic() });
             if !n.thread {
                 let (inner, sv2) = (self.inner.clone(), sv.clone());
@@ -382,12 +386,25 @@ impl Vision {
                 n = sv.mask_done.wait_timeout(n, left).unwrap().0;
             }
         }
-        match n.mask.as_ref().filter(|m| m.usable(w, h)) {
-            Some(m) if (m.w, m.h) == (w, h) => Some(m.mask.clone()),
-            // One of another size until the thread has this size's: the picture changed size, or two steps look at different ones
-            Some(m) => Some(Arc::new(mask_resized(&m.mask, m.w, m.h, w, h))),
-            None => None,
+        let Some(made) = n.mask.as_ref().filter(|m| m.usable(w, h)) else { return None };
+        if (made.w, made.h) == (w, h) {
+            return Some(made.mask.clone());
         }
+        // One of another size until the thread has this size's: the picture changed size, or two steps look at different ones
+        if let Some((_, _, m)) = made.sizes.iter().find(|(sw, sh, _)| (*sw, *sh) == (w, h)) {
+            return Some(m.clone());
+        }
+        let (base, (bw, bh), generation) = (made.mask.clone(), (made.w, made.h), made.generation);
+        drop(n);
+        let resized = Arc::new(mask_resized(&base, bw, bh, w, h));
+        let mut n = sv.newest.lock().unwrap();
+        if let Some(made) = n.mask.as_mut().filter(|m| m.generation == generation) {
+            match made.sizes.iter().find(|(sw, sh, _)| (*sw, *sh) == (w, h)) {
+                Some((_, _, m)) => return Some(m.clone()),
+                None => made.sizes.push((w, h, resized.clone())),
+            }
+        }
+        Some(resized)
     }
 
     /// From now on a frame step waits for its own mask, as a test with a real model wants.
@@ -717,7 +734,7 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
         n.done += 1;
         // Without one the last stays until it's too old: a failed frame now and then doesn't show
         if let Some(mask) = mask {
-            n.mask = Some(MadeMask { w, h, mask, at });
+            n.mask = Some(MadeMask { w, h, mask, at, sizes: Vec::new(), generation: n.done });
             n.gave_up = false;
         }
         sv.mask_done.notify_all();
