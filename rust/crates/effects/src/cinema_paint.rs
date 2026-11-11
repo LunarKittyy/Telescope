@@ -375,7 +375,12 @@ impl CinemaLayer {
     }
 
     pub fn set_look(&self, look: Look) {
+        let draws = draws_anything(&look);
         self.state.lock().unwrap().look = look;
+        // With every tool off nothing paints again for a while: the pictures kept for the next paint are let go
+        if !draws {
+            *self.cache.lock().unwrap() = Cache::default();
+        }
     }
 
     pub fn level(&self) -> Option<(Level, f64)> {
@@ -439,6 +444,10 @@ impl CinemaLayer {
         let (look, level, scope) = self.seen_by_paint(now);
         let rect = Rect { x: 0.0, y: 0.0, w: width as f64, h: height as f64 };
         let mut cache = self.cache.lock().unwrap();
+        if !draws_anything(&look) {
+            *cache = Cache::default();
+            return None;
+        }
         let key = StillKey { size: (width, height), scale: scale.to_bits(), guides: look.guides, false_colour: look.false_colour, language: telescope_core::i18n::language() };
         if cache.still.as_ref().is_none_or(|s| s.key != key) {
             let mut canvas = Canvas::new(width, height);
@@ -451,6 +460,8 @@ impl CinemaLayer {
         let scope = scope.filter(|(name, _)| look.scope != "off" && *name == look.scope);
         let level = level.filter(|&(_, at)| look.level && now - at < LEVEL_STALE_S);
         if level.is_none() && scope.is_none() {
+            // Nothing moves any more: the picture that had it on is no use
+            *held = None;
             return still.shows.then(|| still.frame.clone());
         }
         // The picture handed out last time, if the preview is done with it, needs only what moved on it put back
@@ -475,6 +486,11 @@ impl CinemaLayer {
         *held = Some(Held { frame: frame.clone(), moved });
         shows.then_some(frame)
     }
+}
+
+/// Whether any tool draws over the preview with this look (the pixel tools tint it instead).
+fn draws_anything(look: &Look) -> bool {
+    guide_lines(look.guides).is_some() || look.false_colour || look.level || look.scope != "off"
 }
 
 /// What stays where it is while the preview keeps its size: the framing guides and the false colour legend.

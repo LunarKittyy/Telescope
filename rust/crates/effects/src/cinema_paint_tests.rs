@@ -246,3 +246,30 @@ fn the_kept_paint_matches_painting_from_nothing_as_things_change() {
     layer.set_look(Look::default());
     assert!(layer.paint(500, 300, 1.5).is_none());
 }
+
+#[test]
+fn the_kept_pictures_are_let_go_when_they_are_no_use() {
+    let layer = CinemaLayer::default();
+    let kept = |layer: &CinemaLayer| {
+        let cache = layer.cache.lock().unwrap();
+        (cache.still.is_some(), cache.held.is_some())
+    };
+    layer.set_look(Look { guides: "thirds", scope: "waveform", ..Look::default() });
+    layer.analyse_rgb(&scene(1));
+    assert!(layer.paint(320, 180, 1.0).is_some());
+    assert_eq!(kept(&layer), (true, true));
+    // The scope off: the guides stay, the picture the scope was on goes
+    layer.set_look(Look { guides: "thirds", ..Look::default() });
+    assert!(layer.paint(320, 180, 1.0).is_some());
+    assert_eq!(kept(&layer), (true, false));
+    // Every tool off, with or without another paint: nothing is kept
+    layer.set_look(Look { guides: "thirds", scope: "waveform", ..Look::default() });
+    assert!(layer.paint(320, 180, 1.0).is_some());
+    layer.set_look(Look::default());
+    assert_eq!(kept(&layer), (false, false));
+    layer.set_look(Look { peaking: true, scope: "waveform", ..Look::default() });
+    assert!(layer.paint(320, 180, 1.0).is_some());
+    layer.set_look(Look { peaking: true, ..Look::default() });
+    assert!(layer.paint(320, 180, 1.0).is_none());
+    assert_eq!(kept(&layer), (false, false));
+}
