@@ -95,6 +95,8 @@ impl Queue {
 struct Shared {
     queue: Mutex<Queue>,
     ready: Condvar,
+    /// Notified when the queue has been read from, for the feed-reader thread waiting for room.
+    room: Condvar,
     stale_after: Duration,
 }
 
@@ -151,7 +153,7 @@ impl Reader {
         let stop: Arc<dyn FeedStopper> = Arc::from(feed.stopper());
         let decoded_flag = feed.decoded_flag();
         let skipped = feed.skipped_frames();
-        let shared = Arc::new(Shared { queue: Mutex::default(), ready: Condvar::new(), stale_after });
+        let shared = Arc::new(Shared { queue: Mutex::default(), ready: Condvar::new(), room: Condvar::new(), stale_after });
         let decoded = Arc::new(AtomicU32::new(0));
         let (sh, d) = (shared.clone(), decoded.clone());
         let gone = Arc::new(AtomicBool::new(false));
@@ -172,10 +174,10 @@ impl Reader {
                 if g.load(Ordering::Relaxed) {
                     return;
                 }
+                let limit = if can_ask { MAX_QUEUED_BYTES_ASKED } else { MAX_QUEUED_BYTES };
                 let (full, ask) = {
                     let mut q = sh.lock();
                     q.trim(Instant::now(), sh.stale_after);
-                    let limit = if can_ask { MAX_QUEUED_BYTES_ASKED } else { MAX_QUEUED_BYTES };
                     (q.bytes > limit, std::mem::take(&mut q.want_key))
                 };
                 if ask && last_ask.is_none_or(|t| t.elapsed() >= ask_every) {
@@ -185,7 +187,8 @@ impl Reader {
                     ask_every = (ask_every * 2).min(KEY_ASK_BACKOFF);
                 }
                 if full {
-                    std::thread::sleep(Duration::from_millis(2));
+                    // Woken by the decoder side reading; the timeout is for the checks above (a keyframe ask, the Reader dropped)
+                    let _ = sh.room.wait_timeout_while(sh.lock(), Duration::from_millis(50), |q| q.bytes > limit);
                     continue;
                 }
                 let read = feed.read();
@@ -227,6 +230,7 @@ impl Reader {
             self.pending_bytes += std::mem::take(&mut q.dropped_bytes);
             if let Some(next) = q.packets.pop_front() {
                 q.bytes -= next.packet.data.len() as u64;
+                self.shared.room.notify_one();
                 return Ok(next);
             }
             if let Some(end) = &q.end {
@@ -240,6 +244,7 @@ impl Reader {
 impl Drop for Reader {
     fn drop(&mut self) {
         self.gone.store(true, Ordering::Relaxed);
+        self.shared.room.notify_all();
     }
 }
 

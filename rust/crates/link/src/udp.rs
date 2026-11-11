@@ -112,6 +112,11 @@ impl Seal {
 
     /// The plaintext, or None for anything forged, damaged, replayed or far too old.
     pub fn open(&mut self, datagram: &[u8]) -> Option<Vec<u8>> {
+        self.open_in_place(&mut datagram.to_vec()).map(<[u8]>::to_vec)
+    }
+
+    /// The same, decrypting inside `datagram` itself (the plaintext is a slice of it), so a datagram costs no copy.
+    pub fn open_in_place<'a>(&mut self, datagram: &'a mut [u8]) -> Option<&'a [u8]> {
         if datagram.len() < 8 + 16 {
             return None;
         }
@@ -119,8 +124,7 @@ impl Seal {
         if n < 0 || n <= self.highest - WINDOW || self.seen.contains(&n) {
             return None;
         }
-        let mut sealed = datagram[8..].to_vec();
-        let plain = self.key.open_in_place(self.nonce(n), Aad::empty(), &mut sealed).ok()?.to_vec();
+        let plain = self.key.open_in_place(self.nonce(n), Aad::empty(), &mut datagram[8..]).ok()?;
         self.seen.insert(n);
         if n > self.highest {
             self.highest = n;
@@ -188,7 +192,12 @@ pub struct Reassembler {
     pub whole: i64,
     /// ...and when it became whole.
     pub whole_at: f64,
+    /// Piece buffers from frames that are gone, kept for the next frame's pieces instead of allocating each.
+    spare: Vec<Vec<u8>>,
 }
+
+/// How many piece buffers are kept: a few 4K keyframes' worth.
+const MAX_SPARE: usize = 2048;
 
 /// A NACK: the frame and its missing pieces ([] for all of it).
 pub type Nack = (u32, Vec<u16>);
@@ -230,7 +239,10 @@ impl Reassembler {
             let mut evicted = 0;
             while self.held - replaced + incoming > MAX_HELD_BYTES {
                 let Some(oldest) = self.frames.keys().copied().find(|s| *s != seq) else { break };
-                self.held -= self.frames.remove(&oldest).map_or(0, |f| f.bytes());
+                if let Some(gone) = self.frames.remove(&oldest) {
+                    self.held -= gone.bytes();
+                    self.recycle(gone);
+                }
                 evicted += 1;
             }
             if evicted > 0 {
@@ -263,8 +275,14 @@ impl Reassembler {
         if !f.parts.contains_key(&idx) {
             self.bytes += (plain.len() - HEADER_LEN) as u64;
         }
-        if let Some(old) = f.parts.insert(idx, plain[HEADER_LEN..].to_vec()) {
+        let mut part = self.spare.pop().unwrap_or_default();
+        part.clear();
+        part.extend_from_slice(&plain[HEADER_LEN..]);
+        if let Some(old) = f.parts.insert(idx, part) {
             self.held -= old.len();
+            if self.spare.len() < MAX_SPARE {
+                self.spare.push(old);
+            }
         }
         self.held += incoming;
         self.newest = self.newest.max(seq as i64);
@@ -293,7 +311,12 @@ impl Reassembler {
         let f = self.frames.remove(&next).unwrap();
         self.held -= f.bytes();
         self.next = Some(next.wrapping_add(1));
-        Some((f.parts.into_values().flatten().collect(), 1 + skipped))
+        let mut data = Vec::with_capacity(f.bytes());
+        for part in f.parts.values() {
+            data.extend_from_slice(part);
+        }
+        self.recycle(f);
+        Some((data, 1 + skipped))
     }
 
     /// (NACKs to send, whether to ask for a keyframe).
@@ -361,6 +384,14 @@ impl Reassembler {
         let kept = self.frames.split_off(&seq);
         let gone = std::mem::replace(&mut self.frames, kept);
         self.held -= gone.values().map(Frame::bytes).sum::<usize>();
+        for f in gone.into_values() {
+            self.recycle(f);
+        }
+    }
+
+    fn recycle(&mut self, f: Frame) {
+        let room = MAX_SPARE.saturating_sub(self.spare.len());
+        self.spare.extend(f.parts.into_values().take(room));
     }
 }
 
@@ -397,6 +428,25 @@ fn due(now: f64, last: f64, every: f64) -> bool {
 
 fn clock(origin: Instant) -> f64 {
     origin.elapsed().as_secs_f64()
+}
+
+/// Waits until a datagram can be read from the (non-blocking) socket, or `limit` passes; whether one can.
+#[cfg(unix)]
+fn wait_readable(sock: &UdpSocket, limit: Duration) -> bool {
+    use std::os::fd::AsRawFd;
+    let mut fd = libc::pollfd { fd: sock.as_raw_fd(), events: libc::POLLIN, revents: 0 };
+    // SAFETY: fd is one valid pollfd and the count says so
+    let ready = unsafe { libc::poll(&mut fd, 1, limit.as_millis() as libc::c_int) };
+    ready > 0
+}
+
+#[cfg(not(unix))]
+fn wait_readable(sock: &UdpSocket, limit: Duration) -> bool {
+    let _ = sock.set_nonblocking(false);
+    let _ = sock.set_read_timeout(Some(limit));
+    let ready = sock.peek_from(&mut [0u8; 1]).is_ok();
+    let _ = sock.set_nonblocking(true);
+    ready
 }
 
 /// The session over UDP while it lasts.
@@ -440,24 +490,40 @@ impl Udp {
         }
     }
 
+    /// How long to wait for a datagram before the timers get a look: short while pieces are missing (their NACKs are timed in milliseconds), long otherwise.
+    fn patience(&self) -> Duration {
+        Duration::from_millis(if self.frames.frames_held() > 0 { 5 } else { 20 })
+    }
+
     fn receive(&mut self, origin: Instant) {
         let mut buf = [0u8; 2048];
-        for i in 0..256 {
-            if i == 1 {
-                let _ = self.sock.set_nonblocking(true);
-            }
-            let Ok((n, addr)) = self.sock.recv_from(&mut buf) else { break };
+        let mut waited = false;
+        // The socket never blocks: a wait is one poll, which wakes for the first datagram, and the rest are read as they sit
+        for _ in 0..256 {
+            let (n, addr) = match self.sock.recv_from(&mut buf) {
+                Ok(got) => {
+                    waited = true;
+                    got
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock && !waited => {
+                    waited = true;
+                    if !wait_readable(&self.sock, self.patience()) {
+                        break;
+                    }
+                    continue;
+                }
+                Err(_) => break,
+            };
             if addr.ip() != self.phone.ip() {
                 continue;
             }
-            if let Some(plain) = self.seal_in.open(&buf[..n]) {
+            if let Some(plain) = self.seal_in.open_in_place(&mut buf[..n]) {
                 // The phone's port as a NAT on the way sees it, like the phone does for ours
                 self.phone = addr;
                 self.received += 1;
-                self.frames.add(&plain, clock(origin));
+                self.frames.add(plain, clock(origin));
             }
         }
-        let _ = self.sock.set_nonblocking(false);
     }
 
     /// The next whole frame in order, if one is waiting.
@@ -518,7 +584,7 @@ impl UdpFeed {
     fn open_udp(&mut self) -> Result<(), String> {
         let sock = UdpSocket::bind("0.0.0.0:0").map_err(|e| e.to_string())?;
         set_receive_buffer(&sock, RECEIVE_BUFFER);
-        sock.set_read_timeout(Some(Duration::from_millis(5))).map_err(|e| e.to_string())?;
+        sock.set_nonblocking(true).map_err(|e| e.to_string())?;
         let port = sock.local_addr().map_err(|e| e.to_string())?.port();
         let url = format!("{}?port={port}", self.url);
         let watch = |a: Aborter| self.stop.watch(a);
@@ -1079,8 +1145,7 @@ mod tests {
         forget_failures();
         let (mut feed, _phone) = quiet_feed();
         let udp = feed.udp.as_mut().unwrap();
-        // Long enough that a read waiting on the socket before looking at what's whole would show
-        udp.sock.set_read_timeout(Some(Duration::from_millis(400))).unwrap();
+        // A read that waited on the socket before looking at what is whole would take the full patience
         for seq in 0..3 {
             for p in fragments(seq, b"frame", seq == 0, 10) {
                 udp.frames.add(&p, 0.0);
@@ -1090,7 +1155,7 @@ mod tests {
         for _ in 0..3 {
             assert_eq!(feed.read().unwrap().data, b"frame");
         }
-        assert!(began.elapsed() < Duration::from_millis(300), "{:?}", began.elapsed());
+        assert!(began.elapsed() < Duration::from_millis(15), "{:?}", began.elapsed());
     }
 
     #[test]
@@ -1346,7 +1411,7 @@ mod tests {
         for (name, frame_bytes) in [("1080p, 60 KB frames", 60_000usize), ("4K, 250 KB frames", 250_000)] {
             let sock = UdpSocket::bind("127.0.0.1:0").unwrap();
             set_receive_buffer(&sock, RECEIVE_BUFFER);
-            sock.set_read_timeout(Some(Duration::from_millis(5))).unwrap();
+            sock.set_nonblocking(true).unwrap();
             let addr = sock.local_addr().unwrap();
             let phone = UdpSocket::bind("127.0.0.1:0").unwrap();
             let phone_addr = phone.local_addr().unwrap();
