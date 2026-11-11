@@ -46,8 +46,19 @@ fn on_the_card() -> impl FnMut(Frame) -> Frame {
     move |frame| pipeline.process(frame, &Ctx)
 }
 
-fn difference(w: usize, h: usize) -> (u8, f64, f64, f64) {
-    let picture = photo(w, h);
+fn pattern(w: usize, h: usize, on: impl Fn(usize, usize) -> bool) -> Rgb {
+    let mut rgb = Rgb::new(w, h);
+    for y in 0..h {
+        for x in 0..w {
+            let v = if on(x, y) { 230 } else { 20 };
+            rgb.set(x, y, [v, v, v]);
+        }
+    }
+    rgb
+}
+
+fn difference(picture: Rgb) -> (u8, f64, f64, f64) {
+    let (w, h) = (picture.w, picture.h);
     let card = Rgb::from_frame(&on_the_card()(rgba(&picture))).unwrap();
     let cpu = Crt::new(w, h).run(&picture);
     let diffs: Vec<u8> = card.data.iter().zip(&cpu.data).map(|(a, b)| a.abs_diff(*b)).collect();
@@ -64,9 +75,30 @@ fn the_crt_on_the_card_looks_like_the_one_on_the_cpu() {
         return;
     }
     for (w, h) in [(640usize, 360usize), (1920, 1080), (3840, 2160)] {
-        let (max, psnr, mean, over) = difference(w, h);
+        let (max, psnr, mean, over) = difference(photo(w, h));
         println!("crt {w}x{h}: max {max}, mean {mean:.3}, psnr {psnr:.1} dB, {:.3}% of values off by more than 3", over * 100.0);
         assert!(psnr > 38.0 && mean < 1.0, "{w}x{h}: psnr {psnr}, mean {mean}");
+    }
+}
+
+#[test]
+fn crt_card_thin_lines_and_checks_glow_as_they_do_on_the_cpu() {
+    if telescope_media::gpu::Gpu::shared().is_none() {
+        eprintln!("no graphics card here: the shader comparison is skipped");
+        return;
+    }
+    for (w, h) in [(640usize, 360usize), (1920, 1080)] {
+        let pictures: [(&str, Rgb); 3] = [
+            ("vertical stripes", pattern(w, h, |x, _| x % 2 == 0)),
+            ("horizontal stripes", pattern(w, h, |_, y| y % 2 == 0)),
+            ("checkerboard", pattern(w, h, |x, y| (x + y) % 2 == 0)),
+        ];
+        for (name, picture) in pictures {
+            let (max, psnr, mean, over) = difference(picture);
+            println!("crt {w}x{h} {name}: max {max}, mean {mean:.3}, psnr {psnr:.1} dB, {:.3}% of values off by more than 3", over * 100.0);
+            // full-contrast 1-px lines are the worst case for the CPU's 1/32-pixel bend positions, so the bound is looser than for a picture
+            assert!(psnr > 38.0 && mean < 1.5 && over < 0.05 && max <= 12, "{w}x{h} {name}: max {max}, psnr {psnr}, mean {mean}");
+        }
     }
 }
 
