@@ -1,0 +1,35 @@
+slint-interpreter 1.18.1 from crates.io with two changes (the second needs vendor/i-slint-core), both in ItemTree::item_geometry (search for "Telescope patch"): ItemTree::item_geometry no longer clones
+the item's geometry expression and no longer builds a Struct from it.
+
+Why: Slint asks every item for its geometry on every walk of the item tree (rendering, hit testing, dirty tracking). The interpreter answered by cloning the
+whole geometry expression (a deep copy of an expression tree, allocating) and evaluating it into a Value::Struct (a HashMap of SmolStr to Value, allocating
+again), then read x, y, width and height back out of the map. A profile of the desktop window at 4K with every plugin loaded showed that walk at about 46 %
+of the window thread, malloc, free and memmove at about 40 % of it.
+
+What it does now: the expression is borrowed from the compilation unit (the cell is only borrowed while it is read, as before), and when it is the usual
+Expression::Struct the four fields are evaluated one by one, in the order upstream gets them from the field map (height, width, x, y), because evaluating height can create a ComponentContainer's component, which x reads. Any other expression shape takes the old path, so results are the same. The dependencies the
+evaluation reads are tracked exactly as before, because the same sub-expressions are evaluated in the same context.
+
+Second change, in item_tree_vtable.rs and instance.rs (search for "Telescope patch"): ItemTree::item_geometry now remembers each item's rect. Instance has one cache entry per flat tree index
+(created on first use) holding the last rect and a PropertyTracker. The geometry is only evaluated again when the tracker is dirty, that is when a property the geometry expression read has changed;
+the tracker is registered as a dependency of whatever is being evaluated (the window's redraw tracker, a layout), so a change reaches them as it did before. One difference from upstream's other caches: evaluating an item's geometry can itself invalidate a property it already read (a ComponentContainer creating its component sets properties), and
+PropertyTracker::evaluate_as_dependency_root forgets such a change because it clears the dirty flag after the closure. The vendored i-slint-core has a variant that clears it before (see
+vendor/i-slint-core/PATCH.txt), so the tracker is still dirty afterwards. The cache evaluates once; while the tracker is dirty again it evaluates again, at most 8 times in one query. If it still
+has not settled the entry is left dirty and the next query tries again (the rect returned meanwhile is the last pass's). An ordinary item is evaluated once. A chain of factories that needs more
+than 8 passes converges over several queries instead of caching a stale answer as clean. The renderer (femtovg has no
+partial rendering) still walks every item that is not inside a cached layer on each frame, so this makes each visit cheap instead of making fewer visits. Items in a repeated row live in their own
+Instance, so a repeater adding or removing rows never reuses an entry for a different item.
+
+Measured (release, window thread CPU over 40 s after 25 s warm-up, fake phone, headless nested KWin, one run each):
+  4K, everything loaded and on:  15.77 % -> 13.32 % (15 % less)
+  4K, nothing loaded:             3.75 % ->  3.15 % (16 % less)
+  1080p, everything loaded and on: 12.77 % -> 10.25 % (20 % less)
+  1080p, nothing loaded:          2.80 % ->  2.37 % (15 % less)
+The main window and the Settings window drew byte for byte the same before and after.
+
+Measured with the cache on top (same setup, two runs each, base then patched back to back): 4K all on 13.5 -> 11.5 %, 4K nothing loaded 3.1 -> 3.1 % (no change, within noise), 1080p all on 10.3 -> 8.6 %, 1080p nothing loaded 2.2 -> 1.85 %.
+Pixels: the main window, Settings, a resize, and a card folding and unfolding (mid-animation too) drew byte for byte the same.
+
+Drop it when Slint stops cloning and boxing in item_geometry (nothing upstream is known yet; check the release notes after 1.18.1), then remove this folder and the
+slint-interpreter line under [patch.crates-io] in rust/Cargo.toml. Tests and the lockfile were left out of the copy, and so were the [[test]] entries for them in Cargo.toml.
+Slint's GPL-3 option is what Telescope uses; the licence files are kept in LICENSES.
