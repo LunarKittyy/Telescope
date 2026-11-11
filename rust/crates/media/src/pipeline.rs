@@ -273,6 +273,13 @@ impl Pipeline {
     fn run_shader(&mut self, i: usize, frame: &mut Frame, chain: &mut Chain, ctx: &dyn FrameContext, time: f32) {
         let Some(gpu) = self.gpu() else { return self.steps[i].failed("no graphics card to run shaders on") };
         let entry = &mut self.steps[i];
+        // A step with a CPU half may need uniforms that depend on this frame's size
+        if let Kind::Either(slot, cpu) = &mut entry.kind {
+            let (w, h) = (frame.width, frame.height);
+            if let Ok(Some(uniforms)) = catch_unwind(AssertUnwindSafe(|| cpu.card_uniforms(w, h))) {
+                slot.set_uniforms(&gpu, uniforms);
+            }
+        }
         let slot = entry.kind.slot();
         if let Err(why) = slot.prepare(&gpu) {
             // A shader that doesn't build never will: say so once and leave it out, or run the CPU way

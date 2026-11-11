@@ -4,13 +4,13 @@
 
 use crate::imgops::Remap;
 use crate::pixels::{put_rgb, to_rgb};
-use crate::sheet::{self, usable_corners, warp_for, warp_map, Sheet, Warp, P, STRETCH_MAX, STRETCH_MIN};
+use crate::sheet::{self, card_rows, usable_corners, warp_for, warp_map, Sheet, Warp, BACKDROP, P, STRETCH_MAX, STRETCH_MIN};
 use crate::shared::Paired;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use telescope_core::actions::{self, round_half_even, Choice};
 use telescope_core::event::Event;
-use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep};
+use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, ShaderStep};
 use telescope_core::host::{Host, PickKind, Poster, View};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::image::{keep_bytes, with_spares};
@@ -21,6 +21,7 @@ use telescope_core::view::{view_to_shown, Geometry};
 pub const NAME: &str = "desk";
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/desk.slint"));
 const T_WARP: &str = "warp";
+const DESK: &str = include_str!("desk.wgsl");
 
 /// What "make the writing stand out" does to the sheet: nothing, more contrast, or black and white.
 pub const CLEANUPS: [(&str, &str); 3] = [("off", n_("Off")), ("contrast", n_("Contrast")), ("bw", n_("Black and white"))];
@@ -45,7 +46,7 @@ const SHAPE_NAMES: [&str; 5] = [n_("Auto"), n_("A4"), n_("Letter"), n_("Square")
 struct DeskStep {
     spares: Vec<Vec<u8>>,
     sheet: Sheet,
-    made: Option<((usize, usize), Warp, Remap)>,
+    made: Option<((usize, usize), Warp, Option<Remap>)>,
     poster: Option<Arc<dyn Poster>>,
 }
 
@@ -55,25 +56,46 @@ impl CpuStep for DeskStep {
         with_spares(&mut spares, || self.run(frame));
         self.spares = spares;
     }
+
+    fn card_uniforms(&mut self, width: u32, height: u32) -> Option<Value> {
+        let size = (width as usize, height as usize);
+        if size.0 < 2 || size.1 < 2 {
+            // The CPU leaves such a frame alone: the identity warp over all of it does the same
+            return Some(card_params([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]], (0, 0, size.0, size.1)));
+        }
+        self.warp_for_size(size);
+        let (_, warp, _) = self.made.as_ref().expect("made above");
+        Some(card_params(card_rows(warp), warp.rect))
+    }
+}
+
+/// The card's uniforms (desk.wgsl's Params) for a warp.
+fn card_params(rows: [[f64; 4]; 3], rect: (usize, usize, usize, usize)) -> Value {
+    json!({"r0": rows[0], "r1": rows[1], "r2": rows[2], "rect": [rect.0, rect.1, rect.2, rect.3], "backdrop": BACKDROP as f64 / 255.0})
 }
 
 impl DeskStep {
-    fn run(&mut self, frame: &mut Frame) {
-        let size = (frame.width as usize, frame.height as usize);
-        if size.0 < 2 || size.1 < 2 {
-            return;
-        }
+    /// The warp for this size, worked out and posted to the preview the first time the size comes; its pixel map is made when the CPU needs it.
+    fn warp_for_size(&mut self, size: (usize, usize)) {
         if self.made.as_ref().is_none_or(|(s, _, _)| *s != size) {
             let warp = warp_for(&self.sheet, size.0, size.1);
             if let Some(poster) = &self.poster {
                 let m = &warp.on_preview;
                 poster.post(T_WARP, json!({"matrix": [m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2], m[2][0], m[2][1], m[2][2]]}));
             }
-            let map = warp_map(size.0, size.1, &warp.matrix, warp.rect.2, warp.rect.3);
-            self.made = Some((size, warp, map));
+            self.made = Some((size, warp, None));
         }
+    }
+
+    fn run(&mut self, frame: &mut Frame) {
+        let size = (frame.width as usize, frame.height as usize);
+        if size.0 < 2 || size.1 < 2 {
+            return;
+        }
+        self.warp_for_size(size);
         let Some(rgb) = to_rgb(frame) else { return };
-        let (_, warp, map) = self.made.as_ref().expect("made above");
+        let (_, warp, map) = self.made.as_mut().expect("made above");
+        let map = map.get_or_insert_with(|| warp_map(size.0, size.1, &warp.matrix, warp.rect.2, warp.rect.3));
         let out = sheet::straighten_with(&rgb, size.0, size.1, &self.sheet, warp, map);
         put_rgb(frame, &out);
         keep_bytes(rgb);
@@ -455,7 +477,14 @@ impl Plugin for DeskPlugin {
         if !self.active() {
             return None;
         }
-        Some(FrameStep::Cpu(Box::new(DeskStep { sheet: self.sheet()?, made: None, poster: self.poster.clone(), spares: Vec::new() })))
+        let sheet = self.sheet()?;
+        // Cleaning the sheet up works on its pixels, so only the plain straightening can run on the card
+        let plain = !matches!(sheet.cleanup.as_str(), "contrast" | "bw");
+        let step = Box::new(DeskStep { sheet, made: None, poster: self.poster.clone(), spares: Vec::new() });
+        if plain {
+            return Some(FrameStep::Either(ShaderStep { wgsl: DESK.into(), uniforms: card_params([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]], (0, 0, 0, 0)), textures: Vec::new() }, step));
+        }
+        Some(FrameStep::Cpu(step))
     }
 
     fn get_config(&self) -> Value {
@@ -503,3 +532,7 @@ impl Plugin for DeskPlugin {
 #[cfg(test)]
 #[path = "desk_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "desk_card_tests.rs"]
+mod card_tests;

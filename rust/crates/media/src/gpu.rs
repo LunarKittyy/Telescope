@@ -652,12 +652,30 @@ struct Built {
     pipeline: wgpu::RenderPipeline,
     /// Group 1: the plugin's uniforms and textures, or None when it has neither.
     extras: Option<wgpu::BindGroup>,
+    /// The Params buffer, kept so new uniforms can be written into it.
+    ubuf: Option<wgpu::Buffer>,
     _keep: Vec<wgpu::Texture>,
 }
 
 impl ShaderSlot {
     pub fn new(step: ShaderStep) -> ShaderSlot {
         ShaderSlot { wants_mask: shader::uses_person_mask(&step.wgsl), step, built: None }
+    }
+
+    /// Changes the shader's uniforms; once built, the new values go into its buffer. A shader with no Params ignores them.
+    pub fn set_uniforms(&mut self, gpu: &Gpu, uniforms: serde_json::Value) {
+        if uniforms == self.step.uniforms {
+            return;
+        }
+        match shader::pack_uniforms(&self.step.wgsl, &uniforms) {
+            Ok(bytes) => {
+                if let Some(Ok(Built { ubuf: Some(buf), .. })) = &self.built {
+                    gpu.queue.write_buffer(buf, 0, &bytes);
+                }
+                self.step.uniforms = uniforms;
+            }
+            Err(why) => log::warn!("A shader's uniforms were refused: {why}"),
+        }
     }
 
     /// Whether the shader reads the person mask.
@@ -753,7 +771,7 @@ fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
     if let Some(e) = pollster::block_on(scope.pop()) {
         return Err(e.to_string());
     }
-    Ok(Built { pipeline, extras, _keep: keep })
+    Ok(Built { pipeline, extras, ubuf, _keep: keep })
 }
 
 #[cfg(test)]

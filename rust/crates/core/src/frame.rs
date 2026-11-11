@@ -292,6 +292,11 @@ pub trait CpuStep: Send {
     fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
         Touch::Changes
     }
+    /// For the CPU half of an Either: the shader's uniforms for a frame of this size, asked before each run on the card. A step whose
+    /// uniforms depend on the picture's size (a warp worked out for it) answers here; the card only uploads an answer that changed.
+    fn card_uniforms(&mut self, _width: u32, _height: u32) -> Option<Value> {
+        None
+    }
 }
 
 /// A frame step as a GPU shader, the only kind a Lua or WASM plugin hands over: plain data the host compiles and runs.
