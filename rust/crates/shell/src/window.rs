@@ -88,6 +88,8 @@ pub struct Window {
     painted: Cell<u64>,
     /// The size the preview was last painted at, to notice a stage that changed under a stalled stream.
     painted_size: Cell<(u32, u32)>,
+    /// The stage the last paint filled, so a resized stage can be told from a frame of another size
+    painted_stage: Cell<(u32, u32)>,
     /// What passes on the preview (tint, analyse, paint) have in hand.
     passes: RefCell<crate::preview_passes::PassWork>,
     /// The layers' shapes last handed to the preview card, so they're only set again when they change.
@@ -446,6 +448,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         preview_timer: slint::Timer::default(),
         painted: Cell::new(0),
         painted_size: Cell::new((0, 0)),
+        painted_stage: Cell::new((0, 0)),
         passes: RefCell::default(),
         layers_drawn: RefCell::default(),
         logged: Cell::new(false),
@@ -1040,8 +1043,8 @@ impl Window {
         if again && !resized && !(tints && self.passes.borrow().tint_newer(source)) {
             return;
         }
-        // Half the frames on the card unless Smooth is on; what it skips only changes what's painted here
-        if !again && !self.cadence.borrow_mut().due(number, popout.is_some() || on("smooth-on"), self.painted.get() == 0) {
+        // Half the frames on the card unless Smooth is on; what it skips only changes what's painted here, and a resized stage paints at once
+        if !again && !self.cadence.borrow_mut().due(number, popout.is_some() || on("smooth-on"), self.painted.get() == 0 || self.painted_stage.get() != stage) {
             return;
         }
         let frame = if picking { frame } else { self.with_colour_split(frame) };
@@ -1084,6 +1087,7 @@ impl Window {
         };
         self.painted.set(number);
         self.painted_size.set((w, h));
+        self.painted_stage.set(stage);
 
         let (target, id) = match &popout {
             Some(p) => (p, ""),

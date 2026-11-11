@@ -33,7 +33,7 @@ impl Rig {
         while self.plugin.baking() && Instant::now() < deadline {
             let mine: Vec<(String, Value)> = {
                 let mut posted = self.host.posted.lock().unwrap();
-                let (mine, rest): (Vec<_>, Vec<_>) = posted.drain(..).partition(|(t, _)| t == "stage_baked");
+                let (mine, rest): (Vec<_>, Vec<_>) = posted.drain(..).partition(|(t, _)| t == "stage_baked" || t == "lut_read");
                 *posted = rest;
                 mine
             };
@@ -601,4 +601,44 @@ fn a_saved_lut_isnt_read_while_the_effect_is_off_and_is_when_it_goes_on() {
     assert_eq!(r.plugin.reads, 1);
     assert!(r.plugin.grade().lut.is_some());
     assert_eq!(r.published(), Some(true));
+}
+
+#[test]
+fn switching_on_reads_a_saved_lut_on_a_thread_and_publishes_when_it_lands() {
+    let mut r = Rig::new();
+    let dir = scratch_dir("colour_threaded_lut");
+    let path = dir.join("look.cube");
+    write_lut(&path, invert(5), 5);
+    r.plugin.set_config(&json!({"on": false, "lut": path.to_string_lossy()})).unwrap();
+    r.plugin.set_on(&mut r.host, true);
+    // not read here: the thread has it, and nothing is handed over half-made
+    assert!(r.plugin.baking() && r.plugin.grade().lut.is_none());
+    assert_eq!(r.host.calls.iter().filter(|c| c.starts_with("set_colour_stage colour_grading true")).count(), 0);
+    r.settle();
+    assert!(r.plugin.grade().lut.is_some());
+    assert_eq!(r.published(), Some(true));
+    assert_eq!(r.plugin.reads, 1);
+}
+
+#[test]
+fn a_lut_read_that_lands_after_the_effect_went_off_again_is_dropped() {
+    let mut r = Rig::new();
+    let dir = scratch_dir("colour_superseded_lut");
+    let path = dir.join("look.cube");
+    write_lut(&path, invert(5), 5);
+    r.plugin.set_config(&json!({"on": false, "lut": path.to_string_lossy()})).unwrap();
+    r.plugin.set_on(&mut r.host, true);
+    r.plugin.set_on(&mut r.host, false);
+    r.settle();
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    let late: Vec<(String, Value)> = std::mem::take(&mut *r.host.posted.lock().unwrap());
+    for (token, data) in late {
+        r.plugin.on_event(&mut r.host, &Event::Posted { owner: "colour_grading".into(), token, data });
+    }
+    assert!(r.plugin.grade().lut.is_none(), "the effect is off: the file wasn't taken in");
+    assert_ne!(r.published(), Some(true));
+    // and the next switching on reads it again
+    r.plugin.set_on(&mut r.host, true);
+    r.settle();
+    assert!(r.plugin.grade().lut.is_some());
 }

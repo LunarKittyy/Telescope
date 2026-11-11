@@ -505,6 +505,24 @@ fn a_stalled_stream_is_painted_again_at_the_new_size_of_the_popout() {
     assert_eq!(size(&p), (400, 225), "no new frame came, the same one is drawn for the new size");
 }
 
+// The frame the stream stalled on may be one the card skipped: a resize still paints it
+#[test]
+fn a_stalled_stream_whose_last_frame_was_skipped_is_painted_at_the_new_size() {
+    let s = on_air_capped("stage-stalled-skipped");
+    s.show(0, grey(1920, 1080));
+    let first = s.image_size();
+    s.show(0, grey(1920, 1080));
+    assert_eq!(s.image_size(), first, "the second frame is one the card skips");
+    s.r.w.ui.window().set_size(slint::PhysicalSize::new(700, 500));
+    s.r.w.process();
+    s.r.w.paint_preview();
+    let scale = s.r.w.ui.window().scale_factor();
+    let stage = ((s.number("stage-width") * scale).round() as u32, (s.number("stage-height") * scale).round() as u32);
+    let want = telescope_shell::preview::fit_within((1920, 1080), stage);
+    assert_ne!(want, first, "the window really got smaller");
+    assert_eq!(s.image_size(), want, "no new frame came, the skipped one is drawn for the new size");
+}
+
 #[test]
 #[ignore = "bench: cargo test --release -p telescope-app --test preview_stage compare_split_cost -- --ignored --nocapture"]
 fn compare_split_cost() {

@@ -34,6 +34,8 @@ const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("
 
 /// Posted by the thread that baked a stage.
 const POST_STAGE: &str = "stage_baked";
+/// Posted by the thread that read a saved LUT.
+const POST_LUT: &str = "lut_read";
 const LUT_FILES: &str = n_("LUT files (*.cube)");
 const EXPORT_SIZES: [(u32, &str); 2] = [(33, n_("33-point LUT (*.cube)")), (65, n_("65-point LUT (*.cube)"))];
 const WHEEL_NAMES: [&str; 4] = [n_("Lift"), n_("Gamma"), n_("Gain"), n_("Offset")];
@@ -169,6 +171,9 @@ struct Parsed {
     lut: Arc<CubeLut>,
 }
 
+/// A LUT file read on its thread: which read it was, the path, the file's stamp, and what came of it.
+type LutRead = (u64, String, Option<(u128, u64)>, Result<CubeLut, ReadError>);
+
 fn stamp(path: &Path) -> Option<(u128, u64)> {
     let meta = std::fs::metadata(path).ok()?;
     let ns = meta.modified().ok()?.duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
@@ -199,6 +204,10 @@ pub struct ColourGradingPlugin {
     /// Counts publishes; a bake is only handed over if nothing was published since it began.
     stage_gen: u64,
     stage_busy: bool,
+    /// The saved LUT is being read on a thread (lut_gen says which read counts); nothing is published until it lands.
+    lut_gen: u64,
+    lut_loading: bool,
+    lut_slot: Arc<Mutex<Vec<LutRead>>>,
     stage_slot: Arc<Mutex<Option<(u64, ColourStage)>>>,
     /// 0 tone curves, 1 hue vs sat, 2 hue vs hue.
     curve: usize,
@@ -243,6 +252,9 @@ impl ColourGradingPlugin {
             lut_deferred: false,
             stage_gen: 0,
             stage_busy: false,
+            lut_gen: 0,
+            lut_loading: false,
+            lut_slot: Arc::new(Mutex::new(Vec::new())),
             stage_slot: Arc::default(),
             curve: 0,
             channel: 0,
@@ -305,6 +317,10 @@ impl ColourGradingPlugin {
     fn publish(&mut self, host: &mut dyn Host) {
         self.dirty = false;
         self.stage_gen += 1;
+        // the grade isn't whole until the LUT is in: landing it publishes
+        if self.lut_loading {
+            return;
+        }
         let wanted = self.on && !self.grade.is_identity();
         let poster = self.auto.poster.clone().filter(|_| wanted);
         let Some(poster) = poster else {
@@ -319,7 +335,7 @@ impl ColourGradingPlugin {
     /// Whether a stage is being baked on its thread (for a test to wait on).
     #[cfg(test)]
     pub(crate) fn baking(&self) -> bool {
-        self.stage_busy
+        self.stage_busy || self.lut_loading
     }
 
     /// Starts baking the grade as it is now; false when there was no thread to do it on.
@@ -381,7 +397,12 @@ impl ColourGradingPlugin {
         {
             self.reads += 1;
         }
-        match read_cube(Path::new(path)) {
+        self.kept_read(path, key, read_cube(Path::new(path)))
+    }
+
+    /// What a read of the file at path came to, kept for next time when it worked.
+    fn kept_read(&mut self, path: &str, key: Option<(u128, u64)>, read: Result<CubeLut, ReadError>) -> (Option<Arc<CubeLut>>, String) {
+        match read {
             Ok(lut) => {
                 let lut = Arc::new(lut);
                 if let Some(stamp) = key {
@@ -397,9 +418,63 @@ impl ColourGradingPlugin {
         }
     }
 
+    /// The saved LUT the effect was switched on for: from the parsed ones if the file is unchanged, else read on a thread.
+    fn read_deferred_lut(&mut self, host: &mut dyn Host) {
+        let path = self.lut_path.clone();
+        let cached = stamp(Path::new(&path)).is_some_and(|key| self.parsed.iter().any(|p| p.path == path && p.stamp == key));
+        let Some(poster) = self.auto.poster.clone().filter(|_| !cached) else {
+            let (lut, problem) = self.read_lut(&path);
+            self.grade.lut = lut;
+            self.lut_problem = problem;
+            self.show(host, &self.lut_props());
+            return;
+        };
+        self.lut_gen += 1;
+        let (generation, slot) = (self.lut_gen, self.lut_slot.clone());
+        let spawned = std::thread::Builder::new().name("colour-grading-lut".into()).spawn(move || {
+            let key = stamp(Path::new(&path));
+            let read = read_cube(Path::new(&path));
+            slot.lock().unwrap_or_else(|e| e.into_inner()).push((generation, path, key, read));
+            poster.post(POST_LUT, Value::Null);
+        });
+        self.lut_loading = spawned.is_ok();
+        if !self.lut_loading {
+            let path = self.lut_path.clone();
+            let (lut, problem) = self.read_lut(&path);
+            self.grade.lut = lut;
+            self.lut_problem = problem;
+            self.show(host, &self.lut_props());
+        }
+    }
+
+    /// The LUT's read finished: it goes into the grade unless the file, the path or the switch changed since.
+    fn lut_landed(&mut self, host: &mut dyn Host) {
+        let done: Vec<LutRead> = std::mem::take(&mut *self.lut_slot.lock().unwrap_or_else(|e| e.into_inner()));
+        let Some((_, path, key, read)) = done.into_iter().find(|(generation, path, ..)| *generation == self.lut_gen && *path == self.lut_path) else { return };
+        if !std::mem::take(&mut self.lut_loading) || !self.on {
+            return;
+        }
+        #[cfg(test)]
+        {
+            self.reads += 1;
+        }
+        let (lut, problem) = self.kept_read(&path, key, read);
+        self.grade.lut = lut;
+        self.lut_problem = problem;
+        self.show(host, &self.lut_props());
+        self.publish(host);
+    }
+
+    /// A read of the LUT still out is for a path or a time that's gone.
+    fn drop_lut_read(&mut self) {
+        self.lut_gen += 1;
+        self.lut_loading = false;
+    }
+
     fn load_lut(&mut self, host: &mut dyn Host, path: &str) {
         let (lut, problem) = if path.is_empty() { (None, String::new()) } else { self.read_lut(path) };
         self.lut_path = path.to_string();
+        self.drop_lut_read();
         self.lut_deferred = false;
         self.lut_problem = problem;
         self.grade.lut = lut;
@@ -837,12 +912,13 @@ impl ColourGradingPlugin {
 
     fn set_on(&mut self, host: &mut dyn Host, on: bool) {
         self.on = on;
+        if !on && self.lut_loading {
+            // not wanted after all: the file waits for the next time
+            self.drop_lut_read();
+            self.lut_deferred = true;
+        }
         if on && std::mem::take(&mut self.lut_deferred) {
-            let path = self.lut_path.clone();
-            let (lut, problem) = self.read_lut(&path);
-            self.grade.lut = lut;
-            self.lut_problem = problem;
-            self.show(host, &self.lut_props());
+            self.read_deferred_lut(host);
         }
         self.show(host, &json!({"on": on}));
         self.publish(host);
@@ -1045,6 +1121,7 @@ impl Plugin for ColourGradingPlugin {
             Event::PictureMeasureRequested { token } => self.probe_requested(host, token),
             Event::Posted { owner, token, .. } if owner == NAME && token == POST_MEASURED => self.auto_measured(host),
             Event::Posted { owner, token, .. } if owner == NAME && token == POST_STAGE => self.stage_baked(host),
+            Event::Posted { owner, token, .. } if owner == NAME && token == POST_LUT => self.lut_landed(host),
             Event::TimerFired { owner, token } if owner == NAME && token == T_LABEL => {
                 self.auto.label.clear();
                 self.show_auto(host);
@@ -1285,6 +1362,7 @@ impl Plugin for ColourGradingPlugin {
         let path = cfg.get("lut").and_then(Value::as_str).unwrap_or("").to_string();
         self.on = cfg.get("on") != Some(&Value::Bool(false));
         // Off: the file waits until the effect is switched on, so a LUT nobody uses costs no parse or memory
+        self.drop_lut_read();
         self.lut_deferred = !self.on && !path.is_empty();
         let (lut, problem) = if path.is_empty() || self.lut_deferred { (None, String::new()) } else { self.read_lut(&path) };
         g.lut = lut;
