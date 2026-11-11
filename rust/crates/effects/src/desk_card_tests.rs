@@ -181,3 +181,57 @@ fn bench_desk_on_the_card_and_the_cpu() {
         }
     }
 }
+
+/// Stands in for a step that has to see the pixels on the CPU (a blur, a name tag): one pass over the frame.
+struct Touches;
+
+impl CpuStep for Touches {
+    fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+        frame.data_mut().iter_mut().for_each(|v| *v = v.wrapping_add(1));
+    }
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture"]
+fn bench_desk_between_other_steps() {
+    if telescope_media::gpu::Gpu::shared().is_none() {
+        return eprintln!("no graphics card here");
+    }
+    use telescope_core::media::StagedStep as S;
+    for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+        let frame = rgba(&desk(w, h));
+        for (chain, steps) in [("desk alone", 0), ("desk, a CPU step, the CRT, a CPU step", 1)] {
+            for way in ["CPU", "card"] {
+                let mut p = plugin(json!({"shape": "a4"}));
+                let desk_step = match (p.frame_step().unwrap(), way) {
+                    (FrameStep::Either(_, cpu), "CPU") => FrameStep::Cpu(cpu),
+                    (step, _) => step,
+                };
+                let mut staged = vec![S { owner: NAME.into(), stage: FrameStage::Geometry, step: desk_step }];
+                if steps == 1 {
+                    let mut fun = crate::fun_pack::FunPackPlugin::new();
+                    fun.set_config(&json!({"effect": "crt"})).unwrap();
+                    staged.push(S { owner: "blur".into(), stage: FrameStage::Background, step: FrameStep::Cpu(Box::new(Touches)) });
+                    staged.push(S { owner: "fun_pack".into(), stage: FrameStage::Effects, step: fun.frame_step().unwrap() });
+                    staged.push(S { owner: "tag".into(), stage: FrameStage::Overlay, step: FrameStep::Cpu(Box::new(Touches)) });
+                }
+                let mut pipeline = telescope_media::FfmpegMedia.pipeline().expect("a frame pipeline");
+                pipeline.set_steps(staged);
+                for _ in 0..5 {
+                    pipeline.process(frame.clone(), &Ctx);
+                }
+                let before = telescope_media::transfers::totals();
+                let mut times: Vec<f64> = (0..15).map(|_| {
+                    let input = frame.clone();
+                    let start = std::time::Instant::now();
+                    std::hint::black_box(pipeline.process(input, &Ctx));
+                    start.elapsed().as_secs_f64() * 1000.0
+                }).collect();
+                let after = telescope_media::transfers::totals();
+                times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                println!("{w}x{h} {chain}, desk on the {way}: {:.2} ms a frame, {:.2} up and {:.2} down per frame, balance says {:?}",
+                    times[7], (after.up - before.up) as f64 / 15.0, (after.down - before.down) as f64 / 15.0, telescope_core::balance::Balance::shared().place());
+            }
+        }
+    }
+}
