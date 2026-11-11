@@ -17,6 +17,11 @@ pub trait Painter {
         false
     }
 
+    /// Takes in a finished picture of this size without asking for any new one (the paint cadence says no new job yet).
+    fn paint_ready(&mut self, _width: u32, _height: u32) -> Option<slint::Image> {
+        None
+    }
+
     /// A different stream: what was made for the last one isn't shown.
     fn restart(&mut self) {}
 
@@ -177,6 +182,15 @@ impl ThreadedPainter {
     }
 }
 
+impl Drop for ThreadedPainter {
+    fn drop(&mut self) {
+        // The scaler may be holding a graphics card's readback: it ends before the painter's owner goes on
+        if let Some(worker) = self.worker.take() {
+            worker.finish();
+        }
+    }
+}
+
 impl Painter for ThreadedPainter {
     fn paint(&mut self, frame: &Frame, width: u32, height: u32) -> Option<slint::Image> {
         let key = (frame.number, width, height, self.tag);
@@ -202,6 +216,19 @@ impl Painter for ThreadedPainter {
         None
     }
 
+    fn paint_ready(&mut self, width: u32, height: u32) -> Option<slint::Image> {
+        let (key, buffer) = {
+            let mut made = self.made.lock().unwrap_or_else(|e| e.into_inner());
+            made.take_if(|(k, _)| (k.1, k.2) != (width, height));
+            made.take()?
+        };
+        // What was asked for has come, so painting that frame again makes it again
+        if self.asked == Some(key) {
+            self.asked = None;
+        }
+        Some(slint::Image::from_rgb8(buffer))
+    }
+
     fn ready(&self) -> bool {
         self.made.lock().unwrap_or_else(|e| e.into_inner()).is_some()
     }
@@ -215,6 +242,55 @@ impl Painter for ThreadedPainter {
 
     fn derived_from(&mut self, tag: u64) {
         self.tag = tag;
+    }
+}
+
+/// What a painter's `derived_from` is given: what the picture besides the frame's own data comes from (Colour Compare) and the slot's
+/// count, since a stalled stream's frame replaced in place keeps its own number but is another picture.
+pub fn paint_tag(derived: u64, revision: u64) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    (derived, revision).hash(&mut hasher);
+    hasher.finish()
+}
+
+/// What one look at the preview does about its painter.
+#[derive(Debug, PartialEq)]
+pub enum Step {
+    /// Nothing to paint now.
+    Skip,
+    /// Only a picture that has finished goes up; no new one is asked for.
+    Take,
+    /// Paint the frame, asking for its picture when it isn't made yet.
+    Paint,
+}
+
+/// `due` is the paint cadence (or the same frame again), `ready` a finished picture waiting, `tints` a pass painting the picture itself.
+pub fn step(due: bool, ready: bool, tints: bool) -> Step {
+    match (due, ready) {
+        (true, _) => Step::Paint,
+        (false, false) => Step::Skip,
+        (false, true) if tints => Step::Paint,
+        (false, true) => Step::Take,
+    }
+}
+
+/// Whether a pass asked for the overlay to be drawn again and it hasn't been yet: the picture it goes on may land later than the ask.
+#[derive(Default)]
+pub struct OverlayAsk(std::cell::Cell<bool>);
+
+impl OverlayAsk {
+    /// A look at the preview: `asked` is a new ask since the last. Returns whether one is still waiting.
+    pub fn look(&self, asked: bool) -> bool {
+        if asked {
+            self.0.set(true);
+        }
+        self.0.get()
+    }
+
+    /// The overlay was drawn.
+    pub fn drawn(&self) {
+        self.0.set(false);
     }
 }
 
@@ -445,6 +521,78 @@ mod tests {
         assert!(painter.paint(&grey(200, 7), 2, 2).is_none());
         until(|| woke.load(std::sync::atomic::Ordering::SeqCst) == 2);
         assert_eq!(painter.paint(&grey(200, 7), 2, 2).unwrap().to_rgb8().unwrap().as_slice()[0].r, 200);
+    }
+
+    #[test]
+    fn a_frame_replaced_in_place_is_another_picture() {
+        assert_ne!(paint_tag(5, 10), paint_tag(5, 11));
+        assert_eq!(paint_tag(5, 10), paint_tag(5, 10));
+        let (scaler, runs) = flat(5);
+        let woke = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = woke.clone();
+        let mut painter = ThreadedPainter::new(scaler, Arc::new(move || {
+            counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }));
+        // The stream stalled on frame 3; its composite later replaces the pixels under the same number
+        painter.derived_from(paint_tag(0, 10));
+        assert!(painter.paint(&grey(60, 3), 2, 2).is_none());
+        until(|| woke.load(std::sync::atomic::Ordering::SeqCst) == 1);
+        assert_eq!(painter.paint(&grey(60, 3), 2, 2).unwrap().to_rgb8().unwrap().as_slice()[0].r, 60);
+        painter.derived_from(paint_tag(0, 11));
+        assert!(painter.paint(&grey(200, 3), 2, 2).is_none());
+        until(|| woke.load(std::sync::atomic::Ordering::SeqCst) == 2);
+        assert_eq!(painter.paint(&grey(200, 3), 2, 2).unwrap().to_rgb8().unwrap().as_slice()[0].r, 200);
+        assert_eq!(runs.load(std::sync::atomic::Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn a_finished_picture_goes_up_without_asking_for_the_next() {
+        assert_eq!(step(false, true, false), Step::Take);
+        assert_eq!(step(false, false, false), Step::Skip);
+        assert_eq!(step(true, true, false), Step::Paint);
+        assert_eq!(step(false, true, true), Step::Paint, "a tinting pass paints the picture itself");
+        let (scaler, runs) = flat(5);
+        let woke = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = woke.clone();
+        let mut painter = ThreadedPainter::new(scaler, Arc::new(move || {
+            counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }));
+        assert!(painter.paint(&grey(60, 1), 2, 2).is_none());
+        until(|| woke.load(std::sync::atomic::Ordering::SeqCst) == 1);
+        assert!(painter.paint(&grey(60, 1), 2, 2).is_some());
+        assert!(painter.paint(&grey(70, 2), 2, 2).is_none());
+        until(|| woke.load(std::sync::atomic::Ordering::SeqCst) == 2);
+        assert!(painter.ready());
+        // A picture of another size isn't taken
+        assert!(painter.paint_ready(4, 2).is_none());
+        assert!(!painter.ready());
+        assert!(painter.paint(&grey(80, 3), 2, 2).is_none());
+        until(|| woke.load(std::sync::atomic::Ordering::SeqCst) == 3);
+        assert!(painter.paint_ready(2, 2).is_some());
+        // Newer frames came, but the cadence said no: nothing is made
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        assert!(!painter.ready());
+        assert_eq!(runs.load(std::sync::atomic::Ordering::SeqCst), 3);
+    }
+
+    #[test]
+    fn an_overlay_ask_waits_for_the_picture_it_goes_on() {
+        let ask = OverlayAsk::default();
+        assert!(!ask.look(false));
+        assert!(ask.look(true));
+        assert!(ask.look(false), "the picture hasn't landed, so the ask is still there");
+        ask.drawn();
+        assert!(!ask.look(false));
+    }
+
+    #[test]
+    fn dropping_the_painter_waits_for_the_scaler_in_hand() {
+        let (scaler, runs) = flat(150);
+        let mut painter = ThreadedPainter::new(scaler, Arc::new(|| {}));
+        assert!(painter.paint(&grey(60, 1), 2, 2).is_none());
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        drop(painter);
+        assert_eq!(runs.load(std::sync::atomic::Ordering::SeqCst), 1, "the scaler was still running when the painter went");
     }
 
     #[test]
