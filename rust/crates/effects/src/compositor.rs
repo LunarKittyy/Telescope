@@ -141,32 +141,52 @@ fn linear(src: Region, w2: usize, h2: usize) -> Vec<u8> {
     let ch = src.ch;
     let (xs, ys) = (linear_taps(src.w, w2), linear_taps(src.h, h2));
     let n = w2 * ch;
-    let row = |y: usize| -> Vec<i32> {
-        let mut out = vec![0i32; n];
-        for (dx, &(x0, x1, a0, a1)) in xs.iter().enumerate() {
-            for c in 0..ch {
-                out[dx * ch + c] = src.at(x0, y, c) as i32 * a0 + src.at(x1, y, c) as i32 * a1;
+    // The across pass of one source row into a buffer taken from the spares, so no row is allocated twice
+    let row = |y: usize, out: &mut Vec<i32>| {
+        out.clear();
+        let start = ((src.y0 + y) * src.stride + src.x0) * ch;
+        let line = &src.data[start..start + src.w * ch];
+        if ch == 1 {
+            out.extend(xs.iter().map(|&(x0, x1, a0, a1)| line[x0] as i32 * a0 + line[x1] as i32 * a1));
+        } else {
+            for &(x0, x1, a0, a1) in &xs {
+                let (p0, p1) = (&line[x0 * ch..x0 * ch + ch], &line[x1 * ch..x1 * ch + ch]);
+                out.extend(p0.iter().zip(p1).map(|(&v0, &v1)| v0 as i32 * a0 + v1 as i32 * a1));
             }
         }
-        out
     };
-    let mut rows: HashMap<usize, Vec<i32>> = HashMap::new();
+    // At most the two rows the current line reads stay, in a pair of buffers that swap places as the lines go down
+    let mut rows: Vec<(usize, Vec<i32>)> = Vec::with_capacity(3);
+    let mut spare: Vec<Vec<i32>> = Vec::with_capacity(3);
     let mut out = vec![0u8; n * h2];
     let vec16 = n / 16 * 16;
     let vec_end = if (vec16 as i64) < n as i64 - 8 { vec16 + 8 } else { vec16 };
     for (dy, &(y0, y1, b0, b1)) in ys.iter().enumerate() {
-        rows.entry(y0).or_insert_with(|| row(y0));
-        rows.entry(y1).or_insert_with(|| row(y1));
-        rows.retain(|k, _| *k >= y0);
-        let (s0, s1) = (&rows[&y0], &rows[&y1]);
-        let line = &mut out[dy * n..(dy + 1) * n];
-        for i in 0..n {
-            line[i] = if i < vec_end {
-                let hi = |b: i32, s: i32| (b * ((s >> 4).clamp(-32768, 32767))) >> 16;
-                ((hi(b0, s0[i]) + hi(b1, s1[i]) + 2) >> 2).clamp(0, 255) as u8
+        let mut i = 0;
+        while i < rows.len() {
+            if rows[i].0 < y0 {
+                spare.push(rows.swap_remove(i).1);
             } else {
-                ((b0 as i64 * s0[i] as i64 + b1 as i64 * s1[i] as i64 + (1 << 21)) >> 22).clamp(0, 255) as u8
-            };
+                i += 1;
+            }
+        }
+        for y in [y0, y1] {
+            if !rows.iter().any(|(k, _)| *k == y) {
+                let mut buffer = spare.pop().unwrap_or_default();
+                row(y, &mut buffer);
+                rows.push((y, buffer));
+            }
+        }
+        let find = |y: usize| &rows.iter().find(|(k, _)| *k == y).unwrap().1;
+        let (s0, s1) = (find(y0), find(y1));
+        let line = &mut out[dy * n..(dy + 1) * n];
+        let (head, tail) = line.split_at_mut(vec_end);
+        let hi = |b: i32, s: i32| (b * ((s >> 4).clamp(-32768, 32767))) >> 16;
+        for ((d, &a), &b) in head.iter_mut().zip(&s0[..vec_end]).zip(&s1[..vec_end]) {
+            *d = ((hi(b0, a) + hi(b1, b) + 2) >> 2).clamp(0, 255) as u8;
+        }
+        for ((d, &a), &b) in tail.iter_mut().zip(&s0[vec_end..]).zip(&s1[vec_end..]) {
+            *d = ((b0 as i64 * a as i64 + b1 as i64 * b as i64 + (1 << 21)) >> 22).clamp(0, 255) as u8;
         }
     }
     out
@@ -221,19 +241,40 @@ pub fn cover(image: &Rgb, w: usize, h: usize) -> Rgb {
 
 // ── Rounded corners ───────────────────────────────────────────────────────
 
-/// For each corner (top left, top right, bottom left, bottom right): (inside, outside) weights of a radius x radius square,
-/// smoothed a pixel wide at the curve.
-pub type CornerMasks = [(Vec<f32>, Vec<f32>); 4];
+/// How much of each pixel of a radius x radius corner square is inside the curve, smoothed a pixel wide at it. The four
+/// corners are mirrors of one another, so one square is kept and read flipped.
+#[derive(Default)]
+pub struct CornerMasks {
+    radius: usize,
+    inside: Vec<f32>,
+}
+
+impl CornerMasks {
+    /// The inside weight at (x, y) of a corner (0 top left, 1 top right, 2 bottom left, 3 bottom right); outside is one minus it.
+    pub fn inside(&self, corner: usize, x: usize, y: usize) -> f32 {
+        let r = self.radius;
+        let (x, y) = (if corner & 1 == 1 { r - 1 - x } else { x }, if corner & 2 == 2 { r - 1 - y } else { y });
+        self.inside[y * r + x]
+    }
+
+    fn bytes(&self) -> usize {
+        self.inside.len() * size_of::<f32>()
+    }
+}
+
+/// What the kept corner squares may add up to: a few typical radii, or one big one, and never more.
+const CORNER_CACHE_BYTES: usize = 8 * 1024 * 1024;
+
+fn corner_cache() -> &'static Mutex<HashMap<usize, Arc<CornerMasks>>> {
+    static MASKS: OnceLock<Mutex<HashMap<usize, Arc<CornerMasks>>>> = OnceLock::new();
+    MASKS.get_or_init(Mutex::default)
+}
 
 /// composite.corner_masks: worked out once per radius.
 pub fn corner_masks(radius: usize) -> Arc<CornerMasks> {
-    static MASKS: OnceLock<Mutex<HashMap<usize, Arc<CornerMasks>>>> = OnceLock::new();
-    let mut cache = MASKS.get_or_init(Mutex::default).lock().unwrap_or_else(|e| e.into_inner());
+    let mut cache = corner_cache().lock().unwrap_or_else(|e| e.into_inner());
     if let Some(m) = cache.get(&radius) {
         return m.clone();
-    }
-    if cache.len() >= 64 {
-        cache.clear();
     }
     let r = radius;
     let rf = radius as f32;
@@ -245,17 +286,18 @@ pub fn corner_masks(radius: usize) -> Arc<CornerMasks> {
             inside[y * r + x] = (rf - dist + 0.5).clamp(0.0, 1.0);
         }
     }
-    let flip = |fx: bool, fy: bool| -> (Vec<f32>, Vec<f32>) {
-        let a: Vec<f32> = (0..r * r).map(|i| {
-            let (y, x) = (i / r, i % r);
-            inside[(if fy { r - 1 - y } else { y }) * r + if fx { r - 1 - x } else { x }]
-        }).collect();
-        let b = a.iter().map(|v| 1.0 - v).collect();
-        (a, b)
-    };
-    let masks = Arc::new([flip(false, false), flip(true, false), flip(false, true), flip(true, true)]);
+    let masks = Arc::new(CornerMasks { radius, inside });
+    if cache.values().map(|m| m.bytes()).sum::<usize>() + masks.bytes() > CORNER_CACHE_BYTES {
+        cache.clear();
+    }
     cache.insert(radius, masks.clone());
     masks
+}
+
+/// The bytes the kept corner squares take, for the tests.
+#[cfg(test)]
+pub(crate) fn corner_cache_bytes() -> usize {
+    corner_cache().lock().unwrap_or_else(|e| e.into_inner()).values().map(|m| m.bytes()).sum()
 }
 
 /// cv2.blendLinear of one value.
@@ -286,7 +328,7 @@ fn coverage(lx: usize, ly: usize, (x, y, w, h): (usize, usize, usize, usize), r:
         (_, true, _, true) => Some((3, lx - (x + w - r), ly - (y + h - r))),
         _ => None,
     };
-    corner.map_or(1.0, |(i, cx, cy)| masks[i].0[cy * r + cx])
+    corner.map_or(1.0, |(i, cx, cy)| masks.inside(i, cx, cy))
 }
 
 /// composite.paste: content into the box at full size, its corners rounded. Everything is copied straight over and only the
@@ -328,12 +370,11 @@ fn paste(canvas: &mut [u8], kind: Kind, cw: usize, chh: usize, content: Content,
             if let Some(m) = &masks {
                 let mut kept = under.into_iter();
                 for (corner, &(cx0, cy0)) in corners.iter().enumerate() {
-                    let (inside, outside) = &m[corner];
                     for yy in 0..r {
                         for xx in 0..r * ch {
                             let at = ((cy0 + yy) * plane.w + cx0) * ch + xx;
-                            let k = yy * r + xx / ch;
-                            data[at] = blend(data[at], kept.next().unwrap_or(0), inside[k], outside[k]);
+                            let inside = m.inside(corner, xx / ch, yy);
+                            data[at] = blend(data[at], kept.next().unwrap_or(0), inside, 1.0 - inside);
                         }
                     }
                 }
@@ -456,11 +497,32 @@ fn converted(frame: &Frame, kind: Kind) -> Option<Frame> {
     if Kind::of(frame.format) == kind && frame.format == kind.format() {
         return Some(frame.clone());
     }
+    if kind == Kind::I420 && frame.format == PixelFormat::Nv12 {
+        return nv12_as_i420(frame);
+    }
     let rgb = to_rgb(frame)?;
     let format = kind.format();
-    let mut out = Frame::new(frame.width, frame.height, format, vec![255; format.size(frame.width, frame.height)]);
+    // Packed pictures keep the alpha they had, so they start opaque; I420 is written whole and needs no fill
+    let start = if kind == Kind::I420 { 0 } else { 255 };
+    let mut out = Frame::new(frame.width, frame.height, format, vec![start; format.size(frame.width, frame.height)]);
     put_rgb(&mut out, &rgb);
     Some(out)
+}
+
+/// NV12 as I420: the luma as it is and the interleaved colour pairs split into their two planes, with no trip through RGB.
+fn nv12_as_i420(frame: &Frame) -> Option<Frame> {
+    let (w, h) = (frame.width as usize, frame.height as usize);
+    let (luma, chroma) = (w * h, w.div_ceil(2) * h.div_ceil(2));
+    if frame.data.len() < luma + 2 * chroma {
+        return None;
+    }
+    let mut data = vec![0u8; luma + 2 * chroma];
+    data[..luma].copy_from_slice(&frame.data[..luma]);
+    let (u, v) = data[luma..].split_at_mut(chroma);
+    for ((u, v), pair) in u.iter_mut().zip(v).zip(frame.data[luma..luma + 2 * chroma].as_chunks::<2>().0) {
+        (*u, *v) = (pair[0], pair[1]);
+    }
+    Some(Frame::new(frame.width, frame.height, PixelFormat::I420, data))
 }
 
 impl Compositor {
