@@ -1044,7 +1044,8 @@ impl Window {
             return;
         }
         // Half the frames on the card unless Smooth is on; what it skips only changes what's painted here, and a resized stage paints at once
-        if !again && !self.cadence.borrow_mut().due(number, popout.is_some() || on("smooth-on"), self.painted.get() == 0 || self.painted_stage.get() != stage) {
+        let catching_up = self.painter.borrow().as_ref().is_some_and(|p| p.catching_up());
+        if !again && !self.cadence.borrow_mut().due(number, popout.is_some() || on("smooth-on"), self.painted.get() == 0 || self.painted_stage.get() != stage || catching_up) {
             return;
         }
         let frame = if picking { frame } else { self.with_colour_split(frame) };
@@ -1796,7 +1797,8 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         }
     }
     let window = build_app(ConfigFile::default(), services.clone(), Some(opts.clone()))?;
-    *window.painter.borrow_mut() = gpu_painter;
+    // Without the card's painter the picture is scaled on a thread of its own, so the window never waits on a readback
+    *window.painter.borrow_mut() = gpu_painter.or_else(|| Some(Box::new(crate::preview::ThreadedPainter::for_window(services.media.scaler())) as Box<dyn crate::preview::Painter>));
     if let Some(t0) = std::env::var("TELESCOPE_T0").ok().and_then(|v| v.parse::<u64>().ok()) {
         let mut done = false;
         let _ = window.ui.window().set_rendering_notifier(move |state, _| {

@@ -74,12 +74,12 @@ impl<T> Mailbox<T> {
 }
 
 /// A thread that lives as long as its handle, working on the newest job put in.
-struct Worker<T: Send + 'static> {
+pub(crate) struct Worker<T: Send + 'static> {
     mailbox: Arc<Mailbox<T>>,
 }
 
 impl<T: Send + 'static> Worker<T> {
-    fn start(name: &str, mut run: impl FnMut(T) + Send + 'static) -> Worker<T> {
+    pub(crate) fn start(name: &str, mut run: impl FnMut(T) + Send + 'static) -> Worker<T> {
         let mailbox = Mailbox::new();
         let inbox = mailbox.clone();
         let spawned = std::thread::Builder::new().name(name.into()).spawn(move || {
@@ -93,7 +93,7 @@ impl<T: Send + 'static> Worker<T> {
         Worker { mailbox }
     }
 
-    fn put(&self, job: T) {
+    pub(crate) fn put(&self, job: T) {
         self.mailbox.put(job);
     }
 }
