@@ -132,6 +132,34 @@ fn frames_it_cannot_work_on_are_left_to_the_rgb_way() {
 }
 
 #[test]
+fn a_cell_lit_only_through_saturated_chroma_is_still_painted() {
+    // Y 151 with U 16 and V 61 is about RGB (50, 255, 0): grey 165 is over the level of 160 although the luma is under it
+    let (w, h) = (64, 64);
+    let mut data = vec![151u8; w * h];
+    data.extend(vec![16u8; w * h / 4]);
+    data.extend(vec![61u8; w * h / 4]);
+    let look = Look { effect: "light".into(), fade: 6, brightness: 1, ..Look::default() };
+    let dark = |f: &mut Frame| {
+        let n = w * h;
+        let d = f.data_mut();
+        d[..n].fill(16);
+        d[n..].fill(128);
+    };
+    let (mut planes, mut rgb) = (Effect::named("light").unwrap(), Effect::named("light").unwrap());
+    let (mut fa, mut fb) = (Frame::new(w as u32, h as u32, PixelFormat::I420, data.clone()), Frame::new(w as u32, h as u32, PixelFormat::I420, data));
+    assert!(planes.run_frame(&mut fa, &look).is_some());
+    through_rgb(&mut rgb, &mut fb, &look);
+    // the next frame is black, so only the trail is left in it
+    dark(&mut fa);
+    dark(&mut fb);
+    assert!(planes.run_frame(&mut fa, &look).is_some());
+    through_rgb(&mut rgb, &mut fb, &look);
+    assert!(fb.data[..w * h].iter().any(|&y| y > 100), "the reference holds no trail");
+    let worst = fa.data.iter().zip(fb.data.iter()).map(|(&a, &b)| a.abs_diff(b)).max().unwrap();
+    assert!(worst <= 3, "differs by {worst}");
+}
+
+#[test]
 #[ignore = "timing bench, run with --release -- --ignored --nocapture"]
 fn bench_light_planes() {
     for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {

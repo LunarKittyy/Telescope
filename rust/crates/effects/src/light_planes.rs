@@ -3,6 +3,7 @@
 //! and put back. Everything else is left exactly as the frame had it.
 
 use crate::fun_effects::{light_row, Light, Look};
+use std::sync::OnceLock;
 use telescope_core::avx2_too;
 use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::image::{byte, rgb_to_420};
@@ -53,9 +54,7 @@ impl Light {
         let keep = (0.80 + look.fade as f64 * 0.019) as f32;
         let strips = h / 2;
         self.ready(w, h);
-        // Luma that could be lit: a little below the level, so rounding never leaves a lit pixel out
-        let floor = (16.0 + level as f32 / 1.164_383).floor() as i32 - 2;
-        let floor = floor.clamp(0, 254) as u8;
+        let floor = luma_floor(level);
         let mut active: Vec<Span> = vec![(0, 0); strips];
         {
             let luma = &frame.data[..w * h];
@@ -116,6 +115,31 @@ impl Light {
         }
         Some(())
     }
+}
+
+/// The luma at and below which no chroma can bring a pixel's brightness above `level`. Chroma that clips a channel can raise the
+/// brightness over what the luma says (Y 151 with saturated green is over 160), so this is worked out for every luma against every chroma.
+fn luma_floor(level: u8) -> u8 {
+    static MOST: OnceLock<[u8; 256]> = OnceLock::new();
+    let most = MOST.get_or_init(|| {
+        let mut most = [0u8; 256];
+        for (y, m) in most.iter_mut().enumerate() {
+            let c = (y as f32 - 16.0) * 1.164_383;
+            for u in 0..=255u32 {
+                let d = u as f32 - 128.0;
+                let (b, g0) = (byte(c + 2.017_232 * d), c - 0.391_762 * d);
+                for v in 0..=255u32 {
+                    let e = v as f32 - 128.0;
+                    let (r, g) = (byte(c + 1.596_027 * e), byte(g0 - 0.812_968 * e));
+                    let grey = ((r as u32 * 9798 + g as u32 * 19235 + b as u32 * 3735 + (1 << 14)) >> 15) as u8;
+                    *m = (*m).max(grey);
+                }
+            }
+        }
+        most
+    });
+    // One level of room, so a rounding step in the real path never leaves a lit pixel out
+    (0..255usize).rev().find(|&y| most[y] as u32 + 1 <= level as u32).unwrap_or(0) as u8
 }
 
 fn per_band(strips: usize) -> usize {
