@@ -194,6 +194,8 @@ pub struct SubComponentInstance {
     /// the parent sub-component holding the `Repeater` this instance belongs to.
     /// Used by `ModelDataAssignment` to write back into the model.
     pub repeated_in: OnceCell<(Weak<SubComponentInstance>, RepeatedElementIdx)>,
+    // Telescope patch: where this sub-component sits below its root instance, found on first use (see PATCH.txt)
+    pub path_in_root: OnceCell<Box<[SubComponentInstanceIdx]>>,
     /// Keeps the `MenuFromItemTree` alive so the weak reference stored by
     /// `setup_menubar_shortcuts` in the window remains valid.
     pub menubar: RefCell<Option<vtable::VRc<i_slint_core::menus::MenuVTable>>>,
@@ -229,6 +231,8 @@ pub struct Instance {
     /// When this `Instance` is a repeated entry, points back to the parent
     /// item tree so `parent_node` can return a meaningful weak.
     pub parent_instance: Weak<SubComponentInstance>,
+    // Telescope patch: flat index of this repeated instance's placeholder in the parent's tree, found on first use (see PATCH.txt)
+    pub parent_flat_index: OnceCell<u32>,
     /// Index into `compilation_unit.public_components` for the public
     /// component this instance was built from. `None` for repeated /
     /// nested instances that don't correspond to a public component.
@@ -786,6 +790,7 @@ fn build_instance(
         globals,
         self_weak: OnceCell::new(),
         parent_instance: parent,
+        parent_flat_index: OnceCell::new(),
         public_component_index,
         window_adapter: OnceCell::new(),
         window_adapter_error: OnceCell::new(),
@@ -919,6 +924,7 @@ fn build_sub_component_instance(
             timers: std::iter::repeat_with(Default::default).take(sc.timers.len()).collect(),
             popup_ids: vec![std::cell::Cell::new(None); sc.popup_windows.len()],
             repeated_in: OnceCell::new(),
+            path_in_root: OnceCell::new(),
             menubar: RefCell::new(None),
         }
     });
