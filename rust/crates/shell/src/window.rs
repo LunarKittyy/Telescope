@@ -86,6 +86,8 @@ pub struct Window {
     preview_timer: slint::Timer,
     /// The number of the frame the preview shows, so a frame isn't painted twice.
     painted: Cell<u64>,
+    /// The size the preview was last painted at, to notice a stage that changed under a stalled stream.
+    painted_size: Cell<(u32, u32)>,
     /// What passes on the preview (tint, analyse, paint) have in hand.
     passes: RefCell<crate::preview_passes::PassWork>,
     /// The layers' shapes last handed to the preview card, so they're only set again when they change.
@@ -443,6 +445,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         painter: RefCell::default(),
         preview_timer: slint::Timer::default(),
         painted: Cell::new(0),
+        painted_size: Cell::new((0, 0)),
         passes: RefCell::default(),
         layers_drawn: RefCell::default(),
         logged: Cell::new(false),
@@ -995,7 +998,9 @@ impl Window {
             return;
         }
         let Some((frame, number)) = self.preview_frame() else { return };
-        let frame = self.with_colour_split(frame);
+        // The Compare split is only made for a frame that gets painted; a pick under way needs it now
+        let picking = !self.state.borrow().overlays.picking().is_empty();
+        let frame = if picking { self.with_colour_split(frame) } else { frame };
         self.state.borrow_mut().overlays.shown_frame(&frame);
         if let Some(p) = &popout {
             fit_popout(p, frame.width, frame.height);
@@ -1017,14 +1022,6 @@ impl Window {
             (stream_gen, self.preview_source()).hash(&mut hasher);
             hasher.finish()
         };
-        let again = number == self.painted.get();
-        if again && !(tints && self.passes.borrow().tint_newer(source)) {
-            return;
-        }
-        // Half the frames on the card unless Smooth is on; what it skips only changes what's painted here
-        if !again && !self.cadence.borrow_mut().due(number, popout.is_some() || on("smooth-on"), self.painted.get() == 0) {
-            return;
-        }
         let stage = match &popout {
             Some(p) => (p.window().size().width, p.window().size().height),
             None => {
@@ -1036,14 +1033,25 @@ impl Window {
                 (px("stage-width"), px("stage-height"))
             }
         };
+        // A stalled stream's last frame is painted again when the stage it fills changed size
         let (w, h) = crate::preview::fit_within((frame.width, frame.height), stage);
+        let resized = self.painted_size.get() != (w, h);
+        let again = number == self.painted.get();
+        if again && !resized && !(tints && self.passes.borrow().tint_newer(source)) {
+            return;
+        }
+        // Half the frames on the card unless Smooth is on; what it skips only changes what's painted here
+        if !again && !self.cadence.borrow_mut().due(number, popout.is_some() || on("smooth-on"), self.painted.get() == 0) {
+            return;
+        }
+        let frame = if picking { frame } else { self.with_colour_split(frame) };
         if !self.logged.replace(true) {
             log::info!("Preview: {}x{} {:?} frames shown at {w}x{h}", frame.width, frame.height, frame.format);
         }
         // Passes that tint the picture, or want a look at it, get a CPU copy at the size it is painted at, made on a worker so the
         // window never waits on the graphics card for it; a tint is painted a frame late, from the worker's last result
         let mut worker_up = true;
-        if !again && self.passes.borrow().needs_copy(&passes) {
+        if (!again || resized) && self.passes.borrow().needs_copy(&passes) {
             let scaler = || self.services.as_ref().map(|s| s.media.scaler());
             let dirty = self.state.borrow().preview_dirty.clone();
             worker_up = self.passes.borrow_mut().submit(scaler, &passes, &frame, crate::preview_passes::FrameId { source, number }, (w, h), &dirty);
@@ -1075,6 +1083,7 @@ impl Window {
             }
         };
         self.painted.set(number);
+        self.painted_size.set((w, h));
 
         let (target, id) = match &popout {
             Some(p) => (p, ""),
