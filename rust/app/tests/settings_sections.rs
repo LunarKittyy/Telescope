@@ -83,11 +83,20 @@ fn the_notice_and_the_mic_note_come_on_with_an_idle_stop() {
     let note = || ElementHandle::find_by_accessible_label(&settings.ui, "With the phone mic on, only the camera turns off.").count();
     let switch = || ElementHandle::find_by_accessible_label(&settings.ui, "Tell me when it stops a stream").find(|e| e.accessible_checkable() == Some(true)).expect("the switch");
     assert_eq!((note(), switch().accessible_checked()), (0, Some(true)));
+    // A stream it started is stopped from the start, so the notice can be switched off
     switch().invoke_accessible_default_action();
     w.process();
-    assert_eq!(switch().accessible_checked(), Some(true), "nothing stops by itself yet, so its notice is off");
+    assert_eq!(switch().accessible_checked(), Some(false));
+    switch().invoke_accessible_default_action();
+    w.process();
+    assert_eq!(switch().accessible_checked(), Some(true));
 
     let picked = settings.ui.definition().callbacks().find(|n| n.ends_with("-stop-picked")).expect("the stop choice");
+    settings.ui.invoke(&picked, &[Value::Number(0.0)]).unwrap();
+    w.process();
+    switch().invoke_accessible_default_action();
+    w.process();
+    assert_eq!(switch().accessible_checked(), Some(true), "nothing stops by itself then, so its notice is off");
     settings.ui.invoke(&picked, &[Value::Number(2.0)]).unwrap();
     w.process();
     // The line that said so is gone from the page: there's nothing to explain in a tooltip's place
