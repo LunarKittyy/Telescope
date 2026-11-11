@@ -214,11 +214,11 @@ fn not_while_streaming() {
 #[test]
 fn the_two_old_checkboxes_carry_over() {
     let cases = [
-        (json!({}), "off", "off"),
+        (json!({}), "off", "own"),
         (json!({"auto_stream": true}), "ready", "off"),
         (json!({"watch_stream": true}), "watched", "own"),
         (json!({"auto_stream": true, "watch_stream": true}), "watched", "own"), // both on from before: watching wins
-        (json!({"auto_stream": "yes", "watch_stream": 1}), "off", "off"),
+        (json!({"auto_stream": "yes", "watch_stream": 1}), "off", "own"),
     ];
     for (old, start_on, stop_idle) in cases {
         let mut r = Rig::new();
@@ -237,7 +237,7 @@ fn config_round_trip_and_bad_values() {
     assert_eq!(r.plugin.get_config(), cfg);
     assert_eq!(r.keep(), Some(true));
     r.configure(json!({"start_on": "sometimes", "stop_idle": null, "stop_delay_s": "5", "notify_stop": "no"}));
-    assert_eq!(r.plugin.get_config(), json!({"start_on": "off", "stop_idle": "off", "stop_delay_s": 15, "notify_stop": true}));
+    assert_eq!(r.plugin.get_config(), json!({"start_on": "off", "stop_idle": "own", "stop_delay_s": 15, "notify_stop": true}));
     assert_eq!(r.keep(), Some(false));
     r.configure(json!({"stop_idle": "own", "stop_delay_s": 2, "auto_stream": true})); // new keys win over old ones
     assert_eq!((r.plugin.start_on, r.plugin.stop_idle, r.plugin.stop_delay_s), ("off", "own", 10));
@@ -759,8 +759,8 @@ fn start_and_stop_choices_reflect_and_change_the_settings() {
     r.ui("automatic", "shown", vec![]);
     let (start, stop) = (r.shown("automatic", "start-items"), r.shown("automatic", "stop-items"));
     assert_eq!(start[r.shown("automatic", "start-current").as_u64().unwrap() as usize], "Only when I press Start");
-    assert_eq!(stop[r.shown("automatic", "stop-current").as_u64().unwrap() as usize], "Only when I press Stop");
-    assert_eq!(r.shown("automatic", "stops"), json!(false)); // nothing stops by itself yet: the wait, the notice and the note are off
+    assert_eq!(stop[r.shown("automatic", "stop-current").as_u64().unwrap() as usize], "When no app uses the camera, if it started the stream");
+    assert_eq!(r.shown("automatic", "stops"), json!(true));
 
     r.ui("automatic", "start-picked", vec![json!(2)]);
     assert_eq!((r.plugin.start_on, r.keep()), ("watched", Some(true)));
@@ -861,4 +861,17 @@ fn shutting_down_stops_the_wait() {
     assert!(r.counting());
     r.plugin.shutdown(&mut r.host);
     assert!(!r.counting());
+}
+
+#[test]
+fn stopping_a_stream_it_started_is_the_default_and_a_saved_choice_wins() {
+    let r = Rig::new();
+    assert_eq!(r.plugin.stop_idle, "own");
+    assert_eq!(r.plugin.get_config()["stop_idle"], "own");
+    // What a settings file with no choice in it gives, and what one that chose each gives
+    for (saved, stop_idle) in [(json!({}), "own"), (json!({"start_on": "ready"}), "own"), (json!({"stop_idle": "off"}), "off"), (json!({"start_on": "ready", "stop_idle": "any"}), "any")] {
+        let mut r = Rig::new();
+        r.configure(saved.clone());
+        assert_eq!(r.plugin.stop_idle, stop_idle, "{saved}");
+    }
 }

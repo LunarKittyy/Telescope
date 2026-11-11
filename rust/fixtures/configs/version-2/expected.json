@@ -62,7 +62,7 @@
         "notify_stop": true,
         "start_on": "off",
         "stop_delay_s": 15,
-        "stop_idle": "off"
+        "stop_idle": "own"
       },
       "updates": {
         "auto_check": true,
