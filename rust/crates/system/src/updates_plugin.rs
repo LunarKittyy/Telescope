@@ -209,12 +209,12 @@ impl Backend for RealBackend {
 
     fn install_via_setup(&self, manifest: &Manifest, asset: &Asset, progress: Progress, cancelled: &dyn Fn() -> bool, streaming: &dyn Fn() -> bool)
         -> Result<(i64, InstallResult), String> {
-        self.download_and(manifest, asset, progress, cancelled, streaming, |setup, _build| {
+        self.download_and(manifest, asset, progress, cancelled, streaming, |setup, build| {
             let run = |argv: &[String]| (self.run_setup)(argv);
             let locate = || (self.locate)();
             let folders = setup_move::desktop_folders();
-            let env = setup_move::SetupEnv { run: &run, locate: &locate, folders: &folders };
-            setup_move::install_with_setup(setup, &self.directory, &env)
+            let env = setup_move::SetupEnv { run: &run, locate: &locate, installed_build: &setup_move::installed_build, folders: &folders };
+            setup_move::install_with_setup(setup, &self.directory, build, &env)
         })
     }
 

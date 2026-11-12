@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">दान करें या अधिक पढ़�
 msgid "No mic"
 msgstr "माइक नहीं है"
 
-#: rust/crates/audio/src/plugin.rs:110 rust/crates/core/src/vision.rs:103 rust/crates/shell/src/plugins_tab.rs:432 rust/crates/system/src/updates_plugin.rs:451
+#: rust/crates/audio/src/plugin.rs:110 rust/crates/core/src/vision.rs:103 rust/crates/shell/src/plugins_tab.rs:432 rust/crates/system/src/updates_plugin.rs:456
 msgid "Downloading…"
 msgstr "डाउनलोड हो रहा है…"
 
@@ -548,7 +548,7 @@ msgid "Looking…"
 msgstr "देख रहा है…"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:27 rust/crates/effects/src/framing.rs:70 rust/crates/effects/src/fun_pack.rs:38 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:459 rust/crates/effects/ui/background.slint:46 rust/crates/effects/ui/background.slint:51 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:287 rust/crates/link/src/browser/plugin.rs:585 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:78
+#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:27 rust/crates/effects/src/framing.rs:72 rust/crates/effects/src/fun_pack.rs:38 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:459 rust/crates/effects/ui/background.slint:46 rust/crates/effects/ui/background.slint:51 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:287 rust/crates/link/src/browser/plugin.rs:585 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:78
 msgid "Off"
 msgstr "बंद"
 
@@ -1456,121 +1456,121 @@ msgid "Body"
 msgstr "पूरा शरीर"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Sloth"
 msgstr "कछुआ"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Lazy"
 msgstr "सुस्त"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Mellow"
 msgstr "मद्धम"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Calm"
 msgstr "शांत"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Easy"
 msgstr "ठहरा"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Steady"
 msgstr "स्थिर"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Brisk"
 msgstr "चुस्त"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Quick"
 msgstr "तेज़"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Snappy"
 msgstr "झटपट"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Zippy"
 msgstr "बिजली"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:70
+#: rust/crates/effects/src/framing.rs:72
 msgid "Fidget"
 msgstr "हिलना"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:70
+#: rust/crates/effects/src/framing.rs:72
 msgid "Shift"
 msgstr "सरकना"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:70
+#: rust/crates/effects/src/framing.rs:72
 msgid "Lean"
 msgstr "झुकना"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:70
+#: rust/crates/effects/src/framing.rs:72
 msgid "Step"
 msgstr "कदम"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:70
+#: rust/crates/effects/src/framing.rs:72
 msgid "Roam"
 msgstr "घूमना"
 
-#: rust/crates/effects/src/framing.rs:87
+#: rust/crates/effects/src/framing.rs:89
 msgid "Zoom and pan to follow you."
 msgstr "आपके साथ चलने के लिए ज़ूम और पैन करें."
 
-#: rust/crates/effects/src/framing.rs:88
+#: rust/crates/effects/src/framing.rs:90
 msgid "How much of you is in the picture, from just your head to all of you."
 msgstr "तस्वीर में आपका कितना हिस्सा दिखे, सिर्फ़ सिर से लेकर पूरे शरीर तक."
 
-#: rust/crates/effects/src/framing.rs:89
+#: rust/crates/effects/src/framing.rs:91
 msgid "How quickly the framing follows when you move."
 msgstr "आपके हिलने पर फ़्रेमिंग कितनी तेज़ी से साथ चलती है."
 
-#: rust/crates/effects/src/framing.rs:90
+#: rust/crates/effects/src/framing.rs:92
 msgid "How much you can move before the framing follows you, from a fidget to walking around."
 msgstr "फ़्रेमिंग के साथ चलने से पहले आप कितना हिल सकते हैं, हल्के हिलने से लेकर इधर-उधर घूमने तक."
 
-#: rust/crates/effects/src/framing.rs:91
+#: rust/crates/effects/src/framing.rs:93
 msgid "Show hands"
 msgstr "हाथ दिखाएं"
 
-#: rust/crates/effects/src/framing.rs:92
+#: rust/crates/effects/src/framing.rs:94
 msgid "Widens the view so your hands are in it too."
 msgstr "व्यू को चौड़ा करता है ताकि आपके हाथ भी दिखें."
 
-#: rust/crates/effects/src/framing.rs:93
+#: rust/crates/effects/src/framing.rs:95
 msgid "Something else is moving the zoom and pan."
 msgstr "कोई अन्य चीज़ ज़ूम और पैन को नियंत्रित कर रही है."
 
-#: rust/crates/effects/src/framing.rs:94
+#: rust/crates/effects/src/framing.rs:96
 msgid "Auto framing: how much of you"
 msgstr "ऑटो फ़्रेमिंग: आपका कितना हिस्सा दिखे"
 
-#: rust/crates/effects/src/framing.rs:95
+#: rust/crates/effects/src/framing.rs:97
 msgid "Auto framing speed"
 msgstr "ऑटो फ़्रेमिंग स्पीड"
 
-#: rust/crates/effects/src/framing.rs:835
+#: rust/crates/effects/src/framing.rs:875
 msgid "Zooms and pans to keep you in the picture as you move."
 msgstr "आपके हिलने-डुलने पर आपको तस्वीर में बनाए रखने के लिए ज़ूम और पैन करता है."
 
-#: rust/crates/effects/src/framing.rs:836
+#: rust/crates/effects/src/framing.rs:876
 msgid "Without it there's no Auto framing card and the zoom stays where you put it."
 msgstr "इसके बिना कोई ऑटो फ़्रेमिंग कार्ड नहीं होता और ज़ूम वहीं रहता है जहां आपने सेट किया है."
 
@@ -6602,7 +6602,7 @@ msgstr "फ़ोकस दूरी"
 msgid "Install the v4l2loopback package. Fedora and Nobara: v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms."
 msgstr "v4l2loopback पैकेज इंस्टॉल करें. Fedora और Nobara: v4l2loopback (RPM Fusion से). Debian, Ubuntu और Arch: v4l2loopback-dkms."
 
-#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:459
+#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:464
 msgid "Checking…"
 msgstr "जांच की जा रही है…"
 
@@ -6622,7 +6622,7 @@ msgstr "इंस्टॉल हो गया."
 msgid "Check again"
 msgstr "फिर से जांचें"
 
-#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:453
+#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:458
 msgid "Installing…"
 msgstr "इंस्टॉल हो रहा है…"
 
@@ -7786,7 +7786,7 @@ msgstr "AppImage को Python वर्ज़न से बदला नही�
 msgid "Telescope can't swap its own files here, because its folder isn't writable. Download {version} from its release page and install it yourself."
 msgstr "Telescope यहां अपनी फ़ाइलें नहीं बदल सकता, क्योंकि इसके फ़ोल्डर में लिखने की अनुमति नहीं है. रिलीज़ पेज से {version} डाउनलोड करें और उसे खुद इंस्टॉल करें."
 
-#: rust/crates/system/src/going_back.rs:247 rust/crates/system/src/updates_plugin.rs:523
+#: rust/crates/system/src/going_back.rs:247 rust/crates/system/src/updates_plugin.rs:528
 msgid "Open download page"
 msgstr "डाउनलोड पेज खोलें"
 
@@ -8108,21 +8108,25 @@ msgstr "{action} नाम का कोई ऐक्शन नहीं है.
 msgid "{action} can't be used right now (no device, or the control is off)."
 msgstr "{action} अभी इस्तेमाल नहीं किया जा सकता (कोई डिवाइस नहीं है, या कंट्रोल बंद है)."
 
-#: rust/crates/system/src/setup_move.rs:350
+#: rust/crates/system/src/setup_move.rs:381
+msgid "A newer Telescope is already installed, so this copy stays as it is. Open the installed one from the Start menu."
+msgstr ""
+
+#: rust/crates/system/src/setup_move.rs:389
 msgid "The installer took too long, so this copy stays as it is."
 msgstr "इंस्टॉलर ने बहुत ज़्यादा समय लिया, इसलिए यह कॉपी जैसी है वैसी ही रहेगी."
 
-#: rust/crates/system/src/setup_move.rs:352
+#: rust/crates/system/src/setup_move.rs:391
 #, python-brace-format
 msgid "Couldn't start the installer: {error}"
 msgstr "इंस्टॉलर शुरू नहीं किया जा सका: {error}"
 
-#: rust/crates/system/src/setup_move.rs:356
+#: rust/crates/system/src/setup_move.rs:395
 #, python-brace-format
 msgid "The installer stopped (code {code}), so this copy stays as it is."
 msgstr "इंस्टॉलर रुक गया (कोड {code}), इसलिए यह कॉपी जैसी है वैसी ही रहेगी."
 
-#: rust/crates/system/src/setup_move.rs:360
+#: rust/crates/system/src/setup_move.rs:399
 msgid "Telescope was installed, but its folder wasn't where expected. Open it from the Start menu."
 msgstr "Telescope इंस्टॉल हो गया, लेकिन इसका फ़ोल्डर वहां नहीं था जहां उम्मीद थी. इसे स्टार्ट मेन्यू से खोलें."
 
@@ -8459,7 +8463,7 @@ msgstr "Telescope की फ़ाइलों को बदला नहीं 
 msgid "{file} is in use, so the update wasn't installed. Try again after a restart."
 msgstr "{file} इस्तेमाल में है, इसलिए अपडेट इंस्टॉल नहीं किया गया. रीस्टार्ट करने के बाद फिर कोशिश करें."
 
-#: rust/crates/system/src/updates.rs:622 rust/crates/system/src/updates_plugin.rs:97 rust/crates/system/src/updates_plugin.rs:168 rust/crates/system/src/updates_plugin.rs:240 rust/crates/system/src/updates_plugin.rs:616 rust/crates/system/src/updates_plugin.rs:791
+#: rust/crates/system/src/updates.rs:622 rust/crates/system/src/updates_plugin.rs:97 rust/crates/system/src/updates_plugin.rs:168 rust/crates/system/src/updates_plugin.rs:240 rust/crates/system/src/updates_plugin.rs:621 rust/crates/system/src/updates_plugin.rs:796
 msgid "The update failed."
 msgstr "अपडेट विफल रहा."
 
@@ -8475,78 +8479,78 @@ msgstr "स्टेबल"
 msgid "Nightly"
 msgstr "Nightly"
 
-#: rust/crates/system/src/updates_plugin.rs:449
+#: rust/crates/system/src/updates_plugin.rs:454
 #, python-brace-format
 msgid "Downloading {percent}%…"
 msgstr "डाउनलोड हो रहा है {percent}%…"
 
-#: rust/crates/system/src/updates_plugin.rs:454
+#: rust/crates/system/src/updates_plugin.rs:459
 msgid "Setting up Python's libraries. This takes a few minutes…"
 msgstr "Python लाइब्रेरी सेट अप हो रही हैं. इसमें कुछ मिनट लगते हैं…"
 
-#: rust/crates/system/src/updates_plugin.rs:455
+#: rust/crates/system/src/updates_plugin.rs:460
 msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "अपडेट हो गया. स्ट्रीमिंग रोकने पर Telescope रीस्टार्ट होगा."
 
-#: rust/crates/system/src/updates_plugin.rs:465
+#: rust/crates/system/src/updates_plugin.rs:470
 msgid "Going back to the Python version didn't work because it didn't start, so this version is back."
 msgstr "Python वर्ज़न पर वापस जाना काम नहीं किया क्योंकि वह शुरू नहीं हुआ, इसलिए यह वर्ज़न वापस आ गया है."
 
-#: rust/crates/system/src/updates_plugin.rs:470
+#: rust/crates/system/src/updates_plugin.rs:475
 msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along."
 msgstr "अपडेट करने पर यह आपके यूज़र के लिए स्टार्ट मेन्यू एंट्री के साथ इंस्टॉल भी हो जाएगा, और यह अनज़िप की गई कॉपी हट जाएगी. सेटिंग्स और फ़ोन ऐसे ही बने रहेंगे."
 
-#: rust/crates/system/src/updates_plugin.rs:476
+#: rust/crates/system/src/updates_plugin.rs:481
 msgid "Stop streaming to update."
 msgstr "अपडेट करने के लिए स्ट्रीमिंग रोकें."
 
-#: rust/crates/system/src/updates_plugin.rs:488
+#: rust/crates/system/src/updates_plugin.rs:493
 msgid "This is a source checkout, so it doesn't update itself."
 msgstr "यह एक सोर्स चेकआउट है, इसलिए यह खुद अपडेट नहीं होता."
 
-#: rust/crates/system/src/updates_plugin.rs:496
+#: rust/crates/system/src/updates_plugin.rs:501
 msgid "There's no nightly release yet."
 msgstr "अभी कोई Nightly रिलीज़ नहीं है."
 
-#: rust/crates/system/src/updates_plugin.rs:496
+#: rust/crates/system/src/updates_plugin.rs:501
 msgid "There's no stable release yet."
 msgstr "अभी कोई स्टेबल रिलीज़ नहीं है."
 
-#: rust/crates/system/src/updates_plugin.rs:498
+#: rust/crates/system/src/updates_plugin.rs:503
 msgid "You have the latest version."
 msgstr "आपके पास सबसे नया वर्शन है."
 
-#: rust/crates/system/src/updates_plugin.rs:502
+#: rust/crates/system/src/updates_plugin.rs:507
 #, python-brace-format
 msgid "Telescope {version} is available"
 msgstr "Telescope {version} उपलब्ध है"
 
-#: rust/crates/system/src/updates_plugin.rs:523
+#: rust/crates/system/src/updates_plugin.rs:528
 msgid "Update and restart"
 msgstr "अपडेट करें और रीस्टार्ट करें"
 
-#: rust/crates/system/src/updates_plugin.rs:527
+#: rust/crates/system/src/updates_plugin.rs:532
 msgid "Stop streaming to go back."
 msgstr "वापस जाने के लिए स्ट्रीमिंग रोकें."
 
-#: rust/crates/system/src/updates_plugin.rs:527
+#: rust/crates/system/src/updates_plugin.rs:532
 #, python-brace-format
 msgid "Swap this version for the last Python version, {version}."
 msgstr "इस वर्ज़न को आखिरी Python वर्ज़न {version} से बदलें."
 
-#: rust/crates/system/src/updates_plugin.rs:684
+#: rust/crates/system/src/updates_plugin.rs:689
 msgid "Couldn't check for updates."
 msgstr "अपडेट नहीं खोजे जा सके."
 
-#: rust/crates/system/src/updates_plugin.rs:841
+#: rust/crates/system/src/updates_plugin.rs:846
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "अपडेट हो गया. पूरा करने के लिए Telescope को बंद करके फिर से खोलें."
 
-#: rust/crates/system/src/updates_plugin.rs:857
+#: rust/crates/system/src/updates_plugin.rs:862
 msgid "Updates"
 msgstr "अपडेट"
 
-#: rust/crates/system/src/updates_plugin.rs:858
+#: rust/crates/system/src/updates_plugin.rs:863
 msgid "Checking for new versions of Telescope and installing them."
 msgstr "Telescope के नए वर्शन खोजना और उन्हें इंस्टॉल करना."
 
@@ -9053,22 +9057,22 @@ msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "स्ट्रेच सिकोड़ें आस्पेक्ट लंबा खिंचाव stretch squish aspect tall"
 
-#: rust/crates/system/src/updates_plugin.rs:468
+#: rust/crates/system/src/updates_plugin.rs:473
 #, python-brace-format
 msgid "Telescope {version} is available."
 msgstr "Telescope {version} उपलब्ध है."
 
-#: rust/crates/system/src/updates_plugin.rs:484
+#: rust/crates/system/src/updates_plugin.rs:489
 #, python-brace-format
 msgid "Telescope {version} didn't start after updating, so it's held back. Try again?"
 msgstr "अपडेट के बाद Telescope {version} शुरू नहीं हुआ, इसलिए इसे रोक दिया गया है. क्या फिर कोशिश करें?"
 
-#: rust/crates/system/src/updates_plugin.rs:490
+#: rust/crates/system/src/updates_plugin.rs:495
 #, python-brace-format
 msgid "The latest nightly build is {version}."
 msgstr "सबसे नया Nightly बिल्ड {version} है."
 
-#: rust/crates/system/src/updates_plugin.rs:490
+#: rust/crates/system/src/updates_plugin.rs:495
 #, python-brace-format
 msgid "The latest stable build is {version}."
 msgstr "सबसे नया स्टेबल बिल्ड {version} है."
