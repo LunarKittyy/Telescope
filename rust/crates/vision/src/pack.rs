@@ -22,6 +22,26 @@ pub const MAX_UNPACKED: u64 = 160 * 1024 * 1024;
 const REPO: &str = "LunarKittyy/Telescope";
 /// What scripts/build_vision_pack.py --write recorded for this version.
 pub const PACK_INFO: &str = include_str!("../vision_pack.json");
+/// And tools/build_matting_pack.py --write for the high quality cutout's download.
+pub const MATTING_INFO: &str = include_str!("../matting_pack.json");
+
+/// Which of the two downloads: the vision pack (MediaPipe) or the high quality cutout's (ONNX Runtime and the matting model).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Kind {
+    #[default]
+    Vision,
+    Matting,
+}
+
+impl Kind {
+    /// The start of the zip's name on the release.
+    fn asset(self) -> &'static str {
+        match self {
+            Kind::Vision => "vision",
+            Kind::Matting => "matting",
+        }
+    }
+}
 
 /// Why the pack couldn't be downloaded or unpacked, said for the person who clicked Download.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -35,17 +55,27 @@ impl std::fmt::Display for PackError {
 
 /// Where vision packs are unpacked, one folder per pack (vision_pack.default_dir).
 pub fn default_dir() -> PathBuf {
+    dir_for(Kind::Vision)
+}
+
+/// The same for the high quality cutout's downloads, next to the vision packs so removing one never touches the other.
+pub fn matting_dir() -> PathBuf {
+    dir_for(Kind::Matting)
+}
+
+fn dir_for(kind: Kind) -> PathBuf {
+    let folder = kind.asset();
     let env = |name: &str| std::env::var_os(name).filter(|v| !v.is_empty());
     if let Some(dev) = env(telescope_core::config::DEV_PROFILE_ENV) {
-        return PathBuf::from(dev).join("vision");
+        return PathBuf::from(dev).join(folder);
     }
     let home = || env("HOME").or_else(|| env("USERPROFILE")).map(PathBuf::from).unwrap_or_default();
     if cfg!(windows) {
         let base = env("LOCALAPPDATA").map(PathBuf::from).unwrap_or_else(home);
-        return base.join("Telescope").join("vision");
+        return base.join("Telescope").join(folder);
     }
     let base = env("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".local").join("share"));
-    base.join("telescope").join("vision")
+    base.join("telescope").join(folder)
 }
 
 /// Which pack this computer needs, or None when there isn't one for it (only 64-bit Intel/AMD for now).
@@ -59,6 +89,7 @@ pub fn platform_key() -> Option<&'static str> {
 /// This platform's entry in vision_pack.json.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PackInfo {
+    pub kind: Kind,
     pub key: Option<String>,
     /// The full sha256 of the pack's files (tree_hash), None without an entry.
     pub id: Option<String>,
@@ -72,9 +103,20 @@ impl PackInfo {
         PackInfo::from_json(&info, platform_key())
     }
 
+    /// The entry the high quality cutout's download ships with, for this computer.
+    pub fn current_matting() -> PackInfo {
+        let info: Value = serde_json::from_str(MATTING_INFO).unwrap_or(Value::Null);
+        PackInfo::from_json_for(Kind::Matting, &info, platform_key())
+    }
+
     pub fn from_json(info: &Value, key: Option<&str>) -> PackInfo {
+        PackInfo::from_json_for(Kind::Vision, info, key)
+    }
+
+    pub fn from_json_for(kind: Kind, info: &Value, key: Option<&str>) -> PackInfo {
         let entry = key.and_then(|k| info.get(k)).filter(|e| e.get("id").is_some_and(Value::is_string));
         PackInfo {
+            kind,
             key: key.map(str::to_string),
             id: entry.and_then(|e| e["id"].as_str()).map(str::to_string),
             size: entry.and_then(|e| e.get("size")).and_then(Value::as_u64).unwrap_or(0),
@@ -87,7 +129,7 @@ impl PackInfo {
     }
 
     pub fn asset_name(&self) -> Option<String> {
-        Some(format!("Telescope-vision-{}-{}.zip", self.key.as_ref()?, self.pack_id()?))
+        Some(format!("Telescope-{}-{}-{}.zip", self.kind.asset(), self.key.as_ref()?, self.pack_id()?))
     }
 
     pub fn download_size(&self) -> u64 {

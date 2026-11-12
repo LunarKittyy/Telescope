@@ -2,6 +2,7 @@
 //! the picture work around the models (ops) and the per-stream scheduling (service). VisionHost puts them together as core's
 //! VisionService, adding the steady people tracking app.py does (core::people) and the app's one download (VisionDownload).
 
+pub mod matting;
 pub mod mediapipe;
 pub mod ops;
 pub mod pack;
@@ -36,6 +37,14 @@ struct Download {
     size: u64,
 }
 
+/// The high quality cutout's download: where it unpacks and what the build knows of it (no entry: nothing to download).
+struct CutoutPack {
+    dir: PathBuf,
+    info: PackInfo,
+    download: Mutex<Download>,
+    cancel: Arc<AtomicBool>,
+}
+
 struct Shared {
     vision: Vision,
     bus: Arc<Mutex<Option<BusSender>>>,
@@ -45,6 +54,9 @@ struct Shared {
     download: Mutex<Download>,
     cancel: Arc<AtomicBool>,
     opener: WebOpener,
+    cutout: Mutex<Option<Arc<CutoutPack>>>,
+    /// When each stream's normal mask was last asked for while the cutout gave the picture its masks (see person_mask_hq).
+    warmed: Mutex<std::collections::HashMap<String, f64>>,
 }
 
 /// The vision service the binary hands the shell.
@@ -93,6 +105,18 @@ fn find_pack(dir: &Path, info: &PackInfo, load: &dyn Fn(&Path) -> Result<Arc<dyn
     load(&folder)
 }
 
+/// The matting download's backend, after its files are hashed again: the marker only says they matched once, and the library is native code that runs as the user.
+fn find_matting(dir: &Path, info: &PackInfo) -> Result<Arc<dyn Backend>, LoadError> {
+    if !info.installed(dir) {
+        return Err(LoadError::Missing(format!("no matting download in {}", info.folder(dir).display())));
+    }
+    let folder = info.folder(dir);
+    if pack::tree_hash(&folder).ok() != info.id {
+        return Err(LoadError::Failed(service::VisionError::new("RuntimeError", "the matting download has changed since it was checked, so it wasn't loaded")));
+    }
+    matting::load(&folder)
+}
+
 impl VisionHost {
     /// MediaPipe from this version's pack in the Python app's folder (vision_pack.default_dir).
     pub fn system() -> VisionHost {
@@ -100,7 +124,21 @@ impl VisionHost {
         let (find_dir, find_info) = (dir.clone(), info.clone());
         let find: Find = Box::new(move || find_pack(&find_dir, &find_info, &|folder| mediapipe::MediaPipe::load(folder).map(|b| Arc::new(b) as Arc<dyn Backend>)));
         let (there_dir, there_info) = (dir.clone(), info.clone());
-        VisionHost::with(find, Some(Box::new(move || there_info.installed(&there_dir))), dir, info, Box::new(pack::web))
+        let host = VisionHost::with(find, Some(Box::new(move || there_info.installed(&there_dir))), dir, info, Box::new(pack::web));
+        let (cutout_dir, cutout_info) = (pack::matting_dir(), PackInfo::current_matting());
+        let (find_dir, find_info) = (cutout_dir.clone(), cutout_info.clone());
+        let find: Find = Box::new(move || find_matting(&find_dir, &find_info));
+        let (there_dir, there_info) = (cutout_dir.clone(), cutout_info.clone());
+        host.with_cutout(find, Some(Box::new(move || there_info.installed(&there_dir))), cutout_dir, cutout_info)
+    }
+
+    /// Gives the host the high quality cutout: find loads it, there says whether its download is unpacked, and dir and info are where the
+    /// download goes and what it must match. Without this the cutout is missing and masks stay the normal ones.
+    pub fn with_cutout(self, find: Find, there: Option<Box<dyn Fn() -> bool + Send + Sync>>, dir: PathBuf, info: PackInfo) -> VisionHost {
+        let state_bus = self.shared.bus.clone();
+        self.shared.vision.set_cutout(find, there, Box::new(move |state| emit(&state_bus, Event::MattingStateChanged { state: state.to_string() })));
+        *self.shared.cutout.lock().unwrap() = Some(Arc::new(CutoutPack { dir, info, download: Mutex::new(Download::default()), cancel: Arc::new(AtomicBool::new(false)) }));
+        self
     }
 
     /// The parts given: find makes the backend, there says whether a pack is there without loading it.
@@ -120,6 +158,7 @@ impl VisionHost {
         );
         VisionHost { shared: Arc::new(Shared {
             vision, bus, tracking, dir, info, download: Mutex::new(Download::default()), cancel: Arc::new(AtomicBool::new(false)), opener,
+            cutout: Mutex::new(None), warmed: Mutex::new(Default::default()),
         }) }
     }
 
@@ -161,6 +200,38 @@ impl VisionHost {
             shared.vision.pack_downloaded();
         }
         emit(&shared.bus, Event::VisionDownloadFinished { error, switch_on: name });
+    }
+}
+
+impl VisionHost {
+    fn cutout_pack(&self) -> Option<Arc<CutoutPack>> {
+        self.shared.cutout.lock().unwrap().clone()
+    }
+
+    fn run_cutout_download(shared: Arc<Shared>, cutout: Arc<CutoutPack>) {
+        let progress_bus = shared.bus.clone();
+        let progress_cutout = cutout.clone();
+        let mut progress = move |done: u64, size: u64| {
+            {
+                let mut d = progress_cutout.download.lock().unwrap();
+                d.done = done;
+                d.size = size;
+            }
+            emit(&progress_bus, Event::VisionDownloadProgress { done, size });
+        };
+        let cancel = cutout.cancel.clone();
+        let opener = |url: &str, t: Duration| (shared.opener)(url, t);
+        let result = pack::download(&cutout.info, &cutout.dir, &mut progress, &|| cancel.load(Ordering::SeqCst), &opener, None);
+        let error = result.err().map(|e| e.0).unwrap_or_default();
+        {
+            let mut d = cutout.download.lock().unwrap();
+            d.running = false;
+            d.error = error.clone();
+        }
+        if error.is_empty() {
+            shared.vision.cutout_downloaded();
+        }
+        emit(&shared.bus, Event::VisionDownloadFinished { error, switch_on: String::new() });
     }
 }
 
@@ -224,6 +295,7 @@ impl VisionService for VisionHost {
     fn drop_stream(&self, source_id: &str) {
         self.shared.tracking.lock().unwrap().drop_stream(source_id);
         self.shared.vision.drop_stream(source_id);
+        self.shared.warmed.lock().unwrap().remove(source_id);
     }
 
     fn set_power_saving(&self, on: bool) {
@@ -236,6 +308,9 @@ impl VisionService for VisionHost {
 
     fn shutdown(&self) {
         self.shared.cancel.store(true, Ordering::SeqCst);
+        if let Some(cutout) = self.cutout_pack() {
+            cutout.cancel.store(true, Ordering::SeqCst);
+        }
         self.shared.vision.shutdown();
         *self.shared.bus.lock().unwrap() = None;
     }
@@ -244,6 +319,71 @@ impl VisionService for VisionHost {
         let mut d = self.shared.download.lock().unwrap();
         d.error = error.to_string();
         d.failed_for = plugin.to_string();
+    }
+
+    fn person_mask_hq(&self, source_id: &str, frame: &Frame, w: usize, h: usize, epoch: u64) -> Option<Arc<Vec<u8>>> {
+        let shared = frame.clone();
+        let hq = self.shared.vision.newest_cutout_in(source_id, frame.number, w, h, Box::new(move || rgb(&shared)), epoch);
+        let normal = |frame: &Frame| {
+            let shared = frame.clone();
+            self.shared.vision.newest_mask_nowait_in(source_id, frame.number, w, h, Box::new(move || model_rgb(&shared)), epoch)
+        };
+        // Not downloaded, loading, failed or late: the normal mask, so the picture never goes without one it could have had
+        let Some(hq) = hq else { return normal(frame) };
+        // While the cutout gives the masks the normal model still gets a frame now and then, so it has a fresh mask to fall back on the moment the cutout is late
+        let now = service::monotonic();
+        let due = {
+            let mut warmed = self.shared.warmed.lock().unwrap();
+            let last = warmed.entry(source_id.to_string()).or_insert(f64::NEG_INFINITY);
+            let due = now - *last >= service::MASK_MAX_AGE_S / 2.0;
+            if due {
+                *last = now;
+            }
+            due
+        };
+        if due {
+            normal(frame);
+        }
+        Some(hq)
+    }
+
+    fn matting_state(&self) -> String {
+        self.shared.vision.cutout_state().to_string()
+    }
+
+    fn matting_pack(&self) -> VisionPack {
+        let Some(cutout) = self.cutout_pack() else { return VisionPack::default() };
+        let d = cutout.download.lock().unwrap();
+        let size = cutout.info.download_size();
+        VisionPack {
+            ready: cutout.info.installed(&cutout.dir),
+            available: cutout.info.asset_name().is_some(),
+            downloading: d.running,
+            size_mb: ((size as f64 / 1e6).round_ties_even() as u64).max(1),
+            done: d.done,
+            size: d.size,
+            error: d.error.clone(),
+            failed_for: String::new(),
+        }
+    }
+
+    fn download_matting(&self) {
+        let Some(cutout) = self.cutout_pack() else { return };
+        {
+            let mut d = cutout.download.lock().unwrap();
+            d.error.clear();
+            if d.running {
+                return;
+            }
+            d.running = true;
+            d.done = 0;
+            d.size = 0;
+        }
+        cutout.cancel.store(false, Ordering::SeqCst);
+        let (shared, again) = (self.shared.clone(), cutout.clone());
+        if std::thread::Builder::new().name("matting-download".into()).spawn(move || VisionHost::run_cutout_download(shared, again)).is_err() {
+            cutout.download.lock().unwrap().running = false;
+        }
     }
 
     fn pack(&self) -> VisionPack {
@@ -287,7 +427,8 @@ impl VisionService for VisionHost {
     }
 
     fn remove_pack(&self) -> Result<(), String> {
-        pack::remove(&self.shared.dir, None)
+        let cutout = self.cutout_pack().map(|c| pack::remove(&c.dir, None));
+        pack::remove(&self.shared.dir, None).and(cutout.unwrap_or(Ok(())))
     }
 }
 

@@ -500,6 +500,18 @@ pub trait HostVision {
     }
     /// The status row's Download button: fetch the vision pack in the background (vision_download_finished says how it went).
     fn download_vision(&mut self) {}
+    /// How the high quality cutout's model is doing: "off" until a frame step asks for it, then "loading", "ready", "missing" (not downloaded) or
+    /// "failed". A host without it says "off".
+    fn matting_state(&self) -> String {
+        crate::vision::OFF.into()
+    }
+    /// Where that model's own download is, for the Background card's note.
+    fn matting_pack(&self) -> crate::vision::VisionPack {
+        crate::vision::VisionPack::default()
+    }
+    /// The note's Download button: fetch the high quality cutout in the background (vision_download_progress and vision_download_finished
+    /// say how it goes, with no plugin to switch on).
+    fn download_matting(&mut self) {}
 }
 
 /// Frames from other streams.

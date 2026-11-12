@@ -32,7 +32,7 @@ APPIMAGE_FILES = ("AppRun", "telescope.desktop", "telescope.png", "telescope-rs"
                   "lib/gphoto2/libgphoto2.so.6", "lib/gphoto2/libgphoto2_port.so.12", "lib/gphoto2/camlibs/ptp2.so", "lib/gphoto2/iolibs/usb1.so")
 LINUX_LIBRARIES = ("lib/libavcodec.so.", "lib/libavutil.so.", "lib/libswresample.so.", "lib/libswscale.so.")
 # Python's windows updater wants the exe; check.ps1 and the rest of Telescope.iss want the other two folders
-WINDOWS_FILES = ("TelescopeDesktop.exe", "rnnoise.dll", "vcruntime140.dll", "THIRD_PARTY_NOTICES.txt", "ui-kit/ui-kit.slint", "ui-kit/fonts/IBMPlexSans-Regular.ttf", "ui-kit/fonts/IBMPlexSans-SemiBold.ttf", "ui-kit/fonts/OFL.txt", "virtualcamera/TelescopeCamera.dll",
+WINDOWS_FILES = ("TelescopeDesktop.exe", "rnnoise.dll", "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll", "msvcp140_1.dll", "THIRD_PARTY_NOTICES.txt", "ui-kit/ui-kit.slint", "ui-kit/fonts/IBMPlexSans-Regular.ttf", "ui-kit/fonts/IBMPlexSans-SemiBold.ttf", "ui-kit/fonts/OFL.txt", "virtualcamera/TelescopeCamera.dll",
                  "unitycapture/UnityCaptureFilter64.dll", "unitycapture/UnityCaptureFilter32.dll", "unitycapture/LICENSE")
 WINDOWS_LIBRARIES = ("avcodec-", "avutil-", "swresample-", "swscale-")
 # What the app asks FFmpeg for (media/src/ffmpeg.rs, opus.rs and h264.rs), so a recipe change that drops one shows up here and not on someone's phone

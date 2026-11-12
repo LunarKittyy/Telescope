@@ -292,6 +292,12 @@ impl FrameContext for Ctx {
     fn person_mask_at(&self, frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
         self.vision.as_ref()?.person_mask_in(&self.source_id, frame, w, h, self.view_epoch)
     }
+    fn person_mask_hq(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        self.vision.as_ref()?.person_mask_hq(&self.source_id, frame, frame.width as usize, frame.height as usize, self.view_epoch)
+    }
+    fn person_mask_hq_at(&self, frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        self.vision.as_ref()?.person_mask_hq(&self.source_id, frame, w, h, self.view_epoch)
+    }
     fn colour_preview(&self, frame: &Frame) -> Frame {
         frame.clone()
     }

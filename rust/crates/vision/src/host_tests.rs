@@ -191,6 +191,154 @@ fn bench_model_pictures() {
     }
 }
 
+// ── The high quality cutout ─────────────────────────────────────────────
+
+/// A host whose cutout download serves the given files (as the matting pack would), and a cutout that finds the same fake model.
+fn host_with_cutout(files: &'static [(&'static str, &'static [u8])], served: Vec<u8>, offline: Arc<AtomicBool>) -> (VisionHost, EventBus, PathBuf) {
+    let opener: WebOpener = Box::new(move |_, _| {
+        if offline.load(Ordering::SeqCst) { Err(io::Error::other("offline")) } else { Ok(Box::new(Cursor::new(served.clone())) as Box<dyn Read>) }
+    });
+    let size = 1_000_000;
+    let (h, bus) = host_finding(Box::new(|| Err(LoadError::Missing("no".into()))), opener);
+    let tmp = scratch_dir("matting-host");
+    let expected = tmp.join("expected");
+    for (name, data) in files {
+        std::fs::create_dir_all(expected.join(name).parent().unwrap()).unwrap();
+        std::fs::write(expected.join(name), data).unwrap();
+    }
+    let tree = pack::tree_hash(&expected).unwrap();
+    let info = PackInfo::from_json_for(pack::Kind::Matting, &serde_json::json!({"linux": {"id": tree, "size": size}}), Some("linux"));
+    let dir = tmp.join("matting");
+    let (there_dir, there_info) = (dir.clone(), info.clone());
+    let h = h.with_cutout(Box::new(|| Err(LoadError::Missing("no".into()))), Some(Box::new(move || there_info.installed(&there_dir))), dir.clone(), info);
+    (h, bus, dir)
+}
+
+const MATTING_FILES: &[(&str, &[u8])] = &[("lib/libonnxruntime.so", b"lib"), ("models/rvm.onnx", b"model")];
+
+#[test]
+fn a_host_with_no_cutout_has_none_to_offer_and_the_normal_mask_stands_in() {
+    let (h, _bus, _fake) = host_with(Box::new(|_, _| Err(io::Error::other("offline"))));
+    assert_eq!(h.matting_state(), MISSING);
+    let pack = h.matting_pack();
+    assert!(!pack.available && !pack.ready && !pack.downloading);
+    h.download_matting();
+    assert!(!h.matting_pack().downloading, "nothing to download");
+    h.load();
+    wait(|| h.state() == READY);
+    let frame = Frame::new(64, 36, telescope_core::frame::PixelFormat::Rgba, vec![0; 64 * 36 * 4]);
+    // the first mask of a stream waits for the model: what the normal path gives is what the high quality one gives
+    let normal = h.person_mask("a", &frame);
+    let hq = h.person_mask_hq("a", &frame, frame.width as usize, frame.height as usize, 0);
+    assert!(normal.is_some());
+    assert_eq!(hq, normal);
+    assert_eq!(h.matting_state(), MISSING, "and asking didn't make anything load");
+    h.shutdown();
+}
+
+#[test]
+fn the_cutouts_download_is_its_own_and_finishes_with_no_plugin_to_switch_on() {
+    let offline = Arc::new(AtomicBool::new(true));
+    let (h, bus, dir) = host_with_cutout(MATTING_FILES, crate::pack::tests::zipped(MATTING_FILES), offline.clone());
+    assert_eq!(h.matting_state(), MISSING);
+    let pack = h.matting_pack();
+    assert!(pack.available && !pack.ready && pack.size_mb >= 1);
+    assert!(!h.pack().downloading, "the vision pack is another download");
+    // offline: it says why and can be tried again
+    h.download_matting();
+    assert!(finished(&bus)[0].0.contains("internet connection"));
+    let pack = h.matting_pack();
+    assert!(!pack.downloading && !pack.ready && pack.error.contains("internet connection"), "{pack:?}");
+    assert!(!h.pack().ready && h.pack().error.is_empty(), "the vision pack's row never hears about it");
+    offline.store(false, Ordering::SeqCst);
+    h.download_matting();
+    assert_eq!(finished(&bus), [(String::new(), String::new())]);
+    let pack = h.matting_pack();
+    assert!(pack.ready && pack.error.is_empty() && !pack.downloading, "{pack:?}");
+    assert!(dir.join(&h.cutout_pack().unwrap().info.pack_id().unwrap()).join("models/rvm.onnx").is_file());
+    // Remove download deletes both
+    h.remove_pack().unwrap();
+    assert!(!h.matting_pack().ready);
+}
+
+#[test]
+fn a_cutout_that_goes_from_loading_to_ready_or_failed_reaches_the_bus() {
+    let (h, bus, _dir) = host_with_cutout(MATTING_FILES, vec![], Arc::new(AtomicBool::new(true)));
+    let frame = Frame::new(64, 36, telescope_core::frame::PixelFormat::Rgba, vec![0; 64 * 36 * 4]);
+    assert!(h.person_mask_hq("a", &frame, frame.width as usize, frame.height as usize, 0).is_none(), "nothing normal is ready either");
+    let heard = Mutex::new(Vec::new());
+    wait(|| {
+        heard.lock().unwrap().extend(events(&bus).into_iter().filter_map(|e| match e {
+            Event::MattingStateChanged { state } => Some(state),
+            _ => None,
+        }));
+        heard.lock().unwrap().len() >= 2
+    });
+    assert_eq!(*heard.lock().unwrap(), ["loading", "missing"]);
+    assert_eq!(h.matting_state(), MISSING);
+    h.shutdown();
+}
+
+#[test]
+fn a_matting_library_swapped_after_the_download_was_checked_is_not_loaded() {
+    let tmp = scratch_dir("matting-swap");
+    let expected = tmp.join("expected");
+    for (name, data) in MATTING_FILES {
+        std::fs::create_dir_all(expected.join(name).parent().unwrap()).unwrap();
+        std::fs::write(expected.join(name), data).unwrap();
+    }
+    let tree = pack::tree_hash(&expected).unwrap();
+    let info = PackInfo::from_json_for(pack::Kind::Matting, &serde_json::json!({"linux": {"id": tree, "size": 1}}), Some("linux"));
+    let dir = tmp.join("matting");
+    let folder = info.folder(&dir);
+    std::fs::create_dir_all(folder.parent().unwrap()).unwrap();
+    std::fs::rename(&expected, &folder).unwrap();
+    std::fs::write(folder.join(pack::DONE), info.pack_id().unwrap()).unwrap();
+    assert!(info.installed(&dir));
+    std::fs::write(folder.join("lib/libonnxruntime.so"), b"swapped").unwrap();
+    assert!(info.installed(&dir), "the marker still says it's fine");
+    match find_matting(&dir, &info) {
+        Err(LoadError::Failed(e)) => assert!(e.message.contains("changed since"), "{}", e.message),
+        Err(_) => panic!("the swap went unnoticed: the library was handed to the loader"),
+        Ok(_) => panic!("loaded"),
+    }
+}
+
+#[test]
+fn the_normal_mask_stays_warm_while_the_cutout_gives_the_masks() {
+    let (h, _bus, normal) = host_with(Box::new(|_, _| Err(io::Error::other("offline"))));
+    let cutout = Fake::new();
+    let (dir, info) = (scratch_dir("warm-cutout"), PackInfo::default());
+    let h = h.with_cutout(Box::new(move || Ok(cutout.clone() as Arc<dyn Backend>)), None, dir, info);
+    h.load();
+    wait(|| h.state() == READY);
+    let frame = |n: u64| {
+        let mut f = Frame::new(64, 36, telescope_core::frame::PixelFormat::Rgba, vec![0; 64 * 36 * 4]);
+        f.number = n;
+        f
+    };
+    let n = std::cell::Cell::new(0);
+    let ask = || {
+        n.set(n.get() + 1);
+        h.person_mask_hq("a", &frame(n.get()), 64, 36, 0)
+    };
+    // until the cutout's first mask the normal one stands in
+    wait(|| {
+        std::thread::sleep(Duration::from_millis(5));
+        ask().is_some() && h.matting_state() == READY
+    });
+    let ran = || normal.log.lock().unwrap().segmented.len();
+    let before = ran();
+    let end = std::time::Instant::now() + Duration::from_millis(900);
+    while std::time::Instant::now() < end {
+        assert!(ask().is_some());
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    // asked on its own, not only when the cutout fell behind: its mask is never older than the cutout's is allowed to go before it's needed
+    assert!(ran() >= before + 2, "the normal model ran {} times in 0.9 s of cutout masks", ran() - before);
+    h.shutdown();
+}
+
 #[test]
 fn a_pack_file_swapped_after_the_marker_was_written_is_not_loaded() {
     let tmp = scratch_dir("vision-swap");
