@@ -31,11 +31,13 @@ pub struct Pace {
     pub filter_poll: Duration,
     /// Before trying a camera that wouldn't open again.
     pub retry_open: Duration,
+    /// At most this long between sends of a frame that stays up for longer, so the camera doesn't take Telescope for gone.
+    pub refresh: Duration,
 }
 
 impl Default for Pace {
     fn default() -> Pace {
-        Pace { idle: Duration::from_secs(1), filter_poll: Duration::from_millis(50), retry_open: Duration::from_secs(3) }
+        Pace { idle: Duration::from_secs(1), filter_poll: Duration::from_millis(50), retry_open: Duration::from_secs(3), refresh: Duration::from_secs(1) }
     }
 }
 
@@ -550,7 +552,19 @@ impl ScreenJob {
             cam.send(frame)?;
             if self.watched.load(Ordering::SeqCst) {
                 i = (i + 1) % frames.len();
-                self.nudge.wait(beat.next(started, *seconds, Instant::now()));
+                let due = Instant::now() + beat.next(started, *seconds, Instant::now());
+                // A frame that stays up for long is sent again meanwhile, or the camera takes the silence for Telescope gone
+                loop {
+                    let left = due.saturating_duration_since(Instant::now());
+                    if left <= pace.refresh {
+                        self.nudge.wait(left);
+                        break;
+                    }
+                    if self.nudge.wait(pace.refresh) {
+                        break;
+                    }
+                    cam.send(frame)?;
+                }
             } else if let Some(open) = filter_open.as_ref().filter(|open| !open()) {
                 beat.reset();
                 // Until an app opens the camera there's nowhere to send, and it shows its own screen until our first
@@ -1000,6 +1014,17 @@ mod tests {
         assert_eq!(log.sent(0), 1);
         s.set_watched(true);
         wait_for(|| log.sent(0) >= 3, 1.0);
+        s.stop();
+    }
+
+    #[test]
+    fn a_long_frame_is_sent_again_while_it_stays_up() {
+        let loader: Loader = Arc::new(|_p, w, h| Ok(vec![(Rgb { width: w, height: h, data: vec![0; (w * h * 3) as usize] }, 10.0)]));
+        let pace = Pace { refresh: Duration::from_millis(30), ..Pace::default() };
+        let (s, log, _g) = screen(Setup { loader, pace, ..Setup::default() });
+        s.show(8, 8, None, false);
+        s.set_watched(true);
+        wait_for(|| log.sent(0) >= 4, 2.0);
         s.stop();
     }
 

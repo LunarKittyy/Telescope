@@ -18,6 +18,10 @@ pub trait VideoOutput: Send {
     /// The frame has to be the size it was opened at, in a format from formats().
     fn send(&mut self, frame: &Frame) -> Result<(), String>;
     fn size(&self) -> (u32, u32);
+    /// The size to fit frames to now, when an app reading the camera has taken another one than it was opened at.
+    fn fit_size(&mut self) -> Option<(u32, u32)> {
+        None
+    }
     fn device(&self) -> String;
     /// Whether an app is reading it right now, when that can be told (camera_watched).
     fn watched(&self) -> Option<bool> {

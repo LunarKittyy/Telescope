@@ -1228,6 +1228,7 @@ impl Shared {
         let mut pacer = Pacer::new(period);
         let mut last_preview = Instant::now() - Duration::from_secs(1);
         let (mut seen, mut fitted): (u64, Option<Frame>) = (0, None);
+        let mut fitted_to = (cam_w, cam_h);
         // Frames that came in while the last one was being paced, each with how many had been published by then, and the newest one sent
         let mut queued: std::collections::VecDeque<(Frame, u64)> = std::collections::VecDeque::new();
         let mut shown: Option<Frame> = None;
@@ -1273,17 +1274,28 @@ impl Shared {
             {
                 let new_frame = next.is_some();
                 let started = Instant::now();
+                // An app that took another size than the camera was opened at gets frames fitted to that one, or they'd be fitted twice
+                let want = cam.fit_size().unwrap_or((cam_w, cam_h));
                 let (src, fresh_at) = match next {
                     Some((src, at)) => {
                         // A frame a plugin replaced in the slot goes out again but isn't another one
                         let fresh = src.number != self.last_sent_number.load(Ordering::Relaxed);
                         watch.frame(telescope_core::time::monotonic_ns(), &context);
-                        let fit = fit_frame(&src, cam_w, cam_h);
+                        let fit = fit_frame(&src, want.0, want.1);
                         fitted = Some(if nv12 { to_nv12(&fit) } else { fit });
+                        fitted_to = want;
                         shown = Some(src.clone());
                         (src, fresh.then_some(at))
                     }
-                    None => (shown.clone().unwrap(), None),
+                    None => {
+                        let src = shown.clone().unwrap();
+                        if want != fitted_to {
+                            let fit = fit_frame(&src, want.0, want.1);
+                            fitted = Some(if nv12 { to_nv12(&fit) } else { fit });
+                            fitted_to = want;
+                        }
+                        (src, None)
+                    }
                 };
                 let began = telescope_core::time::monotonic_ns();
                 if let Err(e) = cam.send(fitted.as_ref().unwrap()) {
@@ -1824,6 +1836,8 @@ mod tests {
         nv12: AtomicBool,
         /// What locked_size answers.
         locked: Mutex<Option<(u32, u32)>>,
+        /// The size an app reads the open camera at, when it isn't the one it was opened at.
+        reader: Mutex<Option<(u32, u32)>>,
         /// The open camera reports itself outdated once.
         outdated: AtomicBool,
         /// The next send fails once.
@@ -1857,6 +1871,9 @@ mod tests {
         }
         fn size(&self) -> (u32, u32) {
             self.1
+        }
+        fn fit_size(&mut self) -> Option<(u32, u32)> {
+            *self.0.reader.lock().unwrap()
         }
         fn device(&self) -> String {
             "/dev/video9".into()
@@ -1984,6 +2001,20 @@ mod tests {
         let sent = cams.frames.lock().unwrap()[0].clone();
         assert_eq!((sent.width, sent.height, sent.data.len()), (6, 6, 54), "the 4x2 frames are fitted into it");
         assert_eq!(log.lock().unwrap().iter().filter(|e| matches!(e, WorkerEvent::VcamOpened(..))).collect::<Vec<_>>(), [&WorkerEvent::VcamOpened(6, 6)]);
+    }
+
+    #[test]
+    fn frames_are_fitted_to_the_size_an_app_reads_the_camera_at_now() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(10)])]);
+        let w = started(WorkerSetup { canvas: (Some(6), Some(6)), ..setup(opener) }, &cams, &log);
+        wait_for(|| !cams.frames.lock().unwrap().is_empty());
+        assert_eq!(cams.frames.lock().unwrap()[0].width, 6, "fitted to the canvas while no app reads");
+        *cams.reader.lock().unwrap() = Some((4, 2));
+        wait_for(|| cams.frames.lock().unwrap().last().is_some_and(|f| f.width == 4));
+        w.stop();
+        let last = cams.frames.lock().unwrap().last().unwrap().clone();
+        assert_eq!((last.width, last.height, last.data.len()), (4, 2, 12), "the 4x2 frame fills what the app reads, with no bars");
     }
 
     #[test]
