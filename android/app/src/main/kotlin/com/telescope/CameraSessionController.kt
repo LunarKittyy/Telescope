@@ -64,6 +64,9 @@ class CameraSessionController(
     initialStreamHeight: Int,
     initialPhoneFps: Int = 30,
     private val onFrame: (ByteArray) -> Unit,
+    // False while nobody reads the JPEGs: the frame is counted (onFrameSkipped) but not copied out of the reader
+    private val frameWanted: () -> Boolean = { true },
+    private val onFrameSkipped: () -> Unit = {},
     private val onStateChanged: (StreamState, String, Throwable?) -> Unit,
     private val onFatalError: () -> Unit,
     private val onControlError: (String, Throwable) -> Unit = { _, _ -> },
@@ -792,6 +795,7 @@ class CameraSessionController(
         reader.setOnImageAvailableListener({ r ->
             val image = r.acquireLatestImage() ?: return@setOnImageAvailableListener
             try {
+                if (!frameWanted()) { onFrameSkipped(); return@setOnImageAvailableListener }
                 val buf   = image.planes[0].buffer
                 val bytes = ByteArray(buf.remaining())
                 buf.get(bytes)

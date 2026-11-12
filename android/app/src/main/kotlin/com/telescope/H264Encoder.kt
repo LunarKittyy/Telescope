@@ -54,6 +54,15 @@ class H264Encoder(
         fun attemptsFor(sdk: Int): List<Attempt> =
             ATTEMPTS.map { if (sdk >= Build.VERSION_CODES.R) it else it.copy(extras = it.extras - Extra.ENCODER_LATENCY) }.distinct()
 
+        // What the encoder accepted for a size and rate, kept until the app restarts: a rebuild starts there instead of
+        // configuring the ones this phone already refused
+        data class Shape(val width: Int, val height: Int, val fps: Int)
+        private val accepted = java.util.concurrent.ConcurrentHashMap<Shape, Attempt>()
+
+        // The accepted attempt first, then the rest as they were, so one that stops working still falls back to them
+        fun ordered(attempts: List<Attempt>, accepted: Attempt?): List<Attempt> =
+            if (accepted == null || accepted !in attempts) attempts else listOf(accepted) + (attempts - accepted)
+
         // Set once an encoder ignored KEY_MAX_B_FRAMES at High; Baseline from then on, until the app restarts
         @Volatile var highReorders = false
         private const val REORDERS_TO_DROP_HIGH = 3
@@ -137,7 +146,8 @@ class H264Encoder(
     init {
         var opened: Pair<MediaCodec, Surface>? = null
         var failure: Exception? = null
-        for (attempt in attemptsFor(Build.VERSION.SDK_INT)) {
+        val shape = Shape(width, height, fps)
+        for (attempt in ordered(attemptsFor(Build.VERSION.SDK_INT), accepted[shape])) {
             val mc = try { MediaCodec.createEncoderByType(MIME) } catch (e: Exception) { failure = e; break }
             val caps = try { mc.codecInfo.getCapabilitiesForType(MIME).videoCapabilities } catch (_: Exception) { null }
             // 4:3 4K is past what H.264 encoders do (its usual 4K tops out near 4096x2304), and the camera then fails
@@ -162,6 +172,7 @@ class H264Encoder(
                 intraRefresh = Extra.INTRA_REFRESH in attempt.extras
                 mc.start()
                 opened = mc to surface
+                accepted[shape] = attempt
                 break
             } catch (e: Exception) {
                 failure = e

@@ -168,6 +168,8 @@ object SessionEndpoint {
 
     fun screenStarted(context: Context) {
         appContext = context.applicationContext
+        // The first start reads (or makes) the TLS identity: do it off the main thread while the screen comes up
+        kotlin.concurrent.thread(name = "tls-warm", isDaemon = true) { try { PhoneTls.identity(context) } catch (_: Exception) {} }
         screens.started()
     }
 

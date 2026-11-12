@@ -41,4 +41,16 @@ class H264EncoderTest {
         assertEquals(H264Encoder.ATTEMPTS, H264Encoder.attemptsFor(30))
         assertEquals(H264Encoder.ATTEMPTS.size - 2, old.size)
     }
+
+    @Test
+    fun `a rebuild starts at the attempt the encoder accepted and keeps the others as fallbacks`() {
+        val attempts = H264Encoder.attemptsFor(30)
+        val third = attempts[2]
+        val ordered = H264Encoder.ordered(attempts, third)
+        assertEquals(third, ordered.first())
+        assertEquals(attempts.size, ordered.size)
+        assertEquals(attempts.toSet(), ordered.toSet())
+        assertEquals(attempts - third, ordered.drop(1))
+        assertEquals(attempts, H264Encoder.ordered(attempts, null))
+    }
 }

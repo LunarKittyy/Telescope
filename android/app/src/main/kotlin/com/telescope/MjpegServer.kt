@@ -132,6 +132,12 @@ class MjpegServer(
     // Frames the camera made for the stream lately, either codec: the computer compares what arrived with it.
     val frameRate = FrameRate()
 
+    /** Whether any viewer reads JPEG frames; the camera skips copying them out when none does. */
+    fun wantsJpeg(): Boolean = clients.isNotEmpty()
+
+    /** A frame the camera made that nobody read, still part of the rate the computer compares with. */
+    fun countFrame() = frameRate.tick()
+
     fun sendFrame(jpeg: ByteArray) {
         frameRate.tick()
         val dead = mutableListOf<MjpegClient>()
