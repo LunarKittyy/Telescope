@@ -170,7 +170,7 @@ fn a_photo_sets_what_was_asked_sends_the_picture_to_the_computer_and_brings_live
     *shared.pending.lock().unwrap() = {
         let (tx, rx) = sync_channel(1);
         std::mem::forget(rx);
-        Some(Job { wish: Wish { format: Format::RawJpeg, iso: Some("800".into()), shutter: Some("1,0000s".into()), timer_s: 0 }, reply: tx })
+        Some(Job { wish: Wish { format: Format::RawJpeg, iso: Some("800".into()), shutter: Some("1,0000s".into()), timer_s: 0 }, reply: tx, late: None })
     };
     assert!(shared.run_pending(&mut Fake(state.clone())));
     assert_eq!(log(&state), ["viewfinder=0", "iso=800", "shutterspeed=1,0000s", "capturetarget=Internal RAM", "capture", "viewfinder=1"]);
@@ -566,4 +566,143 @@ fn a_service_that_follows_its_camera_is_told_where_the_camera_is_now_and_not_whe
     drop(cap);
     notify_changed("usb:F2");
     assert_eq!(heard.load(Ordering::SeqCst), 1);
+}
+
+// ── A long exposure, a photo that comes late and a quality the camera has locked ──
+
+#[test]
+fn the_wait_for_a_photo_follows_the_exposure() {
+    let base = Duration::from_secs(240);
+    assert_eq!(wait_for_photo(base, None), base);
+    assert_eq!(wait_for_photo(base, shutter_seconds("1/40")), base, "an ordinary photo waits as it always did");
+    assert_eq!(wait_for_photo(base, shutter_seconds("30,0000s")), base, "30 s with noise reduction fits");
+    assert_eq!(wait_for_photo(base, shutter_seconds("300")), Duration::from_secs(660), "300 s is not cut off at 240");
+    assert_eq!(wait_for_photo(base, shutter_seconds("900,0000s")), Duration::from_secs(1860));
+    assert_eq!(wait_for_photo(base, shutter_seconds("Bulb")), base);
+}
+
+#[test]
+fn the_exposure_is_the_speed_asked_for_else_the_one_the_camera_is_on() {
+    let state = d5100(true);
+    state.lock().unwrap().settings.insert("shutterspeed".into(), setting(false, &["0,0250s", "30,0000s", "300,0000s"], "300,0000s"));
+    let shared = Shared::default();
+    shared.set_caps(Some(read_photo_caps(&mut Fake(state))));
+    assert_eq!(exposure_of(&shared, &wish(Format::Jpeg)), Some(300.0), "what the camera is on");
+    assert_eq!(exposure_of(&shared, &Wish { shutter: Some("0,0250s".into()), ..wish(Format::Jpeg) }), Some(0.025));
+    assert_eq!(exposure_of(&Shared::default(), &wish(Format::Jpeg)), None);
+}
+
+#[test]
+fn a_photo_that_comes_after_the_wait_is_saved_and_the_card_is_told_it_was_late() {
+    let state = d5100(true);
+    state.lock().unwrap().capture_takes = Duration::from_millis(700);
+    let mut cap = open_with("gphoto2:usb:L1", fast(), connecting(&state)).ok().unwrap();
+    cap.read().unwrap();
+    let mut stills = GphotoStills::new("gphoto2:usb:L1");
+    stills.longest = Duration::from_millis(100);
+    wait_for("caps", || stills.caps().is_some());
+    let dir = folder("late");
+    let taken = take(&stills, json!({"format": "jpeg"}), &dir, yes()).unwrap();
+    let done = read_until_done(&mut cap, &taken);
+    assert_eq!((done["ok"].clone(), done["code"].clone()), (json!(false), json!("timeout")), "{done}");
+    assert!(done["error"].as_str().unwrap().contains("saved"), "it says the photo is kept if it still comes: {done}");
+    // The camera finishes after that, and the files are not thrown away
+    let until = Instant::now() + Duration::from_secs(10);
+    let late = loop {
+        if let Some(late) = taken.states.lock().unwrap().iter().find(|p| p["state"] == "late").cloned() {
+            break late;
+        }
+        assert!(Instant::now() < until, "the late photo was never reported");
+        cap.read().expect("the live view carries on");
+    };
+    let files: Vec<String> = late["files"].as_array().unwrap().iter().map(|f| f.as_str().unwrap().to_string()).collect();
+    assert_eq!(files.len(), 1);
+    assert_eq!(std::fs::read(&files[0]).unwrap(), vec![1; 8], "the camera's file is on disk");
+    drop(cap);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_photo_that_comes_late_with_a_file_missing_still_keeps_the_file_that_came() {
+    let state = d5100(true);
+    {
+        let mut s = state.lock().unwrap();
+        s.capture_takes = Duration::from_millis(700);
+        s.partial = true;
+    }
+    let mut cap = open_with("gphoto2:usb:L2", fast(), connecting(&state)).ok().unwrap();
+    cap.read().unwrap();
+    let mut stills = GphotoStills::new("gphoto2:usb:L2");
+    stills.longest = Duration::from_millis(100);
+    wait_for("caps", || stills.caps().is_some());
+    let dir = folder("late-partial");
+    let taken = take(&stills, json!({"format": "jpeg", "raw": 1}), &dir, yes()).unwrap();
+    let done = read_until_done(&mut cap, &taken);
+    assert_eq!(done["code"], json!("timeout"));
+    let until = Instant::now() + Duration::from_secs(10);
+    while !taken.states.lock().unwrap().iter().any(|p| p["state"] == "late") {
+        assert!(Instant::now() < until, "the late file was never reported");
+        cap.read().expect("the live view carries on");
+    }
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
+    drop(cap);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_photo_that_finishes_in_time_is_not_reported_late() {
+    let shared = Shared::default();
+    let (tx, rx) = sync_channel(1);
+    let told = Arc::new(Mutex::new(0));
+    let counted = told.clone();
+    *shared.pending.lock().unwrap() = Some(Job { wish: wish(Format::Jpeg), reply: tx, late: Some(Arc::new(move |_| *counted.lock().unwrap() += 1)) });
+    assert!(shared.run_pending(&mut Fake(d5100(true))));
+    assert!(rx.try_recv().unwrap().is_ok());
+    assert_eq!(*told.lock().unwrap(), 0);
+    // With nobody waiting any more, it is
+    let (tx, rx) = sync_channel(1);
+    drop(rx);
+    let counted = told.clone();
+    *shared.pending.lock().unwrap() = Some(Job { wish: wish(Format::Jpeg), reply: tx, late: Some(Arc::new(move |_| *counted.lock().unwrap() += 1)) });
+    assert!(shared.run_pending(&mut Fake(d5100(true))));
+    assert_eq!(*told.lock().unwrap(), 1);
+}
+
+#[test]
+fn a_jpeg_is_refused_when_the_quality_is_locked_to_raw_and_nothing_is_shot() {
+    let quality = ["JPEG Fine", "NEF (Raw)", "NEF+Fine"];
+    for (locked_to, class) in [("NEF (Raw)", Class::Raw), ("NEF+Fine", Class::Both)] {
+        let state = d5100(true);
+        state.lock().unwrap().settings.insert("imagequality".into(), setting(true, &quality, locked_to));
+        let err = take_photo(&mut Fake(state.clone()), &wish(Format::Jpeg)).unwrap_err();
+        assert_eq!(err, Failure::Locked(class), "{locked_to}");
+        assert_eq!(state.lock().unwrap().captures, 0, "the shutter never opened");
+        assert_eq!(err.code(), "unsupported");
+        assert!(err.text().contains("locked to RAW"), "{}", err.text());
+    }
+    // What it is locked to is what can be asked for
+    let state = d5100(true);
+    state.lock().unwrap().settings.insert("imagequality".into(), setting(true, &quality, "NEF (Raw)"));
+    assert_eq!(take_photo(&mut Fake(state.clone()), &wish(Format::Raw)).unwrap().len(), 1);
+    // A locked JPEG setting takes a JPEG
+    let state = d5100(true);
+    state.lock().unwrap().settings.insert("imagequality".into(), setting(true, &quality, "JPEG Fine"));
+    assert_eq!(take_photo(&mut Fake(state), &wish(Format::Jpeg)).unwrap().len(), 1);
+}
+
+#[test]
+fn a_locked_camera_ending_a_photo_through_the_service_says_why() {
+    let state = d5100(true);
+    state.lock().unwrap().settings.insert("imagequality".into(), setting(true, &["JPEG Fine", "NEF (Raw)"], "NEF (Raw)"));
+    let mut cap = open_with("gphoto2:usb:L3", fast(), connecting(&state)).ok().unwrap();
+    cap.read().unwrap();
+    let stills = GphotoStills::new("gphoto2:usb:L3");
+    wait_for("caps", || stills.caps().is_some());
+    let dir = folder("locked");
+    let taken = take(&stills, json!({"format": "jpeg"}), &dir, yes()).unwrap();
+    let done = read_until_done(&mut cap, &taken);
+    assert_eq!((done["ok"].clone(), done["code"].clone()), (json!(false), json!("unsupported")), "{done}");
+    assert!(done["error"].as_str().unwrap().contains("locked to RAW"));
+    assert_eq!(done["files"], json!([]), "nothing saved that wasn't asked for");
+    drop(cap);
 }

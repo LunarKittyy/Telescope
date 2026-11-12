@@ -2262,7 +2262,7 @@ msgstr "RAW 사진에는 화질 설정이 없어요"
 msgid "The camera is already taking a photo."
 msgstr "카메라가 이미 사진을 찍고 있어요."
 
-#: rust/crates/effects/src/photos.rs:59
+#: rust/crates/effects/src/photos.rs:59 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:263
 msgid "The camera couldn't take the photo."
 msgstr "카메라가 사진을 찍지 못했어요."
 
@@ -2275,7 +2275,7 @@ msgstr "동영상과 동일"
 msgid "{seconds} s"
 msgstr "{seconds}초"
 
-#: rust/crates/effects/src/photos.rs:450 rust/crates/effects/src/photos.rs:962 rust/crates/effects/src/photos.rs:978 rust/crates/effects/ui/photos.slint:143
+#: rust/crates/effects/src/photos.rs:450 rust/crates/effects/src/photos.rs:981 rust/crates/effects/src/photos.rs:997 rust/crates/effects/ui/photos.slint:143
 msgid "Take photo"
 msgstr "사진 촬영"
 
@@ -2327,7 +2327,7 @@ msgstr "노출"
 msgid "Distortion fix"
 msgstr "왜곡 보정"
 
-#: rust/crates/effects/src/photos.rs:581 rust/crates/effects/src/photos.rs:903
+#: rust/crates/effects/src/photos.rs:581 rust/crates/effects/src/photos.rs:922
 msgid "Start streaming to take photos."
 msgstr "사진을 촬영하려면 스트리밍을 시작하세요."
 
@@ -2358,31 +2358,36 @@ msgstr "사진 촬영 중, 동영상 일시 정지됨…"
 msgid "Saved {name}"
 msgstr "{name} 저장됨"
 
-#: rust/crates/effects/src/photos.rs:807
+#: rust/crates/effects/src/photos.rs:807 rust/crates/effects/src/photos.rs:829
 msgid "Photo saved"
 msgstr "사진 저장됨"
 
-#: rust/crates/effects/src/photos.rs:822
+#: rust/crates/effects/src/photos.rs:825
+#, python-brace-format
+msgid "It came late. Saved {name}"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:839
 msgid "Save photos in"
 msgstr "사진 저장 위치"
 
-#: rust/crates/effects/src/photos.rs:837 rust/crates/effects/src/photos.rs:953 rust/crates/effects/ui/photos.slint:134
+#: rust/crates/effects/src/photos.rs:854 rust/crates/effects/src/photos.rs:972 rust/crates/effects/ui/photos.slint:134
 msgid "Photos"
 msgstr "사진"
 
-#: rust/crates/effects/src/photos.rs:838
+#: rust/crates/effects/src/photos.rs:855
 msgid "Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it."
 msgstr "카메라가 지원하는 경우 RAW를 포함해 휴대폰이나 DSLR에서 최고 화질로 사진을 찍어요."
 
-#: rust/crates/effects/src/photos.rs:839
+#: rust/crates/effects/src/photos.rs:856
 msgid "Without it there's no Photos card and no Take photo shortcut."
 msgstr "끄면 사진 카드가 사라지고 사진 촬영 단축키를 사용할 수 없어요."
 
-#: rust/crates/effects/src/photos.rs:955 rust/crates/effects/src/photos.rs:993
+#: rust/crates/effects/src/photos.rs:974 rust/crates/effects/src/photos.rs:1012
 msgid "Photo mode"
 msgstr "사진 모드"
 
-#: rust/crates/effects/src/photos.rs:960 rust/crates/effects/src/photos.rs:1003
+#: rust/crates/effects/src/photos.rs:979 rust/crates/effects/src/photos.rs:1022
 msgid "Photo timer"
 msgstr "사진 타이머"
 
@@ -4872,6 +4877,46 @@ msgstr "다른 프로그램이 카메라를 드라이브로 마운트했어요. 
 #: rust/crates/outputs/src/webcam_capture.rs:14
 msgid "The webcam isn't sending anything. Try another resolution or frame rate."
 msgstr "웹캠에서 아무것도 전송하지 않고 있어요. 다른 해상도나 프레임 레이트를 시도해 보세요."
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:259
+msgid "The camera is busy. Try again in a moment."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:260
+msgid "The camera's mode doesn't allow that setting."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:261
+msgid "The camera is on Bulb. Pick a shutter speed first."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:262
+msgid "This camera can't take that kind of photo."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:264
+msgid "Telescope couldn't save the photo."
+msgstr "Telescope가 사진을 저장하지 못했어요."
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:265
+msgid "The photo was interrupted because the camera stopped."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:266
+msgid "The camera took too long to take the photo. If it still arrives, it is saved and you'll be told."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:267
+msgid "The camera's image quality is locked to RAW and JPEG together, so it can't take a JPEG on its own."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:268
+msgid "The camera's image quality is locked to RAW, so it can't take a JPEG."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:269
+msgid "The camera only sent part of the photo. What came is saved."
+msgstr ""
 
 #: rust/crates/outputs/src/wininstall.rs:225 rust/crates/setup/src/setup.rs:805
 msgid "Installed"
@@ -9100,10 +9145,6 @@ msgstr "사진을 촬영하는 동안 휴대폰과의 연결이 끊어졌어요.
 #: rust/crates/link/src/stills.rs:58
 msgid "The phone gave up on the photo, maybe because its stream stopped."
 msgstr "스트림이 중지되었거나 다른 이유로 휴대폰에서 사진 촬영을 취소했어요."
-
-#: rust/crates/link/src/stills.rs:59
-msgid "Telescope couldn't save the photo."
-msgstr "Telescope가 사진을 저장하지 못했어요."
 
 #: rust/crates/link/src/stills.rs:60
 msgid "This phone can't take photos from Telescope. Update the app on the phone."

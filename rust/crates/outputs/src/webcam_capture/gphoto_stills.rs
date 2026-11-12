@@ -14,7 +14,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{sync_channel, RecvTimeoutError, SyncSender};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
-use telescope_core::i18n::tr;
+use telescope_core::i18n::{n_, tr};
 use telescope_core::source::SourceStills;
 
 /// The camera's own names for what a photo needs, each listing the names to try in turn (Nikon, then Canon and others).
@@ -22,7 +22,8 @@ const QUALITY: [&str; 2] = ["imagequality", "imageformat"];
 const ISO: [&str; 1] = ["iso"];
 const SHUTTER: [&str; 2] = ["shutterspeed", "shutterspeed2"];
 const TARGET: [&str; 1] = ["capturetarget"];
-/// A photo that hasn't come back by now is given up on (a 30 s exposure with noise reduction took 67 s on a D5100).
+/// A photo that hasn't come back by now is given up on (a 30 s exposure with noise reduction took 67 s on a D5100). A longer exposure
+/// waits for longer than this, see `wait_for_photo`.
 const LONGEST: Duration = Duration::from_secs(4 * 60);
 /// How often the job looks at its camera's thread, and how many looks make one progress report.
 const LOOK: Duration = Duration::from_millis(250);
@@ -120,12 +121,26 @@ impl Menu {
 
 /// A shutter speed the way cameras show it: "0,0250s" and "1/40" are 1/40, "10/25" is 0.4 s, "30" is 30 s. None for what isn't a time.
 pub fn shutter_label(raw: &str) -> Option<String> {
+    shutter_seconds(raw).map(shutter_text)
+}
+
+/// How long a shutter speed in the camera's words keeps the shutter open, in seconds. None for what isn't a time.
+pub fn shutter_seconds(raw: &str) -> Option<f64> {
     let t = raw.trim().trim_end_matches(['s', 'S', '"']).replace(',', ".");
     let seconds = match t.split_once('/') {
         Some((n, d)) => n.trim().parse::<f64>().ok()? / d.trim().parse::<f64>().ok().filter(|d| *d != 0.0)?,
         None => t.parse::<f64>().ok()?,
     };
-    (seconds > 0.0 && seconds.is_finite()).then(|| shutter_text(seconds))
+    (seconds > 0.0 && seconds.is_finite()).then_some(seconds)
+}
+
+/// How long to wait for a photo: `base` for an ordinary one, and for a long exposure (10 s and up) at least twice the exposure and a minute
+/// (the camera's own noise reduction takes about as long again as the exposure).
+pub fn wait_for_photo(base: Duration, exposure_s: Option<f64>) -> Duration {
+    match exposure_s.filter(|s| s.is_finite() && *s >= 10.0) {
+        Some(exposure) => base.max(Duration::from_secs_f64(exposure.min(24.0 * 3600.0) * 2.0 + 60.0)),
+        None => base,
+    }
 }
 
 /// What the camera takes right now.
@@ -217,6 +232,8 @@ pub enum Failure {
     Save,
     Interrupted,
     Timeout,
+    /// The camera's image quality is read-only on a setting that also makes RAW, so a JPEG-only photo can't be had.
+    Locked(Class),
     /// A RAW and JPEG photo with a file missing: the files that did come are still saved.
     Partial(Vec<Shot>),
 }
@@ -232,21 +249,24 @@ impl Failure {
             Failure::Save => "save",
             Failure::Interrupted => "interrupted",
             Failure::Timeout => "timeout",
+            Failure::Locked(_) => "unsupported",
             Failure::Partial(_) => "partial",
         }
     }
 
     fn text(&self) -> String {
         tr(match self {
-            Failure::Busy => "The camera is busy. Try again in a moment.",
-            Failure::Setting(_) => "The camera's mode doesn't allow that setting.",
-            Failure::Bulb => "The camera is on Bulb. Pick a shutter speed first.",
-            Failure::Unsupported => "This camera can't take that kind of photo.",
-            Failure::Camera(_) => "The camera couldn't take the photo.",
-            Failure::Save => "Telescope couldn't save the photo.",
-            Failure::Interrupted => "The photo was interrupted because the camera stopped.",
-            Failure::Timeout => "The camera took too long to take the photo.",
-            Failure::Partial(_) => "The camera only sent part of the photo. What came is saved.",
+            Failure::Busy => n_("The camera is busy. Try again in a moment."),
+            Failure::Setting(_) => n_("The camera's mode doesn't allow that setting."),
+            Failure::Bulb => n_("The camera is on Bulb. Pick a shutter speed first."),
+            Failure::Unsupported => n_("This camera can't take that kind of photo."),
+            Failure::Camera(_) => n_("The camera couldn't take the photo."),
+            Failure::Save => n_("Telescope couldn't save the photo."),
+            Failure::Interrupted => n_("The photo was interrupted because the camera stopped."),
+            Failure::Timeout => n_("The camera took too long to take the photo. If it still arrives, it is saved and you'll be told."),
+            Failure::Locked(Class::Both) => n_("The camera's image quality is locked to RAW and JPEG together, so it can't take a JPEG on its own."),
+            Failure::Locked(_) => n_("The camera's image quality is locked to RAW, so it can't take a JPEG."),
+            Failure::Partial(_) => n_("The camera only sent part of the photo. What came is saved."),
         })
     }
 }
@@ -282,7 +302,9 @@ pub fn take_photo(rig: &mut dyn Rig, wish: &Wish) -> Result<Vec<Shot>, Failure> 
                     expect = 2;
                 }
             }
-            // The camera makes whatever it is set to, which is all a JPEG ask can mean here
+            // A JPEG ask on a camera locked to something that makes RAW would save what wasn't picked
+            None if wish.format == Format::Jpeg && matches!(classify(&q.current), Class::Raw | Class::Both) => return Err(Failure::Locked(classify(&q.current))),
+            // Otherwise the camera makes whatever it is set to, which is all a JPEG ask can mean here
             None if wish.format == Format::Jpeg => {}
             None => return Err(Failure::Unsupported),
         }
@@ -317,9 +339,13 @@ pub fn take_photo(rig: &mut dyn Rig, wish: &Wish) -> Result<Vec<Shot>, Failure> 
     })
 }
 
+/// What to do with a photo that came after its job gave up waiting: save it and say so.
+type Late = Arc<dyn Fn(Result<Vec<Shot>, Failure>) + Send + Sync>;
+
 struct Job {
     wish: Wish,
     reply: SyncSender<Result<Vec<Shot>, Failure>>,
+    late: Option<Late>,
 }
 
 /// What a camera's thread shares with its photo service while it streams.
@@ -364,7 +390,12 @@ impl Shared {
         let result = take_photo(rig, &job.wish);
         let _ = rig.write("viewfinder", "1");
         self.capturing.store(false, Ordering::SeqCst);
-        let _ = job.reply.send(result);
+        // The job may have stopped waiting (a timeout, or the stream stopping): what the camera sent after that is not thrown away
+        if let Err(std::sync::mpsc::SendError(result)) = job.reply.send(result) {
+            if let Some(late) = job.late {
+                late(result);
+            }
+        }
         true
     }
 }
@@ -457,8 +488,18 @@ fn save(folder: &Path, shots: &[Shot]) -> Result<Vec<PathBuf>, (Failure, Vec<Pat
     Ok(files)
 }
 
+/// How long the shutter will stay open for this photo: the speed asked for, else the one the camera is on.
+fn exposure_of(shared: &Shared, wish: &Wish) -> Option<f64> {
+    if let Some(speed) = &wish.shutter {
+        return shutter_seconds(speed);
+    }
+    let caps = shared.caps.lock().unwrap();
+    let menu = caps.as_ref()?.shutter.as_ref()?;
+    shutter_seconds(menu.values.get(menu.current?)?)
+}
+
 /// One photo from start to saved files, on the thread of its own: the countdown, the camera's thread doing the shooting, the files.
-fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Value), alive: &dyn Fn() -> bool, longest: Duration) -> Value {
+fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Value), alive: &dyn Fn() -> bool, longest: Duration, late: Option<Late>) -> Value {
     if let Err(e) = std::fs::create_dir_all(folder) {
         log::warn!("can't make the photo folder {}: {e}", folder.display());
         return failed(&Failure::Save, &[]);
@@ -477,8 +518,9 @@ fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Valu
         }
         std::thread::sleep(left.min(Duration::from_millis(50)));
     }
+    let longest = wait_for_photo(longest, exposure_of(shared, &wish));
     let (tx, rx) = sync_channel(1);
-    *shared.pending.lock().unwrap() = Some(Job { wish, reply: tx });
+    *shared.pending.lock().unwrap() = Some(Job { wish, reply: tx, late });
     on_progress(progress("capturing", 0, true));
     let (began, mut looks) = (Instant::now(), 0u32);
     let shots = loop {
@@ -559,8 +601,24 @@ impl SourceStills for GphotoStills {
         }
         let (wish, folder, longest) = (Wish::from_options(options), PathBuf::from(folder), self.longest);
         let held = shared.clone();
+        // Progress can still be told after the job ends, for a photo that comes late
+        let on_progress = Arc::new(Mutex::new(on_progress));
+        let tell = on_progress.clone();
+        let late_folder = folder.clone();
+        let late: Late = Arc::new(move |outcome| {
+            let shots = match outcome {
+                Ok(shots) | Err(Failure::Partial(shots)) => shots,
+                Err(_) => return,
+            };
+            let files = save(&late_folder, &shots).unwrap_or_else(|(_, files)| files);
+            if !files.is_empty() {
+                let said = json!({"state": "late", "files": files.iter().map(|f| f.display().to_string()).collect::<Vec<_>>()});
+                (*tell.lock().unwrap_or_else(|e| e.into_inner()))(said);
+            }
+        });
         let spawned = std::thread::Builder::new().name("dslr-photo".into()).spawn(move || {
-            let outcome = run_job(&held, wish, &folder, &*on_progress, &*alive, longest);
+            let report = |data: Value| (*on_progress.lock().unwrap_or_else(|e| e.into_inner()))(data);
+            let outcome = run_job(&held, wish, &folder, &report, &*alive, longest, Some(late));
             held.in_flight.store(false, Ordering::SeqCst);
             on_done(outcome);
         });

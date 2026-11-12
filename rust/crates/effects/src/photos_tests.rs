@@ -280,6 +280,20 @@ fn take_photo_sends_the_options_with_the_views_rotation() {
 }
 
 #[test]
+fn a_photo_that_comes_late_is_announced_after_its_request_has_ended() {
+    let mut rig = Rig::new(Some(full_json()), true);
+    rig.host.window_active = true;
+    rig.ui("take-clicked", vec![]);
+    let id = *rig.plugin.taking.last().unwrap();
+    rig.event(Event::RequestDone { request: id, ok: false, message: String::new(), data: json!({"ok": false, "files": [], "code": "timeout", "error": "The camera took too long."}) });
+    assert!(rig.plugin.taking.is_empty());
+    rig.event(Event::RequestProgress { request: id, data: json!({"state": "late", "files": ["/tmp/photos/IMG_9.nef"]}) });
+    let p = rig.props();
+    assert_eq!((p["status"].as_str(), p["status-kind"].as_str()), (Some("It came late. Saved IMG_9.nef"), Some("status_ok")));
+    assert!(rig.host.calls.iter().any(|c| c == "send_notification Photo saved"), "told even with the window in front");
+}
+
+#[test]
 fn a_photo_taken_with_the_window_in_front_sends_no_notification() {
     let mut rig = Rig::new(Some(full_json()), true);
     rig.host.window_active = true;

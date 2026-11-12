@@ -2263,7 +2263,7 @@ msgstr ""
 msgid "The camera is already taking a photo."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:59
+#: rust/crates/effects/src/photos.rs:59 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:263
 msgid "The camera couldn't take the photo."
 msgstr ""
 
@@ -2276,7 +2276,7 @@ msgstr ""
 msgid "{seconds} s"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:450 rust/crates/effects/src/photos.rs:962 rust/crates/effects/src/photos.rs:978 rust/crates/effects/ui/photos.slint:143
+#: rust/crates/effects/src/photos.rs:450 rust/crates/effects/src/photos.rs:981 rust/crates/effects/src/photos.rs:997 rust/crates/effects/ui/photos.slint:143
 msgid "Take photo"
 msgstr ""
 
@@ -2328,7 +2328,7 @@ msgstr ""
 msgid "Distortion fix"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:581 rust/crates/effects/src/photos.rs:903
+#: rust/crates/effects/src/photos.rs:581 rust/crates/effects/src/photos.rs:922
 msgid "Start streaming to take photos."
 msgstr ""
 
@@ -2359,31 +2359,36 @@ msgstr ""
 msgid "Saved {name}"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:807
+#: rust/crates/effects/src/photos.rs:807 rust/crates/effects/src/photos.rs:829
 msgid "Photo saved"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:822
-msgid "Save photos in"
-msgstr ""
-
-#: rust/crates/effects/src/photos.rs:837 rust/crates/effects/src/photos.rs:953 rust/crates/effects/ui/photos.slint:134
-msgid "Photos"
-msgstr ""
-
-#: rust/crates/effects/src/photos.rs:838
-msgid "Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it."
+#: rust/crates/effects/src/photos.rs:825
+#, python-brace-format
+msgid "It came late. Saved {name}"
 msgstr ""
 
 #: rust/crates/effects/src/photos.rs:839
+msgid "Save photos in"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:854 rust/crates/effects/src/photos.rs:972 rust/crates/effects/ui/photos.slint:134
+msgid "Photos"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:855
+msgid "Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:856
 msgid "Without it there's no Photos card and no Take photo shortcut."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:955 rust/crates/effects/src/photos.rs:993
+#: rust/crates/effects/src/photos.rs:974 rust/crates/effects/src/photos.rs:1012
 msgid "Photo mode"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:960 rust/crates/effects/src/photos.rs:1003
+#: rust/crates/effects/src/photos.rs:979 rust/crates/effects/src/photos.rs:1022
 msgid "Photo timer"
 msgstr ""
 
@@ -4850,6 +4855,46 @@ msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture.rs:14
 msgid "The webcam isn't sending anything. Try another resolution or frame rate."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:259
+msgid "The camera is busy. Try again in a moment."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:260
+msgid "The camera's mode doesn't allow that setting."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:261
+msgid "The camera is on Bulb. Pick a shutter speed first."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:262
+msgid "This camera can't take that kind of photo."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:264
+msgid "Telescope couldn't save the photo."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:265
+msgid "The photo was interrupted because the camera stopped."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:266
+msgid "The camera took too long to take the photo. If it still arrives, it is saved and you'll be told."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:267
+msgid "The camera's image quality is locked to RAW and JPEG together, so it can't take a JPEG on its own."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:268
+msgid "The camera's image quality is locked to RAW, so it can't take a JPEG."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:269
+msgid "The camera only sent part of the photo. What came is saved."
 msgstr ""
 
 #: rust/crates/outputs/src/wininstall.rs:225 rust/crates/setup/src/setup.rs:805
@@ -9072,10 +9117,6 @@ msgstr ""
 
 #: rust/crates/link/src/stills.rs:58
 msgid "The phone gave up on the photo, maybe because its stream stopped."
-msgstr ""
-
-#: rust/crates/link/src/stills.rs:59
-msgid "Telescope couldn't save the photo."
 msgstr ""
 
 #: rust/crates/link/src/stills.rs:60

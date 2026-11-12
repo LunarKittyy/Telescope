@@ -2262,7 +2262,7 @@ msgstr "Zdjęcia RAW nie mają ustawienia jakości"
 msgid "The camera is already taking a photo."
 msgstr "Aparat właśnie robi zdjęcie."
 
-#: rust/crates/effects/src/photos.rs:59
+#: rust/crates/effects/src/photos.rs:59 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:263
 msgid "The camera couldn't take the photo."
 msgstr "Aparat nie mógł zrobić zdjęcia."
 
@@ -2275,7 +2275,7 @@ msgstr "Tak jak wideo"
 msgid "{seconds} s"
 msgstr "{seconds} s"
 
-#: rust/crates/effects/src/photos.rs:450 rust/crates/effects/src/photos.rs:962 rust/crates/effects/src/photos.rs:978 rust/crates/effects/ui/photos.slint:143
+#: rust/crates/effects/src/photos.rs:450 rust/crates/effects/src/photos.rs:981 rust/crates/effects/src/photos.rs:997 rust/crates/effects/ui/photos.slint:143
 msgid "Take photo"
 msgstr "Zrób zdjęcie"
 
@@ -2327,7 +2327,7 @@ msgstr "Ekspozycja"
 msgid "Distortion fix"
 msgstr "Korekta zniekształceń"
 
-#: rust/crates/effects/src/photos.rs:581 rust/crates/effects/src/photos.rs:903
+#: rust/crates/effects/src/photos.rs:581 rust/crates/effects/src/photos.rs:922
 msgid "Start streaming to take photos."
 msgstr "Rozpocznij strumieniowanie, aby robić zdjęcia."
 
@@ -2358,31 +2358,36 @@ msgstr "Robienie zdjęcia, wideo jest wstrzymane…"
 msgid "Saved {name}"
 msgstr "Zapisano {name}"
 
-#: rust/crates/effects/src/photos.rs:807
+#: rust/crates/effects/src/photos.rs:807 rust/crates/effects/src/photos.rs:829
 msgid "Photo saved"
 msgstr "Zapisano zdjęcie"
 
-#: rust/crates/effects/src/photos.rs:822
+#: rust/crates/effects/src/photos.rs:825
+#, python-brace-format
+msgid "It came late. Saved {name}"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:839
 msgid "Save photos in"
 msgstr "Zapisuj zdjęcia w"
 
-#: rust/crates/effects/src/photos.rs:837 rust/crates/effects/src/photos.rs:953 rust/crates/effects/ui/photos.slint:134
+#: rust/crates/effects/src/photos.rs:854 rust/crates/effects/src/photos.rs:972 rust/crates/effects/ui/photos.slint:134
 msgid "Photos"
 msgstr "Zdjęcia"
 
-#: rust/crates/effects/src/photos.rs:838
+#: rust/crates/effects/src/photos.rs:855
 msgid "Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it."
 msgstr "Robi zdjęcia w pełnej jakości telefonem lub aparatem fotograficznym, w tym w formacie RAW, jeśli aparat go obsługuje."
 
-#: rust/crates/effects/src/photos.rs:839
+#: rust/crates/effects/src/photos.rs:856
 msgid "Without it there's no Photos card and no Take photo shortcut."
 msgstr "Bez niej nie ma karty Zdjęcia ani skrótu Zrób zdjęcie."
 
-#: rust/crates/effects/src/photos.rs:955 rust/crates/effects/src/photos.rs:993
+#: rust/crates/effects/src/photos.rs:974 rust/crates/effects/src/photos.rs:1012
 msgid "Photo mode"
 msgstr "Tryb zdjęć"
 
-#: rust/crates/effects/src/photos.rs:960 rust/crates/effects/src/photos.rs:1003
+#: rust/crates/effects/src/photos.rs:979 rust/crates/effects/src/photos.rs:1022
 msgid "Photo timer"
 msgstr "Samowyzwalacz zdjęć"
 
@@ -4872,6 +4877,46 @@ msgstr "Inny program zamontował aparat jako dysk. Odmontuj go w menedżerze pli
 #: rust/crates/outputs/src/webcam_capture.rs:14
 msgid "The webcam isn't sending anything. Try another resolution or frame rate."
 msgstr "Kamera internetowa niczego nie przesyła. Spróbuj innej rozdzielczości lub liczby klatek na sekundę."
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:259
+msgid "The camera is busy. Try again in a moment."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:260
+msgid "The camera's mode doesn't allow that setting."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:261
+msgid "The camera is on Bulb. Pick a shutter speed first."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:262
+msgid "This camera can't take that kind of photo."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:264
+msgid "Telescope couldn't save the photo."
+msgstr "Telescope nie mógł zapisać zdjęcia."
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:265
+msgid "The photo was interrupted because the camera stopped."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:266
+msgid "The camera took too long to take the photo. If it still arrives, it is saved and you'll be told."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:267
+msgid "The camera's image quality is locked to RAW and JPEG together, so it can't take a JPEG on its own."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:268
+msgid "The camera's image quality is locked to RAW, so it can't take a JPEG."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:269
+msgid "The camera only sent part of the photo. What came is saved."
+msgstr ""
 
 #: rust/crates/outputs/src/wininstall.rs:225 rust/crates/setup/src/setup.rs:805
 msgid "Installed"
@@ -9118,10 +9163,6 @@ msgstr "Utracono połączenie z telefonem podczas robienia zdjęcia."
 #: rust/crates/link/src/stills.rs:58
 msgid "The phone gave up on the photo, maybe because its stream stopped."
 msgstr "Telefon przerwał robienie zdjęcia, być może z powodu zatrzymania strumienia."
-
-#: rust/crates/link/src/stills.rs:59
-msgid "Telescope couldn't save the photo."
-msgstr "Telescope nie mógł zapisać zdjęcia."
 
 #: rust/crates/link/src/stills.rs:60
 msgid "This phone can't take photos from Telescope. Update the app on the phone."
