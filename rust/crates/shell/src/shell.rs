@@ -854,6 +854,7 @@ impl State {
                 continue;
             }
             self.call(i, |p, host| match hook {
+                Hook::StreamStartBegan => p.on_stream_start_began(host),
                 Hook::StreamStarting => p.on_stream_starting(host),
                 Hook::StreamStart(info) => p.on_stream_start(host, info),
                 Hook::StreamStop => p.on_stream_stop(host),
