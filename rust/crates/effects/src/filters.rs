@@ -282,6 +282,8 @@ impl CpuStep for Pixels {
 
     fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
         let began = std::time::Instant::now();
+        // A try after a rest is only kept when it was quick, so a filter that stays too slow doesn't show up on one frame in every few hundred
+        let before = (self.slow > 0).then(|| frame.data.clone());
         let mask = if self.wants_mask {
             match mask_of(ctx, frame) {
                 Some(mask) => Some(mask),
@@ -298,7 +300,7 @@ impl CpuStep for Pixels {
             let (w, h) = (frame.width as usize, frame.height as usize);
             let changes = run(&cpu::plane_luma(&frame.data[..w * h], w, h), w, h);
             cpu::add_plane_luma(&mut frame.data_mut()[..w * h], w, &changes);
-            self.timed(began, frame);
+            self.timed(began, frame, before);
             return;
         }
         let Some(mut rgb) = Rgb::from_frame(frame) else { return };
@@ -306,14 +308,17 @@ impl CpuStep for Pixels {
         let mut meta = Meta { number: frame.number as u32, time_ns: frame.time_ns, source: &source };
         (self.run)(&mut rgb, &mut meta, mask.as_ref());
         rgb.write_to(frame);
-        self.timed(began, frame);
+        self.timed(began, frame, before);
     }
 }
 
 impl Pixels {
     /// Notes how long a frame took, and steps aside for a while when it was too long.
-    fn timed(&mut self, began: std::time::Instant, frame: &Frame) {
+    fn timed(&mut self, began: std::time::Instant, frame: &mut Frame, before: Option<Arc<Vec<u8>>>) {
         if began.elapsed().as_millis() as u64 > CPU_BUDGET_MS {
+            if let Some(before) = before {
+                frame.replace_data(before.to_vec());
+            }
             self.slow += 1;
             let rest = (CPU_REST_FRAMES << (self.slow - 1).min(8)).min(CPU_REST_MOST);
             if self.slow == 1 {

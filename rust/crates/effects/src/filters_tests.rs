@@ -1048,3 +1048,27 @@ fn a_stopped_stream_and_a_denoise_that_went_off_release_their_pictures() {
     assert!(plugin.staged_frame_steps().is_empty());
     assert!(plugin.memories.lock().unwrap().is_empty(), "no temporal denoise any more");
 }
+
+#[test]
+fn a_cpu_step_that_stays_too_slow_does_not_flash_on_a_frame_now_and_then() {
+    use telescope_core::frame::Touch;
+    let slow = || std::thread::sleep(std::time::Duration::from_millis(CPU_BUDGET_MS + 15));
+    let mut step = Pixels::new(move |rgb, _, _| {
+        slow();
+        rgb.data.iter_mut().for_each(|b| *b = !*b);
+    });
+    let ctx = Ctx(None);
+    let original = noisy(16, 16, 100, 1.0, 1);
+    let mut filtered = 0;
+    // enough frames for the first try and two more after rests
+    for _ in 0..(CPU_REST_FRAMES * 4 + 10) {
+        let mut frame = original.clone();
+        if step.touch(&ctx) == Touch::Changes {
+            step.process(&mut frame, &ctx);
+        }
+        if frame.data != original.data {
+            filtered += 1;
+        }
+    }
+    assert_eq!(filtered, 1, "only the first slow frame shows the filter; the tries after a rest are dropped while it is still too slow");
+}
