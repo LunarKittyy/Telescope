@@ -95,6 +95,18 @@ fn start_codes(data: &[u8]) -> Vec<(usize, usize)> {
     out
 }
 
+/// Marks every plain Baseline SPS (profile 66) as Constrained Baseline, which FFmpeg's VA-API accepts and plain Baseline it refuses.
+/// Phone encoders never use the Baseline-only tools (FMO, ASO, redundant slices), so the stream already is Constrained Baseline.
+/// Only one bit of the byte after profile_idc changes: that can't make a 00 00 0x sequence, and the length stays the same.
+fn mark_constrained_baseline(unit: &mut [u8]) {
+    for (_, end) in start_codes(unit) {
+        // NAL header, profile_idc, then the constraint flags
+        if unit.len() > end + 2 && unit[end] & 31 == 7 && unit[end + 1] == 66 {
+            unit[end + 2] |= 0x40;
+        }
+    }
+}
+
 /// An access unit delimiter, which ends the NAL unit before it and takes any stray bytes after it.
 const END_OF_SETUP: &[u8] = b"\x00\x00\x00\x01\x09\xf0";
 
@@ -468,7 +480,10 @@ fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool) -
             Some(s) => s.step(unit),
             None => vec![unit.to_vec()],
         };
-        for u in units {
+        for mut u in units {
+            if codec.hw.is_some() {
+                mark_constrained_baseline(&mut u);
+            }
             units_in += 1;
             match codec.decode_newest(&u) {
                 Ok(n) => count += n,
@@ -600,6 +615,29 @@ pub(crate) mod tests {
         let kinds: Vec<u8> = start_codes(&setup).iter().map(|&(_, e)| setup[e] & 31).collect();
         assert_eq!(kinds, [7, 8, 9]);
         assert!(h.tail.len() <= 4);
+    }
+
+    #[test]
+    fn a_baseline_sps_is_marked_constrained_baseline_and_nothing_else_changes() {
+        let sps = [0, 0, 0, 1, 0x67, 66, 0x00, 0x1f, 0xe9, 0x40];
+        let pps = [0, 0, 0, 1, 0x68, 0xce, 0x38, 0x80];
+        let mut unit = [&sps[..], &pps[..]].concat();
+        let before = unit.clone();
+        mark_constrained_baseline(&mut unit);
+        assert_eq!(unit[6], 0x40);
+        let diff: Vec<usize> = (0..unit.len()).filter(|&i| unit[i] != before[i]).collect();
+        assert_eq!(diff, [6]);
+        // Already marked, other profiles and other NAL units stay as they are
+        let again = unit.clone();
+        mark_constrained_baseline(&mut unit);
+        assert_eq!(unit, again);
+        let mut high = vec![0, 0, 1, 0x67, 100, 0, 40, 0xac];
+        let copy = high.clone();
+        mark_constrained_baseline(&mut high);
+        assert_eq!(high, copy);
+        let mut cut = vec![0, 0, 1, 0x67, 66];
+        mark_constrained_baseline(&mut cut);
+        assert_eq!(cut, [0, 0, 1, 0x67, 66]);
     }
 
     #[test]
@@ -934,6 +972,30 @@ pub(crate) mod tests {
             assert!(worst <= 2, "off by {worst}");
         }
         assert!(card.hw().is_some(), "still on the card");
+    }
+
+    #[test]
+    fn a_plain_baseline_stream_decodes_on_the_card() {
+        let Some(mut packets) = testenc::h264_moving(8, 320, 240, 5, "baseline") else { return };
+        let _turn = card_test();
+        let mut card = H264::new(true, None).unwrap();
+        if card.hw().is_none() {
+            return eprintln!("no graphics card decoder; skipped");
+        }
+        // As the phone sends it: x264 marks its Baseline as constrained, the phone's encoder doesn't
+        for p in &mut packets {
+            for (_, end) in start_codes(&p.clone()) {
+                if p[end] & 31 == 7 {
+                    assert_eq!(p[end + 1], 66);
+                    p[end + 2] &= !0x40;
+                }
+            }
+        }
+        let mut pictures = 0;
+        for p in &packets {
+            pictures += card.feed(&[&p[..], END_OF_SETUP].concat()).1;
+        }
+        assert!(pictures >= 1 && card.hw().is_some(), "{pictures} pictures, on {:?}", card.hw());
     }
 
     #[test]
