@@ -1045,8 +1045,44 @@ fn list() -> Value {
     json!({"plugins": names, "scenes": all().iter().map(|s| s.id.clone()).collect::<Vec<_>>()})
 }
 
+/// `scenes OUT --card PLUGIN [--config JSON | --config-lines FILE] [--width N] [--scale S] [--name NAME]`: one plugin's card alone
+/// (as Page::Card draws it) with that plugin's settings, for the site's clip tiles. A lines file holds one JSON settings object per
+/// line and gives one picture each, NAME-000.png and on (NAME is the plugin's name unless given). Dev tool, changes nothing in the app.
+fn run_card(out: &str, words: &[String]) -> Result<(), String> {
+    let value = |flag: &str| words.iter().position(|w| w == flag).and_then(|i| words.get(i + 1)).cloned();
+    let plugin = value("--card").ok_or("--card needs a plugin name")?;
+    let width = value("--width").map_or(Ok(CARD_WIDTH), |w| w.parse::<f32>().map_err(|_| format!("not a width: {w}")))?;
+    let scale = value("--scale").map_or(Ok(1.0), |w| w.parse::<f32>().map_err(|_| format!("not a scale: {w}")))?;
+    let name = value("--name").unwrap_or_else(|| plugin.clone());
+    let parse = |t: &str| serde_json::from_str::<Value>(t).map_err(|e| format!("settings aren't JSON: {e}"));
+    let states: Vec<(String, Value)> = match (value("--config-lines"), value("--config")) {
+        (Some(file), _) => {
+            let text = std::fs::read_to_string(&file).map_err(|e| format!("{file}: {e}"))?;
+            let lines: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
+            lines.iter().enumerate().map(|(i, l)| parse(l).map(|v| (format!("{name}-{i:03}"), v))).collect::<Result<_, _>>()?
+        }
+        (None, Some(json)) => vec![(name, parse(&json)?)],
+        (None, None) => vec![(name, json!({}))],
+    };
+    let scenes: Vec<Scene> = states.into_iter().map(|(id, settings)| {
+        let plugin = plugin.clone();
+        Scene::new(id, move || {
+            let mut config = main_window_config(true);
+            config["selected_device"] = json!("phone-1");
+            config["devices"] = json!({"phone-1": {"plugin_configs": {plugin.as_str(): settings.clone()}}});
+            Setup { page: Page::Card { plugin: plugin.clone() }, ..Setup::window(Some(services(quiet())), config, width, 400.0) }
+        })
+    }).collect();
+    let (n, failed) = telescope_shell::scenes::render(&scenes, &[scale], std::path::Path::new(out))?;
+    for line in &failed {
+        eprintln!("couldn't render {line}");
+    }
+    println!("{n} pictures in {out}/{scale}x");
+    if failed.is_empty() { Ok(()) } else { Err(format!("{} failed", failed.len())) }
+}
+
 /// The command: OUT, then scene ids (all of them when none), then --scale with one or more factors (1 and 1.5); or
-/// --list for what list() says.
+/// --list for what list() says; or --card (see run_card).
 pub fn run(words: &[String]) -> Result<(), String> {
     if words.first().map(String::as_str) == Some("--list") {
         println!("{}", list());
@@ -1055,6 +1091,9 @@ pub fn run(words: &[String]) -> Result<(), String> {
     let Some(out) = words.first() else {
         return Err("usage: telescope-rs scenes OUT [ids] [--scale 1 1.5]".into());
     };
+    if words.iter().any(|w| w == "--card") {
+        return run_card(out, &words[1..]);
+    }
     let (mut ids, mut scales, mut in_scales) = (Vec::new(), Vec::new(), false);
     for w in &words[1..] {
         if w == "--scale" {

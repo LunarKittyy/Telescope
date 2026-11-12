@@ -10,6 +10,7 @@
 //!   telescope-rs snapshot OUT             save the window as a PPM once it has drawn, for comparing with the Qt one
 //!   telescope-rs config-snapshot FOLDER   what this app makes of a config fixture, in the shape of its expected.json
 //!   telescope-rs scenes OUT [ids]         every card, dialog and Settings page, drawn offscreen
+//!   telescope-rs scenes OUT --card NAME   one plugin's card alone with settings (--config JSON, --config-lines FILE), for the site's clips
 //!   telescope-rs camera-wait-screen OUT   the Windows 11 camera's built-in wait screen (build_windows.ps1 builds it into the DLL)
 //!   telescope-rs build-info               version, build, channel and commit as JSON, for the package checks
 //!   telescope-rs dev [--keep] [--reset] [--plugin FOLDER ...]   the dev desktop, in a profile of its own (dev.rs)
