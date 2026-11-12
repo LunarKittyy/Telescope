@@ -633,3 +633,56 @@ fn a_swap_that_fails_leaves_the_old_one_switched_on() {
     assert!(found.version == "1.0" && found.enabled, "{found:?}");
     assert_eq!(listing(&p.folder), ["black_and_white"]);
 }
+
+#[test]
+fn a_swap_and_restore_that_both_fail_keep_the_old_plugin() {
+    let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let seen = calls.clone();
+    let p = plugins().with_rename(move |from, to| {
+        // The old folder moves aside, then neither the new one into place nor the old one back works
+        if seen.fetch_add(1, std::sync::atomic::Ordering::SeqCst) >= 1 {
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "in use"));
+        }
+        fs::rename(from, to)
+    });
+    example(&p.folder, "black_and_white");
+    let Err(InstallError::Io(e)) = p.install_zip(&newer_example(&p, "2.0"), true) else { panic!("should fail") };
+    let kept: Vec<PathBuf> = fs::read_dir(&p.folder).unwrap().flatten().map(|e| e.path().join(".old")).filter(|o| o.is_dir()).collect();
+    assert_eq!(kept.len(), 1, "{:?}", listing(&p.folder));
+    assert!(kept[0].join(MANIFEST).is_file() && e.to_string().contains(&kept[0].to_string_lossy().into_owned()), "{e}");
+}
+
+fn eocd(entries: u16, directory_size: u32) -> Vec<u8> {
+    let mut out = b"PK\x05\x06".to_vec();
+    out.extend([0, 0, 0, 0]);
+    out.extend(entries.to_le_bytes());
+    out.extend(entries.to_le_bytes());
+    out.extend(directory_size.to_le_bytes());
+    out.extend(0u32.to_le_bytes());
+    out.extend(0u16.to_le_bytes());
+    out
+}
+
+#[test]
+fn a_zip_claiming_too_many_entries_is_refused_before_it_is_read() {
+    let refused = |bytes: Vec<u8>| matches!(check_central_directory(&mut io::Cursor::new(bytes)), Err(InstallError::Invalid(why)) if why.contains("too big"));
+    assert!(refused(eocd(60_000, 60_000 * 46)));
+    assert!(refused(eocd(10, MAX_DIRECTORY_BYTES + 1)));
+    assert!(refused(eocd(u16::MAX, 100)));
+    assert!(refused(eocd(1, u32::MAX)));
+    // A small record hidden in the comment of a bigger lie is looked at too
+    let mut hidden = eocd(60_000, 46);
+    hidden.truncate(20);
+    hidden.extend(22u16.to_le_bytes());
+    hidden.extend(eocd(1, 46));
+    assert!(refused(hidden));
+    assert!(check_central_directory(&mut io::Cursor::new(eocd(3, 300))).is_ok());
+    assert!(matches!(check_central_directory(&mut io::Cursor::new(b"nope".to_vec())), Err(InstallError::Invalid(why)) if why.contains("isn't a .zip")));
+}
+
+#[test]
+fn a_real_zip_passes_the_directory_check() {
+    let p = plugins();
+    let archive = zip_of(&scratch(&p).join("fine.zip"), &example_files("black_and_white/"));
+    assert!(check_central_directory(&mut fs::File::open(archive).unwrap()).is_ok());
+}

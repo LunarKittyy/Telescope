@@ -438,6 +438,14 @@ impl ColourPipeline {
         }
     }
 
+    /// Everything an owner set, for every stream and the compare line: a plugin taken out again leaves no stage behind.
+    pub fn remove_owner(&mut self, owner: &str) {
+        self.shown.retain(|e| e.owner != owner);
+        self.by_source.values_mut().for_each(|list| list.retain(|e| e.owner != owner));
+        self.by_source.retain(|_, list| !list.is_empty());
+        self.splits.retain(|(o, _)| o != owner);
+    }
+
     /// The stages source_id's stream gets, in order: the shown ones and its own.
     pub fn stages(&self, source_id: Option<&str>) -> Vec<&ColourStage> {
         let mut all: Vec<&Entry> = self.shown.iter().collect();
@@ -623,6 +631,19 @@ mod tests {
 
     fn graded(f: impl Fn(f32) -> f32, px: [u8; 3]) -> [u8; 3] {
         px.map(|v| (f(v as f32 / 255.0).clamp(0.0, 1.0) * 255.0 + 0.5) as u8)
+    }
+
+    #[test]
+    fn removing_an_owner_takes_its_stages_off_every_stream() {
+        let mut p = ColourPipeline::inline();
+        let s = stage(|v| v, false, 17);
+        p.set_stage("gone", Some(s.clone()), 0, None);
+        p.set_stage("gone", Some(s.clone()), 0, Some("phone"));
+        p.set_stage("kept", Some(s), 0, Some("phone"));
+        p.set_split("gone", Some(0.5));
+        p.remove_owner("gone");
+        assert_eq!(p.stages(Some("phone")).len(), 1);
+        assert!(p.stages(None).is_empty() && p.split().is_none());
     }
 
     #[test]

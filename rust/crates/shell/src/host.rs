@@ -19,6 +19,23 @@ pub struct Ctx<'a> {
 }
 
 impl Ctx<'_> {
+    /// Gives back what the plugin took or switched on in setup(), for one that is taken out again before it ever runs (its UI didn't build).
+    pub fn release_everything(&mut self) {
+        let me = self.me.clone();
+        self.release_view(&me);
+        self.want_people(&me, false);
+        self.watch_motion(&me, &[], 0);
+        self.remove_preview_layer(&me);
+        self.cancel_pick(&me);
+        self.set_preview_warp(&me, None);
+        self.want_sensors(&me, &[]);
+        self.want_stats(&me, false);
+        self.state.colour.remove_owner(&me);
+        if self.state.packet_makers.0.iter().any(|(o, _)| *o == me) {
+            self.change_packets(&me, None);
+        }
+    }
+
     /// The plugin whose hook this is asked to save: its settings are looked at for what moved when the hook ends.
     fn saving(&mut self) {
         if let Some(i) = self.state.index(&self.me) {
