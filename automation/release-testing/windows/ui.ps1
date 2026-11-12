@@ -227,6 +227,20 @@ function Press-Control([string] $Name, [string] $Type = "", [double] $Seconds = 
     Press (Need-Control $Name $Type $Seconds $Prefix)
 }
 
+# Press a control that may still be sliding into place (the Plugins page's restart bar opens over a fraction of a second, and its
+# button stays disabled until it has): wait until it sits still and is enabled, looking it up again each time
+function Press-Settled([string] $Name, [string] $Type = "", [double] $Seconds = 20) {
+    $last = ""
+    for ($i = 0; $i -lt 40; $i++) {
+        $e = Need-Control $Name $Type $Seconds
+        $now = $e.Current.BoundingRectangle.ToString()
+        if ($now -eq $last -and $e.Current.IsEnabled) { Press $e; return }
+        $last = $now
+        Start-Sleep -Milliseconds 400
+    }
+    throw "'$Name' never sat still and enabled"
+}
+
 # A switch or check box that's on, or a tab (the Card colours choice) that's the one picked
 function Is-On($Element) {
     if ($Element.GetSupportedPatterns() | Where-Object { $_.ProgrammaticName -eq "SelectionItemPatternIdentifiers.Pattern" }) {
@@ -270,12 +284,13 @@ function Choose([string] $Combo, [string] $Item) {
     Click $c
     $bottom = $c.Current.BoundingRectangle.Bottom
     $named = New-Object Windows.Automation.PropertyCondition ([Windows.Automation.AutomationElement]::NameProperty), $Item
-    # The Rust app lists the choices as texts below the box, the Python app's (Qt) popup as list items
+    # The Rust app lists the choices as texts below the box and, in 5.0.5, as list items too, whose rectangles are off: take a text
+    # below the box first, and a list item only when it sits below the box too
     $choice = Wait-Until {
         foreach ($w in Get-AppWindows) {
             $found = $w.FindAll($Scope::Descendants, $named) |
-                Where-Object { ($_.Current.ControlType.ProgrammaticName -eq "ControlType.Text" -and $_.Current.BoundingRectangle.Top -gt $bottom) -or
-                               $_.Current.ControlType.ProgrammaticName -eq "ControlType.ListItem" } |
+                Where-Object { ($_.Current.ControlType.ProgrammaticName -match "ControlType\.(Text|ListItem)$") -and $_.Current.BoundingRectangle.Top -gt $bottom } |
+                Sort-Object { $_.Current.ControlType.ProgrammaticName -ne "ControlType.Text" } |
                 Select-Object -First 1
             if ($found) { return $found }
         }
@@ -283,16 +298,6 @@ function Choose([string] $Combo, [string] $Item) {
     if (-not $choice) { throw "'$Item' isn't one of the choices in '$Combo'" }
     Click $choice
     Start-Sleep -Milliseconds 500
-}
-
-# The button of the Driver row in Settings, Virtual camera & phone: it's named for what it does (Install driver, Update,
-# Reinstall, Rename, Retry)
-function Press-Driver {
-    $group = Need-Control "Driver" "Group"
-    $button = $group.FindFirst($Scope::Descendants, (New-Object Windows.Automation.PropertyCondition (
-        [Windows.Automation.AutomationElement]::ControlTypeProperty), ([Windows.Automation.ControlType]::Button)))
-    if (-not $button) { throw "the Driver row has no button" }
-    Press $button
 }
 
 # Scroll a Settings page, from the top, until the control called $Name is on it: what's off the page isn't in the UI tree yet
@@ -328,14 +333,40 @@ function Scroll-Main-To([string] $Name, [string] $Type = "", [int] $Notches = 4)
     throw "nothing called '$Name' $(if ($Type) { "($Type) " })came into the main window when scrolling it"
 }
 
-# What the Driver row says (its status line), without the rest of the window's texts
-function Driver-Texts {
-    $group = Find-Control "Driver" "Group" 5
-    if ($group) {
-        $group.FindAll($Scope::Descendants, (New-Object Windows.Automation.PropertyCondition (
-            [Windows.Automation.AutomationElement]::ControlTypeProperty), ([Windows.Automation.ControlType]::Text))) |
-            ForEach-Object { $_.Current.Name } | Where-Object { $_ -and $_ -ne "Driver" }
+# The Driver row in Settings, Virtual camera & phone: what comes after its "Driver" label up to the next row (a button named for
+# what it does, Install driver, Update, Reinstall, Rename or Retry, and a text saying how the driver is). The Windows 11 build
+# lists them in the "Virtual camera" group beside the label; older ones put them inside a group called "Driver"
+function Driver-Items {
+    $walker = [Windows.Automation.TreeWalker]::RawViewWalker
+    $old = Find-Control "Driver" "Group" 1
+    if ($old) {
+        $c = $walker.GetFirstChild($old)
+        while ($c) { $c; $c = $walker.GetNextSibling($c) }
+        return
     }
+    $group = Find-Control "Virtual camera" "Group" 5
+    if (-not $group) { return }
+    $started = $false
+    $c = $walker.GetFirstChild($group)
+    while ($c) {
+        $type = $c.Current.ControlType.ProgrammaticName
+        if (-not $started) { if ($type -eq "ControlType.Custom" -and $c.Current.Name -eq "Driver") { $started = $true } }
+        elseif ($type -eq "ControlType.Custom") { break }
+        else { $c }
+        $c = $walker.GetNextSibling($c)
+    }
+}
+
+function Driver-Texts {
+    Driver-Items | Where-Object { $_.Current.ControlType.ProgrammaticName -eq "ControlType.Text" } |
+        ForEach-Object { $_.Current.Name } | Where-Object { $_ -and $_ -ne "Driver" }
+}
+
+# The button of the Driver row
+function Press-Driver {
+    $button = Driver-Items | Where-Object { $_.Current.ControlType.ProgrammaticName -eq "ControlType.Button" } | Select-Object -First 1
+    if (-not $button) { throw "the Driver row has no button" }
+    Press $button
 }
 
 # Open Settings (or go back to it) on one of its pages, from the main window
