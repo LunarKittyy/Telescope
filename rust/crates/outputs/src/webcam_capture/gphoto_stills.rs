@@ -11,8 +11,7 @@ use crate::webcams::gphoto_port;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{sync_channel, RecvTimeoutError, SyncSender};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::source::SourceStills;
@@ -344,8 +343,104 @@ type Late = Arc<dyn Fn(Result<Vec<Shot>, Failure>) + Send + Sync>;
 
 struct Job {
     wish: Wish,
-    reply: SyncSender<Result<Vec<Shot>, Failure>>,
+    reply: Reply,
     late: Option<Late>,
+}
+
+type Outcome = Result<Vec<Shot>, Failure>;
+
+enum Slot {
+    Waiting,
+    Ready(Outcome),
+    /// The camera's side was dropped without an answer.
+    Closed,
+    /// The job stopped waiting, so a photo that comes now goes the late way.
+    Abandoned,
+}
+
+struct Handover {
+    slot: Mutex<Slot>,
+    changed: Condvar,
+}
+
+/// The camera side of one photo's answer. The photo is either taken by the waiting job or handed back to be saved late, never both and never neither.
+struct Reply(Arc<Handover>);
+
+/// The job's side: waits for the photo, and gives up in one step that also takes a photo that has just come.
+struct Waiter(Arc<Handover>);
+
+enum Wait {
+    Got(Outcome),
+    Timeout,
+    Closed,
+}
+
+fn handover() -> (Reply, Waiter) {
+    let inner = Arc::new(Handover { slot: Mutex::new(Slot::Waiting), changed: Condvar::new() });
+    (Reply(inner.clone()), Waiter(inner))
+}
+
+impl Reply {
+    /// Gives the photo to the job, or back to the caller when the job has stopped waiting.
+    fn send(self, outcome: Outcome) -> Result<(), Outcome> {
+        let mut slot = self.0.slot.lock().unwrap_or_else(|e| e.into_inner());
+        if matches!(*slot, Slot::Abandoned) {
+            return Err(outcome);
+        }
+        *slot = Slot::Ready(outcome);
+        self.0.changed.notify_all();
+        Ok(())
+    }
+}
+
+impl Drop for Reply {
+    fn drop(&mut self) {
+        let mut slot = self.0.slot.lock().unwrap_or_else(|e| e.into_inner());
+        if matches!(*slot, Slot::Waiting) {
+            *slot = Slot::Closed;
+            self.0.changed.notify_all();
+        }
+    }
+}
+
+impl Waiter {
+    fn wait(&self, timeout: Duration) -> Wait {
+        let slot = self.0.slot.lock().unwrap_or_else(|e| e.into_inner());
+        let (mut slot, _) = self.0.changed.wait_timeout_while(slot, timeout, |s| matches!(s, Slot::Waiting)).unwrap_or_else(|e| e.into_inner());
+        match std::mem::replace(&mut *slot, Slot::Waiting) {
+            Slot::Ready(outcome) => {
+                *slot = Slot::Abandoned;
+                Wait::Got(outcome)
+            }
+            Slot::Closed => {
+                *slot = Slot::Closed;
+                Wait::Closed
+            }
+            other => {
+                *slot = other;
+                Wait::Timeout
+            }
+        }
+    }
+
+    /// Stops waiting. A photo that came in the meantime is returned; one that comes after this is saved late.
+    fn abandon(&self) -> Option<Outcome> {
+        let mut slot = self.0.slot.lock().unwrap_or_else(|e| e.into_inner());
+        match std::mem::replace(&mut *slot, Slot::Abandoned) {
+            Slot::Ready(outcome) => Some(outcome),
+            Slot::Closed => {
+                *slot = Slot::Closed;
+                None
+            }
+            _ => None,
+        }
+    }
+}
+
+impl Drop for Waiter {
+    fn drop(&mut self) {
+        let _ = self.abandon();
+    }
 }
 
 /// What a camera's thread shares with its photo service while it streams.
@@ -391,7 +486,7 @@ impl Shared {
         let _ = rig.write("viewfinder", "1");
         self.capturing.store(false, Ordering::SeqCst);
         // The job may have stopped waiting (a timeout, or the stream stopping): what the camera sent after that is not thrown away
-        if let Err(std::sync::mpsc::SendError(result)) = job.reply.send(result) {
+        if let Err(result) = job.reply.send(result) {
             if let Some(late) = job.late {
                 late(result);
             }
@@ -519,42 +614,49 @@ fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Valu
         std::thread::sleep(left.min(Duration::from_millis(50)));
     }
     let longest = wait_for_photo(longest, exposure_of(shared, &wish));
-    let (tx, rx) = sync_channel(1);
-    *shared.pending.lock().unwrap() = Some(Job { wish, reply: tx, late });
+    let (reply, waiter) = handover();
+    *shared.pending.lock().unwrap() = Some(Job { wish, reply, late });
     on_progress(progress("capturing", 0, true));
     let (began, mut looks) = (Instant::now(), 0u32);
-    let shots = loop {
-        match rx.recv_timeout(LOOK) {
-            Ok(Ok(shots)) => break shots,
-            // Whatever came of a photo that is only half there is kept, and the card says it is half
-            Ok(Err(Failure::Partial(shots))) => {
-                let files = match save(folder, &shots) {
-                    Ok(files) => files,
-                    Err((_, files)) => files,
+    let outcome = loop {
+        match waiter.wait(LOOK) {
+            Wait::Got(outcome) => break outcome,
+            Wait::Closed => return failed(&Failure::Interrupted, &[]),
+            Wait::Timeout => {
+                let why = if !alive() {
+                    Failure::Interrupted
+                } else if began.elapsed() > longest {
+                    Failure::Timeout
+                } else {
+                    looks += 1;
+                    if looks % REPORT_EVERY == 0 {
+                        on_progress(progress("capturing", 0, true));
+                    }
+                    continue;
                 };
-                return failed(&Failure::Partial(shots), &files);
-            }
-            Ok(Err(failure)) => return failed(&failure, &[]),
-            Err(RecvTimeoutError::Disconnected) => return failed(&Failure::Interrupted, &[]),
-            Err(RecvTimeoutError::Timeout) => {
-                if !alive() {
-                    shared.pending.lock().unwrap().take();
-                    return failed(&Failure::Interrupted, &[]);
-                }
-                if began.elapsed() > longest {
-                    shared.pending.lock().unwrap().take();
-                    return failed(&Failure::Timeout, &[]);
-                }
-                looks += 1;
-                if looks % REPORT_EVERY == 0 {
-                    on_progress(progress("capturing", 0, true));
+                shared.pending.lock().unwrap().take();
+                // A photo that arrived just now is still this job's, one that comes after this is saved late
+                match waiter.abandon() {
+                    Some(outcome) => break outcome,
+                    None => return failed(&why, &[]),
                 }
             }
         }
     };
-    match save(folder, &shots) {
-        Ok(files) => result(true, &files, "", ""),
-        Err((failure, files)) => failed(&failure, &files),
+    match outcome {
+        Ok(shots) => match save(folder, &shots) {
+            Ok(files) => result(true, &files, "", ""),
+            Err((failure, files)) => failed(&failure, &files),
+        },
+        // Whatever came of a photo that is only half there is kept, and the card says it is half
+        Err(Failure::Partial(shots)) => {
+            let files = match save(folder, &shots) {
+                Ok(files) => files,
+                Err((_, files)) => files,
+            };
+            failed(&Failure::Partial(shots), &files)
+        }
+        Err(failure) => failed(&failure, &[]),
     }
 }
 

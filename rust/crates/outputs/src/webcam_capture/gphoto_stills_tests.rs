@@ -168,9 +168,9 @@ fn a_photo_sets_what_was_asked_sends_the_picture_to_the_computer_and_brings_live
     let state = d5100(true);
     let shared = Shared::default();
     *shared.pending.lock().unwrap() = {
-        let (tx, rx) = sync_channel(1);
-        std::mem::forget(rx);
-        Some(Job { wish: Wish { format: Format::RawJpeg, iso: Some("800".into()), shutter: Some("1,0000s".into()), timer_s: 0 }, reply: tx, late: None })
+        let (reply, waiter) = handover();
+        std::mem::forget(waiter);
+        Some(Job { wish: Wish { format: Format::RawJpeg, iso: Some("800".into()), shutter: Some("1,0000s".into()), timer_s: 0 }, reply, late: None })
     };
     assert!(shared.run_pending(&mut Fake(state.clone())));
     assert_eq!(log(&state), ["viewfinder=0", "iso=800", "shutterspeed=1,0000s", "capturetarget=Internal RAM", "capture", "viewfinder=1"]);
@@ -652,20 +652,50 @@ fn a_photo_that_comes_late_with_a_file_missing_still_keeps_the_file_that_came() 
 #[test]
 fn a_photo_that_finishes_in_time_is_not_reported_late() {
     let shared = Shared::default();
-    let (tx, rx) = sync_channel(1);
+    let (reply, waiter) = handover();
     let told = Arc::new(Mutex::new(0));
     let counted = told.clone();
-    *shared.pending.lock().unwrap() = Some(Job { wish: wish(Format::Jpeg), reply: tx, late: Some(Arc::new(move |_| *counted.lock().unwrap() += 1)) });
+    *shared.pending.lock().unwrap() = Some(Job { wish: wish(Format::Jpeg), reply, late: Some(Arc::new(move |_| *counted.lock().unwrap() += 1)) });
     assert!(shared.run_pending(&mut Fake(d5100(true))));
-    assert!(rx.try_recv().unwrap().is_ok());
+    assert!(matches!(waiter.wait(Duration::ZERO), Wait::Got(Ok(_))));
     assert_eq!(*told.lock().unwrap(), 0);
     // With nobody waiting any more, it is
-    let (tx, rx) = sync_channel(1);
-    drop(rx);
+    let (reply, waiter) = handover();
+    drop(waiter);
     let counted = told.clone();
-    *shared.pending.lock().unwrap() = Some(Job { wish: wish(Format::Jpeg), reply: tx, late: Some(Arc::new(move |_| *counted.lock().unwrap() += 1)) });
+    *shared.pending.lock().unwrap() = Some(Job { wish: wish(Format::Jpeg), reply, late: Some(Arc::new(move |_| *counted.lock().unwrap() += 1)) });
     assert!(shared.run_pending(&mut Fake(d5100(true))));
     assert_eq!(*told.lock().unwrap(), 1);
+}
+
+#[test]
+fn a_photo_is_saved_once_whichever_moment_it_comes_at_the_end_of_the_wait() {
+    let shots = || vec![Shot { name: "a.jpg".into(), data: vec![1] }];
+    // Sent just before the job gives up: the job still gets it
+    let (reply, waiter) = handover();
+    assert!(reply.send(Ok(shots())).is_ok());
+    assert!(matches!(waiter.abandon(), Some(Ok(_))));
+    assert!(waiter.abandon().is_none(), "and only once");
+    // Sent after: it goes back to the camera's side to be saved late
+    let (reply, waiter) = handover();
+    assert!(waiter.abandon().is_none());
+    assert!(reply.send(Ok(shots())).is_err());
+    // A camera thread that ends without an answer is not a photo
+    let (reply, waiter) = handover();
+    drop(reply);
+    assert!(matches!(waiter.wait(Duration::ZERO), Wait::Closed));
+    assert!(waiter.abandon().is_none());
+}
+
+#[test]
+fn a_waiting_job_wakes_when_the_photo_comes() {
+    let (reply, waiter) = handover();
+    let sender = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(50));
+        let _ = reply.send(Ok(Vec::new()));
+    });
+    assert!(matches!(waiter.wait(Duration::from_secs(10)), Wait::Got(Ok(_))));
+    sender.join().unwrap();
 }
 
 #[test]
