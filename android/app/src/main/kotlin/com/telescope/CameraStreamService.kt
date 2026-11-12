@@ -250,8 +250,9 @@ class CameraStreamService : Service() {
         private const val BUSY_STUCK_MS = 20_000L
         private const val WAKE_LOCK_MS = 12 * 60 * 60 * 1000L
 
-        fun streamingText(context: Context, cameraOff: Boolean): String = when {
-            cameraOff -> context.getString(R.string.notif_mic_streaming)
+        fun streamingText(context: Context, cameraOff: Boolean, micOn: Boolean = true): String = when {
+            cameraOff && micOn -> context.getString(R.string.notif_mic_streaming)
+            cameraOff -> context.getString(R.string.notif_camera_off)
             else -> routeText(context) ?: context.getString(R.string.notif_camera_streaming)
         }
 
@@ -831,7 +832,7 @@ class CameraStreamService : Service() {
             dynamicBitrate = { controller?.dynamicBitrate ?: 0 },
             dynamicFull    = { controller?.dynamicFull ?: false },
             startAudio     = ::startAudio,
-            stopAudio      = { audio?.stop() },
+            stopAudio      = { audio?.stop(); mainHandler.post { showStreamNotification() } },
             sensors        = sensors,
             socketFactory  = PhoneTls.identity(this).serverSocketFactory(),
             onWifiViewersChanged = { watching -> mainHandler.post {
@@ -866,7 +867,9 @@ class CameraStreamService : Service() {
                 return MicProblem.OPEN_APP
             }
         }
-        return if (mic.start()) null else MicProblem.IN_USE
+        if (!mic.start()) return MicProblem.IN_USE
+        mainHandler.post { showStreamNotification() }
+        return null
     }
 
     // The newest viewer's route picks the codec; viewers of the other one lose their stream.
@@ -1275,7 +1278,7 @@ class CameraStreamService : Service() {
         val pi = PendingIntent.getActivity(this, 0,
             Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         return asLiveUpdate(this, NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Telescope").setContentText(streamingText(this, cameraOff))
+            .setContentTitle("Telescope").setContentText(streamingText(this, cameraOff, audio?.recording == true))
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(ContextCompat.getColor(this, R.color.colorPrimary))
             .setColorized(false)
@@ -1286,7 +1289,7 @@ class CameraStreamService : Service() {
     @android.annotation.SuppressLint("MissingPermission")
     private fun showStreamNotification() {
         if (controller == null) return
-        if (covered) { WaitingService.showStreaming(this, true, cameraOff); return }
+        if (covered) { WaitingService.showStreaming(this, true, cameraOff, audio?.recording == true); return }
         if (!inForeground) return
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIF_ID, buildNotification())
     }

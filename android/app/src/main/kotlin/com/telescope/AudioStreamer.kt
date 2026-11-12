@@ -27,6 +27,8 @@ class AudioStreamer(private val context: Context, private val onChunk: (ByteArra
 
     fun permitted(): Boolean = permitted(context)
 
+    val recording: Boolean get() = running?.get() == true
+
     /** False if recording couldn't start (no permission, or the mic is unavailable). */
     @Synchronized
     fun start(): Boolean {
