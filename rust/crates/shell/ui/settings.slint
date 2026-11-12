@@ -445,7 +445,7 @@ export component PluginsPanel inherits VerticalLayout {
         for r in update-rows: RailRow {
             icon: Icons.update;
             label: r.title;
-            tip-detail: r.about;
+            tip: r.about;
             named: true;
             hue: r.danger ? Theme.err : Theme.accent;
             HorizontalLayout {

@@ -458,6 +458,22 @@ fn fill(text: String, fields: &[(&str, &str)]) -> String {
     fields.iter().fold(text, |t, (k, v)| t.field(k, v))
 }
 
+/// What a param is, for its row's tooltip in the editor: the action's own "tip", else a line for the params every action has, else its label.
+fn param_tip(p: &Value) -> String {
+    if let Some(t) = p["tip"].as_str() {
+        return t.to_string();
+    }
+    match p["name"].as_str() {
+        Some("mode" | "op") => tr("What the shortcut does"),
+        Some("amount") => tr("How much each press changes it"),
+        Some("value") => tr("The exact value to set"),
+        Some("stops") => tr("How many stops each press moves"),
+        Some("option") => tr("Which option the shortcut picks"),
+        Some("name") => tr("The preset the shortcut applies"),
+        _ => p["label"].as_str().unwrap_or_default().to_string(),
+    }
+}
+
 fn param<'a>(action: &'a ActionSpec, name: &str) -> Option<&'a Value> {
     action.params.iter().find(|p| p["name"] == name)
 }
@@ -806,7 +822,7 @@ impl ShortcutsPlugin {
                     (Some(n), None) => fmt_number(n),
                     _ => String::new(),
                 };
-                return Some(json!({"label": p["label"], "number": true, "items": [], "current": 0, "text": text, "shown": shown(p, &e.params)}));
+                return Some(json!({"label": p["label"], "tip": param_tip(p), "number": true, "items": [], "current": 0, "text": text, "shown": shown(p, &e.params)}));
             }
             let mut options = choices(p);
             let v = match &value { Value::String(s) => s.clone(), Value::Null => String::new(), v => v.to_string() };
@@ -817,7 +833,7 @@ impl ShortcutsPlugin {
                 current = Some(options.len() - 1);
             }
             let items: Vec<String> = options.into_iter().map(|(_, l)| l).collect();
-            Some(json!({"label": p["label"], "number": false, "items": items, "current": current.unwrap_or(0), "text": "", "shown": shown(p, &e.params)}))
+            Some(json!({"label": p["label"], "tip": param_tip(p), "number": false, "items": items, "current": current.unwrap_or(0), "text": "", "shown": shown(p, &e.params)}))
         }).collect()).unwrap_or_default();
         // Hidden ones are left out rather than shrunk (a shrunk row still gets the form's spacing); `at` keeps each one's place
         let params: Vec<Value> = params.into_iter().enumerate().filter(|(_, p)| p["shown"] == true)

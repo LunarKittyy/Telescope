@@ -774,6 +774,7 @@ export component ConnectionSettings inherits Card {
     RailRow {
         icon: Icons.wifi;
         label: @tr("UDP on Wi-Fi");
+        tip: @tr("Send the video over Wi-Fi with UDP, which skips a lost piece instead of waiting for it");
         tip-detail: @tr("It can stutter more than TCP, so try it and see.");
         named: true;
         hue: root.hue;
