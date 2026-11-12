@@ -147,6 +147,7 @@ fn every_plugin(bus: &telescope_core::BusSender) -> Vec<Box<dyn Plugin>> {
         Box::new(telescope_effects::fun_pack::FunPackPlugin::new()),
         Box::new(telescope_effects::privacy_blur::PrivacyBlurPlugin::new()),
         Box::new(telescope_effects::colour_grading::ColourGradingPlugin::new()),
+        Box::new(telescope_effects::filters::FiltersPlugin::new()),
         Box::new(telescope_outputs::stream_output::StreamOutputPlugin::new(true)),
         Box::new(telescope_effects::transforms::TransformsPlugin::new()),
         Box::new(telescope_effects::framing::FramingPlugin::new()),

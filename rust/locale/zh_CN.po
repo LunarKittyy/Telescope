@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">捐赠或了解更多</a>"
 msgid "No mic"
 msgstr "无麦克风"
 
-#: rust/crates/audio/src/plugin.rs:111 rust/crates/core/src/vision.rs:103 rust/crates/shell/src/plugins_tab.rs:432 rust/crates/system/src/updates_plugin.rs:456
+#: rust/crates/audio/src/plugin.rs:111 rust/crates/core/src/vision.rs:116 rust/crates/shell/src/plugins_tab.rs:432 rust/crates/system/src/updates_plugin.rs:456
 msgid "Downloading…"
 msgstr "正在下载…"
 
@@ -520,26 +520,26 @@ msgstr "串流与设备"
 msgid "Extras"
 msgstr "扩展"
 
-#: rust/crates/core/src/vision.rs:101 rust/crates/shell/src/plugins_tab.rs:432
+#: rust/crates/core/src/vision.rs:114 rust/crates/shell/src/plugins_tab.rs:432
 #, python-brace-format
 msgid "Downloading… {percent}%"
 msgstr "正在下载… {percent}%"
 
-#: rust/crates/core/src/vision.rs:107
+#: rust/crates/core/src/vision.rs:120
 #, python-brace-format
 msgid "Cleaner edges with a one-time download (about {mb} MB)."
 msgstr "一次性下载（约 {mb} MB）后，边缘会更清晰。"
 
-#: rust/crates/core/src/vision.rs:109
+#: rust/crates/core/src/vision.rs:122
 #, python-brace-format
 msgid "Needs a one-time download (about {mb} MB)."
 msgstr "需要一次性下载（约 {mb} MB）。"
 
-#: rust/crates/core/src/vision.rs:113
+#: rust/crates/core/src/vision.rs:126
 msgid "MediaPipe didn't load on this computer. Copy diagnostics has the details."
 msgstr "MediaPipe 未能在这台电脑上加载。“复制诊断信息”中有详细内容。"
 
-#: rust/crates/core/src/vision.rs:115
+#: rust/crates/core/src/vision.rs:128
 msgid "Getting ready…"
 msgstr "正在准备…"
 
@@ -1121,7 +1121,7 @@ msgstr "拉伸"
 msgid "Crop"
 msgstr "裁剪"
 
-#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:232 rust/crates/effects/ui/transforms.slint:242 rust/crates/effects/ui/transforms.slint:244 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:236 rust/crates/effects/ui/transforms.slint:246 rust/crates/effects/ui/transforms.slint:248 rust/crates/outputs/src/webcam.rs:56
 msgid "Pan"
 msgstr "平移"
 
@@ -1363,7 +1363,7 @@ msgstr "桌面模式"
 msgid "Done"
 msgstr "完成"
 
-#: rust/crates/effects/src/desk.rs:215 rust/crates/effects/ui/transforms.slint:109 rust/crates/outputs/ui/webcam.slint:64
+#: rust/crates/effects/src/desk.rs:215 rust/crates/effects/ui/transforms.slint:113 rust/crates/outputs/ui/webcam.slint:64
 msgid "Reset"
 msgstr "重置"
 
@@ -1430,6 +1430,162 @@ msgstr "将手机的测光点移到你的脸上，无论你身后是什么，都
 #: rust/crates/effects/src/face_exposure.rs:292
 msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
 msgstr "没有它就没有“按我的脸曝光”卡片，手机会按你点击的位置或整个画面测光。"
+
+#: rust/crates/effects/src/filters.rs:69
+msgid "Denoise"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:69
+msgid "Smooth the noise in each frame while keeping the edges."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:69 rust/crates/effects/ui/fun_pack.slint:100 rust/crates/effects/ui/fun_pack.slint:101
+msgid "Clean up"
+msgstr "清理"
+
+#: rust/crates/effects/src/filters.rs:70
+msgid "Over time"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:70
+msgid "Average the parts that hold still with the frames before them to clean up a dim room, without ghosting on anything that moves."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:71
+msgid "Dehaze"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:71
+msgid "Lift the washed-out look of a dirty lens, a window behind you or a cheap camera."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:72
+msgid "Skin smoothing"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:72
+msgid "Soften skin inside the person mask while eyes, brows, hair and edges stay sharp."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:73
+msgid "Sharpen"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:73
+msgid "Make edges crisper without a white outline."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:73
+msgid "Detail"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:74
+msgid "Radius"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:74
+msgid "Set how wide the detail Sharpen picks up is."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:75
+msgid "Threshold"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:75
+msgid "Leave detail smaller than this alone, which keeps skin and walls smooth."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:76
+msgid "Clarity"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:76
+msgid "Add contrast to the mid-sized detail so a flat picture looks less flat, or go below 0 to soften it."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:77
+msgid "Vignette"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:77
+msgid "Darken the corners, or lighten them below 0."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:77
+msgid "Finish"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:78 rust/crates/effects/ui/name_tag.slint:167 rust/crates/effects/ui/name_tag.slint:171
+msgid "Size"
+msgstr "大小"
+
+#: rust/crates/effects/src/filters.rs:78
+msgid "Set how much of the picture stays clear of the vignette."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:79
+msgid "Roundness"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:79
+msgid "Shape the vignette from the frame's own shape to a circle."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:80
+msgid "Glow"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:80
+msgid "Add a soft bloom around the bright parts, like an old lens or a diffusion filter."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:81 rust/crates/effects/ui/fun_pack.slint:173
+msgid "Spread"
+msgstr "扩散"
+
+#: rust/crates/effects/src/filters.rs:81
+msgid "Set how far the glow reaches."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:82
+msgid "Film grain"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:82
+msgid "Add grain that moves every frame and is strongest in the mid-tones, like film."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:83
+msgid "Grain size"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:83
+msgid "Set how coarse the film grain is."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:87
+msgid "Also on the phone"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:88
+msgid "The Camera card has the phone's own Sharpening and Noise reduction. Using both looks worse."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:363 rust/crates/effects/src/filters.rs:456 rust/crates/effects/src/filters.rs:518 rust/crates/effects/src/filters.rs:518 rust/crates/effects/src/filters.rs:531 rust/crates/effects/ui/filters.slint:36
+msgid "Filters"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:364
+msgid "Turn every filter off to see the picture without them."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:457
+msgid "Sharpen, clarity, dehaze, denoise, skin smoothing, vignette, glow and film grain, like the filters of a photo editor."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:458
+msgid "Without it there's no Filters card and the picture isn't sharpened, cleaned up or finished."
+msgstr ""
 
 #: rust/crates/effects/src/framing.rs:20 rust/crates/effects/ui/framing.slint:43
 msgid "Auto framing"
@@ -2510,129 +2666,137 @@ msgstr "关闭后将没有“二维码”卡片，也不会识别画面中的二
 msgid "Read QR codes"
 msgstr "识别二维码"
 
-#: rust/crates/effects/src/transforms.rs:35
-msgid "Set flip, rotation, zoom, pan and stretch back to default."
-msgstr "将翻转、旋转、缩放、平移和拉伸恢复为默认值。"
+#: rust/crates/effects/src/transforms.rs:37
+msgid "Set flip, rotation, zoom, pan, stretch and lens correction back to default."
+msgstr ""
 
-#: rust/crates/effects/src/transforms.rs:36
+#: rust/crates/effects/src/transforms.rs:38
 msgid "Drag to move. Double-click to centre."
 msgstr "拖动以移动位置。双击居中。"
 
-#: rust/crates/effects/src/transforms.rs:37
+#: rust/crates/effects/src/transforms.rs:39
 msgid "Stretch or squeeze the picture horizontally."
 msgstr "水平拉伸或压缩画面。"
 
-#: rust/crates/effects/src/transforms.rs:37
+#: rust/crates/effects/src/transforms.rs:39
 msgid "Stretch or squeeze the picture vertically."
 msgstr "垂直拉伸或压缩画面。"
 
-#: rust/crates/effects/src/transforms.rs:61
+#: rust/crates/effects/src/transforms.rs:40
+msgid "Straighten the curved lines of a wide lens (right) or a long lens (left), with the edges cropped or pulled in to stay filled."
+msgstr ""
+
+#: rust/crates/effects/src/transforms.rs:64
 #, python-brace-format
 msgid "Switched to {lens}"
 msgstr "已切换至 {lens}"
 
-#: rust/crates/effects/src/transforms.rs:66
+#: rust/crates/effects/src/transforms.rs:69
 msgid "the telephoto"
 msgstr "长焦镜头"
 
-#: rust/crates/effects/src/transforms.rs:68
+#: rust/crates/effects/src/transforms.rs:71
 msgid "the main camera"
 msgstr "主摄"
 
-#: rust/crates/effects/src/transforms.rs:69
+#: rust/crates/effects/src/transforms.rs:72
 #, python-brace-format
 msgid "Panned past what {tele} can see, so it's on {live}. Pan back to switch again."
 msgstr "平移范围超出了 {tele} 的视野，因此已切至 {live}。移回原位即可再次切换。"
 
-#: rust/crates/effects/src/transforms.rs:72
+#: rust/crates/effects/src/transforms.rs:75
 #, python-brace-format
 msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
 msgstr "手机自动保持在 {live}，很可能是因为环境太暗或距离太近不适合 {tele}。一旦条件允许便会切换。"
 
-#: rust/crates/effects/src/transforms.rs:78
+#: rust/crates/effects/src/transforms.rs:81
 msgid "It can wobble for a moment while it switches."
 msgstr "切换过程中画面可能会轻微晃动。"
 
-#: rust/crates/effects/src/transforms.rs:226
+#: rust/crates/effects/src/transforms.rs:238
 #, python-brace-format
 msgid "{n}×"
 msgstr "{n}×"
 
-#: rust/crates/effects/src/transforms.rs:237
+#: rust/crates/effects/src/transforms.rs:249
 msgid "Dots mark where the phone switches to another lens"
 msgstr "圆点标记手机切换至其他镜头的位置"
 
-#: rust/crates/effects/src/transforms.rs:240
+#: rust/crates/effects/src/transforms.rs:252
 #, python-brace-format
 msgid "{owner} is moving the zoom and pan"
 msgstr "{owner} 正在调整缩放和平移"
 
-#: rust/crates/effects/src/transforms.rs:327
+#: rust/crates/effects/src/transforms.rs:343
 #, python-brace-format
 msgid "Add shortcut for {action}…"
 msgstr "为 {action} 添加快捷键…"
 
-#: rust/crates/effects/src/transforms.rs:520
+#: rust/crates/effects/src/transforms.rs:543
 msgid "Zoomed on this computer: this lens can't zoom itself"
 msgstr "在这台电脑上缩放：此镜头本身无法缩放"
 
-#: rust/crates/effects/src/transforms.rs:520
+#: rust/crates/effects/src/transforms.rs:543
 msgid "Zoomed on this computer"
 msgstr "在这台电脑上缩放"
 
-#: rust/crates/effects/src/transforms.rs:522
+#: rust/crates/effects/src/transforms.rs:545
 msgid "Zoomed on the phone's sensor as far as this lens allows, the rest on this computer"
 msgstr "在手机传感器上已缩放至此镜头的极限，其余部分在这台电脑上缩放"
 
-#: rust/crates/effects/src/transforms.rs:524
+#: rust/crates/effects/src/transforms.rs:547
 msgid "Zoomed on the phone's sensor"
 msgstr "在手机传感器上缩放"
 
-#: rust/crates/effects/src/transforms.rs:551 rust/crates/effects/src/transforms.rs:640 rust/crates/effects/ui/transforms.slint:101
+#: rust/crates/effects/src/transforms.rs:574 rust/crates/effects/src/transforms.rs:667 rust/crates/effects/ui/transforms.slint:105
 msgid "Transforms"
 msgstr "变换"
 
-#: rust/crates/effects/src/transforms.rs:552 rust/crates/effects/ui/transforms.slint:102
+#: rust/crates/effects/src/transforms.rs:575 rust/crates/effects/ui/transforms.slint:106
 msgid "Zoom, pan, flip, rotate and stretch the picture."
 msgstr "缩放、平移、翻转、旋转和拉伸画面。"
 
-#: rust/crates/effects/src/transforms.rs:553
+#: rust/crates/effects/src/transforms.rs:576
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "关闭后将没有“变换”卡片，画面将完全按手机发送的原样输出。"
 
-#: rust/crates/effects/src/transforms.rs:643 rust/crates/effects/src/transforms.rs:696 rust/crates/effects/ui/composite_editor.slint:445 rust/crates/effects/ui/transforms.slint:169 rust/crates/effects/ui/transforms.slint:184 rust/crates/effects/ui/transforms.slint:185 rust/crates/effects/ui/transforms.slint:226 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/transforms.rs:670 rust/crates/effects/src/transforms.rs:725 rust/crates/effects/ui/composite_editor.slint:445 rust/crates/effects/ui/transforms.slint:173 rust/crates/effects/ui/transforms.slint:188 rust/crates/effects/ui/transforms.slint:189 rust/crates/effects/ui/transforms.slint:230 rust/crates/outputs/src/webcam.rs:56
 msgid "Zoom"
 msgstr "缩放"
 
-#: rust/crates/effects/src/transforms.rs:644 rust/crates/effects/src/transforms.rs:706
+#: rust/crates/effects/src/transforms.rs:671 rust/crates/effects/src/transforms.rs:735
 msgid "Pan left/right"
 msgstr "左右平移"
 
-#: rust/crates/effects/src/transforms.rs:645 rust/crates/effects/src/transforms.rs:706
+#: rust/crates/effects/src/transforms.rs:672 rust/crates/effects/src/transforms.rs:735
 msgid "Pan up/down"
 msgstr "上下平移"
 
-#: rust/crates/effects/src/transforms.rs:646 rust/crates/effects/src/transforms.rs:714 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/desk.slint:165 rust/crates/effects/ui/desk.slint:172 rust/crates/effects/ui/desk.slint:173 rust/crates/effects/ui/transforms.slint:258 rust/crates/effects/ui/transforms.slint:259
+#: rust/crates/effects/src/transforms.rs:673 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/desk.slint:165 rust/crates/effects/ui/desk.slint:172 rust/crates/effects/ui/desk.slint:173 rust/crates/effects/ui/transforms.slint:262 rust/crates/effects/ui/transforms.slint:263
 msgid "Width"
 msgstr "宽度"
 
-#: rust/crates/effects/src/transforms.rs:647 rust/crates/effects/src/transforms.rs:714 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/transforms.slint:275 rust/crates/effects/ui/transforms.slint:276
+#: rust/crates/effects/src/transforms.rs:674 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/transforms.slint:279 rust/crates/effects/ui/transforms.slint:280
 msgid "Height"
 msgstr "高度"
 
-#: rust/crates/effects/src/transforms.rs:654 rust/crates/effects/src/transforms.rs:674
+#: rust/crates/effects/src/transforms.rs:675 rust/crates/effects/src/transforms.rs:750 rust/crates/effects/ui/transforms.slint:296 rust/crates/effects/ui/transforms.slint:297
+msgid "Lens correction"
+msgstr ""
+
+#: rust/crates/effects/src/transforms.rs:682 rust/crates/effects/src/transforms.rs:703
 msgid "Flip horizontal"
 msgstr "水平翻转"
 
-#: rust/crates/effects/src/transforms.rs:655 rust/crates/effects/src/transforms.rs:674
+#: rust/crates/effects/src/transforms.rs:683 rust/crates/effects/src/transforms.rs:703
 msgid "Flip vertical"
 msgstr "垂直翻转"
 
-#: rust/crates/effects/src/transforms.rs:656 rust/crates/effects/src/transforms.rs:688 rust/crates/effects/ui/transforms.slint:149 rust/crates/effects/ui/transforms.slint:159 rust/crates/effects/ui/transforms.slint:160 rust/crates/effects/ui/transforms.slint:160 rust/crates/effects/ui/transforms.slint:160 rust/crates/effects/ui/transforms.slint:160
+#: rust/crates/effects/src/transforms.rs:684 rust/crates/effects/src/transforms.rs:717 rust/crates/effects/ui/transforms.slint:153 rust/crates/effects/ui/transforms.slint:163 rust/crates/effects/ui/transforms.slint:164 rust/crates/effects/ui/transforms.slint:164 rust/crates/effects/ui/transforms.slint:164 rust/crates/effects/ui/transforms.slint:164
 msgid "Rotation"
 msgstr "旋转"
 
-#: rust/crates/effects/src/transforms.rs:663 rust/crates/effects/src/transforms.rs:719
+#: rust/crates/effects/src/transforms.rs:692 rust/crates/effects/src/transforms.rs:754
 msgid "Reset transforms"
 msgstr "重置变换"
 
@@ -3064,6 +3228,10 @@ msgstr "以人脸为基准对手机测光。"
 msgid "Follow my face"
 msgstr "跟随我的脸"
 
+#: rust/crates/effects/ui/filters.slint:37
+msgid "Sharpen, clean up and finish the picture like a photo editor."
+msgstr ""
+
 #: rust/crates/effects/ui/framing.slint:44
 msgid "Zoom and pan automatically to keep you in the picture."
 msgstr "自动缩放和平移，让你始终保持在画面中。"
@@ -3088,10 +3256,6 @@ msgstr "分身、隐身斗篷、光绘、复古滤镜和故障艺术（Datamosh�
 msgid "Effect"
 msgstr "特效"
 
-#: rust/crates/effects/ui/fun_pack.slint:100 rust/crates/effects/ui/fun_pack.slint:101
-msgid "Clean up"
-msgstr "清理"
-
 #: rust/crates/effects/ui/fun_pack.slint:107 rust/crates/effects/ui/fun_pack.slint:108 rust/crates/system/ui/shortcuts.slint:124 rust/crates/ui-kit/ui/widgets/field.slint:129
 msgid "Clear"
 msgstr "清除"
@@ -3103,10 +3267,6 @@ msgstr "拖尾"
 #: rust/crates/effects/ui/fun_pack.slint:156 rust/crates/outputs/src/webcam.rs:47 rust/crates/shell/ui/cards/camera.slint:231 rust/crates/shell/ui/cards/camera.slint:238 rust/crates/shell/ui/cards/camera.slint:249
 msgid "Brightness"
 msgstr "亮度"
-
-#: rust/crates/effects/ui/fun_pack.slint:173
-msgid "Spread"
-msgstr "扩散"
 
 #: rust/crates/effects/ui/fun_pack.slint:190
 msgid "Smear"
@@ -3159,10 +3319,6 @@ msgstr "位置"
 #: rust/crates/effects/ui/name_tag.slint:137
 msgid "Style"
 msgstr "样式"
-
-#: rust/crates/effects/ui/name_tag.slint:167 rust/crates/effects/ui/name_tag.slint:171
-msgid "Size"
-msgstr "大小"
 
 #: rust/crates/effects/ui/notes.slint:64
 msgid "Show your script on the phone's screen so you can read it while looking into the camera."
@@ -3394,31 +3550,31 @@ msgstr "触发效果"
 msgid "Copy QR codes held up to the camera to the clipboard."
 msgstr "将举到镜头前的二维码内容复制到剪贴板。"
 
-#: rust/crates/effects/ui/transforms.slint:115
+#: rust/crates/effects/ui/transforms.slint:119
 msgid "Flip"
 msgstr "翻转"
 
-#: rust/crates/effects/ui/transforms.slint:123 rust/crates/effects/ui/transforms.slint:124
+#: rust/crates/effects/ui/transforms.slint:127 rust/crates/effects/ui/transforms.slint:128
 msgid "Mirror"
 msgstr "镜像"
 
-#: rust/crates/effects/ui/transforms.slint:125
+#: rust/crates/effects/ui/transforms.slint:129
 msgid "Flip the picture left to right."
 msgstr "左右翻转画面。"
 
-#: rust/crates/effects/ui/transforms.slint:135 rust/crates/effects/ui/transforms.slint:136
+#: rust/crates/effects/ui/transforms.slint:139 rust/crates/effects/ui/transforms.slint:140
 msgid "Upside down"
 msgstr "上下颠倒"
 
-#: rust/crates/effects/ui/transforms.slint:137
+#: rust/crates/effects/ui/transforms.slint:141
 msgid "Flip the picture top to bottom."
 msgstr "上下翻转画面。"
 
-#: rust/crates/effects/ui/transforms.slint:214
+#: rust/crates/effects/ui/transforms.slint:218
 msgid "Lens switch"
 msgstr "切换镜头"
 
-#: rust/crates/effects/ui/transforms.slint:226 rust/crates/ui-kit/ui/widgets/pad.slint:87 rust/crates/ui-kit/ui/widgets/slider.slint:82
+#: rust/crates/effects/ui/transforms.slint:230 rust/crates/ui-kit/ui/widgets/pad.slint:87 rust/crates/ui-kit/ui/widgets/slider.slint:82
 msgid "Double-click to reset"
 msgstr "双击以重置"
 
@@ -7191,11 +7347,11 @@ msgstr "无法读取你的设置"
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescope 已按默认设置启动，因此已配对的手机需要重新配对。"
 
-#: rust/crates/shell/src/shell.rs:1160
+#: rust/crates/shell/src/shell.rs:1164
 msgid "Telescope - Save failed"
 msgstr "Telescope - 保存失败"
 
-#: rust/crates/shell/src/shell.rs:1161
+#: rust/crates/shell/src/shell.rs:1165
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "无法保存设置。请检查磁盘空间和权限。"
 
@@ -8967,7 +9123,7 @@ msgid "Light"
 msgstr "光线"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:427
+#: rust/app/src/main.rs:428
 msgid ", "
 msgstr "、"
 
@@ -9078,37 +9234,37 @@ msgstr ""
 "手机麦克风仍在串流，当有应用打开相机时，\n"
 "画面将自动恢复。"
 
-#: rust/crates/effects/src/transforms.rs:654
+#: rust/crates/effects/src/transforms.rs:682
 msgctxt "search"
 msgid "mirror"
 msgstr "镜像 mirror"
 
-#: rust/crates/effects/src/transforms.rs:655
+#: rust/crates/effects/src/transforms.rs:683
 msgctxt "search"
 msgid "mirror upside down"
 msgstr "镜像 上下颠倒 翻转 mirror upside down"
 
-#: rust/crates/effects/src/transforms.rs:656
+#: rust/crates/effects/src/transforms.rs:684
 msgctxt "search"
 msgid "rotate turn"
 msgstr "旋转 转向 rotate turn"
 
-#: rust/crates/effects/src/transforms.rs:657
+#: rust/crates/effects/src/transforms.rs:685
 msgctxt "search"
 msgid "crop framing"
 msgstr "裁剪 构图 crop framing"
 
-#: rust/crates/effects/src/transforms.rs:658
+#: rust/crates/effects/src/transforms.rs:686
 msgctxt "search"
 msgid "framing move"
 msgstr "构图 移动 framing move"
 
-#: rust/crates/effects/src/transforms.rs:660
+#: rust/crates/effects/src/transforms.rs:688
 msgctxt "search"
 msgid "stretch squish aspect wide"
 msgstr "拉伸 挤压 宽高比 宽屏 比例 stretch squish aspect wide"
 
-#: rust/crates/effects/src/transforms.rs:661
+#: rust/crates/effects/src/transforms.rs:689
 msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "拉伸 挤压 宽高比 竖屏 比例 stretch squish aspect tall"
@@ -9228,6 +9384,9 @@ msgstr "无法打开"
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "无法重启"
+
+#~ msgid "Set flip, rotation, zoom, pan and stretch back to default."
+#~ msgstr "将翻转、旋转、缩放、平移和拉伸恢复为默认值。"
 
 #~ msgid "The graphics card failed and the processor is decoding until you restart Telescope"
 #~ msgstr "显卡故障，在重启 Telescope 前将由处理器解码"

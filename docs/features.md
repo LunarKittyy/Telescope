@@ -21,6 +21,7 @@ These apply live without restarting the camera.
 - Rotate 90° CW, 180° or 90° CCW
 - **Zoom 1-10x** with pan. **Max zoom** under Video in Settings goes up to 30x. Scroll over the preview to zoom and drag to pan
 - **Width** and **Height** stretch or squish the picture from 50% to 200%, each on its own. Whatever goes past the edge is cut off and a squish leaves black bars, like a rotated picture gets
+- **Lens correction** straightens the curved lines a wide lens makes, so faces near the edge stop looking stretched. Slide right for a wide lens and left for a long one. It crops or pulls in the picture just enough to keep the edges filled, and 0% leaves the picture exactly as it is
 - Double-click any slider to reset it. The pan pad takes arrow keys (Shift for bigger steps) and Home to centre
 
 Zooming crops from the full sensor first and hops to the telephoto lens once your framing fits inside it, which is why zooming in gets sharper. Dots on the zoom slider mark where a longer lens takes over.
@@ -140,6 +141,18 @@ An optional plugin for the look of the picture, switched on in Plugins (it needs
 **LUT** puts a `.cube` file on top of the grade (1D or 3D, up to 65 points per side) with a Strength slider. **Export grade…** saves the whole grade, LUT included, as a 33 or 65 point `.cube` to get the same look in other software.
 
 **Compare** splits the preview with the picture before the grade left of the line. Apps always get the graded picture. The switch in the card's header turns the grade off without losing it. Each wheel, slider, the Compare button, the switch and the LUT strength can go on a key in Keyboard shortcuts.
+
+## Filters
+
+An optional plugin with the basic filters of a photo editor, switched on under **Look** in the Plugins tab. It needs no download, except for skin smoothing. A filter at 0 is off and costs nothing, and the switch in the card's header sets them all aside without losing them. Each phone has its own settings and presets save them.
+
+- **Denoise** smooths the noise in each frame and keeps the edges. **Over time** also averages every part of the picture that holds still with the frames before it, which cleans up a dim room far better than blurring. Anything that moves is left out so it can't leave a ghost, and it starts over when the camera or the picture size changes
+- **Dehaze** takes the washed-out look off a dirty lens, a window behind you or a cheap camera's low contrast
+- **Skin smoothing** softens skin inside the person mask and keeps eyes, brows, hair and edges sharp. It needs the vision download, and the card says so until it's there
+- **Sharpen** has an **Amount**, a **Radius** and a **Threshold** that leaves flat areas like skin and walls alone. Strong edges get steeper without a white outline. **Clarity** adds contrast to the mid-sized detail, which makes a flat picture look less flat, with no glowing outlines. Below 0 it softens instead
+- **Vignette** darkens the corners (or lightens them below 0) with a **Size** and a **Roundness**. **Glow** puts a soft bloom around the bright parts and **Film grain** adds grain that moves every frame and is strongest in the mid-tones
+
+Denoise, dehaze, skin smoothing, clarity and sharpen come before Colour grading in the picture's path and the vignette, glow and grain come after it, so the grade doesn't change them. They run on the graphics card and fall back to the processor while something like a game keeps the card busy. The Camera card has the phone's own **Sharpening** and **Noise reduction**, and sharpening twice looks worse than once, so use one or the other.
 
 ## Notes next to the lens
 

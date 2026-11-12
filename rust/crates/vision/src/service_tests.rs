@@ -441,7 +441,7 @@ fn test_people_come_from_their_own_thread_only_while_wanted() {
 fn test_people_are_found_upright_and_put_where_they_are_shown() {
     let r = ready();
     r.v.want_people("Auto framing", true);
-    let upright = Upright { turn: Turn { rotation: Some(270), ..Turn::default() }, sent: (2.0, 0.0, 0.0) };
+    let upright = Upright { turn: Turn { rotation: Some(270), ..Turn::default() }, sent: (2.0, 0.0, 0.0), ..Upright::default() };
     r.v.feed_raw("a", &mut || Some(Rgb::filled(1280, 720, 0)), upright);
     wait(|| !r.people.lock().unwrap().is_empty());
     // the small copy is 640 x 360, turned a quarter for the model

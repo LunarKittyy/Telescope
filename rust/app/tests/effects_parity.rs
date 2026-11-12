@@ -90,7 +90,7 @@ fn view_of(case: &Value) -> View {
     let b = |k: &str| v.get(k).and_then(Value::as_bool).unwrap_or(false);
     let rotation = v.get("rotation").and_then(Value::as_str).and_then(view::rotation_named).flatten();
     View { zoom: f("zoom", 1.0), pan_x: f("pan_x", 0.0), pan_y: f("pan_y", 0.0), flip_h: b("flip_h"), flip_v: b("flip_v"), rotation,
-           stretch_x: f("stretch_x", 1.0), stretch_y: f("stretch_y", 1.0) }
+           stretch_x: f("stretch_x", 1.0), stretch_y: f("stretch_y", 1.0), distortion: 0.0 }
 }
 
 /// How close Rust's view has to be to OpenCV's: warpAffine interpolates in fixed point (a 32nd of a pixel), the card in float.

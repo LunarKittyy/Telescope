@@ -202,6 +202,12 @@ pub trait Plugin: Send {
         None
     }
 
+    /// More frame steps than frame_step's one, each at a stage of its own and in the order they run within it (after frame_step's). For a plugin
+    /// whose work has to come at two places in the picture's path, like Filters cleaning up before the grade and finishing after it.
+    fn staged_frame_steps(&mut self) -> Vec<(FrameStage, FrameStep)> {
+        Vec::new()
+    }
+
     fn get_config(&self) -> Value {
         Value::Object(Map::new())
     }
