@@ -58,7 +58,7 @@ export component AutomaticSettings inherits Card {
     RailRow {
         icon: Icons.play;
         label: start-title;
-        tip: @tr("When streaming starts by itself");
+        tip: @tr("When to start streaming automatically");
         named: true;
         hue: root.hue;
         keywords: @tr("search" => "automatically begin streaming when phone device ready app opens the camera auto start") + " " + words(start-items);
@@ -74,7 +74,7 @@ export component AutomaticSettings inherits Card {
     RailRow {
         icon: Icons.stop;
         label: stop-title;
-        tip: @tr("When streaming stops by itself");
+        tip: @tr("When to stop streaming automatically");
         named: true;
         hue: root.hue;
         keywords: @tr("search" => "automatically end streaming idle no app uses the camera auto stop") + " " + words(stop-items);

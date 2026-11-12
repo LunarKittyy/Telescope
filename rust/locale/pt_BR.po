@@ -3230,7 +3230,7 @@ msgid "The page didn't start"
 msgstr "A página não iniciou"
 
 #: rust/crates/effects/ui/on_air.slint:174
-msgid "Scan it to open the sign on another device"
+msgid "Scan the code to open the sign on another device"
 msgstr ""
 
 #: rust/crates/effects/ui/on_air.slint:187 rust/crates/effects/ui/on_air.slint:194 rust/crates/effects/ui/on_air.slint:197 rust/crates/effects/ui/on_air.slint:238 rust/crates/link/ui/browser_camera.slint:160 rust/crates/link/ui/browser_camera.slint:163
@@ -6273,7 +6273,7 @@ msgid "Select device"
 msgstr "Selecionar dispositivo"
 
 #: rust/crates/setup/ui/setup.slint:404
-msgid "More than one phone is plugged in: pick the one that gets the app"
+msgid "Pick which phone gets the app when more than one is plugged in"
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:447
@@ -8944,7 +8944,7 @@ msgid "auto start stop camera app opens discord obs zoom meet teams phone device
 msgstr "iniciar parar automático câmera app abre discord obs zoom meet teams celular dispositivo pronto ocioso mãos livres auto start stop camera opens phone device ready idle hands free"
 
 #: rust/crates/system/ui/startup.slint:61
-msgid "When streaming starts by itself"
+msgid "When to start streaming automatically"
 msgstr ""
 
 #: rust/crates/system/ui/startup.slint:64
@@ -8953,7 +8953,7 @@ msgid "automatically begin streaming when phone device ready app opens the camer
 msgstr "iniciar transmissão automaticamente quando celular dispositivo pronto app abre a câmera início automático automatically begin streaming when phone device ready opens the camera auto start"
 
 #: rust/crates/system/ui/startup.slint:77
-msgid "When streaming stops by itself"
+msgid "When to stop streaming automatically"
 msgstr ""
 
 #: rust/crates/system/ui/startup.slint:80
