@@ -65,6 +65,8 @@ python clips/grading.py
 
 **fun and one-picture.** Not scripted yet. They need the Fun looks and the several-cameras layouts, and `telescope-rs effect` only does chroma key, desk and colour grading. `scenes/tiles/shot_fun.html` and `shot_camA.html` are the pictures underneath them.
 
+**The README banner.** `python banner.py WINDOW.png OUT_DIR PHONE.png` writes `banner.png` and `banner@2x.png` into `OUT_DIR`. `WINDOW.png` is a 1600x900 window picture at 2x from `telescope-rs scenes`, `PHONE.png` a 1080x2400 phone screenshot. The logo and tagline are cut from the current `docs/assets/banner.png`, so write to a different folder first and copy it over once you like it. No window or phone pictures are kept in the repo.
+
 ## What's in here
 
 - `scenes/`: the pages (`setup`, `lenses`, `pro`, `tiles`), the shared cat in `common/`, and `fonts/`.
