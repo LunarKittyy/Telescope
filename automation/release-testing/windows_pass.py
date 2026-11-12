@@ -313,11 +313,12 @@ def first_start_time(a, more="") -> float:
     out = a.win.desktop(ps(r"""
 [Watch]::Start("TelescopeDesktop")
 $t0 = Get-Date
+$sw = [Diagnostics.Stopwatch]::StartNew()  # the VM's clock can step by hours while it settles after a snapshot restore
 Open-AsUser "<<menu>>"
 $main = Main-Window 300 -Stay
 if (-not $main) { [Watch]::Stop() | ForEach-Object { "WATCH $_" }; throw "the window didn't open within 5 minutes" }
 Wait-Until { Find-Control "Settings" "Button" 1 } 60 | Out-Null
-"READY $(((Get-Date) - $t0).TotalSeconds)"
+"READY $($sw.Elapsed.TotalSeconds)"
 $area = [Windows.Forms.Screen]::PrimaryScreen.WorkingArea
 "WORK $($area.Left),$($area.Top),$($area.Right),$($area.Bottom)"
 "SETTLED $(Main-Rect)"
@@ -371,11 +372,11 @@ if (Get-Process TelescopeDesktop -ErrorAction SilentlyContinue) { throw "unticki
 @check
 def first_start(a):
     need_installed(a, a.build, "clean_install")
-    # Add phone and Settings during the first minute, while it may still be finishing loading
+    # Add device and Settings during the first minute, while it may still be finishing loading
     seconds = first_start_time(a, more=r"""
-Press-Control "Add phone" "Button"; Need-Control "Pairing code" "" 20 | Out-Null; Start-Sleep 2; Press-Control "Back" "Button"
+Press-Control "Add device" "Button"; Need-Control "Pairing code" "" 20 | Out-Null; Start-Sleep 2; Press-Control "Back" "Button"
 Press-Control "Settings" "Button"; Need-Control "Settings" "Window" 20 | Out-Null; Start-Sleep 2; Close-Window "Settings"
-Wait-Until { ((Get-Date) - $t0).TotalSeconds -gt 75 } 90 | Out-Null
+Wait-Until { $sw.Elapsed.TotalSeconds -gt 75 } 90 | Out-Null
 """)
     rows = a.last_start_rows
     shown = [r for r in rows if not r["gone"]]
@@ -514,12 +515,12 @@ def settings_centred(a):
 
 @check
 def dialogs_stay_in_window(a):
-    """Add phone, Your phones and the shortcut editor are drawn in the window: no window of their own comes up and the window stays put."""
+    """Add device, Your devices and the shortcut editor are drawn in the window: no window of their own comes up and the window stays put."""
     need_installed(a, a.build, "clean_install")
     open_app(a)
     dialogs = {
-        "Add phone": ('Press-Control "Add phone" "Button"', "Pairing code", 'Press-Control "Back" "Button"'),
-        "Your phones": ('Press-Control "Your phones" "Button"', "Change name", 'Press-Control "Close" "Button"'),
+        "Add device": ('Press-Control "Add device" "Button"', "Pairing code", 'Press-Control "Back" "Button"'),
+        "Your devices": ('Press-Control "Your devices" "Button"', "Change name", 'Press-Control "Close" "Button"'),
         "Keyboard shortcut": ('Open-Settings "Keyboard shortcuts"; Press-Control "Add" "Button"', "Press shortcut", 'Close-Window "Settings"'),
     }
     problems = []
@@ -721,7 +722,7 @@ Press-Control "OK" "Button" 20  # the "Installed" note
 # Its tile sits in the group of its category, switched off, and a switch is a button in the tree
 Press (Scroll-To "<<title>> <<version>>" "Button")
 Press-Control "Switch on" "Button" 10  # the question about trusting it
-try { Wait-Restart { Press-Control "Restart now" "Button" 20 } 90 } catch { throw "after Restart now: $_" }
+try { Wait-Restart { Press-Settled "Restart now" "Button" 20 } 90 } catch { throw "after Restart now: $_" }
 "OK"
 """, zip=zip_path).replace("<<title>>", info["title"]).replace("<<version>>", info["version"]), timeout=400)
         need("OK" in out, out[-300:])
@@ -804,8 +805,8 @@ def get_adb(a):
         raise Skip("Get adb needs Google's SDK licence accepted: pass --agree-adb-licence")
     open_app(a)
     out = a.win.desktop(r"""
-# The Add phone panel's USB row asks about Google's licence first (Settings, Virtual camera & phone downloads without asking)
-Press-Control "Add phone" "Button"
+# The Add device panel's USB row asks about Google's licence first (Settings, Virtual camera & phone downloads without asking)
+Press-Control "Add device" "Button"
 Press-Control "Get adb from Google" "Button"
 Press-Control "Agree and download" "Button" 20
 $adb = "$env:LOCALAPPDATA\Telescope\platform-tools\adb.exe"
