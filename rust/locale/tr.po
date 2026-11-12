@@ -5414,8 +5414,8 @@ msgid "Without the Monitoring plugin there's no Phone card and nothing warns you
 msgstr ""
 
 #: rust/crates/setup/src/setup.rs:33
-msgid "Asks for your password (pkexec or sudo): this changes system settings."
-msgstr "Parolanı ister (pkexec veya sudo): bu işlem sistem ayarlarını değiştirir."
+msgid "Needs your password (pkexec or sudo) to change system settings."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:34
 msgid "Needs your password (pkexec or sudo) because this changes system settings."
@@ -5471,8 +5471,8 @@ msgid "Apply"
 msgstr "Uygula"
 
 #: rust/crates/setup/src/setup.rs:389
-msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
-msgstr "Uygulamak yayını yeni boyutta yeniden başlatır. OBS kaynağı kaybederse kaynağı kaldırıp tekrar ekle."
+msgid "Applying restarts the stream at the new size. If OBS loses the source, remove the source and add it again."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:416 rust/crates/shell/src/plugins/onboarding.rs:157 rust/crates/shell/src/plugins/onboarding.rs:161 rust/crates/shell/src/plugins/onboarding.rs:164
 msgid "Install over USB"
@@ -5601,8 +5601,8 @@ msgid "Update ready"
 msgstr "Güncelleme hazır"
 
 #: rust/crates/setup/src/setup.rs:648
-msgid "Some apps can't see it"
-msgstr "Bazı uygulamalar göremiyor"
+msgid "Some apps can't see the camera"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:649 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
 msgid "Update"
@@ -5639,8 +5639,8 @@ msgid "Not installed (Install driver downloads it first)"
 msgstr "Yüklü değil (Sürücüyü yükle önce bunu indirir)"
 
 #: rust/crates/setup/src/setup.rs:676
-msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
-msgstr "Bulunamadı. USB üzerinden eşleştirme ve yükleme için bu gereklidir; Wi-Fi için gerekmez."
+msgid "Not found. Pairing and installing over USB need adb; Wi-Fi doesn't."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:702 rust/crates/setup/src/setup.rs:866
 #, python-brace-format
@@ -9538,6 +9538,18 @@ msgstr "Değiştirildi"
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "Yeniden başlatılamadı"
+
+#~ msgid "Asks for your password (pkexec or sudo): this changes system settings."
+#~ msgstr "Parolanı ister (pkexec veya sudo): bu işlem sistem ayarlarını değiştirir."
+
+#~ msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
+#~ msgstr "Uygulamak yayını yeni boyutta yeniden başlatır. OBS kaynağı kaybederse kaynağı kaldırıp tekrar ekle."
+
+#~ msgid "Some apps can't see it"
+#~ msgstr "Bazı uygulamalar göremiyor"
+
+#~ msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
+#~ msgstr "Bulunamadı. USB üzerinden eşleştirme ve yükleme için bu gereklidir; Wi-Fi için gerekmez."
 
 #~ msgid "Once VB-Cable's setup says it's done, restart the computer, then switch this off and on."
 #~ msgstr "VB-Cable kurulumunun bittiği belirtildiğinde bilgisayarı yeniden başlat, ardından bunu kapatıp aç."

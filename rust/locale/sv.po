@@ -5413,8 +5413,8 @@ msgid "Without the Monitoring plugin there's no Phone card and nothing warns you
 msgstr ""
 
 #: rust/crates/setup/src/setup.rs:33
-msgid "Asks for your password (pkexec or sudo): this changes system settings."
-msgstr "Frågar efter ditt lösenord (pkexec eller sudo): det här ändrar systeminställningar."
+msgid "Needs your password (pkexec or sudo) to change system settings."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:34
 msgid "Needs your password (pkexec or sudo) because this changes system settings."
@@ -5470,8 +5470,8 @@ msgid "Apply"
 msgstr "Verkställ"
 
 #: rust/crates/setup/src/setup.rs:389
-msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
-msgstr "När du verkställer startas strömmen om med den nya storleken. Om OBS tappar källan tar du bort den och lägger till den igen."
+msgid "Applying restarts the stream at the new size. If OBS loses the source, remove the source and add it again."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:416 rust/crates/shell/src/plugins/onboarding.rs:157 rust/crates/shell/src/plugins/onboarding.rs:161 rust/crates/shell/src/plugins/onboarding.rs:164
 msgid "Install over USB"
@@ -5600,8 +5600,8 @@ msgid "Update ready"
 msgstr "Uppdatering redo"
 
 #: rust/crates/setup/src/setup.rs:648
-msgid "Some apps can't see it"
-msgstr "Vissa appar kan inte se den"
+msgid "Some apps can't see the camera"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:649 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
 msgid "Update"
@@ -5638,8 +5638,8 @@ msgid "Not installed (Install driver downloads it first)"
 msgstr "Inte installerad (Installera drivrutin laddar ner den först)"
 
 #: rust/crates/setup/src/setup.rs:676
-msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
-msgstr "Hittades inte. Parkoppling och installation via USB behöver det, men inte Wi-Fi."
+msgid "Not found. Pairing and installing over USB need adb; Wi-Fi doesn't."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:702 rust/crates/setup/src/setup.rs:866
 #, python-brace-format
@@ -9537,6 +9537,18 @@ msgstr "Ersatt"
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "Kunde inte starta om"
+
+#~ msgid "Asks for your password (pkexec or sudo): this changes system settings."
+#~ msgstr "Frågar efter ditt lösenord (pkexec eller sudo): det här ändrar systeminställningar."
+
+#~ msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
+#~ msgstr "När du verkställer startas strömmen om med den nya storleken. Om OBS tappar källan tar du bort den och lägger till den igen."
+
+#~ msgid "Some apps can't see it"
+#~ msgstr "Vissa appar kan inte se den"
+
+#~ msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
+#~ msgstr "Hittades inte. Parkoppling och installation via USB behöver det, men inte Wi-Fi."
 
 #~ msgid "Once VB-Cable's setup says it's done, restart the computer, then switch this off and on."
 #~ msgstr "När VB-Cables installation säger att den är klar: starta om datorn och stäng sedan av och slå på det här igen."

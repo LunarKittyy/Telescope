@@ -5414,8 +5414,8 @@ msgid "Without the Monitoring plugin there's no Phone card and nothing warns you
 msgstr ""
 
 #: rust/crates/setup/src/setup.rs:33
-msgid "Asks for your password (pkexec or sudo): this changes system settings."
-msgstr "パスワードを求められます（pkexecまたはsudo）: システム設定を変更します。"
+msgid "Needs your password (pkexec or sudo) to change system settings."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:34
 msgid "Needs your password (pkexec or sudo) because this changes system settings."
@@ -5471,8 +5471,8 @@ msgid "Apply"
 msgstr "適用"
 
 #: rust/crates/setup/src/setup.rs:389
-msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
-msgstr "適用すると新しいサイズでストリームが再開されます。OBSでソースが見失われた場合は、一度削除して再度追加してください。"
+msgid "Applying restarts the stream at the new size. If OBS loses the source, remove the source and add it again."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:416 rust/crates/shell/src/plugins/onboarding.rs:157 rust/crates/shell/src/plugins/onboarding.rs:161 rust/crates/shell/src/plugins/onboarding.rs:164
 msgid "Install over USB"
@@ -5601,8 +5601,8 @@ msgid "Update ready"
 msgstr "アップデートの準備完了"
 
 #: rust/crates/setup/src/setup.rs:648
-msgid "Some apps can't see it"
-msgstr "一部のアプリで認識されません"
+msgid "Some apps can't see the camera"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:649 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
 msgid "Update"
@@ -5639,8 +5639,8 @@ msgid "Not installed (Install driver downloads it first)"
 msgstr "未インストール（「ドライバーをインストール」で先にダウンロードされます）"
 
 #: rust/crates/setup/src/setup.rs:676
-msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
-msgstr "見つかりません。USB経由でのペアリングとインストールに必要です（Wi-Fi接続時は不要）。"
+msgid "Not found. Pairing and installing over USB need adb; Wi-Fi doesn't."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:702 rust/crates/setup/src/setup.rs:866
 #, python-brace-format
@@ -9529,6 +9529,18 @@ msgstr "置き換え完了"
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "再起動できませんでした"
+
+#~ msgid "Asks for your password (pkexec or sudo): this changes system settings."
+#~ msgstr "パスワードを求められます（pkexecまたはsudo）: システム設定を変更します。"
+
+#~ msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
+#~ msgstr "適用すると新しいサイズでストリームが再開されます。OBSでソースが見失われた場合は、一度削除して再度追加してください。"
+
+#~ msgid "Some apps can't see it"
+#~ msgstr "一部のアプリで認識されません"
+
+#~ msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
+#~ msgstr "見つかりません。USB経由でのペアリングとインストールに必要です（Wi-Fi接続時は不要）。"
 
 #~ msgid "Once VB-Cable's setup says it's done, restart the computer, then switch this off and on."
 #~ msgstr "VB-Cableのセットアップが完了したらコンピューターを再起動し、この機能を一度オフにしてから再度オンにしてください。"

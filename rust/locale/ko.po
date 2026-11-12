@@ -5414,8 +5414,8 @@ msgid "Without the Monitoring plugin there's no Phone card and nothing warns you
 msgstr ""
 
 #: rust/crates/setup/src/setup.rs:33
-msgid "Asks for your password (pkexec or sudo): this changes system settings."
-msgstr "비밀번호를 요청해요(pkexec 또는 sudo): 시스템 설정을 변경해요."
+msgid "Needs your password (pkexec or sudo) to change system settings."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:34
 msgid "Needs your password (pkexec or sudo) because this changes system settings."
@@ -5471,8 +5471,8 @@ msgid "Apply"
 msgstr "적용"
 
 #: rust/crates/setup/src/setup.rs:389
-msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
-msgstr "적용하면 새 크기로 스트림이 다시 시작돼요. OBS에서 소스를 찾을 수 없으면 제거했다가 다시 추가하세요."
+msgid "Applying restarts the stream at the new size. If OBS loses the source, remove the source and add it again."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:416 rust/crates/shell/src/plugins/onboarding.rs:157 rust/crates/shell/src/plugins/onboarding.rs:161 rust/crates/shell/src/plugins/onboarding.rs:164
 msgid "Install over USB"
@@ -5601,8 +5601,8 @@ msgid "Update ready"
 msgstr "업데이트 준비 완료"
 
 #: rust/crates/setup/src/setup.rs:648
-msgid "Some apps can't see it"
-msgstr "일부 앱에서 감지할 수 없음"
+msgid "Some apps can't see the camera"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:649 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
 msgid "Update"
@@ -5639,8 +5639,8 @@ msgid "Not installed (Install driver downloads it first)"
 msgstr "설치되지 않음(드라이버 설치를 누르면 먼저 다운로드해요)"
 
 #: rust/crates/setup/src/setup.rs:676
-msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
-msgstr "찾을 수 없어요. USB를 통한 페어링 및 설치에는 필요하지만 Wi-Fi에는 필요하지 않아요."
+msgid "Not found. Pairing and installing over USB need adb; Wi-Fi doesn't."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:702 rust/crates/setup/src/setup.rs:866
 #, python-brace-format
@@ -9529,6 +9529,18 @@ msgstr "대체됨"
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "다시 시작할 수 없음"
+
+#~ msgid "Asks for your password (pkexec or sudo): this changes system settings."
+#~ msgstr "비밀번호를 요청해요(pkexec 또는 sudo): 시스템 설정을 변경해요."
+
+#~ msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
+#~ msgstr "적용하면 새 크기로 스트림이 다시 시작돼요. OBS에서 소스를 찾을 수 없으면 제거했다가 다시 추가하세요."
+
+#~ msgid "Some apps can't see it"
+#~ msgstr "일부 앱에서 감지할 수 없음"
+
+#~ msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
+#~ msgstr "찾을 수 없어요. USB를 통한 페어링 및 설치에는 필요하지만 Wi-Fi에는 필요하지 않아요."
 
 #~ msgid "Once VB-Cable's setup says it's done, restart the computer, then switch this off and on."
 #~ msgstr "VB-Cable 설치 완료 메시지가 나타나면 컴퓨터를 다시 시작한 다음 이 기능을 껐다가 켜세요."

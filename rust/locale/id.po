@@ -5414,8 +5414,8 @@ msgid "Without the Monitoring plugin there's no Phone card and nothing warns you
 msgstr ""
 
 #: rust/crates/setup/src/setup.rs:33
-msgid "Asks for your password (pkexec or sudo): this changes system settings."
-msgstr "Meminta kata sandi Anda (pkexec atau sudo): ini mengubah pengaturan sistem."
+msgid "Needs your password (pkexec or sudo) to change system settings."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:34
 msgid "Needs your password (pkexec or sudo) because this changes system settings."
@@ -5471,8 +5471,8 @@ msgid "Apply"
 msgstr "Terapkan"
 
 #: rust/crates/setup/src/setup.rs:389
-msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
-msgstr "Menerapkan akan memulai ulang stream pada ukuran baru. Jika OBS kehilangan sumber, hapus dan tambahkan kembali."
+msgid "Applying restarts the stream at the new size. If OBS loses the source, remove the source and add it again."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:416 rust/crates/shell/src/plugins/onboarding.rs:157 rust/crates/shell/src/plugins/onboarding.rs:161 rust/crates/shell/src/plugins/onboarding.rs:164
 msgid "Install over USB"
@@ -5601,8 +5601,8 @@ msgid "Update ready"
 msgstr "Pembaruan siap"
 
 #: rust/crates/setup/src/setup.rs:648
-msgid "Some apps can't see it"
-msgstr "Beberapa aplikasi tidak dapat melihatnya"
+msgid "Some apps can't see the camera"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:649 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
 msgid "Update"
@@ -5639,8 +5639,8 @@ msgid "Not installed (Install driver downloads it first)"
 msgstr "Tidak terinstal (Instal driver mengunduhnya terlebih dahulu)"
 
 #: rust/crates/setup/src/setup.rs:676
-msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
-msgstr "Tidak ditemukan. Penyandingan dan penginstalan via USB membutuhkannya; Wi-Fi tidak."
+msgid "Not found. Pairing and installing over USB need adb; Wi-Fi doesn't."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:702 rust/crates/setup/src/setup.rs:866
 #, python-brace-format
@@ -9529,6 +9529,18 @@ msgstr "Diganti"
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "Tidak dapat memulai ulang"
+
+#~ msgid "Asks for your password (pkexec or sudo): this changes system settings."
+#~ msgstr "Meminta kata sandi Anda (pkexec atau sudo): ini mengubah pengaturan sistem."
+
+#~ msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
+#~ msgstr "Menerapkan akan memulai ulang stream pada ukuran baru. Jika OBS kehilangan sumber, hapus dan tambahkan kembali."
+
+#~ msgid "Some apps can't see it"
+#~ msgstr "Beberapa aplikasi tidak dapat melihatnya"
+
+#~ msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
+#~ msgstr "Tidak ditemukan. Penyandingan dan penginstalan via USB membutuhkannya; Wi-Fi tidak."
 
 #~ msgid "Once VB-Cable's setup says it's done, restart the computer, then switch this off and on."
 #~ msgstr "Setelah persiapan VB-Cable menyatakan selesai, mulai ulang komputer, lalu nonaktifkan dan aktifkan kembali ini."

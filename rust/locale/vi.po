@@ -5414,8 +5414,8 @@ msgid "Without the Monitoring plugin there's no Phone card and nothing warns you
 msgstr ""
 
 #: rust/crates/setup/src/setup.rs:33
-msgid "Asks for your password (pkexec or sudo): this changes system settings."
-msgstr "Sẽ yêu cầu mật khẩu của bạn (pkexec hoặc sudo): thao tác này thay đổi cài đặt hệ thống."
+msgid "Needs your password (pkexec or sudo) to change system settings."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:34
 msgid "Needs your password (pkexec or sudo) because this changes system settings."
@@ -5471,8 +5471,8 @@ msgid "Apply"
 msgstr "Áp dụng"
 
 #: rust/crates/setup/src/setup.rs:389
-msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
-msgstr "Việc áp dụng sẽ khởi động lại luồng phát ở kích thước mới. Nếu OBS mất nguồn, hãy gỡ nguồn và thêm lại."
+msgid "Applying restarts the stream at the new size. If OBS loses the source, remove the source and add it again."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:416 rust/crates/shell/src/plugins/onboarding.rs:157 rust/crates/shell/src/plugins/onboarding.rs:161 rust/crates/shell/src/plugins/onboarding.rs:164
 msgid "Install over USB"
@@ -5601,8 +5601,8 @@ msgid "Update ready"
 msgstr "Bản cập nhật đã sẵn sàng"
 
 #: rust/crates/setup/src/setup.rs:648
-msgid "Some apps can't see it"
-msgstr "Một số ứng dụng không nhận diện được"
+msgid "Some apps can't see the camera"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:649 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
 msgid "Update"
@@ -5639,8 +5639,8 @@ msgid "Not installed (Install driver downloads it first)"
 msgstr "Chưa cài đặt (Cài đặt trình điều khiển sẽ tải về trước)"
 
 #: rust/crates/setup/src/setup.rs:676
-msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
-msgstr "Không tìm thấy. Ghép đôi và cài đặt qua USB cần công cụ này; Wi-Fi thì không cần."
+msgid "Not found. Pairing and installing over USB need adb; Wi-Fi doesn't."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:702 rust/crates/setup/src/setup.rs:866
 #, python-brace-format
@@ -9529,6 +9529,18 @@ msgstr "Đã thay thế"
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "Không thể khởi động lại"
+
+#~ msgid "Asks for your password (pkexec or sudo): this changes system settings."
+#~ msgstr "Sẽ yêu cầu mật khẩu của bạn (pkexec hoặc sudo): thao tác này thay đổi cài đặt hệ thống."
+
+#~ msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
+#~ msgstr "Việc áp dụng sẽ khởi động lại luồng phát ở kích thước mới. Nếu OBS mất nguồn, hãy gỡ nguồn và thêm lại."
+
+#~ msgid "Some apps can't see it"
+#~ msgstr "Một số ứng dụng không nhận diện được"
+
+#~ msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
+#~ msgstr "Không tìm thấy. Ghép đôi và cài đặt qua USB cần công cụ này; Wi-Fi thì không cần."
 
 #~ msgid "Once VB-Cable's setup says it's done, restart the computer, then switch this off and on."
 #~ msgstr "Khi trình cài đặt VB-Cable báo hoàn tất, hãy khởi động lại máy tính, sau đó tắt rồi bật lại tùy chọn này."
