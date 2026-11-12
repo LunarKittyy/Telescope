@@ -5891,6 +5891,7 @@ dependencies = [
  "ring",
  "serde",
  "serde_json",
+ "slint",
  "slint-interpreter",
  "tar",
  "telescope-core",
