@@ -355,6 +355,8 @@ struct Shared {
     /// The frame steps, and the newest packet number that made it out (one frame at a time, never an older one).
     publish: Mutex<(Box<dyn FramePipeline>, u64)>,
     next_steps: Mutex<Option<Vec<StagedStep>>>,
+    /// Steps went into the pipeline ahead of a frame (hide_cached), so the next frame still has to be told they were replaced.
+    steps_replaced: AtomicBool,
     next_colour: Mutex<Option<Vec<FrameStep>>>,
     seq: AtomicU64,
     slot: Arc<dyn FrameSlot>,
@@ -498,7 +500,7 @@ impl StreamWorker {
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
-            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_colour: Mutex::new(None), gate: setup.gate,
+            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), steps_replaced: AtomicBool::new(false), next_colour: Mutex::new(None), gate: setup.gate,
             seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), frames_shed: AtomicU64::new(0), published: Mutex::new(0), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
             last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), fps_cell: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
@@ -552,6 +554,7 @@ impl StreamWorker {
     /// Swap the plugin steps from the next frame on (the panels moved to another stream, or a plugin changed its step).
     pub fn set_steps(&self, steps: Vec<StagedStep>) {
         *self.shared.next_steps.lock().unwrap() = Some(steps);
+        self.shared.hide_cached();
     }
 
     /// Swap the colour step from the next frame on, the other steps left as they are (a LUT baked for a stream behind the panels).
@@ -806,10 +809,33 @@ impl Shared {
         true
     }
 
+    /// New steps are only put in the pipeline when the next frame arrives, and until then the camera keeps sending the last frame it made (a feed that
+    /// stalled, a long exposure). So the moment steps are handed over they go in now, and the steps that hide things (Blur now, the wait screen) run on
+    /// that last frame, which goes out in its place: nothing clear is sent while it waits for a frame to hide.
+    fn hide_cached(&self) {
+        let mut publish = self.publish.lock().unwrap();
+        // Read under the lock frames are published under, so a newer frame can't be taken for the one that was there
+        let Some((cached, _)) = self.slot.latest() else { return };
+        let Some(steps) = self.next_steps.lock().unwrap().take() else { return };
+        self.steps_replaced.store(true, Ordering::SeqCst);
+        let pipeline = publish.0.as_mut();
+        pipeline.set_steps(steps);
+        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()) };
+        let hidden = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pipeline.hide_again(cached, &ctx))).unwrap_or_else(|_| {
+            log::error!("Hiding the frame on the camera failed");
+            None
+        });
+        if let Some(out) = hidden {
+            let mut published = self.published.lock().unwrap();
+            self.slot.publish(out);
+            *published += 1;
+        }
+    }
+
     /// _prepare: the steps as they are now, the frame at its size, and the frame through the steps.
     fn prepare(&self, pipeline: &mut dyn FramePipeline, seq: u64, frame: Frame) -> Frame {
         let next_steps = self.next_steps.lock().unwrap().take();
-        let replaced = next_steps.is_some();
+        let replaced = next_steps.is_some() | self.steps_replaced.swap(false, Ordering::SeqCst);
         if let Some(steps) = next_steps {
             pipeline.set_steps(steps);
         }
@@ -2465,6 +2491,48 @@ mod tests {
         fn pipeline(&self) -> Result<Box<dyn FramePipeline>, String> {
             Ok((self.0)())
         }
+    }
+
+    /// Passes frames through, and hides on request: once steps were handed over, hide_again gives a dark frame of the size it was given.
+    struct HidesWhenAsked(Arc<AtomicBool>);
+
+    impl FramePipeline for HidesWhenAsked {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            frame
+        }
+        fn hide_again(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Option<Frame> {
+            Some(grey(frame.width, frame.height, 7))
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+    }
+
+    struct Nothing;
+
+    impl telescope_core::frame::CpuStep for Nothing {
+        fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+    }
+
+    #[test]
+    fn steps_that_hide_things_run_on_the_frame_a_stalled_feed_keeps_sending() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        // One frame, then nothing for the rest of the test
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(200), Step::Pause(Duration::from_secs(30))])]);
+        let asked = Arc::new(AtomicBool::new(false));
+        let media = WithPipeline(Box::new({
+            let asked = asked.clone();
+            move || Box::new(HidesWhenAsked(asked.clone()))
+        }));
+        let w = start(setup(opener), Arc::new(media), &cams, &log);
+        wait_for(|| cams.sent.lock().unwrap().contains(&200));
+        w.set_steps(vec![StagedStep { owner: "privacy".into(), stage: telescope_core::frame::FrameStage::Privacy, step: FrameStep::Cpu(Box::new(Nothing)) }]);
+        wait_for(|| cams.sent.lock().unwrap().last() == Some(&7));
+        assert!(asked.load(Ordering::SeqCst));
+        w.stop();
     }
 
     #[test]

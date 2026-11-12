@@ -491,6 +491,30 @@ impl FramePipeline for Pipeline {
         frame
     }
 
+    fn hide_again(&mut self, mut frame: Frame, ctx: &dyn FrameContext) -> Option<Frame> {
+        let mut chain = Chain::default();
+        let mut hid = false;
+        for i in 0..self.steps.len() {
+            if !matches!(self.steps[i].stage, FrameStage::Privacy | FrameStage::Cover) {
+                continue;
+            }
+            if self.steps[i].skipped() {
+                if self.steps[i].hides() {
+                    frame = neutral((frame.width, frame.height), frame.format, frame.number, frame.time_ns);
+                    hid = true;
+                }
+                continue;
+            }
+            // Only a CPU step can say whether it has something to hide right now
+            let Kind::Cpu(step) | Kind::Either(_, step) = &self.steps[i].kind else { continue };
+            if catch_unwind(AssertUnwindSafe(|| step.touch(ctx))).unwrap_or(Touch::Changes) != Touch::Nothing {
+                hid = true;
+                self.run_cpu(i, &mut frame, &mut chain, ctx);
+            }
+        }
+        hid.then_some(frame)
+    }
+
     fn is_empty(&self) -> bool {
         self.steps.is_empty()
     }
@@ -721,6 +745,36 @@ pub(crate) mod tests {
         p.set_steps(vec![step("fun", FrameStage::Effects, Panics)]);
         quietly(|| p.process(source.clone(), &NoContext));
         assert_eq!(quietly(|| p.process(source.clone(), &NoContext)).data, source.data);
+    }
+
+    /// Hides when told to: it paints the picture 9, and says it has nothing to do otherwise.
+    struct HidesOnCue(Arc<std::sync::atomic::AtomicBool>);
+
+    impl CpuStep for HidesOnCue {
+        fn hides(&self) -> bool {
+            true
+        }
+        fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
+            if self.0.load(Ordering::SeqCst) { Touch::Changes } else { Touch::Nothing }
+        }
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            frame.data_mut().fill(9);
+        }
+    }
+
+    #[test]
+    fn the_steps_that_hide_things_can_run_again_on_a_frame_that_already_went_out() {
+        let on = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("blur", FrameStage::Privacy, HidesOnCue(on.clone())), step("grade", FrameStage::Colour, Push(3, seen.clone())), step("tag", FrameStage::Overlay, Push(4, seen.clone()))]);
+        let went_out = grey(4, 2, 200);
+        assert!(p.hide_again(went_out.clone(), &NoContext).is_none(), "nothing to hide, nothing to send again");
+        on.store(true, Ordering::SeqCst);
+        let hidden = p.hide_again(went_out.clone(), &NoContext).expect("hidden now");
+        assert!(hidden.data.iter().all(|v| *v == 9));
+        assert!(seen.lock().unwrap().is_empty(), "only the steps that hide ran, not the rest of the pipeline");
+        assert_eq!(went_out.data[0], 200);
     }
 
     /// Notes where the pixels were when the step got them and when it was done.
