@@ -207,6 +207,21 @@ pub fn edits_text(keys: &str) -> bool {
     !(c.ctrl || c.alt || c.meta || c.f_number().is_some() || NEVER_TYPES.contains(&c.key.as_str()))
 }
 
+/// Whether a text box has a command of its own on keys: copy, paste, cut, undo, redo, select all, and moving or deleting by word or to the ends.
+pub fn is_text_command(keys: &str) -> bool {
+    let Some(c) = parse(keys) else { return false };
+    if !c.ctrl || c.alt || c.meta {
+        return false;
+    }
+    let letter = c.char_key().is_some_and(|ch| matches!(ch.to_ascii_uppercase(), 'A' | 'C' | 'V' | 'X' | 'Y' | 'Z'));
+    letter || matches!(c.key.as_str(), "Left" | "Right" | "Home" | "End" | "Backspace" | "Del" | "Ins")
+}
+
+/// Whether a focused text box keeps keys for itself: what it types or moves the cursor with, and its editing commands.
+pub fn text_box_takes(keys: &str) -> bool {
+    edits_text(keys) || is_text_command(keys)
+}
+
 /// keys as the shortcuts portal writes a trigger ("CTRL+ALT+m"), or "" for a key it has no name for.
 pub fn to_trigger(keys: &str) -> String {
     let Some(c) = parse(keys) else { return String::new() };
@@ -374,6 +389,14 @@ mod tests {
         assert!(!has_command_modifier("F9"));
         assert!(edits_text("Z") && edits_text("Space") && edits_text("Shift+Left"));
         assert!(!edits_text("F8") && !edits_text("Volume Mute") && !edits_text("Ctrl+Z"));
+        // The editing commands are the text box's too, though they hold Ctrl
+        for command in ["Ctrl+A", "Ctrl+C", "Ctrl+V", "Ctrl+X", "Ctrl+Z", "Ctrl+Y", "Ctrl+Shift+Z", "Ctrl+Left", "Ctrl+Shift+Right", "Ctrl+Backspace", "Ctrl+Del", "Ctrl+Home"] {
+            assert!(is_text_command(command) && text_box_takes(command), "{command}");
+        }
+        for other in ["Ctrl+T", "Ctrl+Alt+V", "Ctrl+Alt+Del", "Alt+Left", "Meta+C", "F8", "C", "Ctrl+F5"] {
+            assert!(!is_text_command(other), "{other}");
+        }
+        assert!(text_box_takes("Z") && !text_box_takes("Ctrl+T"));
     }
 
     #[test]

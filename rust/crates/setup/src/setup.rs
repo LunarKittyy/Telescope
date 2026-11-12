@@ -1048,6 +1048,17 @@ pub fn resolve(chosen: &str, languages: &[Language]) -> String {
     telescope_core::i18n::lang::resolve(chosen, &have)
 }
 
+/// A whole number typed into a box that shows a unit after it: the unit is let go, anything else after the digits is not a number.
+fn whole_number(text: &str, units: &[&str]) -> Option<i64> {
+    let text = text.trim();
+    let lower = text.to_lowercase();
+    let number = units.iter().find_map(|u| lower.strip_suffix(u)).unwrap_or(&lower).trim_end();
+    if number.is_empty() || !number.chars().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    number.parse().ok()
+}
+
 impl Plugin for SetupPlugin {
     fn info(&self) -> PluginInfo {
         PluginInfo {
@@ -1133,7 +1144,8 @@ impl Plugin for SetupPlugin {
         let on = event.args.first().and_then(Value::as_bool).unwrap_or(false);
         let index = event.args.first().and_then(Value::as_i64).unwrap_or(0);
         let text = event.args.first().and_then(Value::as_str).unwrap_or("").to_string();
-        let digits = |t: &str| t.trim().chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse::<i64>().ok();
+        let zoom_number = |t: &str| whole_number(t, &["×", "x"]);
+        let pixels = |t: &str| whole_number(t, &["px"]);
         let id = event.ui.as_str();
         match (id, event.callback.as_str()) {
             (_, "shown") => {
@@ -1159,7 +1171,7 @@ impl Plugin for SetupPlugin {
             ("video", "hw-toggled") => self.on_hw_decode(host, on),
             ("video", "saving-toggled") => self.on_power_saving(host, on),
             ("video", "zoom-committed") => {
-                if let Some(v) = digits(&text) {
+                if let Some(v) = zoom_number(&text) {
                     self.on_max_zoom(host, v);
                 }
             }
@@ -1170,7 +1182,7 @@ impl Plugin for SetupPlugin {
             ("video", "canvas-picked") => self.panel.canvas_current = (index.max(0) as usize).min(canvas::PRESETS.len() - 1),
             ("video", "custom-committed") => {
                 let which = event.args.first().and_then(Value::as_str).unwrap_or("");
-                let typed = event.args.get(1).and_then(Value::as_str).and_then(digits);
+                let typed = event.args.get(1).and_then(Value::as_str).and_then(pixels);
                 if let Some(v) = typed {
                     if which == "w" {
                         self.panel.custom_w = (v.clamp(canvas::CUSTOM_MIN as i64, canvas::CUSTOM_MAX.0 as i64)) as u32;

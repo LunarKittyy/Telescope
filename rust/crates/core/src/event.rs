@@ -30,6 +30,9 @@ pub struct RememberedSource {
     pub detail: String,
 }
 
+/// The custom event Presets emits (data {"old", "new"}) when a preset is renamed, so a shortcut for it follows the new name.
+pub const PRESET_RENAMED: &str = "presets.renamed";
+
 macro_rules! events {
     ($( $(#[doc = $doc:literal])* $name:literal => $variant:ident $({ $($field:ident : $ty:ty),* $(,)? })? ),* $(,)?) => {
         /// One event. Serialised as {"event": "<signal name>", ...fields}, which is what a Lua or WASM plugin sees.

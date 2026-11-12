@@ -72,7 +72,7 @@ component Item inherits Rectangle {
 }
 
 // The key a shortcut uses: press one while it has focus
-component KeyBox inherits Rectangle {
+export component KeyBox inherits Rectangle {
     // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font)
     property <length> lift: 1phx;
     in property <string> text;
@@ -92,6 +92,10 @@ component KeyBox inherits Rectangle {
     touch := TouchArea { clicked => { focus.focus(); } }
     focus := FocusScope {
         key-pressed(e) => {
+            // Tab, Shift+Tab and Escape keep their jobs (leave the box, close the editor) so the keyboard can get out again; with Ctrl, Alt or Meta they are keys like any other
+            if ((e.text == Key.Tab || e.text == Key.Backtab || e.text == Key.Escape) && !e.modifiers.control && !e.modifiers.alt && !e.modifiers.meta) {
+                return reject;
+            }
             root.pressed(e.text, e.modifiers.control, e.modifiers.alt, e.modifiers.shift, e.modifiers.meta);
             accept
         }

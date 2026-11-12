@@ -246,6 +246,19 @@ impl ShortcutsPlugin {
         self.apply(host);
     }
 
+    /// A preset was renamed: the shortcuts that apply it by its name apply it by the new one.
+    fn follow_preset_rename(&mut self, host: &mut dyn Host, old: &str, new: &str) {
+        let renamed = |b: &Binding| b.action == "presets.apply" && b.params.get("name").and_then(Value::as_str) == Some(old);
+        if old.is_empty() || new.is_empty() || !self.bindings.iter().any(renamed) {
+            return;
+        }
+        let mut bindings = self.bindings.clone();
+        for b in bindings.iter_mut().filter(|b| renamed(b)) {
+            b.params.insert("name".into(), Value::String(new.into()));
+        }
+        self.set_bindings(host, bindings);
+    }
+
     /// Hand the global bindings to the system; the rest are matched as keys come in.
     fn apply(&mut self, host: &mut dyn Host) {
         for id in self.held.keys().cloned().collect::<Vec<_>>() {
@@ -399,8 +412,8 @@ impl ShortcutsPlugin {
             return false;
         }
         let Some(binding) = self.binding_for_keys(&keys) else { return false };
-        if key.typing && keys::edits_text(&binding.keys) {
-            // A plain key belongs to the text box
+        if key.typing && keys::text_box_takes(&binding.keys) {
+            // A plain key, or an editing command like paste, belongs to the text box
             return false;
         }
         let id = binding.id.clone();
@@ -731,6 +744,10 @@ impl ShortcutsPlugin {
     /// (problem, blocking) for the editor (_check).
     fn editor_problem(&self, e: &Editor, listed: usize) -> (String, bool) {
         let meta = keys::META_NAME;
+        // Saving a new one past the limit would drop it unseen
+        if self.bindings.len() >= MAX_BINDINGS && !self.bindings.iter().any(|b| b.id == e.id) {
+            return (tr("There can be at most {max} shortcuts. Remove one to add another.").field("max", MAX_BINDINGS), true);
+        }
         if e.action.is_none() || (listed == 0 && !e.query.is_empty() && !self.action_listed(e)) {
             return (if listed == 0 { tr("No control matches that search.") } else { tr("Pick a control.") }, true);
         }
@@ -750,6 +767,11 @@ impl ShortcutsPlugin {
         }
         if e.global && keys::edits_text(&e.keys) {
             let text = tr("Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer.")
+                .field("keys", keys::native_keys(&e.keys)).field("meta", meta);
+            return (text, false);
+        }
+        if e.global && keys::is_text_command(&e.keys) {
+            let text = tr("Everywhere, {keys} would stop working in the text boxes of other apps. Adding Alt or {meta} is safer.")
                 .field("keys", keys::native_keys(&e.keys)).field("meta", meta);
             return (text, false);
         }
@@ -1075,6 +1097,8 @@ impl ShortcutsPlugin {
                 self.set_bindings(host, bindings);
             }
             "cancel" => self.close_editor(host),
+            // Settings was closed with the editor open: the keys come back instead of staying held for a window that's gone
+            "hidden" if self.editing => self.close_editor(host),
             _ => {}
         }
     }
@@ -1182,6 +1206,12 @@ impl Plugin for ShortcutsPlugin {
                 if let Some(binding) = self.from_menu.take() {
                     self.open_editor(host, binding);
                 }
+            }
+            return;
+        }
+        if let Event::Custom { name, data } = event {
+            if name == telescope_core::event::PRESET_RENAMED {
+                self.follow_preset_rename(host, data["old"].as_str().unwrap_or(""), data["new"].as_str().unwrap_or(""));
             }
             return;
         }
@@ -1382,11 +1412,91 @@ mod tests {
         assert_eq!(props["save-enabled"], json!(true), "allowed, with a warning, everywhere");
         assert!(props["problem"].as_str().unwrap().contains("stop typing"), "{}", props["problem"]);
         ui(&mut plugin, &mut host, "key-pressed", json!(["z", true, false, true, false]));
+        assert!(plugin.section_props()["problem"].as_str().unwrap().contains("text boxes of other apps"), "redo is a text box's own key");
+        ui(&mut plugin, &mut host, "key-pressed", json!(["w", true, false, true, false]));
         assert_eq!(plugin.section_props()["problem"], json!(""));
         ui(&mut plugin, &mut host, "save", json!([]));
         let saved = plugin.bindings().last().unwrap();
-        assert_eq!((saved.keys.as_str(), saved.action.as_str(), saved.global), ("Ctrl+Shift+Z", "transforms.zoom", true));
+        assert_eq!((saved.keys.as_str(), saved.action.as_str(), saved.global), ("Ctrl+Shift+W", "transforms.zoom", true));
         assert_eq!(Value::Object(saved.params.clone()), json!({"op": "set", "amount": 10.0, "value": 30.0}));
+    }
+
+    #[test]
+    fn a_new_shortcut_past_the_limit_is_refused_in_the_editor_while_a_saved_one_stays_editable() {
+        let full: Vec<Value> = (0..MAX_BINDINGS).map(|i| json!({"id": format!("b{i}"), "keys": "F1", "action": "camera.torch", "params": {"mode": "toggle"}})).collect();
+        let (mut plugin, mut host, _) = make(json!(full), false, true);
+        assert_eq!(plugin.bindings().len(), MAX_BINDINGS);
+        plugin.settings_sections();
+        ui(&mut plugin, &mut host, "add", json!([]));
+        ui(&mut plugin, &mut host, "key-pressed", json!(["q", false, false, false, false]));
+        let props = plugin.section_props();
+        assert_eq!(props["save-enabled"], json!(false));
+        assert!(props["problem"].as_str().unwrap().contains("at most 200"), "{}", props["problem"]);
+        ui(&mut plugin, &mut host, "save", json!([]));
+        assert_eq!(plugin.section_props()["editor-open"], json!(true), "the editor stays open instead of dropping the shortcut");
+        assert_eq!(plugin.bindings().len(), MAX_BINDINGS);
+        ui(&mut plugin, &mut host, "cancel", json!([]));
+        ui(&mut plugin, &mut host, "edit", json!([0]));
+        ui(&mut plugin, &mut host, "key-pressed", json!(["q", false, false, false, false]));
+        assert_eq!(plugin.section_props()["save-enabled"], json!(true));
+        ui(&mut plugin, &mut host, "save", json!([]));
+        assert_eq!(plugin.bindings()[0].keys, "Q");
+    }
+
+    #[test]
+    fn closing_settings_with_the_editor_open_gives_the_keys_back() {
+        let (mut plugin, mut host, seen) = make(json!([b("a", "Ctrl+T", "camera.torch", json!({}), false)]), false, true);
+        plugin.settings_sections();
+        ui(&mut plugin, &mut host, "add", json!([]));
+        assert_eq!(seen.lock().unwrap().suspended, [true]);
+        assert!(!plugin.on_key(&mut host, &key("t", true, false)), "no binding runs while one is being picked");
+        ui(&mut plugin, &mut host, "hidden", json!([]));
+        assert_eq!(plugin.section_props()["editor-open"], json!(false));
+        assert_eq!(seen.lock().unwrap().suspended, [true, false], "global keys are back");
+        host.calls.clear();
+        assert!(plugin.on_key(&mut host, &key("t", true, false)), "and a key runs its action again");
+        assert_eq!(ran(&host).len(), 1, "{:?}", host.calls);
+        // Closed with no editor open: nothing to give back
+        ui(&mut plugin, &mut host, "hidden", json!([]));
+        assert_eq!(seen.lock().unwrap().suspended, [true, false]);
+    }
+
+    #[test]
+    fn editing_commands_stay_with_a_focused_text_box_and_a_global_one_is_warned_about() {
+        let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+V", "camera.torch", json!({}), false), b("b", "Ctrl+T", "camera.torch", json!({}), false)]), false, true);
+        let typing = |k: KeyInput| KeyInput { typing: true, ..k };
+        assert!(!plugin.on_key(&mut host, &typing(key("v", true, false))), "paste pastes");
+        assert!(ran(&host).is_empty(), "{:?}", host.calls);
+        assert!(plugin.on_key(&mut host, &key("v", true, false)), "outside a text box it is the shortcut");
+        assert!(plugin.on_key(&mut host, &typing(key("t", true, false))), "a Ctrl key with no editing job still runs");
+        plugin.settings_sections();
+        ui(&mut plugin, &mut host, "add", json!([]));
+        ui(&mut plugin, &mut host, "key-pressed", json!(["v", true, false, false, false]));
+        let props = plugin.section_props();
+        assert_eq!(props["save-enabled"], json!(false), "taken by Ctrl+V already");
+        ui(&mut plugin, &mut host, "key-pressed", json!(["c", true, false, false, false]));
+        let props = plugin.section_props();
+        assert_eq!(props["save-enabled"], json!(true));
+        assert!(props["problem"].as_str().unwrap().contains("text boxes of other apps"), "{}", props["problem"]);
+    }
+
+    #[test]
+    fn a_shortcut_for_a_preset_follows_its_rename() {
+        let (mut plugin, mut host, _) = make(json!([
+            b("a", "F5", "presets.apply", json!({"name": "Desk"}), false),
+            b("b", "F6", "presets.apply", json!({"name": "Night"}), false),
+            b("c", "F7", "camera.torch", json!({"name": "Desk"}), false),
+        ]), false, true);
+        let renamed = |old: &str, new: &str| Event::Custom { name: "presets.renamed".into(), data: json!({"old": old, "new": new}) };
+        host.calls.clear();
+        plugin.on_event(&mut host, &renamed("Desk", "Studio"));
+        let names: Vec<_> = plugin.bindings().iter().map(|b| b.params["name"].clone()).collect();
+        assert_eq!(names, [json!("Studio"), json!("Night"), json!("Desk")], "only the preset action of that name");
+        assert!(host.calls.iter().any(|c| c.contains("schedule_save")), "{:?}", host.calls);
+        // Another rename, or one that is no preset's, changes nothing
+        host.calls.clear();
+        plugin.on_event(&mut host, &renamed("Gone", "Else"));
+        assert!(host.calls.is_empty(), "{:?}", host.calls);
     }
 
     #[test]

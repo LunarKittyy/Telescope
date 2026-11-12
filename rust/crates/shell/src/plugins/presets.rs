@@ -141,8 +141,10 @@ impl PresetsPlugin {
             self.presets.remove(clash);
         }
         let at = self.index(old).unwrap_or(at);
-        self.presets[at].insert("name".into(), Value::String(new));
+        self.presets[at].insert("name".into(), Value::String(new.clone()));
         self.changed(host);
+        // Shortcuts for it hold its name, so they're told where it went
+        host.emit(Event::Custom { name: telescope_core::event::PRESET_RENAMED.into(), data: json!({"old": old, "new": new}) });
     }
 
     pub fn delete(&mut self, host: &mut dyn Host, name: &str) {

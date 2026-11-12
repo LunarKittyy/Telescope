@@ -1119,12 +1119,14 @@ impl State {
                 }
                 Err(e) => {
                     log::error!("Couldn't read the settings file; not saving over it: {e}");
+                    self.note_save_failure();
                     false
                 }
             };
         }
         let Ok(mut cfg) = self.file.load_strict() else {
             log::error!("Couldn't read the settings file; not saving over it");
+            self.note_save_failure();
             return false;
         };
         let global = cfg.get("plugin_configs").and_then(Value::as_object).cloned().unwrap_or_default();
@@ -1619,6 +1621,31 @@ mod tests {
         assert!(!s.save_now(), "the window tries again");
         locked(&s, 0o600);
         assert_eq!(s.file.load()["devices"]["PhoneB"]["plugin_configs"]["transforms"]["zoom"], 3);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_settings_file_that_cant_be_read_says_so_once_like_one_that_cant_be_written() {
+        let notes = |s: &State| s.effects.iter().filter(|e| matches!(e, Effect::Notify { title, .. } if title == "Telescope - Save failed")).count();
+        let mut s = state();
+        s.file.save(&mut json!({}));
+        s.register(stub("transforms", json!({"zoom": 2}), true).0).unwrap();
+        s.apply_saved_config();
+        locked(&s, 0o000);
+        assert!(!s.save_now());
+        assert!(!s.save_now());
+        assert_eq!(notes(&s), 1, "the change that waits is not lost without a word");
+        locked(&s, 0o600);
+        assert!(s.save_now());
+        // A start that couldn't read it either: the second read says so too
+        let mut s = state();
+        s.file.save(&mut json!({}));
+        s.register(stub("transforms", json!({"zoom": 2}), true).0).unwrap();
+        locked(&s, 0o000);
+        s.apply_saved_config();
+        assert!(!s.save_now());
+        assert_eq!(notes(&s), 1);
+        locked(&s, 0o600);
     }
 
     #[cfg(unix)]
