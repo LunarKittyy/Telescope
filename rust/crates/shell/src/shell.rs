@@ -169,6 +169,19 @@ pub enum Effect {
     CancelSchedule { plugin: String, token: String },
 }
 
+impl Effect {
+    /// The plugin an effect is for, when it's one plugin's own.
+    fn plugin(&self) -> Option<&str> {
+        match self {
+            Effect::Props { plugin, .. } | Effect::Image { plugin, .. } | Effect::OpenWindow { plugin, .. } | Effect::CloseWindow { plugin, .. }
+            | Effect::PickFile { plugin, .. } | Effect::TakeStill { plugin, .. } | Effect::RestartCanvas { plugin, .. }
+            | Effect::RemoveExtras { plugin, .. } | Effect::Schedule { plugin, .. } | Effect::CancelSchedule { plugin, .. } => Some(plugin),
+            Effect::RefreshActions(plugin) | Effect::FrameStep(plugin) => Some(plugin),
+            _ => None,
+        }
+    }
+}
+
 /// How streaming stands, as the stream flow last said.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Streams {
@@ -584,7 +597,7 @@ impl State {
             (card, header, tray, defaults)
         });
         let Some((card, header, tray, defaults)) = made else {
-            self.slots.pop();
+            self.drop_last_slot();
             return Err(format!("{} failed while starting", info.name));
         };
         if let Some(card) = &card {
@@ -667,8 +680,21 @@ impl State {
         let Some(error) = broken else { return Ok(()) };
         log::error!("Plugin {name}: {error}");
         self.panels.remove(i);
-        self.slots.pop();
+        self.drop_last_slot();
         Err(error)
+    }
+
+    /// Takes the plugin in the last slot out, after giving back what its setup() took (the view, a preview layer, a timer, what it asked
+    /// the window for): a plugin that was left out can't keep any of it until the next start.
+    fn drop_last_slot(&mut self) {
+        let Some(name) = self.slots.last().map(|s| s.info.name.clone()) else { return };
+        crate::host::Ctx { state: self, me: name.clone() }.release_everything();
+        self.effects.retain(|e| e.plugin() != Some(name.as_str()));
+        self.stills.retain(|(_, plugin, _)| *plugin != name);
+        if self.shortcut_menu.as_ref().is_some_and(|(plugin, _)| *plugin == name) {
+            self.shortcut_menu = None;
+        }
+        self.slots.pop();
     }
 
     /// Added plugins that are on but didn't start: remembered for the Plugins tab, with a warning banner saying which (load_plugins).
@@ -1420,6 +1446,35 @@ mod tests {
         let mut s = State::new(ConfigFile::at(scratch_dir("shell").join("telescope_config.json")));
         s.colour = ColourPipeline::inline();
         s
+    }
+
+    /// Takes the view and a timer in setup(), then offers a card that isn't Slint.
+    struct Grabber;
+
+    impl Plugin for Grabber {
+        fn info(&self) -> PluginInfo {
+            PluginInfo { name: "grabber".into(), ..Default::default() }
+        }
+        fn setup(&mut self, host: &mut dyn telescope_core::host::Host) {
+            assert!(host.take_view("grabber"));
+            host.schedule(1000, "tick");
+            host.add_preview_layer("grabber", telescope_core::host::PreviewLayer::default());
+        }
+        fn card(&mut self) -> Option<CardSpec> {
+            let ui = UiSpec { source: telescope_core::ui::SlintSource::Text("this isn't { slint".into()), component: "Nope".into(), props: json!({}) };
+            Some(CardSpec { ui, region: "left".into() })
+        }
+    }
+
+    #[test]
+    fn a_plugin_left_out_for_its_ui_gives_back_what_its_setup_took() {
+        let mut s = state();
+        s.register(Box::new(Grabber)).unwrap();
+        assert!(s.vc.take("other").0 == false && s.effects.iter().any(|e| e.plugin() == Some("grabber")) && s.layers.contains_key("grabber"));
+        assert!(s.take_out_if_ui_broken().is_err());
+        assert!(s.slots.is_empty());
+        assert!(s.vc.take("other").0, "the view is free again");
+        assert!(s.effects.iter().all(|e| e.plugin() != Some("grabber")) && !s.layers.contains_key("grabber"));
     }
 
     // test_vision_pack.py::test_the_plugin_waiting_for_the_download_is_switched_on_with_no_dialog_open
