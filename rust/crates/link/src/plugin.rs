@@ -908,6 +908,16 @@ impl ConnectionPlugin {
         host.save_now();
     }
 
+    /// A browser (or other source) being forgotten while picked: its settings go, so nothing is saved back under it.
+    fn forget_picked_source(&mut self, host: &mut dyn Host, sid: &str) {
+        if self.conn().selected_id.as_deref() != Some(sid) {
+            return;
+        }
+        self.active_key = None;
+        self.select(host, None, false, false);
+        host.switch_device(None, None);
+    }
+
     /// switch: picked by hand mid-stream, so the stream moves to pid instead of just stopping.
     pub fn select(&mut self, host: &mut dyn Host, pid: Option<&str>, force: bool, switch: bool) {
         let (same, streaming) = {
@@ -1300,6 +1310,7 @@ impl Plugin for ConnectionPlugin {
             }
             Event::StreamTransportChanged => self.refresh_transport(host),
             Event::AddPhoneRequested => self.open_add_phone(host),
+            Event::ForgetSourceRequested { source_id } => self.forget_picked_source(host, source_id),
             Event::SelectSource { source_id } => self.select(host, Some(source_id.as_str()).filter(|s| !s.is_empty()), false, false),
             Event::SourceShown { source_id } => self.show_selected(host, Some(source_id.as_str()).filter(|s| !s.is_empty())),
             Event::StreamSourcesChanged { sources } => {
@@ -2184,6 +2195,17 @@ mod tests {
         e.ui("header", "remove", vec![json!("browser:pixel-aaaaaaaa")]);
         assert_eq!(e.host.events.iter().filter(|ev| matches!(ev, Event::ForgetSourceRequested { source_id } if source_id == "browser:pixel-aaaaaaaa")).count(), 1);
         assert_eq!(e.ids(), ["id-a"]);
+    }
+
+    #[test]
+    fn forgetting_the_picked_browser_leaves_nothing_to_save_back_under_it() {
+        let mut e = env();
+        e.add("id-a", "A");
+        let sid = "browser:pixel-aaaaaaaa";
+        e.plugin.on_event(&mut e.host, &Event::SelectSource { source_id: sid.into() });
+        e.plugin.on_event(&mut e.host, &Event::ForgetSourceRequested { source_id: sid.into() });
+        e.plugin.on_event(&mut e.host, &Event::SelectSource { source_id: "id-a".into() });
+        assert!(!e.switches().iter().any(|c| c.starts_with(&format!("switch_device Some(\"{sid}\")"))), "{:?}", e.switches());
     }
 
     #[test]
