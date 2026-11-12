@@ -180,6 +180,15 @@ impl VisionService for VisionHost {
         self.shared.vision.newest_mask(source_id, frame.number, w, h, Box::new(move || model_rgb(&shared)))
     }
 
+    fn view_epoch(&self) -> u64 {
+        self.shared.vision.view_epoch()
+    }
+
+    fn person_mask_in(&self, source_id: &str, frame: &Frame, w: usize, h: usize, epoch: u64) -> Option<Arc<Vec<u8>>> {
+        let shared = frame.clone();
+        self.shared.vision.newest_mask_in(source_id, frame.number, w, h, Box::new(move || model_rgb(&shared)), epoch)
+    }
+
     fn want_people(&self, owner: &str, on: bool) {
         self.shared.vision.want_people(owner, on);
     }

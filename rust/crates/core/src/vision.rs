@@ -142,6 +142,14 @@ pub trait VisionService: Send + Sync {
         }
         Some(Arc::new(crate::image::resize_area(&mask, fw, fh, 1, w, h)))
     }
+    /// How many times the view has turned (0 for a service that doesn't count). A frame's picture is of the view it went through, so a step asking for its mask says which count that was (person_mask_in).
+    fn view_epoch(&self) -> u64 {
+        0
+    }
+    /// person_mask_at for a frame whose picture was made under view_epoch() == epoch: None once the view has turned since, as a mask of the old way round isn't the new picture's. The default doesn't know of turns.
+    fn person_mask_in(&self, source_id: &str, frame: &Frame, w: usize, h: usize, _epoch: u64) -> Option<Arc<Vec<u8>>> {
+        self.person_mask_at(source_id, frame, w, h)
+    }
     /// While any owner wants people, fed frames are looked at and people_seen and people_tracked follow.
     fn want_people(&self, owner: &str, on: bool);
     fn wants_people(&self) -> bool;
